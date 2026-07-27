@@ -55,6 +55,7 @@ internal fun MessageCardAssistant(
     isAmoled: Boolean,
     isTurnLast: Boolean,
     agents: List<AgentInfo> = emptyList(),
+    onCopy: (() -> Unit)? = null,
 ) {
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
 
@@ -254,7 +255,8 @@ internal fun MessageCardAssistant(
                             if (copyText != null) {
                                 CopyButton(
                                     text = copyText,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(14.dp),
+                                    onCopied = onCopy
                                 )
                             }
                         }

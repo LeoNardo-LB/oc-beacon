@@ -342,38 +342,8 @@ fun ChatScreen(
     }
 
     val messageCount = messageState.messages.size
-    // Key on autoScrollEnabled too: when snapToBottom() finishes and autoScroll
-    // re-enables, this effect re-runs to catch any messages that arrived during
-    // the scroll animation (race condition on cold start with large lists).
-    LaunchedEffect(messageCount, autoScrollEnabled) {
+    LaunchedEffect(messageCount) {
         if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
-            listState.scrollToItem(0)
-        }
-    }
-
-    // Scroll to bottom when the last assistant message first gets content.
-    // Includes Part.Reasoning text — during the reasoning/thinking phase, the
-    // model streams reasoning deltas before any Part.Text arrives. Without this,
-    // a reasoning-only bubble grows off-screen until the text response starts.
-    val lastMsgContentLen = remember(messageState.messages) {
-        messageState.messages.lastOrNull()?.let { msg ->
-            if (msg.isAssistant) msg.parts.sumOf { part ->
-                when (part) {
-                    is Part.Text -> part.text.length
-                    is Part.Reasoning -> part.text.length
-                    else -> 0
-                }
-            } else -1  // Non-assistant → don't trigger
-        } ?: -1
-    }
-    LaunchedEffect(lastMsgContentLen) {
-        // Removed !listState.isScrollInProgress check: during rapid SSE streaming
-        // (delta every ~50ms), the previous scrollToItem is cancelled by this
-        // LaunchedEffect's key change before it completes. The cancellation
-        // stops the scroll, but isScrollInProgress may still be true when the
-        // new effect checks it, causing every subsequent scroll to be skipped.
-        // This left the agent's reply bubble permanently off-screen.
-        if (lastMsgContentLen > 0 && autoScrollEnabled) {
             listState.scrollToItem(0)
         }
     }

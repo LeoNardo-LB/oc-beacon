@@ -80,14 +80,6 @@ class MessageEventHandler @Inject constructor() {
     private val pendingLock = Any()
     private var batchJob: Job? = null
 
-    /**
-     * Tracks parts that have received at least one delta.
-     * When the first delta arrives for a part that has text from MessagePartUpdated,
-     * the snapshot text is cleared to prevent doubling. After the first delta,
-     * subsequent deltas append normally.
-     */
-    private val partsWithDelta = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-
     private fun scheduleFlush() {
         // Do NOT cancel an in-flight timer — that starves flushes when token
         // arrival rate > 1/48ms. Let deltas accumulate; the running timer will
@@ -116,31 +108,10 @@ class MessageEventHandler @Inject constructor() {
                     val part = messageParts[idx]
                     val newPart = when (part) {
                         is Part.Text -> {
-                            if (part.text.isNotEmpty() && entry.partId !in partsWithDelta) {
-                                // First delta for this part — clear snapshot text
-                                // from MessagePartUpdated to prevent doubling.
-                                partsWithDelta.add(entry.partId)
-                                part.copy(text = entry.delta)
-                            } else if (part.text.endsWith(entry.delta)) {
-                                partsWithDelta.add(entry.partId)
-                                part  // dedup
-                            } else {
-                                partsWithDelta.add(entry.partId)
-                                part.copy(text = part.text + entry.delta)
-                            }
+                            if (part.text.endsWith(entry.delta)) part  // dedup
+                            else part.copy(text = part.text + entry.delta)
                         }
-                        is Part.Reasoning -> {
-                            if (part.text.isNotEmpty() && entry.partId !in partsWithDelta) {
-                                partsWithDelta.add(entry.partId)
-                                part.copy(text = entry.delta)
-                            } else if (part.text.endsWith(entry.delta)) {
-                                partsWithDelta.add(entry.partId)
-                                part  // dedup
-                            } else {
-                                partsWithDelta.add(entry.partId)
-                                part.copy(text = part.text + entry.delta)
-                            }
-                        }
+                        is Part.Reasoning -> part.copy(text = part.text + entry.delta)
                         else -> part
                     }
                     messageParts[idx] = newPart
@@ -168,20 +139,33 @@ class MessageEventHandler @Inject constructor() {
 
     internal fun handleMessageUpdated(event: SseEvent.MessageUpdated) {
         val sessionId = event.info.sessionId
-        val role = if (event.info is Message.User) "user" else "assistant"
-        val beforeCount = _messages.value[sessionId]?.size ?: 0
+        val role = when (event.info) { is Message.User -> "user"; is Message.Assistant -> "assistant" }
         _messages.update { current ->
             val msgs = current[sessionId]?.toMutableList() ?: mutableListOf()
             val idx = msgs.indexOfFirst { it.id == event.info.id }
+            val isUpdate = idx >= 0
+            // DIAG: log state before processing
+            val userMsgs = msgs.filter { it is Message.User }
+            Log.i("MsgDiag", "[MsgUpdated] ENTER role=$role eventId=${event.info.id.take(16)} " +
+                "session=${sessionId.take(8)} total=${msgs.size} " +
+                "userCount=${userMsgs.size} isUpdate=$isUpdate")
             if (idx >= 0) {
                 msgs[idx] = event.info
             } else {
                 msgs.add(event.info)
                 msgs.sortBy { it.time.created }
             }
+            // DIAG: log state after processing
+            val afterUser = msgs.filter { it is Message.User }
+            // With optimistic messages removed from the cache, a single MessageUpdated
+            // for a user message legitimately increases the user count by 1. Warn only
+            // when it increases by more than 1 (indicates a logic regression).
+            if (afterUser.size > userMsgs.size + 1) {
+                Log.w("MsgDiag", "[MsgUpdated] ⚠️ unexpected user count increase: ${userMsgs.size}→${afterUser.size} " +
+                    "userIds=${afterUser.joinToString(",") { it.id.take(16) }}")
+            }
             current + (sessionId to msgs)
         }
-        val afterCount = _messages.value[sessionId]?.size ?: 0
         if (event.info is Message.Assistant) {
             assistantMessageIds.add(event.info.id)
         }
@@ -372,7 +356,8 @@ class MessageEventHandler @Inject constructor() {
     // ============ Batch Operations ============
 
     fun setMessages(sessionId: String, newMessages: List<MessageWithParts>) {
-        val beforeCount = _messages.value[sessionId]?.size ?: 0
+        @Suppress("DEPRECATION")
+        val thread = Thread.currentThread().id
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = newMessages.associateBy { it.info.id }
@@ -389,6 +374,17 @@ class MessageEventHandler @Inject constructor() {
                     }
                 }
                 .sortedBy { it.time.created }
+            // DIAG: log merge result
+            val beforeUser = existing.filter { it is Message.User }.size
+            val afterUser = merged.filter { it is Message.User }.size
+            val beforePending = existing.count { it.id.startsWith("pending-") }
+            Log.i("MsgDiag", "[setMessages] session=${sessionId.take(8)} " +
+                "incoming=${newMessages.size} existing=${existing.size} merged=${merged.size} " +
+                "beforeUser=$beforeUser afterUser=$afterUser beforePending=$beforePending " +
+                "hasRestUserMsgs=$hasRestUserMsgs")
+            if (afterUser > beforeUser && beforePending == 0) {
+                Log.w("MsgDiag", "[setMessages] ⚠️ user count increased without pending: $beforeUser→$afterUser")
+            }
             current + (sessionId to merged)
         }
         newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
@@ -402,7 +398,7 @@ class MessageEventHandler @Inject constructor() {
                         if (inc is Part.Text) {
                             val ex = existingParts.find { it.id == inc.id }
                             if (ex is Part.Text && ex.text.length > inc.text.length) {
-                                Log.w(TAG, "[setMessages] msg=${messageId.take(8)} " +
+                                Log.w(TAG, "[setMessages] t=$thread msg=${messageId.take(8)} " +
                                     "part=${inc.id.take(8)} SSE=${ex.text.length} > REST=${inc.text.length} " +
                                     "→ keeping SSE text")
                             }

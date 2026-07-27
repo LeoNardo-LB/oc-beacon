@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val TAG = "MessageDataDelegate"
-private const val MAX_DISPLAY_MESSAGES = 100
 
 /**
  * Owns message SSE observation, loading, pagination, send-state, and tool-expand
@@ -172,17 +171,15 @@ internal class MessageDataDelegate(
                 emptyList()
             } else {
                 val sorted = sessionMessages.sortedBy { it.time.created }
-                val filtered = if (revertState != null) {
+                if (revertState != null) {
+                    // OpenCode pattern: filter by message ID string comparison.
+                    // Message IDs are ULID (monotonically increasing), so
+                    // id <= revertId correctly includes the revert point and
+                    // everything before it.
                     sorted.filter { it.id < revertState.messageId }
                 } else {
                     sorted
                 }
-                // Cap to last MAX_DISPLAY_MESSAGES to prevent OOM on large sessions.
-                // The UI (LazyColumn) only renders visible items anyway, so older
-                // messages beyond this cap are not seen by the user. "Load older"
-                // still works because it fetches from REST and the cap adjusts.
-                if (filtered.size > MAX_DISPLAY_MESSAGES) filtered.takeLast(MAX_DISPLAY_MESSAGES)
-                else filtered
             }
 
             // P5-1: queuedMessageIds derived from FSM status — Idle forces clear.
@@ -220,51 +217,18 @@ internal class MessageDataDelegate(
                 }
 
             // Append optimistic messages that haven't been server-confirmed yet.
-            //
-            // The V2 server does NOT send message.updated SSE events for user messages,
-            // so the optimistic message is the ONLY source of the user's message until
-            // a REST refresh (loadMessagesForSession, etc.) brings the real message.
-            //
-            // Dedup strategy: when the server data already contains a user message with
-            // the same text content, the optimistic duplicate is filtered out. This
-            // happens naturally when the user re-enters the session or when a background
-            // REST refresh completes.
-            val serverUserTexts = visible
-                .filterIsInstance<Message.User>()
-                .mapNotNull { msg -> allParts[msg.id]
-                    ?.filterIsInstance<Part.Text>()
-                    ?.firstOrNull()
-                    ?.text
-                    ?.takeIf { it.isNotBlank() }
-                }
-                .toMutableSet()
-
-            val activePending = pendingMessages
-                .filter { it.pendingId in pendingMessageIds }
-                .filterNot { optimistic ->
-                    // Skip optimistic if server already has matching text (REST confirmed)
-                    val text = optimistic.parts
-                        .filterIsInstance<Part.Text>()
-                        .firstOrNull()
-                        ?.text
-                        ?.takeIf { it.isNotBlank() }
-                    if (text != null && text in serverUserTexts) {
-                        serverUserTexts.remove(text) // consume one match (handles duplicate sends)
-                        true
-                    } else {
-                        false
-                    }
-                }
+            // A pending message is "confirmed" when the server delivers any message
+            // (user or assistant) with a timestamp at or after the pending's send time.
+            // Optimistic messages are NEVER injected into the shared _messages/_parts
+            // cache — they live only in [_pendingMessages] and are merged here.
+            // Display pending only while its ID is in [_pendingMessageIds] — i.e.,
+            // while the POST is in flight. Once onSendSuccess removes the ID, the
+            // server message (already in _messages via SSE) takes over seamlessly.
+            val activePending = pendingMessages.filter { it.pendingId in pendingMessageIds }
             val mergedChatMessages = if (activePending.isEmpty()) {
                 chatMessages
             } else {
-                // Merge optimistic messages into the chronological position by time.created.
-                // Appending at the end would place them AFTER the agent's response, pushing
-                // the agent bubble off-screen in reverseLayout.
-                val allMsgs = (chatMessages.asSequence() + activePending.asSequence().map {
-                    ChatMessage(it.message, it.parts)
-                }).sortedBy { it.message.time.created }.toList()
-                allMsgs
+                chatMessages + activePending.map { ChatMessage(it.message, it.parts) }
             }
 
 
@@ -278,14 +242,21 @@ internal class MessageDataDelegate(
                 pendingMessageIds = pendingMessageIds,
                 pendingMessages = pendingMessages,
             )
+            // DIAG: log combine output to detect stale emissions
+            val lastMsgId = mergedChatMessages.lastOrNull()?.message?.id?.take(12) ?: "none"
+            Log.d("MsgDiag", "[combine] msgs=${sessionMessages.size} visible=${visible.size} " +
+                "merged=${mergedChatMessages.size} revert=${revertState != null} " +
+                "lastMsg=$lastMsgId pending=${pendingMessages.size}")
+            // DIAG: log last 3 messages' parts detail
+            mergedChatMessages.takeLast(3).forEach { cm ->
+                val textLen = cm.parts.filterIsInstance<Part.Text>().sumOf { it.text.length }
+                val role = if (cm.message is Message.User) "U" else "A"
+                Log.d("MsgDiag", "  [$role] id=${cm.message.id.take(12)} parts=${cm.parts.size} textLen=$textLen")
+            }
             state
-         } catch (e: Throwable) {
-             // Catch Throwable (not just Exception) to handle OutOfMemoryError.
-             // OOM permanently kills the combine if only Exception is caught,
-             // because the flow upstream sees an unhandled Error and terminates.
-             // Returning empty state lets the next emission retry with freed memory.
-             Log.e("MessageDataDelegate", "messageListState combine error: ${e.javaClass.simpleName}: ${e.message}", e)
-             MessageListState()
+         } catch (e: Exception) {
+            if (BuildConfig.DEBUG) Log.e("MessageDataDelegate", "messageListState combine error", e)
+            MessageListState()
          }
         }
     }.stateIn(
@@ -347,10 +318,6 @@ internal class MessageDataDelegate(
      * list/set).
      */
     suspend fun loadMessagesForSession() {
-        // Clear stale optimistic messages from previous session — they are no longer
-        // relevant once we load real data for a (possibly different) session.
-        _pendingMessageIds.value = emptySet()
-        _pendingMessages.value = emptyList()
         // Apply user-configured initial message count as the pagination starting point
         currentMessageLimit = settingsRepository.getSettingsFlow().first().initialMessageCount
         val sid = sessionIdFlow.value
@@ -619,19 +586,16 @@ internal class MessageDataDelegate(
         // message with a timestamp at or after the pending's send time.
     }
 
-    /** Mark a successful send: flip status to Sent.
-     *
-     * The pendingId is NOT removed from [_pendingMessageIds] because the V2 server
-     * does NOT send `message.updated` SSE events for newly-created user messages.
-     * Removing the pendingId here would make the optimistic message disappear with
-     * nothing to replace it — the user's message becomes invisible until a manual
-     * refresh. Instead, the optimistic message stays visible and is deduplicated in
-     * [messageListState]'s combine body when the real message arrives via REST. */
+    /** Mark a successful send: flip status to Sent. The optimistic message stays in the cache
+     *  with its stable key — only the status (and thus the indicator) changes. */
     fun onSendSuccess(pendingId: String) {
         _isSending.value = false
+        _pendingMessageIds.update { it - pendingId }
         _pendingMessages.update { pending ->
             pending.map { if (it.pendingId == pendingId) it.copy(status = UserMsgStatus.Sent) else it }
         }
+        // No timer cleanup — the optimistic message stays with its stable key until
+        // session change (natural cache clear + REST reload with real IDs).
     }
 
     /**

@@ -125,18 +125,24 @@ fun ChatMessageList(
     agents: List<dev.leonardo.ocremoteplus.domain.model.AgentInfo> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
-    // turnGroups MUST be recomputed when rawMessages changes (not just when
-    // structure changes), because it holds ChatMessage references whose parts
-    // are updated during SSE streaming. Using msgStructKey here caused the
-    // groups to retain stale 5-char snapshots while the combine had 500+ chars.
-    val turnGroups = remember(rawMessages) { computeTurnGroups(rawMessages) }
+    // Structural signature — only changes when messages are added/removed/role-changed.
+    // During SSE token streaming, part content updates every 48ms but message
+    // structure stays the same → this signature prevents unnecessary recompute
+    // of turnGroups and streamingMsgId during scrolling.
+    val msgStructKey = remember(rawMessages) {
+        rawMessages.size.toString() + rawMessages.joinToString(",") {
+            it.message.id.take(12) + it.message.role.first().toString()
+        }
+    }
+
+    val turnGroups = remember(msgStructKey) { computeTurnGroups(rawMessages) }
 
     // Pre-compute all rendering data for assistant display items.
     // Single remember block — runs only when rawMessages/displayItems change, not during composition.
     val renderableTurns: List<RenderableTurn?> = remember(rawMessages, displayItems, turnGroups) {
         displayItems.map { (rawIndex, msg) ->
             if (!msg.isAssistant) return@map null
-            val turnMsgs = turnGroups[rawIndex]?.takeIf { it.isNotEmpty() } ?: listOf(msg)
+            val turnMsgs = turnGroups[rawIndex] ?: listOf(msg)
             val isTurnLast = rawIndex == rawMessages.lastIndex ||
                 rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
             computeRenderableTurn(
@@ -154,11 +160,10 @@ fun ChatMessageList(
     // false in production), which forces streamingMsgId=null and disables ALL
     // height compensation → viewport dragged to bottom. v360 used completed
     // timestamp only and worked correctly. Do NOT re-add takeIf(sessionMeta).
-    // streamingMsgId: the newest incomplete assistant message being streamed.
-    // Keyed on rawMessages directly (same reason as turnGroups — parts update
-    // during streaming, stale references cause text to freeze).
-    val streamingMsgId = remember(rawMessages) {
-        rawMessages.firstOrNull {
+    // Key on structural signature — streamingMsgId only changes when a new
+    // streaming message starts or completes, not on every token batch.
+    val streamingMsgId = remember(msgStructKey, rawMessages.lastOrNull()?.message?.time?.completed) {
+        rawMessages.lastOrNull {
             it.isAssistant && it.message.time.completed == null
         }?.message?.id
     }
@@ -499,7 +504,6 @@ fun ChatMessageList(
                         when {
                             msg.isAssistant -> {
                                 val isTurnLast = rawIndex == rawMessages.lastIndex || rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
-                                val turn = renderableTurns[displayItemIndex]
 
                                 MessageCard(
                                     role = MessageCardRole.ASSISTANT,
@@ -510,6 +514,11 @@ fun ChatMessageList(
                                     isAmoled = isAmoled,
                                     isTurnLast = isTurnLast,
                                     agents = agents,
+                                    onCopy = {
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+                                        }
+                                    },
                                 )
                             }
                             msg.isUser -> {

@@ -23,6 +23,7 @@ internal fun MessageCard(
     isAmoled: Boolean = false,
     isTurnLast: Boolean = false,
     agents: List<AgentInfo> = emptyList(),
+    onCopy: (() -> Unit)? = null,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -42,6 +43,7 @@ internal fun MessageCard(
             isAmoled = isAmoled,
             isTurnLast = isTurnLast,
             agents = agents,
+            onCopy = onCopy,
         )
     }
 }

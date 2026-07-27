@@ -24,6 +24,10 @@ import javax.inject.Singleton
 
 private const val TAG = "SseClient"
 private const val HEARTBEAT_TIMEOUT_MS = 40_000L
+/** 单行上限：防止恶意/异常 server 推送超长行（无 \n 终结）导致 OOM。 */
+private const val MAX_SSE_LINE_SIZE = 256 * 1024
+/** 单事件上限：多条 data: 行累计超过此大小时丢弃整个事件（1MB，与上游 oc-remote 一致）。 */
+private const val MAX_SSE_EVENT_SIZE = 1_048_576
 
 /**
  * 读取原始字节直到遇到 \n，不做 UTF-8 解码。
@@ -38,6 +42,11 @@ private suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
             if (b == '\n'.code.toByte()) break
             if (b == '\r'.code.toByte()) continue  // 兼容 CRLF
             result.add(b)
+            if (result.size > MAX_SSE_LINE_SIZE) {
+                // 单行 OOM 防护：返回 null 让外层跳出读循环并重连。
+                Log.e(TAG, "SSE line exceeds $MAX_SSE_LINE_SIZE bytes, aborting read")
+                return null
+            }
         }
     } catch (e: ClosedReadChannelException) {
         if (result.isEmpty()) return null
@@ -66,6 +75,22 @@ private fun buildStringFromBytes(chunks: List<List<Byte>>): String {
         }
     }
     return array.toString(Charsets.UTF_8)
+}
+
+/**
+ * 追加一条 data 行到事件 buffer，带事件级 OOM 防护。
+ * 多条 data 行累计超过 [MAX_SSE_EVENT_SIZE] 时清空 buffer 并跳过当前 payload
+ * （超大事件通常是异常情况，跳过比断连更友好；下一帧仍可正常解析）。
+ */
+private fun appendDataLine(buffer: MutableList<List<Byte>>, payload: List<Byte>) {
+    val projected = buffer.sumOf { it.size } + payload.size + buffer.size // buffer.size ≈ \n 分隔符数
+    if (projected > MAX_SSE_EVENT_SIZE) {
+        Log.w(TAG, "SSE event exceeds $MAX_SSE_EVENT_SIZE bytes (${buffer.size + 1} data lines), clearing buffer")
+        buffer.clear()
+        // 不 add 当前 payload — 丢弃这个超大事件
+    } else {
+        buffer.add(payload)
+    }
 }
 
 /**
@@ -193,7 +218,7 @@ class SseClient @Inject constructor(
                         }
                     }
                     if (start < lineBytes.size) {
-                        buffer.add(lineBytes.subList(start, lineBytes.size))
+                        appendDataLine(buffer, lineBytes.subList(start, lineBytes.size))
                     }
                 }
             }
@@ -280,7 +305,7 @@ class SseClient @Inject constructor(
                         }
                     }
                     if (start < lineBytes.size) {
-                        buffer.add(lineBytes.subList(start, lineBytes.size))
+                        appendDataLine(buffer, lineBytes.subList(start, lineBytes.size))
                     }
                 }
             }
@@ -293,71 +318,15 @@ class SseClient @Inject constructor(
      * Parse SSE event from raw JSON.
      * Global endpoint wraps events: {directory, payload: {type, properties}}
      * Per-instance endpoint sends directly: {type, properties}
-     *
-     * Also handles sync-wrapped events from the server's V2 event pipeline:
-     * {type: "sync", syncEvent: {type: "session.next.text.delta.1", data: {...}}}
-     * These are unwrapped and transformed into the V1 event format so that
-     * existing handlers process them without modification.
      */
     private fun parseEvent(data: String): SseEvent? {
         val root = json.parseToJsonElement(data).jsonObject
 
         val payload = root["payload"]?.jsonObject ?: root
-        val type = payload["type"]?.jsonPrimitive?.contentOrNull ?: return null
-
-        // Unwrap sync events: {type:"sync", syncEvent:{type, data}} or {type:"sync", name, data}
-        if (type == "sync") {
-            return parseSyncEvent(payload)
-        }
-
+        val type = payload["type"]?.jsonPrimitive?.content ?: return null
         val properties = payload["properties"]?.jsonObject ?: JsonObject(emptyMap())
+
         return parseEventByType(type, properties)
-    }
-
-    /**
-     * Unwrap and transform sync-wrapped V2 events into V1 format.
-     *
-     * Server V2 pipeline wraps session.next.* events in a sync envelope.
-     * Text/reasoning deltas are transformed into [SseEvent.MessagePartDelta]
-     * to feed directly into the existing delta batching pipeline.
-     */
-    private fun parseSyncEvent(payload: JsonObject): SseEvent? {
-        val syncEvent = payload["syncEvent"]?.jsonObject
-        val innerType = (syncEvent?.get("type") ?: payload["name"])
-            ?.jsonPrimitive?.contentOrNull ?: return null
-        val innerData = (syncEvent?.get("data") ?: payload["data"])
-            ?.jsonObject ?: return null
-
-        // Strip version suffix (e.g., "session.next.text.delta.1" → "session.next.text.delta")
-        val baseType = innerType.substringBeforeLast('.').let {
-            // Only strip if suffix is numeric (avoid stripping "session.next" → "session")
-            val suffix = innerType.substringAfterLast('.')
-            if (suffix.all { c -> c.isDigit() }) it else innerType
-        }
-
-        // Transform streaming deltas into MessagePartDelta — feeds directly into
-        // the existing delta batching + flush pipeline, no handler changes needed.
-        return when (baseType) {
-            "session.next.text.delta", "session.next.reasoning.delta" -> {
-                val field = if (baseType.contains("reasoning")) "reasoning" else "text"
-                val sid = innerData["sessionID"]?.jsonPrimitive?.contentOrNull
-                val mid = innerData["messageID"]?.jsonPrimitive?.contentOrNull
-                val pid = innerData["partID"]?.jsonPrimitive?.contentOrNull
-                val delta = innerData["delta"]?.jsonPrimitive?.contentOrNull
-                if (sid != null && mid != null && pid != null && delta != null) {
-                    SseEvent.MessagePartDelta(sid, mid, pid, field, delta)
-                } else {
-                    Log.w(TAG, "Sync $baseType missing fields: sid=$sid mid=$mid pid=$pid deltaLen=${delta?.length}")
-                    null
-                }
-            }
-            else -> {
-                // Route other session.next.* sync events through the standard parser.
-                // Construct properties from innerData for compatibility.
-                if (BuildConfig.DEBUG) Log.d(TAG, "Sync event routed: $baseType")
-                parseEventByType(baseType, innerData)
-            }
-        }
     }
 
     private fun parseEventByType(type: String, props: JsonObject): SseEvent? {
