@@ -18,6 +18,7 @@ import dev.leonardo.ocremoteplus.domain.usecase.ManagePermissionUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocremoteplus.ui.screens.chat.tools.ToolProgressOutputInjector
+import dev.leonardo.ocremoteplus.ui.screens.chat.util.suppressRepeatedPatchHashes
 import dev.leonardo.ocremoteplus.ui.WhileSubscribed5s
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -231,10 +232,13 @@ internal class MessageDataDelegate(
                 chatMessages + activePending.map { ChatMessage(it.message, it.parts) }
             }
 
+            // 折叠连续重复 hash 的 patch 卡片——服务器对未变更 session diff 可能
+            // 重复推送相同 hash，导致每个 assistant 消息都显示重复补丁卡片。
+            val visibleMessages = suppressRepeatedPatchHashes(mergedChatMessages)
 
             val state = MessageListState(
-                messages = mergedChatMessages,
-                messageCount = mergedChatMessages.size,
+                messages = visibleMessages,
+                messageCount = visibleMessages.size,
                 hasOlderMessages = hasOlderMessages,
                 isLoadingOlder = isLoadingOlder,
                 toolExpandedStates = toolExpandedStates,
