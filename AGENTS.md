@@ -64,7 +64,7 @@ ui/
     Shape.kt          AppShapes (Material) + ShapeTokens (component-level)
     Theme.kt          4 color schemes (light/dark/dynamic/amoled), AppTheme composable
     Type.kt           Typography configuration
-  screens/chat/      ChatScreen (~1100 lines) + 7 sub-packages
+  screens/chat/      ChatScreen (core chat UI) + 7 sub-packages
     components/      Chat UI components
     dialog/          Image preview, markdown preview dialogs
     input/           Message input bar
@@ -129,7 +129,7 @@ JDK APIs (`File.name`, `Path.of`) only recognize `/` on Android — `\` paths fr
 ### Signing
 - Release keystore lives at `app/keystore/release.jks` with password in `signing.properties`
 - When `signing.properties` exists → release builds use release keystore
-- When absent → release builds fall back to debug signing (line 67 of `build.gradle.kts`)
+- When absent → release builds fall back to debug signing (see `signingConfigs` block in `build.gradle.kts`)
 - CI uses GitHub Secrets (`KEYSTORE_BASE64`, `KEYSTORE_ALIAS`, `KEYSTORE_PASSWORD`)
 - Debug-signed APKs are installable but cannot overwrite a release-signed installation (different signatures)
 
@@ -234,7 +234,7 @@ Gradle Daemon 在 Windows 上间歇性不释放 stdout 管道，导致命令行�
 **Must load `verification-before-completion` skill** before any completion claim. The Iron Law: no completion claims without fresh verification evidence.
 
 Test infrastructure:
-- Unit tests: JUnit 4 + MockK 1.14.9 + Turbine 1.2.1 + kotlinx-coroutines-test
+- Unit tests: JUnit 4 + MockK + Turbine + kotlinx-coroutines-test (具体版本以 `app/build.gradle.kts` 为准)
 - Instrumented tests: `HiltTestRunner` + `createComposeRule()` (in `androidTest/`)
 - E2E flows: Maestro YAML in `maestro/` directory
 - `isReturnDefaultValues = true` — mocks return default values instead of throwing. This can mask bugs where mock data silently returns null/0/false
@@ -270,6 +270,8 @@ Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to ot
 - **Spacing tokens** (Spacing.kt): 6 grid-based constants — XS(4) / SM(8) / MD(12) / LG(16) / XL(24) / XXL(32). Use `SpacingTokens.LG.dp` instead of hardcoded `16.dp` for standard spacing.
 - **Shape tokens** (Shape.kt): `AppShapes` for MaterialTheme, `ShapeTokens` object for component-level direct reference.
 - **Motion tokens** (Motion.kt): semantic duration constants (BREATH_CYCLE, PULSE_CYCLE, TERMINAL). Use instead of hardcoded `AnimationSpec` durations.
+- **Button tokens** (ButtonTokens.kt): centralized button style — `filledColors()` / `dangerColors()` / `amoledBorder()` + `CompactPadding` / `StackSpacing` / `RowSpacing`. Use instead of per-call `ButtonDefaults.colors` and ad-hoc border specs. Import: `dev.leonardo.ocremoteplus.ui.theme.ButtonTokens`.
+- **ListItem tokens** (ListItemTokens.kt): three density levels for Material 3 `ListItem` content padding — `ContentPaddingSmall` / `ContentPaddingMedium` / `ContentPaddingLarge`. Use instead of hardcoded `padding` on ListItem content.
 - **Dark theme**: trust Material3 `darkColorScheme()` defaults. Only override 6 brand-differentiated tokens in Theme.kt.
 - **Colors** (Color.kt): brand constants + semantic `DiffAdded`/`DiffRemoved`. No dead code.
 
@@ -296,5 +298,4 @@ Release builds use R8 minification. Rules preserve:
 
 ## Android SDK
 
-- `compileSdk` = 36, `minSdk` = 26, `targetSdk` = 35
-- Compose BOM `2026.05.01`
+SDK 版本(`compileSdk` / `minSdk` / `targetSdk`)与 Compose BOM 等依赖版本均以 `app/build.gradle.kts` 的 `defaultConfig` 与 `dependencies` 块为单一真相源,不在此重复维护以避免漂移。需要时直接查阅该文件。

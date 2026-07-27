@@ -8,17 +8,16 @@ An enhanced fork of [crim50n/oc-remote](https://github.com/crim50n/oc-remote) �
 
 ## Relationship with Upstream
 
-This fork diverges from upstream `v1.6.7` and has accumulated **980+ commits** of new features, bug fixes, architecture refinements, and UI polish. It ships under the same MIT License, with full credit to the original author [@crim50n](https://github.com/crim50n).
+This fork diverges from upstream `v1.6.7` and has accumulated **1400+ commits** of new features, bug fixes, architecture refinements, and UI polish. It ships under the same MIT License, with full credit to the original author [@crim50n](https://github.com/crim50n).
 
 | | Upstream | This Fork |
 |---|----------|-----------|
-| Version | 1.6.7 | 2.0.0-beta.359 |
-| Application ID | `dev.minios.ocremote` | `dev.leonardo.ocremoteplus` |
-| compileSdk | 34 | 36 |
+| Application ID | `dev.minios.ocremote` | `dev.leonardo.ocremoteplus` (+ `.dev` / `.beta` suffixes for parallel install) |
+| compileSdk | 34 | 37 |
 | targetSdk | 34 | 35 |
 | Compose BOM | 2024.12.01 | 2026.05.01 |
 
-Both apps can be installed **side-by-side** on the same device thanks to the distinct application ID.
+Both apps can be installed **side-by-side** on the same device thanks to the distinct application ID. Version numbers follow [Semantic Versioning](AGENTS.md#version-management) — see `version.properties` for the current release.
 
 ## What's New in This Fork
 
@@ -53,6 +52,14 @@ A rewritten, extensible tool-call rendering system:
 - **Sequential pending cards** — permission / question cards shown one at a time with a position indicator (1/N)
 - **Retry tracking** — visible retry state with countdown
 
+### 🆕 Message-Level Status Indicators
+
+User messages now carry delivery state, so you always know whether your message reached the server:
+
+- **Optimistic send** — your message appears instantly instead of waiting for a server round-trip
+- **Three-state badge** — Sending (spinner) → Sent (briefly) → Failed (tap to retry)
+- **Self-healing sync** — if real-time updates stall, the app re-syncs message state automatically
+
 ### ⚡ SSE Streaming Overhaul
 
 Hundreds of commits dedicated to making real-time streaming rock-solid:
@@ -76,7 +83,8 @@ A comprehensive design-token system replacing hardcoded values across the UI:
 - **AlphaTokens** — 7 semantic opacity levels (FAINT / MUTED / MEDIUM / HIGH / AMOLED / …)
 - **SpacingTokens** — 6 grid-based spacing constants (XS / SM / MD / LG / XL / XXL)
 - **ShapeTokens & MotionTokens** — component shapes and animation durations
-- **ButtonTokens** — unified button color / border system
+- **ButtonTokens** — unified button colors / borders / spacing
+- **ListItemTokens** — three density levels for Material 3 `ListItem` content padding
 - All AMOLED branches migrated from `Color.Black` to semantic tokens
 
 ### 🏗️ Architecture Hardening
@@ -116,10 +124,10 @@ Pre-built APKs are available on the [Releases](../../releases) page.
 
 ## Building
 
-**Requirements:** JDK 21, Android SDK (compileSdk 36)
+**Requirements:** JDK 21, Android SDK (compileSdk 37)
 
 ```bash
-# Dev flavor (debug signing, coexists with the beta build)
+# Dev flavor (debug signing, coexists with the beta/stable builds)
 ./gradlew :app:assembleDevRelease
 
 # Beta flavor (release signing — needs keystore config)
@@ -128,8 +136,9 @@ Pre-built APKs are available on the [Releases](../../releases) page.
 
 | Flavor | Application ID | Purpose |
 |--------|---------------|---------|
-| `dev` | `dev.leonardo.ocremoteplus.dev` | Development build |
-| `beta` | `dev.leonardo.ocremoteplus` | Production release |
+| `dev` | `dev.leonardo.ocremoteplus.dev` | Development preview (worktree builds) |
+| `beta` | `dev.leonardo.ocremoteplus.beta` | Public beta — coexists with stable |
+| `stable` | `dev.leonardo.ocremoteplus` | Production release (overwrites previous stable) |
 
 See [AGENTS.md](AGENTS.md) for detailed build instructions, product flavors, signing configuration, and architecture overview.
 
@@ -140,7 +149,7 @@ See [AGENTS.md](AGENTS.md) for detailed build instructions, product flavors, sig
 - **Ktor** (OkHttp engine) for HTTP & SSE
 - **Material 3** design system
 - Clean Architecture — domain / data / ui layers
-- JDK 21 · compileSdk 36 · minSdk 26 · targetSdk 35
+- JDK 21 · compileSdk 37 · minSdk 26 · targetSdk 35
 
 ## Requirements
 
