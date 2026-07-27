@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Remote</string>
+    <string name="app_name">OC Remote Plus</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Remote</string>
+    <string name="home_title">OC Remote Plus</string>
     <string name="home_add_server">서버 추가</string>
     <string name="home_no_servers">설정된 서버 없음</string>
     <string name="home_server_health_good">연결됨</string>
@@ -286,7 +286,7 @@
     <string name="notification_connecting">%1$s에 연결 중…</string>
     <string name="notification_connected_count">%2$d개 서버 중 %1$d개에 연결됨</string>
     <string name="notification_disconnect_all">모두 연결 해제</string>
-    <string name="notification_inbox_title">OC Remote — %1$d/%2$d 연결됨</string>
+    <string name="notification_inbox_title">OC Remote Plus — %1$d/%2$d 연결됨</string>
     <string name="notification_status_connected">연결됨</string>
     <string name="notification_status_connecting">연결 중…</string>
     <string name="notification_response_ready">응답 준비됨</string>
@@ -456,7 +456,7 @@
     <string name="home_local_server_password_placeholder">인증을 비활성화하려면 비워 두세요</string>
     <string name="home_local_lan_password_warning">비밀번호 없이 LAN 접근이 활성화되었습니다. 네트워크 내 모든 사용자가 이 서버를 열 수 있습니다.</string>
     <string name="home_local_auto_start_label">앱 실행 시 로컬 서버 자동 시작</string>
-    <string name="home_local_auto_start_desc">OC Remote가 열릴 때 로컬 런타임 자동 시작</string>
+    <string name="home_local_auto_start_desc">OC Remote Plus가 열릴 때 로컬 런타임 자동 시작</string>
     <string name="home_local_startup_timeout_label">시작 시간 제한</string>
     <string name="home_local_startup_timeout_value">%1$d초</string>
     <string name="home_local_launch_options_title">실행 옵션</string>

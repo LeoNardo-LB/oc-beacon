@@ -55,12 +55,12 @@ android {
         create("dev") {
             dimension = "channel"
             applicationIdSuffix = ".dev"
-            manifestPlaceholders["appLabel"] = "OC Remote Dev"
+            manifestPlaceholders["appLabel"] = "OC Remote Plus Dev"
         }
         create("beta") {
             dimension = "channel"
             applicationIdSuffix = ".beta"
-            manifestPlaceholders["appLabel"] = "OC Remote Beta"
+            manifestPlaceholders["appLabel"] = "OC Remote Plus Beta"
         }
         create("stable") {
             dimension = "channel"

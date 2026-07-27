@@ -1,4 +1,4 @@
-# OC Remote v2
+# OC Remote Plus
 
 An enhanced fork of [crim50n/oc-remote](https://github.com/crim50n/oc-remote) — an unofficial Android client for [OpenCode](https://github.com/anomalyco/opencode) servers with a native Material 3 UI.
 

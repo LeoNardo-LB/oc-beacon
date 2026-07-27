@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Remote</string>
+    <string name="app_name">OC Remote Plus</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Remote</string>
+    <string name="home_title">OC Remote Plus</string>
     <string name="home_add_server">Aggiungi server</string>
     <string name="home_no_servers">Nessun server configurato</string>
     <string name="home_server_health_good">Connesso</string>
@@ -286,7 +286,7 @@
     <string name="notification_connecting">Connessione a %1$s…</string>
     <string name="notification_connected_count">Connesso a %1$d di %2$d server</string>
     <string name="notification_disconnect_all">Disconnetti tutto</string>
-    <string name="notification_inbox_title">OC Remote — %1$d/%2$d connessi</string>
+    <string name="notification_inbox_title">OC Remote Plus — %1$d/%2$d connessi</string>
     <string name="notification_status_connected">Connesso</string>
     <string name="notification_status_connecting">Connessione…</string>
     <string name="notification_response_ready">Risposta pronta</string>
@@ -456,7 +456,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="home_local_server_password_placeholder">Lascia vuoto per disabilitare l\'autenticazione</string>
     <string name="home_local_lan_password_warning">L\'accesso LAN è abilitato senza password. Chiunque sulla tua rete può aprire questo server.</string>
     <string name="home_local_auto_start_label">Avvia automaticamente il server locale all\'apertura dell\'app</string>
-    <string name="home_local_auto_start_desc">Avvia il runtime locale automaticamente quando OC Remote si apre</string>
+    <string name="home_local_auto_start_desc">Avvia il runtime locale automaticamente quando OC Remote Plus si apre</string>
     <string name="home_local_startup_timeout_label">Timeout di avvio</string>
     <string name="home_local_startup_timeout_value">%1$d sec</string>
     <string name="home_local_launch_options_title">Opzioni di avvio</string>

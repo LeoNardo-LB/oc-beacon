@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Remote</string>
+    <string name="app_name">OC Remote Plus</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Remote</string>
+    <string name="home_title">OC Remote Plus</string>
     <string name="home_add_server">Sunucu Ekle</string>
     <string name="home_no_servers">Sunucu yapılandırılmadı</string>
     <string name="home_server_health_good">Bağlandı</string>
@@ -286,7 +286,7 @@
     <string name="notification_connecting">%1$s\'e bağlanıyor…</string>
     <string name="notification_connected_count">%2$d sunucudan %1$d\'ine bağlandı</string>
     <string name="notification_disconnect_all">Tümünü Bağlantıdan Çıkar</string>
-    <string name="notification_inbox_title">OC Remote — %1$d/%2$d bağlı</string>
+    <string name="notification_inbox_title">OC Remote Plus — %1$d/%2$d bağlı</string>
     <string name="notification_status_connected">Bağlandı</string>
     <string name="notification_status_connecting">Bağlanıyor…</string>
     <string name="notification_response_ready">Cevap hazır</string>
@@ -456,7 +456,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="home_local_server_password_placeholder">Kimlik doğrulamayı devre dışı bırakmak için boş bırakın</string>
     <string name="home_local_lan_password_warning">LAN erişimi şifresiz olarak etkin. Ağınızdaki herkes bu sunucuyu açabilir.</string>
     <string name="home_local_auto_start_label">Uygulama açıldığında yerel sunucuyu otomatik başlat</string>
-    <string name="home_local_auto_start_desc">OC Remote açıldığında yerel çalışma zamanını otomatik başlat</string>
+    <string name="home_local_auto_start_desc">OC Remote Plus açıldığında yerel çalışma zamanını otomatik başlat</string>
     <string name="home_local_startup_timeout_label">Başlatma zaman aşımı</string>
     <string name="home_local_startup_timeout_value">%1$d sn</string>
     <string name="home_local_launch_options_title">Başlatma seçenekleri</string>

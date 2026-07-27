@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Remote</string>
+    <string name="app_name">OC Remote Plus</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Remote</string>
+    <string name="home_title">OC Remote Plus</string>
     <string name="home_add_server">Ajouter un serveur</string>
     <string name="home_no_servers">Aucun serveur configuré</string>
     <string name="home_server_health_good">Connecté</string>
@@ -286,7 +286,7 @@
     <string name="notification_connecting">Connexion à %1$s…</string>
     <string name="notification_connected_count">Connecté à %1$d sur %2$d serveurs</string>
     <string name="notification_disconnect_all">Tout déconnecter</string>
-    <string name="notification_inbox_title">OC Remote — %1$d/%2$d connectés</string>
+    <string name="notification_inbox_title">OC Remote Plus — %1$d/%2$d connectés</string>
     <string name="notification_status_connected">Connecté</string>
     <string name="notification_status_connecting">Connexion…</string>
     <string name="notification_response_ready">Réponse prête</string>
@@ -454,7 +454,7 @@
     <string name="home_local_server_password_placeholder">Laisser vide pour désactiver l’authentification</string>
     <string name="home_local_lan_password_warning">L’accès LAN est activé sans mot de passe. Toute personne sur votre réseau peut ouvrir ce serveur.</string>
     <string name="home_local_auto_start_label">Démarrer automatiquement le serveur local au lancement de l’application</string>
-    <string name="home_local_auto_start_desc">Démarrer le runtime local automatiquement à l’ouverture de OC Remote</string>
+    <string name="home_local_auto_start_desc">Démarrer le runtime local automatiquement à l’ouverture de OC Remote Plus</string>
     <string name="home_local_startup_timeout_label">Délai de démarrage</string>
     <string name="home_local_startup_timeout_value">%1$d sec</string>
     <string name="home_local_launch_options_title">Options de lancement</string>

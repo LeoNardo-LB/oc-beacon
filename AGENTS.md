@@ -1,4 +1,4 @@
-# AGENTS.md — OC Remote v2
+# AGENTS.md — OC Remote Plus
 
 Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 
@@ -28,9 +28,9 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 
 | Flavor | applicationId | 应用名 | 用途 |
 |--------|---------------|--------|------|
-| `dev` | `dev.leonardo.ocremoteplus.dev` | OC Remote Dev | 开发预览（worktree 构建） |
-| `beta` | `dev.leonardo.ocremoteplus.beta` | OC Remote Beta | 公开测试版 |
-| `stable` | `dev.leonardo.ocremoteplus` | OC Remote | 正式发布 |
+| `dev` | `dev.leonardo.ocremoteplus.dev` | OC Remote Plus Dev | 开发预览（worktree 构建） |
+| `beta` | `dev.leonardo.ocremoteplus.beta` | OC Remote Plus Beta | 公开测试版 |
+| `stable` | `dev.leonardo.ocremoteplus` | OC Remote Plus | 正式发布 |
 
 Always specify the flavor in gradle tasks: `assembleDevRelease`, `assembleBetaRelease`, `assembleStableRelease`, etc.
 
