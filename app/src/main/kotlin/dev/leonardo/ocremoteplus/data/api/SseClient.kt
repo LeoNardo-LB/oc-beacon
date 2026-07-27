@@ -79,13 +79,19 @@ private fun buildStringFromBytes(chunks: List<List<Byte>>): String {
 
 /**
  * 追加一条 data 行到事件 buffer，带事件级 OOM 防护。
- * 多条 data 行累计超过 [MAX_SSE_EVENT_SIZE] 时清空 buffer 并跳过当前 payload
+ * 多条 data 行累计超过 [maxEventSize] 时清空 buffer 并跳过当前 payload
  * （超大事件通常是异常情况，跳过比断连更友好；下一帧仍可正常解析）。
+ *
+ * 可见性为 internal 以支持单元测试（[maxEventSize] 参数允许测试用小限制快速验证）。
  */
-private fun appendDataLine(buffer: MutableList<List<Byte>>, payload: List<Byte>) {
+internal fun appendDataLine(
+    buffer: MutableList<List<Byte>>,
+    payload: List<Byte>,
+    maxEventSize: Int = MAX_SSE_EVENT_SIZE
+) {
     val projected = buffer.sumOf { it.size } + payload.size + buffer.size // buffer.size ≈ \n 分隔符数
-    if (projected > MAX_SSE_EVENT_SIZE) {
-        Log.w(TAG, "SSE event exceeds $MAX_SSE_EVENT_SIZE bytes (${buffer.size + 1} data lines), clearing buffer")
+    if (projected > maxEventSize) {
+        Log.w(TAG, "SSE event exceeds $maxEventSize bytes (${buffer.size + 1} data lines), clearing buffer")
         buffer.clear()
         // 不 add 当前 payload — 丢弃这个超大事件
     } else {
