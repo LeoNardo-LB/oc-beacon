@@ -21,10 +21,12 @@ import dev.leonardo.ocremoteplus.data.repository.EventDispatcher
 import dev.leonardo.ocremoteplus.data.repository.SessionStateService
 import dev.leonardo.ocremoteplus.domain.model.Project
 import dev.leonardo.ocremoteplus.domain.model.Session
+import dev.leonardo.ocremoteplus.domain.model.SessionCategory
 import dev.leonardo.ocremoteplus.domain.model.SessionStatus
 import dev.leonardo.ocremoteplus.domain.model.McpServerStatus
 import dev.leonardo.ocremoteplus.domain.repository.DraftRepository
 import dev.leonardo.ocremoteplus.domain.repository.McpRepository
+import dev.leonardo.ocremoteplus.domain.repository.SettingsRepository
 import dev.leonardo.ocremoteplus.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.GetSettingsFlowUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.ManageSessionUseCase
@@ -73,7 +75,8 @@ data class SessionListUiState(
 data class SessionItem(
     val session: Session,
     val status: SessionStatus = SessionStatus.Idle,
-    val hasDraft: Boolean = false
+    val hasDraft: Boolean = false,
+    val category: SessionCategory? = null,
 )
 
 @HiltViewModel
@@ -90,7 +93,8 @@ class SessionListViewModel @Inject constructor(
     private val draftRepository: DraftRepository,
     private val mcpRepository: McpRepository,
     private val scrollSignal: SessionScrollSignal,
-    private val getSettingsFlowUseCase: GetSettingsFlowUseCase
+    private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     companion object {
@@ -150,6 +154,14 @@ class SessionListViewModel @Inject constructor(
     )
     val viewMode: StateFlow<SessionViewMode> = _viewMode.asStateFlow()
 
+    /** Selected category filter id, or null for "all". */
+    private val _categoryFilter = MutableStateFlow<String?>(null)
+    val categoryFilter: StateFlow<String?> = _categoryFilter.asStateFlow()
+
+    /** Global category list for picker / filter chips. */
+    val sessionCategories: StateFlow<List<SessionCategory>> = settingsRepository.sessionCategories()
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
+
     private val _mcpServers = MutableStateFlow<List<McpServerStatus>>(emptyList())
     val mcpServers: StateFlow<List<McpServerStatus>> = _mcpServers.asStateFlow()
 
@@ -177,7 +189,10 @@ class SessionListViewModel @Inject constructor(
         _isRefreshing,
         _lastToggledDirectory,
         _searchQuery,
-        _viewMode
+        _viewMode,
+        settingsRepository.sessionCategoryAssignments(serverId),
+        _categoryFilter,
+        sessionCategories
     ) { values ->
         val allSessions = values[0] as List<Session>
         val statuses = values[1] as Map<String, SessionStatus>
@@ -193,6 +208,9 @@ class SessionListViewModel @Inject constructor(
         val lastToggledDirectory = values[11] as String?
         val searchQuery = values[12] as String?
         val viewMode = values[13] as SessionViewMode
+        val categoryAssignments = values[14] as Map<String, String>
+        val categoryFilterId = values[15] as String?
+        val categoriesList = values[16] as List<SessionCategory>
 
         val serverSessionIds = serverSessionMap[serverId].orEmpty()
 
@@ -222,20 +240,36 @@ class SessionListViewModel @Inject constructor(
             baseFilteredSessions
         }
 
+        // Category filter: only show sessions assigned to the selected category
+        val categoryFilteredSessions = if (categoryFilterId != null) {
+            searchedSessions.filter { categoryAssignments[it.id] == categoryFilterId }
+        } else {
+            searchedSessions
+        }
+
+        // Resolve session id → SessionCategory for display
+        val categoryById = categoriesList.associateBy { it.id }
+        val resolvedCategories: Map<String, SessionCategory> = buildMap {
+            categoryAssignments.forEach { (sessionId, catId) ->
+                categoryById[catId]?.let { put(sessionId, it) }
+            }
+        }
+
         val treeNodes = if (viewMode == SessionViewMode.RECENT) {
             // Recent mode: flat list of sessions sorted by update time, no directory grouping
-            searchedSessions.map { session ->
+            categoryFilteredSessions.map { session ->
                 TreeNode.Session(
                     id = session.id,
                     session = SessionItem(
                         session = session,
                         status = statuses[session.id] ?: SessionStatus.Idle,
-                        hasDraft = session.id in draftRepository.getDraftSessionIds()
+                        hasDraft = session.id in draftRepository.getDraftSessionIds(),
+                        category = resolvedCategories[session.id]
                     )
                 )
             }
         } else {
-            buildTreeNodes(searchedSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), projects)
+            buildTreeNodes(categoryFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), projects, resolvedCategories)
         }
 
         val prefillDirectory = if (lastToggledDirectory != null && lastToggledDirectory in expandedPaths)
@@ -272,6 +306,42 @@ class SessionListViewModel @Inject constructor(
      * scroll back to top. Consumes (clears) the flag set via [KEY_SCROLL_TO_TOP]. */
     fun consumeScrollToTopOnReturn(): Boolean {
         return scrollSignal.consumeScrollToTop()
+    }
+
+    // --- Session categories ---
+
+    /** Set the category filter (null clears it). */
+    fun setCategoryFilter(categoryId: String?) {
+        _categoryFilter.value = categoryId
+    }
+
+    /** Assign a session to a category for the current server. */
+    fun assignCategory(sessionId: String, categoryId: String) {
+        viewModelScope.launch { settingsRepository.assignSessionCategory(serverId, sessionId, categoryId) }
+    }
+
+    /** Remove a session's category assignment for the current server. */
+    fun unassignCategory(sessionId: String) {
+        viewModelScope.launch { settingsRepository.unassignSessionCategory(serverId, sessionId) }
+    }
+
+    /** Create a new global category. */
+    fun addCategory(name: String, color: String, icon: String) {
+        viewModelScope.launch {
+            settingsRepository.addSessionCategory(
+                SessionCategory(
+                    id = java.util.UUID.randomUUID().toString(),
+                    name = name,
+                    color = color,
+                    icon = icon,
+                )
+            )
+        }
+    }
+
+    /** Remove a global category by id. */
+    fun removeCategory(categoryId: String) {
+        viewModelScope.launch { settingsRepository.removeSessionCategory(categoryId) }
     }
 
     fun loadSessions() {

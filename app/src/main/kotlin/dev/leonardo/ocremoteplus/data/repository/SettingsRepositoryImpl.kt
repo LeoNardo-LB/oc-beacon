@@ -1,6 +1,7 @@
 package dev.leonardo.ocremoteplus.data.repository
 
 import dev.leonardo.ocremoteplus.domain.model.AppSettings
+import dev.leonardo.ocremoteplus.domain.model.SessionCategory
 import dev.leonardo.ocremoteplus.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -22,6 +23,23 @@ class SettingsRepositoryImpl @Inject constructor(
     override fun getSettingsFlow(): Flow<AppSettings> = dataRepo.appSettingsFlow
 
     override fun hiddenModels(serverId: String): Flow<Set<String>> = dataRepo.hiddenModels(serverId)
+
+    override fun sessionCategories(): Flow<List<SessionCategory>> = dataRepo.sessionCategories
+
+    override fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>> =
+        dataRepo.sessionCategoryAssignments(serverId)
+
+    override suspend fun addSessionCategory(category: SessionCategory) =
+        dataRepo.addSessionCategory(category)
+
+    override suspend fun removeSessionCategory(categoryId: String) =
+        dataRepo.removeSessionCategory(categoryId)
+
+    override suspend fun assignSessionCategory(serverId: String, sessionId: String, categoryId: String) =
+        dataRepo.assignSessionCategory(serverId, sessionId, categoryId)
+
+    override suspend fun unassignSessionCategory(serverId: String, sessionId: String) =
+        dataRepo.unassignSessionCategory(serverId, sessionId)
 
     override suspend fun updateSettings(settings: AppSettings): Result<Unit> = runCatching {
         dataRepo.setAppLanguage(settings.appLanguage)

@@ -608,6 +608,18 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="about_license">License</string>
     <string name="about_license_value">MIT</string>
 
+    <!-- Update Check -->
+    <string name="update_check">Check for Updates</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">You\'re up to date</string>
+    <string name="update_available">Update available: v%1$s</string>
+    <string name="update_download_install">Download &amp; Install</string>
+    <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_ready_to_install">Install Now</string>
+    <string name="update_error">Update check failed</string>
+    <string name="update_installer_launch_failed">Unable to launch installer</string>
+    <string name="update_view_release">View Release</string>
+
     <!-- Accessibility: contentDescription for decorative icons in settings -->
     <string name="a11y_settings_language">Language</string>
     <string name="a11y_settings_reconnect_mode">Reconnect mode</string>

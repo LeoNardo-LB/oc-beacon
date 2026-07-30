@@ -64,7 +64,7 @@
 
 ### upstream-v1.7.0-sync-P1 — 上游 v1.7.0 借鉴（P1 批次，~35h）
 
-- [ ] **#6 Session Categories** `session` `ui`
+- [x] **#6 Session Categories** `session` `ui`
   - 需求：会话分类（自定义名称/颜色/图标），per-session 分配，列表筛选，Animated Busy accent
   - 方案：`SessionCategory(id,name,color,icon)` model + SettingsRepository per-server assignment + SessionCategoryPickerDialog
   - 工时：~7h | 难度：🟢 | ~450 行（纯增量，复用现有 per-server 模式）
@@ -83,7 +83,7 @@
   - 需求：新建会话对话框的最近目录数量可配置（5-50，默认 20，上游 #23）
   - 工时：~1h | 难度：🟢 | ~40 行
 
-- [ ] **#10 In-app GitHub 更新检查** `data` `ui`
+- [x] **#10 In-app GitHub 更新检查** `data` `ui`
   - 需求：应用内检查新版本 + 下载 APK + SHA-256 校验 + 签名证书比对 + 系统安装器
   - 方案：UpdateRepository 三级 fallback（富 manifest → raw manifest → GitHub API）+ UpdateModels + UpdateInstallLauncher + AboutViewModel
   - 工时：~9h | 难度：🟡 | ~600 行（需适配多 flavor：dev/beta/stable 三 applicationId）

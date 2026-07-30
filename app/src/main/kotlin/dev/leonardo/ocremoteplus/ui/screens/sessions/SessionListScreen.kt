@@ -3,6 +3,8 @@ package dev.leonardo.ocremoteplus.ui.screens.sessions
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -86,6 +89,8 @@ import dev.leonardo.ocremoteplus.ui.components.DialogButtonRole
 import dev.leonardo.ocremoteplus.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocremoteplus.ui.theme.ButtonTokens
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.DirectoryTreeNode
+import dev.leonardo.ocremoteplus.ui.screens.sessions.components.SessionCategoryPickerDialog
+import dev.leonardo.ocremoteplus.ui.screens.sessions.components.SessionCategoryStyle
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.SessionRow
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.TreeNode
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.isAmoledTheme
@@ -130,6 +135,14 @@ fun SessionListScreen(
     var showOpenProject by remember { mutableStateOf(false) }
     var showQuickNewSession by remember { mutableStateOf(false) }
     var showBaseDirDialog by remember { mutableStateOf(false) }
+
+    // Session category picker state
+    var showCategoryPicker by remember { mutableStateOf(false) }
+    var assignSessionId by remember { mutableStateOf("") }
+    var assignCategoryId by remember { mutableStateOf<String?>(null) }
+
+    val categories by viewModel.sessionCategories.collectAsStateWithLifecycle()
+    val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
@@ -302,6 +315,38 @@ fun SessionListScreen(
                     }
                     )
 
+                // Category filter chips
+                if (categories.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        FilterChip(
+                            selected = categoryFilter == null,
+                            onClick = { viewModel.setCategoryFilter(null) },
+                            label = { Text("全部") },
+                        )
+                        categories.forEach { category ->
+                            FilterChip(
+                                selected = categoryFilter == category.id,
+                                onClick = { viewModel.setCategoryFilter(category.id) },
+                                label = { Text(category.name) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = SessionCategoryStyle.icon(category.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = SessionCategoryStyle.color(category.color),
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+
                 when {
                     uiState.isLoading && uiState.treeNodes.isEmpty() && uiState.searchQuery.isNullOrBlank() -> {
                         Box(
@@ -435,6 +480,11 @@ fun SessionListScreen(
                                         onCopyId = { id ->
                                             viewModel.copyToClipboard(id, context)
                                             scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
+                                        },
+                                        onAssignCategory = {
+                                            assignSessionId = node.id
+                                            assignCategoryId = node.session.category?.id
+                                            showCategoryPicker = true
                                         },
                                     )
                                     HorizontalDivider(
@@ -609,5 +659,28 @@ fun SessionListScreen(
                 }
             }
         }
+    }
+
+    // Session category picker dialog (assign / create / delete)
+    if (showCategoryPicker) {
+        SessionCategoryPickerDialog(
+            categories = categories,
+            assignedCategoryId = assignCategoryId,
+            onAssign = { categoryId ->
+                showCategoryPicker = false
+                if (categoryId != null) {
+                    viewModel.assignCategory(assignSessionId, categoryId)
+                } else {
+                    viewModel.unassignCategory(assignSessionId)
+                }
+            },
+            onCreateCategory = { name, color, icon ->
+                viewModel.addCategory(name, color, icon)
+            },
+            onDeleteCategory = { categoryId ->
+                viewModel.removeCategory(categoryId)
+            },
+            onDismiss = { showCategoryPicker = false },
+        )
     }
 }

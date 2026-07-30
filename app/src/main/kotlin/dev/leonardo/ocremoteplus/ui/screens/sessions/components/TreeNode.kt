@@ -2,6 +2,7 @@ package dev.leonardo.ocremoteplus.ui.screens.sessions.components
 
 import dev.leonardo.ocremoteplus.domain.model.Project
 import dev.leonardo.ocremoteplus.domain.model.Session
+import dev.leonardo.ocremoteplus.domain.model.SessionCategory
 import dev.leonardo.ocremoteplus.domain.model.SessionStatus
 import dev.leonardo.ocremoteplus.ui.screens.sessions.SessionItem
 import dev.leonardo.ocremoteplus.ui.screens.sessions.util.projectForSession
@@ -48,6 +49,7 @@ sealed interface TreeNode {
  * @param baseDirectory The selected base directory path (normalized, e.g. "D:/Develop"), or null
  * @param statuses Session status map
  * @param projects Known projects used for project-aware grouping when baseDirectory is null
+ * @param sessionCategories Resolved session id → category map for display
  */
 fun buildTreeNodes(
     sessions: List<Session>,
@@ -56,6 +58,7 @@ fun buildTreeNodes(
     statuses: Map<String, SessionStatus> = emptyMap(),
     draftSessionIds: Set<String> = emptySet(),
     projects: List<Project> = emptyList(),
+    sessionCategories: Map<String, SessionCategory> = emptyMap(),
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
     val rootSessions = mutableListOf<Session>()
@@ -140,7 +143,7 @@ fun buildTreeNodes(
             for (session in bucket.sessions.sortedByDescending { it.time.updated }) {
                 result.add(TreeNode.Session(
                     id = session.id,
-                    session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds),
+                    session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, category = sessionCategories[session.id]),
                 ))
             }
         }
@@ -150,7 +153,7 @@ fun buildTreeNodes(
     for (session in rootSessions.sortedByDescending { it.time.updated }) {
         result.add(TreeNode.Session(
             id = session.id,
-            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds),
+            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, category = sessionCategories[session.id]),
         ))
     }
 

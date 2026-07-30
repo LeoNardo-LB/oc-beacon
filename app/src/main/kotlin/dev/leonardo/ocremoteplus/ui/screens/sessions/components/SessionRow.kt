@@ -1,6 +1,7 @@
 package dev.leonardo.ocremoteplus.ui.screens.sessions.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
@@ -30,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -63,6 +66,7 @@ internal fun SessionRow(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onCopyId: (String) -> Unit = {},
+    onAssignCategory: () -> Unit = {},
     modifier: Modifier = Modifier,
     showDirectory: Boolean = false,
 ) {
@@ -158,6 +162,31 @@ internal fun SessionRow(
                     )
                 }
 
+                // Category tag
+                item.category?.let { category ->
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(SessionCategoryStyle.color(category.color).copy(alpha = AlphaTokens.SELECTED))
+                            .padding(horizontal = 4.dp, vertical = 1.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Icon(
+                            imageVector = SessionCategoryStyle.icon(category.icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(10.dp),
+                            tint = SessionCategoryStyle.color(category.color),
+                        )
+                        Text(
+                            text = category.name,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = SessionCategoryStyle.color(category.color),
+                            maxLines = 1,
+                        )
+                    }
+                }
+
                 // Diff summary
                 val summary = item.session.summary
                 if (summary != null && (summary.additions > 0 || summary.deletions > 0)) {
@@ -205,6 +234,10 @@ internal fun SessionRow(
             onCopyId = {
                 onCopyId(item.session.id)
             },
+            onAssignCategory = {
+                showDetailsDialog = false
+                onAssignCategory()
+            },
             isAmoled = isAmoled,
         )
     }
@@ -218,6 +251,7 @@ private fun SessionDetailsDialog(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onCopyId: () -> Unit,
+    onAssignCategory: () -> Unit,
     @Suppress("UNUSED_PARAMETER") isAmoled: Boolean,
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
@@ -276,6 +310,7 @@ private fun SessionDetailsDialog(
                 DialogButtons(
                     buttons = listOf(
                         Triple(stringResource(R.string.menu_copy_session_id), DialogButtonRole.Primary, onCopyId),
+                        Triple("分配分类", DialogButtonRole.Primary) { onDismiss(); onAssignCategory() },
                         Triple(stringResource(R.string.session_rename), DialogButtonRole.Primary) { onDismiss(); onRename() },
                         Triple(stringResource(R.string.session_delete), DialogButtonRole.Danger) { onDismiss(); onDelete() },
                     )

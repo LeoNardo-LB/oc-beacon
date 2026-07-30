@@ -10,8 +10,14 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dev.leonardo.ocremoteplus.domain.model.AppSettings
+import dev.leonardo.ocremoteplus.domain.model.SessionCategory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -65,6 +71,13 @@ class SettingsDataStore @Inject constructor(
         private const val LOCALE_PREFS_KEY = "app_language"
 
         private const val SERVER_MODEL_HIDDEN_PREFIX = "server_model_hidden_"
+
+        // Session categories — global list (JSON array) + per-server assignments (JSON map).
+        private val SESSION_CATEGORIES_KEY = stringPreferencesKey("session_categories")
+        private const val SESSION_CATEGORY_ASSIGNMENTS_PREFIX = "session_category_assignments_"
+        private val categoryJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        private val categoryListSerializer = ListSerializer(SessionCategory.serializer())
+        private val assignmentMapSerializer = MapSerializer(String.serializer(), String.serializer())
 
         /**
          * Derive chat density from legacy font size / compact flags.
@@ -583,6 +596,82 @@ class SettingsDataStore @Inject constructor(
             } else {
                 current + key
             }
+        }
+    }
+
+    private fun sessionCategoryAssignmentsKey(serverId: String) =
+        stringPreferencesKey(SESSION_CATEGORY_ASSIGNMENTS_PREFIX + serverId)
+
+    /** Global list of user-defined session categories. */
+    val sessionCategories: Flow<List<SessionCategory>> = dataStore.data.map { preferences ->
+        val json = preferences[SESSION_CATEGORIES_KEY]
+        if (json.isNullOrBlank()) {
+            emptyList()
+        } else {
+            runCatching { categoryJson.decodeFromString(categoryListSerializer, json) }
+                .getOrDefault(emptyList())
+        }
+    }
+
+    /** Per-server session→category id assignments. */
+    fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>> =
+        dataStore.data.map { preferences ->
+            val json = preferences[sessionCategoryAssignmentsKey(serverId)]
+            if (json.isNullOrBlank()) {
+                emptyMap()
+            } else {
+                runCatching { categoryJson.decodeFromString(assignmentMapSerializer, json) }
+                    .getOrDefault(emptyMap())
+            }
+        }
+
+    /** Add or replace a category (matched by id). */
+    suspend fun addSessionCategory(category: SessionCategory) {
+        dataStore.edit { preferences ->
+            val current = preferences[SESSION_CATEGORIES_KEY]?.let {
+                runCatching { categoryJson.decodeFromString(categoryListSerializer, it) }
+                    .getOrDefault(emptyList())
+            } ?: emptyList()
+            val updated = current.filterNot { it.id == category.id } + category
+            preferences[SESSION_CATEGORIES_KEY] = categoryJson.encodeToString(categoryListSerializer, updated)
+        }
+    }
+
+    /** Remove a category and clear any assignments referencing it. */
+    suspend fun removeSessionCategory(categoryId: String) {
+        dataStore.edit { preferences ->
+            val current = preferences[SESSION_CATEGORIES_KEY]?.let {
+                runCatching { categoryJson.decodeFromString(categoryListSerializer, it) }
+                    .getOrDefault(emptyList())
+            } ?: emptyList()
+            preferences[SESSION_CATEGORIES_KEY] =
+                categoryJson.encodeToString(categoryListSerializer, current.filterNot { it.id == categoryId })
+        }
+    }
+
+    /** Assign a session to a category for the given server. */
+    suspend fun assignSessionCategory(serverId: String, sessionId: String, categoryId: String) {
+        val prefsKey = sessionCategoryAssignmentsKey(serverId)
+        dataStore.edit { preferences ->
+            val current = preferences[prefsKey]?.let {
+                runCatching { categoryJson.decodeFromString(assignmentMapSerializer, it) }
+                    .getOrDefault(emptyMap())
+            } ?: emptyMap()
+            preferences[prefsKey] =
+                categoryJson.encodeToString(assignmentMapSerializer, current + (sessionId to categoryId))
+        }
+    }
+
+    /** Remove a session's category assignment for the given server. */
+    suspend fun unassignSessionCategory(serverId: String, sessionId: String) {
+        val prefsKey = sessionCategoryAssignmentsKey(serverId)
+        dataStore.edit { preferences ->
+            val current = preferences[prefsKey]?.let {
+                runCatching { categoryJson.decodeFromString(assignmentMapSerializer, it) }
+                    .getOrDefault(emptyMap())
+            } ?: emptyMap()
+            preferences[prefsKey] =
+                categoryJson.encodeToString(assignmentMapSerializer, current - sessionId)
         }
     }
 
