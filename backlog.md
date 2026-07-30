@@ -69,17 +69,17 @@
   - 方案：`SessionCategory(id,name,color,icon)` model + SettingsRepository per-server assignment + SessionCategoryPickerDialog
   - 工时：~7h | 难度：🟢 | ~450 行（纯增量，复用现有 per-server 模式）
 
-- [ ] **#7 PendingPrompt 持久化** `data` `session`
+- [x] **#7 PendingPrompt 持久化** `data` `session`
   - 需求：App 重启后恢复未确认的 prompt（当前仅内存 optimistic，重启丢失）
   - 方案：文件级 JSON 持久化（`pending_prompts.json`）+ `missingPendingPromptIds` ID 范围对账纯函数
   - 工时：~4h | 难度：🟡 | ~120 行（需理解 combine 层注入时机）
 
-- [ ] **#8 AppLoadingEdge + LocalAmoledTheme** `ui`
+- [x] **#8 AppLoadingEdge + LocalAmoledTheme** `ui`
   - 需求：脉动加载条（active/progress 双模）+ AMOLED 状态 CompositionLocal 统一传播
   - 注意：部分与我们 Theme Token System / ButtonTokens 重叠，选择性合并避免双轨制
   - 工时：~3h | 难度：🟢 | ~75 行
 
-- [ ] **#9 directory count 可配置** `ui` `session`
+- [x] **#9 directory count 可配置** `ui` `session`
   - 需求：新建会话对话框的最近目录数量可配置（5-50，默认 20，上游 #23）
   - 工时：~1h | 难度：🟢 | ~40 行
 
