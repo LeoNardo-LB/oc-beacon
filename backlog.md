@@ -33,27 +33,27 @@
 
 来源：crim50n/oc-remote v1.7.0 深度分析（2026-07-30）。13 项功能均不依赖 EventReducer，可独立移植。
 
-- [ ] **#1 percent-encoding 双重 decode 修复** `crash` `ui`
+- [x] **#1 percent-encoding 双重 decode 修复** `crash` `ui`
   - 问题：导航路由先 `URLEncoder.encode` 又 `URLDecoder.decode`，含 `%` 的密码/路径（如 `%NR`、`%25`）导航崩溃（上游 #28）
   - 修复：删除所有 `URLDecoder.decode` 调用（Navigation 框架对 StringType 已自动解码）
   - 工时：< 1h | 难度：🟢 | 涉及：ChatNav / ServerRouteParams / NavGraph / WorkspaceNav / WebViewNav
 
-- [ ] **#2 SessionNotificationCoordinator** `ui` `session`
+- [x] **#2 SessionNotificationCoordinator** `ui` `session`
   - 需求：前台活跃会话不弹通知，进入即清除该会话通知（上游 #25）
   - 方案：新建 `SessionNotificationCoordinator.kt`（单例跟踪活跃 sessionId），`AppNotificationManager` 的 show* 方法包裹 `postUnlessActive`，ChatScreen 进入/离开调 activate/deactivate
   - 工时：~2h | 难度：🟢 | ~70 行（通知 ID 公式我们已有，照搬协调器即可）
 
-- [ ] **#3 Project-aware session grouping** `session` `ui`
+- [x] **#3 Project-aware session grouping** `session` `ui`
   - 需求：session 列表按 projectId 优先分组，fallback 按 directory 最长 worktree 前缀匹配
   - 方案：实现 `buildProjectSessionGroups()` 纯函数，替换现有纯 directory groupBy
   - 工时：~4h | 难度：🟢 | ~250 行（模型已具备 projectId/directory 字段）
 
-- [ ] **#4 Markdown normalizeTaskListMarkers** `ui`
+- [x] **#4 Markdown normalizeTaskListMarkers** `ui`
   - 需求：unicode 任务标记（☐/☑/✅）规范为 `[ ]`/`[x]`，跳过 code fence 内部
   - 方案：渲染前字符串预处理 + 回归测试（tilde 删除线/~/path/email autolink 验证）
   - 工时：~3h | 难度：🟢 | ~80 行（wide table 横滚我们已有）
 
-- [ ] **#5 PDF/多文件附件泛化** `ui` `data`
+- [x] **#5 PDF/多文件附件泛化** `ui` `data`
   - 需求：支持 PDF + 文本文件附件（当前仅图片）；分级大小限制（文本 2MB / 文档 10MB）
   - 方案：泛化 `MediaUtils.acceptedTypes` + `ChatAttachmentsHandler` 命名 + 加 `validateLocalAttachment` + 文档选择器（`GetMultipleContents` 配 `*/*`）
   - 工时：~4h | 难度：🟢 | ~120 行（PDF 基础我们已有，需扩展校验+UI）
