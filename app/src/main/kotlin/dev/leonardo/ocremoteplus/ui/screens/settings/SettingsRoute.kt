@@ -5,11 +5,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 @Composable
 fun SettingsRoute(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
 ) {
     val viewModel: SettingsViewModel = hiltViewModel()
     SettingsScreen(
         viewModel = viewModel,
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
+        onNavigateToDiagnostics = onNavigateToDiagnostics,
     )
 }

@@ -268,7 +268,17 @@ fun NavGraph(
             SettingsRoute(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToDiagnostics = {
+                    navController.navigate(DiagnosticsNav.route)
                 }
+            )
+        }
+
+        // ============ Diagnostics Screen ============
+        composable(DiagnosticsNav.route) {
+            dev.leonardo.ocremoteplus.ui.screens.settings.DiagnosticsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

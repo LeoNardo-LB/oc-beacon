@@ -88,7 +88,7 @@
   - 方案：UpdateRepository 三级 fallback（富 manifest → raw manifest → GitHub API）+ UpdateModels + UpdateInstallLauncher + AboutViewModel
   - 工时：~9h | 难度：🟡 | ~600 行（需适配多 flavor：dev/beta/stable 三 applicationId）
 
-- [ ] **#11 Diagnostics 诊断屏幕** `ui` `data`
+- [x] **#11 Diagnostics 诊断屏幕** `ui` `data`
   - 需求：集中日志查看（级别筛选/搜索/隐私脱敏/导出分享/崩溃捕获/确认清空）
   - 方案：AppLogger（全局单例）+ DiagnosticLogDatabase（SQLiteOpenHelper，非 Room）+ DiagnosticLogRepository + DiagnosticsScreen
   - 工时：~11h | 难度：🟡 | ~700 行

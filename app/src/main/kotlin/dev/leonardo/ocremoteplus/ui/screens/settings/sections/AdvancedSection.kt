@@ -3,6 +3,7 @@ package dev.leonardo.ocremoteplus.ui.screens.settings.sections
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
@@ -26,6 +27,7 @@ import dev.leonardo.ocremoteplus.ui.theme.ListItemTokens
 fun AdvancedSection(
     viewModel: SettingsViewModel,
     onShowLocalLaunchOptionsDialog: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
 ) {
     val showLocalRuntime by viewModel.showLocalRuntime.collectAsStateWithLifecycle()
     val switchColors = SwitchDefaults.colors()
@@ -55,6 +57,15 @@ fun AdvancedSection(
             Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.a11y_settings_launch_options))
         },
         modifier = Modifier.clickable { onShowLocalLaunchOptionsDialog() }.padding(ListItemTokens.ContentPaddingMedium),
+    )
+
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_diagnostics)) },
+        supportingContent = { Text(stringResource(R.string.settings_diagnostics_desc)) },
+        leadingContent = {
+            Icon(Icons.Default.BugReport, contentDescription = stringResource(R.string.settings_diagnostics))
+        },
+        modifier = Modifier.clickable { onNavigateToDiagnostics() }.padding(ListItemTokens.ContentPaddingMedium),
     )
 
     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))

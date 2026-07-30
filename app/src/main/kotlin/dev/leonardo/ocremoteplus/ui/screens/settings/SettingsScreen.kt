@@ -60,6 +60,7 @@ import dev.leonardo.ocremoteplus.ui.theme.AlphaTokens
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateBack: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
 ) {
     val currentLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val currentTheme by viewModel.appTheme.collectAsStateWithLifecycle()
@@ -153,6 +154,7 @@ fun SettingsScreen(
             AdvancedSection(
                 viewModel = viewModel,
                 onShowLocalLaunchOptionsDialog = { showLocalLaunchOptionsDialog = true },
+                onNavigateToDiagnostics = onNavigateToDiagnostics,
             )
 
             // ======== Notifications ========

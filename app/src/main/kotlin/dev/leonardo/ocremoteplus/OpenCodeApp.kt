@@ -13,8 +13,14 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
+import dev.leonardo.ocremoteplus.data.repository.DiagnosticLogRepository
+import dev.leonardo.ocremoteplus.logging.AppLogger
 import dev.leonardo.ocremoteplus.service.SessionFocusHolder
 import dev.leonardo.ocremoteplus.util.DebugLogger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.StringWriter
 import java.text.SimpleDateFormat
@@ -31,17 +37,29 @@ private const val MAX_LOG_FILES = 10
  */
 @HiltAndroidApp
 class OpenCodeApp : Application() {
-    
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onCreate() {
         super.onCreate()
 
         DebugLogger.init(this)
+
+        // ---- Initialize persistent diagnostic logging ----
+        val diagnosticRepo = EntryPointAccessors.fromApplication(
+            this,
+            DiagnosticLogEntryPoint::class.java,
+        ).diagnosticLogRepository()
+        AppLogger.initialize(diagnosticRepo)
+        appScope.launch { diagnosticRepo.initialize() }
 
         val crashDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), CRASH_DIR)
 
         // ---- Global uncaught exception handler ----
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            // Persist crash to diagnostic database before the process dies
+            runCatching { AppLogger.recordCrash(thread, throwable) }
             try {
                 crashDir.mkdirs()
                 val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -126,4 +144,10 @@ class OpenCodeApp : Application() {
 @InstallIn(SingletonComponent::class)
 interface SessionFocusEntryPoint {
     fun sessionFocusHolder(): SessionFocusHolder
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface DiagnosticLogEntryPoint {
+    fun diagnosticLogRepository(): DiagnosticLogRepository
 }
