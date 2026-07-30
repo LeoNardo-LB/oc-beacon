@@ -76,7 +76,7 @@ ui/
     dialog/          Image preview, markdown preview dialogs
     input/           Message input bar
     markdown/        Markdown rendering
-    terminal/        PTY terminal view over WebSocket
+    terminal/        PTY terminal view over WebSocket (TerminalTabState: 5-state enum, not Boolean)
     tools/           Tool-call expandable cards
     util/            Chat-specific utilities
   screens/home/      HomeScreen + server cards + local runtime
@@ -85,7 +85,7 @@ ui/
   screens/server/    Server settings/providers/model filter
   screens/about/     About screen
   screens/webview/   WebView fallback (OAuth, HTML errors)
-  navigation/        NavGraph.kt + 10 type-safe Route objects in routes/
+  navigation/        NavGraph.kt + 12 type-safe Route objects in routes/ (NavUtils.safeDecodeParam for URL params)
   components/        Shared components (PulsingDotsIndicator, ProviderIcon)
 
 di/                Hilt modules (NetworkModule, DomainModule)
@@ -97,6 +97,8 @@ di/                Hilt modules (NetworkModule, DomainModule)
 - DI uses **KSP** (not kapt) for Hilt annotation processing.
 - Terminal uses WebSocket transport for PTY streams; SSE for events.
 - **SessionStateService is the single source of truth for session status & streaming activity** (idle/busy/retry + Waiting/Streaming/ToolCalling). All UI reads `statusFlow`/`activityFlow`; all status writes flow through its pure-function FSM (`SessionStateFSM`) with an exhaustive transition matrix + self-driven staleness/REST recovery loop. Do NOT reintroduce per-handler status state — `SessionStatusManager` and `SessionEventHandler._sessionStatuses` were removed for this reason. See `docs/research/session-status-sync-investigation.md` for the redesign rationale.
+- **AppLogger** (`logging/AppLogger.kt`) is the persistent logging entry point — new code should use `AppLogger.i/w/e` instead of `android.util.Log` so entries appear in the in-app Diagnostics screen. Existing code is being migrated incrementally.
+- **Navigation params** must use `NavUtils.safeDecodeParam()` (not raw `URLDecoder.decode()`) — raw decode crashes on malformed `%` sequences like `%NR` in passwords.
 
 ## OpenCode Server API Reference
 
