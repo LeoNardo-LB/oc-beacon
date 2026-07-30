@@ -51,11 +51,11 @@ object WebViewNav {
 
     fun fromEntry(entry: NavBackStackEntry): Params {
         return Params(
-            serverUrl = entry.arguments?.getString(ServerRouteParams.PARAM_SERVER_URL).orEmpty(),
-            username = entry.arguments?.getString(ServerRouteParams.PARAM_USERNAME).orEmpty(),
-            password = entry.arguments?.getString(ServerRouteParams.PARAM_PASSWORD).orEmpty(),
-            serverName = entry.arguments?.getString(ServerRouteParams.PARAM_SERVER_NAME).orEmpty(),
-            initialPath = entry.arguments?.getString(PARAM_INITIAL_PATH).orEmpty(),
+            serverUrl = safeDecodeParam(entry.arguments?.getString(ServerRouteParams.PARAM_SERVER_URL).orEmpty()),
+            username = safeDecodeParam(entry.arguments?.getString(ServerRouteParams.PARAM_USERNAME).orEmpty()),
+            password = safeDecodeParam(entry.arguments?.getString(ServerRouteParams.PARAM_PASSWORD).orEmpty()),
+            serverName = safeDecodeParam(entry.arguments?.getString(ServerRouteParams.PARAM_SERVER_NAME).orEmpty()),
+            initialPath = safeDecodeParam(entry.arguments?.getString(PARAM_INITIAL_PATH).orEmpty()),
         )
     }
 }
