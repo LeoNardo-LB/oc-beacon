@@ -59,10 +59,10 @@ data class ServerRouteParams(
 /** Extension to decode server params from a NavBackStackEntry. */
 fun NavBackStackEntry.serverRouteParams(): ServerRouteParams {
     return ServerRouteParams(
-        serverUrl = URLDecoder.decode(arguments?.getString(ServerRouteParams.PARAM_SERVER_URL).orEmpty(), "UTF-8"),
-        username = URLDecoder.decode(arguments?.getString(ServerRouteParams.PARAM_USERNAME).orEmpty(), "UTF-8"),
-        password = URLDecoder.decode(arguments?.getString(ServerRouteParams.PARAM_PASSWORD).orEmpty(), "UTF-8"),
-        serverName = URLDecoder.decode(arguments?.getString(ServerRouteParams.PARAM_SERVER_NAME).orEmpty(), "UTF-8"),
-        serverId = URLDecoder.decode(arguments?.getString(ServerRouteParams.PARAM_SERVER_ID).orEmpty(), "UTF-8"),
+        serverUrl = arguments?.getString(ServerRouteParams.PARAM_SERVER_URL).orEmpty(),
+        username = arguments?.getString(ServerRouteParams.PARAM_USERNAME).orEmpty(),
+        password = arguments?.getString(ServerRouteParams.PARAM_PASSWORD).orEmpty(),
+        serverName = arguments?.getString(ServerRouteParams.PARAM_SERVER_NAME).orEmpty(),
+        serverId = arguments?.getString(ServerRouteParams.PARAM_SERVER_ID).orEmpty(),
     )
 }

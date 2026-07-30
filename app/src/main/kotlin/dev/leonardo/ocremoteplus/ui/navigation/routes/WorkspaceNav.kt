@@ -46,8 +46,8 @@ object WorkspaceNav {
 
     fun fromEntry(entry: NavBackStackEntry): Params {
         val server = entry.serverRouteParams()
-        val sessionId = URLDecoder.decode(entry.arguments?.getString(PARAM_SESSION_ID).orEmpty(), "UTF-8")
-        val directory = URLDecoder.decode(entry.arguments?.getString(PARAM_DIRECTORY).orEmpty(), "UTF-8")
+        val sessionId = entry.arguments?.getString(PARAM_SESSION_ID).orEmpty()
+        val directory = entry.arguments?.getString(PARAM_DIRECTORY).orEmpty()
         return Params(server = server, sessionId = sessionId, directory = directory)
     }
 }

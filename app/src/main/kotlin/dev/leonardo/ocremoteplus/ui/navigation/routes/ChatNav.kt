@@ -52,9 +52,9 @@ object ChatNav {
 
     fun fromEntry(entry: NavBackStackEntry): Params {
         val server = entry.serverRouteParams()
-        val sessionId = URLDecoder.decode(entry.arguments?.getString(PARAM_SESSION_ID).orEmpty(), "UTF-8")
+        val sessionId = entry.arguments?.getString(PARAM_SESSION_ID).orEmpty()
         val openTerminal = entry.arguments?.getBoolean(PARAM_OPEN_TERMINAL) ?: false
-        val directory = URLDecoder.decode(entry.arguments?.getString(PARAM_DIRECTORY).orEmpty(), "UTF-8")
+        val directory = entry.arguments?.getString(PARAM_DIRECTORY).orEmpty()
         return Params(server = server, sessionId = sessionId, openTerminal = openTerminal, directory = directory)
     }
 }

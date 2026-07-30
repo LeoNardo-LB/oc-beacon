@@ -97,7 +97,6 @@ fun NavGraph(
             if (currentRoute?.startsWith("chat") == true) {
                 val currentSessionId = navController.currentBackStackEntry
                     ?.arguments?.getString("sessionId")
-                    ?.let { URLDecoder.decode(it, "UTF-8") }
                 if (currentSessionId != null) {
                     Log.i(TAG, "Already in ChatScreen for session $currentSessionId, targeting it directly")
                     pendingShareSessionId = currentSessionId
@@ -191,10 +190,9 @@ fun NavGraph(
                         serverId = deepLink.serverId,
                         sessionId = sessionId
                     )
-                    val currentSessionId = navController.currentBackStackEntry
-                        ?.arguments
-                        ?.getString("sessionId")
-                        ?.let { URLDecoder.decode(it, "UTF-8") }
+                val currentSessionId = navController.currentBackStackEntry
+                    ?.arguments
+                    ?.getString("sessionId")
 
                     Log.i(TAG, "Deep-link → native Chat: targetSession=$sessionId currentSession=$currentSessionId")
 
