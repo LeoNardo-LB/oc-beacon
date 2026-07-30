@@ -2,6 +2,7 @@ package dev.leonardo.ocremoteplus.ui.screens.chat
 
 import android.util.Log
 import dev.leonardo.ocremoteplus.BuildConfig
+import dev.leonardo.ocremoteplus.data.repository.PendingPromptRecord
 import dev.leonardo.ocremoteplus.data.repository.SessionStateService
 import dev.leonardo.ocremoteplus.domain.model.Message
 import dev.leonardo.ocremoteplus.domain.model.OptimisticMessage
@@ -9,6 +10,7 @@ import dev.leonardo.ocremoteplus.domain.model.Part
 import dev.leonardo.ocremoteplus.domain.model.Session
 import dev.leonardo.ocremoteplus.domain.model.SessionStatus
 import dev.leonardo.ocremoteplus.domain.model.SseEvent
+import dev.leonardo.ocremoteplus.domain.model.TimeInfo
 import dev.leonardo.ocremoteplus.domain.model.ToolProgressInfo
 import dev.leonardo.ocremoteplus.domain.model.UserMsgStatus
 import dev.leonardo.ocremoteplus.domain.repository.ChatRepository
@@ -631,6 +633,65 @@ internal class MessageDataDelegate(
     /** Remove a pending message (used after retry extracts content and re-sends). */
     fun removePendingMessage(pendingId: String) {
         _pendingMessages.update { it.filter { p -> p.pendingId != pendingId } }
+    }
+
+    // ============ Pending Prompt Persistence & Reconciliation ============
+
+    /**
+     * Restore persisted pending prompts after app restart.
+     *
+     * Each record is re-materialized into an [OptimisticMessage] with
+     * [UserMsgStatus.Sending] status. Reconciliation (marking lost sends as
+     * [UserMsgStatus.Failed]) happens later once the server's authoritative
+     * message list is loaded — driven by [ChatViewModel] via
+     * [pendingOptimisticSnapshot] + [markPendingAsFailed].
+     */
+    internal fun restorePendingPrompts(records: List<PendingPromptRecord>) {
+        if (records.isEmpty()) return
+        _pendingMessageIds.update { ids -> ids + records.map { it.messageId }.toSet() }
+        _pendingMessages.update { existing ->
+            // distinctBy keeps existing entries; avoids duplicates on repeated restore.
+            (existing + records.map { it.toOptimisticMessage() }).distinctBy { it.pendingId }
+        }
+    }
+
+    /**
+     * Snapshot of current pending optimistic messages — used by the reconciliation
+     * loop in [ChatViewModel] to detect sends that were lost across a restart.
+     */
+    internal fun pendingOptimisticSnapshot(): List<OptimisticMessage> = _pendingMessages.value
+
+    /**
+     * Mark a pending prompt as failed and drop it from the active-pending set.
+     * Used by reconciliation when a send is declared lost (covered + expired).
+     */
+    internal fun markPendingAsFailed(pendingId: String) {
+        _pendingMessageIds.update { it - pendingId }
+        _pendingMessages.update { pending ->
+            pending.map { if (it.pendingId == pendingId) it.copy(status = UserMsgStatus.Failed) else it }
+        }
+    }
+
+    /** Rebuild an [OptimisticMessage] from a persisted record (inverse of sendParts). */
+    private fun PendingPromptRecord.toOptimisticMessage(): OptimisticMessage {
+        val optimisticParts = parts.mapIndexed { index, pp ->
+            Part.Text(
+                id = "${messageId}-part-$index",
+                sessionId = sessionId,
+                messageId = messageId,
+                text = pp.text ?: "",
+            )
+        }
+        return OptimisticMessage(
+            pendingId = messageId,
+            message = Message.User(
+                id = messageId,
+                sessionId = sessionId,
+                time = TimeInfo(created = createdAt),
+            ),
+            parts = optimisticParts,
+            status = UserMsgStatus.Sending,
+        )
     }
 
     // ============ SSE Observer Management (for ChatViewModel.abort/revert) ============

@@ -99,6 +99,7 @@ class SessionListViewModelSearchTest {
             deleteSessionUseCase = deleteSessionUseCase,
             draftRepository = mockk(relaxed = true),
             mcpRepository = mockk(relaxed = true),
+            getSettingsFlowUseCase = mockk(relaxed = true),
             scrollSignal = SessionScrollSignal()
         )
     }

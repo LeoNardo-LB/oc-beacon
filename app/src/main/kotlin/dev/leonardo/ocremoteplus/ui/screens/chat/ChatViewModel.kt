@@ -204,6 +204,9 @@ data class ChatMessage(
     val isAssistant: Boolean get() = message is Message.Assistant
 }
 
+/** Grace period (ms) before a covered pending prompt is declared lost during reconciliation. */
+private const val PENDING_RECONCILE_MIN_AGE_MS = 60_000L
+
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -231,6 +234,7 @@ class ChatViewModel @Inject constructor(
     private val sessionFocusHolder: dev.leonardo.ocremoteplus.service.SessionFocusHolder,
     private val appNotificationManager: dev.leonardo.ocremoteplus.service.AppNotificationManager,
     private val toolSnapshotCache: dev.leonardo.ocremoteplus.domain.repository.ToolSnapshotCache,
+    private val pendingPromptRepository: dev.leonardo.ocremoteplus.data.repository.PendingPromptRepository,
 ) : ViewModel() {
 
     // ============ Tool snapshot cache (extracted to ToolCacheDelegate) ============
@@ -656,6 +660,13 @@ class ChatViewModel @Inject constructor(
         // Reset token stats from previous session (TokenStatsTracker is @Singleton, shared across sessions)
         tokenStatsTracker.reset()
 
+        // Restore persisted pending prompts (survive app restart mid-send).
+        // Reconciliation against loaded messages happens in the collect loop below.
+        val restoredPending = pendingPromptRepository.getForSession(sessionId)
+        if (restoredPending.isNotEmpty()) {
+            messageData.restorePendingPrompts(restoredPending)
+        }
+
         // Observe messages and update token stats tracker.
         // Token values use the LAST assistant message's tokens (represents current context size).
         // Cost is cumulative across all API calls.
@@ -690,6 +701,32 @@ class ChatViewModel @Inject constructor(
                         totalCacheWriteTokens = totalCacheWriteTokens,
                         lastContextTokens = lastContextTokens,
                     )
+                }
+
+                // Reconcile pending prompts against the authoritative message list.
+                // Detects sends the server never echoed (e.g. lost across a restart)
+                // once they are both older than [PENDING_RECONCILE_MIN_AGE_MS] and
+                // "covered" (the server delivered a message past their send time).
+                val pendingSnapshot = messageData.pendingOptimisticSnapshot()
+                if (pendingSnapshot.isNotEmpty()) {
+                    val pendingRecords = pendingSnapshot.map { om ->
+                        dev.leonardo.ocremoteplus.data.repository.PendingPromptRecord(
+                            messageId = om.pendingId,
+                            sessionId = sessionId,
+                            parts = emptyList(),
+                            createdAt = om.message.time.created,
+                        )
+                    }
+                    val missing = dev.leonardo.ocremoteplus.data.repository.missingPendingPromptIds(
+                        pending = pendingRecords,
+                        authoritative = messages,
+                        now = System.currentTimeMillis(),
+                        minimumAgeMs = PENDING_RECONCILE_MIN_AGE_MS,
+                    )
+                    missing.forEach { id ->
+                        messageData.markPendingAsFailed(id)
+                        pendingPromptRepository.remove(id)
+                    }
                 }
             }
         }
@@ -869,6 +906,16 @@ class ChatViewModel @Inject constructor(
             )
         }
         messageData.onSendStarted(pendingId, optimisticMsg, optimisticParts)
+        // Persist the optimistic send so it survives an app kill mid-flight.
+        // Reconciliation on next launch detects sends the server never echoed.
+        pendingPromptRepository.save(
+            dev.leonardo.ocremoteplus.data.repository.PendingPromptRecord(
+                messageId = pendingId,
+                sessionId = currentSid,
+                parts = parts,
+                createdAt = now,
+            )
+        )
         viewModelScope.launch {
             try {
                 val currentSessionId = sessionLifecycle.ensureSession()
@@ -897,6 +944,7 @@ class ChatViewModel @Inject constructor(
                     directory = sessionLifecycle.sessionDirectory
                 )
                 messageData.onSendSuccess(pendingId)
+                pendingPromptRepository.remove(pendingId)
                 if (BuildConfig.DEBUG) Log.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
                 refreshSessionTitleDelayed(currentSessionId)
             } catch (e: Exception) {
@@ -907,6 +955,7 @@ class ChatViewModel @Inject constructor(
                     draftDelegate.setRestoredDraft(RevertedDraftPayload(text = failedText))
                 }
                 messageData.onSendError(e.message ?: "Failed to send message", pendingId)
+                pendingPromptRepository.remove(pendingId)
             }
         }
     }

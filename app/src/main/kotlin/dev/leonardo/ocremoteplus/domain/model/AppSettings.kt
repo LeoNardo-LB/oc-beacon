@@ -17,6 +17,8 @@ data class AppSettings(
     /** "normal" or "compact". Migrated from chatFontSize + compactMessages. */
     val chatDensity: String = "normal",
     val initialMessageCount: Int = 30,
+    /** Max number of recent directories shown in the quick new-session dialog. 5..50. */
+    val recentDirectoryCount: Int = 20,
     val codeWordWrap: Boolean = false,
     val confirmBeforeSend: Boolean = false,
     val compactMessages: Boolean = false,

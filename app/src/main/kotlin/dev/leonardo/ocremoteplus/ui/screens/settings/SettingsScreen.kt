@@ -39,6 +39,7 @@ import dev.leonardo.ocremoteplus.ui.screens.settings.components.ImageCompression
 import dev.leonardo.ocremoteplus.ui.screens.settings.components.LanguagePickerDialog
 import dev.leonardo.ocremoteplus.ui.screens.settings.components.LocalServerLaunchOptionsDialog
 import dev.leonardo.ocremoteplus.ui.screens.settings.components.MessageCountPickerDialog
+import dev.leonardo.ocremoteplus.ui.screens.settings.components.RecentDirectoryCountDialog
 import dev.leonardo.ocremoteplus.ui.screens.settings.components.ReconnectModePickerDialog
 import dev.leonardo.ocremoteplus.ui.screens.settings.components.TerminalFontSizeDialog
 import dev.leonardo.ocremoteplus.ui.screens.settings.components.ThemePickerDialog
@@ -65,6 +66,7 @@ fun SettingsScreen(
     val chatDensity by viewModel.chatDensity.collectAsStateWithLifecycle()
 
     val initialMessageCount by viewModel.initialMessageCount.collectAsStateWithLifecycle()
+    val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
     val reconnectMode by viewModel.reconnectMode.collectAsStateWithLifecycle()
     val terminalFontSize by viewModel.terminalFontSize.collectAsStateWithLifecycle()
     val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsStateWithLifecycle()
@@ -83,6 +85,7 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showChatDensityPicker by remember { mutableStateOf(false) }
     var showMessageCountDialog by remember { mutableStateOf(false) }
+    var showRecentDirectoryCountDialog by remember { mutableStateOf(false) }
     var showReconnectModeDialog by remember { mutableStateOf(false) }
     var showTerminalFontSizeDialog by remember { mutableStateOf(false) }
     var showImageMaxSideDialog by remember { mutableStateOf(false) }
@@ -143,6 +146,7 @@ fun SettingsScreen(
                 onShowImageMaxSideDialog = { showImageMaxSideDialog = true },
                 onShowImageQualityDialog = { showImageQualityDialog = true },
                 onShowTerminalFontSizeDialog = { showTerminalFontSizeDialog = true },
+                onShowRecentDirectoryCountDialog = { showRecentDirectoryCountDialog = true },
             )
 
             // ======== Advanced ========
@@ -228,6 +232,17 @@ fun SettingsScreen(
                     showMessageCountDialog = false
                 },
                 onDismiss = { showMessageCountDialog = false }
+            )
+        }
+
+        if (showRecentDirectoryCountDialog) {
+            RecentDirectoryCountDialog(
+                currentCount = recentDirectoryCount,
+                onCountSelected = { count ->
+                    viewModel.setRecentDirectoryCount(count)
+                    showRecentDirectoryCountDialog = false
+                },
+                onDismiss = { showRecentDirectoryCountDialog = false }
             )
         }
 

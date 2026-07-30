@@ -39,6 +39,7 @@ class SettingsViewModel @Inject constructor(
     val chatDensity = settings.map { it.chatDensity }.stateIn(viewModelScope, SharingStarted.Eagerly, "normal")
     val notificationsEnabled = settings.map { it.notificationsEnabled }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val initialMessageCount = settings.map { it.initialMessageCount }.stateIn(viewModelScope, SharingStarted.Eagerly, 50)
+    val recentDirectoryCount = settings.map { it.recentDirectoryCount }.stateIn(viewModelScope, SharingStarted.Eagerly, 20)
     val codeWordWrap = settings.map { it.codeWordWrap }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val confirmBeforeSend = settings.map { it.confirmBeforeSend }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val amoledDark = settings.map { it.amoledDark }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -106,6 +107,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setInitialMessageCount(count: Int) {
         updateSetting { it.copy(initialMessageCount = count) }
+    }
+
+    fun setRecentDirectoryCount(count: Int) {
+        updateSetting { it.copy(recentDirectoryCount = count) }
     }
 
     fun setCodeWordWrap(enabled: Boolean) {

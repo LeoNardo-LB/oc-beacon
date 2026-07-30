@@ -26,6 +26,7 @@ import dev.leonardo.ocremoteplus.domain.model.McpServerStatus
 import dev.leonardo.ocremoteplus.domain.repository.DraftRepository
 import dev.leonardo.ocremoteplus.domain.repository.McpRepository
 import dev.leonardo.ocremoteplus.domain.usecase.DeleteSessionUseCase
+import dev.leonardo.ocremoteplus.domain.usecase.GetSettingsFlowUseCase
 import dev.leonardo.ocremoteplus.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.TreeNode
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.buildTreeNodes
@@ -38,6 +39,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.async
@@ -55,6 +57,7 @@ enum class SessionViewMode { FOLDER, RECENT }
 
 data class SessionListUiState(
     val treeNodes: List<TreeNode> = emptyList(),
+    val sessions: List<Session> = emptyList(),
     val serverName: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -86,7 +89,8 @@ class SessionListViewModel @Inject constructor(
     private val deleteSessionUseCase: DeleteSessionUseCase,
     private val draftRepository: DraftRepository,
     private val mcpRepository: McpRepository,
-    private val scrollSignal: SessionScrollSignal
+    private val scrollSignal: SessionScrollSignal,
+    private val getSettingsFlowUseCase: GetSettingsFlowUseCase
 ) : ViewModel() {
 
     companion object {
@@ -241,6 +245,7 @@ class SessionListViewModel @Inject constructor(
 
         SessionListUiState(
             treeNodes = treeNodes,
+            sessions = filteredSessions,
             serverName = serverName,
             isLoading = isLoading,
             error = error,
@@ -253,6 +258,11 @@ class SessionListViewModel @Inject constructor(
             searchQuery = searchQuery,
         )
     }.stateIn(viewModelScope, WhileSubscribed5s, SessionListUiState())
+
+    /** Max number of recent directories shown in the quick new-session dialog. */
+    val recentDirectoryCount: StateFlow<Int> = getSettingsFlowUseCase()
+        .map { it.recentDirectoryCount }
+        .stateIn(viewModelScope, WhileSubscribed5s, 20)
 
     init {
         loadSessions()

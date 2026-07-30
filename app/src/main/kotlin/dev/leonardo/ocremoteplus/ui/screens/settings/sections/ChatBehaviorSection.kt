@@ -3,6 +3,7 @@ package dev.leonardo.ocremoteplus.ui.screens.settings.sections
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PhotoSizeSelectLarge
 import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.filled.Send
@@ -32,11 +33,13 @@ import kotlin.math.roundToInt
 fun ChatBehaviorSection(
     viewModel: SettingsViewModel,
     onShowMessageCountDialog: () -> Unit,
+    onShowRecentDirectoryCountDialog: () -> Unit,
     onShowImageMaxSideDialog: () -> Unit,
     onShowImageQualityDialog: () -> Unit,
     onShowTerminalFontSizeDialog: () -> Unit,
 ) {
     val initialMessageCount by viewModel.initialMessageCount.collectAsStateWithLifecycle()
+    val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
     val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
     val hapticFeedback by viewModel.hapticFeedback.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
@@ -56,6 +59,17 @@ fun ChatBehaviorSection(
             Icon(Icons.Default.Storage, contentDescription = stringResource(R.string.a11y_settings_initial_messages))
         },
         modifier = Modifier.clickable { onShowMessageCountDialog() }.padding(ListItemTokens.ContentPaddingMedium)
+    )
+
+    // Recent directory count (quick new-session dialog)
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_recent_directory_count)) },
+        supportingContent = { Text(stringResource(R.string.settings_recent_directory_count_desc)) },
+        trailingContent = { Text("$recentDirectoryCount") },
+        leadingContent = {
+            Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.a11y_settings_recent_directory_count))
+        },
+        modifier = Modifier.clickable { onShowRecentDirectoryCountDialog() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
     // Confirm before send

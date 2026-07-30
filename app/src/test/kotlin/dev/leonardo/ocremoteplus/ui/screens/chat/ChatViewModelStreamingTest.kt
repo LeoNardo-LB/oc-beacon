@@ -61,6 +61,7 @@ class ChatViewModelStreamingTest {
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
+    private val pendingPromptRepository = mockk<dev.leonardo.ocremoteplus.data.repository.PendingPromptRepository>(relaxed = true)
 
     private val messagesFlow = MutableStateFlow<List<Message>>(emptyList())
     private val partsFlow = MutableStateFlow<Map<String, List<dev.leonardo.ocremoteplus.domain.model.Part>>>(emptyMap())
@@ -219,7 +220,8 @@ class ChatViewModelStreamingTest {
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             appNotificationManager = appNotificationManager,
-            toolSnapshotCache = toolSnapshotCache
+            toolSnapshotCache = toolSnapshotCache,
+            pendingPromptRepository = pendingPromptRepository
         )
     }
 

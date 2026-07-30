@@ -382,6 +382,10 @@
     <string name="settings_notifications_desc">Notify when agent completes a task</string>
 
     <string name="settings_initial_messages">Initial messages to load</string>
+    <string name="settings_recent_directory_count">Recent directories in new session</string>
+    <string name="settings_recent_directory_count_value">%d directories</string>
+    <string name="settings_recent_directory_count_desc">Number of recent directories shown in the quick new-session dialog (5–50)</string>
+    <string name="a11y_settings_recent_directory_count">Recent directories</string>
     <string name="settings_code_word_wrap">Word wrap in code blocks</string>
     <string name="settings_code_word_wrap_desc">Wrap long lines instead of horizontal scrolling</string>
     <string name="settings_confirm_send">Confirm before sending</string>

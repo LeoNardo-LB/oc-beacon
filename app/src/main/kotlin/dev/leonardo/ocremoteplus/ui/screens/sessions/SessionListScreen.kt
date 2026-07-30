@@ -90,6 +90,7 @@ import dev.leonardo.ocremoteplus.ui.screens.sessions.components.SessionRow
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.TreeNode
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.isAmoledTheme
 import dev.leonardo.ocremoteplus.ui.screens.sessions.components.OpenProjectDialog
+import dev.leonardo.ocremoteplus.ui.screens.sessions.components.NewSessionQuickDialog
 import dev.leonardo.ocremoteplus.ui.theme.AlphaTokens
 import dev.leonardo.ocremoteplus.ui.theme.ShapeTokens
 import kotlinx.coroutines.launch
@@ -112,6 +113,7 @@ fun SessionListScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
     val isAmoled = isAmoledTheme()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -126,6 +128,7 @@ fun SessionListScreen(
     var deleteSessionId by remember { mutableStateOf("") }
     var deleteSessionTitle by remember { mutableStateOf("") }
     var showOpenProject by remember { mutableStateOf(false) }
+    var showQuickNewSession by remember { mutableStateOf(false) }
     var showBaseDirDialog by remember { mutableStateOf(false) }
 
     val pagerState = rememberPagerState(pageCount = { 2 })
@@ -177,7 +180,15 @@ fun SessionListScreen(
                             )
                         }
                         // New session
-                        IconButton(onClick = { showOpenProject = true }) {
+                        IconButton(onClick = {
+                            // If there are known sessions, show the quick dialog first;
+                            // otherwise go straight to the full directory browser.
+                            if (uiState.sessions.isNotEmpty()) {
+                                showQuickNewSession = true
+                            } else {
+                                showOpenProject = true
+                            }
+                        }) {
                             Icon(
                                 Icons.Default.Add,
                                 contentDescription = stringResource(R.string.sessions_new),
@@ -480,6 +491,23 @@ fun SessionListScreen(
                 onNavigateToNewChat(directory)
             },
             onDismiss = { showOpenProject = false }
+        )
+    }
+
+    // Quick new-session dialog (recent directories)
+    if (showQuickNewSession) {
+        NewSessionQuickDialog(
+            sessions = uiState.sessions,
+            limit = recentDirectoryCount,
+            onSelectDirectory = { directory ->
+                showQuickNewSession = false
+                onNavigateToNewChat(directory)
+            },
+            onBrowse = {
+                showQuickNewSession = false
+                showOpenProject = true
+            },
+            onDismiss = { showQuickNewSession = false }
         )
     }
 

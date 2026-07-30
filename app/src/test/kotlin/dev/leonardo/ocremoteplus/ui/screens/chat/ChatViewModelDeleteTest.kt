@@ -66,6 +66,7 @@ class ChatViewModelDeleteTest {
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
+    private val pendingPromptRepository = mockk<dev.leonardo.ocremoteplus.data.repository.PendingPromptRepository>(relaxed = true)
 
     private val testSessionId = "session-123"
     private val testServerId = "server-1"
@@ -243,7 +244,8 @@ class ChatViewModelDeleteTest {
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             appNotificationManager = appNotificationManager,
-            toolSnapshotCache = toolSnapshotCache
+            toolSnapshotCache = toolSnapshotCache,
+            pendingPromptRepository = pendingPromptRepository
         )
     }
 
