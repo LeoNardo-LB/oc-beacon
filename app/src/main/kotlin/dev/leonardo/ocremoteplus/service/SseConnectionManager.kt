@@ -16,6 +16,7 @@ import dev.leonardo.ocremoteplus.domain.model.Project
 import dev.leonardo.ocremoteplus.domain.model.ServerConfig
 import dev.leonardo.ocremoteplus.domain.model.SseEvent
 import dev.leonardo.ocremoteplus.data.repository.SettingsDataStore
+import dev.leonardo.ocremoteplus.logging.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -398,9 +399,11 @@ class SseConnectionManager @Inject constructor(
         if (connected) {
             _connectingServerIds.update { it - serverId }
             _connectedServerIds.update { it + serverId }
+            AppLogger.i(TAG, "Connected to server $serverId")
         } else {
             _connectedServerIds.update { it - serverId }
             _connectingServerIds.update { it + serverId }
+            AppLogger.w(TAG, "Disconnected from server $serverId")
         }
     }
 
