@@ -40,16 +40,16 @@ Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.**
 
 ```
 domain/          Pure Kotlin, no Android deps
-  model/         13 data classes (SseEvent, Message, Part, Session, AppSettings, etc.)
-  repository/    4 interfaces (Chat, Session, Server, Settings)
-  usecase/       21 UseCases — ViewModel calls these, not API directly
+  model/         40+ data classes and value types (SseEvent, Message, Part, Session, AppSettings, SessionCategory, FavoriteSessionSnapshot, etc.)
+  repository/    15 interfaces (Chat, Session, Server, Settings, File, Vcs, Terminal, Provider, Draft, Agent, Mcp, LocalServer, etc.)
+  usecase/       30 UseCases — ViewModel calls these, not API directly
 
 data/            Android-aware implementations
   api/           OpenCodeApi.kt (Ktor HTTP), SseClient.kt, ServerConnection.kt
   dto/           API data transfer objects (request/ response/ common/)
   mapper/        DTO ↔ Domain Model converters
   repository/    Impl classes + EventDispatcher + EventHandler strategy pattern
-    handler/     5 event handlers (Session, Message, Permission, Question, Misc)
+    handler/     10 event handlers (Session, Message×4, SessionNext, Permission, Question, Misc)
                  + DiagnosticLogDatabase/Repository (SQLite, auto-prune, privacy sanitize)
                  + PendingPromptRepository (file-based JSON, optimistic message persistence)
                  + CrossServerSessionsAggregator (REST-based per-server session aggregation)
@@ -65,7 +65,7 @@ service/         Android foreground service
 
 ui/
   theme/              Design token system
-    Alpha.kt          5-level semantic alpha tokens (FAINT/MUTED/MEDIUM/HIGH/AMOLED)
+    Alpha.kt          7-level semantic alpha tokens (SELECTED/DIFF_BG/FAINT/MUTED/MEDIUM/HIGH/AMOLED)
     Color.kt          Brand color constants + semantic DiffAdded/DiffRemoved
     Motion.kt         Duration tokens + easing constants
     Shape.kt          AppShapes (Material) + ShapeTokens (component-level)
@@ -80,7 +80,7 @@ ui/
     tools/           Tool-call expandable cards
     util/            Chat-specific utilities
   screens/home/      HomeScreen + server cards + local runtime
-  screens/sessions/  SessionListScreen + components
+  screens/sessions/  SessionListScreen + CrossServerSessionsScreen + components
   screens/settings/  SettingsScreen + picker dialogs + DiagnosticsScreen
   screens/server/    Server settings/providers/model filter
   screens/about/     About screen
@@ -175,8 +175,8 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 
 - **`version.properties`** at project root（唯一来源）:
   ```properties
-  VERSION_CODE=10
-  VERSION_NAME=1.0.1
+  VERSION_CODE=104
+  VERSION_NAME=1.0.7-beta.2
   ```
 - `VERSION_CODE`：整数，**永远只增不减**，每次构建 +1。Android 用此判断更新顺序。
 - `VERSION_NAME`：显示字符串，遵循上述 SemVer 格式。
