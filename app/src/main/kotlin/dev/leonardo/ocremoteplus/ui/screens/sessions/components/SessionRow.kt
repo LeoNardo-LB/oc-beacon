@@ -67,6 +67,8 @@ internal fun SessionRow(
     onDelete: () -> Unit,
     onCopyId: (String) -> Unit = {},
     onAssignCategory: () -> Unit = {},
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier,
     showDirectory: Boolean = false,
 ) {
@@ -238,6 +240,11 @@ internal fun SessionRow(
                 showDetailsDialog = false
                 onAssignCategory()
             },
+            isFavorite = isFavorite,
+            onToggleFavorite = {
+                showDetailsDialog = false
+                onToggleFavorite()
+            },
             isAmoled = isAmoled,
         )
     }
@@ -252,6 +259,8 @@ private fun SessionDetailsDialog(
     onDelete: () -> Unit,
     onCopyId: () -> Unit,
     onAssignCategory: () -> Unit,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     @Suppress("UNUSED_PARAMETER") isAmoled: Boolean,
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
@@ -311,6 +320,7 @@ private fun SessionDetailsDialog(
                     buttons = listOf(
                         Triple(stringResource(R.string.menu_copy_session_id), DialogButtonRole.Primary, onCopyId),
                         Triple("分配分类", DialogButtonRole.Primary) { onDismiss(); onAssignCategory() },
+                        Triple(if (isFavorite) "取消收藏" else "收藏", DialogButtonRole.Primary) { onDismiss(); onToggleFavorite() },
                         Triple(stringResource(R.string.session_rename), DialogButtonRole.Primary) { onDismiss(); onRename() },
                         Triple(stringResource(R.string.session_delete), DialogButtonRole.Danger) { onDismiss(); onDelete() },
                     )

@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TerminalKeyboardOverlay(
-    connected: Boolean,
     ctrlLatched: Boolean,
     altLatched: Boolean,
     cursorApp: Boolean,

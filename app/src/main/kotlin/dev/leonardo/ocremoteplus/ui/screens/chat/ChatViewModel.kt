@@ -19,6 +19,7 @@ import dev.leonardo.ocremoteplus.domain.model.ProviderCatalog
 import dev.leonardo.ocremoteplus.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocremoteplus.data.repository.SessionStateService
 import dev.leonardo.ocremoteplus.ui.screens.chat.tools.ToolCardResolver
+import dev.leonardo.ocremoteplus.ui.screens.chat.terminal.TerminalTabState
 import dev.leonardo.ocremoteplus.ui.screens.chat.util.ContextBreakdown
 import dev.leonardo.ocremoteplus.ui.screens.chat.util.ContextDetailState
 import dev.leonardo.ocremoteplus.ui.screens.chat.util.MessageCount
@@ -373,7 +374,7 @@ class ChatViewModel @Inject constructor(
     val activeTerminalTabId: StateFlow<String?> get() = terminalDelegate.activeTerminalTabId
     /** Incremented on active terminal tab updates — observe to trigger recomposition. */
     val terminalVersion: StateFlow<Long> get() = terminalDelegate.terminalVersion
-    val terminalConnected: StateFlow<Boolean> get() = terminalDelegate.terminalConnected
+    val terminalState: StateFlow<TerminalTabState> get() = terminalDelegate.terminalState
     val terminalFontSizeSp: StateFlow<Float> get() = terminalDelegate.terminalFontSizeSp
     val terminalEmulator: org.connectbot.terminal.TerminalEmulator get() = terminalDelegate.terminalEmulator
     val terminalCursorKeysAppMode: Boolean get() = terminalDelegate.terminalCursorKeysAppMode

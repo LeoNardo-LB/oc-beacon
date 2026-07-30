@@ -20,7 +20,9 @@ import dev.leonardo.ocremoteplus.domain.model.ServerConnection
 import dev.leonardo.ocremoteplus.data.repository.EventDispatcher
 import dev.leonardo.ocremoteplus.data.repository.SessionStateService
 import dev.leonardo.ocremoteplus.domain.model.Project
+import dev.leonardo.ocremoteplus.domain.model.FavoriteSessionSnapshot
 import dev.leonardo.ocremoteplus.domain.model.Session
+import dev.leonardo.ocremoteplus.domain.model.favoriteKey
 import dev.leonardo.ocremoteplus.domain.model.SessionCategory
 import dev.leonardo.ocremoteplus.domain.model.SessionStatus
 import dev.leonardo.ocremoteplus.domain.model.McpServerStatus
@@ -161,6 +163,10 @@ class SessionListViewModel @Inject constructor(
     /** Global category list for picker / filter chips. */
     val sessionCategories: StateFlow<List<SessionCategory>> = settingsRepository.sessionCategories()
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
+
+    /** Favorited session ids for the current server (drives the star toggle in SessionRow). */
+    val favoriteSessionIds: StateFlow<Set<String>> = settingsRepository.favoriteSessionIds(serverId)
+        .stateIn(viewModelScope, WhileSubscribed5s, emptySet())
 
     private val _mcpServers = MutableStateFlow<List<McpServerStatus>>(emptyList())
     val mcpServers: StateFlow<List<McpServerStatus>> = _mcpServers.asStateFlow()
@@ -318,6 +324,20 @@ class SessionListViewModel @Inject constructor(
     /** Assign a session to a category for the current server. */
     fun assignCategory(sessionId: String, categoryId: String) {
         viewModelScope.launch { settingsRepository.assignSessionCategory(serverId, sessionId, categoryId) }
+    }
+
+    /** Toggle cross-server favorite for a session on the current server. */
+    fun toggleFavorite(session: Session) {
+        viewModelScope.launch {
+            val key = favoriteKey(serverId, session.id)
+            if (session.id in favoriteSessionIds.value) {
+                settingsRepository.removeFavoriteSession(serverId, session.id)
+                settingsRepository.setCrossServerFavoriteOrderItem(key, favorite = false)
+            } else {
+                settingsRepository.addFavoriteSession(serverId, session.id, FavoriteSessionSnapshot.from(session))
+                settingsRepository.setCrossServerFavoriteOrderItem(key, favorite = true)
+            }
+        }
     }
 
     /** Remove a session's category assignment for the current server. */

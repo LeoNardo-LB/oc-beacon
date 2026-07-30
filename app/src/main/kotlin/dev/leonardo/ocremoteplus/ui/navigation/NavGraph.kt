@@ -31,6 +31,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dev.leonardo.ocremoteplus.ui.screens.chat.ChatScreen
 import dev.leonardo.ocremoteplus.ui.screens.chat.ChatViewModel
 import dev.leonardo.ocremoteplus.ui.screens.home.HomeRoute
+import dev.leonardo.ocremoteplus.ui.screens.sessions.CrossServerSessionsScreen
 import dev.leonardo.ocremoteplus.ui.screens.sessions.SessionListRoute
 import dev.leonardo.ocremoteplus.ui.screens.server.ServerModelFilterRoute
 import dev.leonardo.ocremoteplus.ui.screens.server.ServerProvidersRoute
@@ -282,6 +283,33 @@ fun NavGraph(
             )
         }
 
+        // ============ Cross-Server Favorites Screen ============
+        composable(CrossServerFavoritesNav.route) {
+            CrossServerSessionsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onOpenSession = { item ->
+                    scope.launch {
+                        val server = serverRepository.getServer(item.serverId) ?: return@launch
+                        navController.navigate(
+                            ChatNav.createRoute(
+                                serverUrl = server.url,
+                                username = server.username,
+                                password = server.password ?: "",
+                                serverName = server.displayName,
+                                serverId = server.id,
+                                sessionId = item.sessionId,
+                            )
+                        )
+                    }
+                },
+                onConnectServer = { serverId ->
+                    scope.launch {
+                        serverRepository.getServer(serverId)?.let { serverRepository.connect(it) }
+                    }
+                },
+            )
+        }
+
         // ============ Server Settings Screen ============
         composable(
             route = ServerSettingsNav.routePattern,
@@ -401,6 +429,9 @@ fun NavGraph(
                 },
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToFavorites = {
+                    navController.navigate(CrossServerFavoritesNav.route)
                 }
             )
         }

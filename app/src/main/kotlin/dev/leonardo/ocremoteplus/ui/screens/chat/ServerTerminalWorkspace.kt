@@ -6,10 +6,14 @@ import dev.leonardo.ocremoteplus.data.api.terminal.TerminalApi
 import dev.leonardo.ocremoteplus.data.dto.common.PtySocket
 import dev.leonardo.ocremoteplus.data.terminal.PtyToTermlibAdapter
 import dev.leonardo.ocremoteplus.domain.model.ServerConnection
+import dev.leonardo.ocremoteplus.ui.screens.chat.terminal.RecoveryAction
+import dev.leonardo.ocremoteplus.ui.screens.chat.terminal.TerminalTabState
+import dev.leonardo.ocremoteplus.ui.screens.chat.terminal.terminalRecoveryAction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -21,11 +25,13 @@ private val RECONNECT_BACKOFF_MS = longArrayOf(1_000L, 2_000L, 5_000L, 10_000L, 
 private const val DEFAULT_TERMINAL_FONT_SIZE_SP = 13f
 private const val DEFAULT_ROWS = 24
 private const val DEFAULT_COLS = 80
+/** Debounce window for coalescing high-frequency PTY resize requests (e.g. pinch-zoom). */
+private const val RESIZE_DEBOUNCE_MS = 120L
 
 data class TerminalTabUi(
     val id: String,
     val title: String,
-    val connected: Boolean,
+    val state: TerminalTabState,
 )
 
 internal class ServerTerminalWorkspace(
@@ -43,8 +49,12 @@ internal class ServerTerminalWorkspace(
         var readerJob: Job? = null,
         var reconnectJob: Job? = null,
         var reconnectAttempt: Int = 0,
-        var connected: Boolean = false,
+        var state: TerminalTabState = TerminalTabState.Starting,
         var lastSize: Pair<Int, Int>? = null,
+        // Resize debounce: latest pending (cols, rows) awaiting coalesced send.
+        var pendingResize: Pair<Int, Int>? = null,
+        // Active debounce coroutine; null when no resize is pending.
+        var resizeJob: Job? = null,
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -61,8 +71,8 @@ internal class ServerTerminalWorkspace(
     private val _activeVersion = MutableStateFlow(0L)
     val activeVersion: StateFlow<Long> = _activeVersion
 
-    private val _activeConnected = MutableStateFlow(false)
-    val activeConnected: StateFlow<Boolean> = _activeConnected
+    private val _activeState = MutableStateFlow(TerminalTabState.Starting)
+    val activeState: StateFlow<TerminalTabState> = _activeState
 
     private val _activeFontSizeSp = MutableStateFlow(DEFAULT_TERMINAL_FONT_SIZE_SP)
     val activeFontSizeSp: StateFlow<Float> = _activeFontSizeSp
@@ -254,49 +264,84 @@ internal class ServerTerminalWorkspace(
 
     fun resizeActive(cols: Int, rows: Int) {
         if (cols <= 0 || rows <= 0) return
-        val tab = synchronized(lock) { activeTabLocked() } ?: return
-
-        if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: cols=$cols rows=$rows ptyId=${tab.ptyId} lastSize=${tab.lastSize} connected=${tab.connected} tabDir=${tab.directory}")
-
-        // termlib's resize takes (rows, cols) — opposite order from the old API.
-        tab.adapter.resize(rows = rows, cols = cols)
-        if (_activeTabId.value == tab.id) {
-            _activeVersion.value = tab.adapter.version.value
-        }
-
-        val ptyId = tab.ptyId ?: run {
-            android.util.Log.w("TerminalZoom", "resizeActive: no ptyId, skipping server resize")
-            return
-        }
         val size = cols to rows
-        if (tab.lastSize == size && tab.connected) {
-        if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: dedup, same size and connected")
-            return
-        }
-        tab.lastSize = size
-        if (!tab.connected) {
-            if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: not connected, skipping server resize")
-            return
-        }
+        synchronized(lock) {
+            val tab = activeTabLocked() ?: return
 
-        // Use the directory stored on the tab (the one used when creating the PTY)
-        // rather than the caller's sessionDirectory, which may differ if loadSession()
-        // completed after the PTY was created.
-        val tabDirectory = tab.directory
-        if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: sending updatePtySize cols=$cols rows=$rows dir=$tabDirectory")
-        scope.launch {
+            if (BuildConfig.DEBUG) android.util.Log.d(
+                "TerminalZoom",
+                "resizeActive: cols=$cols rows=$rows ptyId=${tab.ptyId} lastSize=${tab.lastSize} state=${tab.state} tabDir=${tab.directory}"
+            )
+
+            // termlib's resize takes (rows, cols) — opposite order from the old API.
+            // Local emulator resize is immediate so the UI reacts without waiting on the network.
+            tab.adapter.resize(rows = rows, cols = cols)
+            if (_activeTabId.value == tab.id) {
+                _activeVersion.value = tab.adapter.version.value
+            }
+
+            // Dedup identical sizes already acknowledged by the server while connected.
+            if (tab.lastSize == size && tab.state == TerminalTabState.Connected) {
+                if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: dedup, same size and connected")
+                return
+            }
+
+            // Coalesce high-frequency resize requests (pinch-zoom fires every frame):
+            // record the latest size and let [resizeLoop] send a single update after the
+            // debounce window, rather than hitting the server on every frame.
+            scheduleResizeLocked(tab, size)
+        }
+    }
+
+    /**
+     * Records the pending resize for [tab] and ensures exactly one [resizeLoop] is draining
+     * the pending slot. Must be called while holding [lock].
+     */
+    private fun scheduleResizeLocked(tab: RuntimeTab, size: Pair<Int, Int>) {
+        tab.pendingResize = size
+        if (tab.resizeJob?.isActive != true) {
+            tab.resizeJob = scope.launch { resizeLoop(tab.id) }
+        }
+    }
+
+    /**
+     * Debounce drain loop for PTY resize. Waits [RESIZE_DEBOUNCE_MS], then sends the latest
+     * pending size in a single [TerminalApi.updatePtySize] call. If more resizes arrive while
+     * the network call is in flight, the loop repeats. Exits once no pending resize remains.
+     */
+    private suspend fun resizeLoop(tabId: String) {
+        while (true) {
+            delay(RESIZE_DEBOUNCE_MS)
+            val snapshot = synchronized(lock) {
+                val tab = tabs.firstOrNull { it.id == tabId } ?: return
+                val pending = tab.pendingResize ?: return
+                tab.pendingResize = null
+                ResizeReq(pending, tab.ptyId, tab.directory, tab.state)
+            }
+            // Only forward to the server when the socket is live.
+            if (snapshot.state != TerminalTabState.Connected || snapshot.ptyId == null) continue
+            if (BuildConfig.DEBUG) android.util.Log.d(
+                "TerminalZoom",
+                "resizeLoop: sending updatePtySize cols=${snapshot.size.first} rows=${snapshot.size.second} dir=${snapshot.directory}"
+            )
             try {
                 val ok = api.updatePtySize(
                     conn = conn,
-                    ptyId = ptyId,
-                    cols = cols,
-                    rows = rows,
-                    directory = tabDirectory,
+                    ptyId = snapshot.ptyId,
+                    cols = snapshot.size.first,
+                    rows = snapshot.size.second,
+                    directory = snapshot.directory,
                 )
-                if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: updatePtySize result=$ok")
-                if (!ok) Log.w(WORKSPACE_TAG, "Resize rejected for tab ${tab.id}")
+                if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeLoop: updatePtySize result=$ok")
+                if (ok) {
+                    synchronized(lock) {
+                        tabs.firstOrNull { it.id == tabId }?.lastSize = snapshot.size
+                    }
+                } else {
+                    Log.w(WORKSPACE_TAG, "Resize rejected for tab $tabId")
+                }
             } catch (e: Exception) {
-                Log.w(WORKSPACE_TAG, "Failed to resize tab ${tab.id}: ${cols}x$rows", e)
+                Log.w(WORKSPACE_TAG, "Failed to resize tab $tabId: ${snapshot.size.first}x${snapshot.size.second}", e)
             }
         }
     }
@@ -304,13 +349,26 @@ internal class ServerTerminalWorkspace(
     fun reconnectTab(tabId: String, onResult: (Boolean) -> Unit = {}) {
         val scheduled = synchronized(lock) {
             val tab = tabs.firstOrNull { it.id == tabId } ?: return@synchronized false
-            if (tab.connected) return@synchronized true
-            if (tab.ptyId == null) return@synchronized false
-            if (tab.reconnectJob?.isActive == true) return@synchronized true
-            tab.reconnectJob = scope.launch {
-                reconnectLoop(tabId = tab.id, immediate = true, onFirstResult = null)
+            // Decide recovery from the tab state and whether the PTY is missing.
+            val action = terminalRecoveryAction(tab.state, isMissingPty = tab.ptyId == null)
+            when (action) {
+                RecoveryAction.None -> return@synchronized true
+                RecoveryAction.Reconnect -> {
+                    if (tab.reconnectJob?.isActive == true) return@synchronized true
+                    tab.reconnectJob = scope.launch {
+                        reconnectLoop(tabId = tab.id, immediate = true, onFirstResult = null)
+                    }
+                    true
+                }
+                RecoveryAction.Restart -> {
+                    // PTY is gone (or never created); recreate it on the same tab.
+                    if (tab.reconnectJob?.isActive == true) return@synchronized true
+                    tab.reconnectJob = scope.launch {
+                        restartLoop(tabId = tab.id)
+                    }
+                    true
+                }
             }
-            true
         }
         onResult(scheduled)
     }
@@ -350,7 +408,7 @@ internal class ServerTerminalWorkspace(
 
     private fun bindConnectedSocketLocked(tab: RuntimeTab, socket: PtySocket) {
         tab.socket = socket
-        tab.connected = true
+        tab.state = TerminalTabState.Connected
         tab.reconnectAttempt = 0
         tab.reconnectJob?.cancel()
         tab.reconnectJob = null
@@ -402,7 +460,9 @@ internal class ServerTerminalWorkspace(
             val tab = tabs.firstOrNull { it.id == tabId } ?: return
             if (tab.socket !== socket) return
             tab.socket = null
-            tab.connected = false
+            // PTY still exists → a reconnect can reuse it (Reconnecting);
+            // no ptyId → PTY is gone, must be recreated (Exited).
+            tab.state = if (tab.ptyId != null) TerminalTabState.Reconnecting else TerminalTabState.Exited
             tab.readerJob = null
             tab.adapter.bind(null)
             publishTabsLocked()
@@ -421,7 +481,7 @@ internal class ServerTerminalWorkspace(
         while (true) {
             val snapshot = synchronized(lock) {
                 val tab = tabs.firstOrNull { it.id == tabId } ?: return
-                if (tab.connected) {
+                if (tab.state == TerminalTabState.Connected) {
                     tab.reconnectJob = null
                     if (firstAttempt) onFirstResult?.invoke(true)
                     return
@@ -468,20 +528,93 @@ internal class ServerTerminalWorkspace(
         }
     }
 
+    /**
+     * Recovery path when the PTY itself is gone: recreates the PTY on [tabId] (preserving the
+     * tab, its directory and termlib buffer), then binds a fresh socket. Retries with backoff,
+     * marking the tab [TerminalTabState.Disconnected] on failure so the user can retry manually.
+     */
+    private suspend fun restartLoop(tabId: String) {
+        var firstAttempt = true
+        while (true) {
+            val snapshot = synchronized(lock) {
+                val tab = tabs.firstOrNull { it.id == tabId } ?: return
+                if (tab.state == TerminalTabState.Connected) {
+                    tab.reconnectJob = null
+                    return
+                }
+                tab.state = TerminalTabState.Starting
+                publishTabsLocked()
+                TabSeed(tab.title, tab.directory, tab.reconnectAttempt)
+            }
+
+            val delayMs = if (firstAttempt) {
+                0L
+            } else {
+                RECONNECT_BACKOFF_MS[snapshot.attempt.coerceIn(0, RECONNECT_BACKOFF_MS.lastIndex)]
+            }
+            if (delayMs > 0) delay(delayMs)
+
+            try {
+                val info = api.createPty(
+                    conn = conn,
+                    title = snapshot.title,
+                    cwd = snapshot.directory,
+                    directory = snapshot.directory,
+                )
+                val socket = api.openPtySocket(conn, info.id, cursor = 0, directory = snapshot.directory)
+                synchronized(lock) {
+                    val tab = tabs.firstOrNull { it.id == tabId }
+                    if (tab == null) {
+                        scope.launch { socket.close() }
+                        return@synchronized
+                    }
+                    tab.ptyId = info.id
+                    bindConnectedSocketLocked(tab, socket)
+                }
+                publishActiveState()
+                return
+            } catch (e: Exception) {
+                Log.w(WORKSPACE_TAG, "Restart failed for tab $tabId", e)
+                synchronized(lock) {
+                    val tab = tabs.firstOrNull { it.id == tabId } ?: return
+                    tab.state = TerminalTabState.Disconnected
+                    tab.reconnectAttempt += 1
+                    publishTabsLocked()
+                }
+                firstAttempt = false
+            }
+        }
+    }
+
     private fun publishTabsLocked() {
-        _tabList.value = tabs.map { TerminalTabUi(it.id, it.title, it.connected) }
+        _tabList.value = tabs.map { TerminalTabUi(it.id, it.title, it.state) }
     }
 
     private fun publishActiveState() {
         val active = synchronized(lock) { activeTabLocked() }
         if (active == null) {
-            _activeConnected.value = false
+            _activeState.value = TerminalTabState.Exited
             _activeVersion.value = 0L
             _activeFontSizeSp.value = defaultFontSizeSp
             return
         }
-        _activeConnected.value = active.connected
+        _activeState.value = active.state
         _activeVersion.value = active.adapter.version.value
         _activeFontSizeSp.value = active.fontSizeSp
     }
 }
+
+/** Snapshot of a pending resize request handed off from the lock to [resizeLoop]. */
+private data class ResizeReq(
+    val size: Pair<Int, Int>,
+    val ptyId: String?,
+    val directory: String?,
+    val state: TerminalTabState,
+)
+
+/** Snapshot of tab identity needed to recreate a PTY in [restartLoop]. */
+private data class TabSeed(
+    val title: String,
+    val directory: String?,
+    val attempt: Int,
+)

@@ -36,7 +36,6 @@ private const val TAG = "SessionTerminalInline"
 @Composable
 internal fun SessionTerminalInline(
     emulator: TerminalEmulator,
-    connected: Boolean,
     focusRequester: FocusRequester,
     onSendInput: (String) -> Unit,
     onPaste: () -> Unit,

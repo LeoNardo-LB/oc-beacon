@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import dev.leonardo.ocremoteplus.ui.screens.chat.terminal.TerminalTabState
 import org.connectbot.terminal.TerminalEmulator
 
 private const val TERMINAL_DELEGATE_TAG = "TerminalDelegate"
@@ -64,7 +65,7 @@ internal class TerminalDelegate(
     val activeTerminalTabId: StateFlow<String?> = terminalWorkspace.activeTabId
     /** Incremented on active terminal tab updates — observe to trigger recomposition. */
     val terminalVersion: StateFlow<Long> = terminalWorkspace.activeVersion
-    val terminalConnected: StateFlow<Boolean> = terminalWorkspace.activeConnected
+    val terminalState: StateFlow<TerminalTabState> = terminalWorkspace.activeState
     val terminalFontSizeSp: StateFlow<Float> = terminalWorkspace.activeFontSizeSp
     val terminalEmulator: TerminalEmulator get() = terminalWorkspace.activeEmulator()
     val terminalCursorKeysAppMode: Boolean get() = terminalWorkspace.activeAdapter().cursorKeysApplicationMode.value

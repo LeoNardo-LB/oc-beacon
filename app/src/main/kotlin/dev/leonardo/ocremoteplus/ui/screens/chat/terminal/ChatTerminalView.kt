@@ -78,7 +78,7 @@ fun ChatTerminalView(
     onNavigateBack: () -> Unit,
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
 ) {
-    val terminalConnected by viewModel.terminalConnected.collectAsStateWithLifecycle()
+    val terminalState by viewModel.terminalState.collectAsStateWithLifecycle()
     val terminalTabs by viewModel.terminalTabs.collectAsStateWithLifecycle()
     val activeTerminalTabId by viewModel.activeTerminalTabId.collectAsStateWithLifecycle()
     val terminalFontSizeSp by viewModel.terminalFontSizeSp.collectAsStateWithLifecycle()
@@ -187,15 +187,15 @@ fun ChatTerminalView(
     }
 
     // ── Focus requester ─────────────────────────────────────────────
-    LaunchedEffect(isTerminalMode, terminalConnected) {
-        if (isTerminalMode && terminalConnected) {
+    LaunchedEffect(isTerminalMode, terminalState) {
+        if (isTerminalMode && terminalState == TerminalTabState.Connected) {
             terminalFocusRequester.requestFocus()
         }
     }
 
     // ── Clipboard paste helper ──────────────────────────────────────
     fun pasteClipboardToTerminal() {
-        if (!terminalConnected) return
+        if (terminalState != TerminalTabState.Connected) return
         coroutineScope.launch {
             val clip = clipboard.getClipEntry()?.clipData?.getItemAt(0)?.text ?: return@launch
             if (clip.isEmpty()) return@launch
@@ -386,7 +386,6 @@ fun ChatTerminalView(
         Box(modifier = Modifier.fillMaxSize()) {
             SessionTerminalInline(
                 emulator = viewModel.terminalEmulator,
-                connected = terminalConnected,
                 focusRequester = terminalFocusRequester,
                 onSendInput = ::sendTerminalChunk,
                 onPaste = ::pasteClipboardToTerminal,
@@ -406,7 +405,6 @@ fun ChatTerminalView(
             )
 
             TerminalKeyboardOverlay(
-                connected = terminalConnected,
                 ctrlLatched = terminalCtrlLatched,
                 altLatched = terminalAltLatched,
                 cursorApp = viewModel.terminalCursorKeysAppMode,

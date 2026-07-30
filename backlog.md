@@ -99,12 +99,12 @@
 
 ### upstream-v1.7.0-sync-P2 — 上游 v1.7.0 借鉴（P2 批次，~28h）
 
-- [ ] **#12 CrossServer Favorites** `session` `data` `ui`
+- [x] **#12 CrossServer Favorites** `session` `data` `ui`
   - 需求：跨服务器收藏会话 + 离线快照（FavoriteSessionSnapshot）+ 全局排序 + category 筛选 + 拖拽重排
   - 难点：需 per-server sessions 聚合层（EventDispatcher 当前是单服务器导向），建议在 #6 Categories + #3 grouping 完成后做
   - 工时：~18h | 难度：🔴 | ~1100 行
 
-- [ ] **#13 Terminal 状态机+手势改进** `ui` `sse`
+- [x] **#13 Terminal 状态机+手势改进** `ui` `sse`
   - 需求：TerminalTabState（Starting/Connected/Reconnecting/Disconnected/Exited）+ recoveryAction 纯函数 + resize debounce（120ms）+ 惯性滚动（VelocityTracker）+ pinch zoom
   - 方案：改造 ServerTerminalWorkspace.kt + ChatTerminalView 加 awaitEachGesture + 抽纯函数测试
   - 工时：~10h | 难度：🟡 | ~350 行

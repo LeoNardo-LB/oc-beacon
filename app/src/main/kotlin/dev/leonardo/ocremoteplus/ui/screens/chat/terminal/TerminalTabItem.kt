@@ -82,7 +82,7 @@ internal fun TerminalTabItem(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
-                        if (!tab.connected) {
+                        if (tab.state != TerminalTabState.Connected) {
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.MUTED),
@@ -107,7 +107,7 @@ internal fun TerminalTabItem(
                             }
                         }
                     }
-                    if (!tab.connected) {
+                    if (tab.state != TerminalTabState.Connected) {
                         IconButton(
                             onClick = onReconnect,
                             modifier = Modifier.size(34.dp),

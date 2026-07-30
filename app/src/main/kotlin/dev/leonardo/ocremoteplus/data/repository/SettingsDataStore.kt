@@ -10,7 +10,9 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dev.leonardo.ocremoteplus.domain.model.AppSettings
+import dev.leonardo.ocremoteplus.domain.model.FavoriteSessionSnapshot
 import dev.leonardo.ocremoteplus.domain.model.SessionCategory
+import dev.leonardo.ocremoteplus.domain.model.favoriteKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
@@ -78,6 +80,17 @@ class SettingsDataStore @Inject constructor(
         private val categoryJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
         private val categoryListSerializer = ListSerializer(SessionCategory.serializer())
         private val assignmentMapSerializer = MapSerializer(String.serializer(), String.serializer())
+
+        // ============ Cross-server session favorites ============
+        // Per-server favorite session ids (stringSet). Prefix + serverId.
+        private const val FAVORITE_SESSIONS_PREFIX = "favorite_sessions_"
+        // Global cross-server favorite order — list of "serverId:sessionId" keys (JSON).
+        private val CROSS_SERVER_FAVORITE_ORDER_KEY = stringPreferencesKey("cross_server_favorite_order")
+        // Offline snapshots keyed by "serverId:sessionId" (JSON map).
+        private val FAVORITE_SESSION_SNAPSHOTS_KEY = stringPreferencesKey("favorite_session_snapshots")
+        private val favoriteSnapshotMapSerializer =
+            MapSerializer(String.serializer(), FavoriteSessionSnapshot.serializer())
+        private val favoriteOrderSerializer = ListSerializer(String.serializer())
 
         /**
          * Derive chat density from legacy font size / compact flags.
@@ -719,5 +732,134 @@ class SettingsDataStore @Inject constructor(
             localServerAutoStart = prefs[LOCAL_SERVER_AUTO_START_KEY] ?: false,
             localServerStartupTimeoutSec = (prefs[LOCAL_SERVER_STARTUP_TIMEOUT_SEC_KEY] ?: 30).coerceIn(10, 120)
         )
+    }
+
+    // ============ Cross-server session favorites ============
+
+    private fun favoriteSessionsKey(serverId: String) =
+        stringSetPreferencesKey(FAVORITE_SESSIONS_PREFIX + serverId)
+
+    /** Favorite session ids for a specific server. */
+    fun favoriteSessionIds(serverId: String): Flow<Set<String>> = dataStore.data.map { preferences ->
+        preferences[favoriteSessionsKey(serverId)] ?: emptySet()
+    }
+
+    /** Global cross-server favorite order — list of "serverId:sessionId" keys. */
+    val crossServerFavoriteOrder: Flow<List<String>> = dataStore.data.map { preferences ->
+        val json = preferences[CROSS_SERVER_FAVORITE_ORDER_KEY]
+        if (json.isNullOrBlank()) {
+            emptyList()
+        } else {
+            runCatching { categoryJson.decodeFromString(favoriteOrderSerializer, json) }
+                .getOrDefault(emptyList())
+        }
+    }
+
+    /** Offline snapshots keyed by "serverId:sessionId". */
+    val favoriteSessionSnapshots: Flow<Map<String, FavoriteSessionSnapshot>> =
+        dataStore.data.map { preferences ->
+            val json = preferences[FAVORITE_SESSION_SNAPSHOTS_KEY]
+            if (json.isNullOrBlank()) {
+                emptyMap()
+            } else {
+                runCatching { categoryJson.decodeFromString(favoriteSnapshotMapSerializer, json) }
+                    .getOrDefault(emptyMap())
+            }
+        }
+
+    /** Add a session to favorites for a server, persisting its offline snapshot. */
+    suspend fun addFavoriteSession(
+        serverId: String,
+        sessionId: String,
+        snapshot: FavoriteSessionSnapshot,
+    ) {
+        val key = favoriteKey(serverId, sessionId)
+        dataStore.edit { preferences ->
+            val favKey = favoriteSessionsKey(serverId)
+            preferences[favKey] = (preferences[favKey] ?: emptySet()) + sessionId
+            val snaps = preferences[FAVORITE_SESSION_SNAPSHOTS_KEY]?.let {
+                runCatching { categoryJson.decodeFromString(favoriteSnapshotMapSerializer, it) }
+                    .getOrDefault(emptyMap())
+            } ?: emptyMap()
+            preferences[FAVORITE_SESSION_SNAPSHOTS_KEY] =
+                categoryJson.encodeToString(favoriteSnapshotMapSerializer, snaps + (key to snapshot))
+        }
+    }
+
+    /** Remove a session from favorites for a server, clearing its snapshot. */
+    suspend fun removeFavoriteSession(serverId: String, sessionId: String) {
+        val key = favoriteKey(serverId, sessionId)
+        dataStore.edit { preferences ->
+            val favKey = favoriteSessionsKey(serverId)
+            val current = preferences[favKey] ?: emptySet()
+            if (sessionId in current) {
+                preferences[favKey] = current - sessionId
+            }
+            val snaps = preferences[FAVORITE_SESSION_SNAPSHOTS_KEY]?.let {
+                runCatching { categoryJson.decodeFromString(favoriteSnapshotMapSerializer, it) }
+                    .getOrDefault(emptyMap())
+            } ?: emptyMap()
+            if (key in snaps) {
+                preferences[FAVORITE_SESSION_SNAPSHOTS_KEY] =
+                    categoryJson.encodeToString(favoriteSnapshotMapSerializer, snaps - key)
+            }
+        }
+    }
+
+    /** Replace the entire cross-server favorite order. */
+    suspend fun setCrossServerFavoriteOrder(order: List<String>) {
+        dataStore.edit { preferences ->
+            preferences[CROSS_SERVER_FAVORITE_ORDER_KEY] =
+                categoryJson.encodeToString(favoriteOrderSerializer, order)
+        }
+    }
+
+    /** Upsert or remove a single favorite key in the cross-server order list. */
+    suspend fun setCrossServerFavoriteOrderItem(key: String, favorite: Boolean) {
+        dataStore.edit { preferences ->
+            val current = preferences[CROSS_SERVER_FAVORITE_ORDER_KEY]?.let {
+                runCatching { categoryJson.decodeFromString(favoriteOrderSerializer, it) }
+                    .getOrDefault(emptyList())
+            } ?: emptyList()
+            val updated = if (favorite) {
+                if (key in current) current else current + key
+            } else {
+                current - key
+            }
+            preferences[CROSS_SERVER_FAVORITE_ORDER_KEY] =
+                categoryJson.encodeToString(favoriteOrderSerializer, updated)
+        }
+    }
+
+    /** Save or replace a snapshot for a (server, session) pair. */
+    suspend fun saveFavoriteSessionSnapshot(
+        serverId: String,
+        sessionId: String,
+        snapshot: FavoriteSessionSnapshot,
+    ) {
+        val key = favoriteKey(serverId, sessionId)
+        dataStore.edit { preferences ->
+            val snaps = preferences[FAVORITE_SESSION_SNAPSHOTS_KEY]?.let {
+                runCatching { categoryJson.decodeFromString(favoriteSnapshotMapSerializer, it) }
+                    .getOrDefault(emptyMap())
+            } ?: emptyMap()
+            preferences[FAVORITE_SESSION_SNAPSHOTS_KEY] =
+                categoryJson.encodeToString(favoriteSnapshotMapSerializer, snaps + (key to snapshot))
+        }
+    }
+
+    /** Clear a snapshot for a (server, session) pair. */
+    suspend fun clearFavoriteSessionSnapshot(serverId: String, sessionId: String) {
+        val key = favoriteKey(serverId, sessionId)
+        dataStore.edit { preferences ->
+            val snaps = preferences[FAVORITE_SESSION_SNAPSHOTS_KEY]?.let {
+                runCatching { categoryJson.decodeFromString(favoriteSnapshotMapSerializer, it) }
+                    .getOrDefault(emptyMap())
+            } ?: emptyMap()
+            if (key in snaps) {
+                preferences[FAVORITE_SESSION_SNAPSHOTS_KEY] =
+                    categoryJson.encodeToString(favoriteSnapshotMapSerializer, snaps - key)
+            }
+        }
     }
 }

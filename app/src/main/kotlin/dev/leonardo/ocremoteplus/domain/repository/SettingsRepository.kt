@@ -1,6 +1,7 @@
 package dev.leonardo.ocremoteplus.domain.repository
 
 import dev.leonardo.ocremoteplus.domain.model.AppSettings
+import dev.leonardo.ocremoteplus.domain.model.FavoriteSessionSnapshot
 import dev.leonardo.ocremoteplus.domain.model.SessionCategory
 import kotlinx.coroutines.flow.Flow
 
@@ -48,4 +49,33 @@ interface SettingsRepository {
 
     /** Remove a session's category assignment for the given server. */
     suspend fun unassignSessionCategory(serverId: String, sessionId: String)
+
+    // ============ Cross-server session favorites ============
+
+    /** Favorite session ids for a specific server. */
+    fun favoriteSessionIds(serverId: String): Flow<Set<String>>
+
+    /** Global cross-server favorite order — list of "serverId:sessionId" keys. */
+    val crossServerFavoriteOrder: Flow<List<String>>
+
+    /** Offline snapshots keyed by "serverId:sessionId". */
+    val favoriteSessionSnapshots: Flow<Map<String, FavoriteSessionSnapshot>>
+
+    /** Add a session to favorites for a server, persisting its offline snapshot. */
+    suspend fun addFavoriteSession(serverId: String, sessionId: String, snapshot: FavoriteSessionSnapshot)
+
+    /** Remove a session from favorites for a server, clearing its snapshot. */
+    suspend fun removeFavoriteSession(serverId: String, sessionId: String)
+
+    /** Replace the entire cross-server favorite order. */
+    suspend fun setCrossServerFavoriteOrder(order: List<String>)
+
+    /** Upsert or remove a single favorite key in the cross-server order list. */
+    suspend fun setCrossServerFavoriteOrderItem(key: String, favorite: Boolean)
+
+    /** Save or replace a snapshot for a (server, session) pair. */
+    suspend fun saveFavoriteSessionSnapshot(serverId: String, sessionId: String, snapshot: FavoriteSessionSnapshot)
+
+    /** Clear a snapshot for a (server, session) pair. */
+    suspend fun clearFavoriteSessionSnapshot(serverId: String, sessionId: String)
 }

@@ -76,6 +76,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import dev.leonardo.ocremoteplus.ui.components.amoledOutlinedTextFieldColors
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.derivedStateOf
@@ -115,7 +116,8 @@ fun SessionListScreen(
     viewModel: SessionListViewModel,
     onNavigateToChat: (sessionId: String, openTerminal: Boolean) -> Unit,
     onNavigateToNewChat: (directory: String) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToFavorites: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
@@ -143,6 +145,7 @@ fun SessionListScreen(
 
     val categories by viewModel.sessionCategories.collectAsStateWithLifecycle()
     val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
+    val favoriteSessionIds by viewModel.favoriteSessionIds.collectAsStateWithLifecycle()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
@@ -178,6 +181,14 @@ fun SessionListScreen(
                     }
                 },
                 actions = {
+                    // Cross-server favorites entry
+                    IconButton(onClick = onNavigateToFavorites) {
+                        Icon(
+                            Icons.Filled.Star,
+                            contentDescription = "收藏",
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
                     // Only on sessions page (page 0)
                     if (pagerState.currentPage == 0) {
                         // Toggle view mode: recent <-> folders
@@ -485,6 +496,10 @@ fun SessionListScreen(
                                             assignSessionId = node.id
                                             assignCategoryId = node.session.category?.id
                                             showCategoryPicker = true
+                                        },
+                                        isFavorite = node.id in favoriteSessionIds,
+                                        onToggleFavorite = {
+                                            viewModel.toggleFavorite(node.session.session)
                                         },
                                     )
                                     HorizontalDivider(

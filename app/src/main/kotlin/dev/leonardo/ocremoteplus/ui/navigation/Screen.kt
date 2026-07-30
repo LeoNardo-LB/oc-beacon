@@ -16,4 +16,5 @@ sealed class Screen(val route: String) {
     data object About : Screen("about")
     data object Workspace : Screen("workspace")
     data object FileViewer : Screen("file_viewer")
+    data object CrossServerFavorites : Screen("cross_favorites")
 }
