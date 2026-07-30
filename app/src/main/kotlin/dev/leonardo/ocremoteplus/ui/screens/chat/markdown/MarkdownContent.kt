@@ -140,7 +140,7 @@ internal fun MarkdownContent(
     // — typography/density is now driven by LocalChatDensity, and Mikepenz Markdown
     // parses synchronously so the immediate flag has no effect.
     val normalizedMarkdown = remember(markdown, isUser) {
-        normalizeMarkdown(markdown, isUser)
+        normalizeTaskListMarkers(normalizeMarkdown(markdown, isUser))
     }
 
     val isAmoled = isAmoledTheme()

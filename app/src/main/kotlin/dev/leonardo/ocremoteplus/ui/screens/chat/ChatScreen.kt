@@ -138,6 +138,7 @@ import dev.leonardo.ocremoteplus.domain.model.AgentInfo
 import dev.leonardo.ocremoteplus.domain.model.CommandInfo
 import dev.leonardo.ocremoteplus.domain.model.ModelCatalog
 import dev.leonardo.ocremoteplus.domain.model.ProviderCatalog
+import dev.leonardo.ocremoteplus.service.SessionNotificationCoordinator
 import dev.leonardo.ocremoteplus.MainActivity
 import dev.leonardo.ocremoteplus.ui.theme.CodeTypography
 import kotlinx.coroutines.channels.Channel
@@ -469,14 +470,20 @@ fun ChatScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Notification lifecycle: cancel existing + set active focus on enter, clear on leave
+    // Notification lifecycle: cancel existing + set active focus on enter, clear on leave.
+    // SessionNotificationCoordinator marks this session as active so new notifications
+    // for it are suppressed while the user is viewing it.
     LaunchedEffect(viewModel.sessionId) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         viewModel.onSessionFocused(notificationManager)
+        if (serverId.isNotBlank() && viewModel.sessionId.isNotBlank()) {
+            SessionNotificationCoordinator.activate(serverId, viewModel.sessionId)
+        }
     }
     DisposableEffect(viewModel.sessionId) {
         onDispose {
             viewModel.onSessionUnfocused()
+            SessionNotificationCoordinator.deactivate()
         }
     }
 

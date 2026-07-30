@@ -222,8 +222,10 @@ class AppNotificationManager @Inject constructor(
                 .setVibrate(longArrayOf(0, 500, 200, 500))
         }
 
-        notificationManager.notify(notifId, builder.build())
-        showServerGroupSummary(context, notificationManager, server)
+        SessionNotificationCoordinator.postUnlessActive(server.id, sessionId) {
+            notificationManager.notify(notifId, builder.build())
+            showServerGroupSummary(context, notificationManager, server)
+        }
     }
 
     fun showPermissionNotification(
@@ -235,7 +237,6 @@ class AppNotificationManager @Inject constructor(
     ) {
         // Dedup: skip if same permission already notified for this session
         if (lastNotifiedPermissionBySession[sessionId] == permission) return
-        lastNotifiedPermissionBySession[sessionId] = permission
 
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
@@ -259,8 +260,11 @@ class AppNotificationManager @Inject constructor(
             .setGroup("server_${server.id}")
             .build()
 
-        notificationManager.notify(notifId, notification)
-        showServerGroupSummary(context, notificationManager, server)
+        SessionNotificationCoordinator.postUnlessActive(server.id, sessionId) {
+            lastNotifiedPermissionBySession[sessionId] = permission
+            notificationManager.notify(notifId, notification)
+            showServerGroupSummary(context, notificationManager, server)
+        }
     }
 
     fun showQuestionNotification(
@@ -272,7 +276,6 @@ class AppNotificationManager @Inject constructor(
     ) {
         // Dedup: skip if same question already notified for this session
         if (lastNotifiedQuestionBySession[sessionId] == questionText) return
-        lastNotifiedQuestionBySession[sessionId] = questionText
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
@@ -295,8 +298,11 @@ class AppNotificationManager @Inject constructor(
             .setGroup("server_${server.id}")
             .build()
 
-        notificationManager.notify(notifId, notification)
-        showServerGroupSummary(context, notificationManager, server)
+        SessionNotificationCoordinator.postUnlessActive(server.id, sessionId) {
+            lastNotifiedQuestionBySession[sessionId] = questionText
+            notificationManager.notify(notifId, notification)
+            showServerGroupSummary(context, notificationManager, server)
+        }
     }
 
     fun showErrorNotification(
@@ -329,8 +335,10 @@ class AppNotificationManager @Inject constructor(
             .setGroup("server_${server.id}")
             .build()
 
-        notificationManager.notify(notifId, notification)
-        showServerGroupSummary(context, notificationManager, server)
+        SessionNotificationCoordinator.postUnlessActive(server.id, sessionId) {
+            notificationManager.notify(notifId, notification)
+            showServerGroupSummary(context, notificationManager, server)
+        }
     }
 
     // ============ Notification Dedup / Session Helpers ============

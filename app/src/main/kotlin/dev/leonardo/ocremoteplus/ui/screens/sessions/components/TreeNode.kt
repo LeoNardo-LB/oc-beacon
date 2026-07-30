@@ -1,8 +1,10 @@
 package dev.leonardo.ocremoteplus.ui.screens.sessions.components
 
+import dev.leonardo.ocremoteplus.domain.model.Project
 import dev.leonardo.ocremoteplus.domain.model.Session
 import dev.leonardo.ocremoteplus.domain.model.SessionStatus
 import dev.leonardo.ocremoteplus.ui.screens.sessions.SessionItem
+import dev.leonardo.ocremoteplus.ui.screens.sessions.util.projectForSession
 
 /**
  * Sealed interface for flat session list nodes.
@@ -33,14 +35,19 @@ sealed interface TreeNode {
  *   - Sessions are grouped by their first path segment relative to baseDirectory
  *   - Sessions directly in baseDirectory appear at the top (ungrouped)
  *   - Each group is an expandable Directory node
+ *   - Groups are ordered alphabetically by segment (stable browsing order)
  *
  * When baseDirectory is null:
- *   - All sessions are shown flat, no grouping
+ *   - Sessions are grouped project-aware: sessions whose [Session.projectId]
+ *     (or worktree prefix) maps to the same [Project] aggregate into one group.
+ *     Unmatched sessions form per-directory groups.
+ *   - Groups are ordered by latest activity (descending), then by display name.
  *
  * @param sessions Filtered sessions (already scoped to server, not archived, etc.)
- * @param expandedDirs Set of directory IDs currently expanded
+ * @param expandedDirs Set of directory paths currently expanded
  * @param baseDirectory The selected base directory path (normalized, e.g. "D:/Develop"), or null
  * @param statuses Session status map
+ * @param projects Known projects used for project-aware grouping when baseDirectory is null
  */
 fun buildTreeNodes(
     sessions: List<Session>,
@@ -48,12 +55,25 @@ fun buildTreeNodes(
     baseDirectory: String?,
     statuses: Map<String, SessionStatus> = emptyMap(),
     draftSessionIds: Set<String> = emptySet(),
+    projects: List<Project> = emptyList(),
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
-    val dirSessions = sortedMapOf<String, MutableList<Session>>()
     val rootSessions = mutableListOf<Session>()
-
     val normalizedBase = baseDirectory?.replace('\\', '/')?.trimEnd('/')
+
+    data class GroupBucket(
+        val id: String,
+        val path: String,
+        val displayName: String,
+        val sessions: MutableList<Session> = mutableListOf(),
+    )
+    val groupsByKey = linkedMapOf<String, GroupBucket>()
+    val groupOrder = mutableListOf<GroupBucket>()
+
+    fun bucketFor(key: String, id: String, path: String, displayName: String): GroupBucket =
+        groupsByKey.getOrPut(key) {
+            GroupBucket(id = id, path = path, displayName = displayName).also(groupOrder::add)
+        }
 
     for (session in sessions) {
         val dir = session.directory.replace('\\', '/').trimEnd('/')
@@ -63,38 +83,61 @@ fun buildTreeNodes(
         }
 
         if (normalizedBase != null) {
+            // baseDirectory mode: group by first path segment relative to base.
             if (!dir.startsWith(normalizedBase)) continue
             val relative = dir.removePrefix(normalizedBase).removePrefix("/")
             if (relative.isEmpty()) {
                 rootSessions.add(session)
             } else {
                 val firstSegment = relative.substringBefore('/')
-                dirSessions.getOrPut(firstSegment) { mutableListOf() }.add(session)
+                val fullPath = "$normalizedBase/$firstSegment"
+                bucketFor(
+                    key = firstSegment,
+                    id = firstSegment,
+                    path = fullPath,
+                    displayName = fullPath,
+                ).sessions.add(session)
             }
         } else {
-            // No base directory: group by full directory path
-            dirSessions.getOrPut(dir) { mutableListOf() }.add(session)
+            // Project-aware grouping: aggregate sessions by owning project.
+            val project = projectForSession(session, projects)
+            val groupPath = (project?.worktree?.takeIf { it.isNotBlank() }
+                ?: project?.path?.takeIf { it.isNotBlank() }
+                ?: dir).replace('\\', '/').trimEnd('/').ifEmpty { dir }
+            val displayName = project?.displayName ?: dir
+            val key = project?.id?.takeIf { it.isNotBlank() } ?: "dir:$dir"
+            bucketFor(
+                key = key,
+                id = groupPath,
+                path = groupPath,
+                displayName = displayName,
+            ).sessions.add(session)
         }
     }
 
-    // Directory groups FIRST — only expand when explicitly toggled
-    for ((dirKey, dirSessionList) in dirSessions) {
-        val fullPath = if (normalizedBase != null) "$normalizedBase/$dirKey" else dirKey
-        val isExpanded = fullPath in expandedDirs
-        val activeCount = dirSessionList.count { session ->
-            val status = statuses[session.id]
-            status is SessionStatus.Busy
-        }
+    // Order groups: baseDirectory -> alphabetical by id (stable); otherwise -> latest activity then name.
+    val orderedGroups = if (normalizedBase != null) {
+        groupOrder.sortedBy { it.id }
+    } else {
+        groupOrder.sortedWith(
+            compareByDescending<GroupBucket> { it.sessions.maxOfOrNull { s -> s.time.updated } ?: 0 }
+                .thenBy { it.displayName.lowercase() }
+        )
+    }
+
+    for (bucket in orderedGroups) {
+        val isExpanded = bucket.path in expandedDirs
+        val activeCount = bucket.sessions.count { statuses[it.id] is SessionStatus.Busy }
         result.add(TreeNode.Directory(
-            id = dirKey,
-            path = fullPath,
-            displayName = fullPath,
-            sessionCount = dirSessionList.size,
+            id = bucket.id,
+            path = bucket.path,
+            displayName = bucket.displayName,
+            sessionCount = bucket.sessions.size,
             activeSessionCount = activeCount,
             isExpanded = isExpanded,
         ))
         if (isExpanded) {
-            for (session in dirSessionList.sortedByDescending { it.time.updated }) {
+            for (session in bucket.sessions.sortedByDescending { it.time.updated }) {
                 result.add(TreeNode.Session(
                     id = session.id,
                     session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds),
@@ -103,7 +146,7 @@ fun buildTreeNodes(
         }
     }
 
-    // Root sessions last (directly in base directory, ungrouped)
+    // Root sessions last (empty directory or directly in base directory, ungrouped)
     for (session in rootSessions.sortedByDescending { it.time.updated }) {
         result.add(TreeNode.Session(
             id = session.id,
