@@ -51,6 +51,8 @@ A rewritten, extensible tool-call rendering system:
 - **Pull-to-refresh** — manually refresh the session list
 - **Sequential pending cards** — permission / question cards shown one at a time with a position indicator (1/N)
 - **Retry tracking** — visible retry state with countdown
+- **Session categories** — custom name/color/icon tags, per-session assignment, filter chips
+- **Cross-server favorites** — star sessions across servers, unified favorites list with offline snapshots
 
 ### 🆕 Message-Level Status Indicators
 
@@ -95,6 +97,11 @@ A comprehensive design-token system replacing hardcoded values across the UI:
 - **Fat UseCases** — ViewModels delegate to UseCases, never repositories directly
 - **DTO rename** — all transfer objects suffixed `*Dto` for clarity
 - **Lifecycle-aware** — `collectAsStateWithLifecycle` throughout
+
+### 🔍 Diagnostics & In-app Updates
+
+- **In-app log viewer** — Settings → Diagnostics: level filtering, search, privacy-sanitized export, crash capture (SQLite, auto-prune)
+- **Update checker** — About → Check for Updates: GitHub Release discovery, SHA-256 verified APK download, system installer handoff
 
 ### 🌐 i18n
 

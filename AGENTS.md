@@ -50,11 +50,18 @@ data/            Android-aware implementations
   mapper/        DTO ↔ Domain Model converters
   repository/    Impl classes + EventDispatcher + EventHandler strategy pattern
     handler/     5 event handlers (Session, Message, Permission, Question, Misc)
+                 + DiagnosticLogDatabase/Repository (SQLite, auto-prune, privacy sanitize)
+                 + PendingPromptRepository (file-based JSON, optimistic message persistence)
+                 + CrossServerSessionsAggregator (REST-based per-server session aggregation)
+  update/        In-app GitHub Release update check (UpdateRepository, 3-level fallback)
+
+logging/         AppLogger — global persistent logger (Channel→SQLite, crash capture, sanitize)
 
 service/         Android foreground service
   OpenCodeConnectionService.kt  Service lifecycle + WakeLock
   SseConnectionManager.kt       Connection/reconnect with exponential backoff
   AppNotificationManager.kt     Notification channels and event notifications
+  SessionNotificationCoordinator.kt  Suppresses notifications for the active session
 
 ui/
   theme/              Design token system
@@ -74,7 +81,7 @@ ui/
     util/            Chat-specific utilities
   screens/home/      HomeScreen + server cards + local runtime
   screens/sessions/  SessionListScreen + components
-  screens/settings/  SettingsScreen + 9 picker dialogs
+  screens/settings/  SettingsScreen + picker dialogs + DiagnosticsScreen
   screens/server/    Server settings/providers/model filter
   screens/about/     About screen
   screens/webview/   WebView fallback (OAuth, HTML errors)
