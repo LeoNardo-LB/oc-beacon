@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Tether</string>
+    <string name="app_name">OC Beacon</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Tether</string>
+    <string name="home_title">OC Beacon</string>
     <string name="home_add_server">Server hinzufügen</string>
     <string name="home_no_servers">Keine Server konfiguriert</string>
     <string name="home_server_health_good">Verbunden</string>
@@ -286,7 +286,7 @@
     <string name="notification_connecting">Verbinde mit %1$s…</string>
     <string name="notification_connected_count">Verbunden mit %1$d von %2$d Servern</string>
     <string name="notification_disconnect_all">Alle trennen</string>
-    <string name="notification_inbox_title">OC Tether — %1$d/%2$d verbunden</string>
+    <string name="notification_inbox_title">OC Beacon — %1$d/%2$d verbunden</string>
     <string name="notification_status_connected">Verbunden</string>
     <string name="notification_status_connecting">Verbinde…</string>
     <string name="notification_response_ready">Antwort bereit</string>
@@ -314,7 +314,7 @@
     <string name="about_description">Android-Client für OpenCode-Server</string>
     <string name="about_unofficial">Dies ist ein inoffizielles Community-Projekt, nicht vom OpenCode-Team unterstützt.</string>
     <string name="about_github">GitHub</string>
-    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-tether</string>
+    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-beacon</string>
     <string name="about_opencode">OpenCode</string>
     <string name="about_opencode_url">https://github.com/anomalyco/opencode</string>
     <string name="about_license">Lizenz</string>
@@ -456,7 +456,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="home_local_server_password_placeholder">Leer lassen, um die Authentifizierung zu deaktivieren</string>
     <string name="home_local_lan_password_warning">LAN-Zugriff ist ohne Passwort aktiviert. Jeder im Netzwerk kann diesen Server öffnen.</string>
     <string name="home_local_auto_start_label">Lokalen Server beim App-Start automatisch starten</string>
-    <string name="home_local_auto_start_desc">Lokale Laufzeit automatisch starten, wenn OC Tether geöffnet wird</string>
+    <string name="home_local_auto_start_desc">Lokale Laufzeit automatisch starten, wenn OC Beacon geöffnet wird</string>
     <string name="home_local_startup_timeout_label">Startzeitüberschreitung</string>
     <string name="home_local_startup_timeout_value">%1$d Sek.</string>
     <string name="home_local_launch_options_title">Startoptionen</string>

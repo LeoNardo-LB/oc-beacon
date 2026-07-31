@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "OC Remote"
+rootProject.name = "OC Beacon"
 include(":app")

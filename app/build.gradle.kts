@@ -16,17 +16,17 @@ plugins {
 }
 
 android {
-    namespace = "dev.leonardo.octether"
+    namespace = "dev.leonardo.ocbeacon"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.leonardo.octether"
+        applicationId = "dev.leonardo.ocbeacon"
         minSdk = 26
         targetSdk = 35
         versionCode = vCode
         versionName = vName
 
-        testInstrumentationRunner = "dev.leonardo.octether.HiltTestRunner"
+        testInstrumentationRunner = "dev.leonardo.ocbeacon.HiltTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -55,12 +55,12 @@ android {
         create("dev") {
             dimension = "channel"
             applicationIdSuffix = ".dev"
-            manifestPlaceholders["appLabel"] = "OC Tether Dev"
+            manifestPlaceholders["appLabel"] = "OC Beacon Dev"
         }
         create("beta") {
             dimension = "channel"
             applicationIdSuffix = ".beta"
-            manifestPlaceholders["appLabel"] = "OC Tether Beta"
+            manifestPlaceholders["appLabel"] = "OC Beacon Beta"
         }
         create("stable") {
             dimension = "channel"

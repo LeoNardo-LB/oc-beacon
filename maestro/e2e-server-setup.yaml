@@ -1,4 +1,4 @@
-appId: dev.leonardo.octether.dev
+appId: dev.leonardo.ocbeacon.dev
 name: E2E - Server Setup (Real OpenCode Server)
 tags:
   - e2e

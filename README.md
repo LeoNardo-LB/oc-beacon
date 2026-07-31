@@ -1,10 +1,10 @@
-# OC Tether
+# OC Beacon
 
 An enhanced fork of [crim50n/oc-remote](https://github.com/crim50n/oc-remote) — an unofficial Android client for [OpenCode](https://github.com/anomalyco/opencode) servers with a native Material 3 UI.
 
-> **OC Tether is an independent community fork of OC Remote, not affiliated with, endorsed by, or sponsored by the original OC Remote project, its author (@crim50n), or the OpenCode team.**
+> **OC Beacon is an independent community fork of OC Remote, not affiliated with, endorsed by, or sponsored by the original OC Remote project, its author (@crim50n), or the OpenCode team.**
 >
-> 本仓库是 [crim50n/oc-remote](https://github.com/crim50n/oc-remote) 的增强 fork。为与原版共存，已将 applicationId 从 `dev.minios.ocremote` 改为 `dev.leonardo.octether`，两者可在同一设备上同时安装。
+> 本仓库是 [crim50n/oc-remote](https://github.com/crim50n/oc-remote) 的增强 fork。为与原版共存，已将 applicationId 从 `dev.minios.ocremote` 改为 `dev.leonardo.ocbeacon`，两者可在同一设备上同时安装。
 
 ## Relationship with Upstream
 
@@ -12,7 +12,7 @@ This fork diverges from upstream `v1.6.7` and has accumulated **1400+ commits** 
 
 | | Upstream | This Fork |
 |---|----------|-----------|
-| Application ID | `dev.minios.ocremote` | `dev.leonardo.octether` (+ `.dev` / `.beta` suffixes for parallel install) |
+| Application ID | `dev.minios.ocremote` | `dev.leonardo.ocbeacon` (+ `.dev` / `.beta` suffixes for parallel install) |
 | compileSdk | 34 | 37 |
 | targetSdk | 34 | 35 |
 | Compose BOM | 2024.12.01 | 2026.05.01 |
@@ -143,9 +143,9 @@ Pre-built APKs are available on the [Releases](../../releases) page.
 
 | Flavor | Application ID | Purpose |
 |--------|---------------|---------|
-| `dev` | `dev.leonardo.octether.dev` | Development preview (worktree builds) |
-| `beta` | `dev.leonardo.octether.beta` | Public beta — coexists with stable |
-| `stable` | `dev.leonardo.octether` | Production release (overwrites previous stable) |
+| `dev` | `dev.leonardo.ocbeacon.dev` | Development preview (worktree builds) |
+| `beta` | `dev.leonardo.ocbeacon.beta` | Public beta — coexists with stable |
+| `stable` | `dev.leonardo.ocbeacon` | Production release (overwrites previous stable) |
 
 See [AGENTS.md](AGENTS.md) for detailed build instructions, product flavors, signing configuration, and architecture overview.
 

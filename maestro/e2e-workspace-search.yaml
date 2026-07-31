@@ -1,5 +1,5 @@
 # Flow 22: Workspace file search (file tree + git changes)
-appId: dev.leonardo.octether.dev
+appId: dev.leonardo.ocbeacon.dev
 ---
 - runFlow: e2e-chat-flow.yaml
 

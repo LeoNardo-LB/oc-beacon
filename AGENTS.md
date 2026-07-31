@@ -1,4 +1,4 @@
-# AGENTS.md — OC Tether
+# AGENTS.md — OC Beacon
 
 Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 
@@ -28,9 +28,9 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 
 | Flavor | applicationId | 应用名 | 用途 |
 |--------|---------------|--------|------|
-| `dev` | `dev.leonardo.octether.dev` | OC Tether Dev | 开发预览（worktree 构建） |
-| `beta` | `dev.leonardo.octether.beta` | OC Tether Beta | 公开测试版 |
-| `stable` | `dev.leonardo.octether` | OC Tether | 正式发布 |
+| `dev` | `dev.leonardo.ocbeacon.dev` | OC Beacon Dev | 开发预览（worktree 构建） |
+| `beta` | `dev.leonardo.ocbeacon.beta` | OC Beacon Beta | 公开测试版 |
+| `stable` | `dev.leonardo.ocbeacon` | OC Beacon | 正式发布 |
 
 Always specify the flavor in gradle tasks: `assembleDevRelease`, `assembleBetaRelease`, `assembleStableRelease`, etc.
 
@@ -198,9 +198,9 @@ Tag = `v` + VERSION_NAME：
 | Beta | master | `assembleBetaRelease` | `1.0.1-beta.1` | `v1.0.1-beta.1` | `--prerelease` |
 | Dev | worktree | `assembleDevRelease` | `1.0.1-dev.1` | `v1.0.1-dev.1` | `--prerelease` |
 
-- **dev flavor** (`dev.leonardo.octether.dev`)：开发预览，独立 applicationId，可与正式版共存。
-- **beta flavor** (`dev.leonardo.octether.beta`)：公开测试版，独立 applicationId，可与正式版共存。
-- **stable flavor** (`dev.leonardo.octether`)：正式包名，覆盖安装。
+- **dev flavor** (`dev.leonardo.ocbeacon.dev`)：开发预览，独立 applicationId，可与正式版共存。
+- **beta flavor** (`dev.leonardo.ocbeacon.beta`)：公开测试版，独立 applicationId，可与正式版共存。
+- **stable flavor** (`dev.leonardo.ocbeacon`)：正式包名，覆盖安装。
 - **只发一个包**：每次发版只创建一个 GitHub Release，不重复发多个。发新版前**先删除旧版 Release 和 Tag**（`gh release delete <old> --yes && git push origin --delete <old>`），确保 Releases 页面只保留最新版本。
 - **默认发预发布版**：除非用户明确说明"正式发版"或"发 stable"，否则一律发 beta 或 dev 预发布版（`--prerelease`）。
 - `gh` CLI 不走代理，直接用直连（不加 `HTTP_PROXY`）。
@@ -279,7 +279,7 @@ Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to ot
 - **Spacing tokens** (Spacing.kt): 6 grid-based constants — XS(4) / SM(8) / MD(12) / LG(16) / XL(24) / XXL(32). Use `SpacingTokens.LG.dp` instead of hardcoded `16.dp` for standard spacing.
 - **Shape tokens** (Shape.kt): `AppShapes` for MaterialTheme, `ShapeTokens` object for component-level direct reference.
 - **Motion tokens** (Motion.kt): semantic duration constants (BREATH_CYCLE, PULSE_CYCLE, TERMINAL). Use instead of hardcoded `AnimationSpec` durations.
-- **Button tokens** (ButtonTokens.kt): centralized button style — `filledColors()` / `dangerColors()` / `amoledBorder()` + `CompactPadding` / `StackSpacing` / `RowSpacing`. Use instead of per-call `ButtonDefaults.colors` and ad-hoc border specs. Import: `dev.leonardo.octether.ui.theme.ButtonTokens`.
+- **Button tokens** (ButtonTokens.kt): centralized button style — `filledColors()` / `dangerColors()` / `amoledBorder()` + `CompactPadding` / `StackSpacing` / `RowSpacing`. Use instead of per-call `ButtonDefaults.colors` and ad-hoc border specs. Import: `dev.leonardo.ocbeacon.ui.theme.ButtonTokens`.
 - **ListItem tokens** (ListItemTokens.kt): three density levels for Material 3 `ListItem` content padding — `ContentPaddingSmall` / `ContentPaddingMedium` / `ContentPaddingLarge`. Use instead of hardcoded `padding` on ListItem content.
 - **Dark theme**: trust Material3 `darkColorScheme()` defaults. Only override 6 brand-differentiated tokens in Theme.kt.
 - **Colors** (Color.kt): brand constants + semantic `DiffAdded`/`DiffRemoved`. No dead code.
@@ -288,7 +288,7 @@ Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to ot
 
 _| Remote | URL | Role |
 |--------|-----|------|
-| `origin` | `github.com:LeoNardo-LB/oc-tether` | Fork (push access, current default) |
+| `origin` | `github.com:LeoNardo-LB/oc-beacon` | Fork (push access, current default) |
 | upstream | `github.com:crim50n/oc-remote` | Upstream (owner: crim50n) — add manually if needed |
 
 - `master` — stable, matches upstream

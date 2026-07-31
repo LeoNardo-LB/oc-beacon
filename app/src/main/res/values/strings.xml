@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Tether</string>
+    <string name="app_name">OC Beacon</string>
     
     <!-- Home Screen -->
-    <string name="home_title">OC Tether</string>
+    <string name="home_title">OC Beacon</string>
     <string name="home_add_server">Add Server</string>
     <string name="home_no_servers">No servers configured</string>
     <string name="home_server_health_good">Connected</string>
@@ -53,7 +53,7 @@
     <string name="home_local_run_background_label">Run server in background</string>
     <string name="home_local_run_background_desc">Use Termux background task mode to start local runtime</string>
     <string name="home_local_auto_start_label">Auto-start local server on app launch</string>
-    <string name="home_local_auto_start_desc">Start local runtime automatically when OC Tether opens</string>
+    <string name="home_local_auto_start_desc">Start local runtime automatically when OC Beacon opens</string>
     <string name="home_local_auto_start_requires_background">Auto-start requires background mode</string>
     <string name="home_local_startup_timeout_label">Startup timeout</string>
     <string name="home_local_startup_timeout_value">%1$d sec</string>
@@ -509,7 +509,7 @@
     <string name="notification_connecting">Connecting to %1$s…</string>
     <string name="notification_connected_count">Connected to %1$d of %2$d servers</string>
     <string name="notification_disconnect_all">Disconnect All</string>
-    <string name="notification_inbox_title">OC Tether — %1$d/%2$d connected</string>
+    <string name="notification_inbox_title">OC Beacon — %1$d/%2$d connected</string>
     <string name="notification_status_connected">Connected</string>
     <string name="notification_status_connecting">Connecting…</string>
     <string name="notification_response_ready">Response ready</string>
@@ -616,7 +616,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="about_description">Android client for OpenCode servers</string>
     <string name="about_unofficial">An independent community fork of OC Remote. Not affiliated with, endorsed by, or sponsored by the original OC Remote project, its author (@crim50n), or the OpenCode team.</string>
     <string name="about_github">GitHub</string>
-    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-tether</string>
+    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-beacon</string>
     <string name="about_opencode">OpenCode</string>
     <string name="about_opencode_url">https://github.com/anomalyco/opencode</string>
     <string name="about_license">License</string>

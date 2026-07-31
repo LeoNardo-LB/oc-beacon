@@ -60,7 +60,7 @@ jobs:
           # Find the built APK (signed or unsigned)
           APK=$(find app/build/outputs/apk/beta/release -name '*.apk' | head -1)
           if [ -n "$APK" ]; then
-            cp "$APK" release-apks/oc-tether-${VERSION}.apk
+            cp "$APK" release-apks/oc-beacon-${VERSION}.apk
           else
             echo "::error::No APK found in app/build/outputs/apk/beta/release/"
             exit 1
@@ -69,7 +69,7 @@ jobs:
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: octether-release-${{ steps.version.outputs.name }}
+          name: ocbeacon-release-${{ steps.version.outputs.name }}
           path: release-apks/*.apk
           retention-days: 90
 

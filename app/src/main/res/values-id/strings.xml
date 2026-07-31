@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Tether</string>
+    <string name="app_name">OC Beacon</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Tether</string>
+    <string name="home_title">OC Beacon</string>
     <string name="home_add_server">Tambah Server</string>
     <string name="home_no_servers">Tidak ada server yang dikonfigurasi</string>
     <string name="home_server_health_good">Tersambung</string>
@@ -261,7 +261,7 @@
     <string name="notification_connecting">Menyambungkan ke %1$s…</string>
     <string name="notification_connected_count">Tersambung ke %1$d dari %2$d server</string>
     <string name="notification_disconnect_all">Putuskan Semua Sambungan</string>
-    <string name="notification_inbox_title">OC Tether — %1$d/%2$d tersambung</string>
+    <string name="notification_inbox_title">OC Beacon — %1$d/%2$d tersambung</string>
     <string name="notification_status_connected">Tersambung</string>
     <string name="notification_status_connecting">Menyambungkan…</string>
     <string name="notification_response_ready">Respons siap</string>
@@ -320,7 +320,7 @@
     <string name="about_description">Klien Android untuk server OpenCode</string>
     <string name="about_unofficial">Ini adalah proyek komunitas tidak resmi, tidak berafiliasi dengan tim OpenCode.</string>
     <string name="about_github">GitHub</string>
-    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-tether</string>
+    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-beacon</string>
     <string name="about_opencode">OpenCode</string>
     <string name="about_opencode_url">https://github.com/anomalyco/opencode</string>
     <string name="about_license">Lisensi</string>
@@ -462,7 +462,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="home_local_server_password_placeholder">Biarkan kosong untuk menonaktifkan autentikasi</string>
     <string name="home_local_lan_password_warning">Akses LAN diaktifkan tanpa kata sandi. Siapa pun di jaringan Anda dapat membuka server ini.</string>
     <string name="home_local_auto_start_label">Mulai server lokal secara otomatis saat aplikasi dibuka</string>
-    <string name="home_local_auto_start_desc">Jalankan runtime lokal secara otomatis saat OC Tether dibuka</string>
+    <string name="home_local_auto_start_desc">Jalankan runtime lokal secara otomatis saat OC Beacon dibuka</string>
     <string name="home_local_startup_timeout_label">Batas waktu startup</string>
     <string name="home_local_startup_timeout_value">%1$d detik</string>
     <string name="home_local_launch_options_title">Opsi peluncuran</string>

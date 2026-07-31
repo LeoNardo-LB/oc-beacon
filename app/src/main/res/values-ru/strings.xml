@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Tether</string>
+    <string name="app_name">OC Beacon</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Tether</string>
+    <string name="home_title">OC Beacon</string>
     <string name="home_add_server">Добавить сервер</string>
     <string name="home_no_servers">Серверы не настроены</string>
     <string name="home_server_health_good">Подключено</string>
@@ -88,7 +88,7 @@
     <string name="notification_connecting">Подключение к %1$s…</string>
     <string name="notification_connected_count">Подключено к %1$d из %2$d серверов</string>
     <string name="notification_disconnect_all">Отключить все</string>
-    <string name="notification_inbox_title">OC Tether — %1$d/%2$d подключено</string>
+    <string name="notification_inbox_title">OC Beacon — %1$d/%2$d подключено</string>
     <string name="notification_status_connected">Подключено</string>
     <string name="notification_status_connecting">Подключение…</string>
     <string name="notification_response_ready">Ответ готов</string>
@@ -335,7 +335,7 @@
     <string name="about_description">Android-клиент для серверов OpenCode</string>
     <string name="about_unofficial">Это неофициальный проект сообщества, не связан с командой OpenCode.</string>
     <string name="about_github">GitHub</string>
-    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-tether</string>
+    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-beacon</string>
     <string name="about_opencode">OpenCode</string>
     <string name="about_opencode_url">https://github.com/anomalyco/opencode</string>
     <string name="about_license">Лицензия</string>
@@ -457,7 +457,7 @@
     <string name="home_local_server_password_placeholder">Оставьте пустым, чтобы отключить аутентификацию</string>
     <string name="home_local_lan_password_warning">Доступ по локальной сети разрешён без пароля. Любой пользователь вашей сети может открыть этот сервер.</string>
     <string name="home_local_auto_start_label">Автоматически запускать локальный сервер при запуске приложения</string>
-    <string name="home_local_auto_start_desc">Автоматически запускать локальное окружение при открытии OC Tether</string>
+    <string name="home_local_auto_start_desc">Автоматически запускать локальное окружение при открытии OC Beacon</string>
     <string name="home_local_startup_timeout_label">Таймаут запуска</string>
     <string name="home_local_startup_timeout_value">%1$d сек</string>
     <string name="home_local_launch_options_title">Параметры запуска</string>
