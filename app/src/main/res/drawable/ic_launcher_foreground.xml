@@ -1,50 +1,19 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- OC Tether icon — OpenCode "O" pixel block (from official logo geometry)
+         Faithful to OpenCode brand: dark bg + mid-gray block + light-gray accent
+         Geometry derived from opencode.ai logo.svg letter "O" (bbox 0,6-24,36),
+         scaled 2.2x centered in 108 viewport, within 66dp safe zone. -->
 
-    <!-- OC Tether — refined OC letterform mark
-         warm cream radial bg + orange O ring + C arc, interlocking
-         unified semi-flat lighting: top-left lit -> bottom-right shadow
-
-         O ring: center (46,54) r=38, stroke=14, gradient #FF6B35→#D84315
-         C arc:  center (62,54) r=38, stroke=14, right-opening, same gradient -->
-
-    <!-- shared orange gradient (top-left → bottom-right) -->
-
-    <!-- O: full ring, gradient stroke -->
+    <!-- Outer block (mid gray #656363) -->
     <path
-        android:pathData="M8,54 A38,38 0 1,1 84,54 A38,38 0 1,1 8,54"
-        android:strokeWidth="14"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:type="linear"
-                android:startX="8" android:startY="8"
-                android:endX="108" android:endY="108"
-                android:startColor="#FFB088"
-                android:centerColor="#FF6B35"
-                android:endColor="#D84315" />
-        </aapt:attr>
-    </path>
-
-    <!-- C: right-opening arc (large sweep ~300°), gradient stroke -->
+        android:pathData="M28,21 h52 v66 h-52 z"
+        android:fillColor="#656363" />
+    <!-- Inner accent (light gray #CFCECD) -->
     <path
-        android:pathData="M94.9,73 A38,38 0 1,1 94.9,35"
-        android:strokeWidth="14"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:type="linear"
-                android:startX="8" android:startY="8"
-                android:endX="108" android:endY="108"
-                android:startColor="#FFB088"
-                android:centerColor="#FF6B35"
-                android:endColor="#D84315" />
-        </aapt:attr>
-    </path>
+        android:pathData="M41,47 h26 v27 h-26 z"
+        android:fillColor="#CFCECD" />
 </vector>
