@@ -12,11 +12,11 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
--keep,includedescriptorclasses class dev.leonardo.ocremoteplus.**$$serializer { *; }
--keepclassmembers class dev.leonardo.ocremoteplus.** {
+-keep,includedescriptorclasses class dev.leonardo.octether.**$$serializer { *; }
+-keepclassmembers class dev.leonardo.octether.** {
     *** Companion;
 }
--keepclasseswithmembers class dev.leonardo.ocremoteplus.** {
+-keepclasseswithmembers class dev.leonardo.octether.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 

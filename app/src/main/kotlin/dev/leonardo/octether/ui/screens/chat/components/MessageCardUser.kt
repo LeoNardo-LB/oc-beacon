@@ -1,0 +1,300 @@
+package dev.leonardo.octether.ui.screens.chat.components
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.RateReview
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.leonardo.octether.R
+import dev.leonardo.octether.domain.model.Message
+import dev.leonardo.octether.domain.model.Part
+import dev.leonardo.octether.domain.model.UserMsgStatus
+import dev.leonardo.octether.ui.components.ConfirmDialog
+import dev.leonardo.octether.ui.screens.chat.ChatMessage
+import dev.leonardo.octether.ui.screens.chat.isBubbleRenderablePart
+import dev.leonardo.octether.ui.screens.chat.dialog.ImageThumbnailRow
+import dev.leonardo.octether.ui.theme.ChatDensity
+import dev.leonardo.octether.ui.theme.LocalChatDensity
+import dev.leonardo.octether.ui.screens.chat.util.LocalHapticFeedbackEnabled
+import dev.leonardo.octether.ui.theme.QueuedBadgeColor
+import dev.leonardo.octether.ui.theme.QueuedBadgeTextColor
+import dev.leonardo.octether.ui.screens.chat.util.performHaptic
+import dev.leonardo.octether.ui.screens.chat.util.resolveUserCommandLabel
+import dev.leonardo.octether.ui.theme.ShapeTokens
+import dev.leonardo.octether.ui.theme.AlphaTokens
+import dev.leonardo.octether.ui.theme.SpacingTokens
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+@Composable
+internal fun MessageCardUser(
+    currentMessage: ChatMessage,
+    isQueued: Boolean,
+    pendingStatus: UserMsgStatus?,
+    onRetry: (() -> Unit)?,
+    onRevert: (() -> Unit)?,
+    onCopyText: (() -> Unit)?,
+    isAmoled: Boolean,
+) {
+    val backgroundColor = MaterialTheme.colorScheme.primaryContainer
+    val textColor = if (isAmoled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+    val bubbleBorder = if (isAmoled) {
+        BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MUTED)
+        )
+    } else {
+        null
+    }
+    val hapticView = LocalView.current
+    val hapticOn = LocalHapticFeedbackEnabled.current
+
+    // Filter visible parts for user messages
+    val visibleParts = currentMessage.parts.filter { part ->
+        when (part) {
+            is Part.Text -> part.synthetic != true && part.ignored != true && part.text.isNotBlank()
+            else -> true
+        }
+    }
+
+    val userMessage = currentMessage.message as? Message.User
+    val userFallbackText = userMessage?.summary?.body?.takeIf { it.isNotBlank() }
+        ?: userMessage?.summary?.title?.takeIf { it.isNotBlank() }
+    val userCommandLabel = resolveUserCommandLabel(currentMessage.parts)
+
+    val contentParts = visibleParts
+
+    val hasRenderableUserPart = contentParts.any(::isBubbleRenderablePart)
+    if (!hasRenderableUserPart && userFallbackText == null && userCommandLabel == null) {
+        return
+    }
+
+    var showRevertConfirmation by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.End
+    ) {
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 18.dp,
+                topEnd = 4.dp,
+                bottomStart = 18.dp,
+                bottomEnd = 18.dp
+            ),
+            color = backgroundColor,
+            border = bubbleBorder,
+            tonalElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val compact = LocalChatDensity.current == ChatDensity.Compact
+            Column(
+                    modifier = Modifier.padding(
+                        horizontal = if (compact) 10.dp else SpacingTokens.LG.dp,
+                        vertical = if (compact) SpacingTokens.SM.dp else 14.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
+                ) {
+                    // Content parts (text, reasoning, patches, etc.)
+                    // Group image file parts into a compact thumbnail row
+                    val (imageFiles, renderableOtherParts) = remember(contentParts) {
+                        val images = contentParts.filterIsInstance<Part.File>()
+                            .filter { it.mime.startsWith("image/") && !it.url.isNullOrBlank() }
+                        val others = contentParts.filter { part ->
+                            !(part is Part.File && part.mime.startsWith("image/") && !part.url.isNullOrBlank())
+                        }.filter(::isBubbleRenderablePart)
+                        images to others
+                    }
+
+                    // Render image thumbnails as a horizontal row
+                    if (imageFiles.isNotEmpty()) {
+                        ImageThumbnailRow(imageFiles = imageFiles)
+                    }
+
+                    // Render remaining parts
+                    for (part in renderableOtherParts) {
+                        key(part.id) {
+                            PartContent(
+                                part = part,
+                                textColor = textColor,
+                                isUser = true,
+                                onViewSubSession = null
+                            )
+                        }
+                    }
+
+                    if (imageFiles.isEmpty() && renderableOtherParts.isEmpty() && userCommandLabel != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.RateReview,
+                                contentDescription = stringResource(R.string.a11y_icon_rate_review),
+                                modifier = Modifier.size(16.dp),
+                                tint = textColor.copy(alpha = AlphaTokens.MEDIUM)
+                            )
+                            Text(
+                                text = userCommandLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = textColor.copy(alpha = AlphaTokens.AMOLED)
+                            )
+                        }
+                    }
+
+                    // If text parts are absent but server provided a summary, render it.
+                    if (visibleParts.isEmpty() && userFallbackText != null) {
+                        Text(
+                            text = userFallbackText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = textColor.copy(alpha = AlphaTokens.MUTED)
+                        )
+                    }
+
+                    // 统计栏
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 左侧：时间
+                        val timeText = remember(currentMessage.message.time.created) {
+                            SimpleDateFormat("HH:mm", Locale.getDefault())
+                                .format(Date(currentMessage.message.time.created))
+                        }
+                        Text(
+                            text = timeText,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                        )
+
+                        // 弹性空白
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // 右侧：状态指示器（送达状态 / QUEUED 徽章）
+                        when (pendingStatus) {
+                            UserMsgStatus.Sending -> {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                )
+                            }
+                            UserMsgStatus.Failed -> {
+                                if (onRetry != null) {
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        contentDescription = stringResource(R.string.chat_retry_send),
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clickable { onRetry() },
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
+                            null -> {
+                                // Real message — show QUEUED badge if queued
+                                if (isQueued) {
+                                    Surface(
+                                        shape = ShapeTokens.extraSmall,
+                                        color = QueuedBadgeColor
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.chat_queued),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 8.sp,
+                                                color = QueuedBadgeTextColor
+                                            ),
+                                            modifier = Modifier.padding(horizontal = SpacingTokens.XS.dp, vertical = 1.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            UserMsgStatus.Sent -> { /* nothing — briefly visible before removal */ }
+                        }
+
+                        // Undo 按钮（仅主会话，onRevert != null 时显示）
+                        if (onRevert != null) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Undo,
+                                contentDescription = stringResource(R.string.chat_revert),
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clickable {
+                                        performHaptic(hapticView, hapticOn)
+                                        showRevertConfirmation = true
+                                    },
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                            )
+                        }
+
+                        // Copy 按钮（最右侧）
+                        if (onCopyText != null) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.chat_copy),
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clickable {
+                                        performHaptic(hapticView, hapticOn)
+                                        onCopyText()
+                                    },
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                            )
+                        }
+                    }
+                }
+        }
+
+        // 撤回确认对话框
+        if (showRevertConfirmation && onRevert != null) {
+            ConfirmDialog(
+                title = stringResource(R.string.chat_revert),
+                message = stringResource(R.string.chat_revert_message),
+                confirmLabel = stringResource(R.string.chat_revert),
+                onDismiss = { showRevertConfirmation = false },
+                onConfirm = {
+                    showRevertConfirmation = false
+                    onRevert()
+                },
+            )
+        }
+    }
+}

@@ -16,17 +16,17 @@ plugins {
 }
 
 android {
-    namespace = "dev.leonardo.ocremoteplus"
+    namespace = "dev.leonardo.octether"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.leonardo.ocremoteplus"
+        applicationId = "dev.leonardo.octether"
         minSdk = 26
         targetSdk = 35
         versionCode = vCode
         versionName = vName
 
-        testInstrumentationRunner = "dev.leonardo.ocremoteplus.HiltTestRunner"
+        testInstrumentationRunner = "dev.leonardo.octether.HiltTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
