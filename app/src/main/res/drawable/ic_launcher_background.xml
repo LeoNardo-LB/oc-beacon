@@ -4,7 +4,7 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Deep teal diagonal gradient: top-left #08222F → bottom-right #0F3A4D -->
+    <!-- Indigo space diagonal gradient: TL #0F172A → BR #1E1B4B (angle 45) -->
     <path
         android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
@@ -12,8 +12,8 @@
                 android:type="linear"
                 android:startX="0" android:startY="0"
                 android:endX="108" android:endY="108"
-                android:startColor="#08222F"
-                android:endColor="#0F3A4D" />
+                android:startColor="#0F172A"
+                android:endColor="#1E1B4B" />
         </aapt:attr>
     </path>
 </vector>
