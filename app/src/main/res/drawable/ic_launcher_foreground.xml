@@ -3,17 +3,17 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- OC Tether icon — OpenCode "O" pixel block (from official logo geometry)
-         Faithful to OpenCode brand: dark bg + mid-gray block + light-gray accent
-         Geometry derived from opencode.ai logo.svg letter "O" (bbox 0,6-24,36),
-         scaled 2.2x centered in 108 viewport, within 66dp safe zone. -->
+    <!-- OpenCode official logo (favicon-v3.svg, MIT License)
+         White O-ring (evenOdd) + gray center-bottom block #5A5858
+         Geometry: 512→108 scale (×0.21094), centered at (54,54) -->
 
-    <!-- Outer block (mid gray #656363) -->
+    <!-- White O-ring: outer frame minus inner frame -->
     <path
-        android:pathData="M28,21 h52 v66 h-52 z"
-        android:fillColor="#656363" />
-    <!-- Inner accent (light gray #CFCECD) -->
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M81,87.75 H27 V20.25 H81 V87.75 Z M67.5,74.25 H40.5 V33.75 H67.5 V74.25 Z" />
+    <!-- Gray center-bottom block -->
     <path
-        android:pathData="M41,47 h26 v27 h-26 z"
-        android:fillColor="#CFCECD" />
+        android:fillColor="#5A5858"
+        android:pathData="M67.5,47.25 V74.25 H40.5 V47.25 Z" />
 </vector>

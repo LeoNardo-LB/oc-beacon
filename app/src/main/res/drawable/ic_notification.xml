@@ -3,10 +3,10 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Monochrome notification icon — OpenCode "O" pixel block silhouette
-         (square ring via evenOdd fill, white for system tinting) -->
+    <!-- Monochrome notification icon — OpenCode O-ring silhouette
+         (official favicon-v3.svg geometry, 512→24 scale ×0.04688, white for system tinting) -->
     <path
-        android:pathData="M5,3 h14 v18 h-14 z M9,8 h6 v8 h-6 z"
+        android:pathData="M18,19.5 H6 V4.5 H18 V19.5 Z M15,16.5 H9 V7.5 H15 V16.5 Z"
         android:fillColor="#FFFFFF"
         android:fillType="evenOdd" />
 </vector>
