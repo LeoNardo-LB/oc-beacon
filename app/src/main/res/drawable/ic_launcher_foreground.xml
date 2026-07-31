@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- OpenCode official logo (favicon-v3.svg geometry, MIT)
+         White O-ring (evenOdd) + gray center-bottom block #5A5858
+         Geometry: 512→108 scale (×0.21094), O-ring 25-75% × 18.75-81.25% (official ratio)
+         Transparent background — gradient bg shows through, seamless -->
+
+    <!-- White O-ring: outer frame (27,20.25)-(81,87.75) minus inner frame (40.5,33.75)-(67.5,74.25) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M81,87.75 H27 V20.25 H81 V87.75 Z M67.5,74.25 H40.5 V33.75 H67.5 V74.25 Z" />
+    <!-- Gray center-bottom block (40.5,47.25)-(67.5,74.25) -->
+    <path
+        android:fillColor="#5A5858"
+        android:pathData="M67.5,74.25 V47.25 H40.5 V74.25 Z" />
+</vector>
