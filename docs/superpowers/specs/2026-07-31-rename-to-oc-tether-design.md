@@ -80,9 +80,8 @@ VERSION_NAME=1.0.0
 - `data/update/UpdateRepository.kt` / `UpdateModels.kt` / `test/.../UpdatePolicyTest.kt`
 - 硬编码的 GitHub repo 路径 `oc-remote-plus` → `oc-tether`
 
-### 4.6 maestro 测试 appId（顺便修复已存在 bug）
-所有 `maestro/*.yaml` 的 `appId: dev.leonardo.li.dev` → `dev.leonardo.octether.dev`
-> 现状异常：maestro appId 与当前 applicationId 本就不一致，改名时统一修正。
+### 4.6 maestro 测试 appId
+所有 `maestro/*.yaml` 的 `appId: dev.leonardo.ocremoteplus.dev` → `dev.leonardo.octether.dev`
 
 ### 4.7 图标与视觉
 见 3.4。全套替换。
