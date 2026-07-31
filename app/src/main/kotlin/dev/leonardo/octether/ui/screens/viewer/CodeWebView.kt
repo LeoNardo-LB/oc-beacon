@@ -215,7 +215,7 @@ fun CodeWebView(
         factory = { ctx ->
             AnnotateWebView(ctx, annotateLabel, bridge, onLoadMore).apply {
                 settings.javaScriptEnabled = true
-                settings.userAgentString = "OCRemoteCodeViewer"
+                settings.userAgentString = "OCTetherCodeViewer"
                 settings.allowFileAccess = true
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = false

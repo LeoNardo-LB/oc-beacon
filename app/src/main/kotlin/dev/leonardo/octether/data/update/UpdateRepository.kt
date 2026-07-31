@@ -133,7 +133,7 @@ class UpdateRepository @Inject constructor(
     private suspend fun fetchLatestGitHubRelease(): AvailableUpdate {
         val response = client.get(GITHUB_LATEST_RELEASE_URL) {
             header(HttpHeaders.Accept, "application/vnd.github+json")
-            header(HttpHeaders.UserAgent, "OC-Remote-Plus/${BuildConfig.VERSION_NAME}")
+            header(HttpHeaders.UserAgent, "OC-Tether/${BuildConfig.VERSION_NAME}")
             timeout { requestTimeoutMillis = UPDATE_TIMEOUT_MS }
         }
         response.requireBoundedSuccess()
