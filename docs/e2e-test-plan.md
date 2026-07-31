@@ -2,7 +2,7 @@
 
 > 环境：Android 模拟器 `emulator-5554`，dev flavor debug build
 > 服务器：`10.0.2.2:4096`，Basic auth `opencode:leonardo123`
-> Activity：`dev.leonardo.ocremoteplus.dev/dev.leonardo.ocremoteplus.MainActivity`
+> Activity：`dev.leonardo.octether.dev/dev.leonardo.octether.MainActivity`
 > 执行日期：2026-06-04
 > 结果：**30/30 通过，0 失败**
 

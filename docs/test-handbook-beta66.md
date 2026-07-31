@@ -2,7 +2,7 @@
 
 > **应用**: oc-remote — OpenCode Jetpack Compose 聊天客户端  
 > **版本**: 2.0.0-beta.66 (versionCode 266)  
-> **包名**: `dev.leonardo.ocremoteplus.v2`  
+> **包名**: `dev.leonardo.octether.v2`  
 > **测试设备**: emulator-5554  
 > **编写日期**: 2026-05-29  
 > **测试基准**: 13 项 bugfix/feature 任务
@@ -85,7 +85,7 @@ adb -s emulator-5554 shell getprop ro.build.version.sdk
 ### 2.3 卸载旧版本 (如有)
 
 ```powershell
-adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
+adb -s emulator-5554 uninstall dev.leonardo.octether.v2
 ```
 
 ---
@@ -104,7 +104,7 @@ adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
 | **Steps** | 1. 定位 APK 文件路径 (通常在 `app/build/outputs/apk/debug/` 或 `release/`) |
 | | 2. 确认文件存在且大小 > 0 |
 | | 3. 运行 `aapt dump badging app.apk \| head -5` 确认可解析 |
-| **Expected Result** | APK 文件存在，aapt 能正常解析，输出包含包名 `dev.leonardo.ocremoteplus.v2` |
+| **Expected Result** | APK 文件存在，aapt 能正常解析，输出包含包名 `dev.leonardo.octether.v2` |
 | **Actual Result** | |
 | **Pass/Fail** | |
 
@@ -131,8 +131,8 @@ adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
 | **Feature** | 应用标识正确性 |
 | **Preconditions** | APK 文件可用 |
 | **Steps** | 1. 运行 `aapt dump badging app.apk \| head -1` |
-| | 2. 确认包名为 `package: name='dev.leonardo.ocremoteplus.v2'` |
-| **Expected Result** | 包名为 `dev.leonardo.ocremoteplus.v2` (debug 构建带 `.v2` 后缀) |
+| | 2. 确认包名为 `package: name='dev.leonardo.octether.v2'` |
+| **Expected Result** | 包名为 `dev.leonardo.octether.v2` (debug 构建带 `.v2` 后缀) |
 | **Actual Result** | |
 | **Pass/Fail** | |
 
@@ -179,7 +179,7 @@ adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
 | **Steps** | 1. 运行 `adb -s emulator-5554 install app/build/outputs/apk/debug/app-debug.apk` |
 | | 2. 观察输出，确认显示 `Success` |
 | | 3. 运行 `adb -s emulator-5554 shell pm list packages \| grep minios` |
-| | 4. 确认 `dev.leonardo.ocremoteplus.v2` 出现在列表中 |
+| | 4. 确认 `dev.leonardo.octether.v2` 出现在列表中 |
 | **Expected Result** | 安装成功，包名在已安装列表中可见 |
 | **Actual Result** | |
 | **Pass/Fail** | |
@@ -191,9 +191,9 @@ adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
 | **ID** | T-L1-02 |
 | **Feature** | 应用启动稳定性 |
 | **Preconditions** | 应用已安装，应用未在运行 |
-| **Steps** | 1. 强制停止应用: `adb -s emulator-5554 shell am force-stop dev.leonardo.ocremoteplus.v2` |
+| **Steps** | 1. 强制停止应用: `adb -s emulator-5554 shell am force-stop dev.leonardo.octether.v2` |
 | | 2. 清除 logcat: `adb -s emulator-5554 logcat -c` |
-| | 3. 启动应用: `adb -s emulator-5554 shell am start -n dev.leonardo.ocremoteplus.v2/dev.leonardo.ocremoteplus.MainActivity` |
+| | 3. 启动应用: `adb -s emulator-5554 shell am start -n dev.leonardo.octether.v2/dev.leonardo.octether.MainActivity` |
 | | 4. 等待 5 秒 |
 | | 5. 检查 logcat 中的 FATAL/AndroidRuntime crash: `adb -s emulator-5554 logcat -d -s AndroidRuntime:E` |
 | **Expected Result** | 应用正常启动，logcat 中无 FATAL 异常或 AndroidRuntime 崩溃 |
@@ -224,7 +224,7 @@ adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
 | **ID** | T-L1-04 |
 | **Feature** | Task 12 — 版本号升级 |
 | **Preconditions** | 应用已安装 |
-| **Steps** | 1. 运行: `adb -s emulator-5554 shell dumpsys package dev.leonardo.ocremoteplus.v2 \| findstr versionName` |
+| **Steps** | 1. 运行: `adb -s emulator-5554 shell dumpsys package dev.leonardo.octether.v2 \| findstr versionName` |
 | | 2. 确认输出包含 `versionName=2.0.0-beta.66` |
 | **Expected Result** | 已安装版本为 `2.0.0-beta.66` |
 | **Actual Result** | |
@@ -276,7 +276,7 @@ adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
 | **Steps** | 1. 打开应用侧边栏/设置页面（通常点击左上角菜单或向右滑动） |
 | | 2. 查找 "关于" 或版本信息区域 |
 | | 3. 确认显示版本号为 `2.0.0-beta.66` 或包含此版本号 |
-| | 4. 如果设置中无版本显示，检查应用信息: `adb -s emulator-5554 shell dumpsys package dev.leonardo.ocremoteplus.v2 \| findstr versionName` |
+| | 4. 如果设置中无版本显示，检查应用信息: `adb -s emulator-5554 shell dumpsys package dev.leonardo.octether.v2 \| findstr versionName` |
 | **Expected Result** | 应用内或系统信息中版本号为 `2.0.0-beta.66` |
 | **Actual Result** | |
 | **Pass/Fail** | |
@@ -304,7 +304,7 @@ adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
 | **ID** | T-L2-05 |
 | **Feature** | 应用权限合理性 |
 | **Preconditions** | 应用已安装 |
-| **Steps** | 1. 运行: `adb -s emulator-5554 shell dumpsys package dev.leonardo.ocremoteplus.v2 \| findstr permission` |
+| **Steps** | 1. 运行: `adb -s emulator-5554 shell dumpsys package dev.leonardo.octether.v2 \| findstr permission` |
 | | 2. 检查请求的权限列表 |
 | | 3. 确认无过度权限请求（如不需要的定位、通讯录、相机等） |
 | **Expected Result** | 权限列表合理，仅包含网络访问等必要权限 |
@@ -623,7 +623,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$ApkPath,
     [string]$Device = "emulator-5554",
-    [string]$PackageName = "dev.leonardo.ocremoteplus.v2",
+    [string]$PackageName = "dev.leonardo.octether.v2",
     [string]$ExpectedVersion = "2.0.0-beta.66",
     [int]$ExpectedVersionCode = 266
 )
@@ -756,7 +756,7 @@ Write-Host "Testing cold start..." -ForegroundColor Gray
 & adb -s $Device shell am force-stop $PackageName 2>$null | Out-Null
 Start-Sleep -Seconds 1
 & adb -s $Device logcat -c 2>$null | Out-Null
-& adb -s $Device shell am start -n "$PackageName/dev.leonardo.ocremoteplus.MainActivity" 2>$null | Out-Null
+& adb -s $Device shell am start -n "$PackageName/dev.leonardo.octether.MainActivity" 2>$null | Out-Null
 Start-Sleep -Seconds 5
 $crashes = & adb -s $Device logcat -d -s "AndroidRuntime:E" 2>$null
 $hasFATAL = $crashes -match "FATAL"
@@ -769,7 +769,7 @@ Write-Host "Testing hot start..." -ForegroundColor Gray
 & adb -s $Device shell input keyevent KEYCODE_HOME 2>$null | Out-Null
 Start-Sleep -Seconds 2
 & adb -s $Device logcat -c 2>$null | Out-Null
-& adb -s $Device shell am start -n "$PackageName/dev.leonardo.ocremoteplus.MainActivity" 2>$null | Out-Null
+& adb -s $Device shell am start -n "$PackageName/dev.leonardo.octether.MainActivity" 2>$null | Out-Null
 Start-Sleep -Seconds 3
 $hotCrashes = & adb -s $Device logcat -d -s "AndroidRuntime:E" 2>$null
 $hasHotFATAL = $hotCrashes -match "FATAL"
@@ -785,7 +785,7 @@ Write-Host "--- L2: UI 冒烟测试 ---" -ForegroundColor Yellow
 Write-Host ""
 
 # 确保应用在前台
-& adb -s $Device shell am start -n "$PackageName/dev.leonardo.ocremoteplus.MainActivity" 2>$null | Out-Null
+& adb -s $Device shell am start -n "$PackageName/dev.leonardo.octether.MainActivity" 2>$null | Out-Null
 Start-Sleep -Seconds 3
 
 # T-L2-05: 权限检查
@@ -1015,19 +1015,19 @@ adb -s emulator-5554 logcat -s "AndroidRuntime:E" "ActivityManager:I"
 adb -s emulator-5554 install -r app-debug.apk
 
 # 启动
-adb -s emulator-5554 shell am start -n dev.leonardo.ocremoteplus.v2/dev.leonardo.ocremoteplus.MainActivity
+adb -s emulator-5554 shell am start -n dev.leonardo.octether.v2/dev.leonardo.octether.MainActivity
 
 # 强制停止
-adb -s emulator-5554 shell am force-stop dev.leonardo.ocremoteplus.v2
+adb -s emulator-5554 shell am force-stop dev.leonardo.octether.v2
 
 # 卸载
-adb -s emulator-5554 uninstall dev.leonardo.ocremoteplus.v2
+adb -s emulator-5554 uninstall dev.leonardo.octether.v2
 
 # 清除数据
-adb -s emulator-5554 shell pm clear dev.leonardo.ocremoteplus.v2
+adb -s emulator-5554 shell pm clear dev.leonardo.octether.v2
 
 # 查看版本
-adb -s emulator-5554 shell dumpsys package dev.leonardo.ocremoteplus.v2 | findstr versionName
+adb -s emulator-5554 shell dumpsys package dev.leonardo.octether.v2 | findstr versionName
 
 # 输入文字
 adb -s emulator-5554 shell input text "hello"

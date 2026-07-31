@@ -24,9 +24,9 @@
 ### Task 1: 创建 UserMsgStatus 枚举 + 推导函数
 
 **Files:**
-- Create: `app/src/main/kotlin/dev/leonardo/ocremoteplus/domain/model/UserMsgStatus.kt`
-- Create: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/util/UserMsgStatusCalculator.kt`
-- Test: `app/src/test/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/util/UserMsgStatusCalculatorTest.kt`
+- Create: `app/src/main/kotlin/dev/leonardo/octether/domain/model/UserMsgStatus.kt`
+- Create: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/util/UserMsgStatusCalculator.kt`
+- Test: `app/src/test/kotlin/dev/leonardo/octether/ui/screens/chat/util/UserMsgStatusCalculatorTest.kt`
 
 **Interfaces:**
 - Consumes: `SessionStatus`（`domain/model/SessionStatus.kt`），`Message`（`domain/model/Message.kt`）
@@ -35,8 +35,8 @@
 - [ ] **Step 1: 创建 UserMsgStatus 枚举**
 
 ```kotlin
-// app/src/main/kotlin/dev/leonardo/ocremoteplus/domain/model/UserMsgStatus.kt
-package dev.leonardo.ocremoteplus.domain.model
+// app/src/main/kotlin/dev/leonardo/octether/domain/model/UserMsgStatus.kt
+package dev.leonardo.octether.domain.model
 
 /**
  * User message status for the per-message status indicator.
@@ -57,12 +57,12 @@ enum class UserMsgStatus {
 - [ ] **Step 2: 创建推导函数**
 
 ```kotlin
-// app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/util/UserMsgStatusCalculator.kt
-package dev.leonardo.ocremoteplus.ui.screens.chat.util
+// app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/util/UserMsgStatusCalculator.kt
+package dev.leonardo.octether.ui.screens.chat.util
 
-import dev.leonardo.ocremoteplus.domain.model.Message
-import dev.leonardo.ocremoteplus.domain.model.SessionStatus
-import dev.leonardo.ocremoteplus.domain.model.UserMsgStatus
+import dev.leonardo.octether.domain.model.Message
+import dev.leonardo.octether.domain.model.SessionStatus
+import dev.leonardo.octether.domain.model.UserMsgStatus
 
 /**
  * Derives the status of a user message for the per-message indicator.
@@ -116,13 +116,13 @@ fun calculateAllUserMsgStatuses(
 - [ ] **Step 3: 编写单元测试**
 
 ```kotlin
-// app/src/test/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/util/UserMsgStatusCalculatorTest.kt
-package dev.leonardo.ocremoteplus.ui.screens.chat.util
+// app/src/test/kotlin/dev/leonardo/octether/ui/screens/chat/util/UserMsgStatusCalculatorTest.kt
+package dev.leonardo.octether.ui.screens.chat.util
 
-import dev.leonardo.ocremoteplus.domain.model.Message
-import dev.leonardo.ocremoteplus.domain.model.SessionStatus
-import dev.leonardo.ocremoteplus.domain.model.TimeInfo
-import dev.leonardo.ocremoteplus.domain.model.UserMsgStatus
+import dev.leonardo.octether.domain.model.Message
+import dev.leonardo.octether.domain.model.SessionStatus
+import dev.leonardo.octether.domain.model.TimeInfo
+import dev.leonardo.octether.domain.model.UserMsgStatus
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -221,7 +221,7 @@ Expected: BUILD SUCCESSFUL
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/src/main/kotlin/dev/leonardo/ocremoteplus/domain/model/UserMsgStatus.kt app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/util/UserMsgStatusCalculator.kt app/src/test/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/util/UserMsgStatusCalculatorTest.kt
+git add app/src/main/kotlin/dev/leonardo/octether/domain/model/UserMsgStatus.kt app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/util/UserMsgStatusCalculator.kt app/src/test/kotlin/dev/leonardo/octether/ui/screens/chat/util/UserMsgStatusCalculatorTest.kt
 git commit -m "feat: add UserMsgStatus enum and derivation logic"
 ```
 
@@ -230,9 +230,9 @@ git commit -m "feat: add UserMsgStatus enum and derivation logic"
 ### Task 2: 将 userMsgStatuses 接入 MessageListState
 
 **Files:**
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/ChatViewModel.kt:56-64` (MessageListState)
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/MessageDataDelegate.kt:174-216`
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/ChatViewModel.kt:630-645` (combine output)
+- Modify: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/ChatViewModel.kt:56-64` (MessageListState)
+- Modify: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/MessageDataDelegate.kt:174-216`
+- Modify: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/ChatViewModel.kt:630-645` (combine output)
 
 **Interfaces:**
 - Consumes: `calculateAllUserMsgStatuses()` from Task 1, `SessionStatus` from FSM, `queuedMessageIds`, `visible` message list
@@ -258,7 +258,7 @@ data class MessageListState(
 
 同时在文件顶部添加 import：
 ```kotlin
-import dev.leonardo.ocremoteplus.domain.model.UserMsgStatus
+import dev.leonardo.octether.domain.model.UserMsgStatus
 ```
 
 - [ ] **Step 2: 在 MessageDataDelegate 中计算 userMsgStatuses**
@@ -291,7 +291,7 @@ import dev.leonardo.ocremoteplus.domain.model.UserMsgStatus
 
 同时在文件顶部添加 import：
 ```kotlin
-import dev.leonardo.ocremoteplus.ui.screens.chat.util.calculateAllUserMsgStatuses
+import dev.leonardo.octether.ui.screens.chat.util.calculateAllUserMsgStatuses
 ```
 
 - [ ] **Step 3: 确保 ChatViewModel 中透传 userMsgStatuses**
@@ -311,7 +311,7 @@ Expected: PASS (所有 queued 测试通过)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/ChatViewModel.kt app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/MessageDataDelegate.kt
+git add app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/ChatViewModel.kt app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/MessageDataDelegate.kt
 git commit -m "feat: wire userMsgStatuses into MessageListState"
 ```
 
@@ -320,7 +320,7 @@ git commit -m "feat: wire userMsgStatuses into MessageListState"
 ### Task 3: 移除顶部进度条
 
 **Files:**
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/ChatScreen.kt:638-646`
+- Modify: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/ChatScreen.kt:638-646`
 
 - [ ] **Step 1: 读取 ChatScreen.kt 确认当前代码**
 
@@ -355,7 +355,7 @@ Expected: BUILD SUCCESSFUL
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/ChatScreen.kt
+git add app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/ChatScreen.kt
 git commit -m "refactor: remove top bar busy progress indicator"
 ```
 
@@ -364,9 +364,9 @@ git commit -m "refactor: remove top bar busy progress indicator"
 ### Task 4: 更新 MessageCard + MessageCardUser + ChatMessageList
 
 **Files:**
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/MessageCard.kt`
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/MessageCardUser.kt`
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/ChatMessageList.kt:564-567`
+- Modify: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/components/MessageCard.kt`
+- Modify: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/components/MessageCardUser.kt`
+- Modify: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/components/ChatMessageList.kt:564-567`
 
 **Interfaces:**
 - Consumes: `UserMsgStatus` from Task 1, `MessageListState.userMsgStatuses` from Task 2
@@ -378,13 +378,13 @@ git commit -m "refactor: remove top bar busy progress indicator"
 
 ```kotlin
 // MessageCard.kt
-package dev.leonardo.ocremoteplus.ui.screens.chat.components
+package dev.leonardo.octether.ui.screens.chat.components
 
 import androidx.compose.runtime.Composable
-import dev.leonardo.ocremoteplus.domain.model.AgentInfo
-import dev.leonardo.ocremoteplus.domain.model.UserMsgStatus
-import dev.leonardo.ocremoteplus.ui.screens.chat.ChatMessage
-import dev.leonardo.ocremoteplus.ui.screens.chat.tools.RenderableTurn
+import dev.leonardo.octether.domain.model.AgentInfo
+import dev.leonardo.octether.domain.model.UserMsgStatus
+import dev.leonardo.octether.ui.screens.chat.ChatMessage
+import dev.leonardo.octether.ui.screens.chat.tools.RenderableTurn
 
 enum class MessageCardRole { USER, ASSISTANT }
 
@@ -535,8 +535,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.CircularProgressIndicator
-import dev.leonardo.ocremoteplus.domain.model.UserMsgStatus
-import dev.leonardo.ocremoteplus.ui.theme.AppMotion
+import dev.leonardo.octether.domain.model.UserMsgStatus
+import dev.leonardo.octether.ui.theme.AppMotion
 ```
 
 - [ ] **Step 3: 更新 ChatMessageList 传递 userMsgStatus**
@@ -552,7 +552,7 @@ import dev.leonardo.ocremoteplus.ui.theme.AppMotion
 
 添加 import：
 ```kotlin
-import dev.leonardo.ocremoteplus.domain.model.UserMsgStatus
+import dev.leonardo.octether.domain.model.UserMsgStatus
 ```
 
 - [ ] **Step 4: 编译检查**
@@ -563,7 +563,7 @@ Expected: BUILD SUCCESSFUL
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/MessageCard.kt app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/MessageCardUser.kt app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/ChatMessageList.kt
+git add app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/components/MessageCard.kt app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/components/MessageCardUser.kt app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/components/ChatMessageList.kt
 git commit -m "feat: move QUEUED badge to right + add waiting circle indicator on user messages"
 ```
 
@@ -572,7 +572,7 @@ git commit -m "feat: move QUEUED badge to right + add waiting circle indicator o
 ### Task 5: 更新 MessageCardAssistant — 流式 footer + 移除 token 统计 + 圆环
 
 **Files:**
-- Modify: `app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/MessageCardAssistant.kt`
+- Modify: `app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/components/MessageCardAssistant.kt`
 
 - [ ] **Step 1: 读取 MessageCardAssistant.kt 确认当前代码**
 
@@ -680,7 +680,7 @@ Expected: PASS（所有测试通过）
 - [ ] **Step 8: Commit**
 
 ```bash
-git add app/src/main/kotlin/dev/leonardo/ocremoteplus/ui/screens/chat/components/MessageCardAssistant.kt
+git add app/src/main/kotlin/dev/leonardo/octether/ui/screens/chat/components/MessageCardAssistant.kt
 git commit -m "feat: add streaming footer with circle indicator + remove token stats from assistant card"
 ```
 

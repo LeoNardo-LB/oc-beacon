@@ -48,8 +48,8 @@ SSE token 到达
 
 #### 1a. import 替换（L20-21）
 ```diff
-- import dev.leonardo.ocremoteplus.ui.components.AnchoredLazyColumn
-- import dev.leonardo.ocremoteplus.ui.components.AnchoredLazyListState
+- import dev.leonardo.octether.ui.components.AnchoredLazyColumn
+- import dev.leonardo.octether.ui.components.AnchoredLazyListState
 + import androidx.compose.foundation.lazy.LazyColumn
 + import androidx.compose.foundation.lazy.LazyListState
 ```
@@ -100,7 +100,7 @@ SSE token 到达
 
 #### 2a. import 替换（L40）
 ```diff
-- import dev.leonardo.ocremoteplus.ui.components.AnchoredLazyListState
+- import dev.leonardo.octether.ui.components.AnchoredLazyListState
 + import androidx.compose.foundation.lazy.LazyListState
 + import androidx.compose.foundation.lazy.rememberLazyListState
 ```

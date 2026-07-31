@@ -7,7 +7,7 @@ Status: Documented for future refactoring sessions
 
 ### Critical: ServerTerminalRegistry imports UI type
 - **File**: `data/repository/ServerTerminalRegistry.kt:5`
-- **Violation**: `import dev.leonardo.ocremoteplus.ui.screens.chat.ServerTerminalWorkspace`
+- **Violation**: `import dev.leonardo.octether.ui.screens.chat.ServerTerminalWorkspace`
 - **Root cause**: `ServerTerminalWorkspace` (487 lines) is architecturally a data-layer class
   (manages terminal connections via TerminalApi, PtyToTermlibAdapter) but was placed in
   `ui/screens/chat/` during initial development.

@@ -360,7 +360,7 @@ git add -A && git commit -m "refactor: replace V2 prompt/abort with V1 API calls
 
 - [ ] **Step 1: 移除 ChatViewModel 中所有 `data.v2` import（约 46 行）**
 
-移除第 31-76 行中所有 `import dev.leonardo.ocremoteplus.data.v2.*` 语句。
+移除第 31-76 行中所有 `import dev.leonardo.octether.data.v2.*` 语句。
 
 - [ ] **Step 2: 移除 `convertToolState()` 函数**
 
@@ -369,7 +369,7 @@ git add -A && git commit -m "refactor: replace V2 prompt/abort with V1 API calls
 - [ ] **Step 3: 全局搜索确认无其他 V2 引用**
 
 ```bash
-rg "import dev.leonardo.ocremoteplus.data.v2" app/src/main/kotlin/
+rg "import dev.leonardo.octether.data.v2" app/src/main/kotlin/
 ```
 Expected: 零结果
 

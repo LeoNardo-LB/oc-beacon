@@ -200,7 +200,7 @@ UI 时间线
 
 ## 8. 与 OC Remote Android 客户端的关系
 
-当前 Android 客户端（oc-remote-plus）**没有实现**这个聚合逻辑——每个工具调用都是独立渲染的卡片。
+当前 Android 客户端（oc-tether）**没有实现**这个聚合逻辑——每个工具调用都是独立渲染的卡片。
 
 如果要实现类似功能，需要：
 1. 定义 context 工具集合（read/glob/grep/list）
