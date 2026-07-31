@@ -1,5 +1,5 @@
 # Flow 25: Markdown preview toggle (source ↔ rendered)
-appId: dev.leonardo.ocremoteplus.dev
+appId: dev.leonardo.octether.dev
 ---
 - runFlow: e2e-chat-flow.yaml
 

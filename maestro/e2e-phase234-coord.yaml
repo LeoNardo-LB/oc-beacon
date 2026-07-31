@@ -1,4 +1,4 @@
-appId: dev.leonardo.ocremoteplus.dev
+appId: dev.leonardo.octether.dev
 name: E2E Phase 2-4 (coordinate-based)
 ---
 - killApp

@@ -1,5 +1,5 @@
 # Flow 24: Entry1 — tool card view (Read/Write/Edit → FileViewer snapshot)
-appId: dev.leonardo.ocremoteplus.dev
+appId: dev.leonardo.octether.dev
 ---
 # Prerequisite: chat must have Read/Write/Edit tool cards (requires AI interaction)
 - runFlow: e2e-chat-flow.yaml
