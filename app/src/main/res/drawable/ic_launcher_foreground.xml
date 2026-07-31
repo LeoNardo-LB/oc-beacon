@@ -5,38 +5,76 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- OC Tether — Orbit System
+    <!-- OC Tether — Orbit System (v5 polished)
          Geometry (pre-rotation canvas, 108x108):
-           Core circle:  cx=46 cy=50 r=17  (focal point)
+           Core circle:   cx=46 cy=50 r=17  (focal point)
            Orbit ellipse: center (46,50) rx=34 ry=14, rotated -20deg about (46,50)
            Satellite dot: on ellipse at param angle -35deg ≈ (73.85, 41.97) r=5.5
-         All orbit elements share the rotation group so the satellite stays on the ring. -->
+         Polishing layers (kept restrained; core stays the absolute focal point):
+           Ring   → linear stroke gradient (lit #93C5FD → shadow #3B82F6)
+           Satellite → glow r=9 (alpha40) + body r=5.5 + thin outline 1px + upper-left highlight
+           Core   → radial fill (bright #FEF3C7 → peach #FAB283) + edge stroke + upper-left highlight -->
 
-    <!-- Tilted orbit ring (stroke) + eccentric satellite, rotated -20deg about core -->
+    <!-- Tilted orbit ring (gradient stroke) + eccentric satellite cluster, rotated -20deg about core -->
     <group android:rotation="-20" android:pivotX="46" android:pivotY="50">
 
-        <!-- Orbit ellipse ring — blue stroke, no fill -->
+        <!-- Orbit ellipse ring — gradient stroke (lit → shadow along ring axis) -->
         <path
             android:pathData="M12,50 a34,14 0 1 0 68,0 a34,14 0 1 0 -68,0"
-            android:strokeColor="#5C9CF5"
-            android:strokeWidth="3.5" />
+            android:strokeWidth="3.5">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="12" android:startY="50"
+                    android:endX="80" android:endY="50"
+                    android:startColor="#93C5FD"
+                    android:endColor="#3B82F6" />
+            </aapt:attr>
+        </path>
 
-        <!-- Eccentric satellite dot on ring (upper-right of ellipse) -->
+        <!-- Satellite outer glow — semi-transparent blue halo, drawn under body -->
+        <path
+            android:pathData="M64.85,41.97 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0"
+            android:fillColor="#5C9CF566" />
+
+        <!-- Satellite body — solid blue -->
         <path
             android:pathData="M68.35,41.97 a5.5,5.5 0 1 0 11,0 a5.5,5.5 0 1 0 -11,0"
             android:fillColor="#5C9CF5" />
+
+        <!-- Satellite thin outline — bright blue 1px ring framing the body -->
+        <path
+            android:pathData="M67.85,41.97 a6,6 0 1 0 12,0 a6,6 0 1 0 -12,0"
+            android:strokeColor="#93C5FD"
+            android:strokeWidth="1" />
+
+        <!-- Satellite highlight — tiny white upper-left catch-light -->
+        <path
+            android:pathData="M70.55,40.17 a1.5,1.5 0 1 0 3,0 a1.5,1.5 0 1 0 -3,0"
+            android:fillColor="#FFFFFF" />
     </group>
 
-    <!-- Solid core circle — peach radial-ish gradient (focal anchor) -->
+    <!-- Solid core circle — radial gradient fill (sphere-like) -->
     <path
         android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:type="linear"
-                android:startX="38" android:startY="36"
-                android:endX="54" android:endY="64"
-                android:startColor="#FCD34D"
+                android:type="radial"
+                android:centerX="46" android:centerY="50"
+                android:gradientRadius="17"
+                android:startColor="#FEF3C7"
                 android:endColor="#FAB283" />
         </aapt:attr>
     </path>
+
+    <!-- Core edge stroke — deep peach rim for definition -->
+    <path
+        android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0"
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="1.2" />
+
+    <!-- Core highlight — soft white upper-left sphere highlight -->
+    <path
+        android:pathData="M38,45 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0"
+        android:fillColor="#FFFFFFCC" />
 </vector>

@@ -4,9 +4,11 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- OC Tether — Orbit System (monochrome / themed icon layer)
-         Same geometry as ic_launcher_foreground.xml, all pure white #FFFFFF.
-         Shape must read without color: solid core + ring outline + satellite dot. -->
+    <!-- OC Tether — Orbit System (monochrome / themed icon layer, v5 polished)
+         Same geometry as ic_launcher_foreground.xml, all white. Polishing layers
+         expressed as white-alpha tonal steps so shape reads with depth without color:
+           Satellite → faint halo + body + thin outline + catch-light
+           Core      → soft rim + body + highlight -->
 
     <group android:rotation="-20" android:pivotX="46" android:pivotY="50">
         <!-- Orbit ellipse ring -->
@@ -14,14 +16,32 @@
             android:pathData="M12,50 a34,14 0 1 0 68,0 a34,14 0 1 0 -68,0"
             android:strokeColor="#FFFFFF"
             android:strokeWidth="3.5" />
-        <!-- Eccentric satellite dot -->
+
+        <!-- Satellite outer glow halo -->
+        <path
+            android:pathData="M64.85,41.97 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0"
+            android:fillColor="#FFFFFF40" />
+
+        <!-- Satellite body -->
         <path
             android:pathData="M68.35,41.97 a5.5,5.5 0 1 0 11,0 a5.5,5.5 0 1 0 -11,0"
             android:fillColor="#FFFFFF" />
+
+        <!-- Satellite thin outline -->
+        <path
+            android:pathData="M67.85,41.97 a6,6 0 1 0 12,0 a6,6 0 1 0 -12,0"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="1" />
     </group>
 
     <!-- Solid core circle -->
     <path
         android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0"
         android:fillColor="#FFFFFF" />
+
+    <!-- Core soft highlight ring for subtle depth -->
+    <path
+        android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0"
+        android:strokeColor="#FFFFFFCC"
+        android:strokeWidth="1.2" />
 </vector>
