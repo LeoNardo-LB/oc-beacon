@@ -175,8 +175,8 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 
 - **`version.properties`** at project root（唯一来源）:
   ```properties
-  VERSION_CODE=104
-  VERSION_NAME=1.0.7-beta.2
+  VERSION_CODE=1
+  VERSION_NAME=1.0.0
   ```
 - `VERSION_CODE`：整数，**永远只增不减**，每次构建 +1。Android 用此判断更新顺序。
 - `VERSION_NAME`：显示字符串，遵循上述 SemVer 格式。
