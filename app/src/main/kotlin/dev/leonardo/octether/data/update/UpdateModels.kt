@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 private const val REPOSITORY_HOST = "github.com"
 private const val REPOSITORY_OWNER = "LeoNardo-LB"
-private const val REPOSITORY_NAME = "oc-remote-plus"
+private const val REPOSITORY_NAME = "oc-tether"
 
 /**
  * All application IDs across dev/beta/stable flavors.
@@ -126,7 +126,7 @@ object UpdatePolicy {
 
     private fun expectedApkUrl(versionName: String): String {
         return "https://$REPOSITORY_HOST/$REPOSITORY_OWNER/$REPOSITORY_NAME/releases/download/" +
-            "${releaseTag(versionName)}/oc-remote-plus-$versionName.apk"
+            "${releaseTag(versionName)}/oc-tether-$versionName.apk"
     }
 
     private fun isValidVersionName(version: String): Boolean {

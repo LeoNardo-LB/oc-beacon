@@ -93,7 +93,7 @@ class UpdatePolicyTest {
                 versionCode = 23,
                 releaseUrl = repoReleaseUrl,
                 packageName = "dev.leonardo.octether",
-                apkUrl = "https://github.com/LeoNardo-LB/oc-tether/releases/download/v1.7.0/oc-remote-plus-1.7.0.apk",
+                apkUrl = "https://github.com/LeoNardo-LB/oc-tether/releases/download/v1.7.0/oc-tether-1.7.0.apk",
                 sha256 = "A".repeat(64),
             ),
         )
@@ -104,7 +104,7 @@ class UpdatePolicyTest {
 
     @Test
     fun `rich manifest accepts any flavor package name`() {
-        val apkUrl = "https://github.com/LeoNardo-LB/oc-tether/releases/download/v1.7.0/oc-remote-plus-1.7.0.apk"
+        val apkUrl = "https://github.com/LeoNardo-LB/oc-tether/releases/download/v1.7.0/oc-tether-1.7.0.apk"
         val sha = "a".repeat(64)
 
         // stable flavor
@@ -147,7 +147,7 @@ class UpdatePolicyTest {
                 UpdateManifestDto(
                     "1.7.0", 23, repoReleaseUrl,
                     "dev.leonardo.octether",
-                    "https://github.com/LeoNardo-LB/oc-tether/releases/download/v1.7.0/oc-remote-plus-1.7.0.apk",
+                    "https://github.com/LeoNardo-LB/oc-tether/releases/download/v1.7.0/oc-tether-1.7.0.apk",
                     "not-a-sha",
                 ),
             ),

@@ -152,7 +152,7 @@ class UpdateRepository @Inject constructor(
         val updatesDir = File(context.cacheDir, "updates")
         require(updatesDir.exists() || updatesDir.mkdirs()) { "Unable to create update directory" }
         val tempFile = File.createTempFile("update-", ".apk.part", updatesDir)
-        val targetFile = File(updatesDir, "oc-remote-plus-${release.versionName}.apk")
+        val targetFile = File(updatesDir, "oc-tether-${release.versionName}.apk")
         try {
             val response = client.get(requireNotNull(release.apkUrl)) {
                 timeout {
