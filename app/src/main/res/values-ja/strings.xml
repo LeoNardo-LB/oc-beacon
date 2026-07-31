@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Remote Plus</string>
+    <string name="app_name">OC Tether</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Remote Plus</string>
+    <string name="home_title">OC Tether</string>
     <string name="home_add_server">サーバー追加</string>
     <string name="home_no_servers">サーバーが設定されていません</string>
     <string name="home_server_health_good">接続済み</string>
@@ -286,7 +286,7 @@
     <string name="notification_connecting">%1$sに接続中…</string>
     <string name="notification_connected_count">%1$d台中%2$d台に接続済み</string>
     <string name="notification_disconnect_all">すべて切断</string>
-    <string name="notification_inbox_title">OC Remote Plus — %1$d/%2$d 接続済み</string>
+    <string name="notification_inbox_title">OC Tether — %1$d/%2$d 接続済み</string>
     <string name="notification_status_connected">接続済み</string>
     <string name="notification_status_connecting">接続中…</string>
     <string name="notification_response_ready">応答準備完了</string>
@@ -314,7 +314,7 @@
     <string name="about_description">OpenCodeサーバー用Androidクライアント</string>
     <string name="about_unofficial">これはOpenCodeチーム非公式のコミュニティプロジェクトです。</string>
     <string name="about_github">GitHub</string>
-    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-remote-plus</string>
+    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-tether</string>
     <string name="about_opencode">OpenCode</string>
     <string name="about_opencode_url">https://github.com/anomalyco/opencode</string>
     <string name="about_license">ライセンス</string>
@@ -456,7 +456,7 @@
     <string name="home_local_server_password_placeholder">認証を無効にする場合は空欄にしてください</string>
     <string name="home_local_lan_password_warning">パスワードなしでLANアクセスが有効です。ネットワーク上の誰でもこのサーバーを開くことができます。</string>
     <string name="home_local_auto_start_label">アプリ起動時にローカルサーバーを自動起動</string>
-    <string name="home_local_auto_start_desc">OC Remote Plusが開かれたときにローカルランタイムを自動起動</string>
+    <string name="home_local_auto_start_desc">OC Tetherが開かれたときにローカルランタイムを自動起動</string>
     <string name="home_local_startup_timeout_label">起動タイムアウト</string>
     <string name="home_local_startup_timeout_value">%1$d 秒</string>
     <string name="home_local_launch_options_title">起動オプション</string>

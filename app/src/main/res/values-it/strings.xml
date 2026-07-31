@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Remote Plus</string>
+    <string name="app_name">OC Tether</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Remote Plus</string>
+    <string name="home_title">OC Tether</string>
     <string name="home_add_server">Aggiungi server</string>
     <string name="home_no_servers">Nessun server configurato</string>
     <string name="home_server_health_good">Connesso</string>
@@ -286,7 +286,7 @@
     <string name="notification_connecting">Connessione a %1$s…</string>
     <string name="notification_connected_count">Connesso a %1$d di %2$d server</string>
     <string name="notification_disconnect_all">Disconnetti tutto</string>
-    <string name="notification_inbox_title">OC Remote Plus — %1$d/%2$d connessi</string>
+    <string name="notification_inbox_title">OC Tether — %1$d/%2$d connessi</string>
     <string name="notification_status_connected">Connesso</string>
     <string name="notification_status_connecting">Connessione…</string>
     <string name="notification_response_ready">Risposta pronta</string>
@@ -314,7 +314,7 @@
     <string name="about_description">Client Android per server OpenCode</string>
     <string name="about_unofficial">Questo è un progetto della community non ufficiale, non affiliato al team OpenCode.</string>
     <string name="about_github">GitHub</string>
-    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-remote-plus</string>
+    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-tether</string>
     <string name="about_opencode">OpenCode</string>
     <string name="about_opencode_url">https://github.com/anomalyco/opencode</string>
     <string name="about_license">Licenza</string>
@@ -456,7 +456,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="home_local_server_password_placeholder">Lascia vuoto per disabilitare l\'autenticazione</string>
     <string name="home_local_lan_password_warning">L\'accesso LAN è abilitato senza password. Chiunque sulla tua rete può aprire questo server.</string>
     <string name="home_local_auto_start_label">Avvia automaticamente il server locale all\'apertura dell\'app</string>
-    <string name="home_local_auto_start_desc">Avvia il runtime locale automaticamente quando OC Remote Plus si apre</string>
+    <string name="home_local_auto_start_desc">Avvia il runtime locale automaticamente quando OC Tether si apre</string>
     <string name="home_local_startup_timeout_label">Timeout di avvio</string>
     <string name="home_local_startup_timeout_value">%1$d sec</string>
     <string name="home_local_launch_options_title">Opzioni di avvio</string>

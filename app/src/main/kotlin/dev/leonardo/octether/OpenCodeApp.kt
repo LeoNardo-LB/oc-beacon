@@ -52,7 +52,7 @@ class OpenCodeApp : Application() {
         ).diagnosticLogRepository()
         AppLogger.initialize(diagnosticRepo)
         appScope.launch { diagnosticRepo.initialize() }
-        AppLogger.i("App", "OC Remote Plus ${BuildConfig.VERSION_NAME} (code ${BuildConfig.VERSION_CODE}) started")
+        AppLogger.i("App", "OC Tether ${BuildConfig.VERSION_NAME} (code ${BuildConfig.VERSION_CODE}) started")
 
         val crashDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), CRASH_DIR)
 

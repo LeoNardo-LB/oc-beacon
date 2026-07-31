@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Remote Plus</string>
+    <string name="app_name">OC Tether</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Remote Plus</string>
+    <string name="home_title">OC Tether</string>
     <string name="home_add_server">إضافة خادم</string>
     <string name="home_no_servers">لا توجد خوادم مُعدّة</string>
     <string name="home_server_health_good">متصل</string>
@@ -286,7 +286,7 @@
     <string name="notification_connecting">جاري الاتصال بـ %1$s…</string>
     <string name="notification_connected_count">متصل بـ %1$d من %2$d خوادم</string>
     <string name="notification_disconnect_all">قطع الاتصال بالجميع</string>
-    <string name="notification_inbox_title">OC Remote Plus — %1$d/%2$d متصل</string>
+    <string name="notification_inbox_title">OC Tether — %1$d/%2$d متصل</string>
     <string name="notification_status_connected">متصل</string>
     <string name="notification_status_connecting">جاري الاتصال…</string>
     <string name="notification_response_ready">الرد جاهز</string>
@@ -314,7 +314,7 @@
     <string name="about_description">عميل Android لخوادم OpenCode</string>
     <string name="about_unofficial">هذا مشروع مجتمعي غير رسمي، وغير تابع لفريق OpenCode.</string>
     <string name="about_github">GitHub</string>
-    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-remote-plus</string>
+    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-tether</string>
     <string name="about_opencode">OpenCode</string>
     <string name="about_opencode_url">https://github.com/anomalyco/opencode</string>
     <string name="about_license">الترخيص</string>
@@ -456,7 +456,7 @@
     <string name="home_local_server_password_placeholder">اترك الحقل فارغًا لتعطيل المصادقة</string>
     <string name="home_local_lan_password_warning">تم تفعيل الوصول عبر الشبكة المحلية بدون كلمة مرور. يمكن لأي شخص على شبكتك فتح هذا الخادم.</string>
     <string name="home_local_auto_start_label">تشغيل الخادم المحلي تلقائيًا عند فتح التطبيق</string>
-    <string name="home_local_auto_start_desc">تشغيل البيئة المحلية تلقائيًا عند فتح OC Remote Plus</string>
+    <string name="home_local_auto_start_desc">تشغيل البيئة المحلية تلقائيًا عند فتح OC Tether</string>
     <string name="home_local_startup_timeout_label">مدة الانتظار عند بدء التشغيل</string>
     <string name="home_local_startup_timeout_value">%1$d ثانية</string>
     <string name="home_local_launch_options_title">خيارات التشغيل</string>

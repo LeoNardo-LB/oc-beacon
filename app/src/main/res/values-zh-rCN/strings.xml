@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OC Remote Plus</string>
+    <string name="app_name">OC Tether</string>
     <!-- Home Screen -->
-    <string name="home_title">OC Remote Plus</string>
+    <string name="home_title">OC Tether</string>
     <string name="home_add_server">添加服务器</string>
     <string name="home_no_servers">未配置服务器</string>
     <string name="home_server_health_good">已连接</string>
@@ -305,7 +305,7 @@
     <string name="notification_connecting">正在连接 %1$s…</string>
     <string name="notification_connected_count">已连接 %1$d/%2$d 个服务器</string>
     <string name="notification_disconnect_all">全部断开连接</string>
-    <string name="notification_inbox_title">OC Remote Plus — 已连接 %1$d/%2$d</string>
+    <string name="notification_inbox_title">OC Tether — 已连接 %1$d/%2$d</string>
     <string name="notification_status_connected">已连接</string>
     <string name="notification_status_connecting">正在连接…</string>
     <string name="notification_response_ready">回复已准备好</string>
@@ -331,9 +331,9 @@
     <string name="about_title">关于</string>
     <string name="about_version">版本 %s</string>
     <string name="about_description">OpenCode 服务器 Android 客户端</string>
-    <string name="about_unofficial">这是一个非官方社区项目，与 OpenCode 团队无关。</string>
+    <string name="about_unofficial">OC Remote 的独立社区 fork，不隶属于原 OC Remote 项目、其作者 @crim50n 或 OpenCode 团队。</string>
     <string name="about_github">GitHub</string>
-    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-remote-plus</string>
+    <string name="about_github_url">https://github.com/LeoNardo-LB/oc-tether</string>
     <string name="about_opencode">OpenCode</string>
     <string name="about_opencode_url">https://github.com/anomalyco/opencode</string>
     <string name="about_license">许可证</string>
@@ -475,7 +475,7 @@
     <string name="home_local_server_password_placeholder">留空以禁用身份验证</string>
     <string name="home_local_lan_password_warning">启用局域网访问且未设置密码。网络中的任何人都可以打开此服务器。</string>
     <string name="home_local_auto_start_label">应用启动时自动启动本地服务器</string>
-    <string name="home_local_auto_start_desc">OC Remote Plus打开时自动启动本地运行环境</string>
+    <string name="home_local_auto_start_desc">OC Tether打开时自动启动本地运行环境</string>
     <string name="home_local_startup_timeout_label">启动超时</string>
     <string name="home_local_startup_timeout_value">%1$d 秒</string>
     <string name="home_local_launch_options_title">启动选项</string>

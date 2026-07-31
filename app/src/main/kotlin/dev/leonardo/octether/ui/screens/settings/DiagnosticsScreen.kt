@@ -121,7 +121,7 @@ fun DiagnosticsScreen(
         val timeRange = entries.takeIf { it.isNotEmpty() }?.let {
             "${java.time.Instant.ofEpochMilli(it.first().timestamp)}..${java.time.Instant.ofEpochMilli(it.last().timestamp)}"
         } ?: "empty"
-        appendLine("OC Remote Plus diagnostics")
+        appendLine("OC Tether diagnostics")
         appendLine("Generated: ${java.time.Instant.now()}")
         appendLine("App: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         appendLine("Android SDK: ${Build.VERSION.SDK_INT}")
@@ -144,7 +144,7 @@ fun DiagnosticsScreen(
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "OC Remote Plus diagnostics")
+                putExtra(Intent.EXTRA_SUBJECT, "OC Tether diagnostics")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(intent, context.getString(R.string.diagnostics_share)))

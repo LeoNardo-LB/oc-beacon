@@ -55,12 +55,12 @@ android {
         create("dev") {
             dimension = "channel"
             applicationIdSuffix = ".dev"
-            manifestPlaceholders["appLabel"] = "OC Remote Plus Dev"
+            manifestPlaceholders["appLabel"] = "OC Tether Dev"
         }
         create("beta") {
             dimension = "channel"
             applicationIdSuffix = ".beta"
-            manifestPlaceholders["appLabel"] = "OC Remote Plus Beta"
+            manifestPlaceholders["appLabel"] = "OC Tether Beta"
         }
         create("stable") {
             dimension = "channel"
