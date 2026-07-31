@@ -58,7 +58,7 @@ private fun charsFromAssistantPart(part: Part): Pair<Int, Int> = when (part) {
 
 /**
  * 估算上下文按角色拆分。对应 opencode estimateSessionContextBreakdown。
- * OC Remote 没有 system prompt，故无 system 桶，差额归 OTHER（含 system 等）。
+ * OC Beacon 没有 system prompt，故无 system 桶，差额归 OTHER（含 system 等）。
  *
  * @param realInput 真实 input token（来自最后 StepFinish.Tokens.input）
  */

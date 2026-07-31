@@ -10,10 +10,10 @@ tags:
 
 # Wait for home screen
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l3_tool_app_loaded
 
 # If server is connected, navigate to a session to check chat UI

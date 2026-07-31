@@ -10,10 +10,10 @@ tags:
 
 # Wait for home screen
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l4_chat_app_loaded
 
 # Navigate to Settings via overflow menu or navigation

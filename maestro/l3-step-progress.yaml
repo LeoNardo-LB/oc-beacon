@@ -10,10 +10,10 @@ tags:
 
 # Wait for home screen
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l3_step_app_loaded
 
 # Verify home screen renders correctly with all key elements

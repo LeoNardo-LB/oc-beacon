@@ -10,10 +10,10 @@ tags:
 
 # Wait for content to render
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l1_stability_loaded
 
 # Swipe down on home screen to test rendering stability
@@ -26,5 +26,5 @@ tags:
 - swipe:
     direction: UP
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l1_stability_scrolled_up

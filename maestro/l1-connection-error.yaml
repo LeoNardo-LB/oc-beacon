@@ -10,11 +10,11 @@ tags:
 
 # Wait for home screen to render
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
 # Assert app loaded without crash
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l1_connection_state
 
 # Verify empty state text (app renders properly even without server)

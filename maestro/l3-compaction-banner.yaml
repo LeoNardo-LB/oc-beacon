@@ -10,10 +10,10 @@ tags:
 
 # Wait for home screen
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l3_compaction_app_loaded
 
 # Verify the home screen renders without crash
@@ -30,5 +30,5 @@ tags:
 - swipe:
     direction: UP
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l3_compaction_scrolled_back

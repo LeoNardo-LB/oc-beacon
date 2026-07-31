@@ -16,7 +16,7 @@ tags:
 
 # Wait for home screen
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
 # Assert empty state before adding server

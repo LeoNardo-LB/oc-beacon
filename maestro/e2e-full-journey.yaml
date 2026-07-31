@@ -22,10 +22,10 @@ tags:
     clearState: true
 
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: e2e_journey_01_app_launched
 
 # ============================================================
@@ -173,12 +173,12 @@ tags:
 - pressKey: BACK
 
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
     optional: true
 
 - assertVisible:
-    text: "OC Remote"
+    text: "OC Beacon"
     optional: true
 - takeScreenshot: e2e_journey_10_back_home
 

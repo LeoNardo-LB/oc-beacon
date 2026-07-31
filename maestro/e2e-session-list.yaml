@@ -15,10 +15,10 @@ tags:
 
 # Wait for home screen
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: e2e_session_list_app_loaded
 
 # If "No servers configured" appears, server is not set up — abort gracefully

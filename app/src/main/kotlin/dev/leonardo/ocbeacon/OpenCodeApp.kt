@@ -28,11 +28,11 @@ import java.util.Date
 import java.util.Locale
 
 private const val TAG = "CrashLogger"
-private const val CRASH_DIR = "oc_remote_crash"
+private const val CRASH_DIR = "oc_beacon_crash"
 private const val MAX_LOG_FILES = 10
 
 /**
- * OC Remote Application
+ * OC Beacon Application
  * Entry point for Hilt dependency injection
  */
 @HiltAndroidApp

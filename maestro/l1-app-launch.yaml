@@ -11,11 +11,11 @@ tags:
 
 # Wait for home screen - app title or empty state message
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
 # Assert the home screen loaded successfully
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - takeScreenshot: l1_app_launch_home
 
 # If empty state visible, assert that too (no crash, just no servers)

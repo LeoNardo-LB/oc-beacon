@@ -10,11 +10,11 @@ tags:
 
 # Wait for home screen title
 - extendedWaitUntil:
-    visible: "OC Remote"
+    visible: "OC Beacon"
     timeout: 15000
 
 # Assert all key home screen elements
-- assertVisible: "OC Remote"
+- assertVisible: "OC Beacon"
 - assertVisible: "Add Server"
 - takeScreenshot: l1_home_screen
 
