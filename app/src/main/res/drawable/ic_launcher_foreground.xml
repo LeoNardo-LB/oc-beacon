@@ -23,9 +23,10 @@
         <aapt:attr name="android:strokeColor">
             <gradient
                 android:type="linear"
-                android:startX="16" android:startY="16"
-                android:endX="100" android:endY="92"
-                android:startColor="#FF6B35"
+                android:startX="8" android:startY="8"
+                android:endX="108" android:endY="108"
+                android:startColor="#FFB088"
+                android:centerColor="#FF6B35"
                 android:endColor="#D84315" />
         </aapt:attr>
     </path>
@@ -39,9 +40,10 @@
         <aapt:attr name="android:strokeColor">
             <gradient
                 android:type="linear"
-                android:startX="16" android:startY="16"
-                android:endX="100" android:endY="92"
-                android:startColor="#FF6B35"
+                android:startX="8" android:startY="8"
+                android:endX="108" android:endY="108"
+                android:startColor="#FFB088"
+                android:centerColor="#FF6B35"
                 android:endColor="#D84315" />
         </aapt:attr>
     </path>
