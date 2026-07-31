@@ -5,89 +5,44 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- OC Tether — Orbit System (v6 unified semi-flat lighting)
-         Single virtual light source: TOP-LEFT (~10-11 o'clock direction).
-         Every element's highlight faces top-left; rim/shadow faces bottom-right.
-         Geometry (pre-rotation canvas, 108x108):
-           Core circle:   cx=46 cy=50 r=17  (absolute focal point)
-           Orbit ellipse: center (46,50) rx=34 ry=14, rotated -20deg about (46,50)
-           Satellite dot: on ellipse at param -35deg ≈ (73.85, 41.97) r=5.5
-         Unified lighting per element (gradient coords are pre-rotation, chosen so
-         the post-rotation visual aligns with the global top-left source):
-           Ring      → linear stroke (40,38) lit → (52,62) shadow
-           Satellite → glow + linear body top-lit → bottom-shadow + outline + highlight
-           Core      → radial fill, center offset to upper-left (41,45):
-                       bright #FEF3C7 → peach #FAB283 → dark-peach rim #F59E0B -->
+    <!-- OC Tether — refined OC letterform mark
+         warm cream radial bg + orange O ring + C arc, interlocking
+         unified semi-flat lighting: top-left lit -> bottom-right shadow
 
-    <!-- Tilted orbit ring + satellite cluster, rotated -20deg about core -->
-    <group android:rotation="-20" android:pivotX="46" android:pivotY="50">
+         O ring: center (46,54) r=38, stroke=14, gradient #FF6B35→#D84315
+         C arc:  center (62,54) r=38, stroke=14, right-opening, same gradient -->
 
-        <!-- Orbit ellipse ring — linear stroke gradient (top-left lit → bottom-right shadow) -->
-        <path
-            android:pathData="M12,50 a34,14 0 1 0 68,0 a34,14 0 1 0 -68,0"
-            android:strokeWidth="3.5">
-            <aapt:attr name="android:strokeColor">
-                <gradient
-                    android:type="linear"
-                    android:startX="40" android:startY="38"
-                    android:endX="52" android:endY="62"
-                    android:startColor="#93C5FD"
-                    android:endColor="#3B82F6" />
-            </aapt:attr>
-        </path>
+    <!-- shared orange gradient (top-left → bottom-right) -->
 
-        <!-- Satellite outer glow — semi-transparent blue halo, drawn under body -->
-        <path
-            android:pathData="M64.85,41.97 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0"
-            android:fillColor="#5C9CF559" />
-
-        <!-- Satellite body — linear gradient (top-lit → bottom-shadow), sphere-like -->
-        <path
-            android:pathData="M68.35,41.97 a5.5,5.5 0 1 0 11,0 a5.5,5.5 0 1 0 -11,0">
-            <aapt:attr name="android:fillColor">
-                <gradient
-                    android:type="linear"
-                    android:startX="71.5" android:startY="37"
-                    android:endX="76.2" android:endY="47"
-                    android:startColor="#93C5FD"
-                    android:endColor="#3B82F6" />
-            </aapt:attr>
-        </path>
-
-        <!-- Satellite thin outline — bright blue 1px ring framing the body -->
-        <path
-            android:pathData="M67.85,41.97 a6,6 0 1 0 12,0 a6,6 0 1 0 -12,0"
-            android:strokeColor="#93C5FD"
-            android:strokeWidth="1" />
-
-        <!-- Satellite highlight — tiny white catch-light on the light-facing side -->
-        <path
-            android:pathData="M71.3,39.7 a1.5,1.5 0 1 0 3,0 a1.5,1.5 0 1 0 -3,0"
-            android:fillColor="#FFFFFF" />
-    </group>
-
-    <!-- Core circle — radial gradient fill, center offset to upper-left (lit → dark rim) -->
+    <!-- O: full ring, gradient stroke -->
     <path
-        android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0">
-        <aapt:attr name="android:fillColor">
+        android:pathData="M8,54 A38,38 0 1,1 84,54 A38,38 0 1,1 8,54"
+        android:strokeWidth="14"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
             <gradient
-                android:type="radial"
-                android:centerX="41" android:centerY="45"
-                android:gradientRadius="20"
-                android:startColor="#FEF3C7"
-                android:centerColor="#FAB283"
-                android:endColor="#F59E0B" />
+                android:type="linear"
+                android:startX="16" android:startY="16"
+                android:endX="100" android:endY="92"
+                android:startColor="#FF6B35"
+                android:endColor="#D84315" />
         </aapt:attr>
     </path>
 
-    <!-- Core edge stroke — deep peach rim for definition (reinforces shadow rim) -->
+    <!-- C: right-opening arc (large sweep ~300°), gradient stroke -->
     <path
-        android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0"
-        android:strokeColor="#F59E0B"
-        android:strokeWidth="1.2" />
-
-    <!-- Core highlight — soft white upper-left sphere highlight (at gradient center) -->
-    <path
-        android:pathData="M38,45 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0"
-        android:fillColor="#FFFFFFD9" />
+        android:pathData="M94.9,73 A38,38 0 1,1 94.9,35"
+        android:strokeWidth="14"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="16" android:startY="16"
+                android:endX="100" android:endY="92"
+                android:startColor="#FF6B35"
+                android:endColor="#D84315" />
+        </aapt:attr>
+    </path>
 </vector>
