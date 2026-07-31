@@ -1,26 +1,53 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- ">" prompt arrow — code/programming identity -->
+
+    <!-- Bold ">" terminal cursor — solid white chevron, arm thickness 6 -->
     <path
-        android:pathData="M38,44 L51,54 L38,64"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="6"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <!-- "_" underline doubling as tether link -->
+        android:pathData="M40,34 L68,48 L40,62 L46,62 L60,48 L46,34 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Tether arc — downward-bending cubic bezier, teal gradient stroke -->
     <path
-        android:pathData="M56,64 L70,64"
-        android:strokeColor="#2DD4BF"
+        android:pathData="M34,64 C42,80 66,80 74,64"
         android:strokeWidth="5"
-        android:strokeLineCap="round" />
-    <!-- tether endpoint nodes -->
+        android:strokeLineCap="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="34" android:startY="64"
+                android:endX="74" android:endY="64"
+                android:startColor="#2DD4BF"
+                android:endColor="#5EEAD4" />
+        </aapt:attr>
+    </path>
+
+    <!-- Left clasp node — rounded square (corner radius 2), teal gradient -->
     <path
-        android:pathData="M56,64 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
-        android:fillColor="#2DD4BF" />
+        android:pathData="M31,59 H37 A2,2 0 0 1 39,61 V67 A2,2 0 0 1 37,69 H31 A2,2 0 0 1 29,67 V61 A2,2 0 0 1 31,59 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="29" android:startY="59"
+                android:endX="39" android:endY="69"
+                android:startColor="#2DD4BF"
+                android:endColor="#5EEAD4" />
+        </aapt:attr>
+    </path>
+
+    <!-- Right clasp node — rounded square (corner radius 2), teal gradient -->
     <path
-        android:pathData="M70,64 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
-        android:fillColor="#2DD4BF" />
+        android:pathData="M71,59 H77 A2,2 0 0 1 79,61 V67 A2,2 0 0 1 77,69 H71 A2,2 0 0 1 69,67 V61 A2,2 0 0 1 71,59 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="69" android:startY="59"
+                android:endX="79" android:endY="69"
+                android:startColor="#2DD4BF"
+                android:endColor="#5EEAD4" />
+        </aapt:attr>
+    </path>
 </vector>
