@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- ">" prompt arrow — code/programming identity -->
+    <path
+        android:pathData="M38,44 L51,54 L38,64"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- "_" underline doubling as tether link -->
+    <path
+        android:pathData="M56,64 L70,64"
+        android:strokeColor="#2DD4BF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+    <!-- tether endpoint nodes -->
+    <path
+        android:pathData="M56,64 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#2DD4BF" />
+    <path
+        android:pathData="M70,64 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#2DD4BF" />
+</vector>
