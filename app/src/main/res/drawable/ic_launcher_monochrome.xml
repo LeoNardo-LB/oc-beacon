@@ -1,47 +1,78 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- OC Tether — Orbit System (monochrome / themed icon layer, v5 polished)
-         Same geometry as ic_launcher_foreground.xml, all white. Polishing layers
-         expressed as white-alpha tonal steps so shape reads with depth without color:
-           Satellite → faint halo + body + thin outline + catch-light
-           Core      → soft rim + body + highlight -->
+    <!-- OC Tether — Orbit System (monochrome / themed icon, v6 unified lighting)
+         Same geometry as ic_launcher_foreground.xml, all white. The top-left light
+         source is expressed via white-alpha tonal steps so the shape reads with the
+         same depth as the color version:
+           Ring      → linear stroke, white 100% (lit) → 55% (shadow)
+           Satellite → halo + linear body (100% → 70%) + outline + highlight
+           Core      → radial fill, center-offset gradient (100% → 70%) + highlight -->
 
     <group android:rotation="-20" android:pivotX="46" android:pivotY="50">
-        <!-- Orbit ellipse ring -->
+        <!-- Orbit ring — linear gradient (top-left lit → bottom-right shadow) -->
         <path
             android:pathData="M12,50 a34,14 0 1 0 68,0 a34,14 0 1 0 -68,0"
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="3.5" />
+            android:strokeWidth="3.5">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="40" android:startY="38"
+                    android:endX="52" android:endY="62"
+                    android:startColor="#FFFFFF"
+                    android:endColor="#FFFFFF8C" />
+            </aapt:attr>
+        </path>
 
         <!-- Satellite outer glow halo -->
         <path
             android:pathData="M64.85,41.97 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0"
             android:fillColor="#FFFFFF40" />
 
-        <!-- Satellite body -->
+        <!-- Satellite body — linear gradient (top-lit → bottom-shadow) -->
         <path
-            android:pathData="M68.35,41.97 a5.5,5.5 0 1 0 11,0 a5.5,5.5 0 1 0 -11,0"
-            android:fillColor="#FFFFFF" />
+            android:pathData="M68.35,41.97 a5.5,5.5 0 1 0 11,0 a5.5,5.5 0 1 0 -11,0">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="71.5" android:startY="37"
+                    android:endX="76.2" android:endY="47"
+                    android:startColor="#FFFFFF"
+                    android:endColor="#FFFFFFB3" />
+            </aapt:attr>
+        </path>
 
         <!-- Satellite thin outline -->
         <path
             android:pathData="M67.85,41.97 a6,6 0 1 0 12,0 a6,6 0 1 0 -12,0"
             android:strokeColor="#FFFFFF"
             android:strokeWidth="1" />
+
+        <!-- Satellite highlight -->
+        <path
+            android:pathData="M71.3,39.7 a1.5,1.5 0 1 0 3,0 a1.5,1.5 0 1 0 -3,0"
+            android:fillColor="#FFFFFF" />
     </group>
 
-    <!-- Solid core circle -->
+    <!-- Core circle — radial gradient, center offset to upper-left (lit → soft shadow rim) -->
     <path
-        android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0"
-        android:fillColor="#FFFFFF" />
+        android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="41" android:centerY="45"
+                android:gradientRadius="20"
+                android:startColor="#FFFFFF"
+                android:endColor="#FFFFFFB3" />
+        </aapt:attr>
+    </path>
 
-    <!-- Core soft highlight ring for subtle depth -->
+    <!-- Core highlight — soft upper-left sphere highlight -->
     <path
-        android:pathData="M29,50 a17,17 0 1 0 34,0 a17,17 0 1 0 -34,0"
-        android:strokeColor="#FFFFFFCC"
-        android:strokeWidth="1.2" />
+        android:pathData="M38,45 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0"
+        android:fillColor="#FFFFFF" />
 </vector>
