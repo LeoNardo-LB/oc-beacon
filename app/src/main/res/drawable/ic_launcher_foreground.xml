@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Converted from official favicon-v3.svg (anomalyco/opencode, MIT)
+         Source: <rect fill="#131010"/> + <path fill="#5A5858"/> + <path fill="white" evenodd/>
+         512→108 scale (×0.21094). Pure flat color #131010 — no gradient, zero seam possible. -->
+
+    <!-- Layer 1: full-bleed background #131010 (flat, matches official favicon) -->
+    <path android:pathData="M0,0h108v108h-108z" android:fillColor="#FF131010" />
+    <!-- Layer 2: gray block #5A5858 (O-ring lower half) -->
+    <path android:fillColor="#FF5A5858"
+        android:pathData="M67.5,47.25 V74.25 H40.5 V47.25 Z" />
+    <!-- Layer 3: white O-ring (evenOdd: outer 27,20.25-81,87.75 minus inner 40.5,33.75-67.5,74.25) -->
+    <path android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M81,87.75 H27 V20.25 H81 V87.75 Z M67.5,74.25 H40.5 V33.75 H67.5 V74.25 Z" />
+</vector>
