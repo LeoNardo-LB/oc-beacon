@@ -24,13 +24,11 @@
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Layer 2: white O-ring (evenOdd — cutout shows Layer 1 gradient, seamless) -->
+    <!-- Layer 2: white O-ring (evenOdd — cutout shows Layer 1 gradient, seamless)
+         Note: official favicon's gray block omitted — at icon size it reads as a
+         color seam rather than depth. White O-ring on gradient = zero seam. -->
     <path
         android:fillColor="#FFFFFF"
         android:fillType="evenOdd"
         android:pathData="M81,87.75 H27 V20.25 H81 V87.75 Z M67.5,74.25 H40.5 V33.75 H67.5 V74.25 Z" />
-    <!-- Layer 3: gray center-bottom block (#5A5858) -->
-    <path
-        android:fillColor="#5A5858"
-        android:pathData="M67.5,74.25 V47.25 H40.5 V74.25 Z" />
 </vector>
