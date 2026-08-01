@@ -3,17 +3,33 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- OpenCode official logo (favicon-v3.svg geometry, MIT)
-         White O-ring (evenOdd) + gray center-bottom block #5A5858
-         Geometry: 512→108 scale (×0.21094), O-ring 25-75% × 18.75-81.25% (official ratio)
-         Transparent background — gradient bg shows through, seamless -->
+    <!-- OpenCode official logo (favicon-v3.svg, MIT) — UNIFIED single-drawable design
+         All three layers in ONE vector: gradient bg + white O-ring + gray block.
+         The O-ring's evenOdd cutout reveals the SAME gradient path below it,
+         so inner/outer gradient are identical pixels (zero color seam, regardless
+         of how the launcher scales this drawable). -->
 
-    <!-- White O-ring: outer frame (27,20.25)-(81,87.75) minus inner frame (40.5,33.75)-(67.5,74.25) -->
+    <!-- Layer 1: full-bleed gradient background (dark gray #303030 → near-black #060606) -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt"
+            name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="54"
+                android:startY="0"
+                android:endX="54"
+                android:endY="108">
+                <item android:offset="0" android:color="#FF303030" />
+                <item android:offset="1" android:color="#FF060606" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Layer 2: white O-ring (evenOdd — cutout shows Layer 1 gradient, seamless) -->
     <path
         android:fillColor="#FFFFFF"
         android:fillType="evenOdd"
         android:pathData="M81,87.75 H27 V20.25 H81 V87.75 Z M67.5,74.25 H40.5 V33.75 H67.5 V74.25 Z" />
-    <!-- Gray center-bottom block (40.5,47.25)-(67.5,74.25) -->
+    <!-- Layer 3: gray center-bottom block (#5A5858) -->
     <path
         android:fillColor="#5A5858"
         android:pathData="M67.5,74.25 V47.25 H40.5 V74.25 Z" />
