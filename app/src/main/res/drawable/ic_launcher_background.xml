@@ -3,8 +3,22 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Solid mid-gray fallback (#1B1B1B = gradient midpoint of foreground).
-         Foreground is full-bleed opaque, so this only shows if a launcher
-         enlarges foreground beyond safe zone — midpoint color minimizes seam. -->
-    <path android:pathData="M0,0h108v108h-108z" android:fillColor="#FF1B1B1B" />
+    <!-- Background layer: SAME gradient as foreground's Layer 1.
+         Identical gradient definition ensures the circle edge (where launcher
+         may enlarge foreground and reveal background) matches foreground's
+         outer color exactly — zero seam between layers. -->
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt"
+            name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="54"
+                android:startY="0"
+                android:endX="54"
+                android:endY="108">
+                <item android:offset="0" android:color="#FF303030" />
+                <item android:offset="1" android:color="#FF060606" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>

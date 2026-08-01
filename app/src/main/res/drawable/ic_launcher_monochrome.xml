@@ -3,10 +3,14 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Monochrome OpenCode O-ring for Android 13+ themed icons (system tints white)
-         Matches foreground: pure O-ring, no block (seamless consistency) -->
+    <!-- Monochrome OpenCode O for Android 13+ themed icons (system tints white)
+         O-ring opaque, gray block as 0.35-alpha white (matches #5A5858 luminance) -->
     <path
         android:fillColor="#FFFFFF"
         android:fillType="evenOdd"
         android:pathData="M81,87.75 H27 V20.25 H81 V87.75 Z M67.5,74.25 H40.5 V33.75 H67.5 V74.25 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.35"
+        android:pathData="M67.5,47.25 V74.25 H40.5 V47.25 Z" />
 </vector>

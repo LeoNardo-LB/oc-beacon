@@ -3,13 +3,11 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- OpenCode official logo (favicon-v3.svg, MIT) — UNIFIED single-drawable design
-         All three layers in ONE vector: gradient bg + white O-ring + gray block.
-         The O-ring's evenOdd cutout reveals the SAME gradient path below it,
-         so inner/outer gradient are identical pixels (zero color seam, regardless
-         of how the launcher scales this drawable). -->
+    <!-- OpenCode official logo (favicon-v3.svg, MIT) — UNIFIED single-drawable
+         Gradient bg + white O-ring + gray block, all in one vector.
+         Background drawable uses the identical gradient → circle edge seamless. -->
 
-    <!-- Layer 1: full-bleed gradient background (dark gray #303030 → near-black #060606) -->
+    <!-- Layer 1: full-bleed gradient (identical to ic_launcher_background) -->
     <path android:pathData="M0,0h108v108h-108z">
         <aapt:attr xmlns:aapt="http://schemas.android.com/aapt"
             name="android:fillColor">
@@ -24,11 +22,13 @@
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Layer 2: white O-ring (evenOdd — cutout shows Layer 1 gradient, seamless)
-         Note: official favicon's gray block omitted — at icon size it reads as a
-         color seam rather than depth. White O-ring on gradient = zero seam. -->
+    <!-- Layer 2: white O-ring (evenOdd — cutout shows Layer 1 gradient) -->
     <path
         android:fillColor="#FFFFFF"
         android:fillType="evenOdd"
         android:pathData="M81,87.75 H27 V20.25 H81 V87.75 Z M67.5,74.25 H40.5 V33.75 H67.5 V74.25 Z" />
+    <!-- Layer 3: gray center-bottom block (#5A5858) — restored per user feedback -->
+    <path
+        android:fillColor="#5A5858"
+        android:pathData="M67.5,74.25 V47.25 H40.5 V74.25 Z" />
 </vector>
