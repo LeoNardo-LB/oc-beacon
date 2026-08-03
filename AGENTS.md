@@ -15,16 +15,16 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 # 多任务示例：需要同时产出多个包时才用（如 dev debug + beta release）
 .\gradlew :app:assembleDevDebug :app:assembleBetaRelease
 
-# Unit tests (force rerun, avoid UP-TO-DATE skip)
+# 单元测试（强制重跑，避免 UP-TO-DATE 跳过）
 .\gradlew :app:testDevDebugUnitTest --rerun
 
-# Kotlin compile check (fast feedback loop)
+# Kotlin 编译检查（快速反馈）
 .\gradlew :app:compileDevDebugKotlin
 ```
 
-**JDK 21 required** — `build.gradle.kts` sets `jvmToolchain(21)` and `JavaVersion.VERSION_21`. Local builds also set `org.gradle.java.home` in `gradle.properties`.
+**要求 JDK 21** — `build.gradle.kts` 设置了 `jvmToolchain(21)` 和 `JavaVersion.VERSION_21`。本地构建还在 `gradle.properties` 中设置了 `org.gradle.java.home`。
 
-**Proxy warning**: `gradle.properties` hardcodes `127.0.0.1:7897` HTTP proxy. Build fails if proxy is unreachable. Comment out the 4 `systemProp.*` lines when building without proxy.
+**代理警告**：`gradle.properties` 硬编码了 `127.0.0.1:7897` 的 HTTP 代理。代理不可达时构建会失败。无代理构建时注释掉 4 行 `systemProp.*` 配置。
 
 ## Product Flavors
 
@@ -36,73 +36,73 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | `beta` | `dev.leonardo.ocbeacon.beta` | OC Beacon Beta | 公开测试版 |
 | `stable` | `dev.leonardo.ocbeacon` | OC Beacon | 正式发布 |
 
-Always specify the flavor in gradle tasks: `assembleDevRelease`, `assembleBetaRelease`, `assembleStableRelease`, etc.
+所有 Gradle 任务都必须指定 flavor：`assembleDevRelease`、`assembleBetaRelease`、`assembleStableRelease` 等。
 
 ## Architecture
 
 Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.**
 
 ```
-domain/          Pure Kotlin, no Android deps
-  model/         40+ data classes and value types (SseEvent, Message, Part, Session, AppSettings, SessionCategory, FavoriteSessionSnapshot, etc.)
-  repository/    15 interfaces (Chat, Session, Server, Settings, File, Vcs, Terminal, Provider, Draft, Agent, Mcp, LocalServer, etc.)
-  usecase/       30 UseCases — ViewModel calls these, not API directly
+domain/          Pure Kotlin, 无 Android 依赖
+  model/         40+ 数据类与值类型（SseEvent, Message, Part, Session, AppSettings, SessionCategory, FavoriteSessionSnapshot 等）
+  repository/    15 个接口（Chat, Session, Server, Settings, File, Vcs, Terminal, Provider, Draft, Agent, Mcp, LocalServer 等）
+  usecase/       30 个 UseCase — ViewModel 调用它们，而非直接调 API
 
-data/            Android-aware implementations
+data/            Android 相关实现
   api/           OpenCodeApi.kt (Ktor HTTP), SseClient.kt, ServerConnection.kt
-  dto/           API data transfer objects (request/ response/ common/)
-  mapper/        DTO ↔ Domain Model converters
-  repository/    Impl classes + EventDispatcher + EventHandler strategy pattern
-    handler/     10 event handlers (Session, Message×4, SessionNext, Permission, Question, Misc)
-                 + DiagnosticLogDatabase/Repository (SQLite, auto-prune, privacy sanitize)
-                 + PendingPromptRepository (file-based JSON, optimistic message persistence)
-                 + CrossServerSessionsAggregator (REST-based per-server session aggregation)
-  update/        In-app GitHub Release update check (UpdateRepository, 3-level fallback)
+  dto/           API 数据传输对象（request/ response/ common/）
+  mapper/        DTO ↔ 领域模型转换器
+  repository/    Impl 类 + EventDispatcher + EventHandler 策略模式
+    handler/     10 个事件处理器（Session, Message×4, SessionNext, Permission, Question, Misc）
+                 + DiagnosticLogDatabase/Repository (SQLite, 自动清理, 隐私脱敏)
+                 + PendingPromptRepository（基于文件的 JSON, 乐观消息持久化）
+                 + CrossServerSessionsAggregator（基于 REST 的按服务器会话聚合）
+  update/        应用内 GitHub Release 更新检查（UpdateRepository, 3 级回退）
 
-logging/         AppLogger — global persistent logger (Channel→SQLite, crash capture, sanitize)
+logging/         AppLogger — 全局持久化日志（Channel→SQLite, 崩溃捕获, 脱敏）
 
-service/         Android foreground service
-  OpenCodeConnectionService.kt  Service lifecycle + WakeLock
-  SseConnectionManager.kt       Connection/reconnect with exponential backoff
-  AppNotificationManager.kt     Notification channels and event notifications
-  SessionNotificationCoordinator.kt  Suppresses notifications for the active session
+service/         Android 前台服务
+  OpenCodeConnectionService.kt  服务生命周期 + WakeLock
+  SseConnectionManager.kt       连接/重连（指数退避）
+  AppNotificationManager.kt     通知渠道与事件通知
+  SessionNotificationCoordinator.kt  抑制当前活跃会话的通知
 
 ui/
-  theme/              Design token system
-    Alpha.kt          7-level semantic alpha tokens (SELECTED/DIFF_BG/FAINT/MUTED/MEDIUM/HIGH/AMOLED)
-    Color.kt          Brand color constants + semantic DiffAdded/DiffRemoved
-    Motion.kt         Duration tokens + easing constants
-    Shape.kt          AppShapes (Material) + ShapeTokens (component-level)
-    Theme.kt          4 color schemes (light/dark/dynamic/amoled), AppTheme composable
-    Type.kt           Typography configuration
-  screens/chat/      ChatScreen (core chat UI) + 7 sub-packages
-    components/      Chat UI components
-    dialog/          Image preview, markdown preview dialogs
-    input/           Message input bar
-    markdown/        Markdown rendering
-    terminal/        PTY terminal view over WebSocket (TerminalTabState: 5-state enum, not Boolean)
-    tools/           Tool-call expandable cards
-    util/            Chat-specific utilities
-  screens/home/      HomeScreen + server cards + local runtime
-  screens/sessions/  SessionListScreen + CrossServerSessionsScreen + components
-  screens/settings/  SettingsScreen + picker dialogs + DiagnosticsScreen
-  screens/server/    Server settings/providers/model filter
-  screens/about/     About screen
-  screens/webview/   WebView fallback (OAuth, HTML errors)
-  navigation/        NavGraph.kt + 12 type-safe Route objects in routes/ (NavUtils.safeDecodeParam for URL params)
-  components/        Shared components (PulsingDotsIndicator, ProviderIcon)
+  theme/              设计令牌系统
+    Alpha.kt          7 级语义透明度令牌 (SELECTED/DIFF_BG/FAINT/MUTED/MEDIUM/HIGH/AMOLED)
+    Color.kt          品牌色常量 + 语义化 DiffAdded/DiffRemoved
+    Motion.kt         时长令牌 + 缓动常量
+    Shape.kt          AppShapes (Material) + ShapeTokens（组件级）
+    Theme.kt          4 套配色方案 (light/dark/dynamic/amoled), AppTheme composable
+    Type.kt           排版配置
+  screens/chat/      ChatScreen（核心聊天 UI）+ 7 个子包
+    components/      聊天 UI 组件
+    dialog/          图片预览、markdown 预览对话框
+    input/           消息输入栏
+    markdown/        Markdown 渲染
+    terminal/        WebSocket 上的 PTY 终端视图（TerminalTabState: 5 态枚举，非 Boolean）
+    tools/           工具调用可展开卡片
+    util/            聊天专用工具
+  screens/home/      HomeScreen + 服务器卡片 + 本地运行时
+  screens/sessions/  SessionListScreen + CrossServerSessionsScreen + 组件
+  screens/settings/  SettingsScreen + 选择器对话框 + DiagnosticsScreen
+  screens/server/    服务器设置/提供商/模型过滤
+  screens/about/     关于页面
+  screens/webview/   WebView 回退（OAuth, HTML 错误）
+  navigation/        NavGraph.kt + routes/ 中的 12 个类型安全 Route 对象（URL 参数用 NavUtils.safeDecodeParam）
+  components/        共享组件（PulsingDotsIndicator, ProviderIcon）
 
-di/                Hilt modules (NetworkModule, DomainModule)
+di/                Hilt 模块（NetworkModule, DomainModule）
 ```
 
-**Key patterns**:
-- ViewModels delegate to UseCases. UseCases currently shell-delegate to OpenCodeApi.
-- Repository implementations bridge EventDispatcher (state) + API (network).
-- DI uses **KSP** (not kapt) for Hilt annotation processing.
-- Terminal uses WebSocket transport for PTY streams; SSE for events.
-- **SessionStateService is the single source of truth for session status & streaming activity** (idle/busy/retry + Waiting/Streaming/ToolCalling). All UI reads `statusFlow`/`activityFlow`; all status writes flow through its pure-function FSM (`SessionStateFSM`) with an exhaustive transition matrix + self-driven staleness/REST recovery loop. Do NOT reintroduce per-handler status state — `SessionStatusManager` and `SessionEventHandler._sessionStatuses` were removed for this reason. See `docs/research/session-status-sync-investigation.md` for the redesign rationale.
-- **AppLogger** (`logging/AppLogger.kt`) is the persistent logging entry point — new code should use `AppLogger.i/w/e` instead of `android.util.Log` so entries appear in the in-app Diagnostics screen. Existing code is being migrated incrementally.
-- **Navigation params** must use `NavUtils.safeDecodeParam()` (not raw `URLDecoder.decode()`) — raw decode crashes on malformed `%` sequences like `%NR` in passwords.
+**关键模式**：
+- ViewModel 委托给 UseCase；UseCase 目前壳式委托给 OpenCodeApi。
+- Repository 实现桥接 EventDispatcher（状态）+ API（网络）。
+- DI 使用 **KSP**（非 kapt）处理 Hilt 注解。
+- 终端用 WebSocket 传输 PTY 流；事件走 SSE。
+- **SessionStateService 是会话状态与流式活动的单一真相源**（idle/busy/retry + Waiting/Streaming/ToolCalling）。所有 UI 读取 `statusFlow`/`activityFlow`；所有状态写入都经过其纯函数 FSM（`SessionStateFSM`），含穷举转移矩阵 + 自驱动 staleness/REST 恢复循环。**不要重新引入按 handler 维护的状态**——`SessionStatusManager` 和 `SessionEventHandler._sessionStatuses` 正是为此被移除。设计缘由见 `docs/research/session-status-sync-investigation.md`。
+- **AppLogger**（`logging/AppLogger.kt`）是持久化日志入口——新代码应使用 `AppLogger.i/w/e` 而非 `android.util.Log`，这样日志会出现在应用内 Diagnostics 屏幕。存量代码正在逐步迁移。
+- **导航参数**必须使用 `NavUtils.safeDecodeParam()`（不要用裸 `URLDecoder.decode()`）——裸解码遇到畸形 `%` 序列（如密码中的 `%NR`）会崩溃。
 
 ## OpenCode Server API Reference
 
@@ -118,33 +118,33 @@ di/                Hilt modules (NetworkModule, DomainModule)
 
 **开发新功能或调试接口问题时，务必先查阅此文档。**
 
-## Critical Constraints
+## 关键约束
 
-### ChatScreen.kt Editing Protocol
-See `docs/chatscreen-editing-protocol.md`. Rules:
-- Never edit in parallel across agents
-- Always Read before Edit
-- Run `compileDevDebugKotlin` after each edit
-- Commit after each successful compilation
-- On failure: `git checkout -- <file>`, re-read, retry
+### ChatScreen.kt 编辑协议
+见 `docs/chatscreen-editing-protocol.md`。规则：
+- 禁止跨 agent 并行编辑
+- 每次编辑前必须先 Read
+- 每次编辑后运行 `compileDevDebugKotlin`
+- 每次编译成功后提交
+- 失败时：`git checkout -- <file>`，重新读取，重试
 
-### Path Handling (Cross-Platform Remote Paths)
+### 路径处理（跨平台远程路径）
 
-Remote file paths can use `/` or `\` depending on server OS. **Always use `PathUtils`** (`util/PathUtils.kt`):
+远程文件路径可能使用 `/` 或 `\`，取决于服务器操作系统。**始终使用 `PathUtils`**（`util/PathUtils.kt`）：
 
-| Operation | ✅ Use | ❌ Don't |
+| 操作 | ✅ 使用 | ❌ 不要用 |
 |-----------|--------|---------|
-| Filename | `PathUtils.fileName(path)` | `substringAfterLast('/')`, `File(path).name` |
-| Parent dir | `PathUtils.parentDir(path)` | `substringBeforeLast('/')` |
-| Relative path | `PathUtils.relativePath(path, prefix)` | manual `removePrefix` |
+| 文件名 | `PathUtils.fileName(path)` | `substringAfterLast('/')`, `File(path).name` |
+| 父目录 | `PathUtils.parentDir(path)` | `substringBeforeLast('/')` |
+| 相对路径 | `PathUtils.relativePath(path, prefix)` | 手动 `removePrefix` |
 
-JDK APIs (`File.name`, `Path.of`) only recognize `/` on Android — `\` paths from Windows servers break.
-### Signing
-- Release keystore lives at `app/keystore/release.jks` with password in `signing.properties`
-- When `signing.properties` exists → release builds use release keystore
-- When absent → release builds fall back to debug signing (see `signingConfigs` block in `build.gradle.kts`)
-- CI uses GitHub Secrets (`KEYSTORE_BASE64`, `KEYSTORE_ALIAS`, `KEYSTORE_PASSWORD`)
-- Debug-signed APKs are installable but cannot overwrite a release-signed installation (different signatures)
+JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Windows 服务器的 `\` 路径会出错。
+### 签名
+- Release keystore 位于 `app/keystore/release.jks`，密码在 `signing.properties` 中
+- `signing.properties` 存在时 → release 构建使用 release keystore
+- 不存在时 → release 构建回退到 debug 签名（见 `build.gradle.kts` 的 `signingConfigs` 块）
+- CI 使用 GitHub Secrets（`KEYSTORE_BASE64`、`KEYSTORE_ALIAS`、`KEYSTORE_PASSWORD`）
+- Debug 签名的 APK 可安装，但无法覆盖 release 签名安装（签名不同）
 
 ### Version Management
 
@@ -177,7 +177,7 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 
 #### 单一真相源
 
-- **`version.properties`** at project root（唯一来源）:
+- **`version.properties`** 位于项目根目录（唯一来源）:
   ```properties
   VERSION_CODE=1
   VERSION_NAME=1.0.0
@@ -241,36 +241,36 @@ Gradle Daemon 在 Windows 上间歇性不释放 stdout 管道，导致命令行�
 
 **注意：** `--no-daemon` 和 `org.gradle.daemon=false` 效果相同——都会 fork 一次性进程，构建结束自动销毁。
 
-### Verification & Testing
-**See `docs/verification-requirements.md` for the full 4-dimension verification framework.
+### 验证与测试
+**完整 4 维验证框架见 `docs/verification-requirements.md`。
 
-**Must load `verification-before-completion` skill** before any completion claim. The Iron Law: no completion claims without fresh verification evidence.
+**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。
 
-Test infrastructure:
-- Unit tests: JUnit 4 + MockK + Turbine + kotlinx-coroutines-test (具体版本以 `app/build.gradle.kts` 为准)
-- Instrumented tests: `HiltTestRunner` + `createComposeRule()` (in `androidTest/`)
-- E2E flows: Maestro YAML in `maestro/` directory
-- `isReturnDefaultValues = true` — mocks return default values instead of throwing. This can mask bugs where mock data silently returns null/0/false
-- Each Layer requires: compile ✅ + unit tests ✅ + enhanced tests ✅ + Maestro flows (UI) + androidTest (UI)
+测试基础设施：
+- 单元测试：JUnit 4 + MockK + Turbine + kotlinx-coroutines-test（具体版本以 `app/build.gradle.kts` 为准）
+- 插桩测试：`HiltTestRunner` + `createComposeRule()`（位于 `androidTest/`）
+- E2E 流程：`maestro/` 目录下的 Maestro YAML
+- `isReturnDefaultValues = true` — mock 返回默认值而非抛异常。这可能掩盖 bug（mock 数据静默返回 null/0/false）
+- 每个层级要求：编译 ✅ + 单元测试 ✅ + 增强测试 ✅ + Maestro 流程（UI）+ androidTest（UI）
 
-environment:
-- opencode server port: 4096
-- opencode username: opencode
-- opencode password: save as environment variables ${OPENCODE_SERVER_PASSWORD}
-- emulator host access: use `10.0.2.2` to reach the host machine from Android emulator
+环境：
+- opencode server 端口：4096
+- opencode 用户名：opencode
+- opencode 密码：保存为环境变量 ${OPENCODE_SERVER_PASSWORD}
+- 模拟器访问宿主机：用 `10.0.2.2` 到达宿主机的 Android 模拟器
 - **模拟器调试应使用 subagent 执行**：UI 交互（tap/input/scroll）、截图、logcat 读取等操作上下文占用大，派给 `task` subagent 处理可避免主会话上下文溢出。主 Agent 只下发测试指令、接收结果摘要。
 
-### SSE Scroll Stability
+### SSE 滚动稳定性
 
-The SSE → UI pipeline is: **48ms token batching** → **height compensation** → **render**. Violating any of these reintroduces flicker, chunky output, or viewport jump-to-bottom:
+SSE → UI 管线为：**48ms token 批处理** → **高度补偿** → **渲染**。违反任何一条都会重新引入闪烁、卡顿输出或视口跳底：
 
-- **`Markdown()` must use `rememberMarkdownState(content, retainState=true)`** — stateless `Markdown(content=...)` re-parses every recomposition → height oscillation → flicker.
-- **`scheduleFlush()` must NOT cancel an in-flight timer** — cancelling on every token starves flushes when rate > 20/s → chunky burst output.
-- **`layout{}` compensation applies to streaming message ONLY** (`if (isStreamingMsg)`) — applying to all assistant messages exposes completed messages to unstable measurement.
-- **`LaunchedEffect` for autoScroll/shouldCompensate MUST key on BOTH `isScrollInProgress` AND `isAtBottom`** — `isAtBottom` as a key is the self-healing mechanism that resets `shouldCompensate=false` / `autoScrollEnabled=true` when the user returns to the bottom via non-drag means (fling inertia, SSE content push). Keying on `isScrollInProgress` ALONE leaves these flags stuck stale → viewport jitter every SSE token. This is the beta.360-verified behavior. **Do NOT remove `isAtBottom` from the key.** See `docs/research/sse-scroll-stability-iron-laws.md` for the full regression history.
+- **`Markdown()` 必须使用 `rememberMarkdownState(content, retainState=true)`** — 无状态 `Markdown(content=...)` 每次重组都重新解析 → 高度振荡 → 闪烁。
+- **`scheduleFlush()` 不得取消进行中的定时器** — 每个 token 都取消会在速率 > 20/s 时饿死 flush → 突发式卡顿输出。
+- **`layout{}` 补偿只应用于流式消息**（`if (isStreamingMsg)`）— 应用到所有 assistant 消息会让已完结消息暴露在不稳定测量下。
+- **autoScroll/shouldCompensate 的 `LaunchedEffect` 必须以 `isScrollInProgress` 和 `isAtBottom` 两者作为 key** — `isAtBottom` 作为 key 是自愈机制：用户通过非拖动方式（fling 惯性、SSE 内容推送）回到底部时重置 `shouldCompensate=false` / `autoScrollEnabled=true`。只以 `isScrollInProgress` 为 key 会让这些标志卡在陈旧状态 → 每个 SSE token 视口抖动。这是 beta.360 验证过的行为。**不要把 `isAtBottom` 从 key 中移除。** 完整回归历史见 `docs/research/sse-scroll-stability-iron-laws.md`。
 
-### Ktor Engine
-Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to other engines.**
+### Ktor 引擎
+明确使用 **OkHttp engine** 以正确支持 SSE 流式传输。不要切换到其他引擎。**
 
 ### Material 3 First
 - **优先使用 Material 3 原生组件和原生样式**。能用 `LinearProgressIndicator`、`CircularProgressIndicator`、`IconButton` 等原生组件解决的，不要自定义 Canvas 绘制。
@@ -279,35 +279,35 @@ Uses **OkHttp engine** explicitly for correct SSE streaming. Do not switch to ot
 - **禁止引入额外 UI 依赖库**（如 Accompanist），除非有充分的理由并经过讨论。
 
 ### Theme Token System
-- **Alpha tokens** (Alpha.kt): 7 semantic constants — SELECTED(0.12) / DIFF_BG(0.10) / FAINT(0.35) / MUTED(0.50) / MEDIUM(0.70) / HIGH(0.80) / AMOLED(0.92). Use these instead of hardcoded `.copy(alpha = Xf)`.
-- **Spacing tokens** (Spacing.kt): 6 grid-based constants — XS(4) / SM(8) / MD(12) / LG(16) / XL(24) / XXL(32). Use `SpacingTokens.LG.dp` instead of hardcoded `16.dp` for standard spacing.
-- **Shape tokens** (Shape.kt): `AppShapes` for MaterialTheme, `ShapeTokens` object for component-level direct reference.
-- **Motion tokens** (Motion.kt): semantic duration constants (BREATH_CYCLE, PULSE_CYCLE, TERMINAL). Use instead of hardcoded `AnimationSpec` durations.
-- **Button tokens** (ButtonTokens.kt): centralized button style — `filledColors()` / `dangerColors()` / `amoledBorder()` + `CompactPadding` / `StackSpacing` / `RowSpacing`. Use instead of per-call `ButtonDefaults.colors` and ad-hoc border specs. Import: `dev.leonardo.ocbeacon.ui.theme.ButtonTokens`.
-- **ListItem tokens** (ListItemTokens.kt): three density levels for Material 3 `ListItem` content padding — `ContentPaddingSmall` / `ContentPaddingMedium` / `ContentPaddingLarge`. Use instead of hardcoded `padding` on ListItem content.
-- **Dark theme**: trust Material3 `darkColorScheme()` defaults. Only override 6 brand-differentiated tokens in Theme.kt.
-- **Colors** (Color.kt): brand constants + semantic `DiffAdded`/`DiffRemoved`. No dead code.
+- **Alpha tokens** (Alpha.kt): 7 个语义透明度常量 — SELECTED(0.12) / DIFF_BG(0.10) / FAINT(0.35) / MUTED(0.50) / MEDIUM(0.70) / HIGH(0.80) / AMOLED(0.92). 用它们代替硬编码的 `.copy(alpha = Xf)`。
+- **Spacing tokens** (Spacing.kt): 6 个网格常量 — XS(4) / SM(8) / MD(12) / LG(16) / XL(24) / XXL(32)。标准间距用 `SpacingTokens.LG.dp` 代替硬编码 `16.dp`。
+- **Shape tokens** (Shape.kt): `AppShapes` 用于 MaterialTheme，`ShapeTokens` 对象用于组件级直接引用。
+- **Motion tokens** (Motion.kt): 语义化时长常量（BREATH_CYCLE, PULSE_CYCLE, TERMINAL）。用它们代替硬编码的 `AnimationSpec` 时长。
+- **Button tokens** (ButtonTokens.kt): 集中式按钮样式 — `filledColors()` / `dangerColors()` / `amoledBorder()` + `CompactPadding` / `StackSpacing` / `RowSpacing`。代替每次调用 `ButtonDefaults.colors` 和临时的 border 规格。导入：`dev.leonardo.ocbeacon.ui.theme.ButtonTokens`。
+- **ListItem tokens** (ListItemTokens.kt): Material 3 `ListItem` 内容 padding 的三种密度级别 — `ContentPaddingSmall` / `ContentPaddingMedium` / `ContentPaddingLarge`。代替 ListItem 内容上的硬编码 `padding`。
+- **暗色主题**: 信任 Material3 `darkColorScheme()` 默认值。只在 Theme.kt 中覆盖 6 个品牌差异化 token。
+- **Colors** (Color.kt): 品牌常量 + 语义化 `DiffAdded`/`DiffRemoved`。无死代码。
 
-## Branches & Remotes
+## 分支与远程仓库
 
-_| Remote | URL | Role |
+| Remote | URL | 角色 |
 |--------|-----|------|
-| `origin` | `github.com:LeoNardo-LB/oc-beacon` | Fork (push access, current default) |
-| upstream | `github.com:crim50n/oc-remote` | Upstream (owner: crim50n) — add manually if needed |
+| `origin` | `github.com:LeoNardo-LB/oc-beacon` | Fork（有 push 权限，当前默认） |
+| upstream | `github.com:crim50n/oc-remote` | Upstream（所有者: crim50n）— 需要时手动添加 |
 
-- `master` — stable, matches upstream
-- Push: `git push origin master` / `git push origin <tag>`
+- `master` — 稳定分支，与 upstream 同步
+- 推送：`git push origin master` / `git push origin <tag>`
 
-## Localization
+## 本地化
 
-15 locales managed via `lokit.yaml`. When editing string resources, run `lokit` to sync translations.
+15 种语言通过 `lokit.yaml` 管理。编辑字符串资源后，运行 `lokit` 同步翻译。
 
 ## ProGuard_
 
-Release builds use R8 minification. Rules preserve:
-- `kotlinx.serialization` annotated classes
-- Ktor coroutine internals
-- Mikepenz Markdown renderer state/models (async parsing)
+Release 构建使用 R8 混淆。规则保留：
+- `kotlinx.serialization` 注解类
+- Ktor 协程内部实现
+- Mikepenz Markdown 渲染器的状态/模型（异步解析）
 
 ## Android SDK
 
