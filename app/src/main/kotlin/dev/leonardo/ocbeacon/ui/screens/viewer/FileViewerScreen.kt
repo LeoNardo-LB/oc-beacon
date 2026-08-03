@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
@@ -31,14 +29,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -59,8 +55,6 @@ import dev.leonardo.ocbeacon.util.DebugLogger
 import dev.leonardo.ocbeacon.util.PathUtils
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -381,30 +375,6 @@ private fun FileViewerTopBar(
                 }
             }
         }
-    )
-}
-
-/**
- * Markdown preview that scrolls to [sourceScrollFraction] of its max scroll range,
- * waiting for first non-zero maxValue (async rendering).
- */
-@Composable
-private fun MarkdownPreviewWithScrollAnchor(
-    markdown: String,
-    sourceScrollFraction: Float,
-    modifier: Modifier = Modifier
-) {
-    val renderScrollState = rememberScrollState()
-    LaunchedEffect(sourceScrollFraction) {
-        snapshotFlow { renderScrollState.maxValue }
-            .filter { it > 0 }
-            .first()
-        renderScrollState.scrollTo((renderScrollState.maxValue * sourceScrollFraction).toInt())
-    }
-    MarkdownPreview(
-        markdown = markdown,
-        scrollState = renderScrollState,
-        modifier = modifier
     )
 }
 
