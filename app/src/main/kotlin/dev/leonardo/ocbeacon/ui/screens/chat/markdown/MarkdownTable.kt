@@ -22,12 +22,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import com.mikepenz.markdown.annotator.annotatorSettings
 import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
 import org.intellij.markdown.ast.ASTNode
@@ -101,6 +104,7 @@ internal fun SimpleMarkdownTable(
 
     val rowCount = rows.size
     val scrollState = rememberScrollState()
+    val minCellWidthPx = with(LocalDensity.current) { 120.dp.toPx() }.roundToInt()
 
     Box(
         modifier = Modifier
@@ -109,6 +113,9 @@ internal fun SimpleMarkdownTable(
             .clip(shape)
     ) {
         var containerWidth by remember { mutableIntStateOf(0) }
+
+        val headerStyle = style.copy(fontWeight = FontWeight.SemiBold, lineBreak = LineBreak.Simple)
+        val bodyStyle = style.copy(lineBreak = LineBreak.Simple)
 
         Box(
             modifier = Modifier
@@ -122,11 +129,7 @@ internal fun SimpleMarkdownTable(
                     repeat(cellCount) { colIdx ->
                         val cell = row.cells[colIdx]
                         val isLastCol = colIdx == cellCount - 1
-                        val cellStyle = if (row.isHeader) {
-                            style.copy(fontWeight = FontWeight.SemiBold)
-                        } else {
-                            style
-                        }
+                        val cellStyle = if (row.isHeader) headerStyle else bodyStyle
                         Box(
                             modifier = Modifier
                                 .background(
@@ -181,13 +184,23 @@ internal fun SimpleMarkdownTable(
                     colWidths[col] = maxOf(colWidths[col], placeable.width)
                 }
 
+                // 动态列宽上限：cap = max(容器宽 / 列数, MIN_CELL)
+                val effectiveCap = if (containerWidth > 0) {
+                    maxOf(containerWidth / columnCount, minCellWidthPx)
+                } else {
+                    minCellWidthPx
+                }
+                val cappedWidths = IntArray(columnCount) { col ->
+                    minOf(colWidths[col], effectiveCap)
+                }
+
                 // 填满策略：使用 containerWidth 而非 constraints.maxWidth
-                val naturalWidth = colWidths.sum()
+                val naturalWidth = cappedWidths.sum()
                 val parentWidth = containerWidth
                 val finalColWidths = if (naturalWidth > 0 && parentWidth > 0 && naturalWidth < parentWidth) {
                     val scale = parentWidth.toFloat() / naturalWidth.toFloat()
                     val scaled = IntArray(columnCount) { col ->
-                        (colWidths[col] * scale).toInt()
+                        (cappedWidths[col] * scale).toInt()
                     }
                     val diff = parentWidth - scaled.sum()
                     for (i in 0 until diff.coerceAtMost(columnCount)) {
@@ -195,7 +208,7 @@ internal fun SimpleMarkdownTable(
                     }
                     scaled
                 } else {
-                    colWidths
+                    cappedWidths
                 }
 
                 val finalMeasurables = subcompose("final", cellContent)
