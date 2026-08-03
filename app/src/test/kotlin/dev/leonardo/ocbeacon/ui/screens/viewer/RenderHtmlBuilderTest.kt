@@ -96,4 +96,22 @@ class RenderHtmlBuilderTest {
             assertTrue("$ft should have viewport meta", html.contains("viewport"))
         }
     }
+
+    @Test
+    fun `CSV build wraps table in scrollable container`() {
+        val html = RenderHtmlBuilder.build(FileType.CSV, "a,b\n1,2", isDark = false, bgHex = lightBg, fgHex = lightFg)
+        assertTrue("should contain table-wrapper", html.contains("table-wrapper"))
+    }
+
+    @Test
+    fun `CSV build adds dynamic cell cap css based on column count`() {
+        val html = RenderHtmlBuilder.build(FileType.CSV, "a,b\n1,2", isDark = false, bgHex = lightBg, fgHex = lightFg)
+        assertTrue("should contain column-aware max-width", html.contains("max-width: max(calc((100vw - 32px) / 2), 120px)"))
+    }
+
+    @Test
+    fun `CSV build enables word breaking in cells`() {
+        val html = RenderHtmlBuilder.build(FileType.CSV, "a,b\n1,2", isDark = false, bgHex = lightBg, fgHex = lightFg)
+        assertTrue("should contain overflow-wrap anywhere", html.contains("overflow-wrap: anywhere"))
+    }
 }

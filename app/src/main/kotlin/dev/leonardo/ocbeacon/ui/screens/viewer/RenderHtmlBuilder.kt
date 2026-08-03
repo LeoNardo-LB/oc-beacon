@@ -25,8 +25,9 @@ object RenderHtmlBuilder {
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
         <style>
             body { margin:0; padding:12px 16px; background:$bgHex; color:$fgHex; font-family:monospace; font-size:14px; line-height:1.5; }
+            .table-wrapper { width: 100%; overflow-x: auto; }
             table { border-collapse:collapse; width:100%; }
-            th, td { border:1px solid $borderColor; padding:6px 10px; text-align:left; }
+            th, td { border:1px solid $borderColor; padding:6px 10px; text-align:left; overflow-wrap: anywhere; word-break:break-word; }
             th { background:$headerBg; font-weight:bold; }
             pre { white-space:pre-wrap; word-wrap:break-word; margin:0; }
         </style>
@@ -44,7 +45,11 @@ object RenderHtmlBuilder {
         val rows = parseCsvLines(content, delimiter)
         if (rows.isEmpty()) return "<table><tbody></tbody></table>"
 
+        val columnCount = rows.first().size.coerceAtLeast(1)
+        val capCss = "<style>th, td { max-width: max(calc((100vw - 32px) / $columnCount), 120px); }</style>"
+
         val sb = StringBuilder()
+        sb.append("<div class=\"table-wrapper\">")
         sb.append("<table>")
         rows.forEachIndexed { index, row ->
             val tag = if (index == 0) "th" else "td"
@@ -55,7 +60,8 @@ object RenderHtmlBuilder {
             sb.append("</tr>")
         }
         sb.append("</table>")
-        return sb.toString()
+        sb.append("</div>")
+        return capCss + sb.toString()
     }
 
     private fun parseCsvLines(content: String, delimiter: Char): List<List<String>> {
