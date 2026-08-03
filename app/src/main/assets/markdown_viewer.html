@@ -71,16 +71,23 @@
         blockquote p { margin: 0.25em 0; }
 
         /* Tables */
-        table {
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin: 0.6em 0;
+        }
+        .table-wrapper table {
             border-collapse: collapse;
             width: 100%;
-            margin: 0.6em 0;
+            margin: 0;
             font-size: 0.9em;
         }
         th, td {
             border: 1px solid rgba(128, 128, 128, 0.3);
             padding: 6px 10px;
             text-align: left;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
         th { background: rgba(128, 128, 128, 0.12); font-weight: 600; }
 
@@ -115,6 +122,22 @@
             // Parse markdown → HTML
             var html = marked.parse(md);
             document.getElementById('content').innerHTML = html;
+
+            // Wrap tables for in-container scrolling + dynamic per-column cap
+            document.querySelectorAll('table').forEach(function(table) {
+                var wrapper = document.createElement('div');
+                wrapper.className = 'table-wrapper';
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+
+                var firstRow = table.querySelector('tr');
+                var cols = firstRow ? firstRow.children.length : 1;
+                var containerWidth = document.documentElement.clientWidth - 32; // body padding 16px × 2
+                var cap = Math.max(Math.floor(containerWidth / cols), 120);
+                table.querySelectorAll('th, td').forEach(function(cell) {
+                    cell.style.maxWidth = cap + 'px';
+                });
+            });
 
             // Highlight all code blocks
             document.querySelectorAll('pre code').forEach(function(el) {
