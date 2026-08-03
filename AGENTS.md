@@ -4,11 +4,15 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 
 ## Build & Run
 
-```bash
-# Full build (dev flavor, release)
-.\gradlew :app:assembleDevRelease
+**默认只打一个包**：每次构建/发版只需运行**对应 flavor 的单个 assemble 任务**，产出该 flavor 的一个 APK（按 flavor 分目录输出到 `app/build/outputs/apk/<flavor>/<buildType>/`）。多任务命令仅用于需要同时产出多个包的场景。
 
-# All flavors: dev + beta, debug + release
+```bash
+# 常用：单个任务，产出对应 flavor 的一个 APK
+.\gradlew :app:assembleDevDebug        # 开发调试（dev flavor）
+.\gradlew :app:assembleBetaRelease     # beta 发版
+.\gradlew :app:assembleStableRelease   # 正式发版
+
+# 多任务示例：需要同时产出多个包时才用（如 dev debug + beta release）
 .\gradlew :app:assembleDevDebug :app:assembleBetaRelease
 
 # Unit tests (force rerun, avoid UP-TO-DATE skip)
