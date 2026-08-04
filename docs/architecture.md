@@ -9,7 +9,7 @@ Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.**
 ```
 domain/          Pure Kotlin, 无 Android 依赖
   model/         40+ 数据类与值类型（SseEvent, Message, Part, Session, AppSettings, SessionCategory, FavoriteSessionSnapshot 等）
-  repository/    13 个接口（Agent, Chat, Draft, File, Mcp, Provider, Server, ServerConfig, ServerConnection, Session, Settings, Terminal, Vcs）
+  repository/    14 个接口（Agent, Chat, Draft, File, Mcp, Provider, Server, ServerConfig, ServerConnection, Session, SessionState, Settings, Terminal, Vcs）
   usecase/       20 个 UseCase — ViewModel 调用它们，而非直接调 API
 
 data/            Android 相关实现

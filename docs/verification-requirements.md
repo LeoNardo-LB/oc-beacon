@@ -159,7 +159,7 @@ maestro test maestro/l{n}-{feature}.yaml
 - `createComposeRule()` 用于 Compose UI 测试
 - `androidTestImplementation` 依赖已在 `build.gradle.kts` 中声明
 
-**文件位置：** `app/src/androidTest/kotlin/dev/minios/ocremote/`
+**文件位置：** `app/src/androidTest/kotlin/dev/leonardo/ocbeacon/`
 
 **覆盖要求：**
 

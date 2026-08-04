@@ -15,6 +15,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4 维验证框架 | 完成开发、声称"完成"前 |
 | 🟡 SHOULD | [`docs/opencode-api-reference.md`](docs/opencode-api-reference.md) | OpenCode Server 完整 API 参考（62 REST/WS 端点 + 52 SSE 事件 + JSON Schema） | 开发新功能、调试接口问题前 |
 | 🟡 SHOULD | [`docs/architecture.md`](docs/architecture.md) | 架构分层、目录职责、关键模式、承重架构规则 | 理解/修改跨层结构、SessionStateService、日志、导航 |
+| 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 聊天 UI 事件生命周期：触摸传播、SSE 流式更新、消息状态机、竞态条件 | 修改 ChatScreen 内部机制、排查聊天交互竞态时 |
 | 🟡 SHOULD | [`docs/ui-conventions.md`](docs/ui-conventions.md) | UI 约定：Material 3、Theme Tokens、表格渲染一致性 | 编写/修改 UI 组件、主题、颜色、间距 |
 | 🟡 SHOULD | [`docs/agents-file-design.md`](docs/agents-file-design.md) | AGENTS.md 维护规范（本文件的设计依据） | 新增/修改 AGENTS.md 规则时 |
 | 🟢 MAY | [`docs/architecture-debt.md`](docs/architecture-debt.md) | 已登记的技术债务与后续计划 | 接触相关模块时了解限制 |

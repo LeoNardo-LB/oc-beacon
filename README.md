@@ -17,7 +17,7 @@
 | targetSdk | 34 | 35 |
 | Compose BOM | 2024.12.01 | 2026.05.01 |
 
-得益于不同的 application ID，两个应用可以**同时安装**在同一设备上。版本号遵循 [Semantic Versioning](AGENTS.md#version-management)——当前版本见 `version.properties`。
+得益于不同的 application ID，两个应用可以**同时安装**在同一设备上。版本号遵循 [Semantic Versioning](docs/release-workflow.md)——当前版本见 `version.properties`。
 
 ## 本 fork 的新功能
 
