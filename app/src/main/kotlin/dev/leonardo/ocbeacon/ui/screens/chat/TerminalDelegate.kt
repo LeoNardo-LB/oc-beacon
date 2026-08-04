@@ -9,7 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import dev.leonardo.ocbeacon.ui.screens.chat.terminal.TerminalTabState
+import dev.leonardo.ocbeacon.data.terminal.ServerTerminalWorkspace
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
 import org.connectbot.terminal.TerminalEmulator
 
 private const val TERMINAL_DELEGATE_TAG = "TerminalDelegate"

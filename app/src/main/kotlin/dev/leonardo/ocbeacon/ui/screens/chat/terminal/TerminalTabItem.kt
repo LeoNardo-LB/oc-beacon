@@ -32,7 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.ui.screens.chat.TerminalTabUi
+import dev.leonardo.ocbeacon.data.terminal.ServerTerminalWorkspace
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens

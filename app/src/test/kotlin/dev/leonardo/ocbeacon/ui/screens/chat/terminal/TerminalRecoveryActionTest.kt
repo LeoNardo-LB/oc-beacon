@@ -1,5 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.terminal
 
+import dev.leonardo.ocbeacon.data.terminal.RecoveryAction
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
+import dev.leonardo.ocbeacon.data.terminal.terminalRecoveryAction
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

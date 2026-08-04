@@ -19,7 +19,9 @@ import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
-import dev.leonardo.ocbeacon.ui.screens.chat.terminal.TerminalTabState
+import dev.leonardo.ocbeacon.data.terminal.ServerTerminalWorkspace
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextBreakdown
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import dev.leonardo.ocbeacon.ui.screens.chat.util.MessageCount

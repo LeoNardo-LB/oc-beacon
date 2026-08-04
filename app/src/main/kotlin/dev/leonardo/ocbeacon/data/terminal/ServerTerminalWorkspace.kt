@@ -1,4 +1,4 @@
-package dev.leonardo.ocbeacon.ui.screens.chat
+package dev.leonardo.ocbeacon.data.terminal
 
 import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
@@ -6,9 +6,9 @@ import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import dev.leonardo.ocbeacon.data.terminal.PtyToTermlibAdapter
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.ui.screens.chat.terminal.RecoveryAction
-import dev.leonardo.ocbeacon.ui.screens.chat.terminal.TerminalTabState
-import dev.leonardo.ocbeacon.ui.screens.chat.terminal.terminalRecoveryAction
+import dev.leonardo.ocbeacon.data.terminal.RecoveryAction
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
+import dev.leonardo.ocbeacon.data.terminal.terminalRecoveryAction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

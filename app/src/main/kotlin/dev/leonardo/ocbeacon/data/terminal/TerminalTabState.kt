@@ -1,4 +1,4 @@
-package dev.leonardo.ocbeacon.ui.screens.chat.terminal
+package dev.leonardo.ocbeacon.data.terminal
 
 /**
  * 单个终端标签页 PTY 连接的生命周期状态。

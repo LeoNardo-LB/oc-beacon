@@ -2,7 +2,7 @@ package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.ui.screens.chat.ServerTerminalWorkspace
+import dev.leonardo.ocbeacon.data.terminal.ServerTerminalWorkspace
 import javax.inject.Inject
 import javax.inject.Singleton
 

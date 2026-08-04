@@ -57,6 +57,8 @@ import androidx.compose.ui.zIndex
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.MainActivity
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
+import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import kotlinx.coroutines.launch
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
