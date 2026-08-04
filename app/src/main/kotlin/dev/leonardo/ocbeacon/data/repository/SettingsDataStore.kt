@@ -24,7 +24,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * App-wide settings stored in DataStore.
+ * 存储在 DataStore 中的应用级设置。
  */
 @Singleton
 class SettingsDataStore @Inject constructor(
@@ -55,46 +55,35 @@ class SettingsDataStore @Inject constructor(
         private val COMPRESS_IMAGE_ATTACHMENTS_KEY = booleanPreferencesKey("compress_image_attachments")
         private val IMAGE_ATTACHMENT_MAX_LONG_SIDE_KEY = intPreferencesKey("image_attachment_max_long_side")
         private val IMAGE_ATTACHMENT_WEBP_QUALITY_KEY = intPreferencesKey("image_attachment_webp_quality")
-        private val SHOW_LOCAL_RUNTIME_KEY = booleanPreferencesKey("show_local_runtime")
         private val TERMINAL_FONT_SIZE_KEY = floatPreferencesKey("terminal_font_size")
-        private val LOCAL_SETUP_COMPLETED_KEY = booleanPreferencesKey("local_setup_completed")
-        private val LOCAL_PROXY_ENABLED_KEY = booleanPreferencesKey("local_proxy_enabled")
-        private val LOCAL_PROXY_URL_KEY = stringPreferencesKey("local_proxy_url")
-        private val LOCAL_PROXY_NO_PROXY_KEY = stringPreferencesKey("local_proxy_no_proxy")
-        private val LOCAL_SERVER_ALLOW_LAN_KEY = booleanPreferencesKey("local_server_allow_lan")
-        private val LOCAL_SERVER_USERNAME_KEY = stringPreferencesKey("local_server_username")
-        private val LOCAL_SERVER_PASSWORD_KEY = stringPreferencesKey("local_server_password")
-        private val LOCAL_SERVER_RUN_IN_BACKGROUND_KEY = booleanPreferencesKey("local_server_run_in_background")
-        private val LOCAL_SERVER_AUTO_START_KEY = booleanPreferencesKey("local_server_auto_start")
-        private val LOCAL_SERVER_STARTUP_TIMEOUT_SEC_KEY = intPreferencesKey("local_server_startup_timeout_sec")
 
-        /** SharedPreferences name used for synchronous locale reads in attachBaseContext. */
+        /** 用于在 attachBaseContext 中同步读取 locale 的 SharedPreferences 名称。 */
         private const val LOCALE_PREFS = "locale_prefs"
         private const val LOCALE_PREFS_KEY = "app_language"
 
         private const val SERVER_MODEL_HIDDEN_PREFIX = "server_model_hidden_"
 
-        // Session categories — global list (JSON array) + per-server assignments (JSON map).
+        // 会话分类——全局列表（JSON 数组）+ 按服务器的分配（JSON map）。
         private val SESSION_CATEGORIES_KEY = stringPreferencesKey("session_categories")
         private const val SESSION_CATEGORY_ASSIGNMENTS_PREFIX = "session_category_assignments_"
         private val categoryJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
         private val categoryListSerializer = ListSerializer(SessionCategory.serializer())
         private val assignmentMapSerializer = MapSerializer(String.serializer(), String.serializer())
 
-        // ============ Cross-server session favorites ============
-        // Per-server favorite session ids (stringSet). Prefix + serverId.
+        // ============ 跨服务器会话收藏 ============
+        // 每服务器收藏的会话 id（stringSet）。前缀 + serverId。
         private const val FAVORITE_SESSIONS_PREFIX = "favorite_sessions_"
-        // Global cross-server favorite order — list of "serverId:sessionId" keys (JSON).
+        // 全局跨服务器收藏顺序——"serverId:sessionId" 键的列表（JSON）。
         private val CROSS_SERVER_FAVORITE_ORDER_KEY = stringPreferencesKey("cross_server_favorite_order")
-        // Offline snapshots keyed by "serverId:sessionId" (JSON map).
+        // 以 "serverId:sessionId" 为键的离线快照（JSON map）。
         private val FAVORITE_SESSION_SNAPSHOTS_KEY = stringPreferencesKey("favorite_session_snapshots")
         private val favoriteSnapshotMapSerializer =
             MapSerializer(String.serializer(), FavoriteSessionSnapshot.serializer())
         private val favoriteOrderSerializer = ListSerializer(String.serializer())
 
         /**
-         * Derive chat density from legacy font size / compact flags.
-         * Mirrors the logic validated by [SettingsMigrationTest].
+         * 从旧版 font size / compact 标志推导聊天密度。
+         * 镜像了 [SettingsMigrationTest] 验证的逻辑。
          */
         private fun migrateDensity(fontSize: String?, compact: Boolean?): String = when {
             compact == true -> "compact"
@@ -102,7 +91,7 @@ class SettingsDataStore @Inject constructor(
             else -> "normal"
         }
 
-        /** Read stored language synchronously — safe to call before Hilt init. */
+        /** 同步读取已存储的语言——可在 Hilt 初始化前安全调用。 */
         fun getStoredLanguage(context: Context): String {
             return context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
                 .getString(LOCALE_PREFS_KEY, "") ?: ""
@@ -113,22 +102,22 @@ class SettingsDataStore @Inject constructor(
         stringSetPreferencesKey(SERVER_MODEL_HIDDEN_PREFIX + serverId)
 
     /**
-     * Selected language code (e.g. "en", "ru", "de") or empty string for system default.
+     * 选定的语言代码（例如 "en"、"ru"、"de"），空字符串表示系统默认。
      */
     val appLanguage: Flow<String> = dataStore.data.map { preferences ->
         preferences[LANGUAGE_KEY] ?: ""
     }
 
     /**
-     * Selected theme: "system", "light", or "dark".
+     * 选定的主题："system"、"light" 或 "dark"。
      */
     val appTheme: Flow<String> = dataStore.data.map { preferences ->
         preferences[THEME_KEY] ?: "system"
     }
 
     /**
-     * Set the app language. Pass empty string to use system default.
-     * Also writes to SharedPreferences for synchronous read in attachBaseContext.
+     * 设置应用语言。传入空字符串以使用系统默认。
+     * 同时写入 SharedPreferences 以便在 attachBaseContext 中同步读取。
      */
     suspend fun setAppLanguage(languageCode: String) {
         context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
@@ -141,7 +130,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Set the app theme. Valid values: "system", "light", "dark".
+     * 设置应用主题。有效值："system"、"light"、"dark"。
      */
     suspend fun setAppTheme(theme: String) {
         dataStore.edit { preferences ->
@@ -150,7 +139,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether dynamic colors (Material You) are enabled. Default: true.
+     * 是否启用动态取色（Material You）。默认：true。
      */
     val dynamicColor: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[DYNAMIC_COLOR_KEY] ?: true
@@ -163,7 +152,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Chat font size: "small", "medium", "large". Default: "medium".
+     * 聊天字体大小："small"、"medium"、"large"。默认："medium"。
      */
     val chatFontSize: Flow<String> = dataStore.data.map { preferences ->
         preferences[FONT_SIZE_KEY] ?: "medium"
@@ -176,11 +165,11 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Chat density: "normal" or "compact". Default: "normal".
+     * 聊天密度："normal" 或 "compact"。默认："normal"。
      *
-     * Migration: when [CHAT_DENSITY_KEY] is unset, derives from legacy
-     * [chatFontSize] ("small" → compact) and [compactMessages] (true → compact).
-     * Once the user picks a value, the key is set and legacy fields are ignored.
+     * 迁移：当 [CHAT_DENSITY_KEY] 未设置时，从旧版
+     * [chatFontSize]（"small" → compact）和 [compactMessages]（true → compact）推导。
+     * 一旦用户选择了值，该键即被设置，旧版字段将被忽略。
      */
     val chatDensity: Flow<String> = dataStore.data.map { preferences ->
         val stored = preferences[CHAT_DENSITY_KEY]
@@ -201,7 +190,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether task completion notifications are enabled. Default: true.
+     * 是否启用任务完成通知。默认：true。
      */
     val notificationsEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[NOTIFICATIONS_KEY] ?: true
@@ -213,7 +202,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Number of messages to load initially. Default: 30. */
+    /** 初始加载的消息数量。默认：30。 */
     val initialMessageCount: Flow<Int> = dataStore.data.map { preferences ->
         preferences[INITIAL_MESSAGE_COUNT_KEY] ?: 30
     }
@@ -224,7 +213,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Number of recent directories shown in the quick new-session dialog. Default: 20, clamped to 5..50. */
+    /** 快捷新建会话对话框中显示的最近目录数量。默认：20，限制在 5..50。 */
     val recentDirectoryCount: Flow<Int> = dataStore.data.map { preferences ->
         (preferences[RECENT_DIRECTORY_COUNT_KEY] ?: 20).coerceIn(5, 50)
     }
@@ -236,7 +225,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether code blocks use word wrap (true) or horizontal scroll (false). Default: false.
+     * 代码块是否自动换行（true）或水平滚动（false）。默认：false。
      */
     val codeWordWrap: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[CODE_WORD_WRAP_KEY] ?: false
@@ -249,7 +238,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether to show confirmation dialog before sending a message. Default: false.
+     * 发送消息前是否显示确认对话框。默认：false。
      */
     val confirmBeforeSend: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[CONFIRM_BEFORE_SEND_KEY] ?: false
@@ -262,7 +251,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether AMOLED pure black dark theme is enabled. Default: false.
+     * 是否启用 AMOLED 纯黑深色主题。默认：false。
      */
     val amoledDark: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[AMOLED_DARK_KEY] ?: false
@@ -275,7 +264,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether compact message spacing is enabled. Default: false.
+     * 是否启用紧凑消息间距。默认：false。
      */
     val compactMessages: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[COMPACT_MESSAGES_KEY] ?: false
@@ -288,7 +277,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether tool cards are collapsed by default. Default: false.
+     * 工具卡片是否默认折叠。默认：false。
      */
     val collapseTools: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[COLLAPSE_TOOLS_KEY] ?: false
@@ -301,7 +290,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether reasoning blocks are expanded by default. Default: false (collapsed).
+     * 推理块是否默认展开。默认：false（折叠）。
      */
     val expandReasoning: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[EXPAND_REASONING_KEY] ?: false
@@ -314,7 +303,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether to show dividers between messages in the same turn. Default: true.
+     * 是否在同一轮次的消息之间显示分隔线。默认：true。
      */
     val showTurnDividers: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[SHOW_TURN_DIVIDERS_KEY] ?: true
@@ -327,7 +316,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether haptic feedback is enabled. Default: true.
+     * 是否启用触感反馈。默认：true。
      */
     val hapticFeedback: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[HAPTIC_FEEDBACK_KEY] ?: true
@@ -340,8 +329,8 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Reconnect mode: "aggressive" (1-5s), "normal" (1-30s), "conservative" (1-60s).
-     * Default: "normal".
+     * 重连模式："aggressive"（1-5s）、"normal"（1-30s）、"conservative"（1-60s）。
+     * 默认："normal"。
      */
     val reconnectMode: Flow<String> = dataStore.data.map { preferences ->
         preferences[RECONNECT_MODE_KEY] ?: "normal"
@@ -354,7 +343,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether to keep screen on during streaming. Default: false.
+     * 流式传输期间是否保持屏幕常亮。默认：false。
      */
     val keepScreenOn: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[KEEP_SCREEN_ON_KEY] ?: false
@@ -367,7 +356,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether notifications are silent (no sound/vibration). Default: false.
+     * 通知是否静默（无声音/振动）。默认：false。
      */
     val silentNotifications: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[SILENT_NOTIFICATIONS_KEY] ?: false
@@ -380,7 +369,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether image attachments are optimized (resize + WebP) before sending. Default: true.
+     * 图片附件发送前是否优化（缩放 + WebP）。默认：true。
      */
     val compressImageAttachments: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[COMPRESS_IMAGE_ATTACHMENTS_KEY] ?: true
@@ -393,8 +382,8 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Max long side (in px) used when resizing image attachments before sending.
-     * Use 0 to keep original resolution. Default: 1440.
+     * 发送前缩放图片附件时使用的最大长边（像素）。
+     * 使用 0 保留原始分辨率。默认：1440。
      */
     val imageAttachmentMaxLongSide: Flow<Int> = dataStore.data.map { preferences ->
         val value = preferences[IMAGE_ATTACHMENT_MAX_LONG_SIDE_KEY] ?: 1440
@@ -408,7 +397,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * WebP quality used for image attachment optimization. Default: 60.
+     * 图片附件优化使用的 WebP 质量。默认：60。
      */
     val imageAttachmentWebpQuality: Flow<Int> = dataStore.data.map { preferences ->
         (preferences[IMAGE_ATTACHMENT_WEBP_QUALITY_KEY] ?: 60).coerceIn(1, 100)
@@ -421,20 +410,7 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether to show local runtime controls on Home screen. Default: true.
-     */
-    val showLocalRuntime: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[SHOW_LOCAL_RUNTIME_KEY] ?: true
-    }
-
-    suspend fun setShowLocalRuntime(enabled: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[SHOW_LOCAL_RUNTIME_KEY] = enabled
-        }
-    }
-
-    /**
-     * Default terminal font size in sp. Default: 13.
+     * 默认终端字体大小（sp）。默认：13。
      */
     val terminalFontSize: Flow<Float> = dataStore.data.map { preferences ->
         (preferences[TERMINAL_FONT_SIZE_KEY] ?: 13f).coerceIn(6f, 20f)
@@ -447,157 +423,15 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Whether the local Termux setup has been completed at least once.
-     */
-    val localSetupCompleted: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[LOCAL_SETUP_COMPLETED_KEY] ?: false
-    }
-
-    suspend fun setLocalSetupCompleted(completed: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_SETUP_COMPLETED_KEY] = completed
-        }
-    }
-
-    /**
-     * Whether local runtime should use an outbound proxy. Default: false.
-     */
-    val localProxyEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[LOCAL_PROXY_ENABLED_KEY] ?: false
-    }
-
-    suspend fun setLocalProxyEnabled(enabled: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_PROXY_ENABLED_KEY] = enabled
-        }
-    }
-
-    /**
-     * Proxy URL for local runtime outbound requests (e.g., http://host:port).
-     * Empty string means disabled/not set.
-     */
-    val localProxyUrl: Flow<String> = dataStore.data.map { preferences ->
-        preferences[LOCAL_PROXY_URL_KEY] ?: ""
-    }
-
-    suspend fun setLocalProxyUrl(url: String) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_PROXY_URL_KEY] = url.trim()
-        }
-    }
-
-    /**
-     * NO_PROXY/NO_PROXY exclusions used by local runtime.
-     */
-    val localProxyNoProxy: Flow<String> = dataStore.data.map { preferences ->
-        preferences[LOCAL_PROXY_NO_PROXY_KEY] ?: LocalServerManager.DEFAULT_NO_PROXY_LIST
-    }
-
-    suspend fun setLocalProxyNoProxy(value: String) {
-        dataStore.edit { preferences ->
-            val normalized = value
-                .split(',')
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .joinToString(",")
-            preferences[LOCAL_PROXY_NO_PROXY_KEY] = if (normalized.isBlank()) {
-                LocalServerManager.DEFAULT_NO_PROXY_LIST
-            } else {
-                normalized
-            }
-        }
-    }
-
-    /**
-     * Whether local runtime should bind to all interfaces (0.0.0.0). Default: false.
-     */
-    val localServerAllowLan: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[LOCAL_SERVER_ALLOW_LAN_KEY] ?: false
-    }
-
-    suspend fun setLocalServerAllowLan(enabled: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_SERVER_ALLOW_LAN_KEY] = enabled
-        }
-    }
-
-    /**
-     * Optional username used by local runtime server auth.
-     * Empty means server default username is used.
-     */
-    val localServerUsername: Flow<String> = dataStore.data.map { preferences ->
-        preferences[LOCAL_SERVER_USERNAME_KEY] ?: ""
-    }
-
-    suspend fun setLocalServerUsername(value: String) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_SERVER_USERNAME_KEY] = value.trim()
-        }
-    }
-
-    /**
-     * Password used by local runtime server (OPENCODE_SERVER_PASSWORD).
-     * Empty means unsecured local server.
-     */
-    val localServerPassword: Flow<String> = dataStore.data.map { preferences ->
-        preferences[LOCAL_SERVER_PASSWORD_KEY] ?: ""
-    }
-
-    suspend fun setLocalServerPassword(value: String) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_SERVER_PASSWORD_KEY] = value.trim()
-        }
-    }
-
-    /**
-     * Whether local runtime start command should run in background via Termux RunCommandService.
-     */
-    val localServerRunInBackground: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[LOCAL_SERVER_RUN_IN_BACKGROUND_KEY] ?: true
-    }
-
-    suspend fun setLocalServerRunInBackground(enabled: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_SERVER_RUN_IN_BACKGROUND_KEY] = enabled
-        }
-    }
-
-    /**
-     * Whether to auto-start local runtime on app launch when it is installed but not running.
-     */
-    val localServerAutoStart: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[LOCAL_SERVER_AUTO_START_KEY] ?: false
-    }
-
-    suspend fun setLocalServerAutoStart(enabled: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_SERVER_AUTO_START_KEY] = enabled
-        }
-    }
-
-    /**
-     * Startup timeout (seconds) for waiting local runtime readiness. Default: 30.
-     */
-    val localServerStartupTimeoutSec: Flow<Int> = dataStore.data.map { preferences ->
-        (preferences[LOCAL_SERVER_STARTUP_TIMEOUT_SEC_KEY] ?: 30).coerceIn(10, 120)
-    }
-
-    suspend fun setLocalServerStartupTimeoutSec(value: Int) {
-        dataStore.edit { preferences ->
-            preferences[LOCAL_SERVER_STARTUP_TIMEOUT_SEC_KEY] = value.coerceIn(10, 120)
-        }
-    }
-
-    /**
-     * Hidden model keys for a server. Key format: "providerId:modelId".
+     * 某服务器隐藏的模型键。键格式："providerId:modelId"。
      */
     fun hiddenModels(serverId: String): Flow<Set<String>> = dataStore.data.map { preferences ->
         preferences[serverModelHiddenKey(serverId)] ?: emptySet()
     }
 
     /**
-     * Set model visibility for a server.
-     * visible=true removes it from hidden set, visible=false adds it.
+     * 设置某服务器的模型可见性。
+     * visible=true 从隐藏集合移除，visible=false 添加。
      */
     suspend fun setModelVisibility(serverId: String, providerId: String, modelId: String, visible: Boolean) {
         val key = "$providerId:$modelId"
@@ -615,7 +449,7 @@ class SettingsDataStore @Inject constructor(
     private fun sessionCategoryAssignmentsKey(serverId: String) =
         stringPreferencesKey(SESSION_CATEGORY_ASSIGNMENTS_PREFIX + serverId)
 
-    /** Global list of user-defined session categories. */
+    /** 用户自定义的会话分类全局列表。 */
     val sessionCategories: Flow<List<SessionCategory>> = dataStore.data.map { preferences ->
         val json = preferences[SESSION_CATEGORIES_KEY]
         if (json.isNullOrBlank()) {
@@ -626,7 +460,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Per-server session→category id assignments. */
+    /** 按服务器的 会话→分类 id 分配。 */
     fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>> =
         dataStore.data.map { preferences ->
             val json = preferences[sessionCategoryAssignmentsKey(serverId)]
@@ -638,7 +472,7 @@ class SettingsDataStore @Inject constructor(
             }
         }
 
-    /** Add or replace a category (matched by id). */
+    /** 添加或替换分类（按 id 匹配）。 */
     suspend fun addSessionCategory(category: SessionCategory) {
         dataStore.edit { preferences ->
             val current = preferences[SESSION_CATEGORIES_KEY]?.let {
@@ -650,7 +484,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Remove a category and clear any assignments referencing it. */
+    /** 移除分类并清除引用它的所有分配。 */
     suspend fun removeSessionCategory(categoryId: String) {
         dataStore.edit { preferences ->
             val current = preferences[SESSION_CATEGORIES_KEY]?.let {
@@ -662,7 +496,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Assign a session to a category for the given server. */
+    /** 为给定服务器将一个会话分配到某分类。 */
     suspend fun assignSessionCategory(serverId: String, sessionId: String, categoryId: String) {
         val prefsKey = sessionCategoryAssignmentsKey(serverId)
         dataStore.edit { preferences ->
@@ -675,7 +509,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Remove a session's category assignment for the given server. */
+    /** 移除给定服务器中某会话的分类分配。 */
     suspend fun unassignSessionCategory(serverId: String, sessionId: String) {
         val prefsKey = sessionCategoryAssignmentsKey(serverId)
         dataStore.edit { preferences ->
@@ -689,8 +523,8 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * Aggregate all settings into a single [AppSettings] flow.
-     * Reads atomically from DataStore preferences — avoids combining 30+ individual flows.
+     * 将所有设置聚合为单个 [AppSettings] flow。
+     * 从 DataStore preferences 原子读取——避免合并 30+ 个独立 flow。
      */
     val appSettingsFlow: Flow<AppSettings> = dataStore.data.map { prefs ->
         AppSettings(
@@ -719,32 +553,21 @@ class SettingsDataStore @Inject constructor(
             compressImageAttachments = prefs[COMPRESS_IMAGE_ATTACHMENTS_KEY] ?: true,
             imageAttachmentMaxLongSide = (prefs[IMAGE_ATTACHMENT_MAX_LONG_SIDE_KEY] ?: 1440).let { if (it <= 0) 0 else it.coerceIn(720, 4096) },
             imageAttachmentWebpQuality = (prefs[IMAGE_ATTACHMENT_WEBP_QUALITY_KEY] ?: 60).coerceIn(1, 100),
-            terminalFontSize = (prefs[TERMINAL_FONT_SIZE_KEY] ?: 13f).coerceIn(6f, 20f),
-            showLocalRuntime = prefs[SHOW_LOCAL_RUNTIME_KEY] ?: true,
-            localSetupCompleted = prefs[LOCAL_SETUP_COMPLETED_KEY] ?: false,
-            localProxyEnabled = prefs[LOCAL_PROXY_ENABLED_KEY] ?: false,
-            localProxyUrl = prefs[LOCAL_PROXY_URL_KEY] ?: "",
-            localProxyNoProxy = prefs[LOCAL_PROXY_NO_PROXY_KEY] ?: LocalServerManager.DEFAULT_NO_PROXY_LIST,
-            localServerAllowLan = prefs[LOCAL_SERVER_ALLOW_LAN_KEY] ?: false,
-            localServerUsername = prefs[LOCAL_SERVER_USERNAME_KEY] ?: "",
-            localServerPassword = prefs[LOCAL_SERVER_PASSWORD_KEY] ?: "",
-            localServerRunInBackground = prefs[LOCAL_SERVER_RUN_IN_BACKGROUND_KEY] ?: true,
-            localServerAutoStart = prefs[LOCAL_SERVER_AUTO_START_KEY] ?: false,
-            localServerStartupTimeoutSec = (prefs[LOCAL_SERVER_STARTUP_TIMEOUT_SEC_KEY] ?: 30).coerceIn(10, 120)
+            terminalFontSize = (prefs[TERMINAL_FONT_SIZE_KEY] ?: 13f).coerceIn(6f, 20f)
         )
     }
 
-    // ============ Cross-server session favorites ============
+    // ============ 跨服务器会话收藏 ============
 
     private fun favoriteSessionsKey(serverId: String) =
         stringSetPreferencesKey(FAVORITE_SESSIONS_PREFIX + serverId)
 
-    /** Favorite session ids for a specific server. */
+    /** 特定服务器收藏的会话 id。 */
     fun favoriteSessionIds(serverId: String): Flow<Set<String>> = dataStore.data.map { preferences ->
         preferences[favoriteSessionsKey(serverId)] ?: emptySet()
     }
 
-    /** Global cross-server favorite order — list of "serverId:sessionId" keys. */
+    /** 全局跨服务器收藏顺序——"serverId:sessionId" 键的列表。 */
     val crossServerFavoriteOrder: Flow<List<String>> = dataStore.data.map { preferences ->
         val json = preferences[CROSS_SERVER_FAVORITE_ORDER_KEY]
         if (json.isNullOrBlank()) {
@@ -755,7 +578,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Offline snapshots keyed by "serverId:sessionId". */
+    /** 以 "serverId:sessionId" 为键的离线快照。 */
     val favoriteSessionSnapshots: Flow<Map<String, FavoriteSessionSnapshot>> =
         dataStore.data.map { preferences ->
             val json = preferences[FAVORITE_SESSION_SNAPSHOTS_KEY]
@@ -767,7 +590,7 @@ class SettingsDataStore @Inject constructor(
             }
         }
 
-    /** Add a session to favorites for a server, persisting its offline snapshot. */
+    /** 将某会话加入服务器的收藏，并持久化其离线快照。 */
     suspend fun addFavoriteSession(
         serverId: String,
         sessionId: String,
@@ -786,7 +609,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Remove a session from favorites for a server, clearing its snapshot. */
+    /** 将某会话从服务器收藏移除，并清除其快照。 */
     suspend fun removeFavoriteSession(serverId: String, sessionId: String) {
         val key = favoriteKey(serverId, sessionId)
         dataStore.edit { preferences ->
@@ -806,7 +629,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Replace the entire cross-server favorite order. */
+    /** 替换整个跨服务器收藏顺序。 */
     suspend fun setCrossServerFavoriteOrder(order: List<String>) {
         dataStore.edit { preferences ->
             preferences[CROSS_SERVER_FAVORITE_ORDER_KEY] =
@@ -814,7 +637,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Upsert or remove a single favorite key in the cross-server order list. */
+    /** 在跨服务器顺序列表中 upsert 或移除单个收藏键。 */
     suspend fun setCrossServerFavoriteOrderItem(key: String, favorite: Boolean) {
         dataStore.edit { preferences ->
             val current = preferences[CROSS_SERVER_FAVORITE_ORDER_KEY]?.let {
@@ -831,7 +654,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Save or replace a snapshot for a (server, session) pair. */
+    /** 保存或替换 (server, session) 对的快照。 */
     suspend fun saveFavoriteSessionSnapshot(
         serverId: String,
         sessionId: String,
@@ -848,7 +671,7 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    /** Clear a snapshot for a (server, session) pair. */
+    /** 清除 (server, session) 对的快照。 */
     suspend fun clearFavoriteSessionSnapshot(serverId: String, sessionId: String) {
         val key = favoriteKey(serverId, sessionId)
         dataStore.edit { preferences ->

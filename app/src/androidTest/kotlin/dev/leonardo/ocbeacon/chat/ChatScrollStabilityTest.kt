@@ -17,36 +17,36 @@ import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import org.junit.Test
 
 /**
- * Integration tests for SSE scroll viewport stability (the bug fixed in beta.445).
+ * SSE 滚动视口稳定性的集成测试（修复 beta.445 中 bug 的回归测试）。
  *
- * Verifies the ChatMessageList behavior described in
- * `docs/research/sse-scroll-stability-iron-laws.md`:
- * - Height compensation tracks only the streaming message
- * - shouldCompensate resets when user returns to bottom
- * - Completed messages do not trigger compensation
+ * 验证 `docs/research/sse-scroll-stability-iron-laws.md` 中描述的
+ * ChatMessageList 行为：
+ * - 高度补偿只跟踪流式消息
+ * - shouldCompensate 在用户回到底部时重置
+ * - 已完成消息不会触发补偿
  *
- * These tests use the FakeChatRepository's [messagesState] and [allPartsMapState]
- * flows — NOT [partsState] — because [MessageDataDelegate.messageListState] reads
- * from `getAllPartsMap()`, not `getParts()`.
+ * 这些测试使用 FakeChatRepository 的 [messagesState] 和 [allPartsMapState]
+ * flow —— 而非 [partsState] —— 因为 [MessageDataDelegate.messageListState]
+ * 读取的是 `getAllPartsMap()`，而非 `getParts()`。
  *
- * Behavioural assertions focus on what the user sees (text visibility) rather
- * than internal scroll offset, which Compose UI testing does not expose directly.
+ * 行为断言关注用户所见（文本可见性），而非内部滚动偏移，因为 Compose UI
+ * 测试不直接暴露滚动偏移。
  */
 @HiltAndroidTest
 class ChatScrollStabilityTest : BaseChatTest() {
 
-    // ============ Helpers ============
+    // ============ 辅助方法 ============
 
     /**
-     * Set messages + parts in the fake repository.
-     * [messageListState] reads from `messagesState` and `allPartsMapState`.
+     * 在 fake repository 中设置 messages + parts。
+     * [messageListState] 读取 `messagesState` 和 `allPartsMapState`。
      */
     private fun setMessages(vararg entries: Pair<Message, List<Part>>) {
         fakeChat.messagesState.value = entries.map { it.first }
         fakeChat.allPartsMapState.value = entries.associate { it.first.id to it.second }
     }
 
-    /** Create a user message with a single text part. */
+    /** 创建一个带单个文本 part 的 user 消息。 */
     private fun userWithText(text: String, id: String): Pair<Message, List<Part>> {
         val msg = aUserMessage(text, id = id, sessionId = TEST_SESSION)
         val part = Part.Text(
@@ -58,12 +58,12 @@ class ChatScrollStabilityTest : BaseChatTest() {
         return msg to listOf(part)
     }
 
-    /** Unwrap [MessageWithParts] into a (Message, List<Part>) pair. */
+    /** 将 [MessageWithParts] 拆解为 (Message, List<Part>) 对。 */
     private fun MessageWithParts.toPair(): Pair<Message, List<Part>> = info to parts
 
     /**
-     * Simulate token growth: replace the text part of [messageId] with [newText].
-     * Only modifies [allPartsMapState]; the Message info stays the same.
+     * 模拟 token 增长：将 [messageId] 的文本 part 替换为 [newText]。
+     * 仅修改 [allPartsMapState]；Message info 保持不变。
      */
     private fun growText(messageId: String, newText: String) {
         val currentMap = fakeChat.allPartsMapState.value.toMutableMap()
@@ -78,17 +78,17 @@ class ChatScrollStabilityTest : BaseChatTest() {
         fakeChat.allPartsMapState.value = currentMap
     }
 
-    /** Generate a long filler string to simulate substantial token output. */
+    /** 生成长填充字符串，以模拟大量 token 输出。 */
     private fun longText(marker: String, repeat: Int = 15): String =
         "$marker ${"This is streaming content that grows as tokens arrive. ".repeat(repeat)} End of $marker"
 
-    // ============ Tests ============
+    // ============ 测试用例 ============
 
     /**
-     * Test 1: Streaming message grows, viewport stays at bottom.
+     * 测试 1：流式消息增长时，视口保持在底部。
      *
-     * When the streaming message gets longer (tokens arrive) and the user is at
-     * the bottom, the viewport should follow — the new content must be visible.
+     * 当流式消息变长（token 到达）且用户位于底部时，视口应当跟随 ——
+     * 新内容必须可见。
      */
     @Test
     fun streamingMessageGrows_viewportStaysAtBottom() {
@@ -99,26 +99,25 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(userMsg, asst.toPair())
         renderChatScreen()
 
-        // Verify initial content is displayed
+        // 验证初始内容已显示
         composeRule.onNodeWithText("Kotlin is", substring = true).assertIsDisplayed()
 
-        // Simulate token growth
+        // 模拟 token 增长
         growText("a1", "Kotlin is a cross-platform statically typed programming language by JetBrains.")
         composeRule.waitForIdle()
 
-        // The grown content should be visible (viewport followed the streaming)
+        // 增长后的内容应当可见（视口跟随流式内容）
         composeRule.onNodeWithText("cross-platform", substring = true).assertIsDisplayed()
     }
 
     /**
-     * Test 2: User scrolls away, streaming grows, viewport stays put.
+     * 测试 2：用户滚离后流式增长，视口保持不动。
      *
-     * After the user scrolls up to read history, streaming token growth must NOT
-     * yank the viewport back to the bottom.
+     * 用户向上滚动阅读历史后，流式 token 增长绝不能把视口拽回底部。
      */
     @Test
     fun userScrollsAway_streamingGrows_viewportStaysPut() {
-        // Create enough messages to make the list scrollable
+        // 创建足够多的消息使列表可滚动
         val entries = mutableListOf<Pair<Message, List<Part>>>()
         repeat(5) { i ->
             entries.add(userWithText("Question number $i about topic $i", "u$i"))
@@ -128,7 +127,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
                 }.toPair()
             )
         }
-        // Last message: streaming
+        // 最后一条消息：流式
         val streamingId = "a-stream"
         entries.add(userWithText("Latest question here", "u-last"))
         entries.add(
@@ -139,31 +138,30 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(*entries.toTypedArray())
         renderChatScreen()
 
-        // Scroll toward older messages.
-        // reverseLayout=true: index 0 (newest) is at the BOTTOM, higher indices
-        // (older) are at the TOP. swipeDown (finger: top→bottom) drags content
-        // DOWN, revealing items that are visually above — i.e. older messages.
-        // Two swipes ensure we reach the oldest entries in a tall list.
+        // 向更早的消息方向滚动。
+        // reverseLayout=true：索引 0（最新）在底部，更高索引（更早）
+        // 在顶部。swipeDown（手指从上到下）将内容向下拖动，揭示视觉上
+        // 位于上方的条目 —— 即更早的消息。
+        // 两次滑动确保在长列表中滚动到最早的条目。
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.waitForIdle()
 
-        // Verify an earlier message is now visible (confirming we scrolled)
+        // 验证一条较早的消息现已可见（确认我们滚动成功）
         composeRule.onNodeWithText("Question number 0", substring = true).assertIsDisplayed()
 
-        // Grow the streaming message (simulate tokens arriving)
+        // 增长流式消息（模拟 token 到达）
         growText(streamingId, longText("TOKEN_GROWTH"))
         composeRule.waitForIdle()
 
-        // The earlier message should STILL be visible — viewport didn't jump to bottom
+        // 较早的消息应当仍然可见 —— 视口没有跳到底部
         composeRule.onNodeWithText("Question number 0", substring = true).assertIsDisplayed()
     }
 
     /**
-     * Test 3: shouldCompensate resets when user returns to bottom.
+     * 测试 3：用户回到底部时 shouldCompensate 重置。
      *
-     * After scrolling away then back to bottom, the compensation must resume —
-     * new streaming growth should keep the viewport at the bottom.
+     * 滚离后回到底部，补偿必须恢复 —— 新的流式增长应让视口保持在底部。
      */
     @Test
     fun shouldCompensateResetsWhenUserReturnsToBottom() {
@@ -186,36 +184,34 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(*entries.toTypedArray())
         renderChatScreen()
 
-        // Scroll toward older messages (swipeDown in reverseLayout, see test 2)
+        // 向更早的消息方向滚动（reverseLayout 中的 swipeDown，见测试 2）
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Earlier question 0", substring = true).assertIsDisplayed()
 
-        // Scroll back to bottom via the FAB
+        // 通过 FAB 滚动回底部
         composeRule.onNodeWithContentDescription("Scroll to bottom").performClick()
         composeRule.waitForIdle()
 
-        // Grow streaming content
+        // 增长流式内容
         growText(streamingId, "After returning to bottom the content grew significantly " +
             "with many new tokens that should be visible now at the bottom of the screen.")
         composeRule.waitForIdle()
 
-        // New content should be visible (compensation resumed)
+        // 新内容应当可见（补偿已恢复）
         composeRule.onNodeWithText("After returning to bottom", substring = true).assertIsDisplayed()
     }
 
     /**
-     * Test 4: streamingMsgId tracks last uncompleted assistant.
+     * 测试 4：streamingMsgId 跟踪最后一条未完成的 assistant 消息。
      *
-     * With two assistant messages (first completed, second streaming), the
-     * streaming message should render correctly. There is no visual streaming
-     * indicator on individual message cards — streaming state only controls
-     * the internal `layout{}` height compensation modifier.
+     * 当存在两条 assistant 消息（第一条已完成、第二条流式）时，流式消息
+     * 应当正确渲染。单条消息卡片上没有可视的流式指示器 —— 流式状态仅
+     * 控制内部的 `layout{}` 高度补偿修饰符。
      *
-     * Ideal assertion: verify that only the second message has the compensation
-     * layout modifier applied. This is not observable via Compose UI testing.
-     * We assert both messages render with their content instead.
+     * 理想断言：验证仅第二条消息应用了补偿 layout 修饰符。这无法通过
+     * Compose UI 测试观察。我们改为断言两条消息都渲染出各自内容。
      */
     @Test
     fun streamingMsgIdTracksLastUncompletedAssistant() {
@@ -233,16 +229,16 @@ class ChatScrollStabilityTest : BaseChatTest() {
         )
         renderChatScreen()
 
-        // Both messages should render with their content
+        // 两条消息都应渲染出各自内容
         composeRule.onNodeWithText("This is a completed response", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("This is still streaming", substring = true).assertIsDisplayed()
     }
 
     /**
-     * Test 5: streamingMsgId null when all completed.
+     * 测试 5：所有消息都完成时 streamingMsgId 为 null。
      *
-     * With two completed assistant messages, no streaming state is active.
-     * Both messages should render normally.
+     * 当存在两条已完成的 assistant 消息时，没有流式状态处于活跃。
+     * 两条消息都应正常渲染。
      */
     @Test
     fun streamingMsgIdNullWhenAllCompleted() {
@@ -265,10 +261,10 @@ class ChatScrollStabilityTest : BaseChatTest() {
     }
 
     /**
-     * Test 6: autoScrollEnabled resets on return to bottom.
+     * 测试 6：回到底部时 autoScrollEnabled 重置。
      *
-     * After scrolling away and returning to bottom, a NEW message arriving
-     * should auto-scroll to keep it visible (autoScroll re-enabled).
+     * 滚离后回到底部，新消息到达时应自动滚动以保持可见
+     * （autoScroll 重新启用）。
      */
     @Test
     fun autoScrollEnabledResetsOnReturnToBottom() {
@@ -291,17 +287,17 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(*entries.toTypedArray())
         renderChatScreen()
 
-        // Scroll toward older messages (swipeDown in reverseLayout, see test 2)
+        // 向更早的消息方向滚动（reverseLayout 中的 swipeDown，见测试 2）
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Background question 0", substring = true).assertIsDisplayed()
 
-        // Return to bottom
+        // 回到底部
         composeRule.onNodeWithContentDescription("Scroll to bottom").performClick()
         composeRule.waitForIdle()
 
-        // Add a brand-new message at the bottom
+        // 在底部添加一条全新消息
         val newMsgId = "a-newarrival"
         val currentMessages = fakeChat.messagesState.value.toMutableList()
         currentMessages.add(
@@ -326,24 +322,21 @@ class ChatScrollStabilityTest : BaseChatTest() {
         fakeChat.allPartsMapState.value = currentParts
         composeRule.waitForIdle()
 
-        // New message should be visible (autoScroll re-engaged)
+        // 新消息应当可见（autoScroll 重新接合）
         composeRule.onNodeWithText("New arrival message", substring = true).assertIsDisplayed()
     }
 
     /**
-     * Test 7: Completed message height change does not trigger compensation.
+     * 测试 7：已完成消息的高度变化不触发补偿。
      *
-     * The `layout{}` compensation modifier is applied ONLY to the streaming
-     * message (`isStreamingMsg == true`). Growing a completed message's content
-     * should NOT cause the viewport to shift.
+     * `layout{}` 补偿修饰符仅应用于流式消息（`isStreamingMsg == true`）。
+     * 增长一条已完成消息的内容不应导致视口偏移。
      *
-     * Approach: scroll away from bottom, grow a completed message, then verify
-     * the viewport position is unchanged (the earlier message we scrolled to is
-     * still visible).
+     * 方法：从底部滚离，增长一条已完成消息，然后验证视口位置未变
+     * （我们滚动到的那条较早消息仍然可见）。
      *
-     * Ideal assertion: compare scroll offset before and after the completed
-     * message grows. Compose UI testing does not expose scroll offset, so we
-     * verify content visibility stability instead.
+     * 理想断言：比较已完成消息增长前后的滚动偏移。Compose UI 测试不
+     * 暴露滚动偏移，因此我们改为验证内容可见性的稳定性。
      */
     @Test
     fun completedMessageHeightChangeDoesNotTriggerCompensation() {
@@ -351,7 +344,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
         val streamingId = "streaming-current"
         val entries = mutableListOf<Pair<Message, List<Part>>>()
 
-        // Older completed message (will grow later)
+        // 较早的已完成消息（稍后会增长）
         entries.add(userWithText("Tell me about cats", "u1"))
         entries.add(
             anAssistantMessage(streaming = false, id = completedId, sessionId = TEST_SESSION) {
@@ -359,7 +352,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
             }.toPair()
         )
 
-        // Filler messages to enable scrolling
+        // 填充消息以使列表可滚动
         repeat(3) { i ->
             entries.add(userWithText("Filler question $i", "fill-u$i"))
             entries.add(
@@ -369,7 +362,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
             )
         }
 
-        // Streaming message at the bottom
+        // 底部的流式消息
         entries.add(userWithText("Latest question", "u-last"))
         entries.add(
             anAssistantMessage(streaming = true, id = streamingId, sessionId = TEST_SESSION) {
@@ -380,21 +373,21 @@ class ChatScrollStabilityTest : BaseChatTest() {
         setMessages(*entries.toTypedArray())
         renderChatScreen()
 
-        // Scroll toward older messages (swipeDown in reverseLayout, see test 2)
+        // 向更早的消息方向滚动（reverseLayout 中的 swipeDown，见测试 2）
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
         composeRule.waitForIdle()
 
-        // Verify we scrolled to see the older content
+        // 验证我们已滚动到能看到较早内容
         composeRule.onNodeWithText("Filler answer 0", substring = true).assertIsDisplayed()
 
-        // Grow ONLY the completed message (not the streaming one)
+        // 仅增长已完成消息（不增长流式消息）
         growText(completedId, "Short cat answer. " + longText("COMPLETED_GROWTH", repeat = 20))
         composeRule.waitForIdle()
 
-        // The filler message should still be visible — viewport didn't jump
-        // If compensation had been applied to the completed message, the viewport
-        // would have shifted, potentially scrolling the filler message out of view.
+        // 填充消息应当仍然可见 —— 视口没有跳动
+        // 如果对已完成消息应用了补偿，视口本会偏移，
+        // 可能把填充消息滚出可视范围。
         composeRule.onNodeWithText("Filler answer 0", substring = true).assertIsDisplayed()
     }
 }

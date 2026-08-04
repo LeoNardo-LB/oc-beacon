@@ -1,23 +1,23 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Aggregate of all application settings.
- * Each property corresponds to a key in the DataStore preferences
- * managed by [dev.leonardo.ocbeacon.data.repository.SettingsDataStore].
+ * 所有应用设置的聚合。
+ * 每个属性对应 [dev.leonardo.ocbeacon.data.repository.SettingsDataStore]
+ * 管理的 DataStore preferences 中的一个键。
  */
 data class AppSettings(
-    // --- Appearance ---
+    // --- 外观 ---
     val appLanguage: String = "",
     val appTheme: String = "system",
     val dynamicColor: Boolean = true,
     val amoledDark: Boolean = false,
 
-    // --- Chat ---
+    // --- 聊天 ---
     val chatFontSize: String = "medium",
-    /** "normal" or "compact". Migrated from chatFontSize + compactMessages. */
+    /** "normal" 或 "compact"。由 chatFontSize + compactMessages 迁移而来。 */
     val chatDensity: String = "normal",
     val initialMessageCount: Int = 30,
-    /** Max number of recent directories shown in the quick new-session dialog. 5..50. */
+    /** 快捷新建会话对话框中显示的最近目录数量上限。范围 5..50。 */
     val recentDirectoryCount: Int = 20,
     val codeWordWrap: Boolean = false,
     val confirmBeforeSend: Boolean = false,
@@ -26,37 +26,20 @@ data class AppSettings(
     val expandReasoning: Boolean = false,
     val showTurnDividers: Boolean = true,
 
-    // --- Notifications ---
+    // --- 通知 ---
     val notificationsEnabled: Boolean = true,
     val silentNotifications: Boolean = false,
 
-    // --- Behavior ---
+    // --- 行为 ---
     val hapticFeedback: Boolean = true,
     val reconnectMode: String = "normal",
     val keepScreenOn: Boolean = false,
 
-    // --- Image Attachments ---
+    // --- 图片附件 ---
     val compressImageAttachments: Boolean = true,
     val imageAttachmentMaxLongSide: Int = 1440,
     val imageAttachmentWebpQuality: Int = 60,
 
-    // --- Terminal ---
-    val terminalFontSize: Float = 13f,
-
-    // --- Local Runtime: UI ---
-    val showLocalRuntime: Boolean = true,
-    val localSetupCompleted: Boolean = false,
-
-    // --- Local Runtime: Proxy ---
-    val localProxyEnabled: Boolean = false,
-    val localProxyUrl: String = "",
-    val localProxyNoProxy: String = "",
-
-    // --- Local Runtime: Server ---
-    val localServerAllowLan: Boolean = false,
-    val localServerUsername: String = "",
-    val localServerPassword: String = "",
-    val localServerRunInBackground: Boolean = true,
-    val localServerAutoStart: Boolean = false,
-    val localServerStartupTimeoutSec: Int = 30
+    // --- 终端 ---
+    val terminalFontSize: Float = 13f
 )

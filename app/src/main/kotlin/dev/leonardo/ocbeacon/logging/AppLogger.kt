@@ -17,16 +17,16 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Global application logger — bridges [android.util.Log] (logcat) with a persistent
- * diagnostic database via [DiagnosticLogRepository].
+ * 全局应用日志器——桥接 [android.util.Log]（logcat）与通过 [DiagnosticLogRepository]
+ * 持久化的诊断数据库。
  *
- * Writes are enqueued into a bounded [Channel] (capacity 500, [BufferOverflow.DROP_OLDEST])
- * and drained by a single consumer coroutine that batches up to 50 entries per flush.
- * The [minimumLevel] controls which levels are persisted; entries below the threshold
- * are still sent to logcat but skipped for persistence.
+ * 写入操作入队到有界 [Channel]（容量 500，[BufferOverflow.DROP_OLDEST]），
+ * 由单消费者协程排空，每次 flush 批量写入最多 50 条。
+ * [minimumLevel] 控制哪些级别会被持久化；低于阈值的条目仍会发送到 logcat，
+ * 但跳过持久化。
  *
- * Crash capture: [recordCrash] enqueues a `FATAL` entry and synchronously flushes
- * via [runBlocking] so the crash is persisted before the process dies.
+ * 崩溃捕获：[recordCrash] 入队一条 `FATAL` 条目，并通过 [runBlocking]
+ * 同步 flush，以便在进程死亡前持久化崩溃信息。
  */
 object AppLogger {
     private sealed interface WriterCommand {
@@ -36,6 +36,7 @@ object AppLogger {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val droppedEntries = AtomicLong(0)
+    private val lastTimestamp = AtomicLong(0L)
     private val queue = Channel<WriterCommand>(
         capacity = 500,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -50,11 +51,11 @@ object AppLogger {
     @Volatile private var minimumLevel = "INFO"
 
     /**
-     * Bind the persistent [repository] and start the background consumer.
-     * Also subscribes to [DiagnosticLogRepository.logLevel] so that [minimumLevel]
-     * tracks the user-selected persistence threshold.
+     * 绑定持久化 [repository] 并启动后台消费者。
+     * 同时订阅 [DiagnosticLogRepository.logLevel]，使 [minimumLevel]
+     * 跟踪用户选择的持久化阈值。
      *
-     * Safe to call once; subsequent calls are no-ops.
+     * 仅可调用一次；后续调用为空操作。
      */
     fun initialize(repository: DiagnosticLogRepository) {
         if (this.repository != null) return
@@ -118,13 +119,13 @@ object AppLogger {
     }
 
     /**
-     * Record an uncaught exception as a `FATAL` entry and synchronously flush
-     * so it is persisted before the process terminates.
+     * 将未捕获异常记录为 `FATAL` 条目并同步 flush，
+     * 以便在进程终止前持久化。
      */
     fun recordCrash(thread: Thread, error: Throwable) {
         val details = throwableDetails(error) + ("thread" to thread.name)
         val entry = DiagnosticLogEntry(
-            timestamp = System.currentTimeMillis(),
+            timestamp = nextTimestamp(),
             level = "FATAL",
             category = "Uncaught exception",
             message = error.message ?: error::class.java.simpleName,
@@ -136,7 +137,7 @@ object AppLogger {
         }
     }
 
-    /** Flush pending entries, waiting up to [timeoutMillis] for completion. */
+    /** flush 待处理条目，最多等待 [timeoutMillis] 完成。 */
     suspend fun flush(timeoutMillis: Long = 2_000L): Boolean {
         val completion = CompletableDeferred<Boolean>()
         queue.send(WriterCommand.Flush(completion))
@@ -145,7 +146,7 @@ object AppLogger {
 
     fun droppedEntryCount(): Long = droppedEntries.get()
 
-    // ---- Internals --------------------------------------------------------
+    // ---- 内部实现 --------------------------------------------------------
 
     private inline fun write(
         level: String,
@@ -159,7 +160,7 @@ object AppLogger {
         queue.trySend(
             WriterCommand.Entry(
                 DiagnosticLogEntry(
-                    timestamp = System.currentTimeMillis(),
+                    timestamp = nextTimestamp(),
                     level = level,
                     category = tag,
                     message = message,
@@ -168,6 +169,26 @@ object AppLogger {
             ),
         )
         return result
+    }
+
+    /**
+     * 生成单调递增的毫秒时间戳。
+     *
+     * 同一毫秒内连续写入多条日志（崩溃捕获、catch 块连续错误）时，
+     * `System.currentTimeMillis()` 可能返回相同值；诊断页列表以 timestamp
+     * 参与 LazyColumn key 计算，重复会导致 "Key was already used" 崩溃。
+     * 通过 CAS 保证本进程内时间戳严格递增（相同时刻的日志 +1ms 错开）。
+     */
+    internal fun nextTimestamp(): Long {
+        while (true) {
+            val now = System.currentTimeMillis()
+            val previous = lastTimestamp.get()
+            if (now > previous) {
+                if (lastTimestamp.compareAndSet(previous, now)) return now
+            } else {
+                if (lastTimestamp.compareAndSet(previous, previous + 1)) return previous + 1
+            }
+        }
     }
 
     private fun shouldPersist(level: String): Boolean {

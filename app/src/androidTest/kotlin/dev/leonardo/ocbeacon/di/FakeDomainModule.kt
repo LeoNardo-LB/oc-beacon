@@ -10,7 +10,6 @@ import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
-import dev.leonardo.ocbeacon.domain.repository.LocalServerRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
@@ -33,24 +32,24 @@ import dev.leonardo.ocbeacon.fakes.FakeVcsRepository
 import javax.inject.Singleton
 
 /**
- * Replaces BOTH DomainModule and DataModule with fake repository bindings.
+ * 用 fake repository 绑定同时替换 DomainModule 和 DataModule。
  *
- * DataModule (data/di/) binds ChatRepository + SessionRepository.
- * DomainModule (di/) binds all other repository interfaces.
+ * DataModule（data/di/）绑定 ChatRepository + SessionRepository。
+ * DomainModule（di/）绑定所有其他 repository 接口。
  *
- * ServerRepositoryImpl implements 5 interfaces; FakeServerRepository does the same,
- * so we bind the single fake instance as all 5 types.
+ * ServerRepositoryImpl 实现了 4 个接口；FakeServerRepository 同样如此，
+ * 因此我们将同一个 fake 实例绑定为全部 4 种类型。
  */
 @TestInstallIn(components = [SingletonComponent::class], replaces = [DomainModule::class, DataModule::class])
 @Module
 @Suppress("unused")
 abstract class FakeDomainModule {
 
-    // DataModule replacements
+    // DataModule 的替换
     @Binds @Singleton abstract fun bindChatRepository(impl: FakeChatRepository): ChatRepository
     @Binds @Singleton abstract fun bindSessionRepository(impl: FakeSessionRepository): SessionRepository
 
-    // DomainModule replacements
+    // DomainModule 的替换
     @Binds @Singleton abstract fun bindSettingsRepository(impl: FakeSettingsRepository): SettingsRepository
     @Binds @Singleton abstract fun bindAgentRepository(impl: FakeAgentRepository): AgentRepository
     @Binds @Singleton abstract fun bindDraftRepository(impl: FakeDraftRepository): DraftRepository
@@ -59,10 +58,9 @@ abstract class FakeDomainModule {
     @Binds @Singleton abstract fun bindTerminalRepository(impl: FakeTerminalRepository): TerminalRepository
     @Binds @Singleton abstract fun bindMcpRepository(impl: FakeMcpRepository): McpRepository
 
-    // ServerRepository and its 4 sub-interfaces — all backed by single FakeServerRepository
+    // ServerRepository 及其 3 个子接口 —— 全部由单个 FakeServerRepository 支撑
     @Binds @Singleton abstract fun bindServerRepository(impl: FakeServerRepository): ServerRepository
     @Binds @Singleton abstract fun bindServerConfigRepository(impl: FakeServerRepository): ServerConfigRepository
     @Binds @Singleton abstract fun bindServerConnectionRepository(impl: FakeServerRepository): ServerConnectionRepository
-    @Binds @Singleton abstract fun bindLocalServerRepository(impl: FakeServerRepository): LocalServerRepository
     @Binds @Singleton abstract fun bindProviderRepository(impl: FakeServerRepository): ProviderRepository
 }

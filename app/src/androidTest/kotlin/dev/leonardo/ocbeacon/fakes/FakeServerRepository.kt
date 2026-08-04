@@ -1,12 +1,10 @@
 package dev.leonardo.ocbeacon.fakes
 
 import javax.inject.Inject
-import dev.leonardo.ocbeacon.domain.model.LocalServerState
 import dev.leonardo.ocbeacon.domain.model.ProviderInfo
 import dev.leonardo.ocbeacon.domain.model.ProvidersResponse
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.domain.repository.LocalServerRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConnectionRepository
@@ -16,16 +14,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
 
 /**
- * Fake implementing all 5 server-related interfaces.
- * DomainModule binds a single ServerRepositoryImpl as all 5 interfaces;
- * FakeDomainModule binds this single instance the same way.
+ * 实现全部 4 个 server 相关接口的 Fake。
+ * DomainModule 将单个 ServerRepositoryImpl 绑定为全部 4 个接口；
+ * FakeDomainModule 以同样方式绑定此单个实例。
  */
 @Singleton
 class FakeServerRepository @Inject constructor() :
     ServerRepository,
     ServerConfigRepository,
     ServerConnectionRepository,
-    LocalServerRepository,
     ProviderRepository {
 
     // ============ ServerConfigRepository ============
@@ -68,21 +65,6 @@ class FakeServerRepository @Inject constructor() :
 
     override suspend fun testConnection(server: ServerConfig): Result<Boolean> =
         Result.success(true)
-
-    // ============ LocalServerRepository ============
-
-    var fakeLocalSetupCommand: String = ""
-    var localServerStateResult: Result<LocalServerState> = Result.success(LocalServerState())
-
-    override fun getLocalSetupCommand(): String = fakeLocalSetupCommand
-
-    override suspend fun setupLocalServer(): Result<Unit> = Result.success(Unit)
-
-    override suspend fun startLocalServer(): Result<Unit> = Result.success(Unit)
-
-    override suspend fun stopLocalServer(): Result<Unit> = Result.success(Unit)
-
-    override suspend fun getLocalServerState(): Result<LocalServerState> = localServerStateResult
 
     // ============ ProviderRepository ============
 

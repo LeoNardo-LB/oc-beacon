@@ -3,12 +3,10 @@ package dev.leonardo.ocbeacon.ui.screens.home
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -24,28 +22,24 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.core.content.ContextCompat
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.data.repository.LocalServerManager
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.home.components.*
 
 /**
- * Home Screen - Server list and management
- * 
- * Each server card has Connect/Disconnect/Sessions buttons.
- * Multiple servers can be connected simultaneously.
+ * 首页 — 服务器列表与管理
+ *
+ * 每张服务器卡片都有 连接/断开/会话 按钮。
+ * 支持同时连接多个服务器。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,9 +53,8 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
 
-    // Track battery optimization status, re-check when app resumes
+    // 跟踪电池优化状态，应用恢复时重新检查
     var isBatteryOptimized by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -69,36 +62,22 @@ fun HomeScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
                 isBatteryOptimized = !pm.isIgnoringBatteryOptimizations(context.packageName)
-                viewModel.refreshLocalRuntimeState()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // We need to track which server requested notification permission so we
-    // can resume the connect flow after the permission dialog.
+    // 需要记录哪个服务器请求了通知权限，
+    // 以便在权限对话框之后恢复连接流程。
     var pendingConnectServerId by remember { mutableStateOf<String?>(null) }
-    var pendingLocalStart by remember { mutableStateOf(false) }
-    var showLocalLaunchOptionsDialog by remember { mutableStateOf(false) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { _ ->
-        // Whether granted or denied, proceed with connection
+        // 无论授权与否，都继续连接
         pendingConnectServerId?.let { viewModel.connectToServer(it) }
         pendingConnectServerId = null
-    }
-
-    val runCommandPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted && pendingLocalStart) {
-            viewModel.startLocalServer(context)
-        } else if (!granted) {
-            Toast.makeText(context, R.string.home_local_permission_required, Toast.LENGTH_LONG).show()
-        }
-        pendingLocalStart = false
     }
 
     fun requestNotificationPermissionAndConnect(serverId: String) {
@@ -108,20 +87,6 @@ fun HomeScreen(
         } else {
             viewModel.connectToServer(serverId)
         }
-    }
-
-    fun requestRunCommandPermissionAndStartLocal() {
-        val permissionState = ContextCompat.checkSelfPermission(
-            context,
-            "com.termux.permission.RUN_COMMAND",
-        )
-        if (permissionState == PackageManager.PERMISSION_GRANTED) {
-            viewModel.startLocalServer(context)
-            return
-        }
-
-        pendingLocalStart = true
-        runCommandPermissionLauncher.launch("com.termux.permission.RUN_COMMAND")
     }
 
     Scaffold(
@@ -159,8 +124,6 @@ fun HomeScreen(
                     )
                 }
                 else -> {
-                    val localServer = uiState.servers.firstOrNull { it.url == LocalServerManager.LOCAL_SERVER_URL }
-                    val remoteServers = uiState.servers.filterNot { it.url == LocalServerManager.LOCAL_SERVER_URL }
                     val useGrid = windowSizeClass.widthSizeClass != WindowWidthSizeClass.Compact
 
                     if (useGrid) {
@@ -171,7 +134,7 @@ fun HomeScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Battery optimization warning banner
+                            // 电池优化警告横幅
                             if (isBatteryOptimized) {
                                 item(span = { GridItemSpan(maxLineSpan) }, key = "__battery_banner") {
                                     BatteryOptimizationBanner(
@@ -186,74 +149,7 @@ fun HomeScreen(
                                 }
                             }
 
-                            if (uiState.showLocalRuntime) {
-                                item(span = { GridItemSpan(maxLineSpan) }, key = "__local_runtime") {
-                                    LocalRuntimeCard(
-                                        termuxInstalled = uiState.termuxInstalled,
-                                        runtimeStatus = uiState.localRuntimeStatus,
-                                        statusMessage = uiState.localRuntimeMessage,
-                                        fixCommand = uiState.localRuntimeFixCommand,
-                                        needsOverlaySettings = uiState.localRuntimeNeedsOverlaySettings,
-                                        localServerConnected = localServer?.id in uiState.connectedServerIds,
-                                        localServerConnecting = localServer?.id in uiState.connectingServerIds,
-                                        localServerConnectionError = localServer?.id?.let { uiState.connectionErrors[it] },
-                                        showLocalServerSettings = localServer?.id in uiState.serverSettingsReadyIds,
-                                        onStart = { requestRunCommandPermissionAndStartLocal() },
-                                        onStop = { viewModel.stopLocalServer(context) },
-                                        onSetup = {
-                                            val setupCommand = uiState.setupCommand ?: viewModel.getLocalSetupCommand()
-                                            clipboardManager.setText(AnnotatedString(setupCommand))
-                                            Toast.makeText(context, R.string.home_local_setup_copied, Toast.LENGTH_SHORT).show()
-                                            viewModel.setupLocalServer(context)
-                                        },
-                                        onCopyFixCommand = { command ->
-                                            clipboardManager.setText(AnnotatedString(command))
-                                            Toast.makeText(context, R.string.home_local_fix_command_copied, Toast.LENGTH_SHORT).show()
-                                        },
-                                        onOpenTermuxOverlaySettings = {
-                                            val intent = Intent(
-                                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                Uri.parse("package:com.termux"),
-                                            )
-                                            context.startActivity(intent)
-                                        },
-                                        onOpenLocalSessions = {
-                                            localServer?.let { server ->
-                                                onNavigateToSessions(
-                                                    server.url,
-                                                    server.username,
-                                                    server.password ?: "",
-                                                    server.displayName,
-                                                    server.id,
-                                                )
-                                            }
-                                        },
-                                        onOpenLocalServerSettings = {
-                                            localServer?.let { server ->
-                                                onNavigateToServerSettings(
-                                                    server.url,
-                                                    server.username,
-                                                    server.password ?: "",
-                                                    server.displayName,
-                                                    server.id,
-                                                )
-                                            }
-                                        },
-                                        onOpenLocalLaunchOptions = {
-                                            showLocalLaunchOptionsDialog = true
-                                        },
-                                        onInstallTermux = {
-                                            val intent = Intent(
-                                                Intent.ACTION_VIEW,
-                                                Uri.parse("https://f-droid.org/packages/com.termux/")
-                                            )
-                                            context.startActivity(intent)
-                                        },
-                                    )
-                                }
-                            }
-
-                            if (remoteServers.isEmpty()) {
+                            if (uiState.servers.isEmpty()) {
                                 item(span = { GridItemSpan(maxLineSpan) }, key = "__empty_servers") {
                                     EmptyServersView(
                                         onAddServer = { viewModel.showAddServerDialog() }
@@ -261,7 +157,7 @@ fun HomeScreen(
                                 }
                             }
 
-                            items(remoteServers, key = { it.id }) { server ->
+                            items(uiState.servers, key = { it.id }) { server ->
                                 ServerCard(
                                     server = server,
                                     isConnected = server.id in uiState.connectedServerIds,
@@ -299,7 +195,7 @@ fun HomeScreen(
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Battery optimization warning banner
+                            // 电池优化警告横幅
                             if (isBatteryOptimized) {
                                 item(key = "__battery_banner") {
                                     BatteryOptimizationBanner(
@@ -314,88 +210,16 @@ fun HomeScreen(
                                 }
                             }
 
-                            if (uiState.showLocalRuntime) {
-                                item(key = "__local_runtime") {
-                                    LocalRuntimeCard(
-                                        termuxInstalled = uiState.termuxInstalled,
-                                        runtimeStatus = uiState.localRuntimeStatus,
-                                        statusMessage = uiState.localRuntimeMessage,
-                                        fixCommand = uiState.localRuntimeFixCommand,
-                                        needsOverlaySettings = uiState.localRuntimeNeedsOverlaySettings,
-                                        localServerConnected = localServer?.id in uiState.connectedServerIds,
-                                        localServerConnecting = localServer?.id in uiState.connectingServerIds,
-                                        localServerConnectionError = localServer?.id?.let { uiState.connectionErrors[it] },
-                                        showLocalServerSettings = localServer?.id in uiState.serverSettingsReadyIds,
-                                        onStart = { requestRunCommandPermissionAndStartLocal() },
-                                        onStop = { viewModel.stopLocalServer(context) },
-                                        onSetup = {
-                                            val setupCommand = uiState.setupCommand ?: viewModel.getLocalSetupCommand()
-                                            clipboardManager.setText(AnnotatedString(setupCommand))
-                                            Toast.makeText(context, R.string.home_local_setup_copied, Toast.LENGTH_SHORT).show()
-                                            viewModel.setupLocalServer(context)
-                                        },
-                                        onCopyFixCommand = { command ->
-                                            clipboardManager.setText(AnnotatedString(command))
-                                            Toast.makeText(context, R.string.home_local_fix_command_copied, Toast.LENGTH_SHORT).show()
-                                        },
-                                        onOpenTermuxOverlaySettings = {
-                                            val intent = Intent(
-                                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                Uri.parse("package:com.termux"),
-                                            )
-                                            context.startActivity(intent)
-                                        },
-                                        onOpenLocalSessions = {
-                                            localServer?.let { server ->
-                                                onNavigateToSessions(
-                                                    server.url,
-                                                    server.username,
-                                                    server.password ?: "",
-                                                    server.displayName,
-                                                    server.id,
-                                                )
-                                            }
-                                        },
-                                        onOpenLocalServerSettings = {
-                                            localServer?.let { server ->
-                                                onNavigateToServerSettings(
-                                                    server.url,
-                                                    server.username,
-                                                    server.password ?: "",
-                                                    server.displayName,
-                                                    server.id,
-                                                )
-                                            }
-                                        },
-                                        onOpenLocalLaunchOptions = {
-                                            showLocalLaunchOptionsDialog = true
-                                        },
-                                        onInstallTermux = {
-                                            val intent = Intent(
-                                                Intent.ACTION_VIEW,
-                                                Uri.parse("https://f-droid.org/packages/com.termux/")
-                                            )
-                                            context.startActivity(intent)
-                                        },
-                                    )
-                                }
-                            }
-
-                            if (remoteServers.isEmpty()) {
+                            if (uiState.servers.isEmpty()) {
                                 item(key = "__empty_servers") {
-                                    val hasLocalCard = uiState.showLocalRuntime
                                     EmptyServersView(
                                         onAddServer = { viewModel.showAddServerDialog() },
-                                        modifier = if (hasLocalCard) {
-                                            Modifier.fillParentMaxHeight(0.5f)
-                                        } else {
-                                            Modifier.fillParentMaxHeight(0.8f)
-                                        }
+                                        modifier = Modifier.fillParentMaxHeight(0.8f)
                                     )
                                 }
                             }
 
-                            items(remoteServers, key = { it.id }) { server ->
+                            items(uiState.servers, key = { it.id }) { server ->
                                 ServerCard(
                                     server = server,
                                     isConnected = server.id in uiState.connectedServerIds,
@@ -432,7 +256,7 @@ fun HomeScreen(
             }
         }
 
-        // Add/Edit Server Dialog
+        // 添加/编辑服务器对话框
         if (uiState.showAddServerDialog) {
             ServerDialog(
                 server = uiState.editingServer,
@@ -440,30 +264,6 @@ fun HomeScreen(
                 onSave = { name, url, username, password, autoConnect ->
                     viewModel.saveServer(name, url, username, password, autoConnect)
                 }
-            )
-        }
-
-        if (showLocalLaunchOptionsDialog) {
-            LocalLaunchOptionsDialog(
-                enabled = uiState.localProxyEnabled,
-                proxyUrl = uiState.localProxyUrl,
-                noProxyList = uiState.localProxyNoProxy,
-                allowLanAccess = uiState.localServerAllowLan,
-                serverUsername = uiState.localServerUsername,
-                serverPassword = uiState.localServerPassword,
-                runInBackground = uiState.localServerRunInBackground,
-                autoStart = uiState.localServerAutoStart,
-                startupTimeoutSec = uiState.localServerStartupTimeoutSec,
-                onDismiss = { showLocalLaunchOptionsDialog = false },
-                onProxyEnabledChange = viewModel::setLocalProxyEnabled,
-                onProxyUrlChange = viewModel::setLocalProxyUrl,
-                onNoProxyListChange = viewModel::setLocalProxyNoProxy,
-                onAllowLanAccessChange = viewModel::setLocalServerAllowLan,
-                onServerUsernameChange = viewModel::setLocalServerUsername,
-                onServerPasswordChange = viewModel::setLocalServerPassword,
-                onRunInBackgroundChange = viewModel::setLocalServerRunInBackground,
-                onAutoStartChange = viewModel::setLocalServerAutoStart,
-                onStartupTimeoutSecChange = viewModel::setLocalServerStartupTimeoutSec,
             )
         }
 

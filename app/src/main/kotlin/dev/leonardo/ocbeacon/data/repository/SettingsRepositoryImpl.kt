@@ -9,12 +9,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Implementation of [SettingsRepository].
- * Wraps the existing DataStore-based settings repository,
- * delegating to its atomic [dev.leonardo.ocbeacon.data.repository.SettingsDataStore.appSettingsFlow].
+ * [SettingsRepository] 的实现。
+ * 包装现有的基于 DataStore 的设置 repository，
+ * 委托给其原子的 [dev.leonardo.ocbeacon.data.repository.SettingsDataStore.appSettingsFlow]。
  *
- * Phase 3: compiled but not yet wired to UseCases. Phase 4 will migrate
- * SettingsViewModel direct calls to go through this repository.
+ * 阶段 3：已编译但尚未接入 UseCase。阶段 4 将把
+ * SettingsViewModel 的直接调用迁移为通过此 repository。
  */
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
@@ -42,7 +42,7 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun unassignSessionCategory(serverId: String, sessionId: String) =
         dataRepo.unassignSessionCategory(serverId, sessionId)
 
-    // ============ Cross-server session favorites ============
+    // ============ 跨服务器会话收藏 ============
 
     override fun favoriteSessionIds(serverId: String): Flow<Set<String>> =
         dataRepo.favoriteSessionIds(serverId)
@@ -100,16 +100,5 @@ class SettingsRepositoryImpl @Inject constructor(
         dataRepo.setImageAttachmentMaxLongSide(settings.imageAttachmentMaxLongSide)
         dataRepo.setImageAttachmentWebpQuality(settings.imageAttachmentWebpQuality)
         dataRepo.setTerminalFontSize(settings.terminalFontSize)
-        dataRepo.setShowLocalRuntime(settings.showLocalRuntime)
-        dataRepo.setLocalSetupCompleted(settings.localSetupCompleted)
-        dataRepo.setLocalProxyEnabled(settings.localProxyEnabled)
-        dataRepo.setLocalProxyUrl(settings.localProxyUrl)
-        dataRepo.setLocalProxyNoProxy(settings.localProxyNoProxy)
-        dataRepo.setLocalServerAllowLan(settings.localServerAllowLan)
-        dataRepo.setLocalServerUsername(settings.localServerUsername)
-        dataRepo.setLocalServerPassword(settings.localServerPassword)
-        dataRepo.setLocalServerRunInBackground(settings.localServerRunInBackground)
-        dataRepo.setLocalServerAutoStart(settings.localServerAutoStart)
-        dataRepo.setLocalServerStartupTimeoutSec(settings.localServerStartupTimeoutSec)
     }
 }

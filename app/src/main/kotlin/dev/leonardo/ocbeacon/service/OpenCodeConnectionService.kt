@@ -14,7 +14,6 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.api.NetworkMonitor
 import dev.leonardo.ocbeacon.data.api.NetworkState
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
-import dev.leonardo.ocbeacon.data.repository.LocalServerManager
 import dev.leonardo.ocbeacon.data.repository.ServerDataStore
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
@@ -33,17 +32,17 @@ private const val TAG = "OpenCodeService"
 private const val WAKELOCK_TAG = "OpenCodeRemote::SSEConnection"
 
 /**
- * Foreground Service for maintaining OpenCode SSE connections to multiple servers.
+ * 用于维护到多个服务器的 OpenCode SSE 连接的前台服务。
  *
- * This service:
- * - Maintains persistent SSE connections to one or more servers simultaneously
- * - Delegates connection lifecycle to [SseConnectionManager]
- * - Delegates notification management to [AppNotificationManager]
- * - Shows notifications for task completion and permission requests
- * - Holds a single partial WakeLock while any server is connected
+ * 本服务：
+ * - 同时维护到一个或多个服务器的持久 SSE 连接
+ * - 将连接生命周期委托给 [SseConnectionManager]
+ * - 将通知管理委托给 [AppNotificationManager]
+ * - 显示任务完成和权限请求的通知
+ * - 在任一服务器已连接时持有一个 partial WakeLock
  *
- * The connections stay alive until the user explicitly disconnects each server
- * (or uses "Disconnect All").
+ * 连接会保持活跃，直到用户显式断开每个服务器
+ *（或使用"Disconnect All"）。
  */
 @AndroidEntryPoint
 class OpenCodeConnectionService : Service() {
@@ -85,11 +84,11 @@ class OpenCodeConnectionService : Service() {
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, exception ->
-            // Defense-in-depth: ensures uncaught exceptions (e.g. UnknownHostException
-            // during auto-connect to unreachable servers like Tailscale nodes) do not
-            // propagate to the thread UncaughtExceptionHandler and crash the process.
-            // Individual launches already wrap network calls in try/catch; this catches
-            // anything that escapes (race conditions during reconnect, R8 inlining, etc.).
+            // 纵深防御：确保未捕获的异常（例如自动连接到不可达服务器
+            // 如 Tailscale 节点时的 UnknownHostException）不会传播到线程的
+            // UncaughtExceptionHandler 并导致进程崩溃。
+            // 各个 launch 已将网络调用包裹在 try/catch 中；此处捕获任何
+            // 漏网异常（重连期间的竞争、R8 内联等）。
             Log.e(TAG, "Unhandled coroutine exception in serviceScope", exception)
         }
     )
@@ -101,10 +100,10 @@ class OpenCodeConnectionService : Service() {
     private lateinit var systemNotificationManager: NotificationManager
     private var foregroundStarted: Boolean = false
 
-    /** Observable set of server IDs that are actually connected (SSE stream active). */
+    /** 已实际连接（SSE 流活跃）的服务器 ID 的可观察集合。 */
     val connectedServerIds get() = connectionManager.connectedServerIds
 
-    /** Observable set of server IDs that are attempting to connect. */
+    /** 正在尝试连接的服务器 ID 的可观察集合。 */
     val connectingServerIds get() = connectionManager.connectingServerIds
 
     inner class LocalBinder : Binder() {
@@ -119,7 +118,7 @@ class OpenCodeConnectionService : Service() {
         systemNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         appNotificationManager.createNotificationChannels(systemNotificationManager, this)
 
-        // Start network monitoring and observe recovery events
+        // 启动网络监控并观察恢复事件
         networkMonitor.startMonitoring()
         networkRecoveryJob = serviceScope.launch {
             networkMonitor.networkState
@@ -159,7 +158,7 @@ class OpenCodeConnectionService : Service() {
 
         ensureForegroundStarted()
 
-        // Read server details from intent and connect
+        // 从 intent 读取服务器详情并连接
         intent?.let { i ->
             val serverId = i.getStringExtra("server_id")
             val serverName = i.getStringExtra("server_name")
@@ -189,11 +188,11 @@ class OpenCodeConnectionService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         if (BuildConfig.DEBUG) Log.d(TAG, "Service destroyed")
-        // RS-018 fix: cancel networkRecoveryJob and wait for it to complete
-        // before stopping connections. If the recovery job is in the middle of
-        // reconnectAll(), it might start new SSE jobs after stopAllConnections()
-        // runs. By launching the cleanup in serviceScope (which is cancelled last),
-        // we ensure ordering: recovery job stops → connections stop → scope cancels.
+        // RS-018 修复：取消 networkRecoveryJob 并等待其完成，
+        // 再停止连接。若恢复 job 正处于 reconnectAll() 中间，
+        // 可能在 stopAllConnections() 运行后启动新的 SSE job。
+        // 通过在 serviceScope（最后才取消）中启动清理，
+        // 确保顺序：恢复 job 停止 → 连接停止 → 作用域取消。
         networkRecoveryJob?.cancel()
         networkRecoveryJob = null
         networkMonitor.stopMonitoring()
@@ -201,13 +200,13 @@ class OpenCodeConnectionService : Service() {
         serviceScope.cancel()
     }
 
-    // ============ Public API ============
+    // ============ 公共 API ============
 
     /**
-     * Connect to an OpenCode server. If already connected to this server, no-op.
-     * Multiple servers can be connected simultaneously — but not to the same
-     * backend (same url + username). Duplicate backend connections would
-     * deliver identical SSE events twice, causing doubled streaming output.
+     * 连接到 OpenCode 服务器。若已连接到此服务器则为空操作。
+     * 可同时连接多个服务器——但不能连接到同一个后端
+     *（相同的 url + username）。重复的后端连接会
+     * 投递两份相同的 SSE 事件，导致流式输出翻倍。
      */
     fun connect(server: ServerConfig) {
         if (connectionManager.connections.containsKey(server.id)) {
@@ -215,9 +214,9 @@ class OpenCodeConnectionService : Service() {
             return
         }
 
-        // Dedup by backend signature: same url + username = same OpenCode serve instance.
-        // Two SSE connections to the same backend deliver duplicate global events,
-        // causing MessagePartDelta (append semantics) to double the streaming text.
+        // 按后端签名去重：相同的 url + username = 同一个 OpenCode serve 实例。
+        // 到同一后端的两条 SSE 连接会投递重复的全局事件，
+        // 导致 MessagePartDelta（追加语义）使流式文本翻倍。
         val existingBackend = connectionManager.connections.values.firstOrNull { state ->
             state.config.url == server.url && state.config.username == server.username
         }
@@ -231,21 +230,21 @@ class OpenCodeConnectionService : Service() {
 
         ensureForegroundStarted()
 
-        // Acquire wake lock (shared — first connect acquires, last disconnect releases)
+        // 获取 wake lock（共享——首次 connect 获取，最后断开释放）
         acquireWakeLock()
 
-        // Start SSE connection with auto-reconnect; events routed to processEvent
+        // 启动带自动重连的 SSE 连接；事件路由到 processEvent
         connectionManager.startConnection(server, ::processEvent)
 
-        // Update persistent notification
+        // 更新持久通知
         updatePersistentNotification()
 
-        // Start watchdog if not already running
+        // 若未运行则启动看门狗
         startNotificationWatchdog()
     }
 
     /**
-     * Disconnect from a single server.
+     * 断开单个服务器。
      */
     fun disconnect(serverId: String) {
         if (BuildConfig.DEBUG) Log.d(TAG, "Disconnecting server $serverId")
@@ -253,7 +252,7 @@ class OpenCodeConnectionService : Service() {
         connectionManager.stopConnection(serverId)
 
         if (connectionManager.connections.isEmpty()) {
-            // Last server disconnected — clean up and stop service
+            // 最后一个服务器已断开——清理并停止服务
             releaseWakeLock()
             notificationWatchdogJob?.cancel()
             notificationWatchdogJob = null
@@ -266,24 +265,23 @@ class OpenCodeConnectionService : Service() {
     }
 
     /**
-     * Disconnect from all servers and stop the service.
+     * 断开所有服务器并停止服务。
      */
     fun disconnectAll() {
         disconnectAllInternal(stopService = true)
     }
 
     /**
-     * Check if a specific server is connected.
+     * 检查指定服务器是否已连接。
      */
     fun isConnected(serverId: String): Boolean {
         return connectionManager.isConnected(serverId)
     }
 
-    // ============ Internal ============
+    // ============ 内部 ============
 
     private fun disconnectAllVisibleServers() {
         val visibleServerIds = connectionManager.connections.values
-            .filterNot { isLocalServer(it.config) }
             .map { it.config.id }
 
         if (visibleServerIds.isEmpty()) {
@@ -326,28 +324,28 @@ class OpenCodeConnectionService : Service() {
     private fun ensureForegroundStarted() {
         if (foregroundStarted) return
         val notification = appNotificationManager.createPersistentNotification(
-            this, connectionManager.connections, ::isLocalServer
+            this, connectionManager.connections
         )
         startForeground(AppNotificationManager.PERSISTENT_NOTIFICATION_ID, notification)
         foregroundStarted = true
     }
 
-    // ============ Event Processing (notification routing only) ============
+    // ============ 事件处理（仅通知路由）============
 
     private fun processEvent(server: ServerConfig, event: SseEvent) {
         if (BuildConfig.DEBUG) Log.d(TAG, "[${server.displayName}] SSE event: ${event.javaClass.simpleName}")
 
-        // EventDispatcher.processEvent is already called by SseConnectionManager
-        // Here we only route to notification logic
+        // EventDispatcher.processEvent 已由 SseConnectionManager 调用
+        // 此处仅路由到通知逻辑
         when (event) {
             is SseEvent.SessionIdle -> {
-                // Suppress if user is actively viewing this session
+                // 若用户正在主动查看此会话则抑制
                 if (sessionFocusHolder.shouldSuppress(server.id, event.sessionId)) return
                 if (appNotificationManager.isChildSession(event.sessionId)) return
                 serviceScope.launch {
                     if (!settingsDataStore.notificationsEnabled.first()) return@launch
 
-                    // Give reducer a brief moment to receive trailing message/part events.
+                    // 给 reducer 片刻时间接收后续的 message/part 事件。
                     delay(250)
 
                     val assistantMessageId = appNotificationManager.checkNewAssistantMessage(event.sessionId)
@@ -412,7 +410,7 @@ class OpenCodeConnectionService : Service() {
         }
     }
 
-    // ============ Notification Watchdog ============
+    // ============ 通知看门狗 ============
 
     private fun startNotificationWatchdog() {
         if (notificationWatchdogJob?.isActive == true) return
@@ -422,7 +420,7 @@ class OpenCodeConnectionService : Service() {
                 if (!isNotificationVisible()) {
                     Log.i(TAG, "Foreground notification was dismissed, restoring it")
                     val notification = appNotificationManager.createPersistentNotification(
-                        this@OpenCodeConnectionService, connectionManager.connections, ::isLocalServer
+                        this@OpenCodeConnectionService, connectionManager.connections
                     )
                     startForeground(AppNotificationManager.PERSISTENT_NOTIFICATION_ID, notification)
                 }
@@ -459,19 +457,9 @@ class OpenCodeConnectionService : Service() {
 
     // ============ Helpers ============
 
-    private fun isLocalServer(server: ServerConfig): Boolean {
-        val normalizedUrl = server.url.trim().lowercase(Locale.US).removeSuffix("/")
-        if (normalizedUrl == LocalServerManager.LOCAL_SERVER_URL.lowercase(Locale.US)) return true
-
-        val host = server.host.lowercase(Locale.US)
-        val port = server.port
-        return (host == "127.0.0.1" || host == "localhost" || host == "::1" || host == "[::1]") &&
-            port == 4096
-    }
-
     private fun updatePersistentNotification() {
         appNotificationManager.updatePersistentNotification(
-            this, systemNotificationManager, connectionManager.connections, ::isLocalServer
+            this, systemNotificationManager, connectionManager.connections
         )
     }
 

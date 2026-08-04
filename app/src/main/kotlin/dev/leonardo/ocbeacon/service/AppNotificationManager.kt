@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** A user message preview for notification display. */
+/** 用于通知显示的用户消息预览。 */
 data class UserMessagePreview(
     val text: String,
     val timestamp: Long
@@ -31,8 +31,8 @@ private const val NOTIFICATION_CHANNEL_TASKS_SILENT_ID = "opencode_tasks_silent"
 private const val NOTIFICATION_CHANNEL_PERMISSIONS_ID = "opencode_permissions"
 
 /**
- * Manages all notification logic for the connection service.
- * Extracted from [OpenCodeConnectionService] for separation of concerns.
+ * 管理连接服务的所有通知逻辑。
+ * 从 [OpenCodeConnectionService] 中抽取出来以实现关注点分离。
  */
 @Singleton
 class AppNotificationManager @Inject constructor(
@@ -41,16 +41,16 @@ class AppNotificationManager @Inject constructor(
 ) {
     private val TAG = "AppNotificationMgr"
 
-    /** Dedup response-ready notifications per session by last assistant message ID. */
+    /** 按最后一条 assistant 消息 ID 对每个会话的响应就绪通知去重。 */
     private val lastNotifiedAssistantMessageBySession = ConcurrentHashMap<String, String>()
 
-    /** Dedup permission notifications per session by permission name. */
+    /** 按权限名称对每个会话的权限通知去重。 */
     private val lastNotifiedPermissionBySession = ConcurrentHashMap<String, String>()
 
-    /** Dedup question notifications per session by question text. */
+    /** 按问题文本对每个会话的问题通知去重。 */
     private val lastNotifiedQuestionBySession = ConcurrentHashMap<String, String>()
 
-    // ============ Notification Channels ============
+    // ============ 通知渠道 ============
 
     fun createNotificationChannels(notificationManager: NotificationManager, context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -104,12 +104,11 @@ class AppNotificationManager @Inject constructor(
         }
     }
 
-    // ============ Persistent Notification (InboxStyle, multi-server) ============
+    // ============ 持久通知（InboxStyle，多服务器）============
 
     fun createPersistentNotification(
         context: Context,
-        connections: Map<String, ServerConnectionState>,
-        isLocalServer: (ServerConfig) -> Boolean
+        connections: Map<String, ServerConnectionState>
     ): Notification {
         val tapIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -119,7 +118,7 @@ class AppNotificationManager @Inject constructor(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Disconnect All action
+        // Disconnect All 操作
         val disconnectAllIntent = Intent(context, OpenCodeConnectionService::class.java).apply {
             action = OpenCodeConnectionService.ACTION_DISCONNECT_ALL
         }
@@ -128,7 +127,7 @@ class AppNotificationManager @Inject constructor(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val visibleConnections = connections.values.filterNot { isLocalServer(it.config) }
+        val visibleConnections = connections.values
         val serverCount = visibleConnections.size
         val connectedCount = visibleConnections.count { it.isConnected }
 
@@ -158,7 +157,7 @@ class AppNotificationManager @Inject constructor(
             )
         }
 
-        // InboxStyle when multiple servers
+        // 多服务器时使用 InboxStyle
         if (serverCount > 1) {
             val inboxStyle = NotificationCompat.InboxStyle()
                 .setBigContentTitle(context.getString(R.string.notification_inbox_title, connectedCount, serverCount))
@@ -176,14 +175,13 @@ class AppNotificationManager @Inject constructor(
     fun updatePersistentNotification(
         context: Context,
         notificationManager: NotificationManager,
-        connections: Map<String, ServerConnectionState>,
-        isLocalServer: (ServerConfig) -> Boolean
+        connections: Map<String, ServerConnectionState>
     ) {
-        val notification = createPersistentNotification(context, connections, isLocalServer)
+        val notification = createPersistentNotification(context, connections)
         notificationManager.notify(PERSISTENT_NOTIFICATION_ID, notification)
     }
 
-    // ============ Event Notifications (grouped by server) ============
+    // ============ 事件通知（按服务器分组）============
 
     suspend fun showTaskCompleteNotification(
         context: Context,
@@ -198,7 +196,7 @@ class AppNotificationManager @Inject constructor(
         val typeLabel = context.getString(R.string.notification_tag_ready)
         val title = "$typeLabel · $displayName"
 
-        // Latest user message as content text (single line, truncated)
+        // 以最新的用户消息作为内容文本（单行，截断处理）
         val userMessages = findLatestUserMessages(sessionId, 1)
         val contentText = userMessages.firstOrNull()?.text
             ?: context.getString(R.string.notification_new_message)
@@ -235,7 +233,7 @@ class AppNotificationManager @Inject constructor(
         sessionId: String,
         permission: String
     ) {
-        // Dedup: skip if same permission already notified for this session
+        // 去重：若此会话已通知过相同权限则跳过
         if (lastNotifiedPermissionBySession[sessionId] == permission) return
 
         val (sessionTitle, _) = getSessionInfo(sessionId)
@@ -274,7 +272,7 @@ class AppNotificationManager @Inject constructor(
         sessionId: String,
         questionText: String
     ) {
-        // Dedup: skip if same question already notified for this session
+        // 去重：若此会话已通知过相同问题则跳过
         if (lastNotifiedQuestionBySession[sessionId] == questionText) return
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
@@ -341,11 +339,11 @@ class AppNotificationManager @Inject constructor(
         }
     }
 
-    // ============ Notification Dedup / Session Helpers ============
+    // ============ 通知去重 / 会话辅助方法 ============
 
     /**
-     * Check if a session is a child/sub-agent session (has parentID set).
-     * Child sessions should not trigger user-facing notifications.
+     * 检查会话是否为子/子代理会话（已设置 parentID）。
+     * 子会话不应触发面向用户的通知。
      */
     fun isChildSession(sessionId: String): Boolean {
         val session = eventDispatcher.sessions.value.find { it.id == sessionId }
@@ -353,9 +351,9 @@ class AppNotificationManager @Inject constructor(
     }
 
     /**
-     * Check if there's a new notifiable assistant message for the session.
-     * Returns the message ID if it should trigger a notification, null otherwise.
-     * Handles dedup internally via [lastNotifiedAssistantMessageBySession].
+     * 检查会话是否有新的可通知 assistant 消息。
+     * 若该消息应触发通知则返回其消息 ID，否则返回 null。
+     * 通过 [lastNotifiedAssistantMessageBySession] 在内部处理去重。
      */
     fun checkNewAssistantMessage(sessionId: String): String? {
         val sessionMessages = eventDispatcher.messages.value[sessionId] ?: return null
@@ -363,10 +361,10 @@ class AppNotificationManager @Inject constructor(
             .asReversed()
             .firstOrNull { it is Message.Assistant } as? Message.Assistant ?: return null
 
-        // Always notify on error messages
+        // 错误消息始终通知
         if (!latestAssistant.error?.message.isNullOrBlank()) return latestAssistant.id
 
-        // Check for text output
+        // 检查是否有文本输出
         val parts = eventDispatcher.parts.value[latestAssistant.id] ?: return null
         val hasTextOutput = parts.any { part ->
             when (part) {
@@ -377,7 +375,7 @@ class AppNotificationManager @Inject constructor(
         }
         if (!hasTextOutput) return null
 
-        // Dedup
+        // 去重
         val previousNotified = lastNotifiedAssistantMessageBySession[sessionId]
         if (previousNotified == latestAssistant.id) return null
 
@@ -386,8 +384,8 @@ class AppNotificationManager @Inject constructor(
     }
 
     /**
-     * Extract the latest N user messages (non-synthetic) for MessagingStyle display.
-     * Messages are ordered oldest-to-newest.
+     * 提取最新的 N 条用户消息（非合成）用于 MessagingStyle 显示。
+     * 消息按从旧到新排序。
      */
     fun findLatestUserMessages(sessionId: String, limit: Int): List<UserMessagePreview> {
         val sessionMessages = eventDispatcher.messages.value[sessionId] ?: return emptyList()
@@ -413,9 +411,9 @@ class AppNotificationManager @Inject constructor(
     }
 
     /**
-     * Cancel all event notifications for a specific session (TaskComplete/Permission/Question/Error).
-     * Called when the user enters the session's ChatScreen.
-     * Does NOT cancel the server group summary (other sessions may still have notifications).
+     * 取消指定会话的所有事件通知（TaskComplete/Permission/Question/Error）。
+     * 在用户进入该会话的 ChatScreen 时调用。
+     * 不会取消服务器分组摘要（其他会话可能仍有通知）。
      */
     fun cancelSessionNotifications(
         notificationManager: NotificationManager,
@@ -425,12 +423,12 @@ class AppNotificationManager @Inject constructor(
         for (offset in intArrayOf(0, 1000, 2000, 3000)) {
             notificationManager.cancel(eventNotificationId(serverId, sessionId, offset))
         }
-        // Reset dedup state so next round of permission/question can notify again
+        // 重置去重状态，以便下一轮 permission/question 能再次通知
         lastNotifiedPermissionBySession.remove(sessionId)
         lastNotifiedQuestionBySession.remove(sessionId)
     }
 
-    // ============ Private Helpers ============
+    // ============ 私有辅助方法 ============
 
     private fun showServerGroupSummary(
         context: Context,

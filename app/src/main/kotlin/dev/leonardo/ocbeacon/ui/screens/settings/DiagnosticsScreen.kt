@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -104,7 +105,7 @@ fun DiagnosticsScreen(
     var showActionsMenu by remember { mutableStateOf(false) }
     var showClearConfirmation by remember { mutableStateOf(false) }
     var showLevelDialog by remember { mutableStateOf(false) }
-    var expandedEntry by remember { mutableStateOf<Long?>(null) }
+    var expandedEntryKey by remember { mutableStateOf<String?>(null) }
 
     val filteredEntries = remember(entries, selectedLevels, searchQuery) {
         entries.filter { entry ->
@@ -211,7 +212,7 @@ fun DiagnosticsScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // ---- Level filter chips ----
+            // ---- 级别过滤 chip ----
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -234,7 +235,7 @@ fun DiagnosticsScreen(
                 }
             }
 
-            // ---- Search bar ----
+            // ---- 搜索栏 ----
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -252,7 +253,7 @@ fun DiagnosticsScreen(
                 keyboardOptions = KeyboardOptions.Default,
             )
 
-            // ---- Summary bar ----
+            // ---- 汇总栏 ----
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -281,7 +282,7 @@ fun DiagnosticsScreen(
 
             HorizontalDivider()
 
-            // ---- Entry list / empty state ----
+            // ---- 条目列表 / 空状态 ----
             if (filteredEntries.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
@@ -302,12 +303,19 @@ fun DiagnosticsScreen(
             } else {
                 val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.getDefault()) }
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(filteredEntries, key = { it.timestamp }) { entry ->
+                    // timestamp 不是唯一键：同一毫秒内可能有多条日志（崩溃捕获、
+                    // 连续错误写入），直接用 timestamp 作 key 会导致
+                    // "Key was already used" 崩溃。追加 index 保证唯一，
+                    // 新日志追加在列表尾部时已有项 key 保持稳定。
+                    itemsIndexed(filteredEntries, key = { index, entry -> "${entry.timestamp}_$index" }) { index, entry ->
+                        val entryKey = "${entry.timestamp}_$index"
                         DiagnosticLogItem(
                             entry = entry,
                             timeLabel = dateFormat.format(Date(entry.timestamp)),
-                            isExpanded = expandedEntry == entry.timestamp,
-                            onClick = { expandedEntry = if (expandedEntry == entry.timestamp) null else entry.timestamp },
+                            isExpanded = expandedEntryKey == entryKey,
+                            onClick = {
+                                expandedEntryKey = if (expandedEntryKey == entryKey) null else entryKey
+                            },
                         )
                     }
                 }
@@ -315,7 +323,7 @@ fun DiagnosticsScreen(
         }
     }
 
-    // ---- Clear confirmation ----
+    // ---- 清空确认 ----
     if (showClearConfirmation) {
         ConfirmDialog(
             title = stringResource(R.string.diagnostics_clear_confirm_title),
@@ -329,7 +337,7 @@ fun DiagnosticsScreen(
         )
     }
 
-    // ---- Log level dialog ----
+    // ---- 日志级别对话框 ----
     if (showLevelDialog) {
         AlertDialog(
             onDismissRequest = { showLevelDialog = false },

@@ -15,7 +15,6 @@ import dev.leonardo.ocbeacon.data.repository.VcsRepositoryImpl
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
-import dev.leonardo.ocbeacon.domain.repository.LocalServerRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
@@ -46,9 +45,6 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindServerConnectionRepository(impl: ServerRepositoryImpl): ServerConnectionRepository
-
-    @Binds
-    abstract fun bindLocalServerRepository(impl: ServerRepositoryImpl): LocalServerRepository
 
     @Binds
     abstract fun bindProviderRepository(impl: ServerRepositoryImpl): ProviderRepository

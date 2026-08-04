@@ -1,11 +1,8 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import android.content.Context
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse as DataProvidersResponse
-import dev.leonardo.ocbeacon.domain.model.LocalServerState
 import dev.leonardo.ocbeacon.domain.model.ModelCatalog
 import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
 import dev.leonardo.ocbeacon.domain.model.ProviderInfo as DomainProviderInfo
@@ -18,19 +15,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Implementation of [ServerRepository].
- * Wraps the existing [ServerDataStore] (DataStore CRUD),
- * [LocalServerManager] (Termux lifecycle), and [ProviderApi] (providers/config).
+ * [ServerRepository] 的实现。
+ * 包装现有的 [ServerDataStore]（DataStore CRUD）和 [ProviderApi]（providers/config）。
  */
 @Singleton
 class ServerRepositoryImpl @Inject constructor(
     private val dataRepo: dev.leonardo.ocbeacon.data.repository.ServerDataStore,
-    private val localServerManager: LocalServerManager,
-    private val api: ProviderApi,
-    @ApplicationContext private val appContext: Context
+    private val api: ProviderApi
 ) : ServerRepository {
 
-    // ── Server CRUD ──
+    // ── 服务器 CRUD ──
 
     override fun getServersFlow(): Flow<List<ServerConfig>> = dataRepo.getAllServers()
 
@@ -54,15 +48,15 @@ class ServerRepositoryImpl @Inject constructor(
 
     override suspend fun getServer(id: String): ServerConfig? = dataRepo.getServer(id)
 
-    // ── Connection lifecycle ──
+    // ── 连接生命周期 ──
 
     override suspend fun connect(server: ServerConfig): Result<Unit> = runCatching {
-        // Phase 4: delegate to OpenCodeConnectionService.connect(server)
+        // Phase 4：委托给 OpenCodeConnectionService.connect(server)
         throw NotImplementedError("ServerRepository.connect — Phase 4")
     }
 
     override suspend fun disconnect(serverId: String): Result<Unit> = runCatching {
-        // Phase 4: delegate to OpenCodeConnectionService.disconnect(serverId)
+        // Phase 4：委托给 OpenCodeConnectionService.disconnect(serverId)
         throw NotImplementedError("ServerRepository.disconnect — Phase 4")
     }
 
@@ -70,37 +64,7 @@ class ServerRepositoryImpl @Inject constructor(
         dataRepo.checkHealth(server).isSuccess
     }
 
-    // ── Local server management ──
-
-    override fun getLocalSetupCommand(): String = localServerManager.getSetupCommand()
-
-    override suspend fun setupLocalServer(): Result<Unit> = runCatching {
-        if (localServerManager.isTermuxInstalled()) Unit
-        else throw IllegalStateException("Termux is not installed")
-    }
-
-    override suspend fun startLocalServer(): Result<Unit> = runCatching {
-        localServerManager.startServer(appContext)
-    }
-
-    override suspend fun stopLocalServer(): Result<Unit> = runCatching {
-        localServerManager.stopServer(appContext)
-    }
-
-    override suspend fun getLocalServerState(): Result<LocalServerState> = runCatching {
-        if (!localServerManager.isTermuxInstalled()) {
-            LocalServerState(status = "unavailable", message = "Termux is not installed")
-        } else {
-            val healthy = localServerManager.isServerHealthy()
-            if (healthy) {
-                LocalServerState(status = "running")
-            } else {
-                LocalServerState(status = "stopped")
-            }
-        }
-    }
-
-    // ── Provider management ──
+    // ── 提供商管理 ──
 
     override suspend fun loadProviders(serverId: String): Result<List<DomainProviderInfo>> = runCatching {
         val conn = resolveConnection(serverId)
@@ -154,7 +118,7 @@ class ServerRepositoryImpl @Inject constructor(
     ): Result<Unit> = runCatching {
         val conn = resolveConnection(serverId)
         if (enabled) {
-            // Phase 4: implement provider enable/disable via config API
+            // Phase 4：通过 config API 实现 provider 的启用/禁用
         } else {
             api.removeProviderAuth(conn, providerId)
         }
@@ -183,17 +147,17 @@ class ServerRepositoryImpl @Inject constructor(
         modelId: String,
         visible: Boolean
     ): Result<Unit> = runCatching {
-        // Delegate to SettingsRepository's hidden models tracking
-        // This will be properly wired in Phase 4
+        // 委托给 SettingsRepository 的隐藏模型跟踪
+        // 这将在阶段 4 中正确接入
         Unit
     }
 
     override suspend fun saveServerConfig(serverId: String): Result<Unit> = runCatching {
-        // Phase 4: persist server-side config
+        // Phase 4：持久化服务端配置
         Unit
     }
 
-    // ── Repository Helpers ──
+    // ── Repository 辅助方法 ──
 
     override suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = dataRepo.getServer(serverId)

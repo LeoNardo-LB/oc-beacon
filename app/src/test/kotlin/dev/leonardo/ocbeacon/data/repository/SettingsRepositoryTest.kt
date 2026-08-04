@@ -7,16 +7,16 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
 /**
- * Characterization Tests for SettingsDataStore's public API contract.
- * Validates that all Flow properties exist with correct types and
- * all setter functions exist with correct signatures.
+ * SettingsDataStore 公共 API 契约的特征测试。
+ * 验证所有 Flow 属性存在且类型正确，
+ * 所有 setter 函数存在且签名正确。
  *
- * Uses Java reflection (java.lang.reflect) to avoid kotlin-reflect dependency.
- * These tests ensure the public API surface doesn't regress during refactoring.
+ * 使用 Java 反射（java.lang.reflect）以避免 kotlin-reflect 依赖。
+ * 这些测试确保重构期间公共 API 表面不会回退。
  */
 class SettingsDataStoreTest {
 
-    // ============ Flow Property Contracts ============
+    // ============ Flow 属性契约 ============
 
     @Test
     fun `all expected Flow properties exist as getter methods`() {
@@ -24,7 +24,7 @@ class SettingsDataStoreTest {
             .filter { Modifier.isPublic(it.modifiers) }
             .map { it.name }.toSet()
 
-        // Kotlin properties compile to getXxx() methods
+        // Kotlin 属性编译为 getXxx() 方法
         val expectedProperties = listOf(
             "getAppLanguage", "getAppTheme", "getDynamicColor", "getChatFontSize",
             "getChatDensity",
@@ -33,11 +33,7 @@ class SettingsDataStoreTest {
             "getExpandReasoning", "getHapticFeedback", "getReconnectMode", "getKeepScreenOn",
             "getSilentNotifications", "getCompressImageAttachments",
             "getImageAttachmentMaxLongSide", "getImageAttachmentWebpQuality",
-            "getShowLocalRuntime", "getTerminalFontSize", "getLocalSetupCompleted",
-            "getLocalProxyEnabled", "getLocalProxyUrl", "getLocalProxyNoProxy",
-            "getLocalServerAllowLan", "getLocalServerUsername", "getLocalServerPassword",
-            "getLocalServerRunInBackground", "getLocalServerAutoStart",
-            "getLocalServerStartupTimeoutSec"
+            "getTerminalFontSize"
         )
 
         for (getter in expectedProperties) {
@@ -55,7 +51,7 @@ class SettingsDataStoreTest {
         assertEquals(1, method.parameterCount)
     }
 
-    // ============ Setter Function Contracts ============
+    // ============ Setter 函数契约 ============
 
     @Test
     fun `all expected setter functions exist`() {
@@ -71,12 +67,8 @@ class SettingsDataStoreTest {
             "setCollapseTools", "setExpandReasoning", "setHapticFeedback",
             "setReconnectMode", "setKeepScreenOn", "setSilentNotifications",
             "setCompressImageAttachments", "setImageAttachmentMaxLongSide",
-            "setImageAttachmentWebpQuality", "setShowLocalRuntime",
-            "setTerminalFontSize", "setLocalSetupCompleted", "setLocalProxyEnabled",
-            "setLocalProxyUrl", "setLocalProxyNoProxy", "setLocalServerAllowLan",
-            "setLocalServerUsername", "setLocalServerPassword",
-            "setLocalServerRunInBackground", "setLocalServerAutoStart",
-            "setLocalServerStartupTimeoutSec", "setModelVisibility"
+            "setImageAttachmentWebpQuality", "setTerminalFontSize",
+            "setModelVisibility"
         )
 
         for (setter in expectedSetters) {
@@ -89,8 +81,8 @@ class SettingsDataStoreTest {
 
     @Test
     fun `setModelVisibility has correct parameter count`() {
-        // Kotlin suspend functions get an extra Continuation parameter at the JVM level.
-        // setModelVisibility(serverId, providerId, modelId, visible) → 4 params + Continuation
+        // Kotlin suspend 函数在 JVM 层面会多一个 Continuation 参数。
+        // setModelVisibility(serverId, providerId, modelId, visible) → 4 个参数 + Continuation
         val method = SettingsDataStore::class.java.getDeclaredMethod(
             "setModelVisibility",
             String::class.java, String::class.java, String::class.java,
@@ -98,11 +90,11 @@ class SettingsDataStoreTest {
             kotlin.coroutines.Continuation::class.java
         )
         assertNotNull("setModelVisibility should exist with expected suspend signature", method)
-        // JVM level has 5 params (4 value + 1 continuation), but logically 4 value params
+        // JVM 层面有 5 个参数（4 个值 + 1 个 continuation），但逻辑上是 4 个值参数
         assertEquals("setModelVisibility should have 4 value params + 1 continuation", 5, method.parameterCount)
     }
 
-    // ============ DraftRepository Contract ============
+    // ============ DraftRepository 契约 ============
 
     @Test
     fun `Draft default instance is empty`() {
@@ -158,7 +150,7 @@ class SettingsDataStoreTest {
         assertFalse(draft.isEmpty)
     }
 
-    // ============ ServerConfig Contract ============
+    // ============ ServerConfig 契约 ============
 
     @Test
     fun `ServerConfig displayName uses explicit name when set`() {
@@ -177,7 +169,7 @@ class SettingsDataStoreTest {
             url = "http://192.168.1.100:4096",
             name = null
         )
-        // displayName = name ?: url → when name is null, returns full url
+        // displayName = name ?: url → 当 name 为 null 时，返回完整 url
         assertEquals("http://192.168.1.100:4096", config.displayName)
     }
 

@@ -37,7 +37,6 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.settings.components.ImageCompressionMaxSideDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.ImageCompressionQualityDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.LanguagePickerDialog
-import dev.leonardo.ocbeacon.ui.screens.settings.components.LocalServerLaunchOptionsDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.MessageCountPickerDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.RecentDirectoryCountDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.ReconnectModePickerDialog
@@ -53,7 +52,7 @@ import dev.leonardo.ocbeacon.ui.screens.settings.sections.NotificationsSection
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Settings Screen - global app preferences.
+ * 设置屏幕 — 全局应用偏好。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,15 +71,6 @@ fun SettingsScreen(
     val terminalFontSize by viewModel.terminalFontSize.collectAsStateWithLifecycle()
     val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsStateWithLifecycle()
     val imageAttachmentWebpQuality by viewModel.imageAttachmentWebpQuality.collectAsStateWithLifecycle()
-    val localProxyEnabled by viewModel.localProxyEnabled.collectAsStateWithLifecycle()
-    val localProxyUrl by viewModel.localProxyUrl.collectAsStateWithLifecycle()
-    val localProxyNoProxy by viewModel.localProxyNoProxy.collectAsStateWithLifecycle()
-    val localServerAllowLan by viewModel.localServerAllowLan.collectAsStateWithLifecycle()
-    val localServerUsername by viewModel.localServerUsername.collectAsStateWithLifecycle()
-    val localServerPassword by viewModel.localServerPassword.collectAsStateWithLifecycle()
-    val localServerRunInBackground by viewModel.localServerRunInBackground.collectAsStateWithLifecycle()
-    val localServerAutoStart by viewModel.localServerAutoStart.collectAsStateWithLifecycle()
-    val localServerStartupTimeoutSec by viewModel.localServerStartupTimeoutSec.collectAsStateWithLifecycle()
 
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -91,7 +81,6 @@ fun SettingsScreen(
     var showTerminalFontSizeDialog by remember { mutableStateOf(false) }
     var showImageMaxSideDialog by remember { mutableStateOf(false) }
     var showImageQualityDialog by remember { mutableStateOf(false) }
-    var showLocalLaunchOptionsDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -134,13 +123,13 @@ fun SettingsScreen(
                 onShowThemeDialog = { showThemeDialog = true },
             )
 
-            // ======== Chat Display ========
+            // ======== 聊天显示 ========
             ChatDisplaySection(
                 viewModel = viewModel,
                 onShowChatDensityPicker = { showChatDensityPicker = true },
             )
 
-            // ======== Chat Behavior ========
+            // ======== 聊天行为 ========
             ChatBehaviorSection(
                 viewModel = viewModel,
                 onShowMessageCountDialog = { showMessageCountDialog = true },
@@ -153,7 +142,6 @@ fun SettingsScreen(
             // ======== Advanced ========
             AdvancedSection(
                 viewModel = viewModel,
-                onShowLocalLaunchOptionsDialog = { showLocalLaunchOptionsDialog = true },
                 onNavigateToDiagnostics = onNavigateToDiagnostics,
             )
 
@@ -289,33 +277,6 @@ fun SettingsScreen(
                     showImageQualityDialog = false
                 },
                 onDismiss = { showImageQualityDialog = false }
-            )
-        }
-
-        if (showLocalLaunchOptionsDialog) {
-            LocalServerLaunchOptionsDialog(
-                enabled = localProxyEnabled,
-                proxyUrl = localProxyUrl,
-                noProxyList = localProxyNoProxy,
-                allowLanAccess = localServerAllowLan,
-                serverUsername = localServerUsername,
-                serverPassword = localServerPassword,
-                runInBackground = localServerRunInBackground,
-                autoStart = localServerAutoStart,
-                startupTimeoutSec = localServerStartupTimeoutSec,
-                onDismiss = { showLocalLaunchOptionsDialog = false },
-                onSave = { enabled, proxyUrl, noProxyList, allowLanAccess, serverUsername, serverPassword, runInBackground, autoStart, startupTimeoutSec ->
-                    viewModel.setLocalProxyEnabled(enabled)
-                    viewModel.setLocalProxyUrl(proxyUrl)
-                    viewModel.setLocalProxyNoProxy(noProxyList)
-                    viewModel.setLocalServerAllowLan(allowLanAccess)
-                    viewModel.setLocalServerUsername(serverUsername)
-                    viewModel.setLocalServerPassword(serverPassword)
-                    viewModel.setLocalServerRunInBackground(runInBackground)
-                    viewModel.setLocalServerAutoStart(autoStart && runInBackground)
-                    viewModel.setLocalServerStartupTimeoutSec(startupTimeoutSec)
-                    showLocalLaunchOptionsDialog = false
-                },
             )
         }
         }

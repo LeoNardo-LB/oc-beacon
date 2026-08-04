@@ -30,7 +30,7 @@ class SettingsViewModel @Inject constructor(
     val settings: StateFlow<AppSettings> = getSettingsFlowUseCase()
         .stateIn(viewModelScope, WhileSubscribed5s, AppSettings())
 
-    // --- Convenience properties (mapped from aggregated settings flow) ---
+    // --- 便捷属性（从聚合设置 flow 映射而来） ---
 
     val appLanguage = settings.map { it.appLanguage }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val appTheme = settings.map { it.appTheme }.stateIn(viewModelScope, SharingStarted.Eagerly, "system")
@@ -52,20 +52,10 @@ class SettingsViewModel @Inject constructor(
     val compressImageAttachments = settings.map { it.compressImageAttachments }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val imageAttachmentMaxLongSide = settings.map { it.imageAttachmentMaxLongSide }.stateIn(viewModelScope, SharingStarted.Eagerly, 1440)
     val imageAttachmentWebpQuality = settings.map { it.imageAttachmentWebpQuality }.stateIn(viewModelScope, SharingStarted.Eagerly, 60)
-    val showLocalRuntime = settings.map { it.showLocalRuntime }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val silentNotifications = settings.map { it.silentNotifications }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val terminalFontSize = settings.map { it.terminalFontSize }.stateIn(viewModelScope, SharingStarted.Eagerly, 13f)
-    val localProxyEnabled = settings.map { it.localProxyEnabled }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val localProxyUrl = settings.map { it.localProxyUrl }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val localProxyNoProxy = settings.map { it.localProxyNoProxy }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val localServerAllowLan = settings.map { it.localServerAllowLan }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val localServerUsername = settings.map { it.localServerUsername }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val localServerPassword = settings.map { it.localServerPassword }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val localServerRunInBackground = settings.map { it.localServerRunInBackground }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val localServerAutoStart = settings.map { it.localServerAutoStart }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val localServerStartupTimeoutSec = settings.map { it.localServerStartupTimeoutSec }.stateIn(viewModelScope, SharingStarted.Eagerly, 30)
 
-    // --- Permission auto-approve rules ---
+    // --- 权限自动批准规则 ---
     private val _rulesRefreshTrigger = MutableStateFlow(0)
     val autoApproveRules: StateFlow<List<AutoApproveRule>> = _rulesRefreshTrigger
         .map { autoApprover.loadRules() }
@@ -171,56 +161,8 @@ class SettingsViewModel @Inject constructor(
         updateSetting { it.copy(imageAttachmentWebpQuality = quality) }
     }
 
-    fun setShowLocalRuntime(enabled: Boolean) {
-        updateSetting { it.copy(showLocalRuntime = enabled) }
-    }
-
     fun setTerminalFontSize(size: Float) {
         updateSetting { it.copy(terminalFontSize = size) }
-    }
-
-    fun setLocalProxyEnabled(enabled: Boolean) {
-        updateSetting { it.copy(localProxyEnabled = enabled) }
-    }
-
-    fun setLocalProxyUrl(url: String) {
-        updateSetting { it.copy(localProxyUrl = url) }
-    }
-
-    fun setLocalProxyNoProxy(value: String) {
-        updateSetting { it.copy(localProxyNoProxy = value) }
-    }
-
-    fun setLocalServerAllowLan(enabled: Boolean) {
-        updateSetting { it.copy(localServerAllowLan = enabled) }
-    }
-
-    fun setLocalServerUsername(value: String) {
-        updateSetting { it.copy(localServerUsername = value) }
-    }
-
-    fun setLocalServerPassword(value: String) {
-        updateSetting { it.copy(localServerPassword = value) }
-    }
-
-    fun setLocalServerRunInBackground(enabled: Boolean) {
-        viewModelScope.launch {
-            val current = settings.value
-            val updated = current.copy(localServerRunInBackground = enabled)
-            if (!enabled) {
-                updateSettingsUseCase(updated.copy(localServerAutoStart = false))
-            } else {
-                updateSettingsUseCase(updated)
-            }
-        }
-    }
-
-    fun setLocalServerAutoStart(enabled: Boolean) {
-        updateSetting { it.copy(localServerAutoStart = enabled) }
-    }
-
-    fun setLocalServerStartupTimeoutSec(value: Int) {
-        updateSetting { it.copy(localServerStartupTimeoutSec = value) }
     }
 
     private fun updateSetting(transform: (AppSettings) -> AppSettings) {

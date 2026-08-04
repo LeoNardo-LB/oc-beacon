@@ -51,7 +51,7 @@ internal fun ServerCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Header row: name, URL, status, menu
+            // 头部行：名称、URL、状态、菜单
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -124,7 +124,7 @@ internal fun ServerCard(
                 }
             }
 
-            // Connection error
+            // 连接错误
             if (connectionError != null) {
                 Text(
                     text = connectionError,
@@ -133,7 +133,7 @@ internal fun ServerCard(
                 )
             }
 
-            // Action buttons row
+            // 操作按钮行
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -169,25 +169,44 @@ internal fun ServerCard(
                 }
             }
             if (!isConnected) {
-                Button(
-                    onClick = onConnect,
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isConnecting,
-                    colors = ButtonTokens.filledColors(),
-                    border = ButtonTokens.amoledBorder()
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    Button(
+                        onClick = onConnect,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isConnecting,
+                        colors = ButtonTokens.filledColors(),
+                        border = ButtonTokens.amoledBorder()
+                    ) {
+                        if (isConnecting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = if (isAmoled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.home_connecting))
+                        } else {
+                            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.a11y_icon_start), modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.home_connect))
+                        }
+                    }
+                    // 连接中可取消：长时间连接（弱网/服务器启动慢）时
+                    // 允许用户中止，避免只能等待超时。
                     if (isConnecting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = if (isAmoled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.home_connecting))
-                    } else {
-                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.a11y_icon_start), modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.home_connect))
+                        Button(
+                            onClick = onDisconnect,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonTokens.dangerColors(),
+                            border = ButtonTokens.amoledBorder()
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.a11y_icon_close), modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.cancel), maxLines = 1)
+                        }
                     }
                 }
             }

@@ -11,7 +11,6 @@ import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import dev.leonardo.ocbeacon.data.repository.LocalServerManager
 import dev.leonardo.ocbeacon.domain.model.AppSettings
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import java.util.UUID
@@ -21,7 +20,9 @@ import dev.leonardo.ocbeacon.domain.usecase.ManageServerProvidersUseCase
 import dev.leonardo.ocbeacon.domain.usecase.UpdateSettingsUseCase
 import dev.leonardo.ocbeacon.service.OpenCodeConnectionService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,16 +33,6 @@ import javax.inject.Inject
 
 private const val TAG = "HomeViewModel"
 
-enum class LocalRuntimeStatus {
-    Unavailable,
-    NeedsSetup,
-    Stopped,
-    Starting,
-    Stopping,
-    Running,
-    Error,
-}
-
 data class HomeUiState(
     val servers: List<ServerConfig> = emptyList(),
     val connectedServerIds: Set<String> = emptySet(),
@@ -51,29 +42,12 @@ data class HomeUiState(
     val showAddServerDialog: Boolean = false,
     val editingServer: ServerConfig? = null,
     val isLoading: Boolean = true,
-    val termuxInstalled: Boolean = false,
-    val localRuntimeStatus: LocalRuntimeStatus = LocalRuntimeStatus.Unavailable,
-    val localRuntimeMessage: String? = null,
-    val localRuntimeFixCommand: String? = null,
-    val localRuntimeNeedsOverlaySettings: Boolean = false,
-    val setupCommand: String? = null,
-    val showLocalRuntime: Boolean = true,
-    val localProxyEnabled: Boolean = false,
-    val localProxyUrl: String = "",
-    val localProxyNoProxy: String = LocalServerManager.DEFAULT_NO_PROXY_LIST,
-    val localServerAllowLan: Boolean = false,
-    val localServerUsername: String = "",
-    val localServerPassword: String = "",
-    val localServerRunInBackground: Boolean = true,
-    val localServerAutoStart: Boolean = false,
-    val localServerStartupTimeoutSec: Int = 30,
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     application: Application,
     private val serverRepository: ServerRepository,
-    private val localServerManager: LocalServerManager,
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     private val updateSettingsUseCase: UpdateSettingsUseCase,
     private val manageServerProvidersUseCase: ManageServerProvidersUseCase,
@@ -82,24 +56,15 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    /** Snapshot of current settings, updated from [GetSettingsFlowUseCase] flow. */
+    /** 当前设置的快照，从 [GetSettingsFlowUseCase] flow 更新。 */
     private var currentSettings: AppSettings = AppSettings()
 
     private var serviceBinder: OpenCodeConnectionService.LocalBinder? = null
     private var sseObserverJob: Job? = null
     private val serverSettingsCheckJobs = mutableMapOf<String, Job>()
 
-    private val localServerDelegate = LocalServerDelegate(
-        application = getApplication(),
-        scope = viewModelScope,
-        localServerManager = localServerManager,
-        updateSettingsUseCase = updateSettingsUseCase,
-        serverRepository = serverRepository,
-        uiState = _uiState,
-        currentSettingsProvider = { currentSettings },
-        connectToServer = ::connectToServer,
-        disconnectFromServer = ::disconnectFromServer,
-    )
+    /** 进行中的连接尝试（testConnection 阶段），支持取消。 */
+    private val connectJobs = mutableMapOf<String, Job>()
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -120,35 +85,18 @@ class HomeViewModel @Inject constructor(
         loadServers()
         bindToService()
         observeSettings()
-        refreshLocalRuntimeState()
     }
 
     private fun observeSettings() {
         viewModelScope.launch {
             getSettingsFlowUseCase().collect { settings ->
                 currentSettings = settings
-                _uiState.update { state ->
-                    state.copy(
-                        showLocalRuntime = settings.showLocalRuntime,
-                        localProxyEnabled = settings.localProxyEnabled,
-                        localProxyUrl = settings.localProxyUrl,
-                        localProxyNoProxy = settings.localProxyNoProxy.ifEmpty {
-                            LocalServerManager.DEFAULT_NO_PROXY_LIST
-                        },
-                        localServerAllowLan = settings.localServerAllowLan,
-                        localServerUsername = settings.localServerUsername,
-                        localServerPassword = settings.localServerPassword,
-                        localServerRunInBackground = settings.localServerRunInBackground,
-                        localServerAutoStart = settings.localServerAutoStart,
-                        localServerStartupTimeoutSec = settings.localServerStartupTimeoutSec,
-                    )
-                }
             }
         }
     }
 
     /**
-     * Restore connected state from the already-running service.
+     * 从已在运行的服务恢复已连接状态。
      */
     private fun restoreConnectionStateFromService() {
         val service = serviceBinder?.getService() ?: return
@@ -160,7 +108,7 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Observe connectedServerIds and connectingServerIds from the service.
+     * 观察服务中的 connectedServerIds 和 connectingServerIds。
      */
     private fun observeServiceConnectionState() {
         sseObserverJob?.cancel()
@@ -202,13 +150,13 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun refreshServerSettingsAvailability(connectedIds: Set<String>) {
-        // Cancel checks for disconnected servers
+        // 取消对已断开服务器的检查
         val disconnected = serverSettingsCheckJobs.keys - connectedIds
         disconnected.forEach { id ->
             serverSettingsCheckJobs.remove(id)?.cancel()
         }
 
-        // Start or restart checks for connected servers
+        // 为已连接的服务器启动或重启检查
         connectedIds.forEach { serverId ->
             serverSettingsCheckJobs.remove(serverId)?.cancel()
             serverSettingsCheckJobs[serverId] = viewModelScope.launch {
@@ -297,7 +245,7 @@ class HomeViewModel @Inject constructor(
 
     fun deleteServer(serverId: String) {
         viewModelScope.launch {
-            // Disconnect first if connected or connecting
+            // 如已连接或正在连接，先断开
             if (_uiState.value.connectedServerIds.contains(serverId) ||
                 _uiState.value.connectingServerIds.contains(serverId)) {
                 disconnectFromServer(serverId)
@@ -307,12 +255,12 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Connect to a specific server. Multiple servers can be connected simultaneously.
+     * 连接到指定服务器。支持同时连接多个服务器。
      */
     fun connectToServer(serverId: String) {
         val server = _uiState.value.servers.find { it.id == serverId } ?: return
 
-        // Already connected or connecting? No-op.
+        // 已连接或正在连接？直接返回。
         if (_uiState.value.connectedServerIds.contains(serverId) ||
             _uiState.value.connectingServerIds.contains(serverId)) return
 
@@ -323,9 +271,13 @@ class HomeViewModel @Inject constructor(
             )
         }
 
-        viewModelScope.launch {
+        // 取消之前的连接尝试（若有），保存当前 job 供取消使用。
+        connectJobs[serverId]?.cancel()
+        connectJobs[serverId] = viewModelScope.launch {
             try {
                 val isHealthy = serverRepository.testConnection(server).getOrElse { false }
+                // 用户已取消：不再处理结果。
+                if (!isActive) return@launch
                 if (!isHealthy) {
                     _uiState.update {
                         it.copy(
@@ -335,6 +287,10 @@ class HomeViewModel @Inject constructor(
                     }
                     return@launch
                 }
+
+                // 健康检查通过后、启动服务前再次确认未被取消，
+                // 避免用户取消后仍启动连接。
+                if (!isActive) return@launch
 
                 val context = getApplication<Application>()
                 val intent = Intent(context, OpenCodeConnectionService::class.java).apply {
@@ -351,111 +307,39 @@ class HomeViewModel @Inject constructor(
                     context.startService(intent)
                 }
 
-                // Connection state will be updated by the service via
-                // observeServiceConnectionState() — no optimistic update needed.
+                // 连接状态将由服务通过
+                // observeServiceConnectionState() 更新 — 无需乐观更新。
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                if (!isActive) return@launch
                 _uiState.update {
                     it.copy(
                         connectingServerIds = it.connectingServerIds - serverId,
                         connectionErrors = it.connectionErrors + (serverId to (e.message ?: "Connection failed"))
                     )
                 }
+            } finally {
+                connectJobs.remove(serverId)
             }
         }
     }
 
-    fun refreshLocalRuntimeState() {
-        localServerDelegate.refreshLocalRuntimeState()
-    }
-
     /**
-     * Copy the setup command and open Termux so the user can paste it.
-     */
-    fun setupLocalServer(callerContext: Context) {
-        localServerManager.openTermux(callerContext)
-    }
-
-    fun getLocalSetupCommand(): String = localServerManager.getSetupCommand()
-
-    fun startLocalServer(callerContext: Context) {
-        localServerDelegate.startLocalServer(callerContext)
-    }
-
-    fun stopLocalServer(callerContext: Context) {
-        localServerDelegate.stopLocalServer(callerContext)
-    }
-
-    // ── Settings setters via UpdateSettingsUseCase ──
-
-    fun setLocalProxyEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            updateSettingsUseCase(currentSettings.copy(localProxyEnabled = enabled))
-        }
-    }
-
-    fun setLocalProxyUrl(url: String) {
-        viewModelScope.launch {
-            updateSettingsUseCase(currentSettings.copy(localProxyUrl = url))
-        }
-    }
-
-    fun setLocalProxyNoProxy(value: String) {
-        viewModelScope.launch {
-            updateSettingsUseCase(currentSettings.copy(localProxyNoProxy = value))
-        }
-    }
-
-    fun setLocalServerAllowLan(enabled: Boolean) {
-        viewModelScope.launch {
-            updateSettingsUseCase(currentSettings.copy(localServerAllowLan = enabled))
-        }
-    }
-
-    fun setLocalServerUsername(value: String) {
-        viewModelScope.launch {
-            updateSettingsUseCase(currentSettings.copy(localServerUsername = value))
-        }
-    }
-
-    fun setLocalServerPassword(value: String) {
-        viewModelScope.launch {
-            updateSettingsUseCase(currentSettings.copy(localServerPassword = value))
-        }
-    }
-
-    fun setLocalServerRunInBackground(enabled: Boolean) {
-        viewModelScope.launch {
-            updateSettingsUseCase(
-                currentSettings.copy(
-                    localServerRunInBackground = enabled,
-                    localServerAutoStart = if (!enabled) false else currentSettings.localServerAutoStart,
-                )
-            )
-        }
-    }
-
-    fun setLocalServerAutoStart(enabled: Boolean) {
-        viewModelScope.launch {
-            val canEnable = enabled && currentSettings.localServerRunInBackground
-            updateSettingsUseCase(
-                currentSettings.copy(localServerAutoStart = canEnable)
-            )
-        }
-    }
-
-    fun setLocalServerStartupTimeoutSec(value: Int) {
-        viewModelScope.launch {
-            updateSettingsUseCase(currentSettings.copy(localServerStartupTimeoutSec = value))
-        }
-    }
-
-    /**
-     * Disconnect from a specific server.
+     * 断开与指定服务器的连接。
+     *
+     * 同时处理两种状态：
+     * - 连接进行中（testConnection 阶段）：取消协程并立即清除 connecting 状态；
+     * - 已连接：通知服务断开。
      */
     fun disconnectFromServer(serverId: String) {
+        connectJobs.remove(serverId)?.cancel()
         serviceBinder?.getService()?.disconnect(serverId)
         _uiState.update {
-            it.copy(connectedServerIds = it.connectedServerIds - serverId)
+            it.copy(
+                connectedServerIds = it.connectedServerIds - serverId,
+                connectingServerIds = it.connectingServerIds - serverId
+            )
         }
     }
 
@@ -467,7 +351,7 @@ class HomeViewModel @Inject constructor(
         try {
             getApplication<Application>().unbindService(serviceConnection)
         } catch (e: Exception) {
-            // Service might not be bound
+            // 服务可能尚未绑定
             Log.w(TAG, "unbindService failed: ${e.message}", e)
         }
     }
