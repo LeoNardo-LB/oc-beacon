@@ -148,6 +148,8 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 
 ### Version Management
 
+> ⚠️ **发版必读**：任何发版、版本号变更、tag 操作、GitHub Release 操作前，**必须**先读 **[`docs/release-workflow.md`](docs/release-workflow.md)**（发版工作流唯一权威指南，含一键脚本用法）。优先使用 `./scripts/release.sh <flavor>` 自动化发版，避免手工操作。
+
 遵循 [Semantic Versioning 2.0.0](https://semver.org/) 规范，适配 Android 双 flavor 场景。
 
 #### 版本号格式
@@ -214,6 +216,8 @@ Tag = `v` + VERSION_NAME：
   - dev → `app/build/outputs/apk/dev/release/app-dev-release.apk`。
 
 #### 完整发版步骤
+
+> ✅ **首选自动化**：运行 `./scripts/release.sh beta|stable|dev [--dry-run]`（详见 [release-workflow.md](docs/release-workflow.md)）。以下手动步骤仅在脚本不可用时使用。
 
 **步骤顺序（严禁颠倒 bump 和 build）：**
 

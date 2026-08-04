@@ -2,6 +2,11 @@ name: Build Release APK
 
 on:
   workflow_dispatch:
+    inputs:
+      flavor:
+        description: 'Flavor to build (beta/stable/dev)'
+        required: true
+        default: 'beta'
   push:
     tags:
       - 'v*'
@@ -24,6 +29,26 @@ jobs:
           echo "name=$VERSION" >> $GITHUB_OUTPUT
           echo "code=$VERSION_CODE" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION (code: $VERSION_CODE)"
+
+      # 从 tag 或手动输入推导 flavor：
+      #   v1.0.3         -> stable（无后缀）
+      #   v1.0.4-beta.1  -> beta
+      #   v1.0.4-dev.1   -> dev
+      - name: Determine flavor from tag
+        id: flavor
+        run: |
+          if [ -n "${{ github.event.inputs.flavor }}" ]; then
+            FLAVOR="${{ github.event.inputs.flavor }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            if [[ "$TAG" == *"-beta."* ]]; then FLAVOR="beta"
+            elif [[ "$TAG" == *"-dev."* ]]; then FLAVOR="dev"
+            else FLAVOR="stable"; fi
+          else
+            FLAVOR="beta"
+          fi
+          echo "flavor=$FLAVOR" >> $GITHUB_OUTPUT
+          echo "Flavor: $FLAVOR"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -51,18 +76,19 @@ jobs:
           echo "keystore.password=${{ secrets.KEYSTORE_PASSWORD }}" >> app/keystore/signing.properties
 
       - name: Build Release APK
-        run: ./gradlew :app:assembleBetaRelease
+        run: ./gradlew :app:assemble${{ steps.flavor.outputs.flavor }}Release
 
       - name: Rename APK
         run: |
           VERSION="${{ steps.version.outputs.name }}"
+          FLAVOR="${{ steps.flavor.outputs.flavor }}"
           mkdir -p release-apks
           # Find the built APK (signed or unsigned)
-          APK=$(find app/build/outputs/apk/beta/release -name '*.apk' | head -1)
+          APK=$(find app/build/outputs/apk/${FLAVOR}/release -name '*.apk' | head -1)
           if [ -n "$APK" ]; then
             cp "$APK" release-apks/oc-beacon-${VERSION}.apk
           else
-            echo "::error::No APK found in app/build/outputs/apk/beta/release/"
+            echo "::error::No APK found in app/build/outputs/apk/${FLAVOR}/release/"
             exit 1
           fi
 
@@ -78,11 +104,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.name }}"
+          FLAVOR="${{ steps.flavor.outputs.flavor }}"
           TAG="v${VERSION}"
 
           # Create tag if it doesn't exist
           git tag $TAG || true
           git push origin $TAG || true
+
+          # 预发布标记：beta/dev 为 prerelease，stable 为正式版
+          PRERELEASE_FLAG=""
+          if [ "$FLAVOR" != "stable" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
 
           # Check if release already exists
           if gh release view $TAG > /dev/null 2>&1; then
@@ -90,15 +123,9 @@ jobs:
             gh release upload $TAG release-apks/*.apk --clobber
           else
             echo "Creating new release $TAG..."
-            if [ -f "RELEASE_NOTES_${VERSION}.md" ]; then
-              gh release create $TAG \
-                --title "${VERSION}" \
-                --notes-file "RELEASE_NOTES_${VERSION}.md" \
-                release-apks/*.apk
-            else
-              gh release create $TAG \
-                --title "${VERSION}" \
-                --generate-notes \
-                release-apks/*.apk
-            fi
+            gh release create $TAG \
+              --title "OC Beacon ${VERSION}" \
+              $PRERELEASE_FLAG \
+              --generate-notes \
+              release-apks/*.apk
           fi
