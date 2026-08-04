@@ -30,13 +30,13 @@ class TreeNodeTest {
 
         val result = buildTreeNodes(sessions, emptySet(), "/home/user")
 
-        // Should have directory nodes for /home, /home/user, /home/user/project-a
-        // None expanded, so only root-level
+        // 应有 /home、/home/user、/home/user/project-a 的目录节点
+        // 未展开任何节点，因此只有根层级
         assertTrue(result.isNotEmpty())
         val dirs = result.filterIsInstance<TreeNode.Directory>()
         assertTrue(dirs.isNotEmpty())
 
-        // No session nodes because nothing is expanded
+        // 没有会话节点，因为未展开任何节点
         val sessNodes = result.filterIsInstance<TreeNode.Session>()
         assertTrue(sessNodes.isEmpty())
     }
@@ -48,7 +48,7 @@ class TreeNodeTest {
             makeSession("s2", "/home/user/project-a"),
         )
 
-        // Expand all paths
+        // 展开所有路径
         val expanded = setOf("/home", "/home/user", "/home/user/project-a")
         val result = buildTreeNodes(sessions, expanded, null)
 
@@ -65,12 +65,12 @@ class TreeNodeTest {
             makeSession("s2", "/a/b"),
         )
 
-        // Only expand /a, not /a/b
+        // 只展开 /a，不展开 /a/b
         val expanded = setOf("/a")
         val result = buildTreeNodes(sessions, expanded, null)
 
         val sessNodes = result.filterIsInstance<TreeNode.Session>()
-        assertEquals(1, sessNodes.size) // only s1 (in /a), s2 not visible because /a/b not expanded
+        assertEquals(1, sessNodes.size) // 只有 s1（在 /a 中），s2 因 /a/b 未展开而不可见
         assertEquals("s1", sessNodes[0].id)
     }
 }

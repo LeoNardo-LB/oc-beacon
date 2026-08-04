@@ -45,8 +45,8 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Edit tool card — shows file path + diff with red/green colored lines.
- * Like WebUI: trigger = "Edit" + filename + DiffChanges, content = diff view.
+ * Edit 工具卡片 —— 显示文件路径 + 红/绿着色行的 diff。
+ * 与 WebUI 类似：trigger = "Edit" + 文件名 + DiffChanges，content = diff 视图。
  */
 @Composable
 internal fun EditToolCard(
@@ -63,7 +63,7 @@ internal fun EditToolCard(
     val oldString = input["oldString"]?.jsonPrimitive?.contentOrNull ?: ""
     val newString = input["newString"]?.jsonPrimitive?.contentOrNull ?: ""
 
-    // Try to get filediff from metadata (full file before/after)
+    // 尝试从元数据获取 filediff（完整文件 before/after）
     val metadata = when (val s = tool.state) {
         is ToolState.Completed -> s.metadata
         is ToolState.Running -> s.metadata
@@ -75,7 +75,7 @@ internal fun EditToolCard(
     val diffBefore = filediffBefore ?: oldString
     val diffAfter = filediffAfter ?: newString
 
-    // Compute additions/deletions using proper diff
+    // 使用正确的 diff 计算增删行数
     val diffLines = remember(diffBefore, diffAfter) {
         val beforeLines = if (diffBefore.isBlank()) emptyList() else diffBefore.lines()
         val afterLines = if (diffAfter.isBlank()) emptyList() else diffAfter.lines()

@@ -31,14 +31,14 @@ import dev.leonardo.ocbeacon.ui.screens.workspace.WorkspaceUiState
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Git changes panel: renders working-tree changes with per-status counts.
+ * Git 变更面板：渲染工作区变更并带各状态计数。
  *
- * Mirrors [dev.leonardo.ocbeacon.ui.screens.workspace.tree.FileTreePanel]'s
- * state structure (loading / non-git / error / empty / list) and shows one
- * [GitChangeItem] per change, separated by [HorizontalDivider]s.
+ * 镜像 [dev.leonardo.ocbeacon.ui.screens.workspace.tree.FileTreePanel] 的
+ * 状态结构（加载中 / 非 git 仓库 / 错误 / 空 / 列表），每项变更显示一个
+ * [GitChangeItem]，以 [HorizontalDivider] 分隔。
  *
- * Phase 1 scope: list + counts only. Diff-on-tap is wired through [onOpenDiff]
- * but the diff viewer itself lands in a later phase.
+ * Phase 1 范围：仅列表 + 计数。点击查看 diff 已通过 [onOpenDiff] 接通，
+ * 但 diff 查看器本身将在后续阶段实现。
  */
 @Composable
 fun GitChangesPanel(

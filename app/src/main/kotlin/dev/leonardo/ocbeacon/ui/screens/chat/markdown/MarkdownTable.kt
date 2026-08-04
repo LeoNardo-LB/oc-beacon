@@ -42,7 +42,7 @@ import dev.leonardo.ocbeacon.ui.theme.spacing
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
-/** Data class representing a parsed table row from the AST. */
+/** 表示从 AST 解析出的表格行的数据类。 */
 private data class TableRow(
     val isHeader: Boolean,
     val rowIndex: Int,
@@ -50,11 +50,11 @@ private data class TableRow(
 )
 
 /**
- * Table component — uniform column widths driven by the widest cell content.
+ * 表格组件——由最宽单元格内容驱动的统一列宽。
  *
- * Uses a custom [Layout] with [MeasurePolicy] to measure all cells in a
- * single pass, compute per-column max widths, and place them on a uniform
- * grid.  Horizontal scroll is enabled when the table exceeds the parent width.
+ * 使用带 [MeasurePolicy] 的自定义 [Layout] 在单次遍历中测量所有单元格，
+ * 计算每列的最大宽度，并将它们放置在统一网格上。
+ * 当表格超出父容器宽度时启用水平滚动。
  */
 @Composable
 internal fun SimpleMarkdownTable(
@@ -82,7 +82,7 @@ internal fun SimpleMarkdownTable(
     }
     if (columnCount == 0) return
 
-    // Collect structured row data from AST
+    // 从 AST 收集结构化的行数据
     val rows = remember(tableNode, content) {
         val list = mutableListOf<TableRow>()
         var rowIdx = 0

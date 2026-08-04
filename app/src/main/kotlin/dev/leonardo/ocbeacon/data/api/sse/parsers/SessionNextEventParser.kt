@@ -8,8 +8,8 @@ import kotlinx.serialization.json.*
 private const val TAG = "SseClient"
 
 /**
- * Parses session.next.* events via prefix matching.
- * Delegates to kotlinx.serialization with type discriminator.
+ * 通过前缀匹配解析 session.next.* 事件。
+ * 委托给 kotlinx.serialization 处理类型判别。
  */
 class SessionNextEventParser(private val json: Json) : SseEventParser {
 
@@ -23,16 +23,16 @@ class SessionNextEventParser(private val json: Json) : SseEventParser {
     }
 
     /**
-     * Parse a session.next.* event from type string and properties.
-     * Called when the SSE event type starts with "session.next.".
-     * Uses kotlinx.serialization Json to decode into the appropriate SessionNextEvent variant.
+     * 从类型字符串和属性解析 session.next.* 事件。
+     * 在 SSE 事件类型以 "session.next." 开头时调用。
+     * 使用 kotlinx.serialization 的 Json 解码为对应的 SessionNextEvent 变体。
      */
     fun parseSessionNextEvent(type: String, props: JsonObject): SessionNextEvent {
         return try {
-            // Inject the type into props so the discriminator can select the correct variant
+            // 将 type 注入 props，使判别器能选择正确的变体
             val propsWithType = JsonObject(props + ("type" to JsonPrimitive(type)))
             val result = json.decodeFromString<SessionNextEvent>(propsWithType.toString())
-            // Serializer routes unknown types to Unknown but doesn't populate rawType from "type"
+            // 序列化器将未知类型路由到 Unknown，但不会从 "type" 填充 rawType
             if (result is SessionNextEvent.Unknown && result.rawType.isEmpty()) {
                 result.copy(rawType = type, rawJson = props.toString())
             } else {

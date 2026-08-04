@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Domain model for compaction state.
- * Counterpart of data.repository.handler.CompactionStateInfo.
+ * 压缩状态的领域模型。
+ * 对应 data.repository.handler.CompactionStateInfo。
  */
 data class CompactionStateInfo(
     val isActive: Boolean,

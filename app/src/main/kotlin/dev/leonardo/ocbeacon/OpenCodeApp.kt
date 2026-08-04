@@ -33,7 +33,7 @@ private const val MAX_LOG_FILES = 10
 
 /**
  * OC Beacon Application
- * Entry point for Hilt dependency injection
+ * Hilt 依赖注入的入口
  */
 @HiltAndroidApp
 class OpenCodeApp : Application() {
@@ -45,7 +45,7 @@ class OpenCodeApp : Application() {
 
         DebugLogger.init(this)
 
-        // ---- Initialize persistent diagnostic logging ----
+        // ---- 初始化持久化诊断日志 ----
         val diagnosticRepo = EntryPointAccessors.fromApplication(
             this,
             DiagnosticLogEntryPoint::class.java,
@@ -56,10 +56,10 @@ class OpenCodeApp : Application() {
 
         val crashDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), CRASH_DIR)
 
-        // ---- Global uncaught exception handler ----
+        // ---- 全局未捕获异常处理器 ----
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            // Persist crash to diagnostic database before the process dies
+            // 在进程死亡前将崩溃持久化到诊断数据库
             runCatching { AppLogger.recordCrash(thread, throwable) }
             try {
                 crashDir.mkdirs()
@@ -88,7 +88,7 @@ class OpenCodeApp : Application() {
                     }
                 })
 
-                // Prune old logs, keep only the newest MAX_LOG_FILES
+                // 清理旧日志，仅保留最新的 MAX_LOG_FILES 个
                 crashDir.listFiles()
                     ?.filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }
                     ?.sortedByDescending { it.name }
@@ -98,7 +98,7 @@ class OpenCodeApp : Application() {
                 Log.e(TAG, "Failed to write crash log", e)
             }
 
-            // Restart main Activity with crash info
+            // 携带崩溃信息重启主 Activity
             try {
                 val intent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
                     addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -116,14 +116,14 @@ class OpenCodeApp : Application() {
             defaultHandler?.uncaughtException(thread, throwable)
         }
 
-        // ---- Notify user on next launch if crash logs exist ----
+        // ---- 若存在崩溃日志，则在下次启动时通知用户 ----
         val hasUnreadCrash = crashDir.listFiles()
             ?.any { it.name.startsWith("crash_") && it.name.endsWith(".txt") } == true
         if (hasUnreadCrash) {
             Toast.makeText(this, "崩溃日志在 Download/$CRASH_DIR/", Toast.LENGTH_LONG).show()
         }
 
-        // Track app foreground/background for notification suppression
+        // 跟踪应用前台/后台状态，用于通知抑制
         val focusHolder = EntryPointAccessors.fromApplication(
             this,
             SessionFocusEntryPoint::class.java

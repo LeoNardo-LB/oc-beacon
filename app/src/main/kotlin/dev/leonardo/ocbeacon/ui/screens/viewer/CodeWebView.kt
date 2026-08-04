@@ -64,11 +64,11 @@ private class SelectionBridge {
 }
 
 /**
- * WebView subclass that injects "Annotate" into the native text selection
- * ActionMode toolbar (alongside Copy / Select all).
+ * 把"批注"注入到原生文本选择 ActionMode 工具栏（与 复制 / 全选 并列）的
+ * WebView 子类。
  *
- * Click handled by matching item TITLE (not itemId) because Android WebView's
- * internal ActionMode may reassign or not dispatch custom itemIds.
+ * 点击通过匹配 item 标题（而非 itemId）处理，因为 Android WebView 的
+ * 内部 ActionMode 可能重新分配或不派发自定义 itemId。
  */
 private class AnnotateWebView(
     context: Context,
@@ -83,7 +83,7 @@ private class AnnotateWebView(
         super.onScrollChanged(l, t, oldl, oldt)
         if (onLoadMore == null) return
         val contentH = contentHeight
-        // Trigger load-more when within 300px of the bottom
+        // 距底部 300px 以内时触发加载更多
         if (contentH > 0 && t + height >= contentH - 300) {
             removeCallbacks(loadMoreRunnable)
             postDelayed(loadMoreRunnable, 400)
@@ -169,15 +169,15 @@ fun CodeWebView(
     val escapedContent = remember(content) {
         content.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
     }
-    // Escape single quotes and backslashes in JSON so it doesn't break the JS string literal
+    // 转义 JSON 中的单引号和反斜杠，避免破坏 JS 字符串字面量
     val safeAnnotationsJson = remember(annotationsJson) {
         annotationsJson.replace("\\", "\\\\").replace("'", "\\'")
     }
 
-    // rememberUpdatedState: factory's onPageFinished reads these .value refs
-    // to always get the LATEST content, not the stale factory-closure capture.
-    // Without this, onPageFinished applies the content from the first composition,
-    // which may differ from the current content if the ViewModel updated mid-load.
+    // rememberUpdatedState：factory 的 onPageFinished 通过读取这些 .value 引用
+    // 始终拿到最新内容，而非陈旧的 factory 闭包捕获值。
+    // 没有这一步，onPageFinished 会应用首次组合时的内容，
+    // 若 ViewModel 在加载中途更新，内容可能与当前内容不一致。
     val currentEscaped = rememberUpdatedState(escapedContent)
     val currentLang = rememberUpdatedState(language)
     val currentDark = rememberUpdatedState(isDark)
@@ -189,7 +189,7 @@ fun CodeWebView(
     bridge.annotationClickCallback = onAnnotationClick
 
     var webViewRef: AnnotateWebView? = null
-    // Track last-applied values to avoid unnecessary DOM rebuilds during scroll
+    // 跟踪上次应用的值，避免滚动时不必要的 DOM 重建
     var lastEscaped by remember { mutableStateOf("") }
     var lastIsDark by remember { mutableStateOf(!isDark) }
     var lastJson by remember { mutableStateOf("") }
@@ -222,7 +222,7 @@ fun CodeWebView(
                 setBackgroundColor(bgColorArgb)
                 addJavascriptInterface(bridge, "AndroidBridge")
 
-                // Capture JS console.log → DebugLogger for annotation click diagnosis
+                // 捕获 JS console.log → DebugLogger，用于诊断批注点击
                 webChromeClient = object : android.webkit.WebChromeClient() {
                     override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage): Boolean {
                         DebugLogger.log(TAG, "JS: ${consoleMessage.message()}")
@@ -233,8 +233,8 @@ fun CodeWebView(
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         pageLoaded = true
-                        // Use rememberUpdatedState refs — guarantees the LATEST content
-                        // even if the ViewModel updated between factory creation and now.
+                        // 使用 rememberUpdatedState 引用 — 即使 ViewModel
+                        // 在 factory 创建到现在之间更新过，也保证拿到最新内容。
                         val ec = currentEscaped.value
                         val lang = currentLang.value
                         val dark = currentDark.value
@@ -250,7 +250,7 @@ fun CodeWebView(
                         if (json.isNotBlank() && json != "[]") {
                             view?.evaluateJavascript("applyAnnotations('$json');", null)
                         }
-                        // Sync tracking vars so the next update() doesn't re-apply redundantly
+                        // 同步跟踪变量，避免下次 update() 重复应用
                         lastEscaped = ec
                         lastIsDark = dark
                         lastJson = json
@@ -267,13 +267,13 @@ fun CodeWebView(
         update = { webView ->
             webView.visibility = if (visible) View.VISIBLE else View.GONE
             webView.post {
-                // Skip JS calls until the HTML page has loaded (onPageFinished).
-                // Before that, setCode/setTheme don't exist → evaluateJavascript
-                // silently fails. onPageFinished handles the initial content apply.
+                // 在 HTML 页面加载完成（onPageFinished）之前跳过 JS 调用。
+                // 此前 setCode/setTheme 不存在 → evaluateJavascript
+                // 会静默失败。onPageFinished 负责首次内容应用。
                 if (!pageLoaded) return@post
 
-                // Only update WebView when content actually changes — avoids
-                // rebuilding DOM during scroll (caused scroll jump/flicker)
+                // 仅当内容确实变化时才更新 WebView — 避免
+                // 滚动时重建 DOM（曾导致滚动跳动/闪烁）
                 if (escapedContent != lastEscaped) {
                     lastEscaped = escapedContent
                     webView.evaluateJavascript(

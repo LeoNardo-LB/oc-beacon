@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.ui.navigation.routes
 
 /**
- * Navigation route definition for the Settings screen.
- * No parameters.
+ * 设置页的导航路由定义。
+ * 无参数。
  */
 object SettingsNav {
     const val route = "settings"

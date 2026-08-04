@@ -28,8 +28,8 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * A single directory row in the browser.
- * Tap to select. Has a chevron to navigate into the directory.
+ * 浏览器中的单个目录行。
+ * 点击选中。带一个箭头图标用于进入该目录。
  */
 @Composable
 internal fun DirectoryRow(
@@ -37,7 +37,7 @@ internal fun DirectoryRow(
     onClick: () -> Unit,
     onNavigate: (() -> Unit)? = null
 ) {
-    // Split into parent + leaf for styling
+    // 拆分为父路径 + 叶子节点，便于样式处理
     val trimmed = displayPath.trimEnd('/')
     val lastSlash = trimmed.lastIndexOf('/')
     val parent = if (lastSlash > 0) trimmed.substring(0, lastSlash + 1) else ""

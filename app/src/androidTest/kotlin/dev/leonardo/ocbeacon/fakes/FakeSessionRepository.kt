@@ -89,7 +89,7 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
     val renameCalls = mutableListOf<Triple<String, String, String>>()
     val createdSessions = mutableListOf<Pair<String, CreateSessionOpts>>()
 
-    // ============ State Observations ============
+    // ============ 状态观察 ============
 
     override fun getSessionsFlow(serverId: String): Flow<List<Session>> = sessionsState
 
@@ -108,7 +108,7 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
 
     override suspend fun getSession(serverId: String, sessionId: String): Result<Session> = getSessionResult
 
-    // ============ Session Lifecycle ============
+    // ============ 会话生命周期 ============
 
     override suspend fun abort(serverId: String, sessionId: String, directory: String?): Result<Unit> {
         abortCalls.add(serverId to sessionId)
@@ -122,13 +122,13 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
 
     override suspend fun fork(serverId: String, sessionId: String): Result<Session> = forkResult
 
-    // ============ Archive ============
+    // ============ 归档 ============
 
     override suspend fun archive(serverId: String, sessionId: String): Result<Session> = archiveResult
 
     override suspend fun unarchive(serverId: String, sessionId: String): Result<Session> = unarchiveResult
 
-    // ============ Share / Export ============
+    // ============ 分享 / 导出 ============
 
     override suspend fun shareSession(serverId: String, sessionId: String): Result<Session> = shareResult
 
@@ -148,11 +148,11 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
         onProgress: (Long) -> Unit
     ): Result<Unit> = exportResult
 
-    // ============ Import ============
+    // ============ 导入 ============
 
     override suspend fun importSession(serverId: String, shareUrl: String): Result<Session> = importResult
 
-    // ============ Message Operations ============
+    // ============ 消息操作 ============
 
     override suspend fun deleteMessage(serverId: String, sessionId: String, messageId: String): Result<Boolean> =
         deleteMessageResult
@@ -167,19 +167,19 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
     override suspend fun listMessages(serverId: String, sessionId: String, limit: Int): Result<List<MessageWithParts>> =
         listMessagesResult
 
-    // ============ Current Agent/Model ============
+    // ============ 当前 Agent/Model ============
 
     override fun getCurrentAgentFlow(serverId: String): Flow<Map<String, String>> = currentAgentFlow
 
     override fun getCurrentModelFlow(serverId: String): Flow<Map<String, Pair<String, String>>> = currentModelFlow
 
-    // ============ Write Operations ============
+    // ============ 写操作 ============
 
     override fun setSessions(serverId: String, sessions: List<Session>) {
         sessionsState.value = sessions
     }
 
-    // ============ Session Status Sync ============
+    // ============ 会话状态同步 ============
 
     override suspend fun fetchSessionStatuses(serverId: String, directory: String?): Result<Map<String, SessionStatus>> =
         fetchStatusesResult

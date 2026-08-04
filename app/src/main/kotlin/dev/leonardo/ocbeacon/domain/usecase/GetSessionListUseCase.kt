@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 /**
- * Use case: observe session list for a specific server.
- * Used by Phase 4 SessionListViewModel.
+ * Use Case：观察指定服务器的会话列表。
+ * 供 Phase 4 SessionListViewModel 使用。
  */
 class GetSessionListUseCase @Inject constructor(
     private val sessionRepository: SessionRepository

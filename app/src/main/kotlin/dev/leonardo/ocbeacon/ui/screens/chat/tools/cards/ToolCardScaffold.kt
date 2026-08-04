@@ -54,23 +54,23 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.launch
 
 /**
- * Shared scaffold for all tool cards.
- * Encapsulates the common Surface + title row + expand pattern.
+ * 所有工具卡片共用的脚手架。
+ * 封装通用的 Surface + 标题行 + 展开模式。
  *
- * @param icon Leading icon (16dp)
- * @param iconTint Tint for the leading icon
- * @param title Title text (used when [titleContent] is null)
- * @param copyText Text copied to clipboard via the built-in copy button. Blank hides the button.
- * @param isExpanded Current expand state
- * @param isRunning Whether the tool is currently running (shows pulsing dots)
- * @param hasContent Whether there is content to show (controls right-side visibility + animation)
- * @param isAmoled AMOLED theme flag
- * @param onToggleExpand Callback when title row is clicked (default expand toggle)
- * @param onClick Optional override for the title row click. If null, uses onToggleExpand.
- * @param rightSideExtras Extra composables on the right side of the title row (e.g. DiffChangesInline)
- * @param titleContent Optional custom title content. If null, a simple icon + text row is used.
- * @param expandedContent Content shown when expanded
- * @param showExpandIcon Whether to show the expand/collapse chevron icon. Default true.
+ * @param icon 前导图标（16dp）
+ * @param iconTint 前导图标的着色
+ * @param title 标题文本（[titleContent] 为 null 时使用）
+ * @param copyText 通过内置复制按钮复制到剪贴板的文本。为空则隐藏按钮。
+ * @param isExpanded 当前展开状态
+ * @param isRunning 工具当前是否在运行（显示脉冲圆点）
+ * @param hasContent 是否有内容要显示（控制右侧可见性与动画）
+ * @param isAmoled AMOLED 主题标志
+ * @param onToggleExpand 标题行被点击时的回调（默认展开切换）
+ * @param onClick 标题行点击的可选覆盖。为 null 时使用 onToggleExpand。
+ * @param rightSideExtras 标题行右侧的额外 composable（如 DiffChangesInline）
+ * @param titleContent 可选的自定义标题内容。为 null 时使用简单的图标 + 文本行。
+ * @param expandedContent 展开时显示的内容
+ * @param showExpandIcon 是否显示展开/折叠 chevron 图标。默认 true。
  */
 @Composable
 internal fun ToolCardScaffold(
@@ -105,13 +105,13 @@ internal fun ToolCardScaffold(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(4.dp)) {
-            // Title row
+            // 标题行
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: icon + title (clickable for expand/collapse)
+                // 左侧：图标 + 标题（点击展开/折叠）
                 if (titleContent != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -150,7 +150,7 @@ internal fun ToolCardScaffold(
                         )
                     }
                 }
-                // Right: extras + (running indicator OR copy + expand)
+                // 右侧：额外内容 +（运行指示器 或 复制 + 展开）
                 if (isRunning) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -168,11 +168,11 @@ internal fun ToolCardScaffold(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        // 1. Left extras (diff changes indicator)
+                        // 1. 左侧额外内容（diff 变更指示器）
                         rightSideExtras?.invoke(this)
-                        // 2. Trailing extras (open-file button)
+                        // 2. 尾部额外内容（打开文件按钮）
                         trailingExtras?.invoke(this)
-                        // 3. Copy button
+                        // 3. 复制按钮
                         if (copyText.isNotBlank()) {
                             IconButton(
                                 onClick = {
@@ -191,7 +191,7 @@ internal fun ToolCardScaffold(
                                 )
                             }
                         }
-                        // 4. Expand/collapse icon (rightmost)
+                        // 4. 展开/折叠图标（最右侧）
                         if (showExpandIcon) {
                             Icon(
                                 imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -204,7 +204,7 @@ internal fun ToolCardScaffold(
                 }
             }
 
-            // Expanded content
+            // 展开的内容
             AnimatedVisibility(
                 visible = expanded && hasContent,
                 enter = fadeIn() + expandVertically(),
@@ -217,9 +217,9 @@ internal fun ToolCardScaffold(
 }
 
 /**
- * Open-file icon button for tool cards that reference a file.
- * Mirrors the copy button's size/tint so it sits consistently beside it.
- * Place inside a card's [ToolCardScaffold.rightSideExtras] slot.
+ * 引用文件的工具卡片的打开文件图标按钮。
+ * 镜像复制按钮的尺寸/着色，使其在旁边保持一致。
+ * 放在卡片的 [ToolCardScaffold.rightSideExtras] 槽位中。
  */
 @Composable
 internal fun RowScope.OpenFileIconButton(

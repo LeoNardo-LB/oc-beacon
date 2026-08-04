@@ -36,13 +36,13 @@ import dev.leonardo.ocbeacon.ui.theme.DiffRemoved
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Renders the unified diff [FileViewerUiState.diff] patch with optional hunk navigation.
+ * 渲染 unified diff [FileViewerUiState.diff] 补丁，带可选的 hunk 导航。
  *
- * D4-005: scrolls directly to [DiffHunk.patchStartLineIndex] instead of reverse-looking-up
- * the line by content, which is both slower and fragile against duplicate hunk headers.
+ * D4-005：直接滚动到 [DiffHunk.patchStartLineIndex]，而非按内容反查行号 ——
+ * 后者既慢又对重复的 hunk 头部很脆弱。
  *
- * D3-005: line colors derive from [DiffAdded]/[DiffRemoved] + [AlphaTokens.DIFF_BG]; there are
- * no `DiffAddedBg`/`DiffAddedFg` tokens (they do not exist in the theme).
+ * D3-005：行颜色派生自 [DiffAdded]/[DiffRemoved] + [AlphaTokens.DIFF_BG]；
+ * 不存在 `DiffAddedBg`/`DiffAddedFg` 这类 token（主题中没有定义）。
  */
 @Composable
 fun DiffView(

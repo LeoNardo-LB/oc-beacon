@@ -3,15 +3,15 @@ package dev.leonardo.ocbeacon.ui.screens.workspace
 import dev.leonardo.ocbeacon.domain.model.isDirectory
 
 /**
- * Flattens the file tree into a (node, depth) list for [androidx.compose.foundation.lazy.LazyColumn] rendering.
+ * 将文件树扁平化为 (node, depth) 列表，用于 [androidx.compose.foundation.lazy.LazyColumn] 渲染。
  *
- * Only descends into directories whose [dev.leonardo.ocbeacon.domain.model.FileNode.path] is in [expandedDirs].
- * Ignored nodes are filtered out unless [showIgnored] is true.
+ * 仅下钻到 [dev.leonardo.ocbeacon.domain.model.FileNode.path] 位于 [expandedDirs] 中的目录。
+ * 除非 [showIgnored] 为 true，否则被忽略的节点会被过滤掉。
  *
- * @param nodes       tree root (or sub-tree) to flatten
- * @param expandedDirs set of directory paths that are currently expanded
- * @param showIgnored if false, nodes with [dev.leonardo.ocbeacon.domain.model.FileNode.ignored] = true are skipped
- * @param depth       current indentation depth (0 for root)
+ * @param nodes         需要扁平化的树根（或子树）
+ * @param expandedDirs  当前已展开的目录路径集合
+ * @param showIgnored   若为 false，跳过 [dev.leonardo.ocbeacon.domain.model.FileNode.ignored] = true 的节点
+ * @param depth         当前缩进深度（根节点为 0）
  */
 internal fun flattenTree(
     nodes: List<FileTreeNode>,
@@ -32,14 +32,14 @@ internal fun flattenTree(
     }
 
 /**
- * Returns a new tree where the node at [path] has its [children] replaced.
+ * 返回一棵新树，其中 [path] 处的节点其 [children] 已被替换。
  *
- * Recursively searches all directories that already have non-null children.
- * Returns the original list unchanged if [path] is not found or lies behind
- * a node whose children have not been loaded yet (null).
+ * 递归搜索所有已具有非空 children 的目录。
+ * 若未找到 [path]，或 [path] 位于 children 尚未加载（null）的节点之后，
+ * 则原样返回原始列表。
  *
- * @param path     the [dev.leonardo.ocbeacon.domain.model.FileNode.path] of the target directory node
- * @param children new children list to assign
+ * @param path     目标目录节点的 [dev.leonardo.ocbeacon.domain.model.FileNode.path]
+ * @param children 要赋给目标节点的新 children 列表
  */
 internal fun List<FileTreeNode>.withChildren(
     path: String,

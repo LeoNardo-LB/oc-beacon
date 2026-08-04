@@ -10,40 +10,40 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * Centralized button style tokens.
+ * 集中式按钮样式令牌。
  *
- * Usage:
+ * 用法：
  * ```kotlin
- * // Primary (Filled Button)
+ * // 主要（填充按钮）
  * Button(colors = ButtonTokens.filledColors(), border = ButtonTokens.amoledBorder())
  *
- * // Secondary (OutlinedButton — no custom colors needed)
- * OutlinedButton() // use Material 3 defaults
+ * // 次要（OutlinedButton — 无需自定义颜色）
+ * OutlinedButton() // 使用 Material 3 默认值
  *
- * // Danger (Filled Button with error color)
+ * // 危险（使用 error 色的填充按钮）
  * Button(colors = ButtonTokens.dangerColors(), border = ButtonTokens.amoledBorder())
  * ```
  */
 object ButtonTokens {
 
-    // ── Content Padding ──────────────────────────────────────────────
+    // ── 内容内边距 ──────────────────────────────────────────────
 
-    /** Compact vertical padding for full-width stacked buttons (3+ in a Column). */
+    /** 紧凑垂直内边距，用于全宽堆叠按钮（Column 中 3 个及以上）。 */
     val CompactPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
 
-    /** Spacing between stacked full-width buttons in a Column. */
+    /** Column 中全宽堆叠按钮之间的间距。 */
     const val StackSpacing = 4
 
-    /** Spacing between inline buttons in a Row. */
+    /** Row 中内联按钮之间的间距。 */
     const val RowSpacing = 8
 
-    // ── Filled Button Colors (Primary) ────────────────────────────────
+    // ── 填充按钮颜色（主要） ────────────────────────────────
 
     /**
-     * Colors for [Button] (Filled) for Primary actions.
+     * 用于主要操作 [Button]（填充）的颜色。
      *
-     * - **Light / Dark**: Material 3 default (`primary`/`onPrimary`).
-     * - **AMOLED**: Black container + primary content.
+     * - **浅色 / 深色**：Material 3 默认值（`primary`/`onPrimary`）。
+     * - **AMOLED**：黑色容器 + primary 内容色。
      */
     @Composable
     fun filledColors(): ButtonColors {
@@ -58,13 +58,13 @@ object ButtonTokens {
         }
     }
 
-    // ── Danger Filled Button Colors ───────────────────────────────────
+    // ── 危险填充按钮颜色 ───────────────────────────────────
 
     /**
-     * Colors for danger [Button] (delete / destructive).
+     * 用于危险 [Button]（删除 / 破坏性操作）的颜色。
      *
-     * - **Light / Dark**: `error` / `onError` (Material 3 error).
-     * - **AMOLED**: Black container + error content.
+     * - **浅色 / 深色**：`error` / `onError`（Material 3 error）。
+     * - **AMOLED**：黑色容器 + error 内容色。
      */
     @Composable
     fun dangerColors(): ButtonColors {
@@ -82,13 +82,13 @@ object ButtonTokens {
         }
     }
 
-    // ── AMOLED Border ────────────────────────────────────────────────
+    // ── AMOLED 边框 ────────────────────────────────────────────
 
     /**
-     * Border for buttons adapted to the current theme.
+     * 适配当前主题的按钮边框。
      *
-     * - **AMOLED**: 1dp primary border with [AlphaTokens.HIGH] alpha.
-     * - **Light / Dark**: `null` (no border).
+     * - **AMOLED**：1dp primary 边框，使用 [AlphaTokens.HIGH] 透明度。
+     * - **浅色 / 深色**：`null`（无边框）。
      */
     @Composable
     fun amoledBorder(): BorderStroke? {

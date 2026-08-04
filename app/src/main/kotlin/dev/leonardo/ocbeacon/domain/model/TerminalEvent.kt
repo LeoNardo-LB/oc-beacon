@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Domain model for PTY terminal stream events.
- * Represents data flowing through the WebSocket PTY connection.
+ * PTY 终端流事件的领域模型。
+ * 表示通过 WebSocket PTY 连接传输的数据。
  */
 sealed class TerminalEvent {
     data class Output(val data: String) : TerminalEvent()

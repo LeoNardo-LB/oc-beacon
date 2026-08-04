@@ -14,8 +14,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Manages permission auto-approve rules persisted in DataStore.
- * Checks incoming [SseEvent.PermissionAsked] events against saved rules.
+ * 管理持久化在 DataStore 中的权限自动批准规则。
+ * 将传入的 [SseEvent.PermissionAsked] 事件与已保存规则进行匹配。
  */
 @Singleton
 class PermissionAutoApprover @Inject constructor(
@@ -26,7 +26,7 @@ class PermissionAutoApprover @Inject constructor(
         private val json = Json { ignoreUnknownKeys = true }
     }
 
-    /** Load all saved rules from DataStore. */
+    /** 从 DataStore 加载所有已保存的规则。 */
     suspend fun loadRules(): Set<AutoApproveRule> {
         return dataStore.data.map { prefs ->
             val jsonStrings = prefs[KEY_RULES] ?: emptySet()
@@ -34,13 +34,13 @@ class PermissionAutoApprover @Inject constructor(
         }.first()
     }
 
-    /** Check if an event matches any saved rule. */
+    /** 检查事件是否匹配任一已保存规则。 */
     suspend fun shouldAutoApprove(event: SseEvent.PermissionAsked, sessionDirectory: String): Boolean {
         val rules = loadRules()
         return rules.any { it.matches(event, sessionDirectory) }
     }
 
-    /** Persist a new rule (user chose "always"). */
+    /** 持久化新规则（用户选择了"总是"）。 */
     suspend fun addRule(rule: AutoApproveRule) {
         dataStore.edit { prefs ->
             val existing = prefs[KEY_RULES] ?: emptySet()
@@ -49,7 +49,7 @@ class PermissionAutoApprover @Inject constructor(
         }
     }
 
-    /** Remove a rule. */
+    /** 移除规则。 */
     suspend fun removeRule(rule: AutoApproveRule) {
         dataStore.edit { prefs ->
             val existing = prefs[KEY_RULES] ?: emptySet()
@@ -58,7 +58,7 @@ class PermissionAutoApprover @Inject constructor(
         }
     }
 
-    /** Clear all rules. */
+    /** 清除所有规则。 */
     suspend fun clearAll() {
         dataStore.edit { prefs ->
             prefs.remove(KEY_RULES)

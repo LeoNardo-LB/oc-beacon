@@ -6,17 +6,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.connectbot.terminal.ModifierManager
 
 /**
- * Bridges the toolbar's Ctrl/Alt latch buttons to termlib's [ModifierManager].
+ * 将工具栏的 Ctrl/Alt 锁定按钮桥接到 termlib 的 [ModifierManager]。
  *
- * The toolbar in ChatTerminalView exposes latch buttons (tap to toggle on,
- * tap again to release, or auto-release after the next keystroke). termlib's
- * Terminal composable accepts a [ModifierManager] that it consults when
- * dispatching keys — so driving this object's state from the toolbar buttons
- * makes the latch semantics work without us intercepting every KeyEvent.
+ * ChatTerminalView 中的工具栏暴露了锁定按钮（点击切换为开启，
+ * 再次点击释放，或在下一次按键后自动释放）。termlib 的
+ * Terminal composable 接受一个 [ModifierManager]，在派发按键时会查询它——
+ * 因此从工具栏按钮驱动此对象的状态即可实现锁定语义，
+ * 无需我们拦截每一个 KeyEvent。
  *
- * "Transient" modifiers (per termlib's contract) are cleared after a single
- * key dispatch. We treat latched Ctrl/Alt as transient so a toolbar tap
- * affects exactly one keystroke, matching the old behavior.
+ * "瞬时"修饰键（按 termlib 的约定）在单次按键派发后清除。
+ * 我们将锁定的 Ctrl/Alt 视为瞬时的，使一次工具栏点击
+ * 恰好影响一次按键，与旧行为一致。
  */
 class TermlibModifierManager : ModifierManager {
     private val _ctrlActive = MutableStateFlow(false)
@@ -39,9 +39,9 @@ class TermlibModifierManager : ModifierManager {
     override fun isShiftActive(): Boolean = _shiftActive.value
 
     /**
-     * Called by termlib after a key dispatch. We clear latched Ctrl/Alt so
-     * the toolbar visually returns to the inactive state after one keystroke.
-     * Shift is preserved (it behaves like a held shift in most terminals).
+     * 由 termlib 在按键派发后调用。我们清除锁定的 Ctrl/Alt，
+     * 使工具栏在一次按键后视觉上回到非激活状态。
+     * Shift 保留（在大多数终端中它表现得像按住的 shift）。
      */
     override fun clearTransients() {
         _ctrlActive.value = false

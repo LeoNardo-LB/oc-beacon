@@ -47,7 +47,7 @@ fun NotificationsSection(viewModel: SettingsViewModel) {
         modifier = Modifier.clickable { viewModel.setNotificationsEnabled(!notificationsEnabled) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Silent notifications
+    // 静默通知
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_silent_notifications)) },
         supportingContent = { Text(stringResource(R.string.settings_silent_notifications_desc)) },

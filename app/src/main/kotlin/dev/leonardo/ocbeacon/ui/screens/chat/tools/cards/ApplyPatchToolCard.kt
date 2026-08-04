@@ -22,8 +22,8 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * ApplyPatch tool card — shows file path + diff preview.
- * Uses the existing [DiffView] component for rendering.
+ * ApplyPatch 工具卡片 —— 显示文件路径 + diff 预览。
+ * 使用现有的 [DiffView] 组件进行渲染。
  */
 @Composable
 internal fun ApplyPatchToolCard(
@@ -37,7 +37,7 @@ internal fun ApplyPatchToolCard(
     val output = extractToolOutput(tool)
     val isRunning = tool.state is ToolState.Running
 
-    // Extract diff content from metadata or input
+    // 从元数据或输入中提取 diff 内容
     val diffContent = remember(tool.state) {
         val completed = tool.state as? ToolState.Completed
         val meta = completed?.metadata

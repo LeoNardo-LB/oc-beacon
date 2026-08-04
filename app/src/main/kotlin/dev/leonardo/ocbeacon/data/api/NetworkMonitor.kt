@@ -13,31 +13,31 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Network connectivity state.
+ * 网络连接状态。
  */
 sealed class NetworkState {
-    /** Network is connected and available. */
+    /** 网络已连接且可用。 */
     data object Available : NetworkState()
 
-    /** Network is about to be lost (grace period). */
+    /** 网络即将丢失（宽限期）。 */
     data object Losing : NetworkState()
 
-    /** Network has been lost. */
+    /** 网络已丢失。 */
     data object Lost : NetworkState()
 
-    /** No network is available at all. */
+    /** 完全没有可用网络。 */
     data object Unavailable : NetworkState()
 
-    /** Convenience check for connected state. */
+    /** 是否处于已连接状态的便捷判断。 */
     val isOnline: Boolean
         get() = this is Available
 }
 
 /**
- * Monitors network connectivity state via [ConnectivityManager].
+ * 通过 [ConnectivityManager] 监控网络连接状态。
  *
- * Exposes a [StateFlow]<[NetworkState]> that can be observed by ViewModels
- * and services to react to network changes.
+ * 暴露一个可被 ViewModel 和服务观察、以响应网络变化的
+ * [StateFlow]<[NetworkState]>。
  */
 @Singleton
 class NetworkMonitor @Inject constructor(
@@ -51,14 +51,14 @@ class NetworkMonitor @Inject constructor(
 
     private val _networkState = MutableStateFlow<NetworkState>(detectInitialState())
 
-    /** Observable network state. */
+    /** 可观察的网络状态。 */
     val networkState: StateFlow<NetworkState> = _networkState.asStateFlow()
 
     private var callback: ConnectivityManager.NetworkCallback? = null
 
     /**
-     * Start monitoring network changes. Call once during service/init.
-     * Idempotent — calling multiple times is safe.
+     * 开始监控网络变化。在 service/init 期间调用一次。
+     * 幂等——多次调用是安全的。
      */
     fun startMonitoring() {
         if (callback != null) return
@@ -106,12 +106,12 @@ class NetworkMonitor @Inject constructor(
         connectivityManager.registerNetworkCallback(networkRequest, cb)
         callback = cb
 
-        // Set initial state immediately
+        // 立即设置初始状态
         _networkState.value = detectInitialState()
     }
 
     /**
-     * Stop monitoring. Call during service teardown.
+     * 停止监控。在 service 销毁时调用。
      */
     fun stopMonitoring() {
         callback?.let { connectivityManager.unregisterNetworkCallback(it) }

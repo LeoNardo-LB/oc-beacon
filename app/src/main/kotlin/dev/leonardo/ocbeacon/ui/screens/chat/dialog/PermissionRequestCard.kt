@@ -57,7 +57,7 @@ internal fun PermissionCard(
     var submitted by remember(permission.id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // Use error-container colors to signal security sensitivity (distinct from Question's tertiary)
+    // 使用 error-container 颜色以表示安全敏感性（与 Question 的 tertiary 区分）
     val containerColor = MaterialTheme.colorScheme.errorContainer
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onErrorContainer
     val accentTint = if (isAmoled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.error
@@ -74,7 +74,7 @@ internal fun PermissionCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Header row: security icon + "Permission Request" title
+            // 头部行：安全图标 + "权限请求"标题
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -108,7 +108,7 @@ internal fun PermissionCard(
                     )
                 }
             }
-            // Sub-agent source label (shown when permission comes from a child session)
+            // 子 agent 来源标签（当权限请求来自子会话时显示）
             if (permission.sourceSessionTitle != null) {
                 Text(
                     text = permission.sourceSessionTitle,
@@ -116,13 +116,13 @@ internal fun PermissionCard(
                     color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
                 )
             }
-            // Permission description
+            // 权限描述
             Text(
                 text = permission.permission,
                 style = MaterialTheme.typography.bodySmall,
                 color = contentColor
             )
-            // File patterns (if any)
+            // 文件模式（如果有）
             if (permission.patterns.isNotEmpty()) {
                 Text(
                     text = permission.patterns.joinToString(", "),
@@ -134,7 +134,7 @@ internal fun PermissionCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            // Action buttons
+            // 操作按钮
             DialogButtons(
                 buttons = listOf(
                     Triple(stringResource(R.string.permission_deny), DialogButtonRole.Danger) {
@@ -152,8 +152,8 @@ internal fun PermissionCard(
                     Triple(stringResource(R.string.permission_allow_always), DialogButtonRole.Secondary) {
                         if (!submitted) {
                             performHaptic(hapticView, hapticOn); onAlways()
-                            // Don't set submitted=true here — onAlways opens a confirmation dialog.
-                            // submitted is set when the user actually confirms (onConfirm in AlwaysConfirmDialog).
+                            // 此处不设置 submitted=true —— onAlways 会打开确认对话框。
+                            // submitted 在用户实际确认时设置（onConfirm in AlwaysConfirmDialog）。
                         }
                     },
                 )

@@ -5,10 +5,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Handles [SseEvent.MessageRemoved].
+ * 处理 [SseEvent.MessageRemoved]。
  *
- * Delegates to the shared [MessageEventHandler] state store, which removes the
- * message and clears its parts and `assistantMessageIds` entry.
+ * 委托给共享的 [MessageEventHandler] 状态存储，它移除消息
+ * 并清除其 part 和 `assistantMessageIds` 条目。
  */
 @Singleton
 class MessageRemovedHandler @Inject constructor(

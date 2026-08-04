@@ -56,7 +56,7 @@ internal fun ModelPickerDialog(
         return model.costInput == 0.0
     }
 
-    // Sort providers: "opencode" first, then by name
+    // 提供商排序："opencode" 在前，然后按名称排序
     val sortedProviders = remember(providers) {
         providers
             .filter { it.models.isNotEmpty() }

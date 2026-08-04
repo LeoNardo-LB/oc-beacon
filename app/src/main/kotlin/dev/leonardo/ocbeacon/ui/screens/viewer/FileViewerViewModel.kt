@@ -39,7 +39,7 @@ class FileViewerViewModel @AssistedInject constructor(
     private val diffParser = DiffParser()
     private var annotationManager: AnnotationManager? = null
 
-    // Phase 4: pagination — cache full content for loadMore slicing
+    // Phase 4：分页 — 缓存完整内容供 loadMore 切片使用
     private var fullContentCache: String = ""
 
     @AssistedFactory
@@ -117,7 +117,7 @@ class FileViewerViewModel @AssistedInject constructor(
                         val initialVisible = if (extremelyLarge) EXTREMELY_LARGE_INITIAL
                                              else minOf(totalLines, INITIAL_PAGE_SIZE)
                         val visible = takeFirstLines(c.content, initialVisible)
-                        // AnnotationManager uses full content so line numbers stay correct after loadMore
+                        // AnnotationManager 使用完整内容，保证 loadMore 后行号正确
                         annotationManager = AnnotationManager(fullContentCache)
                         _uiState.update {
                             it.copy(
@@ -144,8 +144,8 @@ class FileViewerViewModel @AssistedInject constructor(
     }
 
     /**
-     * Phase 4: Append PAGE_SIZE more lines to the visible content. No-op when fully loaded.
-     * Slices from [fullContentCache] — cheap, no network round-trip.
+     * Phase 4：把 PAGE_SIZE 多行追加到可见内容。已全部加载时为 no-op。
+     * 从 [fullContentCache] 切片 — 开销小，无网络往返。
      */
     fun loadMoreLines() {
         val current = _uiState.value
@@ -161,7 +161,7 @@ class FileViewerViewModel @AssistedInject constructor(
         }
     }
 
-    /** Return the first [lineCount] lines of [content] (inclusive of the trailing newline of the last line). */
+    /** 返回 [content] 的前 [lineCount] 行（包含最后一行的尾随换行符）。 */
     private fun takeFirstLines(content: String, lineCount: Int): String {
         if (lineCount <= 0 || content.isEmpty()) return ""
         var seen = 0
@@ -192,7 +192,7 @@ class FileViewerViewModel @AssistedInject constructor(
     fun nextHunk() { _uiState.update { it.copy(currentHunkIndex = (it.currentHunkIndex + 1).coerceAtMost(it.hunks.size - 1)) } }
     fun prevHunk() { _uiState.update { it.copy(currentHunkIndex = (it.currentHunkIndex - 1).coerceAtLeast(0)) } }
 
-    // ============ Phase 3: Annotation Management ============
+    // ============ Phase 3：批注管理 ============
 
     fun addAnnotation(selectedText: String, startChar: Int, endChar: Int, note: String) {
         val manager = annotationManager ?: return
@@ -218,7 +218,7 @@ class FileViewerViewModel @AssistedInject constructor(
 
     suspend fun submitAnnotations(overallNote: String, editedNotes: Map<String, String> = emptyMap()): Result<Unit> {
         val manager = annotationManager ?: return Result.failure(IllegalStateException("No annotation manager"))
-        // Apply any edited notes before submitting
+        // 提交前应用所有已编辑的说明
         editedNotes.forEach { (id, newNote) -> manager.update(id, newNote) }
         val anns = manager.getAll()
         if (anns.isEmpty()) return Result.failure(IllegalStateException("No annotations to submit"))
@@ -232,7 +232,7 @@ class FileViewerViewModel @AssistedInject constructor(
         return result
     }
 
-    // ============ Phase 2: Multi-format render toggle ============
+    // ============ Phase 2：多格式渲染切换 ============
 
     private fun defaultRenderMode(path: String): FileViewerRenderMode =
         if (FileType.fromExtension(path).supportsRender) FileViewerRenderMode.RENDER_PREVIEW
@@ -250,22 +250,22 @@ class FileViewerViewModel @AssistedInject constructor(
     }
 
     /**
-     * Switch from DIFF mode to SOURCE mode so users can annotate the code.
-     * If source content was never loaded (e.g., entered via GIT_DIFF), fetches it first.
+     * 从 DIFF 模式切换到 SOURCE 模式，让用户可以批注代码。
+     * 如果源码内容从未加载过（例如通过 GIT_DIFF 进入），先获取它。
      */
     fun switchToSource() {
         val current = _uiState.value
         if (current.mode == FileViewerMode.SOURCE) return
         if (current.content.isBlank()) {
-            // Source content never loaded → fetch now (loadLive sets mode = SOURCE)
+            // 源码内容从未加载 → 现在获取（loadLive 会设置 mode = SOURCE）
             loadLive()
         } else {
-            // Content already available → just switch mode
+            // 内容已可用 → 仅切换模式
             _uiState.update { it.copy(mode = FileViewerMode.SOURCE) }
         }
     }
 
-    // ============ Phase 2 Task 9: Tool snapshot ============
+    // ============ Phase 2 任务 9：工具快照 ============
 
     private fun loadToolSnapshot() {
         Log.d(TAG, "loadToolSnapshot: toolPartIds=${toolPartIds.map { it.take(12) }}")
@@ -312,9 +312,9 @@ class FileViewerViewModel @AssistedInject constructor(
             "lastSnap.afterLen=${lastSnap.after?.length ?: -1}, " +
             "lastSnap.contentLen=${lastSnap.content?.length ?: -1}, " +
             "lastSnap.beforeLen=${lastSnap.before?.length ?: -1}")
-        // Edit tools only cache the newString fragment — NOT the full file.
-        // Fetch the complete file content from the server so the viewer shows
-        // the entire file (not just the edited snippet).
+        // Edit 工具只缓存 newString 片段 — 不是完整文件。
+        // 从服务器获取完整文件内容，使查看器显示
+        // 整个文件（而不仅是被编辑的片段）。
         val t0 = System.currentTimeMillis()
         viewModelScope.launch {
             getFileContent(serverId, directory, filePath)
@@ -337,8 +337,8 @@ class FileViewerViewModel @AssistedInject constructor(
     }
 
     /**
-     * Shared setup for TOOL_SNAPSHOT and TOOL_SNAPSHOT_DIFF: populates UI state
-     * with paginated source content + annotation manager + tool metadata.
+     * TOOL_SNAPSHOT 和 TOOL_SNAPSHOT_DIFF 的共享初始化：
+     * 用分页的源码内容 + 批注管理器 + 工具元数据填充 UI 状态。
      */
     private fun setupToolSnapshotSource(content: String, snapshots: List<dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache.Snapshot>) {
         val first = snapshots.first()
@@ -349,7 +349,7 @@ class FileViewerViewModel @AssistedInject constructor(
         val initialVisible = minOf(totalLines, INITIAL_PAGE_SIZE)
         val visible = takeFirstLines(content, initialVisible)
         annotationManager = AnnotationManager(content)
-        // For Edit tools: find the modified region in full file to scroll there
+        // 对于 Edit 工具：在完整文件中找到被修改的区域，滚动到那里
         val editSnippet = last.after ?: last.content ?: last.before ?: ""
         val scrollLine = if (editSnippet.isNotBlank()) {
             val firstLine = editSnippet.lines().firstOrNull { it.isNotBlank() } ?: ""

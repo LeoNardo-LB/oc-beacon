@@ -33,11 +33,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Implementation of [ChatRepository].
- * Bridges domain interface with EventDispatcher (state) and domain APIs (network).
+ * [ChatRepository] 的实现。
+ * 桥接领域接口与 EventDispatcher（状态）和领域 API（网络）。
  *
- * Phase 3: compiled but not yet wired to UseCases. Phase 4 will migrate
- * ViewModel direct calls to go through this repository.
+ * 阶段 3：已编译但尚未接入 UseCase。阶段 4 将把 ViewModel 的
+ * 直接调用迁移为通过此 repository。
  */
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
@@ -52,7 +52,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     private val toolExpandedStates = mutableMapOf<String, Boolean>()
 
-    // ============ State Observations ============
+    // ============ 状态观察 ============
 
     override fun getMessagesFlow(sessionId: String): Flow<List<Message>> =
         eventDispatcher.messages.map { it[sessionId] ?: emptyList() }
@@ -97,7 +97,7 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getAllPermissionsFlow(): Flow<Map<String, List<SseEvent.PermissionAsked>>> =
         eventDispatcher.permissions
 
-    // ============ EventDispatcher Flow Exposure ============
+    // ============ EventDispatcher Flow 暴露 ============
 
     override fun getActiveToolProgress(serverId: String): Flow<List<ToolProgressInfo>?> =
         eventDispatcher.activeToolProgress.map { list -> list[serverId]?.map { it.toDomain() } }
@@ -120,14 +120,14 @@ class ChatRepositoryImpl @Inject constructor(
                 emit(null)
             }
 
-    // ============ Network Operations ============
+    // ============ 网络操作 ============
 
     override suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message> = runCatching {
         val conn = resolveConnectionForSession(sessionId)
         val promptParts = parts.map { it.toDataPromptPart() }
         messageApi.promptAsync(conn, sessionId, promptParts)
-        // The actual message arrives via SSE — return a lightweight placeholder.
-        // Callers should observe [getMessagesFlow] for the real Message.
+        // 实际消息通过 SSE 到达——返回一个轻量占位符。
+        // 调用方应通过 [getMessagesFlow] 观察真实 Message。
         Message.User(
             id = "",
             sessionId = sessionId,
@@ -184,12 +184,12 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun selectModel(serverId: String, providerId: String, modelId: String): Result<Unit> = runCatching {
         val conn = resolveConnection(serverId)
-        // TODO: Phase 4 — verify if there is a dedicated updateModel endpoint
-        // For now, use config patch as fallback
+        // TODO: Phase 4 — 确认是否有专用的 updateModel 端点
+        // 目前使用 config patch 作为回退
         providerApi.updateConfig(conn, dev.leonardo.ocbeacon.data.dto.request.ServerConfigPatch())
     }
 
-    // ============ Pending Queries ============
+    // ============ 待处理查询 ============
 
     override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>> = runCatching {
         val conn = resolveConnection(serverId)
@@ -220,17 +220,17 @@ class ChatRepositoryImpl @Inject constructor(
         messageApi.rejectQuestion(conn, requestId, directory)
     }
 
-    // ============ Undo/Redo ============
+    // ============ 撤销/重做 ============
 
     override suspend fun undoRedo(serverId: String, sessionId: String, action: String): Result<Unit> = runCatching {
         val conn = resolveConnection(serverId)
-        // The API uses separate revert/unrevert endpoints, not a unified undoRedo.
-        // This method dispatches based on action parameter.
+        // API 使用独立的 revert/unrevert 端点，而非统一的 undoRedo。
+        // 此方法根据 action 参数进行分发。
         when (action) {
             "undo" -> {
-                // Find last user message for undo — callers should provide messageId directly
-                // For the unified undoRedo method, revert without specific messageId
-                // is not supported by the API. Use revertSession with a messageId instead.
+                // 撤销需查找最后一条用户消息——调用方应直接提供 messageId
+                // 统一的 undoRedo 方法不支持不带特定 messageId 的 revert。
+                // 请改用带 messageId 的 revertSession。
                 throw UnsupportedOperationException("Use revertSession(serverId, sessionId, messageId) for undo")
             }
             "redo" -> {
@@ -240,7 +240,7 @@ class ChatRepositoryImpl @Inject constructor(
         }
     }
 
-    // ============ Command Execution ============
+    // ============ 命令执行 ============
 
     override suspend fun executeCommand(
         serverId: String,
@@ -275,7 +275,7 @@ class ChatRepositoryImpl @Inject constructor(
         toolExpandedStates[toolId] = expanded
     }
 
-    // ============ Private Helpers ============
+    // ============ 私有辅助方法 ============
 
     private suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = serverRepo.getServer(serverId)
@@ -302,7 +302,7 @@ class ChatRepositoryImpl @Inject constructor(
             .firstOrNull { (_, qs) -> qs.any { it.id == questionId } }
             ?.key
 
-    // ============ Mappers ============
+    // ============ 映射器 ============
 
     private fun SseEvent.PermissionAsked.toPermissionState() = PermissionState(
         id = id,
@@ -336,7 +336,7 @@ class ChatRepositoryImpl @Inject constructor(
         sessionId = sessionId,
         permission = permission,
         patterns = patterns,
-        // metadata is Map<String, JsonElement> in DTO but Map<String, String> in domain
+        // metadata 在 DTO 中是 Map<String, JsonElement>，在领域模型中是 Map<String, String>
         metadata = metadata?.mapValues { it.value.toString() },
         always = always?.toString()?.toBoolean() ?: false,
         tool = tool
@@ -370,7 +370,7 @@ class ChatRepositoryImpl @Inject constructor(
         else -> DataPromptPart(type = "text", text = "")
     }
 
-    // ============ Data ↔ Domain Mappers ============
+    // ============ Data ↔ Domain 映射器 ============
 
     private fun DataToolProgressInfo.toDomain() = ToolProgressInfo(
         callId = callId, partId = partId, tool = tool,
@@ -394,7 +394,7 @@ class ChatRepositoryImpl @Inject constructor(
         providerId = providerId, modelId = modelId
     )
 
-    // ============ Write Operations (State Updates) ============
+    // ============ 写操作（状态更新）============
 
     override fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
         eventDispatcher.setMessages(sessionId, messages)
@@ -442,7 +442,7 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getQuestionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.QuestionAsked> =
         eventDispatcher.getQuestionsWithChildren(sessionId, sessions)
 
-    // ============ Raw State Reads ============
+    // ============ 原始状态读取 ============
 
     override fun getPermissionsSnapshot(): Map<String, List<SseEvent.PermissionAsked>> =
         eventDispatcher.permissions.value
@@ -465,7 +465,7 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getSessionDiffsForSession(sessionId: String): Flow<List<FileDiff>> =
         eventDispatcher.sessionDiffs.map { it[sessionId] ?: emptyList() }
 
-    // ============ Permission Auto-Approve ============
+    // ============ 权限自动批准 ============
 
     override suspend fun addPermissionAutoApproveRule(rule: dev.leonardo.ocbeacon.domain.model.AutoApproveRule) {
         permissionAutoApprover.addRule(rule)

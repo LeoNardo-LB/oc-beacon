@@ -5,9 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 /**
- * Route wrapper for HomeScreen.
- * Handles ViewModel binding and navigation parameter extraction.
- * NavGraph calls this instead of HomeScreen directly.
+ * HomeScreen 的路由包装。
+ * 处理 ViewModel 绑定和导航参数提取。
+ * NavGraph 调用此函数而非直接调用 HomeScreen。
  */
 @Composable
 fun HomeRoute(

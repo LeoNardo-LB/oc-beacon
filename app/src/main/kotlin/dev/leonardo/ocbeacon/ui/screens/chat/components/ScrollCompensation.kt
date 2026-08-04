@@ -4,20 +4,20 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.MutableState
 
 /**
- * Mutable state for height-compensation during SSE streaming.
- * Tracks the last measured height and whether compensation should be applied.
+ * SSE 流式期间高度补偿的可变状态。
+ * 跟踪上次测量的高度以及是否应应用补偿。
  */
 internal class CompensateState {
     var lastHeight: Int = 0
     var shouldCompensate: Boolean = false
 }
 
-// --- Reflection: bypass requestScrollToItem's scroll{} mutex cancellation ---
-// requestScrollToItem does two things:
-//   ① if (isScrollInProgress) scroll {} ← grabs mutex, KILLS fling
-//   ② scrollPosition.requestPosition + invalidateScope ← sets pending position
-// We only want ② — set pending position without killing fling inertia.
-// Reflection accesses private/internal fields directly.
+// --- 反射：绕过 requestScrollToItem 的 scroll{} 互斥锁取消机制 ---
+// requestScrollToItem 做两件事：
+//   ① if (isScrollInProgress) scroll {} ← 获取互斥锁，杀死 fling
+//   ② scrollPosition.requestPosition + invalidateScope ← 设置待定位置
+// 我们只想要 ② —— 设置待定位置而不杀死 fling 惯性。
+// 反射直接访问 private/internal 字段。
 internal object LazyListReflection {
     private val scrollPositionField by lazy {
         Class.forName("androidx.compose.foundation.lazy.LazyListState")

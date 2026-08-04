@@ -30,10 +30,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * A small copy button that copies [text] to clipboard.
+ * 将 [text] 复制到剪贴板的小型复制按钮。
  *
- * Uses Material 3 [AnimatedContent] for native icon transition (copy → check),
- * and invokes [onCopied] callback for Snackbar feedback at the screen level.
+ * 使用 Material 3 [AnimatedContent] 实现原生图标过渡（复制 → 对勾），
+ * 并调用 [onCopied] 回调以便在屏幕层级通过 Snackbar 反馈。
  */
 @Composable
 fun CopyButton(

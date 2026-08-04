@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.ui.navigation
 
 /**
- * Navigation route constants.
- * Route creation and argument parsing are handled by Nav objects in ui/navigation/routes/.
+ * 导航路由常量。
+ * 路由的创建与参数解析由 ui/navigation/routes/ 中的 Nav 对象处理。
  */
 sealed class Screen(val route: String) {
     data object Home : Screen("home")

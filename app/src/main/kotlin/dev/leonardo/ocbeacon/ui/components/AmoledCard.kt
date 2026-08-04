@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Standard border used in AMOLED mode: 1dp outlineVariant at 65% opacity.
+ * AMOLED 模式下使用的标准边框：1dp outlineVariant，65% 不透明度。
  */
 internal val AmoledDefaultBorder: BorderStroke
     @Composable get() = BorderStroke(
@@ -25,11 +25,11 @@ internal val AmoledDefaultBorder: BorderStroke
     )
 
 /**
- * Card that automatically adapts its appearance for AMOLED dark mode.
- * AMOLED: pure black background + subtle border, no elevation.
- * Normal: uses [normalContainerColor], no border.
+ * 自动适配 AMOLED 深色模式的 Card。
+ * AMOLED：纯黑背景 + 细微边框，无高度。
+ * 普通：使用 [normalContainerColor]，无边框。
  *
- * Replaces the repeating pattern:
+ * 替代重复模式：
  * ```
  * Card(
  *     colors = CardDefaults.cardColors(
@@ -59,9 +59,9 @@ fun AmoledCard(
 }
 
 /**
- * Elevated card variant for AMOLED dark mode.
- * AMOLED: pure black background + subtle border, zero shadow.
- * Normal: uses default elevated card appearance with shadow.
+ * AMOLED 深色模式下的 ElevatedCard 变体。
+ * AMOLED：纯黑背景 + 细微边框，无阴影。
+ * 普通：使用默认的 elevated card 外观，带阴影。
  */
 @Composable
 fun AmoledElevatedCard(
@@ -82,10 +82,10 @@ fun AmoledElevatedCard(
 }
 
 /**
- * Surface wrapper that automatically adapts for AMOLED dark mode.
- * Use for non-Card composables (e.g., ToolCardScaffold, Dialog surfaces).
+ * 自动适配 AMOLED 深色模式的 Surface 包装。
+ * 用于非 Card 的 composable（如 ToolCardScaffold、对话框 Surface）。
  *
- * Replaces the repeating pattern:
+ * 替代重复模式：
  * ```
  * Surface(
  *     color = if (isAmoled) Color.Black else MaterialTheme.colorScheme.surface,
@@ -114,8 +114,8 @@ fun AmoledSurface(
 }
 
 /**
- * Modifier extension for applying AMOLED surface style to non-Card/Surface composables.
- * Adds border in AMOLED mode.
+ * Modifier 扩展，将 AMOLED Surface 样式应用到非 Card/Surface 的 composable。
+ * 在 AMOLED 模式下添加边框。
  */
 @Composable
 fun Modifier.amoledSurface(

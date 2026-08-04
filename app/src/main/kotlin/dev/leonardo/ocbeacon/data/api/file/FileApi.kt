@@ -28,21 +28,21 @@ interface FileApi {
     suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto>
 
     /**
-     * Probe whether a directory exists and is accessible on the server.
-     * Returns true only if the server responds with HTTP 2xx.
+     * 探测目录在服务器上是否存在且可访问。
+     * 仅当服务器响应 HTTP 2xx 时返回 true。
      */
     suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean
 
     suspend fun listDirectory(conn: ServerConnection, path: String = "", directory: String? = null): List<FileNodeDto>
 
     /**
-     * Search for symbols.
+     * 搜索符号。
      * GET /find/symbol
      */
     suspend fun findSymbols(conn: ServerConnection, query: String, directory: String? = null): List<SymbolInfo>
 
     /**
-     * Get file git status.
+     * 获取文件 git 状态。
      * GET /file/status
      */
     suspend fun getFileStatus(conn: ServerConnection, directory: String? = null): List<FileStatusInfo>
@@ -99,8 +99,8 @@ class FileApiImpl @Inject constructor(
     }
 
     /**
-     * Probe whether a directory exists and is accessible on the server.
-     * Returns true only if the server responds with HTTP 2xx.
+     * 探测目录在服务器上是否存在且可访问。
+     * 仅当服务器响应 HTTP 2xx 时返回 true。
      */
     override suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean {
         val response = httpClient.get("${conn.baseUrl}/file") {
@@ -124,7 +124,7 @@ class FileApiImpl @Inject constructor(
     }
 
     /**
-     * Search for symbols.
+     * 搜索符号。
      * GET /find/symbol
      */
     override suspend fun findSymbols(conn: ServerConnection, query: String, directory: String?): List<SymbolInfo> {
@@ -136,7 +136,7 @@ class FileApiImpl @Inject constructor(
     }
 
     /**
-     * Get file git status.
+     * 获取文件 git 状态。
      * GET /file/status
      */
     override suspend fun getFileStatus(conn: ServerConnection, directory: String?): List<FileStatusInfo> {

@@ -32,7 +32,7 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Inline diff change counts: +N -N with colors.
+ * 内联 diff 变更数：+N -N 带颜色。
  */
 @Composable
 internal fun DiffChangesInline(additions: Int, deletions: Int) {
@@ -60,7 +60,7 @@ internal enum class DiffLineType { REMOVED, ADDED, UNCHANGED }
 internal data class DiffLine(val type: DiffLineType, val text: String)
 
 /**
- * Unified diff view — shows old lines in red, new lines in green with line numbers and change counts.
+ * 统一 diff 视图 —— 旧行显示为红色，新行显示为绿色，带行号和变更计数。
  */
 @Composable
 internal fun DiffView(before: String, after: String) {
@@ -75,12 +75,12 @@ internal fun DiffView(before: String, after: String) {
 
     val diffLines = remember(before, after) { computeSimpleDiff(beforeLines, afterLines) }
 
-    // Compute stats
+    // 计算统计
     val addedCount = diffLines.count { it.type == DiffLineType.ADDED }
     val removedCount = diffLines.count { it.type == DiffLineType.REMOVED }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Stats row
+        // 统计行
         if (addedCount > 0 || removedCount > 0) {
             Row(
                 modifier = Modifier
@@ -103,7 +103,7 @@ internal fun DiffView(before: String, after: String) {
             }
         }
 
-        // Diff lines with line numbers
+        // 带行号的 diff 行
         AmoledSurface(
             isAmoledDark = isAmoled,
             shape = ShapeTokens.extraSmall,
@@ -147,7 +147,7 @@ internal fun DiffView(before: String, after: String) {
                             .padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Line number
+                        // 行号
                         Text(
                             text = "$lineNumber",
                             style = CodeTypography.copy(
@@ -156,7 +156,7 @@ internal fun DiffView(before: String, after: String) {
                             ),
                             modifier = Modifier.width(28.dp)
                         )
-                        // Prefix + content
+                        // 前缀 + 内容
                         SelectionContainer {
                             Text(
                                 text = "$prefix${diffLine.text}",
@@ -171,22 +171,22 @@ internal fun DiffView(before: String, after: String) {
 }
 
 /**
- * Simple diff algorithm: find common prefix/suffix lines, show removed and added lines in between.
- * Not a full LCS but good enough for typical edit tool changes.
+ * 简单 diff 算法：查找共同前缀/后缀行，显示中间被移除和添加的行。
+ * 不是完整的 LCS，但对典型的 edit 工具改动已足够。
  */
 internal fun computeSimpleDiff(before: List<String>, after: List<String>): List<DiffLine> {
     if (before.isEmpty() && after.isEmpty()) return emptyList()
     if (before.isEmpty()) return after.map { DiffLine(DiffLineType.ADDED, it) }
     if (after.isEmpty()) return before.map { DiffLine(DiffLineType.REMOVED, it) }
 
-    // Find common prefix
+    // 查找共同前缀
     var commonPrefixLen = 0
     while (commonPrefixLen < before.size && commonPrefixLen < after.size &&
         before[commonPrefixLen] == after[commonPrefixLen]) {
         commonPrefixLen++
     }
 
-    // Find common suffix (after prefix)
+    // 查找共同后缀（前缀之后）
     var commonSuffixLen = 0
     while (commonSuffixLen < (before.size - commonPrefixLen) &&
         commonSuffixLen < (after.size - commonPrefixLen) &&
@@ -196,24 +196,24 @@ internal fun computeSimpleDiff(before: List<String>, after: List<String>): List<
 
     val result = mutableListOf<DiffLine>()
 
-    // Show a few context lines from prefix (max 3)
+    // 从前缀显示几行上下文（最多 3 行）
     val contextLines = 3
     val prefixStart = (commonPrefixLen - contextLines).coerceAtLeast(0)
     for (i in prefixStart until commonPrefixLen) {
         result.add(DiffLine(DiffLineType.UNCHANGED, before[i]))
     }
 
-    // Removed lines (from before, between prefix and suffix)
+    // 被移除的行（来自 before，前缀与后缀之间）
     for (i in commonPrefixLen until (before.size - commonSuffixLen)) {
         result.add(DiffLine(DiffLineType.REMOVED, before[i]))
     }
 
-    // Added lines (from after, between prefix and suffix)
+    // 添加的行（来自 after，前缀与后缀之间）
     for (i in commonPrefixLen until (after.size - commonSuffixLen)) {
         result.add(DiffLine(DiffLineType.ADDED, after[i]))
     }
 
-    // Show a few context lines from suffix (max 3)
+    // 从后缀显示几行上下文（最多 3 行）
     val suffixEnd = commonSuffixLen.coerceAtMost(contextLines)
     for (i in 0 until suffixEnd) {
         result.add(DiffLine(DiffLineType.UNCHANGED, before[before.size - commonSuffixLen + i]))

@@ -26,7 +26,7 @@ data class FileViewerUiState(
     val mimeType: String? = null,
     val error: Int? = null,
     val isEmpty: Boolean = false,
-    // Phase 4: pagination replaces Phase 1 isTruncated
+    // Phase 4：分页替代 Phase 1 的 isTruncated
     val totalLineCount: Int = 0,
     val visibleLineCount: Int = 0,
     val isFullyLoaded: Boolean = false,
@@ -34,19 +34,19 @@ data class FileViewerUiState(
     val diff: VcsFileDiff? = null,
     val hunks: List<DiffHunk> = emptyList(),
     val currentHunkIndex: Int = 0,
-    // Phase 2: Markdown render toggle (now multi-format via FileType)
+    // Phase 2：Markdown 渲染切换（现在通过 FileType 支持多格式）
     val renderMode: FileViewerRenderMode = FileViewerRenderMode.SOURCE,
     val fileType: FileType = FileType.TEXT,
-    // Phase 2 Task 9: Tool snapshot
+    // Phase 2 任务 9：工具快照
     val isToolSnapshot: Boolean = false,
     val toolSnapshotBefore: String? = null,
     val toolSnapshotAfter: String? = null,
     val toolSnapshotContent: String? = null,
-    // Phase 3: Annotation state
+    // Phase 3：批注状态
     val annotations: List<Annotation> = emptyList(),
-    // Scroll to this line on initial load (-1 = no scroll, for Edit tool jump)
+    // 初始加载时滚动到此行（-1 = 不滚动，用于 Edit 工具跳转）
     val initialScrollLine: Int = -1
 ) {
-    /** Backward-compatible accessor for markdown check. */
+    /** 向后兼容的 markdown 判断访问器。 */
     val isMarkdown: Boolean get() = fileType == FileType.MARKDOWN
 }

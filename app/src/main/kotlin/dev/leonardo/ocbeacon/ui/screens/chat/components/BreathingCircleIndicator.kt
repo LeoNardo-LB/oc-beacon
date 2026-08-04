@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 
-/** Breathing circle loading indicator — single circle that pulses smoothly. */
+/** 呼吸圆圈加载指示器 —— 平滑脉动的单个圆圈。 */
 @Composable
 internal fun BreathingCircleIndicator(
     modifier: Modifier = Modifier,

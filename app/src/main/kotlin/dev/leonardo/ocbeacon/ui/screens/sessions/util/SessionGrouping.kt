@@ -5,36 +5,35 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionItem
 
 /**
- * A group of sessions belonging to a single project (or an unmatched directory).
+ * 属于同一项目（或未匹配目录）的一组会话。
  *
- * Project-aware grouping improves over raw directory grouping by aggregating
- * sessions whose [Session.projectId] maps to the same [Project], even when they
- * live in different worktree paths. Sessions without a matching project form
- * their own per-directory groups.
+ * 项目感知分组优于原始目录分组，它将 [Session.projectId] 映射到
+ * 同一 [Project] 的会话聚合在一起，即使它们位于不同的 worktree 路径。
+ * 没有匹配项目的会话各自形成按目录的分组。
  */
 data class ProjectSessionGroup(
     val projectId: String,
     val projectName: String,
     val directory: String,
     val sessions: List<SessionItem>,
-    /** Per-session tilde-path labels (sessionId -> tildePath) for flat display. */
+    /** 每个会话的波浪号路径标签（sessionId -> tildePath），用于扁平显示。 */
     val sessionDirLabels: Map<String, String> = emptyMap(),
 )
 
 /**
- * Resolve the [Project] a [session] belongs to.
+ * 解析 [session] 所属的 [Project]。
  *
- * Matching priority:
- *  1. Exact [Session.projectId] match against [Project.id].
- *  2. Longest matching worktree/path prefix fallback — handles sessions that live
- *     inside a project worktree whose `projectId` was not populated by the server.
+ * 匹配优先级：
+ *  1. 精确匹配 [Session.projectId] 与 [Project.id]。
+ *  2. 最长匹配的 worktree/路径前缀回退 — 处理位于
+ *     服务器未填充 `projectId` 的 project worktree 内的会话。
  *
- * Returns `null` when no project matches.
+ * 无项目匹配时返回 `null`。
  */
 internal fun projectForSession(session: Session, projects: List<Project>): Project? {
-    // 1. Exact projectId match.
+    // 1. 精确匹配 projectId。
     projects.firstOrNull { it.id.isNotBlank() && it.id == session.projectId }?.let { return it }
-    // 2. Longest worktree/path prefix fallback.
+    // 2. 最长 worktree/路径前缀回退。
     val directory = normalizedPath(session.directory)
     return projects
         .filter { project ->
@@ -44,19 +43,18 @@ internal fun projectForSession(session: Session, projects: List<Project>): Proje
         .maxByOrNull { projectRoot(it).length }
 }
 
-/** Sort sessions within a group: newest activity first. */
+/** 对组内会话排序：最新活动优先。 */
 internal fun sortSessionItems(items: List<SessionItem>): List<SessionItem> =
     items.sortedByDescending { it.session.time.updated }
 
 /**
- * Build project-aware session groups from a flat list of [SessionItem]s.
+ * 从扁平的 [SessionItem] 列表构建项目感知的会话分组。
  *
- * Sessions are grouped by their owning project (see [projectForSession]); sessions
- * with no matching project each become an independent group keyed by directory.
- * Groups are ordered by latest activity (descending), then by name.
+ * 会话按所属项目分组（见 [projectForSession]）；无匹配项目的会话
+ * 各自形成以目录为键的独立分组。分组按最近活动时间（降序）排序，再按名称。
  *
- * @param homeDir Optional server home directory used to render tilde-relative
- *  labels in [ProjectSessionGroup.sessionDirLabels]. Pass `null` to keep absolute paths.
+ * @param homeDir 可选的服务器主目录，用于在 [ProjectSessionGroup.sessionDirLabels]
+ *  中渲染波浪号相对标签。传 `null` 保留绝对路径。
  */
 internal fun buildProjectSessionGroups(
     sessions: List<SessionItem>,
@@ -102,10 +100,10 @@ internal fun buildProjectSessionGroups(
         )
 }
 
-/** Normalize a remote path: unify separators, trim trailing slash, default to root. */
+/** 规范化远程路径：统一分隔符、去除尾部斜杠、空则默认根。 */
 private fun normalizedPath(path: String): String =
     path.replace('\\', '/').trimEnd('/').ifEmpty { "/" }
 
-/** Canonical project root: worktree if present, otherwise legacy path. */
+/** 规范的项目根：优先 worktree，否则回退到旧版 path。 */
 private fun projectRoot(project: Project): String =
     normalizedPath(project.worktree.ifBlank { project.path })

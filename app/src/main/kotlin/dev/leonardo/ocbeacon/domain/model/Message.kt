@@ -15,21 +15,21 @@ data class TimeInfo(
 )
 
 /**
- * Custom serializer for Message that dispatches on the "role" field.
+ * Message 的自定义序列化器，根据 "role" 字段分发。
  */
 object MessageSerializer : JsonContentPolymorphicSerializer<Message>(Message::class) {
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<Message> {
         return when (element.jsonObject["role"]?.jsonPrimitive?.content) {
             "user" -> Message.User.serializer()
             "assistant" -> Message.Assistant.serializer()
-            else -> Message.User.serializer() // fallback
+            else -> Message.User.serializer() // 回退
         }
     }
 }
 
 /**
- * Message - user or assistant message in a session.
- * Field names use @SerialName to match the OpenCode API convention (uppercase ID suffixes).
+ * Message —— 会话中的用户或助手消息。
+ * 字段名使用 @SerialName 以匹配 OpenCode API 约定（大写 ID 后缀）。
  */
 @Serializable(with = MessageSerializer::class)
 sealed class Message {

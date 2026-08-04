@@ -1,176 +1,176 @@
 # OC Beacon
 
-An enhanced fork of [crim50n/oc-remote](https://github.com/crim50n/oc-remote) — an unofficial Android client for [OpenCode](https://github.com/anomalyco/opencode) servers with a native Material 3 UI.
+[crim50n/oc-remote](https://github.com/crim50n/oc-remote) 的增强 fork —— [OpenCode](https://github.com/anomalyco/opencode) 服务器的非官方 Android 客户端，原生 Material 3 UI。
 
-> **OC Beacon is an independent community fork of OC Remote, not affiliated with, endorsed by, or sponsored by the original OC Remote project, its author (@crim50n), or the OpenCode team.**
+> **OC Beacon 是 OC Remote 的独立社区 fork，与 OC Remote 原项目、其作者（@crim50n）或 OpenCode 团队无关联、未获其背书或赞助。**
 >
 > 本仓库是 [crim50n/oc-remote](https://github.com/crim50n/oc-remote) 的增强 fork。为与原版共存，已将 applicationId 从 `dev.minios.ocremote` 改为 `dev.leonardo.ocbeacon`，两者可在同一设备上同时安装。
 
-## Relationship with Upstream
+## 与上游的关系
 
-This fork diverges from upstream `v1.6.7` and has accumulated **1400+ commits** of new features, bug fixes, architecture refinements, and UI polish. It ships under the same MIT License, with full credit to the original author [@crim50n](https://github.com/crim50n).
+本 fork 从上游 `v1.6.7` 分叉，已累积 **1400+ 提交**的新功能、bug 修复、架构优化与 UI 打磨。沿用 MIT 许可证，对原作者 [@crim50n](https://github.com/crim50n) 完全致谢。
 
-| | Upstream | This Fork |
+| | 上游 | 本 fork |
 |---|----------|-----------|
-| Application ID | `dev.minios.ocremote` | `dev.leonardo.ocbeacon` (+ `.dev` / `.beta` suffixes for parallel install) |
+| Application ID | `dev.minios.ocremote` | `dev.leonardo.ocbeacon`（另有 `.dev` / `.beta` 后缀用于并行安装） |
 | compileSdk | 34 | 37 |
 | targetSdk | 34 | 35 |
 | Compose BOM | 2024.12.01 | 2026.05.01 |
 
-Both apps can be installed **side-by-side** on the same device thanks to the distinct application ID. Version numbers follow [Semantic Versioning](AGENTS.md#version-management) — see `version.properties` for the current release.
+得益于不同的 application ID，两个应用可以**同时安装**在同一设备上。版本号遵循 [Semantic Versioning](AGENTS.md#version-management)——当前版本见 `version.properties`。
 
-## What's New in This Fork
+## 本 fork 的新功能
 
-### 🆕 Workspace Browser
+### 🆕 工作区浏览器
 
-A brand-new module for browsing and inspecting the remote project directly from your phone:
+全新的模块，直接在手机上浏览和检查远程项目：
 
-- **File Tree** — flattened, lazy-loaded directory tree with a "show ignored" filter
-- **Git Changes Panel** — status badges (added / modified / deleted / untracked) for every changed file
-- **Code Viewer** — syntax-highlighted source view with line numbers; lazy rendering handles large files
-- **Diff Viewer** — unified diff with hunk navigation and color-coded added/removed lines
-- **Open from Chat** — tool cards (Read / Edit / Write) can open referenced files straight in the viewer
+- **文件树** — 扁平化、懒加载目录树，带"显示忽略项"过滤器
+- **Git 变更面板** — 每个变更文件的状态徽章（新增 / 修改 / 删除 / 未跟踪）
+- **代码查看器** — 语法高亮源码视图 + 行号；懒渲染支持大文件
+- **Diff 查看器** — 统一 diff，hunk 导航，增删行颜色区分
+- **从聊天打开** — 工具卡片（Read / Edit / Write）可直接在查看器中打开引用文件
 
-### 🆕 Pluggable Tool Cards
+### 🆕 可插拔工具卡片
 
-A rewritten, extensible tool-call rendering system:
+重写后的可扩展工具调用渲染系统：
 
-- **Registry-based** — `ToolCardResolver` registry makes adding new tool types trivial
-- **Rich card types** — `ApplyPatch` (with inline diff preview), `WebSearch` (results list), `WebFetch` (URL + summary), `Glob` (match count + expandable file list), `Task`, and more
-- **Interactive** — copy output, expand/collapse, and open referenced files from the card
+- **基于注册表** — `ToolCardResolver` 注册表让新增工具类型变得简单
+- **丰富的卡片类型** — `ApplyPatch`（内联 diff 预览）、`WebSearch`（结果列表）、`WebFetch`（URL + 摘要）、`Glob`（匹配数 + 可展开文件列表）、`Task` 等
+- **可交互** — 复制输出、展开/折叠、从卡片打开引用文件
 
-### 🆕 Token & Context Analytics
+### 🆕 Token 与上下文分析
 
-- **Message metadata** — model name, duration, and token usage shown per assistant message
-- **Token usage card** — total / cached / input / output breakdown
-- **Context detail dialog** — per-category breakdown with cache hit-rate and cost metrics
+- **消息元数据** — 每条 assistant 消息显示模型名、耗时与 token 用量
+- **Token 用量卡片** — 总量 / 缓存 / 输入 / 输出细分
+- **上下文详情对话框** — 分类细分，含缓存命中率与成本指标
 
-### 🆕 Session List Improvements
+### 🆕 会话列表改进
 
-- **Recent / History modes** — toggle between chronological recent sessions and full history
-- **Pull-to-refresh** — manually refresh the session list
-- **Sequential pending cards** — permission / question cards shown one at a time with a position indicator (1/N)
-- **Retry tracking** — visible retry state with countdown
-- **Session categories** — custom name/color/icon tags, per-session assignment, filter chips
-- **Cross-server favorites** — star sessions across servers, unified favorites list with offline snapshots
+- **最近 / 历史模式** — 在按时间排序的最近会话与完整历史间切换
+- **下拉刷新** — 手动刷新会话列表
+- **顺序待处理卡片** — 权限 / 问题卡片一次只显示一张，带位置指示（1/N）
+- **重试跟踪** — 可见的重试状态与倒计时
+- **会话分类** — 自定义名称/颜色/图标标签、按会话分配、过滤器 chips
+- **跨服务器收藏** — 跨服务器星标会话、统一收藏列表 + 离线快照
 
-### 🆕 Message-Level Status Indicators
+### 🆕 消息级状态指示器
 
-User messages now carry delivery state, so you always know whether your message reached the server:
+用户消息现在携带投递状态，让你始终知道消息是否到达服务器：
 
-- **Optimistic send** — your message appears instantly instead of waiting for a server round-trip
-- **Three-state badge** — Sending (spinner) → Sent (briefly) → Failed (tap to retry)
-- **Self-healing sync** — if real-time updates stall, the app re-syncs message state automatically
+- **乐观发送** — 消息立即出现，无需等待服务器往返
+- **三态徽章** — 发送中（spinner）→ 已发送（短暂）→ 失败（点击重试）
+- **自愈同步** — 实时更新停滞时，应用自动重新同步消息状态
 
-### ⚡ SSE Streaming Overhaul
+### ⚡ SSE 流式传输重构
 
-Hundreds of commits dedicated to making real-time streaming rock-solid:
+数百个提交致力于让实时流式传输坚如磐石：
 
-- **Delta batching** (48 ms window) — eliminates jitter from rapid SSE deltas
-- **Drift compensation** — viewport stays pinned during content growth
-- **Scroll anchor lock** — prevents unwanted scroll jumps while streaming
-- **Revert filter** — undo operations don't flash old content
+- **Delta 批处理**（48ms 窗口）— 消除快速 SSE delta 的抖动
+- **漂移补偿** — 内容增长时视口保持钉住
+- **滚动锚定锁** — 流式传输期间防止意外的滚动跳转
+- **Revert 过滤** — 撤销操作不闪旧内容
 
-### 🔔 Notification System
+### 🔔 通知系统
 
-- **Unified content** — notifications surface the latest user message
-- **Deduplication** — prevents permission / question notification flooding
-- **Foreground suppression** — no notifications while viewing the active session
-- **MessagingStyle** — richer task-complete notifications
+- **统一内容** — 通知展示最新用户消息
+- **去重** — 防止权限 / 问题通知刷屏
+- **前台抑制** — 正在查看活跃会话时不发通知
+- **MessagingStyle** — 更丰富的任务完成通知
 
-### 🎨 Unified Theme Token System
+### 🎨 统一主题令牌系统
 
-A comprehensive design-token system replacing hardcoded values across the UI:
+全面的设计令牌系统，取代 UI 中的硬编码值：
 
-- **AlphaTokens** — 7 semantic opacity levels (FAINT / MUTED / MEDIUM / HIGH / AMOLED / …)
-- **SpacingTokens** — 6 grid-based spacing constants (XS / SM / MD / LG / XL / XXL)
-- **ShapeTokens & MotionTokens** — component shapes and animation durations
-- **ButtonTokens** — unified button colors / borders / spacing
-- **ListItemTokens** — three density levels for Material 3 `ListItem` content padding
-- All AMOLED branches migrated from `Color.Black` to semantic tokens
+- **AlphaTokens** — 7 级语义透明度（FAINT / MUTED / MEDIUM / HIGH / AMOLED / …）
+- **SpacingTokens** — 6 个网格间距常量（XS / SM / MD / LG / XL / XXL）
+- **ShapeTokens & MotionTokens** — 组件形状与动画时长
+- **ButtonTokens** — 统一按钮颜色 / 边框 / 间距
+- **ListItemTokens** — Material 3 `ListItem` 内容 padding 的三种密度级别
+- 所有 AMOLED 分支从 `Color.Black` 迁移到语义令牌
 
-### 🏗️ Architecture Hardening
+### 🏗️ 架构加固
 
-- **Clean Architecture enforcement** — fixed domain → data cross-layer violations
-- **ISP refactor** — `ServerRepository` split into 4 focused sub-interfaces
-- **ChatViewModel split** — single `uiState` → 4 independent `StateFlow`s
-- **Fat UseCases** — ViewModels delegate to UseCases, never repositories directly
-- **DTO rename** — all transfer objects suffixed `*Dto` for clarity
-- **Lifecycle-aware** — `collectAsStateWithLifecycle` throughout
+- **Clean Architecture 强制执行** — 修复 domain → data 跨层违规
+- **ISP 重构** — `ServerRepository` 拆分为 4 个聚焦的子接口
+- **ChatViewModel 拆分** — 单一 `uiState` → 4 个独立 `StateFlow`
+- **胖 UseCase** — ViewModel 委托给 UseCase，绝不直接调 repository
+- **DTO 重命名** — 所有传输对象以 `*Dto` 结尾
+- **生命周期感知** — 全链路使用 `collectAsStateWithLifecycle`
 
-### 🔍 Diagnostics & In-app Updates
+### 🔍 诊断与应用内更新
 
-- **In-app log viewer** — Settings → Diagnostics: level filtering, search, privacy-sanitized export, crash capture (SQLite, auto-prune)
-- **Update checker** — About → Check for Updates: GitHub Release discovery, SHA-256 verified APK download, system installer handoff
+- **应用内日志查看器** — 设置 → 诊断：级别过滤、搜索、隐私脱敏导出、崩溃捕获（SQLite，自动清理）
+- **更新检查器** — 关于 → 检查更新：GitHub Release 发现、SHA-256 校验的 APK 下载、系统安装器交接
 
 ### 🌐 i18n
 
-- Hardcoded Chinese strings migrated to string resources
-- Workspace and notification strings localized across all 15 locales
+- 硬编码中文字符串迁移到 string resources
+- 工作区与通知字符串已本地化到全部 15 种语言
 
-## Inherited Features
+## 继承的功能
 
-All features from upstream `v1.6.7` are preserved and continually improved:
+上游 `v1.6.7` 的全部功能均已保留并持续改进：
 
-- Native Material 3 chat UI with markdown, code blocks, tables, syntax highlighting
-- Real-time message streaming with smart auto-scroll
-- Terminal mode — PTY over WebSocket, Termux-like full-screen terminal with dedicated keys
-- Multi-session management with per-session draft persistence (text, images, @file mentions)
-- Model & agent selection (74 provider icons)
-- 15-locale localization (en, ru, de, es, fr, it, pt-BR, id, ja, ko, zh-CN, uk, tr, ar, pl)
-- Multi-server connection with auto-reconnect (exponential backoff)
-- Local runtime via Termux — run OpenCode directly on-device
-- AMOLED dark mode, Material You dynamic colors, customizable chat density & font size
-- Foreground service keeping connections alive in the background
-- Slash commands — `/new`, `/fork`, `/compact`, `/share`, `/rename`, `/undo`, `/redo`, `/shell`
-- Swipe-to-revert user messages
+- 原生 Material 3 聊天 UI，支持 markdown、代码块、表格、语法高亮
+- 实时消息流式传输 + 智能自动滚动
+- 终端模式 — WebSocket 上的 PTY，类 Termux 全屏终端，带专用按键
+- 多会话管理，每会话草稿持久化（文本、图片、@file 提及）
+- 模型与 agent 选择（74 个提供商图标）
+- 15 种语言本地化（en, ru, de, es, fr, it, pt-BR, id, ja, ko, zh-CN, uk, tr, ar, pl）
+- 多服务器连接 + 自动重连（指数退避）
+- 本地运行时（Termux）— 直接在设备上运行 OpenCode
+- AMOLED 深色模式、Material You 动态色、可自定义聊天密度与字号
+- 后台保活的前台服务
+- 斜杠命令 — `/new`、`/fork`、`/compact`、`/share`、`/rename`、`/undo`、`/redo`、`/shell`
+- 滑动撤销用户消息
 
-## Download
+## 下载
 
-Pre-built APKs are available on the [Releases](../../releases) page.
+预构建 APK 见 [Releases](../../releases) 页面。
 
-## Building
+## 构建
 
-**Requirements:** JDK 21, Android SDK (compileSdk 37)
+**要求：** JDK 21、Android SDK（compileSdk 37）
 
 ```bash
-# Dev flavor (debug signing, coexists with the beta/stable builds)
+# Dev flavor（debug 签名，与 beta/stable 构建共存）
 ./gradlew :app:assembleDevRelease
 
-# Beta flavor (release signing — needs keystore config)
+# Beta flavor（release 签名——需要 keystore 配置）
 ./gradlew :app:assembleBetaRelease
 ```
 
-| Flavor | Application ID | Purpose |
+| Flavor | Application ID | 用途 |
 |--------|---------------|---------|
-| `dev` | `dev.leonardo.ocbeacon.dev` | Development preview (worktree builds) |
-| `beta` | `dev.leonardo.ocbeacon.beta` | Public beta — coexists with stable |
-| `stable` | `dev.leonardo.ocbeacon` | Production release (overwrites previous stable) |
+| `dev` | `dev.leonardo.ocbeacon.dev` | 开发预览（worktree 构建） |
+| `beta` | `dev.leonardo.ocbeacon.beta` | 公开测试版——与 stable 共存 |
+| `stable` | `dev.leonardo.ocbeacon` | 正式发布（覆盖安装之前的 stable） |
 
-See [AGENTS.md](AGENTS.md) for detailed build instructions, product flavors, signing configuration, and architecture overview.
+详细的构建说明、product flavor、签名配置与架构概览见 [AGENTS.md](AGENTS.md)。
 
-## Tech Stack
+## 技术栈
 
-- **Kotlin** + **Jetpack Compose** (BOM 2026.05.01)
-- **Hilt** (KSP) for dependency injection
-- **Ktor** (OkHttp engine) for HTTP & SSE
-- **Material 3** design system
-- Clean Architecture — domain / data / ui layers
+- **Kotlin** + **Jetpack Compose**（BOM 2026.05.01）
+- **Hilt**（KSP）依赖注入
+- **Ktor**（OkHttp engine）HTTP 与 SSE
+- **Material 3** 设计系统
+- Clean Architecture — domain / data / ui 三层
 - JDK 21 · compileSdk 37 · minSdk 26 · targetSdk 35
 
-## Requirements
+## 要求
 
-- Android 8.0+ (API 26)
-- An OpenCode server reachable over the network (or run one locally via Termux)
+- Android 8.0+（API 26）
+- 网络可达的 OpenCode 服务器（或通过 Termux 在本地运行一个）
 
-## Acknowledgments
+## 致谢
 
-- **[@crim50n](https://github.com/crim50n)** — original author of [oc-remote](https://github.com/crim50n/oc-remote), on which this fork is built. The vast majority of the foundation — native UI, terminal mode, session management, multi-server, local runtime — is his work.
-- The [OpenCode](https://github.com/anomalyco/opencode) team — for the server software this client connects to.
+- **[@crim50n](https://github.com/crim50n)** — [oc-remote](https://github.com/crim50n/oc-remote) 原作者，本 fork 的基础。绝大多数地基工作——原生 UI、终端模式、会话管理、多服务器、本地运行时——都出自他手。
+- [OpenCode](https://github.com/anomalyco/opencode) 团队 — 本客户端所连接的服务端软件。
 
-## License
+## 许可证
 
-MIT License — see [LICENSE](LICENSE).
+MIT License — 见 [LICENSE](LICENSE)。
 
     Copyright (c) 2026 crims0n <https://github.com/crim50n>
     Copyright (c) 2026 LeoNardo-LB <https://github.com/LeoNardo-LB> (fork enhancements)

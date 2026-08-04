@@ -4,13 +4,13 @@ import androidx.compose.runtime.Composable
 import dev.leonardo.ocbeacon.domain.model.Part
 
 /**
- * Resolver for tool-specific card composables.
- * Implementations map a tool name (lowercase) to its dedicated Compose card.
+ * 工具专属卡片 composable 的解析器。
+ * 实现将工具名（小写）映射到其专属的 Compose 卡片。
  */
 interface ToolCardResolver {
     /**
-     * Resolve a composable for the given tool part.
-     * @return the composable lambda, or null if this resolver does not handle the tool.
+     * 为给定工具 part 解析 composable。
+     * @return composable lambda；若该解析器不处理此工具则返回 null。
      */
     fun resolve(
         tool: Part.Tool,

@@ -17,90 +17,90 @@ import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Repository interface for chat operations.
- * Aligned with spec §4.1.1.
- * Implemented by the Data layer in Phase 3.
+ * 聊天操作的 Repository 接口。
+ * 与 spec §4.1.1 对齐。
+ * 由 Data 层在 Phase 3 实现。
  */
 interface ChatRepository {
 
-    // ============ State Observations ============
+    // ============ 状态观察 ============
 
     /**
-     * Observe the list of messages (with parts) for a session.
-     * Phase 3 impl: delegates to EventDispatcher.messages, maps to domain Message.
+     * 观察某个会话的消息列表（含 parts）。
+     * Phase 3 实现：委托给 EventDispatcher.messages，并映射为领域 Message。
      */
     fun getMessagesFlow(sessionId: String): Flow<List<Message>>
 
     /**
-     * Observe the list of parts for a session.
+     * 观察某个会话的 parts 列表。
      */
     fun getParts(sessionId: String): Flow<List<Part>>
 
     /**
-     * Observe the parts map (sessionId → parts) for all sessions.
-     * Needed by combines that build per-message ChatMessage objects.
+     * 观察所有会话的 parts 映射（sessionId → parts）。
+     * 供组装每条消息 ChatMessage 对象的 combine 使用。
      */
     fun getAllPartsMap(): Flow<Map<String, List<Part>>>
 
     /**
-     * Observe the list of pending permission requests for a session.
+     * 观察某个会话待处理的权限请求列表。
      */
     fun getPermissionsFlow(sessionId: String): Flow<List<PermissionState>>
 
     /**
-     * Observe the list of pending questions for a session.
+     * 观察某个会话待处理的问题列表。
      */
     fun getQuestionsFlow(sessionId: String): Flow<List<QuestionState>>
 
     /**
-     * Observe the raw questions map (sessionId → list) for all sessions.
-     * Used by combines that need to reactively recompute when questions change.
+     * 观察所有会话的原始问题映射（sessionId → list）。
+     * 供在问题变更时需要响应式重计算的 combine 使用。
      */
     fun getAllQuestionsFlow(): Flow<Map<String, List<SseEvent.QuestionAsked>>>
 
     /**
-     * Observe the raw permissions map (sessionId → list) for all sessions.
-     * Used by combines that need to reactively recompute when permissions change.
+     * 观察所有会话的原始权限映射（sessionId → list）。
+     * 供在权限变更时需要响应式重计算的 combine 使用。
      */
     fun getAllPermissionsFlow(): Flow<Map<String, List<SseEvent.PermissionAsked>>>
 
-    // ============ EventDispatcher Flow Exposure ============
+    // ============ EventDispatcher Flow 暴露 ============
 
     /**
-     * Observe active tool progress for a server.
+     * 观察某台服务器上正在进行的工具进度。
      */
     fun getActiveToolProgress(serverId: String): Flow<List<ToolProgressInfo>?>
 
     /**
-     * Observe step progress for a server.
+     * 观察某台服务器上的步骤进度。
      */
     fun getStepProgress(serverId: String): Flow<StepProgressInfo?>
 
     /**
-     * Observe compaction state for a server.
+     * 观察某台服务器上的压缩状态。
      */
     fun getCompactionState(serverId: String): Flow<CompactionStateInfo?>
 
-    // ============ Network Operations ============
+    // ============ 网络操作 ============
 
     /**
-     * Send a message (list of parts) to the given session.
-     * Returns the resulting [Message] on success, or an exception on failure.
+     * 向指定会话发送消息（parts 列表）。
+     * 成功时返回结果 [Message]，失败时返回异常。
      */
     suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message>
 
     /**
-     * Reply to a permission request by ID.
+     * 按 ID 回复权限请求。
      */
     suspend fun replyPermission(permissionId: String, reply: String): Result<Boolean>
 
     /**
-     * Reply to a question by ID.
+     * 按 ID 回复问题。
      */
     suspend fun replyQuestion(questionId: String, answer: String): Result<Boolean>
 
     /**
-     * Send a prompt asynchronously (fire-and-forget).
+     * 异步发送 prompt（触发后即忘）。
      */
     suspend fun promptAsync(
         serverId: String,
@@ -113,17 +113,17 @@ interface ChatRepository {
     ): Result<Unit>
 
     /**
-     * Revert (undo) messages starting from the given messageId.
+     * 从指定 messageId 开始回退（undo）消息。
      */
     suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit>
 
     /**
-     * Unrevert (redo) the last reverted message in a session.
+     * 在会话中取消回退（redo）最近一次被回退的消息。
      */
     suspend fun unrevertSession(serverId: String, sessionId: String): Result<Unit>
 
     /**
-     * Respond to a permission request with server context.
+     * 回复权限请求（带服务器上下文）。
      */
     suspend fun respondPermission(
         serverId: String,
@@ -133,24 +133,24 @@ interface ChatRepository {
     ): Result<Boolean>
 
     /**
-     * Select a model for the server.
+     * 为服务器选择一个模型。
      */
     suspend fun selectModel(serverId: String, providerId: String, modelId: String): Result<Unit>
 
-    // ============ Pending Queries ============
+    // ============ 待处理查询 ============
 
     /**
-     * List pending permission requests for a server.
+     * 列出某台服务器上待处理的权限请求。
      */
     suspend fun listPendingPermissions(serverId: String, directory: String? = null): Result<List<PermissionState>>
 
     /**
-     * List pending question requests for a server.
+     * 列出某台服务器上待处理的问题请求。
      */
     suspend fun listPendingQuestions(serverId: String, directory: String? = null): Result<List<QuestionState>>
 
     /**
-     * Reply to a question request with multiple answers.
+     * 以多个答案回复问题请求。
      */
     suspend fun replyToQuestion(
         serverId: String,
@@ -160,7 +160,7 @@ interface ChatRepository {
     ): Result<Boolean>
 
     /**
-     * Reject a question request.
+     * 拒绝问题请求。
      */
     suspend fun rejectQuestion(
         serverId: String,
@@ -168,18 +168,18 @@ interface ChatRepository {
         directory: String? = null
     ): Result<Boolean>
 
-    // ============ Undo/Redo ============
+    // ============ 撤销/重做 ============
 
     /**
-     * Undo or redo messages in a session.
-     * @param action "undo" or "redo"
+     * 在会话中撤销或重做消息。
+     * @param action "undo" 或 "redo"
      */
     suspend fun undoRedo(serverId: String, sessionId: String, action: String): Result<Unit>
 
-    // ============ Command Execution ============
+    // ============ 命令执行 ============
 
     /**
-     * Execute a server-side command in a session.
+     * 在会话中执行服务端命令。
      */
     suspend fun executeCommand(
         serverId: String,
@@ -190,7 +190,7 @@ interface ChatRepository {
     ): Result<Boolean>
 
     /**
-     * Run a shell command in a session.
+     * 在会话中运行 shell 命令。
      */
     suspend fun runShellCommand(
         serverId: String,
@@ -202,128 +202,127 @@ interface ChatRepository {
         directory: String? = null
     ): Result<Boolean>
 
-    // ============ UI State ============
+    // ============ UI 状态 ============
 
     /**
-     * Get the read-only map of tool expanded states for the current session.
-     * Used by UI to track which tool cards are expanded.
+     * 获取当前会话工具展开状态的只读映射。
+     * 供 UI 跟踪哪些工具卡片处于展开状态。
      */
     fun getToolExpandedStates(): Map<String, Boolean>
 
     /**
-     * Set the expanded state for a specific tool card.
+     * 设置某个工具卡片的展开状态。
      */
     fun setToolExpanded(toolId: String, expanded: Boolean)
 
-    // ============ Permission Auto-Approve ============
+    // ============ 权限自动批准 ============
 
     /**
-     * Persist a new permission auto-approve rule (user chose "always approve").
+     * 持久化一条新的权限自动批准规则（用户选择了"始终批准"）。
      */
     suspend fun addPermissionAutoApproveRule(rule: AutoApproveRule)
 
-    // ============ Write Operations (State Updates) ============
+    // ============ 写入操作（状态更新）============
 
     /**
-     * Set messages for a session (full replace from REST load).
+     * 设置某个会话的消息（来自 REST 加载的全量替换）。
      */
     fun setMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**
-     * Merge messages into a session (REST restore / pagination).
+     * 将消息合并到某个会话中（REST 恢复 / 分页加载）。
      */
     fun mergeMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**
-     * Replace all messages for a session (session update refresh).
+     * 替换某个会话的全部消息（会话更新刷新）。
      */
     fun replaceMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**
-     * Inject an optimistic user message into the message cache for immediate display.
-     * The message uses a temp ID ("pending-*") that gets replaced in-place when
-     * SSE delivers the real message.
+     * 向消息缓存中注入一条乐观用户消息以立即显示。
+     * 该消息使用临时 ID（"pending-*"），当 SSE 投递真实消息时会被原地替换。
      */
     fun addOptimisticMessage(sessionId: String, message: Message.User, parts: List<Part>)
 
     /**
-     * Clear the revert state for a session.
-     * Called when the user sends a new message after revert — the server
-     * consumes the revert but may not notify the client via SSE.
+     * 清除某个会话的回退状态。
+     * 在用户回退后发送新消息时调用——服务器会消费回退，
+     * 但可能不会通过 SSE 通知客户端。
      */
     fun clearRevert(sessionId: String)
 
-    /** Set local revert state immediately after REST revert (prevents flash of old messages). */
+    /** 在 REST 回退之后立即设置本地回退状态（防止旧消息闪现）。 */
     fun setRevert(sessionId: String, messageId: String)
 
     /**
-     * Remove a permission card by ID (optimistic removal after reply).
+     * 按 ID 移除权限卡片（回复后的乐观移除）。
      */
     fun removePermission(permissionId: String)
 
     /**
-     * Set permissions for a session (REST merge).
+     * 设置某个会话的权限（REST 合并）。
      */
     fun setPermissions(sessionId: String, permissions: List<SseEvent.PermissionAsked>)
 
     /**
-     * Remove a question card by ID (optimistic removal after reply).
+     * 按 ID 移除问题卡片（回复后的乐观移除）。
      */
     fun removeQuestion(questionId: String)
 
     /**
-     * Set questions for a session (REST merge).
+     * 设置某个会话的问题（REST 合并）。
      */
     fun setQuestions(sessionId: String, questions: List<SseEvent.QuestionAsked>)
 
     /**
-     * Aggregate permissions for a session including its child sessions.
+     * 聚合某个会话及其子会话的权限。
      */
     fun getPermissionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.PermissionAsked>
 
     /**
-     * Aggregate questions for a session including its child sessions.
+     * 聚合某个会话及其子会话的问题。
      */
     fun getQuestionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.QuestionAsked>
 
-    // ============ Raw State Reads (for complex read-write patterns) ============
+    // ============ 原始状态读取（用于复杂的读写模式）============
 
     /**
-     * Read the current permissions map snapshot.
-     * Needed for REST merge logic that reads existing SSE state before merging.
+     * 读取当前的权限映射快照。
+     * 供 REST 合并逻辑使用——在合并前读取现有 SSE 状态。
      */
     fun getPermissionsSnapshot(): Map<String, List<SseEvent.PermissionAsked>>
 
     /**
-     * Read the current questions map snapshot.
-     * Needed for REST merge logic that reads existing SSE state before merging.
+     * 读取当前的问题映射快照。
+     * 供 REST 合并逻辑使用——在合并前读取现有 SSE 状态。
      */
     fun getQuestionsSnapshot(): Map<String, List<SseEvent.QuestionAsked>>
 
     /**
-     * Read the current sessions list snapshot.
-     * Needed for REST merge logic that looks up child sessions and titles.
+     * 读取当前的会话列表快照。
+     * 供 REST 合并逻辑使用——查找子会话和标题。
      */
     fun getSessionsSnapshot(): List<Session>
 
     /**
-     * Observe active tool progress for a specific session (keyed by sessionId).
+     * 观察某个特定会话（以 sessionId 为键）的工具进度。
      */
     fun getActiveToolProgressForSession(sessionId: String): Flow<List<ToolProgressInfo>?>
 
     /**
-     * Observe step progress for a specific session (keyed by sessionId).
+     * 观察某个特定会话（以 sessionId 为键）的步骤进度。
      */
     fun getStepProgressForSession(sessionId: String): Flow<StepProgressInfo?>
 
     /**
-     * Observe compaction state for a specific session (keyed by sessionId).
+     * 观察某个特定会话（以 sessionId 为键）的压缩状态。
      */
     fun getCompactionStateForSession(sessionId: String): Flow<CompactionStateInfo?>
 
     /**
-     * Observe file diffs for a specific session (keyed by sessionId).
-     * Backs [dev.leonardo.ocbeacon.domain.model.Part.Patch] line counts.
+     * 观察某个特定会话（以 sessionId 为键）的文件差异。
+     * 支撑 [dev.leonardo.ocbeacon.domain.model.Part.Patch] 的行数统计。
      */
     fun getSessionDiffsForSession(sessionId: String): Flow<List<FileDiff>>
 }

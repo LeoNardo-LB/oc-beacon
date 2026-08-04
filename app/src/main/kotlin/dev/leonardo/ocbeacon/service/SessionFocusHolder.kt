@@ -11,9 +11,9 @@ data class SessionFocus(
 )
 
 /**
- * Tracks the app's foreground state and the currently-viewed session.
- * Used by [OpenCodeConnectionService] to suppress TaskComplete notifications
- * when the user is actively viewing that session.
+ * 跟踪应用的前台状态和当前正在查看的会话。
+ * 由 [OpenCodeConnectionService] 使用，用于在用户正在主动查看该会话时
+ * 抑制 TaskComplete 通知。
  */
 @Singleton
 class SessionFocusHolder @Inject constructor() {
@@ -37,8 +37,8 @@ class SessionFocusHolder @Inject constructor() {
     }
 
     /**
-     * Returns true if TaskComplete notifications for this session should be suppressed
-     * (app is in foreground AND user is viewing this exact session).
+     * 当应抑制此会话的 TaskComplete 通知时返回 true
+     *（应用在前台 且 用户正在查看此确切会话）。
      */
     fun shouldSuppress(serverId: String, sessionId: String): Boolean {
         val focus = _activeFocus.value ?: return false

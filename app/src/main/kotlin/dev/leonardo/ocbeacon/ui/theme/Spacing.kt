@@ -1,22 +1,22 @@
 package dev.leonardo.ocbeacon.ui.theme
 
 /**
- * Semantic spacing tokens based on a 4dp grid.
+ * 基于 4dp 网格的语义化间距令牌。
  *
- * Usage: `Modifier.padding(SpacingTokens.LG.dp)` or
- * `Arrangement.spacedBy(SpacingTokens.SM.dp)`.
+ * 用法：`Modifier.padding(SpacingTokens.LG.dp)` 或
+ * `Arrangement.spacedBy(SpacingTokens.SM.dp)`。
  *
- * Token scale:
- *   XS  (4)  — minimal gaps: icon insets, hairline spacing, fine separators
- *   SM  (8)  — tight gaps: related-element group spacing, small padding
- *   MD  (12) — medium gaps: card inner padding, component spacing
- *   LG  (16) — standard content padding, screen horizontal margin (most common)
- *   XL  (24) — section spacing, screen vertical margin
- *   XXL (32) — large section separation
+ * 令牌刻度：
+ *   XS  (4)  — 最小间距：图标内边距、细线间距、精细分隔线
+ *   SM  (8)  — 紧凑间距：相关元素成组间距、小内边距
+ *   MD  (12) — 中等间距：卡片内边距、组件间距
+ *   LG  (16) — 标准内容内边距、屏幕水平边距（最常用）
+ *   XL  (24) — 区块间距、屏幕垂直边距
+ *   XXL (32) — 大区块分隔
  *
- * Apply to spacing/padding only — not to component sizing (icon `size`,
- * fixed `width`/`height`). Values outside this scale (e.g. 6, 10, 14, 18, 20)
- * are component-specific and may remain inline where no semantic token fits.
+ * 仅用于间距/内边距 — 不适用于组件尺寸（图标 `size`、
+ * 固定 `width`/`height`）。超出此刻度的值（如 6、10、14、18、20）
+ * 属组件特例，无合适语义令牌时可保持内联。
  */
 object SpacingTokens {
     const val XS = 4

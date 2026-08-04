@@ -46,7 +46,7 @@ private data class SearchResult(
 )
 
 /**
- * WebSearch tool card — shows search query + result list.
+ * WebSearch 工具卡片 —— 显示搜索查询 + 结果列表。
  */
 @Composable
 internal fun WebSearchToolCard(
@@ -60,7 +60,7 @@ internal fun WebSearchToolCard(
     val output = extractToolOutput(tool)
     val isRunning = tool.state is ToolState.Running
 
-    // Try to parse structured results from metadata
+    // 尝试从元数据解析结构化结果
     val results = remember(tool.state) {
         val completed = tool.state as? ToolState.Completed
         val meta = completed?.metadata
@@ -75,7 +75,7 @@ internal fun WebSearchToolCard(
                 )
             }
         } else {
-            // Fallback: parse output as text
+            // 回退：将输出作为文本解析
             if (output.isBlank()) emptyList()
             else listOf(SearchResult(title = "", url = "", summary = output.take(2000)))
         }

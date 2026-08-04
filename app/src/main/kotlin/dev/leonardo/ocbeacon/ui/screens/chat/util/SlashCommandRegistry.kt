@@ -5,21 +5,21 @@ import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 
 /**
- * Slash command definition for the suggestion popup.
- * @param name Command name without the "/" prefix
- * @param description Human-readable description
- * @param type "server" commands are sent via API, "client" commands trigger local actions
+ * 建议弹窗的斜杠命令定义。
+ * @param name 不含 "/" 前缀的命令名
+ * @param description 人类可读的描述
+ * @param type "server" 命令通过 API 发送，"client" 命令触发本地动作
  */
 internal data class SlashCommand(
     val name: String,
     val description: String?,
-    val type: String // "server" or "client"
+    val type: String // "server" 或 "client"
 )
 
-/** Client-side slash command registry — extracted from ChatInputBar.kt. */
+/** 客户端斜杠命令注册表 —— 从 ChatInputBar.kt 抽取。 */
 internal object SlashCommandRegistry {
 
-    /** Client-side slash commands that mirror the original opencode TUI. */
+    /** 镜像原始 opencode TUI 的客户端斜杠命令。 */
     @Composable
     fun clientCommands(): List<SlashCommand> {
         return listOf(

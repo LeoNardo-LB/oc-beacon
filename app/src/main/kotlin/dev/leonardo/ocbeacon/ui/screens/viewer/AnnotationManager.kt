@@ -5,12 +5,12 @@ import dev.leonardo.ocbeacon.domain.model.OffsetConverter
 import java.util.UUID
 
 /**
- * Manages an in-memory list of [Annotation]s for a single file's source view.
- * Annotations are ordered by creation time ([Annotation.index]).
- * Deleting a middle annotation re-numbers remaining to consecutive 0..N-1.
+ * 管理单个文件源码视图中 [Annotation] 的内存列表。
+ * 批注按创建时间排序（[Annotation.index]）。
+ * 删除中间的批注时，剩余批注会重新编号为连续的 0..N-1。
  *
- * @param content The full file content for computing line:col from char offsets.
- *                Line endings are normalized to \n to match the WebView's DOM.
+ * @param content 用于从字符偏移计算行:列的完整文件内容。
+ *                行结尾会规范化为 \n，以匹配 WebView 的 DOM。
  */
 class AnnotationManager(content: String) {
 
@@ -46,15 +46,15 @@ class AnnotationManager(content: String) {
     fun getAll(): List<Annotation> = annotations.sortedBy { it.index }
 
     /**
-     * Phase 4: Replace all annotations with [list] without re-calculating
-     * id/index/line-col. Used to restore from SavedStateHandle after rotation.
+     * Phase 4：用 [list] 替换所有批注，不重新计算
+     * id/index/line-col。用于旋转后从 SavedStateHandle 恢复。
      */
     fun restore(list: List<Annotation>) {
         annotations.clear()
         annotations.addAll(list)
     }
 
-    /** Get annotations intersecting 0-based [lineIndex]. */
+    /** 获取与 0-based [lineIndex] 相交的批注。 */
     fun getForLine(lineIndex: Int): List<Annotation> {
         val target = lineIndex + 1
         return annotations.filter { it.startLine <= target && it.endLine >= target }

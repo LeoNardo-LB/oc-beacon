@@ -14,7 +14,7 @@ class SessionNextEventHandlerFullTest {
         handler = SessionNextEventHandler()
     }
 
-    // ============ Agent Switching - Multi-session & Overwrite ============
+    // ============ Agent 切换 - 多会话与覆盖 ============
 
     @Test
     fun agentSwitched_multipleSessions_independentState() {
@@ -66,7 +66,7 @@ class SessionNextEventHandlerFullTest {
         assertEquals("gpt-4o", handler.currentModel.value["s1"]!!.second)
     }
 
-    // ============ Tool Progress - Full Lifecycle ============
+    // ============ 工具进度 - 完整生命周期 ============
 
     @Test
     fun toolProgress_fullLifecycle_startedToRunningToSuccess() {
@@ -100,7 +100,7 @@ class SessionNextEventHandlerFullTest {
 
     @Test
     fun toolProgress_afterSuccess_subsequentUpdateIsNoOp() {
-        // Start and complete tool c1
+        // 启动并完成工具 c1
         handler.handleSessionNextEvent(
             SessionNextEvent.ToolInputStarted(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -113,14 +113,14 @@ class SessionNextEventHandlerFullTest {
                 callId = "c1", output = "done"
             )
         )
-        // Try to update already-removed tool
+        // 尝试更新已移除的工具
         handler.handleSessionNextEvent(
             SessionNextEvent.ToolProgress(
                 sessionId = "s1", messageId = "m1", partId = "p1",
                 callId = "c1", progress = "still going", title = "ignored"
             )
         )
-        // c1 was removed, but s1 entry still exists as empty list
+        // c1 已被移除，但 s1 条目仍以空列表存在
         assertTrue(handler.activeToolProgress.value["s1"]!!.isEmpty())
     }
 
@@ -132,7 +132,7 @@ class SessionNextEventHandlerFullTest {
                 callId = "nonexistent", progress = "50%"
             )
         )
-        // No session entry should exist since no tool was started
+        // 由于未启动任何工具，不应存在会话条目
         assertNull(handler.activeToolProgress.value["s1"])
     }
 
@@ -228,7 +228,7 @@ class SessionNextEventHandlerFullTest {
         assertEquals("c2", tools[1].callId)
         assertEquals("read_file", tools[1].tool)
 
-        // Progress on first tool only
+        // 仅更新第一个工具的进度
         handler.handleSessionNextEvent(
             SessionNextEvent.ToolProgress(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -238,7 +238,7 @@ class SessionNextEventHandlerFullTest {
         val updated = handler.activeToolProgress.value["s1"]!!
         assertEquals(2, updated.size)
         assertEquals("running", updated[0].status)
-        assertEquals("started", updated[1].status) // c2 unchanged
+        assertEquals("started", updated[1].status) // c2 保持不变
     }
 
     @Test
@@ -255,7 +255,7 @@ class SessionNextEventHandlerFullTest {
                 callId = "c2", tool = "read_file"
             )
         )
-        // Complete c1 only
+        // 仅完成 c1
         handler.handleSessionNextEvent(
             SessionNextEvent.ToolSuccess(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -290,7 +290,7 @@ class SessionNextEventHandlerFullTest {
         assertTrue(handler.activeToolProgress.value["s1"]!!.isEmpty())
     }
 
-    // ============ Tool No-op Events ============
+    // ============ 工具空操作事件 ============
 
     @Test
     fun toolInputDelta_noStateChange() {
@@ -314,7 +314,7 @@ class SessionNextEventHandlerFullTest {
         assertNull(handler.activeToolProgress.value["s1"])
     }
 
-    // ============ Step Progress - Edge Cases ============
+    // ============ 步骤进度 - 边界情况 ============
 
     @Test
     fun stepStarted_stepZero_edgeCase() {
@@ -394,7 +394,7 @@ class SessionNextEventHandlerFullTest {
 
     @Test
     fun stepEnded_nonExistentSession_safeNoOp() {
-        // Should not throw
+        // 不应抛异常
         handler.handleSessionNextEvent(
             SessionNextEvent.StepEnded(sessionId = "nonexistent", messageId = "m1", step = 1)
         )
@@ -428,7 +428,7 @@ class SessionNextEventHandlerFullTest {
         assertEquals(2, handler.stepProgress.value.size)
     }
 
-    // ============ Compaction State - Edge Cases ============
+    // ============ 压缩状态 - 边界情况 ============
 
     @Test
     fun compactionStarted_withReason() {
@@ -487,7 +487,7 @@ class SessionNextEventHandlerFullTest {
         assertNull(handler.compactionState.value["s1"])
     }
 
-    // ============ Shell State ============
+    // ============ Shell 状态 ============
 
     @Test
     fun shellStarted_thenShellEnded_fullLifecycle() {
@@ -510,7 +510,7 @@ class SessionNextEventHandlerFullTest {
         assertNull(handler.shellState.value["nonexistent"])
     }
 
-    // ============ Retried ============
+    // ============ 重试 ============
 
     @Test
     fun retried_setsRetryCount() {
@@ -540,14 +540,14 @@ class SessionNextEventHandlerFullTest {
         assertEquals(1, handler.retryState.value.size)
     }
 
-    // ============ No-op Events ============
+    // ============ 空操作事件 ============
 
     @Test
     fun prompted_noStateChange() {
         handler.handleSessionNextEvent(
             SessionNextEvent.Prompted(sessionId = "s1", messageId = "m1")
         )
-        // Just verify nothing crashes and state is clean
+        // 仅验证不崩溃且状态干净
         assertTrue(handler.currentAgent.value.isEmpty())
         assertTrue(handler.activeToolProgress.value.isEmpty())
     }
@@ -568,7 +568,7 @@ class SessionNextEventHandlerFullTest {
         assertTrue(handler.currentAgent.value.isEmpty())
     }
 
-    // ============ Sequence Tracking ============
+    // ============ 序号跟踪 ============
 
     @Test
     fun trackSequence_sequentialValues_noGap() {
@@ -583,7 +583,7 @@ class SessionNextEventHandlerFullTest {
     fun trackSequence_gapDetected() {
         handler.trackSequence("s1", 1)
         handler.trackSequence("s1", 2)
-        // Skip 3 — should detect gap
+        // 跳过 3 —— 应检测到断档
         handler.trackSequence("s1", 5)
         assertTrue(handler.gapDetected.value.contains("s1"))
         assertEquals(5L, handler.lastEventSeq.value["s1"])
@@ -592,10 +592,10 @@ class SessionNextEventHandlerFullTest {
     @Test
     fun trackSequence_gapDetected_multipleSessions() {
         handler.trackSequence("s1", 1)
-        handler.trackSequence("s1", 3) // gap of 1
+        handler.trackSequence("s1", 3) // 断档为 1
         handler.trackSequence("s2", 10)
         handler.trackSequence("s2", 11)
-        handler.trackSequence("s2", 20) // gap
+        handler.trackSequence("s2", 20) // 断档
 
         assertTrue(handler.gapDetected.value.contains("s1"))
         assertTrue(handler.gapDetected.value.contains("s2"))
@@ -612,7 +612,7 @@ class SessionNextEventHandlerFullTest {
     @Test
     fun clearGap_removesGapFlag() {
         handler.trackSequence("s1", 1)
-        handler.trackSequence("s1", 5) // gap
+        handler.trackSequence("s1", 5) // 断档
         assertTrue(handler.gapDetected.value.contains("s1"))
 
         handler.clearGap("s1")
@@ -625,7 +625,7 @@ class SessionNextEventHandlerFullTest {
         assertFalse(handler.gapDetected.value.contains("nonexistent"))
     }
 
-    // ============ Cleanup - clearForServer ============
+    // ============ 清理 - clearForServer ============
 
     @Test
     fun clearForServer_removesMultipleSessions() {
@@ -655,11 +655,11 @@ class SessionNextEventHandlerFullTest {
         assertEquals("code", handler.currentAgent.value["s1"])
     }
 
-    // ============ Cleanup - clearForSession comprehensive ============
+    // ============ 清理 - clearForSession 全面测试 ============
 
     @Test
     fun clearForSession_clearsAllStateTypes() {
-        // Populate all state types for session "s1"
+        // 为会话 "s1" 填充所有状态类型
         handler.handleSessionNextEvent(
             SessionNextEvent.AgentSwitched(sessionId = "s1", agent = "code")
         )
@@ -685,7 +685,7 @@ class SessionNextEventHandlerFullTest {
             SessionNextEvent.Retried(sessionId = "s1", attempt = 2)
         )
         handler.trackSequence("s1", 1)
-        handler.trackSequence("s1", 5) // creates gap
+        handler.trackSequence("s1", 5) // 制造断档
 
         handler.clearForSession("s1")
 
@@ -715,7 +715,7 @@ class SessionNextEventHandlerFullTest {
         assertEquals("build", handler.currentAgent.value["s2"])
     }
 
-    // ============ Cleanup - clearAll comprehensive ============
+    // ============ 清理 - clearAll 全面测试 ============
 
     @Test
     fun clearAll_resetsAllStateIncludingRetryAndSequence() {
@@ -741,11 +741,11 @@ class SessionNextEventHandlerFullTest {
         assertTrue(handler.gapDetected.value.isEmpty())
     }
 
-    // ============ Cross-cutting: Multiple sessions independent ============
+    // ============ 横切：多会话相互独立 ============
 
     @Test
     fun multipleSessions_haveIndependentState() {
-        // Session 1: agent, tool, step
+        // 会话 1：agent、tool、step
         handler.handleSessionNextEvent(
             SessionNextEvent.AgentSwitched(sessionId = "s1", agent = "code")
         )
@@ -759,7 +759,7 @@ class SessionNextEventHandlerFullTest {
             SessionNextEvent.StepStarted(sessionId = "s1", messageId = "m1", step = 1)
         )
 
-        // Session 2: different state
+        // 会话 2：不同状态
         handler.handleSessionNextEvent(
             SessionNextEvent.AgentSwitched(sessionId = "s2", agent = "build")
         )
@@ -770,7 +770,7 @@ class SessionNextEventHandlerFullTest {
             SessionNextEvent.CompactionStarted(sessionId = "s2", messageId = "m1", reason = "full")
         )
 
-        // Verify independence
+        // 验证独立性
         assertEquals("code", handler.currentAgent.value["s1"])
         assertEquals("build", handler.currentAgent.value["s2"])
         assertEquals(1, handler.activeToolProgress.value["s1"]!!.size)
@@ -802,7 +802,7 @@ class SessionNextEventHandlerFullTest {
         assertEquals(10L, handler.lastEventSeq.value["s2"])
     }
 
-    // ============ Tool complete removes tool but leaves session entry ============
+    // ============ 工具完成会移除工具但保留会话条目 ============
 
     @Test
     fun toolComplete_allToolsRemoved_sessionEntryStillPresentAsEmptyList() {
@@ -818,12 +818,12 @@ class SessionNextEventHandlerFullTest {
                 callId = "c1", output = "done"
             )
         )
-        // Session entry should still exist but be empty
+        // 会话条目应仍存在但为空
         assertNotNull(handler.activeToolProgress.value["s1"])
         assertTrue(handler.activeToolProgress.value["s1"]!!.isEmpty())
     }
 
-    // ============ Track sequence per session ============
+    // ============ 按会话跟踪序号 ============
 
     @Test
     fun trackSequence_perSessionIndependent() {

@@ -6,8 +6,8 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import javax.inject.Inject
 
 /**
- * Use case: manage permission and question requests (reply, reject, list pending).
- * Delegates to ChatRepository.
+ * Use Case：管理权限和问题请求（回复、拒绝、列出待处理项）。
+ * 委托给 ChatRepository。
  */
 class ManagePermissionUseCase @Inject constructor(
     private val chatRepository: ChatRepository

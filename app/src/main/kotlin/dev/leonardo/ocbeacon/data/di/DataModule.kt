@@ -10,8 +10,8 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 
 /**
- * Hilt module that binds Chat and Session domain interfaces to their Data-layer implementations.
- * Server and Settings bindings live in di/DomainModule.
+ * 将 Chat 和 Session 领域接口绑定到其 Data 层实现的 Hilt 模块。
+ * Server 和 Settings 绑定位于 di/DomainModule。
  */
 @Module
 @InstallIn(SingletonComponent::class)

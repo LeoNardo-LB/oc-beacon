@@ -38,15 +38,15 @@ internal fun formatDuration(ms: Long): String {
 }
 
 /**
- * Resolves a human-readable status label for a group of step tool parts.
- * E.g., "Making edits", "Running commands", "Searching codebase", "Thinking"
+ * 为一组步骤工具 parts 解析人类可读的状态标签。
+ * 例如 "Making edits"、"Running commands"、"Searching codebase"、"Thinking"
  */
 @Composable
 internal fun resolveStepsStatus(stepParts: List<Part>): String {
     val toolParts = stepParts.filterIsInstance<Part.Tool>()
     val hasRunning = toolParts.any { it.state is ToolState.Running }
     if (!hasRunning && toolParts.all { it.state is ToolState.Completed || it.state is ToolState.Error }) {
-        // All done — summarize
+        // 全部完成 —— 汇总
         val editCount = toolParts.count { it.tool in listOf("edit", "write", "apply_patch", "multiedit") }
         val bashCount = toolParts.count { it.tool == "bash" }
         val searchCount = toolParts.count { it.tool in listOf("glob", "grep", "read", "list", "listDirectory") }
@@ -71,7 +71,7 @@ internal fun resolveStepsStatus(stepParts: List<Part>): String {
             }
         }
     }
-    // Currently running — describe what's happening
+    // 正在运行 —— 描述当前正在做什么
     val runningTool = toolParts.lastOrNull { it.state is ToolState.Running }
     return when (runningTool?.tool) {
         "edit", "write", "multiedit" -> stringResource(R.string.chat_status_making_edits)

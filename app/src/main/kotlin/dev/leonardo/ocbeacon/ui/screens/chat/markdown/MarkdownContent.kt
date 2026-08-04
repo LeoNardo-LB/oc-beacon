@@ -85,42 +85,41 @@ internal fun normalizeHtmlForEmbeddedPreview(html: String): String {
     }
 }
 
-// ============ Markdown Preprocessing ============
+// ============ Markdown 预处理 ============
 
 /**
- * Minimal Markdown preprocessing — let Mikepenz Handle parsing natively.
- * Only user message newline normalization remains.
- * Custom HTML detection and table format fixing removed to avoid
- * false-positives that broke rendering.
+ * 最小化的 Markdown 预处理——让 Mikepenz Handle 原生解析。
+ * 仅保留用户消息的换行规范化。
+ * 自定义 HTML 检测和表格格式修复已移除，以避免破坏渲染的误报。
  */
 internal fun normalizeMarkdown(raw: String, isUser: Boolean): String {
-    // Normalize Windows line endings (\r\n → \n). opencode server on Windows
-    // returns \r\n in Markdown text, which can break GFM table parsing
-    // (the \r may be treated as cell content instead of line ending).
+    // 规范化 Windows 换行符（\r\n → \n）。Windows 上的 opencode server
+    // 在 Markdown 文本中返回 \r\n，这可能破坏 GFM 表格解析
+    //（\r 可能被当作单元格内容而非行尾）。
     var result = raw.replace("\r\n", "\n").replace("\r", "\n")
 
-    // Ensure GFM tables are preceded by a blank line.
-    // The JetBrains markdown parser only detects tables at block boundaries;
-    // a table directly following a paragraph (no blank line) renders as plain text.
+    // 确保 GFM 表格前有一个空行。
+    // JetBrains markdown 解析器仅在块边界处检测表格；
+    // 紧跟在段落后的表格（无空行）会渲染为纯文本。
     result = ensureBlankLineBeforeGfmTables(result)
 
     if (!isUser) return result
-    // User messages: single \n doesn't break in Markdown (soft break).
+    // 用户消息：单个 \n 在 Markdown 中不换行（软换行）。
     return result.replace(Regex("(?<!\n)\n(?!\n)"), "\n\n")
 }
 
 /**
- * Ensures GFM tables are preceded by a blank line.
+ * 确保 GFM 表格前有一个空行。
  *
- * The JetBrains markdown parser only detects GFM tables at block boundaries.
- * When an LLM outputs a table directly after a paragraph (no blank line),
- * the `|` characters are treated as literal text and the table doesn't render.
+ * JetBrains markdown 解析器仅在块边界处检测 GFM 表格。
+ * 当 LLM 在段落之后直接输出表格（无空行）时，
+ * `|` 字符会被当作字面文本，表格无法渲染。
  *
- * Pattern: non-table line \n |header| \n |---| → non-table line \n\n |header| \n |---|
+ * 模式：非表格行 \n |表头| \n |---| → 非表格行 \n\n |表头| \n |---|
  */
 private fun ensureBlankLineBeforeGfmTables(text: String): String {
-    // Match: a line NOT ending with |, followed by a table header line (starts with |),
-    // followed by a separator line (| with only -, :, spaces, and |).
+    // 匹配：不以 | 结尾的行，后跟表格表头行（以 | 开头），
+    // 再跟分隔行（仅含 -、:、空格和 | 的 |）。
     val tableAfterText = Regex("""([^\n]*[^\n|])\n([ \t]*\|[^\n]*\|)\n([ \t]*\|[-:\s|]+\|)""")
     return text.replace(tableAfterText) { m ->
         "${m.groupValues[1]}\n\n${m.groupValues[2]}\n${m.groupValues[3]}"
@@ -135,10 +134,10 @@ internal fun MarkdownContent(
     @Suppress("UNUSED_PARAMETER") customFontSize: String? = null,
     @Suppress("UNUSED_PARAMETER") immediate: Boolean = false,
 ) {
-    // NOTE: customFontSize & immediate are retained for call-site compatibility
-    // (PartContent / ReasoningBlock still pass them) but are intentionally unused
-    // — typography/density is now driven by LocalChatDensity, and Mikepenz Markdown
-    // parses synchronously so the immediate flag has no effect.
+    // 注意：customFontSize 和 immediate 保留是为了调用点兼容性
+    //（PartContent / ReasoningBlock 仍传入它们），但有意不使用
+    // ——排版/密度现在由 LocalChatDensity 驱动，且 Mikepenz Markdown
+    // 同步解析，因此 immediate 标志无效果。
     val normalizedMarkdown = remember(markdown, isUser) {
         normalizeTaskListMarkers(normalizeMarkdown(markdown, isUser))
     }
@@ -148,13 +147,13 @@ internal fun MarkdownContent(
     val tokens = density.typography
     val spacing = density.spacing
 
-    // Inline code foreground — keep text legible without opaque background.
+    // 行内代码前景色——在不使用不透明背景的情况下保持文本可读。
     val inlineCodeFg = when {
         isAmoled -> MaterialTheme.colorScheme.onSurface
         isUser -> MaterialTheme.colorScheme.onPrimaryContainer
         else -> MaterialTheme.colorScheme.primary
     }
-    // Code block distinct backgrounds.
+    // 代码块区分背景色。
     val codeBlockBg = when {
         isAmoled -> MaterialTheme.colorScheme.surfaceContainerHighest
         isUser -> MaterialTheme.colorScheme.primary
@@ -258,9 +257,9 @@ internal fun MarkdownContent(
         ),
     )
 
-    // Explicit link handler — captures LocalUriHandler at THIS scope, ensuring
-    // the custom UriHandler (provided by ChatScreen) is used for link clicks
-    // even inside SelectionContainer.
+    // 显式链接处理器——在此作用域捕获 LocalUriHandler，确保
+    // 即使在 SelectionContainer 内部，链接点击也使用
+    // 自定义 UriHandler（由 ChatScreen 提供）。
     val uriHandler = LocalUriHandler.current
     val linkListener = remember(uriHandler) {
         LinkInteractionListener { link ->

@@ -248,13 +248,13 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 
 /**
- * Chat Screen - conversation view with native markdown rendering.
- * Shows messages with streaming text rendered via mikepenz markdown renderer.
+ * 聊天屏幕 —— 会话视图，使用原生 markdown 渲染。
+ * 通过 mikepenz markdown 渲染器展示流式文本消息。
  */
 
 private const val TAG_SCROLL = "ChatScroll"
 
-// jumpToBottom / animateScrollToBottom removed — reverseLayout=true anchors at bottom natively.
+// jumpToBottom / animateScrollToBottom 已移除 —— reverseLayout=true 原生锚定底部。
 
 
 
@@ -288,7 +288,7 @@ fun ChatScreen(
     val draftText by viewModel.draftText.collectAsStateWithLifecycle()
     val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsStateWithLifecycle()
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
-    // Sync inputText once from draft on first composition
+    // 首次组合时从草稿同步一次 inputText
     var draftTextInitialized by remember { mutableStateOf(false) }
     if (!draftTextInitialized && draftText.isNotEmpty()) {
         inputText = TextFieldValue(draftText, TextRange(draftText.length))
@@ -296,19 +296,19 @@ fun ChatScreen(
     } else if (!draftTextInitialized) {
         draftTextInitialized = true
     }
-    // Listen for revert events that should restore text to the input field
+    // 监听应将文本恢复到输入框的 revert 事件
     LaunchedEffect(Unit) {
         viewModel.revertedDraftEvent.collect { payload ->
             inputText = TextFieldValue(payload.text, TextRange(payload.text.length))
         }
     }
-    // listState is hoisted to ViewModel — survives navigation.
+    // listState 提升到 ViewModel —— 在导航切换后依然存活。
     val listState = viewModel.listState
 
     var autoScrollEnabled by rememberSaveable { mutableStateOf(true) }
     var forceScrollTick by remember { mutableIntStateOf(0) }
 
-    // FileViewer overlay state — replaces navigation to FileViewerNav route.
+    // FileViewer 浮层状态 —— 取代到 FileViewerNav 路由的导航。
     var fileViewerRequest by remember { mutableStateOf<FileViewerParams?>(null) }
     val handleOpenFile: (String) -> Unit = { filePath ->
         fileViewerRequest = FileViewerParams(
@@ -327,13 +327,12 @@ fun ChatScreen(
         }
     }
 
-    // IMPORTANT: key on BOTH isScrollInProgress AND isAtBottom.
-    // isAtBottom as a key lets this effect re-evaluate when the user returns to
-    // the bottom via non-drag means (fling inertia, SSE content push, compensation
-    // scroll) — isScrollInProgress alone misses those transitions, leaving
-    // autoScrollEnabled stuck stale. This dual-key form is the beta.360-verified
-    // behavior; do NOT remove isAtBottom from the key (see
-    // docs/research/sse-scroll-stability-iron-laws.md).
+    // 重要：同时以 isScrollInProgress 和 isAtBottom 作为 key。
+    // 以 isAtBottom 作为 key 可以让本效果在用户通过非拖拽方式（fling 惯性、
+    // SSE 内容推送、补偿滚动）回到底部时重新求值 —— 仅用 isScrollInProgress
+    // 会错过这些转换，导致 autoScrollEnabled 停留在陈旧状态。这种双 key 形式
+    // 是经过 beta.360 验证的行为；不要把 isAtBottom 从 key 中移除（参见
+    // docs/research/sse-scroll-stability-iron-laws.md）。
     LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
         if (listState.isScrollInProgress) {
             autoScrollEnabled = false
@@ -379,9 +378,9 @@ fun ChatScreen(
     )
     val context = LocalContext.current
 
-    // Pre-warm WebView V8 engine on first ChatScreen entry so the first file
-    // open isn't slow. One-time per process; throwaway WebView auto-destroys.
-    // Delay 500ms to let initial composition + first scroll frame settle.
+    // 首次进入 ChatScreen 时预热 WebView V8 引擎，避免第一次打开文件变慢。
+    // 每个进程只执行一次；一次性 WebView 会自动销毁。
+    // 延迟 500ms 让初始组合与首个滚动帧稳定下来。
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(500)
         dev.leonardo.ocbeacon.ui.screens.viewer.WebViewWarmer.warm(context)
@@ -391,10 +390,10 @@ fun ChatScreen(
     val clipboard = androidx.compose.ui.platform.LocalClipboard.current
     val view = LocalView.current
     val density = LocalDensity.current
-    // isAtBottomBeforeIme removed — reverseLayout=true handles IME natively.
+    // isAtBottomBeforeIme 已移除 —— reverseLayout=true 原生处理 IME。
 
-    // Dismiss keyboard only on genuine user scroll (isScrollInProgress),
-    // not on programmatic scrolls or layout changes.
+    // 仅在用户真实滚动（isScrollInProgress）时收起键盘，
+    // 程序化滚动或布局变化不收起。
     var lastScrollIndex by remember { mutableIntStateOf(listState.firstVisibleItemIndex) }
     LaunchedEffect(Unit) {
         snapshotFlow { listState.isScrollInProgress to listState.firstVisibleItemIndex }
@@ -406,31 +405,31 @@ fun ChatScreen(
             }
     }
 
-    // IME scroll LaunchedEffect removed — reverseLayout=true anchors at bottom,
-    // keyboard push content naturally without explicit scroll.
+    // IME 滚动 LaunchedEffect 已移除 —— reverseLayout=true 锚定底部，
+    // 键盘自然地推动内容，无需显式滚动。
 
-    // @ file mention state
+    // @ 文件提及状态
     val fileSearchResults by viewModel.fileSearchResults.collectAsStateWithLifecycle()
     val confirmedFilePaths by viewModel.confirmedFilePaths.collectAsStateWithLifecycle()
 
-    // Settings used directly in ChatScreen
+    // ChatScreen 中直接使用的设置
     val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
     val hapticEnabled by viewModel.hapticFeedback.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
     val compressImageAttachments by viewModel.compressImageAttachments.collectAsStateWithLifecycle()
     val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsStateWithLifecycle()
     val imageAttachmentWebpQuality by viewModel.imageAttachmentWebpQuality.collectAsStateWithLifecycle()
-    // File diffs for the current session — backs PatchCard line counts (+N -N)
+    // 当前会话的文件 diff —— 为 PatchCard 的行数统计（+N -N）提供数据
     val sessionDiffs by viewModel.chatRepositoryExposed
         .getSessionDiffsForSession(viewModel.sessionId)
         .collectAsStateWithLifecycle(initialValue = emptyList())
     var showSendConfirmDialog by remember { mutableStateOf(false) }
-    // Pending send action: stored so the confirm dialog can trigger it
+    // 待执行的发送动作：保存起来，让确认对话框可以触发它
     var pendingSendAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var inputMode by rememberSaveable { mutableStateOf(ChatInputMode.NORMAL.name) }
     val isShellMode = inputMode == ChatInputMode.SHELL.name
 
-    // Keep screen on while on chat screen (if enabled in settings)
+    // 停留在聊天屏幕时保持屏幕常亮（若已在设置中开启）
     DisposableEffect(keepScreenOn) {
         val window = (context as? android.app.Activity)?.window
         if (keepScreenOn) {
@@ -441,7 +440,7 @@ fun ChatScreen(
         }
     }
 
-    // Attachment handler (image picker, SAF export, image save, draft restore)
+    // 附件处理器（图片选择器、SAF 导出、图片保存、草稿恢复）
     val attachmentHandler = rememberAttachmentHandler(
         draftAttachmentUris = draftAttachmentUris,
         compressImages = compressImageAttachments,
@@ -456,7 +455,7 @@ fun ChatScreen(
     )
     val attachments = attachmentHandler.attachments
 
-    // Show errors as snackbar when messages are already loaded + scroll to bottom
+    // 消息已加载完成时用 snackbar 展示错误，并滚动到底部
     LaunchedEffect(interaction.error) {
         val error = interaction.error
         if (error != null && messageState.messages.isNotEmpty()) {
@@ -470,9 +469,9 @@ fun ChatScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Notification lifecycle: cancel existing + set active focus on enter, clear on leave.
-    // SessionNotificationCoordinator marks this session as active so new notifications
-    // for it are suppressed while the user is viewing it.
+    // 通知生命周期：进入时取消现有通知并设置活动焦点，离开时清除。
+    // SessionNotificationCoordinator 将此会话标记为活动状态，使用户正在查看它时
+    // 其新通知被抑制。
     LaunchedEffect(viewModel.sessionId) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         viewModel.onSessionFocused(notificationManager)
@@ -487,14 +486,14 @@ fun ChatScreen(
         }
     }
 
-    // Sync session status when entering a session (REST fallback for missed SSE events)
+    // 进入会话时同步会话状态（REST 回退，用于弥补遗漏的 SSE 事件）
     LaunchedEffect(viewModel.sessionId) {
         if (viewModel.sessionId.isNotBlank()) {
             viewModel.syncSessionStatus()
         }
     }
 
-    // Refresh session when returning from background (lock screen / app switch).
+    // 从后台返回时刷新会话（锁屏 / 应用切换）。
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && viewModel.sessionId.isNotBlank()) {
@@ -505,8 +504,8 @@ fun ChatScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Stable lambdas / values for CompositionLocals — prevents unnecessary recomposition
-    // of all consumers when ChatScreen recomposes (e.g. each SSE token).
+    // CompositionLocals 的稳定 lambda / 值 —— 防止 ChatScreen 重组时
+    //（例如每个 SSE token）所有消费者发生不必要的重组。
     val onViewToolLambda = remember(viewModel, serverId, sessionId, directory) {
         { request: ViewToolRequest ->
             viewModel.cacheToolPart(request.part)
@@ -527,9 +526,9 @@ fun ChatScreen(
         mapOf(viewModel.sessionId to sessionDiffs)
     }
 
-    // CompositionLocalProvider collects settings flows here (sunk from ChatScreen level).
-    // ChatScreen itself does NOT read these settings, so setting changes don't trigger
-    // ChatScreen recomposition — only this wrapper recomposes.
+    // CompositionLocalProvider 在此收集设置流（从 ChatScreen 层级下沉）。
+    // ChatScreen 本身不读取这些设置，因此设置变化不会触发
+    // ChatScreen 重组 —— 只有这个包装层会重组。
     ChatSettingsProvider(viewModel = viewModel) {
     CompositionLocalProvider(
         LocalHapticFeedbackEnabled provides hapticEnabled,
@@ -580,7 +579,7 @@ fun ChatScreen(
                         onTerminalMode = { isTerminalMode = true },
                         onOpenInWebView = onOpenInWebView,
                         onNewSession = {
-                            onNavigateToSession("")  // Empty sessionId = lazy creation
+                            onNavigateToSession("")  // 空 sessionId = 延迟创建
                         },
                         onForkSession = {
                             viewModel.forkSession { session ->
@@ -716,17 +715,16 @@ fun ChatScreen(
                 else -> {
                      val messageSpacing = if (LocalChatDensity.current == ChatDensity.Compact) 2.dp else 8.dp
 
-                        // messageListState returns oldest-first; normal layout renders
-                        // index 0 (oldest) at top, last index (newest) at bottom.
+                        // messageListState 返回最旧优先；常规布局将
+                        // 索引 0（最旧）渲染在顶部，最后一个索引（最新）在底部。
                         val rawMessages = remember(messageState.messages) {
                             messageState.messages.reversed()
                         }
 
-                        // Filter: keep user messages + first assistant in each turn group
-                        // (first in reversed = newest in original order = the one with
-                        // the latest response text). Previous code checked nextMsg which
-                        // kept the OLDEST assistant (often empty/reasoning-only), hiding
-                        // the actual response text from the user.
+                        // 过滤：保留用户消息 + 每个 turn 组中的第一条 assistant 消息
+                        //（反转后的第一条 = 原始顺序中的最新 = 拥有最新回复文本的那条）。
+                        // 之前的代码检查 nextMsg，保留了最旧的 assistant 消息
+                        //（通常为空或仅有 reasoning），从而对用户隐藏了实际回复文本。
                         val displayItems = remember(rawMessages) {
                             rawMessages.mapIndexedNotNull { index, msg ->
                                 when {
@@ -740,9 +738,9 @@ fun ChatScreen(
                             }
                         }
 
-    // Stable lambda for LocalOnViewTool — must be remembered because LocalOnViewTool
-    // is staticCompositionLocalOf: a new lambda instance forces ALL PartContent
-    // consumers to recompose on every ChatScreen recomposition (e.g. each SSE token).
+    // LocalOnViewTool 的稳定 lambda —— 必须 remember，因为 LocalOnViewTool
+    // 是 staticCompositionLocalOf：新的 lambda 实例会在每次 ChatScreen 重组时
+    //（例如每个 SSE token）强制所有 PartContent 消费者重组。
     val onViewToolLambda = remember(viewModel, serverId, sessionId, directory) {
         { request: ViewToolRequest ->
             viewModel.cacheToolPart(request.part)
@@ -820,7 +818,7 @@ fun ChatScreen(
        }
 
 
-    // Conditional dialogs — extracted to ChatScreenDialogs
+    // 条件对话框 —— 已抽取到 ChatScreenDialogs
     ChatScreenDialogs(
         showModelPicker = showModelPicker,
         onDismissModelPicker = { showModelPicker = false },
@@ -854,7 +852,7 @@ fun ChatScreen(
     } // CompositionLocalProvider
     } // ChatSettingsProvider
 
-    // FileViewer overlay — rendered on top of ChatScreen when requested.
+    // FileViewer 浮层 —— 请求时渲染在 ChatScreen 之上。
     fileViewerRequest?.let { params ->
         FileViewerOverlay(
             params = params,
@@ -864,9 +862,9 @@ fun ChatScreen(
 }
 
 /**
- * Wrapper composable that collects settings flows and provides them via CompositionLocals.
- * Sunk from ChatScreen to prevent settings changes from triggering ChatScreen recomposition.
- * Only this wrapper recomposes when settings change.
+ * 包装 composable：收集设置流并通过 CompositionLocals 提供。
+ * 从 ChatScreen 下沉，防止设置变化触发 ChatScreen 重组。
+ * 设置变化时只有这个包装层会重组。
  */
 @Composable
 private fun ChatSettingsProvider(

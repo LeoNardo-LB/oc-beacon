@@ -8,8 +8,8 @@ private const val REPOSITORY_OWNER = "LeoNardo-LB"
 private const val REPOSITORY_NAME = "oc-beacon"
 
 /**
- * All application IDs across dev/beta/stable flavors.
- * Manifest may declare any of these; we accept all three.
+ * dev/beta/stable 各 flavor 的所有 applicationId。
+ * Manifest 可能声明其中任一；三种均接受。
  */
 private val FLAVOR_APPLICATION_IDS = setOf(
     "dev.leonardo.ocbeacon",

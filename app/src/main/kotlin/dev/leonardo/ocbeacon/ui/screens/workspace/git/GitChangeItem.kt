@@ -28,10 +28,10 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Single row in the Git changes list. Renders a colored status badge
- * (A=green / D=red / M=tertiary), the file path, and `+additions -deletions` stats.
+ * Git 变更列表中的单行。渲染彩色状态徽标
+ * （A=绿 / D=红 / M=tertiary）、文件路径以及 `+additions -deletions` 统计。
  *
- * Tap invokes [onClick] (typically opening the diff view for [VcsChange.file]).
+ * 点击触发 [onClick]（通常打开 [VcsChange.file] 的 diff 视图）。
  */
 @Composable
 fun GitChangeItem(

@@ -26,10 +26,10 @@ import androidx.compose.ui.text.input.ImeAction
 import dev.leonardo.ocbeacon.R
 
 /**
- * Search top bar replacing [WorkspaceTopBar] when in search mode (spec §6.4).
+ * 搜索模式下替代 [WorkspaceTopBar] 的搜索顶栏（规范 §6.4）。
  *
- * Transparent TextField fills the title slot for a full-width search field.
- * Auto-focuses on entry via [FocusRequester] to bring up the keyboard.
+ * 透明的 TextField 占据标题槽位，形成全宽搜索框。
+ * 进入时通过 [FocusRequester] 自动聚焦以唤起键盘。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +82,7 @@ fun SearchTopBar(
                     }
                 },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { /* real-time search, no submit action */ }),
+                keyboardActions = KeyboardActions(onSearch = { /* 实时搜索，无提交动作 */ }),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,

@@ -5,11 +5,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Handles the Part lifecycle: part updated, delta, and removed.
+ * 处理 Part 生命周期：part updated、delta 和 removed。
  *
- * Delegates to the shared [MessageEventHandler] state store, which owns the
- * tightly-coupled `_parts` state plus the 48ms delta-batching pipeline and the
- * `assistantMessageIds` set consulted by [MessageEventHandler.handleMessagePartUpdated].
+ * 委托给共享的 [MessageEventHandler] 状态存储，它持有
+ * 紧密耦合的 `_parts` 状态、48ms delta 批处理管线，
+ * 以及 [MessageEventHandler.handleMessagePartUpdated] 查询的
+ * `assistantMessageIds` 集合。
  */
 @Singleton
 class MessagePartHandler @Inject constructor(

@@ -6,8 +6,8 @@ import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import javax.inject.Inject
 
 /**
- * Use case: create a new session on a server.
- * Delegates to [SessionRepository.createSession].
+ * Use Case：在服务器上创建新会话。
+ * 委托给 [SessionRepository.createSession]。
  */
 class CreateSessionUseCase @Inject constructor(
     private val sessionRepository: SessionRepository

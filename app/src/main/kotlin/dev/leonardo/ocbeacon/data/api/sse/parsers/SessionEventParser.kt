@@ -10,7 +10,7 @@ import kotlinx.serialization.json.*
 private const val TAG = "SseClient"
 
 /**
- * Parses session lifecycle events:
+ * 解析会话生命周期事件：
  * - session.status, session.idle, session.created, session.updated, session.deleted
  * - session.error, session.diff, session.compacted
  * - vcs.branch.updated, project.updated, lsp.updated

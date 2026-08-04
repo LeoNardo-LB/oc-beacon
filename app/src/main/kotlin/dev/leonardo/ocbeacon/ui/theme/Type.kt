@@ -6,7 +6,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Material 3 Typography
+// Material 3 排版
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.Default,
@@ -115,7 +115,7 @@ val Typography = Typography(
     )
 )
 
-// Monospace for code blocks
+// 代码块使用的等宽字体
 val CodeTypography = TextStyle(
     fontFamily = FontFamily.Monospace,
     fontWeight = FontWeight.Normal,

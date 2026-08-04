@@ -26,7 +26,7 @@ import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 
 /**
- * Dialog for renaming the current session.
+ * 重命名当前会话的对话框。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +78,7 @@ internal fun RenameSessionDialog(
 }
 
 /**
- * Confirmation dialog shown before sending a message when "confirm before send" is enabled.
+ * 启用"发送前确认"时，发送消息前显示的确认对话框。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,7 +125,7 @@ internal fun SendConfirmDialog(
 }
 
 /**
- * Confirmation dialog for reverting a compaction-trigger message.
+ * 撤销压缩触发消息的确认对话框。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

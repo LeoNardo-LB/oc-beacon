@@ -143,7 +143,7 @@ class ChatViewModelDeleteTest {
         coEvery { manageAgentUseCase.loadAgents(any()) } returns emptyList()
         coEvery { manageAgentUseCase.loadCommands(any()) } returns emptyList()
 
-        // Wire messagePaging.observeMessages to return empty messages
+        // 将 messagePaging.observeMessages 接线为返回空消息列表
         every { messagePaging.observeMessages(any()) } returns flowOf(emptyList())
     }
 
@@ -259,7 +259,7 @@ class ChatViewModelDeleteTest {
         time = Session.Time(created = 1000L, updated = 2000L)
     )
 
-    // --- Task 10: onSessionUpdated tests ---
+    // --- Task 10：onSessionUpdated 测试 ---
 
     @Test
     fun `onSessionUpdated refreshes messages for matching session`() = runTest {
@@ -277,7 +277,7 @@ class ChatViewModelDeleteTest {
         coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
 
         val vm = createViewModel()
-        // Should not throw for non-matching session
+        // 对不匹配的会话不应抛异常
         vm.onSessionUpdated(createTestSession(id = "other-session"))
     }
 
@@ -286,7 +286,7 @@ class ChatViewModelDeleteTest {
         coEvery { manageSessionUseCase.listMessages(any(), testSessionId, 100) } throws RuntimeException("network error")
 
         val vm = createViewModel()
-        // Should not throw
+        // 不应抛异常
         vm.onSessionUpdated(createTestSession())
     }
 }

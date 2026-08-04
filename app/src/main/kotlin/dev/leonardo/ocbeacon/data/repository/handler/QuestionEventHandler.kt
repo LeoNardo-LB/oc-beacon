@@ -10,8 +10,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Handles question events: asked, replied, rejected.
- * Manages: questions
+ * 处理问题事件：asked、replied、rejected。
+ * 管理：questions
  */
 @Singleton
 class QuestionEventHandler @Inject constructor() : SseEventHandler {
@@ -32,7 +32,7 @@ class QuestionEventHandler @Inject constructor() : SseEventHandler {
         _questions.update { current ->
             val sessionQs = current[event.sessionId]?.toMutableList() ?: mutableListOf()
             if (sessionQs.any { it.id == event.id }) {
-                current // already exists, skip duplicate
+                current // 已存在，跳过重复
             } else {
                 sessionQs.add(event)
                 current + (event.sessionId to sessionQs)
@@ -79,20 +79,20 @@ class QuestionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     /**
-     * Get all pending questions for a session, including questions from child sessions.
-     * This enables the parent session UI to display sub-agent question requests.
-     * Child session questions are annotated with [SseEvent.QuestionAsked.sourceSessionTitle].
+     * 获取某会话的所有待处理问题，包括来自子会话的问题。
+     * 这使父会话 UI 能显示子代理的问题请求。
+     * 子会话问题用 [SseEvent.QuestionAsked.sourceSessionTitle] 标注。
      */
     fun getQuestionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.QuestionAsked> {
         val currentQuestions = _questions.value[sessionId] ?: emptyList()
 
-        // Find child sessions (sessions whose parentId == sessionId)
+        // 查找子会话（parentId == sessionId 的会话）
         val childSessionIds = sessions
             .filter { it.parentId == sessionId }
             .map { it.id }
             .toSet()
 
-        // Aggregate questions from all child sessions, annotating with source title
+        // 聚合所有子会话的问题，并用来源标题标注
         val childQuestions = _questions.value
             .filterKeys { it in childSessionIds }
             .entries

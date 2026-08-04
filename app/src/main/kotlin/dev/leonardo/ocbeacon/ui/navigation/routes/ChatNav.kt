@@ -7,8 +7,8 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
- * Navigation route definition for the Chat screen.
- * Parameters: serverUrl, username, password, serverName, serverId, sessionId, openTerminal
+ * 聊天页的导航路由定义。
+ * 参数：serverUrl, username, password, serverName, serverId, sessionId, openTerminal
  */
 object ChatNav {
     const val ROUTE = "chat"

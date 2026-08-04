@@ -37,7 +37,7 @@ internal enum class ChatInputMode {
 // BreathingCircleIndicator moved to components/BreathingCircleIndicator.kt
 // FileMentionVisualTransformation moved to input/FileMentionVisualTransformation.kt
 
-/** Rotating placeholder hints for the input bar, similar to the WebUI prompt input. */
+/** 输入栏的轮换占位符提示，类似 WebUI 的提示输入。 */
 private val placeholderHintResIds = listOf(
     R.string.chat_hint_ask,
     R.string.chat_hint_fix,
@@ -79,7 +79,7 @@ internal fun ChatInputBar(
     restoredDraft: RevertedDraftPayload? = null,
     onConsumeRestoredDraft: () -> Unit = {}
 ) {
-    // Restore draft text when a send failure occurs
+    // 发送失败时恢复草稿文本
     androidx.compose.runtime.LaunchedEffect(restoredDraft) {
         restoredDraft?.let { draft ->
             onTextFieldValueChange(TextFieldValue(draft.text, TextRange(draft.text.length)))
@@ -88,7 +88,7 @@ internal fun ChatInputBar(
     }
     val isAmoled = isAmoledTheme()
     val isShellMode = inputMode == ChatInputMode.SHELL
-    // Rotate placeholder hint every 4 seconds
+    // 每 4 秒轮换占位符提示
     val hintIndex = remember { mutableIntStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         while (true) {
@@ -104,7 +104,7 @@ internal fun ChatInputBar(
     val text = textFieldValue.text
     val canSend = (text.isNotBlank() || attachments.isNotEmpty()) && !isSending && (!isShellMode || !isBusy)
 
-    // Build merged slash commands: client commands + server commands + skills (deduplicated)
+    // 构建合并的斜杠命令：客户端命令 + 服务器命令 + 技能（去重）
     val clientCmds = SlashCommandRegistry.clientCommands()
     val allCommands = remember(commands, clientCmds) {
         val clientNames = clientCmds.map { it.name }.toSet()
@@ -114,7 +114,7 @@ internal fun ChatInputBar(
         clientCmds + serverSlash
     }
 
-    // Slash command suggestions
+    // 斜杠命令建议
     val showSlashSuggestions = !isShellMode && text.startsWith("/") && !text.contains(" ")
     val slashQuery = if (showSlashSuggestions) text.removePrefix("/").lowercase() else ""
     val filteredCommands = if (showSlashSuggestions) {
@@ -127,13 +127,13 @@ internal fun ChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
     ) {
-        // Thin divider
+        // 细分隔线
         HorizontalDivider(
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
             thickness = 0.5.dp
         )
 
-        // Slash command suggestions popup (scrollable, max 40% screen height)
+        // 斜杠命令建议弹窗（可滚动，最高 40% 屏幕高度）
         if (!isShellMode) {
             SlashCommandSuggestions(
                 commands = filteredCommands,
@@ -148,7 +148,7 @@ internal fun ChatInputBar(
             )
         }
 
-        // @ file mention suggestions popup
+        // @ 文件提及建议弹窗
         if (!isShellMode) {
             FileMentionSuggestions(
                 results = fileSearchResults,
@@ -162,7 +162,7 @@ internal fun ChatInputBar(
                 .padding(start = SpacingTokens.LG.dp, end = SpacingTokens.LG.dp, top = 2.dp, bottom = 6.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
         ) {
-            // Agent + Model + Variant + Attach selector row — small, subtle
+            // Agent + 模型 + 变体 + 附件选择器行——小巧、低调
             AgentModelVariantSelector(
                 modelLabel = modelLabel,
                 selectedProviderId = selectedProviderId,
@@ -176,7 +176,7 @@ internal fun ChatInputBar(
                 onAttach = onAttach
             )
 
-            // Image attachment thumbnails
+            // 图片附件缩略图
             ImageAttachmentRow(
                 attachments = attachments,
                 onRemoveAttachment = onRemoveAttachment,
@@ -188,7 +188,7 @@ internal fun ChatInputBar(
                 isAmoled = isAmoled
             )
 
-            // Input row
+            // 输入行
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
@@ -202,7 +202,7 @@ internal fun ChatInputBar(
                     confirmedFilePaths = confirmedFilePaths
                 )
 
-                // Send / Stop button — tap to send or stop, long-press toggles shell mode
+                // 发送/停止按钮——点击发送或停止，长按切换 shell 模式
                 val showStop = isBusy && text.isBlank()
                 SendStopButton(
                     showStop = showStop,

@@ -32,9 +32,9 @@ internal data class ClickableMarkdownResult(
 )
 
 /**
- * Extract clickable items from a markdown AST node:
- * - [text](url) markdown links → ClickableItem.Link
- * - `code` inline code that looks like a path → ClickableItem.CodePath
+ * 从 markdown AST 节点提取可点击项：
+ * - [text](url) markdown 链接 → ClickableItem.Link
+ * - `code` 看起来像路径的行内代码 → ClickableItem.CodePath
  */
 private fun extractClickableItems(content: String, node: ASTNode): List<ClickableItem> {
     val items = mutableListOf<ClickableItem>()
@@ -64,12 +64,11 @@ private fun extractClickableItems(content: String, node: ASTNode): List<Clickabl
 }
 
 /**
- * Builds an [AnnotatedString] with clickable file paths overlaid on top of
- * standard markdown link rendering.
+ * 构建一个 [AnnotatedString]，在标准 markdown 链接渲染之上叠加可点击文件路径。
  *
- * 1. [buildMarkdownAnnotatedString] produces base text with standard links.
- * 2. Walks the AST for [CODE_SPAN] nodes; [LinkClassifier.isLikelyFilePath] filters them.
- * 3. Overlays underline + [linkColor] style on matched code paths.
+ * 1. [buildMarkdownAnnotatedString] 生成带标准链接的基础文本。
+ * 2. 遍历 AST 查找 [CODE_SPAN] 节点；用 [LinkClassifier.isLikelyFilePath] 过滤。
+ * 3. 在匹配的代码路径上叠加下划线 + [linkColor] 样式。
  */
 internal fun buildClickableMarkdown(
     content: String,
@@ -111,10 +110,10 @@ internal fun buildClickableMarkdown(
 }
 
 /**
- * Registers tap-gesture handling for clickable items in the [ClickableMarkdownResult].
+ * 为 [ClickableMarkdownResult] 中的可点击项注册点击手势处理。
  *
- * Uses [TextLayoutResult] to map tap position → item → [uriHandler].openUri().
- * Must be called from a @Composable context.
+ * 使用 [TextLayoutResult] 将点击位置映射到 item → [uriHandler].openUri()。
+ * 必须在 @Composable 上下文中调用。
  */
 @Composable
 internal fun Modifier.clickableMarkdown(
@@ -122,9 +121,9 @@ internal fun Modifier.clickableMarkdown(
     layoutResultProvider: () -> TextLayoutResult?,
     uriHandler: UriHandler,
 ): Modifier {
-    // NOTE: the old implementation had an empty .clickable { } modifier here that
-    // intercepted long-press gestures, preventing SelectionContainer from showing
-    // the copy/select toolbar. Only .pointerInput is needed for link tap handling.
+    // 注意：旧实现在此处有一个空的 .clickable { } 修饰符，
+    // 它会拦截长按手势，阻止 SelectionContainer 显示复制/选择工具栏。
+    // 链接点击处理只需要 .pointerInput。
     return this
         .pointerInput(result.annotatedString) {
             detectTapGestures { pos ->

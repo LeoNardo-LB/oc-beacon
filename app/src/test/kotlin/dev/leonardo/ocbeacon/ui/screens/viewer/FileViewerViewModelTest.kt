@@ -52,7 +52,7 @@ class FileViewerViewModelTest {
         toolPartIds = toolPartIds
     )
 
-    // --- Realistic test data (D7-003) ---
+    // --- 真实测试数据（D7-003）---
 
     private val sampleKotlinSource = """
         package dev.leonardo.ocbeacon
@@ -127,7 +127,7 @@ class FileViewerViewModelTest {
         Dispatchers.resetMain()
     }
 
-    // 1. LIVE source success loads content
+    // 1. LIVE 来源成功加载内容
     @Test
     fun `LIVE source success loads content`() = runTest {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
@@ -141,7 +141,7 @@ class FileViewerViewModelTest {
         assert(state.error == null) { "error should be null on success" }
     }
 
-    // 2. GIT_DIFF source success parses hunks
+    // 2. GIT_DIFF 来源成功解析 hunks
     @Test
     fun `GIT_DIFF source success parses hunks`() = runTest {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
@@ -162,7 +162,7 @@ class FileViewerViewModelTest {
         assert(state.diff != null) { "diff should be set" }
     }
 
-    // 3. TOOL_SNAPSHOT source without cache sets missing error
+    // 3. TOOL_SNAPSHOT 来源无缓存时设置缺失错误
     @Test
     fun `TOOL_SNAPSHOT source without cache sets missing error`() = runTest {
         toolSnapshotCache.clear()
@@ -185,7 +185,7 @@ class FileViewerViewModelTest {
         coVerify(exactly = 0) { getFileDiff(any(), any(), any()) }
     }
 
-    // 4. Load failure sets error
+    // 4. 加载失败设置错误
     @Test
     fun `load failure sets error`() = runTest {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.failure(
@@ -201,7 +201,7 @@ class FileViewerViewModelTest {
         }
     }
 
-    // 5. Binary file sets isBinary + mimeType
+    // 5. 二进制文件设置 isBinary + mimeType
     @Test
     fun `binary file sets isBinary and mimeType`() = runTest {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(binaryContent)
@@ -215,7 +215,7 @@ class FileViewerViewModelTest {
         assert(state.content.isEmpty()) { "content should be empty for binary" }
     }
 
-    // 6. Empty content sets isEmpty
+    // 6. 空内容设置 isEmpty
     @Test
     fun `empty content sets isEmpty`() = runTest {
         val emptyContent = FileContent(
@@ -233,7 +233,7 @@ class FileViewerViewModelTest {
         assert(state.content.isEmpty()) { "content should be empty" }
     }
 
-    // 7. Empty patch sets hunks empty
+    // 7. 空 patch 设置 hunks 为空
     @Test
     fun `empty patch sets hunks empty`() = runTest {
         val emptyPatchDiff = VcsFileDiff(
@@ -261,7 +261,7 @@ class FileViewerViewModelTest {
         assert(state.isEmpty) { "isEmpty should be true when hunks are empty" }
     }
 
-    // 8. nextHunk clamps at last index
+    // 8. nextHunk 在最后一个索引处钳制
     @Test
     fun `nextHunk clamps at last index`() = runTest {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
@@ -275,19 +275,19 @@ class FileViewerViewModelTest {
         )
 
         val hunksCount = vm.uiState.value.hunks.size
-        // Navigate to last hunk
+        // 导航到最后一个 hunk
         for (i in 0 until hunksCount) vm.nextHunk()
         assert(vm.uiState.value.currentHunkIndex == hunksCount - 1) {
             "currentHunkIndex should be last (${hunksCount - 1})"
         }
-        // One more nextHunk should stay at last
+        // 再次 nextHunk 应停留在最后一个
         vm.nextHunk()
         assert(vm.uiState.value.currentHunkIndex == hunksCount - 1) {
             "currentHunkIndex should clamp at last (${hunksCount - 1})"
         }
     }
 
-    // 9. prevHunk clamps at 0
+    // 9. prevHunk 在 0 处钳制
     @Test
     fun `prevHunk clamps at 0`() = runTest {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
@@ -300,20 +300,20 @@ class FileViewerViewModelTest {
             submitAnnotations
         )
 
-        // currentHunkIndex starts at 0
+        // currentHunkIndex 从 0 开始
         assert(vm.uiState.value.currentHunkIndex == 0) {
             "currentHunkIndex should start at 0"
         }
-        // prevHunk should stay at 0
+        // prevHunk 应停留在 0
         vm.prevHunk()
         assert(vm.uiState.value.currentHunkIndex == 0) {
             "currentHunkIndex should clamp at 0, was ${vm.uiState.value.currentHunkIndex}"
         }
     }
 
-    // ===== Phase 2: Markdown toggle tests =====
+    // ===== Phase 2：Markdown 切换测试 =====
 
-    // 10. init with md file sets isMarkdown true
+    // 10. 使用 md 文件初始化设置 isMarkdown 为 true
     @Test
     fun `init with md file sets isMarkdown true and defaults to RENDER_PREVIEW`() = runTest {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
@@ -329,7 +329,7 @@ class FileViewerViewModelTest {
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.RENDER_PREVIEW) { "renderMode should default to RENDER_PREVIEW for renderable types" }
     }
 
-    // 11. init with kt file sets isMarkdown false
+    // 11. 使用 kt 文件初始化设置 isMarkdown 为 false
     @Test
     fun `init with kt file sets isMarkdown false`() = runTest {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
@@ -339,7 +339,7 @@ class FileViewerViewModelTest {
         assert(vm.uiState.value.fileType == FileType.TEXT) { "fileType should be TEXT for .kt" }
     }
 
-    // 12. toggleRenderMode switches RENDER_PREVIEW to SOURCE (default is now RENDER_PREVIEW)
+    // 12. toggleRenderMode 将 RENDER_PREVIEW 切换为 SOURCE（默认现在是 RENDER_PREVIEW）
     @Test
     fun `toggleRenderMode switches RENDER_PREVIEW to SOURCE for markdown files`() = runTest {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
@@ -357,7 +357,7 @@ class FileViewerViewModelTest {
         }
     }
 
-    // 13. toggleRenderMode no-op for TEXT (non-renderable)
+    // 13. 对 TEXT（不可渲染）toggleRenderMode 为空操作
     @Test
     fun `toggleRenderMode is no-op for TEXT files`() = runTest {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
@@ -370,7 +370,7 @@ class FileViewerViewModelTest {
         }
     }
 
-    // 14. toggleRenderMode no-op in DIFF mode
+    // 14. 在 DIFF 模式下 toggleRenderMode 为空操作
     @Test
     fun `toggleRenderMode is no-op in DIFF mode`() = runTest {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
@@ -388,7 +388,7 @@ class FileViewerViewModelTest {
         }
     }
 
-    // 15. toggleRenderMode toggles from default RENDER_PREVIEW to SOURCE
+    // 15. toggleRenderMode 从默认 RENDER_PREVIEW 切换到 SOURCE
     @Test
     fun `toggleRenderMode back from RENDER_PREVIEW to SOURCE`() = runTest {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
@@ -399,7 +399,7 @@ class FileViewerViewModelTest {
             toolSnapshotCache,
             submitAnnotations
         )
-        // Default is RENDER_PREVIEW for markdown, one toggle → SOURCE
+        // 对 markdown 默认是 RENDER_PREVIEW，切换一次 → SOURCE
         vm.toggleRenderMode()
 
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) {
@@ -407,9 +407,9 @@ class FileViewerViewModelTest {
         }
     }
 
-    // ===== Phase 2 Task 9: Tool snapshot tests =====
+    // ===== Phase 2 Task 9：工具快照测试 =====
 
-    // 16. TOOL_SNAPSHOT loads content from cache + clears on onCleared
+    // 16. TOOL_SNAPSHOT 从缓存加载内容并在 onCleared 时清除
     @Test
     fun `TOOL_SNAPSHOT source loads content from cache and clears on cleared`() = runTest {
         toolSnapshotCache.clear()
@@ -441,7 +441,7 @@ class FileViewerViewModelTest {
         assert(toolSnapshotCache.get("part-1") == null) { "cache should be cleared on cleanup" }
     }
 
-    // 17. TOOL_SNAPSHOT_DIFF fetches full file content from server (not just edited fragment)
+    // 17. TOOL_SNAPSHOT_DIFF 从服务器获取完整文件内容（不仅仅是编辑片段）
     @Test
     fun `TOOL_SNAPSHOT_DIFF shows final edited content in SOURCE mode`() = runTest {
         toolSnapshotCache.clear()
@@ -452,7 +452,7 @@ class FileViewerViewModelTest {
             )
         )
 
-        // Edit tools now fetch the full file from server (snapshot only has the fragment)
+        // 编辑工具现在从服务器获取完整文件（快照只有片段）
         val fullFile = "line1-mod\nline2-new\nline3\nline4\n"
         coEvery { getFileContent(serverId, directory, "app/X.kt") } returns Result.success(
             FileContent(path = "app/X.kt", type = ContentType.TEXT, content = fullFile)
@@ -478,12 +478,12 @@ class FileViewerViewModelTest {
         assert(vm.uiState.value.toolSnapshotAfter == "line1-mod\nline2-new\n") {
             "toolSnapshotAfter should be last part's after"
         }
-        // Content should be the full file from server (includes lines beyond the edited fragment)
+        // 内容应为来自服务器的完整文件（包含编辑片段之外的行）
         assert(vm.uiState.value.content.contains("line3")) { "content should show full file (line3)" }
         assert(vm.uiState.value.content.contains("line4")) { "content should show full file (line4)" }
     }
 
-    // ===== Phase 3: Annotation tests =====
+    // ===== Phase 3：注解测试 =====
 
     @Test
     fun `addAnnotation creates annotation and updates state`() = runTest {
@@ -539,7 +539,7 @@ class FileViewerViewModelTest {
         assertEquals(1, vm.uiState.value.annotations.size)
     }
 
-    // ===== Phase 4: Pagination tests =====
+    // ===== Phase 4：分页测试 =====
 
     @Test
     fun `loadLive paginates content - initial visibleLineCount is 500 for large files`() = runTest {
@@ -631,7 +631,7 @@ class FileViewerViewModelTest {
         assertEquals(10500, vm.uiState.value.visibleLineCount)
     }
 
-    // ===== Multi-format render tests =====
+    // ===== 多格式渲染测试 =====
 
     @Test
     fun `init with json file sets fileType JSON`() = runTest {
@@ -726,7 +726,7 @@ class FileViewerViewModelTest {
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) { "toggle should switch to SOURCE" }
     }
 
-    // ===== Task 3: HTML + PDF tests =====
+    // ===== Task 3：HTML + PDF 测试 =====
 
     @Test
     fun `init with html file sets fileType HTML and renderMode RENDER_PREVIEW`() = runTest {

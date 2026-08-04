@@ -5,8 +5,8 @@ import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import javax.inject.Inject
 
 /**
- * Use case: load provider catalog for model selection.
- * Routes through ProviderRepository instead of direct API access.
+ * Use Case：加载 provider 目录以供选择 model。
+ * 通过 ProviderRepository 路由，而非直接访问 API。
  */
 class SelectModelUseCase @Inject constructor(
     private val providerRepository: ProviderRepository

@@ -43,8 +43,8 @@ internal data class RecentSessionDirectory(
 )
 
 /**
- * Groups [sessions] by directory and returns the most recently used ones,
- * up to [limit]. Used to populate the quick new-session dialog.
+ * 将 [sessions] 按目录分组并返回最近使用的目录，最多 [limit] 个。
+ * 用于填充快速新建会话对话框。
  */
 internal fun recentSessionDirectories(
     sessions: List<Session>,
@@ -63,12 +63,11 @@ internal fun recentSessionDirectories(
     .take(limit)
 
 /**
- * Quick-start dialog for creating a new session.
- * Shows unique project folders (grouped from existing sessions) sorted by most
- * recently used — one tap starts a session there. A "Browse…" row at the bottom
- * opens the full directory picker ([onBrowse]).
+ * 创建新会话的快速启动对话框。
+ * 显示从已有会话聚合出的唯一项目文件夹，按最近使用排序 —
+ * 一键即可在那里启动会话。底部的"浏览…"行打开完整目录选择器（[onBrowse]）。
  *
- * Ported from upstream oc-remote v1.7.0, adapted to the AMOLED dialog token system.
+ * 移植自上游 oc-remote v1.7.0，适配 AMOLED 对话框令牌系统。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

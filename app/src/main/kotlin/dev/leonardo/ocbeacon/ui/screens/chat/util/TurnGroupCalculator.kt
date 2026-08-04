@@ -3,13 +3,13 @@ package dev.leonardo.ocbeacon.ui.screens.chat.util
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 
 /**
- * Computes turn groups for assistant messages in a chat message list.
+ * 计算聊天消息列表中 assistant 消息的 turn 分组。
  *
- * A "turn" is a consecutive sequence of assistant messages between two user
- * messages (or the start/end of the list).
+ * 一个 "turn" 是两条用户消息（或列表开头/结尾）之间的
+ * 连续 assistant 消息序列。
  *
- * @return Map from message index → list of all ChatMessages in the same turn.
- *         User message indices are NOT included in the map.
+ * @return 从消息索引到同一 turn 中所有 ChatMessages 列表的映射。
+ *         用户消息索引不在映射中。
  */
 internal fun computeTurnGroups(messages: List<ChatMessage>): Map<Int, List<ChatMessage>> {
     val groups = mutableListOf<Pair<IntRange, List<ChatMessage>>>()

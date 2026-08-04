@@ -48,13 +48,13 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Dialog listing all user questions for quick navigation.
+ * 列出所有用户提问以便快速导航的对话框。
  *
- * @param show whether the dialog is visible
- * @param jumpTargets extracted user questions (see JumpTargetExtractor)
- * @param currentRawIndex rawIndex of the currently-visible question, for highlight; null = none
- * @param onJump invoked with msgId when user taps a question
- * @param onDismiss invoked when dialog should close
+ * @param show 对话框是否可见
+ * @param jumpTargets 提取的用户提问（参见 JumpTargetExtractor）
+ * @param currentRawIndex 当前可见问题的 rawIndex，用于高亮；null = 无
+ * @param onJump 用户点击某个提问时以 msgId 调用
+ * @param onDismiss 对话框应关闭时调用
  */
 @Composable
 fun QuickNavigateSheet(
@@ -68,8 +68,8 @@ fun QuickNavigateSheet(
 
     val listState = rememberLazyListState()
 
-    // Auto-scroll to the currently-highlighted question when the dialog opens,
-    // so the user sees their current position instead of Q1.
+    // 对话框打开时自动滚动到当前高亮的提问，
+    // 让用户看到自己所在位置而不是 Q1。
     LaunchedEffect(show, currentRawIndex) {
         if (currentRawIndex != null) {
             val targetIndex = jumpTargets.indexOfFirst { it.rawIndex == currentRawIndex }
@@ -92,7 +92,7 @@ fun QuickNavigateSheet(
             tonalElevation = 6.dp,
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header
+                // 头部
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -181,7 +181,7 @@ private fun JumpTargetRow(
                 bottom = SpacingTokens.MD.dp,
             ),
     ) {
-        // Row 1: Q label + timestamp
+        // 第 1 行：Q 标签 + 时间戳
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = target.label,
@@ -198,7 +198,7 @@ private fun JumpTargetRow(
             )
         }
         Spacer(Modifier.height(SpacingTokens.XS.dp))
-        // Row 2: preview, horizontally scrollable (not truncated)
+        // 第 2 行：预览，可水平滚动（不截断）
         Text(
             text = target.preview,
             style = MaterialTheme.typography.bodyMedium,

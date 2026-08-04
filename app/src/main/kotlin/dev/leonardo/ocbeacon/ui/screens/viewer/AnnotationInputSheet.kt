@@ -35,13 +35,13 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.launch
 
 /**
- * Bottom sheet for entering or editing a modification note.
+ * 用于输入或编辑修改说明的底部弹层。
  *
- * @param selectedText The code the user selected (preview, read-only).
- * @param initialNote Pre-filled note (editing mode). Empty for new annotation.
- * @param onConfirm Called with the entered note when user taps confirm.
- * @param onDismiss Called when sheet is dismissed.
- * @param onDelete When non-null, shows a delete button (edit mode).
+ * @param selectedText 用户选中的代码（预览，只读）。
+ * @param initialNote 预填的说明（编辑模式）。新建批注时为空。
+ * @param onConfirm 用户点击确认时带输入的说明调用。
+ * @param onDismiss 弹层被关闭时调用。
+ * @param onDelete 非 null 时显示删除按钮（编辑模式）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,7 +75,7 @@ fun AnnotationInputSheet(
                 style = MaterialTheme.typography.titleMedium
             )
 
-            // Selected text preview
+            // 选中文本预览
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerHighest,
                 shape = MaterialTheme.shapes.small,
@@ -110,7 +110,7 @@ fun AnnotationInputSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Delete button (edit mode only)
+                // 删除按钮（仅编辑模式）
                 if (onDelete != null) {
                     TextButton(onClick = {
                         scope.launch { sheetState.hide() }.invokeOnCompletion { onDelete() }

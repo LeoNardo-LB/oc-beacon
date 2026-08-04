@@ -4,7 +4,7 @@ import dev.leonardo.ocbeacon.domain.repository.VcsRepository
 import javax.inject.Inject
 
 /**
- * Use case: get VCS status for a directory on a server.
+ * Use Case：获取服务器上某目录的 VCS 状态。
  */
 class GetVcsStatusUseCase @Inject constructor(
     private val vcsRepository: VcsRepository

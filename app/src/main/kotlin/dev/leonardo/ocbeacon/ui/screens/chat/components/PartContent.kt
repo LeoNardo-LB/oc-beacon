@@ -57,10 +57,10 @@ internal fun PartContent(
 ) {
     when (part) {
         is Part.Text -> {
-            // Hide synthetic/ignored text parts (internal system content)
+            // 隐藏合成/忽略的文本 parts（内部系统内容）
             if (part.text.isNotBlank() && part.synthetic != true && part.ignored != true) {
-                // opencode may send question+answer as a text part (not structured Part.Question)
-                // Detect this format and render as collapsible card
+                // opencode 可能以文本 part 发送问题和答案（而非结构化的 Part.Question）
+                // 检测该格式并以可折叠卡片渲染
                 if (part.text.contains("questions:") && part.text.contains("User has answered")) {
                     CollapsibleQuestionPart(question = part.text)
                 } else {
@@ -77,9 +77,9 @@ internal fun PartContent(
         }
         is Part.Reasoning -> {
             if (part.text.isNotBlank()) {
-                // Reasoning streams during the Waiting phase (before TextStarted).
-                // Must check part.time?.end directly, NOT LocalSessionStreaming —
-                // the FSM activity is "Waiting" during reasoning, not "Streaming".
+                // Reasoning 在 Waiting 阶段流式输出（TextStarted 之前）。
+                // 必须直接检查 part.time?.end，而不是 LocalSessionStreaming ——
+                // reasoning 期间 FSM 活动状态是 "Waiting" 而非 "Streaming"。
                 val isStreaming = part.time?.end == null
                 val startTimeMs = part.time?.start
                 val reasoningDuration = part.time?.let { t ->
@@ -99,11 +99,11 @@ internal fun PartContent(
             }
         }
         is Part.Tool -> {
-            // todoread parts are filtered out entirely (WebUI convention)
+            // todoread parts 完全过滤掉（WebUI 约定）
             val toolExpandedStates = LocalToolExpandedStates.current
             val onToggleToolExpanded = LocalOnToggleToolExpanded.current
             if (part.tool == "todoread") {
-                // skip
+                // 跳过
             } else if (part.tool == "todowrite") {
                 TodoListCard(
                     tool = part,
@@ -111,8 +111,8 @@ internal fun PartContent(
                     onToggleExpand = { onToggleToolExpanded(part.id, true) }
                 )
             } else {
-                // Intercept question-summary tools — keep ToolCardScaffold appearance,
-                // but expanded content shows ALL options with user's selection marked.
+                // 拦截 question-summary 工具 —— 保持 ToolCardScaffold 外观，
+                // 但展开内容显示所有选项并标记用户的已选答案。
                 val completedState = part.state as? ToolState.Completed
                 val toolInput = completedState?.input ?: emptyMap()
                 val toolOutput = completedState?.output ?: ""
@@ -121,7 +121,7 @@ internal fun PartContent(
                     || toolInput.any { it.key.contains("question", ignoreCase = true) }
                 android.util.Log.e("PartContent", "isQuestionTool=$isQuestionTool inputKeys=${toolInput.keys}")
                 if (isQuestionTool) {
-                    // Debug: log full tool data to find where answers live
+                    // 调试：记录完整工具数据以定位答案所在位置
                     dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "=== tool data ===")
                     dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "input keys: ${toolInput.keys}")
                     dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "input: $toolInput")
@@ -147,12 +147,12 @@ internal fun PartContent(
                         QuestionExpandedOptions(parsed)
                     }
                 } else {
-                // Use the resolver registry
+                // 使用解析器注册表
                 val autoExpand = LocalCollapseTools.current
                 val expanded = toolExpandedStates[part.id] ?: autoExpand
                 val toggleExpand = { onToggleToolExpanded(part.id, autoExpand) }
 
-                // Phase 2: intercept onOpenFile for Read/Write/Edit → TOOL_SNAPSHOT
+                // 阶段 2：为 Read/Write/Edit 拦截 onOpenFile → TOOL_SNAPSHOT
                 val viewTool = onViewTool ?: LocalOnViewTool.current
                 val toolName = part.tool.lowercase()
                 val isFileTool = toolName in setOf("read", "write", "edit", "multiedit")
@@ -177,21 +177,21 @@ internal fun PartContent(
                 if (resolved != null) {
                     resolved()
                 } else {
-                    // Fallback to generic ToolCallCard
+                    // 回退到通用 ToolCallCard
                     ToolCallCard(
                         tool = part,
                         isExpanded = expanded,
                         onToggleExpand = toggleExpand
                     )
                 }
-                } // close question-summary else
+                } // 关闭 question-summary 的 else 分支
             }
         }
         is Part.StepStart -> {
-            // Visual separator between steps (hidden - WebUI doesn't show these)
+            // 步骤之间的视觉分隔符（已隐藏 —— WebUI 不显示这些）
         }
         is Part.StepFinish -> {
-            // Token/cost info is aggregated at the bottom of the assistant message
+            // Token/费用信息聚合在 assistant 消息底部展示
         }
         is Part.Patch -> {
             val autoExpand = LocalCollapseTools.current
@@ -231,7 +231,7 @@ internal fun PartContent(
                 color = MaterialTheme.colorScheme.error
             )
         }
-        // Ignore less relevant parts
+        // 忽略不太相关的 parts
         is Part.Snapshot, is Part.Subtask, is Part.Compaction,
         is Part.SessionTurn, is Part.Unknown -> { /* skip */ }
         is Part.Agent -> {

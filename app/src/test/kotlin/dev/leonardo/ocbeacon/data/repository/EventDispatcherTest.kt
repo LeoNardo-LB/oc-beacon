@@ -65,7 +65,7 @@ class EventDispatcherTest {
         id = id, title = "Test", time = Session.Time(created = 1000L, updated = 2000L)
     )
 
-    // ============ Event Dispatching ============
+    // ============ 事件分发 ============
 
     @Test
     fun `processEvent dispatches session events to SessionHandler`() = runTest {
@@ -104,7 +104,7 @@ class EventDispatcherTest {
         assertEquals(todos, dispatcher.todos.value["s1"])
     }
 
-    // ============ Cross-handler: SessionDeleted cascades cleanup ============
+    // ============ 跨 handler：SessionDeleted 级联清理 ============
 
     @Test
     fun `SessionDeleted cascades cleanup to all handlers`() = runTest {
@@ -122,10 +122,10 @@ class EventDispatcherTest {
         dispatcher.processEvent(q, "server1")
         dispatcher.processEvent(SseEvent.TodoUpdated("s1", todos), "server1")
 
-        // Now delete the session
+        // 现在删除会话
         dispatcher.processEvent(SseEvent.SessionDeleted(session), "server1")
 
-        // All state for session s1 should be cleaned up
+        // 会话 s1 的所有状态都应被清理
         assertTrue(dispatcher.sessions.value.isEmpty())
         assertFalse(dispatcher.sessionStatuses.value.containsKey("s1"))
         assertFalse(dispatcher.messages.value.containsKey("s1"))
@@ -134,24 +134,24 @@ class EventDispatcherTest {
         assertFalse(dispatcher.todos.value.containsKey("s1"))
     }
 
-    // ============ Cross-handler: CommandExecuted resets session status ============
+    // ============ 跨 handler：CommandExecuted 重置会话状态 ============
 
     @Test
     fun `CommandExecuted does NOT reset session status to Idle`() = runTest {
         val session = testSession("s1")
         dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
-        // Set status to Busy via SSE (the authoritative path)
+        // 通过 SSE 将状态设为 Busy（权威路径）
         dispatcher.processEvent(SseEvent.SessionStatus(sessionId = "s1", status = SessionStatus.Busy), "server1")
         stateServiceScope.runCurrent()
 
         dispatcher.processEvent(SseEvent.CommandExecuted(name = "bash", sessionId = "s1"), "server1")
         stateServiceScope.runCurrent()
 
-        // P0-4 fix: CommandExecuted no longer forces Idle — session.status SSE event controls state
+        // P0-4 修复：CommandExecuted 不再强制 Idle —— 由 session.status SSE 事件控制状态
         assertEquals(SessionStatus.Busy, dispatcher.sessionStatuses.value["s1"])
     }
 
-    // ============ Clear Operations ============
+    // ============ 清空操作 ============
 
     @Test
     fun `clearAll resets all state`() = runTest {
@@ -207,7 +207,7 @@ class EventDispatcherTest {
         assertFalse(dispatcher.serverSessions.value.containsKey("nonexistent-server"))
     }
 
-    // ============ Delegated Operations ============
+    // ============ 委托操作 ============
 
     @Test
     fun `delegated setMessages works`() {
@@ -279,7 +279,7 @@ class EventDispatcherTest {
         assertTrue(dispatcher.serverSessions.value["server1"]!!.contains("s1"))
     }
 
-    // ============ Initial State ============
+    // ============ 初始状态 ============
 
     @Test
     fun `initial state is empty`() = runTest {
@@ -295,7 +295,7 @@ class EventDispatcherTest {
         assertNull(dispatcher.projectInfo.value)
     }
 
-    // ============ No-op Events ============
+    // ============ 空操作事件 ============
 
     @Test
     fun `ServerHeartbeat does not change state`() = runTest {
@@ -316,7 +316,7 @@ class EventDispatcherTest {
         assertTrue(dispatcher.sessions.value.isEmpty())
     }
 
-    // ============ SessionNext Event Integration ============
+    // ============ SessionNext 事件集成 ============
 
     @Test
     fun `SessionNext event routed to SessionNextHandler`() = runTest {
@@ -376,15 +376,15 @@ class EventDispatcherTest {
         assertNull(dispatcher.currentAgent.value["s1"])
     }
 
-    // ============ Multi-Server Deduplication (Same Backend) ============
+    // ============ 多服务器去重（同一后端）============
 
     @Test
     fun `second server events for claimed session are skipped`() = runTest {
         val session = testSession("s1")
-        // Server1 claims ownership
+        // Server1 声明所有权
         dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
 
-        // Server2 sends update for same session — should be skipped
+        // Server2 发送同一会话的更新 —— 应被跳过
         dispatcher.processEvent(
             SseEvent.SessionUpdated(session.copy(title = "From Server2")), "server2"
         )
@@ -394,7 +394,7 @@ class EventDispatcherTest {
 
     @Test
     fun `MessagePartDelta not doubled from second server`() = runTest {
-        // Server1 claims ownership and sends a delta
+        // Server1 声明所有权并发送 delta
         dispatcher.processEvent(
             SseEvent.MessagePartDelta(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -403,7 +403,7 @@ class EventDispatcherTest {
         )
         messageHandler.forceFlushDeltas()
 
-        // Server2 sends same delta — should be skipped by ownership check
+        // Server2 发送相同 delta —— 应被所有权检查跳过
         dispatcher.processEvent(
             SseEvent.MessagePartDelta(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -415,7 +415,7 @@ class EventDispatcherTest {
         val parts = dispatcher.parts.value["m1"].orEmpty()
         val textPart = parts.firstOrNull { it is Part.Text } as? Part.Text
         assertNotNull(textPart)
-        // Text must be "Hello" (single application), NOT "HelloHello" (doubled)
+        // 文本必须是 "Hello"（应用一次），而非 "HelloHello"（重复两次）
         assertEquals("Hello", textPart!!.text)
     }
 
@@ -424,15 +424,15 @@ class EventDispatcherTest {
         val session = testSession("s1")
         dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
 
-        // Server2 blocked while server1 owns s1
+        // server1 持有 s1 时，server2 被阻塞
         val msg = Message.User(id = "m1", sessionId = "s1", time = TimeInfo(1000L))
         dispatcher.processEvent(SseEvent.MessageUpdated(msg), "server2")
         assertNull(dispatcher.messages.value["s1"])
 
-        // Server1 disconnects → ownership released
+        // Server1 断开 → 所有权释放
         dispatcher.clearForServer("server1")
 
-        // Server2 can now claim s1
+        // Server2 现在可以接管 s1
         dispatcher.processEvent(SseEvent.SessionCreated(session), "server2")
         dispatcher.processEvent(SseEvent.MessageUpdated(msg), "server2")
         assertEquals(1, dispatcher.messages.value["s1"]?.size)
@@ -440,15 +440,15 @@ class EventDispatcherTest {
 
     @Test
     fun `events without sessionId bypass ownership check`() = runTest {
-        // Server1 claims a session
+        // Server1 声明一个会话
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s1")), "server1")
 
-        // Server2's session-less events should NOT be skipped
+        // Server2 的无会话事件不应被跳过
         dispatcher.processEvent(SseEvent.ServerHeartbeat, "server2")
         dispatcher.processEvent(SseEvent.ServerConnected, "server2")
         dispatcher.processEvent(SseEvent.VcsBranchUpdated("main"), "server2")
 
-        // Server2 can still send events for a DIFFERENT session
+        // Server2 仍可为其他会话发送事件
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s2")), "server2")
         assertTrue(dispatcher.sessions.value.any { it.id == "s2" })
     }
@@ -459,7 +459,7 @@ class EventDispatcherTest {
         dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
         dispatcher.processEvent(SseEvent.SessionDeleted(session), "server1")
 
-        // After deletion, server2 can create a new session with same ID
+        // 删除后，server2 可以创建同 ID 的新会话
         dispatcher.processEvent(SseEvent.SessionCreated(session), "server2")
         assertTrue(dispatcher.sessions.value.any { it.id == "s1" })
     }

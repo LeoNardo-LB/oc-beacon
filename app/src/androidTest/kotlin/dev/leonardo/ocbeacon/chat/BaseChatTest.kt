@@ -21,10 +21,10 @@ import org.junit.Rule
 import javax.inject.Inject
 
 /**
- * Base class for ChatScreen integration tests.
+ * ChatScreen 集成测试的基类。
  *
- * Provides the standard Hilt + Compose setup pattern verified by ChatSmokeTest.
- * Subclasses get pre-injected fakes and a [renderChatScreen] helper.
+ * 提供经 ChatSmokeTest 验证的标准 Hilt + Compose 搭建模式。
+ * 子类可获得预注入的 fakes 和 [renderChatScreen] 辅助方法。
  */
 @HiltAndroidTest
 abstract class BaseChatTest {
@@ -53,7 +53,7 @@ abstract class BaseChatTest {
     @Before
     open fun setup() {
         hiltRule.inject()
-        // Reset ALL fake state — Hilt singletons persist across tests in the same class
+        // 重置所有 fake 状态 —— Hilt 单例在同一类的多个测试间持久存在
         fakeChat.apply {
             messagesState.value = emptyList()
             partsState.value = emptyList()
@@ -71,13 +71,13 @@ abstract class BaseChatTest {
             )
             statusesState.value = emptyMap()
         }
-        // Note: SessionStateService and TokenStatsTracker are @Singleton — their state
-        // persists across tests. Tests that depend on specific FSM/token state should
-        // set it explicitly AFTER renderChatScreen(), not rely on @Before defaults.
+        // 注意：SessionStateService 和 TokenStatsTracker 是 @Singleton ——
+        // 其状态在测试间持久存在。依赖特定 FSM/token 状态的测试应当在
+        // renderChatScreen() 之后显式设置，而不是依赖 @Before 的默认值。
     }
 
     /**
-     * Render ChatScreen with theme wrapper. Call after configuring fake state.
+     * 在 theme 包装下渲染 ChatScreen。在配置完 fake 状态后调用。
      */
     protected fun renderChatScreen(
         serverId: String = TEST_SERVER,
@@ -96,14 +96,14 @@ abstract class BaseChatTest {
     }
 
     /**
-     * Type text into the chat input field.
+     * 在聊天输入框中输入文本。
      *
-     * Uses [hasSetTextAction] to find the actual editable node inside BasicTextField's
-     * decorationBox — the outer testTag node may not have the SetText semantics action
-     * due to semantics merge timing.
+     * 使用 [hasSetTextAction] 在 BasicTextField 的 decorationBox 内部定位
+     * 真正的可编辑节点 —— 由于 semantics 合并时机问题，外层的 testTag
+     * 节点可能没有 SetText semantics action。
      */
     protected fun typeInput(text: String) {
-        // Wait for the editable text node to be ready (ViewModel init is async)
+        // 等待可编辑文本节点就绪（ViewModel init 是异步的）
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
         }

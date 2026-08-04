@@ -3,8 +3,8 @@ package dev.leonardo.ocbeacon.ui.navigation.routes
 import androidx.navigation.NavBackStackEntry
 
 /**
- * Navigation route definition for the Server Model Filter screen.
- * Parameters: serverUrl, username, password, serverName, serverId
+ * 服务器模型过滤页的导航路由定义。
+ * 参数：serverUrl, username, password, serverName, serverId
  */
 object ServerModelFilterNav {
     const val ROUTE = "server_model_filter"

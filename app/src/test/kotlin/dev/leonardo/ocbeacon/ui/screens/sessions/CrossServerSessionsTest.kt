@@ -33,12 +33,12 @@ class CrossServerSessionsTest {
             snapshots = emptyMap(),
             categories = emptyList(),
         )
-        // Stored order wins over updated timestamps: favorite-b before favorite-a.
+        // 存储顺序优先于更新时间戳：favorite-b 在 favorite-a 之前。
         assertEquals(
             listOf("favorite-b", "favorite-a"),
             state.items.map { it.sessionId },
         )
-        // Regular session is not favorited → absent.
+        // 普通会话未被收藏 → 不出现。
         assertEquals(2, state.items.size)
     }
 
@@ -58,7 +58,7 @@ class CrossServerSessionsTest {
         )
         val item = state.items.single()
         assertEquals("offline", item.sessionId)
-        // Session is null (offline) but snapshot is present.
+        // 会话为 null（离线）但快照存在。
         assertEquals(null, item.session)
         assertEquals(snapshot, item.snapshot)
         assertEquals(false, item.isConnected)
@@ -73,7 +73,7 @@ class CrossServerSessionsTest {
             listOf("included"),
             filterCrossServerFavorites(listOf(uncategorized, included), category.id).map { it.sessionId },
         )
-        // null category = all favorites.
+        // category 为 null = 所有收藏。
         assertEquals(
             listOf("included", "uncategorized"),
             filterCrossServerFavorites(listOf(uncategorized, included), null).map { it.sessionId },
@@ -82,7 +82,7 @@ class CrossServerSessionsTest {
 
     @Test
     fun `moveCrossServerFavoriteOrder preserves disconnected server positions`() {
-        // The disconnected favorite is NOT in visibleOrder, so moving a visible item must keep it in place.
+        // 已断开的收藏项不在 visibleOrder 中，因此移动可见项时必须保持其位置不变。
         assertEquals(
             listOf("server-a:two", "disconnected:hidden", "server-a:one"),
             moveCrossServerFavoriteOrder(

@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 /**
- * Use case: observe messages for a session.
- * Used by Phase 2 ChatViewModel.
+ * Use Case：观察某个会话的消息。
+ * 供 Phase 2 ChatViewModel 使用。
  */
 class GetMessagesUseCase @Inject constructor(
     private val chatRepository: ChatRepository

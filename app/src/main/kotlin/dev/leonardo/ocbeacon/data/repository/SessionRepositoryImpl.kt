@@ -18,11 +18,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Implementation of [SessionRepository].
- * Bridges domain interface with EventDispatcher (state) and domain APIs (network).
+ * [SessionRepository] 的实现。
+ * 桥接领域接口与 EventDispatcher（状态）和领域 API（网络）。
  *
- * Phase 3: compiled but not yet wired to UseCases. Phase 4 will migrate
- * ViewModel direct calls to go through this repository.
+ * 阶段 3：已编译但尚未接入 UseCase。阶段 4 将把 ViewModel 的
+ * 直接调用迁移为通过此 repository。
  */
 @Singleton
 class SessionRepositoryImpl @Inject constructor(
@@ -32,11 +32,11 @@ class SessionRepositoryImpl @Inject constructor(
     private val serverRepo: ServerDataStore
 ) : SessionRepository {
 
-    // ============ State Observations ============
+    // ============ 状态观察 ============
 
     override fun getSessionsFlow(serverId: String): Flow<List<Session>> {
-        // Combine server→session mapping with the global sessions list so that
-        // changes to either trigger a re-emission.
+        // 将 服务器→会话 映射与全局会话列表合并，使任一变更
+        // 都触发重新发射。
         return combine(
             eventDispatcher.serverSessions,
             eventDispatcher.sessions
@@ -83,8 +83,8 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun switchSession(sessionId: String): Result<Unit> = runCatching {
-        // Switching is a UI/navigation concern — no server-side API call needed.
-        // The session's data is already tracked by EventDispatcher.
+        // 切换是 UI/导航层面的关注点——无需服务端 API 调用。
+        // 会话数据已由 EventDispatcher 跟踪。
         Unit
     }
 
@@ -93,7 +93,7 @@ class SessionRepositoryImpl @Inject constructor(
         sessionApi.getSession(conn, sessionId)
     }
 
-    // ============ Session Lifecycle ============
+    // ============ 会话生命周期 ============
 
     override suspend fun abort(serverId: String, sessionId: String, directory: String?): Result<Unit> = runCatching {
         val conn = resolveConnection(serverId)
@@ -110,7 +110,7 @@ class SessionRepositoryImpl @Inject constructor(
         sessionApi.forkSession(conn, sessionId)
     }
 
-    // ============ Archive ============
+    // ============ 归档 ============
 
     override suspend fun archive(serverId: String, sessionId: String): Result<Session> = runCatching {
         val conn = resolveConnection(serverId)
@@ -122,7 +122,7 @@ class SessionRepositoryImpl @Inject constructor(
         sessionApi.updateSessionFields(conn, sessionId, mapOf("archived" to false))
     }
 
-    // ============ Share / Export ============
+    // ============ 分享 / 导出 ============
 
     override suspend fun shareSession(serverId: String, sessionId: String): Result<Session> = runCatching {
         val conn = resolveConnection(serverId)
@@ -154,14 +154,14 @@ class SessionRepositoryImpl @Inject constructor(
         messageApi.exportSessionToStream(conn, sessionId, outputStream, onProgress)
     }
 
-    // ============ Import ============
+    // ============ 导入 ============
 
     override suspend fun importSession(serverId: String, shareUrl: String): Result<Session> = runCatching {
         val conn = resolveConnection(serverId)
         sessionApi.importSession(conn, shareUrl)
     }
 
-    // ============ Message Operations ============
+    // ============ 消息操作 ============
 
     override suspend fun deleteMessage(
         serverId: String,
@@ -191,7 +191,7 @@ class SessionRepositoryImpl @Inject constructor(
         messageApi.listMessages(conn, sessionId, limit)
     }
 
-    // ============ Private Helpers ============
+    // ============ 私有辅助方法 ============
 
     private suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = serverRepo.getServer(serverId)
@@ -199,7 +199,7 @@ class SessionRepositoryImpl @Inject constructor(
         return ServerConnection.from(config.url, config.username, config.password)
     }
 
-    // ============ Current Agent/Model (SSE session.next) ============
+    // ============ 当前 Agent/Model（SSE session.next）============
 
     override fun getCurrentAgentFlow(serverId: String): Flow<Map<String, String>> =
         combine(
@@ -219,13 +219,13 @@ class SessionRepositoryImpl @Inject constructor(
             modelMap.filterKeys { it in sessionIds }
         }
 
-    // ============ Write Operations (State Updates) ============
+    // ============ 写操作（状态更新）============
 
     override fun setSessions(serverId: String, sessions: List<Session>) {
         eventDispatcher.setSessions(serverId, sessions)
     }
 
-    // ============ Session Status Sync ============
+    // ============ 会话状态同步 ============
 
     override suspend fun fetchSessionStatuses(serverId: String, directory: String?): Result<Map<String, SessionStatus>> = runCatching {
         val conn = resolveConnection(serverId)

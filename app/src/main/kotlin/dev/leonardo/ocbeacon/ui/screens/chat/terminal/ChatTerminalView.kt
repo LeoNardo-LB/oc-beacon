@@ -64,10 +64,10 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Extracted terminal-mode view for ChatScreen.
+ * 从 ChatScreen 抽取的终端模式视图。
  *
- * Renders the full terminal UI (Drawer + SessionTerminalInline + KeyboardOverlay)
- * and manages terminal input processing (paste, chunk sending, modifier keys).
+ * 渲染完整终端 UI（Drawer + SessionTerminalInline + KeyboardOverlay）
+ * 并管理终端输入处理（粘贴、分块发送、修饰键）。
  */
 @Composable
 fun ChatTerminalView(
@@ -83,7 +83,7 @@ fun ChatTerminalView(
     val activeTerminalTabId by viewModel.activeTerminalTabId.collectAsStateWithLifecycle()
     val terminalFontSizeSp by viewModel.terminalFontSizeSp.collectAsStateWithLifecycle()
 
-    // isTerminalMode is hoisted — changes go through onTerminalModeChanged
+    // isTerminalMode 已上提——变更通过 onTerminalModeChanged 处理
     var terminalCtrlLatched by rememberSaveable { mutableStateOf(false) }
     var terminalAltLatched by rememberSaveable { mutableStateOf(false) }
     var terminalVirtualCtrlDown by remember { mutableStateOf(false) }
@@ -132,7 +132,7 @@ fun ChatTerminalView(
         }
     }
 
-    // ── Physical key interceptor (Volume buttons → Ctrl / Fn) ──────
+    // ── 物理按键拦截器（音量键 → Ctrl / Fn）──────────────
     DisposableEffect(isTerminalMode) {
         val activity = context as? MainActivity
         if (isTerminalMode && activity != null) {
@@ -169,7 +169,7 @@ fun ChatTerminalView(
         }
     }
 
-    // ── Force status bar black ──────────────────────────────────────
+    // ── 强制状态栏为黑色 ──────────────────────────────────
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     DisposableEffect(isTerminalMode) {
         val activity = context as? android.app.Activity
@@ -186,14 +186,14 @@ fun ChatTerminalView(
         }
     }
 
-    // ── Focus requester ─────────────────────────────────────────────
+    // ── 焦点请求器 ─────────────────────────────────────────
     LaunchedEffect(isTerminalMode, terminalState) {
         if (isTerminalMode && terminalState == TerminalTabState.Connected) {
             terminalFocusRequester.requestFocus()
         }
     }
 
-    // ── Clipboard paste helper ──────────────────────────────────────
+    // ── 剪贴板粘贴助手 ──────────────────────────────────────
     fun pasteClipboardToTerminal() {
         if (terminalState != TerminalTabState.Connected) return
         coroutineScope.launch {
@@ -209,7 +209,7 @@ fun ChatTerminalView(
         }
     }
 
-    // ── Chunk sender (Ctrl/Alt/Fn modifier handling) ──────────────
+    // ── 分块发送器（Ctrl/Alt/Fn 修饰键处理）──────────────
     fun sendTerminalChunk(chunk: String) {
         if (BuildConfig.DEBUG) {
             val codes = chunk.map { String.format("%04x", it.code) }
@@ -244,7 +244,7 @@ fun ChatTerminalView(
         val ctrlActive = terminalCtrlLatched || terminalVirtualCtrlDown
         val altActive = terminalAltLatched
 
-        // Termux-compatible shortcut: Ctrl+Alt+V pastes clipboard into terminal.
+        // 兼容 Termux 的快捷键：Ctrl+Alt+V 将剪贴板粘贴到终端。
         if (!terminalVirtualFnDown && ctrlActive && altActive && chunk.length == 1 && chunk[0].lowercaseChar() == 'v') {
             pasteClipboardToTerminal()
             if (terminalCtrlLatched) terminalCtrlLatched = false
@@ -290,8 +290,8 @@ fun ChatTerminalView(
         if (terminalAltLatched) terminalAltLatched = false
     }
 
-    // ── Terminal UI ─────────────────────────────────────────────────
-    // IME inset relative to content area.
+    // ── 终端 UI ─────────────────────────────────────────────────
+    // 相对于内容区域的 IME 内边距。
     val imeBottomRaw = WindowInsets.ime.getBottom(density)
     val navBottom = WindowInsets.navigationBars.getBottom(density)
     val imeBottomPx = (imeBottomRaw - navBottom).coerceAtLeast(0).let { adjusted ->

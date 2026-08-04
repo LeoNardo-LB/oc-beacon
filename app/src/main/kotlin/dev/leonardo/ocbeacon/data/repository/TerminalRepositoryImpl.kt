@@ -14,27 +14,27 @@ class TerminalRepositoryImpl @Inject constructor(
 ) : TerminalRepository {
 
     override fun connectTerminal(serverId: String, sessionId: String): Flow<TerminalEvent> {
-        // TODO: Wire to actual WebSocket PTY stream.
-        // The interface uses sessionId but PTY methods use ptyId.
-        // The flow requires: createPty → openPtySocket(ptyId) → emit frames.
+        // TODO：接入真实的 WebSocket PTY 流。
+        // 接口使用 sessionId，但 PTY 方法使用 ptyId。
+        // 该 flow 需要：createPty → openPtySocket(ptyId) → 发射帧。
         return flow { /* stub */ }
     }
 
     override suspend fun sendInput(serverId: String, sessionId: String, data: String): Result<Unit> = runCatching {
-        // TODO: PTY input is sent via WebSocket frames through PtySocket, not a REST method.
-        // Need to hold a PtySocket reference and call ptySocket.send(data).
+        // TODO：PTY 输入通过 PtySocket 的 WebSocket 帧发送，而非 REST 方法。
+        // 需要持有 PtySocket 引用并调用 ptySocket.send(data)。
         val config = serverRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
         ServerConnection.from(config.url, config.username, config.password)
-        // No-op until PtySocket lifecycle management is designed
+        // 在设计好 PtySocket 生命周期管理前为空操作
     }
 
     override suspend fun resize(serverId: String, sessionId: String, cols: Int, rows: Int): Result<Unit> = runCatching {
         val config = serverRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
         val conn = ServerConnection.from(config.url, config.username, config.password)
-        // TODO: Interface uses sessionId but updatePtySize requires ptyId.
-        // Need a sessionId→ptyId mapping or change interface to accept ptyId.
+        // TODO：接口使用 sessionId，但 updatePtySize 需要 ptyId。
+        // 需要 sessionId→ptyId 映射，或将接口改为接受 ptyId。
         // terminalApi.updatePtySize(conn, sessionId, cols, rows)
     }
 }

@@ -1,9 +1,9 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Domain model for the full provider catalog response.
- * Used by ViewModels for provider/model selection.
- * Counterpart of data.dto.response.ProvidersResponse.
+ * 完整 provider 目录响应的领域模型。
+ * 供 ViewModel 用于 provider/model 选择。
+ * 对应 data.dto.response.ProvidersResponse。
  */
 data class ProvidersResponse(
     val providers: List<ProviderCatalog>,
@@ -11,8 +11,8 @@ data class ProvidersResponse(
 )
 
 /**
- * Domain model for a provider in the catalog view.
- * Counterpart of data.dto.response.ProviderInfo.
+ * 目录视图中 provider 的领域模型。
+ * 对应 data.dto.response.ProviderInfo。
  */
 data class ProviderCatalog(
     val id: String,
@@ -22,9 +22,9 @@ data class ProviderCatalog(
 )
 
 /**
- * Domain model for a model in the catalog view.
- * Carries display and configuration info needed by the UI.
- * Counterpart of data.dto.response.ProviderModel.
+ * 目录视图中 model 的领域模型。
+ * 承载 UI 所需的展示和配置信息。
+ * 对应 data.dto.response.ProviderModel。
  */
 data class ModelCatalog(
     val id: String,

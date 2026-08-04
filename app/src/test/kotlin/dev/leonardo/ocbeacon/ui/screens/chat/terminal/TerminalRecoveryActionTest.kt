@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Exhaustive truth-table coverage for [terminalRecoveryAction].
+ * 对 [terminalRecoveryAction] 的穷举真值表覆盖。
  *
  * | state        | isMissingPty=true | isMissingPty=false |
  * |--------------|-------------------|--------------------|
@@ -30,9 +30,9 @@ class TerminalRecoveryActionTest {
 
     @Test
     fun `Reconnecting restarts only when PTY is gone`() {
-        // PTY still present → keep waiting on the in-flight reconnect.
+        // PTY 仍存在 → 继续等待进行中的重连。
         assertEquals(RecoveryAction.None, terminalRecoveryAction(TerminalTabState.Reconnecting, isMissingPty = false))
-        // PTY gone → a socket-only reconnect is pointless, must recreate.
+        // PTY 已消失 → 仅重建 socket 的重连没有意义，必须重建。
         assertEquals(RecoveryAction.Restart, terminalRecoveryAction(TerminalTabState.Reconnecting, isMissingPty = true))
     }
 
@@ -51,7 +51,7 @@ class TerminalRecoveryActionTest {
     @Test
     fun `every state x isMissingPty combination matches the truth table`() {
         val expected = listOf(
-            // state, isMissingPty, expected action
+            // 状态、isMissingPty、期望动作
             Triple(TerminalTabState.Starting, true, RecoveryAction.None),
             Triple(TerminalTabState.Starting, false, RecoveryAction.None),
             Triple(TerminalTabState.Connected, true, RecoveryAction.None),

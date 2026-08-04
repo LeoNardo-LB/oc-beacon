@@ -39,7 +39,7 @@ fun ChatDisplaySection(
 
     SectionHeader(stringResource(R.string.settings_section_chat_display))
 
-    // Chat font (density: normal / compact)
+    // 聊天字体（密度：标准 / 紧凑）
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_chat_font)) },
         supportingContent = {
@@ -54,7 +54,7 @@ fun ChatDisplaySection(
         modifier = Modifier.clickable { onShowChatDensityPicker() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Code word wrap
+    // 代码自动换行
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_code_word_wrap)) },
         supportingContent = { Text(stringResource(R.string.settings_code_word_wrap_desc)) },
@@ -71,7 +71,7 @@ fun ChatDisplaySection(
         modifier = Modifier.clickable { viewModel.setCodeWordWrap(!codeWordWrap) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Auto-expand tool results
+    // 自动展开工具结果
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_auto_expand_tools)) },
         supportingContent = { Text(stringResource(R.string.settings_auto_expand_tools_desc)) },
@@ -88,7 +88,7 @@ fun ChatDisplaySection(
         modifier = Modifier.clickable { viewModel.setCollapseTools(!collapseTools) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Expand reasoning by default
+    // 默认展开推理过程
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_expand_reasoning)) },
         supportingContent = { Text(stringResource(R.string.settings_expand_reasoning_desc)) },
@@ -105,7 +105,7 @@ fun ChatDisplaySection(
         modifier = Modifier.clickable { viewModel.setExpandReasoning(!expandReasoning) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Show turn dividers
+    // 显示轮次分隔线
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_turn_dividers)) },
         supportingContent = { Text(stringResource(R.string.settings_turn_dividers_desc)) },

@@ -33,10 +33,10 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Search results body displayed below [SearchTopBar] (spec §6.4).
+ * 显示在 [SearchTopBar] 下方的搜索结果主体（规范 §6.4）。
  *
- * Renders file-tree results (server search via findFiles) or git-changes
- * results (client filter) depending on [activePanel].
+ * 根据 [activePanel] 渲染文件树结果（通过 findFiles 进行服务器搜索）
+ * 或 git 变更结果（客户端过滤）。
  */
 @Composable
 fun SearchOverlay(
@@ -191,7 +191,7 @@ private fun SearchErrorState(messageRes: Int) {
     }
 }
 
-/** Middle-ellipsis: app/src/.../User.kt. Used for long file paths in result lists. */
+/** 中间省略：app/src/.../User.kt。用于结果列表中的长文件路径。 */
 internal fun ellipsizeMiddle(path: String, maxLength: Int): String {
     if (path.length <= maxLength) return path
     val keepEach = (maxLength - 3) / 2

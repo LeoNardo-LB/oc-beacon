@@ -27,13 +27,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Bottom bar composable extracted from ChatScreen.
+ * 从 ChatScreen 中抽取的底部栏 composable。
  *
- * Contains the chat input bar with all its associated logic: text editing, shell mode,
- * slash commands, file mentions, attachments, model selection, and send handling.
+ * 包含聊天输入栏及其全部关联逻辑：文本编辑、shell 模式、
+ * 斜杠命令、文件提及、附件、模型选择与发送处理。
  *
- * Re-obtains [LocalContext], [LocalView], and [LocalClipboard] internally — these are
- * ambient values that return the same instance throughout the composition tree.
+ * 内部重新获取 [LocalContext]、[LocalView] 和 [LocalClipboard] —— 这些
+ * 环境值在整个组合树中返回同一实例。
  */
 @Composable
 internal fun ChatScreenBottomBar(
@@ -105,13 +105,13 @@ internal fun ChatScreenBottomBar(
                     onInputTextChange(normalizedValue)
                     viewModel.updateDraftText(normalizedValue.text)
 
-                    // reverseLayout=true anchors at bottom; no explicit scroll needed when typing.
+                    // reverseLayout=true 锚定底部；输入时无需显式滚动。
 
                     if (isShellMode || shouldAutoShell) {
                         viewModel.clearFileSearch()
                         return@ChatInputBar
                     }
-                    // Detect @query before cursor for file mention
+                    // 检测光标前的 @query 以进行文件提及
                     val cursorPos = normalizedValue.selection.start
                     val textBefore = normalizedValue.text.substring(0, cursorPos)
                     val atMatch = Regex("@(\\S*)$").find(textBefore)
@@ -170,7 +170,7 @@ internal fun ChatScreenBottomBar(
                             onForceScroll()
                             return@doSend
                         }
-                        // Detect slash commands (e.g., /skillname arguments)
+                        // 检测斜杠命令（例如 /skillname arguments）
                         if (rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
                             val parts = rawText.trim().split("\\s+".toRegex(), 2)
                             val commandName = parts[0].removePrefix("/")
@@ -195,9 +195,9 @@ internal fun ChatScreenBottomBar(
                                 return@doSend
                             }
                         }
-                        // Build prompt parts: split text around confirmed @file mentions
+                        // 构建 prompt parts：围绕已确认的 @file 提及拆分文本
                         val allParts = PromptBuilder.buildPromptParts(rawText, confirmedFilePaths, viewModel.getSessionDirectory())
-                        // Add image attachments
+                        // 添加图片附件
                         val attachmentParts = attachments.map { att ->
                             PromptPart(
                                 type = "file",
@@ -255,7 +255,7 @@ internal fun ChatScreenBottomBar(
                 fileSearchResults = fileSearchResults,
                 confirmedFilePaths = confirmedFilePaths,
                 onFileSelected = { path ->
-                    // Replace @query with @path in text
+                    // 用 @path 替换文本中的 @query
                     val cursorPos = inputText.selection.start
                     val textBefore = inputText.text.substring(0, cursorPos)
                     val atMatch = Regex("@(\\S*)$").find(textBefore)
@@ -276,7 +276,7 @@ internal fun ChatScreenBottomBar(
                 onSlashCommand = { cmd ->
                     when (cmd.name) {
                         "new" -> {
-                            onNavigateToSession("")  // Empty sessionId = lazy creation
+                            onNavigateToSession("")  // 空 sessionId = 延迟创建
                         }
                         "compact" -> {
                             onForceScroll()

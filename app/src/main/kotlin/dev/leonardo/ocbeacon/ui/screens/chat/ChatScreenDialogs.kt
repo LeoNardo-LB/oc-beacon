@@ -7,10 +7,10 @@ import dev.leonardo.ocbeacon.ui.screens.chat.dialog.RenameSessionDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.SendConfirmDialog
 
 /**
- * Renders the three conditional dialogs shown over ChatScreen:
- * ModelPicker, RenameSession, and SendConfirm.
+ * 渲染 ChatScreen 上显示的三个条件对话框：
+ * ModelPicker、RenameSession 和 SendConfirm。
  *
- * Extracted from ChatScreen to reduce its complexity.
+ * 从 ChatScreen 提取以降低其复杂度。
  */
 @Composable
 internal fun ChatScreenDialogs(
@@ -28,7 +28,7 @@ internal fun ChatScreenDialogs(
     sessionTitle: String,
     onRename: (String) -> Unit,
 ) {
-    // Model picker dialog
+    // 模型选择对话框
     if (showModelPicker) {
         ModelPickerDialog(
             providers = providers,
@@ -39,7 +39,7 @@ internal fun ChatScreenDialogs(
         )
     }
 
-    // Rename dialog
+    // 重命名对话框
     if (showRenameDialog) {
         RenameSessionDialog(
             initialTitle = sessionTitle,
@@ -48,7 +48,7 @@ internal fun ChatScreenDialogs(
         )
     }
 
-    // Send confirmation dialog
+    // 发送确认对话框
     if (showSendConfirmDialog) {
         SendConfirmDialog(
             onConfirm = onConfirmSend,

@@ -19,8 +19,8 @@ import org.junit.Test
 import java.io.IOException
 
 /**
- * Enhanced tests for Layer 1 (Network Resilience) — boundary conditions,
- * error paths, and edge cases not covered by existing test suites.
+ * Layer 1（网络韧性）的增强测试 —— 边界条件、
+ * 错误路径以及现有测试套件未覆盖的边界情况。
  */
 class Layer1EnhancedTest {
 
@@ -46,8 +46,8 @@ class Layer1EnhancedTest {
     fun `mapHttpError 429 with negative retryAfterSeconds defaults to 0`() {
         val error = mapHttpError(429, retryAfterSeconds = "-5")
         assertTrue(error is ApiError.RateLimitError)
-        // toLongOrNull returns null for empty string, but "-5" parses to -5
-        // Then -5 * 1000 = -5000, which is what the code actually does.
+        // toLongOrNull 对空字符串返回 null，但 "-5" 会被解析为 -5
+        // 然后 -5 * 1000 = -5000，这正是代码实际的行为。
         assertEquals(-5000L, (error as ApiError.RateLimitError).retryAfterMillis)
     }
 
@@ -135,7 +135,7 @@ class Layer1EnhancedTest {
             maxDelayMs = 10_000L,
             backoffFactor = 2.0
         )
-        // attempt=100 → exp=99, 500 * 2^99 is huge, but should be capped
+        // attempt=100 → exp=99，500 * 2^99 非常大，但应被封顶
         assertEquals(10_000L, policy.calculateDelay(attempt = 100))
     }
 
@@ -162,7 +162,7 @@ class Layer1EnhancedTest {
         val d1 = policy.calculateDelay(attempt = 1)
         val d2 = policy.calculateDelay(attempt = 2)
         val d3 = policy.calculateDelay(attempt = 3)
-        // 0.5^n → decreasing
+        // 0.5^n → 递减
         assertTrue(d1 > d2)
         assertTrue(d2 > d3)
     }
@@ -285,10 +285,10 @@ class Layer1EnhancedTest {
 
     @Test
     fun `tracker isInCooldown true with very long duration`() {
-        // Use a value large enough to be "very long" but that doesn't overflow
-        // System.currentTimeMillis() + duration. currentTimeMillis is ~1.7T, so max safe
-        // addition is Long.MAX_VALUE - System.currentTimeMillis().
-        val safeLong = 100_000_000_000L // ~27 hours — effectively permanent
+        // 使用足够大、属于 "非常长" 但不会溢出的值
+        // System.currentTimeMillis() + duration。currentTimeMillis 约 1.7T，因此最大安全
+        // 加数是 Long.MAX_VALUE - System.currentTimeMillis()。
+        val safeLong = 100_000_000_000L // 约 27 小时 —— 实际上相当于永久
         val tracker = SseReadTimeoutTracker(
             maxConsecutiveTimeouts = 5,
             cooldownDurationMs = safeLong

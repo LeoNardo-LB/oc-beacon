@@ -55,7 +55,7 @@ internal fun ToolCallCard(
         is ToolState.Error -> MaterialTheme.colorScheme.error
     }
 
-    // Extract input args for context-specific display
+    // 提取输入参数用于上下文相关的展示
     val input = when (val state = tool.state) {
         is ToolState.Pending -> state.input
         is ToolState.Running -> state.input
@@ -63,7 +63,7 @@ internal fun ToolCallCard(
         is ToolState.Error -> state.input
     }
 
-    // Resolve display info based on tool type
+    // 根据工具类型解析显示信息
     val toolDisplay = resolveToolDisplay(tool.tool.lowercase(), tool.state, input)
 
     val longPressCopyText = if (toolDisplay.subtitle != null && toolDisplay.subtitle != toolDisplay.title) {
@@ -92,11 +92,11 @@ internal fun ToolCallCard(
     ToolCardScaffold(
         icon = resolvedIcon,
         iconTint = resolvedIconTint,
-        title = "", // not used when titleContent is provided for task
+        title = "", // 未使用，因为 task 提供了 titleContent
         copyText = longPressCopyText,
         isExpanded = isExpanded,
         isRunning = isRunning,
-        hasContent = true, // always show copy + expand for generic renderer
+        hasContent = true, // 通用渲染器始终显示复制 + 展开
         isAmoled = isAmoled,
         onToggleExpand = onToggleExpand,
         titleContent = if (isTask) {
@@ -221,7 +221,7 @@ internal fun ToolCallCard(
 }
 
 /**
- * Extract common tool input values.
+ * 提取通用工具输入值。
  */
 internal fun extractToolInput(tool: Part.Tool): Map<String, kotlinx.serialization.json.JsonElement> {
     return when (val state = tool.state) {

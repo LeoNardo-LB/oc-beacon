@@ -5,8 +5,8 @@ import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import javax.inject.Inject
 
 /**
- * Use case: connect to a server.
- * Used by Phase 4 HomeViewModel.
+ * Use Case：连接到服务器。
+ * 供 Phase 4 HomeViewModel 使用。
  */
 class ConnectServerUseCase @Inject constructor(
     private val serverRepository: ServerRepository

@@ -25,11 +25,11 @@ import java.util.UUID
 import javax.inject.Inject
 
 /**
- * A single row in the cross-server favorites list.
+ * 跨服务器收藏列表中的单行。
  *
- * [session] is the live [Session] when its server is connected and the session is present in the
- * server's session list; `null` otherwise (server offline or session no longer listed), in which
- * case [snapshot] provides the offline display data.
+ * 当服务器已连接且会话存在于其会话列表中时，[session] 为活跃的 [Session]；
+ * 否则为 `null`（服务器离线或会话已不再列出），此时由 [snapshot]
+ * 提供离线显示数据。
  */
 data class CrossServerSessionItem(
     val serverId: String,
@@ -46,7 +46,7 @@ data class CrossServerSessionItem(
 data class CrossServerSessionsUiState(
     val items: List<CrossServerSessionItem> = emptyList(),
     val categories: List<SessionCategory> = emptyList(),
-    /** Categories that actually appear among the visible favorites (for the filter row). */
+    /** 在可见收藏中实际出现的分类（用于过滤行）。 */
     val filterCategories: List<SessionCategory> = emptyList(),
     val connectedServerCount: Int = 0,
 )
@@ -71,7 +71,7 @@ class CrossServerSessionsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
-    /** Per-server favorites + category assignments, aggregated across all known servers. */
+    /** 每个服务器的收藏 + 分类分配，聚合所有已知服务器。 */
     private val preferencesByServer: Flow<Map<String, ServerSessionPreferences>> =
         serverDataStore.servers.flatMapLatest { servers ->
             if (servers.isEmpty()) {
@@ -186,11 +186,11 @@ class CrossServerSessionsViewModel @Inject constructor(
 }
 
 /**
- * Pure, testable builder for [CrossServerSessionsUiState].
+ * 纯净、可测试的 [CrossServerSessionsUiState] 构建器。
  *
- * Iterates every known server's favorites, resolves each favorite to a live [Session] when its
- * server is connected (falling back to [FavoriteSessionSnapshot] when offline), then sorts by the
- * stored cross-server order with stable tie-breakers.
+ * 遍历每个已知服务器的收藏，在其服务器已连接时把每个收藏解析为活跃的 [Session]
+ *（离线时回退到 [FavoriteSessionSnapshot]），然后按存储的跨服务器顺序排序，
+ * 并使用稳定的兜底比较器。
  */
 internal fun buildCrossServerSessionsState(
     sessionsByServer: Map<String, List<Session>>,
@@ -247,14 +247,14 @@ internal fun buildCrossServerSessionsState(
     )
 }
 
-/** Sort favorites only, respecting the stored favorite index then most-recently-updated. */
+/** 仅对收藏排序：先按存储的收藏索引，再按最近更新时间。 */
 internal fun sortCrossServerFavorites(items: List<CrossServerSessionItem>): List<CrossServerSessionItem> =
     items.filter { it.isFavorite }.sortedWith(
         compareBy<CrossServerSessionItem> { it.favoriteIndex }
             .thenByDescending { it.displayUpdated() },
     )
 
-/** Filter favorites by category (null = all). */
+/** 按分类过滤收藏（null = 全部）。 */
 internal fun filterCrossServerFavorites(
     items: List<CrossServerSessionItem>,
     categoryId: String?,
@@ -263,8 +263,7 @@ internal fun filterCrossServerFavorites(
 }
 
 /**
- * Reorder a favorite within the visible list while preserving the positions of disconnected-server
- * favorites that are not currently visible.
+ * 在可见列表中重排某个收藏，同时保持当前不可见的离线服务器收藏的位置不变。
  */
 internal fun moveCrossServerFavoriteOrder(
     currentOrder: List<String>,

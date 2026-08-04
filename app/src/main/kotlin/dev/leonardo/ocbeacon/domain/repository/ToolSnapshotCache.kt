@@ -4,14 +4,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Process-level in-memory cache for tool snapshots (spec §5.6).
+ * 进程级内存工具快照缓存（spec §5.6）。
  *
- * Navigation arguments cannot carry large Part content (URL length limit +
- * Binder 1MB transaction limit). ChatViewModel caches snapshots keyed by tool
- * part ID before navigating; FileViewerViewModel reads them by toolPartIds.
+ * 导航参数无法携带大段 Part 内容（URL 长度限制 +
+ * Binder 1MB 事务限制）。ChatViewModel 在导航前以 tool part ID 为键
+ * 缓存快照；FileViewerViewModel 通过 toolPartIds 读取。
  *
- * Lifecycle: write-on-navigate, clear-on-FileViewer-onCleared.
- * Process death → loss is acceptable (chat state may have changed).
+ * 生命周期：导航时写入，FileViewer onCleared 时清除。
+ * 进程死亡 → 丢失是可接受的（聊天状态可能已变化）。
  */
 @Singleton
 class ToolSnapshotCache @Inject constructor() {
@@ -48,9 +48,9 @@ class ToolSnapshotCache @Inject constructor() {
         val after: String?,
         val toolName: String  // "read" | "write" | "edit"
     ) {
-        /** True if this snapshot has diff data (Edit-style). */
+        /** 当此快照包含 diff 数据（Edit 类型）时为 true。 */
         val isDiff: Boolean get() = before != null && after != null
-        /** True if this snapshot is a content view (Read/Write-style). */
+        /** 当此快照为内容视图（Read/Write 类型）时为 true。 */
         val isContent: Boolean get() = content != null
     }
 }

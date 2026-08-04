@@ -4,22 +4,22 @@ import androidx.compose.foundation.lazy.LazyListState
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 
-/** A user question that can be jumped to from the Quick Navigate sheet. */
+/** 可从快速导航面板跳转的用户问题。 */
 data class JumpTarget(
-    val label: String,        // "Q1", "Q2" ...
-    val timestampMs: Long,    // message.time.created (epoch millis)
-    val preview: String,      // first Part.Text content, or placeholder
-    val rawIndex: Int,        // index in rawMessages
-    val msgId: String         // message.id, for jump lookup
+    val label: String,        // "Q1"、"Q2" ...
+    val timestampMs: Long,    // message.time.created（epoch 毫秒）
+    val preview: String,      // 第一个 Part.Text 内容，或占位符
+    val rawIndex: Int,        // rawMessages 中的索引
+    val msgId: String         // message.id，用于跳转查找
 )
 
 /**
- * Extract all user questions, sorted by time ascending (Q1 = oldest question),
- * independent of rawMessages storage order (rawMessages is newest-first in
- * production — see ChatScreen.kt:993). rawIndex keeps the original index in
- * rawMessages for jump lookup.
+ * 提取所有用户问题，按时间升序排列（Q1 = 最旧的问题），
+ * 与 rawMessages 存储顺序无关（rawMessages 在生产环境中是最新的在前
+ * —— 见 ChatScreen.kt:993）。rawIndex 保留 rawMessages 中的
+ * 原始索引用于跳转查找。
  *
- * Pure function — no Android/Compose dependencies.
+ * 纯函数 —— 无 Android/Compose 依赖。
  */
 fun extractJumpTargets(rawMessages: List<ChatMessage>): List<JumpTarget> {
     return rawMessages.withIndex()
@@ -41,8 +41,8 @@ fun extractJumpTargets(rawMessages: List<ChatMessage>): List<JumpTarget> {
 }
 
 /**
- * Given a rawIndex (any message), find the nearest user message at or before it.
- * Returns its rawIndex, or null if none exists. Pure function.
+ * 给定一个 rawIndex（任意消息），找到其上或其本身最近的用户消息。
+ * 返回其 rawIndex，不存在则返回 null。纯函数。
  */
 fun findNearestUserIndexBefore(rawMessages: List<ChatMessage>, rawIdx: Int): Int? {
     if (rawIdx < 0 || rawIdx >= rawMessages.size) return null
@@ -50,13 +50,13 @@ fun findNearestUserIndexBefore(rawMessages: List<ChatMessage>, rawIdx: Int): Int
 }
 
 /**
- * Identify which user question corresponds to the currently-visible top message.
+ * 识别当前可见顶部消息对应的用户问题。
  *
- * Uses listState.layoutInfo.visibleItemsInfo + message key format
- * ("u_<id>" for user, "t_<id>" for assistant — see ChatMessageList.kt:391-392).
- * reverseLayout=true: visually topmost visible message = smallest offset.
+ * 使用 listState.layoutInfo.visibleItemsInfo + 消息 key 格式
+ *（"u_<id>" 为用户，"t_<id>" 为 assistant —— 见 ChatMessageList.kt:391-392）。
+ * reverseLayout=true：视觉上最顶部的可见消息 = 最小偏移。
  *
- * Returns the rawIndex of the current user question, or null if indeterminate.
+ * 返回当前用户问题的 rawIndex，无法确定时返回 null。
  */
 fun findCurrentQuestionRawIndex(
     listState: LazyListState,

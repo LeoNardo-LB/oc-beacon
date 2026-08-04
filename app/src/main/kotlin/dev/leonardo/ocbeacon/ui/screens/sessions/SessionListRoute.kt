@@ -4,9 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 /**
- * Route wrapper for SessionListScreen.
- * Extracts navigation parameters from SavedStateHandle via ViewModel
- * and binds ViewModel to the composable.
+ * SessionListScreen 的路由包装。
+ * 通过 ViewModel 从 SavedStateHandle 提取导航参数，
+ * 并将 ViewModel 绑定到 composable。
  */
 @Composable
 fun SessionListRoute(

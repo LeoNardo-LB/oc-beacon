@@ -47,7 +47,7 @@ fun ServerSettingsContent(
     var mcpExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(modifier = modifier.fillMaxSize()) {
-        // Section header: MCP Servers
+        // 区块标题：MCP 服务器
         item {
             Row(
                 modifier = Modifier
@@ -79,7 +79,7 @@ fun ServerSettingsContent(
             )
         }
 
-        // Expandable MCP content — use Column, NOT nested LazyColumn
+        // 可展开的 MCP 内容 — 使用 Column，不要用嵌套 LazyColumn
         item {
             AnimatedVisibility(
                 visible = mcpExpanded,

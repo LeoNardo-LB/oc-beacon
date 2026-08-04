@@ -28,19 +28,19 @@ internal fun toolOutputContainerColor(): Color {
 }
 
 /**
- * Agent color cycle matching the TUI's opencode theme (local.tsx).
- * Colors are defined in [dev.leonardo.ocbeacon.ui.theme] (Color.kt) so they
- * stay stable across sessions and themes — each agent must remain
- * identifiable by its color.
+ * Agent 颜色循环，匹配 TUI 的 opencode 主题（local.tsx）。
+ * 颜色定义在 [dev.leonardo.ocbeacon.ui.theme]（Color.kt）中，使它们
+ * 跨会话和主题保持稳定 —— 每个 agent 必须保持
+ * 可通过其颜色识别。
  */
 internal val agentColorCycle = listOf(
-    AgentSecondary, // build (blue)
-    AgentAccent,    // plan (purple)
-    AgentSuccess,   // green
-    AgentWarning,   // orange
-    AgentPrimary,   // peach
-    AgentError,     // red
-    AgentInfo       // cyan
+    AgentSecondary, // build（蓝色）
+    AgentAccent,    // plan（紫色）
+    AgentSuccess,   // 绿色
+    AgentWarning,   // 橙色
+    AgentPrimary,   // 桃色
+    AgentError,     // 红色
+    AgentInfo       // 青色
 )
 
 internal fun agentColor(agentName: String, agents: List<AgentInfo> = emptyList()): Color {

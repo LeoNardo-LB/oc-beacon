@@ -4,8 +4,8 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import javax.inject.Inject
 
 /**
- * Use case: undo and redo messages (revert/unrevert sessions).
- * Delegates to ChatRepository.
+ * Use Case：撤销和重做消息（revert/unrevert 会话）。
+ * 委托给 ChatRepository。
  */
 class UndoRedoUseCase @Inject constructor(
     private val chatRepository: ChatRepository

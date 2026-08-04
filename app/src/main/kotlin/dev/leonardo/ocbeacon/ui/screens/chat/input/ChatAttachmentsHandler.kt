@@ -24,8 +24,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.formatFileSize
 import kotlinx.coroutines.launch
 
 /**
- * Holds attachment state and launcher triggers for the chat screen.
- * Produced by [rememberAttachmentHandler].
+ * 持有聊天屏幕的附件状态和启动器触发器。
+ * 由 [rememberAttachmentHandler] 生成。
  */
 internal class ChatAttachmentsHandler(
     val attachments: MutableList<ImageAttachment>,
@@ -45,11 +45,11 @@ internal class ChatAttachmentsHandler(
 }
 
 /**
- * Remember-based factory that creates image picker, SAF export, and image save launchers,
- * plus draft-restore and shared-image consumption side effects.
+ * 基于 remember 的工厂，创建图片选择器、SAF 导出和图片保存启动器，
+ * 以及草稿恢复和共享图片消费的副作用。
  *
- * All [ActivityResultLauncher] registrations happen inside this @Composable, satisfying
- * the framework requirement that launchers be declared in composition context.
+ * 所有 [ActivityResultLauncher] 注册都在此 @Composable 内进行，满足
+ * 框架要求启动器在 composition 上下文中声明的要求。
  */
 @Composable
 internal fun rememberAttachmentHandler(
@@ -67,10 +67,10 @@ internal fun rememberAttachmentHandler(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // -- Mutable attachment list --------------------------------------------------
+    // -- 可变附件列表 --------------------------------------------------
     val attachments = remember { mutableStateListOf<ImageAttachment>() }
 
-    // -- Rebuild attachments from persisted draft URIs on first composition ----------
+    // -- 首次组合时从持久化的草稿 URI 重建附件 ----------
     LaunchedEffect(draftAttachmentUris, compressImages, imageMaxLongSide, imageWebpQuality) {
         val currentUris = attachments.map { it.uri.toString() }.toSet()
         val draftUriSet = draftAttachmentUris.toSet()
@@ -110,7 +110,7 @@ internal fun rememberAttachmentHandler(
                 }
             } catch (e: Exception) {
                 Log.w("ChatScreen", "Failed to restore attachment $uriStr: ${e.message}")
-                // Remove invalid URI from draft
+                // 从草稿中移除无效 URI
                 onRemoveDraftAttachment(draftAttachmentUris.indexOf(uriStr))
             }
         }
@@ -118,7 +118,7 @@ internal fun rememberAttachmentHandler(
         attachments.addAll(restored)
     }
 
-    // -- Image picker launcher -----------------------------------------------------
+    // -- 图片选择器启动器 -----------------------------------------------------
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
@@ -131,7 +131,7 @@ internal fun rememberAttachmentHandler(
                             uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
                         )
                     } catch (e: Exception) {
-                        // Not all URIs support persistable permissions
+                        // 并非所有 URI 都支持可持久化权限
                         Log.w("ChatAttachmentsHandler", "takePersistableUriPermission failed: ${e.message}", e)
                     }
 
@@ -147,7 +147,7 @@ internal fun rememberAttachmentHandler(
                     onAddDraftAttachment(uri.toString())
                     prepared.comparison?.let { optimizedComparisons.add(it) }
                 } catch (e: Exception) {
-                    // Skip files that fail to read
+                    // 跳过读取失败的文件
                     Log.w("ChatAttachmentsHandler", "buildAttachmentFromUri failed: ${e.message}", e)
                 }
             }
@@ -170,7 +170,7 @@ internal fun rememberAttachmentHandler(
         }
     }
 
-    // -- SAF session export launcher -----------------------------------------------
+    // -- SAF 会话导出启动器 -----------------------------------------------
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? ->
@@ -187,7 +187,7 @@ internal fun rememberAttachmentHandler(
         }
     }
 
-    // -- Image save via SAF -------------------------------------------------------
+    // -- 通过 SAF 保存图片 -------------------------------------------------------
     var pendingImageSave by remember { mutableStateOf<ImageSaveRequest?>(null) }
     val saveImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("image/*")
@@ -219,7 +219,7 @@ internal fun rememberAttachmentHandler(
         saveImageLauncher.launch(fileName)
     }
 
-    // -- Consume images shared from other apps via ACTION_SEND ----------------------
+    // -- 消费通过 ACTION_SEND 从其他应用共享的图片 ----------------------
     LaunchedEffect(initialSharedImages) {
         if (initialSharedImages.isEmpty()) return@LaunchedEffect
         val optimizedComparisons = mutableListOf<AttachmentComparison>()
@@ -276,7 +276,7 @@ internal fun rememberAttachmentHandler(
     )
 }
 
-/** Internal payload for deferred image save. */
+/** 延迟图片保存的内部载荷。 */
 private data class ImageSaveRequest(
     val bytes: ByteArray,
     val mime: String,

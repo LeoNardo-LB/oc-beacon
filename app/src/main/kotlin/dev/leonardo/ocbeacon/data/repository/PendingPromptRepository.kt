@@ -13,13 +13,13 @@ private const val TAG = "PendingPromptRepository"
 private const val PENDING_PROMPTS_FILE = "pending_prompts.json"
 
 /**
- * File-backed JSON store for optimistic pending prompts so they survive app restarts.
+ * 基于文件的 JSON 存储，保存乐观待处理 prompt，使其能在应用重启后保留。
  *
- * Writes are synchronous and guarded by `@Synchronized` — the volume is tiny (one
- * record per in-flight send) and correctness matters more than throughput here.
+ * 写入是同步的并由 `@Synchronized` 保护——数据量极小（每个进行中的发送一条
+ * 记录），此处正确性比吞吐量更重要。
  *
- * Hilt-scoped [Singleton] because it is shared by [ChatViewModel] (save/remove) and
- * the reconciliation path (load/verify) across the app lifetime.
+ * Hilt 作用域为 [Singleton]，因为它被 [ChatViewModel]（保存/移除）和核对
+ * 路径（加载/验证）在整个应用生命周期内共享。
  */
 @Singleton
 class PendingPromptRepository @Inject constructor(
@@ -28,34 +28,34 @@ class PendingPromptRepository @Inject constructor(
 ) {
     private val file: File get() = File(context.filesDir, PENDING_PROMPTS_FILE)
 
-    // Lazily-loaded cache; null = not yet read from disk. All access goes through
-    // [ensureLoaded] inside @Synchronized methods.
+    // 延迟加载的缓存；null = 尚未从磁盘读取。所有访问都通过
+    // @Synchronized 方法内的 [ensureLoaded] 进行。
     private var records: MutableMap<String, PendingPromptRecord>? = null
 
-    /** Returns all persisted pending prompts for [sessionId], oldest first. */
+    /** 返回 [sessionId] 的所有已持久化待处理 prompt，按从旧到新排序。 */
     @Synchronized
     fun getForSession(sessionId: String): List<PendingPromptRecord> =
         ensureLoaded().values.filter { it.sessionId == sessionId }.sortedBy { it.createdAt }
 
-    /** Returns every persisted pending prompt across all sessions, oldest first. */
+    /** 返回所有会话的全部已持久化待处理 prompt，按从旧到新排序。 */
     @Synchronized
     fun loadAll(): List<PendingPromptRecord> =
         ensureLoaded().values.sortedBy { it.createdAt }
 
-    /** Persist a pending prompt synchronously, keyed by [PendingPromptRecord.messageId]. */
+    /** 同步持久化一条待处理 prompt，以 [PendingPromptRecord.messageId] 为键。 */
     @Synchronized
     fun save(record: PendingPromptRecord) {
         ensureLoaded()[record.messageId] = record
         persist()
     }
 
-    /** Remove a pending prompt by its message id (no-op if absent). */
+    /** 按消息 id 移除待处理 prompt（不存在则为空操作）。 */
     @Synchronized
     fun remove(messageId: String) {
         if (ensureLoaded().remove(messageId) != null) persist()
     }
 
-    /** Wipe every persisted pending prompt. */
+    /** 清除所有已持久化的待处理 prompt。 */
     @Synchronized
     fun clear() {
         ensureLoaded().clear()

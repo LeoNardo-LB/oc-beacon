@@ -15,24 +15,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Visual style mapping for [dev.leonardo.ocbeacon.domain.model.SessionCategory].
+ * [dev.leonardo.ocbeacon.domain.model.SessionCategory] 的视觉样式映射。
  *
- * Color and icon are stored as string keys (for JSON persistence) and resolved
- * here to Compose types. Unknown keys fall back to safe defaults.
+ * 颜色和图标以字符串键存储（用于 JSON 持久化），在此处解析为
+ * Compose 类型。未知键回退到安全的默认值。
  */
 object SessionCategoryStyle {
 
-    /** All selectable color keys, in picker display order. */
+    /** 所有可选的颜色键，按选择器显示顺序排列。 */
     val colorKeys: List<String> = listOf(
         "red", "orange", "amber", "green", "teal", "blue", "purple", "pink"
     )
 
-    /** All selectable icon keys, in picker display order. */
+    /** 所有可选的图标键，按选择器显示顺序排列。 */
     val iconKeys: List<String> = listOf(
         "folder", "code", "terminal", "bug", "build", "science", "lightbulb", "star", "bookmark", "label"
     )
 
-    /** Resolve a color key to a [Color]. Falls back to blue. */
+    /** 将颜色键解析为 [Color]。未知键回退到蓝色。 */
     fun color(key: String): Color = when (key) {
         "red" -> Red
         "orange" -> Orange
@@ -44,7 +44,7 @@ object SessionCategoryStyle {
         else -> Blue
     }
 
-    /** Resolve an icon key to an [ImageVector]. Falls back to folder. */
+    /** 将图标键解析为 [ImageVector]。未知键回退到 folder。 */
     fun icon(key: String): ImageVector = when (key) {
         "code" -> Icons.Filled.Code
         "terminal" -> Icons.Filled.Terminal
@@ -58,7 +58,7 @@ object SessionCategoryStyle {
         else -> Icons.Filled.Folder
     }
 
-    // Material 400 shades — vibrant but readable on both light/dark surfaces.
+    // Material 400 色调 — 鲜艳但同时在浅/深背景上都可读。
     private val Red = Color(0xFFEF5350)
     private val Orange = Color(0xFFFFA726)
     private val Amber = Color(0xFFFFCA28)

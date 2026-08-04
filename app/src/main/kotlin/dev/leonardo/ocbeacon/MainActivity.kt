@@ -40,8 +40,8 @@ import androidx.compose.material3.windowsizeclass.WindowSizeClass
 private const val TAG = "MainActivity"
 
 /**
- * Pending deep-link info from notification tap.
- * NavGraph picks this up to navigate to WebView with the correct session URL.
+ * 来自通知点击的待处理 deep-link 信息。
+ * NavGraph 读取此信息并导航到 WebView，带上正确的会话 URL。
  */
 data class SessionDeepLink(
     val serverUrl: String,
@@ -49,12 +49,12 @@ data class SessionDeepLink(
     val password: String,
     val serverName: String,
     val serverId: String = "",
-    val sessionPath: String,  // e.g. /L2hvbWUv.../session/abc123
-    val sessionId: String = "" // raw session ID (fallback when sessionPath is empty)
+    val sessionPath: String,  // 例如 /L2hvbWUv.../session/abc123
+    val sessionId: String = "" // 原始会话 ID（当 sessionPath 为空时回退使用）
 )
 
 /**
- * Main Activity - Single Activity architecture with Jetpack Compose
+ * 主 Activity —— 基于 Jetpack Compose 的单 Activity 架构
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -72,24 +72,24 @@ class MainActivity : ComponentActivity() {
     lateinit var fileRepository: dev.leonardo.ocbeacon.domain.repository.FileRepository
     
     /**
-     * Shared flow for deep-link events from notification taps.
-     * NavGraph subscribes and navigates to the target session when a value is emitted.
-     * Uses replay=1 so a cold-start deep-link is not lost before NavGraph starts collecting.
+     * 用于通知点击产生的 deep-link 事件的 SharedFlow。
+     * NavGraph 订阅并在发射值时导航到目标会话。
+     * 使用 replay=1，确保在 NavGraph 开始收集之前的冷启动 deep-link 不会丢失。
      */
     private val _deepLinkFlow = MutableSharedFlow<SessionDeepLink>(replay = 1)
 
     /**
-     * Shared flow for images received via ACTION_SEND / ACTION_SEND_MULTIPLE.
-     * NavGraph / ChatScreen consumes these to pre-populate attachments.
-     * Uses replay=1 so a late subscriber (ChatScreen opened after share) still gets the URIs.
+     * 用于通过 ACTION_SEND / ACTION_SEND_MULTIPLE 接收图片的 SharedFlow。
+     * NavGraph / ChatScreen 消费这些 URI 以预填附件。
+     * 使用 replay=1，确保较晚的订阅者（分享后打开的 ChatScreen）仍能拿到 URI。
      */
     private val _sharedImagesFlow = MutableSharedFlow<List<Uri>>(replay = 1)
     val sharedImagesFlow = _sharedImagesFlow.asSharedFlow()
 
-    /** Language code applied via attachBaseContext for this Activity instance. */
+    /** 通过 attachBaseContext 为本 Activity 实例应用的语言代码。 */
     private var appliedLanguage: String = ""
 
-    // Optional key interceptor used by terminal screen (e.g., virtual CTRL/FN via volume keys).
+    // 终端屏幕使用的可选按键拦截器（例如通过音量键实现的虚拟 CTRL/FN）。
     private var terminalKeyInterceptor: ((KeyEvent) -> Boolean)? = null
 
     fun setTerminalKeyInterceptor(interceptor: ((KeyEvent) -> Boolean)?) {
@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun attachBaseContext(newBase: Context) {
-        // Read stored language synchronously from SharedPreferences (no Hilt needed).
+        // 同步从 SharedPreferences 读取存储的语言（无需 Hilt）。
         val languageCode = dev.leonardo.ocbeacon.data.repository.SettingsDataStore.getStoredLanguage(newBase)
         appliedLanguage = languageCode
 
@@ -126,9 +126,9 @@ class MainActivity : ComponentActivity() {
             window.isNavigationBarContrastEnforced = false
         }
 
-        // Watch for language changes AFTER initial value — drop(1) skips the
-        // current value that attachBaseContext already applied, so we only
-        // recreate when the user actually switches language in Settings.
+        // 在初始值之后监听语言变化——drop(1) 跳过
+        // attachBaseContext 已经应用的当前值，因此只有当用户
+        // 在 Settings 中真正切换语言时才会 recreate。
         lifecycleScope.launch {
             settingsRepository.getSettingsFlow().map { it.appLanguage }.drop(1).collect { languageCode ->
                 if (languageCode != appliedLanguage) {
@@ -137,21 +137,21 @@ class MainActivity : ComponentActivity() {
             }
         }
         
-        // Handle notification tap that launched the activity
+        // 处理启动 Activity 的通知点击
         handleSessionIntent(intent)
-        // Handle image share that launched the activity
+        // 处理启动 Activity 的图片分享
         handleShareIntent(intent)
         
         @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
         setContent {
             val windowSizeClass = calculateWindowSizeClass(this)
-            // Collect theme preference
+            // 收集主题偏好
             val settings by settingsRepository.getSettingsFlow().collectAsState(initial = AppSettings())
             val appTheme = settings.appTheme
             val dynamicColor = settings.dynamicColor
             val amoledDark = settings.amoledDark
             
-            // Determine if dark theme should be used
+            // 判断是否应使用深色主题
             val systemDarkTheme = isSystemInDarkTheme()
             val darkTheme = when (appTheme) {
                 "light" -> false
@@ -181,9 +181,9 @@ class MainActivity : ComponentActivity() {
     
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Handle notification tap when activity is already running
+        // 当 Activity 已在运行时处理通知点击
         handleSessionIntent(intent)
-        // Handle image share when activity is already running
+        // 当 Activity 已在运行时处理图片分享
         handleShareIntent(intent)
     }
     
@@ -214,9 +214,9 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Handle ACTION_SEND and ACTION_SEND_MULTIPLE with image content.
-     * Extracts image URIs and emits them via [sharedImagesFlow].
-     * The URIs are content:// URIs that remain readable while the Activity is alive.
+     * 处理带图片内容的 ACTION_SEND 和 ACTION_SEND_MULTIPLE。
+     * 提取图片 URI 并通过 [sharedImagesFlow] 发射。
+     * 这些 URI 是 content:// URI，只要 Activity 存活就可读。
      */
     private fun handleShareIntent(intent: Intent?) {
         if (intent == null) return
@@ -250,7 +250,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (uris.isNotEmpty()) {
-            // Take persistable read permission so URIs survive configuration changes
+            // 获取可持久化的读权限，使 URI 能在配置变更后继续使用
             for (uri in uris) {
                 try {
                     contentResolver.takePersistableUriPermission(
@@ -258,8 +258,8 @@ class MainActivity : ComponentActivity() {
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
                 } catch (e: SecurityException) {
-                    // Not all providers support persistable permissions — that's OK,
-                    // the temporary grant from the share intent is still valid.
+                    // 并非所有 provider 都支持可持久化的权限——没关系，
+                    // 分享 intent 授予的临时权限仍然有效。
                 }
             }
             Log.i(TAG, "Received ${uris.size} shared image(s)")
@@ -268,7 +268,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        /** Parse BCP 47 tag (e.g. "pt-BR", "zh-CN", "en") into a [Locale]. */
+        /** 将 BCP 47 标签（例如 "pt-BR"、"zh-CN"、"en"）解析为 [Locale]。 */
         fun parseLocale(tag: String): Locale {
             val parts = tag.split("-")
             return if (parts.size >= 2) {

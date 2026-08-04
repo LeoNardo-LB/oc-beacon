@@ -5,8 +5,8 @@ import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import javax.inject.Inject
 
 /**
- * Use case: manage server providers (load/enable/disable/connect/disconnect/setModelVisible/save).
- * Used by Phase 4 ServerProvidersScreen / ServerModelFilterScreen.
+ * Use Case：管理服务器 providers（加载/启用/禁用/连接/断开/设置 model 可见/保存）。
+ * 供 Phase 4 ServerProvidersScreen / ServerModelFilterScreen 使用。
  */
 class ManageServerProvidersUseCase @Inject constructor(
     private val serverRepository: ServerRepository

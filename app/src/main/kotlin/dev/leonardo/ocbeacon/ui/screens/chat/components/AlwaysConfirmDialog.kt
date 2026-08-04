@@ -9,8 +9,8 @@ import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 
 /**
- * Secondary confirmation dialog shown when user taps "Always allow" on a permission.
- * Prevents accidental permanent approvals.
+ * 用户在权限上点击"始终允许"时显示的二次确认对话框。
+ * 防止意外的永久批准。
  */
 @Composable
 internal fun AlwaysConfirmDialog(

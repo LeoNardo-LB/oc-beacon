@@ -1,7 +1,7 @@
 import java.io.FileInputStream
 import java.util.Properties
 
-// Single source of truth for version — read from version.properties
+// 版本号唯一来源 —— 从 version.properties 读取
 val versionPropsFile = rootProject.file("version.properties")
 val versionProps = Properties().apply { load(FileInputStream(versionPropsFile)) }
 val vCode = (versionProps["VERSION_CODE"] as String).toInt()
@@ -109,7 +109,7 @@ android {
 }
 
 dependencies {
-    // Android Core
+    // Android 核心
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
@@ -130,15 +130,15 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    // Navigation
+    // 导航
     implementation("androidx.navigation:navigation-compose:2.9.8")
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 
-    // Hilt DI
+    // Hilt 依赖注入
     implementation("com.google.dagger:hilt-android:2.59.2")
     ksp("com.google.dagger:hilt-compiler:2.59.2")
 
-    // Ktor Client (OkHttp engine for proper SSE streaming support)
+    // Ktor 客户端（OkHttp 引擎，确保 SSE 流式传输的正确支持）
     val ktorVersion = "3.5.0"
     implementation("io.ktor:ktor-client-core:$ktorVersion")
     implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
@@ -148,36 +148,36 @@ dependencies {
     implementation("io.ktor:ktor-client-logging:$ktorVersion")
     implementation("io.ktor:ktor-client-auth:$ktorVersion")
 
-    // ConnectBot Terminal — libvterm-backed terminal emulator (replaces hand-rolled ANSI parser)
+    // ConnectBot 终端 —— 基于 libvterm 的终端模拟器（替代手写 ANSI 解析器）
     implementation("org.connectbot:termlib:0.1.0")
 
-    // Kotlinx Serialization
+    // Kotlinx 序列化
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
-    // Coroutines
+    // 协程
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
-    // Markdown Rendering (mikepenz/multiplatform-markdown-renderer)
+    // Markdown 渲染（mikepenz/multiplatform-markdown-renderer）
     val markdownRendererVersion = "0.43.0"
     implementation("com.mikepenz:multiplatform-markdown-renderer:$markdownRendererVersion")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:$markdownRendererVersion")
     implementation("com.mikepenz:multiplatform-markdown-renderer-coil3:$markdownRendererVersion")
 
-    // Syntax highlighting for FileViewer source view (dev.snipme/highlights).
-    // Note: Markdown code blocks use mikepenz's built-in default renderer, NOT this library.
+    // FileViewer 源码视图的语法高亮（dev.snipme/highlights）。
+    // 注意：Markdown 代码块使用 mikepenz 内置的默认渲染器，而非本库。
     implementation("dev.snipme:highlights:1.1.0")
 
-    // WebView fallback (kept for legacy)
+    // WebView 回退（为兼容遗留场景保留）
     implementation("androidx.webkit:webkit:1.16.0")
 
-    // DataStore for preferences
+    // 用于偏好设置的 DataStore
     implementation("androidx.datastore:datastore-preferences:1.2.1")
 
-    // Coil for image loading
+    // 用于图片加载的 Coil
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
 
-    // Testing
+    // 测试
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testImplementation("io.mockk:mockk:1.14.9")
@@ -198,8 +198,8 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = 1
 }
 
-// Force-upgrade kotlin-metadata-jvm so Hilt can read Kotlin 2.4.0 bytecode
-// (Mikepenz 0.43.0 is compiled with Kotlin 2.4.0)
+// 强制升级 kotlin-metadata-jvm，使 Hilt 能读取 Kotlin 2.4.0 字节码
+// （Mikepenz 0.43.0 使用 Kotlin 2.4.0 编译）
 configurations.all {
     resolutionStrategy {
         force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")

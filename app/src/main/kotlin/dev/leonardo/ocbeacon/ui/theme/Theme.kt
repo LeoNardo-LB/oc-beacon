@@ -25,12 +25,12 @@ import androidx.core.view.WindowCompat
 val LocalAmoledMode = staticCompositionLocalOf { false }
 
 /**
- * Dark color scheme — only brand-differentiated tokens are overridden.
- * All other tokens fall back to Material3 [darkColorScheme] defaults,
- * which are designed and tested for correct contrast and elevation semantics.
+ * 深色配色方案 — 仅覆盖品牌差异化 token。
+ * 其他 token 回退到 Material3 [darkColorScheme] 默认值，
+ * 这些默认值经过设计与测试，对比度和高度语义正确。
  */
 private val DarkColorScheme = darkColorScheme(
-    // Brand colors: Indigo primary + Cyan tertiary (OpenCode identity)
+    // 品牌色：Indigo 主色 + Cyan 第三色（OpenCode 视觉标识）
     primary = Color(0xFF9DA3FF),
     onPrimary = Color(0xFF1A1B4B),
     primaryContainer = Color(0xFF2D2F6E),
@@ -64,9 +64,9 @@ private val LightColorScheme = lightColorScheme(
 )
 
 /**
- * AMOLED dark color scheme — pure black surfaces for OLED battery savings.
- * Uses true black (#000000) for the main surface and very dark tones for containers,
- * ensuring cards/sheets are still visually distinguishable from the background.
+ * AMOLED 深色配色方案 — 纯黑表面以节省 OLED 电量。
+ * 主表面使用真黑色（#000000），容器使用极深色调，
+ * 确保卡片/底部弹层仍可与背景视觉区分。
  */
 private val AmoledDarkColorScheme = DarkColorScheme.copy(
     background = Color.Black,
@@ -80,13 +80,13 @@ private val AmoledDarkColorScheme = DarkColorScheme.copy(
 )
 
 /**
- * OpenCode Material 3 Theme
- * 
- * Supports:
- * - Light/Dark theme based on system settings
- * - Dynamic color on Android 12+ (Material You)
- * - AMOLED dark mode with pure black surfaces
- * - Edge-to-edge display
+ * OpenCode Material 3 主题
+ *
+ * 支持：
+ * - 基于系统设置的浅色/深色主题
+ * - Android 12+ 动态取色（Material You）
+ * - AMOLED 深色模式（纯黑表面）
+ * - 边到边显示
  */
 @Composable
 fun OpenCodeTheme(
@@ -100,9 +100,9 @@ fun OpenCodeTheme(
             val context = LocalContext.current
             val scheme = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             if (darkTheme && amoledDark) {
-                // Only override surface/container tokens for AMOLED pure-black effect.
-                // Preserve dynamic color's onSurface/onSurfaceVariant so the
-                // wallpaper-generated palette remains consistent.
+                // 仅覆盖 surface/container token 以实现 AMOLED 纯黑效果。
+                // 保留动态取色的 onSurface/onSurfaceVariant，
+                // 使壁纸生成的调色板保持一致。
                 scheme.copy(
                     background = Color.Black,
                     surface = Color.Black,
@@ -126,9 +126,9 @@ fun OpenCodeTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Edge-to-edge (enableEdgeToEdge in MainActivity) keeps the status bar transparent;
-            // content draws behind it. Only the icon appearance needs manual control here because
-            // the app supports a user-chosen theme that may differ from the system setting.
+            // 边到边（MainActivity 中的 enableEdgeToEdge）保持状态栏透明；
+            // 内容绘制在状态栏下方。此处仅需手动控制图标外观，
+            // 因为应用支持用户自选主题，可能与系统设置不同。
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

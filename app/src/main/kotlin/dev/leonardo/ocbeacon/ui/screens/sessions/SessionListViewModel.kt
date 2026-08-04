@@ -100,10 +100,10 @@ class SessionListViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        /** Virtual path representing the Windows drive-picker root. */
+        /** 表示 Windows 盘符选择器根的虚拟路径。 */
         const val WINDOWS_DRIVES_ROOT = ":///drives"
-        /** SavedStateHandle key written by ChatScreen when the user sends a message;
-         * consumed by this ViewModel on return to scroll the list back to top. */
+        /** ChatScreen 在用户发送消息时写入的 SavedStateHandle key；
+         * 此 ViewModel 在返回时消费它以将列表滚动回顶部。 */
         const val KEY_SCROLL_TO_TOP = "session_list_scroll_to_top"
     }
 
@@ -156,15 +156,15 @@ class SessionListViewModel @Inject constructor(
     )
     val viewMode: StateFlow<SessionViewMode> = _viewMode.asStateFlow()
 
-    /** Selected category filter id, or null for "all". */
+    /** 选中的分类过滤 id，null 表示"全部"。 */
     private val _categoryFilter = MutableStateFlow<String?>(null)
     val categoryFilter: StateFlow<String?> = _categoryFilter.asStateFlow()
 
-    /** Global category list for picker / filter chips. */
+    /** 全局分类列表，用于选择器 / 过滤 chip。 */
     val sessionCategories: StateFlow<List<SessionCategory>> = settingsRepository.sessionCategories()
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
-    /** Favorited session ids for the current server (drives the star toggle in SessionRow). */
+    /** 当前服务器的已收藏会话 id（驱动 SessionRow 中的星标切换）。 */
     val favoriteSessionIds: StateFlow<Set<String>> = settingsRepository.favoriteSessionIds(serverId)
         .stateIn(viewModelScope, WhileSubscribed5s, emptySet())
 
@@ -235,7 +235,7 @@ class SessionListViewModel @Inject constructor(
             filteredSessions
         }
 
-        // Client-side search: filter by directory path OR session title
+        // 客户端搜索：按目录路径或会话标题过滤
         val searchedSessions = if (!searchQuery.isNullOrBlank()) {
             val query = searchQuery.lowercase()
             baseFilteredSessions.filter { session ->
@@ -246,14 +246,14 @@ class SessionListViewModel @Inject constructor(
             baseFilteredSessions
         }
 
-        // Category filter: only show sessions assigned to the selected category
+        // 分类过滤：仅显示已分配到所选分类的会话
         val categoryFilteredSessions = if (categoryFilterId != null) {
             searchedSessions.filter { categoryAssignments[it.id] == categoryFilterId }
         } else {
             searchedSessions
         }
 
-        // Resolve session id → SessionCategory for display
+        // 解析 会话 id → SessionCategory，用于显示
         val categoryById = categoriesList.associateBy { it.id }
         val resolvedCategories: Map<String, SessionCategory> = buildMap {
             categoryAssignments.forEach { (sessionId, catId) ->
@@ -262,7 +262,7 @@ class SessionListViewModel @Inject constructor(
         }
 
         val treeNodes = if (viewMode == SessionViewMode.RECENT) {
-            // Recent mode: flat list of sessions sorted by update time, no directory grouping
+            // 最近模式：按更新时间排序的扁平会话列表，不做目录分组
             categoryFilteredSessions.map { session ->
                 TreeNode.Session(
                     id = session.id,
@@ -299,7 +299,7 @@ class SessionListViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, WhileSubscribed5s, SessionListUiState())
 
-    /** Max number of recent directories shown in the quick new-session dialog. */
+    /** 快速新建会话对话框中显示的最近目录最大数量。 */
     val recentDirectoryCount: StateFlow<Int> = getSettingsFlowUseCase()
         .map { it.recentDirectoryCount }
         .stateIn(viewModelScope, WhileSubscribed5s, 20)
@@ -308,25 +308,25 @@ class SessionListViewModel @Inject constructor(
         loadSessions()
     }
 
-    /** True if the previous ChatScreen visit sent a message, so the list should
-     * scroll back to top. Consumes (clears) the flag set via [KEY_SCROLL_TO_TOP]. */
+    /** 若上次进入 ChatScreen 时发送了消息，列表应滚动回顶部。
+     * 消费（清除）通过 [KEY_SCROLL_TO_TOP] 设置的标志。 */
     fun consumeScrollToTopOnReturn(): Boolean {
         return scrollSignal.consumeScrollToTop()
     }
 
-    // --- Session categories ---
+    // --- 会话分类 ---
 
-    /** Set the category filter (null clears it). */
+    /** 设置分类过滤（传 null 清除）。 */
     fun setCategoryFilter(categoryId: String?) {
         _categoryFilter.value = categoryId
     }
 
-    /** Assign a session to a category for the current server. */
+    /** 将会话分配到当前服务器的某个分类。 */
     fun assignCategory(sessionId: String, categoryId: String) {
         viewModelScope.launch { settingsRepository.assignSessionCategory(serverId, sessionId, categoryId) }
     }
 
-    /** Toggle cross-server favorite for a session on the current server. */
+    /** 切换当前服务器上某会话的跨服务器收藏。 */
     fun toggleFavorite(session: Session) {
         viewModelScope.launch {
             val key = favoriteKey(serverId, session.id)
@@ -340,12 +340,12 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
-    /** Remove a session's category assignment for the current server. */
+    /** 移除某会话在当前服务器上的分类分配。 */
     fun unassignCategory(sessionId: String) {
         viewModelScope.launch { settingsRepository.unassignSessionCategory(serverId, sessionId) }
     }
 
-    /** Create a new global category. */
+    /** 新建一个全局分类。 */
     fun addCategory(name: String, color: String, icon: String) {
         viewModelScope.launch {
             settingsRepository.addSessionCategory(
@@ -359,7 +359,7 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
-    /** Remove a global category by id. */
+    /** 按 id 删除一个全局分类。 */
     fun removeCategory(categoryId: String) {
         viewModelScope.launch { settingsRepository.removeSessionCategory(categoryId) }
     }
@@ -392,8 +392,8 @@ class SessionListViewModel @Inject constructor(
                     }
                     if (BuildConfig.DEBUG) Log.d(TAG, "Total: loaded $totalSessions sessions across ${projects.size} projects for server $serverId")
                 }
-                // Sync session statuses from server via the unified FSM pipeline
-                // (aggregate across project worktrees + absence=idle + incomplete-protection).
+                // 通过统一的 FSM 管线从服务器同步会话状态
+                //（跨项目 worktree 聚合 + 缺失即 idle + 不完整保护）。
                 sessionStateService.setServerId(serverId)
                 sessionStateService.syncFromRest(_projects.value)
             } catch (e: Exception) {
@@ -401,7 +401,7 @@ class SessionListViewModel @Inject constructor(
                 _error.value = e.message ?: "Failed to load sessions"
             }             finally {
                 if (_expandedPaths.value.isEmpty()) {
-                    // Expand all directories by default on first load
+                    // 首次加载时默认展开所有目录
                     val currentSessions = eventDispatcher.sessions.value
                     val base = _baseDirectory.value?.replace('\\', '/')?.trimEnd('/')
                     val dirs = mutableSetOf<String>()
@@ -442,7 +442,7 @@ class SessionListViewModel @Inject constructor(
                         }
                     }
                 }
-                // Sync session statuses from server via the unified FSM pipeline.
+                // 通过统一的 FSM 管线从服务器同步会话状态。
                 sessionStateService.setServerId(serverId)
                 sessionStateService.syncFromRest(_projects.value)
             } catch (e: Exception) {
@@ -526,7 +526,7 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
-    // ============ Tree expand/collapse ============
+    // ============ 树形展开/收起 ============
 
     fun toggleDirectory(path: String) {
         val normalized = path.replace('\\', '/')
@@ -539,7 +539,7 @@ class SessionListViewModel @Inject constructor(
 
     fun setBaseDirectory(directory: String?) {
         _baseDirectory.value = directory?.replace('\\', '/')?.trimEnd('/')
-        // Reset expanded paths so auto-expand recalculates for the new base
+        // 重置展开路径，让自动展开基于新 base 重新计算
         _expandedPaths.value = emptySet()
     }
 
@@ -566,8 +566,8 @@ class SessionListViewModel @Inject constructor(
     }
 
     /**
-     * Load the next page of sessions using cursor-based pagination.
-     * Called by UI when user scrolls near the bottom of the session list.
+     * 使用基于游标的分页加载下一页会话。
+     * 由 UI 在用户滚动到会话列表底部附近时调用。
      */
     fun loadMore() {
         if (_isLoadingMore.value || !_hasMorePages.value) return
@@ -603,8 +603,8 @@ class SessionListViewModel @Inject constructor(
     }
 
     /**
-     * Import a session from a share URL.
-     * On success, reload the session list.
+     * 从分享 URL 导入会话。
+     * 成功后重新加载会话列表。
      */
     fun importSession(shareUrl: String, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
@@ -626,7 +626,7 @@ class SessionListViewModel @Inject constructor(
         clipboard.setPrimaryClip(ClipData.newPlainText("label", text))
     }
 
-    // ============ Directory browsing for Open Project (delegated to DirectoryManager) ============
+    // ============ 用于"打开项目"的目录浏览（委托给 DirectoryManager） ============
 
     suspend fun getServerPaths(): ServerPaths = directoryManager.getServerPaths()
 

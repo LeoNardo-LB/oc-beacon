@@ -59,16 +59,16 @@ private suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
  */
 private fun buildStringFromBytes(chunks: List<List<Byte>>): String {
     if (chunks.isEmpty()) return ""
-    // SSE spec: multiple data: lines must be joined with \n (LF).
-    // Previous impl concatenated without separator, losing newlines in
-    // multi-line JSON payloads (e.g. Markdown table rows).
+    // SSE 规范：多条 data: 行必须以 \n（LF）连接。
+    // 之前的实现未加分隔符直接拼接，导致多行 JSON
+    // payload 中的换行丢失（例如 Markdown 表格行）。
     val separatorCount = chunks.size - 1
     val totalSize = chunks.sumOf { it.size } + separatorCount
     val array = ByteArray(totalSize)
     var pos = 0
     for ((idx, chunk) in chunks.withIndex()) {
         if (idx > 0) {
-            array[pos++] = '\n'.code.toByte()  // SSE spec: \n between data: lines
+            array[pos++] = '\n'.code.toByte()  // SSE 规范：data: 行之间以 \n 分隔
         }
         for (b in chunk) {
             array[pos++] = b
@@ -100,10 +100,10 @@ internal fun appendDataLine(
 }
 
 /**
- * SSE (Server-Sent Events) Client
+ * SSE（Server-Sent Events）客户端
  *
- * Stateless — all connection info comes from the [ServerConnection] parameter.
- * Safe to use for multiple servers concurrently.
+ * 无状态——所有连接信息来自 [ServerConnection] 参数。
+ * 可安全地并发用于多个服务器。
  */
 @Singleton
 class SseClient @Inject constructor(
@@ -120,14 +120,14 @@ class SseClient @Inject constructor(
         SessionNextEventParser(json)
     )
 
-    /** Public accessor for the session.next parser (used by tests). */
+    /** session.next 解析器的公共访问器（供测试使用）。 */
     val sessionNextParser: SessionNextEventParser get() = parsers.filterIsInstance<SessionNextEventParser>().firstOrNull()
         ?: throw IllegalStateException("SessionNextEventParser not found in parser list")
 
     /**
-     * Raw SSE JSON strings from the active global event connection.
-     * V2 pipeline consumes this to avoid a duplicate HTTP connection.
-     * Emitted before V1 parsing — consumers see every non-heartbeat data frame.
+     * 来自活跃全局事件连接的原始 SSE JSON 字符串。
+     * V2 管线消费此流以避免重复的 HTTP 连接。
+     * 在 V1 解析之前发射——消费者能看到每一个非心跳 data 帧。
      */
     val rawSseEvents: MutableSharedFlow<String> = MutableSharedFlow(
         replay = 0,
@@ -135,14 +135,14 @@ class SseClient @Inject constructor(
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
-    /** Read-only access for external consumers (V2 pipeline). */
+    /** 外部消费者（V2 管线）的只读访问。 */
     val rawSseEventFlow: SharedFlow<String> = rawSseEvents.asSharedFlow()
 
     /**
-     * Connect to the global event stream.
-     * Returns a Flow that emits SSE events.
-     * The flow does NOT auto-reconnect internally — callers should handle
-     * reconnection themselves (the service already does exponential backoff).
+     * 连接到全局事件流。
+     * 返回一个发射 SSE 事件的 Flow。
+     * 该 Flow 不会在内部自动重连——调用方应自行处理
+     * 重连（service 已实现指数退避）。
      */
     fun connectToGlobalEvents(conn: ServerConnection, directory: String? = null): Flow<SseEvent> = flow {
         val sseUrl = "${conn.baseUrl}/global/event"
@@ -194,7 +194,7 @@ class SseClient @Inject constructor(
                     val data = buildStringFromBytes(buffer)
                     if (data.isNotEmpty()) {
                         try {
-                            // Emit raw JSON for V2 pipeline (before V1 parsing)
+                            // 为 V2 管线发射原始 JSON（在 V1 解析之前）
                             rawSseEvents.tryEmit(data)
                             val event = parseEvent(data)
                             if (event != null) {
@@ -234,9 +234,9 @@ class SseClient @Inject constructor(
     }
 
     /**
-     * Connect to the per-instance event stream (V2).
+     * 连接到实例级事件流（V2）。
      * GET /event
-     * Returns a Flow that emits SSE events.
+     * 返回一个发射 SSE 事件的 Flow。
      */
     fun connectToInstanceEvents(conn: ServerConnection, directory: String? = null): Flow<SseEvent> = flow {
         val sseUrl = "${conn.baseUrl}/event"
@@ -321,9 +321,9 @@ class SseClient @Inject constructor(
     }
 
     /**
-     * Parse SSE event from raw JSON.
-     * Global endpoint wraps events: {directory, payload: {type, properties}}
-     * Per-instance endpoint sends directly: {type, properties}
+     * 从原始 JSON 解析 SSE 事件。
+     * 全局端点包装事件：{directory, payload: {type, properties}}
+     * 实例级端点直接发送：{type, properties}
      */
     private fun parseEvent(data: String): SseEvent? {
         val root = json.parseToJsonElement(data).jsonObject
@@ -346,18 +346,18 @@ class SseClient @Inject constructor(
     }
 
     /**
-     * Public API kept for backward compatibility (used by tests).
-     * Delegates to [SessionNextEventParser].
+     * 为向后兼容保留的公共 API（供测试使用）。
+     * 委托给 [SessionNextEventParser]。
      */
     fun parseSessionNextEvent(type: String, props: JsonObject): SessionNextEvent {
         return sessionNextParser.parseSessionNextEvent(type, props)
     }
 }
 
-// ============ SSE Read Timeout Tracking ============
+// ============ SSE 读取超时跟踪 ============
 
 /**
- * Constants for SSE read timeout behavior.
+ * SSE 读取超时行为的常量。
  */
 object SseClientDefaults {
     const val DEFAULT_READ_TIMEOUT_MS = 30_000L
@@ -366,10 +366,10 @@ object SseClientDefaults {
 }
 
 /**
- * Tracks consecutive SSE read timeouts and manages cooldown state.
+ * 跟踪连续 SSE 读取超时并管理冷却状态。
  *
- * After [maxConsecutiveTimeouts] consecutive timeouts, the tracker enters
- * a cooldown period ([cooldownDurationMs]) during which reconnection is delayed.
+ * 在连续 [maxConsecutiveTimeouts] 次超时后，跟踪器进入
+ * 冷却期（[cooldownDurationMs]），在此期间重连会被延迟。
  */
 class SseReadTimeoutTracker(
     val maxConsecutiveTimeouts: Int = SseClientDefaults.MAX_CONSECUTIVE_TIMEOUTS,
@@ -379,36 +379,36 @@ class SseReadTimeoutTracker(
         private set
     private var cooldownUntilMs: Long = 0L
 
-    /** Record a read timeout event. */
+    /** 记录一次读取超时事件。 */
     fun recordTimeout() {
         consecutiveTimeouts++
     }
 
-    /** Record a successful read — resets the consecutive counter. */
+    /** 记录一次成功读取——重置连续计数器。 */
     fun recordSuccess() {
         consecutiveTimeouts = 0
     }
 
-    /** Whether the tracker has reached the threshold for cooldown. */
+    /** 跟踪器是否已达到冷却阈值。 */
     fun shouldEnterCooldown(): Boolean = consecutiveTimeouts >= maxConsecutiveTimeouts
 
-    /** Enter cooldown mode. */
+    /** 进入冷却模式。 */
     fun enterCooldown() {
         cooldownUntilMs = System.currentTimeMillis() + cooldownDurationMs
     }
 
-    /** Whether currently in the cooldown period. */
+    /** 是否当前处于冷却期内。 */
     fun isInCooldown(): Boolean = System.currentTimeMillis() < cooldownUntilMs
 
-    /** Fully reset the tracker (clears both timeouts and cooldown). */
+    /** 完全重置跟踪器（同时清除超时计数和冷却状态）。 */
     fun reset() {
         consecutiveTimeouts = 0
         cooldownUntilMs = 0L
     }
 }
 
-/** Thrown when SSE returns 401 */
+/** SSE 返回 401 时抛出 */
 class SseAuthException(message: String) : Exception(message)
 
-/** Thrown for non-2xx SSE responses */
+/** 非 2xx SSE 响应时抛出 */
 class SseConnectionException(message: String) : Exception(message)

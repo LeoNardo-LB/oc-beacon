@@ -6,8 +6,8 @@ import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import javax.inject.Inject
 
 /**
- * Use case: manage session lifecycle (load, refresh, create, fork, rename).
- * Delegates to SessionRepository.
+ * Use Case：管理会话生命周期（加载、刷新、创建、分叉、重命名）。
+ * 委托给 SessionRepository。
  */
 class ManageSessionUseCase @Inject constructor(
     private val sessionRepository: SessionRepository

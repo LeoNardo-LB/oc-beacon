@@ -21,7 +21,7 @@ class DraftDataStore @Inject constructor(
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val file: File get() = File(context.filesDir, DRAFTS_FILE)
 
-    /** In-memory cache, loaded lazily. */
+    /** 内存缓存，延迟加载。 */
     private var drafts: MutableMap<String, Draft>? = null
 
     private fun ensureLoaded(): MutableMap<String, Draft> {

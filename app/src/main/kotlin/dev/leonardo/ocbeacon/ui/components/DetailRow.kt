@@ -13,8 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * A two-column detail row: label (30%) + value (70%).
- * Used in session details and directory details dialogs.
+ * 双列详情行：标签（30%）+ 值（70%）。
+ * 用于会话详情和目录详情对话框。
  */
 @Composable
 fun DetailRow(label: String, value: String) {

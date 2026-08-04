@@ -5,12 +5,12 @@ import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
 /**
- * Standard Material3 shape scale + custom intermediate tokens for fine-grained control.
+ * 标准 Material3 形状刻度 + 用于精细控制的自定义中间令牌。
  *
- * Material3 [Shapes] used by [androidx.compose.material3.MaterialTheme]:
+ * Material3 [Shapes]，被 [androidx.compose.material3.MaterialTheme] 使用：
  *   extraSmall=4, small=8, medium=12, large=16, extraLarge=28
  *
- * Extended tokens (not part of Material3):
+ * 扩展令牌（不属于 Material3）：
  *   none=0, smallMedium=6, mediumSmall=10, largeMedium=20
  */
 val AppShapes = Shapes(
@@ -21,7 +21,7 @@ val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp)
 )
 
-/** AMOLED variant — smaller radii for a sharper, more minimal look. */
+/** AMOLED 变体 — 更小的圆角，呈现更锐利、极简的外观。 */
 val AmoledShapes = Shapes(
     extraSmall = RoundedCornerShape(0.dp),
     small = RoundedCornerShape(0.dp),
@@ -30,7 +30,7 @@ val AmoledShapes = Shapes(
     extraLarge = RoundedCornerShape(8.dp)
 )
 
-// Extended tokens — use directly where Material3's 5-level scale is insufficient.
+// 扩展令牌 — 当 Material3 的 5 级刻度不足时直接使用。
 object ShapeTokens {
     val none = RoundedCornerShape(0.dp)
     val extraSmall = RoundedCornerShape(4.dp)

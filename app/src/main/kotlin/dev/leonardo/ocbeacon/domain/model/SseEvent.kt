@@ -3,15 +3,15 @@ package dev.leonardo.ocbeacon.domain.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
-// Note: JsonElement import kept for backward compat; V2 metadata uses Map<String, String>
+// 注：保留 JsonElement 导入以保持向后兼容；V2 metadata 使用 Map<String, String>
 
 /**
- * SSE Event - events from Server-Sent Events stream.
- * All events that the client receives from GET /global/event or GET /event.
+ * SSE 事件 —— 来自 Server-Sent Events 流的事件。
+ * 客户端从 GET /global/event 或 GET /event 收到的所有事件。
  */
 @Serializable
 sealed class SseEvent {
-    // Server events
+    // 服务器事件
     @Serializable
     data object ServerConnected : SseEvent()
 
@@ -21,7 +21,7 @@ sealed class SseEvent {
     @Serializable
     data class ServerInstanceDisposed(val directory: String) : SseEvent()
 
-    // Session lifecycle
+    // 会话生命周期
     @Serializable
     data class SessionCreated(val info: Session) : SseEvent()
 
@@ -52,7 +52,7 @@ sealed class SseEvent {
         val error: String
     ) : SseEvent()
 
-    // Message events
+    // 消息事件
     @Serializable
     data class MessageUpdated(val info: Message) : SseEvent()
 
@@ -62,7 +62,7 @@ sealed class SseEvent {
         val messageId: String
     ) : SseEvent()
 
-    // Part events - the streaming content
+    // Part 事件 —— 流式内容
     @Serializable
     data class MessagePartUpdated(val part: Part) : SseEvent()
 
@@ -71,8 +71,8 @@ sealed class SseEvent {
         val sessionId: String,
         val messageId: String,
         val partId: String,
-        val field: String,  // Usually "text"
-        val delta: String   // The new chunk to append
+        val field: String,  // 通常为 "text"
+        val delta: String   // 要追加的新内容块
     ) : SseEvent()
 
     @Serializable
@@ -82,7 +82,7 @@ sealed class SseEvent {
         val partId: String
     ) : SseEvent()
 
-    // Permission events
+    // 权限事件
     @Serializable
     data class PermissionAsked(
         val id: String,
@@ -92,7 +92,7 @@ sealed class SseEvent {
         val metadata: Map<String, String>? = null,
         val always: Boolean = false,
         val tool: ToolRef? = null,
-        /** Transient: sub-agent source label (e.g. "scout subagent"), not serialized. */
+        /** 瞬态：sub-agent 来源标签（例如 "scout subagent"），不参与序列化。 */
         @kotlinx.serialization.Transient
         val sourceSessionTitle: String? = null
     ) : SseEvent()
@@ -103,14 +103,14 @@ sealed class SseEvent {
         val requestId: String
     ) : SseEvent()
 
-    // Question events
+    // 问题事件
     @Serializable
     data class QuestionAsked(
         val id: String,
         val sessionId: String,
         val questions: List<Question>,
         val tool: ToolRef? = null,
-        /** Transient: sub-agent source label, not serialized. */
+        /** 瞬态：sub-agent 来源标签，不参与序列化。 */
         @kotlinx.serialization.Transient
         val sourceSessionTitle: String? = null
     ) : SseEvent() {
@@ -142,7 +142,7 @@ sealed class SseEvent {
         val requestId: String
     ) : SseEvent()
 
-    // Todo events
+    // Todo 事件
     @Serializable
     data class TodoUpdated(
         val sessionId: String,
@@ -156,25 +156,25 @@ sealed class SseEvent {
         )
     }
 
-    // VCS events
+    // VCS 事件
     @Serializable
     data class VcsBranchUpdated(val branch: String) : SseEvent()
 
-    // LSP events
+    // LSP 事件
     @Serializable
     data object LspUpdated : SseEvent()
 
-    // Project events
+    // 项目事件
     @Serializable
     data class ProjectUpdated(val info: Project) : SseEvent()
 
-    // ============ V2 New Events ============
+    // ============ V2 新增事件 ============
 
-    // Session compaction
+    // 会话压缩
     @Serializable
     data class SessionCompacted(val sessionId: String) : SseEvent()
 
-    // PTY events (using simple fields to avoid cross-package dependency)
+    // PTY 事件（使用简单字段以避免跨包依赖）
     @Serializable
     data class PtyCreated(
         val id: String,
@@ -194,22 +194,22 @@ sealed class SseEvent {
     @Serializable
     data class PtyDeleted(val id: String) : SseEvent()
 
-    // Workspace events
+    // 工作区事件
     @Serializable
     data class WorkspaceReady(val workspaceId: String) : SseEvent()
 
     @Serializable
     data class WorkspaceFailed(val workspaceId: String, val error: String? = null) : SseEvent()
 
-    // File edit event
+    // 文件编辑事件
     @Serializable
     data class FileEdited(val path: String) : SseEvent()
 
-    // MCP tools changed
+    // MCP 工具变更
     @Serializable
     data class McpToolsChanged(val server: String) : SseEvent()
 
-    // Command execution completed
+    // 命令执行完成
     @Serializable
     data class CommandExecuted(
         val name: String,
@@ -218,31 +218,31 @@ sealed class SseEvent {
         val messageId: String = ""
     ) : SseEvent()
 
-    // File watcher
+    // 文件监听
     @Serializable
     data class FileWatcherUpdated(val path: String) : SseEvent()
 
-    // Installation updates
+    // 安装更新
     @Serializable
     data class InstallationUpdated(val version: String) : SseEvent()
 
     @Serializable
     data class InstallationUpdateAvailable(val version: String) : SseEvent()
 
-    // Worktree events
+    // Worktree 事件
     @Serializable
     data class WorktreeReady(val path: String) : SseEvent()
 
     @Serializable
     data class WorktreeFailed(val path: String, val error: String? = null) : SseEvent()
 
-    // Session Next events — fine-grained real-time status
+    // Session Next 事件 —— 细粒度实时状态
     @Serializable
     data class SessionNext(val event: SessionNextEvent) : SseEvent()
 }
 
 /**
- * Reference to a tool call (used in permission/question events).
+ * 工具调用引用（用于 permission/question 事件）。
  */
 @Serializable
 data class ToolRef(
@@ -251,8 +251,8 @@ data class ToolRef(
 )
 
 /**
- * File Diff - represents changes to a file.
- * Matches Snapshot.FileDiff from the server.
+ * 文件差异 —— 表示文件变更。
+ * 与服务器的 Snapshot.FileDiff 对应。
  */
 @Serializable
 data class FileDiff(
@@ -261,23 +261,23 @@ data class FileDiff(
     val after: String = "",
     val additions: Int = 0,
     val deletions: Int = 0,
-    val status: String? = null // "added", "deleted", "modified"
+    val status: String? = null // "added"、"deleted"、"modified"
 )
 
 /**
- * Project - represents an OpenCode project.
- * Server returns: id, worktree, vcs, name, icon, commands, time, sandboxes
+ * 项目 —— 表示一个 OpenCode 项目。
+ * 服务器返回字段：id、worktree、vcs、name、icon、commands、time、sandboxes
  */
 @Serializable
 data class Project(
     val id: String = "",
     val worktree: String = "",
     val name: String? = null,
-    val path: String = "", // legacy, may be absent
+    val path: String = "", // 旧字段，可能缺失
     val vcs: String? = null,
     val directory: String? = null
 ) {
-    /** Display name: explicit name, or last path segment of worktree, or id */
+    /** 显示名称：显式 name，或 worktree 的最后一段路径，或 id */
     val displayName: String
         get() = name?.takeIf { it.isNotEmpty() }
             ?: worktree.takeIf { it.isNotEmpty() }?.let { dev.leonardo.ocbeacon.util.PathUtils.fileName(it.trimEnd('/', '\\')) }?.takeIf { it.isNotEmpty() }

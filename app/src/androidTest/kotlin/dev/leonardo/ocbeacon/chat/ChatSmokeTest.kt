@@ -16,11 +16,10 @@ import org.junit.Test
 import javax.inject.Inject
 
 /**
- * Smoke test: proves Hilt injection + Compose rendering works end-to-end
- * with the fake repository infrastructure.
+ * 冒烟测试：验证 Hilt 注入 + Compose 渲染在 fake repository 基础设施上
+ * 能够端到端工作。
  *
- * If this passes, all subsequent ChatScreen integration tests can rely
- * on the same setup pattern.
+ * 如果此测试通过，后续所有 ChatScreen 集成测试都可依赖相同的搭建模式。
  */
 @HiltAndroidTest
 class ChatSmokeTest {
@@ -44,7 +43,7 @@ class ChatSmokeTest {
 
     @Test
     fun chatScreen_renders_with_hilt_injection() {
-        // Default empty state — just verify the screen mounts without crashing
+        // 默认空状态 —— 仅验证屏幕挂载不崩溃
         composeRule.setContent {
             OpenCodeTheme {
                 ChatScreen(
@@ -57,8 +56,8 @@ class ChatSmokeTest {
 
         composeRule.waitForIdle()
 
-        // If we got here without crashing, Hilt injection + Compose rendering works.
-        // Verify the fake was actually injected (not a real repository)
+        // 走到这里仍未崩溃，说明 Hilt 注入 + Compose 渲染正常工作。
+        // 验证注入的确实是 fake（而非真实 repository）
         assert(fakeChat.messagesState.value.isEmpty()) { "FakeChatRepository should be injected" }
     }
 }

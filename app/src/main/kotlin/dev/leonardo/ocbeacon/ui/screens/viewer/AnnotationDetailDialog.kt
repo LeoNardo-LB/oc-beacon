@@ -28,8 +28,8 @@ import dev.leonardo.ocbeacon.domain.model.Annotation
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Dialog showing annotation details when user taps an existing highlight.
- * Provides Edit / Delete actions.
+ * 用户点击已有高亮时显示批注详情的对话框。
+ * 提供 编辑 / 删除 操作。
  */
 @Composable
 fun AnnotationDetailDialog(

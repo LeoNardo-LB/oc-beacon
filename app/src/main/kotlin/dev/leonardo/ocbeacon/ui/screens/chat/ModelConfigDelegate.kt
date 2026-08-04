@@ -26,23 +26,22 @@ import kotlinx.coroutines.launch
 private const val TAG = "ModelConfigDelegate"
 
 /**
- * Owns provider/agent/model/variant/command selection and the
- * [modelConfigState] resolution pipeline previously inlined in [ChatViewModel].
+ * 管理 provider/agent/model/variant/command 选择及
+ * 此前内联在 [ChatViewModel] 中的 [modelConfigState] 解析管道。
  *
- * Extracted in Phase 3 Task 4 (A cluster).
+ * 在 Phase 3 Task 4（A 集群）中提取。
  *
- * [modelConfigState] is a 12-way `combine` keyed by [sessionIdFlow] that performs
- * **self-feedback side effects**: it resolves the effective model/agent from the
- * message history (when not explicitly selected) and writes the resolved values
- * back into the raw [MutableStateFlow]s so that [ChatViewModel.sendParts] /
- * [runShellCommand] always use the displayed value. This resolution logic is
- * kept intact and migrated wholesale — it must NOT be split apart.
+ * [modelConfigState] 是一个以 [sessionIdFlow] 为 key 的 12 路 `combine`，执行
+ * **自反馈副作用**：从消息历史解析有效模型/agent（当未显式选择时），
+ * 并将解析值写回原始 [MutableStateFlow]，使 [ChatViewModel.sendParts] /
+ * [runShellCommand] 始终使用显示值。此解析逻辑
+ * 保持完整并整体迁移 —— 不可拆分。
  *
- * NOTE: Intentionally NOT `@Singleton`/`@Inject`. It holds per-ChatViewModel
- * runtime context (the ViewModel's coroutine scope, the session-id flow from
- * [SessionLifecycleDelegate], and the server id) that Hilt cannot supply.
- * ChatViewModel constructs it directly and re-exposes every member as a facade,
- * so UI files are unchanged.
+ * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的
+ * 运行时上下文（ViewModel 的协程作用域、来自
+ * [SessionLifecycleDelegate] 的 session-id flow 和服务器 id），Hilt 无法提供这些。
+ * ChatViewModel 直接构造它并将每个成员作为门面重新暴露，
+ * 因此 UI 文件无需改动。
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 internal class ModelConfigDelegate(
@@ -62,26 +61,26 @@ internal class ModelConfigDelegate(
     private val _defaultModels = MutableStateFlow<Map<String, String>>(emptyMap())
     private val _selectedProviderId = MutableStateFlow<String?>(null)
     private val _selectedModelId = MutableStateFlow<String?>(null)
-    // Track if the model was explicitly selected by the user to avoid overwriting it with defaults/history
+    // 跟踪模型是否被用户显式选择，以避免用默认值/历史覆盖
     private var isModelExplicitlySelected = false
     private val _agents = MutableStateFlow<List<AgentInfo>>(emptyList())
-    /** Pair(agentName, explicitlySelected) — using a single flow avoids race between flag and value */
+    /** Pair(agentName, explicitlySelected) —— 使用单个 flow 避免标志与值之间的竞态 */
     private val _selectedAgent = MutableStateFlow("build" to false)
     private val _selectedVariant = MutableStateFlow<String?>(null)
     private val _commands = MutableStateFlow<List<CommandInfo>>(emptyList())
 
-    /** Snapshot of the current agent selection — consumed by [DraftInputDelegate] for draft persistence. */
+    /** 当前 agent 选择的快照 —— 供 [DraftInputDelegate] 草稿持久化消费。 */
     val selectedAgentValue: Pair<String, Boolean> get() = _selectedAgent.value
 
-    /** Snapshot of the current variant selection — consumed by [DraftInputDelegate] and [ChatViewModel.sendParts]. */
+    /** 当前 variant 选择的快照 —— 供 [DraftInputDelegate] 和 [ChatViewModel.sendParts] 消费。 */
     val selectedVariantValue: String? get() = _selectedVariant.value
 
-    // ============ Model/Agent Config State (with resolution side effects) ============
+    // ============ 模型/Agent 配置状态（含解析副作用） ============
 
     /**
-     * Model and agent configuration — providers, agents, model/agent selection, variants.
-     * Performs side effects: model/agent resolution from message history, model caching,
-     * and sync-back to raw StateFlows so sendParts()/runShellCommand() use consistent values.
+     * 模型和 agent 配置 —— providers、agents、模型/agent 选择、variants。
+     * 执行副作用：从消息历史解析模型/agent、模型缓存，
+     * 以及回写到原始 StateFlow，使 sendParts()/runShellCommand() 使用一致值。
      */
     val modelConfigState: StateFlow<ModelConfigState> = sessionIdFlow.flatMapLatest { sid ->
         combine(
@@ -121,7 +120,7 @@ internal class ModelConfigDelegate(
             val allSessions = args[10] as List<Session>
             val tokenStats = args[11] as TokenStatsTracker.TokenStats
 
-            // Resolve model: explicit selection > last user message's model > provider default
+            // 解析模型：显式选择 > 最后一条用户消息的模型 > provider 默认
             var effectiveProviderId = selProviderId
             var effectiveModelId = selModelId
 
@@ -139,7 +138,7 @@ internal class ModelConfigDelegate(
                 }
             }
 
-            // Resolve agent from last user message if not explicitly changed
+            // 如果未显式更改，从最后一条用户消息解析 agent
             val effectiveAgent = if (!isAgentExplicitlySelected) {
                 val lastUserAgent = sessionMessages
                     .filterIsInstance<Message.User>()
@@ -150,18 +149,18 @@ internal class ModelConfigDelegate(
                 selectedAgent
             }
 
-            // Keep raw state in sync so sendParts()/runShellCommand() always use the displayed value
+            // 保持原始状态同步，使 sendParts()/runShellCommand() 始终使用显示值
             if (effectiveAgent != selectedAgent && !isAgentExplicitlySelected) {
                 _selectedAgent.value = effectiveAgent to false
             }
 
-            // Keep model StateFlows in sync with the effective model
+            // 保持模型 StateFlow 与有效模型同步
             if ((effectiveProviderId != selProviderId || effectiveModelId != selModelId) && !isModelExplicitlySelected) {
                 _selectedProviderId.value = effectiveProviderId
                 _selectedModelId.value = effectiveModelId
             }
 
-            // Resolve available variants for the currently selected model.
+            // 解析当前选择模型的可用 variants。
             var currentModel = if (effectiveProviderId != null && effectiveModelId != null) {
                 providers.find { it.id == effectiveProviderId }
                     ?.models?.get(effectiveModelId)
@@ -177,12 +176,12 @@ internal class ModelConfigDelegate(
             }
             val availableVariants = currentModel?.variantNames?.sorted() ?: emptyList()
 
-            // Persist the resolved model to the in-memory cache
+            // 将解析的模型持久化到内存缓存
             if (effectiveProviderId != null && effectiveModelId != null) {
                 sessionModelCache[sid] = effectiveProviderId to effectiveModelId
             }
 
-            // Resolve context window with fallback to provider model info
+            // 解析上下文窗口，回退到 provider 模型信息
             val session = allSessions.find { it.id == sid }
             val contextWindow = tokenStats.contextWindow.let { cw ->
                 if (cw > 0) cw else session?.model?.let { sm ->
@@ -210,7 +209,7 @@ internal class ModelConfigDelegate(
         ModelConfigState()
     )
 
-    // ============ Init-time loading (called from ChatViewModel.init) ============
+    // ============ 初始化时加载（从 ChatViewModel.init 调用） ============
 
     fun loadProviders() {
         scope.launch {
@@ -220,7 +219,7 @@ internal class ModelConfigDelegate(
                 applyProviderFilter()
                 _defaultModels.value = response.default
                 if (BuildConfig.DEBUG) Log.d(TAG, "Loaded ${response.providers.size} providers, defaults: ${response.default}")
-                // No need to set default here, combine block handles fallback
+                // 无需在此设置默认值，combine 块处理回退
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load providers", e)
             }
@@ -265,7 +264,7 @@ internal class ModelConfigDelegate(
         }
     }
 
-    /** Observe hidden-models setting and re-filter providers on change. */
+    /** 观察隐藏模型设置并在变更时重新过滤 providers。 */
     fun observeHiddenModels() {
         scope.launch {
             settingsRepository.hiddenModels(serverId).collect { hidden ->
@@ -275,15 +274,15 @@ internal class ModelConfigDelegate(
         }
     }
 
-    // ============ Selection (UI facades) ============
+    // ============ 选择（UI 门面） ============
 
     fun selectAgent(name: String) {
         _selectedAgent.value = name to true
     }
 
     /**
-     * Cycle through available thinking effort variants for the current model.
-     * Cycles: none -> first -> second -> ... -> last -> none (default).
+     * 循环切换当前模型的可用思考强度 variants。
+     * 循环：none -> first -> second -> ... -> last -> none（默认）。
      */
     fun cycleVariant() {
         val variants = modelConfigState.value.variantNames
@@ -298,19 +297,19 @@ internal class ModelConfigDelegate(
     }
 
     fun selectModel(providerId: String, modelId: String) {
-        // MUST set flag BEFORE modifying StateFlows — on Main.immediate dispatcher,
-        // setting a StateFlow value synchronously triggers combine recomputation,
-        // which would overwrite our values if the flag isn't set yet.
+        // 必须在修改 StateFlow 之前设置标志 —— 在 Main.immediate 调度器上，
+        // 设置 StateFlow 值会同步触发 combine 重计算，
+        // 如果标志尚未设置，会覆盖我们的值。
         isModelExplicitlySelected = true
         _selectedProviderId.value = providerId
         _selectedModelId.value = modelId
-        // Remember selection for this session (in-memory, cleared on app restart)
+        // 记住本会话的选择（内存中，应用重启时清除）
         sessionModelCache[sessionIdFlow.value] = providerId to modelId
     }
 
-    // ============ Restoration (called from ChatViewModel.init) ============
+    // ============ 恢复（从 ChatViewModel.init 调用） ============
 
-    /** Apply agent/variant restored from a persisted draft. */
+    /** 应用从持久化草稿恢复的 agent/variant。 */
     fun applyDraftRestore(agent: String?, variant: String?) {
         if (!agent.isNullOrBlank()) {
             _selectedAgent.value = agent to true
@@ -320,7 +319,7 @@ internal class ModelConfigDelegate(
         }
     }
 
-    /** Restore model selection from the in-memory cache (survives session switching). */
+    /** 从内存缓存恢复模型选择（会话切换时存活）。 */
     fun restoreModelFromCache() {
         val sid = sessionIdFlow.value
         if (sid.isEmpty()) return
@@ -333,8 +332,8 @@ internal class ModelConfigDelegate(
 
     companion object {
         /**
-         * In-memory cache mapping sessionId → (providerId, modelId).
-         * Survives session switching (ViewModel recreation) but clears on app restart (process death).
+         * 内存缓存，映射 sessionId → (providerId, modelId)。
+         * 会话切换时存活（ViewModel 重建），但应用重启（进程死亡）时清除。
          */
         private val sessionModelCache = mutableMapOf<String, Pair<String, String>>()
     }

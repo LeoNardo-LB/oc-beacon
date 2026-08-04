@@ -25,11 +25,11 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
 
 /**
- * Slash command suggestion popup shown when user types "/".
+ * 用户输入 "/" 时显示的斜杠命令建议弹窗。
  *
- * @param commands Filtered slash commands to display.
- * @param onSkillClick Called when a skill-type command is clicked — caller handles input text update.
- * @param onCommandClick Called when a non-skill command is clicked — caller clears text and fires the command.
+ * @param commands 要显示的过滤后的斜杠命令。
+ * @param onSkillClick 点击技能类命令时调用 —— 由调用方处理输入文本更新。
+ * @param onCommandClick 点击非技能命令时调用 —— 由调用方清空文本并触发命令。
  */
 @Composable
 internal fun SlashCommandSuggestions(

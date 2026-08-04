@@ -38,7 +38,7 @@ interface SessionApi {
 
     suspend fun getSession(conn: ServerConnection, sessionId: String): Session
 
-    /** Returns session info as raw JSON string (for export without re-serialization). */
+    /** 以原始 JSON 字符串返回会话信息（用于导出而无需重新序列化）。 */
     suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String
 
     suspend fun createSession(
@@ -53,7 +53,7 @@ interface SessionApi {
     suspend fun updateSession(conn: ServerConnection, sessionId: String, title: String): Session
 
     /**
-     * Update session with arbitrary fields (for archive, etc.).
+     * 用任意字段更新会话（用于归档等）。
      * PATCH /session/{sessionId}
      */
     suspend fun updateSessionFields(
@@ -139,7 +139,7 @@ class SessionApiImpl @Inject constructor(
         }.body()
     }
 
-    /** Returns session info as raw JSON string (for export without re-serialization). */
+    /** 以原始 JSON 字符串返回会话信息（用于导出而无需重新序列化）。 */
     override suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/session/$sessionId") {
             conn.authHeader?.let { header("Authorization", it) }
@@ -180,7 +180,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Update session with arbitrary fields (for archive, etc.).
+     * 用任意字段更新会话（用于归档等）。
      * PATCH /session/{sessionId}
      */
     override suspend fun updateSessionFields(
@@ -210,7 +210,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Share a session, creating a shareable link.
+     * 分享会话，创建可分享链接。
      * POST /session/{sessionId}/share
      */
     override suspend fun shareSession(conn: ServerConnection, sessionId: String): Session {
@@ -220,7 +220,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Unshare a session, removing the shareable link.
+     * 取消分享会话，移除可分享链接。
      * DELETE /session/{sessionId}/share
      */
     override suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session {
@@ -230,7 +230,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Summarize (compact) a session to reduce context.
+     * 总结（压缩）会话以减少上下文。
      * POST /session/{sessionId}/summarize
      */
     override suspend fun summarizeSession(
@@ -248,7 +248,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Revert (undo) messages starting from the given messageId.
+     * 从给定 messageId 开始回退（撤销）消息。
      * POST /session/{sessionId}/revert
      */
     override suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session {
@@ -260,7 +260,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Unrevert (redo) the last reverted message in a session.
+     * 取消回退（重做）会话中最后一条被回退的消息。
      * POST /session/{sessionId}/unrevert
      */
     override suspend fun unrevertSession(conn: ServerConnection, sessionId: String): Session {
@@ -270,7 +270,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Fork a session (create a new session from a message point).
+     * 分叉会话（从某条消息点创建新会话）。
      * POST /session/{sessionId}/fork
      */
     override suspend fun forkSession(conn: ServerConnection, sessionId: String, messageId: String?): Session {
@@ -285,7 +285,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Import a session from a share URL.
+     * 从分享 URL 导入会话。
      * POST /session/import
      */
     override suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
@@ -297,7 +297,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Execute a server-side command in a session.
+     * 在会话中执行服务端命令。
      * POST /session/{sessionId}/command
      * Body: { command: String, arguments: String, agent?, model?, variant?, parts? }
      */
@@ -323,7 +323,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * List child sessions of a session.
+     * 列出会话的子会话。
      * GET /session/{sessionId}/children
      */
     override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> {
@@ -333,7 +333,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Get session todo list.
+     * 获取会话 todo 列表。
      * GET /session/{sessionId}/todo
      */
     override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
@@ -343,7 +343,7 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Batch get session statuses.
+     * 批量获取会话状态。
      * GET /session/status
      */
     override suspend fun listSessionStatus(conn: ServerConnection, directory: String?): Map<String, SessionStatusInfo> {
@@ -354,13 +354,13 @@ class SessionApiImpl @Inject constructor(
     }
 
     /**
-     * Query the current status of all sessions from the OpenCode server.
+     * 从 OpenCode 服务器查询所有会话的当前状态。
      * GET /session/status
      *
-     * Used as a REST fallback when SSE events may have been missed
-     * (app backgrounded, connection lost, etc.).
+     * 在可能错过 SSE 事件时（应用进入后台、连接丢失等）
+     * 用作 REST 回退。
      *
-     * @return Map of sessionId → RestSessionStatusInfo where type ∈ {"idle", "busy", "retry"}
+     * @return sessionId → RestSessionStatusInfo 的映射，其中 type ∈ {"idle", "busy", "retry"}
      */
     override suspend fun fetchSessionStatus(
         conn: ServerConnection,

@@ -5,11 +5,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Handles [SseEvent.MessageUpdated].
+ * 处理 [SseEvent.MessageUpdated]。
  *
- * Delegates to the shared [MessageEventHandler] state store, which updates the
- * `_messages` map, tracks `assistantMessageIds`, and seeds `_parts` for user
- * messages.
+ * 委托给共享的 [MessageEventHandler] 状态存储，它更新
+ * `_messages` map、跟踪 `assistantMessageIds`，
+ * 并为用户消息播种 `_parts`。
  */
 @Singleton
 class MessageUpdatedHandler @Inject constructor(

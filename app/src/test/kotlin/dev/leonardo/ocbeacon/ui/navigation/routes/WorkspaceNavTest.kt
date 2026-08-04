@@ -16,9 +16,9 @@ class WorkspaceNavTest {
         serverId = "srv-a1b2c3d4"
     )
 
-    /** Build a mock NavBackStackEntry from a route string, so fromEntry can decode params. */
+    /** 根据路由字符串构建 mock 的 NavBackStackEntry，以便 fromEntry 能解码参数。 */
     private fun buildEntry(route: String): androidx.navigation.NavBackStackEntry {
-        // Use java.net.URI (available on JVM) instead of android.net.Uri (stubbed in unit tests)
+        // 使用 java.net.URI（JVM 可用）而非 android.net.Uri（单元测试中被 stub）
         val uri = URI("http://dummy/$route")
         val query = uri.rawQuery ?: ""
         val paramMap = query.split("&").associate { part ->
@@ -49,7 +49,7 @@ class WorkspaceNavTest {
             directory = directory
         )
 
-        // Special chars must be encoded
+        // 特殊字符必须被编码
         assert(route.contains("sessionId=01H2X3YZ%2Fspace%3Dtest")) {
             "sessionId should be URL-encoded, got: $route"
         }

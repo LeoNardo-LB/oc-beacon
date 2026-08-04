@@ -32,7 +32,7 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Agent / Model / Variant selector row with attach button.
+ * Agent / Model / Variant 选择器行，带附件按钮。
  */
 @Composable
 internal fun AgentModelVariantSelector(
@@ -52,7 +52,7 @@ internal fun AgentModelVariantSelector(
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Scrollable area for agent/model/variant so paperclip always stays visible
+        // agent/model/variant 的可滚动区域，保证回形针始终可见
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -60,8 +60,8 @@ internal fun AgentModelVariantSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
-            // Agent selector — single button, tap to cycle
-            // Fixed width: all agent names rendered invisible to reserve max width
+            // Agent 选择器 —— 单个按钮，点击循环切换
+            // 固定宽度：所有 agent 名称以不可见方式渲染以预留最大宽度
             if (agents.size > 1) {
                 val agentColorValue = agentColor(selectedAgent, agents)
                 Box(
@@ -76,7 +76,7 @@ internal fun AgentModelVariantSelector(
                         }
                         .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp)
                 ) {
-                    // Invisible ghost texts for all agent names — fixes width to the widest
+                    // 所有 agent 名称的不可见幽灵文本 —— 将宽度固定为最宽者
                     agents.forEach { agent ->
                         Text(
                             text = agent.name.replaceFirstChar { it.uppercase() },
@@ -84,7 +84,7 @@ internal fun AgentModelVariantSelector(
                             color = Color.Transparent
                         )
                     }
-                    // Visible label with accent color
+                    // 带强调色的可见标签
                     Text(
                         text = selectedAgent.replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.labelSmall,
@@ -93,7 +93,7 @@ internal fun AgentModelVariantSelector(
                 }
             }
 
-            // Model selector — SECOND
+            // 模型选择器 —— 第二位
             if (modelLabel.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -124,7 +124,7 @@ internal fun AgentModelVariantSelector(
                 }
             }
 
-            // Variant cycle button (thinking effort) — THIRD
+            // Variant 循环按钮（思考强度）—— 第三位
             if (variantNames.isNotEmpty()) {
                 Text(
                     text = selectedVariant?.replaceFirstChar { it.uppercase() }
@@ -147,7 +147,7 @@ internal fun AgentModelVariantSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            // Attach button (paperclip) — always visible, pinned right, aligned with Send button
+            // 附件按钮（回形针）—— 始终可见，固定在右侧，与发送按钮对齐
             IconButton(
                 onClick = onAttach,
                 modifier = Modifier.size(32.dp)

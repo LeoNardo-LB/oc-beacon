@@ -25,7 +25,7 @@ private val RECONNECT_BACKOFF_MS = longArrayOf(1_000L, 2_000L, 5_000L, 10_000L, 
 private const val DEFAULT_TERMINAL_FONT_SIZE_SP = 13f
 private const val DEFAULT_ROWS = 24
 private const val DEFAULT_COLS = 80
-/** Debounce window for coalescing high-frequency PTY resize requests (e.g. pinch-zoom). */
+/** 防抖窗口：合并高频 PTY resize 请求（如捏合缩放）。 */
 private const val RESIZE_DEBOUNCE_MS = 120L
 
 data class TerminalTabUi(
@@ -51,9 +51,9 @@ internal class ServerTerminalWorkspace(
         var reconnectAttempt: Int = 0,
         var state: TerminalTabState = TerminalTabState.Starting,
         var lastSize: Pair<Int, Int>? = null,
-        // Resize debounce: latest pending (cols, rows) awaiting coalesced send.
+        // resize 防抖：最新待发送的 (cols, rows) 等待合并发送。
         var pendingResize: Pair<Int, Int>? = null,
-        // Active debounce coroutine; null when no resize is pending.
+        // 活跃的防抖协程；没有待处理 resize 时为 null。
         var resizeJob: Job? = null,
     )
 
@@ -93,7 +93,7 @@ internal class ServerTerminalWorkspace(
     }
 
     /**
-     * Returns the active tab's adapter, or the fallback when no tab is active.
+     * 返回活动标签页的 adapter；没有活动标签页时返回 fallback。
      */
     fun activeAdapter(): PtyToTermlibAdapter {
         val id = _activeTabId.value ?: return fallbackAdapter
@@ -102,7 +102,7 @@ internal class ServerTerminalWorkspace(
         }
     }
 
-    /** Convenience accessor for code that only needs the termlib emulator. */
+    /** 仅供只需 termlib 模拟器的代码使用的便捷访问器。 */
     fun activeEmulator(): org.connectbot.terminal.TerminalEmulator =
         activeAdapter().emulator!!
 
@@ -119,8 +119,8 @@ internal class ServerTerminalWorkspace(
         val tab = synchronized(lock) {
             val index = tabs.size + 1
             val tabId = UUID.randomUUID().toString()
-            // Adapter creation: the onKeyboardInput callback needs the adapter,
-            // but the adapter needs the emulator. Resolve via a holder var.
+            // Adapter 创建：onKeyboardInput 回调需要 adapter，
+            // 但 adapter 需要模拟器。通过 holder 变量解决。
             var adapterRef: PtyToTermlibAdapter? = null
             val emulator = TerminalEmulatorFactory.create(
                 initialRows = DEFAULT_ROWS,
@@ -273,29 +273,29 @@ internal class ServerTerminalWorkspace(
                 "resizeActive: cols=$cols rows=$rows ptyId=${tab.ptyId} lastSize=${tab.lastSize} state=${tab.state} tabDir=${tab.directory}"
             )
 
-            // termlib's resize takes (rows, cols) — opposite order from the old API.
-            // Local emulator resize is immediate so the UI reacts without waiting on the network.
+            // termlib 的 resize 参数是 (rows, cols) —— 与旧 API 顺序相反。
+            // 本地模拟器 resize 立即生效，UI 无需等待网络即可响应。
             tab.adapter.resize(rows = rows, cols = cols)
             if (_activeTabId.value == tab.id) {
                 _activeVersion.value = tab.adapter.version.value
             }
 
-            // Dedup identical sizes already acknowledged by the server while connected.
+            // 去重：服务器已确认的相同尺寸不再重复发送。
             if (tab.lastSize == size && tab.state == TerminalTabState.Connected) {
                 if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: dedup, same size and connected")
                 return
             }
 
-            // Coalesce high-frequency resize requests (pinch-zoom fires every frame):
-            // record the latest size and let [resizeLoop] send a single update after the
-            // debounce window, rather than hitting the server on every frame.
+            // 合并高频 resize 请求（捏合缩放每帧都会触发）：
+            // 记录最新尺寸，让 [resizeLoop] 在防抖窗口后发送一次更新，
+            // 而不是每帧都请求服务器。
             scheduleResizeLocked(tab, size)
         }
     }
 
     /**
-     * Records the pending resize for [tab] and ensures exactly one [resizeLoop] is draining
-     * the pending slot. Must be called while holding [lock].
+     * 记录 [tab] 的待发送 resize，并确保恰好有一个 [resizeLoop] 在排空
+     * 待发送槽。必须在持有 [lock] 时调用。
      */
     private fun scheduleResizeLocked(tab: RuntimeTab, size: Pair<Int, Int>) {
         tab.pendingResize = size
@@ -305,9 +305,9 @@ internal class ServerTerminalWorkspace(
     }
 
     /**
-     * Debounce drain loop for PTY resize. Waits [RESIZE_DEBOUNCE_MS], then sends the latest
-     * pending size in a single [TerminalApi.updatePtySize] call. If more resizes arrive while
-     * the network call is in flight, the loop repeats. Exits once no pending resize remains.
+     * PTY resize 的防抖排空循环。等待 [RESIZE_DEBOUNCE_MS]，然后通过一次
+     * [TerminalApi.updatePtySize] 调用发送最新待发送尺寸。若网络调用进行中
+     * 又来了新的 resize，循环会重复。待发送 resize 清空后退出。
      */
     private suspend fun resizeLoop(tabId: String) {
         while (true) {
@@ -318,7 +318,7 @@ internal class ServerTerminalWorkspace(
                 tab.pendingResize = null
                 ResizeReq(pending, tab.ptyId, tab.directory, tab.state)
             }
-            // Only forward to the server when the socket is live.
+            // 仅在 socket 活跃时转发给服务器。
             if (snapshot.state != TerminalTabState.Connected || snapshot.ptyId == null) continue
             if (BuildConfig.DEBUG) android.util.Log.d(
                 "TerminalZoom",
@@ -349,7 +349,7 @@ internal class ServerTerminalWorkspace(
     fun reconnectTab(tabId: String, onResult: (Boolean) -> Unit = {}) {
         val scheduled = synchronized(lock) {
             val tab = tabs.firstOrNull { it.id == tabId } ?: return@synchronized false
-            // Decide recovery from the tab state and whether the PTY is missing.
+            // 根据标签页状态以及 PTY 是否缺失决定恢复方式。
             val action = terminalRecoveryAction(tab.state, isMissingPty = tab.ptyId == null)
             when (action) {
                 RecoveryAction.None -> return@synchronized true
@@ -361,7 +361,7 @@ internal class ServerTerminalWorkspace(
                     true
                 }
                 RecoveryAction.Restart -> {
-                    // PTY is gone (or never created); recreate it on the same tab.
+                    // PTY 已不存在（或从未创建）；在同一标签页上重新创建。
                     if (tab.reconnectJob?.isActive == true) return@synchronized true
                     tab.reconnectJob = scope.launch {
                         restartLoop(tabId = tab.id)
@@ -414,8 +414,8 @@ internal class ServerTerminalWorkspace(
         tab.reconnectJob = null
         tab.readerJob?.cancel()
 
-        // The adapter owns the read loop and writeInput dispatch.
-        // We collect version updates and forward them to _activeVersion.
+        // adapter 拥有读取循环和 writeInput 分发。
+        // 我们收集版本更新并转发给 _activeVersion。
         tab.readerJob = scope.launch {
             val versionJob = scope.launch {
                 tab.adapter.version.collect { v ->
@@ -426,7 +426,7 @@ internal class ServerTerminalWorkspace(
             }
             try {
                 tab.adapter.bind(socket)
-                // Suspend until the adapter's reader completes (socket closed).
+                // 挂起直到 adapter 的 reader 完成（socket 关闭）。
                 tab.adapter.awaitReader()
             } catch (e: Exception) {
                 Log.w(WORKSPACE_TAG, "Tab stream closed: ${tab.id}", e)
@@ -460,8 +460,8 @@ internal class ServerTerminalWorkspace(
             val tab = tabs.firstOrNull { it.id == tabId } ?: return
             if (tab.socket !== socket) return
             tab.socket = null
-            // PTY still exists → a reconnect can reuse it (Reconnecting);
-            // no ptyId → PTY is gone, must be recreated (Exited).
+            // PTY 仍然存在 → 重连可以复用（Reconnecting）；
+            // 没有 ptyId → PTY 已不存在，必须重新创建（Exited）。
             tab.state = if (tab.ptyId != null) TerminalTabState.Reconnecting else TerminalTabState.Exited
             tab.readerJob = null
             tab.adapter.bind(null)
@@ -529,9 +529,9 @@ internal class ServerTerminalWorkspace(
     }
 
     /**
-     * Recovery path when the PTY itself is gone: recreates the PTY on [tabId] (preserving the
-     * tab, its directory and termlib buffer), then binds a fresh socket. Retries with backoff,
-     * marking the tab [TerminalTabState.Disconnected] on failure so the user can retry manually.
+     * PTY 本身已消失时的恢复路径：在 [tabId] 上重新创建 PTY（保留
+     * 标签页、其目录和 termlib 缓冲），然后绑定新 socket。带退避重试，
+     * 失败时将标签页标记为 [TerminalTabState.Disconnected]，让用户手动重试。
      */
     private suspend fun restartLoop(tabId: String) {
         var firstAttempt = true
@@ -604,7 +604,7 @@ internal class ServerTerminalWorkspace(
     }
 }
 
-/** Snapshot of a pending resize request handed off from the lock to [resizeLoop]. */
+/** 从锁移交到 [resizeLoop] 的待发送 resize 请求快照。 */
 private data class ResizeReq(
     val size: Pair<Int, Int>,
     val ptyId: String?,
@@ -612,7 +612,7 @@ private data class ResizeReq(
     val state: TerminalTabState,
 )
 
-/** Snapshot of tab identity needed to recreate a PTY in [restartLoop]. */
+/** 在 [restartLoop] 中重建 PTY 所需的标签页身份快照。 */
 private data class TabSeed(
     val title: String,
     val directory: String?,

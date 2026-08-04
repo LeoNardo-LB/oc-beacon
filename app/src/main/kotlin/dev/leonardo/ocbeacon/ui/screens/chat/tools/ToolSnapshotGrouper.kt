@@ -8,16 +8,16 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Groups Read/Write/Edit tool parts by (messageId, normalized filePath) — spec §5.5 "B-tier".
+ * 按 (messageId, 规范化 filePath) 对 Read/Write/Edit 工具 parts 分组 —— 规范 §5.5 "B-tier"。
  *
- * - Same message + same normalized path = one group
- * - Other tool types (Bash, Glob, …) do NOT break groups
- * - Physical adjacency is NOT required
- * - Cumulative diff: [ToolSnapshotGroup.cumulativeBefore] = first part's before,
- *                    [ToolSnapshotGroup.cumulativeAfter]  = last part's after
+ * - 同一条消息 + 同一个规范化路径 = 一个分组
+ * - 其他工具类型（Bash、Glob 等）不会中断分组
+ * - 不要求物理相邻
+ * - 累积 diff：[ToolSnapshotGroup.cumulativeBefore] = 第一个 part 的 before，
+ *              [ToolSnapshotGroup.cumulativeAfter]  = 最后一个 part 的 after
  *
- * Path normalization converts `\` to `/` and trims trailing `/` so that
- * `app\src\X.kt` and `app/src/X.kt` are treated as the same file.
+ * 路径规范化将 `\` 转为 `/` 并去除尾部 `/`，使得
+ * `app\src\X.kt` 与 `app/src/X.kt` 被视为同一文件。
  */
 object ToolSnapshotGrouper {
 
@@ -31,7 +31,7 @@ object ToolSnapshotGrouper {
 
         val allGroups = mutableListOf<ToolSnapshotGroup>()
         for ((_, tools) in byMessage) {
-            // LinkedHashMap preserves first-occurrence order
+            // LinkedHashMap 保持首次出现顺序
             val grouped = LinkedHashMap<String, MutableList<Part.Tool>>()
             for (t in tools) {
                 val path = extractFilePath(t) ?: continue
@@ -73,7 +73,7 @@ object ToolSnapshotGrouper {
         val input = tool.state.inputMap()
         return when (tool.tool.lowercase()) {
             "edit" -> input["oldString"]?.jsonPrimitive?.contentOrNull ?: ""
-            else -> ""  // write/read have no "before"
+            else -> ""  // write/read 没有 "before"
         }
     }
 
@@ -99,7 +99,7 @@ object ToolSnapshotGrouper {
         is ToolState.Error -> input
     }
 
-    /** Normalize: `\` → `/`, trim trailing `/`. */
+    /** 规范化：`\` → `/`，去除尾部 `/`。 */
     fun normalizePath(path: String): String = path.replace('\\', '/').trimEnd('/')
 }
 
@@ -110,8 +110,8 @@ data class ToolSnapshotGroup(
     val cumulativeBefore: String,
     val cumulativeAfter: String
 ) {
-    /** Group size for the ③ badge (1 = no badge). */
+    /** ③ 徽章的分组大小（1 = 无徽章）。 */
     val size: Int get() = toolParts.size
-    /** True if more than one tool in this group (show left rail + badge). */
+    /** 若分组中工具多于一个则为 true（显示左侧栏 + 徽章）。 */
     val isMulti: Boolean get() = size > 1
 }

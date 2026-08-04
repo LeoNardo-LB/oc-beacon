@@ -14,16 +14,16 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Debug logger that writes to BOTH logcat AND a file in the public Downloads directory.
+ * 调试日志器，同时写入 logcat 和公共 Downloads 目录下的文件。
  *
- * File location:
- *   - API 29+: MediaStore.Downloads → /sdcard/Download/annotate_debug.log
- *   - API < 29: getExternalFilesDir → /sdcard/Android/data/<pkg>/files/annotate_debug.log
+ * 文件位置：
+ *   - API 29+：MediaStore.Downloads → /sdcard/Download/annotate_debug.log
+ *   - API < 29：getExternalFilesDir → /sdcard/Android/data/<pkg>/files/annotate_debug.log
  *
- * Each [log] call appends to an in-memory buffer then flushes the FULL buffer to file
- * (MediaStore doesn't support append mode). Buffer is small (debug only), so cost is negligible.
+ * 每次 [log] 调用会追加到内存缓冲区，然后将完整缓冲区 flush 到文件
+ * （MediaStore 不支持追加模式）。缓冲区很小（仅用于调试），开销可忽略。
  *
- * Call [reset] at session start to clear the previous run's logs.
+ * 在会话开始时调用 [reset] 以清除上一次运行的日志。
  */
 object DebugLogger {
     private const val TAG = "DebugLogger"
@@ -38,7 +38,7 @@ object DebugLogger {
         ctx = context.applicationContext
     }
 
-    /** Clear the buffer and delete the file — call when a fresh capture session begins. */
+    /** 清空缓冲区并删除文件——在开始新的采集会话时调用。 */
     fun reset() {
         buffer.setLength(0)
         cachedUri = null
@@ -51,10 +51,10 @@ object DebugLogger {
         // 1. logcat
         Log.d(tag, message)
 
-        // 2. in-memory buffer
+        // 2. 内存缓冲区
         buffer.append(line)
 
-        // 3. flush full buffer to Downloads file
+        // 3. 将完整缓冲区 flush 到 Downloads 文件
         flush()
     }
 
@@ -76,7 +76,7 @@ object DebugLogger {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
 
-        // Find or create the file once, cache its Uri
+        // 查找或创建文件一次，缓存其 Uri
         if (cachedUri == null) {
             val proj = arrayOf(MediaStore.MediaColumns._ID)
             val sel = "${MediaStore.MediaColumns.DISPLAY_NAME} = ?"

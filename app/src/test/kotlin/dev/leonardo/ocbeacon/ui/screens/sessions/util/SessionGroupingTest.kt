@@ -29,8 +29,8 @@ class SessionGroupingTest {
             Project(id = "root", worktree = "/repo", name = "Root"),
             Project(id = "nested", worktree = "/repo/apps/mobile", name = "Mobile"),
         )
-        // Session lives under the nested worktree but carries no projectId — must
-        // fall back to the longest matching prefix.
+        // 会话位于嵌套 worktree 下但不携带 projectId —— 必须
+        // 回退到最长匹配前缀。
         val item = item("session", "/repo/apps/mobile/src")
 
         val group = buildProjectSessionGroups(listOf(item), projects, null).single()
@@ -52,7 +52,7 @@ class SessionGroupingTest {
         )
 
         assertEquals(2, groups.size)
-        // Ordered by latest activity: /two (updated=2) before /one (updated=1).
+        // 按最近活动排序：/two（updated=2）在 /one（updated=1）之前。
         assertEquals(listOf("/two", "/one"), groups.map { it.directory })
     }
 
@@ -62,7 +62,7 @@ class SessionGroupingTest {
             listOf(
                 item("a", "/alpha", updated = 5),
                 item("b", "/beta", updated = 9),
-                item("c", "/gamma", updated = 9), // same activity as /beta -> name tiebreak
+                item("c", "/gamma", updated = 9), // 与 /beta 活动相同 -> 按名称决胜
             ),
             emptyList(),
             null,

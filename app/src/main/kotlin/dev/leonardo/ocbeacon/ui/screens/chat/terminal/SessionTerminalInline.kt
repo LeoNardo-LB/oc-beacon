@@ -24,14 +24,14 @@ import org.connectbot.terminal.TerminalEmulator
 private const val TAG = "SessionTerminalInline"
 
 /**
- * Renders a terminal session using the ConnectBot termlib [Terminal] composable.
+ * 使用 ConnectBot termlib 的 [Terminal] composable 渲染终端会话。
  *
- * What termlib handles internally (no longer hand-rolled):
- *   - Canvas character-grid rendering
- *   - Cursor blink animation
- *   - IME input (BasicTextField + delta/dedup)
- *   - SelectionContainer overlay for long-press copy
- *   - Pinch-to-zoom gesture detection
+ * termlib 内部处理的事项（不再手动实现）：
+ *   - Canvas 字符网格渲染
+ *   - 光标闪烁动画
+ *   - IME 输入（BasicTextField + delta/去重）
+ *   - 用于长按复制的 SelectionContainer 覆盖层
+ *   - 双指缩放手势检测
  */
 @Composable
 internal fun SessionTerminalInline(
@@ -47,12 +47,12 @@ internal fun SessionTerminalInline(
 ) {
     val modifierManager = remember { TermlibModifierManager() }
 
-    // Coerce font size to the same [6f, 20f] range the old code used.
+    // 将字号强制到旧代码使用的相同 [6f, 20f] 范围。
     val initialFont = fontSizeSp.coerceIn(6f, 20f).sp
     val minFont = 6f.sp
     val maxFont = 20f.sp
 
-    // Measure actual glyph advance width for accurate column calculation.
+    // 测量实际字形前进宽度以精确计算列数。
     val textMeasurer = rememberTextMeasurer()
     val sampleLayout = remember(textMeasurer, initialFont) {
         textMeasurer.measure(
@@ -76,8 +76,8 @@ internal fun SessionTerminalInline(
                 alpha = (255 * AlphaTokens.FAINT).toInt(),
             ),
             selectionForegroundColor = Color(0xFF4FC3F7),
-            // Terminal mode always owns the keyboard — do not wait for
-            // connection, otherwise the IME flickers on every reconnect.
+            // 终端模式始终持有键盘——不要等待
+            // 连接，否则 IME 会在每次重连时闪烁。
             keyboardEnabled = true,
             showSoftKeyboard = true,
             focusRequester = focusRequester,
@@ -87,7 +87,7 @@ internal fun SessionTerminalInline(
             onTerminalTap = { /* handled by ChatTerminalView */ },
         )
 
-        // Compute cols/rows from constraints and forward via onResize.
+        // 根据 constraints 计算 cols/rows 并通过 onResize 转发。
         val density = LocalDensity.current
         val cols: Int
         val rows: Int

@@ -23,25 +23,25 @@ import javax.inject.Singleton
 
 interface ProviderApi {
     /**
-     * Get available providers and models.
+     * 获取可用的提供商和模型。
      * GET /config/providers
      */
     suspend fun getProviders(conn: ServerConnection): ProvidersResponse
 
     /**
-     * Get provider catalog with connection status.
+     * 获取带连接状态的提供商目录。
      * GET /provider
      */
     suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse
 
     /**
-     * Get available auth methods for providers.
+     * 获取可用的提供商认证方法。
      * GET /provider/auth
      */
     suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>>
 
     /**
-     * Start OAuth authorization for a provider.
+     * 启动提供商的 OAuth 授权。
      * POST /provider/{providerID}/oauth/authorize
      */
     suspend fun authorizeProviderOauth(
@@ -51,7 +51,7 @@ interface ProviderApi {
     ): ProviderOauthAuthorization?
 
     /**
-     * Complete OAuth authorization for a provider.
+     * 完成提供商的 OAuth 授权。
      * POST /provider/{providerID}/oauth/callback
      */
     suspend fun completeProviderOauth(
@@ -62,49 +62,49 @@ interface ProviderApi {
     ): Boolean
 
     /**
-     * Set API key auth for provider.
+     * 为提供商设置 API key 认证。
      * PUT /auth/{providerID}
      */
     suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean
 
     /**
-     * Remove stored auth for provider.
+     * 移除提供商已存储的认证。
      * DELETE /auth/{providerID}
      */
     suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean
 
     /**
-     * Get current server config.
+     * 获取当前服务器配置。
      * GET /config
      */
     suspend fun getConfig(conn: ServerConnection): ServerConfigResponse
 
     /**
-     * Get global server config.
+     * 获取全局服务器配置。
      * GET /global/config
      */
     suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse
 
     /**
-     * Patch server config.
+     * 修补服务器配置。
      * PATCH /config
      */
     suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse
 
     /**
-     * Patch global server config.
+     * 修补全局服务器配置。
      * PATCH /global/config
      */
     suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse
 
     /**
-     * Dispose global instances and force provider/auth state refresh.
+     * 销毁全局实例并强制刷新提供商/认证状态。
      * POST /global/dispose
      */
     suspend fun disposeGlobal(conn: ServerConnection): Boolean
 
     /**
-     * Dispose current instance.
+     * 销毁当前实例。
      * POST /instance/dispose
      */
     suspend fun disposeInstance(conn: ServerConnection): Boolean
@@ -123,7 +123,7 @@ class ProviderApiImpl @Inject constructor(
     private val json get() = apiClient.json
 
     /**
-     * Get available providers and models.
+     * 获取可用的提供商和模型。
      * GET /config/providers
      */
     override suspend fun getProviders(conn: ServerConnection): ProvidersResponse {
@@ -133,7 +133,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Get provider catalog with connection status.
+     * 获取带连接状态的提供商目录。
      * GET /provider
      */
     override suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse {
@@ -143,7 +143,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Get available auth methods for providers.
+     * 获取可用的提供商认证方法。
      * GET /provider/auth
      */
     override suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>> {
@@ -153,7 +153,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Start OAuth authorization for a provider.
+     * 启动提供商的 OAuth 授权。
      * POST /provider/{providerID}/oauth/authorize
      */
     override suspend fun authorizeProviderOauth(
@@ -177,13 +177,13 @@ class ProviderApiImpl @Inject constructor(
         return runCatching {
             json.decodeFromString(ProviderOauthAuthorization.serializer(), body)
         }.getOrElse {
-            // Some server builds return an empty object for headless mode.
+            // 某些服务器版本在 headless 模式下返回空对象。
             ProviderOauthAuthorization()
         }
     }
 
     /**
-     * Complete OAuth authorization for a provider.
+     * 完成提供商的 OAuth 授权。
      * POST /provider/{providerID}/oauth/callback
      */
     override suspend fun completeProviderOauth(
@@ -208,7 +208,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Set API key auth for provider.
+     * 为提供商设置 API key 认证。
      * PUT /auth/{providerID}
      */
     override suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean {
@@ -221,7 +221,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Remove stored auth for provider.
+     * 移除提供商已存储的认证。
      * DELETE /auth/{providerID}
      */
     override suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean {
@@ -237,7 +237,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Get current server config.
+     * 获取当前服务器配置。
      * GET /config
      */
     override suspend fun getConfig(conn: ServerConnection): ServerConfigResponse {
@@ -247,7 +247,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Get global server config.
+     * 获取全局服务器配置。
      * GET /global/config
      */
     override suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
@@ -257,7 +257,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Patch server config.
+     * 修补服务器配置。
      * PATCH /config
      */
     override suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
@@ -269,7 +269,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Patch global server config.
+     * 修补全局服务器配置。
      * PATCH /global/config
      */
     override suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
@@ -281,7 +281,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Dispose global instances and force provider/auth state refresh.
+     * 销毁全局实例并强制刷新提供商/认证状态。
      * POST /global/dispose
      */
     override suspend fun disposeGlobal(conn: ServerConnection): Boolean {
@@ -292,7 +292,7 @@ class ProviderApiImpl @Inject constructor(
     }
 
     /**
-     * Dispose current instance.
+     * 销毁当前实例。
      * POST /instance/dispose
      */
     override suspend fun disposeInstance(conn: ServerConnection): Boolean {

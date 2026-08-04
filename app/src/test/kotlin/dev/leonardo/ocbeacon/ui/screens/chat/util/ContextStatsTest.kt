@@ -40,7 +40,7 @@ class ContextStatsTest {
 
     @Test
     fun `breakdown estimates tokens as chars divided by 4`() {
-        // user text 40 chars -> 10 tokens
+        // 用户文本 40 字符 -> 10 tokens
         val msgs = listOf(userMsg("u1", 40))
         val b = estimateContextBreakdown(msgs, realInput = 100)
         val userSeg = b.segments.first { it.role == BreakdownRole.USER }
@@ -49,7 +49,7 @@ class ContextStatsTest {
 
     @Test
     fun `other absorbs difference from real input`() {
-        val msgs = listOf(userMsg("u1", 40))  // 10 tokens user
+        val msgs = listOf(userMsg("u1", 40))  // 10 tokens 用户
         val b = estimateContextBreakdown(msgs, realInput = 100)
         val otherSeg = b.segments.first { it.role == BreakdownRole.OTHER }
         assertEquals(90, otherSeg.estimatedTokens)  // 100 - 10
@@ -60,7 +60,7 @@ class ContextStatsTest {
         val msgs = listOf(userMsg("u1", 4000))  // 1000 tokens
         val b = estimateContextBreakdown(msgs, realInput = 100)
         val otherSeg = b.segments.firstOrNull { it.role == BreakdownRole.OTHER }
-        // other = max(0, 100 - 1000) = 0 -> filtered out
+        // other = max(0, 100 - 1000) = 0 -> 被过滤掉
         assertNull(otherSeg)
     }
 
@@ -74,23 +74,23 @@ class ContextStatsTest {
 
     @Test
     fun `percents normalized when estimate exceeds input`() {
-        // user 4000 chars=1000 tok, assistant 3640 chars=910 tok, tool 29200 chars=7300 tok
-        // estimated = 9210, realInput = 1958 -> denominator = estimated = 9210
+        // user 4000 字符=1000 tok, assistant 3640 字符=910 tok, tool 29200 字符=7300 tok
+        // estimated = 9210, realInput = 1958 -> 分母 = estimated = 9210
         val msgs = listOf(
             userMsg("u1", 4000),
             assistantMsg("a1", textLen = 3640, toolOutputLen = 29200)
         )
         val b = estimateContextBreakdown(msgs, realInput = 1958)
 
-        // no other segment (estimated > input)
+        // 没有 other 分段（estimated > input）
         assertNull(b.segments.firstOrNull { it.role == BreakdownRole.OTHER })
 
-        // each segment ≤ 1.0
+        // 每个分段 ≤ 1.0
         for (seg in b.segments) {
             assert(seg.percent <= 1.0f) { "${seg.role} percent ${seg.percent} > 1.0" }
         }
 
-        // all segments sum to ~1.0 (100%)
+        // 所有分段之和约为 ~1.0（100%）
         val total = b.segments.sumOf { it.percent.toDouble() }
         assertEquals(1.0, total, 0.01)
     }

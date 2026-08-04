@@ -12,8 +12,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Perform a light haptic tick if haptic feedback is enabled.
- * Call from composable context or from a click lambda that has access to a View.
+ * 若启用了触觉反馈则执行一次轻微的触觉滴答。
+ * 在 composable 上下文中或可访问 View 的点击 lambda 中调用。
  */
 @Suppress("DEPRECATION")
 internal fun performHaptic(view: View, enabled: Boolean) {
@@ -27,8 +27,8 @@ internal fun performHaptic(view: View, enabled: Boolean) {
 }
 
 /**
- * Conditionally applies horizontalScroll for code blocks.
- * When word wrap is enabled, no horizontal scroll is applied.
+ * 对代码块有条件地应用 horizontalScroll。
+ * 启用自动换行时不应用水平滚动。
  */
 @Composable
 internal fun Modifier.codeHorizontalScroll(): Modifier {

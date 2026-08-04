@@ -213,7 +213,7 @@ class ServerSettingsViewModel @Inject constructor(
                     _uiState.update { it.copy(isSaving = false, error = "Failed to connect provider") }
                     return@launch
                 }
-                // Ensure provider is enabled after successful connect
+                // 连接成功后确保 provider 处于启用状态
                 val disabled = _config.value.disabledProviders.toSet() - providerId
                 providerApi.updateGlobalConfig(conn, ServerConfigPatch(disabledProviders = disabled.toList().sorted()))
                 _config.value = providerApi.getGlobalConfig(conn)
@@ -259,9 +259,9 @@ class ServerSettingsViewModel @Inject constructor(
 
     fun completeProviderOauth(code: String?) {
         val pending = _uiState.value.pendingOauth ?: return
-        // Prevent duplicate calls while already in progress
+        // 进行中时防止重复调用
         if (_uiState.value.isSaving) return
-        // Set isSaving synchronously before launching coroutine to prevent race
+        // 在启动协程之前同步设置 isSaving，防止竞态
         _uiState.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
             try {
@@ -269,8 +269,8 @@ class ServerSettingsViewModel @Inject constructor(
                 if (BuildConfig.DEBUG) Log.d(TAG, "completeProviderOauth: calling callback for ${pending.providerId}, method=${pending.methodIndex}")
                 val completed = providerApi.completeProviderOauth(conn, pending.providerId, pending.methodIndex, oauthCode)
                 if (!completed) {
-                    // Some server builds complete auth out-of-band and callback can return non-success.
-                    // Refresh provider catalog before surfacing an error.
+                    // 某些服务器版本会带外完成授权，回调可能返回非成功。
+                    // 在显示错误前先刷新 provider 目录。
                     val catalog = providerApi.listProviderCatalog(conn)
                     _providerCatalog.value = catalog.all
                     _providerConnected.value = catalog.connected.toSet()
@@ -320,7 +320,7 @@ class ServerSettingsViewModel @Inject constructor(
                 val disposed = runCatching { providerApi.disposeGlobal(conn) }.getOrElse { false }
                 if (BuildConfig.DEBUG) Log.d(TAG, "disconnectProvider: disposed=$disposed")
 
-                // Optimistically remove from connected set before reload
+                // 重新加载前乐观地从已连接集合中移除
                 _providerConnected.update { it - providerId }
                 rebuildUi()
                 loadProviders()

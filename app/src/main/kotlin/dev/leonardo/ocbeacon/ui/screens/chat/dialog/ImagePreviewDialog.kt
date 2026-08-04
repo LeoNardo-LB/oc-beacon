@@ -47,7 +47,7 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Compact horizontal row of image thumbnails with tap-to-preview.
+ * 紧凑的水平图片缩略图行，点击可预览。
  */
 @Composable
 internal fun ImageThumbnailRow(
@@ -84,7 +84,7 @@ internal fun ImageThumbnailRow(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // Fallback placeholder for failed decode
+                // 解码失败时的回退占位符
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -103,7 +103,7 @@ internal fun ImageThumbnailRow(
         }
     }
 
-    // Fullscreen image preview dialog
+    // 全屏图片预览对话框
     if (previewIndex >= 0 && previewIndex < imageFiles.size) {
         val file = imageFiles[previewIndex]
         val imageBytes = remember(file.url) { decodePartFileBytes(file) }

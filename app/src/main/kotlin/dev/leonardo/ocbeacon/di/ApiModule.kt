@@ -18,10 +18,10 @@ import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApiImpl
 
 /**
- * Hilt bindings for the 6 domain API interfaces.
+ * 6 个领域 API 接口的 Hilt 绑定。
  *
- * Each `*ApiImpl` is `@Singleton` + `@Inject constructor`, so the bindings here are
- * unscoped aliases — the scope lives on the implementation, matching [DomainModule].
+ * 每个 `*ApiImpl` 都是 `@Singleton` + `@Inject constructor`，因此此处的绑定是
+ * 无作用域别名——作用域由实现类持有，与 [DomainModule] 保持一致。
  */
 @Module
 @InstallIn(SingletonComponent::class)

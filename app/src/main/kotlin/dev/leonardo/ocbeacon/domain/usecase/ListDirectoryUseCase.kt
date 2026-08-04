@@ -4,7 +4,7 @@ import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import javax.inject.Inject
 
 /**
- * Use case: list directory contents on a server.
+ * Use Case：列出服务器上的目录内容。
  */
 class ListDirectoryUseCase @Inject constructor(
     private val fileRepository: FileRepository

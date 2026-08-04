@@ -7,7 +7,7 @@ import kotlinx.serialization.json.*
 private const val TAG = "SseClient"
 
 /**
- * Parses PTY and command events:
+ * 解析 PTY 和命令事件：
  * - pty.created, pty.updated, pty.deleted
  * - command.executed
  */

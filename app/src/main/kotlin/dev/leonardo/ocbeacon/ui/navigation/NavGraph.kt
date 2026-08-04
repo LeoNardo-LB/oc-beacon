@@ -48,9 +48,9 @@ import androidx.compose.material3.windowsizeclass.WindowSizeClass
 private const val TAG = "NavGraph"
 
 /**
- * Main navigation graph for the app.
- * Route patterns, arguments, and parameter extraction are delegated to
- * Nav objects in [dev.leonardo.ocbeacon.ui.navigation.routes].
+ * 应用主导航图。
+ * 路由模式、参数和参数提取委托给
+ * [dev.leonardo.ocbeacon.ui.navigation.routes] 中的 Nav 对象。
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
@@ -66,34 +66,34 @@ fun NavGraph(
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
 
-    // Use native UI by default (WebView is legacy)
+    // 默认使用原生 UI（WebView 为旧版实现）
     val useNativeUi = true
 
-    // Flow to tell the *existing* WebView to navigate to a new URL
-    // (used when deep-link arrives while WebView is already on screen)
+    // 用于通知已存在的 WebView 导航到新 URL 的 Flow
+    //（用于深度链接到达时 WebView 已经在屏幕上的场景）
     val webViewNavigateFlow = remember { MutableSharedFlow<String>(extraBufferCapacity = 1) }
 
-    // ============ Share Target Picker state ============
+    // ============ 分享目标选择器状态 ============
     var showSharePicker by remember { mutableStateOf(false) }
     var pendingShareUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    // Target session that should receive the shared images (null = not yet chosen)
+    // 应该接收这些分享图片的目标会话（null = 尚未选择）
     var pendingShareSessionId by remember { mutableStateOf<String?>(null) }
-    // Data for the picker dialog
+    // 选择器对话框的数据
     var sharePickerServers by remember { mutableStateOf<List<dev.leonardo.ocbeacon.domain.model.ServerConfig>>(emptyList()) }
     var sharePickerSessions by remember { mutableStateOf<List<dev.leonardo.ocbeacon.domain.model.Session>>(emptyList()) }
     var sharePickerServerSessions by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
 
-    // Listen for shared images
+    // 监听分享的图片
     LaunchedEffect(Unit) {
         sharedImagesFlow.collect { uris ->
             if (uris.isEmpty()) return@collect
             Log.i(TAG, "Shared images received: ${uris.size} URIs")
 
-            // Store pending URIs (will be consumed by the target ChatScreen)
+            // 暂存待处理的 URI（将由目标 ChatScreen 消费）
             pendingShareUris = uris
             pendingShareSessionId = null
 
-            // If we're already in a ChatScreen, target the current session directly
+            // 如果已经在 ChatScreen 中，直接定向到当前会话
             val currentRoute = navController.currentDestination?.route
             if (currentRoute?.startsWith("chat") == true) {
                 val currentSessionId = navController.currentBackStackEntry
@@ -105,9 +105,9 @@ fun NavGraph(
                 }
             }
 
-            // Otherwise, show the session picker.
-            // Use local vars to avoid mid-coroutine state writes triggering
-            // recomposition before all data is ready.
+            // 否则，显示会话选择器。
+            // 使用局部变量，避免协程中段写入状态触发
+            // 所有数据就绪前的重组。
             val servers = serverRepository.getServersFlow().firstOrNull() ?: emptyList()
             val allSessions = mutableListOf<Session>()
             val sessionMap = mutableMapOf<String, Set<String>>()
@@ -116,7 +116,7 @@ fun NavGraph(
                 allSessions.addAll(serverSessions)
                 sessionMap[sv.id] = serverSessions.map { it.id }.toSet()
             }
-            // Batch state updates at the end — atomic from recomposition's perspective
+            // 在末尾批量更新状态 — 从重组视角看是原子的
             sharePickerServers = servers
             sharePickerSessions = allSessions
             sharePickerServerSessions = sessionMap
@@ -124,7 +124,7 @@ fun NavGraph(
         }
     }
 
-    // Share Target Picker Dialog
+    // 分享目标选择器对话框
     if (showSharePicker && pendingShareUris.isNotEmpty()) {
         ShareTargetPickerDialog(
             servers = sharePickerServers,
@@ -147,8 +147,8 @@ fun NavGraph(
             },
             onNewSession = { server ->
                 showSharePicker = false
-                // Navigate to session list — user can create a new session there.
-                // Images remain in the flow and will be consumed when ChatScreen opens.
+                // 导航到会话列表 — 用户可在那里创建新会话。
+                // 图片仍保留在 flow 中，会在 ChatScreen 打开时被消费。
                 val route = SessionListNav.createRoute(
                     serverUrl = server.url,
                     username = server.username,
@@ -166,16 +166,16 @@ fun NavGraph(
         )
     }
 
-    // Listen for deep-link events from notification taps
+    // 监听来自通知点击的深度链接事件
     LaunchedEffect(Unit) {
         deepLinkFlow.collect { deepLink ->
-            // Consume the event so it's not replayed on recomposition
+            // 消费事件，避免重组时重放
             deepLinkFlow.resetReplayCache()
             val currentRoute = navController.currentDestination?.route
             if (BuildConfig.DEBUG) Log.d(TAG, "Deep-link received: sessionPath=${deepLink.sessionPath}, sessionId=${deepLink.sessionId}, currentRoute=$currentRoute, useNativeUi=$useNativeUi")
 
             if (useNativeUi) {
-                // ---- Native UI path ----
+                // ---- 原生 UI 路径 ----
                 val sessionId = deepLink.sessionPath
                     .trimEnd('/')
                     .substringAfterLast("/session/", "")
@@ -211,7 +211,7 @@ fun NavGraph(
                     Log.i(TAG, "Deep-link has no sessionId, ignoring native path")
                 }
             } else {
-                // ---- WebView path (legacy) ----
+                // ---- WebView 路径（旧版） ----
                 val isWebViewOnScreen = currentRoute?.startsWith("webview") == true
 
                 if (isWebViewOnScreen && deepLink.sessionPath.isNotBlank()) {
@@ -241,7 +241,7 @@ fun NavGraph(
         popEnterTransition = { fadeIn(animationSpec = tween(AppMotion.MEDIUM)) },
         popExitTransition = { fadeOut(animationSpec = tween(AppMotion.MEDIUM)) }
     ) {
-        // ============ Home Screen ============
+        // ============ 首页 ============
         composable(HomeNav.route) {
             HomeRoute(
                 windowSizeClass = windowSizeClass,
@@ -264,7 +264,7 @@ fun NavGraph(
             )
         }
 
-        // ============ Settings Screen ============
+        // ============ 设置页 ============
         composable(SettingsNav.route) {
             SettingsRoute(
                 onNavigateBack = {
@@ -276,14 +276,14 @@ fun NavGraph(
             )
         }
 
-        // ============ Diagnostics Screen ============
+        // ============ 诊断页 ============
         composable(DiagnosticsNav.route) {
             dev.leonardo.ocbeacon.ui.screens.settings.DiagnosticsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
-        // ============ Cross-Server Favorites Screen ============
+        // ============ 跨服务器收藏页 ============
         composable(CrossServerFavoritesNav.route) {
             CrossServerSessionsScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -310,7 +310,7 @@ fun NavGraph(
             )
         }
 
-        // ============ Server Settings Screen ============
+        // ============ 服务器设置页 ============
         composable(
             route = ServerSettingsNav.routePattern,
             arguments = ServerSettingsNav.navArguments
@@ -343,7 +343,7 @@ fun NavGraph(
             )
         }
 
-        // ============ Server Providers Screen ============
+        // ============ 服务器提供商页 ============
         composable(
             route = ServerProvidersNav.routePattern,
             arguments = ServerProvidersNav.navArguments
@@ -353,7 +353,7 @@ fun NavGraph(
             )
         }
 
-        // ============ Server Model Filter Screen ============
+        // ============ 服务器模型过滤页 ============
         composable(
             route = ServerModelFilterNav.routePattern,
             arguments = ServerModelFilterNav.navArguments
@@ -363,7 +363,7 @@ fun NavGraph(
             )
         }
 
-        // ============ About Screen ============
+        // ============ 关于页 ============
         composable(AboutNav.route) {
             AboutScreen(
                 onNavigateBack = {
@@ -372,7 +372,7 @@ fun NavGraph(
             )
         }
 
-        // ============ WebView Screen (legacy) ============
+        // ============ WebView 页（旧版） ============
         composable(
             route = WebViewNav.routePattern,
             arguments = WebViewNav.navArguments
@@ -393,7 +393,7 @@ fun NavGraph(
             )
         }
 
-        // ============ Session List Screen (native) ============
+        // ============ 会话列表页（原生） ============
         composable(
             route = SessionListNav.routePattern,
             arguments = SessionListNav.navArguments
@@ -436,7 +436,7 @@ fun NavGraph(
             )
         }
 
-        // ============ Chat Screen (native) ============
+        // ============ 聊天页（原生） ============
         composable(
             route = ChatNav.routePattern,
             arguments = ChatNav.navArguments
@@ -444,7 +444,7 @@ fun NavGraph(
             val params = ChatNav.fromEntry(entry)
             val context = LocalContext.current
 
-            // Only pass shared images to the targeted session, then clear them
+            // 仅把分享的图片传给目标会话，然后清空
             val imagesForThisSession = if (pendingShareSessionId == params.sessionId && pendingShareUris.isNotEmpty()) {
                 pendingShareUris
             } else {
@@ -470,7 +470,7 @@ fun NavGraph(
                         directory = if (newSessionId.isEmpty()) params.directory else ""
                     )
                     navController.navigate(route) {
-                        // Pop current chat so back goes to session list, not old session
+                        // 弹出当前 chat，使返回键回到会话列表而非旧会话
                         popUpTo("sessions") {
                             inclusive = false
                         }
@@ -551,7 +551,7 @@ fun NavGraph(
             )
         }
 
-        // ============ Workspace Screen ============
+        // ============ Workspace 页 ============
         composable(
             route = WorkspaceNav.routePattern,
             arguments = WorkspaceNav.navArguments

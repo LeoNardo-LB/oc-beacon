@@ -3,9 +3,9 @@ package dev.leonardo.ocbeacon.domain.model
 import kotlinx.serialization.Serializable
 
 /**
- * A saved permission auto-approve rule.
- * When an incoming [SseEvent.PermissionAsked] matches [toolName] + [sessionId] + [directoryPattern],
- * the permission is auto-approved.
+ * 已保存的权限自动批准规则。
+ * 当收到的 [SseEvent.PermissionAsked] 匹配 [toolName] + [sessionId] + [directoryPattern] 时，
+ * 该权限将被自动批准。
  */
 @Serializable
 data class AutoApproveRule(
@@ -15,13 +15,13 @@ data class AutoApproveRule(
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun matches(event: SseEvent.PermissionAsked, sessionDirectory: String): Boolean {
-        // Tool name must match (exact or wildcard)
+        // 工具名必须匹配（精确匹配或通配符）
         if (toolName != "*" && event.permission != toolName) return false
 
-        // Session must match if specified
+        // 若指定了会话，则会话必须匹配
         if (sessionId != null && event.sessionId != sessionId) return false
 
-        // Directory pattern must match
+        // 目录模式必须匹配
         if (directoryPattern != "*" && directoryPattern != sessionDirectory) return false
 
         return true

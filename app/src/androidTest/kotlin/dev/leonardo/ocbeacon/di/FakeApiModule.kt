@@ -20,12 +20,12 @@ import dev.leonardo.ocbeacon.data.api.terminal.TerminalApiImpl
 import javax.inject.Singleton
 
 /**
- * Replaces ApiModule for the test environment.
+ * 测试环境下替换 ApiModule。
  *
- * Binds real ApiImpl classes (they depend on ApiClient which receives the dummy HttpClient
- * from FakeNetworkModule). APIs are never invoked because all repositories are faked.
- * ServerTerminalRegistry depends on TerminalApi — it receives the real TerminalApiImpl
- * but never connects in tests.
+ * 绑定真实的 ApiImpl 类（它们依赖 ApiClient，而 ApiClient 接收来自
+ * FakeNetworkModule 的占位 HttpClient）。由于所有 repository 都被 fake 了，
+ * 这些 API 永远不会被调用。ServerTerminalRegistry 依赖 TerminalApi ——
+ * 它会拿到真实的 TerminalApiImpl，但在测试中永远不会连接。
  */
 @TestInstallIn(components = [SingletonComponent::class], replaces = [ApiModule::class])
 @Module

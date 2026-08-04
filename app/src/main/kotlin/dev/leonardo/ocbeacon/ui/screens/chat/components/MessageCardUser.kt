@@ -82,7 +82,7 @@ internal fun MessageCardUser(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
 
-    // Filter visible parts for user messages
+    // 过滤用户消息的可见 parts
     val visibleParts = currentMessage.parts.filter { part ->
         when (part) {
             is Part.Text -> part.synthetic != true && part.ignored != true && part.text.isNotBlank()
@@ -128,8 +128,8 @@ internal fun MessageCardUser(
                     ),
                     verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
                 ) {
-                    // Content parts (text, reasoning, patches, etc.)
-                    // Group image file parts into a compact thumbnail row
+                    // 内容 parts（文本、推理、补丁等）
+                    // 将图片文件 parts 分组为紧凑的缩略图行
                     val (imageFiles, renderableOtherParts) = remember(contentParts) {
                         val images = contentParts.filterIsInstance<Part.File>()
                             .filter { it.mime.startsWith("image/") && !it.url.isNullOrBlank() }
@@ -139,12 +139,12 @@ internal fun MessageCardUser(
                         images to others
                     }
 
-                    // Render image thumbnails as a horizontal row
+                    // 以水平行渲染图片缩略图
                     if (imageFiles.isNotEmpty()) {
                         ImageThumbnailRow(imageFiles = imageFiles)
                     }
 
-                    // Render remaining parts
+                    // 渲染剩余 parts
                     for (part in renderableOtherParts) {
                         key(part.id) {
                             PartContent(
@@ -175,7 +175,7 @@ internal fun MessageCardUser(
                         }
                     }
 
-                    // If text parts are absent but server provided a summary, render it.
+                    // 若文本 parts 缺失但服务器提供了摘要，则渲染摘要。
                     if (visibleParts.isEmpty() && userFallbackText != null) {
                         Text(
                             text = userFallbackText,
@@ -229,7 +229,7 @@ internal fun MessageCardUser(
                                 }
                             }
                             null -> {
-                                // Real message — show QUEUED badge if queued
+                                // 真实消息 —— 若在队列中则显示 QUEUED 徽章
                                 if (isQueued) {
                                     Surface(
                                         shape = ShapeTokens.extraSmall,
@@ -247,7 +247,7 @@ internal fun MessageCardUser(
                                     }
                                 }
                             }
-                            UserMsgStatus.Sent -> { /* nothing — briefly visible before removal */ }
+                            UserMsgStatus.Sent -> { /* 无操作 —— 移除前短暂显示 */ }
                         }
 
                         // Undo 按钮（仅主会话，onRevert != null 时显示）

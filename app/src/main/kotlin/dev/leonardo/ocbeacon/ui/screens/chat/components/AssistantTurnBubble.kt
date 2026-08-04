@@ -63,8 +63,8 @@ internal fun AssistantTurnBubble(
         null
     }
 
-    // Collect all renderable content from all messages in the turn
-    // Keep parts in their original order so tool calls are interleaved with text/reasoning
+    // 收集该 turn 中所有消息的可渲染内容
+    // 保持 parts 原始顺序，使工具调用与文本/推理内容交错呈现
     val allContent = remember(messages) {
         messages.mapNotNull { msg ->
             val parts = msg.parts
@@ -81,14 +81,14 @@ internal fun AssistantTurnBubble(
         }
     }
 
-    // Extract agent names from Part.Agent in each message's full parts list
-    // Map: part.id -> agentName (for task tools to look up sibling agent names)
+    // 从每条消息的完整 parts 列表中提取 agent 名称
+    // 映射：part.id -> agentName（供 task 工具查找同组 agent 名称）
     val taskAgentNames = remember(messages) {
         val result = mutableMapOf<String, String?>()
         for (msg in messages) {
             val agentParts = msg.parts.filterIsInstance<Part.Agent>()
             val agentName = agentParts.firstOrNull()?.name?.takeIf { it.isNotBlank() }
-            // Find all task tool parts in this message and associate with agentName
+            // 查找该消息中的所有 task 工具 parts，并关联 agentName
             msg.parts.filterIsInstance<Part.Tool>().filter { it.tool == "task" }.forEach { taskPart ->
                 result[taskPart.id] = agentName
             }
@@ -98,7 +98,7 @@ internal fun AssistantTurnBubble(
 
     if (allContent.isEmpty()) return
 
-    // Use the first message's assistant info for the header
+    // 使用第一条消息的 assistant 信息作为头部
     val firstAssistant = messages.firstOrNull()?.message as? Message.Assistant
 
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -128,7 +128,7 @@ internal fun AssistantTurnBubble(
                 ),
                 verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)
             ) {
-                // "Response" header with provider icon and copy button
+                // "Response" 头部，含提供商图标和复制按钮
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -166,7 +166,7 @@ internal fun AssistantTurnBubble(
                     }
                 }
 
-                // Render all messages' parts in original order (text, tool, reasoning interleaved)
+                // 按原始顺序渲染所有消息的 parts（文本、工具、推理交错）
                 for ((renderableParts, errorPair) in allContent) {
                     val (errorText, assistantMsg) = errorPair
 
@@ -182,7 +182,7 @@ internal fun AssistantTurnBubble(
                         }
                     }
 
-                    // Error display
+                    // 错误展示
                     if (errorText != null) {
                         Surface(
                             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),

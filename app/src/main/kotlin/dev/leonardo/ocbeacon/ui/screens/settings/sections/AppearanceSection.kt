@@ -46,7 +46,7 @@ fun AppearanceSection(
         modifier = Modifier.clickable { onShowThemeDialog() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Dynamic colors (only on Android 12+)
+    // 动态取色（仅 Android 12+）
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         ListItem(
             headlineContent = { Text(stringResource(R.string.settings_dynamic_color)) },
@@ -65,7 +65,7 @@ fun AppearanceSection(
         )
     }
 
-    // AMOLED dark mode
+    // AMOLED 深色模式
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_amoled_dark)) },
         supportingContent = { Text(stringResource(R.string.settings_amoled_dark_desc)) },

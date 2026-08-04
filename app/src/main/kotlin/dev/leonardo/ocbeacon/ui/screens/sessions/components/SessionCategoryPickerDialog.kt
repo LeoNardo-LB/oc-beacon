@@ -51,12 +51,12 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Dialog for managing session categories and assigning a category to a session.
+ * 用于管理会话分类并把分类分配给会话的对话框。
  *
- * - Lists existing categories; tapping one calls [onAssign] with its id.
- * - A "无分类" option at top calls [onAssign] with null to clear the assignment.
- * - A create section at the bottom builds a new category via [onCreateCategory].
- * - Each category row has a delete affordance via [onDeleteCategory].
+ * - 列出已有分类；点击某个分类会以它的 id 调用 [onAssign]。
+ * - 顶部的"无分类"选项会以 null 调用 [onAssign]，清除分配。
+ * - 底部的创建区通过 [onCreateCategory] 构建新分类。
+ * - 每个分类行可通过 [onDeleteCategory] 删除。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,7 +92,7 @@ fun SessionCategoryPickerDialog(
                 Text(text = "分类", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(12.dp))
 
-                // "无分类" — clears assignment
+                // "无分类" — 清除分配
                 CategoryOptionRow(
                     icon = Icons.Filled.Close,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -114,7 +114,7 @@ fun SessionCategoryPickerDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                // Create new category section
+                // 新建分类区
                 Text(
                     text = "新建分类",
                     style = MaterialTheme.typography.labelLarge,

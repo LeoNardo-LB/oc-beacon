@@ -26,7 +26,7 @@ import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Section in Settings showing saved permission auto-approve rules.
+ * 设置中显示已保存权限自动批准规则的区块。
  */
 @Composable
 internal fun PermissionRulesSection(

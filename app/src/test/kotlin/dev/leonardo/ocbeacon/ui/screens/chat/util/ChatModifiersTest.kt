@@ -6,15 +6,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Unit tests for consumeBoundaryScroll's NestedScrollConnection logic.
+ * consumeBoundaryScroll 的 NestedScrollConnection 逻辑单元测试。
  *
- * Since the NestedScrollConnection is created inside a @Composable function,
- * we test the boundary conditions directly by extracting the decision logic
- * into a testable top-level function.
+ * 由于 NestedScrollConnection 是在 @Composable 函数内部创建的，
+ * 我们通过将决策逻辑提取为可测试的顶层函数来直接测试边界条件。
  */
 class ChatModifiersTest {
 
-    // ----- onPostScroll logic -----
+    // ----- onPostScroll 逻辑 -----
 
     @Test
     fun `onPostScroll at top scrolling up consumes available`() {
@@ -46,7 +45,7 @@ class ChatModifiersTest {
         assertEquals(Offset.Zero, result)
     }
 
-    // ----- onPostFling logic (mirrors onPostScroll) -----
+    // ----- onPostFling 逻辑（与 onPostScroll 对应）-----
 
     @Test
     fun `onPostFling at top fling up consumes velocity`() {
@@ -66,7 +65,7 @@ class ChatModifiersTest {
         assertEquals(Velocity.Zero, result)
     }
 
-    // ----- Helper functions that mirror the NestedScrollConnection logic -----
+    // ----- 镜像 NestedScrollConnection 逻辑的辅助函数 -----
 
     private fun postScrollDecision(atTop: Boolean, atBottom: Boolean, availableY: Float): Offset {
         return when {

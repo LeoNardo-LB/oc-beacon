@@ -12,7 +12,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Current tool execution progress for a single tool call.
+ * 单次工具调用的当前工具执行进度。
  */
 data class ToolProgressInfo(
     val callId: String,
@@ -25,7 +25,7 @@ data class ToolProgressInfo(
 )
 
 /**
- * Current step progress.
+ * 当前步骤进度。
  */
 data class StepProgressInfo(
     val step: Int,
@@ -34,7 +34,7 @@ data class StepProgressInfo(
 )
 
 /**
- * Compaction state for a session.
+ * 会话的压缩状态。
  */
 data class CompactionStateInfo(
     val isActive: Boolean,
@@ -42,16 +42,16 @@ data class CompactionStateInfo(
 )
 
 /**
- * Shell execution state for a session.
+ * 会话的 shell 执行状态。
  */
 data class ShellStateInfo(
     val command: String
 )
 
 /**
- * Handles all session.next.* events for real-time status tracking.
- * Manages: agent/model switching, tool progress, step progress,
- * compaction state, and shell state.
+ * 处理所有 session.next.* 事件以进行实时状态跟踪。
+ * 管理：agent/model 切换、工具进度、步骤进度、
+ * 压缩状态和 shell 状态。
  */
 @Singleton
 class SessionNextEventHandler @Inject constructor() : SseEventHandler {
@@ -60,7 +60,7 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         private const val TAG = "SessionNextEventHandler"
     }
 
-    // ============ Public State (read-only) ============
+    // ============ 公共状态（只读）============
 
     private val _currentAgent = MutableStateFlow<Map<String, String>>(emptyMap())
     val currentAgent: StateFlow<Map<String, String>> = _currentAgent.asStateFlow()
@@ -99,7 +99,7 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         return false
     }
 
-    // ============ Event Processing ============
+    // ============ 事件处理 ============
 
     fun handleSessionNextEvent(event: SessionNextEvent) {
         if (BuildConfig.DEBUG) Log.d(TAG, "Processing: ${event::class.simpleName}")
@@ -107,8 +107,8 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
             is SessionNextEvent.AgentSwitched -> handleAgentSwitched(event)
             is SessionNextEvent.ModelSwitched -> handleModelSwitched(event)
 
-            // Text/Reasoning streaming events carry no state to track here — part content
-            // and time.end are updated via message.part.* events in MessagePartHandler.
+            // 文本/推理流式事件不携带需在此跟踪的状态——part 内容
+            // 和 time.end 通过 MessagePartHandler 中的 message.part.* 事件更新。
             is SessionNextEvent.TextStarted -> Unit
             is SessionNextEvent.TextDelta -> Unit
             is SessionNextEvent.TextEnded -> Unit
@@ -118,8 +118,8 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
             is SessionNextEvent.ReasoningEnded -> Unit
 
             is SessionNextEvent.ToolInputStarted -> handleToolInputStarted(event)
-            is SessionNextEvent.ToolInputDelta -> { /* delta tracked, no state change */ }
-            is SessionNextEvent.ToolCalled -> { /* full input available, no state change */ }
+            is SessionNextEvent.ToolInputDelta -> { /* delta 已跟踪，无状态变更 */ }
+            is SessionNextEvent.ToolCalled -> { /* 完整输入可用，无状态变更 */ }
             is SessionNextEvent.ToolProgress -> handleToolProgress(event)
             is SessionNextEvent.ToolSuccess -> handleToolComplete(event.sessionId, event.callId)
             is SessionNextEvent.ToolFailed -> handleToolComplete(event.sessionId, event.callId)
@@ -132,14 +132,14 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
             is SessionNextEvent.ShellEnded -> handleShellEnded(event.sessionId)
 
             is SessionNextEvent.CompactionStarted -> handleCompactionStarted(event)
-            is SessionNextEvent.CompactionDelta -> { /* delta tracked */ }
+            is SessionNextEvent.CompactionDelta -> { /* delta 已跟踪 */ }
             is SessionNextEvent.CompactionEnded -> handleCompactionEnded(event.sessionId)
 
-            is SessionNextEvent.Prompted -> { /* informational */ }
+            is SessionNextEvent.Prompted -> { /* 信息性 */ }
             is SessionNextEvent.Retried -> {
                 _retryState.update { it + (event.sessionId to event.attempt) }
             }
-            is SessionNextEvent.Synthetic -> { /* informational */ }
+            is SessionNextEvent.Synthetic -> { /* 信息性 */ }
             is SessionNextEvent.Unknown -> {
                 Log.w(TAG, "Unhandled session.next event: ${event.rawType}")
             }
@@ -236,7 +236,7 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         _gapDetected.update { it - sessionId }
     }
 
-    // ============ Cleanup ============
+    // ============ 清理 ============
 
     fun clearForSession(sessionId: String) {
         _currentAgent.update { it - sessionId }

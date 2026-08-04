@@ -16,12 +16,12 @@ import javax.inject.Inject
 import org.junit.Test
 
 /**
- * Integration tests for the chat input bar behavior.
+ * 聊天输入栏行为的集成测试。
  *
- * Covers text input, slash command autocomplete, @-file mention search,
- * attachment button visibility, and send button state management.
+ * 覆盖：文本输入、斜杠命令自动补全、@-文件提及搜索、
+ * 附件按钮可见性，以及发送按钮状态管理。
  *
- * Uses [BaseChatTest] for Hilt + Compose setup with pre-injected fakes.
+ * 使用 [BaseChatTest] 进行 Hilt + Compose 搭建，fakes 已预注入。
  */
 @HiltAndroidTest
 class ChatInputTest : BaseChatTest() {
@@ -33,12 +33,12 @@ class ChatInputTest : BaseChatTest() {
     fun typing_updates_draft_text() {
         renderChatScreen()
 
-        // typeInput uses hasSetTextAction() to find the real editable node
-        // inside BasicTextField+decorationBox, bypassing the semantics merge issue.
+        // typeInput 使用 hasSetTextAction() 在 BasicTextField+decorationBox 中
+        // 定位真正的可编辑节点，绕过 semantics 合并问题。
         typeInput("hello world")
 
-        // BasicTextField + decorationBox doesn't expose EditableText via semantics.
-        // Verify typing worked via side effect: send button exists when input is non-empty.
+        // BasicTextField + decorationBox 不通过 semantics 暴露 EditableText。
+        // 通过副作用验证输入生效：输入非空时发送按钮存在。
         composeRule.onNodeWithTag("chat-send").assertExists()
     }
 
@@ -48,7 +48,7 @@ class ChatInputTest : BaseChatTest() {
 
         typeInput("/")
 
-        // SlashCommandRegistry.clientCommands() always provides: new, compact, fork, etc.
+        // SlashCommandRegistry.clientCommands() 总是提供：new、compact、fork 等。
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("/new").fetchSemanticsNodes().isNotEmpty()
         }
@@ -57,15 +57,15 @@ class ChatInputTest : BaseChatTest() {
 
     @Test
     fun file_mention_search_shows_results() {
-        // Configure fake to return file paths for @-mention search.
-        // The search goes through ManageAgentUseCase → AgentRepository.searchFiles.
+        // 配置 fake 为 @-mention 搜索返回文件路径。
+        // 搜索路径为 ManageAgentUseCase → AgentRepository.searchFiles。
         fakeAgent.searchFilesResult = Result.success(listOf("src/main.kt", "README.md"))
 
         renderChatScreen()
 
         typeInput("@test")
 
-        // Wait for 150ms debounce + async coroutine to complete
+        // 等待 150ms 防抖 + 异步协程完成
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodesWithText("main.kt", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -76,8 +76,8 @@ class ChatInputTest : BaseChatTest() {
 
     @Test
     fun attachment_can_be_added() {
-        // AgentModelVariantSelector (which contains the attach button) only renders
-        // when modelLabel is non-empty or agents.size > 1.
+        // AgentModelVariantSelector（其中包含附件按钮）仅当
+        // modelLabel 非空或 agents.size > 1 时才渲染。
         fakeAgent.agentsResult = Result.success(listOf(
             AgentInfo(name = "build"),
             AgentInfo(name = "general")
@@ -85,13 +85,13 @@ class ChatInputTest : BaseChatTest() {
 
         renderChatScreen()
 
-        // Wait for ViewModel to load agents and render the selector row
+        // 等待 ViewModel 加载 agents 并渲染选择器行
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithContentDescription("Attach")
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        // Attach button (AttachFile icon) should be visible
+        // 附件按钮（AttachFile 图标）应当可见
         composeRule.onNodeWithContentDescription("Attach").assertIsDisplayed()
     }
 
@@ -103,7 +103,7 @@ class ChatInputTest : BaseChatTest() {
             composeRule.onAllNodesWithTag("chat-send").fetchSemanticsNodes().isNotEmpty()
         }
 
-        // With empty input, clicking send should NOT trigger promptAsync
+        // 输入为空时，点击发送不应触发 promptAsync
         composeRule.onNodeWithTag("chat-send").performClick()
         composeRule.waitForIdle()
 

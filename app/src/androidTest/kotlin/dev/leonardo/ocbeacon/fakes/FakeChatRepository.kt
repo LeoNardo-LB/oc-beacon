@@ -21,19 +21,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
 
 /**
- * Fake ChatRepository with 46 methods.
+ * Fake ChatRepository，包含 46 个方法。
  *
- * Pattern:
- * - Flow methods return public MutableStateFlow fields (tests set .value)
- * - suspend methods return configurable Result fields (defaults = success)
- * - Sync mutation methods record calls + update state
+ * 模式：
+ * - Flow 方法返回公共的 MutableStateFlow 字段（测试设置 .value）
+ * - suspend 方法返回可配置的 Result 字段（默认 = success）
+ * - 同步变更方法记录调用 + 更新状态
  *
- * Session-agnostic: all flow methods return the same flow regardless of sessionId/serverId.
+ * 与会话无关：所有 flow 方法不论 sessionId/serverId 都返回同一个 flow。
  */
 @Singleton
 class FakeChatRepository @Inject constructor() : ChatRepository {
 
-    // ============ Controllable State Flows ============
+    // ============ 可控 State Flow ============
 
     val messagesState = MutableStateFlow<List<Message>>(emptyList())
     val partsState = MutableStateFlow<List<Part>>(emptyList())
@@ -47,7 +47,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     val compactionState = MutableStateFlow<CompactionStateInfo?>(null)
     val sessionDiffsState = MutableStateFlow<List<FileDiff>>(emptyList())
 
-    // Internal backing stores for sync mutations
+    // 同步变更的内部后备存储
     private val messagesStore = mutableMapOf<String, MutableList<MessageWithParts>>()
     private val toolExpandedStates = mutableMapOf<String, Boolean>()
     private val permissionsStore = mutableMapOf<String, MutableList<SseEvent.PermissionAsked>>()
@@ -56,7 +56,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     private val autoApproveRules = mutableListOf<AutoApproveRule>()
     private var sessionsSnapshot: List<Session> = emptyList()
 
-    // ============ Configurable suspend Results ============
+    // ============ 可配置 suspend Result ============
 
     var sendMessageResult: Result<Message> = Result.success(
         Message.User(
@@ -80,7 +80,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     var executeCommandResult: Result<Boolean> = Result.success(true)
     var runShellCommandResult: Result<Boolean> = Result.success(true)
 
-    // ============ Call Recording ============
+    // ============ 调用记录 ============
 
     val sentMessages = mutableListOf<Pair<String, List<Part>>>()
     val promptAsyncCalls = mutableListOf<Pair<String, List<PromptPart>>>()
@@ -89,7 +89,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     val undoRedoCalls = mutableListOf<Triple<String, String, String>>()
     val executeCommandCalls = mutableListOf<Map<String, String>>()
 
-    // ============ State Observations ============
+    // ============ 状态观察 ============
 
     override fun getMessagesFlow(sessionId: String): Flow<List<Message>> = messagesState
 
@@ -111,7 +111,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     override fun getCompactionState(serverId: String): Flow<CompactionStateInfo?> = compactionState
 
-    // ============ Session-keyed Flow Observations ============
+    // ============ 按 session 键的 Flow 观察 ============
 
     override fun getActiveToolProgressForSession(sessionId: String): Flow<List<ToolProgressInfo>?> = toolProgressState
 
@@ -121,7 +121,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     override fun getSessionDiffsForSession(sessionId: String): Flow<List<FileDiff>> = sessionDiffsState
 
-    // ============ Network Operations ============
+    // ============ 网络操作 ============
 
     override suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message> {
         sentMessages.add(sessionId to parts)
@@ -167,7 +167,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     override suspend fun selectModel(serverId: String, providerId: String, modelId: String): Result<Unit> =
         selectModelResult
 
-    // ============ Pending Queries ============
+    // ============ 待处理查询 ============
 
     override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>> =
         listPendingPermissionsResult
@@ -192,7 +192,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         return undoRedoResult
     }
 
-    // ============ Command Execution ============
+    // ============ 命令执行 ============
 
     override suspend fun executeCommand(
         serverId: String,
@@ -220,7 +220,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         directory: String?
     ): Result<Boolean> = runShellCommandResult
 
-    // ============ UI State ============
+    // ============ UI 状态 ============
 
     override fun getToolExpandedStates(): Map<String, Boolean> = toolExpandedStates.toMap()
 
@@ -228,13 +228,13 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         toolExpandedStates[toolId] = expanded
     }
 
-    // ============ Permission Auto-Approve ============
+    // ============ 权限自动批准 ============
 
     override suspend fun addPermissionAutoApproveRule(rule: AutoApproveRule) {
         autoApproveRules.add(rule)
     }
 
-    // ============ Write Operations (State Updates) ============
+    // ============ 写操作（状态更新） ============
 
     override fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
         messagesStore[sessionId] = messages.toMutableList()
@@ -268,7 +268,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     override fun setPermissions(sessionId: String, permissions: List<SseEvent.PermissionAsked>) {
         permissionsStore[sessionId] = permissions.toMutableList()
-        // Must emit on allPermissionsMapState so the ViewModel's combine flow re-triggers
+        // 必须在 allPermissionsMapState 上发射，使 ViewModel 的 combine flow 重新触发
         allPermissionsMapState.value = permissionsStore.mapValues { it.value.toList() }
     }
 
@@ -279,7 +279,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     override fun setQuestions(sessionId: String, questions: List<SseEvent.QuestionAsked>) {
         questionsStore[sessionId] = questions.toMutableList()
-        // Must emit on allQuestionsMapState so the ViewModel's combine flow re-triggers
+        // 必须在 allQuestionsMapState 上发射，使 ViewModel 的 combine flow 重新触发
         allQuestionsMapState.value = questionsStore.mapValues { it.value.toList() }
     }
 
@@ -297,7 +297,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         return questionsStore[sessionId] ?: emptyList()
     }
 
-    // ============ Raw State Reads ============
+    // ============ 原始状态读取 ============
 
     override fun getPermissionsSnapshot(): Map<String, List<SseEvent.PermissionAsked>> =
         permissionsStore.mapValues { it.value.toList() }
@@ -307,9 +307,9 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     override fun getSessionsSnapshot(): List<Session> = sessionsSnapshot
 
-    // ============ Test Helper ============
+    // ============ 测试辅助 ============
 
-    /** Set the sessions snapshot (for tests that need getSessionsSnapshot to return data). */
+    /** 设置 sessions 快照（用于需要 getSessionsSnapshot 返回数据的测试）。 */
     fun setSessionsSnapshot(sessions: List<Session>) {
         sessionsSnapshot = sessions
     }

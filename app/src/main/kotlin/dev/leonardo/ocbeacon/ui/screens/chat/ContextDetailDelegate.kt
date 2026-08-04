@@ -21,10 +21,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CoroutineScope
 
 /**
- * Builds context detail state (token breakdown, cache hit rate, provider info)
- * from message list, token stats, session data, and model config.
+ * 从消息列表、token 统计、会话数据和模型配置
+ * 构建上下文详情状态（token 分布、缓存命中率、provider 信息）。
  *
- * Extracted from ChatViewModel to isolate context computation logic.
+ * 从 ChatViewModel 提取以隔离上下文计算逻辑。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ContextDetailDelegate(

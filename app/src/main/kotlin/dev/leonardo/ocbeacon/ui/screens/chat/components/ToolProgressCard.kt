@@ -36,8 +36,8 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 
 /**
- * Card displaying real-time tool execution progress.
- * Shows tool name, status text, and an animated progress indicator.
+ * 展示实时工具执行进度的卡片。
+ * 显示工具名称、状态文本和一个动画进度指示器。
  */
 @Composable
 fun ToolProgressCard(
@@ -57,7 +57,7 @@ fun ToolProgressCard(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Animated icon
+            // 动画图标
             val transition = rememberInfiniteTransition(label = "tool_progress_rotation")
             val rotation by transition.animateFloat(
                 initialValue = 0f,
@@ -80,7 +80,7 @@ fun ToolProgressCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                // Tool name + progress
+                // 工具名 + 进度
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
@@ -101,7 +101,7 @@ fun ToolProgressCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Indeterminate progress bar
+                // 不确定进度条
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.tertiary,

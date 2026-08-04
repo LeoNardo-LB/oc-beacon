@@ -33,12 +33,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Characterization tests for domain model JSON serialization/deserialization.
+ * domain 模型 JSON 序列化/反序列化的特征测试。
  *
- * These tests lock in the EXISTING serialization contract so that refactoring
- * cannot accidentally change JSON field names, order, or structure.
+ * 这些测试锁定现有序列化契约，使重构无法意外改变 JSON 字段名、顺序或结构。
  *
- * Phase 0 safety net: if any of these break, the refactoring broke the API contract.
+ * Phase 0 安全网：如果这些测试失败，说明重构破坏了 API 契约。
  */
 class SerializationTest {
 
@@ -587,7 +586,7 @@ class SerializationTest {
         val jsonStr = """{"status": "pending", "input": {"path": "/tmp"}}"""
         val state = json.decodeFromString(ToolState.serializer(), jsonStr)
         assertTrue(state is ToolState.Pending)
-        // input is Map<String, JsonElement>, so values are JsonPrimitive
+        // input 是 Map<String, JsonElement>，因此值是 JsonPrimitive
         assertEquals("/tmp", (state as ToolState.Pending).input["path"]?.jsonPrimitive?.content)
     }
 
@@ -630,9 +629,9 @@ class SerializationTest {
 
     @Test
     fun `ToolState round-trip`() {
-        // NOTE: ToolState subclasses don't have a `status` property, so encoding
-        // ToolState.Completed won't produce a `status` field for polymorphic deserialization.
-        // Test with manually constructed JSON that includes the discriminator.
+        // 注意：ToolState 子类没有 `status` 属性，因此编码
+        // ToolState.Completed 不会产生 `status` 字段用于多态反序列化。
+        // 使用手动构造的包含判别器的 JSON 进行测试。
         val jsonStr = """{
             "status": "completed",
             "input": {"path": "/tmp/file"},
@@ -745,7 +744,7 @@ class SerializationTest {
     fun `Project displayName logic`() {
         assertEquals("explicit", Project(name = "explicit", worktree = "/a/b").displayName)
         assertEquals("b", Project(name = null, worktree = "/a/b").displayName)
-        // id.take(8) fallback: needs a non-empty id
+        // id.take(8) 回退逻辑：需要非空 id
         assertEquals("12345678", Project(id = "1234567890", name = null, worktree = "").displayName)
     }
 
@@ -753,9 +752,9 @@ class SerializationTest {
 
     @Test
     fun `MessageWithParts deserializes from server JSON`() {
-        // NOTE: Part subclasses don't have a `type` property, so encoding
-        // Part.Text won't produce a `type` field for polymorphic deserialization.
-        // We test deserialization from realistic server JSON instead.
+        // 注意：Part 子类没有 `type` 属性，因此编码
+        // Part.Text 不会产生 `type` 字段用于多态反序列化。
+        // 我们改为使用真实的服务器 JSON 测试反序列化。
         val jsonStr = """{
             "info": {
                 "id": "msg_1",
@@ -781,7 +780,7 @@ class SerializationTest {
         assertEquals("hello", (mwp.parts[0] as Part.Text).text)
     }
 
-    // ============ SseEvent data classes (individual serialization) ============
+    // ============ SseEvent 数据类（单独序列化）============
 
     @Test
     fun `SseEvent PermissionAsked round-trip`() {
@@ -916,7 +915,7 @@ class SerializationTest {
         assertEquals("m1", decoded.messageId)
     }
 
-    // ============ Request/Response DTOs ============
+    // ============ 请求/响应 DTO ============
 
     @Test
     fun `ModelSelection serializes providerID and modelID`() {
@@ -1159,15 +1158,15 @@ class SerializationTest {
     }
 
     // ============ SessionStatus ============
-    // NOTE: SessionStatus has NO custom polymorphic serializer.
-    // The sealed class subclasses are individually @Serializable, and the
-    // `type` field is used as a discriminator by SseClient.parseEventByType() manually.
-    // We test individual subclass serialization here.
+    // 注意：SessionStatus 没有自定义多态序列化器。
+    // 密封类子类各自 @Serializable，`type` 字段由
+    // SseClient.parseEventByType() 手动用作判别器。
+    // 这里测试各子类的单独序列化。
 
     @Test
     fun `SessionStatus Idle serializes and deserializes individually`() {
         val encoded = json.encodeToString(SessionStatus.Idle.serializer(), SessionStatus.Idle)
-        // Idle is data object, serializes as {} 
+        // Idle 是 data object，序列化为 {}
         val decoded = json.decodeFromString(SessionStatus.Idle.serializer(), encoded)
         assertTrue(decoded is SessionStatus.Idle)
     }

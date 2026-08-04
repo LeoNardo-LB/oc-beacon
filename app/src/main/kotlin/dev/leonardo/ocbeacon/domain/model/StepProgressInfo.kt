@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Domain model for step progress.
- * Counterpart of data.repository.handler.StepProgressInfo.
+ * 步骤进度的领域模型。
+ * 对应 data.repository.handler.StepProgressInfo。
  */
 data class StepProgressInfo(
     val step: Int,

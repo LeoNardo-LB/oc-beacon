@@ -7,7 +7,7 @@ import org.junit.Test
 
 class DiagnosticLogRepositoryTest {
 
-    // ---- Credential / token redaction ----
+    // ---- 凭证 / token 脱敏 ----
 
     @Test
     fun redactsCredentialsBeforePersistence() {
@@ -40,7 +40,7 @@ class DiagnosticLogRepositoryTest {
         ).forEach { secret -> assertFalse("must not contain '$secret'", sanitized.contains(secret)) }
     }
 
-    // ---- IP address redaction ----
+    // ---- IP 地址脱敏 ----
 
     @Test
     fun redactsIpv4Addresses() {
@@ -58,7 +58,7 @@ class DiagnosticLogRepositoryTest {
         assertTrue(sanitized.contains("[IP]"))
     }
 
-    // ---- Local user path redaction ----
+    // ---- 本地用户路径脱敏 ----
 
     @Test
     fun redactsUnixUserPaths() {
@@ -76,7 +76,7 @@ class DiagnosticLogRepositoryTest {
         assertTrue(sanitized.contains("[PATH]"))
     }
 
-    // ---- Export second-pass sanitization ----
+    // ---- 导出二次脱敏 ----
 
     @Test
     fun exportPerformsSecondSanitizationPass() {
@@ -97,7 +97,7 @@ class DiagnosticLogRepositoryTest {
         assertTrue(exported.contains("[REDACTED]"))
     }
 
-    // ---- Length bounding ----
+    // ---- 长度限制 ----
 
     @Test
     fun sanitizerBoundsEachField() {

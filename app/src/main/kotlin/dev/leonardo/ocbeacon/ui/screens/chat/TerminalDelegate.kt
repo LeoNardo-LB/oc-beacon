@@ -15,18 +15,18 @@ import org.connectbot.terminal.TerminalEmulator
 private const val TERMINAL_DELEGATE_TAG = "TerminalDelegate"
 
 /**
- * Owns the server-scoped [ServerTerminalWorkspace] and all terminal tab/input operations
- * previously inlined in [ChatViewModel].
+ * 管理服务器范围的 [ServerTerminalWorkspace] 及此前内联在 [ChatViewModel] 中的
+ * 所有终端标签/输入操作。
  *
- * Extracted in Phase 3 Task 1a as the delegate-extraction pilot.
+ * 在 Phase 3 Task 1a 中作为 delegate 提取试点。
  *
- * NOTE: Intentionally NOT `@Singleton`/`@Inject`. It holds per-ChatViewModel runtime context
- * (server credentials from SavedStateHandle, the ViewModel's coroutine scope, a session-directory
- * provider and the session-loaded signal) that Hilt cannot supply. ChatViewModel constructs it
- * directly and re-exposes every member as a facade, so the 81 UI files are unchanged.
+ * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的运行时上下文
+ *（来自 SavedStateHandle 的服务器凭据、ViewModel 的协程作用域、session-directory
+ * provider 和会话加载信号），Hilt 无法提供这些。ChatViewModel 直接构造它
+ * 并将每个成员作为门面重新暴露，因此 81 个 UI 文件无需改动。
  *
- * The underlying [ServerTerminalWorkspace] is itself server-scoped via [ServerTerminalRegistry]
- * (a true `@Singleton`), so terminal state still survives chat-screen recreation exactly as before.
+ * 底层 [ServerTerminalWorkspace] 本身通过 [ServerTerminalRegistry]
+ *（真正的 `@Singleton`）是服务器范围的，因此终端状态仍然完全如前地存活聊天屏幕重建。
  */
 internal class TerminalDelegate(
     terminalRegistry: ServerTerminalRegistry,
@@ -53,7 +53,7 @@ internal class TerminalDelegate(
     }
 
     init {
-        // Sync the user's terminal font-size setting into the workspace default.
+        // 将用户的终端字号设置同步到工作区默认值。
         scope.launch {
             settingsRepository.getSettingsFlow().map { it.terminalFontSize }.collect { size ->
                 terminalWorkspace.setDefaultFontSize(size)
@@ -63,7 +63,7 @@ internal class TerminalDelegate(
 
     val terminalTabs: StateFlow<List<TerminalTabUi>> = terminalWorkspace.tabList
     val activeTerminalTabId: StateFlow<String?> = terminalWorkspace.activeTabId
-    /** Incremented on active terminal tab updates — observe to trigger recomposition. */
+    /** 活跃终端标签更新时递增 —— 观察它以触发重组。 */
     val terminalVersion: StateFlow<Long> = terminalWorkspace.activeVersion
     val terminalState: StateFlow<TerminalTabState> = terminalWorkspace.activeState
     val terminalFontSizeSp: StateFlow<Float> = terminalWorkspace.activeFontSizeSp
@@ -72,9 +72,9 @@ internal class TerminalDelegate(
 
     fun openTerminalSession(onResult: (Boolean) -> Unit = {}) {
         scope.launch {
-            // Wait for loadSession() to finish so sessionDirectory is populated.
-            // This prevents the race condition where the PTY is created with directory=null
-            // and then resize is attempted with the real directory.
+            // 等待 loadSession() 完成以使 sessionDirectory 被填充。
+            // 这防止了 PTY 以 directory=null 创建后
+            // 再用真实目录尝试 resize 的竞态条件。
             sessionLoaded.await()
             val dir = sessionDirectoryProvider()
             if (BuildConfig.DEBUG) Log.d(TERMINAL_DELEGATE_TAG, "openTerminalSession: sessionDirectory=$dir")
@@ -119,6 +119,6 @@ internal class TerminalDelegate(
     }
 
     fun closeTerminalSession() {
-        // Global terminal workspaces are server-scoped and survive chat screen changes.
+        // 全局终端工作区是服务器范围的，存活聊天屏幕切换。
     }
 }

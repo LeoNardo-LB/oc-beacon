@@ -21,9 +21,9 @@ import javax.inject.Singleton
 private val Context.testDataStore: DataStore<Preferences> by preferencesDataStore(name = "test_prefs")
 
 /**
- * Replaces NetworkModule for tests.
- * Provides a minimal HttpClient (OkHttp engine, no auth/logging/timeout plugins)
- * and a test-scoped DataStore.
+ * 测试环境下替换 NetworkModule。
+ * 提供一个最小化的 HttpClient（OkHttp 引擎，不含 auth/logging/timeout 插件）
+ * 以及一个测试作用域的 DataStore。
  */
 @TestInstallIn(components = [SingletonComponent::class], replaces = [NetworkModule::class])
 @Module

@@ -178,7 +178,7 @@ class ToolProgressCardBranchTest {
                 )
             )
         }
-        // title="" is not null, so it displays "" instead of "bash"
+        // title="" 不是 null，因此显示 "" 而非 "bash"
         composeTestRule.onAllNodesWithText("bash").assertCountEquals(0)
     }
 

@@ -1,34 +1,34 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Layer 2 Activity — derived state, only meaningful when Core = Busy.
- * Used for UI feedback and fine-grained staleness detection.
+ * 第 2 层 Activity —— 派生状态，仅在 Core = Busy 时有意义。
+ * 用于 UI 反馈和细粒度的陈旧检测。
  */
 sealed class SessionActivity {
-    /** Busy just started, waiting for assistant message creation */
+    /** Busy 刚开始，等待 assistant 消息创建 */
     data object Waiting : SessionActivity()
 
-    /** Receiving text stream (text.started ~ text.ended) */
+    /** 正在接收文本流（text.started ~ text.ended） */
     data object Streaming : SessionActivity()
 
-    /** Tool call in progress (tool.input.started ~ tool.success/failed) */
+    /** 工具调用进行中（tool.input.started ~ tool.success/failed） */
     data class ToolCalling(
         val toolName: String?,
         val callId: String?
     ) : SessionActivity()
 
-    /** Context compaction in progress; saves the prior activity to restore on CompactionEnded */
+    /** 上下文压缩进行中；保存先前的 activity 以便 CompactionEnded 时恢复 */
     data class Compacting(val savedActivity: SessionActivity?) : SessionActivity()
 }
 
 /**
- * Complete FSM state for a single session.
+ * 单个会话的完整 FSM 状态。
  *
- * @param core Layer 1 status — mirrors server's SessionStatus (Idle/Busy/Retry)
- * @param activity Layer 2 activity detail (only non-null when core is Busy)
- * @param lastEventAt Timestamp of the last SSE event received (for L2 staleness detection)
- * @param lastCoreTransitionAt Timestamp of the last Core status change
- * @param savedActivity Activity saved before Compacting (restored on CompactionEnded)
+ * @param core 第 1 层状态 —— 镜像服务器的 SessionStatus（Idle/Busy/Retry）
+ * @param activity 第 2 层 activity 详情（仅当 core 为 Busy 时非空）
+ * @param lastEventAt 最近一次收到 SSE 事件的时间戳（用于 L2 陈旧检测）
+ * @param lastCoreTransitionAt 最近一次 Core 状态变更的时间戳
+ * @param savedActivity Compacting 之前保存的 activity（CompactionEnded 时恢复）
  */
 data class SessionFSMState(
     val core: SessionStatus,
@@ -48,10 +48,10 @@ data class SessionFSMState(
 }
 
 /**
- * Events that drive FSM transitions.
+ * 驱动 FSM 状态转移的事件。
  */
 sealed class FsmEvent {
-    // === Core events ===
+    // === Core 事件 ===
     data class SseStatus(val status: SessionStatus) : FsmEvent()
     data object SseIdle : FsmEvent()
     data class SseError(val message: String) : FsmEvent()
@@ -59,7 +59,7 @@ sealed class FsmEvent {
     data object ClientAbort : FsmEvent()
     data class RestValidation(val status: SessionStatus) : FsmEvent()
 
-    // === Activity events (session.next.*) ===
+    // === Activity 事件（session.next.*）===
     data object StepStarted : FsmEvent()
     data object TextStarted : FsmEvent()
     data class TextDelta(val delta: String) : FsmEvent()

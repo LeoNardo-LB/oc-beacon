@@ -7,8 +7,8 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
- * Navigation route definition for the Session List screen.
- * Parameters: serverUrl, username, password, serverName, serverId
+ * 会话列表页的导航路由定义。
+ * 参数：serverUrl, username, password, serverName, serverId
  */
 object SessionListNav {
     const val ROUTE = "sessions"

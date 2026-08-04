@@ -7,10 +7,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Server-side terminal workspace registry — caches [ServerTerminalWorkspace] instances per server.
+ * 服务端终端工作区注册表——按服务器缓存 [ServerTerminalWorkspace] 实例。
  *
- * Injected into ChatViewModel so the UI layer no longer depends on [TerminalApi] or
- * [ServerConnection] directly.  Server credentials are resolved here instead.
+ * 注入到 ChatViewModel，使 UI 层不再直接依赖 [TerminalApi] 或
+ * [ServerConnection]。服务器凭据在此处解析。
  */
 @Singleton
 class ServerTerminalRegistry @Inject constructor(

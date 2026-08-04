@@ -8,15 +8,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Tests for Part rendering logic extracted from ChatScreen.kt.
+ * 从 ChatScreen.kt 提取的 Part 渲染逻辑测试。
  *
- * Core verification: the bug fix ensures that parts are rendered in their
- * original server-sent order (e.g. Text → Tool → Reasoning → Tool → Text)
- * rather than being split into separate groups and rendered out of order.
+ * 核心验证：该 bug 修复确保 parts 按服务器发送的原始顺序渲染
+ * （例如 Text → Tool → Reasoning → Tool → Text），
+ * 而不是被拆分成独立分组后乱序渲染。
  */
 class PartRenderLogicTest {
 
-    // === isBubbleRenderablePart — renderable types ===
+    // === isBubbleRenderablePart —— 可渲染类型 ===
 
     @Test
     fun `isBubbleRenderablePart returns true for Text`() {
@@ -72,7 +72,7 @@ class PartRenderLogicTest {
         assertTrue(isBubbleRenderablePart(part))
     }
 
-    // === isBubbleRenderablePart — non-renderable types ===
+    // === isBubbleRenderablePart —— 不可渲染类型 ===
 
     @Test
     fun `isBubbleRenderablePart returns false for StepStart`() {
@@ -122,14 +122,14 @@ class PartRenderLogicTest {
         assertFalse(isBubbleRenderablePart(part))
     }
 
-    // === filterRenderableParts — order preservation (core bug fix) ===
+    // === filterRenderableParts —— 顺序保留（核心 bug 修复）===
 
     @Test
     fun `filterRenderableParts preserves original interleaved order of Text-Tool-Reasoning-Tool-Text`() {
-        // This is the exact scenario the bug fix addresses:
-        // Server sends: Text → Tool → Reasoning → Tool → Text
-        // Before fix: rendered as Tool, Tool, Text, Reasoning, Text (grouped)
-        // After fix: rendered as Text, Tool, Reasoning, Tool, Text (original order)
+        // 这正是该 bug 修复针对的场景：
+        // 服务器发送：Text → Tool → Reasoning → Tool → Text
+        // 修复前：渲染为 Tool, Tool, Text, Reasoning, Text（分组）
+        // 修复后：渲染为 Text, Tool, Reasoning, Tool, Text（原始顺序）
         val parts = listOf(
             createTextPart("t1", "Let me analyze this."),
             createToolPart("tool1", toolName = "read"),
@@ -141,14 +141,14 @@ class PartRenderLogicTest {
         val filtered = filterRenderableParts(parts)
 
         assertEquals(5, filtered.size)
-        // Verify the exact order is preserved
+        // 验证精确顺序被保留
         assertEquals("t1", filtered[0].id)
         assertEquals("tool1", filtered[1].id)
         assertEquals("r1", filtered[2].id)
         assertEquals("tool2", filtered[3].id)
         assertEquals("t2", filtered[4].id)
 
-        // Verify types are in the correct interleaved order
+        // 验证类型处于正确的交错顺序
         assertTrue(filtered[0] is Part.Text)
         assertTrue(filtered[1] is Part.Tool)
         assertTrue(filtered[2] is Part.Reasoning)
@@ -158,7 +158,7 @@ class PartRenderLogicTest {
 
     @Test
     fun `filterRenderableParts preserves order with Tools between Reasoning blocks`() {
-        // Another common pattern: Reasoning → Tool → Reasoning
+        // 另一种常见模式：Reasoning → Tool → Reasoning
         val parts = listOf(
             createReasoningPart("r1", "First thought"),
             createToolPart("tool1", toolName = "bash"),
@@ -246,7 +246,7 @@ class PartRenderLogicTest {
         assertEquals(listOf("t1", "p1", "tool1", "f1", "t2"), filtered.map { it.id })
     }
 
-    // === Helpers ===
+    // === 辅助函数 ===
 
     private fun createTextPart(id: String, text: String): Part.Text =
         Part.Text(id = id, sessionId = "s1", messageId = "m1", text = text)

@@ -1,13 +1,13 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Builds structured prompt text for submitting annotations.
+ * 构造用于提交备注的结构化提示文本。
  *
- * Format (Markdown):
+ * 格式（Markdown）：
  *   # 文件备注
  *   对于 <filePath> 文件，用户提出了下述备注。请按照用户备注与指示来做出回答、修改内容或执行任务！
  *
- *   ## 总体备注    (omitted if blank)
+ *   ## 总体备注    （为空时省略）
  *   <overallNote>
  *
  *   ## 具体备注
@@ -32,7 +32,7 @@ object AnnotationPromptBuilder {
         sb.append("# 文件备注\n")
         sb.append("对于 $resolvedPath 文件，用户提出了下述备注。请按照用户备注与指示来做出回答、修改内容或执行任务！\n\n")
 
-        // 总体备注 — only include if non-blank
+        // 总体备注 —— 仅在非空时包含
         if (overallNote.isNotBlank()) {
             sb.append("## 总体备注\n")
             sb.append(overallNote).append("\n\n")

@@ -8,7 +8,7 @@ import kotlinx.serialization.json.*
 private const val TAG = "SseClient"
 
 /**
- * Parses question events:
+ * 解析问题事件：
  * - question.asked, question.replied, question.rejected
  */
 class QuestionEventParser : SseEventParser {

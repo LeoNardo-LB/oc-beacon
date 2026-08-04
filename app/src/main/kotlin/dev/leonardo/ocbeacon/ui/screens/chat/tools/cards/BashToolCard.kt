@@ -34,8 +34,8 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Bash tool card — shows $ command + output.
- * Like WebUI: trigger = "Shell" + description, content = code block with command+output.
+ * Bash 工具卡片 —— 显示 $ 命令 + 输出。
+ * 类似 WebUI：触发器 = "Shell" + 描述，内容 = 带命令+输出的代码块。
  */
 @Composable
 internal fun BashToolCard(

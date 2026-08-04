@@ -13,32 +13,31 @@ import org.connectbot.terminal.TerminalEmulator
 private const val TAG = "PtyToTermlibAdapter"
 
 /**
- * Bridges a [PtySocket] to a termlib [TerminalEmulator].
+ * 将 [PtySocket] 桥接到 termlib 的 [TerminalEmulator]。
  *
- * Data flow:
- *   socket.readLoop(text)  →  writeInput(utf8Bytes)   (typically emulator::writeInput)
+ * 数据流：
+ *   socket.readLoop(text)  →  writeInput(utf8Bytes)   （通常为 emulator::writeInput）
  *   emulator.onKeyboardInput(bytes)  →  socket.send(utf8String)
  *
- * Thread safety: [bind], [dispatchKeyboardOutput], [sendInput], [release] may
- * be called from any thread. Internal state mutations are guarded by [lock].
- * The reader coroutine runs on the supplied [scope]'s dispatcher (typically
- * Dispatchers.IO inside ServerTerminalWorkspace).
+ * 线程安全：[bind]、[dispatchKeyboardOutput]、[sendInput]、[release] 可
+ * 从任意线程调用。内部状态变更由 [lock] 保护。
+ * 读取协程在所提供的 [scope] 的 dispatcher 上运行（通常为
+ * ServerTerminalWorkspace 内的 Dispatchers.IO）。
  *
- * Reentrancy: per termlib's contract, callbacks (onKeyboardInput) must NOT
- * call back into emulator methods. This adapter enforces that by routing
- * keyboard output only to the socket send channel.
+ * 重入性：按 termlib 契约，回调（onKeyboardInput）不得
+ * 回调 emulator 方法。此适配器通过将键盘输出仅路由到
+ * socket 发送通道来强制执行此约束。
  *
- * P0-1 fix: this class accepts a [writeInput] lambda (plus optional
- * [onResize] / [onClearScreen]) instead of taking a [TerminalEmulator]
- * directly. termlib's TerminalEmulator is a sealed interface, so a
- * cross-module fake cannot implement it. In production, pass method
- * references (e.g. `emulator::writeInput`); in tests, pass a capturing
- * lambda. The optional [emulator] field is kept so call sites that need
- * the real emulator (e.g. the Terminal composable) can retrieve it.
+ * P0-1 修复：此类接受 [writeInput] lambda（以及可选的
+ * [onResize] / [onClearScreen]），而非直接接收 [TerminalEmulator]。
+ * termlib 的 TerminalEmulator 是密封接口，因此跨模块 fake 无法
+ * 实现它。生产环境中传递方法引用（例如 `emulator::writeInput`）；
+ * 测试中传递捕获 lambda。保留可选的 [emulator] 字段，以便需要
+ * 真实 emulator 的调用点（例如 Terminal composable）能取回它。
  *
- * P0-2 fix: [cursorKeysApplicationMode] tracks DECSET mode 1
- * (`ESC [ ? 1 h` / `ESC [ ? 1 l`) parsed from the PTY byte stream before
- * forwarding. The state machine survives chunk boundaries.
+ * P0-2 修复：[cursorKeysApplicationMode] 跟踪从 PTY 字节流中解析出的
+ * DECSET 模式 1（`ESC [ ? 1 h` / `ESC [ ? 1 l`），然后再转发。
+ * 该状态机能跨数据块边界存活。
  */
 class PtyToTermlibAdapter(
     val emulator: TerminalEmulator? = null,
@@ -54,11 +53,11 @@ class PtyToTermlibAdapter(
     private val _version = MutableStateFlow(0L)
     val version: StateFlow<Long> = _version.asStateFlow()
 
-    // P0-2: DECSET mode 1 (cursor keys application mode) tracking.
+    // P0-2：DECSET 模式 1（光标键应用模式）跟踪。
     private val _cursorKeysApplicationMode = MutableStateFlow(false)
     val cursorKeysApplicationMode: StateFlow<Boolean> = _cursorKeysApplicationMode.asStateFlow()
 
-    // State machine for parsing `ESC [ ? 1 h` / `ESC [ ? 1 l` across chunks.
+    // 用于跨数据块解析 `ESC [ ? 1 h` / `ESC [ ? 1 l` 的状态机。
     private var ckmState: CursorKeyModeParseState = CursorKeyModeParseState.IDLE
 
     private enum class CursorKeyModeParseState {
@@ -66,8 +65,8 @@ class PtyToTermlibAdapter(
     }
 
     /**
-     * Bind a new socket, replacing any prior binding. Idempotent: calling
-     * bind(null) is equivalent to release() minus the socket.close() call.
+     * 绑定新 socket，替换任何先前的绑定。幂等：调用
+     * bind(null) 等价于 release()，但不调用 socket.close()。
      */
     fun bind(socket: PtySocket?) {
         val priorJob: Job?
@@ -95,13 +94,12 @@ class PtyToTermlibAdapter(
     }
 
     /**
-     * Called by the emulator's onKeyboardInput callback. Forwards the bytes
-     * to the bound socket as a UTF-8 string. Safe to call from any thread;
-     * the actual send is launched on [scope] to avoid blocking the emulator's
-     * callback thread.
+     * 由 emulator 的 onKeyboardInput 回调调用。将字节作为 UTF-8 字符串
+     * 转发到已绑定的 socket。可从任意线程安全调用；
+     * 实际发送在 [scope] 上启动，以避免阻塞 emulator 的回调线程。
      *
-     * Public for testability — in production this is invoked from inside
-     * TerminalEmulatorFactory.create(onKeyboardInput = ...).
+     * 公开以支持测试——生产环境中它从
+     * TerminalEmulatorFactory.create(onKeyboardInput = ...) 内部调用。
      */
     fun dispatchKeyboardOutput(bytes: ByteArray) {
         val target = synchronized(lock) { socket } ?: return
@@ -116,9 +114,8 @@ class PtyToTermlibAdapter(
     }
 
     /**
-     * Push text directly to the socket (bypasses the emulator). Used by the
-     * Ctrl-C / clear / Fn-key toolbar actions that already produce ANSI
-     * escape sequences.
+     * 将文本直接推送到 socket（绕过 emulator）。用于
+     * 已产生 ANSI 转义序列的 Ctrl-C / clear / Fn 键工具栏操作。
      */
     fun sendInput(text: String) {
         val target = synchronized(lock) { socket } ?: return
@@ -132,8 +129,8 @@ class PtyToTermlibAdapter(
     }
 
     /**
-     * Resize the emulator. termlib takes rows first, then cols — the same
-     * order this method expects. No-op if no resize sink was supplied.
+     * 调整 emulator 大小。termlib 先取 rows，再取 cols——与此方法
+     * 期望的顺序一致。若未提供 resize 接收器则为空操作。
      */
     fun resize(rows: Int, cols: Int) {
         if (rows <= 0 || cols <= 0) return
@@ -147,15 +144,15 @@ class PtyToTermlibAdapter(
     }
 
     /**
-     * Test seam: bump the version counter as if writeInput completed.
-     * Production callers never need this; the reader loop bumps automatically.
+     * 测试接缝：像 writeInput 完成那样递增版本计数器。
+     * 生产调用方永不需要此方法；读取循环会自动递增。
      */
     internal fun notifyWriteInputComplete() {
         _version.value++
     }
 
     /**
-     * Cancel the reader and close the socket. Idempotent.
+     * 取消读取器并关闭 socket。幂等。
      */
     fun release() {
         val (priorJob, priorSocket) = synchronized(lock) {
@@ -174,29 +171,29 @@ class PtyToTermlibAdapter(
     }
 
     /**
-     * Suspend until the current reader job completes (normally or via socket
-     * close). Returns immediately if no reader is active. This lets a caller
-     * that owns the connection lifecycle (e.g. ServerTerminalWorkspace's
-     * per-tab readerJob) await the adapter's read loop without polling.
+     * 挂起直到当前读取 job 完成（正常完成或 socket 关闭）。
+     * 无活跃读取器时立即返回。这让拥有连接生命周期的调用方
+     *（例如 ServerTerminalWorkspace 的按 tab readerJob）无需轮询即可
+     * 等待适配器的读取循环。
      *
-     * P1-5 fix: replaces the original `delay(Long.MAX_VALUE)` pattern that
-     * prevented reconnect from triggering when the socket closed.
+     * P1-5 修复：替代了原先阻止 socket 关闭时触发重连的
+     * `delay(Long.MAX_VALUE)` 模式。
      */
     suspend fun awaitReader() {
         val job = synchronized(lock) { readerJob } ?: return
         try {
             job.join()
         } catch (e: Exception) {
-            // CancellationException from external cancel propagates; swallow
-            // other exceptions (the reader logs them itself).
+            // 外部取消产生的 CancellationException 会传播；吞掉
+            // 其他异常（读取器自身会记录它们）。
             Log.w(TAG, "awaitReader swallowed: ${e.message}", e)
         }
     }
 
     /**
-     * Minimal state-machine scanner for `ESC [ ? 1 h` (DECSET 1 / application)
-     * and `ESC [ ? 1 l` (DECRST 1 / normal). State persists across calls so
-     * escape sequences that span chunk boundaries are still recognised.
+     * 用于 `ESC [ ? 1 h`（DECSET 1 / application）和
+     * `ESC [ ? 1 l`（DECRST 1 / normal）的最小状态机扫描器。
+     * 状态跨调用持久化，因此跨越数据块边界的转义序列仍能被识别。
      */
     private fun scanForCursorKeyMode(bytes: ByteArray, offset: Int, length: Int) {
         val end = offset + length

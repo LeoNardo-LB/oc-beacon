@@ -12,10 +12,10 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Instrumented tests for [GitChangesPanel]. Verifies change rendering with
- * status stats, the clean working-tree state, and the error/retry state.
+ * [GitChangesPanel] 的插桩测试。验证带状态徽章的变更渲染、
+ * 干净工作树状态，以及错误/重试状态。
  *
- * Uses realistic sample data (D7-003): real OpenCode file paths and counts.
+ * 使用贴近真实的数据（D7-003）：真实的 OpenCode 文件路径和数量。
  */
 class GitChangesPanelTest {
 

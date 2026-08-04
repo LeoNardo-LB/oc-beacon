@@ -6,8 +6,8 @@ import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import javax.inject.Inject
 
 /**
- * Use case: manage agents, commands, and file search.
- * Delegates to AgentRepository.
+ * Use Case：管理 agents、命令和文件搜索。
+ * 委托给 AgentRepository。
  */
 class ManageAgentUseCase @Inject constructor(
     private val agentRepository: AgentRepository

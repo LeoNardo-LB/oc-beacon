@@ -21,7 +21,7 @@ internal fun getLanguageDisplayName(code: String): String {
 
     if (code.isEmpty()) return systemDefault
 
-    // Parse the language tag and get native display name
+    // 解析语言标签并获取母语显示名
     val locale = if (code.contains("-")) {
         val parts = code.split("-")
         if (parts.size >= 2) {

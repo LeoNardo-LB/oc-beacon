@@ -229,21 +229,21 @@ class MessageEventHandlerTest {
         assertTrue(handler.parts.value.isEmpty())
     }
 
-    // ============ Merge Strategy Tests (SSE Truncation Fix) ============
+    // ============ 合并策略测试（SSE 截断修复）============
 
     @Test
     fun `handles MessagePartUpdated - preserves longer text from delta`() {
         val part = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "Hello")
         handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(part))
 
-        // Delta appends " World" → text becomes "Hello World"
+        // Delta 追加 " World" → 文本变为 "Hello World"
         handler.handleMessagePartDelta(SseEvent.MessagePartDelta(
             sessionId = "s1", messageId = "m1", partId = "p1",
             field = "text", delta = " World"
         ))
         handler.forceFlushDeltas()
 
-        // Server sends stale snapshot with original text
+        // 服务器发送带原始文本的过期快照
         val stalePart = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "Hello")
         handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(stalePart))
 
@@ -263,11 +263,11 @@ class MessageEventHandlerTest {
 
     @Test
     fun `setMessages preserves SSE-fresh longer parts`() {
-        // SSE accumulates longer text
+        // SSE 累积更长的文本
         val ssePart = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "Hello World from SSE")
         handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(ssePart))
 
-        // REST returns shorter text
+        // REST 返回更短的文本
         val msg = testUserMessage("m1", "s1")
         val restPart = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "Hello")
         handler.setMessages("s1", listOf(MessageWithParts(msg, listOf(restPart))))
@@ -277,11 +277,11 @@ class MessageEventHandlerTest {
 
     @Test
     fun `replaceMessages preserves SSE-fresh longer parts`() {
-        // SSE accumulates longer text
+        // SSE 累积更长的文本
         val ssePart = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "Hello World from SSE")
         handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(ssePart))
 
-        // REST returns shorter text
+        // REST 返回更短的文本
         val msg = testUserMessage("m1", "s1")
         val restPart = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "Hello")
         handler.replaceMessages("s1", listOf(MessageWithParts(msg, listOf(restPart))))
@@ -291,7 +291,7 @@ class MessageEventHandlerTest {
 
     @Test
     fun `handles MessagePartDelta - creates synthetic part when missing`() {
-        // No prior updated event — delta arrives first
+        // 没有先前的 updated 事件 —— delta 先到达
         handler.handleMessagePartDelta(SseEvent.MessagePartDelta(
             sessionId = "s1", messageId = "m1", partId = "p1",
             field = "text", delta = "synthetic"
@@ -309,14 +309,14 @@ class MessageEventHandlerTest {
         val part = Part.Reasoning(id = "p1", sessionId = "s1", messageId = "m1", text = "Thinking")
         handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(part))
 
-        // Delta extends
+        // Delta 追加扩展
         handler.handleMessagePartDelta(SseEvent.MessagePartDelta(
             sessionId = "s1", messageId = "m1", partId = "p1",
             field = "text", delta = " more deeply"
         ))
         handler.forceFlushDeltas()
 
-        // Stale snapshot arrives
+        // 过期快照到达
         val stale = Part.Reasoning(id = "p1", sessionId = "s1", messageId = "m1", text = "Thinking")
         handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(stale))
 
@@ -335,7 +335,7 @@ class MessageEventHandlerTest {
         assertTrue((handler.parts.value["m1"]!![0] as Part.Tool).state is ToolState.Running)
     }
 
-    // ============ markSessionIdle (REST fallback: force-complete streaming) ============
+    // ============ markSessionIdle（REST 回退：强制完成流式输出）============
 
     @Test
     fun `markSessionIdle sets time_end on incomplete Text and Reasoning parts`() {

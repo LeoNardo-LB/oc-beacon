@@ -22,7 +22,7 @@ private const val TAG = "ServerDataStore"
 private const val SERVERS_KEY = "servers"
 
 /**
- * ServerDataStore - manages saved OpenCode servers using DataStore.
+ * ServerDataStore——使用 DataStore 管理已保存的 OpenCode 服务器。
  */
 @Singleton
 class ServerDataStore @Inject constructor(
@@ -34,7 +34,7 @@ class ServerDataStore @Inject constructor(
     private val serversKey = stringPreferencesKey(SERVERS_KEY)
     
     /**
-     * Get all saved servers as Flow
+     * 以 Flow 形式获取所有已保存的服务器
      */
     val servers: Flow<List<ServerConfig>> = dataStore.data.map { preferences ->
         val serversJson = preferences[serversKey] ?: "[]"
@@ -47,12 +47,12 @@ class ServerDataStore @Inject constructor(
     }
     
     /**
-     * Get all servers (alias for servers Flow)
+     * 获取所有服务器（servers Flow 的别名）
      */
     fun getAllServers(): Flow<List<ServerConfig>> = servers
     
     /**
-     * Add a new server
+     * 添加新服务器
      */
     suspend fun addServer(
         url: String,
@@ -81,7 +81,7 @@ class ServerDataStore @Inject constructor(
     }
     
     /**
-     * Update a server
+     * 更新服务器
      */
     suspend fun updateServer(server: ServerConfig) {
         val currentServers = servers.firstOrNull() ?: emptyList()
@@ -98,7 +98,7 @@ class ServerDataStore @Inject constructor(
     }
     
     /**
-     * Delete a server
+     * 删除服务器
      */
     suspend fun deleteServer(serverId: String) {
         val currentServers = servers.firstOrNull() ?: emptyList()
@@ -108,14 +108,14 @@ class ServerDataStore @Inject constructor(
     }
     
     /**
-     * Check server health
+     * 检查服务器健康状态
      */
     suspend fun checkHealth(server: ServerConfig): Result<ServerHealth> {
         return try {
             val conn = ServerConnection.from(server.url, server.username, server.password)
             val health = api.getHealth(conn)
             
-            // Update server health status
+            // 更新服务器健康状态
             val updatedServer = server.copy(
                 isHealthy = health.healthy,
                 lastConnected = System.currentTimeMillis()
@@ -126,7 +126,7 @@ class ServerDataStore @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Health check failed for ${server.url}", e)
             
-            // Mark as unhealthy
+            // 标记为不健康
             val updatedServer = server.copy(isHealthy = false)
             updateServer(updatedServer)
             
@@ -135,20 +135,20 @@ class ServerDataStore @Inject constructor(
     }
     
     /**
-     * Check server health (alias returning boolean)
+     * 检查服务器健康状态（返回布尔值的别名）
      */
     suspend fun checkServerHealth(server: ServerConfig): Boolean {
         return checkHealth(server).isSuccess
     }
     
     /**
-     * Get server by ID
+     * 按 ID 获取服务器
      */
     suspend fun getServer(serverId: String): ServerConfig? {
         return servers.firstOrNull()?.find { it.id == serverId }
     }
     
-    // ============ Private ============
+    // ============ 私有 ============
     
     private suspend fun saveServers(servers: List<ServerConfig>) {
         dataStore.edit { preferences ->

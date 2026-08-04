@@ -7,8 +7,8 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
- * Navigation route definition for the Workspace screen.
- * Parameters: server params + sessionId, directory
+ * Workspace 页的导航路由定义。
+ * 参数：server 参数 + sessionId, directory
  */
 object WorkspaceNav {
     const val ROUTE = "workspace"

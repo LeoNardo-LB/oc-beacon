@@ -6,8 +6,8 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import javax.inject.Inject
 
 /**
- * Use case: send messages to a session.
- * Delegates to ChatRepository.
+ * Use Case：向会话发送消息。
+ * 委托给 ChatRepository。
  */
 class SendMessageUseCase @Inject constructor(
     private val chatRepository: ChatRepository

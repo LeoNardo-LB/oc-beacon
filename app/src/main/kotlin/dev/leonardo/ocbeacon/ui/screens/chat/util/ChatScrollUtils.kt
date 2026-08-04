@@ -4,10 +4,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import kotlinx.coroutines.delay
 
 /**
- * Animated auto-scroll to bottom. Used for after-send follow.
+ * 动画自动滚动到底部。用于发送后的跟随。
  *
- * With reverseLayout=true, "bottom" = item 0.
- * Retries up to 48ms (3×16ms) to handle complex Markdown layout delays.
+ * 使用 reverseLayout=true 时，"底部" = 第 0 项。
+ * 最多重试 48ms（3×16ms）以应对复杂 Markdown 布局的延迟。
  */
 internal suspend fun LazyListState.smoothScrollToBottom() {
     scrollToItem(0)
@@ -21,7 +21,7 @@ internal suspend fun LazyListState.smoothScrollToBottom() {
 }
 
 /**
- * Instant snap to bottom for explicit user actions (FAB click).
+ * 显式用户操作（FAB 点击）时的即时吸附到底部。
  */
 internal suspend fun LazyListState.snapToBottom() {
     if (layoutInfo.totalItemsCount == 0) return

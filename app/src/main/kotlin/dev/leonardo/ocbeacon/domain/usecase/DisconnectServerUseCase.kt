@@ -4,8 +4,8 @@ import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import javax.inject.Inject
 
 /**
- * Use case: disconnect from a server.
- * Used by Phase 4 HomeViewModel.
+ * Use Case：断开与服务器的连接。
+ * 供 Phase 4 HomeViewModel 使用。
  */
 class DisconnectServerUseCase @Inject constructor(
     private val serverRepository: ServerRepository

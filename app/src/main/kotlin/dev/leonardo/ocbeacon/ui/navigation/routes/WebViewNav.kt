@@ -7,8 +7,8 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
- * Navigation route definition for the WebView screen (legacy).
- * Parameters: serverUrl, username, password, serverName, initialPath
+ * WebView 页（旧版）的导航路由定义。
+ * 参数：serverUrl, username, password, serverName, initialPath
  */
 object WebViewNav {
     const val ROUTE = "webview"

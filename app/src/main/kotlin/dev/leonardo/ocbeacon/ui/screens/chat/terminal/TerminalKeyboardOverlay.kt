@@ -34,7 +34,7 @@ internal fun TerminalKeyboardOverlay(
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Arrow / Home / End sequences depend on DECCKM
+    // 方向键 / Home / End 序列取决于 DECCKM
     val arrowUp    = if (cursorApp) "\u001BOA" else "\u001B[A"
     val arrowDown  = if (cursorApp) "\u001BOB" else "\u001B[B"
     val arrowRight = if (cursorApp) "\u001BOC" else "\u001B[C"
@@ -53,7 +53,7 @@ internal fun TerminalKeyboardOverlay(
                 .fillMaxWidth()
                 .padding(vertical = 0.dp),
         ) {
-            // Row 1: matches Termux default extra keys
+            // 第 1 行：与 Termux 默认附加键一致
             TerminalKeyRow(
                 keys = listOf(
                     TerminalKey("ESC", popupLabel = "☰", popupAction = onToggleDrawer) { onSendInput("\u001B") },
@@ -65,14 +65,14 @@ internal fun TerminalKeyboardOverlay(
                     TerminalKey("PGUP") { onSendInput("\u001B[5~") },
                 )
             )
-            // Thin divider between rows
+            // 行间的细分隔线
             Box(
                 Modifier
                     .fillMaxWidth()
                     .height(1.dp)
                     .background(MaterialTheme.colorScheme.outlineVariant)
             )
-            // Row 2: matches Termux default extra keys
+            // 第 2 行：与 Termux 默认附加键一致
             TerminalKeyRow(
                 keys = listOf(
                     TerminalKey("\u21B9") { onSendInput("\t") },
@@ -104,7 +104,7 @@ internal fun TerminalKeyRow(keys: List<TerminalKey>) {
     ) {
         keys.forEachIndexed { index, key ->
             if (index > 0) {
-                // Thin vertical divider between keys
+                // 按键之间的细分隔线
                 Box(
                     Modifier
                         .width(1.dp)

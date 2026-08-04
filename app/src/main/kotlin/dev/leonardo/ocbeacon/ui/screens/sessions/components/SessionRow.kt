@@ -90,7 +90,7 @@ internal fun SessionRow(
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Status icon
+        // 状态图标
         val (statusIcon, statusIconColor) = when (item.status) {
             is SessionStatus.Busy -> Icons.Filled.ChatBubble to MaterialTheme.colorScheme.tertiary
             is SessionStatus.Retry -> Icons.Outlined.ErrorOutline to MaterialTheme.colorScheme.error
@@ -112,7 +112,7 @@ internal fun SessionRow(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
             )
 
-            // Directory subtitle (shown in Recent mode)
+            // 目录副标题（仅在最近模式下显示）
             if (showDirectory) {
                 val dir = item.session.directory.replace('\\', '/').trimEnd('/')
                 Text(
@@ -135,7 +135,7 @@ internal fun SessionRow(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                 )
 
-                // Status label
+                // 状态标签
                 when (item.status) {
                     is SessionStatus.Busy -> {
                         Text(
@@ -154,7 +154,7 @@ internal fun SessionRow(
                     else -> {}
                 }
 
-                // Draft indicator
+                // 草稿指示器
                 if (item.hasDraft) {
                     Icon(
                         imageVector = Icons.Outlined.EditNote,
@@ -164,7 +164,7 @@ internal fun SessionRow(
                     )
                 }
 
-                // Category tag
+                // 分类标签
                 item.category?.let { category ->
                     Row(
                         modifier = Modifier
@@ -189,7 +189,7 @@ internal fun SessionRow(
                     }
                 }
 
-                // Diff summary
+                // Diff 摘要
                 val summary = item.session.summary
                 if (summary != null && (summary.additions > 0 || summary.deletions > 0)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -219,7 +219,7 @@ internal fun SessionRow(
         }
     }
 
-    // Details dialog with actions
+    // 带操作按钮的详情对话框
     if (showDetailsDialog) {
         val isAmoled = isAmoledTheme()
         SessionDetailsDialog(

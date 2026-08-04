@@ -20,13 +20,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * A single diagnostic log entry persisted in the local SQLite database.
+ * 持久化到本地 SQLite 数据库的单条诊断日志条目。
  *
- * @param timestamp Epoch milliseconds.
- * @param level     Log level string: `ERROR`, `WARN`, `INFO`, `DEBUG`, or `FATAL` (crash).
- * @param category  Source tag / component name (e.g. `"SSE"`, `"REST"`, `"Uncaught exception"`).
- * @param message   Human-readable summary.
- * @param details   Structured key-value pairs (stack trace, cause, thread name, …).
+ * @param timestamp Epoch 毫秒。
+ * @param level     日志级别字符串：`ERROR`、`WARN`、`INFO`、`DEBUG` 或 `FATAL`（崩溃）。
+ * @param category  来源标签 / 组件名（例如 `"SSE"`、`"REST"`、`"Uncaught exception"`）。
+ * @param message   人类可读摘要。
+ * @param details   结构化键值对（堆栈跟踪、原因、线程名 等）。
  */
 @Serializable
 data class DiagnosticLogEntry(
@@ -38,13 +38,12 @@ data class DiagnosticLogEntry(
 )
 
 /**
- * Persistent diagnostic log repository backed by [DiagnosticLogDatabase] (SQLiteOpenHelper).
+ * 由 [DiagnosticLogDatabase]（SQLiteOpenHelper）支持的持久化诊断日志 repository。
  *
- * All writes go through [sanitize] to strip credentials, tokens, IP addresses and
- * local file paths before persistence. The [entries] flow exposes the most recent
- * 1000 sanitized entries for UI display.
+ * 所有写入都经过 [sanitize] 处理，在持久化前剥离凭据、令牌、IP 地址和
+ * 本地文件路径。[entries] flow 暴露最近的 1000 条已脱敏条目供 UI 显示。
  *
- * The persistent log level ([logLevel]) controls which levels [AppLogger] persists.
+ * 持久化日志级别（[logLevel]）控制 [AppLogger] 持久化哪些级别。
  */
 @Singleton
 class DiagnosticLogRepository @Inject constructor(
@@ -60,7 +59,7 @@ class DiagnosticLogRepository @Inject constructor(
 
     val entries: Flow<List<DiagnosticLogEntry>> = _entries.asStateFlow()
 
-    /** Load entries from the database into [_entries]. Called once at app start. */
+    /** 从数据库加载条目到 [_entries]。在应用启动时调用一次。 */
     suspend fun initialize() = withContext(Dispatchers.IO) {
         refresh()
     }
@@ -103,7 +102,7 @@ class DiagnosticLogRepository @Inject constructor(
         dataStore.edit { it[logLevelKey] = level.takeIf { value -> value in LOG_LEVELS } ?: "INFO" }
     }
 
-    // ---- Sanitization ----------------------------------------------------
+    // ---- 脱敏 ----------------------------------------------------
 
     companion object {
         val LOG_LEVELS = listOf("ERROR", "WARN", "INFO", "DEBUG")
@@ -118,11 +117,11 @@ class DiagnosticLogRepository @Inject constructor(
             }
 
         /**
-         * Privacy-aware redaction of a single string field.
+         * 注重隐私的单字段脱敏。
          *
-         * Strips: HTTP auth headers, bearer/basic tokens, password/secret/key fields,
-         * OAuth query params, URL credentials, IPv4/IPv6 addresses and local user paths.
-         * Each field is truncated to 1000 characters.
+         * 剥离：HTTP 认证头、bearer/basic 令牌、password/secret/key 字段、
+         * OAuth 查询参数、URL 凭据、IPv4/IPv6 地址和本地用户路径。
+         * 每个字段截断为 1000 字符。
          */
         internal fun sanitize(value: String): String {
             return value

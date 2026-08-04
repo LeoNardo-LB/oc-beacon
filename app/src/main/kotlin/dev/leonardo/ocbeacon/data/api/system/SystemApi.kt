@@ -17,26 +17,26 @@ interface SystemApi {
     suspend fun getHealth(conn: ServerConnection): ServerHealth
 
     /**
-     * Get server paths (home directory, worktree, etc.).
+     * 获取服务器路径（home 目录、worktree 等）。
      * GET /path
      */
     suspend fun getServerPaths(conn: ServerConnection): ServerPaths
 
     /**
-     * List available agents (build, plan, etc.).
+     * 列出可用的 agent（build、plan 等）。
      * GET /agent
-     * Returns agents filtered to primary/visible ones for the mode selector.
+     * 返回已过滤为主要/可见 agent，用于模式选择器。
      */
     suspend fun listAgents(conn: ServerConnection): List<AgentInfo>
 
     /**
-     * List available slash commands.
+     * 列出可用的斜杠命令。
      * GET /command
      */
     suspend fun listCommands(conn: ServerConnection): List<CommandInfo>
 
     /**
-     * List available skills.
+     * 列出可用的技能。
      * GET /skill
      */
     suspend fun listSkills(conn: ServerConnection, directory: String? = null): List<SkillInfo>
@@ -62,7 +62,7 @@ class SystemApiImpl @Inject constructor(
     }
 
     /**
-     * Get server paths (home directory, worktree, etc.).
+     * 获取服务器路径（home 目录、worktree 等）。
      * GET /path
      */
     override suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
@@ -72,9 +72,9 @@ class SystemApiImpl @Inject constructor(
     }
 
     /**
-     * List available agents (build, plan, etc.).
+     * 列出可用的 agent（build、plan 等）。
      * GET /agent
-     * Returns agents filtered to primary/visible ones for the mode selector.
+     * 返回已过滤为主要/可见 agent，用于模式选择器。
      */
     override suspend fun listAgents(conn: ServerConnection): List<AgentInfo> {
         return httpClient.get("${conn.baseUrl}/agent") {
@@ -83,7 +83,7 @@ class SystemApiImpl @Inject constructor(
     }
 
     /**
-     * List available slash commands.
+     * 列出可用的斜杠命令。
      * GET /command
      */
     override suspend fun listCommands(conn: ServerConnection): List<CommandInfo> {
@@ -93,7 +93,7 @@ class SystemApiImpl @Inject constructor(
     }
 
     /**
-     * List available skills.
+     * 列出可用的技能。
      * GET /skill
      */
     override suspend fun listSkills(conn: ServerConnection, directory: String?): List<SkillInfo> {

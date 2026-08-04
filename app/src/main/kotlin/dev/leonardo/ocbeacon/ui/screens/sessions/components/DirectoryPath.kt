@@ -1,68 +1,68 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 /**
- * Value object representing a browsable directory path in the file browser.
+ * 文件浏览器中可浏览目录路径的值对象。
  *
- * Encapsulates all path manipulation (parent, child, display, separator logic)
- * so callers never deal with raw string slicing or separator guessing.
+ * 封装所有路径操作（父目录、子目录、显示、分隔符逻辑），
+ * 调用方不必再处理原始字符串切片或分隔符猜测。
  *
- * ## Design decisions
- * - Does NOT use `java.io.File` — this runs on Android (Linux kernel) where
- *   `File("D:\\path")` doesn't treat `\` as a separator.
- * - Path operations are done via string manipulation using the server's own
- *   separator convention (inferred from the path).
- * - Two special roots: [unixRoot] (`/`) and [windowsDrivesRoot] (virtual drive-picker).
- * - `isWindows` is inferred once at construction from the raw path string.
- * - All operations produce new [DirectoryPath] instances — this is a value type.
+ * ## 设计决策
+ * - 不使用 `java.io.File` — 此代码运行在 Android（Linux 内核）上，
+ *   `File("D:\\path")` 不会把 `\` 当作分隔符。
+ * - 路径操作通过字符串处理完成，使用服务器自身的
+ *   分隔符约定（从路径推断）。
+ * - 两个特殊根：[unixRoot]（`/`）和 [windowsDrivesRoot]（虚拟盘符选择器）。
+ * - `isWindows` 在构造时从原始路径字符串一次性推断。
+ * - 所有操作都返回新的 [DirectoryPath] 实例 — 这是一个值类型。
  */
 @ConsistentCopyVisibility
 data class DirectoryPath private constructor(
-    /** The raw, normalized path string sent to the server API. */
+    /** 发送给服务器 API 的原始、规范化路径字符串。 */
     val rawPath: String,
-    /** Whether this path uses Windows conventions (backslash separator, drive letters). */
+    /** 此路径是否使用 Windows 约定（反斜杠分隔符、盘符）。 */
     val isWindows: Boolean,
 ) {
 
-    /** The separator character used by the server for this path. */
+    /** 服务器为此路径使用的分隔符字符。 */
     private val sep: Char get() = if (isWindows) '\\' else '/'
 
-    // ── Queries ──────────────────────────────────────────────────────
+    // ── 查询 ──────────────────────────────────────────────────────
 
-    /** Whether this is the virtual Windows drive-picker root. */
+    /** 是否为虚拟 Windows 盘符选择器根。 */
     val isDrivesRoot: Boolean get() = this === windowsDrivesRoot || rawPath == DRIVES_ROOT_SENTINEL
 
-    /** Whether this is the topmost navigable level (can't go up further). */
+    /** 是否为最顶层可导航层级（无法再向上）。 */
     val isRoot: Boolean
         get() = when {
             isDrivesRoot -> true
-            // Drive roots (C:\, D:\) can go up to the drives list, so they are NOT root.
+            // 盘符根（C:\、D:\）可以向上回到盘符列表，所以不是 root。
             else -> rawPath == "/"
         }
 
-    /** Whether this path is a Windows drive root like `C:\` or `D:\`. */
+    /** 此路径是否为 Windows 盘符根，如 `C:\` 或 `D:\`。 */
     val isDriveRoot: Boolean
         get() = isWindows && rawPath.length <= 3 &&
                 rawPath.matches(Regex("[A-Za-z]:[/\\\\]?"))
 
-    /** The display-friendly path (replaces home prefix with `~` if provided). */
+    /** 显示友好的路径（若提供 home 前缀，则用 `~` 替换）。 */
     fun display(homeDir: String? = null): String {
         if (isDrivesRoot) return "Drives"
         if (homeDir.isNullOrBlank()) return rawPath
         return if (rawPath.startsWith(homeDir)) "~${rawPath.removePrefix(homeDir)}" else rawPath
     }
 
-    // ── Navigation ───────────────────────────────────────────────────
+    // ── 导航 ───────────────────────────────────────────────────
 
     /**
-     * Navigate up to the parent directory.
-     * Returns `null` if already at the topmost level.
+     * 向上导航到父目录。
+     * 若已处于最顶层则返回 `null`。
      *
-     * Windows behavior:
+     * Windows 行为：
      * - `D:\Users\Admin` → `D:\Users`
      * - `D:\Users` → `D:\`
-     * - `D:\` → drives root
+     * - `D:\` → 盘符根
      *
-     * Unix behavior:
+     * Unix 行为：
      * - `/home/user` → `/home`
      * - `/home` → `/`
      * - `/` → null
@@ -71,7 +71,7 @@ data class DirectoryPath private constructor(
         if (isRoot) return null
         if (isDriveRoot) return windowsDrivesRoot
 
-        // Normalize: strip trailing separators (but keep the drive root's trailing \)
+        // 规范化：去除尾部分隔符（但保留盘符根的尾随 \）
         val normalized = rawPath.trimEnd(sep)
         val lastSep = normalized.lastIndexOf(sep)
 
@@ -79,12 +79,12 @@ data class DirectoryPath private constructor(
 
         val parentStr = normalized.substring(0, lastSep)
 
-        // Windows: "D:" (empty parent after stripping) → drive root
+        // Windows："D:"（剥离后父路径为空）→ 盘符根
         if (isWindows && parentStr.matches(Regex("[A-Za-z]:$"))) {
             return forPath(parentStr + sep)
         }
 
-        // Unix: "/something" → parent is "/" (root)
+        // Unix："/something" → 父路径为 "/"（根）
         if (!isWindows && parentStr.isEmpty()) {
             return unixRoot
         }
@@ -93,33 +93,33 @@ data class DirectoryPath private constructor(
     }
 
     /**
-     * Navigate into a child directory by [name].
-     * Joins using the correct separator for this path's convention.
+     * 通过 [name] 导航进入子目录。
+     * 使用此路径约定对应的正确分隔符进行拼接。
      */
     fun child(name: String): DirectoryPath {
         val base = rawPath.trimEnd(sep)
         return forPath("$base$sep$name")
     }
 
-    // ── Standard overrides ───────────────────────────────────────────
+    // ── 标准重写 ───────────────────────────────────────────────────
 
     override fun toString(): String = rawPath
 
-    // ── Companion (factory) ──────────────────────────────────────────
+    // ── Companion（工厂） ──────────────────────────────────────────
 
     companion object {
-        /** Sentinel for the virtual Windows drive-picker. Never sent to the server. */
+        /** 虚拟 Windows 盘符选择器的哨兵值。绝不发送给服务器。 */
         private const val DRIVES_ROOT_SENTINEL = ":///drives"
 
-        /** Virtual root representing the Windows drive-picker page. */
+        /** 表示 Windows 盘符选择器页面的虚拟根。 */
         val windowsDrivesRoot: DirectoryPath = DirectoryPath(DRIVES_ROOT_SENTINEL, isWindows = true)
 
-        /** Unix filesystem root. */
+        /** Unix 文件系统根。 */
         val unixRoot: DirectoryPath = DirectoryPath("/", isWindows = false)
 
         /**
-         * Construct from a raw server path string.
-         * Infers [isWindows] from the presence of `\` or a drive-letter prefix.
+         * 从原始服务器路径字符串构造。
+         * 根据是否包含 `\` 或盘符前缀推断 [isWindows]。
          */
         fun forPath(rawPath: String): DirectoryPath {
             val isWindows = rawPath.contains('\\') || rawPath.matches(Regex("^[A-Za-z]:.*"))

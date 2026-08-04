@@ -16,12 +16,12 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Unit tests for SSE event parsers.
+ * SSE 事件解析器的单元测试。
  *
- * Tests the three most important parsers:
- * - MessageEventParser: message.updated, message.removed, message.part.*
- * - PermissionEventParser: permission.asked, permission.replied
- * - SessionEventParser: session.status, session.idle, session.created, etc.
+ * 覆盖三个最重要的解析器：
+ * - MessageEventParser：message.updated、message.removed、message.part.*
+ * - PermissionEventParser：permission.asked、permission.replied
+ * - SessionEventParser：session.status、session.idle、session.created 等
  */
 class SseEventParserTest {
 
@@ -32,7 +32,7 @@ class SseEventParserTest {
         json = Json { ignoreUnknownKeys = true }
     }
 
-    // ==================== Helper ====================
+    // ==================== 辅助函数 ====================
 
     private fun parseJsonObject(jsonStr: String): JsonObject =
         json.decodeFromString(JsonObject.serializer(), jsonStr)
@@ -209,7 +209,7 @@ class SseEventParserTest {
     @Test
     fun `MessageEventParser parse message_part_delta with default field`() {
         val parser = MessageEventParser(json)
-        // field is optional with default "text"
+        // field 字段可选，默认值为 "text"
         val props = parseJsonObject(
             """{
                 "sessionID": "s1",
@@ -227,7 +227,7 @@ class SseEventParserTest {
     @Test
     fun `MessageEventParser parse handles missing optional fields gracefully`() {
         val parser = MessageEventParser(json)
-        // message.removed with missing fields → empty strings (via str() default)
+        // message.removed 缺少字段 → 空字符串（通过 str() 默认值）
         val props = parseJsonObject("""{}""")
         val event = parser.parse("message.removed", props)
         assertNotNull(event)
@@ -310,7 +310,7 @@ class SseEventParserTest {
     @Test
     fun `PermissionEventParser parse permission_asked with V1 always as array`() {
         val parser = PermissionEventParser()
-        // V1: always is a non-empty list of strings → true
+        // V1：always 是非空字符串列表 → true
         val props = parseJsonObject(
             """{
                 "id": "p1",
@@ -327,7 +327,7 @@ class SseEventParserTest {
     @Test
     fun `PermissionEventParser parse permission_asked with V1 always as empty array`() {
         val parser = PermissionEventParser()
-        // V1: always is empty list → false
+        // V1：always 是空列表 → false
         val props = parseJsonObject(
             """{
                 "id": "p1",
@@ -361,11 +361,11 @@ class SseEventParserTest {
     @Test
     fun `PermissionEventParser parse returns null for malformed JSON`() {
         val parser = PermissionEventParser()
-        // Completely empty props — should still produce an event (fields default to empty)
-        // because str() returns "" for missing keys
-        // But let's test with a truly broken scenario:
-        // Actually, with empty JsonObject, permission.asked still works (defaults)
-        // Let's test with a non-handled event type
+        // 完全空的 props —— 仍应产生事件（字段默认为空）
+        // 因为 str() 对缺失键返回 ""
+        // 但让我们测试一个真正损坏的场景：
+        // 实际上，对于空 JsonObject，permission.asked 仍然有效（使用默认值）
+        // 让我们测试一个未被处理的事件类型
         val props = parseJsonObject("""{}""")
         val event = parser.parse("some.unknown.event", props)
         assertNull(event)
@@ -669,7 +669,7 @@ class SseEventParserTest {
     @Test
     fun `SessionEventParser parse session_created falls back to props when info missing`() {
         val parser = SessionEventParser(json)
-        // When "info" is absent, parser falls back to using `props` directly as the session object
+        // 当 "info" 缺失时，解析器回退为直接将 `props` 用作会话对象
         val props = parseJsonObject(
             """{
                 "id": "sess_fallback",
@@ -682,7 +682,7 @@ class SseEventParserTest {
         assertEquals("sess_fallback", (event as SseEvent.SessionCreated).info.id)
     }
 
-    // ==================== Cross-parser isolation ====================
+    // ==================== 解析器间隔离 ====================
 
     @Test
     fun `MessageEventParser returns null for permission events`() {
@@ -708,7 +708,7 @@ class SseEventParserTest {
         assertNull(parser.parse("message.updated", props))
     }
 
-    // ==================== ParserUtils str() extension ====================
+    // ==================== ParserUtils 的 str() 扩展 ====================
 
     @Test
     fun `str returns content for existing key`() {

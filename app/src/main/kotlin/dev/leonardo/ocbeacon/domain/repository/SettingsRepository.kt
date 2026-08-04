@@ -6,76 +6,76 @@ import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Domain-layer interface for application settings.
- * Aligned with spec §4.1.1.
- * Implemented by the Data layer in Phase 3.
+ * 应用设置的领域层接口。
+ * 与 spec §4.1.1 对齐。
+ * 由 Data 层在 Phase 3 实现。
  */
 interface SettingsRepository {
 
     /**
-     * Observe the aggregated application settings.
+     * 观察聚合后的应用设置。
      */
     fun getSettingsFlow(): Flow<AppSettings>
 
     /**
-     * Update the application settings.
+     * 更新应用设置。
      */
     suspend fun updateSettings(settings: AppSettings): Result<Unit>
 
     /**
-     * Observe the set of hidden model keys for a server.
-     * Key format: "providerId:modelId".
+     * 观察某台服务器的隐藏 model 键集合。
+     * 键格式："providerId:modelId"。
      */
     fun hiddenModels(serverId: String): Flow<Set<String>>
 
     /**
-     * Global list of user-defined session categories.
+     * 全局用户定义的会话类别列表。
      */
     fun sessionCategories(): Flow<List<SessionCategory>>
 
     /**
-     * Per-server session id → category id assignments.
+     * 按服务器划分的 sessionId → categoryId 分配。
      */
     fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>>
 
-    /** Add or replace a category. */
+    /** 新增或替换一个类别。 */
     suspend fun addSessionCategory(category: SessionCategory)
 
-    /** Remove a category by id. */
+    /** 按 id 移除一个类别。 */
     suspend fun removeSessionCategory(categoryId: String)
 
-    /** Assign a session to a category for the given server. */
+    /** 为指定服务器将会话分配到某个类别。 */
     suspend fun assignSessionCategory(serverId: String, sessionId: String, categoryId: String)
 
-    /** Remove a session's category assignment for the given server. */
+    /** 为指定服务器移除会话的类别分配。 */
     suspend fun unassignSessionCategory(serverId: String, sessionId: String)
 
-    // ============ Cross-server session favorites ============
+    // ============ 跨服务器会话收藏 ============
 
-    /** Favorite session ids for a specific server. */
+    /** 某台服务器上被收藏的会话 id。 */
     fun favoriteSessionIds(serverId: String): Flow<Set<String>>
 
-    /** Global cross-server favorite order — list of "serverId:sessionId" keys. */
+    /** 全局跨服务器收藏顺序——"serverId:sessionId" 键的列表。 */
     val crossServerFavoriteOrder: Flow<List<String>>
 
-    /** Offline snapshots keyed by "serverId:sessionId". */
+    /** 以 "serverId:sessionId" 为键的离线快照。 */
     val favoriteSessionSnapshots: Flow<Map<String, FavoriteSessionSnapshot>>
 
-    /** Add a session to favorites for a server, persisting its offline snapshot. */
+    /** 将某台服务器上的某个会话加入收藏，并持久化其离线快照。 */
     suspend fun addFavoriteSession(serverId: String, sessionId: String, snapshot: FavoriteSessionSnapshot)
 
-    /** Remove a session from favorites for a server, clearing its snapshot. */
+    /** 将某台服务器上的某个会话从收藏移除，并清除其快照。 */
     suspend fun removeFavoriteSession(serverId: String, sessionId: String)
 
-    /** Replace the entire cross-server favorite order. */
+    /** 替换整个跨服务器收藏顺序。 */
     suspend fun setCrossServerFavoriteOrder(order: List<String>)
 
-    /** Upsert or remove a single favorite key in the cross-server order list. */
+    /** 在跨服务器顺序列表中插入或移除单个收藏键。 */
     suspend fun setCrossServerFavoriteOrderItem(key: String, favorite: Boolean)
 
-    /** Save or replace a snapshot for a (server, session) pair. */
+    /** 为 (server, session) 对保存或替换快照。 */
     suspend fun saveFavoriteSessionSnapshot(serverId: String, sessionId: String, snapshot: FavoriteSessionSnapshot)
 
-    /** Clear a snapshot for a (server, session) pair. */
+    /** 清除 (server, session) 对的快照。 */
     suspend fun clearFavoriteSessionSnapshot(serverId: String, sessionId: String)
 }

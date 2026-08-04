@@ -14,7 +14,7 @@ import dev.snipme.highlights.model.SyntaxThemes
 
 private const val ALPHA_MASK = 0xFF000000.toInt()
 
-/** Syntax-highlight + annotation builders extracted from CodeSourceView.kt. */
+/** 从 CodeSourceView.kt 抽取的语法高亮 + 批注构建器。 */
 internal object HighlightBuilder {
 
     fun buildHighlights(
@@ -76,7 +76,7 @@ internal object HighlightBuilder {
     }
 
     /**
-     * Build a per-line AnnotatedString with annotation highlights overlaid on the base syntax-highlighted line.
+     * 构建逐行的 AnnotatedString，在基础语法高亮行之上叠加批注高亮。
      */
     fun buildAnnotatedLineWithAnnotations(
         baseLine: AnnotatedString,

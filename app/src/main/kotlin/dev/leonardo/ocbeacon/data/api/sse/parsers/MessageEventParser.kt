@@ -9,7 +9,7 @@ import kotlinx.serialization.json.*
 private const val TAG = "SseClient"
 
 /**
- * Parses message-related events:
+ * 解析消息相关事件：
  * - message.updated, message.removed
  * - message.part.updated, message.part.delta, message.part.removed
  */

@@ -5,8 +5,8 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import javax.inject.Inject
 
 /**
- * Use case: manage terminal operations.
- * Delegates to ChatRepository for command execution.
+ * Use Case：管理终端操作。
+ * 委托给 ChatRepository 执行命令。
  */
 class ManageTerminalUseCase @Inject constructor(
     private val chatRepository: ChatRepository

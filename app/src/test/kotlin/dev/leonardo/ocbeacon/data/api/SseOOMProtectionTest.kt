@@ -5,18 +5,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Tests for [appendDataLine] — the SSE event-level OOM protection.
+ * 测试 [appendDataLine] —— SSE 事件级别的 OOM 保护。
  *
- * Uses a small [maxEventSize] parameter (instead of the production 1MB constant)
- * to test boundary behavior quickly without allocating large buffers.
+ * 使用较小的 [maxEventSize] 参数（而非生产环境中的 1MB 常量），
+ * 以便在不分配大缓冲区的情况下快速验证边界行为。
  *
- * Coverage:
- * - Normal append (under limit)
- * - Overflow triggers clear + drop
- * - Recovery after clear (next frame resumes normally)
- * - Multi-line accumulation with separator accounting
- * - Boundary: exactly at limit (should be accepted, off-by-one guard)
- * - Edge: empty payload
+ * 覆盖范围：
+ * - 正常追加（低于上限）
+ * - 溢出触发清空 + 丢弃
+ * - 清空后的恢复（下一帧恢复正常）
+ * - 多行累积与分隔符计数
+ * - 边界：恰好等于上限（应被接受，防止 off-by-one）
+ * - 边界情况：空负载
  */
 class SseOOMProtectionTest {
 
@@ -32,7 +32,7 @@ class SseOOMProtectionTest {
     @Test
     fun `clears buffer and drops payload when single payload exceeds limit`() {
         val buffer = mutableListOf<List<Byte>>()
-        // payload size 3 > maxEventSize 2 → clear + drop
+        // 负载大小 3 > maxEventSize 2 → 清空 + 丢弃
         appendDataLine(buffer, byteListOf(1, 2, 3), maxEventSize = 2)
 
         assertTrue("buffer should be empty after overflow", buffer.isEmpty())
@@ -41,11 +41,11 @@ class SseOOMProtectionTest {
     @Test
     fun `clears buffer when accumulated size exceeds limit`() {
         val buffer = mutableListOf<List<Byte>>()
-        appendDataLine(buffer, byteListOf(1, 2, 3), maxEventSize = 10)  // projected = 3
-        appendDataLine(buffer, byteListOf(4, 5, 6, 7, 8), maxEventSize = 10)  // projected = 3 + 1 + 5 = 9
+        appendDataLine(buffer, byteListOf(1, 2, 3), maxEventSize = 10)  // 预计 = 3
+        appendDataLine(buffer, byteListOf(4, 5, 6, 7, 8), maxEventSize = 10)  // 预计 = 3 + 1 + 5 = 9
         assertEquals(2, buffer.size)
 
-        // Third append: projected = 3 + 5 + 1 + 3 = 12 > 10 → clear all
+        // 第三次追加：预计 = 3 + 5 + 1 + 3 = 12 > 10 → 全部清空
         appendDataLine(buffer, byteListOf(9, 10, 11), maxEventSize = 10)
         assertTrue("buffer should be cleared when accumulated size exceeds limit", buffer.isEmpty())
     }
@@ -53,8 +53,8 @@ class SseOOMProtectionTest {
     @Test
     fun `resumes normally after clear`() {
         val buffer = mutableListOf<List<Byte>>()
-        appendDataLine(buffer, byteListOf(1, 2, 3), maxEventSize = 2)  // overflow → clear
-        appendDataLine(buffer, byteListOf(1), maxEventSize = 10)       // normal resume
+        appendDataLine(buffer, byteListOf(1, 2, 3), maxEventSize = 2)  // 溢出 → 清空
+        appendDataLine(buffer, byteListOf(1), maxEventSize = 10)       // 正常恢复
 
         assertEquals("should resume normal operation after clear", 1, buffer.size)
     }
@@ -62,11 +62,11 @@ class SseOOMProtectionTest {
     @Test
     fun `accumulates multiple lines with separator accounting`() {
         val buffer = mutableListOf<List<Byte>>()
-        // Line 1: projected = 0 + 2 + 0 = 2 (buffer empty, no separator)
+        // 第 1 行：预计 = 0 + 2 + 0 = 2（缓冲区为空，无分隔符）
         appendDataLine(buffer, byteListOf(1, 2), maxEventSize = 10)
-        // Line 2: projected = 2 + 2 + 1 = 5 (buffer has 1 line → +1 separator)
+        // 第 2 行：预计 = 2 + 2 + 1 = 5（缓冲区已有 1 行 → +1 分隔符）
         appendDataLine(buffer, byteListOf(3, 4), maxEventSize = 10)
-        // Line 3: projected = 4 + 2 + 2 = 8 (buffer has 2 lines → +2 separators)
+        // 第 3 行：预计 = 4 + 2 + 2 = 8（缓冲区已有 2 行 → +2 分隔符）
         appendDataLine(buffer, byteListOf(5, 6), maxEventSize = 10)
 
         assertEquals(3, buffer.size)
@@ -75,7 +75,7 @@ class SseOOMProtectionTest {
     @Test
     fun `boundary exactly at limit is accepted`() {
         val buffer = mutableListOf<List<Byte>>()
-        // projected = 0 + 3 + 0 = 3, maxEventSize = 3 → NOT exceed (>), boundary accepted
+        // 预计 = 0 + 3 + 0 = 3，maxEventSize = 3 → 未超过（>），边界被接受
         appendDataLine(buffer, byteListOf(1, 2, 3), maxEventSize = 3)
 
         assertEquals("boundary exactly at limit should be accepted (off-by-one guard)", 1, buffer.size)
@@ -85,14 +85,14 @@ class SseOOMProtectionTest {
     fun `empty payload under limit is appended`() {
         val buffer = mutableListOf<List<Byte>>()
         appendDataLine(buffer, emptyList(), maxEventSize = 1)
-        // projected = 0 + 0 + 0 = 0 ≤ 1 → append
+        // 预计 = 0 + 0 + 0 = 0 ≤ 1 → 追加
         assertEquals(1, buffer.size)
     }
 
     @Test
     fun `empty payload on empty buffer with zero limit is accepted`() {
         val buffer = mutableListOf<List<Byte>>()
-        // projected = 0, maxEventSize = 0 → 0 > 0 is false → append
+        // 预计 = 0，maxEventSize = 0 → 0 > 0 为 false → 追加
         appendDataLine(buffer, emptyList(), maxEventSize = 0)
         assertEquals("zero projected should pass zero-limit boundary", 1, buffer.size)
     }

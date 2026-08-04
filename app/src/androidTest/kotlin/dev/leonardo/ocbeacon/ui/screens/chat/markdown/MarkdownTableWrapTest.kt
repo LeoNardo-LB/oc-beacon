@@ -28,9 +28,9 @@ class MarkdownTableWrapTest {
         setMarkdown("| col |\n| --- |\n| $longUrl |")
         composeRule.waitForIdle()
 
-        // SubcomposeLayout uses a "probe" + "final" composition; both create
-        // semantics nodes. The probe is measured with infinite max-width so its
-        // URL node overflows — pick the node that fits within the container.
+        // SubcomposeLayout 使用 "probe" + "final" 两次组合；二者都会
+        // 创建 semantics 节点。probe 以无限最大宽度测量，因此其 URL
+        // 节点会溢出 —— 选取能放入容器内的那个节点。
         val rootWidth = composeRule.onRoot().fetchSemanticsNode().boundsInRoot.width
         val nodes = composeRule.onAllNodesWithText(longUrl, substring = true).fetchSemanticsNodes()
         assertTrue("should find cell node(s) for url", nodes.isNotEmpty())
@@ -47,9 +47,9 @@ class MarkdownTableWrapTest {
         setMarkdown("| name | value |\n| --- | --- |\n| alpha | beta |\n| gamma | delta |")
         composeRule.waitForIdle()
 
-        // Cell text from markdown includes trailing space ("delta "); use
-        // substring match. SubcomposeLayout probe + final create multiple
-        // nodes — pick the placed one within container bounds.
+        // 来自 markdown 的单元格文本带有尾随空格（"delta "），因此使用
+        // 子串匹配。SubcomposeLayout 的 probe + final 会创建多个节点 ——
+        // 选取位于容器边界内、已被放置的那个节点。
         val rootWidth = composeRule.onRoot().fetchSemanticsNode().boundsInRoot.width
         val deltaNodes = composeRule.onAllNodesWithText("delta", substring = true).fetchSemanticsNodes()
         assertTrue("should find delta cell(s)", deltaNodes.isNotEmpty())

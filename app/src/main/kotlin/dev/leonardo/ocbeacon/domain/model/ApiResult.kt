@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Unified result type for all API operations.
- * Replaces the mix of boolean returns, thrown exceptions, and Result<T>.
+ * 所有 API 操作的统一结果类型。
+ * 替代 boolean 返回值、抛异常、Result<T> 混用的方案。
  */
 sealed class ApiResult<T> {
     data class Success<T>(val data: T) : ApiResult<T>()
@@ -22,31 +22,31 @@ sealed class ApiResult<T> {
 }
 
 /**
- * Typed API errors with HTTP status code classification.
+ * 带 HTTP 状态码分类的类型化 API 错误。
  */
 sealed class ApiError : Exception() {
-    /** Authentication failure (401). */
+    /** 认证失败（401）。 */
     data object AuthError : ApiError()
 
-    /** Authorization failure (403). */
+    /** 授权失败（403）。 */
     data object ForbiddenError : ApiError()
 
-    /** Resource not found (404). */
+    /** 资源未找到（404）。 */
     data object NotFoundError : ApiError()
 
-    /** Rate limited (429). [retryAfterMillis] from retry-after / retry-after-ms header. */
+    /** 被限流（429）。[retryAfterMillis] 取自 retry-after / retry-after-ms 响应头。 */
     data class RateLimitError(val retryAfterMillis: Long = 0L) : ApiError()
 
-    /** Server-side error (5xx). */
+    /** 服务端错误（5xx）。 */
     data class ServerError(val statusCode: Int) : ApiError()
 
-    /** Client-side error (4xx, excluding classified ones). */
+    /** 客户端错误（4xx，不含已分类的类型）。 */
     data class ClientError(val statusCode: Int) : ApiError()
 
-    /** Network-level failure (no response, IOException, timeout). */
+    /** 网络层失败（无响应、IOException、超时）。 */
     data object NetworkError : ApiError()
 
-    /** Whether this error is transient and worth retrying. */
+    /** 该错误是否为瞬时错误、值得重试。 */
     val isTransient: Boolean
         get() = when (this) {
             is ServerError -> true
@@ -57,11 +57,11 @@ sealed class ApiError : Exception() {
 }
 
 /**
- * Map an HTTP status code (and optional rate-limit headers) to an [ApiError].
+ * 将 HTTP 状态码（及可选的限流响应头）映射为 [ApiError]。
  *
- * @param statusCode The HTTP status code.
- * @param retryAfterSeconds Value of `retry-after` response header (seconds).
- * @param retryAfterMs Value of `retry-after-ms` response header (milliseconds).
+ * @param statusCode HTTP 状态码。
+ * @param retryAfterSeconds `retry-after` 响应头的值（秒）。
+ * @param retryAfterMs `retry-after-ms` 响应头的值（毫秒）。
  */
 fun mapHttpError(
     statusCode: Int,

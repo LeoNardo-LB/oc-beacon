@@ -113,7 +113,7 @@ class ChatViewModelStreamingTest {
         coEvery { manageAgentUseCase.loadAgents(any()) } returns emptyList()
         coEvery { manageAgentUseCase.loadCommands(any()) } returns emptyList()
 
-        // Wire messagePaging.observeMessages to our controllable flow
+        // 将 messagePaging.observeMessages 接线到可控 flow
         every { messagePaging.observeMessages(any()) } returns messagesFlow
 
         chatRepository = mockk<ChatRepository>(relaxed = true).also {
@@ -173,7 +173,7 @@ class ChatViewModelStreamingTest {
         time = TimeInfo(created = System.currentTimeMillis())
     )
 
-    /** Stub listMessages with a user message that has a text part (survives V1→V2 bridge). */
+    /** 用带文本 part 的用户消息 stub listMessages（可穿越 V1→V2 桥）。 */
     private fun stubUserMessage(id: String = "msg-1") {
         val userMsg = createTestUserMessage(id)
         val textPart = dev.leonardo.ocbeacon.domain.model.Part.Text(
@@ -226,33 +226,33 @@ class ChatViewModelStreamingTest {
     }
 
     /**
-     * messageListState is backed by stateIn(WhileSubscribed) and needs an active subscriber.
+     * messageListState 由 stateIn(WhileSubscribed) 支撑，需要活跃订阅者。
      */
     private fun kotlinx.coroutines.test.TestScope.subscribeToMessageState(vm: ChatViewModel): Job {
         return backgroundScope.launch {
-            vm.messageListState.collect { /* keep subscription alive */ }
+            vm.messageListState.collect {         /* 保持订阅存活 */ }
         }
     }
 
-    // ========== Test 1: refreshSession does not set isLoading to true ==========
+    // ========== 测试 1：refreshSession 不会将 isLoading 设为 true ==========
 
     @Test
     fun `refreshSession does not set isLoading to true`() = runTest {
-        // Given: ViewModel with existing messages (via V1→V2 bridge)
+        // 给定：已有消息的 ViewModel（经由 V1→V2 桥）
         stubUserMessage("msg-1")
         val vm = createViewModel()
         val collectJob = subscribeToMessageState(vm)
         advanceUntilIdle()
 
-        // Verify messages are present before refresh
+        // 验证刷新前消息已存在
         val beforeRefresh = vm.messageListState.value.messages
         assertTrue("Messages should exist before refresh", beforeRefresh.isNotEmpty())
 
-        // When: refreshSession is called
+        // 当：调用 refreshSession
         vm.refreshSession()
         advanceUntilIdle()
 
-        // Then: messages should NOT be wiped (because refreshSession uses _isRefreshing, not _isLoading)
+        // 那么：消息不应被清空（因为 refreshSession 使用 _isRefreshing 而非 _isLoading）
         val afterRefresh = vm.messageListState.value.messages
         assertTrue(
             "Messages should NOT be wiped during refresh, got ${afterRefresh.size} messages",
@@ -262,29 +262,29 @@ class ChatViewModelStreamingTest {
         collectJob.cancel()
     }
 
-    // ========== Test 2: V1 setMessages replaces state on refresh ==========
+    // ========== 测试 2：刷新时 V1 setMessages 替换状态 ==========
 
     @Test
     fun `messageListState matches refresh result in V1`() = runTest {
-        // Given: existing messages via initial load
+        // 给定：通过初始加载获得的消息
         stubUserMessage("msg-1")
 
         val vm = createViewModel()
         val collectJob = subscribeToMessageState(vm)
         advanceUntilIdle()
 
-        // Verify initial messages exist
+        // 验证初始消息存在
         assertTrue(
             "Initial messages should exist",
             vm.messageListState.value.messages.isNotEmpty()
         )
 
-        // When: REST refresh returns empty messages (e.g. server lag)
+        // 当：REST 刷新返回空消息（例如服务器延迟）
         coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
         vm.refreshSession()
         advanceUntilIdle()
 
-        // Then: V1 setMessages does full replace — messages are cleared
+        // 那么：V1 setMessages 做全量替换 —— 消息被清空
         val state = vm.messageListState.value
         assertTrue(
             "V1 setMessages replaces state, got ${state.messages.size} messages",
@@ -294,34 +294,34 @@ class ChatViewModelStreamingTest {
         collectJob.cancel()
     }
 
-    // ========== Test 3: V1 refreshIfNeeded always triggers refresh ==========
+    // ========== 测试 3：V1 refreshIfNeeded 始终触发刷新 ==========
 
     @Test
     fun `refreshIfNeeded triggers refresh in V1`() = runTest {
-        // Given: ViewModel
+        // 给定：ViewModel
         val vm = createViewModel()
         val collectJob = subscribeToMessageState(vm)
         advanceUntilIdle()
 
-        // Clear mock state after init (init calls loadMessages → listMessages once)
+        // init 后清除 mock 状态（init 调用 loadMessages → listMessages 一次）
         coVerify(atLeast = 1) { manageSessionUseCase.listMessages(any(), any(), any()) }
         clearMocks(manageSessionUseCase, answers = false)
 
-        // When: refreshIfNeeded is called (V1 has no cooldown — always refreshes)
+        // 当：调用 refreshIfNeeded（V1 无冷却 —— 始终刷新）
         vm.refreshIfNeeded()
         advanceUntilIdle()
 
-        // Then: listMessages should be called (V1 delegates to refreshSession)
+        // 那么：应调用 listMessages（V1 委托给 refreshSession）
         coVerify(atLeast = 1) { manageSessionUseCase.listMessages(any(), any(), any()) }
 
         collectJob.cancel()
     }
 
-    // ========== Test 4: loading guard only clears truly empty message lists ==========
+    // ========== 测试 4：loading 守卫只清空真正为空的消息列表 ==========
 
     @Test
     fun `loading guard only clears truly empty message lists`() = runTest {
-        // Given: exactly 1 message with text part (survives V1→V2 bridge)
+        // 给定：恰好 1 条带文本 part 的消息（可穿越 V1→V2 桥）
         val userMsg = createTestUserMessage("msg-1")
         val textPart = dev.leonardo.ocbeacon.domain.model.Part.Text(
             id = "msg-1-text",
@@ -337,9 +337,9 @@ class ChatViewModelStreamingTest {
         val collectJob = subscribeToMessageState(vm)
         advanceUntilIdle()
 
-        // Then: messages should NOT be cleared despite size < 3
-        // The loading guard uses: loading && sessionMessages.isEmpty()
-        // With 1 message, sessionMessages is NOT empty, so messages are preserved
+        // 那么：尽管 size < 3，消息也不应被清空
+        // loading 守卫使用：loading && sessionMessages.isEmpty()
+        // 有 1 条消息时，sessionMessages 不为空，因此消息被保留
         val state = vm.messageListState.value
         assertTrue(
             "Messages should not be cleared when list has 1 message (isEmpty check, not size < 3), got ${state.messages.size}",
@@ -349,17 +349,17 @@ class ChatViewModelStreamingTest {
         collectJob.cancel()
     }
 
-    // ========== Test 5: loadSession applies initialMessageCount from settings ==========
+    // ========== 测试 5：loadSession 应用 settings 中的 initialMessageCount ==========
 
     @Test
     fun `loadSession applies initialMessageCount from settings as listMessages limit`() = runTest {
-        // Given: settings mock returns initialMessageCount = 50 (see setup)
+        // 给定：settings mock 返回 initialMessageCount = 50（见 setup）
         val vm = createViewModel()
         advanceUntilIdle()
 
-        // Then: listMessages must be called with limit = 50 (from AppSettings.initialMessageCount).
-        // Before this fix, loadSession hardcoded limit=200 and loadMessages used currentMessageLimit=20,
-        // so the user's "initial message count" setting was never consumed.
+        // 那么：必须以 limit = 50 调用 listMessages（来自 AppSettings.initialMessageCount）。
+        // 修复前，loadSession 硬编码 limit=200，loadMessages 使用 currentMessageLimit=20，
+        // 因此用户的 "initial message count" 设置从未被使用。
         coVerify(atLeast = 1) { manageSessionUseCase.listMessages(any(), any(), eq(50)) }
     }
 }

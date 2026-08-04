@@ -9,12 +9,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Tests for [suppressRepeatedPatchHashes].
+ * [suppressRepeatedPatchHashes] 的测试。
  *
- * Coverage matrix:
- * - Basic dedup: cross-message same hash, hash change, non-patch reset, blank hash
- * - Boundary: empty list, single message, user-only, in-message dedup
- * - Edge/extreme: whitespace trimming, mixed sequences, large hash, blank/non-blank alternating
+ * 覆盖矩阵：
+ * - 基本去重：跨消息相同 hash、hash 变化、非 patch 重置、空 hash
+ * - 边界：空列表、单条消息、仅用户、消息内去重
+ * - 极端/边界：空白修剪、混合序列、大 hash、空白/非空白交替
  */
 class PatchVisibilityResolverTest {
 
@@ -76,7 +76,7 @@ class PatchVisibilityResolverTest {
         assertEquals(listOf(secondPatch), result[1].parts.filterIsInstance<Part.Patch>())
     }
 
-    // ── Boundary cases ──────────────────────────────────────────────
+    // ── 边界情况 ──────────────────────────────────────────────
 
     @Test
     fun `empty messages list returns empty`() {
@@ -131,7 +131,7 @@ class PatchVisibilityResolverTest {
         assertTrue("whitespace-padded hash should match bare hash", result[1].parts.filterIsInstance<Part.Patch>().isEmpty())
     }
 
-    // ── Extreme / edge cases ────────────────────────────────────────
+    // ── 极端/边界情况 ────────────────────────────────────────
 
     @Test
     fun `mixed user assistant sequence dedups only in assistant messages`() {
@@ -147,16 +147,16 @@ class PatchVisibilityResolverTest {
             )
         )
 
-        // User messages unchanged
+        // 用户消息保持不变
         assertEquals(2, result.filter { it.message is Message.User }.size)
-        // First assistant patch kept, second deduped
+        // 第一个 assistant patch 保留，第二个被去重
         assertEquals(listOf(patch1), result[1].parts.filterIsInstance<Part.Patch>())
         assertTrue(result[3].parts.filterIsInstance<Part.Patch>().isEmpty())
     }
 
     @Test
     fun `large hash value handled correctly`() {
-        val largeHash = "h".repeat(1024)  // 1KB hash
+        val largeHash = "h".repeat(1024)          // 1KB 的 hash
         val firstPatch = patchPart(msgId = "a-1", partId = "p-1", hash = largeHash)
         val secondPatch = patchPart(msgId = "a-2", partId = "p-2", hash = largeHash)
 
@@ -170,7 +170,7 @@ class PatchVisibilityResolverTest {
 
     @Test
     fun `blank and non-blank hash alternating keeps blank patches visible`() {
-        // blank → non-blank(X) → blank → non-blank(X): blank always visible, X deduped
+        // blank → non-blank(X) → blank → non-blank(X)：blank 始终可见，X 被去重
         val blank1 = patchPart(msgId = "a-1", partId = "p-1", hash = "")
         val x1 = patchPart(msgId = "a-2", partId = "p-2", hash = "X")
         val blank2 = patchPart(msgId = "a-3", partId = "p-3", hash = "")
@@ -185,15 +185,15 @@ class PatchVisibilityResolverTest {
             )
         )
 
-        // Blank patches always visible
+        // 空白 patch 始终可见
         assertEquals(listOf(blank1), result[0].parts.filterIsInstance<Part.Patch>())
         assertEquals(listOf(blank2), result[2].parts.filterIsInstance<Part.Patch>())
-        // X1 kept, X2 deduped (blank in between doesn't reset)
+        // X1 保留，X2 被去重（中间的空白不会重置）
         assertEquals(listOf(x1), result[1].parts.filterIsInstance<Part.Patch>())
         assertTrue(result[3].parts.filterIsInstance<Part.Patch>().isEmpty())
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────
+    // ── 辅助函数 ─────────────────────────────────────────────────────
 
     private fun assistantMsg(id: String, vararg parts: Part): ChatMessage = ChatMessage(
         message = Message.Assistant(

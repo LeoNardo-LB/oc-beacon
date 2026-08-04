@@ -10,7 +10,7 @@ import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** An image attachment ready to send. */
+/** 已准备好发送的图片附件。 */
 internal data class ImageAttachment(
     val uri: Uri,
     val mime: String,
@@ -30,9 +30,9 @@ internal data class AttachmentComparison(
     val optimizedEstimatedTokens: Int
 )
 
-// ============ Attachment Validation ============
+// ============ 附件校验 ============
 
-/** Validation result for a local attachment before it is added to the composer. */
+/** 本地附件在加入编辑器之前的校验结果。 */
 internal enum class LocalAttachmentValidation { ACCEPTED, UNSUPPORTED, TOO_LARGE }
 
 internal const val MAX_DOCUMENT_ATTACHMENT_BYTES = 10L * 1024 * 1024
@@ -51,10 +51,10 @@ private val TEXT_MIME_TYPES = setOf(
 )
 
 /**
- * Validates a local attachment by MIME type, filename extension, and byte size.
+ * 按 MIME 类型、文件扩展名和字节大小校验本地附件。
  *
- * Text files are capped at [MAX_TEXT_ATTACHMENT_BYTES]; images and PDFs at
- * [MAX_DOCUMENT_ATTACHMENT_BYTES]. Anything else is [UNSUPPORTED].
+ * 文本文件上限为 [MAX_TEXT_ATTACHMENT_BYTES]；图片和 PDF 上限为
+ * [MAX_DOCUMENT_ATTACHMENT_BYTES]。其他类型均为 [UNSUPPORTED]。
  */
 internal fun validateLocalAttachment(
     mime: String,
@@ -69,7 +69,7 @@ internal fun validateLocalAttachment(
     return if (sizeBytes > limit) LocalAttachmentValidation.TOO_LARGE else LocalAttachmentValidation.ACCEPTED
 }
 
-/** Resolves the display name and declared size for a content URI. */
+/** 解析 content URI 的显示名称和声明大小。 */
 internal fun attachmentMetadata(
     contentResolver: ContentResolver,
     uri: Uri,
@@ -147,7 +147,7 @@ internal suspend fun buildAttachmentFromUri(
 ): PreparedAttachment? = withContext(Dispatchers.IO) {
     val (originalFilename, declaredSize) = attachmentMetadata(contentResolver, uri)
     var mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
-    // Sniff text/plain for generic octet-stream so text files are accepted.
+    // 嗅探通用 octet-stream 中的 text/plain，使文本文件可被接受。
     val extension = originalFilename.substringAfterLast('.', "").lowercase()
     if (mimeType == "application/octet-stream" && extension in TEXT_FILE_EXTENSIONS) {
         mimeType = "text/plain"

@@ -4,7 +4,7 @@ import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Server CRUD operations.
+ * 服务器 CRUD 操作。
  */
 interface ServerConfigRepository {
     fun getServersFlow(): Flow<List<ServerConfig>>

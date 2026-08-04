@@ -17,10 +17,10 @@ import kotlinx.coroutines.delay
 private const val TAG = "DirectoryManager"
 
 /**
- * Extracted directory-browsing delegate for SessionListViewModel.
+ * 从 SessionListViewModel 抽取的目录浏览委托。
  *
- * Owns all server filesystem operations: listing, searching, probing drives,
- * and creating directories. Caches [ServerPaths] for the delegate lifetime.
+ * 持有所有服务器文件系统操作：列表、搜索、探测盘符、
+ * 创建目录。在委托生命周期内缓存 [ServerPaths]。
  */
 class DirectoryManager(
     private val fileApi: FileApi,
@@ -34,7 +34,7 @@ class DirectoryManager(
 
     private var cachedServerPaths: ServerPaths? = null
 
-    /** Get server paths, caching the result for the delegate lifetime. */
+    /** 获取服务器路径，结果在委托生命周期内缓存。 */
     suspend fun getServerPaths(): ServerPaths {
         if (cachedServerPaths == null) {
             cachedServerPaths = try {
@@ -48,14 +48,14 @@ class DirectoryManager(
         return cachedServerPaths!!
     }
 
-    /** Whether the server runs on Windows (detected from home path backslashes). */
+    /** 服务器是否运行在 Windows 上（通过主目录路径中的反斜杠检测）。 */
     val isWindowsServer: Boolean
         get() = cachedServerPaths?.home?.contains("\\") == true
 
-    /** Get the server's home directory. Delegates to cached getServerPaths(). */
+    /** 获取服务器主目录。委托给已缓存的 getServerPaths()。 */
     suspend fun getHomeDirectory(): String = getServerPaths().home.ifBlank { "/" }
 
-    /** List available Windows drives by probing drive letters in parallel. */
+    /** 通过并行探测盘符列出可用的 Windows 盘符。 */
     suspend fun listWindowsDrives(): List<FileNodeDto> = coroutineScope {
         ('C'..'Z').map { letter ->
             async {
@@ -79,7 +79,7 @@ class DirectoryManager(
         }.awaitAll().filterNotNull()
     }
 
-    /** List directories in a given path on the server. */
+    /** 列出服务器上指定路径中的目录。 */
     suspend fun listDirectories(directory: String): List<FileNodeDto> {
         return try {
             val nodes = fileApi.listDirectory(conn, path = "", directory = directory)
@@ -90,7 +90,7 @@ class DirectoryManager(
         }
     }
 
-    /** Search for directories matching a query, scoped to a base directory. */
+    /** 在基础目录范围内搜索匹配查询的目录。 */
     suspend fun searchDirectories(query: String, directory: String): List<String> {
         return try {
             fileApi.findFiles(conn, query = query, type = "directory", directory = directory, limit = 50)
@@ -100,7 +100,7 @@ class DirectoryManager(
         }
     }
 
-    /** Create a directory inside the currently browsed path. */
+    /** 在当前浏览的路径下创建目录。 */
     suspend fun createDirectory(parentDirectory: String, folderName: String): Result<String> {
         val sanitized = folderName.trim().trim('/').replace(Regex("/+"), "/")
         if (sanitized.isBlank() || sanitized == "." || sanitized == "..") {

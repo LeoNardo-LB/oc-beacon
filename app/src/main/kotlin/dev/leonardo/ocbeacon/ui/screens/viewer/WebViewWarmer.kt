@@ -8,22 +8,21 @@ import android.webkit.WebViewClient
 import android.util.Log
 
 /**
- * One-time WebView V8 engine pre-warm.
+ * 一次性 WebView V8 引擎预热。
  *
- * The first WebView creation in a process pays a heavy cost (~300-500ms) to
- * initialize the V8 JavaScript engine, load the HTML asset, and parse JS.
- * Subsequent WebViews skip the V8 init step entirely.
+ * 进程内首次创建 WebView 需要付出较大开销（约 300-500ms）来
+ * 初始化 V8 JavaScript 引擎、加载 HTML asset 并解析 JS。
+ * 后续 WebView 会完全跳过 V8 初始化步骤。
  *
- * This class creates a throwaway WebView that loads [code_viewer.html],
- * waits for [onPageFinished], then immediately destroys itself. The V8
- * engine state remains warm in the process, so the next CodeWebView created
- * (when the user opens a file) starts fast.
+ * 本类创建一个一次性 WebView，加载 [code_viewer.html]，
+ * 等待 [onPageFinished]，然后立刻销毁自身。V8 引擎状态在进程中
+ * 保持热状态，因此下一次（用户打开文件时）创建的 CodeWebView 启动很快。
  *
- * Resource usage: ~5-10 MB temporarily (freed on destroy). No persistent
- * memory, no background threads, no view hierarchy attachment.
+ * 资源占用：临时约 5-10 MB（销毁时释放）。无持久内存、
+ * 无后台线程、不附加到视图层级。
  *
- * Called once from ChatScreen's LaunchedEffect — by the time the AI finishes
- * generating tool cards and the user taps "open file", the engine is ready.
+ * 从 ChatScreen 的 LaunchedEffect 中调用一次 — 等 AI 生成完工具卡片、
+ * 用户点击"打开文件"时，引擎已就绪。
  */
 object WebViewWarmer {
 
@@ -41,7 +40,7 @@ object WebViewWarmer {
 
         var warmWebView: WebView? = null
 
-        // Safety net: destroy after timeout even if onPageFinished never fires
+        // 安全网：即使 onPageFinished 一直不触发，也在超时后销毁
         val timeoutRunnable = Runnable {
             Log.w(TAG, "Warm-up timed out after ${TIMEOUT_MS}ms, destroying")
             try {

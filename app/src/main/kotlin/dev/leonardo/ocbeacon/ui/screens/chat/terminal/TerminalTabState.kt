@@ -1,9 +1,9 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.terminal
 
 /**
- * Lifecycle state of a single terminal tab's PTY connection.
+ * 单个终端标签页 PTY 连接的生命周期状态。
  *
- * State transitions (driven by [dev.leonardo.ocbeacon.ui.screens.chat.ServerTerminalWorkspace]):
+ * 状态转移（由 [dev.leonardo.ocbeacon.ui.screens.chat.ServerTerminalWorkspace] 驱动）：
  * ```
  * Starting ──createPty+socket──► Connected
  *   │                               │
@@ -17,39 +17,38 @@ package dev.leonardo.ocbeacon.ui.screens.chat.terminal
  * ```
  */
 enum class TerminalTabState {
-    /** Tab just created; PTY creation / first socket open in progress. */
+    /** 标签页刚创建；PTY 创建 / 首次 socket 打开进行中。 */
     Starting,
 
-    /** PTY socket bound and streaming. */
+    /** PTY socket 已绑定并正在流式传输。 */
     Connected,
 
-    /** Socket dropped but PTY still exists on the server; auto-reconnect in progress. */
+    /** socket 已断开但 PTY 在服务器上仍然存在；自动重连进行中。 */
     Reconnecting,
 
-    /** Not connected and not actively reconnecting; a manual reconnect can be triggered. */
+    /** 未连接且未在主动重连；可触发手动重连。 */
     Disconnected,
 
-    /** PTY no longer exists on the server (removed / never created); must recreate it. */
+    /** PTY 在服务器上不再存在（已移除 / 从未创建）；必须重新创建。 */
     Exited,
 }
 
-/** Recovery strategy decided from the current tab state and whether the PTY is missing (HTTP 404). */
+/** 根据当前标签页状态以及 PTY 是否缺失（HTTP 404）决定的恢复策略。 */
 enum class RecoveryAction {
-    /** Re-open the PTY socket only (PTY still exists on the server). */
+    /** 仅重新打开 PTY socket（PTY 在服务器上仍然存在）。 */
     Reconnect,
 
-    /** Recreate the PTY entirely then open its socket (PTY is gone). */
+    /** 完全重新创建 PTY 然后打开其 socket（PTY 已不存在）。 */
     Restart,
 
-    /** No recovery needed — already connected, or a connection attempt is in flight. */
+    /** 无需恢复——已连接，或连接尝试正在进行中。 */
     None,
 }
 
 /**
- * Pure function: decide the recovery action from the tab's [TerminalTabState] and whether
- * the server reported the PTY as missing (404).
+ * 纯函数：根据标签页的 [TerminalTabState] 以及服务器是否报告 PTY 缺失（404）来决定恢复动作。
  *
- * Truth table:
+ * 真值表：
  *
  * | state        | isMissingPty=true | isMissingPty=false |
  * |--------------|-------------------|--------------------|
@@ -59,22 +58,21 @@ enum class RecoveryAction {
  * | Disconnected | Restart           | Reconnect          |
  * | Exited       | Restart           | Restart            |
  *
- * Rationale:
- * - `Starting` / `Connected` are never interrupted — a stale 404 must not tear down an
- *   in-flight or live connection.
- * - When the PTY is missing, `Reconnect` (socket-only) is pointless, so we `Restart`.
- *   The sole exception is `Reconnecting` while PTY is still present → keep waiting (`None`).
- * - `Exited` always requires `Restart` regardless of the 404 signal (state already says PTY is gone).
+ * 原理说明：
+ * - `Starting` / `Connected` 永不中断——陈旧的 404 不能拆除一个进行中或活跃的连接。
+ * - 当 PTY 缺失时，`Reconnect`（仅 socket）毫无意义，因此执行 `Restart`。
+ *   唯一例外是 PTY 仍然存在时的 `Reconnecting` → 继续等待（`None`）。
+ * - 无论 404 信号如何，`Exited` 始终需要 `Restart`（状态本身已表明 PTY 不存在）。
  */
 fun terminalRecoveryAction(
     state: TerminalTabState,
     isMissingPty: Boolean,
 ): RecoveryAction = if (isMissingPty) {
     when (state) {
-        // Never interrupt an in-flight creation or a live connection.
+        // 永不中断进行中的创建或活跃的连接。
         TerminalTabState.Starting,
         TerminalTabState.Connected -> RecoveryAction.None
-        // PTY is gone: a socket-only reconnect is pointless, so recreate it.
+        // PTY 已不存在：仅 socket 重连毫无意义，因此重新创建。
         TerminalTabState.Reconnecting,
         TerminalTabState.Disconnected,
         TerminalTabState.Exited -> RecoveryAction.Restart

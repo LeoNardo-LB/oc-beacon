@@ -29,10 +29,10 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 private enum class PreviewMode { SOURCE, RENDERED }
 
 /**
- * Full-screen dialog for viewing and copying a single assistant message.
- * Supports source (monospace, selectable) and rendered (Markdown) views.
- * No nested scroll conflicts: the dialog is a standalone screen,
- * not embedded inside a LazyColumn.
+ * 用于查看和复制单条 assistant 消息的全屏对话框。
+ * 支持源码（等宽字体、可选）和渲染（Markdown）两种视图。
+ * 无嵌套滚动冲突：该对话框是独立屏幕，
+ * 不嵌入 LazyColumn 内部。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +41,7 @@ internal fun MarkdownPreviewDialog(
     onDismiss: () -> Unit,
     onCopyAll: () -> Unit
 ) {
-    // Defensive: dismiss if content is blank
+    // 防御性处理：内容为空时关闭
     if (markdown.isBlank()) {
         LaunchedEffect(Unit) { onDismiss() }
         return
@@ -73,7 +73,7 @@ internal fun MarkdownPreviewDialog(
                         }
                     },
                     actions = {
-                        // View toggle button
+                        // 视图切换按钮
                         TextButton(onClick = {
                             previewMode = if (previewMode == PreviewMode.SOURCE)
                                 PreviewMode.RENDERED else PreviewMode.SOURCE
@@ -82,7 +82,7 @@ internal fun MarkdownPreviewDialog(
                                 if (previewMode == PreviewMode.SOURCE) "渲染" else "源码"
                             )
                         }
-                        // Copy all button
+                        // 复制全部按钮
                         IconButton(onClick = {
                             performHaptic(view, true)
                             onCopyAll()
@@ -95,7 +95,7 @@ internal fun MarkdownPreviewDialog(
                     }
                 )
 
-                // Content area
+                // 内容区域
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -139,7 +139,7 @@ internal fun MarkdownPreviewDialog(
                     }
                 }
 
-                // Snackbar for copy confirmation
+                // 复制确认 Snackbar
                 SnackbarHost(hostState = snackbarHostState) { data ->
                     Snackbar(snackbarData = data)
                 }

@@ -1,40 +1,39 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * A user annotation on a code selection in the FileViewer source view.
- * Pure in-memory; not persisted. Lifecycle: created on user action,
- * cleared on ViewModel disposal or after submission.
+ * FileViewer 源码视图中用户对代码选区的标注。
+ * 纯内存对象，不持久化。生命周期：用户操作时创建，
+ * ViewModel 销毁或提交后清除。
  */
 data class Annotation(
-    val id: String,           // UUID string
-    val index: Int,           // Creation order (0-based). Display as index + 1.
-                              // Re-numbered to consecutive 0..N-1 on middle deletion.
-    val startChar: Int,       // Start offset in full content (inclusive)
-    val endChar: Int,         // End offset in full content (exclusive)
-    val startLine: Int,       // 1-based
-    val startCol: Int,        // 1-based
-    val endLine: Int,         // 1-based
-    val endCol: Int,          // 1-based
-    val selectedText: String, // Originally selected snippet
-    val note: String,         // User's modification note
-    val createdAt: Long       // Epoch millis
+    val id: String,           // UUID 字符串
+    val index: Int,           // 创建顺序（0 基）。显示时以 index + 1 呈现。
+                              // 删除中间项后重新编号为连续的 0..N-1。
+    val startChar: Int,       // 完整内容中的起始偏移（包含）
+    val endChar: Int,         // 完整内容中的结束偏移（不包含）
+    val startLine: Int,       // 基于 1
+    val startCol: Int,        // 基于 1
+    val endLine: Int,         // 基于 1
+    val endCol: Int,          // 基于 1
+    val selectedText: String, // 原始选中文本
+    val note: String,         // 用户的修改备注
+    val createdAt: Long       // 毫秒级时间戳
 ) {
-    /** Unified position label: "[startLine:startCol-endLine:endCol]" */
+    /** 统一的位置标签："[startLine:startCol-endLine:endCol]" */
     val positionLabel: String
         get() = "[$startLine:$startCol-$endLine:$endCol]"
 }
 
-/** 1-based line and column position. */
+/** 基于 1 的行、列位置。 */
 data class LineCol(val line: Int, val col: Int)
 
 /**
- * Converts between character offsets and 1-based line:col positions.
- * Handles \n, \r\n, and \r line endings (cross-platform files).
+ * 在字符偏移与基于 1 的 line:col 位置之间相互转换。
+ * 处理 \n、\r\n、\r 三种换行符（跨平台文件）。
  *
- * Semantics: a line terminator character itself belongs to the current line
- * (it occupies a column). The line increment happens only after the terminator
- * sequence is fully consumed, so an offset pointing *at* a terminator still
- * reports the old line.
+ * 语义：换行符本身属于当前行（占据一列）。
+ * 仅当换行序列被完全消费后才会递增行号，
+ * 因此指向换行符*所在位置*的偏移仍报告旧行号。
  */
 object OffsetConverter {
 
@@ -46,13 +45,13 @@ object OffsetConverter {
         while (i < effectiveOffset && i < content.length) {
             when (val c = content[i]) {
                 '\r' -> {
-                    // '\r' occupies the current column.
+                    // '\r' 占据当前列。
                     col++
                     if (!(i + 1 < content.length && content[i + 1] == '\n')) {
-                        // Pure CR: line break now.
+                        // 纯 CR：立即换行。
                         line++; col = 1
                     }
-                    // CRLF: '\r' does NOT break; the following '\n' will.
+                    // CRLF：'\r' 不换行；由紧随其后的 '\n' 负责。
                 }
                 '\n' -> { line++; col = 1 }
                 else -> col++

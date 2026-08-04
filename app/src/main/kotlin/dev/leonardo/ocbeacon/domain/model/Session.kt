@@ -4,8 +4,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Session - represents an OpenCode conversation session.
- * Field names match the OpenCode API convention (uppercase ID suffixes).
+ * Session —— 表示一个 OpenCode 对话会话。
+ * 字段名匹配 OpenCode API 约定（大写 ID 后缀）。
  */
 @Serializable
 data class Session(
@@ -89,7 +89,7 @@ data class Session(
 }
 
 /**
- * Session with its current status and last message.
+ * 会话及其当前状态与最后一条消息。
  */
 data class SessionWithStatus(
     val session: Session,

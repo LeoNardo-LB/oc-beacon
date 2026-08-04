@@ -4,7 +4,7 @@ import dev.leonardo.ocbeacon.domain.model.ProviderInfo
 import dev.leonardo.ocbeacon.domain.model.ProvidersResponse
 
 /**
- * Provider/model management for a connected server.
+ * 已连接服务器的 Provider/model 管理。
  */
 interface ProviderRepository {
     suspend fun loadProviders(serverId: String): Result<List<ProviderInfo>>

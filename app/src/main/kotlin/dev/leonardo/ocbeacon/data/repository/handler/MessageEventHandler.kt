@@ -12,15 +12,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Shared state store for message and part data.
+ * 消息和 part 数据的共享状态存储。
  *
- * Owns the `_messages`, `_parts`, and `assistantMessageIds` state that is tightly
- * coupled across the message/part lifecycle (e.g. [handleMessagePartUpdated]
- * consults `assistantMessageIds` populated by [handleMessageUpdated];
- * [handleMessageUpdated] seeds `_parts` for user messages). Because of this
- * coupling the per-sub-event dispatch lives in dedicated handlers
- * ([MessagePartHandler], [MessageUpdatedHandler], [MessageRemovedHandler])
- * which inject this store and delegate to its `internal` handlers.
+ * 持有 `_messages`、`_parts` 和 `assistantMessageIds` 状态，这些状态在
+ * 消息/part 生命周期中紧密耦合（例如 [handleMessagePartUpdated] 会查询
+ * 由 [handleMessageUpdated] 填充的 `assistantMessageIds`；
+ * [handleMessageUpdated] 为用户消息播种 `_parts`）。由于这种耦合，
+ * 按子事件的分发位于专用 handler
+ *（[MessagePartHandler]、[MessageUpdatedHandler]、[MessageRemovedHandler]）中，
+ * 它们注入此存储并委托给其 `internal` handler。
  */
 @Singleton
 class MessageEventHandler @Inject constructor() {
@@ -36,43 +36,41 @@ class MessageEventHandler @Inject constructor() {
     val parts: StateFlow<Map<String, List<Part>>> = _parts.asStateFlow()
 
     /**
-     * No-op: optimistic messages are now handled in MessageDataDelegate's combine layer.
+     * 空操作：乐观消息现在由 MessageDataDelegate 的 combine 层处理。
      *
-     * They are NOT injected into the shared [_messages]/[_parts] cache. The previous
-     * in-place injection caused message duplication, bubble jitter, and invisible
-     * agent replies because the temp ID ("pending-*") had to be reconciled with
-     * the real server ID across multiple SSE events.
+     * 它们不会被注入共享的 [_messages]/[_parts] 缓存。之前的原地注入
+     * 会导致消息重复、气泡抖动和不可见的 agent 回复，因为临时 ID
+     *（"pending-*"）必须跨多个 SSE 事件与真实服务器 ID 核对。
      *
-     * Signature retained for binary compatibility with [ChatRepository] /
-     * [EventDispatcher] / [FakeChatRepository].
+     * 保留签名以维持与 [ChatRepository] /
+     * [EventDispatcher] / [FakeChatRepository] 的二进制兼容性。
      */
     fun addOptimisticMessage(sessionId: String, message: Message.User, optimisticParts: List<Part>) {
-        // Intentionally empty.
+        // 故意为空。
     }
 
     /**
-     * Set of assistant message IDs for fast O(1) lookup in PartUpdated handler.
+     * assistant 消息 ID 集合，供 PartUpdated handler 进行快速 O(1) 查找。
      *
-     * RS-009 fix: uses ConcurrentHashMap.newKeySet() instead of mutableSetOf().
-     * The old LinkedHashSet is not thread-safe — concurrent access from
-     * multiple SSE server coroutines (each running on Dispatchers.IO) could
-     * corrupt the internal linked-list structure or cause
-     * ConcurrentModificationException. The concurrent key-set view backed by
-     * ConcurrentHashMap provides thread-safe add/remove/contains/clear
-     * without explicit locking, and iterators are weakly consistent (never throw CME).
+     * RS-009 修复：使用 ConcurrentHashMap.newKeySet() 而非 mutableSetOf()。
+     * 旧的 LinkedHashSet 不是线程安全的——来自多个 SSE 服务器协程
+     *（各自运行在 Dispatchers.IO 上）的并发访问可能破坏内部链表结构
+     * 或导致 ConcurrentModificationException。由 ConcurrentHashMap 支持的
+     * 并发键集视图提供线程安全的 add/remove/contains/clear，无需显式加锁，
+     * 且迭代器是弱一致的（永不抛出 CME）。
      */
     private val assistantMessageIds: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
-    // ── SSE delta batching (48ms window) ──────────────────────────────
-    // Buffers incoming deltas and flushes every 48ms to reduce
-    // recomposition frequency. Each flush = 1 StateFlow update = 1
-    // recomposition = 1 layout modifier measure pass.
+    // ── SSE delta 批处理（48ms 窗口）──────────────────────────────
+    // 缓冲传入的 delta 并每 48ms 刷新一次，以降低
+    // 重组频率。每次 flush = 1 次 StateFlow 更新 = 1 次
+    // 重组 = 1 次 layout 修饰符测量。
     private data class PendingDelta(
         val messageId: String,
         val partId: String,
         val sessionId: String,
         val delta: String,
-        val type: String  // "text" or "reasoning"
+        val type: String  // "text" 或 "reasoning"
     )
 
     private val batchScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -81,9 +79,8 @@ class MessageEventHandler @Inject constructor() {
     private var batchJob: Job? = null
 
     private fun scheduleFlush() {
-        // Do NOT cancel an in-flight timer — that starves flushes when token
-        // arrival rate > 1/48ms. Let deltas accumulate; the running timer will
-        // flush them all when it fires.
+        // 不要取消进行中的定时器——那会在 token 到达速率 > 1/48ms 时
+        // 饿死 flush。让 delta 累积；运行中的定时器触发时会一次性 flush 它们。
         if (batchJob?.isActive == true) return
         batchJob = batchScope.launch {
             delay(48)
@@ -108,7 +105,7 @@ class MessageEventHandler @Inject constructor() {
                     val part = messageParts[idx]
                     val newPart = when (part) {
                         is Part.Text -> {
-                            if (part.text.endsWith(entry.delta)) part  // dedup
+                            if (part.text.endsWith(entry.delta)) part  // 去重
                             else part.copy(text = part.text + entry.delta)
                         }
                         is Part.Reasoning -> part.copy(text = part.text + entry.delta)
@@ -129,13 +126,13 @@ class MessageEventHandler @Inject constructor() {
         }
     }
 
-    /** Immediately flush any pending deltas (for tests). */
+    /** 立即刷新任何待处理的 delta（供测试使用）。 */
     internal fun forceFlushDeltas() {
         batchJob?.cancel()
         batchJob = null
         flushPendingDeltas()
     }
-    // ── End SSE delta batching ────────────────────────────────────────
+    // ── SSE delta 批处理结束 ────────────────────────────────────────
 
     internal fun handleMessageUpdated(event: SseEvent.MessageUpdated) {
         val sessionId = event.info.sessionId
@@ -144,7 +141,7 @@ class MessageEventHandler @Inject constructor() {
             val msgs = current[sessionId]?.toMutableList() ?: mutableListOf()
             val idx = msgs.indexOfFirst { it.id == event.info.id }
             val isUpdate = idx >= 0
-            // DIAG: log state before processing
+            // DIAG：处理前记录状态
             val userMsgs = msgs.filter { it is Message.User }
             Log.i("MsgDiag", "[MsgUpdated] ENTER role=$role eventId=${event.info.id.take(16)} " +
                 "session=${sessionId.take(8)} total=${msgs.size} " +
@@ -155,11 +152,11 @@ class MessageEventHandler @Inject constructor() {
                 msgs.add(event.info)
                 msgs.sortBy { it.time.created }
             }
-            // DIAG: log state after processing
+            // DIAG：处理后记录状态
             val afterUser = msgs.filter { it is Message.User }
-            // With optimistic messages removed from the cache, a single MessageUpdated
-            // for a user message legitimately increases the user count by 1. Warn only
-            // when it increases by more than 1 (indicates a logic regression).
+            // 乐观消息已从缓存中移除，单条 MessageUpdated
+            // 对用户消息而言，用户计数合法增加 1。仅当增加超过 1 时
+            // 才告警（表示存在逻辑回归）。
             if (afterUser.size > userMsgs.size + 1) {
                 Log.w("MsgDiag", "[MsgUpdated] ⚠️ unexpected user count increase: ${userMsgs.size}→${afterUser.size} " +
                     "userIds=${afterUser.joinToString(",") { it.id.take(16) }}")
@@ -169,7 +166,7 @@ class MessageEventHandler @Inject constructor() {
         if (event.info is Message.Assistant) {
             assistantMessageIds.add(event.info.id)
         }
-        // Seed parts for User messages from summary text if no parts exist yet.
+        // 若尚无 part，则从摘要文本为用户消息播种 part。
         val info = event.info
         if (info is Message.User) {
             _parts.update { current ->
@@ -194,9 +191,9 @@ class MessageEventHandler @Inject constructor() {
     }
 
     /**
-     * Remove messages with id >= [revertMessageId] from the cache.
-     * Called by [EventDispatcher.clearRevert] to prevent reverted messages
-     * from briefly reappearing when the revert filter is cleared.
+     * 从缓存中移除 id >= [revertMessageId] 的消息。
+     * 由 [EventDispatcher.clearRevert] 调用，防止已回退的消息
+     * 在回退过滤器清除时短暂重现。
      */
     fun pruneRevertedMessages(sessionId: String, revertMessageId: String) {
         val removedIds = _messages.value[sessionId]
@@ -236,7 +233,7 @@ class MessageEventHandler @Inject constructor() {
             if (idx >= 0) {
                 val old = messageParts[idx]
                 val merged = mergePart(old, event.part)
-                // Diagnostic: log text changes for Text/Reasoning parts
+                // 诊断：记录 Text/Reasoning part 的文本变更
                 if (old is Part.Text && event.part is Part.Text) {
                     val oldLen = old.text.length
                     val newLen = (merged as Part.Text).text.length
@@ -249,13 +246,12 @@ class MessageEventHandler @Inject constructor() {
                 }
                 messageParts[idx] = merged
             } else {
-                // New part arriving — keep text as-is for all message types.
-                // The old code stripped text for assistant messages (assuming SSE
-                // deltas would re-accumulate it). But if deltas are missed (SSE
-                // reconnect, network gap), the text is permanently lost — the user
-                // sees an empty bubble until manual refresh.
-                // The delta flush's endsWith() dedup + mergePart's "longer text wins"
-                // together handle potential overlap without data loss.
+                // 新 part 到达——对所有消息类型保持文本不变。
+                // 旧代码会剥离 assistant 消息的文本（假设 SSE delta 会重新累积它）。
+                // 但若 delta 被错过（SSE 重连、网络中断），文本将永久丢失——
+                // 用户会看到空气泡，直到手动刷新。
+                // delta flush 的 endsWith() 去重 + mergePart 的"更长文本胜出"
+                // 一起处理潜在重叠且不丢数据。
                 messageParts.add(event.part)
             }
             current + (messageId to messageParts)
@@ -263,25 +259,23 @@ class MessageEventHandler @Inject constructor() {
     }
 
     /**
-     * Merge Part update: for Text/Reasoning, SSE delta-driven text takes priority.
+     * 合并 Part 更新：对于 Text/Reasoning，SSE delta 驱动的文本优先。
      *
-     * During streaming, SSE deltas accumulate text incrementally. REST syncs may
-     * return a snapshot that is fresher than the delta accumulation (e.g. REST
-     * returns "你好世界" while SSE has only accumulated "你好"). If we take the
-     * REST snapshot's longer text, subsequent SSE deltas (which the server already
-     * sent before the REST call) will append content already in the snapshot,
-     * causing duplication.
+     * 流式传输期间，SSE delta 增量累积文本。REST 同步可能返回比 delta 累积
+     * 更新的快照（例如 REST 返回"你好世界"而 SSE 只累积了"你好"）。
+     * 若我们取 REST 快照的更长文本，后续的 SSE delta（服务器在 REST 调用前
+     * 已发送）会追加快照中已有的内容，导致重复。
      *
-     * Fix: If existing (SSE) has any text, keep it — SSE is the streaming source
-     * of truth. Only take incoming's text when existing is empty (part just created).
-     * Always take incoming's metadata (time, etc.) since REST may have newer metadata.
+     * 修复：若现有（SSE）已有任何文本，保留它——SSE 是流式传输的真相源。
+     * 仅当现有为空（part 刚创建）时才取传入的文本。
+     * 始终取传入的元数据（time 等），因为 REST 可能有更新的元数据。
      */
     private fun mergePart(existing: Part, incoming: Part): Part {
         return when {
             existing is Part.Text && incoming is Part.Text -> {
-                // Longer text wins: SSE streaming accumulates longer text over time,
-                // REST snapshots may be stale. If incoming is longer (fresh complete
-                // replacement), use it; otherwise keep existing (protects streaming text).
+                // 更长文本胜出：SSE 流式传输随时间累积更长文本，
+                // REST 快照可能已过时。若传入文本更长（全新的完整替换），
+                // 使用它；否则保留现有（保护流式文本）。
                 if (incoming.text.length >= existing.text.length) incoming
                 else existing.copy(time = incoming.time, metadata = incoming.metadata)
             }
@@ -302,33 +296,32 @@ class MessageEventHandler @Inject constructor() {
     }
 
     /**
-     * Merge SSE and REST versions of a message.
-     * SSE is fresher for content (streaming), but REST may have completion
-     * info that SSE hasn't delivered yet.
+     * 合并消息的 SSE 和 REST 版本。
+     * SSE 对内容更新（流式传输），但 REST 可能有 SSE 尚未投递的完成信息。
      */
     private fun mergeMessageMeta(sse: Message, rest: Message): Message {
-        // For User messages: REST is authoritative (no streaming)
+        // 对于用户消息：REST 是权威的（无流式传输）
         if (sse is Message.User) return rest
         if (sse !is Message.Assistant) return rest
 
-        // For Assistant messages:
-        // - If SSE says completed (streaming finished), trust SSE completely
-        // - If SSE says NOT completed but REST says completed, trust REST's completed time
-        //   but keep SSE's other fields (finish, tokens, cost may be fresher)
+        // 对于 Assistant 消息：
+        // - 若 SSE 显示已完成（流式结束），完全信任 SSE
+        // - 若 SSE 显示未完成但 REST 显示已完成，信任 REST 的完成时间
+        //   但保留 SSE 的其他字段（finish、tokens、cost 可能更新）
         return if (sse.time.completed != null) {
-            sse  // SSE has final state, prefer it
+            sse  // SSE 拥有最终状态，优先使用它
         } else if (rest.time.completed != null) {
-            // REST says completed but SSE hasn't seen it yet — merge completed time
+            // REST 显示已完成但 SSE 尚未看到——合并完成时间
             sse.copy(time = sse.time.copy(completed = rest.time.completed))
         } else {
-            // Neither has completed — prefer SSE (fresher streaming state)
+            // 两者都未完成——优先 SSE（更新的流式状态）
             sse
         }
     }
 
     internal fun handleMessagePartDelta(event: SseEvent.MessagePartDelta) {
-        // Buffer delta for batch flush (48ms window) — reduces recomposition
-        // frequency from per-token to ~20/sec, eliminating layout jitter.
+        // 缓冲 delta 以批量 flush（48ms 窗口）——将重组频率
+        // 从逐 token 降至约 20 次/秒，消除布局抖动。
         val partType = when (_parts.value[event.messageId]
             ?.firstOrNull { it.id == event.partId }) {
             is Part.Reasoning -> "reasoning"
@@ -353,7 +346,7 @@ class MessageEventHandler @Inject constructor() {
         }
     }
 
-    // ============ Batch Operations ============
+    // ============ 批量操作 ============
 
     fun setMessages(sessionId: String, newMessages: List<MessageWithParts>) {
         @Suppress("DEPRECATION")
@@ -374,7 +367,7 @@ class MessageEventHandler @Inject constructor() {
                     }
                 }
                 .sortedBy { it.time.created }
-            // DIAG: log merge result
+            // DIAG：记录合并结果
             val beforeUser = existing.filter { it is Message.User }.size
             val afterUser = merged.filter { it is Message.User }.size
             val beforePending = existing.count { it.id.startsWith("pending-") }
@@ -393,7 +386,7 @@ class MessageEventHandler @Inject constructor() {
             val merged = partsMap.mapValues { (messageId, incomingParts) ->
                 val existingParts = current[messageId]
                 if (existingParts != null) {
-                    // Diagnostic: check for text length regression after merge
+                    // 诊断：检查合并后文本长度是否回退
                     for (inc in incomingParts) {
                         if (inc is Part.Text) {
                             val ex = existingParts.find { it.id == inc.id }
@@ -415,8 +408,8 @@ class MessageEventHandler @Inject constructor() {
 
     fun mergeMessages(sessionId: String, newMessages: List<MessageWithParts>) {
         val incoming = newMessages.map { it.info }.sortedBy { m -> m.time.created }
-        // Update parts FIRST, then messages. This prevents a flash where the combine
-        // flow sees new messages without their parts (P5-3 filter removes them temporarily).
+        // 先更新 parts，再更新 messages。这避免了 combine flow 看到
+        // 新消息却没有对应 part 时的闪烁（P5-3 过滤器会临时移除它们）。
         _parts.update { currentParts ->
             val existingKeys = currentParts.keys
             val newParts = newMessages
@@ -427,7 +420,7 @@ class MessageEventHandler @Inject constructor() {
         newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
-            // Remove optimistic messages if REST brings new user messages
+            // 若 REST 带来了新用户消息，移除乐观消息
             val hasNewUserMsgs = incoming.any { it is Message.User }
             val filtered = if (hasNewUserMsgs) existing.filterNot { it.id.startsWith("pending-") } else existing
             val existingById = filtered.associateBy { it.id }
@@ -436,12 +429,12 @@ class MessageEventHandler @Inject constructor() {
     }
 
     /**
-     * Replace all messages and parts for a session with REST data.
-     * Unlike [mergeMessages], this treats REST as the source of truth,
-     * overwriting any existing local data. Used for SSE reconnection recovery.
+     * 用 REST 数据替换会话的所有消息和 part。
+     * 与 [mergeMessages] 不同，此处将 REST 视为真相源，
+     * 覆盖任何现有本地数据。用于 SSE 重连恢复。
      *
-     * SSE-only messages (not in REST response) are preserved to handle
-     * the window between REST snapshot and new SSE connection establishment.
+     * 仅 SSE 才有的消息（不在 REST 响应中）会被保留，以处理
+     * REST 快照与新 SSE 连接建立之间的时间窗口。
      */
     fun replaceMessages(sessionId: String, newMessages: List<MessageWithParts>) {
         @Suppress("DEPRECATION")
@@ -449,10 +442,10 @@ class MessageEventHandler @Inject constructor() {
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = newMessages.associateBy { it.info.id }
-            // Remove optimistic ("pending-*") messages — REST is authoritative.
-            // If the real message arrived via REST, the temp message is redundant.
-            // If it didn't arrive yet (API in flight), the temp message is stale anyway
-            // and will be re-injected on next send.
+            // 移除乐观（"pending-*"）消息——REST 是权威的。
+            // 若真实消息已通过 REST 到达，临时消息是冗余的。
+            // 若尚未到达（API 进行中），临时消息也已过时，
+            // 下次发送时会重新注入。
             val realExisting = existing.filterNot { it.id.startsWith("pending-") }
             val merged = (realExisting + newMessages.map { it.info })
                 .distinctBy { it.id }
@@ -466,7 +459,7 @@ class MessageEventHandler @Inject constructor() {
             val merged = partsMap.mapValues { (messageId, incomingParts) ->
                 val existingParts = current[messageId]
                 if (existingParts != null) {
-                    // Diagnostic: check for text length regression after merge
+                    // 诊断：检查合并后文本长度是否回退
                     for (inc in incomingParts) {
                         if (inc is Part.Text) {
                             val ex = existingParts.find { it.id == inc.id }
@@ -509,8 +502,8 @@ class MessageEventHandler @Inject constructor() {
     }
 
     /**
-     * Mark all incomplete assistant messages in a session as completed.
-     * Called when REST fallback detects server is idle but UI shows streaming.
+     * 将会话中所有未完成的 assistant 消息标记为已完成。
+     * 在 REST 回退检测到服务器已空闲但 UI 仍显示流式时调用。
      */
     fun markSessionIdle(sessionId: String) {
         _messages.update { current ->
@@ -526,7 +519,7 @@ class MessageEventHandler @Inject constructor() {
             current + (sessionId to updated)
         }
 
-        // Mark all incomplete Reasoning parts with time.end
+        // 为所有未完成的 Reasoning part 标记 time.end
         _parts.update { current ->
             val sessionMessages = _messages.value[sessionId] ?: return@update current
             val messageIds = sessionMessages.map { it.id }

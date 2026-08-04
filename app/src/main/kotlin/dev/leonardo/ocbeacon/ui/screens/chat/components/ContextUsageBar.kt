@@ -17,11 +17,11 @@ import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Calculates the context window usage ratio from StepFinish parts.
+ * 从 StepFinish parts 计算上下文窗口使用率。
  *
- * @param parts All parts from the current session's messages.
- * @param contextLimit The model's context window limit (tokens). 0 = unknown.
- * @return Usage ratio 0f..1f. Returns 0f if contextLimit is 0 or no tokens found.
+ * @param parts 当前会话消息中的所有 parts。
+ * @param contextLimit 模型的上下文窗口上限（token）。0 = 未知。
+ * @return 使用率 0f..1f。contextLimit 为 0 或未找到 token 时返回 0f。
  */
 fun calculateContextUsage(parts: List<Part>, contextLimit: Int): Float {
     if (contextLimit <= 0) return 0f
@@ -39,10 +39,10 @@ fun calculateContextUsage(parts: List<Part>, contextLimit: Int): Float {
 }
 
 /**
- * Returns the color to use for the progress bar based on usage ratio.
- * - <70%: primary
- * - 70-90%: tertiary
- * - >90%: error
+ * 根据使用率返回进度条的颜色。
+ * - <70%：primary
+ * - 70-90%：tertiary
+ * - >90%：error
  */
 @Composable
 fun contextUsageColor(ratio: Float) = when {
@@ -52,10 +52,10 @@ fun contextUsageColor(ratio: Float) = when {
 }
 
 /**
- * A composable that displays context window usage as a progress bar.
+ * 以进度条形式展示上下文窗口使用率的 composable。
  *
- * @param usageRatio Usage ratio 0f..1f from [calculateContextUsage].
- * @param modifier Optional modifier.
+ * @param usageRatio 来自 [calculateContextUsage] 的使用率 0f..1f。
+ * @param modifier 可选 modifier。
  */
 @Composable
 fun ContextUsageBar(

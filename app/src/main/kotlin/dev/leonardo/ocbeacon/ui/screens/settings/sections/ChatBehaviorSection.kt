@@ -51,7 +51,7 @@ fun ChatBehaviorSection(
 
     SectionHeader(stringResource(R.string.settings_section_chat_behavior))
 
-    // Initial message count
+    // 初始消息数
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_initial_messages)) },
         supportingContent = { Text("$initialMessageCount") },
@@ -61,7 +61,7 @@ fun ChatBehaviorSection(
         modifier = Modifier.clickable { onShowMessageCountDialog() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Recent directory count (quick new-session dialog)
+    // 最近目录数量（快速新建会话对话框）
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_recent_directory_count)) },
         supportingContent = { Text(stringResource(R.string.settings_recent_directory_count_desc)) },
@@ -72,7 +72,7 @@ fun ChatBehaviorSection(
         modifier = Modifier.clickable { onShowRecentDirectoryCountDialog() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Confirm before send
+    // 发送前确认
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_confirm_send)) },
         supportingContent = { Text(stringResource(R.string.settings_confirm_send_desc)) },
@@ -89,7 +89,7 @@ fun ChatBehaviorSection(
         modifier = Modifier.clickable { viewModel.setConfirmBeforeSend(!confirmBeforeSend) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Haptic feedback
+    // 触感反馈
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_haptic_feedback)) },
         supportingContent = { Text(stringResource(R.string.settings_haptic_feedback_desc)) },
@@ -106,7 +106,7 @@ fun ChatBehaviorSection(
         modifier = Modifier.clickable { viewModel.setHapticFeedback(!hapticFeedback) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Keep screen on
+    // 屏幕常亮
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_keep_screen_on)) },
         supportingContent = { Text(stringResource(R.string.settings_keep_screen_on_desc)) },
@@ -123,7 +123,7 @@ fun ChatBehaviorSection(
         modifier = Modifier.clickable { viewModel.setKeepScreenOn(!keepScreenOn) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Optimize image attachments
+    // 优化图片附件
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_compress_images)) },
         supportingContent = { Text(stringResource(R.string.settings_compress_images_desc)) },

@@ -49,7 +49,7 @@ class WorkspaceViewModelTest {
             )
         )
 
-    // --- Realistic test data (D7-003) ---
+    // --- 真实测试数据（D7-003）---
 
     private val sampleFileNodes = listOf(
         FileNode("src", "src", "/home/user/project/src", FileType.DIRECTORY, false),
@@ -77,7 +77,7 @@ class WorkspaceViewModelTest {
         Dispatchers.resetMain()
     }
 
-    // ===== Test 1: init triggers root load + git prefetch =====
+    // ===== 测试 1：init 触发根加载 + git 预取 =====
     @Test
     fun `init triggers root load + git prefetch`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
@@ -89,7 +89,7 @@ class WorkspaceViewModelTest {
         coVerify { getVcsStatus(serverId, directory) }
     }
 
-    // ===== Test 2: loadDirectory success =====
+    // ===== 测试 2：loadDirectory 成功 =====
     @Test
     fun `loadDirectory success`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
@@ -101,12 +101,12 @@ class WorkspaceViewModelTest {
         assert(!state.rootLoading) { "rootLoading should be false after success" }
         assert(state.rootError == null) { "rootError should be null on success" }
         assert(state.rootNodes.isNotEmpty()) { "rootNodes should be populated" }
-        // Directories first, then files sorted by name lowercase
+        // 目录优先，然后文件按名称小写排序
         val names = state.rootNodes.map { it.node.name }
         assert(names.first() == "src") { "First node should be directory 'src', was '${names.first()}'" }
     }
 
-    // ===== Test 3: loadDirectory cache hit =====
+    // ===== 测试 3：loadDirectory 缓存命中 =====
     @Test
     fun `loadDirectory cache hit same path twice equals one API call`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
@@ -114,12 +114,12 @@ class WorkspaceViewModelTest {
 
         val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
 
-        vm.loadDirectory("") // second call — should hit cache
+        vm.loadDirectory("") // 第二次调用 —— 应命中缓存
 
         coVerify(exactly = 1) { listDirectory(serverId, directory, "") }
     }
 
-    // ===== Test 4: loadDirectory failure sets rootError =====
+    // ===== 测试 4：loadDirectory 失败设置 rootError =====
     @Test
     fun `loadDirectory failure sets rootError`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.failure(
@@ -136,7 +136,7 @@ class WorkspaceViewModelTest {
         }
     }
 
-    // ===== Test 5: refreshRoot clears cache + reloads =====
+    // ===== 测试 5：refreshRoot 清除缓存并重新加载 =====
     @Test
     fun `refreshRoot clears cache and reloads`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
@@ -146,45 +146,45 @@ class WorkspaceViewModelTest {
 
         vm.refreshRoot()
 
-        // init + refresh = 2 calls
+        // init + refresh = 2 次调用
         coVerify(exactly = 2) { listDirectory(serverId, directory, "") }
     }
 
-    // ===== Test 6: switchPanel GIT triggers getStatus if not loaded =====
+    // ===== 测试 6：未加载时 switchPanel GIT 触发 getStatus =====
     @Test
     fun `switchPanel GIT triggers getStatus if not loaded`() = runTest {
-        // Prefetch succeeded but gitChanges list is empty (prefetch only sets count)
+        // 预取成功但 gitChanges 列表为空（预取只设置计数）
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(emptyList())
 
         val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
 
-        // prefetch sets gitChangeCount = 0, but switchPanel checks gitChanges.isEmpty()
+        // 预取设置 gitChangeCount = 0，但 switchPanel 检查 gitChanges.isEmpty()
         vm.switchPanel(WorkspacePanel.GIT_CHANGES)
 
-        // init prefetch + switchPanel loadGitChanges = 2 calls
+        // init 预取 + switchPanel loadGitChanges = 2 次调用
         coVerify(exactly = 2) { getVcsStatus(serverId, directory) }
     }
 
-    // ===== Test 7: switchPanel GIT non-git sets isNonGit =====
+    // ===== 测试 7：非 git 的 switchPanel GIT 设置 isNonGit =====
     @Test
     fun `switchPanel GIT non-git sets isNonGit`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
-        // Prefetch fails with non-git message
+        // 预取因非 git 消息而失败
         coEvery { getVcsStatus(serverId, directory) } returns Result.failure(
             RuntimeException("fatal: not a git repository (or any parent): .git")
         )
 
         val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
 
-        // switchPanel triggers loadGitChanges since gitChanges is empty and not loading
+        // 由于 gitChanges 为空且未在加载，switchPanel 触发 loadGitChanges
         vm.switchPanel(WorkspacePanel.GIT_CHANGES)
 
         val state = vm.uiState.value
         assert(state.isNonGit) { "isNonGit should be true for 'not a git' error" }
     }
 
-    // ===== Test 8: switchPanel FILE_TREE no reload =====
+    // ===== 测试 8：switchPanel FILE_TREE 不重新加载 =====
     @Test
     fun `switchPanel FILE_TREE no reload`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
@@ -192,15 +192,15 @@ class WorkspaceViewModelTest {
 
         val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
 
-        // Switch to GIT then back to FILE_TREE
+        // 切换到 GIT 再切回 FILE_TREE
         vm.switchPanel(WorkspacePanel.GIT_CHANGES)
         vm.switchPanel(WorkspacePanel.FILE_TREE)
 
-        // listDirectory should still be called only once (init call)
+        // listDirectory 仍应只被调用一次（init 调用）
         coVerify(exactly = 1) { listDirectory(serverId, directory, "") }
     }
 
-    // ===== Test 9: toggleShowIgnored =====
+    // ===== 测试 9：toggleShowIgnored =====
     @Test
     fun `toggleShowIgnored`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
@@ -217,7 +217,7 @@ class WorkspaceViewModelTest {
         assert(!vm.uiState.value.showIgnored) { "showIgnored should be false after second toggle" }
     }
 
-    // ===== Test 10: git prefetch failure leaves count null =====
+    // ===== 测试 10：git 预取失败使计数保持 null =====
     @Test
     fun `git prefetch failure leaves count null`() = runTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
@@ -233,17 +233,17 @@ class WorkspaceViewModelTest {
         }
     }
 
-    // ===== Test 11: loadDirectory during refreshRoot cancels stale =====
+    // ===== 测试 11：refreshRoot 期间 loadDirectory 取消过期任务 =====
     @Test
     fun `loadDirectory during refreshRoot cancels stale`() = runTest {
-        // StandardTestDispatcher makes coroutines suspend at delay points,
-        // so the "src" job is still in-flight when refreshRoot cancels it.
+        // StandardTestDispatcher 使协程在 delay 处挂起，
+        // 因此 refreshRoot 取消 "src" 任务时它仍在执行中。
         val standardDispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(standardDispatcher)
         try {
             var srcCompletedCount = 0
             coEvery { listDirectory(serverId, directory, "src") } coAnswers {
-                delay(60_000L) // simulated slow API — coroutine suspends here
+                delay(60_000L) // 模拟慢 API —— 协程在此挂起
                 srcCompletedCount++
                 Result.success(sampleFileNodes)
             }
@@ -252,20 +252,20 @@ class WorkspaceViewModelTest {
 
             val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
 
-            // "src" job launches but is suspended at delay(60s)
+            // "src" 任务启动但在 delay(60s) 处挂起
             vm.loadDirectory("src")
-            // refreshRoot cancels all loadJobs (including the suspended "src" job)
-            // and clears dirCache, then re-launches loadDirectory("")
+            // refreshRoot 取消所有 loadJobs（包括挂起的 "src" 任务）
+            // 并清空 dirCache，然后重新启动 loadDirectory("")
             vm.refreshRoot()
 
             advanceUntilIdle()
 
-            // The "src" job was cancelled by refreshRoot before completing,
-            // so its onSuccess callback never ran.
+            // "src" 任务在完成前被 refreshRoot 取消，
+            // 因此其 onSuccess 回调从未执行。
             assert(srcCompletedCount == 0) {
                 "src job should have been cancelled by refreshRoot, got $srcCompletedCount completions"
             }
-            // Root reload from refreshRoot should succeed
+            // refreshRoot 的根重载应成功
             assert(vm.uiState.value.rootNodes.isNotEmpty()) {
                 "rootNodes should be populated after refreshRoot"
             }
@@ -274,17 +274,17 @@ class WorkspaceViewModelTest {
         }
     }
 
-    // ===== Test 12: rapid duplicate loadDirectory debounced =====
+    // ===== 测试 12：快速重复 loadDirectory 去抖 =====
     @Test
     fun `rapid duplicate loadDirectory debounced`() = runTest {
-        // StandardTestDispatcher makes coroutines suspend at delay points,
-        // so the first "src" job is still in-flight when the duplicate arrives.
+        // StandardTestDispatcher 使协程在 delay 处挂起，
+        // 因此重复请求到达时第一个 "src" 任务仍在执行中。
         val standardDispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(standardDispatcher)
         try {
             var completedCount = 0
             coEvery { listDirectory(serverId, directory, "src") } coAnswers {
-                delay(60_000L) // simulated slow API — coroutine suspends here
+                delay(60_000L) // 模拟慢 API —— 协程在此挂起
                 completedCount++
                 Result.success(sampleFileNodes)
             }
@@ -293,16 +293,16 @@ class WorkspaceViewModelTest {
 
             val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
 
-            // First call launches job, suspended at delay
+            // 第一次调用启动任务，在 delay 处挂起
             vm.loadDirectory("src")
-            // Second call: loadJobs["src"]?.cancel() cancels the first job,
-            // then launches a replacement job
+            // 第二次调用：loadJobs["src"]?.cancel() 取消第一个任务，
+            // 然后启动替代任务
             vm.loadDirectory("src")
 
             advanceUntilIdle()
 
-            // Only the second (non-cancelled) job should have completed.
-            // Without loadJobs[path]?.cancel(), both jobs would complete (completedCount=2).
+            // 只有第二个（未被取消的）任务应完成。
+            // 如果没有 loadJobs[path]?.cancel()，两个任务都会完成（completedCount=2）。
             assert(completedCount == 1) {
                 "Expected exactly 1 completion (second job survives cancel), got $completedCount"
             }
@@ -311,7 +311,7 @@ class WorkspaceViewModelTest {
         }
     }
 
-    // ===== Test 13: blank serverId sets rootError without calling useCase =====
+    // ===== 测试 13：空白 serverId 在未调用 useCase 时设置 rootError =====
     @Test
     fun `blank serverId sets rootError without calling useCase`() = runTest {
         val vm = WorkspaceViewModel(savedStateHandle(id = ""), listDirectory, getVcsStatus, findFiles)
@@ -326,7 +326,7 @@ class WorkspaceViewModelTest {
         coVerify(exactly = 0) { getVcsStatus(any(), any()) }
     }
 
-    // ===== Phase 2: Search tests =====
+    // ===== Phase 2：搜索测试 =====
 
     @Test
     fun `enterSearch sets isSearchMode true and clears query`() = runTest {
@@ -444,7 +444,7 @@ class WorkspaceViewModelTest {
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
         val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
-        // loadGitChanges fills uiState.gitChanges from getVcsStatus mock
+        // loadGitChanges 从 getVcsStatus mock 填充 uiState.gitChanges
         vm.loadGitChanges()
 
         val filtered = vm.filterGitChanges("main")

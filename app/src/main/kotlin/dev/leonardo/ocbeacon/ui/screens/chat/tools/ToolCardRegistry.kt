@@ -24,7 +24,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Display info for a tool call, resolved from tool name and input args.
+ * 工具调用的显示信息，由工具名和输入参数解析而来。
  */
 internal data class ToolDisplayInfo(
     val title: String,
@@ -34,15 +34,15 @@ internal data class ToolDisplayInfo(
 )
 
 /**
- * Extract the file name from a cross-platform path string.
- * Delegates to [PathUtils.fileName].
+ * 从跨平台路径字符串中提取文件名。
+ * 委托给 [PathUtils.fileName]。
  */
 internal fun extractFileName(path: String): String = PathUtils.fileName(path)
 
 /**
- * Extract the file name from a potentially path-like server title.
- * If the title contains path separators, returns only the last segment.
- * e.g. "Read /path/to/File.kt" → "File.kt", "Edit file" → "Edit file" (unchanged)
+ * 从可能形如路径的服务器标题中提取文件名。
+ * 若标题包含路径分隔符，则只返回最后一个段。
+ * 例如 "Read /path/to/File.kt" → "File.kt"，"Edit file" → "Edit file"（不变）
  */
 private fun extractFileNameFromTitle(title: String): String {
     val lastSegment = PathUtils.fileName(title)
@@ -54,8 +54,8 @@ private fun extractFileNameFromTitle(title: String): String {
 }
 
 /**
- * Resolve display info for a tool call based on its type and input arguments.
- * Matches WebUI tool registry behavior with human-readable titles.
+ * 根据工具类型和输入参数解析工具调用的显示信息。
+ * 与 WebUI 工具注册表行为一致，使用人类可读的标题。
  */
 @Composable
 internal fun resolveToolDisplay(
@@ -63,7 +63,7 @@ internal fun resolveToolDisplay(
     state: ToolState,
     input: Map<String, JsonElement>
 ): ToolDisplayInfo {
-    // Use server-provided title if available
+    // 若服务器提供了标题则使用
     val serverTitle = when (state) {
         is ToolState.Running -> state.title?.let { extractFileNameFromTitle(it) }
         is ToolState.Completed -> state.title?.let { extractFileNameFromTitle(it) }
@@ -158,8 +158,8 @@ internal fun resolveToolDisplay(
             )
         }
         else -> {
-            // MCP tools and other unknown tools
-            // Convert snake_case like "search_graph" -> "Search Graph"
+            // MCP 工具和其他未知工具
+            // 将 snake_case 转换为标题，如 "search_graph" -> "Search Graph"
             val fallbackName = toolName.ifBlank { "Tool" }
                 .replace("_", " ").replace("-", " ")
                 .replaceFirstChar { it.uppercase() }

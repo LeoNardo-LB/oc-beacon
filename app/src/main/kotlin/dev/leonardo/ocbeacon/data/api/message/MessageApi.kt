@@ -26,7 +26,7 @@ import javax.inject.Singleton
 interface MessageApi {
     suspend fun listMessages(conn: ServerConnection, sessionId: String, limit: Int? = null): List<MessageWithParts>
 
-    /** Returns messages as raw JSON string (for export without re-serialization). */
+    /** 以原始 JSON 字符串返回消息（用于导出而无需重新序列化）。 */
     suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String
 
     suspend fun exportSessionToStream(
@@ -49,38 +49,38 @@ interface MessageApi {
     )
 
     /**
-     * Delete a message from a session.
+     * 从会话中删除一条消息。
      * DELETE /session/{sessionId}/message/{messageId}
      */
     suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean
 
     /**
-     * Delete a specific part from a message by index.
+     * 按索引删除消息中的特定部分。
      * DELETE /session/{sessionId}/message/{messageId}/part/{partIndex}
      */
     suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean
 
     /**
-     * Reply to a permission request.
+     * 回复权限请求。
      * POST /permission/{requestID}/reply
      * Body: { reply: "once" | "always" | "reject", message?: string }
      */
     suspend fun replyToPermission(
         conn: ServerConnection,
         requestId: String,
-        reply: String, // "once", "always", or "reject"
+        reply: String, // "once"、"always" 或 "reject"
         message: String? = null,
         directory: String? = null
     ): Boolean
 
     /**
-     * List pending permission requests.
+     * 列出待处理的权限请求。
      * GET /permission
      */
     suspend fun listPendingPermissions(conn: ServerConnection, directory: String? = null): List<PermissionRequest>
 
     /**
-     * Reply to a question request.
+     * 回复问题请求。
      * POST /question/{requestID}/reply
      * Body: { answers: string[][] }
      */
@@ -92,7 +92,7 @@ interface MessageApi {
     ): Boolean
 
     /**
-     * Reject a question request.
+     * 拒绝问题请求。
      * POST /question/{requestID}/reject
      */
     suspend fun rejectQuestion(
@@ -102,7 +102,7 @@ interface MessageApi {
     ): Boolean
 
     /**
-     * List pending question requests.
+     * 列出待处理的问题请求。
      * GET /question
      */
     suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest>
@@ -127,7 +127,7 @@ class MessageApiImpl @Inject constructor(
         }.body()
     }
 
-    /** Returns messages as raw JSON string (for export without re-serialization). */
+    /** 以原始 JSON 字符串返回消息（用于导出而无需重新序列化）。 */
     override suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/message") {
             conn.authHeader?.let { header("Authorization", it) }
@@ -135,11 +135,11 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * Stream session export JSON directly to an OutputStream.
-     * Writes: {"info":<session>,"messages":<messages>}
-     * Uses raw OkHttp for the messages request to enable true streaming
-     * (Ktor's ContentNegotiation plugin buffers the entire response).
-     * @param onProgress called with bytes written so far
+     * 将会话导出 JSON 直接流式写入 OutputStream。
+     * 写入：{"info":<session>,"messages":<messages>}
+     * 使用原始 OkHttp 发起 messages 请求以实现真正的流式传输
+     *（Ktor 的 ContentNegotiation 插件会缓冲整个响应）。
+     * @param onProgress 以已写入字节数调用
      */
     override suspend fun exportSessionToStream(
         conn: ServerConnection,
@@ -148,7 +148,7 @@ class MessageApiImpl @Inject constructor(
         onProgress: (Long) -> Unit
     ) {
         var bytesWritten = 0L
-        // Write session info (small, safe to hold in memory)
+        // 写入会话信息（较小，可安全保存在内存中）
         val sessionJson = httpClient.get("${conn.baseUrl}/session/$sessionId") {
             conn.authHeader?.let { header("Authorization", it) }
         }.bodyAsText()
@@ -158,7 +158,7 @@ class MessageApiImpl @Inject constructor(
         outputStream.flush()
         onProgress(bytesWritten)
 
-        // Stream messages via raw OkHttp to get true byte-level streaming
+        // 通过原始 OkHttp 流式传输 messages 以获得真正的字节级流式传输
         val okClient = okhttp3.OkHttpClient.Builder()
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
@@ -196,10 +196,10 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * Send a prompt asynchronously (fire-and-forget).
-     * Returns 204 No Content immediately.
-     * @param directory The session's working directory, sent as x-opencode-directory header
-     *                  so the server resolves the correct project context.
+     * 异步发送 prompt（fire-and-forget）。
+     * 立即返回 204 No Content。
+     * @param directory 会话的工作目录，作为 x-opencode-directory 头发送，
+     *                  以便服务器解析正确的项目上下文。
      */
     override suspend fun promptAsync(
         conn: ServerConnection,
@@ -227,7 +227,7 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * Delete a message from a session.
+     * 从会话中删除一条消息。
      * DELETE /session/{sessionId}/message/{messageId}
      */
     override suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {
@@ -238,7 +238,7 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * Delete a specific part from a message by index.
+     * 按索引删除消息中的特定部分。
      * DELETE /session/{sessionId}/message/{messageId}/part/{partIndex}
      */
     override suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {
@@ -249,14 +249,14 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * Reply to a permission request.
+     * 回复权限请求。
      * POST /permission/{requestID}/reply
      * Body: { reply: "once" | "always" | "reject", message?: string }
      */
     override suspend fun replyToPermission(
         conn: ServerConnection,
         requestId: String,
-        reply: String, // "once", "always", or "reject"
+        reply: String, // "once"、"always" 或 "reject"
         message: String?,
         directory: String?
     ): Boolean {
@@ -274,7 +274,7 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * List pending permission requests.
+     * 列出待处理的权限请求。
      * GET /permission
      */
     override suspend fun listPendingPermissions(conn: ServerConnection, directory: String?): List<PermissionRequest> {
@@ -285,7 +285,7 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * Reply to a question request.
+     * 回复问题请求。
      * POST /question/{requestID}/reply
      * Body: { answers: string[][] }
      */
@@ -309,7 +309,7 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * Reject a question request.
+     * 拒绝问题请求。
      * POST /question/{requestID}/reject
      */
     override suspend fun rejectQuestion(
@@ -328,7 +328,7 @@ class MessageApiImpl @Inject constructor(
     }
 
     /**
-     * List pending question requests.
+     * 列出待处理的问题请求。
      * GET /question
      */
     override suspend fun listPendingQuestions(conn: ServerConnection, directory: String?): List<QuestionRequest> {

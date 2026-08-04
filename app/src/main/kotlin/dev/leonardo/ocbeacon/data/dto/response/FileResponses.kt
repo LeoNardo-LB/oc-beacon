@@ -39,7 +39,7 @@ data class ServerPaths(
     val worktree: String = "", val directory: String = ""
 )
 
-// ============ VCS DTOs ============
+// ============ VCS DTO ============
 
 @Serializable
 data class VcsChangeDto(

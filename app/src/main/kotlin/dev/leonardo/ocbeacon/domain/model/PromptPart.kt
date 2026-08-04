@@ -3,8 +3,8 @@ package dev.leonardo.ocbeacon.domain.model
 import kotlinx.serialization.Serializable
 
 /**
- * Domain model for a prompt part (text, file, image, etc.).
- * Counterpart of data.dto.request.PromptPart.
+ * 提示部分的领域模型（文本、文件、图片等）。
+ * 对应 data.dto.request.PromptPart。
  */
 @Serializable
 data class PromptPart(

@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
 /**
- * Parameters for [FileViewerViewModel], replacing the old SavedStateHandle + NavBackStackEntry
- * approach. Passed directly via @AssistedInject, decoupling the ViewModel from the navigation system.
+ * [FileViewerViewModel] 的参数，替代旧的 SavedStateHandle + NavBackStackEntry
+ * 方式。通过 @AssistedInject 直接传入，让 ViewModel 与导航系统解耦。
  */
 data class FileViewerParams(
     val serverId: String,

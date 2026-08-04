@@ -8,8 +8,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Custom serializer for ToolState that dispatches on the "status" field.
- * The API uses "status" (not "type") as discriminator.
+ * ToolState 的自定义序列化器，根据 "status" 字段分发。
+ * API 使用 "status"（而非 "type"）作为判别字段。
  */
 object ToolStateSerializer : JsonContentPolymorphicSerializer<ToolState>(ToolState::class) {
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<ToolState> {
@@ -18,14 +18,14 @@ object ToolStateSerializer : JsonContentPolymorphicSerializer<ToolState>(ToolSta
             "running" -> ToolState.Running.serializer()
             "completed" -> ToolState.Completed.serializer()
             "error" -> ToolState.Error.serializer()
-            else -> ToolState.Pending.serializer() // fallback
+            else -> ToolState.Pending.serializer() // 回退
         }
     }
 }
 
 /**
- * Tool State - lifecycle of a tool call.
- * Discriminated by "status" field in the API JSON.
+ * 工具状态 —— 工具调用的生命周期。
+ * 由 API JSON 中的 "status" 字段判别。
  */
 @Serializable(with = ToolStateSerializer::class)
 sealed class ToolState {

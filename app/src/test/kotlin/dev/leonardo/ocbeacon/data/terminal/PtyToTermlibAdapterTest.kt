@@ -56,10 +56,10 @@ class PtyToTermlibAdapterTest {
         val socket = FakePtySocket(frames = emptyList())
         adapter.bind(socket)
 
-        // Drive the keyboard callback the way termlib would.
+        // 以 termlib 的方式驱动键盘回调。
         adapter.dispatchKeyboardOutput("ls\r\n".toByteArray())
 
-        // Give the launch{} in dispatchKeyboardOutput a tick to run.
+        // 给 dispatchKeyboardOutput 中的 launch{} 一个运行的机会。
         socket.completion.await()
         adapter.release()
 
@@ -68,9 +68,9 @@ class PtyToTermlibAdapterTest {
 
     @Test
     fun `onKeyboardInput callback never calls emulator methods (reentrancy guard)`() = runTest {
-        // The adapter's onKeyboardInput path (dispatchKeyboardOutput) only
-        // touches the socket. Verify writeInput is NOT invoked during keyboard
-        // dispatch by tracking call count on the writeInput lambda.
+        // 适配器的 onKeyboardInput 路径（dispatchKeyboardOutput）只
+        // 接触 socket。通过跟踪 writeInput lambda 的调用次数，
+        // 验证键盘分发期间不会调用 writeInput。
         var writeInputCallCount = 0
         val adapter = PtyToTermlibAdapter(
             scope = this,
@@ -119,9 +119,9 @@ class PtyToTermlibAdapterTest {
         adapter.bind(socket)
 
         adapter.release()
-        adapter.release() // second call must not throw
-        // release() launches socket.close() asynchronously on the test scope;
-        // drain pending coroutines before asserting.
+        adapter.release() // 第二次调用不得抛异常
+        // release() 会在 test scope 上异步启动 socket.close()；
+        // 断言前先排空待处理的协程。
         advanceUntilIdle()
 
         assertTrue(socket.closed)
@@ -138,7 +138,7 @@ class PtyToTermlibAdapterTest {
         socket.completion.await()
         assertTrue("DECSET 1 should set application mode", adapter.cursorKeysApplicationMode.value)
 
-        // Reset state by binding another socket that emits DECRST 1.
+        // 通过绑定另一个发射 DECRST 1 的 socket 来重置状态。
         val socket2 = FakePtySocket(frames = listOf("\u001b[?1l"))
         adapter.bind(socket2)
         socket2.completion.await()
@@ -159,11 +159,11 @@ class PtyToTermlibAdapterTest {
 }
 
 /**
- * Minimal in-memory PtySocket. The real PtySocket delegates to a Ktor
- * ClientWebSocketSession; we only need readLoop + send + close semantics.
+ * 最小化的内存版 PtySocket。真实的 PtySocket 委托给 Ktor
+ * ClientWebSocketSession；我们只需要 readLoop + send + close 语义。
  *
- * PtySocket is `open class` (P1-6 fix) so this fake can override its methods
- * without needing the underlying WebSocket session.
+ * PtySocket 是 `open class`（P1-6 修复），因此该 fake 可以重写其方法，
+ * 而无需底层 WebSocket 会话。
  */
 private class FakePtySocket(
     private val frames: List<String>,
@@ -181,8 +181,8 @@ private class FakePtySocket(
     override suspend fun readLoop(onText: suspend (String) -> Unit) {
         for (frame in frames) onText(frame)
         completion.complete(Unit)
-        // Block until cancelled so the reader coroutine stays alive like the
-        // real one (which blocks on the WebSocket incoming channel).
+        // 阻塞直到被取消，使 reader 协程像真实协程一样保持存活
+        // （真实实现会阻塞在 WebSocket 接收通道上）。
         try { delay(Long.MAX_VALUE) } catch (_: Exception) {}
     }
 }

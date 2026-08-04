@@ -53,12 +53,12 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.QHistItem
 import dev.leonardo.ocbeacon.ui.screens.chat.util.QuestionParser
 
 /**
- * Collapsible card for historical Part.Question.
- * Header: [?] "提问" + question summary.
- * Expanded: full question text + user's selected answer (if available).
+ * 历史 Part.Question 的可折叠卡片。
+ * 头部：[?] "提问" + 问题摘要。
+ * 展开：完整问题文本 + 用户已选答案（若有）。
  *
- * The question field from opencode may be plain text or contain structured
- * JSON with question + answers. This composable handles both cases.
+ * opencode 的 question 字段可能是纯文本，也可能包含带 question + answers
+ * 的结构化 JSON。此 composable 同时处理这两种情况。
  */
 @Composable
 internal fun CollapsibleQuestionPart(question: String) {
@@ -67,7 +67,7 @@ internal fun CollapsibleQuestionPart(question: String) {
     val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
     val accentColor = MaterialTheme.colorScheme.primary
 
-    // Parse question: plain text or embedded JSON with answer info
+    // 解析问题：纯文本或包含答案信息的嵌入 JSON
     val parsed = remember(question) {
         QuestionParser.parseQuestionContent(question)
     }
@@ -116,7 +116,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                         style = MaterialTheme.typography.bodySmall,
                         color = contentColor
                     )
-                    // Show user's answer if available
+                    // 若用户有答案则显示
                     parsed.answers.forEach { answer ->
                         Spacer(Modifier.height(4.dp))
                         Surface(
@@ -143,7 +143,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                             }
                         }
                     }
-                    // Show raw content if JSON parse found extra fields
+                    // 若 JSON 解析发现额外字段则显示原始内容
                     if (parsed.rawExtra.isNotBlank()) {
                         Spacer(Modifier.height(4.dp))
                         Text(
@@ -158,7 +158,7 @@ internal fun CollapsibleQuestionPart(question: String) {
     }
 }
 
-/** Renders question history via shared QuestionPagerView (read-only). */
+/** 通过共享的 QuestionPagerView 渲染问题历史（只读）。 */
 @Composable
 internal fun QuestionExpandedOptions(items: List<QHistItem>) {
     val questions = items.map { item ->
@@ -178,8 +178,8 @@ internal fun QuestionExpandedOptions(items: List<QHistItem>) {
 }
 
 /**
- * Unified question display: TabRow + HorizontalPager + Checkbox/RadioButton.
- * Shared by QuestionCard (interactive) and question history (read-only).
+ * 统一的问题展示：TabRow + HorizontalPager + Checkbox/RadioButton。
+ * QuestionCard（交互式）和问题历史（只读）共用。
  */
 @Composable
 internal fun QuestionPagerView(
@@ -266,7 +266,7 @@ internal fun QuestionOptionRows(
                 }
             }
         }
-        // Custom answer support
+        // 自定义答案支持
         if (question.custom != false) {
             val optionLabels = question.options.map { it.label }.toSet()
             val customAnswer = selected.firstOrNull { it !in optionLabels }

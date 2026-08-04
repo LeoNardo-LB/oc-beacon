@@ -33,9 +33,9 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * L2: Tests for SearchBar and Archive FilterChip added to SessionListScreen.
- * These components are rendered inline in SessionListScreen; here we test them
- * in isolation with the same configuration to verify rendering and interaction.
+ * L2：针对 SessionListScreen 中新增的 SearchBar 和 Archive FilterChip 的测试。
+ * 这些组件内联渲染在 SessionListScreen 中；这里我们以相同配置在隔离环境下
+ * 测试它们，以验证渲染与交互。
  */
 class SessionListScreenTest {
 
@@ -141,10 +141,10 @@ class SessionListScreenTest {
             TestArchiveFilterChip(selected = selected, onClick = { selected = !selected })
         }
 
-        // Initially unselected
+        // 初始未选中
         composeTestRule.onNodeWithText("Archived").assertIsDisplayed()
 
-        // Click to select
+        // 点击以选中
         composeTestRule.onNodeWithText("Archived").performClick()
         composeTestRule.waitUntil { selected }
     }

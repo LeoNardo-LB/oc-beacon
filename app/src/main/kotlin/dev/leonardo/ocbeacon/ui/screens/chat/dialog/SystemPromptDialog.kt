@@ -19,12 +19,12 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Extracts system prompt text from a list of message parts.
- * Looks for Text parts in messages with role "system" or Text parts
- * whose content starts with "System:".
+ * 从消息部件列表中提取系统提示词文本。
+ * 查找 role 为 "system" 的消息中的 Text 部件，或内容以
+ * "System:" 开头的 Text 部件。
  *
- * @param systemParts The list of parts from system-type messages.
- * @return The concatenated system prompt text, or null if empty.
+ * @param systemParts 来自 system 类型消息的部件列表。
+ * @return 拼接后的系统提示词文本，为空时返回 null。
  */
 fun extractSystemPrompt(systemParts: List<String>): String? {
     val text = systemParts.filter { it.isNotBlank() }.joinToString("\n\n")
@@ -32,10 +32,10 @@ fun extractSystemPrompt(systemParts: List<String>): String? {
 }
 
 /**
- * A bottom sheet dialog that displays the system prompt for the current session.
+ * 显示当前会话系统提示词的底部表单对话框。
  *
- * @param systemPrompt The system prompt text to display.
- * @param onDismiss Callback when the dialog is dismissed.
+ * @param systemPrompt 要显示的系统提示词文本。
+ * @param onDismiss 对话框关闭时的回调。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

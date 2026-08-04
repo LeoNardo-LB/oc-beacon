@@ -69,7 +69,7 @@ fun AboutScreen(
         ) {
             Spacer(Modifier.height(48.dp))
 
-            // App name
+            // 应用名
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium,
@@ -96,7 +96,7 @@ fun AboutScreen(
 
             Spacer(Modifier.height(4.dp))
 
-            // Unofficial notice
+            // 非官方声明
             Text(
                 text = stringResource(R.string.about_unofficial),
                 style = MaterialTheme.typography.bodySmall,
@@ -106,7 +106,7 @@ fun AboutScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Update check card
+            // 更新检查卡片
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -131,7 +131,7 @@ fun AboutScreen(
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // GitHub repo
+                // GitHub 仓库
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.about_github)) },
                     supportingContent = {
@@ -158,7 +158,7 @@ fun AboutScreen(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
 
-                // OpenCode project
+                // OpenCode 项目
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.about_opencode)) },
                     supportingContent = {

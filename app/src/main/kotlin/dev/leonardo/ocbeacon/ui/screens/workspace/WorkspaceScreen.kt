@@ -77,7 +77,7 @@ fun WorkspaceRoute(
                 source = FileViewerSource.GIT_DIFF
             )
         },
-        // Phase 2: Search
+        // Phase 2：搜索
         onEnterSearch = viewModel::enterSearch,
         onExitSearch = viewModel::exitSearch,
         onSearchQueryChange = viewModel::updateSearchQuery
@@ -103,12 +103,12 @@ fun WorkspaceScreen(
     onRefreshGit: () -> Unit,
     onOpenFile: (String) -> Unit,
     onOpenGitDiff: (String) -> Unit,
-    // Phase 2: Search
+    // Phase 2：搜索
     onEnterSearch: () -> Unit,
     onExitSearch: () -> Unit,
     onSearchQueryChange: (String) -> Unit
 ) {
-    // Intercept system back when in search mode to exit search instead of leaving the screen
+    // 搜索模式下拦截系统返回键以退出搜索，而不是离开屏幕
     BackHandler(enabled = uiState.isSearchMode) {
         onExitSearch()
     }
@@ -213,7 +213,7 @@ private fun WorkspaceTopBar(
             }
         },
         actions = {
-            // Phase 2: 🔍 search button (spec §6.1 order: [🔍][📁/🔀])
+            // Phase 2：🔍 搜索按钮（规范 §6.1 顺序：[🔍][📁/🔀]）
             IconButton(
                 onClick = onSearch,
                 modifier = Modifier.testTag("workspace_search_button")
@@ -224,19 +224,19 @@ private fun WorkspaceTopBar(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            // Toggle button: switches between FILE_TREE and GIT_CHANGES panels.
-            // Non-git repos only show the Folder icon (no toggle available).
+            // 切换按钮：在 FILE_TREE 与 GIT_CHANGES 面板之间切换。
+            // 非 git 仓库仅显示文件夹图标（无法切换）。
             when (uiState.currentPanel) {
                 WorkspacePanel.FILE_TREE -> {
                     if (uiState.isNonGit) {
-                        // No git → static folder icon, no toggle
+                        // 非 git 仓库 → 静态文件夹图标，无切换
                         Icon(
                             Icons.Filled.Folder,
                             contentDescription = stringResource(R.string.a11y_icon_toggle_directory),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     } else {
-                        // FILE_TREE active → show Git icon to switch to GIT_CHANGES
+                        // FILE_TREE 激活 → 显示 Git 图标以切换到 GIT_CHANGES
                         IconButton(
                             onClick = { onSwitchPanel(WorkspacePanel.GIT_CHANGES) },
                             modifier = Modifier.testTag("panel_toggle")
@@ -259,7 +259,7 @@ private fun WorkspaceTopBar(
                     }
                 }
                 WorkspacePanel.GIT_CHANGES -> {
-                    // GIT_CHANGES active → show Folder icon to switch back to FILE_TREE
+                    // GIT_CHANGES 激活 → 显示文件夹图标以切回 FILE_TREE
                     IconButton(
                         onClick = { onSwitchPanel(WorkspacePanel.FILE_TREE) },
                         modifier = Modifier.testTag("panel_toggle")
@@ -276,8 +276,8 @@ private fun WorkspaceTopBar(
     )
 }
 
-/** Returns the last path segment, or "/" for empty/root paths.
- *  Handles both POSIX (/) and Windows (\) separators. */
+/** 返回路径的最后一段；空/根路径返回 "/"。
+ *  同时处理 POSIX（/）和 Windows（\）分隔符。 */
 private fun basename(path: String): String {
     if (path.isBlank()) return "/"
     val trimmed = path.trimEnd('/', '\\')

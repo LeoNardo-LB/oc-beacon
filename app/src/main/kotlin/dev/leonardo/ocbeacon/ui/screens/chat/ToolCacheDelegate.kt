@@ -12,10 +12,10 @@ import javax.inject.Inject
 private const val TAG = "FileViewerDiag"
 
 /**
- * Extracts and caches file snapshots from Tool parts for the file viewer.
+ * 从 Tool parts 中提取并缓存文件快照，供文件查看器使用。
  *
- * Handles read/write/edit tool output parsing, including stripping Read tool
- * XML wrappers and embedded line-number prefixes.
+ * 处理 read/write/edit 工具输出解析，包括剥离 Read 工具
+ * XML 包装器和内嵌行号前缀。
  */
 class ToolCacheDelegate @Inject constructor(
     private val toolSnapshotCache: ToolSnapshotCache,
@@ -49,7 +49,7 @@ class ToolCacheDelegate @Inject constructor(
             "edit" -> after
             else -> null
         }
-        // DIAG: log cache entry details for intermittent blank-file investigation
+        // 诊断：记录缓存条目详情，用于间歇性空白文件调查
         Log.d(TAG, "cacheToolPart: tool=${part.tool}, state=${state::class.simpleName}, " +
             "partId=${part.id.take(12)}, file=${filePath.take(60)}, " +
             "contentLen=${content?.length ?: -1}, beforeLen=${before?.length ?: -1}, " +
@@ -68,9 +68,9 @@ class ToolCacheDelegate @Inject constructor(
     }
 
     /**
-     * Strip Read tool output wrappers (<path>, <content> tags) and embedded
-     * line-number prefixes ("291: text" → "text") to avoid double line numbers
-     * in the file viewer (which adds its own gutter).
+     * 剥离 Read 工具输出包装器（<path>、<content> 标签）和内嵌
+     * 行号前缀（"291: text" → "text"），避免文件查看器中出现
+     * 双重行号（查看器有自己的行号槽）。
      */
     private fun cleanReadToolOutput(raw: String): String {
         var result = raw

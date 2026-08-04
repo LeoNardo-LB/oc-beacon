@@ -24,21 +24,21 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 
 /**
- * Parse and validate a server URL string.
- * Accepts formats like:
+ * 解析并校验服务器 URL 字符串。
+ * 接受如下格式：
  *   http://192.168.0.10:4096
  *   https://192.168.0.10
  *   https://my-server.example.com:4848
- *   192.168.0.10:4096           -> defaults to http://
- *   192.168.0.10                -> defaults to http://
+ *   192.168.0.10:4096           -> 默认使用 http://
+ *   192.168.0.10                -> 默认使用 http://
  *
- * Returns the normalized URL (with scheme) or null if invalid.
+ * 返回规范化后的 URL（带 scheme），无效则返回 null。
  */
 private fun validateAndNormalizeUrl(input: String): String? {
     val trimmed = input.trim()
     if (trimmed.isBlank()) return null
 
-    // Add scheme if missing
+    // 缺失 scheme 时补上
     val withScheme = if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
         "http://$trimmed"
     } else {
@@ -47,11 +47,11 @@ private fun validateAndNormalizeUrl(input: String): String? {
 
     return try {
         val url = java.net.URL(withScheme)
-        // Must have a host
+        // 必须有 host
         if (url.host.isNullOrBlank()) return null
-        // Port must be valid if specified
+        // 指定了端口时必须合法
         if (url.port != -1 && url.port !in 1..65535) return null
-        // Rebuild a clean URL (scheme + host + optional port)
+        // 重建干净的 URL（scheme + host + 可选端口）
         val port = url.port
         if (port != -1) {
             "${url.protocol}://${url.host}:$port"

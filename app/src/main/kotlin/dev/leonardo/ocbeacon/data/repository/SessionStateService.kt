@@ -32,7 +32,7 @@ private const val HISTORY_MAX = 20
 private const val STALENESS_CHECK_INTERVAL_MS = 5_000L
 private const val STALENESS_THRESHOLD_MS = 15_000L
 
-/** Result of a full REST → FSM sync, exposed for callers (e.g. manual refresh) to observe. */
+/** 完整 REST → FSM 同步的结果，暴露给调用方（例如手动刷新）观察。 */
 data class SyncResult(val totalSessions: Int, val busyCount: Int)
 
 @Singleton
@@ -40,7 +40,7 @@ class SessionStateService @Inject constructor(
     @ApplicationScope private val appScope: CoroutineScope,
     private val sessionRepoProvider: Provider<SessionRepository>,
 ) {
-    // Injected post-construction (breaks circular dep with EventDispatcher)
+    // 构造后注入（打破与 EventDispatcher 的循环依赖）
     var directoryResolver: DirectoryResolver = DirectoryResolver { null }
     var incompleteChecker: IncompleteAssistantChecker = IncompleteAssistantChecker { false }
     var messageForceCompleter: MessageForceCompleter = MessageForceCompleter {}
@@ -51,10 +51,10 @@ class SessionStateService @Inject constructor(
     private var stalenessJob: Job? = null
 
     /**
-     * RS-012 fix: Dedup map for in-flight REST validations. Keyed by sessionId.
-     * When a new validation is requested for a session that already has one in flight,
-     * the old job is cancelled and replaced. This prevents REST request storms when
-     * multiple triggers fire rapidly (staleness guard + suspicious transition + external).
+     * RS-012 修复：进行中的 REST 校验的去重 map。以 sessionId 为键。
+     * 当某会话已有进行中的校验时又请求了新校验，
+     * 旧 job 会被取消并替换。这防止了多个触发器快速触发时
+     *（staleness guard + 可疑转移 + 外部）产生 REST 请求风暴。
      */
     private val activeValidations = ConcurrentHashMap<String, Job>()
 
@@ -101,14 +101,14 @@ class SessionStateService @Inject constructor(
     fun setServerId(serverId: String) { currentServerId = serverId }
 
     /**
-     * Public wrapper for [triggerRestValidation] — lets external callers (e.g.
-     * [SessionActionsDelegate] single-session entry/resume) request an authoritative
-     * REST status check for one session. The FSM's forceComplete mechanism handles
-     * incomplete-message fixing automatically when REST confirms Idle.
+     * [triggerRestValidation] 的公共包装——让外部调用方（例如
+     * [SessionActionsDelegate] 的单会话进入/恢复）能为某会话请求权威的
+     * REST 状态检查。当 REST 确认为 Idle 时，FSM 的 forceComplete
+     * 机制会自动处理不完整消息的修复。
      */
     fun requestValidation(sessionId: String) = triggerRestValidation(sessionId)
 
-    // ============ Event entry points ============
+    // ============ 事件入口 ============
     fun onClientSendParts(sessionId: String) {
         applyTransition(sessionId, FsmEvent.ClientSendParts)
     }
@@ -135,23 +135,22 @@ class SessionStateService @Inject constructor(
         is SessionNextEvent.TextDelta -> FsmEvent.TextDelta(event.delta)
         is SessionNextEvent.TextEnded -> FsmEvent.TextEnded
         is SessionNextEvent.ToolInputStarted -> FsmEvent.ToolInputStarted(event.tool, event.callId)
-        // SessionNextEvent.StepEnded has no finish field — pass null. FSM treats non-"tool-calls"
-        // finish as "keep current Activity, wait for Core Idle".
+        // SessionNextEvent.StepEnded 没有 finish 字段——传 null。FSM 将非 "tool-calls"
+        // 的 finish 视为"保持当前 Activity，等待 Core Idle"。
         is SessionNextEvent.StepEnded -> FsmEvent.StepEnded(finish = null)
         is SessionNextEvent.CompactionStarted -> FsmEvent.CompactionStarted
         is SessionNextEvent.CompactionEnded -> FsmEvent.CompactionEnded
         else -> null
     }
 
-    // ============ Core pipeline ============
+    // ============ 核心管线 ============
     //
-    // RS-010 fix: The entire read-compute-write happens inside `.update{}` so that
-    // concurrent transitions participate in CAS retries. The previous pattern
-    // (read outside, compute outside, write via `.update{}`) lost transitions when
-    // two threads read the same stale snapshot and one overwrote the other.
+    // RS-010 修复：整个 读-计算-写 都在 `.update{}` 内完成，使并发转移
+    // 参与 CAS 重试。之前的模式（读在外面、计算在外面、通过 `.update{}`
+    // 写）在两个线程读取相同陈旧快照、其中一个覆盖另一个时会丢失转移。
     fun applyTransition(sessionId: String, event: FsmEvent) {
-        // Holders for values captured inside the CAS-protected lambda; used by the
-        // post-update side effects (history logging, forceComplete, etc.).
+        // 在 CAS 保护的 lambda 内捕获值的持有者；供更新后的
+        // 副作用（历史记录、forceComplete 等）使用。
         var fromState: SessionFSMState? = null
         var result: SessionStateFSM.TransitionResult? = null
         _fsmStates.update { states ->
@@ -165,7 +164,7 @@ class SessionStateService @Inject constructor(
         val res = result!!
         recordHistory(sessionId, from, res, event)
         if (BuildConfig.DEBUG) logTransition(sessionId, from, res, event)
-        // Side effects
+        // 副作用
         if (res.forceComplete) messageForceCompleter.markIdle(sessionId)
         if (res.isSuspicious) triggerRestValidation(sessionId)
     }
@@ -199,51 +198,50 @@ class SessionStateService @Inject constructor(
         Log.d(TAG, "[$sessionId] ${from.core::class.simpleName}$actFrom --${event::class.simpleName}--> ${result.newState.core::class.simpleName}$actTo$flags")
     }
 
-    // ============ Lifecycle ============
+    // ============ 生命周期 ============
     fun clearSession(sessionId: String) {
         _fsmStates.update { it - sessionId }
         _histories.update { it - sessionId }
-        // Cancel in-flight REST validation for this session (RS-012)
+        // 取消此会话进行中的 REST 校验（RS-012）
         activeValidations.remove(sessionId)?.cancel()
     }
 
     fun clearForServer(sessionIds: Set<String>) {
         _fsmStates.update { it - sessionIds }
         _histories.update { it - sessionIds }
-        // Cancel in-flight REST validations for cleared sessions (RS-012)
+        // 取消已清除会话进行中的 REST 校验（RS-012）
         for (sessionId in sessionIds) {
             activeValidations.remove(sessionId)?.cancel()
         }
     }
 
     fun clearAll() {
-        // RS-011 fix: use .update{} to participate in CAS, preventing a concurrent
-        // applyTransition from resurrecting cleared state via its own CAS write.
+        // RS-011 修复：使用 .update{} 参与 CAS，防止并发的
+        // applyTransition 通过其自身的 CAS 写入复活已清除的状态。
         _fsmStates.update { emptyMap() }
         _histories.update { emptyMap() }
-        // Cancel all in-flight REST validations (RS-012)
+        // 取消所有进行中的 REST 校验（RS-012）
         activeValidations.values.forEach { it.cancel() }
         activeValidations.clear()
     }
 
-    // ============ L3: REST validation (absence=idle closed loop) ============
+    // ============ L3：REST 校验（absence=idle 闭环）============
     //
-    // Triggered by:
-    //   - applyTransition when result.isSuspicious (lost SSE)
-    //   - checkStaleness (L2 stale Busy / L5 Idle-with-incomplete)
-    //   - External callers (e.g. manual refresh)
+    // 触发条件：
+    //   - applyTransition 当 result.isSuspicious（丢失 SSE）
+    //   - checkStaleness（L2 陈旧 Busy / L5 Idle 但不完整）
+    //   - 外部调用方（例如手动刷新）
     //
-    // Absence semantics: when the queried [directory] is the session's own directory and the
-    // session is absent from the server's status map, treat it as Idle (server drops idle
-    // sessions from the map). When [directory] is null (unknown instance), absence is ambiguous
-    // — skip to avoid false Idle.
+    // 缺失语义：当查询的 [directory] 是会话自身的 directory 且会话在服务器
+    // 状态 map 中缺失时，将其视为 Idle（服务器会从 map 中丢弃 idle 会话）。
+    // 当 [directory] 为 null（未知实例）时，缺失是歧义的——跳过以避免误判 Idle。
     internal fun triggerRestValidation(sessionId: String) {
         val sid = currentServerId ?: return
         val directory = directoryResolver.resolve(sessionId)
-        // RS-012 fix: deduplicate concurrent validations for the same session.
-        // Pattern: launch → merge (atomic replace, cancels previous) → invokeOnCompletion (cleanup).
-        // The merge function only cancels the old job and returns the new one — it does NOT
-        // modify activeValidations, avoiding ConcurrentHashMap.compute() deadlock.
+        // RS-012 修复：对同一会话的并发校验去重。
+        // 模式：launch → merge（原子替换，取消前一个）→ invokeOnCompletion（清理）。
+        // merge 函数仅取消旧 job 并返回新 job——它不修改
+        // activeValidations，避免 ConcurrentHashMap.compute() 死锁。
         val job = appScope.launch {
             try {
                 val result = sessionRepoProvider.get().fetchSessionStatuses(sid, directory)
@@ -253,15 +251,15 @@ class SessionStateService @Inject constructor(
                         if (BuildConfig.DEBUG) Log.d(TAG, "[$sessionId] L3 REST validation: server says ${serverStatus::class.simpleName}")
                         onRestValidation(sessionId, serverStatus)
                     } else if (directory != null) {
-                        // Server deletes idle sessions from its status map — absence means idle.
-                        // Only trust this when we queried the session's own directory.
+                        // 服务器会从其状态 map 中删除 idle 会话——缺失即 idle。
+                        // 仅当查询的是会话自身的 directory 时才信任此结论。
                         if (BuildConfig.DEBUG) Log.d(TAG, "[$sessionId] L3 REST validation: absent from own directory -> idle")
                         onRestValidation(sessionId, SessionStatus.Idle)
                     }
-                    // directory == null + absent -> skip (avoid false idle on unknown instance)
+                    // directory == null + 缺失 -> 跳过（避免在未知实例上误判 idle）
 
-                    // Also refresh messages — staleness/suspicious recovery should catch up
-                    // on any messages SSE missed during the stale period.
+                    // 同时刷新消息——陈旧/可疑恢复应追上
+                    // 陈旧期间 SSE 错过的任何消息。
                     sessionRepoProvider.get().listMessages(sid, sessionId, limit = 0)
                         .onSuccess { messages ->
                             messageRefresher.replaceMessages(sessionId, messages)
@@ -272,26 +270,26 @@ class SessionStateService @Inject constructor(
                 Log.w(TAG, "[$sessionId] L3 REST validation failed: ${e.message}")
             }
         }
-        // Atomically replace any existing job for this session (cancels the old one)
+        // 原子替换此会话的任何现有 job（取消旧 job）
         activeValidations.merge(sessionId, job) { oldJob, newJob ->
             oldJob.cancel()
             newJob
         }
-        // Cleanup: remove this job from the dedup map when it completes.
-        // invokeOnCompletion fires even if the job is already complete.
-        // Uses remove(key, value) so it only removes its own entry, not a newer job's.
+        // 清理：job 完成时从去重 map 中移除。
+        // invokeOnCompletion 即使 job 已完成也会触发。
+        // 使用 remove(key, value)，使其仅移除自己的条目，而非更新 job 的。
         job.invokeOnCompletion { activeValidations.remove(sessionId, job) }
     }
 
-    // ============ L4: Full REST sync (unify recovery) ============
+    // ============ L4：完整 REST 同步（统一恢复）============
     //
-    // Pull every session status from the server across [projects]' directories (or a single
-    // instance-wide query when [projects] is empty), then fold in local absence semantics:
-    // a local non-Idle session absent from REST is treated as Idle — unless it has incomplete
-    // assistant messages, in which case the local state is preserved (SSE may still be streaming).
+    // 跨 [projects] 的 directory 从服务器拉取每个会话状态（当 [projects]
+    // 为空时用单次实例级查询），再叠加本地缺失语义：本地非 Idle 但在 REST
+    // 中缺失的会话视为 Idle——除非它有不完整的 assistant 消息，此时保留
+    // 本地状态（SSE 可能仍在流式传输）。
     //
-    // Note: [SessionRepository.fetchSessionStatuses] already maps the raw REST DTO
-    // (`RestSessionStatusInfo`) to the domain [SessionStatus], so no per-entry conversion here.
+    // 注意：[SessionRepository.fetchSessionStatuses] 已将原始 REST DTO
+    //（`RestSessionStatusInfo`）映射为领域 [SessionStatus]，因此此处无需逐条转换。
     suspend fun syncFromRest(projects: List<Project>): SyncResult {
         val sid = currentServerId ?: return SyncResult(0, 0)
         val aggregated = mutableMapOf<String, SessionStatus>()
@@ -300,11 +298,11 @@ class SessionStateService @Inject constructor(
             sessionRepoProvider.get().fetchSessionStatuses(sid, dir)
                 .onSuccess { aggregated += it }
         }
-        // Absence semantics: local non-Idle absent from REST
+        // 缺失语义：本地非 Idle 但在 REST 中缺失
         for ((sessionId, state) in _fsmStates.value) {
             if (state.core !is SessionStatus.Idle && sessionId !in aggregated) {
-                aggregated[sessionId] = if (incompleteChecker.hasIncomplete(sessionId)) state.core  // protect (SSE may still stream)
-                                         else SessionStatus.Idle                                       // absent = idle
+                aggregated[sessionId] = if (incompleteChecker.hasIncomplete(sessionId)) state.core  // 保护（SSE 可能仍在流式传输）
+                                          else SessionStatus.Idle                                       // 缺失 = idle
             }
         }
         for ((sessionId, status) in aggregated) applyTransition(sessionId, FsmEvent.RestValidation(status))

@@ -31,8 +31,8 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.isAmoledTheme
 
 /**
- * Reusable single-selection list for picker dialogs.
- * Handles highlight, check icon, AMOLED theming, and auto-scroll to selected item.
+ * 用于选择器对话框的可复用单选列表。
+ * 处理高亮、勾选图标、AMOLED 主题，以及自动滚动到选中项。
  */
 @Composable
 fun <K> AppPickerList(

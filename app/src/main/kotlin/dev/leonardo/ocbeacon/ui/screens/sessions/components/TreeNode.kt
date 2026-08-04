@@ -8,8 +8,8 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.SessionItem
 import dev.leonardo.ocbeacon.ui.screens.sessions.util.projectForSession
 
 /**
- * Sealed interface for flat session list nodes.
- * Two levels: Directory (expandable group) and Session (leaf item).
+ * 扁平会话列表节点的密封接口。
+ * 两个层级：Directory（可展开分组）和 Session（叶子项）。
  */
 sealed interface TreeNode {
     val id: String
@@ -30,26 +30,26 @@ sealed interface TreeNode {
 }
 
 /**
- * Build a flat 2-level node list from sessions.
+ * 从会话列表构建扁平的两级节点列表。
  *
- * When baseDirectory is set:
- *   - Sessions are grouped by their first path segment relative to baseDirectory
- *   - Sessions directly in baseDirectory appear at the top (ungrouped)
- *   - Each group is an expandable Directory node
- *   - Groups are ordered alphabetically by segment (stable browsing order)
+ * 设置 baseDirectory 时：
+ *   - 会话按其相对 baseDirectory 的第一段路径分组
+ *   - 直接位于 baseDirectory 的会话出现在顶部（不分组）
+ *   - 每个分组是一个可展开的 Directory 节点
+ *   - 分组按段名字母序排序（稳定的浏览顺序）
  *
- * When baseDirectory is null:
- *   - Sessions are grouped project-aware: sessions whose [Session.projectId]
- *     (or worktree prefix) maps to the same [Project] aggregate into one group.
- *     Unmatched sessions form per-directory groups.
- *   - Groups are ordered by latest activity (descending), then by display name.
+ * baseDirectory 为 null 时：
+ *   - 会话按项目感知分组：[Session.projectId]（或 worktree 前缀）
+ *     映射到同一 [Project] 的会话聚合到一个分组。
+ *     未匹配的会话形成按目录的分组。
+ *   - 分组按最近活动时间（降序）排序，再按显示名。
  *
- * @param sessions Filtered sessions (already scoped to server, not archived, etc.)
- * @param expandedDirs Set of directory paths currently expanded
- * @param baseDirectory The selected base directory path (normalized, e.g. "D:/Develop"), or null
- * @param statuses Session status map
- * @param projects Known projects used for project-aware grouping when baseDirectory is null
- * @param sessionCategories Resolved session id → category map for display
+ * @param sessions 已过滤的会话（已限定到服务器、未归档等）
+ * @param expandedDirs 当前展开的目录路径集合
+ * @param baseDirectory 选定的基础目录路径（已规范化，如 "D:/Develop"），或 null
+ * @param statuses 会话状态映射
+ * @param projects baseDirectory 为 null 时用于项目感知分组的已知项目
+ * @param sessionCategories 已解析的 会话 id → 分类 映射，用于显示
  */
 fun buildTreeNodes(
     sessions: List<Session>,
@@ -86,7 +86,7 @@ fun buildTreeNodes(
         }
 
         if (normalizedBase != null) {
-            // baseDirectory mode: group by first path segment relative to base.
+            // baseDirectory 模式：按相对 base 的第一段路径分组。
             if (!dir.startsWith(normalizedBase)) continue
             val relative = dir.removePrefix(normalizedBase).removePrefix("/")
             if (relative.isEmpty()) {
@@ -102,7 +102,7 @@ fun buildTreeNodes(
                 ).sessions.add(session)
             }
         } else {
-            // Project-aware grouping: aggregate sessions by owning project.
+            // 项目感知分组：按所属项目聚合会话。
             val project = projectForSession(session, projects)
             val groupPath = (project?.worktree?.takeIf { it.isNotBlank() }
                 ?: project?.path?.takeIf { it.isNotBlank() }
@@ -118,7 +118,7 @@ fun buildTreeNodes(
         }
     }
 
-    // Order groups: baseDirectory -> alphabetical by id (stable); otherwise -> latest activity then name.
+    // 分组排序：baseDirectory -> 按 id 字母序（稳定）；否则 -> 最近活动时间再按名称。
     val orderedGroups = if (normalizedBase != null) {
         groupOrder.sortedBy { it.id }
     } else {
@@ -149,7 +149,7 @@ fun buildTreeNodes(
         }
     }
 
-    // Root sessions last (empty directory or directly in base directory, ungrouped)
+    // 根会话放最后（空目录或直接位于 base 目录，未分组）
     for (session in rootSessions.sortedByDescending { it.time.updated }) {
         result.add(TreeNode.Session(
             id = session.id,

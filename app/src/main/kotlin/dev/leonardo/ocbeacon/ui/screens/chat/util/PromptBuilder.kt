@@ -4,11 +4,11 @@ import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.util.PathUtils
 
 /**
- * Splits raw input text into a list of [PromptPart] objects.
- * Text around confirmed @file mentions becomes type="text" parts,
- * and each @file mention becomes a type="file" part with a file:// URL.
+ * 将原始输入文本拆分为 [PromptPart] 对象列表。
+ * 已确认 @file 提及周围的文本成为 type="text" parts，
+ * 每个 @file 提及成为带 file:// URL 的 type="file" part。
  *
- * Extracted from ChatInputBar.kt — pure logic, no Compose dependency.
+ * 从 ChatInputBar.kt 抽取 —— 纯逻辑，无 Compose 依赖。
  */
 internal object PromptBuilder {
 
@@ -23,7 +23,7 @@ internal object PromptBuilder {
             else listOf(PromptPart(type = "text", text = trimmed))
         }
 
-        // Find all confirmed @path mentions with their positions
+        // 查找文本中所有已确认的 @path 提及及其位置
         data class Mention(val start: Int, val end: Int, val path: String)
         val mentions = mutableListOf<Mention>()
 
@@ -34,7 +34,7 @@ internal object PromptBuilder {
                 val idx = text.indexOf(needle, searchFrom)
                 if (idx == -1) break
                 val endIdx = idx + needle.length
-                // Boundary check: next char must be whitespace, end-of-string, or @
+                // 边界检查：下一个字符必须是空白、字符串末尾或 @
                 if (endIdx < text.length) {
                     val next = text[endIdx]
                     if (!next.isWhitespace() && next != '@') {
@@ -53,21 +53,21 @@ internal object PromptBuilder {
             else listOf(PromptPart(type = "text", text = trimmed))
         }
 
-        // Sort by position
+        // 按位置排序
         mentions.sortBy { it.start }
 
         val parts = mutableListOf<PromptPart>()
         var cursor = 0
 
         for (mention in mentions) {
-            // Add text before this mention
+            // 添加此提及之前的文本
             if (mention.start > cursor) {
                 val segment = text.substring(cursor, mention.start).trim()
                 if (segment.isNotEmpty()) {
                     parts.add(PromptPart(type = "text", text = segment))
                 }
             }
-            // Add file part
+            // 添加文件 part
             val isDir = mention.path.endsWith("/")
             val absPath = if (sessionDirectory != null) "$sessionDirectory/${mention.path}" else mention.path
             val displayName = PathUtils.fileName(mention.path.trimEnd('/', '\\'))
@@ -83,7 +83,7 @@ internal object PromptBuilder {
             cursor = mention.end
         }
 
-        // Trailing text
+        // 尾部文本
         if (cursor < text.length) {
             val segment = text.substring(cursor).trim()
             if (segment.isNotEmpty()) {

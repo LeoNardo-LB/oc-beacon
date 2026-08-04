@@ -66,7 +66,7 @@ internal fun MessageCardAssistant(
     val hapticOn = LocalHapticFeedbackEnabled.current
     val showTurnDividers = LocalShowTurnDividers.current
 
-    // Keep for footer display (time, provider icon)
+    // 保留供页脚显示（时间、提供商图标）
     val assistantMsg = currentMessage.message as? Message.Assistant
     val isStreaming = assistantMsg?.time?.completed == null
 
@@ -88,7 +88,7 @@ internal fun MessageCardAssistant(
                 ),
                 verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else SpacingTokens.XS.dp)
             ) {
-                // Render pre-computed items — zero filtering/grouping during composition.
+                // 渲染预计算项 —— 组合期间零过滤/零分组。
                 for (item in renderableTurn.renderItems) {
                     when (item) {
                         is RenderItem.TurnDivider -> {
@@ -124,16 +124,16 @@ internal fun MessageCardAssistant(
                     }
                 }
 
-                // Pre-computed metadata
+                // 预计算的元数据
                 val agentName = renderableTurn.agentName
                 val stepFinishes = renderableTurn.stepFinishes
                 val copyText = renderableTurn.copyText
 
-                // Streaming footer — minimal: time + agent + spinning circle
-                // Only shows when no stepFinishes yet. Once StepFinish arrives, the
-                // token/cost footer below replaces it. Without this guard, both footers
-                // render simultaneously during the gap between StepFinish arrival and
-                // message completion (time.completed set), causing a duplicate stats bar.
+                // 流式页脚 —— 极简：时间 + agent + 旋转圆圈
+                // 仅在尚无 stepFinishes 时显示。一旦 StepFinish 到达，
+                // 下面的 token/费用页脚会取代它。没有此保护，
+                // 在 StepFinish 到达与消息完成（time.completed 已设置）之间的
+                // 间隙里两个页脚会同时渲染，导致重复的统计栏。
                 if (isStreaming && isTurnLast && stepFinishes.isEmpty()) {
                     Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                     Row(
@@ -176,9 +176,9 @@ internal fun MessageCardAssistant(
                     }
                 }
 
-                // Token/cost/duration footer — show for any completed assistant message.
-                // No longer gated on stepFinishes or isTurnLast — each displayed
-                // assistant message has its own metadata from Message.Assistant fields.
+                // Token/费用/时长页脚 —— 对任何已完成的 assistant 消息显示。
+                // 不再以 stepFinishes 或 isTurnLast 为门槛 —— 每条展示的
+                // assistant 消息都有来自 Message.Assistant 字段的自身元数据。
                 if (!isStreaming) {
                     val durationMs = renderableTurn.durationMs
                     val modelId = renderableTurn.modelId
@@ -204,7 +204,7 @@ internal fun MessageCardAssistant(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
-                            // Agent name tag (styled like QUEUED badge with agent color)
+                            // Agent 名称标签（样式类似 QUEUED 徽章，带 agent 颜色）
                             if (!agentName.isNullOrBlank()) {
                                 val tagColor = agentColor(agentName, agents)
                                 Surface(
@@ -219,7 +219,7 @@ internal fun MessageCardAssistant(
                                     )
                                 }
                             }
-                            // Provider icon + model name (tight 3dp spacing, matching input bar)
+                            // 提供商图标 + 模型名（紧凑 3dp 间距，与输入栏一致）
                             val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
                             if (hasProviderOrModel) {
                                 Row(
@@ -261,7 +261,7 @@ internal fun MessageCardAssistant(
                             }
                         }
                     }
-                    // Fallback: no stats but copy button needed
+                    // 回退：无统计但需要复制按钮
                     if (!hasFooter && isTurnLast && copyText != null) {
                         Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                         Row(
@@ -281,7 +281,7 @@ internal fun MessageCardAssistant(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )
                             }
-                            // Agent name tag
+                            // Agent 名称标签
                             if (!agentName.isNullOrBlank()) {
                                 val tagColor = agentColor(agentName, agents)
                                 Surface(
@@ -307,7 +307,7 @@ internal fun MessageCardAssistant(
 
                 }
 
-                // Fallback footer: no StepFinish but still show Agent Tag + time
+                // 回退页脚：无 StepFinish 但仍显示 Agent 标签 + 时间
                 if (stepFinishes.isEmpty() && !isStreaming && isTurnLast && !agentName.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                     Row(
@@ -327,7 +327,7 @@ internal fun MessageCardAssistant(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                             )
                         }
-                        // Agent name tag
+                        // Agent 名称标签
                         val tagColor = agentColor(agentName, agents)
                         Surface(
                             shape = ShapeTokens.smallMedium,
@@ -350,7 +350,7 @@ internal fun MessageCardAssistant(
                     }
                 }
 
-                // Error display
+                // 错误展示
                 if (renderableTurn.errorText != null) {
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),

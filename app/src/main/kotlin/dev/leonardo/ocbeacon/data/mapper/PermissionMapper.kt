@@ -10,15 +10,15 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Maps between API DTO (PermissionRequest) and Domain (SseEvent.PermissionAsked).
+ * 在 API DTO（PermissionRequest）与领域模型（SseEvent.PermissionAsked）之间映射。
  *
- * Key differences:
- * - API: always is JsonElement? (may be array of strings or boolean);  Domain: always is Boolean
- * - API: metadata is Map<String, JsonElement>;  Domain: metadata is Map<String, String>
+ * 关键差异：
+ * - API：always 为 JsonElement?（可能是字符串数组或布尔值）；领域：always 为 Boolean
+ * - API：metadata 为 Map<String, JsonElement>；领域：metadata 为 Map<String, String>
  */
 object PermissionMapper {
 
-    /** API DTO → Domain */
+    /** API DTO → 领域模型 */
     fun toDomain(dto: PermissionRequest): SseEvent.PermissionAsked {
         val alwaysBoolean = parseAlways(dto.always)
         val metadataStrings = dto.metadata?.mapValues { (_, v) ->
@@ -35,7 +35,7 @@ object PermissionMapper {
         )
     }
 
-    /** Domain → API DTO */
+    /** 领域模型 → API DTO */
     fun toDto(domain: SseEvent.PermissionAsked): PermissionRequest {
         val metadataElements = domain.metadata?.mapValues { (_, v) ->
             JsonPrimitive(v) as JsonElement
@@ -53,10 +53,10 @@ object PermissionMapper {
     }
 
     /**
-     * Parse the `always` field which may be:
-     * - V1: a JSON array of strings (e.g. ["*"]) → true if non-empty
-     * - V2: a JSON boolean (e.g. true) → use directly
-     * - null / missing → false
+     * 解析 `always` 字段，它可能是：
+     * - V1：字符串的 JSON 数组（例如 ["*"]）→ 非空时为 true
+     * - V2：JSON 布尔值（例如 true）→ 直接使用
+     * - null / 缺失 → false
      */
     internal fun parseAlways(always: JsonElement?): Boolean {
         if (always == null) return false

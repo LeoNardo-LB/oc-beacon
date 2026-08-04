@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 /**
- * Use case: manage questions (observe + reply).
- * Used by Phase 2 ChatViewModel.
+ * Use Case：管理问题（观察 + 回复）。
+ * 供 Phase 2 ChatViewModel 使用。
  */
 class ManageQuestionUseCase @Inject constructor(
     private val chatRepository: ChatRepository

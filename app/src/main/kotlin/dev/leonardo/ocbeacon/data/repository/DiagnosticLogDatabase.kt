@@ -7,13 +7,13 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * SQLite-backed persistent store for diagnostic log entries.
+ * 由 SQLite 支持的诊断日志条目持久化存储。
  *
- * Uses [SQLiteOpenHelper] directly (not Room) to avoid KSP complexity.
- * Automatic pruning keeps the database within size / retention limits:
- * - 1000 visible entries (query limit)
- * - 10 MB total byte budget
- * - 3-day retention for ordinary logs, 21-day for errors, 50 most-recent crashes
+ * 直接使用 [SQLiteOpenHelper]（而非 Room）以避免 KSP 复杂性。
+ * 自动修剪使数据库保持在大小 / 保留限制内：
+ * - 1000 条可见条目（查询上限）
+ * - 10 MB 总字节预算
+ * - 普通日志保留 3 天，错误日志 21 天，最近 50 条崩溃
  */
 internal class DiagnosticLogDatabase(
     context: Context,
@@ -99,7 +99,7 @@ internal class DiagnosticLogDatabase(
         writableDatabase.delete("logs", null, null)
     }
 
-    // ---- Pruning ----------------------------------------------------------
+    // ---- 修剪 ----------------------------------------------------------
 
     private fun SQLiteDatabase.prune(now: Long) {
         delete(

@@ -8,25 +8,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Tests for [missingPendingPromptIds] — the reconciliation pure function that decides
- * which optimistic pending prompts are stale enough to be considered lost.
+ * [missingPendingPromptIds] 的测试 —— 该对账纯函数决定
+ * 哪些乐观的待处理 prompt 已足够陈旧、可被视为丢失。
  *
- * Strategy: timestamp coverage. A pending prompt is "covered" when the server has
- * delivered any message whose created timestamp is at or after the pending's send
- * time — meaning the server has progressed past that point. If the pending is both
- * covered and older than [minimumAgeMs], it is declared missing.
+ * 策略：时间戳覆盖。当服务器已送达任何 created 时间戳
+ * 不早于 pending 发送时间的消息时，该 pending prompt 即被 "覆盖"，
+ * 意味着服务器已经越过该时间点。如果 pending 同时满足
+ * 被覆盖且早于 [minimumAgeMs]，则判定为缺失。
  *
- * This differs from upstream v1.7.0 (which compares ULID id ranges) because our
- * pendingId is "pending-<uuid>" and is NOT in the same ordering space as server
- * ULIDs. Timestamp coverage is format-agnostic and matches the existing "confirm"
- * logic in MessageDataDelegate's combine pipeline.
+ * 这与上游 v1.7.0（比较 ULID id 范围）不同，因为我们的
+ * pendingId 是 "pending-<uuid>"，与服务器 ULID 不在同一排序空间。
+ * 时间戳覆盖与格式无关，并且与 MessageDataDelegate 的 combine
+ * 管线中现有的 "confirm" 逻辑一致。
  */
 class MissingPendingPromptIdsTest {
 
     @Test
     fun `pending covered by server and expired is declared missing`() {
         val pending = pending("pending-1", createdAt = 1_000)
-        // Server delivered a message created AFTER the pending send time → covered.
+        // 服务器已送达一条创建时间晚于 pending 发送时间的消息 → 已覆盖。
         val authoritative = listOf(
             message("01H_OLD", created = 500),
             message("01H_NEW", created = 2_000),
@@ -61,8 +61,8 @@ class MissingPendingPromptIdsTest {
     @Test
     fun `pending expired but not covered by server is retained`() {
         val pending = pending("pending-1", createdAt = 5_000)
-        // Server messages are all OLDER than the pending → not covered yet,
-        // the pending may still be in flight.
+        // 服务器消息都早于 pending → 尚未被覆盖，
+        // pending 可能仍在传输中。
         val authoritative = listOf(
             message("01H_A", created = 1_000),
             message("01H_B", created = 2_000),
@@ -81,7 +81,7 @@ class MissingPendingPromptIdsTest {
     @Test
     fun `confirmed pending is never declared missing even when covered and expired`() {
         val pending = pending("pending-1", createdAt = 1_000)
-        // The pending's own id appears in the authoritative list → already confirmed.
+        // pending 自身的 id 出现在权威列表中 → 已被确认。
         val authoritative = listOf(message("pending-1", created = 1_000))
 
         assertTrue(
@@ -112,12 +112,12 @@ class MissingPendingPromptIdsTest {
         val fresh = pending("pending-fresh", createdAt = 18_000)
         val uncovered = pending("pending-uncovered", createdAt = 6_000)
         val authoritative = listOf(
-            message("01H_OLD", created = 2_000),   // covers expired + fresh, not uncovered? 
-            message("01H_NEW", created = 19_000),  // covers expired, fresh, uncovered(6k<19k)
+            message("01H_OLD", created = 2_000),   // 覆盖 expired + fresh，未覆盖 uncovered？
+            message("01H_NEW", created = 19_000),  // 覆盖 expired、fresh、uncovered（6k<19k）
         )
-        // uncovered created=6000, 01H_NEW created=19000 >= 6000 → covered.
-        // So uncovered IS covered. To make a truly uncovered one, its createdAt must
-        // exceed all authoritative created values.
+        // uncovered created=6000，01H_NEW created=19000 >= 6000 → 已覆盖。
+        // 因此 uncovered 实际上已被覆盖。要构造真正未被覆盖的项，其 createdAt 必须
+        // 超过所有权威 created 值。
 
         val trulyUncovered = pending("pending-future", createdAt = 50_000)
         val allPending = listOf(expired, fresh, uncovered, trulyUncovered)
@@ -129,14 +129,14 @@ class MissingPendingPromptIdsTest {
             minimumAgeMs = 10_000,
         )
 
-        // expired: age=99000>=10000, covered(2000>=1000,19000>=1000) → missing
-        // fresh: age=82000>=10000, covered(19000>=18000) → missing
-        // uncovered: age=94000>=10000, covered(19000>=6000) → missing
-        // trulyUncovered: age=50000>=10000, NOT covered(no msg>=50000) → retained
+        // expired：age=99000>=10000，covered(2000>=1000,19000>=1000) → missing
+        // fresh：age=82000>=10000，covered(19000>=18000) → missing
+        // uncovered：age=94000>=10000，covered(19000>=6000) → missing
+        // trulyUncovered：age=50000>=10000，未覆盖（无 msg>=50000）→ 保留
         assertEquals(setOf("pending-expired", "pending-fresh", "pending-uncovered"), result)
     }
 
-    // ---- helpers ----
+    // ---- 辅助函数 ----
 
     private fun pending(id: String, createdAt: Long) = PendingPromptRecord(
         messageId = id,

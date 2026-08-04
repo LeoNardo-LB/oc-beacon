@@ -3,8 +3,8 @@ package dev.leonardo.ocbeacon.ui.navigation.routes
 import androidx.navigation.NavBackStackEntry
 
 /**
- * Navigation route definition for the Server Providers screen.
- * Parameters: serverUrl, username, password, serverName, serverId
+ * 服务器提供商页的导航路由定义。
+ * 参数：serverUrl, username, password, serverName, serverId
  */
 object ServerProvidersNav {
     const val ROUTE = "server_providers"

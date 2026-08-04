@@ -43,8 +43,8 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Task (sub-agent) tool card — shows description + child info.
- * Like WebUI: trigger = "Agent (task)" + description, content = child tool list.
+ * Task（子 agent）工具卡片 —— 显示描述 + 子级信息。
+ * 与 WebUI 类似：trigger = "Agent (task)" + 描述，content = 子工具列表。
  */
 @Composable
 internal fun TaskToolCard(
@@ -87,18 +87,18 @@ internal fun TaskToolCard(
         }?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
             ?.takeIf { it?.isNotBlank() == true }
 
-    // Determine click behavior: navigate to subSession if available, else toggle expand
+    // 确定点击行为：有子会话则导航到它，否则切换展开
     val clickAction: (() -> Unit)? = if (subSessionId != null && onViewSubSession != null) {
         { onViewSubSession(subSessionId) }
     } else null
 
-    // Determine right side: show navigation arrow if subSession, else copy + expand
+    // 确定右侧：有子会话则显示导航箭头，否则显示复制 + 展开
     val showNavArrow = !isRunning && subSessionId != null && onViewSubSession != null
 
     ToolCardScaffold(
         icon = Icons.Default.AccountTree,
         iconTint = MaterialTheme.colorScheme.primary,
-        title = "", // not used since titleContent is provided
+        title = "", // 未使用，因为提供了 titleContent
         copyText = if (showNavArrow) "" else longPressCopyText,
         isExpanded = isExpanded,
         isRunning = isRunning,

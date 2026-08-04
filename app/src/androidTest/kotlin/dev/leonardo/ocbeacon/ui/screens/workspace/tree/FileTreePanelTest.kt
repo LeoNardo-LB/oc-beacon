@@ -17,10 +17,10 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Instrumented tests for [FileTreePanel]. Verifies the four UI states
- * (loading / error / empty / populated) and the showIgnored filter wiring.
+ * [FileTreePanel] 的插桩测试。验证四种 UI 状态
+ * （加载中 / 错误 / 空 / 已填充）以及 showIgnored 过滤器的接线。
  *
- * Uses realistic sample data (D7-003): real OpenCode file names and paths.
+ * 使用贴近真实的数据（D7-003）：真实的 OpenCode 文件名和路径。
  */
 class FileTreePanelTest {
 
@@ -101,7 +101,7 @@ class FileTreePanelTest {
         composeTestRule.onNodeWithText("app").assertIsDisplayed()
         composeTestRule.onNodeWithText("OpenCodeApi.kt").assertIsDisplayed()
         composeTestRule.onNodeWithText("build.gradle.kts").assertIsDisplayed()
-        // Ignored file is filtered out when showIgnored = false
+        // showIgnored = false 时，被忽略的文件被过滤掉
         composeTestRule.onAllNodesWithText(".gitignore").assertCountEquals(0)
     }
 
@@ -126,8 +126,8 @@ class FileTreePanelTest {
     }
 
     /**
-     * Realistic sample tree mirroring an OpenCode project layout (D7-003).
-     * Root contains a directory `app` (with two source files) and an ignored `.gitignore`.
+     * 模拟 OpenCode 项目布局的真实示例树（D7-003）。
+     * 根节点包含目录 `app`（内含两个源文件）和一个被忽略的 `.gitignore`。
      */
     private fun sampleNodes(): List<FileTreeNode> = listOf(
         FileTreeNode(

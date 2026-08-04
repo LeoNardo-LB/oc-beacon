@@ -17,10 +17,10 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Instrumented tests for [DiffView]. Verifies hunk rendering and the
- * hunk navigator counter progression on next/prev taps.
+ * [DiffView] 的插桩测试。验证 hunk 渲染，以及在点击 next/prev 时
+ * hunk 导航器计数器的推进。
  *
- * Uses realistic sample data (D7-003): a real-looking 3-hunk patch.
+ * 使用贴近真实的数据（D7-003）：一个看起来真实的 3-hunk patch。
  */
 class DiffViewTest {
 

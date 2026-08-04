@@ -8,14 +8,14 @@ class DiffParserTest {
 
     private val parser = DiffParser()
 
-    // 1. Empty patch returns empty list
+    // 1. 空补丁返回空列表
     @Test
     fun emptyPatchReturnsEmptyList() {
         val result = parser.parseUnifiedDiff("")
         assertTrue(result.isEmpty())
     }
 
-    // 2. Single hunk parsed correctly
+    // 2. 单个 hunk 解析正确
     @Test
     fun singleHunkParsedCorrectly() {
         val patch = """
@@ -34,7 +34,7 @@ class DiffParserTest {
         assertTrue(hunk.rawPatch.contains("@@"))
     }
 
-    // 3. Multiple hunks parsed
+    // 3. 多个 hunk 解析
     @Test
     fun multipleHunksParsed() {
         val patch = """
@@ -58,7 +58,7 @@ class DiffParserTest {
         assertEquals(DiffHunkType.ADDED, hunks[1].type)
     }
 
-    // 4. Real project git diff sample
+    // 4. 真实项目 git diff 样本
     @Test
     fun realProjectGitDiffSample() {
         val patch = """
@@ -100,18 +100,18 @@ class DiffParserTest {
 
         val hunks = parser.parseUnifiedDiff(patch)
         assertEquals(3, hunks.size)
-        // First hunk: single addition → ADDED
+        // 第一个 hunk：仅有新增 → ADDED
         assertEquals(DiffHunkType.ADDED, hunks[0].type)
         assertEquals(15, hunks[0].startLine)
-        // Second hunk: has both add and remove → MODIFIED
+        // 第二个 hunk：同时有新增和删除 → MODIFIED
         assertEquals(DiffHunkType.MODIFIED, hunks[1].type)
         assertEquals(43, hunks[1].startLine)
-        // Third hunk: has both add and remove → MODIFIED
+        // 第三个 hunk：同时有新增和删除 → MODIFIED
         assertEquals(DiffHunkType.MODIFIED, hunks[2].type)
         assertEquals(58, hunks[2].startLine)
     }
 
-    // 5. Malformed patch without @@ returns empty
+    // 5. 无 @@ 的畸形补丁返回空
     @Test
     fun malformedPatchWithoutHeaderReturnsEmpty() {
         val patch = """
@@ -125,7 +125,7 @@ class DiffParserTest {
         assertTrue(hunks.isEmpty())
     }
 
-    // 6. Binary diff line returns empty
+    // 6. 二进制 diff 行返回空
     @Test
     fun binaryDiffLineReturnsEmpty() {
         val patch = "Binary files a/image.png and b/image.png differ"
@@ -133,7 +133,7 @@ class DiffParserTest {
         assertTrue(hunks.isEmpty())
     }
 
-    // 7. Mixed add/remove hunk → MODIFIED (D4-004 critical test)
+    // 7. 混合增删的 hunk → MODIFIED（D4-004 关键测试）
     @Test
     fun mixedAddRemoveHunkParsedAsModified() {
         val patch = """
@@ -148,14 +148,14 @@ class DiffParserTest {
 
         val hunks = parser.parseUnifiedDiff(patch)
         assertEquals(1, hunks.size)
-        // D4-004: both added and removed lines → MODIFIED, not ADDED or REMOVED
+        // D4-004：同时包含新增与删除行 → MODIFIED，而非 ADDED 或 REMOVED
         assertEquals(DiffHunkType.MODIFIED, hunks[0].type)
     }
 
-    // 8. CRLF patch parsed correctly
+    // 8. CRLF 补丁解析正确
     @Test
     fun crlfPatchParsedCorrectly() {
-        // Simulate CRLF line endings
+        // 模拟 CRLF 行尾
         val lines = listOf(
             "@@ -5,3 +5,4 @@\r",
             " import kotlinx.coroutines.Dispatchers\r",

@@ -46,24 +46,24 @@ import org.junit.Test
 import androidx.lifecycle.SavedStateHandle
 
 /**
- * Comprehensive tests for 4 features:
- * A. QUEUED badge — queuedMessageIds computation
- * B. Sub-session identification — sessionParentId
- * C. subSessionId extraction logic from tool metadata
- * D. Part.Agent source extraction logic
- * E. Integration scenarios combining multiple features
+ * 针对 4 个功能的综合测试：
+ * A. QUEUED 徽章 —— queuedMessageIds 计算
+ * B. 子会话标识 —— sessionParentId
+ * C. 从 tool metadata 中提取 subSessionId 的逻辑
+ * D. Part.Agent 的 source 提取逻辑
+ * E. 结合多个功能的集成场景
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelQueuedTest {
 
-    // === Mock and infrastructure ===
+    // === Mock 与基础设施 ===
 
     private lateinit var eventDispatcher: EventDispatcher
     private val terminalRegistry: ServerTerminalRegistry = mockk(relaxed = true)
     private val settingsRepository: SettingsRepository = mockk()
     private val testDispatcher = UnconfinedTestDispatcher()
 
-    // UseCase mocks
+    // UseCase mock 定义
     private val sendMessageUseCase: SendMessageUseCase = mockk(relaxed = true)
     private val manageSessionUseCase: ManageSessionUseCase = mockk(relaxed = true)
     private val managePermissionUseCase: ManagePermissionUseCase = mockk(relaxed = true)
@@ -85,8 +85,8 @@ class ChatViewModelQueuedTest {
     private val testServerId = "test-server-1"
     private val testDirectory = "/home/test"
 
-    // P5-1: queuedMessageIds now derives from FSM status (Idle forces clear).
-    // Tests that verify queued logic need the session to be Busy.
+    // P5-1：queuedMessageIds 现在由 FSM 状态派生（Idle 强制清空）。
+    // 验证 queued 逻辑的测试需要会话处于 Busy。
     private val testStatusFlow = MutableStateFlow<Map<String, SessionStatus>>(
         mapOf(testSessionId to SessionStatus.Busy)
     )
@@ -122,10 +122,10 @@ class ChatViewModelQueuedTest {
         every { Log.w(any(), any<String>(), any()) } returns 0
         every { Log.i(any(), any()) } returns 0
 
-        // Draft stubs
+        // Draft 桩
         every { draftUseCase.getDraft(any()) } returns null
 
-        // Settings stubs
+        // Settings 桩
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
         every { settingsRepository.getSettingsFlow() } returns flowOf(
             AppSettings(
@@ -145,7 +145,7 @@ class ChatViewModelQueuedTest {
             )
         )
 
-        // UseCase stubs — defaults
+        // UseCase 桩 —— 默认值
         coEvery { manageSessionUseCase.getSession(any(), any()) } returns createTestSession()
         coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
         coEvery { managePermissionUseCase.listPendingQuestions(any(), any()) } returns emptyList()
@@ -154,7 +154,7 @@ class ChatViewModelQueuedTest {
         coEvery { manageAgentUseCase.loadAgents(any()) } returns emptyList()
         coEvery { manageAgentUseCase.loadCommands(any()) } returns emptyList()
 
-        // Wire messagePaging.observeMessages to delegate to eventDispatcher.messages
+        // 将 messagePaging.observeMessages 接线为委托到 eventDispatcher.messages
         every { messagePaging.observeMessages(any()) } answers {
             eventDispatcher.messages.map { msgs -> msgs[firstArg<String>()] ?: emptyList() }
         }
@@ -166,7 +166,7 @@ class ChatViewModelQueuedTest {
         unmockkAll()
     }
 
-    // === Helper methods ===
+    // === 辅助方法 ===
 
     private fun createTestSession(
         id: String = testSessionId,
@@ -189,7 +189,7 @@ class ChatViewModelQueuedTest {
         time = TimeInfo(created = created)
     )
 
-    /** User message with a text part — survives V1→V2 bridge conversion. */
+    /** 带 text part 的 User 消息 —— 能经受 V1→V2 桥接转换。 */
     private fun createUserMessageWithText(
         id: String,
         text: String = "test message",
@@ -211,7 +211,7 @@ class ChatViewModelQueuedTest {
         parentId = ""
     )
 
-    /** Assistant message with a text part — survives V1→V2 bridge conversion. */
+    /** 带 text part 的 Assistant 消息 —— 能经受 V1→V2 桥接转换。 */
     private fun createAssistantMessageWithText(
         id: String,
         text: String = "response",
@@ -298,7 +298,7 @@ class ChatViewModelQueuedTest {
     }
 
     /**
-     * This simulates SSE updates arriving after initial load.
+     * 模拟初始加载后到达的 SSE 更新。
      */
     private fun pushMessages(messages: List<Pair<Message, List<Part>>>) {
         val messageWithParts = messages.map { (msg, parts) ->
@@ -307,14 +307,14 @@ class ChatViewModelQueuedTest {
         eventDispatcher.setMessages(testSessionId, messageWithParts)
     }
 
-    /** Set session into EventDispatcher. */
+    /** 将 session 设置到 EventDispatcher 中。 */
     private fun setSession(session: Session) {
         eventDispatcher.setSessions(testServerId, listOf(session))
     }
 
     /**
-     * Configure manageSessionUseCase.listMessages to return the given messages as MessageWithParts,
-     * so that the VM's init loadMessages() will populate them into EventDispatcher.
+     * 配置 manageSessionUseCase.listMessages 返回给定的 MessageWithParts，
+     * 以便 VM 的 init loadMessages() 会将它们填充到 EventDispatcher。
      */
     private fun stubMessages(vararg messages: Pair<Message, List<Part>>) {
         val messageWithParts = messages.map { (msg, parts) ->
@@ -324,17 +324,17 @@ class ChatViewModelQueuedTest {
     }
 
     /**
-     * Subscribe to uiState to activate the SharingStarted.WhileSubscribed upstream.
-     * Without a subscriber, uiState.value returns the initial ChatUiState().
+     * 订阅 uiState 以激活 SharingStarted.WhileSubscribed 的上游。
+     * 没有订阅者时，uiState.value 返回初始的 ChatUiState()。
      */
     private fun kotlinx.coroutines.test.TestScope.subscribeToState(vm: ChatViewModel): Job {
         return backgroundScope.launch {
-            vm.uiState.collect { /* keep subscription alive */ }
+            vm.uiState.collect {         /* 保持订阅存活 */ }
         }
     }
 
     // ==========================================
-    // A. QUEUED badge — queuedMessageIds computation
+    // A. QUEUED 徽章 —— queuedMessageIds 计算
     // ==========================================
 
     @Test
@@ -349,7 +349,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedMessageIds_empty_whenNoPendingAssistant() = runTest {
-        // All assistant messages are completed
+        // 所有 assistant 消息均已完成
         stubMessages(
             createUserMessage("u1", created = 1000L) to emptyList(),
             createAssistantMessage("a1", completed = 2000L, created = 1500L) to emptyList(),
@@ -366,7 +366,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedMessageIds_containsUserMessages_afterPendingAssistant() = runTest {
-        // Assistant not completed — user messages after it should be marked
+        // assistant 未完成 —— 其后的用户消息应被标记
         stubMessages(
             createUserMessageWithText("u1", created = 1000L),
             createAssistantMessageWithText("a1", completed = null, created = 1500L),
@@ -384,7 +384,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedMessageIds_excludesMessages_beforePendingAssistant() = runTest {
-        // u1 is before pending assistant, should NOT be marked
+        // u1 在待处理 assistant 之前，不应被标记
         stubMessages(
             createUserMessageWithText("u1", created = 1000L),
             createUserMessageWithText("u2", created = 1200L),
@@ -402,7 +402,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedMessageIds_empty_whenNoUserAfterPendingAssistant() = runTest {
-        // Pending assistant but no user messages after it
+        // 有待处理 assistant，但其后没有用户消息
         stubMessages(
             createUserMessage("u1", created = 1000L) to emptyList(),
             createAssistantMessage("a1", completed = null, created = 1500L) to emptyList(),
@@ -418,9 +418,9 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedMessageIds_usesLastPendingAssistant() = runTest {
-        // V1 uses indexOfLast on sorted (oldest-first) list: finds a2 (newest pending assistant).
-        // Sorted: [a1(1500), u1(2000), a2(2500), u2(3000)]
-        // indexOfLast → a2 at index 2; drop(3) → [u2]; queued = {"u2"}
+        // V1 在排序（旧→新）列表上使用 indexOfLast：找到 a2（最新的待处理 assistant）。
+        // 排序后：[a1(1500), u1(2000), a2(2500), u2(3000)]
+        // indexOfLast → a2 在索引 2；drop(3) → [u2]；queued = {"u2"}
         stubMessages(
             createAssistantMessageWithText("a1", completed = null, created = 1500L),
             createUserMessageWithText("u1", created = 2000L),
@@ -438,7 +438,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedMessageIds_cleared_whenAssistantCompletes() = runTest {
-        // Initial load: assistant pending
+        // 初始加载：assistant 待处理
         stubMessages(
             createAssistantMessageWithText("a1", completed = null, created = 1500L),
             createUserMessageWithText("u1", created = 2000L),
@@ -448,11 +448,11 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        // Verify queued initially
+        // 验证初始 queued 状态
         assertEquals(setOf("u1"), vm.uiState.value.queuedMessageIds)
 
-        // Simulate state update: assistant completes by re-stubbing and refreshing
-        // (pushMessages only updates V1 EventDispatcher, not V2 _sessionState)
+        // 模拟状态更新：通过重新 stub 并刷新使 assistant 完成
+        // （pushMessages 只更新 V1 EventDispatcher，不更新 V2 _sessionState）
         stubMessages(
             createAssistantMessageWithText("a1", completed = 3000L, created = 1500L),
             createUserMessageWithText("u1", created = 2000L),
@@ -460,13 +460,13 @@ class ChatViewModelQueuedTest {
         vm.refreshSession()
         advanceUntilIdle()
 
-        // Queued should be cleared
+        // queued 应被清空
         assertTrue(vm.uiState.value.queuedMessageIds.isEmpty())
         collectJob.cancel()
     }
 
     // ==========================================
-    // B. Sub-session identification — sessionParentId
+    // B. 子会话标识 —— sessionParentId
     // ==========================================
 
     @Test
@@ -496,12 +496,12 @@ class ChatViewModelQueuedTest {
     }
 
     // ==========================================
-    // C. subSessionId extraction logic
+    // C. subSessionId 提取逻辑
     // ==========================================
 
     /**
-     * Extract subSessionId from a completed tool's metadata.
-     * Mirrors the logic used in ChatScreen for sub-agent navigation.
+     * 从已完成的 tool 的 metadata 中提取 subSessionId。
+     * 镜像 ChatScreen 中用于子 agent 导航的逻辑。
      */
     private fun extractSubSessionId(tool: Part.Tool): String? {
         val state = tool.state
@@ -567,17 +567,17 @@ class ChatViewModelQueuedTest {
                 metadata = mapOf("sessionId" to buildJsonObject { put("nested", JsonPrimitive("value")) })
             )
         )
-        // jsonPrimitive would throw, runCatching catches it
+        // jsonPrimitive 会抛异常，runCatching 捕获它
         assertNull(extractSubSessionId(tool))
     }
 
     // ==========================================
-    // D. Part.Agent source extraction logic
+    // D. Part.Agent 的 source 提取逻辑
     // ==========================================
 
     /**
-     * Extract the source string from a Part.Agent's source JsonElement.
-     * Mirrors the logic used in ChatScreen for agent part rendering.
+     * 从 Part.Agent 的 source JsonElement 中提取 source 字符串。
+     * 镜像 ChatScreen 中用于 agent part 渲染的逻辑。
      */
     private fun extractAgentSource(source: JsonElement?): String {
         return runCatching { source?.jsonPrimitive?.contentOrNull }.getOrNull() ?: ""
@@ -599,12 +599,12 @@ class ChatViewModelQueuedTest {
     }
 
     // ==========================================
-    // E. Integration scenarios — multi-feature verification
+    // E. 集成场景 —— 多特性验证
     // ==========================================
 
     @Test
     fun queuedAndParentId_workTogether_inSubSession() = runTest {
-        // Sub-session scenario: session has parentId, pending assistant + queued messages
+        // 子会话场景：会话有 parentId、待处理 assistant + 排队消息
         val session = createTestSession(parentId = "parent-1")
         coEvery { manageSessionUseCase.getSession(any(), any()) } returns session
         setSession(session)
@@ -629,20 +629,20 @@ class ChatViewModelQueuedTest {
 
         val state = vm.uiState.value
 
-        // sessionParentId correct
+        // sessionParentId 正确
         assertEquals("parent-1", state.sessionParentId)
 
-        // queuedMessageIds correct (u2 after pending assistant)
+        // queuedMessageIds 正确（u2 在待处理 assistant 之后）
         assertEquals(setOf("u2"), state.queuedMessageIds)
 
-        // Messages not empty
+        // 消息不为空
         assertTrue(state.messages.isNotEmpty())
         collectJob.cancel()
     }
 
     @Test
     fun queuedMessageIds_withMultipleRapidUserMessages() = runTest {
-        // Simulate user rapidly sending 3 messages
+        // 模拟用户快速发送 3 条消息
         stubMessages(
             createAssistantMessageWithText("a1", completed = null, created = 1500L),
             createUserMessageWithText("u1", created = 2000L),

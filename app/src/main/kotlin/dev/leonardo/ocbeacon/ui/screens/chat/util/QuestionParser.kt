@@ -9,7 +9,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Result of parsing a Part.Question question field. */
+/** 解析 Part.Question 的 question 字段的结果。 */
 internal data class ParsedQuestion(
     val displayText: String,
     val answers: List<String>,
@@ -25,14 +25,14 @@ internal data class QHistItem(
     val isMultiple: Boolean = false
 )
 
-/** Pure-logic question field parsing — extracted from PartContent.kt. */
+/** 纯逻辑的 question 字段解析 —— 从 PartContent.kt 抽取。 */
 internal object QuestionParser {
 
-    /** Parse question field — handles plain text, JSON, and opencode text format. */
+    /** 解析 question 字段 —— 处理纯文本、JSON 和 opencode 文本格式。 */
     fun parseQuestionContent(raw: String): ParsedQuestion {
         val trimmed = raw.trim()
 
-        // Format 1: opencode text ("questions: [...]\nUser has answered: ...")
+        // 格式 1：opencode 文本（"questions: [...]\nUser has answered: ..."）
         if (trimmed.contains("questions:") || trimmed.contains("User has answered")) {
             val questionText = Regex("\"question\"\\s*:\\s*\"([^\"]+)\"").find(trimmed)?.groupValues?.getOrNull(1)
                 ?: trimmed.lines().firstOrNull { it.isNotBlank() && !it.startsWith("Asked") }
@@ -50,7 +50,7 @@ internal object QuestionParser {
             return ParsedQuestion(displayText = questionText, answers = answers, rawExtra = "")
         }
 
-        // Format 2: pure JSON
+        // 格式 2：纯 JSON
         if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
             return try {
                 val json = JSONObject(trimmed)
@@ -72,14 +72,14 @@ internal object QuestionParser {
             }
         }
 
-        // Format 3: plain text
+        // 格式 3：纯文本
         return ParsedQuestion(displayText = raw, answers = emptyList(), rawExtra = "")
     }
 
     /**
-     * Parse question data from tool input (has full options) and output (has user answers).
-     * Input format: {"questions": [{"question": "...", "options": [{"label":"A",...}]}]}
-     * Output format: "questions: [...]\nUser has answered: \"answer\""
+     * 从工具输入（含完整选项）和输出（含用户答案）解析问题数据。
+     * 输入格式：{"questions": [{"question": "...", "options": [{"label":"A",...}]}]}
+     * 输出格式："questions: [...]\nUser has answered: \"answer\""
      */
     fun parseQuestionFromToolData(
         id: String,
@@ -88,7 +88,7 @@ internal object QuestionParser {
     ): List<QHistItem> {
         val items = mutableListOf<QHistItem>()
 
-        // 1. Extract ALL options from tool input (structured JSON with options array)
+        // 1. 从工具输入提取全部选项（带 options 数组的结构化 JSON）
         val questionsElement = input.entries
             .firstOrNull { it.key.contains("question", ignoreCase = true) }
             ?.value
@@ -108,7 +108,7 @@ internal object QuestionParser {
             }
         }
 
-        // Fallback: parse from output if input has no questions
+        // 回退：输入无问题时从输出解析
         if (items.isEmpty()) {
             val qSection = output.substringAfter("questions:", "").trim()
             val jsonPart = qSection.substringBefore("\nUser has answered").substringBefore("\nAsked").trim()
@@ -135,7 +135,7 @@ internal object QuestionParser {
             }
         }
 
-        // 2. Extract user answers from output format: "question text"="answer1, answer2"
+        // 2. 从输出格式提取用户答案："question text"="answer1, answer2"
         val answerSection = output.substringAfter("User has answered", "")
             .substringBefore(". You can")
         val answerPairs = Regex("\"([^\"]+)\"=\"([^\"]+)\"").findAll(answerSection).toList()
@@ -145,7 +145,7 @@ internal object QuestionParser {
                 items[idx] = items[idx].copy(answers = answers)
             }
         }
-        // Fallback: if no "q"="a" pairs, try plain answers after last = sign
+        // 回退：若无 "q"="a" 对，尝试最后一个 = 号之后的纯答案
         if (answerPairs.isEmpty() && items.isNotEmpty()) {
             val afterEquals = answerSection.substringAfter("=", "").trim().trim('"')
             val fallbackAnswers = afterEquals.split(",").map { it.trim() }.filter { it.isNotBlank() }

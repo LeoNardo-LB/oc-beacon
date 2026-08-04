@@ -61,14 +61,14 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
 
-    // Live elapsed timer for streaming reasoning
+    // 流式推理的实时计时器
     val fallbackStart = remember { System.currentTimeMillis() }
     val effectiveStart = startTimeMs ?: fallbackStart
     val elapsedMs = remember { mutableLongStateOf(0L) }
     LaunchedEffect(isStreaming, effectiveStart) {
         if (isStreaming) {
             while (true) {
-                // Clamp to 0 minimum — server clock skew can make this negative
+                // 下限钳制为 0 —— 服务器时钟偏差可能使其为负
                 elapsedMs.longValue = (System.currentTimeMillis() - effectiveStart).coerceAtLeast(0L)
                 delay(100L)
             }
@@ -81,7 +81,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     val containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)
     val textColor = MaterialTheme.colorScheme.onSurface
 
-    // Pulse animation for the thinking dot (runs only while durationMs == null = still thinking)
+    // 思考圆点的脉冲动画（仅在 durationMs == null = 仍在思考时运行）
     val infiniteTransition = rememberInfiniteTransition(label = "thinkingPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
@@ -106,7 +106,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         modifier = Modifier.fillMaxWidth()
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // Accent left bar
+            // 强调色左侧条
             Box(
                 modifier = Modifier
                     .width(2.5.dp)
@@ -126,7 +126,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Animated pulse dot (shows only while thinking)
+                        // 动画脉冲圆点（仅在思考时显示）
                         Box(
                             modifier = Modifier
                                 .size(5.dp)
@@ -157,7 +157,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     )
                 }
 
-                // Streaming placeholder when text is empty
+                // 文本为空时的流式占位符
                 if (isStreaming && text.isBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     CircularProgressIndicator(
@@ -167,7 +167,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     )
                 }
 
-                // Expandable content
+                // 可展开内容
                 AnimatedVisibility(
                     visible = expanded,
                     enter = fadeIn() + expandVertically(),

@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Domain model for current tool execution progress.
- * Counterpart of data.repository.handler.ToolProgressInfo.
+ * 当前工具执行进度的领域模型。
+ * 对应 data.repository.handler.ToolProgressInfo。
  */
 data class ToolProgressInfo(
     val callId: String,

@@ -16,10 +16,10 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.util.PathUtils
 
 /**
- * Shows a summary of files changed at the end of an agent turn.
- * Standard single-line title via [ToolCardScaffold]; the expanded list shows
- * per-file +N/-N change counts (sourced from [LocalSessionDiffs]).
- * Each file is clickable → FileViewer.
+ * 在 agent turn 结束时显示已修改文件的摘要。
+ * 通过 [ToolCardScaffold] 使用标准单行标题；展开列表显示
+ * 每个文件的 +N/-N 变更数（来源：[LocalSessionDiffs]）。
+ * 每个文件均可点击 → FileViewer。
  */
 @Composable
 internal fun PatchCard(

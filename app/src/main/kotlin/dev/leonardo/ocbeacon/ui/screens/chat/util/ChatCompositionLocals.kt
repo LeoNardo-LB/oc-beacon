@@ -6,40 +6,40 @@ import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.DefaultToolCardResolver
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
 
-// ============ Chat Settings via CompositionLocal ============
+// ============ 通过 CompositionLocal 传递的聊天设置 ============
 
-/** Whether tool cards are collapsed by default. */
+/** 工具卡片是否默认折叠。 */
 val LocalCollapseTools = compositionLocalOf { false }
 
-/** Whether reasoning blocks are expanded by default. */
+/** reasoning 块是否默认展开。 */
 val LocalExpandReasoning = compositionLocalOf { false }
 
-/** Whether to show dividers between messages in the same turn. */
+/** 是否在同一轮次的消息间显示分隔线。 */
 val LocalShowTurnDividers = compositionLocalOf { true }
 
-/** Whether haptic feedback is enabled. */
+/** 是否启用触觉反馈。 */
 val LocalHapticFeedbackEnabled = compositionLocalOf { true }
 
 /**
- * Whether the current session is actively streaming (FSM activity = Streaming).
- * Authoritative gate for the reasoning timer; combined with per-part `time.end == null`
- * so only the current reasoning part shows the timer (approach B).
+ * 当前会话是否正在活跃流式传输（FSM activity = Streaming）。
+ * reasoning 计时器的权威控制；与 per-part `time.end == null` 组合，
+ * 使只有当前 reasoning part 显示计时器（方案 B）。
  */
 val LocalSessionStreaming = staticCompositionLocalOf { false }
 
-/** Image save request callback available to image preview composables. */
+/** 图片保存请求回调，供图片预览 composable 使用。 */
 val LocalImageSaveRequest = compositionLocalOf<(ByteArray, String, String?) -> Unit> { { _, _, _ -> } }
 
-/** Persisted expand/collapse state for tool cards, keyed by Part.Tool.id or Part.Patch.id. */
+/** 已持久化的工具卡片展开/折叠状态，以 Part.Tool.id 或 Part.Patch.id 为键。 */
 val LocalToolExpandedStates = compositionLocalOf<Map<String, Boolean>> { emptyMap() }
 
-/** Callback to toggle a tool card's expanded state by its part id. */
+/** 通过 part id 切换工具卡片展开状态的回调。 */
 val LocalOnToggleToolExpanded = compositionLocalOf<(String, Boolean) -> Unit> { { _, _ -> } }
 
-/** Resolver for tool-specific card composables. */
+/** 工具特定卡片 composable 的解析器。 */
 val LocalToolCardResolver = compositionLocalOf<ToolCardResolver> {
     DefaultToolCardResolver()
 }
 
-/** File diffs keyed by sessionId. Backs [dev.leonardo.ocbeacon.domain.model.Part.Patch] line counts. */
+/** 以 sessionId 为键的文件 diff。支撑 [dev.leonardo.ocbeacon.domain.model.Part.Patch] 行数统计。 */
 val LocalSessionDiffs = compositionLocalOf<Map<String, List<FileDiff>>> { emptyMap() }

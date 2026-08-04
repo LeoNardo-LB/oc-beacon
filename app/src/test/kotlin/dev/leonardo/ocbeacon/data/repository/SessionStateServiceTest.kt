@@ -17,36 +17,36 @@ import org.junit.Test
 import javax.inject.Provider
 
 /**
- * Fixture note (deviation from brief's literal `runTest { this -> ... }` form):
+ * 夹具说明（与 brief 中字面的 `runTest { this -> ... }` 形式有所偏差）：
  *
- * SessionStateService exposes flows built with `stateIn(appScope, SharingStarted.Eagerly, …)`,
- * which launch coroutines in the injected appScope that never complete on their own. Passing
- * `runTest`'s `this` (a TestScope on the default StandardTestDispatcher) caused two failures:
- *   1. Timing — the Eagerly collector was queued behind the test body, so `statusFlow.value`
- *      stayed `emptyMap()` (AssertionError / NPE).
- *   2. `UncompletedCoroutinesError` at teardown — the 3 Eagerly coroutines outlive the test body.
+ * SessionStateService 暴露的 flow 使用 `stateIn(appScope, SharingStarted.Eagerly, …)` 构建，
+ * 这些 flow 会在注入的 appScope 中启动协程，且不会自行结束。将
+ * `runTest` 的 `this`（默认 StandardTestDispatcher 上的 TestScope）传入会导致两个失败：
+ *   1. 时序问题 —— Eagerly 收集器排在测试体之后，导致 `statusFlow.value`
+ *      一直是 `emptyMap()`（AssertionError / NPE）。
+ *   2. 收尾时的 `UncompletedCoroutinesError` —— 3 个 Eagerly 协程的生命周期超过测试体。
  *
- * Fix mirrors the project's own `ChatViewModelStreamingTest` (UnconfinedTestDispatcher +
- * advanceUntilIdle): drive appScope with an UnconfinedTestDispatcher for eager propagation, and
- * cancel the scope in @After so teardown sees no uncompleted coroutines. All test cases and
- * assertions are unchanged from the brief.
+ * 修复方式与项目自身的 `ChatViewModelStreamingTest`（UnconfinedTestDispatcher +
+ * advanceUntilIdle）一致：用 UnconfinedTestDispatcher 驱动 appScope 以实现即时传播，并在
+ * @After 中取消该 scope，使收尾时不再有未完成的协程。所有测试用例与
+ * 断言均与 brief 保持一致。
  *
  * ---
- * Task 4 fixture amendment (staleness guard):
+ * Task 4 夹具修订（staleness 守卫）：
  *
- * Task 4 starts a perpetual `while(isActive) { delay(STALENESS_CHECK_INTERVAL_MS); ... }`
- * coroutine in `init`. Probe (see git history) confirmed that `advanceUntilIdle()` loops forever
- * on such a coroutine (10s JUnit timeout, advanced virtual time to ~423 days). `runCurrent()`
- * runs only tasks scheduled at the current virtual time and does NOT advance the clock, so the
- * guard's first delay(5_000) is never reached. All assertions hold under `runCurrent()` because:
- *   - `applyTransition` is synchronous and writes `_fsmStates` immediately.
- *   - `statusFlow` uses `stateIn(appScope, SharingStarted.Eagerly, …)`; under UnconfinedTestDispatcher
- *     the operator chain propagates synchronously, and `runCurrent()` flushes any queued dispatch.
- *   - `triggerRestValidation` launches a coroutine whose body has no real suspension point under
- *     relaxed MockK (`coEvery`'s stub returns immediately), so it completes during `runCurrent()`.
+ * Task 4 在 `init` 中启动了一个永续的 `while(isActive) { delay(STALENESS_CHECK_INTERVAL_MS); ... }`
+ * 协程。探测（见 git 历史）证实 `advanceUntilIdle()` 会在这样的协程上无限循环
+ * （10 秒 JUnit 超时，虚拟时间推进到约 423 天）。`runCurrent()`
+ * 只运行当前虚拟时间下已排队的任务，不会推进时钟，因此
+ * 守卫的第一个 delay(5_000) 永远不会到达。所有断言在 `runCurrent()` 下仍然成立，因为：
+ *   - `applyTransition` 是同步的，会立即写入 `_fsmStates`。
+ *   - `statusFlow` 使用 `stateIn(appScope, SharingStarted.Eagerly, …)`；在 UnconfinedTestDispatcher 下
+ *     操作符链同步传播，`runCurrent()` 会刷新任何已排队的调度。
+ *   - `triggerRestValidation` 启动的协程在 relaxed MockK 下没有真正的挂起点
+ *     （`coEvery` 的 stub 立即返回），因此它会在 `runCurrent()` 期间完成。
  *
- * Therefore ALL tests use `runCurrent()` instead of `advanceUntilIdle()`. The `@After cancel`
- * still cancels the staleness guard's `Job` along with every other child of `testScope`.
+ * 因此所有测试都使用 `runCurrent()` 而非 `advanceUntilIdle()`。`@After cancel`
+ * 仍会连同 `testScope` 的其他所有子协程一起取消 staleness 守卫的 `Job`。
  */
 class SessionStateServiceTest {
 
@@ -57,7 +57,7 @@ class SessionStateServiceTest {
         Provider { mockk<SessionRepository>(relaxed = true) },
     )
 
-    /** Build a service backed by [repo] so tests can stub `fetchSessionStatuses`. */
+    /** 构建一个由 [repo] 支撑的服务，以便测试可以 stub `fetchSessionStatuses`。 */
     private fun newServiceWith(repo: SessionRepository) = SessionStateService(
         testScope,
         Provider { repo },
@@ -103,7 +103,7 @@ class SessionStateServiceTest {
     @Test
     fun `history trims to max 20 entries`() {
         val service = newService()
-        repeat(25) { service.onClientSendParts("s1") }  // each is a transition
+        repeat(25) { service.onClientSendParts("s1") }  // 每次都是一次状态转移
         testScope.runCurrent()
         val history = service.historyFlow.value["s1"]!!
         assertTrue("history should be trimmed to <= 20, was ${history.size}", history.size <= 20)
@@ -120,12 +120,12 @@ class SessionStateServiceTest {
         assertNull(service.historyFlow.value["s1"])
     }
 
-    // ============ Task 4: triggerRestValidation absence=idle ============
+    // ============ Task 4：triggerRestValidation 缺失时 = idle ============
 
     @Test
     fun `triggerRestValidation absence with known directory marks Idle`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
-        coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())  // absent
+        coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())  // 缺失
         val service = newServiceWith(fakeRepo)
         service.setServerId("svr1")
         service.directoryResolver = DirectoryResolver { "D:/proj" }
@@ -141,14 +141,14 @@ class SessionStateServiceTest {
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
         val service = newServiceWith(fakeRepo)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { null }  // unknown dir
+        service.directoryResolver = DirectoryResolver { null }  // 未知目录
         service.onClientSendParts("s1")
         service.triggerRestValidation("s1")
         testScope.runCurrent()
-        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])  // no false idle
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])  // 不会误判为 idle
     }
 
-    // ============ Task 5: syncFromRest ============
+    // ============ Task 5：syncFromRest ============
 
     @Test
     fun `syncFromRest aggregates multiple directories`() {
@@ -170,7 +170,7 @@ class SessionStateServiceTest {
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
         val service = newServiceWith(fakeRepo)
         service.setServerId("svr1")
-        service.onClientSendParts("s1")  // local Busy
+        service.onClientSendParts("s1")  // 本地为 Busy
         runBlocking { service.syncFromRest(listOf(Project(worktree = "D:/p"))) }
         testScope.runCurrent()
         assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
@@ -187,6 +187,6 @@ class SessionStateServiceTest {
         service.onClientSendParts("s1")
         runBlocking { service.syncFromRest(listOf(Project(worktree = "D:/p"))) }
         testScope.runCurrent()
-        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])  // protected
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])  // 受到保护
     }
 }

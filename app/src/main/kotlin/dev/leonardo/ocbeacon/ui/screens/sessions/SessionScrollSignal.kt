@@ -4,26 +4,26 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Cross-screen signal: ChatViewModel sets it when the user sends a message;
- * SessionListViewModel consumes it on return to scroll the list back to top.
+ * 跨屏幕信号：用户发送消息时 ChatViewModel 设置它；
+ * 返回时 SessionListViewModel 消费它以将列表滚动回顶部。
  *
- * Held in memory as a Hilt singleton. Not persisted across process death,
- * which is acceptable since the typical flow (send -> back) never kills the process.
- * Chosen over SavedStateHandle because Hilt's injected SavedStateHandle and the
- * NavBackStackEntry.savedStateHandle turned out to be distinct instances, breaking
- * cross-component communication via SavedStateHandle.
+ * 以 Hilt singleton 形式保存在内存中。不跨进程死亡持久化，
+ * 这可以接受，因为典型流程（发送 -> 返回）从不会杀死进程。
+ * 选择它而非 SavedStateHandle，是因为 Hilt 注入的 SavedStateHandle
+ * 和 NavBackStackEntry.savedStateHandle 实际上是不同实例，
+ * 通过 SavedStateHandle 的跨组件通信会失效。
  */
 @Singleton
 class SessionScrollSignal @Inject constructor() {
     @Volatile
     private var pendingScrollToTop = false
 
-    /** Called by ChatViewModel when the user sends a message. */
+    /** 由 ChatViewModel 在用户发送消息时调用。 */
     fun requestScrollToTop() {
         pendingScrollToTop = true
     }
 
-    /** Called by SessionListViewModel on return; returns true once then resets. */
+    /** 返回时由 SessionListViewModel 调用；返回一次 true 后重置。 */
     fun consumeScrollToTop(): Boolean {
         val should = pendingScrollToTop
         pendingScrollToTop = false

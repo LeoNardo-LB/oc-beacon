@@ -3,11 +3,10 @@ package dev.leonardo.ocbeacon.ui.screens.chat.tools
 import dev.leonardo.ocbeacon.domain.model.Part
 
 /**
- * Request to view a tool's file snapshot in the FileViewer (spec §5.1-5.4).
+ * 在 FileViewer 中查看工具文件快照的请求（规范 §5.1-5.4）。
  *
- * Created by Read/Write/Edit tool cards when the user taps ↗.
- * [part] is carried directly so NavGraph can cache the snapshot without
- * looking up message state.
+ * 用户点击 ↗ 时由 Read/Write/Edit 工具卡片创建。
+ * 直接携带 [part]，使 NavGraph 无需查找消息状态即可缓存快照。
  */
 data class ViewToolRequest(
     val filePath: String,

@@ -27,9 +27,9 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 
 /**
- * Dialog shown when images are shared into the app via ACTION_SEND.
- * Lists recent sessions from servers that have SSE data loaded,
- * grouped by server. User taps a session to open it with the shared image(s).
+ * 通过 ACTION_SEND 把图片分享进应用时显示的对话框。
+ * 列出已加载 SSE 数据的服务器上的最近会话，
+ * 按服务器分组。用户点击某个会话即可带着分享的图片打开它。
  */
 @Composable
 internal fun ShareTargetPickerDialog(
@@ -43,7 +43,7 @@ internal fun ShareTargetPickerDialog(
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
 
-    // Build list of (server, session) pairs, sorted by most recently updated session
+    // 构建 (server, session) 配对列表，按会话最近更新时间排序
     data class PickerItem(val server: ServerConfig, val session: Session)
 
     val items = remember(servers, sessions, serverSessions) {
@@ -61,7 +61,7 @@ internal fun ShareTargetPickerDialog(
         result.sortedByDescending { it.session.time.updated }
     }
 
-    // Servers that have sessions loaded (for the "New session" option)
+    // 已加载会话的服务器（用于"新建会话"选项）
     val activeServers = remember(servers, serverSessions) {
         servers.filter { serverSessions.containsKey(it.id) }
     }
@@ -112,7 +112,7 @@ internal fun ShareTargetPickerDialog(
                 )
 
                 if (items.isEmpty()) {
-                    // No connected servers / sessions
+                    // 没有已连接的服务器 / 会话
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -142,7 +142,7 @@ internal fun ShareTargetPickerDialog(
                         }
                     }
                 } else {
-                    // Session list
+                    // 会话列表
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -170,7 +170,7 @@ internal fun ShareTargetPickerDialog(
                                     tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM)
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
-                                    // Session title
+                                    // 会话标题
                                     Text(
                                         text = item.session.title ?: stringResource(R.string.session_untitled),
                                         style = MaterialTheme.typography.bodyMedium,
@@ -178,7 +178,7 @@ internal fun ShareTargetPickerDialog(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    // Project + server info
+                                    // 项目 + 服务器信息
                                     val subtitle = buildString {
                                         if (projectName != null) append(projectName)
                                         if (activeServers.size > 1) {
@@ -196,7 +196,7 @@ internal fun ShareTargetPickerDialog(
                                         )
                                     }
                                 }
-                                // Date
+                                // 日期
                                 Text(
                                     text = dateFormat.format(Date(item.session.time.updated)),
                                     style = MaterialTheme.typography.labelSmall,
@@ -207,7 +207,7 @@ internal fun ShareTargetPickerDialog(
                     }
                 }
 
-                // "New session" buttons per active server
+                // 每个已激活服务器的"新建会话"按钮
                 if (activeServers.isNotEmpty()) {
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 4.dp),

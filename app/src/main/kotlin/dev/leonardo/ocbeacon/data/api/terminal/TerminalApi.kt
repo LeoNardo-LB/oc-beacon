@@ -58,7 +58,7 @@ interface TerminalApi {
     suspend fun listPtyShells(conn: ServerConnection, directory: String? = null): List<ShellInfo>
 
     /**
-     * Run a shell command in a session.
+     * 在会话中运行 shell 命令。
      * POST /session/{sessionId}/shell
      */
     suspend fun runShellCommand(
@@ -116,10 +116,10 @@ class TerminalApiImpl @Inject constructor(
     private fun parsePtyInfoFromCreateResponse(body: String, title: String?, cwd: String?): PtyInfo {
         val trimmed = body.trim()
 
-        // Most servers return the full PtyInfo object.
+        // 大多数服务器返回完整的 PtyInfo 对象。
         runCatching { return json.decodeFromString(PtyInfo.serializer(), trimmed) }
 
-        // Some local builds return only an id or wrap it in data/pty.
+        // 某些本地构建仅返回 id 或将其包装在 data/pty 中。
         val id = extractPtyIdFromResponse(trimmed)
             ?: throw java.io.IOException("createPty: could not parse PTY id from response: $trimmed")
 
@@ -135,7 +135,7 @@ class TerminalApiImpl @Inject constructor(
     }
 
     private fun extractPtyIdFromResponse(responseBody: String): String? {
-        // Raw string id: "pty_xxx" or pty_xxx
+        // 原始字符串 id："pty_xxx" 或 pty_xxx
         val plain = responseBody.removeSurrounding("\"").trim()
         if (plain.startsWith("pty_")) return plain
 
@@ -225,7 +225,7 @@ class TerminalApiImpl @Inject constructor(
     }
 
     /**
-     * Run a shell command in a session.
+     * 在会话中运行 shell 命令。
      * POST /session/{sessionId}/shell
      */
     override suspend fun runShellCommand(

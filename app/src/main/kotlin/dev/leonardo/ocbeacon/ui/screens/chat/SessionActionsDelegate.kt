@@ -24,24 +24,24 @@ import kotlinx.coroutines.withContext
 private const val TAG = "SessionActionsDelegate"
 
 /**
- * Owns the 24 stateless REST operations previously inlined in [ChatViewModel].
+ * 管理此前内联在 [ChatViewModel] 中的 24 个无状态 REST 操作。
  *
- * Extracted in Phase 3 Task 6 (G cluster).
+ * 在 Phase 3 Task 6（G 集群）中提取。
  *
- * These methods hold NO private [kotlinx.coroutines.flow.StateFlow] — they read other
- * delegates' state via injected providers/callbacks and delegate to UseCases/Repositories.
- * Cross-delegate coordinators ([ChatViewModel.sendParts], [ChatViewModel.revertMessage],
- * [ChatViewModel.abortSession]) stay in [ChatViewModel] because they write to multiple
- * delegates' private state and orchestrate complex flows (send → observe → error →
- * restore draft, halt → revert → reconnect SSE).
+ * 这些方法不持有私有 [kotlinx.coroutines.flow.StateFlow] —— 它们通过注入的
+ * provider/回调读取其他 delegate 的状态，并委托给 UseCase/Repository。
+ * 跨 delegate 协调器（[ChatViewModel.sendParts]、[ChatViewModel.revertMessage]、
+ * [ChatViewModel.abortSession]）留在 [ChatViewModel] 中，因为它们写入多个
+ * delegate 的私有状态并编排复杂流程（发送 → 观察 → 错误 →
+ * 恢复草稿，暂停 → revert → 重连 SSE）。
  *
- * [abortSession] REST portion (abort + markIdle) lives here; [ChatViewModel] calls it
- * then handles SSE job cancel/restart.
+ * [abortSession] 的 REST 部分（abort + markIdle）在此处；[ChatViewModel] 调用它
+ * 然后处理 SSE job 的取消/重启。
  *
- * NOTE: Intentionally NOT `@Singleton`/`@Inject`. It holds per-ChatViewModel runtime
- * context (the ViewModel's coroutine scope, cross-delegate providers/callbacks) that
- * Hilt cannot supply. ChatViewModel constructs it directly and re-exposes every
- * member as a facade, so UI files are unchanged.
+ * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的运行时
+ * 上下文（ViewModel 的协程作用域、跨 delegate provider/回调），
+ * Hilt 无法提供这些。ChatViewModel 直接构造它并将每个成员作为门面重新暴露，
+ * 因此 UI 文件无需改动。
  */
 internal class SessionActionsDelegate(
     private val shareExportUseCase: ShareExportUseCase,
@@ -68,13 +68,13 @@ internal class SessionActionsDelegate(
 ) {
     private val sessionId: String get() = sessionIdProvider()
 
-    // ============ Refresh Tracking ============
+    // ============ 刷新跟踪 ============
     private var lastRefreshTimeMs: Long = 0L
 
-    // ============ Refresh / Sync ============
+    // ============ 刷新 / 同步 ============
 
     /**
-     * Refresh session data — reloads messages and session status from REST.
+     * 刷新会话数据 —— 从 REST 重新加载消息和会话状态。
      */
     fun refreshSession() {
         scope.launch {
@@ -83,11 +83,11 @@ internal class SessionActionsDelegate(
     }
 
     /**
-     * Refresh session only if enough time has passed since last refresh.
-     * Called from ON_RESUME — avoids unnecessary REST calls during brief app-switches.
+     * 仅在距上次刷新足够时间后才刷新会话。
+     * 从 ON_RESUME 调用 —— 避免短暂应用切换期间的不必要 REST 调用。
      *
-     * Only syncs session status and refreshes messages via REST.
-     * Does NOT restart sseJob to avoid scroll position reset and data flickering.
+     * 仅同步会话状态并通过 REST 刷新消息。
+     * 不重启 sseJob 以避免滚动位置重置和数据闪烁。
      */
     fun refreshIfNeeded() {
         val elapsed = System.currentTimeMillis() - lastRefreshTimeMs
@@ -97,13 +97,12 @@ internal class SessionActionsDelegate(
     }
 
     /**
-     * Query the OpenCode server for the actual session status and correct
-     * any UI state drift caused by missed SSE events.
+     * 查询 OpenCode 服务器的实际会话状态，纠正
+     * 因丢失 SSE 事件导致的 UI 状态偏移。
      *
-     * Triggered on entering a session and resuming from background.
-     * Delegates to [SessionStateService.requestValidation] — the FSM's
-     * forceComplete mechanism handles incomplete-message fixing when REST
-     * confirms Idle.
+     * 在进入会话和从后台恢复时触发。
+     * 委托给 [SessionStateService.requestValidation] —— FSM 的
+     * forceComplete 机制在 REST 确认 Idle 时处理未完成消息修复。
      */
     fun syncSessionStatus() {
         scope.launch {
@@ -115,11 +114,11 @@ internal class SessionActionsDelegate(
     }
 
     /**
-     * Combined refresh + sync — runs in a single coroutine to avoid
-     * state conflicts between parallel REST responses.
+     * 组合刷新 + 同步 —— 在单个协程中运行，避免
+     * 并行 REST 响应之间的状态冲突。
      *
-     * Status validation delegates to [SessionStateService.requestValidation];
-     * the FSM's forceComplete mechanism handles incomplete-message fixing.
+     * 状态验证委托给 [SessionStateService.requestValidation]；
+     * FSM 的 forceComplete 机制处理未完成消息修复。
      */
     private suspend fun refreshAndSync() {
         loadSessionInfo()
@@ -133,12 +132,12 @@ internal class SessionActionsDelegate(
         lastRefreshTimeMs = System.currentTimeMillis()
     }
 
-    // ============ Permission / Question ============
+    // ============ 权限 / 问题 ============
 
     /**
-     * Reply to a permission request.
-     * @param requestId The permission request ID
-     * @param reply One of: "once", "always", "reject"
+     * 回复权限请求。
+     * @param requestId 权限请求 ID
+     * @param reply 取值之一："once"、"always"、"reject"
      */
     fun replyToPermission(requestId: String, reply: String) {
         scope.launch {
@@ -180,9 +179,9 @@ internal class SessionActionsDelegate(
     }
 
     /**
-     * Reply to a question request.
-     * @param requestId The question request ID
-     * @param answers Answers for each question (list of selected labels per question)
+     * 回复问题请求。
+     * @param requestId 问题请求 ID
+     * @param answers 每个问题的答案（每个问题的已选标签列表）
      */
     fun replyToQuestion(requestId: String, answers: List<List<String>>) {
         scope.launch {
@@ -207,7 +206,7 @@ internal class SessionActionsDelegate(
     }
 
     /**
-     * Reject a question request.
+     * 拒绝问题请求。
      */
     fun rejectQuestion(requestId: String) {
         scope.launch {
@@ -230,9 +229,9 @@ internal class SessionActionsDelegate(
         }
     }
 
-    // ============ Share / Export / Compact ============
+    // ============ 分享 / 导出 / 压缩 ============
 
-    /** Share the current session. Returns the share URL or null on failure. */
+    /** 分享当前会话。返回分享 URL 或失败时返回 null。 */
     fun shareSession(onResult: (String?) -> Unit) {
         scope.launch {
             try {
@@ -260,7 +259,7 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** Compact (summarize) the current session. */
+    /** 压缩（摘要）当前会话。 */
     fun compactSession(onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -283,10 +282,10 @@ internal class SessionActionsDelegate(
     }
 
     /**
-     * Export the session as JSON directly to a file URI.
-     * Streams API responses directly to the output stream to avoid OOM
-     * on large sessions (messages can be 80+ MB).
-     * Shows a notification with download progress.
+     * 将会话以 JSON 直接导出到文件 URI。
+     * 流式传输 API 响应直接到输出流，避免大会话
+     *（消息可达 80+ MB）时的 OOM。
+     * 显示带下载进度的通知。
      */
     fun exportSession(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean) -> Unit) {
         scope.launch(Dispatchers.IO) {
@@ -345,9 +344,9 @@ internal class SessionActionsDelegate(
         }
     }
 
-    // ============ Undo / Redo ============
+    // ============ 撤销 / 重做 ============
 
-    /** Undo the last user message in the session, restoring its text to the input field. */
+    /** 撤销会话中最后一条用户消息，将其文本恢复到输入框。 */
     fun undoMessage(onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -368,7 +367,7 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** Redo the last undone message. */
+    /** Redo 最后一次撤销的消息。 */
     fun redoMessage(onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -383,8 +382,8 @@ internal class SessionActionsDelegate(
     }
 
     /**
-     * Extract text and image URIs from a [ChatMessage] for draft restoration.
-     * Pure function — also used by [ChatViewModel.revertMessage] coordinator.
+     * 从 [ChatMessage] 中提取文本和图片 URI 用于草稿恢复。
+     * 纯函数 —— 也被 [ChatViewModel.revertMessage] 协调器使用。
      */
     fun extractRevertedDraft(message: ChatMessage): RevertedDraftPayload {
         val revertedText = message.parts
@@ -404,9 +403,9 @@ internal class SessionActionsDelegate(
         )
     }
 
-    // ============ Message Operations ============
+    // ============ 消息操作 ============
 
-    /** Delete a message from the current session. */
+    /** 从当前会话删除一条消息。 */
     fun deleteMessage(messageId: String, onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -420,7 +419,7 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** Delete a specific part from a message by index. */
+    /** 通过索引从消息中删除特定 part。 */
     fun deleteMessagePart(messageId: String, partIndex: Int, onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -434,11 +433,11 @@ internal class SessionActionsDelegate(
         }
     }
 
-    // ============ Session Operations ============
+    // ============ 会话操作 ============
 
     /**
-     * Called when a SessionUpdated SSE event is received.
-     * Refreshes the message list to pick up revert/unrevert changes.
+     * 当收到 SessionUpdated SSE 事件时调用。
+     * 刷新消息列表以获取 revert/unrevert 变更。
      */
     fun onSessionUpdated(session: Session) {
         if (session.id != sessionId) return
@@ -453,7 +452,7 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** Fork the current session. Returns the new session or null. */
+    /** Fork 当前会话。返回新会话或 null。 */
     fun forkSession(onResult: (Session?) -> Unit) {
         scope.launch {
             try {
@@ -467,7 +466,7 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** Rename the current session. */
+    /** 重命名当前会话。 */
     fun renameSession(title: String, onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -482,9 +481,9 @@ internal class SessionActionsDelegate(
     }
 
     /**
-     * Abort REST call — cancels the session on the server and marks it idle
-     * via the FSM (ClientAbort → Idle + forceComplete messages).
-     * SSE job cancel/restart is handled by [ChatViewModel.abortSession] coordinator.
+     * Abort REST 调用 —— 在服务器上取消会话并通过
+     * FSM（ClientAbort → Idle + forceComplete 消息）标记为 idle。
+     * SSE job 的取消/重启由 [ChatViewModel.abortSession] 协调器处理。
      */
     suspend fun abortSession() {
         sessionRepository.abort(serverId, sessionId, sessionDirectoryProvider())
@@ -492,9 +491,9 @@ internal class SessionActionsDelegate(
         sessionStateService.onClientAbort(sessionId)
     }
 
-    // ============ Commands ============
+    // ============ 命令 ============
 
-    /** Execute a server-side command (e.g. /init, /review, MCP commands). */
+    /** 执行服务端命令（如 /init、/review、MCP 命令）。 */
     fun executeCommand(command: String, arguments: String = "", onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -538,7 +537,7 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** Execute shell command in current session. */
+    /** 在当前会话中执行 shell 命令。 */
     fun runShellCommand(command: String, onResult: (Boolean) -> Unit) {
         val trimmed = command.trim()
         if (trimmed.isBlank()) {
@@ -571,9 +570,9 @@ internal class SessionActionsDelegate(
         }
     }
 
-    // ============ Helpers ============
+    // ============ 辅助方法 ============
 
-    /** Get the last assistant message text for copying. */
+    /** 获取最后一条 assistant 消息文本以供复制。 */
     fun getLastAssistantText(): String? {
         val msgs = messageListProvider()
         val last = msgs.firstOrNull { it.isAssistant } ?: return null

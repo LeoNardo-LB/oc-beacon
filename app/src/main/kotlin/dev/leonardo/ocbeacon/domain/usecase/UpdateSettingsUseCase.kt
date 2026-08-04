@@ -5,8 +5,8 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import javax.inject.Inject
 
 /**
- * Use case: update application settings.
- * Delegates to [SettingsRepository.updateSettings].
+ * Use Case：更新应用设置。
+ * 委托给 [SettingsRepository.updateSettings]。
  */
 class UpdateSettingsUseCase @Inject constructor(
     private val settingsRepository: SettingsRepository

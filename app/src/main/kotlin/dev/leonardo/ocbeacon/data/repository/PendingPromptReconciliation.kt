@@ -6,11 +6,11 @@ import dev.leonardo.ocbeacon.domain.model.PromptPart
 import kotlinx.serialization.Serializable
 
 /**
- * Persisted record of an optimistic (not-yet-server-confirmed) prompt send.
+ * 乐观（尚未经服务器确认）prompt 发送的持久化记录。
  *
- * Stored by [PendingPromptRepository] so that pending prompts survive app restarts.
- * On next launch, [missingPendingPromptIds] reconciles them against the server's
- * authoritative message list to detect sends that were lost.
+ * 由 [PendingPromptRepository] 存储，使待处理 prompt 能在应用重启后保留。
+ * 下次启动时，[missingPendingPromptIds] 会将它们与服务器的权威消息列表
+ * 进行核对，以检测丢失的发送。
  */
 @Serializable
 data class PendingPromptRecord(
@@ -25,26 +25,26 @@ data class PendingPromptRecord(
 )
 
 /**
- * Reconciliation pure function: decides which pending prompts are stale enough to
- * be considered lost and should be surfaced to the user as failed.
+ * 核对纯函数：判定哪些待处理 prompt 已足够陈旧、可视为丢失，
+ * 应作为失败展示给用户。
  *
- * Strategy — timestamp coverage:
- *  1. A pending whose [PendingPromptRecord.messageId] appears in [authoritative]
- *     is already confirmed → never missing.
- *  2. A pending older than [minimumAgeMs] **and** "covered" (the server has
- *     delivered any message with `time.created >= pending.createdAt`) is missing —
- *     the server has progressed past the send point yet never echoed the prompt.
- *  3. Otherwise the pending is retained (too fresh, or the server hasn't caught up).
+ * 策略——时间戳覆盖：
+ *  1. [PendingPromptRecord.messageId] 出现在 [authoritative] 中的待处理
+ *     已被确认 → 永不丢失。
+ *  2. 早于 [minimumAgeMs] **且** "已被覆盖"（服务器已投递任何
+ *     `time.created >= pending.createdAt` 的消息）的待处理为丢失——
+ *     服务器已越过发送点却从未回显该 prompt。
+ *  3. 否则保留该待处理（太新，或服务器尚未追上）。
  *
- * This is format-agnostic: unlike upstream v1.7.0 (which compares ULID id ranges),
- * it works with our `"pending-<uuid>"` ids because it keys off timestamps, not id
- * ordering — matching the existing confirm logic in MessageDataDelegate.
+ * 此方法与格式无关：与上游 v1.7.0（比较 ULID id 范围）不同，
+ * 它适用于我们的 `"pending-<uuid>"` id，因为它依据时间戳而非 id
+ * 排序——与 MessageDataDelegate 中现有的确认逻辑一致。
  *
- * @param pending candidate pending prompts to reconcile.
- * @param authoritative the server's current message list for the session.
- * @param now current epoch millis (for age calculation).
- * @param minimumAgeMs minimum age before a covered pending is declared missing.
- * @return the set of pending message ids considered lost.
+ * @param pending 待核对的候选 pending prompt。
+ * @param authoritative 服务器当前该会话的消息列表。
+ * @param now 当前 epoch 毫秒（用于计算年龄）。
+ * @param minimumAgeMs 已覆盖的待处理被判定为丢失前的最小年龄。
+ * @return 被视为丢失的 pending 消息 id 集合。
  */
 fun missingPendingPromptIds(
     pending: List<PendingPromptRecord>,
@@ -54,9 +54,8 @@ fun missingPendingPromptIds(
 ): Set<String> {
     if (pending.isEmpty()) return emptySet()
     val confirmedIds = authoritative.asSequence().map { it.id }.toSet()
-    // "Covered" = the server delivered any message whose created timestamp is at
-    // or after the pending's send time. Track via the max created timestamp so we
-    // don't scan the whole authoritative list per pending record.
+    // "已覆盖" = 服务器投递了 created 时间戳大于等于待处理发送时间的任何消息。
+    // 通过最大 created 时间戳跟踪，避免对每个 pending 记录扫描整个 authoritative 列表。
     val maxCreated = authoritative.maxOfOrNull { it.time.created } ?: return emptySet()
     return pending
         .asSequence()

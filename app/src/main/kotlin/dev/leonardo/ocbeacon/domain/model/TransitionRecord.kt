@@ -1,6 +1,6 @@
 package dev.leonardo.ocbeacon.domain.model
 
-/** Immutable record of one FSM transition, for traceability/diagnostics. */
+/** 一次 FSM 转移的不可变记录，用于可追溯性/诊断。 */
 data class TransitionRecord(
     val sessionId: String,
     val timestamp: Long,

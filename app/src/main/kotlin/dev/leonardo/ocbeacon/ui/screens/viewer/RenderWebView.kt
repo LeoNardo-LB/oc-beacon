@@ -13,10 +13,10 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 
 /**
- * Unified WebView-based renderer. Reuses a single WebView instance — toggle only
- * changes [View.VISIBLE]/[View.GONE], no destruction/recreation.
+ * 统一的基于 WebView 的渲染器。复用单个 WebView 实例 — 切换只改变
+ * [View.VISIBLE]/[View.GONE]，不销毁/重建。
  *
- * Supports: MARKDOWN (marked.js + highlight.js), IMAGE (base64), SVG, CSV.
+ * 支持：MARKDOWN（marked.js + highlight.js）、IMAGE（base64）、SVG、CSV。
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -33,12 +33,12 @@ fun RenderWebView(
     val bgHex = argbToHex(bgColorArgb)
     val fgHex = argbToHex(MaterialTheme.colorScheme.onSurface.toArgb())
 
-    // Escape markdown content for JS template literal
+    // 为 JS 模板字面量转义 markdown 内容
     val escapedContent = remember(content) {
         content.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
     }
 
-    // Pre-built HTML for IMAGE/SVG/CSV (MARKDOWN uses asset template instead)
+    // 为 IMAGE/SVG/CSV 预构建的 HTML（MARKDOWN 改用 asset 模板）
     val html = remember(content, fileType, mimeType, bgColorArgb) {
         when (fileType) {
             FileType.IMAGE -> buildImageHtml(content, mimeType, bgHex)

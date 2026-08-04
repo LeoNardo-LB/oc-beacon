@@ -4,14 +4,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 
 /**
- * Semantic padding tokens for [androidx.compose.material3.ListItem] content.
- * Three density levels matching the project's token system pattern.
+ * 用于 [androidx.compose.material3.ListItem] 内容的语义化内边距令牌。
+ * 三档密度级别，匹配项目的令牌系统模式。
  */
 object ListItemTokens {
-    /** Compact — minimal vertical padding. */
+    /** 紧凑 — 最小垂直内边距。 */
     val ContentPaddingSmall = PaddingValues(horizontal = 16.dp, vertical = 2.dp)
-    /** Medium — balanced density (default for settings-style lists). */
+    /** 中等 — 平衡密度（设置类列表的默认值）。 */
     val ContentPaddingMedium = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
-    /** Large — Material 3 default density. */
+    /** 大 — Material 3 默认密度。 */
     val ContentPaddingLarge = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
 }

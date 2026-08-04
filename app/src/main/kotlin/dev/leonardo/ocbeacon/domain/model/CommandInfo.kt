@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Domain model for a command (mirrors data.dto.response.CommandInfo fields).
- * Impl will use mapper.toDomain() to convert.
+ * 命令的领域模型（字段与 data.dto.response.CommandInfo 对应）。
+ * 实现层使用 mapper.toDomain() 进行转换。
  */
 data class CommandInfo(
     val name: String,

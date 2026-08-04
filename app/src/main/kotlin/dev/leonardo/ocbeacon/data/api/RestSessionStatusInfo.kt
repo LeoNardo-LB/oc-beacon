@@ -1,19 +1,19 @@
 package dev.leonardo.ocbeacon.data.api
 
 /**
- * Lightweight session-status snapshot extracted from the REST `GET /session` polling
- * response — only the fields needed to correct SSE-derived state.
+ * 从 REST `GET /session` 轮询响应中提取的轻量级会话状态快照
+ * ——仅包含校正 SSE 派生状态所需的字段。
  *
- * Used for REST-based state correction when SSE events may have been missed.
+ * 在可能错过 SSE 事件时用于基于 REST 的状态校正。
  *
- * @property type one of `"idle"`, `"busy"`, `"retry"`.
- * @property attempt retry attempt number; non-null only when [type] == `"retry"`.
- * @property message optional human-readable status detail.
- * @property next optional epoch-millis timestamp of the next scheduled attempt.
+ * @property type 取值为 `"idle"`、`"busy"`、`"retry"` 之一。
+ * @property attempt 重试尝试编号；仅当 [type] == `"retry"` 时非空。
+ * @property message 可选的人类可读状态详情。
+ * @property next 下次计划尝试的可选 epoch 毫秒时间戳。
  */
 data class RestSessionStatusInfo(
     val type: String,          // "idle" | "busy" | "retry"
-    val attempt: Int? = null,  // only for "retry"
+    val attempt: Int? = null,  // 仅用于 "retry"
     val message: String? = null,
     val next: Long? = null
 )

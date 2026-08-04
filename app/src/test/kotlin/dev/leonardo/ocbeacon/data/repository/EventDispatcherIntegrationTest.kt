@@ -17,19 +17,19 @@ import org.junit.Test
 import javax.inject.Provider
 
 /**
- * Integration test verifying full SSE event processing pipelines:
- * SSE Event → EventDispatcher.processEvent() → StateFlows update.
+ * 集成测试，验证完整的 SSE 事件处理管线：
+ * SSE Event → EventDispatcher.processEvent() → StateFlows 更新。
  *
- * All handlers are REAL (not mocked) to verify actual integration behavior.
- * These tests complement the unit-level EventDispatcherTest with deep chain tests.
+ * 所有 handler 都是真实实现（未 mock），以验证实际的集成行为。
+ * 这些测试通过深度链路测试补充单元级的 EventDispatcherTest。
  */
 class EventDispatcherIntegrationTest {
 
     private lateinit var dispatcher: EventDispatcher
-    // SessionStateService's statusFlow uses stateIn(scope, SharingStarted.Eagerly, …); Eagerly
-    // propagation needs an UnconfinedTestDispatcher + runCurrent() (see SessionStateServiceTest
-    // fixture note for why runTest's StandardTestDispatcher breaks). Each test gets a fresh scope
-    // so the staleness-guard coroutine from init doesn't leak across tests.
+    // SessionStateService 的 statusFlow 使用 stateIn(scope, SharingStarted.Eagerly, …)；Eagerly
+    // 传播需要 UnconfinedTestDispatcher + runCurrent()（关于 runTest 的 StandardTestDispatcher
+    // 为何失效，参见 SessionStateServiceTest 的 fixture 注释）。每个测试使用全新的 scope，
+    // 以免 init 中的 staleness-guard 协程在测试间泄漏。
     private lateinit var stateServiceScope: TestScope
     private lateinit var sessionStateService: SessionStateService
 
@@ -64,11 +64,11 @@ class EventDispatcherIntegrationTest {
         id = id, title = "Test-$id", time = Session.Time(created = 1000L, updated = 2000L)
     )
 
-    // ============ Scenario 1: Tool Progress Full Chain ============
+    // ============ 场景 1：工具进度完整链路 ============
 
     @Test
     fun `tool progress full chain - started to progress to success`() = runTest {
-        // Step 1: ToolInputStarted
+        // 步骤 1：ToolInputStarted
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.ToolInputStarted(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -84,7 +84,7 @@ class EventDispatcherIntegrationTest {
         assertNull("No progress yet", afterStart[0].progress)
         assertNull("No title yet", afterStart[0].title)
 
-        // Step 2: ToolProgress
+        // 步骤 2：ToolProgress
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.ToolProgress(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -99,7 +99,7 @@ class EventDispatcherIntegrationTest {
         assertEquals("50%", afterProgress[0].progress)
         assertEquals("Running", afterProgress[0].title)
 
-        // Step 3: ToolSuccess
+        // 步骤 3：ToolSuccess
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.ToolSuccess(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -149,7 +149,7 @@ class EventDispatcherIntegrationTest {
         assertEquals(2, tools!!.size)
         assertEquals(setOf("bash", "write"), tools.map { it.tool }.toSet())
 
-        // Complete only c1
+        // 只完成 c1
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.ToolSuccess(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -163,7 +163,7 @@ class EventDispatcherIntegrationTest {
         assertEquals("c2", remaining[0].callId)
     }
 
-    // ============ Scenario 2: Step Progress Full Chain ============
+    // ============ 场景 2：步骤进度完整链路 ============
 
     @Test
     fun `step progress full chain - started then ended`() = runTest {
@@ -225,7 +225,7 @@ class EventDispatcherIntegrationTest {
         assertEquals("code", info.agent)
     }
 
-    // ============ Scenario 3: Compaction Full Chain ============
+    // ============ 场景 3：压缩完整链路 ============
 
     @Test
     fun `compaction full chain - started then ended`() = runTest {
@@ -250,7 +250,7 @@ class EventDispatcherIntegrationTest {
             dispatcher.compactionState.value.containsKey("s1"))
     }
 
-    // ============ Scenario 4: Agent/Model Switch Chain ============
+    // ============ 场景 4：Agent/Model 切换链路 ============
 
     @Test
     fun `agent and model switch chain`() = runTest {
@@ -271,22 +271,22 @@ class EventDispatcherIntegrationTest {
         assertEquals("anthropic", model!!.first)
         assertEquals("claude-4-sonnet", model.second)
 
-        // Switch again — should overwrite
+        // 再次切换 —— 应当覆盖
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.AgentSwitched(
                 sessionId = "s1", agent = "code"
             )), "svr1"
         )
         assertEquals("code", dispatcher.currentAgent.value["s1"])
-        // Model should still be the last set value
+        // Model 仍应是最后设置的值
         assertEquals("anthropic", dispatcher.currentModel.value["s1"]!!.first)
     }
 
-    // ============ Scenario 5: Multi-Session Independence ============
+    // ============ 场景 5：多会话独立性 ============
 
     @Test
     fun `multi-session independence - clearing one session does not affect others`() = runTest {
-        // Set up tool progress for s1 and s2
+        // 为 s1 和 s2 设置工具进度
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.ToolInputStarted(
                 sessionId = "s1", messageId = "m1", partId = "p1",
@@ -300,30 +300,30 @@ class EventDispatcherIntegrationTest {
             )), "svr1"
         )
 
-        // Create sessions so clearForServer can find them
+        // 创建会话，以便 clearForServer 能找到它们
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s1")), "svr1")
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s2")), "svr2")
 
-        // Clear s1 via SessionDeleted
+        // 通过 SessionDeleted 清除 s1
         dispatcher.processEvent(SseEvent.SessionDeleted(testSession("s1")), "svr1")
 
-        // s1 should be cleared
+        // s1 应被清除
         assertTrue(dispatcher.activeToolProgress.value["s1"]?.isEmpty() ?: true)
 
-        // s2 should still have tool progress
+        // s2 应仍保留工具进度
         val s2Tools = dispatcher.activeToolProgress.value["s2"]
         assertNotNull(s2Tools)
         assertEquals(1, s2Tools!!.size)
         assertEquals("write", s2Tools[0].tool)
     }
 
-    // ============ Scenario 6: SessionDeleted Cascade ============
+    // ============ 场景 6：SessionDeleted 级联 ============
 
     @Test
     fun `SessionDeleted cascade clears ALL handler state for session`() = runTest {
         val session = testSession("s1")
 
-        // Set up state across all handlers for session s1
+        // 为会话 s1 在所有 handler 中设置状态
         dispatcher.processEvent(SseEvent.SessionCreated(session), "svr1")
         dispatcher.processEvent(SseEvent.SessionStatus(sessionId = "s1", status = SessionStatus.Busy), "svr1")
         stateServiceScope.runCurrent()
@@ -345,7 +345,7 @@ class EventDispatcherIntegrationTest {
             listOf(SseEvent.TodoUpdated.Todo("Task", "pending", "high"))
         ), "svr1")
 
-        // SessionNext state
+        // SessionNext 状态
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.AgentSwitched(sessionId = "s1", agent = "code")),
             "svr1"
@@ -367,7 +367,7 @@ class EventDispatcherIntegrationTest {
             )), "svr1"
         )
 
-        // Verify all state exists before deletion
+        // 删除前验证所有状态都存在
         assertFalse(dispatcher.sessionStatuses.value.isEmpty())
         assertTrue(dispatcher.messages.value.containsKey("s1"))
         assertTrue(dispatcher.permissions.value.containsKey("s1"))
@@ -378,10 +378,10 @@ class EventDispatcherIntegrationTest {
         assertTrue(dispatcher.stepProgress.value.containsKey("s1"))
         assertTrue(dispatcher.compactionState.value.containsKey("s1"))
 
-        // Send SessionDeleted
+        // 发送 SessionDeleted
         dispatcher.processEvent(SseEvent.SessionDeleted(session), "svr1")
 
-        // Assert ALL state for s1 is cleared
+        // 断言 s1 的所有状态都被清除
         assertFalse("Session statuses should not contain s1", dispatcher.sessionStatuses.value.containsKey("s1"))
         assertFalse("Messages should not contain s1", dispatcher.messages.value.containsKey("s1"))
         assertFalse("Permissions should not contain s1", dispatcher.permissions.value.containsKey("s1"))
@@ -418,41 +418,41 @@ class EventDispatcherIntegrationTest {
             "svr1"
         )
 
-        // Delete s1
+        // 删除 s1
         dispatcher.processEvent(SseEvent.SessionDeleted(s1), "svr1")
 
-        // s1 cleared
+        // s1 已清除
         assertFalse(dispatcher.messages.value.containsKey("s1"))
         assertNull(dispatcher.currentAgent.value["s1"])
 
-        // s2 unaffected
+        // s2 不受影响
         assertTrue(dispatcher.messages.value.containsKey("s2"))
         assertEquals("explore", dispatcher.currentAgent.value["s2"])
         assertEquals(1, dispatcher.sessions.value.size)
         assertEquals("s2", dispatcher.sessions.value[0].id)
     }
 
-    // ============ Scenario 7: CommandExecuted marks messages idle ============
+    // ============ 场景 7：CommandExecuted 将消息标记为完成 ============
 
     @Test
     fun `CommandExecuted marks incomplete assistant messages as completed`() = runTest {
-        // Set up an incomplete assistant message (time.completed = null)
+        // 设置一条未完成的 assistant 消息（time.completed = null）
         val assistant = Message.Assistant(
             id = "m1", sessionId = "s1", time = TimeInfo(created = 1000L, completed = null),
             parentId = "p0"
         )
         dispatcher.processEvent(SseEvent.MessageUpdated(assistant), "svr1")
 
-        // Verify message is streaming (no completed time)
+        // 验证消息正在流式输出（无 completed 时间）
         val before = dispatcher.messages.value["s1"]!!.first() as Message.Assistant
         assertNull("Before CommandExecuted, completed should be null", before.time.completed)
 
-        // Send CommandExecuted
+        // 发送 CommandExecuted
         dispatcher.processEvent(
             SseEvent.CommandExecuted(name = "bash", sessionId = "s1"), "svr1"
         )
 
-        // Verify message is now marked complete
+        // 验证消息现已被标记为完成
         val after = dispatcher.messages.value["s1"]!!.first() as Message.Assistant
         assertNotNull("After CommandExecuted, completed should be set", after.time.completed)
     }
@@ -487,18 +487,18 @@ class EventDispatcherIntegrationTest {
         assertNull("User messages should not get completed time", after.time.completed)
     }
 
-    // ============ Scenario 8: clearForServer ============
+    // ============ 场景 8：clearForServer ============
 
     @Test
     fun `clearForServer clears all state for target server sessions only`() = runTest {
-        // Set up svr1 with s1, s2
+        // 为 svr1 设置 s1、s2
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s1")), "svr1")
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s2")), "svr1")
 
-        // Set up svr2 with s3
+        // 为 svr2 设置 s3
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s3")), "svr2")
 
-        // Add messages, permissions, SessionNext state for each
+        // 为每个会话添加 messages、permissions、SessionNext 状态
         dispatcher.processEvent(SseEvent.MessageUpdated(
             Message.User(id = "m1", sessionId = "s1", time = TimeInfo(1000L))
         ), "svr1")
@@ -523,10 +523,10 @@ class EventDispatcherIntegrationTest {
             SseEvent.SessionNext(SessionNextEvent.AgentSwitched(sessionId = "s3", agent = "build")), "svr2"
         )
 
-        // Clear svr1
+        // 清除 svr1
         dispatcher.clearForServer("svr1")
 
-        // svr1 sessions cleared
+        // svr1 的会话已清除
         assertFalse(dispatcher.messages.value.containsKey("s1"))
         assertFalse(dispatcher.messages.value.containsKey("s2"))
         assertFalse(dispatcher.permissions.value.containsKey("s1"))
@@ -535,7 +535,7 @@ class EventDispatcherIntegrationTest {
         assertNull(dispatcher.currentAgent.value["s2"])
         assertTrue(dispatcher.sessions.value.none { it.id == "s1" || it.id == "s2" })
 
-        // svr2 sessions unaffected
+        // svr2 的会话不受影响
         assertTrue(dispatcher.messages.value.containsKey("s3"))
         assertTrue(dispatcher.permissions.value.containsKey("s3"))
         assertEquals("build", dispatcher.currentAgent.value["s3"])
@@ -549,7 +549,7 @@ class EventDispatcherIntegrationTest {
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s2")), "svr1")
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s3")), "svr2")
 
-        // Set up various SessionNext state
+        // 设置各种 SessionNext 状态
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.ToolInputStarted(
                 sessionId = "s1", messageId = "m1", partId = "p1", callId = "c1", tool = "bash"
@@ -570,7 +570,7 @@ class EventDispatcherIntegrationTest {
                 sessionId = "s2", providerId = "openai", modelId = "gpt-4"
             )), "svr1"
         )
-        // s3 state for svr2
+        // svr2 的 s3 状态
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.ToolInputStarted(
                 sessionId = "s3", messageId = "m2", partId = "p2", callId = "c3", tool = "read"
@@ -579,22 +579,22 @@ class EventDispatcherIntegrationTest {
 
         dispatcher.clearForServer("svr1")
 
-        // All svr1 session state cleared
+        // svr1 的所有会话状态已清除
         assertTrue(dispatcher.activeToolProgress.value["s1"]?.isEmpty() ?: true)
         assertNull(dispatcher.stepProgress.value["s2"])
         assertFalse(dispatcher.compactionState.value.containsKey("s1"))
         assertNull(dispatcher.currentModel.value["s2"])
 
-        // s3 unaffected
+        // s3 不受影响
         assertNotNull(dispatcher.activeToolProgress.value["s3"])
         assertEquals("read", dispatcher.activeToolProgress.value["s3"]!![0].tool)
     }
 
-    // ============ Scenario 9: clearAll ============
+    // ============ 场景 9：clearAll ============
 
     @Test
     fun `clearAll resets every StateFlow`() = runTest {
-        // Set up extensive state across multiple sessions and servers
+        // 在多个会话和服务器间设置大量状态
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s1")), "svr1")
         dispatcher.processEvent(SseEvent.SessionCreated(testSession("s2")), "svr2")
         dispatcher.processEvent(SseEvent.VcsBranchUpdated("main"), "svr1")
@@ -641,10 +641,10 @@ class EventDispatcherIntegrationTest {
             )), "svr2"
         )
 
-        // Clear everything
+        // 清除全部
         dispatcher.clearAll()
 
-        // Verify ALL StateFlows are empty
+        // 验证所有 StateFlows 都为空
         assertTrue(dispatcher.sessions.value.isEmpty())
         assertTrue(dispatcher.sessionStatuses.value.isEmpty())
         assertTrue(dispatcher.serverSessions.value.isEmpty())
@@ -667,7 +667,7 @@ class EventDispatcherIntegrationTest {
         assertTrue(dispatcher.gapDetected.value.isEmpty())
     }
 
-    // ============ Scenario 10: Mixed Event Sequence (realistic flow) ============
+    // ============ 场景 10：混合事件序列（真实流程） ============
 
     @Test
     fun `mixed event sequence - realistic agent execution flow`() = runTest {
@@ -718,7 +718,7 @@ class EventDispatcherIntegrationTest {
             )), "svr1"
         )
         assertTrue(dispatcher.activeToolProgress.value["s1"]!!.isEmpty())
-        // Step still active
+        // 步骤仍活跃
         assertNotNull(dispatcher.stepProgress.value["s1"])
 
         // 6. StepEnded
@@ -746,11 +746,11 @@ class EventDispatcherIntegrationTest {
         )
         assertFalse(dispatcher.compactionState.value.containsKey("s1"))
 
-        // Agent should still be set after the whole flow
+        // 整个流程结束后 Agent 应仍保留
         assertEquals("code", dispatcher.currentAgent.value["s1"])
     }
 
-    // ============ Bonus: Shell State Chain ============
+    // ============ 附加：Shell 状态链路 ============
 
     @Test
     fun `shell state chain - started then ended`() = runTest {
@@ -774,7 +774,7 @@ class EventDispatcherIntegrationTest {
         assertFalse(dispatcher.shellState.value.containsKey("s1"))
     }
 
-    // ============ Bonus: Retry State ============
+    // ============ 附加：重试状态 ============
 
     @Test
     fun `retry state tracked`() = runTest {
@@ -786,7 +786,7 @@ class EventDispatcherIntegrationTest {
 
         assertEquals(2, dispatcher.retryState.value["s1"])
 
-        // Overwrite with new attempt
+        // 用新的尝试覆盖
         dispatcher.processEvent(
             SseEvent.SessionNext(SessionNextEvent.Retried(
                 sessionId = "s1", attempt = 3
@@ -796,7 +796,7 @@ class EventDispatcherIntegrationTest {
         assertEquals(3, dispatcher.retryState.value["s1"])
     }
 
-    // ============ Bonus: clearForServer removes server entry when no sessions ============
+    // ============ 附加：无会话时 clearForServer 移除服务器条目 ============
 
     @Test
     fun `clearForServer with multiple servers preserves unaffected server mapping`() = runTest {
@@ -812,7 +812,7 @@ class EventDispatcherIntegrationTest {
         assertEquals(setOf("s3", "s4"), dispatcher.serverSessions.value["svr2"])
     }
 
-    // ============ Scenario 11: SSE dual-write to SessionStateService ============
+    // ============ 场景 11：SSE 双写到 SessionStateService ============
 
     @Test
     fun `SSE SessionStatus dual-writes to SessionStateService`() = runTest {

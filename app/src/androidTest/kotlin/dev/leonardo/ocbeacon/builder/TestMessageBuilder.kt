@@ -7,15 +7,15 @@ import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import kotlinx.serialization.json.JsonElement
 
-/** Generate a random ID for test data. */
+/** 为测试数据生成随机 ID。 */
 fun randomId(): String = java.util.UUID.randomUUID().toString()
 
 private var idCounter = 0L
 private fun nextPartId(): String = "part-${idCounter++}"
 
 /**
- * DSL builder for constructing List<Part> with sensible defaults.
- * Each method creates a Part with auto-incrementing IDs and matching sessionId/messageId.
+ * 用于构造 List<Part> 的 DSL builder，提供合理的默认值。
+ * 每个方法都会创建一个 Part，带有自增 ID 和匹配的 sessionId/messageId。
  */
 class PartListBuilder(
     private val sessionId: String = "test-session",
@@ -141,7 +141,7 @@ class PartListBuilder(
 }
 
 /**
- * Create a user Message for tests.
+ * 为测试创建一条 user Message。
  */
 fun aUserMessage(
     text: String,
@@ -154,8 +154,8 @@ fun aUserMessage(
 )
 
 /**
- * Create an assistant Message with parts.
- * Returns MessageWithParts so the caller gets both the message and its parts.
+ * 创建一条带 parts 的 assistant Message。
+ * 返回 MessageWithParts，使调用者同时拿到 message 和它的 parts。
  */
 fun anAssistantMessage(
     streaming: Boolean = false,

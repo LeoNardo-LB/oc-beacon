@@ -14,7 +14,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Empty state shown when the session has no messages.
+ * 会话无消息时显示的空状态。
  */
 @Composable
 fun ChatEmptyState(

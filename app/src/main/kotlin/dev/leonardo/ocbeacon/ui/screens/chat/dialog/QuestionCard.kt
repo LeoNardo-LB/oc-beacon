@@ -69,8 +69,8 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Interactive card for answering agent questions.
- * Supports single/multi-select options and "Type your own answer" expands an inline text field.
+ * 用于回答 agent 问题的交互式卡片。
+ * 支持单选/多选选项，"自行输入答案"会展开一个行内文本框。
  */
 @Composable
 internal fun QuestionCard(
@@ -87,13 +87,13 @@ internal fun QuestionCard(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
 
-    // Prevent multiple submissions — state is scoped per question via remember(key)
+    // 防止多次提交——状态通过 remember(key) 按问题作用域化
     var submitted by remember(question.id) { mutableStateOf(initiallySubmitted) }
-    // Collapsed by default — tap header to expand options.
-    // For history (initiallySubmitted), start expanded so user sees answers immediately.
-    var expanded by remember(question.id) { mutableStateOf(true) }  // always expanded — no collapse
+    // 默认折叠——点击头部展开选项。
+    // 对于历史记录（initiallySubmitted），起始展开以便用户立即看到答案。
+    var expanded by remember(question.id) { mutableStateOf(true) }  // 始终展开——无折叠
 
-    // Track answers per question
+    // 按问题跟踪答案
     val answersPerQuestion = remember {
         mutableStateListOf<List<String>>().apply {
             if (initiallySubmitted && initialAnswers.isNotEmpty()) {
@@ -120,7 +120,7 @@ internal fun QuestionCard(
             modifier = Modifier.padding(SpacingTokens.MD.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
-            // Header row — clickable to expand/collapse, shows question summary
+            // 头部行——可点击展开/折叠，显示问题摘要
             Row(
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -144,7 +144,7 @@ internal fun QuestionCard(
                     style = MaterialTheme.typography.titleSmall,
                     color = contentColor
                 )
-                // Show first question text as summary (truncated)
+                // 将第一个问题文本作为摘要显示（截断）
                 val summary = question.questions.firstOrNull()?.question?.takeIf { it.isNotBlank() }
                 if (summary != null) {
                     Text(
@@ -166,14 +166,14 @@ internal fun QuestionCard(
                 )
             }
 
-            // Expandable content — tap header to toggle
+            // 可展开内容——点击头部切换
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
-            // Sub-agent source label (shown when question comes from a child session)
+            // 子 agent 来源标签（当问题来自子会话时显示）
             if (question.sourceSessionTitle != null) {
                 Text(
                     text = question.sourceSessionTitle,
@@ -182,7 +182,7 @@ internal fun QuestionCard(
                 )
             }
 
-            // Question sections
+            // 问题分区
             QuestionPagerView(
                 questions = question.questions,
                 selectedAnswers = answersPerQuestion.map { it.toSet() },
@@ -202,7 +202,7 @@ internal fun QuestionCard(
                 }
             )
 
-                // Bottom actions — hidden in history mode (initiallySubmitted)
+                // 底部操作——在历史模式下（initiallySubmitted）隐藏
                 if (!initiallySubmitted) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -231,8 +231,8 @@ internal fun QuestionCard(
                         }
                     }
                 }
-                } // close inner Column
-            } // close AnimatedVisibility
+                } // 关闭内部 Column
+            } // 关闭 AnimatedVisibility
         }
     }
 }

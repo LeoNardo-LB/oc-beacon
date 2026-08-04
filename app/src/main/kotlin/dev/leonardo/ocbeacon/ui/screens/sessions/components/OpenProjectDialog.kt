@@ -55,10 +55,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * Directory browser dialog for opening a project.
- * Standard file-system browser with tap-to-navigate into subdirectories.
+ * 用于打开项目的目录浏览器对话框。
+ * 标准文件系统浏览器，点击进入子目录。
  *
- * Uses [DirectoryPath] for all path operations — no raw string slicing.
+ * 所有路径操作都使用 [DirectoryPath] — 不做原始字符串切片。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,7 +88,7 @@ internal fun OpenProjectDialog(
     var isCreatingFolder by remember { mutableStateOf(false) }
     var createFolderError by remember { mutableStateOf<String?>(null) }
 
-    // ── Init: load server paths ──────────────────────────────────────
+    // ── 初始化：加载服务器路径 ──────────────────────────────────────
     LaunchedEffect(Unit) {
         try {
             val paths = viewModel.getServerPaths()
@@ -106,7 +106,7 @@ internal fun OpenProjectDialog(
         }
     }
 
-    // ── React to path changes ────────────────────────────────────────
+    // ── 响应路径变化 ────────────────────────────────────────
     LaunchedEffect(Unit) {
         snapshotFlow { currentPath }.collectLatest { path ->
             if (path == null) return@collectLatest
@@ -145,7 +145,7 @@ internal fun OpenProjectDialog(
                 )
                 Spacer(Modifier.height(16.dp))
 
-                // ── Path bar ─────────────────────────────────────────
+                // ── 路径栏 ─────────────────────────────────────────
                 val path = currentPath
                 Row(
                     modifier = Modifier
@@ -182,7 +182,7 @@ internal fun OpenProjectDialog(
                     )
                 }
 
-                // ── Directory list ───────────────────────────────────
+                // ── 目录列表 ───────────────────────────────────
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -217,8 +217,8 @@ internal fun OpenProjectDialog(
                                     items = directories,
                                     key = { it.absolute ?: it.path }
                                 ) { node ->
-                                    // Use absolute path from server (always correct),
-                                    // fall back to DirectoryPath.child() for safety.
+                                    // 优先使用服务器返回的绝对路径（永远正确），
+                                    // 回退到 DirectoryPath.child() 以保安全。
                                     val targetPath = node.absolute?.let { DirectoryPath.forPath(it) }
                                         ?: currentPath?.child(node.name)
                                         ?: DirectoryPath.forPath(node.name)
@@ -257,7 +257,7 @@ internal fun OpenProjectDialog(
         }
     }
 
-    // ── Create folder dialog ─────────────────────────────────────────
+    // ── 新建文件夹对话框 ─────────────────────────────────────────
     if (showCreateFolderDialog) {
         val createFolderParams = amoledDialogParams()
         BasicAlertDialog(
@@ -327,7 +327,7 @@ internal fun OpenProjectDialog(
                                         showCreateFolderDialog = false
                                         newFolderName = ""
                                         createFolderError = null
-                                        // Force reload the current directory
+                                        // 强制重新加载当前目录
                                         val reloadPath = currentPath
                                         currentPath = null
                                         currentPath = reloadPath

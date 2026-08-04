@@ -12,27 +12,27 @@ import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import org.junit.Test
 
 /**
- * Integration tests verifying message rendering branches in ChatScreen.
+ * 验证 ChatScreen 中消息渲染分支的集成测试。
  *
- * Covers: user messages, streaming/completed assistant messages, reasoning,
- * tool cards, error display, turn ordering, and empty state.
+ * 覆盖：user 消息、流式/已完成的 assistant 消息、reasoning、
+ * 工具卡片、错误展示、轮次顺序，以及空状态。
  *
- * Uses [BaseChatTest] for Hilt + Compose setup. Messages are seeded directly
- * into the fake repository's StateFlows (messagesState + allPartsMapState),
- * which the MessageDataDelegate combine pipeline reads from.
+ * 使用 [BaseChatTest] 进行 Hilt + Compose 搭建。消息直接注入到
+ * fake repository 的 StateFlow（messagesState + allPartsMapState）中，
+ * MessageDataDelegate 的 combine pipeline 从中读取。
  */
 @HiltAndroidTest
 class ChatMessageRenderingTest : BaseChatTest() {
 
-    // ============ Helpers ============
+    // ============ 辅助方法 ============
 
     /**
-     * Seed messages into the fake repository's observable flows.
+     * 将消息注入 fake repository 的可观察 flow。
      *
-     * FakeChatRepository.setMessages writes to an internal store that is NOT
-     * connected to the StateFlows the UI reads (messagesState / allPartsMapState).
-     * This helper bridges that gap by setting the flows directly, matching the
-     * real ChatRepositoryImpl semantics where setMessages updates the flows.
+     * FakeChatRepository.setMessages 写入的是一个内部存储，该存储并未
+     * 连接到 UI 读取的 StateFlow（messagesState / allPartsMapState）。
+     * 此辅助方法通过直接设置 flow 来弥合这一差异，与真实的
+     * ChatRepositoryImpl 中 setMessages 更新 flow 的语义一致。
      */
     private fun seedMessages(vararg mwps: MessageWithParts) {
         fakeChat.messagesState.value = mwps.map { it.info }
@@ -40,10 +40,10 @@ class ChatMessageRenderingTest : BaseChatTest() {
     }
 
     /**
-     * Build a user MessageWithParts containing a single text part.
+     * 构建一个包含单个文本 part 的 user MessageWithParts。
      *
-     * aUserMessage() creates a bare Message.User without parts; the UI renders
-     * user text from Part.Text, so we must attach one.
+     * aUserMessage() 创建一个不带 parts 的纯 Message.User；UI 从
+     * Part.Text 渲染 user 文本，因此我们必须附加一个 part。
      */
     private fun userMessageWithText(text: String): MessageWithParts {
         val msg = aUserMessage(text, id = randomId(), sessionId = TEST_SESSION)
@@ -53,10 +53,10 @@ class ChatMessageRenderingTest : BaseChatTest() {
         return MessageWithParts(info = msg, parts = parts)
     }
 
-    // ============ Tests ============
+    // ============ 测试用例 ============
 
     /**
-     * Test 1: A user message renders its text content inside a chat bubble.
+     * 测试 1：一条 user 消息在聊天气泡内渲染其文本内容。
      */
     @Test
     fun user_message_renders_with_correct_styling() {
@@ -68,13 +68,12 @@ class ChatMessageRenderingTest : BaseChatTest() {
     }
 
     /**
-     * Test 2: A streaming assistant message (time.completed == null) with a
-     * running tool shows the tool card — the ToolCardScaffold renders a
-     * PulsingDotsIndicator next to the tool title when isRunning is true.
+     * 测试 2：一条流式 assistant 消息（time.completed == null）带有一个
+     * 正在运行的工具时，显示工具卡片 —— 当 isRunning 为 true 时，
+     * ToolCardScaffold 在工具标题旁边渲染一个 PulsingDotsIndicator。
      *
-     * We assert the tool title text is displayed (it co-exists with the
-     * pulsing indicator in the same card row). The ReadToolCard resolves
-     * the title from R.string.tool_read = "Read".
+     * 我们断言工具标题文本已显示（它与脉动指示器共存于同一卡片行）。
+     * ReadToolCard 从 R.string.tool_read = "Read" 解析标题。
      */
     @Test
     fun streaming_assistant_shows_pulsing_indicator() {
@@ -85,14 +84,13 @@ class ChatMessageRenderingTest : BaseChatTest() {
 
         renderChatScreen()
 
-        // ReadToolCard title = R.string.tool_read = "Read".
-        // The PulsingDotsIndicator renders alongside (isRunning = true).
+        // ReadToolCard 标题 = R.string.tool_read = "Read"。
+        // PulsingDotsIndicator 与之并排渲染（isRunning = true）。
         composeRule.onNodeWithText("Read").assertIsDisplayed()
     }
 
     /**
-     * Test 3: A completed assistant message renders its text without any
-     * streaming/running indicator.
+     * 测试 3：已完成的 assistant 消息渲染其文本，不带任何流式/运行中指示器。
      */
     @Test
     fun completed_assistant_without_streaming_indicator() {
@@ -107,11 +105,10 @@ class ChatMessageRenderingTest : BaseChatTest() {
     }
 
     /**
-     * Test 4: A reasoning part renders inside a collapsible ReasoningBlock.
+     * 测试 4：reasoning part 渲染在一个可折叠的 ReasoningBlock 内。
      *
-     * The reasoning block is collapsed by default (expandReasoning = false),
-     * so we enable expandReasoning in settings to make the reasoning text
-     * content visible for assertion.
+     * reasoning block 默认折叠（expandReasoning = false），因此我们在
+     * settings 中启用 expandReasoning，使 reasoning 文本内容可见以便断言。
      */
     @Test
     fun reasoning_part_renders() {
@@ -125,16 +122,15 @@ class ChatMessageRenderingTest : BaseChatTest() {
 
         renderChatScreen()
 
-        // With expandReasoning = true, the reasoning content is visible
+        // 当 expandReasoning = true 时，reasoning 内容可见
         composeRule.onNodeWithText("Thinking about this problem carefully").assertIsDisplayed()
     }
 
     /**
-     * Test 5: A completed tool part renders as an expandable tool card
-     * showing the tool name.
+     * 测试 5：已完成的 tool part 渲染为一个可展开的工具卡片，显示工具名称。
      *
-     * The DefaultToolCardResolver maps "read" to ReadToolCard, which uses
-     * R.string.tool_read = "Read" as the card title.
+     * DefaultToolCardResolver 将 "read" 映射到 ReadToolCard，后者使用
+     * R.string.tool_read = "Read" 作为卡片标题。
      */
     @Test
     fun tool_part_renders_as_expandable_card() {
@@ -145,20 +141,19 @@ class ChatMessageRenderingTest : BaseChatTest() {
 
         renderChatScreen()
 
-        // ReadToolCard title = R.string.tool_read = "Read"
+        // ReadToolCard 标题 = R.string.tool_read = "Read"
         composeRule.onNodeWithText("Read").assertIsDisplayed()
     }
 
     /**
-     * Test 6: An assistant message with an error renders the error text
-     * inside an error container surface.
+     * 测试 6：带错误的 assistant 消息在错误容器 surface 内渲染错误文本。
      *
-     * anAssistantMessage(error = "...") creates ErrorInfo(name = "TestError").
-     * formatAssistantErrorMessage returns "TestError" (falls back to name when
-     * data is null). The error is shown at the bottom of the assistant card.
+     * anAssistantMessage(error = "...") 创建 ErrorInfo(name = "TestError")。
+     * formatAssistantErrorMessage 返回 "TestError"（当 data 为 null 时
+     * 回退到 name）。错误显示在 assistant 卡片底部。
      *
-     * A text part is included so the message passes the assistant-with-parts
-     * filter in messageListState.
+     * 包含一个 text part 以便消息能通过 messageListState 中
+     * 的 assistant-with-parts 过滤器。
      */
     @Test
     fun error_message_renders() {
@@ -169,13 +164,13 @@ class ChatMessageRenderingTest : BaseChatTest() {
 
         renderChatScreen()
 
-        // ErrorPayloadContent renders the error name as plain text
+        // ErrorPayloadContent 将错误名称渲染为纯文本
         composeRule.onNodeWithText("TestError").assertIsDisplayed()
     }
 
     /**
-     * Test 7: A user message followed by an assistant message both render,
-     * appearing in the correct order within the chat list.
+     * 测试 7：一条 user 消息后跟一条 assistant 消息都能渲染，并在聊天列表中
+     * 以正确顺序出现。
      */
     @Test
     fun turn_dividers_between_user_assistant_pairs() {
@@ -187,23 +182,22 @@ class ChatMessageRenderingTest : BaseChatTest() {
 
         renderChatScreen()
 
-        // Both messages should be displayed
+        // 两条消息都应显示
         composeRule.onNodeWithText("User asks a question").assertIsDisplayed()
         composeRule.onNodeWithText("Assistant answers").assertIsDisplayed()
     }
 
     /**
-     * Test 8: An empty session (no messages) renders without crashing,
-     * showing the ChatEmptyState placeholder.
+     * 测试 8：空会话（无消息）渲染时不崩溃，显示 ChatEmptyState 占位符。
      *
-     * ChatEmptyState displays R.string.chat_empty = "Start a conversation with OpenCode".
+     * ChatEmptyState 显示 R.string.chat_empty = "Start a conversation with OpenCode"。
      */
     @Test
     fun empty_session_shows_placeholder_or_empty_state() {
-        // Seed no messages — default empty state
+        // 不注入任何消息 —— 默认空状态
         renderChatScreen()
 
-        // ChatEmptyState shows this text when messages are empty and not loading
+        // 当消息为空且未在加载时，ChatEmptyState 显示此文本
         composeRule.onNodeWithText("Start a conversation with OpenCode").assertIsDisplayed()
     }
 }

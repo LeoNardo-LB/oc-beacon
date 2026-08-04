@@ -101,7 +101,7 @@ fun ServerProvidersScreen(
     var oauthCode by remember { mutableStateOf("") }
     var oauthBrowserOpened by remember { mutableStateOf(false) }
 
-    // Close method picker only after OAuth flow actually starts.
+    // 仅在 OAuth 流程实际启动后才关闭方式选择器。
     LaunchedEffect(uiState.pendingOauth?.providerId, connectProvider?.providerId) {
         val pendingForCurrent = uiState.pendingOauth?.providerId
         if (pendingForCurrent != null && pendingForCurrent == connectProvider?.providerId) {
@@ -113,7 +113,7 @@ fun ServerProvidersScreen(
         oauthBrowserOpened = false
     }
 
-    // Auto-close OAuth dialog when provider becomes connected (e.g. after browser auto callback)
+    // 当 provider 变为已连接时自动关闭 OAuth 对话框（例如浏览器自动回调后）
     LaunchedEffect(connectedIds, uiState.pendingOauth?.providerId) {
         val pendingId = uiState.pendingOauth?.providerId
         if (pendingId != null && pendingId in connectedIds) {
@@ -121,8 +121,8 @@ fun ServerProvidersScreen(
         }
     }
 
-    // If headless method is unavailable and we fell back to browser OAuth,
-    // open browser automatically to keep the flow one-tap.
+    // 如果 headless 方式不可用而回退到浏览器 OAuth，
+    // 自动打开浏览器，使整个流程保持一键完成。
     LaunchedEffect(uiState.pendingOauth?.providerId, uiState.pendingOauth?.fallbackFromHeadless, oauthBrowserOpened) {
         val pending = uiState.pendingOauth ?: return@LaunchedEffect
         if (pending.fallbackFromHeadless && !oauthBrowserOpened && pending.authorization.url.isNotBlank()) {
@@ -131,9 +131,9 @@ fun ServerProvidersScreen(
         }
     }
 
-    // When the user returns from the browser, always reload providers.
-    // If auth already completed on the server, connectedIds effect closes the dialog.
-    // If not, the dialog stays open and the user can continue manually.
+    // 用户从浏览器返回时，总是重新加载 providers。
+    // 如果服务器上授权已完成，connectedIds effect 会关闭对话框。
+    // 如果未完成，对话框保持打开，用户可手动继续。
     DisposableEffect(lifecycleOwner, uiState.pendingOauth?.providerId) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -286,7 +286,7 @@ fun ServerProvidersScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     if (deviceCode != null) {
-                        // Show localized hint + prominent code chip
+                        // 显示本地化提示 + 突出的代码 chip
                         Text(
                             text = stringResource(R.string.server_settings_oauth_device_code_hint),
                             style = MaterialTheme.typography.bodyMedium,
@@ -348,7 +348,7 @@ fun ServerProvidersScreen(
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     } else if (pending.authorization.instructions.isNotBlank()) {
-                        // No structured data extracted — show raw instructions as fallback
+                        // 未提取到结构化数据 — 回退显示原始说明
                         Text(
                             text = pending.authorization.instructions,
                             style = MaterialTheme.typography.bodyMedium,

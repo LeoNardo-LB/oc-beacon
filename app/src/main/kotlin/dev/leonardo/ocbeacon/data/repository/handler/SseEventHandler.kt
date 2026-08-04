@@ -3,15 +3,15 @@ package dev.leonardo.ocbeacon.data.repository.handler
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 
 /**
- * Strategy interface for handling SSE events by category.
- * Each handler processes a subset of SseEvent types and updates its own state.
+ * 按类别处理 SSE 事件的策略接口。
+ * 每个 handler 处理一部分 SseEvent 类型并更新自身状态。
  */
 interface SseEventHandler {
     /**
-     * Handle the given event, updating internal state as needed.
-     * @param event The SSE event to process
-     * @param serverId The server this event came from
-     * @return true if this handler recognized and processed the event
+     * 处理给定事件，按需更新内部状态。
+     * @param event 要处理的 SSE 事件
+     * @param serverId 事件来源的服务器
+     * @return 若此 handler 识别并处理了该事件则返回 true
      */
     fun handle(event: SseEvent, serverId: String): Boolean
 }

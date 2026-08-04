@@ -6,8 +6,8 @@ import java.io.OutputStream
 import javax.inject.Inject
 
 /**
- * Use case: share, export, and compact sessions.
- * Delegates to SessionRepository.
+ * Use Case：分享、导出和压缩会话。
+ * 委托给 SessionRepository。
  */
 class ShareExportUseCase @Inject constructor(
     private val sessionRepository: SessionRepository

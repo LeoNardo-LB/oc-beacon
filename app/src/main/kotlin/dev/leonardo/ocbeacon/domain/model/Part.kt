@@ -9,7 +9,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Custom serializer for Part that dispatches on the "type" field.
+ * Part 的自定义序列化器，根据 "type" 字段分发。
  */
 object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<Part> {
@@ -34,8 +34,8 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
 }
 
 /**
- * Message Part - different types of content in a message.
- * Field names use @SerialName to match the OpenCode API convention (uppercase ID suffixes).
+ * Message Part —— 消息中不同类型的内容。
+ * 字段名使用 @SerialName 以匹配 OpenCode API 约定（大写 ID 后缀）。
  */
 @Serializable(with = PartSerializer::class)
 sealed class Part {
@@ -183,8 +183,7 @@ sealed class Part {
         data class Time(val created: Long)
 
         val errorMessage: String
-            get() = error?.jsonObject?.get("message")?.jsonPrimitive?.content ?: "Unknown error"
-    }
+            get() = error?.jsonObject?.get("message")?.jsonPrimitive?.content ?: "Unknown error"    }
 
     @Serializable
     data class Agent(

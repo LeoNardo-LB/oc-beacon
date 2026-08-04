@@ -17,17 +17,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 
 /**
- * Generic confirmation dialog with title, message, and customizable buttons.
+ * 通用确认对话框，包含标题、消息和可自定义的按钮。
  *
- * Uses the unified BasicAlertDialog + Surface + DialogButtons pattern.
+ * 使用统一的 BasicAlertDialog + Surface + DialogButtons 模式。
  *
- * @param title           Dialog title text.
- * @param message         Dialog body text.
- * @param confirmLabel    Label for the confirm button.
- * @param confirmRole     Role of the confirm button (default: Danger).
- * @param dismissLabel    Label for the dismiss button (default: "Cancel" from android.R.string.cancel).
- * @param onDismiss       Called when the dialog is dismissed (cancel or outside click).
- * @param onConfirm       Called when the confirm button is clicked.
+ * @param title           对话框标题文本。
+ * @param message         对话框正文文本。
+ * @param confirmLabel    确认按钮的标签。
+ * @param confirmRole     确认按钮的角色（默认：Danger）。
+ * @param dismissLabel    取消按钮的标签（默认：取自 android.R.string.cancel 的 "Cancel"）。
+ * @param onDismiss       对话框被关闭时调用（取消或点击外部）。
+ * @param onConfirm       用户点击确认按钮时调用。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

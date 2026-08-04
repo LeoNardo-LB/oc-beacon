@@ -60,17 +60,17 @@ object NetworkModule {
         install(WebSockets)
         
         install(Auth) {
-            // Auth will be configured per-request based on server config
+            // Auth 将根据服务器配置按请求进行配置
         }
         
         engine {
             config {
-                // OkHttp-specific: disable response body buffering for streaming
+                // OkHttp 专用：禁用响应体缓冲以支持流式传输
                 retryOnConnectionFailure(true)
             }
         }
         
-        // Default headers will be set per-request in domain Api implementations
+        // 默认头将在领域 API 实现中按请求设置
     }
     
     @Provides

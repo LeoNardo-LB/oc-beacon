@@ -3,7 +3,7 @@ package dev.leonardo.ocbeacon.domain.model
 import kotlinx.serialization.Serializable
 
 /**
- * Session Status - indicates if session is processing or idle
+ * 会话状态 —— 指示会话正在处理还是空闲
  */
 @Serializable
 sealed class SessionStatus {
@@ -17,6 +17,6 @@ sealed class SessionStatus {
     data class Retry(
         val attempt: Int,
         val message: String,
-        val next: Long // Timestamp of next retry
+        val next: Long // 下次重试的时间戳
     ) : SessionStatus()
 }

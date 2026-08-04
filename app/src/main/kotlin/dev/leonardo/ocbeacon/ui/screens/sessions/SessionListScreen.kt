@@ -126,7 +126,7 @@ fun SessionListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Dialog states
+    // 对话框状态
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameSessionId by remember { mutableStateOf("") }
     var renameText by remember { mutableStateOf(TextFieldValue("")) }
@@ -138,7 +138,7 @@ fun SessionListScreen(
     var showQuickNewSession by remember { mutableStateOf(false) }
     var showBaseDirDialog by remember { mutableStateOf(false) }
 
-    // Session category picker state
+    // 会话分类选择器状态
     var showCategoryPicker by remember { mutableStateOf(false) }
     var assignSessionId by remember { mutableStateOf("") }
     var assignCategoryId by remember { mutableStateOf<String?>(null) }
@@ -150,8 +150,8 @@ fun SessionListScreen(
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
 
-    // Preload MCP servers on screen entry — no loading delay when user swipes
-    // to the MCP tab. Also caches error handling for the entire lifetime.
+    // 进入屏幕时预加载 MCP 服务器 — 用户滑到 MCP 标签页时无加载延迟。
+    // 同时为整个生命周期缓存错误处理。
     var mcpLoadedOnce by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -181,7 +181,7 @@ fun SessionListScreen(
                     }
                 },
                 actions = {
-                    // Cross-server favorites entry
+                    // 跨服务器收藏入口
                     IconButton(onClick = onNavigateToFavorites) {
                         Icon(
                             Icons.Filled.Star,
@@ -189,9 +189,9 @@ fun SessionListScreen(
                             modifier = Modifier.size(24.dp),
                         )
                     }
-                    // Only on sessions page (page 0)
+                    // 仅在会话页（page 0）
                     if (pagerState.currentPage == 0) {
-                        // Toggle view mode: recent <-> folders
+                        // 切换查看模式：最近 <-> 文件夹
                         IconButton(onClick = { viewModel.toggleViewMode() }) {
                             Icon(
                                 if (currentViewMode == SessionViewMode.RECENT) Icons.Default.Folder
@@ -203,10 +203,10 @@ fun SessionListScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                        // New session
+                        // 新建会话
                         IconButton(onClick = {
-                            // If there are known sessions, show the quick dialog first;
-                            // otherwise go straight to the full directory browser.
+                            // 若已有会话，先显示快速对话框；
+                            // 否则直接进入完整目录浏览器。
                             if (uiState.sessions.isNotEmpty()) {
                                 showQuickNewSession = true
                             } else {
@@ -281,7 +281,7 @@ fun SessionListScreen(
             onRefresh = { viewModel.refreshSessions() },
             modifier = Modifier.fillMaxSize()
         ) {
-            // Search bar — always visible, independent of list state
+            // 搜索栏 — 始终可见，独立于列表状态
             var searchInput by rememberSaveable { mutableStateOf("") }
             val searchJob = remember { mutableStateOf<Job?>(null) }
 
@@ -326,7 +326,7 @@ fun SessionListScreen(
                     }
                     )
 
-                // Category filter chips
+                // 分类过滤 chip
                 if (categories.isNotEmpty()) {
                     Row(
                         modifier = Modifier
@@ -420,12 +420,12 @@ fun SessionListScreen(
                         }
                     }
 
-                    // Scroll to top only when returning from a session where the user
-                    // sent a message. Observe the NavBackStackEntry lifecycle (ON_RESUME)
-                    // instead of a composition-keyed effect: Compose Navigation may keep
-                    // this composable in composition while the user is in Chat, so a
-                    // Unit-keyed LaunchedEffect would not reliably re-fire on return. A
-                    // lifecycle observer catches the resume transition in both cases.
+                    // 仅当从用户发送过消息的会话返回时滚动到顶部。
+                    // 观察 NavBackStackEntry 的生命周期（ON_RESUME）而非
+                    // 组合键 effect：Compose Navigation 可能在此 composable 处于
+                    // 组合中的同时让用户停留在 Chat 中，因此以 Unit 为 key 的
+                    // LaunchedEffect 在返回时不会可靠地再次触发。生命周期观察者
+                    // 能在两种情况下都捕获到 resume 转换。
                     val lifecycleOwner = LocalLifecycleOwner.current
                     DisposableEffect(lifecycleOwner) {
                         val observer = LifecycleEventObserver { _, event ->
@@ -511,7 +511,7 @@ fun SessionListScreen(
                             }
                         }
 
-                        // Load more indicator at the bottom
+                        // 底部的"加载更多"指示器
                         if (viewModel.isLoadingMore) {
                             item {
                                 Box(
@@ -545,7 +545,7 @@ fun SessionListScreen(
         }
     }
 
-    // Open Project dialog
+    // 打开项目对话框
     if (showOpenProject) {
         OpenProjectDialog(
             viewModel = viewModel,
@@ -559,7 +559,7 @@ fun SessionListScreen(
         )
     }
 
-    // Quick new-session dialog (recent directories)
+    // 快速新建会话对话框（最近目录）
     if (showQuickNewSession) {
         NewSessionQuickDialog(
             sessions = uiState.sessions,
@@ -576,7 +576,7 @@ fun SessionListScreen(
         )
     }
 
-    // Base directory selector dialog
+    // 基础目录选择器对话框
     if (showBaseDirDialog) {
         OpenProjectDialog(
             viewModel = viewModel,
@@ -589,7 +589,7 @@ fun SessionListScreen(
         )
     }
 
-    // Rename dialog
+    // 重命名对话框
     if (showRenameDialog) {
         val renameParams = amoledDialogParams()
         val renameFocusRequester = remember { FocusRequester() }
@@ -637,7 +637,7 @@ fun SessionListScreen(
         }
     }
 
-    // Delete confirmation dialog
+    // 删除确认对话框
     if (showDeleteDialog) {
         val deleteParams = amoledDialogParams()
         BasicAlertDialog(
@@ -676,7 +676,7 @@ fun SessionListScreen(
         }
     }
 
-    // Session category picker dialog (assign / create / delete)
+    // 会话分类选择器对话框（分配 / 创建 / 删除）
     if (showCategoryPicker) {
         SessionCategoryPickerDialog(
             categories = categories,

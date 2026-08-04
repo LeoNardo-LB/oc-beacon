@@ -17,24 +17,24 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Aggregates live sessions across every currently-connected server.
+ * 聚合每个当前已连接服务器的活跃会话。
  *
- * This is the cross-server data source for the Cross-Server Favorites screen. It is kept
- * **independent of [EventDispatcher]** — the dispatcher is single-server oriented (state for the
- * active connection only), whereas this aggregator needs a per-server snapshot of every connected
- * server at once. Sessions are fetched via [SessionApi] REST calls.
+ * 这是跨服务器收藏屏幕的跨服务器数据源。它与
+ * **[EventDispatcher] 相互独立**——dispatcher 面向单服务器
+ *（仅维护活跃连接的状态），而此聚合器需要同时获取每个已连接服务器的
+ * 按服务器快照。会话通过 [SessionApi] REST 调用获取。
  *
- * Reactivity model:
- * - The only trigger is [SseConnectionManager.connectedServerIds] — when a server connects or
- *   disconnects, the map is rebuilt.
- * - Server configs are resolved once per rebuild via `servers.first()` (we do **not** subscribe to
- *   the servers flow, so routine health-check updates to [dev.leonardo.ocbeacon.domain.model.ServerConfig]
- *   do not cause redundant re-fetches).
- * - Per-server fetches run concurrently; a failure on one server yields an empty list without
- *   affecting the others.
+ * 响应式模型：
+ * - 唯一触发源是 [SseConnectionManager.connectedServerIds]——当某服务器
+ *   连接或断开时，map 会被重建。
+ * - 服务器配置在每次重建时通过 `servers.first()` 解析一次（我们**不**订阅
+ *   servers flow，因此 [dev.leonardo.ocbeacon.domain.model.ServerConfig] 的
+ *   常规健康检查更新不会导致冗余的重新拉取）。
+ * - 按服务器的拉取并发执行；某服务器失败返回空列表，不影响其他服务器。
  *
- * Emits `Map<serverId, List<Session>>`. Disconnected servers are absent from the map — callers
- * detect offline favorites via the `isConnected` flag derived from [SseConnectionManager.connectedServerIds].
+ * 发射 `Map<serverId, List<Session>>`。已断开的服务器不在 map 中——调用方
+ * 通过派生自 [SseConnectionManager.connectedServerIds] 的 `isConnected` 标志
+ * 检测离线收藏。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
@@ -44,8 +44,8 @@ class CrossServerSessionsAggregator @Inject constructor(
     private val sessionApi: SessionApi,
 ) {
     /**
-     * Per-server sessions for every currently-connected server.
-     * Key = serverId, Value = that server's sessions (empty list on fetch failure).
+     * 每个当前已连接服务器的按服务器会话。
+     * 键 = serverId，值 = 该服务器的会话（拉取失败时为空列表）。
      */
     val crossServerSessions: Flow<Map<String, List<Session>>> =
         sseConnectionManager.connectedServerIds

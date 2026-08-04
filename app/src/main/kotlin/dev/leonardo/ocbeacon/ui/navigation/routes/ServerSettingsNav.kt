@@ -3,8 +3,8 @@ package dev.leonardo.ocbeacon.ui.navigation.routes
 import androidx.navigation.NavBackStackEntry
 
 /**
- * Navigation route definition for the Server Settings screen.
- * Parameters: serverUrl, username, password, serverName, serverId
+ * 服务器设置页的导航路由定义。
+ * 参数：serverUrl, username, password, serverName, serverId
  */
 object ServerSettingsNav {
     const val ROUTE = "server_settings"

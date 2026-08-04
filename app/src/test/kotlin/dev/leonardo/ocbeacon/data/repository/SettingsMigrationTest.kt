@@ -5,11 +5,11 @@ import org.junit.Test
 import org.junit.Assert.assertEquals
 
 /**
- * Validates the legacy → new chat-density migration logic.
+ * 验证旧版 → 新版聊天密度迁移逻辑。
  *
- * The production equivalent lives in [SettingsDataStore.migrateDensity]
- * (returns "normal"/"compact" strings); this test asserts the decision table
- * itself, expressed via the [ChatDensity] enum for readability.
+ * 生产环境中的等价实现位于 [SettingsDataStore.migrateDensity]
+ * （返回 "normal"/"compact" 字符串）；本测试直接断言该决策表本身，
+ * 通过 [ChatDensity] 枚举表达以提高可读性。
  */
 class SettingsMigrationTest {
 

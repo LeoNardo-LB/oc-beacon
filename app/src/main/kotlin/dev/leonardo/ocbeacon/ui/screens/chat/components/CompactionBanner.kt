@@ -32,8 +32,8 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 
 /**
- * Banner showing context compaction in progress.
- * Displays "Compressing context..." with an animated indicator and reason.
+ * 显示上下文压缩进行中的横幅。
+ * 显示"正在压缩上下文..."及动画指示器和原因。
  */
 @Composable
 fun CompactionBanner(

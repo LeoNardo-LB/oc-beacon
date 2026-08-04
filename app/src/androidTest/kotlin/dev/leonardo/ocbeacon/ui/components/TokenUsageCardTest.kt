@@ -41,8 +41,8 @@ class TokenUsageCardTest {
                 totalCost = 0.0
             )
         }
-        // Should render without crashing even with zero values.
-        // Multiple "0" nodes exist (input, output, total), so verify at least one is displayed.
+        // 即使所有值为零也应当能渲染而不崩溃。
+        // 存在多个 "0" 节点（input、output、total），因此验证至少有一个被显示。
         composeTestRule.onAllNodesWithText("0").assertCountEquals(2).fetchSemanticsNodes().let {
             assert(it.isNotEmpty()) { "Expected at least one node with text '0' to be displayed" }
         }

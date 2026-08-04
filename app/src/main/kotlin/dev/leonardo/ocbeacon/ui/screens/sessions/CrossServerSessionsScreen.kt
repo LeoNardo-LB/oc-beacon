@@ -50,14 +50,13 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionCategoryStyle
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * Cross-server favorites screen. Lists every favorited session across all known servers,
- * showing live data when the server is connected and the persisted snapshot otherwise.
+ * 跨服务器收藏屏幕。列出所有已知服务器上的已收藏会话，
+ * 服务器已连接时显示实时数据，否则显示持久化的快照。
  *
- * @param onNavigateBack pop the screen.
- * @param onOpenSession invoked when the user taps a favorite whose server is connected.
- *        Receives the [CrossServerSessionItem] so the caller can route to the chat screen.
- * @param onConnectServer invoked when the user chooses to connect an offline server from the
- *        prompt dialog.
+ * @param onNavigateBack 弹出本屏幕。
+ * @param onOpenSession 用户点击服务器已连接的收藏时调用。
+ *        接收 [CrossServerSessionItem]，调用方可据此路由到聊天屏幕。
+ * @param onConnectServer 用户在提示对话框中选择连接离线服务器时调用。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +89,7 @@ fun CrossServerSessionsScreen(
         },
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            // Category filter row
+            // 分类过滤行
             if (state.filterCategories.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -161,7 +160,7 @@ fun CrossServerSessionsScreen(
         }
     }
 
-    // Offline prompt dialog
+    // 离线提示对话框
     offlinePromptItem?.let { item ->
         AlertDialog(
             onDismissRequest = { offlinePromptItem = null },
@@ -179,7 +178,7 @@ fun CrossServerSessionsScreen(
         )
     }
 
-    // Long-press action menu
+    // 长按操作菜单
     menuForItem?.let { item ->
         AlertDialog(
             onDismissRequest = { menuForItem = null },
@@ -202,7 +201,7 @@ fun CrossServerSessionsScreen(
         )
     }
 
-    // Category picker
+    // 分类选择器
     categoryPickerItem?.let { item ->
         SessionCategoryPickerDialog(
             categories = state.categories,
@@ -240,7 +239,7 @@ private fun CrossServerFavoriteCard(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Connection status / category icon
+            // 连接状态 / 分类图标
             val leadingIcon = item.category?.let { SessionCategoryStyle.icon(it.icon) }
                 ?: if (item.isConnected) Icons.Filled.Star else Icons.Filled.CloudOff
             val leadingTint = item.category?.let { SessionCategoryStyle.color(it.color) }

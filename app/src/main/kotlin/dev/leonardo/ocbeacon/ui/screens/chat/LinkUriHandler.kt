@@ -18,17 +18,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Creates a custom [UriHandler] that intercepts markdown link clicks.
+ * 创建自定义 [UriHandler]，拦截 markdown 链接点击。
  *
- * - Web links (http/https) → open browser via [Intent.ACTION_VIEW]
- * - Relative file paths → [onOpenFile] with resolved absolute path
- * - Relative directory paths → [onOpenDirectory] with resolved absolute path
- * - Absolute file paths → [onOpenFile]
- * - Absolute directory paths → Snackbar (only files supported)
+ * - Web 链接（http/https）→ 通过 [Intent.ACTION_VIEW] 打开浏览器
+ * - 相对文件路径 → [onOpenFile]（解析为绝对路径）
+ * - 相对目录路径 → [onOpenDirectory]（解析为绝对路径）
+ * - 绝对文件路径 → [onOpenFile]
+ * - 绝对目录路径 → Snackbar（仅支持文件）
  *
- * @param directory Session working directory for resolving relative paths
- * @param onOpenFile Callback to open a file (resolved path passed to FileViewerNav)
- * @param onOpenDirectory Callback to open a directory in the workspace tree
+ * @param directory 会话工作目录，用于解析相对路径
+ * @param onOpenFile 打开文件的回调（解析后的路径传递给 FileViewerNav）
+ * @param onOpenDirectory 在工作区树中打开目录的回调
  */
 @Composable
 fun rememberLinkUriHandler(
@@ -125,12 +125,12 @@ private fun handleLinkClick(
 }
 
 /**
- * Heuristic: a path is likely a directory if it ends with a separator
- * or its last segment has no dot (no file extension).
+ * 启发式判断：如果路径以分隔符结尾
+ * 或其最后一段没有点（无文件扩展名），则可能是目录。
  *
- * Known limitation: extensionless files (Makefile, Dockerfile, LICENSE)
- * are misclassified as directories. This is acceptable for v1 — the user
- * approved the heuristic approach over API pre-checks.
+ * 已知限制：无扩展名文件（Makefile、Dockerfile、LICENSE）
+ * 会被误判为目录。这在 v1 中可接受 —— 用户
+ * 批准了启发式方法而非 API 预检查。
  */
 private fun isLikelyDirectory(path: String): Boolean {
     if (path.endsWith("/") || path.endsWith("\\")) return true

@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 /**
- * Use case: observe the list of configured servers.
- * Delegates to [ServerRepository.getServersFlow].
+ * Use Case：观察已配置的服务器列表。
+ * 委托给 [ServerRepository.getServersFlow]。
  */
 class GetServerListUseCase @Inject constructor(
     private val serverRepository: ServerRepository

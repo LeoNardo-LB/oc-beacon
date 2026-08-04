@@ -7,7 +7,7 @@ import kotlinx.serialization.json.*
 private const val TAG = "SseClient"
 
 /**
- * Parses miscellaneous events that don't fit other categories:
+ * 解析不属于其他类别的杂项事件：
  * - todo.updated
  * - workspace.ready, workspace.failed
  * - file.edited, file.watcher.updated

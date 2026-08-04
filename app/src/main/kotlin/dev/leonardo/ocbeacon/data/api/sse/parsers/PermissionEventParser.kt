@@ -8,7 +8,7 @@ import kotlinx.serialization.json.*
 private const val TAG = "SseClient"
 
 /**
- * Parses permission events:
+ * 解析权限事件：
  * - permission.asked, permission.replied
  */
 class PermissionEventParser : SseEventParser {
@@ -26,7 +26,7 @@ class PermissionEventParser : SseEventParser {
                     val permission = props.str("permission")
                     val patterns = props["patterns"]?.jsonArray
                         ?.map { it.jsonPrimitive.content } ?: emptyList()
-                    // V2: always is Boolean; fallback to V1 List<String> for backward compat
+                    // V2：always 为 Boolean；回退到 V1 的 List<String> 以向后兼容
                     val always = props["always"]?.let { el ->
                         when {
                             el is JsonPrimitive -> el.booleanOrNull ?: false

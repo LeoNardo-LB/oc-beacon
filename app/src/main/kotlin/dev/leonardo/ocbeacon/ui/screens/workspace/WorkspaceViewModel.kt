@@ -100,13 +100,13 @@ class WorkspaceViewModel @Inject constructor(
     fun toggleExpand(path: String) {
         val state = _uiState.value
         when {
-            // Already expanded → collapse
+            // 已展开 → 折叠
             path in state.expandedDirs ->
                 _uiState.update { it.copy(expandedDirs = it.expandedDirs - path) }
-            // Cached but not expanded → expand (children already in tree from prior load)
+            // 已缓存但未展开 → 展开（children 已从之前的加载进入树中）
             path in dirCache ->
                 _uiState.update { it.copy(expandedDirs = it.expandedDirs + path) }
-            // Not loaded → trigger async load
+            // 未加载 → 触发异步加载
             else -> {
                 _uiState.update { it.copy(loadingDirs = it.loadingDirs + path) }
                 loadDirectory(path)
@@ -163,7 +163,7 @@ class WorkspaceViewModel @Inject constructor(
         _uiState.update { it.copy(showIgnored = !it.showIgnored) }
     }
 
-    // ============ Phase 2: Search ============
+    // ============ Phase 2：搜索 ============
 
     fun enterSearch() {
         _uiState.update {
@@ -213,7 +213,7 @@ class WorkspaceViewModel @Inject constructor(
         }
     }
 
-    /** Client-side filter for git changes (no network call). */
+    /** git 变更的客户端过滤（无网络调用）。 */
     fun filterGitChanges(query: String): List<VcsChange> {
         val changes = _uiState.value.gitChanges
         if (query.isBlank()) return changes

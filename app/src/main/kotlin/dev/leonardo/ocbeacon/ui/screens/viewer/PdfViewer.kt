@@ -44,14 +44,14 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 private const val TAG = "PdfViewer"
 
 /**
- * PDF viewer using PDF.js in WebView.
- * Loads base64-encoded PDF data and renders pages to canvas.
+ * 在 WebView 中使用 PDF.js 的 PDF 查看器。
+ * 加载 base64 编码的 PDF 数据并把页面渲染到 canvas。
  *
- * Key fix: `allowFileAccessFromFileURLs = true` enables pdf.js Web Worker
- * to load from `file://` protocol (required for rendering).
+ * 关键修复：`allowFileAccessFromFileURLs = true` 让 pdf.js Web Worker
+ * 能从 `file://` 协议加载（渲染必需）。
  *
- * @param base64Data Base64-encoded PDF content from API
- * @param visible Whether the viewer is visible
+ * @param base64Data 来自 API 的 base64 编码 PDF 内容
+ * @param visible 查看器是否可见
  * @param modifier Compose modifier
  */
 @SuppressLint("SetJavaScriptEnabled")
@@ -75,7 +75,7 @@ fun PdfViewer(
         base64Data.replace("\n", "").replace("\r", "")
     }
 
-    // Clean up WebView when composable leaves composition
+    // composable 离开组合时清理 WebView
     DisposableEffect(Unit) {
         onDispose {
             webViewRef?.apply {
@@ -98,8 +98,8 @@ fun PdfViewer(
                         javaScriptEnabled = true
                         allowFileAccess = true
                         allowContentAccess = false
-                        // CRITICAL: Allow Web Worker to load from file:// protocol.
-                        // Without this, pdf.js cannot create its worker and fails silently.
+                        // 关键：允许 Web Worker 从 file:// 协议加载。
+                        // 没有这一项，pdf.js 无法创建 worker 并静默失败。
                         allowFileAccessFromFileURLs = true
                         allowUniversalAccessFromFileURLs = true
                         builtInZoomControls = true
@@ -108,10 +108,9 @@ fun PdfViewer(
                         useWideViewPort = true
                     }
 
-                    // JS Interface for callbacks from pdf_viewer.html
-                    // NOTE: @JavascriptInterface methods run on WebView's JavaBridge
-                    // thread, NOT the main thread. Must post to main thread to safely
-                    // modify Compose state.
+                    // 用于接收 pdf_viewer.html 回调的 JS 接口
+                    // 注意：@JavascriptInterface 方法运行在 WebView 的 JavaBridge
+                    // 线程上，不是主线程。必须 post 到主线程才能安全修改 Compose 状态。
                     val mainHandler = Handler(Looper.getMainLooper())
 
                     addJavascriptInterface(
@@ -181,7 +180,7 @@ fun PdfViewer(
             }
         )
 
-        // ── Toolbar overlay (page navigation) ──
+        // ── 工具栏覆盖层（翻页） ──
         if (!isLoading && !hasError && totalPages > 0) {
             Surface(
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
@@ -228,7 +227,7 @@ fun PdfViewer(
             }
         }
 
-        // ── Loading indicator ──
+        // ── 加载指示器 ──
         if (isLoading && !hasError) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -238,7 +237,7 @@ fun PdfViewer(
             }
         }
 
-        // ── Error state ──
+        // ── 错误状态 ──
         if (hasError) {
             Column(
                 modifier = Modifier

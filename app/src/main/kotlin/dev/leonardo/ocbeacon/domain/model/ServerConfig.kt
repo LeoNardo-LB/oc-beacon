@@ -3,15 +3,15 @@ package dev.leonardo.ocbeacon.domain.model
 import kotlinx.serialization.Serializable
 
 /**
- * Server Configuration - stored server connection details
+ * 服务器配置 —— 存储的服务器连接详情
  */
 @Serializable
 data class ServerConfig(
     val id: String, // UUID
-    val url: String, // e.g. http://192.168.1.100:4096
+    val url: String, // 例如 http://192.168.1.100:4096
     val username: String = "opencode",
     val password: String? = null,
-    val name: String? = null, // User-friendly name
+    val name: String? = null, // 用户友好的名称
     val autoConnect: Boolean = false,
     val lastConnected: Long? = null,
     val isHealthy: Boolean = false
@@ -33,7 +33,7 @@ data class ServerConfig(
             if (explicitPort != -1) {
                 explicitPort
             } else {
-                parsed.defaultPort // 80 for http, 443 for https
+                parsed.defaultPort // http 为 80，https 为 443
             }
         } catch (e: Exception) {
             url.substringAfterLast(":").toIntOrNull() ?: 80
@@ -41,7 +41,7 @@ data class ServerConfig(
 }
 
 /**
- * Server Health - result of health check
+ * 服务器健康状态 —— 健康检查结果
  */
 @Serializable
 data class ServerHealth(

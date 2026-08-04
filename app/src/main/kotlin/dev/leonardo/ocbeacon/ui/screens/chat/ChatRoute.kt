@@ -6,12 +6,12 @@ import androidx.navigation.compose.composable
 import dev.leonardo.ocbeacon.ui.navigation.routes.ChatNav
 
 /**
- * Encapsulates the Chat screen's navigation route registration.
+ * 封装 Chat 屏幕的导航路由注册。
  *
- * Route pattern, arguments, and parameter extraction are provided by
- * [ChatNav] in the navigation routes package.
+ * 路由模式、参数和参数提取由
+ * 导航路由包中的 [ChatNav] 提供。
  *
- * Usage in NavGraph:
+ * 在 NavGraph 中的用法：
  * ```
  * NavGraphBuilder.chatScreen(
  *     onNavigateBack = { ... },

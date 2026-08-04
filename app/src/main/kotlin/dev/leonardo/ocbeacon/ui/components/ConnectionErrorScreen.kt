@@ -38,23 +38,23 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.delay
 
 /**
- * Full-screen error UI shown when the server is unreachable.
+ * 服务器不可达时显示的全屏错误 UI。
  *
- * Displays a CloudOff icon, the server name, a status message with retry
- * countdown, and (when the countdown expires) a retry button. Below the
- * main section, lists other available servers the user can switch to.
+ * 显示 CloudOff 图标、服务器名、带重试倒计时的状态消息，
+ * 以及（倒计时归零后）重试按钮。主区域下方列出其他可用服务器，
+ * 供用户切换。
  *
- * The countdown is driven by [LaunchedEffect] with a 1-second delay loop.
- * When [retryCountdown] > 0 a [LinearProgressIndicator] and countdown
- * text are shown; when it reaches 0 a retry [Button] appears instead.
+ * 倒计时由 [LaunchedEffect] 驱动，1 秒一次循环。
+ * 当 [retryCountdown] > 0 时显示 [LinearProgressIndicator] 和倒计时文本；
+ * 归零后改为显示重试 [Button]。
  *
- * @param serverName    Display name of the current (unreachable) server
- * @param statusMessage Description of the connection error
- * @param retryCountdown Seconds remaining before auto-retry; 0 shows the retry button
- * @param otherServers  List of other known servers the user may switch to
- * @param onRetryClick  Called when the user taps the retry button
- * @param onSwitchServer Called when the user selects another server from the list
- * @param modifier      Modifier for the root layout
+ * @param serverName    当前（不可达）服务器的显示名称
+ * @param statusMessage 连接错误的描述
+ * @param retryCountdown 自动重试前剩余秒数；为 0 时显示重试按钮
+ * @param otherServers  其他已知服务器列表，用户可切换过去
+ * @param onRetryClick  用户点击重试按钮时调用
+ * @param onSwitchServer 用户从列表选择其他服务器时调用
+ * @param modifier      根布局的 Modifier
  */
 @Composable
 fun ConnectionErrorScreen(
@@ -70,7 +70,7 @@ fun ConnectionErrorScreen(
         mutableIntStateOf(retryCountdown)
     }
 
-    // Countdown loop: decrement every second while > 0
+    // 倒计时循环：每秒递减，直到为 0
     LaunchedEffect(secondsRemaining) {
         if (secondsRemaining > 0) {
             delay(1000L)
@@ -88,7 +88,7 @@ fun ConnectionErrorScreen(
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // ── Error icon ──
+            // ── 错误图标 ──
             Icon(
                 imageVector = Icons.Filled.CloudOff,
                 contentDescription = stringResource(R.string.connection_error_title),
@@ -98,7 +98,7 @@ fun ConnectionErrorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Server name ──
+            // ── 服务器名 ──
             Text(
                 text = serverName,
                 style = MaterialTheme.typography.headlineSmall,
@@ -109,7 +109,7 @@ fun ConnectionErrorScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Status message ──
+            // ── 状态消息 ──
             Text(
                 text = statusMessage,
                 style = MaterialTheme.typography.bodyMedium,
@@ -119,7 +119,7 @@ fun ConnectionErrorScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ── Countdown progress or retry button ──
+            // ── 倒计时进度条或重试按钮 ──
             if (secondsRemaining > 0) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(0.6f),
@@ -140,7 +140,7 @@ fun ConnectionErrorScreen(
                 }
             }
 
-            // ── Other servers section ──
+            // ── 其他服务器区 ──
             if (otherServers.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(32.dp))
 

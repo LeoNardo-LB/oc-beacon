@@ -1,32 +1,32 @@
 package dev.leonardo.ocbeacon.domain.model
 
 /**
- * Pure-function Finite State Machine for session status.
+ * 会话状态的纯函数有限状态机。
  *
- * Two-layer architecture:
- * - Layer 1 (Core): Idle / Busy / Retry — mirrors server's SessionStatus
- * - Layer 2 (Activity): Waiting / Streaming / ToolCalling / Compacting — derived detail
+ * 两层架构：
+ * - 第 1 层（Core）：Idle / Busy / Retry —— 镜像服务器的 SessionStatus
+ * - 第 2 层（Activity）：Waiting / Streaming / ToolCalling / Compacting —— 派生详情
  *
- * Statelessness: This object holds no mutable state. All state lives in
- * [dev.leonardo.ocbeacon.data.repository.SessionStateService]'s Map<sessionId, SessionFSMState>.
+ * 无状态性：此对象不持有任何可变状态。所有状态都保存在
+ * [dev.leonardo.ocbeacon.data.repository.SessionStateService] 的 Map<sessionId, SessionFSMState> 中。
  *
- * Testability: transition() is a pure function — given (state, event), always
- * produces the same TransitionResult. No side effects.
+ * 可测试性：transition() 是纯函数 —— 给定 (state, event)，始终
+ * 产生相同的 TransitionResult。无副作用。
  */
 object SessionStateFSM {
 
     data class TransitionResult(
         val newState: SessionFSMState,
-        /** True if the transition indicates a likely lost SSE event (e.g., Activity event in Idle state) */
+        /** 若该转移提示可能丢失了 SSE 事件则为 true（例如 Idle 状态下出现 Activity 事件） */
         val isSuspicious: Boolean,
-        /** True if incomplete message markers should be force-completed (e.g., abort, REST confirms Idle) */
+        /** 若应强制完成未完成的消息标记则为 true（例如 abort、REST 确认 Idle） */
         val forceComplete: Boolean
     )
 
     fun transition(state: SessionFSMState, event: FsmEvent): TransitionResult {
         val now = System.currentTimeMillis()
         return when (event) {
-            // === Core events ===
+            // === Core 事件 ===
             FsmEvent.ClientSendParts -> clientSendParts(state, now)
             FsmEvent.ClientAbort -> toIdle(state, now, forceComplete = true)
             is FsmEvent.SseStatus -> handleSseStatus(state, event.status, now)
@@ -34,7 +34,7 @@ object SessionStateFSM {
             is FsmEvent.SseError -> toIdle(state, now, forceComplete = true)
             is FsmEvent.RestValidation -> restValidation(state, event.status, now)
 
-            // === Activity events (session.next.*) ===
+            // === Activity 事件（session.next.*）===
             FsmEvent.StepStarted -> activityEvent(state, now) { it.copy(activity = SessionActivity.Waiting) }
             FsmEvent.TextStarted -> activityEvent(state, now) { it.copy(activity = SessionActivity.Streaming) }
             is FsmEvent.TextDelta -> activityEvent(state, now) {
@@ -121,7 +121,7 @@ object SessionStateFSM {
     )
 
     /**
-     * Activity events: valid only when Core is Busy; otherwise suspicious (likely missed Busy).
+     * Activity 事件：仅当 Core 为 Busy 时有效；否则视为可疑（很可能错过了 Busy）。
      */
     private inline fun activityEvent(
         state: SessionFSMState,

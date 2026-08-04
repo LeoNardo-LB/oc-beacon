@@ -41,9 +41,9 @@ import dev.leonardo.ocbeacon.ui.screens.workspace.flattenTree
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * File tree panel: renders the workspace as a flattened, depth-indented list.
- * Directories can be expanded/collapsed via [onToggleExpand]; sub-directory
- * children are lazily loaded on first expansion.
+ * 文件树面板：将工作区渲染为扁平化、按深度缩进的列表。
+ * 目录可通过 [onToggleExpand] 展开/折叠；子目录
+ * 在首次展开时懒加载。
  */
 @Composable
 fun FileTreePanel(
@@ -112,10 +112,10 @@ fun FileTreePanel(
 }
 
 /**
- * Single row in the file tree.
- * - Directories invoke [onToggleExpand] with their path and show an expand/collapse arrow.
- * - Files invoke [onOpenFile] with their path.
- * - When [isLoading] is true (sub-directory being fetched), a small spinner replaces the arrow.
+ * 文件树中的单行。
+ * - 目录以其路径调用 [onToggleExpand]，并显示展开/折叠箭头。
+ * - 文件以其路径调用 [onOpenFile]。
+ * - 当 [isLoading] 为 true（正在拉取子目录）时，一个小型加载指示器替代箭头。
  */
 @Composable
 fun FileTreeItem(
@@ -138,8 +138,8 @@ fun FileTreeItem(
             .padding(vertical = SpacingTokens.SM.dp, horizontal = SpacingTokens.MD.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Folder/file icon — folders use FolderOpen/Folder to show expand state.
-        // Loading state dims the icon slightly (no separate spinner).
+        // 文件夹/文件图标 — 文件夹使用 FolderOpen/Folder 显示展开状态。
+        // 加载状态会略微降低图标透明度（没有单独的加载指示器）。
         Icon(
             imageVector = when {
                 isDirectory && isExpanded -> Icons.Filled.FolderOpen

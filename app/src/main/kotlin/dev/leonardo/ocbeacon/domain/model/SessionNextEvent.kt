@@ -9,9 +9,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Discriminator serializer for SessionNextEvent.
- * Uses the "type" field to select the correct variant.
- * Falls back to [SessionNextEvent.Unknown] for unrecognized types.
+ * SessionNextEvent 的判别式序列化器。
+ * 使用 "type" 字段选择正确的变体。
+ * 对于未识别的类型，回退到 [SessionNextEvent.Unknown]。
  */
 object SessionNextEventSerializer : JsonContentPolymorphicSerializer<SessionNextEvent>(SessionNextEvent::class) {
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<SessionNextEvent> {
@@ -48,24 +48,24 @@ object SessionNextEventSerializer : JsonContentPolymorphicSerializer<SessionNext
 }
 
 /**
- * Fine-grained session event types for real-time status tracking.
- * Events use the `session.next.{category}.{action}` naming convention.
- * Parsed from SSE stream when type starts with "session.next.".
+ * 用于实时状态跟踪的细粒度会话事件类型。
+ * 事件采用 `session.next.{category}.{action}` 命名约定。
+ * 当 SSE 流中 type 以 "session.next." 开头时解析。
  */
 @Serializable(with = SessionNextEventSerializer::class)
 sealed class SessionNextEvent {
     abstract val sessionId: String
 
-    // ============ Agent / Model Switching ============
+    // ============ Agent / Model 切换 ============
 
-    /** Agent was switched for this session. */
+    /** 此会话切换了 Agent。 */
     @Serializable
     data class AgentSwitched(
         @SerialName("sessionID") override val sessionId: String,
         val agent: String
     ) : SessionNextEvent()
 
-    /** Model was switched for this session. */
+    /** 此会话切换了 Model。 */
     @Serializable
     data class ModelSwitched(
         @SerialName("sessionID") override val sessionId: String,
@@ -73,7 +73,7 @@ sealed class SessionNextEvent {
         @SerialName("modelID") val modelId: String
     ) : SessionNextEvent()
 
-    // ============ Text Streaming ============
+    // ============ 文本流 ============
 
     @Serializable
     data class TextStarted(
@@ -97,7 +97,7 @@ sealed class SessionNextEvent {
         @SerialName("partID") val partId: String
     ) : SessionNextEvent()
 
-    // ============ Reasoning Streaming ============
+    // ============ 推理流 ============
 
     @Serializable
     data class ReasoningStarted(
@@ -121,7 +121,7 @@ sealed class SessionNextEvent {
         @SerialName("partID") val partId: String
     ) : SessionNextEvent()
 
-    // ============ Tool Execution ============
+    // ============ 工具执行 ============
 
     @Serializable
     data class ToolInputStarted(
@@ -187,7 +187,7 @@ sealed class SessionNextEvent {
         val error: String = ""
     ) : SessionNextEvent()
 
-    // ============ Step Lifecycle ============
+    // ============ Step 生命周期 ============
 
     @Serializable
     data class StepStarted(
@@ -215,6 +215,7 @@ sealed class SessionNextEvent {
 
     // ============ Shell ============
 
+
     @Serializable
     data class ShellStarted(
         @SerialName("sessionID") override val sessionId: String,
@@ -231,7 +232,7 @@ sealed class SessionNextEvent {
         val exitCode: Int = 0
     ) : SessionNextEvent()
 
-    // ============ Compaction ============
+    // ============ 压缩 ============
 
     @Serializable
     data class CompactionStarted(
@@ -253,7 +254,7 @@ sealed class SessionNextEvent {
         @SerialName("messageID") val messageId: String
     ) : SessionNextEvent()
 
-    // ============ Other ============
+    // ============ 其他 ============
 
     @Serializable
     data class Prompted(
@@ -274,7 +275,7 @@ sealed class SessionNextEvent {
         @SerialName("messageID") val messageId: String
     ) : SessionNextEvent()
 
-    /** Fallback for unrecognized session.next.* event types. */
+    /** 未识别的 session.next.* 事件类型的回退。 */
     @Serializable
     data class Unknown(
         val rawType: String = "",

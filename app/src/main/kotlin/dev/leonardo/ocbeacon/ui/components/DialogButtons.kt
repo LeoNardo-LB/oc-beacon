@@ -16,11 +16,11 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 
 /**
- * Role of a button inside a dialog.
+ * 对话框中按钮的角色。
  *
- * - [Primary]:   Main action (confirm, save, create). Filled Button with primary color.
- * - [Secondary]: Cancel / dismiss. OutlinedButton with Material 3 default colors.
- * - [Danger]:    Destructive action (delete, revert). Filled Button with error color.
+ * - [Primary]：   主要操作（确认、保存、创建）。填充 Button，使用 primary 色。
+ * - [Secondary]：取消 / 关闭。OutlinedButton，使用 Material 3 默认颜色。
+ * - [Danger]：    破坏性操作（删除、回滚）。填充 Button，使用 error 色。
  */
 enum class DialogButtonRole {
     Primary,
@@ -29,14 +29,14 @@ enum class DialogButtonRole {
 }
 
 /**
- * Unified dialog button row.
+ * 统一的对话框按钮行。
  *
- * Layout rules:
- * - 1 button: single Row, right-aligned
- * - 2 buttons: Row, horizontal, right-aligned
- * - 3+ buttons: Column, vertical, full-width
+ * 布局规则：
+ * - 1 个按钮：单 Row，右对齐
+ * - 2 个按钮：Row，水平排列，右对齐
+ * - 3 个及以上：Column，垂直排列，全宽
  *
- * @param buttons List of (label, role, onClick) triples.
+ * @param buttons (label, role, onClick) 三元组列表。
  */
 @Composable
 fun DialogButtons(

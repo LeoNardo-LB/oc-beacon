@@ -4,8 +4,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import org.junit.Rule
 
 /**
- * Base mixin providing a Compose test rule.
- * Use this in any instrumented test that needs to test Compose UI.
+ * 提供 Compose test rule 的基础 mixin。
+ * 任何需要测试 Compose UI 的插桩测试都可使用此接口。
  */
 interface ComposeTestRule {
     @get:Rule

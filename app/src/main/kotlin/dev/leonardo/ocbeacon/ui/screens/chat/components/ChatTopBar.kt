@@ -83,7 +83,7 @@ fun ChatTopBar(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                // Subtitle: session working directory (hidden when empty)
+                // 副标题：会话工作目录（为空时隐藏）
                 if (directory.isNotBlank()) {
                     Text(
                         text = directory,
@@ -101,7 +101,7 @@ fun ChatTopBar(
             }
         },
         actions = {
-            // Context progress indicator — shown for both parent and child sessions
+            // 上下文进度指示器 —— 父会话和子会话都显示
             val showContext = contextWindow > 0 && lastContextTokens > 0
             if (showContext) {
                 val percentage = Math.round(lastContextTokens.toDouble() / contextWindow * 100).toInt()
@@ -132,7 +132,7 @@ fun ChatTopBar(
                 }
             }
 
-            // Context detail dialog — shown for both parent and child sessions
+            // 上下文详情对话框 —— 父会话和子会话都显示
             if (showContextDialog) {
                 ContextDetailDialog(
                     state = contextDetail,
@@ -140,7 +140,7 @@ fun ChatTopBar(
                 )
             }
 
-            // Dropdown menu — parent sessions only
+            // 下拉菜单 —— 仅父会话显示
             if (sessionParentId == null) {
                 Box {
                     val isAmoled = isAmoledTheme()
@@ -237,7 +237,7 @@ fun ChatTopBar(
                                 Icon(Icons.Default.RateReview, contentDescription = stringResource(R.string.a11y_icon_rate_review))
                             },
                         )
-                        // Show Share or Unshare depending on current share status
+                        // 根据当前分享状态显示分享或取消分享
                         if (shareUrl != null) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.cmd_unshare)) },

@@ -43,7 +43,7 @@ fun GeneralSection(
         modifier = Modifier.clickable { onShowLanguageDialog() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    // Reconnect mode
+    // 重连模式
     ListItem(
         headlineContent = { Text(stringResource(R.string.settings_reconnect_mode)) },
         supportingContent = { Text(getReconnectModeDisplayName(reconnectMode)) },

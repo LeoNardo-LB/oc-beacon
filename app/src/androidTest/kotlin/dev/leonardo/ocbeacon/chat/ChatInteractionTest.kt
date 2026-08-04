@@ -27,11 +27,11 @@ import org.junit.Test
 import javax.inject.Inject
 
 /**
- * Integration tests for ChatScreen interaction behaviors.
+ * ChatScreen 交互行为的集成测试。
  *
- * Extends [BaseChatTest] for the standard Hilt + Compose setup pattern.
- * Each test configures fake repository state, renders ChatScreen, performs
- * UI interactions, and asserts expected outcomes.
+ * 继承 [BaseChatTest]，复用标准的 Hilt + Compose 搭建模式。
+ * 每个测试配置 fake repository 状态，渲染 ChatScreen，
+ * 执行 UI 交互，并断言预期结果。
  */
 @HiltAndroidTest
 class ChatInteractionTest : BaseChatTest() {
@@ -42,27 +42,27 @@ class ChatInteractionTest : BaseChatTest() {
     private val fakeServer: FakeServerRepository
         get() = providerRepo as FakeServerRepository
 
-    // ============ Helpers ============
+    // ============ 辅助方法 ============
 
     /**
-     * Seed messages so they appear in the UI.
+     * 注入消息，使其出现在 UI 中。
      *
-     * messageListState combines messages from messagesState with parts from
-     * allPartsMapState (keyed by messageId). partsState is used by
-     * startObservingMessages() internally but the UI reads allPartsMapState.
+     * messageListState 将 messagesState 中的消息与 allPartsMapState
+     * （以 messageId 为键）中的 parts 合并。partsState 由 startObservingMessages()
+     * 内部使用，但 UI 读取的是 allPartsMapState。
      */
     private fun seedMessages(vararg mwps: MessageWithParts) {
         fakeChat.messagesState.value = mwps.map { it.info }
         fakeChat.allPartsMapState.value = mwps.associate { it.info.id to it.parts }
     }
 
-    /** Seed messages from separate lists — convenience wrapper. */
+    /** 从独立的列表注入消息 — 便捷封装。 */
     private fun seedMessages(messages: List<Message>, parts: List<Part>) {
         fakeChat.messagesState.value = messages
         fakeChat.allPartsMapState.value = parts.groupBy { it.messageId }
     }
 
-    /** Seed a single user + assistant exchange with text parts. */
+    /** 注入一轮 user + assistant 的对话（带文本 parts）。 */
     private fun seedConversation() {
         val userMsg = aUserMessage("Hello", id = "u1")
         val assistantMsg = anAssistantMessage(id = "a1") {
@@ -75,13 +75,13 @@ class ChatInteractionTest : BaseChatTest() {
     }
 
     /**
-     * Seed a permission request that will surface as a PermissionCard.
+     * 注入一个权限请求，它将以 PermissionCard 形式呈现。
      *
-     * NOTE: The store key is "" because the ViewModel's sessionIdFlow is ""
-     * in instrumented tests (no navigation args reach savedStateHandle).
-     * interactionState calls getPermissionsWithChildren(sid, ...) where
-     * sid = sessionIdFlow.value = "". The event's own sessionId field is
-     * kept as TEST_SESSION for realism but the lookup key must match.
+     * 注意：存储键为 ""，因为在插桩测试中 ViewModel 的 sessionIdFlow 为 ""
+     * （没有导航参数到达 savedStateHandle）。interactionState 调用
+     * getPermissionsWithChildren(sid, ...)，其中 sid = sessionIdFlow.value = ""。
+     * 事件自身的 sessionId 字段保留为 TEST_SESSION 以贴近真实情况，
+     * 但查找键必须匹配。
      */
     private fun seedPermission(
         id: String = "perm-1",
@@ -97,9 +97,9 @@ class ChatInteractionTest : BaseChatTest() {
     }
 
     /**
-     * Seed a question that will surface as a QuestionCard.
+     * 注入一个问题，它将以 QuestionCard 形式呈现。
      *
-     * NOTE: Store key is "" — see seedPermission() for rationale.
+     * 注意：存储键为 "" — 原因见 seedPermission()。
      */
     private fun seedQuestion(
         id: String = "q-1",
@@ -124,16 +124,14 @@ class ChatInteractionTest : BaseChatTest() {
     }
 
     /**
-     * Activate the SSE message observation pipeline.
+     * 激活 SSE 消息观察管线。
      *
-     * For new sessions (sessionId=""), startObservingMessages() is only called
-     * after ensureSession(), which happens on first send. This helper sends a
-     * trivial message to activate the observation pipeline so seeded messages
-     * become visible in the UI.
+     * 对于新会话（sessionId=""），startObservingMessages() 仅在 ensureSession()
+     * 之后才被调用，而 ensureSession() 发生在首次发送时。此辅助方法发送一条
+     * 简单消息以激活观察管线，使注入的消息在 UI 中可见。
      *
-     * IMPORTANT: After this call, sessionId changes from "" to the created
-     * session's ID. Do NOT use for tests that rely on sessionId="" (e.g.
-     * permission/question lookups).
+     * 重要：调用此方法后，sessionId 会从 "" 变为所创建会话的 ID。
+     * 不要在依赖 sessionId="" 的测试中使用（例如权限/问题查找）。
      */
     private fun activateMessageStream() {
         typeInput(".")
@@ -144,14 +142,14 @@ class ChatInteractionTest : BaseChatTest() {
         composeRule.waitForIdle()
     }
 
-    // ============ Tests ============
+    // ============ 测试用例 ============
 
     /**
-     * Test 1: Typing text and tapping send clears the input and records the message.
+     * 测试 1：输入文本并点击发送会清空输入框并记录消息。
      *
-     * The send path: ChatInputBar.onSend → ChatScreen doSend() →
+     * 发送路径：ChatInputBar.onSend → ChatScreen doSend() →
      * viewModel.sendMessage(parts) → sendParts() → SendMessageUseCase.sendPrompt() →
-     * chatRepository.promptAsync().
+     * chatRepository.promptAsync()。
      */
     @Test
     fun sendMessage_clearsInput() {
@@ -160,34 +158,33 @@ class ChatInteractionTest : BaseChatTest() {
 
         typeInput("hello world")
 
-        // Tap the send button (testTag "chat-send")
+        // 点击发送按钮（testTag 为 "chat-send"）
         composeRule.onNodeWithTag("chat-send").performClick()
 
-        // Wait for the async send (promptAsync) to complete
+        // 等待异步发送（promptAsync）完成
         composeRule.waitUntil(timeoutMillis = 10_000) {
             fakeChat.promptAsyncCalls.isNotEmpty()
         }
 
-        // The fake should have recorded exactly one promptAsync call
+        // fake 应当恰好记录了一次 promptAsync 调用
         assert(fakeChat.promptAsyncCalls.size == 1) {
             "Expected 1 promptAsync call, got ${fakeChat.promptAsyncCalls.size}"
         }
     }
 
     /**
-     * Test 3: Context usage indicator appears when token stats are available.
+     * 测试 3：当 token 统计可用时，上下文用量指示器出现。
      *
-     * The ChatTopBar shows a CircularProgressIndicator with percentage when
-     * contextWindow > 0 and lastContextTokens > 0.
+     * 当 contextWindow > 0 且 lastContextTokens > 0 时，ChatTopBar 会显示
+     * 一个带百分比的 CircularProgressIndicator。
      *
-     * TokenStatsTracker is a @Singleton injected by Hilt — the same instance
-     * is shared between the test and the ViewModel. We set the stats after
-     * render (init calls reset()) and configure a provider catalog so
-     * modelConfig.contextWindow resolves to a non-zero value.
+     * TokenStatsTracker 是由 Hilt 注入的 @Singleton —— 测试与 ViewModel
+     * 共享同一实例。我们在渲染后设置统计值（init 会调用 reset()），
+     * 并配置 provider catalog，使 modelConfig.contextWindow 解析为非零值。
      */
     @Test
     fun contextUsageBar_shows_whenTokenStatsAvailable() {
-        // Provider with a model that has a context window
+        // 配置一个拥有上下文窗口的模型的 Provider
         val testProvider = ProviderCatalog(
             id = "ctx-provider",
             name = "Ctx Provider",
@@ -209,13 +206,13 @@ class ChatInteractionTest : BaseChatTest() {
         renderChatScreen()
         composeRule.waitForIdle()
 
-        // Set token stats after ViewModel init (which calls tokenStatsTracker.reset())
+        // 在 ViewModel init 之后设置 token 统计（init 会调用 tokenStatsTracker.reset()）
         // percentage = round(64000 / 128000 * 100) = 50
         tokenStatsTracker.update {
             copy(lastContextTokens = 64000)
         }
 
-        // Wait for context indicator to render (needs providers loaded + token stats set)
+        // 等待上下文指示器渲染（需要 providers 已加载 + token 统计已设置）
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("50").fetchSemanticsNodes().isNotEmpty()
         }
@@ -224,11 +221,10 @@ class ChatInteractionTest : BaseChatTest() {
     }
 
     /**
-     * Test 5: Typing /undo shows the undo suggestion without crashing.
+     * 测试 5：输入 /undo 显示撤销建议且不崩溃。
      *
-     * The SlashCommandRegistry registers "undo" as a client command. Typing
-     * "/undo" filters suggestions to match. Full undo verification is deferred
-     * to ViewModel-level unit tests.
+     * SlashCommandRegistry 将 "undo" 注册为客户端命令。输入 "/undo" 会
+     * 过滤出匹配的建议。完整的撤销验证推迟到 ViewModel 层级的单元测试。
      */
     @Test
     fun undo_callsUndoRedo() {
@@ -238,27 +234,26 @@ class ChatInteractionTest : BaseChatTest() {
 
         typeInput("/undo")
 
-        // Verify typing worked: send button exists when input is non-empty
+        // 验证输入生效：输入非空时发送按钮存在
         composeRule.onNodeWithTag("chat-send").assertExists()
     }
 
     /**
-     * Test 6: Abort/stop button calls abort API when session is busy.
+     * 测试 6：会话忙碌时，中止/停止按钮会调用 abort API。
      *
-     * The send button transforms into a stop button when isBusy && text is blank.
-     * isBusy is derived from sessionMeta.sessionStatus (Busy or Retry).
+     * 当 isBusy && 文本为空时，发送按钮转换为停止按钮。
+     * isBusy 派生自 sessionMeta.sessionStatus（Busy 或 Retry）。
      *
-     * We inject SessionStateService (a @Singleton) and call onClientSendParts("")
-     * to transition the FSM to Busy for sessionId="" — the same instance the
-     * ViewModel reads from.
+     * 我们注入 SessionStateService（一个 @Singleton），并调用 onClientSendParts("")
+     * 将 sessionId="" 的 FSM 转移到 Busy —— 该实例与 ViewModel 读取的是同一实例。
      */
     @Test
     fun abortSession_callsAbortApi() {
-        // Set session status to Busy so the stop button appears.
-        // sessionStateService is @Singleton — same instance the ViewModel uses.
+        // 将会话状态设置为 Busy，使停止按钮出现。
+        // sessionStateService 是 @Singleton —— 与 ViewModel 使用的是同一实例。
         sessionStateService.onClientSendParts("")
 
-        // Seed a streaming assistant message so the session looks active
+        // 注入一条流式 assistant 消息，使会话看起来处于活跃状态
         val streamingMsg = anAssistantMessage(streaming = true, id = "a-stream") {
             text("Generating...")
         }
@@ -267,8 +262,8 @@ class ChatInteractionTest : BaseChatTest() {
         renderChatScreen()
         composeRule.waitForIdle()
 
-        // The stop button shows when isBusy && input text is blank.
-        // It has contentDescription "Stop" (R.string.chat_stop).
+        // 停止按钮在 isBusy && 输入文本为空时显示。
+        // 其 contentDescription 为 "Stop"（R.string.chat_stop）。
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithContentDescription("Stop")
                 .fetchSemanticsNodes().isNotEmpty()
@@ -278,7 +273,7 @@ class ChatInteractionTest : BaseChatTest() {
         composeRule.waitForIdle()
 
         // abortSession() → sessionRepository.abort(serverId, sessionId, directory)
-        // sessionId is "" in tests (from sessionIdFlow).
+        // 测试中 sessionId 为 ""（来自 sessionIdFlow）。
         composeRule.waitUntil(timeoutMillis = 10_000) {
             fakeSession.abortCalls.isNotEmpty()
         }
@@ -288,10 +283,10 @@ class ChatInteractionTest : BaseChatTest() {
     }
 
     /**
-     * Test 7: Permission card appears when a permission is requested.
+     * 测试 7：请求权限时，权限卡片出现。
      *
-     * interactionState (7-way combine) calls getPermissionsWithChildren(sid, ...)
-     * where sid = sessionIdFlow.value = "". Data stored under "" key is found.
+     * interactionState（7 路 combine）调用 getPermissionsWithChildren(sid, ...)，
+     * 其中 sid = sessionIdFlow.value = ""。存储在 "" 键下的数据会被找到。
      */
     @Test
     fun permissionDialog_appears_whenPermissionRequested() {
@@ -300,9 +295,9 @@ class ChatInteractionTest : BaseChatTest() {
         renderChatScreen()
         composeRule.waitForIdle()
 
-        // Wait for the interactionState flow (7-way combine) to propagate
-        // the permission into pendingPermissions and render PermissionCard.
-        // PermissionCard renders R.string.permission_title = "Permission Required"
+        // 等待 interactionState flow（7 路 combine）将权限传播到
+        // pendingPermissions 并渲染 PermissionCard。
+        // PermissionCard 渲染 R.string.permission_title = "Permission Required"
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Permission Required")
                 .fetchSemanticsNodes().isNotEmpty()
@@ -310,12 +305,12 @@ class ChatInteractionTest : BaseChatTest() {
 
         composeRule.onNodeWithText("Permission Required").assertIsDisplayed()
 
-        // The permission description should also be visible
+        // 权限描述也应当可见
         composeRule.onNodeWithText("bash echo hello", substring = true).assertIsDisplayed()
     }
 
     /**
-     * Test 8: Question card appears when a question is asked.
+     * 测试 8：提出问题时，问题卡片出现。
      */
     @Test
     fun questionDialog_appears_whenQuestionAsked() {
@@ -324,9 +319,9 @@ class ChatInteractionTest : BaseChatTest() {
         renderChatScreen()
         composeRule.waitForIdle()
 
-        // Wait for the interactionState flow to propagate the question into
-        // pendingQuestions and render QuestionCard.
-        // QuestionCard renders R.string.chat_question_label = "Question"
+        // 等待 interactionState flow 将问题传播到 pendingQuestions
+        // 并渲染 QuestionCard。
+        // QuestionCard 渲染 R.string.chat_question_label = "Question"
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Question")
                 .fetchSemanticsNodes().isNotEmpty()
@@ -334,29 +329,29 @@ class ChatInteractionTest : BaseChatTest() {
 
         composeRule.onNodeWithText("Question").assertIsDisplayed()
 
-        // The question text should also be visible
+        // 问题文本也应当可见
         composeRule.onNodeWithText("Which framework?", substring = true).assertIsDisplayed()
     }
 
     /**
-     * Test 9: Scrolling up triggers pagination (loadOlderMessages).
+     * 测试 9：向上滚动触发分页（loadOlderMessages）。
      *
-     * ChatMessageList uses auto-pagination: when the user scrolls within 8 items
-     * of the top, viewModel.loadOlderMessages() is called.
+     * ChatMessageList 使用自动分页：当用户滚动到距顶部 8 条以内时，
+     * 会调用 viewModel.loadOlderMessages()。
      *
-     * NOTE: For new sessions (sessionId=""), loadMessagesForSession() is never
-     * called during init, so hasOlderMessages stays false and pagination cannot
-     * trigger. To make this test pass, either:
-     * 1. Provide a non-empty sessionId via SavedStateHandle in the test harness
-     * 2. Add a test-visible method to force-set hasOlderMessages
-     * 3. Mock the SessionLifecycleDelegate to treat sessionId as non-empty
+     * 注意：对于新会话（sessionId=""），init 期间永远不会调用
+     * loadMessagesForSession()，因此 hasOlderMessages 保持为 false，
+     * 分页无法触发。要让此测试通过，可以：
+     * 1. 通过测试框架中的 SavedStateHandle 提供非空的 sessionId
+     * 2. 添加一个测试可见的方法来强制设置 hasOlderMessages
+     * 3. Mock SessionLifecycleDelegate，将 sessionId 视为非空
      *
-     * Kept @Ignore until one of these approaches is implemented.
+     * 在实现以上任一方案之前，保持 @Ignore。
      */
     @org.junit.Ignore("Pagination needs hasOlderMessages=true, which requires loadMessagesForSession() to run. For new sessions (sessionId=\"\"), init skips this — hasOlderMessages stays false. Fix: provide non-empty sessionId via SavedStateHandle test harness, or add a test hook to set hasOlderMessages directly.")
     @Test
     fun pagination_triggersOnScrollUp() {
-        // Generate many messages
+        // 生成大量消息
         val messages = mutableListOf<Message>()
         for (i in 1..30) {
             messages.add(aUserMessage("Message $i", id = "u$i"))
@@ -372,23 +367,23 @@ class ChatInteractionTest : BaseChatTest() {
         renderChatScreen()
         composeRule.waitForIdle()
 
-        // Activate message observation so messages become visible
+        // 激活消息观察，使消息可见
         activateMessageStream()
 
-        // Wait for at least one message to render
+        // 等待至少一条消息渲染
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithText("Message", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        // Scroll up (reverseLayout=true: swipeDown reveals older messages at top)
+        // 向上滚动（reverseLayout=true：swipeDown 在顶部揭示更早的消息）
         val messageNodes = composeRule.onAllNodesWithText("Message", substring = true)
         messageNodes[0].performTouchInput {
             repeat(5) { swipeDown() }
         }
         composeRule.waitForIdle()
 
-        // Pagination should trigger loadOlderMessages() which calls listMessages
-        // with a doubled limit. Without hasOlderMessages=true, this won't fire.
+        // 分页应当触发 loadOlderMessages()，它会以翻倍的 limit 调用 listMessages。
+        // 若没有 hasOlderMessages=true，则不会触发。
     }
 }

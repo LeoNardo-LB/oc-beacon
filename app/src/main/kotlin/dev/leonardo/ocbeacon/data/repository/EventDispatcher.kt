@@ -20,12 +20,12 @@ import kotlin.reflect.KClass
 private const val TAG = "EventDispatcher"
 
 /**
- * Event Dispatcher - replaces the monolithic EventReducer.
+ * 事件分发器——替代单体 EventReducer。
  *
- * Delegates SSE events to registered [SseEventHandler] instances.
- * Exposes read-only StateFlows aggregated from handlers.
- * Handles cross-cutting concerns (e.g. SessionDeleted cascading cleanup,
- * CommandExecuted session status reset).
+ * 将 SSE 事件委托给已注册的 [SseEventHandler] 实例。
+ * 暴露从各 handler 聚合的只读 StateFlow。
+ * 处理横切关注点（例如 SessionDeleted 级联清理、
+ * CommandExecuted 会话状态重置）。
  */
 @Singleton
 class EventDispatcher @Inject constructor(
@@ -41,9 +41,9 @@ class EventDispatcher @Inject constructor(
     private val sessionStateService: SessionStateService,
 ) {
     init {
-        // SessionStateService callbacks — wired here to break the circular dep
-        // (EventDispatcher ← SessionStateService via Provider, but callbacks
-        // need messageHandler which lives in EventDispatcher's scope).
+        // SessionStateService 回调——在此接线以打破循环依赖
+        //（EventDispatcher ← SessionStateService 经由 Provider，但回调
+        // 需要 messageHandler，它位于 EventDispatcher 的作用域内）。
         sessionStateService.incompleteChecker = IncompleteAssistantChecker { sessionId ->
             hasIncompleteAssistant(sessionId)
         }
@@ -59,25 +59,25 @@ class EventDispatcher @Inject constructor(
     }
 
     /**
-     * Tracks which serverId "owns" each session for SSE event processing.
+     * 跟踪每个会话由哪个 serverId"拥有"，用于 SSE 事件处理。
      *
-     * When two server configs point to the same backend (same OpenCode serve
-     * instance), both SSE connections deliver identical global events. Without
-     * ownership tracking, append-style events like [SseEvent.MessagePartDelta]
-     * would be applied twice, doubling the streaming text output.
+     * 当两个服务器配置指向同一后端（同一 OpenCode serve 实例）时，
+     * 两条 SSE 连接都会投递相同的全局事件。若无所有权跟踪，
+     * 像 [SseEvent.MessagePartDelta] 这样的追加式事件会被应用两次，
+     * 使流式文本输出翻倍。
      *
-     * The first server to deliver an event for a session claims ownership.
-     * Events for that session from any other serverId are skipped.
-     * Ownership is released on [clearForServer], [clearAll], or [SseEvent.SessionDeleted].
+     * 首个为某会话投递事件的服务器获得所有权。
+     * 来自任何其他 serverId 的该会话事件会被跳过。
+     * 所有权在 [clearForServer]、[clearAll] 或 [SseEvent.SessionDeleted] 时释放。
      */
     private val streamingSessionOwners = java.util.concurrent.ConcurrentHashMap<String, String>()
 
-    // ============ Event Handler Registry (Open/Closed Principle) ============
-    // Maps each SseEvent subclass to its single responsible handler.
-    // To support a new event domain: add a bind() call below. processEvent itself
-    // never changes — it just looks up this map. This replaces the previous
-    // broadcast model where every event was sent to all 6 handlers and each
-    // handler filtered internally via its own `when` block.
+    // ============ 事件处理器注册表（开闭原则）============
+    // 将每个 SseEvent 子类映射到其唯一负责的 handler。
+    // 要支持新的事件域：在下方添加 bind() 调用。processEvent 本身
+    // 永不改变——它只是查找此 map。这替代了之前的广播模型，
+    // 即每个事件都发送给全部 6 个 handler，每个 handler 再通过自身的
+    // `when` 块在内部过滤。
     private val registry: Map<KClass<out SseEvent>, SseEventHandler> = buildRegistry()
 
     private fun buildRegistry(): Map<KClass<out SseEvent>, SseEventHandler> {
@@ -85,7 +85,7 @@ class EventDispatcher @Inject constructor(
         fun bind(handler: SseEventHandler, vararg events: KClass<out SseEvent>) {
             for (e in events) map[e] = handler
         }
-        // Session lifecycle + server connection events → SessionEventHandler
+        // 会话生命周期 + 服务器连接事件 → SessionEventHandler
         bind(
             sessionHandler,
             SseEvent.ServerConnected::class, SseEvent.ServerHeartbeat::class,
@@ -96,9 +96,9 @@ class EventDispatcher @Inject constructor(
             SseEvent.SessionDiff::class, SseEvent.SessionCompacted::class,
             SseEvent.VcsBranchUpdated::class, SseEvent.ProjectUpdated::class
         )
-        // Messages → per-sub-event handlers. They share the MessageEventHandler
-        // state store (injected) but are registered independently so each
-        // message event type routes to its focused handler.
+        // 消息 → 按子事件的 handler。它们共享 MessageEventHandler
+        // 的状态存储（注入），但独立注册，使每种消息事件类型
+        // 都路由到其专注的 handler。
         bind(
             messageUpdatedHandler,
             SseEvent.MessageUpdated::class
@@ -112,18 +112,18 @@ class EventDispatcher @Inject constructor(
             SseEvent.MessagePartUpdated::class, SseEvent.MessagePartDelta::class,
             SseEvent.MessagePartRemoved::class
         )
-        // Permission → PermissionEventHandler
+        // 权限 → PermissionEventHandler
         bind(
             permissionHandler,
             SseEvent.PermissionAsked::class, SseEvent.PermissionReplied::class
         )
-        // Question → QuestionEventHandler
+        // 问题 → QuestionEventHandler
         bind(
             questionHandler,
             SseEvent.QuestionAsked::class, SseEvent.QuestionReplied::class,
             SseEvent.QuestionRejected::class
         )
-        // Misc (todo, command, pty, workspace, file, vcs, install, lsp) → MiscEventHandler
+        // 杂项（todo、command、pty、workspace、file、vcs、install、lsp）→ MiscEventHandler
         bind(
             miscHandler,
             SseEvent.TodoUpdated::class, SseEvent.CommandExecuted::class,
@@ -140,11 +140,11 @@ class EventDispatcher @Inject constructor(
         return map
     }
 
-    // ============ Public State (read-only) ============
+    // ============ 公共状态（只读）============
 
     val serverSessions: StateFlow<Map<String, Set<String>>> get() = sessionHandler.serverSessions
     val sessions: StateFlow<List<Session>> get() = sessionHandler.sessions
-    /** Facade over [SessionStateService.statusFlow] — the single source of truth for session status. */
+    /** [SessionStateService.statusFlow] 的门面——会话状态的单一真相源。 */
     val sessionStatuses: StateFlow<Map<String, SessionStatus>> get() = sessionStateService.statusFlow
     val messages: StateFlow<Map<String, List<Message>>> get() = messageHandler.messages
     val parts: StateFlow<Map<String, List<Part>>> get() = messageHandler.parts
@@ -156,7 +156,7 @@ class EventDispatcher @Inject constructor(
     val projectInfo: StateFlow<Project?> get() = sessionHandler.projectInfo
     val lastUserMessageTime: StateFlow<Map<String, Long>> get() = sessionHandler.lastUserMessageTime
 
-    // Session Next state
+    // Session Next 状态
     val currentAgent: StateFlow<Map<String, String>> get() = sessionNextHandler.currentAgent
     val currentModel: StateFlow<Map<String, Pair<String, String>>> get() = sessionNextHandler.currentModel
     val activeToolProgress: StateFlow<Map<String, List<ToolProgressInfo>>> get() = sessionNextHandler.activeToolProgress
@@ -166,22 +166,21 @@ class EventDispatcher @Inject constructor(
     val retryState: StateFlow<Map<String, Int>> get() = sessionNextHandler.retryState
     val gapDetected: StateFlow<Set<String>> get() = sessionNextHandler.gapDetected
 
-    // ============ Event Processing ============
+    // ============ 事件处理 ============
 
     /**
-     * Process an SSE event by dispatching to all handlers.
-     * Handles cross-cutting concerns after dispatch:
-     * - SessionDeleted: cascades cleanup to all handlers for the deleted session
-     * - CommandExecuted: resets session status to Idle
+     * 通过分发给所有 handler 来处理 SSE 事件。
+     * 分发后处理横切关注点：
+     * - SessionDeleted：对已删除会话级联清理所有 handler
+     * - CommandExecuted：将 会话状态重置为 Idle
      *
-     * Multi-server dedup: if two server configs point to the same backend,
-     * only the first server to claim a session processes its events. Subsequent
-     * events for the same session from a different serverId are skipped to
-     * prevent doubled streaming output.
+     * 多服务器去重：若两个服务器配置指向同一后端，
+     * 仅首个获得会话所有权的服务器处理其事件。来自不同 serverId
+     * 的同一会话的后续事件会被跳过，以防止流式输出翻倍。
      */
     fun processEvent(event: SseEvent, serverId: String) {
-        // Ownership check: prevent duplicate event processing when two SSE
-        // connections deliver the same events (same backend, different configs).
+        // 所有权检查：当两条 SSE 连接投递相同事件
+        //（同一后端，不同配置）时，防止重复事件处理。
         val sessionId = extractSessionId(event)
         if (sessionId != null) {
             val owner = streamingSessionOwners.putIfAbsent(sessionId, serverId)
@@ -194,9 +193,9 @@ class EventDispatcher @Inject constructor(
             }
         }
 
-        // Registry dispatch: route event to its single registered handler (O(1) lookup).
-        // Replaces the previous broadcast model where every event was sent to all 6
-        // handlers and each filtered internally via its own `when` block.
+        // 注册表分发：将事件路由到其唯一注册的 handler（O(1) 查找）。
+        // 替代了之前的广播模型，即每个事件都发送给全部 6 个 handler，
+        // 每个 handler 再通过自身的 `when` 块在内部过滤。
         val handler = registry[event::class]
         if (handler != null) {
             handler.handle(event, serverId)
@@ -205,7 +204,7 @@ class EventDispatcher @Inject constructor(
         }
         forwardToSessionStateService(event)
 
-        // Cross-handler: SessionDeleted cascades cleanup to other handlers
+        // 跨 handler：SessionDeleted 级联清理其他 handler
         if (event is SseEvent.SessionDeleted) {
             val deletedSessionId = event.info.id
             streamingSessionOwners.remove(deletedSessionId)
@@ -217,23 +216,22 @@ class EventDispatcher @Inject constructor(
             sessionStateService.clearSession(deletedSessionId)
         }
 
-        // Cross-handler: CommandExecuted — only mark messages as completed.
-        // Don't force session to Idle: the server sends session.status event
-        // if the session actually becomes idle. Forcing Idle here causes
-        // flickering when the agent continues to the next tool call.
+        // 跨 handler：CommandExecuted——仅将消息标记为已完成。
+        // 不要强制会话为 Idle：会话实际变为空闲时服务器会发送 session.status 事件。
+        // 此处强制 Idle 会在 agent 继续下一个工具调用时导致闪烁。
         if (event is SseEvent.CommandExecuted) {
             messageHandler.markSessionIdle(event.sessionId)
         }
 
-        // Track user message times for stable session sort ordering.
+        // 跟踪用户消息时间，用于稳定的会话排序。
         if (event is SseEvent.MessageUpdated && event.info is Message.User) {
             sessionHandler.recordUserMessage(event.info.sessionId, event.info.time.created)
         }
     }
 
     /**
-     * Check if a session has any assistant messages still streaming (time.completed == null).
-     * Used by REST sync logic and L5 cross-validation checker.
+     * 检查会话是否有仍在流式输出的 assistant 消息（time.completed == null）。
+     * 供 REST 同步逻辑和 L5 交叉校验器使用。
      */
     private fun hasIncompleteAssistant(sessionId: String): Boolean {
         return messageHandler.messages.value[sessionId]
@@ -242,10 +240,10 @@ class EventDispatcher @Inject constructor(
             .any { it.time.completed == null }
     }
 
-    // ============ FSM Forwarding ============
+    // ============ FSM 转发 ============
 
     /**
-     * Forward SSE event to [SessionStateService] (the single source of truth) for FSM processing.
+     * 将 SSE 事件转发给 [SessionStateService]（单一真相源）进行 FSM 处理。
      */
     private fun forwardToSessionStateService(event: SseEvent) {
         val fsmSessionId = extractSessionId(event)
@@ -255,38 +253,38 @@ class EventDispatcher @Inject constructor(
     }
 
     /**
-     * Extract sessionId from any [SseEvent] subclass.
-     * Returns null for events that have no associated session.
+     * 从任意 [SseEvent] 子类中提取 sessionId。
+     * 对无关联会话的事件返回 null。
      */
     private fun extractSessionId(event: SseEvent): String? {
         return when (event) {
-            // Session lifecycle (status-relevant for FSM)
+            // 会话生命周期（与 FSM 状态相关）
             is SseEvent.SessionStatus -> event.sessionId
             is SseEvent.SessionIdle -> event.sessionId
             is SseEvent.SessionError -> event.sessionId
             is SseEvent.SessionNext -> event.event.sessionId
-            // Session lifecycle (info)
+            // 会话生命周期（信息）
             is SseEvent.SessionCreated -> event.info.id
             is SseEvent.SessionUpdated -> event.info.id
             is SseEvent.SessionDeleted -> event.info.id
             is SseEvent.SessionDiff -> event.sessionId
             is SseEvent.SessionCompacted -> event.sessionId
-            // Messages
+            // 消息
             is SseEvent.MessageUpdated -> event.info.sessionId
             is SseEvent.MessageRemoved -> event.sessionId
             is SseEvent.MessagePartUpdated -> event.part.sessionId
             is SseEvent.MessagePartDelta -> event.sessionId
             is SseEvent.MessagePartRemoved -> event.sessionId
-            // Permission / Question
+            // 权限 / 问题
             is SseEvent.PermissionAsked -> event.sessionId
             is SseEvent.PermissionReplied -> event.sessionId
             is SseEvent.QuestionAsked -> event.sessionId
             is SseEvent.QuestionReplied -> event.sessionId
             is SseEvent.QuestionRejected -> event.sessionId
-            // Todo / Command
+            // Todo / 命令
             is SseEvent.TodoUpdated -> event.sessionId
             is SseEvent.CommandExecuted -> event.sessionId
-            // Events without sessionId
+            // 无 sessionId 的事件
             is SseEvent.ServerConnected -> null
             is SseEvent.ServerHeartbeat -> null
             is SseEvent.ServerInstanceDisposed -> null
@@ -308,15 +306,15 @@ class EventDispatcher @Inject constructor(
         }
     }
 
-    // ============ Delegated Operations ============
+    // ============ 委托操作 ============
 
     fun setSessions(serverId: String, sessions: List<Session>) =
         sessionHandler.setSessions(serverId, sessions)
 
     fun clearRevert(sessionId: String) {
-        // Prune reverted messages from cache BEFORE clearing the filter.
-        // Otherwise the filter drops, reverted messages briefly reappear,
-        // then the server's message.removed SSE catches up — visible flash.
+        // 在清除过滤器之前从缓存中修剪已回退的消息。
+        // 否则过滤器解除后，已回退的消息会短暂重现，
+        // 然后服务器的 message.removed SSE 才追上——可见的闪烁。
         val revert = sessionHandler.sessions.value
             .find { it.id == sessionId }?.revert
         if (revert != null) {
@@ -360,13 +358,13 @@ class EventDispatcher @Inject constructor(
         sessionNextHandler.clearGap(sessionId)
     }
 
-    // ============ Child-session Aggregation ============
+    // ============ 子会话聚合 ============
 
-    /** Aggregate permissions for a session including its child sessions. */
+    /** 聚合某会话及其子会话的权限。 */
     fun getPermissionsWithChildren(sessionId: String, sessions: List<Session>) =
         permissionHandler.getPermissionsWithChildren(sessionId, sessions)
 
-    /** Aggregate questions for a session including its child sessions. */
+    /** 聚合某会话及其子会话的问题。 */
     fun getQuestionsWithChildren(sessionId: String, sessions: List<Session>) =
         questionHandler.getQuestionsWithChildren(sessionId, sessions)
 
@@ -389,8 +387,8 @@ class EventDispatcher @Inject constructor(
         questionHandler.clearForServer(sessionIds)
         miscHandler.clearForServer(sessionIds)
         sessionNextHandler.clearForServer(sessionIds)
-        // Release streaming ownership for sessions owned by this server,
-        // allowing another server to claim them if still connected.
+        // 释放由此服务器拥有的会话的流式所有权，
+        // 允许另一服务器在仍连接时认领它们。
         streamingSessionOwners.entries.removeAll { it.value == serverId }
     }
 }

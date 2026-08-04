@@ -49,9 +49,9 @@ import org.junit.Test
 import androidx.lifecycle.SavedStateHandle
 
 /**
- * Pure-JVM unit tests for ChatViewModel's permission-related logic.
+ * ChatViewModel 权限相关逻辑的纯 JVM 单元测试。
  *
- * Uses [UnconfinedTestDispatcher] so viewModelScope coroutines execute eagerly.
+ * 使用 [UnconfinedTestDispatcher] 使 viewModelScope 协程立即执行。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModelPermissionTest {
@@ -61,7 +61,7 @@ class ChatViewModelPermissionTest {
     private lateinit var eventDispatcher: EventDispatcher
     private lateinit var terminalRegistry: ServerTerminalRegistry
     private lateinit var settingsRepository: SettingsRepository
-    // UseCase mocks
+    // UseCase mock
     private lateinit var sendMessageUseCase: SendMessageUseCase
     private lateinit var manageSessionUseCase: ManageSessionUseCase
     private lateinit var managePermissionUseCase: ManagePermissionUseCase
@@ -113,11 +113,11 @@ class ChatViewModelPermissionTest {
         every { Log.w(any(), any<String>(), any()) } returns 0
         every { Log.i(any(), any()) } returns 0
 
-        // Create fresh mocks per test to avoid stub ordering issues
+        // 每个测试创建全新的 mock，避免 stub 顺序问题
         terminalRegistry = mockk(relaxed = true)
         settingsRepository = mockk()
 
-        // Create UseCase mocks (all relaxed so unimportant methods don't need stubs)
+        // 创建 UseCase mock（全部 relaxed，因此不重要的方法无需 stub）
         sendMessageUseCase = mockk(relaxed = true)
         manageSessionUseCase = mockk(relaxed = true)
         managePermissionUseCase = mockk(relaxed = true)
@@ -150,16 +150,16 @@ class ChatViewModelPermissionTest {
             )
         )
 
-        // Init block stubs — defaults that tests can override
+        // init 块 stub —— 测试可覆盖的默认值
         coEvery { manageSessionUseCase.getSession(any(), any()) } returns createTestSession()
         coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
         coEvery { managePermissionUseCase.listPendingQuestions(any(), any()) } returns emptyList()
         coEvery { selectModelUseCase.loadProviders(any()) } returns ProvidersResponse(emptyList())
         coEvery { manageAgentUseCase.loadAgents(any()) } returns emptyList()
         coEvery { manageAgentUseCase.loadCommands(any()) } returns emptyList()
-        // NOTE: listPendingPermissions is NOT set here — each test sets its own stub
+        // 注意：此处不设置 listPendingPermissions —— 每个测试设置自己的 stub
 
-        // Wire messagePaging.observeMessages to delegate to eventDispatcher.messages
+        // 将 messagePaging.observeMessages 接线为委托给 eventDispatcher.messages
         every { messagePaging.observeMessages(any()) } answers {
             eventDispatcher.messages.map { msgs -> msgs[firstArg<String>()] ?: emptyList() }
         }
@@ -183,7 +183,7 @@ class ChatViewModelPermissionTest {
             "serverId"   to serverId,
             "sessionId"  to sessionId
         ))
-        // ChatRepository mock: delegate state operations to real EventDispatcher for verification
+        // ChatRepository mock：将状态操作委托给真实 EventDispatcher 以便验证
         val chatRepo = mockk<ChatRepository>(relaxed = true)
         every { chatRepo.setPermissions(any(), any()) } answers {
             val sid = firstArg<String>()
@@ -282,7 +282,7 @@ class ChatViewModelPermissionTest {
     )
 
     // ============================================================
-    // Sanity checks: verify init block coroutines execute
+    // 健全性检查：验证 init 块协程已执行
     // ============================================================
 
     @Test
@@ -308,7 +308,7 @@ class ChatViewModelPermissionTest {
     }
 
     // ============================================================
-    // Tests: loadPendingPermissions
+    // 测试：loadPendingPermissions
     // ============================================================
 
     @Test
@@ -325,7 +325,7 @@ class ChatViewModelPermissionTest {
 
         val vm = createViewModel()
 
-        // Check EventDispatcher directly (source of truth)
+        // 直接检查 EventDispatcher（真相来源）
         val reducerPerms = eventDispatcher.permissions.value
         assertEquals("EventDispatcher should have 1 permission for session, got: ${reducerPerms}",
             1, reducerPerms[testSessionId]?.size)
@@ -399,7 +399,7 @@ class ChatViewModelPermissionTest {
     fun `loadPendingPermissions API exception does not crash`() = runTest {
         coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } throws RuntimeException("err")
 
-        createViewModel() // Should not throw
+        createViewModel() // 不应抛异常
 
         assertTrue(eventDispatcher.permissions.value.isEmpty())
     }
@@ -419,7 +419,7 @@ class ChatViewModelPermissionTest {
     }
 
     // ============================================================
-    // Tests: replyToPermission
+    // 测试：replyToPermission
     // ============================================================
 
     @Test
@@ -480,7 +480,7 @@ class ChatViewModelPermissionTest {
 
         vm.replyToPermission("pf", "once")
 
-        // Card is removed even on API failure to prevent stuck UI state
+        // 即使 API 失败也会移除卡片，防止 UI 状态卡死
         assertTrue(eventDispatcher.permissions.value[testSessionId].isNullOrEmpty())
     }
 
@@ -513,12 +513,12 @@ class ChatViewModelPermissionTest {
 
         vm.replyToPermission("pe", "once")
 
-        // Card is removed even on exception to prevent stuck UI state
+        // 即使出现异常也会移除卡片，防止 UI 状态卡死
         assertTrue(eventDispatcher.permissions.value[testSessionId].isNullOrEmpty())
     }
 
     // ============================================================
-    // Tests: multi-session
+    // 测试：多会话
     // ============================================================
 
     @Test
@@ -530,11 +530,11 @@ class ChatViewModelPermissionTest {
 
         createViewModel()
 
-        // Only current session's permissions are stored (filter is by sessionId)
+        // 只存储当前会话的权限（按 sessionId 过滤）
         assertEquals(1, eventDispatcher.permissions.value[testSessionId]?.size)
         assertEquals("p1", eventDispatcher.permissions.value[testSessionId]?.firstOrNull()?.id)
-        // session-456 is NOT loaded because loadPendingPermissions only stores
-        // permissions matching the ViewModel's own sessionId
+        // session-456 未被加载，因为 loadPendingPermissions 只存储
+        // 与 ViewModel 自身 sessionId 匹配的权限
         assertTrue(eventDispatcher.permissions.value["session-456"].isNullOrEmpty())
     }
 }

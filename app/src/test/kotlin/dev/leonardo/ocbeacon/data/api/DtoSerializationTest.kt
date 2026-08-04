@@ -15,12 +15,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Characterization tests for domain API DTO serialization/deserialization.
+ * domain API DTO 序列化/反序列化的特征测试。
  *
- * These tests lock in the EXISTING serialization contract for DTOs that are NOT
- * already covered by SerializationTest.
+ * 这些测试锁定 SerializationTest 尚未覆盖的 DTO 的现有序列化契约。
  *
- * Phase 0 safety net: if any of these break, the refactoring broke the API contract.
+ * Phase 0 安全网：如果这些测试失败，说明重构破坏了 API 契约。
  */
 class DtoSerializationTest {
 
@@ -125,7 +124,7 @@ class DtoSerializationTest {
     fun `PtyCreateRequest defaults are null`() {
         val req = PtyCreateRequest()
         val encoded = json.encodeToString(PtyCreateRequest.serializer(), req)
-        // With encodeDefaults = true, nulls should be emitted
+        // 当 encodeDefaults = true 时，null 应被输出
         val decoded = json.decodeFromString(PtyCreateRequest.serializer(), encoded)
         assertNull(decoded.title)
         assertNull(decoded.cwd)
@@ -276,7 +275,7 @@ class DtoSerializationTest {
         assertEquals("", auth.instructions)
     }
 
-    // ============ ProviderInfo (full fields) ============
+    // ============ ProviderInfo（完整字段）============
 
     @Test
     fun `ProviderInfo round-trip with all fields`() {
@@ -309,7 +308,7 @@ class DtoSerializationTest {
         assertTrue(info.models.isEmpty())
     }
 
-    // ============ ModelCost with CacheCost ============
+    // ============ ModelCost（含 CacheCost）============
 
     @Test
     fun `ModelCost round-trip with cache`() {
@@ -477,7 +476,7 @@ class DtoSerializationTest {
         assertFalse(info.staged)
     }
 
-    // ============ PromptPart with URL type ============
+    // ============ PromptPart（URL 类型）============
 
     @Test
     fun `PromptPart URL type round-trip`() {
@@ -493,7 +492,7 @@ class DtoSerializationTest {
         assertEquals("API Reference", decoded.text)
     }
 
-    // ============ PromptRequest with format, system, noReply ============
+    // ============ PromptRequest（format、system、noReply）============
 
     @Test
     fun `PromptRequest with optional fields round-trip`() {
@@ -519,7 +518,7 @@ class DtoSerializationTest {
         assertTrue(decoded.noReply!!)
     }
 
-    // ============ PermissionRequest with metadata ============
+    // ============ PermissionRequest（含 metadata）============
 
     @Test
     fun `PermissionRequest with metadata round-trip`() {
@@ -546,7 +545,7 @@ class DtoSerializationTest {
         assertTrue(req.patterns.isEmpty())
     }
 
-    // ============ QuestionRequest with tool ============
+    // ============ QuestionRequest（含 tool）============
 
     @Test
     fun `QuestionRequest with tool round-trip`() {
@@ -573,7 +572,7 @@ class DtoSerializationTest {
         assertFalse(decoded.questions[0].custom)
     }
 
-    // ============ ProviderModel with variants ============
+    // ============ ProviderModel（含 variants）============
 
     @Test
     fun `ProviderModel with variants round-trip`() {

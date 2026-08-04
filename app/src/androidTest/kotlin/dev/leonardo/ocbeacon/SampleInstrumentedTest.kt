@@ -7,7 +7,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Sanity check that the test infrastructure is wired up correctly.
+ * 验证测试基础设施已正确接线的健全性检查。
  */
 @RunWith(AndroidJUnit4::class)
 class SampleInstrumentedTest {

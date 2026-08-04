@@ -38,28 +38,27 @@ import kotlinx.coroutines.launch
 private const val TAG = "MessageDataDelegate"
 
 /**
- * Owns message SSE observation, loading, pagination, send-state, and tool-expand
- * state previously inlined in [ChatViewModel].
+ * 管理消息 SSE 观察、加载、分页、发送状态和工具展开
+ * 状态（此前内联在 [ChatViewModel] 中）。
  *
- * Extracted in Phase 3 Task 5 (B cluster).
+ * 在 Phase 3 Task 5（B 集群）中提取。
  *
- * [messageListState] and [interactionState] are the two large `combine` pipelines
- * keyed by [sessionIdFlow] that this delegate owns. They were migrated wholesale
- * from ChatViewModel and must NOT be split apart.
+ * [messageListState] 和 [interactionState] 是此 delegate 拥有的两个大型 `combine` 管道，
+ * 以 [sessionIdFlow] 为 key。它们从 ChatViewModel 整体迁移而来，不可拆分。
  *
- * **Send lifecycle** is exposed as intent methods ([onSendStarted] / [onSendSuccess]
- * / [onSendError]) because [ChatViewModel.sendParts] is a coordinator that stays in
- * the ViewModel — it must not write this delegate's private state directly.
+ * **发送生命周期**以 intent 方法暴露（[onSendStarted] / [onSendSuccess]
+ * / [onSendError]），因为 [ChatViewModel.sendParts] 是留在
+ * ViewModel 中的协调器 —— 它不得直接写入此 delegate 的私有状态。
  *
- * **SSE observer management** is exposed via [cancelSseJob] / [startObservingMessages]
- * because [ChatViewModel.abortSession] / [revertMessage] need to halt and restart the
- * SSE observer while keeping the rest of their coordination logic in the ViewModel.
+ * **SSE 观察器管理**通过 [cancelSseJob] / [startObservingMessages] 暴露，
+ * 因为 [ChatViewModel.abortSession] / [revertMessage] 需要暂停和重启
+ * SSE 观察器，同时将其余协调逻辑保留在 ViewModel 中。
  *
- * NOTE: Intentionally NOT `@Singleton`/`@Inject`. It holds per-ChatViewModel runtime
- * context (the ViewModel's coroutine scope, the session-id flow from
- * [SessionLifecycleDelegate], and the session-directory provider) that Hilt cannot
- * supply. ChatViewModel constructs it directly and re-exposes every member as a
- * facade, so UI files are unchanged.
+ * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的运行时
+ * 上下文（ViewModel 的协程作用域、来自
+ * [SessionLifecycleDelegate] 的 session-id flow 和 session-directory provider），
+ * Hilt 无法提供这些。ChatViewModel 直接构造它并将每个成员作为门面重新暴露，
+ * 因此 UI 文件无需改动。
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 internal class MessageDataDelegate(
@@ -75,55 +74,55 @@ internal class MessageDataDelegate(
     private val sessionDirectoryProvider: () -> String?,
     private val scope: CoroutineScope,
 ) {
-    // ============ Loading & Error State ============
+    // ============ 加载与错误状态 ============
     private val _isLoading = MutableStateFlow(true)
-    private val _isRefreshing = MutableStateFlow(false)  // Background refresh — no UI wipe
+    private val _isRefreshing = MutableStateFlow(false)  // 后台刷新 —— 无 UI 清空
     private val _error = MutableStateFlow<String?>(null)
     private val _isSending = MutableStateFlow(false)
-    /** Synchronous read of [_isSending] for race-condition guards (RS-007). */
+    /** 同步读取 [_isSending]，用于竞态条件保护（RS-007）。 */
     internal val isSendingValue: Boolean get() = _isSending.value
 
-    // ============ V1 Message State ============
+    // ============ V1 消息状态 ============
     private val _messagesList = MutableStateFlow<List<Message>>(emptyList())
-    /** Raw (unfiltered) messages — used for hasIncompleteMessage check to avoid
-     *  the window where a new assistant message has no parts yet. */
+    /** 原始（未过滤）消息 —— 用于 hasIncompleteMessage 检查，
+     *  避免新 assistant 消息尚无 parts 时的窗口期。 */
     private val _rawMessagesList = MutableStateFlow<List<Message>>(emptyList())
     private val _partsList = MutableStateFlow<List<Part>>(emptyList())
     private var sseJob: Job? = null
 
-    // ============ Optimistic Send ============
-    /** Locally-generated IDs for optimistic messages. Used to distinguish from server-confirmed. */
+    // ============ 乐观发送 ============
+    /** 本地生成的乐观消息 ID。用于与服务器确认的消息区分。 */
     private val _pendingMessageIds = MutableStateFlow<Set<String>>(emptySet())
-    /** Optimistic messages awaiting server confirmation via SSE. */
+    /** 等待服务器通过 SSE 确认的乐观消息。 */
     private val _pendingMessages = MutableStateFlow<List<OptimisticMessage>>(emptyList())
 
-    // ============ Tool Expand State ============
+    // ============ 工具展开状态 ============
     private val _toolExpandedStates = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val toolExpandedStates: StateFlow<Map<String, Boolean>> = _toolExpandedStates
 
-    // ============ Pagination ============
+    // ============ 分页 ============
     /**
-     * Number of messages to load per page. Doubles each "load older" click.
-     * Refreshed from the user's initialMessageCount setting at the start of [loadMessagesForSession].
+     * 每页加载的消息数。每次"加载更早"点击时翻倍。
+     * 在 [loadMessagesForSession] 开始时从用户的 initialMessageCount 设置刷新。
      */
     private var currentMessageLimit = 30
-    /** Whether there are more messages on the server beyond the current limit. */
+    /** 服务器上是否存在超出当前限制的更多消息。 */
     private val _hasOlderMessages = MutableStateFlow(false)
-    /** Whether a "load older" request is in flight. */
+    /** "加载更早" 请求是否进行中。 */
     private val _isLoadingOlder = MutableStateFlow(false)
 
     /**
-     * Snapshot of the filtered message list — consumed by [ChatViewModel]'s init
-     * block to feed [dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker]
-     * (token aggregation is a token-cluster concern, so the tracker is NOT injected here).
+     * 过滤后消息列表的快照 —— 供 [ChatViewModel] 的 init 块消费，
+     * 以馈送 [dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker]
+     *（token 聚合是 token 集群的关注点，因此 tracker 未注入此处）。
      */
     val messagesList: StateFlow<List<Message>> = _messagesList
 
-    // ============ Split State Flows ============
+    // ============ 拆分状态 Flow ============
 
     /**
-     * Message list state — derived from V1 chatRepository flows.
-     * Combines messages, parts, and tool expand states. Keyed by [sessionIdFlow].
+     * 消息列表状态 —— 从 V1 chatRepository flow 派生。
+     * 组合消息、parts 和工具展开状态。以 [sessionIdFlow] 为 key。
      */
     val messageListState: StateFlow<MessageListState> = sessionIdFlow.flatMapLatest { sid ->
         combine(
@@ -156,9 +155,9 @@ internal class MessageDataDelegate(
             @Suppress("UNCHECKED_CAST")
             val statuses = args[8] as Map<String, SessionStatus>
 
-            // Tool progress output injection: accumulate tool.progress content into
-            // Running tools' output field. callId is globally unique, so a single
-            // progressOutputs map is safe across all messages in this session.
+            // 工具进度输出注入：将 tool.progress 内容累积到
+            // Running 工具的 output 字段。callId 全局唯一，因此单个
+            // progressOutputs map 对本会话所有消息安全。
             @Suppress("UNCHECKED_CAST")
             val progressList = args[9] as? List<ToolProgressInfo>
             val progressOutputs = progressList.orEmpty().associate { it.callId to it.output }
@@ -175,19 +174,18 @@ internal class MessageDataDelegate(
             } else {
                 val sorted = sessionMessages.sortedBy { it.time.created }
                 if (revertState != null) {
-                    // OpenCode pattern: filter by message ID string comparison.
-                    // Message IDs are ULID (monotonically increasing), so
-                    // id <= revertId correctly includes the revert point and
-                    // everything before it.
+                    // OpenCode 模式：通过消息 ID 字符串比较过滤。
+                    // 消息 ID 是 ULID（单调递增），因此
+                    // id <= revertId 正确地包含 revert 点及之前的所有消息。
                     sorted.filter { it.id < revertState.messageId }
                 } else {
                     sorted
                 }
             }
 
-            // P5-1: queuedMessageIds derived from FSM status — Idle forces clear.
-            // Computed on the full visible list (before P5-3 filtering) so pending
-            // assistant detection is not affected by empty-parts filtering.
+            // P5-1：queuedMessageIds 从 FSM 状态派生 —— Idle 强制清空。
+            // 在完整可见列表（P5-3 过滤之前）上计算，因此 pending
+            // assistant 检测不受空 parts 过滤影响。
             val fsmStatus = statuses[sid] ?: SessionStatus.Idle
             val queuedMessageIds: Set<String> = if (fsmStatus is SessionStatus.Idle) {
                 emptySet()
@@ -205,11 +203,10 @@ internal class MessageDataDelegate(
                 }
             }
 
-            // Assistant messages are always visible — do NOT filter out messages
-            // with no parts. The old P5-3 filter (allParts[msg.id]?.isNotEmpty())
-            // caused messages to be permanently hidden when SSE part events were
-            // delayed or lost. A brief empty bubble is acceptable; invisible
-            // messages are not.
+            // Assistant 消息始终可见 —— 不要过滤掉
+            // 没有 parts 的消息。旧的 P5-3 过滤器（allParts[msg.id]?.isNotEmpty()）
+            // 在 SSE part 事件延迟或丢失时会导致消息永久隐藏。
+            // 短暂的空气泡可以接受；消息不可见则不行。
             val chatMessages = visible
                 .map { msg ->
                     val rawParts = allParts[msg.id] ?: emptyList()
@@ -219,14 +216,14 @@ internal class MessageDataDelegate(
                     )
                 }
 
-            // Append optimistic messages that haven't been server-confirmed yet.
-            // A pending message is "confirmed" when the server delivers any message
-            // (user or assistant) with a timestamp at or after the pending's send time.
-            // Optimistic messages are NEVER injected into the shared _messages/_parts
-            // cache — they live only in [_pendingMessages] and are merged here.
-            // Display pending only while its ID is in [_pendingMessageIds] — i.e.,
-            // while the POST is in flight. Once onSendSuccess removes the ID, the
-            // server message (already in _messages via SSE) takes over seamlessly.
+            // 追加尚未被服务器确认的乐观消息。
+            // 当服务器投递任何消息（user 或 assistant）且时间戳
+            // 大于等于 pending 发送时间时，pending 消息即为"已确认"。
+            // 乐观消息绝不注入共享的 _messages/_parts
+            // 缓存 —— 它们仅存在于 [_pendingMessages] 中并在此处合并。
+            // 仅在其 ID 仍在 [_pendingMessageIds] 中时显示 pending —— 即
+            // POST 进行中时。一旦 onSendSuccess 移除 ID，
+            // 服务器消息（已通过 SSE 存在于 _messages 中）无缝接管。
             val activePending = pendingMessages.filter { it.pendingId in pendingMessageIds }
             val mergedChatMessages = if (activePending.isEmpty()) {
                 chatMessages
@@ -248,12 +245,12 @@ internal class MessageDataDelegate(
                 pendingMessageIds = pendingMessageIds,
                 pendingMessages = pendingMessages,
             )
-            // DIAG: log combine output to detect stale emissions
+            // 诊断：记录 combine 输出以检测陈旧发射
             val lastMsgId = mergedChatMessages.lastOrNull()?.message?.id?.take(12) ?: "none"
             Log.d("MsgDiag", "[combine] msgs=${sessionMessages.size} visible=${visible.size} " +
                 "merged=${mergedChatMessages.size} revert=${revertState != null} " +
                 "lastMsg=$lastMsgId pending=${pendingMessages.size}")
-            // DIAG: log last 3 messages' parts detail
+            // 诊断：记录最后 3 条消息的 parts 详情
             mergedChatMessages.takeLast(3).forEach { cm ->
                 val textLen = cm.parts.filterIsInstance<Part.Text>().sumOf { it.text.length }
                 val role = if (cm.message is Message.User) "U" else "A"
@@ -272,8 +269,8 @@ internal class MessageDataDelegate(
     )
 
     /**
-     * Interaction state — loading, sending, error derived from V1 sources,
-     * pending permission/question cards from V1 chatRepository.
+     * 交互状态 —— 从 V1 源派生的加载、发送、错误，
+     * 以及来自 V1 chatRepository 的待处理权限/问题卡片。
      */
     val interactionState: StateFlow<InteractionState> = combine(
         sessionIdFlow,
@@ -304,7 +301,7 @@ internal class MessageDataDelegate(
         InteractionState()
     )
 
-    // ============ Tool Expand ============
+    // ============ 工具展开 ============
 
     fun toggleToolExpanded(toolId: String, defaultExpanded: Boolean = false) {
         _toolExpandedStates.update { it + (toolId to !(it[toolId] ?: defaultExpanded)) }
@@ -314,17 +311,17 @@ internal class MessageDataDelegate(
         return _toolExpandedStates.value[toolId] ?: autoExpand
     }
 
-    // ============ Loading & Observation (called from ChatViewModel + SessionLifecycleDelegate) ============
+    // ============ 加载与观察（从 ChatViewModel + SessionLifecycleDelegate 调用） ============
 
     /**
-     * Load messages via V1 API for the current session.
-     * Called back from [SessionLifecycleDelegate.loadSession] (cross-cluster
-     * callback) so the C-cluster delegate owns the full load orchestration
-     * while this retains the MessageData-cluster concerns (pagination limit +
-     * list/set).
+     * 通过 V1 API 为当前会话加载消息。
+     * 从 [SessionLifecycleDelegate.loadSession] 回调（跨集群
+     * 回调），使 C 集群 delegate 拥有完整的加载编排，
+     * 而此处保留 MessageData 集群关注点（分页限制 +
+     * list/set）。
      */
     suspend fun loadMessagesForSession() {
-        // Apply user-configured initial message count as the pagination starting point
+        // 应用用户配置的初始消息数量作为分页起点
         currentMessageLimit = settingsRepository.getSettingsFlow().first().initialMessageCount
         val sid = sessionIdFlow.value
         try {
@@ -338,8 +335,8 @@ internal class MessageDataDelegate(
     }
 
     /**
-     * Observe V1 chatRepository flows (driven by SSE EventDispatcher).
-     * Messages and parts are updated automatically as SSE events arrive.
+     * 观察 V1 chatRepository flow（由 SSE EventDispatcher 驱动）。
+     * 消息和 parts 在 SSE 事件到达时自动更新。
      */
     fun startObservingMessages() {
         sseJob?.cancel()
@@ -366,9 +363,9 @@ internal class MessageDataDelegate(
     }
 
     /**
-     * Load messages via V1 API for modelConfigState resolution (model/agent from history).
-     * Does NOT modify pagination state (_hasOlderMessages) — that's owned by
-     * loadMessagesForSession (session entry) and loadOlderMessages (pagination).
+     * 通过 V1 API 加载消息以解析 modelConfigState（从历史中解析模型/agent）。
+     * 不修改分页状态（_hasOlderMessages）—— 该状态由
+     * loadMessagesForSession（会话进入）和 loadOlderMessages（分页）管理。
      */
     fun loadMessages() {
         val sid = sessionIdFlow.value
@@ -405,7 +402,7 @@ internal class MessageDataDelegate(
     }
 
     /**
-     * Refresh messages via V1 API.
+     * 通过 V1 API 刷新消息。
      */
     suspend fun refreshMessages() {
         val sid = sessionIdFlow.value
@@ -421,15 +418,14 @@ internal class MessageDataDelegate(
     }
 
     /**
-     * Fix messages with time.completed == null when the server confirms the session is idle.
-     * This handles the server-restart scenario: after restart, all sessions are idle in-memory,
-     * but the database preserves interrupted messages with finished_at = NULL.
-     * We must NOT call this during periodic polling — only on explicit user actions
-     * (entering session, aborting) to avoid breaking premature-idle protection.
+     * 当服务器确认会话空闲时修复 time.completed == null 的消息。
+     * 处理服务器重启场景：重启后，所有会话在内存中都是空闲的，
+     * 但数据库保留了 finished_at = NULL 的中断消息。
+     * 不得在轮询期间调用 —— 仅在显式用户操作
+     *（进入会话、中止）时调用，以避免破坏过早空闲保护。
      *
-     * Routes through [SessionStateService.onRestValidation] — the FSM's forceComplete
-     * mechanism triggers [MessageEventHandler.markSessionIdle] via the callback wired
-     * in [EventDispatcher]'s init block.
+     * 通过 [SessionStateService.onRestValidation] 路由 —— FSM 的 forceComplete
+     * 机制通过在 [EventDispatcher] 的 init 块中连接的回调触发 [MessageEventHandler.markSessionIdle]。
      */
     fun fixIncompleteMessagesIfIdle(sid: String) {
         val messages = _rawMessagesList.value
@@ -463,9 +459,9 @@ internal class MessageDataDelegate(
     }
 
     /**
-     * Load pending questions from the server REST API.
-     * Converts QuestionRequest DTOs to SseEvent.QuestionAsked domain objects.
-     * Must be called after loadSession() so sessionDirectory is set.
+     * 从服务器 REST API 加载待处理问题。
+     * 将 QuestionRequest DTO 转换为 SseEvent.QuestionAsked 领域对象。
+     * 必须在 loadSession() 之后调用，以确保 sessionDirectory 已设置。
      */
     suspend fun loadPendingQuestions() {
         val sid = sessionIdFlow.value
@@ -474,7 +470,7 @@ internal class MessageDataDelegate(
             val allQuestions = managePermissionUseCase.listPendingQuestions(serverId, directory = directory)
             if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingQuestions: ${allQuestions.size} total pending (directory=$directory), filtering for session $sid")
 
-            // Include questions from child sessions
+            // 包含子会话的问题
             val childSessionIds = chatRepository.getSessionsSnapshot()
                 .filter { it.parentId == sid }
                 .map { it.id }
@@ -524,7 +520,7 @@ internal class MessageDataDelegate(
         }
     }
 
-    /** Load pending permissions from the server REST API on session open (REST recovery). */
+    /** 从服务器 REST API 加载待处理权限（会话打开时的 REST 恢复）。 */
     suspend fun loadPendingPermissions() {
         val sid = sessionIdFlow.value
         val directory = sessionDirectoryProvider()
@@ -532,7 +528,7 @@ internal class MessageDataDelegate(
             val allPermissions = managePermissionUseCase.listPendingPermissions(serverId, directory = directory)
             if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingPermissions: ${allPermissions.size} total pending (directory=$directory), filtering for session $sid")
 
-            // Include permissions from child sessions
+            // 包含子会话的权限
             val childSessionIds = chatRepository.getSessionsSnapshot()
                 .filter { it.parentId == sid }
                 .map { it.id }
@@ -556,8 +552,8 @@ internal class MessageDataDelegate(
                     )
                 }
             if (sessionPermissions.isNotEmpty()) {
-                // Group permissions by their target sessionId to match SSE storage pattern
-                // SSE stores child session permissions under childSessionId, REST should do the same
+                // 按目标 sessionId 分组权限以匹配 SSE 存储模式
+                // SSE 将子会话权限存储在 childSessionId 下，REST 应做同样处理
                 val permissionsByTarget = sessionPermissions.groupBy { it.sessionId }
                 for ((targetSessionId, perms) in permissionsByTarget) {
                     val existingSsePerms = chatRepository.getPermissionsSnapshot()[targetSessionId] ?: emptyList()
@@ -576,36 +572,36 @@ internal class MessageDataDelegate(
         }
     }
 
-    // ============ Send Lifecycle (intent methods for ChatViewModel.sendParts) ============
+    // ============ 发送生命周期（ChatViewModel.sendParts 的 intent 方法） ============
 
     /**
-     * Mark the start of an optimistic send: flip [_isSending], register the
-     * [pendingId], and store the optimistic message for immediate display.
+     * 标记乐观发送的开始：翻转 [_isSending]，注册
+     * [pendingId]，并存储乐观消息以立即显示。
      */
     fun onSendStarted(pendingId: String, optimisticMsg: Message.User, optimisticParts: List<Part>) {
         _isSending.value = true
         _pendingMessageIds.update { it + pendingId }
         _pendingMessages.update { it + OptimisticMessage(pendingId, optimisticMsg, optimisticParts, UserMsgStatus.Sending) }
-        // NOTE: Optimistic messages are NOT injected into the shared _messages/_parts
-        // cache. They are merged into the display list in [messageListState]'s combine
-        // body (see `activePending` below) and removed once the server delivers any
-        // message with a timestamp at or after the pending's send time.
+        // 注意：乐观消息不注入共享的 _messages/_parts
+        // 缓存。它们在 [messageListState] 的 combine
+        // 体内合并（参见下方的 `activePending`），并在服务器投递任何
+        // 时间戳大于等于 pending 发送时间的消息后移除。
     }
 
-    /** Mark a successful send: flip status to Sent. The optimistic message stays in the cache
-     *  with its stable key — only the status (and thus the indicator) changes. */
+    /** 标记发送成功：将状态翻转为 Sent。乐观消息以稳定 key 保留在缓存中
+     *  —— 仅状态（以及指示器）变化。 */
     fun onSendSuccess(pendingId: String) {
         _isSending.value = false
         _pendingMessageIds.update { it - pendingId }
         _pendingMessages.update { pending ->
             pending.map { if (it.pendingId == pendingId) it.copy(status = UserMsgStatus.Sent) else it }
         }
-        // No timer cleanup — the optimistic message stays with its stable key until
-        // session change (natural cache clear + REST reload with real IDs).
+        // 无定时器清理 —— 乐观消息以稳定 key 保留直到
+        // 会话切换（自然缓存清除 + 用真实 ID 的 REST 重载）。
     }
 
     /**
-     * Mark a failed send: clear [_isSending], set [_error], mark the message as Failed.
+     * 标记发送失败：清除 [_isSending]，设置 [_error]，将消息标记为 Failed。
      */
     fun onSendError(message: String, pendingId: String) {
         _isSending.value = false
@@ -616,7 +612,7 @@ internal class MessageDataDelegate(
         _error.value = message
     }
 
-    /** Mark a retry in progress: flip the pending message back to Sending. */
+    /** 标记重试进行中：将 pending 消息翻转回 Sending。 */
     fun onRetryStarted(pendingId: String) {
         _pendingMessages.update { pending ->
             pending.map { if (it.pendingId == pendingId) it.copy(status = UserMsgStatus.Sending) else it }
@@ -625,45 +621,45 @@ internal class MessageDataDelegate(
         _isSending.value = true
     }
 
-    /** Get a pending optimistic message by ID (for retry content extraction). */
+    /** 通过 ID 获取 pending 乐观消息（用于重试内容提取）。 */
     fun getPendingMessage(pendingId: String): OptimisticMessage? {
         return _pendingMessages.value.find { it.pendingId == pendingId }
     }
 
-    /** Remove a pending message (used after retry extracts content and re-sends). */
+    /** 移除 pending 消息（在重试提取内容并重新发送后使用）。 */
     fun removePendingMessage(pendingId: String) {
         _pendingMessages.update { it.filter { p -> p.pendingId != pendingId } }
     }
 
-    // ============ Pending Prompt Persistence & Reconciliation ============
+    // ============ Pending Prompt 持久化与对账 ============
 
     /**
-     * Restore persisted pending prompts after app restart.
+     * 应用重启后恢复已持久化的 pending prompt。
      *
-     * Each record is re-materialized into an [OptimisticMessage] with
-     * [UserMsgStatus.Sending] status. Reconciliation (marking lost sends as
-     * [UserMsgStatus.Failed]) happens later once the server's authoritative
-     * message list is loaded — driven by [ChatViewModel] via
-     * [pendingOptimisticSnapshot] + [markPendingAsFailed].
+     * 每条记录重新物化为 [OptimisticMessage]，状态为
+     * [UserMsgStatus.Sending]。对账（将丢失的发送标记为
+     * [UserMsgStatus.Failed]）在服务器权威消息列表加载后
+     * 进行 —— 由 [ChatViewModel] 通过
+     * [pendingOptimisticSnapshot] + [markPendingAsFailed] 驱动。
      */
     internal fun restorePendingPrompts(records: List<PendingPromptRecord>) {
         if (records.isEmpty()) return
         _pendingMessageIds.update { ids -> ids + records.map { it.messageId }.toSet() }
         _pendingMessages.update { existing ->
-            // distinctBy keeps existing entries; avoids duplicates on repeated restore.
+            // distinctBy 保留已有条目；避免重复恢复时的重复。
             (existing + records.map { it.toOptimisticMessage() }).distinctBy { it.pendingId }
         }
     }
 
     /**
-     * Snapshot of current pending optimistic messages — used by the reconciliation
-     * loop in [ChatViewModel] to detect sends that were lost across a restart.
+     * 当前 pending 乐观消息的快照 —— 供 [ChatViewModel] 中的对账
+     * 循环使用，用于检测重启中丢失的发送。
      */
     internal fun pendingOptimisticSnapshot(): List<OptimisticMessage> = _pendingMessages.value
 
     /**
-     * Mark a pending prompt as failed and drop it from the active-pending set.
-     * Used by reconciliation when a send is declared lost (covered + expired).
+     * 将 pending prompt 标记为失败并从活跃 pending 集合中移除。
+     * 当发送被判定为丢失（覆盖 + 过期）时由对账使用。
      */
     internal fun markPendingAsFailed(pendingId: String) {
         _pendingMessageIds.update { it - pendingId }
@@ -672,7 +668,7 @@ internal class MessageDataDelegate(
         }
     }
 
-    /** Rebuild an [OptimisticMessage] from a persisted record (inverse of sendParts). */
+    /** 从持久化记录重建 [OptimisticMessage]（sendParts 的逆操作）。 */
     private fun PendingPromptRecord.toOptimisticMessage(): OptimisticMessage {
         val optimisticParts = parts.mapIndexed { index, pp ->
             Part.Text(
@@ -694,19 +690,19 @@ internal class MessageDataDelegate(
         )
     }
 
-    // ============ SSE Observer Management (for ChatViewModel.abort/revert) ============
+    // ============ SSE 观察器管理（供 ChatViewModel.abort/revert 使用） ============
 
-    /** Cancel the in-flight SSE observer job, if any. */
+    /** 取消飞行中的 SSE 观察器 job（如有）。 */
     fun cancelSseJob() {
         sseJob?.cancel()
         sseJob = null
     }
 
-    // ============ New-Session Loading Marker ============
+    // ============ 新会话加载标记 ============
 
     /**
-     * Mark loading as complete for a brand-new session that has no messages to
-     * load. Called from [ChatViewModel]'s init block for the new-session branch.
+     * 为没有消息可加载的全新会话标记加载完成。
+     * 从 [ChatViewModel] 的 init 块中的新会话分支调用。
      */
     fun markLoaded() {
         _isLoading.value = false

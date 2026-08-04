@@ -43,8 +43,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
 /**
- * Pixel threshold from the bottom of scrollable content that triggers [onLoadMore]
- * in annotation (Column) mode. ~50-80 lines depending on font size.
+ * 在批注（Column）模式下触发 [onLoadMore] 的、距可滚动内容底部的像素阈值。
+ * 依字体大小约相当于 50-80 行。
  */
 private const val LOAD_MORE_THRESHOLD_PX = 2000
 
@@ -57,7 +57,7 @@ fun CodeSourceView(
     onTapAnnotation: ((Annotation) -> Unit)? = null,
     modifier: Modifier = Modifier,
     lazyListState: LazyListState = rememberLazyListState(),
-    // Phase 4: pagination — null means render all lines (backward compatible)
+    // Phase 4：分页 — null 表示渲染所有行（向后兼容）
     visibleLineCount: Int? = null,
     totalLineCount: Int? = null,
     onLoadMore: (() -> Unit)? = null
@@ -136,22 +136,22 @@ fun CodeSourceView(
     val hScroll = rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }
     val annotationEnabled = onAnnotate != null
 
-    // Phase 4: pagination helpers
+    // Phase 4：分页辅助函数
     val visLines = visibleLineCount
     val totalLines = totalLineCount
     val hasMore = visLines != null && totalLines != null && visLines < totalLines
 
     if (annotationEnabled) {
-        // ===== Annotation mode: Column + SelectionContainer =====
-        // SelectionContainer requires all selectable Text nodes in the SAME composition
-        // tree so that character-level selection works and appendTextContextMenuComponents
-        // (used by [annotationContextMenu]) can inject the "Annotate" item into the system
-        // text selection toolbar. LazyColumn breaks this because each item is composed
-        // independently, so we use Column + verticalScroll here.
+        // ===== 批注模式：Column + SelectionContainer =====
+        // SelectionContainer 要求所有可选中的 Text 节点位于同一棵组合树中，
+        // 这样字符级选择才能工作，appendTextContextMenuComponents
+        //（被 [annotationContextMenu] 使用）才能把"批注"项注入系统文本
+        // 选择工具栏。LazyColumn 会破坏这一点，因为每个 item 独立组合，
+        // 所以这里改用 Column + verticalScroll。
         //
-        // Layout: Row { gutter Column (fixed) | code Column (horizontalScroll) }
-        // Both columns live inside the same verticalScroll so gutter and code stay
-        // vertically aligned while only the code column scrolls horizontally.
+        // 布局：Row { gutter Column（固定） | code Column（horizontalScroll） }
+        // 两列都在同一个 verticalScroll 内，因此 gutter 与代码保持垂直对齐，
+        // 而只有代码列水平滚动。
         val verticalScrollState = rememberScrollState()
         val renderLineCount = visLines ?: lineCount
 
@@ -175,7 +175,7 @@ fun CodeSourceView(
                     .padding(vertical = SpacingTokens.SM.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    // Left column: gutter line numbers — fixed width, does NOT scroll horizontally
+                    // 左列：gutter 行号 — 固定宽度，不水平滚动
                     Column(modifier = Modifier.width(gutterWidth)) {
                         for (index in 0 until renderLineCount) {
                             Text(
@@ -187,8 +187,8 @@ fun CodeSourceView(
                             )
                         }
                     }
-                    // Right column: code text — scrolls horizontally independently from gutter.
-                    // vertical scroll is synced with gutter via the shared enclosing Row.
+                    // 右列：代码文本 — 独立于 gutter 水平滚动。
+                    // 垂直滚动通过共享的外层 Row 与 gutter 同步。
                     Column(modifier = Modifier.weight(1f).horizontalScroll(hScroll)) {
                         for (index in 0 until renderLineCount) {
                             val start = lineOffsets[index]
@@ -217,7 +217,7 @@ fun CodeSourceView(
                         }
                     }
                 }
-                // Phase 4: load-more indicator (inside scroll area, appears at bottom)
+                // Phase 4：加载更多指示器（位于滚动区内部，出现在底部）
                 if (hasMore) {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(SpacingTokens.LG.dp),
@@ -231,9 +231,9 @@ fun CodeSourceView(
             }
         }
     } else {
-        // ===== Non-annotation mode: LazyColumn (read-only, no SelectionContainer) =====
+        // ===== 非批注模式：LazyColumn（只读，无 SelectionContainer） =====
 
-        // Phase 4: pagination — trigger loadMore when user scrolls near the bottom
+        // Phase 4：分页 — 用户滚动到接近底部时触发 loadMore
         if (onLoadMore != null && hasMore) {
             LaunchedEffect(lazyListState, visLines, totalLines) {
                 snapshotFlow {
@@ -253,7 +253,7 @@ fun CodeSourceView(
         ) {
             items(
                 count = visLines ?: lineCount,
-                key = { index -> "line_$index" }  // String key — avoid Int key space collision with Compose internals (crash fix)
+                key = { index -> "line_$index" }  // 字符串 key — 避免 Int key 空间与 Compose 内部冲突（修复崩溃）
             ) { index ->
                 val start = lineOffsets[index]
                 val endExclusive = if (index + 1 < lineOffsets.size)
@@ -278,7 +278,7 @@ fun CodeSourceView(
                         .defaultMinSize(minWidth = maxRowWidth)
                         .then(tapModifier)
                 ) {
-                    // Gutter — fixed, does NOT scroll horizontally
+                    // Gutter — 固定，不水平滚动
                     Text(
                         text = "${index + 1}",
                         style = CodeTypography,
@@ -286,7 +286,7 @@ fun CodeSourceView(
                         textAlign = TextAlign.End,
                         modifier = Modifier.width(gutterWidth)
                     )
-                    // Code — scrolls horizontally independently from gutter
+                    // 代码 — 独立于 gutter 水平滚动
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -303,7 +303,7 @@ fun CodeSourceView(
                     }
                 }
             }
-            // Phase 4: load-more indicator
+            // Phase 4：加载更多指示器
             if (hasMore) {
                 item(key = "load_more") {
                     Box(

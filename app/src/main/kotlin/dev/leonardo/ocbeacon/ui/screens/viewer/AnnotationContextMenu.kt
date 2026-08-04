@@ -9,15 +9,15 @@ import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 
 /**
- * Adds "Annotate" item to the system text context menu via official
- * [Modifier.appendTextContextMenuComponents] API.
+ * 通过官方 [Modifier.appendTextContextMenuComponents] API 把"批注"项
+ * 添加到系统文本上下文菜单。
  *
- * When clicked: captures selected text via clipboard, strips line-number
- * gutter prefixes, and calls [onAnnotate].
+ * 点击时：通过剪贴板捕获选中文本，剥离行号 gutter 前缀，
+ * 然后调用 [onAnnotate]。
  *
- * Usage: wrap content in `SelectionContainer`, apply this modifier to `Text`.
+ * 用法：把内容包在 `SelectionContainer` 中，并把此 modifier 应用到 `Text`。
  *
- * @param onAnnotate callback with the captured selected text
+ * @param onAnnotate 带捕获的选中文本的回调
  */
 fun Modifier.annotationContextMenu(
     onAnnotate: (selectedText: String) -> Unit,
@@ -30,8 +30,8 @@ fun Modifier.annotationContextMenu(
             key = AnnotationMenuKey,
             label = menuLabel,
         ) {
-            // Clipboard capture: Android system copies selection to clipboard
-            // when context menu is shown. Read it here.
+            // 剪贴板捕获：上下文菜单显示时，Android 系统会把选区复制到剪贴板。
+            // 在此处读取。
             val selectedText = clipboard.getText()?.text.orEmpty()
             val cleaned = stripGutterNumbers(selectedText)
             if (cleaned.isNotBlank()) {
@@ -42,16 +42,15 @@ fun Modifier.annotationContextMenu(
     }
 }
 
-/** Unique key for the annotation context menu item. */
+/** 批注上下文菜单项的唯一 key。 */
 private data object AnnotationMenuKey
 
 /**
- * Strip line-number gutter prefixes from clipboard-captured text.
- * Gutter Text composables inside SelectionContainer may add line numbers
- * to the selected text. This regex removes "digits + optional whitespace" at
- * line starts. The trailing `\s?` is optional because the new Column-based
- * layout (gutter Column | code Column) may concatenate "1code" with no space
- * between the line number and the code text.
+ * 从剪贴板捕获的文本中剥离行号 gutter 前缀。
+ * SelectionContainer 内的 gutter Text composable 可能会把行号加入
+ * 选中文本。此正则去除行首的"数字 + 可选空白"。末尾的 `\s?` 是
+ * 可选的，因为新的基于 Column 的布局（gutter Column | code Column）
+ * 可能把 "1code" 拼在一起，行号与代码文本之间没有空格。
  */
 internal fun stripGutterNumbers(text: String): String {
     return text.replace(Regex("(?m)^\\s*\\d+\\s?"), "")

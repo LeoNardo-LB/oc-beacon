@@ -105,7 +105,7 @@ class ChatViewModelSendTest {
         coEvery { manageAgentUseCase.loadAgents(any()) } returns emptyList()
         coEvery { manageAgentUseCase.loadCommands(any()) } returns emptyList()
 
-        // Wire messagePaging.observeMessages to return empty messages
+        // 将 messagePaging.observeMessages 接线为返回空消息列表
         every { messagePaging.observeMessages(any()) } returns flowOf(emptyList())
     }
 
@@ -169,18 +169,18 @@ class ChatViewModelSendTest {
     }
 
     /**
-     * uiState is backed by stateIn which needs an active subscriber to emit updates.
-     * Without a subscriber, uiState.value returns the initial ChatUiState().
+     * uiState 由 stateIn 支撑，需要活跃订阅者才能发出更新。
+     * 没有订阅者时，uiState.value 返回初始 ChatUiState()。
      */
     private fun kotlinx.coroutines.test.TestScope.subscribeToState(vm: ChatViewModel): Job {
         return backgroundScope.launch {
-            vm.uiState.collect { /* keep subscription alive */ }
+            vm.uiState.collect {         /* 保持订阅存活 */ }
         }
     }
 
     @Test
     fun `pendingMessageIds cleared after successful send in V1`() = runTest {
-        // P5-4: sendParts clears pendingId on success path (was only cleared in catch).
+        // P5-4：sendParts 在成功路径上清除 pendingId（之前只在 catch 中清除）。
         coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } returns Unit
 
         val viewModel = createViewModel()
@@ -190,7 +190,7 @@ class ChatViewModelSendTest {
         viewModel.sendMessage("Hello world")
         advanceUntilIdle()
 
-        // After successful send, pendingId is cleared (P5-4 fix)
+        // 发送成功后，pendingId 被清除（P5-4 修复）
         val state = viewModel.uiState.value
         assertTrue(
             "Pending message should be cleared after successful send, got: ${state.pendingMessageIds}",
@@ -211,7 +211,7 @@ class ChatViewModelSendTest {
         viewModel.sendMessage("Hello world")
         advanceUntilIdle()
 
-        // Pending should be cleared after failure
+        // 失败后 pending 应被清除
         val state = viewModel.uiState.value
         assertTrue(
             "Pending message should be removed on failure, got: ${state.pendingMessageIds}",
@@ -222,8 +222,8 @@ class ChatViewModelSendTest {
 
     @Test
     fun `restoredDraft is set on send failure in V1`() = runTest {
-        // V1 sendParts() catches exceptions and restores draft to _restoredDraft.
-        // Mock sendMessageUseCase.sendPrompt() to throw — this is what V1 calls.
+        // V1 sendParts() 捕获异常并将草稿恢复到 _restoredDraft。
+        // 让 sendMessageUseCase.sendPrompt() 抛异常 —— 这正是 V1 调用的方法。
         coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
 
@@ -234,7 +234,7 @@ class ChatViewModelSendTest {
         viewModel.sendMessage("Hello world")
         advanceUntilIdle()
 
-        // V1 sets restoredDraft on send failure so the user can retry
+        // V1 在发送失败时设置 restoredDraft，以便用户重试
         assertNotNull(
             "V1 should set restoredDraft on send failure",
             viewModel.uiState.value.restoredDraft
@@ -252,10 +252,10 @@ class ChatViewModelSendTest {
         val collectJob = subscribeToState(viewModel)
         advanceUntilIdle()
 
-        // restoredDraft starts as null (no undo/revert happened)
+        // restoredDraft 初始为 null（未发生撤销/还原）
         assertNull(viewModel.uiState.value.restoredDraft)
 
-        // Calling consume should not crash and stays null
+        // 调用 consume 不应崩溃，且保持为 null
         viewModel.consumeRestoredDraft()
         advanceUntilIdle()
 

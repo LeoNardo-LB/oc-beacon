@@ -3,13 +3,13 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import dev.leonardo.ocbeacon.domain.model.Part
 
 /**
- * Utility functions for filtering and categorizing chat parts.
+ * 用于过滤和分类聊天 parts 的工具函数。
  */
 
 /**
- * Determines whether a Part should be rendered inside a chat bubble.
- * Non-renderable parts (StepStart, StepFinish, Snapshot, Subtask, Compaction,
- * Agent, SessionTurn, Unknown) are filtered out before display.
+ * 判断一个 Part 是否应在聊天气泡内渲染。
+ * 不可渲染的 parts（StepStart、StepFinish、Snapshot、Subtask、Compaction、
+ * Agent、SessionTurn、Unknown）在显示前被过滤掉。
  */
 internal fun isBubbleRenderablePart(part: Part): Boolean {
     return when (part) {
@@ -27,12 +27,12 @@ internal fun isBubbleRenderablePart(part: Part): Boolean {
 }
 
 /**
- * Filters a list of Parts to only include renderable ones,
- * preserving the original order from the server.
+ * 过滤 Parts 列表，仅包含可渲染的，
+ * 保留服务器返回的原始顺序。
  *
- * This is the core logic that was fixed: previously parts were split into
- * contentParts and stepParts groups and rendered out of order. Now the
- * original interleaving (Text → Tool → Reasoning → Tool → Text) is preserved.
+ * 这是已修复的核心逻辑：此前 parts 被拆分为
+ * contentParts 和 stepParts 组并乱序渲染。现在保留
+ * 原始交错（Text → Tool → Reasoning → Tool → Text）。
  */
 internal fun filterRenderableParts(parts: List<Part>): List<Part> {
     return parts.filter(::isBubbleRenderablePart)

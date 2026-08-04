@@ -68,21 +68,21 @@ fun FileViewerScreen(
     onShare: () -> Unit,
     onCopyAllContent: () -> Unit,
     onToggleRenderMode: () -> Unit,
-    // Phase 3: Annotation callbacks
+    // Phase 3：批注回调
     onAddAnnotation: (selectedText: String, startChar: Int, endChar: Int, note: String) -> Unit,
     onDeleteAnnotation: (id: String) -> Unit,
     onUpdateAnnotation: (id: String, note: String) -> Unit,
     onSubmitAnnotations: (overallNote: String, editedNotes: Map<String, String>) -> Unit,
-    // Phase 4: pagination
+    // Phase 4：分页
     onLoadMoreLines: () -> Unit,
-    // DIFF → SOURCE switch so users can annotate from diff view
+    // DIFF → SOURCE 切换，让用户可从 diff 视图进行批注
     onSwitchToSource: (() -> Unit)? = null
 ) {
-    // Annotation state: (selectedText, startChar, endChar)
+    // 批注状态：(selectedText, startChar, endChar)
     var pendingAnnotation by remember { mutableStateOf<Triple<String, Int, Int>?>(null) }
     var detailAnnotation by remember { mutableStateOf<Annotation?>(null) }
     var showSubmitDialog by remember { mutableStateOf(false) }
-    // Serialize annotations for WebView highlight rendering
+    // 把批注序列化为 JSON，供 WebView 高亮渲染
     val annotationsJson = remember(uiState.annotations) {
         if (uiState.annotations.isEmpty()) ""
         else org.json.JSONArray().apply {
@@ -95,7 +95,7 @@ fun FileViewerScreen(
             }
         }.toString()
     }
-    // Phase 2: source scroll state + fraction anchor for md render toggle
+    // Phase 2：源码滚动状态 + 用于 markdown 渲染切换的比例锚点
     val sourceLazyListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     var lastSourceFraction by remember { mutableStateOf(0f) }
     val sourceLineCount = remember(uiState.content) {
@@ -145,14 +145,14 @@ fun FileViewerScreen(
                     onPrevHunk = onPrevHunk
                 )
                 uiState.isEmpty -> MessageState(message = stringResource(R.string.viewer_empty_file))
-                // Source vs render preview with smooth crossfade transition
-                // Dual-pane: both source and render views always composed, toggle = visibility switch
+                // 源码 vs 渲染预览，带平滑淡入淡出过渡
+                // 双面板：源码和渲染视图都常驻组合，切换 = 可见性开关
                 else -> {
                     val showRender = uiState.fileType.supportsRender &&
                         uiState.renderMode == FileViewerRenderMode.RENDER_PREVIEW
 
                     Box(Modifier.fillMaxSize()) {
-                        // ── Source pane (CodeWebView) ── always present, hidden when showing render
+                        // ── 源码面板（CodeWebView） ── 始终存在，显示渲染时隐藏
                         if (uiState.isExtremelyLarge) {
                             Column(Modifier.fillMaxSize()) {
                                 LargeFileWarningBanner(lineCount = uiState.totalLineCount)
@@ -185,7 +185,7 @@ fun FileViewerScreen(
                             initialScrollLine = uiState.initialScrollLine,
                         )
 
-                        // ── Render pane ── conditionally composed to avoid touch interception
+                        // ── 渲染面板 ── 条件组合，避免拦截触摸事件
                         if (showRender && uiState.fileType.supportsRender) {
                             when (uiState.fileType) {
                                 FileType.MARKDOWN -> RenderWebView(
@@ -217,7 +217,7 @@ fun FileViewerScreen(
         }
     }
 
-    // Phase 3: Annotation Input Sheet
+    // Phase 3：批注输入弹层
     pendingAnnotation?.let { (selectedText, startChar, endChar) ->
         AnnotationInputSheet(
             selectedText = selectedText,
@@ -229,7 +229,7 @@ fun FileViewerScreen(
         )
     }
 
-    // Annotation edit sheet — reuses AnnotationInputSheet (bottom sheet, not dialog)
+    // 批注编辑弹层 — 复用 AnnotationInputSheet（底部弹层，非对话框）
     detailAnnotation?.let { ann ->
         AnnotationInputSheet(
             selectedText = ann.selectedText,
@@ -246,7 +246,7 @@ fun FileViewerScreen(
         )
     }
 
-    // Phase 3: Submit Dialog
+    // Phase 3：提交对话框
     if (showSubmitDialog && uiState.annotations.isNotEmpty()) {
         AnnotationSubmitDialog(
             annotationCount = uiState.annotations.size,
@@ -275,7 +275,7 @@ private fun FileViewerTopBar(
     TopAppBar(
         title = {
             Column {
-                // Extract filename handling both / and \ separators
+                // 同时处理 / 和 \ 分隔符来提取文件名
                 val fileName = remember(uiState.filePath) { PathUtils.fileName(uiState.filePath) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -288,18 +288,18 @@ private fun FileViewerTopBar(
                         Badge { Text("$annotationCount") }
                     }
                 }
-                // Subtitle: path relative to workspace
+                // 副标题：相对 workspace 的路径
                 val relativePath = remember(uiState.filePath, uiState.directory) {
                     val fp = uiState.filePath
                     val dir = uiState.directory
-                    // Strip workspace prefix if present, otherwise strip leading "/"
+                    // 如存在 workspace 前缀则剥离，否则剥离前导 "/"
                     val full = when {
                         dir.isNotBlank() && fp.startsWith(dir) -> fp.removePrefix(dir).removePrefix("/")
                         dir.isNotBlank() && fp.contains(dir) -> fp.substringAfter(dir).removePrefix("/")
                         fp.startsWith("/") -> fp.removePrefix("/")
                         else -> fp
                     }
-                    // Show only the directory portion (no filename)
+                    // 仅显示目录部分（不含文件名）
                     PathUtils.parentDir(full).ifBlank { "" }
                 }
                 if (relativePath.isNotBlank()) {
@@ -325,7 +325,7 @@ private fun FileViewerTopBar(
             }
         },
         actions = {
-            // DIFF mode → show "Source" button so users can switch to annotatable source view
+            // DIFF 模式 → 显示"源码"按钮，让用户切换到可批注的源码视图
             if (uiState.mode == FileViewerMode.DIFF && onSwitchToSource != null) {
                 TextButton(
                     onClick = onSwitchToSource,
@@ -334,7 +334,7 @@ private fun FileViewerTopBar(
                     Text(stringResource(R.string.viewer_diff_show_source))
                 }
             }
-            // Multi-format render toggle (hidden when annotations exist)
+            // 多格式渲染切换（存在批注时隐藏）
             if (annotationCount == 0 && uiState.fileType.supportsRender && uiState.fileType.supportsSourceView && uiState.mode != FileViewerMode.DIFF) {
                 val isRender = uiState.renderMode == FileViewerRenderMode.RENDER_PREVIEW
                 IconButton(
@@ -350,7 +350,7 @@ private fun FileViewerTopBar(
                     )
                 }
             }
-            // Phase 3: Submit button when annotations exist
+            // Phase 3：存在批注时显示提交按钮
             if (annotationCount > 0) {
                 TextButton(
                     onClick = onSubmitClick,
@@ -476,7 +476,7 @@ private fun AnnotationSubmitDialog(
     onDismiss: () -> Unit
 ) {
     var overallNote by remember { mutableStateOf("") }
-    // Track edited notes by annotation ID
+    // 按批注 ID 跟踪已编辑的说明
     val editedNotes = remember(annotations) { mutableStateMapOf<String, String>() }
 
     AlertDialog(

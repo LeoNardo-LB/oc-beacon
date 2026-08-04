@@ -6,15 +6,15 @@ import dev.leonardo.ocbeacon.data.dto.response.QuestionRequest
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 
 /**
- * Maps between API DTO (QuestionRequest) and Domain (SseEvent.QuestionAsked).
+ * 在 API DTO（QuestionRequest）与领域模型（SseEvent.QuestionAsked）之间映射。
  *
- * Key differences:
- * - API uses QuestionInfo/QuestionOption; Domain uses QuestionAsked.Question/Option
- * - Field names are identical but types are in different packages
+ * 关键差异：
+ * - API 使用 QuestionInfo/QuestionOption；领域使用 QuestionAsked.Question/Option
+ * - 字段名相同，但类型位于不同包中
  */
 object QuestionMapper {
 
-    /** API DTO → Domain */
+    /** API DTO → 领域模型 */
     fun toDomain(dto: QuestionRequest): SseEvent.QuestionAsked {
         return SseEvent.QuestionAsked(
             id = dto.id,
@@ -24,7 +24,7 @@ object QuestionMapper {
         )
     }
 
-    /** Domain → API DTO */
+    /** 领域模型 → API DTO */
     fun toDto(domain: SseEvent.QuestionAsked): QuestionRequest {
         return QuestionRequest(
             id = domain.id,

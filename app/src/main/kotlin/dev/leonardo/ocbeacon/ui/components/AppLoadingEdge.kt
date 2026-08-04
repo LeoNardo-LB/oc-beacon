@@ -22,14 +22,14 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 
 /**
- * Edge loading indicator with two modes:
- * - **active**: infinite pulse animation (breathing effect), alpha fixed at 0.9
- * - **progress**: deterministic scale based on [progress] value (0..1), alpha scales with progress
+ * 边缘加载指示器，支持两种模式：
+ * - **active**：无限脉冲动画（呼吸效果），alpha 固定为 0.9
+ * - **progress**：基于 [progress] 值（0..1）的确定性缩放，alpha 随进度变化
  *
- * Renders as a 3dp horizontal gradient bar (transparent → primary → transparent).
+ * 渲染为 3dp 高的水平渐变条（透明 → primary → 透明）。
  *
- * Inspired by upstream oc-remote v1.7.0 AppLoadingEdge.
- * Animation duration uses our [AppMotion.BREATH_CYCLE] token.
+ * 灵感来自上游 oc-remote v1.7.0 的 AppLoadingEdge。
+ * 动画时长使用项目的 [AppMotion.BREATH_CYCLE] 令牌。
  */
 @Composable
 fun AppLoadingEdge(

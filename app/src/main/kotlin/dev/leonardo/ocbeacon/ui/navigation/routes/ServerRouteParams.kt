@@ -7,9 +7,9 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
- * Common server connection parameters shared across most routes.
- * Eliminates the repeated serverUrl/username/password/serverName/serverId
- * boilerplate in every route definition.
+ * 多数路由共享的通用服务器连接参数。
+ * 消除每个路由定义中重复的 serverUrl/username/password/serverName/serverId
+ * 样板代码。
  */
 data class ServerRouteParams(
     val serverUrl: String,
@@ -25,7 +25,7 @@ data class ServerRouteParams(
         const val PARAM_SERVER_NAME = "serverName"
         const val PARAM_SERVER_ID = "serverId"
 
-        /** NavArgument definitions — reuse in every route that needs server params */
+        /** NavArgument 定义 — 在每个需要服务器参数的路由中复用 */
         val navArguments = listOf(
             navArgument(PARAM_SERVER_URL) { type = NavType.StringType },
             navArgument(PARAM_USERNAME) { type = NavType.StringType },
@@ -34,11 +34,11 @@ data class ServerRouteParams(
             navArgument(PARAM_SERVER_ID) { type = NavType.StringType },
         )
 
-        /** Build query pattern with placeholders for route pattern strings */
+        /** 构建带占位符的查询模式，用于路由模式字符串 */
         fun queryPattern(): String =
             "$PARAM_SERVER_URL={$PARAM_SERVER_URL}&$PARAM_USERNAME={$PARAM_USERNAME}&$PARAM_PASSWORD={$PARAM_PASSWORD}&$PARAM_SERVER_NAME={$PARAM_SERVER_NAME}&$PARAM_SERVER_ID={$PARAM_SERVER_ID}"
 
-        /** Build query string with encoded values for route navigation */
+        /** 用编码后的值构建查询字符串，用于路由导航 */
         fun queryString(
             serverUrl: String,
             username: String,
@@ -56,7 +56,7 @@ data class ServerRouteParams(
     }
 }
 
-/** Extension to decode server params from a NavBackStackEntry. */
+/** 扩展函数：从 NavBackStackEntry 解码服务器参数。 */
 fun NavBackStackEntry.serverRouteParams(): ServerRouteParams {
     return ServerRouteParams(
         serverUrl = safeDecodeParam(arguments?.getString(ServerRouteParams.PARAM_SERVER_URL).orEmpty()),

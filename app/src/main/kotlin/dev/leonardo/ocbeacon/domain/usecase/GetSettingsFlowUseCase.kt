@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 /**
- * Use case: observe application settings.
- * Used by Phase 4 SettingsViewModel.
+ * Use Case：观察应用设置。
+ * 供 Phase 4 SettingsViewModel 使用。
  */
 class GetSettingsFlowUseCase @Inject constructor(
     private val settingsRepository: SettingsRepository

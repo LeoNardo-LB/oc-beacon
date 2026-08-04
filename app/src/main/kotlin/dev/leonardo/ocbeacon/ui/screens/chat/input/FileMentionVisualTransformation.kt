@@ -10,10 +10,10 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 
 /**
- * Visual transformation that highlights confirmed @file mentions in the input field.
- * Confirmed paths get a colored background + bold style.
- * Unconfirmed @query mentions (still searching) and plain text
- * remain unstyled so the user can see they haven't been selected yet.
+ * 高亮输入框中已确认 @file 提及的视觉变换。
+ * 已确认的路径获得彩色背景 + 加粗样式。
+ * 未确认的 @query 提及（仍在搜索中）和纯文本
+ * 保持无样式，让用户知道它们尚未被选中。
  */
 internal class FileMentionVisualTransformation(
     private val confirmedFilePaths: Set<String>,
@@ -27,15 +27,15 @@ internal class FileMentionVisualTransformation(
         val raw = text.text
         val annotated = buildAnnotatedString {
             append(raw)
-            // For each confirmed path, find all occurrences of @path in the text
+            // 对每个已确认路径，在文本中查找所有 @path 出现位置
             for (path in confirmedFilePaths) {
                 val needle = "@$path"
                 var searchFrom = 0
                 while (true) {
                     val idx = raw.indexOf(needle, searchFrom)
                     if (idx == -1) break
-                    // Ensure the match is not part of a longer token:
-                    // next char after needle should be whitespace, end-of-string, or another @
+                    // 确保该匹配不是更长 token 的一部分：
+                    // needle 之后的下一个字符应为空白、字符串末尾或另一个 @
                     val endIdx = idx + needle.length
                     if (endIdx < raw.length) {
                         val next = raw[endIdx]

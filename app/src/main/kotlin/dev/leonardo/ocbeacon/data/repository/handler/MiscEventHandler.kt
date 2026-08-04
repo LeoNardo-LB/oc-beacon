@@ -11,8 +11,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Handles miscellaneous events: todos, PTY, workspace, file, MCP, command, installation, worktree.
- * Manages: todos
+ * 处理杂项事件：todos、PTY、workspace、file、MCP、command、installation、worktree。
+ * 管理：todos
  */
 @Singleton
 class MiscEventHandler @Inject constructor() : SseEventHandler {
@@ -36,7 +36,7 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.McpToolsChanged -> { if (BuildConfig.DEBUG) Log.d(TAG, "MCP tools changed: ${event.server}"); true }
             is SseEvent.CommandExecuted -> {
                 if (BuildConfig.DEBUG) Log.d(TAG, "Command executed: ${event.name}")
-                // Note: session status reset to Idle is handled by EventDispatcher (cross-handler concern)
+                // 注意：会话状态重置为 Idle 由 EventDispatcher 处理（跨 handler 关注点）
                 true
             }
             is SseEvent.FileWatcherUpdated -> { if (BuildConfig.DEBUG) Log.d(TAG, "File watcher updated: ${event.path}"); true }
@@ -44,7 +44,7 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.InstallationUpdateAvailable -> { Log.i(TAG, "Update available: ${event.version}"); true }
             is SseEvent.WorktreeReady -> { if (BuildConfig.DEBUG) Log.d(TAG, "Worktree ready: ${event.path}"); true }
             is SseEvent.WorktreeFailed -> { Log.w(TAG, "Worktree failed: ${event.path}"); true }
-            is SseEvent.LspUpdated -> { /* LSP events not needed in mobile */ true }
+            is SseEvent.LspUpdated -> { /* 移动端不需要 LSP 事件 */ true }
             else -> false
         }
     }

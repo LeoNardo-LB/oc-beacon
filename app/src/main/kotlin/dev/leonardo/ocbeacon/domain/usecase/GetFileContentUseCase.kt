@@ -4,7 +4,7 @@ import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import javax.inject.Inject
 
 /**
- * Use case: get file content on a server.
+ * Use Case：获取服务器上的文件内容。
  */
 class GetFileContentUseCase @Inject constructor(
     private val fileRepository: FileRepository

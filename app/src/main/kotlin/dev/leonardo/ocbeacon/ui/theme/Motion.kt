@@ -8,9 +8,9 @@ object AppMotion {
     const val SHORT = 150
     const val MEDIUM = 300
     const val LONG = 500
-    const val BREATH_CYCLE = 800    // Breathing indicator cycle
-    const val PULSE_CYCLE = 1200    // Pulsing dots full cycle
-    const val TERMINAL = 700        // Terminal transition
+    const val BREATH_CYCLE = 800    // 呼吸指示器周期
+    const val PULSE_CYCLE = 1200    // 脉冲点完整周期
+    const val TERMINAL = 700        // 终端转场时长
 
     val StandardEasing = EaseInOut
     val EmphasizedEasing = EaseOut

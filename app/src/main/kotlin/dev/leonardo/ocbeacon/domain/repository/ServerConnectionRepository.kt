@@ -3,7 +3,7 @@ package dev.leonardo.ocbeacon.domain.repository
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 
 /**
- * Connection lifecycle operations (connect/disconnect/test).
+ * 连接生命周期操作（连接/断开/测试）。
  */
 interface ServerConnectionRepository {
     suspend fun connect(server: ServerConfig): Result<Unit>

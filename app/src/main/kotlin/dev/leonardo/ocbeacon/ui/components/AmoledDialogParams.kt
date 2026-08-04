@@ -14,10 +14,10 @@ import dev.leonardo.ocbeacon.ui.theme.LocalAmoledMode
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 
 /**
- * Parameters for a dialog Surface that adapts to AMOLED mode.
+ * 用于对话框 Surface 的参数，会自适应 AMOLED 模式。
  *
- * AMOLED: Color.Black + 0dp elevation + 1dp outlineVariant/HIGH border.
- * Normal: specified color + specified elevation + no border.
+ * AMOLED：Color.Black + 0dp 高度 + 1dp outlineVariant/HIGH 边框。
+ * 普通：指定颜色 + 指定高度 + 无边框。
  */
 data class AmoledDialogParams(
     val containerColor: Color,
@@ -27,11 +27,11 @@ data class AmoledDialogParams(
 )
 
 /**
- * Creates [AmoledDialogParams] that automatically adapt to the current AMOLED theme state.
+ * 创建能自动适配当前 AMOLED 主题状态的 [AmoledDialogParams]。
  *
- * @param normalColor      Surface color in non-AMOLED mode. Default: surfaceContainerHigh.
- * @param normalElevation  Tonal elevation in non-AMOLED mode. Default: 6.dp.
- * @param shape            Corner shape for the dialog surface. Default: ShapeTokens.extraLarge (28dp).
+ * @param normalColor      非 AMOLED 模式下的 Surface 颜色。默认：surfaceContainerHigh。
+ * @param normalElevation  非 AMOLED 模式下的色调高度。默认：6.dp。
+ * @param shape            对话框 Surface 的圆角形状。默认：ShapeTokens.extraLarge（28dp）。
  */
 @Composable
 fun amoledDialogParams(
@@ -61,8 +61,8 @@ fun amoledDialogParams(
 }
 
 /**
- * [TextFieldColors] for AMOLED mode — pure black container.
- * Use inside `if (isAmoled)` branches to eliminate per-site Color.Black repetition.
+ * AMOLED 模式下的 [TextFieldColors] — 纯黑容器。
+ * 在 `if (isAmoled)` 分支内使用，避免在每个调用点重复写 Color.Black。
  */
 @Composable
 fun amoledOutlinedTextFieldColors(): TextFieldColors {

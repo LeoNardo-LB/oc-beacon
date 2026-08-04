@@ -93,10 +93,10 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Shared composable for both main-session and sub-session message lists.
+ * 主会话和子会话消息列表共用的 composable。
  *
- * Contains: PullToRefreshBox > LazyColumn (pending questions/permissions, revert banner,
- * message items) + scroll-to-bottom FAB + streaming message card.
+ * 结构：PullToRefreshBox > LazyColumn（待处理问题/权限、revert 横幅、
+ * 消息项）+ 滚动到底部 FAB + 流式消息卡片。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,10 +125,10 @@ fun ChatMessageList(
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
-    // Structural signature — only changes when messages are added/removed/role-changed.
-    // During SSE token streaming, part content updates every 48ms but message
-    // structure stays the same → this signature prevents unnecessary recompute
-    // of turnGroups and streamingMsgId during scrolling.
+    // 结构签名 —— 仅在消息被添加/移除/角色变化时改变。
+    // SSE token 流式期间，part 内容每 48ms 更新，但消息
+    // 结构保持不变 → 该签名可防止滚动时不必要的
+    // turnGroups 和 streamingMsgId 重算。
     val msgStructKey = remember(rawMessages) {
         rawMessages.size.toString() + rawMessages.joinToString(",") {
             it.message.id.take(12) + it.message.role.first().toString()
@@ -137,8 +137,8 @@ fun ChatMessageList(
 
     val turnGroups = remember(msgStructKey) { computeTurnGroups(rawMessages) }
 
-    // Pre-compute all rendering data for assistant display items.
-    // Single remember block — runs only when rawMessages/displayItems change, not during composition.
+    // 预计算 assistant 显示项的全部渲染数据。
+    // 单个 remember 块 —— 仅在 rawMessages/displayItems 变化时运行，而非组合期间。
     val renderableTurns: List<RenderableTurn?> = remember(rawMessages, displayItems, turnGroups) {
         displayItems.map { (rawIndex, msg) ->
             if (!msg.isAssistant) return@map null
@@ -154,33 +154,32 @@ fun ChatMessageList(
         }
     }
 
-    // Determine which message is currently streaming — based SOLELY on the
-    // completed timestamp, NOT on sessionMeta.isStreaming. The latter was added
-    // in 668384e3 but can fail to reflect active streaming (observed stuck
-    // false in production), which forces streamingMsgId=null and disables ALL
-    // height compensation → viewport dragged to bottom. v360 used completed
-    // timestamp only and worked correctly. Do NOT re-add takeIf(sessionMeta).
-    // Key on structural signature — streamingMsgId only changes when a new
-    // streaming message starts or completes, not on every token batch.
+    // 判断当前哪条消息在流式输出 —— 仅基于 completed 时间戳，
+    // 而非 sessionMeta.isStreaming。后者是在 668384e3 中加入的，
+    // 但可能无法反映活跃流式状态（生产环境观察到 stuck false），
+    // 导致 streamingMsgId=null 并禁用所有高度补偿 → 视口被拖到底部。
+    // v360 只用 completed 时间戳，工作正常。不要再加 takeIf(sessionMeta)。
+    // 以结构签名作为 key —— streamingMsgId 仅在新流式消息开始或
+    // 完成时变化，而非每个 token 批次。
     val streamingMsgId = remember(msgStructKey, rawMessages.lastOrNull()?.message?.time?.completed) {
         rawMessages.lastOrNull {
             it.isAssistant && it.message.time.completed == null
         }?.message?.id
     }
 
-    // Key on streamingMsgId so state resets when streaming message changes (new message
-    // or completion). This is simpler and more correct than heightMap + session-scope clear.
+    // 以 streamingMsgId 作为 key，流式消息变化（新消息
+    // 或完成）时状态重置。这比 heightMap + 会话级清除更简单、更正确。
     val compensateState = remember(streamingMsgId) { CompensateState() }
     val toolCompensateState = remember(streamingMsgId) { CompensateState() }
 
-    // Track whether user has scrolled away from bottom.
-    // IMPORTANT: key on BOTH isScrollInProgress AND isAtBottom.
-    // isAtBottom as a key is REQUIRED so shouldCompensate resets to false when
-    // the user returns to the bottom via non-drag means (fling inertia, SSE
-    // content push). Without it, shouldCompensate stays true at the bottom and
-    // every SSE token fires requestScrollToItemNoCancel → viewport jitter.
-    // This dual-key form is the beta.360-verified behavior; do NOT remove
-    // isAtBottom from the key (see docs/research/sse-scroll-stability-iron-laws.md).
+    // 跟踪用户是否已滚离底部。
+    // 重要：同时以 isScrollInProgress 和 isAtBottom 作为 key。
+    // 以 isAtBottom 作为 key 是必需的，这样当用户通过非拖拽方式
+    // （fling 惯性、SSE 内容推送）回到底部时 shouldCompensate 会重置为 false。
+    // 没有它，shouldCompensate 在底部保持 true，每个 SSE token 都会触发
+    // requestScrollToItemNoCancel → 视口抖动。
+    // 这种双 key 形式是 beta.360 验证过的行为；不要把
+    // isAtBottom 从 key 中移除（参见 docs/research/sse-scroll-stability-iron-laws.md）。
     LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
         if (listState.isScrollInProgress) {
             compensateState.shouldCompensate = true
@@ -189,7 +188,7 @@ fun ChatMessageList(
         }
     }
 
-    // Real-time status from ChatRepository — domain types
+    // 来自 ChatRepository 的实时状态 —— 领域类型
     val currentSessionId = viewModel.sessionId
     val toolProgress by viewModel.chatRepositoryExposed.getActiveToolProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val stepProgress by viewModel.chatRepositoryExposed.getStepProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
@@ -204,15 +203,15 @@ fun ChatMessageList(
         CompactionStateInfo(isActive = it.isActive, reason = it.reason)
     }
 
-    // Quick Navigate: extract jump targets + track current question
+    // 快速导航：提取跳转目标 + 跟踪当前问题
     val jumpTargets = remember(rawMessages) { extractJumpTargets(rawMessages) }
 
     val currentQuestionRawIndex by remember(rawMessages) {
         derivedStateOf { findCurrentQuestionRawIndex(listState, rawMessages) }
     }
 
-    // Number of non-message items rendered before itemsIndexed in the LazyColumn.
-    // MUST mirror the conditional `item { ... }` blocks below (see banner rendering).
+    // LazyColumn 中 itemsIndexed 之前渲染的非消息项数量。
+    // 必须与下面的条件 `item { ... }` 块保持一致（见横幅渲染）。
     val bannerCount = remember(
         sessionMeta.revert,
         currentCompaction,
@@ -236,15 +235,15 @@ fun ChatMessageList(
         if (displayItemIndex < 0) return
         val lazyIndex = bannerCount + displayItemIndex
         coroutineScope.launch {
-            // reverseLayout=true: requestScrollToItemNoCancel places the item at the
-            // viewport's scroll-start (visually the BOTTOM). A follow-up scrollBy moves
-            // it up to the top so the jumped-to message is immediately readable.
+            // reverseLayout=true：requestScrollToItemNoCancel 将项放置在
+            // 视口滚动起点（视觉上的底部）。后续的 scrollBy 将其
+            // 移到顶部，使跳转到的消息立即可读。
             LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
             listState.scroll {
                 val info = listState.layoutInfo
                 val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                 if (item != null) {
-                    // negative delta = backward scroll = content shifts up = item rises to top
+                    // 负 delta = 向后滚动 = 内容上移 = 项升至顶部
                     val delta = (info.viewportStartOffset - item.offset).toFloat()
                     scrollBy(delta)
                 }
@@ -261,20 +260,20 @@ fun ChatMessageList(
         ) {
             var showAlwaysDialog by remember { mutableStateOf<SseEvent.PermissionAsked?>(null) }
 
-            // Custom FlingBehavior: caps per-frame scroll delta below LazyListMeasure's
-            // fast-scroll estimation threshold. Without this cap, large fling velocities
-            // produce per-frame deltas > viewportSize, triggering the estimation — but
-            // ONLY for forward scroll (towards END/higher indices). This creates asymmetric
-            // fling speed: scrolling towards END (older msgs in reverseLayout) is near-
-            // instant (estimation skips items), while scrolling towards START (newer msgs)
-            // is slow (every item composed). The cap + carry pattern ensures symmetric
-            // behavior: each frame's scrollBy stays sub-threshold for BOTH directions,
-            // and excess delta is carried to the next frame to preserve total distance.
+            // 自定义 FlingBehavior：将每帧滚动 delta 限制在 LazyListMeasure 的
+            // 快速滚动估算阈值之下。没有此限制，较大的 fling 速度会
+            // 产生超过 viewportSize 的每帧 delta，从而触发估算 —— 但
+            // 仅对向前滚动（朝向 END/更大索引）生效。这导致不对称的
+            // fling 速度：向 END 滚动（reverseLayout 中的较旧消息）几乎是
+            // 瞬时的（估算跳过项），而向 START 滚动（较新消息）
+            // 很慢（每项都组合）。cap + carry 模式确保了对称
+            // 行为：每一帧的 scrollBy 对两个方向都低于阈值，
+            // 多余的 delta 会带入下一帧以保持总距离。
             //
-            // Root cause: the original chunking approach (inner while loop calling scrollBy
-            // multiple times per frame) did NOT prevent estimation because all scrollBy
-            // calls within one frame are accumulated into a single layout pass. The
-            // estimation sees the TOTAL per-frame delta, not individual chunks.
+            // 根本原因：原始的切块方案（每帧在内部 while 循环中多次调用 scrollBy）
+            // 并不能阻止估算，因为同一帧内的所有 scrollBy 调用
+            // 会累计到一次布局传递中。估算看到的是每帧总 delta，
+            // 而不是单个块。
             val safeFlingBehavior = remember {
                 object : FlingBehavior {
                     override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
@@ -284,8 +283,8 @@ fun ChatMessageList(
                         var velocity = initialVelocity
                         val friction = 3f
                         val minVelocity = 50f
-                        // Safely below viewport/2 on typical phones (viewport ≈ 600-800px).
-                        // 200px ensures no fast-scroll estimation triggers for either direction.
+                        // 在典型手机上安全地低于 viewport/2（viewport ≈ 600-800px）。
+                        // 200px 确保任一方向都不会触发快速滚动估算。
                         val maxPerFrame = 200f
                         var carry = 0f
                         var lastFrame = withFrameNanos { it }
@@ -296,8 +295,8 @@ fun ChatMessageList(
                             lastFrame = frame
                             if (dt <= 0f || dt > 0.1f) continue
 
-                            // Per-frame delta = velocity * dt + carry from previous frame.
-                            // carry preserves total scroll distance when capping kicks in.
+                            // 每帧 delta = velocity * dt + 上一帧的 carry。
+                            // carry 在限幅生效时保持总滚动距离。
                             val rawDelta = velocity * dt + carry
                             val delta = rawDelta.coerceIn(-maxPerFrame, maxPerFrame)
                             carry = rawDelta - delta
@@ -305,7 +304,7 @@ fun ChatMessageList(
                             val consumed = scrollBy(delta)
                             if (kotlin.math.abs(consumed) < 0.5f) return velocity
 
-                            // Exponential decay: v(t+dt) = v(t) * e^(-friction * dt)
+                            // 指数衰减：v(t+dt) = v(t) * e^(-friction * dt)
                             velocity *= kotlin.math.exp(-friction * dt)
                         }
                         return velocity
@@ -313,13 +312,13 @@ fun ChatMessageList(
                 }
             }
 
-            // Auto-pagination: trigger load when user is within 8 items of the top.
-            // Replaces PullToRefreshBox — seamless, no manual gesture needed.
+            // 自动分页：用户距顶部 8 项以内时触发加载。
+            // 取代 PullToRefreshBox —— 无缝，无需手动手势。
             //
-            // CRITICAL: remember MUST be keyed on messageState. Without the key,
-            // derivedStateOf captures the initial messageState (where hasOlderMessages=false)
-            // and never sees updates when loadMessagesForSession() sets hasOlderMessages=true.
-            // This was the root cause of pagination silently failing after session entry.
+            // 关键：remember 必须以 messageState 为 key。没有这个 key，
+            // derivedStateOf 会捕获初始 messageState（其中 hasOlderMessages=false）
+            // 并且当 loadMessagesForSession() 将 hasOlderMessages 设为 true 时
+            // 永远看不到更新。这是进入会话后分页静默失败的根源。
             val shouldPaginate by remember(messageState) {
                 derivedStateOf {
                     val layoutInfo = listState.layoutInfo
@@ -348,11 +347,11 @@ fun ChatMessageList(
                     reverseLayout = true,
                     verticalArrangement = Arrangement.spacedBy(messageSpacing)
                 ) {
-                    // reverseLayout=true: items declared first render at the BOTTOM.
-                    // Visual order (top→bottom): oldest msgs → newest msgs → revert → pending.
-                    // Declaration order is bottom-up: pending (bottom) → messages (top).
+                    // reverseLayout=true：先声明的项渲染在底部。
+                    // 视觉顺序（上→下）：最旧消息 → 最新消息 → revert → pending。
+                    // 声明顺序自下而上：pending（底部）→ 消息（顶部）。
 
-                    // Revert banner
+                    // Revert 横幅
                     if (sessionMeta.revert != null) {
                         item(key = "revert_banner") {
                             RevertBanner(onRedo = {
@@ -368,14 +367,14 @@ fun ChatMessageList(
                         }
                     }
 
-                    // Compaction banner
+                    // Compaction 横幅
                     if (currentCompaction != null && currentCompaction.isActive) {
                         item(key = "compaction_banner") {
                             CompactionBanner(state = currentCompaction)
                         }
                     }
 
-                    // Retry banner — shown when session is in Retry status
+                    // Retry 横幅 —— 会话处于 Retry 状态时显示
                     val retryStatus = sessionMeta.sessionStatus
                     if (retryStatus is SessionStatus.Retry) {
                         item(key = "retry_banner") {
@@ -383,7 +382,7 @@ fun ChatMessageList(
                         }
                     }
 
-                    // Tool progress cards (with drift compensation)
+                    // 工具进度卡片（带漂移补偿）
                     if (activeTools.isNotEmpty()) {
                         item(key = "tool_progress") {
                             Column(
@@ -414,18 +413,18 @@ fun ChatMessageList(
                             }
                         }
                     } else {
-                        // Reset when no active tools
+                        // 无活跃工具时重置
                         toolCompensateState.lastHeight = 0
                     }
 
-                    // Step progress indicator
+                    // 步骤进度指示器
                     if (currentStep != null) {
                         item(key = "step_progress") {
                             StepProgressIndicator(stepInfo = currentStep)
                         }
                     }
 
-                    // Pending questions — show one at a time (oldest first)
+                    // 待处理问题 —— 一次显示一个（最旧优先）
                     interaction.pendingQuestions.firstOrNull()?.let { question ->
                         item(key = "question_${question.id}") {
                             QuestionCard(
@@ -443,7 +442,7 @@ fun ChatMessageList(
                         }
                     }
 
-                    // Pending permissions — show one at a time (oldest first)
+                    // 待处理权限 —— 一次显示一个（最旧优先）
                     interaction.pendingPermissions.firstOrNull()?.let { permission ->
                         item(key = "perm_${permission.id}") {
                             PermissionCard(
@@ -462,15 +461,15 @@ fun ChatMessageList(
                         }
                     }
 
-                    // Chat messages: displayItems is already newest-first (descending).
-                    // reverseLayout=true renders index 0 (newest) at the bottom.
-                    // Visual result: oldest at top, newest at bottom.
+                    // 聊天消息：displayItems 已经是新的在前（降序）。
+                    // reverseLayout=true 将索引 0（最新）渲染在底部。
+                    // 视觉结果：最旧在顶部，最新在底部。
                     itemsIndexed(
                         displayItems,
                         key = { _, (rawIndex, msg) ->
-                            // Stable turn-based key: prevents item disposal when pagination
-                            // loads more messages from the same turn (the representative
-                            // message changes but the turn identity stays the same).
+                            // 稳定的基于 turn 的 key：分页从同一 turn
+                            // 加载更多消息时防止项被销毁（代表消息
+                            // 会变化，但 turn 身份保持不变）。
                             if (msg.isUser) "u_${msg.message.id}"
                             else "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
                         },
@@ -618,8 +617,7 @@ fun ChatMessageList(
                         } // Box freeze
                     }
 
-                    // Pagination loading indicator — appears at visual top (reverseLayout)
-                    // when older messages are being fetched.
+                    // 分页加载指示器 —— 抓取更旧消息时出现在视觉顶部（reverseLayout）
                     if (messageState.isLoadingOlder) {
                         item(key = "loading_older") {
                             Box(
@@ -635,7 +633,7 @@ fun ChatMessageList(
                     }
                 }
 
-            // Scroll-to-bottom FAB
+            // 滚动到底部 FAB
             if (!isAtBottom) {
                 SmallFloatingActionButton(
                     onClick = {
@@ -658,7 +656,7 @@ fun ChatMessageList(
                 }
             }
 
-            // Quick navigate bottom sheet
+            // 快速导航底部弹窗
             QuickNavigateSheet(
                 show = showQuickNavigate,
                 jumpTargets = jumpTargets,
@@ -667,7 +665,7 @@ fun ChatMessageList(
                 onDismiss = onQuickNavigateDismiss,
             )
 
-            // Always-allow confirmation dialog
+            // 始终允许确认对话框
             showAlwaysDialog?.let { perm ->
                 AlwaysConfirmDialog(
                     toolName = perm.permission,

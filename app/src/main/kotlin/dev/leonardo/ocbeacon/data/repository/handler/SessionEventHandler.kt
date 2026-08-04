@@ -11,13 +11,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Handles session lifecycle events: created, updated, deleted, diff, error, compacted.
- * Manages: sessions, serverSessions, sessionDiffs, vcsBranch, projectInfo
+ * 处理会话生命周期事件：created、updated、deleted、diff、error、compacted。
+ * 管理：sessions、serverSessions、sessionDiffs、vcsBranch、projectInfo
  *
- * Session STATUS is no longer tracked here — [dev.leonardo.ocbeacon.data.repository.SessionStateService]
- * is the single source of truth. SessionStatus/SessionIdle events are acknowledged here
- * (so the dispatcher's registry routes them) but the actual FSM transition happens in
- * [dev.leonardo.ocbeacon.data.repository.EventDispatcher.forwardToSessionStateService].
+ * 会话 STATUS 不再在此跟踪——[dev.leonardo.ocbeacon.data.repository.SessionStateService]
+ * 是单一真相源。SessionStatus/SessionIdle 事件在此被确认
+ *（以便 dispatcher 的注册表路由它们），但实际的 FSM 转移发生在
+ * [dev.leonardo.ocbeacon.data.repository.EventDispatcher.forwardToSessionStateService]。
  */
 @Singleton
 class SessionEventHandler @Inject constructor() : SseEventHandler {
@@ -41,7 +41,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     private val _projectInfo = MutableStateFlow<Project?>(null)
     val projectInfo: StateFlow<Project?> = _projectInfo.asStateFlow()
 
-    /** Tracks the timestamp of the last user message per session for stable sort ordering. */
+    /** 跟踪每个会话最后一条用户消息的时间戳，用于稳定排序。 */
     private val _lastUserMessageTime = MutableStateFlow<Map<String, Long>>(emptyMap())
     val lastUserMessageTime: StateFlow<Map<String, Long>> = _lastUserMessageTime.asStateFlow()
 
@@ -59,8 +59,8 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.SessionCreated -> { handleSessionCreated(event, serverId); true }
             is SseEvent.SessionUpdated -> { handleSessionUpdated(event, serverId); true }
             is SseEvent.SessionDeleted -> { handleSessionDeleted(event); true }
-            // Status/idle events are acknowledged here but processed by SessionStateService
-            // via EventDispatcher.forwardToSessionStateService — no local state to update.
+            // 状态/idle 事件在此确认，但由 SessionStateService 经由
+            // EventDispatcher.forwardToSessionStateService 处理——无本地状态需更新。
             is SseEvent.SessionStatus -> true
             is SseEvent.SessionIdle -> true
             is SseEvent.SessionDiff -> { handleSessionDiff(event); true }
@@ -99,9 +99,9 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         _sessions.update { current ->
             val idx = current.indexOfFirst { it.id == event.info.id }
             if (idx >= 0) {
-                // Don't let stale SSE restore a revert we just cleared locally.
-                // The server will eventually send revert=null after processing
-                // our new message, at which point we accept and clear the flag.
+                // 不要让陈旧的 SSE 恢复我们刚在本地清除的 revert。
+                // 服务器在处理我们的新消息后最终会发送 revert=null，
+                // 此时我们接受并清除该标志。
                 val merged = if (event.info.id in locallyClearedReverts && event.info.revert != null) {
                     event.info.copy(revert = null)
                 } else {
@@ -129,7 +129,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         Log.e(TAG, "Session ${event.sessionId} error: ${event.error}")
     }
 
-    // ============ Batch Operations ============
+    // ============ 批量操作 ============
 
     fun setSessions(serverId: String, newSessions: List<Session>) {
         val sessionIds = newSessions.map { it.id }.toSet()
@@ -165,16 +165,15 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     /**
-     * Clear the revert state for a session.
-     * Called when the user sends a new message after revert — the server
-     * consumes the revert but may not send a `session.updated` SSE event
-     * to notify the client. This ensures the message list filter stops
-     * hiding new messages.
+     * 清除会话的 revert 状态。
+     * 在用户 revert 后发送新消息时调用——服务器会消费 revert，
+     * 但可能不会发送 `session.updated` SSE 事件通知客户端。
+     * 这确保消息列表过滤器不再隐藏新消息。
      */
     /**
-     * Sessions whose revert was locally cleared (user sent a new message).
-     * Prevents stale SessionUpdated SSE events from restoring the revert
-     * before the server confirms it's cleared.
+     * 本地已清除 revert 的会话（用户发送了新消息）。
+     * 防止陈旧的 SessionUpdated SSE 事件在服务器确认已清除前
+     * 恢复 revert。
      */
     private val locallyClearedReverts = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 

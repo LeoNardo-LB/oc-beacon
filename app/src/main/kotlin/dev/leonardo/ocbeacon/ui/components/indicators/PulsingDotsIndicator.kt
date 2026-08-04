@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 
 /**
- * Animated pulsing dots indicator used across multiple screens
- * (loading states, connection indicators).
+ * 用于多屏共享的动画脉冲点指示器
+ *（加载状态、连接指示器）。
  */
 @Composable
 fun PulsingDotsIndicator(

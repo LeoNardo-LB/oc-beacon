@@ -29,10 +29,10 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * The main text input field for the chat bar. Handles shell-mode monospace styling,
- * file-mention visual transformation, and placeholder rendering.
+ * 聊天栏的主文本输入框。处理 shell 模式的等宽字体样式、
+ * 文件提及视觉变换和占位符渲染。
  *
- * Uses [RowScope] receiver for the `weight` modifier.
+ * 使用 [RowScope] 接收者以支持 `weight` modifier。
  */
 @Composable
 internal fun RowScope.ChatTextField(
@@ -81,10 +81,9 @@ internal fun RowScope.ChatTextField(
             )
             .padding(horizontal = SpacingTokens.LG.dp, vertical = 10.dp)
     ) {
-        // Fixed min-height box: ensures consistent height regardless of
-        // BasicTextField's internal measurement difference between empty (cursor)
-        // and non-empty (text line) states. Always renders placeholder to keep
-        // measurement baseline stable.
+        // 固定最小高度盒子：无论 BasicTextField 在空（光标）
+        // 与非空（文本行）状态下的内部测量差异如何，都保证高度一致。
+        // 始终渲染占位符以保持测量基线稳定。
         Box(modifier = Modifier.defaultMinSize(minHeight = with(LocalDensity.current) {
             MaterialTheme.typography.bodyLarge.lineHeight.toDp()
         })) {
@@ -103,8 +102,8 @@ internal fun RowScope.ChatTextField(
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 visualTransformation = visualTransformation,
                 decorationBox = { innerTextField ->
-                    // Always render placeholder to maintain stable measurement.
-                    // Alpha controls visibility without affecting layout.
+                    // 始终渲染占位符以保持测量稳定。
+                    // Alpha 控制可见性而不影响布局。
                     Box {
                         Text(
                             text = placeholder,

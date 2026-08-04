@@ -24,18 +24,17 @@ import androidx.compose.foundation.background
 import kotlinx.coroutines.flow.SharedFlow
 
 /**
- * WebView Screen - loads the remote OpenCode Web UI
+ * WebView 屏幕 — 加载远程 OpenCode Web UI
  *
- * This replaces all native Chat/Session screens with the full-featured
- * web UI served by the OpenCode server, while the Android foreground
- * service keeps the SSE connection alive in the background.
+ * 用 OpenCode 服务器提供的全功能 Web UI 替代所有原生 Chat/Session 屏幕，
+ * 同时 Android 前台服务在后台保持 SSE 连接活跃。
  *
- * Features:
- * - Pull-to-refresh gesture for page reload
- * - System back button navigates WebView history
- * - Full-screen (no top bar)
- * - Reacts to deep-link navigation events (navigateUrlFlow) even when
- *   the WebView is already open, by calling loadUrl() on the existing instance.
+ * 特性：
+ * - 下拉刷新手势触发页面重载
+ * - 系统返回键在 WebView 历史中导航
+ * - 全屏（无顶栏）
+ * - 即使 WebView 已打开，也会响应深度链接导航事件（navigateUrlFlow），
+ *   通过在已有实例上调用 loadUrl() 实现。
  */
 @Composable
 fun WebViewScreen(
@@ -48,7 +47,7 @@ fun WebViewScreen(
     isDarkTheme: Boolean = false,
     onNavigateBack: () -> Unit
 ) {
-    // Build the full URL: serverUrl + initialPath (for session deep-links)
+    // 构建完整 URL：serverUrl + initialPath（用于会话深度链接）
     val fullUrl = remember(serverUrl, initialPath) {
         if (initialPath.isNotBlank()) {
             serverUrl.trimEnd('/') + initialPath
@@ -62,7 +61,7 @@ fun WebViewScreen(
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
 
-    // File chooser support for <input type="file"> in WebView
+    // 支持 WebView 中 <input type="file"> 的文件选择器
     var fileChooserCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
 
     val fileChooserLauncher = rememberLauncherForActivityResult(
@@ -73,7 +72,7 @@ fun WebViewScreen(
         fileChooserCallback = null
     }
 
-    // Build Basic Auth header
+    // 构建 Basic Auth 头
     val authHeader = remember(username, password) {
         if (username.isNotBlank()) {
             val credentials = "$username:$password"
@@ -83,7 +82,7 @@ fun WebViewScreen(
         }
     }
     
-    // Listen for navigation events from deep-links (notification taps while WebView is open)
+    // 监听来自深度链接的导航事件（WebView 打开时的通知点击）
     LaunchedEffect(navigateUrlFlow) {
         navigateUrlFlow?.collect { newUrl ->
             Log.i("WebViewScreen", "Deep-link navigation received: $newUrl")
@@ -94,7 +93,7 @@ fun WebViewScreen(
         }
     }
 
-    // Refresh handler
+    // 刷新处理器
     fun refresh() {
         webView?.let { wv ->
             isRefreshing = true
@@ -103,7 +102,7 @@ fun WebViewScreen(
         }
     }
 
-    // Handle system back button: go back in WebView history, or exit if at root
+    // 处理系统返回键：在 WebView 历史中后退，处于根页面时退出
     BackHandler {
         if (webView?.canGoBack() == true) {
             webView?.goBack()
@@ -125,9 +124,9 @@ fun WebViewScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()  // Add padding for status bar
-                    .navigationBarsPadding()  // Add padding for navigation bar
-                    .imePadding()  // Shrink when keyboard appears
+                    .statusBarsPadding()  // 为状态栏添加内边距
+                    .navigationBarsPadding()  // 为导航栏添加内边距
+                    .imePadding()  // 键盘弹出时收缩
             ) {
             // WebView
             AndroidView(
@@ -151,9 +150,9 @@ fun WebViewScreen(
                             setSupportZoom(true)
                             builtInZoomControls = true
                             displayZoomControls = false
-                            // Allow WebSocket connections
+                            // 允许 WebSocket 连接
                             javaScriptCanOpenWindowsAutomatically = true
-                            // Cache settings for better offline experience
+                            // 缓存设置，改善离线体验
                             cacheMode = WebSettings.LOAD_DEFAULT
                             // User agent
                             userAgentString = "$userAgentString OpenCodeAndroid/1.0"
@@ -169,7 +168,7 @@ fun WebViewScreen(
                                 if (BuildConfig.DEBUG) Log.d("WebViewScreen", "Page finished: $url")
                                 isLoading = false
                                 isRefreshing = false
-                                // Inject theme to match app's dark/light mode
+                                // 注入主题以匹配应用的深/浅色模式
                                 val themeJs = if (isDarkTheme) {
                                     """
                                     (function() {
@@ -212,24 +211,24 @@ fun WebViewScreen(
                                 error: WebResourceError?
                             ) {
                                 Log.e("WebViewScreen", "Error loading ${request?.url}: ${error?.description} (code=${error?.errorCode})")
-                                // Only handle main frame errors
+                                // 只处理主帧错误
                                 if (request?.isForMainFrame == true) {
                                     isLoading = false
                                     isRefreshing = false
                                 }
                             }
 
-                            // Stay inside the WebView for same-origin navigation
+                            // 同源导航保持在 WebView 内
                             override fun shouldOverrideUrlLoading(
                                 view: WebView?,
                                 request: WebResourceRequest?
                             ): Boolean {
                                 val requestUrl = request?.url?.toString() ?: return false
-                                // Stay in WebView for same-origin requests
+                                // 同源请求留在 WebView 中
                                 if (requestUrl.startsWith(serverUrl)) {
                                     return false
                                 }
-                                // Also stay for relative URLs (they resolve to same origin)
+                                // 相对 URL 也留在 WebView（它们会解析为同源）
                                 return false
                             }
                         }
@@ -245,7 +244,7 @@ fun WebViewScreen(
                                 params: FileChooserParams?
                             ): Boolean {
                                 if (BuildConfig.DEBUG) Log.d("WebViewScreen", "onShowFileChooser: mode=${params?.mode}, acceptTypes=${params?.acceptTypes?.toList()}")
-                                // Cancel any previous pending callback
+                                // 取消之前未完成的回调
                                 fileChooserCallback?.onReceiveValue(null)
                                 fileChooserCallback = callback
 
@@ -263,17 +262,17 @@ fun WebViewScreen(
                         }
                     }
 
-                    // Load the full URL (with session path if deep-linked)
+                    // 加载完整 URL（如有深度链接则带上会话路径）
                     val headers = authHeader?.let { mapOf("Authorization" to it) } ?: emptyMap()
                     wv.loadUrl(fullUrl, headers)
 
                     webView = wv
                     wv
                 },
-                update = { /* WebView state is managed internally */ }
+                update = { /* WebView 状态由内部管理 */ }
             )
 
-            // Loading indicator overlay
+            // 加载指示器覆盖层
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier

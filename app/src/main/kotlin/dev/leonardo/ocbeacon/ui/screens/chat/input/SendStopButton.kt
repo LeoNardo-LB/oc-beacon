@@ -24,13 +24,13 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 
 /**
- * Send / Stop button — tap to send or stop, long-press toggles shell mode.
+ * 发送 / 停止按钮 —— 点击发送或停止，长按切换 shell 模式。
  *
- * @param showStop whether the stop icon should be shown (busy with no text)
- * @param canSend whether sending is currently allowed
- * @param isSending whether a message is currently being sent
- * @param isShellMode whether shell mode is active
- * @param isAmoled whether AMOLED theme is active
+ * @param showStop 是否应显示停止图标（忙碌且无文本）
+ * @param canSend 当前是否允许发送
+ * @param isSending 当前是否正在发送消息
+ * @param isShellMode shell 模式是否激活
+ * @param isAmoled AMOLED 主题是否激活
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

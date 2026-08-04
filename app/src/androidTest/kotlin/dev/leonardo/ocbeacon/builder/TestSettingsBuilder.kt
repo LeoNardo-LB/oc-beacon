@@ -3,8 +3,8 @@ package dev.leonardo.ocbeacon.builder
 import dev.leonardo.ocbeacon.domain.model.AppSettings
 
 /**
- * Create AppSettings for tests.
- * chatDensity: "normal" (comfortable) or "compact".
+ * 为测试创建 AppSettings。
+ * chatDensity："normal"（舒适）或 "compact"（紧凑）。
  */
 fun testSettings(
     chatDensity: String = "normal",

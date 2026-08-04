@@ -4,7 +4,7 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 
 /**
- * Create a Session for tests with sensible defaults.
+ * 以合理的默认值为测试创建一个 Session。
  */
 fun aSession(
     id: String = randomId(),

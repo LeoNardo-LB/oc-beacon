@@ -13,13 +13,12 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 
 /**
- * Displays a provider icon for the given provider ID.
- * Falls back to the "synthetic" (sparkle) icon for unknown providers.
+ * 根据给定的 provider ID 显示对应的提供商图标。
+ * 对未知提供商回退到 "synthetic"（星形）图标。
  *
- * Icons are sourced from models.dev and bundled as vector drawables.
- * They use `android:tint="?attr/colorControlNormal"` so the tint adapts
- * to the current theme automatically. We additionally apply a color filter
- * to match the surrounding text color.
+ * 图标取自 models.dev，作为矢量 drawable 打包。
+ * 它们使用 `android:tint="?attr/colorControlNormal"`，因此着色会自动
+ * 适配当前主题。我们额外应用颜色滤镜以匹配周围文本的颜色。
  */
 @Composable
 fun ProviderIcon(
@@ -40,8 +39,8 @@ fun ProviderIcon(
 
 
 /**
- * Mapping from provider ID to drawable resource.
- * Generated from models.dev provider icons.
+ * provider ID 到 drawable 资源的映射。
+ * 根据 models.dev 的提供商图标生成。
  */
 private val providerIconMap = mapOf(
     "abacus" to R.drawable.ic_provider_abacus,
