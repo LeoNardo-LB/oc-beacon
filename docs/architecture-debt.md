@@ -20,16 +20,19 @@ Updated: 2026-08-05（Phase 1-2 重构后同步）
 |------|------|------|
 | `ChatViewModel` | 注入 `data/repository/ServerTerminalRegistry`（终端工厂） | 终端体系与 connectbot `TerminalEmulator`/`PtySocket` 深度耦合，是 Android 平台细节。抽 domain 接口收益低、风险高，标注为可接受 |
 | `ui/screens/chat/terminal/*` | UI 依赖 `data/terminal/ServerTerminalWorkspace`（含 `TerminalEmulator` 类型暴露） | 同上，终端仿真器是平台细节，维持现状 |
+| `SessionListViewModel`/`DirectoryManager` | 注入 `FileApi`/`SessionApi`/`SystemApi`/`TerminalApi`（目录浏览） | 目录浏览需要低级操作（探测盘符、临时会话执行命令），domain 接口未覆盖且语义不适配，属有意深度集成 |
 | `data/repository/EventDispatcher`、`handler/*`、`SseConnectionManager` | data/service 内部互用具体类 | 正常（data 层内部），非违规 |
 
 > 完整修复终端体系需要将 `ServerTerminalWorkspace` 的 tab 管理/重连/buffer 抽象为 domain 接口——预计 20+ 文件改动、测试重写，收益低于成本。**若未来做，先抽 `ServerTerminalRegistry.workspaceFor` 的薄接口**。
 
-## 2. Thin UseCase Layer（29 个，绝大多数纯委托）
+## 2. Thin UseCase Layer（20 个，绝大多数纯委托）
 
-29 个 UseCase 中 28 个是纯委托（`suspend fun invoke(...) = repo.method(...)`），仅 `SubmitAnnotationsUseCase` 含业务逻辑。
+20 个 UseCase 中 19 个是纯委托（`suspend fun invoke(...) = repo.method(...)`），仅 `SubmitAnnotationsUseCase` 含业务逻辑。
 
-**选项**：
-- A) 删除纯委托 UseCase，ViewModel 直接调 Repository —— 破坏 AGENTS.md 声明的架构规范，需改 20+ 测试
+**2026-08-05 已删 9 个死 UseCase**（main 代码零引用，仅有测试）：ConnectServerUseCase、CreateSessionUseCase、DisconnectServerUseCase、GetMessagesUseCase、GetServerListUseCase、GetSessionListUseCase、ManageQuestionUseCase、PermissionHandlerUseCase、QuestionHandlerUseCase。
+
+**剩余选项**：
+- A) 删除剩余纯委托 UseCase，ViewModel 直接调 Repository —— 破坏 AGENTS.md 声明的架构规范，需改 20+ 测试
 - B) 保持现状 —— UseCase 作为未来业务逻辑的 seam，样板成本低（9-43 行/个）✅ 当前选择
 - C) KSP 代码生成
 

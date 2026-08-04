@@ -46,7 +46,7 @@ Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.**
 domain/          Pure Kotlin, 无 Android 依赖
   model/         40+ 数据类与值类型（SseEvent, Message, Part, Session, AppSettings, SessionCategory, FavoriteSessionSnapshot 等）
   repository/    13 个接口（Agent, Chat, Draft, File, Mcp, Provider, Server, ServerConfig, ServerConnection, Session, Settings, Terminal, Vcs）
-  usecase/       29 个 UseCase — ViewModel 调用它们，而非直接调 API
+  usecase/       20 个 UseCase — ViewModel 调用它们，而非直接调 API
 
 data/            Android 相关实现
   api/           ApiClient.kt + 按域拆分的 SessionApi/MessageApi/FileApi/TerminalApi/ProviderApi/SystemApi (Ktor HTTP), SseClient.kt
