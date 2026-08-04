@@ -42,9 +42,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -89,14 +91,14 @@ fun SessionCategoryPickerDialog(
                     .padding(20.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                Text(text = "分类", style = MaterialTheme.typography.titleMedium)
+                Text(text = stringResource(R.string.category), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(12.dp))
 
                 // "无分类" — 清除分配
                 CategoryOptionRow(
                     icon = Icons.Filled.Close,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    name = "无分类",
+                    name = stringResource(R.string.no_category),
                     isSelected = assignedCategoryId == null,
                     onClick = { onAssign(null) },
                 )
@@ -116,7 +118,7 @@ fun SessionCategoryPickerDialog(
 
                 // 新建分类区
                 Text(
-                    text = "新建分类",
+                    text = stringResource(R.string.new_category),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -124,13 +126,13 @@ fun SessionCategoryPickerDialog(
                 OutlinedTextField(
                     value = newCategoryName,
                     onValueChange = { newCategoryName = it },
-                    label = { Text("分类名称") },
+                    label = { Text(stringResource(R.string.category_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(10.dp))
 
-                Text(text = "颜色", style = MaterialTheme.typography.labelSmall)
+                Text(text = stringResource(R.string.color), style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -147,7 +149,7 @@ fun SessionCategoryPickerDialog(
                 }
                 Spacer(Modifier.height(10.dp))
 
-                Text(text = "图标", style = MaterialTheme.typography.labelSmall)
+                Text(text = stringResource(R.string.icon), style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -169,7 +171,7 @@ fun SessionCategoryPickerDialog(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(onClick = onDismiss) { Text("关闭") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
                     Spacer(Modifier.width(8.dp))
                     Button(
                         onClick = {
@@ -179,7 +181,7 @@ fun SessionCategoryPickerDialog(
                             }
                         },
                         enabled = newCategoryName.isNotBlank(),
-                    ) { Text("添加") }
+                    ) { Text(stringResource(R.string.add)) }
                 }
             }
         }
@@ -222,7 +224,7 @@ private fun CategoryOptionRow(
             IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
-                    contentDescription = "删除分类",
+                    contentDescription = stringResource(R.string.delete_category),
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
                 )

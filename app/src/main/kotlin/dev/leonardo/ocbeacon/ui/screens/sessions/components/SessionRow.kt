@@ -158,7 +158,7 @@ internal fun SessionRow(
                 if (item.hasDraft) {
                     Icon(
                         imageVector = Icons.Outlined.EditNote,
-                        contentDescription = "草稿",
+                        contentDescription = stringResource(R.string.draft),
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                     )
@@ -319,8 +319,8 @@ private fun SessionDetailsDialog(
                 DialogButtons(
                     buttons = listOf(
                         Triple(stringResource(R.string.menu_copy_session_id), DialogButtonRole.Primary, onCopyId),
-                        Triple("分配分类", DialogButtonRole.Primary) { onDismiss(); onAssignCategory() },
-                        Triple(if (isFavorite) "取消收藏" else "收藏", DialogButtonRole.Primary) { onDismiss(); onToggleFavorite() },
+                        Triple(stringResource(R.string.assign_category), DialogButtonRole.Primary) { onDismiss(); onAssignCategory() },
+                        Triple(if (isFavorite) stringResource(R.string.remove_favorite) else stringResource(R.string.favorites_title), DialogButtonRole.Primary) { onDismiss(); onToggleFavorite() },
                         Triple(stringResource(R.string.session_rename), DialogButtonRole.Primary) { onDismiss(); onRename() },
                         Triple(stringResource(R.string.session_delete), DialogButtonRole.Danger) { onDismiss(); onDelete() },
                     )

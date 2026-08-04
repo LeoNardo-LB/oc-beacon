@@ -41,9 +41,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionCategoryPickerDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionCategoryStyle
@@ -79,10 +81,10 @@ fun CrossServerSessionsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("收藏") },
+                title = { Text(stringResource(R.string.favorites_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
             )
@@ -101,7 +103,7 @@ fun CrossServerSessionsScreen(
                     FilterChip(
                         selected = selectedCategoryId == null,
                         onClick = { selectedCategoryId = null },
-                        label = { Text("全部") },
+                        label = { Text(stringResource(R.string.all)) },
                     )
                     state.filterCategories.forEach { category ->
                         FilterChip(
@@ -126,8 +128,8 @@ fun CrossServerSessionsScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            text = if (selectedCategoryId == null) "还没有收藏的会话"
-                            else "该分类下没有收藏",
+                            text = if (selectedCategoryId == null) stringResource(R.string.no_favorites)
+                            else stringResource(R.string.no_favorites_in_category),
                             modifier = Modifier.padding(top = 12.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -164,16 +166,16 @@ fun CrossServerSessionsScreen(
     offlinePromptItem?.let { item ->
         AlertDialog(
             onDismissRequest = { offlinePromptItem = null },
-            title = { Text("服务器未连接") },
-            text = { Text("${item.serverName} 未连接，连接后可查看此会话。") },
+            title = { Text(stringResource(R.string.server_not_connected)) },
+            text = { Text(stringResource(R.string.server_not_connected_desc, item.serverName)) },
             confirmButton = {
                 TextButton(onClick = {
                     offlinePromptItem = null
                     onConnectServer(item.serverId)
-                }) { Text("连接") }
+                }) { Text(stringResource(R.string.connect)) }
             },
             dismissButton = {
-                TextButton(onClick = { offlinePromptItem = null }) { Text("取消") }
+                TextButton(onClick = { offlinePromptItem = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
@@ -185,18 +187,18 @@ fun CrossServerSessionsScreen(
             title = { Text(item.displayTitle()) },
             text = {
                 Column {
-                    MenuActionRow(text = "设置分类") {
+                    MenuActionRow(text = stringResource(R.string.set_category)) {
                         categoryPickerItem = item
                         menuForItem = null
                     }
-                    MenuActionRow(text = "取消收藏") {
+                    MenuActionRow(text = stringResource(R.string.remove_favorite)) {
                         viewModel.toggleFavorite(item.copy(isFavorite = true))
                         menuForItem = null
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { menuForItem = null }) { Text("关闭") }
+                TextButton(onClick = { menuForItem = null }) { Text(stringResource(R.string.close)) }
             },
         )
     }
@@ -281,7 +283,7 @@ private fun CrossServerFavoriteCard(
                     }
                     if (!item.isConnected) {
                         Text(
-                            text = "· 未连接",
+                            text = stringResource(R.string.offline_suffix),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.error.copy(alpha = alpha),
                         )
@@ -291,7 +293,7 @@ private fun CrossServerFavoriteCard(
             IconButton(onClick = onLongClick, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Filled.MoreVert,
-                    contentDescription = "更多操作",
+                    contentDescription = stringResource(R.string.more_actions),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
                 )
             }

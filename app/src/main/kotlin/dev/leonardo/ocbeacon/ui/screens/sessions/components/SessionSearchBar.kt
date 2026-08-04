@@ -100,7 +100,7 @@ internal fun SessionSearchBar(
             FilterChip(
                 selected = categoryFilter == null,
                 onClick = { onCategoryFilterChange(null) },
-                label = { Text("全部") },
+                label = { Text(stringResource(R.string.all)) },
             )
             categories.forEach { category ->
                 FilterChip(

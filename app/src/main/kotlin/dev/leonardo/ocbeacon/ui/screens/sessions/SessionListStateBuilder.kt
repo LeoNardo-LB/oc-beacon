@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
-import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
@@ -26,7 +25,6 @@ internal fun buildSessionListUiState(
     val lastUserMessageTime = values[3] as Map<String, Long>
     val isLoading = values[4] as Boolean
     val error = values[5] as String?
-    val projects = values[6] as List<Project>
     val expandedPaths = values[7] as Set<String>
     val selectedIds = values[8] as Set<String>
     val baseDirectory = values[9] as String?
@@ -91,7 +89,7 @@ internal fun buildSessionListUiState(
             )
         }
     } else {
-        buildTreeNodes(categoryFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), projects, resolvedCategories)
+        buildTreeNodes(categoryFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), resolvedCategories)
     }
 
     val prefillDirectory = if (lastToggledDirectory != null && lastToggledDirectory in expandedPaths)

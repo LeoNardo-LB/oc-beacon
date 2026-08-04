@@ -1,11 +1,10 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
-import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionItem
-import dev.leonardo.ocbeacon.ui.screens.sessions.util.projectForSession
+import dev.leonardo.ocbeacon.util.PathUtils
 
 /**
  * 扁平会话列表节点的密封接口。
@@ -39,16 +38,13 @@ sealed interface TreeNode {
  *   - 分组按段名字母序排序（稳定的浏览顺序）
  *
  * baseDirectory 为 null 时：
- *   - 会话按项目感知分组：[Session.projectId]（或 worktree 前缀）
- *     映射到同一 [Project] 的会话聚合到一个分组。
- *     未匹配的会话形成按目录的分组。
- *   - 分组按最近活动时间（降序）排序，再按显示名。
+ *   - 会话按完整目录路径分组：每个目录一个可展开的分组
+ *   - 分组按最近活动时间（降序）排序，再按目录名
  *
  * @param sessions 已过滤的会话（已限定到服务器、未归档等）
  * @param expandedDirs 当前展开的目录路径集合
  * @param baseDirectory 选定的基础目录路径（已规范化，如 "D:/Develop"），或 null
  * @param statuses 会话状态映射
- * @param projects baseDirectory 为 null 时用于项目感知分组的已知项目
  * @param sessionCategories 已解析的 会话 id → 分类 映射，用于显示
  */
 fun buildTreeNodes(
@@ -57,7 +53,6 @@ fun buildTreeNodes(
     baseDirectory: String?,
     statuses: Map<String, SessionStatus> = emptyMap(),
     draftSessionIds: Set<String> = emptySet(),
-    projects: List<Project> = emptyList(),
     sessionCategories: Map<String, SessionCategory> = emptyMap(),
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
@@ -102,15 +97,17 @@ fun buildTreeNodes(
                 ).sessions.add(session)
             }
         } else {
-            // 项目感知分组：按所属项目聚合会话。
-            val project = projectForSession(session, projects)
-            val groupPath = (project?.worktree?.takeIf { it.isNotBlank() }
-                ?: project?.path?.takeIf { it.isNotBlank() }
-                ?: dir).replace('\\', '/').trimEnd('/').ifEmpty { dir }
-            val displayName = project?.displayName ?: dir
-            val key = project?.id?.takeIf { it.isNotBlank() } ?: "dir:$dir"
+            // 按完整目录路径分组：每个会话按自己的目录独立成组。
+            // 此前为"项目感知分组"——把目录匹配到服务器 /project 返回的
+            // 项目聚合（如服务器全局/根项目名为 global 时，会把不同目录的
+            // 会话聚合到一个 global 文件夹），不符合按文件夹浏览的预期，
+            // 故改回纯目录分组。
+            val groupPath = dir.ifEmpty { "/" }
+            // displayName 用目录名（最后一段）而非完整路径，移动端 UI 更友好；
+            // path/id/key 保留完整路径用于展开匹配。
+            val displayName = PathUtils.fileName(groupPath).ifBlank { groupPath }
             bucketFor(
-                key = key,
+                key = "dir:$groupPath",
                 id = groupPath,
                 path = groupPath,
                 displayName = displayName,

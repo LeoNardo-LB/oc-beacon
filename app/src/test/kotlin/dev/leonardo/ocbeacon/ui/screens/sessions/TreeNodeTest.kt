@@ -73,4 +73,90 @@ class TreeNodeTest {
         assertEquals(1, sessNodes.size) // 只有 s1（在 /a 中），s2 因 /a/b 未展开而不可见
         assertEquals("s1", sessNodes[0].id)
     }
+
+    // ============ baseDirectory==null 按完整目录路径分组（不再项目感知聚合） ============
+
+    @Test
+    fun `distinct directories produce one directory node each`() {
+        val sessions = listOf(
+            makeSession("s1", "/home/user/proj-a"),
+            makeSession("s2", "/home/user/proj-b"),
+        )
+
+        val result = buildTreeNodes(sessions, emptySet(), null)
+
+        val dirs = result.filterIsInstance<TreeNode.Directory>()
+        assertEquals(2, dirs.size)
+        // 目录节点 path 为完整目录路径
+        assertTrue(dirs.map { it.path }.containsAll(listOf("/home/user/proj-a", "/home/user/proj-b")))
+    }
+
+    @Test
+    fun `directory displayName uses basename not full path`() {
+        val sessions = listOf(makeSession("s1", "/home/user/proj-a"))
+
+        val result = buildTreeNodes(sessions, emptySet(), null)
+
+        val dir = result.filterIsInstance<TreeNode.Directory>().single()
+        assertEquals("proj-a", dir.displayName)
+        assertEquals("/home/user/proj-a", dir.path)
+    }
+
+    @Test
+    fun `sessions with empty directory stay at root`() {
+        val sessions = listOf(
+            makeSession("s1", ""),
+            makeSession("s2", ""),
+        )
+
+        val result = buildTreeNodes(sessions, emptySet(), null)
+
+        assertTrue(result.filterIsInstance<TreeNode.Directory>().isEmpty())
+        val sessNodes = result.filterIsInstance<TreeNode.Session>()
+        assertEquals(2, sessNodes.size)
+    }
+
+    @Test
+    fun `windows backslash paths are normalized into one group`() {
+        val sessions = listOf(
+            makeSession("s1", "D:\\Develop\\proj-a"),
+            makeSession("s2", "D:/Develop/proj-a"),
+        )
+
+        val result = buildTreeNodes(sessions, emptySet(), null)
+
+        // 反斜杠与正斜杠归一化后应归入同一目录组
+        val dirs = result.filterIsInstance<TreeNode.Directory>()
+        assertEquals(1, dirs.size)
+        assertEquals("D:/Develop/proj-a", dirs[0].path)
+        assertEquals("proj-a", dirs[0].displayName)
+    }
+
+    @Test
+    fun `same basename different parents produce distinct nodes`() {
+        val sessions = listOf(
+            makeSession("s1", "/root-a/app"),
+            makeSession("s2", "/root-b/app"),
+        )
+
+        val result = buildTreeNodes(sessions, emptySet(), null)
+
+        // 即使 basename 相同（app），不同父目录也应是独立分组
+        val dirs = result.filterIsInstance<TreeNode.Directory>()
+        assertEquals(2, dirs.size)
+        assertTrue(dirs.map { it.path }.containsAll(listOf("/root-a/app", "/root-b/app")))
+    }
+
+    @Test
+    fun `root path session stays at root not grouped`() {
+        val sessions = listOf(makeSession("s1", "/"))
+
+        // "/" 规范化后为空 → 根会话（不产生 Directory 节点）
+        val result = buildTreeNodes(sessions, emptySet(), null)
+
+        assertTrue(result.filterIsInstance<TreeNode.Directory>().isEmpty())
+        val sessNodes = result.filterIsInstance<TreeNode.Session>()
+        assertEquals(1, sessNodes.size)
+        assertEquals("s1", sessNodes[0].id)
+    }
 }

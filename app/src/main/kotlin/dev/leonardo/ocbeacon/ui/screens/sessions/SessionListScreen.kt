@@ -126,7 +126,7 @@ fun SessionListScreen(
                     IconButton(onClick = onNavigateToFavorites) {
                         Icon(
                             Icons.Filled.Star,
-                            contentDescription = "收藏",
+                            contentDescription = stringResource(R.string.favorites_title),
                             modifier = Modifier.size(24.dp),
                         )
                     }
