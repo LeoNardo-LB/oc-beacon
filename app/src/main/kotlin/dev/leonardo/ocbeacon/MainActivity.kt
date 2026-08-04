@@ -23,6 +23,7 @@ import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.model.AppSettings
 import dev.leonardo.ocbeacon.service.OpenCodeConnectionService
+import dev.leonardo.ocbeacon.util.parseLocale
 import kotlinx.coroutines.flow.map
 import dev.leonardo.ocbeacon.ui.navigation.NavGraph
 import dev.leonardo.ocbeacon.ui.theme.OpenCodeTheme
@@ -267,8 +268,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    companion object {
-        /** 将 BCP 47 标签（例如 "pt-BR"、"zh-CN"、"en"）解析为 [Locale]。 */
-        fun parseLocale(tag: String): Locale = Locale.forLanguageTag(tag)
-    }
 }

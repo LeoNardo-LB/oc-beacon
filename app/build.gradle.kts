@@ -130,11 +130,12 @@ dependencies {
 
     // 导航
     implementation("androidx.navigation:navigation-compose:2.9.8")
-    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 
     // Hilt 依赖注入
     implementation("com.google.dagger:hilt-android:2.59.2")
     ksp("com.google.dagger:hilt-compiler:2.59.2")
+    // 提供 androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel（代码已全部迁移，无需 navigation 专用 API）
+    implementation("androidx.hilt:hilt-lifecycle-viewmodel-compose:1.3.0")
 
     // Ktor 客户端（OkHttp 引擎，确保 SSE 流式传输的正确支持）
     val ktorVersion = "3.5.0"

@@ -9,7 +9,6 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
-import dev.leonardo.ocbeacon.MainActivity
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.api.NetworkMonitor
 import dev.leonardo.ocbeacon.data.api.NetworkState
@@ -27,6 +26,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import java.util.Locale
 import javax.inject.Inject
+import dev.leonardo.ocbeacon.util.parseLocale
 
 private const val TAG = "OpenCodeService"
 private const val WAKELOCK_TAG = "OpenCodeRemote::SSEConnection"
@@ -50,7 +50,7 @@ class OpenCodeConnectionService : Service() {
     override fun attachBaseContext(newBase: Context) {
         val languageCode = SettingsDataStore.getStoredLanguage(newBase)
         if (languageCode.isNotEmpty()) {
-            val locale = MainActivity.parseLocale(languageCode)
+            val locale = parseLocale(languageCode)
             Locale.setDefault(locale)
             val config = newBase.resources.configuration
             config.setLocale(locale)
