@@ -6,7 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PhotoSizeSelectLarge
 import androidx.compose.material.icons.filled.ScreenLockPortrait
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Vibration
@@ -77,7 +77,7 @@ fun ChatBehaviorSection(
         headlineContent = { Text(stringResource(R.string.settings_confirm_send)) },
         supportingContent = { Text(stringResource(R.string.settings_confirm_send_desc)) },
         leadingContent = {
-            Icon(Icons.Default.Send, contentDescription = stringResource(R.string.a11y_settings_confirm_send))
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.a11y_settings_confirm_send))
         },
         trailingContent = {
             Switch(

@@ -269,13 +269,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         /** 将 BCP 47 标签（例如 "pt-BR"、"zh-CN"、"en"）解析为 [Locale]。 */
-        fun parseLocale(tag: String): Locale {
-            val parts = tag.split("-")
-            return if (parts.size >= 2) {
-                Locale(parts[0], parts[1].uppercase())
-            } else {
-                Locale(parts[0])
-            }
-        }
+        fun parseLocale(tag: String): Locale = Locale.forLanguageTag(tag)
     }
 }

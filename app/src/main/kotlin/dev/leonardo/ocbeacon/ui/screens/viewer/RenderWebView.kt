@@ -69,7 +69,6 @@ fun RenderWebView(
                         allowFileAccess = false
                         allowContentAccess = false
                         domStorageEnabled = true   // 某些 HTML 需要 localStorage
-                        saveFormData = false
                     }
                     loadWithOverviewMode = true
                     useWideViewPort = true

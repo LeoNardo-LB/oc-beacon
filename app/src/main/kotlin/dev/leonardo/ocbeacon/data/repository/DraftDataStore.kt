@@ -15,7 +15,7 @@ private const val DRAFTS_FILE = "session_drafts.json"
 
 @Singleton
 class DraftDataStore @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : dev.leonardo.ocbeacon.domain.repository.DraftRepository {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }

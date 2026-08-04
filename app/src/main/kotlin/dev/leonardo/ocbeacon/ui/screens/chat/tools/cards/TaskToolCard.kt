@@ -85,7 +85,7 @@ internal fun TaskToolCard(
             is ToolState.Running -> state.metadata?.get("sessionId")
             else -> null
         }?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
-            ?.takeIf { it?.isNotBlank() == true }
+            ?.takeIf { it.isNotBlank() }
 
     // 确定点击行为：有子会话则导航到它，否则切换展开
     val clickAction: (() -> Unit)? = if (subSessionId != null && onViewSubSession != null) {

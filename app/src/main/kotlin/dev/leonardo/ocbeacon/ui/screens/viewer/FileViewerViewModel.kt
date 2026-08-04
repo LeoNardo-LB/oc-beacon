@@ -56,7 +56,7 @@ class FileViewerViewModel @AssistedInject constructor(
 
     init {
         Log.d(TAG, "init: source=$source, file=${filePath.take(60)}, " +
-            "serverId=${serverId.take(8)}, dir=${directory?.take(40)}, " +
+            "serverId=${serverId.take(8)}, dir=${directory.take(40)}, " +
             "toolPartIds=${toolPartIds.map { it.take(12) }}")
         when (source) {
             FileViewerSource.LIVE -> loadLive()
@@ -69,7 +69,7 @@ class FileViewerViewModel @AssistedInject constructor(
     private fun loadLive() {
         val t0 = System.currentTimeMillis()
         Log.d(TAG, "loadLive: requesting getFileContent(server=${serverId.take(8)}, " +
-            "dir=${directory?.take(40)}, file=${filePath.take(60)})")
+            "dir=${directory.take(40)}, file=${filePath.take(60)})")
         viewModelScope.launch {
             getFileContent(serverId, directory, filePath)
                 .onSuccess { c ->

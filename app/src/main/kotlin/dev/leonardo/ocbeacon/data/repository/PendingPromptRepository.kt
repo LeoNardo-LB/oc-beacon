@@ -23,7 +23,7 @@ private const val PENDING_PROMPTS_FILE = "pending_prompts.json"
  */
 @Singleton
 class PendingPromptRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val json: Json,
 ) {
     private val file: File get() = File(context.filesDir, PENDING_PROMPTS_FILE)

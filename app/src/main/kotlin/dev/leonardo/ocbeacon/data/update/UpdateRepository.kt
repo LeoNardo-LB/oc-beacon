@@ -52,7 +52,7 @@ private const val TAG = "UpdateRepository"
 
 @Singleton
 class UpdateRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val client: HttpClient,
     private val json: Json,
     private val dataStore: DataStore<Preferences>,
@@ -69,7 +69,7 @@ class UpdateRepository @Inject constructor(
             ?.let { _state.value = UpdateState.Available(it) }
     }
 
-    suspend fun check(manual: Boolean) = operationMutex.withLock {
+    suspend fun check(manual: Boolean): Unit = operationMutex.withLock {
         if (_state.value is UpdateState.Downloading || _state.value is UpdateState.ReadyToInstall) return@withLock
         val preferences = dataStore.data.first()
         val now = System.currentTimeMillis()

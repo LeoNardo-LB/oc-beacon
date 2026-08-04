@@ -41,7 +41,7 @@ sealed class NetworkState {
  */
 @Singleton
 class NetworkMonitor @Inject constructor(
-    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
+    @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
 ) {
     companion object {
         private const val TAG = "NetworkMonitor"

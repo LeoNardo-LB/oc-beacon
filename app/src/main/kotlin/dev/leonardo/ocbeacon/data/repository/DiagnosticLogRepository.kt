@@ -49,7 +49,7 @@ data class DiagnosticLogEntry(
 class DiagnosticLogRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val json: Json,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     private var database = DiagnosticLogDatabase(context, json)
     private val logLevelKey = stringPreferencesKey("diagnostic_log_level")

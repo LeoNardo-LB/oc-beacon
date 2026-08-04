@@ -32,7 +32,7 @@ import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.DiffChangesInline
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.DiffLineType
-import dev.leonardo.ocbeacon.ui.screens.chat.tools.DiffView
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.SimpleDiffView
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeSimpleDiff
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.extractToolInput
 import dev.leonardo.ocbeacon.ui.screens.chat.util.halfScreenHeight
@@ -120,7 +120,7 @@ internal fun EditToolCard(
         ) {
             Column(modifier = Modifier.padding(top = 3.dp)) {
                 if (isError) {
-                    val errorText = (tool.state as ToolState.Error).error
+                    val errorText = tool.state.error
                     Surface(
                         shape = ShapeTokens.extraSmall,
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -139,7 +139,7 @@ internal fun EditToolCard(
                     }
                 } else {
                     SelectionContainer {
-                        DiffView(before = diffBefore, after = diffAfter)
+                        SimpleDiffView(before = diffBefore, after = diffAfter)
                     }
                 }
             }

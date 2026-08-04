@@ -73,7 +73,7 @@ internal fun ChatScreenBottomBar(
         val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
             val provider = modelConfig.providers.find { it.id == modelConfig.selectedProviderId }
             val model = provider?.models?.get(modelConfig.selectedModelId)
-            model?.name ?: modelConfig.selectedModelId ?: ""
+            model?.name ?: modelConfig.selectedModelId
         } else ""
         Column(
             modifier = Modifier

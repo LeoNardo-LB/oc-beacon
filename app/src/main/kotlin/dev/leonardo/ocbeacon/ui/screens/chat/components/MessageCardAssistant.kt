@@ -193,7 +193,7 @@ internal fun MessageCardAssistant(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // 时间
-                            assistantMsg?.time?.created?.let { createdMs ->
+                            assistantMsg.time.created.let { createdMs ->
                                 val timeText = remember(createdMs) {
                                     SimpleDateFormat("HH:mm", Locale.getDefault())
                                         .format(Date(createdMs))
@@ -220,13 +220,13 @@ internal fun MessageCardAssistant(
                                 }
                             }
                             // 提供商图标 + 模型名（紧凑 3dp 间距，与输入栏一致）
-                            val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
+                            val hasProviderOrModel = assistantMsg.providerId != null || !modelId.isNullOrBlank()
                             if (hasProviderOrModel) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
-                                    if (assistantMsg?.providerId != null) {
+                                    if (assistantMsg.providerId != null) {
                                         ProviderIcon(
                                             providerId = assistantMsg.providerId,
                                             size = 10.dp,
@@ -270,7 +270,7 @@ internal fun MessageCardAssistant(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // 时间
-                            assistantMsg?.time?.created?.let { createdMs ->
+                            assistantMsg.time.created.let { createdMs ->
                                 val timeText = remember(createdMs) {
                                     SimpleDateFormat("HH:mm", Locale.getDefault())
                                         .format(Date(createdMs))
@@ -316,7 +316,7 @@ internal fun MessageCardAssistant(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // 时间
-                        assistantMsg?.time?.created?.let { createdMs ->
+                        assistantMsg.time.created.let { createdMs ->
                             val timeText = remember(createdMs) {
                                 SimpleDateFormat("HH:mm", Locale.getDefault())
                                     .format(Date(createdMs))

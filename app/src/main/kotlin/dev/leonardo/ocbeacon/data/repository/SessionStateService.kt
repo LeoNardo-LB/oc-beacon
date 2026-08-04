@@ -37,7 +37,7 @@ data class SyncResult(val totalSessions: Int, val busyCount: Int)
 
 @Singleton
 class SessionStateService @Inject constructor(
-    @ApplicationScope private val appScope: CoroutineScope,
+    @param:ApplicationScope private val appScope: CoroutineScope,
     private val sessionRepoProvider: Provider<SessionRepository>,
 ) {
     // 构造后注入（打破与 EventDispatcher 的循环依赖）

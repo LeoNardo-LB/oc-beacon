@@ -7,7 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material.icons.filled.WrapText
+import androidx.compose.material.icons.automirrored.filled.WrapText
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -59,7 +59,7 @@ fun ChatDisplaySection(
         headlineContent = { Text(stringResource(R.string.settings_code_word_wrap)) },
         supportingContent = { Text(stringResource(R.string.settings_code_word_wrap_desc)) },
         leadingContent = {
-            Icon(Icons.Default.WrapText, contentDescription = stringResource(R.string.a11y_settings_code_word_wrap))
+            Icon(Icons.AutoMirrored.Filled.WrapText, contentDescription = stringResource(R.string.a11y_settings_code_word_wrap))
         },
         trailingContent = {
             Switch(

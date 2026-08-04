@@ -55,6 +55,7 @@ private const val TAG = "PdfViewer"
  * @param modifier Compose modifier
  */
 @SuppressLint("SetJavaScriptEnabled")
+@Suppress("DEPRECATION") // allowFileAccessFromFileURLs/allowUniversalAccessFromFileURLs 是 pdf.js worker 必需，无替代 API
 @Composable
 fun PdfViewer(
     base64Data: String,

@@ -12,7 +12,7 @@ import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ToolState
-import dev.leonardo.ocbeacon.ui.screens.chat.tools.DiffView
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.SimpleDiffView
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.extractFileName
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.extractToolInput
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.extractToolOutput
@@ -73,7 +73,7 @@ internal fun ApplyPatchToolCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             if (diffContent.isNotBlank()) {
-                DiffView(
+                SimpleDiffView(
                     before = "",
                     after = diffContent
                 )

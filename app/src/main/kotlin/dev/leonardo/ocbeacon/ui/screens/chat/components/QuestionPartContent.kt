@@ -21,7 +21,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Icon
@@ -85,7 +85,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Icon(
-                    Icons.Default.HelpOutline,
+                    Icons.AutoMirrored.Filled.HelpOutline,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = accentColor

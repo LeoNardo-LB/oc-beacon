@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
+import android.content.ClipData
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.material3.SnackbarHostState
@@ -12,8 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.ViewModel
@@ -72,7 +73,7 @@ private fun FileViewerDialogContent(
     ) {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
         val snackbarHostState = remember { SnackbarHostState() }
-        val clipboard = LocalClipboardManager.current
+        val clipboard = LocalClipboard.current
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         var isSubmitting by remember { mutableStateOf(false) }
@@ -84,8 +85,10 @@ private fun FileViewerDialogContent(
             onNextHunk = viewModel::nextHunk,
             onPrevHunk = viewModel::prevHunk,
             onCopyPath = {
-                clipboard.setText(AnnotatedString(uiState.filePath))
-                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
+                scope.launch {
+                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("path", uiState.filePath)))
+                    snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard))
+                }
             },
             onShare = {
                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
@@ -97,8 +100,10 @@ private fun FileViewerDialogContent(
                 }
             },
             onCopyAllContent = {
-                clipboard.setText(AnnotatedString(uiState.content))
-                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
+                scope.launch {
+                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("content", uiState.content)))
+                    snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard))
+                }
             },
             onToggleRenderMode = viewModel::toggleRenderMode,
             onSwitchToSource = viewModel::switchToSource,

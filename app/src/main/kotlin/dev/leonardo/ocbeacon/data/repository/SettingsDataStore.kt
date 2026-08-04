@@ -29,7 +29,7 @@ import javax.inject.Singleton
 @Singleton
 class SettingsDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
+    @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
 ) {
     companion object {
         private val LANGUAGE_KEY = stringPreferencesKey("app_language")

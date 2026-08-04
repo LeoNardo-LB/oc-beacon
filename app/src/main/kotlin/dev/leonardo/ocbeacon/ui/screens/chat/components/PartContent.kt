@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -134,7 +134,7 @@ internal fun PartContent(
                     }
                     val autoExpand = LocalCollapseTools.current
                     ToolCardScaffold(
-                        icon = Icons.Default.HelpOutline,
+                        icon = Icons.AutoMirrored.Filled.HelpOutline,
                         iconTint = MaterialTheme.colorScheme.primary,
                         title = completedState?.title ?: "Asked",
                         copyText = toolOutput,

@@ -63,7 +63,7 @@ internal data class DiffLine(val type: DiffLineType, val text: String)
  * 统一 diff 视图 —— 旧行显示为红色，新行显示为绿色，带行号和变更计数。
  */
 @Composable
-internal fun DiffView(before: String, after: String) {
+internal fun SimpleDiffView(before: String, after: String) {
     val isAmoled = isAmoledTheme()
     val addColor = DiffAdded
     val delColor = DiffRemoved

@@ -43,15 +43,15 @@ private fun extractClickableItems(content: String, node: ASTNode): List<Clickabl
             val dest = n.findChildOfType(MarkdownElementTypes.LINK_DESTINATION)
             val textNode = n.findChildOfType(MarkdownElementTypes.LINK_TEXT)
             if (dest != null && textNode != null) {
-                val url = dest.getUnescapedTextInNode(content).toString()
-                val rawText = textNode.getUnescapedTextInNode(content).toString()
+                val url = dest.getUnescapedTextInNode(content)
+                val rawText = textNode.getUnescapedTextInNode(content)
                 val linkText = rawText.removeSurrounding("[", "]")
                 if (linkText.isNotEmpty() && url.isNotEmpty()) {
                     items.add(ClickableItem.Link(linkText, url))
                 }
             }
         } else if (n.type == MarkdownElementTypes.CODE_SPAN) {
-            val raw = n.getUnescapedTextInNode(content).toString()
+            val raw = n.getUnescapedTextInNode(content)
             val codeText = raw.trim('`').trim()
             if (codeText.isNotEmpty() && LinkClassifier.isLikelyFilePath(codeText)) {
                 items.add(ClickableItem.CodePath(codeText))

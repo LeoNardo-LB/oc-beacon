@@ -22,16 +22,7 @@ internal fun getLanguageDisplayName(code: String): String {
     if (code.isEmpty()) return systemDefault
 
     // 解析语言标签并获取母语显示名
-    val locale = if (code.contains("-")) {
-        val parts = code.split("-")
-        if (parts.size >= 2) {
-            Locale(parts[0], parts[1].uppercase())
-        } else {
-            Locale(parts[0])
-        }
-    } else {
-        Locale(code)
-    }
+    val locale = Locale.forLanguageTag(code)
 
     return locale.getDisplayName(locale).replaceFirstChar {
         if (it.isLowerCase()) it.titlecase(locale) else it.toString()
