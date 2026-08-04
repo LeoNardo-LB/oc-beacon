@@ -4,9 +4,13 @@ import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -23,7 +27,13 @@ class FindUserMessagesTest {
     fun setup() {
         every { eventDispatcher.messages } returns MutableStateFlow(emptyMap())
         every { eventDispatcher.parts } returns MutableStateFlow(emptyMap())
-        manager = AppNotificationManager(eventDispatcher, settingsDataStore)
+        every { eventDispatcher.sessions } returns MutableStateFlow<List<Session>>(emptyList())
+        manager = AppNotificationManager(
+            eventDispatcher,
+            settingsDataStore,
+            SessionFocusHolder(),
+            CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        )
     }
 
     private fun userMessage(id: String, created: Long): Message.User {

@@ -207,6 +207,17 @@ fun NavGraph(
                     } else {
                         navController.navigate(route) { launchSingleTop = true }
                     }
+                } else if (deepLink.serverUrl.isNotBlank()) {
+                    // 持久通知点击（无 sessionId）→ 打开该服务器的会话列表
+                    Log.i(TAG, "Deep-link → native SessionList for ${deepLink.serverName}")
+                    val route = SessionListNav.createRoute(
+                        serverUrl = deepLink.serverUrl,
+                        username = deepLink.username,
+                        password = deepLink.password,
+                        serverName = deepLink.serverName,
+                        serverId = deepLink.serverId
+                    )
+                    navController.navigate(route) { launchSingleTop = true }
                 } else {
                     Log.i(TAG, "Deep-link has no sessionId, ignoring native path")
                 }

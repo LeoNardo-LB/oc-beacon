@@ -138,7 +138,6 @@ import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.CommandInfo
 import dev.leonardo.ocbeacon.domain.model.ModelCatalog
 import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
-import dev.leonardo.ocbeacon.service.SessionNotificationCoordinator
 import dev.leonardo.ocbeacon.MainActivity
 import dev.leonardo.ocbeacon.ui.theme.CodeTypography
 import kotlinx.coroutines.channels.Channel
@@ -470,19 +469,15 @@ fun ChatScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // 通知生命周期：进入时取消现有通知并设置活动焦点，离开时清除。
-    // SessionNotificationCoordinator 将此会话标记为活动状态，使用户正在查看它时
-    // 其新通知被抑制。
+    // onSessionFocused/onSessionUnfocused 通过 SessionFocusHolder 设置焦点，
+    // AppNotificationManager 据此抑制当前正在查看的会话的事件通知。
     LaunchedEffect(viewModel.sessionId) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         viewModel.onSessionFocused(notificationManager)
-        if (serverId.isNotBlank() && viewModel.sessionId.isNotBlank()) {
-            SessionNotificationCoordinator.activate(serverId, viewModel.sessionId)
-        }
     }
     DisposableEffect(viewModel.sessionId) {
         onDispose {
             viewModel.onSessionUnfocused()
-            SessionNotificationCoordinator.deactivate()
         }
     }
 

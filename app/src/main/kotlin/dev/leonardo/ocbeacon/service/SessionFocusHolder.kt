@@ -46,4 +46,15 @@ class SessionFocusHolder @Inject constructor() {
                 focus.serverId == serverId &&
                 focus.sessionId == sessionId
     }
+
+    /**
+     * 当此会话的事件通知应被抑制时返回 true
+     *（用户正在查看此确切会话，无论应用是否在前台）。
+     * 用于权限/问题/错误等需要用户即时响应的事件通知——
+     * 用户正在该会话中时弹出通知只会打断当前交互。
+     */
+    fun shouldSuppressEvent(serverId: String, sessionId: String): Boolean {
+        val focus = _activeFocus.value ?: return false
+        return focus.serverId == serverId && focus.sessionId == sessionId
+    }
 }

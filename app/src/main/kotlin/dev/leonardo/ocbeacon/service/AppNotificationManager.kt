@@ -4,17 +4,21 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.MainActivity
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
+import dev.leonardo.ocbeacon.di.ApplicationScope
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.logging.AppLogger
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,6 +33,7 @@ private const val NOTIFICATION_CHANNEL_ID = "opencode_connection"
 private const val NOTIFICATION_CHANNEL_TASKS_ID = "opencode_tasks"
 private const val NOTIFICATION_CHANNEL_TASKS_SILENT_ID = "opencode_tasks_silent"
 private const val NOTIFICATION_CHANNEL_PERMISSIONS_ID = "opencode_permissions"
+private const val NOTIFICATION_CHANNEL_QUESTIONS_ID = "opencode_questions"
 
 /**
  * 管理连接服务的所有通知逻辑。
@@ -37,17 +42,36 @@ private const val NOTIFICATION_CHANNEL_PERMISSIONS_ID = "opencode_permissions"
 @Singleton
 class AppNotificationManager @Inject constructor(
     private val eventDispatcher: EventDispatcher,
-    private val settingsRepository: SettingsDataStore
+    private val settingsRepository: SettingsDataStore,
+    private val sessionFocusHolder: SessionFocusHolder,
+    @ApplicationScope private val appScope: CoroutineScope,
 ) {
     private val TAG = "AppNotificationMgr"
 
-    /** 按最后一条 assistant 消息 ID 对每个会话的响应就绪通知去重。 */
+    /**
+     * 会话按 id 的索引缓存（N13 优化）。
+     * 由 [EventDispatcher.sessions] flow 驱动，避免每次通知都线性扫描
+     * 全部会话。sessions 是 List，但通知路径（isChildSession /
+     * getSessionInfo / buildSessionPath）只需按 id 查找。
+     */
+    @Volatile
+    private var sessionById: Map<String, Session> = emptyMap()
+
+    init {
+        appScope.launch {
+            eventDispatcher.sessions.collect { sessions ->
+                sessionById = sessions.associateBy { it.id }
+            }
+        }
+    }
+
+    /** 按 (服务器, 会话) 对每个会话的响应就绪通知去重。 */
     private val lastNotifiedAssistantMessageBySession = ConcurrentHashMap<String, String>()
 
-    /** 按权限名称对每个会话的权限通知去重。 */
+    /** 按 (服务器, 会话) 对每个会话的权限通知去重。 */
     private val lastNotifiedPermissionBySession = ConcurrentHashMap<String, String>()
 
-    /** 按问题文本对每个会话的问题通知去重。 */
+    /** 按 (服务器, 会话) 对每个会话的问题通知去重。 */
     private val lastNotifiedQuestionBySession = ConcurrentHashMap<String, String>()
 
     // ============ 通知渠道 ============
@@ -97,10 +121,22 @@ class AppNotificationManager @Inject constructor(
                 enableLights(true)
             }
 
+            val questionsChannel = NotificationChannel(
+                NOTIFICATION_CHANNEL_QUESTIONS_ID,
+                context.getString(R.string.notification_channel_questions),
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = context.getString(R.string.notification_channel_questions_desc)
+                setShowBadge(true)
+                enableVibration(true)
+                enableLights(true)
+            }
+
             notificationManager.createNotificationChannel(connectionChannel)
             notificationManager.createNotificationChannel(tasksChannel)
             notificationManager.createNotificationChannel(tasksSilentChannel)
             notificationManager.createNotificationChannel(permissionsChannel)
+            notificationManager.createNotificationChannel(questionsChannel)
         }
     }
 
@@ -110,8 +146,27 @@ class AppNotificationManager @Inject constructor(
         context: Context,
         connections: Map<String, ServerConnectionState>
     ): Notification {
-        val tapIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val visibleConnections = connections.values
+        val serverCount = visibleConnections.size
+
+        // 点击通知：有已连接/连接中的服务器时进入该服务器的会话列表；
+        // 无连接时打开主页。通过 ACTION_OPEN_SESSION + 服务器参数复用
+        // MainActivity 的深链处理（无 sessionId → NavGraph 导航到会话列表）。
+        val tapIntent = if (visibleConnections.isNotEmpty()) {
+            val server = visibleConnections.first().config
+            Intent(context, MainActivity::class.java).apply {
+                action = OpenCodeConnectionService.ACTION_OPEN_SESSION
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(OpenCodeConnectionService.EXTRA_SERVER_URL, server.url)
+                putExtra(OpenCodeConnectionService.EXTRA_SERVER_USERNAME, server.username)
+                putExtra(OpenCodeConnectionService.EXTRA_SERVER_PASSWORD, server.password ?: "")
+                putExtra(OpenCodeConnectionService.EXTRA_SERVER_NAME, server.displayName)
+                putExtra(OpenCodeConnectionService.EXTRA_SERVER_ID, server.id)
+            }
+        } else {
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
         }
         val tapPendingIntent = PendingIntent.getActivity(
             context, 0, tapIntent,
@@ -127,8 +182,6 @@ class AppNotificationManager @Inject constructor(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val visibleConnections = connections.values
-        val serverCount = visibleConnections.size
         val connectedCount = visibleConnections.count { it.isConnected }
 
         val title = if (serverCount == 0) {
@@ -220,10 +273,9 @@ class AppNotificationManager @Inject constructor(
                 .setVibrate(longArrayOf(0, 500, 200, 500))
         }
 
-        SessionNotificationCoordinator.postUnlessActive(server.id, sessionId) {
-            notificationManager.notify(notifId, builder.build())
-            showServerGroupSummary(context, notificationManager, server)
-        }
+        if (sessionFocusHolder.shouldSuppressEvent(server.id, sessionId)) return
+        notificationManager.notify(notifId, builder.build())
+        showServerGroupSummary(context, notificationManager, server)
     }
 
     fun showPermissionNotification(
@@ -233,8 +285,8 @@ class AppNotificationManager @Inject constructor(
         sessionId: String,
         permission: String
     ) {
-        // 去重：若此会话已通知过相同权限则跳过
-        if (lastNotifiedPermissionBySession[sessionId] == permission) return
+        // 去重 + 抑制：key 含 serverId，避免跨服务器同 sessionId 误判
+        if (!shouldNotifyPermission(server.id, sessionId, permission)) return
 
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
@@ -258,11 +310,9 @@ class AppNotificationManager @Inject constructor(
             .setGroup("server_${server.id}")
             .build()
 
-        SessionNotificationCoordinator.postUnlessActive(server.id, sessionId) {
-            lastNotifiedPermissionBySession[sessionId] = permission
-            notificationManager.notify(notifId, notification)
-            showServerGroupSummary(context, notificationManager, server)
-        }
+        markPermissionNotified(server.id, sessionId, permission)
+        notificationManager.notify(notifId, notification)
+        showServerGroupSummary(context, notificationManager, server)
     }
 
     fun showQuestionNotification(
@@ -272,8 +322,8 @@ class AppNotificationManager @Inject constructor(
         sessionId: String,
         questionText: String
     ) {
-        // 去重：若此会话已通知过相同问题则跳过
-        if (lastNotifiedQuestionBySession[sessionId] == questionText) return
+        // 去重 + 抑制：key 含 serverId，避免跨服务器同 sessionId 误判
+        if (!shouldNotifyQuestion(server.id, sessionId, questionText)) return
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
@@ -284,7 +334,7 @@ class AppNotificationManager @Inject constructor(
         val notifId = eventNotificationId(server.id, sessionId, 2000)
         val pendingIntent = createSessionPendingIntent(context, server, sessionId, notifId)
 
-        val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_PERMISSIONS_ID)
+        val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_QUESTIONS_ID)
             .setContentTitle(title)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_notification)
@@ -296,11 +346,9 @@ class AppNotificationManager @Inject constructor(
             .setGroup("server_${server.id}")
             .build()
 
-        SessionNotificationCoordinator.postUnlessActive(server.id, sessionId) {
-            lastNotifiedQuestionBySession[sessionId] = questionText
-            notificationManager.notify(notifId, notification)
-            showServerGroupSummary(context, notificationManager, server)
-        }
+        markQuestionNotified(server.id, sessionId, questionText)
+        notificationManager.notify(notifId, notification)
+        showServerGroupSummary(context, notificationManager, server)
     }
 
     fun showErrorNotification(
@@ -315,7 +363,11 @@ class AppNotificationManager @Inject constructor(
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
         val title = "${context.getString(R.string.notification_tag_error)} · $displayName"
-        val safeError = error.trim().let { if (it.startsWith("{") || it.startsWith("[")) "" else it }
+        // 错误内容：JSON/数组错误包不可读但不应完全丢弃，保留前 200 字符
+        val safeError = error.trim().let { raw ->
+            if (raw.startsWith("{") || raw.startsWith("[")) raw.take(200)
+            else raw
+        }
         val contentText = (sessionId.let { findLatestUserMessages(it, 1).firstOrNull()?.text })
             ?: safeError.ifBlank { context.getString(R.string.notification_new_message) }
 
@@ -333,10 +385,9 @@ class AppNotificationManager @Inject constructor(
             .setGroup("server_${server.id}")
             .build()
 
-        SessionNotificationCoordinator.postUnlessActive(server.id, sessionId) {
-            notificationManager.notify(notifId, notification)
-            showServerGroupSummary(context, notificationManager, server)
-        }
+        if (sessionFocusHolder.shouldSuppressEvent(server.id, sessionId)) return
+        notificationManager.notify(notifId, notification)
+        showServerGroupSummary(context, notificationManager, server)
     }
 
     // ============ 通知去重 / 会话辅助方法 ============
@@ -346,16 +397,17 @@ class AppNotificationManager @Inject constructor(
      * 子会话不应触发面向用户的通知。
      */
     fun isChildSession(sessionId: String): Boolean {
-        val session = eventDispatcher.sessions.value.find { it.id == sessionId }
+        val session = sessionById[sessionId]
         return session?.parentId != null
     }
 
     /**
      * 检查会话是否有新的可通知 assistant 消息。
      * 若该消息应触发通知则返回其消息 ID，否则返回 null。
-     * 通过 [lastNotifiedAssistantMessageBySession] 在内部处理去重。
+     * 通过 [lastNotifiedAssistantMessageBySession] 在内部处理去重
+     *（key 含 serverId，避免跨服务器同 sessionId 误判）。
      */
-    fun checkNewAssistantMessage(sessionId: String): String? {
+    fun checkNewAssistantMessage(serverId: String, sessionId: String): String? {
         val sessionMessages = eventDispatcher.messages.value[sessionId] ?: return null
         val latestAssistant = sessionMessages
             .asReversed()
@@ -376,10 +428,11 @@ class AppNotificationManager @Inject constructor(
         if (!hasTextOutput) return null
 
         // 去重
-        val previousNotified = lastNotifiedAssistantMessageBySession[sessionId]
+        val notifKey = sessionNotificationKey(serverId, sessionId)
+        val previousNotified = lastNotifiedAssistantMessageBySession[notifKey]
         if (previousNotified == latestAssistant.id) return null
 
-        lastNotifiedAssistantMessageBySession[sessionId] = latestAssistant.id
+        lastNotifiedAssistantMessageBySession[notifKey] = latestAssistant.id
         return latestAssistant.id
     }
 
@@ -423,9 +476,11 @@ class AppNotificationManager @Inject constructor(
         for (offset in intArrayOf(0, 1000, 2000, 3000)) {
             notificationManager.cancel(eventNotificationId(serverId, sessionId, offset))
         }
-        // 重置去重状态，以便下一轮 permission/question 能再次通知
-        lastNotifiedPermissionBySession.remove(sessionId)
-        lastNotifiedQuestionBySession.remove(sessionId)
+        // 重置去重状态，以便下一轮 permission/question/assistant 消息能再次通知
+        val notifKey = sessionNotificationKey(serverId, sessionId)
+        lastNotifiedPermissionBySession.remove(notifKey)
+        lastNotifiedQuestionBySession.remove(notifKey)
+        lastNotifiedAssistantMessageBySession.remove(notifKey)
     }
 
     // ============ 私有辅助方法 ============
@@ -435,7 +490,8 @@ class AppNotificationManager @Inject constructor(
         notificationManager: NotificationManager,
         server: ServerConfig
     ) {
-        val summaryId = "server_summary_${server.id}".hashCode()
+        // 使用独立命名空间（"summary" 前缀），避免与事件通知 ID 空间碰撞
+        val summaryId = stableHash("summary", server.id)
         val summary = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_TASKS_SILENT_ID)
             .setContentTitle(server.displayName)
             .setContentText(context.getString(R.string.notification_group_summary))
@@ -475,9 +531,9 @@ class AppNotificationManager @Inject constructor(
     }
 
     private fun buildSessionPath(sessionId: String): String? {
-        val session = eventDispatcher.sessions.value.find { it.id == sessionId }
+        val session = sessionById[sessionId]
         if (session == null) {
-            Log.w(TAG, "buildSessionPath: session $sessionId not found")
+            AppLogger.w(TAG, "buildSessionPath: session $sessionId not found")
             return null
         }
         val encodedDir = base64UrlEncode(session.directory)
@@ -496,17 +552,60 @@ class AppNotificationManager @Inject constructor(
     }
 
     private fun getSessionInfo(sessionId: String): Pair<String?, String?> {
-        val session = eventDispatcher.sessions.value.find { it.id == sessionId }
+        val session = sessionById[sessionId]
         return Pair(session?.title, session?.directory)
     }
 
-    private fun getProjectName(directory: String?): String? {
-        if (directory.isNullOrBlank()) return null
-        return dev.leonardo.ocbeacon.util.PathUtils.fileName(directory.trimEnd('/', '\\'))
+    /** 通知去重的 (服务器, 会话) 组合键——sessionId 是服务器内部 ID，跨服务器可能重复。 */
+    private fun sessionNotificationKey(serverId: String, sessionId: String): String = "$serverId::$sessionId"
+
+    // ============ 去重 / 抑制纯函数（可单测，不依赖 Android framework） ============
+
+    /**
+     * 权限通知是否应通知：未通知过相同权限 且 会话未被抑制。
+     * 纯查询，不修改状态——真正通知后由 [markPermissionNotified] 记录。
+     */
+    internal fun shouldNotifyPermission(serverId: String, sessionId: String, permission: String): Boolean {
+        if (sessionFocusHolder.shouldSuppressEvent(serverId, sessionId)) return false
+        return lastNotifiedPermissionBySession[sessionNotificationKey(serverId, sessionId)] != permission
+    }
+
+    /** 记录权限已通知（去重状态写入）。 */
+    internal fun markPermissionNotified(serverId: String, sessionId: String, permission: String) {
+        lastNotifiedPermissionBySession[sessionNotificationKey(serverId, sessionId)] = permission
+    }
+
+    /**
+     * 问题通知是否应通知：未通知过相同问题 且 会话未被抑制。
+     * 纯查询，不修改状态——真正通知后由 [markQuestionNotified] 记录。
+     */
+    internal fun shouldNotifyQuestion(serverId: String, sessionId: String, questionText: String): Boolean {
+        if (sessionFocusHolder.shouldSuppressEvent(serverId, sessionId)) return false
+        return lastNotifiedQuestionBySession[sessionNotificationKey(serverId, sessionId)] != questionText
+    }
+
+    /** 记录问题已通知（去重状态写入）。 */
+    internal fun markQuestionNotified(serverId: String, sessionId: String, questionText: String) {
+        lastNotifiedQuestionBySession[sessionNotificationKey(serverId, sessionId)] = questionText
     }
 
     private fun eventNotificationId(serverId: String, sessionId: String, typeOffset: Int): Int {
-        return (serverId + sessionId).hashCode() + typeOffset
+        return stableHash(serverId, sessionId) + typeOffset
+    }
+
+    /**
+     * FNV-1a 32 位稳定 hash。
+     * 相比字符串拼接 + hashCode()：无拼接歧义（"a"+"bc" 与 "ab"+"c" 不再同值），
+     * 且跨 JVM/平台行为一致，语义明确。
+     */
+    private fun stableHash(vararg parts: String): Int {
+        var hash = 0x811c9dc5.toInt()
+        for (part in parts) {
+            for (i in part.indices) {
+                hash = (hash xor part[i].code) * 0x01000193
+            }
+        }
+        return hash
     }
 
     companion object {

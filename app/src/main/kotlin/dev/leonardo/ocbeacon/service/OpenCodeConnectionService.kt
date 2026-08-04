@@ -21,6 +21,7 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository as DomainSetti
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -93,7 +94,7 @@ class OpenCodeConnectionService : Service() {
         }
     )
 
-    private var notificationWatchdogJob: Job? = null
+    private var connectionStateNotificationJob: Job? = null
     private var networkRecoveryJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -236,11 +237,11 @@ class OpenCodeConnectionService : Service() {
         // 启动带自动重连的 SSE 连接；事件路由到 processEvent
         connectionManager.startConnection(server, ::processEvent)
 
+        // 观察连接状态：SSE 连接建立后持久通知从"连接中"刷新为"已连接"
+        startPersistentNotificationObserver()
+
         // 更新持久通知
         updatePersistentNotification()
-
-        // 若未运行则启动看门狗
-        startNotificationWatchdog()
     }
 
     /**
@@ -254,8 +255,8 @@ class OpenCodeConnectionService : Service() {
         if (connectionManager.connections.isEmpty()) {
             // 最后一个服务器已断开——清理并停止服务
             releaseWakeLock()
-            notificationWatchdogJob?.cancel()
-            notificationWatchdogJob = null
+            connectionStateNotificationJob?.cancel()
+            connectionStateNotificationJob = null
             stopForeground(STOP_FOREGROUND_REMOVE)
             foregroundStarted = false
             stopSelf()
@@ -300,8 +301,8 @@ class OpenCodeConnectionService : Service() {
         connectionManager.stopAllConnections()
 
         releaseWakeLock()
-        notificationWatchdogJob?.cancel()
-        notificationWatchdogJob = null
+        connectionStateNotificationJob?.cancel()
+        connectionStateNotificationJob = null
 
         if (stopService) {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -332,6 +333,18 @@ class OpenCodeConnectionService : Service() {
 
     // ============ 事件处理（仅通知路由）============
 
+    /**
+     * 在总开关开启时才执行通知动作。
+     * 修复：此前 [SseEvent.PermissionAsked] / [SseEvent.QuestionAsked] / [SseEvent.SessionError]
+     * 不检查 notificationsEnabled，用户关闭通知后权限/问题/错误仍会弹出。
+     */
+    private fun maybeNotify(server: ServerConfig, action: suspend () -> Unit) {
+        serviceScope.launch {
+            if (!settingsDataStore.notificationsEnabled.first()) return@launch
+            action()
+        }
+    }
+
     private fun processEvent(server: ServerConfig, event: SseEvent) {
         if (BuildConfig.DEBUG) Log.d(TAG, "[${server.displayName}] SSE event: ${event.javaClass.simpleName}")
 
@@ -348,7 +361,7 @@ class OpenCodeConnectionService : Service() {
                     // 给 reducer 片刻时间接收后续的 message/part 事件。
                     delay(250)
 
-                    val assistantMessageId = appNotificationManager.checkNewAssistantMessage(event.sessionId)
+                    val assistantMessageId = appNotificationManager.checkNewAssistantMessage(server.id, event.sessionId)
                     if (assistantMessageId == null) {
                         if (BuildConfig.DEBUG) {
                             Log.d(TAG, "[${server.displayName}] Skip response-ready: no assistant text output (${event.sessionId})")
@@ -363,74 +376,86 @@ class OpenCodeConnectionService : Service() {
                 }
             }
             is SseEvent.PermissionAsked -> {
-                val targetSessionId = if (appNotificationManager.isChildSession(event.sessionId)) {
-                    // 子 session 权限冒泡到父 session 通知
-                    val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
-                    session?.parentId ?: event.sessionId
-                } else {
-                    event.sessionId
+                maybeNotify(server) {
+                    val targetSessionId = if (appNotificationManager.isChildSession(event.sessionId)) {
+                        // 子 session 权限冒泡到父 session 通知
+                        val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
+                        session?.parentId ?: event.sessionId
+                    } else {
+                        event.sessionId
+                    }
+                    Log.i(TAG, "[${server.displayName}] Permission asked: ${event.permission} (session=${event.sessionId}, target=$targetSessionId)")
+                    if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
+                    appNotificationManager.showPermissionNotification(
+                        this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, event.permission
+                    )
                 }
-                Log.i(TAG, "[${server.displayName}] Permission asked: ${event.permission} (session=${event.sessionId}, target=$targetSessionId)")
-                if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return
-                appNotificationManager.showPermissionNotification(
-                    this, systemNotificationManager, server, targetSessionId, event.permission
-                )
             }
             is SseEvent.QuestionAsked -> {
-                val targetSessionId = if (appNotificationManager.isChildSession(event.sessionId)) {
-                    // 子 session 问题冒泡到父 session 通知
-                    val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
-                    session?.parentId ?: event.sessionId
-                } else {
-                    event.sessionId
+                maybeNotify(server) {
+                    val targetSessionId = if (appNotificationManager.isChildSession(event.sessionId)) {
+                        // 子 session 问题冒泡到父 session 通知
+                        val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
+                        session?.parentId ?: event.sessionId
+                    } else {
+                        event.sessionId
+                    }
+                    Log.i(TAG, "[${server.displayName}] Question asked for session ${event.sessionId} (target=$targetSessionId)")
+                    if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
+                    val questionText = event.questions.firstOrNull()?.question
+                        ?: getString(R.string.notification_has_question, getString(R.string.notification_new_session))
+                    appNotificationManager.showQuestionNotification(
+                        this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, questionText
+                    )
                 }
-                Log.i(TAG, "[${server.displayName}] Question asked for session ${event.sessionId} (target=$targetSessionId)")
-                if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return
-                val questionText = event.questions.firstOrNull()?.question
-                    ?: getString(R.string.notification_has_question, getString(R.string.notification_new_session))
-                appNotificationManager.showQuestionNotification(
-                    this, systemNotificationManager, server, targetSessionId, questionText
-                )
             }
             is SseEvent.SessionError -> {
-                val targetSessionId = if (event.sessionId != null && appNotificationManager.isChildSession(event.sessionId)) {
-                    // 子 session 错误冒泡到父 session 通知
-                    val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
-                    session?.parentId ?: event.sessionId
-                } else {
-                    event.sessionId
+                maybeNotify(server) {
+                    val targetSessionId = if (event.sessionId != null && appNotificationManager.isChildSession(event.sessionId)) {
+                        // 子 session 错误冒泡到父 session 通知
+                        val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
+                        session?.parentId ?: event.sessionId
+                    } else {
+                        event.sessionId
+                    }
+                    Log.i(TAG, "[${server.displayName}] Session error: ${event.error} (session=${event.sessionId}, target=$targetSessionId)")
+                    if (targetSessionId != null && sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
+                    appNotificationManager.showErrorNotification(
+                        this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, event.error
+                    )
                 }
-                Log.i(TAG, "[${server.displayName}] Session error: ${event.error} (session=${event.sessionId}, target=$targetSessionId)")
-                if (targetSessionId != null && sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return
-                appNotificationManager.showErrorNotification(
-                    this, systemNotificationManager, server, targetSessionId, event.error
-                )
             }
             else -> { }
         }
     }
 
-    // ============ 通知看门狗 ============
+    // ============ 连接状态通知观察者 ============
 
-    private fun startNotificationWatchdog() {
-        if (notificationWatchdogJob?.isActive == true) return
-        notificationWatchdogJob = serviceScope.launch {
-            while (isActive && connectionManager.connections.isNotEmpty()) {
-                delay(5_000)
-                if (!isNotificationVisible()) {
-                    Log.i(TAG, "Foreground notification was dismissed, restoring it")
-                    val notification = appNotificationManager.createPersistentNotification(
-                        this@OpenCodeConnectionService, connectionManager.connections
-                    )
-                    startForeground(AppNotificationManager.PERSISTENT_NOTIFICATION_ID, notification)
+    /**
+     * 订阅连接状态变化并刷新持久通知。
+     *
+     * 根因修复：此前持久通知只在 connect()（连接尚未建立）和 disconnect() 时刷新，
+     * SSE 连接成功后没有刷新路径，导致状态栏永远显示"连接中"。
+     * 此观察者在 [SseConnectionManager.connectedServerIds] 或 [SseConnectionManager.connectingServerIds]
+     * 变化时（即连接建立/断开）重新渲染持久通知。
+     *
+     * 不再强制恢复被用户清除的通知——用户希望连接状态通知可清理；
+     * 服务被系统重启时 [ensureForegroundStarted] 仍会重建通知。
+     */
+    private fun startPersistentNotificationObserver() {
+        if (connectionStateNotificationJob?.isActive == true) return
+        connectionStateNotificationJob = serviceScope.launch {
+            combine(
+                connectionManager.connectedServerIds,
+                connectionManager.connectingServerIds,
+            ) { connected, connecting -> connected to connecting }
+                .distinctUntilChanged()
+                .collect {
+                    // 仅在仍有活跃连接时刷新；最后一个断开由 disconnect() 清理
+                    if (connectionManager.connections.isNotEmpty()) {
+                        updatePersistentNotification()
+                    }
                 }
-            }
-        }
-    }
-
-    private fun isNotificationVisible(): Boolean {
-        return systemNotificationManager.activeNotifications.any {
-            it.id == AppNotificationManager.PERSISTENT_NOTIFICATION_ID
         }
     }
 
