@@ -447,6 +447,8 @@
     <string name="notification_channel_tasks_silent_desc">Silent notifications when OpenCode tasks are completed</string>
     <string name="notification_channel_permissions">Permission Requests</string>
     <string name="notification_channel_permissions_desc">Notifications when OpenCode needs permissions</string>
+    <string name="notification_channel_questions">Question Requests</string>
+    <string name="notification_channel_questions_desc">Notifications when OpenCode asks a question</string>
     <string name="notification_connected">Connected to %1$s</string>
     <string name="notification_connecting">Connecting to %1$s…</string>
     <string name="notification_connected_count">Connected to %1$d of %2$d servers</string>
@@ -483,6 +485,41 @@
     <string name="retry">Retry</string>
     <string name="delete">Delete</string>
     <string name="close">Close</string>
+
+    <!-- UI hardcoded strings (i18n) -->
+    <string name="favorites_title">Favorites</string>
+    <string name="all">All</string>
+    <string name="no_favorites">No favorite sessions yet</string>
+    <string name="no_favorites_in_category">No favorites in this category</string>
+    <string name="server_not_connected">Server not connected</string>
+    <string name="server_not_connected_desc">%1$s is not connected. Connect to view this session.</string>
+    <string name="set_category">Set category</string>
+    <string name="remove_favorite">Remove from favorites</string>
+    <string name="more_actions">More actions</string>
+    <string name="offline_suffix">· Not connected</string>
+    <string name="category">Category</string>
+    <string name="no_category">No category</string>
+    <string name="new_category">New category</string>
+    <string name="category_name">Category name</string>
+    <string name="color">Color</string>
+    <string name="icon">Icon</string>
+    <string name="add">Add</string>
+    <string name="delete_category">Delete category</string>
+    <string name="draft">Draft</string>
+    <string name="assign_category">Assign category</string>
+    <string name="quick_navigate">Quick navigate</string>
+    <string name="question">Question</string>
+    <string name="no_questions">No questions</string>
+    <string name="render">Render</string>
+    <string name="source">Source</string>
+    <string name="copy_all">Copy all</string>
+    <string name="no_text">(no text)</string>
+    <string name="custom_input">Custom input</string>
+    <string name="input_answer">Enter answer</string>
+    <string name="pdf_load_failed">PDF load failed</string>
+    <string name="unknown_error">Unknown error</string>
+    <string name="crash_logs_dir">Crash logs at Download/%1$s/</string>
+
     <!-- Message meta info -->
     <string name="chat_meta_tokens">%d tokens</string>
     <string name="chat_glob_match_count">%d matches</string>

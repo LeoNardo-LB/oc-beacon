@@ -20,8 +20,13 @@ data class JumpTarget(
  * 原始索引用于跳转查找。
  *
  * 纯函数 —— 无 Android/Compose 依赖。
+ *
+ * @param noTextPlaceholder 无文本时的占位符（由调用方本地化）。
  */
-fun extractJumpTargets(rawMessages: List<ChatMessage>): List<JumpTarget> {
+fun extractJumpTargets(
+    rawMessages: List<ChatMessage>,
+    noTextPlaceholder: String = "(无文本)",
+): List<JumpTarget> {
     return rawMessages.withIndex()
         .filter { it.value.isUser }
         .sortedBy { it.value.message.time.created }
@@ -33,7 +38,7 @@ fun extractJumpTargets(rawMessages: List<ChatMessage>): List<JumpTarget> {
                 preview = cm.parts.firstOrNull { it is Part.Text }
                     ?.let { (it as Part.Text).text }
                     ?.takeIf { it.isNotBlank() }
-                    ?: "(无文本)",
+                    ?: noTextPlaceholder,
                 rawIndex = indexed.index,
                 msgId = cm.message.id
             )

@@ -120,7 +120,7 @@ class OpenCodeApp : Application() {
         val hasUnreadCrash = crashDir.listFiles()
             ?.any { it.name.startsWith("crash_") && it.name.endsWith(".txt") } == true
         if (hasUnreadCrash) {
-            Toast.makeText(this, "崩溃日志在 Download/$CRASH_DIR/", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.crash_logs_dir, CRASH_DIR), Toast.LENGTH_LONG).show()
         }
 
         // 跟踪应用前台/后台状态，用于通知抑制

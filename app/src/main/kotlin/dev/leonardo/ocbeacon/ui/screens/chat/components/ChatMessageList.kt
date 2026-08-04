@@ -204,7 +204,10 @@ fun ChatMessageList(
     }
 
     // 快速导航：提取跳转目标 + 跟踪当前问题
-    val jumpTargets = remember(rawMessages) { extractJumpTargets(rawMessages) }
+    val noTextPlaceholder = stringResource(R.string.no_text)
+    val jumpTargets = remember(rawMessages, noTextPlaceholder) {
+        extractJumpTargets(rawMessages, noTextPlaceholder)
+    }
 
     val currentQuestionRawIndex by remember(rawMessages) {
         derivedStateOf { findCurrentQuestionRawIndex(listState, rawMessages) }

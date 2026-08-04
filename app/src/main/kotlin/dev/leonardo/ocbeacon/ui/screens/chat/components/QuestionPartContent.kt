@@ -41,11 +41,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.launch
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -91,7 +93,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                     tint = accentColor
                 )
                 Text(
-                    text = "提问",
+                    text = stringResource(R.string.question),
                     style = MaterialTheme.typography.titleSmall
                 )
                 Text(
@@ -286,13 +288,13 @@ internal fun QuestionOptionRows(
                     Surface(onClick = { isEditing = true }, shape = ShapeTokens.small, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = accentColor.copy(alpha = AlphaTokens.MEDIUM))
-                            Text("自定义输入", style = MaterialTheme.typography.bodySmall, color = accentColor.copy(alpha = AlphaTokens.MEDIUM))
+                            Text(stringResource(R.string.custom_input), style = MaterialTheme.typography.bodySmall, color = accentColor.copy(alpha = AlphaTokens.MEDIUM))
                         }
                     }
                 } else {
                     androidx.compose.material3.OutlinedTextField(
                         value = customText, onValueChange = { customText = it },
-                        placeholder = { Text("输入答案", style = MaterialTheme.typography.bodySmall) },
+                        placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                         textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
                         trailingIcon = {

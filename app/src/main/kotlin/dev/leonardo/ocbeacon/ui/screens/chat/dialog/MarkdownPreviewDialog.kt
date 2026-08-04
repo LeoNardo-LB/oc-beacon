@@ -79,7 +79,8 @@ internal fun MarkdownPreviewDialog(
                                 PreviewMode.RENDERED else PreviewMode.SOURCE
                         }) {
                             Text(
-                                if (previewMode == PreviewMode.SOURCE) "渲染" else "源码"
+                                if (previewMode == PreviewMode.SOURCE) stringResource(R.string.render)
+                                else stringResource(R.string.source)
                             )
                         }
                         // 复制全部按钮
@@ -89,7 +90,7 @@ internal fun MarkdownPreviewDialog(
                         }) {
                             Icon(
                                 Icons.Default.ContentCopy,
-                                contentDescription = "复制全部"
+                                contentDescription = stringResource(R.string.copy_all)
                             )
                         }
                     }

@@ -36,9 +36,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 private const val TAG = "PdfViewer"
@@ -248,13 +250,13 @@ fun PdfViewer(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "PDF 加载失败",
+                    text = stringResource(R.string.pdf_load_failed),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.error,
                 )
                 Spacer(Modifier.height(SpacingTokens.SM.dp))
                 Text(
-                    text = errorMessage.ifBlank { "未知错误" },
+                    text = errorMessage.ifBlank { stringResource(R.string.unknown_error) },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
