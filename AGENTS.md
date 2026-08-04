@@ -205,7 +205,7 @@ Tag = `v` + VERSION_NAME：
 - **dev flavor** (`dev.leonardo.ocbeacon.dev`)：开发预览，独立 applicationId，可与正式版共存。
 - **beta flavor** (`dev.leonardo.ocbeacon.beta`)：公开测试版，独立 applicationId，可与正式版共存。
 - **stable flavor** (`dev.leonardo.ocbeacon`)：正式包名，覆盖安装。
-- **只发一个包**：每次发版只创建一个 GitHub Release，不重复发多个。发新版前**先删除旧版 Release 和 Tag**（`gh release delete <old> --yes && git push origin --delete <old>`），确保 Releases 页面只保留最新版本。
+- **每版本只发一个 APK**：每次发版只为一个版本创建一个 GitHub Release，且该 Release **只附一个可下载的 APK 产物**（对应 flavor 的单个 APK，命名 `oc-beacon-<VERSION>.apk`）。不重复上传多个 APK（如同时传 `app-beta-release.apk` 和 `oc-beacon-x.y.z.apk`）。**不要删除历史 Release 和 Tag**——Releases 页面保留所有已发布版本供下载。
 - **默认发预发布版**：除非用户明确说明"正式发版"或"发 stable"，否则一律发 beta 或 dev 预发布版（`--prerelease`）。
 - `gh` CLI 不走代理，直接用直连（不加 `HTTP_PROXY`）。
 - APK 路径：
@@ -224,7 +224,8 @@ Tag = `v` + VERSION_NAME：
 4. push → git push origin master
 5. tag → git tag -a "vX.Y.Z" -m "vX.Y.Z — 简要说明"
 6. push tag → git push origin "vX.Y.Z"
-7. release → gh release create "vX.Y.Z" "APK路径" --prerelease(可选) --title --notes
+7. release → 复制 APK 为 oc-beacon-<VERSION>.apk（如 oc-beacon-1.0.3-beta.1.apk），
+   gh release create "vX.Y.Z" "oc-beacon-<VERSION>.apk" --prerelease(可选) --title --notes
 ```
 
 **严禁在 `version.properties` 修改前执行 `assemble*`**，否则 APK 内嵌的版本号与 tag/release 名称不一致。
