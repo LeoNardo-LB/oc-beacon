@@ -117,10 +117,3 @@ private fun buildImageHtml(base64Data: String, mimeType: String, bgHex: String):
     </html>
     """.trimIndent()
 }
-
-private fun argbToHex(argb: Int): String {
-    val r = (argb shr 16) and 0xFF
-    val g = (argb shr 8) and 0xFF
-    val b = argb and 0xFF
-    return String.format("#%02X%02X%02X", r, g, b)
-}

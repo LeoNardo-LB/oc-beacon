@@ -111,7 +111,6 @@ android {
 dependencies {
     // Android 核心
     implementation("androidx.core:core-ktx:1.18.0")
-    implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
@@ -122,7 +121,6 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3-window-size-class")
@@ -168,7 +166,7 @@ dependencies {
     implementation("dev.snipme:highlights:1.1.0")
 
     // WebView 回退（为兼容遗留场景保留）
-    implementation("androidx.webkit:webkit:1.16.0")
+    // （androidx.webkit 未使用，使用系统 android.webkit.WebView）
 
     // 用于偏好设置的 DataStore
     implementation("androidx.datastore:datastore-preferences:1.2.1")
@@ -179,6 +177,7 @@ dependencies {
 
     // 测试
     testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.appcompat:appcompat:1.7.1") // 测试中模拟 Activity 用
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testImplementation("io.mockk:mockk:1.14.9")
     testImplementation("app.cash.turbine:turbine:1.2.1")

@@ -45,11 +45,11 @@ Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.**
 ```
 domain/          Pure Kotlin, 无 Android 依赖
   model/         40+ 数据类与值类型（SseEvent, Message, Part, Session, AppSettings, SessionCategory, FavoriteSessionSnapshot 等）
-  repository/    15 个接口（Chat, Session, Server, Settings, File, Vcs, Terminal, Provider, Draft, Agent, Mcp, LocalServer 等）
-  usecase/       30 个 UseCase — ViewModel 调用它们，而非直接调 API
+  repository/    13 个接口（Agent, Chat, Draft, File, Mcp, Provider, Server, ServerConfig, ServerConnection, Session, Settings, Terminal, Vcs）
+  usecase/       29 个 UseCase — ViewModel 调用它们，而非直接调 API
 
 data/            Android 相关实现
-  api/           OpenCodeApi.kt (Ktor HTTP), SseClient.kt, ServerConnection.kt
+  api/           ApiClient.kt + 按域拆分的 SessionApi/MessageApi/FileApi/TerminalApi/ProviderApi/SystemApi (Ktor HTTP), SseClient.kt
   dto/           API 数据传输对象（request/ response/ common/）
   mapper/        DTO ↔ 领域模型转换器
   repository/    Impl 类 + EventDispatcher + EventHandler 策略模式
@@ -83,7 +83,7 @@ ui/
     terminal/        WebSocket 上的 PTY 终端视图（TerminalTabState: 5 态枚举，非 Boolean）
     tools/           工具调用可展开卡片
     util/            聊天专用工具
-  screens/home/      HomeScreen + 服务器卡片 + 本地运行时
+  screens/home/      HomeScreen + 服务器卡片
   screens/sessions/  SessionListScreen + CrossServerSessionsScreen + 组件
   screens/settings/  SettingsScreen + 选择器对话框 + DiagnosticsScreen
   screens/server/    服务器设置/提供商/模型过滤
@@ -271,6 +271,9 @@ SSE → UI 管线为：**48ms token 批处理** → **高度补偿** → **渲�
 
 ### Ktor 引擎
 明确使用 **OkHttp engine** 以正确支持 SSE 流式传输。不要切换到其他引擎。**
+
+### Markdown 表格渲染（两端一致性）
+文件浏览（WebView）与主对话流（Compose）的表格必须保持同一动态列宽上限公式 `cellCap = max(容器宽 ÷ 列数, MIN_CELL)`，MIN_CELL 两端统一 **120dp（Compose）/ 120px（WebView CSS）**。改一端必须同步另一端；代码块（`pre` / mikepenz code 组件）保持容器内滚动、不主动换行。设计细节见 `docs/archive/specs/2026-08-04-markdown-table-wrap-design.md`。
 
 ### Material 3 First
 - **优先使用 Material 3 原生组件和原生样式**。能用 `LinearProgressIndicator`、`CircularProgressIndicator`、`IconButton` 等原生组件解决的，不要自定义 Canvas 绘制。

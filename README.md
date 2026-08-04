@@ -119,7 +119,6 @@
 - 模型与 agent 选择（74 个提供商图标）
 - 15 种语言本地化（en, ru, de, es, fr, it, pt-BR, id, ja, ko, zh-CN, uk, tr, ar, pl）
 - 多服务器连接 + 自动重连（指数退避）
-- 本地运行时（Termux）— 直接在设备上运行 OpenCode
 - AMOLED 深色模式、Material You 动态色、可自定义聊天密度与字号
 - 后台保活的前台服务
 - 斜杠命令 — `/new`、`/fork`、`/compact`、`/share`、`/rename`、`/undo`、`/redo`、`/shell`
@@ -161,11 +160,11 @@
 ## 要求
 
 - Android 8.0+（API 26）
-- 网络可达的 OpenCode 服务器（或通过 Termux 在本地运行一个）
+- 网络可达的 OpenCode 服务器
 
 ## 致谢
 
-- **[@crim50n](https://github.com/crim50n)** — [oc-remote](https://github.com/crim50n/oc-remote) 原作者，本 fork 的基础。绝大多数地基工作——原生 UI、终端模式、会话管理、多服务器、本地运行时——都出自他手。
+- **[@crim50n](https://github.com/crim50n)** — [oc-remote](https://github.com/crim50n/oc-remote) 原作者，本 fork 的基础。绝大多数地基工作——原生 UI、终端模式、会话管理、多服务器——都出自他手。
 - [OpenCode](https://github.com/anomalyco/opencode) 团队 — 本客户端所连接的服务端软件。
 
 ## 许可证

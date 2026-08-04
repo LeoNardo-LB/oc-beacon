@@ -296,7 +296,7 @@ fun CodeWebView(
     )
 }
 
-private fun argbToHex(argb: Int): String {
+internal fun argbToHex(argb: Int): String {
     val r = (argb shr 16) and 0xFF
     val g = (argb shr 8) and 0xFF
     val b = argb and 0xFF
