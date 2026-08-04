@@ -8,7 +8,6 @@ import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.service.SessionFocusHolder
 import dev.leonardo.ocbeacon.service.AppNotificationManager
 import io.ktor.client.HttpClient
-import dev.leonardo.ocbeacon.data.api.SseClient
 import dev.leonardo.ocbeacon.domain.model.AppSettings
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.ProvidersResponse
@@ -215,7 +214,7 @@ class ChatViewModelStreamingTest {
             messagePaging = messagePaging,
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
-            sseClient = mockk(relaxed = true),
+
             sessionStateService = sessionStateService,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),

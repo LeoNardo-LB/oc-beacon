@@ -10,6 +10,7 @@ import dev.leonardo.ocbeacon.data.repository.FileRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.ServerRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.McpRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SettingsRepositoryImpl
+import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.data.repository.TerminalRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.VcsRepositoryImpl
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
@@ -21,6 +22,7 @@ import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConnectionRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.TerminalRepository
 import dev.leonardo.ocbeacon.domain.repository.VcsRepository
 
@@ -51,6 +53,9 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    abstract fun bindSessionStateRepository(impl: SessionStateService): SessionStateRepository
 
     @Binds
     abstract fun bindMcpRepository(impl: McpRepositoryImpl): McpRepository

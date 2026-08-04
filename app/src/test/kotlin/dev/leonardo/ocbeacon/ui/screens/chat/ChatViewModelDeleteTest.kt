@@ -3,7 +3,6 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import android.util.Log
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import io.ktor.client.HttpClient
-import dev.leonardo.ocbeacon.data.api.SseClient
 import dev.leonardo.ocbeacon.domain.model.AppSettings
 import dev.leonardo.ocbeacon.domain.model.ProvidersResponse
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
@@ -239,7 +238,7 @@ class ChatViewModelDeleteTest {
             messagePaging = messagePaging,
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
-            sseClient = mockk(relaxed = true),
+
             sessionStateService = sessionStateService,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),

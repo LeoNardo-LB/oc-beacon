@@ -18,7 +18,7 @@ import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
-import dev.leonardo.ocbeacon.data.repository.SessionStateService
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.FavoriteSessionSnapshot
 import dev.leonardo.ocbeacon.domain.model.Session
@@ -85,7 +85,7 @@ data class SessionItem(
 class SessionListViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val eventDispatcher: EventDispatcher,
-    private val sessionStateService: SessionStateService,
+    private val sessionStateService: SessionStateRepository,
     private val sessionApi: SessionApi,
     private val fileApi: FileApi,
     private val systemApi: SystemApi,

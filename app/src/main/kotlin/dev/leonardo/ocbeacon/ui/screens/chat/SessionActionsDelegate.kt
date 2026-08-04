@@ -3,7 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.data.repository.SessionStateService
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.domain.model.ModelSelection
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -51,7 +51,7 @@ internal class SessionActionsDelegate(
     private val manageTerminalUseCase: ManageTerminalUseCase,
     private val sessionRepository: SessionRepository,
     private val chatRepository: ChatRepository,
-    private val sessionStateService: SessionStateService,
+    private val sessionStateService: SessionStateRepository,
     private val serverId: String,
     private val scope: CoroutineScope,
     private val sessionIdProvider: () -> String,

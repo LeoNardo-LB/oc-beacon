@@ -17,7 +17,7 @@ import dev.leonardo.ocbeacon.domain.model.ModelSelection
 import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
-import dev.leonardo.ocbeacon.data.repository.SessionStateService
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
 import dev.leonardo.ocbeacon.data.terminal.ServerTerminalWorkspace
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
@@ -36,7 +36,6 @@ import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
 import dev.leonardo.ocbeacon.domain.usecase.*
-import dev.leonardo.ocbeacon.data.api.SseClient
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -232,8 +231,7 @@ class ChatViewModel @Inject constructor(
     private val messagePaging: MessagePaginationUseCase,
     private val tokenStatsTracker: TokenStatsTracker,
     private val httpClient: io.ktor.client.HttpClient,
-    private val sseClient: SseClient,
-    private val sessionStateService: SessionStateService,
+    private val sessionStateService: SessionStateRepository,
     private val sessionFocusHolder: dev.leonardo.ocbeacon.service.SessionFocusHolder,
     private val appNotificationManager: dev.leonardo.ocbeacon.service.AppNotificationManager,
     private val toolSnapshotCache: dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache,

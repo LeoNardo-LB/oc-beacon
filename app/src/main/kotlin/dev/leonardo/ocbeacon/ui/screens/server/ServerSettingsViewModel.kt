@@ -16,7 +16,7 @@ import dev.leonardo.ocbeacon.data.dto.response.ProviderOauthAuthorization
 import dev.leonardo.ocbeacon.data.dto.request.ServerConfigPatch
 import dev.leonardo.ocbeacon.data.dto.response.ServerConfigResponse
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -82,7 +82,7 @@ class ServerSettingsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val providerApi: ProviderApi,
     private val systemApi: SystemApi,
-    private val settingsRepository: SettingsDataStore
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val serverUrl: String = URLDecoder.decode(

@@ -25,6 +25,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override fun hiddenModels(serverId: String): Flow<Set<String>> = dataRepo.hiddenModels(serverId)
 
+    override suspend fun setModelVisibility(serverId: String, providerId: String, modelId: String, visible: Boolean) =
+        dataRepo.setModelVisibility(serverId, providerId, modelId, visible)
+
     override fun sessionCategories(): Flow<List<SessionCategory>> = dataRepo.sessionCategories
 
     override fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>> =

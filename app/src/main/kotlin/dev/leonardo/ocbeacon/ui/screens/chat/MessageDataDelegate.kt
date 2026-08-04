@@ -3,7 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.repository.PendingPromptRecord
-import dev.leonardo.ocbeacon.data.repository.SessionStateService
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.OptimisticMessage
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -66,7 +66,7 @@ internal class MessageDataDelegate(
     private val managePermissionUseCase: ManagePermissionUseCase,
     private val chatRepository: ChatRepository,
     private val messagePaging: MessagePaginationUseCase,
-    private val sessionStateService: SessionStateService,
+    private val sessionStateService: SessionStateRepository,
     private val sessionRepository: SessionRepository,
     private val settingsRepository: SettingsRepository,
     private val serverId: String,

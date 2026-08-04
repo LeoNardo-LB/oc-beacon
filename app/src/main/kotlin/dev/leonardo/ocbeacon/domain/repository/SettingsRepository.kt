@@ -29,6 +29,12 @@ interface SettingsRepository {
     fun hiddenModels(serverId: String): Flow<Set<String>>
 
     /**
+     * 设置某个 model 的可见性。
+     * @param visible false 时将该 model 加入隐藏集合。
+     */
+    suspend fun setModelVisibility(serverId: String, providerId: String, modelId: String, visible: Boolean)
+
+    /**
      * 全局用户定义的会话类别列表。
      */
     fun sessionCategories(): Flow<List<SessionCategory>>

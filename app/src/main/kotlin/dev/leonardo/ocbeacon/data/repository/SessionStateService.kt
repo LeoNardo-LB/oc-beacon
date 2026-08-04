@@ -5,6 +5,8 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.di.ApplicationScope
 import dev.leonardo.ocbeacon.domain.model.*
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
+import dev.leonardo.ocbeacon.domain.repository.SyncResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -32,14 +34,11 @@ private const val HISTORY_MAX = 20
 private const val STALENESS_CHECK_INTERVAL_MS = 5_000L
 private const val STALENESS_THRESHOLD_MS = 15_000L
 
-/** 完整 REST → FSM 同步的结果，暴露给调用方（例如手动刷新）观察。 */
-data class SyncResult(val totalSessions: Int, val busyCount: Int)
-
 @Singleton
 class SessionStateService @Inject constructor(
     @param:ApplicationScope private val appScope: CoroutineScope,
     private val sessionRepoProvider: Provider<SessionRepository>,
-) {
+) : SessionStateRepository {
     // 构造后注入（打破与 EventDispatcher 的循环依赖）
     var directoryResolver: DirectoryResolver = DirectoryResolver { null }
     var incompleteChecker: IncompleteAssistantChecker = IncompleteAssistantChecker { false }
@@ -87,18 +86,18 @@ class SessionStateService @Inject constructor(
     private val _fsmStates = MutableStateFlow<Map<String, SessionFSMState>>(emptyMap())
     private val _histories = MutableStateFlow<Map<String, List<TransitionRecord>>>(emptyMap())
 
-    val statusFlow: StateFlow<Map<String, SessionStatus>> = _fsmStates
+    override val statusFlow: StateFlow<Map<String, SessionStatus>> = _fsmStates
         .map { it.mapValues { e -> e.value.core } }
         .stateIn(appScope, SharingStarted.Eagerly, emptyMap())
 
-    val activityFlow: StateFlow<Map<String, SessionActivity?>> = _fsmStates
+    override val activityFlow: StateFlow<Map<String, SessionActivity?>> = _fsmStates
         .map { it.mapValues { e -> e.value.activity } }
         .stateIn(appScope, SharingStarted.Eagerly, emptyMap())
 
-    val historyFlow: StateFlow<Map<String, List<TransitionRecord>>> = _histories
+    override val historyFlow: StateFlow<Map<String, List<TransitionRecord>>> = _histories
         .stateIn(appScope, SharingStarted.Eagerly, emptyMap())
 
-    fun setServerId(serverId: String) { currentServerId = serverId }
+    override fun setServerId(serverId: String) { currentServerId = serverId }
 
     /**
      * [triggerRestValidation] 的公共包装——让外部调用方（例如
@@ -106,14 +105,14 @@ class SessionStateService @Inject constructor(
      * REST 状态检查。当 REST 确认为 Idle 时，FSM 的 forceComplete
      * 机制会自动处理不完整消息的修复。
      */
-    fun requestValidation(sessionId: String) = triggerRestValidation(sessionId)
+    override fun requestValidation(sessionId: String) = triggerRestValidation(sessionId)
 
     // ============ 事件入口 ============
-    fun onClientSendParts(sessionId: String) {
+    override fun onClientSendParts(sessionId: String) {
         applyTransition(sessionId, FsmEvent.ClientSendParts)
     }
-    fun onClientAbort(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientAbort)
-    fun onRestValidation(sessionId: String, status: SessionStatus) =
+    override fun onClientAbort(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientAbort)
+    override fun onRestValidation(sessionId: String, status: SessionStatus) =
         applyTransition(sessionId, FsmEvent.RestValidation(status))
 
     fun onSseEvent(event: SseEvent, sessionId: String) {
@@ -199,14 +198,14 @@ class SessionStateService @Inject constructor(
     }
 
     // ============ 生命周期 ============
-    fun clearSession(sessionId: String) {
+    override fun clearSession(sessionId: String) {
         _fsmStates.update { it - sessionId }
         _histories.update { it - sessionId }
         // 取消此会话进行中的 REST 校验（RS-012）
         activeValidations.remove(sessionId)?.cancel()
     }
 
-    fun clearForServer(sessionIds: Set<String>) {
+    override fun clearForServer(sessionIds: Set<String>) {
         _fsmStates.update { it - sessionIds }
         _histories.update { it - sessionIds }
         // 取消已清除会话进行中的 REST 校验（RS-012）
@@ -215,7 +214,7 @@ class SessionStateService @Inject constructor(
         }
     }
 
-    fun clearAll() {
+    override fun clearAll() {
         // RS-011 修复：使用 .update{} 参与 CAS，防止并发的
         // applyTransition 通过其自身的 CAS 写入复活已清除的状态。
         _fsmStates.update { emptyMap() }
@@ -290,7 +289,7 @@ class SessionStateService @Inject constructor(
     //
     // 注意：[SessionRepository.fetchSessionStatuses] 已将原始 REST DTO
     //（`RestSessionStatusInfo`）映射为领域 [SessionStatus]，因此此处无需逐条转换。
-    suspend fun syncFromRest(projects: List<Project>): SyncResult {
+    override suspend fun syncFromRest(projects: List<Project>): SyncResult {
         val sid = currentServerId ?: return SyncResult(0, 0)
         val aggregated = mutableMapOf<String, SessionStatus>()
         val dirs: List<String?> = if (projects.isEmpty()) listOf(null) else projects.map { it.worktree }
