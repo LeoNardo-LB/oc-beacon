@@ -1,7 +1,12 @@
 package dev.leonardo.ocbeacon.fakes
 
 import javax.inject.Inject
+import dev.leonardo.ocbeacon.domain.model.GlobalConfig
+import dev.leonardo.ocbeacon.domain.model.GlobalConfigPatch
+import dev.leonardo.ocbeacon.domain.model.ProviderAuthMethod
+import dev.leonardo.ocbeacon.domain.model.ProviderConnectionStatus
 import dev.leonardo.ocbeacon.domain.model.ProviderInfo
+import dev.leonardo.ocbeacon.domain.model.ProviderOauthAuthorization
 import dev.leonardo.ocbeacon.domain.model.ProvidersResponse
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
@@ -98,6 +103,50 @@ class FakeServerRepository @Inject constructor() :
     ): Result<Unit> = Result.success(Unit)
 
     override suspend fun saveServerConfig(serverId: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun loadProviderConnectionStatus(
+        serverId: String
+    ): Result<ProviderConnectionStatus> =
+        Result.success(ProviderConnectionStatus(providers = emptyList(), connected = emptySet()))
+
+    override suspend fun getGlobalConfig(serverId: String): Result<GlobalConfig> =
+        Result.success(GlobalConfig())
+
+    override suspend fun updateGlobalConfig(
+        serverId: String,
+        patch: GlobalConfigPatch
+    ): Result<GlobalConfig> = Result.success(
+        GlobalConfig(
+            disabledProviders = patch.disabledProviders ?: emptyList(),
+            model = patch.model,
+            smallModel = patch.smallModel,
+            defaultAgent = patch.defaultAgent
+        )
+    )
+
+    override suspend fun getProviderAuthMethods(
+        serverId: String
+    ): Result<Map<String, List<ProviderAuthMethod>>> = Result.success(emptyMap())
+
+    override suspend fun authorizeProviderOauth(
+        serverId: String,
+        providerId: String,
+        methodIndex: Int
+    ): Result<ProviderOauthAuthorization?> = Result.success(null)
+
+    override suspend fun completeProviderOauth(
+        serverId: String,
+        providerId: String,
+        methodIndex: Int,
+        code: String?
+    ): Result<Boolean> = Result.success(true)
+
+    override suspend fun removeProviderAuth(
+        serverId: String,
+        providerId: String
+    ): Result<Boolean> = Result.success(true)
+
+    override suspend fun disposeGlobal(serverId: String): Result<Boolean> = Result.success(true)
 
     // ============ ServerRepository ============
 

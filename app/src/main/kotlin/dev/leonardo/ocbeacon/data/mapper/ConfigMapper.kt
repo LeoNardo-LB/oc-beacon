@@ -1,38 +1,57 @@
 package dev.leonardo.ocbeacon.data.mapper
 
 import dev.leonardo.ocbeacon.data.dto.response.ServerConfigResponse
-import dev.leonardo.ocbeacon.data.dto.request.ServerConfigPatch
+import dev.leonardo.ocbeacon.data.dto.request.ServerConfigPatch as DtoServerConfigPatch
+import dev.leonardo.ocbeacon.domain.model.GlobalConfig
+import dev.leonardo.ocbeacon.domain.model.GlobalConfigPatch
 
 /**
  * 在 API Config DTO 和领域层配置表示之间映射。
- *
- * ServerConfigResponse 和 ServerConfigPatch 目前在 API 层直接使用。
- * 此 mapper 用于领域层需要服务器配置简化视图的场景。
  */
 object ConfigMapper {
 
     /**
      * 从响应中提取禁用的 provider 列表。
-     * 领域层使用简单的字符串列表；尚无专用领域类型。
      */
     fun toDisabledProviders(response: ServerConfigResponse): List<String> {
         return response.disabledProviders
     }
 
     /**
-     * 从各字段更新构建一个 patch。
+     * 从各字段更新构建一个 DTO patch。
      */
-    fun toPatch(
+    fun toDtoPatch(
         disabledProviders: List<String>? = null,
         model: String? = null,
         smallModel: String? = null,
         defaultAgent: String? = null
-    ): ServerConfigPatch {
-        return ServerConfigPatch(
+    ): DtoServerConfigPatch {
+        return DtoServerConfigPatch(
             disabledProviders = disabledProviders,
             model = model,
             smallModel = smallModel,
             defaultAgent = defaultAgent
+        )
+    }
+
+    /** 将 DTO [ServerConfigResponse] 映射为领域 [GlobalConfig]。 */
+    fun toDomain(response: ServerConfigResponse): GlobalConfig {
+        return GlobalConfig(
+            disabledProviders = response.disabledProviders,
+            enabledProviders = response.enabledProviders,
+            model = response.model,
+            smallModel = response.smallModel,
+            defaultAgent = response.defaultAgent
+        )
+    }
+
+    /** 将领域 [GlobalConfigPatch] 映射为 DTO [DtoServerConfigPatch]。 */
+    fun toDto(patch: GlobalConfigPatch): DtoServerConfigPatch {
+        return DtoServerConfigPatch(
+            disabledProviders = patch.disabledProviders,
+            model = patch.model,
+            smallModel = patch.smallModel,
+            defaultAgent = patch.defaultAgent
         )
     }
 }

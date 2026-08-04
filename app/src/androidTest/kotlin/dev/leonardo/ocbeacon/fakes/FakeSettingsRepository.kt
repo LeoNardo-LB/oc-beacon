@@ -31,6 +31,11 @@ class FakeSettingsRepository @Inject constructor() : SettingsRepository {
 
     override fun hiddenModels(serverId: String): Flow<Set<String>> = hiddenModelsState
 
+    override suspend fun setModelVisibility(serverId: String, providerId: String, modelId: String, visible: Boolean) {
+        val key = "$providerId:$modelId"
+        hiddenModelsState.value = if (visible) hiddenModelsState.value - key else hiddenModelsState.value + key
+    }
+
     override fun sessionCategories(): Flow<List<SessionCategory>> = sessionCategoriesState
 
     override fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>> = categoryAssignmentsState

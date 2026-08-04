@@ -154,7 +154,7 @@ fun ServerProvidersScreen(
 
     connectProvider?.let { provider ->
         val methods = uiState.authMethods[provider.providerId].orEmpty().ifEmpty {
-            listOf(dev.leonardo.ocbeacon.data.dto.response.ProviderAuthMethod(type = "api", label = stringResource(R.string.server_settings_auth_method_api)))
+            listOf(dev.leonardo.ocbeacon.domain.model.ProviderAuthMethod(type = "api", label = stringResource(R.string.server_settings_auth_method_api)))
         }
         val connectParams = amoledDialogParams(
             normalColor = MaterialTheme.colorScheme.surface,

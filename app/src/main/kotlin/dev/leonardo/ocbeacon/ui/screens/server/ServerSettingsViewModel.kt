@@ -6,23 +6,22 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.leonardo.ocbeacon.data.dto.response.AgentInfo
-import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
-import dev.leonardo.ocbeacon.data.api.system.SystemApi
-import dev.leonardo.ocbeacon.data.dto.response.ProviderAuthMethod
-import dev.leonardo.ocbeacon.data.dto.response.ProviderInfo
-import dev.leonardo.ocbeacon.data.dto.response.ProviderModel
-import dev.leonardo.ocbeacon.data.dto.response.ProviderOauthAuthorization
-import dev.leonardo.ocbeacon.data.dto.request.ServerConfigPatch
-import dev.leonardo.ocbeacon.data.dto.response.ServerConfigResponse
-import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.AgentInfo
+import dev.leonardo.ocbeacon.domain.model.GlobalConfig
+import dev.leonardo.ocbeacon.domain.model.GlobalConfigPatch
+import dev.leonardo.ocbeacon.domain.model.ModelCatalog
+import dev.leonardo.ocbeacon.domain.model.ProviderAuthMethod
+import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
+import dev.leonardo.ocbeacon.domain.model.ProviderOauthAuthorization
+import dev.leonardo.ocbeacon.domain.repository.AgentRepository
+import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.net.URLDecoder
 import javax.inject.Inject
 
 private const val TAG = "ServerSettingsViewModel"
@@ -80,34 +79,23 @@ data class ModelToggle(
 @HiltViewModel
 class ServerSettingsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val providerApi: ProviderApi,
-    private val systemApi: SystemApi,
+    private val providerRepository: ProviderRepository,
+    private val agentRepository: AgentRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    private val serverUrl: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverUrl") ?: "", "UTF-8"
+    private val serverId: String = safeDecodeParam(
+        savedStateHandle.get<String>("serverId") ?: ""
     )
-    private val username: String = URLDecoder.decode(
-        savedStateHandle.get<String>("username") ?: "", "UTF-8"
-    )
-    private val password: String = URLDecoder.decode(
-        savedStateHandle.get<String>("password") ?: "", "UTF-8"
-    )
-    private val serverId: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverId") ?: "", "UTF-8"
-    )
-    private val serverName: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverName") ?: "", "UTF-8"
+    private val serverName: String = safeDecodeParam(
+        savedStateHandle.get<String>("serverName") ?: ""
     )
 
-    private val conn = ServerConnection.from(serverUrl, username, password.ifEmpty { null })
-
-    private val _allProviders = MutableStateFlow<List<ProviderInfo>>(emptyList())
-    private val _providerCatalog = MutableStateFlow<List<ProviderInfo>>(emptyList())
+    private val _allProviders = MutableStateFlow<List<ProviderCatalog>>(emptyList())
+    private val _providerCatalog = MutableStateFlow<List<ProviderCatalog>>(emptyList())
     private val _providerConnected = MutableStateFlow<Set<String>>(emptySet())
     private val _agents = MutableStateFlow<List<AgentInfo>>(emptyList())
-    private val _config = MutableStateFlow(ServerConfigResponse())
+    private val _config = MutableStateFlow(GlobalConfig())
     private val _authMethods = MutableStateFlow<Map<String, List<ProviderAuthMethod>>>(emptyMap())
     private val _hiddenModels = MutableStateFlow<Set<String>>(emptySet())
     private val _uiState = MutableStateFlow(ServerSettingsUiState(serverName = serverName, isLoading = true))
@@ -130,13 +118,13 @@ class ServerSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val response = providerApi.getProviders(conn)
-                _allProviders.value = response.providers
-                val catalog = providerApi.listProviderCatalog(conn)
-                if (BuildConfig.DEBUG) Log.d(TAG, "loadProviders: catalog.connected=${catalog.connected}")
-                _providerCatalog.value = catalog.all
-                _providerConnected.value = catalog.connected.toSet()
-                _config.value = providerApi.getGlobalConfig(conn)
+                val catalog = providerRepository.loadProviderCatalog(serverId).getOrThrow()
+                _allProviders.value = catalog.providers
+                val status = providerRepository.loadProviderConnectionStatus(serverId).getOrThrow()
+                if (BuildConfig.DEBUG) Log.d(TAG, "loadProviders: status.connected=${status.connected}")
+                _providerCatalog.value = status.providers
+                _providerConnected.value = status.connected
+                _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load providers", e)
@@ -153,7 +141,7 @@ class ServerSettingsViewModel @Inject constructor(
     private fun loadAuthMethods() {
         viewModelScope.launch {
             try {
-                _authMethods.value = providerApi.getProviderAuthMethods(conn)
+                _authMethods.value = providerRepository.getProviderAuthMethods(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load auth methods", e)
@@ -164,7 +152,7 @@ class ServerSettingsViewModel @Inject constructor(
     private fun loadConfig() {
         viewModelScope.launch {
             try {
-                _config.value = providerApi.getGlobalConfig(conn)
+                _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load config", e)
@@ -175,7 +163,7 @@ class ServerSettingsViewModel @Inject constructor(
     private fun loadAgents() {
         viewModelScope.launch {
             try {
-                _agents.value =                 systemApi.listAgents(conn)
+                _agents.value = agentRepository.listAgents(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load agents", e)
@@ -191,8 +179,11 @@ class ServerSettingsViewModel @Inject constructor(
             _config.value = before.copy(disabledProviders = next.toList().sorted())
             rebuildUi()
             try {
-                providerApi.updateGlobalConfig(conn, ServerConfigPatch(disabledProviders = next.toList().sorted()))
-                _config.value = providerApi.getGlobalConfig(conn)
+                providerRepository.updateGlobalConfig(
+                    serverId,
+                    GlobalConfigPatch(disabledProviders = next.toList().sorted())
+                ).getOrThrow()
+                _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to update provider state", e)
@@ -208,15 +199,18 @@ class ServerSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
-                val updated = providerApi.setProviderApiKey(conn, providerId, apiKey.trim())
-                if (!updated) {
+                val result = providerRepository.connectProviderApi(serverId, providerId, apiKey.trim())
+                if (!result.isSuccess) {
                     _uiState.update { it.copy(isSaving = false, error = "Failed to connect provider") }
                     return@launch
                 }
                 // 连接成功后确保 provider 处于启用状态
                 val disabled = _config.value.disabledProviders.toSet() - providerId
-                providerApi.updateGlobalConfig(conn, ServerConfigPatch(disabledProviders = disabled.toList().sorted()))
-                _config.value = providerApi.getGlobalConfig(conn)
+                providerRepository.updateGlobalConfig(
+                    serverId,
+                    GlobalConfigPatch(disabledProviders = disabled.toList().sorted())
+                ).getOrThrow()
+                _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 loadProviders()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to connect provider via API key", e)
@@ -231,7 +225,7 @@ class ServerSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
-                var auth = providerApi.authorizeProviderOauth(conn, providerId, methodIndex)
+                val auth = providerRepository.authorizeProviderOauth(serverId, providerId, methodIndex).getOrThrow()
 
                 if (auth == null) {
                     _uiState.update { it.copy(isSaving = false, error = "OAuth is not available for this provider") }
@@ -267,15 +261,20 @@ class ServerSettingsViewModel @Inject constructor(
             try {
                 val oauthCode = if (pending.authorization.method == "code") code?.trim()?.ifEmpty { null } else null
                 if (BuildConfig.DEBUG) Log.d(TAG, "completeProviderOauth: calling callback for ${pending.providerId}, method=${pending.methodIndex}")
-                val completed = providerApi.completeProviderOauth(conn, pending.providerId, pending.methodIndex, oauthCode)
+                val completed = providerRepository.completeProviderOauth(
+                    serverId,
+                    pending.providerId,
+                    pending.methodIndex,
+                    oauthCode
+                ).getOrThrow()
                 if (!completed) {
                     // 某些服务器版本会带外完成授权，回调可能返回非成功。
                     // 在显示错误前先刷新 provider 目录。
-                    val catalog = providerApi.listProviderCatalog(conn)
-                    _providerCatalog.value = catalog.all
-                    _providerConnected.value = catalog.connected.toSet()
-                    _config.value = providerApi.getGlobalConfig(conn)
-                    if (pending.providerId in catalog.connected) {
+                    val status = providerRepository.loadProviderConnectionStatus(serverId).getOrThrow()
+                    _providerCatalog.value = status.providers
+                    _providerConnected.value = status.connected
+                    _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
+                    if (pending.providerId in status.connected) {
                         _uiState.update { it.copy(pendingOauth = null) }
                         rebuildUi()
                         return@launch
@@ -284,8 +283,11 @@ class ServerSettingsViewModel @Inject constructor(
                     return@launch
                 }
                 val disabled = _config.value.disabledProviders.toSet() - pending.providerId
-                providerApi.updateGlobalConfig(conn, ServerConfigPatch(disabledProviders = disabled.toList().sorted()))
-                _config.value = providerApi.getGlobalConfig(conn)
+                providerRepository.updateGlobalConfig(
+                    serverId,
+                    GlobalConfigPatch(disabledProviders = disabled.toList().sorted())
+                ).getOrThrow()
+                _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 _uiState.update { it.copy(pendingOauth = null) }
                 loadProviders()
             } catch (e: Exception) {
@@ -310,14 +312,14 @@ class ServerSettingsViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
                 if (BuildConfig.DEBUG) Log.d(TAG, "disconnectProvider: calling DELETE /auth/$providerId")
-                val removed = providerApi.removeProviderAuth(conn, providerId)
+                val removed = providerRepository.removeProviderAuth(serverId, providerId).getOrThrow()
                 if (BuildConfig.DEBUG) Log.d(TAG, "disconnectProvider: removed=$removed")
                 if (!removed) {
                     _uiState.update { it.copy(isSaving = false, error = "Failed to disconnect provider") }
                     return@launch
                 }
 
-                val disposed = runCatching { providerApi.disposeGlobal(conn) }.getOrElse { false }
+                val disposed = providerRepository.disposeGlobal(serverId).getOrElse { false }
                 if (BuildConfig.DEBUG) Log.d(TAG, "disconnectProvider: disposed=$disposed")
 
                 // 重新加载前乐观地从已连接集合中移除
@@ -339,27 +341,27 @@ class ServerSettingsViewModel @Inject constructor(
 
     fun setDefaultModel(model: String?) {
         viewModelScope.launch {
-            updateConfigPatch(ServerConfigPatch(model = model))
+            updateConfigPatch(GlobalConfigPatch(model = model))
         }
     }
 
     fun setSmallModel(model: String?) {
         viewModelScope.launch {
-            updateConfigPatch(ServerConfigPatch(smallModel = model))
+            updateConfigPatch(GlobalConfigPatch(smallModel = model))
         }
     }
 
     fun setDefaultAgent(agent: String?) {
         viewModelScope.launch {
-            updateConfigPatch(ServerConfigPatch(defaultAgent = agent))
+            updateConfigPatch(GlobalConfigPatch(defaultAgent = agent))
         }
     }
 
-    private suspend fun updateConfigPatch(patch: ServerConfigPatch) {
+    private suspend fun updateConfigPatch(patch: GlobalConfigPatch) {
         val before = _config.value
         try {
-            providerApi.updateGlobalConfig(conn, patch)
-            _config.value = providerApi.getGlobalConfig(conn)
+            providerRepository.updateGlobalConfig(serverId, patch).getOrThrow()
+            _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
             rebuildUi()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update config", e)
@@ -385,9 +387,9 @@ class ServerSettingsViewModel @Inject constructor(
                 ProviderToggle(
                     providerId = it.id,
                     providerName = it.name.ifEmpty { it.id },
-                    source = it.source,
+                    source = it.source.ifEmpty { null },
                     connected = (it.id in _providerConnected.value) && (it.id !in disabled),
-                    hasPaidModels = it.models.values.any { model -> (model.cost?.input ?: 0.0) > 0.0 },
+                    hasPaidModels = it.models.values.any { model -> model.costInput > 0.0 },
                     enabled = it.id !in disabled
                 )
             }
@@ -455,7 +457,7 @@ class ServerSettingsViewModel @Inject constructor(
         }
     }
 
-    private fun modelVisible(hidden: Set<String>, providerId: String, model: ProviderModel): Boolean {
+    private fun modelVisible(hidden: Set<String>, providerId: String, model: ModelCatalog): Boolean {
         return "$providerId:${model.id}" !in hidden
     }
 
