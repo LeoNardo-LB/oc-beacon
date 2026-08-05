@@ -594,7 +594,6 @@
     <string name="a11y_icon_model_variant">Вариант модели</string>
     <string name="a11y_icon_delete_rule">Удалить правило</string>
     <string name="a11y_icon_app_icon">Иконка приложения</string>
-    <string name="a11y_icon_copy_path">Копировать путь</string>
     <string name="a11y_icon_edit_session">Редактировать сессию</string>
     <string name="a11y_icon_export_session">Экспортировать сессию</string>
     <string name="a11y_icon_select_model">Выбрать модель</string>

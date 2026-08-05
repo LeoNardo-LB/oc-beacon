@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
 import android.content.ClipData
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -84,21 +83,6 @@ private fun FileViewerDialogContent(
             onBack = onDismiss,
             onNextHunk = viewModel::nextHunk,
             onPrevHunk = viewModel::prevHunk,
-            onCopyPath = {
-                scope.launch {
-                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("path", uiState.filePath)))
-                    snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard))
-                }
-            },
-            onShare = {
-                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, uiState.content.ifBlank { uiState.filePath })
-                }
-                runCatching {
-                    context.startActivity(Intent.createChooser(sendIntent, null))
-                }
-            },
             onCopyAllContent = {
                 scope.launch {
                     clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("content", uiState.content)))

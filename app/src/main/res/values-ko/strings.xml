@@ -593,7 +593,6 @@
     <string name="a11y_icon_model_variant">모델 변형</string>
     <string name="a11y_icon_delete_rule">규칙 삭제</string>
     <string name="a11y_icon_app_icon">앱 아이콘</string>
-    <string name="a11y_icon_copy_path">경로 복사</string>
     <string name="a11y_icon_edit_session">세션 편집</string>
     <string name="a11y_icon_export_session">세션 내보내기</string>
     <string name="a11y_icon_select_model">모델 선택</string>

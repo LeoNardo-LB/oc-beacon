@@ -593,7 +593,6 @@
     <string name="a11y_icon_model_variant">Варіант моделі</string>
     <string name="a11y_icon_delete_rule">Видалити правило</string>
     <string name="a11y_icon_app_icon">Іконка додатку</string>
-    <string name="a11y_icon_copy_path">Копіювати шлях</string>
     <string name="a11y_icon_edit_session">Редагувати сесію</string>
     <string name="a11y_icon_export_session">Експортувати сесію</string>
     <string name="a11y_icon_select_model">Обрати модель</string>

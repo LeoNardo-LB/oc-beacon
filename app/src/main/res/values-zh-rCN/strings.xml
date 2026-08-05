@@ -608,7 +608,6 @@
     <string name="a11y_icon_model_variant">模型变体</string>
     <string name="a11y_icon_delete_rule">删除规则</string>
     <string name="a11y_icon_app_icon">应用图标</string>
-    <string name="a11y_icon_copy_path">复制路径</string>
     <string name="a11y_icon_edit_session">编辑会话</string>
     <string name="a11y_icon_export_session">导出会话</string>
     <string name="a11y_icon_select_model">选择模型</string>

@@ -593,7 +593,6 @@
     <string name="a11y_icon_model_variant">モデルバリアント</string>
     <string name="a11y_icon_delete_rule">ルール削除</string>
     <string name="a11y_icon_app_icon">アプリアイコン</string>
-    <string name="a11y_icon_copy_path">パスコピー</string>
     <string name="a11y_icon_edit_session">セッション編集</string>
     <string name="a11y_icon_export_session">セッションエクスポート</string>
     <string name="a11y_icon_select_model">モデル選択</string>

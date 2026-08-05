@@ -696,7 +696,6 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_model_variant">Model variant</string>
     <string name="a11y_icon_delete_rule">Delete rule</string>
     <string name="a11y_icon_app_icon">App icon</string>
-    <string name="a11y_icon_copy_path">Copy path</string>
     <string name="a11y_icon_edit_session">Edit session</string>
     <string name="a11y_icon_export_session">Export session</string>
     <string name="a11y_icon_select_model">Select model</string>

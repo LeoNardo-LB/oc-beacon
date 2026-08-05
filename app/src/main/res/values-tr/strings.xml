@@ -593,7 +593,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_model_variant">Model varyantı</string>
     <string name="a11y_icon_delete_rule">Kuralı sil</string>
     <string name="a11y_icon_app_icon">Uygulama simgesi</string>
-    <string name="a11y_icon_copy_path">Yolu kopyala</string>
     <string name="a11y_icon_edit_session">Oturumu düzenle</string>
     <string name="a11y_icon_export_session">Oturumu dışa aktar</string>
     <string name="a11y_icon_select_model">Model seç</string>

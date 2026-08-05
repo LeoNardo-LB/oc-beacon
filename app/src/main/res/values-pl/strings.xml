@@ -593,7 +593,6 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_model_variant">Wariant modelu</string>
     <string name="a11y_icon_delete_rule">Usuń regułę</string>
     <string name="a11y_icon_app_icon">Ikona aplikacji</string>
-    <string name="a11y_icon_copy_path">Kopiuj ścieżkę</string>
     <string name="a11y_icon_edit_session">Edytuj sesję</string>
     <string name="a11y_icon_export_session">Eksportuj sesję</string>
     <string name="a11y_icon_select_model">Wybierz model</string>

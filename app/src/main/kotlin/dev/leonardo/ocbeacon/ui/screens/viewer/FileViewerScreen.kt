@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.RemoveRedEye
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -64,8 +62,6 @@ fun FileViewerScreen(
     onBack: () -> Unit,
     onNextHunk: () -> Unit,
     onPrevHunk: () -> Unit,
-    onCopyPath: () -> Unit,
-    onShare: () -> Unit,
     onCopyAllContent: () -> Unit,
     onToggleRenderMode: () -> Unit,
     // Phase 3：批注回调
@@ -117,8 +113,6 @@ fun FileViewerScreen(
             FileViewerTopBar(
                 uiState = uiState,
                 onBack = onBack,
-                onCopyPath = onCopyPath,
-                onShare = onShare,
                 onToggleRenderMode = toggleWithAnchor,
                 annotationCount = uiState.annotations.size,
                 onSubmitClick = { showSubmitDialog = true },
@@ -265,8 +259,6 @@ fun FileViewerScreen(
 private fun FileViewerTopBar(
     uiState: FileViewerUiState,
     onBack: () -> Unit,
-    onCopyPath: () -> Unit,
-    onShare: () -> Unit,
     onToggleRenderMode: () -> Unit,
     annotationCount: Int = 0,
     onSubmitClick: () -> Unit = {},
@@ -359,19 +351,6 @@ private fun FileViewerTopBar(
                     Icon(Icons.Default.Check, contentDescription = null)
                     Spacer(Modifier.width(SpacingTokens.XS.dp))
                     Text(stringResource(R.string.annotation_submit))
-                }
-            } else {
-                IconButton(onClick = onCopyPath) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = stringResource(R.string.a11y_icon_copy_path)
-                    )
-                }
-                IconButton(onClick = onShare) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = stringResource(R.string.a11y_icon_share)
-                    )
                 }
             }
         }

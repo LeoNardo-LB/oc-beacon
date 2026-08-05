@@ -599,7 +599,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_model_variant">Varian model</string>
     <string name="a11y_icon_delete_rule">Hapus aturan</string>
     <string name="a11y_icon_app_icon">Ikon aplikasi</string>
-    <string name="a11y_icon_copy_path">Salin path</string>
     <string name="a11y_icon_edit_session">Edit sesi</string>
     <string name="a11y_icon_export_session">Ekspor sesi</string>
     <string name="a11y_icon_select_model">Pilih model</string>

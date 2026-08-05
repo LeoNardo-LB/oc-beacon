@@ -591,7 +591,6 @@
     <string name="a11y_icon_model_variant">Variante de modèle</string>
     <string name="a11y_icon_delete_rule">Supprimer la règle</string>
     <string name="a11y_icon_app_icon">Icône de l\'application</string>
-    <string name="a11y_icon_copy_path">Copier le chemin</string>
     <string name="a11y_icon_edit_session">Modifier la session</string>
     <string name="a11y_icon_export_session">Exporter la session</string>
     <string name="a11y_icon_select_model">Sélectionner le modèle</string>

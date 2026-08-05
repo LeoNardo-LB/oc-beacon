@@ -593,7 +593,6 @@
     <string name="a11y_icon_model_variant">تغيير النموذج</string>
     <string name="a11y_icon_delete_rule">حذف القاعدة</string>
     <string name="a11y_icon_app_icon">أيقونة التطبيق</string>
-    <string name="a11y_icon_copy_path">نسخ المسار</string>
     <string name="a11y_icon_edit_session">تحرير الجلسة</string>
     <string name="a11y_icon_export_session">تصدير الجلسة</string>
     <string name="a11y_icon_select_model">اختيار النموذج</string>

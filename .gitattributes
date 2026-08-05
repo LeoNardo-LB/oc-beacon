@@ -1,0 +1,8 @@
+# 行尾规范化：所有文本文件按 LF 存入索引，diff/比较时统一按 LF 处理。
+# 修复 opencode server（未启用 core.autocrlf）将 CRLF 工作区误判为整文件重写的问题。
+* text=auto
+
+# 显式声明的二进制文件
+*.ico binary
+*.jks binary
+*.traineddata binary
