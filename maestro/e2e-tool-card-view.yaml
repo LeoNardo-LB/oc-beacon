@@ -2,18 +2,60 @@
 appId: dev.leonardo.ocbeacon.dev
 ---
 # Prerequisite: chat must have Read/Write/Edit tool cards (requires AI interaction)
-- runFlow: e2e-chat-flow.yaml
+# Navigate to chat inline (independent of chat-flow runFlow ending state)
+- launchApp
 
-# Wait for an Edit tool card to appear
+# Dismiss any lingering Add Server dialog (state pollution guard)
+- tapOn:
+    text: "Cancel"
+    optional: true
+
+- tapOn:
+    text: "Start Connect|Connect"
+    optional: true
 - extendedWaitUntil:
-    visible: ".*Edit.*"
-    timeout: 60000
+    visible: "Connected"
+    timeout: 20000
+    optional: true
+- tapOn:
+    text: "Sessions"
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 10000
+    optional: true
+- tapOn: "D:/Develop/code/app/oc-beacon"
+- tapOn: "系统问题分析与修复方案"
+- extendedWaitUntil:
+    visible: "More options"
+    timeout: 15000
+    optional: true
+
+# Send a message that triggers a tool call (plain "say hi" produces no tool card).
+# NOTE: maestro does not support Unicode input — use ASCII. Input field auto-focuses
+# after opening the chat, so no tapOn needed.
+- inputText: "Read the AGENTS.md file"
+- pressKey: ENTER
+
+# Wait for an Edit/Read tool card to appear (AI tool call, up to 90s)
+- extendedWaitUntil:
+    visible: ".*Edit.*|.*Read.*"
+    timeout: 90000
+    optional: true
+
+# Wait for the tool to finish running — the open-file button (contentDescription "Open file")
+# only shows after execution completes (hidden while isRunning)
+- extendedWaitUntil:
+    visible: "Open file"
+    timeout: 90000
     optional: true
 
 # Tap the open-file button on the first tool card
 - tapOn:
-    id: "tool_card_open_file"
+    text: "Open file"
     index: 0
+    optional: true
 - extendedWaitUntil:
     visible: ".*"
     timeout: 10000

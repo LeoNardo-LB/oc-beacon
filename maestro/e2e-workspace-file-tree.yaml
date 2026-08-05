@@ -77,9 +77,7 @@ tags:
 - takeScreenshot: e2e_ws_file_tree
 
 # Tap a file
-- tapOn:
-    text: ".*"
-    index: 0
+- tapOn: "AGENTS.md"
 
 - takeScreenshot: e2e_ws_file_opened
 

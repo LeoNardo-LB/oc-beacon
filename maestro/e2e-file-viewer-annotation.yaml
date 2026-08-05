@@ -33,11 +33,9 @@ tags:
     visible: "sessions active"
     timeout: 15000
     optional: true
-- tapOn:
-    text: ".*"
-    index: 0
+- tapOn: "系统问题分析与修复方案"
 - extendedWaitUntil:
-    visible: "Ask a question"
+    visible: "More options"
     timeout: 20000
     optional: true
 
@@ -49,30 +47,46 @@ tags:
 - tapOn:
     text: "View Workspace"
 
-# Open a file
+# Switch to Git changes panel (annotation requires the diff → source path)
 - tapOn:
-    text: ".*"
-    index: 0
-- takeScreenshot: e2e_ann_file_opened
+    id: "panel_toggle"
+- waitForAnimationToEnd:
+    timeout: 3000
 
-# Long-press to trigger text selection
+# Open a changed source file (diff view)
+# NOTE: requires an uncommitted change in the working tree (list is dynamic);
+# row text includes "M <path> +N -M" so match with regex
+- tapOn: ".*e2e-file-viewer-annotation.*"
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: e2e_ann_diff_opened
+
+# Switch to source view (CodeWebView with annotation bridge)
+- tapOn:
+    text: "Source"
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: e2e_ann_source_opened
+
+# Long-press code text in WebView to trigger text selection.
+# WebView inner DOM is NOT exposed to accessibility — use coordinates on the code area.
 - longPressOn:
-    text: ".*"
-    index: 0
+    point: 50%,40%
+- waitForAnimationToEnd:
+    timeout: 2000
 - takeScreenshot: e2e_ann_selection_started
 
-# Tap "Annotate" in custom toolbar (optional — appendTextContextMenuComponents item)
+# Tap "Annotate" in the selection action mode (native ActionMode is accessibility-visible)
 - tapOn:
-    id: "annotation_toolbar_annotate"
-    optional: true
+    text: "Annotate"
 - takeScreenshot: e2e_ann_input_sheet
 
-# Enter note
+# Enter note (bottom sheet: testTags not exposed as resource-id, match label text)
 - tapOn:
-    id: "annotation_input_note"
+    text: "Modification note"
 - inputText: "Test annotation note"
 - tapOn:
-    id: "annotation_input_confirm"
+    text: "Confirm"
 - takeScreenshot: e2e_ann_added
 
 # Verify annotation badge in TopBar
@@ -80,16 +94,14 @@ tags:
     text: ".*1.*"
     optional: true
 
-# Tap submit
+# Tap submit (viewer dialog: match text)
 - tapOn:
-    id: "annotation_submit_button"
-    optional: true
+    text: "Submit"
 - takeScreenshot: e2e_ann_submit_dialog
 
-# Send
+# Send (submit dialog: match text)
 - tapOn:
-    id: "annotation_submit_send"
-    optional: true
+    text: "Send"
 - takeScreenshot: e2e_ann_submitted
 
 # Verify toast (best-effort)
