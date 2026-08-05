@@ -122,16 +122,16 @@ fun SessionListScreen(
                     }
                 },
                 actions = {
-                    // 跨服务器收藏入口
-                    IconButton(onClick = onNavigateToFavorites) {
-                        Icon(
-                            Icons.Filled.Star,
-                            contentDescription = stringResource(R.string.favorites_title),
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    // 仅在会话页（page 0）
+                    // 以下入口仅在会话页（page 0）显示，设置页右上角保持干净
                     if (pagerState.currentPage == 0) {
+                        // 跨服务器收藏入口
+                        IconButton(onClick = onNavigateToFavorites) {
+                            Icon(
+                                Icons.Filled.Star,
+                                contentDescription = stringResource(R.string.favorites_title),
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
                         // 切换查看模式：最近 <-> 文件夹
                         IconButton(onClick = { viewModel.toggleViewMode() }) {
                             Icon(

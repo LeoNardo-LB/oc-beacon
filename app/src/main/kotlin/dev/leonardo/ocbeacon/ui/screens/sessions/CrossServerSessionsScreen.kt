@@ -1,13 +1,14 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,19 +16,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -138,8 +138,7 @@ fun CrossServerSessionsScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp),
                 ) {
                     items(
                         visibleItems,
@@ -148,13 +147,18 @@ fun CrossServerSessionsScreen(
                         CrossServerFavoriteCard(
                             item = item,
                             onClick = {
-                                if (item.isConnected && item.session != null) {
+                                if (item.isConnected) {
                                     onOpenSession(item)
                                 } else {
                                     offlinePromptItem = item
                                 }
                             },
                             onLongClick = { menuForItem = item },
+                        )
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(
+                                alpha = AlphaTokens.FAINT
+                            )
                         )
                     }
                 }
@@ -221,6 +225,7 @@ fun CrossServerSessionsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CrossServerFavoriteCard(
     item: CrossServerSessionItem,
@@ -228,68 +233,60 @@ private fun CrossServerFavoriteCard(
     onLongClick: () -> Unit,
 ) {
     val alpha = if (item.isConnected) AlphaTokens.HIGH else AlphaTokens.MUTED
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // 连接状态 / 分类图标
-            val leadingIcon = item.category?.let { SessionCategoryStyle.icon(it.icon) }
-                ?: if (item.isConnected) Icons.Filled.Star else Icons.Filled.CloudOff
-            val leadingTint = item.category?.let { SessionCategoryStyle.color(it.color) }
-                ?: MaterialTheme.colorScheme.onSurfaceVariant
+    // 连接状态 / 分类图标
+    val leadingIcon = item.category?.let { SessionCategoryStyle.icon(it.icon) }
+        ?: if (item.isConnected) Icons.Filled.Star else Icons.Filled.CloudOff
+    val leadingTint = item.category?.let { SessionCategoryStyle.color(it.color) }
+        ?: MaterialTheme.colorScheme.onSurfaceVariant
+    ListItem(
+        headlineContent = {
+            Text(
+                text = item.displayTitle(),
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+            )
+        },
+        supportingContent = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = item.serverName,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                )
+                item.category?.let { category ->
+                    Text(
+                        text = "· ${category.name}",
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = SessionCategoryStyle.color(category.color).copy(alpha = alpha),
+                    )
+                }
+                if (!item.isConnected) {
+                    Text(
+                        text = stringResource(R.string.offline_suffix),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = alpha),
+                    )
+                }
+            }
+        },
+        leadingContent = {
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
                 tint = leadingTint.copy(alpha = alpha),
             )
-            Spacer(Modifier.size(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.displayTitle(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = item.serverName,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
-                    )
-                    item.category?.let { category ->
-                        Text(
-                            text = "· ${category.name}",
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = SessionCategoryStyle.color(category.color).copy(alpha = alpha),
-                        )
-                    }
-                    if (!item.isConnected) {
-                        Text(
-                            text = stringResource(R.string.offline_suffix),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error.copy(alpha = alpha),
-                        )
-                    }
-                }
-            }
+        },
+        trailingContent = {
             IconButton(onClick = onLongClick, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Filled.MoreVert,
@@ -297,8 +294,11 @@ private fun CrossServerFavoriteCard(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
                 )
             }
-        }
-    }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    )
 }
 
 @Composable
