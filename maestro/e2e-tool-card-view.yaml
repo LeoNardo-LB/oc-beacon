@@ -38,22 +38,20 @@ appId: dev.leonardo.ocbeacon.dev
 - inputText: "Read the AGENTS.md file"
 - pressKey: ENTER
 
-# Wait for an Edit/Read tool card to appear (AI tool call, up to 90s)
+# Wait for the tool card open-file button — the ONLY reliable card signal.
+# NOTE: do NOT wait for "Read"/"Edit" text — the user message "Read the AGENTS.md file"
+# itself matches it (false positive). The button (resource-id tool_card_open_file) is an
+# icon with contentDescription only (textRegex cannot match it) and only shows after the
+# AI tool call completes (hidden while isRunning). AI response can take minutes under load.
 - extendedWaitUntil:
-    visible: ".*Edit.*|.*Read.*"
-    timeout: 90000
-    optional: true
-
-# Wait for the tool to finish running — the open-file button (contentDescription "Open file")
-# only shows after execution completes (hidden while isRunning)
-- extendedWaitUntil:
-    visible: "Open file"
-    timeout: 90000
+    visible:
+      id: "tool_card_open_file"
+    timeout: 300000
     optional: true
 
 # Tap the open-file button on the first tool card
 - tapOn:
-    text: "Open file"
+    id: "tool_card_open_file"
     index: 0
     optional: true
 - extendedWaitUntil:

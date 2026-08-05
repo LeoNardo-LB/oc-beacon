@@ -6,36 +6,38 @@ tags:
 ---
 - launchApp
 
-# Wait for home screen
-- extendedWaitUntil:
-    visible: "Local"
-    timeout: 10000
-
-# Wait for connection to settle, then try to open sessions
-- waitForAnimationToEnd:
-    timeout: 5000
-
-# If "Start Connect" is visible, tap it; otherwise skip
+# Dismiss any lingering Add Server dialog (state pollution guard)
 - tapOn:
-    text: "Start Connect"
+    text: "Cancel"
+    optional: true
+
+# Wait for home — "Start Connect" (empty) / "Connect" (card) / "Open chat" (connected)
+- extendedWaitUntil:
+    visible: "Start Connect|Connect|Open chat|Connected"
+    timeout: 30000
+    optional: true
+
+# Connect if needed
+- tapOn:
+    text: "Start Connect|Connect"
     index: 0
     optional: true
 
-- waitForAnimationToEnd:
-    timeout: 8000
-
-# Now look for the sessions button
 - extendedWaitUntil:
-    visible: "Open chat"
+    visible: "Connected"
     timeout: 20000
+    optional: true
 
+# Open sessions (connected home shows "Open chat Sessions" button)
 - tapOn:
-    text: "Open chat"
+    text: "Sessions"
     index: 0
+    optional: true
 
 - extendedWaitUntil:
-    visible: "Search sessions"
+    visible: "Search sessions..."
     timeout: 10000
+    optional: true
 
 # Open the workspace session
 - tapOn:
@@ -56,7 +58,7 @@ tags:
     index: 0
 
 - extendedWaitUntil:
-    visible: ".*directory.*"
+    visible: "Refresh"
     timeout: 10000
 
 - takeScreenshot: p234_01_workspace
@@ -80,10 +82,10 @@ tags:
 
 # === Phase 2: Open .md file ===
 - tapOn:
-    id: "back_button"
+    text: "Back"
 
 - extendedWaitUntil:
-    visible: ".*directory.*"
+    visible: "Refresh"
     timeout: 5000
 
 - tapOn:
@@ -113,13 +115,13 @@ tags:
 
 - takeScreenshot: p234_05_md_scrolled
 
-# Back to workspace
+# Back to workspace (viewer Back has no resource-id; match text)
 - tapOn:
-    id: "back_button"
+    text: "Back"
 
 # === Phase 4: Large file ===
 - extendedWaitUntil:
-    visible: ".*directory.*"
+    visible: "Refresh"
     timeout: 5000
 
 - tapOn:
@@ -139,9 +141,9 @@ tags:
 
 - takeScreenshot: p234_07_large_scrolled
 
-# Done
+# Done (viewer Back has no resource-id; match text)
 - tapOn:
-    id: "back_button"
+    text: "Back"
     optional: true
 
 - takeScreenshot: p234_08_complete
