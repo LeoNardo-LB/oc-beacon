@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Spacer
@@ -52,11 +53,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
-import dev.leonardo.ocbeacon.ui.components.DialogButtons
-import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 import dev.leonardo.ocbeacon.ui.components.DetailRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionItem
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 import dev.leonardo.ocbeacon.ui.theme.DiffAdded
 import dev.leonardo.ocbeacon.ui.theme.DiffRemoved
 import java.text.SimpleDateFormat
@@ -271,11 +271,6 @@ internal fun SessionRow(
                 showDetailsDialog = false
                 onAssignCategory()
             },
-            isFavorite = isFavorite,
-            onToggleFavorite = {
-                showDetailsDialog = false
-                onToggleFavorite()
-            },
             isAmoled = isAmoled,
         )
     }
@@ -290,8 +285,6 @@ private fun SessionDetailsDialog(
     onDelete: () -> Unit,
     onCopyId: () -> Unit,
     onAssignCategory: () -> Unit,
-    isFavorite: Boolean,
-    onToggleFavorite: () -> Unit,
     @Suppress("UNUSED_PARAMETER") isAmoled: Boolean,
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
@@ -347,15 +340,60 @@ private fun SessionDetailsDialog(
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                DialogButtons(
-                    buttons = listOf(
-                        Triple(stringResource(R.string.menu_copy_session_id), DialogButtonRole.Primary, onCopyId),
-                        Triple(stringResource(R.string.assign_category), DialogButtonRole.Primary) { onDismiss(); onAssignCategory() },
-                        Triple(if (isFavorite) stringResource(R.string.remove_favorite) else stringResource(R.string.favorites_title), DialogButtonRole.Primary) { onDismiss(); onToggleFavorite() },
-                        Triple(stringResource(R.string.session_rename), DialogButtonRole.Primary) { onDismiss(); onRename() },
-                        Triple(stringResource(R.string.session_delete), DialogButtonRole.Danger) { onDismiss(); onDelete() },
-                    )
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // 第一行：复制会话 ID + 重命名会话
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            onClick = { onCopyId() },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.menu_copy_session_id))
+                        }
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onRename()
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.session_rename))
+                        }
+                    }
+                    // 第二行：分配 Tag
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onAssignCategory()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonTokens.filledColors(),
+                        border = ButtonTokens.amoledBorder(),
+                    ) {
+                        Text(stringResource(R.string.assign_category))
+                    }
+                    // 第三行：删除
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onDelete()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonTokens.dangerColors(),
+                        border = ButtonTokens.amoledBorder(),
+                    ) {
+                        Text(stringResource(R.string.session_delete))
+                    }
+                }
             }
         }
     }
