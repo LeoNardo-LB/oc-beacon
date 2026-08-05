@@ -70,7 +70,7 @@
     <string name="add">Hinzufügen</string>
     <string name="delete_category">Kategorie löschen</string>
     <string name="draft">Entwurf</string>
-    <string name="assign_category">Kategorie zuweisen</string>
+    <string name="assign_category">Tag zuweisen</string>
     <string name="quick_navigate">Schnellnavigation</string>
     <string name="question">Frage</string>
     <string name="no_questions">Keine Fragen</string>

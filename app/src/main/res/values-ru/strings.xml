@@ -118,7 +118,7 @@
     <string name="add">Добавить</string>
     <string name="delete_category">Удалить категорию</string>
     <string name="draft">Черновик</string>
-    <string name="assign_category">Назначить категорию</string>
+    <string name="assign_category">Назначить тег</string>
     <string name="quick_navigate">Быстрая навигация</string>
     <string name="question">Вопрос</string>
     <string name="no_questions">Нет вопросов</string>

@@ -70,7 +70,7 @@
     <string name="add">Dodaj</string>
     <string name="delete_category">Usuń kategorię</string>
     <string name="draft">Szkic</string>
-    <string name="assign_category">Przypisz kategorię</string>
+    <string name="assign_category">Przypisz tag</string>
     <string name="quick_navigate">Szybka nawigacja</string>
     <string name="question">Pytanie</string>
     <string name="no_questions">Brak pytań</string>

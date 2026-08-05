@@ -253,7 +253,7 @@
     <string name="add">Tambah</string>
     <string name="delete_category">Hapus kategori</string>
     <string name="draft">Draf</string>
-    <string name="assign_category">Tetapkan kategori</string>
+    <string name="assign_category">Tetapkan tag</string>
     <string name="quick_navigate">Navigasi cepat</string>
     <string name="question">Pertanyaan</string>
     <string name="no_questions">Tidak ada pertanyaan</string>

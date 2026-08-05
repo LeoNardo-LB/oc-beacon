@@ -2,8 +2,10 @@ package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,10 +21,13 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -126,6 +131,7 @@ internal fun SessionRow(
 
             Spacer(modifier = Modifier.height(1.dp))
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -164,31 +170,6 @@ internal fun SessionRow(
                     )
                 }
 
-                // 分类标签
-                item.category?.let { category ->
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(SessionCategoryStyle.color(category.color).copy(alpha = AlphaTokens.SELECTED))
-                            .padding(horizontal = 4.dp, vertical = 1.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Icon(
-                            imageVector = SessionCategoryStyle.icon(category.icon),
-                            contentDescription = null,
-                            modifier = Modifier.size(10.dp),
-                            tint = SessionCategoryStyle.color(category.color),
-                        )
-                        Text(
-                            text = category.name,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = SessionCategoryStyle.color(category.color),
-                            maxLines = 1,
-                        )
-                    }
-                }
-
                 // Diff 摘要
                 val summary = item.session.summary
                 if (summary != null && (summary.additions > 0 || summary.deletions > 0)) {
@@ -215,7 +196,57 @@ internal fun SessionRow(
                         }
                     }
                 }
+
+                // 分类 tag（第三行右对齐；内容超出可用宽度时循环滚动播放）
+                item.category?.let { category ->
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .basicMarquee()
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(SessionCategoryStyle.color(category.color).copy(alpha = AlphaTokens.SELECTED))
+                                .padding(horizontal = 4.dp, vertical = 1.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Icon(
+                                imageVector = SessionCategoryStyle.icon(category.icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(10.dp),
+                                tint = SessionCategoryStyle.color(category.color),
+                            )
+                            Text(
+                                text = category.name,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = SessionCategoryStyle.color(category.color),
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
             }
+        }
+
+        // 收藏图标（行尾）：点击切换收藏，不触发行点击
+        IconButton(
+            onClick = onToggleFavorite,
+            modifier = Modifier.size(32.dp),
+        ) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                contentDescription = stringResource(
+                    if (isFavorite) R.string.remove_favorite else R.string.favorites_title
+                ),
+                modifier = Modifier.size(20.dp),
+                tint = if (isFavorite) {
+                    MaterialTheme.colorScheme.tertiary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
+                },
+            )
         }
     }
 
