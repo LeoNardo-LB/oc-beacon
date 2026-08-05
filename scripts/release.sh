@@ -132,10 +132,10 @@ gen_changelog_entry() {
     local desc
     desc="$(echo "$line" | sed -E 's/^[a-z]+(\([^)]*\))?!?: ?//')"
     case "$line" in
-      feat!*|BREAKING*) removed="$removed- $desc\n" ;;
-      feat:*) added="$added- $desc\n" ;;
-      fix:*) fixed="$fixed- $desc\n" ;;
-      perf:*|refactor:*) changed="$changed- $desc\n" ;;
+      feat!*|feat\(*\)!*|BREAKING*) removed="$removed- $desc\n" ;;
+      feat:*|feat\(*\):*) added="$added- $desc\n" ;;
+      fix:*|fix\(*\):*) fixed="$fixed- $desc\n" ;;
+      perf:*|perf\(*\):*|refactor:*|refactor\(*\):*) changed="$changed- $desc\n" ;;
       *) : ;;  # docs/chore/test/style/build/ci 不写入
     esac
   done > /dev/null
@@ -143,13 +143,17 @@ gen_changelog_entry() {
   # 由于管道子 shell 变量不共享，重新收集
   added=""; fixed=""; changed=""; removed=""
   while IFS= read -r line; do
+    # 排除内部维护类 commit（test/ci/docs/chore 等，含 scope 变体）
+    case "$line" in
+      fix\(test\):*|fix\(ci\):*|fix\(docs\):*|chore*|docs:*|docs\(*\):*|test:*|test\(*\):*|style:*|style\(*\):*|build:*|build\(*\):*|ci:*|ci\(*\):*) continue ;;
+    esac
     local desc
     desc="$(echo "$line" | sed -E 's/^[a-z]+(\([^)]*\))?!?: ?//')"
     case "$line" in
-      feat!*|BREAKING*) removed="$removed- $desc"$'\n' ;;
-      feat:*) added="$added- $desc"$'\n' ;;
-      fix:*) fixed="$fixed- $desc"$'\n' ;;
-      perf:*|refactor:*) changed="$changed- $desc"$'\n' ;;
+      feat!*|feat\(*\)!*|BREAKING*) removed="$removed- $desc"$'\n' ;;
+      feat:*|feat\(*\):*) added="$added- $desc"$'\n' ;;
+      fix:*|fix\(*\):*) fixed="$fixed- $desc"$'\n' ;;
+      perf:*|perf\(*\):*|refactor:*|refactor\(*\):*) changed="$changed- $desc"$'\n' ;;
       *) : ;;
     esac
   done < <(git log --no-merges --format='%s' "${since}..HEAD" 2>/dev/null || true)
