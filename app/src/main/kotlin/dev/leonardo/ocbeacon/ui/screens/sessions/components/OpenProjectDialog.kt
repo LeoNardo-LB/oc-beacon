@@ -111,11 +111,15 @@ internal fun OpenProjectDialog(
         snapshotFlow { currentPath }.collectLatest { path ->
             if (path == null) return@collectLatest
             isLoading = true
+            directories = emptyList()
             try {
-                directories = if (path.isDrivesRoot) {
-                    viewModel.listWindowsDrives()
+                if (path.isDrivesRoot) {
+                    // 盘符列表：边探测边显示（先看到 C:/D: 等常用盘符，无需等最慢请求）
+                    viewModel.listWindowsDrives().collect { node ->
+                        directories = (directories + node).sortedBy { it.name }
+                    }
                 } else {
-                    viewModel.listDirectories(path.rawPath)
+                    directories = viewModel.listDirectories(path.rawPath)
                 }
             } catch (_: Exception) {
                 directories = emptyList()

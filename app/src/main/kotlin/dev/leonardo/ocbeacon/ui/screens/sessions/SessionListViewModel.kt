@@ -30,6 +30,7 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetSettingsFlowUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -292,7 +293,7 @@ class SessionListViewModel @Inject constructor(
 
     suspend fun getHomeDirectory(): String = directoryManager.getHomeDirectory()
 
-    suspend fun listWindowsDrives(): List<FileNodeDto> = directoryManager.listWindowsDrives()
+    suspend fun listWindowsDrives(): Flow<FileNodeDto> = directoryManager.listWindowsDrives()
 
     suspend fun listDirectories(directory: String): List<FileNodeDto> =
         directoryManager.listDirectories(directory)

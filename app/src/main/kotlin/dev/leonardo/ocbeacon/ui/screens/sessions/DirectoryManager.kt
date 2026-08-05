@@ -9,12 +9,22 @@ import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
 import dev.leonardo.ocbeacon.data.dto.response.ServerPaths
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "DirectoryManager"
+
+/** 单个盘符探测的最长等待时间。避免不存在的盘符/网络盘拖慢整体。 */
+private const val DRIVE_PROBE_TIMEOUT_MS = 2_000L
+
+/** 盘符列表缓存时长。盘符变化极罕见，短时间内重复打开不应重新探测。 */
+private const val DRIVES_CACHE_TTL_MS = 30_000L
 
 /**
  * 从 SessionListViewModel 抽取的目录浏览委托。
@@ -33,6 +43,12 @@ class DirectoryManager(
 ) {
 
     private var cachedServerPaths: ServerPaths? = null
+
+    @Volatile
+    private var cachedDrives: List<FileNodeDto>? = null
+
+    @Volatile
+    private var cachedDrivesAt: Long = 0L
 
     /** 获取服务器路径，结果在委托生命周期内缓存。 */
     suspend fun getServerPaths(): ServerPaths {
@@ -55,28 +71,53 @@ class DirectoryManager(
     /** 获取服务器主目录。委托给已缓存的 getServerPaths()。 */
     suspend fun getHomeDirectory(): String = getServerPaths().home.ifBlank { "/" }
 
-    /** 通过并行探测盘符列出可用的 Windows 盘符。 */
-    suspend fun listWindowsDrives(): List<FileNodeDto> = coroutineScope {
+    /**
+     * 通过并行探测盘符列出可用的 Windows 盘符。
+     *
+     * 返回 [Flow]：每个盘符探测完成即发射，UI 可边收集边显示（先看到 C:/D: 等常用盘符），
+     * 无需等最慢的请求。单盘符探测超时 [DRIVE_PROBE_TIMEOUT_MS]，结果缓存 [DRIVES_CACHE_TTL_MS]。
+     */
+    suspend fun listWindowsDrives(): Flow<FileNodeDto> = callbackFlow {
+        val cached = cachedDrives
+        if (cached != null && System.currentTimeMillis() - cachedDrivesAt < DRIVES_CACHE_TTL_MS) {
+            cached.forEach { trySend(it) }
+            close()
+            return@callbackFlow
+        }
+
+        val collected = mutableListOf<FileNodeDto>()
+        val producer = this
         ('C'..'Z').map { letter ->
             async {
                 val drivePath = "$letter:\\"
                 try {
-                    val response = fileApi.probeDirectory(conn, drivePath)
-                    if (response) {
-                        FileNodeDto(
-                            name = "$letter:",
-                            path = drivePath,
-                            type = "directory",
-                            absolute = drivePath,
-                        )
-                    } else {
-                        null
+                    val node = withTimeoutOrNull(DRIVE_PROBE_TIMEOUT_MS) {
+                        if (fileApi.probeDirectory(conn, drivePath)) {
+                            FileNodeDto(
+                                name = "$letter:",
+                                path = drivePath,
+                                type = "directory",
+                                absolute = drivePath,
+                            )
+                        } else {
+                            null
+                        }
                     }
+                    if (node != null) {
+                        synchronized(collected) { collected += node }
+                        producer.trySend(node)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
-                    null
+                    // 单个盘符探测失败忽略
                 }
             }
-        }.awaitAll().filterNotNull()
+        }.awaitAll()
+
+        cachedDrives = collected
+        cachedDrivesAt = System.currentTimeMillis()
+        close()
     }
 
     /** 列出服务器上指定路径中的目录。 */
