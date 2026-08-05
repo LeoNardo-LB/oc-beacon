@@ -268,11 +268,16 @@ internal fun MarkdownContent(
         }
     }
 
-    val components = remember(density, isUser, linkListener) {
+    // components 闭包捕获 linkColor/typography/textColor。键必须包含它们：
+    // 主题切换时颜色变化 → 重建闭包 → 内部 AnnotatedString 用新颜色重建，
+    // 否则切换主题后文字颜色停留在旧主题（暗色浅色在亮色背景下"过曝"）。
+    val components = remember(density, isUser, linkListener, linkColor, textColor) {
         markdownComponents(
             text = { model ->
                 val settings = annotatorSettings(linkInteractionListener = linkListener)
-                val result = remember(model.content, model.node) {
+                // AnnotatedString 内嵌 style 颜色（buildMarkdownAnnotatedString pushStyle），
+                // remember 键必须含颜色，否则主题切换后命中缓存颜色不更新。
+                val result = remember(model.content, model.node, model.typography.text.color, linkColor) {
                     buildClickableMarkdown(
                         content = model.content,
                         node = model.node,
@@ -295,7 +300,7 @@ internal fun MarkdownContent(
             },
             paragraph = { model ->
                 val settings = annotatorSettings(linkInteractionListener = linkListener)
-                val result = remember(model.content, model.node) {
+                val result = remember(model.content, model.node, model.typography.text.color, linkColor) {
                     buildClickableMarkdown(
                         content = model.content,
                         node = model.node,
@@ -318,7 +323,7 @@ internal fun MarkdownContent(
             },
             heading1 = { model ->
                 val settings = annotatorSettings(linkInteractionListener = linkListener)
-                val result = remember(model.content, model.node) {
+                val result = remember(model.content, model.node, model.typography.h1.color, linkColor) {
                     buildClickableMarkdown(
                         content = model.content,
                         node = model.node,

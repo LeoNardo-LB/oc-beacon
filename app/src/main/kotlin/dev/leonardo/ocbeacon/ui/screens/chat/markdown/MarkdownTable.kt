@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.TextLayoutResult
@@ -64,9 +65,20 @@ internal fun SimpleMarkdownTable(
     uriHandler: UriHandler,
     linkColor: Color,
 ) {
-    val headerBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.MUTED)
-    val rowBgOdd = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = AlphaTokens.MUTED)
-    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+    // 暗色模式下 outlineVariant @ 35% 几乎不可见（与背景融合），改用更亮的
+    // outline 并提高不透明度，确保表格轮廓与网格在暗色下清晰可辨。
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val headerBg = MaterialTheme.colorScheme.primaryContainer.copy(
+        alpha = if (isDark) AlphaTokens.MEDIUM else AlphaTokens.MUTED
+    )
+    val rowBgOdd = MaterialTheme.colorScheme.surfaceContainerLow.copy(
+        alpha = if (isDark) AlphaTokens.MEDIUM else AlphaTokens.MUTED
+    )
+    val dividerColor = if (isDark) {
+        MaterialTheme.colorScheme.outline.copy(alpha = AlphaTokens.MEDIUM)
+    } else {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+    }
     val pad = LocalChatDensity.current.spacing.tableCell
     val shape = ShapeTokens.smallMedium
     val border = BorderStroke(1.dp, dividerColor)
@@ -126,6 +138,7 @@ internal fun SimpleMarkdownTable(
             val cellContent: @Composable () -> Unit = {
                 rows.forEachIndexed { rowIdx, row ->
                     val cellCount = minOf(row.cells.size, columnCount)
+                    val isLastRow = rowIdx == rows.lastIndex
                     repeat(cellCount) { colIdx ->
                         val cell = row.cells[colIdx]
                         val isLastCol = colIdx == cellCount - 1
@@ -140,18 +153,32 @@ internal fun SimpleMarkdownTable(
                                     }
                                 )
                                 .then(
-                                    if (!isLastCol) Modifier.drawBehind {
-                                        drawLine(
-                                            dividerColor,
-                                            Offset(size.width, 0f),
-                                            Offset(size.width, size.height),
-                                            strokeWidth = 1f
-                                        )
-                                    } else Modifier
+                                    // 完整网格：列分隔线（除最后一列）+ 行分隔线（除最后一行），
+                                    // 与外层 border 组成闭合边框，与 WebView 表格渲染保持一致。
+                                    Modifier.drawBehind {
+                                        if (!isLastCol) {
+                                            drawLine(
+                                                dividerColor,
+                                                Offset(size.width, 0f),
+                                                Offset(size.width, size.height),
+                                                strokeWidth = 1f
+                                            )
+                                        }
+                                        if (!isLastRow) {
+                                            drawLine(
+                                                dividerColor,
+                                                Offset(0f, size.height),
+                                                Offset(size.width, size.height),
+                                                strokeWidth = 1f
+                                            )
+                                        }
+                                    }
                                 )
                                 .padding(horizontal = pad, vertical = if (row.isHeader) 8.dp else 6.dp)
                         ) {
-                            val cellResult = remember(content, cell) {
+                            // AnnotatedString 内嵌 style 颜色，键必须含颜色：主题切换后
+                            // 颜色变化 → 重建 AnnotatedString，避免文字停留旧主题颜色。
+                            val cellResult = remember(content, cell, cellStyle.color, linkColor) {
                                 buildClickableMarkdown(content, cell, cellStyle, annotator, linkColor)
                             }
                             var cellLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
