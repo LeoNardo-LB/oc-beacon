@@ -15,8 +15,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
@@ -46,6 +50,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun MessageCardAssistant(
@@ -135,13 +140,24 @@ internal fun MessageCardAssistant(
                 val agentName = renderableTurn.agentName
                 val stepFinishes = renderableTurn.stepFinishes
                 val copyText = renderableTurn.copyText
+                val modelId = renderableTurn.modelId
 
-                // 流式页脚 —— 极简：时间 + agent + 旋转圆圈
-                // 仅在尚无 stepFinishes 时显示。一旦 StepFinish 到达，
-                // 下面的 token/费用页脚会取代它。没有此保护，
-                // 在 StepFinish 到达与消息完成（time.completed 已设置）之间的
-                // 间隙里两个页脚会同时渲染，导致重复的统计栏。
+                // 流式页脚 —— 统计栏 + 旋转圆圈（实时状态）。
+                // 流式期间即显示统计栏（时间 + agent + 模型 + 实时耗时 + 圆形进度条），
+                // 而非等消息完成后才出现（2026-08 需求：流式中可查看实时耗时）。
+                // 仅在尚无 stepFinishes 时显示 —— 一旦 StepFinish 到达，
+                // 下面的 token/费用页脚会取代它，避免两个统计栏重叠。
                 if (isStreaming && isTurnLast && stepFinishes.isEmpty()) {
+                    // 实时耗时 ticker：流式期间每秒刷新 elapsed 显示。
+                    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+                    LaunchedEffect(isStreaming) {
+                        while (isStreaming) {
+                            nowMs = System.currentTimeMillis()
+                            delay(1000)
+                        }
+                    }
+                    val streamingDurationMs = assistantMsg?.time?.created?.let { nowMs - it } ?: 0L
+
                     Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -173,6 +189,39 @@ internal fun MessageCardAssistant(
                                 )
                             }
                         }
+                        // 提供商图标 + 模型名（与完成页脚一致）
+                        val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
+                        if (hasProviderOrModel) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                if (assistantMsg?.providerId != null) {
+                                    ProviderIcon(
+                                        providerId = assistantMsg.providerId,
+                                        size = 10.dp,
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                                    )
+                                }
+                                if (!modelId.isNullOrBlank()) {
+                                    Text(
+                                        text = modelId,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                        // 实时耗时
+                        if (streamingDurationMs > 0) {
+                            Text(
+                                text = formatDuration(streamingDurationMs),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                            )
+                        }
                         Spacer(modifier = Modifier.weight(1f))
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
@@ -188,7 +237,6 @@ internal fun MessageCardAssistant(
                 // assistant 消息都有来自 Message.Assistant 字段的自身元数据。
                 if (!isStreaming) {
                     val durationMs = renderableTurn.durationMs
-                    val modelId = renderableTurn.modelId
 
                     val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
 
