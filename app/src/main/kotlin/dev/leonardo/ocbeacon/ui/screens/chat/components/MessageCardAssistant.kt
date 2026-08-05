@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.luminance
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -93,9 +94,15 @@ internal fun MessageCardAssistant(
                     when (item) {
                         is RenderItem.TurnDivider -> {
                             if (showTurnDividers) {
+                                // 暗色模式下 outlineVariant 偏暗 + 半透明几乎不可见，改用更亮的 outline
+                                val dividerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                }
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    color = dividerColor
                                 )
                             }
                         }

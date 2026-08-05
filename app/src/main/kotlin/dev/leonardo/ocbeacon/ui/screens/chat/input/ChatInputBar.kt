@@ -27,6 +27,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommandRegistry
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import androidx.compose.ui.graphics.luminance
 
 
 internal enum class ChatInputMode {
@@ -127,9 +128,13 @@ internal fun ChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
     ) {
-        // 细分隔线
+        // 细分隔线（暗色模式下改用更亮的 outline 提升可见度）
         HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+            color = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
+                MaterialTheme.colorScheme.outline.copy(alpha = AlphaTokens.MUTED)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+            },
             thickness = 0.5.dp
         )
 
