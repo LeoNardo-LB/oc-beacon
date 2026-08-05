@@ -73,7 +73,12 @@ android {
         }
         release {
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("debug")
+            // 签名修复：signing.properties 存在时使用 release keystore（由上方 if 块设置），
+            // 仅在不存在时回退 debug 签名。此前无条件覆盖为 debug 导致
+            // release keystore 永不生效、CI 每次构建 debug 签名不同 → 用户升级签名冲突。
+            if (!hasPropertiesFile) {
+                signingConfig = signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
