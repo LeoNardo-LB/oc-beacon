@@ -88,7 +88,6 @@ class SettingsRepositoryImpl @Inject constructor(
         dataRepo.setChatFontSize(settings.chatFontSize)
         dataRepo.setChatDensity(settings.chatDensity)
         dataRepo.setInitialMessageCount(settings.initialMessageCount)
-        dataRepo.setCodeWordWrap(settings.codeWordWrap)
         dataRepo.setConfirmBeforeSend(settings.confirmBeforeSend)
         dataRepo.setCompactMessages(settings.compactMessages)
         dataRepo.setCollapseTools(settings.collapseTools)

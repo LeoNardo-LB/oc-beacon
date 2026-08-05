@@ -283,8 +283,6 @@
     <string name="settings_font_size_large">كبير</string>
     <string name="settings_notifications_desc">إشعار عند إكمال الوكيل مهمة</string>
     <string name="settings_initial_messages">عدد الرسائل الأولية للتحميل</string>
-    <string name="settings_code_word_wrap">التفاف الكلمات في كتل الكود</string>
-    <string name="settings_code_word_wrap_desc">التفاف الأسطر الطويلة بدلًا من التمرير الأفقي</string>
     <string name="settings_confirm_send">تأكيد قبل الإرسال</string>
     <string name="settings_confirm_send_desc">عرض مربع تأكيد قبل إرسال الرسالة</string>
     <string name="settings_section_general">عام</string>
@@ -522,7 +520,6 @@
     <string name="a11y_settings_amoled_dark">وضع الامل AMOLED</string>
     <string name="a11y_settings_font_size">حجم خط المحادثة</string>
     <string name="a11y_settings_compact_messages">رسائل مضغطة</string>
-    <string name="a11y_settings_code_word_wrap">التفاف التلقائي</string>
     <string name="a11y_settings_auto_expand_tools">توسيع الأدوات تلقائيًا</string>
     <string name="a11y_settings_expand_reasoning">توسيع الاستدلال</string>
     <string name="a11y_settings_initial_messages">الرسائل الأولية</string>
@@ -675,6 +672,8 @@
     <string name="viewer_show_source">إظهار الكود المصدري</string>
     <string name="viewer_image_render_error">فشل تحميل الصورة</string>
     <string name="viewer_diff_show_source">المصدر</string>
+    <string name="viewer_source_show_diff">Diff</string>
+    <string name="viewer_toggle_word_wrap">Toggle line wrap</string>
     <string name="fileviewer_error_tool_snapshot_missing">بيانات لقطة الأداة غير موجودة</string>
     <string name="tool_card_group_count">%1$d تعديلات في هذا الدور</string>
     <string name="annotation_input_title">إضافة تعليق توضيحي</string>

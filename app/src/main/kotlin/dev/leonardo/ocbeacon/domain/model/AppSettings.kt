@@ -19,7 +19,6 @@ data class AppSettings(
     val initialMessageCount: Int = 30,
     /** 快捷新建会话对话框中显示的最近目录数量上限。范围 5..50。 */
     val recentDirectoryCount: Int = 20,
-    val codeWordWrap: Boolean = false,
     val confirmBeforeSend: Boolean = false,
     val compactMessages: Boolean = false,
     val collapseTools: Boolean = false,

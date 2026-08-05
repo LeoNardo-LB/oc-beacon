@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * 管理此前内联在 [ChatViewModel] 中的 13 个 UI 设置 [StateFlow]。
+ * 管理此前内联在 [ChatViewModel] 中的 12 个 UI 设置 [StateFlow]。
  *
  * 每个设置项将 [SettingsRepository.getSettingsFlow] 映射为细粒度的
  * [StateFlow]，以 [WhileSubscribed5s] 订阅策略在 [scope] 中共享。
@@ -26,9 +26,6 @@ internal class SettingsStateDelegate(
     )
     val chatDensity = settingsRepository.getSettingsFlow().map { it.chatDensity }.stateIn(
         scope, WhileSubscribed5s, "normal"
-    )
-    val codeWordWrap = settingsRepository.getSettingsFlow().map { it.codeWordWrap }.stateIn(
-        scope, WhileSubscribed5s, false
     )
     val confirmBeforeSend = settingsRepository.getSettingsFlow().map { it.confirmBeforeSend }.stateIn(
         scope, WhileSubscribed5s, false

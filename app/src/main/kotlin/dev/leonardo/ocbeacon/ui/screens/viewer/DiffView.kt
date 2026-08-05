@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -50,6 +52,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 @Composable
 fun DiffView(
     uiState: FileViewerUiState,
+    wordWrap: Boolean = false,
     onNextHunk: () -> Unit,
     onPrevHunk: () -> Unit
 ) {
@@ -84,7 +87,7 @@ fun DiffView(
             modifier = Modifier.fillMaxSize()
         ) {
             // 不设 key：diff 内容包含大量重复行（空行、注释），hashCode/内容 key 会冲突
-            itemsIndexed(lines) { _, line -> DiffLine(line) }
+            itemsIndexed(lines) { _, line -> DiffLine(line, wordWrap) }
         }
     }
 }
@@ -124,20 +127,22 @@ private fun isPatchMetadataLine(line: String): Boolean {
 }
 
 @Composable
-private fun DiffLine(line: String) {
+private fun DiffLine(line: String, wordWrap: Boolean) {
     val colorScheme = MaterialTheme.colorScheme
     val (background, foreground) = when {
         line.startsWith("+") -> DiffAdded.copy(alpha = AlphaTokens.DIFF_BG) to DiffAdded
         line.startsWith("-") -> DiffRemoved.copy(alpha = AlphaTokens.DIFF_BG) to DiffRemoved
-        line.startsWith("@@") -> colorScheme.primaryContainer to colorScheme.onPrimaryContainer
         else -> Color.Transparent to colorScheme.onSurface
     }
     Text(
         text = line,
         style = CodeTypography,
         color = foreground,
+        softWrap = wordWrap,
         modifier = Modifier
             .fillMaxWidth()
+            // 不换行时行内水平滚动（长行超出视口可横向滑动）
+            .then(if (!wordWrap) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
             .background(background)
             .padding(horizontal = SpacingTokens.SM.dp, vertical = 1.dp)
     )

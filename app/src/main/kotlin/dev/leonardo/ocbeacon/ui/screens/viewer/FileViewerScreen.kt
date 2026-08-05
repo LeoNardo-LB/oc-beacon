@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.WrapText
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,12 +74,16 @@ fun FileViewerScreen(
     // Phase 4：分页
     onLoadMoreLines: () -> Unit,
     // DIFF → SOURCE 切换，让用户可从 diff 视图进行批注
-    onSwitchToSource: (() -> Unit)? = null
+    onSwitchToSource: (() -> Unit)? = null,
+    // SOURCE → DIFF 切换（从 Git 变更进入的 diff 视图切到源码后可切回）
+    onSwitchToDiff: (() -> Unit)? = null
 ) {
     // 批注状态：(selectedText, startChar, endChar)
     var pendingAnnotation by remember { mutableStateOf<Triple<String, Int, Int>?>(null) }
     var detailAnnotation by remember { mutableStateOf<Annotation?>(null) }
     var showSubmitDialog by remember { mutableStateOf(false) }
+    // 代码/源码视图换行开关：页面级临时状态，默认不换行（水平滚动）
+    var wordWrap by rememberSaveable { mutableStateOf(false) }
     // 把批注序列化为 JSON，供 WebView 高亮渲染
     val annotationsJson = remember(uiState.annotations) {
         if (uiState.annotations.isEmpty()) ""
@@ -114,9 +120,12 @@ fun FileViewerScreen(
                 uiState = uiState,
                 onBack = onBack,
                 onToggleRenderMode = toggleWithAnchor,
+                wordWrap = wordWrap,
+                onToggleWordWrap = { wordWrap = !wordWrap },
                 annotationCount = uiState.annotations.size,
                 onSubmitClick = { showSubmitDialog = true },
-                onSwitchToSource = onSwitchToSource
+                onSwitchToSource = onSwitchToSource,
+                onSwitchToDiff = onSwitchToDiff
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -135,6 +144,7 @@ fun FileViewerScreen(
                 )
                 uiState.mode == FileViewerMode.DIFF -> DiffView(
                     uiState = uiState,
+                    wordWrap = wordWrap,
                     onNextHunk = onNextHunk,
                     onPrevHunk = onPrevHunk
                 )
@@ -154,6 +164,7 @@ fun FileViewerScreen(
                                     content = uiState.content,
                                     filePath = uiState.filePath,
                                     visible = !showRender,
+                                    wordWrap = wordWrap,
                                     onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
                                     annotationsJson = annotationsJson,
                                     onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
@@ -168,6 +179,7 @@ fun FileViewerScreen(
                             content = uiState.content,
                             filePath = uiState.filePath,
                             visible = !showRender,
+                            wordWrap = wordWrap,
                             onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
                             annotationsJson = annotationsJson,
                             onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
@@ -260,9 +272,12 @@ private fun FileViewerTopBar(
     uiState: FileViewerUiState,
     onBack: () -> Unit,
     onToggleRenderMode: () -> Unit,
+    wordWrap: Boolean = false,
+    onToggleWordWrap: () -> Unit = {},
     annotationCount: Int = 0,
     onSubmitClick: () -> Unit = {},
-    onSwitchToSource: (() -> Unit)? = null
+    onSwitchToSource: (() -> Unit)? = null,
+    onSwitchToDiff: (() -> Unit)? = null
 ) {
     TopAppBar(
         title = {
@@ -317,13 +332,28 @@ private fun FileViewerTopBar(
             }
         },
         actions = {
-            // DIFF 模式 → 显示"源码"按钮，让用户切换到可批注的源码视图
+            // DIFF 模式 → "源码"图标按钮，让用户切换到可批注的源码视图
             if (uiState.mode == FileViewerMode.DIFF && onSwitchToSource != null) {
-                TextButton(
+                IconButton(
                     onClick = onSwitchToSource,
                     modifier = Modifier.testTag("viewer_switch_to_source")
                 ) {
-                    Text(stringResource(R.string.viewer_diff_show_source))
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = stringResource(R.string.viewer_diff_show_source)
+                    )
+                }
+            }
+            // SOURCE 模式且持有 diff 数据（仅从 Git 变更面板进入时为 true）→ "diff"图标按钮可切回
+            if (uiState.mode == FileViewerMode.SOURCE && onSwitchToDiff != null && uiState.hasDiff) {
+                IconButton(
+                    onClick = onSwitchToDiff,
+                    modifier = Modifier.testTag("viewer_switch_to_diff")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.CompareArrows,
+                        contentDescription = stringResource(R.string.viewer_source_show_diff)
+                    )
                 }
             }
             // 多格式渲染切换（存在批注时隐藏）
@@ -338,6 +368,20 @@ private fun FileViewerTopBar(
                         contentDescription = if (isRender) stringResource(R.string.viewer_show_source)
                         else stringResource(R.string.viewer_show_render),
                         tint = if (isRender) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            // 代码换行切换：diff 视图或源码视图显示（渲染预览隐藏），页面级状态，默认不换行
+            if (annotationCount == 0 && (uiState.mode == FileViewerMode.DIFF || uiState.renderMode == FileViewerRenderMode.SOURCE)) {
+                IconButton(
+                    onClick = onToggleWordWrap,
+                    modifier = Modifier.testTag("viewer_wrap_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.WrapText,
+                        contentDescription = stringResource(R.string.viewer_toggle_word_wrap),
+                        tint = if (wordWrap) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

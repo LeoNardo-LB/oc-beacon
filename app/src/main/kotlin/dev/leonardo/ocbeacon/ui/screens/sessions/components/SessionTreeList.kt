@@ -101,6 +101,8 @@ internal fun SessionTreeList(
                             scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
                         },
                         onNewSession = { directory ->
+                            // 进入会话前标记：返回列表时回到顶部
+                            viewModel.requestScrollToTopOnReturn()
                             onNavigateToNewChat(directory)
                         },
                     )
@@ -116,6 +118,8 @@ internal fun SessionTreeList(
                         item = node.session,
                         showDirectory = isRecentMode,
                         onClick = {
+                            // 进入会话前标记：返回列表时回到顶部（无论是否发过消息）
+                            viewModel.requestScrollToTopOnReturn()
                             onNavigateToChat(node.id)
                         },
                         onRename = {

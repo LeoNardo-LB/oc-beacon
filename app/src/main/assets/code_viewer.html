@@ -67,6 +67,17 @@
             document.documentElement.style.setProperty('--text-color', textColor || (isDark ? '#e0e0e0' : '#1e1e1e'));
         }
 
+        /** 切换代码自动换行：true = pre-wrap（长行折行），false = 水平滚动。 */
+        function setWrap(enabled) {
+            var pre = document.querySelector('pre');
+            var area = document.querySelector('.code-area');
+            if (pre) {
+                pre.style.whiteSpace = enabled ? 'pre-wrap' : 'pre';
+                pre.style.wordBreak = enabled ? 'break-word' : 'normal';
+            }
+            if (area) area.style.overflowX = enabled ? 'hidden' : 'auto';
+        }
+
         /** Reload code while preserving scroll position (for pagination). */
         function setCodePreserveScroll(code, lang) {
             var oldScroll = window.scrollY;

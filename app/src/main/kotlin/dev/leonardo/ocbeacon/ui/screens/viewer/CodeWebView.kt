@@ -158,6 +158,7 @@ fun CodeWebView(
     onLoadMore: (() -> Unit)? = null,
     onAnnotationClick: ((id: String) -> Unit)? = null,
     initialScrollLine: Int = -1,
+    wordWrap: Boolean = false,
 ) {
     val annotateLabel = stringResource(R.string.annotation_context_annotate)
     val surfaceColor = MaterialTheme.colorScheme.surface
@@ -183,6 +184,7 @@ fun CodeWebView(
     val currentDark = rememberUpdatedState(isDark)
     val currentJson = rememberUpdatedState(safeAnnotationsJson)
     val currentScroll = rememberUpdatedState(initialScrollLine)
+    val currentWrap = rememberUpdatedState(wordWrap)
 
     val bridge = remember { SelectionBridge() }
     bridge.callback = onAnnotate
@@ -193,6 +195,7 @@ fun CodeWebView(
     var lastEscaped by remember { mutableStateOf("") }
     var lastIsDark by remember { mutableStateOf(!isDark) }
     var lastJson by remember { mutableStateOf("") }
+    var lastWrap by remember { mutableStateOf(!wordWrap) }
     var pageLoaded by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
@@ -240,8 +243,9 @@ fun CodeWebView(
                         val dark = currentDark.value
                         val json = currentJson.value
                         val scroll = currentScroll.value
+                        val wrap = currentWrap.value
                         view?.evaluateJavascript(
-                            "setCode(`$ec`, '$lang'); setTheme($dark, '$bgHex', '$textHex');",
+                            "setCode(`$ec`, '$lang'); setTheme($dark, '$bgHex', '$textHex'); setWrap($wrap);",
                             null
                         )
                         if (scroll > 0) {
@@ -290,6 +294,10 @@ fun CodeWebView(
                     if (safeAnnotationsJson.isNotBlank() && safeAnnotationsJson != "[]") {
                         webView.evaluateJavascript("applyAnnotations('$safeAnnotationsJson');", null)
                     }
+                }
+                if (wordWrap != lastWrap) {
+                    lastWrap = wordWrap
+                    webView.evaluateJavascript("setWrap($wordWrap);", null)
                 }
             }
         }

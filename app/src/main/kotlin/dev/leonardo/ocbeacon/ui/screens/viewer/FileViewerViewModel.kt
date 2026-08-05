@@ -183,7 +183,7 @@ class FileViewerViewModel @AssistedInject constructor(
                     val target = diffs.find { it.file == filePath || it.file.endsWith(filePath) }
                     val hunks = target?.patch?.let { diffParser.parseUnifiedDiff(it) } ?: emptyList()
                     _uiState.update { it.copy(isLoading = false, mode = FileViewerMode.DIFF, diff = target, hunks = hunks,
-                        currentHunkIndex = 0, isEmpty = hunks.isEmpty()) }
+                        hasDiff = target != null && hunks.isNotEmpty(), currentHunkIndex = 0, isEmpty = hunks.isEmpty()) }
                 }
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = R.string.workspace_error_load_failed) } }
         }
@@ -262,6 +262,21 @@ class FileViewerViewModel @AssistedInject constructor(
         } else {
             // 内容已可用 → 仅切换模式
             _uiState.update { it.copy(mode = FileViewerMode.SOURCE) }
+        }
+    }
+
+    /**
+     * 从 SOURCE 模式切回 DIFF 模式。diff 数据（patch/hunks）在 switchToSource
+     * 时保留在 uiState 中，直接切模式即可；hasDiff 为 true 即数据可用。
+     * 仅 GIT_DIFF 入口会置 hasDiff，LIVE/工具快照入口调用此方法不会产生 diff。
+     */
+    fun switchToDiff() {
+        val current = _uiState.value
+        if (current.mode == FileViewerMode.DIFF) return
+        if (current.hasDiff) {
+            _uiState.update { it.copy(mode = FileViewerMode.DIFF) }
+        } else {
+            loadGitDiff()
         }
     }
 

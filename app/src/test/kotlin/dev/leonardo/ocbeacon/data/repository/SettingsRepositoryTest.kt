@@ -28,7 +28,7 @@ class SettingsDataStoreTest {
         val expectedProperties = listOf(
             "getAppLanguage", "getAppTheme", "getDynamicColor", "getChatFontSize",
             "getChatDensity",
-            "getNotificationsEnabled", "getInitialMessageCount", "getCodeWordWrap",
+            "getNotificationsEnabled", "getInitialMessageCount",
             "getConfirmBeforeSend", "getAmoledDark", "getCompactMessages", "getCollapseTools",
             "getExpandReasoning", "getHapticFeedback", "getReconnectMode", "getKeepScreenOn",
             "getSilentNotifications", "getCompressImageAttachments",
@@ -62,7 +62,7 @@ class SettingsDataStoreTest {
         val expectedSetters = listOf(
             "setAppLanguage", "setAppTheme", "setDynamicColor", "setChatFontSize",
             "setChatDensity",
-            "setNotificationsEnabled", "setInitialMessageCount", "setCodeWordWrap",
+            "setNotificationsEnabled", "setInitialMessageCount",
             "setConfirmBeforeSend", "setAmoledDark", "setCompactMessages",
             "setCollapseTools", "setExpandReasoning", "setHapticFeedback",
             "setReconnectMode", "setKeepScreenOn", "setSilentNotifications",

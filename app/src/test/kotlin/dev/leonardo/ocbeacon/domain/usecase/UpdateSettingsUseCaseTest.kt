@@ -39,7 +39,7 @@ class UpdateSettingsUseCaseTest {
 
     @Test
     fun `invoke with partial settings change succeeds`() = runTest {
-        val settings = AppSettings(chatFontSize = "large", codeWordWrap = true)
+        val settings = AppSettings(chatFontSize = "large")
         coEvery { settingsRepository.updateSettings(settings) } returns Result.success(Unit)
 
         val result = useCase(settings)

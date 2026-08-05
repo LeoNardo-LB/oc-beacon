@@ -91,6 +91,7 @@ private fun FileViewerDialogContent(
             },
             onToggleRenderMode = viewModel::toggleRenderMode,
             onSwitchToSource = viewModel::switchToSource,
+            onSwitchToDiff = viewModel::switchToDiff,
             onAddAnnotation = { selectedText, startChar, endChar, note ->
                 if (startChar >= 0) {
                     viewModel.addAnnotation(selectedText, startChar, endChar, note)

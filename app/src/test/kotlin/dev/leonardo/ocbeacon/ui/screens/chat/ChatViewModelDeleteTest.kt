@@ -122,7 +122,6 @@ class ChatViewModelDeleteTest {
                 terminalFontSize = 13f,
                 initialMessageCount = 50,
                 chatFontSize = "medium",
-                codeWordWrap = false,
                 confirmBeforeSend = false,
                 compactMessages = false,
                 collapseTools = false,

@@ -215,13 +215,12 @@ class ChatViewModel @Inject constructor(
     )
 
     // ============ 设置 StateFlow Delegate ============
-    // 13 个 UI 设置 StateFlow（chatFontSize/chatDensity/codeWordWrap 等）
+    // 12 个 UI 设置 StateFlow（chatFontSize/chatDensity 等）
     // 已迁移到 SettingsStateDelegate。
     private val settingsState = SettingsStateDelegate(settingsRepository, viewModelScope)
 
     val chatFontSize get() = settingsState.chatFontSize
     val chatDensity get() = settingsState.chatDensity
-    val codeWordWrap get() = settingsState.codeWordWrap
     val confirmBeforeSend get() = settingsState.confirmBeforeSend
     val compactMessages get() = settingsState.compactMessages
     val collapseTools get() = settingsState.collapseTools

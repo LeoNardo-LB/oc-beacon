@@ -188,6 +188,9 @@ class SessionListViewModel @Inject constructor(
     /** 若上次进入 ChatScreen 时发送了消息，列表应滚动回顶部。 */
     fun consumeScrollToTopOnReturn(): Boolean = scrollSignal.consumeScrollToTop()
 
+    /** 进入 ChatScreen 前标记：返回列表时滚动回顶部（无论是否发过消息）。 */
+    fun requestScrollToTopOnReturn() = scrollSignal.requestScrollToTop()
+
     /** 设置分类过滤（传 null 清除）。 */
     fun setCategoryFilter(categoryId: String?) {
         _categoryFilter.value = categoryId

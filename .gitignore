@@ -62,3 +62,7 @@ eng.traineddata
 
 # Maestro local run data
 .maestro/
+
+# E2E test screenshots
+*.png
+*.jpg

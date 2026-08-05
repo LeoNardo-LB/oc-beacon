@@ -34,6 +34,8 @@ data class FileViewerUiState(
     val diff: VcsFileDiff? = null,
     val hunks: List<DiffHunk> = emptyList(),
     val currentHunkIndex: Int = 0,
+    /** 是否持有 diff 数据（仅 GIT_DIFF 入口加载成功后为 true；LIVE/工具快照入口恒为 false）。 */
+    val hasDiff: Boolean = false,
     // Phase 2：Markdown 渲染切换（现在通过 FileType 支持多格式）
     val renderMode: FileViewerRenderMode = FileViewerRenderMode.SOURCE,
     val fileType: FileType = FileType.TEXT,

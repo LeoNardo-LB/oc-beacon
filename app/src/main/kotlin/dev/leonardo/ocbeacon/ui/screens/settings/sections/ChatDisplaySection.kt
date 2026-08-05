@@ -31,7 +31,6 @@ fun ChatDisplaySection(
     onShowChatDensityPicker: () -> Unit,
 ) {
     val chatDensity by viewModel.chatDensity.collectAsStateWithLifecycle()
-    val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
     val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
     val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
     val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
@@ -52,23 +51,6 @@ fun ChatDisplaySection(
             Icon(Icons.Default.FormatSize, contentDescription = stringResource(R.string.settings_chat_font))
         },
         modifier = Modifier.clickable { onShowChatDensityPicker() }.padding(ListItemTokens.ContentPaddingMedium)
-    )
-
-    // 代码自动换行
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_code_word_wrap)) },
-        supportingContent = { Text(stringResource(R.string.settings_code_word_wrap_desc)) },
-        leadingContent = {
-            Icon(Icons.AutoMirrored.Filled.WrapText, contentDescription = stringResource(R.string.a11y_settings_code_word_wrap))
-        },
-        trailingContent = {
-            Switch(
-                checked = codeWordWrap,
-                onCheckedChange = { viewModel.setCodeWordWrap(it) },
-                colors = switchColors
-            )
-        },
-        modifier = Modifier.clickable { viewModel.setCodeWordWrap(!codeWordWrap) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
     // 自动展开工具结果

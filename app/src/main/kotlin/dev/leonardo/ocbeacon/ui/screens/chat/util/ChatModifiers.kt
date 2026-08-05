@@ -27,8 +27,7 @@ internal fun performHaptic(view: View, enabled: Boolean) {
 }
 
 /**
- * 对代码块有条件地应用 horizontalScroll。
- * 启用自动换行时不应用水平滚动。
+ * 对代码块应用 horizontalScroll（代码块默认不换行，长行横向滚动）。
  */
 @Composable
 internal fun Modifier.codeHorizontalScroll(): Modifier {

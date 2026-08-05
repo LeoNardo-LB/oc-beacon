@@ -37,7 +37,6 @@ class SettingsDataStore @Inject constructor(
 
         private val INITIAL_MESSAGE_COUNT_KEY = intPreferencesKey("initial_message_count")
         private val RECENT_DIRECTORY_COUNT_KEY = intPreferencesKey("recent_directory_count")
-        private val CODE_WORD_WRAP_KEY = booleanPreferencesKey("code_word_wrap")
         private val CONFIRM_BEFORE_SEND_KEY = booleanPreferencesKey("confirm_before_send")
         private val AMOLED_DARK_KEY = booleanPreferencesKey("amoled_dark")
         private val COMPACT_MESSAGES_KEY = booleanPreferencesKey("compact_messages")
@@ -134,10 +133,6 @@ class SettingsDataStore @Inject constructor(
     }
 
     suspend fun setChatDensity(value: String) = setPref(CHAT_DENSITY_KEY, value)
-
-    /** 代码块是否自动换行。默认：false。 */
-    val codeWordWrap: Flow<Boolean> = prefFlow(CODE_WORD_WRAP_KEY, false)
-    suspend fun setCodeWordWrap(enabled: Boolean) = setPref(CODE_WORD_WRAP_KEY, enabled)
 
     /** 默认终端字体大小（sp）。默认：13，范围 6..20。 */
     val terminalFontSize: Flow<Float> = dataStore.data.map { preferences ->
@@ -269,7 +264,6 @@ class SettingsDataStore @Inject constructor(
             ),
             initialMessageCount = prefs[INITIAL_MESSAGE_COUNT_KEY] ?: 30,
             recentDirectoryCount = (prefs[RECENT_DIRECTORY_COUNT_KEY] ?: 20).coerceIn(5, 50),
-            codeWordWrap = prefs[CODE_WORD_WRAP_KEY] ?: false,
             confirmBeforeSend = prefs[CONFIRM_BEFORE_SEND_KEY] ?: false,
             compactMessages = prefs[COMPACT_MESSAGES_KEY] ?: false,
             collapseTools = prefs[COLLAPSE_TOOLS_KEY] ?: false,

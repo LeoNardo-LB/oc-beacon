@@ -867,7 +867,6 @@ private fun ChatSettingsProvider(
     content: @Composable () -> Unit,
 ) {
     val chatDensity by viewModel.chatDensity.collectAsStateWithLifecycle()
-    val codeWordWrap by viewModel.codeWordWrap.collectAsStateWithLifecycle()
     val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
     val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
     val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
