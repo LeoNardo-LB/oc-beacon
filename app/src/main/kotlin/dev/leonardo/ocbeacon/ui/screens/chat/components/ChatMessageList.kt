@@ -125,17 +125,12 @@ fun ChatMessageList(
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
-    // 结构签名 —— 仅在消息被添加/移除/角色变化时改变。
-    // SSE token 流式期间，part 内容每 48ms 更新，但消息
-    // 结构保持不变 → 该签名可防止滚动时不必要的
-    // turnGroups 和 streamingMsgId 重算。
-    val msgStructKey = remember(rawMessages) {
-        rawMessages.size.toString() + rawMessages.joinToString(",") {
-            it.message.id.take(12) + it.message.role.first().toString()
-        }
-    }
-
-    val turnGroups = remember(msgStructKey) { computeTurnGroups(rawMessages) }
+    // turnGroups 必须随 rawMessages 变化而重新计算（而非仅随结构变化）。
+    // 它持有 ChatMessage 引用，其 parts 在 SSE 流式期间每 48ms 更新。
+    // 用 msgStructKey（id+role 字符串）作为 key 会命中缓存，保留 stale
+    // 引用快照 —— 气泡冻结在首个 token（回归：37d9a6ac 重新引入，
+    // 1dbb2f1a 已修复）。参见 docs/research/sse-scroll-stability-iron-laws.md。
+    val turnGroups = remember(rawMessages) { computeTurnGroups(rawMessages) }
 
     // 预计算 assistant 显示项的全部渲染数据。
     // 单个 remember 块 —— 仅在 rawMessages/displayItems 变化时运行，而非组合期间。
@@ -159,9 +154,9 @@ fun ChatMessageList(
     // 但可能无法反映活跃流式状态（生产环境观察到 stuck false），
     // 导致 streamingMsgId=null 并禁用所有高度补偿 → 视口被拖到底部。
     // v360 只用 completed 时间戳，工作正常。不要再加 takeIf(sessionMeta)。
-    // 以结构签名作为 key —— streamingMsgId 仅在新流式消息开始或
-    // 完成时变化，而非每个 token 批次。
-    val streamingMsgId = remember(msgStructKey, rawMessages.lastOrNull()?.message?.time?.completed) {
+    // 直接以 rawMessages 为 key —— 与 turnGroups 同理，stale 引用
+    // 会冻结流式判定（回归：37d9a6ac 重新引入 msgStructKey）。
+    val streamingMsgId = remember(rawMessages) {
         rawMessages.lastOrNull {
             it.isAssistant && it.message.time.completed == null
         }?.message?.id
