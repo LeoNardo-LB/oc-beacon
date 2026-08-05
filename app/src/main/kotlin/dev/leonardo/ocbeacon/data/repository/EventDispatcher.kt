@@ -216,11 +216,14 @@ class EventDispatcher @Inject constructor(
             sessionStateService.clearSession(deletedSessionId)
         }
 
-        // 跨 handler：CommandExecuted——仅将消息标记为已完成。
+        // 跨 handler：CommandExecuted——仅将命令所属的消息标记为已完成。
+        // command.executed 是消息级事件（properties 含 messageID）；
+        // 用 messageId 精确终结该消息，避免误杀同一会话中仍在流式的
+        // 其他 assistant 消息（圆形进度条/统计栏提前切换的竞态根因）。
         // 不要强制会话为 Idle：会话实际变为空闲时服务器会发送 session.status 事件。
         // 此处强制 Idle 会在 agent 继续下一个工具调用时导致闪烁。
         if (event is SseEvent.CommandExecuted) {
-            messageHandler.markSessionIdle(event.sessionId)
+            messageHandler.markSessionIdle(event.sessionId, event.messageId)
         }
 
         // 跟踪用户消息时间，用于稳定的会话排序。

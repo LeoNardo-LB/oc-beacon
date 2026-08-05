@@ -298,25 +298,20 @@ class MessageEventHandler @Inject constructor() {
     /**
      * 合并消息的 SSE 和 REST 版本。
      * SSE 对内容更新（流式传输），但 REST 可能有 SSE 尚未投递的完成信息。
+     *
+     * 注意：不再用 REST 的 completed 覆盖 SSE 的未完成状态（2026-08 回归修复）。
+     * 若 REST 快照在流式进行中返回（SSE 重连恢复、手动刷新恰好命中完成窗口），
+     * 提前写入 completed 会让 UI 的 isStreaming 立即变 false —— 圆形进度条消失、
+     * 统计栏提前出现、高度补偿（streamingMsgId）失效。服务器的"空闲/完成"确认
+     * 统一由 [markSessionIdle]（FSM forceComplete / session.status=idle）负责，
+     * REST 快照只负责补全新消息，不终结正在流式的消息。
      */
     private fun mergeMessageMeta(sse: Message, rest: Message): Message {
         // 对于用户消息：REST 是权威的（无流式传输）
         if (sse is Message.User) return rest
         if (sse !is Message.Assistant) return rest
-
-        // 对于 Assistant 消息：
-        // - 若 SSE 显示已完成（流式结束），完全信任 SSE
-        // - 若 SSE 显示未完成但 REST 显示已完成，信任 REST 的完成时间
-        //   但保留 SSE 的其他字段（finish、tokens、cost 可能更新）
-        return if (sse.time.completed != null) {
-            sse  // SSE 拥有最终状态，优先使用它
-        } else if (rest.time.completed != null) {
-            // REST 显示已完成但 SSE 尚未看到——合并完成时间
-            sse.copy(time = sse.time.copy(completed = rest.time.completed))
-        } else {
-            // 两者都未完成——优先 SSE（更新的流式状态）
-            sse
-        }
+        // SSE 拥有最终状态（无论是否完成），保留 SSE —— REST 不得终结流式状态。
+        return sse
     }
 
     internal fun handleMessagePartDelta(event: SseEvent.MessagePartDelta) {
@@ -504,13 +499,19 @@ class MessageEventHandler @Inject constructor() {
     /**
      * 将会话中所有未完成的 assistant 消息标记为已完成。
      * 在 REST 回退检测到服务器已空闲但 UI 仍显示流式时调用。
+     *
+     * @param messageId 非空时仅标记该消息（command.executed 事件是消息级的，
+     *   用 messageId 精确终结，避免误杀同一会话中仍在流式的其他消息）；
+     *   为空时标记整个会话（服务器空闲确认路径）。
      */
-    fun markSessionIdle(sessionId: String) {
+    fun markSessionIdle(sessionId: String, messageId: String = "") {
         _messages.update { current ->
             val sessionMessages = current[sessionId] ?: return@update current
             val now = System.currentTimeMillis()
             val updated = sessionMessages.map { msg ->
-                if (msg is Message.Assistant && msg.time.completed == null) {
+                if (msg is Message.Assistant && msg.time.completed == null &&
+                    (messageId.isEmpty() || msg.id == messageId)
+                ) {
                     msg.copy(time = msg.time.copy(completed = now))
                 } else {
                     msg
@@ -522,7 +523,9 @@ class MessageEventHandler @Inject constructor() {
         // 为所有未完成的 Reasoning part 标记 time.end
         _parts.update { current ->
             val sessionMessages = _messages.value[sessionId] ?: return@update current
-            val messageIds = sessionMessages.map { it.id }
+            val messageIds = sessionMessages
+                .filter { msg -> messageId.isEmpty() || msg.id == messageId }
+                .map { it.id }
             var changed = false
             val updated = current.toMutableMap()
             for (msgId in messageIds) {
