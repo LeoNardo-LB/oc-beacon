@@ -93,11 +93,11 @@ Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.** 
 JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Windows 服务器的 `\` 路径会出错。
 
 ### 签名
-- Release keystore 位于 `app/keystore/release.jks`，密码在 `signing.properties` 中
-- `signing.properties` 存在时 → release 构建使用 release keystore
-- 不存在时 → release 构建回退到 debug 签名（见 `build.gradle.kts` 的 `signingConfigs` 块）
-- CI 使用 GitHub Secrets（`KEYSTORE_BASE64`、`KEYSTORE_ALIAS`、`KEYSTORE_PASSWORD`）
-- Debug 签名的 APK 可安装，但无法覆盖 release 签名安装（签名不同）
+- Release keystore 位于 `app/keystore/release.jks`，密码在 `app/keystore/signing.properties` 中
+- `signing.properties` 存在时 → release 构建使用 release keystore；不存在时 → 回退 debug 签名（见 `build.gradle.kts`：`release` 块仅在 `!hasPropertiesFile` 时设 debug 签名——**禁止**无条件覆盖为 debug，否则 release keystore 永不生效）
+- CI 使用 GitHub Secrets（`KEYSTORE_BASE64`、`KEYSTORE_ALIAS`、`KEYSTORE_PASSWORD`）。**Secrets 未配置时 CI 会回退 debug 签名**，且每次构建（全新 runner）生成不同 debug.keystore → 每次发版签名不同 → 用户升级报"已安装签名冲突的应用"。配置方法：`gh secret set KEYSTORE_BASE64 --body "$([Convert]::ToBase64String([IO.File]::ReadAllBytes('app/keystore/release.jks')))"`（alias/password 同理）
+- 发版后必须用 `apksigner verify --print-certs` 验证产物签名为 `CN=OC Remote Plus`（非 `CN=Android Debug`），见 `docs/release-workflow.md` §6
+- Debug 签名的 APK 可安装，但无法覆盖 release 签名安装（签名不同）；修复签名体系后，**旧 debug 签名安装的用户需卸载重装一次**
 
 ### Version Management（发版）
 

@@ -200,6 +200,8 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 - [ ] `gh release list`：新 Release 存在，类型正确（stable 非 prerelease / beta、dev 为 prerelease）
 - [ ] `gh release view <TAG> --json assets`：**恰好 1 个 APK**，命名 `oc-beacon-<VERSION>.apk`
 - [ ] `aapt2 dump badging` 验证 APK：包名/versionCode/versionName 正确
+- [ ] **签名验证（所有 flavor）**：`apksigner verify --print-certs` 的证书 DN 应为 `CN=OC Remote Plus, O=LeoNardo-LB, C=CN`（release keystore），**不得是 `CN=Android Debug`**
+  - 若为 debug 签名 → 检查 GitHub Secrets（`gh secret list` 需含 KEYSTORE_BASE64/ALIAS/PASSWORD）与 build.gradle.kts 的 `if (!hasPropertiesFile)` 回退逻辑
 - [ ] stable 的 APK 签名是 release keystore（oc-tether），可覆盖安装
 - [ ] CHANGELOG.md 已更新（仅 stable）
 - [ ] 历史 Release 未被删除（保留所有版本供下载）
