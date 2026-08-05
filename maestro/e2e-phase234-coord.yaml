@@ -19,7 +19,7 @@ name: E2E Phase 2-4 (coordinate-based)
 - waitForAnimationToEnd:
     timeout: 5000
 
-# Tap workspace session (first oc-remote entry)
+# Tap workspace session (first oc-beacon entry)
 - tapOn:
     point: 50%,42%
 - waitForAnimationToEnd:

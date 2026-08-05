@@ -285,13 +285,20 @@ if [ "$FLAVOR" = "stable" ]; then
     printf '%s\n' "$ENTRY" | head -n 15
   else
     if [ -f "$CHANGELOG_FILE" ]; then
-      # 在第二个标题行后插入（跳过 # Changelog 标题）
-      python - "$CHANGELOG_FILE" "$ENTRY" <<'PYEOF'
+      # ENTRY 经临时文件传递（非 argv）：Windows Git Bash 下 argv 传多行中文会损坏编码
+      TMP_ENTRY="$(mktemp)"
+      printf '%s' "$ENTRY" > "$TMP_ENTRY"
+      # 在第一个 "## [" 之前插入新条目；幂等：目标版本已存在则不重复插入
+      python - "$CHANGELOG_FILE" "$TMP_ENTRY" <<'PYEOF'
 import sys
-path, entry = sys.argv[1], sys.argv[2]
+path, entry_path = sys.argv[1], sys.argv[2]
+with open(entry_path, encoding='utf-8') as f:
+    entry = f.read()
 with open(path, encoding='utf-8') as f:
     content = f.read()
-# 在第一个 "## [" 之前插入新条目
+ver_marker = entry.split('\n', 1)[0].strip()
+if content.replace('\r\n', '\n').find(ver_marker + '\n') != -1:
+    sys.exit(0)
 idx = content.find("## [")
 if idx == -1:
     content = content.rstrip() + "\n\n" + entry
@@ -300,6 +307,7 @@ else:
 with open(path, 'w', encoding='utf-8', newline='') as f:
     f.write(content)
 PYEOF
+      rm -f "$TMP_ENTRY"
     else
       printf '# Changelog\n\n本项目遵循 [Semantic Versioning](https://semver.org/) 与 [Keep a Changelog](https://keepachangelog.com/)。\n**CHANGELOG 仅在正式版（stable release）发布时更新**；beta/dev 预发布的变更在正式版发布时统一汇总。\n\n%s' "$ENTRY" > "$CHANGELOG_FILE"
     fi

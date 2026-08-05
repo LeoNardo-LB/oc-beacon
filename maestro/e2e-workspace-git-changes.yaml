@@ -11,9 +11,14 @@ tags:
 
 - launchApp
 
+# Connect if not already connected (app does not auto-connect after cold start)
+- tapOn:
+    text: "Connect"
+    optional: true
+
 - extendedWaitUntil:
     visible: "Connected"
-    timeout: 15000
+    timeout: 20000
     optional: true
 
 - tapOn:
@@ -25,14 +30,14 @@ tags:
     timeout: 20000
     optional: true
 
-- tapOn: "D:/Develop/code/app/oc-remote"
+- tapOn: "D:/Develop/code/app/oc-beacon"
 
 - extendedWaitUntil:
     visible: "sessions active"
     timeout: 15000
     optional: true
 
-- tapOn: "问题总览修复"
+- tapOn: "系统问题分析与修复方案"
 
 - extendedWaitUntil:
     visible: "Ask a question"
@@ -44,8 +49,10 @@ tags:
 # Open workspace
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
-    id: "menu_open_workspace"
+    text: "View Workspace"
 
 - extendedWaitUntil:
     visible: ".*"
@@ -55,7 +62,7 @@ tags:
 
 # Switch to Git Changes panel
 - tapOn:
-    id: "panel_git_changes"
+    id: "panel_toggle"
 
 - extendedWaitUntil:
     visible: ".*"

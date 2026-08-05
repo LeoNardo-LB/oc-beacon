@@ -22,4 +22,4 @@ appId: dev.leonardo.ocbeacon.dev
 
 # Back to chat
 - tapOn:
-    id: "back_button"
+    text: "Back"

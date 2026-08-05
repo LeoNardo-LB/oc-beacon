@@ -1,34 +1,59 @@
 # Flow 25: Markdown preview toggle (source ↔ rendered)
 appId: dev.leonardo.ocbeacon.dev
 ---
-- runFlow: e2e-chat-flow.yaml
+# Navigate to chat (inline; independent of chat-flow runFlow ending state)
+- launchApp
+
+- tapOn:
+    text: "Start Connect|Connect"
+    optional: true
+- extendedWaitUntil:
+    visible: "Connected"
+    timeout: 20000
+    optional: true
+- tapOn:
+    text: "Sessions"
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 10000
+    optional: true
+- tapOn: "D:/Develop/code/app/oc-beacon"
+- tapOn: "系统问题分析与修复方案"
+- extendedWaitUntil:
+    visible: "More options"
+    timeout: 15000
+    optional: true
 
 # Open workspace
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
-    id: "menu_open_workspace"
+    text: "View Workspace"
 
 # Search for a markdown file
 - tapOn:
     id: "workspace_search_button"
 - tapOn:
     id: "workspace_search_input"
-- inputText: "README.md"
+- inputText: "CHANGELOG.md"
 - tapOn:
     id: "workspace_search_result"
     index: 0
 
 # Verify source view + render button visible
 - extendedWaitUntil:
-    visible: ".*viewer_md_render_button.*"
+    visible: ".*viewer_render_button.*"
     timeout: 5000
     optional: true
 - takeScreenshot: e2e_md_source_view
 
 # Switch to rendered preview
 - tapOn:
-    id: "viewer_md_render_button"
+    text: "Show rendered preview|Show source code"
 - extendedWaitUntil:
     visible: ".*#.*"
     timeout: 5000
@@ -37,8 +62,8 @@ appId: dev.leonardo.ocbeacon.dev
 
 # Switch back to source
 - tapOn:
-    id: "viewer_md_render_button"
+    text: "Show rendered preview|Show source code"
 - takeScreenshot: e2e_md_back_to_source
 
 - tapOn:
-    id: "back_button"
+    text: "Back"

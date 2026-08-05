@@ -13,9 +13,14 @@ tags:
 
 - launchApp
 
+# Connect if not already connected (app does not auto-connect after cold start)
+- tapOn:
+    text: "Connect"
+    optional: true
+
 - extendedWaitUntil:
     visible: "Connected"
-    timeout: 15000
+    timeout: 20000
     optional: true
 
 # Navigate to a session
@@ -26,7 +31,7 @@ tags:
     visible: "Search sessions..."
     timeout: 20000
     optional: true
-- tapOn: "D:/Develop/code/app/oc-remote"
+- tapOn: "D:/Develop/code/app/oc-beacon"
 - extendedWaitUntil:
     visible: "sessions active"
     timeout: 15000
@@ -42,16 +47,14 @@ tags:
 # Open workspace
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
-    id: "menu_open_workspace"
+    text: "View Workspace"
 
-# Open any file
+# Open a specific file (tapOn ".*" may hit a non-file element)
 - tapOn:
-    id: "panel_file_tree"
-    optional: true
-- tapOn:
-    text: ".*"
-    index: 0
+    text: "AGENTS.md"
 
 # Verify file viewer opened (portrait)
 - extendedWaitUntil:
@@ -70,7 +73,7 @@ tags:
 - takeScreenshot: e2e_rotation_scrolled_position
 
 # Rotate to landscape
-- rotateDevice: LANDSCAPE
+- setOrientation: LANDSCAPE_LEFT
 - extendedWaitUntil:
     visible: ".*back_button.*"
     timeout: 5000
@@ -78,12 +81,12 @@ tags:
 - takeScreenshot: e2e_rotation_landscape
 
 # Rotate back to portrait
-- rotateDevice: PORTRAIT
+- setOrientation: PORTRAIT
 - takeScreenshot: e2e_rotation_back_to_portrait
 
 # Verify scroll position roughly preserved (visual comparison of screenshots).
 # No precise assertion — position need not be pixel-perfect, just "still in the file".
 
-# Go back
+# Go back (viewer top bar Back has no resource-id; match text)
 - tapOn:
-    id: "back_button"
+    text: "Back"

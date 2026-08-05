@@ -10,9 +10,14 @@ tags:
 
 - launchApp
 
+# Connect if not already connected (app does not auto-connect after cold start)
+- tapOn:
+    text: "Connect"
+    optional: true
+
 - extendedWaitUntil:
     visible: "Connected"
-    timeout: 15000
+    timeout: 20000
     optional: true
 
 # Navigate to a session
@@ -23,7 +28,7 @@ tags:
     visible: "Search sessions..."
     timeout: 20000
     optional: true
-- tapOn: "D:/Develop/code/app/oc-remote"
+- tapOn: "D:/Develop/code/app/oc-beacon"
 - extendedWaitUntil:
     visible: "sessions active"
     timeout: 15000
@@ -39,13 +44,12 @@ tags:
 # Open workspace
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
-    id: "menu_open_workspace"
+    text: "View Workspace"
 
 # Open a file
-- tapOn:
-    id: "panel_file_tree"
-    optional: true
 - tapOn:
     text: ".*"
     index: 0

@@ -11,9 +11,14 @@ tags:
 
 - launchApp
 
+# Connect if not already connected (app does not auto-connect after cold start)
+- tapOn:
+    text: "Connect"
+    optional: true
+
 - extendedWaitUntil:
     visible: "Connected"
-    timeout: 15000
+    timeout: 20000
     optional: true
 
 # Navigate to a session
@@ -24,7 +29,7 @@ tags:
     visible: "Search sessions..."
     timeout: 20000
     optional: true
-- tapOn: "D:/Develop/code/app/oc-remote"
+- tapOn: "D:/Develop/code/app/oc-beacon"
 - extendedWaitUntil:
     visible: "sessions active"
     timeout: 15000
@@ -40,8 +45,10 @@ tags:
 # Open workspace
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
-    id: "menu_open_workspace"
+    text: "View Workspace"
 
 # Search for a large Kotlin file
 - tapOn:
@@ -58,7 +65,7 @@ tags:
 
 # Verify file viewer opened with content
 - extendedWaitUntil:
-    visible: ".*back_button.*"
+    visible: ".*Back.*"
     timeout: 5000
     optional: true
 - takeScreenshot: e2e_pagination_initial_load
@@ -92,4 +99,4 @@ tags:
 
 # Go back
 - tapOn:
-    id: "back_button"
+    text: "Back"

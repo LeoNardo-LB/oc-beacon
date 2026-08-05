@@ -68,11 +68,11 @@ tags:
     optional: true
 - inputText: "opencode"
 
-# NOTE: Replace "testpassword" with actual $OPENCODE_SERVER_PASSWORD
+# NOTE: Password comes from environment (never hardcode)
 - tapOn:
     text: "Password"
     optional: true
-- inputText: "testpassword"
+- inputText: ${OPENCODE_SERVER_PASSWORD}
 
 - tapOn: "Save"
 - takeScreenshot: e2e_journey_03_server_saved
@@ -123,19 +123,23 @@ tags:
 - takeScreenshot: e2e_journey_05_session_list
 
 # ============================================================
-# Step 5: Open a session
+# Step 5: Open a session (oc-beacon project, current server data)
 # ============================================================
 - tapOn:
-    text: "quiet-island"
+    text: "D:/Develop/code/app/oc-beacon"
+    optional: true
+
+- tapOn:
+    text: "系统问题分析与修复方案"
     optional: true
 
 - extendedWaitUntil:
-    visible: "Message OpenCode..."
+    visible: "Ask a question"
     timeout: 20000
     optional: true
 
 - assertVisible:
-    text: "Message OpenCode..."
+    text: "Ask a question"
     optional: true
 - takeScreenshot: e2e_journey_06_chat_screen
 
@@ -143,7 +147,7 @@ tags:
 # Step 6: Send a message
 # ============================================================
 - tapOn:
-    text: "Message OpenCode..."
+    text: "Ask a question"
     optional: true
 
 - inputText: "hello"

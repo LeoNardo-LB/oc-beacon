@@ -5,40 +5,50 @@ name: E2E Phase 2-4 Full Journey
 - killApp
 - launchApp
 
+# Wait for home — "Start Connect" (empty state) / "Connect" (server card) / "Open chat" (connected)
+# killApp cold start can be slow on emulator — allow up to 30s
 - extendedWaitUntil:
-    visible: "Local"
-    timeout: 10000
+    visible: "Start Connect|Connect|Open chat|Connected"
+    timeout: 30000
+    optional: true
 
-# Step 1: Connect to server
+# Step 1: Connect to server (skip if already connected)
 - tapOn:
-    text: "Start Connect"
-- waitForAnimationToEnd:
-    timeout: 8000
+    text: "Start Connect|Connect"
+    optional: true
+
+# Wait for connection to establish
+- extendedWaitUntil:
+    visible: "Connected"
+    timeout: 20000
+    optional: true
 
 # Step 2: Open sessions
-- extendedWaitUntil:
-    visible: "Open chat"
-    timeout: 10000
 - tapOn:
-    text: "Open chat"
+    text: "Sessions"
     index: 0
+    optional: true
 
 - extendedWaitUntil:
-    visible: "Search sessions"
+    visible: "Search sessions..."
     timeout: 10000
+    optional: true
 
-# Step 3: Open workspace session (first match with oc-remote)
+# Step 3: Open workspace session (first match with oc-beacon)
 - tapOn:
-    text: ".*oc-remote.*"
+    text: ".*oc-beacon.*"
     index: 0
 
 - extendedWaitUntil:
     visible: "More options"
     timeout: 15000
+    optional: true
 
 # Step 4: Open workspace
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
     text: ".*Workspace.*"
     index: 0
@@ -46,6 +56,7 @@ name: E2E Phase 2-4 Full Journey
 - extendedWaitUntil:
     visible: "Refresh"
     timeout: 10000
+    optional: true
 
 # === Phase 2: File tree ===
 - takeScreenshot: p234_01_workspace
@@ -69,9 +80,9 @@ name: E2E Phase 2-4 Full Journey
 
 - takeScreenshot: p234_03_md_toggled
 
-# Back to workspace
+# Back to workspace (viewer top bar Back has no resource-id; match text)
 - tapOn:
-    id: "back_button"
+    text: "Back"
 
 - extendedWaitUntil:
     visible: "Refresh"

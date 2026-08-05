@@ -51,9 +51,9 @@ tags:
 - inputText: "opencode"
 - takeScreenshot: e2e_server_setup_username_filled
 
-# Fill Password field
+# Fill Password field (from environment, never hardcode)
 - tapOn: "Password"
-- inputText: "testpassword"
+- inputText: ${OPENCODE_SERVER_PASSWORD}
 - takeScreenshot: e2e_server_setup_password_filled
 
 # Tap Save button

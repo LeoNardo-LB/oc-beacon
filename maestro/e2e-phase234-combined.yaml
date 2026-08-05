@@ -39,7 +39,7 @@ tags:
 
 # Open the workspace session
 - tapOn:
-    text: ".*oc-remote.*"
+    text: ".*oc-beacon.*"
     index: 0
 
 - extendedWaitUntil:
@@ -49,6 +49,8 @@ tags:
 # Open workspace
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
     text: ".*Workspace.*"
     index: 0

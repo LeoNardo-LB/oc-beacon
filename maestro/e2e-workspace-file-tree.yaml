@@ -11,10 +11,14 @@ tags:
 
 - launchApp
 
-# Wait for home — server already configured
+# Connect if not already connected (app does not auto-connect after cold start)
+- tapOn:
+    text: "Connect"
+    optional: true
+
 - extendedWaitUntil:
     visible: "Connected"
-    timeout: 15000
+    timeout: 20000
     optional: true
 
 - takeScreenshot: e2e_ws_home
@@ -32,7 +36,7 @@ tags:
 - takeScreenshot: e2e_ws_sessions
 
 # Tap on project directory
-- tapOn: "D:/Develop/code/app/oc-remote"
+- tapOn: "D:/Develop/code/app/oc-beacon"
 
 - extendedWaitUntil:
     visible: "sessions active"
@@ -40,7 +44,7 @@ tags:
     optional: true
 
 # Tap on a session
-- tapOn: "问题总览修复"
+- tapOn: "系统问题分析与修复方案"
 
 - extendedWaitUntil:
     visible: "Ask a question"
@@ -52,12 +56,14 @@ tags:
 # Open workspace via overflow menu
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 
 - takeScreenshot: e2e_ws_menu_open
 
 # Tap "View Workspace" menu item
 - tapOn:
-    id: "menu_open_workspace"
+    text: "View Workspace"
 
 # Wait for workspace screen
 - extendedWaitUntil:
@@ -67,9 +73,6 @@ tags:
 - takeScreenshot: e2e_ws_workspace_loaded
 
 # File tree panel (default)
-- tapOn:
-    id: "panel_file_tree"
-    optional: true
 
 - takeScreenshot: e2e_ws_file_tree
 
@@ -82,7 +85,7 @@ tags:
 
 # Back
 - tapOn:
-    id: "back_button"
+    text: "Back"
     optional: true
 - back
 

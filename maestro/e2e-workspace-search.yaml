@@ -1,13 +1,38 @@
 # Flow 22: Workspace file search (file tree + git changes)
 appId: dev.leonardo.ocbeacon.dev
 ---
-- runFlow: e2e-chat-flow.yaml
+# Navigate to chat (inline; independent of chat-flow runFlow ending state)
+- launchApp
+
+- tapOn:
+    text: "Start Connect|Connect"
+    optional: true
+- extendedWaitUntil:
+    visible: "Connected"
+    timeout: 20000
+    optional: true
+- tapOn:
+    text: "Sessions"
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 10000
+    optional: true
+- tapOn: "D:/Develop/code/app/oc-beacon"
+- tapOn: "系统问题分析与修复方案"
+- extendedWaitUntil:
+    visible: "More options"
+    timeout: 15000
+    optional: true
 
 # Open workspace
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
-    id: "menu_open_workspace"
+    text: "View Workspace"
 
 # File tree search
 - tapOn:
@@ -31,17 +56,19 @@ appId: dev.leonardo.ocbeacon.dev
 
 # Back to workspace
 - tapOn:
-    id: "back_button"
+    text: "Back"
 - tapOn:
-    id: "back_button"
+    text: "Back"
 
 # Git changes search
 - tapOn:
     id: "more_vert"
+- waitForAnimationToEnd:
+    timeout: 3000
 - tapOn:
-    id: "menu_open_workspace"
+    text: "View Workspace"
 - tapOn:
-    id: "panel_git_changes"
+    id: "panel_toggle"
 - tapOn:
     id: "workspace_search_button"
 - tapOn:
