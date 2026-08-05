@@ -2,6 +2,11 @@
 
 鏈」鐩伒寰?[Semantic Versioning](https://semver.org/) 涓?[Keep a Changelog](https://keepachangelog.com/)銆?
 **CHANGELOG 浠呭湪姝ｅ紡鐗堬紙stable release锛夊彂甯冩椂鏇存柊**锛沚eta/dev 棰勫彂甯冪殑鍙樻洿鍦ㄦ寮忕増鍙戝竷鏃剁粺涓€姹囨€汇€傚彂鐗堟祦绋嬭 [docs/release-workflow.md](docs/release-workflow.md)銆?
+## [1.1.1] - 2026-08-06
+
+### Fixed
+
+- 修复多语言显示（源污染/缺失翻译/硬编码提取/真 plurals/孤儿清理/无障碍标签）
 ## [1.1.0] - 2026-08-05
 
 ### Added
