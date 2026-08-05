@@ -66,3 +66,6 @@ eng.traineddata
 # E2E test screenshots
 *.png
 *.jpg
+
+# Git worktrees
+/.worktrees/
