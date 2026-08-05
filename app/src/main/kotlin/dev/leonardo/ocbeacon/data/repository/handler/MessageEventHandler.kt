@@ -299,19 +299,27 @@ class MessageEventHandler @Inject constructor() {
      * 合并消息的 SSE 和 REST 版本。
      * SSE 对内容更新（流式传输），但 REST 可能有 SSE 尚未投递的完成信息。
      *
-     * 注意：不再用 REST 的 completed 覆盖 SSE 的未完成状态（2026-08 回归修复）。
-     * 若 REST 快照在流式进行中返回（SSE 重连恢复、手动刷新恰好命中完成窗口），
-     * 提前写入 completed 会让 UI 的 isStreaming 立即变 false —— 圆形进度条消失、
-     * 统计栏提前出现、高度补偿（streamingMsgId）失效。服务器的"空闲/完成"确认
-     * 统一由 [markSessionIdle]（FSM forceComplete / session.status=idle）负责，
-     * REST 快照只负责补全新消息，不终结正在流式的消息。
+     * 注意：REST completed 仅在 SSE 尚未完成时作为兜底合并（SSE 完成事件
+     * 丢失时防止消息永不完成）；SSE 已完成则完全信任 SSE。
      */
     private fun mergeMessageMeta(sse: Message, rest: Message): Message {
         // 对于用户消息：REST 是权威的（无流式传输）
         if (sse is Message.User) return rest
         if (sse !is Message.Assistant) return rest
-        // SSE 拥有最终状态（无论是否完成），保留 SSE —— REST 不得终结流式状态。
-        return sse
+
+        // 对于 Assistant 消息：
+        // - 若 SSE 显示已完成（流式结束），完全信任 SSE
+        // - 若 SSE 显示未完成但 REST 显示已完成，信任 REST 的完成时间
+        //   但保留 SSE 的其他字段（finish、tokens、cost 可能更新）
+        return if (sse.time.completed != null) {
+            sse  // SSE 拥有最终状态，优先使用它
+        } else if (rest.time.completed != null) {
+            // REST 显示已完成但 SSE 尚未看到——合并完成时间
+            sse.copy(time = sse.time.copy(completed = rest.time.completed))
+        } else {
+            // 两者都未完成——优先 SSE（更新的流式状态）
+            sse
+        }
     }
 
     internal fun handleMessagePartDelta(event: SseEvent.MessagePartDelta) {
