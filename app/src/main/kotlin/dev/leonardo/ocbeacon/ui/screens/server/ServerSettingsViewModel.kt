@@ -1,7 +1,10 @@
 package dev.leonardo.ocbeacon.ui.screens.server
 
+import android.content.Context
 import android.util.Log
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.R
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -79,6 +82,7 @@ data class ModelToggle(
 @HiltViewModel
 class ServerSettingsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context,
     private val providerRepository: ProviderRepository,
     private val agentRepository: AgentRepository,
     private val settingsRepository: SettingsRepository
@@ -131,7 +135,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load providers"
+                        error = e.message ?: context.getString(R.string.server_settings_providers_load_failed)
                     )
                 }
             }
@@ -188,7 +192,7 @@ class ServerSettingsViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to update provider state", e)
                 _config.value = before
-                _uiState.update { it.copy(error = e.message ?: "Failed to update provider") }
+                _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_update_failed)) }
                 rebuildUi()
             }
         }
@@ -201,7 +205,7 @@ class ServerSettingsViewModel @Inject constructor(
             try {
                 val result = providerRepository.connectProviderApi(serverId, providerId, apiKey.trim())
                 if (!result.isSuccess) {
-                    _uiState.update { it.copy(isSaving = false, error = "Failed to connect provider") }
+                    _uiState.update { it.copy(isSaving = false, error = context.getString(R.string.server_settings_provider_connect_failed)) }
                     return@launch
                 }
                 // 连接成功后确保 provider 处于启用状态
@@ -214,7 +218,7 @@ class ServerSettingsViewModel @Inject constructor(
                 loadProviders()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to connect provider via API key", e)
-                _uiState.update { it.copy(error = e.message ?: "Failed to connect provider") }
+                _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_provider_connect_failed)) }
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
             }
@@ -228,7 +232,7 @@ class ServerSettingsViewModel @Inject constructor(
                 val auth = providerRepository.authorizeProviderOauth(serverId, providerId, methodIndex).getOrThrow()
 
                 if (auth == null) {
-                    _uiState.update { it.copy(isSaving = false, error = "OAuth is not available for this provider") }
+                    _uiState.update { it.copy(isSaving = false, error = context.getString(R.string.server_settings_oauth_unavailable)) }
                     return@launch
                 }
                 val providerName = (_providerCatalog.value.find { it.id == providerId }?.name ?: providerId)
@@ -246,7 +250,7 @@ class ServerSettingsViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start provider oauth", e)
-                _uiState.update { it.copy(isSaving = false, error = e.message ?: "Failed to start OAuth") }
+                _uiState.update { it.copy(isSaving = false, error = e.message ?: context.getString(R.string.server_settings_oauth_start_failed)) }
             }
         }
     }
@@ -279,7 +283,7 @@ class ServerSettingsViewModel @Inject constructor(
                         rebuildUi()
                         return@launch
                     }
-                    _uiState.update { it.copy(isSaving = false, error = "Failed to complete OAuth") }
+                    _uiState.update { it.copy(isSaving = false, error = context.getString(R.string.server_settings_oauth_failed)) }
                     return@launch
                 }
                 val disabled = _config.value.disabledProviders.toSet() - pending.providerId
@@ -292,7 +296,7 @@ class ServerSettingsViewModel @Inject constructor(
                 loadProviders()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to complete provider oauth", e)
-                _uiState.update { it.copy(error = e.message ?: "Failed to complete OAuth") }
+                _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_oauth_failed)) }
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
             }
@@ -315,7 +319,7 @@ class ServerSettingsViewModel @Inject constructor(
                 val removed = providerRepository.removeProviderAuth(serverId, providerId).getOrThrow()
                 if (BuildConfig.DEBUG) Log.d(TAG, "disconnectProvider: removed=$removed")
                 if (!removed) {
-                    _uiState.update { it.copy(isSaving = false, error = "Failed to disconnect provider") }
+                    _uiState.update { it.copy(isSaving = false, error = context.getString(R.string.server_settings_provider_disconnect_failed)) }
                     return@launch
                 }
 
@@ -328,11 +332,11 @@ class ServerSettingsViewModel @Inject constructor(
                 loadProviders()
 
                 if (!disposed) {
-                    _uiState.update { it.copy(error = "Provider credentials removed, but failed to refresh server instance") }
+                    _uiState.update { it.copy(error = context.getString(R.string.server_settings_provider_removed_refresh_failed)) }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to disconnect provider", e)
-                _uiState.update { it.copy(error = e.message ?: "Failed to disconnect provider") }
+                _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_provider_disconnect_failed)) }
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
             }
@@ -366,7 +370,7 @@ class ServerSettingsViewModel @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update config", e)
             _config.value = before
-            _uiState.update { it.copy(error = e.message ?: "Failed to update config") }
+            _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_config_update_failed)) }
             rebuildUi()
         }
     }

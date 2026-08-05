@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -30,10 +31,7 @@ internal fun PatchCard(
 ) {
     val isAmoled = isAmoledTheme()
     val accentColor = MaterialTheme.colorScheme.primary
-    val title = if (patch.files.size == 1)
-        stringResource(R.string.chat_files_changed, patch.files.size)
-    else
-        stringResource(R.string.chat_files_changed_plural, patch.files.size)
+    val title = pluralStringResource(R.plurals.chat_files_changed_plural, patch.files.size, patch.files.size)
     val sessionDiffs = LocalSessionDiffs.current[patch.sessionId]
 
     ToolCardScaffold(

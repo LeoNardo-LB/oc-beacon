@@ -1,7 +1,9 @@
 package dev.leonardo.ocbeacon.data.terminal
 
+import android.content.Context
 import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import dev.leonardo.ocbeacon.data.terminal.PtyToTermlibAdapter
@@ -37,6 +39,7 @@ data class TerminalTabUi(
 internal class ServerTerminalWorkspace(
     private val api: TerminalApi,
     private val conn: ServerConnection,
+    private val context: Context,
 ) {
     private class RuntimeTab(
         val id: String,
@@ -137,7 +140,7 @@ internal class ServerTerminalWorkspace(
             adapterRef = adapter
             RuntimeTab(
                 id = tabId,
-                title = "Tab $index",
+                title = context.getString(R.string.terminal_tab_title, index),
                 adapter = adapter,
                 fontSizeSp = defaultFontSizeSp,
                 directory = directory,

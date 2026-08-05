@@ -91,7 +91,7 @@ internal fun SearchToolCard(
                 ) {
                     if (pattern != null) {
                         Text(
-                            text = "pattern: $pattern",
+                            text = stringResource(R.string.tool_search_pattern, pattern),
                             style = CodeTypography.copy(
                                 fontSize = 11.sp,
                                 color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.HIGH)
@@ -100,7 +100,7 @@ internal fun SearchToolCard(
                     }
                     if (!dirPath.isNullOrBlank()) {
                         Text(
-                            text = "path: $dirPath",
+                            text = stringResource(R.string.tool_search_path, dirPath),
                             style = CodeTypography.copy(
                                 fontSize = 11.sp,
                                 color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.HIGH)

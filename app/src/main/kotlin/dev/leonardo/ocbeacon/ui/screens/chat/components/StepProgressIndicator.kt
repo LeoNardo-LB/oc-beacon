@@ -12,7 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
@@ -35,7 +37,7 @@ fun StepProgressIndicator(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "Step ${stepInfo.step}",
+                text = stringResource(R.string.chat_step_progress, stepInfo.step),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )

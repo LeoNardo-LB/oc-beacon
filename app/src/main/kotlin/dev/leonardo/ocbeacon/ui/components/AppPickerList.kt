@@ -89,7 +89,7 @@ fun <K> AppPickerList(
                 if (isSelected) {
                     Icon(
                         Icons.Default.Check,
-                        contentDescription = stringResource(R.string.a11y_icon_select_provider),
+                        contentDescription = stringResource(R.string.a11y_icon_selected),
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )

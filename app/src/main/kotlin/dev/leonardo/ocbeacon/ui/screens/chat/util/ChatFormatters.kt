@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.util
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -51,24 +52,12 @@ internal fun resolveStepsStatus(stepParts: List<Part>): String {
         val bashCount = toolParts.count { it.tool == "bash" }
         val searchCount = toolParts.count { it.tool in listOf("glob", "grep", "read", "list", "listDirectory") }
         return when {
-            editCount > 0 && bashCount == 0 && searchCount == 0 -> {
-                if (editCount == 1) 
-                    stringResource(R.string.chat_status_edits, editCount)
-                else 
-                    stringResource(R.string.chat_status_edits_plural, editCount)
-            }
-            bashCount > 0 && editCount == 0 && searchCount == 0 -> {
-                if (bashCount == 1)
-                    stringResource(R.string.chat_status_commands, bashCount)
-                else
-                    stringResource(R.string.chat_status_commands_plural, bashCount)
-            }
-            else -> {
-                if (toolParts.size == 1)
-                    stringResource(R.string.chat_status_steps, toolParts.size)
-                else
-                    stringResource(R.string.chat_status_steps_plural, toolParts.size)
-            }
+            editCount > 0 && bashCount == 0 && searchCount == 0 ->
+                pluralStringResource(R.plurals.chat_status_edits_plural, editCount, editCount)
+            bashCount > 0 && editCount == 0 && searchCount == 0 ->
+                pluralStringResource(R.plurals.chat_status_commands_plural, bashCount, bashCount)
+            else ->
+                pluralStringResource(R.plurals.chat_status_steps_plural, toolParts.size, toolParts.size)
         }
     }
     // 正在运行 —— 描述当前正在做什么

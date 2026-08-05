@@ -206,7 +206,7 @@ fun PdfViewer(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = "Previous page"
+                            contentDescription = stringResource(R.string.pdf_previous_page)
                         )
                     }
                     Text(
@@ -223,7 +223,7 @@ fun PdfViewer(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Next page"
+                            contentDescription = stringResource(R.string.pdf_next_page)
                         )
                     }
                 }

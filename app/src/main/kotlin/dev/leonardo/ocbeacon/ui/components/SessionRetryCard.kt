@@ -21,7 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.delay
 
@@ -85,7 +87,7 @@ fun SessionRetryCard(
                 )
 
                 Text(
-                    text = "Attempt $attempt of $maxAttempts",
+                    text = stringResource(R.string.session_retry_attempt, attempt, maxAttempts),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
