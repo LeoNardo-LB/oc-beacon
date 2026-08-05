@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConnectionRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.TerminalRepository
 import dev.leonardo.ocbeacon.domain.repository.VcsRepository
@@ -26,6 +27,7 @@ import dev.leonardo.ocbeacon.fakes.FakeFileRepository
 import dev.leonardo.ocbeacon.fakes.FakeMcpRepository
 import dev.leonardo.ocbeacon.fakes.FakeServerRepository
 import dev.leonardo.ocbeacon.fakes.FakeSessionRepository
+import dev.leonardo.ocbeacon.fakes.FakeSessionStateRepository
 import dev.leonardo.ocbeacon.fakes.FakeSettingsRepository
 import dev.leonardo.ocbeacon.fakes.FakeTerminalRepository
 import dev.leonardo.ocbeacon.fakes.FakeVcsRepository
@@ -51,6 +53,7 @@ abstract class FakeDomainModule {
 
     // DomainModule 的替换
     @Binds @Singleton abstract fun bindSettingsRepository(impl: FakeSettingsRepository): SettingsRepository
+    @Binds @Singleton abstract fun bindSessionStateRepository(impl: FakeSessionStateRepository): SessionStateRepository
     @Binds @Singleton abstract fun bindAgentRepository(impl: FakeAgentRepository): AgentRepository
     @Binds @Singleton abstract fun bindDraftRepository(impl: FakeDraftRepository): DraftRepository
     @Binds @Singleton abstract fun bindFileRepository(impl: FakeFileRepository): FileRepository

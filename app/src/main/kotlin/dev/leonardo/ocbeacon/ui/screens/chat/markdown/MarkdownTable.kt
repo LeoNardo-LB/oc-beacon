@@ -212,22 +212,42 @@ internal fun SimpleMarkdownTable(
                 }
 
                 val finalMeasurables = subcompose("final", cellContent)
-                val finalPlaceables = finalMeasurables.mapIndexed { index, measurable ->
-                    val col = index % columnCount
-                    val colConstraint = Constraints(
-                        minWidth = finalColWidths[col],
-                        maxWidth = finalColWidths[col],
-                        minHeight = 0,
-                        maxHeight = constraints.maxHeight,
-                    )
-                    measurable.measure(colConstraint)
-                }
-
                 val actualRowCount = rows.size
+
+                // 第一遍（独立 subcompose）：无行高约束测量，得到每个单元格的
+                // 真实内容高度，据此计算整行高度（行内最高单元格）。
+                val pass1Measurables = subcompose("final-pass1", cellContent)
+                val naturalPlaceables = pass1Measurables.mapIndexed { index, measurable ->
+                    val col = index % columnCount
+                    measurable.measure(
+                        Constraints(
+                            minWidth = finalColWidths[col],
+                            maxWidth = finalColWidths[col],
+                            minHeight = 0,
+                            maxHeight = constraints.maxHeight,
+                        )
+                    )
+                }
                 val rowHeights = IntArray(actualRowCount) { 0 }
-                finalPlaceables.forEachIndexed { index, placeable ->
+                naturalPlaceables.forEachIndexed { index, placeable ->
                     val row = index / columnCount
                     rowHeights[row] = maxOf(rowHeights[row], placeable.height)
+                }
+
+                // 第二遍：以行高作为 minHeight 重新测量，使每个单元格 Box
+                // 高度拉伸到整行高度——单元格背景因此填满整个单元格矩形，
+                // 而不是只覆盖文字区域。
+                val finalPlaceables = finalMeasurables.mapIndexed { index, measurable ->
+                    val col = index % columnCount
+                    val row = index / columnCount
+                    measurable.measure(
+                        Constraints(
+                            minWidth = finalColWidths[col],
+                            maxWidth = finalColWidths[col],
+                            minHeight = rowHeights[row],
+                            maxHeight = constraints.maxHeight,
+                        )
+                    )
                 }
 
                 val totalWidth = finalColWidths.sum()
