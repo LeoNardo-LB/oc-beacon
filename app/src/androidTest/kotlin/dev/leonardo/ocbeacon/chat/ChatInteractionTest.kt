@@ -354,8 +354,8 @@ class ChatInteractionTest : BaseChatTest() {
 
         composeRule.onNodeWithText("Question").assertIsDisplayed()
 
-        // 问题文本也应当可见
-        composeRule.onNodeWithText("Which framework?", substring = true).assertIsDisplayed()
+        // 问题文本也应当可见（QuestionCard 中 summary Text 与输入框可能各含一次该文本，用 onAllNodes 兼容）
+        composeRule.onAllNodesWithText("Which framework?", substring = true).onFirst().assertIsDisplayed()
     }
 
     /**
