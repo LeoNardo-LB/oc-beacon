@@ -47,12 +47,12 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.components.DeleteSessionDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.NewSessionQuickDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.OpenProjectDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.RenameSessionDialog
-import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionCategoryPickerDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionListEmptyState
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionListErrorState
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionListLoadingState
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionSearchBar
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionTreeList
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.TagPickerDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.isAmoledTheme
 import kotlinx.coroutines.launch
 
@@ -86,7 +86,7 @@ fun SessionListScreen(
     // 会话分类选择器状态
     var showCategoryPicker by remember { mutableStateOf(false) }
     var assignSessionId by remember { mutableStateOf("") }
-    var assignCategoryId by remember { mutableStateOf<String?>(null) }
+    var assignTagIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val categories by viewModel.sessionCategories.collectAsStateWithLifecycle()
     val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
@@ -279,7 +279,7 @@ fun SessionListScreen(
                                         },
                                         onAssignTags = { sessionId, currentTagIds ->
                                             assignSessionId = sessionId
-                                            assignCategoryId = currentTagIds.firstOrNull()
+                                            assignTagIds = currentTagIds
                                             showCategoryPicker = true
                                         },
                                     )
@@ -356,26 +356,21 @@ fun SessionListScreen(
         )
     }
 
-    // 会话分类选择器对话框（分配 / 创建 / 删除）
+    // 标签分配对话框（复选框多选 + 新建自动勾选）
     if (showCategoryPicker) {
-        SessionCategoryPickerDialog(
-            categories = categories,
-            assignedCategoryId = assignCategoryId,
-            onAssign = { categoryId ->
+        TagPickerDialog(
+            tags = categories,
+            selectedTagIds = assignTagIds,
+            onConfirm = { tagIds ->
                 showCategoryPicker = false
-                if (categoryId != null) {
-                    viewModel.assignCategory(assignSessionId, categoryId)
-                } else {
-                    viewModel.unassignCategory(assignSessionId)
-                }
-            },
-            onCreateCategory = { name, color, icon ->
-                viewModel.addCategory(name, color, icon)
-            },
-            onDeleteCategory = { categoryId ->
-                viewModel.removeCategory(categoryId)
+                viewModel.assignTags(assignSessionId, tagIds)
             },
             onDismiss = { showCategoryPicker = false },
+            onCreateTag = { name, color, icon ->
+                val newId = "tag_${System.currentTimeMillis()}"
+                viewModel.addSessionTag(name, color, icon, id = newId)
+                newId
+            },
         )
     }
 }

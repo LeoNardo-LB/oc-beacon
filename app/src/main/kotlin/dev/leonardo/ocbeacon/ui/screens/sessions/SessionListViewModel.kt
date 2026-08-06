@@ -240,6 +240,27 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 新建一个用户标签，使用调用方预生成的 [id]（用于 TagPickerDialog 创建后立即勾选）。
+     *
+     * 返回 [id] 以便调用方把它加入本地选择集合。Task 6 会以此替换旧 [addCategory]。
+     */
+    fun addSessionTag(name: String, color: String, icon: String, id: String): String {
+        viewModelScope.launch {
+            settingsRepository.addSessionTag(
+                serverId,
+                Tag(
+                    id = id,
+                    name = name,
+                    color = color,
+                    icon = icon,
+                    createdAt = System.currentTimeMillis(),
+                )
+            )
+        }
+        return id
+    }
+
     /** 按 id 删除一个用户标签（并原子清理所有分配）。 */
     fun removeCategory(categoryId: String) {
         viewModelScope.launch { settingsRepository.removeSessionTag(serverId, categoryId) }
