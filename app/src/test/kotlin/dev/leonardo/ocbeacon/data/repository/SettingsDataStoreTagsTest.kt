@@ -100,4 +100,23 @@ class SettingsDataStoreTagsTest {
         assertTrue(assigns["legacy-a"]?.contains(FAVORITE_TAG_ID) == true)
         assertTrue(assigns["legacy-b"]?.contains(FAVORITE_TAG_ID) == true)
     }
+
+    @Test
+    fun `favoriteSessionIds migrate then unfavorite all does not resurrect`() = runTest {
+        val store = newStore()
+        val legacyKey = stringSetPreferencesKey("favorite_sessions_srv")
+        store.dataStore.edit { it[legacyKey] = setOf("legacy-a", "legacy-b") }
+        // 首次读取触发迁移，返回 legacy 数据
+        val firstRead = store.favoriteSessionIds("srv").first()
+        assertEquals(setOf("legacy-a", "legacy-b"), firstRead)
+        // 迁移成功后 legacy key 必须已被删除（否则后续取消全部收藏会让迁移条件再次满足）
+        val legacyAfterMigrate = store.dataStore.data.first()[legacyKey]
+        assertTrue("legacy key should be removed after migration", legacyAfterMigrate == null)
+        // 取消全部收藏
+        store.toggleFavorite("srv", "legacy-a")
+        store.toggleFavorite("srv", "legacy-b")
+        // 再读：必须为空，不应因 legacy key 残留而重新迁移"复活"
+        val afterUnfavorite = store.favoriteSessionIds("srv").first()
+        assertTrue("unfavorited sessions must not resurrect", afterUnfavorite.isEmpty())
+    }
 }

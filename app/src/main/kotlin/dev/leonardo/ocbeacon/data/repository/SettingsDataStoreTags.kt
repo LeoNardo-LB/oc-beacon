@@ -153,6 +153,10 @@ fun SettingsDataStore.favoriteSessionIds(serverId: String): Flow<Set<String>> =
                     assignmentMapSerializer,
                     legacy.fold(cur) { acc, sid -> acc + (sid to (acc[sid].orEmpty() + FAVORITE_TAG_ID).distinct()) }
                 )
+                // 迁移成功后删源 key，保证幂等：否则用户取消全部收藏后 fromAssignments 重新变空，
+                // 迁移条件再次满足会导致已取消的收藏被重新迁移"复活"（见 SettingsDataStoreTagsTest
+                // `favoriteSessionIds migrate then unfavorite all does not resurrect`）。
+                p.remove(legacyFavoriteKey(serverId))
             }
             AppLogger.d(TAG_DIAG, "[favoriteMigrate] server=$serverId count=${legacy.size}")
             legacy
