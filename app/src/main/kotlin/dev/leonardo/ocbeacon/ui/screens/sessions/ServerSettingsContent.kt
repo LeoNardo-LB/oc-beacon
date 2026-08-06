@@ -33,7 +33,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
+import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.McpServerRow
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.TagManagementSection
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 @Composable
@@ -41,8 +44,15 @@ fun ServerSettingsContent(
     mcpServers: List<McpServerStatus>,
     mcpLoading: String?,
     mcpInitialLoading: Boolean,
+    tags: List<Tag>,
+    tagAssignments: Map<String, List<String>>,
+    sessions: List<Session>,
     modifier: Modifier = Modifier,
     onToggleMcp: (name: String) -> Unit = {},
+    onAddTag: (Tag) -> Unit = {},
+    onUpdateTag: (Tag) -> Unit = {},
+    onDeleteTag: (String) -> Unit = {},
+    onRemoveTagAssignment: (sessionId: String, tagId: String) -> Unit = { _, _ -> },
 ) {
     var mcpExpanded by remember { mutableStateOf(false) }
 
@@ -124,6 +134,19 @@ fun ServerSettingsContent(
                     }
                 }
             }
+        }
+
+        // 标签管理区块
+        item {
+            TagManagementSection(
+                tags = tags,
+                tagAssignments = tagAssignments,
+                sessions = sessions,
+                onAddTag = onAddTag,
+                onUpdateTag = onUpdateTag,
+                onDeleteTag = onDeleteTag,
+                onRemoveAssignment = onRemoveTagAssignment,
+            )
         }
     }
 }

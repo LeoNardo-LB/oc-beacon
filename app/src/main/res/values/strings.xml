@@ -412,6 +412,14 @@
     <string name="icon">Icon</string>
     <string name="add">Add</string>
     <string name="delete_category">Delete category</string>
+    <string name="tag_management_title">Tag management</string>
+    <string name="new_tag">New tag</string>
+    <string name="edit_tag">Edit tag</string>
+    <string name="edit">Edit</string>
+    <string name="remove_tag">Remove tag</string>
+    <string name="no_sessions_with_tag">No sessions with this tag</string>
+    <string name="delete_tag_title">Delete tag</string>
+    <string name="delete_tag_message">Delete \"%1$s\"? All session assignments will be removed.</string>
     <string name="draft">Draft</string>
     <string name="assign_category">Assign tag</string>
     <string name="quick_navigate">Quick navigate</string>

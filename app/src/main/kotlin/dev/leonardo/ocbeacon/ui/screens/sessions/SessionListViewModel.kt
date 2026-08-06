@@ -130,8 +130,10 @@ class SessionListViewModel @Inject constructor(
     val sessionTags: StateFlow<List<Tag>> = settingsRepository.sessionTags(serverId)
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
-    /** 兼容别名：Task 4 改 SessionListScreen 后移除。 */
-    val sessionCategories: StateFlow<List<Tag>> get() = sessionTags
+    /** 按服务器划分的 sessionId → tagIds 分配（含内置收藏标签），供设置页标签管理逐会话解除使用。 */
+    val sessionTagAssignments: StateFlow<Map<String, List<String>>> =
+        settingsRepository.sessionTagAssignments(serverId)
+            .stateIn(viewModelScope, WhileSubscribed5s, emptyMap())
 
     /** 当前服务器的已收藏会话 id（驱动 SessionRow 中的星标切换）。 */
     val favoriteSessionIds: StateFlow<Set<String>> = settingsRepository.favoriteSessionIds(serverId)
@@ -203,11 +205,6 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setSessionTags(serverId, sessionId, tagIds) }
     }
 
-    /** 兼容：单标签分配，供旧 SessionListScreen UI 过渡使用（Task 6 删除）。 */
-    fun assignCategory(sessionId: String, categoryId: String) {
-        assignTags(sessionId, setOf(categoryId))
-    }
-
     /** 切换当前服务器上某会话的收藏状态（基于内置收藏标签）。 */
     fun toggleFavorite(session: Session) {
         viewModelScope.launch {
@@ -220,30 +217,10 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.removeSessionTagAssignment(serverId, sessionId, tagId) }
     }
 
-    /** 兼容：清空该会话的所有用户标签，供旧 UI 过渡使用（Task 6 删除）。 */
-    fun unassignCategory(sessionId: String) {
-        assignTags(sessionId, emptySet())
-    }
-
-    /** 新建一个用户标签（按服务器划分）。 */
-    fun addCategory(name: String, color: String, icon: String) {
-        viewModelScope.launch {
-            settingsRepository.addSessionTag(
-                serverId,
-                Tag(
-                    id = java.util.UUID.randomUUID().toString(),
-                    name = name,
-                    color = color,
-                    icon = icon,
-                )
-            )
-        }
-    }
-
     /**
      * 新建一个用户标签，使用调用方预生成的 [id]（用于 TagPickerDialog 创建后立即勾选）。
      *
-     * 返回 [id] 以便调用方把它加入本地选择集合。Task 6 会以此替换旧 [addCategory]。
+     * 返回 [id] 以便调用方把它加入本地选择集合。
      */
     fun addSessionTag(name: String, color: String, icon: String, id: String): String {
         viewModelScope.launch {
@@ -261,9 +238,14 @@ class SessionListViewModel @Inject constructor(
         return id
     }
 
+    /** 更新一个已存在的用户标签（按 id 替换）。 */
+    fun updateSessionTag(tag: Tag) {
+        viewModelScope.launch { settingsRepository.updateSessionTag(serverId, tag) }
+    }
+
     /** 按 id 删除一个用户标签（并原子清理所有分配）。 */
-    fun removeCategory(categoryId: String) {
-        viewModelScope.launch { settingsRepository.removeSessionTag(serverId, categoryId) }
+    fun removeSessionTag(tagId: String) {
+        viewModelScope.launch { settingsRepository.removeSessionTag(serverId, tagId) }
     }
 
     // ============ 树形展开/收起 ============

@@ -88,7 +88,8 @@ fun SessionListScreen(
     var assignSessionId by remember { mutableStateOf("") }
     var assignTagIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
-    val categories by viewModel.sessionCategories.collectAsStateWithLifecycle()
+    val sessionTags by viewModel.sessionTags.collectAsStateWithLifecycle()
+    val sessionTagAssignments by viewModel.sessionTagAssignments.collectAsStateWithLifecycle()
     val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
     val favoriteSessionIds by viewModel.favoriteSessionIds.collectAsStateWithLifecycle()
 
@@ -228,7 +229,7 @@ fun SessionListScreen(
                         ) {
                             SessionSearchBar(
                                 isAmoled = isAmoled,
-                                categories = categories,
+                                categories = sessionTags,
                                 categoryFilter = categoryFilter,
                                 onCategoryFilterChange = { viewModel.setCategoryFilter(it) },
                                 onSearch = { query ->
@@ -294,6 +295,15 @@ fun SessionListScreen(
                         mcpLoading = viewModel.mcpLoading.collectAsStateWithLifecycle().value,
                         mcpInitialLoading = viewModel.mcpInitialLoading.collectAsStateWithLifecycle().value,
                         onToggleMcp = viewModel::toggleMcpServer,
+                        tags = sessionTags,
+                        tagAssignments = sessionTagAssignments,
+                        sessions = uiState.sessions,
+                        onAddTag = { tag ->
+                            viewModel.addSessionTag(tag.name, tag.color, tag.icon, id = tag.id)
+                        },
+                        onUpdateTag = viewModel::updateSessionTag,
+                        onDeleteTag = viewModel::removeSessionTag,
+                        onRemoveTagAssignment = viewModel::removeSessionTagAssignment,
                     )
                 }
             }
@@ -359,7 +369,7 @@ fun SessionListScreen(
     // 标签分配对话框（复选框多选 + 新建自动勾选）
     if (showCategoryPicker) {
         TagPickerDialog(
-            tags = categories,
+            tags = sessionTags,
             selectedTagIds = assignTagIds,
             onConfirm = { tagIds ->
                 showCategoryPicker = false
