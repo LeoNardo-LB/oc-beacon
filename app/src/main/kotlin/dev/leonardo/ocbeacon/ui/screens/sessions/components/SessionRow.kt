@@ -197,9 +197,8 @@ internal fun SessionRow(
                     }
                 }
 
-                // 标签（第三行右对齐；多标签时本任务先显示首个，内容超出可用宽度时循环滚动播放）
-                // Task 5 将重做为完整多标签显示。
-                item.tags.firstOrNull()?.let { category ->
+                // 标签区（第三行右对齐；多标签横排，内容超出可用宽度时循环滚动播放）
+                if (item.tags.isNotEmpty()) {
                     Box(
                         modifier = Modifier.weight(1f),
                         contentAlignment = Alignment.CenterEnd,
@@ -207,24 +206,32 @@ internal fun SessionRow(
                         Row(
                             modifier = Modifier
                                 .basicMarquee()
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(SessionCategoryStyle.color(category.color).copy(alpha = AlphaTokens.SELECTED))
-                                .padding(horizontal = 4.dp, vertical = 1.dp),
+                                .clip(RoundedCornerShape(4.dp)),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            Icon(
-                                imageVector = SessionCategoryStyle.icon(category.icon),
-                                contentDescription = null,
-                                modifier = Modifier.size(10.dp),
-                                tint = SessionCategoryStyle.color(category.color),
-                            )
-                            Text(
-                                text = category.name,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = SessionCategoryStyle.color(category.color),
-                                maxLines = 1,
-                            )
+                            item.tags.forEach { tag ->
+                                Row(
+                                    modifier = Modifier
+                                        .background(SessionCategoryStyle.color(tag.color).copy(alpha = AlphaTokens.SELECTED))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = SessionCategoryStyle.icon(tag.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(10.dp),
+                                        tint = SessionCategoryStyle.color(tag.color),
+                                    )
+                                    Text(
+                                        text = tag.name,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        color = SessionCategoryStyle.color(tag.color),
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
