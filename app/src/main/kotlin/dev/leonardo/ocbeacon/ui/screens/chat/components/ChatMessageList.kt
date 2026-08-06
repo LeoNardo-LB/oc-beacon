@@ -90,6 +90,7 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.logging.AppLogger
+import dev.leonardo.ocbeacon.util.MessageFingerprints
 
 /**
  * 主会话和子会话消息列表共用的 composable。
@@ -134,7 +135,7 @@ fun ChatMessageList(
     val turnGroupsSigRef = remember { intArrayOf(Int.MIN_VALUE) }
     val turnGroupsRef = remember { arrayOfNulls<Map<Int, List<ChatMessage>>>(1) }
     val turnGroups: Map<Int, List<ChatMessage>> = remember(rawMessages) {
-        val sig = messagesSignature(rawMessages)
+        val sig = MessageFingerprints.messagesSignature(rawMessages)
         val cached = turnGroupsRef[0]
         if (cached != null && sig == turnGroupsSigRef[0]) {
             cached
@@ -187,7 +188,7 @@ fun ChatMessageList(
         val streamingId = streamingMsgId
         val result = displayItems.map { (rawIndex, msg) ->
             if (!msg.isAssistant) return@map null
-            val fingerprint = messageFingerprint(msg)
+            val fingerprint = MessageFingerprints.messageFingerprint(msg)
             val cached = renderableCache[msg.message.id]
             if (cached != null && cached.first == fingerprint && msg.message.id != streamingId) {
                 cached.second
@@ -267,7 +268,7 @@ fun ChatMessageList(
     val jumpTargetsSigRef = remember { intArrayOf(Int.MIN_VALUE) }
     val jumpTargetsRef = remember { arrayOfNulls<List<JumpTarget>>(1) }
     val jumpTargets: List<JumpTarget> = remember(rawMessages, noTextPlaceholder) {
-        val sig = messagesSignature(rawMessages) * 31 + noTextPlaceholder.hashCode()
+        val sig = MessageFingerprints.messagesSignature(rawMessages) * 31 + noTextPlaceholder.hashCode()
         val cached = jumpTargetsRef[0]
         if (cached != null && sig == jumpTargetsSigRef[0]) {
             cached
@@ -704,62 +705,6 @@ fun ChatMessageList(
             }
         } // Box(weight)
     } // Column
-}
-
-/**
- * 消息列表结构签名（id 序列）—— 用于缓存结构不变的重计算。
- * 只含 id 序列与顺序；内容（parts）变化不改变签名。
- */
-private fun messagesSignature(messages: List<ChatMessage>): Int {
-    var h = messages.size * 31
-    for (m in messages) h = h * 31 + m.message.id.hashCode()
-    return h
-}
-
-/**
- * 轻量内容指纹：只覆盖会随 SSE 流式 / 工具输出注入 / 完成替换变异的字段，
- * 避免对整个消息做深 hashCode（大文本逐字符开销）。
- * 覆盖：Text/Reasoning 文本尾部、Tool output 尾部、消息完成时间与错误。
- * 未覆盖字段（agent/modelId/parts 静态字段）在消息生命周期内不变。
- */
-private fun messageFingerprint(msg: ChatMessage): Int {
-    val m = msg.message
-    var h = partsFingerprint(msg.parts)
-    h = h * 31 + (m.time.completed ?: 0L).hashCode()
-    if (m is dev.leonardo.ocbeacon.domain.model.Message.Assistant && m.error != null) {
-        h = h * 31 + m.error.name.hashCode() * 31 + (m.error.data?.toString()?.hashCode() ?: 0)
-    }
-    return h
-}
-
-private fun partsFingerprint(parts: List<Part>): Int {
-    var h = parts.size * 31
-    for (p in parts) {
-        h = h * 31 + when (p) {
-            is Part.Text -> p.text.length * 31 + tailHash(p.text)
-            is Part.Reasoning -> p.text.length * 31 + tailHash(p.text)
-            is Part.Tool -> toolFingerprint(p)
-            else -> p.id.hashCode() * 31 + p.javaClass.name.hashCode()
-        }
-    }
-    return h
-}
-
-private fun toolFingerprint(p: Part.Tool): Int {
-    var h = p.callId.hashCode() * 31 + p.tool.hashCode() + p.state.javaClass.name.hashCode()
-    when (val s = p.state) {
-        is ToolState.Running -> h = h * 31 + tailHash(s.output)
-        is ToolState.Completed -> h = h * 31 + tailHash(s.output)
-        is ToolState.Error -> h = h * 31 + tailHash(s.error)
-        else -> {}
-    }
-    return h
-}
-
-private fun tailHash(s: String): Int {
-    val len = s.length
-    if (len <= 64) return s.hashCode()
-    return s.substring(len - 64).hashCode() * 31 + len
 }
 
 
