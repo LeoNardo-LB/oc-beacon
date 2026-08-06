@@ -50,7 +50,7 @@ internal fun SessionTreeList(
     onNavigateToNewChat: (String) -> Unit,
     onRename: (sessionId: String, currentTitle: String) -> Unit,
     onDelete: (sessionId: String, title: String) -> Unit,
-    onAssignCategory: (sessionId: String, currentCategoryId: String?) -> Unit,
+    onAssignTags: (sessionId: String, currentTagIds: Set<String>) -> Unit,
 ) {
     val context = LocalContext.current
     val untitledLabel = stringResource(R.string.session_untitled)
@@ -134,7 +134,7 @@ internal fun SessionTreeList(
                             scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
                         },
                         onAssignCategory = {
-                            onAssignCategory(node.id, node.session.category?.id)
+                            onAssignTags(node.id, node.session.tags.map { it.id }.toSet())
                         },
                         isFavorite = node.id in favoriteSessionIds,
                         onToggleFavorite = {

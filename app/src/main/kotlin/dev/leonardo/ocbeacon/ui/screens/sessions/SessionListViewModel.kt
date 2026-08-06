@@ -19,8 +19,8 @@ import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.Session
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
@@ -126,9 +126,12 @@ class SessionListViewModel @Inject constructor(
     private val _categoryFilter = MutableStateFlow<String?>(null)
     val categoryFilter: StateFlow<String?> = _categoryFilter.asStateFlow()
 
-    /** 全局分类列表，用于选择器 / 过滤 chip。 */
-    val sessionCategories: StateFlow<List<SessionCategory>> = settingsRepository.sessionCategories()
+    /** 全局标签列表（按服务器划分），用于选择器 / 过滤 chip。 */
+    val sessionTags: StateFlow<List<Tag>> = settingsRepository.sessionTags(serverId)
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
+
+    /** 兼容别名：Task 4 改 SessionListScreen 后移除。 */
+    val sessionCategories: StateFlow<List<Tag>> get() = sessionTags
 
     /** 当前服务器的已收藏会话 id（驱动 SessionRow 中的星标切换）。 */
     val favoriteSessionIds: StateFlow<Set<String>> = settingsRepository.favoriteSessionIds(serverId)
@@ -166,9 +169,9 @@ class SessionListViewModel @Inject constructor(
         _lastToggledDirectory,
         _searchQuery,
         _viewMode,
-        settingsRepository.sessionCategoryAssignments(serverId),
+        settingsRepository.sessionTagAssignments(serverId),
         _categoryFilter,
-        sessionCategories
+        sessionTags
     ) { values ->
         buildSessionListUiState(values, serverId, serverName, draftRepository)
     }.stateIn(viewModelScope, WhileSubscribed5s, SessionListUiState())
@@ -195,9 +198,14 @@ class SessionListViewModel @Inject constructor(
         _categoryFilter.value = categoryId
     }
 
-    /** 将会话分配到当前服务器的某个分类。 */
+    /** 替换指定会话上的用户标签集（保留内置收藏标签）。 */
+    fun assignTags(sessionId: String, tagIds: Set<String>) {
+        viewModelScope.launch { settingsRepository.setSessionTags(serverId, sessionId, tagIds) }
+    }
+
+    /** 兼容：单标签分配，供旧 SessionListScreen UI 过渡使用（Task 6 删除）。 */
     fun assignCategory(sessionId: String, categoryId: String) {
-        viewModelScope.launch { settingsRepository.assignSessionCategory(serverId, sessionId, categoryId) }
+        assignTags(sessionId, setOf(categoryId))
     }
 
     /** 切换当前服务器上某会话的收藏状态（基于内置收藏标签）。 */
@@ -207,16 +215,22 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
-    /** 移除某会话在当前服务器上的分类分配。 */
-    fun unassignCategory(sessionId: String) {
-        viewModelScope.launch { settingsRepository.unassignSessionCategory(serverId, sessionId) }
+    /** 移除某会话在当前服务器上的某个标签分配（不删除标签本身）。 */
+    fun removeSessionTagAssignment(sessionId: String, tagId: String) {
+        viewModelScope.launch { settingsRepository.removeSessionTagAssignment(serverId, sessionId, tagId) }
     }
 
-    /** 新建一个全局分类。 */
+    /** 兼容：清空该会话的所有用户标签，供旧 UI 过渡使用（Task 6 删除）。 */
+    fun unassignCategory(sessionId: String) {
+        assignTags(sessionId, emptySet())
+    }
+
+    /** 新建一个用户标签（按服务器划分）。 */
     fun addCategory(name: String, color: String, icon: String) {
         viewModelScope.launch {
-            settingsRepository.addSessionCategory(
-                SessionCategory(
+            settingsRepository.addSessionTag(
+                serverId,
+                Tag(
                     id = java.util.UUID.randomUUID().toString(),
                     name = name,
                     color = color,
@@ -226,9 +240,9 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
-    /** 按 id 删除一个全局分类。 */
+    /** 按 id 删除一个用户标签（并原子清理所有分配）。 */
     fun removeCategory(categoryId: String) {
-        viewModelScope.launch { settingsRepository.removeSessionCategory(categoryId) }
+        viewModelScope.launch { settingsRepository.removeSessionTag(serverId, categoryId) }
     }
 
     // ============ 树形展开/收起 ============

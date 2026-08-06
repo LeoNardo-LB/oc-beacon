@@ -197,8 +197,9 @@ internal fun SessionRow(
                     }
                 }
 
-                // 分类 tag（第三行右对齐；内容超出可用宽度时循环滚动播放）
-                item.category?.let { category ->
+                // 标签（第三行右对齐；多标签时本任务先显示首个，内容超出可用宽度时循环滚动播放）
+                // Task 5 将重做为完整多标签显示。
+                item.tags.firstOrNull()?.let { category ->
                     Box(
                         modifier = Modifier.weight(1f),
                         contentAlignment = Alignment.CenterEnd,

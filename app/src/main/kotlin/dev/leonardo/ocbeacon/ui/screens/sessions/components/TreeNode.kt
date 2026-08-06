@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import dev.leonardo.ocbeacon.domain.model.Session
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionItem
 import dev.leonardo.ocbeacon.util.PathUtils
 
@@ -45,7 +45,7 @@ sealed interface TreeNode {
  * @param expandedDirs 当前展开的目录路径集合
  * @param baseDirectory 选定的基础目录路径（已规范化，如 "D:/Develop"），或 null
  * @param statuses 会话状态映射
- * @param sessionCategories 已解析的 会话 id → 分类 映射，用于显示
+ * @param sessionTags 已解析的 会话 id → 标签列表 映射，用于显示
  */
 fun buildTreeNodes(
     sessions: List<Session>,
@@ -53,7 +53,7 @@ fun buildTreeNodes(
     baseDirectory: String?,
     statuses: Map<String, SessionStatus> = emptyMap(),
     draftSessionIds: Set<String> = emptySet(),
-    sessionCategories: Map<String, SessionCategory> = emptyMap(),
+    sessionTags: Map<String, List<Tag>> = emptyMap(),
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
     val rootSessions = mutableListOf<Session>()
@@ -140,7 +140,7 @@ fun buildTreeNodes(
             for (session in bucket.sessions.sortedByDescending { it.time.updated }) {
                 result.add(TreeNode.Session(
                     id = session.id,
-                    session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, category = sessionCategories[session.id]),
+                    session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty()),
                 ))
             }
         }
@@ -150,7 +150,7 @@ fun buildTreeNodes(
     for (session in rootSessions.sortedByDescending { it.time.updated }) {
         result.add(TreeNode.Session(
             id = session.id,
-            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, category = sessionCategories[session.id]),
+            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty()),
         ))
     }
 

@@ -9,6 +9,7 @@ import dev.leonardo.ocbeacon.domain.model.FavoriteSessionSnapshot
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.model.favoriteKey
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.service.SseConnectionManager
@@ -71,7 +72,12 @@ class CrossServerSessionsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
-    /** 每个服务器的收藏 + 分类分配，聚合所有已知服务器。 */
+    /**
+     * 每个服务器的收藏 + 分类分配，聚合所有已知服务器。
+     *
+     * 注：分类分配已在 Task 2 移除；本 Flow 暂以空 Map 占位，
+     * Task 7 整体重做此 ViewModel 时改为标签语义。
+     */
     private val preferencesByServer: Flow<Map<String, ServerSessionPreferences>> =
         serverDataStore.servers.flatMapLatest { servers ->
             if (servers.isEmpty()) {
@@ -81,7 +87,7 @@ class CrossServerSessionsViewModel @Inject constructor(
                     servers.map { server ->
                         combine(
                             settingsRepository.favoriteSessionIds(server.id),
-                            settingsRepository.sessionCategoryAssignments(server.id),
+                            flowOf<Map<String, String>>(emptyMap()),
                         ) { favoriteIds, assignments ->
                             server.id to ServerSessionPreferences(favoriteIds, assignments)
                         }
@@ -90,11 +96,12 @@ class CrossServerSessionsViewModel @Inject constructor(
             }
         }
 
-    private val favoritesMeta: Flow<FavoritesMeta> = combine(
-        settingsRepository.crossServerFavoriteOrder,
-        settingsRepository.favoriteSessionSnapshots,
-        settingsRepository.sessionCategories(),
-    ) { order, snapshots, categories -> FavoritesMeta(order, snapshots, categories) }
+    /**
+     * Task 2 移除了 crossServerFavoriteOrder / favoriteSessionSnapshots / sessionCategories；
+     * 本 Flow 暂以空 meta 占位，Task 7 整体重做。
+     */
+    private val favoritesMeta: Flow<FavoritesMeta> =
+        flowOf(FavoritesMeta(order = emptyList(), snapshots = emptyMap(), categories = emptyList()))
 
     val uiState = combine(
         aggregator.crossServerSessions,
@@ -118,59 +125,40 @@ class CrossServerSessionsViewModel @Inject constructor(
         CrossServerSessionsUiState(),
     )
 
+    /** 切换 (serverId, sessionId) 的收藏状态（基于内置收藏标签）。 */
     fun toggleFavorite(item: CrossServerSessionItem) {
         viewModelScope.launch {
-            if (item.isFavorite) {
-                settingsRepository.removeFavoriteSession(item.serverId, item.sessionId)
-                settingsRepository.setCrossServerFavoriteOrderItem(
-                    favoriteKey(item.serverId, item.sessionId),
-                    favorite = false,
-                )
-            } else {
-                val snapshot = item.session?.let(FavoriteSessionSnapshot::from)
-                    ?: item.snapshot
-                    ?: FavoriteSessionSnapshot(item.sessionId, item.sessionId, 0, 0)
-                settingsRepository.addFavoriteSession(item.serverId, item.sessionId, snapshot)
-                settingsRepository.setCrossServerFavoriteOrderItem(
-                    favoriteKey(item.serverId, item.sessionId),
-                    favorite = true,
-                )
-            }
+            settingsRepository.toggleFavorite(item.serverId, item.sessionId)
         }
     }
 
+    /**
+     * 跨服务器手动重排——Task 7 整体重做（原依赖已移除的 crossServerFavoriteOrder）。
+     */
     fun moveFavorite(item: CrossServerSessionItem, visibleItems: List<CrossServerSessionItem>, offset: Int) {
-        if (offset == 0) return
-        viewModelScope.launch {
-            val currentOrder = settingsRepository.crossServerFavoriteOrder.first()
-            val mergedOrder = moveCrossServerFavoriteOrder(
-                currentOrder = currentOrder,
-                visibleOrder = visibleItems.map { favoriteKey(it.serverId, it.sessionId) },
-                itemKey = favoriteKey(item.serverId, item.sessionId),
-                offset = offset,
-            )
-            if (mergedOrder != currentOrder) {
-                settingsRepository.setCrossServerFavoriteOrder(mergedOrder)
-            }
-        }
+        // 暂为 no-op：旧排序存储已移除，新顺序由 Task 7 引入。
     }
 
+    /** 设置某会话的标签集（Task 7 重做 UI；过渡期把 categoryId 视为单标签 id）。 */
     fun setSessionCategory(item: CrossServerSessionItem, categoryId: String?) {
         viewModelScope.launch {
             if (categoryId == null) {
-                settingsRepository.unassignSessionCategory(item.serverId, item.sessionId)
+                settingsRepository.setSessionTags(item.serverId, item.sessionId, emptySet())
             } else {
-                settingsRepository.assignSessionCategory(item.serverId, item.sessionId, categoryId)
+                settingsRepository.setSessionTags(item.serverId, item.sessionId, setOf(categoryId))
             }
         }
     }
 
+    /** 新建一个用户标签（按服务器划分；Task 7 重做 UI 时改名）。 */
     fun saveSessionCategory(id: String?, name: String, color: String, icon: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            settingsRepository.addSessionCategory(
-                SessionCategory(
+            // serverId 在此 ViewModel 无单值上下文，用空串——Task 7 重做时按服务器划分。
+            settingsRepository.addSessionTag(
+                serverId = "",
+                tag = Tag(
                     id = id ?: UUID.randomUUID().toString(),
                     name = trimmed,
                     color = color,
@@ -180,8 +168,12 @@ class CrossServerSessionsViewModel @Inject constructor(
         }
     }
 
+    /** 删除一个用户标签（Task 7 重做 UI 时改名）。 */
     fun deleteSessionCategory(categoryId: String) {
-        viewModelScope.launch { settingsRepository.removeSessionCategory(categoryId) }
+        viewModelScope.launch {
+            // serverId 占位，Task 7 重做时按服务器划分。
+            settingsRepository.removeSessionTag(serverId = "", tagId = categoryId)
+        }
     }
 }
 

@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.components.amoledOutlinedTextFieldColors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun SessionSearchBar(
     isAmoled: Boolean,
-    categories: List<SessionCategory>,
+    categories: List<Tag>,
     categoryFilter: String?,
     onCategoryFilterChange: (String?) -> Unit,
     onSearch: (String) -> Unit,

@@ -47,7 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -63,7 +63,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionCategoryPickerDialog(
-    categories: List<SessionCategory>,
+    categories: List<Tag>,
     assignedCategoryId: String?,
     onAssign: (String?) -> Unit,
     onCreateCategory: (name: String, color: String, icon: String) -> Unit,

@@ -210,7 +210,7 @@ fun CrossServerSessionsScreen(
     // 分类选择器
     categoryPickerItem?.let { item ->
         SessionCategoryPickerDialog(
-            categories = state.categories,
+            categories = state.categories.map { dev.leonardo.ocbeacon.domain.model.Tag(it.id, it.name, it.color, it.icon) },
             assignedCategoryId = item.category?.id,
             onAssign = { categoryId ->
                 viewModel.setSessionCategory(item, categoryId)

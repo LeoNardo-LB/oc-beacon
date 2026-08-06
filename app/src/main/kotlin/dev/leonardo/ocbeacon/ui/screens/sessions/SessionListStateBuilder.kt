@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
 import dev.leonardo.ocbeacon.domain.model.Session
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.buildTreeNodes
@@ -32,9 +32,9 @@ internal fun buildSessionListUiState(
     val lastToggledDirectory = values[11] as String?
     val searchQuery = values[12] as String?
     val viewMode = values[13] as SessionViewMode
-    val categoryAssignments = values[14] as Map<String, String>
+    val categoryAssignments = values[14] as Map<String, List<String>>
     val categoryFilterId = values[15] as String?
-    val categoriesList = values[16] as List<SessionCategory>
+    val categoriesList = values[16] as List<Tag>
 
     val serverSessionIds = serverSessionMap[serverId].orEmpty()
 
@@ -64,15 +64,15 @@ internal fun buildSessionListUiState(
     }
 
     val categoryFilteredSessions = if (categoryFilterId != null) {
-        searchedSessions.filter { categoryAssignments[it.id] == categoryFilterId }
+        searchedSessions.filter { categoryFilterId in (categoryAssignments[it.id] ?: emptyList()) }
     } else {
         searchedSessions
     }
 
-    val categoryById = categoriesList.associateBy { it.id }
-    val resolvedCategories: Map<String, SessionCategory> = buildMap {
-        categoryAssignments.forEach { (sessionId, catId) ->
-            categoryById[catId]?.let { put(sessionId, it) }
+    val tagsById = categoriesList.associateBy { it.id }
+    val resolvedTags: Map<String, List<Tag>> = buildMap {
+        categoryAssignments.forEach { (sessionId, tagIds) ->
+            put(sessionId, tagIds.mapNotNull { tagsById[it] })
         }
     }
 
@@ -84,12 +84,12 @@ internal fun buildSessionListUiState(
                     session = session,
                     status = statuses[session.id] ?: SessionStatus.Idle,
                     hasDraft = session.id in draftRepository.getDraftSessionIds(),
-                    category = resolvedCategories[session.id]
+                    tags = resolvedTags[session.id].orEmpty()
                 )
             )
         }
     } else {
-        buildTreeNodes(categoryFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), resolvedCategories)
+        buildTreeNodes(categoryFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), resolvedTags)
     }
 
     val prefillDirectory = if (lastToggledDirectory != null && lastToggledDirectory in expandedPaths)

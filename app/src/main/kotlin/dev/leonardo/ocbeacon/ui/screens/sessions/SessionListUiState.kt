@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
 import dev.leonardo.ocbeacon.domain.model.Session
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
 
 internal const val TAG_SESSION_LIST_VM = "SessionListViewModel"
@@ -28,5 +28,5 @@ data class SessionItem(
     val session: Session,
     val status: SessionStatus = SessionStatus.Idle,
     val hasDraft: Boolean = false,
-    val category: SessionCategory? = null,
+    val tags: List<Tag> = emptyList(),
 )

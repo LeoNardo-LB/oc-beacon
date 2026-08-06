@@ -2,8 +2,7 @@ package dev.leonardo.ocbeacon.fakes
 
 import javax.inject.Inject
 import dev.leonardo.ocbeacon.domain.model.AppSettings
-import dev.leonardo.ocbeacon.domain.model.FavoriteSessionSnapshot
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,11 +15,9 @@ class FakeSettingsRepository @Inject constructor() : SettingsRepository {
     val hiddenModelsState = MutableStateFlow<Set<String>>(emptySet())
     var updateSettingsResult: Result<Unit> = Result.success(Unit)
 
-    val sessionCategoriesState = MutableStateFlow<List<SessionCategory>>(emptyList())
-    val categoryAssignmentsState = MutableStateFlow<Map<String, String>>(emptyMap())
+    val sessionTagsState = MutableStateFlow<List<Tag>>(emptyList())
+    val tagAssignmentsState = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     val favoriteSessionIdsState = MutableStateFlow<Set<String>>(emptySet())
-    val crossServerFavoriteOrderState = MutableStateFlow<List<String>>(emptyList())
-    val favoriteSnapshotsState = MutableStateFlow<Map<String, FavoriteSessionSnapshot>>(emptyMap())
 
     override fun getSettingsFlow(): Flow<AppSettings> = settingsState
 
@@ -36,64 +33,39 @@ class FakeSettingsRepository @Inject constructor() : SettingsRepository {
         hiddenModelsState.value = if (visible) hiddenModelsState.value - key else hiddenModelsState.value + key
     }
 
-    override fun sessionCategories(): Flow<List<SessionCategory>> = sessionCategoriesState
+    override fun sessionTags(serverId: String): Flow<List<Tag>> = sessionTagsState
 
-    override fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>> = categoryAssignmentsState
+    override fun sessionTagAssignments(serverId: String): Flow<Map<String, List<String>>> = tagAssignmentsState
 
-    override suspend fun addSessionCategory(category: SessionCategory) {
-        sessionCategoriesState.value = sessionCategoriesState.value.filterNot { it.id == category.id } + category
+    override suspend fun addSessionTag(serverId: String, tag: Tag) {
+        sessionTagsState.value = sessionTagsState.value.filterNot { it.id == tag.id } + tag
     }
 
-    override suspend fun removeSessionCategory(categoryId: String) {
-        sessionCategoriesState.value = sessionCategoriesState.value.filterNot { it.id == categoryId }
+    override suspend fun updateSessionTag(serverId: String, tag: Tag) {
+        sessionTagsState.value = sessionTagsState.value.map { if (it.id == tag.id) tag else it }
     }
 
-    override suspend fun assignSessionCategory(serverId: String, sessionId: String, categoryId: String) {
-        categoryAssignmentsState.value = categoryAssignmentsState.value + (sessionId to categoryId)
+    override suspend fun removeSessionTag(serverId: String, tagId: String) {
+        sessionTagsState.value = sessionTagsState.value.filterNot { it.id == tagId }
     }
 
-    override suspend fun unassignSessionCategory(serverId: String, sessionId: String) {
-        categoryAssignmentsState.value = categoryAssignmentsState.value - sessionId
+    override suspend fun setSessionTags(serverId: String, sessionId: String, tagIds: Set<String>) {
+        tagAssignmentsState.value = tagAssignmentsState.value + (sessionId to tagIds.toList())
+    }
+
+    override suspend fun removeSessionTagAssignment(serverId: String, sessionId: String, tagId: String) {
+        val current = tagAssignmentsState.value
+        val updated = current[sessionId]?.filterNot { it == tagId } ?: return
+        tagAssignmentsState.value = if (updated.isEmpty()) current - sessionId else current + (sessionId to updated)
     }
 
     override fun favoriteSessionIds(serverId: String): Flow<Set<String>> = favoriteSessionIdsState
 
-    override val crossServerFavoriteOrder: Flow<List<String>> = crossServerFavoriteOrderState
-
-    override val favoriteSessionSnapshots: Flow<Map<String, FavoriteSessionSnapshot>> = favoriteSnapshotsState
-
-    override suspend fun addFavoriteSession(serverId: String, sessionId: String, snapshot: FavoriteSessionSnapshot) {
-        val key = "$serverId:$sessionId"
-        favoriteSessionIdsState.value = favoriteSessionIdsState.value + sessionId
-        favoriteSnapshotsState.value = favoriteSnapshotsState.value + (key to snapshot)
-        crossServerFavoriteOrderState.value = crossServerFavoriteOrderState.value + key
-    }
-
-    override suspend fun removeFavoriteSession(serverId: String, sessionId: String) {
-        val key = "$serverId:$sessionId"
-        favoriteSessionIdsState.value = favoriteSessionIdsState.value - sessionId
-        favoriteSnapshotsState.value = favoriteSnapshotsState.value - key
-        crossServerFavoriteOrderState.value = crossServerFavoriteOrderState.value - key
-    }
-
-    override suspend fun setCrossServerFavoriteOrder(order: List<String>) {
-        crossServerFavoriteOrderState.value = order
-    }
-
-    override suspend fun setCrossServerFavoriteOrderItem(key: String, favorite: Boolean) {
-        crossServerFavoriteOrderState.value = if (favorite) {
-            if (key in crossServerFavoriteOrderState.value) crossServerFavoriteOrderState.value
-            else crossServerFavoriteOrderState.value + key
+    override suspend fun toggleFavorite(serverId: String, sessionId: String) {
+        favoriteSessionIdsState.value = if (sessionId in favoriteSessionIdsState.value) {
+            favoriteSessionIdsState.value - sessionId
         } else {
-            crossServerFavoriteOrderState.value - key
+            favoriteSessionIdsState.value + sessionId
         }
-    }
-
-    override suspend fun saveFavoriteSessionSnapshot(serverId: String, sessionId: String, snapshot: FavoriteSessionSnapshot) {
-        favoriteSnapshotsState.value = favoriteSnapshotsState.value + ("$serverId:$sessionId" to snapshot)
-    }
-
-    override suspend fun clearFavoriteSessionSnapshot(serverId: String, sessionId: String) {
-        favoriteSnapshotsState.value = favoriteSnapshotsState.value - "$serverId:$sessionId"
     }
 }

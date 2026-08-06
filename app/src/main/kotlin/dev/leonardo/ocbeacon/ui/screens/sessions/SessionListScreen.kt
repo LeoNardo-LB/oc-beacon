@@ -277,9 +277,9 @@ fun SessionListScreen(
                                             deleteSessionTitle = title
                                             showDeleteDialog = true
                                         },
-                                        onAssignCategory = { sessionId, currentCategoryId ->
+                                        onAssignTags = { sessionId, currentTagIds ->
                                             assignSessionId = sessionId
-                                            assignCategoryId = currentCategoryId
+                                            assignCategoryId = currentTagIds.firstOrNull()
                                             showCategoryPicker = true
                                         },
                                     )
