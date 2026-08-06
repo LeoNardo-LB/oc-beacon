@@ -193,9 +193,9 @@ fun NavGraph(
                     } else {
                         navController.navigate(route) { launchSingleTop = true }
                     }
-                } else if (deepLink.serverUrl.isNotBlank()) {
+                } else if (deepLink.serverId.isNotBlank()) {
                     // 持久通知点击（无 sessionId）→ 打开该服务器的会话列表
-                    AppLogger.i(TAG, "Deep-link → native SessionList for ${deepLink.serverName}")
+                    AppLogger.i(TAG, "Deep-link → native SessionList for ${deepLink.serverId}")
                     val route = SessionListNav.createRoute(deepLink.serverId)
                     navController.navigate(route) { launchSingleTop = true }
                 } else {
@@ -203,20 +203,12 @@ fun NavGraph(
                 }
             } else {
                 // ---- WebView 路径（旧版） ----
-                val isWebViewOnScreen = currentRoute?.startsWith("webview") == true
-
-                if (isWebViewOnScreen && deepLink.sessionPath.isNotBlank()) {
-                    val newUrl = deepLink.serverUrl.trimEnd('/') + deepLink.sessionPath
-                    AppLogger.i(TAG, "WebView already on screen, navigating in-place to: $newUrl")
-                    webViewNavigateFlow.tryEmit(newUrl)
-                } else {
-                    val route = WebViewNav.createRoute(
-                        serverId = deepLink.serverId,
-                        initialPath = deepLink.sessionPath
-                    )
-                    AppLogger.i(TAG, "Deep-link → WebView: $route")
-                    navController.navigate(route) { launchSingleTop = true }
-                }
+                val route = WebViewNav.createRoute(
+                    serverId = deepLink.serverId,
+                    initialPath = deepLink.sessionPath
+                )
+                AppLogger.i(TAG, "Deep-link → WebView: $route")
+                navController.navigate(route) { launchSingleTop = true }
             }
         }
     }

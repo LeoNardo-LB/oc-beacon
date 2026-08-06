@@ -46,10 +46,6 @@ private const val TAG = "MainActivity"
  * NavGraph 读取此信息并导航到 WebView，带上正确的会话 URL。
  */
 data class SessionDeepLink(
-    val serverUrl: String,
-    val username: String,
-    val password: String,
-    val serverName: String,
     val serverId: String = "",
     val sessionPath: String,  // 例如 /L2hvbWUv.../session/abc123
     val sessionId: String = "" // 原始会话 ID（当 sessionPath 为空时回退使用）
@@ -191,23 +187,15 @@ class MainActivity : ComponentActivity() {
     
     private fun handleSessionIntent(intent: Intent?) {
         if (intent?.action != OpenCodeConnectionService.ACTION_OPEN_SESSION) return
-        
-        val serverUrl = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_URL) ?: return
-        val username = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_USERNAME) ?: ""
-        val password = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_PASSWORD) ?: ""
-        val serverName = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_NAME) ?: serverUrl
-        val serverId = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_ID) ?: ""
+
+        val serverId = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SERVER_ID) ?: return
         val sessionPath = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SESSION_PATH) ?: ""
         val sessionId = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SESSION_ID) ?: ""
-        
-        AppLogger.i(TAG, "Session deep-link: $serverUrl$sessionPath (sessionId=$sessionId)")
-        
+
+        AppLogger.i(TAG, "Session deep-link: serverId=$serverId sessionPath=$sessionPath (sessionId=$sessionId)")
+
         _deepLinkFlow.tryEmit(
             SessionDeepLink(
-                serverUrl = serverUrl,
-                username = username,
-                password = password,
-                serverName = serverName,
                 serverId = serverId,
                 sessionPath = sessionPath,
                 sessionId = sessionId

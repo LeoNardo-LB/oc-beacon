@@ -19,6 +19,7 @@ import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
 import dev.leonardo.ocbeacon.domain.model.ProviderOauthAuthorization
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
+import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -86,15 +87,14 @@ class ServerSettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val providerRepository: ProviderRepository,
     private val agentRepository: AgentRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val serverConfigRepository: ServerConfigRepository
 ) : ViewModel() {
 
     private val serverId: String = safeDecodeParam(
         savedStateHandle.get<String>("serverId") ?: ""
     )
-    private val serverName: String = safeDecodeParam(
-        savedStateHandle.get<String>("serverName") ?: ""
-    )
+    private var serverDisplayName: String = ""
 
     private val _allProviders = MutableStateFlow<List<ProviderCatalog>>(emptyList())
     private val _providerCatalog = MutableStateFlow<List<ProviderCatalog>>(emptyList())
@@ -103,10 +103,17 @@ class ServerSettingsViewModel @Inject constructor(
     private val _config = MutableStateFlow(GlobalConfig())
     private val _authMethods = MutableStateFlow<Map<String, List<ProviderAuthMethod>>>(emptyMap())
     private val _hiddenModels = MutableStateFlow<Set<String>>(emptySet())
-    private val _uiState = MutableStateFlow(ServerSettingsUiState(serverName = serverName, isLoading = true))
+    private val _uiState = MutableStateFlow(ServerSettingsUiState(isLoading = true))
     val uiState: StateFlow<ServerSettingsUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            val config = serverConfigRepository.getServer(serverId)
+            if (config != null) {
+                serverDisplayName = config.displayName
+                _uiState.update { it.copy(serverName = serverDisplayName) }
+            }
+        }
         viewModelScope.launch {
             settingsRepository.hiddenModels(serverId).collect { hidden ->
                 _hiddenModels.value = hidden
@@ -445,7 +452,7 @@ class ServerSettingsViewModel @Inject constructor(
 
         _uiState.update {
             it.copy(
-                serverName = serverName,
+                serverName = serverDisplayName,
                 providers = providerToggles,
                 modelOptions = modelOptions,
                 agentOptions = agentOptions,

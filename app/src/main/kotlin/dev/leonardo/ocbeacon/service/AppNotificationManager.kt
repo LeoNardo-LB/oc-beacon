@@ -157,10 +157,6 @@ class AppNotificationManager @Inject constructor(
             Intent(context, MainActivity::class.java).apply {
                 action = OpenCodeConnectionService.ACTION_OPEN_SESSION
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(OpenCodeConnectionService.EXTRA_SERVER_URL, server.url)
-                putExtra(OpenCodeConnectionService.EXTRA_SERVER_USERNAME, server.username)
-                putExtra(OpenCodeConnectionService.EXTRA_SERVER_PASSWORD, server.password ?: "")
-                putExtra(OpenCodeConnectionService.EXTRA_SERVER_NAME, server.displayName)
                 putExtra(OpenCodeConnectionService.EXTRA_SERVER_ID, server.id)
             }
         } else {
@@ -525,10 +521,6 @@ class AppNotificationManager @Inject constructor(
         val intent = Intent(context, MainActivity::class.java).apply {
             action = OpenCodeConnectionService.ACTION_OPEN_SESSION
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(OpenCodeConnectionService.EXTRA_SERVER_URL, server.url)
-            putExtra(OpenCodeConnectionService.EXTRA_SERVER_USERNAME, server.username)
-            putExtra(OpenCodeConnectionService.EXTRA_SERVER_PASSWORD, server.password ?: "")
-            putExtra(OpenCodeConnectionService.EXTRA_SERVER_NAME, server.displayName)
             putExtra(OpenCodeConnectionService.EXTRA_SERVER_ID, server.id)
             sessionPath?.let { putExtra(OpenCodeConnectionService.EXTRA_SESSION_PATH, it) }
             sessionId?.let { putExtra(OpenCodeConnectionService.EXTRA_SESSION_ID, it) }

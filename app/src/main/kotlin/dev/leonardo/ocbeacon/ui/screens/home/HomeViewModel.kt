@@ -296,10 +296,6 @@ class HomeViewModel @Inject constructor(
                 val context = getApplication<Application>()
                 val intent = Intent(context, OpenCodeConnectionService::class.java).apply {
                     putExtra("server_id", server.id)
-                    putExtra("server_name", server.name)
-                    putExtra("server_url", server.url)
-                    putExtra("server_username", server.username)
-                    putExtra("server_password", server.password)
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

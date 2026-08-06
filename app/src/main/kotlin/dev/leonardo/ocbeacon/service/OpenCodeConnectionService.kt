@@ -19,6 +19,7 @@ import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository as DomainSettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -86,6 +87,9 @@ class OpenCodeConnectionService : Service() {
 
     @Inject
     lateinit var terminalRegistry: ServerTerminalRegistry
+
+    @Inject
+    lateinit var serverConfigRepository: ServerConfigRepository
 
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(
@@ -164,23 +168,16 @@ class OpenCodeConnectionService : Service() {
 
         ensureForegroundStarted()
 
-        // 从 intent 读取服务器详情并连接
+        // 从 intent 读取 serverId，凭据从 ServerConfigRepository 异步获取
         intent?.let { i ->
-            val serverId = i.getStringExtra("server_id")
-            val serverName = i.getStringExtra("server_name")
-            val serverUrl = i.getStringExtra("server_url")
-            val serverUsername = i.getStringExtra("server_username") ?: "opencode"
-            val serverPassword = i.getStringExtra("server_password")
-
-            if (serverId != null && serverUrl != null) {
-                val serverConfig = ServerConfig(
-                    id = serverId,
-                    url = serverUrl,
-                    username = serverUsername,
-                    password = serverPassword,
-                    name = serverName
-                )
-                connect(serverConfig)
+            val serverId = i.getStringExtra("server_id") ?: return START_STICKY
+            serviceScope.launch {
+                val config = serverConfigRepository.getServer(serverId)
+                if (config == null) {
+                    AppLogger.w(TAG, "No saved config for server $serverId, skipping connect")
+                    return@launch
+                }
+                connect(config)
             }
         }
 
@@ -506,10 +503,6 @@ class OpenCodeConnectionService : Service() {
         const val ACTION_OPEN_SESSION = "dev.leonardo.ocbeacon.OPEN_SESSION"
         const val ACTION_DISCONNECT = "dev.leonardo.ocbeacon.DISCONNECT"
         const val ACTION_DISCONNECT_ALL = "dev.leonardo.ocbeacon.DISCONNECT_ALL"
-        const val EXTRA_SERVER_URL = "server_url"
-        const val EXTRA_SERVER_USERNAME = "server_username"
-        const val EXTRA_SERVER_PASSWORD = "server_password"
-        const val EXTRA_SERVER_NAME = "server_name"
         const val EXTRA_SERVER_ID = "server_id"
         const val EXTRA_SESSION_PATH = "session_path"
         const val EXTRA_SESSION_ID = "sessionId"
