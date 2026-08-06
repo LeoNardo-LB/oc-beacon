@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /** 设置页列表行（统一样式：padding 16/12 + leading 16dp + bodyLarge 标题 + bodySmall 副标题）。 */
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 fun SettingsListRow(
     leading: @Composable () -> Unit,
     title: String,
+    titleMaxLines: Int = 1,
     subtitle: String? = null,
     subtitleColor: Color? = null,
     trailing: @Composable () -> Unit = {},
@@ -37,7 +39,12 @@ fun SettingsListRow(
         leading()
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = titleMaxLines,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
