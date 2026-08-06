@@ -3,23 +3,15 @@ package dev.leonardo.ocbeacon.ui.screens.sessions
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +28,7 @@ import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.McpServerRow
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsSectionHeader
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TagManagementSection
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
@@ -59,28 +52,11 @@ fun ServerSettingsContent(
     LazyColumn(modifier = modifier.fillMaxSize()) {
         // 区块标题：MCP 服务器
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { mcpExpanded = !mcpExpanded }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.mcp_servers_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(8.dp))
-                Icon(
-                    imageVector = if (mcpExpanded) Icons.Default.KeyboardArrowDown
-                                  else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            SettingsSectionHeader(
+                title = stringResource(R.string.mcp_servers_title),
+                expanded = mcpExpanded,
+                onClick = { mcpExpanded = !mcpExpanded },
+            )
         }
 
         item {

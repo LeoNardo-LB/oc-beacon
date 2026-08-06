@@ -22,10 +22,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
@@ -49,7 +48,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
@@ -89,28 +87,18 @@ fun TagManagementSection(
 
     Column {
         // 区块标题（可点击展开/收起，样式同 MCP 区块）
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.tag_management_title),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                imageVector = if (expanded) Icons.Filled.KeyboardArrowDown
-                else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        SettingsSectionHeader(
+            title = stringResource(R.string.tag_management_title),
+            expanded = expanded,
+            onClick = { expanded = !expanded },
+            trailing = {
+                Text(
+                    "(${tags.size})",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
 
         HorizontalDivider(
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
@@ -137,56 +125,44 @@ fun TagManagementSection(
 
                 tags.forEach { tag ->
                     val sessionCount = tagAssignments.values.count { tag.id in it }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                expandedTagId = if (expandedTagId == tag.id) null else tag.id
+                    SettingsListRow(
+                        leading = {
+                            Icon(
+                                imageVector = SessionCategoryStyle.icon(tag.icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = SessionCategoryStyle.color(tag.color),
+                            )
+                        },
+                        title = tag.name,
+                        subtitle = "($sessionCount)",
+                        trailing = {
+                            IconButton(
+                                onClick = { editingTag = tag },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Edit,
+                                    contentDescription = stringResource(R.string.edit),
+                                    Modifier.size(16.dp),
+                                )
                             }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = SessionCategoryStyle.icon(tag.icon),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = SessionCategoryStyle.color(tag.color),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = tag.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            "($sessionCount)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        IconButton(
-                            onClick = { editingTag = tag },
-                            modifier = Modifier.size(28.dp),
-                        ) {
-                            Icon(
-                                Icons.Filled.Edit,
-                                contentDescription = stringResource(R.string.edit),
-                                Modifier.size(16.dp),
-                            )
-                        }
-                        IconButton(
-                            onClick = { deletingTag = tag },
-                            modifier = Modifier.size(28.dp),
-                        ) {
-                            Icon(
-                                Icons.Filled.Delete,
-                                contentDescription = stringResource(R.string.delete),
-                                Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
+                            IconButton(
+                                onClick = { deletingTag = tag },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = stringResource(R.string.delete),
+                                    Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        },
+                        onClick = {
+                            expandedTagId = if (expandedTagId == tag.id) null else tag.id
+                        },
+                    )
 
                     // 展开：关联会话列表（标题 + 解除按钮）
                     if (expandedTagId == tag.id) {
@@ -203,23 +179,23 @@ fun TagManagementSection(
                         } else {
                             assignedSessionIds.forEach { sessionId ->
                                 val session = sessions.firstOrNull { it.id == sessionId }
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 32.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = session?.title ?: sessionId.take(12),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    TextButton(onClick = { onRemoveAssignment(sessionId, tag.id) }) {
-                                        Text(stringResource(R.string.remove_tag))
-                                    }
-                                }
+                                SettingsListRow(
+                                    modifier = Modifier.padding(start = 32.dp),
+                                    leading = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.ChatBubbleOutline,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
+                                    title = session?.title ?: sessionId.take(12),
+                                    trailing = {
+                                        TextButton(onClick = { onRemoveAssignment(sessionId, tag.id) }) {
+                                            Text(stringResource(R.string.remove_tag))
+                                        }
+                                    },
+                                )
                             }
                         }
                     }
