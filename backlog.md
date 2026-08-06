@@ -134,17 +134,17 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#18 ChatMessageList 指纹函数外移** `refactor`
+- [x] **#18 ChatMessageList 指纹函数外移** `refactor`
   - 问题：765 行因铁律 6-8 缓存逻辑膨胀
   - 方案：只外移纯函数（messageFingerprint/partsFingerprint/tailHash/messagesSignature）到 util/MessageFingerprints.kt；缓存函数高度耦合不动
   - 工时：~30min | 难度：低 | 涉及：ChatMessageList.kt
 
-- [ ] **#19 Phase 历史注释清理** `refactor`
+- [x] **#19 Phase 历史注释清理** `refactor`
   - 问题：约 30 处"在 Phase N Task X 中提取"注释，工作已完成，纯历史噪音
   - 方案：批量删除历史标记，保留功能说明
   - 工时：~30min | 难度：低 | 涉及：ui/screens/chat/* + FileViewer* + Workspace*
 
-- [ ] **#20 SearchMatchDto 字段对齐** `data`
+- [x] **#20 SearchMatchDto 字段对齐** `data`
   - 问题：DTO 字段与 API 不匹配（API 是 path:{text}/line_number，DTO 是 lines/lineNumber）；当前 /find 未启用未触发，启用即静默失败
   - 方案：按 API 对齐字段（@SerialName 处理 snake_case）
   - 工时：~1h | 难度：低 | 涉及：FileResponses.kt（启用 /find 前必须完成）
