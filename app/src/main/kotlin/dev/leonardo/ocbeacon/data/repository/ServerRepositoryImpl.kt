@@ -55,18 +55,6 @@ class ServerRepositoryImpl @Inject constructor(
 
     override suspend fun getServer(id: String): ServerConfig? = dataRepo.getServer(id)
 
-    // ── 连接生命周期 ──
-
-    override suspend fun connect(server: ServerConfig): Result<Unit> = runCatching {
-        // Phase 4：委托给 OpenCodeConnectionService.connect(server)
-        throw NotImplementedError("ServerRepository.connect — Phase 4")
-    }
-
-    override suspend fun disconnect(serverId: String): Result<Unit> = runCatching {
-        // Phase 4：委托给 OpenCodeConnectionService.disconnect(serverId)
-        throw NotImplementedError("ServerRepository.disconnect — Phase 4")
-    }
-
     override suspend fun testConnection(server: ServerConfig): Result<Boolean> = runCatching {
         dataRepo.checkHealth(server).isSuccess
     }

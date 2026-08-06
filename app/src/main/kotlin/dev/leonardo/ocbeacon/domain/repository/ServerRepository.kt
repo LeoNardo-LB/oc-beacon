@@ -4,14 +4,12 @@ import dev.leonardo.ocbeacon.domain.model.ServerConnection
 
 /**
  * 服务器管理的聚合 Repository 接口。
- * 遵循 ISP 拆分为 3 个子接口：
+ * 遵循 ISP 拆分为 2 个子接口：
  * - [ServerConfigRepository]：服务器 CRUD
- * - [ServerConnectionRepository]：连接生命周期
  * - [ProviderRepository]：Provider/model 管理
  */
 interface ServerRepository :
     ServerConfigRepository,
-    ServerConnectionRepository,
     ProviderRepository {
 
     /**

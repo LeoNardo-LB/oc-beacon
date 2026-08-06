@@ -13,12 +13,10 @@ import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
-import dev.leonardo.ocbeacon.domain.repository.ServerConnectionRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
-import dev.leonardo.ocbeacon.domain.repository.TerminalRepository
 import dev.leonardo.ocbeacon.domain.repository.VcsRepository
 import dev.leonardo.ocbeacon.fakes.FakeAgentRepository
 import dev.leonardo.ocbeacon.fakes.FakeChatRepository
@@ -29,7 +27,6 @@ import dev.leonardo.ocbeacon.fakes.FakeServerRepository
 import dev.leonardo.ocbeacon.fakes.FakeSessionRepository
 import dev.leonardo.ocbeacon.fakes.FakeSessionStateRepository
 import dev.leonardo.ocbeacon.fakes.FakeSettingsRepository
-import dev.leonardo.ocbeacon.fakes.FakeTerminalRepository
 import dev.leonardo.ocbeacon.fakes.FakeVcsRepository
 import javax.inject.Singleton
 
@@ -39,8 +36,8 @@ import javax.inject.Singleton
  * DataModule（data/di/）绑定 ChatRepository + SessionRepository。
  * DomainModule（di/）绑定所有其他 repository 接口。
  *
- * ServerRepositoryImpl 实现了 4 个接口；FakeServerRepository 同样如此，
- * 因此我们将同一个 fake 实例绑定为全部 4 种类型。
+ * ServerRepositoryImpl 实现了 3 个接口；FakeServerRepository 同样如此，
+ * 因此我们将同一个 fake 实例绑定为全部 3 种类型。
  */
 @TestInstallIn(components = [SingletonComponent::class], replaces = [DomainModule::class, DataModule::class])
 @Module
@@ -58,12 +55,10 @@ abstract class FakeDomainModule {
     @Binds @Singleton abstract fun bindDraftRepository(impl: FakeDraftRepository): DraftRepository
     @Binds @Singleton abstract fun bindFileRepository(impl: FakeFileRepository): FileRepository
     @Binds @Singleton abstract fun bindVcsRepository(impl: FakeVcsRepository): VcsRepository
-    @Binds @Singleton abstract fun bindTerminalRepository(impl: FakeTerminalRepository): TerminalRepository
     @Binds @Singleton abstract fun bindMcpRepository(impl: FakeMcpRepository): McpRepository
 
-    // ServerRepository 及其 3 个子接口 —— 全部由单个 FakeServerRepository 支撑
+    // ServerRepository 及其 2 个子接口 —— 全部由单个 FakeServerRepository 支撑
     @Binds @Singleton abstract fun bindServerRepository(impl: FakeServerRepository): ServerRepository
     @Binds @Singleton abstract fun bindServerConfigRepository(impl: FakeServerRepository): ServerConfigRepository
-    @Binds @Singleton abstract fun bindServerConnectionRepository(impl: FakeServerRepository): ServerConnectionRepository
     @Binds @Singleton abstract fun bindProviderRepository(impl: FakeServerRepository): ProviderRepository
 }

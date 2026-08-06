@@ -12,22 +12,20 @@ import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
-import dev.leonardo.ocbeacon.domain.repository.ServerConnectionRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
 
 /**
- * 实现全部 4 个 server 相关接口的 Fake。
- * DomainModule 将单个 ServerRepositoryImpl 绑定为全部 4 个接口；
+ * 实现全部 3 个 server 相关接口的 Fake。
+ * DomainModule 将单个 ServerRepositoryImpl 绑定为全部 3 个接口；
  * FakeDomainModule 以同样方式绑定此单个实例。
  */
 @Singleton
 class FakeServerRepository @Inject constructor() :
     ServerRepository,
     ServerConfigRepository,
-    ServerConnectionRepository,
     ProviderRepository {
 
     // ============ ServerConfigRepository ============
@@ -53,20 +51,6 @@ class FakeServerRepository @Inject constructor() :
 
     override suspend fun getServer(id: String): ServerConfig? =
         serversState.value.find { it.id == id }
-
-    // ============ ServerConnectionRepository ============
-
-    val connectedServers = mutableSetOf<String>()
-
-    override suspend fun connect(server: ServerConfig): Result<Unit> {
-        connectedServers.add(server.id)
-        return Result.success(Unit)
-    }
-
-    override suspend fun disconnect(serverId: String): Result<Unit> {
-        connectedServers.remove(serverId)
-        return Result.success(Unit)
-    }
 
     override suspend fun testConnection(server: ServerConfig): Result<Boolean> =
         Result.success(true)

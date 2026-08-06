@@ -13,6 +13,7 @@ import dev.leonardo.ocbeacon.service.AppNotificationManager
 import dev.leonardo.ocbeacon.data.repository.handler.*
 import dev.leonardo.ocbeacon.domain.model.*
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
+import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.*
@@ -69,7 +70,7 @@ class ChatViewModelQueuedTest {
     private val selectModelUseCase: SelectModelUseCase = mockk(relaxed = true)
     private val manageAgentUseCase: ManageAgentUseCase = mockk(relaxed = true)
     private val manageTerminalUseCase: ManageTerminalUseCase = mockk(relaxed = true)
-    private val draftUseCase: DraftUseCase = mockk(relaxed = true)
+    private val draftRepository: DraftRepository = mockk(relaxed = true)
     private val shareExportUseCase: ShareExportUseCase = mockk(relaxed = true)
     private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
@@ -78,7 +79,7 @@ class ChatViewModelQueuedTest {
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
-    private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.data.repository.PendingPromptRepository>(relaxed = true)
+    private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository>(relaxed = true)
 
     private val testSessionId = "test-session-1"
     private val testServerId = "test-server-1"
@@ -122,7 +123,7 @@ class ChatViewModelQueuedTest {
         every { Log.i(any(), any()) } returns 0
 
         // Draft 桩
-        every { draftUseCase.getDraft(any()) } returns null
+        every { draftRepository.getDraft(any()) } returns null
 
         // Settings 桩
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
@@ -254,7 +255,7 @@ class ChatViewModelQueuedTest {
             selectModelUseCase = selectModelUseCase,
             manageAgentUseCase = manageAgentUseCase,
             manageTerminalUseCase = manageTerminalUseCase,
-            draftUseCase = draftUseCase,
+            draftRepository = draftRepository,
             shareExportUseCase = shareExportUseCase,
             undoRedoUseCase = undoRedoUseCase,
             settingsRepository = settingsRepository,

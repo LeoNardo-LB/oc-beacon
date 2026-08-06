@@ -12,4 +12,6 @@ interface ServerConfigRepository {
     suspend fun removeServer(id: String): Result<Unit>
     suspend fun updateServer(server: ServerConfig): Result<Unit>
     suspend fun getServer(id: String): ServerConfig?
+    /** 健康检查（连接测试） */
+    suspend fun testConnection(server: ServerConfig): Result<Boolean>
 }

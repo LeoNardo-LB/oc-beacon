@@ -7,8 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.leonardo.ocbeacon.BuildConfig
-import dev.leonardo.ocbeacon.data.repository.PendingPromptRecord
-import dev.leonardo.ocbeacon.data.repository.PendingPromptRepository
+import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
+import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.repository.missingPendingPromptIds
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
@@ -17,6 +17,7 @@ import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
+import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
@@ -51,7 +52,7 @@ class ChatViewModel @Inject constructor(
     private val selectModelUseCase: SelectModelUseCase,
     private val manageAgentUseCase: ManageAgentUseCase,
     private val manageTerminalUseCase: ManageTerminalUseCase,
-    private val draftUseCase: DraftUseCase,
+    private val draftRepository: DraftRepository,
     private val shareExportUseCase: ShareExportUseCase,
     private val undoRedoUseCase: UndoRedoUseCase,
     private val settingsRepository: SettingsRepository,
@@ -176,7 +177,7 @@ class ChatViewModel @Inject constructor(
 
     // ============ 草稿输入 Delegate ============
     private val draftDelegate = DraftInputDelegate(
-        draftUseCase = draftUseCase,
+        draftRepository = draftRepository,
         manageAgentUseCase = manageAgentUseCase,
         scope = viewModelScope,
         serverId = serverId,

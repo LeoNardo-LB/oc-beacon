@@ -2,7 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 
 import android.util.Log
 import dev.leonardo.ocbeacon.domain.model.Draft
-import dev.leonardo.ocbeacon.domain.usecase.DraftUseCase
+import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageAgentUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -27,7 +27,7 @@ private const val TAG = "DraftInputDelegate"
  * 并将每个成员作为门面重新暴露，因此 UI 文件无需改动。
  */
 internal class DraftInputDelegate(
-    private val draftUseCase: DraftUseCase,
+    private val draftRepository: DraftRepository,
     private val manageAgentUseCase: ManageAgentUseCase,
     private val scope: CoroutineScope,
     private val serverId: String,
@@ -151,7 +151,7 @@ internal class DraftInputDelegate(
     fun clearDraft() {
         _draftText.value = ""
         _draftAttachmentUris.value = emptyList()
-        draftUseCase.clearDraft(sessionIdProvider())
+        draftRepository.clearDraft(sessionIdProvider())
     }
 
     /** UI 读取恢复草稿后消费它。 */
@@ -169,7 +169,7 @@ internal class DraftInputDelegate(
             selectedAgent = agentPair.first.takeIf { agentPair.second },
             selectedVariant = selectedVariantProvider()
         )
-        draftUseCase.saveDraft(sessionIdProvider(), draft)
+        draftRepository.saveDraft(sessionIdProvider(), draft)
     }
 
     /**
@@ -177,7 +177,7 @@ internal class DraftInputDelegate(
      * 返回完整 [Draft]，使 ChatViewModel 可以应用 agent/variant（跨集群）。
      */
     fun restorePersistedDraft(): Draft? {
-        val draft = draftUseCase.getDraft(sessionIdProvider()) ?: return null
+        val draft = draftRepository.getDraft(sessionIdProvider()) ?: return null
         _draftText.value = draft.text
         _draftAttachmentUris.value = draft.imageUris
         if (draft.confirmedFilePaths.isNotEmpty()) {

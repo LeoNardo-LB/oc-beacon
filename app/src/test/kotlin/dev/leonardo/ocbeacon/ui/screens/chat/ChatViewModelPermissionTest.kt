@@ -67,7 +67,7 @@ class ChatViewModelPermissionTest {
     private lateinit var selectModelUseCase: SelectModelUseCase
     private lateinit var manageAgentUseCase: ManageAgentUseCase
     private lateinit var manageTerminalUseCase: ManageTerminalUseCase
-    private lateinit var draftUseCase: DraftUseCase
+    private lateinit var draftRepository: DraftRepository
     private lateinit var shareExportUseCase: ShareExportUseCase
     private lateinit var undoRedoUseCase: UndoRedoUseCase
     private lateinit var messagePaging: MessagePaginationUseCase
@@ -76,7 +76,7 @@ class ChatViewModelPermissionTest {
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
-    private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.data.repository.PendingPromptRepository>(relaxed = true)
+    private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository>(relaxed = true)
 
     private val testSessionId = "session-123"
     private val testServerId = "server-1"
@@ -123,12 +123,12 @@ class ChatViewModelPermissionTest {
         selectModelUseCase = mockk(relaxed = true)
         manageAgentUseCase = mockk(relaxed = true)
         manageTerminalUseCase = mockk(relaxed = true)
-        draftUseCase = mockk(relaxed = true)
+        draftRepository = mockk(relaxed = true)
         shareExportUseCase = mockk(relaxed = true)
         undoRedoUseCase = mockk(relaxed = true)
         messagePaging = mockk(relaxed = true)
 
-        every { draftUseCase.getDraft(any()) } returns null
+        every { draftRepository.getDraft(any()) } returns null
 
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
         every { settingsRepository.getSettingsFlow() } returns flowOf(
@@ -225,7 +225,7 @@ class ChatViewModelPermissionTest {
             selectModelUseCase = selectModelUseCase,
             manageAgentUseCase = manageAgentUseCase,
             manageTerminalUseCase = manageTerminalUseCase,
-            draftUseCase = draftUseCase,
+            draftRepository = draftRepository,
             shareExportUseCase = shareExportUseCase,
             undoRedoUseCase = undoRedoUseCase,
             settingsRepository = settingsRepository,

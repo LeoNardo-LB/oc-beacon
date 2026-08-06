@@ -11,6 +11,7 @@ import io.ktor.client.HttpClient
 import dev.leonardo.ocbeacon.domain.model.AppSettings
 import dev.leonardo.ocbeacon.domain.model.ProvidersResponse
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
+import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.*
@@ -48,7 +49,7 @@ class ChatViewModelSendTest {
     private val selectModelUseCase: SelectModelUseCase = mockk(relaxed = true)
     private val manageAgentUseCase: ManageAgentUseCase = mockk(relaxed = true)
     private val manageTerminalUseCase: ManageTerminalUseCase = mockk(relaxed = true)
-    private val draftUseCase: DraftUseCase = mockk(relaxed = true)
+    private val draftRepository: DraftRepository = mockk(relaxed = true)
     private val shareExportUseCase: ShareExportUseCase = mockk(relaxed = true)
     private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
@@ -57,7 +58,7 @@ class ChatViewModelSendTest {
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
-    private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.data.repository.PendingPromptRepository>(relaxed = true)
+    private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository>(relaxed = true)
 
     @After
     fun tearDown() {
@@ -75,7 +76,7 @@ class ChatViewModelSendTest {
         every { Log.w(any(), any<String>(), any()) } returns 0
         every { Log.i(any(), any()) } returns 0
 
-        every { draftUseCase.getDraft(any()) } returns null
+        every { draftRepository.getDraft(any()) } returns null
 
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
         every { settingsRepository.getSettingsFlow() } returns flowOf(
@@ -138,7 +139,7 @@ class ChatViewModelSendTest {
             selectModelUseCase = selectModelUseCase,
             manageAgentUseCase = manageAgentUseCase,
             manageTerminalUseCase = manageTerminalUseCase,
-            draftUseCase = draftUseCase,
+            draftRepository = draftRepository,
             shareExportUseCase = shareExportUseCase,
             undoRedoUseCase = undoRedoUseCase,
             settingsRepository = settingsRepository,

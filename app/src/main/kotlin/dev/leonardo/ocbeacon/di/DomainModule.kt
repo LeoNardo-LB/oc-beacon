@@ -9,21 +9,20 @@ import dev.leonardo.ocbeacon.data.repository.DraftDataStore
 import dev.leonardo.ocbeacon.data.repository.FileRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.ServerRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.McpRepositoryImpl
+import dev.leonardo.ocbeacon.data.repository.PendingPromptRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SettingsRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
-import dev.leonardo.ocbeacon.data.repository.TerminalRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.VcsRepositoryImpl
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
+import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
-import dev.leonardo.ocbeacon.domain.repository.ServerConnectionRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
-import dev.leonardo.ocbeacon.domain.repository.TerminalRepository
 import dev.leonardo.ocbeacon.domain.repository.VcsRepository
 
 @Module
@@ -34,9 +33,6 @@ abstract class DomainModule {
     abstract fun bindDraftRepository(impl: DraftDataStore): DraftRepository
 
     @Binds
-    abstract fun bindTerminalRepository(impl: TerminalRepositoryImpl): TerminalRepository
-
-    @Binds
     abstract fun bindAgentRepository(impl: AgentRepositoryImpl): AgentRepository
 
     @Binds
@@ -44,9 +40,6 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindServerConfigRepository(impl: ServerRepositoryImpl): ServerConfigRepository
-
-    @Binds
-    abstract fun bindServerConnectionRepository(impl: ServerRepositoryImpl): ServerConnectionRepository
 
     @Binds
     abstract fun bindProviderRepository(impl: ServerRepositoryImpl): ProviderRepository
@@ -59,6 +52,9 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindMcpRepository(impl: McpRepositoryImpl): McpRepository
+
+    @Binds
+    abstract fun bindPendingPromptRepository(impl: PendingPromptRepositoryImpl): PendingPromptRepository
 
     @Binds
     abstract fun bindFileRepository(impl: FileRepositoryImpl): FileRepository
