@@ -147,7 +147,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -304,8 +303,12 @@ fun ChatScreen(
     // listState 提升到 ViewModel —— 在导航切换后依然存活。
     val listState = viewModel.listState
 
-    var autoScrollEnabled by rememberSaveable { mutableStateOf(true) }
-    var forceScrollTick by remember { mutableIntStateOf(0) }
+    val scrollController = rememberChatScrollController(
+        listState = listState,
+        messageCount = messageState.messages.size,
+        pendingCount = interaction.pendingQuestions.size + interaction.pendingPermissions.size,
+        hasMessages = { messageState.messages.isNotEmpty() },
+    )
 
     // FileViewer 浮层状态 —— 取代到 FileViewerNav 路由的导航。
     var fileViewerRequest by remember { mutableStateOf<FileViewerParams?>(null) }
@@ -317,48 +320,6 @@ fun ChatScreen(
             directory = directory,
             source = FileViewerSource.LIVE
         )
-    }
-
-    val isAtBottom by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex == 0 &&
-                listState.firstVisibleItemScrollOffset < 100
-        }
-    }
-
-    // 重要：同时以 isScrollInProgress 和 isAtBottom 作为 key。
-    // 以 isAtBottom 作为 key 可以让本效果在用户通过非拖拽方式（fling 惯性、
-    // SSE 内容推送、补偿滚动）回到底部时重新求值 —— 仅用 isScrollInProgress
-    // 会错过这些转换，导致 autoScrollEnabled 停留在陈旧状态。这种双 key 形式
-    // 是经过 beta.360 验证的行为；不要把 isAtBottom 从 key 中移除（参见
-    // docs/research/sse-scroll-stability-iron-laws.md）。
-    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
-        if (listState.isScrollInProgress) {
-            autoScrollEnabled = false
-        } else if (isAtBottom) {
-            autoScrollEnabled = true
-        }
-    }
-
-    val messageCount = messageState.messages.size
-    LaunchedEffect(messageCount) {
-        if (messageCount > 0 && autoScrollEnabled && !listState.isScrollInProgress) {
-            listState.scrollToItem(0)
-        }
-    }
-
-    LaunchedEffect(forceScrollTick) {
-        if (forceScrollTick > 0) {
-            listState.snapToBottom()
-        }
-    }
-
-    val pendingCount = interaction.pendingQuestions.size + interaction.pendingPermissions.size
-    LaunchedEffect(pendingCount) {
-        if (pendingCount > 0 && autoScrollEnabled) {
-            snapshotFlow { messageState.messages.isNotEmpty() }.first { it }
-            listState.snapToBottom()
-        }
     }
 
     var showModelPicker by remember { mutableStateOf(false) }
@@ -588,7 +549,7 @@ fun ChatScreen(
                             }
                         },
                         onCompactSession = {
-                            forceScrollTick++
+                            scrollController.forceScrollToBottom()
                             viewModel.compactSession { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
@@ -598,7 +559,7 @@ fun ChatScreen(
                             }
                         },
                         onReviewChanges = {
-                            forceScrollTick++
+                            scrollController.forceScrollToBottom()
                             viewModel.executeCommand("review") { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
@@ -663,7 +624,7 @@ fun ChatScreen(
                 inputText = inputText,
                 onInputTextChange = { inputText = it },
                 onInputModeChange = { inputMode = it },
-                onForceScroll = { forceScrollTick++ },
+                onForceScroll = { scrollController.forceScrollToBottom() },
                 onShowModelPicker = { showModelPicker = true },
                 onShowRenameDialog = { showRenameDialog = true },
                 onShowSendConfirmDialog = { showSendConfirmDialog = true },
@@ -760,7 +721,7 @@ fun ChatScreen(
                                 interaction = interaction,
                                 rawMessages = rawMessages,
                                 displayItems = displayItems,
-                                isAtBottom = isAtBottom,
+                                isAtBottom = scrollController.isAtBottom,
                                 isAmoled = isAmoled,
                                 messageSpacing = messageSpacing,
                                 isMainSession = true,
@@ -772,7 +733,7 @@ fun ChatScreen(
                                 viewModel = viewModel,
                                 navigateToChildSession = onNavigateToChildSession,
                                 onOpenFile = handleOpenFile,
-                                onForceScrollToBottom = { forceScrollTick++ },
+                                onForceScrollToBottom = { scrollController.forceScrollToBottom() },
                                 showQuickNavigate = showQuickNavigate,
                                 onQuickNavigateDismiss = { showQuickNavigate = false },
                                 agents = modelConfig.agents,
@@ -787,7 +748,7 @@ fun ChatScreen(
                                 interaction = interaction,
                                 rawMessages = rawMessages,
                                 displayItems = displayItems,
-                                isAtBottom = isAtBottom,
+                                isAtBottom = scrollController.isAtBottom,
                                 isAmoled = isAmoled,
                                 messageSpacing = messageSpacing,
                                 isMainSession = false,
@@ -799,7 +760,7 @@ fun ChatScreen(
                                 viewModel = viewModel,
                                 navigateToChildSession = onNavigateToChildSession,
                                 onOpenFile = handleOpenFile,
-                                onForceScrollToBottom = { forceScrollTick++ },
+                                onForceScrollToBottom = { scrollController.forceScrollToBottom() },
                                 showQuickNavigate = false,
                                 onQuickNavigateDismiss = {},
                                 agents = modelConfig.agents,
