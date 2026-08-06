@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * [dev.leonardo.ocbeacon.domain.model.SessionCategory] 的视觉样式映射。
+ * 标签/分类的视觉样式映射。
  *
  * 颜色和图标以字符串键存储（用于 JSON 持久化），在此处解析为
  * Compose 类型。未知键回退到安全的默认值。

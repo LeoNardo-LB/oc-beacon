@@ -56,7 +56,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * - 底部"新建标签"区通过 [onCreateTag] 创建标签，返回新标签 id 后自动勾选。
  * - 点确定以最终勾选集合调用 [onConfirm]；点关闭调用 [onDismiss]。
  *
- * 视觉上与 [SessionCategoryPickerDialog] 保持一致：颜色/图标选择器复用
+ * 视觉上与历史分类选择器保持一致：颜色/图标选择器复用
  * [SessionCategoryStyle] + 同样的 ColorDot / IconOption 私有组件。
  */
 @OptIn(ExperimentalMaterial3Api::class)

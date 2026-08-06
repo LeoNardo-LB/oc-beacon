@@ -17,9 +17,6 @@ import javax.inject.Singleton
 
 /**
  * 存储在 DataStore 中的应用级设置。
- *
- * 会话分类相关方法定义在同包扩展文件中：
- * - [SettingsDataStoreCategories.kt]
  */
 @Singleton
 class SettingsDataStore @Inject constructor(
