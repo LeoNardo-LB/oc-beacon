@@ -3,6 +3,7 @@
 本文档用于记录用户在使用过程中口头反馈的问题、发现的 bug，以及计划中的功能需求。
 **定位**：轻量级记录，仅忠实记录用户反馈的原始现象与需求，不做主观推测或归因分析。简单可行性确认（如文件名是否存在、接口是否暴露等）可附带，深入的代码链路调研由具体开发任务承接。
 **优先级定义**：
+
 | 等级 | 含义 | 示例 |
 |------|------|------|
 | **P0** | 影响主要流程体验或核心业务场景的 bug | 聊天页面崩溃、SSE 断连无法恢复 |
@@ -11,6 +12,7 @@
 
 **状态流转**：每个条目下的状态 checkbox 需全部打勾才算完结。代码写好但未验证不等于完成！
 **Tag 标签体系**：每个条目需标记相关 Tag，用于关联同类问题，便于后续批量修复或按领域排查。录入时判断条目适用的已有 Tag；若现有 Tag 不足以描述，则新增。
+
 | Tag | 说明 |
 |-----|------|
 | `crash` | 崩溃 / 闪退 |
@@ -97,23 +99,28 @@
   - 修复：clearForServer + disconnect 时调用；ConcurrentHashMap；24h 无事件非 Busy 自动清扫
   - 工时：~2h | 难度：中 | 涉及：AppNotificationManager / ToolSnapshotCache / ChatRepositoryImpl / SessionStateService
 
-- [x] **#13 Play 上架配套** `refactor`
+- [x] **#13 一致性修缮（小项）** `refactor`
+  - 问题：MainActivity 用 collectAsState（后台仍收集 DataStore）；DirectoryManager callbackFlow 缺 awaitClose（取消传播不规范）；AutoApproveRule round-trip 测试偶发失败（createdAt 默认值毫秒竞态）
+  - 修复：collectAsState → collectAsStateWithLifecycle；callbackFlow → flow{}；测试显式传 createdAt 固定值
+  - 工时：~1h | 难度：低 | 涉及：MainActivity / DirectoryManager / PermissionAutoApproverTest
+
+- [x] **#14 Play 上架配套** `refactor`
   - 问题：上架需 AAB 产物、隐私政策、版本体系与 1.x 不符
   - 修复：bundleStableRelease 验证 + release-workflow §5.5；docs/PRIVACY_POLICY.md（中英双语）；版本重置 1.2.0→0.2.0（VERSION_CODE 18→1，接受卸载重装）
   - 工时：~2h | 难度：低 | 涉及：docs/ + version.properties + AGENTS.md
 
 ### 待办
-- [ ] **#14 MessageDataDelegate 职责过载** `refactor`
+- [ ] **#15 MessageDataDelegate 职责过载** `refactor`
   - 问题：730 行单类承担 8 个职责（消息/parts/SSE job/缓存/乐观消息/分页/工具展开/加载错误），改分页可能碰坏乐观消息
   - 方案：拆 MessagePaginationDelegate + OptimisticMessageStore；**chatMessageCache 与 lastCombineSessionId（铁律 8）必须留主体**
   - 工时：~0.5d | 难度：中 | 涉及：MessageDataDelegate + 相关测试
 
-- [ ] **#15 ChatScreen 主函数臃肿** `refactor` `ui`
+- [ ] **#16 ChatScreen 主函数臃肿** `refactor` `ui`
   - 问题：888 行文件，主函数约 600 行，滚动状态集群（autoScrollEnabled/isAtBottom/4 个 LaunchedEffect）内联
   - 方案：抽 rememberChatScrollController；**autoScrollEnabled/isAtBottom/双 key LaunchedEffect 必须整体搬移（SSE 铁律 4）**；编辑前读 chatscreen-editing-protocol.md
   - 工时：~0.5d + 真机验证 | 难度：高 | 涉及：ChatScreen.kt
 
-- [ ] **#16 SessionListViewModel 分层越界** `refactor`
+- [ ] **#17 SessionListViewModel 分层越界** `refactor`
   - 问题：全项目唯一混用 4 种数据源的 ViewModel（Api 绕过 Repository + EventDispatcher 细节 + internal val 暴露）
   - 方案：4 个 Api 下沉 UseCase；EventDispatcher 经 Repository 接口暴露；internal → private
   - 工时：~1-1.5d | 难度：中 | 涉及：SessionListViewModel / DirectoryManager / 新增 UseCase
@@ -123,17 +130,17 @@
 ## P2 — 优化与锦上添花
 
 ### 待办
-- [ ] **#17 ChatMessageList 指纹函数外移** `refactor`
+- [ ] **#18 ChatMessageList 指纹函数外移** `refactor`
   - 问题：765 行因铁律 6-8 缓存逻辑膨胀
   - 方案：只外移纯函数（messageFingerprint/partsFingerprint/tailHash/messagesSignature）到 util/MessageFingerprints.kt；缓存函数高度耦合不动
   - 工时：~30min | 难度：低 | 涉及：ChatMessageList.kt
 
-- [ ] **#18 Phase 历史注释清理** `refactor`
+- [ ] **#19 Phase 历史注释清理** `refactor`
   - 问题：约 30 处"在 Phase N Task X 中提取"注释，工作已完成，纯历史噪音
   - 方案：批量删除历史标记，保留功能说明
   - 工时：~30min | 难度：低 | 涉及：ui/screens/chat/* + FileViewer* + Workspace*
 
-- [ ] **#19 SearchMatchDto 字段对齐** `data`
+- [ ] **#20 SearchMatchDto 字段对齐** `data`
   - 问题：DTO 字段与 API 不匹配（API 是 path:{text}/line_number，DTO 是 lines/lineNumber）；当前 /find 未启用未触发，启用即静默失败
   - 方案：按 API 对齐字段（@SerialName 处理 snake_case）
   - 工时：~1h | 难度：低 | 涉及：FileResponses.kt（启用 /find 前必须完成）
