@@ -1,7 +1,7 @@
 # Architecture Debt Register
 
 Generated: 2026-07-13
-Updated: 2026-08-05（Phase 1-2 重构后同步）
+Updated: 2026-08-07（密码导航重构后同步）
 
 ## 1. 依赖方向违规（已修复 vs 剩余）
 
@@ -64,3 +64,9 @@ Updated: 2026-08-05（Phase 1-2 重构后同步）
 - 新代码禁止 data → ui import；`grep -rln "import dev.leonardo.ocbeacon.ui" app/src/main/kotlin/dev/leonardo/ocbeacon/data/` 应为空
 - 新代码禁止 UI 直接注入 `data.api.*`；必须经 domain repository
 - 例外：终端体系（见 §1 剩余项）——改动前先讨论
+
+## 6. 密码导航重构遗留（2026-08-07）
+
+| 位置 | 债务 | 说明 |
+|------|------|------|
+| `ChatViewModel.kt` / `SessionListViewModel.kt` | `runBlocking(Dispatchers.IO)` 在 ViewModel 属性初始化中同步读 `getServer(serverId)` | 反模式（阻塞 VM 构造线程）。实际影响小（Home 页已 warm DataStore，读为内存级）；进程重建直入 Chat 页时冷读 20-80ms 理论可感知。正确形态：`StateFlow<ServerConfig?>` + 异步加载 + 下游组件（TerminalDelegate/workspaceFor 首次 conn）支持延迟绑定。**若未来改：先改 `ServerTerminalWorkspace.conn` 为 `@Volatile var` + `updateConnection()`，再异步化 VM** |
