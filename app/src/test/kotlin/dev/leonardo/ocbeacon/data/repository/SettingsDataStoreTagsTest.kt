@@ -3,7 +3,9 @@ package dev.leonardo.ocbeacon.data.repository
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
 import dev.leonardo.ocbeacon.domain.model.Tag
 import io.mockk.mockk
@@ -82,5 +84,20 @@ class SettingsDataStoreTagsTest {
         val store = newStore()
         store.toggleFavorite("srv", "ses1")
         assertTrue(store.sessionTags("srv").first().none { it.id == FAVORITE_TAG_ID })
+    }
+
+    @Test
+    fun `favoriteSessionIds migrates legacy stringSet on first read`() = runTest {
+        val store = newStore()
+        // 模拟旧 favorite_sessions_<serverId> stringSet 数据（SettingsDataStoreFavorites 历史格式）
+        val legacyKey = stringSetPreferencesKey("favorite_sessions_srv")
+        store.dataStore.edit { it[legacyKey] = setOf("legacy-a", "legacy-b") }
+        // 首次读取：触发迁移分支，返回 legacy 数据
+        val firstRead = store.favoriteSessionIds("srv").first()
+        assertEquals(setOf("legacy-a", "legacy-b"), firstRead)
+        // 迁移已写入 assignments map：再次读取时直接从 assignments 派生
+        val assigns = store.sessionTagAssignments("srv").first()
+        assertTrue(assigns["legacy-a"]?.contains(FAVORITE_TAG_ID) == true)
+        assertTrue(assigns["legacy-b"]?.contains(FAVORITE_TAG_ID) == true)
     }
 }

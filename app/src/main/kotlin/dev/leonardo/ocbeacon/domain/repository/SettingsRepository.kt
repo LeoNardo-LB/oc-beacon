@@ -1,8 +1,7 @@
 package dev.leonardo.ocbeacon.domain.repository
 
 import dev.leonardo.ocbeacon.domain.model.AppSettings
-import dev.leonardo.ocbeacon.domain.model.FavoriteSessionSnapshot
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
+import dev.leonardo.ocbeacon.domain.model.Tag
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -34,54 +33,34 @@ interface SettingsRepository {
      */
     suspend fun setModelVisibility(serverId: String, providerId: String, modelId: String, visible: Boolean)
 
-    /**
-     * 全局用户定义的会话类别列表。
-     */
-    fun sessionCategories(): Flow<List<SessionCategory>>
+    // ============ 会话标签 ============
 
-    /**
-     * 按服务器划分的 sessionId → categoryId 分配。
-     */
-    fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>>
+    /** 该服务器的用户标签集（不含内置收藏标签）。 */
+    fun sessionTags(serverId: String): Flow<List<Tag>>
 
-    /** 新增或替换一个类别。 */
-    suspend fun addSessionCategory(category: SessionCategory)
+    /** 按服务器划分的 sessionId → tagIds 分配（含内置收藏标签）。 */
+    fun sessionTagAssignments(serverId: String): Flow<Map<String, List<String>>>
 
-    /** 按 id 移除一个类别。 */
-    suspend fun removeSessionCategory(categoryId: String)
+    /** 新增或替换一个用户标签。 */
+    suspend fun addSessionTag(serverId: String, tag: Tag)
 
-    /** 为指定服务器将会话分配到某个类别。 */
-    suspend fun assignSessionCategory(serverId: String, sessionId: String, categoryId: String)
+    /** 更新一个已存在的用户标签（按 id 替换）。 */
+    suspend fun updateSessionTag(serverId: String, tag: Tag)
 
-    /** 为指定服务器移除会话的类别分配。 */
-    suspend fun unassignSessionCategory(serverId: String, sessionId: String)
+    /** 按 id 移除一个标签，并原子清理所有会话上该标签的分配。 */
+    suspend fun removeSessionTag(serverId: String, tagId: String)
 
-    // ============ 跨服务器会话收藏 ============
+    /** 替换指定会话上的用户标签集（保留内置收藏标签）。 */
+    suspend fun setSessionTags(serverId: String, sessionId: String, tagIds: Set<String>)
 
-    /** 某台服务器上被收藏的会话 id。 */
+    /** 移除指定会话上的某个标签分配（不删除标签本身）。 */
+    suspend fun removeSessionTagAssignment(serverId: String, sessionId: String, tagId: String)
+
+    // ============ 会话收藏（基于内置收藏标签派生） ============
+
+    /** 某台服务器上被收藏的会话 id（从统一分配 map 派生，首次读取时迁移旧 favorite_sessions_* stringSet）。 */
     fun favoriteSessionIds(serverId: String): Flow<Set<String>>
 
-    /** 全局跨服务器收藏顺序——"serverId:sessionId" 键的列表。 */
-    val crossServerFavoriteOrder: Flow<List<String>>
-
-    /** 以 "serverId:sessionId" 为键的离线快照。 */
-    val favoriteSessionSnapshots: Flow<Map<String, FavoriteSessionSnapshot>>
-
-    /** 将某台服务器上的某个会话加入收藏，并持久化其离线快照。 */
-    suspend fun addFavoriteSession(serverId: String, sessionId: String, snapshot: FavoriteSessionSnapshot)
-
-    /** 将某台服务器上的某个会话从收藏移除，并清除其快照。 */
-    suspend fun removeFavoriteSession(serverId: String, sessionId: String)
-
-    /** 替换整个跨服务器收藏顺序。 */
-    suspend fun setCrossServerFavoriteOrder(order: List<String>)
-
-    /** 在跨服务器顺序列表中插入或移除单个收藏键。 */
-    suspend fun setCrossServerFavoriteOrderItem(key: String, favorite: Boolean)
-
-    /** 为 (server, session) 对保存或替换快照。 */
-    suspend fun saveFavoriteSessionSnapshot(serverId: String, sessionId: String, snapshot: FavoriteSessionSnapshot)
-
-    /** 清除 (server, session) 对的快照。 */
-    suspend fun clearFavoriteSessionSnapshot(serverId: String, sessionId: String)
+    /** 切换指定 (serverId, sessionId) 对的收藏状态。 */
+    suspend fun toggleFavorite(serverId: String, sessionId: String)
 }

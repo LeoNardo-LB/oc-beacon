@@ -1,8 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.domain.model.AppSettings
-import dev.leonardo.ocbeacon.domain.model.FavoriteSessionSnapshot
-import dev.leonardo.ocbeacon.domain.model.SessionCategory
+import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -28,57 +27,32 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setModelVisibility(serverId: String, providerId: String, modelId: String, visible: Boolean) =
         dataRepo.setModelVisibility(serverId, providerId, modelId, visible)
 
-    override fun sessionCategories(): Flow<List<SessionCategory>> = dataRepo.sessionCategories
+    // ============ 会话标签 ============
 
-    override fun sessionCategoryAssignments(serverId: String): Flow<Map<String, String>> =
-        dataRepo.sessionCategoryAssignments(serverId)
+    override fun sessionTags(serverId: String): Flow<List<Tag>> = dataRepo.sessionTags(serverId)
 
-    override suspend fun addSessionCategory(category: SessionCategory) =
-        dataRepo.addSessionCategory(category)
+    override fun sessionTagAssignments(serverId: String): Flow<Map<String, List<String>>> =
+        dataRepo.sessionTagAssignments(serverId)
 
-    override suspend fun removeSessionCategory(categoryId: String) =
-        dataRepo.removeSessionCategory(categoryId)
+    override suspend fun addSessionTag(serverId: String, tag: Tag) = dataRepo.addSessionTag(serverId, tag)
 
-    override suspend fun assignSessionCategory(serverId: String, sessionId: String, categoryId: String) =
-        dataRepo.assignSessionCategory(serverId, sessionId, categoryId)
+    override suspend fun updateSessionTag(serverId: String, tag: Tag) = dataRepo.updateSessionTag(serverId, tag)
 
-    override suspend fun unassignSessionCategory(serverId: String, sessionId: String) =
-        dataRepo.unassignSessionCategory(serverId, sessionId)
+    override suspend fun removeSessionTag(serverId: String, tagId: String) = dataRepo.removeSessionTag(serverId, tagId)
 
-    // ============ 跨服务器会话收藏 ============
+    override suspend fun setSessionTags(serverId: String, sessionId: String, tagIds: Set<String>) =
+        dataRepo.setSessionTags(serverId, sessionId, tagIds)
+
+    override suspend fun removeSessionTagAssignment(serverId: String, sessionId: String, tagId: String) =
+        dataRepo.removeSessionTagAssignment(serverId, sessionId, tagId)
+
+    // ============ 会话收藏（基于内置收藏标签派生） ============
 
     override fun favoriteSessionIds(serverId: String): Flow<Set<String>> =
         dataRepo.favoriteSessionIds(serverId)
 
-    override val crossServerFavoriteOrder: Flow<List<String>>
-        get() = dataRepo.crossServerFavoriteOrder
-
-    override val favoriteSessionSnapshots: Flow<Map<String, FavoriteSessionSnapshot>>
-        get() = dataRepo.favoriteSessionSnapshots
-
-    override suspend fun addFavoriteSession(
-        serverId: String,
-        sessionId: String,
-        snapshot: FavoriteSessionSnapshot,
-    ) = dataRepo.addFavoriteSession(serverId, sessionId, snapshot)
-
-    override suspend fun removeFavoriteSession(serverId: String, sessionId: String) =
-        dataRepo.removeFavoriteSession(serverId, sessionId)
-
-    override suspend fun setCrossServerFavoriteOrder(order: List<String>) =
-        dataRepo.setCrossServerFavoriteOrder(order)
-
-    override suspend fun setCrossServerFavoriteOrderItem(key: String, favorite: Boolean) =
-        dataRepo.setCrossServerFavoriteOrderItem(key, favorite)
-
-    override suspend fun saveFavoriteSessionSnapshot(
-        serverId: String,
-        sessionId: String,
-        snapshot: FavoriteSessionSnapshot,
-    ) = dataRepo.saveFavoriteSessionSnapshot(serverId, sessionId, snapshot)
-
-    override suspend fun clearFavoriteSessionSnapshot(serverId: String, sessionId: String) =
-        dataRepo.clearFavoriteSessionSnapshot(serverId, sessionId)
+    override suspend fun toggleFavorite(serverId: String, sessionId: String) =
+        dataRepo.toggleFavorite(serverId, sessionId)
 
     override suspend fun updateSettings(settings: AppSettings): Result<Unit> = runCatching {
         dataRepo.setAppLanguage(settings.appLanguage)

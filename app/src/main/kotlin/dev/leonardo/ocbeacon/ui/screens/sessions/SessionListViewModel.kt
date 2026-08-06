@@ -15,14 +15,12 @@ import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
 import dev.leonardo.ocbeacon.data.dto.response.ServerPaths
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
-import dev.leonardo.ocbeacon.domain.model.FavoriteSessionSnapshot
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionCategory
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
-import dev.leonardo.ocbeacon.domain.model.favoriteKey
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
@@ -202,17 +200,10 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.assignSessionCategory(serverId, sessionId, categoryId) }
     }
 
-    /** 切换当前服务器上某会话的跨服务器收藏。 */
+    /** 切换当前服务器上某会话的收藏状态（基于内置收藏标签）。 */
     fun toggleFavorite(session: Session) {
         viewModelScope.launch {
-            val key = favoriteKey(serverId, session.id)
-            if (session.id in favoriteSessionIds.value) {
-                settingsRepository.removeFavoriteSession(serverId, session.id)
-                settingsRepository.setCrossServerFavoriteOrderItem(key, favorite = false)
-            } else {
-                settingsRepository.addFavoriteSession(serverId, session.id, FavoriteSessionSnapshot.from(session))
-                settingsRepository.setCrossServerFavoriteOrderItem(key, favorite = true)
-            }
+            settingsRepository.toggleFavorite(serverId, session.id)
         }
     }
 
