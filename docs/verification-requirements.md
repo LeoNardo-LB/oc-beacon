@@ -109,6 +109,46 @@ maestro test maestro/l{n}-{feature}.yaml
 - Maestro flow 需要外部依赖（如服务器）：通过 `extendedWaitUntil` 超时或条件分支优雅降级，**禁止使用 `manual` 标记**
 - androidTest 因环境问题失败：记录失败原因，作为 known issue 跟踪
 
+### 维度 2c: E2E 测试分档（冒烟 / 全面+回归）
+
+> 2026-08-06 新增：解决"端到端测试阶段耗时过长"问题。E2E 分两档执行，
+> 替代"每个 Layer 全部 flow 必跑"的一刀切要求。flow 清单与命令见
+> `maestro/README.md`。
+
+#### 档位 A：冒烟测试（Smoke）—— 每阶段收尾 / 发版前置
+
+**目标**：15 分钟内验证核心链路无回归（启动安全 + 核心用户旅程）。
+
+**清单**（10 个 flow，见 `maestro/README.md` §Smoke）：
+`l1-app-launch` → `l1-home-screen` → `l1-connection-error` → `l1-crash-recovery`
+→ `e2e-server-setup` → `e2e-session-list` → `l4-chat-ui` → `e2e-settings-flow`
+→ `terminal-smoke` → `e2e-rotation-restoration`
+
+**通过标准**：所有步骤 COMPLETED + `assertVisible` 通过 + 无崩溃。
+
+**触发时机**：
+- 每个 Layer/阶段收尾（替代原"该 Layer 全部 flow 必跑"）
+- 发版前置快速验证
+- 冒烟失败 → 转全面档定位
+
+#### 档位 B：全面 + 回归测试（Full）—— 正式发版前 / 大版本收尾
+
+**目标**：全量验证（含完整旅程与专项）。
+
+**范围**：
+- `maestro/` 下全部 flow（含 `e2e-*` 完整旅程与专项）
+- `.\gradlew :app:connectedDevDebugAndroidTest`（androidTest 全量实机）
+- 全量单元测试：`.\gradlew :app:testDevDebugUnitTest --rerun`
+- 编译 + 构建：`compileDevDebugKotlin` + `assembleBetaRelease`
+
+**回归策略**：变更相关 flow 必跑 + 冒烟档全跑 + 全量兜底。
+
+**通过标准**：全部 flow COMPLETED + androidTest 0 failures + 单测 0 failures。
+
+**触发时机**：
+- 正式发版（stable）前必跑
+- 大版本 / 跨层重构收尾
+
 ### 维度 3: 代码分支日志输出验证 (Log Branch Verification)
 
 通过 instrumented test 验证关键代码路径的日志输出。
@@ -200,7 +240,7 @@ Task 开始
 - [ ] **V2**: `testDevDebugUnitTest --rerun` 全部通过，0 failures（当前消息中执行）
 - [ ] **V3**: 新增代码有对应的增强单元测试（边界/异常/并发）
 - [ ] **V4**: 涉及 UI 的变更有 Maestro flow 文件
-- [ ] **V4b**: Maestro flow **在模拟器上实际运行并全部通过**（维度 2b 铁律）
+- [ ] **V4b**: Maestro flow **按档位实机运行**：每阶段收尾跑**冒烟档**（维度 2c §A，10 个 flow）；正式发版前跑**全面档**（维度 2c §B，全量 flow + androidTest）
 - [ ] **V5**: 涉及 UI 的变更有 androidTest 文件
 - [ ] **V5b**: `connectedDevDebugAndroidTest` **在模拟器上实际执行通过**（维度 2b 铁律）
 - [ ] **V6**: `compileDevDebugAndroidTestKotlin` 编译通过
