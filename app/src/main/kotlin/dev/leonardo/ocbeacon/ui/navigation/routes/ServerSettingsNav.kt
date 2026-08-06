@@ -4,7 +4,7 @@ import androidx.navigation.NavBackStackEntry
 
 /**
  * 服务器设置页的导航路由定义。
- * 参数：serverUrl, username, password, serverName, serverId
+ * 参数：serverId
  */
 object ServerSettingsNav {
     const val ROUTE = "server_settings"
@@ -16,14 +16,8 @@ object ServerSettingsNav {
 
     data class Params(val server: ServerRouteParams)
 
-    fun createRoute(
-        serverUrl: String,
-        username: String,
-        password: String,
-        serverName: String,
-        serverId: String
-    ): String {
-        return "$ROUTE?${ServerRouteParams.queryString(serverUrl, username, password, serverName, serverId)}"
+    fun createRoute(serverId: String): String {
+        return "$ROUTE?${ServerRouteParams.queryString(serverId)}"
     }
 
     fun fromEntry(entry: NavBackStackEntry): Params {

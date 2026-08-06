@@ -22,6 +22,8 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.foundation.background
+import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import kotlinx.coroutines.flow.SharedFlow
 
 /**
@@ -39,25 +41,37 @@ import kotlinx.coroutines.flow.SharedFlow
  */
 @Composable
 fun WebViewScreen(
-    serverUrl: String,
-    username: String,
-    password: String,
-    serverName: String,
+    serverId: String,
     initialPath: String = "",
+    serverConfigRepository: ServerConfigRepository,
     navigateUrlFlow: SharedFlow<String>? = null,
     isDarkTheme: Boolean = false,
     onNavigateBack: () -> Unit
 ) {
+    // 异步加载服务器配置（含明文用户名/密码，仅用于 WebView Basic Auth —— 明文凭据不再经导航参数传递）
+    var serverConfig by remember { mutableStateOf<ServerConfig?>(null) }
+    var configLoadError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(serverId) {
+        val config = serverConfigRepository.getServer(serverId)
+        if (config != null) {
+            serverConfig = config
+        } else {
+            configLoadError = true
+        }
+    }
+
     // 构建完整 URL：serverUrl + initialPath（用于会话深度链接）
+    val serverUrl: String = serverConfig?.url ?: ""
     val fullUrl = remember(serverUrl, initialPath) {
-        if (initialPath.isNotBlank()) {
+        if (initialPath.isNotBlank() && serverUrl.isNotBlank()) {
             serverUrl.trimEnd('/') + initialPath
         } else {
             serverUrl
         }
     }
-    
-    if (BuildConfig.DEBUG) AppLogger.d("WebViewScreen", "Composable invoked: serverUrl=$serverUrl, initialPath=$initialPath, fullUrl=$fullUrl")
+
+    if (BuildConfig.DEBUG) AppLogger.d("WebViewScreen", "Composable invoked: serverId=$serverId, initialPath=$initialPath, fullUrl=$fullUrl")
     var webView by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -73,9 +87,11 @@ fun WebViewScreen(
         fileChooserCallback = null
     }
 
-    // 构建 Basic Auth 头
+    // 从加载后的配置派生 Basic Auth 头（密码不出现在导航参数中）
+    val username: String = serverConfig?.username ?: ""
+    val password: String = serverConfig?.password ?: ""
     val authHeader = remember(username, password) {
-        if (username.isNotBlank()) {
+        if (username.isNotBlank() && password.isNotBlank()) {
             val credentials = "$username:$password"
             "Basic " + Base64.encodeToString(credentials.toByteArray(), Base64.NO_WRAP)
         } else {
@@ -263,15 +279,28 @@ fun WebViewScreen(
                         }
                     }
 
-                    // 加载完整 URL（如有深度链接则带上会话路径）
-                    val headers = authHeader?.let { mapOf("Authorization" to it) } ?: emptyMap()
-                    wv.loadUrl(fullUrl, headers)
+                    // 加载完整 URL（config 加载完成、fullUrl 非空时）
+                    if (fullUrl.isNotBlank()) {
+                        val headers = authHeader?.let { mapOf("Authorization" to it) } ?: emptyMap()
+                        wv.loadUrl(fullUrl, headers)
+                    }
 
                     webView = wv
                     wv
                 },
                 update = { /* WebView 状态由内部管理 */ }
             )
+
+            // config 异步加载完成后，触发首次加载（factory 已执行但 fullUrl 当时为空）
+            LaunchedEffect(fullUrl, authHeader) {
+                if (fullUrl.isNotBlank() && webView != null) {
+                    // 仅在 WebView 尚未加载任何页面时触发，避免覆盖用户导航
+                    if (webView?.url.isNullOrBlank()) {
+                        val headers = authHeader?.let { mapOf("Authorization" to it) } ?: emptyMap()
+                        webView?.loadUrl(fullUrl, headers)
+                    }
+                }
+            }
 
             // 加载指示器覆盖层
             if (isLoading) {

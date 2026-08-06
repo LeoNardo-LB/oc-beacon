@@ -3,12 +3,11 @@ package dev.leonardo.ocbeacon.ui.navigation.routes
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
-import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
  * Workspace 页的导航路由定义。
- * 参数：server 参数 + sessionId, directory
+ * 参数：serverId, sessionId, directory
  */
 object WorkspaceNav {
     const val ROUTE = "workspace"
@@ -30,15 +29,11 @@ object WorkspaceNav {
     )
 
     fun createRoute(
-        serverUrl: String,
-        username: String,
-        password: String,
-        serverName: String,
         serverId: String,
         sessionId: String,
         directory: String = ""
     ): String {
-        val serverQuery = ServerRouteParams.queryString(serverUrl, username, password, serverName, serverId)
+        val serverQuery = ServerRouteParams.queryString(serverId)
         val encodedSessionId = URLEncoder.encode(sessionId, "UTF-8")
         val encodedDirectory = URLEncoder.encode(directory, "UTF-8")
         return "$ROUTE?$serverQuery&$PARAM_SESSION_ID=$encodedSessionId&$PARAM_DIRECTORY=$encodedDirectory"

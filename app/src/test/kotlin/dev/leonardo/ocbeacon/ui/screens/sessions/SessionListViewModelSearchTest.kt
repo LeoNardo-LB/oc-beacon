@@ -11,6 +11,7 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
+import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import io.mockk.every
@@ -80,10 +81,6 @@ class SessionListViewModelSearchTest {
     private fun createViewModel(): SessionListViewModel {
         val savedStateHandle = androidx.lifecycle.SavedStateHandle(
             mapOf(
-                "serverUrl" to "http%3A%2F%2Flocalhost%3A8080",
-                "username" to "",
-                "password" to "",
-                "serverName" to "Test",
                 "serverId" to "srv1"
             )
         )
@@ -101,7 +98,8 @@ class SessionListViewModelSearchTest {
             mcpRepository = mockk(relaxed = true),
             getSettingsFlowUseCase = mockk(relaxed = true),
             settingsRepository = mockk(relaxed = true),
-            scrollSignal = SessionScrollSignal()
+            scrollSignal = SessionScrollSignal(),
+            serverRepository = mockk(relaxed = true),
         )
     }
 }

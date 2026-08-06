@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.*
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
@@ -62,6 +63,7 @@ class ChatViewModelStreamingTest {
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
     private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository>(relaxed = true)
+    private val serverRepository = mockk<ServerRepository>(relaxed = true)
 
     private val messagesFlow = MutableStateFlow<List<Message>>(emptyList())
     private val partsFlow = MutableStateFlow<Map<String, List<dev.leonardo.ocbeacon.domain.model.Part>>>(emptyMap())
@@ -220,7 +222,8 @@ class ChatViewModelStreamingTest {
             scrollSignal = SessionScrollSignal(),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
-            pendingPromptRepository = pendingPromptRepository
+            pendingPromptRepository = pendingPromptRepository,
+            serverRepository = serverRepository,
         )
     }
 

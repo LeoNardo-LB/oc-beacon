@@ -12,8 +12,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 @Composable
 fun HomeRoute(
     windowSizeClass: WindowSizeClass,
-    onNavigateToSessions: (String, String, String, String, String) -> Unit,
-    onNavigateToServerSettings: (String, String, String, String, String) -> Unit,
+    onNavigateToSessions: (serverId: String) -> Unit,
+    onNavigateToServerSettings: (serverId: String) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAbout: () -> Unit
 ) {

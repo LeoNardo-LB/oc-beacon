@@ -45,8 +45,8 @@ import dev.leonardo.ocbeacon.ui.screens.home.components.*
 @Composable
 fun HomeScreen(
     windowSizeClass: WindowSizeClass,
-    onNavigateToSessions: (serverUrl: String, username: String, password: String, serverName: String, serverId: String) -> Unit = { _, _, _, _, _ -> },
-    onNavigateToServerSettings: (serverUrl: String, username: String, password: String, serverName: String, serverId: String) -> Unit = { _, _, _, _, _ -> },
+    onNavigateToSessions: (serverId: String) -> Unit = {},
+    onNavigateToServerSettings: (serverId: String) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
     viewModel: HomeViewModel
@@ -177,22 +177,10 @@ fun HomeScreen(
                                     onConnect = { requestNotificationPermissionAndConnect(server.id) },
                                     onDisconnect = { viewModel.disconnectFromServer(server.id) },
                                     onOpenSessions = {
-                                        onNavigateToSessions(
-                                            server.url,
-                                            server.username,
-                                            server.password ?: "",
-                                            server.displayName,
-                                            server.id
-                                        )
+                                        onNavigateToSessions(server.id)
                                     },
                                     onServerSettings = {
-                                        onNavigateToServerSettings(
-                                            server.url,
-                                            server.username,
-                                            server.password ?: "",
-                                            server.displayName,
-                                            server.id
-                                        )
+                                        onNavigateToServerSettings(server.id)
                                     },
                                     onEdit = { viewModel.showEditServerDialog(server) },
                                     onDelete = { viewModel.deleteServer(server.id) }
@@ -249,22 +237,10 @@ fun HomeScreen(
                                     onConnect = { requestNotificationPermissionAndConnect(server.id) },
                                     onDisconnect = { viewModel.disconnectFromServer(server.id) },
                                     onOpenSessions = {
-                                        onNavigateToSessions(
-                                            server.url,
-                                            server.username,
-                                            server.password ?: "",
-                                            server.displayName,
-                                            server.id
-                                        )
+                                        onNavigateToSessions(server.id)
                                     },
                                     onServerSettings = {
-                                        onNavigateToServerSettings(
-                                            server.url,
-                                            server.username,
-                                            server.password ?: "",
-                                            server.displayName,
-                                            server.id
-                                        )
+                                        onNavigateToServerSettings(server.id)
                                     },
                                     onEdit = { viewModel.showEditServerDialog(server) },
                                     onDelete = { viewModel.deleteServer(server.id) }

@@ -13,6 +13,7 @@ import dev.leonardo.ocbeacon.domain.model.ProvidersResponse
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.*
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
@@ -59,6 +60,7 @@ class ChatViewModelSendTest {
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
     private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository>(relaxed = true)
+    private val serverRepository = mockk<ServerRepository>(relaxed = true)
 
     @After
     fun tearDown() {
@@ -163,7 +165,8 @@ class ChatViewModelSendTest {
             scrollSignal = SessionScrollSignal(),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
-            pendingPromptRepository = pendingPromptRepository
+            pendingPromptRepository = pendingPromptRepository,
+            serverRepository = serverRepository,
         )
     }
 

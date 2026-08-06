@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
+import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.repository.missingPendingPromptIds
@@ -20,6 +21,7 @@ import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
+import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
@@ -32,6 +34,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 private const val TAG = "ChatViewModel"
@@ -39,7 +42,7 @@ private const val TAG = "ChatViewModel"
 // ============ UI State 数据类 ============
 // MessageListState / SessionMetaState / InteractionState / TokenStatsState /
 // ModelConfigState / ChatUiState / RevertedDraftPayload / ChatMessage /
-// ConnectionParams / PENDING_RECONCILE_MIN_AGE_MS
+// PENDING_RECONCILE_MIN_AGE_MS
 // 已迁移到 ChatUiState.kt（纯数据类，无依赖）。
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -69,6 +72,7 @@ class ChatViewModel @Inject constructor(
     private val appNotificationManager: dev.leonardo.ocbeacon.service.AppNotificationManager,
     private val toolSnapshotCache: dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache,
     private val pendingPromptRepository: PendingPromptRepository,
+    private val serverRepository: ServerRepository,
 ) : ViewModel() {
 
     // ============ 工具快照缓存（已提取到 ToolCacheDelegate） ============
@@ -81,11 +85,20 @@ class ChatViewModel @Inject constructor(
     /** 为 ChatMessageList composable 暴露 chatRepository（工具进度、步骤进度、压缩状态）。 */
     val chatRepositoryExposed: ChatRepository get() = chatRepository
 
-    private val serverUrl: String = safeDecodeParam(savedStateHandle.get<String>("serverUrl") ?: "")
-    private val username: String = safeDecodeParam(savedStateHandle.get<String>("username") ?: "")
-    private val password: String = safeDecodeParam(savedStateHandle.get<String>("password") ?: "")
-    val serverName: String = safeDecodeParam(savedStateHandle.get<String>("serverName") ?: "")
-    val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
+    private val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
+
+    // 服务器配置异步从数据源解析（密码/用户名/URL 不再经导航参数传递）。
+    // 用 runBlocking(Dispatchers.IO) 同步派生：resolveConnection 是本地 Room 读取（毫秒级），
+    // 保证 TerminalDelegate 等依赖 eager 初始化的组件正常工作。
+    // 纯异步方案需重构 TerminalDelegate 的 StateFlow 暴露模式，超出本任务范围。
+    private val serverConfig: dev.leonardo.ocbeacon.domain.model.ServerConfig? =
+        runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+            serverRepository.getServer(serverId)
+        }
+    val serverName: String = serverConfig?.displayName ?: ""
+    private val serverConn: ServerConnection = serverConfig?.let {
+        ServerConnection.from(it.url, it.username, it.password)
+    } ?: ServerConnection.from("", "", null)
 
     // ============ 会话生命周期 Delegate ============
     private val sessionLifecycle = SessionLifecycleDelegate(
@@ -151,9 +164,7 @@ class ChatViewModel @Inject constructor(
         terminalRegistry = terminalRegistry,
         settingsRepository = settingsRepository,
         serverId = serverId,
-        serverUrl = serverUrl,
-        username = username,
-        password = password.ifEmpty { null },
+        conn = serverConn,
         scope = viewModelScope,
         sessionDirectoryProvider = { sessionLifecycle.sessionDirectory },
         sessionLoaded = sessionLifecycle.sessionLoaded,
@@ -587,15 +598,6 @@ class ChatViewModel @Inject constructor(
     fun clearTerminalBuffer() = terminalDelegate.clearTerminalBuffer()
     fun resizeTerminal(cols: Int, rows: Int) = terminalDelegate.resizeTerminal(cols, rows)
     fun closeTerminalSession() = terminalDelegate.closeTerminalSession()
-
-    /** 导航到其他会话的连接参数。 */
-    fun getConnectionParams(): ConnectionParams = ConnectionParams(
-        serverUrl = serverUrl,
-        username = username,
-        password = password,
-        serverName = serverName,
-        serverId = serverId
-    )
 
     fun getLastAssistantText(): String? = sessionActions.getLastAssistantText()
 

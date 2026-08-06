@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
+import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -35,15 +36,13 @@ internal class TerminalDelegate(
     terminalRegistry: ServerTerminalRegistry,
     settingsRepository: SettingsRepository,
     serverId: String,
-    serverUrl: String,
-    username: String,
-    password: String?,
+    conn: ServerConnection,
     private val scope: CoroutineScope,
     private val sessionDirectoryProvider: () -> String?,
     private val sessionLoaded: CompletableDeferred<Unit>,
 ) {
     private val terminalWorkspace = terminalRegistry.workspaceFor(
-        serverId, serverUrl, username, password,
+        serverId, conn,
     ).also {
         if (BuildConfig.DEBUG) {
             AppLogger.d(

@@ -3,12 +3,11 @@ package dev.leonardo.ocbeacon.ui.navigation.routes
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
-import java.net.URLDecoder
 import java.net.URLEncoder
 
 /**
  * 聊天页的导航路由定义。
- * 参数：serverUrl, username, password, serverName, serverId, sessionId, openTerminal
+ * 参数：serverId, sessionId, openTerminal, directory
  */
 object ChatNav {
     const val ROUTE = "chat"
@@ -34,16 +33,12 @@ object ChatNav {
     )
 
     fun createRoute(
-        serverUrl: String,
-        username: String,
-        password: String,
-        serverName: String,
         serverId: String,
         sessionId: String,
         openTerminal: Boolean = false,
         directory: String = ""
     ): String {
-        val serverQuery = ServerRouteParams.queryString(serverUrl, username, password, serverName, serverId)
+        val serverQuery = ServerRouteParams.queryString(serverId)
         val encodedSessionId = URLEncoder.encode(sessionId, "UTF-8")
         val encodedDirectory = URLEncoder.encode(directory, "UTF-8")
         val route = "$ROUTE?$serverQuery&$PARAM_SESSION_ID=$encodedSessionId&$PARAM_OPEN_TERMINAL=$openTerminal&$PARAM_DIRECTORY=$encodedDirectory"

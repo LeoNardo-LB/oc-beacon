@@ -167,14 +167,5 @@ data class ChatMessage(
     val isAssistant: Boolean get() = message is Message.Assistant
 }
 
-/** 保存服务器连接信息，用于导航。 */
-data class ConnectionParams(
-    val serverUrl: String,
-    val username: String,
-    val password: String,
-    val serverName: String,
-    val serverId: String
-)
-
 /** 宽限期（ms），超过此时间的覆盖型 pending prompt 在对账时判定为丢失。 */
 internal const val PENDING_RECONCILE_MIN_AGE_MS = 60_000L

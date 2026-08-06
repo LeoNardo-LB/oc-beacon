@@ -24,11 +24,8 @@ class ServerTerminalRegistry @Inject constructor(
 
     internal fun workspaceFor(
         serverId: String,
-        serverUrl: String,
-        username: String,
-        password: String?,
+        conn: ServerConnection,
     ): ServerTerminalWorkspace {
-        val conn = ServerConnection.from(serverUrl, username, password)
         synchronized(lock) {
             return byServer.getOrPut(serverId) { ServerTerminalWorkspace(api, conn, context) }
         }

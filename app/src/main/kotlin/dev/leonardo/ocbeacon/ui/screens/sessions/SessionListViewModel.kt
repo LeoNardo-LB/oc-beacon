@@ -24,11 +24,13 @@ import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
+import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetSettingsFlowUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @HiltViewModel
@@ -59,7 +62,8 @@ class SessionListViewModel @Inject constructor(
     internal val mcpRepository: McpRepository,
     private val scrollSignal: SessionScrollSignal,
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val serverRepository: ServerRepository,
 ) : ViewModel() {
 
     companion object {
@@ -70,13 +74,17 @@ class SessionListViewModel @Inject constructor(
         const val KEY_SCROLL_TO_TOP = "session_list_scroll_to_top"
     }
 
-    val serverUrl: String = safeDecodeParam(savedStateHandle.get<String>("serverUrl") ?: "")
-    private val username: String = safeDecodeParam(savedStateHandle.get<String>("username") ?: "")
-    private val password: String = safeDecodeParam(savedStateHandle.get<String>("password") ?: "")
-    val serverName: String = safeDecodeParam(savedStateHandle.get<String>("serverName") ?: "")
     val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
 
-    internal val conn = ServerConnection.from(serverUrl, username, password.ifEmpty { null })
+    // 服务器配置异步从数据源解析（密码/用户名/URL 不再经导航参数传递）。
+    // runBlocking(Dispatchers.IO)：本地 Room 读取毫秒级，保证 directoryManager/mcpRepository eager 初始化。
+    private val serverConfig: dev.leonardo.ocbeacon.domain.model.ServerConfig? =
+        runBlocking(Dispatchers.IO) { serverRepository.getServer(serverId) }
+    val serverName: String = serverConfig?.displayName ?: ""
+
+    internal val conn = serverConfig?.let {
+        ServerConnection.from(it.url, it.username, it.password)
+    } ?: ServerConnection.from("", "", null)
 
     private val directoryManager = DirectoryManager(
         fileApi = fileApi,

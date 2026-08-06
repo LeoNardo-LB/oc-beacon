@@ -135,10 +135,6 @@ fun NavGraph(
                 showSharePicker = false
                 pendingShareSessionId = session.id
                 val route = ChatNav.createRoute(
-                    serverUrl = server.url,
-                    username = server.username,
-                    password = server.password ?: "",
-                    serverName = server.displayName,
                     serverId = server.id,
                     sessionId = session.id
                 )
@@ -149,13 +145,7 @@ fun NavGraph(
                 showSharePicker = false
                 // 导航到会话列表 — 用户可在那里创建新会话。
                 // 图片仍保留在 flow 中，会在 ChatScreen 打开时被消费。
-                val route = SessionListNav.createRoute(
-                    serverUrl = server.url,
-                    username = server.username,
-                    password = server.password ?: "",
-                    serverName = server.displayName,
-                    serverId = server.id
-                )
+                val route = SessionListNav.createRoute(server.id)
                 AppLogger.i(TAG, "Share → navigating to session list on ${server.displayName}")
                 navController.navigate(route) { launchSingleTop = true }
             },
@@ -184,10 +174,6 @@ fun NavGraph(
 
                 if (sessionId != null) {
                     val route = ChatNav.createRoute(
-                        serverUrl = deepLink.serverUrl,
-                        username = deepLink.username,
-                        password = deepLink.password,
-                        serverName = deepLink.serverName,
                         serverId = deepLink.serverId,
                         sessionId = sessionId
                     )
@@ -210,13 +196,7 @@ fun NavGraph(
                 } else if (deepLink.serverUrl.isNotBlank()) {
                     // 持久通知点击（无 sessionId）→ 打开该服务器的会话列表
                     AppLogger.i(TAG, "Deep-link → native SessionList for ${deepLink.serverName}")
-                    val route = SessionListNav.createRoute(
-                        serverUrl = deepLink.serverUrl,
-                        username = deepLink.username,
-                        password = deepLink.password,
-                        serverName = deepLink.serverName,
-                        serverId = deepLink.serverId
-                    )
+                    val route = SessionListNav.createRoute(deepLink.serverId)
                     navController.navigate(route) { launchSingleTop = true }
                 } else {
                     AppLogger.i(TAG, "Deep-link has no sessionId, ignoring native path")
@@ -231,10 +211,7 @@ fun NavGraph(
                     webViewNavigateFlow.tryEmit(newUrl)
                 } else {
                     val route = WebViewNav.createRoute(
-                        serverUrl = deepLink.serverUrl,
-                        username = deepLink.username,
-                        password = deepLink.password,
-                        serverName = deepLink.serverName,
+                        serverId = deepLink.serverId,
                         initialPath = deepLink.sessionPath
                     )
                     AppLogger.i(TAG, "Deep-link → WebView: $route")
@@ -256,15 +233,11 @@ fun NavGraph(
         composable(HomeNav.route) {
             HomeRoute(
                 windowSizeClass = windowSizeClass,
-                onNavigateToSessions = { serverUrl, username, password, serverName, serverId ->
-                    navController.navigate(
-                        SessionListNav.createRoute(serverUrl, username, password, serverName, serverId)
-                    )
+                onNavigateToSessions = { serverId ->
+                    navController.navigate(SessionListNav.createRoute(serverId))
                 },
-                onNavigateToServerSettings = { serverUrl, username, password, serverName, serverId ->
-                    navController.navigate(
-                        ServerSettingsNav.createRoute(serverUrl, username, password, serverName, serverId)
-                    )
+                onNavigateToServerSettings = { serverId ->
+                    navController.navigate(ServerSettingsNav.createRoute(serverId))
                 },
                 onNavigateToSettings = {
                     navController.navigate(SettingsNav.route)
@@ -303,26 +276,10 @@ fun NavGraph(
             ServerSettingsRoute(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToProviders = {
-                    navController.navigate(
-                        ServerProvidersNav.createRoute(
-                            serverUrl = params.server.serverUrl,
-                            username = params.server.username,
-                            password = params.server.password,
-                            serverName = params.server.serverName,
-                            serverId = params.server.serverId
-                        )
-                    )
+                    navController.navigate(ServerProvidersNav.createRoute(params.server.serverId))
                 },
                 onNavigateToModelFilter = {
-                    navController.navigate(
-                        ServerModelFilterNav.createRoute(
-                            serverUrl = params.server.serverUrl,
-                            username = params.server.username,
-                            password = params.server.password,
-                            serverName = params.server.serverName,
-                            serverId = params.server.serverId
-                        )
-                    )
+                    navController.navigate(ServerModelFilterNav.createRoute(params.server.serverId))
                 }
             )
         }
@@ -364,11 +321,9 @@ fun NavGraph(
             val params = WebViewNav.fromEntry(entry)
 
             WebViewScreen(
-                serverUrl = params.serverUrl,
-                username = params.username,
-                password = params.password,
-                serverName = params.serverName,
+                serverId = params.server.serverId,
                 initialPath = params.initialPath,
+                serverConfigRepository = serverRepository,
                 navigateUrlFlow = webViewNavigateFlow,
                 isDarkTheme = isSystemInDarkTheme(),
                 onNavigateBack = {
@@ -388,10 +343,6 @@ fun NavGraph(
                 onNavigateToChat = { sessionId, openTerminal ->
                     navController.navigate(
                         ChatNav.createRoute(
-                            serverUrl = params.server.serverUrl,
-                            username = params.server.username,
-                            password = params.server.password,
-                            serverName = params.server.serverName,
                             serverId = params.server.serverId,
                             sessionId = sessionId,
                             openTerminal = openTerminal
@@ -401,10 +352,6 @@ fun NavGraph(
                 onNavigateToNewChat = { directory ->
                     navController.navigate(
                         ChatNav.createRoute(
-                            serverUrl = params.server.serverUrl,
-                            username = params.server.username,
-                            password = params.server.password,
-                            serverName = params.server.serverName,
                             serverId = params.server.serverId,
                             sessionId = "",
                             directory = directory
@@ -442,10 +389,6 @@ fun NavGraph(
                 },
                 onNavigateToSession = { newSessionId ->
                     val route = ChatNav.createRoute(
-                        serverUrl = params.server.serverUrl,
-                        username = params.server.username,
-                        password = params.server.password,
-                        serverName = params.server.serverName,
                         serverId = params.server.serverId,
                         sessionId = newSessionId,
                         directory = if (newSessionId.isEmpty()) params.directory else ""
@@ -459,10 +402,6 @@ fun NavGraph(
                 },
                 onNavigateToChildSession = { childSessionId ->
                     val route = ChatNav.createRoute(
-                        serverUrl = params.server.serverUrl,
-                        username = params.server.username,
-                        password = params.server.password,
-                        serverName = params.server.serverName,
                         serverId = params.server.serverId,
                         sessionId = childSessionId
                     )
@@ -478,10 +417,7 @@ fun NavGraph(
                         ).replace('+', '-').replace('/', '_').replace("=", "")
                         val sessionPath = "/$encodedDir/session/${params.sessionId}"
                         val route = WebViewNav.createRoute(
-                            serverUrl = params.server.serverUrl,
-                            username = params.server.username,
-                            password = params.server.password,
-                            serverName = params.server.serverName,
+                            serverId = params.server.serverId,
                             initialPath = sessionPath
                         )
                         navController.navigate(route) { launchSingleTop = true }
@@ -493,10 +429,6 @@ fun NavGraph(
                         val dir = session?.directory ?: params.directory
                         navController.navigate(
                             WorkspaceNav.createRoute(
-                                serverUrl = params.server.serverUrl,
-                                username = params.server.username,
-                                password = params.server.password,
-                                serverName = params.server.serverName,
                                 serverId = params.server.serverId,
                                 sessionId = params.sessionId,
                                 directory = dir
@@ -507,10 +439,6 @@ fun NavGraph(
                 onOpenDirectory = { directoryPath ->
                     navController.navigate(
                         WorkspaceNav.createRoute(
-                            serverUrl = params.server.serverUrl,
-                            username = params.server.username,
-                            password = params.server.password,
-                            serverName = params.server.serverName,
                             serverId = params.server.serverId,
                             sessionId = params.sessionId,
                             directory = directoryPath

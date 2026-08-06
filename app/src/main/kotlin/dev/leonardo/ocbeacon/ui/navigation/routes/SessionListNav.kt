@@ -1,14 +1,10 @@
 package dev.leonardo.ocbeacon.ui.navigation.routes
 
 import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
-import java.net.URLDecoder
-import java.net.URLEncoder
 
 /**
  * 会话列表页的导航路由定义。
- * 参数：serverUrl, username, password, serverName, serverId
+ * 参数：serverId
  */
 object SessionListNav {
     const val ROUTE = "sessions"
@@ -20,14 +16,8 @@ object SessionListNav {
 
     data class Params(val server: ServerRouteParams)
 
-    fun createRoute(
-        serverUrl: String,
-        username: String,
-        password: String,
-        serverName: String,
-        serverId: String
-    ): String {
-        return "$ROUTE?${ServerRouteParams.queryString(serverUrl, username, password, serverName, serverId)}"
+    fun createRoute(serverId: String): String {
+        return "$ROUTE?${ServerRouteParams.queryString(serverId)}"
     }
 
     fun fromEntry(entry: NavBackStackEntry): Params {

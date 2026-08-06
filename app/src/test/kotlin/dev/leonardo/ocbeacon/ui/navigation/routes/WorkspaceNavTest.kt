@@ -8,13 +8,7 @@ import java.net.URI
 
 class WorkspaceNavTest {
 
-    private val serverParams = ServerRouteParams(
-        serverUrl = "http://192.168.1.100:4096",
-        username = "opencode",
-        password = "p@ss\$w0rd!",
-        serverName = "My Server",
-        serverId = "srv-a1b2c3d4"
-    )
+    private val serverId = "srv-a1b2c3d4"
 
     /** 根据路由字符串构建 mock 的 NavBackStackEntry，以便 fromEntry 能解码参数。 */
     private fun buildEntry(route: String): androidx.navigation.NavBackStackEntry {
@@ -40,11 +34,7 @@ class WorkspaceNavTest {
         val directory = "/home/user/project with spaces"
 
         val route = WorkspaceNav.createRoute(
-            serverUrl = serverParams.serverUrl,
-            username = serverParams.username,
-            password = serverParams.password,
-            serverName = serverParams.serverName,
-            serverId = serverParams.serverId,
+            serverId = serverId,
             sessionId = sessionId,
             directory = directory
         )
@@ -63,7 +53,7 @@ class WorkspaceNavTest {
         val pattern = WorkspaceNav.routePattern
 
         assertEquals(
-            "workspace?serverUrl={serverUrl}&username={username}&password={password}&serverName={serverName}&serverId={serverId}&sessionId={sessionId}&directory={directory}",
+            "workspace?serverId={serverId}&sessionId={sessionId}&directory={directory}",
             pattern
         )
     }
@@ -74,11 +64,7 @@ class WorkspaceNavTest {
         val directory = "/home/user/project"
 
         val route = WorkspaceNav.createRoute(
-            serverUrl = serverParams.serverUrl,
-            username = serverParams.username,
-            password = serverParams.password,
-            serverName = serverParams.serverName,
-            serverId = serverParams.serverId,
+            serverId = serverId,
             sessionId = sessionId,
             directory = directory
         )
@@ -86,12 +72,19 @@ class WorkspaceNavTest {
         val entry = buildEntry(route)
         val params = WorkspaceNav.fromEntry(entry)
 
-        assertEquals(serverParams.serverUrl, params.server.serverUrl)
-        assertEquals(serverParams.username, params.server.username)
-        assertEquals(serverParams.password, params.server.password)
-        assertEquals(serverParams.serverName, params.server.serverName)
-        assertEquals(serverParams.serverId, params.server.serverId)
+        assertEquals(serverId, params.server.serverId)
         assertEquals(sessionId, params.sessionId)
         assertEquals(directory, params.directory)
+    }
+
+    @Test
+    fun `routePattern contains no credential params`() {
+        val pattern = WorkspaceNav.routePattern
+
+        // 密码/用户名/服务器 URL 不得出现在路由模式中
+        assert(!pattern.contains("password")) { "routePattern must not contain password: $pattern" }
+        assert(!pattern.contains("username")) { "routePattern must not contain username: $pattern" }
+        assert(!pattern.contains("serverUrl")) { "routePattern must not contain serverUrl: $pattern" }
+        assert(!pattern.contains("serverName")) { "routePattern must not contain serverName: $pattern" }
     }
 }
