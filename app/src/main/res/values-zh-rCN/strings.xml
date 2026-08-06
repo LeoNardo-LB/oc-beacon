@@ -72,6 +72,7 @@
     <string name="add">添加</string>
     <string name="draft">草稿</string>
     <string name="assign_category">新增 Tag</string>
+    <string name="tag_label">标签</string>
     <string name="no_tags_placeholder">暂无标签，点击下方按钮创建</string>
     <string name="quick_navigate">快速定位</string>
     <string name="question">提问</string>

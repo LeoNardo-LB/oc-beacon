@@ -118,6 +118,7 @@
     <string name="add">Добавить</string>
     <string name="draft">Черновик</string>
     <string name="assign_category">Добавить тег</string>
+    <string name="tag_label">Тег</string>
     <string name="no_tags_placeholder">Нет меток, нажмите кнопку ниже, чтобы создать</string>
     <string name="quick_navigate">Быстрая навигация</string>
     <string name="question">Вопрос</string>

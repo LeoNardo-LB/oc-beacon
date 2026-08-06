@@ -70,6 +70,7 @@
     <string name="add">追加</string>
     <string name="draft">下書き</string>
     <string name="assign_category">タグを追加</string>
+    <string name="tag_label">タグ</string>
     <string name="no_tags_placeholder">タグがありません。下のボタンをタップして作成</string>
     <string name="quick_navigate">クイックナビゲーション</string>
     <string name="question">質問</string>

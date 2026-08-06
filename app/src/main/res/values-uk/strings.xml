@@ -70,6 +70,7 @@
     <string name="add">Додати</string>
     <string name="draft">Чернетка</string>
     <string name="assign_category">Додати тег</string>
+    <string name="tag_label">Тег</string>
     <string name="no_tags_placeholder">Немає тегів, натисніть кнопку нижче</string>
     <string name="quick_navigate">Швидка навігація</string>
     <string name="question">Питання</string>

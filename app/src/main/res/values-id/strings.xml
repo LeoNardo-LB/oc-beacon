@@ -253,6 +253,7 @@
     <string name="add">Tambah</string>
     <string name="draft">Draf</string>
     <string name="assign_category">Tambah tag</string>
+    <string name="tag_label">Tag</string>
     <string name="no_tags_placeholder">Belum ada tag, ketuk tombol di bawah</string>
     <string name="quick_navigate">Navigasi cepat</string>
     <string name="question">Pertanyaan</string>

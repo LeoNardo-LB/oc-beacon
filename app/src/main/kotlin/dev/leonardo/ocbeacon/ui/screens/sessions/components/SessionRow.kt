@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.Tag
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -203,36 +204,7 @@ internal fun SessionRow(
                         modifier = Modifier.weight(1f),
                         contentAlignment = Alignment.CenterEnd,
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .basicMarquee()
-                                .clip(RoundedCornerShape(4.dp)),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            item.tags.forEach { tag ->
-                                Row(
-                                    modifier = Modifier
-                                        .background(SessionCategoryStyle.color(tag.color).copy(alpha = AlphaTokens.SELECTED))
-                                        .padding(horizontal = 4.dp, vertical = 1.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = SessionCategoryStyle.icon(tag.icon),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(10.dp),
-                                        tint = SessionCategoryStyle.color(tag.color),
-                                    )
-                                    Text(
-                                        text = tag.name,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                        color = SessionCategoryStyle.color(tag.color),
-                                        maxLines = 1,
-                                    )
-                                }
-                            }
-                        }
+                        TagChipsRow(tags = item.tags)
                     }
                 }
             }
@@ -347,6 +319,20 @@ private fun SessionDetailsDialog(
                         }
                     }
                 }
+                if (item.tags.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.tag_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TagChipsRow(tags = item.tags, modifier = Modifier.weight(1f))
+                    }
+                }
                 Spacer(Modifier.height(16.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -402,6 +388,40 @@ private fun SessionDetailsDialog(
                         Text(stringResource(R.string.session_delete))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TagChipsRow(tags: List<Tag>, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .basicMarquee()
+            .clip(RoundedCornerShape(4.dp)),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        tags.forEach { tag ->
+            Row(
+                modifier = Modifier
+                    .background(SessionCategoryStyle.color(tag.color).copy(alpha = AlphaTokens.SELECTED))
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Icon(
+                    imageVector = SessionCategoryStyle.icon(tag.icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(10.dp),
+                    tint = SessionCategoryStyle.color(tag.color),
+                )
+                Text(
+                    text = tag.name,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = SessionCategoryStyle.color(tag.color),
+                    maxLines = 1,
+                )
             }
         }
     }

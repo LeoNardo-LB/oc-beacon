@@ -70,6 +70,7 @@
     <string name="add">추가</string>
     <string name="draft">초안</string>
     <string name="assign_category">태그 추가</string>
+    <string name="tag_label">태그</string>
     <string name="no_tags_placeholder">태그가 없습니다. 아래 버튼을 눌러 만드세요</string>
     <string name="quick_navigate">빠른 이동</string>
     <string name="question">질문</string>

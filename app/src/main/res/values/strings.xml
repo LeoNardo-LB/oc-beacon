@@ -422,6 +422,7 @@
     <string name="delete_tag_message">Delete \"%1$s\"? All session assignments will be removed.</string>
     <string name="draft">Draft</string>
     <string name="assign_category">新增 Tag</string>
+    <string name="tag_label">标签</string>
     <string name="quick_navigate">Quick navigate</string>
     <string name="question">Question</string>
     <string name="no_questions">No questions</string>
