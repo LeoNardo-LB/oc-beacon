@@ -65,7 +65,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
             time = dev.leonardo.ocbeacon.domain.model.TimeInfo(created = System.currentTimeMillis())
         )
     )
-    var replyPermissionResult: Result<Boolean> = Result.success(true)
     var replyQuestionResult: Result<Boolean> = Result.success(true)
     var promptAsyncResult: Result<Unit> = Result.success(Unit)
     var revertResult: Result<Unit> = Result.success(Unit)
@@ -75,7 +74,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     var listPendingQuestionsResult: Result<List<QuestionState>> = Result.success(emptyList())
     var replyToQuestionResult: Result<Boolean> = Result.success(true)
     var rejectQuestionResult: Result<Boolean> = Result.success(true)
-    var undoRedoResult: Result<Unit> = Result.success(Unit)
     var executeCommandResult: Result<Boolean> = Result.success(true)
     var runShellCommandResult: Result<Boolean> = Result.success(true)
 
@@ -83,9 +81,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     val sentMessages = mutableListOf<Pair<String, List<Part>>>()
     val promptAsyncCalls = mutableListOf<Pair<String, List<PromptPart>>>()
-    val repliedPermissions = mutableListOf<Pair<String, String>>()
     val repliedQuestions = mutableListOf<Pair<String, String>>()
-    val undoRedoCalls = mutableListOf<Triple<String, String, String>>()
     val executeCommandCalls = mutableListOf<Map<String, String>>()
 
     // ============ 状态观察 ============
@@ -125,11 +121,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     override suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message> {
         sentMessages.add(sessionId to parts)
         return sendMessageResult
-    }
-
-    override suspend fun replyPermission(permissionId: String, reply: String): Result<Boolean> {
-        repliedPermissions.add(permissionId to reply)
-        return replyPermissionResult
     }
 
     override suspend fun replyQuestion(questionId: String, answer: String): Result<Boolean> {
@@ -182,11 +173,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         rejectQuestionResult
 
     // ============ Undo/Redo ============
-
-    override suspend fun undoRedo(serverId: String, sessionId: String, action: String): Result<Unit> {
-        undoRedoCalls.add(Triple(serverId, sessionId, action))
-        return undoRedoResult
-    }
 
     // ============ 命令执行 ============
 

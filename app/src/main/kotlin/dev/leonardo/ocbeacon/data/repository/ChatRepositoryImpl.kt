@@ -51,7 +51,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val permissionAutoApprover: PermissionAutoApprover
 ) : ChatRepository {
 
-    private val toolExpandedStates = mutableMapOf<String, Boolean>()
+    private val toolExpandedStates = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
     // ============ 状态观察 ============
 
@@ -136,13 +136,6 @@ class ChatRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun replyPermission(permissionId: String, reply: String): Result<Boolean> = runCatching {
-        val sessionId = findSessionForPermission(permissionId)
-            ?: throw IllegalStateException("Session not found for permission $permissionId")
-        val conn = resolveConnectionForSession(sessionId)
-        messageApi.replyToPermission(conn, permissionId, reply)
-    }
-
     override suspend fun replyQuestion(questionId: String, answer: String): Result<Boolean> = runCatching {
         val sessionId = findSessionForQuestion(questionId)
             ?: throw IllegalStateException("Session not found for question $questionId")
@@ -214,26 +207,6 @@ class ChatRepositoryImpl @Inject constructor(
         messageApi.rejectQuestion(conn, requestId, directory)
     }
 
-    // ============ 撤销/重做 ============
-
-    override suspend fun undoRedo(serverId: String, sessionId: String, action: String): Result<Unit> = runCatching {
-        val conn = resolveConnection(serverId)
-        // API 使用独立的 revert/unrevert 端点，而非统一的 undoRedo。
-        // 此方法根据 action 参数进行分发。
-        when (action) {
-            "undo" -> {
-                // 撤销需查找最后一条用户消息——调用方应直接提供 messageId
-                // 统一的 undoRedo 方法不支持不带特定 messageId 的 revert。
-                // 请改用带 messageId 的 revertSession。
-                throw UnsupportedOperationException("Use revertSession(serverId, sessionId, messageId) for undo")
-            }
-            "redo" -> {
-                sessionApi.unrevertSession(conn, sessionId)
-            }
-            else -> throw IllegalArgumentException("Invalid action: $action. Must be 'undo' or 'redo'")
-        }
-    }
-
     // ============ 命令执行 ============
 
     override suspend fun executeCommand(
@@ -285,11 +258,6 @@ class ChatRepositoryImpl @Inject constructor(
             ?: throw IllegalStateException("Server config not found: $serverId")
         return ServerConnection.from(config.url, config.username, config.password)
     }
-
-    private fun findSessionForPermission(permissionId: String): String? =
-        eventDispatcher.permissions.value.entries
-            .firstOrNull { (_, perms) -> perms.any { it.id == permissionId } }
-            ?.key
 
     private fun findSessionForQuestion(questionId: String): String? =
         eventDispatcher.questions.value.entries

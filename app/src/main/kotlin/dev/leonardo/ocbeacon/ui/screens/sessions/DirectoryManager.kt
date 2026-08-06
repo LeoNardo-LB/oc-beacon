@@ -19,7 +19,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "DirectoryManager"
@@ -81,48 +81,47 @@ class DirectoryManager(
      * 返回 [Flow]：每个盘符探测完成即发射，UI 可边收集边显示（先看到 C:/D: 等常用盘符），
      * 无需等最慢的请求。单盘符探测超时 [DRIVE_PROBE_TIMEOUT_MS]，结果缓存 [DRIVES_CACHE_TTL_MS]。
      */
-    suspend fun listWindowsDrives(): Flow<FileNode> = callbackFlow {
+    suspend fun listWindowsDrives(): Flow<FileNode> = flow {
         val cached = cachedDrives
         if (cached != null && System.currentTimeMillis() - cachedDrivesAt < DRIVES_CACHE_TTL_MS) {
-            cached.forEach { trySend(it) }
-            close()
-            return@callbackFlow
+            cached.forEach { emit(it) }
+            return@flow
         }
 
         val collected = mutableListOf<FileNode>()
-        val producer = this
-        ('C'..'Z').map { letter ->
-            async {
-                val drivePath = "$letter:\\"
-                try {
-                    val node = withTimeoutOrNull(DRIVE_PROBE_TIMEOUT_MS) {
-                        if (fileApi.probeDirectory(conn, drivePath)) {
-                            FileNode(
-                                name = "$letter:",
-                                path = drivePath,
-                                absolute = drivePath,
-                                type = FileType.DIRECTORY,
-                                ignored = false,
-                            )
-                        } else {
-                            null
+        coroutineScope {
+            ('C'..'Z').map { letter ->
+                async {
+                    val drivePath = "$letter:\\"
+                    try {
+                        val node = withTimeoutOrNull(DRIVE_PROBE_TIMEOUT_MS) {
+                            if (fileApi.probeDirectory(conn, drivePath)) {
+                                FileNode(
+                                    name = "$letter:",
+                                    path = drivePath,
+                                    absolute = drivePath,
+                                    type = FileType.DIRECTORY,
+                                    ignored = false,
+                                )
+                            } else {
+                                null
+                            }
                         }
+                        if (node != null) {
+                            synchronized(collected) { collected += node }
+                            emit(node)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // 单个盘符探测失败忽略
                     }
-                    if (node != null) {
-                        synchronized(collected) { collected += node }
-                        producer.trySend(node)
-                    }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    // 单个盘符探测失败忽略
                 }
-            }
-        }.awaitAll()
+            }.awaitAll()
+        }
 
         cachedDrives = collected
         cachedDrivesAt = System.currentTimeMillis()
-        close()
     }
 
     /** 列出服务器上指定路径中的目录。 */

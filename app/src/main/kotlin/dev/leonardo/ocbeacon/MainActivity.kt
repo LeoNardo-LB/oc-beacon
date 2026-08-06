@@ -15,7 +15,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val windowSizeClass = calculateWindowSizeClass(this)
             // 收集主题偏好
-            val settings by settingsRepository.getSettingsFlow().collectAsState(initial = AppSettings())
+            val settings by settingsRepository.getSettingsFlow().collectAsStateWithLifecycle(initialValue = AppSettings())
             val appTheme = settings.appTheme
             val dynamicColor = settings.dynamicColor
             val amoledDark = settings.amoledDark

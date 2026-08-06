@@ -18,7 +18,6 @@ class ChatRepositoryTest {
         assertTrue("listPendingQuestions missing", methods.any { it.startsWith("listPendingQuestions") })
         assertTrue("replyToQuestion missing", methods.any { it.startsWith("replyToQuestion") })
         assertTrue("rejectQuestion missing", methods.any { it.startsWith("rejectQuestion") })
-        assertTrue("undoRedo missing", methods.any { it.startsWith("undoRedo") })
         assertTrue("executeCommand missing", methods.any { it.startsWith("executeCommand") })
         assertTrue("runShellCommand missing", methods.any { it.startsWith("runShellCommand") })
     }

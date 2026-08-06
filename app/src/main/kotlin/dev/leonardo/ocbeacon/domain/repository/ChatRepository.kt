@@ -90,11 +90,6 @@ interface ChatRepository {
     suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message>
 
     /**
-     * 按 ID 回复权限请求。
-     */
-    suspend fun replyPermission(permissionId: String, reply: String): Result<Boolean>
-
-    /**
      * 按 ID 回复问题。
      */
     suspend fun replyQuestion(questionId: String, answer: String): Result<Boolean>
@@ -162,14 +157,6 @@ interface ChatRepository {
         requestId: String,
         directory: String? = null
     ): Result<Boolean>
-
-    // ============ 撤销/重做 ============
-
-    /**
-     * 在会话中撤销或重做消息。
-     * @param action "undo" 或 "redo"
-     */
-    suspend fun undoRedo(serverId: String, sessionId: String, action: String): Result<Unit>
 
     // ============ 命令执行 ============
 

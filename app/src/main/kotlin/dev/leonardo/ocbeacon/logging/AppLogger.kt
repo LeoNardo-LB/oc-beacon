@@ -58,8 +58,11 @@ object AppLogger {
      * 仅可调用一次；后续调用为空操作。
      */
     fun initialize(repository: DiagnosticLogRepository) {
-        if (this.repository != null) return
-        this.repository = repository
+        // 防重复初始化：check-then-act 非原子，多线程并发调用会启动两份消费者
+        synchronized(this) {
+            if (this.repository != null) return
+            this.repository = repository
+        }
         scope.launch {
             repository.logLevel.collect { level -> minimumLevel = level }
         }
