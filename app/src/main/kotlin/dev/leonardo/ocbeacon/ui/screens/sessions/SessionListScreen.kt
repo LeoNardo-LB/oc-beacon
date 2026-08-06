@@ -15,6 +15,8 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -90,6 +92,7 @@ fun SessionListScreen(
     val sessionTagAssignments by viewModel.sessionTagAssignments.collectAsStateWithLifecycle()
     val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
     val favoriteSessionIds by viewModel.favoriteSessionIds.collectAsStateWithLifecycle()
+    val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
@@ -123,6 +126,19 @@ fun SessionListScreen(
                 actions = {
                     // 以下入口仅在会话页（page 0）显示，设置页右上角保持干净
                     if (pagerState.currentPage == 0) {
+                        // 收藏筛选：仅显示收藏会话（选中态 = 星标实心高亮）
+                        IconButton(onClick = { viewModel.toggleFavoritesOnly() }) {
+                            Icon(
+                                if (favoritesOnly) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                contentDescription = stringResource(R.string.favorites_title),
+                                tint = if (favoritesOnly) {
+                                    MaterialTheme.colorScheme.tertiary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         // 切换查看模式：最近 <-> 文件夹
                         IconButton(onClick = { viewModel.toggleViewMode() }) {
                             Icon(

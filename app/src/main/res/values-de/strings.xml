@@ -64,7 +64,7 @@
     <string name="category">Tag hinzufügen</string>
     <string name="no_category">Keine Kategorie</string>
     <string name="new_category">Neue Kategorie</string>
-    <string name="category_name">Kategoriename</string>
+    <string name="category_name">Tag-Name</string>
     <string name="color">Farbe</string>
     <string name="icon">Symbol</string>
     <string name="add">Hinzufügen</string>

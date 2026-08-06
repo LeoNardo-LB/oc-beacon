@@ -126,6 +126,15 @@ class SessionListViewModel @Inject constructor(
     private val _categoryFilter = MutableStateFlow<String?>(null)
     val categoryFilter: StateFlow<String?> = _categoryFilter.asStateFlow()
 
+    /** 仅显示收藏会话（本服务器内置标签筛选）。 */
+    private val _favoritesOnly = MutableStateFlow(false)
+    val favoritesOnly: StateFlow<Boolean> = _favoritesOnly.asStateFlow()
+
+    /** 切换"仅收藏"筛选。 */
+    fun toggleFavoritesOnly() {
+        _favoritesOnly.value = !_favoritesOnly.value
+    }
+
     /** 全局标签列表（按服务器划分），用于选择器 / 过滤 chip。 */
     val sessionTags: StateFlow<List<Tag>> = settingsRepository.sessionTags(serverId)
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
@@ -173,7 +182,8 @@ class SessionListViewModel @Inject constructor(
         _viewMode,
         settingsRepository.sessionTagAssignments(serverId),
         _categoryFilter,
-        sessionTags
+        sessionTags,
+        _favoritesOnly,
     ) { values ->
         buildSessionListUiState(values, serverId, serverName, draftRepository)
     }.stateIn(viewModelScope, WhileSubscribed5s, SessionListUiState())

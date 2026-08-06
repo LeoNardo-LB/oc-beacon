@@ -64,7 +64,7 @@
     <string name="category">Додати тег</string>
     <string name="no_category">Без категорії</string>
     <string name="new_category">Нова категорія</string>
-    <string name="category_name">Назва категорії</string>
+    <string name="category_name">Назва тега</string>
     <string name="color">Колір</string>
     <string name="icon">Іконка</string>
     <string name="add">Додати</string>

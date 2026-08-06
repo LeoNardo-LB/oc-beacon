@@ -64,7 +64,7 @@
     <string name="category">タグを追加</string>
     <string name="no_category">カテゴリなし</string>
     <string name="new_category">新しいカテゴリ</string>
-    <string name="category_name">カテゴリ名</string>
+    <string name="category_name">タグ名</string>
     <string name="color">色</string>
     <string name="icon">アイコン</string>
     <string name="add">追加</string>

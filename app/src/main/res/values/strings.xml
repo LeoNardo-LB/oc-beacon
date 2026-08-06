@@ -407,7 +407,7 @@
     <string name="category">新增 Tag</string>
     <string name="no_category">No category</string>
     <string name="new_category">New category</string>
-    <string name="category_name">Category name</string>
+    <string name="category_name">Tag name</string>
     <string name="color">Color</string>
     <string name="icon">Icon</string>
     <string name="add">Add</string>

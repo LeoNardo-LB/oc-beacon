@@ -1,8 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material3.BasicAlertDialog
@@ -84,7 +80,6 @@ fun TagPickerDialog(
 ) {
     val params = amoledDialogParams()
     var selected by remember { mutableStateOf(selectedTagIds) }
-    var showCreateForm by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf(SessionCategoryStyle.colorKeys.first()) }
     var selectedIcon by remember { mutableStateOf(SessionCategoryStyle.iconKeys.first()) }
@@ -109,16 +104,19 @@ fun TagPickerDialog(
                 Spacer(Modifier.height(12.dp))
 
                 // 标签列表区：weight 填充中间空白 + minHeight
+                // 标签列表左上对齐；空状态占位垂直居中
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .heightIn(min = 160.dp)
                         .verticalScroll(rememberScrollState()),
-                    contentAlignment = Alignment.Center,
                 ) {
                     if (tags.isEmpty()) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.Label,
                                 contentDescription = null,
@@ -153,83 +151,64 @@ fun TagPickerDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                // 底部：新增 Tag 按钮（点击内联展开表单）
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { showCreateForm = !showCreateForm }) {
-                        Icon(Icons.Default.Add, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.new_tag))
-                    }
-                }
+                // 新建标签表单（常显）：名称 + 颜色 + 图标
+                OutlinedTextField(
+                    value = newCategoryName,
+                    onValueChange = { newCategoryName = it },
+                    label = { Text(stringResource(R.string.category_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
 
-                AnimatedVisibility(visible = showCreateForm, enter = expandVertically(), exit = shrinkVertically()) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = newCategoryName,
-                            onValueChange = { newCategoryName = it },
-                            label = { Text(stringResource(R.string.category_name)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
+                Text(text = stringResource(R.string.color), style = MaterialTheme.typography.labelSmall)
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SessionCategoryStyle.colorKeys.forEach { key ->
+                        ColorDot(
+                            color = SessionCategoryStyle.color(key),
+                            isSelected = selectedColor == key,
+                            onClick = { selectedColor = key },
                         )
-                        Spacer(Modifier.height(10.dp))
-
-                        Text(text = stringResource(R.string.color), style = MaterialTheme.typography.labelSmall)
-                        Spacer(Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            SessionCategoryStyle.colorKeys.forEach { key ->
-                                ColorDot(
-                                    color = SessionCategoryStyle.color(key),
-                                    isSelected = selectedColor == key,
-                                    onClick = { selectedColor = key },
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-
-                        Text(text = stringResource(R.string.icon), style = MaterialTheme.typography.labelSmall)
-                        Spacer(Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            SessionCategoryStyle.iconKeys.forEach { key ->
-                                IconOption(
-                                    icon = SessionCategoryStyle.icon(key),
-                                    isSelected = selectedIcon == key,
-                                    onClick = { selectedIcon = key },
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton(onClick = { showCreateForm = false }) { Text(stringResource(R.string.close)) }
-                            Spacer(Modifier.width(8.dp))
-                            Button(
-                                onClick = {
-                                    if (newCategoryName.isNotBlank()) {
-                                        val newId = onCreateTag(newCategoryName.trim(), selectedColor, selectedIcon)
-                                        selected = selected + newId
-                                        newCategoryName = ""
-                                        showCreateForm = false
-                                    }
-                                },
-                                enabled = newCategoryName.isNotBlank(),
-                            ) { Text(stringResource(R.string.add)) }
-                        }
                     }
                 }
+                Spacer(Modifier.height(10.dp))
 
+                Text(text = stringResource(R.string.icon), style = MaterialTheme.typography.labelSmall)
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SessionCategoryStyle.iconKeys.forEach { key ->
+                        IconOption(
+                            icon = SessionCategoryStyle.icon(key),
+                            isSelected = selectedIcon == key,
+                            onClick = { selectedIcon = key },
+                        )
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
 
-                // 主操作栏：取消 / 确定
+                // 操作栏：关闭 / 添加（名称非空可用，创建后自动勾选）/ 确定
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (newCategoryName.isNotBlank()) {
+                                val newId = onCreateTag(newCategoryName.trim(), selectedColor, selectedIcon)
+                                selected = selected + newId
+                                newCategoryName = ""
+                            }
+                        },
+                        enabled = newCategoryName.isNotBlank(),
+                    ) { Text(stringResource(R.string.add)) }
                     Spacer(Modifier.width(8.dp))
                     Button(onClick = { onConfirm(selected) }) { Text(stringResource(R.string.ok)) }
                 }

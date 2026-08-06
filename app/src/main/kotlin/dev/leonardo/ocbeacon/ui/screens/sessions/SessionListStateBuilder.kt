@@ -35,6 +35,7 @@ internal fun buildSessionListUiState(
     val categoryAssignments = values[14] as Map<String, List<String>>
     val categoryFilterId = values[15] as String?
     val categoriesList = values[16] as List<Tag>
+    val favoritesOnly = values[17] as Boolean
 
     val serverSessionIds = serverSessionMap[serverId].orEmpty()
 
@@ -69,6 +70,16 @@ internal fun buildSessionListUiState(
         searchedSessions
     }
 
+    // 仅收藏筛选：从统一分配 map 派生内置收藏标签（builtin:favorite）的会话
+    val favoritesFilteredSessions = if (favoritesOnly) {
+        val favoriteIds = categoryAssignments
+            .filterValues { dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID in it }
+            .keys
+        categoryFilteredSessions.filter { it.id in favoriteIds }
+    } else {
+        categoryFilteredSessions
+    }
+
     val tagsById = categoriesList.associateBy { it.id }
     val resolvedTags: Map<String, List<Tag>> = buildMap {
         categoryAssignments.forEach { (sessionId, tagIds) ->
@@ -77,7 +88,7 @@ internal fun buildSessionListUiState(
     }
 
     val treeNodes = if (viewMode == SessionViewMode.RECENT) {
-        categoryFilteredSessions.map { session ->
+        favoritesFilteredSessions.map { session ->
             TreeNode.Session(
                 id = session.id,
                 session = SessionItem(
@@ -89,7 +100,7 @@ internal fun buildSessionListUiState(
             )
         }
     } else {
-        buildTreeNodes(categoryFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), resolvedTags)
+        buildTreeNodes(favoritesFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), resolvedTags)
     }
 
     val prefillDirectory = if (lastToggledDirectory != null && lastToggledDirectory in expandedPaths)

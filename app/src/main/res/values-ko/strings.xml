@@ -64,7 +64,7 @@
     <string name="category">태그 추가</string>
     <string name="no_category">카테고리 없음</string>
     <string name="new_category">새 카테고리</string>
-    <string name="category_name">카테고리 이름</string>
+    <string name="category_name">태그 이름</string>
     <string name="color">색상</string>
     <string name="icon">아이콘</string>
     <string name="add">추가</string>
