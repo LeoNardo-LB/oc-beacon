@@ -90,6 +90,18 @@ internal class MessageDataDelegate(
     private val _partsList = MutableStateFlow<List<Part>>(emptyList())
     private var sseJob: Job? = null
 
+    // ============ ChatMessage 实例缓存 ============
+    /**
+     * combine 管道的 ChatMessage 实例缓存：消息未变（parts 与 message 引用均稳定）时
+     * 复用上一轮实例，消除流式/工具运行期间每 ~48ms 全量重建全部消息对象（~2000 条）
+     * 的分配压力 —— GC 频繁触发导致"用一会儿后滑动卡顿"的根因。
+     * 引用稳定性前提：EventDispatcher 的 parts/messages 更新只替换变化消息的
+     * List/元素（setMessages/mergeMessages/replaceMessages 均复用 existing 实例），
+     * ToolProgressOutputInjector.inject 无匹配时返回原引用。
+     */
+    private var lastCombineSessionId: String? = null
+    private val chatMessageCache = HashMap<String, ChatMessage>()
+
     // ============ 乐观发送 ============
     /** 本地生成的乐观消息 ID。用于与服务器确认的消息区分。 */
     private val _pendingMessageIds = MutableStateFlow<Set<String>>(emptySet())
@@ -207,14 +219,21 @@ internal class MessageDataDelegate(
             // 没有 parts 的消息。旧的 P5-3 过滤器（allParts[msg.id]?.isNotEmpty()）
             // 在 SSE part 事件延迟或丢失时会导致消息永久隐藏。
             // 短暂的空气泡可以接受；消息不可见则不行。
-            val chatMessages = visible
-                .map { msg ->
-                    val rawParts = allParts[msg.id] ?: emptyList()
-                    ChatMessage(
-                        message = msg,
-                        parts = ToolProgressOutputInjector.inject(rawParts, progressOutputs)
-                    )
+            if (sid != lastCombineSessionId) {
+                chatMessageCache.clear()
+                lastCombineSessionId = sid
+            }
+            val chatMessages = visible.map { msg ->
+                val rawParts = allParts[msg.id] ?: emptyList()
+                val injected = ToolProgressOutputInjector.inject(rawParts, progressOutputs)
+                val cached = chatMessageCache[msg.id]
+                if (cached != null && cached.parts === injected && cached.message === msg) {
+                    cached
+                } else {
+                    ChatMessage(message = msg, parts = injected)
+                        .also { chatMessageCache[msg.id] = it }
                 }
+            }
 
             // 追加尚未被服务器确认的乐观消息。
             // 当服务器投递任何消息（user 或 assistant）且时间戳

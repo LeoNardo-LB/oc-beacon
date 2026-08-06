@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,10 +50,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.animation.core.exponentialDecay
-import androidx.compose.foundation.gestures.FlingBehavior
-import androidx.compose.foundation.gestures.ScrollScope
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -68,6 +65,7 @@ import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
+import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
@@ -91,6 +89,7 @@ import kotlinx.coroutines.launch
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.logging.AppLogger
 
 /**
  * 主会话和子会话消息列表共用的 composable。
@@ -125,28 +124,40 @@ fun ChatMessageList(
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
-    // turnGroups 必须随 rawMessages 变化而重新计算（而非仅随结构变化）。
-    // 它持有 ChatMessage 引用，其 parts 在 SSE 流式期间每 48ms 更新。
-    // 用 msgStructKey（id+role 字符串）作为 key 会命中缓存，保留 stale
-    // 引用快照 —— 气泡冻结在首个 token（回归：37d9a6ac 重新引入，
-    // 1dbb2f1a 已修复）。参见 docs/research/sse-scroll-stability-iron-laws.md。
-    val turnGroups = remember(rawMessages) { computeTurnGroups(rawMessages) }
-
-    // 预计算 assistant 显示项的全部渲染数据。
-    // 单个 remember 块 —— 仅在 rawMessages/displayItems 变化时运行，而非组合期间。
-    val renderableTurns: List<RenderableTurn?> = remember(rawMessages, displayItems, turnGroups) {
-        displayItems.map { (rawIndex, msg) ->
-            if (!msg.isAssistant) return@map null
-            val turnMsgs = turnGroups[rawIndex] ?: listOf(msg)
-            val isTurnLast = rawIndex == rawMessages.lastIndex ||
-                rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
-            computeRenderableTurn(
-                turnMessages = turnMsgs,
-                currentMessage = msg,
-                isTurnLast = isTurnLast,
-                formatError = ::formatAssistantErrorMessage,
-            )
+    // turnGroups 缓存（v6）：消息 id 序列未变时复用上次 Map，消除流式期间
+    // 每 48ms 全量重建（~2000 entry/轮）的分配压力（GC 卡顿根因之一）。
+    // 安全前提：renderableTurns 的 miss 分支（流式/新消息）用最新 msg 引用替换
+    // turn 内同 id 的旧引用 —— 流式消息永不冻结（历史回归 37d9a6ac 的教训）。
+    // 此处仅按结构（id 序列）缓存；内容（parts）变化不重建 Map —— 同 id 的
+    // 旧引用由 miss 分支修正；另一读取点（isStreamingMsg 判断）只比较 id，
+    // 不受旧引用影响。
+    val turnGroupsSigRef = remember { intArrayOf(Int.MIN_VALUE) }
+    val turnGroupsRef = remember { arrayOfNulls<Map<Int, List<ChatMessage>>>(1) }
+    val turnGroups: Map<Int, List<ChatMessage>> = remember(rawMessages) {
+        val sig = messagesSignature(rawMessages)
+        val cached = turnGroupsRef[0]
+        if (cached != null && sig == turnGroupsSigRef[0]) {
+            cached
+        } else {
+            turnGroupsSigRef[0] = sig
+            computeTurnGroups(rawMessages).also { turnGroupsRef[0] = it }
         }
+    }
+
+    // 来自 ChatRepository 的实时状态 —— 领域类型。
+    // 置于 renderableTurns 之前：其缓存开关（activeTools 是否为空）需要在此计算。
+    val currentSessionId = viewModel.sessionId
+    val toolProgress by viewModel.chatRepositoryExposed.getActiveToolProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
+    val stepProgress by viewModel.chatRepositoryExposed.getStepProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
+    val compactionState by viewModel.chatRepositoryExposed.getCompactionStateForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
+    val activeTools = toolProgress.orEmpty().map { 
+        ToolProgressInfo(callId = it.callId, partId = it.partId, tool = it.tool, status = it.status, progress = it.progress, title = it.title)
+    }
+    val currentStep = stepProgress?.let { 
+        StepProgressInfo(step = it.step, agent = it.agent, model = it.model)
+    }
+    val currentCompaction = compactionState?.let { 
+        CompactionStateInfo(isActive = it.isActive, reason = it.reason)
     }
 
     // 判断当前哪条消息在流式输出 —— 仅基于 completed 时间戳，
@@ -160,6 +171,51 @@ fun ChatMessageList(
         rawMessages.lastOrNull {
             it.isAssistant && it.message.time.completed == null
         }?.message?.id
+    }
+
+    // 预计算 assistant 显示项的全部渲染数据。
+    // 单个 remember 块 —— 仅在 rawMessages/displayItems 变化时运行，而非组合期间。
+    // 缓存优化（2026-08）：流式期间数据层每 48ms 全量重建消息列表（即使只有最后
+    // 一条在变），若 renderableTurns 全量重算 → 新实例 → @Immutable 相等性失效 →
+    // LazyColumn 可见 item 全量重组 → 滚动卡顿。这里按消息 id + 内容指纹缓存：
+    // 指纹覆盖流式追加（Text/Reasoning 尾部）、工具输出注入（Running/Completed
+    // output 尾部）与消息级时间/错误字段；内容未变的消息复用缓存实例 → 重组只落
+    // 在变化消息上。相比早期"activeTools 非空整体禁用缓存"的实现（工具运行期间
+    // 每 48ms 全量重算 → 工具调用时滑动卡顿），工具活跃时其他消息仍命中缓存。
+    val renderableCache = remember { HashMap<String, Pair<Int, RenderableTurn>>() }
+    val renderableTurns: List<RenderableTurn?> = remember(rawMessages, displayItems, turnGroups) {
+        val streamingId = streamingMsgId
+        val result = displayItems.map { (rawIndex, msg) ->
+            if (!msg.isAssistant) return@map null
+            val fingerprint = messageFingerprint(msg)
+            val cached = renderableCache[msg.message.id]
+            if (cached != null && cached.first == fingerprint && msg.message.id != streamingId) {
+                cached.second
+            } else {
+                // 引用修正：miss（流式/新消息）时，turn 内当前消息必须使用最新
+                // 引用（turnGroups 缓存 Map 中可能是上一轮旧引用 → 冻结在首个
+                // token，历史回归 37d9a6ac）
+                val turnMsgs = turnGroups[rawIndex]
+                    ?.map { if (it.message.id == msg.message.id) msg else it }
+                    ?: listOf(msg)
+                val isTurnLast = rawIndex == rawMessages.lastIndex ||
+                    rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
+                computeRenderableTurn(
+                    turnMessages = turnMsgs,
+                    currentMessage = msg,
+                    isTurnLast = isTurnLast,
+                    formatError = ::formatAssistantErrorMessage,
+                ).also { renderableCache[msg.message.id] = fingerprint to it }
+            }
+        }
+        // 择机清理：只保留当前展示的 assistant 消息（分页移除/会话切换后不泄漏）
+        renderableCache.keys.retainAll(
+            displayItems.mapNotNull { (_, m) -> if (m.isAssistant) m.message.id else null }
+        )
+        // 注意：不能复用上一轮列表引用 —— displayItems 结构变化（如乐观消息插入）时
+        // 旧列表索引错位会导致 ASSISTANT 消息拿到 null 崩溃。元素复用缓存实例已足够
+        // 让 Compose 通过相等性跳过重组，仅每轮多一个轻量 List 引用拷贝。
+        result
     }
 
     // 以 streamingMsgId 作为 key，流式消息变化（新消息
@@ -183,25 +239,42 @@ fun ChatMessageList(
         }
     }
 
-    // 来自 ChatRepository 的实时状态 —— 领域类型
-    val currentSessionId = viewModel.sessionId
-    val toolProgress by viewModel.chatRepositoryExposed.getActiveToolProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
-    val stepProgress by viewModel.chatRepositoryExposed.getStepProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
-    val compactionState by viewModel.chatRepositoryExposed.getCompactionStateForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
-    val activeTools = toolProgress.orEmpty().map { 
-        ToolProgressInfo(callId = it.callId, partId = it.partId, tool = it.tool, status = it.status, progress = it.progress, title = it.title)
-    }
-    val currentStep = stepProgress?.let { 
-        StepProgressInfo(step = it.step, agent = it.agent, model = it.model)
-    }
-    val currentCompaction = compactionState?.let { 
-        CompactionStateInfo(isActive = it.isActive, reason = it.reason)
+    // ── 诊断埋点（ChatScroll）：检测 fling 滚动中 firstVisibleItemIndex 的跳变 ──
+    // 目标：验证 beyondBoundsItemCount 修复后，向下滑 fling 不再跳过中间 item。
+    // JUMP 日志 = 一帧内 index 跳变超过 1（结合 composed 日志判断是否真的未组合）。
+    LaunchedEffect(Unit) {
+        var prevIndex = listState.firstVisibleItemIndex
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.isScrollInProgress
+        }.collect { (index, scrolling) ->
+            if (scrolling) {
+                val gap = index - prevIndex
+                if (kotlin.math.abs(gap) > 1) {
+                    AppLogger.w("ChatScroll", "JUMP idx $prevIndex -> $index (gap=$gap, skipping ${if (gap > 0) (prevIndex + 1)..(index - 1) else (index + 1)..(prevIndex - 1)})")
+                }
+                prevIndex = index
+            } else {
+                // 滚动停止时同步基准，避免把静止状态的变化误报为跳变
+                prevIndex = index
+            }
+        }
     }
 
     // 快速导航：提取跳转目标 + 跟踪当前问题
+    // jumpTargets 缓存（v6）：只依赖 user 消息（发送后静态）+ id 序列结构，
+    // 签名未变时复用 —— 消除流式期间每 48ms 全量重建的分配压力。
     val noTextPlaceholder = stringResource(R.string.no_text)
-    val jumpTargets = remember(rawMessages, noTextPlaceholder) {
-        extractJumpTargets(rawMessages, noTextPlaceholder)
+    val jumpTargetsSigRef = remember { intArrayOf(Int.MIN_VALUE) }
+    val jumpTargetsRef = remember { arrayOfNulls<List<JumpTarget>>(1) }
+    val jumpTargets: List<JumpTarget> = remember(rawMessages, noTextPlaceholder) {
+        val sig = messagesSignature(rawMessages) * 31 + noTextPlaceholder.hashCode()
+        val cached = jumpTargetsRef[0]
+        if (cached != null && sig == jumpTargetsSigRef[0]) {
+            cached
+        } else {
+            jumpTargetsSigRef[0] = sig
+            extractJumpTargets(rawMessages, noTextPlaceholder).also { jumpTargetsRef[0] = it }
+        }
     }
 
     val currentQuestionRawIndex by remember(rawMessages) {
@@ -258,58 +331,6 @@ fun ChatMessageList(
         ) {
             var showAlwaysDialog by remember { mutableStateOf<SseEvent.PermissionAsked?>(null) }
 
-            // 自定义 FlingBehavior：将每帧滚动 delta 限制在 LazyListMeasure 的
-            // 快速滚动估算阈值之下。没有此限制，较大的 fling 速度会
-            // 产生超过 viewportSize 的每帧 delta，从而触发估算 —— 但
-            // 仅对向前滚动（朝向 END/更大索引）生效。这导致不对称的
-            // fling 速度：向 END 滚动（reverseLayout 中的较旧消息）几乎是
-            // 瞬时的（估算跳过项），而向 START 滚动（较新消息）
-            // 很慢（每项都组合）。cap + carry 模式确保了对称
-            // 行为：每一帧的 scrollBy 对两个方向都低于阈值，
-            // 多余的 delta 会带入下一帧以保持总距离。
-            //
-            // 根本原因：原始的切块方案（每帧在内部 while 循环中多次调用 scrollBy）
-            // 并不能阻止估算，因为同一帧内的所有 scrollBy 调用
-            // 会累计到一次布局传递中。估算看到的是每帧总 delta，
-            // 而不是单个块。
-            val safeFlingBehavior = remember {
-                object : FlingBehavior {
-                    override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
-                        val absVel = kotlin.math.abs(initialVelocity)
-                        if (absVel < 1f) return initialVelocity
-
-                        var velocity = initialVelocity
-                        val friction = 3f
-                        val minVelocity = 50f
-                        // 在典型手机上安全地低于 viewport/2（viewport ≈ 600-800px）。
-                        // 200px 确保任一方向都不会触发快速滚动估算。
-                        val maxPerFrame = 200f
-                        var carry = 0f
-                        var lastFrame = withFrameNanos { it }
-
-                        while (kotlin.math.abs(velocity) > minVelocity) {
-                            val frame = withFrameNanos { it }
-                            val dt = (frame - lastFrame).toFloat() / 1_000_000_000f
-                            lastFrame = frame
-                            if (dt <= 0f || dt > 0.1f) continue
-
-                            // 每帧 delta = velocity * dt + 上一帧的 carry。
-                            // carry 在限幅生效时保持总滚动距离。
-                            val rawDelta = velocity * dt + carry
-                            val delta = rawDelta.coerceIn(-maxPerFrame, maxPerFrame)
-                            carry = rawDelta - delta
-
-                            val consumed = scrollBy(delta)
-                            if (kotlin.math.abs(consumed) < 0.5f) return velocity
-
-                            // 指数衰减：v(t+dt) = v(t) * e^(-friction * dt)
-                            velocity *= kotlin.math.exp(-friction * dt)
-                        }
-                        return velocity
-                    }
-                }
-            }
-
             // 自动分页：用户距顶部 8 项以内时触发加载。
             // 取代 PullToRefreshBox —— 无缝，无需手动手势。
             //
@@ -333,7 +354,6 @@ fun ChatMessageList(
 
                 LazyColumn(
                     state = listState,
-                    flingBehavior = safeFlingBehavior,
                     modifier = Modifier.fillMaxSize()
                         .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
                     contentPadding = PaddingValues(
@@ -498,6 +518,11 @@ fun ChatMessageList(
                                 }
                         } else Modifier.fillMaxWidth()
                         Box(modifier = itemModifier) {
+                        // 诊断埋点（ChatScroll，DEBUG=仅 logcat）：记录 item 进入组合的时机。
+                        // 与 JUMP 日志对照：修复后 item 应在进入视口前（提前 4 项）就 composed。
+                        LaunchedEffect(Unit) {
+                            AppLogger.d("ChatScroll", "composed idx=$rawIndex id=${msg.message.id.take(10)}")
+                        }
                         when {
                             msg.isAssistant -> {
                                 val isTurnLast = rawIndex == rawMessages.lastIndex || rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
@@ -678,6 +703,62 @@ fun ChatMessageList(
             }
         } // Box(weight)
     } // Column
+}
+
+/**
+ * 消息列表结构签名（id 序列）—— 用于缓存结构不变的重计算。
+ * 只含 id 序列与顺序；内容（parts）变化不改变签名。
+ */
+private fun messagesSignature(messages: List<ChatMessage>): Int {
+    var h = messages.size * 31
+    for (m in messages) h = h * 31 + m.message.id.hashCode()
+    return h
+}
+
+/**
+ * 轻量内容指纹：只覆盖会随 SSE 流式 / 工具输出注入 / 完成替换变异的字段，
+ * 避免对整个消息做深 hashCode（大文本逐字符开销）。
+ * 覆盖：Text/Reasoning 文本尾部、Tool output 尾部、消息完成时间与错误。
+ * 未覆盖字段（agent/modelId/parts 静态字段）在消息生命周期内不变。
+ */
+private fun messageFingerprint(msg: ChatMessage): Int {
+    val m = msg.message
+    var h = partsFingerprint(msg.parts)
+    h = h * 31 + (m.time.completed ?: 0L).hashCode()
+    if (m is dev.leonardo.ocbeacon.domain.model.Message.Assistant && m.error != null) {
+        h = h * 31 + m.error.name.hashCode() * 31 + (m.error.data?.toString()?.hashCode() ?: 0)
+    }
+    return h
+}
+
+private fun partsFingerprint(parts: List<Part>): Int {
+    var h = parts.size * 31
+    for (p in parts) {
+        h = h * 31 + when (p) {
+            is Part.Text -> p.text.length * 31 + tailHash(p.text)
+            is Part.Reasoning -> p.text.length * 31 + tailHash(p.text)
+            is Part.Tool -> toolFingerprint(p)
+            else -> p.id.hashCode() * 31 + p.javaClass.name.hashCode()
+        }
+    }
+    return h
+}
+
+private fun toolFingerprint(p: Part.Tool): Int {
+    var h = p.callId.hashCode() * 31 + p.tool.hashCode() + p.state.javaClass.name.hashCode()
+    when (val s = p.state) {
+        is ToolState.Running -> h = h * 31 + tailHash(s.output)
+        is ToolState.Completed -> h = h * 31 + tailHash(s.output)
+        is ToolState.Error -> h = h * 31 + tailHash(s.error)
+        else -> {}
+    }
+    return h
+}
+
+private fun tailHash(s: String): Int {
+    val len = s.length
+    if (len <= 64) return s.hashCode()
+    return s.substring(len - 64).hashCode() * 31 + len
 }
 
 

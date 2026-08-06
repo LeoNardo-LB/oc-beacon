@@ -18,17 +18,20 @@ object ToolProgressOutputInjector {
     /**
      * @param parts 当前消息 parts 列表
      * @param progressOutputs callID → 累积的 progress 输出文本
-     * @return 注入后的 parts 列表（无匹配时原样返回，避免无谓重组）
+     * @return 注入后的 parts 列表（无匹配时原样返回原引用，保持引用稳定，
+     *         供 combine 管道做 ChatMessage 实例复用判断）
      */
     fun inject(
         parts: List<Part>,
         progressOutputs: Map<String, String>
     ): List<Part> {
         if (progressOutputs.isEmpty()) return parts
-        return parts.map { part ->
+        var changed = false
+        val result = parts.map { part ->
             if (part is Part.Tool && part.state is ToolState.Running) {
                 val output = progressOutputs[part.callId]
                 if (!output.isNullOrEmpty()) {
+                    changed = true
                     part.copy(state = part.state.copy(output = output))
                 } else {
                     part
@@ -37,5 +40,6 @@ object ToolProgressOutputInjector {
                 part
             }
         }
+        return if (changed) result else parts
     }
 }
