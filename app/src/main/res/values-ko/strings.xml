@@ -70,6 +70,14 @@
     <string name="add">추가</string>
     <string name="draft">초안</string>
     <string name="assign_category">태그 추가</string>
+    <string name="tag_management_title">태그 관리</string>
+    <string name="new_tag">태그 추가</string>
+    <string name="edit_tag">태그 편집</string>
+    <string name="edit">편집</string>
+    <string name="remove_tag">태그 제거</string>
+    <string name="no_sessions_with_tag">이 태그의 세션이 없습니다</string>
+    <string name="delete_tag_title">태그 삭제</string>
+    <string name="delete_tag_message">\"%1$s\"을(를) 삭제할까요? 모든 세션 할당이 제거됩니다.</string>
     <string name="tag_label">태그</string>
     <string name="no_tags_placeholder">태그가 없습니다. 아래 버튼을 눌러 만드세요</string>
     <string name="quick_navigate">빠른 이동</string>

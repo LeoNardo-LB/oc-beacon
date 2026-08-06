@@ -70,6 +70,14 @@
     <string name="add">Hinzufügen</string>
     <string name="draft">Entwurf</string>
     <string name="assign_category">Tag hinzufügen</string>
+    <string name="tag_management_title">Tag-Verwaltung</string>
+    <string name="new_tag">Tag hinzufügen</string>
+    <string name="edit_tag">Tag bearbeiten</string>
+    <string name="edit">Bearbeiten</string>
+    <string name="remove_tag">Tag entfernen</string>
+    <string name="no_sessions_with_tag">Keine Sitzungen mit diesem Tag</string>
+    <string name="delete_tag_title">Tag löschen</string>
+    <string name="delete_tag_message">\"%1$s\" löschen? Alle Sitzungszuordnungen werden entfernt.</string>
     <string name="tag_label">Tag</string>
     <string name="no_tags_placeholder">Keine Tags, tippe unten auf die Schaltfläche</string>
     <string name="quick_navigate">Schnellnavigation</string>

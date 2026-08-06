@@ -70,6 +70,14 @@
     <string name="add">追加</string>
     <string name="draft">下書き</string>
     <string name="assign_category">タグを追加</string>
+    <string name="tag_management_title">タグ管理</string>
+    <string name="new_tag">タグを追加</string>
+    <string name="edit_tag">タグを編集</string>
+    <string name="edit">編集</string>
+    <string name="remove_tag">タグを削除</string>
+    <string name="no_sessions_with_tag">このタグのセッションはありません</string>
+    <string name="delete_tag_title">タグを削除</string>
+    <string name="delete_tag_message">「%1$s」を削除しますか?すべてのセッション割り当てが削除されます。</string>
     <string name="tag_label">タグ</string>
     <string name="no_tags_placeholder">タグがありません。下のボタンをタップして作成</string>
     <string name="quick_navigate">クイックナビゲーション</string>

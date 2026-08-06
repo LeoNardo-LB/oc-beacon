@@ -253,6 +253,14 @@
     <string name="add">Tambah</string>
     <string name="draft">Draf</string>
     <string name="assign_category">Tambah tag</string>
+    <string name="tag_management_title">Manajemen tag</string>
+    <string name="new_tag">Tambah tag</string>
+    <string name="edit_tag">Edit tag</string>
+    <string name="edit">Edit</string>
+    <string name="remove_tag">Hapus tag</string>
+    <string name="no_sessions_with_tag">Tidak ada sesi dengan tag ini</string>
+    <string name="delete_tag_title">Hapus tag</string>
+    <string name="delete_tag_message">Hapus \"%1$s\"? Semua penugasan sesi akan dihapus.</string>
     <string name="tag_label">Tag</string>
     <string name="no_tags_placeholder">Belum ada tag, ketuk tombol di bawah</string>
     <string name="quick_navigate">Navigasi cepat</string>

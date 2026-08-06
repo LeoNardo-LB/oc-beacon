@@ -70,6 +70,14 @@
     <string name="add">Añadir</string>
     <string name="draft">Borrador</string>
     <string name="assign_category">Añadir etiqueta</string>
+    <string name="tag_management_title">Gestión de etiquetas</string>
+    <string name="new_tag">Añadir etiqueta</string>
+    <string name="edit_tag">Editar etiqueta</string>
+    <string name="edit">Editar</string>
+    <string name="remove_tag">Eliminar etiqueta</string>
+    <string name="no_sessions_with_tag">No hay sesiones con esta etiqueta</string>
+    <string name="delete_tag_title">Eliminar etiqueta</string>
+    <string name="delete_tag_message">¿Eliminar \"%1$s\"? Se eliminarán todas las asignaciones de sesiones.</string>
     <string name="tag_label">Etiqueta</string>
     <string name="no_tags_placeholder">Sin etiquetas, toca el botón de abajo</string>
     <string name="quick_navigate">Navegación rápida</string>

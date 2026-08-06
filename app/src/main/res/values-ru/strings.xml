@@ -118,6 +118,14 @@
     <string name="add">Добавить</string>
     <string name="draft">Черновик</string>
     <string name="assign_category">Добавить тег</string>
+    <string name="tag_management_title">Управление тегами</string>
+    <string name="new_tag">Добавить тег</string>
+    <string name="edit_tag">Изменить тег</string>
+    <string name="edit">Изменить</string>
+    <string name="remove_tag">Удалить тег</string>
+    <string name="no_sessions_with_tag">Нет сессий с этим тегом</string>
+    <string name="delete_tag_title">Удалить тег</string>
+    <string name="delete_tag_message">Удалить «%1$s»? Все назначения сессий будут удалены.</string>
     <string name="tag_label">Тег</string>
     <string name="no_tags_placeholder">Нет меток, нажмите кнопку ниже, чтобы создать</string>
     <string name="quick_navigate">Быстрая навигация</string>

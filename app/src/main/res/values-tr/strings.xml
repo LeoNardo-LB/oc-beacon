@@ -70,6 +70,14 @@
     <string name="add">Ekle</string>
     <string name="draft">Taslak</string>
     <string name="assign_category">Etiket ekle</string>
+    <string name="tag_management_title">Etiket yönetimi</string>
+    <string name="new_tag">Etiket ekle</string>
+    <string name="edit_tag">Etiketi düzenle</string>
+    <string name="edit">Düzenle</string>
+    <string name="remove_tag">Etiketi kaldır</string>
+    <string name="no_sessions_with_tag">Bu etikete sahip oturum yok</string>
+    <string name="delete_tag_title">Etiketi sil</string>
+    <string name="delete_tag_message">\"%1$s\" silinsin mi? Tüm oturum atamaları kaldırılacak.</string>
     <string name="tag_label">Etiket</string>
     <string name="no_tags_placeholder">Etiket yok, aşağıdaki düğmeye dokunun</string>
     <string name="quick_navigate">Hızlı gezinme</string>

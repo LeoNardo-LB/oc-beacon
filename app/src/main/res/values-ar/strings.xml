@@ -70,6 +70,14 @@
     <string name="add">إضافة</string>
     <string name="draft">مسودة</string>
     <string name="assign_category">إضافة وسم</string>
+    <string name="tag_management_title">إدارة الوسوم</string>
+    <string name="new_tag">إضافة وسم</string>
+    <string name="edit_tag">تعديل الوسم</string>
+    <string name="edit">تعديل</string>
+    <string name="remove_tag">إزالة الوسم</string>
+    <string name="no_sessions_with_tag">لا توجد جلسات بهذا الوسم</string>
+    <string name="delete_tag_title">حذف الوسم</string>
+    <string name="delete_tag_message">حذف \"%1$s\"؟ ستتم إزالة جميع تعيينات الجلسات.</string>
     <string name="tag_label">وسم</string>
     <string name="no_tags_placeholder">لا توجد وسوم، اضغط الزر بالأسفل للإنشاء</string>
     <string name="quick_navigate">تنقل سريع</string>

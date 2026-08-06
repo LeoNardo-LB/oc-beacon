@@ -72,6 +72,14 @@
     <string name="add">添加</string>
     <string name="draft">草稿</string>
     <string name="assign_category">新增 Tag</string>
+    <string name="tag_management_title">标签管理</string>
+    <string name="new_tag">新增 Tag</string>
+    <string name="edit_tag">编辑标签</string>
+    <string name="edit">编辑</string>
+    <string name="remove_tag">移除标签</string>
+    <string name="no_sessions_with_tag">暂无会话使用该标签</string>
+    <string name="delete_tag_title">删除标签</string>
+    <string name="delete_tag_message">删除「%1$s」？所有会话分配将被移除。</string>
     <string name="tag_label">标签</string>
     <string name="no_tags_placeholder">暂无标签，点击下方按钮创建</string>
     <string name="quick_navigate">快速定位</string>

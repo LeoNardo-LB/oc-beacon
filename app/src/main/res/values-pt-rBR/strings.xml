@@ -70,6 +70,14 @@
     <string name="add">Adicionar</string>
     <string name="draft">Rascunho</string>
     <string name="assign_category">Adicionar tag</string>
+    <string name="tag_management_title">Gerenciamento de tags</string>
+    <string name="new_tag">Adicionar tag</string>
+    <string name="edit_tag">Editar tag</string>
+    <string name="edit">Editar</string>
+    <string name="remove_tag">Remover tag</string>
+    <string name="no_sessions_with_tag">Nenhuma sessão com esta tag</string>
+    <string name="delete_tag_title">Excluir tag</string>
+    <string name="delete_tag_message">Excluir \"%1$s\"? Todas as atribuições de sessão serão removidas.</string>
     <string name="tag_label">Tag</string>
     <string name="no_tags_placeholder">Sem tags, toque no botão abaixo</string>
     <string name="quick_navigate">Navegação rápida</string>

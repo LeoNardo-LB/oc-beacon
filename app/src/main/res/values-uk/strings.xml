@@ -70,6 +70,14 @@
     <string name="add">Додати</string>
     <string name="draft">Чернетка</string>
     <string name="assign_category">Додати тег</string>
+    <string name="tag_management_title">Керування тегами</string>
+    <string name="new_tag">Додати тег</string>
+    <string name="edit_tag">Редагувати тег</string>
+    <string name="edit">Редагувати</string>
+    <string name="remove_tag">Видалити тег</string>
+    <string name="no_sessions_with_tag">Немає сесій з цим тегом</string>
+    <string name="delete_tag_title">Видалити тег</string>
+    <string name="delete_tag_message">Видалити «%1$s»? Усі призначення сесій буде видалено.</string>
     <string name="tag_label">Тег</string>
     <string name="no_tags_placeholder">Немає тегів, натисніть кнопку нижче</string>
     <string name="quick_navigate">Швидка навігація</string>

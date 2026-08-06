@@ -70,6 +70,14 @@
     <string name="add">Ajouter</string>
     <string name="draft">Brouillon</string>
     <string name="assign_category">Ajouter un tag</string>
+    <string name="tag_management_title">Gestion des tags</string>
+    <string name="new_tag">Ajouter un tag</string>
+    <string name="edit_tag">Modifier le tag</string>
+    <string name="edit">Modifier</string>
+    <string name="remove_tag">Retirer le tag</string>
+    <string name="no_sessions_with_tag">Aucune session avec ce tag</string>
+    <string name="delete_tag_title">Supprimer le tag</string>
+    <string name="delete_tag_message">Supprimer \"%1$s\" ? Toutes les affectations de session seront supprimées.</string>
     <string name="tag_label">Tag</string>
     <string name="no_tags_placeholder">Aucun tag, appuyez sur le bouton ci-dessous</string>
     <string name="quick_navigate">Navigation rapide</string>
