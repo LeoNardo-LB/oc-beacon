@@ -1,0 +1,86 @@
+package dev.leonardo.ocbeacon.data.repository
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
+import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
+import dev.leonardo.ocbeacon.domain.model.Tag
+import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * 纯内存 DataStore——避免 Windows 文件系统 rename 限制（androidx.datastore FileStorage
+ * 在 Windows 上无法可靠地用 .tmp 覆盖已存在的目标文件）。
+ *
+ * 被测扩展函数（[androidx.datastore.preferences.core.edit] 及本项目自定义扩展）只依赖
+ * [DataStore.data] flow 与 [DataStore.updateData]，内存实现语义等价。
+ */
+private class InMemoryPreferencesDataStore : DataStore<Preferences> {
+    private val state = MutableStateFlow<Preferences>(emptyPreferences())
+    override val data: Flow<Preferences> = state
+    override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+        val updated = transform(state.value)
+        state.value = updated
+        return updated
+    }
+}
+
+class SettingsDataStoreTagsTest {
+
+    private fun newStore(): SettingsDataStore =
+        SettingsDataStore(InMemoryPreferencesDataStore(), mockk<Context>(relaxed = true))
+
+    @Test
+    fun `tag serialization round trip`() {
+        val tag = Tag(id = "t1", name = "前端", color = "blue", icon = "code")
+        val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        val decoded = json.decodeFromString<Tag>(json.encodeToString(Tag.serializer(), tag))
+        assertEquals(tag, decoded)
+    }
+
+    @Test
+    fun `removeTag clears assignments atomically`() = runTest {
+        val store = newStore()
+        store.addSessionTag("srv", Tag(id = "t1", name = "a"))
+        store.setSessionTags("srv", "ses1", setOf("t1"))
+        store.removeSessionTag("srv", "t1")
+        val tags = store.sessionTags("srv").first()
+        val assigns = store.sessionTagAssignments("srv").first()
+        assertTrue(tags.isEmpty())
+        assertTrue(assigns["ses1"].orEmpty().none { it == "t1" })
+    }
+
+    @Test
+    fun `setSessionTags keeps favorite tag`() = runTest {
+        val store = newStore()
+        store.toggleFavorite("srv", "ses1")
+        store.setSessionTags("srv", "ses1", setOf("t2"))
+        val assigns = store.sessionTagAssignments("srv").first()
+        assertTrue(assigns["ses1"].orEmpty().contains(FAVORITE_TAG_ID))
+        assertTrue(assigns["ses1"].orEmpty().contains("t2"))
+    }
+
+    @Test
+    fun `favoriteSessionIds reflects toggle`() = runTest {
+        val store = newStore()
+        store.toggleFavorite("srv", "ses1")
+        assertTrue(store.favoriteSessionIds("srv").first().contains("ses1"))
+        store.toggleFavorite("srv", "ses1")
+        assertTrue(store.favoriteSessionIds("srv").first().isEmpty())
+    }
+
+    @Test
+    fun `sessionTags excludes favorite tag`() = runTest {
+        val store = newStore()
+        store.toggleFavorite("srv", "ses1")
+        assertTrue(store.sessionTags("srv").first().none { it.id == FAVORITE_TAG_ID })
+    }
+}

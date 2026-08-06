@@ -30,11 +30,8 @@ private val favoriteOrderSerializer = ListSerializer(String.serializer())
 private fun favoriteSessionsKey(serverId: String) =
     stringSetPreferencesKey(FAVORITE_SESSIONS_PREFIX + serverId)
 
-/** 特定服务器收藏的会话 id。 */
-fun SettingsDataStore.favoriteSessionIds(serverId: String): Flow<Set<String>> =
-    dataStore.data.map { preferences ->
-        preferences[favoriteSessionsKey(serverId)] ?: emptySet()
-    }
+// 注：favoriteSessionIds 已迁移至 SettingsDataStoreTags.kt
+// （从统一 tag 分配 map 派生，首次读取时迁移旧 favorite_sessions_* stringSet 数据）。
 
 /** 全局跨服务器收藏顺序——"serverId:sessionId" 键的列表。 */
 val SettingsDataStore.crossServerFavoriteOrder: Flow<List<String>>
