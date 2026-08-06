@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,7 +62,6 @@ fun SessionListScreen(
     onNavigateToChat: (sessionId: String, openTerminal: Boolean) -> Unit,
     onNavigateToNewChat: (directory: String) -> Unit,
     onNavigateBack: () -> Unit,
-    onNavigateToFavorites: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
@@ -125,14 +123,6 @@ fun SessionListScreen(
                 actions = {
                     // 以下入口仅在会话页（page 0）显示，设置页右上角保持干净
                     if (pagerState.currentPage == 0) {
-                        // 跨服务器收藏入口
-                        IconButton(onClick = onNavigateToFavorites) {
-                            Icon(
-                                Icons.Filled.Star,
-                                contentDescription = stringResource(R.string.favorites_title),
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
                         // 切换查看模式：最近 <-> 文件夹
                         IconButton(onClick = { viewModel.toggleViewMode() }) {
                             Icon(

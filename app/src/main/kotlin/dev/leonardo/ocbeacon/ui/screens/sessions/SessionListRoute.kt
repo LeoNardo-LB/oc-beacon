@@ -13,7 +13,6 @@ fun SessionListRoute(
     onNavigateToChat: (sessionId: String, openTerminal: Boolean) -> Unit,
     onNavigateToNewChat: (directory: String) -> Unit,
     onNavigateBack: () -> Unit,
-    onNavigateToFavorites: () -> Unit = {},
 ) {
     val viewModel: SessionListViewModel = hiltViewModel()
     SessionListScreen(
@@ -21,6 +20,5 @@ fun SessionListRoute(
         onNavigateToChat = onNavigateToChat,
         onNavigateToNewChat = onNavigateToNewChat,
         onNavigateBack = onNavigateBack,
-        onNavigateToFavorites = onNavigateToFavorites,
     )
 }

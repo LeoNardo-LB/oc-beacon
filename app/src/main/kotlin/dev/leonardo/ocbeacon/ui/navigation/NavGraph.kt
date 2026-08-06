@@ -31,7 +31,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatScreen
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel
 import dev.leonardo.ocbeacon.ui.screens.home.HomeRoute
-import dev.leonardo.ocbeacon.ui.screens.sessions.CrossServerSessionsScreen
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionListRoute
 import dev.leonardo.ocbeacon.ui.screens.server.ServerModelFilterRoute
 import dev.leonardo.ocbeacon.ui.screens.server.ServerProvidersRoute
@@ -294,33 +293,6 @@ fun NavGraph(
             )
         }
 
-        // ============ 跨服务器收藏页 ============
-        composable(CrossServerFavoritesNav.route) {
-            CrossServerSessionsScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onOpenSession = { item ->
-                    scope.launch {
-                        val server = serverRepository.getServer(item.serverId) ?: return@launch
-                        navController.navigate(
-                            ChatNav.createRoute(
-                                serverUrl = server.url,
-                                username = server.username,
-                                password = server.password ?: "",
-                                serverName = server.displayName,
-                                serverId = server.id,
-                                sessionId = item.sessionId,
-                            )
-                        )
-                    }
-                },
-                onConnectServer = { serverId ->
-                    scope.launch {
-                        serverRepository.getServer(serverId)?.let { serverRepository.connect(it) }
-                    }
-                },
-            )
-        }
-
         // ============ 服务器设置页 ============
         composable(
             route = ServerSettingsNav.routePattern,
@@ -441,9 +413,6 @@ fun NavGraph(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onNavigateToFavorites = {
-                    navController.navigate(CrossServerFavoritesNav.route)
-                }
             )
         }
 
