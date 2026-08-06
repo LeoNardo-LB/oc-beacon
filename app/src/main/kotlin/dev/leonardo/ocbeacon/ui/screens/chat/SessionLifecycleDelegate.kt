@@ -21,8 +21,6 @@ private const val TAG = "SessionLifecycleDelegate"
  * 管理会话身份、目录、延迟创建和会话加载信号
  *（此前内联在 [ChatViewModel] 中）—— delegate 层的**核心骨架**。
  *
- * 在 Phase 3 Task 3（C 集群）中提取。
- *
  * [sessionIdFlow] 是 [ChatViewModel] 中 6 个 `combine`/`flatMapLatest` 管道的
  * 数据源（messageListState、modelConfigState、sessionMetaState、
  * interactionState、directoryState、contextDetailState）。其他 delegate

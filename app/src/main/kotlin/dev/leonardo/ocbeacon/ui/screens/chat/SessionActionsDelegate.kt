@@ -27,8 +27,6 @@ private const val TAG = "SessionActionsDelegate"
 /**
  * 管理此前内联在 [ChatViewModel] 中的 24 个无状态 REST 操作。
  *
- * 在 Phase 3 Task 6（G 集群）中提取。
- *
  * 这些方法不持有私有 [kotlinx.coroutines.flow.StateFlow] —— 它们通过注入的
  * provider/回调读取其他 delegate 的状态，并委托给 UseCase/Repository。
  * 跨 delegate 协调器（[ChatViewModel.sendParts]、[ChatViewModel.revertMessage]、

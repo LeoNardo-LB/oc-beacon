@@ -30,8 +30,6 @@ private const val TAG = "ModelConfigDelegate"
  * 管理 provider/agent/model/variant/command 选择及
  * 此前内联在 [ChatViewModel] 中的 [modelConfigState] 解析管道。
  *
- * 在 Phase 3 Task 4（A 集群）中提取。
- *
  * [modelConfigState] 是一个以 [sessionIdFlow] 为 key 的 12 路 `combine`，执行
  * **自反馈副作用**：从消息历史解析有效模型/agent（当未显式选择时），
  * 并将解析值写回原始 [MutableStateFlow]，使 [ChatViewModel.sendParts] /

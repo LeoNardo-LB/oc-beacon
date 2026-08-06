@@ -22,8 +22,6 @@ private const val TERMINAL_DELEGATE_TAG = "TerminalDelegate"
  * 管理服务器范围的 [ServerTerminalWorkspace] 及此前内联在 [ChatViewModel] 中的
  * 所有终端标签/输入操作。
  *
- * 在 Phase 3 Task 1a 中作为 delegate 提取试点。
- *
  * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的运行时上下文
  *（来自 SavedStateHandle 的服务器凭据、ViewModel 的协程作用域、session-directory
  * provider 和会话加载信号），Hilt 无法提供这些。ChatViewModel 直接构造它

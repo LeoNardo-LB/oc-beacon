@@ -7,7 +7,7 @@ import androidx.compose.runtime.setValue
 /**
  * 管理从 FileViewer / 子会话导航返回后用于恢复列表的已保存聊天滚动位置。
  *
- * 在 Phase 3 Task 1b 中提取。零依赖 —— 纯状态持有者。
+ * 零依赖 —— 纯状态持有者。
  *
  * Compose [mutableStateOf] 状态由 ChatScreen 通过 ChatViewModel 门面 getter 读取。
  * 快照读取通过属性间接引用被正确跟踪，因此重组

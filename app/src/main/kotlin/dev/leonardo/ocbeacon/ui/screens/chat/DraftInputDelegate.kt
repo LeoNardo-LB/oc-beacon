@@ -20,8 +20,6 @@ private const val TAG = "DraftInputDelegate"
  * 管理草稿文本/附件、@ 文件提及搜索、持久化草稿加载/保存，
  * 以及此前内联在 [ChatViewModel] 中的失败发送/revert 草稿恢复状态。
  *
- * 在 Phase 3 Task 2（D 集群）中提取。
- *
  * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的运行时上下文
  *（ViewModel 的协程作用域、session-id/directory provider，以及持久化完整
  * [Draft] 所需的 agent/variant provider），Hilt 无法提供这些。ChatViewModel 直接构造它
