@@ -1,9 +1,12 @@
 package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.data.api.file.FileApi
+import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.mapper.FileMapper
 import dev.leonardo.ocbeacon.domain.model.FileContent
 import dev.leonardo.ocbeacon.domain.model.FileNode
+import dev.leonardo.ocbeacon.domain.model.Project
+import dev.leonardo.ocbeacon.domain.model.ServerPaths
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import javax.inject.Inject
@@ -12,6 +15,7 @@ import javax.inject.Singleton
 @Singleton
 class FileRepositoryImpl @Inject constructor(
     private val api: FileApi,
+    private val systemApi: SystemApi,
     private val serverRepository: ServerRepository
 ) : FileRepository {
 
@@ -31,5 +35,34 @@ class FileRepositoryImpl @Inject constructor(
         runCatching {
             val conn = serverRepository.resolveConnection(serverId)
             api.findFiles(conn, query = query, type = "file", directory = directory, limit = limit, dirs = null)
+        }
+
+    override suspend fun listProjects(serverId: String): Result<List<Project>> =
+        runCatching {
+            val conn = serverRepository.resolveConnection(serverId)
+            api.listProjects(conn)
+        }
+
+    override suspend fun probeDirectory(serverId: String, directory: String): Result<Boolean> =
+        runCatching {
+            val conn = serverRepository.resolveConnection(serverId)
+            api.probeDirectory(conn, directory)
+        }
+
+    override suspend fun getServerPaths(serverId: String): Result<ServerPaths> =
+        runCatching {
+            val conn = serverRepository.resolveConnection(serverId)
+            FileMapper.toDomain(systemApi.getServerPaths(conn))
+        }
+
+    override suspend fun findDirectories(
+        serverId: String,
+        directory: String,
+        query: String,
+        limit: Int
+    ): Result<List<String>> =
+        runCatching {
+            val conn = serverRepository.resolveConnection(serverId)
+            api.findFiles(conn, query = query, type = "directory", directory = directory, limit = limit, dirs = null)
         }
 }

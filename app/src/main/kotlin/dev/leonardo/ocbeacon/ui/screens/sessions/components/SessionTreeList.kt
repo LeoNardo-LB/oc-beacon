@@ -29,8 +29,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionListViewModel
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionViewMode
-import dev.leonardo.ocbeacon.ui.screens.sessions.copyToClipboard
-import dev.leonardo.ocbeacon.ui.screens.sessions.loadMore
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch

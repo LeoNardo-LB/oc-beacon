@@ -1,24 +1,29 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
 import android.util.Log
-import dev.leonardo.ocbeacon.data.api.file.FileApi
-import dev.leonardo.ocbeacon.data.api.session.SessionApi
-import dev.leonardo.ocbeacon.data.api.system.SystemApi
-import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
-import dev.leonardo.ocbeacon.data.repository.EventDispatcher
-import dev.leonardo.ocbeacon.data.repository.SessionStateService
-import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
-import dev.leonardo.ocbeacon.domain.repository.DraftRepository
+import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.usecase.CreateDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
+import dev.leonardo.ocbeacon.domain.usecase.GetServerPathsUseCase
+import dev.leonardo.ocbeacon.domain.usecase.GetSettingsFlowUseCase
+import dev.leonardo.ocbeacon.domain.usecase.ListProjectsUseCase
+import dev.leonardo.ocbeacon.domain.usecase.ListSessionsUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
+import dev.leonardo.ocbeacon.domain.usecase.ProbeDirectoryUseCase
+import dev.leonardo.ocbeacon.domain.usecase.SearchDirectoriesUseCase
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -28,12 +33,15 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionListViewModelSearchTest {
 
-    private val sessionApi: SessionApi = mockk()
-    private val fileApi: FileApi = mockk()
-    private val systemApi: SystemApi = mockk()
-    private val terminalApi: TerminalApi = mockk()
-    private val eventDispatcher: EventDispatcher = mockk(relaxed = true)
-    private val sessionStateService: SessionStateService = mockk(relaxed = true)
+    private val sessionRepository: SessionRepository = mockk(relaxed = true)
+    private val sessionStateService: SessionStateRepository = mockk(relaxed = true)
+    private val listSessionsUseCase: ListSessionsUseCase = mockk()
+    private val listProjectsUseCase: ListProjectsUseCase = mockk()
+    private val getServerPathsUseCase: GetServerPathsUseCase = mockk()
+    private val probeDirectoryUseCase: ProbeDirectoryUseCase = mockk()
+    private val searchDirectoriesUseCase: SearchDirectoriesUseCase = mockk()
+    private val createDirectoryUseCase: CreateDirectoryUseCase = mockk()
+    private val fileRepository: FileRepository = mockk()
     private val manageSessionUseCase: ManageSessionUseCase = mockk()
     private val deleteSessionUseCase: DeleteSessionUseCase = mockk()
 
@@ -44,12 +52,10 @@ class SessionListViewModelSearchTest {
         every { Log.e(any(), any()) } returns 0
         every { Log.w(any(), any<String>()) } returns 0
         every { Log.w(any(), any<String>(), any()) } returns 0
-        // Relaxed mock returns default Object for StateFlow<List>.value;
-        // set up proper empty collections to avoid ClassCastException
-        every { eventDispatcher.sessions.value } returns emptyList()
-        every { eventDispatcher.sessionStatuses.value } returns emptyMap<String, SessionStatus>()
-        every { eventDispatcher.serverSessions.value } returns emptyMap<String, Set<String>>()
-        every { sessionStateService.statusFlow.value } returns emptyMap()
+        every { sessionRepository.getSessionsFlow(any()) } returns emptyFlow()
+        every { sessionRepository.getServerSessionsFlow() } returns emptyFlow()
+        every { sessionRepository.getLastUserMessageTimeFlow() } returns emptyFlow()
+        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap<String, SessionStatus>())
     }
 
     @After
@@ -86,19 +92,22 @@ class SessionListViewModelSearchTest {
         )
         return SessionListViewModel(
             savedStateHandle = savedStateHandle,
-            eventDispatcher = eventDispatcher,
+            sessionRepository = sessionRepository,
             sessionStateService = sessionStateService,
-            sessionApi = sessionApi,
-            fileApi = fileApi,
-            systemApi = systemApi,
-            terminalApi = terminalApi,
+            listSessionsUseCase = listSessionsUseCase,
+            listProjectsUseCase = listProjectsUseCase,
+            getServerPathsUseCase = getServerPathsUseCase,
+            probeDirectoryUseCase = probeDirectoryUseCase,
+            searchDirectoriesUseCase = searchDirectoriesUseCase,
+            createDirectoryUseCase = createDirectoryUseCase,
+            fileRepository = fileRepository,
             manageSessionUseCase = manageSessionUseCase,
             deleteSessionUseCase = deleteSessionUseCase,
             draftRepository = mockk(relaxed = true),
             mcpRepository = mockk(relaxed = true),
+            scrollSignal = SessionScrollSignal(),
             getSettingsFlowUseCase = mockk(relaxed = true),
             settingsRepository = mockk(relaxed = true),
-            scrollSignal = SessionScrollSignal(),
             serverRepository = mockk(relaxed = true),
         )
     }

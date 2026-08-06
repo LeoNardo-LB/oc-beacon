@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.data.api.file.FileApi
+import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.dto.response.FileContentDto
 import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
@@ -21,6 +22,7 @@ import org.junit.Test
 class FileRepositoryImplTest {
 
     private val api: FileApi = mockk()
+    private val systemApi: SystemApi = mockk()
     private val serverRepository: ServerRepository = mockk()
     private lateinit var sut: FileRepository
 
@@ -30,7 +32,7 @@ class FileRepositoryImplTest {
     @Before
     fun setup() {
         coEvery { serverRepository.resolveConnection(serverId) } returns testConn
-        sut = FileRepositoryImpl(api, serverRepository)
+        sut = FileRepositoryImpl(api, systemApi, serverRepository)
     }
 
     @Test

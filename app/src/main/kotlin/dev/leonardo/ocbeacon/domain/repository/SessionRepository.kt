@@ -28,7 +28,31 @@ interface SessionRepository {
      */
     fun getSessionStatusesFlow(serverId: String): Flow<Map<String, SessionStatus>>
 
+    /**
+     * 观察全局 服务器→会话id集合 映射（跨所有服务器）。
+     * 委托给 EventDispatcher.serverSessions。供 UI 聚合状态按 serverId 切片使用。
+     */
+    fun getServerSessionsFlow(): Flow<Map<String, Set<String>>>
+
+    /**
+     * 观察全局 会话id→最近用户消息时间 映射（跨所有服务器）。
+     * 委托给 EventDispatcher.lastUserMessageTime。供会话排序使用。
+     */
+    fun getLastUserMessageTimeFlow(): Flow<Map<String, Long>>
+
     // ============ CRUD ============
+
+    /**
+     * 通过 REST 列出服务器上的会话（支持按目录/搜索/游标分页）。
+     * 委托给 SessionApi.listSessions。
+     */
+    suspend fun listSessions(
+        serverId: String,
+        directory: String? = null,
+        search: String? = null,
+        cursor: String? = null,
+        limit: Int = 50
+    ): List<Session>
 
     /**
      * 在指定服务器上使用给定选项创建新会话。

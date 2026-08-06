@@ -66,6 +66,29 @@ class SessionRepositoryImpl @Inject constructor(
             }
     }
 
+    override fun getServerSessionsFlow(): Flow<Map<String, Set<String>>> =
+        eventDispatcher.serverSessions
+
+    override fun getLastUserMessageTimeFlow(): Flow<Map<String, Long>> =
+        eventDispatcher.lastUserMessageTime
+
+    override suspend fun listSessions(
+        serverId: String,
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int
+    ): List<Session> {
+        val conn = resolveConnection(serverId)
+        return sessionApi.listSessions(
+            conn = conn,
+            directory = directory,
+            search = search,
+            cursor = cursor,
+            limit = limit
+        )
+    }
+
     // ============ CRUD ============
 
     override suspend fun createSession(serverId: String, opts: CreateSessionOpts): Result<Session> = runCatching {

@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
@@ -9,28 +10,35 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import dev.leonardo.ocbeacon.ui.WhileSubscribed5s
-import dev.leonardo.ocbeacon.data.api.file.FileApi
-import dev.leonardo.ocbeacon.data.api.session.SessionApi
-import dev.leonardo.ocbeacon.data.api.system.SystemApi
-import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.domain.model.FileNode
-import dev.leonardo.ocbeacon.domain.model.ServerPaths
-import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerPaths
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
+import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.usecase.CreateDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
+import dev.leonardo.ocbeacon.domain.usecase.GetServerPathsUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetSettingsFlowUseCase
+import dev.leonardo.ocbeacon.domain.usecase.ListProjectsUseCase
+import dev.leonardo.ocbeacon.domain.usecase.ListSessionsUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
+import dev.leonardo.ocbeacon.domain.usecase.ProbeDirectoryUseCase
+import dev.leonardo.ocbeacon.domain.usecase.SearchDirectoriesUseCase
+import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +48,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -50,16 +59,19 @@ import javax.inject.Inject
 @HiltViewModel
 class SessionListViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
-    internal val eventDispatcher: EventDispatcher,
-    internal val sessionStateService: SessionStateRepository,
-    internal val sessionApi: SessionApi,
-    internal val fileApi: FileApi,
-    private val systemApi: SystemApi,
-    private val terminalApi: TerminalApi,
-    internal val manageSessionUseCase: ManageSessionUseCase,
-    internal val deleteSessionUseCase: DeleteSessionUseCase,
+    private val sessionRepository: SessionRepository,
+    private val sessionStateService: SessionStateRepository,
+    private val listSessionsUseCase: ListSessionsUseCase,
+    private val listProjectsUseCase: ListProjectsUseCase,
+    private val getServerPathsUseCase: GetServerPathsUseCase,
+    private val probeDirectoryUseCase: ProbeDirectoryUseCase,
+    private val searchDirectoriesUseCase: SearchDirectoriesUseCase,
+    private val createDirectoryUseCase: CreateDirectoryUseCase,
+    private val fileRepository: FileRepository,
+    private val manageSessionUseCase: ManageSessionUseCase,
+    private val deleteSessionUseCase: DeleteSessionUseCase,
     private val draftRepository: DraftRepository,
-    internal val mcpRepository: McpRepository,
+    private val mcpRepository: McpRepository,
     private val scrollSignal: SessionScrollSignal,
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     private val settingsRepository: SettingsRepository,
@@ -82,36 +94,35 @@ class SessionListViewModel @Inject constructor(
         runBlocking(Dispatchers.IO) { serverRepository.getServer(serverId) }
     val serverName: String = serverConfig?.displayName ?: ""
 
-    internal val conn = serverConfig?.let {
+    private val conn = serverConfig?.let {
         ServerConnection.from(it.url, it.username, it.password)
     } ?: ServerConnection.from("", "", null)
 
     private val directoryManager = DirectoryManager(
-        fileApi = fileApi,
-        sessionApi = sessionApi,
-        systemApi = systemApi,
-        terminalApi = terminalApi,
-        deleteSessionUseCase = deleteSessionUseCase,
-        conn = conn,
         serverId = serverId,
+        getServerPathsUseCase = getServerPathsUseCase,
+        probeDirectoryUseCase = probeDirectoryUseCase,
+        searchDirectoriesUseCase = searchDirectoriesUseCase,
+        createDirectoryUseCase = createDirectoryUseCase,
+        fileRepository = fileRepository,
     )
 
     init { mcpRepository.setConnection(conn) }
 
-    // ============ 内部状态（部分由扩展函数访问） ============
+    // ============ 内部状态 ============
 
-    internal val _isLoading = MutableStateFlow(true)
-    internal val _error = MutableStateFlow<String?>(null)
-    internal val _projects = MutableStateFlow<List<Project>>(emptyList())
-    internal val _expandedPaths = MutableStateFlow<Set<String>>(emptySet())
-    internal val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
-    internal val _baseDirectory = MutableStateFlow<String?>(null)
-    internal val _isRefreshing = MutableStateFlow(false)
+    private val _isLoading = MutableStateFlow(true)
+    private val _error = MutableStateFlow<String?>(null)
+    private val _projects = MutableStateFlow<List<Project>>(emptyList())
+    private val _expandedPaths = MutableStateFlow<Set<String>>(emptySet())
+    private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _baseDirectory = MutableStateFlow<String?>(null)
+    private val _isRefreshing = MutableStateFlow(false)
     private val _lastToggledDirectory = MutableStateFlow<String?>(null)
-    internal val _searchQuery = MutableStateFlow<String?>(null)
-    internal val _currentCursor = MutableStateFlow<String?>(null)
-    internal val _hasMorePages = MutableStateFlow(true)
-    internal val _isLoadingMore = MutableStateFlow(false)
+    private val _searchQuery = MutableStateFlow<String?>(null)
+    private val _currentCursor = MutableStateFlow<String?>(null)
+    private val _hasMorePages = MutableStateFlow(true)
+    private val _isLoadingMore = MutableStateFlow(false)
 
     private val _viewMode = MutableStateFlow(
         savedStateHandle.get<String>("viewMode")?.let {
@@ -148,26 +159,26 @@ class SessionListViewModel @Inject constructor(
 
     // ============ MCP 状态 ============
 
-    internal val _mcpServers = MutableStateFlow<List<McpServerStatus>>(emptyList())
+    private val _mcpServers = MutableStateFlow<List<McpServerStatus>>(emptyList())
     val mcpServers: StateFlow<List<McpServerStatus>> = _mcpServers.asStateFlow()
 
-    internal val _mcpLoading = MutableStateFlow<String?>(null)
+    private val _mcpLoading = MutableStateFlow<String?>(null)
     val mcpLoading: StateFlow<String?> = _mcpLoading.asStateFlow()
 
-    internal val _mcpInitialLoading = MutableStateFlow(false)
+    private val _mcpInitialLoading = MutableStateFlow(false)
     val mcpInitialLoading: StateFlow<Boolean> = _mcpInitialLoading.asStateFlow()
 
-    internal val _mcpError = MutableSharedFlow<String>()
+    private val _mcpError = MutableSharedFlow<String>()
     val mcpError: SharedFlow<String> = _mcpError.asSharedFlow()
 
     // ============ 聚合 UI 状态 ============
 
     @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<SessionListUiState> = combine(
-        eventDispatcher.sessions,
+        sessionRepository.getSessionsFlow(serverId),
         sessionStateService.statusFlow,
-        eventDispatcher.serverSessions,
-        eventDispatcher.lastUserMessageTime,
+        sessionRepository.getServerSessionsFlow(),
+        sessionRepository.getLastUserMessageTimeFlow(),
         _isLoading,
         _error,
         _projects,
@@ -298,6 +309,269 @@ class SessionListViewModel @Inject constructor(
     fun toggleViewMode() {
         _viewMode.value = if (_viewMode.value == SessionViewMode.FOLDER) SessionViewMode.RECENT else SessionViewMode.FOLDER
         savedStateHandle["viewMode"] = _viewMode.value.name
+    }
+
+    // ============ 会话加载 / 刷新 / 分页 ============
+
+    fun loadSessions() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            resetPagination()
+            try {
+                val projects = listProjectsUseCase(serverId).getOrThrow()
+                _projects.value = projects
+                if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${projects.size} projects for multi-project session fetch")
+
+                if (projects.isEmpty()) {
+                    val sessions = listSessionsUseCase(serverId, search = _searchQuery.value)
+                    sessionRepository.setSessions(serverId, sessions)
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions (no projects)")
+                } else {
+                    var totalSessions = 0
+                    for (project in projects) {
+                        try {
+                            val sessions = listSessionsUseCase(serverId, directory = project.worktree, search = _searchQuery.value)
+                            sessionRepository.setSessions(serverId, sessions)
+                            totalSessions += sessions.size
+                            if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions for project ${project.displayName}")
+                        } catch (e: Exception) {
+                            AppLogger.w(TAG_SESSION_LIST_VM, "Failed to load sessions for project ${project.displayName}: ${e.message}")
+                        }
+                    }
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Total: loaded $totalSessions sessions across ${projects.size} projects for server $serverId")
+                }
+                // 通过统一的 FSM 管线从服务器同步会话状态
+                //（跨项目 worktree 聚合 + 缺失即 idle + 不完整保护）。
+                sessionStateService.setServerId(serverId)
+                sessionStateService.syncFromRest(_projects.value)
+            } catch (e: Exception) {
+                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to load sessions", e)
+                _error.value = e.message ?: "Failed to load sessions"
+            } finally {
+                if (_expandedPaths.value.isEmpty()) {
+                    // 首次加载时默认展开所有目录
+                    val currentSessions = sessionRepository.getSessionsFlow(serverId).first()
+                    val base = _baseDirectory.value?.replace('\\', '/')?.trimEnd('/')
+                    val dirs = mutableSetOf<String>()
+                    for (s in currentSessions) {
+                        val dir = s.directory.replace('\\', '/').trimEnd('/')
+                        if (base != null && dir.startsWith(base)) {
+                            val relative = dir.removePrefix(base).removePrefix("/")
+                            if (relative.isNotEmpty()) {
+                                dirs.add("$base/${relative.substringBefore('/')}")
+                            }
+                        }
+                    }
+                    _expandedPaths.value = dirs
+                }
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun refreshSessions() {
+        if (_isLoading.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            _error.value = null
+            try {
+                val projects = listProjectsUseCase(serverId).getOrThrow()
+                _projects.value = projects
+                if (projects.isEmpty()) {
+                    val sessions = listSessionsUseCase(serverId, search = _searchQuery.value)
+                    sessionRepository.setSessions(serverId, sessions)
+                } else {
+                    for (project in projects) {
+                        try {
+                            val sessions = listSessionsUseCase(serverId, directory = project.worktree, search = _searchQuery.value)
+                            sessionRepository.setSessions(serverId, sessions)
+                        } catch (e: Exception) {
+                            AppLogger.w(TAG_SESSION_LIST_VM, "Failed to refresh sessions for project ${project.displayName}: ${e.message}")
+                        }
+                    }
+                }
+                // 通过统一的 FSM 管线从服务器同步会话状态。
+                sessionStateService.setServerId(serverId)
+                sessionStateService.syncFromRest(_projects.value)
+            } catch (e: Exception) {
+                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to refresh sessions", e)
+                _error.value = e.message ?: "Failed to refresh sessions"
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    fun resetPagination() {
+        _currentCursor.value = null
+        _hasMorePages.value = true
+        _isLoadingMore.value = false
+    }
+
+    /**
+     * 使用基于游标的分页加载下一页会话。
+     * 由 UI 在用户滚动到会话列表底部附近时调用。
+     */
+    fun loadMore() {
+        if (_isLoadingMore.value || !_hasMorePages.value) return
+        viewModelScope.launch {
+            _isLoadingMore.value = true
+            try {
+                val cursor = _currentCursor.value
+                val sessions = listSessionsUseCase(
+                    serverId,
+                    directory = _baseDirectory.value,
+                    search = _searchQuery.value,
+                    cursor = cursor,
+                    limit = 50
+                )
+                if (sessions.isNotEmpty()) {
+                    sessionRepository.setSessions(serverId, sessions)
+                    _currentCursor.value = sessions.last().id
+                }
+                if (sessions.size < 50) {
+                    _hasMorePages.value = false
+                }
+            } catch (e: Exception) {
+                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to load more sessions", e)
+            } finally {
+                _isLoadingMore.value = false
+            }
+        }
+    }
+
+    // ============ 会话操作（删除 / 重命名 / 导入） ============
+
+    fun deleteSession(sessionId: String) {
+        viewModelScope.launch {
+            try {
+                val result = deleteSessionUseCase(serverId, sessionId)
+                if (result.isSuccess) {
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Deleted session $sessionId")
+                    loadSessions()
+                } else {
+                    _error.value = "Failed to delete session"
+                }
+            } catch (e: Exception) {
+                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to delete session", e)
+                _error.value = e.message ?: "Failed to delete session"
+            }
+        }
+    }
+
+    fun renameSession(sessionId: String, newTitle: String) {
+        viewModelScope.launch {
+            try {
+                manageSessionUseCase.renameSession(serverId, sessionId, newTitle)
+                if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Renamed session $sessionId to '$newTitle'")
+                loadSessions()
+            } catch (e: Exception) {
+                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to rename session", e)
+                _error.value = e.message ?: "Failed to rename session"
+            }
+        }
+    }
+
+    /**
+     * 从分享 URL 导入会话。
+     * 成功后重新加载会话列表。
+     */
+    fun importSession(shareUrl: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val session = manageSessionUseCase.importSession(serverId, shareUrl)
+                if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Imported session ${session.id}")
+                sessionRepository.setSessions(serverId, listOf(session))
+                onResult(true)
+            } catch (e: Exception) {
+                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to import session", e)
+                _error.value = e.message ?: "Failed to import session"
+                onResult(false)
+            }
+        }
+    }
+
+    fun copyToClipboard(text: String, context: Context) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("label", text))
+    }
+
+    // ============ 批量选择 ============
+
+    fun toggleSelection(sessionId: String) {
+        _selectedIds.update { selected ->
+            if (sessionId in selected) selected - sessionId else selected + sessionId
+        }
+    }
+
+    fun clearSelection() {
+        _selectedIds.value = emptySet()
+    }
+
+    fun selectAll() {
+        val currentState = uiState.value
+        val sessionIds = currentState.treeNodes
+            .filterIsInstance<dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode.Session>()
+            .map { it.id }
+            .toSet()
+        _selectedIds.value = sessionIds
+    }
+
+    fun deleteSelected() {
+        viewModelScope.launch {
+            val ids = _selectedIds.value
+            if (ids.isEmpty()) return@launch
+            try {
+                val results = coroutineScope {
+                    ids.map { id ->
+                        async { id to deleteSessionUseCase(serverId, id).isSuccess }
+                    }.awaitAll()
+                }
+                val failed = results.filterNot { it.second }
+                if (failed.isNotEmpty()) {
+                    _error.value = "Failed to delete ${failed.size} session(s)"
+                }
+                clearSelection()
+                loadSessions()
+            } catch (e: Exception) {
+                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to delete selected sessions", e)
+                _error.value = e.message ?: "Failed to delete selected sessions"
+            }
+        }
+    }
+
+    // ============ MCP ============
+
+    fun loadMcpServers() {
+        viewModelScope.launch {
+            _mcpInitialLoading.value = true
+            mcpRepository.getMcpServers()
+                .onSuccess { _mcpServers.value = it }
+                .onFailure {
+                    _mcpError.emit(it.message ?: "Failed to load MCP servers")
+                }
+            _mcpInitialLoading.value = false
+        }
+    }
+
+    fun toggleMcpServer(name: String) {
+        if (_mcpLoading.value == name) return
+        val server = _mcpServers.value.find { it.name == name } ?: return
+        val connect = server.status != "connected"
+        _mcpLoading.value = name
+
+        viewModelScope.launch {
+            mcpRepository.toggleMcpServer(name, connect)
+                .onSuccess {
+                    mcpRepository.getMcpServers()
+                        .onSuccess { _mcpServers.value = it }
+                }
+                .onFailure {
+                    _mcpError.emit("Failed to ${if (connect) "connect" else "disconnect"} $name")
+                }
+            _mcpLoading.value = null
+        }
     }
 
     // ============ 用于"打开项目"的目录浏览（委托给 DirectoryManager） ============
