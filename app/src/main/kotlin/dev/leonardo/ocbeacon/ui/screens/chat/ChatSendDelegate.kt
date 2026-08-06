@@ -50,7 +50,7 @@ internal class ChatSendDelegate(
     private val ensureSession: suspend () -> String,
     private val modelConfigProvider: () -> ModelConfigState,
     private val selectedVariantProvider: () -> String?,
-    private val messageData: MessageDataDelegate,
+    private val optimisticStore: OptimisticMessageStore,
     private val draftDelegate: DraftInputDelegate,
 ) {
     fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) {
@@ -97,7 +97,7 @@ internal class ChatSendDelegate(
     private fun sendParts(parts: List<PromptPart>) {
         // RS-007 修复：防止快速双击。_isSending 由 onSendStarted 同步设置，
         // 但 Compose 重组（禁用按钮）有 1 帧延迟。此检查消除了竞态窗口。
-        if (messageData.isSendingValue) {
+        if (optimisticStore.isSendingValue) {
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "sendParts: already sending, ignoring duplicate")
             return
         }
@@ -120,7 +120,7 @@ internal class ChatSendDelegate(
                 text = pp.text ?: "",
             )
         }
-        messageData.onSendStarted(pendingId, optimisticMsg, optimisticParts)
+        optimisticStore.onSendStarted(pendingId, optimisticMsg, optimisticParts)
         // 持久化乐观发送，使其在发送中途应用被杀时存活。
         // 下次启动时的对账会检测服务器从未回显的发送。
         pendingPromptRepository.save(
@@ -158,7 +158,7 @@ internal class ChatSendDelegate(
                     variant = selectedVariantProvider(),
                     directory = sessionDirectoryProvider()
                 )
-                messageData.onSendSuccess(pendingId)
+                optimisticStore.onSendSuccess(pendingId)
                 pendingPromptRepository.remove(pendingId)
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
                 refreshSessionTitleDelayed(currentSessionId)
@@ -169,7 +169,7 @@ internal class ChatSendDelegate(
                 if (failedText.isNotBlank()) {
                     draftDelegate.setRestoredDraft(RevertedDraftPayload(text = failedText))
                 }
-                messageData.onSendError(e.message ?: "Failed to send message", pendingId)
+                optimisticStore.onSendError(e.message ?: "Failed to send message", pendingId)
                 pendingPromptRepository.remove(pendingId)
             }
         }
@@ -177,11 +177,11 @@ internal class ChatSendDelegate(
 
     /** 通过 pending ID 重试发送失败的乐观消息。 */
     fun retrySendMessage(pendingId: String) {
-        val pending = messageData.getPendingMessage(pendingId) ?: return
+        val pending = optimisticStore.getPendingMessage(pendingId) ?: return
         val parts = pending.parts.mapNotNull { part ->
             (part as? Part.Text)?.let { PromptPart(type = "text", text = it.text) }
         }
-        messageData.removePendingMessage(pendingId)
+        optimisticStore.removePendingMessage(pendingId)
         sendParts(parts)
     }
 }

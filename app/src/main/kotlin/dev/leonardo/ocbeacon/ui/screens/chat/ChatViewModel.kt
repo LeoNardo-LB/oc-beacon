@@ -307,7 +307,7 @@ class ChatViewModel @Inject constructor(
         // 恢复已持久化的 pending prompt（在发送中途存活应用重启）。
         val restoredPending = pendingPromptRepository.getForSession(sessionId)
         if (restoredPending.isNotEmpty()) {
-            messageData.restorePendingPrompts(restoredPending)
+            messageData.optimisticStore.restorePendingPrompts(restoredPending)
         }
 
         // 观察消息并更新 token 统计跟踪器。
@@ -342,7 +342,7 @@ class ChatViewModel @Inject constructor(
                 }
 
                 // 将 pending prompt 与权威消息列表对账。
-                val pendingSnapshot = messageData.pendingOptimisticSnapshot()
+                val pendingSnapshot = messageData.optimisticStore.pendingOptimisticSnapshot()
                 if (pendingSnapshot.isNotEmpty()) {
                     val pendingRecords = pendingSnapshot.map { om ->
                         PendingPromptRecord(
@@ -359,7 +359,7 @@ class ChatViewModel @Inject constructor(
                         minimumAgeMs = PENDING_RECONCILE_MIN_AGE_MS,
                     )
                     missing.forEach { id ->
-                        messageData.markPendingAsFailed(id)
+                        messageData.optimisticStore.markPendingAsFailed(id)
                         pendingPromptRepository.remove(id)
                     }
                 }
@@ -385,7 +385,7 @@ class ChatViewModel @Inject constructor(
         if (!isNewSession) {
             viewModelScope.launch {
                 try { sessionLifecycle.loadSession() } catch (e: Exception) { AppLogger.e(TAG, "loadSession failed", e) }
-                try { messageData.loadMessages() } catch (e: Exception) { AppLogger.e(TAG, "loadMessages failed", e) }
+                try { messageData.paginationDelegate.loadMessages() } catch (e: Exception) { AppLogger.e(TAG, "loadMessages failed", e) }
                 try { messageData.loadPendingQuestions() } catch (e: Exception) { AppLogger.e(TAG, "loadPendingQuestions failed", e) }
                 try { messageData.loadPendingPermissions() } catch (e: Exception) { AppLogger.e(TAG, "loadPendingPermissions failed", e) }
             }
@@ -400,14 +400,14 @@ class ChatViewModel @Inject constructor(
 
     // ============ 消息加载/刷新（门面 —— MessageDataDelegate / SessionActionsDelegate） ============
 
-    private suspend fun loadMessagesForSession() = messageData.loadMessagesForSession()
+    private suspend fun loadMessagesForSession() = messageData.paginationDelegate.loadMessagesForSession()
     private fun startObservingMessages() = messageData.startObservingMessages()
 
-    fun loadMessages() = messageData.loadMessages()
+    fun loadMessages() = messageData.paginationDelegate.loadMessages()
     fun refreshSession() = sessionActions.refreshSession()
     fun refreshIfNeeded() = sessionActions.refreshIfNeeded()
     fun syncSessionStatus() = sessionActions.syncSessionStatus()
-    fun loadOlderMessages() = messageData.loadOlderMessages()
+    fun loadOlderMessages() = messageData.paginationDelegate.loadOlderMessages()
 
     // ============ @ 文件提及搜索 + 草稿管理（门面 —— DraftInputDelegate） ============
 
@@ -451,7 +451,7 @@ class ChatViewModel @Inject constructor(
         ensureSession = { sessionLifecycle.ensureSession() },
         modelConfigProvider = { modelConfigState.value },
         selectedVariantProvider = { modelConfig.selectedVariantValue },
-        messageData = messageData,
+        optimisticStore = messageData.optimisticStore,
         draftDelegate = draftDelegate,
     )
 
