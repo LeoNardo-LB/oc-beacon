@@ -177,10 +177,10 @@ class ChatInteractionIsolatedTest : BaseChatTest() {
         }
 
         // 滑动以从底部滚离（reverseLayout：swipeDown 向上滚动）。
-        // 增大幅度（0.05→0.95，近全屏跨度）和次数（6 次），确保越过
-        // isAtBottom 阈值（firstVisibleItemIndex==0 && scrollOffset<100）。
-        composeRule.onAllNodes(hasScrollAction())[0].performTouchInput {
-            repeat(6) { swipeDown(startY = 0.05f, endY = 0.95f) }
+        // 用 onNode(hasScrollAction()) + 默认 swipeDown()（与 ChatScrollStabilityTest 一致）；
+        // 3 次确保越过 isAtBottom 阈值（firstVisibleItemIndex==0 && scrollOffset<100）。
+        composeRule.onNode(hasScrollAction()).performTouchInput {
+            repeat(3) { swipeDown() }
         }
         composeRule.waitForIdle()
 

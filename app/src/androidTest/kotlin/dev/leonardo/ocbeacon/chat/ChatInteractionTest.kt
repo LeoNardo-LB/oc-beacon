@@ -12,7 +12,6 @@ import androidx.compose.ui.test.swipeDown
 import dagger.hilt.android.testing.HiltAndroidTest
 import dev.leonardo.ocbeacon.builder.anAssistantMessage
 import dev.leonardo.ocbeacon.builder.aUserMessage
-import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -23,6 +22,7 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
 import dev.leonardo.ocbeacon.fakes.FakeServerRepository
+import dev.leonardo.ocbeacon.fakes.FakeSessionStateRepository
 import org.junit.Test
 import javax.inject.Inject
 
@@ -38,6 +38,13 @@ class ChatInteractionTest : BaseChatTest() {
 
     @Inject
     lateinit var providerRepo: ProviderRepository
+
+    /**
+     * 会话状态仓库 fake —— 经 SessionStateRepository 接口绑定（FakeDomainModule），
+     * 与 ChatViewModel 注入的是同一 @Singleton 实例，二者共享 FSM 状态。
+     */
+    @Inject
+    lateinit var sessionStateRepo: FakeSessionStateRepository
 
     private val fakeServer: FakeServerRepository
         get() = providerRepo as FakeServerRepository
@@ -261,8 +268,9 @@ class ChatInteractionTest : BaseChatTest() {
         // 在 ViewModel 就绪后将会话状态设置为 Busy —— 确保 sessionMetaState
         //（6 路 combine + WhileSubscribed5s）已订阅，FSM 更新能立即被捕获，
         // 避免冷启动时序竞态导致 Stop 按钮出现延迟。
-        // sessionStateService 是 @Singleton —— 与 ViewModel 使用的是同一实例。
-        sessionStateService.onClientSendParts("")
+        // ChatViewModel 经 SessionStateRepository 接口注入的是 FakeSessionStateRepository
+        //（FakeDomainModule 绑定），测试注入同一 @Singleton 实例，二者共享 FSM 状态。
+        sessionStateRepo.onClientSendParts("")
         composeRule.waitForIdle()
 
         // 停止按钮在 isBusy && 输入文本为空时显示。
@@ -293,6 +301,10 @@ class ChatInteractionTest : BaseChatTest() {
      */
     @Test
     fun permissionDialog_appears_whenPermissionRequested() {
+        // seed 一条消息确保走 ChatMessageList 分支（非空状态）——
+        // ChatScreen 在 messages.isEmpty() && !isLoading 时渲染 ChatEmptyState，
+        // 会让 ChatMessageList（含 PermissionCard）永不进入组合。
+        seedConversation()
         renderChatScreen()
         composeRule.waitForIdle()
 
@@ -321,6 +333,8 @@ class ChatInteractionTest : BaseChatTest() {
      */
     @Test
     fun questionDialog_appears_whenQuestionAsked() {
+        // seed 一条消息确保走 ChatMessageList 分支（非空状态）——原因同 permissionDialog
+        seedConversation()
         renderChatScreen()
         composeRule.waitForIdle()
 

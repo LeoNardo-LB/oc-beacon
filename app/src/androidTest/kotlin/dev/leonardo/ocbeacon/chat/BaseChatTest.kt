@@ -38,7 +38,6 @@ abstract class BaseChatTest {
     @Inject lateinit var chatRepo: ChatRepository
     @Inject lateinit var sessionRepo: SessionRepository
     @Inject lateinit var settingsRepo: SettingsRepository
-    @Inject lateinit var sessionStateService: dev.leonardo.ocbeacon.data.repository.SessionStateService
     @Inject lateinit var tokenStatsTracker: dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
 
     protected val fakeChat get() = chatRepo as FakeChatRepository
@@ -71,9 +70,9 @@ abstract class BaseChatTest {
             )
             statusesState.value = emptyMap()
         }
-        // 注意：SessionStateService 和 TokenStatsTracker 是 @Singleton ——
-        // 其状态在测试间持久存在。依赖特定 FSM/token 状态的测试应当在
-        // renderChatScreen() 之后显式设置，而不是依赖 @Before 的默认值。
+        // 注意：TokenStatsTracker 是 @Singleton —— 其状态在测试间持久存在。
+        // 依赖特定 token 状态的测试应当在 renderChatScreen() 之后显式设置，
+        // 而不是依赖 @Before 的默认值。
     }
 
     /**
