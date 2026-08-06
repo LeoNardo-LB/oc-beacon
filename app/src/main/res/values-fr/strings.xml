@@ -70,6 +70,7 @@
     <string name="add">Ajouter</string>
     <string name="draft">Brouillon</string>
     <string name="assign_category">Ajouter un tag</string>
+    <string name="no_tags_placeholder">Aucun tag, appuyez sur le bouton ci-dessous</string>
     <string name="quick_navigate">Navigation rapide</string>
     <string name="question">Question</string>
     <string name="no_questions">Aucune question</string>

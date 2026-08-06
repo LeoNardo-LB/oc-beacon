@@ -70,6 +70,7 @@
     <string name="add">Hinzufügen</string>
     <string name="draft">Entwurf</string>
     <string name="assign_category">Tag hinzufügen</string>
+    <string name="no_tags_placeholder">Keine Tags, tippe unten auf die Schaltfläche</string>
     <string name="quick_navigate">Schnellnavigation</string>
     <string name="question">Frage</string>
     <string name="no_questions">Keine Fragen</string>

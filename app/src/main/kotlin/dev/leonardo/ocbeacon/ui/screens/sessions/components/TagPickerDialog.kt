@@ -1,5 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -7,10 +10,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,10 +24,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,9 +49,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
@@ -52,14 +63,17 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 /**
  * 多选标签分配对话框。
  *
- * - 列出已有用户标签，复选框多选；本地 [selected] 状态保存勾选集合。
- * - 底部"新建标签"区通过 [onCreateTag] 创建标签，返回新标签 id 后自动勾选。
+ * - 标签列表以 [FilterChip] 流式布局（[FlowRow]）展示，点击切换选中态；
+ *   chip 颜色取自标签自身配色（浅背景/选中加深/实体边框）。
+ * - 底部"新增 Tag"按钮内联展开创建表单（名称 + 颜色 + 图标），
+ *   通过 [onCreateTag] 创建后返回 id 并自动勾选。
+ * - 标签为空时显示占位提示。
  * - 点确定以最终勾选集合调用 [onConfirm]；点关闭调用 [onDismiss]。
  *
  * 视觉上与历史分类选择器保持一致：颜色/图标选择器复用
  * [SessionCategoryStyle] + 同样的 ColorDot / IconOption 私有组件。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TagPickerDialog(
     tags: List<Tag>,
@@ -70,6 +84,7 @@ fun TagPickerDialog(
 ) {
     val params = amoledDialogParams()
     var selected by remember { mutableStateOf(selectedTagIds) }
+    var showCreateForm by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf(SessionCategoryStyle.colorKeys.first()) }
     var selectedIcon by remember { mutableStateOf(SessionCategoryStyle.iconKeys.first()) }
@@ -88,120 +103,193 @@ fun TagPickerDialog(
             Column(
                 modifier = Modifier
                     .padding(20.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .heightIn(max = 560.dp),
             ) {
                 Text(text = stringResource(R.string.category), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(12.dp))
 
-                tags.forEach { tag ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(SpacingTokens.SM.dp))
-                            .clickable {
-                                selected = if (tag.id in selected) selected - tag.id else selected + tag.id
+                // 标签列表区：weight 填充中间空白 + minHeight
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .heightIn(min = 160.dp)
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (tags.isEmpty()) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.Label,
+                                contentDescription = null,
+                                modifier = Modifier.size(36.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT),
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.no_tags_placeholder),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT),
+                            )
+                        }
+                    } else {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            tags.forEach { tag ->
+                                TagFilterChip(
+                                    tag = tag,
+                                    selected = tag.id in selected,
+                                    onToggle = {
+                                        selected = if (tag.id in selected) selected - tag.id else selected + tag.id
+                                    },
+                                )
                             }
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(
-                            checked = tag.id in selected,
-                            onCheckedChange = {
-                                selected = if (tag.id in selected) selected - tag.id else selected + tag.id
-                            },
-                        )
-                        Icon(
-                            imageVector = SessionCategoryStyle.icon(tag.icon),
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = SessionCategoryStyle.color(tag.color),
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = tag.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
+                        }
                     }
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                // 新建标签区
-                Text(
-                    text = stringResource(R.string.new_category),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = newCategoryName,
-                    onValueChange = { newCategoryName = it },
-                    label = { Text(stringResource(R.string.category_name)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(10.dp))
-
-                Text(text = stringResource(R.string.color), style = MaterialTheme.typography.labelSmall)
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SessionCategoryStyle.colorKeys.forEach { key ->
-                        ColorDot(
-                            color = SessionCategoryStyle.color(key),
-                            isSelected = selectedColor == key,
-                            onClick = { selectedColor = key },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-
-                Text(text = stringResource(R.string.icon), style = MaterialTheme.typography.labelSmall)
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SessionCategoryStyle.iconKeys.forEach { key ->
-                        IconOption(
-                            icon = SessionCategoryStyle.icon(key),
-                            isSelected = selectedIcon == key,
-                            onClick = { selectedIcon = key },
-                        )
+                // 底部：新增 Tag 按钮（点击内联展开表单）
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { showCreateForm = !showCreateForm }) {
+                        Icon(Icons.Default.Add, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.new_tag))
                     }
                 }
 
-                Spacer(Modifier.height(14.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            if (newCategoryName.isNotBlank()) {
-                                val newId = onCreateTag(newCategoryName.trim(), selectedColor, selectedIcon)
-                                selected = selected + newId
-                                newCategoryName = ""
+                AnimatedVisibility(visible = showCreateForm, enter = expandVertically(), exit = shrinkVertically()) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = newCategoryName,
+                            onValueChange = { newCategoryName = it },
+                            label = { Text(stringResource(R.string.category_name)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(10.dp))
+
+                        Text(text = stringResource(R.string.color), style = MaterialTheme.typography.labelSmall)
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SessionCategoryStyle.colorKeys.forEach { key ->
+                                ColorDot(
+                                    color = SessionCategoryStyle.color(key),
+                                    isSelected = selectedColor == key,
+                                    onClick = { selectedColor = key },
+                                )
                             }
-                        },
-                        enabled = newCategoryName.isNotBlank(),
-                    ) { Text(stringResource(R.string.add)) }
+                        }
+                        Spacer(Modifier.height(10.dp))
+
+                        Text(text = stringResource(R.string.icon), style = MaterialTheme.typography.labelSmall)
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SessionCategoryStyle.iconKeys.forEach { key ->
+                                IconOption(
+                                    icon = SessionCategoryStyle.icon(key),
+                                    isSelected = selectedIcon == key,
+                                    onClick = { selectedIcon = key },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = { showCreateForm = false }) { Text(stringResource(R.string.close)) }
+                            Spacer(Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    if (newCategoryName.isNotBlank()) {
+                                        val newId = onCreateTag(newCategoryName.trim(), selectedColor, selectedIcon)
+                                        selected = selected + newId
+                                        newCategoryName = ""
+                                        showCreateForm = false
+                                    }
+                                },
+                                enabled = newCategoryName.isNotBlank(),
+                            ) { Text(stringResource(R.string.add)) }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // 主操作栏：取消 / 确定
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
                     Spacer(Modifier.width(8.dp))
                     Button(onClick = { onConfirm(selected) }) { Text(stringResource(R.string.ok)) }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun TagFilterChip(
+    tag: Tag,
+    selected: Boolean,
+    onToggle: () -> Unit,
+) {
+    val tagColor = SessionCategoryStyle.color(tag.color)
+    val onColor = if (tagColor.luminance() > 0.5f) Color.Black else Color.White
+    FilterChip(
+        selected = selected,
+        onClick = onToggle,
+        label = {
+            Text(
+                text = tag.name,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) onColor else tagColor,
+            )
+        },
+        leadingIcon = if (selected) {
+            {
+                Icon(
+                    imageVector = Icons.Filled.Done,
+                    contentDescription = null,
+                    modifier = Modifier.size(FilterChipDefaults.IconSize),
+                    tint = onColor,
+                )
+            }
+        } else {
+            {
+                Icon(
+                    imageVector = SessionCategoryStyle.icon(tag.icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(FilterChipDefaults.IconSize),
+                    tint = tagColor,
+                )
+            }
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = tagColor.copy(alpha = AlphaTokens.FAINT),
+            selectedContainerColor = tagColor.copy(alpha = AlphaTokens.HIGH),
+            labelColor = tagColor,
+            selectedLabelColor = onColor,
+            selectedLeadingIconColor = onColor,
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = selected,
+            borderColor = tagColor.copy(alpha = AlphaTokens.FAINT),
+            selectedBorderColor = tagColor,
+            selectedBorderWidth = 1.dp,
+        ),
+    )
 }
 
 @Composable

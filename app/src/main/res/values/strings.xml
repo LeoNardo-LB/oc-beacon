@@ -417,6 +417,7 @@
     <string name="edit">Edit</string>
     <string name="remove_tag">Remove tag</string>
     <string name="no_sessions_with_tag">No sessions with this tag</string>
+    <string name="no_tags_placeholder">暂无标签，点击下方按钮创建</string>
     <string name="delete_tag_title">Delete tag</string>
     <string name="delete_tag_message">Delete \"%1$s\"? All session assignments will be removed.</string>
     <string name="draft">Draft</string>

@@ -70,6 +70,7 @@
     <string name="add">إضافة</string>
     <string name="draft">مسودة</string>
     <string name="assign_category">إضافة وسم</string>
+    <string name="no_tags_placeholder">لا توجد وسوم، اضغط الزر بالأسفل للإنشاء</string>
     <string name="quick_navigate">تنقل سريع</string>
     <string name="question">سؤال</string>
     <string name="no_questions">لا توجد أسئلة</string>

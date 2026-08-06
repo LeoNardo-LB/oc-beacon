@@ -70,6 +70,7 @@
     <string name="add">Dodaj</string>
     <string name="draft">Szkic</string>
     <string name="assign_category">Dodaj tag</string>
+    <string name="no_tags_placeholder">Brak tagów, stuknij przycisk poniżej</string>
     <string name="quick_navigate">Szybka nawigacja</string>
     <string name="question">Pytanie</string>
     <string name="no_questions">Brak pytań</string>

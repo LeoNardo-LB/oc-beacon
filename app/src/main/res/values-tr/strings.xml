@@ -70,6 +70,7 @@
     <string name="add">Ekle</string>
     <string name="draft">Taslak</string>
     <string name="assign_category">Etiket ekle</string>
+    <string name="no_tags_placeholder">Etiket yok, aşağıdaki düğmeye dokunun</string>
     <string name="quick_navigate">Hızlı gezinme</string>
     <string name="question">Soru</string>
     <string name="no_questions">Soru yok</string>

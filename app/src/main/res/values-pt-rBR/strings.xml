@@ -70,6 +70,7 @@
     <string name="add">Adicionar</string>
     <string name="draft">Rascunho</string>
     <string name="assign_category">Adicionar tag</string>
+    <string name="no_tags_placeholder">Sem tags, toque no botão abaixo</string>
     <string name="quick_navigate">Navegação rápida</string>
     <string name="question">Pergunta</string>
     <string name="no_questions">Sem perguntas</string>
