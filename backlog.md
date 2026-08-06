@@ -1,7 +1,9 @@
 # OC Beacon — 需求与问题总览
 
 本文档用于记录用户在使用过程中口头反馈的问题、发现的 bug，以及计划中的功能需求。
-**定位**：轻量级记录，仅忠实记录用户反馈的原始现象与需求，不做主观推测或归因分析。简单可行性确认（如文件名是否存在、接口是否暴露等）可附带，深入的代码链路调研由具体开发任务承接。
+
+**定位**：轻量级记录，仅忠实记录用户反馈的原始现象与需求，可以简单调研的结果，但不做主观推测或归因分析。**会话进行中产生的、优先级不足以立即处理的需求/问题也实时登记于此**（触发时机见 AGENTS.md「Backlog 纪律」）。简单可行性确认（如文件名是否存在、接口是否暴露等）可附带，深入的代码链路调研由具体开发任务承接。
+
 **优先级定义**：
 
 | 等级 | 含义 | 示例 |
@@ -10,7 +12,8 @@
 | **P1** | 主要业务流程的需求功能点 | 会话搜索、消息转发 |
 | **P2** | 优化专项、锦上添花功能、不影响体验的小 bug | 动画微调、文案优化 |
 
-**状态流转**：每个条目下的状态 checkbox 需全部打勾才算完结。代码写好但未验证不等于完成！
+**状态流转**：每个条目下的状态 checkbox 需全部打勾才算完结。代码写好但未验证不等于完成！要求完成需求、自行验证、用户验收通过之后才能标记已完成！
+
 **Tag 标签体系**：每个条目需标记相关 Tag，用于关联同类问题，便于后续批量修复或按领域排查。录入时判断条目适用的已有 Tag；若现有 Tag 不足以描述，则新增。
 
 | Tag | 说明 |
@@ -66,11 +69,11 @@
   - 修复：新增 removeWorkspace/removeAllWorkspaces + Workspace.dispose()（closeAll + scope.cancel），Service 断开时自动调用
   - 工时：~2h | 难度：中 | 涉及：ServerTerminalRegistry / ServerTerminalWorkspace / OpenCodeConnectionService
 
-### 待办
-- [ ] **#8 密码导航参数重构** `security`
+- [x] **#8 密码导航参数重构** `security`
   - 问题：密码明文经 query 参数在 7 个路由间传递（ServerRouteParams 5 参），暴露于日志/深链/进程重建回放；与 #4 本地加密闭环矛盾
   - 方案：导航只传 serverId；各 ViewModel 从 ServerDataStore 按 id 取 ServerConfig（suspend，需初始 loading）；WebViewScreen Basic Auth 同改
   - 工时：~2-3d | 难度：高 | 涉及：ServerRouteParams / NavGraph（25+ 处）/ Chat·SessionList·Workspace·WebView·ServerSettings ViewModel
+  - **2026-08-07 完成**：路由层+消费层+入口源头全部 serverId-only（commit 681bf0fb / 2326e8b5）；编译 ✅ 全量单测 ✅（52s）凭据 grep 0 引用 ✅；模拟器验收通过（9/9 步：会话/聊天/SSE/终端/通知深链/WebView Basic Auth 全正常，logcat 0 异常，凭据零泄露）；遗留 runBlocking 债务已登记 architecture-debt §6
 
 ---
 
@@ -109,7 +112,6 @@
   - 修复：bundleStableRelease 验证 + release-workflow §5.5；docs/PRIVACY_POLICY.md（中英双语）；版本重置 1.2.0→0.2.0（VERSION_CODE 18→1，接受卸载重装）
   - 工时：~2h | 难度：低 | 涉及：docs/ + version.properties + AGENTS.md
 
-### 待办
 - [ ] **#15 MessageDataDelegate 职责过载** `refactor`
   - 问题：730 行单类承担 8 个职责（消息/parts/SSE job/缓存/乐观消息/分页/工具展开/加载错误），改分页可能碰坏乐观消息
   - 方案：拆 MessagePaginationDelegate + OptimisticMessageStore；**chatMessageCache 与 lastCombineSessionId（铁律 8）必须留主体**
@@ -129,7 +131,6 @@
 
 ## P2 — 优化与锦上添花
 
-### 待办
 - [ ] **#18 ChatMessageList 指纹函数外移** `refactor`
   - 问题：765 行因铁律 6-8 缓存逻辑膨胀
   - 方案：只外移纯函数（messageFingerprint/partsFingerprint/tailHash/messagesSignature）到 util/MessageFingerprints.kt；缓存函数高度耦合不动
