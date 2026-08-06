@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,7 +33,10 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Agent / Model / Variant 选择器行，带附件按钮。
+ * Agent / Model / Variant 选择器行，带附件按钮与会话状态指示器。
+ *
+ * [showBusy] 为 true 时在附件按钮左侧显示圆形进度条 —— 会话状态
+ * （agent 正在工作/流式）不依赖回复气泡是否出现，输入模块始终可见。
  */
 @Composable
 internal fun AgentModelVariantSelector(
@@ -45,7 +49,8 @@ internal fun AgentModelVariantSelector(
     onModelClick: () -> Unit,
     onAgentSelect: (String) -> Unit,
     onCycleVariant: () -> Unit,
-    onAttach: () -> Unit
+    onAttach: () -> Unit,
+    showBusy: Boolean = false,
 ) {
     if (modelLabel.isEmpty() && agents.size <= 1) return
 
@@ -147,6 +152,18 @@ internal fun AgentModelVariantSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
+            // 会话状态指示器（圆形进度条）—— 附件按钮左侧。
+            // 会话活跃（agent 工作中/流式）时显示，不依赖回复气泡是否出现。
+            if (showBusy) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .padding(end = SpacingTokens.XS.dp)
+                        .size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+            }
             // 附件按钮（回形针）—— 始终可见，固定在右侧，与发送按钮对齐
             IconButton(
                 onClick = onAttach,

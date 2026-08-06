@@ -22,6 +22,10 @@ internal fun MessageCard(
     onCopyText: (() -> Unit)? = null,
     isAmoled: Boolean = false,
     isTurnLast: Boolean = false,
+    /** turn 级流式判定（turn 内任一消息 completed == null）。多消息 turn 时
+     *  代表消息是 oldest（可能已完成），仅看代表消息会漏判流式 → 统计栏
+     *  延迟到回复完毕才出现。由 ChatMessageList 传入 isStreamingMsg。 */
+    isStreamingTurn: Boolean = false,
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
 ) {
@@ -42,6 +46,7 @@ internal fun MessageCard(
             onOpenFile = onOpenFile,
             isAmoled = isAmoled,
             isTurnLast = isTurnLast,
+            isStreamingTurn = isStreamingTurn,
             agents = agents,
             onCopy = onCopy,
         )

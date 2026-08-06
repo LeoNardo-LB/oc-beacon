@@ -60,6 +60,10 @@ internal fun MessageCardAssistant(
     onOpenFile: ((String) -> Unit)?,
     isAmoled: Boolean,
     isTurnLast: Boolean,
+    /** turn 级流式判定（turn 内任一消息 completed == null）。多消息 turn 时
+     *  代表消息（oldest）可能已完成，仅看自身会漏判流式 → 统计栏延迟到
+     *  回复完毕才出现（2026-08 修复：统计栏应在气泡出现时同步出现）。 */
+    isStreamingTurn: Boolean = false,
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
 ) {
@@ -74,7 +78,9 @@ internal fun MessageCardAssistant(
 
     // 保留供页脚显示（时间、提供商图标）
     val assistantMsg = currentMessage.message as? Message.Assistant
-    val isStreaming = assistantMsg?.time?.completed == null
+    // turn 级流式判定：turn 内任一消息仍在流式即视为流式（多消息 turn 的
+    // 代表消息是 oldest 可能已完成，仅看自身会漏判 → 统计栏延迟出现）。
+    val isStreaming = isStreamingTurn || (assistantMsg?.time?.completed == null)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -223,12 +229,6 @@ internal fun MessageCardAssistant(
                             )
                         }
                         Spacer(modifier = Modifier.weight(1f))
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        )
                     }
                 }
 

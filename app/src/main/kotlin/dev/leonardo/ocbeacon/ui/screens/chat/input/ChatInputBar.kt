@@ -178,7 +178,8 @@ internal fun ChatInputBar(
                 onModelClick = onModelClick,
                 onAgentSelect = onAgentSelect,
                 onCycleVariant = onCycleVariant,
-                onAttach = onAttach
+                onAttach = onAttach,
+                showBusy = isBusy,
             )
 
             // 图片附件缩略图

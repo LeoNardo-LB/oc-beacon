@@ -535,6 +535,7 @@ fun ChatMessageList(
                                     onOpenFile = onOpenFile,
                                     isAmoled = isAmoled,
                                     isTurnLast = isTurnLast,
+                                    isStreamingTurn = isStreamingMsg,
                                     agents = agents,
                                     onCopy = {
                                         coroutineScope.launch {
