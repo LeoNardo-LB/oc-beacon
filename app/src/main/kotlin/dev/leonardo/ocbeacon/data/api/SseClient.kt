@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.sse.parsers.*
 import dev.leonardo.ocbeacon.domain.model.*
@@ -44,7 +45,7 @@ private suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
             result.add(b)
             if (result.size > MAX_SSE_LINE_SIZE) {
                 // 单行 OOM 防护：返回 null 让外层跳出读循环并重连。
-                Log.e(TAG, "SSE line exceeds $MAX_SSE_LINE_SIZE bytes, aborting read")
+                AppLogger.e(TAG, "SSE line exceeds $MAX_SSE_LINE_SIZE bytes, aborting read")
                 return null
             }
         }
@@ -91,7 +92,7 @@ internal fun appendDataLine(
 ) {
     val projected = buffer.sumOf { it.size } + payload.size + buffer.size // buffer.size ≈ \n 分隔符数
     if (projected > maxEventSize) {
-        Log.w(TAG, "SSE event exceeds $maxEventSize bytes (${buffer.size + 1} data lines), clearing buffer")
+        AppLogger.w(TAG, "SSE event exceeds $maxEventSize bytes (${buffer.size + 1} data lines), clearing buffer")
         buffer.clear()
         // 不 add 当前 payload — 丢弃这个超大事件
     } else {
@@ -146,7 +147,7 @@ class SseClient @Inject constructor(
      */
     fun connectToGlobalEvents(conn: ServerConnection, directory: String? = null): Flow<SseEvent> = flow {
         val sseUrl = "${conn.baseUrl}/global/event"
-        Log.i(TAG, "Connecting to SSE: $sseUrl (auth=${conn.authHeader != null})")
+        AppLogger.i(TAG, "Connecting to SSE: $sseUrl (auth=${conn.authHeader != null})")
 
         val statement = httpClient.prepareGet(sseUrl) {
             conn.authHeader?.let { header("Authorization", it) }
@@ -162,15 +163,15 @@ class SseClient @Inject constructor(
 
         statement.execute { response ->
             val statusCode = response.status.value
-            Log.i(TAG, "SSE response: status=$statusCode, contentType=${response.headers["content-type"]}")
+            AppLogger.i(TAG, "SSE response: status=$statusCode, contentType=${response.headers["content-type"]}")
 
             if (statusCode == 401) {
-                Log.e(TAG, "SSE auth failed (401). Check username/password.")
+                AppLogger.e(TAG, "SSE auth failed (401). Check username/password.")
                 throw SseAuthException("Authentication failed (401)")
             }
 
             if (statusCode !in 200..299) {
-                Log.e(TAG, "SSE failed with HTTP $statusCode")
+                AppLogger.e(TAG, "SSE failed with HTTP $statusCode")
                 throw SseConnectionException("HTTP $statusCode")
             }
 
@@ -179,11 +180,11 @@ class SseClient @Inject constructor(
             val buffer = mutableListOf<List<Byte>>()
             var eventCount = 0
 
-            Log.i(TAG, "SSE stream opened, reading events...")
+            AppLogger.i(TAG, "SSE stream opened, reading events...")
 
             while (!channel.isClosedForRead) {
                 if (System.currentTimeMillis() - lastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
-                    Log.w(TAG, "Heartbeat timeout after $eventCount events, reconnecting...")
+                    AppLogger.w(TAG, "Heartbeat timeout after $eventCount events, reconnecting...")
                     break
                 }
 
@@ -201,14 +202,14 @@ class SseClient @Inject constructor(
                                 eventCount++
                                 if (event is SseEvent.ServerHeartbeat) {
                                     lastHeartbeat = System.currentTimeMillis()
-                                    if (BuildConfig.DEBUG) Log.d(TAG, "Heartbeat received (total events: $eventCount)")
+                                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Heartbeat received (total events: $eventCount)")
                                 } else {
-                                    if (BuildConfig.DEBUG) Log.d(TAG, "Event #$eventCount: ${event::class.simpleName}")
+                                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Event #$eventCount: ${event::class.simpleName}")
                                     emit(event)
                                 }
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Parse error: ${data.take(200)}", e)
+                            AppLogger.e(TAG, "Parse error: ${data.take(200)}", e)
                         }
                         buffer.clear()
                     }
@@ -229,7 +230,7 @@ class SseClient @Inject constructor(
                 }
             }
 
-            Log.w(TAG, "SSE stream closed after $eventCount events")
+            AppLogger.w(TAG, "SSE stream closed after $eventCount events")
         }
     }
 
@@ -240,7 +241,7 @@ class SseClient @Inject constructor(
      */
     fun connectToInstanceEvents(conn: ServerConnection, directory: String? = null): Flow<SseEvent> = flow {
         val sseUrl = "${conn.baseUrl}/event"
-        Log.i(TAG, "Connecting to instance SSE: $sseUrl (auth=${conn.authHeader != null})")
+        AppLogger.i(TAG, "Connecting to instance SSE: $sseUrl (auth=${conn.authHeader != null})")
 
         val statement = httpClient.prepareGet(sseUrl) {
             conn.authHeader?.let { header("Authorization", it) }
@@ -256,7 +257,7 @@ class SseClient @Inject constructor(
 
         statement.execute { response ->
             val statusCode = response.status.value
-            Log.i(TAG, "Instance SSE response: status=$statusCode")
+            AppLogger.i(TAG, "Instance SSE response: status=$statusCode")
 
             if (statusCode == 401) {
                 throw SseAuthException("Authentication failed (401)")
@@ -273,7 +274,7 @@ class SseClient @Inject constructor(
 
             while (!channel.isClosedForRead) {
                 if (System.currentTimeMillis() - lastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
-                    Log.w(TAG, "Instance SSE heartbeat timeout after $eventCount events")
+                    AppLogger.w(TAG, "Instance SSE heartbeat timeout after $eventCount events")
                     break
                 }
 
@@ -290,12 +291,12 @@ class SseClient @Inject constructor(
                                 if (event is SseEvent.ServerHeartbeat) {
                                     lastHeartbeat = System.currentTimeMillis()
                                 } else {
-                                    if (BuildConfig.DEBUG) Log.d(TAG, "Instance event #$eventCount: ${event::class.simpleName}")
+                                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Instance event #$eventCount: ${event::class.simpleName}")
                                     emit(event)
                                 }
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Instance parse error: ${data.take(200)}", e)
+                            AppLogger.e(TAG, "Instance parse error: ${data.take(200)}", e)
                         }
                         buffer.clear()
                     }
@@ -316,7 +317,7 @@ class SseClient @Inject constructor(
                 }
             }
 
-            Log.w(TAG, "Instance SSE stream closed after $eventCount events")
+            AppLogger.w(TAG, "Instance SSE stream closed after $eventCount events")
         }
     }
 
@@ -341,7 +342,7 @@ class SseClient @Inject constructor(
                 return parser.parse(type, props)
             }
         }
-        if (BuildConfig.DEBUG) Log.d(TAG, "Unhandled event: $type")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unhandled event: $type")
         return null
     }
 

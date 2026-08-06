@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.terminal
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -87,7 +88,7 @@ class PtyToTermlibAdapter(
                     _version.value++
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "reader loop ended", e)
+                AppLogger.w(TAG, "reader loop ended", e)
             }
         }
         synchronized(lock) { readerJob = job }
@@ -108,7 +109,7 @@ class PtyToTermlibAdapter(
             try {
                 target.send(text)
             } catch (e: Exception) {
-                Log.e(TAG, "failed to send keyboard output", e)
+                AppLogger.e(TAG, "failed to send keyboard output", e)
             }
         }
     }
@@ -123,7 +124,7 @@ class PtyToTermlibAdapter(
             try {
                 target.send(text)
             } catch (e: Exception) {
-                Log.e(TAG, "failed to send input", e)
+                AppLogger.e(TAG, "failed to send input", e)
             }
         }
     }
@@ -165,7 +166,7 @@ class PtyToTermlibAdapter(
         priorJob?.cancel()
         if (priorSocket != null) {
             scope.launch {
-                try { priorSocket.close() } catch (e: Exception) { Log.w(TAG, "priorSocket.close failed: ${e.message}", e) }
+                try { priorSocket.close() } catch (e: Exception) { AppLogger.w(TAG, "priorSocket.close failed: ${e.message}", e) }
             }
         }
     }
@@ -186,7 +187,7 @@ class PtyToTermlibAdapter(
         } catch (e: Exception) {
             // 外部取消产生的 CancellationException 会传播；吞掉
             // 其他异常（读取器自身会记录它们）。
-            Log.w(TAG, "awaitReader swallowed: ${e.message}", e)
+            AppLogger.w(TAG, "awaitReader swallowed: ${e.message}", e)
         }
     }
 

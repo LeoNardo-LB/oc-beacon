@@ -1,18 +1,19 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import androidx.lifecycle.SavedStateHandle
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.ui.navigation.routes.ChatNav
+import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.net.URLDecoder
 
 private const val TAG = "SessionLifecycleDelegate"
 
@@ -46,11 +47,9 @@ internal class SessionLifecycleDelegate(
     private val onMessagesNeedLoading: suspend () -> Unit,
     private val onStartObservingMessages: () -> Unit,
 ) {
-    private val directoryParam: String = URLDecoder.decode(
-        savedStateHandle.get<String>(ChatNav.PARAM_DIRECTORY) ?: "", "UTF-8"
-    )
+    private val directoryParam: String = safeDecodeParam(savedStateHandle.get<String>(ChatNav.PARAM_DIRECTORY) ?: "")
     private val _sessionId = MutableStateFlow(
-        URLDecoder.decode(savedStateHandle.get<String>("sessionId") ?: "", "UTF-8")
+        safeDecodeParam(savedStateHandle.get<String>("sessionId") ?: "")
     )
 
     /** 稳定身份 flow —— 6 个 combine/flatMapLatest 管道的数据源。 */
@@ -101,11 +100,11 @@ internal class SessionLifecycleDelegate(
             val session = manageSessionUseCase.getSession(serverId, sessionId)
             if (session.directory.isNotBlank()) {
                 sessionDirectory = session.directory
-                if (BuildConfig.DEBUG) Log.d(TAG, "Session directory: ${session.directory}")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Session directory: ${session.directory}")
             }
             sessionRepository.setSessions(serverId, listOf(session))
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load session info", e)
+            AppLogger.e(TAG, "Failed to load session info", e)
         } finally {
             if (!sessionLoaded.isCompleted) {
                 sessionLoaded.complete(Unit)
@@ -114,11 +113,11 @@ internal class SessionLifecycleDelegate(
 
         // 2. 跨集群：通过 V1 API 加载消息（currentMessageLimit + listMessages）
         runCatching { onMessagesNeedLoading() }
-            .onFailure { Log.e(TAG, "Failed to load messages", it) }
+            .onFailure { AppLogger.e(TAG, "Failed to load messages", it) }
 
         // 3. 跨集群：开始观察 chatRepository flow（由 SSE EventDispatcher 驱动）
         runCatching { onStartObservingMessages() }
-            .onFailure { Log.e(TAG, "Failed to start observing messages", it) }
+            .onFailure { AppLogger.e(TAG, "Failed to start observing messages", it) }
     }
 
     /**
@@ -144,7 +143,7 @@ internal class SessionLifecycleDelegate(
             // 没有这个，SSE 事件到达 EventDispatcher 但 ChatViewModel
             // 从不收集它们 —— 消息保持不可见。
             runCatching { onStartObservingMessages() }
-                .onFailure { Log.e(TAG, "Failed to start observing after session creation", it) }
+                .onFailure { AppLogger.e(TAG, "Failed to start observing after session creation", it) }
             sessionId
         }
     }

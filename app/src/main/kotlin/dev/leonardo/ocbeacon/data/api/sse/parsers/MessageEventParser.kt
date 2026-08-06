@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.sse.parsers
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SseEvent
@@ -72,7 +73,7 @@ class MessageEventParser(private val json: Json) : SseEventParser {
                 else -> null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse $eventType: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to parse $eventType: ${e.message}", e)
             null
         }
     }
@@ -83,7 +84,7 @@ class MessageEventParser(private val json: Json) : SseEventParser {
             "user" -> json.decodeFromJsonElement<Message.User>(obj)
             "assistant" -> json.decodeFromJsonElement<Message.Assistant>(obj)
             else -> {
-                Log.w(TAG, "Unknown message role: $role")
+                AppLogger.w(TAG, "Unknown message role: $role")
                 null
             }
         }
@@ -108,7 +109,7 @@ class MessageEventParser(private val json: Json) : SseEventParser {
                 "agent" -> json.decodeFromJsonElement<Part.Agent>(obj)
                 "session-turn" -> json.decodeFromJsonElement<Part.SessionTurn>(obj)
                 else -> {
-                    Log.w(TAG, "Unknown part type: $type")
+                    AppLogger.w(TAG, "Unknown part type: $type")
                     Part.Unknown(
                         id = obj.str("id"),
                         sessionId = obj.str("sessionID"),
@@ -117,7 +118,7 @@ class MessageEventParser(private val json: Json) : SseEventParser {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse part type=$type: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to parse part type=$type: ${e.message}", e)
             null
         }
     }

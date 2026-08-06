@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.sse.parsers
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.ToolRef
 import kotlinx.serialization.json.*
@@ -44,7 +45,7 @@ class PermissionEventParser : SseEventParser {
                         )
                     }
 
-                    Log.i(TAG, "Permission asked: $permission for session $sessionId")
+                    AppLogger.i(TAG, "Permission asked: $permission for session $sessionId")
                     SseEvent.PermissionAsked(
                         id = id,
                         sessionId = sessionId,
@@ -65,7 +66,7 @@ class PermissionEventParser : SseEventParser {
                 else -> null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse $eventType: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to parse $eventType: ${e.message}", e)
             null
         }
     }

@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.mapper
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.data.dto.response.FileContentDto
 import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
 import dev.leonardo.ocbeacon.data.dto.response.ServerPaths as ServerPathsDto
@@ -20,7 +21,7 @@ object FileMapper {
             "directory" -> FileType.DIRECTORY
             "file" -> FileType.FILE
             else -> {
-                Log.w("FileMapper", "Unknown type='${dto.type}'")
+                AppLogger.w("FileMapper", "Unknown type='${dto.type}'")
                 FileType.FILE
             }
         },
@@ -35,7 +36,7 @@ object FileMapper {
             "binary" -> ContentType.BINARY
             "text" -> ContentType.TEXT
             else -> {
-                Log.w("FileMapper", "Unknown type='${dto.type}'")
+                AppLogger.w("FileMapper", "Unknown type='${dto.type}'")
                 ContentType.TEXT
             }
         },

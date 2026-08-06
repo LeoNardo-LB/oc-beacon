@@ -1,8 +1,9 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.input
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -109,7 +110,7 @@ internal fun rememberAttachmentHandler(
                     restored.add(prepared.attachment)
                 }
             } catch (e: Exception) {
-                Log.w("ChatScreen", "Failed to restore attachment $uriStr: ${e.message}")
+                AppLogger.w("ChatScreen", "Failed to restore attachment $uriStr: ${e.message}")
                 // 从草稿中移除无效 URI
                 onRemoveDraftAttachment(draftAttachmentUris.indexOf(uriStr))
             }
@@ -132,7 +133,7 @@ internal fun rememberAttachmentHandler(
                         )
                     } catch (e: Exception) {
                         // 并非所有 URI 都支持可持久化权限
-                        Log.w("ChatAttachmentsHandler", "takePersistableUriPermission failed: ${e.message}", e)
+                        AppLogger.w("ChatAttachmentsHandler", "takePersistableUriPermission failed: ${e.message}", e)
                     }
 
                     val prepared = buildAttachmentFromUri(
@@ -148,7 +149,7 @@ internal fun rememberAttachmentHandler(
                     prepared.comparison?.let { optimizedComparisons.add(it) }
                 } catch (e: Exception) {
                     // 跳过读取失败的文件
-                    Log.w("ChatAttachmentsHandler", "buildAttachmentFromUri failed: ${e.message}", e)
+                    AppLogger.w("ChatAttachmentsHandler", "buildAttachmentFromUri failed: ${e.message}", e)
                 }
             }
             if (optimizedComparisons.isNotEmpty()) {
@@ -231,7 +232,7 @@ internal fun rememberAttachmentHandler(
                     )
                 } catch (e: Exception) {
                     // Not all URIs support persistable permissions
-                    Log.w("ChatAttachmentsHandler", "takePersistableUriPermission failed: ${e.message}", e)
+                    AppLogger.w("ChatAttachmentsHandler", "takePersistableUriPermission failed: ${e.message}", e)
                 }
 
                 val prepared = buildAttachmentFromUri(
@@ -246,7 +247,7 @@ internal fun rememberAttachmentHandler(
                 prepared.comparison?.let { optimizedComparisons.add(it) }
                 onAddDraftAttachment(uri.toString())
             } catch (e: Exception) {
-                Log.w("ChatScreen", "Failed to read shared image: ${e.message}")
+                AppLogger.w("ChatScreen", "Failed to read shared image: ${e.message}")
             }
         }
         if (optimizedComparisons.isNotEmpty()) {

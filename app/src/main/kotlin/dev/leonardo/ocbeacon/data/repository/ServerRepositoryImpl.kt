@@ -106,19 +106,6 @@ class ServerRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun setProviderEnabled(
-        serverId: String,
-        providerId: String,
-        enabled: Boolean
-    ): Result<Unit> = runCatching {
-        val conn = resolveConnection(serverId)
-        if (enabled) {
-            // Phase 4：通过 config API 实现 provider 的启用/禁用
-        } else {
-            api.removeProviderAuth(conn, providerId)
-        }
-    }
-
     override suspend fun connectProviderApi(
         serverId: String,
         providerId: String,
@@ -136,22 +123,6 @@ class ServerRepositoryImpl @Inject constructor(
     ): Result<Unit> = runCatching {
         val conn = resolveConnection(serverId)
         api.removeProviderAuth(conn, providerId)
-    }
-
-    override suspend fun setModelVisible(
-        serverId: String,
-        providerId: String,
-        modelId: String,
-        visible: Boolean
-    ): Result<Unit> = runCatching {
-        // 委托给 SettingsRepository 的隐藏模型跟踪
-        // 这将在阶段 4 中正确接入
-        Unit
-    }
-
-    override suspend fun saveServerConfig(serverId: String): Result<Unit> = runCatching {
-        // Phase 4：持久化服务端配置
-        Unit
     }
 
     // ── Provider 连接状态与全局配置 ──

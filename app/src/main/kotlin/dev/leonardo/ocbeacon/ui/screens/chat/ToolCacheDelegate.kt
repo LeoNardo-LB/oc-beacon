@@ -1,8 +1,9 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ToolState
-import android.util.Log
 import dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -30,7 +31,7 @@ class ToolCacheDelegate @Inject constructor(
         }
         val filePath = input["filePath"]?.jsonPrimitive?.contentOrNull
             ?: input["path"]?.jsonPrimitive?.contentOrNull ?: run {
-                Log.w(TAG, "cacheToolPart: no filePath in input, tool=${part.tool}, " +
+                AppLogger.w(TAG, "cacheToolPart: no filePath in input, tool=${part.tool}, " +
                     "partId=${part.id.take(12)}, state=${state::class.simpleName}")
                 return
             }
@@ -50,13 +51,13 @@ class ToolCacheDelegate @Inject constructor(
             else -> null
         }
         // 诊断：记录缓存条目详情，用于间歇性空白文件调查
-        Log.d(TAG, "cacheToolPart: tool=${part.tool}, state=${state::class.simpleName}, " +
+        AppLogger.d(TAG, "cacheToolPart: tool=${part.tool}, state=${state::class.simpleName}, " +
             "partId=${part.id.take(12)}, file=${filePath.take(60)}, " +
             "contentLen=${content?.length ?: -1}, beforeLen=${before?.length ?: -1}, " +
             "afterLen=${after?.length ?: -1}, hasMetadata=${metadata != null}, " +
             "hasFilediff=${filediff != null}")
         if (content.isNullOrBlank() && before.isNullOrBlank() && after.isNullOrBlank()) {
-            Log.w(TAG, "cacheToolPart: ALL FIELDS BLANK for partId=${part.id.take(12)}, " +
+            AppLogger.w(TAG, "cacheToolPart: ALL FIELDS BLANK for partId=${part.id.take(12)}, " +
                 "tool=${part.tool}, state=${state::class.simpleName} → will cause empty FileViewer!")
         }
         toolSnapshotCache.put(

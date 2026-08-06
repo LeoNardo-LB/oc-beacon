@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.data.terminal
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.Context
-import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
@@ -12,6 +13,7 @@ import dev.leonardo.ocbeacon.data.terminal.RecoveryAction
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
 import dev.leonardo.ocbeacon.data.terminal.terminalRecoveryAction
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -170,7 +172,7 @@ internal class ServerTerminalWorkspace(
                 publishActiveState()
                 onResult(true)
             } catch (e: Exception) {
-                Log.e(WORKSPACE_TAG, "Failed to create tab", e)
+                AppLogger.e(WORKSPACE_TAG, "Failed to create tab", e)
                 synchronized(lock) {
                     tabs.removeAll { it.id == tab.id }
                     if (_activeTabId.value == tab.id) {
@@ -211,12 +213,12 @@ internal class ServerTerminalWorkspace(
             try {
                 removed.socket?.close()
             } catch (e: Exception) {
-                Log.w(WORKSPACE_TAG, "removed.socket.close failed: ${e.message}", e)
+                AppLogger.w(WORKSPACE_TAG, "removed.socket.close failed: ${e.message}", e)
             }
             try {
                 removed.ptyId?.let { api.removePty(conn, it) }
             } catch (e: Exception) {
-                Log.w(WORKSPACE_TAG, "removePty failed: ${e.message}", e)
+                AppLogger.w(WORKSPACE_TAG, "removePty failed: ${e.message}", e)
             }
         }
         publishActiveState()
@@ -228,7 +230,7 @@ internal class ServerTerminalWorkspace(
             try {
                 socket.send(input)
             } catch (e: Exception) {
-                Log.e(WORKSPACE_TAG, "Failed to write terminal input", e)
+                AppLogger.e(WORKSPACE_TAG, "Failed to write terminal input", e)
             }
         }
     }
@@ -244,14 +246,14 @@ internal class ServerTerminalWorkspace(
     fun setActiveFontSize(fontSizeSp: Float) {
         val clamped = fontSizeSp.coerceIn(6f, 20f)
         val tab = synchronized(lock) { activeTabLocked() } ?: run {
-            android.util.Log.w("TerminalZoom", "setActiveFontSize: no active tab!")
+            AppLogger.w("TerminalZoom", "setActiveFontSize: no active tab!")
             return
         }
-        if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "setActiveFontSize: clamped=$clamped old=${tab.fontSizeSp} tabId=${tab.id} activeId=${_activeTabId.value} flowId=${System.identityHashCode(_activeFontSizeSp)} workspaceId=${System.identityHashCode(this)}")
+        if (BuildConfig.DEBUG) AppLogger.d("TerminalZoom", "setActiveFontSize: clamped=$clamped old=${tab.fontSizeSp} tabId=${tab.id} activeId=${_activeTabId.value} flowId=${System.identityHashCode(_activeFontSizeSp)} workspaceId=${System.identityHashCode(this)}")
         tab.fontSizeSp = clamped
         if (_activeTabId.value == tab.id) {
             _activeFontSizeSp.value = clamped
-            if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "setActiveFontSize: StateFlow updated to ${_activeFontSizeSp.value}")
+            if (BuildConfig.DEBUG) AppLogger.d("TerminalZoom", "setActiveFontSize: StateFlow updated to ${_activeFontSizeSp.value}")
         }
     }
 
@@ -271,7 +273,7 @@ internal class ServerTerminalWorkspace(
         synchronized(lock) {
             val tab = activeTabLocked() ?: return
 
-            if (BuildConfig.DEBUG) android.util.Log.d(
+            if (BuildConfig.DEBUG) AppLogger.d(
                 "TerminalZoom",
                 "resizeActive: cols=$cols rows=$rows ptyId=${tab.ptyId} lastSize=${tab.lastSize} state=${tab.state} tabDir=${tab.directory}"
             )
@@ -285,7 +287,7 @@ internal class ServerTerminalWorkspace(
 
             // 去重：服务器已确认的相同尺寸不再重复发送。
             if (tab.lastSize == size && tab.state == TerminalTabState.Connected) {
-                if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeActive: dedup, same size and connected")
+                if (BuildConfig.DEBUG) AppLogger.d("TerminalZoom", "resizeActive: dedup, same size and connected")
                 return
             }
 
@@ -323,7 +325,7 @@ internal class ServerTerminalWorkspace(
             }
             // 仅在 socket 活跃时转发给服务器。
             if (snapshot.state != TerminalTabState.Connected || snapshot.ptyId == null) continue
-            if (BuildConfig.DEBUG) android.util.Log.d(
+            if (BuildConfig.DEBUG) AppLogger.d(
                 "TerminalZoom",
                 "resizeLoop: sending updatePtySize cols=${snapshot.size.first} rows=${snapshot.size.second} dir=${snapshot.directory}"
             )
@@ -335,16 +337,16 @@ internal class ServerTerminalWorkspace(
                     rows = snapshot.size.second,
                     directory = snapshot.directory,
                 )
-                if (BuildConfig.DEBUG) android.util.Log.d("TerminalZoom", "resizeLoop: updatePtySize result=$ok")
+                if (BuildConfig.DEBUG) AppLogger.d("TerminalZoom", "resizeLoop: updatePtySize result=$ok")
                 if (ok) {
                     synchronized(lock) {
                         tabs.firstOrNull { it.id == tabId }?.lastSize = snapshot.size
                     }
                 } else {
-                    Log.w(WORKSPACE_TAG, "Resize rejected for tab $tabId")
+                    AppLogger.w(WORKSPACE_TAG, "Resize rejected for tab $tabId")
                 }
             } catch (e: Exception) {
-                Log.w(WORKSPACE_TAG, "Failed to resize tab $tabId: ${snapshot.size.first}x${snapshot.size.second}", e)
+                AppLogger.w(WORKSPACE_TAG, "Failed to resize tab $tabId: ${snapshot.size.first}x${snapshot.size.second}", e)
             }
         }
     }
@@ -392,16 +394,26 @@ internal class ServerTerminalWorkspace(
                 try {
                     tab.socket?.close()
                 } catch (e: Exception) {
-                    Log.w(WORKSPACE_TAG, "tab.socket.close failed: ${e.message}", e)
+                    AppLogger.w(WORKSPACE_TAG, "tab.socket.close failed: ${e.message}", e)
                 }
                 try {
                     tab.ptyId?.let { api.removePty(conn, it) }
                 } catch (e: Exception) {
-                    Log.w(WORKSPACE_TAG, "removePty failed: ${e.message}", e)
+                    AppLogger.w(WORKSPACE_TAG, "removePty failed: ${e.message}", e)
                 }
             }
         }
         publishActiveState()
+    }
+
+    /**
+     * 销毁整个工作区：先 [closeAll] 优雅关闭全部 tab（socket 关闭/PTY 移除），
+     * 再取消协程作用域使模拟器与重连循环全部释放。
+     * 仅应在服务器断开且不再需要终端时调用（不可恢复）。
+     */
+    fun dispose() {
+        closeAll()
+        scope.cancel()
     }
 
     private fun activeTabLocked(): RuntimeTab? {
@@ -432,7 +444,7 @@ internal class ServerTerminalWorkspace(
                 // 挂起直到 adapter 的 reader 完成（socket 关闭）。
                 tab.adapter.awaitReader()
             } catch (e: Exception) {
-                Log.w(WORKSPACE_TAG, "Tab stream closed: ${tab.id}", e)
+                AppLogger.w(WORKSPACE_TAG, "Tab stream closed: ${tab.id}", e)
             } finally {
                 versionJob.cancel()
                 onSocketClosed(tab.id, socket)
@@ -451,7 +463,7 @@ internal class ServerTerminalWorkspace(
                         directory = tab.directory,
                     )
                 } catch (e: Exception) {
-                    Log.w(WORKSPACE_TAG, "Failed to apply pending resize for tab ${tab.id}", e)
+                    AppLogger.w(WORKSPACE_TAG, "Failed to apply pending resize for tab ${tab.id}", e)
                 }
             }
         }
@@ -519,7 +531,7 @@ internal class ServerTerminalWorkspace(
                 if (firstAttempt) onFirstResult?.invoke(true)
                 return
             } catch (e: Exception) {
-                Log.w(WORKSPACE_TAG, "Reconnect failed for tab $tabId", e)
+                AppLogger.w(WORKSPACE_TAG, "Reconnect failed for tab $tabId", e)
                 synchronized(lock) {
                     val tab = tabs.firstOrNull { it.id == tabId } ?: return
                     tab.reconnectAttempt += 1
@@ -577,7 +589,7 @@ internal class ServerTerminalWorkspace(
                 publishActiveState()
                 return
             } catch (e: Exception) {
-                Log.w(WORKSPACE_TAG, "Restart failed for tab $tabId", e)
+                AppLogger.w(WORKSPACE_TAG, "Restart failed for tab $tabId", e)
                 synchronized(lock) {
                     val tab = tabs.firstOrNull { it.id == tabId } ?: return
                     tab.state = TerminalTabState.Disconnected

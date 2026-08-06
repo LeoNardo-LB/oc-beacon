@@ -33,4 +33,23 @@ class ServerTerminalRegistry @Inject constructor(
             return byServer.getOrPut(serverId) { ServerTerminalWorkspace(api, conn, context) }
         }
     }
+
+    /**
+     * 移除并销毁指定服务器的终端工作区（关闭全部 tab、取消协程作用域）。
+     * 在服务器断开连接时调用，防止终端模拟器与协程随 [byServer] 无界增长而泄漏。
+     */
+    fun removeWorkspace(serverId: String) {
+        synchronized(lock) {
+            byServer.remove(serverId)?.dispose()
+        }
+    }
+
+    /** 移除并销毁全部终端工作区（断开所有服务器时调用）。 */
+    fun removeAllWorkspaces() {
+        synchronized(lock) {
+            val all = byServer.values.toList()
+            byServer.clear()
+            all.forEach { it.dispose() }
+        }
+    }
 }

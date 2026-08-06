@@ -1,11 +1,12 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.util.Log
 
 /**
  * 一次性 WebView V8 引擎预热。
@@ -42,7 +43,7 @@ object WebViewWarmer {
 
         // 安全网：即使 onPageFinished 一直不触发，也在超时后销毁
         val timeoutRunnable = Runnable {
-            Log.w(TAG, "Warm-up timed out after ${TIMEOUT_MS}ms, destroying")
+            AppLogger.w(TAG, "Warm-up timed out after ${TIMEOUT_MS}ms, destroying")
             try {
                 warmWebView?.loadUrl("about:blank")
                 warmWebView?.destroy()
@@ -57,7 +58,7 @@ object WebViewWarmer {
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         handler.removeCallbacks(timeoutRunnable)
-                        Log.d(TAG, "Warm-up complete, destroying throwaway WebView")
+                        AppLogger.d(TAG, "Warm-up complete, destroying throwaway WebView")
                         view?.post {
                             try {
                                 view.loadUrl("about:blank")
@@ -76,9 +77,9 @@ object WebViewWarmer {
             wv.loadDataWithBaseURL(
                 "file:///android_asset/", html, "text/html", "UTF-8", null
             )
-            Log.d(TAG, "Warm-up started: loading code_viewer.html")
+            AppLogger.d(TAG, "Warm-up started: loading code_viewer.html")
         } catch (e: Exception) {
-            Log.e(TAG, "Warm-up failed, allowing retry", e)
+            AppLogger.e(TAG, "Warm-up failed, allowing retry", e)
             warmed = false
             handler.removeCallbacks(timeoutRunnable)
             try {

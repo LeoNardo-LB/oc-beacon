@@ -132,11 +132,6 @@ interface ChatRepository {
         directory: String? = null
     ): Result<Boolean>
 
-    /**
-     * 为服务器选择一个模型。
-     */
-    suspend fun selectModel(serverId: String, providerId: String, modelId: String): Result<Unit>
-
     // ============ 待处理查询 ============
 
     /**

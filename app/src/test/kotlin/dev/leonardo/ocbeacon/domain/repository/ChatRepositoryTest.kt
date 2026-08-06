@@ -13,7 +13,6 @@ class ChatRepositoryTest {
         assertTrue("revertSession missing", methods.any { it.startsWith("revertSession") })
         assertTrue("unrevertSession missing", methods.any { it.startsWith("unrevertSession") })
         assertTrue("respondPermission missing", methods.any { it.startsWith("respondPermission") })
-        assertTrue("selectModel missing", methods.any { it.startsWith("selectModel") })
         assertTrue("getParts missing", methods.any { it.startsWith("getParts") })
         assertTrue("listPendingPermissions missing", methods.any { it.startsWith("listPendingPermissions") })
         assertTrue("listPendingQuestions missing", methods.any { it.startsWith("listPendingQuestions") })

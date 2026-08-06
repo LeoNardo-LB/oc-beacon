@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.CommandInfo
@@ -218,10 +219,10 @@ internal class ModelConfigDelegate(
                 _allProviders.value = response.providers
                 applyProviderFilter()
                 _defaultModels.value = response.default
-                if (BuildConfig.DEBUG) Log.d(TAG, "Loaded ${response.providers.size} providers, defaults: ${response.default}")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Loaded ${response.providers.size} providers, defaults: ${response.default}")
                 // 无需在此设置默认值，combine 块处理回退
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load providers", e)
+                AppLogger.e(TAG, "Failed to load providers", e)
             }
         }
     }
@@ -245,9 +246,9 @@ internal class ModelConfigDelegate(
             try {
                 val agents = manageAgentUseCase.loadAgents(serverId)
                 _agents.value = agents
-                if (BuildConfig.DEBUG) Log.d(TAG, "Loaded ${agents.size} agents: ${agents.map { it.name }}")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Loaded ${agents.size} agents: ${agents.map { it.name }}")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load agents", e)
+                AppLogger.e(TAG, "Failed to load agents", e)
             }
         }
     }
@@ -257,9 +258,9 @@ internal class ModelConfigDelegate(
             try {
                 val commands = manageAgentUseCase.loadCommands(serverId)
                 _commands.value = commands
-                if (BuildConfig.DEBUG) Log.d(TAG, "Loaded ${commands.size} commands: ${commands.map { it.name }}")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Loaded ${commands.size} commands: ${commands.map { it.name }}")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load commands", e)
+                AppLogger.e(TAG, "Failed to load commands", e)
             }
         }
     }

@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.terminal
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.api.directoryHeader
@@ -90,7 +91,7 @@ class TerminalApiImpl @Inject constructor(
         directory: String?
     ): PtyInfo {
         if (BuildConfig.DEBUG) {
-            Log.d(TAG, "createPty: POST ${conn.baseUrl}/pty title=$title cwd=$cwd directory=$directory")
+            AppLogger.d(TAG, "createPty: POST ${conn.baseUrl}/pty title=$title cwd=$cwd directory=$directory")
         }
         val response = httpClient.post("${conn.baseUrl}/pty") {
             conn.authHeader?.let { header("Authorization", it) }
@@ -100,7 +101,7 @@ class TerminalApiImpl @Inject constructor(
         }
         val body = response.bodyAsText()
         if (BuildConfig.DEBUG) {
-            Log.d(TAG, "createPty: response status=${response.status} body=$body")
+            AppLogger.d(TAG, "createPty: response status=${response.status} body=$body")
         }
         if (!response.status.isSuccess()) {
             throw java.io.IOException("createPty failed: ${response.status}: $body")
@@ -108,7 +109,7 @@ class TerminalApiImpl @Inject constructor(
 
         val info = parsePtyInfoFromCreateResponse(body, title, cwd)
         if (BuildConfig.DEBUG) {
-            Log.d(TAG, "createPty: response status=${response.status} ptyId=${info.id}")
+            AppLogger.d(TAG, "createPty: response status=${response.status} ptyId=${info.id}")
         }
         return info
     }
@@ -182,7 +183,7 @@ class TerminalApiImpl @Inject constructor(
         val body = PtyUpdateRequest(size = PtySize(rows = rows, cols = cols))
         if (BuildConfig.DEBUG) {
             val jsonStr = json.encodeToString(PtyUpdateRequest.serializer(), body)
-            Log.d(TAG, "updatePtySize: PUT ${conn.baseUrl}/pty/$ptyId body=$jsonStr directory=$directory")
+            AppLogger.d(TAG, "updatePtySize: PUT ${conn.baseUrl}/pty/$ptyId body=$jsonStr directory=$directory")
         }
         val response = httpClient.put("${conn.baseUrl}/pty/$ptyId") {
             conn.authHeader?.let { header("Authorization", it) }
@@ -192,7 +193,7 @@ class TerminalApiImpl @Inject constructor(
         }
         if (BuildConfig.DEBUG) {
             val respBody = try { response.bodyAsText() } catch (_: Exception) { "<no body>" }
-            Log.d(TAG, "updatePtySize: response status=${response.status} body=$respBody")
+            AppLogger.d(TAG, "updatePtySize: response status=${response.status} body=$respBody")
         }
         return response.status.isSuccess()
     }

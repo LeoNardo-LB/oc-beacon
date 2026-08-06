@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.data.repository
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.Context
-import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.domain.model.Draft
 import kotlinx.serialization.encodeToString
@@ -34,7 +35,7 @@ class DraftDataStore @Inject constructor(
                 json.decodeFromString<Map<String, Draft>>(content).toMutableMap()
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load drafts, starting fresh: ${e.message}")
+            AppLogger.w(TAG, "Failed to load drafts, starting fresh: ${e.message}")
             mutableMapOf()
         }
         drafts = loaded
@@ -70,7 +71,7 @@ class DraftDataStore @Inject constructor(
         try {
             file.writeText(json.encodeToString(map))
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to persist drafts: ${e.message}")
+            AppLogger.e(TAG, "Failed to persist drafts: ${e.message}")
         }
     }
 }

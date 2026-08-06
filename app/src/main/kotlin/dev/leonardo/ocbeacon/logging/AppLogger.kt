@@ -200,7 +200,10 @@ object AppLogger {
         return buildMap {
             put("exception", error::class.java.name)
             error.cause?.let { put("cause", "${it::class.java.name}: ${it.message.orEmpty()}") }
-            put("stack", AndroidLog.getStackTraceString(error).lineSequence().take(12).joinToString("\n"))
+            // JVM 单元测试环境下 android.jar stub 的 getStackTraceString 返回 null，
+            // 回退到 Kotlin 标准库实现（不依赖 Android）。
+            val stack = AndroidLog.getStackTraceString(error) ?: error.stackTraceToString()
+            put("stack", stack.lineSequence().take(12).joinToString("\n"))
         }
     }
 

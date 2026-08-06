@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.terminal
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -98,7 +99,7 @@ internal fun SessionTerminalInline(
         }
 
         LaunchedEffect(cols, rows) {
-            if (BuildConfig.DEBUG) Log.d(TAG, "layout-driven resize: ${cols}x$rows")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "layout-driven resize: ${cols}x$rows")
             onResize(cols, rows)
         }
     }

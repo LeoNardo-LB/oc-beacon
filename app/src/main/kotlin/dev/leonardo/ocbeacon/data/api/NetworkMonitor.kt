@@ -1,11 +1,12 @@
 package dev.leonardo.ocbeacon.data.api
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,7 +70,7 @@ class NetworkMonitor @Inject constructor(
 
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                Log.i(TAG, "Network available")
+                AppLogger.i(TAG, "Network available")
                 _networkState.value = NetworkState.Available
             }
 
@@ -78,12 +79,12 @@ class NetworkMonitor @Inject constructor(
             }
 
             override fun onLost(network: Network) {
-                Log.w(TAG, "Network lost")
+                AppLogger.w(TAG, "Network lost")
                 _networkState.value = NetworkState.Lost
             }
 
             override fun onUnavailable() {
-                Log.i(TAG, "Network unavailable")
+                AppLogger.i(TAG, "Network unavailable")
                 _networkState.value = NetworkState.Unavailable
             }
 

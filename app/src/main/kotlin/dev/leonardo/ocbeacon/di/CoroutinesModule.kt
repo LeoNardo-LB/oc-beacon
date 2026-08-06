@@ -1,9 +1,10 @@
 package dev.leonardo.ocbeacon.di
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import android.util.Log
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -24,7 +25,7 @@ object CoroutinesModule {
     @ApplicationScope
     fun provideApplicationScope(): CoroutineScope {
         val handler = CoroutineExceptionHandler { _, exception ->
-            Log.e("ApplicationScope", "Unhandled coroutine exception", exception)
+            AppLogger.e("ApplicationScope", "Unhandled coroutine exception", exception)
         }
         return CoroutineScope(SupervisorJob() + Dispatchers.Default + handler)
     }

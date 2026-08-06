@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
@@ -45,7 +46,7 @@ internal class TerminalDelegate(
         serverId, serverUrl, username, password,
     ).also {
         if (BuildConfig.DEBUG) {
-            Log.d(
+            AppLogger.d(
                 "TerminalZoom",
                 "TerminalDelegate init: workspaceId=${System.identityHashCode(it)} " +
                     "flowId=${System.identityHashCode(it.activeFontSizeSp)} serverId=$serverId " +
@@ -79,7 +80,7 @@ internal class TerminalDelegate(
             // 再用真实目录尝试 resize 的竞态条件。
             sessionLoaded.await()
             val dir = sessionDirectoryProvider()
-            if (BuildConfig.DEBUG) Log.d(TERMINAL_DELEGATE_TAG, "openTerminalSession: sessionDirectory=$dir")
+            if (BuildConfig.DEBUG) AppLogger.d(TERMINAL_DELEGATE_TAG, "openTerminalSession: sessionDirectory=$dir")
             terminalWorkspace.ensureActiveTab(cwd = dir, directory = dir, onResult = onResult)
         }
     }

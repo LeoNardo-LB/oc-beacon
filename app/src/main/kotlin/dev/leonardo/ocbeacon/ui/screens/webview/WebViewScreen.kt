@@ -1,10 +1,11 @@
 package dev.leonardo.ocbeacon.ui.screens.webview
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Base64
-import android.util.Log
 import android.view.ViewGroup
 import android.webkit.*
 import androidx.activity.compose.BackHandler
@@ -56,7 +57,7 @@ fun WebViewScreen(
         }
     }
     
-    if (BuildConfig.DEBUG) Log.d("WebViewScreen", "Composable invoked: serverUrl=$serverUrl, initialPath=$initialPath, fullUrl=$fullUrl")
+    if (BuildConfig.DEBUG) AppLogger.d("WebViewScreen", "Composable invoked: serverUrl=$serverUrl, initialPath=$initialPath, fullUrl=$fullUrl")
     var webView by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -67,7 +68,7 @@ fun WebViewScreen(
     val fileChooserLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
-        if (BuildConfig.DEBUG) Log.d("WebViewScreen", "File chooser result: ${uris.size} files selected")
+        if (BuildConfig.DEBUG) AppLogger.d("WebViewScreen", "File chooser result: ${uris.size} files selected")
         fileChooserCallback?.onReceiveValue(uris.toTypedArray())
         fileChooserCallback = null
     }
@@ -85,7 +86,7 @@ fun WebViewScreen(
     // 监听来自深度链接的导航事件（WebView 打开时的通知点击）
     LaunchedEffect(navigateUrlFlow) {
         navigateUrlFlow?.collect { newUrl ->
-            Log.i("WebViewScreen", "Deep-link navigation received: $newUrl")
+            AppLogger.i("WebViewScreen", "Deep-link navigation received: $newUrl")
             webView?.let { wv ->
                 val headers = authHeader?.let { mapOf("Authorization" to it) } ?: emptyMap()
                 wv.loadUrl(newUrl, headers)
@@ -160,12 +161,12 @@ fun WebViewScreen(
 
                         webViewClient = object : WebViewClient() {
                             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                if (BuildConfig.DEBUG) Log.d("WebViewScreen", "Page started: $url")
+                                if (BuildConfig.DEBUG) AppLogger.d("WebViewScreen", "Page started: $url")
                                 isLoading = true
                             }
 
                             override fun onPageFinished(view: WebView?, url: String?) {
-                                if (BuildConfig.DEBUG) Log.d("WebViewScreen", "Page finished: $url")
+                                if (BuildConfig.DEBUG) AppLogger.d("WebViewScreen", "Page finished: $url")
                                 isLoading = false
                                 isRefreshing = false
                                 // 注入主题以匹配应用的深/浅色模式
@@ -197,7 +198,7 @@ fun WebViewScreen(
                                 host: String?,
                                 realm: String?
                             ) {
-                                if (BuildConfig.DEBUG) Log.d("WebViewScreen", "HTTP Auth requested for host=$host, realm=$realm")
+                                if (BuildConfig.DEBUG) AppLogger.d("WebViewScreen", "HTTP Auth requested for host=$host, realm=$realm")
                                 if (username.isNotBlank()) {
                                     handler?.proceed(username, password)
                                 } else {
@@ -210,7 +211,7 @@ fun WebViewScreen(
                                 request: WebResourceRequest?,
                                 error: WebResourceError?
                             ) {
-                                Log.e("WebViewScreen", "Error loading ${request?.url}: ${error?.description} (code=${error?.errorCode})")
+                                AppLogger.e("WebViewScreen", "Error loading ${request?.url}: ${error?.description} (code=${error?.errorCode})")
                                 // 只处理主帧错误
                                 if (request?.isForMainFrame == true) {
                                     isLoading = false
@@ -243,7 +244,7 @@ fun WebViewScreen(
                                 callback: ValueCallback<Array<Uri>>?,
                                 params: FileChooserParams?
                             ): Boolean {
-                                if (BuildConfig.DEBUG) Log.d("WebViewScreen", "onShowFileChooser: mode=${params?.mode}, acceptTypes=${params?.acceptTypes?.toList()}")
+                                if (BuildConfig.DEBUG) AppLogger.d("WebViewScreen", "onShowFileChooser: mode=${params?.mode}, acceptTypes=${params?.acceptTypes?.toList()}")
                                 // 取消之前未完成的回调
                                 fileChooserCallback?.onReceiveValue(null)
                                 fileChooserCallback = callback

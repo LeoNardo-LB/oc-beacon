@@ -1,12 +1,13 @@
 package dev.leonardo.ocbeacon.util
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -49,7 +50,7 @@ object DebugLogger {
         val line = "${timeFmt.format(Date())} [$tag] $message\n"
 
         // 1. logcat
-        Log.d(tag, message)
+        AppLogger.d(tag, message)
 
         // 2. 内存缓冲区
         buffer.append(line)
@@ -68,7 +69,7 @@ object DebugLogger {
                 flushLegacy(context, content)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "flush failed", e)
+            AppLogger.e(TAG, "flush failed", e)
         }
     }
 
@@ -122,7 +123,7 @@ object DebugLogger {
                 File(context.getExternalFilesDir(null), FILE_NAME).delete()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "delete failed", e)
+            AppLogger.e(TAG, "delete failed", e)
         }
     }
 }

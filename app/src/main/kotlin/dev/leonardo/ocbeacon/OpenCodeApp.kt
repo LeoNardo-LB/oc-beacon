@@ -3,7 +3,6 @@ package dev.leonardo.ocbeacon
 import android.app.Application
 import android.os.Build
 import android.os.Environment
-import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -95,7 +94,7 @@ class OpenCodeApp : Application() {
                     ?.drop(MAX_LOG_FILES)
                     ?.forEach { it.delete() }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to write crash log", e)
+                AppLogger.e(TAG, "Failed to write crash log", e)
             }
 
             // 携带崩溃信息重启主 Activity
@@ -110,7 +109,7 @@ class OpenCodeApp : Application() {
                     startActivity(intent)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to restart activity after crash", e)
+                AppLogger.e(TAG, "Failed to restart activity after crash", e)
             }
 
             defaultHandler?.uncaughtException(thread, throwable)

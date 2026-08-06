@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository.handler
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,23 +28,23 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
     override fun handle(event: SseEvent, serverId: String): Boolean {
         return when (event) {
             is SseEvent.TodoUpdated -> { _todos.update { it + (event.sessionId to event.todos) }; true }
-            is SseEvent.PtyCreated -> { if (BuildConfig.DEBUG) Log.d(TAG, "PTY created: ${event.id}"); true }
-            is SseEvent.PtyUpdated -> { if (BuildConfig.DEBUG) Log.d(TAG, "PTY updated: ${event.id}"); true }
-            is SseEvent.PtyDeleted -> { if (BuildConfig.DEBUG) Log.d(TAG, "PTY deleted: ${event.id}"); true }
-            is SseEvent.WorkspaceReady -> { if (BuildConfig.DEBUG) Log.d(TAG, "Workspace ready: ${event.workspaceId}"); true }
-            is SseEvent.WorkspaceFailed -> { Log.w(TAG, "Workspace failed: ${event.workspaceId}"); true }
-            is SseEvent.FileEdited -> { if (BuildConfig.DEBUG) Log.d(TAG, "File edited: ${event.path}"); true }
-            is SseEvent.McpToolsChanged -> { if (BuildConfig.DEBUG) Log.d(TAG, "MCP tools changed: ${event.server}"); true }
+            is SseEvent.PtyCreated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY created: ${event.id}"); true }
+            is SseEvent.PtyUpdated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY updated: ${event.id}"); true }
+            is SseEvent.PtyDeleted -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY deleted: ${event.id}"); true }
+            is SseEvent.WorkspaceReady -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "Workspace ready: ${event.workspaceId}"); true }
+            is SseEvent.WorkspaceFailed -> { AppLogger.w(TAG, "Workspace failed: ${event.workspaceId}"); true }
+            is SseEvent.FileEdited -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "File edited: ${event.path}"); true }
+            is SseEvent.McpToolsChanged -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "MCP tools changed: ${event.server}"); true }
             is SseEvent.CommandExecuted -> {
-                if (BuildConfig.DEBUG) Log.d(TAG, "Command executed: ${event.name}")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Command executed: ${event.name}")
                 // 注意：会话状态重置为 Idle 由 EventDispatcher 处理（跨 handler 关注点）
                 true
             }
-            is SseEvent.FileWatcherUpdated -> { if (BuildConfig.DEBUG) Log.d(TAG, "File watcher updated: ${event.path}"); true }
-            is SseEvent.InstallationUpdated -> { if (BuildConfig.DEBUG) Log.d(TAG, "Installation updated: ${event.version}"); true }
-            is SseEvent.InstallationUpdateAvailable -> { Log.i(TAG, "Update available: ${event.version}"); true }
-            is SseEvent.WorktreeReady -> { if (BuildConfig.DEBUG) Log.d(TAG, "Worktree ready: ${event.path}"); true }
-            is SseEvent.WorktreeFailed -> { Log.w(TAG, "Worktree failed: ${event.path}"); true }
+            is SseEvent.FileWatcherUpdated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "File watcher updated: ${event.path}"); true }
+            is SseEvent.InstallationUpdated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "Installation updated: ${event.version}"); true }
+            is SseEvent.InstallationUpdateAvailable -> { AppLogger.i(TAG, "Update available: ${event.version}"); true }
+            is SseEvent.WorktreeReady -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "Worktree ready: ${event.path}"); true }
+            is SseEvent.WorktreeFailed -> { AppLogger.w(TAG, "Worktree failed: ${event.path}"); true }
             is SseEvent.LspUpdated -> { /* 移动端不需要 LSP 事件 */ true }
             else -> false
         }

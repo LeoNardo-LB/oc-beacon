@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.domain.model.Draft
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageAgentUseCase
@@ -81,7 +82,7 @@ internal class DraftInputDelegate(
                     )
                     _fileSearchResults.value = results
                 } catch (e: Exception) {
-                    Log.e(TAG, "File search failed", e)
+                    AppLogger.e(TAG, "File search failed", e)
                     _fileSearchResults.value = emptyList()
                 }
             }
@@ -99,7 +100,7 @@ internal class DraftInputDelegate(
                 )
                 _fileSearchResults.value = results
             } catch (e: Exception) {
-                Log.e(TAG, "File search failed for query '$query'", e)
+                AppLogger.e(TAG, "File search failed for query '$query'", e)
                 _fileSearchResults.value = emptyList()
             }
         }

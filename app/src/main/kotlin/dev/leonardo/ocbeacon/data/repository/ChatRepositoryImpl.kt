@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
@@ -25,7 +27,6 @@ import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
-import android.util.Log
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -57,7 +58,7 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getMessagesFlow(sessionId: String): Flow<List<Message>> =
         eventDispatcher.messages.map { it[sessionId] ?: emptyList() }
             .catch { e ->
-                Log.e("ChatRepository", "Error in getMessagesFlow", e)
+                AppLogger.e("ChatRepository", "Error in getMessagesFlow", e)
                 emit(emptyList())
             }
 
@@ -66,7 +67,7 @@ class ChatRepositoryImpl @Inject constructor(
             partsByMessageId.values.flatten().filter { it.sessionId == sessionId }
         }
             .catch { e ->
-                Log.e("ChatRepository", "Error in getParts", e)
+                AppLogger.e("ChatRepository", "Error in getParts", e)
                 emit(emptyList())
             }
 
@@ -78,7 +79,7 @@ class ChatRepositoryImpl @Inject constructor(
             (events[sessionId] ?: emptyList()).map { it.toPermissionState() }
         }
             .catch { e ->
-                Log.e("ChatRepository", "Error in getPermissionsFlow", e)
+                AppLogger.e("ChatRepository", "Error in getPermissionsFlow", e)
                 emit(emptyList())
             }
 
@@ -87,7 +88,7 @@ class ChatRepositoryImpl @Inject constructor(
             (events[sessionId] ?: emptyList()).map { it.toQuestionState() }
         }
             .catch { e ->
-                Log.e("ChatRepository", "Error in getQuestionsFlow", e)
+                AppLogger.e("ChatRepository", "Error in getQuestionsFlow", e)
                 emit(emptyList())
             }
 
@@ -102,21 +103,21 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getActiveToolProgress(serverId: String): Flow<List<ToolProgressInfo>?> =
         eventDispatcher.activeToolProgress.map { list -> list[serverId]?.map { it.toDomain() } }
             .catch { e ->
-                Log.e("ChatRepository", "Error in getActiveToolProgress", e)
+                AppLogger.e("ChatRepository", "Error in getActiveToolProgress", e)
                 emit(null)
             }
 
     override fun getStepProgress(serverId: String): Flow<StepProgressInfo?> =
         eventDispatcher.stepProgress.map { it[serverId]?.toDomain() }
             .catch { e ->
-                Log.e("ChatRepository", "Error in getStepProgress", e)
+                AppLogger.e("ChatRepository", "Error in getStepProgress", e)
                 emit(null)
             }
 
     override fun getCompactionState(serverId: String): Flow<CompactionStateInfo?> =
         eventDispatcher.compactionState.map { it[serverId]?.toDomain() }
             .catch { e ->
-                Log.e("ChatRepository", "Error in getCompactionState", e)
+                AppLogger.e("ChatRepository", "Error in getCompactionState", e)
                 emit(null)
             }
 
@@ -180,13 +181,6 @@ class ChatRepositoryImpl @Inject constructor(
     ): Result<Boolean> = runCatching {
         val conn = resolveConnection(serverId)
         messageApi.replyToPermission(conn, permissionId, reply, directory = directory)
-    }
-
-    override suspend fun selectModel(serverId: String, providerId: String, modelId: String): Result<Unit> = runCatching {
-        val conn = resolveConnection(serverId)
-        // TODO: Phase 4 — 确认是否有专用的 updateModel 端点
-        // 目前使用 config patch 作为回退
-        providerApi.updateConfig(conn, dev.leonardo.ocbeacon.data.dto.request.ServerConfigPatch())
     }
 
     // ============ 待处理查询 ============

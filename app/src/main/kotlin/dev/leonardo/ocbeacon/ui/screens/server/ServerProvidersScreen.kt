@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.server
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.ClipData
-import android.util.Log
 import android.widget.Toast
 import dev.leonardo.ocbeacon.BuildConfig
 import androidx.compose.foundation.BorderStroke
@@ -138,7 +139,7 @@ fun ServerProvidersScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 val pending = uiState.pendingOauth
-                if (BuildConfig.DEBUG) Log.d("ProvidersScreen", "ON_RESUME: browserOpened=$oauthBrowserOpened, pending=${pending?.providerId}, isSaving=${uiState.isSaving}")
+                if (BuildConfig.DEBUG) AppLogger.d("ProvidersScreen", "ON_RESUME: browserOpened=$oauthBrowserOpened, pending=${pending?.providerId}, isSaving=${uiState.isSaving}")
                 if (oauthBrowserOpened && pending != null && !uiState.isSaving) {
                     if (pending.authorization.method == "code") {
                         viewModel.loadProviders()

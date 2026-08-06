@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -12,7 +14,6 @@ import dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
 import dev.leonardo.ocbeacon.domain.usecase.GetFileContentUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetFileDiffUseCase
 import dev.leonardo.ocbeacon.domain.usecase.SubmitAnnotationsUseCase
-import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,7 +56,7 @@ class FileViewerViewModel @AssistedInject constructor(
     }
 
     init {
-        Log.d(TAG, "init: source=$source, file=${filePath.take(60)}, " +
+        AppLogger.d(TAG, "init: source=$source, file=${filePath.take(60)}, " +
             "serverId=${serverId.take(8)}, dir=${directory.take(40)}, " +
             "toolPartIds=${toolPartIds.map { it.take(12) }}")
         when (source) {
@@ -68,12 +69,12 @@ class FileViewerViewModel @AssistedInject constructor(
 
     private fun loadLive() {
         val t0 = System.currentTimeMillis()
-        Log.d(TAG, "loadLive: requesting getFileContent(server=${serverId.take(8)}, " +
+        AppLogger.d(TAG, "loadLive: requesting getFileContent(server=${serverId.take(8)}, " +
             "dir=${directory.take(40)}, file=${filePath.take(60)})")
         viewModelScope.launch {
             getFileContent(serverId, directory, filePath)
                 .onSuccess { c ->
-                    Log.d(TAG, "loadLive: SUCCESS in ${System.currentTimeMillis() - t0}ms, " +
+                    AppLogger.d(TAG, "loadLive: SUCCESS in ${System.currentTimeMillis() - t0}ms, " +
                         "type=${c.type}, contentLen=${c.content.length}, " +
                         "mimeType=${c.mimeType}")
                     if (c.type == ContentType.BINARY) {
@@ -137,7 +138,7 @@ class FileViewerViewModel @AssistedInject constructor(
                     }
                 }
                 .onFailure { e -> 
-                    Log.e(TAG, "loadLive: FAILURE in ${System.currentTimeMillis() - t0}ms", e)
+                    AppLogger.e(TAG, "loadLive: FAILURE in ${System.currentTimeMillis() - t0}ms", e)
                     _uiState.update { it.copy(isLoading = false, error = R.string.workspace_error_load_failed) } 
                 }
         }
@@ -283,47 +284,47 @@ class FileViewerViewModel @AssistedInject constructor(
     // ============ Phase 2 任务 9：工具快照 ============
 
     private fun loadToolSnapshot() {
-        Log.d(TAG, "loadToolSnapshot: toolPartIds=${toolPartIds.map { it.take(12) }}")
+        AppLogger.d(TAG, "loadToolSnapshot: toolPartIds=${toolPartIds.map { it.take(12) }}")
         if (toolPartIds.isEmpty()) {
-            Log.w(TAG, "loadToolSnapshot: toolPartIds EMPTY → error")
+            AppLogger.w(TAG, "loadToolSnapshot: toolPartIds EMPTY → error")
             _uiState.update { it.copy(isLoading = false, error = R.string.fileviewer_error_tool_snapshot_missing) }
             return
         }
         val snapshots = toolSnapshotCache.getAll(toolPartIds)
         if (snapshots.isEmpty()) {
-            Log.w(TAG, "loadToolSnapshot: cache MISS for ids=${toolPartIds.map { it.take(12) }} → error. " +
+            AppLogger.w(TAG, "loadToolSnapshot: cache MISS for ids=${toolPartIds.map { it.take(12) }} → error. " +
                 "cacheSize=${toolSnapshotCache.size()}")
             _uiState.update { it.copy(isLoading = false, error = R.string.fileviewer_error_tool_snapshot_missing) }
             return
         }
         val first = snapshots.first()
         val content = first.content ?: first.after ?: ""
-        Log.d(TAG, "loadToolSnapshot: cache HIT, ${snapshots.size} snapshots, " +
+        AppLogger.d(TAG, "loadToolSnapshot: cache HIT, ${snapshots.size} snapshots, " +
             "first.contentLen=${first.content?.length ?: -1}, " +
             "first.afterLen=${first.after?.length ?: -1}, " +
             "resolvedContentLen=${content.length}, toolName=${first.toolName}")
         if (content.isBlank()) {
-            Log.w(TAG, "loadToolSnapshot: resolved content is BLANK → will show empty file!")
+            AppLogger.w(TAG, "loadToolSnapshot: resolved content is BLANK → will show empty file!")
         }
         setupToolSnapshotSource(content, snapshots)
     }
 
     private fun loadToolSnapshotDiff() {
-        Log.d(TAG, "loadToolSnapshotDiff: toolPartIds=${toolPartIds.map { it.take(12) }}")
+        AppLogger.d(TAG, "loadToolSnapshotDiff: toolPartIds=${toolPartIds.map { it.take(12) }}")
         if (toolPartIds.isEmpty()) {
-            Log.w(TAG, "loadToolSnapshotDiff: toolPartIds EMPTY → error")
+            AppLogger.w(TAG, "loadToolSnapshotDiff: toolPartIds EMPTY → error")
             _uiState.update { it.copy(isLoading = false, error = R.string.fileviewer_error_tool_snapshot_missing) }
             return
         }
         val snapshots = toolSnapshotCache.getAll(toolPartIds)
         if (snapshots.isEmpty()) {
-            Log.w(TAG, "loadToolSnapshotDiff: cache MISS for ids=${toolPartIds.map { it.take(12) }} → error. " +
+            AppLogger.w(TAG, "loadToolSnapshotDiff: cache MISS for ids=${toolPartIds.map { it.take(12) }} → error. " +
                 "cacheSize=${toolSnapshotCache.size()}")
             _uiState.update { it.copy(isLoading = false, error = R.string.fileviewer_error_tool_snapshot_missing) }
             return
         }
         val lastSnap = snapshots.last()
-        Log.d(TAG, "loadToolSnapshotDiff: cache HIT, ${snapshots.size} snapshots, " +
+        AppLogger.d(TAG, "loadToolSnapshotDiff: cache HIT, ${snapshots.size} snapshots, " +
             "lastSnap.afterLen=${lastSnap.after?.length ?: -1}, " +
             "lastSnap.contentLen=${lastSnap.content?.length ?: -1}, " +
             "lastSnap.beforeLen=${lastSnap.before?.length ?: -1}")
@@ -334,7 +335,7 @@ class FileViewerViewModel @AssistedInject constructor(
         viewModelScope.launch {
             getFileContent(serverId, directory, filePath)
                 .onSuccess { c ->
-                    Log.d(TAG, "loadToolSnapshotDiff: getFileContent SUCCESS in " +
+                    AppLogger.d(TAG, "loadToolSnapshotDiff: getFileContent SUCCESS in " +
                         "${System.currentTimeMillis() - t0}ms, type=${c.type}, contentLen=${c.content.length}")
                     if (c.type == ContentType.BINARY) {
                         _uiState.update { it.copy(isLoading = false, isBinary = true, mimeType = c.mimeType) }
@@ -344,7 +345,7 @@ class FileViewerViewModel @AssistedInject constructor(
                 }
                 .onFailure {
                     val fallback = lastSnap.after ?: lastSnap.content ?: lastSnap.before ?: ""
-                    Log.w(TAG, "loadToolSnapshotDiff: getFileContent FAILED in " +
+                    AppLogger.w(TAG, "loadToolSnapshotDiff: getFileContent FAILED in " +
                         "${System.currentTimeMillis() - t0}ms, fallbackLen=${fallback.length}", it)
                     setupToolSnapshotSource(fallback, snapshots)
                 }

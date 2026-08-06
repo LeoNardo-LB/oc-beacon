@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.home
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
@@ -7,7 +9,6 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -102,7 +103,7 @@ class HomeViewModel @Inject constructor(
         val service = serviceBinder?.getService() ?: return
         val ids = service.connectedServerIds.value
         if (ids.isNotEmpty()) {
-            if (BuildConfig.DEBUG) Log.d(TAG, "Restoring connected state from service: serverIds=$ids")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Restoring connected state from service: serverIds=$ids")
             _uiState.update { it.copy(connectedServerIds = ids) }
         }
     }
@@ -116,7 +117,7 @@ class HomeViewModel @Inject constructor(
         sseObserverJob = viewModelScope.launch {
             launch {
                 service.connectedServerIds.collect { ids ->
-                    if (BuildConfig.DEBUG) Log.d(TAG, "Service connected server IDs changed: $ids")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Service connected server IDs changed: $ids")
                     _uiState.update {
                         it.copy(
                             connectedServerIds = ids,
@@ -128,7 +129,7 @@ class HomeViewModel @Inject constructor(
             }
             launch {
                 service.connectingServerIds.collect { ids ->
-                    if (BuildConfig.DEBUG) Log.d(TAG, "Service connecting server IDs changed: $ids")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Service connecting server IDs changed: $ids")
                     _uiState.update { it.copy(connectingServerIds = ids) }
                 }
             }
@@ -180,7 +181,7 @@ class HomeViewModel @Inject constructor(
                     }
                 } catch (e: Exception) {
                     _uiState.update { it.copy(serverSettingsReadyIds = it.serverSettingsReadyIds - serverId) }
-                    if (BuildConfig.DEBUG) Log.d(TAG, "Providers check failed for $serverId: ${e.message}")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Providers check failed for $serverId: ${e.message}")
                 }
             }
         }
@@ -352,7 +353,7 @@ class HomeViewModel @Inject constructor(
             getApplication<Application>().unbindService(serviceConnection)
         } catch (e: Exception) {
             // 服务可能尚未绑定
-            Log.w(TAG, "unbindService failed: ${e.message}", e)
+            AppLogger.w(TAG, "unbindService failed: ${e.message}", e)
         }
     }
 }

@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository.handler
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,10 +52,10 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
 
     override fun handle(event: SseEvent, serverId: String): Boolean {
         return when (event) {
-            is SseEvent.ServerConnected -> { if (BuildConfig.DEBUG) Log.d(TAG, "Server connected"); true }
+            is SseEvent.ServerConnected -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "Server connected"); true }
             is SseEvent.ServerHeartbeat -> true
             is SseEvent.ServerInstanceDisposed -> {
-                if (BuildConfig.DEBUG) Log.d(TAG, "Server instance disposed: ${event.directory}"); true
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Server instance disposed: ${event.directory}"); true
             }
             is SseEvent.SessionCreated -> { handleSessionCreated(event, serverId); true }
             is SseEvent.SessionUpdated -> { handleSessionUpdated(event, serverId); true }
@@ -66,7 +67,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.SessionDiff -> { handleSessionDiff(event); true }
             is SseEvent.SessionError -> { handleSessionError(event); true }
             is SseEvent.SessionCompacted -> {
-                Log.i(TAG, "Session ${event.sessionId} compacted"); true
+                AppLogger.i(TAG, "Session ${event.sessionId} compacted"); true
             }
             is SseEvent.VcsBranchUpdated -> { _vcsBranch.value = event.branch; true }
             is SseEvent.ProjectUpdated -> { _projectInfo.value = event.info; true }
@@ -94,7 +95,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     private fun handleSessionUpdated(event: SseEvent.SessionUpdated, serverId: String) {
-        Log.i(TAG, "SessionUpdated: id=${event.info.id} title=${event.info.title}")
+        AppLogger.i(TAG, "SessionUpdated: id=${event.info.id} title=${event.info.title}")
         trackSession(serverId, event.info.id)
         _sessions.update { current ->
             val idx = current.indexOfFirst { it.id == event.info.id }
@@ -126,7 +127,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     private fun handleSessionError(event: SseEvent.SessionError) {
-        Log.e(TAG, "Session ${event.sessionId} error: ${event.error}")
+        AppLogger.e(TAG, "Session ${event.sessionId} error: ${event.error}")
     }
 
     // ============ 批量操作 ============
@@ -157,7 +158,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             _serverSessions.update { it - serverId }
             return
         }
-        if (BuildConfig.DEBUG) Log.d(TAG, "Clearing state for server $serverId (${sessionIds.size} sessions)")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Clearing state for server $serverId (${sessionIds.size} sessions)")
         _serverSessions.update { it - serverId }
         _sessions.update { it.filter { s -> s.id !in sessionIds } }
         _sessionDiffs.update { it - sessionIds }
@@ -182,7 +183,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         _sessions.update { current ->
             val idx = current.indexOfFirst { it.id == sessionId }
             if (idx >= 0 && current[idx].revert != null) {
-                if (BuildConfig.DEBUG) Log.d(TAG, "Clearing revert for session $sessionId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Clearing revert for session $sessionId")
                 current.toMutableList().apply { set(idx, current[idx].copy(revert = null)) }
             } else {
                 current
@@ -195,7 +196,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         _sessions.update { current ->
             val idx = current.indexOfFirst { it.id == sessionId }
             if (idx >= 0) {
-                if (BuildConfig.DEBUG) Log.d(TAG, "Setting revert for session $sessionId msg=$messageId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Setting revert for session $sessionId msg=$messageId")
                 current.toMutableList().apply {
                     set(idx, current[idx].copy(revert = Session.Revert(messageId = messageId)))
                 }

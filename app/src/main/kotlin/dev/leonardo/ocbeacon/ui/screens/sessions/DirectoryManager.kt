@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
@@ -59,10 +60,10 @@ class DirectoryManager(
             cachedServerPaths = try {
                 FileMapper.toDomain(systemApi.getServerPaths(conn))
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to get server paths", e)
+                AppLogger.e(TAG, "Failed to get server paths", e)
                 ServerPaths()
             }
-            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) Log.d(TAG, "Server home directory: ${cachedServerPaths!!.home}")
+            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) AppLogger.d(TAG, "Server home directory: ${cachedServerPaths!!.home}")
         }
         return cachedServerPaths!!
     }
@@ -130,7 +131,7 @@ class DirectoryManager(
             val nodes = fileApi.listDirectory(conn, path = "", directory = directory)
             nodes.map { FileMapper.toDomain(it) }.filter { it.isDirectory() }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to list directory: $directory", e)
+            AppLogger.e(TAG, "Failed to list directory: $directory", e)
             emptyList()
         }
     }
@@ -140,7 +141,7 @@ class DirectoryManager(
         return try {
             fileApi.findFiles(conn, query = query, type = "directory", directory = directory, limit = 50)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to search directories", e)
+            AppLogger.e(TAG, "Failed to search directories", e)
             emptyList()
         }
     }

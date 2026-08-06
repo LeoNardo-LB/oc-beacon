@@ -1,10 +1,11 @@
 package dev.leonardo.ocbeacon.data.update
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
-import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -117,7 +118,7 @@ class UpdateRepository @Inject constructor(
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            Log.e(TAG, "Unable to prepare update installation", error)
+            AppLogger.e(TAG, "Unable to prepare update installation", error)
             _state.value = UpdateState.Error("Unable to prepare update for installation", release)
         }
     }

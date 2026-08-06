@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.ui.navigation
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.net.Uri
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.EaseOut
@@ -86,7 +87,7 @@ fun NavGraph(
     LaunchedEffect(Unit) {
         sharedImagesFlow.collect { uris ->
             if (uris.isEmpty()) return@collect
-            Log.i(TAG, "Shared images received: ${uris.size} URIs")
+            AppLogger.i(TAG, "Shared images received: ${uris.size} URIs")
 
             // 暂存待处理的 URI（将由目标 ChatScreen 消费）
             pendingShareUris = uris
@@ -98,7 +99,7 @@ fun NavGraph(
                 val currentSessionId = navController.currentBackStackEntry
                     ?.arguments?.getString("sessionId")
                 if (currentSessionId != null) {
-                    Log.i(TAG, "Already in ChatScreen for session $currentSessionId, targeting it directly")
+                    AppLogger.i(TAG, "Already in ChatScreen for session $currentSessionId, targeting it directly")
                     pendingShareSessionId = currentSessionId
                     return@collect
                 }
@@ -141,7 +142,7 @@ fun NavGraph(
                     serverId = server.id,
                     sessionId = session.id
                 )
-                Log.i(TAG, "Share → navigating to session ${session.id} on ${server.displayName}")
+                AppLogger.i(TAG, "Share → navigating to session ${session.id} on ${server.displayName}")
                 navController.navigate(route) { launchSingleTop = true }
             },
             onNewSession = { server ->
@@ -155,7 +156,7 @@ fun NavGraph(
                     serverName = server.displayName,
                     serverId = server.id
                 )
-                Log.i(TAG, "Share → navigating to session list on ${server.displayName}")
+                AppLogger.i(TAG, "Share → navigating to session list on ${server.displayName}")
                 navController.navigate(route) { launchSingleTop = true }
             },
             onDismiss = {
@@ -171,7 +172,7 @@ fun NavGraph(
             // 消费事件，避免重组时重放
             deepLinkFlow.resetReplayCache()
             val currentRoute = navController.currentDestination?.route
-            if (BuildConfig.DEBUG) Log.d(TAG, "Deep-link received: sessionPath=${deepLink.sessionPath}, sessionId=${deepLink.sessionId}, currentRoute=$currentRoute, useNativeUi=$useNativeUi")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Deep-link received: sessionPath=${deepLink.sessionPath}, sessionId=${deepLink.sessionId}, currentRoute=$currentRoute, useNativeUi=$useNativeUi")
 
             if (useNativeUi) {
                 // ---- 原生 UI 路径 ----
@@ -194,7 +195,7 @@ fun NavGraph(
                     ?.arguments
                     ?.getString("sessionId")
 
-                    Log.i(TAG, "Deep-link → native Chat: targetSession=$sessionId currentSession=$currentSessionId")
+                    AppLogger.i(TAG, "Deep-link → native Chat: targetSession=$sessionId currentSession=$currentSessionId")
 
                     if (currentRoute?.startsWith("chat") == true && currentSessionId != sessionId) {
                         navController.navigate(route) {
@@ -208,7 +209,7 @@ fun NavGraph(
                     }
                 } else if (deepLink.serverUrl.isNotBlank()) {
                     // 持久通知点击（无 sessionId）→ 打开该服务器的会话列表
-                    Log.i(TAG, "Deep-link → native SessionList for ${deepLink.serverName}")
+                    AppLogger.i(TAG, "Deep-link → native SessionList for ${deepLink.serverName}")
                     val route = SessionListNav.createRoute(
                         serverUrl = deepLink.serverUrl,
                         username = deepLink.username,
@@ -218,7 +219,7 @@ fun NavGraph(
                     )
                     navController.navigate(route) { launchSingleTop = true }
                 } else {
-                    Log.i(TAG, "Deep-link has no sessionId, ignoring native path")
+                    AppLogger.i(TAG, "Deep-link has no sessionId, ignoring native path")
                 }
             } else {
                 // ---- WebView 路径（旧版） ----
@@ -226,7 +227,7 @@ fun NavGraph(
 
                 if (isWebViewOnScreen && deepLink.sessionPath.isNotBlank()) {
                     val newUrl = deepLink.serverUrl.trimEnd('/') + deepLink.sessionPath
-                    Log.i(TAG, "WebView already on screen, navigating in-place to: $newUrl")
+                    AppLogger.i(TAG, "WebView already on screen, navigating in-place to: $newUrl")
                     webViewNavigateFlow.tryEmit(newUrl)
                 } else {
                     val route = WebViewNav.createRoute(
@@ -236,7 +237,7 @@ fun NavGraph(
                         serverName = deepLink.serverName,
                         initialPath = deepLink.sessionPath
                     )
-                    Log.i(TAG, "Deep-link → WebView: $route")
+                    AppLogger.i(TAG, "Deep-link → WebView: $route")
                     navController.navigate(route) { launchSingleTop = true }
                 }
             }

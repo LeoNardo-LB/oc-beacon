@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.sse.parsers
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.serialization.json.*
@@ -39,7 +40,7 @@ class SessionNextEventParser(private val json: Json) : SseEventParser {
                 result
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to parse session.next event: $type — ${e.message}")
+            AppLogger.w(TAG, "Failed to parse session.next event: $type — ${e.message}")
             SessionNextEvent.Unknown(rawType = type, rawJson = props.toString())
         }
     }

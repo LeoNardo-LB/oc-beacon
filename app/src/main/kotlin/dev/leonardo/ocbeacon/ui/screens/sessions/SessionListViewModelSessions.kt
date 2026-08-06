@@ -1,9 +1,10 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.util.Log
 import androidx.lifecycle.viewModelScope
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
@@ -23,12 +24,12 @@ fun SessionListViewModel.loadSessions() {
         try {
             val projects = fileApi.listProjects(conn)
             _projects.value = projects
-            if (BuildConfig.DEBUG) Log.d(TAG_SESSION_LIST_VM, "Loaded ${projects.size} projects for multi-project session fetch")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${projects.size} projects for multi-project session fetch")
 
             if (projects.isEmpty()) {
                 val sessions = sessionApi.listSessions(conn, search = _searchQuery.value)
                 eventDispatcher.setSessions(serverId, sessions)
-                if (BuildConfig.DEBUG) Log.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions (no projects)")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions (no projects)")
             } else {
                 var totalSessions = 0
                 for (project in projects) {
@@ -36,19 +37,19 @@ fun SessionListViewModel.loadSessions() {
                         val sessions = sessionApi.listSessions(conn, directory = project.worktree, search = _searchQuery.value)
                         eventDispatcher.setSessions(serverId, sessions)
                         totalSessions += sessions.size
-                        if (BuildConfig.DEBUG) Log.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions for project ${project.displayName}")
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions for project ${project.displayName}")
                     } catch (e: Exception) {
-                        Log.w(TAG_SESSION_LIST_VM, "Failed to load sessions for project ${project.displayName}: ${e.message}")
+                        AppLogger.w(TAG_SESSION_LIST_VM, "Failed to load sessions for project ${project.displayName}: ${e.message}")
                     }
                 }
-                if (BuildConfig.DEBUG) Log.d(TAG_SESSION_LIST_VM, "Total: loaded $totalSessions sessions across ${projects.size} projects for server $serverId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Total: loaded $totalSessions sessions across ${projects.size} projects for server $serverId")
             }
             // 通过统一的 FSM 管线从服务器同步会话状态
             //（跨项目 worktree 聚合 + 缺失即 idle + 不完整保护）。
             sessionStateService.setServerId(serverId)
             sessionStateService.syncFromRest(_projects.value)
         } catch (e: Exception) {
-            Log.e(TAG_SESSION_LIST_VM, "Failed to load sessions", e)
+            AppLogger.e(TAG_SESSION_LIST_VM, "Failed to load sessions", e)
             _error.value = e.message ?: "Failed to load sessions"
         } finally {
             if (_expandedPaths.value.isEmpty()) {
@@ -89,7 +90,7 @@ fun SessionListViewModel.refreshSessions() {
                         val sessions = sessionApi.listSessions(conn, directory = project.worktree, search = _searchQuery.value)
                         eventDispatcher.setSessions(serverId, sessions)
                     } catch (e: Exception) {
-                        Log.w(TAG_SESSION_LIST_VM, "Failed to refresh sessions for project ${project.displayName}: ${e.message}")
+                        AppLogger.w(TAG_SESSION_LIST_VM, "Failed to refresh sessions for project ${project.displayName}: ${e.message}")
                     }
                 }
             }
@@ -97,7 +98,7 @@ fun SessionListViewModel.refreshSessions() {
             sessionStateService.setServerId(serverId)
             sessionStateService.syncFromRest(_projects.value)
         } catch (e: Exception) {
-            Log.e(TAG_SESSION_LIST_VM, "Failed to refresh sessions", e)
+            AppLogger.e(TAG_SESSION_LIST_VM, "Failed to refresh sessions", e)
             _error.value = e.message ?: "Failed to refresh sessions"
         } finally {
             _isRefreshing.value = false
@@ -136,7 +137,7 @@ fun SessionListViewModel.loadMore() {
                 _hasMorePages.value = false
             }
         } catch (e: Exception) {
-            Log.e(TAG_SESSION_LIST_VM, "Failed to load more sessions", e)
+            AppLogger.e(TAG_SESSION_LIST_VM, "Failed to load more sessions", e)
         } finally {
             _isLoadingMore.value = false
         }
@@ -150,13 +151,13 @@ fun SessionListViewModel.deleteSession(sessionId: String) {
         try {
             val result = deleteSessionUseCase(serverId, sessionId)
             if (result.isSuccess) {
-                if (BuildConfig.DEBUG) Log.d(TAG_SESSION_LIST_VM, "Deleted session $sessionId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Deleted session $sessionId")
                 loadSessions()
             } else {
                 _error.value = "Failed to delete session"
             }
         } catch (e: Exception) {
-            Log.e(TAG_SESSION_LIST_VM, "Failed to delete session", e)
+            AppLogger.e(TAG_SESSION_LIST_VM, "Failed to delete session", e)
             _error.value = e.message ?: "Failed to delete session"
         }
     }
@@ -166,10 +167,10 @@ fun SessionListViewModel.renameSession(sessionId: String, newTitle: String) {
     viewModelScope.launch {
         try {
             manageSessionUseCase.renameSession(serverId, sessionId, newTitle)
-            if (BuildConfig.DEBUG) Log.d(TAG_SESSION_LIST_VM, "Renamed session $sessionId to '$newTitle'")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Renamed session $sessionId to '$newTitle'")
             loadSessions()
         } catch (e: Exception) {
-            Log.e(TAG_SESSION_LIST_VM, "Failed to rename session", e)
+            AppLogger.e(TAG_SESSION_LIST_VM, "Failed to rename session", e)
             _error.value = e.message ?: "Failed to rename session"
         }
     }
@@ -183,11 +184,11 @@ fun SessionListViewModel.importSession(shareUrl: String, onResult: (Boolean) -> 
     viewModelScope.launch {
         try {
             val session = manageSessionUseCase.importSession(serverId, shareUrl)
-            if (BuildConfig.DEBUG) Log.d(TAG_SESSION_LIST_VM, "Imported session ${session.id}")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Imported session ${session.id}")
             eventDispatcher.setSessions(serverId, listOf(session))
             onResult(true)
         } catch (e: Exception) {
-            Log.e(TAG_SESSION_LIST_VM, "Failed to import session", e)
+            AppLogger.e(TAG_SESSION_LIST_VM, "Failed to import session", e)
             _error.value = e.message ?: "Failed to import session"
             onResult(false)
         }
@@ -237,7 +238,7 @@ fun SessionListViewModel.deleteSelected() {
             clearSelection()
             loadSessions()
         } catch (e: Exception) {
-            Log.e(TAG_SESSION_LIST_VM, "Failed to delete selected sessions", e)
+            AppLogger.e(TAG_SESSION_LIST_VM, "Failed to delete selected sessions", e)
             _error.value = e.message ?: "Failed to delete selected sessions"
         }
     }

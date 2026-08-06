@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.service
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
@@ -7,13 +9,13 @@ import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import android.os.PowerManager
-import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.api.NetworkMonitor
 import dev.leonardo.ocbeacon.data.api.NetworkState
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.ServerDataStore
+import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
@@ -82,6 +84,9 @@ class OpenCodeConnectionService : Service() {
     @Inject
     lateinit var sessionFocusHolder: SessionFocusHolder
 
+    @Inject
+    lateinit var terminalRegistry: ServerTerminalRegistry
+
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, exception ->
@@ -90,7 +95,7 @@ class OpenCodeConnectionService : Service() {
             // UncaughtExceptionHandler 并导致进程崩溃。
             // 各个 launch 已将网络调用包裹在 try/catch 中；此处捕获任何
             // 漏网异常（重连期间的竞争、R8 内联等）。
-            Log.e(TAG, "Unhandled coroutine exception in serviceScope", exception)
+            AppLogger.e(TAG, "Unhandled coroutine exception in serviceScope", exception)
         }
     )
 
@@ -114,7 +119,7 @@ class OpenCodeConnectionService : Service() {
     @OptIn(FlowPreview::class)
     override fun onCreate() {
         super.onCreate()
-        if (BuildConfig.DEBUG) Log.d(TAG, "Service created")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Service created")
 
         systemNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         appNotificationManager.createNotificationChannels(systemNotificationManager, this)
@@ -127,7 +132,7 @@ class OpenCodeConnectionService : Service() {
                 .distinctUntilChanged()
                 .collect { state ->
                     if (state == NetworkState.Available && connectionManager.connections.isNotEmpty()) {
-                        Log.i(TAG, "Network recovered, reconnecting ${connectionManager.connections.size} server(s)")
+                        AppLogger.i(TAG, "Network recovered, reconnecting ${connectionManager.connections.size} server(s)")
                         connectionManager.reconnectAll()
                     }
                 }
@@ -139,18 +144,18 @@ class OpenCodeConnectionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (BuildConfig.DEBUG) Log.d(TAG, "Service started, action=${intent?.action}")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Service started, action=${intent?.action}")
 
         when (intent?.action) {
             ACTION_DISCONNECT_ALL -> {
-                Log.i(TAG, "Disconnect All requested via notification")
+                AppLogger.i(TAG, "Disconnect All requested via notification")
                 disconnectAllVisibleServers()
                 return START_NOT_STICKY
             }
             ACTION_DISCONNECT -> {
                 val serverId = intent.getStringExtra("server_id")
                 if (serverId != null) {
-                    Log.i(TAG, "Disconnect requested for server $serverId")
+                    AppLogger.i(TAG, "Disconnect requested for server $serverId")
                     disconnect(serverId)
                 }
                 return START_NOT_STICKY
@@ -188,7 +193,7 @@ class OpenCodeConnectionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (BuildConfig.DEBUG) Log.d(TAG, "Service destroyed")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Service destroyed")
         // RS-018 修复：取消 networkRecoveryJob 并等待其完成，
         // 再停止连接。若恢复 job 正处于 reconnectAll() 中间，
         // 可能在 stopAllConnections() 运行后启动新的 SSE job。
@@ -211,7 +216,7 @@ class OpenCodeConnectionService : Service() {
      */
     fun connect(server: ServerConfig) {
         if (connectionManager.connections.containsKey(server.id)) {
-            if (BuildConfig.DEBUG) Log.d(TAG, "Already connected to server ${server.id}, skipping")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Already connected to server ${server.id}, skipping")
             return
         }
 
@@ -222,12 +227,12 @@ class OpenCodeConnectionService : Service() {
             state.config.url == server.url && state.config.username == server.username
         }
         if (existingBackend != null) {
-            Log.w(TAG, "Backend ${server.url} already connected via '${existingBackend.config.displayName}'" +
+            AppLogger.w(TAG, "Backend ${server.url} already connected via '${existingBackend.config.displayName}'" +
                 " (id=${existingBackend.config.id}), skipping duplicate for '${server.displayName}'")
             return
         }
 
-        if (BuildConfig.DEBUG) Log.d(TAG, "Connecting to server: ${server.displayName} (${server.url})")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Connecting to server: ${server.displayName} (${server.url})")
 
         ensureForegroundStarted()
 
@@ -248,9 +253,13 @@ class OpenCodeConnectionService : Service() {
      * 断开单个服务器。
      */
     fun disconnect(serverId: String) {
-        if (BuildConfig.DEBUG) Log.d(TAG, "Disconnecting server $serverId")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Disconnecting server $serverId")
 
         connectionManager.stopConnection(serverId)
+        // 释放该服务器的终端工作区（关闭 tab + 取消协程作用域），防止泄漏
+        terminalRegistry.removeWorkspace(serverId)
+        // 清除该服务器的通知去重缓存，防止跨会话残留增长
+        appNotificationManager.clearForServer(serverId)
 
         if (connectionManager.connections.isEmpty()) {
             // 最后一个服务器已断开——清理并停止服务
@@ -296,9 +305,14 @@ class OpenCodeConnectionService : Service() {
     }
 
     private fun disconnectAllInternal(stopService: Boolean) {
-        if (BuildConfig.DEBUG) Log.d(TAG, "Disconnecting all servers")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Disconnecting all servers")
 
+        val allServerIds = connectionManager.connections.keys.toList()
         connectionManager.stopAllConnections()
+        // 释放全部服务器终端工作区（防泄漏）
+        terminalRegistry.removeAllWorkspaces()
+        // 清除全部通知去重缓存
+        allServerIds.forEach { appNotificationManager.clearForServer(it) }
 
         releaseWakeLock()
         connectionStateNotificationJob?.cancel()
@@ -315,10 +329,10 @@ class OpenCodeConnectionService : Service() {
         try {
             val autoConnectServers = serverDataStore.servers.first().filter { it.autoConnect }
             if (autoConnectServers.isEmpty()) return
-            Log.i(TAG, "Auto-connecting ${autoConnectServers.size} server(s)")
+            AppLogger.i(TAG, "Auto-connecting ${autoConnectServers.size} server(s)")
             autoConnectServers.forEach { connect(it) }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to auto-connect servers", e)
+            AppLogger.e(TAG, "Failed to auto-connect servers", e)
         }
     }
 
@@ -346,7 +360,7 @@ class OpenCodeConnectionService : Service() {
     }
 
     private fun processEvent(server: ServerConfig, event: SseEvent) {
-        if (BuildConfig.DEBUG) Log.d(TAG, "[${server.displayName}] SSE event: ${event.javaClass.simpleName}")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] SSE event: ${event.javaClass.simpleName}")
 
         // EventDispatcher.processEvent 已由 SseConnectionManager 调用
         // 此处仅路由到通知逻辑
@@ -364,12 +378,12 @@ class OpenCodeConnectionService : Service() {
                     val assistantMessageId = appNotificationManager.checkNewAssistantMessage(server.id, event.sessionId)
                     if (assistantMessageId == null) {
                         if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "[${server.displayName}] Skip response-ready: no assistant text output (${event.sessionId})")
+                            AppLogger.d(TAG, "[${server.displayName}] Skip response-ready: no assistant text output (${event.sessionId})")
                         }
                         return@launch
                     }
 
-                    Log.i(TAG, "[${server.displayName}] Session idle -> Response ready for ${event.sessionId}")
+                    AppLogger.i(TAG, "[${server.displayName}] Session idle -> Response ready for ${event.sessionId}")
                     appNotificationManager.showTaskCompleteNotification(
                         this@OpenCodeConnectionService, systemNotificationManager, server, event.sessionId
                     )
@@ -384,7 +398,7 @@ class OpenCodeConnectionService : Service() {
                     } else {
                         event.sessionId
                     }
-                    Log.i(TAG, "[${server.displayName}] Permission asked: ${event.permission} (session=${event.sessionId}, target=$targetSessionId)")
+                    AppLogger.i(TAG, "[${server.displayName}] Permission asked: ${event.permission} (session=${event.sessionId}, target=$targetSessionId)")
                     if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
                     appNotificationManager.showPermissionNotification(
                         this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, event.permission
@@ -400,7 +414,7 @@ class OpenCodeConnectionService : Service() {
                     } else {
                         event.sessionId
                     }
-                    Log.i(TAG, "[${server.displayName}] Question asked for session ${event.sessionId} (target=$targetSessionId)")
+                    AppLogger.i(TAG, "[${server.displayName}] Question asked for session ${event.sessionId} (target=$targetSessionId)")
                     if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
                     val questionText = event.questions.firstOrNull()?.question
                         ?: getString(R.string.notification_has_question, getString(R.string.notification_new_session))
@@ -418,7 +432,7 @@ class OpenCodeConnectionService : Service() {
                     } else {
                         event.sessionId
                     }
-                    Log.i(TAG, "[${server.displayName}] Session error: ${event.error} (session=${event.sessionId}, target=$targetSessionId)")
+                    AppLogger.i(TAG, "[${server.displayName}] Session error: ${event.error} (session=${event.sessionId}, target=$targetSessionId)")
                     if (targetSessionId != null && sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
                     appNotificationManager.showErrorNotification(
                         this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, event.error
@@ -467,14 +481,14 @@ class OpenCodeConnectionService : Service() {
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG).apply {
             acquire()
         }
-        if (BuildConfig.DEBUG) Log.d(TAG, "WakeLock acquired")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "WakeLock acquired")
     }
 
     private fun releaseWakeLock() {
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()
-                if (BuildConfig.DEBUG) Log.d(TAG, "WakeLock released")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "WakeLock released")
             }
         }
         wakeLock = null

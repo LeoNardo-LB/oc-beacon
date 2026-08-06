@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.message
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.api.directoryHeader
@@ -297,14 +298,14 @@ class MessageApiImpl @Inject constructor(
     ): Boolean {
         val url = "${conn.baseUrl}/question/$requestId/reply"
         val bodyJson = json.encodeToString(QuestionReplyBody.serializer(), QuestionReplyBody(answers = answers))
-        if (BuildConfig.DEBUG) Log.d(TAG, "replyToQuestion: POST $url, directory=$directory, bodyJson=$bodyJson")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "replyToQuestion: POST $url, directory=$directory, bodyJson=$bodyJson")
         val result = httpClient.post(url) {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
             setBody(io.ktor.http.content.TextContent(bodyJson, ContentType.Application.Json))
         }
         val responseBody = result.bodyAsText()
-        if (BuildConfig.DEBUG) Log.d(TAG, "replyToQuestion: status=${result.status}, responseBody=$responseBody")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "replyToQuestion: status=${result.status}, responseBody=$responseBody")
         return result.status.isSuccess()
     }
 
@@ -318,12 +319,12 @@ class MessageApiImpl @Inject constructor(
         directory: String?
     ): Boolean {
         val url = "${conn.baseUrl}/question/$requestId/reject"
-        if (BuildConfig.DEBUG) Log.d(TAG, "rejectQuestion: POST $url, directory=$directory")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "rejectQuestion: POST $url, directory=$directory")
         val result = httpClient.post(url) {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
         }
-        if (BuildConfig.DEBUG) Log.d(TAG, "rejectQuestion: status=${result.status}")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "rejectQuestion: status=${result.status}")
         return result.status.isSuccess()
     }
 

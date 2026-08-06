@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.data.repository
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.Context
-import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
 import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
@@ -71,7 +72,7 @@ class PendingPromptRepositoryImpl @Inject constructor(
                 ?.let { json.decodeFromString<Map<String, PendingPromptRecord>>(it).toMutableMap() }
                 ?: mutableMapOf()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load pending prompts: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to load pending prompts: ${e.message}", e)
             mutableMapOf()
         }
         return records!!
@@ -81,7 +82,7 @@ class PendingPromptRepositoryImpl @Inject constructor(
         try {
             file.writeText(json.encodeToString(ensureLoaded()))
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to persist pending prompts: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to persist pending prompts: ${e.message}", e)
         }
     }
 }

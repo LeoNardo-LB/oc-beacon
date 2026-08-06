@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.sse.parsers
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.serialization.json.*
 
@@ -56,7 +57,7 @@ class PtyEventParser : SseEventParser {
                 else -> null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse $eventType: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to parse $eventType: ${e.message}", e)
             null
         }
     }

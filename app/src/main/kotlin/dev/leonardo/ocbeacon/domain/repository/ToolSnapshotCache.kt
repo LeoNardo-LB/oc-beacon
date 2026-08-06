@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.repository
 
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,7 +17,10 @@ import javax.inject.Singleton
 @Singleton
 class ToolSnapshotCache @Inject constructor() {
 
-    private val snapshots = mutableMapOf<String, Snapshot>()
+    // ConcurrentHashMap：ChatViewModel（主线程写入）与 FileViewerViewModel
+    //（主线程清除）可能在不同生命周期交错访问，且未来可能引入后台线程，
+    // 非线程安全 map 存在并发损坏风险。
+    private val snapshots = ConcurrentHashMap<String, Snapshot>()
 
     fun put(partId: String, snapshot: Snapshot) {
         snapshots[partId] = snapshot

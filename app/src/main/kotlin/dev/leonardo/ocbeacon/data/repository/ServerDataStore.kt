@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -44,7 +45,7 @@ class ServerDataStore @Inject constructor(
             json.decodeFromString<List<ServerConfig>>(serversJson)
                 .map { it.withDecryptedPassword() }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to decode servers", e)
+            AppLogger.e(TAG, "Failed to decode servers", e)
             emptyList()
         }
     }
@@ -127,7 +128,7 @@ class ServerDataStore @Inject constructor(
             
             Result.success(health)
         } catch (e: Exception) {
-            Log.e(TAG, "Health check failed for ${server.url}", e)
+            AppLogger.e(TAG, "Health check failed for ${server.url}", e)
             
             // 标记为不健康
             val updatedServer = server.copy(isHealthy = false)
@@ -165,7 +166,7 @@ class ServerDataStore @Inject constructor(
         val pw = password ?: return this
         return copy(
             password = runCatching { secretCipher.decrypt(pw) }.getOrElse {
-                Log.w(TAG, "Failed to decrypt password for ${url}", it)
+                AppLogger.w(TAG, "Failed to decrypt password for ${url}", it)
                 null
             }
         )
@@ -179,7 +180,7 @@ class ServerDataStore @Inject constructor(
                 pw
             } else {
                 runCatching { secretCipher.encrypt(pw) }.getOrElse {
-                    Log.w(TAG, "Failed to encrypt password for ${url}", it)
+                    AppLogger.w(TAG, "Failed to encrypt password for ${url}", it)
                     pw
                 }
             }

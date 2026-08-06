@@ -12,6 +12,7 @@ import dev.leonardo.ocbeacon.domain.usecase.FindFilesUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetVcsStatusUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ListDirectoryUseCase
 import dev.leonardo.ocbeacon.ui.navigation.routes.ServerRouteParams
+import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import dev.leonardo.ocbeacon.ui.navigation.routes.WorkspaceNav
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,7 +24,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.net.URLDecoder
 import javax.inject.Inject
 
 @HiltViewModel
@@ -35,9 +35,7 @@ class WorkspaceViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val serverId = savedStateHandle.get<String>(ServerRouteParams.PARAM_SERVER_ID).orEmpty()
-    private val directory = URLDecoder.decode(
-        savedStateHandle.get<String>(WorkspaceNav.PARAM_DIRECTORY).orEmpty(), "UTF-8"
-    )
+    private val directory = safeDecodeParam(savedStateHandle.get<String>(WorkspaceNav.PARAM_DIRECTORY).orEmpty())
 
     private val _uiState = MutableStateFlow(WorkspaceUiState(directory = directory))
     val uiState: StateFlow<WorkspaceUiState> = _uiState.asStateFlow()

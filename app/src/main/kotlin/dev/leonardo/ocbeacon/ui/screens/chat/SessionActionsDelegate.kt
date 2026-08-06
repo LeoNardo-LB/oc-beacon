@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
@@ -142,7 +143,7 @@ internal class SessionActionsDelegate(
     fun replyToPermission(requestId: String, reply: String) {
         scope.launch {
             val logMsg = "[Permission] replyToPermission: id=$requestId reply=$reply dir=${sessionDirectoryProvider()}"
-            Log.i(TAG, logMsg)
+            AppLogger.i(TAG, logMsg)
             try {
                 val success = managePermissionUseCase.replyToPermission(
                     serverId = serverId,
@@ -151,17 +152,17 @@ internal class SessionActionsDelegate(
                     directory = sessionDirectoryProvider()
                 )
                 val resultMsg = "[Permission] replyToPermission result: id=$requestId success=$success"
-                Log.i(TAG, resultMsg)
+                AppLogger.i(TAG, resultMsg)
                 if (success) {
                     chatRepository.removePermission(requestId)
                 } else {
                     val warnMsg = "[Permission] API returned failure for $requestId, removing card as fallback (likely already replied)"
-                    Log.w(TAG, warnMsg)
+                    AppLogger.w(TAG, warnMsg)
                     chatRepository.removePermission(requestId)
                 }
             } catch (e: Exception) {
                 val errMsg = "[Permission] Exception replying to $requestId: ${e.javaClass.simpleName}: ${e.message}"
-                Log.e(TAG, errMsg, e)
+                AppLogger.e(TAG, errMsg, e)
                 chatRepository.removePermission(requestId)
             }
         }
@@ -186,7 +187,7 @@ internal class SessionActionsDelegate(
     fun replyToQuestion(requestId: String, answers: List<List<String>>) {
         scope.launch {
             val logMsg = "[Question] replyToQuestion: id=$requestId answers=$answers dir=${sessionDirectoryProvider()}"
-            Log.i(TAG, logMsg)
+            AppLogger.i(TAG, logMsg)
             try {
                 val success = managePermissionUseCase.replyToQuestion(
                     serverId = serverId,
@@ -195,11 +196,11 @@ internal class SessionActionsDelegate(
                     directory = sessionDirectoryProvider()
                 )
                 val resultMsg = "[Question] replyToQuestion result: id=$requestId success=$success"
-                Log.i(TAG, resultMsg)
+                AppLogger.i(TAG, resultMsg)
                 chatRepository.removeQuestion(requestId)
             } catch (e: Exception) {
                 val errMsg = "[Question] Exception replying to $requestId: ${e.javaClass.simpleName}: ${e.message}"
-                Log.e(TAG, errMsg, e)
+                AppLogger.e(TAG, errMsg, e)
                 chatRepository.removeQuestion(requestId)
             }
         }
@@ -211,7 +212,7 @@ internal class SessionActionsDelegate(
     fun rejectQuestion(requestId: String) {
         scope.launch {
             val logMsg = "[Question] rejectQuestion: id=$requestId dir=${sessionDirectoryProvider()}"
-            Log.i(TAG, logMsg)
+            AppLogger.i(TAG, logMsg)
             try {
                 val success = managePermissionUseCase.rejectQuestion(
                     serverId = serverId,
@@ -219,11 +220,11 @@ internal class SessionActionsDelegate(
                     directory = sessionDirectoryProvider()
                 )
                 val resultMsg = "[Question] rejectQuestion result: id=$requestId success=$success"
-                Log.i(TAG, resultMsg)
+                AppLogger.i(TAG, resultMsg)
                 chatRepository.removeQuestion(requestId)
             } catch (e: Exception) {
                 val errMsg = "[Question] Exception rejecting $requestId: ${e.javaClass.simpleName}: ${e.message}"
-                Log.e(TAG, errMsg, e)
+                AppLogger.e(TAG, errMsg, e)
                 chatRepository.removeQuestion(requestId)
             }
         }
@@ -237,10 +238,10 @@ internal class SessionActionsDelegate(
             try {
                 val session = shareExportUseCase.shareSession(serverId, sessionId)
                 val url = session.share?.url
-                if (BuildConfig.DEBUG) Log.d(TAG, "Shared session $sessionId: $url")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Shared session $sessionId: $url")
                 onResult(url)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to share session", e)
+                AppLogger.e(TAG, "Failed to share session", e)
                 onResult(null)
             }
         }
@@ -250,10 +251,10 @@ internal class SessionActionsDelegate(
         scope.launch {
             try {
                 shareExportUseCase.unshareSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Unshared session $sessionId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unshared session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to unshare session", e)
+                AppLogger.e(TAG, "Failed to unshare session", e)
                 onResult(false)
             }
         }
@@ -267,15 +268,15 @@ internal class SessionActionsDelegate(
                 val providerId = config.selectedProviderId
                 val modelId = config.selectedModelId
                 if (providerId == null || modelId == null) {
-                    Log.e(TAG, "Cannot compact: no model selected")
+                    AppLogger.e(TAG, "Cannot compact: no model selected")
                     onResult(false)
                     return@launch
                 }
                 shareExportUseCase.compactSession(serverId, sessionId, providerId, modelId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Compacted session $sessionId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Compacted session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to compact session", e)
+                AppLogger.e(TAG, "Failed to compact session", e)
                 onResult(false)
             }
         }
@@ -313,7 +314,7 @@ internal class SessionActionsDelegate(
                 .setProgress(0, 0, true)
 
             try {
-                Log.d(TAG, "exportSession: streaming to $uri")
+                AppLogger.d(TAG, "exportSession: streaming to $uri")
                 notificationManager.notify(notificationId, builder.build())
 
                 var lastNotifyTime = 0L
@@ -329,13 +330,13 @@ internal class SessionActionsDelegate(
                     }
                 }
 
-                Log.d(TAG, "exportSession: done")
+                AppLogger.d(TAG, "exportSession: done")
                 notificationManager.cancel(notificationId)
                 withContext(Dispatchers.Main) {
                     onResult(true)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to export session", e)
+                AppLogger.e(TAG, "Failed to export session", e)
                 notificationManager.cancel(notificationId)
                 withContext(Dispatchers.Main) {
                     onResult(false)
@@ -357,11 +358,11 @@ internal class SessionActionsDelegate(
                     return@launch
                 }
                 undoRedoUseCase.revertSession(serverId, sessionId, lastUser.message.id)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Reverted session $sessionId to message ${lastUser.message.id}")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Reverted session $sessionId to message ${lastUser.message.id}")
                 restoreRevertedDraft(extractRevertedDraft(lastUser))
                 onResult(true)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to revert session", e)
+                AppLogger.e(TAG, "Failed to revert session", e)
                 onResult(false)
             }
         }
@@ -372,10 +373,10 @@ internal class SessionActionsDelegate(
         scope.launch {
             try {
                 undoRedoUseCase.unrevertSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Unreverted session $sessionId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unreverted session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to unrevert session", e)
+                AppLogger.e(TAG, "Failed to unrevert session", e)
                 onResult(false)
             }
         }
@@ -410,10 +411,10 @@ internal class SessionActionsDelegate(
         scope.launch {
             try {
                 val success = manageSessionUseCase.deleteMessage(serverId, sessionId, messageId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Deleted message $messageId: success=$success")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Deleted message $messageId: success=$success")
                 onResult(success)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to delete message $messageId", e)
+                AppLogger.e(TAG, "Failed to delete message $messageId", e)
                 onResult(false)
             }
         }
@@ -424,10 +425,10 @@ internal class SessionActionsDelegate(
         scope.launch {
             try {
                 val success = manageSessionUseCase.deleteMessagePart(serverId, sessionId, messageId, partIndex)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Deleted part $partIndex from message $messageId: success=$success")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Deleted part $partIndex from message $messageId: success=$success")
                 onResult(success)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to delete part $partIndex from message $messageId", e)
+                AppLogger.e(TAG, "Failed to delete part $partIndex from message $messageId", e)
                 onResult(false)
             }
         }
@@ -445,9 +446,9 @@ internal class SessionActionsDelegate(
             try {
                 val messages = manageSessionUseCase.listMessages(serverId, sessionId, 100)
                 chatRepository.replaceMessages(sessionId, messages)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Refreshed messages after session update")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Refreshed messages after session update")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to refresh messages after session update", e)
+                AppLogger.e(TAG, "Failed to refresh messages after session update", e)
             }
         }
     }
@@ -457,10 +458,10 @@ internal class SessionActionsDelegate(
         scope.launch {
             try {
                 val session = manageSessionUseCase.forkSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Forked session $sessionId -> ${session.id}")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Forked session $sessionId -> ${session.id}")
                 onResult(session)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to fork session", e)
+                AppLogger.e(TAG, "Failed to fork session", e)
                 onResult(null)
             }
         }
@@ -471,10 +472,10 @@ internal class SessionActionsDelegate(
         scope.launch {
             try {
                 manageSessionUseCase.renameSession(serverId, sessionId, title)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Renamed session $sessionId to $title")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Renamed session $sessionId to $title")
                 onResult(true)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to rename session", e)
+                AppLogger.e(TAG, "Failed to rename session", e)
                 onResult(false)
             }
         }
@@ -487,7 +488,7 @@ internal class SessionActionsDelegate(
      */
     suspend fun abortSession() {
         sessionRepository.abort(serverId, sessionId, sessionDirectoryProvider())
-        if (BuildConfig.DEBUG) Log.d(TAG, "Aborted session $sessionId")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
         sessionStateService.onClientAbort(sessionId)
     }
 
@@ -524,14 +525,14 @@ internal class SessionActionsDelegate(
                     directory = effectiveDirectory,
                 )
                 if (BuildConfig.DEBUG) {
-                    Log.d(
+                    AppLogger.d(
                         TAG,
                         "Executed command /$normalizedCommand in session $currentSessionId: $ok (directory=$effectiveDirectory, arguments=$effectiveArguments)"
                     )
                 }
                 onResult(ok)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to execute command /$command", e)
+                AppLogger.e(TAG, "Failed to execute command /$command", e)
                 onResult(false)
             }
         }
@@ -561,10 +562,10 @@ internal class SessionActionsDelegate(
                     model = model,
                     directory = sessionDirectoryProvider()
                 )
-                if (BuildConfig.DEBUG) Log.d(TAG, "Executed shell command in session $sessionId: $ok")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Executed shell command in session $sessionId: $ok")
                 onResult(ok)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to execute shell command", e)
+                AppLogger.e(TAG, "Failed to execute shell command", e)
                 onResult(false)
             }
         }

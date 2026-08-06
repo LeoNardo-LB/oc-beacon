@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
 import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
@@ -84,11 +85,11 @@ internal class ChatSendDelegate(
                 // 仅在标题实际变化时更新（如果 SSE 已投递则跳过）
                 if (refreshed.title != currentTitle) {
                     val msg = "[Title] REST fallback: title updated from '$currentTitle' to '${refreshed.title}'"
-                    Log.i(TAG, msg)
+                    AppLogger.i(TAG, msg)
                     sessionRepository.setSessions(serverId, listOf(refreshed))
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to refresh session title for $sid: ${e.message}")
+                AppLogger.w(TAG, "Failed to refresh session title for $sid: ${e.message}")
             }
         }
     }
@@ -97,7 +98,7 @@ internal class ChatSendDelegate(
         // RS-007 修复：防止快速双击。_isSending 由 onSendStarted 同步设置，
         // 但 Compose 重组（禁用按钮）有 1 帧延迟。此检查消除了竞态窗口。
         if (messageData.isSendingValue) {
-            if (BuildConfig.DEBUG) Log.d(TAG, "sendParts: already sending, ignoring duplicate")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "sendParts: already sending, ignoring duplicate")
             return
         }
         scrollSignal.requestScrollToTop()
@@ -159,10 +160,10 @@ internal class ChatSendDelegate(
                 )
                 messageData.onSendSuccess(pendingId)
                 pendingPromptRepository.remove(pendingId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
                 refreshSessionTitleDelayed(currentSessionId)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to send message", e)
+                AppLogger.e(TAG, "Failed to send message", e)
                 // 从失败的发送恢复草稿
                 val failedText = parts.filter { it.type == "text" }.mapNotNull { it.text }.joinToString("\n")
                 if (failedText.isNotBlank()) {

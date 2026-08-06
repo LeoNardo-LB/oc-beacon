@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.repository.handler.*
 import dev.leonardo.ocbeacon.domain.model.FileDiff
@@ -186,7 +187,7 @@ class EventDispatcher @Inject constructor(
             val owner = streamingSessionOwners.putIfAbsent(sessionId, serverId)
             if (owner != null && owner != serverId) {
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Skipping duplicate ${event::class.simpleName} for session " +
+                    AppLogger.d(TAG, "Skipping duplicate ${event::class.simpleName} for session " +
                         "${sessionId.take(12)} from server=$serverId (owner=$owner)")
                 }
                 return
@@ -200,7 +201,7 @@ class EventDispatcher @Inject constructor(
         if (handler != null) {
             handler.handle(event, serverId)
         } else if (BuildConfig.DEBUG) {
-            Log.w(TAG, "No handler registered for ${event::class.simpleName}")
+            AppLogger.w(TAG, "No handler registered for ${event::class.simpleName}")
         }
         forwardToSessionStateService(event)
 

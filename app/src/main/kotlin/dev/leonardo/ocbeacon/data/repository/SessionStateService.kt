@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.di.ApplicationScope
 import dev.leonardo.ocbeacon.domain.model.*
@@ -73,11 +74,11 @@ class SessionStateService @Inject constructor(
         val now = System.currentTimeMillis()
         _fsmStates.value.forEach { (sessionId, state) ->
             if (state.core is SessionStatus.Busy && now - state.lastEventAt > STALENESS_THRESHOLD_MS) {
-                Log.w(TAG, "[$sessionId] L2 stale for ${now - state.lastEventAt}ms, triggering REST validation")
+                AppLogger.w(TAG, "[$sessionId] L2 stale for ${now - state.lastEventAt}ms, triggering REST validation")
                 triggerRestValidation(sessionId)
             }
             if (state.core is SessionStatus.Idle && incompleteChecker.hasIncomplete(sessionId)) {
-                Log.w(TAG, "[$sessionId] L5 inconsistency: Idle but has incomplete messages")
+                AppLogger.w(TAG, "[$sessionId] L5 inconsistency: Idle but has incomplete messages")
                 triggerRestValidation(sessionId)
             }
         }
@@ -194,7 +195,7 @@ class SessionStateService @Inject constructor(
             if (result.isSuspicious) append(" [SUSPICIOUS]")
             if (result.forceComplete) append(" [force-complete]")
         }
-        Log.d(TAG, "[$sessionId] ${from.core::class.simpleName}$actFrom --${event::class.simpleName}--> ${result.newState.core::class.simpleName}$actTo$flags")
+        AppLogger.d(TAG, "[$sessionId] ${from.core::class.simpleName}$actFrom --${event::class.simpleName}--> ${result.newState.core::class.simpleName}$actTo$flags")
     }
 
     // ============ 生命周期 ============
@@ -247,12 +248,12 @@ class SessionStateService @Inject constructor(
                 result.onSuccess { statuses ->
                     val serverStatus = statuses[sessionId]
                     if (serverStatus != null) {
-                        if (BuildConfig.DEBUG) Log.d(TAG, "[$sessionId] L3 REST validation: server says ${serverStatus::class.simpleName}")
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST validation: server says ${serverStatus::class.simpleName}")
                         onRestValidation(sessionId, serverStatus)
                     } else if (directory != null) {
                         // 服务器会从其状态 map 中删除 idle 会话——缺失即 idle。
                         // 仅当查询的是会话自身的 directory 时才信任此结论。
-                        if (BuildConfig.DEBUG) Log.d(TAG, "[$sessionId] L3 REST validation: absent from own directory -> idle")
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST validation: absent from own directory -> idle")
                         onRestValidation(sessionId, SessionStatus.Idle)
                     }
                     // directory == null + 缺失 -> 跳过（避免在未知实例上误判 idle）
@@ -262,11 +263,11 @@ class SessionStateService @Inject constructor(
                     sessionRepoProvider.get().listMessages(sid, sessionId, limit = 0)
                         .onSuccess { messages ->
                             messageRefresher.replaceMessages(sessionId, messages)
-                            if (BuildConfig.DEBUG) Log.d(TAG, "[$sessionId] L3 REST message refresh: ${messages.size} msgs")
+                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${messages.size} msgs")
                         }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "[$sessionId] L3 REST validation failed: ${e.message}")
+                AppLogger.w(TAG, "[$sessionId] L3 REST validation failed: ${e.message}")
             }
         }
         // 原子替换此会话的任何现有 job（取消旧 job）

@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.service
 
-import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.NetworkMonitor
@@ -70,7 +69,7 @@ class SseConnectionManager @Inject constructor(
             // 但此处捕获任何漏网异常——尤其重要，因为 reconnectServer()
             // 会取消正在运行的 job 再启动新的，这可能与进行中的 DNS 解析竞争，
             // 并表现为 UnknownHostException。
-            Log.e(TAG, "Unhandled coroutine exception in SSE connection scope", exception)
+            AppLogger.e(TAG, "Unhandled coroutine exception in SSE connection scope", exception)
         }
     )
 
@@ -185,12 +184,12 @@ class SseConnectionManager @Inject constructor(
     private suspend fun reconnectServer(serverId: String) {
         // RS-017：若此服务器的重连已在进行中则跳过
         if (!reconnectingServers.add(serverId)) {
-            Log.w(TAG, "Reconnect already in progress for $serverId, skipping")
+            AppLogger.w(TAG, "Reconnect already in progress for $serverId, skipping")
             return
         }
         try {
             val state = connections[serverId] ?: return
-            Log.i(TAG, "Reconnecting server $serverId after network recovery")
+            AppLogger.i(TAG, "Reconnecting server $serverId after network recovery")
             timeoutTrackers[serverId]?.reset()
             // RS-001：等待旧协程完全停止后再启动新的
             state.sseJob.cancelAndJoin()
@@ -242,12 +241,12 @@ class SseConnectionManager @Inject constructor(
 
                 // 若处于冷却中，等待并跳过重连尝试
                 if (tracker.isInCooldown()) {
-                    Log.i(TAG, "[${server.displayName}] SSE in cooldown, waiting ${COOLDOWN_CHECK_INTERVAL_MS}ms")
+                    AppLogger.i(TAG, "[${server.displayName}] SSE in cooldown, waiting ${COOLDOWN_CHECK_INTERVAL_MS}ms")
                     delay(COOLDOWN_CHECK_INTERVAL_MS)
                     continue
                 }
 
-                Log.i(TAG, "[${server.displayName}] SSE connection attempt #$attempt")
+                AppLogger.i(TAG, "[${server.displayName}] SSE connection attempt #$attempt")
 
                 // 通过 REST API 为所有项目预加载会话
                 preLoadSessions(server, conn)
@@ -260,7 +259,7 @@ class SseConnectionManager @Inject constructor(
                 try {
                     sseClient.connectToGlobalEvents(conn)
                         .catch { error ->
-                            Log.e(TAG, "[${server.displayName}] SSE stream error", error)
+                            AppLogger.e(TAG, "[${server.displayName}] SSE stream error", error)
                             updateServerConnected(server.id, false)
                             tracker.recordTimeout()
                             throw error
@@ -284,23 +283,23 @@ class SseConnectionManager @Inject constructor(
                         }
 
                     // Flow 正常完成（服务器关闭了连接）
-                    Log.w(TAG, "[${server.displayName}] SSE stream completed")
+                    AppLogger.w(TAG, "[${server.displayName}] SSE stream completed")
                     updateServerConnected(server.id, false)
                     if (tracker.shouldEnterCooldown()) {
                         tracker.enterCooldown()
-                        Log.w(TAG, "[${server.displayName}] Entering SSE cooldown after ${tracker.consecutiveTimeouts} consecutive timeouts")
+                        AppLogger.w(TAG, "[${server.displayName}] Entering SSE cooldown after ${tracker.consecutiveTimeouts} consecutive timeouts")
                     } else {
                         tracker.recordTimeout()
                     }
                 } catch (e: CancellationException) {
-                    if (BuildConfig.DEBUG) Log.d(TAG, "[${server.displayName}] SSE job cancelled, not reconnecting")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] SSE job cancelled, not reconnecting")
                     throw e
                 } catch (e: Exception) {
-                    Log.e(TAG, "[${server.displayName}] SSE connection failed: ${e.message}")
+                    AppLogger.e(TAG, "[${server.displayName}] SSE connection failed: ${e.message}")
                     updateServerConnected(server.id, false)
                     if (tracker.shouldEnterCooldown()) {
                         tracker.enterCooldown()
-                        Log.w(TAG, "[${server.displayName}] Entering SSE cooldown after ${tracker.consecutiveTimeouts} consecutive timeouts")
+                        AppLogger.w(TAG, "[${server.displayName}] Entering SSE cooldown after ${tracker.consecutiveTimeouts} consecutive timeouts")
                     } else {
                         tracker.recordTimeout()
                     }
@@ -310,7 +309,7 @@ class SseConnectionManager @Inject constructor(
                 if (!connections.containsKey(server.id)) break
 
                 val delayMs = calculateBackoff(attempt)
-                Log.i(TAG, "[${server.displayName}] Reconnecting in ${delayMs}ms (attempt #$attempt)")
+                AppLogger.i(TAG, "[${server.displayName}] Reconnecting in ${delayMs}ms (attempt #$attempt)")
                 delay(delayMs)
             }
         }
@@ -323,7 +322,7 @@ class SseConnectionManager @Inject constructor(
                 // 回退：加载不带 directory 头的会话（仅服务器 CWD）
                 val sessions = sessionApi.listSessions(conn)
                 eventDispatcher.setSessions(server.id, sessions)
-                Log.i(TAG, "[${server.displayName}] Pre-loaded ${sessions.size} sessions (no projects)")
+                AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${sessions.size} sessions (no projects)")
             } else {
                 var totalSessions = 0
                 for (project in projects) {
@@ -332,17 +331,17 @@ class SseConnectionManager @Inject constructor(
                         eventDispatcher.setSessions(server.id, sessions)
                         totalSessions += sessions.size
                     } catch (e: Exception) {
-                        Log.w(TAG, "[${server.displayName}] Failed to pre-load sessions for project ${project.displayName}: ${e.message}")
+                        AppLogger.w(TAG, "[${server.displayName}] Failed to pre-load sessions for project ${project.displayName}: ${e.message}")
                     }
                 }
-                Log.i(TAG, "[${server.displayName}] Pre-loaded $totalSessions sessions across ${projects.size} projects")
+                AppLogger.i(TAG, "[${server.displayName}] Pre-loaded $totalSessions sessions across ${projects.size} projects")
             }
             // 通过统一的 FSM 管线从服务器初始化会话状态
             //（跨项目 worktree 聚合 + 缺失=idle + 不完整保护）。
             sessionStateService.setServerId(server.id)
             sessionStateService.syncFromRest(projects)
         } catch (e: Exception) {
-            Log.w(TAG, "[${server.displayName}] Failed to pre-load sessions: ${e.message}")
+            AppLogger.w(TAG, "[${server.displayName}] Failed to pre-load sessions: ${e.message}")
         }
     }
 
@@ -356,7 +355,7 @@ class SseConnectionManager @Inject constructor(
         if (sessionIds.isEmpty()) return
 
         // 阶段 1：恢复消息（REST 作为真相源）
-        Log.i(TAG, "[${server.displayName}] Recovering messages for ${sessionIds.size} sessions")
+        AppLogger.i(TAG, "[${server.displayName}] Recovering messages for ${sessionIds.size} sessions")
         var recoveredCount = 0
         for (sessionId in sessionIds) {
             try {
@@ -364,10 +363,10 @@ class SseConnectionManager @Inject constructor(
                 eventDispatcher.replaceMessages(sessionId, messages)
                 recoveredCount++
             } catch (e: Exception) {
-                Log.w(TAG, "[${server.displayName}] Failed to recover messages for session $sessionId: ${e.message}")
+                AppLogger.w(TAG, "[${server.displayName}] Failed to recover messages for session $sessionId: ${e.message}")
             }
         }
-        Log.i(TAG, "[${server.displayName}] Recovered messages for $recoveredCount/${sessionIds.size} sessions")
+        AppLogger.i(TAG, "[${server.displayName}] Recovered messages for $recoveredCount/${sessionIds.size} sessions")
 
         // 阶段 2：通过统一的 FSM 管线从服务器同步真实会话状态。
         // 包裹在 try-catch 中：当服务器返回非 JSON 错误响应（例如反向
@@ -379,7 +378,7 @@ class SseConnectionManager @Inject constructor(
             sessionStateService.setServerId(server.id)
             sessionStateService.syncFromRest(projects)
         } catch (e: Exception) {
-            Log.w(TAG, "[${server.displayName}] Failed to sync session statuses during recovery: ${e.message}")
+            AppLogger.w(TAG, "[${server.displayName}] Failed to sync session statuses during recovery: ${e.message}")
         }
     }
 

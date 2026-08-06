@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -18,6 +19,7 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
+import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
@@ -30,7 +32,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.net.URLDecoder
 import javax.inject.Inject
 
 private const val TAG = "ChatViewModel"
@@ -80,21 +81,11 @@ class ChatViewModel @Inject constructor(
     /** 为 ChatMessageList composable 暴露 chatRepository（工具进度、步骤进度、压缩状态）。 */
     val chatRepositoryExposed: ChatRepository get() = chatRepository
 
-    private val serverUrl: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverUrl") ?: "", "UTF-8"
-    )
-    private val username: String = URLDecoder.decode(
-        savedStateHandle.get<String>("username") ?: "", "UTF-8"
-    )
-    private val password: String = URLDecoder.decode(
-        savedStateHandle.get<String>("password") ?: "", "UTF-8"
-    )
-    val serverName: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverName") ?: "", "UTF-8"
-    )
-    val serverId: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverId") ?: "", "UTF-8"
-    )
+    private val serverUrl: String = safeDecodeParam(savedStateHandle.get<String>("serverUrl") ?: "")
+    private val username: String = safeDecodeParam(savedStateHandle.get<String>("username") ?: "")
+    private val password: String = safeDecodeParam(savedStateHandle.get<String>("password") ?: "")
+    val serverName: String = safeDecodeParam(savedStateHandle.get<String>("serverName") ?: "")
+    val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
 
     // ============ 会话生命周期 Delegate ============
     private val sessionLifecycle = SessionLifecycleDelegate(
@@ -382,10 +373,10 @@ class ChatViewModel @Inject constructor(
         // 加载数据
         if (!isNewSession) {
             viewModelScope.launch {
-                try { sessionLifecycle.loadSession() } catch (e: Exception) { Log.e(TAG, "loadSession failed", e) }
-                try { messageData.loadMessages() } catch (e: Exception) { Log.e(TAG, "loadMessages failed", e) }
-                try { messageData.loadPendingQuestions() } catch (e: Exception) { Log.e(TAG, "loadPendingQuestions failed", e) }
-                try { messageData.loadPendingPermissions() } catch (e: Exception) { Log.e(TAG, "loadPendingPermissions failed", e) }
+                try { sessionLifecycle.loadSession() } catch (e: Exception) { AppLogger.e(TAG, "loadSession failed", e) }
+                try { messageData.loadMessages() } catch (e: Exception) { AppLogger.e(TAG, "loadMessages failed", e) }
+                try { messageData.loadPendingQuestions() } catch (e: Exception) { AppLogger.e(TAG, "loadPendingQuestions failed", e) }
+                try { messageData.loadPendingPermissions() } catch (e: Exception) { AppLogger.e(TAG, "loadPendingPermissions failed", e) }
             }
         } else {
             sessionLifecycle.initForNewSession()
@@ -481,10 +472,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 sessionActions.abortSession()
-                if (BuildConfig.DEBUG) Log.d(TAG, "Aborted session $sessionId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
                 runCatching { messageData.startObservingMessages() }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to abort session", e)
+                AppLogger.e(TAG, "Failed to abort session", e)
             }
         }
     }
@@ -527,14 +518,14 @@ class ChatViewModel @Inject constructor(
                 chatRepository.setRevert(sessionId, messageId)
 
                 if (wasBusy) {
-                    if (BuildConfig.DEBUG) Log.d(TAG, "Revert：暂停 busy 会话 $sessionId")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Revert：暂停 busy 会话 $sessionId")
                     sessionStateService.onClientAbort(sessionId)
                     messageData.cancelSseJob()
                     runCatching { sessionRepository.abort(serverId, sessionId, sessionLifecycle.sessionDirectory) }
                 }
 
                 undoRedoUseCase.revertSession(serverId, sessionId, messageId)
-                if (BuildConfig.DEBUG) Log.d(TAG, "Reverted session $sessionId to message $messageId")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Reverted session $sessionId to message $messageId")
 
                 if (wasBusy) {
                     runCatching { messageData.startObservingMessages() }
@@ -548,7 +539,7 @@ class ChatViewModel @Inject constructor(
                 )
                 onResult(true)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to revert to message $messageId", e)
+                AppLogger.e(TAG, "Failed to revert to message $messageId", e)
                 onResult(false)
             }
         }

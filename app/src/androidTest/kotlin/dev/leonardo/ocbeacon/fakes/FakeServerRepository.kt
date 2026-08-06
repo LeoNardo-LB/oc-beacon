@@ -64,12 +64,6 @@ class FakeServerRepository @Inject constructor() :
 
     override suspend fun loadProviderCatalog(serverId: String): Result<ProvidersResponse> = catalogResult
 
-    override suspend fun setProviderEnabled(
-        serverId: String,
-        providerId: String,
-        enabled: Boolean
-    ): Result<Unit> = Result.success(Unit)
-
     override suspend fun connectProviderApi(
         serverId: String,
         providerId: String,
@@ -78,15 +72,6 @@ class FakeServerRepository @Inject constructor() :
 
     override suspend fun disconnectProvider(serverId: String, providerId: String): Result<Unit> =
         Result.success(Unit)
-
-    override suspend fun setModelVisible(
-        serverId: String,
-        providerId: String,
-        modelId: String,
-        visible: Boolean
-    ): Result<Unit> = Result.success(Unit)
-
-    override suspend fun saveServerConfig(serverId: String): Result<Unit> = Result.success(Unit)
 
     override suspend fun loadProviderConnectionStatus(
         serverId: String

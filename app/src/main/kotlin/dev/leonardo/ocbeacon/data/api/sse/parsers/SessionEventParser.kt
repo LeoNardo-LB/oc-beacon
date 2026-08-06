@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.sse.parsers
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
@@ -44,13 +45,13 @@ class SessionEventParser(private val json: Json) : SseEventParser {
                         else -> SessionStatus.Idle
                     }
 
-                    Log.i(TAG, "Session $sessionId status -> $statusType")
+                    AppLogger.i(TAG, "Session $sessionId status -> $statusType")
                     SseEvent.SessionStatus(sessionId = sessionId, status = status)
                 }
 
                 "session.idle" -> {
                     val sessionId = props.str("sessionID")
-                    Log.i(TAG, "Session $sessionId idle")
+                    AppLogger.i(TAG, "Session $sessionId idle")
                     SseEvent.SessionIdle(sessionId = sessionId)
                 }
 
@@ -105,7 +106,7 @@ class SessionEventParser(private val json: Json) : SseEventParser {
                 else -> null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse $eventType: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to parse $eventType: ${e.message}", e)
             null
         }
     }

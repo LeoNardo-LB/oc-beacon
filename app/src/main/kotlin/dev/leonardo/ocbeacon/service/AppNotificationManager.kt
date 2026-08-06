@@ -483,6 +483,16 @@ class AppNotificationManager @Inject constructor(
         lastNotifiedAssistantMessageBySession.remove(notifKey)
     }
 
+    /**
+     * 清除指定服务器全部会话的去重缓存（防服务器级残留增长）。
+     * 在服务器断开连接时调用。
+     */
+    fun clearForServer(serverId: String) {
+        lastNotifiedPermissionBySession.keys.removeIf { it.startsWith("$serverId::") }
+        lastNotifiedQuestionBySession.keys.removeIf { it.startsWith("$serverId::") }
+        lastNotifiedAssistantMessageBySession.keys.removeIf { it.startsWith("$serverId::") }
+    }
+
     // ============ 私有辅助方法 ============
 
     private fun showServerGroupSummary(

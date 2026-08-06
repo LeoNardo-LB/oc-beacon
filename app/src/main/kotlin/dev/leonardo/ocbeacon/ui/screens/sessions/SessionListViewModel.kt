@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import dev.leonardo.ocbeacon.ui.WhileSubscribed5s
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
@@ -41,7 +42,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.net.URLDecoder
 import javax.inject.Inject
 
 @HiltViewModel
@@ -70,21 +70,11 @@ class SessionListViewModel @Inject constructor(
         const val KEY_SCROLL_TO_TOP = "session_list_scroll_to_top"
     }
 
-    val serverUrl: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverUrl") ?: "", "UTF-8"
-    )
-    private val username: String = URLDecoder.decode(
-        savedStateHandle.get<String>("username") ?: "", "UTF-8"
-    )
-    private val password: String = URLDecoder.decode(
-        savedStateHandle.get<String>("password") ?: "", "UTF-8"
-    )
-    val serverName: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverName") ?: "", "UTF-8"
-    )
-    val serverId: String = URLDecoder.decode(
-        savedStateHandle.get<String>("serverId") ?: "", "UTF-8"
-    )
+    val serverUrl: String = safeDecodeParam(savedStateHandle.get<String>("serverUrl") ?: "")
+    private val username: String = safeDecodeParam(savedStateHandle.get<String>("username") ?: "")
+    private val password: String = safeDecodeParam(savedStateHandle.get<String>("password") ?: "")
+    val serverName: String = safeDecodeParam(savedStateHandle.get<String>("serverName") ?: "")
+    val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
 
     internal val conn = ServerConnection.from(serverUrl, username, password.ifEmpty { null })
 

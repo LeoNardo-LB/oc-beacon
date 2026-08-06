@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.dialog
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.util.Base64
-import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -68,7 +69,7 @@ internal fun ImageThumbnailRow(
                     val bytes = Base64.decode(base64Data, Base64.DEFAULT)
                     android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                 } catch (e: Exception) {
-                    Log.e("FileCard", "Failed to decode image: ${e.message}")
+                    AppLogger.e("FileCard", "Failed to decode image: ${e.message}")
                     null
                 }
             }

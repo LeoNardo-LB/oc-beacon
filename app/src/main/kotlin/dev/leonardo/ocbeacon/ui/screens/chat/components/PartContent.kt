@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -116,10 +118,10 @@ internal fun PartContent(
                 val completedState = part.state as? ToolState.Completed
                 val toolInput = completedState?.input ?: emptyMap()
                 val toolOutput = completedState?.output ?: ""
-                android.util.Log.e("PartContent", "TOOL ELSE: tool=${part.tool} state=${part.state::class.simpleName} outputLen=${toolOutput.length} outputHead=${toolOutput.take(200)}")
+                AppLogger.e("PartContent", "TOOL ELSE: tool=${part.tool} state=${part.state::class.simpleName} outputLen=${toolOutput.length} outputHead=${toolOutput.take(200)}")
                 val isQuestionTool = toolOutput.contains("questions:")
                     || toolInput.any { it.key.contains("question", ignoreCase = true) }
-                android.util.Log.e("PartContent", "isQuestionTool=$isQuestionTool inputKeys=${toolInput.keys}")
+                AppLogger.e("PartContent", "isQuestionTool=$isQuestionTool inputKeys=${toolInput.keys}")
                 if (isQuestionTool) {
                     // 调试：记录完整工具数据以定位答案所在位置
                     dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "=== tool data ===")

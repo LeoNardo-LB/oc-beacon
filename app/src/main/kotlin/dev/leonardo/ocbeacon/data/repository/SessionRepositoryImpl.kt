@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
@@ -46,7 +47,7 @@ class SessionRepositoryImpl @Inject constructor(
             else allSessions.filter { it.id in sessionIds }
         }
             .catch { e ->
-                Log.e("SessionRepository", "Error in getSessionsFlow", e)
+                AppLogger.e("SessionRepository", "Error in getSessionsFlow", e)
                 emit(emptyList())
             }
     }
@@ -60,7 +61,7 @@ class SessionRepositoryImpl @Inject constructor(
             statuses.filterKeys { it in sessionIds }
         }
             .catch { e ->
-                Log.e("SessionRepository", "Error in getSessionStatusesFlow", e)
+                AppLogger.e("SessionRepository", "Error in getSessionStatusesFlow", e)
                 emit(emptyMap())
             }
     }

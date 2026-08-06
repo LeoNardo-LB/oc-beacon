@@ -1,9 +1,10 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
@@ -136,7 +137,7 @@ fun PdfViewer(
 
                             @android.webkit.JavascriptInterface
                             fun onError(message: String) {
-                                Log.e(TAG, "PDF.js error: $message")
+                                AppLogger.e(TAG, "PDF.js error: $message")
                                 mainHandler.post {
                                     isLoading = false
                                     hasError = true
@@ -150,7 +151,7 @@ fun PdfViewer(
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            Log.d(TAG, "Page finished loading, injecting PDF data")
+                            AppLogger.d(TAG, "Page finished loading, injecting PDF data")
                             view?.evaluateJavascript(
                                 "loadPdfFromBase64('$escapedBase64')",
                                 null
@@ -163,13 +164,13 @@ fun PdfViewer(
                             error: android.webkit.WebResourceError?
                         ) {
                             super.onReceivedError(view, request, error)
-                            Log.e(TAG, "WebView error: ${error?.description}")
+                            AppLogger.e(TAG, "WebView error: ${error?.description}")
                         }
                     }
 
                     webChromeClient = object : WebChromeClient() {
                         override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-                            Log.d(TAG, "JS Console [${consoleMessage.messageLevel()}]: ${consoleMessage.message()}")
+                            AppLogger.d(TAG, "JS Console [${consoleMessage.messageLevel()}]: ${consoleMessage.message()}")
                             return true
                         }
                     }

@@ -71,7 +71,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     var revertResult: Result<Unit> = Result.success(Unit)
     var unrevertResult: Result<Unit> = Result.success(Unit)
     var respondPermissionResult: Result<Boolean> = Result.success(true)
-    var selectModelResult: Result<Unit> = Result.success(Unit)
     var listPendingPermissionsResult: Result<List<PermissionState>> = Result.success(emptyList())
     var listPendingQuestionsResult: Result<List<QuestionState>> = Result.success(emptyList())
     var replyToQuestionResult: Result<Boolean> = Result.success(true)
@@ -163,9 +162,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         reply: String,
         directory: String?
     ): Result<Boolean> = respondPermissionResult
-
-    override suspend fun selectModel(serverId: String, providerId: String, modelId: String): Result<Unit> =
-        selectModelResult
 
     // ============ 待处理查询 ============
 

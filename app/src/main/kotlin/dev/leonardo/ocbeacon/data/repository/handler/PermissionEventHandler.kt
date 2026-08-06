@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository.handler
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
@@ -28,12 +29,12 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
     override fun handle(event: SseEvent, serverId: String): Boolean {
         return when (event) {
             is SseEvent.PermissionAsked -> {
-                if (BuildConfig.DEBUG) Log.d(TAG, "Permission event received: PermissionAsked(id=${event.id}, sessionId=${event.sessionId})")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Permission event received: PermissionAsked(id=${event.id}, sessionId=${event.sessionId})")
                 handlePermissionAsked(event)
                 true
             }
             is SseEvent.PermissionReplied -> {
-                if (BuildConfig.DEBUG) Log.d(TAG, "Permission event received: PermissionReplied(requestId=${event.requestId}, sessionId=${event.sessionId})")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Permission event received: PermissionReplied(requestId=${event.requestId}, sessionId=${event.sessionId})")
                 handlePermissionReplied(event)
                 true
             }
@@ -42,7 +43,7 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     private fun handlePermissionAsked(event: SseEvent.PermissionAsked) {
-        Log.i(TAG, "Permission auto-approved: id=${event.id}, permission=${event.permission}, sessionId=${event.sessionId}")
+        AppLogger.i(TAG, "Permission auto-approved: id=${event.id}, permission=${event.permission}, sessionId=${event.sessionId}")
         _permissions.update { current ->
             val sessionPerms = current[event.sessionId]?.toMutableList() ?: mutableListOf()
             if (sessionPerms.any { it.id == event.id }) {
@@ -55,7 +56,7 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     private fun handlePermissionReplied(event: SseEvent.PermissionReplied) {
-        Log.w(TAG, "Permission auto-denied: requestId=${event.requestId}, sessionId=${event.sessionId}")
+        AppLogger.w(TAG, "Permission auto-denied: requestId=${event.requestId}, sessionId=${event.sessionId}")
         _permissions.update { current ->
             val sessionPerms = current[event.sessionId]?.filter { it.id != event.requestId }
             if (sessionPerms != null) current + (event.sessionId to sessionPerms) else current

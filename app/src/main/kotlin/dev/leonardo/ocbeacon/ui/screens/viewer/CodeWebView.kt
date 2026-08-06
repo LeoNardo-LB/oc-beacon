@@ -1,10 +1,11 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -95,7 +96,7 @@ private class AnnotateWebView(
     }
 
     override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode {
-        android.util.Log.e("ActionModeDebug", "startActionMode type=$type (0=FLOATING,1=PRIMARY)")
+        AppLogger.e("ActionModeDebug", "startActionMode type=$type (0=FLOATING,1=PRIMARY)")
         if (callback == null) return super.startActionMode(null, type)
 
         val wrapped = object : ActionMode.Callback {

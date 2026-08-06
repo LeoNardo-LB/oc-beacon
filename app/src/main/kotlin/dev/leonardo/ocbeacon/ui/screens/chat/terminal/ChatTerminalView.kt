@@ -1,9 +1,10 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.terminal
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.ClipData
 import android.media.AudioManager
 import android.os.SystemClock
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -148,12 +149,12 @@ fun ChatTerminalView(
                         val wasDown = terminalVirtualFnDown
                         terminalVirtualFnDown = event.action == android.view.KeyEvent.ACTION_DOWN
                         if (BuildConfig.DEBUG) {
-                            Log.d("TerminalInput", "VOL_UP: action=${if (event.action == android.view.KeyEvent.ACTION_DOWN) "DOWN" else "UP"} wasDown=$wasDown nowDown=$terminalVirtualFnDown")
+                            AppLogger.d("TerminalInput", "VOL_UP: action=${if (event.action == android.view.KeyEvent.ACTION_DOWN) "DOWN" else "UP"} wasDown=$wasDown nowDown=$terminalVirtualFnDown")
                         }
                         if (wasDown && !terminalVirtualFnDown) {
                             suppressFnTildeUntil = SystemClock.elapsedRealtime() + 3_000L
                             if (BuildConfig.DEBUG) {
-                                Log.d("TerminalInput", "FN released -> suppressFnTildeUntil set for 3s")
+                                AppLogger.d("TerminalInput", "FN released -> suppressFnTildeUntil set for 3s")
                             }
                         }
                         true
@@ -216,13 +217,13 @@ fun ChatTerminalView(
         if (BuildConfig.DEBUG) {
             val codes = chunk.map { String.format("%04x", it.code) }
             val remain = suppressFnTildeUntil - SystemClock.elapsedRealtime()
-            Log.d("TerminalInput", "sendTerminalChunk: chunk=$codes fnDown=$terminalVirtualFnDown suppressRemain=${remain}ms")
+            AppLogger.d("TerminalInput", "sendTerminalChunk: chunk=$codes fnDown=$terminalVirtualFnDown suppressRemain=${remain}ms")
         }
         if (!terminalVirtualFnDown) {
             val now = SystemClock.elapsedRealtime()
             if (now < suppressFnTildeUntil && chunk.contains('~')) {
                 if (BuildConfig.DEBUG) {
-                    Log.d("TerminalInput", "SUPPRESSING tilde from chunk='$chunk'")
+                    AppLogger.d("TerminalInput", "SUPPRESSING tilde from chunk='$chunk'")
                 }
                 val stripped = chunk.replace("~", "")
                 suppressFnTildeUntil = 0L
@@ -285,7 +286,7 @@ fun ChatTerminalView(
         }
         if (processed.isEmpty()) return
         if (BuildConfig.DEBUG && processed.contains('~')) {
-            Log.d("TerminalInput", "SENDING to server: '${processed.map { String.format("%04x", it.code) }}' fnDown=$terminalVirtualFnDown")
+            AppLogger.d("TerminalInput", "SENDING to server: '${processed.map { String.format("%04x", it.code) }}' fnDown=$terminalVirtualFnDown")
         }
         viewModel.sendTerminalInput(processed)
         if (terminalCtrlLatched) terminalCtrlLatched = false

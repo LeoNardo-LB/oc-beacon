@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
@@ -266,18 +267,18 @@ internal class MessageDataDelegate(
             )
             // 诊断：记录 combine 输出以检测陈旧发射
             val lastMsgId = mergedChatMessages.lastOrNull()?.message?.id?.take(12) ?: "none"
-            Log.d("MsgDiag", "[combine] msgs=${sessionMessages.size} visible=${visible.size} " +
+            AppLogger.d("MsgDiag", "[combine] msgs=${sessionMessages.size} visible=${visible.size} " +
                 "merged=${mergedChatMessages.size} revert=${revertState != null} " +
                 "lastMsg=$lastMsgId pending=${pendingMessages.size}")
             // 诊断：记录最后 3 条消息的 parts 详情
             mergedChatMessages.takeLast(3).forEach { cm ->
                 val textLen = cm.parts.filterIsInstance<Part.Text>().sumOf { it.text.length }
                 val role = if (cm.message is Message.User) "U" else "A"
-                Log.d("MsgDiag", "  [$role] id=${cm.message.id.take(12)} parts=${cm.parts.size} textLen=$textLen")
+                AppLogger.d("MsgDiag", "  [$role] id=${cm.message.id.take(12)} parts=${cm.parts.size} textLen=$textLen")
             }
             state
          } catch (e: Exception) {
-            if (BuildConfig.DEBUG) Log.e("MessageDataDelegate", "messageListState combine error", e)
+            if (BuildConfig.DEBUG) AppLogger.e("MessageDataDelegate", "messageListState combine error", e)
             MessageListState()
          }
         }
@@ -347,9 +348,9 @@ internal class MessageDataDelegate(
             val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
             chatRepository.setMessages(sid, messages)
             _hasOlderMessages.value = messages.size >= currentMessageLimit
-            if (BuildConfig.DEBUG) Log.d(TAG, "V1 loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "V1 loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load messages", e)
+            AppLogger.e(TAG, "Failed to load messages", e)
         }
     }
 
@@ -373,7 +374,7 @@ internal class MessageDataDelegate(
                     msg is Message.User || (msg is Message.Assistant && grouped[msg.id]?.isNotEmpty() == true)
                 }
                 val missingParts = messages.size - visibleMessages.size
-                Log.d(TAG, "[sseJob] msgs=${messages.size} visible=${visibleMessages.size} parts=${parts.size} active=${sseJob?.isActive} filtered=$missingParts")
+                AppLogger.d(TAG, "[sseJob] msgs=${messages.size} visible=${visibleMessages.size} parts=${parts.size} active=${sseJob?.isActive} filtered=$missingParts")
                 _rawMessagesList.value = messages
                 _messagesList.value = visibleMessages
                 _partsList.value = parts
@@ -396,19 +397,19 @@ internal class MessageDataDelegate(
                 chatRepository.setMessages(sid, messages)
 
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit)")
+                    AppLogger.d(TAG, "Loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit)")
                 }
             } catch (e: Throwable) {
-                Log.e(TAG, "Failed to load messages", e)
+                AppLogger.e(TAG, "Failed to load messages", e)
                 if (e is OutOfMemoryError || (e.cause is OutOfMemoryError)) {
-                    Log.w(TAG, "OOM loading messages, retrying with smaller limit")
+                    AppLogger.w(TAG, "OOM loading messages, retrying with smaller limit")
                     currentMessageLimit = (currentMessageLimit / 2).coerceAtLeast(10)
                     try {
                         val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
                         chatRepository.mergeMessages(sid, messages)
-                        if (BuildConfig.DEBUG) Log.d(TAG, "Retry succeeded: loaded ${messages.size} messages (limit=$currentMessageLimit)")
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Retry succeeded: loaded ${messages.size} messages (limit=$currentMessageLimit)")
                     } catch (retryEx: Throwable) {
-                        Log.e(TAG, "Retry also failed", retryEx)
+                        AppLogger.e(TAG, "Retry also failed", retryEx)
                         _error.value = retryEx.message ?: "Failed to load messages"
                     }
                 } else {
@@ -430,7 +431,7 @@ internal class MessageDataDelegate(
             val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
             chatRepository.setMessages(sid, messages)
         } catch (e: Throwable) {
-            Log.e(TAG, "Failed to refresh messages", e)
+            AppLogger.e(TAG, "Failed to refresh messages", e)
         } finally {
             _isRefreshing.value = false
         }
@@ -450,7 +451,7 @@ internal class MessageDataDelegate(
         val messages = _rawMessagesList.value
         val hasIncomplete = messages.any { it is Message.Assistant && it.time.completed == null }
         if (hasIncomplete) {
-            if (BuildConfig.DEBUG) Log.d(TAG, "Fixing incomplete messages for session $sid (server confirmed idle)")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Fixing incomplete messages for session $sid (server confirmed idle)")
             sessionStateService.onRestValidation(sid, SessionStatus.Idle)
         }
     }
@@ -466,10 +467,10 @@ internal class MessageDataDelegate(
                 _hasOlderMessages.value = messages.size >= currentMessageLimit
 
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Loaded older: ${messages.size} messages (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
+                    AppLogger.d(TAG, "Loaded older: ${messages.size} messages (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load older messages", e)
+                AppLogger.e(TAG, "Failed to load older messages", e)
                 currentMessageLimit = currentMessageLimit / 2
             } finally {
                 _isLoadingOlder.value = false
@@ -487,7 +488,7 @@ internal class MessageDataDelegate(
         val directory = sessionDirectoryProvider()
         try {
             val allQuestions = managePermissionUseCase.listPendingQuestions(serverId, directory = directory)
-            if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingQuestions: ${allQuestions.size} total pending (directory=$directory), filtering for session $sid")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "loadPendingQuestions: ${allQuestions.size} total pending (directory=$directory), filtering for session $sid")
 
             // 包含子会话的问题
             val childSessionIds = chatRepository.getSessionsSnapshot()
@@ -529,13 +530,13 @@ internal class MessageDataDelegate(
                 val newQs = sessionQuestions.filter { it.id !in existingIds }
                 if (newQs.isNotEmpty()) {
                     chatRepository.setQuestions(sid, existingSseQs + newQs)
-                    if (BuildConfig.DEBUG) Log.d(TAG, "Merged ${newQs.size} new + ${existingSseQs.size} existing questions for session $sid")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Merged ${newQs.size} new + ${existingSseQs.size} existing questions for session $sid")
                 } else {
-                    if (BuildConfig.DEBUG) Log.d(TAG, "All ${sessionQuestions.size} REST questions already present via SSE for session $sid")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "All ${sessionQuestions.size} REST questions already present via SSE for session $sid")
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load pending questions: ${e.javaClass.simpleName}: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to load pending questions: ${e.javaClass.simpleName}: ${e.message}", e)
         }
     }
 
@@ -545,7 +546,7 @@ internal class MessageDataDelegate(
         val directory = sessionDirectoryProvider()
         try {
             val allPermissions = managePermissionUseCase.listPendingPermissions(serverId, directory = directory)
-            if (BuildConfig.DEBUG) Log.d(TAG, "loadPendingPermissions: ${allPermissions.size} total pending (directory=$directory), filtering for session $sid")
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "loadPendingPermissions: ${allPermissions.size} total pending (directory=$directory), filtering for session $sid")
 
             // 包含子会话的权限
             val childSessionIds = chatRepository.getSessionsSnapshot()
@@ -580,14 +581,14 @@ internal class MessageDataDelegate(
                     val newPerms = perms.filter { it.id !in existingIds }
                     if (newPerms.isNotEmpty()) {
                         chatRepository.setPermissions(targetSessionId, existingSsePerms + newPerms)
-                        if (BuildConfig.DEBUG) Log.d(TAG, "Merged ${newPerms.size} new + ${existingSsePerms.size} existing permissions for session $targetSessionId")
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Merged ${newPerms.size} new + ${existingSsePerms.size} existing permissions for session $targetSessionId")
                     } else {
-                        if (BuildConfig.DEBUG) Log.d(TAG, "All ${perms.size} REST permissions already present via SSE for session $targetSessionId")
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "All ${perms.size} REST permissions already present via SSE for session $targetSessionId")
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load pending permissions: ${e.javaClass.simpleName}: ${e.message}", e)
+            AppLogger.e(TAG, "Failed to load pending permissions: ${e.javaClass.simpleName}: ${e.message}", e)
         }
     }
 

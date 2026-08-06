@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository.handler
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SseEvent
@@ -102,7 +103,7 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
     // ============ 事件处理 ============
 
     fun handleSessionNextEvent(event: SessionNextEvent) {
-        if (BuildConfig.DEBUG) Log.d(TAG, "Processing: ${event::class.simpleName}")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Processing: ${event::class.simpleName}")
         when (event) {
             is SessionNextEvent.AgentSwitched -> handleAgentSwitched(event)
             is SessionNextEvent.ModelSwitched -> handleModelSwitched(event)
@@ -141,7 +142,7 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
             }
             is SessionNextEvent.Synthetic -> { /* 信息性 */ }
             is SessionNextEvent.Unknown -> {
-                Log.w(TAG, "Unhandled session.next event: ${event.rawType}")
+                AppLogger.w(TAG, "Unhandled session.next event: ${event.rawType}")
             }
         }
     }
@@ -226,7 +227,7 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
     fun trackSequence(sessionId: String, seq: Long) {
         val last = _lastEventSeq.value[sessionId]
         if (last != null && seq > last + 1) {
-            Log.w(TAG, "Sequence gap detected for session $sessionId: expected ${last + 1}, got $seq (missed ${seq - last - 1} events)")
+            AppLogger.w(TAG, "Sequence gap detected for session $sessionId: expected ${last + 1}, got $seq (missed ${seq - last - 1} events)")
             _gapDetected.update { it + sessionId }
         }
         _lastEventSeq.update { it + (sessionId to seq) }

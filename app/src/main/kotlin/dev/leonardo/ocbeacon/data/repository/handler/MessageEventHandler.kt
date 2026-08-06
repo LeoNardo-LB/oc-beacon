@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository.handler
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.*
 import kotlinx.coroutines.*
@@ -143,7 +144,7 @@ class MessageEventHandler @Inject constructor() {
             val isUpdate = idx >= 0
             // DIAG：处理前记录状态
             val userMsgs = msgs.filter { it is Message.User }
-            Log.i("MsgDiag", "[MsgUpdated] ENTER role=$role eventId=${event.info.id.take(16)} " +
+            AppLogger.i("MsgDiag", "[MsgUpdated] ENTER role=$role eventId=${event.info.id.take(16)} " +
                 "session=${sessionId.take(8)} total=${msgs.size} " +
                 "userCount=${userMsgs.size} isUpdate=$isUpdate")
             if (idx >= 0) {
@@ -158,7 +159,7 @@ class MessageEventHandler @Inject constructor() {
             // 对用户消息而言，用户计数合法增加 1。仅当增加超过 1 时
             // 才告警（表示存在逻辑回归）。
             if (afterUser.size > userMsgs.size + 1) {
-                Log.w("MsgDiag", "[MsgUpdated] ⚠️ unexpected user count increase: ${userMsgs.size}→${afterUser.size} " +
+                AppLogger.w("MsgDiag", "[MsgUpdated] ⚠️ unexpected user count increase: ${userMsgs.size}→${afterUser.size} " +
                     "userIds=${afterUser.joinToString(",") { it.id.take(16) }}")
             }
             current + (sessionId to msgs)
@@ -210,7 +211,7 @@ class MessageEventHandler @Inject constructor() {
         _parts.update { it.filterKeys { msgId -> msgId !in removedIds } }
         assistantMessageIds.removeAll(removedIds)
 
-        if (BuildConfig.DEBUG) Log.d(TAG, "Pruned ${removedIds.size} reverted messages for session ${sessionId.take(12)}")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Pruned ${removedIds.size} reverted messages for session ${sessionId.take(12)}")
     }
 
     internal fun handleMessageRemoved(event: SseEvent.MessageRemoved) {
@@ -239,7 +240,7 @@ class MessageEventHandler @Inject constructor() {
                     val newLen = (merged as Part.Text).text.length
                     val incLen = event.part.text.length
                     if (newLen != incLen) {
-                        Log.w(TAG, "[PartUpdated] t=$thread msg=$messageId part=$partId " +
+                        AppLogger.w(TAG, "[PartUpdated] t=$thread msg=$messageId part=$partId " +
                             "old=$oldLen inc=$incLen merged=$newLen " +
                             "(kept SSE text, discarded REST snapshot)")
                     }
@@ -374,12 +375,12 @@ class MessageEventHandler @Inject constructor() {
             val beforeUser = existing.filter { it is Message.User }.size
             val afterUser = merged.filter { it is Message.User }.size
             val beforePending = existing.count { it.id.startsWith("pending-") }
-            Log.i("MsgDiag", "[setMessages] session=${sessionId.take(8)} " +
+            AppLogger.i("MsgDiag", "[setMessages] session=${sessionId.take(8)} " +
                 "incoming=${newMessages.size} existing=${existing.size} merged=${merged.size} " +
                 "beforeUser=$beforeUser afterUser=$afterUser beforePending=$beforePending " +
                 "hasRestUserMsgs=$hasRestUserMsgs")
             if (afterUser > beforeUser && beforePending == 0) {
-                Log.w("MsgDiag", "[setMessages] ⚠️ user count increased without pending: $beforeUser→$afterUser")
+                AppLogger.w("MsgDiag", "[setMessages] ⚠️ user count increased without pending: $beforeUser→$afterUser")
             }
             current + (sessionId to merged)
         }
@@ -394,7 +395,7 @@ class MessageEventHandler @Inject constructor() {
                         if (inc is Part.Text) {
                             val ex = existingParts.find { it.id == inc.id }
                             if (ex is Part.Text && ex.text.length > inc.text.length) {
-                                Log.w(TAG, "[setMessages] t=$thread msg=${messageId.take(8)} " +
+                                AppLogger.w(TAG, "[setMessages] t=$thread msg=${messageId.take(8)} " +
                                     "part=${inc.id.take(8)} SSE=${ex.text.length} > REST=${inc.text.length} " +
                                     "→ keeping SSE text")
                             }
@@ -467,7 +468,7 @@ class MessageEventHandler @Inject constructor() {
                         if (inc is Part.Text) {
                             val ex = existingParts.find { it.id == inc.id }
                             if (ex is Part.Text && ex.text.length > inc.text.length) {
-                                Log.w(TAG, "[replaceMessages] t=$thread msg=${messageId.take(8)} " +
+                                AppLogger.w(TAG, "[replaceMessages] t=$thread msg=${messageId.take(8)} " +
                                     "part=${inc.id.take(8)} SSE=${ex.text.length} > REST=${inc.text.length} " +
                                     "→ keeping SSE text")
                             }

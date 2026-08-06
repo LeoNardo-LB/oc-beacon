@@ -1,11 +1,12 @@
 package dev.leonardo.ocbeacon
 
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -199,7 +200,7 @@ class MainActivity : ComponentActivity() {
         val sessionPath = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SESSION_PATH) ?: ""
         val sessionId = intent.getStringExtra(OpenCodeConnectionService.EXTRA_SESSION_ID) ?: ""
         
-        Log.i(TAG, "Session deep-link: $serverUrl$sessionPath (sessionId=$sessionId)")
+        AppLogger.i(TAG, "Session deep-link: $serverUrl$sessionPath (sessionId=$sessionId)")
         
         _deepLinkFlow.tryEmit(
             SessionDeepLink(
@@ -263,7 +264,7 @@ class MainActivity : ComponentActivity() {
                     // 分享 intent 授予的临时权限仍然有效。
                 }
             }
-            Log.i(TAG, "Received ${uris.size} shared image(s)")
+            AppLogger.i(TAG, "Received ${uris.size} shared image(s)")
             _sharedImagesFlow.tryEmit(uris)
         }
     }

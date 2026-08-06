@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.provider
 
-import android.util.Log
+import dev.leonardo.ocbeacon.logging.AppLogger
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.dto.request.*
@@ -168,7 +169,7 @@ class ProviderApiImpl @Inject constructor(
         }
         val body = response.bodyAsText().trim()
         if (BuildConfig.DEBUG) {
-            Log.d(TAG, "authorizeProviderOauth: status=${response.status} body=$body")
+            AppLogger.d(TAG, "authorizeProviderOauth: status=${response.status} body=$body")
         }
 
         if (!response.status.isSuccess()) return null
@@ -194,7 +195,7 @@ class ProviderApiImpl @Inject constructor(
     ): Boolean {
         val body = if (code != null) mapOf("method" to methodIndex, "code" to code)
         else mapOf("method" to methodIndex)
-        if (BuildConfig.DEBUG) Log.d(TAG, "completeProviderOauth: POST /provider/$providerId/oauth/callback body=$body")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "completeProviderOauth: POST /provider/$providerId/oauth/callback body=$body")
         val response = httpClient.post("${conn.baseUrl}/provider/$providerId/oauth/callback") {
             conn.authHeader?.let { header("Authorization", it) }
             contentType(ContentType.Application.Json)
@@ -202,7 +203,7 @@ class ProviderApiImpl @Inject constructor(
         }
         if (BuildConfig.DEBUG) {
             val responseBody = response.bodyAsText()
-            Log.d(TAG, "completeProviderOauth: status=${response.status}, body=$responseBody")
+            AppLogger.d(TAG, "completeProviderOauth: status=${response.status}, body=$responseBody")
         }
         return response.status.isSuccess()
     }
@@ -225,13 +226,13 @@ class ProviderApiImpl @Inject constructor(
      * DELETE /auth/{providerID}
      */
     override suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean {
-        if (BuildConfig.DEBUG) Log.d(TAG, "removeProviderAuth: DELETE ${conn.baseUrl}/auth/$providerId")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderAuth: DELETE ${conn.baseUrl}/auth/$providerId")
         val response = httpClient.delete("${conn.baseUrl}/auth/$providerId") {
             conn.authHeader?.let { header("Authorization", it) }
         }
         if (BuildConfig.DEBUG) {
             val body = response.bodyAsText()
-            Log.d(TAG, "removeProviderAuth: status=${response.status}, body=$body")
+            AppLogger.d(TAG, "removeProviderAuth: status=${response.status}, body=$body")
         }
         return response.status.isSuccess()
     }
