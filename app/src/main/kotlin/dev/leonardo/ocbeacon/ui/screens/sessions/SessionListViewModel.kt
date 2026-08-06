@@ -49,6 +49,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -351,7 +352,8 @@ class SessionListViewModel @Inject constructor(
             } finally {
                 if (_expandedPaths.value.isEmpty()) {
                     // 首次加载时默认展开所有目录
-                    val currentSessions = sessionRepository.getSessionsFlow(serverId).first()
+                    // firstOrNull：Flow 未发射值时不抛 NoSuchElementException（曾导致协程异常泄漏到全局线程池，污染其他 TestScope）
+                    val currentSessions = sessionRepository.getSessionsFlow(serverId).firstOrNull() ?: emptyList()
                     val base = _baseDirectory.value?.replace('\\', '/')?.trimEnd('/')
                     val dirs = mutableSetOf<String>()
                     for (s in currentSessions) {

@@ -14,7 +14,10 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -27,10 +30,12 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class FileViewerViewModelTest {
 
-    private val testDispatcher = UnconfinedTestDispatcher()
+    // 每个测试在 @Before 重建：StandardTestDispatcher 的 scheduler 与 ToolSnapshotCache
+    // 作为类字段共享时，上一测试残留的 viewModelScope 协程/缓存会泄漏到下一测试（flaky 根因）。
+    private lateinit var testDispatcher: TestDispatcher
     private val getFileContent = mockk<GetFileContentUseCase>()
     private val getFileDiff = mockk<GetFileDiffUseCase>()
-    private val toolSnapshotCache = ToolSnapshotCache()
+    private lateinit var toolSnapshotCache: ToolSnapshotCache
     private val submitAnnotations = mockk<SubmitAnnotationsUseCase>()
 
     private val serverId = "srv-abc123"
@@ -51,6 +56,13 @@ class FileViewerViewModelTest {
         source = source,
         toolPartIds = toolPartIds
     )
+
+    /** 构造 ViewModel 并 drain init 加载协程，消除构造后立即读 uiState 的调度时序 flaky。 */
+    private fun TestScope.createVm(params: FileViewerParams = fileViewerParams()): FileViewerViewModel {
+        val vm = FileViewerViewModel(params, getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        advanceUntilIdle()
+        return vm
+    }
 
     // --- 真实测试数据（D7-003）---
 
@@ -119,6 +131,9 @@ class FileViewerViewModelTest {
 
     @Before
     fun setup() {
+        // 全新 dispatcher（空 scheduler，无跨测试协程残留）+ 全新缓存（无跨测试数据污染）
+        testDispatcher = StandardTestDispatcher()
+        toolSnapshotCache = ToolSnapshotCache()
         Dispatchers.setMain(testDispatcher)
     }
 
@@ -129,10 +144,10 @@ class FileViewerViewModelTest {
 
     // 1. LIVE 来源成功加载内容
     @Test
-    fun `LIVE source success loads content`() = runTest {
+    fun `LIVE source success loads content`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
 
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
 
         val state = vm.uiState.value
         assert(!state.isLoading) { "isLoading should be false after success" }
@@ -143,16 +158,10 @@ class FileViewerViewModelTest {
 
     // 2. GIT_DIFF 来源成功解析 hunks
     @Test
-    fun `GIT_DIFF source success parses hunks`() = runTest {
+    fun `GIT_DIFF source success parses hunks`() = runTest(testDispatcher) {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(source = FileViewerSource.GIT_DIFF),
-            getFileContent,
-            getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(source = FileViewerSource.GIT_DIFF))
 
         val state = vm.uiState.value
         assert(!state.isLoading) { "isLoading should be false" }
@@ -164,15 +173,9 @@ class FileViewerViewModelTest {
 
     // 3. TOOL_SNAPSHOT 来源无缓存时设置缺失错误
     @Test
-    fun `TOOL_SNAPSHOT source without cache sets missing error`() = runTest {
+    fun `TOOL_SNAPSHOT source without cache sets missing error`() = runTest(testDispatcher) {
         toolSnapshotCache.clear()
-        val vm = FileViewerViewModel(
-            fileViewerParams(source = FileViewerSource.TOOL_SNAPSHOT),
-            getFileContent,
-            getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(source = FileViewerSource.TOOL_SNAPSHOT))
 
         val state = vm.uiState.value
         assert(!state.isLoading) { "isLoading should be false" }
@@ -187,12 +190,12 @@ class FileViewerViewModelTest {
 
     // 4. 加载失败设置错误
     @Test
-    fun `load failure sets error`() = runTest {
+    fun `load failure sets error`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.failure(
             RuntimeException("Connection refused: port 4096")
         )
 
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
 
         val state = vm.uiState.value
         assert(!state.isLoading) { "isLoading should be false after failure" }
@@ -203,10 +206,10 @@ class FileViewerViewModelTest {
 
     // 5. 二进制文件设置 isBinary + mimeType
     @Test
-    fun `binary file sets isBinary and mimeType`() = runTest {
+    fun `binary file sets isBinary and mimeType`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(binaryContent)
 
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
 
         val state = vm.uiState.value
         assert(!state.isLoading) { "isLoading should be false" }
@@ -217,7 +220,7 @@ class FileViewerViewModelTest {
 
     // 6. 空内容设置 isEmpty
     @Test
-    fun `empty content sets isEmpty`() = runTest {
+    fun `empty content sets isEmpty`() = runTest(testDispatcher) {
         val emptyContent = FileContent(
             path = filePath,
             type = ContentType.TEXT,
@@ -225,7 +228,7 @@ class FileViewerViewModelTest {
         )
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(emptyContent)
 
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
 
         val state = vm.uiState.value
         assert(!state.isLoading) { "isLoading should be false" }
@@ -235,7 +238,7 @@ class FileViewerViewModelTest {
 
     // 7. 空 patch 设置 hunks 为空
     @Test
-    fun `empty patch sets hunks empty`() = runTest {
+    fun `empty patch sets hunks empty`() = runTest(testDispatcher) {
         val emptyPatchDiff = VcsFileDiff(
             file = filePath,
             patch = "",
@@ -247,13 +250,7 @@ class FileViewerViewModelTest {
             listOf(emptyPatchDiff)
         )
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(source = FileViewerSource.GIT_DIFF),
-            getFileContent,
-            getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(source = FileViewerSource.GIT_DIFF))
 
         val state = vm.uiState.value
         assert(!state.isLoading) { "isLoading should be false" }
@@ -263,16 +260,10 @@ class FileViewerViewModelTest {
 
     // 8. nextHunk 在最后一个索引处钳制
     @Test
-    fun `nextHunk clamps at last index`() = runTest {
+    fun `nextHunk clamps at last index`() = runTest(testDispatcher) {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(source = FileViewerSource.GIT_DIFF),
-            getFileContent,
-            getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(source = FileViewerSource.GIT_DIFF))
 
         val hunksCount = vm.uiState.value.hunks.size
         // 导航到最后一个 hunk
@@ -289,16 +280,10 @@ class FileViewerViewModelTest {
 
     // 9. prevHunk 在 0 处钳制
     @Test
-    fun `prevHunk clamps at 0`() = runTest {
+    fun `prevHunk clamps at 0`() = runTest(testDispatcher) {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(source = FileViewerSource.GIT_DIFF),
-            getFileContent,
-            getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(source = FileViewerSource.GIT_DIFF))
 
         // currentHunkIndex 从 0 开始
         assert(vm.uiState.value.currentHunkIndex == 0) {
@@ -315,15 +300,10 @@ class FileViewerViewModelTest {
 
     // 10. 使用 md 文件初始化设置 isMarkdown 为 true
     @Test
-    fun `init with md file sets isMarkdown true and defaults to RENDER_PREVIEW`() = runTest {
+    fun `init with md file sets isMarkdown true and defaults to RENDER_PREVIEW`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = mdFilePath),
-            getFileContent, getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = mdFilePath))
 
         assert(vm.uiState.value.fileType == FileType.MARKDOWN) { "fileType should be MARKDOWN for .md" }
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.RENDER_PREVIEW) { "renderMode should default to RENDER_PREVIEW for renderable types" }
@@ -331,25 +311,20 @@ class FileViewerViewModelTest {
 
     // 11. 使用 kt 文件初始化设置 isMarkdown 为 false
     @Test
-    fun `init with kt file sets isMarkdown false`() = runTest {
+    fun `init with kt file sets isMarkdown false`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
 
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
 
         assert(vm.uiState.value.fileType == FileType.TEXT) { "fileType should be TEXT for .kt" }
     }
 
     // 12. toggleRenderMode 将 RENDER_PREVIEW 切换为 SOURCE（默认现在是 RENDER_PREVIEW）
     @Test
-    fun `toggleRenderMode switches RENDER_PREVIEW to SOURCE for markdown files`() = runTest {
+    fun `toggleRenderMode switches RENDER_PREVIEW to SOURCE for markdown files`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = mdFilePath),
-            getFileContent, getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = mdFilePath))
         vm.toggleRenderMode()
 
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) {
@@ -359,10 +334,10 @@ class FileViewerViewModelTest {
 
     // 13. 对 TEXT（不可渲染）toggleRenderMode 为空操作
     @Test
-    fun `toggleRenderMode is no-op for TEXT files`() = runTest {
+    fun `toggleRenderMode is no-op for TEXT files`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
 
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         vm.toggleRenderMode()
 
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) {
@@ -372,15 +347,10 @@ class FileViewerViewModelTest {
 
     // 14. 在 DIFF 模式下 toggleRenderMode 为空操作
     @Test
-    fun `toggleRenderMode is no-op in DIFF mode`() = runTest {
+    fun `toggleRenderMode is no-op in DIFF mode`() = runTest(testDispatcher) {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = mdFilePath, source = FileViewerSource.GIT_DIFF),
-            getFileContent, getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = mdFilePath, source = FileViewerSource.GIT_DIFF))
         vm.toggleRenderMode()
 
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) {
@@ -390,15 +360,10 @@ class FileViewerViewModelTest {
 
     // 15. toggleRenderMode 从默认 RENDER_PREVIEW 切换到 SOURCE
     @Test
-    fun `toggleRenderMode back from RENDER_PREVIEW to SOURCE`() = runTest {
+    fun `toggleRenderMode back from RENDER_PREVIEW to SOURCE`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(sampleMarkdownContent)
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = mdFilePath),
-            getFileContent, getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = mdFilePath))
         // 对 markdown 默认是 RENDER_PREVIEW，切换一次 → SOURCE
         vm.toggleRenderMode()
 
@@ -411,7 +376,7 @@ class FileViewerViewModelTest {
 
     // 16. TOOL_SNAPSHOT 从缓存加载内容并在 onCleared 时清除
     @Test
-    fun `TOOL_SNAPSHOT source loads content from cache and clears on cleared`() = runTest {
+    fun `TOOL_SNAPSHOT source loads content from cache and clears on cleared`() = runTest(testDispatcher) {
         toolSnapshotCache.clear()
         toolSnapshotCache.put(
             "part-1",
@@ -421,17 +386,11 @@ class FileViewerViewModelTest {
             )
         )
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(
+        val vm = createVm(fileViewerParams(
                 path = "app/Main.kt",
                 source = FileViewerSource.TOOL_SNAPSHOT,
                 toolPartIds = listOf("part-1")
-            ),
-            getFileContent,
-            getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+            ))
 
         assert(vm.uiState.value.isToolSnapshot) { "isToolSnapshot should be true" }
         assert(vm.uiState.value.content == "class Main") { "content should match snapshot" }
@@ -443,7 +402,7 @@ class FileViewerViewModelTest {
 
     // 17. TOOL_SNAPSHOT_DIFF 从服务器获取完整文件内容（不仅仅是编辑片段）
     @Test
-    fun `TOOL_SNAPSHOT_DIFF shows final edited content in SOURCE mode`() = runTest {
+    fun `TOOL_SNAPSHOT_DIFF shows final edited content in SOURCE mode`() = runTest(testDispatcher) {
         toolSnapshotCache.clear()
         toolSnapshotCache.putAll(
             mapOf(
@@ -458,17 +417,11 @@ class FileViewerViewModelTest {
             FileContent(path = "app/X.kt", type = ContentType.TEXT, content = fullFile)
         )
 
-        val vm = FileViewerViewModel(
-            fileViewerParams(
+        val vm = createVm(fileViewerParams(
                 path = "app/X.kt",
                 source = FileViewerSource.TOOL_SNAPSHOT_DIFF,
                 toolPartIds = listOf("p1", "p2")
-            ),
-            getFileContent,
-            getFileDiff,
-            toolSnapshotCache,
-            submitAnnotations
-        )
+            ))
 
         assert(vm.uiState.value.mode == FileViewerMode.SOURCE) { "mode should be SOURCE (not DIFF)" }
         assert(vm.uiState.value.isToolSnapshot) { "isToolSnapshot should be true" }
@@ -486,9 +439,9 @@ class FileViewerViewModelTest {
     // ===== Phase 3：注解测试 =====
 
     @Test
-    fun `addAnnotation creates annotation and updates state`() = runTest {
+    fun `addAnnotation creates annotation and updates state`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         val pos = sampleKotlinSource.indexOf("import android.os.Bundle")
         vm.addAnnotation("import android.os.Bundle", pos, pos + 25, "use alias")
         assertEquals(1, vm.uiState.value.annotations.size)
@@ -496,17 +449,17 @@ class FileViewerViewModelTest {
     }
 
     @Test
-    fun `addAnnotation in DIFF mode is ignored`() = runTest {
+    fun `addAnnotation in DIFF mode is ignored`() = runTest(testDispatcher) {
         coEvery { getFileDiff(serverId, directory, VcsDiffMode.GIT) } returns Result.success(sampleDiffs)
-        val vm = FileViewerViewModel(fileViewerParams(source = FileViewerSource.GIT_DIFF), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams(source = FileViewerSource.GIT_DIFF))
         vm.addAnnotation("text", 0, 4, "note")
         assertTrue(vm.uiState.value.annotations.isEmpty())
     }
 
     @Test
-    fun `deleteAnnotation removes and renumbers`() = runTest {
+    fun `deleteAnnotation removes and renumbers`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         vm.addAnnotation("import", 0, 6, "n1")
         vm.addAnnotation("class", 10, 15, "n2")
         vm.addAnnotation("override", 20, 28, "n3")
@@ -519,10 +472,10 @@ class FileViewerViewModelTest {
     }
 
     @Test
-    fun `submitAnnotations calls use case and clears on success`() = runTest {
+    fun `submitAnnotations calls use case and clears on success`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
         coEvery { submitAnnotations(any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         vm.addAnnotation("import", 0, 6, "n1")
         val result = vm.submitAnnotations("overall note")
         assertTrue(result.isSuccess)
@@ -530,10 +483,10 @@ class FileViewerViewModelTest {
     }
 
     @Test
-    fun `submitAnnotations failure does not clear`() = runTest {
+    fun `submitAnnotations failure does not clear`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
         coEvery { submitAnnotations(any(), any(), any(), any(), any(), any()) } returns Result.failure(RuntimeException("fail"))
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         vm.addAnnotation("import", 0, 6, "n1")
         vm.submitAnnotations("note")
         assertEquals(1, vm.uiState.value.annotations.size)
@@ -542,7 +495,7 @@ class FileViewerViewModelTest {
     // ===== Phase 4：分页测试 =====
 
     @Test
-    fun `loadLive paginates content - initial visibleLineCount is 500 for large files`() = runTest {
+    fun `loadLive paginates content - initial visibleLineCount is 500 for large files`() = runTest(testDispatcher) {
         val largeContent = buildString {
             append("package dev.leonardo.ocbeacon\n\n")
             append("class LargeFile {\n")
@@ -552,7 +505,7 @@ class FileViewerViewModelTest {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             FileContent(path = filePath, type = ContentType.TEXT, content = largeContent)
         )
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         val total = largeContent.count { it == '\n' } + if (largeContent.endsWith('\n')) 0 else 1
         assertEquals(500, vm.uiState.value.visibleLineCount)
         assertEquals(total, vm.uiState.value.totalLineCount)
@@ -561,27 +514,27 @@ class FileViewerViewModelTest {
     }
 
     @Test
-    fun `loadLive marks isExtremelyLarge for files over 100000 lines`() = runTest {
+    fun `loadLive marks isExtremelyLarge for files over 100000 lines`() = runTest(testDispatcher) {
         val hugeContent = (1..100001).joinToString("\n") { "line $it" }
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             FileContent(path = filePath, type = ContentType.TEXT, content = hugeContent)
         )
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         assertEquals(true, vm.uiState.value.isExtremelyLarge)
         assertEquals(10000, vm.uiState.value.visibleLineCount)
     }
 
     @Test
-    fun `loadLive for small file sets isFullyLoaded true and visibleLineCount equals total`() = runTest {
+    fun `loadLive for small file sets isFullyLoaded true and visibleLineCount equals total`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         val total = sampleKotlinSource.count { it == '\n' } + if (sampleKotlinSource.endsWith('\n')) 0 else 1
         assertEquals(total, vm.uiState.value.visibleLineCount)
         assertEquals(true, vm.uiState.value.isFullyLoaded)
     }
 
     @Test
-    fun `loadMoreLines increases visibleLineCount by 500 and respects totalLineCount`() = runTest {
+    fun `loadMoreLines increases visibleLineCount by 500 and respects totalLineCount`() = runTest(testDispatcher) {
         val largeContent = buildString {
             append("package dev.leonardo.ocbeacon\n\n")
             append("class LargeFile {\n")
@@ -591,7 +544,7 @@ class FileViewerViewModelTest {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             FileContent(path = filePath, type = ContentType.TEXT, content = largeContent)
         )
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         val initialVisible = vm.uiState.value.visibleLineCount
         vm.loadMoreLines()
         assertEquals(initialVisible + 500, vm.uiState.value.visibleLineCount)
@@ -599,33 +552,33 @@ class FileViewerViewModelTest {
     }
 
     @Test
-    fun `loadMoreLines clamps to totalLineCount and sets isFullyLoaded`() = runTest {
+    fun `loadMoreLines clamps to totalLineCount and sets isFullyLoaded`() = runTest(testDispatcher) {
         val mediumContent = (1..600).joinToString("\n") { "line $it" }
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             FileContent(path = filePath, type = ContentType.TEXT, content = mediumContent)
         )
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         vm.loadMoreLines()
         assertEquals(600, vm.uiState.value.visibleLineCount)
         assertEquals(true, vm.uiState.value.isFullyLoaded)
     }
 
     @Test
-    fun `loadMoreLines is no-op when isFullyLoaded`() = runTest {
+    fun `loadMoreLines is no-op when isFullyLoaded`() = runTest(testDispatcher) {
         coEvery { getFileContent(serverId, directory, filePath) } returns Result.success(sampleFileContent)
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         val before = vm.uiState.value.visibleLineCount
         vm.loadMoreLines()
         assertEquals(before, vm.uiState.value.visibleLineCount)
     }
 
     @Test
-    fun `loadMoreLines for extremely large file starts at 10000 not 500`() = runTest {
+    fun `loadMoreLines for extremely large file starts at 10000 not 500`() = runTest(testDispatcher) {
         val hugeContent = (1..150000).joinToString("\n") { "line $it" }
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             FileContent(path = filePath, type = ContentType.TEXT, content = hugeContent)
         )
-        val vm = FileViewerViewModel(fileViewerParams(), getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations)
+        val vm = createVm(fileViewerParams())
         assertEquals(10000, vm.uiState.value.visibleLineCount)
         vm.loadMoreLines()
         assertEquals(10500, vm.uiState.value.visibleLineCount)
@@ -634,7 +587,7 @@ class FileViewerViewModelTest {
     // ===== 多格式渲染测试 =====
 
     @Test
-    fun `init with json file sets fileType JSON`() = runTest {
+    fun `init with json file sets fileType JSON`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "config.json",
@@ -642,15 +595,12 @@ class FileViewerViewModelTest {
                 content = "{\"key\":\"value\"}"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "config.json"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "config.json"))
         assert(vm.uiState.value.fileType == FileType.JSON) { "fileType should be JSON" }
     }
 
     @Test
-    fun `toggleRenderMode is no-op for JSON files`() = runTest {
+    fun `toggleRenderMode is no-op for JSON files`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "config.json",
@@ -658,10 +608,7 @@ class FileViewerViewModelTest {
                 content = "{\"key\":\"value\"}"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "config.json"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "config.json"))
         vm.toggleRenderMode()
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) {
             "JSON should stay SOURCE (CodeWebView already has syntax highlight)"
@@ -669,7 +616,7 @@ class FileViewerViewModelTest {
     }
 
     @Test
-    fun `init with png binary sets fileType IMAGE and retains base64 content`() = runTest {
+    fun `init with png binary sets fileType IMAGE and retains base64 content`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "photo.png",
@@ -678,10 +625,7 @@ class FileViewerViewModelTest {
                 mimeType = "image/png"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "photo.png"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "photo.png"))
         assert(vm.uiState.value.fileType == FileType.IMAGE) { "fileType should be IMAGE" }
         assert(!vm.uiState.value.isBinary) { "IMAGE should not be marked isBinary" }
         assert(vm.uiState.value.content == "iVBORw0KGgo=") { "base64 content should be retained" }
@@ -689,7 +633,7 @@ class FileViewerViewModelTest {
     }
 
     @Test
-    fun `toggleRenderMode works for IMAGE files`() = runTest {
+    fun `toggleRenderMode works for IMAGE files`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "photo.png",
@@ -698,17 +642,14 @@ class FileViewerViewModelTest {
                 mimeType = "image/png"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "photo.png"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "photo.png"))
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.RENDER_PREVIEW) { "IMAGE should default to RENDER_PREVIEW" }
         vm.toggleRenderMode()
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) { "toggle should switch to SOURCE" }
     }
 
     @Test
-    fun `toggleRenderMode works for CSV files`() = runTest {
+    fun `toggleRenderMode works for CSV files`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "data.csv",
@@ -716,10 +657,7 @@ class FileViewerViewModelTest {
                 content = "a,b\n1,2"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "data.csv"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "data.csv"))
         assert(vm.uiState.value.fileType == FileType.CSV)
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.RENDER_PREVIEW) { "CSV should default to RENDER_PREVIEW" }
         vm.toggleRenderMode()
@@ -729,7 +667,7 @@ class FileViewerViewModelTest {
     // ===== Task 3：HTML + PDF 测试 =====
 
     @Test
-    fun `init with html file sets fileType HTML and renderMode RENDER_PREVIEW`() = runTest {
+    fun `init with html file sets fileType HTML and renderMode RENDER_PREVIEW`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "index.html",
@@ -737,16 +675,13 @@ class FileViewerViewModelTest {
                 content = "<!DOCTYPE html><html><body><h1>Hello</h1></body></html>"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "index.html"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "index.html"))
         assert(vm.uiState.value.fileType == FileType.HTML) { "fileType should be HTML" }
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.RENDER_PREVIEW) { "HTML should default to RENDER_PREVIEW (supportsRender=true)" }
     }
 
     @Test
-    fun `toggleRenderMode works for HTML files`() = runTest {
+    fun `toggleRenderMode works for HTML files`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "index.html",
@@ -754,17 +689,14 @@ class FileViewerViewModelTest {
                 content = "<!DOCTYPE html><html></html>"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "index.html"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "index.html"))
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.RENDER_PREVIEW) { "HTML defaults to RENDER_PREVIEW" }
         vm.toggleRenderMode()
         assert(vm.uiState.value.renderMode == FileViewerRenderMode.SOURCE) { "toggle to SOURCE" }
     }
 
     @Test
-    fun `init with pdf binary sets fileType PDF and retains base64 content`() = runTest {
+    fun `init with pdf binary sets fileType PDF and retains base64 content`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "report.pdf",
@@ -773,10 +705,7 @@ class FileViewerViewModelTest {
                 mimeType = "application/pdf"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "report.pdf"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "report.pdf"))
         assert(vm.uiState.value.fileType == FileType.PDF) { "fileType should be PDF" }
         assert(!vm.uiState.value.isBinary) { "PDF should not be marked isBinary" }
         assert(vm.uiState.value.content == "JVBERi0xLjcKJeLjz9MK") { "base64 content should be retained" }
@@ -785,7 +714,7 @@ class FileViewerViewModelTest {
     }
 
     @Test
-    fun `toggleRenderMode is no-op for PDF files`() = runTest {
+    fun `toggleRenderMode is no-op for PDF files`() = runTest(testDispatcher) {
         coEvery { getFileContent(any(), any(), any()) } returns Result.success(
             dev.leonardo.ocbeacon.domain.model.FileContent(
                 path = "report.pdf",
@@ -794,10 +723,7 @@ class FileViewerViewModelTest {
                 mimeType = "application/pdf"
             )
         )
-        val vm = FileViewerViewModel(
-            fileViewerParams(path = "report.pdf"),
-            getFileContent, getFileDiff, toolSnapshotCache, submitAnnotations
-        )
+        val vm = createVm(fileViewerParams(path = "report.pdf"))
         val modeBefore = vm.uiState.value.renderMode
         vm.toggleRenderMode()
         assert(vm.uiState.value.renderMode == modeBefore) { "PDF toggle should be no-op" }

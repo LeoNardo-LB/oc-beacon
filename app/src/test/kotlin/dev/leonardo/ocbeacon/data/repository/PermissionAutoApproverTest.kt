@@ -9,10 +9,13 @@ class PermissionAutoApproverTest {
 
     @Test
     fun `AutoApproveRule serialization round-trip`() {
+        // 固定 createdAt：System.currentTimeMillis() 默认值非确定性，
+        // 配合默认 encodeDefaults=false 会偶发省略该字段导致 round-trip 失败。
         val rule = AutoApproveRule(
             toolName = "bash",
             sessionId = "s1",
-            directoryPattern = "/home/user"
+            directoryPattern = "/home/user",
+            createdAt = 1_700_000_000_000L
         )
         val json = Json { ignoreUnknownKeys = true }
         val serialized = json.encodeToString(AutoApproveRule.serializer(), rule)
@@ -22,7 +25,7 @@ class PermissionAutoApproverTest {
 
     @Test
     fun `AutoApproveRule with defaults serialization`() {
-        val rule = AutoApproveRule(toolName = "*")
+        val rule = AutoApproveRule(toolName = "*", createdAt = 1_700_000_000_000L)
         val json = Json { ignoreUnknownKeys = true }
         val serialized = json.encodeToString(AutoApproveRule.serializer(), rule)
         val deserialized = json.decodeFromString<AutoApproveRule>(serialized)
