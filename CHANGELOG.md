@@ -2,6 +2,41 @@
 
 鏈」鐩伒寰?[Semantic Versioning](https://semver.org/) 涓?[Keep a Changelog](https://keepachangelog.com/)銆?
 **CHANGELOG 浠呭湪姝ｅ紡鐗堬紙stable release锛夊彂甯冩椂鏇存柊**锛沚eta/dev 棰勫彂甯冪殑鍙樻洿鍦ㄦ寮忕増鍙戝竷鏃剁粺涓€姹囨€汇€傚彂鐗堟祦绋嬭 [docs/release-workflow.md](docs/release-workflow.md)銆?
+## [1.2.0] - 2026-08-06
+
+### Added
+
+- 4 项 UX 修正——弹窗列表左上对齐+表单直展+按钮行合并、设置页按钮下移+空占位、收藏入口回归（本服务器仅收藏视图）、category_name 改标签名称（14 语言）
+- 设置页统一列表组件（SettingsSectionHeader + SettingsListRow）——MCP 与标签管理收敛
+- 长按详情弹框展示已有 tag（纯展示）+ 抽公共 TagChipsRow
+- 分配弹窗 FilterChip 多选 + 底部新增按钮内联表单 + 空状态占位
+- 设置页标签管理（增删改 + 展开关联会话 + 逐会话解除）
+- 会话行多标签横排显示（复用 basicMarquee 滚动）
+- 分配弹窗复选框多选 + 确定保存 + 新增标签自动勾选
+- 会话列表状态改多标签（SessionItem.tags + resolvedTags + ViewModel 新接口）
+- SettingsRepository 标签接口（替换分类 + 收藏视图统一为内置标签）
+- Tag 实体 + DataStore 存储层（多对多分配 + 内置收藏标签 + 原子清理 + 旧收藏迁移）
+- 流式期间即显示统计栏（实时耗时 ticker + 圆形进度条）
+- 会话详情弹窗移除收藏按钮并按三行重排（复制ID+重命名/分配tag/删除）
+- 会话行收藏图标 + 分类 tag 右对齐与溢出滚动 + assign_category 改 Assign tag
+
+### Changed
+
+- 删除废弃分类代码（SessionCategory/Categories DataStore/PickerDialog）
+- 删除跨服务器收藏/标签入口与代码（收藏统一为内置标签）
+- 滚动性能全链路修复（v1-v6）——cache window 对称预组合 + renderableTurns 内容指纹缓存 + ChatMessage 实例缓存 + turnGroups/jumpTargets 签名缓存
+- 盘符列表渐进加载（边探测边显示）+ 30s 缓存 + 单探测 2s 超时，打开其他项目不再等待最慢盘符
+
+### Fixed
+
+- 统计栏 turn 级流式判定（气泡出现即显示实时耗时）+ 会话状态进度条移至输入模块第一行附件左侧
+- SettingsListRow 标题单行省略（titleMaxLines 参数，恢复原视觉行为）
+- 收藏迁移成功后删除 legacy key（防止取消收藏后复活）
+- 暗色表格边界增强（outline 网格线）+ 补齐行分隔线 + 主题切换文字过曝修复（remember 键含颜色）
+- 回退 mergeMessageMeta REST completed 合并（保留 SSE 兜底），仅保留 CommandExecuted 精确标记
+- REST 快照不再终结 SSE 流式状态 + CommandExecuted 按 messageId 精确标记
+- turnGroups/streamingMsgId 直接以 rawMessages 为 key，修复 stale 引用冻结流式输出
+- 暗色模式下回合分割线与输入框分隔线改用 outline 提升可见度
 ## [1.1.1] - 2026-08-06
 
 ### Fixed
