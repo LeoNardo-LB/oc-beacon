@@ -22,7 +22,8 @@ android {
     defaultConfig {
         applicationId = "dev.leonardo.ocbeacon"
         minSdk = 26
-        targetSdk = 35
+        // Google Play 政策：2026-08-31 起新应用必须 target Android 16 (API 36) 或更高
+        targetSdk = 36
         versionCode = vCode
         versionName = vName
 
@@ -56,15 +57,21 @@ android {
             dimension = "channel"
             applicationIdSuffix = ".dev"
             manifestPlaceholders["appLabel"] = "OC Beacon Dev"
+            // GitHub 分发渠道保留应用内自更新
+            buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "true")
         }
         create("beta") {
             dimension = "channel"
             applicationIdSuffix = ".beta"
             manifestPlaceholders["appLabel"] = "OC Beacon Beta"
+            // GitHub 分发渠道保留应用内自更新
+            buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "true")
         }
         create("stable") {
             dimension = "channel"
             manifestPlaceholders["appLabel"] = "@string/app_name"
+            // Google Play 渠道：政策禁止 REQUEST_INSTALL_PACKAGES 自更新，禁用
+            buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "false")
         }
     }
 

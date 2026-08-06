@@ -1,2 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources />
+<!-- 服务器配置（DataStore，含服务器密码）不随系统云备份上传 -->
+<full-backup-content>
+    <exclude domain="file" path="datastore/" />
+</full-backup-content>

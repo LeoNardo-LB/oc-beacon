@@ -106,20 +106,22 @@ fun AboutScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // 更新检查卡片
-            OutlinedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                UpdateCheckContent(
-                    state = updateState,
-                    onCheckForUpdate = { viewModel.checkForUpdate() },
-                    onDownload = { release -> viewModel.prepareInstall(release) },
-                    onInstall = { apkPath -> installLauncher(apkPath) },
-                    onViewRelease = { url ->
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    },
-                    modifier = Modifier.padding(16.dp),
-                )
+            // 更新检查卡片（Google Play stable 渠道隐藏——自更新由 Play 分发接管）
+            if (BuildConfig.ENABLE_AUTO_UPDATE) {
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    UpdateCheckContent(
+                        state = updateState,
+                        onCheckForUpdate = { viewModel.checkForUpdate() },
+                        onDownload = { release -> viewModel.prepareInstall(release) },
+                        onInstall = { apkPath -> installLauncher(apkPath) },
+                        onViewRelease = { url ->
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        },
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.height(24.dp))

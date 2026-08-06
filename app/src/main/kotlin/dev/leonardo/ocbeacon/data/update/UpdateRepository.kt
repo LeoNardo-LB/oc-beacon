@@ -62,6 +62,8 @@ class UpdateRepository @Inject constructor(
     private val operationMutex = Mutex()
 
     suspend fun restore() = operationMutex.withLock {
+        // Google Play (stable) 渠道禁用应用内自更新（政策禁止 REQUEST_INSTALL_PACKAGES 自更新）
+        if (!BuildConfig.ENABLE_AUTO_UPDATE) return@withLock
         if (_state.value is UpdateState.Downloading || _state.value is UpdateState.ReadyToInstall) return@withLock
         val preferences = dataStore.data.first()
         decodeCachedRelease(preferences[CACHED_RELEASE_KEY])
@@ -70,6 +72,8 @@ class UpdateRepository @Inject constructor(
     }
 
     suspend fun check(manual: Boolean): Unit = operationMutex.withLock {
+        // Google Play (stable) 渠道禁用应用内自更新（政策禁止 REQUEST_INSTALL_PACKAGES 自更新）
+        if (!BuildConfig.ENABLE_AUTO_UPDATE) return@withLock
         if (_state.value is UpdateState.Downloading || _state.value is UpdateState.ReadyToInstall) return@withLock
         val preferences = dataStore.data.first()
         val now = System.currentTimeMillis()
@@ -99,6 +103,8 @@ class UpdateRepository @Inject constructor(
     }
 
     suspend fun prepareInstall(release: AvailableUpdate) = operationMutex.withLock {
+        // Google Play (stable) 渠道禁用应用内自更新（政策禁止 REQUEST_INSTALL_PACKAGES 自更新）
+        if (!BuildConfig.ENABLE_AUTO_UPDATE) return@withLock
         if (!UpdatePolicy.isInstallable(release)) {
             _state.value = UpdateState.Error("This update cannot be installed automatically", release)
             return@withLock

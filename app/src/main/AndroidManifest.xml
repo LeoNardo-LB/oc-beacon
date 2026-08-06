@@ -9,14 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <!-- REQUEST_INSTALL_PACKAGES：仅 dev/beta（GitHub 分发）声明，stable（Google Play）由 src/stable/AndroidManifest.xml 移除 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
-
-    <queries>
-        <package android:name="com.termux" />
-    </queries>
 
     <application
         android:name=".OpenCodeApp"

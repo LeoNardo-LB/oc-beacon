@@ -139,11 +139,21 @@ fun HomeScreen(
                                 item(span = { GridItemSpan(maxLineSpan) }, key = "__battery_banner") {
                                     BatteryOptimizationBanner(
                                         onDisable = {
-                                            val intent = Intent(
-                                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                                Uri.parse("package:${context.packageName}")
-                                            )
-                                            context.startActivity(intent)
+                                            // Play 合规：不请求 REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 权限，
+                                            // 引导用户到系统电池优化设置页手动豁免；
+                                            // 部分设备无该入口（ActivityNotFoundException）时回退到应用详情页
+                                            try {
+                                                context.startActivity(
+                                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                                )
+                                            } catch (e: Exception) {
+                                                context.startActivity(
+                                                    Intent(
+                                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                        Uri.parse("package:${context.packageName}")
+                                                    )
+                                                )
+                                            }
                                         }
                                     )
                                 }
@@ -200,11 +210,21 @@ fun HomeScreen(
                                 item(key = "__battery_banner") {
                                     BatteryOptimizationBanner(
                                         onDisable = {
-                                            val intent = Intent(
-                                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                                Uri.parse("package:${context.packageName}")
-                                            )
-                                            context.startActivity(intent)
+                                            // Play 合规：不请求 REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 权限，
+                                            // 引导用户到系统电池优化设置页手动豁免；
+                                            // 部分设备无该入口（ActivityNotFoundException）时回退到应用详情页
+                                            try {
+                                                context.startActivity(
+                                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                                )
+                                            } catch (e: Exception) {
+                                                context.startActivity(
+                                                    Intent(
+                                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                        Uri.parse("package:${context.packageName}")
+                                                    )
+                                                )
+                                            }
                                         }
                                     )
                                 }

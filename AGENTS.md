@@ -98,6 +98,7 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 - CI 使用 GitHub Secrets（`KEYSTORE_BASE64`、`KEYSTORE_ALIAS`、`KEYSTORE_PASSWORD`）。**Secrets 未配置时 CI 会回退 debug 签名**，且每次构建（全新 runner）生成不同 debug.keystore → 每次发版签名不同 → 用户升级报"已安装签名冲突的应用"。配置方法：`gh secret set KEYSTORE_BASE64 --body "$([Convert]::ToBase64String([IO.File]::ReadAllBytes('app/keystore/release.jks')))"`（alias/password 同理）
 - 发版后必须用 `apksigner verify --print-certs` 验证产物签名为 `CN=OC Beacon, OU=Development, O=LeoNardo-LB, C=CN`（非 `CN=Android Debug`），见 `docs/release-workflow.md` §6
 - **2026-08-06 keystore 更换**：release keystore 已重建（CN=OC Beacon，alias=oc-tether）。**1.2.0 起使用新签名**——1.1.1 及更早版本安装的用户升级 1.2.0 时**必须卸载重装一次**（签名不同，无法覆盖安装）
+- **2026-08-06 版本体系重置**：VERSION_NAME 1.2.0 → **0.2.0**、VERSION_CODE 18 → **1**（未正式发版不配 1.x；用户明确接受卸载重装、不追求覆盖安装）。此后从 0.2.0 重新计数（0.2.0→0.3.0→…→1.0.0）
 - Debug 签名的 APK 可安装，但无法覆盖 release 签名安装（签名不同）；修复签名体系后，**旧 debug 签名安装的用户需卸载重装一次**
 
 ### Version Management（发版）
@@ -105,7 +106,7 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 > ⚠️ **发版必读**：任何发版、版本号变更、tag 操作、GitHub Release 操作前，**必须**先读 [`docs/release-workflow.md`](docs/release-workflow.md)（唯一权威指南，含 `./scripts/release.sh` 一键脚本用法）。
 
 核心红线（细节见 release-workflow.md）：
-- **`version.properties` 是版本号唯一真相源**（`VERSION_CODE` 永远只增不减；禁止在 build.gradle.kts 硬编码；CI 用 grep 提取，**不要改变文件格式**）
+- **`version.properties` 是版本号唯一真相源**（`VERSION_CODE` 只增不减——2026-08-06 经用户决策重置为 1（0.2.0 起重新计数，接受卸载重装）；禁止在 build.gradle.kts 硬编码；CI 用 grep 提取，**不要改变文件格式**）
 - **严禁在 `version.properties` 修改前执行 `assemble*`**，否则 APK 内嵌版本号与 tag/release 不一致
 - **每版本只发一个 APK**（命名 `oc-beacon-<VERSION>.apk`）；**不要删除历史 Release 和 Tag**
 - **默认发预发布版**：除非用户明确说明"正式发版"或"发 stable"，否则一律 beta/dev（`--prerelease`）

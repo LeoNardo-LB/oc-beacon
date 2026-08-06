@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
+import dev.leonardo.ocbeacon.data.security.SecretCipher
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.ServerHealth
@@ -28,18 +29,20 @@ private const val SERVERS_KEY = "servers"
 class ServerDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val api: SystemApi,
-    private val json: Json
+    private val json: Json,
+    private val secretCipher: SecretCipher
 ) {
     
     private val serversKey = stringPreferencesKey(SERVERS_KEY)
     
     /**
-     * 以 Flow 形式获取所有已保存的服务器
+     * 以 Flow 形式获取所有已保存的服务器（密码已解密为明文，供内存/网络层使用）
      */
     val servers: Flow<List<ServerConfig>> = dataStore.data.map { preferences ->
         val serversJson = preferences[serversKey] ?: "[]"
         try {
             json.decodeFromString<List<ServerConfig>>(serversJson)
+                .map { it.withDecryptedPassword() }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decode servers", e)
             emptyList()
@@ -152,8 +155,34 @@ class ServerDataStore @Inject constructor(
     
     private suspend fun saveServers(servers: List<ServerConfig>) {
         dataStore.edit { preferences ->
-            val serversJson = json.encodeToString(servers)
+            val serversJson = json.encodeToString(servers.map { it.withEncryptedPassword() })
             preferences[serversKey] = serversJson
         }
+    }
+
+    /** 读取时解密密码；旧明文数据透明兼容；密钥失效时降级为无密码（不阻塞加载） */
+    private fun ServerConfig.withDecryptedPassword(): ServerConfig {
+        val pw = password ?: return this
+        return copy(
+            password = runCatching { secretCipher.decrypt(pw) }.getOrElse {
+                Log.w(TAG, "Failed to decrypt password for ${url}", it)
+                null
+            }
+        )
+    }
+
+    /** 写入时加密密码；已加密数据幂等；加密失败时降级保持明文（不阻塞功能，Keystore 故障极罕见） */
+    private fun ServerConfig.withEncryptedPassword(): ServerConfig {
+        val pw = password ?: return this
+        return copy(
+            password = if (pw.startsWith("v1:")) {
+                pw
+            } else {
+                runCatching { secretCipher.encrypt(pw) }.getOrElse {
+                    Log.w(TAG, "Failed to encrypt password for ${url}", it)
+                    pw
+                }
+            }
+        )
     }
 }

@@ -50,22 +50,24 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 ### 2.3 版本号示例
 
 ```
-1.0.0              ← 正式稳定版
-1.0.1-beta.1       ← 1.0.1 的第一个 beta 测试版
-1.0.1-beta.2       ← 1.0.1 的第二个 beta（修复测试反馈）
-1.0.1              ← 1.0.1 正式版（beta 结束后发布）
-1.1.0-beta.1       ← 1.1.0 新功能 beta
-1.1.0-dev.3        ← 1.1.0 的第三个开发预览（worktree 构建）
+0.2.0              ← 当前基线（2026-08-06 版本体系重置后重新计数）
+0.2.1-beta.1        ← 0.2.1 的第一个 beta 测试版
+0.3.0-beta.1        ← 0.3.0 新功能 beta
+0.3.0               ← 0.3.0 正式版
+0.9.0               ← 1.0.0 前最后一个功能版本
+1.0.0               ← 首次正式发版（唯一允许 1.x 的时机）
 ```
+
+> **2026-08-06 版本体系重置**：未正式发版不配 1.x。VERSION_NAME 1.2.0 → **0.2.0**、VERSION_CODE 18 → **1**（用户明确接受卸载重装、不追求覆盖安装）。
 
 ### 2.4 单一真相源
 
 - **`version.properties`**（项目根目录，唯一来源）:
   ```properties
-  VERSION_CODE=5
-  VERSION_NAME=1.0.3
+  VERSION_CODE=1
+  VERSION_NAME=0.2.0
   ```
-- `VERSION_CODE`：整数，**永远只增不减**，每次构建 +1（Android 硬性要求）。**由脚本自动递增，禁止手工改动。**
+- `VERSION_CODE`：整数，**只增不减**（Android 硬性要求；2026-08-06 经用户决策重置为 1 后重新计数）。**由脚本自动递增，禁止手工改动。**
 - `VERSION_NAME`：显示字符串，遵循上述 SemVer 格式。
 - `app/build.gradle.kts` 从 `version.properties` 读取 — 禁止在 build.gradle.kts 中硬编码版本号。
 - CI 通过 grep `version.properties` 提取版本 — **不要改变文件格式**。
@@ -192,6 +194,29 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 ```
 
 **严禁在 `version.properties` 修改前执行 `assemble*`**，否则 APK 内嵌版本号与 tag/release 名称不一致。
+
+---
+
+## 5.5 Google Play 上架（AAB，可选扩展）
+
+> Google Play **只接受 Android App Bundle（AAB）**，不接受 APK 直传。GitHub 分发仍走 §3/§5 的 APK 流程，两者互不影响。
+
+```
+1. bump version → 修改 version.properties（与 APK 发版共用同一版本号）
+2. 构建 AAB → .\gradlew --stop && .\gradlew :app:bundleStableRelease
+   产物：app/build/outputs/bundle/stableRelease/app-stable-release.aab
+3. 上传 → Play Console → 应用 → 版本 → 创建版本 → 上传 AAB
+4. 签名 → 与 APK 共用 release keystore（oc-tether）签名；
+   上传后 Play Console 启用 Play App Signing（Google 管理分发密钥）
+5. 发布渠道 → Closed testing → 满足 12 测试者/14 天后申请生产权限
+```
+
+**Play 版（stable）差异**（代码已按 flavor 区分）：
+- `ENABLE_AUTO_UPDATE=false`：应用内自更新禁用（Play 政策禁止 REQUEST_INSTALL_PACKAGES 自更新），更新由 Play 分发
+- Manifest 不含 `REQUEST_INSTALL_PACKAGES`（`src/stable/AndroidManifest.xml` overlay 移除）
+- 更新来源：用户经 Play 商店更新；不得在 stable 内引导安装外部 APK
+
+**验证**：上传前本地校验 AAB 签名：`jarsigner -verify app-stable-release.aab`（AAB 本质是 ZIP/JAR 结构，需先 `unzip` 或直接用 Play Console 校验）。
 
 ---
 
