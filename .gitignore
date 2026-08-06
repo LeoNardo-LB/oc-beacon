@@ -69,3 +69,6 @@ eng.traineddata
 
 # Git worktrees
 /.worktrees/
+
+# 验证产物（截图/诊断日志）
+/verify-shots/
