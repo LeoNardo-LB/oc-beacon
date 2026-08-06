@@ -156,7 +156,9 @@ class ChatInteractionIsolatedTest : BaseChatTest() {
         composeRule.waitForIdle()
 
         // 渲染后注入 —— 确保全新的 ViewModel 订阅
-        val mwps = (1..20).map { i ->
+        // 40 条消息确保列表远超视口：20 条单行消息在大屏模拟器上可能接近满屏，
+        // 导致 swipe 无法越过 isAtBottom 阈值（firstVisibleItemScrollOffset < 100）。
+        val mwps = (1..40).map { i ->
             val msg = aUserMessage(text = "", id = "u$i")
             val parts = listOf(Part.Text(
                 id = "part-$i",
@@ -174,9 +176,11 @@ class ChatInteractionIsolatedTest : BaseChatTest() {
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        // 滑动以从底部滚离（reverseLayout：swipeDown 向上滚动）
+        // 滑动以从底部滚离（reverseLayout：swipeDown 向上滚动）。
+        // 增大幅度（0.05→0.95，近全屏跨度）和次数（6 次），确保越过
+        // isAtBottom 阈值（firstVisibleItemIndex==0 && scrollOffset<100）。
         composeRule.onAllNodes(hasScrollAction())[0].performTouchInput {
-            repeat(3) { swipeDown(startY = 0.1f, endY = 0.9f) }
+            repeat(6) { swipeDown(startY = 0.05f, endY = 0.95f) }
         }
         composeRule.waitForIdle()
 

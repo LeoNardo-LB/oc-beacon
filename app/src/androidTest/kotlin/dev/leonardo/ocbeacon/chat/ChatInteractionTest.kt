@@ -249,10 +249,6 @@ class ChatInteractionTest : BaseChatTest() {
      */
     @Test
     fun abortSession_callsAbortApi() {
-        // 将会话状态设置为 Busy，使停止按钮出现。
-        // sessionStateService 是 @Singleton —— 与 ViewModel 使用的是同一实例。
-        sessionStateService.onClientSendParts("")
-
         // 注入一条流式 assistant 消息，使会话看起来处于活跃状态
         val streamingMsg = anAssistantMessage(streaming = true, id = "a-stream") {
             text("Generating...")
@@ -260,6 +256,13 @@ class ChatInteractionTest : BaseChatTest() {
         seedMessages(listOf(streamingMsg.info), streamingMsg.parts)
 
         renderChatScreen()
+        composeRule.waitForIdle()
+
+        // 在 ViewModel 就绪后将会话状态设置为 Busy —— 确保 sessionMetaState
+        //（6 路 combine + WhileSubscribed5s）已订阅，FSM 更新能立即被捕获，
+        // 避免冷启动时序竞态导致 Stop 按钮出现延迟。
+        // sessionStateService 是 @Singleton —— 与 ViewModel 使用的是同一实例。
+        sessionStateService.onClientSendParts("")
         composeRule.waitForIdle()
 
         // 停止按钮在 isBusy && 输入文本为空时显示。
@@ -290,9 +293,13 @@ class ChatInteractionTest : BaseChatTest() {
      */
     @Test
     fun permissionDialog_appears_whenPermissionRequested() {
-        seedPermission(permission = "bash echo hello")
-
         renderChatScreen()
+        composeRule.waitForIdle()
+
+        // 在 ViewModel 就绪后注入权限 —— 确保 interactionState（7 路 combine）
+        // 已订阅，allPermissionsMapState 的 emit 能立即被 combine 捕获，
+        // 避免冷启动时序竞态导致 PermissionCard 出现延迟。
+        seedPermission(permission = "bash echo hello")
         composeRule.waitForIdle()
 
         // 等待 interactionState flow（7 路 combine）将权限传播到
@@ -314,9 +321,13 @@ class ChatInteractionTest : BaseChatTest() {
      */
     @Test
     fun questionDialog_appears_whenQuestionAsked() {
-        seedQuestion(question = "Which framework?")
-
         renderChatScreen()
+        composeRule.waitForIdle()
+
+        // 在 ViewModel 就绪后注入问题 —— 确保 interactionState（7 路 combine）
+        // 已订阅，allQuestionsMapState 的 emit 能立即被 combine 捕获，
+        // 避免冷启动时序竞态导致 QuestionCard 出现延迟。
+        seedQuestion(question = "Which framework?")
         composeRule.waitForIdle()
 
         // 等待 interactionState flow 将问题传播到 pendingQuestions

@@ -18,6 +18,8 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
     val statusesState = MutableStateFlow<Map<String, SessionStatus>>(emptyMap())
     val currentAgentFlow = MutableStateFlow<Map<String, String>>(emptyMap())
     val currentModelFlow = MutableStateFlow<Map<String, Pair<String, String>>>(emptyMap())
+    val serverSessionsFlow = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+    val lastUserMessageTimeFlow = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     var createSessionResult: Result<Session> = Result.success(
         Session(
@@ -183,4 +185,18 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
 
     override suspend fun fetchSessionStatuses(serverId: String, directory: String?): Result<Map<String, SessionStatus>> =
         fetchStatusesResult
+
+    // ============ 服务器会话映射 / 最近消息时间 / 会话列表 ============
+
+    override fun getServerSessionsFlow(): Flow<Map<String, Set<String>>> = serverSessionsFlow
+
+    override fun getLastUserMessageTimeFlow(): Flow<Map<String, Long>> = lastUserMessageTimeFlow
+
+    override suspend fun listSessions(
+        serverId: String,
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int
+    ): List<Session> = emptyList()
 }
