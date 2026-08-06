@@ -191,17 +191,27 @@ class DtoSerializationTest {
     @Test
     fun `SearchMatchDto round-trip`() {
         val match = SearchMatchDto(
-            path = "src/Main.kt",
-            lines = "fun main()",
+            path = MatchText("src/Main.kt"),
+            lines = MatchText("fun main()"),
             lineNumber = 42,
-            absoluteOffset = 1024
+            absoluteOffset = 1024,
+            submatches = listOf(SubmatchDto(match = MatchText("fun"), start = 0, end = 3))
         )
         val encoded = json.encodeToString(SearchMatchDto.serializer(), match)
         val decoded = json.decodeFromString(SearchMatchDto.serializer(), encoded)
-        assertEquals("src/Main.kt", decoded.path)
-        assertEquals("fun main()", decoded.lines)
+        assertEquals("src/Main.kt", decoded.path.text)
+        assertEquals("fun main()", decoded.lines.text)
         assertEquals(42, decoded.lineNumber)
         assertEquals(1024, decoded.absoluteOffset)
+        assertEquals(1, decoded.submatches.size)
+        assertEquals("fun", decoded.submatches[0].match.text)
+        assertEquals(0, decoded.submatches[0].start)
+        assertEquals(3, decoded.submatches[0].end)
+        // 序列化形状：嵌套 path/lines 为 {text}，snake_case 键，submatches 数组
+        assertTrue(encoded.contains("\"line_number\""))
+        assertTrue(encoded.contains("\"absolute_offset\""))
+        assertTrue(encoded.contains("\"submatches\""))
+        assertTrue(encoded.contains("\"path\":{\"text\":\"src/Main.kt\"}"))
     }
 
     // ============ ProviderCatalogResponse ============

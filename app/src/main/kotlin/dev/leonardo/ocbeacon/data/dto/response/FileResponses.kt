@@ -4,12 +4,29 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.JsonElement
 
+/**
+ * /find 文本搜索匹配结果。
+ * API 形状（见 docs/opencode-api-reference.md /find 响应）：
+ * path/lines 是嵌套 { text } 对象，line_number/absolute_offset 为 snake_case，
+ * submatches 为 match:{text} + start/end。
+ */
 @Serializable
-data class SearchMatchDto(  // ⚠️ 字段与 API 不完全匹配（API 是 path:{text}, line_number），Phase 1 不用 /find 端点，保留现状加注释
-    val path: String,
-    val lines: String,
-    val lineNumber: Int,
-    val absoluteOffset: Int
+data class MatchText(val text: String = "")
+
+@Serializable
+data class SubmatchDto(
+    @SerialName("match") val match: MatchText = MatchText(""),
+    val start: Int = 0,
+    val end: Int = 0
+)
+
+@Serializable
+data class SearchMatchDto(
+    val path: MatchText = MatchText(""),
+    val lines: MatchText = MatchText(""),
+    @SerialName("line_number") val lineNumber: Int = 0,
+    @SerialName("absolute_offset") val absoluteOffset: Int = 0,
+    val submatches: List<SubmatchDto> = emptyList()
 )
 
 @Serializable
