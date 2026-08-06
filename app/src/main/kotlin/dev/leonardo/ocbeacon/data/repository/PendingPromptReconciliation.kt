@@ -1,28 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.domain.model.Message
-import dev.leonardo.ocbeacon.domain.model.ModelSelection
-import dev.leonardo.ocbeacon.domain.model.PromptPart
-import kotlinx.serialization.Serializable
-
-/**
- * 乐观（尚未经服务器确认）prompt 发送的持久化记录。
- *
- * 由 [PendingPromptRepository] 存储，使待处理 prompt 能在应用重启后保留。
- * 下次启动时，[missingPendingPromptIds] 会将它们与服务器的权威消息列表
- * 进行核对，以检测丢失的发送。
- */
-@Serializable
-data class PendingPromptRecord(
-    val messageId: String,
-    val sessionId: String,
-    val parts: List<PromptPart>,
-    val model: ModelSelection? = null,
-    val agent: String? = null,
-    val variant: String? = null,
-    val directory: String? = null,
-    val createdAt: Long,
-)
+import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
 
 /**
  * 核对纯函数：判定哪些待处理 prompt 已足够陈旧、可视为丢失，

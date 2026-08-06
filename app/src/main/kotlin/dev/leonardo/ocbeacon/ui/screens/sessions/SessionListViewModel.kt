@@ -12,8 +12,8 @@ import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
-import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
-import dev.leonardo.ocbeacon.data.dto.response.ServerPaths
+import dev.leonardo.ocbeacon.domain.model.FileNode
+import dev.leonardo.ocbeacon.domain.model.ServerPaths
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Project
@@ -311,9 +311,9 @@ class SessionListViewModel @Inject constructor(
 
     suspend fun getHomeDirectory(): String = directoryManager.getHomeDirectory()
 
-    suspend fun listWindowsDrives(): Flow<FileNodeDto> = directoryManager.listWindowsDrives()
+    suspend fun listWindowsDrives(): Flow<FileNode> = directoryManager.listWindowsDrives()
 
-    suspend fun listDirectories(directory: String): List<FileNodeDto> =
+    suspend fun listDirectories(directory: String): List<FileNode> =
         directoryManager.listDirectories(directory)
 
     suspend fun searchDirectories(query: String, directory: String): List<String> =

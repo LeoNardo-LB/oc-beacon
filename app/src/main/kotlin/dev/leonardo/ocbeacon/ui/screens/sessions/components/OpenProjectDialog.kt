@@ -43,7 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
+import dev.leonardo.ocbeacon.domain.model.FileNode
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.components.amoledOutlinedTextFieldColors
 import dev.leonardo.ocbeacon.ui.components.DialogButtons
@@ -81,7 +81,7 @@ internal fun OpenProjectDialog(
     // ── State ────────────────────────────────────────────────────────
     var currentPath by remember { mutableStateOf<DirectoryPath?>(null) }
     var homeDir by remember { mutableStateOf<String?>(null) }
-    var directories by remember { mutableStateOf<List<FileNodeDto>>(emptyList()) }
+    var directories by remember { mutableStateOf<List<FileNode>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var newFolderName by remember { mutableStateOf("") }

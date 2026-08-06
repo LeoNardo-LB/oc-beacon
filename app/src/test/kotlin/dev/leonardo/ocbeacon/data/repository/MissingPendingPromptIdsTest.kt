@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.domain.model.Message
+import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
 import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import org.junit.Assert.assertEquals

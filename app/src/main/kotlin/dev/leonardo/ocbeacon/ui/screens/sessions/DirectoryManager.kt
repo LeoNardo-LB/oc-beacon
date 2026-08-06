@@ -5,9 +5,12 @@ import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
-import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
-import dev.leonardo.ocbeacon.data.dto.response.ServerPaths
+import dev.leonardo.ocbeacon.data.mapper.FileMapper
+import dev.leonardo.ocbeacon.domain.model.FileNode
+import dev.leonardo.ocbeacon.domain.model.FileType
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerPaths
+import dev.leonardo.ocbeacon.domain.model.isDirectory
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -45,7 +48,7 @@ class DirectoryManager(
     private var cachedServerPaths: ServerPaths? = null
 
     @Volatile
-    private var cachedDrives: List<FileNodeDto>? = null
+    private var cachedDrives: List<FileNode>? = null
 
     @Volatile
     private var cachedDrivesAt: Long = 0L
@@ -54,7 +57,7 @@ class DirectoryManager(
     suspend fun getServerPaths(): ServerPaths {
         if (cachedServerPaths == null) {
             cachedServerPaths = try {
-                systemApi.getServerPaths(conn)
+                FileMapper.toDomain(systemApi.getServerPaths(conn))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to get server paths", e)
                 ServerPaths()
@@ -77,7 +80,7 @@ class DirectoryManager(
      * 返回 [Flow]：每个盘符探测完成即发射，UI 可边收集边显示（先看到 C:/D: 等常用盘符），
      * 无需等最慢的请求。单盘符探测超时 [DRIVE_PROBE_TIMEOUT_MS]，结果缓存 [DRIVES_CACHE_TTL_MS]。
      */
-    suspend fun listWindowsDrives(): Flow<FileNodeDto> = callbackFlow {
+    suspend fun listWindowsDrives(): Flow<FileNode> = callbackFlow {
         val cached = cachedDrives
         if (cached != null && System.currentTimeMillis() - cachedDrivesAt < DRIVES_CACHE_TTL_MS) {
             cached.forEach { trySend(it) }
@@ -85,7 +88,7 @@ class DirectoryManager(
             return@callbackFlow
         }
 
-        val collected = mutableListOf<FileNodeDto>()
+        val collected = mutableListOf<FileNode>()
         val producer = this
         ('C'..'Z').map { letter ->
             async {
@@ -93,11 +96,12 @@ class DirectoryManager(
                 try {
                     val node = withTimeoutOrNull(DRIVE_PROBE_TIMEOUT_MS) {
                         if (fileApi.probeDirectory(conn, drivePath)) {
-                            FileNodeDto(
+                            FileNode(
                                 name = "$letter:",
                                 path = drivePath,
-                                type = "directory",
                                 absolute = drivePath,
+                                type = FileType.DIRECTORY,
+                                ignored = false,
                             )
                         } else {
                             null
@@ -121,10 +125,10 @@ class DirectoryManager(
     }
 
     /** 列出服务器上指定路径中的目录。 */
-    suspend fun listDirectories(directory: String): List<FileNodeDto> {
+    suspend fun listDirectories(directory: String): List<FileNode> {
         return try {
             val nodes = fileApi.listDirectory(conn, path = "", directory = directory)
-            nodes.filter { it.type == "directory" }
+            nodes.map { FileMapper.toDomain(it) }.filter { it.isDirectory() }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to list directory: $directory", e)
             emptyList()

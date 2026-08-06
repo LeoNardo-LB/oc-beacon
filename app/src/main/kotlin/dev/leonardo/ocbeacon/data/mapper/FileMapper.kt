@@ -3,10 +3,12 @@ package dev.leonardo.ocbeacon.data.mapper
 import android.util.Log
 import dev.leonardo.ocbeacon.data.dto.response.FileContentDto
 import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
+import dev.leonardo.ocbeacon.data.dto.response.ServerPaths as ServerPathsDto
 import dev.leonardo.ocbeacon.domain.model.ContentType
 import dev.leonardo.ocbeacon.domain.model.FileContent
 import dev.leonardo.ocbeacon.domain.model.FileNode
 import dev.leonardo.ocbeacon.domain.model.FileType
+import dev.leonardo.ocbeacon.domain.model.ServerPaths
 
 object FileMapper {
 
@@ -39,5 +41,13 @@ object FileMapper {
         },
         content = dto.content,
         mimeType = dto.mimeType
+    )
+
+    fun toDomain(dto: ServerPathsDto): ServerPaths = ServerPaths(
+        home = dto.home,
+        state = dto.state,
+        config = dto.config,
+        worktree = dto.worktree,
+        directory = dto.directory
     )
 }

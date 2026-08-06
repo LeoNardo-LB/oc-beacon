@@ -2,7 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 
 import android.util.Log
 import dev.leonardo.ocbeacon.BuildConfig
-import dev.leonardo.ocbeacon.data.repository.PendingPromptRecord
+import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.OptimisticMessage
