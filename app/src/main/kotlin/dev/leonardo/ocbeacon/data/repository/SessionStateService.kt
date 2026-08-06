@@ -34,6 +34,8 @@ private const val TAG = "SessionStateService"
 private const val HISTORY_MAX = 20
 private const val STALENESS_CHECK_INTERVAL_MS = 5_000L
 private const val STALENESS_THRESHOLD_MS = 15_000L
+/** 防御性清理阈值：会话状态超过该时长无事件且非 Busy 时从状态容器移除。 */
+private const val STATE_RETENTION_MS = 24 * 60 * 60 * 1000L
 
 @Singleton
 class SessionStateService @Inject constructor(
@@ -72,6 +74,7 @@ class SessionStateService @Inject constructor(
 
     private fun checkStaleness() {
         val now = System.currentTimeMillis()
+        val expired = mutableListOf<String>()
         _fsmStates.value.forEach { (sessionId, state) ->
             if (state.core is SessionStatus.Busy && now - state.lastEventAt > STALENESS_THRESHOLD_MS) {
                 AppLogger.w(TAG, "[$sessionId] L2 stale for ${now - state.lastEventAt}ms, triggering REST validation")
@@ -81,6 +84,17 @@ class SessionStateService @Inject constructor(
                 AppLogger.w(TAG, "[$sessionId] L5 inconsistency: Idle but has incomplete messages")
                 triggerRestValidation(sessionId)
             }
+            // 防御性清理：长时间（>24h）无事件且非 Busy 的孤儿状态
+            // （孤儿 SSE 事件、服务器会话 id 复用、已关闭会话残留），
+            // 防止 _fsmStates/_histories 无界增长。
+            if (state.core !is SessionStatus.Busy && now - state.lastEventAt > STATE_RETENTION_MS) {
+                expired += sessionId
+            }
+        }
+        if (expired.isNotEmpty()) {
+            AppLogger.i(TAG, "Sweeping ${expired.size} stale session state(s): $expired")
+            _fsmStates.update { it - expired.toSet() }
+            _histories.update { it - expired.toSet() }
         }
     }
 
