@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -67,6 +68,11 @@ internal class ModelConfigDelegate(
     private val _selectedAgent = MutableStateFlow("build" to false)
     private val _selectedVariant = MutableStateFlow<String?>(null)
     private val _commands = MutableStateFlow<List<CommandInfo>>(emptyList())
+
+    private val _isLoaded = MutableStateFlow(false)
+
+    /** Provider catalog 加载完成标志（成功或失败均置 true）。供 ChatScreen 加载蒙版消费。 */
+    val isLoaded: StateFlow<Boolean> = _isLoaded.asStateFlow()
 
     /** 当前 agent 选择的快照 —— 供 [DraftInputDelegate] 草稿持久化消费。 */
     val selectedAgentValue: Pair<String, Boolean> get() = _selectedAgent.value
@@ -221,6 +227,8 @@ internal class ModelConfigDelegate(
                 // 无需在此设置默认值，combine 块处理回退
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to load providers", e)
+            } finally {
+                _isLoaded.value = true
             }
         }
     }
