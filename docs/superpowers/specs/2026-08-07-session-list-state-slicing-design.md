@@ -68,17 +68,28 @@
 ### 3.3 管线
 
 ```
-dataFlow  = combine(12 源) → SessionListDataInputs
-uiFlow    = combine(7 源)  → SessionListUiInputs
+数据流分组（嵌套 combine，每组 ≤5 源，全部具名 lambda 参数——不引入任何 args[N] 索引）：
+  sessionDataFlow  = combine(sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime)  // 5 源
+  settingDataFlow  = combine(categoryAssignments, sessionTags, readTimes, unreadBaseline, justRead)      // 5 源
+  miscDataFlow     = combine(favoritesOnly, allReadAt)                                                   // 2 源
+  dataFlow         = combine(sessionDataFlow, settingDataFlow, miscDataFlow) → SessionListDataInputs      // 3 源
+
+uiFlow（嵌套分组）：
+  uiGroup1         = combine(expandedPaths, selectedIds, baseDirectory, lastToggledDirectory)             // 4 源
+  uiGroup2         = combine(searchQuery, viewMode, categoryFilterIds)                                    // 3 源
+  uiFlow           = combine(uiGroup1, uiGroup2) → SessionListUiInputs                                     // 2 源
+
 contentState = combine(dataFlow, uiFlow)
-               → buildContentState(data, ui, serverId, serverName, draftRepository)
+               → buildContentState(data, ui, serverId, draftRepository)
                .stateIn(viewModelScope, WhileSubscribed5s, SessionListContentState())
 shellState = combine(_isLoading, _isRefreshing, _error)
              → SessionListShellState(loading, refreshing, error, serverName)
              .stateIn(viewModelScope, WhileSubscribed5s, SessionListShellState())
 ```
 
-根治点：`isRefreshing`/`isLoading`/`error` 变化 → 不进内容管线 → tag 解析/树构建零开销。
+实现约束：
+- **所有 combine 均 ≤5 源**，lambda 使用具名参数（Kotlin 对 >5 源只提供 vararg `args`，会重新引入索引——因此必须嵌套分组）
+- 根治点：`isRefreshing`/`isLoading`/`error` 变化 → 不进内容管线 → tag 解析/树构建零开销
 
 ### 3.4 文件变更
 
