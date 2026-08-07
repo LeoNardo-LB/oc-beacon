@@ -50,7 +50,9 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 ### 2.3 版本号示例
 
 ```
-0.1.0              ← 当前基线（2026-08-07 清理全部 1.x 发版后重新计数）
+0.1.0              ← 当前基线 / 首个版本（2026-08-07 清理全部 1.x 发版后重新计数）
+0.1.0-beta.1        ← 0.1.0 的第一个 beta 预发布（本次发版）
+0.1.0               ← 0.1.0 正式版
 0.1.1-beta.1        ← 0.1.1 的第一个 beta 测试版
 0.2.0-beta.1        ← 0.2.0 新功能 beta
 0.2.0               ← 0.2.0 正式版
@@ -68,6 +70,7 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
   VERSION_NAME=0.1.0
   ```
 - `VERSION_CODE`：整数，**只增不减**（Android 硬性要求；2026-08-06 经用户决策重置为 1 后重新计数）。**由脚本自动递增，禁止手工改动。**
+  > **0.x 阶段豁免（2026-08-07 用户决策）**：首个版本 0.1.0-beta.1 保持 VERSION_CODE=**1**（尚无已安装用户，不要求覆盖安装兼容）。**1.0.0 起严格只增不减**。
 - `VERSION_NAME`：显示字符串，遵循上述 SemVer 格式。
 - `app/build.gradle.kts` 从 `version.properties` 读取 — 禁止在 build.gradle.kts 中硬编码版本号。
 - CI 通过 grep `version.properties` 提取版本 — **不要改变文件格式**。
@@ -126,6 +129,7 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 - **示例**：
   - 现状 `v1.0.3`，新增 `fix:` → `beta` 发版 = `1.0.4-beta.1`；`stable` 发版 = `1.0.4`。
   - 现状 `v1.0.4-beta.1`，再发 `beta` = `1.0.4-beta.2`；发 `stable` = `1.0.4`。
+- **首次发版（无历史 tag）注意**：脚本在无 tag 时 fallback minor bump（0.1.0 → 0.2.0-beta.1），会跳过首个版本号。首个版本应手动设置 `VERSION_NAME=0.1.0-beta.1`（版本修正 commit）后打 tag，后续恢复脚本流程（脚本对同版本预发布序号 +1 逻辑正确：0.1.0-beta.1 → 0.1.0-beta.2）。
 
 ---
 
