@@ -69,3 +69,13 @@ Updated: 2026-08-07（密码导航重构后同步）
 | 位置 | 债务 | 说明 |
 |------|------|------|
 | `ChatViewModel.kt` / `SessionListViewModel.kt` | `runBlocking(Dispatchers.IO)` 在 ViewModel 属性初始化中同步读 `getServer(serverId)` | 反模式（阻塞 VM 构造线程）。实际影响小（Home 页已 warm DataStore，读为内存级）；进程重建直入 Chat 页时冷读 20-80ms 理论可感知。正确形态：`StateFlow<ServerConfig?>` + 异步加载 + 下游组件（TerminalDelegate/workspaceFor 首次 conn）支持延迟绑定。**若未来改：先改 `ServerTerminalWorkspace.conn` 为 `@Volatile var` + `updateConnection()`，再异步化 VM** |
+
+## 7. 未读红点体系遗留（2026-08-07，#25 落地后）
+
+| 位置 | 债务 | 说明 |
+|------|------|------|
+| `EventDispatcher.persistLastCompletedReplyTime` | maxCompleted 每次变化全量 JSON 写 DataStore | 会话规模大+消息完成高频时写放大；当前量级无感（<100 会话，每条完成一次 ms 级）。优化方向：增量 key 或批量节流 |
+| 断线期新回复缺失 | 重启/断连期间服务器完成的新回复无法得知（seed 过时） | 与旧 lastReplyTime 机制相同；SSE 重连后增量补全，进会话后 recompute 恢复。未来方向：重连时对活跃会话主动 listMessages 拉取 |
+| `EventDispatcherUnreadTest` 迁移测试 | `coVerify` 无 `exactly = 1` | 字面名"once"与断言粒度不符；当前 drop(1)/同步落盘下 updateData 仅迁移触发，实际有效 |
+| FOLDER 视图 status 门控 | `buildTreeNodes` 的 status 传递无行为测试（TreeNodeTest 只用前 3 参） | 代码审查确认正确；isUnread 纯函数门控已有单测。补集成测试为可选 |
+| 预存在死 import | `SessionListViewModel` 的 `SharingStarted`、`EventDispatcher` 的 `flow.map` | 非 #25 引入，AGENTS.md 精准修改原则下未清理；后续顺手处理 |

@@ -73,3 +73,12 @@ di/                Hilt 模块（NetworkModule, DomainModule）
 ### 导航参数必须安全解码
 
 必须使用 `NavUtils.safeDecodeParam()`（不要用裸 `URLDecoder.decode()`）——裸解码遇到畸形 `%` 序列（如密码中的 `%NR`）会崩溃。
+
+### 未读红点时间源是服务器域状态派生（maxCompleted 只增不减）
+
+红点判定 = `status==Idle && maxCompleted > max(readTimes, allReadAt)`，全链路**服务器时钟域**（`Message.time.completed`），禁止 `System.currentTimeMillis()` 参与比较。三条铁律（2026-08-07 三个真机根因实证，破坏任一条即回归）：
+1. **maxCompleted 只增不减**：REST 滞后快照（会话流式中 completed=null）不得移除已记录条目——`recomputeMaxCompleted` 遇到 null 只保留原值
+2. **连接停止 ≠ 会话删除**：`clearForServer`/`clearAll`（SSE 断连/切换服务器）不得触碰 maxCompleted；仅 `SessionDeleted` 事件（会话真删）移除并持久化
+3. **markSessionIdle 的客户端 now 解耦**：它只做 UI 流式终止，不流入红点时间源（曾因 CommandExecuted 覆盖 completed 导致高频污染）
+
+持久化：maxCompleted 在更新点**同步落盘**（`persistLastCompletedReplyTime`，DataStore edit 返回即写文件）——"红点出现时刻 = 已落盘"，杀进程不丢；重启后 seed 恢复。设计详见 `docs/superpowers/specs/2026-08-07-unread-derived-state-design.md`。

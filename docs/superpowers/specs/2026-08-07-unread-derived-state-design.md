@@ -82,6 +82,7 @@ EventDispatcher 新增 `_lastCompletedReplyTime: MutableStateFlow<Map<String, Lo
 - **删除**：`_turnEndTime`、`messageForceCompleter` 红点写入职责、`onTurnEnded` 红点接线、`replyTimePersistScope`（lastReplyTime 持久化 collector）
 - `messageForceCompleter` **保留**其 `markSessionIdle` 调用（UI 流式终止语义：CommandExecuted 精确标记、part time.end 补全）——但不再写任何红点时间戳
 - 清理：`clearForSession`/`clearAll` 级联移除；`clearForServer(sessionIds)` 同样移除对应会话条目
+- **修正（2026-08-07 真机根因实证）**：`clearForServer`/`clearAll` 是**连接状态清理**（stopConnection/stopAllConnections 调用）——临时断连/切换服务器**不得**移除 maxCompleted 或覆盖持久化（否则红点数据随连接停止丢失）；**仅 `SessionDeleted` 事件（会话真删）移除并同步落盘**
 
 ### 3.2 isUnread 改造（SessionListStateBuilder.kt:24-33）
 
