@@ -18,6 +18,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 聊天 UI 事件生命周期：触摸传播、SSE 流式更新、消息状态机、竞态条件 | 修改 ChatScreen 内部机制、排查聊天交互竞态时 |
 | 🟡 SHOULD | [`docs/ui-conventions.md`](docs/ui-conventions.md) | UI 约定：Material 3、Theme Tokens、表格渲染一致性 | 编写/修改 UI 组件、主题、颜色、间距 |
 | 🟡 SHOULD | [`docs/agents-file-design.md`](docs/agents-file-design.md) | AGENTS.md 维护规范（本文件的设计依据） | 新增/修改 AGENTS.md 规则时 |
+| 🟡 SHOULD | [`backlog.md`](backlog.md) | 待办需求/问题登记（P0-P2 优先级 + Tag + 状态流转） | 录入新条目前（避免重复）、开始新任务了解待办时 |
 | 🟢 MAY | [`docs/architecture-debt.md`](docs/architecture-debt.md) | 已登记的技术债务与后续计划 | 接触相关模块时了解限制 |
 
 ## Build & Run
@@ -99,6 +100,7 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 - 发版后必须用 `apksigner verify --print-certs` 验证产物签名为 `CN=OC Beacon, OU=Development, O=LeoNardo-LB, C=CN`（非 `CN=Android Debug`），见 `docs/release-workflow.md` §6
 - **2026-08-06 keystore 更换**：release keystore 已重建（CN=OC Beacon，alias=oc-tether）。**1.2.0 起使用新签名**——1.1.1 及更早版本安装的用户升级 1.2.0 时**必须卸载重装一次**（签名不同，无法覆盖安装）
 - **2026-08-06 版本体系重置**：VERSION_NAME 1.2.0 → **0.2.0**、VERSION_CODE 18 → **1**（未正式发版不配 1.x；用户明确接受卸载重装、不追求覆盖安装）。此后从 0.2.0 重新计数（0.2.0→0.3.0→…→1.0.0）
+- **2026-08-07 版本体系再重置**：用户决策清理 GitHub 与本地**全部 1.x Release/Tag**（17 个；0.2.0 从未发布，无用户影响）。VERSION_NAME 0.2.0 → **0.1.0**、VERSION_CODE 保持 **1**，从 0.1.0 重新计数（0.1.0→0.1.1→…→1.0.0）
 - Debug 签名的 APK 可安装，但无法覆盖 release 签名安装（签名不同）；修复签名体系后，**旧 debug 签名安装的用户需卸载重装一次**
 
 ### Version Management（发版）
@@ -155,6 +157,15 @@ SSE → UI 管线为：**48ms token 批处理** → **高度补偿** → **渲�
 
 - `master` — 稳定分支，与 upstream 同步
 - 推送：`git push origin master` / `git push origin <tag>`
+
+## Backlog 纪律
+
+遇到以下情况，**立即登记到 [`backlog.md`](backlog.md)**（按文档内格式：优先级 P0-P2 + Tag + checkbox），**不要现场实现**：
+- 当前会话忙时，优先级不高 / 非阻塞 / 非基础性的新需求
+- 用户明确说"后面再做 / 以后做"的需求
+- 任务中顺带发现、但与当前任务无关的 bug / 死代码 / 改进点（只登记，不跑题去修）
+
+开始新任务前扫一眼 backlog，避免重复登记或重复实现。格式细节（优先级定义 / Tag 表 / 状态流转）以 `backlog.md` 自身为准。
 
 ## 其他
 

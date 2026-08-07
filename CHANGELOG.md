@@ -2,6 +2,10 @@
 
 鏈」鐩伒寰?[Semantic Versioning](https://semver.org/) 涓?[Keep a Changelog](https://keepachangelog.com/)銆?
 **CHANGELOG 浠呭湪姝ｅ紡鐗堬紙stable release锛夊彂甯冩椂鏇存柊**锛沚eta/dev 棰勫彂甯冪殑鍙樻洿鍦ㄦ寮忕増鍙戝竷鏃剁粺涓€姹囨€汇€傚彂鐗堟祦绋嬭 [docs/release-workflow.md](docs/release-workflow.md)銆?
+## 版本体系说明（2026-08-07）
+
+本项目仍处于**开发阶段**，尚未达到正式发布状态（功能与稳定性未满足 1.0.0 标准）。因此版本体系重置为 `0.1.0` 起重新计数（`0.1.0 -> 0.1.1 -> ... -> 1.0.0`），并清理了历史 1.x 发布与 Tag。以下 1.x 条目保留仅供历史追溯。
+
 ## [1.2.0] - 2026-08-06
 
 ### Added
