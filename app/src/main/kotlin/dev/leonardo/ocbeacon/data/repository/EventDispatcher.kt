@@ -189,7 +189,8 @@ class EventDispatcher @Inject constructor(
         // 持久化 init：必须在 _lastCompletedReplyTime 声明之后（Kotlin 按文本顺序初始化，
         // 否则 launch 协程在 IO 线程读到未初始化的 null 属性）。
         unreadMigrationScope.launch {
-            settingsDataStore.runUnreadStateV2Migration()
+            // runCatching 容错：迁移失败（含 mock 环境）不阻塞 init 持久化路径（spec §3.1）
+            runCatching { settingsDataStore.runUnreadStateV2Migration() }
             // 迁移完成后再读 seed：确保旧客户端 now 域值已清空，读到的是服务器域值或空。
             // update 合并取 max 保证不覆盖 SSE 并发写入的更新值（seed 可能过时——断线期服务器新回复缺失，
             // 为已知限制，非本任务引入，与旧 lastReplyTime 机制相同）。
