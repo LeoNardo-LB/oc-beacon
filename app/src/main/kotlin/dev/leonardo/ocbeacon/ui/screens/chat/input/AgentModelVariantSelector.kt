@@ -52,8 +52,9 @@ internal fun AgentModelVariantSelector(
     onAttach: () -> Unit,
     showBusy: Boolean = false,
 ) {
-    if (modelLabel.isEmpty() && agents.size <= 1) return
-
+    // 不提前返回：配置未就绪（agents 空 / modelLabel 空 / variantNames 空）时，
+    // 左侧标签区为空但 Row 高度由右侧附件按钮（32.dp）稳定支撑；
+    // 配置就绪后标签原位填充，布局零跳动。
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {

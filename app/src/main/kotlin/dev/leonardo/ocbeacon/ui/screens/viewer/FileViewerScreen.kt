@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +56,7 @@ import dev.leonardo.ocbeacon.domain.model.Annotation
 import dev.leonardo.ocbeacon.util.DebugLogger
 import dev.leonardo.ocbeacon.util.PathUtils
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -135,8 +138,15 @@ fun FileViewerScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            when {
-                uiState.isLoading -> LoadingState()
+            Crossfade(
+                targetState = uiState.isLoading,
+                animationSpec = tween(AppMotion.MEDIUM),
+                label = "fileViewerLoading"
+            ) { isLoading ->
+                if (isLoading) {
+                    LoadingState()
+                } else {
+                    when {
                 uiState.error != null -> ErrorState(message = uiState.error)
                 uiState.isBinary -> MessageState(
                     message = stringResource(R.string.viewer_binary_not_supported),
@@ -218,6 +228,8 @@ fun FileViewerScreen(
                             }
                         }
                     }
+                }
+            }
                 }
             }
         }

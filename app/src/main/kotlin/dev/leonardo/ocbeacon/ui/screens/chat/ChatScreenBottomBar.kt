@@ -67,9 +67,7 @@ internal fun ChatScreenBottomBar(
     val view = LocalView.current
     val clipboard = LocalClipboard.current
 
-    if (sessionMeta.sessionParentId == null && !isTerminalMode &&
-        (messageState.messages.isNotEmpty() || !interaction.isLoading) && interaction.error == null
-    ) {
+    if (sessionMeta.sessionParentId == null && !isTerminalMode && interaction.error == null) {
         val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
             val provider = modelConfig.providers.find { it.id == modelConfig.selectedProviderId }
             val model = provider?.models?.get(modelConfig.selectedModelId)

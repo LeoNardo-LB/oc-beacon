@@ -6,6 +6,9 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -182,6 +185,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.resolveUserCommandLabel
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.util.codeHorizontalScroll
 import dev.leonardo.ocbeacon.ui.theme.ChatDensity
+import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalCollapseTools
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalExpandReasoning
@@ -714,6 +718,10 @@ fun ChatScreen(
 
 
 
+                        AnimatedVisibility(
+                            visible = !interaction.isLoading,
+                            enter = fadeIn(tween(AppMotion.MEDIUM))
+                        ) {
                         if (sessionMeta.sessionParentId == null) {
                             ChatMessageList(
                                 listState = listState,
@@ -768,6 +776,7 @@ fun ChatScreen(
 
                                 modifier = Modifier.fillMaxSize(),
                             )
+                        }
                         }
                   }
               }
