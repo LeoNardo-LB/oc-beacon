@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -205,7 +206,9 @@ class EventDispatcher @Inject constructor(
         // 持久化收集：maxCompleted 变化 → 全量写回 DataStore。
         // runCatching 容错：DataStore 写失败（磁盘满等）不阻塞红点判定（持久化是 best-effort，可由 SSE/REST 重建）
         lastReplyPersistScope.launch {
-            _lastCompletedReplyTime.collect { times ->
+            // drop(1)：跳过 StateFlow 初值 emptyMap——避免启动瞬间空写清空持久化种子
+            //（与 seed 读取协程竞态，间歇性导致重启恢复失效；seed 合并/SSE 更新必然发射后续值）
+            _lastCompletedReplyTime.drop(1).collect { times ->
                 runCatching { settingsDataStore.saveLastCompletedReplyTimes(times) }
             }
         }
