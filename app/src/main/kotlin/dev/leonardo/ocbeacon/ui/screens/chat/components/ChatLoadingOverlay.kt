@@ -1,5 +1,12 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -7,23 +14,33 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 
 /**
- * 统一加载蒙版 —— 不透明 surface + 居中 PulsingDots。
- * 覆盖消息区与输入栏（两处共用同一状态），掩盖蒙版后内容同时出现。
+ * 统一加载蒙版 —— 不透明 surface + 居中 PulsingDots，含淡入淡出动画与触摸拦截。
+ *
+ * 覆盖消息区与输入栏（两处共用同一 [visible] 状态），掩盖期间内容不可交互。
+ * - 进入 250ms（M3 decelerate 系）> 退出 200ms（M3 accelerate 系），非对称、退出必短于进入。
+ * - 蒙版期间消费触摸事件，防止点穿到底下输入栏（弹键盘 / 发消息）。
  */
 @Composable
-fun ChatLoadingOverlay(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface
+fun ChatLoadingOverlay(visible: Boolean, modifier: Modifier = Modifier) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(250, easing = LinearOutSlowInEasing)),
+        exit = fadeOut(tween(200, easing = FastOutLinearInEasing)),
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+        Surface(
+            modifier = modifier.pointerInput(Unit) { detectTapGestures { } },
+            color = MaterialTheme.colorScheme.surface
         ) {
-            PulsingDotsIndicator()
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                PulsingDotsIndicator()
+            }
         }
     }
 }

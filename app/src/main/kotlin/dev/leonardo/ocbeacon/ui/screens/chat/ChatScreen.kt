@@ -649,9 +649,7 @@ fun ChatScreen(
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
             )
-            if (overlayVisible) {
-                ChatLoadingOverlay(modifier = Modifier.fillMaxSize())
-            }
+            ChatLoadingOverlay(visible = overlayVisible, modifier = Modifier.matchParentSize())
             }
         },
     ) { padding ->
@@ -792,10 +790,8 @@ fun ChatScreen(
                   }
               }
            }
-            if (overlayVisible) {
-                ChatLoadingOverlay(modifier = Modifier.fillMaxSize())
-            }
-       }
+            ChatLoadingOverlay(visible = overlayVisible, modifier = Modifier.fillMaxSize())
+        }
 
 
     // 条件对话框 —— 已抽取到 ChatScreenDialogs
