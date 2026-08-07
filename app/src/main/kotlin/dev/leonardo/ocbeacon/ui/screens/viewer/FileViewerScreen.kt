@@ -17,7 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.WrapText
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.RemoveRedEye
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +51,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
+import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.domain.model.Annotation
 import dev.leonardo.ocbeacon.util.DebugLogger
 import dev.leonardo.ocbeacon.util.PathUtils
@@ -419,7 +419,7 @@ private fun LoadingState() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator()
+        PulsingDotsIndicator()
     }
 }
 
