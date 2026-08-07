@@ -34,26 +34,19 @@ class SettingsDataStoreReadTimesTest {
     @Test
     fun `markSessionRead then read back`() = runTest {
         val store = newStore()
-        val before = System.currentTimeMillis()
-        store.markSessionRead("svr1", "ses1")
-        val after = System.currentTimeMillis()
+        store.markSessionRead("svr1", "ses1", 5000L)
 
-        val times = store.sessionReadTimes("svr1").first()
-        val readAt = times["ses1"]
-        assertTrue("readAt should be within [before, after]", readAt != null && readAt in before..after)
+        assertEquals(mapOf("ses1" to 5000L), store.sessionReadTimes("svr1").first())
     }
 
     @Test
-    fun `read times are isolated per server`() = runTest {
+    fun `markSessionRead is server-scoped`() = runTest {
         val store = newStore()
-        store.markSessionRead("svr1", "ses1")
-        store.markSessionRead("svr2", "ses1")
+        store.markSessionRead("svr1", "ses1", 1000L)
+        store.markSessionRead("svr2", "ses1", 2000L)
 
-        assertEquals(setOf("ses1"), store.sessionReadTimes("svr1").first().keys)
-        assertEquals(setOf("ses1"), store.sessionReadTimes("svr2").first().keys)
-        // 两服务器各自记录，互不影响（时间戳同毫秒时也可能相同，只验证隔离语义）
-        assertEquals(1, store.sessionReadTimes("svr1").first().size)
-        assertEquals(1, store.sessionReadTimes("svr2").first().size)
+        assertEquals(mapOf("ses1" to 1000L), store.sessionReadTimes("svr1").first())
+        assertEquals(mapOf("ses1" to 2000L), store.sessionReadTimes("svr2").first())
     }
 
     @Test
@@ -65,24 +58,41 @@ class SettingsDataStoreReadTimesTest {
     @Test
     fun `markSessionRead overwrites previous timestamp`() = runTest {
         val store = newStore()
-        store.markSessionRead("svr1", "ses1")
-        val first = store.sessionReadTimes("svr1").first()["ses1"]!!
+        store.markSessionRead("svr1", "ses1", 5000L)
+        // 第二次标记传入更大的 completed：直接覆盖（不做 max，调用方传的就是当时最后 completed）
+        store.markSessionRead("svr1", "ses1", 9000L)
 
-        // 模拟第二次标记（时间前进）
-        val store2 = newStore()
-        store2.markSessionRead("svr1", "ses1")
-        // 无法精确推进系统时间，验证同一 key 覆盖语义：只存一个时间戳
-        assertEquals(1, store.sessionReadTimes("svr1").first().size)
-        assertEquals(1, store2.sessionReadTimes("svr1").first().size)
-        assertTrue(first >= 0)
+        assertEquals(mapOf("ses1" to 9000L), store.sessionReadTimes("svr1").first())
+    }
+
+    @Test
+    fun `markAllSessionsRead then read back`() = runTest {
+        val store = newStore()
+        store.markAllSessionsRead("svr1", 8000L)
+
+        assertEquals(8000L, store.allReadAt("svr1").first())
     }
 
     @Test
     fun `favorite tag unrelated to read times`() = runTest {
         // 确保未读功能不依赖/不干扰标签体系
         val store = newStore()
-        store.markSessionRead("svr1", "ses1")
+        store.markSessionRead("svr1", "ses1", 5000L)
         val tags = store.sessionTags("svr1").first()
         assertTrue(tags.none { it.id == FAVORITE_TAG_ID })
+    }
+
+    @Test
+    fun `v2 migration clears read times and all read once`() = runTest {
+        val store = newStore()
+        store.markSessionRead("svr1", "ses1", 5000L)
+        store.markAllSessionsRead("svr1", 8000L)
+        store.runUnreadStateV2Migration()
+        assertEquals(emptyMap<String, Long>(), store.sessionReadTimes("svr1").first())
+        assertEquals(0L, store.allReadAt("svr1").first())
+        // 幂等：迁移标记存在则跳过——写入新值后再次迁移不动
+        store.markSessionRead("svr1", "ses2", 1000L)
+        store.runUnreadStateV2Migration()
+        assertEquals(mapOf("ses2" to 1000L), store.sessionReadTimes("svr1").first())
     }
 }

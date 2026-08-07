@@ -66,7 +66,7 @@ class SessionListShellStateTest {
         every { sessionRepository.getSessionsFlow(any()) } returns MutableStateFlow(emptyList<Session>())
         every { sessionRepository.getServerSessionsFlow() } returns MutableStateFlow(emptyMap<String, Set<String>>())
         every { sessionRepository.getLastUserMessageTimeFlow() } returns MutableStateFlow(emptyMap<String, Long>())
-        every { sessionRepository.getLastReplyTimeFlow() } returns MutableStateFlow(emptyMap<String, Long>())
+        every { sessionRepository.getLastCompletedReplyTimeFlow() } returns MutableStateFlow(emptyMap<String, Long>())
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap<String, SessionStatus>())
         every { settingsRepository.sessionTagAssignments(any()) } returns MutableStateFlow(emptyMap<String, List<String>>())
         every { settingsRepository.sessionTags(any()) } returns MutableStateFlow(emptyList<Tag>())

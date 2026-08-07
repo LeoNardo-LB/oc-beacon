@@ -41,10 +41,10 @@ interface SessionRepository {
     fun getLastUserMessageTimeFlow(): Flow<Map<String, Long>>
 
     /**
-     * 观察全局 会话id→最近回复完成时间 映射（跨所有服务器）。
-     * 委托给 EventDispatcher.lastReplyTime。供未读提示判定使用。
+     * 观察全局 会话id→最近回复完成时间 映射（跨所有服务器，服务器 completed 时刻）。
+     * 委托给 EventDispatcher.lastCompletedReplyTime。供未读提示判定使用。
      */
-    fun getLastReplyTimeFlow(): Flow<Map<String, Long>>
+    fun getLastCompletedReplyTimeFlow(): Flow<Map<String, Long>>
 
     // ============ CRUD ============
 

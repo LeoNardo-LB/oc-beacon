@@ -66,21 +66,18 @@ interface SettingsRepository {
 
     // ============ 会话已读（未读提示） ============
 
-    /** 该服务器各会话的最后已读时间（sessionId → lastReadAt epoch ms）。 */
+    /** 该服务器各会话的最后已读时间（sessionId → 最后消费的完成消息 completed）。 */
     fun sessionReadTimes(serverId: String): Flow<Map<String, Long>>
 
-    /**
-     * 未读基线（epoch ms）：功能启用时刻，基线之前的消息不算未读。
-     * 无基线时写入当前时间并返回。
-     */
-    suspend fun ensureUnreadBaseline(serverId: String): Long
-
-    /** 该服务器的"一键已读"时间戳（epoch ms）：此前的所有回复都算已读。 */
+    /** 该服务器的"一键已读"时间戳（服务器 completed）：此前的所有回复都算已读。 */
     fun allReadAt(serverId: String): Flow<Long>
 
-    /** 一键已读：记录当前时刻为全局已读时间（消除该服务器所有小红点）。 */
-    suspend fun markAllSessionsRead(serverId: String)
+    /** 一键已读：记录全局已读位置（已知会话最后完成消息的 completed，服务器时刻），消除所有小红点。 */
+    suspend fun markAllSessionsRead(serverId: String, globalMax: Long)
 
-    /** 将会话标记为已读（记录当前时间戳）。 */
-    suspend fun markSessionRead(serverId: String, sessionId: String)
+    /** 将会话标记为已读（记录最后消费的完成消息 completed，服务器时刻）。 */
+    suspend fun markSessionRead(serverId: String, sessionId: String, completedTs: Long)
+
+    /** 一次性迁移：清空已读标记（readTimes/allReadAt）——值域从客户端 now 变为服务器 completed，旧值不可比。幂等。 */
+    suspend fun runUnreadStateV2Migration()
 }

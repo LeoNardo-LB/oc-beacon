@@ -59,17 +59,17 @@ class SettingsRepositoryImpl @Inject constructor(
     override fun sessionReadTimes(serverId: String): Flow<Map<String, Long>> =
         dataRepo.sessionReadTimes(serverId)
 
-    override suspend fun ensureUnreadBaseline(serverId: String): Long =
-        dataRepo.ensureUnreadBaseline(serverId)
-
     override fun allReadAt(serverId: String): Flow<Long> =
         dataRepo.allReadAt(serverId)
 
-    override suspend fun markAllSessionsRead(serverId: String) =
-        dataRepo.markAllSessionsRead(serverId)
+    override suspend fun markAllSessionsRead(serverId: String, globalMax: Long) =
+        dataRepo.markAllSessionsRead(serverId, globalMax)
 
-    override suspend fun markSessionRead(serverId: String, sessionId: String) =
-        dataRepo.markSessionRead(serverId, sessionId)
+    override suspend fun markSessionRead(serverId: String, sessionId: String, completedTs: Long) =
+        dataRepo.markSessionRead(serverId, sessionId, completedTs)
+
+    override suspend fun runUnreadStateV2Migration() =
+        dataRepo.runUnreadStateV2Migration()
 
     override suspend fun updateSettings(settings: AppSettings): Result<Unit> = runCatching {
         dataRepo.setAppLanguage(settings.appLanguage)

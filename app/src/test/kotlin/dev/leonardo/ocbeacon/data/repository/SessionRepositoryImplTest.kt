@@ -50,7 +50,7 @@ class SessionRepositoryImplTest {
             settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
-        repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo, mockk<SettingsDataStore>(relaxed = true))
+        repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo)
     }
 
     private fun testSession(id: String) = Session(
