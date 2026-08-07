@@ -119,7 +119,7 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 
 ### 验证与测试
 
-**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整 4 维验证框架见 [`docs/verification-requirements.md`](docs/verification-requirements.md)。
+**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整 4+1 维验证框架见 [`docs/verification-requirements.md`](docs/verification-requirements.md)——**UI/UX 时间性现象（闪烁/动画/计时/布局跳动）自动化无法覆盖，必须提供人工验证清单（维度 5）并请用户验证后才能声称完成**。
 
 测试基础设施：
 - 单元测试：JUnit 4 + MockK + Turbine + kotlinx-coroutines-test（版本以 `app/build.gradle.kts` 为准）
