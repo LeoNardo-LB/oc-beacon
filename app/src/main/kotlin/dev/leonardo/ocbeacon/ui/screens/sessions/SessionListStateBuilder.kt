@@ -18,18 +18,20 @@ internal fun mergeReadTimes(
 }
 
 /**
- * 未读判定：会话存在完成回复时间且晚于 max(最后已读时间, 一键已读时间, 未读基线)。
- * 纯函数，供 RECENT 视图与 FOLDER 树共用。
+ * 未读判定：会话状态为 Idle（turn 完全结束）且有完成回复时间，
+ * 且晚于 max(最后已读位置, 一键已读位置)。全部服务器时刻，纯函数。
+ * 会话状态未知/进行中（非 Idle）→ 不红点。
  */
 internal fun isUnread(
     sessionId: String,
-    lastReplyTime: Map<String, Long>,
+    maxCompleted: Map<String, Long>,
     readTimes: Map<String, Long>,
-    unreadBaseline: Long = 0L,
     allReadAt: Long = 0L,
+    status: SessionStatus,
 ): Boolean {
-    val last = lastReplyTime[sessionId] ?: return false
-    return last > maxOf(readTimes[sessionId] ?: 0L, unreadBaseline, allReadAt)
+    if (status != SessionStatus.Idle) return false
+    val last = maxCompleted[sessionId] ?: return false
+    return last > maxOf(readTimes[sessionId] ?: 0L, allReadAt)
 }
 
 /**
@@ -106,12 +108,12 @@ internal fun buildContentState(
                     status = data.statuses[session.id] ?: SessionStatus.Idle,
                     hasDraft = session.id in draftRepository.getDraftSessionIds(),
                     tags = resolvedTags[session.id].orEmpty(),
-                    hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.unreadBaseline, data.allReadAt)
+                    hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, data.statuses[session.id] ?: SessionStatus.Idle)
                 )
             )
         }
     } else {
-        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, data.statuses, draftRepository.getDraftSessionIds(), resolvedTags, data.lastReplyTime, readTimes, data.unreadBaseline, data.allReadAt)
+        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, data.statuses, draftRepository.getDraftSessionIds(), resolvedTags, data.lastReplyTime, readTimes, data.allReadAt)
     }
 
     val prefillDirectory = if (ui.lastToggledDirectory != null && ui.lastToggledDirectory in ui.expandedPaths)

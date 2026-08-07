@@ -59,7 +59,6 @@ fun buildTreeNodes(
     sessionTags: Map<String, List<Tag>> = emptyMap(),
     lastMessageTime: Map<String, Long> = emptyMap(),
     readTimes: Map<String, Long> = emptyMap(),
-    unreadBaseline: Long = 0L,
     allReadAt: Long = 0L,
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
@@ -145,9 +144,10 @@ fun buildTreeNodes(
         ))
         if (isExpanded) {
             for (session in bucket.sessions.sortedByDescending { it.time.updated }) {
+                val status = statuses[session.id] ?: SessionStatus.Idle
                 result.add(TreeNode.Session(
                     id = session.id,
-                    session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, unreadBaseline, allReadAt)),
+                    session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status)),
                 ))
             }
         }
@@ -155,9 +155,10 @@ fun buildTreeNodes(
 
     // 根会话放最后（空目录或直接位于 base 目录，未分组）
     for (session in rootSessions.sortedByDescending { it.time.updated }) {
+        val status = statuses[session.id] ?: SessionStatus.Idle
         result.add(TreeNode.Session(
             id = session.id,
-            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, unreadBaseline, allReadAt)),
+            session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status)),
         ))
     }
 

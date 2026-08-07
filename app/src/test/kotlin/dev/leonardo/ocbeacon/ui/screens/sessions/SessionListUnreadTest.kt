@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.sessions
 
 import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
 import org.junit.Assert.assertEquals
@@ -14,42 +15,28 @@ class SessionListUnreadTest {
 
     @Test
     fun `unread when last message time after read time`() {
-        assertTrue(isUnread("s1", mapOf("s1" to 2000L), mapOf("s1" to 1000L)))
+        assertTrue(isUnread("s1", mapOf("s1" to 2000L), mapOf("s1" to 1000L), status = SessionStatus.Idle))
     }
 
     @Test
     fun `not unread when no message recorded`() {
-        assertFalse(isUnread("s1", emptyMap(), emptyMap()))
-        assertFalse(isUnread("s1", mapOf("s2" to 2000L), emptyMap()))
+        assertFalse(isUnread("s1", emptyMap(), emptyMap(), status = SessionStatus.Idle))
+        assertFalse(isUnread("s1", mapOf("s2" to 2000L), emptyMap(), status = SessionStatus.Idle))
     }
 
     @Test
     fun `not unread when message time equals read time`() {
-        assertFalse(isUnread("s1", mapOf("s1" to 1000L), mapOf("s1" to 1000L)))
+        assertFalse(isUnread("s1", mapOf("s1" to 1000L), mapOf("s1" to 1000L), status = SessionStatus.Idle))
     }
 
     @Test
     fun `not unread when message time before read time`() {
-        assertFalse(isUnread("s1", mapOf("s1" to 1000L), mapOf("s1" to 2000L)))
+        assertFalse(isUnread("s1", mapOf("s1" to 1000L), mapOf("s1" to 2000L), status = SessionStatus.Idle))
     }
 
     @Test
     fun `unread when no read time recorded`() {
-        assertTrue(isUnread("s1", mapOf("s1" to 1000L), emptyMap()))
-    }
-
-    @Test
-    fun `baseline suppresses messages before unread feature enablement`() {
-        // 基线=5000：更早的回复不算未读（历史会话不显示红点）
-        assertFalse(isUnread("s1", mapOf("s1" to 1000L), emptyMap(), unreadBaseline = 5000L))
-        // 基线后的新回复算未读
-        assertTrue(isUnread("s1", mapOf("s1" to 6000L), emptyMap(), unreadBaseline = 5000L))
-    }
-
-    @Test
-    fun `read time takes precedence over baseline`() {
-        // 已读时间晚于基线：已读优先
-        assertFalse(isUnread("s1", mapOf("s1" to 6000L), mapOf("s1" to 7000L), unreadBaseline = 5000L))
+        assertTrue(isUnread("s1", mapOf("s1" to 1000L), emptyMap(), status = SessionStatus.Idle))
     }
 
     @Test
@@ -59,24 +46,42 @@ class SessionListUnreadTest {
             persisted = mapOf("s1" to 1000L),
             inMemory = mapOf("s1" to 9000L),
         )
-        assertFalse(isUnread("s1", mapOf("s1" to 8000L), merged))
+        assertFalse(isUnread("s1", mapOf("s1" to 8000L), merged, status = SessionStatus.Idle))
     }
 
     @Test
     fun `in-memory signal without persisted entry also works`() {
         val merged = mergeReadTimes(persisted = emptyMap(), inMemory = mapOf("s1" to 9000L))
-        assertFalse(isUnread("s1", mapOf("s1" to 8000L), merged))
+        assertFalse(isUnread("s1", mapOf("s1" to 8000L), merged, status = SessionStatus.Idle))
         // 未在信号中的会话不受影响
-        assertTrue(isUnread("s2", mapOf("s2" to 8000L), merged))
+        assertTrue(isUnread("s2", mapOf("s2" to 8000L), merged, status = SessionStatus.Idle))
     }
 
     @Test
     fun `mark all read suppresses all sessions`() {
         // allReadAt 覆盖所有旧回复
-        assertFalse(isUnread("s1", mapOf("s1" to 8000L), emptyMap(), allReadAt = 9000L))
-        assertFalse(isUnread("s2", mapOf("s2" to 1000L), emptyMap(), allReadAt = 9000L))
+        assertFalse(isUnread("s1", mapOf("s1" to 8000L), emptyMap(), allReadAt = 9000L, status = SessionStatus.Idle))
+        assertFalse(isUnread("s2", mapOf("s2" to 1000L), emptyMap(), allReadAt = 9000L, status = SessionStatus.Idle))
         // allReadAt 之后的新回复仍产生未读
-        assertTrue(isUnread("s1", mapOf("s1" to 9500L), emptyMap(), allReadAt = 9000L))
+        assertTrue(isUnread("s1", mapOf("s1" to 9500L), emptyMap(), allReadAt = 9000L, status = SessionStatus.Idle))
+    }
+
+    @Test
+    fun `busy session never unread even with newer completed`() {
+        assertFalse(isUnread("s1", mapOf("s1" to 10_000L), mapOf("s1" to 5_000L), allReadAt = 0L, status = SessionStatus.Busy))
+        assertTrue(isUnread("s1", mapOf("s1" to 10_000L), mapOf("s1" to 5_000L), allReadAt = 0L, status = SessionStatus.Idle))
+    }
+
+    @Test
+    fun `idle status required for unread`() {
+        assertFalse(isUnread("s1", mapOf("s1" to 10_000L), emptyMap(), allReadAt = 0L, status = SessionStatus.Busy))
+        assertFalse(isUnread("s1", mapOf("s1" to 10_000L), emptyMap(), allReadAt = 0L, status = SessionStatus.Retry(attempt = 1, message = "retry", next = 0L)))
+    }
+
+    @Test
+    fun `allReadAt gating works with status`() {
+        assertFalse(isUnread("s1", mapOf("s1" to 10_000L), emptyMap(), allReadAt = 20_000L, status = SessionStatus.Idle))
+        assertTrue(isUnread("s1", mapOf("s1" to 10_000L), emptyMap(), allReadAt = 5_000L, status = SessionStatus.Idle))
     }
 
     @Test
