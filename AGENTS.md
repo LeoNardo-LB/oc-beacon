@@ -109,9 +109,9 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 > ⚠️ **发版必读**：任何发版、版本号变更、tag 操作、GitHub Release 操作前，**必须**先读 [`docs/release-workflow.md`](docs/release-workflow.md)（唯一权威指南，含 `./scripts/release.sh` 一键脚本用法）。
 
 核心红线（细节见 release-workflow.md）：
-- **`version.properties` 是版本号唯一真相源**（`VERSION_CODE` 只增不减——2026-08-06 经用户决策重置为 1（0.2.0 起重新计数，接受卸载重装）；禁止在 build.gradle.kts 硬编码；CI 用 grep 提取，**不要改变文件格式**）
+- **`version.properties` 是版本号唯一真相源**（`VERSION_CODE` 只增不减——**0.x 阶段豁免**（2026-08-07 用户决策：首个版本 0.1.0-beta.1 保持 code=1，无已安装用户；**1.0.0 起严格只增不减**）；禁止在 build.gradle.kts 硬编码；CI 用 grep 提取，**不要改变文件格式**）
 - **严禁在 `version.properties` 修改前执行 `assemble*`**，否则 APK 内嵌版本号与 tag/release 不一致
-- **每版本只发一个 APK**（命名 `oc-beacon-<VERSION>.apk`）；**不要删除历史 Release 和 Tag**
+- **每版本只发一个 APK**（命名 `oc-beacon-<VERSION>.apk`）；**不要删除历史 Release 和 Tag**（唯一例外：2026-08-07 用户决策清理全部 1.x 并重置 0.1.0，见 release-workflow §7）
 - **默认发预发布版**：除非用户明确说明"正式发版"或"发 stable"，否则一律 beta/dev（`--prerelease`）
 - `gh` CLI 不走代理，直接用直连（不加 `HTTP_PROXY`）
 - 手动发版步骤（脚本不可用时）：`docs/release-workflow.md` §手动发版流程

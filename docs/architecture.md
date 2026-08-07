@@ -10,7 +10,7 @@ Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.**
 domain/          Pure Kotlin, 无 Android 依赖
   model/         40+ 数据类与值类型（SseEvent, Message, Part, Session, AppSettings, SessionCategory, FavoriteSessionSnapshot 等）
   repository/    14 个接口（Agent, Chat, Draft, File, Mcp, Provider, Server, ServerConfig, ServerConnection, Session, SessionState, Settings, Terminal, Vcs）
-  usecase/       20 个 UseCase — ViewModel 调用它们，而非直接调 API
+  usecase/       25 个 UseCase — ViewModel 调用它们，而非直接调 API
 
 data/            Android 相关实现
   api/           ApiClient.kt + 按域拆分的 SessionApi/MessageApi/FileApi/TerminalApi/ProviderApi/SystemApi (Ktor HTTP), SseClient.kt
@@ -47,7 +47,7 @@ ui/
   screens/server/    服务器设置/提供商/模型过滤
   screens/about/     关于页面
   screens/webview/   WebView 回退（OAuth, HTML 错误）
-  navigation/        NavGraph.kt + routes/ 中的 12 个类型安全 Route 对象（URL 参数用 NavUtils.safeDecodeParam）
+  navigation/        NavGraph.kt + routes/ 中的 11 个类型安全 Route 对象（URL 参数用 NavUtils.safeDecodeParam）
   components/        共享组件（PulsingDotsIndicator, ProviderIcon）
 
 di/                Hilt 模块（NetworkModule, DomainModule）
@@ -68,7 +68,7 @@ di/                Hilt 模块（NetworkModule, DomainModule）
 
 ### AppLogger 是持久化日志入口
 
-新代码应使用 `AppLogger.i/w/e` 而非 `android.util.Log`，这样日志会出现在应用内 Diagnostics 屏幕。存量代码正在逐步迁移。
+新代码应使用 `AppLogger.i/w/e` 而非 `android.util.Log`，这样日志会出现在应用内 Diagnostics 屏幕。**存量代码已全部迁移**（2026-08-07，61 个文件批量替换完成）。
 
 ### 导航参数必须安全解码
 

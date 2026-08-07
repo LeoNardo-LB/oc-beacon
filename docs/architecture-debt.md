@@ -20,14 +20,15 @@ Updated: 2026-08-07（密码导航重构后同步）
 |------|------|------|
 | `ChatViewModel` | 注入 `data/repository/ServerTerminalRegistry`（终端工厂） | 终端体系与 connectbot `TerminalEmulator`/`PtySocket` 深度耦合，是 Android 平台细节。抽 domain 接口收益低、风险高，标注为可接受 |
 | `ui/screens/chat/terminal/*` | UI 依赖 `data/terminal/ServerTerminalWorkspace`（含 `TerminalEmulator` 类型暴露） | 同上，终端仿真器是平台细节，维持现状 |
-| `SessionListViewModel`/`DirectoryManager` | 注入 `FileApi`/`SessionApi`/`SystemApi`/`TerminalApi`（目录浏览） | 目录浏览需要低级操作（探测盘符、临时会话执行命令），domain 接口未覆盖且语义不适配，属有意深度集成 |
 | `data/repository/EventDispatcher`、`handler/*`、`SseConnectionManager` | data/service 内部互用具体类 | 正常（data 层内部），非违规 |
+
+> ✅ **2026-08-07 已修复**：`SessionListViewModel`/`DirectoryManager` 的 `FileApi`/`SessionApi`/`SystemApi`/`TerminalApi` 直调已全部下沉为 UseCase/Repository（backlog #17）——4 个 Api 注入移除，扩展文件搬回主类，internal 全转 private。
 
 > 完整修复终端体系需要将 `ServerTerminalWorkspace` 的 tab 管理/重连/buffer 抽象为 domain 接口——预计 20+ 文件改动、测试重写，收益低于成本。**若未来做，先抽 `ServerTerminalRegistry.workspaceFor` 的薄接口**。
 
-## 2. Thin UseCase Layer（20 个，绝大多数纯委托）
+## 2. Thin UseCase Layer（25 个，绝大多数纯委托）
 
-20 个 UseCase 中 19 个是纯委托（`suspend fun invoke(...) = repo.method(...)`），仅 `SubmitAnnotationsUseCase` 含业务逻辑。
+25 个 UseCase 中绝大多数是纯委托（`suspend fun invoke(...) = repo.method(...)`），仅 `SubmitAnnotationsUseCase` 含业务逻辑。2026-08-07 新增 6 个（ListSessions/ListProjects/GetServerPaths/ProbeDirectory/SearchDirectories/CreateDirectory，backlog #17）。
 
 **2026-08-05 已删 9 个死 UseCase**（main 代码零引用，仅有测试）：ConnectServerUseCase、CreateSessionUseCase、DisconnectServerUseCase、GetMessagesUseCase、GetServerListUseCase、GetSessionListUseCase、ManageQuestionUseCase、PermissionHandlerUseCase、QuestionHandlerUseCase。
 
@@ -38,18 +39,16 @@ Updated: 2026-08-07（密码导航重构后同步）
 
 **推荐**：Option B（AGENTS.md 已声明 "ViewModel 委托给 UseCase" 是项目规范，删除会破坏架构一致性）。
 
-## 3. God Files（>500 行，2026-08-05 实测）
+## 3. God Files（>500 行，2026-08-07 实测）
 
 | File | 行数 | 状态 |
 |------|------|------|
-| ChatViewModel.kt | ~1100 | 已有 5 个 delegate 抽取模式（MessageData/SessionActions/Terminal 等），继续此模式 |
-| ChatScreen.kt | ~890 | 继续 sub-composable 抽取 |
-| SessionListScreen.kt | ~700 | 提取树节点渲染 |
-| SettingsDataStore.kt | ~690 | 拆分 per-setting DataStores（P2 后已瘦身，仍偏大） |
-| ChatMessageList.kt | ~685 | 提取 FlingBehavior + scroll 逻辑 |
-| SessionListViewModel.kt | ~680 | 状态拆分 |
+| ChatScreen.kt | ~770 | 继续 sub-composable 抽取（#16 已抽滚动控制器） |
+| ChatMessageList.kt | ~674 | #18 已外移指纹函数，继续提取滚动/缓存逻辑 |
+| SessionListViewModel.kt | ~522 | #17 已分层修复（UseCase 下沉），仍偏大 |
 | ServerTerminalWorkspace.kt | ~620 | 已迁移 data/terminal，逻辑内聚可接受 |
-| NavGraph.kt | ~570 | 路由定义集中，可接受 |
+
+> 2026-08-07 已瘦身出表：ChatViewModel（~1100→493，#8/#15 拆分）、SessionListScreen（~700→367）、SettingsDataStore（~690→223）、NavGraph（~570→420）、MessageDataDelegate（#15 拆为 PaginationDelegate + OptimisticMessageStore）。
 
 ## 4. 测试缺口（高优先）
 

@@ -14,7 +14,7 @@
 |---|----------|-----------|
 | Application ID | `dev.minios.ocremote` | `dev.leonardo.ocbeacon`（另有 `.dev` / `.beta` 后缀用于并行安装） |
 | compileSdk | 34 | 37 |
-| targetSdk | 34 | 35 |
+| targetSdk | 34 | 36 |
 | Compose BOM | 2024.12.01 | 2026.05.01 |
 
 得益于不同的 application ID，两个应用可以**同时安装**在同一设备上。版本号遵循 [Semantic Versioning](docs/release-workflow.md)——当前版本见 `version.properties`。
@@ -155,7 +155,7 @@
 - **Ktor**（OkHttp engine）HTTP 与 SSE
 - **Material 3** 设计系统
 - Clean Architecture — domain / data / ui 三层
-- JDK 21 · compileSdk 37 · minSdk 26 · targetSdk 35
+- JDK 21 · compileSdk 37 · minSdk 26 · targetSdk 36
 
 ## 要求
 
