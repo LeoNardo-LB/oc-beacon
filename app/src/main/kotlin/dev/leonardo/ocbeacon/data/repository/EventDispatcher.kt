@@ -291,7 +291,7 @@ class EventDispatcher @Inject constructor(
         // 与 markSessionIdle（客户端 now，UI 流式终止）解耦——红点判定只用服务器时刻。
         if (event is SseEvent.MessageUpdated && event.info is Message.Assistant && event.info.time.completed != null) {
             val sessionId = event.info.sessionId
-            val completed = event.info.time.completed!!
+            val completed = event.info.time.completed
             _lastCompletedReplyTime.update { map ->
                 if (completed > (map[sessionId] ?: 0L)) map + (sessionId to completed) else map
             }

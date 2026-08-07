@@ -205,7 +205,10 @@ object AppLogger {
             error.cause?.let { put("cause", "${it::class.java.name}: ${it.message.orEmpty()}") }
             // JVM 单元测试环境下 android.jar stub 的 getStackTraceString 返回 null，
             // 回退到 Kotlin 标准库实现（不依赖 Android）。
-            val stack = AndroidLog.getStackTraceString(error) ?: error.stackTraceToString()
+            // 平台类型 String! 显式声明为可空——保留运行时 null 防御且消除
+            // "Elvis always returns left operand" 编译警告。
+            val raw: String? = AndroidLog.getStackTraceString(error)
+            val stack = raw ?: error.stackTraceToString()
             put("stack", stack.lineSequence().take(12).joinToString("\n"))
         }
     }

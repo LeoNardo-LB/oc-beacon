@@ -44,7 +44,7 @@ class AppNotificationManager @Inject constructor(
     private val eventDispatcher: EventDispatcher,
     private val settingsRepository: SettingsDataStore,
     private val sessionFocusHolder: SessionFocusHolder,
-    @ApplicationScope private val appScope: CoroutineScope,
+    @param:ApplicationScope private val appScope: CoroutineScope,
 ) {
     private val TAG = "AppNotificationMgr"
 

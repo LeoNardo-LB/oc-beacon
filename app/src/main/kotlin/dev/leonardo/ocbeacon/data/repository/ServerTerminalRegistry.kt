@@ -17,7 +17,7 @@ import javax.inject.Singleton
 @Singleton
 class ServerTerminalRegistry @Inject constructor(
     private val api: TerminalApi,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     private val lock = Any()
     private val byServer = mutableMapOf<String, ServerTerminalWorkspace>()

@@ -218,13 +218,11 @@ internal fun OpenProjectDialog(
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 items(
                                     items = directories,
-                                    key = { it.absolute ?: it.path }
+                                    key = { it.absolute }
                                 ) { node ->
-                                    // 优先使用服务器返回的绝对路径（永远正确），
-                                    // 回退到 DirectoryPath.child() 以保安全。
-                                    val targetPath = node.absolute?.let { DirectoryPath.forPath(it) }
-                                        ?: currentPath?.child(node.name)
-                                        ?: DirectoryPath.forPath(node.name)
+                                    // absolute 非空（FileNode.absolute: String）——直接使用，
+                                    // 原 fallback 链（currentPath.child / forPath(node.name)）为死代码。
+                                    val targetPath = DirectoryPath.forPath(node.absolute)
 
                                     DirectoryRow(
                                         displayPath = node.name,

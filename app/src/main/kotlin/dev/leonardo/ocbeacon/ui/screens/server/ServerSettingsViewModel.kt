@@ -84,7 +84,7 @@ data class ModelToggle(
 @HiltViewModel
 class ServerSettingsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val providerRepository: ProviderRepository,
     private val agentRepository: AgentRepository,
     private val settingsRepository: SettingsRepository,

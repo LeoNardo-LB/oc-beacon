@@ -2,11 +2,11 @@ package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Bookmark
@@ -62,7 +62,7 @@ object SessionCategoryStyle {
         "science" -> Icons.Filled.Science
         "lightbulb" -> Icons.Filled.Lightbulb
         "bookmark" -> Icons.Filled.Bookmark
-        "menu_book" -> Icons.Filled.MenuBook
+        "menu_book" -> Icons.AutoMirrored.Filled.MenuBook
         "desktop_windows" -> Icons.Filled.DesktopWindows
         "language" -> Icons.Filled.Language
         "email" -> Icons.Filled.Email
