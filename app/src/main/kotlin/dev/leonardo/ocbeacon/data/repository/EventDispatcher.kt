@@ -13,15 +13,11 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.reflect.KClass
@@ -50,10 +46,6 @@ class EventDispatcher @Inject constructor(
     private val sessionStateService: SessionStateService,
     private val settingsDataStore: SettingsDataStore,
 ) {
-    /** 未读持久化后台收集器：进程生命周期内始终活跃（不依赖 UI 订阅），
-     *  消息完成 → lastMessageTime 更新 → 写入 DataStore（应用重启后红点不丢失）。 */
-    private val replyTimePersistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     init {
         // SessionStateService 回调——在此接线以打破循环依赖
         //（EventDispatcher ← SessionStateService 经由 Provider，但回调
@@ -65,20 +57,9 @@ class EventDispatcher @Inject constructor(
             sessionHandler.sessions.value.find { it.id == sessionId }?.directory
         }
         sessionStateService.messageForceCompleter = MessageForceCompleter { sessionId ->
+            // markSessionIdle 用客户端 now 标记 UI 流式终止，但不写入红点时间源
+            //（红点判定只用服务器时刻 event.time.completed，见 processEvent 增量块）。
             messageHandler.markSessionIdle(sessionId)
-            // turn 结束（服务器空闲确认）→ 用最后一条已完成回复的 **completed 服务器时间戳**：
-            // - 用户在列表等回复（回复完成晚于返回）→ completed > 已读时刻 → 红点 ✅
-            // - 用户看完回复退出 / 退出后 idle 延迟到达 → completed（服务器时刻）< 已读时刻 → 无红点 ✅
-            // （created 太早会漏报列表等回复；客户端 now 太晚会误报退出后延迟）
-            messageHandler.messages.value[sessionId]
-                ?.filterIsInstance<Message.Assistant>()
-                ?.filter { it.time.completed != null }
-                ?.maxByOrNull { it.time.completed ?: 0L }
-                ?.let { msg ->
-                    val ts = msg.time.completed ?: msg.time.created
-                    AppLogger.d("UnreadDiag", "[forceComplete] sid=${sessionId.take(12)} completed=$ts now=${System.currentTimeMillis()}")
-                    _turnEndTime.update { it + (sessionId to ts) }
-                }
         }
         sessionStateService.messageRefresher = MessageRefresher { sessionId, messages ->
             messageHandler.replaceMessages(sessionId, messages)
@@ -183,28 +164,11 @@ class EventDispatcher @Inject constructor(
     val projectInfo: StateFlow<Project?> get() = sessionHandler.projectInfo
     val lastUserMessageTime: StateFlow<Map<String, Long>> get() = sessionHandler.lastUserMessageTime
 
-    /** turn 结束时间（sessionId → 最近一次 agent 回复完成时间，**服务器时间戳**）。
-     *  实际生效路径是 [messageForceCompleter]（SessionStatus=idle → FSM forceComplete），
-     *  取最后一条已完成回复的 completed（服务器完成时刻）——用户在列表等回复时
-     *  晚于已读时刻（红点 ✅），看完退出/退出后延迟到达时早于已读时刻（无红点 ✅）。 */
-    private val _turnEndTime = MutableStateFlow<Map<String, Long>>(emptyMap())
-    val lastReplyTime: StateFlow<Map<String, Long>> = _turnEndTime
-
-    init {
-        // 持久化 + turn 结束接线放这里（属性已初始化——类体按声明顺序初始化）。
-        // step.ended 主路径：⚠️ 2026-08-07 实证当前 OpenCode 服务器**不发送**
-        // session.next.step.ended 事件（回复结束信号是 MessageUpdated + SessionStatus），
-        // 此回调实际不触发；保留以兼容未来服务器版本（文档声明 v2 同步），
-        // 真正生效的是下方 messageForceCompleter 兜底。
-        sessionNextHandler.onTurnEnded = { sessionId, _, timestamp ->
-            val ts = if (timestamp > 0) timestamp else System.currentTimeMillis()
-            AppLogger.d("UnreadDiag", "[turnEnd] sid=${sessionId.take(12)} ts=$ts now=${System.currentTimeMillis()}")
-            _turnEndTime.update { it + (sessionId to ts) }
-        }
-        replyTimePersistScope.launch {
-            _turnEndTime.collect { settingsDataStore.saveLastReplyTimes(it) }
-        }
-    }
+    /** 每会话最后完成 assistant 消息的 completed（**服务器时刻**，实时派生）。
+     *  红点判定的唯一时间源——替换旧 _turnEndTime（曾混入 markSessionIdle 的客户端 now）。
+     *  增量维护：MessageUpdated(completed!=null) 或 REST 整批替换时更新。 */
+    private val _lastCompletedReplyTime = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val lastCompletedReplyTime: StateFlow<Map<String, Long>> = _lastCompletedReplyTime
 
     // Session Next 状态
     val currentAgent: StateFlow<Map<String, String>> get() = sessionNextHandler.currentAgent
@@ -259,6 +223,7 @@ class EventDispatcher @Inject constructor(
             val deletedSessionId = event.info.id
             streamingSessionOwners.remove(deletedSessionId)
             messageHandler.clearForSession(deletedSessionId)
+            _lastCompletedReplyTime.update { it - deletedSessionId }
             permissionHandler.clearForSession(deletedSessionId)
             questionHandler.clearForSession(deletedSessionId)
             miscHandler.clearForSession(deletedSessionId)
@@ -275,6 +240,16 @@ class EventDispatcher @Inject constructor(
         if (event is SseEvent.CommandExecuted) {
             AppLogger.i("UnreadDiag", "[CommandExecuted] session=${event.sessionId.take(12)} msg=${event.messageId.take(12)} name=${event.name}")
             messageHandler.markSessionIdle(event.sessionId, event.messageId)
+        }
+
+        // 红点时间源：assistant 消息完成（服务器 completed）→ 增量更新 maxCompleted。
+        // 与 markSessionIdle（客户端 now，UI 流式终止）解耦——红点判定只用服务器时刻。
+        if (event is SseEvent.MessageUpdated && event.info is Message.Assistant && event.info.time.completed != null) {
+            val sessionId = event.info.sessionId
+            val completed = event.info.time.completed!!
+            _lastCompletedReplyTime.update { map ->
+                if (completed > (map[sessionId] ?: 0L)) map + (sessionId to completed) else map
+            }
         }
 
         // 跟踪用户消息时间，用于稳定的会话排序。
@@ -380,14 +355,34 @@ class EventDispatcher @Inject constructor(
     fun setRevert(sessionId: String, messageId: String) =
         sessionHandler.setRevert(sessionId, messageId)
 
-    fun setMessages(sessionId: String, messages: List<MessageWithParts>) =
+    fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.setMessages(sessionId, messages)
+        recomputeMaxCompleted(sessionId)
+    }
 
-    fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) =
+    fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.mergeMessages(sessionId, messages)
+        recomputeMaxCompleted(sessionId)
+    }
 
-    fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) =
+    fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.replaceMessages(sessionId, messages)
+        recomputeMaxCompleted(sessionId)
+    }
+
+    /**
+     * 重算某会话的 maxCompleted（REST 整批替换后调用）。
+     * 无完成消息 → 移除条目（会话已无红点时间源）。
+     */
+    private fun recomputeMaxCompleted(sessionId: String) {
+        val maxTs = messageHandler.messages.value[sessionId]
+            ?.filterIsInstance<Message.Assistant>()
+            ?.mapNotNull { it.time.completed }
+            ?.maxOrNull()
+        _lastCompletedReplyTime.update { map ->
+            if (maxTs == null) map - sessionId else map + (sessionId to maxTs)
+        }
+    }
 
     fun addOptimisticMessage(sessionId: String, message: Message.User, parts: List<Part>) =
         messageHandler.addOptimisticMessage(sessionId, message, parts)
@@ -430,6 +425,7 @@ class EventDispatcher @Inject constructor(
         miscHandler.clearAll()
         sessionNextHandler.clearAll()
         sessionStateService.clearAll()
+        _lastCompletedReplyTime.value = emptyMap()
         streamingSessionOwners.clear()
     }
 
@@ -441,6 +437,8 @@ class EventDispatcher @Inject constructor(
         questionHandler.clearForServer(sessionIds)
         miscHandler.clearForServer(sessionIds)
         sessionNextHandler.clearForServer(sessionIds)
+        // 移除该服务器所属会话的红点时间源条目（等价于逐会话 clearForSession）
+        _lastCompletedReplyTime.update { it - sessionIds }
         // 释放由此服务器拥有的会话的流式所有权，
         // 允许另一服务器在仍连接时认领它们。
         streamingSessionOwners.entries.removeAll { it.value == serverId }

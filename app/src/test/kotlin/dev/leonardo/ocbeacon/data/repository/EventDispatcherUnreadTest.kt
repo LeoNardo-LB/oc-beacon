@@ -10,7 +10,7 @@ import dev.leonardo.ocbeacon.data.repository.handler.QuestionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.SessionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.SessionNextEventHandler
 import dev.leonardo.ocbeacon.domain.model.Message
-import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
+import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
@@ -28,9 +28,9 @@ import org.junit.Test
 import javax.inject.Provider
 
 /**
- * 未读提示数据源（lastMessageTime）测试：红点绑定 **turn 结束**——
- * step.ended（finish ≠ "tool-calls"）才记录；单个 step/工具调用完成不算；
- * 用户消息不产生未读。
+ * 未读提示数据源（lastCompletedReplyTime / maxCompleted）测试：
+ * 由 assistant 消息 completed（服务器时刻）更新；用户消息/未完成消息不算；
+ * 增量取 max；无完成消息的会话移除条目。
  */
 class EventDispatcherUnreadTest {
 
@@ -66,72 +66,55 @@ class EventDispatcherUnreadTest {
         stateServiceScope.cancel()
     }
 
-    private fun pushAssistantMessage(id: String, sessionId: String, created: Long) {
+    private fun pushAssistantMessage(id: String, sessionId: String, created: Long, completed: Long? = null) {
         dispatcher.processEvent(
             SseEvent.MessageUpdated(
-                Message.Assistant(id = id, sessionId = sessionId, time = TimeInfo(created = created, completed = null), parentId = "p0")
+                Message.Assistant(id = id, sessionId = sessionId, time = TimeInfo(created = created, completed = completed), parentId = "p0")
             ),
             "svr1"
         )
     }
 
-    private fun pushStepEnded(sessionId: String, messageId: String, finish: String, timestamp: Long = 0) {
-        dispatcher.processEvent(
-            SseEvent.SessionNext(SessionNextEvent.StepEnded(
-                sessionId = sessionId, messageId = messageId, step = 1, finish = finish, timestamp = timestamp
-            )),
-            "svr1"
-        )
+    @Test
+    fun `assistant message with completed updates maxCompleted with server timestamp`() = runTest {
+        pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
+        assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
     }
 
     @Test
-    fun `turn end records server timestamp not processing time`() = runTest {
-        // 服务器时刻（回复完成）必然早于客户端处理时刻——延迟到达不产生误报
-        pushStepEnded("s1", "m1", "stop", timestamp = 1000L)
-        assertEquals(1000L, dispatcher.lastReplyTime.first()["s1"])
+    fun `assistant message without completed does NOT update`() = runTest {
+        pushAssistantMessage("m1", "s1", created = 100L, completed = null)
+        assertNull(dispatcher.lastCompletedReplyTime.first()["s1"])
     }
 
     @Test
-    fun `turn end with finish stop records end time`() = runTest {
-        val before = System.currentTimeMillis()
-        pushStepEnded("s1", "m1", "stop")
-        val recorded = dispatcher.lastReplyTime.first()["s1"]
-        assertEquals(true, recorded != null && recorded >= before)
-    }
-
-    @Test
-    fun `tool-calls finish does NOT record (turn continues)`() = runTest {
-        // 工具调用完成：turn 未结束，不应产生未读
-        pushStepEnded("s1", "m1", "tool-calls")
-        assertNull("tool-calls step should NOT trigger unread", dispatcher.lastReplyTime.first()["s1"])
-
-        // 后续 step 正常停止 → 记录
-        pushStepEnded("s1", "m1", "stop")
-        assertEquals(true, dispatcher.lastReplyTime.first()["s1"] != null)
-    }
-
-    @Test
-    fun `user message does NOT count as unread`() = runTest {
+    fun `user message does NOT update`() = runTest {
         dispatcher.processEvent(
             SseEvent.MessageUpdated(Message.User(id = "m1", sessionId = "s1", time = TimeInfo(5000L))),
             "svr1"
         )
-        assertNull("user message should NOT trigger unread", dispatcher.lastReplyTime.first()["s1"])
+        assertNull(dispatcher.lastCompletedReplyTime.first()["s1"])
     }
 
     @Test
-    fun `later turn end overwrites with newer time`() = runTest {
-        pushStepEnded("s1", "m1", "stop")
-        val first = dispatcher.lastReplyTime.first()["s1"]!!
-        // 第二个 turn 结束（时间推进）
-        pushStepEnded("s1", "m2", "stop")
-        val second = dispatcher.lastReplyTime.first()["s1"]!!
-        assertEquals(true, second >= first)
+    fun `later completed overwrites with max`() = runTest {
+        pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
+        pushAssistantMessage("m2", "s1", created = 200L, completed = 400L) // 更早完成 → 不覆盖
+        assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
+        pushAssistantMessage("m3", "s1", created = 300L, completed = 900L) // 更晚完成 → 覆盖
+        assertEquals(900L, dispatcher.lastCompletedReplyTime.first()["s1"])
     }
 
     @Test
-    fun `turn end for unknown session still records (no message lookup needed)`() = runTest {
-        pushStepEnded("s1", "ghost", "stop")
-        assertEquals(true, dispatcher.lastReplyTime.first()["s1"] != null)
+    fun `replaceMessages recomputes max for session`() = runTest {
+        pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
+        // REST 整批替换：replaceMessages 以 REST 为真相源合并（保留 SSE 已有消息）→ 重算 max
+        val newer = Message.Assistant(id = "m9", sessionId = "s1", time = TimeInfo(created = 1000L, completed = 2000L), parentId = "p0")
+        dispatcher.replaceMessages("s1", listOf(MessageWithParts(info = newer, parts = emptyList())))
+        assertEquals(2000L, dispatcher.lastCompletedReplyTime.first()["s1"])
+        // 整批替换后会话无完成消息 → maxCompleted 移除条目（无完成消息）
+        val incomplete = Message.Assistant(id = "m10", sessionId = "s2", time = TimeInfo(created = 3000L, completed = null), parentId = "p0")
+        dispatcher.replaceMessages("s2", listOf(MessageWithParts(info = incomplete, parts = emptyList())))
+        assertNull(dispatcher.lastCompletedReplyTime.first()["s2"])
     }
 }
