@@ -59,6 +59,9 @@ jobs:
       - name: Grant execute permissions for gradlew
         run: chmod +x ./gradlew
 
+      - name: i18n check (key completeness / English source purity / placeholder consistency)
+        run: pwsh scripts/i18n-check.ps1
+
       - name: Remove local-only settings
         run: |
           sed -i '/^systemProp\./d' gradle.properties

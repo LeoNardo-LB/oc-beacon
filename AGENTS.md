@@ -16,6 +16,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/opencode-api-reference.md`](docs/opencode-api-reference.md) | OpenCode Server 完整 API 参考（62 REST/WS 端点 + 52 SSE 事件 + JSON Schema） | 开发新功能、调试接口问题前 |
 | 🟡 SHOULD | [`docs/architecture.md`](docs/architecture.md) | 架构分层、目录职责、关键模式、承重架构规则 | 理解/修改跨层结构、SessionStateService、日志、导航 |
 | 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 聊天 UI 事件生命周期：触摸传播、SSE 流式更新、消息状态机、竞态条件 | 修改 ChatScreen 内部机制、排查聊天交互竞态时 |
+| 🟡 SHOULD | [`docs/i18n-guide.md`](docs/i18n-guide.md) | 国际化工作流（15 语言直接维护 + 检查脚本 + CI） | 涉及任何文案：新增/修改/删除 UI 字符串、占位符、plurals 前（必读） |
 | 🟡 SHOULD | [`docs/ui-conventions.md`](docs/ui-conventions.md) | UI 约定：Material 3、Theme Tokens、表格渲染一致性 | 编写/修改 UI 组件、主题、颜色、间距 |
 | 🟡 SHOULD | [`docs/agents-file-design.md`](docs/agents-file-design.md) | AGENTS.md 维护规范（本文件的设计依据） | 新增/修改 AGENTS.md 规则时 |
 | 🟡 SHOULD | [`backlog.md`](backlog.md) | 待办需求/问题登记（P0-P2 优先级 + Tag + 状态流转） | 录入新条目前（避免重复）、开始新任务了解待办时 |
@@ -170,6 +171,6 @@ SSE → UI 管线为：**48ms token 批处理** → **高度补偿** → **渲�
 
 ## 其他
 
-- **本地化**：15 种语言通过 `lokit.yaml` 管理。编辑字符串资源后，运行 `lokit` 同步翻译。
+- **国际化**：15 种语言直接维护（英文源 `values/` + 14 翻译文件，**无翻译框架**，lokit 已移除）。涉及任何文案改动，按 [`docs/i18n-guide.md`](docs/i18n-guide.md) 工作流执行：改英文源 → agent 直接翻译 14 语言 → 跑 `scripts/i18n-check.ps1`（key 完整性/英文源纯净/占位符一致性，CI 发版自动检查）。
 - **ProGuard**：Release 构建使用 R8 混淆。保留规则：`kotlinx.serialization` 注解类、Ktor 协程内部实现、Mikepenz Markdown 渲染器的状态/模型。
 - **Android SDK**：`compileSdk` / `minSdk` / `targetSdk` 与 Compose BOM 等依赖版本以 `app/build.gradle.kts` 的 `defaultConfig` 与 `dependencies` 块为单一真相源，不在此重复维护。
