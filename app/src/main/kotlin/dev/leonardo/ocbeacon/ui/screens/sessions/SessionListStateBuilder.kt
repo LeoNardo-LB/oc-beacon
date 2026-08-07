@@ -37,7 +37,6 @@ internal fun isUnread(
  * 逻辑：过滤/搜索/分类/收藏/树构建/未读。
  * 外壳字段（isLoading/isRefreshing/error/serverName）不再进入此函数。
  */
-@Suppress("UNCHECKED_CAST")
 internal fun buildContentState(
     data: SessionListDataInputs,
     ui: SessionListUiInputs,
