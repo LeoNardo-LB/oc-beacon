@@ -4,6 +4,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.MapSerializer
@@ -70,6 +71,7 @@ suspend fun SettingsDataStore.saveLastCompletedReplyTimes(times: Map<String, Lon
     dataStore.edit { prefs ->
         prefs[LAST_REPLY_TIME_KEY] = readTimesJson.encodeToString(readTimesSerializer, times)
     }
+    AppLogger.d("UnreadDiag", "[persist] saved ${times.size} entries: ${times.entries.take(3)}")
 }
 
 /**
