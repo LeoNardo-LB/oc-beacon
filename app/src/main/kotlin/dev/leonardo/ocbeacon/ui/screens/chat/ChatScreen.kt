@@ -223,10 +223,12 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
 import dev.leonardo.ocbeacon.ui.screens.chat.input.rememberAttachmentHandler
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
+import dev.leonardo.ocbeacon.ui.screens.chat.util.shouldShowLoadingOverlay
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCardRole
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatEmptyState
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
+import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatLoadingOverlay
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
@@ -280,6 +282,7 @@ fun ChatScreen(
     val interaction by viewModel.interactionState.collectAsStateWithLifecycle()
     val tokenStats by viewModel.tokenStatsState.collectAsStateWithLifecycle()
     val modelConfig by viewModel.modelConfigState.collectAsStateWithLifecycle()
+    val modelConfigLoaded by viewModel.modelConfigLoaded.collectAsStateWithLifecycle()
     val directory by viewModel.directoryState.collectAsStateWithLifecycle()
     val contextDetail by viewModel.contextDetailState.collectAsStateWithLifecycle()
     val restoredDraft by viewModel.restoredDraftState.collectAsStateWithLifecycle()
@@ -500,6 +503,17 @@ fun ChatScreen(
         LocalSessionStreaming provides sessionMeta.isStreaming,
     ) {
     var showQuickNavigate by remember { mutableStateOf(false) }
+    // 加载蒙版：模型配置 + 消息同时就绪才揭开，8s 超时兜底强制揭开。
+    var overlayTimeout by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(8_000)
+        overlayTimeout = true
+    }
+    val overlayVisible = shouldShowLoadingOverlay(
+        modelReady = modelConfigLoaded,
+        messagesReady = sessionId.isBlank() || !interaction.isLoading,
+        timeoutElapsed = overlayTimeout,
+    )
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -607,6 +621,7 @@ fun ChatScreen(
             }
         },
         bottomBar = {
+            Box {
             ChatScreenBottomBar(
                 viewModel = viewModel,
                 sessionMeta = sessionMeta,
@@ -634,6 +649,10 @@ fun ChatScreen(
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
             )
+            if (overlayVisible) {
+                ChatLoadingOverlay(modifier = Modifier.fillMaxSize())
+            }
+            }
         },
     ) { padding ->
         Box(
@@ -773,6 +792,9 @@ fun ChatScreen(
                   }
               }
            }
+            if (overlayVisible) {
+                ChatLoadingOverlay(modifier = Modifier.fillMaxSize())
+            }
        }
 
 
