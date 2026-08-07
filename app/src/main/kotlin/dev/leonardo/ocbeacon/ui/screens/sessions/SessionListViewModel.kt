@@ -197,40 +197,9 @@ class SessionListViewModel @Inject constructor(
     private val _mcpError = MutableSharedFlow<String>()
     val mcpError: SharedFlow<String> = _mcpError.asSharedFlow()
 
-    // ============ 聚合 UI 状态 ============
-
-    @Suppress("UNCHECKED_CAST")
-    val uiState: StateFlow<SessionListUiState> = combine(
-        sessionRepository.getSessionsFlow(serverId),
-        sessionStateService.statusFlow,
-        sessionRepository.getServerSessionsFlow(),
-        sessionRepository.getLastUserMessageTimeFlow(),
-        _isLoading,
-        _error,
-        _projects,
-        _expandedPaths,
-        _selectedIds,
-        _baseDirectory,
-        _isRefreshing,
-        _lastToggledDirectory,
-        _searchQuery,
-        _viewMode,
-        settingsRepository.sessionTagAssignments(serverId),
-        _categoryFilters,
-        sessionTags,
-        _favoritesOnly,
-        sessionRepository.getLastReplyTimeFlow(),
-        settingsRepository.sessionReadTimes(serverId),
-        _unreadBaseline,
-        sessionReadSignal.justRead,
-        settingsRepository.allReadAt(serverId),
-    ) { values ->
-        buildSessionListUiState(values, serverId, serverName, draftRepository)
-    }.stateIn(viewModelScope, WhileSubscribed5s, SessionListUiState())
-
     // ============ 聚合 UI 状态（#23 状态切片：嵌套分组 combine） ============
     // 分组设计：每组只携带自己拥有的字段（部分数据类），最终 dataFlow 合并 3 组。
-    // 禁止"占位填充"（会重置其他组的字段）。旧 uiState 保留不动（Task 3 才删除）。
+    // 禁止"占位填充"（会重置其他组的字段）。
 
     // 分组1：会话数据（5 源）→ 部分字段
     private data class SessionDataPart(
@@ -699,7 +668,7 @@ class SessionListViewModel @Inject constructor(
     }
 
     fun selectAll() {
-        val currentState = uiState.value
+        val currentState = contentState.value
         val sessionIds = currentState.treeNodes
             .filterIsInstance<dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode.Session>()
             .map { it.id }

@@ -65,7 +65,7 @@ class SessionListViewModelSearchTest {
 
     @Test
     fun `searchQuery state is initially empty`() {
-        val initialState = SessionListUiState()
+        val initialState = SessionListContentState()
         assertEquals(null, initialState.searchQuery)
     }
 

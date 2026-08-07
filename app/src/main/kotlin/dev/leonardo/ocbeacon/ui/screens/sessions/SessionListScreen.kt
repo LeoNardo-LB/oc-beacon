@@ -69,7 +69,8 @@ fun SessionListScreen(
     onNavigateToNewChat: (directory: String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val content by viewModel.contentState.collectAsStateWithLifecycle()
+    val shell by viewModel.shellState.collectAsStateWithLifecycle()
     val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
     val isAmoled = isAmoledTheme()
     val context = LocalContext.current
@@ -103,7 +104,7 @@ var showMoreMenu by remember { mutableStateOf(false) }
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
 
 // 组合阶段消费待标记会话：返回列表时同步标记已读（渲染前 combine 重算完成，
-// 消除 popBackStack 先渲染旧 uiState 导致的 1 帧红点闪烁）。consume 保证只处理一次。
+// 消除 popBackStack 先渲染旧状态导致的一帧红点闪烁）。consume 保证只处理一次。
 viewModel.consumePendingReadSessionId()
 
     // 进入屏幕时预加载 MCP 服务器 — 用户滑到 MCP 标签页时无加载延迟。
@@ -123,7 +124,7 @@ viewModel.consumePendingReadSessionId()
             TopAppBar(
                 title = {
                     Text(
-                        text = uiState.serverName.ifEmpty { stringResource(R.string.sessions_title) },
+                        text = shell.serverName.ifEmpty { stringResource(R.string.sessions_title) },
                         style = MaterialTheme.typography.titleMedium,
                     )
                 },
@@ -152,7 +153,7 @@ viewModel.consumePendingReadSessionId()
                         IconButton(onClick = {
                             // 若已有会话，先显示快速对话框；
                             // 否则直接进入完整目录浏览器。
-                            if (uiState.sessions.isNotEmpty()) {
+                            if (content.sessions.isNotEmpty()) {
                                 showQuickNewSession = true
                             } else {
                                 showOpenProject = true
@@ -268,7 +269,7 @@ viewModel.consumePendingReadSessionId()
             when (page) {
                 0 -> {
                     PullToRefreshBox(
-                        isRefreshing = uiState.isRefreshing,
+                        isRefreshing = shell.isRefreshing,
                         onRefresh = { viewModel.refreshSessions() },
                         modifier = Modifier.fillMaxSize()
                     ) {
@@ -293,22 +294,22 @@ viewModel.consumePendingReadSessionId()
                             )
 
                             when {
-                                uiState.isLoading && uiState.treeNodes.isEmpty() && uiState.searchQuery.isNullOrBlank() -> {
+                                shell.isLoading && content.treeNodes.isEmpty() && content.searchQuery.isNullOrBlank() -> {
                                     SessionListLoadingState()
                                 }
-                                uiState.error != null && uiState.treeNodes.isEmpty() -> {
+                                shell.error != null && content.treeNodes.isEmpty() -> {
                                     SessionListErrorState(
-                                        message = uiState.error,
+                                        message = shell.error,
                                         onRetry = { viewModel.loadSessions() }
                                     )
                                 }
-                                uiState.treeNodes.isEmpty() -> {
+                                content.treeNodes.isEmpty() -> {
                                     SessionListEmptyState()
                                 }
                                 else -> {
                                     SessionTreeList(
                                         viewModel = viewModel,
-                                        treeNodes = uiState.treeNodes,
+                                        treeNodes = content.treeNodes,
                                         currentViewMode = currentViewMode,
                                         favoriteSessionIds = favoriteSessionIds,
                                         snackbarHostState = snackbarHostState,
@@ -347,7 +348,7 @@ viewModel.consumePendingReadSessionId()
                         onToggleMcp = viewModel::toggleMcpServer,
                         tags = sessionTags,
                         tagAssignments = sessionTagAssignments,
-                        sessions = uiState.sessions,
+                        sessions = content.sessions,
                         onAddTag = { tag ->
                             viewModel.addSessionTag(tag.name, tag.color, tag.icon, id = tag.id)
                         },
@@ -365,7 +366,7 @@ viewModel.consumePendingReadSessionId()
         OpenProjectDialog(
             viewModel = viewModel,
             projects = emptyList(),
-            initialDirectory = uiState.prefillDirectory,
+            initialDirectory = content.prefillDirectory,
             onSelect = { directory ->
                 showOpenProject = false
                 onNavigateToNewChat(directory)
@@ -377,7 +378,7 @@ viewModel.consumePendingReadSessionId()
     // 快速新建会话对话框（最近目录）
     if (showQuickNewSession) {
         NewSessionQuickDialog(
-            sessions = uiState.sessions,
+            sessions = content.sessions,
             limit = recentDirectoryCount,
             onSelectDirectory = { directory ->
                 showQuickNewSession = false
