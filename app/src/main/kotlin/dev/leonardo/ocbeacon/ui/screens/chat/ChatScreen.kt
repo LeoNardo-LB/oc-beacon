@@ -224,6 +224,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.input.rememberAttachmentHandler
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
 import dev.leonardo.ocbeacon.ui.screens.chat.util.shouldShowLoadingOverlay
+import dev.leonardo.ocbeacon.ui.screens.chat.util.shouldHideOverlay
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCardRole
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatEmptyState
@@ -503,17 +504,39 @@ fun ChatScreen(
         LocalSessionStreaming provides sessionMeta.isStreaming,
     ) {
     var showQuickNavigate by remember { mutableStateOf(false) }
-    // 加载蒙版：模型配置 + 消息同时就绪才揭开，8s 超时兜底强制揭开。
+    // 加载蒙版：模型配置 + 消息同时就绪才揭开；8s 超时兜底强制揭开。
     var overlayTimeout by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(8_000)
         overlayTimeout = true
     }
-    val overlayVisible = shouldShowLoadingOverlay(
+    // 最小展示时长门控：蒙版一旦显示至少展示 600ms 才淡出（防加载快时闪烁），
+    // 未就绪时保持显示。三阶段（淡入/加载/淡出）全程 PulsingDots 活跃。
+    val overlayTarget = shouldShowLoadingOverlay(
         modelReady = modelConfigLoaded,
         messagesReady = sessionId.isBlank() || !interaction.isLoading,
         timeoutElapsed = overlayTimeout,
     )
+    var overlayShownSinceMs by remember { mutableLongStateOf(0L) }
+    var overlayVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(overlayTarget) {
+        if (overlayTarget) {
+            if (!overlayVisible) {
+                overlayShownSinceMs = System.currentTimeMillis()
+                overlayVisible = true
+            }
+        } else {
+            while (!shouldHideOverlay(
+                    overlayTarget = false,
+                    shownSinceMs = overlayShownSinceMs,
+                    nowMs = System.currentTimeMillis(),
+                )
+            ) {
+                delay(50)
+            }
+            overlayVisible = false
+        }
+    }
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->

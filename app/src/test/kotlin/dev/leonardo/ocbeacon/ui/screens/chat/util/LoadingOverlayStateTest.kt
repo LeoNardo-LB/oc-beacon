@@ -30,4 +30,24 @@ class LoadingOverlayStateTest {
     fun `hidden after timeout when partially ready`() {
         assertFalse(shouldShowLoadingOverlay(modelReady = false, messagesReady = true, timeoutElapsed = true))
     }
+
+    @Test
+    fun `not ready never hides`() {
+        assertFalse(shouldHideOverlay(overlayTarget = true, shownSinceMs = 0L, nowMs = 10_000L))
+    }
+
+    @Test
+    fun `ready but min display not reached keeps shown`() {
+        assertFalse(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 599L))
+    }
+
+    @Test
+    fun `ready and min display reached hides`() {
+        assertTrue(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 600L))
+    }
+
+    @Test
+    fun `ready and long elapsed hides`() {
+        assertTrue(shouldHideOverlay(overlayTarget = false, shownSinceMs = 1_000L, nowMs = 10_000L))
+    }
 }
