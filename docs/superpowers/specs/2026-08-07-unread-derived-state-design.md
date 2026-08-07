@@ -74,6 +74,11 @@ EventDispatcher 新增 `_lastCompletedReplyTime: MutableStateFlow<Map<String, Lo
 
 暴露公共 `val lastCompletedReplyTime: StateFlow<Map<String, Long>>`。
 
+**持久化（重启恢复）**：`_lastCompletedReplyTime` 全量持久化到 DataStore（key `session_last_reply_time`，值域服务器 completed）。
+- init：v2 迁移完成后读 seed → `update` 合并取 max（不覆盖 SSE 并发写入的更新值）；`runCatching` 容错。
+- 后台收集：maxCompleted 变化 → 全量写回（`runCatching` 容错，best-effort）。
+- 断线期限制：重启期间服务器新回复缺失为已知限制（非本任务引入，与旧 lastReplyTime 机制相同）——SSE 重连后增量补全。
+
 - **删除**：`_turnEndTime`、`messageForceCompleter` 红点写入职责、`onTurnEnded` 红点接线、`replyTimePersistScope`（lastReplyTime 持久化 collector）
 - `messageForceCompleter` **保留**其 `markSessionIdle` 调用（UI 流式终止语义：CommandExecuted 精确标记、part time.end 补全）——但不再写任何红点时间戳
 - 清理：`clearForSession`/`clearAll` 级联移除；`clearForServer(sessionIds)` 同样移除对应会话条目
@@ -140,6 +145,9 @@ internal fun isUnread(
   │
   ├─ MessageUpdated(assistant, completed≠null) ──┐
   └─ REST replace/merge 后重算 ──────────────────┴→ _lastCompletedReplyTime（maxCompleted，内存，实时）
+                                                            │
+                            ↕ 持久化（init 读 seed / 后台收集写回，runCatching 容错）↕
+                            DataStore（key session_last_reply_time，值域服务器 completed）——重启恢复源
                                                             │
 SessionStatus=idle / L3 REST 校验 → statusFlow 状态 Idle ────┤
                                                             │
