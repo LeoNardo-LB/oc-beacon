@@ -142,7 +142,6 @@ import dev.leonardo.ocbeacon.MainActivity
 import dev.leonardo.ocbeacon.ui.theme.CodeTypography
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.conflate
@@ -223,13 +222,10 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
 import dev.leonardo.ocbeacon.ui.screens.chat.input.rememberAttachmentHandler
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
-import dev.leonardo.ocbeacon.ui.screens.chat.util.shouldShowLoadingOverlay
-import dev.leonardo.ocbeacon.ui.screens.chat.util.shouldHideOverlay
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCardRole
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatEmptyState
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
-import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatLoadingOverlay
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
@@ -283,7 +279,6 @@ fun ChatScreen(
     val interaction by viewModel.interactionState.collectAsStateWithLifecycle()
     val tokenStats by viewModel.tokenStatsState.collectAsStateWithLifecycle()
     val modelConfig by viewModel.modelConfigState.collectAsStateWithLifecycle()
-    val modelConfigLoaded by viewModel.modelConfigLoaded.collectAsStateWithLifecycle()
     val directory by viewModel.directoryState.collectAsStateWithLifecycle()
     val contextDetail by viewModel.contextDetailState.collectAsStateWithLifecycle()
     val restoredDraft by viewModel.restoredDraftState.collectAsStateWithLifecycle()
@@ -504,39 +499,6 @@ fun ChatScreen(
         LocalSessionStreaming provides sessionMeta.isStreaming,
     ) {
     var showQuickNavigate by remember { mutableStateOf(false) }
-    // 加载蒙版：模型配置 + 消息同时就绪才揭开；8s 超时兜底强制揭开。
-    var overlayTimeout by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(8_000)
-        overlayTimeout = true
-    }
-    // 三段式蒙版：淡入期（250ms）内就绪 → 淡入播完直接淡出；
-    // 淡入期内未就绪 → 进入加载期（保持显示）→ 就绪后淡出。8s 超时兜底强制揭开。
-    val overlayTarget = shouldShowLoadingOverlay(
-        modelReady = modelConfigLoaded,
-        messagesReady = sessionId.isBlank() || !interaction.isLoading,
-        timeoutElapsed = overlayTimeout,
-    )
-    var overlayShownSinceMs by remember { mutableLongStateOf(0L) }
-    var overlayVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(overlayTarget) {
-        if (overlayTarget) {
-            if (!overlayVisible) {
-                overlayShownSinceMs = System.currentTimeMillis()
-                overlayVisible = true
-            }
-        } else {
-            while (!shouldHideOverlay(
-                    overlayTarget = false,
-                    shownSinceMs = overlayShownSinceMs,
-                    nowMs = System.currentTimeMillis(),
-                )
-            ) {
-                delay(50)
-            }
-            overlayVisible = false
-        }
-    }
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -644,7 +606,6 @@ fun ChatScreen(
             }
         },
         bottomBar = {
-            Box {
             ChatScreenBottomBar(
                 viewModel = viewModel,
                 sessionMeta = sessionMeta,
@@ -672,8 +633,6 @@ fun ChatScreen(
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
             )
-            ChatLoadingOverlay(visible = overlayVisible, modifier = Modifier.matchParentSize())
-            }
         },
     ) { padding ->
         Box(
@@ -813,7 +772,6 @@ fun ChatScreen(
                   }
               }
            }
-            ChatLoadingOverlay(visible = overlayVisible, modifier = Modifier.fillMaxSize())
         }
 
 

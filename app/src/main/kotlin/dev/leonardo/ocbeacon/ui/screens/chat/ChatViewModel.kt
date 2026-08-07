@@ -168,8 +168,6 @@ class ChatViewModel @Inject constructor(
         scope = viewModelScope,
     )
     val modelConfigState: StateFlow<ModelConfigState> get() = modelConfig.modelConfigState
-    /** Provider catalog 加载完成标志（蒙版消费）。 */
-    val modelConfigLoaded: StateFlow<Boolean> get() = modelConfig.isLoaded
     fun selectAgent(name: String) = modelConfig.selectAgent(name)
     fun cycleVariant() = modelConfig.cycleVariant()
     fun selectModel(providerId: String, modelId: String) = modelConfig.selectModel(providerId, modelId)
