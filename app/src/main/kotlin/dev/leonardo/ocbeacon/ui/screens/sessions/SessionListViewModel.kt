@@ -228,6 +228,137 @@ class SessionListViewModel @Inject constructor(
         buildSessionListUiState(values, serverId, serverName, draftRepository)
     }.stateIn(viewModelScope, WhileSubscribed5s, SessionListUiState())
 
+    // ============ 聚合 UI 状态（#23 状态切片：嵌套分组 combine） ============
+    // 分组设计：每组只携带自己拥有的字段（部分数据类），最终 dataFlow 合并 3 组。
+    // 禁止"占位填充"（会重置其他组的字段）。旧 uiState 保留不动（Task 3 才删除）。
+
+    // 分组1：会话数据（5 源）→ 部分字段
+    private data class SessionDataPart(
+        val sessions: List<Session>,
+        val statuses: Map<String, SessionStatus>,
+        val serverSessionMap: Map<String, Set<String>>,
+        val lastUserMessageTime: Map<String, Long>,
+        val lastReplyTime: Map<String, Long>,
+    )
+
+    private val sessionDataFlow = combine(
+        sessionRepository.getSessionsFlow(serverId),
+        sessionStateService.statusFlow,
+        sessionRepository.getServerSessionsFlow(),
+        sessionRepository.getLastUserMessageTimeFlow(),
+        sessionRepository.getLastReplyTimeFlow(),
+    ) { sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime ->
+        SessionDataPart(sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime)
+    }
+
+    // 分组2：设置数据（5 源）
+    private data class SettingDataPart(
+        val categoryAssignments: Map<String, List<String>>,
+        val sessionTags: List<Tag>,
+        val readTimes: Map<String, Long>,
+        val unreadBaseline: Long,
+        val justRead: Map<String, Long>,
+    )
+
+    private val settingDataFlow = combine(
+        settingsRepository.sessionTagAssignments(serverId),
+        sessionTags,
+        settingsRepository.sessionReadTimes(serverId),
+        _unreadBaseline,
+        sessionReadSignal.justRead,
+    ) { assignments, tags, readTimes, baseline, justRead ->
+        SettingDataPart(assignments, tags, readTimes, baseline, justRead)
+    }
+
+    // 分组3：杂项（2 源）
+    private data class MiscDataPart(
+        val favoritesOnly: Boolean,
+        val allReadAt: Long,
+    )
+
+    private val miscDataFlow = combine(
+        _favoritesOnly,
+        settingsRepository.allReadAt(serverId),
+    ) { favoritesOnly, allReadAt ->
+        MiscDataPart(favoritesOnly, allReadAt)
+    }
+
+    // 数据流：3 组合并（3 源具名）
+    private val dataFlow = combine(
+        sessionDataFlow, settingDataFlow, miscDataFlow,
+    ) { sessionData, settingData, miscData ->
+        SessionListDataInputs(
+            sessions = sessionData.sessions,
+            statuses = sessionData.statuses,
+            serverSessionMap = sessionData.serverSessionMap,
+            lastUserMessageTime = sessionData.lastUserMessageTime,
+            categoryAssignments = settingData.categoryAssignments,
+            sessionTags = settingData.sessionTags,
+            favoritesOnly = miscData.favoritesOnly,
+            lastReplyTime = sessionData.lastReplyTime,
+            readTimes = settingData.readTimes,
+            unreadBaseline = settingData.unreadBaseline,
+            justRead = settingData.justRead,
+            allReadAt = miscData.allReadAt,
+        )
+    }
+
+    // UI 流：2 组合并
+    private data class UiGroup1Part(
+        val expandedPaths: Set<String>,
+        val selectedIds: Set<String>,
+        val baseDirectory: String?,
+        val lastToggledDirectory: String?,
+    )
+
+    private data class UiGroup2Part(
+        val searchQuery: String?,
+        val viewMode: SessionViewMode,
+        val categoryFilterIds: Set<String>,
+    )
+
+    private val uiFlow = combine(
+        combine(
+            _expandedPaths, _selectedIds, _baseDirectory, _lastToggledDirectory,
+        ) { expandedPaths, selectedIds, baseDirectory, lastToggledDirectory ->
+            UiGroup1Part(expandedPaths, selectedIds, baseDirectory, lastToggledDirectory)
+        },
+        combine(
+            _searchQuery, _viewMode, _categoryFilters,
+        ) { searchQuery, viewMode, categoryFilterIds ->
+            UiGroup2Part(searchQuery, viewMode, categoryFilterIds)
+        },
+    ) { g1, g2 ->
+        SessionListUiInputs(
+            expandedPaths = g1.expandedPaths,
+            selectedIds = g1.selectedIds,
+            baseDirectory = g1.baseDirectory,
+            lastToggledDirectory = g1.lastToggledDirectory,
+            searchQuery = g2.searchQuery,
+            viewMode = g2.viewMode,
+            categoryFilterIds = g2.categoryFilterIds,
+        )
+    }
+
+    // 内容册（最终）
+    val contentState: StateFlow<SessionListContentState> = combine(
+        dataFlow, uiFlow,
+    ) { data, ui ->
+        buildContentState(data, ui, serverId, draftRepository)
+    }.stateIn(viewModelScope, WhileSubscribed5s, SessionListContentState())
+
+    // 外壳册（独立）
+    val shellState: StateFlow<SessionListShellState> = combine(
+        _isLoading, _isRefreshing, _error,
+    ) { isLoading, isRefreshing, error ->
+        SessionListShellState(
+            serverName = serverName,
+            isLoading = isLoading,
+            isRefreshing = isRefreshing,
+            error = error,
+        )
+    }.stateIn(viewModelScope, WhileSubscribed5s, SessionListShellState())
+
     /** 快速新建会话对话框中显示的最近目录最大数量。 */
     val recentDirectoryCount: StateFlow<Int> = getSettingsFlowUseCase()
         .map { it.recentDirectoryCount }
