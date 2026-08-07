@@ -21,9 +21,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.reflect.KClass
@@ -58,8 +59,6 @@ class EventDispatcher @Inject constructor(
      * （boolean 标记）。独立 scope，不阻塞事件处理（与已删 replyTimePersistScope 同模式）。
      */
     private val unreadMigrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    /** maxCompleted 持久化收集 scope：后台写回 DataStore，重启后未读红点可恢复（同 migrationScope 独立 IO 模式）。 */
-    private val lastReplyPersistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
         // SessionStateService 回调——在此接线以打破循环依赖
@@ -75,6 +74,9 @@ class EventDispatcher @Inject constructor(
             // markSessionIdle 用客户端 now 标记 UI 流式终止，但不写入红点时间源
             //（红点判定只用服务器时刻 event.time.completed，见 processEvent 增量块）。
             messageHandler.markSessionIdle(sessionId)
+            // 同步落盘：idle 兜底到达时，前序 MessageUpdated(completed) 已更新内存红点时间源，
+            // 此刻同步写盘确保杀进程不丢（消灭旧的异步 collect 调度窗口）
+            persistLastCompletedReplyTime()
         }
         sessionStateService.messageRefresher = MessageRefresher { sessionId, messages ->
             messageHandler.replaceMessages(sessionId, messages)
@@ -190,12 +192,14 @@ class EventDispatcher @Inject constructor(
         // 否则 launch 协程在 IO 线程读到未初始化的 null 属性）。
         unreadMigrationScope.launch {
             // runCatching 容错：迁移失败（含 mock 环境）不阻塞 init 持久化路径（spec §3.1）
-            runCatching { settingsDataStore.runUnreadStateV2Migration() }
+            val migrationRan = runCatching { settingsDataStore.runUnreadStateV2Migration() }.isSuccess
+            AppLogger.d("UnreadDiag", "[migration] executed=$migrationRan")
             // 迁移完成后再读 seed：确保旧客户端 now 域值已清空，读到的是服务器域值或空。
             // update 合并取 max 保证不覆盖 SSE 并发写入的更新值（seed 可能过时——断线期服务器新回复缺失，
             // 为已知限制，非本任务引入，与旧 lastReplyTime 机制相同）。
             // runCatching 容错：DataStore 异常（含 mock 环境）返回空 seed，不阻塞 init
             val seed = runCatching { settingsDataStore.lastCompletedReplyTimes().first() }.getOrDefault(emptyMap())
+            AppLogger.d("UnreadDiag", "[seed] loaded ${seed.size} entries: ${seed.entries.take(3)}")
             _lastCompletedReplyTime.update { current ->
                 val merged = current.toMutableMap()
                 for ((sid, ts) in seed) {
@@ -203,15 +207,9 @@ class EventDispatcher @Inject constructor(
                 }
                 merged
             }
-        }
-        // 持久化收集：maxCompleted 变化 → 全量写回 DataStore。
-        // runCatching 容错：DataStore 写失败（磁盘满等）不阻塞红点判定（持久化是 best-effort，可由 SSE/REST 重建）
-        lastReplyPersistScope.launch {
-            // drop(1)：跳过 StateFlow 初值 emptyMap——避免启动瞬间空写清空持久化种子
-            //（与 seed 读取协程竞态，间歇性导致重启恢复失效；seed 合并/SSE 更新必然发射后续值）
-            _lastCompletedReplyTime.drop(1).collect { times ->
-                runCatching { settingsDataStore.saveLastCompletedReplyTimes(times) }
-            }
+            // 同步落盘合并结果（本块已在 suspend 协程内，直接调 saveLastCompletedReplyTimes；
+            // kill 进程后 seed 不丢——与各 SSE/REST 更新点共用同一同步落盘策略）
+            runCatching { settingsDataStore.saveLastCompletedReplyTimes(_lastCompletedReplyTime.value) }
         }
     }
 
@@ -269,6 +267,8 @@ class EventDispatcher @Inject constructor(
             streamingSessionOwners.remove(deletedSessionId)
             messageHandler.clearForSession(deletedSessionId)
             _lastCompletedReplyTime.update { it - deletedSessionId }
+            // 同步落盘：删除会话的红点条目立即清出持久层，避免重启后复活
+            persistLastCompletedReplyTime()
             permissionHandler.clearForSession(deletedSessionId)
             questionHandler.clearForSession(deletedSessionId)
             miscHandler.clearForSession(deletedSessionId)
@@ -295,6 +295,8 @@ class EventDispatcher @Inject constructor(
             _lastCompletedReplyTime.update { map ->
                 if (completed > (map[sessionId] ?: 0L)) map + (sessionId to completed) else map
             }
+            // 同步落盘：红点出现时数据已持久化，杀进程不丢（消灭旧 collect 调度窗口）
+            persistLastCompletedReplyTime()
         }
 
         // 跟踪用户消息时间，用于稳定的会话排序。
@@ -417,7 +419,9 @@ class EventDispatcher @Inject constructor(
 
     /**
      * 重算某会话的 maxCompleted（REST 整批替换后调用）。
-     * 无完成消息 → 移除条目（会话已无红点时间源）。
+     * **只增不减**：REST 快照滞后（会话流式中 completed=null）时不移除已记录的
+     * maxCompleted——暂时的 null 快照不能抹掉已知完成时刻（红点消失根因，2026-08-07 日志实证）。
+     * 只有显式清理（clearForSession/clearForServer/clearAll）才移除。
      */
     private fun recomputeMaxCompleted(sessionId: String) {
         val maxTs = messageHandler.messages.value[sessionId]
@@ -425,7 +429,25 @@ class EventDispatcher @Inject constructor(
             ?.mapNotNull { it.time.completed }
             ?.maxOrNull()
         _lastCompletedReplyTime.update { map ->
-            if (maxTs == null) map - sessionId else map + (sessionId to maxTs)
+            if (maxTs == null) map
+            else if (maxTs > (map[sessionId] ?: 0L)) map + (sessionId to maxTs)
+            else map
+        }
+        persistLastCompletedReplyTime()
+    }
+
+    /**
+     * 同步落盘当前 maxCompleted（量小频低；调用点均在 SSE/IO 协程，非主线程）。
+     * DataStore edit suspend 返回即写入文件——红点出现（idle 兜底）时数据已持久化，杀进程不丢。
+     * runCatching + withTimeout 防御：DataStore 异常/极端卡顿不阻塞事件处理（best-effort，可由 SSE/REST 重建）。
+     */
+    private fun persistLastCompletedReplyTime() {
+        runBlocking {
+            runCatching {
+                withTimeout(500) {
+                    settingsDataStore.saveLastCompletedReplyTimes(_lastCompletedReplyTime.value)
+                }
+            }
         }
     }
 
@@ -471,6 +493,8 @@ class EventDispatcher @Inject constructor(
         sessionNextHandler.clearAll()
         sessionStateService.clearAll()
         _lastCompletedReplyTime.value = emptyMap()
+        // 同步落盘空 map：确保清空状态持久化，重启后不复活已清条目
+        persistLastCompletedReplyTime()
         streamingSessionOwners.clear()
     }
 
@@ -484,6 +508,8 @@ class EventDispatcher @Inject constructor(
         sessionNextHandler.clearForServer(sessionIds)
         // 移除该服务器所属会话的红点时间源条目（等价于逐会话 clearForSession）
         _lastCompletedReplyTime.update { it - sessionIds }
+        // 同步落盘：清理结果立即持久化，重启后不复活
+        persistLastCompletedReplyTime()
         // 释放由此服务器拥有的会话的流式所有权，
         // 允许另一服务器在仍连接时认领它们。
         streamingSessionOwners.entries.removeAll { it.value == serverId }

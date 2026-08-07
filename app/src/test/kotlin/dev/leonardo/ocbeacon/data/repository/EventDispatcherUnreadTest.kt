@@ -157,4 +157,32 @@ class EventDispatcherUnreadTest {
             unmockkStatic(SettingsDataStore::lastCompletedReplyTimes)
         }
     }
+
+    @Test
+    fun `recompute with null completed snapshot keeps existing max`() = runTest {
+        // 根因 1 防回归：REST 快照滞后（会话流式中 completed=null）不应移除已记录的 maxCompleted
+        pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
+        assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
+        // 模拟 REST 同步拉到流式快照（最后一条 assistant completed=null）
+        dispatcher.replaceMessages("s1", listOf(
+            MessageWithParts(
+                info = Message.Assistant(id = "m1", sessionId = "s1", time = TimeInfo(created = 100L, completed = null), parentId = "p0"),
+                parts = emptyList()
+            )
+        ))
+        // 已记录的 500L 必须保留——暂时的 null 快照不能抹掉已知完成时刻
+        assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
+    }
+
+    @Test
+    fun `completed update triggers synchronous DataStore persist`() = runTest {
+        // Fix 2 同步落盘验证：persistLastCompletedReplyTime 在 processEvent 内同步调
+        // saveLastCompletedReplyTimes → dataStore.edit → updateData（成员函数，可 coVerify）。
+        // init migration（async，至少 1 次）+ 本完成事件的同步 persist（1 次）合计 ≥ 2 次 updateData。
+        // 注：扩展函数 saveLastCompletedReplyTimes 无法直接 coVerify（非成员），改为验证其唯一
+        // DataStore 副作用 updateData；relaxed DataStore mock 立即返回，updateData 被实际调用。
+        // 局限：atLeast=2 仅证明 persist 路径可达，无法精确断言"同步"语义——同步性由代码结构保证（非异步 collect）。
+        pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
+        coVerify(timeout = 5000, atLeast = 2) { settingsDataStore.dataStore.updateData(any()) }
+    }
 }
