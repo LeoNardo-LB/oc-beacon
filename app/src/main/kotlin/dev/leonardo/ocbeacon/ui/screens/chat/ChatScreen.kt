@@ -510,8 +510,8 @@ fun ChatScreen(
         delay(8_000)
         overlayTimeout = true
     }
-    // 最小展示时长门控：蒙版一旦显示至少展示 600ms 才淡出（防加载快时闪烁），
-    // 未就绪时保持显示。三阶段（淡入/加载/淡出）全程 PulsingDots 活跃。
+    // 三段式蒙版：淡入期（250ms）内就绪 → 淡入播完直接淡出；
+    // 淡入期内未就绪 → 进入加载期（保持显示）→ 就绪后淡出。8s 超时兜底强制揭开。
     val overlayTarget = shouldShowLoadingOverlay(
         modelReady = modelConfigLoaded,
         messagesReady = sessionId.isBlank() || !interaction.isLoading,

@@ -13,17 +13,17 @@ internal fun shouldShowLoadingOverlay(
     timeoutElapsed: Boolean,
 ): Boolean = !(modelReady && messagesReady) && !timeoutElapsed
 
-/** 蒙版最小展示时长（ms）：淡入 250 + 至少 150 稳定 + 淡出 200 = 600。 */
-internal const val MIN_OVERLAY_DISPLAY_MS = 600L
+/** 蒙版淡入期时长（ms）—— 就绪后至少等淡入完整播完才淡出（淡入期内就绪 → 直接进淡出期）。 */
+internal const val OVERLAY_FADE_IN_MS = 250L
 
 /**
  * 蒙版是否可以开始淡出。
- * 蒙版一旦显示必须至少展示 [minDisplayMs] 才允许退场（防加载快时闪烁）；
+ * 蒙版一旦显示，至少展示淡入期 [minShownMs] 才允许退场（保证淡入动画完整播完）；
  * 未就绪（[overlayTarget] = true）时永不隐藏。
  */
 internal fun shouldHideOverlay(
     overlayTarget: Boolean,
     shownSinceMs: Long,
     nowMs: Long,
-    minDisplayMs: Long = MIN_OVERLAY_DISPLAY_MS,
-): Boolean = !overlayTarget && (nowMs - shownSinceMs >= minDisplayMs)
+    minShownMs: Long = OVERLAY_FADE_IN_MS,
+): Boolean = !overlayTarget && (nowMs - shownSinceMs >= minShownMs)

@@ -37,13 +37,13 @@ class LoadingOverlayStateTest {
     }
 
     @Test
-    fun `ready but min display not reached keeps shown`() {
-        assertFalse(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 599L))
+    fun `ready but fade in not finished keeps shown`() {
+        assertFalse(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 249L))
     }
 
     @Test
-    fun `ready and min display reached hides`() {
-        assertTrue(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 600L))
+    fun `ready and fade in finished hides`() {
+        assertTrue(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 250L))
     }
 
     @Test
