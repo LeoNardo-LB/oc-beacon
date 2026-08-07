@@ -1,5 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.repository.DraftRepository
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -72,5 +75,50 @@ class SessionListUnreadTest {
         assertFalse(isUnread("s2", mapOf("s2" to 1000L), emptyMap(), allReadAt = 9000L))
         // allReadAt 之后的新回复仍产生未读
         assertTrue(isUnread("s1", mapOf("s1" to 9500L), emptyMap(), allReadAt = 9000L))
+    }
+
+    @Test
+    fun `buildContentState 保持未读判定与过滤语义`() {
+        // 等价值 fixtures（现有文件无 sessions/SERVER_ID/draftRepository，按 brief 授权自包含构造）
+        val sessions = listOf(
+            Session(
+                id = "s1",
+                time = Session.Time(created = 0L, updated = 0L),
+            )
+        )
+        val serverId = "server-1"
+        val draftRepository = object : DraftRepository {
+            override fun getDraft(sessionId: String) = null
+            override fun saveDraft(sessionId: String, draft: dev.leonardo.ocbeacon.domain.model.Draft) = Unit
+            override fun clearDraft(sessionId: String) = Unit
+            override fun getDraftSessionIds(): Set<String> = emptySet()
+        }
+
+        val data = SessionListDataInputs(
+            sessions = sessions,
+            statuses = emptyMap(),
+            serverSessionMap = mapOf(serverId to sessions.map { it.id }.toSet()),
+            lastUserMessageTime = emptyMap(),
+            categoryAssignments = emptyMap(),
+            sessionTags = emptyList(),
+            favoritesOnly = false,
+            lastReplyTime = mapOf(sessions[0].id to 5000L),
+            readTimes = mapOf(sessions[0].id to 1000L),
+            unreadBaseline = 0L,
+            justRead = emptyMap(),
+            allReadAt = 0L,
+        )
+        val ui = SessionListUiInputs(
+            expandedPaths = emptySet(),
+            selectedIds = emptySet(),
+            baseDirectory = null,
+            lastToggledDirectory = null,
+            searchQuery = null,
+            viewMode = SessionViewMode.RECENT,
+            categoryFilterIds = emptySet(),
+        )
+        val state = buildContentState(data, ui, serverId, draftRepository)
+        val node = state.treeNodes.singleOrNull()
+        assertTrue(node is TreeNode.Session && node.session.hasUnread)
     }
 }
