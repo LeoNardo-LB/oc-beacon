@@ -50,6 +50,7 @@ offset = serverTime - clientTime
 ```
 
 - **采样**：OkHttp Interceptor（NetworkModule engine.config `addInterceptor`）读 `Date` 头 → 解析（RFC 7231：`Fri, 07 Aug 2026 10:58:15 GMT`）→ 提交样本 (serverTime, clientReceiveTime)
+- **线程安全**：Interceptor 在 OkHttp 线程调用，样本提交与读取必须同步安全（如 synchronized 或原子变量；提交仅更新内存估计，无 IO）
 - **平滑**：EMA（α≈0.3）；异常剔除（|样本−当前估计|>10s 视为时钟跳变，重估不污染 EMA）
 - **未校准 fallback = 0**：首帧/未收到任何 Date 头时视为同时钟（本机部署行为不变）
 - **作用域**：per-serverId（多服务器各自校准；同一后端双配置共享同偏移，无冲突）
