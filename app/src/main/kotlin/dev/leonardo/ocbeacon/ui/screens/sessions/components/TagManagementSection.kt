@@ -141,7 +141,7 @@ fun TagManagementSection(
                                 tint = SessionCategoryStyle.color(tag.color),
                             )
                         },
-                        title = tag.name,
+                        title = tag.displayName(),
                         subtitle = "($sessionCount)",
                         trailing = {
                             IconButton(
@@ -250,7 +250,7 @@ fun TagManagementSection(
         AlertDialog(
             onDismissRequest = { deletingTag = null },
             title = { Text(stringResource(R.string.delete_tag_title)) },
-            text = { Text(stringResource(R.string.delete_tag_message, tag.name)) },
+            text = { Text(stringResource(R.string.delete_tag_message, tag.displayName())) },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteTag(tag.id)
