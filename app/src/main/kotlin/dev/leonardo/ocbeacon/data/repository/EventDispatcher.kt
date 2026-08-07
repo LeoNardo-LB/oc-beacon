@@ -421,7 +421,7 @@ class EventDispatcher @Inject constructor(
      * 重算某会话的 maxCompleted（REST 整批替换后调用）。
      * **只增不减**：REST 快照滞后（会话流式中 completed=null）时不移除已记录的
      * maxCompleted——暂时的 null 快照不能抹掉已知完成时刻（红点消失根因，2026-08-07 日志实证）。
-     * 只有显式清理（clearForSession/clearForServer/clearAll）才移除。
+     * 只有 SessionDeleted（会话真删）才移除；clearForServer/clearAll（连接状态清理）不清红点数据。
      */
     private fun recomputeMaxCompleted(sessionId: String) {
         val maxTs = messageHandler.messages.value[sessionId]
@@ -492,9 +492,6 @@ class EventDispatcher @Inject constructor(
         miscHandler.clearAll()
         sessionNextHandler.clearAll()
         sessionStateService.clearAll()
-        _lastCompletedReplyTime.value = emptyMap()
-        // 同步落盘空 map：确保清空状态持久化，重启后不复活已清条目
-        persistLastCompletedReplyTime()
         streamingSessionOwners.clear()
     }
 
@@ -506,10 +503,6 @@ class EventDispatcher @Inject constructor(
         questionHandler.clearForServer(sessionIds)
         miscHandler.clearForServer(sessionIds)
         sessionNextHandler.clearForServer(sessionIds)
-        // 移除该服务器所属会话的红点时间源条目（等价于逐会话 clearForSession）
-        _lastCompletedReplyTime.update { it - sessionIds }
-        // 同步落盘：清理结果立即持久化，重启后不复活
-        persistLastCompletedReplyTime()
         // 释放由此服务器拥有的会话的流式所有权，
         // 允许另一服务器在仍连接时认领它们。
         streamingSessionOwners.entries.removeAll { it.value == serverId }

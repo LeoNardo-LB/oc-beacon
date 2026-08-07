@@ -11,6 +11,7 @@ import dev.leonardo.ocbeacon.data.repository.handler.SessionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.SessionNextEventHandler
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
+import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
@@ -184,5 +185,34 @@ class EventDispatcherUnreadTest {
         // 局限：atLeast=2 仅证明 persist 路径可达，无法精确断言"同步"语义——同步性由代码结构保证（非异步 collect）。
         pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
         coVerify(timeout = 5000, atLeast = 2) { settingsDataStore.dataStore.updateData(any()) }
+    }
+
+    @Test
+    fun `clearForServer keeps maxCompleted (connection teardown is not deletion)`() = runTest {
+        // 根因 3 防回归：clearForServer（stopConnection 调用，连接停止）是连接状态清理，
+        // 不应抹掉红点事实数据（服务器最后完成时刻）
+        pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
+        dispatcher.clearForServer("svr1")
+        assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
+    }
+
+    @Test
+    fun `clearAll keeps maxCompleted`() = runTest {
+        // 根因 3 防回归：clearAll（stopAllConnections 调用，连接全停）不清红点数据
+        pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
+        dispatcher.clearAll()
+        assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
+    }
+
+    @Test
+    fun `session deleted removes maxCompleted`() = runTest {
+        // 根因 3：只有 SessionDeleted（会话真删）才移除红点条目
+        pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
+        assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
+        dispatcher.processEvent(
+            SseEvent.SessionDeleted(info = Session(id = "s1", time = Session.Time(created = 100L, updated = 100L))),
+            "svr1"
+        )
+        assertNull(dispatcher.lastCompletedReplyTime.first()["s1"])
     }
 }
