@@ -38,12 +38,12 @@ class LoadingOverlayStateTest {
 
     @Test
     fun `ready but fade in not finished keeps shown`() {
-        assertFalse(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 249L))
+        assertFalse(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 299L))
     }
 
     @Test
     fun `ready and fade in finished hides`() {
-        assertTrue(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 250L))
+        assertTrue(shouldHideOverlay(overlayTarget = false, shownSinceMs = 0L, nowMs = 300L))
     }
 
     @Test

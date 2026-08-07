@@ -16,20 +16,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
+import dev.leonardo.ocbeacon.ui.screens.chat.util.OVERLAY_FADE_IN_MS
 
 /**
  * 统一加载蒙版 —— 不透明 surface + 居中 PulsingDots，含淡入淡出动画与触摸拦截。
  *
  * 覆盖消息区与输入栏（两处共用同一 [visible] 状态），掩盖期间内容不可交互。
- * - 进入 250ms（M3 decelerate 系）> 退出 200ms（M3 accelerate 系），非对称、退出必短于进入。
+ * - 淡入 / 淡出均 [OVERLAY_FADE_IN_MS]（300ms）对称时长；淡入用 M3 decelerate 系，淡出用 M3 accelerate 系。
  * - 蒙版期间消费触摸事件，防止点穿到底下输入栏（弹键盘 / 发消息）。
  */
 @Composable
 fun ChatLoadingOverlay(visible: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(250, easing = LinearOutSlowInEasing)),
-        exit = fadeOut(tween(200, easing = FastOutLinearInEasing)),
+        enter = fadeIn(tween(OVERLAY_FADE_IN_MS.toInt(), easing = LinearOutSlowInEasing)),
+        exit = fadeOut(tween(OVERLAY_FADE_IN_MS.toInt(), easing = FastOutLinearInEasing)),
     ) {
         Surface(
             modifier = modifier.pointerInput(Unit) { detectTapGestures { } },

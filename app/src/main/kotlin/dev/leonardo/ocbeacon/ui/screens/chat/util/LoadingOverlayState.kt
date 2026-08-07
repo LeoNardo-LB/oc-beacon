@@ -14,7 +14,7 @@ internal fun shouldShowLoadingOverlay(
 ): Boolean = !(modelReady && messagesReady) && !timeoutElapsed
 
 /** 蒙版淡入期时长（ms）—— 就绪后至少等淡入完整播完才淡出（淡入期内就绪 → 直接进淡出期）。 */
-internal const val OVERLAY_FADE_IN_MS = 250L
+internal const val OVERLAY_FADE_IN_MS = 300L
 
 /**
  * 蒙版是否可以开始淡出。
