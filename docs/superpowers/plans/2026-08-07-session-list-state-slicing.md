@@ -316,34 +316,9 @@ Expected: FAIL — `vm.contentState`/`vm.shellState` 不存在
 ```kotlin
 // ============ 聚合 UI 状态（#23 状态切片） ============
 
-// 分组1：会话数据（5 源）
-private val sessionDataFlow = combine(
-    sessionRepository.getSessionsFlow(serverId),
-    sessionStateService.statusFlow,
-    sessionRepository.getServerSessionsFlow(),
-    sessionRepository.getLastUserMessageTimeFlow(),
-    sessionRepository.getLastReplyTimeFlow(),
-) { sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime ->
-    SessionListDataInputs(
-        sessions = sessions,
-        statuses = statuses,
-        serverSessionMap = serverSessionMap,
-        lastUserMessageTime = lastUserMessageTime,
-        categoryAssignments = emptyMap(), // 占位，由 settingDataFlow 填充
-        sessionTags = emptyList(),
-        favoritesOnly = false,
-        lastReplyTime = lastReplyTime,
-        readTimes = emptyMap(),
-        unreadBaseline = 0L,
-        justRead = emptyMap(),
-        allReadAt = 0L,
-    )
-}
-```
+// 分组设计：每组只携带自己拥有的字段（部分数据类），最终 dataFlow 合并 3 组。
+// 禁止"占位填充"（会重置其他组的字段）。
 
-**注意**：以上"占位填充"方式会在会话数据变化时重置设置字段——**这是错误设计**。正确做法：分组内构建**部分输入**，最终 dataFlow 合并。按以下修正实现（每层只携带自己拥有的字段，最终 dataFlow 合并 3 组）：
-
-```kotlin
 // 分组1：会话数据（5 源）→ 部分字段
 private data class SessionDataPart(
     val sessions: List<Session>,
@@ -362,6 +337,7 @@ private val sessionDataFlow = combine(
 ) { sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime ->
     SessionDataPart(sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime)
 }
+```
 
 // 分组2：设置数据（5 源）
 private data class SettingDataPart(
