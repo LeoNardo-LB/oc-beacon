@@ -1,12 +1,13 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -256,7 +257,7 @@ internal fun SessionRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SessionDetailsDialog(
     item: SessionItem,
@@ -286,6 +287,19 @@ private fun SessionDetailsDialog(
                     text = stringResource(R.string.session_session_details),
                     style = MaterialTheme.typography.titleMedium,
                 )
+                // 标签块：标题下方独立区域，按 tag 换行动态调整高度；无 tag 时不展示
+                if (item.tags.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        item.tags.forEach { tag ->
+                            TagChip(tag = tag, selected = false, onClick = null)
+                        }
+                    }
+                }
                 Spacer(Modifier.height(16.dp))
                 SelectionContainer {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -317,20 +331,6 @@ private fun SessionDetailsDialog(
                                 "+${summary.additions} -${summary.deletions} (${summary.files} files)"
                             )
                         }
-                    }
-                }
-                if (item.tags.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.tag_label),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        TagChipsRow(tags = item.tags, modifier = Modifier.weight(1f))
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -403,26 +403,7 @@ private fun TagChipsRow(tags: List<Tag>, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         tags.forEach { tag ->
-            Row(
-                modifier = Modifier
-                    .background(SessionCategoryStyle.color(tag.color).copy(alpha = AlphaTokens.SELECTED))
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Icon(
-                    imageVector = SessionCategoryStyle.icon(tag.icon),
-                    contentDescription = null,
-                    modifier = Modifier.size(10.dp),
-                    tint = SessionCategoryStyle.color(tag.color),
-                )
-                Text(
-                    text = tag.name,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = SessionCategoryStyle.color(tag.color),
-                    maxLines = 1,
-                )
-            }
+            TagChip(tag = tag, selected = false, onClick = null, compact = true)
         }
     }
 }

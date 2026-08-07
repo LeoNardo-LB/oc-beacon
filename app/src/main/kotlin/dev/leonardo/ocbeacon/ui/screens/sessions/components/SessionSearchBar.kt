@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -103,18 +102,10 @@ internal fun SessionSearchBar(
                 label = { Text(stringResource(R.string.all)) },
             )
             categories.forEach { category ->
-                FilterChip(
+                TagChip(
+                    tag = category,
                     selected = categoryFilter == category.id,
                     onClick = { onCategoryFilterChange(category.id) },
-                    label = { Text(category.name) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = SessionCategoryStyle.icon(category.icon),
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = SessionCategoryStyle.color(category.color),
-                        )
-                    },
                 )
             }
         }

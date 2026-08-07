@@ -22,13 +22,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -137,10 +133,10 @@ fun TagPickerDialog(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             tags.forEach { tag ->
-                                TagFilterChip(
+                                TagChip(
                                     tag = tag,
                                     selected = tag.id in selected,
-                                    onToggle = {
+                                    onClick = {
                                         selected = if (tag.id in selected) selected - tag.id else selected + tag.id
                                     },
                                 )
@@ -195,80 +191,25 @@ fun TagPickerDialog(
                 }
                 Spacer(Modifier.height(12.dp))
 
-                // 操作栏：关闭 / 添加（名称非空可用，创建后自动勾选）/ 确定
+                // 操作栏：关闭 / 添加-确定（名称非空显示"添加"创建并自动勾选，否则"确定"提交）
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
                     Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            if (newCategoryName.isNotBlank()) {
+                    if (newCategoryName.isNotBlank()) {
+                        Button(
+                            onClick = {
                                 val newId = onCreateTag(newCategoryName.trim(), selectedColor, selectedIcon)
                                 selected = selected + newId
                                 newCategoryName = ""
-                            }
-                        },
-                        enabled = newCategoryName.isNotBlank(),
-                    ) { Text(stringResource(R.string.add)) }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { onConfirm(selected) }) { Text(stringResource(R.string.ok)) }
+                            },
+                        ) { Text(stringResource(R.string.add)) }
+                    } else {
+                        Button(onClick = { onConfirm(selected) }) { Text(stringResource(R.string.ok)) }
+                    }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun TagFilterChip(
-    tag: Tag,
-    selected: Boolean,
-    onToggle: () -> Unit,
-) {
-    val tagColor = SessionCategoryStyle.color(tag.color)
-    val onColor = if (tagColor.luminance() > 0.5f) Color.Black else Color.White
-    FilterChip(
-        selected = selected,
-        onClick = onToggle,
-        label = {
-            Text(
-                text = tag.name,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (selected) onColor else tagColor,
-            )
-        },
-        leadingIcon = if (selected) {
-            {
-                Icon(
-                    imageVector = Icons.Filled.Done,
-                    contentDescription = null,
-                    modifier = Modifier.size(FilterChipDefaults.IconSize),
-                    tint = onColor,
-                )
-            }
-        } else {
-            {
-                Icon(
-                    imageVector = SessionCategoryStyle.icon(tag.icon),
-                    contentDescription = null,
-                    modifier = Modifier.size(FilterChipDefaults.IconSize),
-                    tint = tagColor,
-                )
-            }
-        },
-        colors = FilterChipDefaults.filterChipColors(
-            containerColor = tagColor.copy(alpha = AlphaTokens.FAINT),
-            selectedContainerColor = tagColor.copy(alpha = AlphaTokens.HIGH),
-            labelColor = tagColor,
-            selectedLabelColor = onColor,
-            selectedLeadingIconColor = onColor,
-        ),
-        border = FilterChipDefaults.filterChipBorder(
-            enabled = true,
-            selected = selected,
-            borderColor = tagColor.copy(alpha = AlphaTokens.FAINT),
-            selectedBorderColor = tagColor,
-            selectedBorderWidth = 1.dp,
-        ),
-    )
 }
 
 @Composable
