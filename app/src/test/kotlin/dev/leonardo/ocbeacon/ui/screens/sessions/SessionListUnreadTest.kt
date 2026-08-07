@@ -1,8 +1,10 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -120,5 +122,132 @@ class SessionListUnreadTest {
         val state = buildContentState(data, ui, serverId, draftRepository)
         val node = state.treeNodes.singleOrNull()
         assertTrue(node is TreeNode.Session && node.session.hasUnread)
+    }
+
+    // --- #23 过滤负向用例 fixtures（自包含，扩展自上方 buildContentState 用例）---
+
+    private val testServerId = "server-1"
+
+    private fun testSession(id: String, directory: String = "D:/a", title: String? = null): Session =
+        Session(
+            id = id,
+            directory = directory,
+            title = title,
+            time = Session.Time(created = 0L, updated = 0L),
+        )
+
+    private fun buildFilterState(
+        sessions: List<Session>,
+        serverSessionMap: Map<String, Set<String>> = mapOf(testServerId to sessions.map { it.id }.toSet()),
+        categoryAssignments: Map<String, List<String>> = emptyMap(),
+        favoritesOnly: Boolean = false,
+        baseDirectory: String? = null,
+        searchQuery: String? = null,
+        categoryFilterIds: Set<String> = emptySet(),
+    ): SessionListContentState {
+        val draftRepository = object : DraftRepository {
+            override fun getDraft(sessionId: String) = null
+            override fun saveDraft(sessionId: String, draft: dev.leonardo.ocbeacon.domain.model.Draft) = Unit
+            override fun clearDraft(sessionId: String) = Unit
+            override fun getDraftSessionIds(): Set<String> = emptySet()
+        }
+        val data = SessionListDataInputs(
+            sessions = sessions,
+            statuses = emptyMap(),
+            serverSessionMap = serverSessionMap,
+            lastUserMessageTime = emptyMap(),
+            categoryAssignments = categoryAssignments,
+            sessionTags = emptyList(),
+            favoritesOnly = favoritesOnly,
+            lastReplyTime = emptyMap(),
+            readTimes = emptyMap(),
+            unreadBaseline = 0L,
+            justRead = emptyMap(),
+            allReadAt = 0L,
+        )
+        val ui = SessionListUiInputs(
+            expandedPaths = emptySet(),
+            selectedIds = emptySet(),
+            baseDirectory = baseDirectory,
+            lastToggledDirectory = null,
+            searchQuery = searchQuery,
+            viewMode = SessionViewMode.RECENT,
+            categoryFilterIds = categoryFilterIds,
+        )
+        return buildContentState(data, ui, testServerId, draftRepository)
+    }
+
+    @Test
+    fun `favoritesOnly 过滤未收藏会话`() {
+        // 会话未分配 FAVORITE_TAG_ID → favoritesOnly=true 时被剔除
+        val state = buildFilterState(
+            sessions = listOf(testSession("s1")),
+            categoryAssignments = emptyMap(),
+            favoritesOnly = true,
+        )
+        assertTrue(state.treeNodes.isEmpty())
+    }
+
+    @Test
+    fun `favoritesOnly 保留收藏会话`() {
+        // 会话分配 FAVORITE_TAG_ID → favoritesOnly=true 时保留
+        val state = buildFilterState(
+            sessions = listOf(testSession("s1")),
+            categoryAssignments = mapOf("s1" to listOf(FAVORITE_TAG_ID)),
+            favoritesOnly = true,
+        )
+        assertEquals(1, state.treeNodes.size)
+    }
+
+    @Test
+    fun `categoryFilterIds AND 过滤 需同时匹配全部 tag`() {
+        // t1/t2 分属两个会话：同时筛选 t1+t2 无人满足（AND）；只筛选 t1 命中 1 个
+        val sessions = listOf(
+            testSession("s1", directory = "D:/a"),
+            testSession("s2", directory = "D:/b"),
+        )
+        val assignments = mapOf("s1" to listOf("t1"), "s2" to listOf("t2"))
+        val stateAnd = buildFilterState(
+            sessions = sessions,
+            categoryAssignments = assignments,
+            categoryFilterIds = setOf("t1", "t2"),
+        )
+        assertTrue(stateAnd.treeNodes.isEmpty())
+        val stateT1 = buildFilterState(
+            sessions = sessions,
+            categoryAssignments = assignments,
+            categoryFilterIds = setOf("t1"),
+        )
+        assertEquals(1, stateT1.treeNodes.size)
+    }
+
+    @Test
+    fun `searchQuery 匹配目录关键词`() {
+        val sessions = listOf(testSession("s1", directory = "D:/projects/beacon"))
+        val miss = buildFilterState(sessions = sessions, searchQuery = "不存在的关键词")
+        assertTrue(miss.treeNodes.isEmpty())
+        val hit = buildFilterState(sessions = sessions, searchQuery = "beacon")
+        assertEquals(1, hit.treeNodes.size)
+    }
+
+    @Test
+    fun `baseDirectory 前缀不匹配过滤会话`() {
+        // 会话目录 D:/a/b，baseDirectory=D:/x 前缀不匹配 → 空；D:/a 匹配 → 1
+        val sessions = listOf(testSession("s1", directory = "D:/a/b"))
+        val miss = buildFilterState(sessions = sessions, baseDirectory = "D:/x")
+        assertTrue(miss.treeNodes.isEmpty())
+        val hit = buildFilterState(sessions = sessions, baseDirectory = "D:/a")
+        assertEquals(1, hit.treeNodes.size)
+    }
+
+    @Test
+    fun `serverSessionMap 剔除未映射会话`() {
+        // s1 不在 serverSessionMap[serverId] 中 → 会话被剔除
+        val sessions = listOf(testSession("s1", directory = "D:/a"))
+        val state = buildFilterState(
+            sessions = sessions,
+            serverSessionMap = mapOf(testServerId to emptySet()),
+        )
+        assertTrue(state.treeNodes.isEmpty())
     }
 }
