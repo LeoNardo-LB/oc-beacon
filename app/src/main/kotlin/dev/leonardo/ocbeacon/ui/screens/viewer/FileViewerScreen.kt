@@ -147,30 +147,45 @@ fun FileViewerScreen(
                     LoadingState()
                 } else {
                     when {
-                uiState.error != null -> ErrorState(message = uiState.error)
-                uiState.isBinary -> MessageState(
-                    message = stringResource(R.string.viewer_binary_not_supported),
-                    detail = uiState.mimeType?.let { stringResource(R.string.viewer_binary_mime, it) }
-                )
-                uiState.mode == FileViewerMode.DIFF -> DiffView(
-                    uiState = uiState,
-                    wordWrap = wordWrap,
-                    onNextHunk = onNextHunk,
-                    onPrevHunk = onPrevHunk
-                )
-                uiState.isEmpty -> MessageState(message = stringResource(R.string.viewer_empty_file))
-                // 源码 vs 渲染预览，带平滑淡入淡出过渡
-                // 双面板：源码和渲染视图都常驻组合，切换 = 可见性开关
-                else -> {
-                    val showRender = uiState.fileType.supportsRender &&
-                        uiState.renderMode == FileViewerRenderMode.RENDER_PREVIEW
+                        uiState.error != null -> ErrorState(message = uiState.error)
+                        uiState.isBinary -> MessageState(
+                            message = stringResource(R.string.viewer_binary_not_supported),
+                            detail = uiState.mimeType?.let { stringResource(R.string.viewer_binary_mime, it) }
+                        )
+                        uiState.mode == FileViewerMode.DIFF -> DiffView(
+                            uiState = uiState,
+                            wordWrap = wordWrap,
+                            onNextHunk = onNextHunk,
+                            onPrevHunk = onPrevHunk
+                        )
+                        uiState.isEmpty -> MessageState(message = stringResource(R.string.viewer_empty_file))
+                        // 源码 vs 渲染预览，带平滑淡入淡出过渡
+                        // 双面板：源码和渲染视图都常驻组合，切换 = 可见性开关
+                        else -> {
+                            val showRender = uiState.fileType.supportsRender &&
+                                uiState.renderMode == FileViewerRenderMode.RENDER_PREVIEW
 
-                    Box(Modifier.fillMaxSize()) {
-                        // ── 源码面板（CodeWebView） ── 始终存在，显示渲染时隐藏
-                        if (uiState.isExtremelyLarge) {
-                            Column(Modifier.fillMaxSize()) {
-                                LargeFileWarningBanner(lineCount = uiState.totalLineCount)
-                                CodeWebView(
+                            Box(Modifier.fillMaxSize()) {
+                                // ── 源码面板（CodeWebView） ── 始终存在，显示渲染时隐藏
+                                if (uiState.isExtremelyLarge) {
+                                    Column(Modifier.fillMaxSize()) {
+                                        LargeFileWarningBanner(lineCount = uiState.totalLineCount)
+                                        CodeWebView(
+                                            content = uiState.content,
+                                            filePath = uiState.filePath,
+                                            visible = !showRender,
+                                            wordWrap = wordWrap,
+                                            onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
+                                            annotationsJson = annotationsJson,
+                                            onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
+                                            onAnnotationClick = { idStr ->
+                                                val idx = idStr.toIntOrNull()
+                                                DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
+                                                detailAnnotation = uiState.annotations.find { it.index == idx }
+                                            },
+                                        )
+                                    }
+                                } else CodeWebView(
                                     content = uiState.content,
                                     filePath = uiState.filePath,
                                     visible = !showRender,
@@ -183,53 +198,38 @@ fun FileViewerScreen(
                                         DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
                                         detailAnnotation = uiState.annotations.find { it.index == idx }
                                     },
+                                    initialScrollLine = uiState.initialScrollLine,
                                 )
-                            }
-                        } else CodeWebView(
-                            content = uiState.content,
-                            filePath = uiState.filePath,
-                            visible = !showRender,
-                            wordWrap = wordWrap,
-                            onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
-                            annotationsJson = annotationsJson,
-                            onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
-                            onAnnotationClick = { idStr ->
-                                val idx = idStr.toIntOrNull()
-                                DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
-                                detailAnnotation = uiState.annotations.find { it.index == idx }
-                            },
-                            initialScrollLine = uiState.initialScrollLine,
-                        )
 
-                        // ── 渲染面板 ── 条件组合，避免拦截触摸事件
-                        if (showRender && uiState.fileType.supportsRender) {
-                            when (uiState.fileType) {
-                                FileType.MARKDOWN -> RenderWebView(
-                                    content = uiState.content,
-                                    fileType = FileType.MARKDOWN,
-                                    visible = true
-                                )
-                                FileType.IMAGE, FileType.SVG, FileType.CSV -> RenderWebView(
-                                    content = uiState.content,
-                                    fileType = uiState.fileType,
-                                    mimeType = uiState.mimeType ?: "image/*",
-                                    visible = true
-                                )
-                                FileType.HTML -> RenderWebView(
-                                    content = uiState.content,
-                                    fileType = FileType.HTML,
-                                    visible = true
-                                )
-                                FileType.PDF -> PdfViewer(
-                                    base64Data = uiState.content,
-                                    visible = true
-                                )
-                                else -> {} // no-op
+                                // ── 渲染面板 ── 条件组合，避免拦截触摸事件
+                                if (showRender && uiState.fileType.supportsRender) {
+                                    when (uiState.fileType) {
+                                        FileType.MARKDOWN -> RenderWebView(
+                                            content = uiState.content,
+                                            fileType = FileType.MARKDOWN,
+                                            visible = true
+                                        )
+                                        FileType.IMAGE, FileType.SVG, FileType.CSV -> RenderWebView(
+                                            content = uiState.content,
+                                            fileType = uiState.fileType,
+                                            mimeType = uiState.mimeType ?: "image/*",
+                                            visible = true
+                                        )
+                                        FileType.HTML -> RenderWebView(
+                                            content = uiState.content,
+                                            fileType = FileType.HTML,
+                                            visible = true
+                                        )
+                                        FileType.PDF -> PdfViewer(
+                                            base64Data = uiState.content,
+                                            visible = true
+                                        )
+                                        else -> {} // no-op
+                                    }
+                                }
                             }
                         }
                     }
-                }
-            }
                 }
             }
         }
