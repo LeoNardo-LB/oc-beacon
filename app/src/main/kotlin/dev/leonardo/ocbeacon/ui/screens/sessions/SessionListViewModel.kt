@@ -133,9 +133,6 @@ class SessionListViewModel @Inject constructor(
     )
     val viewMode: StateFlow<SessionViewMode> = _viewMode.asStateFlow()
 
-    /** 未读基线（epoch ms）：基线之前的消息不算未读（防止历史会话全部显示红点）。 */
-    private val _unreadBaseline = MutableStateFlow(0L)
-
     /** 待标记已读的会话（点击进入时记录；返回列表时组合阶段消费，渲染前同步生效）。 */
     private val _pendingReadSessionId = MutableStateFlow<String?>(null)
 
@@ -152,8 +149,13 @@ class SessionListViewModel @Inject constructor(
     fun consumePendingReadSessionId(): String? {
         val sid = _pendingReadSessionId.value ?: return null
         _pendingReadSessionId.value = null
-        sessionReadSignal.markRead(sid, System.currentTimeMillis())
-        viewModelScope.launch { settingsRepository.markSessionRead(serverId, sid) }
+        viewModelScope.launch {
+            val ts = sessionRepository.getLastCompletedReplyTimeFlow().first()[sid]
+            if (ts != null) {
+                sessionReadSignal.markRead(sid, ts)
+                settingsRepository.markSessionRead(serverId, sid, ts)
+            }
+        }
         return sid
     }
 
@@ -215,17 +217,16 @@ class SessionListViewModel @Inject constructor(
         sessionStateService.statusFlow,
         sessionRepository.getServerSessionsFlow(),
         sessionRepository.getLastUserMessageTimeFlow(),
-        sessionRepository.getLastReplyTimeFlow(),
+        sessionRepository.getLastCompletedReplyTimeFlow(),
     ) { sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime ->
         SessionDataPart(sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime)
     }
 
-    // 分组2：设置数据（5 源）
+    // 分组2：设置数据（4 源）
     private data class SettingDataPart(
         val categoryAssignments: Map<String, List<String>>,
         val sessionTags: List<Tag>,
         val readTimes: Map<String, Long>,
-        val unreadBaseline: Long,
         val justRead: Map<String, Long>,
     )
 
@@ -233,10 +234,9 @@ class SessionListViewModel @Inject constructor(
         settingsRepository.sessionTagAssignments(serverId),
         sessionTags,
         settingsRepository.sessionReadTimes(serverId),
-        _unreadBaseline,
         sessionReadSignal.justRead,
-    ) { assignments, tags, readTimes, baseline, justRead ->
-        SettingDataPart(assignments, tags, readTimes, baseline, justRead)
+    ) { assignments, tags, readTimes, justRead ->
+        SettingDataPart(assignments, tags, readTimes, justRead)
     }
 
     // 分组3：杂项（2 源）
@@ -266,7 +266,6 @@ class SessionListViewModel @Inject constructor(
             favoritesOnly = miscData.favoritesOnly,
             lastReplyTime = sessionData.lastReplyTime,
             readTimes = settingData.readTimes,
-            unreadBaseline = settingData.unreadBaseline,
             justRead = settingData.justRead,
             allReadAt = miscData.allReadAt,
         )
@@ -335,10 +334,6 @@ class SessionListViewModel @Inject constructor(
 
     init {
         loadSessions()
-        // 初始化未读基线（首次调用写入当前时间；已有则读回）
-        viewModelScope.launch {
-            _unreadBaseline.value = settingsRepository.ensureUnreadBaseline(serverId)
-        }
     }
 
     // ============ 滚动 / 分类 / 收藏 ============
@@ -362,15 +357,15 @@ class SessionListViewModel @Inject constructor(
     }
 
     /**
-     * 一键已读：内存信号即时消除所有红点（所有有回复记录的会话），
-     * 再持久化全局已读时间戳（重启后仍生效，此后新回复才重新红点）。
+     * 一键已读：记录全局已读位置（已知会话最后完成消息的最大 completed，服务器时刻），
+     * 消除所有红点；此后新完成的回复才重新红点。
      */
     fun markAllSessionsRead() {
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            val lastReply = sessionRepository.getLastReplyTimeFlow().first()
-            lastReply.keys.forEach { sessionReadSignal.markRead(it, now) }
-            settingsRepository.markAllSessionsRead(serverId)
+            val completedMap = sessionRepository.getLastCompletedReplyTimeFlow().first()
+            val globalMax = completedMap.values.maxOrNull() ?: return@launch
+            completedMap.keys.forEach { sessionReadSignal.markRead(it, globalMax) }
+            settingsRepository.markAllSessionsRead(serverId, globalMax)
         }
     }
 

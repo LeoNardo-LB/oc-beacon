@@ -29,7 +29,6 @@ data class SessionListDataInputs(
     val favoritesOnly: Boolean,
     val lastReplyTime: Map<String, Long>,
     val readTimes: Map<String, Long>,
-    val unreadBaseline: Long,
     val justRead: Map<String, Long>,
     val allReadAt: Long,
 )

@@ -111,7 +111,6 @@ class SessionListUnreadTest {
             favoritesOnly = false,
             lastReplyTime = mapOf(sessions[0].id to 5000L),
             readTimes = mapOf(sessions[0].id to 1000L),
-            unreadBaseline = 0L,
             justRead = emptyMap(),
             allReadAt = 0L,
         )
@@ -166,7 +165,6 @@ class SessionListUnreadTest {
             favoritesOnly = favoritesOnly,
             lastReplyTime = emptyMap(),
             readTimes = emptyMap(),
-            unreadBaseline = 0L,
             justRead = emptyMap(),
             allReadAt = 0L,
         )

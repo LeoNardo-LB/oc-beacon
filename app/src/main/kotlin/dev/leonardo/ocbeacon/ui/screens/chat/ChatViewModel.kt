@@ -133,11 +133,20 @@ class ChatViewModel @Inject constructor(
         val srv = serverId
         val sid = sessionId
         if (srv.isNotBlank() && sid.isNotBlank()) {
-            val now = System.currentTimeMillis()
-            AppLogger.d("UnreadDiag", "[markRead] sid=${sid.take(12)} now=$now")
-            sessionReadSignal.markRead(sid, now)
+            // 已读位置 = 该会话最后一条完成 assistant 消息的 completed（服务器时刻）。
+            // 会话无任何完成消息（如秒退、消息未加载）→ 不更新已读标记（用户未消费内容，之后红点合理）。
+            val lastCompleted = messageData.messagesList.value
+                .filterIsInstance<dev.leonardo.ocbeacon.domain.model.Message.Assistant>()
+                .mapNotNull { it.time.completed }
+                .maxOrNull()
+            if (lastCompleted == null) {
+                AppLogger.d("UnreadDiag", "[markRead] sid=${sid.take(12)} no completed msg, skip")
+                return
+            }
+            AppLogger.d("UnreadDiag", "[markRead] sid=${sid.take(12)} completed=$lastCompleted")
+            sessionReadSignal.markRead(sid, lastCompleted)
             viewModelScope.launch {
-                withContext(NonCancellable) { settingsRepository.markSessionRead(srv, sid) }
+                withContext(NonCancellable) { settingsRepository.markSessionRead(srv, sid, lastCompleted) }
             }
         }
     }
