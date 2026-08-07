@@ -19,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
@@ -56,9 +57,10 @@ class EventDispatcher @Inject constructor(
      * （boolean 标记）。独立 scope，不阻塞事件处理（与已删 replyTimePersistScope 同模式）。
      */
     private val unreadMigrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** maxCompleted 持久化收集 scope：后台写回 DataStore，重启后未读红点可恢复（同 migrationScope 独立 IO 模式）。 */
+    private val lastReplyPersistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
-        unreadMigrationScope.launch { settingsDataStore.runUnreadStateV2Migration() }
         // SessionStateService 回调——在此接线以打破循环依赖
         //（EventDispatcher ← SessionStateService 经由 Provider，但回调
         // 需要 messageHandler，它位于 EventDispatcher 的作用域内）。
@@ -181,6 +183,33 @@ class EventDispatcher @Inject constructor(
      *  增量维护：MessageUpdated(completed!=null) 或 REST 整批替换时更新。 */
     private val _lastCompletedReplyTime = MutableStateFlow<Map<String, Long>>(emptyMap())
     val lastCompletedReplyTime: StateFlow<Map<String, Long>> = _lastCompletedReplyTime
+
+    init {
+        // 持久化 init：必须在 _lastCompletedReplyTime 声明之后（Kotlin 按文本顺序初始化，
+        // 否则 launch 协程在 IO 线程读到未初始化的 null 属性）。
+        unreadMigrationScope.launch {
+            settingsDataStore.runUnreadStateV2Migration()
+            // 迁移完成后再读 seed：确保旧客户端 now 域值已清空，读到的是服务器域值或空。
+            // update 合并取 max 保证不覆盖 SSE 并发写入的更新值（seed 可能过时——断线期服务器新回复缺失，
+            // 为已知限制，非本任务引入，与旧 lastReplyTime 机制相同）。
+            // runCatching 容错：DataStore 异常（含 mock 环境）返回空 seed，不阻塞 init
+            val seed = runCatching { settingsDataStore.lastCompletedReplyTimes().first() }.getOrDefault(emptyMap())
+            _lastCompletedReplyTime.update { current ->
+                val merged = current.toMutableMap()
+                for ((sid, ts) in seed) {
+                    if (ts > (merged[sid] ?: 0L)) merged[sid] = ts
+                }
+                merged
+            }
+        }
+        // 持久化收集：maxCompleted 变化 → 全量写回 DataStore。
+        // runCatching 容错：DataStore 写失败（磁盘满等）不阻塞红点判定（持久化是 best-effort，可由 SSE/REST 重建）
+        lastReplyPersistScope.launch {
+            _lastCompletedReplyTime.collect { times ->
+                runCatching { settingsDataStore.saveLastCompletedReplyTimes(times) }
+            }
+        }
+    }
 
     // Session Next 状态
     val currentAgent: StateFlow<Map<String, String>> get() = sessionNextHandler.currentAgent

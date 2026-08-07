@@ -15,9 +15,13 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -40,16 +44,9 @@ class EventDispatcherUnreadTest {
     private lateinit var sessionStateService: SessionStateService
     private lateinit var settingsDataStore: SettingsDataStore
 
-    @Before
-    fun setup() {
-        stateServiceScope = TestScope(UnconfinedTestDispatcher())
+    private fun makeDispatcher(): EventDispatcher {
         val messageStore = MessageEventHandler()
-        sessionStateService = SessionStateService(
-            appScope = stateServiceScope,
-            sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
-        )
-        settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
-        dispatcher = EventDispatcher(
+        return EventDispatcher(
             sessionHandler = SessionEventHandler(),
             messageHandler = messageStore,
             messagePartHandler = MessagePartHandler(messageStore),
@@ -62,6 +59,17 @@ class EventDispatcherUnreadTest {
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
         )
+    }
+
+    @Before
+    fun setup() {
+        stateServiceScope = TestScope(UnconfinedTestDispatcher())
+        sessionStateService = SessionStateService(
+            appScope = stateServiceScope,
+            sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
+        )
+        settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+        dispatcher = makeDispatcher()
     }
 
     @After
@@ -128,5 +136,25 @@ class EventDispatcherUnreadTest {
         val incomplete = Message.Assistant(id = "m10", sessionId = "s2", time = TimeInfo(created = 3000L, completed = null), parentId = "p0")
         dispatcher.replaceMessages("s2", listOf(MessageWithParts(info = incomplete, parts = emptyList())))
         assertNull(dispatcher.lastCompletedReplyTime.first()["s2"])
+    }
+
+    @Test
+    fun `seed restores lastCompletedReplyTime on init`() = runTest {
+        // 构造前 stub：lastCompletedReplyTimes 返回既有 seed map（模拟重启后 DataStore 既有值）
+        // 局部 mockkStatic（顶层扩展函数非成员，需 mockkStatic 才能 stub），finally 清理避免污染其他测试
+        mockkStatic(SettingsDataStore::lastCompletedReplyTimes)
+        every { settingsDataStore.lastCompletedReplyTimes() } returns flowOf(mapOf("seedSes" to 7777L))
+        try {
+            val seeded = makeDispatcher()
+            // init 的迁移 + seed 读取在 Dispatchers.IO 异步执行，轮询等待合并完成
+            val deadline = System.currentTimeMillis() + 5000
+            while (System.currentTimeMillis() < deadline &&
+                seeded.lastCompletedReplyTime.value["seedSes"] != 7777L) {
+                Thread.sleep(20)
+            }
+            assertEquals(7777L, seeded.lastCompletedReplyTime.value["seedSes"])
+        } finally {
+            unmockkStatic(SettingsDataStore::lastCompletedReplyTimes)
+        }
     }
 }

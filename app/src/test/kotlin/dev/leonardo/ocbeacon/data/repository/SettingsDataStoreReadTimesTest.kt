@@ -103,6 +103,20 @@ class SettingsDataStoreReadTimesTest {
     }
 
     @Test
+    fun `lastCompletedReplyTimes round-trip survives save`() = runTest {
+        val store = newStore()
+        store.saveLastCompletedReplyTimes(mapOf("s1" to 1000L, "s2" to 2000L))
+
+        assertEquals(mapOf("s1" to 1000L, "s2" to 2000L), store.lastCompletedReplyTimes().first())
+    }
+
+    @Test
+    fun `lastCompletedReplyTimes empty by default`() = runTest {
+        val store = newStore()
+        assertEquals(emptyMap<String, Long>(), store.lastCompletedReplyTimes().first())
+    }
+
+    @Test
     fun `v2 migration clears read times and all read once`() = runTest {
         val store = newStore()
         store.markSessionRead("svr1", "ses1", 5000L)

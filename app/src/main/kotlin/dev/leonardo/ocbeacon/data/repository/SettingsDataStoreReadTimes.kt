@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 private const val SESSION_READ_TIMES_PREFIX = "session_read_times_"
 private const val ALL_READ_PREFIX = "all_read_"
 private const val UNREAD_STATE_V2_MIGRATED_KEY = "unread_state_v2_migrated"
+private val LAST_REPLY_TIME_KEY = stringPreferencesKey("session_last_reply_time")
 
 private val readTimesJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 private val readTimesSerializer = MapSerializer(String.serializer(), Long.serializer())
@@ -55,8 +56,24 @@ suspend fun SettingsDataStore.markSessionRead(serverId: String, sessionId: Strin
     }
 }
 
+/** 最后完成回复时间（持久化）：sessionId → 最后完成 assistant 消息的 completed（**服务器时刻**）。
+ *  EventDispatcher 后台收集，应用重启后未读红点可恢复。 */
+fun SettingsDataStore.lastCompletedReplyTimes(): Flow<Map<String, Long>> =
+    dataStore.data.map { prefs ->
+        val json = prefs[LAST_REPLY_TIME_KEY]
+        if (json.isNullOrBlank()) emptyMap()
+        else runCatching { readTimesJson.decodeFromString(readTimesSerializer, json) }.getOrDefault(emptyMap())
+    }
+
+/** 全量保存最后完成回复时间 map（值域：服务器 completed）。 */
+suspend fun SettingsDataStore.saveLastCompletedReplyTimes(times: Map<String, Long>) {
+    dataStore.edit { prefs ->
+        prefs[LAST_REPLY_TIME_KEY] = readTimesJson.encodeToString(readTimesSerializer, times)
+    }
+}
+
 /**
- * 一次性迁移：清空已读标记（readTimes/allReadAt/孤儿 lastReplyTime）——值域从客户端 now
+ * 一次性迁移：清空已读标记（readTimes/allReadAt/旧 lastReplyTime）——值域从客户端 now
  * 变为服务器 completed，旧值不可比。幂等。
  */
 suspend fun SettingsDataStore.runUnreadStateV2Migration() {
@@ -65,7 +82,7 @@ suspend fun SettingsDataStore.runUnreadStateV2Migration() {
         val keys = prefs.asMap().keys.filter {
             it.name.startsWith(SESSION_READ_TIMES_PREFIX) ||
                 it.name.startsWith(ALL_READ_PREFIX) ||
-                it.name == "session_last_reply_time" // 孤儿 key：LAST_REPLY_TIME_KEY 已删，旧 blob 永不读取永不清除
+                it == LAST_REPLY_TIME_KEY // 旧客户端 now 域值不可比，迁移时清空（之后复用存服务器域 maxCompleted）
         }
         keys.forEach { prefs.remove(it) }
         prefs[booleanPreferencesKey(UNREAD_STATE_V2_MIGRATED_KEY)] = true
