@@ -162,7 +162,10 @@ internal fun MessageCardAssistant(
                         }
                     }
                     val displayDurationMs = if (isStreaming) {
-                        assistantMsg?.time?.created?.let { nowMs - it } ?: 0L
+                        // turn 级起点：turn 首条 assistant 的 created；fallback 当前消息 created。
+                        // turn 内新消息出现时代表消息切换，但计时起点不变 → 不重置。
+                        val start = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
+                        start?.let { nowMs - it } ?: 0L
                     } else {
                         durationMs ?: 0L
                     }

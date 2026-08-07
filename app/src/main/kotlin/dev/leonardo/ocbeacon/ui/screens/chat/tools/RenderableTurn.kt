@@ -23,6 +23,7 @@ data class RenderableTurn(
     val agentName: String?,
     val modelId: String?,
     val durationMs: Long?,
+    val turnStartMs: Long?,
     val stepFinishes: List<Part.StepFinish>,
     val taskAgentName: String?,
     val copyText: String?,
@@ -73,9 +74,18 @@ fun computeRenderableTurn(
     val agentName = currentAssistant?.agent
     val modelId = currentAssistant?.modelId
 
-    // 时长 —— 来自当前消息自身的时间，而非 turn 跨度
-    val durationMs: Long? = currentAssistant?.let { am ->
-        am.time.completed?.let { end -> end - am.time.created }
+    // turn 起点 —— turn 内首条 assistant 消息的 created。
+    // turn 分组只含 assistant 消息；minOf 比较时间戳不依赖列表顺序。
+    val assistants = ordered.mapNotNull { it.message as? dev.leonardo.ocbeacon.domain.model.Message.Assistant }
+    val turnStartMs: Long? = assistants.minOfOrNull { it.time.created }
+
+    // 时长 —— turn 级跨度：首条 created → 末条 completed。
+    // 仅当 turn 内所有 assistant 消息均 completed 时给值；任一仍流式 → null（流式 ticker 接管）。
+    val completedTimes = assistants.mapNotNull { it.time.completed }
+    val durationMs: Long? = if (turnStartMs != null && completedTimes.size == assistants.size) {
+        completedTimes.max() - turnStartMs
+    } else {
+        null
     }
 
     // 用于 token 统计的 StepFinish
@@ -105,6 +115,7 @@ fun computeRenderableTurn(
         agentName = agentName,
         modelId = modelId,
         durationMs = durationMs,
+        turnStartMs = turnStartMs,
         stepFinishes = stepFinishes,
         taskAgentName = taskAgentName,
         copyText = copyText,
