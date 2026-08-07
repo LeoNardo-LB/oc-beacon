@@ -13,6 +13,10 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,7 +50,15 @@ class EventDispatcher @Inject constructor(
     private val sessionStateService: SessionStateService,
     private val settingsDataStore: SettingsDataStore,
 ) {
+    /**
+     * 一次性 unread v2 迁移 scope：App 启动时清空旧域已读标记（readTimes/allReadAt/
+     * 孤儿 lastReplyTime），值域从客户端 now 变为服务器 completed，旧值不可比。幂等
+     * （boolean 标记）。独立 scope，不阻塞事件处理（与已删 replyTimePersistScope 同模式）。
+     */
+    private val unreadMigrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     init {
+        unreadMigrationScope.launch { settingsDataStore.runUnreadStateV2Migration() }
         // SessionStateService 回调——在此接线以打破循环依赖
         //（EventDispatcher ← SessionStateService 经由 Provider，但回调
         // 需要 messageHandler，它位于 EventDispatcher 的作用域内）。

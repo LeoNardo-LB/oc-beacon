@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -37,6 +38,7 @@ class EventDispatcherUnreadTest {
     private lateinit var dispatcher: EventDispatcher
     private lateinit var stateServiceScope: TestScope
     private lateinit var sessionStateService: SessionStateService
+    private lateinit var settingsDataStore: SettingsDataStore
 
     @Before
     fun setup() {
@@ -46,6 +48,7 @@ class EventDispatcherUnreadTest {
             appScope = stateServiceScope,
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
         )
+        settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         dispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
             messageHandler = messageStore,
@@ -57,7 +60,7 @@ class EventDispatcherUnreadTest {
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
-            settingsDataStore = mockk<SettingsDataStore>(relaxed = true),
+            settingsDataStore = settingsDataStore,
         )
     }
 
@@ -73,6 +76,15 @@ class EventDispatcherUnreadTest {
             ),
             "svr1"
         )
+    }
+
+    @Test
+    fun `init triggers v2 migration once`() = runTest {
+        // runUnreadStateV2Migration 是扩展函数——coVerify 直接对其调用会真实执行函数体，
+        // 内部 dataStore.edit → updateData 在 relaxed DataStore mock 上产生畸形期望（continuation 不匹配）。
+        // 改为验证其唯一副作用：EventDispatcher init 对 DataStore 的 updateData 调用
+        //（迁移是 init 触发 DataStore 写入的唯一路径）。coVerify(timeout) 等待独立 IO scope 执行完。
+        coVerify(timeout = 5000) { settingsDataStore.dataStore.updateData(any()) }
     }
 
     @Test

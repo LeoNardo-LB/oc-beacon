@@ -59,7 +59,7 @@ class SettingsDataStoreReadTimesTest {
     fun `markSessionRead overwrites previous timestamp`() = runTest {
         val store = newStore()
         store.markSessionRead("svr1", "ses1", 5000L)
-        // 第二次标记传入更大的 completed：直接覆盖（不做 max，调用方传的就是当时最后 completed）
+        // 第二次标记传入更大的 completed：maxOf 单调保护取 max → 已读位置推进为 9000
         store.markSessionRead("svr1", "ses1", 9000L)
 
         assertEquals(mapOf("ses1" to 9000L), store.sessionReadTimes("svr1").first())

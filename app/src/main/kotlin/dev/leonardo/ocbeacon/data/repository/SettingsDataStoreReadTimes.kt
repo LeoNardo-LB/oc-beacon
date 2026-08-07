@@ -56,13 +56,16 @@ suspend fun SettingsDataStore.markSessionRead(serverId: String, sessionId: Strin
 }
 
 /**
- * 一次性迁移：清空已读标记（readTimes/allReadAt）——值域从客户端 now 变为服务器 completed，旧值不可比。幂等。
+ * 一次性迁移：清空已读标记（readTimes/allReadAt/孤儿 lastReplyTime）——值域从客户端 now
+ * 变为服务器 completed，旧值不可比。幂等。
  */
 suspend fun SettingsDataStore.runUnreadStateV2Migration() {
     dataStore.edit { prefs ->
         if (prefs[booleanPreferencesKey(UNREAD_STATE_V2_MIGRATED_KEY)] == true) return@edit
         val keys = prefs.asMap().keys.filter {
-            it.name.startsWith(SESSION_READ_TIMES_PREFIX) || it.name.startsWith(ALL_READ_PREFIX)
+            it.name.startsWith(SESSION_READ_TIMES_PREFIX) ||
+                it.name.startsWith(ALL_READ_PREFIX) ||
+                it.name == "session_last_reply_time" // 孤儿 key：LAST_REPLY_TIME_KEY 已删，旧 blob 永不读取永不清除
         }
         keys.forEach { prefs.remove(it) }
         prefs[booleanPreferencesKey(UNREAD_STATE_V2_MIGRATED_KEY)] = true
