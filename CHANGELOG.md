@@ -6,6 +6,15 @@
 
 本项目仍处于**开发阶段**，尚未达到正式发布状态（功能与稳定性未满足 1.0.0 标准）。因此版本体系重置为 `0.1.0` 起重新计数（`0.1.0 -> 0.1.1 -> ... -> 1.0.0`），并清理了历史 1.x 发布与 Tag。以下 1.x 条目保留仅供历史追溯。
 
+## [0.1.1] - 2026-08-07
+
+维护版：消除全部构建警告 + CI actions 升级（无业务/功能变化）。
+
+### Changed
+
+- CI actions 升级到最新：checkout v7.0.1 / setup-java v5.7.0 / upload-artifact v7.0.1（消除 Node 20 / setup-java v4 deprecation 警告）
+- 构建警告全消：移除已弃用的 `android.enableJetifier`（项目全 androidx）、注解 target 显式化（`@param:`）、死代码/多余 `!!`/Elvis 清理、`Icons.AutoMirrored.Filled.MenuBook` 替换弃用图标
+
 ## [0.1.0] - 2026-08-07
 
 首个正式版（0.1.0-beta.1/beta.2 累积转正）。
