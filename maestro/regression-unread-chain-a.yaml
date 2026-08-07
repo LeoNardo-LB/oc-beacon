@@ -1,0 +1,63 @@
+appId: dev.leonardo.ocbeacon.dev
+name: "Regression A - Unread chain: send, back early, red dot appears"
+tags:
+  - regression
+  - unread
+---
+# 场景 A：发消息 → 立即返回（双保险路径）→ turn 后台结束 → 红点应出现
+# 前提：服务器已配置（Test Server）；subagent 用 -e SESSION_NAME=xxx 注入会话名
+# 验证方式：02 截图 + logcat UnreadDiag（turnEnd ts > markRead ts → 红点出现）
+
+- launchApp
+- extendedWaitUntil:
+    visible: "Test Server"
+    timeout: 15000
+- tapOn:
+    text: "Connect"
+    optional: true
+- extendedWaitUntil:
+    visible: "Connected"
+    timeout: 20000
+    optional: true
+
+# 进入会话列表
+- tapOn:
+    text: "Sessions"
+    index: 0
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 20000
+
+# 进入项目目录
+- tapOn: "D:/Develop/code/app/oc-beacon"
+- extendedWaitUntil:
+    visible: "sessions active"
+    timeout: 15000
+    optional: true
+
+# 进入指定会话
+- tapOn: "${SESSION_NAME}"
+- extendedWaitUntil:
+    visible: "Ask a question"
+    timeout: 20000
+    optional: true
+
+# 发一条长回复的 prompt（确保 turn 在返回后仍在进行）
+- tapOn:
+    text: "Ask a question"
+    optional: true
+- tapOn:
+    text: "Help me with"
+    optional: true
+- inputText: "Write a 200-word technical summary of this project."
+- pressKey: ENTER
+
+# 立即返回列表（onDispose → markSessionRead 双保险路径）
+- back
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 20000
+
+# 等待 turn 在后台完成（服务器时间戳 > 退出已读时刻 → 红点出现）
+- sleep: 60000
+- takeScreenshot: r01_red_dot_expected

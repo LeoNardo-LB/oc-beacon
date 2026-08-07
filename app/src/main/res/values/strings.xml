@@ -674,4 +674,6 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_config_update_failed">Failed to update config</string>
     <string name="server_settings_providers_load_failed">Failed to load providers</string>
     <string name="a11y_icon_selected">Selected</string>
+    <string name="session_unread_indicator">Unread messages</string>
+    <string name="mark_all_read">Mark all as read</string>
 </resources>

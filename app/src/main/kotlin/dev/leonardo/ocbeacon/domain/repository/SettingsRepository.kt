@@ -63,4 +63,24 @@ interface SettingsRepository {
 
     /** 切换指定 (serverId, sessionId) 对的收藏状态。 */
     suspend fun toggleFavorite(serverId: String, sessionId: String)
+
+    // ============ 会话已读（未读提示） ============
+
+    /** 该服务器各会话的最后已读时间（sessionId → lastReadAt epoch ms）。 */
+    fun sessionReadTimes(serverId: String): Flow<Map<String, Long>>
+
+    /**
+     * 未读基线（epoch ms）：功能启用时刻，基线之前的消息不算未读。
+     * 无基线时写入当前时间并返回。
+     */
+    suspend fun ensureUnreadBaseline(serverId: String): Long
+
+    /** 该服务器的"一键已读"时间戳（epoch ms）：此前的所有回复都算已读。 */
+    fun allReadAt(serverId: String): Flow<Long>
+
+    /** 一键已读：记录当前时刻为全局已读时间（消除该服务器所有小红点）。 */
+    suspend fun markAllSessionsRead(serverId: String)
+
+    /** 将会话标记为已读（记录当前时间戳）。 */
+    suspend fun markSessionRead(serverId: String, sessionId: String)
 }

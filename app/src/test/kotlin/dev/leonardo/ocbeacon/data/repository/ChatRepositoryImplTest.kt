@@ -9,7 +9,9 @@ import dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover
 import dev.leonardo.ocbeacon.data.repository.handler.*
 import dev.leonardo.ocbeacon.domain.model.*
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -45,6 +47,7 @@ class ChatRepositoryImplTest {
         questionHandler = QuestionEventHandler()
         val miscHandler = MiscEventHandler()
 
+        val sessionStateService = mockk<SessionStateService>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
             messageHandler = messageHandler,
@@ -55,8 +58,10 @@ class ChatRepositoryImplTest {
             questionHandler = questionHandler,
             miscHandler = miscHandler,
             sessionNextHandler = SessionNextEventHandler(),
-            sessionStateService = mockk<SessionStateService>(relaxed = true)
+            sessionStateService = sessionStateService,
+            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         )
+        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
         repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, providerApi, eventDispatcher, serverRepo, permissionAutoApprover)
     }
 

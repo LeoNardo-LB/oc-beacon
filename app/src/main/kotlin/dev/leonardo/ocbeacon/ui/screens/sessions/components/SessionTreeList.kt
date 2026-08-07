@@ -102,8 +102,7 @@ internal fun SessionTreeList(
                             // 进入会话前标记：返回列表时回到顶部
                             viewModel.requestScrollToTopOnReturn()
                             onNavigateToNewChat(directory)
-                        },
-                    )
+                        },                    )
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(
                             alpha = AlphaTokens.FAINT
@@ -116,8 +115,9 @@ internal fun SessionTreeList(
                         item = node.session,
                         showDirectory = isRecentMode,
                         onClick = {
-                            // 进入会话前标记：返回列表时回到顶部（无论是否发过消息）
+                            // 进入会话前标记：返回列表时回到顶部（无论是否发过消息）+ 记录待标记已读
                             viewModel.requestScrollToTopOnReturn()
+                            viewModel.onSessionOpened(node.id)
                             onNavigateToChat(node.id)
                         },
                         onRename = {

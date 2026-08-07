@@ -611,4 +611,6 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_config_update_failed">Nie udało się zaktualizować konfiguracji</string>
     <string name="server_settings_providers_load_failed">Nie udało się załadować dostawców</string>
     <string name="a11y_icon_selected">Wybrano</string>
+    <string name="session_unread_indicator">Nieprzeczytane wiadomości</string>
+    <string name="mark_all_read">Oznacz wszystkie jako przeczytane</string>
 </resources>

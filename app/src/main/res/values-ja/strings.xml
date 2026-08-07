@@ -603,4 +603,6 @@
     <string name="server_settings_config_update_failed">設定の更新に失敗</string>
     <string name="server_settings_providers_load_failed">プロバイダーの読み込みに失敗</string>
     <string name="a11y_icon_selected">選択済み</string>
+    <string name="session_unread_indicator">未読メッセージ</string>
+    <string name="mark_all_read">すべて既読にする</string>
 </resources>

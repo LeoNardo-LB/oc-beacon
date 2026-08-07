@@ -29,4 +29,6 @@ data class SessionItem(
     val status: SessionStatus = SessionStatus.Idle,
     val hasDraft: Boolean = false,
     val tags: List<Tag> = emptyList(),
+    /** 会话有比最后已读时间更新的消息（未读提示红点）。 */
+    val hasUnread: Boolean = false,
 )

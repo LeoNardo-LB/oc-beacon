@@ -77,6 +77,7 @@ class SessionListViewModel @Inject constructor(
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     private val settingsRepository: SettingsRepository,
     private val serverRepository: ServerRepository,
+    private val sessionReadSignal: SessionReadSignal,
 ) : ViewModel() {
 
     companion object {
@@ -132,9 +133,33 @@ class SessionListViewModel @Inject constructor(
     )
     val viewMode: StateFlow<SessionViewMode> = _viewMode.asStateFlow()
 
-    /** 选中的分类过滤 id，null 表示"全部"。 */
-    private val _categoryFilter = MutableStateFlow<String?>(null)
-    val categoryFilter: StateFlow<String?> = _categoryFilter.asStateFlow()
+    /** 未读基线（epoch ms）：基线之前的消息不算未读（防止历史会话全部显示红点）。 */
+    private val _unreadBaseline = MutableStateFlow(0L)
+
+    /** 待标记已读的会话（点击进入时记录；返回列表时组合阶段消费，渲染前同步生效）。 */
+    private val _pendingReadSessionId = MutableStateFlow<String?>(null)
+
+    /** 点击会话进入时记录——返回列表时立即标记已读（消除 popBackStack 1 帧红点）。 */
+    fun onSessionOpened(sessionId: String) {
+        _pendingReadSessionId.value = sessionId
+    }
+
+    /**
+     * 消费待标记会话并同步标记已读（列表组合阶段调用）。
+     * 同步更新内存信号 → combine（Main.immediate）在渲染前完成重算，
+     * 帧 1 即无红点；DataStore 持久化异步执行。
+     */
+    fun consumePendingReadSessionId(): String? {
+        val sid = _pendingReadSessionId.value ?: return null
+        _pendingReadSessionId.value = null
+        sessionReadSignal.markRead(sid, System.currentTimeMillis())
+        viewModelScope.launch { settingsRepository.markSessionRead(serverId, sid) }
+        return sid
+    }
+
+    /** 选中的分类过滤 id 集合，空 = "全部"。多选后按 AND 过滤。 */
+    private val _categoryFilters = MutableStateFlow<Set<String>>(emptySet())
+    val categoryFilters: StateFlow<Set<String>> = _categoryFilters.asStateFlow()
 
     /** 仅显示收藏会话（本服务器内置标签筛选）。 */
     private val _favoritesOnly = MutableStateFlow(false)
@@ -191,9 +216,14 @@ class SessionListViewModel @Inject constructor(
         _searchQuery,
         _viewMode,
         settingsRepository.sessionTagAssignments(serverId),
-        _categoryFilter,
+        _categoryFilters,
         sessionTags,
         _favoritesOnly,
+        sessionRepository.getLastReplyTimeFlow(),
+        settingsRepository.sessionReadTimes(serverId),
+        _unreadBaseline,
+        sessionReadSignal.justRead,
+        settingsRepository.allReadAt(serverId),
     ) { values ->
         buildSessionListUiState(values, serverId, serverName, draftRepository)
     }.stateIn(viewModelScope, WhileSubscribed5s, SessionListUiState())
@@ -205,6 +235,10 @@ class SessionListViewModel @Inject constructor(
 
     init {
         loadSessions()
+        // 初始化未读基线（首次调用写入当前时间；已有则读回）
+        viewModelScope.launch {
+            _unreadBaseline.value = settingsRepository.ensureUnreadBaseline(serverId)
+        }
     }
 
     // ============ 滚动 / 分类 / 收藏 ============
@@ -215,9 +249,29 @@ class SessionListViewModel @Inject constructor(
     /** 进入 ChatScreen 前标记：返回列表时滚动回顶部（无论是否发过消息）。 */
     fun requestScrollToTopOnReturn() = scrollSignal.requestScrollToTop()
 
-    /** 设置分类过滤（传 null 清除）。 */
-    fun setCategoryFilter(categoryId: String?) {
-        _categoryFilter.value = categoryId
+    /** 切换分类过滤选中态（多选，AND 语义；全部取消后回到"全部"状态）。 */
+    fun toggleCategoryFilter(categoryId: String) {
+        _categoryFilters.update { current ->
+            if (categoryId in current) current - categoryId else current + categoryId
+        }
+    }
+
+    /** 清空分类过滤（回到"全部"）。 */
+    fun clearCategoryFilters() {
+        _categoryFilters.value = emptySet()
+    }
+
+    /**
+     * 一键已读：内存信号即时消除所有红点（所有有回复记录的会话），
+     * 再持久化全局已读时间戳（重启后仍生效，此后新回复才重新红点）。
+     */
+    fun markAllSessionsRead() {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val lastReply = sessionRepository.getLastReplyTimeFlow().first()
+            lastReply.keys.forEach { sessionReadSignal.markRead(it, now) }
+            settingsRepository.markAllSessionsRead(serverId)
+        }
     }
 
     /** 替换指定会话上的用户标签集（保留内置收藏标签）。 */
@@ -451,6 +505,8 @@ class SessionListViewModel @Inject constructor(
                 val result = deleteSessionUseCase(serverId, sessionId)
                 if (result.isSuccess) {
                     if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Deleted session $sessionId")
+                    // 清理内存已读信号残留（已删除会话的 key）
+                    sessionReadSignal.remove(sessionId)
                     loadSessions()
                 } else {
                     _error.value = "Failed to delete session"

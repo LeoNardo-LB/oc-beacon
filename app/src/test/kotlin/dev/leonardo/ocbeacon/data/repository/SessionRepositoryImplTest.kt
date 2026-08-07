@@ -6,7 +6,9 @@ import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.repository.handler.*
 import dev.leonardo.ocbeacon.domain.model.*
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
@@ -33,6 +35,7 @@ class SessionRepositoryImplTest {
         val questionHandler = QuestionEventHandler()
         val miscHandler = MiscEventHandler()
 
+        val sessionStateService = mockk<SessionStateService>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
             messageHandler = messageHandler,
@@ -43,9 +46,11 @@ class SessionRepositoryImplTest {
             questionHandler = questionHandler,
             miscHandler = miscHandler,
             sessionNextHandler = SessionNextEventHandler(),
-            sessionStateService = mockk<SessionStateService>(relaxed = true)
+            sessionStateService = sessionStateService,
+            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         )
-        repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo)
+        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
+        repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo, mockk<SettingsDataStore>(relaxed = true))
     }
 
     private fun testSession(id: String) = Session(

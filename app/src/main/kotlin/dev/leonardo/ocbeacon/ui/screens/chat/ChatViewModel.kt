@@ -30,11 +30,13 @@ import dev.leonardo.ocbeacon.domain.usecase.*
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private const val TAG = "ChatViewModel"
@@ -50,6 +52,7 @@ private const val TAG = "ChatViewModel"
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val scrollSignal: dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal,
+    private val sessionReadSignal: dev.leonardo.ocbeacon.ui.screens.sessions.SessionReadSignal,
     private val sendMessageUseCase: SendMessageUseCase,
     private val manageSessionUseCase: ManageSessionUseCase,
     private val managePermissionUseCase: ManagePermissionUseCase,
@@ -119,6 +122,24 @@ class ChatViewModel @Inject constructor(
 
     fun onSessionUnfocused() {
         sessionFocusHolder.setActiveFocus(null, null)
+    }
+
+    /** 离开会话时标记已读（清除未读提示）：打开期间到达的消息也算已读。
+     *  先更新内存信号（列表立即感知，消除 DataStore 异步写入窗口期的红点闪烁），
+     *  再在 [NonCancellable] 下持久化——导航返回时 ViewModel 随返回栈销毁，
+     *  viewModelScope 会被 cancel，普通 launch 的 DataStore 写入可能在完成前
+     *  被取消（红点不消除的根因，2026-08-07 修复）。 */
+    fun markSessionRead() {
+        val srv = serverId
+        val sid = sessionId
+        if (srv.isNotBlank() && sid.isNotBlank()) {
+            val now = System.currentTimeMillis()
+            AppLogger.d("UnreadDiag", "[markRead] sid=${sid.take(12)} now=$now")
+            sessionReadSignal.markRead(sid, now)
+            viewModelScope.launch {
+                withContext(NonCancellable) { settingsRepository.markSessionRead(srv, sid) }
+            }
+        }
     }
 
     init {

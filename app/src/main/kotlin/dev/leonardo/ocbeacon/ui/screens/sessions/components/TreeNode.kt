@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionItem
+import dev.leonardo.ocbeacon.ui.screens.sessions.isUnread
 import dev.leonardo.ocbeacon.util.PathUtils
 
 /**
@@ -46,6 +47,8 @@ sealed interface TreeNode {
  * @param baseDirectory 选定的基础目录路径（已规范化，如 "D:/Develop"），或 null
  * @param statuses 会话状态映射
  * @param sessionTags 已解析的 会话 id → 标签列表 映射，用于显示
+ * @param lastMessageTime 会话 id → 最后消息时间（未读判定）
+ * @param readTimes 会话 id → 最后已读时间（未读判定）
  */
 fun buildTreeNodes(
     sessions: List<Session>,
@@ -54,6 +57,10 @@ fun buildTreeNodes(
     statuses: Map<String, SessionStatus> = emptyMap(),
     draftSessionIds: Set<String> = emptySet(),
     sessionTags: Map<String, List<Tag>> = emptyMap(),
+    lastMessageTime: Map<String, Long> = emptyMap(),
+    readTimes: Map<String, Long> = emptyMap(),
+    unreadBaseline: Long = 0L,
+    allReadAt: Long = 0L,
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
     val rootSessions = mutableListOf<Session>()
@@ -140,7 +147,7 @@ fun buildTreeNodes(
             for (session in bucket.sessions.sortedByDescending { it.time.updated }) {
                 result.add(TreeNode.Session(
                     id = session.id,
-                    session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty()),
+                    session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, unreadBaseline, allReadAt)),
                 ))
             }
         }
@@ -150,7 +157,7 @@ fun buildTreeNodes(
     for (session in rootSessions.sortedByDescending { it.time.updated }) {
         result.add(TreeNode.Session(
             id = session.id,
-            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty()),
+            session = SessionItem(session = session, status = statuses[session.id] ?: SessionStatus.Idle, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, unreadBaseline, allReadAt)),
         ))
     }
 

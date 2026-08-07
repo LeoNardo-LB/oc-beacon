@@ -13,7 +13,15 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.reflect.KClass
@@ -40,7 +48,12 @@ class EventDispatcher @Inject constructor(
     private val miscHandler: MiscEventHandler,
     private val sessionNextHandler: SessionNextEventHandler,
     private val sessionStateService: SessionStateService,
+    private val settingsDataStore: SettingsDataStore,
 ) {
+    /** 未读持久化后台收集器：进程生命周期内始终活跃（不依赖 UI 订阅），
+     *  消息完成 → lastMessageTime 更新 → 写入 DataStore（应用重启后红点不丢失）。 */
+    private val replyTimePersistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     init {
         // SessionStateService 回调——在此接线以打破循环依赖
         //（EventDispatcher ← SessionStateService 经由 Provider，但回调
@@ -53,6 +66,19 @@ class EventDispatcher @Inject constructor(
         }
         sessionStateService.messageForceCompleter = MessageForceCompleter { sessionId ->
             messageHandler.markSessionIdle(sessionId)
+            // turn 结束（服务器空闲确认）→ 用最后一条已完成回复的 **completed 服务器时间戳**：
+            // - 用户在列表等回复（回复完成晚于返回）→ completed > 已读时刻 → 红点 ✅
+            // - 用户看完回复退出 / 退出后 idle 延迟到达 → completed（服务器时刻）< 已读时刻 → 无红点 ✅
+            // （created 太早会漏报列表等回复；客户端 now 太晚会误报退出后延迟）
+            messageHandler.messages.value[sessionId]
+                ?.filterIsInstance<Message.Assistant>()
+                ?.filter { it.time.completed != null }
+                ?.maxByOrNull { it.time.completed ?: 0L }
+                ?.let { msg ->
+                    val ts = msg.time.completed ?: msg.time.created
+                    AppLogger.d("UnreadDiag", "[forceComplete] sid=${sessionId.take(12)} completed=$ts now=${System.currentTimeMillis()}")
+                    _turnEndTime.update { it + (sessionId to ts) }
+                }
         }
         sessionStateService.messageRefresher = MessageRefresher { sessionId, messages ->
             messageHandler.replaceMessages(sessionId, messages)
@@ -157,6 +183,29 @@ class EventDispatcher @Inject constructor(
     val projectInfo: StateFlow<Project?> get() = sessionHandler.projectInfo
     val lastUserMessageTime: StateFlow<Map<String, Long>> get() = sessionHandler.lastUserMessageTime
 
+    /** turn 结束时间（sessionId → 最近一次 agent 回复完成时间，**服务器时间戳**）。
+     *  实际生效路径是 [messageForceCompleter]（SessionStatus=idle → FSM forceComplete），
+     *  取最后一条已完成回复的 completed（服务器完成时刻）——用户在列表等回复时
+     *  晚于已读时刻（红点 ✅），看完退出/退出后延迟到达时早于已读时刻（无红点 ✅）。 */
+    private val _turnEndTime = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val lastReplyTime: StateFlow<Map<String, Long>> = _turnEndTime
+
+    init {
+        // 持久化 + turn 结束接线放这里（属性已初始化——类体按声明顺序初始化）。
+        // step.ended 主路径：⚠️ 2026-08-07 实证当前 OpenCode 服务器**不发送**
+        // session.next.step.ended 事件（回复结束信号是 MessageUpdated + SessionStatus），
+        // 此回调实际不触发；保留以兼容未来服务器版本（文档声明 v2 同步），
+        // 真正生效的是下方 messageForceCompleter 兜底。
+        sessionNextHandler.onTurnEnded = { sessionId, _, timestamp ->
+            val ts = if (timestamp > 0) timestamp else System.currentTimeMillis()
+            AppLogger.d("UnreadDiag", "[turnEnd] sid=${sessionId.take(12)} ts=$ts now=${System.currentTimeMillis()}")
+            _turnEndTime.update { it + (sessionId to ts) }
+        }
+        replyTimePersistScope.launch {
+            _turnEndTime.collect { settingsDataStore.saveLastReplyTimes(it) }
+        }
+    }
+
     // Session Next 状态
     val currentAgent: StateFlow<Map<String, String>> get() = sessionNextHandler.currentAgent
     val currentModel: StateFlow<Map<String, Pair<String, String>>> get() = sessionNextHandler.currentModel
@@ -224,6 +273,7 @@ class EventDispatcher @Inject constructor(
         // 不要强制会话为 Idle：会话实际变为空闲时服务器会发送 session.status 事件。
         // 此处强制 Idle 会在 agent 继续下一个工具调用时导致闪烁。
         if (event is SseEvent.CommandExecuted) {
+            AppLogger.i("UnreadDiag", "[CommandExecuted] session=${event.sessionId.take(12)} msg=${event.messageId.take(12)} name=${event.name}")
             messageHandler.markSessionIdle(event.sessionId, event.messageId)
         }
 

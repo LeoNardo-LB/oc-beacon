@@ -53,6 +53,7 @@ class EventDispatcherTest {
             miscHandler = miscHandler,
             sessionNextHandler = sessionNextHandler,
             sessionStateService = sessionStateService,
+            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         )
     }
 

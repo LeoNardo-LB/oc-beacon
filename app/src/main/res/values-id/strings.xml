@@ -609,4 +609,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_config_update_failed">Gagal memperbarui konfigurasi</string>
     <string name="server_settings_providers_load_failed">Gagal memuat penyedia</string>
     <string name="a11y_icon_selected">Dipilih</string>
+    <string name="session_unread_indicator">Pesan belum dibaca</string>
+    <string name="mark_all_read">Tandai semua sudah dibaca</string>
 </resources>

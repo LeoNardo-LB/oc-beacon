@@ -606,4 +606,6 @@
     <string name="server_settings_config_update_failed">更新配置失败</string>
     <string name="server_settings_providers_load_failed">加载提供商失败</string>
     <string name="a11y_icon_selected">已选择</string>
+    <string name="session_unread_indicator">有未读消息</string>
+    <string name="mark_all_read">一键已读</string>
 </resources>

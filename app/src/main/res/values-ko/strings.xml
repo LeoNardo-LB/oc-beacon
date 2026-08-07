@@ -603,4 +603,6 @@
     <string name="server_settings_config_update_failed">구성 업데이트 실패</string>
     <string name="server_settings_providers_load_failed">공급자 로드 실패</string>
     <string name="a11y_icon_selected">선택됨</string>
+    <string name="session_unread_indicator">읽지 않은 메시지</string>
+    <string name="mark_all_read">모두 읽음으로 표시</string>
 </resources>

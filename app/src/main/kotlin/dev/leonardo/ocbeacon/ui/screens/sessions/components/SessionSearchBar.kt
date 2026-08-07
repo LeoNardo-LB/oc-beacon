@@ -43,8 +43,9 @@ import kotlinx.coroutines.launch
 internal fun SessionSearchBar(
     isAmoled: Boolean,
     categories: List<Tag>,
-    categoryFilter: String?,
-    onCategoryFilterChange: (String?) -> Unit,
+    categoryFilter: Set<String>,
+    onCategoryToggle: (String) -> Unit,
+    onClearFilters: () -> Unit,
     onSearch: (String) -> Unit,
     onClearSearch: () -> Unit,
 ) {
@@ -87,7 +88,7 @@ internal fun SessionSearchBar(
         }
     )
 
-    // 分类过滤 chip
+    // 分类过滤 chip：多选（AND 语义）；全部取消时自动回到"全部"选中态
     if (categories.isNotEmpty()) {
         Row(
             modifier = Modifier
@@ -97,15 +98,15 @@ internal fun SessionSearchBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FilterChip(
-                selected = categoryFilter == null,
-                onClick = { onCategoryFilterChange(null) },
+                selected = categoryFilter.isEmpty(),
+                onClick = onClearFilters,
                 label = { Text(stringResource(R.string.all)) },
             )
             categories.forEach { category ->
                 TagChip(
                     tag = category,
-                    selected = categoryFilter == category.id,
-                    onClick = { onCategoryFilterChange(category.id) },
+                    selected = category.id in categoryFilter,
+                    onClick = { onCategoryToggle(category.id) },
                 )
             }
         }

@@ -1,6 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
-import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -11,12 +11,16 @@ import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,6 +78,7 @@ fun SessionListScreen(
 
     // 对话框状态
     var showRenameDialog by remember { mutableStateOf(false) }
+var showMoreMenu by remember { mutableStateOf(false) }
     var renameSessionId by remember { mutableStateOf("") }
     var renameText by remember { mutableStateOf(TextFieldValue("")) }
 
@@ -90,12 +95,16 @@ fun SessionListScreen(
 
     val sessionTags by viewModel.sessionTags.collectAsStateWithLifecycle()
     val sessionTagAssignments by viewModel.sessionTagAssignments.collectAsStateWithLifecycle()
-    val categoryFilter by viewModel.categoryFilter.collectAsStateWithLifecycle()
+    val categoryFilters by viewModel.categoryFilters.collectAsStateWithLifecycle()
     val favoriteSessionIds by viewModel.favoriteSessionIds.collectAsStateWithLifecycle()
     val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
+
+// 组合阶段消费待标记会话：返回列表时同步标记已读（渲染前 combine 重算完成，
+// 消除 popBackStack 先渲染旧 uiState 导致的 1 帧红点闪烁）。consume 保证只处理一次。
+viewModel.consumePendingReadSessionId()
 
     // 进入屏幕时预加载 MCP 服务器 — 用户滑到 MCP 标签页时无加载延迟。
     LaunchedEffect(Unit) {
@@ -139,18 +148,6 @@ fun SessionListScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                        // 切换查看模式：最近 <-> 文件夹
-                        IconButton(onClick = { viewModel.toggleViewMode() }) {
-                            Icon(
-                                if (currentViewMode == SessionViewMode.RECENT) Icons.Default.Folder
-                                else Icons.AutoMirrored.Filled.List,
-                                contentDescription = stringResource(
-                                    if (currentViewMode == SessionViewMode.RECENT) R.string.sessions_view_folders
-                                    else R.string.sessions_view_recent
-                                ),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
                         // 新建会话
                         IconButton(onClick = {
                             // 若已有会话，先显示快速对话框；
@@ -166,6 +163,52 @@ fun SessionListScreen(
                                 contentDescription = stringResource(R.string.sessions_new),
                                 modifier = Modifier.size(24.dp)
                             )
+                        }
+                        // 更多菜单（最右）：视图切换 + 一键已读
+                        Box {
+                            IconButton(onClick = { showMoreMenu = true }) {
+                                Icon(
+                                    Icons.Default.MoreVert,
+                                    contentDescription = stringResource(R.string.more_options),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showMoreMenu,
+                                onDismissRequest = { showMoreMenu = false },
+                            ) {
+                                // 切换查看模式：最近 <-> 文件夹
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(stringResource(
+                                            if (currentViewMode == SessionViewMode.RECENT) R.string.sessions_view_folders
+                                            else R.string.sessions_view_recent
+                                        ))
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            if (currentViewMode == SessionViewMode.RECENT) Icons.Default.Folder
+                                            else Icons.AutoMirrored.Filled.List,
+                                            contentDescription = null,
+                                        )
+                                    },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        viewModel.toggleViewMode()
+                                    },
+                                )
+                                // 一键已读：消除所有小红点
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.mark_all_read)) },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.DoneAll, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        viewModel.markAllSessionsRead()
+                                    },
+                                )
+                            }
                         }
                     }
                 },
@@ -236,8 +279,9 @@ fun SessionListScreen(
                             SessionSearchBar(
                                 isAmoled = isAmoled,
                                 categories = sessionTags,
-                                categoryFilter = categoryFilter,
-                                onCategoryFilterChange = { viewModel.setCategoryFilter(it) },
+                                categoryFilter = categoryFilters,
+                                onCategoryToggle = { viewModel.toggleCategoryFilter(it) },
+                                onClearFilters = { viewModel.clearCategoryFilters() },
                                 onSearch = { query ->
                                     viewModel.setSearchQuery(query)
                                     viewModel.loadSessions()

@@ -603,4 +603,6 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_config_update_failed">Falha ao atualizar a configuração</string>
     <string name="server_settings_providers_load_failed">Falha ao carregar provedores</string>
     <string name="a11y_icon_selected">Selecionado</string>
+    <string name="session_unread_indicator">Mensagens não lidas</string>
+    <string name="mark_all_read">Marcar tudo como lido</string>
 </resources>

@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+
 import android.util.Log
 import app.cash.turbine.test
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
@@ -22,6 +24,7 @@ import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.*
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
+import dev.leonardo.ocbeacon.ui.screens.sessions.SessionReadSignal
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -102,7 +105,8 @@ class ChatViewModelPermissionTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(),
-            sessionStateService = sessionStateService
+            sessionStateService = sessionStateService,
+            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
 
@@ -247,6 +251,7 @@ class ChatViewModelPermissionTest {
             sessionStateService = sessionStateService,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
+            sessionReadSignal = SessionReadSignal(),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
             pendingPromptRepository = pendingPromptRepository,

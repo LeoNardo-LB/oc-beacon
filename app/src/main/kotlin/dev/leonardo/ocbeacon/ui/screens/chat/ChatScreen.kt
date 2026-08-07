@@ -439,6 +439,8 @@ fun ChatScreen(
     DisposableEffect(viewModel.sessionId) {
         onDispose {
             viewModel.onSessionUnfocused()
+            // 离开会话时标记已读（打开期间到达的消息也算已读）
+            viewModel.markSessionRead()
         }
     }
 

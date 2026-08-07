@@ -1,6 +1,9 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
@@ -10,6 +13,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -34,14 +38,42 @@ internal fun Tag.displayName(): String = when (type) {
 }
 
 /**
- * 统一的 Tag 展示/交互 chip（全应用唯一形态）。
+ * 小徽标形态的 tag（会话行 / 详情对话框展示用）：无 chip 边框，浅色底 + tag 色文字/图标。
+ * 与 [TagChip]（交互式 FilterChip）区分——展示场景用小徽标，交互场景用 chip。
+ */
+@Composable
+fun TagBadge(tag: Tag) {
+    val tagColor = SessionCategoryStyle.color(tag.color)
+    Row(
+        modifier = Modifier
+            .background(tagColor.copy(alpha = AlphaTokens.SELECTED))
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Icon(
+            imageVector = SessionCategoryStyle.icon(tag.icon),
+            contentDescription = null,
+            modifier = Modifier.size(10.dp),
+            tint = tagColor,
+        )
+        Text(
+            text = tag.displayName(),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = tagColor,
+            maxLines = 1,
+        )
+    }
+}
+
+/**
+ * 统一的 Tag 展示/交互 chip（全应用唯一形态：搜索栏筛选 / 分配对话框 / 详情对话框）。
  *
  * 视觉规格：
  * - 未选中：tag 色浅底（[AlphaTokens.FAINT]）+ tag 色文字/图标 + tag 色半透明边框
  * - 选中：tag 色高饱和底（[AlphaTokens.HIGH]）+ 黑白对比文字 + ✓ + tag 色实体边框
  *
- * - [onClick] 为 null 时仅展示（会话行 / 详情对话框），点击无副作用；
- * - [compact] 为会话行迷你形态（矮高度 + 小字号 + 小图标），配合 marquee 循环滚动。
+ * [onClick] 为 null 时仅展示（详情对话框），点击无副作用。
  */
 @Composable
 fun TagChip(
@@ -49,24 +81,18 @@ fun TagChip(
     selected: Boolean,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
-    compact: Boolean = false,
 ) {
     val tagColor = SessionCategoryStyle.color(tag.color)
     val onColor = if (tagColor.luminance() > 0.5f) Color.Black else Color.White
-    val iconSize = if (compact) 12.dp else FilterChipDefaults.IconSize
 
     FilterChip(
         selected = selected,
         onClick = { onClick?.invoke() },
-        modifier = if (compact) modifier.height(26.dp) else modifier,
+        modifier = modifier,
         label = {
             Text(
                 text = tag.displayName(),
-                style = if (compact) {
-                    MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 12.sp)
-                } else {
-                    MaterialTheme.typography.labelMedium
-                },
+                style = MaterialTheme.typography.labelMedium,
                 color = if (selected) onColor else tagColor,
             )
         },
@@ -74,7 +100,7 @@ fun TagChip(
             Icon(
                 imageVector = if (selected) Icons.Filled.Done else SessionCategoryStyle.icon(tag.icon),
                 contentDescription = null,
-                modifier = Modifier.size(iconSize),
+                modifier = Modifier.size(FilterChipDefaults.IconSize),
                 tint = if (selected) onColor else tagColor,
             )
         },

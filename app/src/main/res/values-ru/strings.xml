@@ -612,4 +612,6 @@
     <string name="server_settings_config_update_failed">Не удалось обновить конфигурацию</string>
     <string name="server_settings_providers_load_failed">Не удалось загрузить провайдеров</string>
     <string name="a11y_icon_selected">Выбрано</string>
+    <string name="session_unread_indicator">Непрочитанные сообщения</string>
+    <string name="mark_all_read">Отметить все как прочитанные</string>
 </resources>

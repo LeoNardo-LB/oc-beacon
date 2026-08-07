@@ -1,0 +1,70 @@
+appId: dev.leonardo.ocbeacon.dev
+name: "Regression B - Unread chain: consume, clear, restart persist"
+tags:
+  - regression
+  - unread
+---
+# 场景 B：前提 = flow A 已跑完（turn 已结束，红点已出现）
+# 1) 再进会话消费红点 → 返回 → 红点应消失（markRead ts2 > turnEnd ts）
+# 2) 杀进程重启 → 回列表 → 红点应保持消失（DataStore 持久化，不回闪）
+
+- launchApp
+- extendedWaitUntil:
+    visible: "Test Server"
+    timeout: 15000
+- tapOn:
+    text: "Connect"
+    optional: true
+- extendedWaitUntil:
+    visible: "Connected"
+    timeout: 20000
+    optional: true
+
+- tapOn:
+    text: "Sessions"
+    index: 0
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 20000
+
+- tapOn: "D:/Develop/code/app/oc-beacon"
+- extendedWaitUntil:
+    visible: "sessions active"
+    timeout: 15000
+    optional: true
+
+# 进会话消费红点
+- tapOn: "${SESSION_NAME}"
+- extendedWaitUntil:
+    visible: "Ask a question"
+    timeout: 20000
+    optional: true
+- back
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 20000
+
+# 重启验证持久化
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Test Server"
+    timeout: 15000
+- tapOn:
+    text: "Connect"
+    optional: true
+- extendedWaitUntil:
+    visible: "Connected"
+    timeout: 20000
+    optional: true
+- tapOn:
+    text: "Sessions"
+    index: 0
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 20000
+- tapOn: "D:/Develop/code/app/oc-beacon"
+- extendedWaitUntil:
+    visible: "sessions active"
+    timeout: 15000
+    optional: true

@@ -601,4 +601,6 @@
     <string name="server_settings_config_update_failed">Échec de la mise à jour de la configuration</string>
     <string name="server_settings_providers_load_failed">Échec du chargement des fournisseurs</string>
     <string name="a11y_icon_selected">Sélectionné</string>
+    <string name="session_unread_indicator">Messages non lus</string>
+    <string name="mark_all_read">Tout marquer comme lu</string>
 </resources>

@@ -52,6 +52,7 @@ class EventDispatcherIntegrationTest {
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
+            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         )
     }
 

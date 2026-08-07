@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +29,8 @@ import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,12 +109,25 @@ internal fun SessionRow(
             is SessionStatus.Retry -> Icons.Outlined.ErrorOutline to MaterialTheme.colorScheme.error
             else -> Icons.Outlined.ChatBubbleOutline to MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
         }
-        Icon(
-            imageVector = statusIcon,
-            contentDescription = stringResource(R.string.a11y_icon_toggle_session),
-            modifier = Modifier.size(20.dp),
-            tint = statusIconColor,
-        )
+        // 状态图标 + 未读 Badge（Material3 BadgedBox：badge 自动定位图标右上角）
+        BadgedBox(
+            badge = {
+                if (item.hasUnread) {
+                    val unreadLabel = stringResource(R.string.session_unread_indicator)
+                    Badge(
+                        modifier = Modifier.semantics { contentDescription = unreadLabel },
+                        containerColor = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+        ) {
+            Icon(
+                imageVector = statusIcon,
+                contentDescription = stringResource(R.string.a11y_icon_toggle_session),
+                modifier = Modifier.size(20.dp),
+                tint = statusIconColor,
+            )
+        }
         Spacer(modifier = Modifier.width(8.dp))
 
         Column(modifier = Modifier.weight(1f)) {
@@ -132,6 +151,7 @@ internal fun SessionRow(
             }
 
             Spacer(modifier = Modifier.height(1.dp))
+            // 第二行（摘要行）：内容自适应高度
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -199,10 +219,11 @@ internal fun SessionRow(
                     }
                 }
 
-                // 标签区（第三行右对齐；多标签横排，内容超出可用宽度时循环滚动播放）
+                // 标签区（第三行右对齐；多标签横排，内容超出可用宽度时循环滚动播放）。
+                // 容器高度自动分配（内容驱动），tag 小徽章高度跟随；无 tag 时不渲染该行。
                 if (item.tags.isNotEmpty()) {
                     Box(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.CenterEnd,
                     ) {
                         TagChipsRow(tags = item.tags)
@@ -292,11 +313,11 @@ private fun SessionDetailsDialog(
                     Spacer(Modifier.height(12.dp))
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         item.tags.forEach { tag ->
-                            TagChip(tag = tag, selected = false, onClick = null)
+                            TagBadge(tag)
                         }
                     }
                 }
@@ -403,7 +424,7 @@ private fun TagChipsRow(tags: List<Tag>, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         tags.forEach { tag ->
-            TagChip(tag = tag, selected = false, onClick = null, compact = true)
+            TagBadge(tag)
         }
     }
 }

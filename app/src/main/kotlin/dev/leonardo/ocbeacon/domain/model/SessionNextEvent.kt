@@ -202,7 +202,12 @@ sealed class SessionNextEvent {
     data class StepEnded(
         @SerialName("sessionID") override val sessionId: String,
         @SerialName("messageID") val messageId: String,
-        val step: Int
+        val step: Int,
+        /** 结束原因：stop（正常停止，turn 结束）/ tool-calls（调用工具，turn 继续）/ length / content-filter 等。 */
+        val finish: String = "",
+        /** 服务器事件时间戳（epoch ms）——用服务器时刻记录 turn 结束，避免客户端处理延迟
+         * 造成的"退出后 step.ended 才到达 → 红点误报"（2026-08-07）。 */
+        @SerialName("timestamp") val timestamp: Long = 0,
     ) : SessionNextEvent()
 
     @Serializable

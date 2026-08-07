@@ -619,4 +619,6 @@
     <string name="server_settings_config_update_failed">فشل تحديث الإعدادات</string>
     <string name="server_settings_providers_load_failed">تعذر تحميل الموفرين</string>
     <string name="a11y_icon_selected">محدد</string>
+    <string name="session_unread_indicator">رسائل غير مقروءة</string>
+    <string name="mark_all_read">تحديد الكل كمقروء</string>
 </resources>

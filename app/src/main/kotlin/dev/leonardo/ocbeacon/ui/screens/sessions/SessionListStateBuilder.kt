@@ -8,9 +8,42 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.buildTreeNodes
 
 /**
+ * 合并持久化已读时间与内存即时已读信号（取每会话较大值）。
+ * 退出会话瞬间 DataStore 写入未完成时，内存信号先生效——消除红点闪烁。
+ */
+internal fun mergeReadTimes(
+    persisted: Map<String, Long>,
+    inMemory: Map<String, Long>,
+): Map<String, Long> = (persisted.keys + inMemory.keys).associateWith {
+    maxOf(persisted[it] ?: 0L, inMemory[it] ?: 0L)
+}
+
+/**
+ * 未读判定：会话存在完成回复时间且晚于 max(最后已读时间, 一键已读时间, 未读基线)。
+ * 纯函数，供 RECENT 视图与 FOLDER 树共用。
+ */
+internal fun isUnread(
+    sessionId: String,
+    lastReplyTime: Map<String, Long>,
+    readTimes: Map<String, Long>,
+    unreadBaseline: Long = 0L,
+    allReadAt: Long = 0L,
+): Boolean {
+    val last = lastReplyTime[sessionId] ?: return false
+    return last > maxOf(readTimes[sessionId] ?: 0L, unreadBaseline, allReadAt)
+}
+
+/**
  * 构建 [SessionListUiState] 的纯函数——从 [SessionListViewModel.uiState] combine 管线提取。
  *
  * 保持与原内联逻辑完全一致：会话过滤、搜索、分类过滤、树节点构建。
+ *
+ * ⚠️ values 索引约定（与 SessionListViewModel.combine 参数顺序一一对应）：
+ *   0 sessions · 1 statuses · 2 serverSessions · 3 lastUserMessageTime · 4 isLoading ·
+ *   5 error · 6 projects(未用) · 7 expandedPaths · 8 selectedIds · 9 baseDirectory ·
+ *   10 isRefreshing · 11 lastToggledDirectory · 12 searchQuery · 13 viewMode ·
+ *   14 categoryAssignments · 15 categoryFilterIds · 16 sessionTags · 17 favoritesOnly ·
+ *   18 lastReplyTime · 19 readTimes(persisted) · 20 unreadBaseline · 21 justRead(内存) · 22 allReadAt
  */
 @Suppress("UNCHECKED_CAST")
 internal fun buildSessionListUiState(
@@ -33,9 +66,16 @@ internal fun buildSessionListUiState(
     val searchQuery = values[12] as String?
     val viewMode = values[13] as SessionViewMode
     val categoryAssignments = values[14] as Map<String, List<String>>
-    val categoryFilterId = values[15] as String?
+    val categoryFilterIds = values[15] as Set<String>
     val categoriesList = values[16] as List<Tag>
     val favoritesOnly = values[17] as Boolean
+    val lastReplyTime = values[18] as Map<String, Long>
+    val readTimes = mergeReadTimes(
+        values[19] as Map<String, Long>,
+        values[21] as Map<String, Long>,
+    )
+    val unreadBaseline = values[20] as Long
+    val allReadAt = values[22] as Long
 
     val serverSessionIds = serverSessionMap[serverId].orEmpty()
 
@@ -64,10 +104,14 @@ internal fun buildSessionListUiState(
         baseFilteredSessions
     }
 
-    val categoryFilteredSessions = if (categoryFilterId != null) {
-        searchedSessions.filter { categoryFilterId in (categoryAssignments[it.id] ?: emptyList()) }
-    } else {
+    // 多选分类过滤（AND 语义）：会话必须包含所有选中的 tag；未选任何 tag 时不过滤
+    val categoryFilteredSessions = if (categoryFilterIds.isEmpty()) {
         searchedSessions
+    } else {
+        searchedSessions.filter { session ->
+            val sessionTags = categoryAssignments[session.id].orEmpty()
+            categoryFilterIds.all { it in sessionTags }
+        }
     }
 
     // 仅收藏筛选：从统一分配 map 派生内置收藏标签（builtin:favorite）的会话
@@ -95,12 +139,13 @@ internal fun buildSessionListUiState(
                     session = session,
                     status = statuses[session.id] ?: SessionStatus.Idle,
                     hasDraft = session.id in draftRepository.getDraftSessionIds(),
-                    tags = resolvedTags[session.id].orEmpty()
+                    tags = resolvedTags[session.id].orEmpty(),
+                    hasUnread = isUnread(session.id, lastReplyTime, readTimes, unreadBaseline, allReadAt)
                 )
             )
         }
     } else {
-        buildTreeNodes(favoritesFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), resolvedTags)
+        buildTreeNodes(favoritesFilteredSessions, expandedPaths, baseDirectory, statuses, draftRepository.getDraftSessionIds(), resolvedTags, lastReplyTime, readTimes, unreadBaseline, allReadAt)
     }
 
     val prefillDirectory = if (lastToggledDirectory != null && lastToggledDirectory in expandedPaths)

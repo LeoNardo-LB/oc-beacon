@@ -109,6 +109,7 @@ class SessionListViewModelSearchTest {
             getSettingsFlowUseCase = mockk(relaxed = true),
             settingsRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),
+            sessionReadSignal = SessionReadSignal(),
         )
     }
 }

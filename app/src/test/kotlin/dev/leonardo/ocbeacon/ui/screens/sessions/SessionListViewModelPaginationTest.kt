@@ -106,6 +106,7 @@ class SessionListViewModelPaginationTest {
             draftRepository = mockk(relaxed = true),
             mcpRepository = mockk(relaxed = true),
             scrollSignal = SessionScrollSignal(),
+            sessionReadSignal = SessionReadSignal(),
             getSettingsFlowUseCase = mockk(relaxed = true),
             settingsRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),

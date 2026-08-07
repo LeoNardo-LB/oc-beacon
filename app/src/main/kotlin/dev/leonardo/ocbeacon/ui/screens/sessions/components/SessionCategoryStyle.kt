@@ -2,6 +2,13 @@ package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.DesktopWindows
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.BugReport
@@ -29,7 +36,8 @@ object SessionCategoryStyle {
 
     /** 所有可选的图标键，按选择器显示顺序排列。 */
     val iconKeys: List<String> = listOf(
-        "folder", "code", "terminal", "bug", "build", "science", "lightbulb", "star", "bookmark", "label"
+        "label", "code", "terminal", "bug", "build", "science", "lightbulb", "bookmark",
+        "menu_book", "desktop_windows", "language", "email", "storage", "description", "music_note"
     )
 
     /** 将颜色键解析为 [Color]。未知键回退到蓝色。 */
@@ -44,18 +52,27 @@ object SessionCategoryStyle {
         else -> Blue
     }
 
-    /** 将图标键解析为 [ImageVector]。未知键回退到 folder。 */
+    /** 将图标键解析为 [ImageVector]。未知键（含历史数据遗留的 folder/star）回退到 label。 */
     fun icon(key: String): ImageVector = when (key) {
+        "label" -> Icons.AutoMirrored.Filled.Label
         "code" -> Icons.Filled.Code
         "terminal" -> Icons.Filled.Terminal
         "bug" -> Icons.Filled.BugReport
         "build" -> Icons.Filled.Build
         "science" -> Icons.Filled.Science
         "lightbulb" -> Icons.Filled.Lightbulb
-        "star" -> Icons.Filled.Star
         "bookmark" -> Icons.Filled.Bookmark
-        "label" -> Icons.AutoMirrored.Filled.Label
-        else -> Icons.Filled.Folder
+        "menu_book" -> Icons.Filled.MenuBook
+        "desktop_windows" -> Icons.Filled.DesktopWindows
+        "language" -> Icons.Filled.Language
+        "email" -> Icons.Filled.Email
+        "storage" -> Icons.Filled.Storage
+        "description" -> Icons.Filled.Description
+        "music_note" -> Icons.Filled.MusicNote
+        // 历史数据兼容（已从选择器移除，但已存 tag 的 key 可能仍是这两个）
+        "folder" -> Icons.Filled.Folder
+        "star" -> Icons.Filled.Star
+        else -> Icons.AutoMirrored.Filled.Label
     }
 
     // Material 400 色调 — 鲜艳但同时在浅/深背景上都可读。

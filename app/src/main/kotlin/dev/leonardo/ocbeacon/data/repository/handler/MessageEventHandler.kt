@@ -166,6 +166,7 @@ class MessageEventHandler @Inject constructor() {
         }
         if (event.info is Message.Assistant) {
             assistantMessageIds.add(event.info.id)
+            AppLogger.d("UnreadDiag", "[MsgUpdated] sid=${sessionId.take(12)} msg=${event.info.id.take(12)} completed=${event.info.time.completed}")
         }
         // 若尚无 part，则从摘要文本为用户消息播种 part。
         val info = event.info
@@ -521,6 +522,7 @@ class MessageEventHandler @Inject constructor() {
                 if (msg is Message.Assistant && msg.time.completed == null &&
                     (messageId.isEmpty() || msg.id == messageId)
                 ) {
+                    AppLogger.i("UnreadDiag", "[markIdle] session=${sessionId.take(12)} msg=${msg.id.take(12)} -> completed")
                     msg.copy(time = msg.time.copy(completed = now))
                 } else {
                     msg

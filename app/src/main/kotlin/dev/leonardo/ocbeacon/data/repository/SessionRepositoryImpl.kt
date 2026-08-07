@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,7 +31,8 @@ class SessionRepositoryImpl @Inject constructor(
     private val sessionApi: SessionApi,
     private val messageApi: MessageApi,
     private val eventDispatcher: EventDispatcher,
-    private val serverRepo: ServerDataStore
+    private val serverRepo: ServerDataStore,
+    private val settingsDataStore: SettingsDataStore,
 ) : SessionRepository {
 
     // ============ 状态观察 ============
@@ -71,6 +73,10 @@ class SessionRepositoryImpl @Inject constructor(
 
     override fun getLastUserMessageTimeFlow(): Flow<Map<String, Long>> =
         eventDispatcher.lastUserMessageTime
+
+    override fun getLastReplyTimeFlow(): Flow<Map<String, Long>> =
+        settingsDataStore.lastReplyTimes()
+            .onEach { AppLogger.d("UnreadDiag", "[read] ${it.size} entries: ${it.entries.take(3)}") }
 
     override suspend fun listSessions(
         serverId: String,

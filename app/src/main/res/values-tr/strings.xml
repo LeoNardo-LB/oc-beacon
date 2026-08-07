@@ -603,4 +603,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_config_update_failed">Yapılandırma güncellenemedi</string>
     <string name="server_settings_providers_load_failed">Sağlayıcılar yüklenemedi</string>
     <string name="a11y_icon_selected">Seçildi</string>
+    <string name="session_unread_indicator">Okunmamış mesajlar</string>
+    <string name="mark_all_read">Tümünü okundu işaretle</string>
 </resources>

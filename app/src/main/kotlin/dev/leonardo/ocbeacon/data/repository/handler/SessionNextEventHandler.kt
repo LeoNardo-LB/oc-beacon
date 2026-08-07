@@ -126,8 +126,8 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
             is SessionNextEvent.ToolFailed -> handleToolComplete(event.sessionId, event.callId)
 
             is SessionNextEvent.StepStarted -> handleStepStarted(event)
-            is SessionNextEvent.StepEnded -> handleStepEnded(event.sessionId)
-            is SessionNextEvent.StepFailed -> handleStepEnded(event.sessionId)
+            is SessionNextEvent.StepEnded -> handleStepEnded(event)
+            is SessionNextEvent.StepFailed -> { _stepProgress.update { it - event.sessionId } }
 
             is SessionNextEvent.ShellStarted -> handleShellStarted(event)
             is SessionNextEvent.ShellEnded -> handleShellEnded(event.sessionId)
@@ -193,6 +193,13 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         }
     }
 
+    /**
+     * turn 结束回调（step.ended 且 finish 非 tool-calls）：参数为 (sessionId, assistantMessageId, 服务器时间戳)。
+     * 由 EventDispatcher 在 init 接线——用于未读提示的 turn 级判定
+     * （红点绑定整个回复结束，而非单个 step/工具调用）。
+     */
+    var onTurnEnded: ((sessionId: String, messageId: String, timestamp: Long) -> Unit)? = null
+
     private fun handleStepStarted(event: SessionNextEvent.StepStarted) {
         _stepProgress.update { it + (event.sessionId to StepProgressInfo(
             step = event.step,
@@ -201,8 +208,13 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         )) }
     }
 
-    private fun handleStepEnded(sessionId: String) {
-        _stepProgress.update { it - sessionId }
+    private fun handleStepEnded(event: SessionNextEvent.StepEnded) {
+        _stepProgress.update { it - event.sessionId }
+        // finish 为空（旧版服务器/字段缺失）时也视为 turn 结束（保守兜底）；
+        // finish="tool-calls" 表示调用工具后 turn 继续，不算结束。
+        if (event.finish != "tool-calls") {
+            onTurnEnded?.invoke(event.sessionId, event.messageId, event.timestamp)
+        }
     }
 
     private fun handleShellStarted(event: SessionNextEvent.ShellStarted) {

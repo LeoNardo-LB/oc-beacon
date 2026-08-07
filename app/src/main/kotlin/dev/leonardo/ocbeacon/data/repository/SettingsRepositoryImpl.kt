@@ -54,6 +54,23 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun toggleFavorite(serverId: String, sessionId: String) =
         dataRepo.toggleFavorite(serverId, sessionId)
 
+    // ============ 会话已读（未读提示） ============
+
+    override fun sessionReadTimes(serverId: String): Flow<Map<String, Long>> =
+        dataRepo.sessionReadTimes(serverId)
+
+    override suspend fun ensureUnreadBaseline(serverId: String): Long =
+        dataRepo.ensureUnreadBaseline(serverId)
+
+    override fun allReadAt(serverId: String): Flow<Long> =
+        dataRepo.allReadAt(serverId)
+
+    override suspend fun markAllSessionsRead(serverId: String) =
+        dataRepo.markAllSessionsRead(serverId)
+
+    override suspend fun markSessionRead(serverId: String, sessionId: String) =
+        dataRepo.markSessionRead(serverId, sessionId)
+
     override suspend fun updateSettings(settings: AppSettings): Result<Unit> = runCatching {
         dataRepo.setAppLanguage(settings.appLanguage)
         dataRepo.setAppTheme(settings.appTheme)

@@ -20,6 +20,7 @@ import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.*
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
+import dev.leonardo.ocbeacon.ui.screens.sessions.SessionReadSignal
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.DefaultToolCardResolver
 import io.mockk.*
@@ -220,6 +221,7 @@ class ChatViewModelStreamingTest {
             sessionStateService = sessionStateService,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
+            sessionReadSignal = SessionReadSignal(),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
             pendingPromptRepository = pendingPromptRepository,
