@@ -66,9 +66,29 @@ class SettingsDataStoreReadTimesTest {
     }
 
     @Test
+    fun `markSessionRead smaller value does not overwrite`() = runTest {
+        val store = newStore()
+        store.markSessionRead("svr1", "ses1", 9000L)
+        // 双 VM 乱序写入更小的 completed：maxOf 单调保护，不回退已读位置
+        store.markSessionRead("svr1", "ses1", 5000L)
+
+        assertEquals(mapOf("ses1" to 9000L), store.sessionReadTimes("svr1").first())
+    }
+
+    @Test
     fun `markAllSessionsRead then read back`() = runTest {
         val store = newStore()
         store.markAllSessionsRead("svr1", 8000L)
+
+        assertEquals(8000L, store.allReadAt("svr1").first())
+    }
+
+    @Test
+    fun `markAllSessionsRead smaller value does not overwrite`() = runTest {
+        val store = newStore()
+        store.markAllSessionsRead("svr1", 8000L)
+        // 全量重同步旧数据/服务器时钟异常导致 globalMax 变小：maxOf 单调保护，不回退 allReadAt
+        store.markAllSessionsRead("svr1", 3000L)
 
         assertEquals(8000L, store.allReadAt("svr1").first())
     }

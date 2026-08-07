@@ -136,6 +136,12 @@ class SessionListViewModel @Inject constructor(
     /** 待标记已读的会话（点击进入时记录；返回列表时组合阶段消费，渲染前同步生效）。 */
     private val _pendingReadSessionId = MutableStateFlow<String?>(null)
 
+    /** sessionId → 最后完成消息 completed 的内存快照。
+     * Eagerly：consumePendingReadSessionId 是事件驱动、可能在无 UI 订阅时调用，
+     * 快照必须随时可用（WhileSubscribed5s 会在无订阅时停止上游）。 */
+    private val lastCompletedReplyTime = sessionRepository.getLastCompletedReplyTimeFlow()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
     /** 点击会话进入时记录——返回列表时立即标记已读（消除 popBackStack 1 帧红点）。 */
     fun onSessionOpened(sessionId: String) {
         _pendingReadSessionId.value = sessionId
@@ -143,16 +149,18 @@ class SessionListViewModel @Inject constructor(
 
     /**
      * 消费待标记会话并同步标记已读（列表组合阶段调用）。
-     * 同步更新内存信号 → combine（Main.immediate）在渲染前完成重算，
-     * 帧 1 即无红点；DataStore 持久化异步执行。
+     * 同步读内存快照 lastCompletedReplyTime.value[sid]（无 DataStore 文件 I/O）→
+     * 同步 sessionReadSignal.markRead（内存信号即时生效）→ combine（Main.immediate）
+     * 在渲染前完成重算，帧 1 即无红点；DataStore 持久化在 viewModelScope.launch 中异步执行。
+     * 快照无值（该会话无 completed 记录）时跳过，不写客户端 now。
      */
     fun consumePendingReadSessionId(): String? {
         val sid = _pendingReadSessionId.value ?: return null
         _pendingReadSessionId.value = null
-        viewModelScope.launch {
-            val ts = sessionRepository.getLastCompletedReplyTimeFlow().first()[sid]
-            if (ts != null) {
-                sessionReadSignal.markRead(sid, ts)
+        val ts = lastCompletedReplyTime.value[sid]
+        if (ts != null) {
+            sessionReadSignal.markRead(sid, ts)
+            viewModelScope.launch {
                 settingsRepository.markSessionRead(serverId, sid, ts)
             }
         }
