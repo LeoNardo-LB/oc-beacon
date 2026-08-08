@@ -43,7 +43,7 @@ class MessagePaginationUseCase @Inject constructor(
         }
     }
 
-    /** 翻页加载更早：before 游标 = 本地最旧消息 ID。 */
+    /** 翻页加载更早：before 游标 = 本地最旧消息 ID（编码后传给服务端）。 */
     suspend fun loadOlderMessages(
         serverId: String,
         sessionId: String,
@@ -51,7 +51,12 @@ class MessagePaginationUseCase @Inject constructor(
         beforeId: String?,
     ): Result<List<MessageWithParts>> {
         return runCatching {
-            val page = sessionRepository.listMessages(serverId, sessionId, limit, before = beforeId)
+            // before 游标需要 base64url 编码（裸 ID 服务端不识别）
+            val before = beforeId?.let { id ->
+                val created = messageStore.messageCreatedAt(id)
+                if (created != null) CursorCodec.encode(id, created) else null
+            }
+            val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
             messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
             page.messages

@@ -66,7 +66,9 @@ class MessagePaginationUseCaseTest {
     @Test
     fun loadOlderMessages_usesBeforeCursor() = runTest {
         val page = MessagePage(messages = listOf(msg("msg_0", 50)), nextCursor = null)
-        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, "msg_1") } returns Result.success(page)
+        coEvery { messageStore.messageCreatedAt("msg_1") } returns 100L
+        val expectedBefore = CursorCodec.encode("msg_1", 100L)
+        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, expectedBefore) } returns Result.success(page)
 
         val result = useCase.loadOlderMessages("srv", "ses_1", 50, "msg_1")
 
