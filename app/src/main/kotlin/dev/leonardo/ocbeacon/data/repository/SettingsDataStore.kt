@@ -7,11 +7,21 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dev.leonardo.ocbeacon.domain.model.AppSettings
+import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
+import dev.leonardo.ocbeacon.domain.model.Tag
+import dev.leonardo.ocbeacon.domain.model.TagType
+import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -69,6 +79,45 @@ class SettingsDataStore @Inject constructor(
             return context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
                 .getString(LOCALE_PREFS_KEY, "") ?: ""
         }
+
+        // ============ 已读状态 keys / 序列化 ============
+
+        private const val SESSION_READ_TIMES_PREFIX = "session_read_times_"
+        private const val ALL_READ_PREFIX = "all_read_"
+        private const val UNREAD_STATE_V2_MIGRATED_KEY = "unread_state_v2_migrated"
+        private val LAST_REPLY_TIME_KEY = stringPreferencesKey("session_last_reply_time")
+
+        private val readTimesJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        private val readTimesSerializer = MapSerializer(String.serializer(), Long.serializer())
+
+        private fun readTimesKey(serverId: String) = stringPreferencesKey(SESSION_READ_TIMES_PREFIX + serverId)
+        private fun allReadKey(serverId: String) = longPreferencesKey(ALL_READ_PREFIX + serverId)
+
+        // ============ 会话标签 keys / 序列化 ============
+
+        private const val TAG_DIAG = "TagDiag"
+        private const val SESSION_TAGS_PREFIX = "session_tags_"
+        private const val SESSION_TAG_ASSIGNMENTS_PREFIX = "session_tag_assignments_"
+        /** 旧收藏 key（迁移源）—— SettingsDataStoreFavorites.kt 历史格式：stringSetPreferencesKey("favorite_sessions_" + serverId)。 */
+        private const val FAVORITE_SESSIONS_PREFIX = "favorite_sessions_"
+
+        private val tagJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        private val tagListSerializer = ListSerializer(Tag.serializer())
+        private val assignmentMapSerializer = MapSerializer(String.serializer(), ListSerializer(String.serializer()))
+
+        private fun tagsKey(serverId: String) = stringPreferencesKey(SESSION_TAGS_PREFIX + serverId)
+        private fun assignmentsKey(serverId: String) = stringPreferencesKey(SESSION_TAG_ASSIGNMENTS_PREFIX + serverId)
+        private fun legacyFavoriteKey(serverId: String) = stringSetPreferencesKey(FAVORITE_SESSIONS_PREFIX + serverId)
+
+        /** 内置收藏标签（每服务器固定一个，不可删改）。 */
+        fun builtinFavoriteTag(): Tag = Tag(
+            id = FAVORITE_TAG_ID,
+            name = "收藏",
+            color = "amber",
+            icon = "star",
+            type = TagType.FAVORITE,
+            createdAt = 0,
+        )
     }
 
     // ============ 内部辅助 ============
@@ -276,4 +325,201 @@ class SettingsDataStore @Inject constructor(
             terminalFontSize = (prefs[TERMINAL_FONT_SIZE_KEY] ?: 13f).coerceIn(6f, 20f)
         )
     }
+
+    // ============ 已读状态 ============
+
+    /** 该服务器的"一键已读"时间戳（服务器 completed）：此前的所有回复都算已读。无记录为 0。 */
+    fun allReadAt(serverId: String): Flow<Long> =
+        dataStore.data.map { prefs -> prefs[allReadKey(serverId)] ?: 0L }
+
+    /** 一键已读：记录全局已读位置（已知会话最后完成消息的 completed，服务器时刻），消除所有小红点。
+     * maxOf 单调保护：全量重同步旧数据/服务器时钟异常导致 globalMax 变小时不回退 allReadAt。 */
+    suspend fun markAllSessionsRead(serverId: String, globalMax: Long) {
+        dataStore.edit { prefs ->
+            prefs[allReadKey(serverId)] = maxOf(prefs[allReadKey(serverId)] ?: 0L, globalMax)
+        }
+    }
+
+    /** 该服务器各会话的最后已读时间（sessionId → 最后消费的完成消息 completed），用于未读提示判定。 */
+    fun sessionReadTimes(serverId: String): Flow<Map<String, Long>> =
+        dataStore.data.map { prefs ->
+            val json = prefs[readTimesKey(serverId)]
+            if (json.isNullOrBlank()) emptyMap()
+            else runCatching { readTimesJson.decodeFromString(readTimesSerializer, json) }.getOrDefault(emptyMap())
+        }
+
+    /** 将会话标记为已读（记录最后消费的完成消息 completed，服务器时刻）。
+     * maxOf 单调保护：双 VM 乱序写入时已读位置不回退。 */
+    suspend fun markSessionRead(serverId: String, sessionId: String, completedTs: Long) {
+        dataStore.edit { prefs ->
+            val current = prefs[readTimesKey(serverId)]?.let {
+                runCatching { readTimesJson.decodeFromString(readTimesSerializer, it) }.getOrDefault(emptyMap())
+            } ?: emptyMap()
+            prefs[readTimesKey(serverId)] = readTimesJson.encodeToString(
+                readTimesSerializer,
+                current + (sessionId to maxOf(current[sessionId] ?: 0L, completedTs))
+            )
+        }
+    }
+
+    /** 最后完成回复时间（持久化）：sessionId → 最后完成 assistant 消息的 completed（**服务器时刻**）。
+     *  EventDispatcher 后台收集，应用重启后未读红点可恢复。 */
+    fun lastCompletedReplyTimes(): Flow<Map<String, Long>> =
+        dataStore.data.map { prefs ->
+            val json = prefs[LAST_REPLY_TIME_KEY]
+            if (json.isNullOrBlank()) emptyMap()
+            else runCatching { readTimesJson.decodeFromString(readTimesSerializer, json) }.getOrDefault(emptyMap())
+        }
+
+    /** 全量保存最后完成回复时间 map（值域：服务器 completed）。 */
+    suspend fun saveLastCompletedReplyTimes(times: Map<String, Long>) {
+        dataStore.edit { prefs ->
+            prefs[LAST_REPLY_TIME_KEY] = readTimesJson.encodeToString(readTimesSerializer, times)
+        }
+        AppLogger.d("UnreadDiag", "[persist] saved ${times.size} entries: ${times.entries.take(3)}")
+    }
+
+    /**
+     * 一次性迁移：清空已读标记（readTimes/allReadAt/旧 lastReplyTime）——值域从客户端 now
+     * 变为服务器 completed，旧值不可比。幂等。
+     */
+    suspend fun runUnreadStateV2Migration() {
+        dataStore.edit { prefs ->
+            if (prefs[booleanPreferencesKey(UNREAD_STATE_V2_MIGRATED_KEY)] == true) return@edit
+            val keys = prefs.asMap().keys.filter {
+                it.name.startsWith(SESSION_READ_TIMES_PREFIX) ||
+                    it.name.startsWith(ALL_READ_PREFIX) ||
+                    it == LAST_REPLY_TIME_KEY // 旧客户端 now 域值不可比，迁移时清空（之后复用存服务器域 maxCompleted）
+            }
+            keys.forEach { prefs.remove(it) }
+            prefs[booleanPreferencesKey(UNREAD_STATE_V2_MIGRATED_KEY)] = true
+        }
+    }
+
+    // ============ 会话标签 ============
+
+    /** 该服务器的标签集（不含内置收藏标签）。 */
+    fun sessionTags(serverId: String): Flow<List<Tag>> =
+        dataStore.data.map { prefs ->
+            val json = prefs[tagsKey(serverId)]
+            val tags = if (json.isNullOrBlank()) emptyList()
+            else runCatching { tagJson.decodeFromString(tagListSerializer, json) }.getOrDefault(emptyList())
+            tags.filter { it.type != TagType.FAVORITE }
+        }
+
+    /** 统一分配 map（sessionId → tagIds，含内置收藏标签）。 */
+    fun sessionTagAssignments(serverId: String): Flow<Map<String, List<String>>> =
+        dataStore.data.map { prefs ->
+            val json = prefs[assignmentsKey(serverId)]
+            if (json.isNullOrBlank()) emptyMap()
+            else runCatching { tagJson.decodeFromString(assignmentMapSerializer, json) }.getOrDefault(emptyMap())
+        }
+
+    suspend fun addSessionTag(serverId: String, tag: Tag) {
+        dataStore.edit { prefs ->
+            val current = prefs[tagsKey(serverId)]?.let {
+                runCatching { tagJson.decodeFromString(tagListSerializer, it) }.getOrDefault(emptyList())
+            } ?: emptyList()
+            prefs[tagsKey(serverId)] = tagJson.encodeToString(tagListSerializer, current.filterNot { it.id == tag.id } + tag)
+        }
+    }
+
+    suspend fun updateSessionTag(serverId: String, tag: Tag) = addSessionTag(serverId, tag)
+
+    suspend fun removeSessionTag(serverId: String, tagId: String) {
+        dataStore.edit { prefs ->
+            val current = prefs[tagsKey(serverId)]?.let {
+                runCatching { tagJson.decodeFromString(tagListSerializer, it) }.getOrDefault(emptyList())
+            } ?: emptyList()
+            prefs[tagsKey(serverId)] = tagJson.encodeToString(tagListSerializer, current.filterNot { it.id == tagId })
+            // 同一 edit：清理所有会话的该标签分配（原子）
+            val assignments = prefs[assignmentsKey(serverId)]?.let {
+                runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
+            } ?: emptyMap()
+            if (assignments.values.any { tagId in it }) {
+                prefs[assignmentsKey(serverId)] = tagJson.encodeToString(
+                    assignmentMapSerializer,
+                    assignments.mapValues { (_, ids) -> ids.filterNot { it == tagId } }
+                )
+            }
+        }
+        AppLogger.d(TAG_DIAG, "[removeTag] done server=$serverId tag=$tagId")
+    }
+
+    suspend fun setSessionTags(serverId: String, sessionId: String, tagIds: Set<String>) {
+        dataStore.edit { prefs ->
+            val assignments = prefs[assignmentsKey(serverId)]?.let {
+                runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
+            } ?: emptyMap()
+            val current = assignments[sessionId].orEmpty().filter { it == FAVORITE_TAG_ID } // 保留收藏，只替换 USER 标签
+            prefs[assignmentsKey(serverId)] = tagJson.encodeToString(
+                assignmentMapSerializer,
+                assignments + (sessionId to (current + tagIds).distinct())
+            )
+        }
+        AppLogger.d(TAG_DIAG, "[setTags] done server=$serverId session=$sessionId tags=$tagIds")
+    }
+
+    suspend fun removeSessionTagAssignment(serverId: String, sessionId: String, tagId: String) {
+        dataStore.edit { prefs ->
+            val assignments = prefs[assignmentsKey(serverId)]?.let {
+                runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
+            } ?: emptyMap()
+            val updated = assignments[sessionId].orEmpty().filterNot { it == tagId }
+            val next = if (updated.isEmpty()) assignments - sessionId else assignments + (sessionId to updated)
+            prefs[assignmentsKey(serverId)] = tagJson.encodeToString(assignmentMapSerializer, next)
+        }
+    }
+
+    suspend fun toggleFavorite(serverId: String, sessionId: String) {
+        dataStore.edit { prefs ->
+            val assignments = prefs[assignmentsKey(serverId)]?.let {
+                runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
+            } ?: emptyMap()
+            val current = assignments[sessionId].orEmpty()
+            val updated = if (FAVORITE_TAG_ID in current) {
+                current.filterNot { it == FAVORITE_TAG_ID }
+            } else {
+                current + FAVORITE_TAG_ID
+            }
+            val next = if (updated.isEmpty()) assignments - sessionId else assignments + (sessionId to updated)
+            prefs[assignmentsKey(serverId)] = tagJson.encodeToString(assignmentMapSerializer, next)
+        }
+    }
+
+    /**
+     * 收藏会话 id（从统一分配 map 派生）。
+     * 首次读取时若统一 map 为空但存在旧 `favorite_sessions_*` stringSet 数据，则一次性迁移。
+     *
+     * 替换原 [SettingsDataStoreFavorites] 中的旧实现（直接读 stringSet）——
+     * 新模型以 FAVORITE_TAG_ID 作为内置标签写入统一分配 map，收藏与用户标签共用一套数据。
+     */
+    fun favoriteSessionIds(serverId: String): Flow<Set<String>> =
+        dataStore.data.map { prefs ->
+            val assignments = prefs[assignmentsKey(serverId)]?.let {
+                runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
+            } ?: emptyMap()
+            val fromAssignments = assignments.filterValues { FAVORITE_TAG_ID in it }.keys
+            // 迁移：旧独立收藏 key（stringSet）→ 内置标签分配（一次性，写入后下次直接走 assignments）
+            val legacy = prefs[legacyFavoriteKey(serverId)]
+            if (legacy != null && fromAssignments.isEmpty() && legacy.isNotEmpty()) {
+                dataStore.edit { p ->
+                    val cur = p[assignmentsKey(serverId)]?.let {
+                        runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
+                    } ?: emptyMap()
+                    p[assignmentsKey(serverId)] = tagJson.encodeToString(
+                        assignmentMapSerializer,
+                        legacy.fold(cur) { acc, sid -> acc + (sid to (acc[sid].orEmpty() + FAVORITE_TAG_ID).distinct()) }
+                    )
+                    // 迁移成功后删源 key，保证幂等：否则用户取消全部收藏后 fromAssignments 重新变空，
+                    // 迁移条件再次满足会导致已取消的收藏被重新迁移"复活"（见 SettingsDataStoreTagsTest
+                    // `favoriteSessionIds migrate then unfavorite all does not resurrect`）。
+                    p.remove(legacyFavoriteKey(serverId))
+                }
+                AppLogger.d(TAG_DIAG, "[favoriteMigrate] server=$serverId count=${legacy.size}")
+                legacy
+            } else {
+                fromAssignments
+            }
+        }
 }

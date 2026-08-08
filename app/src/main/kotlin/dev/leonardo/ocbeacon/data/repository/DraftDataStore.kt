@@ -1,34 +1,35 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import dev.leonardo.ocbeacon.logging.AppLogger
-
-import android.content.Context
-import dagger.hilt.android.qualifiers.ApplicationContext
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import dev.leonardo.ocbeacon.domain.model.Draft
+import dev.leonardo.ocbeacon.logging.AppLogger
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "DraftDataStore"
-private const val DRAFTS_FILE = "session_drafts.json"
 
 @Singleton
 class DraftDataStore @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    private val dataStore: DataStore<Preferences>,
 ) : dev.leonardo.ocbeacon.domain.repository.DraftRepository {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val file: File get() = File(context.filesDir, DRAFTS_FILE)
+    private val draftsKey = stringPreferencesKey("session_drafts")
 
-    /** 内存缓存，延迟加载。 */
+    /** 内存缓存，延迟加载（同步读——DataStore 首次读是 IO；runBlocking 一次性成本可接受）。 */
     private var drafts: MutableMap<String, Draft>? = null
 
     private fun ensureLoaded(): MutableMap<String, Draft> {
         drafts?.let { return it }
         val loaded = try {
-            val content = file.takeIf { it.exists() }?.readText()
+            val content = runBlocking { dataStore.data.first() }[draftsKey]
             if (content.isNullOrBlank()) {
                 mutableMapOf()
             } else {
@@ -69,7 +70,11 @@ class DraftDataStore @Inject constructor(
 
     private fun persist(map: Map<String, Draft>) {
         try {
-            file.writeText(json.encodeToString(map))
+            runBlocking {
+                dataStore.edit { prefs ->
+                    prefs[draftsKey] = json.encodeToString(map)
+                }
+            }
         } catch (e: Exception) {
             AppLogger.e(TAG, "Failed to persist drafts: ${e.message}")
         }

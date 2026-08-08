@@ -18,8 +18,6 @@ import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -96,11 +94,9 @@ class EventDispatcherUnreadTest {
 
     @Test
     fun `init triggers v2 migration once`() = runTest {
-        // runUnreadStateV2Migration 是扩展函数——coVerify 直接对其调用会真实执行函数体，
-        // 内部 dataStore.edit → updateData 在 relaxed DataStore mock 上产生畸形期望（continuation 不匹配）。
-        // 改为验证其唯一副作用：EventDispatcher init 对 DataStore 的 updateData 调用
-        //（迁移是 init 触发 DataStore 写入的唯一路径）。coVerify(timeout) 等待独立 IO scope 执行完。
-        coVerify(timeout = 5000) { settingsDataStore.dataStore.updateData(any()) }
+        // runUnreadStateV2Migration 现为 SettingsDataStore 成员方法（合并自扩展文件），可被 mock 拦截记录。
+        // EventDispatcher init 在 Dispatchers.IO 异步触发迁移；coVerify(timeout) 等待独立 scope 执行完。
+        coVerify(timeout = 5000) { settingsDataStore.runUnreadStateV2Migration() }
     }
 
     @Test
@@ -148,22 +144,17 @@ class EventDispatcherUnreadTest {
 
     @Test
     fun `seed restores lastCompletedReplyTime on init`() = runTest {
-        // 构造前 stub：lastCompletedReplyTimes 返回既有 seed map（模拟重启后 DataStore 既有值）
-        // 局部 mockkStatic（顶层扩展函数非成员，需 mockkStatic 才能 stub），finally 清理避免污染其他测试
-        mockkStatic(SettingsDataStore::lastCompletedReplyTimes)
+        // 构造前 stub：lastCompletedReplyTimes 返回既有 seed map（模拟重启后 DataStore 既有值）。
+        // lastCompletedReplyTimes 现为成员方法（合并自扩展文件），对 relaxed mock 直接 every stub 即可。
         every { settingsDataStore.lastCompletedReplyTimes() } returns flowOf(mapOf("seedSes" to 7777L))
-        try {
-            val seeded = makeDispatcher()
-            // init 的迁移 + seed 读取在 Dispatchers.IO 异步执行，轮询等待合并完成
-            val deadline = System.currentTimeMillis() + 5000
-            while (System.currentTimeMillis() < deadline &&
-                seeded.lastCompletedReplyTime.value["seedSes"] != 7777L) {
-                Thread.sleep(20)
-            }
-            assertEquals(7777L, seeded.lastCompletedReplyTime.value["seedSes"])
-        } finally {
-            unmockkStatic(SettingsDataStore::lastCompletedReplyTimes)
+        val seeded = makeDispatcher()
+        // init 的迁移 + seed 读取在 Dispatchers.IO 异步执行，轮询等待合并完成
+        val deadline = System.currentTimeMillis() + 5000
+        while (System.currentTimeMillis() < deadline &&
+            seeded.lastCompletedReplyTime.value["seedSes"] != 7777L) {
+            Thread.sleep(20)
         }
+        assertEquals(7777L, seeded.lastCompletedReplyTime.value["seedSes"])
     }
 
     @Test
@@ -184,14 +175,11 @@ class EventDispatcherUnreadTest {
 
     @Test
     fun `completed update triggers synchronous DataStore persist`() = runTest {
-        // Fix 2 同步落盘验证：persistLastCompletedReplyTime 在 processEvent 内同步调
-        // saveLastCompletedReplyTimes → dataStore.edit → updateData（成员函数，可 coVerify）。
-        // init migration（async，至少 1 次）+ 本完成事件的同步 persist（1 次）合计 ≥ 2 次 updateData。
-        // 注：扩展函数 saveLastCompletedReplyTimes 无法直接 coVerify（非成员），改为验证其唯一
-        // DataStore 副作用 updateData；relaxed DataStore mock 立即返回，updateData 被实际调用。
-        // 局限：atLeast=2 仅证明 persist 路径可达，无法精确断言"同步"语义——同步性由代码结构保证（非异步 collect）。
+        // saveLastCompletedReplyTimes 现为 SettingsDataStore 成员方法（合并自扩展文件），可被 mock 拦截记录。
+        // processEvent → UnreadBadgeService.persist 同步调用本方法；coVerify 无需等待即可断言
+        //（同步语义由代码结构保证——非异步 collect）。
         pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
-        coVerify(timeout = 5000, atLeast = 2) { settingsDataStore.dataStore.updateData(any()) }
+        coVerify { settingsDataStore.saveLastCompletedReplyTimes(any()) }
     }
 
     @Test
