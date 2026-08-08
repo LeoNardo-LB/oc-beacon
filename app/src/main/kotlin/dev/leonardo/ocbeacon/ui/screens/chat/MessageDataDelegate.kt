@@ -216,8 +216,7 @@ internal class MessageDataDelegate(
             }
 
             // 悲观消息模式：发送后不显示乐观占位，等待服务器 SSE 回显
-            // MessageUpdated 时消息自然出现在 visible 列表中。无需合并逻辑。
-            // pendingMessageIds/pendingMessages 字段保留默认空值，后续步骤统一移除。
+            // MessageUpdated 时消息自然出现在 visible 列表中。无乐观合并逻辑。
 
             // 折叠连续重复 hash 的 patch 卡片——服务器对未变更 session diff 可能
             // 重复推送相同 hash，导致每个 assistant 消息都显示重复补丁卡片。

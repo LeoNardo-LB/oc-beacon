@@ -14,8 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.RateReview
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
-import dev.leonardo.ocbeacon.domain.model.UserMsgStatus
 import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.isBubbleRenderablePart
@@ -59,8 +56,6 @@ import java.util.Locale
 internal fun MessageCardUser(
     currentMessage: ChatMessage,
     isQueued: Boolean,
-    pendingStatus: UserMsgStatus?,
-    onRetry: (() -> Unit)?,
     onRevert: (() -> Unit)?,
     onCopyText: (() -> Unit)?,
     isAmoled: Boolean,
@@ -206,48 +201,24 @@ internal fun MessageCardUser(
                         // 弹性空白
                         Spacer(modifier = Modifier.weight(1f))
 
-                        // 右侧：状态指示器（送达状态 / QUEUED 徽章）
-                        when (pendingStatus) {
-                            UserMsgStatus.Sending -> {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        // 右侧：状态指示器（QUEUED 徽章）
+                        // 悲观模式：无 Sending/Failed/Sent 状态（消息以服务器权威直接出现）。
+                        // 仅保留 QUEUED 徽章（FSM 队列状态派生）。
+                        if (isQueued) {
+                            Surface(
+                                shape = ShapeTokens.extraSmall,
+                                color = QueuedBadgeColor
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.chat_queued),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 8.sp,
+                                        color = QueuedBadgeTextColor
+                                    ),
+                                    modifier = Modifier.padding(horizontal = SpacingTokens.XS.dp, vertical = 1.dp)
                                 )
                             }
-                            UserMsgStatus.Failed -> {
-                                if (onRetry != null) {
-                                    Icon(
-                                        Icons.Default.Refresh,
-                                        contentDescription = stringResource(R.string.chat_retry_send),
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clickable { onRetry() },
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                }
-                            }
-                            null -> {
-                                // 真实消息 —— 若在队列中则显示 QUEUED 徽章
-                                if (isQueued) {
-                                    Surface(
-                                        shape = ShapeTokens.extraSmall,
-                                        color = QueuedBadgeColor
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.chat_queued),
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 8.sp,
-                                                color = QueuedBadgeTextColor
-                                            ),
-                                            modifier = Modifier.padding(horizontal = SpacingTokens.XS.dp, vertical = 1.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            UserMsgStatus.Sent -> { /* 无操作 —— 移除前短暂显示 */ }
                         }
 
                         // Undo 按钮（仅主会话，onRevert != null 时显示）

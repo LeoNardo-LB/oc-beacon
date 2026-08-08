@@ -2,7 +2,6 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.runtime.Composable
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
-import dev.leonardo.ocbeacon.domain.model.UserMsgStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 
@@ -13,8 +12,6 @@ internal fun MessageCard(
     role: MessageCardRole,
     currentMessage: ChatMessage,
     isQueued: Boolean = false,
-    pendingStatus: UserMsgStatus? = null,
-    onRetry: (() -> Unit)? = null,
     renderableTurn: RenderableTurn? = null,
     onViewSubSession: ((String) -> Unit)? = null,
     onOpenFile: ((String) -> Unit)? = null,
@@ -33,8 +30,6 @@ internal fun MessageCard(
         MessageCardRole.USER -> MessageCardUser(
             currentMessage = currentMessage,
             isQueued = isQueued,
-            pendingStatus = pendingStatus,
-            onRetry = onRetry,
             onRevert = onRevert,
             onCopyText = onCopyText,
             isAmoled = isAmoled,

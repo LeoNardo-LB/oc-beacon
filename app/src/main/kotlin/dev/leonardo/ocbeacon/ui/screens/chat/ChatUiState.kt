@@ -4,7 +4,6 @@ import androidx.compose.runtime.Immutable
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.CommandInfo
 import dev.leonardo.ocbeacon.domain.model.Message
-import dev.leonardo.ocbeacon.domain.model.OptimisticMessage
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
 import dev.leonardo.ocbeacon.domain.model.Session
@@ -23,8 +22,6 @@ data class MessageListState(
     val isLoadingOlder: Boolean = false,
     val toolExpandedStates: Map<String, Boolean> = emptyMap(),
     val queuedMessageIds: Set<String> = emptySet(),
-    val pendingMessageIds: Set<String> = emptySet(),
-    val pendingMessages: List<OptimisticMessage> = emptyList(),
 )
 
 /**
@@ -144,8 +141,6 @@ data class ChatUiState(
     val toolExpandedStates: Map<String, Boolean> = emptyMap(),
     val currentAgentName: String? = null,
     val currentModelId: String? = null,
-    /** API 确认前乐观插入的用户消息 ID 集合，以 messageId 为键。 */
-    val pendingMessageIds: Set<String> = emptySet(),
     /** 发送失败后恢复的草稿。仅在消费前非空一次。 */
     val restoredDraft: RevertedDraftPayload? = null,
 )
@@ -166,6 +161,3 @@ data class ChatMessage(
     val isUser: Boolean get() = message is Message.User
     val isAssistant: Boolean get() = message is Message.Assistant
 }
-
-/** 宽限期（ms），超过此时间的覆盖型 pending prompt 在对账时判定为丢失。 */
-internal const val PENDING_RECONCILE_MIN_AGE_MS = 60_000L

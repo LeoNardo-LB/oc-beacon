@@ -606,8 +606,6 @@ fun ChatMessageList(
                                     role = MessageCardRole.USER,
                                     currentMessage = chatMessage,
                                     isQueued = chatMessage.message.id in messageState.queuedMessageIds,
-                                    pendingStatus = messageState.pendingMessages.find { it.pendingId == chatMessage.message.id }?.status,
-                                    onRetry = null,
                                     onViewSubSession = navigateToChildSession,
                                     onRevert = if (isMainSession) {
                                         {

@@ -186,7 +186,6 @@ internal class ChatStateAggregator(
             currentAgentName = sessMeta.currentAgentName,
             currentModelId = sessMeta.currentModelId,
             toolExpandedStates = msgList.toolExpandedStates,
-            pendingMessageIds = msgList.pendingMessageIds,
             restoredDraft = restoredDraft,
         )
     }.stateIn(
