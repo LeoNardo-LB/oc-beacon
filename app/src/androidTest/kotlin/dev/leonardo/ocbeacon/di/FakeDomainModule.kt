@@ -11,7 +11,6 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
-import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
@@ -24,7 +23,6 @@ import dev.leonardo.ocbeacon.fakes.FakeChatRepository
 import dev.leonardo.ocbeacon.fakes.FakeDraftRepository
 import dev.leonardo.ocbeacon.fakes.FakeFileRepository
 import dev.leonardo.ocbeacon.fakes.FakeMcpRepository
-import dev.leonardo.ocbeacon.fakes.FakePendingPromptRepository
 import dev.leonardo.ocbeacon.fakes.FakeServerRepository
 import dev.leonardo.ocbeacon.fakes.FakeSessionRepository
 import dev.leonardo.ocbeacon.fakes.FakeSessionStateRepository
@@ -58,7 +56,6 @@ abstract class FakeDomainModule {
     @Binds @Singleton abstract fun bindFileRepository(impl: FakeFileRepository): FileRepository
     @Binds @Singleton abstract fun bindVcsRepository(impl: FakeVcsRepository): VcsRepository
     @Binds @Singleton abstract fun bindMcpRepository(impl: FakeMcpRepository): McpRepository
-    @Binds @Singleton abstract fun bindPendingPromptRepository(impl: FakePendingPromptRepository): PendingPromptRepository
 
     // ServerRepository 及其 2 个子接口 —— 全部由单个 FakeServerRepository 支撑
     @Binds @Singleton abstract fun bindServerRepository(impl: FakeServerRepository): ServerRepository

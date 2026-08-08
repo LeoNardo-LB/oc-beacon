@@ -19,7 +19,6 @@ data/            Android 相关实现
   repository/    Impl 类 + EventDispatcher + EventHandler 策略模式
     handler/     10 个事件处理器（Session, Message×4, SessionNext, Permission, Question, Misc）
                  + DiagnosticLogDatabase/Repository (SQLite, 自动清理, 隐私脱敏)
-                 + PendingPromptRepository（基于文件的 JSON, 乐观消息持久化）
                  + CrossServerSessionsAggregator（基于 REST 的按服务器会话聚合）
   update/        应用内 GitHub Release 更新检查（UpdateRepository, 3 级回退）
 

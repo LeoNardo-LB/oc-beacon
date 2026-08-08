@@ -9,7 +9,6 @@ import dev.leonardo.ocbeacon.data.repository.DraftDataStore
 import dev.leonardo.ocbeacon.data.repository.FileRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.ServerRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.McpRepositoryImpl
-import dev.leonardo.ocbeacon.data.repository.PendingPromptRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SettingsRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.data.repository.VcsRepositoryImpl
@@ -17,7 +16,6 @@ import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
-import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
@@ -52,9 +50,6 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindMcpRepository(impl: McpRepositoryImpl): McpRepository
-
-    @Binds
-    abstract fun bindPendingPromptRepository(impl: PendingPromptRepositoryImpl): PendingPromptRepository
 
     @Binds
     abstract fun bindFileRepository(impl: FileRepositoryImpl): FileRepository
