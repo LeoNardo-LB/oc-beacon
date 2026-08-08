@@ -166,6 +166,7 @@ class ChatViewModelSendTest {
                 every { it.getCurrentModelFlow(any()) } returns flowOf(emptyMap())
             },
             messagePaging = messagePaging,
+            messageStore = mockk(relaxed = true),
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
 

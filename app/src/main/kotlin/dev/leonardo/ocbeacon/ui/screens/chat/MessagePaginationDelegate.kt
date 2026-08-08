@@ -1,9 +1,11 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
+import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,8 @@ private const val TAG = "MessagePaginationDelegate"
  */
 internal class MessagePaginationDelegate(
     private val manageSessionUseCase: ManageSessionUseCase,
+    private val messagePaging: MessagePaginationUseCase,
+    private val messageStore: MessageStore,
     private val chatRepository: ChatRepository,
     private val settingsRepository: SettingsRepository,
     private val serverId: String,
@@ -40,8 +44,8 @@ internal class MessagePaginationDelegate(
 ) {
     // ============ 分页 ============
     /**
-     * 每页加载的消息数。每次"加载更早"点击时翻倍。
-     * 在 [loadMessagesForSession] 开始时从用户的 initialMessageCount 设置刷新。
+     * 每页加载的消息数。进入会话时从用户的 initialMessageCount 设置刷新。
+     * 游标翻页下不再翻倍——"加载更早"靠 [messageStore] 最旧消息 ID 作 before 游标。
      */
     private var currentMessageLimit = 30
     /** 服务器上是否存在超出当前限制的更多消息。 */
@@ -66,7 +70,8 @@ internal class MessagePaginationDelegate(
         currentMessageLimit = settingsRepository.getSettingsFlow().first().initialMessageCount
         val sid = sessionIdProvider()
         try {
-            val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
+            val messages = messagePaging.loadMessagesForSession(serverId, sid, currentMessageLimit)
+                .getOrThrow()
             chatRepository.setMessages(sid, messages)
             _hasOlderMessages.value = messages.size >= currentMessageLimit
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "V1 loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
@@ -118,18 +123,18 @@ internal class MessagePaginationDelegate(
         val sid = sessionIdProvider()
         scope.launch {
             _isLoadingOlder.value = true
-            currentMessageLimit = currentMessageLimit * 2
             try {
-                val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
+                val beforeId = messageStore.oldestMessageId(sid)
+                val messages = messagePaging.loadOlderMessages(serverId, sid, currentMessageLimit, beforeId)
+                    .getOrThrow()
                 chatRepository.mergeMessages(sid, messages)
                 _hasOlderMessages.value = messages.size >= currentMessageLimit
 
                 if (BuildConfig.DEBUG) {
-                    AppLogger.d(TAG, "Loaded older: ${messages.size} messages (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
+                    AppLogger.d(TAG, "Loaded older: ${messages.size} messages (before=$beforeId, hasOlder=${_hasOlderMessages.value})")
                 }
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to load older messages", e)
-                currentMessageLimit = currentMessageLimit / 2
             } finally {
                 _isLoadingOlder.value = false
             }

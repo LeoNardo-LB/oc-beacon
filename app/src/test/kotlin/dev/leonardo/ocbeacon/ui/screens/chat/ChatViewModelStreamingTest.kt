@@ -214,6 +214,7 @@ class ChatViewModelStreamingTest {
             chatRepository = chatRepository,
             sessionRepository = sessionRepository,
             messagePaging = messagePaging,
+            messageStore = mockk(relaxed = true),
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
 

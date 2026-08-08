@@ -289,6 +289,7 @@ class ChatViewModelQueuedTest {
                 coEvery { sessRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
             },
             messagePaging = messagePaging,
+            messageStore = mockk(relaxed = true),
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
 

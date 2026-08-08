@@ -240,6 +240,7 @@ class ChatViewModelDeleteTest {
                 every { sessRepo.getCurrentModelFlow(any()) } returns eventDispatcher.currentModel
             },
             messagePaging = messagePaging,
+            messageStore = mockk(relaxed = true),
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
 

@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -67,6 +68,7 @@ internal class MessageDataDelegate(
     private val managePermissionUseCase: ManagePermissionUseCase,
     private val chatRepository: ChatRepository,
     private val messagePaging: MessagePaginationUseCase,
+    private val messageStore: MessageStore,
     private val sessionStateService: SessionStateRepository,
     private val sessionRepository: SessionRepository,
     private val settingsRepository: SettingsRepository,
@@ -107,6 +109,8 @@ internal class MessageDataDelegate(
     // ============ 拆分出的职责 delegate（先于 combine 管道构造，sink 引用上方字段） ============
     internal val paginationDelegate = MessagePaginationDelegate(
         manageSessionUseCase = manageSessionUseCase,
+        messagePaging = messagePaging,
+        messageStore = messageStore,
         chatRepository = chatRepository,
         settingsRepository = settingsRepository,
         serverId = serverId,
