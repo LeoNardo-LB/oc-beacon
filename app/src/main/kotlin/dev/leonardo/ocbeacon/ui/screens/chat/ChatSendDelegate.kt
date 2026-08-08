@@ -131,10 +131,19 @@ internal class ChatSendDelegate(
                 refreshSessionTitleDelayed(currentSessionId)
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to send message", e)
-                // 悲观消息失败：恢复草稿到输入框 + 错误提示（snackbar）
+                // 悲观消息失败：恢复草稿到输入框（text + 图片附件）+ 错误提示（snackbar）
                 val failedText = parts.filter { it.type == "text" }.mapNotNull { it.text }.joinToString("\n")
-                if (failedText.isNotBlank()) {
-                    draftDelegate.setRestoredDraft(RevertedDraftPayload(text = failedText))
+                val failedAttachments = parts.filter { it.type == "file" }.mapNotNull { it.url }
+                if (failedText.isNotBlank() || failedAttachments.isNotEmpty()) {
+                    draftDelegate.setRestoredDraft(
+                        RevertedDraftPayload(
+                            text = failedText,
+                            attachmentUris = failedAttachments
+                        )
+                    )
+                    // 回填 _draftAttachmentUris：rememberAttachmentHandler 的
+                    // LaunchedEffect(draftAttachmentUris) 会自动重建附件列表
+                    failedAttachments.forEach { draftDelegate.addDraftAttachment(it) }
                 }
                 errorSink(e.message ?: "Failed to send message")
             } finally {
