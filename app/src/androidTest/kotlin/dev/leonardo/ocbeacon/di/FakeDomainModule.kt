@@ -5,7 +5,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
-import dev.leonardo.ocbeacon.data.di.DataModule
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
@@ -31,24 +30,22 @@ import dev.leonardo.ocbeacon.fakes.FakeVcsRepository
 import javax.inject.Singleton
 
 /**
- * 用 fake repository 绑定同时替换 DomainModule 和 DataModule。
+ * 用 fake repository 绑定替换 DomainModule。
  *
- * DataModule（data/di/）绑定 ChatRepository + SessionRepository。
- * DomainModule（di/）绑定所有其他 repository 接口。
+ * DomainModule（di/）绑定全部 repository 接口，包括
+ * ChatRepository 和 SessionRepository（原 DataModule 已合并）。
  *
  * ServerRepositoryImpl 实现了 3 个接口；FakeServerRepository 同样如此，
  * 因此我们将同一个 fake 实例绑定为全部 3 种类型。
  */
-@TestInstallIn(components = [SingletonComponent::class], replaces = [DomainModule::class, DataModule::class])
+@TestInstallIn(components = [SingletonComponent::class], replaces = [DomainModule::class])
 @Module
 @Suppress("unused")
 abstract class FakeDomainModule {
 
-    // DataModule 的替换
     @Binds @Singleton abstract fun bindChatRepository(impl: FakeChatRepository): ChatRepository
     @Binds @Singleton abstract fun bindSessionRepository(impl: FakeSessionRepository): SessionRepository
 
-    // DomainModule 的替换
     @Binds @Singleton abstract fun bindSettingsRepository(impl: FakeSettingsRepository): SettingsRepository
     @Binds @Singleton abstract fun bindSessionStateRepository(impl: FakeSessionStateRepository): SessionStateRepository
     @Binds @Singleton abstract fun bindAgentRepository(impl: FakeAgentRepository): AgentRepository
