@@ -66,14 +66,19 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getMessagesFlow(sessionId: String): Flow<List<Message>> = flow {
         // 冷启动种子化：内存热视图为空时从 Room 读最近缓存，
         // 使最后访问会话的消息立即可见（无需等 REST）。
-        if (eventDispatcher.messages.value[sessionId].isNullOrEmpty()) {
-            val cached = withContext(Dispatchers.IO) {
-                messageStore.observeMessages(sessionId).first()
+        // 异常降级：Room 查询失败（磁盘满/DB 损坏）不阻断 UI，按空流继续。
+        try {
+            if (eventDispatcher.messages.value[sessionId].isNullOrEmpty()) {
+                val cached = withContext(Dispatchers.IO) {
+                    messageStore.observeMessages(sessionId).first()
+                }
+                if (cached.isNotEmpty()) {
+                    // 沿用现有合并路径写入内存热视图（APPEND_ONLY：不去重已存在，幂等）
+                    eventDispatcher.upsertMessages(sessionId, cached, MergeStrategy.APPEND_ONLY)
+                }
             }
-            if (cached.isNotEmpty()) {
-                // 沿用现有合并路径写入内存热视图（APPEND_ONLY：不去重已存在，幂等）
-                eventDispatcher.upsertMessages(sessionId, cached, MergeStrategy.APPEND_ONLY)
-            }
+        } catch (e: Exception) {
+            AppLogger.e("ChatRepository", "Seed messages from cache failed", e)
         }
         emitAll(
             eventDispatcher.messages.map { it[sessionId] ?: emptyList() }
