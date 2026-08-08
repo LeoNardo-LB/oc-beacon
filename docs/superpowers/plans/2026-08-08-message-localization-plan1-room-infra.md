@@ -523,7 +523,7 @@ class LogStoreTest {
     @Test
     fun insert_byteBudgetExceeded_prunesInBatches() = runTest {
         val now = 1_000_000L
-        coEvery { dao.sumByteSize() } returnsMany listOf(11L * 1024 * 1024, 5L * 1024 * 1024)
+        coEvery { dao.sumByteSize() } returnsMany listOf(11L * 1024 * 1024, 11L * 1024 * 1024, 5L * 1024 * 1024)
         coEvery { dao.deleteOldestBatch(any()) } returns LogStore.PRUNE_BATCH_SIZE
 
         store.insert(listOf(LogEntity(timestamp = 0, level = "INFO", category = "c", message = "m", details = "{}", byteSize = 1)), now)
