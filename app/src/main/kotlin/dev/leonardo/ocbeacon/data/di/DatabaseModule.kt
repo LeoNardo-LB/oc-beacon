@@ -18,6 +18,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): OcBeaconDatabase =
+        // WAL 模式：Room 对 targetSdk>=16 默认开启（JournalMode.WRITE_AHEAD_LOGGING）
         Room.databaseBuilder(context, OcBeaconDatabase::class.java, "ocbeacon.db")
             .build()
 

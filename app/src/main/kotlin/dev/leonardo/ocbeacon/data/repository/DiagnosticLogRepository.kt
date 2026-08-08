@@ -102,14 +102,17 @@ class DiagnosticLogRepository @Inject constructor(
 
     // ---- 映射 ----------------------------------------------------
 
-    private fun toEntity(entry: DiagnosticLogEntry): LogEntity = LogEntity(
-        timestamp = entry.timestamp,
-        level = entry.level,
-        category = entry.category,
-        message = entry.message,
-        details = json.encodeToString(entry.details),
-        byteSize = entry.estimatedByteSize(json.encodeToString(entry.details)),
-    )
+    private fun toEntity(entry: DiagnosticLogEntry): LogEntity {
+        val encodedDetails = json.encodeToString(entry.details)
+        return LogEntity(
+            timestamp = entry.timestamp,
+            level = entry.level,
+            category = entry.category,
+            message = entry.message,
+            details = encodedDetails,
+            byteSize = entry.estimatedByteSize(encodedDetails),
+        )
+    }
 
     private fun fromEntity(entity: LogEntity): DiagnosticLogEntry = DiagnosticLogEntry(
         timestamp = entity.timestamp,
