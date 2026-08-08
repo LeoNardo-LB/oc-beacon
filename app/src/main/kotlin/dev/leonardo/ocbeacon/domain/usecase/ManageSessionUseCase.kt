@@ -16,7 +16,7 @@ class ManageSessionUseCase @Inject constructor(
         sessionRepository.getSession(serverId, sessionId).getOrThrow()
 
     suspend fun listMessages(serverId: String, sessionId: String, limit: Int): List<MessageWithParts> =
-        sessionRepository.listMessages(serverId, sessionId, limit).getOrThrow()
+        sessionRepository.listMessages(serverId, sessionId, limit).getOrThrow().messages
 
     suspend fun createSession(serverId: String, directory: String?): Session {
         val opts = dev.leonardo.ocbeacon.domain.model.CreateSessionOpts(directory = directory)

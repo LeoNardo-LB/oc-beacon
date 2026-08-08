@@ -275,9 +275,9 @@ class SessionStateService @Inject constructor(
                     // 同时刷新消息——陈旧/可疑恢复应追上
                     // 陈旧期间 SSE 错过的任何消息。
                     sessionRepoProvider.get().listMessages(sid, sessionId, limit = 0)
-                        .onSuccess { messages ->
-                            messageRefresher.replaceMessages(sessionId, messages)
-                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${messages.size} msgs")
+                        .onSuccess { page ->
+                            messageRefresher.replaceMessages(sessionId, page.messages)
+                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs")
                         }
                 }
             } catch (e: Exception) {

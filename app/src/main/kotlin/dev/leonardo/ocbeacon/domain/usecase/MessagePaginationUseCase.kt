@@ -15,5 +15,5 @@ class MessagePaginationUseCase @Inject constructor(
         chatRepository.getMessagesFlow(sessionId)
 
     suspend fun loadOlderMessages(serverId: String, sessionId: String, limit: Int): Result<List<MessageWithParts>> =
-        sessionRepository.listMessages(serverId, sessionId, limit)
+        sessionRepository.listMessages(serverId, sessionId, limit).map { it.messages }
 }

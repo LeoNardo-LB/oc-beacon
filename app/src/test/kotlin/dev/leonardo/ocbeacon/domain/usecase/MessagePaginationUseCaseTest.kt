@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
+import dev.leonardo.ocbeacon.data.api.message.MessagePage
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
@@ -33,7 +34,7 @@ class MessagePaginationUseCaseTest {
 
     @Test
     fun `loadOlderMessages delegates to sessionRepository`() = runTest {
-        coEvery { sessionRepo.listMessages("server1", "session1", 50) } returns Result.success(emptyList())
+        coEvery { sessionRepo.listMessages("server1", "session1", 50) } returns Result.success(MessagePage(emptyList(), null))
         val result = useCase.loadOlderMessages("server1", "session1", 50)
         assertEquals(Result.success(emptyList<MessageWithParts>()), result)
     }

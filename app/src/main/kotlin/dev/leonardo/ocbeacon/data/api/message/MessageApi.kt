@@ -25,7 +25,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface MessageApi {
-    suspend fun listMessages(conn: ServerConnection, sessionId: String, limit: Int? = null): List<MessageWithParts>
+    suspend fun listMessages(
+        conn: ServerConnection,
+        sessionId: String,
+        limit: Int? = null,
+        before: String? = null,
+    ): MessagePage
 
     /** 以原始 JSON 字符串返回消息（用于导出而无需重新序列化）。 */
     suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String
@@ -121,11 +126,20 @@ class MessageApiImpl @Inject constructor(
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
-    override suspend fun listMessages(conn: ServerConnection, sessionId: String, limit: Int?): List<MessageWithParts> {
-        return httpClient.get("${conn.baseUrl}/session/$sessionId/message") {
+    override suspend fun listMessages(
+        conn: ServerConnection,
+        sessionId: String,
+        limit: Int?,
+        before: String?,
+    ): MessagePage {
+        val response = httpClient.get("${conn.baseUrl}/session/$sessionId/message") {
             conn.authHeader?.let { header("Authorization", it) }
             limit?.let { parameter("limit", it) }
-        }.body()
+            before?.let { parameter("before", it) }
+        }
+        val messages = response.body<List<MessageWithParts>>()
+        val nextCursor = response.headers["X-Next-Cursor"]
+        return MessagePage(messages = messages, nextCursor = nextCursor)
     }
 
     /** 以原始 JSON 字符串返回消息（用于导出而无需重新序列化）。 */

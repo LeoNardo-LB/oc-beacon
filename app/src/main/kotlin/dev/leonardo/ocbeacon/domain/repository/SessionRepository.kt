@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.repository
 
+import dev.leonardo.ocbeacon.data.api.message.MessagePage
 import dev.leonardo.ocbeacon.domain.model.CreateSessionOpts
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Session
@@ -161,7 +162,12 @@ interface SessionRepository {
     /**
      * 列出会话中的消息。
      */
-    suspend fun listMessages(serverId: String, sessionId: String, limit: Int): Result<List<MessageWithParts>>
+    suspend fun listMessages(
+        serverId: String,
+        sessionId: String,
+        limit: Int,
+        before: String? = null,
+    ): Result<MessagePage>
 
     // ============ 当前 Agent/Model（SSE session.next）============
 

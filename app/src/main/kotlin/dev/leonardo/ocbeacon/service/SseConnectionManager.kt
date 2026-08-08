@@ -359,7 +359,7 @@ class SseConnectionManager @Inject constructor(
         var recoveredCount = 0
         for (sessionId in sessionIds) {
             try {
-                val messages = messageApi.listMessages(conn, sessionId)
+                val messages = messageApi.listMessages(conn, sessionId).messages
                 eventDispatcher.replaceMessages(sessionId, messages)
                 recoveredCount++
             } catch (e: Exception) {

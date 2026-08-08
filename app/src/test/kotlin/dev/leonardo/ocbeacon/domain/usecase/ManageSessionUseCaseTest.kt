@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
+import dev.leonardo.ocbeacon.data.api.message.MessagePage
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import io.mockk.coEvery
@@ -26,7 +27,7 @@ class ManageSessionUseCaseTest {
 
     @Test
     fun `listMessages delegates to sessionRepository`() = runTest {
-        coEvery { sessionRepository.listMessages("server1", "s1", any()) } returns Result.success(emptyList())
+        coEvery { sessionRepository.listMessages("server1", "s1", any()) } returns Result.success(MessagePage(emptyList(), null))
 
         val result = useCase.listMessages("server1", "s1", limit = 50)
 

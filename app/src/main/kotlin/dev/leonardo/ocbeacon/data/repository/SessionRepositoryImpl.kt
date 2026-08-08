@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.repository
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
+import dev.leonardo.ocbeacon.data.api.message.MessagePage
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.CreateSessionOpts
@@ -212,10 +213,11 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun listMessages(
         serverId: String,
         sessionId: String,
-        limit: Int
-    ): Result<List<MessageWithParts>> = runCatching {
+        limit: Int,
+        before: String?,
+    ): Result<MessagePage> = runCatching {
         val conn = resolveConnection(serverId)
-        messageApi.listMessages(conn, sessionId, limit)
+        messageApi.listMessages(conn, sessionId, limit, before)
     }
 
     // ============ 私有辅助方法 ============
