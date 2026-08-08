@@ -29,8 +29,10 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -55,12 +57,12 @@ class ChatViewModelSendTest {
     private val shareExportUseCase: ShareExportUseCase = mockk(relaxed = true)
     private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
+    private val chatRepository: ChatRepository = mockk(relaxed = true)
     private val tokenStatsTracker = TokenStatsTracker()
     private val sessionStateService: SessionStateService = mockk(relaxed = true)
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
-    private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository>(relaxed = true)
     private val serverRepository = mockk<ServerRepository>(relaxed = true)
 
     @After
@@ -109,6 +111,10 @@ class ChatViewModelSendTest {
 
         // 将 messagePaging.observeMessages 接线为返回空消息列表
         every { messagePaging.observeMessages(any()) } returns flowOf(emptyList())
+
+        every { chatRepository.getAllPartsMap() } returns MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
+        every { chatRepository.getMessagesFlow(any()) } returns flowOf(emptyList())
+        every { chatRepository.getActiveToolProgressForSession(any()) } returns flowOf(emptyList())
     }
 
     @After
@@ -148,9 +154,7 @@ class ChatViewModelSendTest {
             settingsRepository = settingsRepository,
             terminalRegistry = terminalRegistry,
             toolCardResolver = dev.leonardo.ocbeacon.ui.screens.chat.tools.DefaultToolCardResolver(),
-            chatRepository = mockk<ChatRepository>(relaxed = true).also {
-                every { it.getAllPartsMap() } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
-            },
+            chatRepository = chatRepository,
             sessionRepository = mockk<SessionRepository>(relaxed = true).also {
                 every { it.getSessionsFlow(any()) } returns flowOf(emptyList())
                 every { it.getSessionStatusesFlow(any()) } returns flowOf(emptyMap())
@@ -167,7 +171,6 @@ class ChatViewModelSendTest {
             sessionReadSignal = SessionReadSignal(),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
-            pendingPromptRepository = pendingPromptRepository,
             serverRepository = serverRepository,
         )
     }
@@ -183,29 +186,8 @@ class ChatViewModelSendTest {
     }
 
     @Test
-    fun `pendingMessageIds cleared after successful send in V1`() = runTest {
-        // P5-4：sendParts 在成功路径上清除 pendingId（之前只在 catch 中清除）。
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } returns Unit
-
-        val viewModel = createViewModel()
-        val collectJob = subscribeToState(viewModel)
-        advanceUntilIdle()
-
-        viewModel.sendMessage("Hello world")
-        advanceUntilIdle()
-
-        // 发送成功后，pendingId 被清除（P5-4 修复）
-        val state = viewModel.uiState.value
-        assertTrue(
-            "Pending message should be cleared after successful send, got: ${state.pendingMessageIds}",
-            state.pendingMessageIds.isEmpty()
-        )
-        collectJob.cancel()
-    }
-
-    @Test
     fun `optimistic message removed on failure`() = runTest {
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
 
         val viewModel = createViewModel()
@@ -228,7 +210,7 @@ class ChatViewModelSendTest {
     fun `restoredDraft is set on send failure in V1`() = runTest {
         // V1 sendParts() 捕获异常并将草稿恢复到 _restoredDraft。
         // 让 sendMessageUseCase.sendPrompt() 抛异常 —— 这正是 V1 调用的方法。
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
 
         val viewModel = createViewModel()

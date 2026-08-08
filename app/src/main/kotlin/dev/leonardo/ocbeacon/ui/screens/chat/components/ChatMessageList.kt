@@ -607,7 +607,7 @@ fun ChatMessageList(
                                     currentMessage = chatMessage,
                                     isQueued = chatMessage.message.id in messageState.queuedMessageIds,
                                     pendingStatus = messageState.pendingMessages.find { it.pendingId == chatMessage.message.id }?.status,
-                                    onRetry = { viewModel.retrySendMessage(chatMessage.message.id) },
+                                    onRetry = null,
                                     onViewSubSession = navigateToChildSession,
                                     onRevert = if (isMainSession) {
                                         {

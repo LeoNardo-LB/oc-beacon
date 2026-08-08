@@ -83,7 +83,6 @@ class ChatViewModelQueuedTest {
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
-    private val pendingPromptRepository = mockk<dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository>(relaxed = true)
     private val serverRepository = mockk<ServerRepository>(relaxed = true)
 
     private val testSessionId = "test-session-1"
@@ -299,7 +298,6 @@ class ChatViewModelQueuedTest {
             sessionReadSignal = SessionReadSignal(),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
-            pendingPromptRepository = pendingPromptRepository,
             serverRepository = serverRepository,
         )
     }

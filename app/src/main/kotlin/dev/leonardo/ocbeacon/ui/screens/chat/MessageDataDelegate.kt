@@ -108,10 +108,7 @@ internal class MessageDataDelegate(
         errorSink = { _error.value = it },
     )
 
-    internal val optimisticStore = OptimisticMessageStore(
-        scope = scope,
-        errorSink = { _error.value = it },
-    )
+    internal val sendStateStore = SendStateStore()
 
     /**
      * 过滤后消息列表的快照 —— 供 [ChatViewModel] 的 init 块消费，
@@ -135,10 +132,8 @@ internal class MessageDataDelegate(
             paginationDelegate.hasOlderMessages,
             paginationDelegate.isLoadingOlder,
             _toolExpandedStates,
-            optimisticStore.pendingMessageIds,
             sessionStateService.statusFlow,
             chatRepository.getActiveToolProgressForSession(sid),
-            optimisticStore.pendingMessages,
         ) { args ->
          try {
             @Suppress("UNCHECKED_CAST")
@@ -153,19 +148,14 @@ internal class MessageDataDelegate(
             @Suppress("UNCHECKED_CAST")
             val toolExpandedStates = args[6] as Map<String, Boolean>
             @Suppress("UNCHECKED_CAST")
-            val pendingMessageIds = args[7] as Set<String>
-            @Suppress("UNCHECKED_CAST")
-            val statuses = args[8] as Map<String, SessionStatus>
+            val statuses = args[7] as Map<String, SessionStatus>
 
             // 工具进度输出注入：将 tool.progress 内容累积到
             // Running 工具的 output 字段。callId 全局唯一，因此单个
             // progressOutputs map 对本会话所有消息安全。
             @Suppress("UNCHECKED_CAST")
-            val progressList = args[9] as? List<ToolProgressInfo>
+            val progressList = args[8] as? List<ToolProgressInfo>
             val progressOutputs = progressList.orEmpty().associate { it.callId to it.output }
-
-            @Suppress("UNCHECKED_CAST")
-            val pendingMessages = args[10] as List<dev.leonardo.ocbeacon.domain.model.OptimisticMessage>
 
 
             val session = allSessions.find { it.id == sid }
@@ -225,24 +215,13 @@ internal class MessageDataDelegate(
                 }
             }
 
-            // 追加尚未被服务器确认的乐观消息。
-            // 当服务器投递任何消息（user 或 assistant）且时间戳
-            // 大于等于 pending 发送时间时，pending 消息即为"已确认"。
-            // 乐观消息绝不注入共享的 _messages/_parts
-            // 缓存 —— 它们仅存在于 optimisticStore.pendingMessages 中并在此处合并。
-            // 仅在其 ID 仍在 optimisticStore.pendingMessageIds 中时显示 pending —— 即
-            // POST 进行中时。一旦 onSendSuccess 移除 ID，
-            // 服务器消息（已通过 SSE 存在于 _messages 中）无缝接管。
-            val activePending = pendingMessages.filter { it.pendingId in pendingMessageIds }
-            val mergedChatMessages = if (activePending.isEmpty()) {
-                chatMessages
-            } else {
-                chatMessages + activePending.map { ChatMessage(it.message, it.parts) }
-            }
+            // 悲观消息模式：发送后不显示乐观占位，等待服务器 SSE 回显
+            // MessageUpdated 时消息自然出现在 visible 列表中。无需合并逻辑。
+            // pendingMessageIds/pendingMessages 字段保留默认空值，后续步骤统一移除。
 
             // 折叠连续重复 hash 的 patch 卡片——服务器对未变更 session diff 可能
             // 重复推送相同 hash，导致每个 assistant 消息都显示重复补丁卡片。
-            val visibleMessages = suppressRepeatedPatchHashes(mergedChatMessages)
+            val visibleMessages = suppressRepeatedPatchHashes(chatMessages)
 
             val state = MessageListState(
                 messages = visibleMessages,
@@ -251,16 +230,14 @@ internal class MessageDataDelegate(
                 isLoadingOlder = isLoadingOlder,
                 toolExpandedStates = toolExpandedStates,
                 queuedMessageIds = queuedMessageIds,
-                pendingMessageIds = pendingMessageIds,
-                pendingMessages = pendingMessages,
             )
             // 诊断：记录 combine 输出以检测陈旧发射
-            val lastMsgId = mergedChatMessages.lastOrNull()?.message?.id?.take(12) ?: "none"
+            val lastMsgId = chatMessages.lastOrNull()?.message?.id?.take(12) ?: "none"
             AppLogger.d("MsgDiag", "[combine] msgs=${sessionMessages.size} visible=${visible.size} " +
-                "merged=${mergedChatMessages.size} revert=${revertState != null} " +
-                "lastMsg=$lastMsgId pending=${pendingMessages.size}")
+                "merged=${chatMessages.size} revert=${revertState != null} " +
+                "lastMsg=$lastMsgId")
             // 诊断：记录最后 3 条消息的 parts 详情
-            mergedChatMessages.takeLast(3).forEach { cm ->
+            chatMessages.takeLast(3).forEach { cm ->
                 val textLen = cm.parts.filterIsInstance<Part.Text>().sumOf { it.text.length }
                 val role = if (cm.message is Message.User) "U" else "A"
                 AppLogger.d("MsgDiag", "  [$role] id=${cm.message.id.take(12)} parts=${cm.parts.size} textLen=$textLen")
@@ -285,7 +262,7 @@ internal class MessageDataDelegate(
         sessionIdFlow,
         _isLoading,
         _error,
-        optimisticStore.isSending,
+        sendStateStore.isSending,
         sessionRepository.getSessionsFlow(serverId),
         chatRepository.getAllQuestionsFlow(),
         chatRepository.getAllPermissionsFlow(),
@@ -515,5 +492,10 @@ internal class MessageDataDelegate(
      */
     fun markLoaded() {
         _isLoading.value = false
+    }
+
+    /** 发送失败等外部错误入口 —— 经 interactionState.error 供 snackbar/空态展示。 */
+    internal fun reportError(msg: String?) {
+        _error.value = msg
     }
 }

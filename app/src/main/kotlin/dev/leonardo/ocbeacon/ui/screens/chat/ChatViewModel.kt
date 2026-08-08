@@ -8,11 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.leonardo.ocbeacon.BuildConfig
-import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
-import dev.leonardo.ocbeacon.data.repository.missingPendingPromptIds
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
 import dev.leonardo.ocbeacon.domain.model.PromptPart
@@ -43,8 +40,7 @@ private const val TAG = "ChatViewModel"
 
 // ============ UI State 数据类 ============
 // MessageListState / SessionMetaState / InteractionState / TokenStatsState /
-// ModelConfigState / ChatUiState / RevertedDraftPayload / ChatMessage /
-// PENDING_RECONCILE_MIN_AGE_MS
+// ModelConfigState / ChatUiState / RevertedDraftPayload / ChatMessage
 // 已迁移到 ChatUiState.kt（纯数据类，无依赖）。
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -74,7 +70,6 @@ class ChatViewModel @Inject constructor(
     private val sessionFocusHolder: dev.leonardo.ocbeacon.service.SessionFocusHolder,
     private val appNotificationManager: dev.leonardo.ocbeacon.service.AppNotificationManager,
     private val toolSnapshotCache: dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache,
-    private val pendingPromptRepository: PendingPromptRepository,
     private val serverRepository: ServerRepository,
 ) : ViewModel() {
 
@@ -334,12 +329,6 @@ class ChatViewModel @Inject constructor(
         // 重置上一会话的 token 统计（TokenStatsTracker 是 @Singleton，跨会话共享）
         tokenStatsTracker.reset()
 
-        // 恢复已持久化的 pending prompt（在发送中途存活应用重启）。
-        val restoredPending = pendingPromptRepository.getForSession(sessionId)
-        if (restoredPending.isNotEmpty()) {
-            messageData.optimisticStore.restorePendingPrompts(restoredPending)
-        }
-
         // 观察消息并更新 token 统计跟踪器。
         viewModelScope.launch {
             messageData.messagesList.collect { messages ->
@@ -369,29 +358,6 @@ class ChatViewModel @Inject constructor(
                         totalCacheWriteTokens = totalCacheWriteTokens,
                         lastContextTokens = lastContextTokens,
                     )
-                }
-
-                // 将 pending prompt 与权威消息列表对账。
-                val pendingSnapshot = messageData.optimisticStore.pendingOptimisticSnapshot()
-                if (pendingSnapshot.isNotEmpty()) {
-                    val pendingRecords = pendingSnapshot.map { om ->
-                        PendingPromptRecord(
-                            messageId = om.pendingId,
-                            sessionId = sessionId,
-                            parts = emptyList(),
-                            createdAt = om.message.time.created,
-                        )
-                    }
-                    val missing = missingPendingPromptIds(
-                        pending = pendingRecords,
-                        authoritative = messages,
-                        now = System.currentTimeMillis(),
-                        minimumAgeMs = PENDING_RECONCILE_MIN_AGE_MS,
-                    )
-                    missing.forEach { id ->
-                        messageData.optimisticStore.markPendingAsFailed(id)
-                        pendingPromptRepository.remove(id)
-                    }
                 }
             }
         }
@@ -473,7 +439,7 @@ class ChatViewModel @Inject constructor(
         chatRepository = chatRepository,
         sessionRepository = sessionRepository,
         sessionStateService = sessionStateService,
-        pendingPromptRepository = pendingPromptRepository,
+        sendStateStore = messageData.sendStateStore,
         scope = viewModelScope,
         serverId = serverId,
         sessionIdProvider = { sessionLifecycle.sessionId },
@@ -481,7 +447,7 @@ class ChatViewModel @Inject constructor(
         ensureSession = { sessionLifecycle.ensureSession() },
         modelConfigProvider = { modelConfigState.value },
         selectedVariantProvider = { modelConfig.selectedVariantValue },
-        optimisticStore = messageData.optimisticStore,
+        errorSink = { messageData.reportError(it) },
         draftDelegate = draftDelegate,
     )
 
@@ -490,8 +456,6 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>) =
         sendDelegate.sendMessage(promptParts, attachments)
-
-    fun retrySendMessage(pendingId: String) = sendDelegate.retrySendMessage(pendingId)
 
     // ============ 权限/问题回复（门面 —— SessionActionsDelegate） ============
 
