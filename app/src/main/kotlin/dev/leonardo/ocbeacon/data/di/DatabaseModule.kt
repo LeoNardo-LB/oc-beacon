@@ -1,0 +1,26 @@
+package dev.leonardo.ocbeacon.data.di
+
+import android.content.Context
+import androidx.room.Room
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import dev.leonardo.ocbeacon.data.local.LogDao
+import dev.leonardo.ocbeacon.data.local.OcBeaconDatabase
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): OcBeaconDatabase =
+        Room.databaseBuilder(context, OcBeaconDatabase::class.java, "ocbeacon.db")
+            .build()
+
+    @Provides
+    fun provideLogDao(database: OcBeaconDatabase): LogDao = database.logDao()
+}
