@@ -1,7 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
-import dev.leonardo.ocbeacon.logging.AppLogger
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -118,19 +116,9 @@ internal fun PartContent(
                 val completedState = part.state as? ToolState.Completed
                 val toolInput = completedState?.input ?: emptyMap()
                 val toolOutput = completedState?.output ?: ""
-                AppLogger.e("PartContent", "TOOL ELSE: tool=${part.tool} state=${part.state::class.simpleName} outputLen=${toolOutput.length} outputHead=${toolOutput.take(200)}")
                 val isQuestionTool = toolOutput.contains("questions:")
                     || toolInput.any { it.key.contains("question", ignoreCase = true) }
-                AppLogger.e("PartContent", "isQuestionTool=$isQuestionTool inputKeys=${toolInput.keys}")
                 if (isQuestionTool) {
-                    // 调试：记录完整工具数据以定位答案所在位置
-                    dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "=== tool data ===")
-                    dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "input keys: ${toolInput.keys}")
-                    dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "input: $toolInput")
-                    dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "output: $toolOutput")
-                    dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "metadata: ${completedState?.metadata}")
-                    dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "title: ${completedState?.title}")
-                    dev.leonardo.ocbeacon.util.DebugLogger.log("QuestionTool", "tool name: ${part.tool}")
                     val parsed = remember(part.id) {
                         QuestionParser.parseQuestionFromToolData(part.id, toolInput, toolOutput)
                     }

@@ -132,7 +132,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    Icons.Default.RadioButtonChecked,
+                                    imageVector = if (parsed.isMultiple) Icons.Default.CheckBox else Icons.Default.RadioButtonChecked,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
                                     tint = accentColor
