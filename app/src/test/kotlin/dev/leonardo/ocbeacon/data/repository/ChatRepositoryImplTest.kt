@@ -12,7 +12,10 @@ import dev.leonardo.ocbeacon.domain.model.*
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -54,6 +57,7 @@ class ChatRepositoryImplTest {
         val miscHandler = MiscEventHandler()
 
         val sessionStateService = mockk<SessionStateService>(relaxed = true)
+        val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
             messageHandler = messageHandler,
@@ -65,7 +69,8 @@ class ChatRepositoryImplTest {
             miscHandler = miscHandler,
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
-            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+            settingsDataStore = settingsDataStore,
+            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
         repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore)

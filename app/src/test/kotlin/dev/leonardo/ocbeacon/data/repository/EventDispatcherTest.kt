@@ -5,6 +5,8 @@ import dev.leonardo.ocbeacon.domain.model.*
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -42,6 +44,7 @@ class EventDispatcherTest {
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
         )
 
+        val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         dispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
             messageHandler = messageHandler,
@@ -53,7 +56,8 @@ class EventDispatcherTest {
             miscHandler = miscHandler,
             sessionNextHandler = sessionNextHandler,
             sessionStateService = sessionStateService,
-            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+            settingsDataStore = settingsDataStore,
+            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
         )
     }
 

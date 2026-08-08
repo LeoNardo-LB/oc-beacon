@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
 
 import android.util.Log
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
@@ -30,7 +31,9 @@ import dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -82,6 +85,7 @@ class ChatViewModelDeleteTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         val messageStore = MessageEventHandler()
+        val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
             messageHandler = messageStore,
@@ -93,7 +97,8 @@ class ChatViewModelDeleteTest {
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
-            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+            settingsDataStore = settingsDataStore,
+            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
 

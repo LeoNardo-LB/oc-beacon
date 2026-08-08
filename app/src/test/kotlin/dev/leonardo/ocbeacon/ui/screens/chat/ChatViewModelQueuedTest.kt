@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
 
 import dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
 import android.util.Log
@@ -24,7 +25,9 @@ import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionReadSignal
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
 import io.mockk.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -103,6 +106,7 @@ class ChatViewModelQueuedTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         val messageStore = MessageEventHandler()
+        val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
             messageHandler = messageStore,
@@ -114,7 +118,8 @@ class ChatViewModelQueuedTest {
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
-            settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+            settingsDataStore = settingsDataStore,
+            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
         )
         every { sessionStateService.statusFlow } returns testStatusFlow
         every { sessionStateService.activityFlow } returns MutableStateFlow(emptyMap())

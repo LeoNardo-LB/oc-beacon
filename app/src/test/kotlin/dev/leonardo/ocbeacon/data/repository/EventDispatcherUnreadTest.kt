@@ -20,6 +20,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -59,6 +61,10 @@ class EventDispatcherUnreadTest {
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
+            unreadBadgeService = UnreadBadgeService(
+                settingsDataStore,
+                CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
+            ),
         )
     }
 

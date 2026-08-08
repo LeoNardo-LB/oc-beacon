@@ -18,14 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.reflect.KClass
@@ -53,6 +46,7 @@ class EventDispatcher @Inject constructor(
     private val sessionNextHandler: SessionNextEventHandler,
     private val sessionStateService: SessionStateService,
     private val settingsDataStore: SettingsDataStore,
+    private val unreadBadgeService: UnreadBadgeService,
 ) {
     /**
      * 一次性 unread v2 迁移 scope：App 启动时清空旧域已读标记（readTimes/allReadAt/
@@ -75,9 +69,10 @@ class EventDispatcher @Inject constructor(
             // markSessionIdle 用客户端 now 标记 UI 流式终止，但不写入红点时间源
             //（红点判定只用服务器时刻 event.time.completed，见 processEvent 增量块）。
             messageHandler.markSessionIdle(sessionId)
-            // 同步落盘：idle 兜底到达时，前序 MessageUpdated(completed) 已更新内存红点时间源，
-            // 此刻同步写盘确保杀进程不丢（消灭旧的异步 collect 调度窗口）
-            persistLastCompletedReplyTime()
+            // 落盘兜底：idle 到达时，前序 MessageUpdated(completed) 已更新内存红点时间源，
+            // 此刻触发落盘确保杀进程不丢。旧为 runBlocking 同步写，现委托 UnreadBadgeService 异步写
+            //（seed 恢复兜底，有界丢失窗口：毫秒级）。
+            unreadBadgeService.persistAsync()
         }
         sessionStateService.messageRefresher = MessageRefresher { sessionId, messages ->
             messageHandler.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
@@ -183,34 +178,20 @@ class EventDispatcher @Inject constructor(
     val lastUserMessageTime: StateFlow<Map<String, Long>> get() = sessionHandler.lastUserMessageTime
 
     /** 每会话最后完成 assistant 消息的 completed（**服务器时刻**，实时派生）。
-     *  红点判定的唯一时间源——替换旧 _turnEndTime（曾混入 markSessionIdle 的客户端 now）。
-     *  增量维护：MessageUpdated(completed!=null) 或 REST 整批替换时更新。 */
-    private val _lastCompletedReplyTime = MutableStateFlow<Map<String, Long>>(emptyMap())
-    val lastCompletedReplyTime: StateFlow<Map<String, Long>> = _lastCompletedReplyTime
+     *  红点判定的唯一时间源——委托 [UnreadBadgeService]（抽出前的 _lastCompletedReplyTime）。 */
+    val lastCompletedReplyTime: StateFlow<Map<String, Long>> get() = unreadBadgeService.lastCompletedReplyTime
 
     init {
-        // 持久化 init：必须在 _lastCompletedReplyTime 声明之后（Kotlin 按文本顺序初始化，
-        // 否则 launch 协程在 IO 线程读到未初始化的 null 属性）。
+        // 持久化 init：迁移必须先于 seed（清空旧客户端 now 域值后再读 seed）。
+        // 顺序保证：迁移在先 → seedFromStorage 读到的是服务器域值或空。
         unreadMigrationScope.launch {
             // runCatching 容错：迁移失败（含 mock 环境）不阻塞 init 持久化路径（spec §3.1）
             val migrationRan = runCatching { settingsDataStore.runUnreadStateV2Migration() }.isSuccess
             AppLogger.d("UnreadDiag", "[migration] executed=$migrationRan")
-            // 迁移完成后再读 seed：确保旧客户端 now 域值已清空，读到的是服务器域值或空。
-            // update 合并取 max 保证不覆盖 SSE 并发写入的更新值（seed 可能过时——断线期服务器新回复缺失，
-            // 为已知限制，非本任务引入，与旧 lastReplyTime 机制相同）。
-            // runCatching 容错：DataStore 异常（含 mock 环境）返回空 seed，不阻塞 init
-            val seed = runCatching { settingsDataStore.lastCompletedReplyTimes().first() }.getOrDefault(emptyMap())
-            AppLogger.d("UnreadDiag", "[seed] loaded ${seed.size} entries: ${seed.entries.take(3)}")
-            _lastCompletedReplyTime.update { current ->
-                val merged = current.toMutableMap()
-                for ((sid, ts) in seed) {
-                    if (ts > (merged[sid] ?: 0L)) merged[sid] = ts
-                }
-                merged
-            }
-            // 同步落盘合并结果（本块已在 suspend 协程内，直接调 saveLastCompletedReplyTimes；
-            // kill 进程后 seed 不丢——与各 SSE/REST 更新点共用同一同步落盘策略）
-            runCatching { settingsDataStore.saveLastCompletedReplyTimes(_lastCompletedReplyTime.value) }
+            // seed 合并 + 落盘由 UnreadBadgeService 负责；幂等（max 合并，详见其类注释）。
+            // kill 进程后 seed 不丢——落盘由 service 内 persistNow（suspend，本协程内同步完成）。
+            runCatching { unreadBadgeService.seedFromStorage() }
+                .onFailure { e -> AppLogger.e("UnreadDiag", "[seed] failed", e) }
         }
     }
 
@@ -267,9 +248,7 @@ class EventDispatcher @Inject constructor(
             val deletedSessionId = event.info.id
             streamingSessionOwners.remove(deletedSessionId)
             messageHandler.clearForSession(deletedSessionId)
-            _lastCompletedReplyTime.update { it - deletedSessionId }
-            // 同步落盘：删除会话的红点条目立即清出持久层，避免重启后复活
-            persistLastCompletedReplyTime()
+            unreadBadgeService.removeSession(deletedSessionId)
             permissionHandler.clearForSession(deletedSessionId)
             questionHandler.clearForSession(deletedSessionId)
             miscHandler.clearForSession(deletedSessionId)
@@ -291,13 +270,7 @@ class EventDispatcher @Inject constructor(
         // 红点时间源：assistant 消息完成（服务器 completed）→ 增量更新 maxCompleted。
         // 与 markSessionIdle（客户端 now，UI 流式终止）解耦——红点判定只用服务器时刻。
         if (event is SseEvent.MessageUpdated && event.info is Message.Assistant && event.info.time.completed != null) {
-            val sessionId = event.info.sessionId
-            val completed = event.info.time.completed
-            _lastCompletedReplyTime.update { map ->
-                if (completed > (map[sessionId] ?: 0L)) map + (sessionId to completed) else map
-            }
-            // 同步落盘：红点出现时数据已持久化，杀进程不丢（消灭旧 collect 调度窗口）
-            persistLastCompletedReplyTime()
+            unreadBadgeService.onMessageCompleted(event.info.sessionId, event.info.time.completed)
         }
 
         // 跟踪用户消息时间，用于稳定的会话排序。
@@ -431,37 +404,15 @@ class EventDispatcher @Inject constructor(
     }
 
     /**
-     * 重算某会话的 maxCompleted（REST 整批替换后调用）。
+     * 重算某会话的 maxCompleted（REST 整批替换后调用）——委托 [UnreadBadgeService]。
      * **只增不减**：REST 快照滞后（会话流式中 completed=null）时不移除已记录的
-     * maxCompleted——暂时的 null 快照不能抹掉已知完成时刻（红点消失根因，2026-08-07 日志实证）。
-     * 只有 SessionDeleted（会话真删）才移除；clearForServer/clearAll（连接状态清理）不清红点数据。
+     * maxCompleted（详见 UnreadBadgeService 类注释）。
      */
     private fun recomputeMaxCompleted(sessionId: String) {
-        val maxTs = messageHandler.messages.value[sessionId]
-            ?.filterIsInstance<Message.Assistant>()
-            ?.mapNotNull { it.time.completed }
-            ?.maxOrNull()
-        _lastCompletedReplyTime.update { map ->
-            if (maxTs == null) map
-            else if (maxTs > (map[sessionId] ?: 0L)) map + (sessionId to maxTs)
-            else map
-        }
-        persistLastCompletedReplyTime()
-    }
-
-    /**
-     * 同步落盘当前 maxCompleted（量小频低；调用点均在 SSE/IO 协程，非主线程）。
-     * DataStore edit suspend 返回即写入文件——红点出现（idle 兜底）时数据已持久化，杀进程不丢。
-     * runCatching + withTimeout 防御：DataStore 异常/极端卡顿不阻塞事件处理（best-effort，可由 SSE/REST 重建）。
-     */
-    private fun persistLastCompletedReplyTime() {
-        runBlocking {
-            runCatching {
-                withTimeout(500) {
-                    settingsDataStore.saveLastCompletedReplyTimes(_lastCompletedReplyTime.value)
-                }
-            }
-        }
+        unreadBadgeService.recomputeMaxCompleted(
+            sessionId,
+            messageHandler.messages.value[sessionId].orEmpty()
+        )
     }
 
     fun removePermission(permissionId: String) =
