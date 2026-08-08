@@ -14,4 +14,5 @@ import androidx.room.RoomDatabase
 )
 abstract class OcBeaconDatabase : RoomDatabase() {
     abstract fun logDao(): LogDao
+    abstract fun messageDao(): MessageDao
 }

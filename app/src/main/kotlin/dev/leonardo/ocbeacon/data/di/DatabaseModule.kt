@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.leonardo.ocbeacon.data.local.LogDao
+import dev.leonardo.ocbeacon.data.local.MessageDao
 import dev.leonardo.ocbeacon.data.local.OcBeaconDatabase
 import javax.inject.Singleton
 
@@ -24,4 +25,7 @@ object DatabaseModule {
 
     @Provides
     fun provideLogDao(database: OcBeaconDatabase): LogDao = database.logDao()
+
+    @Provides
+    fun provideMessageDao(database: OcBeaconDatabase): MessageDao = database.messageDao()
 }
