@@ -187,7 +187,7 @@ class ChatViewModelSendTest {
 
     @Test
     fun `optimistic message removed on failure`() = runTest {
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } throws
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
 
         val viewModel = createViewModel()
@@ -210,7 +210,7 @@ class ChatViewModelSendTest {
     fun `restoredDraft is set on send failure in V1`() = runTest {
         // V1 sendParts() 捕获异常并将草稿恢复到 _restoredDraft。
         // 让 sendMessageUseCase.sendPrompt() 抛异常 —— 这正是 V1 调用的方法。
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } throws
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
 
         val viewModel = createViewModel()
