@@ -32,6 +32,14 @@ import kotlinx.coroutines.launch
 private const val TAG = "MessageDataDelegate"
 
 /**
+ * REST GET /question 是全量权威源：以其返回集合为准替换该会话的待处理问题。
+ * 不做与内存快照的合并——服务器上已消失的问题（他端已回答）必须被清除。
+ */
+internal fun resolvePendingQuestionReplacement(
+    restQuestions: List<SseEvent.QuestionAsked>
+): List<SseEvent.QuestionAsked> = restQuestions
+
+/**
  * 管理消息 SSE 观察、加载、分页、发送状态和工具展开
  * 状态（此前内联在 [ChatViewModel] 中）。
  *
@@ -407,16 +415,12 @@ internal class MessageDataDelegate(
                     )
                 }
             if (sessionQuestions.isNotEmpty()) {
-                // 合并 SSE 已有的问题 + REST 恢复的问题（去重），防止覆盖 SSE 新推送的问题
-                val existingSseQs = chatRepository.getQuestionsSnapshot()[sid] ?: emptyList()
-                val existingIds = existingSseQs.map { it.id }.toSet()
-                val newQs = sessionQuestions.filter { it.id !in existingIds }
-                if (newQs.isNotEmpty()) {
-                    chatRepository.setQuestions(sid, existingSseQs + newQs)
-                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Merged ${newQs.size} new + ${existingSseQs.size} existing questions for session $sid")
-                } else {
-                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "All ${sessionQuestions.size} REST questions already present via SSE for session $sid")
-                }
+                chatRepository.setQuestions(sid, resolvePendingQuestionReplacement(sessionQuestions))
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Replaced ${sessionQuestions.size} questions for session $sid (REST authoritative)")
+            } else {
+                // 服务器无 pending 问题——清空（含他端已回答的情况）
+                chatRepository.setQuestions(sid, emptyList())
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "No pending questions for session $sid, cleared")
             }
         } catch (e: Exception) {
             AppLogger.e(TAG, "Failed to load pending questions: ${e.javaClass.simpleName}: ${e.message}", e)
