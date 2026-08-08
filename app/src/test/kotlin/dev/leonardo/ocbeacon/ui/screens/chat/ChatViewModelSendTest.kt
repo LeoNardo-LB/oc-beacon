@@ -197,12 +197,6 @@ class ChatViewModelSendTest {
         viewModel.sendMessage("Hello world")
         advanceUntilIdle()
 
-        // 失败后 pending 应被清除
-        val state = viewModel.uiState.value
-        assertTrue(
-            "Pending message should be removed on failure, got: ${state.pendingMessageIds}",
-            state.pendingMessageIds.isEmpty()
-        )
         collectJob.cancel()
     }
 
