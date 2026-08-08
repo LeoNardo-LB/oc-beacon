@@ -1,14 +1,11 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -184,7 +181,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.formatDuration
 import dev.leonardo.ocbeacon.ui.screens.chat.util.resolveUserCommandLabel
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.util.codeHorizontalScroll
-import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import dev.leonardo.ocbeacon.ui.theme.ChatDensity
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalCollapseTools
@@ -716,66 +712,61 @@ fun ChatScreen(
         }
     }
 
-                        AnimatedVisibility(
-                            visible = !interaction.isLoading,
-                            enter = fadeIn(tween(AppMotion.MEDIUM))
-                        ) {
-                            if (sessionMeta.sessionParentId == null) {
-                                ChatMessageList(
-                                    listState = listState,
-                                    messageState = messageState,
-                                    sessionMeta = sessionMeta,
-                                    interaction = interaction,
-                                    rawMessages = rawMessages,
-                                    displayItems = displayItems,
-                                    isAtBottom = scrollController.isAtBottom,
-                                    isAmoled = isAmoled,
-                                    messageSpacing = messageSpacing,
-                                    isMainSession = true,
-                                    coroutineScope = coroutineScope,
-                                    snackbarHostState = snackbarHostState,
-                                    context = context,
-                                    clipboard = clipboard,
-                                    keyboardController = keyboardController,
-                                    viewModel = viewModel,
-                                    navigateToChildSession = onNavigateToChildSession,
-                                    onOpenFile = handleOpenFile,
-                                    onForceScrollToBottom = { scrollController.forceScrollToBottom() },
-                                    showQuickNavigate = showQuickNavigate,
-                                    onQuickNavigateDismiss = { showQuickNavigate = false },
-                                    agents = modelConfig.agents,
+                    if (sessionMeta.sessionParentId == null) {
+                        ChatMessageList(
+                            listState = listState,
+                            messageState = messageState,
+                            sessionMeta = sessionMeta,
+                            interaction = interaction,
+                            rawMessages = rawMessages,
+                            displayItems = displayItems,
+                            isAtBottom = scrollController.isAtBottom,
+                            isAmoled = isAmoled,
+                            messageSpacing = messageSpacing,
+                            isMainSession = true,
+                            coroutineScope = coroutineScope,
+                            snackbarHostState = snackbarHostState,
+                            context = context,
+                            clipboard = clipboard,
+                            keyboardController = keyboardController,
+                            viewModel = viewModel,
+                            navigateToChildSession = onNavigateToChildSession,
+                            onOpenFile = handleOpenFile,
+                            onForceScrollToBottom = { scrollController.forceScrollToBottom() },
+                            showQuickNavigate = showQuickNavigate,
+                            onQuickNavigateDismiss = { showQuickNavigate = false },
+                            agents = modelConfig.agents,
 
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            } else {
-                                ChatMessageList(
-                                    listState = listState,
-                                    messageState = messageState,
-                                    sessionMeta = sessionMeta,
-                                    interaction = interaction,
-                                    rawMessages = rawMessages,
-                                    displayItems = displayItems,
-                                    isAtBottom = scrollController.isAtBottom,
-                                    isAmoled = isAmoled,
-                                    messageSpacing = messageSpacing,
-                                    isMainSession = false,
-                                    coroutineScope = coroutineScope,
-                                    snackbarHostState = snackbarHostState,
-                                    context = context,
-                                    clipboard = clipboard,
-                                    keyboardController = keyboardController,
-                                    viewModel = viewModel,
-                                    navigateToChildSession = onNavigateToChildSession,
-                                    onOpenFile = handleOpenFile,
-                                    onForceScrollToBottom = { scrollController.forceScrollToBottom() },
-                                    showQuickNavigate = false,
-                                    onQuickNavigateDismiss = {},
-                                    agents = modelConfig.agents,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        ChatMessageList(
+                            listState = listState,
+                            messageState = messageState,
+                            sessionMeta = sessionMeta,
+                            interaction = interaction,
+                            rawMessages = rawMessages,
+                            displayItems = displayItems,
+                            isAtBottom = scrollController.isAtBottom,
+                            isAmoled = isAmoled,
+                            messageSpacing = messageSpacing,
+                            isMainSession = false,
+                            coroutineScope = coroutineScope,
+                            snackbarHostState = snackbarHostState,
+                            context = context,
+                            clipboard = clipboard,
+                            keyboardController = keyboardController,
+                            viewModel = viewModel,
+                            navigateToChildSession = onNavigateToChildSession,
+                            onOpenFile = handleOpenFile,
+                            onForceScrollToBottom = { scrollController.forceScrollToBottom() },
+                            showQuickNavigate = false,
+                            onQuickNavigateDismiss = {},
+                            agents = modelConfig.agents,
 
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-                        }
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                   }
               }
            }

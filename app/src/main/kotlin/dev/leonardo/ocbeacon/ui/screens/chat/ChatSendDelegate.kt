@@ -3,13 +3,8 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
-import dev.leonardo.ocbeacon.domain.model.PendingPromptRecord
-import dev.leonardo.ocbeacon.domain.repository.PendingPromptRepository
-import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.ModelSelection
-import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.PromptPart
-import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
@@ -23,12 +18,12 @@ import kotlinx.coroutines.launch
 private const val TAG = "ChatSendDelegate"
 
 /**
- * 管理此前内联在 [ChatViewModel] 中的消息发送/重试逻辑。
+ * 管理此前内联在 [ChatViewModel] 中的消息发送逻辑。
  *
- * 包含乐观消息创建、pending prompt 持久化、发送状态协调和
- * 延迟的会话标题刷新。跨 delegate 协调器（写入 messageData 的
- * pending 状态、draftDelegate 的失败草稿恢复）通过直接引用
- * [MessageDataDelegate] 和 [DraftInputDelegate] 实现。
+ * **悲观消息模式**（与 opencode 官方一致）：发送后不创建乐观消息，
+ * 等待服务器 SSE 回显（MessageUpdated）后消息出现在列表；发送失败
+ * 时恢复草稿到输入框并通过 [errorSink] 提示。跨 delegate 协调器
+ * （draftDelegate 的失败草稿恢复）通过直接引用实现。
  *
  * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的
  * 运行时上下文（ViewModel 的协程作用域、跨 delegate 引用、server-id/会话
@@ -42,7 +37,7 @@ internal class ChatSendDelegate(
     private val chatRepository: ChatRepository,
     private val sessionRepository: SessionRepository,
     private val sessionStateService: SessionStateRepository,
-    private val pendingPromptRepository: PendingPromptRepository,
+    private val sendStateStore: SendStateStore,
     private val scope: CoroutineScope,
     private val serverId: String,
     private val sessionIdProvider: () -> String,
@@ -50,7 +45,7 @@ internal class ChatSendDelegate(
     private val ensureSession: suspend () -> String,
     private val modelConfigProvider: () -> ModelConfigState,
     private val selectedVariantProvider: () -> String?,
-    private val optimisticStore: OptimisticMessageStore,
+    private val errorSink: (String) -> Unit,
     private val draftDelegate: DraftInputDelegate,
 ) {
     fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) {
@@ -95,42 +90,14 @@ internal class ChatSendDelegate(
     }
 
     private fun sendParts(parts: List<PromptPart>) {
-        // RS-007 修复：防止快速双击。_isSending 由 onSendStarted 同步设置，
+        // RS-007 修复：防止快速双击。_isSending 由 setSending 同步设置，
         // 但 Compose 重组（禁用按钮）有 1 帧延迟。此检查消除了竞态窗口。
-        if (optimisticStore.isSendingValue) {
+        if (sendStateStore.isSendingValue) {
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "sendParts: already sending, ignoring duplicate")
             return
         }
+        sendStateStore.setSending(true)
         scrollSignal.requestScrollToTop()
-        val pendingId = "pending-${java.util.UUID.randomUUID()}"
-
-        // 创建乐观消息以立即显示
-        val now = System.currentTimeMillis()
-        val currentSid = sessionIdProvider()
-        val optimisticMsg = Message.User(
-            id = pendingId,
-            sessionId = currentSid,
-            time = TimeInfo(created = now),
-        )
-        val optimisticParts = parts.mapIndexed { index, pp ->
-            Part.Text(
-                id = "${pendingId}-part-$index",
-                sessionId = currentSid,
-                messageId = pendingId,
-                text = pp.text ?: "",
-            )
-        }
-        optimisticStore.onSendStarted(pendingId, optimisticMsg, optimisticParts)
-        // 持久化乐观发送，使其在发送中途应用被杀时存活。
-        // 下次启动时的对账会检测服务器从未回显的发送。
-        pendingPromptRepository.save(
-            PendingPromptRecord(
-                messageId = pendingId,
-                sessionId = currentSid,
-                parts = parts,
-                createdAt = now,
-            )
-        )
         scope.launch {
             try {
                 val currentSessionId = ensureSession()
@@ -149,6 +116,8 @@ internal class ChatSendDelegate(
                 // 清理旧消息，因此不会闪烁。
                 chatRepository.clearRevert(currentSessionId)
 
+                // 悲观消息：POST 受理后不显示任何占位，等待服务器 SSE
+                // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
                 sendMessageUseCase.sendPrompt(
                     serverId = serverId,
                     sessionId = currentSessionId,
@@ -158,30 +127,19 @@ internal class ChatSendDelegate(
                     variant = selectedVariantProvider(),
                     directory = sessionDirectoryProvider()
                 )
-                optimisticStore.onSendSuccess(pendingId)
-                pendingPromptRepository.remove(pendingId)
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
                 refreshSessionTitleDelayed(currentSessionId)
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to send message", e)
-                // 从失败的发送恢复草稿
+                // 悲观消息失败：恢复草稿到输入框 + 错误提示（snackbar）
                 val failedText = parts.filter { it.type == "text" }.mapNotNull { it.text }.joinToString("\n")
                 if (failedText.isNotBlank()) {
                     draftDelegate.setRestoredDraft(RevertedDraftPayload(text = failedText))
                 }
-                optimisticStore.onSendError(e.message ?: "Failed to send message", pendingId)
-                pendingPromptRepository.remove(pendingId)
+                errorSink(e.message ?: "Failed to send message")
+            } finally {
+                sendStateStore.setSending(false)
             }
         }
-    }
-
-    /** 通过 pending ID 重试发送失败的乐观消息。 */
-    fun retrySendMessage(pendingId: String) {
-        val pending = optimisticStore.getPendingMessage(pendingId) ?: return
-        val parts = pending.parts.mapNotNull { part ->
-            (part as? Part.Text)?.let { PromptPart(type = "text", text = it.text) }
-        }
-        optimisticStore.removePendingMessage(pendingId)
-        sendParts(parts)
     }
 }

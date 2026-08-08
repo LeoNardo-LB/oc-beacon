@@ -46,8 +46,11 @@ internal class ChatScrollController(
     /** 强制滚动触发计数（只读快照）。 */
     val forceScrollTick: Int get() = forceScrollTickState.intValue
 
-    /** 触发一次 snapToBottom（自增 forceScrollTick）。 */
+    /** 触发一次强制滚动到底部（自增 forceScrollTick 并强制启用自动跟随）。 */
     fun forceScrollToBottom() {
+        // 发送/跳底场景强制开启自动跟随 —— 用户发消息后必然想看新消息，
+        // 即使此前滚动到中间（autoScrollEnabled=false）也应跳到底部。
+        autoScrollEnabledState.value = true
         forceScrollTickState.intValue++
     }
 }
@@ -96,15 +99,18 @@ internal fun rememberChatScrollController(
         }
     }
 
+    // 新消息到达 → 同帧位置锚定到底部（index 0），而非"跟随最后一条消息的 key"。
+    // requestScrollToItem 非挂起：在 effect（apply 后、layout 前）同步注册请求，
+    // 下一帧布局直接按位置定位 —— 无"旧 key 锚定偏移一帧 → 再拉回"的闪烁循环。
     LaunchedEffect(messageCount) {
         if (messageCount > 0 && autoScrollEnabled.value && !listState.isScrollInProgress) {
-            listState.scrollToItem(0)
+            listState.requestScrollToItem(0)
         }
     }
 
     LaunchedEffect(forceScrollTick.intValue) {
         if (forceScrollTick.intValue > 0) {
-            listState.snapToBottom()
+            listState.requestScrollToItem(0)
         }
     }
 
