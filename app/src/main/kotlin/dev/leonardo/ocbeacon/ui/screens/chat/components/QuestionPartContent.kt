@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -80,7 +81,7 @@ internal fun CollapsibleQuestionPart(question: String) {
         tonalElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(4.dp).fillMaxWidth()) {
+        Column(modifier = Modifier.padding(SpacingTokens.XS.dp).fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
@@ -134,7 +135,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                                 Icon(
                                     imageVector = if (parsed.isMultiple) Icons.Default.CheckBox else Icons.Default.RadioButtonChecked,
                                     contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
+                                    modifier = Modifier.size(18.dp),
                                     tint = accentColor
                                 )
                                 Text(
@@ -204,7 +205,7 @@ internal fun QuestionPagerView(
         androidx.compose.runtime.LaunchedEffect(state.currentPage) {
             onPageSelected(state.currentPage)
         }
-        Column {
+        Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
             SecondaryTabRow(selectedTabIndex = state.currentPage, containerColor = Color.Transparent) {
                 questions.indices.forEach { i ->
                     Tab(selected = state.currentPage == i,
@@ -260,9 +261,9 @@ internal fun QuestionOptionRows(
                 shape = ShapeTokens.small,
                 color = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
                 modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.defaultMinSize(minHeight = 48.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (isMultiple) (if (isSelected) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank) else (if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked),
-                        contentDescription = null, modifier = Modifier.size(16.dp),
+                        contentDescription = null, modifier = Modifier.size(24.dp),
                         tint = if (isSelected) accentColor else accentColor.copy(alpha = AlphaTokens.MEDIUM))
                     Column(Modifier.weight(1f)) {
                         Text(option.label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
@@ -280,8 +281,8 @@ internal fun QuestionOptionRows(
             if (customAnswer != null) {
                 Surface(onClick = {}, enabled = false, shape = ShapeTokens.small,
                     color = accentColor.copy(alpha = AlphaTokens.SELECTED), modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(if (isMultiple) Icons.Default.CheckBox else Icons.Default.RadioButtonChecked, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
+                    Row(Modifier.defaultMinSize(minHeight = 48.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (isMultiple) Icons.Default.CheckBox else Icons.Default.RadioButtonChecked, contentDescription = null, modifier = Modifier.size(24.dp), tint = accentColor)
                         Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor, modifier = Modifier.weight(1f))
                     }
                 }
@@ -291,8 +292,8 @@ internal fun QuestionOptionRows(
                 var customText by remember { mutableStateOf("") }
                 if (!isEditing) {
                     Surface(onClick = { isEditing = true }, shape = ShapeTokens.small, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = accentColor.copy(alpha = AlphaTokens.MEDIUM))
+                        Row(Modifier.defaultMinSize(minHeight = 48.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(24.dp), tint = accentColor.copy(alpha = AlphaTokens.MEDIUM))
                             Text(stringResource(R.string.custom_input), style = MaterialTheme.typography.bodySmall, color = accentColor.copy(alpha = AlphaTokens.MEDIUM))
                         }
                     }
