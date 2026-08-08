@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
+import dev.leonardo.ocbeacon.data.local.CursorCodec
 import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.Message
@@ -34,8 +35,10 @@ class MessagePaginationUseCaseTest {
         val local = listOf(msg("msg_2", 200), msg("msg_3", 300))
         coEvery { messageStore.loadRange("ses_1", 50, null) } returns local
         coEvery { messageStore.oldestMessageId("ses_1") } returns "msg_2"
+        coEvery { messageStore.messageCreatedAt("msg_2") } returns 200L
         val page = MessagePage(messages = listOf(msg("msg_4", 400)), nextCursor = null)
-        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, null) } returns Result.success(page)
+        val expectedBefore = CursorCodec.encode("msg_2", 200L)
+        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, expectedBefore) } returns Result.success(page)
 
         val result = useCase.loadMessagesForSession("srv", "ses_1", 50)
 

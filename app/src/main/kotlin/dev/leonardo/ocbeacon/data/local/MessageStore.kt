@@ -86,6 +86,9 @@ class MessageStore @Inject constructor(
     suspend fun oldestMessageId(sessionId: String): String? =
         withContext(Dispatchers.IO) { dao.oldestMessageId(sessionId) }
 
+    suspend fun messageCreatedAt(messageId: String): Long? =
+        withContext(Dispatchers.IO) { dao.messageCreatedAt(messageId) }
+
     suspend fun clearSession(sessionId: String) = withContext(Dispatchers.IO) {
         dao.clearSession(sessionId)
     }

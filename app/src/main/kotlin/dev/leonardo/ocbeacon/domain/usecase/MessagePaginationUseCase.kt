@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
+import dev.leonardo.ocbeacon.data.local.CursorCodec
 import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessagePage
@@ -28,8 +29,14 @@ class MessagePaginationUseCase @Inject constructor(
         limit: Int,
     ): Result<List<MessageWithParts>> {
         val local = messageStore.loadRange(sessionId, limit, beforeId = null)
+        val oldestId = messageStore.oldestMessageId(sessionId)
         return runCatching {
-            val page = sessionRepository.listMessages(serverId, sessionId, limit, before = null)
+            // 本地有缓存时，只拉取本地最旧游标之后的新消息
+            val before = oldestId?.let { id ->
+                val created = messageStore.messageCreatedAt(id)
+                if (created != null) CursorCodec.encode(id, created) else null
+            }
+            val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
             messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
             mergeLocalAndRemote(local, page.messages)
