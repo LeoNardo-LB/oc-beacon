@@ -184,6 +184,12 @@ dependencies {
     // 用于偏好设置的 DataStore
     implementation("androidx.datastore:datastore-preferences:1.2.1")
 
+    // Room 本地数据库（消息缓存 + 诊断日志）
+    val roomVersion = "2.8.4"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
+
     // 用于图片加载的 Coil
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
