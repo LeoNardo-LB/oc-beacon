@@ -47,6 +47,7 @@ class EventDispatcher @Inject constructor(
     private val sessionStateService: SessionStateService,
     private val settingsDataStore: SettingsDataStore,
     private val unreadBadgeService: UnreadBadgeService,
+    private val ownershipRegistry: StreamingOwnershipRegistry,
 ) {
     /**
      * 一次性 unread v2 迁移 scope：App 启动时清空旧域已读标记（readTimes/allReadAt/
@@ -78,20 +79,6 @@ class EventDispatcher @Inject constructor(
             messageHandler.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
         }
     }
-
-    /**
-     * 跟踪每个会话由哪个 serverId"拥有"，用于 SSE 事件处理。
-     *
-     * 当两个服务器配置指向同一后端（同一 OpenCode serve 实例）时，
-     * 两条 SSE 连接都会投递相同的全局事件。若无所有权跟踪，
-     * 像 [SseEvent.MessagePartDelta] 这样的追加式事件会被应用两次，
-     * 使流式文本输出翻倍。
-     *
-     * 首个为某会话投递事件的服务器获得所有权。
-     * 来自任何其他 serverId 的该会话事件会被跳过。
-     * 所有权在 [clearForServer]、[clearAll] 或 [SseEvent.SessionDeleted] 时释放。
-     */
-    private val streamingSessionOwners = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     // ============ 事件处理器注册表（开闭原则）============
     // 将每个 SseEvent 子类映射到其唯一负责的 handler。
@@ -221,15 +208,12 @@ class EventDispatcher @Inject constructor(
         // 所有权检查：当两条 SSE 连接投递相同事件
         //（同一后端，不同配置）时，防止重复事件处理。
         val sessionId = extractSessionId(event)
-        if (sessionId != null) {
-            val owner = streamingSessionOwners.putIfAbsent(sessionId, serverId)
-            if (owner != null && owner != serverId) {
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d(TAG, "Skipping duplicate ${event::class.simpleName} for session " +
-                        "${sessionId.take(12)} from server=$serverId (owner=$owner)")
-                }
-                return
+        if (sessionId != null && !ownershipRegistry.claim(sessionId, serverId)) {
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "Skipping duplicate ${event::class.simpleName} for session " +
+                    "${sessionId.take(12)} from server=$serverId")
             }
+            return
         }
 
         // 注册表分发：将事件路由到其唯一注册的 handler（O(1) 查找）。
@@ -246,7 +230,7 @@ class EventDispatcher @Inject constructor(
         // 跨 handler：SessionDeleted 级联清理其他 handler
         if (event is SseEvent.SessionDeleted) {
             val deletedSessionId = event.info.id
-            streamingSessionOwners.remove(deletedSessionId)
+            ownershipRegistry.release(deletedSessionId)
             messageHandler.clearForSession(deletedSessionId)
             unreadBadgeService.removeSession(deletedSessionId)
             permissionHandler.clearForSession(deletedSessionId)
@@ -453,7 +437,7 @@ class EventDispatcher @Inject constructor(
         miscHandler.clearAll()
         sessionNextHandler.clearAll()
         sessionStateService.clearAll()
-        streamingSessionOwners.clear()
+        ownershipRegistry.clearAll()
     }
 
     fun clearForServer(serverId: String) {
@@ -466,7 +450,7 @@ class EventDispatcher @Inject constructor(
         sessionNextHandler.clearForServer(sessionIds)
         // 释放由此服务器拥有的会话的流式所有权，
         // 允许另一服务器在仍连接时认领它们。
-        streamingSessionOwners.entries.removeAll { it.value == serverId }
+        ownershipRegistry.releaseAllForServer(serverId)
     }
 }
 

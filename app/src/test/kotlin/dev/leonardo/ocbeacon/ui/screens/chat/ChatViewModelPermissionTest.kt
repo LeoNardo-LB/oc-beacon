@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
+import dev.leonardo.ocbeacon.data.repository.StreamingOwnershipRegistry
 import dev.leonardo.ocbeacon.service.SessionFocusHolder
 import dev.leonardo.ocbeacon.service.AppNotificationManager
 import dev.leonardo.ocbeacon.data.repository.handler.*
@@ -110,7 +111,8 @@ class ChatViewModelPermissionTest {
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
+            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            ownershipRegistry = StreamingOwnershipRegistry(),
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
 

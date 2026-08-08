@@ -70,7 +70,8 @@ class ChatRepositoryImplTest {
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
+            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            ownershipRegistry = StreamingOwnershipRegistry(),
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
         repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore)

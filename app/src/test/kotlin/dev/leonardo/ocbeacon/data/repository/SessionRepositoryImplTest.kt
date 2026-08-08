@@ -52,7 +52,8 @@ class SessionRepositoryImplTest {
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
+            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            ownershipRegistry = StreamingOwnershipRegistry(),
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
         repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo)

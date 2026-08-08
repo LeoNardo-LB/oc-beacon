@@ -65,6 +65,7 @@ class EventDispatcherUnreadTest {
                 settingsDataStore,
                 CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
             ),
+            ownershipRegistry = StreamingOwnershipRegistry(),
         )
     }
 

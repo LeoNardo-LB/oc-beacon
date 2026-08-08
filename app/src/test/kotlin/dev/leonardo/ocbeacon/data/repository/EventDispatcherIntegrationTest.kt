@@ -56,7 +56,8 @@ class EventDispatcherIntegrationTest {
             sessionNextHandler = SessionNextEventHandler(),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
+            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            ownershipRegistry = StreamingOwnershipRegistry(),
         )
     }
 
