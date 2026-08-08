@@ -1,12 +1,11 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import android.content.Context
-import android.database.sqlite.SQLiteException
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.leonardo.ocbeacon.data.local.LogEntity
+import dev.leonardo.ocbeacon.data.local.LogStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +37,7 @@ data class DiagnosticLogEntry(
 )
 
 /**
- * 由 [DiagnosticLogDatabase]（SQLiteOpenHelper）支持的持久化诊断日志 repository。
+ * 由 [LogStore]（Room）支持的持久化诊断日志 repository。
  *
  * 所有写入都经过 [sanitize] 处理，在持久化前剥离凭据、令牌、IP 地址和
  * 本地文件路径。[entries] flow 暴露最近的 1000 条已脱敏条目供 UI 显示。
@@ -49,9 +48,8 @@ data class DiagnosticLogEntry(
 class DiagnosticLogRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val json: Json,
-    @param:ApplicationContext private val context: Context,
+    private val logStore: LogStore,
 ) {
-    private var database = DiagnosticLogDatabase(context, json)
     private val logLevelKey = stringPreferencesKey("diagnostic_log_level")
     private val _entries = MutableStateFlow<List<DiagnosticLogEntry>>(emptyList())
 
@@ -86,20 +84,48 @@ class DiagnosticLogRepository @Inject constructor(
     suspend fun recordBatch(entries: List<DiagnosticLogEntry>) {
         if (entries.isEmpty()) return
         withContext(Dispatchers.IO) {
-            withDatabaseRecovery { it.insert(entries.map(::sanitizeEntry)) }
+            logStore.insert(entries.map(::sanitizeEntry).map(::toEntity))
             refresh()
         }
     }
 
     suspend fun clear() {
         withContext(Dispatchers.IO) {
-            withDatabaseRecovery { it.clear() }
+            logStore.clear()
             refresh()
         }
     }
 
     suspend fun setLogLevel(level: String) {
         dataStore.edit { it[logLevelKey] = level.takeIf { value -> value in LOG_LEVELS } ?: "INFO" }
+    }
+
+    // ---- 映射 ----------------------------------------------------
+
+    private fun toEntity(entry: DiagnosticLogEntry): LogEntity = LogEntity(
+        timestamp = entry.timestamp,
+        level = entry.level,
+        category = entry.category,
+        message = entry.message,
+        details = json.encodeToString(entry.details),
+        byteSize = entry.estimatedByteSize(json.encodeToString(entry.details)),
+    )
+
+    private fun fromEntity(entity: LogEntity): DiagnosticLogEntry = DiagnosticLogEntry(
+        timestamp = entity.timestamp,
+        level = entity.level,
+        category = entity.category,
+        message = entity.message,
+        details = runCatching {
+            json.decodeFromString<Map<String, String>>(entity.details)
+        }.getOrDefault(emptyMap()),
+    )
+
+    private fun DiagnosticLogEntry.estimatedByteSize(encodedDetails: String): Int =
+        (level.length + category.length + message.length + encodedDetails.length) * 2 + 32
+
+    private suspend fun refresh() {
+        _entries.value = logStore.latest().map(::fromEntity).asReversed()
     }
 
     // ---- 脱敏 ----------------------------------------------------
@@ -149,21 +175,5 @@ class DiagnosticLogRepository @Inject constructor(
         )
 
         private const val MAX_DETAIL_FIELDS = 20
-    }
-
-    private fun refresh() {
-        _entries.value = withDatabaseRecovery { it.latest() }
-    }
-
-    @Synchronized
-    private fun <T> withDatabaseRecovery(block: (DiagnosticLogDatabase) -> T): T {
-        return try {
-            block(database)
-        } catch (error: SQLiteException) {
-            runCatching { database.close() }
-            context.deleteDatabase(DiagnosticLogDatabase.DATABASE_NAME)
-            database = DiagnosticLogDatabase(context, json)
-            block(database)
-        }
     }
 }
