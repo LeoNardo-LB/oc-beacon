@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
+import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover
 import dev.leonardo.ocbeacon.data.repository.handler.*
@@ -13,6 +14,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
@@ -28,6 +30,7 @@ class ChatRepositoryImplTest {
     private lateinit var eventDispatcher: EventDispatcher
     private lateinit var serverRepo: ServerDataStore
     private lateinit var permissionAutoApprover: PermissionAutoApprover
+    private lateinit var messageStore: MessageStore
     private lateinit var sessionHandler: SessionEventHandler
     private lateinit var messageHandler: MessageEventHandler
     private lateinit var permissionHandler: PermissionEventHandler
@@ -41,6 +44,9 @@ class ChatRepositoryImplTest {
         providerApi = mockk(relaxed = true)
         serverRepo = mockk(relaxed = true)
         permissionAutoApprover = mockk(relaxed = true)
+        messageStore = mockk(relaxed = true)
+        // 单元测试不接入 Room；种子化读到空 list（不触发 upsert），保持原测试语义
+        every { messageStore.observeMessages(any()) } returns flowOf(emptyList())
         sessionHandler = SessionEventHandler()
         messageHandler = MessageEventHandler()
         permissionHandler = PermissionEventHandler()
@@ -62,7 +68,7 @@ class ChatRepositoryImplTest {
             settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
-        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, providerApi, eventDispatcher, serverRepo, permissionAutoApprover)
+        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore)
     }
 
     // ============ getMessagesFlow ============
@@ -81,6 +87,19 @@ class ChatRepositoryImplTest {
     fun `getMessagesFlow returns empty for unknown session`() = runTest {
         val messages = repo.getMessagesFlow("unknown").first()
         assertTrue(messages.isEmpty())
+    }
+
+    @Test
+    fun `getMessagesFlow seeds memory from Room cache when empty`() = runTest {
+        // 冷启动场景：内存热视图空，Room 有缓存 → 种子化后消息立即可见
+        val msg = Message.User(id = "m1", sessionId = "s1", time = TimeInfo(1000L))
+        every { messageStore.observeMessages("s1") } returns flowOf(listOf(MessageWithParts(msg, emptyList())))
+
+        val messages = repo.getMessagesFlow("s1").first()
+        assertEquals(1, messages.size)
+        assertEquals("m1", messages[0].id)
+        // 种子化副作用：内存热视图被填充（后续订阅不再读 Room）
+        assertEquals(1, eventDispatcher.messages.value["s1"]?.size)
     }
 
     // ============ getPermissionsFlow ============
