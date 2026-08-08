@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
@@ -347,6 +348,32 @@ class AppNotificationManager @Inject constructor(
         showServerGroupSummary(context, notificationManager, server)
     }
 
+    /**
+     * 从 REST 轮询结果触发问题通知（SSE 兜底）。
+     * 对每个会话：仅通知新增问题（diff）；去重/抑制复用既有逻辑。
+     */
+    fun notifyPendingQuestionsFromREST(
+        context: Context,
+        notificationManager: NotificationManager,
+        server: ServerConfig,
+        questionsBySession: Map<String, List<SseEvent.QuestionAsked>>,
+        previousKnown: Map<String, Set<String>>
+    ) {
+        val newQuestions = diffNewQuestionIds(previousKnown, questionsBySession)
+        newQuestions.forEach { (sessionId, questions) ->
+            val targetSessionId = if (isChildSession(sessionId)) {
+                sessionById[sessionId]?.parentId ?: sessionId
+            } else sessionId
+            if (sessionFocusHolder.shouldSuppressEvent(server.id, targetSessionId)) return@forEach
+            questions.forEach { question ->
+                val text = question.questions.firstOrNull()?.question
+                    ?: question.questions.firstOrNull()?.header
+                    ?: ""
+                showQuestionNotification(context, notificationManager, server, targetSessionId, text)
+            }
+        }
+    }
+
     fun showErrorNotification(
         context: Context,
         notificationManager: NotificationManager,
@@ -613,4 +640,19 @@ class AppNotificationManager @Inject constructor(
     companion object {
         const val PERSISTENT_NOTIFICATION_ID = 1001
     }
+}
+
+/**
+ * 对比上次已知问题 id 与当前问题列表，返回每个会话的新增问题（按 id 判断）。
+ * REST 轮询兜底使用——SSE 不推 question 事件时也能发现新提问。
+ */
+internal fun diffNewQuestionIds(
+    previous: Map<String, Set<String>>,
+    current: Map<String, List<SseEvent.QuestionAsked>>
+): Map<String, List<SseEvent.QuestionAsked>> {
+    return current.mapNotNull { (sessionId, questions) ->
+        val known = previous[sessionId].orEmpty()
+        val newOnes = questions.filter { it.id !in known }
+        if (newOnes.isEmpty()) null else sessionId to newOnes
+    }.toMap()
 }

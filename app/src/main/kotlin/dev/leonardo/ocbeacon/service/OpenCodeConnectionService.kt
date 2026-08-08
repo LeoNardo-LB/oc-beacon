@@ -21,6 +21,7 @@ import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository as DomainSettingsRepository
+import dev.leonardo.ocbeacon.domain.usecase.ManagePermissionUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.FlowPreview
@@ -34,6 +35,7 @@ import dev.leonardo.ocbeacon.util.parseLocale
 
 private const val TAG = "OpenCodeService"
 private const val WAKELOCK_TAG = "OpenCodeRemote::SSEConnection"
+private const val QUESTION_POLL_INTERVAL_MS = 30_000L
 
 /**
  * 用于维护到多个服务器的 OpenCode SSE 连接的前台服务。
@@ -90,6 +92,9 @@ class OpenCodeConnectionService : Service() {
 
     @Inject
     lateinit var serverConfigRepository: ServerConfigRepository
+
+    @Inject
+    lateinit var managePermissionUseCase: ManagePermissionUseCase
 
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(
@@ -239,6 +244,9 @@ class OpenCodeConnectionService : Service() {
         // 启动带自动重连的 SSE 连接；事件路由到 processEvent
         connectionManager.startConnection(server, ::processEvent)
 
+        // REST 兜底：SSE 不推 question 事件时定期轮询 GET /question
+        startQuestionPolling(server)
+
         // 观察连接状态：SSE 连接建立后持久通知从"连接中"刷新为"已连接"
         startPersistentNotificationObserver()
 
@@ -341,6 +349,63 @@ class OpenCodeConnectionService : Service() {
         startForeground(AppNotificationManager.PERSISTENT_NOTIFICATION_ID, notification)
         foregroundStarted = true
     }
+
+    // ============ 问题通知 REST 兜底 ============
+
+    /**
+     * 每隔 [QUESTION_POLL_INTERVAL_MS] 轮询 `GET /question`，对比上次已知问题 id
+     * 集合，对新增问题触发通知。SSE 推 QuestionAsked 时也走相同通知路径，
+     * 由 [AppNotificationManager.shouldNotifyQuestion] 二次去重，故不会重复。
+     *
+     * 协程在 [connect] 时启动；当服务器断连（[connectionManager.isConnected]
+     * 返回 false）时自停。
+     */
+    private fun startQuestionPolling(server: ServerConfig) {
+        serviceScope.launch {
+            var previousKnown = emptyMap<String, Set<String>>()
+            while (isActive) {
+                if (!connectionManager.isConnected(server.id)) break
+                try {
+                    val pending = managePermissionUseCase.listPendingQuestions(
+                        server.id, directory = null
+                    )
+                    val grouped = pending
+                        .map { it.toQuestionAsked() }
+                        .groupBy { it.sessionId }
+                    appNotificationManager.notifyPendingQuestionsFromREST(
+                        this@OpenCodeConnectionService,
+                        systemNotificationManager,
+                        server,
+                        grouped,
+                        previousKnown
+                    )
+                    previousKnown = grouped.mapValues { (_, qs) -> qs.map { it.id }.toSet() }
+                } catch (e: Exception) {
+                    AppLogger.w(TAG, "[${server.displayName}] question polling failed: ${e.message}")
+                }
+                delay(QUESTION_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    /** 将 [QuestionState] 转换为 [SseEvent.QuestionAsked] 以复用通知路径。 */
+    private fun dev.leonardo.ocbeacon.domain.model.QuestionState.toQuestionAsked(): SseEvent.QuestionAsked =
+        SseEvent.QuestionAsked(
+            id = id,
+            sessionId = sessionId,
+            questions = questions.map { q ->
+                SseEvent.QuestionAsked.Question(
+                    header = q.header,
+                    question = q.question,
+                    multiple = q.multiple,
+                    custom = q.custom,
+                    options = q.options.map { o ->
+                        SseEvent.QuestionAsked.Option(label = o.label, description = o.description)
+                    }
+                )
+            },
+            tool = tool
+        )
 
     // ============ 事件处理（仅通知路由）============
 
