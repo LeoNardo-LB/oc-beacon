@@ -279,9 +279,10 @@ internal fun QuestionCard(
         // 未回答确认弹窗（AmoledCard 内部、Column 之外）
         if (showUnansweredDialog) {
             val unanswered = unansweredQuestionIndexes(answersPerQuestion.toList(), question.questions.size)
+            val separator = stringResource(R.string.question_unanswered_separator)
             val label = stringResource(
                 R.string.question_unanswered_confirm,
-                unanswered.joinToString("、") { it.toString() }
+                unanswered.joinToString(separator) { it.toString() }
             )
             AlertDialog(
                 onDismissRequest = { showUnansweredDialog = false },

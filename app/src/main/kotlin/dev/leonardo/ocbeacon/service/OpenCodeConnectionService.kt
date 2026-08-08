@@ -17,6 +17,7 @@ import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.ServerDataStore
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
@@ -111,6 +112,9 @@ class OpenCodeConnectionService : Service() {
     private var connectionStateNotificationJob: Job? = null
     private var networkRecoveryJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
+
+    /** 每个服务器的 REST 轮询协程。disconnect 时取消，防止重连后重复轮询。 */
+    private val pollingJobs = mutableMapOf<String, Job>()
 
     private lateinit var systemNotificationManager: NotificationManager
     private var foregroundStarted: Boolean = false
@@ -260,6 +264,8 @@ class OpenCodeConnectionService : Service() {
     fun disconnect(serverId: String) {
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "Disconnecting server $serverId")
 
+        // 取消该服务器的 REST 轮询协程，防止重连后旧协程继续运行导致重复轮询
+        pollingJobs.remove(serverId)?.cancel()
         connectionManager.stopConnection(serverId)
         // 释放该服务器的终端工作区（关闭 tab + 取消协程作用域），防止泄漏
         terminalRegistry.removeWorkspace(serverId)
@@ -313,6 +319,8 @@ class OpenCodeConnectionService : Service() {
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "Disconnecting all servers")
 
         val allServerIds = connectionManager.connections.keys.toList()
+        // 取消所有服务器的 REST 轮询协程
+        pollingJobs.keys.toList().forEach { pollingJobs.remove(it)?.cancel() }
         connectionManager.stopAllConnections()
         // 释放全部服务器终端工作区（防泄漏）
         terminalRegistry.removeAllWorkspaces()
@@ -358,10 +366,18 @@ class OpenCodeConnectionService : Service() {
      * 由 [AppNotificationManager.shouldNotifyQuestion] 二次去重，故不会重复。
      *
      * 协程在 [connect] 时启动；当服务器断连（[connectionManager.isConnected]
-     * 返回 false）时自停。
+     * 返回 false）或 [disconnect] 取消 [pollingJobs] 时停止。
+     *
+     * 通知总开关：与 SSE 路径（[maybeNotify]）对齐——仅在
+     * `settingsDataStore.notificationsEnabled` 为 true 时才投递通知；
+     * `previousKnown` 在开关外更新，避免重新启用时一次性补发积压通知。
      */
     private fun startQuestionPolling(server: ServerConfig) {
-        serviceScope.launch {
+        // 重连保护：若该服务器已有轮询协程在运行，先取消旧协程，
+        // 避免与即将启动的新协程同时运行（旧协程可能因 isConnected
+        // 再次变 true 而永远不会自停）。
+        pollingJobs[server.id]?.cancel()
+        pollingJobs[server.id] = serviceScope.launch {
             var previousKnown = emptyMap<String, Set<String>>()
             while (isActive) {
                 if (!connectionManager.isConnected(server.id)) break
@@ -372,13 +388,17 @@ class OpenCodeConnectionService : Service() {
                     val grouped = pending
                         .map { it.toQuestionAsked() }
                         .groupBy { it.sessionId }
-                    appNotificationManager.notifyPendingQuestionsFromREST(
-                        this@OpenCodeConnectionService,
-                        systemNotificationManager,
-                        server,
-                        grouped,
-                        previousKnown
-                    )
+                    // 通知总开关与 SSE 路径保持一致（maybeNotify）；
+                    // previousKnown 始终更新以避免重新启用后通知洪流。
+                    if (settingsDataStore.notificationsEnabled.first()) {
+                        appNotificationManager.notifyPendingQuestionsFromREST(
+                            this@OpenCodeConnectionService,
+                            systemNotificationManager,
+                            server,
+                            grouped,
+                            previousKnown
+                        )
+                    }
                     previousKnown = grouped.mapValues { (_, qs) -> qs.map { it.id }.toSet() }
                 } catch (e: Exception) {
                     AppLogger.w(TAG, "[${server.displayName}] question polling failed: ${e.message}")
@@ -389,7 +409,7 @@ class OpenCodeConnectionService : Service() {
     }
 
     /** 将 [QuestionState] 转换为 [SseEvent.QuestionAsked] 以复用通知路径。 */
-    private fun dev.leonardo.ocbeacon.domain.model.QuestionState.toQuestionAsked(): SseEvent.QuestionAsked =
+    private fun QuestionState.toQuestionAsked(): SseEvent.QuestionAsked =
         SseEvent.QuestionAsked(
             id = id,
             sessionId = sessionId,

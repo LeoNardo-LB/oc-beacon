@@ -34,6 +34,7 @@
     <string name="question_next">Siguiente</string>
     <string name="question_unanswered_title">Preguntas sin responder</string>
     <string name="question_unanswered_confirm">Las preguntas %1$s aún no han sido respondidas.</string>
+    <string name="question_unanswered_separator">,\u0020</string>
     <string name="question_continue">Continuar</string>
     <!-- Settings -->
     <string name="settings_title">Configuración</string>

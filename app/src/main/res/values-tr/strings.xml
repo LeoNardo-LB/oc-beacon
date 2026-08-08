@@ -34,6 +34,7 @@
     <string name="question_next">Sonraki</string>
     <string name="question_unanswered_title">Cevapsız sorular</string>
     <string name="question_unanswered_confirm">%1$s soruları henüz yanıtlanmadı.</string>
+    <string name="question_unanswered_separator">,\u0020</string>
     <string name="question_continue">Devam et</string>
     <!-- Settings -->
     <string name="settings_title">Ayarlar</string>

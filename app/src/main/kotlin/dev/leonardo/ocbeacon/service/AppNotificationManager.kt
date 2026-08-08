@@ -366,9 +366,14 @@ class AppNotificationManager @Inject constructor(
             } else sessionId
             if (sessionFocusHolder.shouldSuppressEvent(server.id, targetSessionId)) return@forEach
             questions.forEach { question ->
+                // 与 SSE 路径对齐：文本缺失时回退到本地化字符串，
+                // 同时避免空字符串削弱 shouldNotifyQuestion 的去重键。
                 val text = question.questions.firstOrNull()?.question
                     ?: question.questions.firstOrNull()?.header
-                    ?: ""
+                    ?: context.getString(
+                        R.string.notification_has_question,
+                        context.getString(R.string.notification_new_session)
+                    )
                 showQuestionNotification(context, notificationManager, server, targetSessionId, text)
             }
         }
