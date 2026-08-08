@@ -1,7 +1,7 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
-import dev.leonardo.ocbeacon.data.api.message.MessagePage
 import dev.leonardo.ocbeacon.domain.model.Message
+import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
