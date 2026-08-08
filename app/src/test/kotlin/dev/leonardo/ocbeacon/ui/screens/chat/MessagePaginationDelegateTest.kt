@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.AppSettings
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
@@ -80,7 +81,7 @@ class MessagePaginationDelegateTest {
         assertTrue(delegate.hasOlderMessages.value)
         assertFalse(delegate.isLoadingOlder.value)
         coVerify(exactly = 1) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0") }
-        verify(exactly = 1) { repo.mergeMessages("sid-1", any()) }
+        verify(exactly = 1) { repo.upsertMessages("sid-1", any(), MergeStrategy.APPEND_ONLY) }
     }
 
     @Test
@@ -167,7 +168,7 @@ class MessagePaginationDelegateTest {
         assertTrue(loading.contains(true))
         assertTrue(loading.contains(false))
         assertTrue(errors.contains(null))
-        verify(exactly = 1) { repo.setMessages("sid-1", any()) }
+        verify(exactly = 1) { repo.upsertMessages("sid-1", any(), MergeStrategy.SSE_PRIORITY) }
     }
 
     @Test
@@ -222,7 +223,7 @@ class MessagePaginationDelegateTest {
 
         assertEquals(15, delegate.currentLimitValue)
         assertTrue(errors.contains("retry fail"))
-        verify(exactly = 0) { repo.mergeMessages(any(), any()) }
+        verify(exactly = 0) { repo.upsertMessages(any(), any(), any()) }
     }
 
     @Test
@@ -250,7 +251,7 @@ class MessagePaginationDelegateTest {
         advanceUntilIdle()
 
         assertEquals(15, delegate.currentLimitValue)
-        verify(exactly = 1) { repo.mergeMessages("sid-1", any()) }
+        verify(exactly = 1) { repo.upsertMessages("sid-1", any(), MergeStrategy.APPEND_ONLY) }
         // 重试成功不应再写 OOM 错误到 errorSink
         assertFalse(errors.any { it != null && it.contains("oom") })
     }
@@ -281,7 +282,7 @@ class MessagePaginationDelegateTest {
 
         assertEquals(50, delegate.currentLimitValue)
         assertTrue(delegate.hasOlderMessages.value)
-        verify(exactly = 1) { repo.setMessages("sid-1", any()) }
+        verify(exactly = 1) { repo.upsertMessages("sid-1", any(), MergeStrategy.SSE_PRIORITY) }
     }
 
     @Test

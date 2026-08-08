@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.local.MessageStore
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
@@ -72,7 +73,7 @@ internal class MessagePaginationDelegate(
         try {
             val messages = messagePaging.loadMessagesForSession(serverId, sid, currentMessageLimit)
                 .getOrThrow()
-            chatRepository.setMessages(sid, messages)
+            chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
             _hasOlderMessages.value = messages.size >= currentMessageLimit
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "V1 loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
         } catch (e: Exception) {
@@ -92,7 +93,7 @@ internal class MessagePaginationDelegate(
             errorSink(null)
             try {
                 val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
-                chatRepository.setMessages(sid, messages)
+                chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
 
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(TAG, "Loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit)")
@@ -104,7 +105,7 @@ internal class MessagePaginationDelegate(
                     currentMessageLimit = (currentMessageLimit / 2).coerceAtLeast(10)
                     try {
                         val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
-                        chatRepository.mergeMessages(sid, messages)
+                        chatRepository.upsertMessages(sid, messages, MergeStrategy.APPEND_ONLY)
                         if (BuildConfig.DEBUG) AppLogger.d(TAG, "Retry succeeded: loaded ${messages.size} messages (limit=$currentMessageLimit)")
                     } catch (retryEx: Throwable) {
                         AppLogger.e(TAG, "Retry also failed", retryEx)
@@ -127,7 +128,7 @@ internal class MessagePaginationDelegate(
                 val beforeId = messageStore.oldestMessageId(sid)
                 val messages = messagePaging.loadOlderMessages(serverId, sid, currentMessageLimit, beforeId)
                     .getOrThrow()
-                chatRepository.mergeMessages(sid, messages)
+                chatRepository.upsertMessages(sid, messages, MergeStrategy.APPEND_ONLY)
                 _hasOlderMessages.value = messages.size >= currentMessageLimit
 
                 if (BuildConfig.DEBUG) {

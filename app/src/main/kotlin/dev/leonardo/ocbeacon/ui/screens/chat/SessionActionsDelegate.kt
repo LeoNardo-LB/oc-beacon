@@ -10,6 +10,7 @@ import dev.leonardo.ocbeacon.domain.model.ModelSelection
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManagePermissionUseCase
@@ -443,7 +444,7 @@ internal class SessionActionsDelegate(
         scope.launch {
             try {
                 val messages = manageSessionUseCase.listMessages(serverId, sessionId, 100)
-                chatRepository.replaceMessages(sessionId, messages)
+                chatRepository.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Refreshed messages after session update")
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to refresh messages after session update", e)

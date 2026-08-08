@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.data.repository.handler.StepProgressInfo as DataSte
 import dev.leonardo.ocbeacon.data.repository.handler.ToolProgressInfo as DataToolProgressInfo
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.ModelSelection
@@ -358,14 +359,25 @@ class ChatRepositoryImpl @Inject constructor(
 
     // ============ 写操作（状态更新）============
 
+    override fun upsertMessages(
+        sessionId: String,
+        messages: List<MessageWithParts>,
+        strategy: MergeStrategy,
+    ) {
+        eventDispatcher.upsertMessages(sessionId, messages, strategy)
+    }
+
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.SSE_PRIORITY)"))
     override fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
         eventDispatcher.setMessages(sessionId, messages)
     }
 
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.APPEND_ONLY)"))
     override fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) {
         eventDispatcher.mergeMessages(sessionId, messages)
     }
 
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)"))
     override fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) {
         eventDispatcher.replaceMessages(sessionId, messages)
     }

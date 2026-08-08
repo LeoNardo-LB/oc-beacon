@@ -11,6 +11,7 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
@@ -346,7 +347,7 @@ internal class MessageDataDelegate(
         _isRefreshing.value = true
         try {
             val messages = manageSessionUseCase.listMessages(serverId, sid, limit = paginationDelegate.currentLimitValue)
-            chatRepository.setMessages(sid, messages)
+            chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
         } catch (e: Throwable) {
             AppLogger.e(TAG, "Failed to refresh messages", e)
         } finally {

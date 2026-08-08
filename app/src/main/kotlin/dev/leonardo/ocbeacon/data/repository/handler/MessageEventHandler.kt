@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository.handler
 
+import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
@@ -22,9 +23,16 @@ import javax.inject.Singleton
  * 按子事件的分发位于专用 handler
  *（[MessagePartHandler]、[MessageUpdatedHandler]、[MessageRemovedHandler]）中，
  * 它们注入此存储并委托给其 `internal` handler。
+ *
+ * SSE 双写：当 [messageStore] 非 null（生产环境 Hilt 注入）时，SSE 流式更新
+ * 会异步落盘到 Room，以便离线/重启后恢复。测试环境传 null 禁用双写。
  */
 @Singleton
-class MessageEventHandler @Inject constructor() {
+class MessageEventHandler @Inject constructor(
+    private val messageStore: MessageStore?,
+) {
+    /** 测试用无参构造：禁用 SSE 双写。生产环境由 Hilt 注入非空 MessageStore。 */
+    constructor() : this(null)
 
     private companion object {
         const val TAG = "MsgEventHandler"
@@ -111,6 +119,13 @@ class MessageEventHandler @Inject constructor() {
             }
             updated
         }
+
+        // SSE 双写：48ms 批处理已聚合——按 sessionId 分组落盘受影响的消息。
+        // 不逐 delta 写（会写放大）；批处理后一次性写。
+        val bySession = batch.groupBy { it.sessionId }
+        bySession.forEach { (sessionId, deltas) ->
+            persistSseUpdate(sessionId, deltas.map { it.messageId }.distinct())
+        }
     }
 
     /** 立即刷新任何待处理的 delta（供测试使用）。 */
@@ -175,6 +190,29 @@ class MessageEventHandler @Inject constructor() {
                     }
                 }
             }
+        }
+        // SSE 双写：消息元数据更新（新建/状态变更）→ 异步落盘到 Room
+        persistSseUpdate(sessionId, listOf(event.info.id))
+    }
+
+    /**
+     * SSE 双写辅助：将指定 sessionId 下的消息（含 parts）异步落盘到 Room。
+     *
+     * - fire-and-forget：在 [batchScope] 中 launch，不阻塞 SSE 处理
+     * - 写失败静默（MessageStore 内部已捕获，内存视图不受影响）
+     * - [messageStore] 为 null 时（测试环境）直接返回
+     * - 沿用 48ms 批处理节奏：调用方在 flushPendingDeltas（已聚合）或
+     *   handleMessageUpdated（单条事件）处调用，不逐 delta 写
+     */
+    private fun persistSseUpdate(sessionId: String, messageIds: List<String>) {
+        val store = messageStore ?: return
+        if (messageIds.isEmpty()) return
+        val msgs = _messages.value[sessionId]?.filter { it.id in messageIds } ?: return
+        if (msgs.isEmpty()) return
+        val parts = _parts.value
+        val payload = msgs.map { MessageWithParts(it, parts[it.id] ?: emptyList()) }
+        batchScope.launch {
+            store.upsertMessages(sessionId, payload, persistOldBeyondWindow = false)
         }
     }
 
@@ -337,21 +375,46 @@ class MessageEventHandler @Inject constructor() {
         }
     }
 
-    // ============ 批量操作 ============
+    // ============ 统一合并入口 ============
 
-    fun setMessages(sessionId: String, newMessages: List<MessageWithParts>) {
+    /**
+     * 统一的批量消息合并入口。三策略对应原三方法的逐语义提炼，
+     * 保证 [setMessages]/[mergeMessages]/[replaceMessages]（薄委托）行为不变。
+     *
+     * SSE 双写：当 [messageStore] 非 null 时，合并完成后异步落盘到 Room
+     *（fire-and-forget，写失败在 MessageStore 内部静默）。
+     */
+    fun upsertMessages(
+        sessionId: String,
+        incoming: List<MessageWithParts>,
+        strategy: MergeStrategy,
+    ) {
+        when (strategy) {
+            MergeStrategy.SSE_PRIORITY -> upsertSsePriority(sessionId, incoming)
+            MergeStrategy.REST_AUTHORITY -> upsertRestAuthority(sessionId, incoming)
+            MergeStrategy.APPEND_ONLY -> upsertAppendOnly(sessionId, incoming)
+        }
+    }
+
+    /**
+     * SSE_PRIORITY（原 setMessages 语义）：
+     * - messages: [mergeMessageMeta] 合并——SSE 流式内容优先，REST 仅兜底完成时间
+     * - parts: [mergePartsList]——更长文本胜出（保护 SSE 累积）
+     * - 诊断日志保留（标签 [setMessages]）
+     */
+    private fun upsertSsePriority(sessionId: String, incoming: List<MessageWithParts>) {
         @Suppress("DEPRECATION")
         val thread = Thread.currentThread().id
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
-            val incomingById = newMessages.associateBy { it.info.id }
-            val hasRestUserMsgs = newMessages.any { it.info is Message.User }
-            val merged = (existing + newMessages.map { it.info })
+            val incomingById = incoming.associateBy { it.info.id }
+            val hasRestUserMsgs = incoming.any { it.info is Message.User }
+            val merged = (existing + incoming.map { it.info })
                 .distinctBy { it.id }
                 .map { msg ->
-                    val incoming = incomingById[msg.id]
-                    if (incoming != null) {
-                        mergeMessageMeta(msg, incoming.info)
+                    val inc = incomingById[msg.id]
+                    if (inc != null) {
+                        mergeMessageMeta(msg, inc.info)
                     } else {
                         msg
                     }
@@ -360,14 +423,14 @@ class MessageEventHandler @Inject constructor() {
             // DIAG：记录合并结果
             val beforeUser = existing.filter { it is Message.User }.size
             val afterUser = merged.filter { it is Message.User }.size
-            AppLogger.i("MsgDiag", "[setMessages] session=${sessionId.take(8)} " +
-                "incoming=${newMessages.size} existing=${existing.size} merged=${merged.size} " +
-                "beforeUser=$beforeUser afterUser=$afterUser " +
-                "hasRestUserMsgs=$hasRestUserMsgs")
+            AppLogger.i("MsgDiag", "[setMessages] session=" + sessionId.take(8) +
+                " incoming=" + incoming.size + " existing=" + existing.size + " merged=" + merged.size +
+                " beforeUser=" + beforeUser + " afterUser=" + afterUser +
+                " hasRestUserMsgs=" + hasRestUserMsgs)
             current + (sessionId to merged)
         }
-        newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
-        val partsMap = newMessages.associate { it.info.id to it.parts }
+        incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
+        val partsMap = incoming.associate { it.info.id to it.parts }
         _parts.update { current ->
             val merged = partsMap.mapValues { (messageId, incomingParts) ->
                 val existingParts = current[messageId]
@@ -377,9 +440,9 @@ class MessageEventHandler @Inject constructor() {
                         if (inc is Part.Text) {
                             val ex = existingParts.find { it.id == inc.id }
                             if (ex is Part.Text && ex.text.length > inc.text.length) {
-                                AppLogger.w(TAG, "[setMessages] t=$thread msg=${messageId.take(8)} " +
-                                    "part=${inc.id.take(8)} SSE=${ex.text.length} > REST=${inc.text.length} " +
-                                    "→ keeping SSE text")
+                                AppLogger.w(TAG, "[setMessages] t=" + thread + " msg=" + messageId.take(8) +
+                                    " part=" + inc.id.take(8) + " SSE=" + ex.text.length + " > REST=" + inc.text.length +
+                                    " -> keeping SSE text")
                             }
                         }
                     }
@@ -392,47 +455,26 @@ class MessageEventHandler @Inject constructor() {
         }
     }
 
-    fun mergeMessages(sessionId: String, newMessages: List<MessageWithParts>) {
-        val incoming = newMessages.map { it.info }.sortedBy { m -> m.time.created }
-        // 先更新 parts，再更新 messages。这避免了 combine flow 看到
-        // 新消息却没有对应 part 时的闪烁（P5-3 过滤器会临时移除它们）。
-        _parts.update { currentParts ->
-            val existingKeys = currentParts.keys
-            val newParts = newMessages
-                .filter { it.info.id !in existingKeys }
-                .associate { it.info.id to it.parts }
-            currentParts + newParts
-        }
-        newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
-        _messages.update { current ->
-            val existing = current[sessionId] ?: emptyList()
-            val existingById = existing.associateBy { it.id }
-            current + (sessionId to incoming.map { newMsg -> existingById[newMsg.id] ?: newMsg })
-        }
-    }
-
     /**
-     * 用 REST 数据替换会话的所有消息和 part。
-     * 与 [mergeMessages] 不同，此处将 REST 视为真相源，
-     * 覆盖任何现有本地数据。用于 SSE 重连恢复。
-     *
-     * 仅 SSE 才有的消息（不在 REST 响应中）会被保留，以处理
-     * REST 快照与新 SSE 连接建立之间的时间窗口。
+     * REST_AUTHORITY（原 replaceMessages 语义）：
+     * - messages: incoming 覆盖 existing 元数据（incomingById[msg.id]?.info ?: msg）；
+     *   existing 独有的消息保留（处理 REST 快照与新 SSE 连接的时间窗口）
+     * - parts: [mergePartsList]——与 SSE_PRIORITY 相同（更长文本胜出）
      */
-    fun replaceMessages(sessionId: String, newMessages: List<MessageWithParts>) {
+    private fun upsertRestAuthority(sessionId: String, incoming: List<MessageWithParts>) {
         @Suppress("DEPRECATION")
         val thread = Thread.currentThread().id
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
-            val incomingById = newMessages.associateBy { it.info.id }
-            val merged = (existing + newMessages.map { it.info })
+            val incomingById = incoming.associateBy { it.info.id }
+            val merged = (existing + incoming.map { it.info })
                 .distinctBy { it.id }
                 .map { msg -> incomingById[msg.id]?.info ?: msg }
                 .sortedBy { it.time.created }
             current + (sessionId to merged)
         }
-        newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
-        val partsMap = newMessages.associate { it.info.id to it.parts }
+        incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
+        val partsMap = incoming.associate { it.info.id to it.parts }
         _parts.update { current ->
             val merged = partsMap.mapValues { (messageId, incomingParts) ->
                 val existingParts = current[messageId]
@@ -442,9 +484,9 @@ class MessageEventHandler @Inject constructor() {
                         if (inc is Part.Text) {
                             val ex = existingParts.find { it.id == inc.id }
                             if (ex is Part.Text && ex.text.length > inc.text.length) {
-                                AppLogger.w(TAG, "[replaceMessages] t=$thread msg=${messageId.take(8)} " +
-                                    "part=${inc.id.take(8)} SSE=${ex.text.length} > REST=${inc.text.length} " +
-                                    "→ keeping SSE text")
+                                AppLogger.w(TAG, "[replaceMessages] t=" + thread + " msg=" + messageId.take(8) +
+                                    " part=" + inc.id.take(8) + " SSE=" + ex.text.length + " > REST=" + inc.text.length +
+                                    " -> keeping SSE text")
                             }
                         }
                     }
@@ -456,6 +498,56 @@ class MessageEventHandler @Inject constructor() {
             current + merged
         }
     }
+
+    /**
+     * APPEND_ONLY（原 mergeMessages 语义）：
+     * - 先 parts 后 messages（闪烁规避：避免 combine flow 看到新消息却无 part）
+     * - parts: 仅添加 existing 中缺失的 messageId（不合并已有 parts）
+     * - messages: existingById[newMsg.id] ?: newMsg（仅补充缺失，已有不变）
+     */
+    private fun upsertAppendOnly(sessionId: String, incoming: List<MessageWithParts>) {
+        val incomingMsgs = incoming.map { it.info }.sortedBy { m -> m.time.created }
+        // 先更新 parts，再更新 messages。这避免了 combine flow 看到
+        // 新消息却没有对应 part 时的闪烁（P5-3 过滤器会临时移除它们）。
+        _parts.update { currentParts ->
+            val existingKeys = currentParts.keys
+            val newParts = incoming
+                .filter { it.info.id !in existingKeys }
+                .associate { it.info.id to it.parts }
+            currentParts + newParts
+        }
+        incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
+        _messages.update { current ->
+            val existing = current[sessionId] ?: emptyList()
+            val existingById = existing.associateBy { it.id }
+            current + (sessionId to incomingMsgs.map { newMsg -> existingById[newMsg.id] ?: newMsg })
+        }
+    }
+
+    // ============ 批量操作 ============
+
+    /** SSE_PRIORITY 策略的薄委托。语义见 [upsertMessages]。 */
+    @Deprecated("Use upsertMessages(sessionId, newMessages, MergeStrategy.SSE_PRIORITY)", ReplaceWith("upsertMessages(sessionId, newMessages, MergeStrategy.SSE_PRIORITY)"))
+    fun setMessages(sessionId: String, newMessages: List<MessageWithParts>) =
+        upsertMessages(sessionId, newMessages, MergeStrategy.SSE_PRIORITY)
+
+    /** APPEND_ONLY 策略的薄委托。语义见 [upsertMessages]。 */
+    @Deprecated("Use upsertMessages(sessionId, newMessages, MergeStrategy.APPEND_ONLY)", ReplaceWith("upsertMessages(sessionId, newMessages, MergeStrategy.APPEND_ONLY)"))
+    fun mergeMessages(sessionId: String, newMessages: List<MessageWithParts>) =
+        upsertMessages(sessionId, newMessages, MergeStrategy.APPEND_ONLY)
+
+    /**
+     * REST_AUTHORITY 策略的薄委托。语义见 [upsertMessages]。
+     *
+     * 用 REST 数据替换会话的所有消息和 part。
+     * 将 REST 视为真相源，覆盖任何现有本地数据。用于 SSE 重连恢复。
+     *
+     * 仅 SSE 才有的消息（不在 REST 响应中）会被保留，以处理
+     * REST 快照与新 SSE 连接建立之间的时间窗口。
+     */
+    @Deprecated("Use upsertMessages(sessionId, newMessages, MergeStrategy.REST_AUTHORITY)", ReplaceWith("upsertMessages(sessionId, newMessages, MergeStrategy.REST_AUTHORITY)"))
+    fun replaceMessages(sessionId: String, newMessages: List<MessageWithParts>) =
+        upsertMessages(sessionId, newMessages, MergeStrategy.REST_AUTHORITY)
 
     fun clearForSession(sessionId: String) {
         val messageIds = _messages.value[sessionId]?.map { it.id }?.toSet() ?: emptySet()

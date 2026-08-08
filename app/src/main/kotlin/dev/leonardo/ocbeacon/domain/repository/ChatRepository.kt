@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.domain.repository
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.ModelSelection
@@ -207,18 +208,36 @@ interface ChatRepository {
     // ============ 写入操作（状态更新）============
 
     /**
-     * 设置某个会话的消息（来自 REST 加载的全量替换）。
+     * 统一批量合并入口。三策略覆盖原 [setMessages]/[mergeMessages]/[replaceMessages]：
+     * - [MergeStrategy.SSE_PRIORITY] ← setMessages（REST 刷新/进入会话，SSE 优先）
+     * - [MergeStrategy.APPEND_ONLY] ← mergeMessages（翻页加载更早，仅补充缺失）
+     * - [MergeStrategy.REST_AUTHORITY] ← replaceMessages（SSE 重连恢复，REST 真相源）
      */
+    fun upsertMessages(
+        sessionId: String,
+        messages: List<MessageWithParts>,
+        strategy: MergeStrategy,
+    )
+
+    /**
+     * 设置某个会话的消息（来自 REST 加载的全量替换）。
+     * @deprecated 使用 [upsertMessages] + [MergeStrategy.SSE_PRIORITY]。
+     */
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.SSE_PRIORITY)"))
     fun setMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**
      * 将消息合并到某个会话中（REST 恢复 / 分页加载）。
+     * @deprecated 使用 [upsertMessages] + [MergeStrategy.APPEND_ONLY]。
      */
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.APPEND_ONLY)"))
     fun mergeMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**
      * 替换某个会话的全部消息（会话更新刷新）。
+     * @deprecated 使用 [upsertMessages] + [MergeStrategy.REST_AUTHORITY]。
      */
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)"))
     fun replaceMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**

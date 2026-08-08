@@ -139,6 +139,12 @@ class ChatViewModelStreamingTest {
                 messagesFlow.value = msgs.map { m -> m.info }
                 partsFlow.value = partsFlow.value + (sid to msgs.flatMap { m -> m.parts })
             }
+            every { it.upsertMessages(any(), any(), any()) } answers {
+                val sid = firstArg<String>()
+                val msgs = secondArg<List<dev.leonardo.ocbeacon.domain.model.MessageWithParts>>()
+                messagesFlow.value = msgs.map { m -> m.info }
+                partsFlow.value = partsFlow.value + (sid to msgs.flatMap { m -> m.parts })
+            }
             every { it.getSessionsSnapshot() } returns emptyList()
             every { it.getPermissionsWithChildren(any(), any()) } returns emptyList()
             every { it.getQuestionsWithChildren(any(), any()) } returns emptyList()

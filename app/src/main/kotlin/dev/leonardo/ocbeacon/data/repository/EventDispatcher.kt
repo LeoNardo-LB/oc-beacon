@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.repository.handler.*
 import dev.leonardo.ocbeacon.domain.model.FileDiff
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -79,7 +80,7 @@ class EventDispatcher @Inject constructor(
             persistLastCompletedReplyTime()
         }
         sessionStateService.messageRefresher = MessageRefresher { sessionId, messages ->
-            messageHandler.replaceMessages(sessionId, messages)
+            messageHandler.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
         }
     }
 
@@ -402,6 +403,16 @@ class EventDispatcher @Inject constructor(
     fun setRevert(sessionId: String, messageId: String) =
         sessionHandler.setRevert(sessionId, messageId)
 
+    fun upsertMessages(
+        sessionId: String,
+        messages: List<MessageWithParts>,
+        strategy: MergeStrategy,
+    ) {
+        messageHandler.upsertMessages(sessionId, messages, strategy)
+        recomputeMaxCompleted(sessionId)
+    }
+
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
     fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.setMessages(sessionId, messages)
         recomputeMaxCompleted(sessionId)

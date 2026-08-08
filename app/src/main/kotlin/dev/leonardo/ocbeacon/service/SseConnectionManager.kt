@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.*
@@ -360,7 +361,7 @@ class SseConnectionManager @Inject constructor(
         for (sessionId in sessionIds) {
             try {
                 val messages = messageApi.listMessages(conn, sessionId).messages
-                eventDispatcher.replaceMessages(sessionId, messages)
+                eventDispatcher.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
                 recoveredCount++
             } catch (e: Exception) {
                 AppLogger.w(TAG, "[${server.displayName}] Failed to recover messages for session $sessionId: ${e.message}")
