@@ -14,7 +14,7 @@
 #   2. 分析 commits（last tag -> HEAD）推导 bump 类型
 #   3. 计算新版本号（含 VERSION_CODE 递增）
 #   4. 更新 version.properties
-#   5. 更新 CHANGELOG.md（仅 stable 正式版）
+#   5. 生成 RELEASE_NOTES.md 草稿（所有 flavor）+ 更新 CHANGELOG.md（仅 stable）
 #   6. commit + tag + push（触发 CI 构建与 Release）
 #
 # 详见 docs/release-workflow.md（发版前必读）
@@ -55,6 +55,7 @@ esac
 TAG_PREFIX="v"
 VERSION_FILE="version.properties"
 CHANGELOG_FILE="CHANGELOG.md"
+RELEASE_NOTES_FILE="RELEASE_NOTES.md"
 REMOTE="origin"
 BRANCH="master"
 
@@ -168,6 +169,47 @@ gen_changelog_entry() {
   if [ -n "$fixed" ]; then entry+="### Fixed"$'\n\n'"$fixed"$'\n'; fi
   if [ -z "$added$fixed$changed$removed" ]; then
     entry+="_No user-facing changes._"$'\n'
+  fi
+  printf '%s' "$entry"
+}
+
+# 生成 Release Notes 草稿（last tag -> HEAD，所有 flavor）
+# 输出为 GitHub Release 说明模板（docs/release-notes-template.md），发布者润色后随发版 commit 提交
+gen_release_notes() {
+  local since="$1" version="$2"
+  local added="" fixed="" changed="" removed=""
+  local line
+  while IFS= read -r line; do
+    # 排除内部维护类 commit（test/ci/docs/chore 等，含 scope 变体）
+    case "$line" in
+      fix\(test\):*|fix\(ci\):*|fix\(docs\):*|chore*|docs:*|docs\(*\):*|test:*|test\(*\):*|style:*|style\(*\):*|build:*|build\(*\):*|ci:*|ci\(*\):*) continue ;;
+    esac
+    local desc
+    desc="$(echo "$line" | sed -E 's/^[a-z]+(\([^)]*\))?!?: ?//')"
+    case "$line" in
+      feat!*|feat\(*\)!*|BREAKING*) removed="$removed- **BREAKING:** $desc"$'\n' ;;
+      feat:*|feat\(*\):*) added="$added- $desc"$'\n' ;;
+      fix:*|fix\(*\):*) fixed="$fixed- $desc"$'\n' ;;
+      perf:*|perf\(*\):*|refactor:*|refactor\(*\):*) changed="$changed- $desc"$'\n' ;;
+      *) : ;;
+    esac
+  done < <(git log --no-merges --format='%s' "${since}..HEAD" 2>/dev/null || true)
+
+  local date_str
+  date_str="$(date +%Y-%m-%d)"
+
+  local entry="## OC Beacon $version — $date_str"$'\n\n'
+  entry+="> 版本摘要：（待填写——本版主题一句话）"$'\n\n'
+  if [ -n "$removed" ]; then entry+="### Removed"$'\n\n'"$removed"$'\n'; fi
+  if [ -n "$added" ]; then entry+="### Added"$'\n\n'"$added"$'\n'; fi
+  if [ -n "$changed" ]; then entry+="### Changed"$'\n\n'"$changed"$'\n'; fi
+  if [ -n "$fixed" ]; then entry+="### Fixed"$'\n\n'"$fixed"$'\n'; fi
+  if [ -z "$added$fixed$changed$removed" ]; then
+    entry+="_No user-facing changes._"$'\n'
+  fi
+  if [ -n "$since" ]; then
+    entry+=$'\n'"---"$'\n'
+    entry+="完整变更记录：[Full Changelog](https://github.com/LeoNardo-LB/oc-beacon/compare/${since}...${TAG_PREFIX}${version})"$'\n'
   fi
   printf '%s' "$entry"
 }
@@ -322,16 +364,42 @@ else
   log "预发布版不更新 CHANGELOG.md（正式版统一汇总）"
 fi
 
+# 3.3 Release Notes 草稿（所有 flavor，范围 last tag -> HEAD）
+NOTES_SINCE="$LAST_ANY"
+if [ -z "$NOTES_SINCE" ]; then
+  NOTES_SINCE="$(git rev-list --max-parents=0 HEAD | head -n1)"
+fi
+NOTES="$(gen_release_notes "$NOTES_SINCE" "$NEW_VERSION_NAME")"
+if $DRY_RUN; then
+  log "[dry-run] RELEASE_NOTES.md 草稿："
+  printf '%s\n' "$NOTES" | head -n 15
+else
+  printf '%s' "$NOTES" > "$RELEASE_NOTES_FILE"
+  log "RELEASE_NOTES.md 草稿已生成（请润色，模板见 docs/release-notes-template.md）"
+fi
+
 # =============================================================================
 # 4. commit + tag + push
 # =============================================================================
 if $DRY_RUN; then
-  log "[dry-run] 将执行: git add version.properties [CHANGELOG.md]"
+  log "[dry-run] 将执行: git add version.properties [CHANGELOG.md] RELEASE_NOTES.md"
   log "[dry-run] 将执行: git commit -m \"chore: bump version to $NEW_VERSION_NAME\""
   log "[dry-run] 将执行: git tag -a $NEW_TAG -m \"$NEW_TAG\""
   log "[dry-run] 将执行: git push $REMOTE $BRANCH && git push $REMOTE $NEW_TAG"
   log "✅ dry-run 完成，未做任何修改。"
   exit 0
+fi
+
+# 4.0 Release Notes 人工润色确认（所有 flavor）
+if [ -f "$RELEASE_NOTES_FILE" ]; then
+  echo ""
+  echo "──────────────────────────────────────────────────────────"
+  echo " RELEASE_NOTES.md 草稿已生成（模板见 docs/release-notes-template.md）："
+  echo "   - 必填：版本摘要（第 2 行）"
+  echo "   - 建议：条目改为用户视角（不粘贴 commit message）"
+  echo "   按回车直接继续；或先编辑 RELEASE_NOTES.md 再回来按回车"
+  echo "──────────────────────────────────────────────────────────"
+  read -r -p "按回车继续发版（Ctrl+C 取消）..." _unused
 fi
 
 # 4.0 正式版 CHANGELOG 人工润色确认
@@ -348,6 +416,9 @@ fi
 git add "$VERSION_FILE"
 if $CHANGELOG_UPDATED; then
   git add "$CHANGELOG_FILE"
+fi
+if [ -f "$RELEASE_NOTES_FILE" ]; then
+  git add "$RELEASE_NOTES_FILE"
 fi
 
 # 4.2 commit（仅当有变更）
@@ -383,7 +454,7 @@ cat <<EOF
  CI 将自动:
   - 构建 ${FLAVOR} release APK（release keystore 签名）
   - 复制为 oc-beacon-${NEW_VERSION_NAME}.apk
-  - 创建/更新 GitHub Release
+  - 创建/更新 GitHub Release（说明来自 RELEASE_NOTES.md）
 
  验证（约 5-10 分钟后）:
   gh release list

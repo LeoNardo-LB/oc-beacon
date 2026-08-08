@@ -126,9 +126,15 @@ jobs:
             gh release upload $TAG release-apks/*.apk --clobber
           else
             echo "Creating new release $TAG..."
+            # 发版说明优先使用 RELEASE_NOTES.md（release.sh 生成 + 发布者润色），缺失时回退 GitHub 自动生成
+            if [ -f RELEASE_NOTES.md ]; then
+              NOTES_ARGS="--notes-file RELEASE_NOTES.md"
+            else
+              NOTES_ARGS="--generate-notes"
+            fi
             gh release create $TAG \
               --title "OC Beacon ${VERSION}" \
               $PRERELEASE_FLAG \
-              --generate-notes \
+              $NOTES_ARGS \
               release-apks/*.apk
           fi

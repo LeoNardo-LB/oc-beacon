@@ -11,6 +11,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 级别 | 文档 | 用途 | Use when |
 |------|------|------|----------|
 | 🔴 MUST | [`docs/release-workflow.md`](docs/release-workflow.md) | 发版唯一权威指南（版本规则/CHANGELOG/脚本用法） | 任何发版、bump、tag、Release 操作前（必读） |
+| 🟡 SHOULD | [`docs/release-notes-template.md`](docs/release-notes-template.md) | GitHub Release 说明模板与写作规则（每次发版按此撰写） | 撰写发版说明、Release Notes 前 |
 | 🔴 MUST | [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md) | ChatScreen.kt 编辑协议（见下方承重约束） | 编辑 ChatScreen.kt 前 |
 | 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4 维验证框架 | 完成开发、声称"完成"前 |
 | 🟡 SHOULD | [`docs/opencode-api-reference.md`](docs/opencode-api-reference.md) | OpenCode Server 完整 API 参考（62 REST/WS 端点 + 52 SSE 事件 + JSON Schema） | 开发新功能、调试接口问题前 |

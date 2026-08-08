@@ -14,7 +14,7 @@
 ./scripts/release.sh dev     # 发 dev 预览
 ```
 
-脚本自动完成：**分析 commit → 计算版本 → 更新 version.properties → 更新 CHANGELOG（仅正式版）→ commit → tag → push → 触发 CI 构建与 Release**。
+脚本自动完成：**分析 commit → 计算版本 → 更新 version.properties → 生成 RELEASE_NOTES.md 草稿（发布者润色）→ 更新 CHANGELOG（仅正式版）→ commit → tag → push → 触发 CI 构建与 Release**。
 
 **原则**：
 - 发版流程**优先走自动化脚本**，避免手工操作（手工 bump 曾导致版本错误）。
@@ -90,16 +90,17 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
     2. 分析 commits（last tag → HEAD）推导 bump 类型
     3. 计算新版本号（含 VERSION_CODE 递增）
     4. 更新 version.properties
-    5. 更新 CHANGELOG.md（仅 stable 正式版）
-    6. git commit "chore: bump version to vX.Y.Z"
-    7. git tag vX.Y.Z
-    8. git push origin master + git push origin vX.Y.Z
+    5. 生成 RELEASE_NOTES.md 草稿（所有 flavor）→ 发布者润色（见 §4.5）
+    6. 更新 CHANGELOG.md（仅 stable 正式版）
+    7. git commit "chore: bump version to vX.Y.Z"（含 RELEASE_NOTES.md）
+    8. git tag vX.Y.Z
+    9. git push origin master + git push origin vX.Y.Z
     ▼
 [CI（.github/workflows/release.yml）自动触发]
-    9. 按 tag 后缀选择 flavor（无后缀→stable / -beta→beta / -dev→dev）
-    10. 构建对应 release APK（release keystore 签名）
-    11. 复制为 oc-beacon-<VERSION>.apk
-    12. 创建/更新 GitHub Release（仅附一个 APK）
+    10. 按 tag 后缀选择 flavor（无后缀→stable / -beta→beta / -dev→dev）
+    11. 构建对应 release APK（release keystore 签名）
+    12. 复制为 oc-beacon-<VERSION>.apk
+    13. 创建/更新 GitHub Release（说明用 RELEASE_NOTES.md，仅附一个 APK）
 ```
 
 **为什么这样分**：
@@ -179,6 +180,22 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 
 > **注意**：自动分类是**初稿**——按 commit type 机械归类，无法理解语义（例如 `feat: remove xxx` 会归入 Added）。正式版发布时，脚本生成的 CHANGELOG 条目**允许人工润色**（调整分类、补充细节、移除噪音），符合 Keep a Changelog 规范。润色在 `release.sh stable` 执行后、push 前完成（脚本 commit 前会等待确认，见 §3.1 交互说明）。
 
+### 4.5 Release Notes 规则（GitHub Release 说明）
+
+**每次发版（beta / dev / stable）的 GitHub Release 说明都按模板撰写**，模板见 [`docs/release-notes-template.md`](release-notes-template.md)（含写作规则与分类映射）。
+
+| 项 | 规则 |
+|----|------|
+| 生成时机 | `release.sh <flavor>` 发版时自动生成 `RELEASE_NOTES.md` 草稿（根目录固定名，每版本覆盖） |
+| 范围 | **last tag → HEAD**——对比本版本与上个版本的区别（beta.2 只列 beta.1 之后的新变化） |
+| 润色 | 脚本 commit 前等待确认，发布者按模板润色：填版本摘要、条目改用户视角、删内部噪音（见模板写作规则） |
+| 发布 | CI 用 `--notes-file RELEASE_NOTES.md` 创建 Release；文件缺失时回退 `--generate-notes` |
+| 留档 | GitHub Release 页面即留档；`RELEASE_NOTES.md` 在发版 commit 中按 tag 版本化 |
+
+**与 CHANGELOG 的区别**（§4.1 不变）：
+- CHANGELOG 是完整运行记录，**仅 stable 正式版更新**（范围 last stable → HEAD）；
+- Release Notes 是**每次发版**的用户公告（beta/dev 预发布也要写），范围 last tag → HEAD，更短更聚焦。
+
 ---
 
 ## 5. 手动发版流程（脚本不可用时）
@@ -187,14 +204,15 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 
 ```
 1. bump version → 修改 version.properties（VERSION_CODE +1，VERSION_NAME 按 §2.3 规则）
-2. commit → git commit -m "chore: bump version to vX.Y.Z"
-3. build → .\gradlew --stop && .\gradlew :app:assembleBetaRelease（按 flavor 选任务）
-4. push → git push origin master
-5. tag → git tag -a "vX.Y.Z" -m "vX.Y.Z — 简要说明"
-6. push tag → git push origin "vX.Y.Z"
-7. 等待 CI 完成构建（见 §6 验证），或本地手动：
+2. Release Notes → 按 docs/release-notes-template.md 撰写 RELEASE_NOTES.md（版本摘要 + 分类条目）
+3. commit → git add version.properties RELEASE_NOTES.md && git commit -m "chore: bump version to vX.Y.Z"
+4. build → .\gradlew --stop && .\gradlew :app:assembleBetaRelease（按 flavor 选任务）
+5. push → git push origin master
+6. tag → git tag -a "vX.Y.Z" -m "vX.Y.Z — 简要说明"
+7. push tag → git push origin "vX.Y.Z"
+8. 等待 CI 完成构建（见 §6 验证），或本地手动：
    复制 APK 为 oc-beacon-<VERSION>.apk，
-   gh release create "vX.Y.Z" "oc-beacon-<VERSION>.apk" --prerelease(仅预发布) --title --notes
+   gh release create "vX.Y.Z" "oc-beacon-<VERSION>.apk" --notes-file RELEASE_NOTES.md --prerelease(仅预发布) --title
 ```
 
 **严禁在 `version.properties` 修改前执行 `assemble*`**，否则 APK 内嵌版本号与 tag/release 名称不一致。
@@ -228,6 +246,7 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 
 - [ ] `gh release list`：新 Release 存在，类型正确（stable 非 prerelease / beta、dev 为 prerelease）
 - [ ] `gh release view <TAG> --json assets`：**恰好 1 个 APK**，命名 `oc-beacon-<VERSION>.apk`
+- [ ] `gh release view <TAG>`：**说明非空且非仅 Full Changelog 链接**——按 §4.5 模板撰写（含版本摘要）
 - [ ] `aapt2 dump badging` 验证 APK：包名/versionCode/versionName 正确
 - [ ] **签名验证（所有 flavor）**：`apksigner verify --print-certs` 的证书 DN 应为 `CN=OC Beacon, OU=Development, O=LeoNardo-LB, C=CN`（release keystore，2026-08-06 起，alias=oc-tether），**不得是 `CN=Android Debug`**
   - 若为 debug 签名 → 检查 GitHub Secrets（`gh secret list` 需含 KEYSTORE_BASE64/ALIAS/PASSWORD）与 build.gradle.kts 的 `if (!hasPropertiesFile)` 回退逻辑
@@ -253,4 +272,5 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 
 - AGENTS.md 是项目总规则；本文档是**发版专项细则**。
 - AGENTS.md 中"Version Management"章节引用本文档（发版前必读）。
+- 本文档 §4.5 引用 [`docs/release-notes-template.md`](release-notes-template.md)（GitHub Release 说明模板与写作规则）。
 - 本文档变更时，同步检查 AGENTS.md 是否需要更新。
