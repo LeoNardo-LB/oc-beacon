@@ -6,7 +6,6 @@ import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
-import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection as DataModelSelection
 import dev.leonardo.ocbeacon.data.dto.request.PromptPart as DataPromptPart
@@ -29,6 +28,8 @@ import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -56,7 +57,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val eventDispatcher: EventDispatcher,
     private val serverRepo: ServerDataStore,
     private val permissionAutoApprover: PermissionAutoApprover,
-    private val messageStore: MessageStore,
+    private val messageStore: MessageCacheRepository,
 ) : ChatRepository {
 
     private val toolExpandedStates = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
@@ -77,6 +78,8 @@ class ChatRepositoryImpl @Inject constructor(
                     eventDispatcher.upsertMessages(sessionId, cached, MergeStrategy.APPEND_ONLY)
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.e("ChatRepository", "Seed messages from cache failed", e)
         }

@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocbeacon.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -76,6 +77,8 @@ internal class MessagePaginationDelegate(
             chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
             _hasOlderMessages.value = messages.size >= currentMessageLimit
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "V1 loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.e(TAG, "Failed to load messages", e)
         }

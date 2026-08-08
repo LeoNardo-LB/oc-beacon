@@ -1,4 +1,4 @@
-package dev.leonardo.ocbeacon.data.local
+package dev.leonardo.ocbeacon.domain.util
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -8,6 +8,9 @@ import java.util.Base64
 /**
  * OpenCode Server 消息分页游标编解码。
  * 游标 = base64url(JSON({"id": <msgId>, "time": <created>}))。
+ *
+ * 仅依赖 kotlinx.serialization + java.util.Base64，无 Room/Android 依赖，
+ * 因此置于 domain 层供 [dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase] 直接使用。
  */
 object CursorCodec {
 

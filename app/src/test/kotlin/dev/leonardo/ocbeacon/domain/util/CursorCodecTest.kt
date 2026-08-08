@@ -1,4 +1,4 @@
-package dev.leonardo.ocbeacon.data.local
+package dev.leonardo.ocbeacon.domain.util
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

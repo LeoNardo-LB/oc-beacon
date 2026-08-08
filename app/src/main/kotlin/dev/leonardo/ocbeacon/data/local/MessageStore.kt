@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.local
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -23,12 +24,12 @@ import javax.inject.Singleton
 class MessageStore @Inject constructor(
     private val dao: MessageDao,
     private val json: Json,
-) {
+) : MessageCacheRepository {
 
-    suspend fun upsertMessages(
+    override suspend fun upsertMessages(
         sessionId: String,
         messages: List<MessageWithParts>,
-        persistOldBeyondWindow: Boolean = false,
+        persistOldBeyondWindow: Boolean,
     ) = withContext(Dispatchers.IO) {
         if (messages.isEmpty()) return@withContext
         runCatching {
@@ -73,37 +74,48 @@ class MessageStore @Inject constructor(
     }
 
     /** Room Flow：本地库变化 → 自动发新值。 */
-    fun observeMessages(sessionId: String): Flow<List<MessageWithParts>> =
-        dao.observeMessages(sessionId).map { entities -> entities.map { toMessageWithParts(it) } }
-
-    /** 游标分页读：beforeId 非空取更早，否则取最新 limit 条。 */
-    suspend fun loadRange(sessionId: String, limit: Int, beforeId: String? = null): List<MessageWithParts> =
-        withContext(Dispatchers.IO) {
-            val entities = dao.messagesForSession(sessionId, limit, beforeId)
-            entities.map { toMessageWithParts(it) }
+    override fun observeMessages(sessionId: String): Flow<List<MessageWithParts>> =
+        dao.observeMessages(sessionId).map { entities ->
+            if (entities.isEmpty()) return@map emptyList()
+            // 一次批量查询所有 parts，消除 N+1（原逐条 dao.partsForMessages）。
+            val partsByMsg = dao.partsForMessages(entities.map { it.id })
+                .groupBy { it.messageId }
+            entities.map { toMessageWithParts(it, partsByMsg[it.id] ?: emptyList()) }
         }
 
-    suspend fun oldestMessageId(sessionId: String): String? =
+    /** 游标分页读：beforeId 非空取更早，否则取最新 limit 条。 */
+    override suspend fun loadRange(sessionId: String, limit: Int, beforeId: String?): List<MessageWithParts> =
+        withContext(Dispatchers.IO) {
+            val entities = dao.messagesForSession(sessionId, limit, beforeId)
+            if (entities.isEmpty()) return@withContext emptyList()
+            val partsByMsg = dao.partsForMessages(entities.map { it.id })
+                .groupBy { it.messageId }
+            entities.map { toMessageWithParts(it, partsByMsg[it.id] ?: emptyList()) }
+        }
+
+    override suspend fun oldestMessageId(sessionId: String): String? =
         withContext(Dispatchers.IO) { dao.oldestMessageId(sessionId) }
 
-    suspend fun messageCreatedAt(messageId: String): Long? =
+    override suspend fun messageCreatedAt(messageId: String): Long? =
         withContext(Dispatchers.IO) { dao.messageCreatedAt(messageId) }
 
-    suspend fun clearSession(sessionId: String) = withContext(Dispatchers.IO) {
+    override suspend fun clearSession(sessionId: String) = withContext(Dispatchers.IO) {
         dao.clearSession(sessionId)
     }
 
     // ---- 映射 ----------------------------------------------------
 
-    private suspend fun toMessageWithParts(entity: CachedMessageEntity): MessageWithParts {
+    private fun toMessageWithParts(
+        entity: CachedMessageEntity,
+        partEntities: List<CachedPartEntity>,
+    ): MessageWithParts {
         val info = json.decodeFromString<Message>(entity.payload)
-        val parts = dao.partsForMessages(listOf(entity.id))
-            .mapNotNull { partEntity ->
-                partEntity.payload?.let {
-                    runCatching { json.decodeFromString<Part>(it) }
-                        .getOrNull()
-                }
+        val parts = partEntities.mapNotNull { partEntity ->
+            partEntity.payload?.let {
+                runCatching { json.decodeFromString<Part>(it) }
+                    .getOrNull()
             }
+        }
         return MessageWithParts(info = info, parts = parts)
     }
 

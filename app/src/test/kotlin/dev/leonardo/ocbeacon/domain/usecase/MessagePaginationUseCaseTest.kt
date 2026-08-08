@@ -1,13 +1,13 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
-import dev.leonardo.ocbeacon.data.local.CursorCodec
-import dev.leonardo.ocbeacon.data.local.MessageStore
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.util.CursorCodec
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -22,7 +22,7 @@ class MessagePaginationUseCaseTest {
 
     private val chatRepository = mockk<ChatRepository>(relaxed = true)
     private val sessionRepository = mockk<SessionRepository>(relaxed = true)
-    private val messageStore = mockk<MessageStore>(relaxed = true)
+    private val messageStore = mockk<MessageCacheRepository>(relaxed = true)
     private val useCase = MessagePaginationUseCase(chatRepository, sessionRepository, messageStore)
 
     private fun msg(id: String, created: Long): MessageWithParts = MessageWithParts(

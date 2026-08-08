@@ -4,8 +4,8 @@ import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
-import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover
 import dev.leonardo.ocbeacon.data.repository.handler.*
 import dev.leonardo.ocbeacon.domain.model.*
@@ -30,7 +30,7 @@ class ChatRepositoryImplTest {
     private lateinit var eventDispatcher: EventDispatcher
     private lateinit var serverRepo: ServerDataStore
     private lateinit var permissionAutoApprover: PermissionAutoApprover
-    private lateinit var messageStore: MessageStore
+    private lateinit var messageStore: MessageCacheRepository
     private lateinit var sessionHandler: SessionEventHandler
     private lateinit var messageHandler: MessageEventHandler
     private lateinit var permissionHandler: PermissionEventHandler

@@ -1,6 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository.handler
 
-import dev.leonardo.ocbeacon.data.local.MessageStore
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
@@ -29,9 +29,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class MessageEventHandler @Inject constructor(
-    private val messageStore: MessageStore?,
+    private val messageStore: MessageCacheRepository?,
 ) {
-    /** 测试用无参构造：禁用 SSE 双写。生产环境由 Hilt 注入非空 MessageStore。 */
+    /** 测试用无参构造：禁用 SSE 双写。生产环境由 Hilt 注入非空 MessageCacheRepository。 */
     constructor() : this(null)
 
     private companion object {

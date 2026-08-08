@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -17,7 +18,9 @@ class MessageStoreTest {
 
     private val dao = mockk<MessageDao>(relaxed = true)
     private val json = Json { ignoreUnknownKeys = true }
-    private val store = MessageStore(dao, json)
+    // 声明为接口类型：验证 MessageStore 实现满足 MessageCacheRepository 契约，
+    // 且接口默认参数值（persistOldBeyondWindow=false / beforeId=null）生效。
+    private val store: MessageCacheRepository = MessageStore(dao, json)
 
     private fun msg(id: String, created: Long): MessageWithParts = MessageWithParts(
         info = Message.User(

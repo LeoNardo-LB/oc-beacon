@@ -418,11 +418,13 @@ class EventDispatcher @Inject constructor(
         recomputeMaxCompleted(sessionId)
     }
 
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
     fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.mergeMessages(sessionId, messages)
         recomputeMaxCompleted(sessionId)
     }
 
+    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
     fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.replaceMessages(sessionId, messages)
         recomputeMaxCompleted(sessionId)

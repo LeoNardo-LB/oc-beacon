@@ -1,19 +1,19 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
-import dev.leonardo.ocbeacon.data.local.CursorCodec
-import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.util.CursorCodec
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class MessagePaginationUseCase @Inject constructor(
     private val chatRepository: ChatRepository,
     private val sessionRepository: SessionRepository,
-    private val messageStore: MessageStore,
+    private val messageStore: MessageCacheRepository,
 ) {
     fun observeMessages(sessionId: String): Flow<List<Message>> =
         chatRepository.getMessagesFlow(sessionId)
