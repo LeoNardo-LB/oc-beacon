@@ -115,6 +115,10 @@ class ChatViewModelSendTest {
         every { chatRepository.getAllPartsMap() } returns MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
         every { chatRepository.getMessagesFlow(any()) } returns flowOf(emptyList())
         every { chatRepository.getActiveToolProgressForSession(any()) } returns flowOf(emptyList())
+        // interactionState combine 依赖这三个源发射 —— relaxed mock 的 Flow 不发射会导致
+        // stateIn(WhileSubscribed) 永不产生首发射，.value 恒为初始值
+        every { chatRepository.getAllQuestionsFlow() } returns flowOf(emptyMap())
+        every { chatRepository.getAllPermissionsFlow() } returns flowOf(emptyMap())
     }
 
     @After
@@ -185,20 +189,68 @@ class ChatViewModelSendTest {
         }
     }
 
+    /** interactionState 是 stateIn(WhileSubscribed)，无订阅者时 value 恒为初始值。 */
+    private fun kotlinx.coroutines.test.TestScope.subscribeToInteractionState(vm: ChatViewModel): Job {
+        return backgroundScope.launch {
+            vm.interactionState.collect {         /* 保持订阅存活 */ }
+        }
+    }
+
+    // ========== 悲观消息语义（Task 7） ==========
+
     @Test
-    fun `optimistic message removed on failure`() = runTest {
+    fun `isSending flips during send and clears after REST accepted`() = runTest {
+        // coAnswers + delay 模拟 POST 受理中的网络窗口：isSending 保持 true 直到响应返回
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } coAnswers {
+            delay(1_000)
+        }
+        val viewModel = createViewModel()
+        val collectJob = subscribeToState(viewModel)
+        val interactionJob = subscribeToInteractionState(viewModel)
+        advanceUntilIdle()
+        viewModel.sendMessage("Hello world")
+        runCurrent()
+        assertTrue(viewModel.interactionState.value.isSending)  // 发送中（POST 受理前）
+        advanceUntilIdle()
+        assertFalse(viewModel.interactionState.value.isSending) // 204 后恢复（可连续发送）
+        collectJob.cancel()
+        interactionJob.cancel()
+    }
+
+    @Test
+    fun `send failure restores draft and reports error`() = runTest {
         coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
+        val viewModel = createViewModel()
+        val collectJob = subscribeToState(viewModel)
+        val interactionJob = subscribeToInteractionState(viewModel)
+        advanceUntilIdle()
+        viewModel.sendMessage("Hello world")
+        advanceUntilIdle()
+        assertEquals("Hello world", viewModel.uiState.value.restoredDraft?.text) // 草稿恢复
+        assertNotNull(viewModel.interactionState.value.error) // 错误提示（snackbar 源）
+        assertFalse(viewModel.interactionState.value.isSending) // finally 复位
+        collectJob.cancel()
+        interactionJob.cancel()
+    }
 
+    @Test
+    fun `double send is ignored while sending`() = runTest {
+        // sendPrompt 挂起期间 isSending=true，第二次 sendMessage 应被 isSendingValue 守卫拦截
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } coAnswers {
+            delay(1_000)
+        }
         val viewModel = createViewModel()
         val collectJob = subscribeToState(viewModel)
         advanceUntilIdle()
-
-        viewModel.sendMessage("Hello world")
+        viewModel.sendMessage("first")
+        viewModel.sendMessage("second") // isSending 期间应被忽略
         advanceUntilIdle()
-
+        coVerify(exactly = 1) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) }
         collectJob.cancel()
     }
+
+    // ========== 保留：草稿恢复与消费（悲观语义下） ==========
 
     @Test
     fun `restoredDraft is set on send failure in V1`() = runTest {
@@ -209,12 +261,13 @@ class ChatViewModelSendTest {
 
         val viewModel = createViewModel()
         val collectJob = subscribeToState(viewModel)
+        val interactionJob = subscribeToInteractionState(viewModel)
         advanceUntilIdle()
 
         viewModel.sendMessage("Hello world")
         advanceUntilIdle()
 
-        // V1 在发送失败时设置 restoredDraft，以便用户重试
+        // V1 在发送失败时设置 restoredDraft，以便用户重试，并上报错误
         assertNotNull(
             "V1 should set restoredDraft on send failure",
             viewModel.uiState.value.restoredDraft
@@ -223,7 +276,9 @@ class ChatViewModelSendTest {
             "Hello world",
             viewModel.uiState.value.restoredDraft?.text
         )
+        assertNotNull(viewModel.interactionState.value.error)
         collectJob.cancel()
+        interactionJob.cancel()
     }
 
     @Test
