@@ -17,7 +17,9 @@ import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerPaths
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.Tag
+import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
@@ -78,6 +80,7 @@ class SessionListViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val serverRepository: ServerRepository,
     private val sessionReadSignal: SessionReadSignal,
+    private val chatRepository: ChatRepository,
 ) : ViewModel() {
 
     companion object {
@@ -211,24 +214,40 @@ class SessionListViewModel @Inject constructor(
     // 分组设计：每组只携带自己拥有的字段（部分数据类），最终 dataFlow 合并 3 组。
     // 禁止"占位填充"（会重置其他组的字段）。
 
-    // 分组1：会话数据（5 源）→ 部分字段
+    // 分组1：会话数据（6 源）→ 部分字段
     private data class SessionDataPart(
         val sessions: List<Session>,
         val statuses: Map<String, SessionStatus>,
         val serverSessionMap: Map<String, Set<String>>,
         val lastUserMessageTime: Map<String, Long>,
         val lastReplyTime: Map<String, Long>,
+        val questions: Map<String, List<SseEvent.QuestionAsked>>,
     )
 
+    // kotlinx.coroutines combine 仅有 2-5 源的类型化重载；第 6 源用嵌套 combine 接入。
     private val sessionDataFlow = combine(
-        sessionRepository.getSessionsFlow(serverId),
-        sessionStateService.statusFlow,
-        sessionRepository.getServerSessionsFlow(),
-        sessionRepository.getLastUserMessageTimeFlow(),
-        sessionRepository.getLastCompletedReplyTimeFlow(),
-    ) { sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime ->
-        SessionDataPart(sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime)
+        combine(
+            sessionRepository.getSessionsFlow(serverId),
+            sessionStateService.statusFlow,
+            sessionRepository.getServerSessionsFlow(),
+            sessionRepository.getLastUserMessageTimeFlow(),
+            sessionRepository.getLastCompletedReplyTimeFlow(),
+        ) { sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime ->
+            SessionCorePart(sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime)
+        },
+        chatRepository.getAllQuestionsFlow(),
+    ) { core, questions ->
+        SessionDataPart(core.sessions, core.statuses, core.serverSessionMap, core.lastUserMessageTime, core.lastReplyTime, questions)
     }
+
+    /** 嵌套 combine 的中间载体（前 5 源）。 */
+    private data class SessionCorePart(
+        val sessions: List<Session>,
+        val statuses: Map<String, SessionStatus>,
+        val serverSessionMap: Map<String, Set<String>>,
+        val lastUserMessageTime: Map<String, Long>,
+        val lastReplyTime: Map<String, Long>,
+    )
 
     // 分组2：设置数据（4 源）
     private data class SettingDataPart(
@@ -276,6 +295,11 @@ class SessionListViewModel @Inject constructor(
             readTimes = settingData.readTimes,
             justRead = settingData.justRead,
             allReadAt = miscData.allReadAt,
+            pendingQuestionIds = sessionData.questions
+                .filterKeys { it in sessionData.serverSessionMap[serverId].orEmpty() }
+                .filterValues { it.isNotEmpty() }
+                .keys
+                .toSet(),
         )
     }
 

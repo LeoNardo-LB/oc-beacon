@@ -108,12 +108,13 @@ internal fun buildContentState(
                     status = data.statuses[session.id] ?: SessionStatus.Idle,
                     hasDraft = session.id in draftRepository.getDraftSessionIds(),
                     tags = resolvedTags[session.id].orEmpty(),
-                    hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, data.statuses[session.id] ?: SessionStatus.Idle)
+                    hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, data.statuses[session.id] ?: SessionStatus.Idle),
+                    hasPendingQuestion = session.id in data.pendingQuestionIds,
                 )
             )
         }
     } else {
-        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, data.statuses, draftRepository.getDraftSessionIds(), resolvedTags, data.lastReplyTime, readTimes, data.allReadAt)
+        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, data.statuses, draftRepository.getDraftSessionIds(), resolvedTags, data.lastReplyTime, readTimes, data.allReadAt, data.pendingQuestionIds)
     }
 
     val prefillDirectory = if (ui.lastToggledDirectory != null && ui.lastToggledDirectory in ui.expandedPaths)

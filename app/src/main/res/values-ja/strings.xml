@@ -143,6 +143,7 @@
     <string name="sessions_empty_directory">ディレクトリが空です</string>
     <string name="sessions_working">作業中</string>
     <string name="sessions_retrying">再試行中</string>
+    <string name="session_pending_question">回答待ち</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="chat_response">応答</string>

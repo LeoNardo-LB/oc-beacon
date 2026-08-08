@@ -143,6 +143,7 @@
     <string name="sessions_empty_directory">Boş dizin</string>
     <string name="sessions_working">Çalışıyor</string>
     <string name="sessions_retrying">Yeniden deneniyor</string>
+    <string name="session_pending_question">Yanıt bekleniyor</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="chat_response">Cevap</string>

@@ -143,6 +143,7 @@
     <string name="sessions_empty_directory">Порожня директорія</string>
     <string name="sessions_working">Працює</string>
     <string name="sessions_retrying">Повтор спроби</string>
+    <string name="session_pending_question">Очікує відповіді</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="chat_response">Відповідь</string>

@@ -52,6 +52,7 @@
     <string name="sessions_empty_directory">Empty directory</string>
     <string name="sessions_working">Working</string>
     <string name="sessions_retrying">Retrying</string>
+    <string name="session_pending_question">Pending answer</string>
     <string name="sessions_create_session">Create Session</string>
     <string name="session_status_idle">Idle</string>
     <string name="session_status_busy">Working…</string>

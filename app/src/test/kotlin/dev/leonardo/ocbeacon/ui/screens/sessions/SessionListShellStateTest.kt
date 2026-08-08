@@ -4,8 +4,10 @@ import android.util.Log
 import app.cash.turbine.test
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
+import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
@@ -53,6 +55,7 @@ class SessionListShellStateTest {
     private val manageSessionUseCase: ManageSessionUseCase = mockk()
     private val deleteSessionUseCase: DeleteSessionUseCase = mockk()
     private val settingsRepository: SettingsRepository = mockk(relaxed = true)
+    private val chatRepository: ChatRepository = mockk(relaxed = true)
 
     @Before
     fun setup() {
@@ -68,6 +71,7 @@ class SessionListShellStateTest {
         every { sessionRepository.getLastUserMessageTimeFlow() } returns MutableStateFlow(emptyMap<String, Long>())
         every { sessionRepository.getLastCompletedReplyTimeFlow() } returns MutableStateFlow(emptyMap<String, Long>())
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap<String, SessionStatus>())
+        every { chatRepository.getAllQuestionsFlow() } returns MutableStateFlow(emptyMap<String, List<SseEvent.QuestionAsked>>())
         every { settingsRepository.sessionTagAssignments(any()) } returns MutableStateFlow(emptyMap<String, List<String>>())
         every { settingsRepository.sessionTags(any()) } returns MutableStateFlow(emptyList<Tag>())
         every { settingsRepository.sessionReadTimes(any()) } returns MutableStateFlow(emptyMap<String, Long>())
@@ -158,6 +162,7 @@ class SessionListShellStateTest {
             settingsRepository = settingsRepository,
             serverRepository = mockk(relaxed = true),
             sessionReadSignal = SessionReadSignal(),
+            chatRepository = chatRepository,
         )
     }
 }

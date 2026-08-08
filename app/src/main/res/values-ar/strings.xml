@@ -143,6 +143,7 @@
     <string name="sessions_empty_directory">دليل فارغ</string>
     <string name="sessions_working">يعمل</string>
     <string name="sessions_retrying">إعادة المحاولة</string>
+    <string name="session_pending_question">في انتظار الإجابة</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="chat_response">الرد</string>

@@ -143,6 +143,7 @@
     <string name="sessions_empty_directory">Diretório vazio</string>
     <string name="sessions_working">Trabalhando</string>
     <string name="sessions_retrying">Tentando novamente</string>
+    <string name="session_pending_question">Resposta pendente</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="chat_response">Resposta</string>

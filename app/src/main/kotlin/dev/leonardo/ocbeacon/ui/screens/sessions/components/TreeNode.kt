@@ -60,6 +60,7 @@ fun buildTreeNodes(
     lastMessageTime: Map<String, Long> = emptyMap(),
     readTimes: Map<String, Long> = emptyMap(),
     allReadAt: Long = 0L,
+    pendingQuestionIds: Set<String> = emptySet(),
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
     val rootSessions = mutableListOf<Session>()
@@ -147,7 +148,7 @@ fun buildTreeNodes(
                 val status = statuses[session.id] ?: SessionStatus.Idle
                 result.add(TreeNode.Session(
                     id = session.id,
-                    session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status)),
+                    session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status), hasPendingQuestion = session.id in pendingQuestionIds),
                 ))
             }
         }
@@ -158,7 +159,7 @@ fun buildTreeNodes(
         val status = statuses[session.id] ?: SessionStatus.Idle
         result.add(TreeNode.Session(
             id = session.id,
-            session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status)),
+            session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status), hasPendingQuestion = session.id in pendingQuestionIds),
         ))
     }
 

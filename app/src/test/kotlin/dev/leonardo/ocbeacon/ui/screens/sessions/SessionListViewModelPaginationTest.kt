@@ -110,6 +110,7 @@ class SessionListViewModelPaginationTest {
             getSettingsFlowUseCase = mockk(relaxed = true),
             settingsRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),
+            chatRepository = mockk(relaxed = true),
         )
     }
 }

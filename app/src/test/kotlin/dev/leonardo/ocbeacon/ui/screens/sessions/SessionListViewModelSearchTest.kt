@@ -110,6 +110,7 @@ class SessionListViewModelSearchTest {
             settingsRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),
             sessionReadSignal = SessionReadSignal(),
+            chatRepository = mockk(relaxed = true),
         )
     }
 }

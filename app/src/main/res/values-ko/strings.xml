@@ -143,6 +143,7 @@
     <string name="sessions_empty_directory">빈 디렉터리</string>
     <string name="sessions_working">작업 중</string>
     <string name="sessions_retrying">재시도 중</string>
+    <string name="session_pending_question">답변 대기</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="chat_response">응답</string>
