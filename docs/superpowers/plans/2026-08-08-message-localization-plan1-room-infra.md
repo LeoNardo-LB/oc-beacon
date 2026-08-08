@@ -186,7 +186,7 @@ interface LogDao {
     @Query("SELECT * FROM logs ORDER BY timestamp DESC, id DESC LIMIT :limit")
     suspend fun latest(limit: Int): List<LogEntity>
 
-    @Query("SELECT EXISTS(SELECT 1 FROM logs LIMIT 1)")
+    @Query("SELECT NOT EXISTS(SELECT 1 FROM logs LIMIT 1)")
     suspend fun isEmpty(): Boolean
 
     @Query("DELETE FROM logs")
