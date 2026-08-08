@@ -4,8 +4,6 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.flowOf
@@ -22,8 +20,7 @@ import org.junit.Test
  * - 只有 removeSession 移除；seed 合并取 max
  * - 判定只用服务器 completed
  *
- * 注：lastCompletedReplyTimes 是 SettingsDataStore 的顶层扩展函数，
- * MockK 需 mockkStatic 才能 stub（参考 EventDispatcherUnreadTest 模式）。
+ * 注：lastCompletedReplyTimes 已是 SettingsDataStore 成员方法，relaxed mock 直接 every stub。
  * saveLastCompletedReplyTimes 在 UnconfinedTestDispatcher scope 下经 relaxed mock
  * 链式调用静默返回，不需 stub。
  */
@@ -72,20 +69,16 @@ class UnreadBadgeServiceTest {
 
     @Test
     fun seedFromStorage_mergesMax() = runTest {
-        // 扩展函数 lastCompletedReplyTimes 非成员，需 mockkStatic 才能 stub
-        mockkStatic(SettingsDataStore::lastCompletedReplyTimes)
+        // lastCompletedReplyTimes 是 SettingsDataStore 成员方法，relaxed mock 直接 every stub
         every { settingsDataStore.lastCompletedReplyTimes() } returns
             flowOf(mapOf("ses_1" to 700L, "ses_2" to 100L))
-        try {
-            service.onMessageCompleted("ses_1", 500)  // 内存已有较小值
 
-            service.seedFromStorage()
+        service.onMessageCompleted("ses_1", 500)  // 内存已有较小值
 
-            assertEquals(700L, service.lastCompletedReplyTime.value["ses_1"])  // seed 更大 → 覆盖
-            assertEquals(100L, service.lastCompletedReplyTime.value["ses_2"])  // 新增
-        } finally {
-            unmockkStatic(SettingsDataStore::lastCompletedReplyTimes)
-        }
+        service.seedFromStorage()
+
+        assertEquals(700L, service.lastCompletedReplyTime.value["ses_1"])  // seed 更大 → 覆盖
+        assertEquals(100L, service.lastCompletedReplyTime.value["ses_2"])  // 新增
     }
 
     private fun assistant(id: String, completed: Long?): Message =
