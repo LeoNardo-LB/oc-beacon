@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.util
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -13,7 +14,8 @@ import org.json.JSONObject
 internal data class ParsedQuestion(
     val displayText: String,
     val answers: List<String>,
-    val rawExtra: String
+    val rawExtra: String,
+    val isMultiple: Boolean = false
 )
 
 internal data class QHistOption(val label: String, val description: String = "")
@@ -55,6 +57,7 @@ internal object QuestionParser {
             return try {
                 val json = JSONObject(trimmed)
                 val q = json.optString("question", raw)
+                val isMultiple = json.optBoolean("multiple", false)
                 val answers = mutableListOf<String>()
                 json.optString("answer", "").takeIf { it.isNotBlank() }?.let { answers.add(it) }
                 json.optJSONArray("answers")?.let { arr ->
@@ -66,7 +69,7 @@ internal object QuestionParser {
                         }
                     }
                 }
-                ParsedQuestion(displayText = q, answers = answers, rawExtra = "")
+                ParsedQuestion(displayText = q, answers = answers, rawExtra = "", isMultiple = isMultiple)
             } catch (e: Exception) {
                 ParsedQuestion(displayText = raw, answers = emptyList(), rawExtra = "")
             }
@@ -104,7 +107,8 @@ internal object QuestionParser {
                         description = optObj["description"]?.jsonPrimitive?.content ?: ""
                     )
                 } ?: emptyList()
-                items.add(QHistItem(qText, opts, emptyList()))
+                val multiple = qObj["multiple"]?.jsonPrimitive?.booleanOrNull ?: false
+                items.add(QHistItem(qText, opts, emptyList(), isMultiple = multiple))
             }
         }
 
@@ -128,7 +132,7 @@ internal object QuestionParser {
                             ))
                         }
                     }
-                    items.add(QHistItem(qText, opts, emptyList()))
+                    items.add(QHistItem(qText, opts, emptyList(), isMultiple = obj.optBoolean("multiple", false)))
                 }
             } catch (e: Exception) {
                 items.add(QHistItem(output.lines().firstOrNull { it.isNotBlank() } ?: "", emptyList(), emptyList()))

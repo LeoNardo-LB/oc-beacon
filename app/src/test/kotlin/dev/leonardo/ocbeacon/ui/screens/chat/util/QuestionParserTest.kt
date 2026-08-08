@@ -126,4 +126,70 @@ class QuestionParserTest {
         assertEquals(1, items.size)
         assertEquals("", items[0].text)
     }
+
+    // ===== parseQuestionContent multiple =====
+
+    @Test
+    fun `JSON format - parses multiple true`() {
+        val r = QuestionParser.parseQuestionContent("""{"question":"Which?","multiple":true}""")
+        assertTrue(r.isMultiple)
+    }
+
+    @Test
+    fun `JSON format - multiple absent defaults false`() {
+        val r = QuestionParser.parseQuestionContent("""{"question":"Which?"}""")
+        assertFalse(r.isMultiple)
+    }
+
+    @Test
+    fun `opencode text format - multiple defaults false`() {
+        val raw = """Asked 1 question. questions: [{"question":"Pick"}]
+            |User has answered: "A". You can continue.""".trimMargin()
+        assertFalse(QuestionParser.parseQuestionContent(raw).isMultiple)
+    }
+
+    // ===== parseQuestionFromToolData multiple =====
+
+    @Test
+    fun `tool data - parses multiple from question json`() {
+        val input = mapOf(
+            "questions" to buildJsonArray {
+                add(buildJsonObject {
+                    put("question", "Pick many")
+                    put("multiple", true)
+                    put("options", buildJsonArray {
+                        add(buildJsonObject { put("label", "A") })
+                        add(buildJsonObject { put("label", "B") })
+                    })
+                })
+            }
+        )
+        val items = QuestionParser.parseQuestionFromToolData("id", input, "")
+        assertEquals(1, items.size)
+        assertTrue(items[0].isMultiple)
+    }
+
+    @Test
+    fun `tool data - multiple absent defaults false`() {
+        val input = mapOf(
+            "questions" to buildJsonArray {
+                add(buildJsonObject {
+                    put("question", "Pick one")
+                    put("options", buildJsonArray { add(buildJsonObject { put("label", "A") }) })
+                })
+            }
+        )
+        val items = QuestionParser.parseQuestionFromToolData("id", input, "")
+        assertEquals(1, items.size)
+        assertFalse(items[0].isMultiple)
+    }
+
+    @Test
+    fun `tool data - JSONArray fallback parses multiple`() {
+        val output = """questions: [{"question":"Pick many","multiple":true,"options":[{"label":"A"}]}]
+            |User has answered: "A", "B". You can continue.""".trimMargin()
+        val items = QuestionParser.parseQuestionFromToolData("id", emptyMap(), output)
+        assertTrue(items.isNotEmpty())
+        assertTrue(items[0].isMultiple)
+    }
 }
