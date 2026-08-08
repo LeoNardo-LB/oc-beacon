@@ -451,9 +451,6 @@ class EventDispatcher @Inject constructor(
         }
     }
 
-    fun addOptimisticMessage(sessionId: String, message: Message.User, parts: List<Part>) =
-        messageHandler.addOptimisticMessage(sessionId, message, parts)
-
     fun removePermission(permissionId: String) =
         permissionHandler.removePermission(permissionId)
 

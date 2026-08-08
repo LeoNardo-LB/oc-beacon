@@ -370,10 +370,6 @@ class ChatRepositoryImpl @Inject constructor(
         eventDispatcher.replaceMessages(sessionId, messages)
     }
 
-    override fun addOptimisticMessage(sessionId: String, message: Message.User, parts: List<Part>) {
-        eventDispatcher.addOptimisticMessage(sessionId, message, parts)
-    }
-
     override fun clearRevert(sessionId: String) {
         eventDispatcher.clearRevert(sessionId)
     }

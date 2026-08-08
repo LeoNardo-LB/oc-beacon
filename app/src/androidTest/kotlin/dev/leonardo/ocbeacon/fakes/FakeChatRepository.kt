@@ -230,11 +230,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         messagesStore[sessionId] = messages.toMutableList()
     }
 
-    override fun addOptimisticMessage(sessionId: String, message: Message.User, parts: List<Part>) {
-        val msgWithParts = MessageWithParts(message, parts)
-        messagesStore.getOrPut(sessionId) { mutableListOf() }.add(msgWithParts)
-    }
-
     override fun clearRevert(sessionId: String) {
         revertStore.remove(sessionId)
     }

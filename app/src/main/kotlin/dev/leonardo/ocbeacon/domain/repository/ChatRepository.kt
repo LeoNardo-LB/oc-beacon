@@ -222,12 +222,6 @@ interface ChatRepository {
     fun replaceMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**
-     * 向消息缓存中注入一条乐观用户消息以立即显示。
-     * 该消息使用临时 ID（"pending-*"），当 SSE 投递真实消息时会被原地替换。
-     */
-    fun addOptimisticMessage(sessionId: String, message: Message.User, parts: List<Part>)
-
-    /**
      * 清除某个会话的回退状态。
      * 在用户回退后发送新消息时调用——服务器会消费回退，
      * 但可能不会通过 SSE 通知客户端。

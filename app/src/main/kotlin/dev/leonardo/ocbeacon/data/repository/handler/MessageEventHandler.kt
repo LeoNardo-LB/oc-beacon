@@ -37,20 +37,6 @@ class MessageEventHandler @Inject constructor() {
     val parts: StateFlow<Map<String, List<Part>>> = _parts.asStateFlow()
 
     /**
-     * 空操作：乐观消息现在由 MessageDataDelegate 的 combine 层处理。
-     *
-     * 它们不会被注入共享的 [_messages]/[_parts] 缓存。之前的原地注入
-     * 会导致消息重复、气泡抖动和不可见的 agent 回复，因为临时 ID
-     *（"pending-*"）必须跨多个 SSE 事件与真实服务器 ID 核对。
-     *
-     * 保留签名以维持与 [ChatRepository] /
-     * [EventDispatcher] / [FakeChatRepository] 的二进制兼容性。
-     */
-    fun addOptimisticMessage(sessionId: String, message: Message.User, optimisticParts: List<Part>) {
-        // 故意为空。
-    }
-
-    /**
      * assistant 消息 ID 集合，供 PartUpdated handler 进行快速 O(1) 查找。
      *
      * RS-009 修复：使用 ConcurrentHashMap.newKeySet() 而非 mutableSetOf()。
@@ -360,8 +346,7 @@ class MessageEventHandler @Inject constructor() {
             val existing = current[sessionId] ?: emptyList()
             val incomingById = newMessages.associateBy { it.info.id }
             val hasRestUserMsgs = newMessages.any { it.info is Message.User }
-            val filtered = if (hasRestUserMsgs) existing.filterNot { it.id.startsWith("pending-") } else existing
-            val merged = (filtered + newMessages.map { it.info })
+            val merged = (existing + newMessages.map { it.info })
                 .distinctBy { it.id }
                 .map { msg ->
                     val incoming = incomingById[msg.id]
@@ -375,14 +360,10 @@ class MessageEventHandler @Inject constructor() {
             // DIAG：记录合并结果
             val beforeUser = existing.filter { it is Message.User }.size
             val afterUser = merged.filter { it is Message.User }.size
-            val beforePending = existing.count { it.id.startsWith("pending-") }
             AppLogger.i("MsgDiag", "[setMessages] session=${sessionId.take(8)} " +
                 "incoming=${newMessages.size} existing=${existing.size} merged=${merged.size} " +
-                "beforeUser=$beforeUser afterUser=$afterUser beforePending=$beforePending " +
+                "beforeUser=$beforeUser afterUser=$afterUser " +
                 "hasRestUserMsgs=$hasRestUserMsgs")
-            if (afterUser > beforeUser && beforePending == 0) {
-                AppLogger.w("MsgDiag", "[setMessages] ⚠️ user count increased without pending: $beforeUser→$afterUser")
-            }
             current + (sessionId to merged)
         }
         newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
@@ -425,10 +406,7 @@ class MessageEventHandler @Inject constructor() {
         newMessages.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
-            // 若 REST 带来了新用户消息，移除乐观消息
-            val hasNewUserMsgs = incoming.any { it is Message.User }
-            val filtered = if (hasNewUserMsgs) existing.filterNot { it.id.startsWith("pending-") } else existing
-            val existingById = filtered.associateBy { it.id }
+            val existingById = existing.associateBy { it.id }
             current + (sessionId to incoming.map { newMsg -> existingById[newMsg.id] ?: newMsg })
         }
     }
@@ -447,12 +425,7 @@ class MessageEventHandler @Inject constructor() {
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = newMessages.associateBy { it.info.id }
-            // 移除乐观（"pending-*"）消息——REST 是权威的。
-            // 若真实消息已通过 REST 到达，临时消息是冗余的。
-            // 若尚未到达（API 进行中），临时消息也已过时，
-            // 下次发送时会重新注入。
-            val realExisting = existing.filterNot { it.id.startsWith("pending-") }
-            val merged = (realExisting + newMessages.map { it.info })
+            val merged = (existing + newMessages.map { it.info })
                 .distinctBy { it.id }
                 .map { msg -> incomingById[msg.id]?.info ?: msg }
                 .sortedBy { it.time.created }
