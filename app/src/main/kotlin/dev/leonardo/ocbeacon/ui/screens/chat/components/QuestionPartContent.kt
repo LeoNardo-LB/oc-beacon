@@ -188,34 +188,39 @@ internal fun QuestionPagerView(
     questions: List<SseEvent.QuestionAsked.Question>,
     selectedAnswers: List<Set<String>>,
     readOnly: Boolean = false,
-    onOptionClick: ((pageIndex: Int, label: String) -> Unit)? = null
+    onOptionClick: ((pageIndex: Int, label: String) -> Unit)? = null,
+    pagerState: androidx.compose.foundation.pager.PagerState? = null,
+    onPageSelected: (Int) -> Unit = {}
 ) {
     if (questions.size <= 1) {
         questions.firstOrNull()?.let { q ->
             QuestionOptionRows(q, selectedAnswers.firstOrNull() ?: emptySet(), readOnly) { onOptionClick?.invoke(0, it) }
         }
     } else {
-        val pagerState = rememberPagerState(pageCount = { questions.size })
         val scope = rememberCoroutineScope()
         val density = androidx.compose.ui.platform.LocalDensity.current
         var maxPageHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        val state = pagerState ?: rememberPagerState(pageCount = { questions.size })
+        androidx.compose.runtime.LaunchedEffect(state.currentPage) {
+            onPageSelected(state.currentPage)
+        }
         Column {
-            SecondaryTabRow(selectedTabIndex = pagerState.currentPage, containerColor = Color.Transparent) {
+            SecondaryTabRow(selectedTabIndex = state.currentPage, containerColor = Color.Transparent) {
                 questions.indices.forEach { i ->
-                    Tab(selected = pagerState.currentPage == i,
-                        onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
+                    Tab(selected = state.currentPage == i,
+                        onClick = { scope.launch { state.animateScrollToPage(i) } },
                         text = { Text("Q${i + 1}", style = MaterialTheme.typography.labelSmall) })
                 }
             }
             HorizontalPager(
-                state = pagerState,
+                state = state,
                 modifier = Modifier.fillMaxWidth().then(
                     if (maxPageHeight > 0) Modifier.height(with(density) { maxPageHeight.toDp() }) else Modifier
                 ),
                 beyondViewportPageCount = 1,
                 pageSpacing = 8.dp,
             ) { page ->
-                val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+                val pageOffset = ((state.currentPage - page) + state.currentPageOffsetFraction).absoluteValue
                 Box(modifier = Modifier
                     .onGloballyPositioned { coords ->
                         val h = coords.size.height

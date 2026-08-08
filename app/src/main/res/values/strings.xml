@@ -237,6 +237,10 @@
     
     <!-- Questions -->
     <string name="question_submit">Submit</string>
+    <string name="question_next">Next</string>
+    <string name="question_unanswered_title">Unanswered questions</string>
+    <string name="question_unanswered_confirm">Questions %1$s have not been answered yet.</string>
+    <string name="question_continue">Continue</string>
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>

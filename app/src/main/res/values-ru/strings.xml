@@ -55,6 +55,10 @@
     <string name="permission_deny">Отклонить</string>
     <!-- Questions -->
     <string name="question_submit">Отправить</string>
+    <string name="question_next">Далее</string>
+    <string name="question_unanswered_title">Вопросы без ответа</string>
+    <string name="question_unanswered_confirm">Вопросы %1$s ещё не получили ответ.</string>
+    <string name="question_continue">Продолжить</string>
     <!-- Settings -->
     <string name="settings_title">Настройки</string>
     <string name="settings_theme">Тема</string>

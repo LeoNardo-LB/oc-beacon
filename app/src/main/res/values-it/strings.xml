@@ -31,6 +31,10 @@
     <string name="permission_deny">Rifiuta</string>
     <!-- Questions -->
     <string name="question_submit">Invia</string>
+    <string name="question_next">Avanti</string>
+    <string name="question_unanswered_title">Domande senza risposta</string>
+    <string name="question_unanswered_confirm">Le domande %1$s non hanno ancora risposta.</string>
+    <string name="question_continue">Continua</string>
     <!-- Settings -->
     <string name="settings_title">Impostazioni</string>
     <string name="settings_theme">Tema</string>

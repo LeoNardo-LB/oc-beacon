@@ -31,6 +31,10 @@
     <string name="permission_deny">Rechazar</string>
     <!-- Questions -->
     <string name="question_submit">Enviar</string>
+    <string name="question_next">Siguiente</string>
+    <string name="question_unanswered_title">Preguntas sin responder</string>
+    <string name="question_unanswered_confirm">Las preguntas %1$s aún no han sido respondidas.</string>
+    <string name="question_continue">Continuar</string>
     <!-- Settings -->
     <string name="settings_title">Configuración</string>
     <string name="settings_theme">Tema</string>

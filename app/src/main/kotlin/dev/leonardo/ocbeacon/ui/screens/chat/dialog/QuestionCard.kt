@@ -8,6 +8,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,9 +44,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +71,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.QuestionPagerView
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import kotlinx.coroutines.launch
 
 /**
  * 用于回答 agent 问题的交互式卡片。
@@ -86,12 +91,24 @@ internal fun QuestionCard(
 
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
+    val scope = rememberCoroutineScope()
 
     // 防止多次提交——状态通过 remember(key) 按问题作用域化
     var submitted by remember(question.id) { mutableStateOf(initiallySubmitted) }
     // 默认折叠——点击头部展开选项。
     // 对于历史记录（initiallySubmitted），起始展开以便用户立即看到答案。
     var expanded by remember(question.id) { mutableStateOf(true) }  // 始终展开——无折叠
+
+    // 多问题时将 pagerState 提升到 QuestionCard，以便"下一个"按钮控制翻页；
+    // 单问题时为 null，QuestionPagerView 走单页分支（不建 pagerState）。
+    val pagerState = if (question.questions.size > 1) {
+        rememberPagerState(pageCount = { question.questions.size })
+    } else null
+
+    // 当前页（来自 pagerState.currentPage 回调；单问题固定 0）
+    var currentPage by remember(question.id) { mutableIntStateOf(0) }
+    // 未回答确认弹窗
+    var showUnansweredDialog by remember(question.id) { mutableStateOf(false) }
 
     // 按问题跟踪答案
     val answersPerQuestion = remember {
@@ -187,14 +204,16 @@ internal fun QuestionCard(
                 questions = question.questions,
                 selectedAnswers = answersPerQuestion.map { it.toSet() },
                 readOnly = submitted,
+                pagerState = pagerState,
+                onPageSelected = { currentPage = it },
                 onOptionClick = { pageIndex, label ->
                     if (!submitted) {
                         performHaptic(hapticView, hapticOn)
+                        val current = answersPerQuestion.getOrNull(pageIndex)?.toMutableList() ?: mutableListOf()
                         if (isSingle) {
-                            submitted = true
-                            onSubmit(listOf(listOf(label)))
+                            // 单选：toggle——选中项取消则清空，否则替换为该项（不再立即提交）
+                            answersPerQuestion[pageIndex] = if (current == listOf(label)) emptyList() else listOf(label)
                         } else {
-                            val current = answersPerQuestion.getOrNull(pageIndex)?.toMutableList() ?: mutableListOf()
                             if (label in current) current.remove(label) else current.add(label)
                             if (pageIndex < answersPerQuestion.size) answersPerQuestion[pageIndex] = current
                         }
@@ -215,13 +234,36 @@ internal fun QuestionCard(
                         ) {
                             Text(stringResource(R.string.chat_dismiss))
                         }
-                        if (!isSingle) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
+                            if (!isSingle && pagerState != null) {
+                                Button(
+                                    onClick = {
+                                        performHaptic(hapticView, hapticOn)
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(
+                                                (currentPage + 1).coerceAtMost(question.questions.size - 1)
+                                            )
+                                        }
+                                    },
+                                    enabled = !submitted && currentPage < question.questions.size - 1
+                                ) {
+                                    Text(stringResource(R.string.question_next))
+                                }
+                            }
                             Button(
                                 onClick = {
-                                    if (!submitted && answersPerQuestion.any { it.isNotEmpty() }) {
+                                    if (!submitted) {
                                         performHaptic(hapticView, hapticOn)
-                                        submitted = true
-                                        onSubmit(answersPerQuestion.map { it.toList() })
+                                        val unanswered = unansweredQuestionIndexes(
+                                            answersPerQuestion.toList(),
+                                            question.questions.size
+                                        )
+                                        if (unanswered.isNotEmpty()) {
+                                            showUnansweredDialog = true
+                                        } else {
+                                            submitted = true
+                                            onSubmit(answersPerQuestion.map { it.toList() })
+                                        }
                                     }
                                 },
                                 enabled = !submitted && answersPerQuestion.any { it.isNotEmpty() }
@@ -234,5 +276,43 @@ internal fun QuestionCard(
                 } // 关闭内部 Column
             } // 关闭 AnimatedVisibility
         }
+        // 未回答确认弹窗（AmoledCard 内部、Column 之外）
+        if (showUnansweredDialog) {
+            val unanswered = unansweredQuestionIndexes(answersPerQuestion.toList(), question.questions.size)
+            val label = stringResource(
+                R.string.question_unanswered_confirm,
+                unanswered.joinToString("、") { it.toString() }
+            )
+            AlertDialog(
+                onDismissRequest = { showUnansweredDialog = false },
+                title = { Text(stringResource(R.string.question_unanswered_title)) },
+                text = { Text(label) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showUnansweredDialog = false
+                        submitted = true
+                        onSubmit(answersPerQuestion.map { it.toList() })
+                    }) { Text(stringResource(R.string.question_continue)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUnansweredDialog = false }) {
+                        Text(stringResource(R.string.chat_dismiss))
+                    }
+                }
+            )
+        }
     }
+}
+
+/**
+ * 返回未回答问题的问题编号列表（1-based，按问题顺序）。
+ * answers 长度可能小于 questionCount（Pager 懒加载时未访问页无答案项），缺失视为未回答。
+ */
+internal fun unansweredQuestionIndexes(
+    answers: List<List<String>>,
+    questionCount: Int
+): List<Int> {
+    return (0 until questionCount)
+        .filter { idx -> answers.getOrNull(idx).isNullOrEmpty() }
+        .map { it + 1 }
 }

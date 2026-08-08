@@ -31,6 +31,10 @@
     <string name="permission_deny">Відхилити</string>
     <!-- Questions -->
     <string name="question_submit">Підтвердити</string>
+    <string name="question_next">Далі</string>
+    <string name="question_unanswered_title">Питання без відповіді</string>
+    <string name="question_unanswered_confirm">Питання %1$s ще не мають відповіді.</string>
+    <string name="question_continue">Продовжити</string>
     <!-- Settings -->
     <string name="settings_title">Налаштування</string>
     <string name="settings_theme">Тема</string>

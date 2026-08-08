@@ -31,6 +31,10 @@
     <string name="permission_deny">رفض</string>
     <!-- Questions -->
     <string name="question_submit">تقديم</string>
+    <string name="question_next">التالي</string>
+    <string name="question_unanswered_title">أسئلة بدون إجابة</string>
+    <string name="question_unanswered_confirm">الأسئلة %1$s لم يتم الرد عليها بعد.</string>
+    <string name="question_continue">متابعة</string>
     <!-- Settings -->
     <string name="settings_title">الإعدادات</string>
     <string name="settings_theme">المظهر</string>
