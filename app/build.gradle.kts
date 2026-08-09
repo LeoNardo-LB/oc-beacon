@@ -190,6 +190,10 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
 
+    // zstd 压缩（归档桶）
+    implementation("com.github.luben:zstd-jni:1.5.7-13@aar")
+    testImplementation("com.github.luben:zstd-jni:1.5.7-13")
+
     // 用于图片加载的 Coil
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
