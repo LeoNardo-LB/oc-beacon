@@ -341,11 +341,11 @@ class MessageStoreTest {
         // 构造 1500 条消息的会话（> 999 变量上限）
         val ids = (0 until 1500).map { "msg_$it" }
         val entities = ids.mapIndexed { i, id ->
-            CachedMessageEntity(id, "ses_1", i.toLong(), "assistant", json.encodeToString(Message.Assistant(id, "ses_1", TimeInfo(i.toLong()), "text")))
+            CachedMessageEntity(id, "ses_1", i.toLong(), "assistant", json.encodeToString(Message.Assistant(id = id, sessionId = "ses_1", time = TimeInfo(i.toLong()), parentId = "p0")))
         }
         coEvery { dao.messagesForSession("ses_1", 2000, null) } returns entities
         // parts：分块后每次调用返回对应的 mock 结果（按调用参数匹配）
-        coEvery { dao.partsForMessages(any()) } answers { arg<List<String>>(0).map { CachedPartEntity(it, "p_$it", "text", "{}") } }
+        coEvery { dao.partsForMessages(any()) } answers { arg<List<String>>(0).map { CachedPartEntity(id = "p_$it", messageId = it, sessionId = "ses_1", type = "text", text = "{}", payload = "{}") } }
 
         val result = store.loadRange("ses_1", limit = 2000, beforeId = null)
 

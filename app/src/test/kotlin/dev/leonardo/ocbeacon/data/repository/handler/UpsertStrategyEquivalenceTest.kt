@@ -155,4 +155,35 @@ class UpsertStrategyEquivalenceTest {
         val part = modern.parts.value["msg-old"]!![0] as Part.Text
         assertEquals("from SSE", part.text)
     }
+
+    /**
+     * 回归护栏（2026-08-10）：APPEND_ONLY 用于"分页加载更早消息"——incoming 只含更早消息，
+     * 不含现有最新消息。原实现 `incomingMsgs.map { ... }` 把 _messages **替换**为更早消息，
+     * 导致最新（底部）消息从对话流中消失（用户实证：上滑分页后下滑看不到最底部消息）。
+     * 正确语义：existing（含最新）+ incoming（更早）合并，existing 必须保留。
+     */
+    @Test
+    fun `APPEND_ONLY preserves existing latest messages when paging older`() {
+        // 先有最新消息（底部，用户当前看到的）
+        val latestMsg = Message.Assistant(
+            id = "msg-latest", sessionId = "s1", parentId = "p0",
+            time = TimeInfo(created = 3000L, completed = 3100L)
+        )
+        modern.handleMessageUpdated(SseEvent.MessageUpdated(latestMsg))
+
+        // 分页加载更早消息（incoming 只有更早的，不含 latest）
+        val olderMsg = MessageWithParts(
+            Message.User(id = "msg-older", sessionId = "s1", time = TimeInfo(created = 500L)),
+            listOf(Part.Text(id = "po", sessionId = "s1", messageId = "msg-older", text = "older"))
+        )
+        modern.upsertMessages("s1", listOf(olderMsg), MergeStrategy.APPEND_ONLY)
+
+        val messages = modern.messages.value["s1"].orEmpty()
+        assertEquals(2, messages.size)
+        // 最底部（最新）消息必须保留
+        assertTrue("latest message must be preserved", messages.any { it.id == "msg-latest" })
+        assertTrue("older message must be added", messages.any { it.id == "msg-older" })
+        // 合并后按 created 排序（oldest first —— combine 依赖写入路径有序）
+        assertEquals(listOf("msg-older", "msg-latest"), messages.map { it.id })
+    }
 }

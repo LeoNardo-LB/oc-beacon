@@ -234,8 +234,11 @@ class EventDispatcherTest {
         val newMsg = Message.User(id = "m2", sessionId = "s1", time = TimeInfo(2000L))
         dispatcher.mergeMessages("s1", listOf(MessageWithParts(newMsg, emptyList())))
 
-        assertEquals(1, dispatcher.messages.value["s1"]!!.size)
-        assertEquals("m2", dispatcher.messages.value["s1"]!![0].id)
+        // 修复（2026-08-10）：APPEND_ONLY（mergeMessages）语义是"合并"——existing 保留 + 补充缺失。
+        // 原断言 size=1 固化了"替换"bug（分页加载更早消息会丢掉现有最新消息，用户实证底部消息消失）。
+        assertEquals(2, dispatcher.messages.value["s1"]!!.size)
+        assertEquals("m1", dispatcher.messages.value["s1"]!![0].id)
+        assertEquals("m2", dispatcher.messages.value["s1"]!![1].id)
     }
 
     @Test

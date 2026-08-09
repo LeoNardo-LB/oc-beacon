@@ -499,8 +499,13 @@ class MessageEventHandler @Inject constructor(
         incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
-            val existingById = existing.associateBy { it.id }
-            current + (sessionId to incomingMsgs.map { newMsg -> existingById[newMsg.id] ?: newMsg })
+            // 修复（2026-08-10）：APPEND_ONLY 应"合并"而非"替换"。
+            // 原实现 `incomingMsgs.map { ... }` 把 _messages 替换为分页加载的"更早消息"，
+            // 导致现有消息（含最新/底部消息）全部丢失——用户上滑分页后下滑
+            // 看不到最底部的消息（消息流中消失）。
+            // 正确语义（注释约定）：existing 保留 + incoming 中缺失的 messageId 补充，
+            // 合并后按 time.created 排序（combine 依赖写入路径有序，见 MessageDataDelegate）。
+            current + (sessionId to (existing + incomingMsgs).distinctBy { it.id }.sortedBy { it.time.created })
         }
     }
 
