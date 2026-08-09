@@ -7,8 +7,11 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.util.CursorCodec
+import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
+
+private const val TAG = "MessagePaginationUseCase"
 
 class MessagePaginationUseCase @Inject constructor(
     private val chatRepository: ChatRepository,
@@ -22,6 +25,8 @@ class MessagePaginationUseCase @Inject constructor(
      * 进入会话加载：缓存优先。
      * 本地有缓存 → 返回本地 + REST 增量（before=本地最旧游标）合并；
      * 本地为空 → 全量拉取。
+     * 网络失败且本地有缓存 → 回退返回本地缓存（离线可浏览，不显示空）；
+     * 网络失败且本地无缓存 → 返回 failure（UI 显示加载失败态）。
      */
     suspend fun loadMessagesForSession(
         serverId: String,
@@ -40,6 +45,14 @@ class MessagePaginationUseCase @Inject constructor(
                 .getOrThrow()
             messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
             mergeLocalAndRemote(local, page.messages)
+        }.recoverCatching { e ->
+            // 网络失败回退：本地有缓存则返回缓存（缓存优先理念），无缓存保持失败
+            if (local.isNotEmpty()) {
+                AppLogger.w(TAG, "Network load failed, falling back to ${local.size} cached messages", e)
+                local
+            } else {
+                throw e
+            }
         }
     }
 

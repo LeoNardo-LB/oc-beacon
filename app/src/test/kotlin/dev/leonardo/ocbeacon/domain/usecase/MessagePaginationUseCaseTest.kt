@@ -64,6 +64,37 @@ class MessagePaginationUseCaseTest {
     }
 
     @Test
+    fun loadMessagesForSession_networkFailure_returnsLocalCache() = runTest {
+        val local = listOf(msg("msg_2", 200), msg("msg_3", 300))
+        coEvery { messageStore.loadRange("ses_1", 50, null) } returns local
+        coEvery { messageStore.oldestMessageId("ses_1") } returns "msg_2"
+        coEvery { messageStore.messageCreatedAt("msg_2") } returns 200L
+        val expectedBefore = CursorCodec.encode("msg_2", 200L)
+        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, expectedBefore) } returns
+            Result.failure(RuntimeException("network down"))
+
+        val result = useCase.loadMessagesForSession("srv", "ses_1", 50)
+
+        // 网络失败 → 回退本地缓存（缓存优先理念：有缓存不显示空）
+        assertTrue(result.isSuccess)
+        assertEquals(2, result.getOrThrow().size)
+        coVerify(exactly = 0) { messageStore.upsertMessages(any(), any(), any()) }
+    }
+
+    @Test
+    fun loadMessagesForSession_noLocalCache_networkFailure_returnsFailure() = runTest {
+        coEvery { messageStore.loadRange("ses_1", 50, null) } returns emptyList()
+        coEvery { messageStore.oldestMessageId("ses_1") } returns null
+        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, null) } returns
+            Result.failure(RuntimeException("network down"))
+
+        val result = useCase.loadMessagesForSession("srv", "ses_1", 50)
+
+        // 无本地缓存且网络失败 → 保持 failure（UI 显示加载失败态）
+        assertTrue(result.isFailure)
+    }
+
+    @Test
     fun loadOlderMessages_usesBeforeCursor() = runTest {
         val page = MessagePage(messages = listOf(msg("msg_0", 50)), nextCursor = null)
         coEvery { messageStore.messageCreatedAt("msg_1") } returns 100L
