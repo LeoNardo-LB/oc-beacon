@@ -18,6 +18,8 @@ class FakeSettingsRepository @Inject constructor() : SettingsRepository {
     val sessionTagsState = MutableStateFlow<List<Tag>>(emptyList())
     val tagAssignmentsState = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     val favoriteSessionIdsState = MutableStateFlow<Set<String>>(emptySet())
+    val sessionReadTimesState = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val allReadAtState = MutableStateFlow(0L)
 
     override fun getSettingsFlow(): Flow<AppSettings> = settingsState
 
@@ -67,5 +69,23 @@ class FakeSettingsRepository @Inject constructor() : SettingsRepository {
         } else {
             favoriteSessionIdsState.value + sessionId
         }
+    }
+
+    // ============ 会话已读（未读提示） ============
+
+    override fun sessionReadTimes(serverId: String): Flow<Map<String, Long>> = sessionReadTimesState
+
+    override fun allReadAt(serverId: String): Flow<Long> = allReadAtState
+
+    override suspend fun markAllSessionsRead(serverId: String, globalMax: Long) {
+        allReadAtState.value = globalMax
+    }
+
+    override suspend fun markSessionRead(serverId: String, sessionId: String, completedTs: Long) {
+        sessionReadTimesState.value = sessionReadTimesState.value + (sessionId to completedTs)
+    }
+
+    override suspend fun runUnreadStateV2Migration() {
+        // noop — Fake 不持久化，无需迁移
     }
 }

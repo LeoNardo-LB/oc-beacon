@@ -4,6 +4,7 @@ import javax.inject.Inject
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.ModelSelection
@@ -217,6 +218,21 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     }
 
     // ============ 写操作（状态更新） ============
+
+    override fun upsertMessages(
+        sessionId: String,
+        messages: List<MessageWithParts>,
+        strategy: MergeStrategy,
+    ) {
+        when (strategy) {
+            MergeStrategy.SSE_PRIORITY, MergeStrategy.REST_AUTHORITY -> {
+                messagesStore[sessionId] = messages.toMutableList()
+            }
+            MergeStrategy.APPEND_ONLY -> {
+                messagesStore.getOrPut(sessionId) { mutableListOf() }.addAll(messages)
+            }
+        }
+    }
 
     override fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
         messagesStore[sessionId] = messages.toMutableList()

@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.fakes
 
 import javax.inject.Inject
 import dev.leonardo.ocbeacon.domain.model.CreateSessionOpts
+import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
@@ -20,6 +21,7 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
     val currentModelFlow = MutableStateFlow<Map<String, Pair<String, String>>>(emptyMap())
     val serverSessionsFlow = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
     val lastUserMessageTimeFlow = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val lastCompletedReplyTimeFlow = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     var createSessionResult: Result<Session> = Result.success(
         Session(
@@ -84,7 +86,7 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
     )
     var deleteMessageResult: Result<Boolean> = Result.success(true)
     var deleteMessagePartResult: Result<Boolean> = Result.success(true)
-    var listMessagesResult: Result<List<MessageWithParts>> = Result.success(emptyList())
+    var listMessagesResult: Result<MessagePage> = Result.success(MessagePage(emptyList(), null))
     var fetchStatusesResult: Result<Map<String, SessionStatus>> = Result.success(emptyMap())
 
     val abortCalls = mutableListOf<Pair<String, String>>()
@@ -166,8 +168,12 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
         partIndex: Int
     ): Result<Boolean> = deleteMessagePartResult
 
-    override suspend fun listMessages(serverId: String, sessionId: String, limit: Int): Result<List<MessageWithParts>> =
-        listMessagesResult
+    override suspend fun listMessages(
+        serverId: String,
+        sessionId: String,
+        limit: Int,
+        before: String?,
+    ): Result<MessagePage> = listMessagesResult
 
     // ============ 当前 Agent/Model ============
 
@@ -191,6 +197,8 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
     override fun getServerSessionsFlow(): Flow<Map<String, Set<String>>> = serverSessionsFlow
 
     override fun getLastUserMessageTimeFlow(): Flow<Map<String, Long>> = lastUserMessageTimeFlow
+
+    override fun getLastCompletedReplyTimeFlow(): Flow<Map<String, Long>> = lastCompletedReplyTimeFlow
 
     override suspend fun listSessions(
         serverId: String,

@@ -14,6 +14,7 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dev.leonardo.ocbeacon.builder.anAssistantMessage
 import dev.leonardo.ocbeacon.builder.aUserMessage
 import dev.leonardo.ocbeacon.domain.model.Message
+import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
@@ -385,9 +386,12 @@ class ChatInteractionTest : BaseChatTest() {
 
         seedMessages(messages.reversed(), emptyList())
         fakeSession.listMessagesResult = Result.success(
-            messages.mapIndexed { i, msg ->
-                MessageWithParts(info = msg, parts = emptyList())
-            }
+            MessagePage(
+                messages = messages.mapIndexed { i, msg ->
+                    MessageWithParts(info = msg, parts = emptyList())
+                },
+                nextCursor = null,
+            )
         )
 
         renderChatScreen()
