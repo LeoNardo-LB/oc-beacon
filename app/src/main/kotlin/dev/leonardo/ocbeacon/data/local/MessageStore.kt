@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.local
 
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -42,7 +43,12 @@ class MessageStore @Inject constructor(
                 } else {
                     messages.filter { m -> m.info.time.created >= oldestCreated }
                 }
-                if (toPersist.isEmpty()) return@withCorruptionRecovery
+                if (toPersist.isEmpty()) {
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(TAG, "[upsert] session=$sessionId: all ${messages.size} msgs outside window (oldest cached=$oldestCreated), skip persist")
+                    }
+                    return@withCorruptionRecovery
+                }
 
                 dao.upsertMessages(
                     toPersist.map { m ->
@@ -69,7 +75,10 @@ class MessageStore @Inject constructor(
                         }
                     },
                 )
-                dao.pruneToLimit(sessionId, SESSION_MESSAGE_LIMIT)
+                val pruned = dao.pruneToLimit(sessionId, SESSION_MESSAGE_LIMIT)
+                if (BuildConfig.DEBUG && pruned > 0) {
+                    AppLogger.d(TAG, "[prune] session=$sessionId: removed $pruned oldest msgs (limit=$SESSION_MESSAGE_LIMIT)")
+                }
             }
         }.onFailure { e ->
             AppLogger.e(TAG, "MessageStore upsert failed (memory view unaffected)", e)

@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository
 
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
@@ -74,8 +75,13 @@ class ChatRepositoryImpl @Inject constructor(
                     messageStore.observeMessages(sessionId).first()
                 }
                 if (cached.isNotEmpty()) {
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d("ChatRepository", "[seed] session=$sessionId: ${cached.size} cached messages -> memory hot view")
+                    }
                     // 沿用现有合并路径写入内存热视图（APPEND_ONLY：不去重已存在，幂等）
                     eventDispatcher.upsertMessages(sessionId, cached, MergeStrategy.APPEND_ONLY)
+                } else if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatRepository", "[seed] session=$sessionId: no cache, waiting for REST")
                 }
             }
         } catch (e: CancellationException) {
