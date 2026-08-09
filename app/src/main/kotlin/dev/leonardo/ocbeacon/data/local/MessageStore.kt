@@ -194,7 +194,10 @@ class MessageStore @Inject constructor(
 
     override suspend fun clearSession(sessionId: String) {
         withContext(Dispatchers.IO) {
-            databaseRecovery.withCorruptionRecovery { dao.clearSession(sessionId) }
+            databaseRecovery.withCorruptionRecovery {
+                dao.clearSession(sessionId)
+                archiveDao.clearSession(sessionId)
+            }
         }
     }
 

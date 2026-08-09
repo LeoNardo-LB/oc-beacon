@@ -229,4 +229,12 @@ class MessageStoreTest {
         assertEquals(0, result.size)          // 坏桶被跳过
         coVerify { archiveDao.touch(1L, any()) }  // 仍 touch
     }
+
+    @Test
+    fun clearSession_clearsHotAndArchive() = runTest {
+        store.clearSession("ses_1")
+
+        coVerify(exactly = 1) { dao.clearSession("ses_1") }
+        coVerify(exactly = 1) { archiveDao.clearSession("ses_1") }
+    }
 }
