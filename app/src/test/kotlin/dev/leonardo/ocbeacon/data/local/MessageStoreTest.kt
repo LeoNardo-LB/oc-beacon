@@ -269,6 +269,28 @@ class MessageStoreTest {
         coVerify(exactly = 1) { archiveDao.clearSession("ses_1") }
     }
 
+    @Test
+    fun upsertMessages_archiveSkipsUndecodableMessage_keepsBatch() = runTest {
+        // 归档候选含 1 条坏 payload（JSON 无法反序列化为 Message）→ 只跳过该条，好的仍归档 + prune 仍执行。
+        coEvery { dao.oldestMessageId("ses_1") } returns "msg_0"
+        coEvery { dao.messageCreatedAt("msg_0") } returns 0L
+        coEvery { dao.countForSession("ses_1") } returns 1003  // overflow=3
+        val good1 = msg("msg_1", 100)
+        val good2 = msg("msg_2", 200)
+        coEvery { dao.oldestMessages("ses_1", 3) } returns listOf(
+            CachedMessageEntity("msg_bad", "ses_1", 50, "assistant", "{not valid json"),
+            CachedMessageEntity("msg_1", "ses_1", 100, "user", json.encodeToString(good1.info)),
+            CachedMessageEntity("msg_2", "ses_1", 200, "user", json.encodeToString(good2.info)),
+        )
+        coEvery { dao.partsForMessages(any()) } returns emptyList()
+
+        store.upsertMessages("ses_1", listOf(msg("msg_3", 300)), persistOldBeyondWindow = false)
+
+        // 好的 2 条被归档（1 个桶），坏的被跳过；prune 仍执行
+        coVerify(exactly = 1) { archiveDao.upsertAll(any()) }
+        coVerify(exactly = 1) { dao.pruneToLimit("ses_1", 1000) }
+    }
+
     // ---- buildArchiveBuckets 直测（internal；M9 边界路径覆盖）----
 
     private fun archivedMsg(id: String, created: Long, text: String = "hello"): ArchivedMessageDto =

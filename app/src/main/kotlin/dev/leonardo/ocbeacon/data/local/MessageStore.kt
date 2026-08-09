@@ -118,13 +118,19 @@ class MessageStore @Inject constructor(
             if (candidates.isEmpty()) return@runCatching emptyList()
             val partsByMsg = dao.partsForMessages(candidates.map { it.id })
                 .groupBy { it.messageId }
-            val messages = candidates.map { entity ->
-                ArchivedMessageDto(
-                    info = json.decodeFromString<Message>(entity.payload),
-                    parts = (partsByMsg[entity.id] ?: emptyList()).mapNotNull { pe ->
-                        pe.payload?.let { runCatching { json.decodeFromString<Part>(it) }.getOrNull() }
-                    },
-                )
+            // 逐条容错：单条 payload 解码失败只跳过该条（记日志），不影响整批归档。
+            // 否则一条坏消息会导致全部 overflow 消息归档失败 → 整批数据丢失（一期语义降级）。
+            val messages = candidates.mapNotNull { entity ->
+                runCatching {
+                    ArchivedMessageDto(
+                        info = json.decodeFromString<Message>(entity.payload),
+                        parts = (partsByMsg[entity.id] ?: emptyList()).mapNotNull { pe ->
+                            pe.payload?.let { runCatching { json.decodeFromString<Part>(it) }.getOrNull() }
+                        },
+                    )
+                }.onFailure { e ->
+                    AppLogger.e(TAG, "[archive] session=$sessionId: skip undecodable msg ${entity.id} (${e.message})")
+                }.getOrNull()
             }
             buildArchiveBuckets(sessionId, messages)
         }.onFailure { e ->
