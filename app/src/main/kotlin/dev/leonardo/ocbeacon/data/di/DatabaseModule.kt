@@ -7,8 +7,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dev.leonardo.ocbeacon.data.local.ArchiveBucketDao
 import dev.leonardo.ocbeacon.data.local.LogDao
 import dev.leonardo.ocbeacon.data.local.MessageDao
+import dev.leonardo.ocbeacon.data.local.Migrations
 import dev.leonardo.ocbeacon.data.local.OcBeaconDatabase
 import javax.inject.Singleton
 
@@ -21,6 +23,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): OcBeaconDatabase =
         // WAL 模式：Room 对 targetSdk>=16 默认开启（JournalMode.WRITE_AHEAD_LOGGING）
         Room.databaseBuilder(context, OcBeaconDatabase::class.java, "ocbeacon.db")
+            .addMigrations(Migrations.MIGRATION_1_2)
             .build()
 
     @Provides
@@ -28,4 +31,7 @@ object DatabaseModule {
 
     @Provides
     fun provideMessageDao(database: OcBeaconDatabase): MessageDao = database.messageDao()
+
+    @Provides
+    fun provideArchiveBucketDao(database: OcBeaconDatabase): ArchiveBucketDao = database.archiveBucketDao()
 }
