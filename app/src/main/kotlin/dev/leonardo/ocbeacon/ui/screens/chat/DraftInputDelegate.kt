@@ -127,9 +127,21 @@ internal class DraftInputDelegate(
 
     // ============ 草稿管理 ============
 
-    /** 更新草稿文本（每次按键时调用）。 */
+    /** 防抖保存草稿的 job（每次输入取消并重启；500ms 无输入即持久化）。 */
+    private var draftSaveJob: Job? = null
+
+    /**
+     * 更新草稿文本（每次按键时调用）。
+     * 500ms 防抖自动持久化——进程被系统/force-stop 杀死时草稿不丢
+     *（onCleared 兜底只在正常导航退出时触发）。
+     */
     fun updateDraftText(text: String) {
         _draftText.value = text
+        draftSaveJob?.cancel()
+        draftSaveJob = scope.launch {
+            delay(DRAFT_SAVE_DEBOUNCE_MS)
+            saveDraft()
+        }
     }
 
     /** 向草稿添加附件 URI。 */
@@ -148,6 +160,7 @@ internal class DraftInputDelegate(
 
     /** 清除所有草稿状态（发送消息后调用）。 */
     fun clearDraft() {
+        draftSaveJob?.cancel()
         _draftText.value = ""
         _draftAttachmentUris.value = emptyList()
         draftRepository.clearDraft(sessionIdProvider())
@@ -196,5 +209,10 @@ internal class DraftInputDelegate(
         _draftAttachmentUris.value = payload.attachmentUris
         _confirmedFilePaths.value = emptySet()
         _revertedDraftEvent.tryEmit(payload)
+    }
+
+    companion object {
+        /** 草稿防抖保存间隔：停止输入 500ms 后持久化。 */
+        private const val DRAFT_SAVE_DEBOUNCE_MS = 500L
     }
 }
