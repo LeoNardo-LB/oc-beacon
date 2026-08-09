@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.usecase.LoadOlderSource
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocbeacon.logging.AppLogger
@@ -129,14 +130,24 @@ internal class MessagePaginationDelegate(
             _isLoadingOlder.value = true
             try {
                 val beforeId = messageStore.oldestMessageId(sid)
-                val messages = messagePaging.loadOlderMessages(serverId, sid, currentMessageLimit, beforeId)
+                val result = messagePaging.loadOlderMessages(serverId, sid, currentMessageLimit, beforeId)
                     .getOrThrow()
-                chatRepository.upsertMessages(sid, messages, MergeStrategy.APPEND_ONLY)
-                _hasOlderMessages.value = messages.size >= currentMessageLimit
-
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d(TAG, "Loaded older: ${messages.size} messages (before=$beforeId, hasOlder=${_hasOlderMessages.value})")
+                // 归档来源只进内存（不落热表 → 防死循环）；网络来源保持现状（upsert 内自控落库）
+                chatRepository.upsertMessages(sid, result.messages, MergeStrategy.APPEND_ONLY)
+                _hasOlderMessages.value = when (result.source) {
+                    LoadOlderSource.ARCHIVE -> {
+                        // 归档仍有更早数据 → 允许继续翻页（下次循环归档读尽后自动切网络）
+                        // 注意：hasArchivedMessages 在 use case 内已判断，这里保守返回 true
+                        // 由下一轮 loadOlderMessages 的 use case 内部判断决定是否继续
+                        true
+                    }
+                    LoadOlderSource.NETWORK -> result.messages.size >= currentMessageLimit
                 }
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "Loaded older: ${result.messages.size} msgs (source=${result.source}, before=$beforeId, hasOlder=${_hasOlderMessages.value})")
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to load older messages", e)
             } finally {

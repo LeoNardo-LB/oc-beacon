@@ -8,6 +8,8 @@ import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.usecase.LoadOlderResult
+import dev.leonardo.ocbeacon.domain.usecase.LoadOlderSource
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
 import io.mockk.coEvery
@@ -54,7 +56,7 @@ class MessagePaginationDelegateTest {
     @Test
     fun `loadOlderMessages uses oldestMessageId as cursor and sets hasOlderMessages by boundary`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
-            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0") } returns Result.success(mkMessages(30))
+            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0") } returns Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.NETWORK))
         }
         val store = mockk<MessageStore> {
             coEvery { oldestMessageId("sid-1") } returns "m-0"
@@ -87,7 +89,7 @@ class MessagePaginationDelegateTest {
     @Test
     fun `loadOlderMessages sets hasOlderMessages false when fewer than limit`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
-            coEvery { loadOlderMessages("srv", "sid-1", 30, any()) } returns Result.success(mkMessages(10))
+            coEvery { loadOlderMessages("srv", "sid-1", 30, any()) } returns Result.success(LoadOlderResult(mkMessages(10), LoadOlderSource.NETWORK))
         }
         val store = mockk<MessageStore> {
             coEvery { oldestMessageId("sid-1") } returns "m-0"
@@ -139,6 +141,37 @@ class MessagePaginationDelegateTest {
         // 游标翻页：失败时 limit 不变（不再 halve back）
         assertEquals(30, delegate.currentLimitValue)
         assertFalse(delegate.isLoadingOlder.value)
+    }
+
+    @Test
+    fun `loadOlderMessages archive source only merges memory not store`() = runTest {
+        val paging = mockk<MessagePaginationUseCase> {
+            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0") } returns
+                Result.success(LoadOlderResult(mkMessages(10), LoadOlderSource.ARCHIVE))
+        }
+        val store = mockk<MessageStore> {
+            coEvery { oldestMessageId("sid-1") } returns "m-0"
+        }
+        val repo = mockk<ChatRepository>(relaxed = true)
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = store,
+            chatRepository = repo,
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadOlderMessages()
+        advanceUntilIdle()
+
+        // 归档来源只进内存（APPEND_ONLY），不落热表
+        verify(exactly = 1) { repo.upsertMessages("sid-1", any(), MergeStrategy.APPEND_ONLY) }
+        assertTrue(delegate.hasOlderMessages.value)
     }
 
     @Test

@@ -13,6 +13,15 @@ import javax.inject.Inject
 
 private const val TAG = "MessagePaginationUseCase"
 
+/** 翻页加载更早消息的来源。 */
+enum class LoadOlderSource { ARCHIVE, NETWORK }
+
+/** loadOlderMessages 的返回值：消息列表 + 来源（决定 Delegate 是否落热表）。 */
+data class LoadOlderResult(
+    val messages: List<MessageWithParts>,
+    val source: LoadOlderSource,
+)
+
 class MessagePaginationUseCase @Inject constructor(
     private val chatRepository: ChatRepository,
     private val sessionRepository: SessionRepository,
@@ -56,13 +65,29 @@ class MessagePaginationUseCase @Inject constructor(
         }
     }
 
-    /** 翻页加载更早：before 游标 = 本地最旧消息 ID（编码后传给服务端）。 */
+    /**
+     * 翻页加载更早：本地归档优先；归档读尽 → 走网络。
+     *
+     * - beforeId 非空且 hasArchivedMessages → loadArchivedRange；
+     *   非空 → 直接返回 [LoadOlderSource.ARCHIVE]（不调网络、不落热表，防死循环）。
+     * - 归档空 → 网络（[LoadOlderSource.NETWORK]，落热表，现有逻辑）。
+     */
     suspend fun loadOlderMessages(
         serverId: String,
         sessionId: String,
         limit: Int,
         beforeId: String?,
-    ): Result<List<MessageWithParts>> {
+    ): Result<LoadOlderResult> {
+        // 本地归档优先：before 游标对应的 created 之前的归档桶
+        val beforeCreated = beforeId?.let { messageStore.messageCreatedAt(it) }
+        if (beforeCreated != null && messageStore.hasArchivedMessages(sessionId, beforeCreated)) {
+            val archived = messageStore.loadArchivedRange(sessionId, limit, beforeCreated)
+            if (archived.isNotEmpty()) {
+                AppLogger.d(TAG, "[paging] session=$sessionId: ${archived.size} older msgs from archive (before=$beforeCreated)")
+                return Result.success(LoadOlderResult(archived, LoadOlderSource.ARCHIVE))
+            }
+        }
+        // 归档读尽 → 网络
         return runCatching {
             // before 游标需要 base64url 编码（裸 ID 服务端不识别）
             val before = beforeId?.let { id ->
@@ -72,7 +97,7 @@ class MessagePaginationUseCase @Inject constructor(
             val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
             messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
-            page.messages
+            LoadOlderResult(page.messages, LoadOlderSource.NETWORK)
         }
     }
 
