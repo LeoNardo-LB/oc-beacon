@@ -34,6 +34,8 @@ private const val TAG = "SessionStateService"
 private const val HISTORY_MAX = 20
 private const val STALENESS_CHECK_INTERVAL_MS = 5_000L
 private const val STALENESS_THRESHOLD_MS = 15_000L
+/** L3 REST 校验补漏消息数：最新 50 条足够（陈旧窗口漏消息远少于 50；避免 limit=0 全量拉取大会话）。 */
+private const val REST_REFRESH_LIMIT = 50
 /** 防御性清理阈值：会话状态超过该时长无事件且非 Busy 时从状态容器移除。 */
 private const val STATE_RETENTION_MS = 24 * 60 * 60 * 1000L
 
@@ -274,7 +276,12 @@ class SessionStateService @Inject constructor(
 
                     // 同时刷新消息——陈旧/可疑恢复应追上
                     // 陈旧期间 SSE 错过的任何消息。
-                    sessionRepoProvider.get().listMessages(sid, sessionId, limit = 0)
+                    // limit=0 是服务器语义"全量"——大会话（1989 条）每次校验全量拉取
+                    // + 解析 + upsert 会造成偶发 UI 阻塞（2026-08-10 真机/模拟器实证：
+                    // 滑动第二轮 slowUI 26-30 恰好撞上 L3 校验）。校验只需补漏最新消息，
+                    // 取最新 50 条足够（陈旧窗口的漏消息远少于 50，且进入会话时
+                    // loadMessagesForSession 已做增量同步）。
+                    sessionRepoProvider.get().listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT)
                         .onSuccess { page ->
                             messageRefresher.refreshMessages(sessionId, page.messages)
                             if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs")
