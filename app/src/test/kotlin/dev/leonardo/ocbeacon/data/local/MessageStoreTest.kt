@@ -159,4 +159,54 @@ class MessageStoreTest {
         coVerify(exactly = 0) { archiveDao.upsert(any()) }
         coVerify(exactly = 0) { dao.upsertMessages(any()) }
     }
+
+    @Test
+    fun loadArchivedRange_decodesAndReturnsMessages() = runTest {
+        // 预编码：构造一个真实归档桶（复用 buildArchiveBuckets 产生的 payload 格式）
+        val msgs = listOf(
+            ArchivedMessageDto(msg("msg_1", 100).info, msg("msg_1", 100).parts),
+            ArchivedMessageDto(msg("msg_2", 200).info, msg("msg_2", 200).parts),
+        )
+        // 直接构造桶（绕过 DAO）：用 json 手动序列化压缩
+        val jsonBytes = json.encodeToString(msgs).toByteArray(Charsets.UTF_8)
+        val realBucket = ArchiveBucketEntity(
+            id = 1L, sessionId = "ses_1",
+            bucketStart = 100L, bucketEnd = 200L,
+            messageCount = 2, uncompressedSize = jsonBytes.size,
+            payload = ZstdCodec.compress(jsonBytes),
+            createdAt = 1L, lastAccessedAt = 1L,
+        )
+        coEvery { archiveDao.latestBefore("ses_1", 1000L, any()) } returns listOf(realBucket)
+
+        val result = store.loadArchivedRange("ses_1", limit = 50, beforeCreated = 1000L)
+
+        assertEquals(2, result.size)
+        assertEquals("msg_1", result[0].info.id)
+        assertEquals("msg_2", result[1].info.id)
+        // 读取后 touch 更新 lastAccessedAt
+        coVerify { archiveDao.touch(1L, any()) }
+    }
+
+    @Test
+    fun loadArchivedRange_noBuckets_returnsEmpty() = runTest {
+        coEvery { archiveDao.latestBefore("ses_1", 1000L, any()) } returns emptyList()
+
+        val result = store.loadArchivedRange("ses_1", limit = 50, beforeCreated = 1000L)
+
+        assertEquals(0, result.size)
+    }
+
+    @Test
+    fun hasArchivedMessages_trueWhenBucketExists() = runTest {
+        coEvery { archiveDao.latestBefore("ses_1", 1000L, 1) } returns listOf(mockk<ArchiveBucketEntity>())
+
+        assertEquals(true, store.hasArchivedMessages("ses_1", 1000L))
+    }
+
+    @Test
+    fun hasArchivedMessages_falseWhenNone() = runTest {
+        coEvery { archiveDao.latestBefore("ses_1", 1000L, 1) } returns emptyList()
+
+        assertEquals(false, store.hasArchivedMessages("ses_1", 1000L))
+    }
 }

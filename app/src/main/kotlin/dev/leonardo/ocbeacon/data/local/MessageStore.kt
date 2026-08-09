@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -195,6 +196,51 @@ class MessageStore @Inject constructor(
         withContext(Dispatchers.IO) {
             databaseRecovery.withCorruptionRecovery { dao.clearSession(sessionId) }
         }
+    }
+
+    override suspend fun loadArchivedRange(
+        sessionId: String,
+        limit: Int,
+        beforeCreated: Long,
+    ): List<MessageWithParts> = withContext(Dispatchers.IO) {
+        databaseRecovery.withCorruptionRecovery {
+            val result = mutableListOf<MessageWithParts>()
+            var beforeEnd = beforeCreated
+            var need = limit
+            while (need > 0) {
+                val buckets = archiveDao.latestBefore(sessionId, beforeEnd, limit = 1)
+                if (buckets.isEmpty()) break
+                val bucket = buckets[0]
+                val decoded = runCatching { decodeBucket(bucket) }.getOrElse { e ->
+                    AppLogger.e(TAG, "[dearchive] session=$sessionId bucket=${bucket.id}: decode failed, skipping", e)
+                    emptyList()
+                }
+                archiveDao.touch(bucket.id, clock())
+                result.addAll(decoded)
+                if (BuildConfig.DEBUG && decoded.isNotEmpty()) {
+                    AppLogger.d(TAG, "[dearchive] session=$sessionId bucket=${bucket.id}: ${decoded.size} msgs (before=$beforeEnd)")
+                }
+                need -= decoded.size
+                beforeEnd = bucket.bucketStart  // 下个桶必须更早（用桶起点做游标，避免边界重复）
+                if (decoded.isEmpty()) break  // 坏桶防死循环
+            }
+            result
+        } ?: emptyList()
+    }
+
+    override suspend fun hasArchivedMessages(sessionId: String, beforeCreated: Long): Boolean =
+        withContext(Dispatchers.IO) {
+            databaseRecovery.withCorruptionRecovery {
+                archiveDao.latestBefore(sessionId, beforeCreated, limit = 1).isNotEmpty()
+            } ?: false
+        }
+
+    /** 解压单个归档桶 → MessageWithParts 列表（created 升序）。 */
+    private fun decodeBucket(bucket: ArchiveBucketEntity): List<MessageWithParts> {
+        val bytes = ZstdCodec.decompress(bucket.payload, bucket.uncompressedSize)
+        val dtos = json.decodeFromString<List<ArchivedMessageDto>>(bytes.decodeToString())
+        return dtos.map { dto -> MessageWithParts(info = dto.info, parts = dto.parts) }
+            .sortedBy { it.info.time.created }
     }
 
     // ---- 映射 ----------------------------------------------------
