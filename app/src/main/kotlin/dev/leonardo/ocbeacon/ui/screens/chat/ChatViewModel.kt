@@ -427,7 +427,11 @@ class ChatViewModel @Inject constructor(
         messageData.cancelSseJob()
         closeTerminalSession()
         super.onCleared()
-        draftDelegate.saveDraft()
+        // 草稿持久化：异步执行（NonCancellable 保证 DataStore 写入在 scope 取消后仍完成）。
+        // 同步 saveDraft() 内部 runBlocking 会阻塞主线程 → 退出会话 ANR（真机实证 2026-08-09）。
+        viewModelScope.launch {
+            withContext(NonCancellable) { draftDelegate.saveDraft() }
+        }
     }
 
     fun getSessionDirectory(): String? = sessionLifecycle.sessionDirectory

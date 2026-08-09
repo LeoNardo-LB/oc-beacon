@@ -6,6 +6,7 @@ import dev.leonardo.ocbeacon.domain.model.Draft
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageAgentUseCase
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val TAG = "DraftInputDelegate"
 
@@ -163,7 +165,9 @@ internal class DraftInputDelegate(
         draftSaveJob?.cancel()
         _draftText.value = ""
         _draftAttachmentUris.value = emptyList()
-        draftRepository.clearDraft(sessionIdProvider())
+        scope.launch {
+            withContext(Dispatchers.IO) { draftRepository.clearDraft(sessionIdProvider()) }
+        }
     }
 
     /** UI 读取恢复草稿后消费它。 */
@@ -171,7 +175,7 @@ internal class DraftInputDelegate(
         _restoredDraft.value = null
     }
 
-    /** 将当前草稿持久化到磁盘。 */
+    /** 将当前草稿持久化到磁盘（异步：DataStore IO 不阻塞调用线程）。 */
     fun saveDraft() {
         val agentPair = selectedAgentProvider()
         val draft = Draft(
@@ -181,7 +185,9 @@ internal class DraftInputDelegate(
             selectedAgent = agentPair.first.takeIf { agentPair.second },
             selectedVariant = selectedVariantProvider()
         )
-        draftRepository.saveDraft(sessionIdProvider(), draft)
+        scope.launch {
+            withContext(Dispatchers.IO) { draftRepository.saveDraft(sessionIdProvider(), draft) }
+        }
     }
 
     /**
