@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.local
 
 import android.content.Context
+import androidx.room.withTransaction
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -10,25 +11,53 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class MessageStoreTest {
 
     private val dao = mockk<MessageDao>(relaxed = true)
     private val archiveDao = mockk<ArchiveBucketDao>(relaxed = true)
+    private val database = mockk<OcBeaconDatabase>(relaxed = true)
     private val json = Json { ignoreUnknownKeys = true }
     // 真实恢复组件（mockk Context 即可）：保证 block 参数被执行，
     // 现有 dao 交互断言依然有效；损坏场景由 DatabaseRecoveryTest 覆盖。
     private val databaseRecovery = DatabaseRecovery(mockk<Context>(relaxed = true))
-    // 声明为接口类型：验证 MessageStore 实现满足 MessageCacheRepository 契约，
-    // 且接口默认参数值（persistOldBeyondWindow=false / beforeId=null）生效。
-    private val store: MessageCacheRepository =
-        MessageStore(dao, archiveDao, json, databaseRecovery, clock = { 1_000_000L })
+    // storeImpl：internal buildArchiveBuckets 直测用；store：接口类型验证 MessageStore 满足
+    // MessageCacheRepository 契约 + 接口默认参数值（persistOldBeyondWindow=false / beforeId=null）生效。
+    private val storeImpl: MessageStore =
+        MessageStore(dao, archiveDao, json, databaseRecovery, database, clock = { 1_000_000L })
+    private val store: MessageCacheRepository = storeImpl
+
+    @Before
+    fun stubTransaction() {
+        // RoomDatabase.withTransaction 是顶层 suspend 扩展（room-runtime，facade
+        // androidx.room.RoomDatabaseKt）；relaxed mock 会把其委托的实例方法桩为 no-op
+        // 而不执行 block → 归档/裁剪交互无法被验证。桩扩展函数本身使其直接调用 block，
+        // 事务体内的 archiveDao/dao 调用回归可验证。
+        // 注：扩展函数被 mockk 记录时 receiver(database) 也在 args 里（firstArg 是 receiver），
+        // 故按类型筛出唯一的 Function1（block），稳过按下标取。
+        mockkStatic("androidx.room.RoomDatabaseKt")
+        coEvery { database.withTransaction(any<suspend () -> Any?>()) } coAnswers {
+            @Suppress("UNCHECKED_CAST")
+            val block = invocation.args.first { it is Function1<*, *> } as (suspend () -> Any?)
+            block.invoke()
+        }
+    }
+
+    @After
+    fun unstubTransaction() {
+        unmockkStatic("androidx.room.RoomDatabaseKt")
+    }
 
     private fun msg(id: String, created: Long): MessageWithParts = MessageWithParts(
         info = Message.User(
@@ -81,13 +110,15 @@ class MessageStoreTest {
     }
 
     @Test
-    fun upsertMessages_prunesAfterWrite() = runTest {
+    fun upsertMessages_underLimit_doesNotPrune() = runTest {
+        // 无 overflow（countForSession relaxed=0 → total=0 ≤ limit）→ 不裁剪。
+        // 裁剪仅与归档同事务在 overflow>0 时发生（见 upsertMessages_overflow_*）。
         coEvery { dao.oldestMessageId("ses_1") } returns null
         val m = msg("msg_1", 100)
 
         store.upsertMessages("ses_1", listOf(m))
 
-        coVerify(exactly = 1) { dao.pruneToLimit("ses_1", 1000) }
+        coVerify(exactly = 0) { dao.pruneToLimit(any(), any()) }
     }
 
     @Test
@@ -126,25 +157,25 @@ class MessageStoreTest {
 
         store.upsertMessages("ses_1", listOf(msg("msg_4", 400)), persistOldBeyondWindow = false)
 
-        // 归档先于 prune：archiveDao.upsert 被调用，且 pruneToLimit 仍执行
-        coVerify(exactly = 1) { archiveDao.upsert(any()) }
+        // 归档先于 prune：archiveDao.upsertAll 被调用（批量，事务内），裁剪同事务仅一次。
+        coVerify(exactly = 1) { archiveDao.upsertAll(any()) }
         coVerify(exactly = 1) { dao.pruneToLimit("ses_1", 1000) }
         // 核心顺序不变量：归档必须先于 prune（禁止"prune 后查最老归档"——那时 payload 已删）
         coVerifyOrder {
-            archiveDao.upsert(any())
+            archiveDao.upsertAll(any())
             dao.pruneToLimit("ses_1", 1000)
         }
     }
 
     @Test
-    fun upsertMessages_noOverflow_doesNotArchive() = runTest {
+    fun upsertMessages_noOverflow_doesNotArchiveOrPrune() = runTest {
         coEvery { dao.oldestMessageId("ses_1") } returns null
         coEvery { dao.countForSession("ses_1") } returns 999
 
         store.upsertMessages("ses_1", listOf(msg("msg_1", 100)), persistOldBeyondWindow = false)
 
-        coVerify(exactly = 0) { archiveDao.upsert(any()) }
-        coVerify(exactly = 1) { dao.pruneToLimit("ses_1", 1000) }
+        coVerify(exactly = 0) { archiveDao.upsertAll(any()) }
+        coVerify(exactly = 0) { dao.pruneToLimit(any(), any()) }
     }
 
     @Test
@@ -156,7 +187,7 @@ class MessageStoreTest {
 
         store.upsertMessages("ses_1", listOf(older), persistOldBeyondWindow = false)
 
-        coVerify(exactly = 0) { archiveDao.upsert(any()) }
+        coVerify(exactly = 0) { archiveDao.upsertAll(any()) }
         coVerify(exactly = 0) { dao.upsertMessages(any()) }
     }
 
@@ -236,5 +267,44 @@ class MessageStoreTest {
 
         coVerify(exactly = 1) { dao.clearSession("ses_1") }
         coVerify(exactly = 1) { archiveDao.clearSession("ses_1") }
+    }
+
+    // ---- buildArchiveBuckets 直测（internal；M9 边界路径覆盖）----
+
+    private fun archivedMsg(id: String, created: Long, text: String = "hello"): ArchivedMessageDto =
+        ArchivedMessageDto(
+            info = Message.User(id = id, sessionId = "ses_1", time = TimeInfo(created = created)),
+            parts = listOf(Part.Text(id = "part_$id", sessionId = "ses_1", messageId = id, text = text)),
+        )
+
+    @Test
+    fun buildArchiveBuckets_splitsByDayWindow() {
+        // 跨 2 个 1 天窗口（86_400_000 ms）→ 2 桶
+        val day0 = archivedMsg("msg_1", created = 100L)
+        val day1 = archivedMsg("msg_2", created = 100L + MessageStore.ARCHIVE_BUCKET_WINDOW_MS)
+        val msgs = listOf(day0, day1)
+
+        val buckets = storeImpl.buildArchiveBuckets("ses_1", msgs)
+
+        assertEquals(2, buckets.size)
+        assertEquals(1, buckets[0].messageCount)
+        assertEquals(1, buckets[1].messageCount)
+    }
+
+    @Test
+    fun buildArchiveBuckets_splitsWhenOver512KB() {
+        // 同一天窗口、单 200-chunk（8<200）内未压缩 JSON 超 512KB → 触发字节对半切分。
+        // 关键安全不变量：每桶未压缩 ≤ ARCHIVE_BUCKET_MAX_BYTES（守 Android 2MB CursorWindow）。
+        val big = "x".repeat(70_000)  // 70KB/条 × 8 ≈ 560KB > 512KB
+        val msgs = (1..8).map { archivedMsg("msg_$it", created = 100L * it, text = big) }
+
+        val buckets = storeImpl.buildArchiveBuckets("ses_1", msgs)
+
+        assertTrue("expected byte-triggered split into >1 bucket", buckets.size > 1)
+        assertTrue(
+            "all buckets must be ≤ ${MessageStore.ARCHIVE_BUCKET_MAX_BYTES} bytes",
+            buckets.all { it.uncompressedSize <= MessageStore.ARCHIVE_BUCKET_MAX_BYTES },
+        )
+        assertEquals(8, buckets.sumOf { it.messageCount })
     }
 }

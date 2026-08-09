@@ -23,7 +23,7 @@ class ZstdCodecTest {
     }
 
     @Test
-    fun decompress_wrongOriginalSize_throws() {
+    fun decompress_undersizedOriginalSize_throws() {
         val original = "payload".toByteArray(Charsets.UTF_8)
         val compressed = ZstdCodec.compress(original)
         // zstd-jni 仅当 originalSize 小于实际解压大小时抛异常（目标缓冲区过小）；

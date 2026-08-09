@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -83,7 +84,9 @@ class MessagePaginationUseCase @Inject constructor(
         if (beforeCreated != null && messageStore.hasArchivedMessages(sessionId, beforeCreated)) {
             val archived = messageStore.loadArchivedRange(sessionId, limit, beforeCreated)
             if (archived.isNotEmpty()) {
-                AppLogger.d(TAG, "[paging] session=$sessionId: ${archived.size} older msgs from archive (before=$beforeCreated)")
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "[paging] session=$sessionId: ${archived.size} older msgs from archive (before=$beforeCreated)")
+                }
                 return Result.success(LoadOlderResult(archived, LoadOlderSource.ARCHIVE))
             }
         }
