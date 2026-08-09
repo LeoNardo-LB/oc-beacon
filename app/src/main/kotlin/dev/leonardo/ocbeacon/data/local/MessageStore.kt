@@ -20,12 +20,17 @@ import javax.inject.Singleton
  *
  * 限量策略：每会话最近 [SESSION_MESSAGE_LIMIT] 条；翻页拉到窗口外的更早消息
  * 默认不落库（persistOldBeyondWindow=false），避免"写了又被裁"循环。
+ *
+ * 归档：超 [SESSION_MESSAGE_LIMIT] 时，prune 删除前先整桶 zstd 归档到 archive_buckets
+ * （时间窗口 + 200 条分桶），桶级 [ARCHIVE_BUCKET_LIMIT] TLRU 保护。
  */
 @Singleton
 class MessageStore @Inject constructor(
     private val dao: MessageDao,
+    private val archiveDao: ArchiveBucketDao,
     private val json: Json,
     private val databaseRecovery: DatabaseRecovery,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : MessageCacheRepository {
 
     override suspend fun upsertMessages(
@@ -75,6 +80,12 @@ class MessageStore @Inject constructor(
                         }
                     },
                 )
+                // ---- 归档编排（prune 前）：count → 查 overflow 最老 → 归档 → prune 删 ----
+                val total = dao.countForSession(sessionId)
+                val overflow = (total - SESSION_MESSAGE_LIMIT).coerceAtLeast(0)
+                if (overflow > 0) {
+                    archiveOverflow(sessionId, overflow)
+                }
                 val pruned = dao.pruneToLimit(sessionId, SESSION_MESSAGE_LIMIT)
                 if (BuildConfig.DEBUG && pruned > 0) {
                     AppLogger.d(TAG, "[prune] session=$sessionId: removed $pruned oldest msgs (limit=$SESSION_MESSAGE_LIMIT)")
@@ -82,6 +93,69 @@ class MessageStore @Inject constructor(
             }
         }.onFailure { e ->
             AppLogger.e(TAG, "MessageStore upsert failed (memory view unaffected)", e)
+        }
+    }
+
+    /**
+     * 归档"将被 prune 的最老 [overflow] 条"（此时仍在热表，可查完整 payload）。
+     * 按时间窗口分桶 → zstd 压缩 → 写归档表。
+     * 失败不抛（归档是增强，正确性仍由热表 + 服务端保证；数据按一期行为丢弃）。
+     */
+    private suspend fun archiveOverflow(sessionId: String, overflow: Int) {
+        runCatching {
+            val candidates = dao.oldestMessages(sessionId, overflow)
+            if (candidates.isEmpty()) return@runCatching
+            val partsByMsg = dao.partsForMessages(candidates.map { it.id })
+                .groupBy { it.messageId }
+            val messages = candidates.map { entity ->
+                ArchivedMessageDto(
+                    info = json.decodeFromString<Message>(entity.payload),
+                    parts = (partsByMsg[entity.id] ?: emptyList()).mapNotNull { pe ->
+                        pe.payload?.let { runCatching { json.decodeFromString<Part>(it) }.getOrNull() }
+                    },
+                )
+            }
+            val buckets = buildArchiveBuckets(sessionId, messages)
+            buckets.forEach { bucket -> archiveDao.upsert(bucket) }
+            enforceArchiveLimit(sessionId)
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "[archive] session=$sessionId: archived ${messages.size} msgs → ${buckets.size} buckets")
+            }
+        }.onFailure { e ->
+            AppLogger.e(TAG, "[archive] session=$sessionId: archive failed (data dropped as before)", e)
+        }
+    }
+
+    /** 按时间窗口分桶；超 [ARCHIVE_BUCKET_MAX_MESSAGES] 条切子桶。返回待写桶列表。 */
+    internal fun buildArchiveBuckets(sessionId: String, messages: List<ArchivedMessageDto>): List<ArchiveBucketEntity> {
+        val now = clock()
+        return messages.groupBy { m ->
+            m.info.time.created / ARCHIVE_BUCKET_WINDOW_MS
+        }.flatMap { (_, group) ->
+            group.chunked(ARCHIVE_BUCKET_MAX_MESSAGES).map { chunk ->
+                val jsonBytes = json.encodeToString(chunk).toByteArray(Charsets.UTF_8)
+                ArchiveBucketEntity(
+                    sessionId = sessionId,
+                    bucketStart = chunk.minOf { it.info.time.created },
+                    bucketEnd = chunk.maxOf { it.info.time.created },
+                    messageCount = chunk.size,
+                    uncompressedSize = jsonBytes.size,
+                    payload = ZstdCodec.compress(jsonBytes),
+                    createdAt = now,
+                    lastAccessedAt = now,
+                )
+            }
+        }
+    }
+
+    /** 保护上限：每会话超 [ARCHIVE_BUCKET_LIMIT] 桶时删最久未访问。 */
+    private suspend fun enforceArchiveLimit(sessionId: String) {
+        val current = archiveDao.count(sessionId)
+        if (current <= ARCHIVE_BUCKET_LIMIT) return
+        val excess = current - ARCHIVE_BUCKET_LIMIT
+        archiveDao.leastAccessed(sessionId, excess).forEach { archiveDao.delete(it.id) }
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[archive] session=$sessionId: evicted $excess least-accessed buckets (limit=$ARCHIVE_BUCKET_LIMIT)")
         }
     }
 
@@ -166,5 +240,9 @@ class MessageStore @Inject constructor(
     companion object {
         private const val TAG = "MessageStore"
         const val SESSION_MESSAGE_LIMIT = 1000
+        const val ARCHIVE_BUCKET_WINDOW_MS = 86_400_000L          // 1 天
+        const val ARCHIVE_BUCKET_MAX_BYTES = 512 * 1024           // 512KB（调研约束）
+        const val ARCHIVE_BUCKET_MAX_MESSAGES = 200
+        const val ARCHIVE_BUCKET_LIMIT = 200                      // 每会话桶保护上限 ≈ 20 万条历史
     }
 }

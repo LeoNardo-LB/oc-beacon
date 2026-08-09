@@ -34,4 +34,9 @@ object DatabaseModule {
 
     @Provides
     fun provideArchiveBucketDao(database: OcBeaconDatabase): ArchiveBucketDao = database.archiveBucketDao()
+
+    /** 时钟源（归档桶时间戳用）。生产用系统时钟；测试经 MessageStore 构造参数注入固定值。 */
+    @Provides
+    @Singleton
+    fun provideClock(): () -> Long = System::currentTimeMillis
 }
