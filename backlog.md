@@ -255,3 +255,13 @@ efactor
   - 方案：updateDraftText 加防抖定期 saveDraft()（如 1-2s 无输入即存），或 Activity onStop/onSaveInstanceState 触发；需评估写频率与 DataStore 成本
   - 工时：~1h | 难度：低 | 涉及：DraftInputDelegate / ChatViewModel
   - 来源：2026-08-09 模拟器走查 V7
+
+- [ ] **#34 同 URL 第二服务器连接 UX（永久 Connecting 无提示）** ui sse`n  - 问题：2026-08-09 双服务器验证发现——同 URL 第二个配置点 Connect 后永久卡 'Connecting...'（>60s 无握手/无错误/无日志），手动 Cancel 才能退出。架构上 app 限制同 URL 单一活跃 SSE 连接（防双投递），但 UX 无反馈
+  - 方案：检测到同 URL 已有活跃连接时直接拒绝并提示'该后端已连接'，或复用现有连接；或加超时/错误提示
+  - 工时：~1h | 难度：低 | 涉及：连接管理 UI + SseConnectionManager
+  - 来源：2026-08-09 双服务器去重验证走查
+
+- [ ] **#35 会话内 Back 触发一次 ANR（待复现）** crash ui`n  - 问题：2026-08-09 走查——首次启动后会话内按 Back 触发 ANR（'OC Beacon Dev isn't responding'），force-stop 重启后恢复。可能与 SSE 长连接 + 主线程阻塞有关。仅一次未复现
+  - 方案：待复现——logcat 抓 ANR trace；检查 Back 导航路径是否有主线程阻塞（会话关闭时的同步操作）
+  - 工时：待复现后再估 | 难度：中 | 涉及：会话导航/生命周期
+  - 来源：2026-08-09 双服务器验证走查
