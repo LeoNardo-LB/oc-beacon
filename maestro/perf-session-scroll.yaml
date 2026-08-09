@@ -1,0 +1,35 @@
+# 会话列表滑动性能测试流程（自动化、固定参数、可重复）
+# 用途：测量会话列表在滑动时的掉帧/输入延迟（配合 scripts/perf-session-scroll.ps1 使用）
+# 前置：应用已安装并启动，处于服务器设置页（tab 2）或任意页；脚本会导航到会话列表 tab。
+# 说明：appId 由 perf-session-scroll.ps1 通过 --env APP_ID 注入；默认 dev。
+
+appId: ${APP_ID}
+---
+# 1. 导航到会话列表（page 0）
+- tapOn:
+    text: "会话"
+    optional: true
+# 2. 等待列表出现
+- assertVisible: "搜索会话"
+# 3. 固定滑动序列：5 次上滑 + 5 次下滑（0.4 屏距），每次间隔 300ms
+#    参数固定 = 每次测量条件一致（对比 A/B 的关键）
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          start: 50%, 80%
+          end: 50%, 40%
+          duration: 200
+      - waitForAnimationToEnd:
+          timeout: 500
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          start: 50%, 40%
+          end: 50%, 80%
+          duration: 200
+      - waitForAnimationToEnd:
+          timeout: 500
+# 4. 完成标记（供脚本确认流程跑完）
+- assertVisible: "搜索会话"
