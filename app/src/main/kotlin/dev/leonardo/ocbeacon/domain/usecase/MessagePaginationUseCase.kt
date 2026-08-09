@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -12,6 +13,15 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 private const val TAG = "MessagePaginationUseCase"
+
+/** 翻页加载更早消息的来源。 */
+enum class LoadOlderSource { ARCHIVE, NETWORK }
+
+/** loadOlderMessages 的返回值：消息列表 + 来源（决定 Delegate 是否落热表）。 */
+data class LoadOlderResult(
+    val messages: List<MessageWithParts>,
+    val source: LoadOlderSource,
+)
 
 class MessagePaginationUseCase @Inject constructor(
     private val chatRepository: ChatRepository,
@@ -56,23 +66,44 @@ class MessagePaginationUseCase @Inject constructor(
         }
     }
 
-    /** 翻页加载更早：before 游标 = 本地最旧消息 ID（编码后传给服务端）。 */
+    /**
+     * 翻页加载更早：本地归档优先；归档读尽 → 走网络。
+     *
+     * - [beforeCreated] 非空（归档时间游标）时优先用它查询归档；
+     *   hasArchivedMessages → loadArchivedRange；非空 → 直接返回 [LoadOlderSource.ARCHIVE]
+     *   （不调网络、不落热表，防死循环）。
+     * - [beforeCreated] 为空时回落到 [beforeId] 在热表的时间；
+      *   归档空 → 网络（[LoadOlderSource.NETWORK]，落热表，现有逻辑）。
+     */
     suspend fun loadOlderMessages(
         serverId: String,
         sessionId: String,
         limit: Int,
         beforeId: String?,
-    ): Result<List<MessageWithParts>> {
+        beforeCreated: Long? = null,
+    ): Result<LoadOlderResult> {
+        // 归档时间游标优先；否则从热表查 beforeId 对应时间
+        val created = beforeCreated ?: beforeId?.let { messageStore.messageCreatedAt(it) }
+        if (created != null && messageStore.hasArchivedMessages(sessionId, created)) {
+            val archived = messageStore.loadArchivedRange(sessionId, limit, created)
+            if (archived.isNotEmpty()) {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "[paging] session=$sessionId: ${archived.size} older msgs from archive (before=$created)")
+                }
+                return Result.success(LoadOlderResult(archived, LoadOlderSource.ARCHIVE))
+            }
+        }
+        // 归档读尽 → 网络
         return runCatching {
             // before 游标需要 base64url 编码（裸 ID 服务端不识别）
             val before = beforeId?.let { id ->
-                val created = messageStore.messageCreatedAt(id)
-                if (created != null) CursorCodec.encode(id, created) else null
+                val msgCreated = messageStore.messageCreatedAt(id)
+                if (msgCreated != null) CursorCodec.encode(id, msgCreated) else null
             }
             val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
             messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
-            page.messages
+            LoadOlderResult(page.messages, LoadOlderSource.NETWORK)
         }
     }
 

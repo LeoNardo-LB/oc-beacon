@@ -45,3 +45,6 @@
 # ConnectBot termlib — keep public API and native method signatures.
 -keep public class org.connectbot.terminal.** { public *; }
 -keepclasseswithmembernames class * { native <methods>; }
+
+# zstd-jni: JNI 链接依赖类名，禁止混淆/重命名（luben/zstd-jni README）
+-keep class com.github.luben.zstd.** { *; }

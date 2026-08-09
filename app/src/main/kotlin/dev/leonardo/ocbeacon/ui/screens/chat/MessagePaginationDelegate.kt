@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.usecase.LoadOlderSource
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocbeacon.logging.AppLogger
@@ -50,6 +51,16 @@ internal class MessagePaginationDelegate(
      * 游标翻页下不再翻倍——"加载更早"靠 [messageStore] 最旧消息 ID 作 before 游标。
      */
     private var currentMessageLimit = 30
+    /**
+     * 归档翻页时间游标：最近一次 ARCHIVE 来源加载返回的最老消息 created（毫秒）。
+     * 归档读取不落热表 → 热表最老不变；若始终用热表最老作 before，
+     * 每次翻页会读到同一批归档桶（死循环）。此游标持久化"已显示到哪"，
+     * 使下次翻页能继续读更早的归档。
+     * - 进入会话 → 重置为 null（use case 内部回落到热表最老）
+     * - ARCHIVE 来源 → 推进为本次返回的最老消息 created
+     * - NETWORK 来源 → 重置为 null（归档已读尽，回落到热表边界）
+     */
+    private var archiveCursorCreated: Long? = null
     /** 服务器上是否存在超出当前限制的更多消息。 */
     private val _hasOlderMessages = MutableStateFlow(false)
     /** "加载更早" 请求是否进行中。 */
@@ -76,6 +87,8 @@ internal class MessagePaginationDelegate(
                 .getOrThrow()
             chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
             _hasOlderMessages.value = messages.size >= currentMessageLimit
+            // 会话重新加载 → 归档时间游标重置（use case 内部回落到热表最老）
+            archiveCursorCreated = null
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "V1 loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
         } catch (e: CancellationException) {
             throw e
@@ -128,15 +141,32 @@ internal class MessagePaginationDelegate(
         scope.launch {
             _isLoadingOlder.value = true
             try {
+                // before 游标：优先用归档时间游标（归档翻页推进）；null 时 use case 回落到热表最老
                 val beforeId = messageStore.oldestMessageId(sid)
-                val messages = messagePaging.loadOlderMessages(serverId, sid, currentMessageLimit, beforeId)
-                    .getOrThrow()
-                chatRepository.upsertMessages(sid, messages, MergeStrategy.APPEND_ONLY)
-                _hasOlderMessages.value = messages.size >= currentMessageLimit
-
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d(TAG, "Loaded older: ${messages.size} messages (before=$beforeId, hasOlder=${_hasOlderMessages.value})")
+                val result = messagePaging.loadOlderMessages(
+                    serverId, sid, currentMessageLimit, beforeId,
+                    beforeCreated = archiveCursorCreated,
+                ).getOrThrow()
+                // 归档来源只进内存（不落热表 → 防死循环）；网络来源保持现状（upsert 内自控落库）
+                chatRepository.upsertMessages(sid, result.messages, MergeStrategy.APPEND_ONLY)
+                when (result.source) {
+                    LoadOlderSource.ARCHIVE -> {
+                        // 归档时间游标推进为本次返回的最老消息 created（下次翻页继续读更早归档）
+                        archiveCursorCreated = result.messages.minOfOrNull { it.info.time.created }
+                            ?: archiveCursorCreated
+                        _hasOlderMessages.value = true
+                    }
+                    LoadOlderSource.NETWORK -> {
+                        // 网络来源：归档已读尽，游标回落（后续若网络失败仍可从热表边界回读归档）
+                        archiveCursorCreated = null
+                        _hasOlderMessages.value = result.messages.size >= currentMessageLimit
+                    }
                 }
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "Loaded older: ${result.messages.size} msgs (source=${result.source}, cursor=$archiveCursorCreated, hasOlder=${_hasOlderMessages.value})")
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to load older messages", e)
             } finally {

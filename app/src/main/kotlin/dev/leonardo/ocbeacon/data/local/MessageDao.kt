@@ -36,6 +36,14 @@ interface MessageDao {
     @Query("SELECT created FROM cached_messages WHERE id = :messageId")
     suspend fun messageCreatedAt(messageId: String): Long?
 
+    /** 当前会话热表消息数（算 overflow 用）。 */
+    @Query("SELECT COUNT(*) FROM cached_messages WHERE sessionId = :sessionId")
+    suspend fun countForSession(sessionId: String): Int
+
+    /** 待 prune 的最老消息（created ASC 前 [limit] 条）——归档前查询。 */
+    @Query("SELECT * FROM cached_messages WHERE sessionId = :sessionId ORDER BY created ASC, id ASC LIMIT :limit")
+    suspend fun oldestMessages(sessionId: String, limit: Int): List<CachedMessageEntity>
+
     @Query(
         "DELETE FROM cached_messages WHERE sessionId = :sessionId AND id NOT IN " +
             "(SELECT id FROM cached_messages WHERE sessionId = :sessionId " +

@@ -98,14 +98,66 @@ class MessagePaginationUseCaseTest {
     fun loadOlderMessages_usesBeforeCursor() = runTest {
         val page = MessagePage(messages = listOf(msg("msg_0", 50)), nextCursor = null)
         coEvery { messageStore.messageCreatedAt("msg_1") } returns 100L
+        coEvery { messageStore.hasArchivedMessages("ses_1", 100L) } returns false
         val expectedBefore = CursorCodec.encode("msg_1", 100L)
         coEvery { sessionRepository.listMessages("srv", "ses_1", 50, expectedBefore) } returns Result.success(page)
 
         val result = useCase.loadOlderMessages("srv", "ses_1", 50, "msg_1")
 
         assertTrue(result.isSuccess)
-        assertEquals(1, result.getOrThrow().size)
+        assertEquals(LoadOlderSource.NETWORK, result.getOrThrow().source)
+        assertEquals(1, result.getOrThrow().messages.size)
         coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_0", 50)), false) }
+    }
+
+    @Test
+    fun loadOlderMessages_archiveAvailable_returnsArchiveWithoutNetwork() = runTest {
+        val archived = listOf(msg("msg_0", 50), msg("msg_1", 100))
+        coEvery { messageStore.messageCreatedAt("msg_5") } returns 500L
+        coEvery { messageStore.hasArchivedMessages("ses_1", 500L) } returns true
+        coEvery { messageStore.loadArchivedRange("ses_1", 50, 500L) } returns archived
+
+        val result = useCase.loadOlderMessages("srv", "ses_1", 50, "msg_5")
+
+        assertTrue(result.isSuccess)
+        val loaded = result.getOrThrow()
+        assertEquals(2, loaded.messages.size)
+        assertEquals(LoadOlderSource.ARCHIVE, loaded.source)
+        // 网络不调用
+        coVerify(exactly = 0) { sessionRepository.listMessages(any(), any(), any(), any()) }
+        // 不落热表（防死循环）
+        coVerify(exactly = 0) { messageStore.upsertMessages(any(), any(), any()) }
+    }
+
+    @Test
+    fun loadOlderMessages_noArchive_usesNetwork() = runTest {
+        coEvery { messageStore.messageCreatedAt("msg_5") } returns 500L
+        coEvery { messageStore.hasArchivedMessages("ses_1", 500L) } returns false
+        val page = MessagePage(messages = listOf(msg("msg_0", 50)), nextCursor = null)
+        val expectedBefore = CursorCodec.encode("msg_5", 500L)
+        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, expectedBefore) } returns Result.success(page)
+
+        val result = useCase.loadOlderMessages("srv", "ses_1", 50, "msg_5")
+
+        assertTrue(result.isSuccess)
+        assertEquals(LoadOlderSource.NETWORK, result.getOrThrow().source)
+        assertEquals(1, result.getOrThrow().messages.size)
+        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_0", 50)), false) }
+    }
+
+    @Test
+    fun loadOlderMessages_archiveReadExhausted_fallsBackToNetwork() = runTest {
+        coEvery { messageStore.messageCreatedAt("msg_5") } returns 500L
+        coEvery { messageStore.hasArchivedMessages("ses_1", 500L) } returns true
+        coEvery { messageStore.loadArchivedRange("ses_1", 50, 500L) } returns emptyList()  // 归档空（坏桶等）
+        val page = MessagePage(messages = listOf(msg("msg_0", 50)), nextCursor = null)
+        val expectedBefore = CursorCodec.encode("msg_5", 500L)
+        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, expectedBefore) } returns Result.success(page)
+
+        val result = useCase.loadOlderMessages("srv", "ses_1", 50, "msg_5")
+
+        assertTrue(result.isSuccess)
+        assertEquals(LoadOlderSource.NETWORK, result.getOrThrow().source)
     }
 
     @Test
