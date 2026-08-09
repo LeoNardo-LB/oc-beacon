@@ -69,23 +69,26 @@ class MessagePaginationUseCase @Inject constructor(
     /**
      * 翻页加载更早：本地归档优先；归档读尽 → 走网络。
      *
-     * - beforeId 非空且 hasArchivedMessages → loadArchivedRange；
-     *   非空 → 直接返回 [LoadOlderSource.ARCHIVE]（不调网络、不落热表，防死循环）。
-     * - 归档空 → 网络（[LoadOlderSource.NETWORK]，落热表，现有逻辑）。
+     * - [beforeCreated] 非空（归档时间游标）时优先用它查询归档；
+     *   hasArchivedMessages → loadArchivedRange；非空 → 直接返回 [LoadOlderSource.ARCHIVE]
+     *   （不调网络、不落热表，防死循环）。
+     * - [beforeCreated] 为空时回落到 [beforeId] 在热表的时间；
+      *   归档空 → 网络（[LoadOlderSource.NETWORK]，落热表，现有逻辑）。
      */
     suspend fun loadOlderMessages(
         serverId: String,
         sessionId: String,
         limit: Int,
         beforeId: String?,
+        beforeCreated: Long? = null,
     ): Result<LoadOlderResult> {
-        // 本地归档优先：before 游标对应的 created 之前的归档桶
-        val beforeCreated = beforeId?.let { messageStore.messageCreatedAt(it) }
-        if (beforeCreated != null && messageStore.hasArchivedMessages(sessionId, beforeCreated)) {
-            val archived = messageStore.loadArchivedRange(sessionId, limit, beforeCreated)
+        // 归档时间游标优先；否则从热表查 beforeId 对应时间
+        val created = beforeCreated ?: beforeId?.let { messageStore.messageCreatedAt(it) }
+        if (created != null && messageStore.hasArchivedMessages(sessionId, created)) {
+            val archived = messageStore.loadArchivedRange(sessionId, limit, created)
             if (archived.isNotEmpty()) {
                 if (BuildConfig.DEBUG) {
-                    AppLogger.d(TAG, "[paging] session=$sessionId: ${archived.size} older msgs from archive (before=$beforeCreated)")
+                    AppLogger.d(TAG, "[paging] session=$sessionId: ${archived.size} older msgs from archive (before=$created)")
                 }
                 return Result.success(LoadOlderResult(archived, LoadOlderSource.ARCHIVE))
             }
@@ -94,8 +97,8 @@ class MessagePaginationUseCase @Inject constructor(
         return runCatching {
             // before 游标需要 base64url 编码（裸 ID 服务端不识别）
             val before = beforeId?.let { id ->
-                val created = messageStore.messageCreatedAt(id)
-                if (created != null) CursorCodec.encode(id, created) else null
+                val msgCreated = messageStore.messageCreatedAt(id)
+                if (msgCreated != null) CursorCodec.encode(id, msgCreated) else null
             }
             val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
