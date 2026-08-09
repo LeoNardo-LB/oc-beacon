@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
@@ -128,6 +129,11 @@ class MessageStoreTest {
         // 归档先于 prune：archiveDao.upsert 被调用，且 pruneToLimit 仍执行
         coVerify(exactly = 1) { archiveDao.upsert(any()) }
         coVerify(exactly = 1) { dao.pruneToLimit("ses_1", 1000) }
+        // 核心顺序不变量：归档必须先于 prune（禁止"prune 后查最老归档"——那时 payload 已删）
+        coVerifyOrder {
+            archiveDao.upsert(any())
+            dao.pruneToLimit("ses_1", 1000)
+        }
     }
 
     @Test
