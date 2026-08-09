@@ -177,14 +177,17 @@ internal class MessageDataDelegate(
             val visible: List<Message> = if (loading && sessionMessages.isEmpty()) {
                 emptyList()
             } else {
-                val sorted = sessionMessages.sortedBy { it.time.created }
+                // 消息已在 MessageEventHandler 的写入路径按 time.created 排序
+                //（handleMessageUpdated upsert 后 sortBy；setMessages/upsertMessages merge 后 sortedBy），
+                // 此处无需重复排序——移除每次 combine 的 O(n log n) 排序（SSE 活跃时每秒 ~20 次，
+                // 1896 条消息的排序是真机 slowUI 的根因之一，2026-08-10 定位）。
                 if (revertState != null) {
                     // OpenCode 模式：通过消息 ID 字符串比较过滤。
                     // 消息 ID 是 ULID（单调递增），因此
                     // id <= revertId 正确地包含 revert 点及之前的所有消息。
-                    sorted.filter { it.id < revertState.messageId }
+                    sessionMessages.filter { it.id < revertState.messageId }
                 } else {
-                    sorted
+                    sessionMessages
                 }
             }
 
@@ -243,17 +246,8 @@ internal class MessageDataDelegate(
                 toolExpandedStates = toolExpandedStates,
                 queuedMessageIds = queuedMessageIds,
             )
-            // 诊断：记录 combine 输出以检测陈旧发射
-            val lastMsgId = chatMessages.lastOrNull()?.message?.id?.take(12) ?: "none"
-            AppLogger.d("MsgDiag", "[combine] msgs=${sessionMessages.size} visible=${visible.size} " +
-                "merged=${chatMessages.size} revert=${revertState != null} " +
-                "lastMsg=$lastMsgId")
-            // 诊断：记录最后 3 条消息的 parts 详情
-            chatMessages.takeLast(3).forEach { cm ->
-                val textLen = cm.parts.filterIsInstance<Part.Text>().sumOf { it.text.length }
-                val role = if (cm.message is Message.User) "U" else "A"
-                AppLogger.d("MsgDiag", "  [$role] id=${cm.message.id.take(12)} parts=${cm.parts.size} textLen=$textLen")
-            }
+            // DIAG 已移除（2026-08-10）：combine 每 48ms 触发的 MsgDiag 日志（每秒 ~80 条 logcat 写入）
+            // 是真机掉帧的根因之一——debug 版 BuildConfig.DEBUG=true 时门控无效，必须彻底删除。
             state
          } catch (e: Exception) {
             if (BuildConfig.DEBUG) AppLogger.e("MessageDataDelegate", "messageListState combine error", e)
@@ -330,8 +324,7 @@ internal class MessageDataDelegate(
                 val visibleMessages = messages.filter { msg ->
                     msg is Message.User || (msg is Message.Assistant && grouped[msg.id]?.isNotEmpty() == true)
                 }
-                val missingParts = messages.size - visibleMessages.size
-                AppLogger.d(TAG, "[sseJob] msgs=${messages.size} visible=${visibleMessages.size} parts=${parts.size} active=${sseJob?.isActive} filtered=$missingParts")
+                // DIAG 已移除（2026-08-10）：sseJob 每 48ms 触发的日志同样构成日志风暴
                 _rawMessagesList.value = messages
                 _messagesList.value = visibleMessages
                 _partsList.value = parts

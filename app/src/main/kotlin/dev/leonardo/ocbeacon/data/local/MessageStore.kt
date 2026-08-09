@@ -116,7 +116,7 @@ class MessageStore @Inject constructor(
         val buckets = runCatching {
             val candidates = dao.oldestMessages(sessionId, overflow)
             if (candidates.isEmpty()) return@runCatching emptyList()
-            val partsByMsg = dao.partsForMessages(candidates.map { it.id })
+            val partsByMsg = partsForMessagesChunked(candidates.map { it.id })
                 .groupBy { it.messageId }
             // 逐条容错：单条 payload 解码失败只跳过该条（记日志），不影响整批归档。
             // 否则一条坏消息会导致全部 overflow 消息归档失败 → 整批数据丢失（一期语义降级）。
@@ -215,7 +215,7 @@ class MessageStore @Inject constructor(
         dao.observeMessages(sessionId).map { entities ->
             if (entities.isEmpty()) return@map emptyList()
             // 一次批量查询所有 parts，消除 N+1（原逐条 dao.partsForMessages）。
-            val partsByMsg = dao.partsForMessages(entities.map { it.id })
+            val partsByMsg = partsForMessagesChunked(entities.map { it.id })
                 .groupBy { it.messageId }
             entities.map { toMessageWithParts(it, partsByMsg[it.id] ?: emptyList()) }
         }
@@ -226,7 +226,7 @@ class MessageStore @Inject constructor(
             databaseRecovery.withCorruptionRecovery {
                 val entities = dao.messagesForSession(sessionId, limit, beforeId)
                 if (entities.isEmpty()) return@withCorruptionRecovery emptyList()
-                val partsByMsg = dao.partsForMessages(entities.map { it.id })
+                val partsByMsg = partsForMessagesChunked(entities.map { it.id })
                     .groupBy { it.messageId }
                 entities.map { toMessageWithParts(it, partsByMsg[it.id] ?: emptyList()) }
             } ?: emptyList()
@@ -346,6 +346,21 @@ class MessageStore @Inject constructor(
         is Part.Unknown -> "unknown"
     }
 
+    /**
+     * 分块批量查询 parts：SQLite 的 IN 子句有 999 变量上限，
+     * 大会话（>999 条消息）直接 IN 查询会抛 SQLiteException:
+     * "too many SQL variables"（2026-08-10 模拟器实证 1896 条消息会话触发）。
+     * 切成 ≤900 的块分别查询后合并——结果与单次查询等价。
+     */
+    private suspend fun partsForMessagesChunked(messageIds: List<String>): List<CachedPartEntity> {
+        if (messageIds.isEmpty()) return emptyList()
+        if (messageIds.size <= SQLITE_IN_VARIABLE_LIMIT) {
+            return dao.partsForMessages(messageIds)
+        }
+        return messageIds.chunked(SQLITE_IN_VARIABLE_LIMIT)
+            .flatMap { chunk -> dao.partsForMessages(chunk) }
+    }
+
     companion object {
         private const val TAG = "MessageStore"
         const val SESSION_MESSAGE_LIMIT = 1000
@@ -353,5 +368,7 @@ class MessageStore @Inject constructor(
         const val ARCHIVE_BUCKET_MAX_BYTES = 512 * 1024           // 512KB（调研约束）
         const val ARCHIVE_BUCKET_MAX_MESSAGES = 200
         const val ARCHIVE_BUCKET_LIMIT = 200                      // 每会话桶保护上限 ≈ 20 万条历史
+        /** SQLite 单条 SQL 变量上限（999），留余量取 900。 */
+        private const val SQLITE_IN_VARIABLE_LIMIT = 900
     }
 }

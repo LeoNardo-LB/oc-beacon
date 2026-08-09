@@ -138,36 +138,23 @@ class MessageEventHandler @Inject constructor(
 
     internal fun handleMessageUpdated(event: SseEvent.MessageUpdated) {
         val sessionId = event.info.sessionId
-        val role = when (event.info) { is Message.User -> "user"; is Message.Assistant -> "assistant" }
         _messages.update { current ->
             val msgs = current[sessionId]?.toMutableList() ?: mutableListOf()
             val idx = msgs.indexOfFirst { it.id == event.info.id }
-            val isUpdate = idx >= 0
-            // DIAG：处理前记录状态
-            val userMsgs = msgs.filter { it is Message.User }
-            AppLogger.i("MsgDiag", "[MsgUpdated] ENTER role=$role eventId=${event.info.id.take(16)} " +
-                "session=${sessionId.take(8)} total=${msgs.size} " +
-                "userCount=${userMsgs.size} isUpdate=$isUpdate")
+            // DIAG 清理（2026-08-10）：移除 update 内的全量 filter + 日志——
+            // 每次 MessageUpdated 都 O(n) 扫描 1896 条消息（仅用于日志），
+            // SSE 活跃时每秒多次 → 真机掉帧（性能根因之一）。
             if (idx >= 0) {
                 msgs[idx] = event.info
             } else {
                 msgs.add(event.info)
                 msgs.sortBy { it.time.created }
             }
-            // DIAG：处理后记录状态
-            val afterUser = msgs.filter { it is Message.User }
-            // 乐观消息已从缓存中移除，单条 MessageUpdated
-            // 对用户消息而言，用户计数合法增加 1。仅当增加超过 1 时
-            // 才告警（表示存在逻辑回归）。
-            if (afterUser.size > userMsgs.size + 1) {
-                AppLogger.w("MsgDiag", "[MsgUpdated] ⚠️ unexpected user count increase: ${userMsgs.size}→${afterUser.size} " +
-                    "userIds=${afterUser.joinToString(",") { it.id.take(16) }}")
-            }
             current + (sessionId to msgs)
         }
         if (event.info is Message.Assistant) {
             assistantMessageIds.add(event.info.id)
-            AppLogger.d("UnreadDiag", "[MsgUpdated] sid=${sessionId.take(12)} msg=${event.info.id.take(12)} completed=${event.info.time.completed}")
+            if (BuildConfig.DEBUG) AppLogger.d("UnreadDiag", "[MsgUpdated] sid=${sessionId.take(12)} msg=${event.info.id.take(12)} completed=${event.info.time.completed}")
         }
         // 若尚无 part，则从摘要文本为用户消息播种 part。
         val info = event.info
@@ -408,7 +395,6 @@ class MessageEventHandler @Inject constructor(
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = incoming.associateBy { it.info.id }
-            val hasRestUserMsgs = incoming.any { it.info is Message.User }
             val merged = (existing + incoming.map { it.info })
                 .distinctBy { it.id }
                 .map { msg ->
@@ -420,13 +406,7 @@ class MessageEventHandler @Inject constructor(
                     }
                 }
                 .sortedBy { it.time.created }
-            // DIAG：记录合并结果
-            val beforeUser = existing.filter { it is Message.User }.size
-            val afterUser = merged.filter { it is Message.User }.size
-            AppLogger.i("MsgDiag", "[setMessages] session=" + sessionId.take(8) +
-                " incoming=" + incoming.size + " existing=" + existing.size + " merged=" + merged.size +
-                " beforeUser=" + beforeUser + " afterUser=" + afterUser +
-                " hasRestUserMsgs=" + hasRestUserMsgs)
+            // DIAG 清理（2026-08-10）：移除合并后的全量 filter + 日志（O(n) 扫描仅用于日志）
             current + (sessionId to merged)
         }
         incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }

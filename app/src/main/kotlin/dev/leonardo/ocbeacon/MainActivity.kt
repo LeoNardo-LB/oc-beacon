@@ -13,8 +13,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -159,6 +161,10 @@ class MainActivity : ComponentActivity() {
             
             OpenCodeTheme(darkTheme = darkTheme, dynamicColor = dynamicColor, amoledDark = amoledDark) {
                 
+                // 全局禁用 Stretch overscroll 拉伸效果（Android 12+ 默认）。
+                // 拉伸动画会拦截输入导致"拉伸中无法反向滑动"的卡手体感（2026-08-10 真机实证）。
+                // 提供 null = 无 overscroll 效果（官方支持：LocalOverscrollFactory 为 null 时返回 null）。
+                CompositionLocalProvider(LocalOverscrollFactory provides null) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -172,6 +178,7 @@ class MainActivity : ComponentActivity() {
                         sessionRepository = sessionRepository,
                         fileRepository = fileRepository
                     )
+                }
                 }
             }
         }

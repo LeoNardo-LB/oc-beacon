@@ -217,7 +217,10 @@ class SessionRepositoryImpl @Inject constructor(
         before: String?,
     ): Result<MessagePage> = runCatching {
         val conn = resolveConnection(serverId)
-        messageApi.listMessages(conn, sessionId, limit, before)
+        AppLogger.d("NetTrace", "listMessages REQUEST server=$serverId sid=${sessionId.take(12)} limit=$limit before=${before?.take(16)}")
+        messageApi.listMessages(conn, sessionId, limit, before).also {
+            AppLogger.d("NetTrace", "listMessages RESPONSE server=$serverId sid=${sessionId.take(12)} msgs=${it.messages.size} (limit=$limit)")
+        }
     }
 
     // ============ 私有辅助方法 ============

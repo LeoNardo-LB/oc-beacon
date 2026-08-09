@@ -2,7 +2,6 @@ package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -434,7 +433,6 @@ private fun SessionDetailsDialog(
 private fun TagChipsRow(tags: List<Tag>, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
-            .basicMarquee()
             .clip(RoundedCornerShape(4.dp)),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),

@@ -329,4 +329,28 @@ class MessageStoreTest {
         )
         assertEquals(8, buckets.sumOf { it.messageCount })
     }
+
+    /**
+     * 分块查询回归护栏（2026-08-10）：SQLite IN 子句 999 变量上限——
+     * 大会话（>999 条消息）loadRange 时直接 IN 查询抛 SQLiteException
+     * （"too many SQL variables"）。partsForMessagesChunked 应将
+     * messageIds 切块多次查询并合并，结果与单次查询等价。
+     */
+    @Test
+    fun loadRange_chunksPartsQueryForLargeSession() = runTest {
+        // 构造 1500 条消息的会话（> 999 变量上限）
+        val ids = (0 until 1500).map { "msg_$it" }
+        val entities = ids.mapIndexed { i, id ->
+            CachedMessageEntity(id, "ses_1", i.toLong(), "assistant", json.encodeToString(Message.Assistant(id, "ses_1", TimeInfo(i.toLong()), "text")))
+        }
+        coEvery { dao.messagesForSession("ses_1", 2000, null) } returns entities
+        // parts：分块后每次调用返回对应的 mock 结果（按调用参数匹配）
+        coEvery { dao.partsForMessages(any()) } answers { arg<List<String>>(0).map { CachedPartEntity(it, "p_$it", "text", "{}") } }
+
+        val result = store.loadRange("ses_1", limit = 2000, beforeId = null)
+
+        assertEquals(1500, result.size)
+        // 分块：1500/900 → 2 次调用（900 + 600）
+        coVerify(exactly = 2) { dao.partsForMessages(any()) }
+    }
 }

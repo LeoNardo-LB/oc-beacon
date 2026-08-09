@@ -339,14 +339,20 @@ fun ChatMessageList(
             // derivedStateOf 会捕获初始 messageState（其中 hasOlderMessages=false）
             // 并且当 loadMessagesForSession() 将 hasOlderMessages 设为 true 时
             // 永远看不到更新。这是进入会话后分页静默失败的根源。
+            //
+            // reverseLayout=true 下：索引 0 = 视觉底部（最新消息），
+            // firstVisibleItemIndex = 视觉顶部（最旧可见消息）。
+            // "距顶部" = total - firstVisibleItemIndex。不可用 lastOrNull()
+            //（那是最新消息，恒等于底部 → 进入会话即无限翻页拉网络）。
             val shouldPaginate by remember(messageState) {
                 derivedStateOf {
                     val layoutInfo = listState.layoutInfo
-                    val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
                     val total = layoutInfo.totalItemsCount
+                    listState.isScrollInProgress &&
                     !messageState.isLoadingOlder &&
                     messageState.hasOlderMessages &&
-                    total - lastVisible <= 8
+                    total - firstVisible <= 8
                 }
             }
             LaunchedEffect(shouldPaginate) {
