@@ -28,7 +28,7 @@ import javax.inject.Singleton
 fun interface DirectoryResolver { fun resolve(sessionId: String): String? }
 fun interface IncompleteAssistantChecker { fun hasIncomplete(sessionId: String): Boolean }
 fun interface MessageForceCompleter { fun markIdle(sessionId: String) }
-fun interface MessageRefresher { fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) }
+fun interface MessageRefresher { fun refreshMessages(sessionId: String, messages: List<MessageWithParts>) }
 
 private const val TAG = "SessionStateService"
 private const val HISTORY_MAX = 20
@@ -276,7 +276,7 @@ class SessionStateService @Inject constructor(
                     // 陈旧期间 SSE 错过的任何消息。
                     sessionRepoProvider.get().listMessages(sid, sessionId, limit = 0)
                         .onSuccess { page ->
-                            messageRefresher.replaceMessages(sessionId, page.messages)
+                            messageRefresher.refreshMessages(sessionId, page.messages)
                             if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs")
                         }
                 }

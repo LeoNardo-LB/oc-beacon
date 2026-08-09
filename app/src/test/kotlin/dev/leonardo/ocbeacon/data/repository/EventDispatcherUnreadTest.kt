@@ -174,7 +174,7 @@ class EventDispatcherUnreadTest {
     }
 
     @Test
-    fun `completed update triggers synchronous DataStore persist`() = runTest {
+    fun `completed update triggers persist via UnreadBadgeService`() = runTest {
         // saveLastCompletedReplyTimes 现为 SettingsDataStore 成员方法（合并自扩展文件），可被 mock 拦截记录。
         // processEvent → UnreadBadgeService.persist 同步调用本方法；coVerify 无需等待即可断言
         //（同步语义由代码结构保证——非异步 collect）。

@@ -211,11 +211,10 @@ class EventDispatcher @Inject constructor(
         if (sessionId != null && !ownershipRegistry.claim(sessionId, serverId)) {
             if (BuildConfig.DEBUG) {
                 AppLogger.d(TAG, "Skipping duplicate ${event::class.simpleName} for session " +
-                    "${sessionId.take(12)} from server=$serverId")
+                    "${sessionId.take(12)} from server=$serverId (owner=${ownershipRegistry.ownerOf(sessionId)})")
             }
             return
         }
-
         // 注册表分发：将事件路由到其唯一注册的 handler（O(1) 查找）。
         // 替代了之前的广播模型，即每个事件都发送给全部 6 个 handler，
         // 每个 handler 再通过自身的 `when` 块在内部过滤。

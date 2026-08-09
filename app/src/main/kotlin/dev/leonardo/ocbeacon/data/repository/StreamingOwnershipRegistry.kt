@@ -30,6 +30,9 @@ class StreamingOwnershipRegistry @Inject constructor() {
         owners.remove(sessionId)
     }
 
+    /** 当前持有 [sessionId] 所有权的服务器（无则 null）。仅供日志/诊断。 */
+    fun ownerOf(sessionId: String): String? = owners[sessionId]
+
     fun releaseAllForServer(serverId: String) {
         owners.entries.removeAll { it.value == serverId }
     }
