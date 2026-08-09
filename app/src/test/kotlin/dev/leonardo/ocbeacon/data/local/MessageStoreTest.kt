@@ -209,4 +209,24 @@ class MessageStoreTest {
 
         assertEquals(false, store.hasArchivedMessages("ses_1", 1000L))
     }
+
+    @Test
+    fun loadArchivedRange_corruptBucket_skipsAndContinues() = runTest {
+        // 一个坏桶（payload 乱码）+ 之后无更多桶
+        val corruptBucket = ArchiveBucketEntity(
+            id = 1L, sessionId = "ses_1",
+            bucketStart = 100L, bucketEnd = 200L,
+            messageCount = 2, uncompressedSize = 100,
+            payload = ByteArray(50) { 0x7F.toByte() },  // 乱码，无法解压
+            createdAt = 1L, lastAccessedAt = 1L,
+        )
+        // 第一次调用（beforeCreated=1000）命中返回坏桶；continue 后游标推进到 bucketStart=100，
+        // 第二次 latestBefore("ses_1", 100L, ...) 不匹配此 stub，relaxed mock 返回空 → 退出循环。
+        coEvery { archiveDao.latestBefore("ses_1", 1000L, any()) } returns listOf(corruptBucket)
+
+        val result = store.loadArchivedRange("ses_1", limit = 50, beforeCreated = 1000L)
+
+        assertEquals(0, result.size)          // 坏桶被跳过
+        coVerify { archiveDao.touch(1L, any()) }  // 仍 touch
+    }
 }

@@ -222,7 +222,7 @@ class MessageStore @Inject constructor(
                 }
                 need -= decoded.size
                 beforeEnd = bucket.bucketStart  // 下个桶必须更早（用桶起点做游标，避免边界重复）
-                if (decoded.isEmpty()) break  // 坏桶防死循环
+                if (decoded.isEmpty()) continue  // 坏桶跳过，游标已推进到 bucketStart，不会死循环
             }
             result
         } ?: emptyList()
