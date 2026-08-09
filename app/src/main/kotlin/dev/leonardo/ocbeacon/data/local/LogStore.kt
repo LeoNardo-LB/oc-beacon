@@ -14,20 +14,27 @@ import javax.inject.Singleton
 @Singleton
 class LogStore @Inject constructor(
     private val dao: LogDao,
+    private val databaseRecovery: DatabaseRecovery,
 ) {
 
     suspend fun insert(entries: List<LogEntity>, now: Long = System.currentTimeMillis()) {
         if (entries.isEmpty()) return
-        dao.insertAll(entries)
-        prune(now)
+        databaseRecovery.withCorruptionRecovery {
+            dao.insertAll(entries)
+            prune(now)
+        }
     }
 
     /** 最近 [limit] 条，最新在前。 */
-    suspend fun latest(limit: Int = VISIBLE_ENTRY_LIMIT): List<LogEntity> = dao.latest(limit)
+    suspend fun latest(limit: Int = VISIBLE_ENTRY_LIMIT): List<LogEntity> =
+        databaseRecovery.withCorruptionRecovery { dao.latest(limit) } ?: emptyList()
 
-    suspend fun isEmpty(): Boolean = dao.isEmpty()
+    suspend fun isEmpty(): Boolean =
+        databaseRecovery.withCorruptionRecovery { dao.isEmpty() } ?: true
 
-    suspend fun clear() = dao.clear()
+    suspend fun clear() {
+        databaseRecovery.withCorruptionRecovery { dao.clear() }
+    }
 
     // ---- 修剪 ----------------------------------------------------------
 

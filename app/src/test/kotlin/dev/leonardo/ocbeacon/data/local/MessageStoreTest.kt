@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.local
 
+import android.content.Context
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -18,9 +19,12 @@ class MessageStoreTest {
 
     private val dao = mockk<MessageDao>(relaxed = true)
     private val json = Json { ignoreUnknownKeys = true }
+    // 真实恢复组件（mockk Context 即可）：保证 block 参数被执行，
+    // 现有 dao 交互断言依然有效；损坏场景由 DatabaseRecoveryTest 覆盖。
+    private val databaseRecovery = DatabaseRecovery(mockk<Context>(relaxed = true))
     // 声明为接口类型：验证 MessageStore 实现满足 MessageCacheRepository 契约，
     // 且接口默认参数值（persistOldBeyondWindow=false / beforeId=null）生效。
-    private val store: MessageCacheRepository = MessageStore(dao, json)
+    private val store: MessageCacheRepository = MessageStore(dao, json, databaseRecovery)
 
     private fun msg(id: String, created: Long): MessageWithParts = MessageWithParts(
         info = Message.User(

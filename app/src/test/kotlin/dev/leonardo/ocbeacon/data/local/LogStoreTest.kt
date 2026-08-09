@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.local
 
+import android.content.Context
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -11,7 +12,10 @@ import org.junit.Test
 class LogStoreTest {
 
     private val dao = mockk<LogDao>(relaxed = true)
-    private val store = LogStore(dao)
+    // 真实恢复组件（mockk Context 即可）：保证 block 参数被执行，
+    // 现有 dao 交互断言依然有效；损坏场景由 DatabaseRecoveryTest 覆盖。
+    private val databaseRecovery = DatabaseRecovery(mockk<Context>(relaxed = true))
+    private val store = LogStore(dao, databaseRecovery)
 
     // ---- 常量（与旧 DiagnosticLogDatabase 语义等价）----
 

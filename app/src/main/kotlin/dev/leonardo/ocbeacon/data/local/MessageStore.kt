@@ -24,6 +24,7 @@ import javax.inject.Singleton
 class MessageStore @Inject constructor(
     private val dao: MessageDao,
     private val json: Json,
+    private val databaseRecovery: DatabaseRecovery,
 ) : MessageCacheRepository {
 
     override suspend fun upsertMessages(
@@ -33,47 +34,49 @@ class MessageStore @Inject constructor(
     ) = withContext(Dispatchers.IO) {
         if (messages.isEmpty()) return@withContext
         runCatching {
-            val oldestId = dao.oldestMessageId(sessionId)
-            val oldestCreated = oldestId?.let { dao.messageCreatedAt(it) }
-            val toPersist = if (persistOldBeyondWindow || oldestCreated == null) {
-                messages
-            } else {
-                messages.filter { m -> m.info.time.created >= oldestCreated }
-            }
-            if (toPersist.isEmpty()) return@withContext
+            databaseRecovery.withCorruptionRecovery {
+                val oldestId = dao.oldestMessageId(sessionId)
+                val oldestCreated = oldestId?.let { dao.messageCreatedAt(it) }
+                val toPersist = if (persistOldBeyondWindow || oldestCreated == null) {
+                    messages
+                } else {
+                    messages.filter { m -> m.info.time.created >= oldestCreated }
+                }
+                if (toPersist.isEmpty()) return@withCorruptionRecovery
 
-            dao.upsertMessages(
-                toPersist.map { m ->
-                    CachedMessageEntity(
-                        id = m.info.id,
-                        sessionId = sessionId,
-                        created = m.info.time.created,
-                        role = m.info.role,
-                        payload = json.encodeToString(m.info),
-                    )
-                },
-            )
-            dao.upsertParts(
-                toPersist.flatMap { m ->
-                    m.parts.map { p ->
-                        CachedPartEntity(
-                            id = p.id,
-                            messageId = m.info.id,
+                dao.upsertMessages(
+                    toPersist.map { m ->
+                        CachedMessageEntity(
+                            id = m.info.id,
                             sessionId = sessionId,
-                            type = p.typeName(),
-                            text = (p as? Part.Text)?.text,
-                            payload = json.encodeToString(p),
+                            created = m.info.time.created,
+                            role = m.info.role,
+                            payload = json.encodeToString(m.info),
                         )
-                    }
-                },
-            )
-            dao.pruneToLimit(sessionId, SESSION_MESSAGE_LIMIT)
+                    },
+                )
+                dao.upsertParts(
+                    toPersist.flatMap { m ->
+                        m.parts.map { p ->
+                            CachedPartEntity(
+                                id = p.id,
+                                messageId = m.info.id,
+                                sessionId = sessionId,
+                                type = p.typeName(),
+                                text = (p as? Part.Text)?.text,
+                                payload = json.encodeToString(p),
+                            )
+                        }
+                    },
+                )
+                dao.pruneToLimit(sessionId, SESSION_MESSAGE_LIMIT)
+            }
         }.onFailure { e ->
             AppLogger.e(TAG, "MessageStore upsert failed (memory view unaffected)", e)
         }
     }
 
-    /** Room Flow：本地库变化 → 自动发新值。 */
+    /** Room Flow：本地库变化 → 自动发新值。损坏时无法包 suspend 恢复（保持现状，写路径已恢复）。 */
     override fun observeMessages(sessionId: String): Flow<List<MessageWithParts>> =
         dao.observeMessages(sessionId).map { entities ->
             if (entities.isEmpty()) return@map emptyList()
@@ -86,21 +89,29 @@ class MessageStore @Inject constructor(
     /** 游标分页读：beforeId 非空取更早，否则取最新 limit 条。 */
     override suspend fun loadRange(sessionId: String, limit: Int, beforeId: String?): List<MessageWithParts> =
         withContext(Dispatchers.IO) {
-            val entities = dao.messagesForSession(sessionId, limit, beforeId)
-            if (entities.isEmpty()) return@withContext emptyList()
-            val partsByMsg = dao.partsForMessages(entities.map { it.id })
-                .groupBy { it.messageId }
-            entities.map { toMessageWithParts(it, partsByMsg[it.id] ?: emptyList()) }
+            databaseRecovery.withCorruptionRecovery {
+                val entities = dao.messagesForSession(sessionId, limit, beforeId)
+                if (entities.isEmpty()) return@withCorruptionRecovery emptyList()
+                val partsByMsg = dao.partsForMessages(entities.map { it.id })
+                    .groupBy { it.messageId }
+                entities.map { toMessageWithParts(it, partsByMsg[it.id] ?: emptyList()) }
+            } ?: emptyList()
         }
 
     override suspend fun oldestMessageId(sessionId: String): String? =
-        withContext(Dispatchers.IO) { dao.oldestMessageId(sessionId) }
+        withContext(Dispatchers.IO) {
+            databaseRecovery.withCorruptionRecovery { dao.oldestMessageId(sessionId) }
+        }
 
     override suspend fun messageCreatedAt(messageId: String): Long? =
-        withContext(Dispatchers.IO) { dao.messageCreatedAt(messageId) }
+        withContext(Dispatchers.IO) {
+            databaseRecovery.withCorruptionRecovery { dao.messageCreatedAt(messageId) }
+        }
 
-    override suspend fun clearSession(sessionId: String) = withContext(Dispatchers.IO) {
-        dao.clearSession(sessionId)
+    override suspend fun clearSession(sessionId: String) {
+        withContext(Dispatchers.IO) {
+            databaseRecovery.withCorruptionRecovery { dao.clearSession(sessionId) }
+        }
     }
 
     // ---- 映射 ----------------------------------------------------
