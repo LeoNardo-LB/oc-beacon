@@ -495,9 +495,11 @@ efactor
   - 证据：docs/research/audit-2026-08-10/RG-regression.md
   - 修复：评估提高上限（512KB/1MB）或改分片读取（按事件边界重组）；需验证内存影响
 
-- [ ] **#64 超长消息会话手动滚动失效（fling/swipe/PAGE_UP 全无效）** `ui` `performance`
-  - 问题：2026-08-10 第二批回归（R2）发现（预有问题，非 #43 回归）——进入"最后一条消息为超长内容（代码块+flowchart）"的会话后，fling/swipe/PAGE_UP 滚动全失效（截图哈希相同），短消息会话滚动正常；会话列表滚动正常。符合 Compose LazyColumn 超长 item 边界特性，疑似超长 item 测量/缓存问题
-  - 证据：docs/research/audit-2026-08-10/R2-regression.md + metrics/R2-10a/b、R2-12a/b（哈希相同）、对照 R2-11a/b、R2-16a/b
-  - 修复：待排查——超长 item 分段渲染/测量缓存/滚动委托；优先复现后定位根因（另：该问题阻碍 #41 分页的模拟器实测）
-  - 工时：未知 | 难度：未知 | 涉及：ChatMessageList.kt / Markdown 渲染
-  - 工时：~1h | 难度：低 | 涉及：SseClient.kt
+- [x] **#64 超长消息会话手动滚动失效（fling/swipe/PAGE_UP 全无效）** `ui` `performance`
+  - 问题：2026-08-10 第二批回归（R2）发现——进入"最后一条消息为超长内容（代码块+flowchart）"的会话后，fling/swipe/PAGE_UP 滚动疑似全失效（截图哈希相同）
+  - 证据：docs/research/audit-2026-08-10/R2-regression.md + metrics/R2-10a/b、R2-12a/b
+  - **2026-08-10 关闭：误判（非 bug）**。系统性二分排查（D64-bisect：CURRENT/NO42/NO43 三 APK）+ 决定性对照（D64-conclusive：4c416fb1 完整旧版）证明：
+    - 根因 = 测试方法学缺陷——进入会话 auto-scroll 到底后，在**底部边界**测"上滑看更下方"（无内容可滚）→ bounds 零变化被误读为滚动失效
+    - CURRENT（含 #40-#43 全部改动）**双向滚动完全正常**：下滑 10 个历史节点滚入、上滑回底部正常，与旧版行为一致 → #41/#42/#43 全部排除
+    - 教训已写入 docs/regression-guide.md §3.8：滚动类验证必须**双向测试 + 避开边界**；logcat 抓取须按 PID/tag 过滤（D64 首次 logcat 全为 input 噪音属无效采集）
+  - 证据（排查）：docs/research/audit-2026-08-10/D64-investigation.md、D64-bisect.md、D64-conclusive.md + metrics/D64-*

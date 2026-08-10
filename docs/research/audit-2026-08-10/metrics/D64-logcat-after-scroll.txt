@@ -1,0 +1,93 @@
+08-10 09:52:20.360 W/app_process(17018): type=1400 audit(0.0:4494): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:20.360 W/app_process(17018): type=1400 audit(0.0:4495): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:20.360 W/app_process(17018): type=1400 audit(0.0:4496): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:20.369 D/AndroidRuntime(17018): >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+08-10 09:52:20.370 E/libc    (17018): Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+08-10 09:52:20.370 I/AndroidRuntime(17018): Using default boot image
+08-10 09:52:20.371 E/libc    (17018): Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+08-10 09:52:20.371 I/AndroidRuntime(17018): Leaving lock profiling enabled
+08-10 09:52:20.371 E/libc    (17018): Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+08-10 09:52:20.401 D/ICU     (17018): Time zone APEX file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+08-10 09:52:20.404 W/app_process(17018): Unexpected CPU variant for X86 using defaults: x86
+08-10 09:52:20.405 I/app_process(17018): The ClassLoaderContext is a special shared library.
+08-10 09:52:20.415 W/app_process(17018): JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+08-10 09:52:20.416 D/AndroidRuntime(17018): Calling main entry com.android.commands.input.Input
+08-10 09:52:20.528 D/AndroidRuntime(17018): Shutting down VM
+08-10 09:52:21.060 W/app_process(17035): type=1400 audit(0.0:4497): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:21.060 W/app_process(17035): type=1400 audit(0.0:4498): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:21.060 W/app_process(17035): type=1400 audit(0.0:4499): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:21.066 D/AndroidRuntime(17035): >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+08-10 09:52:21.066 E/libc    (17035): Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+08-10 09:52:21.066 I/AndroidRuntime(17035): Using default boot image
+08-10 09:52:21.067 E/libc    (17035): Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+08-10 09:52:21.067 I/AndroidRuntime(17035): Leaving lock profiling enabled
+08-10 09:52:21.067 E/libc    (17035): Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+08-10 09:52:21.068 W/app_process(17035): Could not reserve sentinel fault page
+08-10 09:52:21.088 D/ICU     (17035): Time zone APEX file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+08-10 09:52:21.090 W/app_process(17035): Unexpected CPU variant for X86 using defaults: x86
+08-10 09:52:21.098 I/app_process(17035): The ClassLoaderContext is a special shared library.
+08-10 09:52:21.112 W/app_process(17035): JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+08-10 09:52:21.118 D/AndroidRuntime(17035): Calling main entry com.android.commands.input.Input
+08-10 09:52:21.220 D/AndroidRuntime(17035): Shutting down VM
+08-10 09:52:21.680 W/app_process(17049): type=1400 audit(0.0:4500): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:21.680 W/app_process(17049): type=1400 audit(0.0:4501): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:21.680 W/app_process(17049): type=1400 audit(0.0:4502): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:21.684 D/AndroidRuntime(17049): >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+08-10 09:52:21.685 E/libc    (17049): Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+08-10 09:52:21.685 I/AndroidRuntime(17049): Using default boot image
+08-10 09:52:21.685 E/libc    (17049): Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+08-10 09:52:21.685 I/AndroidRuntime(17049): Leaving lock profiling enabled
+08-10 09:52:21.686 E/libc    (17049): Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+08-10 09:52:21.686 W/app_process(17049): Could not reserve sentinel fault page
+08-10 09:52:21.709 D/ICU     (17049): Time zone APEX file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+08-10 09:52:21.711 W/app_process(17049): Unexpected CPU variant for X86 using defaults: x86
+08-10 09:52:21.712 I/app_process(17049): The ClassLoaderContext is a special shared library.
+08-10 09:52:21.723 W/app_process(17049): JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+08-10 09:52:21.724 D/AndroidRuntime(17049): Calling main entry com.android.commands.input.Input
+08-10 09:52:21.827 D/AndroidRuntime(17049): Shutting down VM
+08-10 09:52:22.300 W/app_process(17063): type=1400 audit(0.0:4503): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:22.300 W/app_process(17063): type=1400 audit(0.0:4504): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:22.300 W/app_process(17063): type=1400 audit(0.0:4505): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:22.310 D/AndroidRuntime(17063): >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+08-10 09:52:22.311 E/libc    (17063): Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+08-10 09:52:22.311 I/AndroidRuntime(17063): Using default boot image
+08-10 09:52:22.311 E/libc    (17063): Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+08-10 09:52:22.311 I/AndroidRuntime(17063): Leaving lock profiling enabled
+08-10 09:52:22.311 E/libc    (17063): Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+08-10 09:52:22.341 D/ICU     (17063): Time zone APEX file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+08-10 09:52:22.345 W/app_process(17063): Unexpected CPU variant for X86 using defaults: x86
+08-10 09:52:22.347 I/app_process(17063): The ClassLoaderContext is a special shared library.
+08-10 09:52:22.360 W/app_process(17063): JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+08-10 09:52:22.361 D/AndroidRuntime(17063): Calling main entry com.android.commands.input.Input
+08-10 09:52:22.888 D/AndroidRuntime(17063): Shutting down VM
+08-10 09:52:23.540 W/app_process(17077): type=1400 audit(0.0:4506): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:23.540 W/app_process(17077): type=1400 audit(0.0:4507): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:23.540 W/app_process(17077): type=1400 audit(0.0:4508): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:23.548 D/AndroidRuntime(17077): >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+08-10 09:52:23.551 E/libc    (17077): Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+08-10 09:52:23.551 I/AndroidRuntime(17077): Using default boot image
+08-10 09:52:23.551 E/libc    (17077): Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+08-10 09:52:23.551 I/AndroidRuntime(17077): Leaving lock profiling enabled
+08-10 09:52:23.551 E/libc    (17077): Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+08-10 09:52:23.575 D/ICU     (17077): Time zone APEX file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+08-10 09:52:23.577 W/app_process(17077): Unexpected CPU variant for X86 using defaults: x86
+08-10 09:52:23.582 I/app_process(17077): The ClassLoaderContext is a special shared library.
+08-10 09:52:23.591 W/app_process(17077): JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+08-10 09:52:23.592 D/AndroidRuntime(17077): Calling main entry com.android.commands.input.Input
+08-10 09:52:24.100 D/AndroidRuntime(17077): Shutting down VM
+08-10 09:52:24.770 W/app_process(17091): type=1400 audit(0.0:4509): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:24.770 W/app_process(17091): type=1400 audit(0.0:4510): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:24.770 W/app_process(17091): type=1400 audit(0.0:4511): avc: denied { read } for name="u:object_r:device_config_runtime_native_boot_prop:s0" dev="tmpfs" ino=7270 scontext=u:r:shell:s0 tcontext=u:object_r:device_config_runtime_native_boot_prop:s0 tclass=file permissive=0
+08-10 09:52:24.780 D/AndroidRuntime(17091): >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+08-10 09:52:24.782 E/libc    (17091): Access denied finding property "persist.device_config.runtime_native_boot.enable_apex_image"
+08-10 09:52:24.782 I/AndroidRuntime(17091): Using default boot image
+08-10 09:52:24.782 E/libc    (17091): Access denied finding property "persist.device_config.runtime_native_boot.disable_lock_profiling"
+08-10 09:52:24.782 I/AndroidRuntime(17091): Leaving lock profiling enabled
+08-10 09:52:24.782 E/libc    (17091): Access denied finding property "persist.device_config.runtime_native_boot.enable_generational_cc"
+08-10 09:52:24.783 W/app_process(17091): Could not reserve sentinel fault page
+08-10 09:52:24.805 D/ICU     (17091): Time zone APEX file found: /apex/com.android.tzdata/etc/icu/icu_tzdata.dat
+08-10 09:52:24.808 W/app_process(17091): Unexpected CPU variant for X86 using defaults: x86
+08-10 09:52:24.809 I/app_process(17091): The ClassLoaderContext is a special shared library.
+08-10 09:52:24.818 W/app_process(17091): JNI RegisterNativeMethods: attempt to register 0 native methods for android.media.AudioAttributes
+08-10 09:52:24.819 D/AndroidRuntime(17091): Calling main entry com.android.commands.input.Input
+08-10 09:52:25.329 D/AndroidRuntime(17091): Shutting down VM

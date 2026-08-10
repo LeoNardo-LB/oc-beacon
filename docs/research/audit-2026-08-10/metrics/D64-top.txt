@@ -1,0 +1,25 @@
+[s[999C[999B[6n[u[H[J[?25l[H[J[s[999C[999B[6n[uTasks: 185 total,   2 running, 175 sleeping,   0 stopped,   8 zombie
+  Mem:      1.9G total,      1.7G used,      171M free,       79M buffers
+ Swap:      1.4G total,      211M used,      1.2G free,      773M cached
+400%cpu   0%user   0%nice  12%sys 388%idle   0%iow   0%irq   0%sirq   0%host
+[7m%CPU  %MEM[CMDLINE]                                                             [0m
+ 0.0   4.9 zygote
+ 0.0   3.7 webview_zygote
+[1m 3.8   0.1 top -n 3 -o %CPU,%MEM,CMDLINE[m
+ 3.8  11.6 system_server
+ 0.0   0.3 media.swcodec oid.media.swcodec/bin/mediaswcodec
+ 0.0   0.4 media.metrics diametrics
+ 0.0   0.6 media.extractor aextractor
+ 0.0   0.4 media.codec hw/android.hardware.media.omx@1.0-service
+ 3.8  15.0 dev.leonardo.ocbeacon.dev
+ 0.0   0.0 createns router
+ 0.0   4.0 com.google.process.gservices
+ 0.0   4.3 com.google.process.gapps
+ 0.0   3.8 com.google.android.webview:webview_service
+ 0.0   4.1 com.google.android.permissioncontroller
+ 0.0   4.5 com.google.android.networkstack
+ 0.0   6.7 com.google.android.inputmethod.latin
+ 0.0   4.9 com.google.android.ims
+ 0.0   8.9 com.google.android.googlequicksearchbox:search
+ 0.0   4.6 com.google.android.googlequicksearchbox:interactor
+ 0.0   6.7 com.google.android.gms.unstable[?25h[0m[1000;1H[K[?25h[?25h[0m[1000;1H[K
