@@ -59,7 +59,8 @@ class SseClientV2 @Inject constructor(
         dev.leonardo.ocbeacon.data.api.sse.parsers.PermissionEventParser(),
         dev.leonardo.ocbeacon.data.api.sse.parsers.QuestionEventParser(),
         dev.leonardo.ocbeacon.data.api.sse.parsers.PtyEventParser(),
-        dev.leonardo.ocbeacon.data.api.sse.parsers.SessionNextEventParser(json)
+        dev.leonardo.ocbeacon.data.api.sse.parsers.SessionNextEventParser(json),
+        V2EventParser(json)
     )
 
     /**
@@ -96,13 +97,13 @@ class SseClientV2 @Inject constructor(
             }
 
             val channel = response.bodyAsChannel()
-            var lastHeartbeat = System.currentTimeMillis()
+            var lastActivity = System.currentTimeMillis()
             var eventCount = 0
 
             AppLogger.i(TAG, "V2 SSE stream opened, reading events...")
 
             while (!channel.isClosedForRead) {
-                if (System.currentTimeMillis() - lastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
+                if (System.currentTimeMillis() - lastActivity > HEARTBEAT_TIMEOUT_MS) {
                     AppLogger.w(TAG, "V2 SSE heartbeat timeout after $eventCount events")
                     break
                 }
@@ -113,11 +114,13 @@ class SseClientV2 @Inject constructor(
 
                 try {
                     val event = parseV2Event(frame)
+                    // 任何事件到达都重置心跳计时器——数据流本身即连接存活的证据。
+                    // V2 服务器在活跃流式传输期间不发送 server.heartbeat，
+                    // 若只在收到 heartbeat 时重置，活跃会话每 40s 就会假超时断连。
+                    lastActivity = System.currentTimeMillis()
+                    eventCount++
                     if (event != null) {
-                        eventCount++
-                        if (event is SseEvent.ServerHeartbeat) {
-                            lastHeartbeat = System.currentTimeMillis()
-                        } else {
+                        if (event !is SseEvent.ServerHeartbeat) {
                             emit(event)
                         }
                     }
