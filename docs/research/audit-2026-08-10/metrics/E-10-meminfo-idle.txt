@@ -1,0 +1,57 @@
+﻿Applications Memory Usage (in Kilobytes):
+Uptime: 149895145 Realtime: 149895145
+
+** MEMINFO in pid 15833 [dev.leonardo.ocbeacon.dev] **
+                   Pss  Private  Private  SwapPss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------
+  Native Heap    37054    37028        0       27    54560    49810     4749
+  Dalvik Heap    33121    33088        0       21    31512    25368     6144
+ Dalvik Other     7236     7236        0        0                           
+        Stack      204      204        0        0                           
+       Ashmem      141      136        0        0                           
+    Other dev       20        0       20        0                           
+     .so mmap     3416      196      712        4                           
+    .jar mmap     2940        0      576        0                           
+    .apk mmap    26996      132    21232        0                           
+    .ttf mmap      811        0      668        0                           
+    .dex mmap    84457    83628      132        0                           
+    .oat mmap      125        0        0        0                           
+    .art mmap     6345     6180       16        6                           
+   Other mmap    14161     3016     2104        0                           
+      Unknown     2128     2124        0        0                           
+        TOTAL   219213   172968    25460       58    86072    75178    10893
+ 
+ App Summary
+                       Pss(KB)
+                        ------
+           Java Heap:    39284
+         Native Heap:    37028
+                Code:   107276
+               Stack:      204
+            Graphics:        0
+       Private Other:    14636
+              System:    20785
+ 
+               TOTAL:   219213       TOTAL SWAP PSS:       58
+ 
+ Objects
+               Views:       11         ViewRootImpl:        1
+         AppContexts:        6           Activities:        1
+              Assets:       12        AssetManagers:        0
+       Local Binders:       33        Proxy Binders:       38
+       Parcel memory:       20         Parcel count:       82
+    Death Recipients:        0      OpenSSL Sockets:        0
+            WebViews:        0
+ 
+ SQL
+         MEMORY_USED:     3133
+  PAGECACHE_OVERFLOW:     2548          MALLOC_SIZE:      273
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b)          cache  Dbname
+         4    10472             91 132053/107795/10  /data/user/0/dev.leonardo.ocbeacon.dev/databases/ocbeacon.db
+         4        8                         0/0/0    (attached) temp
+         4    10472             38   32479/8493/3  /data/user/0/dev.leonardo.ocbeacon.dev/databases/ocbeacon.db (3)
+         4    10472             65   49731/4399/5  /data/user/0/dev.leonardo.ocbeacon.dev/databases/ocbeacon.db (2)
+         4    10472            109    59602/37/12  /data/user/0/dev.leonardo.ocbeacon.dev/databases/ocbeacon.db (1)

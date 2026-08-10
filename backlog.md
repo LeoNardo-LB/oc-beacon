@@ -81,6 +81,15 @@
   - 工时：~2-3d | 难度：高 | 涉及：ServerRouteParams / NavGraph（25+ 处）/ Chat·SessionList·Workspace·WebView·ServerSettings ViewModel
   - **2026-08-07 完成**：路由层+消费层+入口源头全部 serverId-only（commit 681bf0fb / 2326e8b5）；编译 ✅ 全量单测 ✅（52s）凭据 grep 0 引用 ✅；模拟器验收通过（9/9 步：会话/聊天/SSE/终端/通知深链/WebView Basic Auth 全正常，logcat 0 异常，凭据零泄露）；遗留 runBlocking 债务已登记 architecture-debt §6
 
+### 2026-08-10 系统审计批次（F 报告 P0）
+来源：docs/research/audit-2026-08-10/F-FINAL-AUDIT-REPORT.md（5 路交叉验证：A 渲染 + B 数据 + C 状态 + D 历史 + E 实测）
+
+- [ ] **#36 DatabaseRecovery catch 范围过宽 → 非损坏异常误删全库** `data` `security`
+  - 问题：`DatabaseRecovery.kt:29-38` 捕获 `SQLiteException` 基类——`SQLiteDatabaseLockedException`（锁竞争）/`SQLiteConstraintException`（约束冲突）/`SQLiteFullException`（磁盘满）等非损坏异常都会触发 `deleteDatabase()`，缓存消息 + 归档 + 诊断日志全部清零。MessageStore 7 处调用点全包（:47, 226, 237, 242, 247, 269, 296）。唯一应触发删库的是 `SQLiteDatabaseCorruptException`
+  - 修复：收窄 catch 到 `SQLiteDatabaseCorruptException`；或用 `Room.databaseBuilder().fallbackToDestructiveMigration()` 声明式；或返回 `Result<T>` 区分"损坏"（删）与"临时错误"（重试）
+  - 工时：~2h | 难度：低 | 涉及：DatabaseRecovery.kt + DatabaseRecoveryTest
+  - 来源：F §P0-1 + B §P0-1 + D TD-5（2 路确认）
+
 ---
 
 ## P1 — 核心功能需求
@@ -175,6 +184,51 @@
   - **2026-08-09 遗留处理完成（代码，待人工验证）**：#31 本地库损坏自愈（DatabaseRecovery：SQLiteException → 删库重建，6fdff190）；#29 androidTest 编译修复（3 Fake 补 7 接口方法，1ae44d57，androidTest 编译恢复）；网络失败回退本地缓存（有缓存不显示空，b843f265）；P4 清理（测试名/owner 日志/MessageRefresher 命名，f770e60d）；编译 ✅ 全量单测 ✅（1313+ tests PASS）；**一期代码全部完成，待 14 项人工验证**（见下）
   - **2026-08-09 模拟器走查（10 项）**：V1 Diagnostics ✅ / V2 秒开+种子化 ✅（[seed] 有/无缓存双分支命中）/ V3 断网浏览 ⚠️ 部分（断网冷启动受服务器连接入口限制，架构使然；已连接→断网→会话内浏览待真机）/ V4 重启保留 ✅ / V5 真游标翻页 ✅（logcat 实证 before=base64 游标前进）/ V6 红点标签收藏 ✅ / V7 草稿恢复 ❌ **发现 bug 已登记 #33**（saveDraft 仅 onCleared，force-stop 丢失）/ V8 磁盘占用 ✅（ocbeacon.db 1.5MB 合理）/ V9 SSE 流式 ✅（PONG 实测 + MessagePartUpdated 84 事件）/ V10 回归 ✅（无崩溃）
   - **2026-08-09 补充验证（3 项）**：①双服务器去重 ✅ 架构层面保证（同 URL 第二连接被 app 阻止，无双投递可能；"Thought"标记仅 1 次实证；衍生 #34 连接 UX/#35 ANR）；②日志修剪 ✅ db 实证（注入 60 FATAL 22 天 + 30 INFO 3 天 + 30 ERROR 22 天 → 启动即全部清除，时间规则 + FATAL 限量 + 字节预算按源码预期）；③**限量裁剪 ✅ 第三轮实证**：注入 1100 条 → 发送真实消息触发 upsert → `[prune] removed 101 oldest msgs (limit=1000)` → db 1100→1000 数学吻合（关键发现：仅进入会话不触发裁剪——prune 只在真实新消息写入时执行，设计如此）；**一期 14 项验证：13 项通过/部分，仅 #33 草稿缺陷待修**
+
+### 2026-08-10 系统审计批次（F 报告 P1）
+来源：docs/research/audit-2026-08-10/F-FINAL-AUDIT-REPORT.md §3.2
+
+- [ ] **#37 combine 索引错位 args[8]→args[9]，工具进度 UI 永久失效** `ui` `sse`
+  - 问题：`MessageDataDelegate.kt:172` 错把 `args[8]`（statuses Map）当作 `args[9]`（progressList）→ `progressList` 永远 null → `progressOutputs = emptyMap()` → 工具进度 output 注入永久失效，用户看不到工具执行中的实时 output。combine 第 8 参是 statusFlow、第 9 参是 getActiveToolProgressForSession(sid)
+  - 修复：line 172 `args[8]` → `args[9]`（改一个字符）；或用类型安全 combine 变体 / data class 包装根治
+  - 工时：~10min | 难度：低 | 涉及：MessageDataDelegate.kt:172
+  - 来源：F §P1-7 / C S3
+
+- [ ] **#38 ChatViewModel.init / SessionListViewModel 构造期 runBlocking 主线程阻塞** `ui` `refactor`
+  - 问题：ViewModel 构造在 Hilt 主线程执行，两处 runBlocking 同步阻塞：① `ChatViewModel.kt:93-96` `runBlocking(IO) { serverRepository.getServer(serverId) }`；② `ChatViewModel.kt:368-373` `draftDelegate.restorePersistedDraft()` → `DraftDataStore.ensureLoaded` → `runBlocking { dataStore.data.first() }`（DraftDataStore.kt:34-50）；`SessionListViewModel.kt:97-99` 同样问题。低端设备/磁盘忙时成 ANR（实测 99th 300ms × 3 帧，首帧贡献源之一）。0eaac6dc 仅修了 onCleared 路径，init 路径完整保留
+  - 修复：serverConfig 改 StateFlow<ServerConfig?> + TerminalDelegate 派生 flow；DraftRepository 接口改 suspend fun getDraft 或 Flow<Draft>；DraftDataStore 内部 runBlocking 改 withContext(IO)
+  - 工时：~1-2d | 难度：高 | 涉及：ChatViewModel / SessionListViewModel / DraftDataStore / DraftInputDelegate / DraftRepository 接口
+  - 来源：F §P1-5 / C S1,S5 + D §2.3
+
+- [ ] **#39 日志风暴残留（ChatMessageList 诊断埋点无 DEBUG 门控）** `ui` `performance`
+  - 问题：b07b7ccc 清理了 MessageDataDelegate 日志风暴，但 ChatMessageList 内诊断埋点遗漏——① `ChatMessageList.kt:251-267` JUMP 检测 `LaunchedEffect(Unit)` snapshotFlow 持续 collect 每帧（注释明示"诊断埋点...验证后"）；② `ChatMessageList.kt:555-557` 每 item 组合日志 `AppLogger.d` 无 BuildConfig.DEBUG 门控。直接贡献 Slow UI thread（实测 48/160 = 30%）
+  - 修复：删除诊断埋点（诊断任务已完成，注释明示）；与 b07b7ccc 一致策略
+  - 工时：~30min | 难度：低 | 涉及：ChatMessageList.kt:251-267, 555-557
+  - 来源：F §P1-2 / A 环节 F + D 模式 B
+
+- [ ] **#40 StateFlow.update CAS lambda 内副作用日志（UnreadDiag/PartUpdated）** `refactor` `performance`
+  - 问题：高频 SSE 场景下 `update{}` CAS 重试导致日志被多次持久化到 Room（INFO 级即使 DEBUG 关也持久化）+ 违反纯函数约定：① `MessageEventHandler.kt:567-582`（line 575）`AppLogger.i("UnreadDiag", "[markIdle]...")` 在 `_messages.update {}` 内（实测 1.6 条/s）；② `MessageEventHandler.kt:238-272`（line 250-258）`AppLogger.w("[PartUpdated]...")` 在 `_parts.update {}` 内（实测 11 条/s 活跃，CAS 重试可能 2x）。b07b7ccc 遗漏残留
+  - 修复：日志移到 `.update` 外（先 update 拿结果再 log）；或彻底删除诊断日志；对所有 `_*.update {}` lambda 做 lint 禁止副作用
+  - 工时：~1h | 难度：低 | 涉及：MessageEventHandler.kt:238-272, 419-428, 463-472, 567-582
+  - 来源：F §P1-6 / C S2 + D 模式 B + E 实测（5 路最高置信度）
+
+- [ ] **#41 loadOlderMessages 缺乏并发保护 → 竞态重复加载** `data` `session`
+  - 问题：翻页时多个并发 launch 可能用相同 archiveCursorCreated 拉相同消息。`MessagePaginationDelegate.kt:194-260` line 197 `_isLoadingOlder.value=true` 在 scope.launch 内无入口 guard；触发链 `ChatMessageList.kt:361-385` snapshotFlow collect 无去抖。`_isLoadingOlder` 仅作 UI 状态指示未作互斥锁
+  - 修复：入口 guard `if (_isLoadingOlder.value) return`；或 MutableStateFlow.update CAS pattern；或 actor/Semaphore(1) 串行化
+  - 工时：~1h | 难度：中 | 涉及：MessagePaginationDelegate.kt:194-260
+  - 来源：F §P1-3 / B P1-1
+
+- [ ] **#42 upsert 写入路径 O(n log n) 排序残留** `performance` `refactor`
+  - 问题：b07b7ccc 移除了 combine 内排序，但写入路径 sortBy/distinctBy+sortedBy 仍在：`MessageEventHandler.kt:151`(handleMessageUpdated)、`408`(upsertSsePriority)、`453`(upsertRestAuthority)、`508`(upsertAppendOnly)。1000-2000 条会话每次变更 ~10000-40000 次比较；batchScope 后台线程但高频累积 CPU
+  - 修复：existing 已有序时改 merge（O(n)）替代 sortedBy（O(n log n)）；或用 TreeMap/有序数据结构维护
+  - 工时：~0.5d | 难度：中 | 涉及：MessageEventHandler.kt:151, 408, 453, 508
+  - 来源：F §P1-4 / B P1-2 + D TD-9 + A §3 表（3 路确认）
+
+- [ ] **#43 反射依赖 Compose internal 字段 → 升级必崩** `crash` `refactor`
+  - 问题：高度补偿通过反射访问 LazyListState private 字段（scrollPosition、requestPositionAndForgetLastKnownKey、measurementScopeInvalidator）——`ScrollCompensation.kt:22-46`；调用点 `ChatMessageList.kt:318, 448, 539`（3 处）。Compose 版本升级会运行时崩溃（NoSuchFieldError/NoSuchMethodError），无编译期保护。根因：官方 requestScrollToItem 会通过 scroll{} 互斥锁杀死 fling，无"设置位置但不取消 fling"公开 API → 反射 hack 补丁
+  - 修复（短期）：try-catch 包裹 + NoSuchFieldError 时降级 requestScrollToItem；Compose 升级前手动测试反射字段名。长期：向 Compose 提 feature request
+  - 工时：~0.5d | 难度：中 | 涉及：ScrollCompensation.kt:22-46 + ChatMessageList.kt 3 处调用
+  - 来源：F §P1-1 / A 环节 E（补丁判定）
 
 ---
 
@@ -314,3 +368,114 @@ efactor
   - 日志：ChatPaging（auto-load triggered/backoff wait）+ loadOlder START/END/NETWORK/ARCHIVE/退避/暂停/恢复全链路
   - 验证：模拟器实证——停在顶部 8s 自动续载、游标 fe0c5862→fe0b9e6e→fe0b4438 前进、读尽 hasOlder=false 自动停止 ✅；全量单测 1350 PASS ✅（新增 5 回归测试：游标前进/网络游标跳过归档/退避/暂停/恢复）；i18n PASS ✅
   - ⚠️ **待真机复测**：上滑到顶停住 → 自动加载更早直到读尽，不重复加载、不风暴
+
+### 2026-08-10 系统审计批次（F 报告 P2 + 补丁债 + 模式）
+来源：docs/research/audit-2026-08-10/F-FINAL-AUDIT-REPORT.md §3.3 + §6.2 补丁债根因修复 + §6.3 模式发现
+
+- [ ] **#44 sseJob + messageListState 双订阅同源（2x combine 重组）** `performance` `refactor`
+  - 问题：每个 SSE 事件触发两个独立 combine 同时重组，CPU 翻倍。`MessageDataDelegate.kt:142-143`（messageListState）vs `319-333`（sseJob）观察相同 getMessagesFlow + getParts；1896 条消息场景每 48ms 2x O(n) 扫描
+  - 修复：让 messageListState 同时暴露 rawMessages 字段，消除 sseJob 独立 combine
+  - 工时：~0.5d | 难度：中 | 涉及：MessageDataDelegate.kt:142-143, 319-333
+  - 来源：F §P2-1 / C S4 + A 间接 + E janky 贡献（3 路确认）
+
+- [ ] **#45 AppLogger 字符串拼接未门控** `refactor` `performance`
+  - 问题：高频路径调用方未加 `if (BuildConfig.DEBUG)` 门控，字符串模板在传参前已拼接，即使 shouldPersist 返回 false 也已付出成本。`AppLogger.kt:154-175`；EventDispatcher:249、MessageEventHandler:575/255 无门控（对比 :157 有门控）
+  - 修复：高频路径调用方强制 BuildConfig.DEBUG 门控；或 AppLogger 内部 lazy 拼接
+  - 工时：~1h | 难度：低 | 涉及：AppLogger.kt + EventDispatcher/MessageEventHandler 调用点
+  - 来源：F §P2-2 / C S8 + A 环节 F + D 模式 B（3 路确认）
+
+- [ ] **#46 combine 上游无 distinctUntilChanged 兜底** `refactor`
+  - 问题：派生 flow 无 distinctUntilChanged 兜底，每次上游 emission（即使内容相同）触发 combine 重组。`ChatRepositoryImpl.kt:92-98, 461-462`
+  - 修复：派生 flow 加 distinctUntilChanged
+  - 工时：~30min | 难度：低 | 涉及：ChatRepositoryImpl.kt:92-98, 461-462
+  - 来源：F §P2-3 / C S9
+
+- [ ] **#47 100ms ticker 叠加 48ms flush（流式 footer 重组 ~30 次/s）** `ui` `performance`
+  - 问题：流式消息 footer 重组约 30 次/s（48ms flush ~20 + ticker ~10）。`MessageCardAssistant.kt:155-163`
+  - 修复：移除 ticker 或与 flush 对齐单一更新源
+  - 工时：~1h | 难度：中 | 涉及：MessageCardAssistant.kt:155-163
+  - 来源：F §P2-4 / A 环节 G
+
+- [ ] **#48 长会话无消息窗口裁剪（GC 压力 + combine 开销）** `performance` `data`
+  - 问题：LazyColumn 回收视图但数据层全量驻留；长会话（>2000 条）GC 压力 + combine 开销。`MessageDataDelegate.kt:179-189`；全库无窗口化
+  - 修复：数据层窗口化（保留可视区 + 缓冲区，远端裁剪）
+  - 工时：~1-2d | 难度：高 | 涉及：MessageDataDelegate.kt + 翻页管线
+  - 来源：F §P2-5 / A 环节 H
+
+- [ ] **#49 loadArchivedRange N+1 查询 + 写模式** `data` `performance`
+  - 问题：每桶 1 查询 + 1 写；桶被字节上限切小时多次循环。`MessageStore.kt:264-292`
+  - 修复：批量查询 + 批量写入
+  - 工时：~0.5d | 难度：中 | 涉及：MessageStore.kt:264-292
+  - 来源：F §P2-6 / B P2-1
+
+- [ ] **#50 loadArchivedRange 解压整桶浪费** `data` `performance`
+  - 问题：解压整个桶（最多 200 条/512KB + 桶内排序），只需 30 条。`MessageStore.kt:302-307`
+  - 修复：桶内索引或分页解压；或减小桶粒度
+  - 工时：~0.5d | 难度：中 | 涉及：MessageStore.kt:302-307
+  - 来源：F §P2-7 / B P2-2
+
+- [ ] **#51 messagesForSession 的 OR 子句可能放弃复合索引** `data` `performance`
+  - 问题：`(:beforeId IS NULL OR id < :beforeId)` 可能放弃复合索引；ORDER BY 与索引不完全匹配。`MessageDao.kt:19-24`；热表限 1000 条缓解
+  - 修复：拆分为两条查询（有/无 beforeId），或调整索引覆盖
+  - 工时：~2h | 难度：中 | 涉及：MessageDao.kt:19-24
+  - 来源：F §P2-8 / B P2-3
+
+- [ ] **#52 SSE 双写高频落盘** `data` `performance`
+  - 问题：每 48ms flush → upsertMessages 3 查询 + 写 + 可能归档；活跃流式 ~20 次/s 落盘。`MessageEventHandler.kt:86-129, 194-204`；WAL 缓解
+  - 修复：合并写入 / 降低 flush 频率 / 批量 upsert
+  - 工时：~0.5d | 难度：中 | 涉及：MessageEventHandler.kt:86-129, 194-204
+  - 来源：F §P2-9 / B P2-4
+
+- [ ] **#53 过渡动画 400ms 反模式（补丁债，故意延迟加载态）** `ui` `refactor`
+  - 问题：**当前实现是补丁**。`ChatScreen.kt:255-256, 433-447, 675-683`（MIN_LOADING_VISIBLE_MS=400）故意延迟显示加载态（反模式，欺骗用户感知）；魔法常量 400 无 A/B 依据。ec875ff7 引入（"新增 C"修复过渡动画丢失）
+  - 根因修复（D TD-2）：移除常量；会话路由加 enterTransition/exitTransition；loading 指示器回归"仅在真正加载时显示"
+  - 工时：~0.5d | 难度：中 | 涉及：ChatScreen.kt + 导航路由
+  - 来源：F §P2-10 + D §2.2/TD-2
+
+- [ ] **#54 草稿持久化补丁链（补丁债，防抖窗口内杀进程仍丢）** `data` `session`
+  - 问题：**当前实现是补丁链**（0eaac6dc → e3ffeae7 双补丁）。`DraftInputDelegate.kt:127-145` 每次 updateDraftText launch+cancel job（高频输入大量 Job 创建销毁）；500ms 防抖窗口内 force-stop 杀进程仍丢；onCleared 用 viewModelScope（页面销毁时 scope 取消可能不执行）
+  - 根因修复（D TD-3）：DraftRepository 暴露 `draftFlow: Flow<Draft>`，UI collectAsState + onValueChange 写 DataStore（原子合并写）；移除防抖 job；onCleared 用独立 scope（NonCancellable）
+  - 工时：~0.5d | 难度：中 | 涉及：DraftRepository / DraftDataStore / DraftInputDelegate
+  - 来源：F §P2-11 + D §2.3/TD-3 + C S6
+
+- [ ] **#55 L3 校验 limit=50 魔法常量（补丁债，长时间离线仍漏消息）** `data` `session`
+  - 问题：**当前实现是补丁**。`SessionStateService.kt:34, 276-282`（REST_REFRESH_LIMIT=50）魔法常量无 A/B 依据；长时间离线陈旧窗口 >50 条仍丢消息。a7aec358 引入（limit=0→50）
+  - 根因修复（D TD-4）：`lastSyncCursorPerSession` Map，L3 校验用 `before=encode(lastSyncCursor)` 增量同步；同步成功后推进游标
+  - 工时：~0.5d | 难度：中 | 涉及：SessionStateService.kt
+  - 来源：F §P2-12 + D §2.1/TD-4
+
+- [ ] **#56 分页状态散落重构（TD-1，高严重度技术债）** `refactor` `session`
+  - 问题：`MessagePaginationDelegate` 9 个可变状态成员（currentMessageLimit, archiveCursorCreated, networkCursorId, networkCursorCreated, _hasOlderMessages, _isLoadingOlder, autoLoadFailures, autoLoadPausedUntil, _autoLoadPaused），职责膨胀。D 报告标记"高严重度"——同一根因（游标抽象缺失）导致 3 次复发（d30a0d57/c5e0ea56）。与 AGENTS.md"SessionStateService 单一真相源"原则相悖
+  - 修复（D TD-1）：抽 PaginationCursor sealed class + PaginationFSM（参照 SessionStateFSM 纯函数）；9 个状态 → ≤3 个；修复后可一并消除 #41（loadOlder 竞态）温床
+  - 工时：~1-2d | 难度：高 | 涉及：MessagePaginationDelegate / MessagePaginationUseCase / MessageStore
+  - 来源：F §P2-13 + D TD-1/模式 A + B §4 图
+
+- [ ] **#57 batchScope 无生命周期管理** `refactor`
+  - 问题：App 级 SupervisorJob scope，App 退出时不取消；多会话同时活跃时 fire-and-forget 协程数无上限。`MessageEventHandler.kt:71, 194-204`
+  - 修复：绑定生命周期（ViewModel/process scope）；或限流
+  - 工时：~2h | 难度：中 | 涉及：MessageEventHandler.kt:71, 194-204
+  - 来源：F §P2-14 / C S7
+
+- [ ] **#58 NetTrace 日志 hot path（删 MsgDiag 又加 NetTrace，配套补丁债）** `performance` `refactor`
+  - 问题：b07b7ccc 删 MsgDiag 又加 NetTrace——hot path DEBUG 级日志模式不一致；实测 8 条/10s。D 模式 B（DIAG 残留反复）的典型案例
+  - 修复（D TD-8）：采样 + 强制 BuildConfig.DEBUG 门控 + CI lint 禁止 DebugLogger 在 main 分支
+  - 工时：~1h | 难度：低 | 涉及：NetTrace 日志点 + CI lint 配置
+  - 来源：F §6.2 TD-8 + D 模式 B + E 实测
+
+- [ ] **#59 SQLite IN 分块下沉 DAO（TD-7，逻辑散落业务层）** `refactor` `data`
+  - 问题：b07b7ccc 解决 Room IN 999 变量上限，但分块逻辑散落 MessageStore（业务层）而非 DAO 层
+  - 修复（D TD-7）：下沉 DAO 层封装 @Query 内部分块
+  - 工时：~0.5d | 难度：中 | 涉及：MessageDao + MessageStore
+  - 来源：F §6.2 TD-7 + D §4 模式
+
+- [ ] **#60 catch(Exception) 吞 CancellationException 模式守护（TD-6 已修需持续守护）** `refactor`
+  - 问题：协程反模式反复出现（≥2 次）。TD-6 已被 61e4107a 修复（先重抛 CancellationException），但模式需持续守护防止复发
+  - 修复（D 模式 C）：safeCatch 工具函数（先重抛 CancellationException）+ detekt SwallowedException 规则
+  - 工时：~2h | 难度：低 | 涉及：detekt 配置 + safeCatch 工具
+  - 来源：F §6.2 TD-6 + §6.3 模式 C
+
+- [ ] **#61 多 commit 打包修复（流程改进，降低可审计性）** `refactor`
+  - 问题：一个 commit 打包多项修复（b07b7ccc/1beb846b/16c7a15c/c5e0ea56），降低可审计性。D §4 模式 E
+  - 修复（D 模式 E）：fix commit 一事一 commit；PR review 检查打包项
+  - 工时：流程改进 | 难度：低 | 涉及：提交流程规范
+  - 来源：F §6.3 模式 E
