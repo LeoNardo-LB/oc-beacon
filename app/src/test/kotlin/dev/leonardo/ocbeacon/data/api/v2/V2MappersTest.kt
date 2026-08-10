@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -227,5 +228,55 @@ class V2MappersTest {
         val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
         val toolPart = result.parts[0] as Part.Tool
         assertTrue(toolPart.state is dev.leonardo.ocbeacon.domain.model.ToolState.Error)
+    }
+
+    @Test
+    fun `toMessageWithParts maps subagent tool with metadata sessionID`() {
+        // V2 subagent 工具实际结构（REST 实测）：metadata.sessionID 是子会话 ID
+        val obj = json.parseToJsonElement("""
+            {"type":"assistant","id":"msg_a5","time":{"created":1000},
+             "agent":"build","model":{"id":"m","providerID":"p"},
+             "content":[{"type":"tool","id":"call_123","name":"subagent",
+               "state":{"status":"completed",
+                 "input":{"description":"验证功能","prompt":"请验证"},
+                 "metadata":{"sessionID":"ses_child_1","status":"completed","truncated":false},
+                 "content":[{"type":"text","text":"验证完成"}]}}]}
+        """).jsonObject
+
+        val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
+        val toolPart = result.parts[0] as Part.Tool
+        assertEquals("subagent", toolPart.tool)
+        assertTrue(toolPart.state is dev.leonardo.ocbeacon.domain.model.ToolState.Completed)
+        val completed = toolPart.state as dev.leonardo.ocbeacon.domain.model.ToolState.Completed
+
+        // 关键断言 1：metadata 必须包含子会话 ID（TaskToolCard 跳转依赖）
+        assertNotNull(completed.metadata)
+        assertEquals("ses_child_1", completed.metadata?.get("sessionId")?.jsonPrimitive?.content)
+        // 双写兼容（V2 大写 / V1 小写）
+        assertEquals("ses_child_1", completed.metadata?.get("sessionID")?.jsonPrimitive?.content)
+
+        // 关键断言 2：input 必须包含 description（TaskToolCard 显示描述依赖）
+        assertEquals("验证功能", completed.input["description"]?.jsonPrimitive?.content)
+
+        // 关键断言 3：output 必须包含工具输出（TaskToolCard 显示输出依赖）
+        assertTrue(completed.output.contains("验证完成"))
+    }
+
+    @Test
+    fun `toMessageWithParts maps subagent tool metadata sessionId lowercase variant`() {
+        // V1 风格 metadata 键名（sessionId 小写）也应兼容
+        val obj = json.parseToJsonElement("""
+            {"type":"assistant","id":"msg_a6","time":{"created":1000},
+             "agent":"build","model":{"id":"m","providerID":"p"},
+             "content":[{"type":"tool","id":"call_456","name":"subagent",
+               "state":{"status":"completed",
+                 "metadata":{"sessionId":"ses_child_2"}}}]}
+        """).jsonObject
+
+        val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
+        val toolPart = result.parts[0] as Part.Tool
+        val completed = toolPart.state as dev.leonardo.ocbeacon.domain.model.ToolState.Completed
+        assertEquals("ses_child_2", completed.metadata?.get("sessionId")?.jsonPrimitive?.content)
+        assertEquals("ses_child_2", completed.metadata?.get("sessionID")?.jsonPrimitive?.content)
     }
 }
