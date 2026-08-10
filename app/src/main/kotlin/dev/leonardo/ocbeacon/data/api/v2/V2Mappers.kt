@@ -286,11 +286,45 @@ object V2MessageMapper {
                 val toolName = obj["name"]?.jsonPrimitive?.contentOrNull ?: ""
                 val stateObj = obj["state"]?.jsonObject
                 val status = stateObj?.get("status")?.jsonPrimitive?.contentOrNull ?: "completed"
+
+                // 完整映射 V2 tool state → V1 ToolState
+                // 关键：metadata 可能包含 subagent 子会话 ID（metadata.sessionID），
+                // input 包含工具参数（如 subagent 的 description/prompt），
+                // content 是工具输出——TaskToolCard 依赖这些实现子会话跳转。
+                val inputMap = stateObj?.get("input")?.jsonObject?.let { obj2 ->
+                    obj2.mapValues { (_, v) -> v }
+                } ?: emptyMap()
+                val metadataMap = stateObj?.get("metadata")?.jsonObject?.let { obj2 ->
+                    val mapped = obj2.mapValues { (_, v) -> v }.toMutableMap()
+                    // V2 用 metadata.sessionID（大写），V1 TaskToolCard 读取 sessionId（小写）
+                    // 双写兼容，让子会话跳转在两种格式下都可用
+                    val sessionIdUpper = obj2["sessionID"] ?: obj2["sessionId"]
+                    if (sessionIdUpper != null) {
+                        mapped["sessionId"] = sessionIdUpper
+                        mapped["sessionID"] = sessionIdUpper
+                    }
+                    mapped
+                } ?: emptyMap()
+                val outputText = stateObj?.get("content")?.jsonArray
+                    ?.mapNotNull { it.jsonObject["text"]?.jsonPrimitive?.contentOrNull }
+                    ?.joinToString("\n") ?: ""
+
                 val toolState = when (status) {
-                    "streaming", "running" -> ToolState.Running()
-                    "completed" -> ToolState.Completed()
-                    "error" -> ToolState.Error()
-                    else -> ToolState.Pending()
+                    "streaming", "running" -> ToolState.Running(
+                        input = inputMap,
+                        output = outputText,
+                        metadata = metadataMap.ifEmpty { null }
+                    )
+                    "completed" -> ToolState.Completed(
+                        input = inputMap,
+                        output = outputText,
+                        metadata = metadataMap.ifEmpty { null }
+                    )
+                    "error" -> ToolState.Error(
+                        input = inputMap,
+                        error = stateObj?.get("error")?.jsonPrimitive?.contentOrNull ?: ""
+                    )
+                    else -> ToolState.Pending(input = inputMap)
                 }
 
                 Part.Tool(

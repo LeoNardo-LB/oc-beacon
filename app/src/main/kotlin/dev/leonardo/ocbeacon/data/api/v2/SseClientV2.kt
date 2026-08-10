@@ -110,7 +110,11 @@ class SseClientV2 @Inject constructor(
 
                 // 解析一个完整的 SSE 帧
                 val frame = readSseFrame(channel) ?: break
-                if (frame.isEmpty()) continue
+                if (frame.isEmpty()) {
+                    // 空帧（注释行如 ": heartbeat" 等）也是连接存活的证据
+                    lastActivity = System.currentTimeMillis()
+                    continue
+                }
 
                 try {
                     val event = parseV2Event(frame)
@@ -190,52 +194,109 @@ class SseClientV2 @Inject constructor(
 
     /**
      * 解析 V2 SSE 帧。
-     * 使用 \u0000 分隔符区分 event 类型和 data 负载。
+     *
+     * V2 真实线格式（经 curl 实测确认）——单行 JSON 打包在 data: 行中：
+     * ```
+     * data: {"id":"evt_...","type":"session.reasoning.delta","data":{"sessionID":"...","delta":"..."}}
+     * ```
+     * 事件类型在 `type` 字段，payload 在 `data` 字段（对象）。
+     *
+     * 兼容格式（防御）：
+     * - V1 风格：`{type, properties:{...}}`（payload 在 properties）
+     * - 标准 SSE 帧：`event: xxx\ndata: {...}`（由 readSseFrame 用 \u0000 分隔）
      */
     private fun parseV2Event(frame: String): SseEvent? {
+        // 标准 SSE 帧兼容路径：event:\ndata: 格式（\u0000 分隔）
         val parts = frame.split("\u0000", limit = 2)
+        if (parts.size == 2) {
+            return parseEventFrame(parts[0], parts[1])
+        }
 
-        return if (parts.size == 2) {
-            // V2 格式：event 类型 + data JSON
-            val eventType = parts[0]
-            val dataJson = parts[1]
+        // V2/V1 单行 JSON 路径
+        val data = frame
+        if (data.isEmpty()) return null
 
-            // 检查是否是 server.connected / heartbeat
-            if (eventType == "server.connected") return SseEvent.ServerConnected
-            if (eventType == "server.heartbeat") return SseEvent.ServerHeartbeat
+        val root = try {
+            json.parseToJsonElement(data).jsonObject
+        } catch (e: Exception) {
+            return null
+        }
 
-            // 解析 data 为 properties 对象
-            val properties = if (dataJson.isNotEmpty()) {
-                try {
-                    json.parseToJsonElement(dataJson).jsonObject
-                } catch (e: Exception) {
-                    JsonObject(emptyMap())
-                }
-            } else {
+        val type = root["type"]?.jsonPrimitive?.content
+        if (type != null) {
+            // V2 真实格式：payload 在 data 字段（对象）
+            val payload = root["data"]?.jsonObject
+                ?: root["properties"]?.jsonObject  // V1 风格兼容
+                ?: JsonObject(emptyMap())
+            return handleEvent(type, payload)
+        }
+
+        // 没有 type 字段——server.connected/heartbeat 等特殊事件
+        if (data.contains("server.connected")) return SseEvent.ServerConnected
+        if (data.contains("server.heartbeat")) return SseEvent.ServerHeartbeat
+        return null
+    }
+
+    /** 处理 event: + data: 标准 SSE 帧 */
+    private fun parseEventFrame(eventType: String, dataJson: String): SseEvent? {
+        if (eventType == "server.connected") return SseEvent.ServerConnected
+        if (eventType == "server.heartbeat") return SseEvent.ServerHeartbeat
+
+        val properties = if (dataJson.isNotEmpty()) {
+            try {
+                json.parseToJsonElement(dataJson).jsonObject
+            } catch (e: Exception) {
                 JsonObject(emptyMap())
             }
-
-            parseEventByType(eventType, properties)
         } else {
-            // V1 兼容模式：data 包含 {type, properties}
-            val data = parts[0]
-            if (data.isEmpty()) return null
-
-            val root = try {
-                json.parseToJsonElement(data).jsonObject
-            } catch (e: Exception) {
-                return null
-            }
-
-            val payload = root["payload"]?.jsonObject ?: root
-            val type = payload["type"]?.jsonPrimitive?.content ?: return null
-            val props = payload["properties"]?.jsonObject ?: JsonObject(emptyMap())
-
-            if (type == "server.connected") return SseEvent.ServerConnected
-            if (type == "server.heartbeat") return SseEvent.ServerHeartbeat
-
-            parseEventByType(type, props)
+            JsonObject(emptyMap())
         }
+        return handleEvent(eventType, properties)
+    }
+
+    /**
+     * 统一事件分发：优先解析器，特殊处理 V2 delta 流事件。
+     */
+    private fun handleEvent(type: String, props: JsonObject): SseEvent? {
+        // V2 delta 流事件 → 映射到 V1 MessagePartDelta（驱动现有流式渲染管线）
+        val mapped = mapV2DeltaEvent(type, props)
+        if (mapped != null) return mapped
+
+        if (type == "server.connected") return SseEvent.ServerConnected
+        if (type == "server.heartbeat") return SseEvent.ServerHeartbeat
+
+        return parseEventByType(type, props)
+    }
+
+    /**
+     * 将 V2 的 delta 流事件映射为 V1 MessagePartDelta。
+     *
+     * V2 事件 payload 结构：
+     * - session.reasoning.delta: {sessionID, assistantMessageID, ordinal, delta}
+     * - session.text.delta:     {sessionID, assistantMessageID, ordinal, delta}
+     * - session.tool.input.delta: {sessionID, toolCallID, ordinal, delta}
+     *
+     * V1 MessagePartDelta 结构：{sessionId, messageId, partId, field, delta}
+     * 映射：assistantMessageID → messageId，sessionID → sessionId
+     */
+    private fun mapV2DeltaEvent(type: String, props: JsonObject): SseEvent? {
+        val delta = props["delta"]?.jsonPrimitive?.content ?: return null
+        val sessionId = props["sessionID"]?.jsonPrimitive?.content ?: return null
+        val messageId = props["assistantMessageID"]?.jsonPrimitive?.content ?: return null
+
+        val field = when (type) {
+            "session.reasoning.delta" -> "reasoning"
+            "session.text.delta" -> "text"
+            else -> return null
+        }
+
+        return SseEvent.MessagePartDelta(
+            sessionId = sessionId,
+            messageId = messageId,
+            partId = "", // V2 delta 事件不含 partID，由下游按 message 聚合
+            field = field,
+            delta = delta
+        )
     }
 
     private fun parseEventByType(type: String, props: JsonObject): SseEvent? {
