@@ -507,8 +507,14 @@ efactor
     - 教训已写入 docs/regression-guide.md §3.8：滚动类验证必须**双向测试 + 避开边界**；logcat 抓取须按 PID/tag 过滤（D64 首次 logcat 全为 input 噪音属无效采集）
   - 证据（排查）：docs/research/audit-2026-08-10/D64-investigation.md、D64-bisect.md、D64-conclusive.md + metrics/D64-*
 
-- [ ] **#65 Back 退出时 JobCancellationException 被记为 ERROR 级（日志噪声）** logging
+- [x] **#65 Back 退出时 JobCancellationException 被记为 ERROR 级（日志噪声）** `logging`
   - 问题：2026-08-10 #35 复现排查（D35）发现——Back 退出会话取消分页加载时，JobCancellationException 以 ERROR 级写入（52 条/55 轮），属预期异步行为非错误，污染诊断日志（应用内 Diagnostics + logcat）
   - 修复：取消异常（CancellationException 类）统一降级 INFO/DEBUG 或过滤；需确认 catch 点（分页加载协程取消处理）
   - 工时：~0.5h | 难度：低 | 涉及：MessagePaginationDelegate / 日志写入点
   - 证据：docs/research/audit-2026-08-10/D35-investigation.md + metrics/D35-log-*
+  - **2026-08-10 完成**：8 文件 35 处 catch + 1 onFailure 统一修复——协程上下文取消异常重新抛出（throw e）、非协程/onFailure 过滤不记录；实测源头 MessageDataDelegate 3 处 + ChatViewModel 7 处等；编译 ✅ 相关单测 ✅；无行为变更
+
+- [ ] **#66 其他屏幕同类取消异常日志模式（未触发 Back 路径）** `logging`
+  - 问题：2026-08-10 #65 修复时扫描发现——SessionListViewModel(9 处)、ServerSettingsViewModel(10 处)、ServerTerminalWorkspace(11 处)、FileViewerViewModel、WorkspaceViewModel、PtyToTermlibAdapter 存在同类 `catch (e: Exception) { AppLogger.e }` 模式，退出**对应屏幕**时同样会喷取消异常 ERROR（当前场景未触发）
+  - 修复：同 #65 模式统一处理（协程上下文 throw、非协程过滤）
+  - 工时：~1h | 难度：低 | 涉及：上述 6 文件

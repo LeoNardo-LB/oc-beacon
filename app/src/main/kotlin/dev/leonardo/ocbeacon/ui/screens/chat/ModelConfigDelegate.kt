@@ -15,6 +15,7 @@ import dev.leonardo.ocbeacon.domain.usecase.ManageAgentUseCase
 import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocbeacon.domain.usecase.SelectModelUseCase
 import dev.leonardo.ocbeacon.ui.WhileSubscribed5s
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -220,6 +221,7 @@ internal class ModelConfigDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Loaded ${response.providers.size} providers, defaults: ${response.default}")
                 // 无需在此设置默认值，combine 块处理回退
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load providers", e)
             }
         }
@@ -246,6 +248,7 @@ internal class ModelConfigDelegate(
                 _agents.value = agents
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Loaded ${agents.size} agents: ${agents.map { it.name }}")
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load agents", e)
             }
         }
@@ -258,6 +261,7 @@ internal class ModelConfigDelegate(
                 _commands.value = commands
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Loaded ${commands.size} commands: ${commands.map { it.name }}")
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load commands", e)
             }
         }

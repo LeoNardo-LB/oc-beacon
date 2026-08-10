@@ -170,6 +170,7 @@ internal class MessagePaginationDelegate(
                     AppLogger.d(TAG, "Loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit)")
                 }
             } catch (e: Throwable) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load messages", e)
                 if (e is OutOfMemoryError || (e.cause is OutOfMemoryError)) {
                     AppLogger.w(TAG, "OOM loading messages, retrying with smaller limit")
@@ -179,6 +180,7 @@ internal class MessagePaginationDelegate(
                         chatRepository.upsertMessages(sid, messages, MergeStrategy.APPEND_ONLY)
                         if (BuildConfig.DEBUG) AppLogger.d(TAG, "Retry succeeded: loaded ${messages.size} messages (limit=$currentMessageLimit)")
                     } catch (retryEx: Throwable) {
+                        if (retryEx is CancellationException) throw retryEx
                         AppLogger.e(TAG, "Retry also failed", retryEx)
                         errorSink(retryEx.message ?: "Failed to load messages")
                     }

@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.domain.model.Draft
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageAgentUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -80,6 +81,7 @@ internal class DraftInputDelegate(
                     )
                     _fileSearchResults.value = results
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     AppLogger.e(TAG, "File search failed", e)
                     _fileSearchResults.value = emptyList()
                 }
@@ -98,6 +100,7 @@ internal class DraftInputDelegate(
                 )
                 _fileSearchResults.value = results
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "File search failed for query '$query'", e)
                 _fileSearchResults.value = emptyList()
             }

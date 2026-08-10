@@ -18,6 +18,7 @@ import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageTerminalUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ShareExportUseCase
 import dev.leonardo.ocbeacon.domain.usecase.UndoRedoUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -160,6 +161,7 @@ internal class SessionActionsDelegate(
                     chatRepository.removePermission(requestId)
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 val errMsg = "[Permission] Exception replying to $requestId: ${e.javaClass.simpleName}: ${e.message}"
                 AppLogger.e(TAG, errMsg, e)
                 chatRepository.removePermission(requestId)
@@ -198,6 +200,7 @@ internal class SessionActionsDelegate(
                 AppLogger.i(TAG, resultMsg)
                 chatRepository.removeQuestion(requestId)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 val errMsg = "[Question] Exception replying to $requestId: ${e.javaClass.simpleName}: ${e.message}"
                 AppLogger.e(TAG, errMsg, e)
                 chatRepository.removeQuestion(requestId)
@@ -222,6 +225,7 @@ internal class SessionActionsDelegate(
                 AppLogger.i(TAG, resultMsg)
                 chatRepository.removeQuestion(requestId)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 val errMsg = "[Question] Exception rejecting $requestId: ${e.javaClass.simpleName}: ${e.message}"
                 AppLogger.e(TAG, errMsg, e)
                 chatRepository.removeQuestion(requestId)
@@ -240,6 +244,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Shared session $sessionId: $url")
                 onResult(url)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to share session", e)
                 onResult(null)
             }
@@ -253,6 +258,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unshared session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to unshare session", e)
                 onResult(false)
             }
@@ -275,6 +281,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Compacted session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to compact session", e)
                 onResult(false)
             }
@@ -335,6 +342,7 @@ internal class SessionActionsDelegate(
                     onResult(true)
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to export session", e)
                 notificationManager.cancel(notificationId)
                 withContext(Dispatchers.Main) {
@@ -361,6 +369,7 @@ internal class SessionActionsDelegate(
                 restoreRevertedDraft(extractRevertedDraft(lastUser))
                 onResult(true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to revert session", e)
                 onResult(false)
             }
@@ -375,6 +384,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unreverted session $sessionId")
                 onResult(true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to unrevert session", e)
                 onResult(false)
             }
@@ -413,6 +423,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Deleted message $messageId: success=$success")
                 onResult(success)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to delete message $messageId", e)
                 onResult(false)
             }
@@ -427,6 +438,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Deleted part $partIndex from message $messageId: success=$success")
                 onResult(success)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to delete part $partIndex from message $messageId", e)
                 onResult(false)
             }
@@ -447,6 +459,7 @@ internal class SessionActionsDelegate(
                 chatRepository.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Refreshed messages after session update")
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to refresh messages after session update", e)
             }
         }
@@ -460,6 +473,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Forked session $sessionId -> ${session.id}")
                 onResult(session)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to fork session", e)
                 onResult(null)
             }
@@ -474,6 +488,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Renamed session $sessionId to $title")
                 onResult(true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to rename session", e)
                 onResult(false)
             }
@@ -531,6 +546,7 @@ internal class SessionActionsDelegate(
                 }
                 onResult(ok)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to execute command /$command", e)
                 onResult(false)
             }
@@ -564,6 +580,7 @@ internal class SessionActionsDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Executed shell command in session $sessionId: $ok")
                 onResult(ok)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to execute shell command", e)
                 onResult(false)
             }

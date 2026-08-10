@@ -11,6 +11,7 @@ import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.SendMessageUseCase
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -130,6 +131,7 @@ internal class ChatSendDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
                 refreshSessionTitleDelayed(currentSessionId)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to send message", e)
                 // 悲观消息失败：恢复草稿到输入框（text + 图片附件）+ 错误提示（snackbar）
                 val failedText = parts.filter { it.type == "text" }.mapNotNull { it.text }.joinToString("\n")

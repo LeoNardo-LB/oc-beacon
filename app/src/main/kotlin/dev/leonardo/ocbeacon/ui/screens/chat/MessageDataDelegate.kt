@@ -21,6 +21,7 @@ import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolProgressOutputInjector
 import dev.leonardo.ocbeacon.ui.screens.chat.util.suppressRepeatedPatchHashes
 import dev.leonardo.ocbeacon.ui.WhileSubscribed5s
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -348,6 +349,7 @@ internal class MessageDataDelegate(
             val messages = manageSessionUseCase.listMessages(serverId, sid, limit = paginationDelegate.currentLimitValue)
             chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
         } catch (e: Throwable) {
+            if (e is CancellationException) throw e
             AppLogger.e(TAG, "Failed to refresh messages", e)
         } finally {
             _isRefreshing.value = false
@@ -427,6 +429,7 @@ internal class MessageDataDelegate(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "No pending questions for session $sid, cleared")
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             AppLogger.e(TAG, "Failed to load pending questions: ${e.javaClass.simpleName}: ${e.message}", e)
         }
     }
@@ -479,6 +482,7 @@ internal class MessageDataDelegate(
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             AppLogger.e(TAG, "Failed to load pending permissions: ${e.javaClass.simpleName}: ${e.message}", e)
         }
     }

@@ -27,6 +27,7 @@ import dev.leonardo.ocbeacon.domain.usecase.*
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -380,6 +381,7 @@ class ChatViewModel @Inject constructor(
                         modelConfig.applyDraftRestore(draft.selectedAgent, draft.selectedVariant)
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     AppLogger.e(TAG, "restorePersistedDraft failed", e)
                 }
             }
@@ -395,10 +397,10 @@ class ChatViewModel @Inject constructor(
         // 加载数据
         if (!isNewSession) {
             viewModelScope.launch {
-                try { sessionLifecycle.loadSession() } catch (e: Exception) { AppLogger.e(TAG, "loadSession failed", e) }
-                try { messageData.paginationDelegate.loadMessages() } catch (e: Exception) { AppLogger.e(TAG, "loadMessages failed", e) }
-                try { messageData.loadPendingQuestions() } catch (e: Exception) { AppLogger.e(TAG, "loadPendingQuestions failed", e) }
-                try { messageData.loadPendingPermissions() } catch (e: Exception) { AppLogger.e(TAG, "loadPendingPermissions failed", e) }
+                try { sessionLifecycle.loadSession() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadSession failed", e) }
+                try { messageData.paginationDelegate.loadMessages() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadMessages failed", e) }
+                try { messageData.loadPendingQuestions() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadPendingQuestions failed", e) }
+                try { messageData.loadPendingPermissions() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadPendingPermissions failed", e) }
             }
         } else {
             sessionLifecycle.initForNewSession()
@@ -501,6 +503,7 @@ class ChatViewModel @Inject constructor(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
                 runCatching { messageData.startObservingMessages() }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to abort session", e)
             }
         }
@@ -565,6 +568,7 @@ class ChatViewModel @Inject constructor(
                 )
                 onResult(true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to revert to message $messageId", e)
                 onResult(false)
             }

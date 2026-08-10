@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.ui.navigation.routes.ChatNav
 import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -102,6 +103,7 @@ internal class SessionLifecycleDelegate(
             }
             sessionRepository.setSessions(serverId, listOf(session))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             AppLogger.e(TAG, "Failed to load session info", e)
         } finally {
             if (!sessionLoaded.isCompleted) {
@@ -111,7 +113,7 @@ internal class SessionLifecycleDelegate(
 
         // 2. 跨集群：通过 V1 API 加载消息（currentMessageLimit + listMessages）
         runCatching { onMessagesNeedLoading() }
-            .onFailure { AppLogger.e(TAG, "Failed to load messages", it) }
+            .onFailure { if (it !is CancellationException) AppLogger.e(TAG, "Failed to load messages", it) }
 
         // 3. 跨集群：开始观察 chatRepository flow（由 SSE EventDispatcher 驱动）
         runCatching { onStartObservingMessages() }
