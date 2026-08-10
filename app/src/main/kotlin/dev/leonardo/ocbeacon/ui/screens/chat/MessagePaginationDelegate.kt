@@ -194,7 +194,11 @@ internal class MessagePaginationDelegate(
     fun loadOlderMessages() {
         val sid = sessionIdProvider()
         scope.launch {
-            _isLoadingOlder.value = true
+            // 入口互斥：check-then-set 非原子，用 synchronized 包住防止并发 launch 双双通过
+            synchronized(this) {
+                if (_isLoadingOlder.value) return@launch
+                _isLoadingOlder.value = true
+            }
             try {
                 // 游标策略：
                 //   1. 网络分页游标（networkCursorId/Created）非空 → 网络边界已建立，

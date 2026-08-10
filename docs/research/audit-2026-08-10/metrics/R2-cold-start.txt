@@ -1,0 +1,7 @@
+﻿Starting: Intent { cmp=dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity
+TotalTime: 3430
+WaitTime: 3434
+Complete

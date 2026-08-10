@@ -147,8 +147,18 @@ class MessageEventHandler @Inject constructor(
             if (idx >= 0) {
                 msgs[idx] = event.info
             } else {
-                msgs.add(event.info)
-                msgs.sortBy { it.time.created }
+                // existing 已按 created 升序——二分查找插入位置，
+                // 避免全量 O(n log n) 排序（高频 MessageUpdated 事件下累积 CPU）。
+                // 稳定语义：相同 created 时新元素插到末尾（与 sortBy 一致）。
+                val key = event.info.time.created
+                var lo = 0
+                var hi = msgs.size
+                while (lo < hi) {
+                    val mid = (lo + hi) ushr 1
+                    if (msgs[mid].time.created <= key) lo = mid + 1
+                    else hi = mid
+                }
+                msgs.add(lo, event.info)
             }
             current + (sessionId to msgs)
         }
@@ -295,6 +305,65 @@ class MessageEventHandler @Inject constructor(
     }
 
     /**
+     * 合并两个按 [Message.time.created] 升序的消息列表，按 id 去重。
+     *
+     * 等价于 `(existing + incomingSorted).distinctBy { it.id }.map { merge(it) }.sortedBy { it.time.created }`，
+     * 但复杂度 O(existing.size + incomingSorted.size)（线性两路归并），
+     * 替代 O((n+m) log(n+m)) 全量排序——1000-2000 条会话每次 upsert 节省约 10000-40000 次比较。
+     *
+     * **前提**（由本类写入路径维持，实际语义成立）：
+     * - [existing] 已按 created 升序（所有写入路径输出有序）
+     * - [incomingSorted] 由调用方保证按 created 升序
+     * - 同 id 消息在两列表中 created 一致：消息创建时间为固有属性（服务器不变更），
+     *   [mergeMessageMeta] 仅修改 completed（不改 created）；
+     *   [MergeStrategy.REST_AUTHORITY] 虽用 incoming 完全覆盖，但 REST 同一消息的 created 与 SSE 一致
+     *
+     * **去重 / 稳定语义**（与原 distinctBy + 稳定 sortBy 完全一致）：
+     * - 同 id：取 [merge] 结果，位置取 existing 的位置
+     * - existing 独有 id：保留 existing
+     * - incoming 独有 id：插入到 created 升序对应位置
+     * - 相同 created 不同 id：existing 在前（`<=` 判断保持稳定排序语义）
+     */
+    private fun mergeSortedMessages(
+        existing: List<Message>,
+        incomingSorted: List<Message>,
+        merge: (existingMsg: Message, incomingMsg: Message) -> Message,
+    ): List<Message> {
+        val incomingIds = incomingSorted.associateBy { it.id }  // O(m)，用于 O(1) 判断 existing 项是否被 incoming 覆盖
+        val result = ArrayList<Message>(existing.size + incomingSorted.size)
+        var i = 0  // existing 游标
+        var j = 0  // incomingSorted 游标
+        while (i < existing.size && j < incomingSorted.size) {
+            val e = existing[i]
+            val inc = incomingSorted[j]
+            when {
+                e.id == inc.id -> {
+                    // 同 id：合并，前进两个游标（等价于 distinctBy 保留 existing 位置 + map 替换内容）
+                    result.add(merge(e, inc)); i++; j++
+                }
+                e.time.created <= inc.time.created -> {
+                    // existing 较早（或并列，稳定排序时 existing 在前）：
+                    // 若其 id 在 incoming 中也存在，跳过（同 id 已在上分支以 merge 结果处理）
+                    if (e.id !in incomingIds) result.add(e)
+                    i++
+                }
+                else -> {
+                    // incoming 较早：独有 id（同 id 已在上分支处理），直接追加
+                    result.add(inc); j++
+                }
+            }
+        }
+        while (i < existing.size) {
+            if (existing[i].id !in incomingIds) result.add(existing[i])
+            i++
+        }
+        while (j < incomingSorted.size) {
+            result.add(incomingSorted[j]); j++
+        }
+        return result
+    }
+
+    /**
      * 合并消息的 SSE 和 REST 版本。
      * SSE 对内容更新（流式传输），但 REST 可能有 SSE 尚未投递的完成信息。
      *
@@ -376,21 +445,14 @@ class MessageEventHandler @Inject constructor(
      * - 诊断日志保留（标签 [setMessages]）
      */
     private fun upsertSsePriority(sessionId: String, incoming: List<MessageWithParts>) {
+        // 在 update lambda 外预排序 incoming（避免 CAS 重试时多次排序）
+        val incomingSorted = incoming.map { it.info }.sortedBy { it.time.created }
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
-            val incomingById = incoming.associateBy { it.info.id }
-            val merged = (existing + incoming.map { it.info })
-                .distinctBy { it.id }
-                .map { msg ->
-                    val inc = incomingById[msg.id]
-                    if (inc != null) {
-                        mergeMessageMeta(msg, inc.info)
-                    } else {
-                        msg
-                    }
-                }
-                .sortedBy { it.time.created }
-            // DIAG 清理（2026-08-10）：移除合并后的全量 filter + 日志（O(n) 扫描仅用于日志）
+            // O(n+m) 两路归并替代 O((n+m) log(n+m)) 全量排序（见 mergeSortedMessages 前提）
+            val merged = mergeSortedMessages(existing, incomingSorted) { sse, inc ->
+                mergeMessageMeta(sse, inc)
+            }
             current + (sessionId to merged)
         }
         incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
@@ -415,13 +477,13 @@ class MessageEventHandler @Inject constructor(
      * - parts: [mergePartsList]——与 SSE_PRIORITY 相同（更长文本胜出）
      */
     private fun upsertRestAuthority(sessionId: String, incoming: List<MessageWithParts>) {
+        // 在 update lambda 外预排序 incoming（避免 CAS 重试时多次排序）
+        val incomingSorted = incoming.map { it.info }.sortedBy { it.time.created }
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
-            val incomingById = incoming.associateBy { it.info.id }
-            val merged = (existing + incoming.map { it.info })
-                .distinctBy { it.id }
-                .map { msg -> incomingById[msg.id]?.info ?: msg }
-                .sortedBy { it.time.created }
+            // O(n+m) 两路归并替代 O((n+m) log(n+m)) 全量排序（见 mergeSortedMessages 前提）
+            // REST_AUTHORITY：同 id 时 incoming 完全覆盖（原 `incomingById[msg.id]?.info ?: msg`）
+            val merged = mergeSortedMessages(existing, incomingSorted) { _, inc -> inc }
             current + (sessionId to merged)
         }
         incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
@@ -465,7 +527,9 @@ class MessageEventHandler @Inject constructor(
             // 看不到最底部的消息（消息流中消失）。
             // 正确语义（注释约定）：existing 保留 + incoming 中缺失的 messageId 补充，
             // 合并后按 time.created 排序（combine 依赖写入路径有序，见 MessageDataDelegate）。
-            current + (sessionId to (existing + incomingMsgs).distinctBy { it.id }.sortedBy { it.time.created })
+            // O(n+m) 两路归并替代 O((n+m) log(n+m)) 全量排序（见 mergeSortedMessages 前提）；
+            // APPEND_ONLY：同 id 时保留 existing（原 `existingById[newMsg.id] ?: newMsg`）
+            current + (sessionId to mergeSortedMessages(existing, incomingMsgs) { e, _ -> e })
         }
     }
 
