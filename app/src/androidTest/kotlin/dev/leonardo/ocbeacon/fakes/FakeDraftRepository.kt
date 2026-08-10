@@ -10,15 +10,15 @@ class FakeDraftRepository @Inject constructor() : DraftRepository {
 
     private val drafts = mutableMapOf<String, Draft>()
 
-    override fun getDraft(sessionId: String): Draft? = drafts[sessionId]
+    override suspend fun getDraft(sessionId: String): Draft? = drafts[sessionId]
 
-    override fun saveDraft(sessionId: String, draft: Draft) {
+    override suspend fun saveDraft(sessionId: String, draft: Draft) {
         drafts[sessionId] = draft
     }
 
-    override fun clearDraft(sessionId: String) {
+    override suspend fun clearDraft(sessionId: String) {
         drafts.remove(sessionId)
     }
 
-    override fun getDraftSessionIds(): Set<String> = drafts.keys.toSet()
+    override suspend fun getDraftSessionIds(): Set<String> = drafts.keys.toSet()
 }

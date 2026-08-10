@@ -56,7 +56,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @HiltViewModel
@@ -93,15 +92,9 @@ class SessionListViewModel @Inject constructor(
 
     val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
 
-    // 服务器配置异步从数据源解析（密码/用户名/URL 不再经导航参数传递）。
-    // runBlocking(Dispatchers.IO)：本地 Room 读取毫秒级，保证 directoryManager/mcpRepository eager 初始化。
-    private val serverConfig: dev.leonardo.ocbeacon.domain.model.ServerConfig? =
-        runBlocking(Dispatchers.IO) { serverRepository.getServer(serverId) }
-    val serverName: String = serverConfig?.displayName ?: ""
-
-    private val conn = serverConfig?.let {
-        ServerConnection.from(it.url, it.username, it.password)
-    } ?: ServerConnection.from("", "", null)
+    // ============ 服务器配置异步加载（backlog #38：消除构造期主线程 runBlocking） ============
+    private val _serverName = MutableStateFlow("")
+    val serverName: StateFlow<String> = _serverName.asStateFlow()
 
     private val directoryManager = DirectoryManager(
         serverId = serverId,
@@ -112,7 +105,19 @@ class SessionListViewModel @Inject constructor(
         fileRepository = fileRepository,
     )
 
-    init { mcpRepository.setConnection(conn) }
+    init {
+        // backlog #38: 异步加载服务器配置，加载完成后设置 MCP 连接
+        viewModelScope.launch {
+            val config = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                serverRepository.getServer(serverId)
+            }
+            _serverName.value = config?.displayName ?: ""
+            val conn = config?.let {
+                ServerConnection.from(it.url, it.username, it.password)
+            } ?: ServerConnection.from("", "", null)
+            mcpRepository.setConnection(conn)
+        }
+    }
 
     // ============ 内部状态 ============
 
@@ -349,10 +354,10 @@ class SessionListViewModel @Inject constructor(
 
     // 外壳册（独立）
     val shellState: StateFlow<SessionListShellState> = combine(
-        _isLoading, _isRefreshing, _error,
-    ) { isLoading, isRefreshing, error ->
+        _isLoading, _isRefreshing, _error, serverName,
+    ) { isLoading, isRefreshing, error, sname ->
         SessionListShellState(
-            serverName = serverName,
+            serverName = sname,
             isLoading = isLoading,
             isRefreshing = isRefreshing,
             error = error,

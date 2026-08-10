@@ -38,8 +38,10 @@ internal fun isUnread(
  * 内容册构建纯函数——从 [SessionListDataInputs] + [SessionListUiInputs] 构建列表渲染状态。
  * 逻辑：过滤/搜索/分类/收藏/树构建/未读。
  * 外壳字段（isLoading/isRefreshing/error/serverName）不再进入此函数。
+ *
+ * `suspend` 因为读取 [DraftRepository.getDraftSessionIds] 需要异步 IO（backlog #38）。
  */
-internal fun buildContentState(
+internal suspend fun buildContentState(
     data: SessionListDataInputs,
     ui: SessionListUiInputs,
     serverId: String,
@@ -92,6 +94,9 @@ internal fun buildContentState(
         categoryFilteredSessions
     }
 
+    // 草稿会话 id 集合——读取一次复用（suspend IO，避免重复调用）
+    val draftSessionIds = draftRepository.getDraftSessionIds()
+
     val tagsById = data.sessionTags.associateBy { it.id }
     val resolvedTags: Map<String, List<Tag>> = buildMap {
         data.categoryAssignments.forEach { (sessionId, tagIds) ->
@@ -106,7 +111,7 @@ internal fun buildContentState(
                 session = SessionItem(
                     session = session,
                     status = data.statuses[session.id] ?: SessionStatus.Idle,
-                    hasDraft = session.id in draftRepository.getDraftSessionIds(),
+                    hasDraft = session.id in draftSessionIds,
                     tags = resolvedTags[session.id].orEmpty(),
                     hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, data.statuses[session.id] ?: SessionStatus.Idle),
                     hasPendingQuestion = session.id in data.pendingQuestionIds,
@@ -114,7 +119,7 @@ internal fun buildContentState(
             )
         }
     } else {
-        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, data.statuses, draftRepository.getDraftSessionIds(), resolvedTags, data.lastReplyTime, readTimes, data.allReadAt, data.pendingQuestionIds)
+        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, data.statuses, draftSessionIds, resolvedTags, data.lastReplyTime, readTimes, data.allReadAt, data.pendingQuestionIds)
     }
 
     val prefillDirectory = if (ui.lastToggledDirectory != null && ui.lastToggledDirectory in ui.expandedPaths)

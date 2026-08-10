@@ -135,7 +135,7 @@ class ChatViewModelQueuedTest {
         every { Log.i(any(), any()) } returns 0
 
         // Draft 桩
-        every { draftRepository.getDraft(any()) } returns null
+        coEvery { draftRepository.getDraft(any()) } returns null
 
         // Settings 桩
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())

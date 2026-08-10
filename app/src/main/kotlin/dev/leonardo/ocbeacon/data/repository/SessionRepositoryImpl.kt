@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.logging.AppLogger
 
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.domain.model.CreateSessionOpts
@@ -217,9 +218,9 @@ class SessionRepositoryImpl @Inject constructor(
         before: String?,
     ): Result<MessagePage> = runCatching {
         val conn = resolveConnection(serverId)
-        AppLogger.d("NetTrace", "listMessages REQUEST server=$serverId sid=${sessionId.take(12)} limit=$limit before=${before?.take(16)}")
+        if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages REQUEST server=$serverId sid=${sessionId.take(12)} limit=$limit before=${before?.take(16)}")
         messageApi.listMessages(conn, sessionId, limit, before).also {
-            AppLogger.d("NetTrace", "listMessages RESPONSE server=$serverId sid=${sessionId.take(12)} msgs=${it.messages.size} (limit=$limit)")
+            if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages RESPONSE server=$serverId sid=${sessionId.take(12)} msgs=${it.messages.size} (limit=$limit)")
         }
     }
 

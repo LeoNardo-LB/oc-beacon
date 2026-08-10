@@ -442,7 +442,10 @@ class OpenCodeConnectionService : Service() {
     }
 
     private fun processEvent(server: ServerConfig, event: SseEvent) {
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] SSE event: ${event.javaClass.simpleName}")
+        // SSE 双日志治理（backlog #39）：移除每事件通用日志——SseClient 连接
+        // 生命周期日志（打开/关闭/心跳/错误/eventCount 汇总）已提供 SSE 可观测性，
+        // 关键业务事件（SessionIdle/PermissionAsked/QuestionAsked）在下方各分支
+        // 有专门日志。每事件打印 ~50-90 条/s 会造成 logcat I/O + GC 压力。
 
         // EventDispatcher.processEvent 已由 SseConnectionManager 调用
         // 此处仅路由到通知逻辑

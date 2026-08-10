@@ -28,11 +28,12 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -86,18 +87,12 @@ class ChatViewModel @Inject constructor(
 
     private val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
 
-    // 服务器配置异步从数据源解析（密码/用户名/URL 不再经导航参数传递）。
-    // 用 runBlocking(Dispatchers.IO) 同步派生：resolveConnection 是本地 Room 读取（毫秒级），
-    // 保证 TerminalDelegate 等依赖 eager 初始化的组件正常工作。
-    // 纯异步方案需重构 TerminalDelegate 的 StateFlow 暴露模式，超出本任务范围。
-    private val serverConfig: dev.leonardo.ocbeacon.domain.model.ServerConfig? =
-        runBlocking(kotlinx.coroutines.Dispatchers.IO) {
-            serverRepository.getServer(serverId)
-        }
-    val serverName: String = serverConfig?.displayName ?: ""
-    private val serverConn: ServerConnection = serverConfig?.let {
-        ServerConnection.from(it.url, it.username, it.password)
-    } ?: ServerConnection.from("", "", null)
+    // ============ 服务器配置异步加载（backlog #38：消除构造期主线程 runBlocking） ============
+    // 构造期不再 runBlocking 等待 Room 读取；改为 init 中 viewModelScope.launch 异步加载，
+    // 结果通过 StateFlow 暴露给依赖方（ChatStateAggregator 的 serverName、
+    // TerminalDelegate 的连接）。加载完成前用占位空值，就绪后自动更新。
+    private val _serverName = MutableStateFlow("")
+    val serverName: StateFlow<String> = _serverName.asStateFlow()
 
     // ============ 会话生命周期 Delegate ============
     private val sessionLifecycle = SessionLifecycleDelegate(
@@ -149,6 +144,18 @@ class ChatViewModel @Inject constructor(
 
     init {
         sessionStateService.setServerId(serverId)
+        // backlog #38: 异步加载服务器配置（Room 毫秒级，但避免主线程 runBlocking 阻塞）。
+        // 加载完成后：更新 serverName StateFlow + 回填终端 workspace 连接。
+        viewModelScope.launch {
+            val config = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                serverRepository.getServer(serverId)
+            }
+            _serverName.value = config?.displayName ?: ""
+            val conn = config?.let {
+                ServerConnection.from(it.url, it.username, it.password)
+            } ?: ServerConnection.from("", "", null)
+            terminalRegistry.updateConn(serverId, conn)
+        }
     }
 
     // ============ 模型配置 Delegate ============
@@ -191,7 +198,7 @@ class ChatViewModel @Inject constructor(
         terminalRegistry = terminalRegistry,
         settingsRepository = settingsRepository,
         serverId = serverId,
-        conn = serverConn,
+        conn = ServerConnection.from("", "", null),
         scope = viewModelScope,
         sessionDirectoryProvider = { sessionLifecycle.sessionDirectory },
         sessionLoaded = sessionLifecycle.sessionLoaded,
@@ -364,11 +371,17 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        // 从磁盘恢复草稿
+        // 从磁盘恢复草稿（异步：DataStore IO 不阻塞主线程，backlog #38 根因修复）
         if (!isNewSession) {
-            val draft = draftDelegate.restorePersistedDraft()
-            if (draft != null) {
-                modelConfig.applyDraftRestore(draft.selectedAgent, draft.selectedVariant)
+            viewModelScope.launch {
+                try {
+                    val draft = draftDelegate.restorePersistedDraft()
+                    if (draft != null) {
+                        modelConfig.applyDraftRestore(draft.selectedAgent, draft.selectedVariant)
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "restorePersistedDraft failed", e)
+                }
             }
         }
 

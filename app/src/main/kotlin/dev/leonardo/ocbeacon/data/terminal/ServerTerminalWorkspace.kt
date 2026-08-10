@@ -40,7 +40,7 @@ data class TerminalTabUi(
 
 internal class ServerTerminalWorkspace(
     private val api: TerminalApi,
-    private val conn: ServerConnection,
+    @Volatile internal var conn: ServerConnection,
     private val context: Context,
 ) {
     private class RuntimeTab(

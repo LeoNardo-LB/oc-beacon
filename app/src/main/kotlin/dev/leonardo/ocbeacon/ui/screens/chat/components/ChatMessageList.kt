@@ -245,27 +245,6 @@ fun ChatMessageList(
         }
     }
 
-    // ── 诊断埋点（ChatScroll）：检测 fling 滚动中 firstVisibleItemIndex 的跳变 ──
-    // 目标：验证 beyondBoundsItemCount 修复后，向下滑 fling 不再跳过中间 item。
-    // JUMP 日志 = 一帧内 index 跳变超过 1（结合 composed 日志判断是否真的未组合）。
-    LaunchedEffect(Unit) {
-        var prevIndex = listState.firstVisibleItemIndex
-        snapshotFlow {
-            listState.firstVisibleItemIndex to listState.isScrollInProgress
-        }.collect { (index, scrolling) ->
-            if (scrolling) {
-                val gap = index - prevIndex
-                if (kotlin.math.abs(gap) > 1) {
-                    AppLogger.w("ChatScroll", "JUMP idx $prevIndex -> $index (gap=$gap, skipping ${if (gap > 0) (prevIndex + 1)..(index - 1) else (index + 1)..(prevIndex - 1)})")
-                }
-                prevIndex = index
-            } else {
-                // 滚动停止时同步基准，避免把静止状态的变化误报为跳变
-                prevIndex = index
-            }
-        }
-    }
-
     // 快速导航：提取跳转目标 + 跟踪当前问题
     // jumpTargets 缓存（v6）：只依赖 user 消息（发送后静态）+ id 序列结构，
     // 签名未变时复用 —— 消除流式期间每 48ms 全量重建的分配压力。
@@ -550,11 +529,6 @@ fun ChatMessageList(
                                 }
                         } else Modifier.fillMaxWidth()
                         Box(modifier = itemModifier) {
-                        // 诊断埋点（ChatScroll，DEBUG=仅 logcat）：记录 item 进入组合的时机。
-                        // 与 JUMP 日志对照：修复后 item 应在进入视口前（提前 4 项）就 composed。
-                        LaunchedEffect(Unit) {
-                            AppLogger.d("ChatScroll", "composed idx=$rawIndex id=${msg.message.id.take(10)}")
-                        }
                         when {
                             msg.isAssistant -> {
                                 val isTurnLast = rawIndex == rawMessages.lastIndex || rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true

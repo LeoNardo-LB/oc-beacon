@@ -154,7 +154,6 @@ class MessageEventHandler @Inject constructor(
         }
         if (event.info is Message.Assistant) {
             assistantMessageIds.add(event.info.id)
-            if (BuildConfig.DEBUG) AppLogger.d("UnreadDiag", "[MsgUpdated] sid=${sessionId.take(12)} msg=${event.info.id.take(12)} completed=${event.info.time.completed}")
         }
         // 若尚无 part，则从摘要文本为用户消息播种 part。
         val info = event.info
@@ -238,25 +237,12 @@ class MessageEventHandler @Inject constructor(
     internal fun handleMessagePartUpdated(event: SseEvent.MessagePartUpdated) {
         val messageId = event.part.messageId
         val partId = event.part.id
-        @Suppress("DEPRECATION")
-        val thread = Thread.currentThread().id
         _parts.update { current ->
             val messageParts = current[messageId]?.toMutableList() ?: mutableListOf()
             val idx = messageParts.indexOfFirst { it.id == partId }
             if (idx >= 0) {
                 val old = messageParts[idx]
                 val merged = mergePart(old, event.part)
-                // 诊断：记录 Text/Reasoning part 的文本变更
-                if (old is Part.Text && event.part is Part.Text) {
-                    val oldLen = old.text.length
-                    val newLen = (merged as Part.Text).text.length
-                    val incLen = event.part.text.length
-                    if (newLen != incLen) {
-                        AppLogger.w(TAG, "[PartUpdated] t=$thread msg=$messageId part=$partId " +
-                            "old=$oldLen inc=$incLen merged=$newLen " +
-                            "(kept SSE text, discarded REST snapshot)")
-                    }
-                }
                 messageParts[idx] = merged
             } else {
                 // 新 part 到达——对所有消息类型保持文本不变。
@@ -390,8 +376,6 @@ class MessageEventHandler @Inject constructor(
      * - 诊断日志保留（标签 [setMessages]）
      */
     private fun upsertSsePriority(sessionId: String, incoming: List<MessageWithParts>) {
-        @Suppress("DEPRECATION")
-        val thread = Thread.currentThread().id
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = incoming.associateBy { it.info.id }
@@ -415,17 +399,6 @@ class MessageEventHandler @Inject constructor(
             val merged = partsMap.mapValues { (messageId, incomingParts) ->
                 val existingParts = current[messageId]
                 if (existingParts != null) {
-                    // 诊断：检查合并后文本长度是否回退
-                    for (inc in incomingParts) {
-                        if (inc is Part.Text) {
-                            val ex = existingParts.find { it.id == inc.id }
-                            if (ex is Part.Text && ex.text.length > inc.text.length) {
-                                AppLogger.w(TAG, "[setMessages] t=" + thread + " msg=" + messageId.take(8) +
-                                    " part=" + inc.id.take(8) + " SSE=" + ex.text.length + " > REST=" + inc.text.length +
-                                    " -> keeping SSE text")
-                            }
-                        }
-                    }
                     mergePartsList(existingParts, incomingParts)
                 } else {
                     incomingParts
@@ -442,8 +415,6 @@ class MessageEventHandler @Inject constructor(
      * - parts: [mergePartsList]——与 SSE_PRIORITY 相同（更长文本胜出）
      */
     private fun upsertRestAuthority(sessionId: String, incoming: List<MessageWithParts>) {
-        @Suppress("DEPRECATION")
-        val thread = Thread.currentThread().id
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             val incomingById = incoming.associateBy { it.info.id }
@@ -459,17 +430,6 @@ class MessageEventHandler @Inject constructor(
             val merged = partsMap.mapValues { (messageId, incomingParts) ->
                 val existingParts = current[messageId]
                 if (existingParts != null) {
-                    // 诊断：检查合并后文本长度是否回退
-                    for (inc in incomingParts) {
-                        if (inc is Part.Text) {
-                            val ex = existingParts.find { it.id == inc.id }
-                            if (ex is Part.Text && ex.text.length > inc.text.length) {
-                                AppLogger.w(TAG, "[replaceMessages] t=" + thread + " msg=" + messageId.take(8) +
-                                    " part=" + inc.id.take(8) + " SSE=" + ex.text.length + " > REST=" + inc.text.length +
-                                    " -> keeping SSE text")
-                            }
-                        }
-                    }
                     mergePartsList(existingParts, incomingParts)
                 } else {
                     incomingParts
@@ -572,7 +532,6 @@ class MessageEventHandler @Inject constructor(
                 if (msg is Message.Assistant && msg.time.completed == null &&
                     (messageId.isEmpty() || msg.id == messageId)
                 ) {
-                    AppLogger.i("UnreadDiag", "[markIdle] session=${sessionId.take(12)} msg=${msg.id.take(12)} -> completed")
                     msg.copy(time = msg.time.copy(completed = now))
                 } else {
                     msg

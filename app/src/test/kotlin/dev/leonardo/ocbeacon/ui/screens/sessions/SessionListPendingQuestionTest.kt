@@ -6,10 +6,13 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import io.mockk.mockk
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class SessionListPendingQuestionTest {
 
     private val draftRepo = mockk<DraftRepository>(relaxed = true)
@@ -50,20 +53,20 @@ class SessionListPendingQuestionTest {
             .first { it.id == id }
 
     @Test
-    fun `session with pending question gets flag`() {
+    fun `session with pending question gets flag`() = runTest {
         val state = buildContentState(baseData(setOf("s1")), ui(), "server_1", draftRepo)
         assertTrue(nodeFor(state, "s1").session.hasPendingQuestion)
         assertFalse(nodeFor(state, "s2").session.hasPendingQuestion)
     }
 
     @Test
-    fun `no pending questions leaves flags false`() {
+    fun `no pending questions leaves flags false`() = runTest {
         val state = buildContentState(baseData(emptySet()), ui(), "server_1", draftRepo)
         assertFalse(nodeFor(state, "s1").session.hasPendingQuestion)
     }
 
     @Test
-    fun `pending ids from other server ignored`() {
+    fun `pending ids from other server ignored`() = runTest {
         val state = buildContentState(baseData(setOf("s_other")), ui(), "server_1", draftRepo)
         assertFalse(nodeFor(state, "s1").session.hasPendingQuestion)
         assertFalse(nodeFor(state, "s2").session.hasPendingQuestion)

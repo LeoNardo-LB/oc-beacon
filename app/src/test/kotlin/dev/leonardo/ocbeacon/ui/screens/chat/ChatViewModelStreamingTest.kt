@@ -86,7 +86,7 @@ class ChatViewModelStreamingTest {
         every { Log.w(any(), any<String>(), any()) } returns 0
         every { Log.i(any(), any()) } returns 0
 
-        every { draftRepository.getDraft(any()) } returns null
+        coEvery { draftRepository.getDraft(any()) } returns null
 
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
         every { settingsRepository.getSettingsFlow() } returns flowOf(

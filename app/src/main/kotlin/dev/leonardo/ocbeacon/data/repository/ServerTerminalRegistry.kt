@@ -32,6 +32,20 @@ class ServerTerminalRegistry @Inject constructor(
     }
 
     /**
+     * 更新指定服务器工作区的连接。
+     *
+     * 用于异步加载服务器配置后回填正确连接（backlog #38）：
+     * ChatViewModel 构造时不再 runBlocking 等待 Room 读取，而是先用占位连接
+     * 构造 TerminalDelegate（此时无用户 tab），serverConfig 加载完成后调用此方法
+     * 将正确连接写入 workspace，后续 PTY API 调用使用正确连接。
+     */
+    fun updateConn(serverId: String, conn: ServerConnection) {
+        synchronized(lock) {
+            byServer[serverId]?.conn = conn
+        }
+    }
+
+    /**
      * 移除并销毁指定服务器的终端工作区（关闭全部 tab、取消协程作用域）。
      * 在服务器断开连接时调用，防止终端模拟器与协程随 [byServer] 无界增长而泄漏。
      */

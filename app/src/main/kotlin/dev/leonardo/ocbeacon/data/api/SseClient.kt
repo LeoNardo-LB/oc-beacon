@@ -202,9 +202,7 @@ class SseClient @Inject constructor(
                                 eventCount++
                                 if (event is SseEvent.ServerHeartbeat) {
                                     lastHeartbeat = System.currentTimeMillis()
-                                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Heartbeat received (total events: $eventCount)")
                                 } else {
-                                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Event #$eventCount: ${event::class.simpleName}")
                                     emit(event)
                                 }
                             }
@@ -291,7 +289,6 @@ class SseClient @Inject constructor(
                                 if (event is SseEvent.ServerHeartbeat) {
                                     lastHeartbeat = System.currentTimeMillis()
                                 } else {
-                                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Instance event #$eventCount: ${event::class.simpleName}")
                                     emit(event)
                                 }
                             }

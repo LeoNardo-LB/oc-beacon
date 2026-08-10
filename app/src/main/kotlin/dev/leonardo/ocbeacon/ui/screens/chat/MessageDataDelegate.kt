@@ -168,8 +168,11 @@ internal class MessageDataDelegate(
             // 工具进度输出注入：将 tool.progress 内容累积到
             // Running 工具的 output 字段。callId 全局唯一，因此单个
             // progressOutputs map 对本会话所有消息安全。
+            //
+            // 注意 combine 参数顺序：args[8] 是 statusFlow（上方），
+            // args[9] 是 getActiveToolProgressForSession（combine 第 10 个源）。
             @Suppress("UNCHECKED_CAST")
-            val progressList = args[8] as? List<ToolProgressInfo>
+            val progressList = args[9] as? List<ToolProgressInfo>
             val progressOutputs = progressList.orEmpty().associate { it.callId to it.output }
 
 

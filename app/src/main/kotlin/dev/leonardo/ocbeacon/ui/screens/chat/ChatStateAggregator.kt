@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.stateIn
  * 管理此前内联在 [ChatViewModel] 中的 4 个聚合状态管道。
  *
  * 负责：
- * - [sessionMetaState]：会话元数据（标题/状态/agent/streaming 标志），6 源 combine
+ * - [sessionMetaState]：会话元数据（标题/状态/agent/streaming 标志），7 源 combine
  * - [tokenStatsState]：token 使用统计的轻量映射
  * - [directoryState]：当前会话工作目录
  * - [uiState]：Legacy 全量状态，从 5 个拆分 StateFlow 组装（向后兼容测试）
@@ -39,7 +39,7 @@ internal class ChatStateAggregator(
     modelConfigState: StateFlow<ModelConfigState>,
     restoredDraftState: StateFlow<RevertedDraftPayload?>,
     private val serverId: String,
-    private val serverName: String,
+    private val serverName: StateFlow<String>,
     private val scope: CoroutineScope,
 ) {
     /**
@@ -55,6 +55,7 @@ internal class ChatStateAggregator(
         sessionRepository.getCurrentAgentFlow(serverId),
         sessionRepository.getCurrentModelFlow(serverId),
         sessionStateService.activityFlow,
+        serverName,
     ) { args ->
         val sid = args[0] as String
         @Suppress("UNCHECKED_CAST")
@@ -67,6 +68,7 @@ internal class ChatStateAggregator(
         val currentModelMap = args[4] as Map<String, Pair<String, String>>
         @Suppress("UNCHECKED_CAST")
         val activities = args[5] as Map<String, SessionActivity?>
+        val serverNameValue = args[6] as String
 
         val session = allSessions.find { it.id == sid }
         val sessionStatus = statuses[sid] ?: SessionStatus.Idle
@@ -74,7 +76,7 @@ internal class ChatStateAggregator(
 
         SessionMetaState(
             sessionTitle = session?.title ?: "",
-            serverName = serverName,
+            serverName = serverNameValue,
             sessionStatus = sessionStatus,
             revert = session?.revert,
             sessionParentId = session?.parentId,

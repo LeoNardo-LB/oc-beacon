@@ -140,7 +140,7 @@ class ChatViewModelPermissionTest {
         undoRedoUseCase = mockk(relaxed = true)
         messagePaging = mockk(relaxed = true)
 
-        every { draftRepository.getDraft(any()) } returns null
+        coEvery { draftRepository.getDraft(any()) } returns null
 
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
         every { settingsRepository.getSettingsFlow() } returns flowOf(

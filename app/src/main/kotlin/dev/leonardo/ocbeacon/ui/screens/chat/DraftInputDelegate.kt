@@ -6,7 +6,6 @@ import dev.leonardo.ocbeacon.domain.model.Draft
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageAgentUseCase
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -14,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val TAG = "DraftInputDelegate"
 
@@ -166,7 +164,7 @@ internal class DraftInputDelegate(
         _draftText.value = ""
         _draftAttachmentUris.value = emptyList()
         scope.launch {
-            withContext(Dispatchers.IO) { draftRepository.clearDraft(sessionIdProvider()) }
+            draftRepository.clearDraft(sessionIdProvider())
         }
     }
 
@@ -186,19 +184,31 @@ internal class DraftInputDelegate(
             selectedVariant = selectedVariantProvider()
         )
         scope.launch {
-            withContext(Dispatchers.IO) { draftRepository.saveDraft(sessionIdProvider(), draft) }
+            draftRepository.saveDraft(sessionIdProvider(), draft)
         }
     }
 
     /**
      * 从磁盘加载持久化草稿并应用 D 集群字段（文本/附件/文件路径）。
      * 返回完整 [Draft]，使 ChatViewModel 可以应用 agent/variant（跨集群）。
+     *
+     * **竞态保护**（backlog #38）：异步恢复与用户输入之间的时序——
+     * 若恢复到达时用户已手动输入文本/添加附件，保留用户输入，不覆盖。
+     * 这是异步初始化的必要保护：草稿恢复不再是构造期同步阻塞，
+     * 用户可能在恢复完成前开始打字（虽然窗口很短）。
      */
-    fun restorePersistedDraft(): Draft? {
+    suspend fun restorePersistedDraft(): Draft? {
         val draft = draftRepository.getDraft(sessionIdProvider()) ?: return null
-        _draftText.value = draft.text
-        _draftAttachmentUris.value = draft.imageUris
-        if (draft.confirmedFilePaths.isNotEmpty()) {
+        // 文本：仅当用户未输入时恢复（空/空白视为未输入）
+        if (_draftText.value.isBlank()) {
+            _draftText.value = draft.text
+        }
+        // 附件：仅当用户未添加附件时恢复
+        if (_draftAttachmentUris.value.isEmpty()) {
+            _draftAttachmentUris.value = draft.imageUris
+        }
+        // 文件路径：仅当用户未确认路径时恢复
+        if (_confirmedFilePaths.value.isEmpty() && draft.confirmedFilePaths.isNotEmpty()) {
             _confirmedFilePaths.value = draft.confirmedFilePaths.toSet()
         }
         return draft

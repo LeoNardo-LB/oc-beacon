@@ -9,7 +9,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.domain.model.Draft
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -28,29 +29,43 @@ class DraftDataStore @Inject constructor(
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val draftsKey = stringPreferencesKey("session_drafts")
 
-    /** 内存缓存，延迟加载（同步读——DataStore 首次读是 IO；runBlocking 一次性成本可接受）。 */
-    private var drafts: MutableMap<String, Draft>? = null
+    /**
+     * 懒加载内存缓存——首次访问时从 DataStore 异步读取（suspend）。
+     * 后续访问纯内存，无 IO 开销。
+     *
+     * 缓存以 [loadLock] 保护并发加载（多个协程同时首次访问只触发一次磁盘读取）。
+     */
+    @Volatile
+    private var cached: Map<String, Draft>? = null
+    private val loadMutex = Mutex()
 
-    private fun ensureLoaded(): MutableMap<String, Draft> {
-        drafts?.let { return it }
-        val loaded = try {
-            val content = runBlocking { dataStore.data.first() }[draftsKey]
-            if (content.isNullOrBlank()) {
-                // 一次性迁移：旧 File 格式 → DataStore（迁移后删除旧文件，幂等）
-                migrateFromLegacyFile().toMutableMap()
-            } else {
-                json.decodeFromString<Map<String, Draft>>(content).toMutableMap()
-            }
-        } catch (e: Exception) {
-            AppLogger.w(TAG, "Failed to load drafts, starting fresh: ${e.message}")
-            mutableMapOf()
+    /** 确保内存缓存已加载；若未加载则同步阻塞当前协程（suspend，不阻塞线程）完成首次加载。 */
+    private suspend fun ensureLoaded(): Map<String, Draft> {
+        cached?.let { return it }
+        return loadMutex.withLock {
+            cached?.let { return it }
+            val loaded = loadFromDisk()
+            cached = loaded
+            loaded
         }
-        drafts = loaded
-        return loaded
+    }
+
+    /** 从 DataStore 读取草稿映射；若 DataStore 无数据则尝试从旧 File 格式迁移。 */
+    private suspend fun loadFromDisk(): Map<String, Draft> = try {
+        val content = dataStore.data.first()[draftsKey]
+        if (content.isNullOrBlank()) {
+            // 一次性迁移：旧 File 格式 → DataStore（迁移后删除旧文件，幂等）
+            migrateFromLegacyFile()
+        } else {
+            json.decodeFromString<Map<String, Draft>>(content)
+        }
+    } catch (e: Exception) {
+        AppLogger.w(TAG, "Failed to load drafts, starting fresh: ${e.message}")
+        emptyMap()
     }
 
     /** 读取旧 File 格式草稿（若有），迁移到 DataStore 并删除旧文件。幂等：文件不存在直接返回空。 */
-    private fun migrateFromLegacyFile(): Map<String, Draft> {
+    private suspend fun migrateFromLegacyFile(): Map<String, Draft> {
         val legacyFile = File(context.filesDir, LEGACY_DRAFTS_FILE)
         if (!legacyFile.exists()) return emptyMap()
         return try {
@@ -69,37 +84,38 @@ class DraftDataStore @Inject constructor(
         }
     }
 
-    override fun getDraft(sessionId: String): Draft? {
+    override suspend fun getDraft(sessionId: String): Draft? {
         val d = ensureLoaded()[sessionId]
         return if (d != null && !d.isEmpty) d else null
     }
 
-    override fun saveDraft(sessionId: String, draft: Draft) {
-        val map = ensureLoaded()
+    override suspend fun saveDraft(sessionId: String, draft: Draft) {
+        val map = ensureLoaded().toMutableMap()
         if (draft.isEmpty) {
             map.remove(sessionId)
         } else {
             map[sessionId] = draft
         }
+        cached = map
         persist(map)
     }
 
-    override fun getDraftSessionIds(): Set<String> =
+    override suspend fun getDraftSessionIds(): Set<String> =
         ensureLoaded().filter { !it.value.isEmpty }.keys
 
-    override fun clearDraft(sessionId: String) {
-        val map = ensureLoaded()
+    override suspend fun clearDraft(sessionId: String) {
+        val map = ensureLoaded().toMutableMap()
         if (map.remove(sessionId) != null) {
+            cached = map
             persist(map)
         }
     }
 
-    private fun persist(map: Map<String, Draft>) {
+    /** 将映射持久化到 DataStore（suspend，不阻塞调用线程）。 */
+    private suspend fun persist(map: Map<String, Draft>) {
         try {
-            runBlocking {
-                dataStore.edit { prefs ->
-                    prefs[draftsKey] = json.encodeToString(map)
-                }
+            dataStore.edit { prefs ->
+                prefs[draftsKey] = json.encodeToString(map)
             }
         } catch (e: Exception) {
             AppLogger.e(TAG, "Failed to persist drafts: ${e.message}")

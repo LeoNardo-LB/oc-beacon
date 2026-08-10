@@ -5,12 +5,15 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 未读判定纯函数测试。 */
+@OptIn(ExperimentalCoroutinesApi::class)
 class SessionListUnreadTest {
 
     @Test
@@ -85,7 +88,7 @@ class SessionListUnreadTest {
     }
 
     @Test
-    fun `buildContentState 保持未读判定与过滤语义`() {
+    fun `buildContentState 保持未读判定与过滤语义`() = runTest {
         // 等价值 fixtures（现有文件无 sessions/SERVER_ID/draftRepository，按 brief 授权自包含构造）
         val sessions = listOf(
             Session(
@@ -95,10 +98,10 @@ class SessionListUnreadTest {
         )
         val serverId = "server-1"
         val draftRepository = object : DraftRepository {
-            override fun getDraft(sessionId: String) = null
-            override fun saveDraft(sessionId: String, draft: dev.leonardo.ocbeacon.domain.model.Draft) = Unit
-            override fun clearDraft(sessionId: String) = Unit
-            override fun getDraftSessionIds(): Set<String> = emptySet()
+            override suspend fun getDraft(sessionId: String) = null
+            override suspend fun saveDraft(sessionId: String, draft: dev.leonardo.ocbeacon.domain.model.Draft) = Unit
+            override suspend fun clearDraft(sessionId: String) = Unit
+            override suspend fun getDraftSessionIds(): Set<String> = emptySet()
         }
 
         val data = SessionListDataInputs(
@@ -140,7 +143,7 @@ class SessionListUnreadTest {
             time = Session.Time(created = 0L, updated = 0L),
         )
 
-    private fun buildFilterState(
+    private suspend fun buildFilterState(
         sessions: List<Session>,
         serverSessionMap: Map<String, Set<String>> = mapOf(testServerId to sessions.map { it.id }.toSet()),
         categoryAssignments: Map<String, List<String>> = emptyMap(),
@@ -150,10 +153,10 @@ class SessionListUnreadTest {
         categoryFilterIds: Set<String> = emptySet(),
     ): SessionListContentState {
         val draftRepository = object : DraftRepository {
-            override fun getDraft(sessionId: String) = null
-            override fun saveDraft(sessionId: String, draft: dev.leonardo.ocbeacon.domain.model.Draft) = Unit
-            override fun clearDraft(sessionId: String) = Unit
-            override fun getDraftSessionIds(): Set<String> = emptySet()
+            override suspend fun getDraft(sessionId: String) = null
+            override suspend fun saveDraft(sessionId: String, draft: dev.leonardo.ocbeacon.domain.model.Draft) = Unit
+            override suspend fun clearDraft(sessionId: String) = Unit
+            override suspend fun getDraftSessionIds(): Set<String> = emptySet()
         }
         val data = SessionListDataInputs(
             sessions = sessions,
@@ -181,7 +184,7 @@ class SessionListUnreadTest {
     }
 
     @Test
-    fun `favoritesOnly 过滤未收藏会话`() {
+    fun `favoritesOnly 过滤未收藏会话`() = runTest {
         // 会话未分配 FAVORITE_TAG_ID → favoritesOnly=true 时被剔除
         val state = buildFilterState(
             sessions = listOf(testSession("s1")),
@@ -192,7 +195,7 @@ class SessionListUnreadTest {
     }
 
     @Test
-    fun `favoritesOnly 保留收藏会话`() {
+    fun `favoritesOnly 保留收藏会话`() = runTest {
         // 会话分配 FAVORITE_TAG_ID → favoritesOnly=true 时保留
         val state = buildFilterState(
             sessions = listOf(testSession("s1")),
@@ -203,7 +206,7 @@ class SessionListUnreadTest {
     }
 
     @Test
-    fun `categoryFilterIds AND 过滤 需同时匹配全部 tag`() {
+    fun `categoryFilterIds AND 过滤 需同时匹配全部 tag`() = runTest {
         // t1/t2 分属两个会话：同时筛选 t1+t2 无人满足（AND）；只筛选 t1 命中 1 个
         val sessions = listOf(
             testSession("s1", directory = "D:/a"),
@@ -225,7 +228,7 @@ class SessionListUnreadTest {
     }
 
     @Test
-    fun `searchQuery 匹配目录关键词`() {
+    fun `searchQuery 匹配目录关键词`() = runTest {
         val sessions = listOf(testSession("s1", directory = "D:/projects/beacon"))
         val miss = buildFilterState(sessions = sessions, searchQuery = "不存在的关键词")
         assertTrue(miss.treeNodes.isEmpty())
@@ -234,7 +237,7 @@ class SessionListUnreadTest {
     }
 
     @Test
-    fun `baseDirectory 前缀不匹配过滤会话`() {
+    fun `baseDirectory 前缀不匹配过滤会话`() = runTest {
         // 会话目录 D:/a/b，baseDirectory=D:/x 前缀不匹配 → 空；D:/a 匹配 → 1
         val sessions = listOf(testSession("s1", directory = "D:/a/b"))
         val miss = buildFilterState(sessions = sessions, baseDirectory = "D:/x")
@@ -244,7 +247,7 @@ class SessionListUnreadTest {
     }
 
     @Test
-    fun `serverSessionMap 剔除未映射会话`() {
+    fun `serverSessionMap 剔除未映射会话`() = runTest {
         // s1 不在 serverSessionMap[serverId] 中 → 会话被剔除
         val sessions = listOf(testSession("s1", directory = "D:/a"))
         val state = buildFilterState(
