@@ -60,10 +60,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -576,22 +578,26 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun forkSession(conn: ServerConnection, sessionId: String, messageId: String?): Session {
-        val body = buildMap<String, String> {
-            messageId?.let { put("messageID", it) }
+        val bodyObj = kotlinx.serialization.json.buildJsonObject {
+            messageId?.let { put("messageID", kotlinx.serialization.json.JsonPrimitive(it)) }
         }
-        return httpClient.post("${conn.baseUrl}/api/session/$sessionId/fork") {
+        val bodyText = httpClient.post("${conn.baseUrl}/api/session/$sessionId/fork") {
             conn.authHeader?.let { header("Authorization", it) }
             contentType(ContentType.Application.Json)
-            setBody(body)
-        }.body()
+            setBody(bodyObj)
+        }.bodyAsText()
+        return V2SessionMapper.toSession(V2ResponseWrapper.flexibleObject(bodyText, json))
     }
 
     suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
-        return httpClient.post("${conn.baseUrl}/api/session/import") {
+        val bodyText = httpClient.post("${conn.baseUrl}/api/session/import") {
             conn.authHeader?.let { header("Authorization", it) }
             contentType(ContentType.Application.Json)
-            setBody(mapOf("url" to shareUrl))
-        }.body()
+            setBody(kotlinx.serialization.json.buildJsonObject {
+                put("url", kotlinx.serialization.json.JsonPrimitive(shareUrl))
+            })
+        }.bodyAsText()
+        return V2SessionMapper.toSession(V2ResponseWrapper.flexibleObject(bodyText, json))
     }
 
     suspend fun executeCommand(
@@ -700,33 +706,45 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun listPendingPermissions(conn: ServerConnection, directory: String? = null): List<PermissionRequest> {
-        return httpClient.get("${conn.baseUrl}/api/permission/request") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/permission/request") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
-        }.body()
+        }.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(PermissionRequest.serializer(), obj)
+        }
     }
 
     suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest> {
-        return httpClient.get("${conn.baseUrl}/api/question/request") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/question/request") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
-        }.body()
+        }.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(QuestionRequest.serializer(), obj)
+        }
     }
 
     // ============ System (supplementary) ============
 
     suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
         return runCatching {
-            httpClient.get("${conn.baseUrl}/api/location") {
+            val bodyText = httpClient.get("${conn.baseUrl}/api/location") {
                 conn.authHeader?.let { header("Authorization", it) }
-            }.body<ServerPaths>()
+            }.bodyAsText()
+            val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+            json.decodeFromJsonElement(ServerPaths.serializer(), obj)
         }.getOrElse { ServerPaths() }
     }
 
     suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> {
-        return httpClient.get("${conn.baseUrl}/api/mcp") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/mcp") {
             conn.authHeader?.let { header("Authorization", it) }
-        }.body()
+        }.bodyAsText()
+        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+        return obj.entries.associate { (key, value) ->
+            key to json.decodeFromJsonElement(McpStatusEntry.serializer(), value.jsonObject)
+        }
     }
 
     // ============ Provider / Config (supplementary) ============
@@ -795,31 +813,39 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun getConfig(conn: ServerConnection): ServerConfigResponse {
-        return httpClient.get("${conn.baseUrl}/api/config") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/config") {
             conn.authHeader?.let { header("Authorization", it) }
-        }.body()
+        }.bodyAsText()
+        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+        return json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj)
     }
 
     suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
-        return httpClient.get("${conn.baseUrl}/api/config") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/config") {
             conn.authHeader?.let { header("Authorization", it) }
-        }.body()
+        }.bodyAsText()
+        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+        return json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj)
     }
 
     suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
-        return httpClient.patch("${conn.baseUrl}/api/config") {
+        val bodyText = httpClient.patch("${conn.baseUrl}/api/config") {
             conn.authHeader?.let { header("Authorization", it) }
             contentType(ContentType.Application.Json)
             setBody(patch)
-        }.body()
+        }.bodyAsText()
+        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+        return json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj)
     }
 
     suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
-        return httpClient.patch("${conn.baseUrl}/api/config") {
+        val bodyText = httpClient.patch("${conn.baseUrl}/api/config") {
             conn.authHeader?.let { header("Authorization", it) }
             contentType(ContentType.Application.Json)
             setBody(patch)
-        }.body()
+        }.bodyAsText()
+        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+        return json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj)
     }
 
     suspend fun disposeGlobal(conn: ServerConnection): Boolean {
@@ -846,29 +872,43 @@ class V2ApiClient @Inject constructor(
         limit: Int? = null,
         dirs: String? = null
     ): List<String> {
-        return httpClient.get("${conn.baseUrl}/api/fs/find") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/fs/find") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
             parameter("query", query)
             type?.let { parameter("type", it) }
             limit?.let { parameter("limit", it) }
             dirs?.let { parameter("dirs", it) }
-        }.body()
+        }.bodyAsText()
+        val root = parseRoot(bodyText)
+        val dataField = root["data"]
+        return when {
+            dataField is JsonArray -> dataField.mapNotNull { element ->
+                (element as? JsonPrimitive)?.contentOrNull
+                    ?: element.jsonObject["id"]?.jsonPrimitive?.contentOrNull
+            }
+            else -> emptyList()
+        }
     }
 
     suspend fun readFile(conn: ServerConnection, path: String, directory: String? = null): FileContentDto {
-        return httpClient.get("${conn.baseUrl}/api/fs/read") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/fs/read") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
             parameter("path", path)
-        }.body()
+        }.bodyAsText()
+        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+        return json.decodeFromJsonElement(FileContentDto.serializer(), obj)
     }
 
     suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> {
-        return httpClient.get("${conn.baseUrl}/api/fs/find") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/fs/find") {
             conn.authHeader?.let { header("Authorization", it) }
             parameter("pattern", pattern)
-        }.body()
+        }.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(SearchMatchDto.serializer(), obj)
+        }
     }
 
     suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean {
@@ -889,7 +929,10 @@ class V2ApiClient @Inject constructor(
         if (!response.status.isSuccess()) {
             return emptyList()
         }
-        return response.body()
+        val bodyText = response.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(FileNodeDto.serializer(), obj)
+        }
     }
 
     suspend fun findSymbols(conn: ServerConnection, query: String, directory: String? = null): List<SymbolInfo> {
@@ -897,45 +940,61 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun getFileStatus(conn: ServerConnection, directory: String? = null): List<FileStatusInfo> {
-        return httpClient.get("${conn.baseUrl}/api/vcs/status") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/vcs/status") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
-        }.body()
+        }.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(FileStatusInfo.serializer(), obj)
+        }
     }
 
     suspend fun getVcs(conn: ServerConnection, directory: String? = null): VcsBranchDto {
-        return httpClient.get("${conn.baseUrl}/api/vcs") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/vcs") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
-        }.body()
+        }.bodyAsText()
+        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+        return json.decodeFromJsonElement(VcsBranchDto.serializer(), obj)
     }
 
     suspend fun getVcsStatus(conn: ServerConnection, directory: String? = null): List<VcsChangeDto> {
-        return httpClient.get("${conn.baseUrl}/api/vcs/status") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/vcs/status") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
-        }.body()
+        }.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(VcsChangeDto.serializer(), obj)
+        }
     }
 
     suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int = 3, directory: String? = null): List<FileDiffDto> {
-        return httpClient.get("${conn.baseUrl}/api/vcs/diff") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/vcs/diff") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
             parameter("mode", mode)
             parameter("context", context)
-        }.body()
+        }.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(FileDiffDto.serializer(), obj)
+        }
     }
 
     suspend fun listProjects(conn: ServerConnection): List<Project> {
-        return httpClient.get("${conn.baseUrl}/api/project") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/project") {
             conn.authHeader?.let { header("Authorization", it) }
-        }.body()
+        }.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(Project.serializer(), obj)
+        }
     }
 
     suspend fun getCurrentProject(conn: ServerConnection): Project {
-        return httpClient.get("${conn.baseUrl}/api/project/current") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/project/current") {
             conn.authHeader?.let { header("Authorization", it) }
-        }.body()
+        }.bodyAsText()
+        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+        return json.decodeFromJsonElement(Project.serializer(), obj)
     }
 
     // ============ Terminal / Pty ============
@@ -1072,10 +1131,13 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun listPtyShells(conn: ServerConnection, directory: String? = null): List<ShellInfo> {
-        return httpClient.get("${conn.baseUrl}/api/pty/shells") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/pty/shells") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
-        }.body()
+        }.bodyAsText()
+        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+            json.decodeFromJsonElement(ShellInfo.serializer(), obj)
+        }
     }
 
     suspend fun runShellCommand(

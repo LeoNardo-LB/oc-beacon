@@ -132,7 +132,7 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 - 每个层级要求：编译 ✅ + 单元测试 ✅ + 增强测试 ✅ + Maestro 流程（UI）+ androidTest（UI）
 
 环境：
-- opencode server 端口：4096，用户名 `opencode`，密码：环境变量 `${OPENCODE_SERVER_PASSWORD}`
+- opencode server 端口：4199，用户名 `opencode`，密码：配置文件 `/persistent/home/leo-tkp/.config/opencode/service.json`（`password` 字段，**不是环境变量**）
 - 模拟器访问宿主机：`10.0.2.2`
 - **模拟器调试应使用 subagent 执行**：UI 交互（tap/input/scroll）、截图、logcat 读取等派给 `task` subagent 处理，避免主会话上下文溢出
 

@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -44,6 +45,46 @@ object V2ResponseWrapper {
         val items = data.mapNotNull { it.jsonObject }
         val nextCursor = root["cursor"]?.jsonObject?.get("next")?.jsonPrimitive?.contentOrNull
         return items to nextCursor
+    }
+
+    /**
+     * 灵活解包列表响应——兼容 V2 服务器不同端点的不一致行为。
+     *
+     * 大多数 V2 端点返回 `{location:{}, data:[...], cursor:{}}` 包裹格式，
+     * 但少数端点（如 /api/project）返回裸数组 `[...]`。
+     * 本方法先尝试包裹格式，失败则回退到裸数组解析。
+     */
+    fun flexibleList(bodyText: String, json: Json): List<JsonObject> {
+        val element = json.parseToJsonElement(bodyText)
+        // 情况1：对象包裹 {data:[...]}
+        if (element is JsonObject) {
+            val dataField = element["data"]
+            if (dataField is JsonArray) {
+                return dataField.mapNotNull { it.jsonObject }
+            }
+            // 单个对象但无 data 字段——可能是直接返回的对象，包装为单元素列表
+            return listOf(element)
+        }
+        // 情况2：裸数组 [...]
+        if (element is JsonArray) {
+            return element.mapNotNull { it.jsonObject }
+        }
+        return emptyList()
+    }
+
+    /**
+     * 灵活解包单个对象响应——兼容 V2 包裹格式和直接返回。
+     */
+    fun flexibleObject(bodyText: String, json: Json): JsonObject {
+        val element = json.parseToJsonElement(bodyText)
+        if (element is JsonObject) {
+            // 如果有 data 字段且 data 是对象，返回 data
+            val dataField = element["data"]
+            if (dataField is JsonObject) return dataField
+            // 否则返回根对象
+            return element
+        }
+        return JsonObject(emptyMap())
     }
 }
 
