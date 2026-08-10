@@ -26,10 +26,10 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 /**
  * 解析并校验服务器 URL 字符串。
  * 接受如下格式：
- *   http://192.168.0.10:4096
+ *   http://192.168.0.10:4199
  *   https://192.168.0.10
  *   https://my-server.example.com:4848
- *   192.168.0.10:4096           -> 默认使用 http://
+ *   192.168.0.10:4199           -> 默认使用 http://
  *   192.168.0.10                -> 默认使用 http://
  *
  * 返回规范化后的 URL（带 scheme），无效则返回 null。

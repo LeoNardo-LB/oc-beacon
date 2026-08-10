@@ -8,7 +8,7 @@
     <string name="home_server_health_good">已连接</string>
     <!-- Server Management -->
     <string name="server_url">服务器 URL</string>
-    <string name="server_url_hint">http://192.168.1.100:4096</string>
+    <string name="server_url_hint">http://192.168.1.100:4199</string>
     <string name="server_username">用户名</string>
     <string name="server_username_hint">opencode</string>
     <string name="server_password">密码</string>
@@ -109,7 +109,7 @@
     <string name="home_fix">修复</string>
     <string name="server_name">服务器名称</string>
     <string name="server_name_hint">我的 OpenCode 服务器</string>
-    <string name="server_url_example">例如：http://192.168.0.10:4096 或 https://my-server:443</string>
+    <string name="server_url_example">例如：http://192.168.0.10:4199 或 https://my-server:443</string>
     <string name="server_add">添加服务器</string>
     <string name="session_rename">重命名会话</string>
     <string name="session_rename_title">标题</string>

@@ -8,7 +8,7 @@
     <string name="home_server_health_good">Bağlandı</string>
     <!-- Server Management -->
     <string name="server_url">Sunucu URL\'si</string>
-    <string name="server_url_hint">http://192.168.1.100:4096</string>
+    <string name="server_url_hint">http://192.168.1.100:4199</string>
     <string name="server_username">Kullanıcı Adı</string>
     <string name="server_username_hint">opencode</string>
     <string name="server_password">Şifre</string>
@@ -107,7 +107,7 @@
     <string name="home_fix">Düzelt</string>
     <string name="server_name">Sunucu Adı</string>
     <string name="server_name_hint">Benim OpenCode Sunucum</string>
-    <string name="server_url_example">örn. http://192.168.0.10:4096 veya https://my-server:443</string>
+    <string name="server_url_example">örn. http://192.168.0.10:4199 veya https://my-server:443</string>
     <string name="server_add">Sunucu Ekle</string>
     <string name="session_rename">Oturumu Yeniden Adlandır</string>
     <string name="session_rename_title">Başlık</string>

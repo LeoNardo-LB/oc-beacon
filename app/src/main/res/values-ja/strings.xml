@@ -8,7 +8,7 @@
     <string name="home_server_health_good">接続済み</string>
     <!-- Server Management -->
     <string name="server_url">サーバーURL</string>
-    <string name="server_url_hint">http://192.168.1.100:4096</string>
+    <string name="server_url_hint">http://192.168.1.100:4199</string>
     <string name="server_username">ユーザー名</string>
     <string name="server_username_hint">opencode</string>
     <string name="server_password">パスワード</string>
@@ -107,7 +107,7 @@
     <string name="home_fix">修正</string>
     <string name="server_name">サーバー名</string>
     <string name="server_name_hint">My OpenCode Server</string>
-    <string name="server_url_example">例: http://192.168.0.10:4096 または https://my-server:443</string>
+    <string name="server_url_example">例: http://192.168.0.10:4199 または https://my-server:443</string>
     <string name="server_add">サーバー追加</string>
     <string name="session_rename">セッション名変更</string>
     <string name="session_rename_title">タイトル</string>

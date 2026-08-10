@@ -8,7 +8,7 @@
     <string name="home_server_health_good">Conectado</string>
     <!-- Server Management -->
     <string name="server_url">URL do servidor</string>
-    <string name="server_url_hint">http://192.168.1.100:4096</string>
+    <string name="server_url_hint">http://192.168.1.100:4199</string>
     <string name="server_username">Nome de usuário</string>
     <string name="server_username_hint">opencode</string>
     <string name="server_password">Senha</string>
@@ -107,7 +107,7 @@
     <string name="home_fix">Corrigir</string>
     <string name="server_name">Nome do servidor</string>
     <string name="server_name_hint">Meu servidor OpenCode</string>
-    <string name="server_url_example">ex.: http://192.168.0.10:4096 ou https://meu-servidor:443</string>
+    <string name="server_url_example">ex.: http://192.168.0.10:4199 ou https://meu-servidor:443</string>
     <string name="server_add">Adicionar servidor</string>
     <string name="session_rename">Renomear sessão</string>
     <string name="session_rename_title">Título</string>

@@ -8,7 +8,7 @@
     <string name="home_server_health_good">متصل</string>
     <!-- Server Management -->
     <string name="server_url">عنوان الخادم</string>
-    <string name="server_url_hint">http://192.168.1.100:4096</string>
+    <string name="server_url_hint">http://192.168.1.100:4199</string>
     <string name="server_username">اسم المستخدم</string>
     <string name="server_username_hint">opencode</string>
     <string name="server_password">كلمة المرور</string>
@@ -107,7 +107,7 @@
     <string name="home_fix">إصلاح</string>
     <string name="server_name">اسم الخادم</string>
     <string name="server_name_hint">خادم OpenCode الخاص بي</string>
-    <string name="server_url_example">مثال: http://192.168.0.10:4096 أو https://my-server:443</string>
+    <string name="server_url_example">مثال: http://192.168.0.10:4199 أو https://my-server:443</string>
     <string name="server_add">إضافة خادم</string>
     <string name="session_rename">إعادة تسمية الجلسة</string>
     <string name="session_rename_title">العنوان</string>

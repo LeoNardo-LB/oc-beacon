@@ -8,7 +8,7 @@
     <string name="home_server_health_good">Підключено</string>
     <!-- Server Management -->
     <string name="server_url">URL сервера</string>
-    <string name="server_url_hint">http://192.168.1.100:4096</string>
+    <string name="server_url_hint">http://192.168.1.100:4199</string>
     <string name="server_username">Ім’я користувача</string>
     <string name="server_username_hint">opencode</string>
     <string name="server_password">Пароль</string>
@@ -107,7 +107,7 @@
     <string name="home_fix">Виправити</string>
     <string name="server_name">Назва сервера</string>
     <string name="server_name_hint">Мій сервер OpenCode</string>
-    <string name="server_url_example">наприклад, http://192.168.0.10:4096 або https://my-server:443</string>
+    <string name="server_url_example">наприклад, http://192.168.0.10:4199 або https://my-server:443</string>
     <string name="server_add">Додати сервер</string>
     <string name="session_rename">Перейменувати сесію</string>
     <string name="session_rename_title">Заголовок</string>

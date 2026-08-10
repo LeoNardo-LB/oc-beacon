@@ -18,8 +18,8 @@
     <string name="server_name">Nama Server</string>
     <string name="server_name_hint">Server OpenCode Saya</string>
     <string name="server_url">URL Server</string>
-    <string name="server_url_hint">http://192.168.1.100:4096</string>
-    <string name="server_url_example">misal: http://192.168.0.10:4096 atau https://my-server:443</string>
+    <string name="server_url_hint">http://192.168.1.100:4199</string>
+    <string name="server_url_example">misal: http://192.168.0.10:4199 atau https://my-server:443</string>
     <string name="server_username">Username</string>
     <string name="server_username_hint">opencode</string>
     <string name="server_password">Password</string>
