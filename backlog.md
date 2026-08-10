@@ -514,7 +514,8 @@ efactor
   - 证据：docs/research/audit-2026-08-10/D35-investigation.md + metrics/D35-log-*
   - **2026-08-10 完成**：8 文件 35 处 catch + 1 onFailure 统一修复——协程上下文取消异常重新抛出（throw e）、非协程/onFailure 过滤不记录；实测源头 MessageDataDelegate 3 处 + ChatViewModel 7 处等；编译 ✅ 相关单测 ✅；无行为变更
 
-- [ ] **#66 其他屏幕同类取消异常日志模式（未触发 Back 路径）** `logging`
+- [x] **#66 其他屏幕同类取消异常日志模式（未触发 Back 路径）** `logging`
   - 问题：2026-08-10 #65 修复时扫描发现——SessionListViewModel(9 处)、ServerSettingsViewModel(10 处)、ServerTerminalWorkspace(11 处)、FileViewerViewModel、WorkspaceViewModel、PtyToTermlibAdapter 存在同类 `catch (e: Exception) { AppLogger.e }` 模式，退出**对应屏幕**时同样会喷取消异常 ERROR（当前场景未触发）
   - 修复：同 #65 模式统一处理（协程上下文 throw、非协程过滤）
   - 工时：~1h | 难度：低 | 涉及：上述 6 文件
+  - **2026-08-10 完成**：5 文件 23 处统一修复（SessionListViewModel 7 / ServerSettingsViewModel 10 / ServerTerminalWorkspace 2 / PtyToTermlibAdapter 3 / FileViewerViewModel 1 onFailure）；WorkspaceViewModel 无需修改（onFailure 无 AppLogger.e）；顺带修正 PtyToTermlibAdapter line 187 注释与代码不一致（注释声明取消异常传播但 catch 吞掉 → 按注释意图补 throw）；未动 AppLogger.w 级与无日志 onFailure；编译 ✅ 全量单测 ✅
