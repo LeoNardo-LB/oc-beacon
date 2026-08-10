@@ -1,0 +1,9 @@
+﻿
+run state total wait
+--- ----- ----- ----
+  1 COLD   4035 4040
+  2 COLD   2709 2717
+  3 COLD   2663 2668
+
+
+Avg 3136ms
