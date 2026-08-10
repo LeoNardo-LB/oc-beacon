@@ -25,8 +25,8 @@ import javax.inject.Singleton
 
 private const val TAG = "SseClient"
 private const val HEARTBEAT_TIMEOUT_MS = 40_000L
-/** 单行上限：防止恶意/异常 server 推送超长行（无 \n 终结）导致 OOM。 */
-private const val MAX_SSE_LINE_SIZE = 256 * 1024
+/** 单行上限：防止恶意/异常 server 推送超长行（无 \n 终结）导致 OOM。超限行被丢弃，连接保持。 */
+private const val MAX_SSE_LINE_SIZE = 512 * 1024
 /** 单事件上限：多条 data: 行累计超过此大小时丢弃整个事件（1MB，与上游 oc-remote 一致）。 */
 private const val MAX_SSE_EVENT_SIZE = 1_048_576
 
@@ -34,25 +34,41 @@ private const val MAX_SSE_EVENT_SIZE = 1_048_576
  * 读取原始字节直到遇到 \n，不做 UTF-8 解码。
  * 返回 null 表示 channel 已关闭且无更多数据。
  * 兼容 CRLF：跳过 \r 字节。
+ *
+ * 单行超过 [MAX_SSE_LINE_SIZE] 时**丢弃该行**（继续消费到行尾）
+ * 并继续读取下一行——不中断 SSE 连接（2026-08-10 #63：原实现 abort
+ * 整个读循环触发重连，超大 payload 批次会造成无谓断连与丢帧窗口）。
  */
 private suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
-    val result = mutableListOf<Byte>()
-    try {
-        while (true) {
-            val b = readByte()
-            if (b == '\n'.code.toByte()) break
-            if (b == '\r'.code.toByte()) continue  // 兼容 CRLF
-            result.add(b)
-            if (result.size > MAX_SSE_LINE_SIZE) {
-                // 单行 OOM 防护：返回 null 让外层跳出读循环并重连。
-                AppLogger.e(TAG, "SSE line exceeds $MAX_SSE_LINE_SIZE bytes, aborting read")
-                return null
+    while (true) {
+        val result = mutableListOf<Byte>()
+        var discarded = false
+        try {
+            while (true) {
+                val b = readByte()
+                if (b == '\n'.code.toByte()) break
+                if (b == '\r'.code.toByte()) continue  // 兼容 CRLF
+                result.add(b)
+                if (result.size > MAX_SSE_LINE_SIZE) {
+                    // 单行 OOM 防护：丢弃整行（清空已收集字节，继续消费到行尾），连接不断开
+                    AppLogger.w(TAG, "SSE line exceeds $MAX_SSE_LINE_SIZE bytes, discarding line")
+                    discarded = true
+                    result.clear()
+                    while (true) {
+                        val c = readByte()
+                        if (c == '\n'.code.toByte()) break
+                    }
+                    break  // 回到外层循环读取下一行
+                }
             }
+        } catch (e: ClosedReadChannelException) {
+            // 通道关闭：已收集字节作为部分行返回（原语义）；无字节则视为无更多数据
+            if (result.isEmpty()) return null
+            return result
         }
-    } catch (e: ClosedReadChannelException) {
-        if (result.isEmpty()) return null
+        if (!discarded) return result
+        // 本行已丢弃：继续外层循环读取下一行
     }
-    return result
 }
 
 /**

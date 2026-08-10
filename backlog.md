@@ -493,10 +493,11 @@ efactor
   - 工时：~0.5h | 难度：低 | 涉及：Ktor HttpClient 配置
   - 来源：R-revalidation.md §发现的问题 1
 
-- [ ] **#63 SseClient 256KB 单行边界截断超长 SSE 帧** `sse`
+- [x] **#63 SseClient 256KB 单行边界截断超长 SSE 帧** `sse`
   - 问题：2026-08-10 功能回归走查发现（预有问题，非回归）——流式期间 logcat 出现 `E SseClient: SSE line exceeds 262144 bytes, aborting read` ~14 次，单行超 256KB 即 abort 读取；实测流式均最终完成，但超长单帧（超大 code block/token 批次）存在被截断风险
   - 证据：docs/research/audit-2026-08-10/RG-regression.md
   - 修复：评估提高上限（512KB/1MB）或改分片读取（按事件边界重组）；需验证内存影响
+  - **2026-08-10 完成**：readRawLineBytes 超长行行为改为**丢弃该行并继续读下一行**（不再 abort 读循环触发断连重连——原实现超大 payload 批次会造成无谓断连与丢帧窗口）；单行上限 256KB→512KB（与事件级 1MB 上限配合）；内部循环跳过，调用方零感知；catch 保留部分行容错语义。R4 验证：流式完整 ✅、E 级 abort 日志 0 条 ✅、crash 空 ✅
 
 - [x] **#64 超长消息会话手动滚动失效（fling/swipe/PAGE_UP 全无效）** `ui` `performance`
   - 问题：2026-08-10 第二批回归（R2）发现——进入"最后一条消息为超长内容（代码块+flowchart）"的会话后，fling/swipe/PAGE_UP 滚动疑似全失效（截图哈希相同）
