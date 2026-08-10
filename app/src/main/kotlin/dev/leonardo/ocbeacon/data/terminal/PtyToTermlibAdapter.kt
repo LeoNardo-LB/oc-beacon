@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.terminal
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -109,6 +110,7 @@ class PtyToTermlibAdapter(
             try {
                 target.send(text)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "failed to send keyboard output", e)
             }
         }
@@ -124,6 +126,7 @@ class PtyToTermlibAdapter(
             try {
                 target.send(text)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "failed to send input", e)
             }
         }
@@ -187,6 +190,7 @@ class PtyToTermlibAdapter(
         } catch (e: Exception) {
             // 外部取消产生的 CancellationException 会传播；吞掉
             // 其他异常（读取器自身会记录它们）。
+            if (e is CancellationException) throw e
             AppLogger.w(TAG, "awaitReader swallowed: ${e.message}", e)
         }
     }

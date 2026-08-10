@@ -22,6 +22,7 @@ import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -139,6 +140,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load providers", e)
                 _uiState.update {
                     it.copy(
@@ -156,6 +158,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _authMethods.value = providerRepository.getProviderAuthMethods(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load auth methods", e)
             }
         }
@@ -167,6 +170,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load config", e)
             }
         }
@@ -178,6 +182,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _agents.value = agentRepository.listAgents(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load agents", e)
             }
         }
@@ -198,6 +203,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 rebuildUi()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to update provider state", e)
                 _config.value = before
                 _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_update_failed)) }
@@ -225,6 +231,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 loadProviders()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to connect provider via API key", e)
                 _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_provider_connect_failed)) }
             } finally {
@@ -257,6 +264,7 @@ class ServerSettingsViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to start provider oauth", e)
                 _uiState.update { it.copy(isSaving = false, error = e.message ?: context.getString(R.string.server_settings_oauth_start_failed)) }
             }
@@ -303,6 +311,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(pendingOauth = null) }
                 loadProviders()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to complete provider oauth", e)
                 _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_oauth_failed)) }
             } finally {
@@ -343,6 +352,7 @@ class ServerSettingsViewModel @Inject constructor(
                     _uiState.update { it.copy(error = context.getString(R.string.server_settings_provider_removed_refresh_failed)) }
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to disconnect provider", e)
                 _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_provider_disconnect_failed)) }
             } finally {
@@ -376,6 +386,7 @@ class ServerSettingsViewModel @Inject constructor(
             _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
             rebuildUi()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             AppLogger.e(TAG, "Failed to update config", e)
             _config.value = before
             _uiState.update { it.copy(error = e.message ?: context.getString(R.string.server_settings_config_update_failed)) }

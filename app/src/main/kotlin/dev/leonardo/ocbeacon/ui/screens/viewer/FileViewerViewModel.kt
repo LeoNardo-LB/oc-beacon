@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
 import dev.leonardo.ocbeacon.domain.usecase.GetFileContentUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetFileDiffUseCase
 import dev.leonardo.ocbeacon.domain.usecase.SubmitAnnotationsUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -137,9 +138,9 @@ class FileViewerViewModel @AssistedInject constructor(
                         }
                     }
                 }
-                .onFailure { e -> 
-                    AppLogger.e(TAG, "loadLive: FAILURE in ${System.currentTimeMillis() - t0}ms", e)
-                    _uiState.update { it.copy(isLoading = false, error = R.string.workspace_error_load_failed) } 
+                .onFailure { e ->
+                    if (e !is CancellationException) AppLogger.e(TAG, "loadLive: FAILURE in ${System.currentTimeMillis() - t0}ms", e)
+                    _uiState.update { it.copy(isLoading = false, error = R.string.workspace_error_load_failed) }
                 }
         }
     }

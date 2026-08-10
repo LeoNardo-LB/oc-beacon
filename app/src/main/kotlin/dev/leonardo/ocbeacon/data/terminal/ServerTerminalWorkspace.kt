@@ -12,6 +12,7 @@ import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.terminal.RecoveryAction
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
 import dev.leonardo.ocbeacon.data.terminal.terminalRecoveryAction
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
@@ -172,6 +173,7 @@ internal class ServerTerminalWorkspace(
                 publishActiveState()
                 onResult(true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(WORKSPACE_TAG, "Failed to create tab", e)
                 synchronized(lock) {
                     tabs.removeAll { it.id == tab.id }
@@ -230,6 +232,7 @@ internal class ServerTerminalWorkspace(
             try {
                 socket.send(input)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(WORKSPACE_TAG, "Failed to write terminal input", e)
             }
         }

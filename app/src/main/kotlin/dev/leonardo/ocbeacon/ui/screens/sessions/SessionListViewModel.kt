@@ -37,6 +37,7 @@ import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ProbeDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.SearchDirectoriesUseCase
 import dev.leonardo.ocbeacon.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -533,6 +534,7 @@ class SessionListViewModel @Inject constructor(
                 sessionStateService.setServerId(serverId)
                 sessionStateService.syncFromRest(_projects.value)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG_SESSION_LIST_VM, "Failed to load sessions", e)
                 _error.value = e.message ?: "Failed to load sessions"
             } finally {
@@ -583,6 +585,7 @@ class SessionListViewModel @Inject constructor(
                 sessionStateService.setServerId(serverId)
                 sessionStateService.syncFromRest(_projects.value)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG_SESSION_LIST_VM, "Failed to refresh sessions", e)
                 _error.value = e.message ?: "Failed to refresh sessions"
             } finally {
@@ -622,6 +625,7 @@ class SessionListViewModel @Inject constructor(
                     _hasMorePages.value = false
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG_SESSION_LIST_VM, "Failed to load more sessions", e)
             } finally {
                 _isLoadingMore.value = false
@@ -644,6 +648,7 @@ class SessionListViewModel @Inject constructor(
                     _error.value = "Failed to delete session"
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG_SESSION_LIST_VM, "Failed to delete session", e)
                 _error.value = e.message ?: "Failed to delete session"
             }
@@ -657,6 +662,7 @@ class SessionListViewModel @Inject constructor(
                 if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Renamed session $sessionId to '$newTitle'")
                 loadSessions()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG_SESSION_LIST_VM, "Failed to rename session", e)
                 _error.value = e.message ?: "Failed to rename session"
             }
@@ -675,6 +681,7 @@ class SessionListViewModel @Inject constructor(
                 sessionRepository.setSessions(serverId, listOf(session))
                 onResult(true)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG_SESSION_LIST_VM, "Failed to import session", e)
                 _error.value = e.message ?: "Failed to import session"
                 onResult(false)
@@ -725,6 +732,7 @@ class SessionListViewModel @Inject constructor(
                 clearSelection()
                 loadSessions()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 AppLogger.e(TAG_SESSION_LIST_VM, "Failed to delete selected sessions", e)
                 _error.value = e.message ?: "Failed to delete selected sessions"
             }
