@@ -101,6 +101,7 @@
     <string name="notification_channel_questions_desc">إشعارات عندما يطرح OpenCode سؤالاً</string>
     <string name="home_connect">اتصال</string>
     <string name="home_connecting">جاري الاتصال…</string>
+    <string name="home_error_already_connected">متصل بالفعل بهذا الخادم</string>
     <string name="home_disconnect">قطع الاتصال</string>
     <string name="home_edit">تعديل</string>
     <string name="home_fix">إصلاح</string>

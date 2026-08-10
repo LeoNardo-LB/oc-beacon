@@ -10,6 +10,7 @@ import android.content.ServiceConnection
 import android.os.Build
 import android.os.IBinder
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.R
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.leonardo.ocbeacon.domain.model.AppSettings
@@ -264,6 +265,19 @@ class HomeViewModel @Inject constructor(
         // 已连接或正在连接？直接返回。
         if (_uiState.value.connectedServerIds.contains(serverId) ||
             _uiState.value.connectingServerIds.contains(serverId)) return
+
+        // backlog #34：同后端第二连接预检 —— 若该后端已通过另一服务器条目连接，
+        // 直接拒绝并提示，避免 Service 静默拒绝导致 UI 永久显示 "Connecting"。
+        val duplicate = serviceBinder?.getService()?.findDuplicateBackend(server.url, server.username)
+        if (duplicate != null) {
+            AppLogger.w(TAG, "Server '${server.displayName}' shares backend with already-connected '${duplicate.displayName}', rejecting duplicate connection")
+            _uiState.update {
+                it.copy(
+                    connectionErrors = it.connectionErrors + (serverId to getApplication<Application>().getString(R.string.home_error_already_connected))
+                )
+            }
+            return
+        }
 
         _uiState.update {
             it.copy(

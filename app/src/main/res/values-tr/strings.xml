@@ -101,6 +101,7 @@
     <string name="notification_channel_questions_desc">OpenCode soru sorduğunda bildirimler</string>
     <string name="home_connect">Bağlan</string>
     <string name="home_connecting">Bağlanıyor…</string>
+    <string name="home_error_already_connected">Bu sunucuya zaten bağlı</string>
     <string name="home_disconnect">Bağlantıyı kes</string>
     <string name="home_edit">Düzenle</string>
     <string name="home_fix">Düzelt</string>

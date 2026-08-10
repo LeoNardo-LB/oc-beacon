@@ -101,6 +101,7 @@
     <string name="notification_channel_questions_desc">Notifiche quando OpenCode pone una domanda</string>
     <string name="home_connect">Connetti</string>
     <string name="home_connecting">Connessione…</string>
+    <string name="home_error_already_connected">Già connesso a questo server</string>
     <string name="home_disconnect">Disconnetti</string>
     <string name="home_edit">Modifica</string>
     <string name="home_fix">Correggi</string>

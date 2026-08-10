@@ -101,6 +101,7 @@
     <string name="notification_channel_questions_desc">Сповіщення, коли OpenCode ставить питання</string>
     <string name="home_connect">Підключити</string>
     <string name="home_connecting">Підключення…</string>
+    <string name="home_error_already_connected">Вже підключено до цього сервера</string>
     <string name="home_disconnect">Відключити</string>
     <string name="home_edit">Редагувати</string>
     <string name="home_fix">Виправити</string>

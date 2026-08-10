@@ -103,6 +103,7 @@
     <string name="notification_channel_questions_desc">OpenCode 提问时的通知</string>
     <string name="home_connect">连接</string>
     <string name="home_connecting">正在连接…</string>
+    <string name="home_error_already_connected">该服务器已连接</string>
     <string name="home_disconnect">断开连接</string>
     <string name="home_edit">编辑</string>
     <string name="home_fix">修复</string>

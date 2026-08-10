@@ -229,8 +229,10 @@ class OpenCodeConnectionService : Service() {
         // 按后端签名去重：相同的 url + username = 同一个 OpenCode serve 实例。
         // 到同一后端的两条 SSE 连接会投递重复的全局事件，
         // 导致 MessagePartDelta（追加语义）使流式文本翻倍。
+        // backlog #34：用归一化比较（host 大小写 / 默认端口 / 尾斜杠），
+        // 避免"看起来不同但实际相同"的 URL 绕过去重。
         val existingBackend = connectionManager.connections.values.firstOrNull { state ->
-            state.config.url == server.url && state.config.username == server.username
+            ServerConfig.sameBackend(state.config.url, state.config.username, server.url, server.username)
         }
         if (existingBackend != null) {
             AppLogger.w(TAG, "Backend ${server.url} already connected via '${existingBackend.config.displayName}'" +
@@ -297,6 +299,18 @@ class OpenCodeConnectionService : Service() {
      */
     fun isConnected(serverId: String): Boolean {
         return connectionManager.isConnected(serverId)
+    }
+
+    /**
+     * backlog #34：查找与给定 (url, username) 指向同一后端的已活跃连接对应的服务器配置。
+     *
+     * 供 UI 在发起连接前预检：若返回非 null，说明该后端已通过另一个服务器条目连接，
+     * 应拒绝新连接并提示用户，避免 Service 静默拒绝导致 UI 永久显示 "Connecting"。
+     */
+    fun findDuplicateBackend(url: String, username: String?): ServerConfig? {
+        return connectionManager.connections.values.firstOrNull { state ->
+            ServerConfig.sameBackend(state.config.url, state.config.username, url, username)
+        }?.config
     }
 
     // ============ 内部 ============

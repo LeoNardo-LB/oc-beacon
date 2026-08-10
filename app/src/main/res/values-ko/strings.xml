@@ -101,6 +101,7 @@
     <string name="notification_channel_questions_desc">OpenCode가 질문할 때 알림</string>
     <string name="home_connect">연결</string>
     <string name="home_connecting">연결 중…</string>
+    <string name="home_error_already_connected">이 서버는 이미 연결되어 있습니다</string>
     <string name="home_disconnect">연결 해제</string>
     <string name="home_edit">수정</string>
     <string name="home_fix">수정</string>

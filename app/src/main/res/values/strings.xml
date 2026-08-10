@@ -9,6 +9,7 @@
     <string name="home_server_health_good">Connected</string>
     <string name="home_connect">Connect</string>
     <string name="home_connecting">Connecting…</string>
+    <string name="home_error_already_connected">Already connected to this server</string>
     <string name="home_disconnect">Disconnect</string>
     <string name="home_edit">Edit</string>
     <string name="home_fix">Fix</string>

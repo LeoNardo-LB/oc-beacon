@@ -38,6 +38,31 @@ data class ServerConfig(
         } catch (e: Exception) {
             url.substringAfterLast(":").toIntOrNull() ?: 80
         }
+
+    companion object {
+        /**
+         * 判断两组 (url, username) 是否指向同一 OpenCode 后端。
+         *
+         * 归一化：协议 + host 小写、端口显式化（默认端口补全）、路径去尾斜杠。
+         * 用于防止到同一后端的两条 SSE 连接投递重复事件（backlog #34）。
+         */
+        fun sameBackend(urlA: String, userA: String?, urlB: String, userB: String?): Boolean {
+            return normalizeBackendKey(urlA, userA) == normalizeBackendKey(urlB, userB)
+        }
+
+        private fun normalizeBackendKey(url: String, username: String?): String {
+            return try {
+                val u = java.net.URL(url)
+                val host = u.host.lowercase()
+                val port = if (u.port != -1) u.port else u.defaultPort
+                val path = u.path.trimEnd('/')
+                "${u.protocol.lowercase()}://$host:$port$path@${username ?: ""}"
+            } catch (e: Exception) {
+                // 解析失败：回退到弱归一化（去尾斜杠 + 小写），保证不崩。
+                "${url.trimEnd('/').lowercase()}@${username ?: ""}"
+            }
+        }
+    }
 }
 
 /**

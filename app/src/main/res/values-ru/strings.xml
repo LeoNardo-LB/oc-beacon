@@ -8,6 +8,7 @@
     <string name="home_server_health_good">Подключено</string>
     <string name="home_connect">Подключить</string>
     <string name="home_connecting">Подключение…</string>
+    <string name="home_error_already_connected">Уже подключено к этому серверу</string>
     <string name="home_disconnect">Отключить</string>
     <string name="home_edit">Редактировать</string>
     <string name="home_fix">Исправить</string>

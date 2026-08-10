@@ -313,7 +313,7 @@ class MessageEventHandler @Inject constructor(
      *
      * **前提**（由本类写入路径维持，实际语义成立）：
      * - [existing] 已按 created 升序（所有写入路径输出有序）
-     * - [incomingSorted] 由调用方保证按 created 升序
+     * - [incomingSorted] 由调用方保证按 created 升序（Kotlin `sortedBy` 稳定）
      * - 同 id 消息在两列表中 created 一致：消息创建时间为固有属性（服务器不变更），
      *   [mergeMessageMeta] 仅修改 completed（不改 created）；
      *   [MergeStrategy.REST_AUTHORITY] 虽用 incoming 完全覆盖，但 REST 同一消息的 created 与 SSE 一致
@@ -322,14 +322,31 @@ class MessageEventHandler @Inject constructor(
      * - 同 id：取 [merge] 结果，位置取 existing 的位置
      * - existing 独有 id：保留 existing
      * - incoming 独有 id：插入到 created 升序对应位置
-     * - 相同 created 不同 id：existing 在前（`<=` 判断保持稳定排序语义）
+     * - 相同 created 不同 id：existing 在前（稳定排序——与 `(ex+inc).distinctBy.sortedBy` 中
+     *   distinctBy 保留 existing 在前 + sortedBy 稳定保持原序一致）
+     *
+     * **Bug 1 修复（同 created 顺序反转，2026-08-10）**：当 existing 项的 id 被 incoming 覆盖且
+     * 与 incoming 中某独有项同 created 时，旧实现跳过 existing 项后让 incoming 独有项先入 result，
+     * 导致合并版本排到独有项之后。修复：existing 项被覆盖时立即 merge 并入 result（保持原位），
+     * 用 [added] 标记防止 incoming 中该 id 再次加入。
+     *
+     * **Bug 2 修复（同 id 不去重，2026-08-10）**：existing/incoming 内含同 id 重复项时，
+     * 旧实现全部追加。修复：[added] 集合统一跟踪已加入的 id（等价于 distinctBy 的 seen 集合），
+     * 后续遇到同 id 跳过（保留首个，与 distinctBy 语义一致）。
      */
-    private fun mergeSortedMessages(
+    internal fun mergeSortedMessages(
         existing: List<Message>,
         incomingSorted: List<Message>,
         merge: (existingMsg: Message, incomingMsg: Message) -> Message,
     ): List<Message> {
-        val incomingIds = incomingSorted.associateBy { it.id }  // O(m)，用于 O(1) 判断 existing 项是否被 incoming 覆盖
+        // O(m)：incoming id → 首个版本（与 distinctBy 保留首个语义一致，不用 associateBy 因其保留末个）
+        val incomingById = LinkedHashMap<String, Message>(incomingSorted.size)
+        for (msg in incomingSorted) {
+            if (msg.id !in incomingById) incomingById[msg.id] = msg
+        }
+        // 已加入 result 的 id 集合：等价于 distinctBy 的 seen 集合，
+        // 统一处理所有来源（existing/incoming 内部重复、跨列表同 id）的去重。
+        val added = HashSet<String>()
         val result = ArrayList<Message>(existing.size + incomingSorted.size)
         var i = 0  // existing 游标
         var j = 0  // incomingSorted 游标
@@ -339,26 +356,60 @@ class MessageEventHandler @Inject constructor(
             when {
                 e.id == inc.id -> {
                     // 同 id：合并，前进两个游标（等价于 distinctBy 保留 existing 位置 + map 替换内容）
-                    result.add(merge(e, inc)); i++; j++
+                    // 检查 added：existing/incoming 内部可能同 id 重复，首次已处理，后续只前进游标
+                    if (e.id !in added) {
+                        result.add(merge(e, inc))
+                        added.add(e.id)
+                    }
+                    i++; j++
                 }
                 e.time.created <= inc.time.created -> {
-                    // existing 较早（或并列，稳定排序时 existing 在前）：
-                    // 若其 id 在 incoming 中也存在，跳过（同 id 已在上分支以 merge 结果处理）
-                    if (e.id !in incomingIds) result.add(e)
+                    // existing 较早或并列（稳定排序：existing 优先）
+                    if (e.id !in added) {
+                        if (e.id in incomingById) {
+                            // Bug 1 修复：e 被 incoming 覆盖——立即 merge 保持原位，
+                            // 否则 incoming 中与 e 同 created 的独有项会错误地排到 e 的合并版本前
+                            result.add(merge(e, incomingById[e.id]!!))
+                        } else {
+                            result.add(e)
+                        }
+                        added.add(e.id)
+                    }
                     i++
                 }
                 else -> {
-                    // incoming 较早：独有 id（同 id 已在上分支处理），直接追加
-                    result.add(inc); j++
+                    // incoming 较早：跳过已加入的同 id 条目（Bug 2 修复——incoming 内同 id 重复）
+                    if (inc.id !in added) {
+                        result.add(inc)
+                        added.add(inc.id)
+                    }
+                    j++
                 }
             }
         }
+        // existing 剩余
         while (i < existing.size) {
-            if (existing[i].id !in incomingIds) result.add(existing[i])
+            val e = existing[i]
+            if (e.id !in added) {
+                val incVersion = incomingById[e.id]
+                if (incVersion != null) {
+                    // e 被 incoming 覆盖且尚未加入：merge 保持原位
+                    result.add(merge(e, incVersion))
+                } else {
+                    result.add(e)
+                }
+                added.add(e.id)
+            }
             i++
         }
+        // incoming 剩余：跳过已加入的（Bug 2 修复）
         while (j < incomingSorted.size) {
-            result.add(incomingSorted[j]); j++
+            val inc = incomingSorted[j]
+            if (inc.id !in added) {
+                result.add(inc)
+                added.add(inc.id)
+            }
+            j++
         }
         return result
     }

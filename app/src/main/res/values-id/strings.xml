@@ -8,6 +8,7 @@
     <string name="home_server_health_good">Tersambung</string>
     <string name="home_connect">Sambungkan</string>
     <string name="home_connecting">Menyambungkan…</string>
+    <string name="home_error_already_connected">Sudah terhubung ke server ini</string>
     <string name="home_disconnect">Putuskan Sambungan</string>
     <string name="home_edit">Edit</string>
     <string name="home_fix">Perbaiki</string>

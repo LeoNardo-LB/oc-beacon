@@ -323,15 +323,18 @@ efactor
   - 来源：2026-08-09 模拟器走查 V7
   - **2026-08-09 完成（待人工验证）**：DraftInputDelegate.updateDraftText 加 500ms 防抖自动持久化（DRAFT_SAVE_DEBOUNCE_MS，scope.launch + delay，每次输入取消重启）；clearDraft 取消挂起 job（防清空后又被存回）；onCleared 兜底保留；新增 DraftInputDelegateTest 4 用例（防抖窗口内不存/快速输入只存最后一次/clear 取消/即时状态更新，commit e3ffeae7）；编译 ✅ 全量单测 ✅；⚠️ 真机验证待用户：输入草稿 → force-stop → 重启 → 草稿仍在
 
-- [ ] **#34 同 URL 第二服务器连接 UX（永久 Connecting 无提示）** `ui` `sse`
+- [~] **#34 同 URL 第二服务器连接 UX（永久 Connecting 无提示）** `ui` `sse`
   - 问题：2026-08-09 双服务器验证发现——同 URL 第二个配置点 Connect 后永久卡 'Connecting...'（>60s 无握手/无错误/无日志），手动 Cancel 才能退出。架构上 app 限制同 URL 单一活跃 SSE 连接（防双投递），但 UX 无反馈
   - 方案：检测到同 URL 已有活跃连接时直接拒绝并提示'该后端已连接'，或复用现有连接；或加超时/错误提示
   - 工时：~1h | 难度：低 | 涉及：连接管理 UI + SseConnectionManager
   - 来源：2026-08-09 双服务器去重验证走查
+  - **2026-08-10 完成（待真机验证）**：根因 = OpenCodeConnectionService.connect 已有 url+username 去重但静默 return，HomeViewModel 乐观 connecting 状态无回传 → 永久 Connecting。修复：HomeViewModel connectToServer 经 serviceBinder.findDuplicateBackend 预检（ServerConfig.sameBackend 归一化：协议/host 小写、默认端口、尾斜杠）→ 命中写 connectionErrors 红字提示"该服务器已连接"（home_error_already_connected，15 语言）；Service 内去重保留为纵深防御。编译 ✅ i18n-check ✅（583 keys × 14 语言一致）
 
-- [ ] **#35 会话内 Back 触发一次 ANR（待复现）** `crash` `ui`
+- [~] **#35 会话内 Back 触发一次 ANR（待复现）** `crash` `ui`
   - 问题：2026-08-09 走查——首次启动后会话内按 Back 触发 ANR（'OC Beacon Dev isn't responding'），force-stop 重启后恢复。可能与 SSE 长连接 + 主线程阻塞有关。仅一次未复现
   - 方案：待复现——logcat 抓 ANR trace；检查 Back 导航路径是否有主线程阻塞（会话关闭时的同步操作）
+  - **2026-08-10 模拟器高强度复现未复现**（D35）：55+ 轮（标准循环 20 / 加载中 Back 10 / 双击 Back 10 / 后台切换 5 / 300ms 高强度 20）零 ANR 零崩溃；最大 GC pause 91.69ms、最长帧 ~4.9s 均未触发阈值；52 条 ERROR 全为 JobCancellationException（Back 取消分页加载的预期行为）。结论：模拟器无法复现，疑似偶发/低端真机内存压力场景；保持 P2 低优先，真机复现后再查。证据：docs/research/audit-2026-08-10/D35-investigation.md + metrics/D35-*（45 份 logcat）
+  - **副发现（新条目 #65）**：Back 退出时 JobCancellationException 被记为 ERROR 级（日志噪声），建议降级 INFO/DEBUG
   - 工时：待复现后再估 | 难度：中 | 涉及：会话导航/生命周期
   - 来源：2026-08-09 双服务器验证走查
   - **2026-08-09 根因确认并修复**：真机 ANR trace 抓取——退出会话 → ChatViewModel.onCleared → draftDelegate.saveDraft → DraftDataStore.persist → **runBlocking 阻塞主线程**（草稿 DataStore IO 在主线程同步执行）。修复（0eaac6dc）：onCleared 改 `viewModelScope.launch { withContext(NonCancellable) { saveDraft() } }`（异步不阻塞主线程）+ DraftInputDelegate.saveDraft/clearDraft 移 Dispatchers.IO；编译 ✅ 全量单测 ✅（1343 PASS）；⚠️ 真机验证：用户确认闪退/卡死已修复（2026-08-10 用户实测 ✅）
@@ -503,3 +506,9 @@ efactor
     - CURRENT（含 #40-#43 全部改动）**双向滚动完全正常**：下滑 10 个历史节点滚入、上滑回底部正常，与旧版行为一致 → #41/#42/#43 全部排除
     - 教训已写入 docs/regression-guide.md §3.8：滚动类验证必须**双向测试 + 避开边界**；logcat 抓取须按 PID/tag 过滤（D64 首次 logcat 全为 input 噪音属无效采集）
   - 证据（排查）：docs/research/audit-2026-08-10/D64-investigation.md、D64-bisect.md、D64-conclusive.md + metrics/D64-*
+
+- [ ] **#65 Back 退出时 JobCancellationException 被记为 ERROR 级（日志噪声）** logging
+  - 问题：2026-08-10 #35 复现排查（D35）发现——Back 退出会话取消分页加载时，JobCancellationException 以 ERROR 级写入（52 条/55 轮），属预期异步行为非错误，污染诊断日志（应用内 Diagnostics + logcat）
+  - 修复：取消异常（CancellationException 类）统一降级 INFO/DEBUG 或过滤；需确认 catch 点（分页加载协程取消处理）
+  - 工时：~0.5h | 难度：低 | 涉及：MessagePaginationDelegate / 日志写入点
+  - 证据：docs/research/audit-2026-08-10/D35-investigation.md + metrics/D35-log-*

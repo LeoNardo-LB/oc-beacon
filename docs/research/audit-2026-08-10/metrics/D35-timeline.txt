@@ -1,0 +1,49 @@
+D35 ANR Repro - 20 rounds Back loop
+App PID: 23654
+Start: 08/10/2026 19:20:14
+========================================
+
+Round 1: backDur=2498ms anr=no crash=no
+
+Round 2: backDur=1548ms anr=no crash=no
+
+Round 3: backDur=1213ms anr=no crash=no
+
+Round 4: backDur=1321ms anr=no crash=no
+
+Round 5: backDur=1353ms anr=no crash=no
+
+Round 6: backDur=1306ms anr=no crash=no
+
+Round 7: backDur=1628ms anr=no crash=no
+
+Round 8: backDur=1297ms anr=no crash=no
+
+Round 9: backDur=1363ms anr=no crash=no
+
+Round 10: backDur=1490ms anr=no crash=no
+
+Round 11: backDur=1212ms anr=no crash=no
+
+Round 12: backDur=1723ms anr=no crash=no
+
+Round 13: backDur=1540ms anr=no crash=no
+
+Round 14: backDur=1767ms anr=no crash=no
+
+Round 15: backDur=1381ms anr=no crash=no
+
+Round 16: backDur=1513ms anr=no crash=no
+
+Round 17: backDur=1274ms anr=no crash=no
+
+Round 18: backDur=1284ms anr=no crash=no
+
+Round 19: backDur=1595ms anr=no crash=no
+
+Round 20: backDur=1410ms anr=no crash=no
+
+
+========================================
+End: 08/10/2026 19:21:31
+Done 20 rounds.
