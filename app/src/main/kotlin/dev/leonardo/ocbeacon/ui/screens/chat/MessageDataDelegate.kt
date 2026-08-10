@@ -144,6 +144,7 @@ internal class MessageDataDelegate(
             _isLoading,
             paginationDelegate.hasOlderMessages,
             paginationDelegate.isLoadingOlder,
+            paginationDelegate.autoLoadPaused,
             _toolExpandedStates,
             sessionStateService.statusFlow,
             chatRepository.getActiveToolProgressForSession(sid),
@@ -158,10 +159,11 @@ internal class MessageDataDelegate(
             val loading = args[3] as Boolean
             val hasOlderMessages = args[4] as Boolean
             val isLoadingOlder = args[5] as Boolean
+            val autoLoadPaused = args[6] as Boolean
             @Suppress("UNCHECKED_CAST")
-            val toolExpandedStates = args[6] as Map<String, Boolean>
+            val toolExpandedStates = args[7] as Map<String, Boolean>
             @Suppress("UNCHECKED_CAST")
-            val statuses = args[7] as Map<String, SessionStatus>
+            val statuses = args[8] as Map<String, SessionStatus>
 
             // 工具进度输出注入：将 tool.progress 内容累积到
             // Running 工具的 output 字段。callId 全局唯一，因此单个
@@ -243,6 +245,7 @@ internal class MessageDataDelegate(
                 messageCount = visibleMessages.size,
                 hasOlderMessages = hasOlderMessages,
                 isLoadingOlder = isLoadingOlder,
+                autoLoadPaused = autoLoadPaused,
                 toolExpandedStates = toolExpandedStates,
                 queuedMessageIds = queuedMessageIds,
             )

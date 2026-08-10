@@ -214,9 +214,14 @@ class MessagePaginationDelegateTest {
     fun `loadOlderMessages network source resets archive cursor`() = runTest {
         // 归档翻页推进游标后，网络来源把游标重置（下次从热表边界重新开始）
         val paging = mockk<MessagePaginationUseCase> {
-            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null) } returns
+            // 第一次：无游标（null）
+            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null) } returns
                 Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.ARCHIVE))
-            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", 0L) } returns
+            // 第二、三次：归档游标 0（第 6 参为 null——无网络游标）
+            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", 0L, null) } returns
+                Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.NETWORK))
+            // 第四次：网络游标建立后（beforeCreated=null 归档回落，networkBeforeCreated=0）
+            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, 0L) } returns
                 Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.NETWORK))
         }
         val store = mockk<MessageStore> {
@@ -247,9 +252,10 @@ class MessagePaginationDelegateTest {
         delegate.loadOlderMessages()
         advanceUntilIdle()
 
-        // 第一次和第四次用 null；第二、三次用推进后的游标 0
-        coVerify(exactly = 2) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", null) }
-        coVerify(exactly = 2) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", 0L) }
+        // 调用序列：1) null/null（首翻）→ 2) 0L/null（归档游标）→ 3)+4) null/0L（网络游标建立后）
+        coVerify(exactly = 1) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", null, null) }
+        coVerify(exactly = 1) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", 0L, null) }
+        coVerify(exactly = 2) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", null, 0L) }
     }
 
     @Test
@@ -420,5 +426,124 @@ class MessagePaginationDelegateTest {
         delegate.loadMessagesForSession()
 
         assertEquals(30, delegate.currentLimitValue)
+    }
+
+    // ============ 自动续载防风暴（退避/暂停/恢复） ============
+
+    private fun failingDelegate(
+        scope: kotlinx.coroutines.CoroutineScope,
+        paging: MessagePaginationUseCase,
+    ): MessagePaginationDelegate = MessagePaginationDelegate(
+        manageSessionUseCase = mockk(relaxed = true),
+        messagePaging = paging,
+        messageStore = mockk(relaxed = true),
+        chatRepository = mockk(relaxed = true),
+        settingsRepository = mockk(),
+        serverId = "srv",
+        scope = scope,
+        sessionIdProvider = { "sid-1" },
+        loadingSink = {},
+        errorSink = {},
+    )
+
+    @Test
+    fun `auto load failure sets backoff wait and does not pause on first failure`() = runTest {
+        val paging = mockk<MessagePaginationUseCase> {
+            coEvery { loadOlderMessages(any(), any(), any(), any(), any()) } returns
+                Result.failure(RuntimeException("network down"))
+        }
+        val delegate = failingDelegate(this, paging)
+
+        delegate.loadOlderMessages()
+        advanceUntilIdle()
+
+        // 第 1 次失败：退避 500ms 生效，但未达上限不暂停
+        val wait = delegate.autoLoadWaitMillis()
+        assertTrue("expected backoff wait > 0, got $wait", wait > 0)
+        assertTrue("expected backoff <= 500ms", wait <= 500)
+        assertFalse(delegate.autoLoadPaused.value)
+    }
+
+    @Test
+    fun `auto load pauses after max consecutive failures`() = runTest {
+        val paging = mockk<MessagePaginationUseCase> {
+            coEvery { loadOlderMessages(any(), any(), any(), any(), any()) } returns
+                Result.failure(RuntimeException("network down"))
+        }
+        val delegate = failingDelegate(this, paging)
+
+        repeat(3) { delegate.loadOlderMessages(); advanceUntilIdle() }
+
+        assertTrue("autoLoadPaused should be true after 3 failures", delegate.autoLoadPaused.value)
+    }
+
+    @Test
+    fun `auto load success resets failures and unpauses`() = runTest {
+        // 先连续失败 3 次 → 暂停
+        val failPaging = mockk<MessagePaginationUseCase> {
+            coEvery { loadOlderMessages(any(), any(), any(), any(), any()) } returns
+                Result.failure(RuntimeException("network down"))
+        }
+        val delegate = failingDelegate(this, failPaging)
+        repeat(3) { delegate.loadOlderMessages(); advanceUntilIdle() }
+        assertTrue(delegate.autoLoadPaused.value)
+
+        // 换成功：mockk 的 coEvery 后定义覆盖前定义（同一 mock 实例）
+        coEvery { failPaging.loadOlderMessages(any(), any(), any(), any(), any()) } returns
+            Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.NETWORK))
+
+        delegate.loadOlderMessages()
+        advanceUntilIdle()
+
+        assertFalse("success should unpause", delegate.autoLoadPaused.value)
+        assertEquals(0L, delegate.autoLoadWaitMillis())
+    }
+
+    /**
+     * 回归护栏（2026-08-10）：NETWORK 分页的 before 游标必须前进。
+     * 原实现每次用热表最老作 before——NETWORK 加载的窗口外消息不落热表
+     * （persistOldBeyondWindow=false）→ 热表最老不变 → 每次拉同一批更早消息
+     * → 死循环重复加载（模拟器实证：beforeId 恒不变，每 ~100ms 拉同一批 30 条，
+     * UI 无新内容 → 用户"看似滑到顶但有更多内容"）。
+     * 修复：维护 networkCursorBeforeId（最近 NETWORK 返回的最老 ID），第二次翻页用它。
+     */
+    @Test
+    fun `network pagination advances before cursor across pages`() = runTest {
+        // 热表最老 m-0。第一页：返回 m-30..m-59（最老 m-30 ≠ 热表最老 → 可区分游标是否前进）
+        val page1 = List(30) { MessageWithParts(Message.User(id = "m-${30 + it}", sessionId = "sid-1", time = TimeInfo(created = (30 + it).toLong())), emptyList()) }
+        // 第二页：返回 m-60..m-89（最老 m-60）
+        val page2 = List(30) { MessageWithParts(Message.User(id = "m-${60 + it}", sessionId = "sid-1", time = TimeInfo(created = (60 + it).toLong())), emptyList()) }
+        val paging = mockk<MessagePaginationUseCase> {
+            // 第一次：before=热表最老 m-0，无网络游标
+            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null) } returns
+                Result.success(LoadOlderResult(page1, LoadOlderSource.NETWORK))
+            // 第二次：before=网络游标 m-30，networkBeforeCreated=30（第一页最老 created=30）
+            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-30", null, 30L) } returns
+                Result.success(LoadOlderResult(page2, LoadOlderSource.NETWORK))
+        }
+        val store = mockk<MessageStore> {
+            coEvery { oldestMessageId("sid-1") } returns "m-0"
+        }
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = store,
+            chatRepository = mockk(relaxed = true),
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadOlderMessages()
+        advanceUntilIdle()
+        delegate.loadOlderMessages()
+        advanceUntilIdle()
+
+        // 第二次翻页 before 前进到 m-30（第一页最老）且带 networkBeforeCreated=30，不再用热表最老 m-0
+        coVerify(exactly = 1) { paging.loadOlderMessages("srv", "sid-1", 30, "m-30", null, 30L) }
+        coVerify(exactly = 1) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", null, null) }
     }
 }

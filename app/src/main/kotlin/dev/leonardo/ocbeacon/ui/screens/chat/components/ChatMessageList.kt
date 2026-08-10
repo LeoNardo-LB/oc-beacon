@@ -85,10 +85,15 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets
 import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentQuestionRawIndex
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.util.MessageFingerprints
 
@@ -344,19 +349,39 @@ fun ChatMessageList(
             // firstVisibleItemIndex = 视觉顶部（最旧可见消息）。
             // "距顶部" = total - firstVisibleItemIndex。不可用 lastOrNull()
             //（那是最新消息，恒等于底部 → 进入会话即无限翻页拉网络）。
-            val shouldPaginate by remember(messageState) {
-                derivedStateOf {
-                    val layoutInfo = listState.layoutInfo
-                    val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
-                    val total = layoutInfo.totalItemsCount
-                    listState.isScrollInProgress &&
-                    !messageState.isLoadingOlder &&
-                    messageState.hasOlderMessages &&
-                    total - firstVisible <= 8
+            //
+            // 2026-08-10 修复：不再依赖 isScrollInProgress——用户滑到顶"停住"
+            // 时 isScrollInProgress=false 导致不触发（"看似滑到顶但有更多内容"）。
+            // 改用 LaunchedEffect(hasOlderMessages, isLoadingOlder, autoLoadPaused) + snapshotFlow：
+            // 距顶 <=8 即触发（无论是否滚动中）；加载完成 isLoadingOlder 翻转
+            // → LaunchedEffect 重启 → 重新监听布局 → 若仍距顶近则自动续载。
+            // 进入会话不触发：firstVisible=0（视觉底部），total-firstVisible 大。
+            // 防风暴：autoLoadPaused（连续失败 3 次）→ 停止自动续载；collect 触发前
+            // 查询 delegate 的退避等待（autoLoadWaitMillis）——失败后按 500ms 指数退避重试。
+            LaunchedEffect(
+                messageState.hasOlderMessages,
+                messageState.isLoadingOlder,
+                messageState.autoLoadPaused,
+            ) {
+                if (messageState.hasOlderMessages && !messageState.isLoadingOlder && !messageState.autoLoadPaused) {
+                    snapshotFlow { listState.layoutInfo }
+                        .map { layoutInfo ->
+                            val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
+                            val total = layoutInfo.totalItemsCount
+                            total - firstVisible <= 8
+                        }
+                        .distinctUntilChanged()
+                        .filter { it }
+                        .collect {
+                            val waitMs = viewModel.autoLoadWaitMillis()
+                            if (waitMs > 0) {
+                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load backoff wait ${waitMs}ms before retry")
+                                delay(waitMs)
+                            }
+                            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load triggered (nearTop=true, hasOlder=true)")
+                            viewModel.loadOlderMessages()
+                        }
                 }
-            }
-            LaunchedEffect(shouldPaginate) {
-                if (shouldPaginate) viewModel.loadOlderMessages()
             }
 
                 LazyColumn(

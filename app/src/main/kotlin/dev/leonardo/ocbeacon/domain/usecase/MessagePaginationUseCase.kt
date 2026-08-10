@@ -72,8 +72,11 @@ class MessagePaginationUseCase @Inject constructor(
      * - [beforeCreated] 非空（归档时间游标）时优先用它查询归档；
      *   hasArchivedMessages → loadArchivedRange；非空 → 直接返回 [LoadOlderSource.ARCHIVE]
      *   （不调网络、不落热表，防死循环）。
-     * - [beforeCreated] 为空时回落到 [beforeId] 在热表的时间；
-      *   归档空 → 网络（[LoadOlderSource.NETWORK]，落热表，现有逻辑）。
+     * - [networkBeforeCreated] 非空（网络分页游标，2026-08-10 新增）时**跳过归档检查**
+     *   直接走网络——该游标是"归档已读尽后的网络边界"，再查归档只会读到重复桶；
+     *   且网络游标指向的消息不在热表（窗口外不落库），beforeId 编码会失效。
+     *   网络请求的 before 用 CursorCodec.encode(id, networkBeforeCreated)（不依赖热表查询）。
+     * - 两者都为空时回落到 [beforeId] 在热表的时间；归档空 → 网络。
      */
     suspend fun loadOlderMessages(
         serverId: String,
@@ -81,7 +84,21 @@ class MessagePaginationUseCase @Inject constructor(
         limit: Int,
         beforeId: String?,
         beforeCreated: Long? = null,
+        networkBeforeCreated: Long? = null,
     ): Result<LoadOlderResult> {
+        // 网络分页游标：跳过归档直接走网络（游标本身是归档读尽后的边界）
+        if (networkBeforeCreated != null) {
+            return runCatching {
+                val before = CursorCodec.encode(
+                    beforeId ?: error("networkBeforeCreated requires beforeId"),
+                    networkBeforeCreated,
+                )
+                val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
+                    .getOrThrow()
+                messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
+                LoadOlderResult(page.messages, LoadOlderSource.NETWORK)
+            }
+        }
         // 归档时间游标优先；否则从热表查 beforeId 对应时间
         val created = beforeCreated ?: beforeId?.let { messageStore.messageCreatedAt(it) }
         if (created != null && messageStore.hasArchivedMessages(sessionId, created)) {

@@ -169,4 +169,31 @@ class MessagePaginationUseCaseTest {
 
         assertEquals(msgs, result.first())
     }
+
+    /**
+     * 回归护栏（2026-08-10）：网络分页游标（networkBeforeCreated）非空时——
+     * 跳过归档检查、直接用 CursorCodec.encode(beforeId, networkBeforeCreated) 请求网络。
+     * 原实现依赖热表查询 messageCreatedAt(beforeId)——网络游标消息不在热表
+     * （窗口外不落库）→ 返回 null → before 不编码 → 服务器返回最新 → 分页死循环
+     * （模拟器实证：beforeId 在 A→B 间交替，每 ~100ms 拉同一批消息）。
+     */
+    @Test
+    fun loadOlderMessages_networkCursor_skipsArchiveAndEncodesWithProvidedCreated() = runTest {
+        val page = MessagePage(messages = listOf(msg("msg_50", 500)), nextCursor = null)
+        val expectedBefore = CursorCodec.encode("msg_0", 100L)
+        // 即使热表查不到 created（游标消息不在热表），也应用网络游标时间编码
+        coEvery { messageStore.messageCreatedAt("msg_0") } returns null
+        // 归档检查不应被触发（网络游标分支直接跳过）
+        coEvery { sessionRepository.listMessages("srv", "ses_1", 50, expectedBefore) } returns Result.success(page)
+
+        val result = useCase.loadOlderMessages(
+            "srv", "ses_1", 50, "msg_0",
+            networkBeforeCreated = 100L,
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals(LoadOlderSource.NETWORK, result.getOrThrow().source)
+        coVerify(exactly = 0) { messageStore.hasArchivedMessages(any(), any()) }
+        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_50", 500)), false) }
+    }
 }

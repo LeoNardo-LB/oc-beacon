@@ -406,6 +406,8 @@ class ChatViewModel @Inject constructor(
     fun refreshIfNeeded() = sessionActions.refreshIfNeeded()
     fun syncSessionStatus() = sessionActions.syncSessionStatus()
     fun loadOlderMessages() = messageData.paginationDelegate.loadOlderMessages()
+    /** 自动续载的退避等待毫秒（0 = 无需等待）——UI 触发自动分页前查询。 */
+    fun autoLoadWaitMillis(): Long = messageData.paginationDelegate.autoLoadWaitMillis()
 
     // ============ @ 文件提及搜索 + 草稿管理（门面 —— DraftInputDelegate） ============
 

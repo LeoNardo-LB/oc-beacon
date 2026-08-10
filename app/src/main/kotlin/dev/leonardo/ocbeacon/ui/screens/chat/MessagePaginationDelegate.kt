@@ -19,6 +19,13 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "MessagePaginationDelegate"
 
+/** 自动续载失败退避基础时长（ms）：连续失败指数增长（500→1000→2000→…）。 */
+private const val AUTO_LOAD_BACKOFF_BASE_MS = 500L
+/** 退避指数上限（1L shl MAX = 最大 2^4=16 倍 = 8s）。 */
+private const val AUTO_LOAD_BACKOFF_MAX_SHIFT = 4
+/** 自动续载最大连续失败次数：达此值暂停自动续载（手动滑动恢复）。 */
+private const val MAX_AUTO_LOAD_FAILURES = 3
+
 /**
  * 消息分页职责 —— 从 [MessageDataDelegate] 拆出。
  *
@@ -61,10 +68,56 @@ internal class MessagePaginationDelegate(
      * - NETWORK 来源 → 重置为 null（归档已读尽，回落到热表边界）
      */
     private var archiveCursorCreated: Long? = null
+    /**
+     * 网络分页游标（ID + created）：最近一次 NETWORK 来源返回的最老消息。
+     * 与 [archiveCursorCreated] 同语义（"分页已显示到哪"）但独立跟踪——ARCHIVE 读
+     * 归档桶、NETWORK 走服务器，两者边界不同，分开推进避免互相污染。
+     * 需要 ID：use case 的网络 before 编码 = CursorCodec.encode(id, created)，
+     * 游标消息不在热表（窗口外不落库），必须由 delegate 记住 ID 才能编码。
+     */
+    private var networkCursorId: String? = null
+    private var networkCursorCreated: Long? = null
     /** 服务器上是否存在超出当前限制的更多消息。 */
     private val _hasOlderMessages = MutableStateFlow(false)
     /** "加载更早" 请求是否进行中。 */
     private val _isLoadingOlder = MutableStateFlow(false)
+
+    // ── 自动续载防风暴（2026-08-10）────────────────────────────
+    // 场景：用户滑到顶停住时自动续载（snapshotFlow 驱动）。若服务器持续失败
+    // （网络/归档损坏），无保护会无限重试风暴。防护：
+    //   1. 失败退避：连续失败指数退避（500ms→1s→2s→…）
+    //   2. 最大连续失败次数：达 [MAX_AUTO_LOAD_FAILURES] 后暂停自动续载
+    //      （[autoLoadPaused]），用户手动滑动/重新加载后恢复
+    //   3. 成功重置：任何成功加载清零计数与退避
+    private var autoLoadFailures = 0
+    private var autoLoadPausedUntil = 0L
+    private val _autoLoadPaused = MutableStateFlow(false)
+    val autoLoadPaused: StateFlow<Boolean> = _autoLoadPaused.asStateFlow()
+
+    /** 自动续载的退避等待毫秒（0 = 无需等待）。UI 触发前查询。 */
+    fun autoLoadWaitMillis(): Long =
+        (autoLoadPausedUntil - System.currentTimeMillis()).coerceAtLeast(0L)
+
+    private fun recordAutoLoadFailure() {
+        autoLoadFailures++
+        val backoffMs = AUTO_LOAD_BACKOFF_BASE_MS *
+            (1L shl (autoLoadFailures - 1).coerceAtMost(AUTO_LOAD_BACKOFF_MAX_SHIFT))
+        autoLoadPausedUntil = System.currentTimeMillis() + backoffMs
+        AppLogger.w(TAG, "Auto load failure #$autoLoadFailures: backoff=${backoffMs}ms (until=${autoLoadPausedUntil}), pausedUntilReached=${autoLoadFailures >= MAX_AUTO_LOAD_FAILURES}")
+        if (autoLoadFailures >= MAX_AUTO_LOAD_FAILURES) {
+            _autoLoadPaused.value = true
+            AppLogger.w(TAG, "Auto load older PAUSED after $autoLoadFailures consecutive failures (manual scroll to retry)")
+        }
+    }
+
+    private fun recordAutoLoadSuccess() {
+        if (autoLoadFailures > 0 || _autoLoadPaused.value) {
+            AppLogger.d(TAG, "Auto load older RECOVERED (failures=$autoLoadFailures -> 0, paused=${_autoLoadPaused.value} -> false)")
+        }
+        autoLoadFailures = 0
+        autoLoadPausedUntil = 0L
+        _autoLoadPaused.value = false
+    }
 
     val hasOlderMessages: StateFlow<Boolean> = _hasOlderMessages.asStateFlow()
     val isLoadingOlder: StateFlow<Boolean> = _isLoadingOlder.asStateFlow()
@@ -87,8 +140,10 @@ internal class MessagePaginationDelegate(
                 .getOrThrow()
             chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
             _hasOlderMessages.value = messages.size >= currentMessageLimit
-            // 会话重新加载 → 归档时间游标重置（use case 内部回落到热表最老）
+            // 会话重新加载 → 归档/网络游标重置（use case 内部回落到热表最老）
             archiveCursorCreated = null
+            networkCursorId = null
+            networkCursorCreated = null
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "V1 loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${_hasOlderMessages.value})")
         } catch (e: CancellationException) {
             throw e
@@ -141,11 +196,23 @@ internal class MessagePaginationDelegate(
         scope.launch {
             _isLoadingOlder.value = true
             try {
-                // before 游标：优先用归档时间游标（归档翻页推进）；null 时 use case 回落到热表最老
-                val beforeId = messageStore.oldestMessageId(sid)
+                // 游标策略：
+                //   1. 网络分页游标（networkCursorId/Created）非空 → 网络边界已建立，
+                //      beforeId=网络游标 ID + networkBeforeCreated=网络游标时间
+                //      （use case 跳过归档直接网络，防重复/循环）
+                //   2. 归档游标（archiveCursorCreated）非空 → 继续读归档
+                //   3. 都为空 → 首次翻页：热表最老作 beforeId
+                val hotOldestId = messageStore.oldestMessageId(sid)
+                val beforeId = networkCursorId ?: hotOldestId
+                val beforeCreated = archiveCursorCreated
+                val networkBeforeCreated = networkCursorCreated
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "loadOlder START sid=${sid.take(12)} limit=$currentMessageLimit beforeId=${beforeId?.take(16)} archiveCursor=$archiveCursorCreated networkCursor=$networkCursorId/$networkCursorCreated failures=$autoLoadFailures paused=${_autoLoadPaused.value}")
+                }
                 val result = messagePaging.loadOlderMessages(
                     serverId, sid, currentMessageLimit, beforeId,
-                    beforeCreated = archiveCursorCreated,
+                    beforeCreated = beforeCreated,
+                    networkBeforeCreated = networkBeforeCreated,
                 ).getOrThrow()
                 // 归档来源只进内存（不落热表 → 防死循环）；网络来源保持现状（upsert 内自控落库）
                 chatRepository.upsertMessages(sid, result.messages, MergeStrategy.APPEND_ONLY)
@@ -155,22 +222,39 @@ internal class MessagePaginationDelegate(
                         archiveCursorCreated = result.messages.minOfOrNull { it.info.time.created }
                             ?: archiveCursorCreated
                         _hasOlderMessages.value = true
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(TAG, "loadOlder ARCHIVE: ${result.messages.size} msgs, cursor advanced -> $archiveCursorCreated")
+                        }
                     }
                     LoadOlderSource.NETWORK -> {
                         // 网络来源：归档已读尽，游标回落（后续若网络失败仍可从热表边界回读归档）
                         archiveCursorCreated = null
+                        // 网络分页游标推进为本次返回的最老消息（ID + created；下次翻页继续读更早；
+                        // 游标消息不在热表，必须由 delegate 记住 ID 供 use case 编码）
+                        result.messages.minByOrNull { it.info.time.created }?.let { oldest ->
+                            networkCursorId = oldest.info.id
+                            networkCursorCreated = oldest.info.time.created
+                        }
                         _hasOlderMessages.value = result.messages.size >= currentMessageLimit
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(TAG, "loadOlder NETWORK: ${result.messages.size} msgs (limit=$currentMessageLimit), networkCursor -> $networkCursorId/$networkCursorCreated, hasOlder=${_hasOlderMessages.value}")
+                        }
                     }
                 }
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(TAG, "Loaded older: ${result.messages.size} msgs (source=${result.source}, cursor=$archiveCursorCreated, hasOlder=${_hasOlderMessages.value})")
                 }
+                recordAutoLoadSuccess()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to load older messages", e)
+                recordAutoLoadFailure()
             } finally {
                 _isLoadingOlder.value = false
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "loadOlder END sid=${sid.take(12)} isLoadingOlder=false failures=$autoLoadFailures paused=${_autoLoadPaused.value} waitMs=${autoLoadWaitMillis()}")
+                }
             }
         }
     }

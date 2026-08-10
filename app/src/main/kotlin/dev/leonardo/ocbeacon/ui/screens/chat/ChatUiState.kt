@@ -20,6 +20,8 @@ data class MessageListState(
     val messageCount: Int = 0,
     val hasOlderMessages: Boolean = false,
     val isLoadingOlder: Boolean = false,
+    /** 自动续载暂停（连续失败达上限）——UI 停止自动分页，等待手动触发。 */
+    val autoLoadPaused: Boolean = false,
     val toolExpandedStates: Map<String, Boolean> = emptyMap(),
     val queuedMessageIds: Set<String> = emptySet(),
 )
