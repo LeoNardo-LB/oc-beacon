@@ -485,3 +485,9 @@ efactor
   - 修复：调低 Ktor Client 日志级别（LogLevel.HEADERS → NONE/仅错误）或改 INFO 级别过滤；保留请求失败时的错误日志
   - 工时：~0.5h | 难度：低 | 涉及：Ktor HttpClient 配置
   - 来源：R-revalidation.md §发现的问题 1
+
+- [ ] **#63 SseClient 256KB 单行边界截断超长 SSE 帧** `sse`
+  - 问题：2026-08-10 功能回归走查发现（预有问题，非回归）——流式期间 logcat 出现 `E SseClient: SSE line exceeds 262144 bytes, aborting read` ~14 次，单行超 256KB 即 abort 读取；实测流式均最终完成，但超长单帧（超大 code block/token 批次）存在被截断风险
+  - 证据：docs/research/audit-2026-08-10/RG-regression.md
+  - 修复：评估提高上限（512KB/1MB）或改分片读取（按事件边界重组）；需验证内存影响
+  - 工时：~1h | 难度：低 | 涉及：SseClient.kt

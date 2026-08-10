@@ -14,6 +14,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/release-notes-template.md`](docs/release-notes-template.md) | GitHub Release 说明模板与写作规则（每次发版按此撰写） | 撰写发版说明、Release Notes 前 |
 | 🔴 MUST | [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md) | ChatScreen.kt 编辑协议（见下方承重约束） | 编辑 ChatScreen.kt 前 |
 | 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4 维验证框架 | 完成开发、声称"完成"前 |
+| 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归验证指南：变更分类（快速/完整回归）、12 能力域验证清单、问题处理流程（阻塞→根因修复；非阻塞→登记；补丁三件事） | 涉及已有能力的重构/接口变更/存储或渲染层改动前（必读），按能力域清单执行回归 |
 | 🟡 SHOULD | [`docs/opencode-api-reference.md`](docs/opencode-api-reference.md) | OpenCode Server 完整 API 参考（62 REST/WS 端点 + 52 SSE 事件 + JSON Schema） | 开发新功能、调试接口问题前 |
 | 🟡 SHOULD | [`docs/architecture.md`](docs/architecture.md) | 架构分层、目录职责、关键模式、承重架构规则 | 理解/修改跨层结构、SessionStateService、日志、导航 |
 | 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 聊天 UI 事件生命周期：触摸传播、SSE 流式更新、消息状态机、竞态条件 | 修改 ChatScreen 内部机制、排查聊天交互竞态时 |
