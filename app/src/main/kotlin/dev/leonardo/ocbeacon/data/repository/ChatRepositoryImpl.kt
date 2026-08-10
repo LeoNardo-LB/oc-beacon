@@ -283,7 +283,7 @@ class ChatRepositoryImpl @Inject constructor(
     private suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = serverRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
-        return ServerConnection.from(config.url, config.username, config.password)
+        return ServerConnection.from(config.url, config.username, config.password, config.apiVersion)
     }
 
     private suspend fun resolveConnectionForSession(sessionId: String): ServerConnection {
@@ -292,7 +292,7 @@ class ChatRepositoryImpl @Inject constructor(
             ?: throw IllegalStateException("No server found for session $sessionId")
         val config = serverRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
-        return ServerConnection.from(config.url, config.username, config.password)
+        return ServerConnection.from(config.url, config.username, config.password, config.apiVersion)
     }
 
     private fun findSessionForQuestion(questionId: String): String? =

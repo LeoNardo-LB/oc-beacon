@@ -57,6 +57,7 @@ class SseConnectionManager @Inject constructor(
     private val messageApi: MessageApi,
     private val fileApi: FileApi,
     private val sseClient: SseClient,
+    private val sseClientV2: dev.leonardo.ocbeacon.data.api.v2.SseClientV2,
     private val eventDispatcher: EventDispatcher,
     private val settingsRepository: SettingsDataStore,
     private val networkMonitor: NetworkMonitor,
@@ -114,7 +115,7 @@ class SseConnectionManager @Inject constructor(
         // 直接调用 startConnection 时（测试、未来重构）的泄漏。
         connections[server.id]?.sseJob?.cancel()
 
-        val conn = ServerConnection.from(server.url, server.username, server.password)
+        val conn = ServerConnection.from(server.url, server.username, server.password, server.apiVersion)
         val job = startSseConnection(server, conn, onEvent)
 
         connections[server.id] = ServerConnectionState(
@@ -258,7 +259,14 @@ class SseConnectionManager @Inject constructor(
                 }
 
                 try {
-                    sseClient.connectToGlobalEvents(conn)
+                    // V2 连接使用 V2 SSE 客户端，V1 使用原始 V1 客户端
+                    val sseFlow = if (conn.apiVersion.isV2) {
+                        AppLogger.i(TAG, "[${server.displayName}] Using V2 SSE client")
+                        sseClientV2.connectToEvents(conn)
+                    } else {
+                        sseClient.connectToGlobalEvents(conn)
+                    }
+                    sseFlow
                         .catch { error ->
                             AppLogger.e(TAG, "[${server.displayName}] SSE stream error", error)
                             updateServerConnected(server.id, false)

@@ -5,7 +5,7 @@ tags: [regression, color-cleanup]
 - launchApp:
     clearState: false
 - waitForAnimationToEnd
-- takeScreenshot: C:\Users\ADMINI~1\AppData\Local\Temp\maestro-screenshots\01-home-screen
+- takeScreenshot: /tmp/maestro-screenshots/01-home-screen  # Windows: C:\Users\ADMINI~1\AppData\Local\Temp\maestro-screenshots\01-home-screen
 - scroll
 - waitForAnimationToEnd
-- takeScreenshot: C:\Users\ADMINI~1\AppData\Local\Temp\maestro-screenshots\02-home-scrolled
+- takeScreenshot: /tmp/maestro-screenshots/02-home-scrolled  # Windows: C:\Users\ADMINI~1\AppData\Local\Temp\maestro-screenshots\02-home-scrolled

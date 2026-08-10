@@ -31,7 +31,8 @@ class ServerDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val api: SystemApi,
     private val json: Json,
-    private val secretCipher: SecretCipher
+    private val secretCipher: SecretCipher,
+    private val versionDetector: dev.leonardo.ocbeacon.data.api.version.ApiVersionDetector
 ) {
     
     private val serversKey = stringPreferencesKey(SERVERS_KEY)
@@ -112,28 +113,36 @@ class ServerDataStore @Inject constructor(
     }
     
     /**
-     * 检查服务器健康状态
+     * 检查服务器健康状态并检测 API 版本（V1/V2）。
+     * 检测结果持久化到 ServerConfig 中。
      */
     suspend fun checkHealth(server: ServerConfig): Result<ServerHealth> {
         return try {
-            val conn = ServerConnection.from(server.url, server.username, server.password)
-            val health = api.getHealth(conn)
-            
-            // 更新服务器健康状态
+            // 优先使用版本检测器探测 API 版本和健康状态
+            val detection = versionDetector.detect(server.url, server.username, server.password)
+
+            val health = ServerHealth(
+                healthy = detection.version != dev.leonardo.ocbeacon.domain.model.ApiVersion.UNKNOWN,
+                version = detection.serverVersionString
+            )
+
+            // 更新服务器健康状态和 API 版本
             val updatedServer = server.copy(
                 isHealthy = health.healthy,
-                lastConnected = System.currentTimeMillis()
+                lastConnected = System.currentTimeMillis(),
+                apiVersion = detection.version,
+                serverVersion = detection.serverVersionString
             )
             updateServer(updatedServer)
-            
+
             Result.success(health)
         } catch (e: Exception) {
             AppLogger.e(TAG, "Health check failed for ${server.url}", e)
-            
+
             // 标记为不健康
             val updatedServer = server.copy(isHealthy = false)
             updateServer(updatedServer)
-            
+
             Result.failure(e)
         }
     }

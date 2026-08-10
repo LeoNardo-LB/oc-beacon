@@ -21,28 +21,31 @@
 |----|-----|------|
 | 模拟器 AVD | `Medium_Phone` | 已存在，无头/最小化启动 |
 | 测试服务器 | `10.0.2.2:4096` | 宿主机 opencode serve；模拟器经 10.0.2.2 访问 |
-| 凭据 | `opencode` / `$env:OPENCODE_SERVER_PASSWORD` | 密码从环境变量读取 |
+| 凭据 | `opencode` / `$OPENCODE_SERVER_PASSWORD` | 密码从环境变量读取（Windows: `$env:OPENCODE_SERVER_PASSWORD`） |
 | 测试包 | `dev.leonardo.ocbeacon.dev` | dev flavor debug APK |
-| 工具 | replicant MCP（adb/ui-query/ui-action/ui-capture）+ adb | `C:\Users\Administrator\AppData\Local\Android\Sdk\platform-tools\adb.exe` |
+| 工具 | replicant MCP（adb/ui-query/ui-action/ui-capture）+ adb | `~/Android/Sdk/platform-tools/adb`（Windows: `C:\Users\Administrator\AppData\Local\Android\Sdk\platform-tools\adb.exe`） |
 
 ## 3. 启动模拟器
 
-```powershell
+```bash
 # 1) 启动（后台分离）
-$sdk = "C:\Users\Administrator\AppData\Local\Android\Sdk"
-Start-Process -FilePath "$sdk\emulator\emulator.exe" -ArgumentList "-avd","Medium_Phone","-no-snapshot-save","-no-boot-anim","-gpu","auto" -WindowStyle Minimized
+# Windows: $sdk = "C:\Users\Administrator\AppData\Local\Android\Sdk"; Start-Process -FilePath "$sdk\emulator\emulator.exe" -ArgumentList "-avd","Medium_Phone","-no-snapshot-save","-no-boot-anim","-gpu","auto" -WindowStyle Minimized
+sdk=~/Android/Sdk
+nohup "$sdk/emulator/emulator" -avd Medium_Phone -no-snapshot-save -no-boot-anim -gpu auto >/dev/null 2>&1 &
 
 # 2) 等待 boot 完成（最多 4 分钟）
-$adb = "$sdk\platform-tools\adb.exe"
-do { $out = & $adb shell getprop sys.boot_completed 2>&1; if ($out -match "1") { break }; Start-Sleep -Seconds 5 } while ($true)
+# Windows: $adb = "$sdk\platform-tools\adb.exe"; do { $out = & $adb shell getprop sys.boot_completed 2>&1; if ($out -match "1") { break }; Start-Sleep -Seconds 5 } while ($true)
+adb="$sdk/platform-tools/adb"
+while [ "$($adb shell getprop sys.boot_completed 2>/dev/null)" != "1" ]; do sleep 5; done
 ```
 
 ## 4. 构建 + 安装
 
-```powershell
-.\gradlew :app:assembleDevDebug   # 构建（超时 300s）
+```bash
+./gradlew :app:assembleDevDebug   # 构建（超时 300s）  Windows: .\gradlew.bat :app:assembleDevDebug
 # 安装（replicant adb-app install，或）：
-& $adb install -r app\build\outputs\apk\dev\debug\app-dev-debug.apk
+# Windows: & $adb install -r app\build\outputs\apk\dev\debug\app-dev-debug.apk
+$adb install -r app/build/outputs/apk/dev/debug/app-dev-debug.apk
 ```
 
 ## 5. 测试用例矩阵
@@ -64,8 +67,9 @@ do { $out = & $adb shell getprop sys.boot_completed 2>&1; if ($out -match "1") {
 ## 7. 断言速查
 
 ### 7.1 通知栏文本（TC1）
-```powershell
-& $adb shell dumpsys notification --noredact | Select-String -Pattern "Connected|Connecting|opencode_connection"
+```bash
+# Windows: & $adb shell dumpsys notification --noredact | Select-String -Pattern "Connected|Connecting|opencode_connection"
+$adb shell dumpsys notification --noredact | grep -E "Connected|Connecting|opencode_connection"
 ```
 - 期望：`text="Connected to <server>"`，channel=`opencode_connection`
 - 回归信号：文本停留在 "Connecting…" 超过连接建立后数秒 = 状态未刷新 bug
@@ -80,8 +84,9 @@ do { $out = & $adb shell getprop sys.boot_completed 2>&1; if ($out -match "1") {
 - 回归信号：点击后停留在主页 = 深链未生效
 
 ### 7.4 崩溃（TC5）
-```powershell
-& $adb logcat -b crash -d
+```bash
+# Windows: & $adb logcat -b crash -d
+$adb logcat -b crash -d
 ```
 - 期望：无 FATAL/AndroidRuntime；E 级系统噪声可忽略（SurfaceFlinger 等）
 
@@ -103,7 +108,7 @@ do { $out = & $adb shell getprop sys.boot_completed 2>&1; if ($out -match "1") {
 
 ## 10. 注意事项
 
-- 服务器凭据含特殊字符时，PowerShell 中 `"` 转义；URL 用 `http://10.0.2.2:4096`
+- 服务器凭据含特殊字符时，bash 中用单引号 `'` 包裹整个 URL 规避 shell 解释（Windows 附注：PowerShell 中 `"` 需转义）；URL 用 `http://10.0.2.2:4096`
 - 通知抽屉操作在部分 Android 版本需先下拉通知栏（`cmd statusbar expand-notifications`）
 - 若服务器无会话数据，TC2 退化为"空列表 + 无 global"断言
 - 修改 ChatScreen.kt 后仍需遵守 `docs/chatscreen-editing-protocol.md`

@@ -8,7 +8,7 @@ tags: [regression, color-cleanup]
 # Navigate to settings - tap the settings navigation item
 - tapOn: "Settings"
 - waitForAnimationToEnd
-- takeScreenshot: C:\Users\ADMINI~1\AppData\Local\Temp\maestro-screenshots\03-settings-screen
+- takeScreenshot: /tmp/maestro-screenshots/03-settings-screen  # Windows: C:\Users\ADMINI~1\AppData\Local\Temp\maestro-screenshots\03-settings-screen
 - scroll
 - waitForAnimationToEnd
-- takeScreenshot: C:\Users\ADMINI~1\AppData\Local\Temp\maestro-screenshots\04-settings-scrolled
+- takeScreenshot: /tmp/maestro-screenshots/04-settings-scrolled  # Windows: C:\Users\ADMINI~1\AppData\Local\Temp\maestro-screenshots\04-settings-scrolled

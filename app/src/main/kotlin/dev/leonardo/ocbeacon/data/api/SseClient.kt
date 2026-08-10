@@ -39,7 +39,7 @@ private const val MAX_SSE_EVENT_SIZE = 1_048_576
  * 并继续读取下一行——不中断 SSE 连接（2026-08-10 #63：原实现 abort
  * 整个读循环触发重连，超大 payload 批次会造成无谓断连与丢帧窗口）。
  */
-private suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
+internal suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
     while (true) {
         val result = mutableListOf<Byte>()
         var discarded = false
@@ -74,7 +74,7 @@ private suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
 /**
  * 将 byte 块列表拼接为完整字节数组，然后一次性 UTF-8 解码。
  */
-private fun buildStringFromBytes(chunks: List<List<Byte>>): String {
+internal fun buildStringFromBytes(chunks: List<List<Byte>>): String {
     if (chunks.isEmpty()) return ""
     // SSE 规范：多条 data: 行必须以 \n（LF）连接。
     // 之前的实现未加分隔符直接拼接，导致多行 JSON

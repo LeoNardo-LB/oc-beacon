@@ -120,5 +120,5 @@ class FakeServerRepository @Inject constructor() :
     // ============ ServerRepository ============
 
     override suspend fun resolveConnection(serverId: String): ServerConnection =
-        ServerConnection.from("http://localhost:4096", "opencode", "test")
+        ServerConnection.from("http://localhost:4096", "opencode", "test", dev.leonardo.ocbeacon.domain.model.ApiVersion.V1)
 }

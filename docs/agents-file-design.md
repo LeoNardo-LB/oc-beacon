@@ -96,7 +96,7 @@ flowchart TD
 
 | ✅ 做 | ❌ 不做 |
 |-------|--------|
-| 精确命令：`.\gradlew :app:assembleDevDebug`（含 flags、JDK、超时） | 只说工具名：`运行 gradle` |
+| 精确命令：`./gradlew :app:assembleDevDebug`（含 flags、JDK、超时） | 只说工具名：`运行 gradle` |
 | 具体到可验证：`API handlers live in src/api/handlers/` | 模糊：`keep files organized` |
 | 三层边界：**Always do / Ask first / Never do** | 只写偏好："prefer clean code" |
 | 代码示例 > 三段解释 | 散文描述代码风格 |

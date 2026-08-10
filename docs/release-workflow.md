@@ -206,7 +206,8 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 1. bump version → 修改 version.properties（VERSION_CODE +1，VERSION_NAME 按 §2.3 规则）
 2. Release Notes → 按 docs/release-notes-template.md 撰写 RELEASE_NOTES.md（版本摘要 + 分类条目）
 3. commit → git add version.properties RELEASE_NOTES.md && git commit -m "chore: bump version to vX.Y.Z"
-4. build → .\gradlew --stop && .\gradlew :app:assembleBetaRelease（按 flavor 选任务）
+4. build → ./gradlew :app:assembleBetaRelease（按 flavor 选任务）
+   # Windows daemon 卡住时，可先 .\gradlew --stop 清理 daemon 再构建
 5. push → git push origin master
 6. tag → git tag -a "vX.Y.Z" -m "vX.Y.Z — 简要说明"
 7. push tag → git push origin "vX.Y.Z"
@@ -225,7 +226,8 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 
 ```
 1. bump version → 修改 version.properties（与 APK 发版共用同一版本号）
-2. 构建 AAB → .\gradlew --stop && .\gradlew :app:bundleStableRelease
+2. 构建 AAB → ./gradlew :app:bundleStableRelease
+   # Windows daemon 卡住时，可先 .\gradlew --stop 清理 daemon 再构建
    产物：app/build/outputs/bundle/stableRelease/app-stable-release.aab
 3. 上传 → Play Console → 应用 → 版本 → 创建版本 → 上传 AAB
 4. 签名 → 与 APK 共用 release keystore（oc-tether）签名；

@@ -2,7 +2,7 @@
 
 - NEVER edit ChatScreen.kt in parallel across multiple agents
 - ALWAYS Read before Edit to confirm current content
-- After each Edit, run `.\gradlew.bat :app:compileDevDebugKotlin`
+- After each Edit, run `./gradlew :app:compileDevDebugKotlin` (Windows: `.\gradlew.bat :app:compileDevDebugKotlin`)
 - Commit after each successful compilation
 - If compilation fails: `git checkout -- ChatScreen.kt`, re-read, retry
 - One commit = one logical change (no bundling)

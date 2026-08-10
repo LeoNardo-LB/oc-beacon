@@ -33,8 +33,8 @@
 ### 新增 / 修改文案
 1. 编辑 `values/strings.xml`（英文值），遵循命名规范（`<模块>_<含义>`，如 `session_rename`、`menu_quick_navigate`）。
 2. **同步编辑 14 个语言文件**：agent 直接翻译（术语见 §5），保持占位符一致。
-3. 运行 `powershell scripts/i18n-check.ps1`（或 `pwsh scripts/i18n-check.ps1`），必须 PASSED。
-4. 编译验证（`.\gradlew :app:compileDevDebugKotlin`）。
+3. 运行 `bash scripts/i18n-check.sh`（Windows: `pwsh scripts/i18n-check.ps1`），必须 PASSED。
+4. 编译验证（`./gradlew :app:compileDevDebugKotlin`）。
 
 ### 删除文案
 1. 从 15 个文件删除对应 `<string>`/`<plurals>`。
@@ -63,8 +63,8 @@
 2. **英文源纯净性**：无 CJK/全角标点
 3. **占位符一致性**：每语言每 key 与英文源对齐（`%1$d` 归一化为 `%d` 比较）
 
-- 本地：`powershell scripts/i18n-check.ps1`（有错退出码 1）
-- **CI**：`release.yml` 在构建前自动运行（`pwsh scripts/i18n-check.ps1`），失败即发版失败
+- 本地：`bash scripts/i18n-check.sh`（有错退出码 1；Windows: `pwsh scripts/i18n-check.ps1`）
+- **CI**：`release.yml` 在构建前自动运行（`bash scripts/i18n-check.sh`，CI 在 ubuntu 上运行 bash 版），失败即发版失败
 
 ## 7. 常见错误复盘（2026-08-07）
 

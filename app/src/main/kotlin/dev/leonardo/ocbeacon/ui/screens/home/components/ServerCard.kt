@@ -68,18 +68,47 @@ internal fun ServerCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = cardContentColor.copy(alpha = AlphaTokens.MEDIUM)
                     )
-                    if (isConnected) {
-                        Text(
-                            text = stringResource(R.string.home_server_health_good),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = StatusConnected
-                        )
-                    } else if (isConnecting) {
-                        Text(
-                            text = stringResource(R.string.home_connecting),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
+                    // 版本标签行
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isConnected) {
+                            Text(
+                                text = stringResource(R.string.home_server_health_good),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = StatusConnected
+                            )
+                        } else if (isConnecting) {
+                            Text(
+                                text = stringResource(R.string.home_connecting),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                        // API 版本徽章
+                        if (server.apiVersion != dev.leonardo.ocbeacon.domain.model.ApiVersion.V1) {
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = when (server.apiVersion) {
+                                    dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            ) {
+                                Text(
+                                    text = "API v${if (server.apiVersion.isV2) "2" else "1"}" +
+                                        (server.serverVersion?.let { " · $it" } ?: ""),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = when (server.apiVersion) {
+                                        dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
                 }
 

@@ -229,7 +229,7 @@ class SessionRepositoryImpl @Inject constructor(
     private suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = serverRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
-        return ServerConnection.from(config.url, config.username, config.password)
+        return ServerConnection.from(config.url, config.username, config.password, config.apiVersion)
     }
 
     // ============ 当前 Agent/Model（SSE session.next）============

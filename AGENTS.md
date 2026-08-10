@@ -30,18 +30,19 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 
 ```bash
 # 常用：单个任务，产出对应 flavor 的一个 APK
-.\gradlew :app:assembleDevDebug        # 开发调试（dev flavor）
-.\gradlew :app:assembleBetaRelease     # beta 发版
-.\gradlew :app:assembleStableRelease   # 正式发版
+# Windows: .\gradlew.bat ...
+./gradlew :app:assembleDevDebug        # 开发调试（dev flavor）
+./gradlew :app:assembleBetaRelease     # beta 发版
+./gradlew :app:assembleStableRelease   # 正式发版
 
 # 多任务示例：需要同时产出多个包时才用（如 dev debug + beta release）
-.\gradlew :app:assembleDevDebug :app:assembleBetaRelease
+./gradlew :app:assembleDevDebug :app:assembleBetaRelease
 
 # 单元测试（强制重跑，避免 UP-TO-DATE 跳过）
-.\gradlew :app:testDevDebugUnitTest --rerun
+./gradlew :app:testDevDebugUnitTest --rerun
 
 # Kotlin 编译检查（快速反馈）
-.\gradlew :app:compileDevDebugKotlin
+./gradlew :app:compileDevDebugKotlin
 ```
 
 **要求 JDK 21** — `build.gradle.kts` 设置了 `jvmToolchain(21)` 和 `JavaVersion.VERSION_21`。本地构建还在 `gradle.properties` 中设置了 `org.gradle.java.home`。
@@ -51,7 +52,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 **Gradle 超时（禁止无超时裸跑）**：
 - 编译检查（`compileDevDebugKotlin`）: 120 秒 · 单元测试: 180 秒 · 完整构建（`assemble*`）: 300 秒 · 依赖解析/首次构建: 600 秒
 
-**Windows Daemon 卡住**：已在 `gradle.properties` 设置 `org.gradle.daemon=false`（`--no-daemon` 等效）。如遇 `BUILD SUCCESSFUL` 后不返回，执行 `.\gradlew --stop` 清理。
+**Gradle Daemon**：`gradle.properties` 中 `org.gradle.daemon` 默认不设置（Linux/macOS 下 daemon 正常工作）。若在 Windows 上遇到 `BUILD SUCCESSFUL` 后不返回（[gradle/gradle#12560](https://github.com/gradle/gradle/issues/12560)），可在 `gradle.properties` 取消注释 `org.gradle.daemon=false` 规避；此时执行 `./gradlew --stop` 清理（Windows: `.\gradlew --stop`）。
 
 ## Product Flavors
 

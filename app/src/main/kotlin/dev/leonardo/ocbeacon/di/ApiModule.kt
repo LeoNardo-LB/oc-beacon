@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApiImpl
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApiImpl
+import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 
 /**
  * 6 个领域 API 接口的 Hilt 绑定。

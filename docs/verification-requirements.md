@@ -32,10 +32,10 @@ BEFORE claiming any status:
 
 | 检查项 | 命令 | 超时 | 通过标准 |
 |--------|------|------|----------|
-| Kotlin 编译 | `.\gradlew :app:compileDevDebugKotlin` | 120s | BUILD SUCCESSFUL, 0 errors |
-| 全量单元测试 | `.\gradlew :app:testDevDebugUnitTest --rerun` | 180s | 0 failures |
-| AndroidTest 编译 | `.\gradlew :app:compileDevDebugAndroidTestKotlin` | 120s | BUILD SUCCESSFUL |
-| 全量构建 | `.\gradlew :app:assembleDevDebug` | 300s | BUILD SUCCESSFUL |
+| Kotlin 编译 | `./gradlew :app:compileDevDebugKotlin` | 120s | BUILD SUCCESSFUL, 0 errors |
+| 全量单元测试 | `./gradlew :app:testDevDebugUnitTest --rerun` | 180s | 0 failures |
+| AndroidTest 编译 | `./gradlew :app:compileDevDebugAndroidTestKotlin` | 120s | BUILD SUCCESSFUL |
+| 全量构建 | `./gradlew :app:assembleDevDebug` | 300s | BUILD SUCCESSFUL |
 
 **规则：**
 - 编译检查在**每个 Task** 完成后执行
@@ -75,16 +75,16 @@ maestro test maestro/l{n}-{feature}.yaml
 
 **前置条件：**
 - Android 模拟器运行中（`adb devices` 可见 `emulator-XXXX device`）
-- App 已安装到模拟器（`.\gradlew :app:installDevDebug`）
+- App 已安装到模拟器（`./gradlew :app:installDevDebug`）
 - Maestro CLI 已安装（`maestro --version`）
 
 **验证步骤：**
 
 | 步骤 | 命令 | 超时 | 通过标准 |
 |------|------|------|----------|
-| 1. 安装 App | `.\gradlew :app:installDevDebug` | 300s | `Installed on 1 device` |
+| 1. 安装 App | `./gradlew :app:installDevDebug` | 300s | `Installed on 1 device` |
 | 2. 运行 Maestro flow | `maestro test maestro/l{n}-{feature}.yaml` | 120s/flow | 所有步骤 COMPLETED |
-| 3. 运行 androidTest | `.\gradlew :app:connectedDevDebugAndroidTest` | 300s | `Finished N tests`, BUILD SUCCESSFUL |
+| 3. 运行 androidTest | `./gradlew :app:connectedDevDebugAndroidTest` | 300s | `Finished N tests`, BUILD SUCCESSFUL |
 | 4. 截屏确认 | 检查 Maestro 输出中的 `takeScreenshot` 步骤 | — | COMPLETED |
 
 **Maestro flow 实机运行要求：**
@@ -137,8 +137,8 @@ maestro test maestro/l{n}-{feature}.yaml
 
 **范围**：
 - `maestro/` 下全部 flow（含 `e2e-*` 完整旅程与专项）
-- `.\gradlew :app:connectedDevDebugAndroidTest`（androidTest 全量实机）
-- 全量单元测试：`.\gradlew :app:testDevDebugUnitTest --rerun`
+- `./gradlew :app:connectedDevDebugAndroidTest`（androidTest 全量实机）
+- 全量单元测试：`./gradlew :app:testDevDebugUnitTest --rerun`
 - 编译 + 构建：`compileDevDebugKotlin` + `assembleBetaRelease`
 
 **回归策略**：变更相关 flow 必跑 + 冒烟档全跑 + 全量兜底。

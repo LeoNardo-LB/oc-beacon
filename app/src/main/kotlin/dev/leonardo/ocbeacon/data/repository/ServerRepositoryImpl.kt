@@ -193,6 +193,6 @@ class ServerRepositoryImpl @Inject constructor(
     override suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = dataRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
-        return ServerConnection.from(config.url, config.username, config.password)
+        return ServerConnection.from(config.url, config.username, config.password, config.apiVersion)
     }
 }

@@ -14,7 +14,11 @@ data class ServerConfig(
     val name: String? = null, // 用户友好的名称
     val autoConnect: Boolean = false,
     val lastConnected: Long? = null,
-    val isHealthy: Boolean = false
+    val isHealthy: Boolean = false,
+    /** 检测到的 OpenCode Server API 版本（V1/V2/UNKNOWN），默认 V1 兼容旧服务器 */
+    val apiVersion: ApiVersion = ApiVersion.V1,
+    /** 服务器报告的 OpenCode 版本号（如 "2.0.1"），用于 UI 展示 */
+    val serverVersion: String? = null
 ) {
     val displayName: String
         get() = name ?: url

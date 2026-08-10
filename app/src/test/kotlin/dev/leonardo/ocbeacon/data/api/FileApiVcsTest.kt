@@ -28,7 +28,10 @@ class FileApiVcsTest {
         val httpClient = HttpClient(engine) {
             install(ContentNegotiation) { json(json) }
         }
-        return FileApiImpl(ApiClient(httpClient, json))
+        val apiClient = ApiClient(httpClient, json)
+        val v1 = dev.leonardo.ocbeacon.data.api.v1.V1ApiClient(apiClient)
+        val v2 = dev.leonardo.ocbeacon.data.api.v2.V2ApiClient(apiClient)
+        return FileApiImpl(v1, v2)
     }
 
     private val conn = ServerConnection.from(

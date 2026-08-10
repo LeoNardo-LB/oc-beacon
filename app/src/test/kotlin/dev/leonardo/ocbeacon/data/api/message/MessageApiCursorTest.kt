@@ -25,7 +25,9 @@ class MessageApiCursorTest {
             install(ContentNegotiation) { json(json) }
         }
         val apiClient = ApiClient(httpClient = client, json = json)
-        return MessageApiImpl(apiClient)
+        val v1 = dev.leonardo.ocbeacon.data.api.v1.V1ApiClient(apiClient)
+        val v2 = dev.leonardo.ocbeacon.data.api.v2.V2ApiClient(apiClient)
+        return MessageApiImpl(v1, v2)
     }
 
     private val conn = ServerConnection.from("http://test.local", username = "u", password = "p")

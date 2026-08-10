@@ -114,7 +114,7 @@ class SessionListViewModel @Inject constructor(
             }
             _serverName.value = config?.displayName ?: ""
             val conn = config?.let {
-                ServerConnection.from(it.url, it.username, it.password)
+                ServerConnection.from(it.url, it.username, it.password, it.apiVersion)
             } ?: ServerConnection.from("", "", null)
             mcpRepository.setConnection(conn)
         }
