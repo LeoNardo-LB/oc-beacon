@@ -250,20 +250,22 @@
   - 证据：docs/research/RG-2026-08-11-v2-contract-background.md（D4 待验收项）
   - 状态：`[~]` 待验证——**用户逐项验收通过后勾选 `[x]`**；发现任何问题改回 `[ ]` 进入修复
 
-- [ ] **#67 V2 后台完成通知：synthetic 消息被过滤（PartContent Text 分支）** `sse` `ui`
+- [x] **#67 V2 后台完成通知：synthetic 消息被过滤（PartContent Text 分支）** `sse` `ui`
   - 问题：2026-08-11 V2 契约对齐调研确认——opencode v2 后台任务/subagent 完成时向主会话注入 `POST /api/session/{id}/synthetic` 合成消息；但 oc-beacon 的 PartContent.kt Text 分支 `part.synthetic != true` 直接过滤 → 用户看不到后台完成通知
   - 方案：识别 synthetic 消息并以特殊样式（卡片/淡色+标签）渲染，或独立事件通道驱动通知
   - 来源：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md §3（synthetic 端点）+ 后台系统调研
+  - **2026-08-11 完成（实测澄清）**：Part.Text.synthetic 全项目无赋值点（过滤是死代码，消息本就能显示）；服务器 POST synthetic 后不广播 SSE 事件（仅 REST 可见）。新增 MessageCardRole.SYNTHETIC + SyntheticNotificationCard（居中淡色卡片+图标+时间），模拟器实测显示 "后台测试完成通知：subagent X 已完成" ✅
 
 - [ ] **#68 V2 新会话创建后 get/pending 404（服务器怪癖）** `session` `data`
   - 问题：2026-08-11 实测——新建会话出现在 `GET /api/session` 列表（自动生成标题），但 `GET /api/session/{id}` / `pending` 返回 `SessionNotFoundError`（带/不带 x-opencode-directory 均 404）；服务端重启/升级（next-17132→17135）后可能自愈
   - 方案：待复现确认；若稳定复现需调研 V2 location/workspace 路由语义（列表可能跨 location 返回而 get 限定 location）
   - 来源：模拟器 E2E 实测（2026-08-11）
 
-- [ ] **#69 session.instructions.updated 事件未处理（低频 parse error）** `sse`
+- [x] **#69 session.instructions.updated 事件未处理（低频 parse error）** `sse`
   - 问题：2026-08-11 回归走查发现 1 次 `session.instructions.updated` parse error（无 parser 匹配且触发异常路径）；频率极低（指令更新时）
   - 方案：V2EventParser handledPrefixes 加 `session.instructions.` 占位解析（返回 SessionNext Unknown 即可）
   - 来源：回归走查 logcat（2026-08-11）
+  - **2026-08-11 完成**：SseClientV2.parseV2Event data/properties 判型防御（instructions data 是数组时 jsonObject 扩展抛异常 → 回退顶层字段）+ V2EventParser handledPrefixes 加 session.instructions.；V2EventParserTest 新增用例；实测 parse error 归零
 
 - [ ] **#70 V2 事件体系未确认项（设计文档 §7，实施时补测）** `sse` `refactor`
   - 问题：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md §7 列出 7 项未确认：
@@ -424,23 +426,26 @@ efactor
   - 工时：~0.5d | 难度：中 | 涉及：MessageDataDelegate.kt:142-143, 319-333
   - 来源：F §P2-1 / C S4 + A 间接 + E janky 贡献（3 路确认）
 
-- [ ] **#45 AppLogger 字符串拼接未门控** `refactor` `performance`
+- [x] **#45 AppLogger 字符串拼接未门控** `refactor` `performance`
   - 问题：高频路径调用方未加 `if (BuildConfig.DEBUG)` 门控，字符串模板在传参前已拼接，即使 shouldPersist 返回 false 也已付出成本。`AppLogger.kt:154-175`；EventDispatcher:249、MessageEventHandler:575/255 无门控（对比 :157 有门控）
   - 修复：高频路径调用方强制 BuildConfig.DEBUG 门控；或 AppLogger 内部 lazy 拼接
   - 工时：~1h | 难度：低 | 涉及：AppLogger.kt + EventDispatcher/MessageEventHandler 调用点
   - 来源：F §P2-2 / C S8 + A 环节 F + D 模式 B（3 路确认）
+  - **2026-08-11 完成**：EventDispatcher CommandExecuted（每命令事件）加 DEBUG 门控；扫描确认其余每事件级日志均已门控（219/231、SseClientV2 V2 event、MessageEventHandler 235）；#40 已清理 update lambda 内日志
 
-- [ ] **#46 combine 上游无 distinctUntilChanged 兜底** `refactor`
+- [x] **#46 combine 上游无 distinctUntilChanged 兜底** `refactor`
   - 问题：派生 flow 无 distinctUntilChanged 兜底，每次上游 emission（即使内容相同）触发 combine 重组。`ChatRepositoryImpl.kt:92-98, 461-462`
   - 修复：派生 flow 加 distinctUntilChanged
   - 工时：~30min | 难度：低 | 涉及：ChatRepositoryImpl.kt:92-98, 461-462
   - 来源：F §P2-3 / C S9
+  - **2026-08-11 完成**：10 处派生 flow 加 distinctUntilChanged（getParts/getPermissionsFlow/getQuestionsFlow/getActiveToolProgress/getStepProgress/getCompactionState + 4×ForSession）；getMessagesFlow 不加（List equals O(n) 反效果）；全量单测通过
 
-- [ ] **#47 100ms ticker 叠加 48ms flush（流式 footer 重组 ~30 次/s）** `ui` `performance`
+- [x] **#47 100ms ticker 叠加 48ms flush（流式 footer 重组 ~30 次/s）** `ui` `performance`
   - 问题：流式消息 footer 重组约 30 次/s（48ms flush ~20 + ticker ~10）。`MessageCardAssistant.kt:155-163`
   - 修复：移除 ticker 或与 flush 对齐单一更新源
   - 工时：~1h | 难度：中 | 涉及：MessageCardAssistant.kt:155-163
   - 来源：F §P2-4 / A 环节 G
+  - **2026-08-11 完成**：ticker state 抽为 StreamingElapsedText 独立子 composable（重组仅限单个 Text，保留 0.1s 精度）；footer 重组 ~30→~10 次/s；全量单测通过
 
 - [ ] **#48 长会话无消息窗口裁剪（GC 压力 + combine 开销）** `performance` `data`
   - 问题：LazyColumn 回收视图但数据层全量驻留；长会话（>2000 条）GC 压力 + combine 开销。`MessageDataDelegate.kt:179-189`；全库无窗口化
@@ -448,47 +453,54 @@ efactor
   - 工时：~1-2d | 难度：高 | 涉及：MessageDataDelegate.kt + 翻页管线
   - 来源：F §P2-5 / A 环节 H
 
-- [ ] **#49 loadArchivedRange N+1 查询 + 写模式** `data` `performance`
+- [x] **#49 loadArchivedRange N+1 查询 + 写模式** `data` `performance`
   - 问题：每桶 1 查询 + 1 写；桶被字节上限切小时多次循环。`MessageStore.kt:264-292`
   - 修复：批量查询 + 批量写入
   - 工时：~0.5d | 难度：中 | 涉及：MessageStore.kt:264-292
   - 来源：F §P2-6 / B P2-1
+  - **2026-08-11 完成**：一次查询 limit 桶 + 按需解码（原每桶 1 查询 + 1 touch）；touch 仅对实际解码桶
 
-- [ ] **#50 loadArchivedRange 解压整桶浪费** `data` `performance`
+- [x] **#50 loadArchivedRange 解压整桶浪费** `data` `performance`
   - 问题：解压整个桶（最多 200 条/512KB + 桶内排序），只需 30 条。`MessageStore.kt:302-307`
   - 修复：桶内索引或分页解压；或减小桶粒度
   - 工时：~0.5d | 难度：中 | 涉及：MessageStore.kt:302-307
   - 来源：F §P2-7 / B P2-2
+  - **2026-08-11 完成**：每桶 takeLast(need) 只取窗口内最新 need 条；结果显式升序（SQL 保证桶全在窗口内，filter 冗余）
 
-- [ ] **#51 messagesForSession 的 OR 子句可能放弃复合索引** `data` `performance`
+- [x] **#51 messagesForSession 的 OR 子句可能放弃复合索引** `data` `performance`
   - 问题：`(:beforeId IS NULL OR id < :beforeId)` 可能放弃复合索引；ORDER BY 与索引不完全匹配。`MessageDao.kt:19-24`；热表限 1000 条缓解
   - 修复：拆分为两条查询（有/无 beforeId），或调整索引覆盖
   - 工时：~2h | 难度：中 | 涉及：MessageDao.kt:19-24
   - 来源：F §P2-8 / B P2-3
+  - **2026-08-11 完成**：拆两条查询（messagesForSession 无条件 / messagesBefore 带 beforeId），MessageStore.loadRange 按游标分支；测试适配
 
 - [ ] **#52 SSE 双写高频落盘** `data` `performance`
   - 问题：每 48ms flush → upsertMessages 3 查询 + 写 + 可能归档；活跃流式 ~20 次/s 落盘。`MessageEventHandler.kt:86-129, 194-204`；WAL 缓解
   - 修复：合并写入 / 降低 flush 频率 / 批量 upsert
   - 工时：~0.5d | 难度：中 | 涉及：MessageEventHandler.kt:86-129, 194-204
   - 来源：F §P2-9 / B P2-4
+  - **2026-08-11 评估结论（#57 actor 已闭环）**：写频率受 48ms flush 铁律约束（不可降）；flushPendingDeltas 已按会话聚合（单会话每 48ms 仅 1 次 upsert）；actor 单写协程无堆积——无进一步收益，保持现状
 
-- [ ] **#53 过渡动画 400ms 反模式（补丁债，故意延迟加载态）** `ui` `refactor`
+- [x] **#53 过渡动画 400ms 反模式（补丁债，故意延迟加载态）** `ui` `refactor`
   - 问题：**当前实现是补丁**。`ChatScreen.kt:255-256, 433-447, 675-683`（MIN_LOADING_VISIBLE_MS=400）故意延迟显示加载态（反模式，欺骗用户感知）；魔法常量 400 无 A/B 依据。ec875ff7 引入（"新增 C"修复过渡动画丢失）
   - 根因修复（D TD-2）：移除常量；会话路由加 enterTransition/exitTransition；loading 指示器回归"仅在真正加载时显示"
   - 工时：~0.5d | 难度：中 | 涉及：ChatScreen.kt + 导航路由
   - 来源：F §P2-10 + D §2.2/TD-2
+  - **2026-08-11 完成**：实测 NavHost 全局 fadeIn(tween(AppMotion.MEDIUM)) 已提供进入过渡（双过渡叠加）→ 移除 MIN_LOADING_VISIBLE_MS + showLoadingTransition，PulsingDots 回归纯加载态；ChatScreen 按编辑协议编译+提交+全量测试
 
-- [ ] **#54 草稿持久化补丁链（补丁债，防抖窗口内杀进程仍丢）** `data` `session`
+- [x] **#54 草稿持久化补丁链（补丁债，防抖窗口内杀进程仍丢）** `data` `session`
   - 问题：**当前实现是补丁链**（0eaac6dc → e3ffeae7 双补丁）。`DraftInputDelegate.kt:127-145` 每次 updateDraftText launch+cancel job（高频输入大量 Job 创建销毁）；500ms 防抖窗口内 force-stop 杀进程仍丢；onCleared 用 viewModelScope（页面销毁时 scope 取消可能不执行）
   - 根因修复（D TD-3）：DraftRepository 暴露 `draftFlow: Flow<Draft>`，UI collectAsState + onValueChange 写 DataStore（原子合并写）；移除防抖 job；onCleared 用独立 scope（NonCancellable）
   - 工时：~0.5d | 难度：中 | 涉及：DraftRepository / DraftDataStore / DraftInputDelegate
   - 来源：F §P2-11 + D §2.3/TD-3 + C S6
+  - **2026-08-11 完成**：updateDraftText 去防抖 Job 直写 DataStore（DataStore.edit 内部串行合并）+ saveDraft persistMutex 串行保序（防乱序覆盖）；测试适配直写语义（立即持久化/顺序保存/clear 不恢复）
 
 - [ ] **#55 L3 校验 limit=50 魔法常量（补丁债，长时间离线仍漏消息）** `data` `session`
   - 问题：**当前实现是补丁**。`SessionStateService.kt:34, 276-282`（REST_REFRESH_LIMIT=50）魔法常量无 A/B 依据；长时间离线陈旧窗口 >50 条仍丢消息。a7aec358 引入（limit=0→50）
   - 根因修复（D TD-4）：`lastSyncCursorPerSession` Map，L3 校验用 `before=encode(lastSyncCursor)` 增量同步；同步成功后推进游标
   - 工时：~0.5d | 难度：中 | 涉及：SessionStateService.kt
   - 来源：F §P2-12 + D §2.1/TD-4
+  - **2026-08-11 调研结论（暂缓）**：V2 listMessages 不支持 before（V2ApiClient.listMessages 仅 limit；V1 的 before 是"更早"方向，无法拉增量）；V2 响应有 nextCursor 但语义未实测——增量游标方案依赖 API 能力确认（并入 #70 调研）；现状 limit=50 + 进入会话 loadMessagesForSession 全量兜底已覆盖绝大多数场景
 
 - [ ] **#56 分页状态散落重构（TD-1，高严重度技术债）** `refactor` `session`
   - 问题：`MessagePaginationDelegate` 9 个可变状态成员（currentMessageLimit, archiveCursorCreated, networkCursorId, networkCursorCreated, _hasOlderMessages, _isLoadingOlder, autoLoadFailures, autoLoadPausedUntil, _autoLoadPaused），职责膨胀。D 报告标记"高严重度"——同一根因（游标抽象缺失）导致 3 次复发（d30a0d57/c5e0ea56）。与 AGENTS.md"SessionStateService 单一真相源"原则相悖
@@ -496,29 +508,33 @@ efactor
   - 工时：~1-2d | 难度：高 | 涉及：MessagePaginationDelegate / MessagePaginationUseCase / MessageStore
   - 来源：F §P2-13 + D TD-1/模式 A + B §4 图
 
-- [ ] **#57 batchScope 无生命周期管理** `refactor`
+- [x] **#57 batchScope 无生命周期管理** `refactor`
   - 问题：App 级 SupervisorJob scope，App 退出时不取消；多会话同时活跃时 fire-and-forget 协程数无上限。`MessageEventHandler.kt:71, 194-204`
   - 修复：绑定生命周期（ViewModel/process scope）；或限流
   - 工时：~2h | 难度：中 | 涉及：MessageEventHandler.kt:71, 194-204
   - 来源：F §P2-14 / C S7
+  - **2026-08-11 完成**：SSE 双写改 actor 模式（Channel BUFFERED 队列 + 单写协程串行处理，持久化协程数恒 1；背压排队不丢）
 
-- [ ] **#58 NetTrace 日志 hot path（删 MsgDiag 又加 NetTrace，配套补丁债）** `performance` `refactor`
+- [x] **#58 NetTrace 日志 hot path（删 MsgDiag 又加 NetTrace，配套补丁债）** `performance` `refactor`
   - 问题：b07b7ccc 删 MsgDiag 又加 NetTrace——hot path DEBUG 级日志模式不一致；实测 8 条/10s。D 模式 B（DIAG 残留反复）的典型案例
   - 修复（D TD-8）：采样 + 强制 BuildConfig.DEBUG 门控 + CI lint 禁止 DebugLogger 在 main 分支
   - 工时：~1h | 难度：低 | 涉及：NetTrace 日志点 + CI lint 配置
   - 来源：F §6.2 TD-8 + D 模式 B + E 实测
+  - **2026-08-11 完成（确认现状已达标）**：NetTrace 2 处（SessionRepositoryImpl:221/223）均已带 BuildConfig.DEBUG 门控；8 条/10s 属 DEBUG 构建正常量。detekt CI lint 引入需新工具链，单独成项（见 #70 补充）
 
-- [ ] **#59 SQLite IN 分块下沉 DAO（TD-7，逻辑散落业务层）** `refactor` `data`
+- [x] **#59 SQLite IN 分块下沉 DAO（TD-7，逻辑散落业务层）** `refactor` `data`
   - 问题：b07b7ccc 解决 Room IN 999 变量上限，但分块逻辑散落 MessageStore（业务层）而非 DAO 层
   - 修复（D TD-7）：下沉 DAO 层封装 @Query 内部分块
   - 工时：~0.5d | 难度：中 | 涉及：MessageDao + MessageStore
   - 来源：F §6.2 TD-7 + D §4 模式
+  - **2026-08-11 完成**：MessageDao default 方法 partsForMessagesChunked（SQLITE_IN_VARIABLE_LIMIT=900 移入 DAO companion）；MessageStore 委托；分块回归测试改匿名 DAO 实现（断言 [900,600]）
 
-- [ ] **#60 catch(Exception) 吞 CancellationException 模式守护（TD-6 已修需持续守护）** `refactor`
+- [x] **#60 catch(Exception) 吞 CancellationException 模式守护（TD-6 已修需持续守护）** `refactor`
   - 问题：协程反模式反复出现（≥2 次）。TD-6 已被 61e4107a 修复（先重抛 CancellationException），但模式需持续守护防止复发
   - 修复（D 模式 C）：safeCatch 工具函数（先重抛 CancellationException）+ detekt SwallowedException 规则
   - 工时：~2h | 难度：低 | 涉及：detekt 配置 + safeCatch 工具
   - 来源：F §6.2 TD-6 + §6.3 模式 C
+  - **2026-08-11 完成（工具落地）**：SafeCatch.kt（suspend safeCatch：CancellationException 重抛传播）+ SafeCatchTest 3 用例；DraftDataStore 3 处典型模式迁移示范；剩余 41 文件 123 处逐步迁移（登记 #70）
 
 - [ ] **#61 多 commit 打包修复（流程改进，降低可审计性）** `refactor`
   - 问题：一个 commit 打包多项修复（b07b7ccc/1beb846b/16c7a15c/c5e0ea56），降低可审计性。D §4 模式 E
@@ -526,11 +542,12 @@ efactor
   - 工时：流程改进 | 难度：低 | 涉及：提交流程规范
   - 来源：F §6.3 模式 E
 
-- [ ] **#62 Ktor Client HTTP 引擎日志量偏大（实测 90 条/10s，当前最大日志源）** `refactor` `performance`
+- [x] **#62 Ktor Client HTTP 引擎日志量偏大（实测 90 条/10s，当前最大日志源）** `refactor` `performance`
   - 问题：2026-08-10 模拟器复测（#39 修复后）发现——应用诊断日志已降至 20 条/10s，但 Ktor Client HTTP 引擎日志仍 90 条/10s（响应头/请求元数据逐条打印），成为当前最大日志源。证据：docs/research/audit-2026-08-10/metrics/R39-stream-10s.log
   - 修复：调低 Ktor Client 日志级别（LogLevel.HEADERS → NONE/仅错误）或改 INFO 级别过滤；保留请求失败时的错误日志
   - 工时：~0.5h | 难度：低 | 涉及：Ktor HttpClient 配置
   - 来源：R-revalidation.md §发现的问题 1
+  - **2026-08-11 完成**：LogLevel.HEADERS → INFO（只保留请求方法/URL + 状态行）；release 保持 NONE
 
 - [x] **#63 SseClient 256KB 单行边界截断超长 SSE 帧** `sse`
   - 问题：2026-08-10 功能回归走查发现（预有问题，非回归）——流式期间 logcat 出现 `E SseClient: SSE line exceeds 262144 bytes, aborting read` ~14 次，单行超 256KB 即 abort 读取；实测流式均最终完成，但超长单帧（超大 code block/token 批次）存在被截断风险
