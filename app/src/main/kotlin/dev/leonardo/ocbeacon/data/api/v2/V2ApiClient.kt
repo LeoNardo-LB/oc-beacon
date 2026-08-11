@@ -886,10 +886,18 @@ class V2ApiClient @Inject constructor(
         val bodyText = httpClient.get("${conn.baseUrl}/api/mcp") {
             conn.authHeader?.let { header("Authorization", it) }
         }.bodyAsText()
-        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
-        return obj.entries.associate { (key, value) ->
-            key to json.decodeFromJsonElement(McpStatusEntry.serializer(), value.jsonObject)
-        }
+        // 实测契约（2026-08-11）：{"location":..., "data":[{name, status:{status, error?}}, ...]}
+        // 原 flexibleObject 解析对象包裹 → 遇 data 数组返回根对象 → 遍历 location（无 status）→ 崩溃
+        val items = V2ResponseWrapper.flexibleList(bodyText, json)
+        return items.mapNotNull { obj ->
+            val name = obj["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val statusObj = obj["status"]?.jsonObject
+            val status = statusObj?.get("status")?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            name to McpStatusEntry(
+                status = status,
+                error = statusObj["error"]?.jsonPrimitive?.contentOrNull
+            )
+        }.toMap()
     }
 
     // ============ Provider / Config (supplementary) ============

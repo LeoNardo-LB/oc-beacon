@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class McpStatusEntry(
-    val status: String  // connected | disabled | failed | needs_auth | needs_client_registration
+    val status: String,  // connected | disabled | failed | needs_auth | needs_client_registration
+    val error: String? = null  // failed/needs_client_registration 携带
 )
 
 @Serializable

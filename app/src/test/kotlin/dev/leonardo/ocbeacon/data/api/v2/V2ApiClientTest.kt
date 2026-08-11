@@ -339,7 +339,8 @@ class V2ApiClientTest {
 
     @Test
     fun `fetchSessionStatus returns active sessions as busy`() = runTest {
-        val responseBody = """{"data":[{"id":"sess_1","projectID":"prj_1","time":{"created":1000,"updated":2000},"location":{"directory":"/home"}}]}"""
+        // 真实服务器契约（2026-08-11 实测）：data 是对象 {sessionID: {type: "running"}}
+        val responseBody = """{"data":{"sess_1":{"type":"running"},"sess_2":{"type":"idle"}}}"""
         val engine = MockEngine { request ->
             assertEquals("/api/session/active", request.url.encodedPath)
             respond(responseBody, HttpStatusCode.OK,
@@ -349,7 +350,45 @@ class V2ApiClientTest {
         val result = api.fetchSessionStatus(v2Conn)
         assertTrue(result.isSuccess)
         val statusMap = result.getOrThrow()
-        assertEquals(1, statusMap.size)
+        assertEquals(2, statusMap.size)
+        // running → busy（RestSessionStatusInfo 的 when(type) 消费）
         assertEquals("busy", statusMap["sess_1"]?.type)
+        assertEquals("idle", statusMap["sess_2"]?.type)
+    }
+
+    @Test
+    fun `fetchSessionStatus handles empty active object`() = runTest {
+        val responseBody = """{"data":{}}"""
+        val engine = MockEngine { request ->
+            assertEquals("/api/session/active", request.url.encodedPath)
+            respond(responseBody, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val result = api.fetchSessionStatus(v2Conn)
+        assertTrue(result.isSuccess)
+        assertTrue(result.getOrThrow().isEmpty())
+    }
+
+    @Test
+    fun `getMcpStatus parses data array with nested status objects`() = runTest {
+        // 真实服务器契约：{"location":..., "data":[{name, status:{status}}]}
+        val responseBody = """{"location":{"directory":"/home"},"data":[
+            {"name":"agentmemory","status":{"status":"connected"}},
+            {"name":"context7","status":{"status":"connected"}},
+            {"name":"failed-mcp","status":{"status":"failed","error":"connection refused"}}
+        ]}"""
+        val engine = MockEngine { request ->
+            assertEquals("/api/mcp", request.url.encodedPath)
+            respond(responseBody, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val result = api.getMcpStatus(v2Conn)
+        assertEquals(3, result.size)
+        assertEquals("connected", result["agentmemory"]?.status)
+        assertEquals("connected", result["context7"]?.status)
+        assertEquals("failed", result["failed-mcp"]?.status)
+        assertEquals("connection refused", result["failed-mcp"]?.error)
     }
 }
