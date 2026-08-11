@@ -931,8 +931,8 @@ class V2ApiClient @Inject constructor(
     ): Boolean {
         val body = if (code != null) mapOf("method" to methodIndex, "code" to code)
         else mapOf("method" to methodIndex)
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "completeProviderOauth: POST /provider/$providerId/oauth/callback body=$body")
-        val response = httpClient.post("${conn.baseUrl}/provider/$providerId/oauth/callback") {
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "completeProviderOauth: POST /api/provider/$providerId/oauth/callback body=$body")
+        val response = httpClient.post("${conn.baseUrl}/api/provider/$providerId/oauth/callback") {
             conn.authHeader?.let { header("Authorization", it) }
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -1123,7 +1123,16 @@ class V2ApiClient @Inject constructor(
             directoryHeader(directory)
         }.bodyAsText()
         val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
-        return json.decodeFromJsonElement(VcsBranchDto.serializer(), obj)
+        // 实测（2026-08-11）：全局目录下 branch 是空对象 {branch:{}}——decode String 崩溃。
+        // 防御：branch 为对象（非文本）时视为 null。
+        val branch = obj["branch"]?.let { elem ->
+            when {
+                elem is JsonPrimitive -> elem.contentOrNull
+                else -> null // 对象/数组 → 无分支信息
+            }
+        }
+        val defaultBranch = obj["default_branch"]?.jsonPrimitive?.contentOrNull
+        return VcsBranchDto(branch = branch, defaultBranch = defaultBranch)
     }
 
     suspend fun getVcsStatus(conn: ServerConnection, directory: String? = null): List<VcsChangeDto> {
@@ -1299,13 +1308,17 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun listPtyShells(conn: ServerConnection, directory: String? = null): List<ShellInfo> {
-        val bodyText = httpClient.get("${conn.baseUrl}/api/pty/shells") {
-            conn.authHeader?.let { header("Authorization", it) }
-            directoryHeader(directory)
-        }.bodyAsText()
-        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
-            json.decodeFromJsonElement(ShellInfo.serializer(), obj)
-        }
+        // 实测（2026-08-11）：/api/pty/shells 是错误路径（路由把 shells 当 ptyID）；
+        // 正确端点是 /api/pty（location 作用域 PTY 列表）。
+        return runCatching {
+            val bodyText = httpClient.get("${conn.baseUrl}/api/pty") {
+                conn.authHeader?.let { header("Authorization", it) }
+                directoryHeader(directory)
+            }.bodyAsText()
+            V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
+                json.decodeFromJsonElement(ShellInfo.serializer(), obj)
+            }
+        }.getOrElse { emptyList() }
     }
 
     suspend fun runShellCommand(

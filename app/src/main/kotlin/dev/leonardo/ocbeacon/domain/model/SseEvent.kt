@@ -283,12 +283,14 @@ data class Project(
     val name: String? = null,
     val path: String = "", // 旧字段，可能缺失
     val vcs: String? = null,
-    val directory: String? = null
+    val directory: String? = null,
+    val canonical: String? = null // V2 /api/project 实测字段（2026-08-11）
 ) {
     /** 显示名称：显式 name，或 worktree 的最后一段路径，或 id */
     val displayName: String
         get() = name?.takeIf { it.isNotEmpty() }
             ?: worktree.takeIf { it.isNotEmpty() }?.let { dev.leonardo.ocbeacon.util.PathUtils.fileName(it.trimEnd('/', '\\')) }?.takeIf { it.isNotEmpty() }
+            ?: canonical?.takeIf { it.isNotEmpty() }?.let { dev.leonardo.ocbeacon.util.PathUtils.fileName(it.trimEnd('/', '\\')) }?.takeIf { it.isNotEmpty() }
             ?: path.takeIf { it.isNotEmpty() }?.let { dev.leonardo.ocbeacon.util.PathUtils.fileName(it.trimEnd('/', '\\')) }?.takeIf { it.isNotEmpty() }
             ?: id.take(8)
 }
