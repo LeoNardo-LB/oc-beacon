@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.repository
 
+import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
@@ -193,6 +194,11 @@ interface ChatRepository {
      * 将当前会话所有前台可后台化工具（subagent）批量转为后台（V2）。
      */
     suspend fun backgroundSession(serverId: String, sessionId: String): Result<Boolean>
+
+    /**
+     * 前台活跃会话列表（V2 /api/session/active 轮询）——运行中会话的权威来源。
+     */
+    suspend fun listActiveSessions(serverId: String): Result<Map<String, ActiveSessionInfo>>
 
     /**
      * 列出运行中的后台 shell 命令（V2）。

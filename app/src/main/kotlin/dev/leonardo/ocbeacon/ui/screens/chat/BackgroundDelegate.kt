@@ -8,11 +8,14 @@ import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -63,6 +66,24 @@ class BackgroundAggregator(
     sessionIdFlow: kotlinx.coroutines.flow.Flow<String>,
     scope: CoroutineScope
 ) {
+    /** 前台活跃会话 ID（V2 /api/session/active 轮询，5s）——运行中会话的权威来源。
+     *  V2 不广播 session.status SSE 事件（V1 才有），FSM 的 statusFlow 无法
+     *  覆盖子会话；实测子会话 running 只能通过 active 轮询感知。 */
+    private val activeSessionIds = MutableStateFlow<Set<String>>(emptySet())
+
+    init {
+        scope.launch {
+            while (true) {
+                activeSessionIds.value = chatRepository.listActiveSessions(serverId)
+                    .getOrNull()
+                    ?.filterValues { it.type == "running" || it.type == "busy" }
+                    ?.keys
+                    ?: emptySet()
+                kotlinx.coroutines.delay(5_000)
+            }
+        }
+    }
+
     private val subagents = combine(
         sessionRepository.getSessionsFlow(serverId),
         sessionRepository.getSessionStatusesFlow(serverId),
@@ -85,25 +106,54 @@ class BackgroundAggregator(
                 sessionId = child.id,
                 agent = child.agent,
                 title = child.title,
-                isRunning = child.id in runningIds,
+                // FSM Busy（SSE 驱动，V1）或 active 轮询（V2）任一命中即运行中
+                isRunning = child.id in runningIds || child.id in activeSessionIds.value,
                 description = toolPart?.let { extractSubagentDescription(it) }
             )
         }
+    }.distinctUntilChanged()
+
+    /** 前台 subagent 计数——TUI foregroundTasks 语义：
+     *  主会话 busy（正在等待）+ 消息流中存在 running 的 task/subagent tool part。
+     *  V2 转后台后主会话立即恢复（idle/继续工作），前台归零；
+     *  子会话本身继续 running（计入角标 runningSubagentCount）。 */
+    private fun foregroundCount(
+        currentSessionId: String,
+        runningIds: Set<String>,
+        toolParts: List<Part.Tool>
+    ): Int {
+        val mainBusy = currentSessionId in runningIds || currentSessionId in activeSessionIds.value
+        if (!mainBusy) return 0
+        return toolParts.count { part ->
+            part.state is ToolState.Running &&
+                (part.tool == "task" || part.tool == "subagent")
+        }
+    }
+
+    private val foregroundCountFlow = combine(
+        sessionRepository.getSessionStatusesFlow(serverId),
+        chatRepository.getAllPartsMap(),
+        sessionIdFlow
+    ) { statuses, partsMap, currentSessionId ->
+        val runningIds = statuses.filterValues { it == SessionStatus.Busy }.keys
+        val toolParts = partsMap[currentSessionId].orEmpty().filterIsInstance<Part.Tool>()
+        foregroundCount(currentSessionId, runningIds, toolParts)
     }.distinctUntilChanged()
 
     /** 聚合状态：角标计数 + 面板数据。 */
     val uiState: StateFlow<BackgroundUiState> = combine(
         subagents,
         shellJobsStore.jobsBySession,
+        foregroundCountFlow,
         sessionIdFlow
-    ) { subagents, jobsBySession, currentSessionId ->
+    ) { subagents, jobsBySession, foregroundCount, currentSessionId ->
         val shells = jobsBySession[currentSessionId].orEmpty()
         val runningSubagents = subagents.filter { it.isRunning }
         BackgroundUiState(
             shells = shells,
             subagents = subagents,
             runningSubagentCount = runningSubagents.size,
-            foregroundSubagentCount = runningSubagents.size,
+            foregroundSubagentCount = foregroundCount,
             runningShellCount = shells.count { it.isRunning }
         )
     }.stateIn(scope, SharingStarted.Eagerly, BackgroundUiState())

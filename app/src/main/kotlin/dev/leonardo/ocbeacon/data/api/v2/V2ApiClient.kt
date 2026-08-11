@@ -219,11 +219,18 @@ class V2ApiClient @Inject constructor(
                 directoryHeader(directory)
             }
             val root = parseRoot(response.bodyAsText())
-            val (items, _) = V2ResponseWrapper.unwrapList(root)
-            items.associate { obj ->
-                val sid = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
-                sid to RestSessionStatusInfo(type = "busy")
-            }
+            // V2 /api/session/active 返回 Map：{data: {sessionID: {type: "running"}}}
+            // （2026-08-11 实测；不是 List——原 unwrapList 解析恒为空，
+            // 导致 L3/L4 REST 校验永远不知道子会话 running，后台 subagent 无法标记运行中）
+            val data = root["data"]?.jsonObject
+                ?: return@runCatching emptyMap()
+            data.mapNotNull { (sessionId, value) ->
+                val type = value.jsonObject?.get("type")?.jsonPrimitive?.contentOrNull
+                if (sessionId.isBlank() || type == null) null
+                else sessionId to RestSessionStatusInfo(
+                    type = if (type == "running" || type == "busy") "busy" else type
+                )
+            }.toMap()
         }
     }
 

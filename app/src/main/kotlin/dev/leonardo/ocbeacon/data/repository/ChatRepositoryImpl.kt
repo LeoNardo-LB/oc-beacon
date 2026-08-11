@@ -13,6 +13,7 @@ import dev.leonardo.ocbeacon.data.dto.request.PromptPart as DataPromptPart
 import dev.leonardo.ocbeacon.data.repository.handler.CompactionStateInfo as DataCompactionStateInfo
 import dev.leonardo.ocbeacon.data.repository.handler.StepProgressInfo as DataStepProgressInfo
 import dev.leonardo.ocbeacon.data.repository.handler.ToolProgressInfo as DataToolProgressInfo
+import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
@@ -279,6 +280,12 @@ class ChatRepositoryImpl @Inject constructor(
         runCatching {
             val conn = resolveConnection(serverId)
             sessionApi.backgroundSession(conn, sessionId)
+        }
+
+    override suspend fun listActiveSessions(serverId: String): Result<Map<String, ActiveSessionInfo>> =
+        runCatching {
+            val conn = resolveConnection(serverId)
+            sessionApi.activeSessions(conn)
         }
 
     override suspend fun listShells(serverId: String, directory: String?): Result<List<ShellJob>> =

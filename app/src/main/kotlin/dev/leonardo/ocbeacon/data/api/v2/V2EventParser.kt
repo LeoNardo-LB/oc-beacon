@@ -2,11 +2,13 @@ package dev.leonardo.ocbeacon.data.api.v2
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.sse.parsers.SseEventParser
+import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -53,26 +55,34 @@ class V2EventParser(private val json: Json) : SseEventParser {
         }
         // 后台 shell 生命周期——映射为具体事件（驱动 ShellJob 状态流与消息流 Shell 卡片）
         when (eventType) {
-            "session.shell.started" -> {
-                val shellObj = props["shell"]?.jsonObject
+            "session.shell.started", "shell.created" -> {
+                // V2 实测：服务器广播 shell.created（旧事件名），payload 为 {info: Shell.Info}；
+                // session.shell.started 为 {shell: Shell.Info}（新命名，兼容两者）
+                val shellObj = props["shell"]?.jsonObject ?: props["info"]?.jsonObject
                 if (shellObj != null) {
                     return SseEvent.ShellJobStarted(V2ShellMapper.toShellJob(shellObj))
                 }
             }
-            "session.shell.ended" -> {
-                val shellObj = props["shell"]?.jsonObject
-                if (shellObj != null) {
-                    val output = props["output"]?.jsonPrimitive?.contentOrNull
-                    return SseEvent.ShellJobEnded(
-                        info = V2ShellMapper.toShellJob(shellObj),
-                        output = output
+            "session.shell.ended", "shell.exited", "shell.deleted" -> {
+                // shell.exited: {id, exit, status}；shell.deleted: {id}
+                val shellObj = props["shell"]?.jsonObject ?: props["info"]?.jsonObject
+                val info = if (shellObj != null) {
+                    V2ShellMapper.toShellJob(shellObj)
+                } else {
+                    ShellJob(
+                        id = props["id"]?.jsonPrimitive?.contentOrNull ?: "",
+                        status = props["status"]?.jsonPrimitive?.contentOrNull
+                            ?: if (eventType == "shell.deleted") "deleted" else "exited",
+                        exit = props["exit"]?.jsonPrimitive?.intOrNull,
+                        sessionId = sessionIdOrNull(props)
                     )
                 }
+                val output = props["output"]?.jsonPrimitive?.contentOrNull
+                return SseEvent.ShellJobEnded(info = info, output = output)
             }
         }
         // 提取会话 ID（不同事件可能在不同字段）
-        val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull
-            ?: props["sessionId"]?.jsonPrimitive?.contentOrNull
+        val sessionId = sessionIdOrNull(props)
 
         return SseEvent.SessionNext(
             dev.leonardo.ocbeacon.domain.model.SessionNextEvent.Unknown(
@@ -81,4 +91,8 @@ class V2EventParser(private val json: Json) : SseEventParser {
             )
         )
     }
+
+    private fun sessionIdOrNull(props: JsonObject): String? =
+        props["sessionID"]?.jsonPrimitive?.contentOrNull
+            ?: props["sessionId"]?.jsonPrimitive?.contentOrNull
 }

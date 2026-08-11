@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.data.dto.response.*
+import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.Session
@@ -89,6 +90,12 @@ interface SessionApi {
      * V1 不支持（返回 false）。
      */
     suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean
+
+    /**
+     * 活跃会话查询（V2）：返回前台活跃会话 ID → 类型（"running" 等）。
+     * V1 不支持（返回空）。
+     */
+    suspend fun activeSessions(conn: ServerConnection): Map<String, ActiveSessionInfo>
 
     suspend fun listSessionStatus(conn: ServerConnection, directory: String? = null): Map<String, SessionStatusInfo>
 
@@ -211,4 +218,7 @@ class SessionApiImpl @Inject constructor(
 
     override suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean =
         if (conn.apiVersion.isV2) v2.backgroundSession(conn, sessionId) else false
+
+    override suspend fun activeSessions(conn: ServerConnection): Map<String, ActiveSessionInfo> =
+        if (conn.apiVersion.isV2) v2.activeSessions(conn) else emptyMap()
 }
