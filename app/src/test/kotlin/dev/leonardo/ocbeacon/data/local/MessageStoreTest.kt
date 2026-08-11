@@ -152,8 +152,8 @@ class MessageStoreTest {
                 CachedMessageEntity("msg_2", "ses_1", 200, "user", json.encodeToString(old2.info)),
                 CachedMessageEntity("msg_3", "ses_1", 300, "user", json.encodeToString(old3.info)),
             )
-        // parts：让每个 msg 的 part 可查
-        coEvery { dao.partsForMessages(listOf("msg_1", "msg_2", "msg_3")) } returns emptyList()
+        // parts：让每个 msg 的 part 可查（#59：走 chunked 委托）
+        coEvery { dao.partsForMessagesChunked(listOf("msg_1", "msg_2", "msg_3")) } returns emptyList()
 
         store.upsertMessages("ses_1", listOf(msg("msg_4", 400)), persistOldBeyondWindow = false)
 
@@ -282,7 +282,7 @@ class MessageStoreTest {
             CachedMessageEntity("msg_1", "ses_1", 100, "user", json.encodeToString(good1.info)),
             CachedMessageEntity("msg_2", "ses_1", 200, "user", json.encodeToString(good2.info)),
         )
-        coEvery { dao.partsForMessages(any()) } returns emptyList()
+        coEvery { dao.partsForMessagesChunked(any()) } returns emptyList()
 
         store.upsertMessages("ses_1", listOf(msg("msg_3", 300)), persistOldBeyondWindow = false)
 
@@ -335,6 +335,7 @@ class MessageStoreTest {
      * 大会话（>999 条消息）loadRange 时直接 IN 查询抛 SQLiteException
      * （"too many SQL variables"）。partsForMessagesChunked 应将
      * messageIds 切块多次查询并合并，结果与单次查询等价。
+     * （#59 后分块逻辑在 DAO default 方法内——用匿名实现真实执行）
      */
     @Test
     fun loadRange_chunksPartsQueryForLargeSession() = runTest {
@@ -343,14 +344,31 @@ class MessageStoreTest {
         val entities = ids.mapIndexed { i, id ->
             CachedMessageEntity(id, "ses_1", i.toLong(), "assistant", json.encodeToString(Message.Assistant(id = id, sessionId = "ses_1", time = TimeInfo(i.toLong()), parentId = "p0")))
         }
-        coEvery { dao.messagesForSession("ses_1", 2000) } returns entities
-        // parts：分块后每次调用返回对应的 mock 结果（按调用参数匹配）
-        coEvery { dao.partsForMessages(any()) } answers { arg<List<String>>(0).map { CachedPartEntity(id = "p_$it", messageId = it, sessionId = "ses_1", type = "text", text = "{}", payload = "{}") } }
+        // 匿名 DAO：partsForMessages 记录调用并返回 parts（default 分块逻辑真实执行）
+        val chunkSizes = mutableListOf<Int>()
+        val realDao = object : MessageDao {
+            override suspend fun messagesForSession(sessionId: String, limit: Int) = entities
+            override suspend fun messagesBefore(sessionId: String, beforeId: String, limit: Int) = emptyList<CachedMessageEntity>()
+            override suspend fun partsForMessages(messageIds: List<String>): List<CachedPartEntity> {
+                chunkSizes.add(messageIds.size)
+                return messageIds.map { CachedPartEntity(id = "p_$it", messageId = it, sessionId = "ses_1", type = "text", text = "{}", payload = "{}") }
+            }
+            override fun observeMessages(sessionId: String) = kotlinx.coroutines.flow.flowOf(emptyList<CachedMessageEntity>())
+            override suspend fun oldestMessageId(sessionId: String): String? = null
+            override suspend fun messageCreatedAt(messageId: String): Long? = null
+            override suspend fun countForSession(sessionId: String): Int = entities.size
+            override suspend fun oldestMessages(sessionId: String, limit: Int) = emptyList<CachedMessageEntity>()
+            override suspend fun pruneToLimit(sessionId: String, limit: Int): Int = 0
+            override suspend fun clearSession(sessionId: String) = Unit
+            override suspend fun upsertMessages(entities: List<CachedMessageEntity>) = Unit
+            override suspend fun upsertParts(entities: List<CachedPartEntity>) = Unit
+        }
+        val realStore = MessageStore(realDao, archiveDao, json, databaseRecovery, database, clock = { 1_000_000L })
 
-        val result = store.loadRange("ses_1", limit = 2000, beforeId = null)
+        val result = realStore.loadRange("ses_1", limit = 2000, beforeId = null)
 
         assertEquals(1500, result.size)
         // 分块：1500/900 → 2 次调用（900 + 600）
-        coVerify(exactly = 2) { dao.partsForMessages(any()) }
+        assertEquals(listOf(900, 600), chunkSizes)
     }
 }
