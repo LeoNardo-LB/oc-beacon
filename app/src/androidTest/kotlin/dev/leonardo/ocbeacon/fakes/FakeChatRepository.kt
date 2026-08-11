@@ -1,7 +1,10 @@
 package dev.leonardo.ocbeacon.fakes
 
 import javax.inject.Inject
+import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
+import dev.leonardo.ocbeacon.domain.model.ShellJob
+import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
@@ -202,6 +205,28 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         modelId: String?,
         directory: String?
     ): Result<Boolean> = runShellCommandResult
+
+    // ============ 后台活动（V2） ============
+
+    override suspend fun backgroundSession(serverId: String, sessionId: String): Result<Boolean> =
+        Result.success(true)
+
+    override suspend fun listActiveSessions(serverId: String): Result<Map<String, ActiveSessionInfo>> =
+        Result.success(emptyMap())
+
+    override suspend fun listShells(serverId: String, directory: String?): Result<List<ShellJob>> =
+        Result.success(emptyList())
+
+    override suspend fun getShellOutput(
+        serverId: String,
+        shellId: String,
+        cursor: Long?,
+        limit: Int?,
+        directory: String?
+    ): Result<ShellOutput?> = Result.success(null)
+
+    override suspend fun removeShell(serverId: String, shellId: String, directory: String?): Result<Boolean> =
+        Result.success(true)
 
     // ============ UI 状态 ============
 
