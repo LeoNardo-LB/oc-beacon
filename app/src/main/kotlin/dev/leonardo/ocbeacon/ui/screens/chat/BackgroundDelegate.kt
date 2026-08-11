@@ -62,27 +62,39 @@ class BackgroundAggregator(
     private val sessionRepository: SessionRepository,
     private val chatRepository: ChatRepository,
     private val shellJobsStore: ShellJobsStore,
-    serverId: String,
+    private val serverId: String,
     sessionIdFlow: kotlinx.coroutines.flow.Flow<String>,
     scope: CoroutineScope
 ) {
-    /** 前台活跃会话 ID（V2 /api/session/active 轮询，5s）——运行中会话的权威来源。
+    /** 前台活跃会话 ID（V2 /api/session/active 轮询）——运行中会话的权威来源。
      *  V2 不广播 session.status SSE 事件（V1 才有），FSM 的 statusFlow 无法
-     *  覆盖子会话；实测子会话 running 只能通过 active 轮询感知。 */
+     *  覆盖子会话；实测子会话 running 只能通过 active 轮询感知。
+     *  轮询循环由 [startPolling] 显式启动（ChatScreen 组合时调用，
+     *  避免 ViewModel 测试在 runTest 虚拟时间下无限循环 OOM）。 */
     private val activeSessionIds = MutableStateFlow<Set<String>>(emptySet())
 
-    init {
+    /** 启动 active 会话轮询（幂等）。 */
+    fun startPolling(scope: CoroutineScope) {
+        if (pollingStarted) return
+        pollingStarted = true
         scope.launch {
             while (true) {
-                activeSessionIds.value = chatRepository.listActiveSessions(serverId)
-                    .getOrNull()
-                    ?.filterValues { it.type == "running" || it.type == "busy" }
-                    ?.keys
-                    ?: emptySet()
-                kotlinx.coroutines.delay(5_000)
+                refreshActiveSessions()
+                delay(5_000)
             }
         }
     }
+
+    /** 单次刷新（供一次性同步与测试）。 */
+    suspend fun refreshActiveSessions() {
+        activeSessionIds.value = chatRepository.listActiveSessions(serverId)
+            .getOrNull()
+            ?.filterValues { it.type == "running" || it.type == "busy" }
+            ?.keys
+            ?: emptySet()
+    }
+
+    private var pollingStarted = false
 
     private val subagents = combine(
         sessionRepository.getSessionsFlow(serverId),

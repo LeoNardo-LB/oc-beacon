@@ -118,6 +118,14 @@ class ChatViewModel @Inject constructor(
         scope = viewModelScope,
     )
 
+    /** 启动后台活动轮询（ChatScreen 组合时调用；幂等）。 */
+    fun startBackgroundPolling() = backgroundAggregator.startPolling(viewModelScope)
+
+    /** 单次刷新后台活动状态。 */
+    fun refreshBackgroundNow() = viewModelScope.launch {
+        backgroundAggregator.refreshActiveSessions()
+    }
+
     /** 后台活动聚合状态（角标计数 / 转后台工具栏 / 面板数据）。 */
     val backgroundUiState: StateFlow<BackgroundUiState> get() = backgroundAggregator.uiState
 

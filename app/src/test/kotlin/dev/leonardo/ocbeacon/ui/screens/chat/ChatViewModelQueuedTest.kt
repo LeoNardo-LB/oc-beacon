@@ -276,6 +276,7 @@ class ChatViewModelQueuedTest {
             terminalRegistry = terminalRegistry,
             toolCardResolver = dev.leonardo.ocbeacon.ui.screens.chat.tools.DefaultToolCardResolver(),
             chatRepository = mockk<ChatRepository>(relaxed = true).also { chatRepo ->
+                coEvery { chatRepo.listActiveSessions(any()) } returns kotlin.Result.success(emptyMap())
                 every { chatRepo.getMessagesFlow(any()) } answers { eventDispatcher.messages.map { it[firstArg<String>()] ?: emptyList() } }
                 every { chatRepo.getParts(any()) } answers { eventDispatcher.parts.map { it[firstArg<String>()] ?: emptyList() } }
                 every { chatRepo.getAllPartsMap() } returns eventDispatcher.parts

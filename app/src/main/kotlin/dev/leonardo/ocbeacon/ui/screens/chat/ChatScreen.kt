@@ -468,6 +468,9 @@ fun ChatScreen(
     LaunchedEffect(viewModel.sessionId) {
         if (viewModel.sessionId.isNotBlank()) {
             viewModel.syncSessionStatus()
+            // 后台活动轮询（active 会话权威来源；幂等，组合即启动）
+            viewModel.startBackgroundPolling()
+            viewModel.refreshBackgroundNow()
         }
     }
 

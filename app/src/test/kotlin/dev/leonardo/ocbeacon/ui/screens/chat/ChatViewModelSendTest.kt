@@ -114,6 +114,7 @@ class ChatViewModelSendTest {
         every { messagePaging.observeMessages(any()) } returns flowOf(emptyList())
 
         every { chatRepository.getAllPartsMap() } returns MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
+        coEvery { chatRepository.listActiveSessions(any()) } returns kotlin.Result.success(emptyMap())
         every { chatRepository.getMessagesFlow(any()) } returns flowOf(emptyList())
         every { chatRepository.getActiveToolProgressForSession(any()) } returns flowOf(emptyList())
         // interactionState combine 依赖这三个源发射 —— relaxed mock 的 Flow 不发射会导致

@@ -119,6 +119,7 @@ class ChatViewModelStreamingTest {
         every { messagePaging.observeMessages(any()) } returns messagesFlow
 
         chatRepository = mockk<ChatRepository>(relaxed = true).also {
+            coEvery { it.listActiveSessions(any()) } returns kotlin.Result.success(emptyMap())
             every { it.getMessagesFlow(any()) } returns messagesFlow
             every { it.getParts(any()) } answers {
                 val sid = firstArg<String>()

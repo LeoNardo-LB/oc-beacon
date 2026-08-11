@@ -197,6 +197,7 @@ class ChatViewModelPermissionTest {
         ))
         // ChatRepository mock：将状态操作委托给真实 EventDispatcher 以便验证
         val chatRepo = mockk<ChatRepository>(relaxed = true)
+        coEvery { chatRepo.listActiveSessions(any()) } returns kotlin.Result.success(emptyMap())
         every { chatRepo.setPermissions(any(), any()) } answers {
             val sid = firstArg<String>()
             val perms = secondArg<List<SseEvent.PermissionAsked>>()
