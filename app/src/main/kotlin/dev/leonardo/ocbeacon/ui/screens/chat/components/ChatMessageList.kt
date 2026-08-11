@@ -343,11 +343,21 @@ fun ChatMessageList(
                 messageState.isLoadingOlder,
                 messageState.autoLoadPaused,
             ) {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(
+                        "ChatPaging",
+                        "auto-load effect restart: hasOlder=${messageState.hasOlderMessages} isLoading=${messageState.isLoadingOlder} paused=${messageState.autoLoadPaused}"
+                    )
+                }
                 if (messageState.hasOlderMessages && !messageState.isLoadingOlder && !messageState.autoLoadPaused) {
                     snapshotFlow { listState.layoutInfo }
                         .map { layoutInfo ->
                             val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
                             val total = layoutInfo.totalItemsCount
+                            if (BuildConfig.DEBUG && total > 0 && total - firstVisible <= 12) {
+                                // 低频诊断：仅距顶 12 项内打印（滚动高频段不刷屏）
+                                AppLogger.d("ChatPaging", "nearTop probe: firstVisible=$firstVisible total=$total dist=${total - firstVisible}")
+                            }
                             total - firstVisible <= 8
                         }
                         .distinctUntilChanged()

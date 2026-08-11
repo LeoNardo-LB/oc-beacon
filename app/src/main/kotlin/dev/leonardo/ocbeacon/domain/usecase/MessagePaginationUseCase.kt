@@ -21,6 +21,11 @@ enum class LoadOlderSource { ARCHIVE, NETWORK }
 data class LoadOlderResult(
     val messages: List<MessageWithParts>,
     val source: LoadOlderSource,
+    /**
+     * 服务器返回的下一页游标（仅 NETWORK 来源非空；V2 = cursor.next 字符串）。
+     * Delegate 存入 PaginationFSM.Network.serverCursor，下次翻页直接透传。
+     */
+    val nextCursor: String? = null,
 )
 
 class MessagePaginationUseCase @Inject constructor(
@@ -72,10 +77,11 @@ class MessagePaginationUseCase @Inject constructor(
      * - [beforeCreated] 非空（归档时间游标）时优先用它查询归档；
      *   hasArchivedMessages → loadArchivedRange；非空 → 直接返回 [LoadOlderSource.ARCHIVE]
      *   （不调网络、不落热表，防死循环）。
-     * - [networkBeforeCreated] 非空（网络分页游标，2026-08-10 新增）时**跳过归档检查**
+     * - [networkCursor] 非空（V2 服务器游标，2026-08-11 新增）时**跳过归档检查**
      *   直接走网络——该游标是"归档已读尽后的网络边界"，再查归档只会读到重复桶；
-     *   且网络游标指向的消息不在热表（窗口外不落库），beforeId 编码会失效。
-     *   网络请求的 before 用 CursorCodec.encode(id, networkBeforeCreated)（不依赖热表查询）。
+     *   网络请求的 cursor 参数直接透传服务器游标（本地 CursorCodec 格式 V2 不兼容）。
+     * - [networkBeforeCreated] 非空（V1 网络游标时间，2026-08-10 新增）时**跳过归档检查**
+     *   直接走网络，before 用 CursorCodec.encode(id, networkBeforeCreated)。
      * - 两者都为空时回落到 [beforeId] 在热表的时间；归档空 → 网络。
      */
     suspend fun loadOlderMessages(
@@ -85,8 +91,18 @@ class MessagePaginationUseCase @Inject constructor(
         beforeId: String?,
         beforeCreated: Long? = null,
         networkBeforeCreated: Long? = null,
+        networkCursor: String? = null,
     ): Result<LoadOlderResult> {
-        // 网络分页游标：跳过归档直接走网络（游标本身是归档读尽后的边界）
+        // 网络分页游标（V2 服务器游标优先）：跳过归档直接走网络（游标本身是归档读尽后的边界）
+        if (networkCursor != null) {
+            return runCatching {
+                val page = sessionRepository.listMessages(serverId, sessionId, limit, before = networkCursor)
+                    .getOrThrow()
+                messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
+                LoadOlderResult(page.messages, LoadOlderSource.NETWORK, nextCursor = page.nextCursor)
+            }
+        }
+        // 网络分页游标（V1）：跳过归档直接走网络（游标本身是归档读尽后的边界）
         if (networkBeforeCreated != null) {
             return runCatching {
                 val before = CursorCodec.encode(
@@ -96,7 +112,7 @@ class MessagePaginationUseCase @Inject constructor(
                 val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                     .getOrThrow()
                 messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
-                LoadOlderResult(page.messages, LoadOlderSource.NETWORK)
+                LoadOlderResult(page.messages, LoadOlderSource.NETWORK, nextCursor = page.nextCursor)
             }
         }
         // 归档时间游标优先；否则从热表查 beforeId 对应时间
@@ -110,7 +126,8 @@ class MessagePaginationUseCase @Inject constructor(
                 return Result.success(LoadOlderResult(archived, LoadOlderSource.ARCHIVE))
             }
         }
-        // 归档读尽 → 网络
+        // 归档读尽 → 网络（首次翻页：无服务器游标，用本地 CursorCodec 编码——V2 服务器会忽略
+        // 该格式并返回最新数据；首次翻页冗余一次请求，响应携带 cursor.next 后后续翻页正常）
         return runCatching {
             // before 游标需要 base64url 编码（裸 ID 服务端不识别）
             val before = beforeId?.let { id ->
@@ -120,7 +137,7 @@ class MessagePaginationUseCase @Inject constructor(
             val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
             messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
-            LoadOlderResult(page.messages, LoadOlderSource.NETWORK)
+            LoadOlderResult(page.messages, LoadOlderSource.NETWORK, nextCursor = page.nextCursor)
         }
     }
 

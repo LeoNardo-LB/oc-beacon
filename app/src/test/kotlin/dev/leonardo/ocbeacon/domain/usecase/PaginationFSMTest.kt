@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.domain.usecase
 import dev.leonardo.ocbeacon.domain.model.PaginationCursor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,12 +16,21 @@ class PaginationFSMTest {
 
     private val now = 1_000_000L
 
+    private fun succeeded(
+        source: LoadOlderSource,
+        oldestId: String? = null,
+        oldestCreated: Long? = null,
+        nextCursor: String? = null,
+        pageSize: Int,
+        limit: Int,
+    ) = PaginationFSM.Event.LoadSucceeded(source, oldestId, oldestCreated, nextCursor, pageSize, limit)
+
     // ============ SessionReloaded ============
 
     @Test
     fun `sessionReloaded resets cursor to hot start and sets hasOlder`() {
         val before = PaginationFSM.State(
-            cursor = PaginationCursor.Network("m-50", 50L),
+            cursor = PaginationCursor.Network(serverCursor = "server-cursor-1", id = "m-50", created = 50L),
             hasOlderMessages = true,
             autoLoadFailures = 2,
             autoLoadPaused = true,
@@ -40,7 +50,7 @@ class PaginationFSMTest {
         val before = PaginationFSM.State(cursor = PaginationCursor.HotStart)
         val after = PaginationFSM.transition(
             before,
-            PaginationFSM.Event.LoadSucceeded(
+            succeeded(
                 source = LoadOlderSource.ARCHIVE,
                 oldestId = "m-100",
                 oldestCreated = 100L,
@@ -60,7 +70,7 @@ class PaginationFSMTest {
         val before = PaginationFSM.State(cursor = PaginationCursor.Archive(50L))
         val after = PaginationFSM.transition(
             before,
-            PaginationFSM.Event.LoadSucceeded(
+            succeeded(
                 source = LoadOlderSource.ARCHIVE,
                 oldestId = null,
                 oldestCreated = null,
@@ -76,20 +86,45 @@ class PaginationFSMTest {
     // ============ LoadSucceeded: NETWORK ============
 
     @Test
-    fun `network success advances network cursor and hasOlder by boundary`() {
+    fun `network success with server cursor stores it for next page`() {
         val before = PaginationFSM.State(cursor = PaginationCursor.HotStart)
         val after = PaginationFSM.transition(
             before,
-            PaginationFSM.Event.LoadSucceeded(
+            succeeded(
                 source = LoadOlderSource.NETWORK,
                 oldestId = "m-60",
                 oldestCreated = 60L,
+                nextCursor = "server-cursor-60",
                 pageSize = 30,
                 limit = 30,
             ),
         )
-        assertEquals(PaginationCursor.Network("m-60", 60L), after.cursor)
+        val cursor = after.cursor as PaginationCursor.Network
+        assertEquals("server-cursor-60", cursor.serverCursor)
+        assertEquals("m-60", cursor.id)
+        assertEquals(60L, cursor.created)
         assertTrue("满页 → 服务器可能还有更早", after.hasOlderMessages)
+    }
+
+    @Test
+    fun `network success without server cursor falls back to id plus created`() {
+        // V1 路径：无服务器游标 → Network(id, created)（use case 用 CursorCodec 编码）
+        val before = PaginationFSM.State(cursor = PaginationCursor.HotStart)
+        val after = PaginationFSM.transition(
+            before,
+            succeeded(
+                source = LoadOlderSource.NETWORK,
+                oldestId = "m-60",
+                oldestCreated = 60L,
+                nextCursor = null,
+                pageSize = 30,
+                limit = 30,
+            ),
+        )
+        val cursor = after.cursor as PaginationCursor.Network
+        assertNull(cursor.serverCursor)
+        assertEquals("m-60", cursor.id)
+        assertEquals(60L, cursor.created)
     }
 
     @Test
@@ -97,33 +132,40 @@ class PaginationFSMTest {
         val before = PaginationFSM.State(cursor = PaginationCursor.Archive(30L))
         val after = PaginationFSM.transition(
             before,
-            PaginationFSM.Event.LoadSucceeded(
+            succeeded(
                 source = LoadOlderSource.NETWORK,
                 oldestId = "m-90",
                 oldestCreated = 90L,
+                nextCursor = "server-cursor-90",
                 pageSize = 10,
                 limit = 30,
             ),
         )
-        assertEquals(PaginationCursor.Network("m-90", 90L), after.cursor)
+        val cursor = after.cursor as PaginationCursor.Network
+        assertEquals("server-cursor-90", cursor.serverCursor)
         assertFalse("不足一页 → 已读尽", after.hasOlderMessages)
     }
 
     @Test
     fun `network empty page keeps cursor and hasOlder false`() {
-        val before = PaginationFSM.State(cursor = PaginationCursor.Network("m-60", 60L), hasOlderMessages = true)
+        val before = PaginationFSM.State(
+            cursor = PaginationCursor.Network(serverCursor = "server-cursor-60", id = "m-60", created = 60L),
+            hasOlderMessages = true,
+        )
         val after = PaginationFSM.transition(
             before,
-            PaginationFSM.Event.LoadSucceeded(
+            succeeded(
                 source = LoadOlderSource.NETWORK,
                 oldestId = null,
                 oldestCreated = null,
+                nextCursor = null,
                 pageSize = 0,
                 limit = 30,
             ),
         )
         // 空页：不推进游标（读尽后 UI 停止触发，无死循环），hasOlder=false
-        assertEquals(PaginationCursor.Network("m-60", 60L), after.cursor)
+        val cursor = after.cursor as PaginationCursor.Network
+        assertEquals("server-cursor-60", cursor.serverCursor)
         assertFalse(after.hasOlderMessages)
     }
 
@@ -137,10 +179,11 @@ class PaginationFSMTest {
         )
         val after = PaginationFSM.transition(
             before,
-            PaginationFSM.Event.LoadSucceeded(
+            succeeded(
                 source = LoadOlderSource.NETWORK,
                 oldestId = "m-1",
                 oldestCreated = 1L,
+                nextCursor = "server-cursor-1",
                 pageSize = 30,
                 limit = 30,
             ),

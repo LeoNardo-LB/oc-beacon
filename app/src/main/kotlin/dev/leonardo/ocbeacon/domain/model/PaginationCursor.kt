@@ -23,6 +23,21 @@ sealed class PaginationCursor {
     /** 归档时间游标：继续读更早归档（beforeCreated 参数）。 */
     data class Archive(val created: Long) : PaginationCursor()
 
-    /** 网络游标：归档已读尽，跳过归档直接网络（beforeId + beforeCreated 编码）。 */
-    data class Network(val id: String, val created: Long) : PaginationCursor()
+    /**
+     * 网络游标 —— 归档已读尽后直接走网络。
+     *
+     * 2026-08-11 实测修正（模拟器翻页死循环根因）：V2 服务器翻页必须用
+     * **服务器返回的 cursor**（base64url 的 {"id","order","direction"}，响应体
+     * `cursor.next` 即"更早方向"游标，请求参数名 `cursor`）。本地 CursorCodec
+     * 的 {"id","time"} 格式与 V2 服务器不兼容（被忽略 → 每次返回最新数据 →
+     * 游标永不前进 → 无限循环）。
+     *
+     * [serverCursor] 非空（V2）：直接作为下次请求的 cursor 参数。
+     * [serverCursor] 为空（V1）：回落 [id] + [created] 经 CursorCodec.encode 编码。
+     */
+    data class Network(
+        val serverCursor: String? = null,
+        val id: String? = null,
+        val created: Long? = null,
+    ) : PaginationCursor()
 }

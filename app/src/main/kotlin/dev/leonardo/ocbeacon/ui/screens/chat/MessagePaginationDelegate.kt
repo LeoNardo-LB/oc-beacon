@@ -180,15 +180,19 @@ internal class MessagePaginationDelegate(
             }
             try {
                 // 游标策略（#56：统一从 FSM 状态读取）：
-                //   1. Network 游标非空 → 网络边界已建立，beforeId=游标 ID + networkBeforeCreated
-                //      （use case 跳过归档直接网络，防重复/循环）
+                //   1. Network 游标非空 → 网络边界已建立：serverCursor（V2）直接透传，
+                //      或回落 id+created（V1）；跳过归档防重复/循环
                 //   2. Archive 游标非空 → 继续读归档（beforeCreated）
                 //   3. HotStart → 首次翻页：热表最老作 beforeId
                 val hotOldestId = messageStore.oldestMessageId(sid)
                 val cursor = paginationState.value.cursor
-                val beforeId = if (cursor is PaginationCursor.Network) cursor.id else hotOldestId
+                val beforeId = when (cursor) {
+                    is PaginationCursor.Network -> cursor.id ?: hotOldestId
+                    else -> hotOldestId
+                }
                 val beforeCreated = (cursor as? PaginationCursor.Archive)?.created
                 val networkBeforeCreated = (cursor as? PaginationCursor.Network)?.created
+                val networkCursor = (cursor as? PaginationCursor.Network)?.serverCursor
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(TAG, "loadOlder START sid=${sid.take(12)} limit=$currentMessageLimit beforeId=${beforeId?.take(16)} cursor=$cursor failures=${paginationState.value.autoLoadFailures} paused=${paginationState.value.autoLoadPaused}")
                 }
@@ -196,6 +200,7 @@ internal class MessagePaginationDelegate(
                     serverId, sid, currentMessageLimit, beforeId,
                     beforeCreated = beforeCreated,
                     networkBeforeCreated = networkBeforeCreated,
+                    networkCursor = networkCursor,
                 ).getOrThrow()
                 // 归档来源只进内存（不落热表 → 防死循环）；网络来源保持现状（upsert 内自控落库）
                 chatRepository.upsertMessages(sid, result.messages, MergeStrategy.APPEND_ONLY)
@@ -206,6 +211,7 @@ internal class MessagePaginationDelegate(
                         source = result.source,
                         oldestId = oldest?.info?.id,
                         oldestCreated = oldest?.info?.time?.created,
+                        nextCursor = result.nextCursor,
                         pageSize = result.messages.size,
                         limit = currentMessageLimit,
                     ),

@@ -372,13 +372,19 @@ class V2ApiClient @Inject constructor(
 
     // ============ Message ============
 
-    suspend fun listMessages(        conn: ServerConnection,
+    suspend fun listMessages(
+        conn: ServerConnection,
         sessionId: String,
-        limit: Int? = null
+        limit: Int? = null,
+        cursor: String? = null
     ): MessagePage {
         val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId/message") {
             conn.authHeader?.let { header("Authorization", it) }
             limit?.let { parameter("limit", it) }
+            // 2026-08-11 实测：服务器翻页参数名是 cursor（before 被忽略）。
+            // cursor 值必须用服务器上次响应返回的 cursor.next（base64url 的
+            // {"id","order","direction"}）——本地 CursorCodec 的 {"id","time"} 格式不兼容。
+            cursor?.let { parameter("cursor", it) }
         }
         val root = parseRoot(response.bodyAsText())
         val (items, nextCursor) = V2ResponseWrapper.unwrapList(root)

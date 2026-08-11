@@ -50,13 +50,16 @@ object PaginationFSM {
         /**
          * loadOlderMessages 成功：按来源推进游标 + 更新 hasOlder + 重置防风暴。
          *
-         * @param oldestId 本次返回的最老消息 ID（NETWORK 游标编码用；空页为 null 时不推进）。
-         * @param oldestCreated 本次返回的最老消息 created（ARCHIVE 时间游标 / NETWORK 编码）。
+         * @param oldestId 本次返回的最老消息 ID（V1 网络游标编码回落用；空页为 null）。
+         * @param oldestCreated 本次返回的最老消息 created（ARCHIVE 时间游标 / V1 编码）。
+         * @param nextCursor 服务器返回的下一页游标（V2 cursor.next，更早方向；
+         *   ARCHIVE 来源或 V1 网络来源为 null）。
          */
         data class LoadSucceeded(
             val source: LoadOlderSource,
             val oldestId: String?,
             val oldestCreated: Long?,
+            val nextCursor: String?,
             val pageSize: Int,
             val limit: Int,
         ) : Event
@@ -77,12 +80,17 @@ object PaginationFSM {
                 // 空页（不会发生，防御）保持原游标。
                 LoadOlderSource.ARCHIVE ->
                     event.oldestCreated?.let { PaginationCursor.Archive(it) } ?: state.cursor
-                // 网络游标推进为本次最老消息（ID + created）；
+                // 网络游标推进：服务器游标优先（V2）；否则回落最老消息 ID + created（V1）；
                 // 空页（读尽）不推进——hasOlder=false 后 UI 停止触发，无死循环。
                 LoadOlderSource.NETWORK -> {
+                    val serverCursor = event.nextCursor
                     val id = event.oldestId
                     val created = event.oldestCreated
-                    if (id != null && created != null) PaginationCursor.Network(id, created) else state.cursor
+                    when {
+                        serverCursor != null -> PaginationCursor.Network(serverCursor = serverCursor, id = id, created = created)
+                        id != null && created != null -> PaginationCursor.Network(id = id, created = created)
+                        else -> state.cursor
+                    }
                 }
             }
             state.copy(

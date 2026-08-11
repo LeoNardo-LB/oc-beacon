@@ -113,7 +113,7 @@ class MessageApiImpl @Inject constructor(
         limit: Int?,
         before: String?,
     ): MessagePage =
-        if (conn.apiVersion.isV2) v2.listMessages(conn, sessionId, limit)
+        if (conn.apiVersion.isV2) v2.listMessages(conn, sessionId, limit, cursor = before)
         else v1.listMessages(conn, sessionId, limit, before)
 
     override suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String =
