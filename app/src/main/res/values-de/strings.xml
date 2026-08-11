@@ -621,6 +621,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">Läuft</string>
     <string name="shell_status_exit">Code %1$d</string>
     <string name="shell_status_done">Fertig</string>
+    <string name="shell_status_failed">Fehlgeschlagen</string>
     <string name="background_toolbar_action">Hintergrund</string>
     <string name="background_toolbar_subagents">%1$d Sub-Agent(en) im Vordergrund aktiv</string>
     <string name="a11y_icon_background">Hintergrundaktivitäten</string>

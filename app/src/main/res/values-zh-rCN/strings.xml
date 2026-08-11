@@ -624,6 +624,7 @@
     <string name="shell_status_running">运行中</string>
     <string name="shell_status_exit">退出码 %1$d</string>
     <string name="shell_status_done">完成</string>
+    <string name="shell_status_failed">失败</string>
     <string name="background_toolbar_action">后台</string>
     <string name="background_toolbar_subagents">%1$d 个子代理正在前台运行</string>
     <string name="a11y_icon_background">后台活动</string>

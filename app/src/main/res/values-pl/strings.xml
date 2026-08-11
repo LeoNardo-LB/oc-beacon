@@ -629,6 +629,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">Działa</string>
     <string name="shell_status_exit">Kod wyjścia %1$d</string>
     <string name="shell_status_done">Gotowe</string>
+    <string name="shell_status_failed">Nieudane</string>
     <string name="background_toolbar_action">Tło</string>
     <string name="background_toolbar_subagents">%1$d sub-agent(ów) działa na pierwszym planie</string>
     <string name="a11y_icon_background">Działania w tle</string>

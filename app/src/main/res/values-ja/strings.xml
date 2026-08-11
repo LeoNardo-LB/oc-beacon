@@ -621,6 +621,7 @@
     <string name="shell_status_running">実行中</string>
     <string name="shell_status_exit">終了コード %1$d</string>
     <string name="shell_status_done">完了</string>
+    <string name="shell_status_failed">失敗</string>
     <string name="background_toolbar_action">バックグラウンド</string>
     <string name="background_toolbar_subagents">フォアグラウンドで実行中のサブエージェント %1$d 件</string>
     <string name="a11y_icon_background">バックグラウンドアクティビティ</string>

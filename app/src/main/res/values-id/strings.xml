@@ -627,6 +627,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">Berjalan</string>
     <string name="shell_status_exit">Kode keluar %1$d</string>
     <string name="shell_status_done">Selesai</string>
+    <string name="shell_status_failed">Gagal</string>
     <string name="background_toolbar_action">Latar belakang</string>
     <string name="background_toolbar_subagents">%1$d sub-agent berjalan di latar depan</string>
     <string name="a11y_icon_background">Aktivitas latar belakang</string>

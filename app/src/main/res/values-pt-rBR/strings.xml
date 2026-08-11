@@ -621,6 +621,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">Executando</string>
     <string name="shell_status_exit">Código de saída %1$d</string>
     <string name="shell_status_done">Concluído</string>
+    <string name="shell_status_failed">Falhou</string>
     <string name="background_toolbar_action">Plano de fundo</string>
     <string name="background_toolbar_subagents">%1$d subagente(s) em execução em primeiro plano</string>
     <string name="a11y_icon_background">Atividades em plano de fundo</string>

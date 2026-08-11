@@ -629,6 +629,7 @@
     <string name="shell_status_running">Виконується</string>
     <string name="shell_status_exit">Код виходу %1$d</string>
     <string name="shell_status_done">Готово</string>
+    <string name="shell_status_failed">Не виконано</string>
     <string name="background_toolbar_action">Фон</string>
     <string name="background_toolbar_subagents">%1$d суб-агент(ів) на передньому плані</string>
     <string name="a11y_icon_background">Фонові дії</string>

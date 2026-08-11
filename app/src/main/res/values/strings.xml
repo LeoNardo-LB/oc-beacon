@@ -183,6 +183,7 @@
     <string name="shell_status_running">Running</string>
     <string name="shell_status_exit">Exit %1$d</string>
     <string name="shell_status_done">Done</string>
+    <string name="shell_status_failed">Failed</string>
     <string name="background_toolbar_action">Background</string>
     <string name="background_toolbar_subagents">%1$d subagent(s) running in foreground</string>
     <string name="a11y_icon_background">Background activities</string>

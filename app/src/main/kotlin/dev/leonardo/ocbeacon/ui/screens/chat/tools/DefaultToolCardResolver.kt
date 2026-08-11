@@ -33,6 +33,13 @@ class DefaultToolCardResolver @Inject constructor() : ToolCardResolver {
         "bash" to { tool, expanded, toggle, _, _, _ ->
             { BashToolCard(tool = tool, isExpanded = expanded, onToggleExpand = toggle) }
         },
+        // V2 工具名为 "shell"（V1 为 "bash"）——都映射到 BashToolCard
+        //（2 行布局：$ 命令 + 状态·摘要，2026-08-11 用户要求视觉统一）。
+        // 此前 "shell" 无映射 → fallback 默认单行渲染（"Shell" 标题）——
+        // 用户反馈"shell 卡片还是一行"的根因。
+        "shell" to { tool, expanded, toggle, _, _, _ ->
+            { BashToolCard(tool = tool, isExpanded = expanded, onToggleExpand = toggle) }
+        },
         "edit" to { tool, expanded, toggle, _, _, openFile ->
             { EditToolCard(tool = tool, isExpanded = expanded, onToggleExpand = toggle, onOpenFile = openFile) }
         },

@@ -637,6 +637,7 @@
     <string name="shell_status_running">قيد التشغيل</string>
     <string name="shell_status_exit">رمز الخروج %1$d</string>
     <string name="shell_status_done">تم</string>
+    <string name="shell_status_failed">فشل</string>
     <string name="background_toolbar_action">الخلفية</string>
     <string name="background_toolbar_subagents">%1$d وكيل فرعي نشط في المقدمة</string>
     <string name="a11y_icon_background">أنشطة الخلفية</string>
