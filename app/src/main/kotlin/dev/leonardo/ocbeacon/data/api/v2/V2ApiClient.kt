@@ -732,11 +732,19 @@ class V2ApiClient @Inject constructor(
         val bodyObj = kotlinx.serialization.json.buildJsonObject {
             messageId?.let { put("messageID", kotlinx.serialization.json.JsonPrimitive(it)) }
         }
-        val bodyText = httpClient.post("${conn.baseUrl}/api/session/$sessionId/fork") {
+        val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/fork") {
             conn.authHeader?.let { header("Authorization", it) }
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
-        }.bodyAsText()
+        }
+        // 2026-08-12 修复：不检查状态会把 400 错误体解析成空对象 → Session.id=""
+        // → 导航进空 id 幽灵会话，后续操作（share 等）打到列表端点崩溃。
+        // 服务器 fork 端点当前存在 handle/handleRaw 同路径冲突（任何请求均 400），
+        // 此处抛出明确异常，UI 显示失败提示而非静默进入损坏状态。
+        if (!response.status.isSuccess()) {
+            throw IllegalStateException("Fork session failed: HTTP ${response.status.value}")
+        }
+        val bodyText = response.bodyAsText()
         return V2SessionMapper.toSession(V2ResponseWrapper.flexibleObject(bodyText, json))
     }
 
