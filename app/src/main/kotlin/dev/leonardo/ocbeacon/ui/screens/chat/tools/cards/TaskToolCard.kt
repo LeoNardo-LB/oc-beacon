@@ -41,7 +41,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
-import dev.leonardo.ocbeacon.ui.theme.AgentSecondary
 
 /**
  * Task（子 agent）工具卡片 —— 显示描述 + 子级信息。
@@ -112,8 +111,8 @@ internal fun TaskToolCard(
         onToggleExpand = onToggleExpand,
         showExpandIcon = !showNavArrow,
         onClick = clickAction,
-        // 任务发起卡片：蓝色状态底（与完成=绿 / 失败=红 三色语义，2026-08-11）
-        containerColor = AgentSecondary.copy(alpha = AlphaTokens.SELECTED),
+        // 2026-08-11 用户反馈：subagent 卡片保持原背景（蓝底改动撤销——
+        // "蓝色基调不用改"，原设计即为默认背景 + primary 蓝色图标）
         rightSideExtras = if (showNavArrow) {
             { Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
