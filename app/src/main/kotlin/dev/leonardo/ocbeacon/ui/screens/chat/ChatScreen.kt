@@ -731,12 +731,26 @@ fun ChatScreen(
                         // synthetic 系统通知（2026-08-11）：紧邻 assistant 时并入
                         // turn 气泡内渲染（isAdjacentToAssistant），不独立成行；
                         // 孤立 synthetic 保持独立条目。
+                        // 2026-08-12：无文本的 synthetic 空壳（服务器历史遗留，text
+                        // 为空）完全过滤——SyntheticNotificationCard 提取不到 text 会
+                        // return 空，保留在 displayItems 会形成空行（"返回后消息流
+                        // 乱了"的现象之一）。
                         val displayItems = remember(rawMessages) {
                             rawMessages.mapIndexedNotNull { index, msg ->
                                 when {
                                     msg.isUser && !msg.isSynthetic -> index to msg
                                     msg.isSynthetic -> {
-                                        if (isAdjacentToAssistant(rawMessages, index)) null else index to msg
+                                        val hasText = msg.parts
+                                            .filterIsInstance<Part.Text>()
+                                            .any { it.text.isNotBlank() } ||
+                                            (msg.message as? Message.User)?.summary?.body?.isNotBlank() == true
+                                        if (!hasText) {
+                                            null
+                                        } else if (isAdjacentToAssistant(rawMessages, index)) {
+                                            null
+                                        } else {
+                                            index to msg
+                                        }
                                     }
                                     msg.isAssistant -> {
                                         val prevMsg = rawMessages.getOrNull(index - 1)
