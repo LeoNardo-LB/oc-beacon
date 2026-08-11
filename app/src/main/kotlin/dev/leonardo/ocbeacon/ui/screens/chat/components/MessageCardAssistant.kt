@@ -153,22 +153,10 @@ internal fun MessageCardAssistant(
                 val durationMs = renderableTurn.durationMs
                 val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
                 if (isStreaming || hasFooter || (copyText != null && isTurnLast)) {
-                    // 实时耗时 ticker：流式期间每 100ms 刷新 elapsed 显示
-                    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
-                    LaunchedEffect(isStreaming) {
-                        while (isStreaming) {
-                            nowMs = System.currentTimeMillis()
-                            delay(100)
-                        }
-                    }
-                    val displayDurationMs = if (isStreaming) {
-                        // turn 级起点：turn 首条 assistant 的 created；fallback 当前消息 created。
-                        // turn 内新消息出现时代表消息切换，但计时起点不变 → 不重置。
-                        val start = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
-                        start?.let { nowMs - it } ?: 0L
-                    } else {
-                        durationMs ?: 0L
-                    }
+                    // 耗时显示：流式 = 实时 ticker（独立子 composable，重组只限单个 Text，
+                    // 不触发整个 footer Row——#47：原 100ms ticker 在 footer 级 state，
+                    // 与 48ms flush 叠加 ~30 次/s footer 重组）；完成 = 固定时长。
+                    val startMs = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
 
                     Spacer(modifier = Modifier.height(if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp))
                     Row(
@@ -228,10 +216,12 @@ internal fun MessageCardAssistant(
                                 }
                             }
                         }
-                        // 耗时（流式 = 实时，完成 = 固定）
-                        if (displayDurationMs > 0) {
+                        // 耗时（流式 = 实时 ticker 子 composable；完成 = 固定）
+                        if (isStreaming && startMs != null) {
+                            StreamingElapsedText(startMs)
+                        } else if (!isStreaming && (durationMs ?: 0L) > 0) {
                             Text(
-                                text = formatDuration(displayDurationMs),
+                                text = formatDuration(durationMs!!),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                             )
@@ -267,4 +257,32 @@ internal fun MessageCardAssistant(
             }
         }
     }
+}
+
+/**
+ * 流式耗时实时显示（#47 优化）。
+ *
+ * 独立子 composable：内部 100ms ticker 更新自身 state——重组范围仅限
+ * 本 Text，不触发整个 footer Row 重组（原实现 ticker state 在 footer 级，
+ * 与 48ms SSE flush 叠加导致 ~30 次/s footer 重组）。
+ * isStreaming 结束（父分支移出组合）时 LaunchedEffect 自动取消。
+ */
+@Composable
+private fun StreamingElapsedText(
+    startMs: Long,
+    modifier: Modifier = Modifier,
+) {
+    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(startMs) {
+        while (true) {
+            nowMs = System.currentTimeMillis()
+            delay(100)
+        }
+    }
+    Text(
+        text = formatDuration(nowMs - startMs),
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+        modifier = modifier
+    )
 }
