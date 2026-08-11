@@ -432,9 +432,11 @@ fun ChatScreen(
 
     // 2026-08-11 用户要求：发送成功才清空输入区（输入框保留内容直至确认成功）。
     // 发送失败 → 内容保留在输入框 + AlertDialog（sendFailure）。
-    LaunchedEffect(viewModel.sendSuccessTick) {
-        val tick = viewModel.sendSuccessTick.value
-        if (tick > 0) {
+    // 注意：key 必须用 collectAsState 的**值**（StateFlow 对象做 key 永不变化，
+    // tick 递增不触发——实测 BUG，2026-08-11 修复）。
+    val sendSuccessTick by viewModel.sendSuccessTick.collectAsStateWithLifecycle()
+    LaunchedEffect(sendSuccessTick) {
+        if (sendSuccessTick > 0) {
             inputText = TextFieldValue("")
             viewModel.clearDraft()
             viewModel.clearConfirmedPaths()
