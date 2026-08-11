@@ -467,6 +467,7 @@
     <string name="a11y_icon_warning">Предупреждение</string>
     <string name="a11y_icon_navigate_forward">Перейти вперёд</string>
     <string name="a11y_locate_task">Найти исходную задачу</string>
+    <string name="chat_locate_task_not_found">Исходная задача не найдена в этом разговоре</string>
     <string name="a11y_icon_add">Добавить</string>
     <string name="a11y_icon_share">Поделиться</string>
     <string name="a11y_icon_unlink">Отвязать</string>

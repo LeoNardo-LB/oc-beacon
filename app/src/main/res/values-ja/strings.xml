@@ -458,6 +458,7 @@
     <string name="a11y_icon_warning">警告</string>
     <string name="a11y_icon_navigate_forward">進む</string>
     <string name="a11y_locate_task">元のタスクを特定</string>
+    <string name="chat_locate_task_not_found">この会話で元のタスクが見つかりません</string>
     <string name="a11y_icon_add">追加</string>
     <string name="a11y_icon_share">共有</string>
     <string name="a11y_icon_unlink">リンク解除</string>

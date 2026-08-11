@@ -66,7 +66,6 @@ internal fun MessageCardAssistant(
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
-    locatableSubagentIds: Set<String> = emptySet(),
 ) {
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
 
@@ -126,7 +125,6 @@ internal fun MessageCardAssistant(
                                     isAmoled = isAmoled,
                                     onViewSubSession = onViewSubSession,
                                     onLocateTask = onLocateTask,
-                                    locatableSubagentIds = locatableSubagentIds,
                                 )
                             }
                         }

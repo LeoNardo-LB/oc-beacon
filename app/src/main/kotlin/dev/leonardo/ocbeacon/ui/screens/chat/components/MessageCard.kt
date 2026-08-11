@@ -26,7 +26,6 @@ internal fun MessageCard(
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
-    locatableSubagentIds: Set<String> = emptySet(),
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -41,7 +40,6 @@ internal fun MessageCard(
             isAmoled = isAmoled,
             onViewSubSession = onViewSubSession,
             onLocateTask = onLocateTask,
-            locatableSubagentIds = locatableSubagentIds,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(
             renderableTurn = renderableTurn ?: error("renderableTurn is required for ASSISTANT role"),
@@ -54,7 +52,6 @@ internal fun MessageCard(
             agents = agents,
             onCopy = onCopy,
             onLocateTask = onLocateTask,
-            locatableSubagentIds = locatableSubagentIds,
         )
     }
 }

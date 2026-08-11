@@ -466,6 +466,7 @@
     <string name="a11y_icon_warning">Попередження</string>
     <string name="a11y_icon_navigate_forward">Переміститися вперед</string>
     <string name="a11y_locate_task">Знайти початкове завдання</string>
+    <string name="chat_locate_task_not_found">Початкове завдання не знайдено в цій розмові</string>
     <string name="a11y_icon_add">Додати</string>
     <string name="a11y_icon_share">Поділитися</string>
     <string name="a11y_icon_unlink">Відм’язати</string>

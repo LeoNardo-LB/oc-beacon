@@ -458,6 +458,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_warning">Warnung</string>
     <string name="a11y_icon_navigate_forward">Vorwärts navigieren</string>
     <string name="a11y_locate_task">Ursprungsaufgabe lokalisieren</string>
+    <string name="chat_locate_task_not_found">Ursprungsaufgabe in diesem Gespräch nicht gefunden</string>
     <string name="a11y_icon_add">Hinzufügen</string>
     <string name="a11y_icon_share">Teilen</string>
     <string name="a11y_icon_unlink">Verknüpfung lösen</string>

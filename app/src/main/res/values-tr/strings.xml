@@ -458,6 +458,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_warning">Uyarı</string>
     <string name="a11y_icon_navigate_forward">İleri git</string>
     <string name="a11y_locate_task">Orijinal görevi bul</string>
+    <string name="chat_locate_task_not_found">Bu konuşmada orijinal görev bulunamadı</string>
     <string name="a11y_icon_add">Ekle</string>
     <string name="a11y_icon_share">Paylaş</string>
     <string name="a11y_icon_unlink">Bağlantıyı kaldır</string>

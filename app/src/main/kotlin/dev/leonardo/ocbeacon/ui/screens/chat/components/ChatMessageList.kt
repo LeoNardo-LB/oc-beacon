@@ -157,17 +157,10 @@ fun ChatMessageList(
     }
 
     // 「定位发起卡片」支持（2026-08-11 用户要求）：
-    // - locatableSubagentIds：当前消息流中所有 task/subagent 工具卡片携带的
-    //   子会话 ID（metadata.sessionId）——synthetic 完成通知的 <task id> 与之匹配
-    //   时可定位到发起卡片。
-    // - highlightedTurnKey：点击定位后短暂高亮的 LazyColumn item key（3 秒后清除）。
-    val locatableSubagentIds: Set<String> = remember(rawMessages) {
-        rawMessages.flatMap { msg ->
-            msg.parts.filterIsInstance<Part.Tool>()
-                .filter { it.tool == "task" || it.tool == "subagent" }
-                .mapNotNull { tool -> extractToolSubagentSessionId(tool) }
-        }.toSet()
-    }
+    // 点击完成通知卡片上的定位按钮 → 在消息流中查找发起卡片（task/subagent
+    // 工具的 metadata.sessionId == synthetic <task id>）→ 滚动 + 3 秒高亮；
+    // 找不到时 Snackbar 提示。不再预匹配（发起卡片可能被分页/折叠导致预匹配
+    // 失败 → 按钮隐藏用户看不到）。
     var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(highlightedTurnKey) {
         if (highlightedTurnKey != null) {
@@ -193,6 +186,10 @@ fun ChatMessageList(
                 "u_${targetMsg.message.id}"
             } else {
                 "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
+            }
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_task_not_found))
             }
         }
     }
@@ -624,7 +621,6 @@ fun ChatMessageList(
                                         }
                                     },
                                     onLocateTask = onLocateTask,
-                                    locatableSubagentIds = locatableSubagentIds,
                                 )
                             }
                             msg.isUser -> {

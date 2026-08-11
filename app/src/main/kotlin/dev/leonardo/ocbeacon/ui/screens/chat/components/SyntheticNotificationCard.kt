@@ -77,7 +77,6 @@ internal fun SyntheticNotificationCard(
     isAmoled: Boolean = false,
     onViewSubSession: ((String) -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
-    locatableSubagentIds: Set<String> = emptySet(),
 ) {
     val text = currentMessage.parts
         .filterIsInstance<Part.Text>()
@@ -109,11 +108,12 @@ internal fun SyntheticNotificationCard(
         isError -> AgentError.copy(alpha = AlphaTokens.SELECTED)
         else -> AgentSuccess.copy(alpha = AlphaTokens.SELECTED)
     }
-    // 「定位发起卡片」按钮（2026-08-11 用户要求）：仅当子会话 id 能在当前
-    // 消息流中匹配到发起卡片（TaskToolCard 的 metadata.sessionId）时显示。
-    val canLocate = sessionId != null &&
-        sessionId in locatableSubagentIds &&
-        onLocateTask != null
+    // 「定位发起卡片」按钮（2026-08-11 用户要求）：有子会话 id 即显示，
+    // 点击后由 ChatMessageList 在消息流中查找发起卡片（TaskToolCard 的
+    // metadata.sessionId）并滚动+高亮；找不到时提示（不再依赖 locatable
+    // 预匹配——真实场景常因发起卡片被分页/折叠而预匹配失败，按钮隐藏导致
+    // 用户看不到该功能）。
+    val canLocate = sessionId != null && onLocateTask != null
 
     // 第 1 行主标题：任务描述（summary 去 "Background task completed/failed: " 前缀）
     // ——与发起卡片（TaskToolCard）的 description 对应；fallback 用原文。
