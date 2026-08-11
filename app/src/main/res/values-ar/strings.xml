@@ -258,11 +258,9 @@
     <string name="chat_session_rename_failed">فشل في إعادة التسمية</string>
     <string name="chat_menu_open_workspace">عرض مساحة العمل</string>
     <string name="menu_open_in_web">فتح في الويب</string>
-    <string name="menu_new_session">جلسة جديدة</string>
     <string name="menu_fork_session">تفرع الجلسة</string>
     <string name="menu_compact_session">تجميع الجلسة</string>
     <string name="menu_share_session">مشاركة الجلسة</string>
-    <string name="menu_rename_session">إعادة تسمية الجلسة</string>
     <string name="settings_dynamic_color">ألوان ديناميكية</string>
     <string name="settings_dynamic_color_desc">استخدام الألوان من خلفية الشاشة (Material You)</string>
     <string name="settings_notifications_desc">إشعار عند إكمال الوكيل مهمة</string>

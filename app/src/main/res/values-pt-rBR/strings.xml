@@ -242,11 +242,9 @@
     <string name="chat_session_rename_failed">Falha ao renomear</string>
     <string name="chat_menu_open_workspace">Ver área de trabalho</string>
     <string name="menu_open_in_web">Abrir na web</string>
-    <string name="menu_new_session">Nova sessão</string>
     <string name="menu_fork_session">Bifurcar sessão</string>
     <string name="menu_compact_session">Compactar sessão</string>
     <string name="menu_share_session">Compartilhar sessão</string>
-    <string name="menu_rename_session">Renomear sessão</string>
     <string name="settings_dynamic_color">Cores dinâmicas</string>
     <string name="settings_dynamic_color_desc">Usar cores do papel de parede (Material You)</string>
     <string name="settings_notifications_desc">Notificar quando o agente concluir uma tarefa</string>

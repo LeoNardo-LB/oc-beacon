@@ -242,11 +242,9 @@
     <string name="chat_session_rename_failed">Échec du renommage</string>
     <string name="chat_menu_open_workspace">Voir l\'espace de travail</string>
     <string name="menu_open_in_web">Ouvrir dans le navigateur</string>
-    <string name="menu_new_session">Nouvelle session</string>
     <string name="menu_fork_session">Dupliquer la session</string>
     <string name="menu_compact_session">Réduire la session</string>
     <string name="menu_share_session">Partager la session</string>
-    <string name="menu_rename_session">Renommer la session</string>
     <string name="settings_dynamic_color">Couleurs dynamiques</string>
     <string name="settings_dynamic_color_desc">Utiliser les couleurs du fond d’écran (Material You)</string>
     <string name="settings_notifications_desc">Notifier lorsque l’agent termine une tâche</string>

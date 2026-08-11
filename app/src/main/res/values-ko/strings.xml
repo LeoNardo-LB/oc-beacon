@@ -242,11 +242,9 @@
     <string name="chat_session_rename_failed">이름 변경 실패</string>
     <string name="chat_menu_open_workspace">워크스페이스 보기</string>
     <string name="menu_open_in_web">웹에서 열기</string>
-    <string name="menu_new_session">새 세션</string>
     <string name="menu_fork_session">세션 포크</string>
     <string name="menu_compact_session">세션 압축</string>
     <string name="menu_share_session">세션 공유</string>
-    <string name="menu_rename_session">세션 이름 변경</string>
     <string name="settings_dynamic_color">동적 색상</string>
     <string name="settings_dynamic_color_desc">배경화면에서 색상 사용 (Material You)</string>
     <string name="settings_notifications_desc">에이전트가 작업 완료 시 알림</string>

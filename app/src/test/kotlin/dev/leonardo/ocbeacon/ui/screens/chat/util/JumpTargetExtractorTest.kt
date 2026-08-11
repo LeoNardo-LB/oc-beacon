@@ -31,6 +31,16 @@ class JumpTargetExtractorTest {
         parts = listOf(Part.Text(id = "p_$id", sessionId = "s1", messageId = id, text = "response"))
     )
 
+    private fun syntheticMsg(id: String, text: String, created: Long = 0L) = ChatMessage(
+        message = Message.User(
+            id = id,
+            sessionId = "s1",
+            role = "synthetic",
+            time = TimeInfo(created = created)
+        ),
+        parts = listOf(Part.Text(id = "p_$id", sessionId = "s1", messageId = id, text = text))
+    )
+
     @Test
     fun `extractJumpTargets returns only user messages with sequential Q labels`() {
         val msgs = listOf(
@@ -72,6 +82,22 @@ class JumpTargetExtractorTest {
         assertEquals("Q2", targets[1].label)
         assertEquals("world", targets[1].preview)
         assertEquals(0, targets[1].rawIndex)
+    }
+
+    @Test
+    fun `extractJumpTargets excludes synthetic user messages`() {
+        // synthetic 完成通知（role="synthetic"）并入 assistant turn 组，
+        // 不在 displayItems 独立存在 —— 跳转会找不到目标（2026-08-12 根因修复）
+        val msgs = listOf(
+            userMsg("u1", "real question", 1000),
+            assistantMsg("a1", 2000),
+            syntheticMsg("syn1", "subagent completed", 3000),
+            userMsg("u2", "another question", 4000)
+        )
+        val targets = extractJumpTargets(msgs)
+        assertEquals(2, targets.size)
+        assertEquals(listOf("u1", "u2"), targets.map { it.msgId })
+        assertEquals(listOf("Q1", "Q2"), targets.map { it.label })
     }
 
     @Test

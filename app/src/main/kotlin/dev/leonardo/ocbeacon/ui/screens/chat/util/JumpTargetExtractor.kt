@@ -19,6 +19,11 @@ data class JumpTarget(
  * —— 见 ChatScreen.kt:993）。rawIndex 保留 rawMessages 中的
  * 原始索引用于跳转查找。
  *
+ * 排除 synthetic 用户消息（后台任务/subagent 完成通知，role="synthetic"）：
+ * 它们会并入 assistant turn 组或被过滤，不在 displayItems 中独立存在，
+ * 跳转时 indexOfFirst 找不到目标会静默失败（2026-08-12 用户反馈
+ * "快速定位有些 item 点击没反应"的根因）。
+ *
  * 纯函数 —— 无 Android/Compose 依赖。
  *
  * @param noTextPlaceholder 无文本时的占位符（由调用方本地化）。
@@ -28,7 +33,7 @@ fun extractJumpTargets(
     noTextPlaceholder: String = "(无文本)",
 ): List<JumpTarget> {
     return rawMessages.withIndex()
-        .filter { it.value.isUser }
+        .filter { it.value.isUser && !it.value.isSynthetic }
         .sortedBy { it.value.message.time.created }
         .mapIndexed { i, indexed ->
             val cm = indexed.value

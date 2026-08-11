@@ -243,9 +243,19 @@ object V2MessageMapper {
             else -> {
                 // shell, compaction, agent-switched, model-switched, skill 等
                 // 提取可用的文本信息
-                val text = obj["text"]?.jsonPrimitive?.contentOrNull
-                    ?: obj["summary"]?.jsonPrimitive?.contentOrNull
-                    ?: ""
+                // compaction 失败时（status="failed"，如 "Nothing to compact yet"），
+                // 提取 error.message 显示给用户 —— 否则失败静默无反馈
+                // （2026-08-12 用户反馈"压缩会话点击无反应"根因之一）
+                val isCompactionFailed = type == "compaction" &&
+                    obj["status"]?.jsonPrimitive?.contentOrNull == "failed"
+                val text = if (isCompactionFailed) {
+                    obj["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull
+                        ?: "Compaction failed"
+                } else {
+                    obj["text"]?.jsonPrimitive?.contentOrNull
+                        ?: obj["summary"]?.jsonPrimitive?.contentOrNull
+                        ?: ""
+                }
                 val message = Message.User(
                     id = id,
                     sessionId = sessionId,

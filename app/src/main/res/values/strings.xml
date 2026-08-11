@@ -488,12 +488,10 @@
     <string name="chat_menu_open_workspace">View Workspace</string>
     <string name="menu_quick_navigate">Quick navigate</string>
     <string name="menu_open_in_web">Open in Web</string>
-    <string name="menu_new_session">New session</string>
     <string name="menu_fork_session">Fork session</string>
     <string name="menu_compact_session">Compact session</string>
     <string name="menu_review_changes">Review changes</string>
     <string name="menu_share_session">Share session</string>
-    <string name="menu_rename_session">Rename session</string>
     <string name="menu_export_session">Export session</string>
     <string name="chat_session_exported">Session exported</string>
     <string name="chat_session_export_failed">Failed to export session</string>

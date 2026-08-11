@@ -250,11 +250,9 @@
     <string name="chat_session_rename_failed">Nie udało się zmienić nazwy</string>
     <string name="chat_menu_open_workspace">Wyświetl obszar roboczy</string>
     <string name="menu_open_in_web">Otwórz w przeglądarce</string>
-    <string name="menu_new_session">Nowa sesja</string>
     <string name="menu_fork_session">Rozdziel sesję</string>
     <string name="menu_compact_session">Kompaktuj sesję</string>
     <string name="menu_share_session">Udostępnij sesję</string>
-    <string name="menu_rename_session">Zmień nazwę sesji</string>
     <string name="settings_dynamic_color">Dynamiczne kolory</string>
     <string name="settings_dynamic_color_desc">Użyj kolorów z tapety (Material You)</string>
     <string name="settings_notifications_desc">Powiadom, gdy agent ukończy zadanie</string>

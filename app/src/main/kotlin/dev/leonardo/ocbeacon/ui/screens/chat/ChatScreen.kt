@@ -577,9 +577,6 @@ fun ChatScreen(
                         onNavigateBack = onNavigateBack,
                         onTerminalMode = { isTerminalMode = true },
                         onOpenInWebView = onOpenInWebView,
-                        onNewSession = {
-                            onNavigateToSession("")  // 空 sessionId = 延迟创建
-                        },
                         onForkSession = {
                             viewModel.forkSession { session ->
                                 if (session != null) {
@@ -597,16 +594,6 @@ fun ChatScreen(
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
                                         if (ok) context.getString(R.string.chat_session_compacted) else context.getString(R.string.chat_session_compact_failed)
-                                    )
-                                }
-                            }
-                        },
-                        onReviewChanges = {
-                            scrollController.forceScrollToBottom()
-                            viewModel.executeCommand("review") { ok ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_command_executed, "review") else context.getString(R.string.chat_command_failed, "review")
                                     )
                                 }
                             }
@@ -632,7 +619,6 @@ fun ChatScreen(
                                 }
                             }
                         },
-                        onRename = { showRenameDialog = true },
                         onExport = {
                             val slug = sessionMeta.sessionTitle
                                 .take(30)

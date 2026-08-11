@@ -242,11 +242,9 @@
     <string name="chat_session_rename_failed">Impossibile rinominare</string>
     <string name="chat_menu_open_workspace">Visualizza area di lavoro</string>
     <string name="menu_open_in_web">Apri nel Web</string>
-    <string name="menu_new_session">Nuova sessione</string>
     <string name="menu_fork_session">Biforca sessione</string>
     <string name="menu_compact_session">Compatta sessione</string>
     <string name="menu_share_session">Condividi sessione</string>
-    <string name="menu_rename_session">Rinomina sessione</string>
     <string name="settings_dynamic_color">Colori dinamici</string>
     <string name="settings_dynamic_color_desc">Usa colori dallo sfondo (Material You)</string>
     <string name="settings_notifications_desc">Notifica al completamento dell\'agente</string>

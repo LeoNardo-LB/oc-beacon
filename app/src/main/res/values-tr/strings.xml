@@ -242,11 +242,9 @@
     <string name="chat_session_rename_failed">Yeniden adlandırılamadı</string>
     <string name="chat_menu_open_workspace">Çalışma alanını görüntüle</string>
     <string name="menu_open_in_web">Web\'de aç</string>
-    <string name="menu_new_session">Yeni oturum</string>
     <string name="menu_fork_session">Oturumu çatalla</string>
     <string name="menu_compact_session">Oturumu küçült</string>
     <string name="menu_share_session">Oturumu paylaş</string>
-    <string name="menu_rename_session">Oturumu yeniden adlandır</string>
     <string name="settings_dynamic_color">Dinamik renkler</string>
     <string name="settings_dynamic_color_desc">Duvar kağıdından renk kullan (Material You)</string>
     <string name="settings_notifications_desc">Agent görev tamamladığında bildir</string>

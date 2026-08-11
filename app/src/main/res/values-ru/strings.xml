@@ -282,11 +282,9 @@
     <string name="chat_summarized">Контекст сжат</string>
     <string name="chat_menu_open_workspace">Открыть рабочую область</string>
     <string name="menu_open_in_web">Открыть в Web</string>
-    <string name="menu_new_session">Новая сессия</string>
     <string name="menu_fork_session">Форкнуть сессию</string>
     <string name="menu_compact_session">Сжать сессию</string>
     <string name="menu_share_session">Поделиться сессией</string>
-    <string name="menu_rename_session">Переименовать сессию</string>
     <string name="menu_export_session">Экспортировать сессию</string>
     <string name="chat_session_exported">Сессия экспортирована</string>
     <string name="chat_session_export_failed">Не удалось экспортировать сессию</string>

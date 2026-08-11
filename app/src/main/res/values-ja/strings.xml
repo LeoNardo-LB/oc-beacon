@@ -242,11 +242,9 @@
     <string name="chat_session_rename_failed">名前変更に失敗しました</string>
     <string name="chat_menu_open_workspace">ワークスペースを表示</string>
     <string name="menu_open_in_web">Webで開く</string>
-    <string name="menu_new_session">新規セッション</string>
     <string name="menu_fork_session">セッションをフォーク</string>
     <string name="menu_compact_session">セッションをコンパクト化</string>
     <string name="menu_share_session">セッションを共有</string>
-    <string name="menu_rename_session">セッション名変更</string>
     <string name="settings_dynamic_color">ダイナミックカラー</string>
     <string name="settings_dynamic_color_desc">壁紙から色を取得（Material You）</string>
     <string name="settings_notifications_desc">エージェントがタスク完了時に通知</string>

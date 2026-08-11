@@ -45,6 +45,7 @@ class V2EventParser(private val json: Json) : SseEventParser {
         "session.shell.",
         "session.execution.",
         "session.instructions.",
+        "session.compacted",
         "shell."
     )
 
@@ -71,8 +72,7 @@ class V2EventParser(private val json: Json) : SseEventParser {
         }
         // 后台 shell 生命周期——映射为具体事件（驱动 ShellJob 状态流与消息流 Shell 卡片）
         when (eventType) {
-            "session.shell.started", "shell.created" -> {
-                // V2 实测：服务器广播 shell.created（旧事件名），payload 为 {info: Shell.Info}；
+            "session.shell.started", "shell.created" -> {                // V2 实测：服务器广播 shell.created（旧事件名），payload 为 {info: Shell.Info}；
                 // session.shell.started 为 {shell: Shell.Info}（新命名，兼容两者）
                 val shellObj = props["shell"]?.jsonObject ?: props["info"]?.jsonObject
                 if (shellObj != null) {
@@ -96,6 +96,17 @@ class V2EventParser(private val json: Json) : SseEventParser {
                 val output = props["output"]?.jsonPrimitive?.contentOrNull
                 return SseEvent.ShellJobEnded(info = info, output = output)
             }
+        }
+        // V2 压缩完成事件（2026-08-12 实测：V2 服务器只发单个
+        // session.compacted {sessionID}，无 V1 的 started/delta/ended 三件套）
+        if (eventType == "session.compacted") {
+            val sid = sessionIdOrNull(props) ?: return null
+            return SseEvent.SessionNext(
+                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionEnded(
+                    sessionId = sid,
+                    messageId = ""
+                )
+            )
         }
         // 提取会话 ID（不同事件可能在不同字段）
         val sessionId = sessionIdOrNull(props)

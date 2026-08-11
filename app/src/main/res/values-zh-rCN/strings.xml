@@ -252,11 +252,9 @@
     <string name="chat_menu_open_workspace">查看工作空间</string>
     <string name="menu_quick_navigate">快速定位</string>
     <string name="menu_open_in_web">在 Web 中打开</string>
-    <string name="menu_new_session">新会话</string>
     <string name="menu_fork_session">分叉会话</string>
     <string name="menu_compact_session">压缩会话</string>
     <string name="menu_share_session">分享会话</string>
-    <string name="menu_rename_session">重命名会话</string>
     <string name="settings_dynamic_color">动态配色</string>
     <string name="settings_dynamic_color_desc">使用壁纸颜色（Material You）</string>
     <string name="settings_chat_font">对话字体</string>

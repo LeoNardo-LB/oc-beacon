@@ -7,16 +7,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.CopyAll
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Terminal
@@ -59,13 +56,10 @@ fun ChatTopBar(
     onNavigateBack: () -> Unit,
     onTerminalMode: () -> Unit,
     onOpenInWebView: () -> Unit,
-    onNewSession: () -> Unit,
     onForkSession: () -> Unit,
     onCompactSession: () -> Unit,
-    onReviewChanges: () -> Unit,
     onShare: () -> Unit,
     onUnshare: () -> Unit,
-    onRename: () -> Unit,
     onExport: () -> Unit,
     onOpenWorkspace: () -> Unit,
     onQuickNavigate: () -> Unit,
@@ -198,16 +192,6 @@ fun ChatTopBar(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.menu_new_session)) },
-                            onClick = {
-                                showMenu = false
-                                onNewSession()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.a11y_icon_add))
-                            }
-                        )
-                        DropdownMenuItem(
                             text = { Text(stringResource(R.string.menu_fork_session)) },
                             onClick = {
                                 showMenu = false
@@ -226,16 +210,6 @@ fun ChatTopBar(
                             leadingIcon = {
                                 Icon(Icons.Default.Compress, contentDescription = stringResource(R.string.a11y_icon_compress))
                             }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.menu_review_changes)) },
-                            onClick = {
-                                showMenu = false
-                                onReviewChanges()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.RateReview, contentDescription = stringResource(R.string.a11y_icon_rate_review))
-                            },
                         )
                         // 根据当前分享状态显示分享或取消分享
                         if (shareUrl != null) {
@@ -261,16 +235,6 @@ fun ChatTopBar(
                                 }
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.menu_rename_session)) },
-                            onClick = {
-                                showMenu = false
-                                onRename()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.a11y_icon_edit))
-                            }
-                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.menu_export_session)) },
                             onClick = {
