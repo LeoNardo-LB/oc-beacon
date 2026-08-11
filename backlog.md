@@ -629,7 +629,8 @@ efactor
   - 待办：服务器修复 fork 端点后（handle/handleRaw 冲突），App fork 即可正常；**1.0.0 前应复测 fork 全流程**
   - 工时：~0.5h | 难度：低 | 涉及：V2ApiClient.forkSession
 
-- [ ] **#78 V2 下 Share session 永远失败（服务器无 share 端点，UI 提示"Failed to share session"）** `session` `compat`
+- [x] **#78 V2 下 Share session 永远失败（服务器无 share 端点，UI 提示"Failed to share session"）** `session` `compat`
   - 问题：2026-08-12 菜单走查（模拟器）发现——V2 服务器**无 share 端点**（V2ApiClient.shareSession 注释 no-op getSession），且 `V2SessionMapper.toSession` 不映射 share 字段 → `session.share?.url` 恒为 null → Snackbar "Failed to share session"
   - 修复方向：V2 连接下隐藏 Share 菜单项（需将 apiVersion 传入 ChatTopBar）；或服务器提供 share 功能后适配
   - 工时：~0.5h | 难度：低 | 涉及：ChatTopBar / SessionActionsDelegate
+  - **2026-08-12 完成**：V2 下隐藏 Share/Unshare 菜单项——ChatViewModel 暴露 serverApiVersion StateFlow；ChatTopBar 加 isShareSupported 参数包裹 Share 菜单组；ChatScreen 按 `serverApiVersion != ApiVersion.V2` 传参（V1 保留 Share）。注意：运行中的 V2 服务器（旧版）share 端点 404；新版 opencode 源码已有 `POST/DELETE /api/session/:id/share` 端点，且新版 Session.Info **无 share 字段**（分享链接由服务器内部维护）——服务器升级后需重新适配 share 协议再恢复菜单

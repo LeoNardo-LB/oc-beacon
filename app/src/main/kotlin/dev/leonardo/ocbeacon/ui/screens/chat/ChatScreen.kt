@@ -286,6 +286,7 @@ fun ChatScreen(
     val contextDetail by viewModel.contextDetailState.collectAsStateWithLifecycle()
     val restoredDraft by viewModel.restoredDraftState.collectAsStateWithLifecycle()
     val draftText by viewModel.draftText.collectAsStateWithLifecycle()
+    val serverApiVersion by viewModel.serverApiVersion.collectAsStateWithLifecycle()
     val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsStateWithLifecycle()
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     // 首次组合时从草稿同步一次 inputText
@@ -596,6 +597,7 @@ fun ChatScreen(
                                 }
                             }
                         },
+                        isShareSupported = serverApiVersion != ApiVersion.V2,
                         onShare = {
                             viewModel.shareSession { url ->
                                 coroutineScope.launch {

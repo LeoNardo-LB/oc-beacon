@@ -56,6 +56,8 @@ fun ChatTopBar(
     onTerminalMode: () -> Unit,
     onForkSession: () -> Unit,
     onCompactSession: () -> Unit,
+    /** 服务器支持 share 端点时显示 Share/Unshare 菜单项（V2 当前无 share 端点，见 backlog #78）。 */
+    isShareSupported: Boolean = true,
     onShare: () -> Unit,
     onUnshare: () -> Unit,
     onExport: () -> Unit,
@@ -200,28 +202,31 @@ fun ChatTopBar(
                             }
                         )
                         // 根据当前分享状态显示分享或取消分享
-                        if (shareUrl != null) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.cmd_unshare)) },
-                                onClick = {
-                                    showMenu = false
-                                    onUnshare()
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.LinkOff, contentDescription = stringResource(R.string.a11y_icon_unlink))
-                                }
-                            )
-                        } else {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.menu_share_session)) },
-                                onClick = {
-                                    showMenu = false
-                                    onShare()
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Share, contentDescription = stringResource(R.string.a11y_icon_share))
-                                }
-                            )
+                        // （V2 服务器无 share 端点时整组隐藏，见 backlog #78）
+                        if (isShareSupported) {
+                            if (shareUrl != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.cmd_unshare)) },
+                                    onClick = {
+                                        showMenu = false
+                                        onUnshare()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.LinkOff, contentDescription = stringResource(R.string.a11y_icon_unlink))
+                                    }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.menu_share_session)) },
+                                    onClick = {
+                                        showMenu = false
+                                        onShare()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.a11y_icon_share))
+                                    }
+                                )
+                            }
                         }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.menu_export_session)) },
