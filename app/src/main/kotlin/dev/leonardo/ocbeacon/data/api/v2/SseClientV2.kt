@@ -258,9 +258,14 @@ class SseClientV2 @Inject constructor(
      * 统一事件分发：优先解析器，特殊处理 V2 delta 流事件。
      */
     private fun handleEvent(type: String, props: JsonObject): SseEvent? {
-        // V2 delta 流事件 → 映射到 V1 MessagePartDelta（驱动现有流式渲染管线）
-        val mapped = mapV2DeltaEvent(type, props)
+        // V2SseMapper 优先：v2 细粒度生命周期事件 → 领域事件
+        // （input.admitted / step / reasoning / text / tool 全映射）
+        val mapped = V2SseMapper.map(type, props)
         if (mapped != null) return mapped
+
+        // 兼容旧 delta 路径（mapV2DeltaEvent 保留，partId 已按 ordinal 派生）
+        val deltaMapped = mapV2DeltaEvent(type, props)
+        if (deltaMapped != null) return deltaMapped
 
         if (type == "server.connected") return SseEvent.ServerConnected
         if (type == "server.heartbeat") return SseEvent.ServerHeartbeat
@@ -289,11 +294,14 @@ class SseClientV2 @Inject constructor(
             "session.text.delta" -> "text"
             else -> return null
         }
+        // partId 派生（2026-08-11 修复）：V2 delta 无 partID，ordinal 即定位键——
+        // 原硬编码 "" 导致每个 delta 新建 Part.Text(id="")，多 part 错乱。
+        val ordinal = props["ordinal"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
 
         return SseEvent.MessagePartDelta(
             sessionId = sessionId,
             messageId = messageId,
-            partId = "", // V2 delta 事件不含 partID，由下游按 message 聚合
+            partId = V2SseMapper.derivePartId(messageId, ordinal),
             field = field,
             delta = delta
         )
