@@ -1,15 +1,32 @@
-## OC Beacon 0.3.0-beta.5 — 2026-08-11
+## OC Beacon 0.3.0-beta.6 — 2026-08-12
 
-> **修复 V2 连接稳定性与 subagent 卡片跳转——全面适配 OpenCode V2 API**
+> 本版聚焦**流式输出稳定性**与**消息卡片体验**：根治流式输出内容周期性消失、subagent/shell 卡片系列升级、右上角菜单精简并与服务器实际能力对齐。
+
+### Added
+
+- **subagent 完成通知卡片**（TaskToolCard）：后台任务完成时嵌入 agent 回复气泡内，支持三色状态语义（完成绿 / 失败红），与任务发起卡片互相引用
+- **「定位发起卡片」按钮**：点击完成通知卡片上的定位按钮，自动滚动到 subagent 任务发起处并高亮 3 秒
+- **shell 工具卡片 2 行化**（BashToolCard）：命令与状态摘要两行布局，实时显示 Running 状态
+
+### Changed
+
+- 右上角菜单精简：移除「网页打开」项（与服务器实际能力对齐）
+- 无文本的 synthetic 空壳消息完全过滤，不再产生空行
+
+### Removed
+
+- 右上角菜单移除「新建会话 / 查看变更 / 重命名会话」三项（重命名入口保留在底部斜杠命令 `/rename`）
+- V2 连接下隐藏「分享会话」菜单项（当前服务器无 share 端点，避免误导性失败提示；V1 连接保留）
 
 ### Fixed
 
-- **subagent 卡片恢复跳转子会话**：V2 工具名（subagent）正确映射，点击已完成 subagent 卡片可跳转到对应子会话页面（之前只能展开基本信息）
-- **修复退出进行中会话的报错**：V2 SSE 心跳逻辑修正——活跃会话不再每 40 秒误判超时断连重连
-- **修复会话列表报错**：V2 响应格式（`{location,data}` 包裹）兼容解析，不再出现 JsonConvert 错误
-- **V2 tool 数据完整映射**：工具输入/输出/元数据（含子会话 ID）正确保留，tool 卡片渲染完整
-- **V2 事件流正确解析**：`session.reasoning.delta`/`session.text.delta` 等增量事件正确映射到消息流式管线
-
+- **根治流式输出内容周期性消失**：模型输出过程中已渲染内容不再一段段消失、输出完成后一次性出现的问题——文本事件接入会话状态机（staleness 不再误触发）、流式期间跳过 REST 消息覆盖、消息合并保留累积内容
+- **快速定位部分条目点击无反应**：synthetic 通知条目不再出现在跳转列表
+- **复制会话假成功**：服务器失败时明确提示「Failed to fork session」，不再静默进入空会话
+- **压缩会话无反馈**：压缩失败原因（如 "Nothing to compact yet"）可见，不再静默
+- 发送成功后输入框偶尔不清空的问题
+- 崩溃日志提示逻辑（时间对比 + Download/私有目录 fallback）
 
 ---
-完整变更记录：[Full Changelog](https://github.com/LeoNardo-LB/oc-beacon/compare/v0.3.0-beta.4...v0.3.0-beta.5)
+
+完整变更记录：[Full Changelog](https://github.com/LeoNardo-LB/oc-beacon/compare/v0.3.0-beta.5...v0.3.0-beta.6)
