@@ -592,3 +592,13 @@ efactor
   - 修复：进入会话时保存服务器首次响应的 cursor.next（loadMessagesForSession 的 MessagePage.nextCursor）作为首翻游标；或首次网络翻页不带 cursor（拿最新 30 条 + cursor.next）建立边界后再透传
   - 工时：~0.5d | 难度：中 | 涉及：MessagePaginationUseCase + MessagePaginationDelegate
   - 来源：模拟器实测（#56 复测报告）
+
+- [ ] **#74 V2 SSE 连接不稳定（Software caused connection abort 反复断连）** `sse` `stability`
+  - 问题：2026-08-11 Diagnostics 持久化日志（logs 表）显示 16:21-16:33 期间 3 次 `[TestServer] SSE connection failed: Software caused connection abort` + `SSE stream error`——App SSE 连接反复断连；断连窗口内的 admitted/step 事件丢失 → 用户消息/流式更新延迟（"刷新才显示"的深层关联因素之一）；本次启动（17:03，新 APK）后未复发，但断连重连机制无日志记录断连原因/重连间隔
+  - 修复方向：SseConnectionManager 记录断连原因 + 重连间隔日志；区分服务器主动断开（正常）/网络异常；断连期间消息播种兜底（REST 增量）
+  - 工时：~0.5d | 难度：中 | 涉及：SseConnectionManager / SseClientV2
+
+- [ ] **#75 V2 session.instructions.updated 解析失败（data 为数组的事件类型解析缺口）** `sse` `compat`
+  - 问题：2026-08-11 Diagnostics 日志 5 次 `V2 parse error: session.instructions.updated`（15:42-16:07）——parseV2Event 对 `data` 为数组的事件回退顶层字段路径，但 instructions.updated 顶层只有 metadata（无 type 所需字段）→ 后续解析抛异常被记为 ERROR；同时 `session.created` 解析失败（16:03，Kotlin reflection 序列化异常）
+  - 修复方向：instructions.updated 显式处理（metadata 提取或忽略）；session.created 序列化调查（Kotlin reflection 异常——可能与 Json 配置/多态有关）
+  - 工时：~0.5d | 难度：低 | 涉及：V2SseMapper / SseClientV2.parseV2Event
