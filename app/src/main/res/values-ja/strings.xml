@@ -48,6 +48,7 @@
     <string name="notification_channel_tasks">タスク通知</string>
     <string name="notification_connected">%1$sに接続しました</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">送信に失敗しました</string>
     <!-- Common -->
     <string name="ok">OK</string>
     <string name="cancel">キャンセル</string>

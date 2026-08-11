@@ -48,6 +48,7 @@
     <string name="notification_channel_tasks">Görev Bildirimleri</string>
     <string name="notification_connected">%1$s\'e bağlandı</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">Gönderilemedi</string>
     <!-- Common -->
     <string name="ok">Tamam</string>
     <string name="cancel">İptal</string>

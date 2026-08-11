@@ -215,12 +215,10 @@ internal fun ChatScreenBottomBar(
                             )
                         }
                         viewModel.sendMessage(allParts, attachmentParts)
-                        onInputTextChange(TextFieldValue(""))
-                        attachmentHandler.clearAttachments()
+                        // 2026-08-11 用户要求：输入框不在发送时立即清空——
+                        // 发送成功由 ViewModel.sendSuccessTick 信号驱动清空（ChatScreen 监听，
+                        // 含附件/文件提及/草稿）；发送失败 → 输入区内容完全保留 + AlertDialog。
                         onForceScroll()
-                        viewModel.clearConfirmedPaths()
-                        viewModel.clearFileSearch()
-                        viewModel.clearDraft()
                     }
                     if (confirmBeforeSend) {
                         onPendingSendActionSet(doSend)

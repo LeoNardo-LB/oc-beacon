@@ -48,6 +48,7 @@
     <string name="notification_channel_tasks">Powiadomienia o zadaniach</string>
     <string name="notification_connected">Połączono z %1$s</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">Wysyłanie nie powiodło się</string>
     <!-- Common -->
     <string name="ok">OK</string>
     <string name="cancel">Anuluj</string>

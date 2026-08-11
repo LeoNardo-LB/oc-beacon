@@ -50,6 +50,7 @@
     <string name="notification_channel_tasks">任务通知</string>
     <string name="notification_connected">已连接到 %1$s</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">发送失败</string>
     <!-- Common -->
     <string name="ok">确定</string>
     <string name="cancel">取消</string>

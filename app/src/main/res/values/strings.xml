@@ -407,6 +407,7 @@
     <string name="notification_export_progress">Session export progress</string>
     
     <!-- Errors -->
+    <string name="chat_send_failed_title">Send failed</string>
     
     <!-- Common -->
     <string name="ok">OK</string>

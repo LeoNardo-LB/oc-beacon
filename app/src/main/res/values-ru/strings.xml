@@ -97,6 +97,7 @@
     <string name="notification_group_summary">Уведомления OpenCode</string>
     <string name="notification_export_progress">Экспорт сессии</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">Не удалось отправить</string>
     <!-- Common -->
     <string name="ok">ОК</string>
     <string name="cancel">Отмена</string>

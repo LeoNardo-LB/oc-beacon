@@ -222,7 +222,7 @@ class ChatViewModelSendTest {
     }
 
     @Test
-    fun `send failure restores draft and reports error`() = runTest {
+    fun `send failure emits sendFailure alert and clears isSending`() = runTest {
         coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
         val viewModel = createViewModel()
@@ -231,8 +231,13 @@ class ChatViewModelSendTest {
         advanceUntilIdle()
         viewModel.sendMessage("Hello world")
         advanceUntilIdle()
-        assertEquals("Hello world", viewModel.uiState.value.restoredDraft?.text) // 草稿恢复
-        assertNotNull(viewModel.interactionState.value.error) // 错误提示（snackbar 源）
+        // 2026-08-11 用户要求：失败 → AlertDialog（sendFailure 信号），不再回填草稿
+        //（输入框内容在发送期间保留，无需 restoredDraft 恢复）
+        assertNotNull(viewModel.sendFailure.value) // AlertDialog 信号
+        assertNull(
+            "输入框保留语义下不应再设置 restoredDraft",
+            viewModel.uiState.value.restoredDraft
+        )
         assertFalse(viewModel.interactionState.value.isSending) // finally 复位
         collectJob.cancel()
         interactionJob.cancel()
@@ -257,9 +262,9 @@ class ChatViewModelSendTest {
     // ========== 保留：草稿恢复与消费（悲观语义下） ==========
 
     @Test
-    fun `restoredDraft is set on send failure in V1`() = runTest {
-        // V1 sendParts() 捕获异常并将草稿恢复到 _restoredDraft。
-        // 让 sendMessageUseCase.sendPrompt() 抛异常 —— 这正是 V1 调用的方法。
+    fun `send failure emits sendFailure in V1`() = runTest {
+        // V1 sendParts() 捕获异常后：输入框内容保留（发送期间不清空），
+        // 通过 sendFailureSink 触发 AlertDialog。restoredDraft 不再设置。
         coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
 
@@ -271,16 +276,10 @@ class ChatViewModelSendTest {
         viewModel.sendMessage("Hello world")
         advanceUntilIdle()
 
-        // V1 在发送失败时设置 restoredDraft，以便用户重试，并上报错误
-        assertNotNull(
-            "V1 should set restoredDraft on send failure",
-            viewModel.uiState.value.restoredDraft
-        )
-        assertEquals(
-            "Hello world",
-            viewModel.uiState.value.restoredDraft?.text
-        )
-        assertNotNull(viewModel.interactionState.value.error)
+        // 2026-08-11 用户要求：失败 → AlertDialog（sendFailure），输入框保留消息
+        assertNotNull("sendFailure 应携带错误信息", viewModel.sendFailure.value)
+        assertNull("输入框保留语义下不应设置 restoredDraft", viewModel.uiState.value.restoredDraft)
+        assertFalse(viewModel.interactionState.value.isSending)
         collectJob.cancel()
         interactionJob.cancel()
     }

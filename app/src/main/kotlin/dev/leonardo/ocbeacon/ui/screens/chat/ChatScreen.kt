@@ -430,6 +430,34 @@ fun ChatScreen(
         }
     }
 
+    // 2026-08-11 用户要求：发送成功才清空输入区（输入框保留内容直至确认成功）。
+    // 发送失败 → 内容保留在输入框 + AlertDialog（sendFailure）。
+    LaunchedEffect(viewModel.sendSuccessTick) {
+        val tick = viewModel.sendSuccessTick.value
+        if (tick > 0) {
+            inputText = TextFieldValue("")
+            viewModel.clearDraft()
+            viewModel.clearConfirmedPaths()
+            viewModel.clearFileSearch()
+            attachmentHandler.clearAttachments()
+        }
+    }
+
+    // 发送失败 AlertDialog（2026-08-11 用户要求：alert 而非 snackbar）
+    val sendFailureMsg by viewModel.sendFailure.collectAsStateWithLifecycle()
+    sendFailureMsg?.let { message ->
+        AlertDialog(
+            onDismissRequest = { viewModel.consumeSendFailure() },
+            title = { Text(stringResource(R.string.chat_send_failed_title)) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.consumeSendFailure() }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
+    }
+
     // ============ 加载过渡 ============
     // （#53：2026-08-10 的 MIN_LOADING_VISIBLE_MS 人为延迟已移除——NavHost 全局
     // fadeIn 过渡提供进入动画；PulsingDots 仅在真正加载时显示，不欺骗感知）

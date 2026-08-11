@@ -47,6 +47,10 @@ internal class ChatSendDelegate(
     private val modelConfigProvider: () -> ModelConfigState,
     private val selectedVariantProvider: () -> String?,
     private val errorSink: (String) -> Unit,
+    /** 发送失败弹窗通道（AlertDialog）——与 [errorSink]（snackbar）分离。 */
+    private val sendFailureSink: (String) -> Unit,
+    /** 发送成功信号（驱动输入框清空——失败时输入框消息保留，用户要求）。 */
+    private val onSendSuccess: () -> Unit,
     private val draftDelegate: DraftInputDelegate,
 ) {
     fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) {
@@ -119,6 +123,8 @@ internal class ChatSendDelegate(
 
                 // 悲观消息：POST 受理后不显示任何占位，等待服务器 SSE
                 // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
+                // 发送期间 UI 由 isSending 驱动发送按钮转圈（SendStopButton）；
+                // 失败 → 草稿回退输入框 + AlertDialog（sendFailureSink）。
                 sendMessageUseCase.sendPrompt(
                     serverId = serverId,
                     sessionId = currentSessionId,
@@ -130,24 +136,16 @@ internal class ChatSendDelegate(
                 )
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
                 refreshSessionTitleDelayed(currentSessionId)
+                // 发送成功：通知 UI 清空输入框（失败时不通知——消息保留在输入框）
+                onSendSuccess()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to send message", e)
-                // 悲观消息失败：恢复草稿到输入框（text + 图片附件）+ 错误提示（snackbar）
-                val failedText = parts.filter { it.type == "text" }.mapNotNull { it.text }.joinToString("\n")
-                val failedAttachments = parts.filter { it.type == "file" }.mapNotNull { it.url }
-                if (failedText.isNotBlank() || failedAttachments.isNotEmpty()) {
-                    draftDelegate.setRestoredDraft(
-                        RevertedDraftPayload(
-                            text = failedText,
-                            attachmentUris = failedAttachments
-                        )
-                    )
-                    // 回填 _draftAttachmentUris：rememberAttachmentHandler 的
-                    // LaunchedEffect(draftAttachmentUris) 会自动重建附件列表
-                    failedAttachments.forEach { draftDelegate.addDraftAttachment(it) }
-                }
-                errorSink(e.message ?: "Failed to send message")
+                // 2026-08-11 用户要求：输入框内容在发送期间保留（发送时不清空，
+                // 成功才由 onSendSuccess 驱动清空）→ 失败时消息自然留在输入框，
+                // 无需 setRestoredDraft 回填（避免附件重复添加）。
+                // 仅弹 AlertDialog 提示失败。
+                sendFailureSink(e.message ?: "Failed to send message")
             } finally {
                 sendStateStore.setSending(false)
             }

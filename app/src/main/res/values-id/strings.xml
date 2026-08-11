@@ -233,6 +233,7 @@
     <string name="notification_group_summary">Notifikasi OpenCode</string>
     <string name="notification_export_progress">Progres ekspor sesi</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">Pengiriman gagal</string>
     <!-- Common -->
     <string name="ok">OK</string>
     <string name="cancel">Batal</string>

@@ -48,6 +48,7 @@
     <string name="notification_channel_tasks">إشعارات المهام</string>
     <string name="notification_connected">متصل بـ %1$s</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">فشل الإرسال</string>
     <!-- Common -->
     <string name="ok">موافق</string>
     <string name="cancel">إلغاء</string>

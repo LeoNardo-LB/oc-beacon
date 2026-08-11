@@ -48,6 +48,7 @@
     <string name="notification_channel_tasks">Notificaciones de tareas</string>
     <string name="notification_connected">Conectado a %1$s</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">Error al enviar</string>
     <!-- Common -->
     <string name="ok">OK</string>
     <string name="cancel">Cancelar</string>

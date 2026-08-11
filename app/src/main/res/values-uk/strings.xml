@@ -48,6 +48,7 @@
     <string name="notification_channel_tasks">Сповіщення про завдання</string>
     <string name="notification_connected">Підключено до %1$s</string>
     <!-- Errors -->
+    <string name="chat_send_failed_title">Не вдалося надіслати</string>
     <!-- Common -->
     <string name="ok">OK</string>
     <string name="cancel">Скасувати</string>

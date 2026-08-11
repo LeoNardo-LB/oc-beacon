@@ -96,6 +96,21 @@ class ChatViewModel @Inject constructor(
     private val _serverName = MutableStateFlow("")
     val serverName: StateFlow<String> = _serverName.asStateFlow()
 
+    // ============ 发送成功/失败信号（2026-08-11 用户要求） ============
+    // 悲观发送：输入框在发送期间保留内容，成功才清空（sendSuccessTick 驱动）；
+    // 失败 → 消息保留在输入框 + AlertDialog（sendFailure）。
+    private val _sendSuccessTick = MutableStateFlow(0L)
+    /** 发送成功递增信号 —— ChatScreen LaunchedEffect 监听后清空输入框。 */
+    val sendSuccessTick: StateFlow<Long> = _sendSuccessTick.asStateFlow()
+    private val _sendFailure = MutableStateFlow<String?>(null)
+    /** 发送失败消息（非空时 ChatScreen 弹 AlertDialog）。 */
+    val sendFailure: StateFlow<String?> = _sendFailure.asStateFlow()
+
+    /** 消费发送失败弹窗（AlertDialog 确认后清除）。 */
+    fun consumeSendFailure() {
+        _sendFailure.value = null
+    }
+
     // ============ 会话生命周期 Delegate ============
     private val sessionLifecycle = SessionLifecycleDelegate(
         manageSessionUseCase = manageSessionUseCase,
@@ -528,6 +543,8 @@ class ChatViewModel @Inject constructor(
         modelConfigProvider = { modelConfigState.value },
         selectedVariantProvider = { modelConfig.selectedVariantValue },
         errorSink = { messageData.reportError(it) },
+        sendFailureSink = { _sendFailure.value = it },
+        onSendSuccess = { _sendSuccessTick.value++ },
         draftDelegate = draftDelegate,
     )
 
