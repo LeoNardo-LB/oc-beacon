@@ -24,6 +24,18 @@ data class MessageListState(
     val autoLoadPaused: Boolean = false,
     val toolExpandedStates: Map<String, Boolean> = emptyMap(),
     val queuedMessageIds: Set<String> = emptySet(),
+    /**
+     * 原始（未过滤）消息 —— 本会话 combine 管道内的消息快照（revert/加载空态过滤前）。
+     * 供 fixIncompleteMessagesIfIdle 检查（避免新 assistant 消息尚无 parts 时的窗口期），
+     * 以及 messagesList 投影（TokenStatsTracker / markSessionRead）。
+     * #44：sseJob 双订阅合并后由 combine 统一提供，消除独立观察管道。
+     */
+    val rawMessages: List<Message> = emptyList(),
+    /**
+     * 全部消息的 parts 映射（key=messageId，跨会话无冲突）。
+     * 供 messagesList 投影的"assistant 无 parts 过滤"判断，避免重复观察 parts 源。
+     */
+    val partsByMessageId: Map<String, List<Part>> = emptyMap(),
 )
 
 /**

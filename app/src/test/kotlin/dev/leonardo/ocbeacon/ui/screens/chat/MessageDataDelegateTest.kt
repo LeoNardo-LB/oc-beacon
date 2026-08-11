@@ -214,4 +214,123 @@ class MessageDataDelegateTest {
 
         collectJob.cancel()
     }
+
+    // ============ #44：sseJob 投影（messageListState 携带 rawMessages/partsByMessageId） ============
+
+    private fun userMessage(id: String, created: Long = 1L) = Message.User(
+        id = id,
+        sessionId = "sid-1",
+        time = TimeInfo(created = created),
+    )
+
+    private fun textPart(messageId: String, partId: String = "pt-1") = Part.Text(
+        id = partId,
+        sessionId = "sid-1",
+        messageId = messageId,
+        text = "hello",
+    )
+
+    @Test
+    fun `messageListState carries rawMessages and partsByMessageId for sseJob projection`() = runTest {
+        val delegate = buildDelegate()
+        val collectJob = delegateScope!!.subscribe(delegate)
+
+        // 给定：user 消息 + 无 parts 的 assistant（窗口期场景）
+        messagesFlow.value = listOf(
+            userMessage("u-1", created = 10L),
+            assistantMessage("a-1"),
+        )
+        delegate.markLoaded()
+        advanceUntilIdle()
+
+        // 那么：state 携带原始消息与 parts 映射（#44：唯一 combine 管道提供）
+        val state = delegate.messageListState.value
+        assertEquals(2, state.rawMessages.size)
+        assertEquals("u-1", state.rawMessages[0].id)
+        assertEquals("a-1", state.rawMessages[1].id)
+        assertTrue(state.partsByMessageId.isEmpty())
+
+        // parts 到达后映射随之更新
+        partsFlow.value = mapOf("a-1" to listOf(textPart("a-1")))
+        advanceUntilIdle()
+        assertEquals(1, delegate.messageListState.value.partsByMessageId["a-1"]?.size)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `sseJob projection filters assistant without parts but keeps user and raw`() = runTest {
+        val delegate = buildDelegate()
+        val collectJob = delegateScope!!.subscribe(delegate)
+
+        // 给定：1 条 user + 1 条无 parts 的 assistant + 1 条有 parts 的 assistant
+        messagesFlow.value = listOf(
+            userMessage("u-1", created = 10L),
+            assistantMessage("a-1"),
+            assistantMessage("a-2"),
+        )
+        partsFlow.value = mapOf("a-2" to listOf(textPart("a-2")))
+        delegate.markLoaded()
+        advanceUntilIdle()
+
+        // 当：启动 SSE 观察
+        delegate.startObservingMessages()
+        advanceUntilIdle()
+
+        // 那么：messagesList 投影过滤无 parts assistant（u-1 + a-2）
+        val projected = delegate.messagesList.value
+        assertEquals(listOf("u-1", "a-2"), projected.map { it.id })
+        // rawMessages 全量（含窗口期消息）
+        assertEquals(3, delegate.messageListState.value.rawMessages.size)
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `sseJob projection reveals assistant once its part arrives`() = runTest {
+        val delegate = buildDelegate()
+        val collectJob = delegateScope!!.subscribe(delegate)
+
+        // 窗口期：assistant 消息先到（无 parts），不应出现在投影
+        messagesFlow.value = listOf(assistantMessage("a-1"))
+        delegate.markLoaded()
+        delegate.startObservingMessages()
+        advanceUntilIdle()
+        assertTrue(delegate.messagesList.value.isEmpty())
+
+        // 当：第一个 part 到达 → assistant 自然显示（不再永久隐藏）
+        partsFlow.value = mapOf("a-1" to listOf(textPart("a-1")))
+        advanceUntilIdle()
+        assertEquals(listOf("a-1"), delegate.messagesList.value.map { it.id })
+
+        collectJob.cancel()
+    }
+
+    @Test
+    fun `cancelSseJob freezes snapshot and restart resumes`() = runTest {
+        val delegate = buildDelegate()
+        val collectJob = delegateScope!!.subscribe(delegate)
+
+        messagesFlow.value = listOf(userMessage("u-1", created = 10L))
+        delegate.markLoaded()
+        delegate.startObservingMessages()
+        advanceUntilIdle()
+        assertEquals(1, delegate.messagesList.value.size)
+
+        // 当：取消观察（abort/revert 路径）后数据更新 → 快照冻结
+        delegate.cancelSseJob()
+        messagesFlow.value = listOf(
+            userMessage("u-1", created = 10L),
+            userMessage("u-2", created = 20L),
+        )
+        advanceUntilIdle()
+        assertEquals("快照应冻结在取消时", 1, delegate.messagesList.value.size)
+
+        // 当：重启观察 → 快照恢复最新
+        delegate.startObservingMessages()
+        advanceUntilIdle()
+        assertEquals(2, delegate.messagesList.value.size)
+
+        collectJob.cancel()
+    }
 }

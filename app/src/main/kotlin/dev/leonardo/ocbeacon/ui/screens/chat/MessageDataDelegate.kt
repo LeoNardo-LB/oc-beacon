@@ -85,11 +85,11 @@ internal class MessageDataDelegate(
     private val _error = MutableStateFlow<String?>(null)
 
     // ============ V1 消息状态 ============
+    /** 过滤后消息列表的快照 —— 供 [ChatViewModel] 的 init 块消费（TokenStatsTracker）。 */
     private val _messagesList = MutableStateFlow<List<Message>>(emptyList())
     /** 原始（未过滤）消息 —— 用于 hasIncompleteMessage 检查，
      *  避免新 assistant 消息尚无 parts 时的窗口期。 */
     private val _rawMessagesList = MutableStateFlow<List<Message>>(emptyList())
-    private val _partsList = MutableStateFlow<List<Part>>(emptyList())
     private var sseJob: Job? = null
 
     // ============ ChatMessage 实例缓存 ============
@@ -252,6 +252,10 @@ internal class MessageDataDelegate(
                 autoLoadPaused = autoLoadPaused,
                 toolExpandedStates = toolExpandedStates,
                 queuedMessageIds = queuedMessageIds,
+                // #44：原始消息与 parts 映射由唯一 combine 管道统一提供，
+                // sseJob 投影（messagesList/rawMessagesList）不再独立观察数据源。
+                rawMessages = sessionMessages,
+                partsByMessageId = allParts,
             )
             // DIAG 已移除（2026-08-10）：combine 每 48ms 触发的 MsgDiag 日志（每秒 ~80 条 logcat 写入）
             // 是真机掉帧的根因之一——debug 版 BuildConfig.DEBUG=true 时门控无效，必须彻底删除。
@@ -313,29 +317,26 @@ internal class MessageDataDelegate(
     // ============ SSE 观察（由 ChatViewModel + SessionLifecycleDelegate 调用） ============
 
     /**
-     * 观察 V1 chatRepository flow（由 SSE EventDispatcher 驱动）。
-     * 消息和 parts 在 SSE 事件到达时自动更新。
+     * 观察消息快照 —— 由 [messageListState] 投影（#44：消除独立的
+     * `getMessagesFlow + getParts` 双订阅 combine，每个 SSE 事件只扫描一次）。
+     *
+     * 生命周期（cancel/restart）保留：abortSession / revertMessage 需要暂停
+     * 快照更新（RS-006/RS-008 历史竞态修复），与 UI 主列表（messageListState）
+     * 的持续更新解耦。
      */
     fun startObservingMessages() {
         sseJob?.cancel()
-        val sid = sessionIdFlow.value
         sseJob = scope.launch {
-            combine(
-                chatRepository.getMessagesFlow(sid),
-                chatRepository.getParts(sid),
-            ) { messages, parts ->
-                val grouped = parts.groupBy { it.messageId }
+            messageListState.collect { state ->
+                _rawMessagesList.value = state.rawMessages
                 // 过滤掉还没有 parts 的 assistant 消息：
                 // MessageUpdated 可能先于 MessagePartUpdated 到达，此时 assistant 消息存在但没有内容，
                 // 导致 UI 上看起来回复没出现。等第一个 part 到达后自然会显示。
-                val visibleMessages = messages.filter { msg ->
-                    msg is Message.User || (msg is Message.Assistant && grouped[msg.id]?.isNotEmpty() == true)
+                _messagesList.value = state.rawMessages.filter { msg ->
+                    msg is Message.User ||
+                        (msg is Message.Assistant && state.partsByMessageId[msg.id]?.isNotEmpty() == true)
                 }
-                // DIAG 已移除（2026-08-10）：sseJob 每 48ms 触发的日志同样构成日志风暴
-                _rawMessagesList.value = messages
-                _messagesList.value = visibleMessages
-                _partsList.value = parts
-            }.collect { }
+            }
         }
     }
 
