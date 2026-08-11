@@ -43,6 +43,7 @@ class V2EventParser(private val json: Json) : SseEventParser {
         "session.text.",
         "session.message.",
         "session.shell.",
+        "session.execution.",
         "shell."
     )
 
@@ -52,6 +53,20 @@ class V2EventParser(private val json: Json) : SseEventParser {
     override fun parse(eventType: String, props: JsonObject): SseEvent? {
         if (BuildConfig.DEBUG) {
             AppLogger.d(TAG, "V2 event: $eventType ${props.toString().take(150)}")
+        }
+        // V2 turn 生命周期（2026-08-11 实测：v2 不发 session.status/session.idle；
+        // turn 开始/结束权威信号是 execution.started/succeeded）→ 复用既有 FSM 语义：
+        // started → Busy（FSM core），succeeded → Idle（forceComplete）
+        when (eventType) {
+            "session.execution.started" -> {
+                return SseEvent.SessionStatus(
+                    sessionId = sessionIdOrNull(props) ?: "",
+                    status = dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy
+                )
+            }
+            "session.execution.succeeded" -> {
+                return SseEvent.SessionIdle(sessionId = sessionIdOrNull(props) ?: "")
+            }
         }
         // 后台 shell 生命周期——映射为具体事件（驱动 ShellJob 状态流与消息流 Shell 卡片）
         when (eventType) {
