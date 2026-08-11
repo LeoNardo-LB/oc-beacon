@@ -252,7 +252,10 @@ class EventDispatcher @Inject constructor(
         // 不要强制会话为 Idle：会话实际变为空闲时服务器会发送 session.status 事件。
         // 此处强制 Idle 会在 agent 继续下一个工具调用时导致闪烁。
         if (event is SseEvent.CommandExecuted) {
-            AppLogger.i("UnreadDiag", "[CommandExecuted] session=${event.sessionId.take(12)} msg=${event.messageId.take(12)} name=${event.name}")
+            // #45：每命令事件触发——release 下跳过字符串拼接与 logcat
+            if (BuildConfig.DEBUG) {
+                AppLogger.i("UnreadDiag", "[CommandExecuted] session=${event.sessionId.take(12)} msg=${event.messageId.take(12)} name=${event.name}")
+            }
             messageHandler.markSessionIdle(event.sessionId, event.messageId)
         }
 
