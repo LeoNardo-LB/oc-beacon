@@ -48,7 +48,9 @@ object NetworkModule {
         
         install(Logging) {
             logger = Logger.ANDROID
-            level = if (BuildConfig.DEBUG) LogLevel.HEADERS else LogLevel.NONE
+            // #62：HEADERS 逐条打印请求/响应头（实测 90 条/10s，当前最大日志源）
+            // → INFO 只保留请求方法/URL + 响应状态行（每请求 2 行）；release 全关。
+            level = if (BuildConfig.DEBUG) LogLevel.INFO else LogLevel.NONE
         }
         
         install(HttpTimeout) {
