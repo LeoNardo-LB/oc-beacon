@@ -238,6 +238,18 @@
 
 ## P2 — 优化与锦上添花
 
+- [~] **#71 后台系统 + V2 消息链路 D4 人工验收（时间性现象，自动化无法覆盖）** `ui` `sse`
+  - 问题：2026-08-11 后台系统（入口/工具栏/面板/Shell 卡片）与 V2 消息链路（V2SseMapper 流式）开发完成，自动化验证（编译/单测/E2E 功能走查）全部通过；但以下**时间性现象**自动化无法覆盖，需用户真机验收后才可声称完成（verification-requirements.md 维度 5）：
+  - 验收清单：
+    1. **转后台工具栏**滑出/消失动画（fade + expandVertically）——出现时机正确、动画顺滑无跳动
+    2. **后台入口按钮**角标数字出现/消失过渡（BadgedBox）——有后台活动时数字正确、无闪烁
+    3. **后台面板**（ModalBottomSheet）——上拉/拖拽关闭手感、Subagents/Shells tab 切换流畅、子会话跳转返回正常
+    4. **SSE 流式节奏**——AI 回复逐字出现无闪烁/卡顿/跳底（SSE 铁律）；停止生成后状态立即恢复
+    5. **消息即时显示**——发送后用户消息 3s 内出现（V2SseMapper input.admitted 播种），多轮连续发送顺序正确
+  - 验证环境：模拟器 + 真实 V2 服务器（10.0.2.2:4199），**测试专用会话**（用户指定）
+  - 证据：docs/research/RG-2026-08-11-v2-contract-background.md（D4 待验收项）
+  - 状态：`[~]` 待验证——**用户逐项验收通过后勾选 `[x]`**；发现任何问题改回 `[ ]` 进入修复
+
 - [ ] **#67 V2 后台完成通知：synthetic 消息被过滤（PartContent Text 分支）** `sse` `ui`
   - 问题：2026-08-11 V2 契约对齐调研确认——opencode v2 后台任务/subagent 完成时向主会话注入 `POST /api/session/{id}/synthetic` 合成消息；但 oc-beacon 的 PartContent.kt Text 分支 `part.synthetic != true` 直接过滤 → 用户看不到后台完成通知
   - 方案：识别 synthetic 消息并以特殊样式（卡片/淡色+标签）渲染，或独立事件通道驱动通知
