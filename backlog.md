@@ -500,13 +500,15 @@ efactor
   - 根因修复（D TD-4）：`lastSyncCursorPerSession` Map，L3 校验用 `before=encode(lastSyncCursor)` 增量同步；同步成功后推进游标
   - 工时：~0.5d | 难度：中 | 涉及：SessionStateService.kt
   - 来源：F §P2-12 + D §2.1/TD-4
-  - **2026-08-11 调研结论（暂缓）**：V2 listMessages 不支持 before（V2ApiClient.listMessages 仅 limit；V1 的 before 是"更早"方向，无法拉增量）；V2 响应有 nextCursor 但语义未实测——增量游标方案依赖 API 能力确认（并入 #70 调研）；现状 limit=50 + 进入会话 loadMessagesForSession 全量兜底已覆盖绝大多数场景
+  - **2026-08-11 调研结论（暂缓）**：~~V2 listMessages 不支持 before~~ **2026-08-11 实测修正**：V2 服务器**支持**分页（参数名 `cursor`，值=响应体 cursor.next，base64url {"id","order","direction"}；before 参数被忽略）；App 端 V2ApiClient 原缺失 cursor 参数（#56 联动已修复 dfdc116d）；增量游标方案仍待实测（#70）；现状 limit=50 + 进入会话 loadMessagesForSession 全量兜底已覆盖绝大多数场景
 
-- [ ] **#56 分页状态散落重构（TD-1，高严重度技术债）** `refactor` `session`
+- [x] **#56 分页状态散落重构（TD-1，高严重度技术债）** `refactor` `session`
   - 问题：`MessagePaginationDelegate` 9 个可变状态成员（currentMessageLimit, archiveCursorCreated, networkCursorId, networkCursorCreated, _hasOlderMessages, _isLoadingOlder, autoLoadFailures, autoLoadPausedUntil, _autoLoadPaused），职责膨胀。D 报告标记"高严重度"——同一根因（游标抽象缺失）导致 3 次复发（d30a0d57/c5e0ea56）。与 AGENTS.md"SessionStateService 单一真相源"原则相悖
   - 修复（D TD-1）：抽 PaginationCursor sealed class + PaginationFSM（参照 SessionStateFSM 纯函数）；9 个状态 → ≤3 个；修复后可一并消除 #41（loadOlder 竞态）温床
   - 工时：~1-2d | 难度：高 | 涉及：MessagePaginationDelegate / MessagePaginationUseCase / MessageStore
   - 来源：F §P2-13 + D TD-1/模式 A + B §4 图
+  - **2026-08-11 完成（6d3118a2）**：PaginationCursor sealed class（HotStart/Archive/Network）+ PaginationFSM 纯函数状态机；9 个散落成员 → 3 个（limit 配置 + FSM State + isLoadingOlder 互斥）；applyTransition 同步投影（synchronized 串行化）；PaginationFSMTest 12 + DelegateTest 18；⚠️ 修 stateIn(Eagerly) 常驻协程卡 runTest 问题（改同步投影）；全量单测 1465/0/0
+  - **2026-08-11 模拟器实测联动**：发现 V2 网络翻页死循环（90s 250 次请求）——修复（dfdc116d）：V2ApiClient 透传服务器 cursor + PaginationCursor.Network.serverCursor + FSM.LoadSucceeded.nextCursor 透传链；回归测试 v2 network pagination passes server cursor；复测：循环终止（2 次即停）✅；另发现 #72（归档桶内分页缺陷）+ #73（首次网络 cursor 格式不兼容）
 
 - [x] **#57 batchScope 无生命周期管理** `refactor`
   - 问题：App 级 SupervisorJob scope，App 退出时不取消；多会话同时活跃时 fire-and-forget 协程数无上限。`MessageEventHandler.kt:71, 194-204`
@@ -576,3 +578,17 @@ efactor
   - 修复：同 #65 模式统一处理（协程上下文 throw、非协程过滤）
   - 工时：~1h | 难度：低 | 涉及：上述 6 文件
   - **2026-08-10 完成**：5 文件 23 处统一修复（SessionListViewModel 7 / ServerSettingsViewModel 10 / ServerTerminalWorkspace 2 / PtyToTermlibAdapter 3 / FileViewerViewModel 1 onFailure）；WorkspaceViewModel 无需修改（onFailure 无 AppLogger.e）；顺带修正 PtyToTermlibAdapter line 187 注释与代码不一致（注释声明取消异常传播但 catch 吞掉 → 按注释意图补 throw）；未动 AppLogger.w 级与无日志 onFailure；编译 ✅ 全量单测 ✅
+
+### 2026-08-11 模拟器实测批次（#56 联动发现）
+
+- [ ] **#72 归档桶内分页缺陷（桶级游标 vs 消息级游标，桶内剩余消息永久读不出）** `data` `performance`
+  - 问题：2026-08-11 #56 复测（模拟器，归档 88 条/1 桶 + 热表 30 条）发现——`MessageStore.loadArchivedRange`（MessageStore.kt:269-300）按 `bucketEnd < beforeCreated` 查桶（桶级比较），但游标推进到**消息级** created；第 2 次翻页用消息级 created 查桶 → 桶 bucketEnd > 游标 → 判读尽 → **桶内剩余 58 条永久读不出**（数据证据：翻页只释放了 30/88 条归档）
+  - 修复：游标推进到**桶边界**（bucketEnd）而非桶内消息 created；或 loadArchivedRange 支持桶内消息级游标（beforeCreated 内再过滤桶内消息）
+  - 工时：~0.5d | 难度：中 | 涉及：MessageStore.loadArchivedRange + MessagePaginationDelegate 游标推进（PaginationFSM.Archive）
+  - 来源：模拟器实测（#56 复测报告）
+
+- [ ] **#73 首次网络翻页 cursor 格式不兼容（CursorCodec {"id","time"} vs 服务器 {"id","order","direction"}）** `data` `sse`
+  - 问题：2026-08-11 #56 复测发现——首次网络翻页（无 serverCursor）回落 CursorCodec 格式，V2 服务器**返回 0 条**（非注释预期的"忽略返回最新"）；服务器 195 条消息中更早的 ~77 条未被加载（热表 30 + 归档 88 = 118，服务器 195 → 差 77 条读不到）
+  - 修复：进入会话时保存服务器首次响应的 cursor.next（loadMessagesForSession 的 MessagePage.nextCursor）作为首翻游标；或首次网络翻页不带 cursor（拿最新 30 条 + cursor.next）建立边界后再透传
+  - 工时：~0.5d | 难度：中 | 涉及：MessagePaginationUseCase + MessagePaginationDelegate
+  - 来源：模拟器实测（#56 复测报告）
