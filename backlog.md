@@ -452,6 +452,15 @@ efactor
   - 修复：数据层窗口化（保留可视区 + 缓冲区，远端裁剪）
   - 工时：~1-2d | 难度：高 | 涉及：MessageDataDelegate.kt + 翻页管线
   - 来源：F §P2-5 / A 环节 H
+  - **2026-08-11 调研结论（暂缓，保留记录）**：
+    - **收益现状**：combine 开销大头已由 #44（双订阅合一）+ #46（distinctUntilChanged）+ #42（O(n) 归并）+ ChatMessage 缓存解决；剩余纯内存驻留（几十 MB）在现代设备影响有限
+    - **结构性约束**：列表降序 + reverseLayout（index 0=最新在底部），固定窗口裁剪要么裁掉刚加载的更早消息、要么裁掉最新消息；自动分页触发 `totalItemsCount - firstVisibleItemIndex <= 8` 依赖列表总长——简单窗口化不可行，完整方案需 UI offset 模型（ChatMessageList 承重改造）
+    - **业界调研**（2026-08-11，Telegram + AI Agent 工具）：
+      - Telegram Android：**滚动翻历史不释放**——`dialogMessage` 全局单例按会话缓存全部已加载 MessageObject；内存可控靠"轻量元数据驻留（媒体字节外置 ImageLoader LruCache 字节上限 memoryClass/7）+ SQLite 分页 + messages_holes 空洞表"
+      - AI Agent 类（OpenCode/Cline/Continue/LobeChat）：**文本消息业界主流 = 数据层全量驻留 + 渲染层虚拟化**（LobeChat react-virtuoso 最成熟但数据仍全量）；无"滚动懒加载文本"先例
+      - OpenHands：唯一明确推进"数据层双向分页 + cap 内存"的案例（RFC #12705/#12707/#12616，进行中未完全落地）——印证完整窗口化复杂度确实高
+      - 折叠展开（Cline tool 输出折叠）可作将来低风险优化（省渲染内存，不省数据层）
+    - **决策**：暂缓（用户确认）。将来内存吃紧时的优先级建议：折叠展开（低风险）→ 非活跃会话裁剪（#48A 保守）→ OpenHands 式双向分页（高成本）
 
 - [x] **#49 loadArchivedRange N+1 查询 + 写模式** `data` `performance`
   - 问题：每桶 1 查询 + 1 写；桶被字节上限切小时多次循环。`MessageStore.kt:264-292`
