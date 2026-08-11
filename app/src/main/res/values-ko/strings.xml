@@ -612,4 +612,19 @@
     <string name="a11y_icon_selected">선택됨</string>
     <string name="session_unread_indicator">읽지 않은 메시지</string>
     <string name="mark_all_read">모두 읽음으로 표시</string>
+<string name="chat_shell_output_summary">출력</string>
+    <string name="shell_status_running">실행 중</string>
+    <string name="shell_status_exit">종료 코드 %1$d</string>
+    <string name="shell_status_done">완료</string>
+    <string name="background_toolbar_action">백그라운드</string>
+    <string name="background_toolbar_subagents">포그라운드에서 실행 중인 서브 에이전트 %1$d개</string>
+    <string name="a11y_icon_background">백그라운드 활동</string>
+    <string name="background_sheet_subagents_tab">서브 에이전트</string>
+    <string name="background_sheet_shells_tab">셸</string>
+    <string name="background_sheet_empty_subagents">백그라운드 서브 에이전트 없음</string>
+    <string name="background_sheet_empty_shells">셸 명령 없음</string>
+    <string name="background_sheet_title">백그라운드</string>
+    <string name="shell_kill">셸 제거</string>
+    <string name="shell_close">닫기</string>
+    <string name="shell_no_output">아직 출력 없음</string>
 </resources>

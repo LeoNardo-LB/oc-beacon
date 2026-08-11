@@ -628,4 +628,19 @@
     <string name="a11y_icon_selected">محدد</string>
     <string name="session_unread_indicator">رسائل غير مقروءة</string>
     <string name="mark_all_read">تحديد الكل كمقروء</string>
+<string name="chat_shell_output_summary">الإخراج</string>
+    <string name="shell_status_running">قيد التشغيل</string>
+    <string name="shell_status_exit">رمز الخروج %1$d</string>
+    <string name="shell_status_done">تم</string>
+    <string name="background_toolbar_action">الخلفية</string>
+    <string name="background_toolbar_subagents">%1$d وكيل فرعي نشط في المقدمة</string>
+    <string name="a11y_icon_background">أنشطة الخلفية</string>
+    <string name="background_sheet_subagents_tab">الوكلاء الفرعيون</string>
+    <string name="background_sheet_shells_tab">Shells</string>
+    <string name="background_sheet_empty_subagents">لا يوجد وكلاء فرعيون في الخلفية</string>
+    <string name="background_sheet_empty_shells">لا توجد أوامر طرفية</string>
+    <string name="background_sheet_title">الخلفية</string>
+    <string name="shell_kill">إزالة الطرفية</string>
+    <string name="shell_close">إغلاق</string>
+    <string name="shell_no_output">لا يوجد إخراج بعد</string>
 </resources>

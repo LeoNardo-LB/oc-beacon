@@ -612,4 +612,19 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_selected">Selecionado</string>
     <string name="session_unread_indicator">Mensagens não lidas</string>
     <string name="mark_all_read">Marcar tudo como lido</string>
+<string name="chat_shell_output_summary">Saída</string>
+    <string name="shell_status_running">Executando</string>
+    <string name="shell_status_exit">Código de saída %1$d</string>
+    <string name="shell_status_done">Concluído</string>
+    <string name="background_toolbar_action">Plano de fundo</string>
+    <string name="background_toolbar_subagents">%1$d subagente(s) em execução em primeiro plano</string>
+    <string name="a11y_icon_background">Atividades em plano de fundo</string>
+    <string name="background_sheet_subagents_tab">Subagentes</string>
+    <string name="background_sheet_shells_tab">Shells</string>
+    <string name="background_sheet_empty_subagents">Nenhum subagente em segundo plano</string>
+    <string name="background_sheet_empty_shells">Nenhum comando shell</string>
+    <string name="background_sheet_title">Plano de fundo</string>
+    <string name="shell_kill">Remover shell</string>
+    <string name="shell_close">Fechar</string>
+    <string name="shell_no_output">Nenhuma saída ainda</string>
 </resources>

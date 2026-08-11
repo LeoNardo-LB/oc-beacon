@@ -618,4 +618,19 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_selected">Dipilih</string>
     <string name="session_unread_indicator">Pesan belum dibaca</string>
     <string name="mark_all_read">Tandai semua sudah dibaca</string>
+<string name="chat_shell_output_summary">Output</string>
+    <string name="shell_status_running">Berjalan</string>
+    <string name="shell_status_exit">Kode keluar %1$d</string>
+    <string name="shell_status_done">Selesai</string>
+    <string name="background_toolbar_action">Latar belakang</string>
+    <string name="background_toolbar_subagents">%1$d sub-agent berjalan di latar depan</string>
+    <string name="a11y_icon_background">Aktivitas latar belakang</string>
+    <string name="background_sheet_subagents_tab">Sub-agent</string>
+    <string name="background_sheet_shells_tab">Shell</string>
+    <string name="background_sheet_empty_subagents">Tidak ada sub-agent latar belakang</string>
+    <string name="background_sheet_empty_shells">Tidak ada perintah shell</string>
+    <string name="background_sheet_title">Latar belakang</string>
+    <string name="shell_kill">Hapus shell</string>
+    <string name="shell_close">Tutup</string>
+    <string name="shell_no_output">Belum ada output</string>
 </resources>

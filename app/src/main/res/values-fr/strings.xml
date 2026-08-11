@@ -610,4 +610,19 @@
     <string name="a11y_icon_selected">Sélectionné</string>
     <string name="session_unread_indicator">Messages non lus</string>
     <string name="mark_all_read">Tout marquer comme lu</string>
+<string name="chat_shell_output_summary">Sortie</string>
+    <string name="shell_status_running">Exécution</string>
+    <string name="shell_status_exit">Code de sortie %1$d</string>
+    <string name="shell_status_done">Terminé</string>
+    <string name="background_toolbar_action">Arrière-plan</string>
+    <string name="background_toolbar_subagents">%1$d sous-agent(s) en cours au premier plan</string>
+    <string name="a11y_icon_background">Activités en arrière-plan</string>
+    <string name="background_sheet_subagents_tab">Sous-agents</string>
+    <string name="background_sheet_shells_tab">Shells</string>
+    <string name="background_sheet_empty_subagents">Aucun sous-agent en arrière-plan</string>
+    <string name="background_sheet_empty_shells">Aucune commande shell</string>
+    <string name="background_sheet_title">Arrière-plan</string>
+    <string name="shell_kill">Supprimer le shell</string>
+    <string name="shell_close">Fermer</string>
+    <string name="shell_no_output">Aucune sortie pour le moment</string>
 </resources>

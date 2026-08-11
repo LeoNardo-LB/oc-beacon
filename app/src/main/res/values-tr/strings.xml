@@ -612,4 +612,19 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_selected">Seçildi</string>
     <string name="session_unread_indicator">Okunmamış mesajlar</string>
     <string name="mark_all_read">Tümünü okundu işaretle</string>
+<string name="chat_shell_output_summary">Çıkış</string>
+    <string name="shell_status_running">Çalışıyor</string>
+    <string name="shell_status_exit">Çıkış kodu %1$d</string>
+    <string name="shell_status_done">Tamamlandı</string>
+    <string name="background_toolbar_action">Arka plan</string>
+    <string name="background_toolbar_subagents">Ön planda %1$d alt agent çalışıyor</string>
+    <string name="a11y_icon_background">Arka plan etkinlikleri</string>
+    <string name="background_sheet_subagents_tab">Alt agentlar</string>
+    <string name="background_sheet_shells_tab">Shell</string>
+    <string name="background_sheet_empty_subagents">Arka planda alt agent yok</string>
+    <string name="background_sheet_empty_shells">Shell komutu yok</string>
+    <string name="background_sheet_title">Arka plan</string>
+    <string name="shell_kill">Shell kaldır</string>
+    <string name="shell_close">Kapat</string>
+    <string name="shell_no_output">Henüz çıktı yok</string>
 </resources>

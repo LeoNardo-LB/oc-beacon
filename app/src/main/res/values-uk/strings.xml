@@ -620,4 +620,19 @@
     <string name="a11y_icon_selected">Вибрано</string>
     <string name="session_unread_indicator">Непрочитані повідомлення</string>
     <string name="mark_all_read">Позначити всі як прочитані</string>
+<string name="chat_shell_output_summary">Вивід</string>
+    <string name="shell_status_running">Виконується</string>
+    <string name="shell_status_exit">Код виходу %1$d</string>
+    <string name="shell_status_done">Готово</string>
+    <string name="background_toolbar_action">Фон</string>
+    <string name="background_toolbar_subagents">%1$d суб-агент(ів) на передньому плані</string>
+    <string name="a11y_icon_background">Фонові дії</string>
+    <string name="background_sheet_subagents_tab">Суб-агенти</string>
+    <string name="background_sheet_shells_tab">Shell</string>
+    <string name="background_sheet_empty_subagents">Немає фонових суб-агентів</string>
+    <string name="background_sheet_empty_shells">Немає команд shell</string>
+    <string name="background_sheet_title">Фон</string>
+    <string name="shell_kill">Видалити shell</string>
+    <string name="shell_close">Закрити</string>
+    <string name="shell_no_output">Виводу ще немає</string>
 </resources>
