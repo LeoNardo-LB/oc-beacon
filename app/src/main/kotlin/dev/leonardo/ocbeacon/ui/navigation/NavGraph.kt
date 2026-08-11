@@ -399,22 +399,6 @@ fun NavGraph(
                     )
                     navController.navigate(route)
                 },
-                onOpenInWebView = {
-                    scope.launch {
-                        val session = sessionRepository.getSession(params.server.serverId, params.sessionId).getOrNull()
-                        val dir = session?.directory ?: ""
-                        val encodedDir = android.util.Base64.encodeToString(
-                            dir.toByteArray(Charsets.UTF_8),
-                            android.util.Base64.NO_WRAP
-                        ).replace('+', '-').replace('/', '_').replace("=", "")
-                        val sessionPath = "/$encodedDir/session/${params.sessionId}"
-                        val route = WebViewNav.createRoute(
-                            serverId = params.server.serverId,
-                            initialPath = sessionPath
-                        )
-                        navController.navigate(route) { launchSingleTop = true }
-                    }
-                },
                 onOpenWorkspace = {
                     scope.launch {
                         val session = sessionRepository.getSession(params.server.serverId, params.sessionId).getOrNull()

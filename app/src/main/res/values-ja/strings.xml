@@ -241,7 +241,6 @@
     <string name="chat_session_renamed">セッション名を変更しました</string>
     <string name="chat_session_rename_failed">名前変更に失敗しました</string>
     <string name="chat_menu_open_workspace">ワークスペースを表示</string>
-    <string name="menu_open_in_web">Webで開く</string>
     <string name="menu_fork_session">セッションをフォーク</string>
     <string name="menu_compact_session">セッションをコンパクト化</string>
     <string name="menu_share_session">セッションを共有</string>
@@ -461,7 +460,6 @@
     <string name="a11y_icon_share">共有</string>
     <string name="a11y_icon_unlink">リンク解除</string>
     <string name="a11y_icon_terminal">端末</string>
-    <string name="a11y_icon_language">言語</string>
     <string name="a11y_icon_copy_all">すべてコピー</string>
     <string name="a11y_icon_compress">圧縮</string>
     <string name="a11y_icon_rate_review">評価</string>

@@ -241,7 +241,6 @@
     <string name="chat_session_renamed">Oturum yeniden adlandırıldı</string>
     <string name="chat_session_rename_failed">Yeniden adlandırılamadı</string>
     <string name="chat_menu_open_workspace">Çalışma alanını görüntüle</string>
-    <string name="menu_open_in_web">Web\'de aç</string>
     <string name="menu_fork_session">Oturumu çatalla</string>
     <string name="menu_compact_session">Oturumu küçült</string>
     <string name="menu_share_session">Oturumu paylaş</string>
@@ -461,7 +460,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_share">Paylaş</string>
     <string name="a11y_icon_unlink">Bağlantıyı kaldır</string>
     <string name="a11y_icon_terminal">Terminal</string>
-    <string name="a11y_icon_language">Dil</string>
     <string name="a11y_icon_copy_all">Tümünü kopyala</string>
     <string name="a11y_icon_compress">Sıkıştır</string>
     <string name="a11y_icon_rate_review">Değerlendir</string>

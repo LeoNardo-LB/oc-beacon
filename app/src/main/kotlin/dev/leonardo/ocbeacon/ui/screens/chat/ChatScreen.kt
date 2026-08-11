@@ -268,7 +268,6 @@ fun ChatScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSession: (sessionId: String) -> Unit = {},
     onNavigateToChildSession: (String) -> Unit = {},
-    onOpenInWebView: () -> Unit = {},
     onOpenWorkspace: () -> Unit = {},
     onOpenFile: (filePath: String) -> Unit = {},
     onOpenDirectory: (directoryPath: String) -> Unit = {},
@@ -576,7 +575,6 @@ fun ChatScreen(
                         lastContextTokens = tokenStats.lastContextTokens,
                         onNavigateBack = onNavigateBack,
                         onTerminalMode = { isTerminalMode = true },
-                        onOpenInWebView = onOpenInWebView,
                         onForkSession = {
                             viewModel.forkSession { session ->
                                 if (session != null) {

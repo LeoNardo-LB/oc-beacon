@@ -11,7 +11,6 @@ import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.CopyAll
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
@@ -55,7 +54,6 @@ fun ChatTopBar(
     lastContextTokens: Int = 0,
     onNavigateBack: () -> Unit,
     onTerminalMode: () -> Unit,
-    onOpenInWebView: () -> Unit,
     onForkSession: () -> Unit,
     onCompactSession: () -> Unit,
     onShare: () -> Unit,
@@ -179,16 +177,6 @@ fun ChatTopBar(
                             },
                             leadingIcon = {
                                 Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.a11y_icon_terminal))
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.menu_open_in_web)) },
-                            onClick = {
-                                showMenu = false
-                                onOpenInWebView()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Language, contentDescription = stringResource(R.string.a11y_icon_language))
                             }
                         )
                         DropdownMenuItem(

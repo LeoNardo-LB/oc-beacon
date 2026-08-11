@@ -249,7 +249,6 @@
     <string name="chat_session_renamed">Sesja przemianowana</string>
     <string name="chat_session_rename_failed">Nie udało się zmienić nazwy</string>
     <string name="chat_menu_open_workspace">Wyświetl obszar roboczy</string>
-    <string name="menu_open_in_web">Otwórz w przeglądarce</string>
     <string name="menu_fork_session">Rozdziel sesję</string>
     <string name="menu_compact_session">Kompaktuj sesję</string>
     <string name="menu_share_session">Udostępnij sesję</string>
@@ -469,7 +468,6 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_share">Udostępnij</string>
     <string name="a11y_icon_unlink">Odłącz</string>
     <string name="a11y_icon_terminal">Terminal</string>
-    <string name="a11y_icon_language">Język</string>
     <string name="a11y_icon_copy_all">Kopiuj wszystko</string>
     <string name="a11y_icon_compress">Kompresuj</string>
     <string name="a11y_icon_rate_review">Oceń</string>

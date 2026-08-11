@@ -249,7 +249,6 @@
     <string name="chat_session_renamed">Сесію перейменовано</string>
     <string name="chat_session_rename_failed">Не вдалося перейменувати</string>
     <string name="chat_menu_open_workspace">Переглянути робочий простір</string>
-    <string name="menu_open_in_web">Відкрити у веб</string>
     <string name="menu_fork_session">Розділити сесію</string>
     <string name="menu_compact_session">Стиснути сесію</string>
     <string name="menu_share_session">Поділитися сесією</string>
@@ -469,7 +468,6 @@
     <string name="a11y_icon_share">Поділитися</string>
     <string name="a11y_icon_unlink">Відм’язати</string>
     <string name="a11y_icon_terminal">Термінал</string>
-    <string name="a11y_icon_language">Мова</string>
     <string name="a11y_icon_copy_all">Копіювати все</string>
     <string name="a11y_icon_compress">Стиснути</string>
     <string name="a11y_icon_rate_review">Оцінити</string>

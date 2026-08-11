@@ -281,7 +281,6 @@
     <string name="chat_session_rename_failed">Не удалось переименовать</string>
     <string name="chat_summarized">Контекст сжат</string>
     <string name="chat_menu_open_workspace">Открыть рабочую область</string>
-    <string name="menu_open_in_web">Открыть в Web</string>
     <string name="menu_fork_session">Форкнуть сессию</string>
     <string name="menu_compact_session">Сжать сессию</string>
     <string name="menu_share_session">Поделиться сессией</string>
@@ -470,7 +469,6 @@
     <string name="a11y_icon_share">Поделиться</string>
     <string name="a11y_icon_unlink">Отвязать</string>
     <string name="a11y_icon_terminal">Терминал</string>
-    <string name="a11y_icon_language">Язык</string>
     <string name="a11y_icon_copy_all">Копировать всё</string>
     <string name="a11y_icon_compress">Сжать</string>
     <string name="a11y_icon_rate_review">Оценить</string>

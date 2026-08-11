@@ -241,7 +241,6 @@
     <string name="chat_session_renamed">Sitzung umbenannt</string>
     <string name="chat_session_rename_failed">Konnte nicht umbenennen</string>
     <string name="chat_menu_open_workspace">Arbeitsbereich anzeigen</string>
-    <string name="menu_open_in_web">Im Web öffnen</string>
     <string name="menu_fork_session">Sitzung forken</string>
     <string name="menu_compact_session">Sitzung komprimieren</string>
     <string name="menu_share_session">Sitzung teilen</string>
@@ -461,7 +460,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_share">Teilen</string>
     <string name="a11y_icon_unlink">Verknüpfung lösen</string>
     <string name="a11y_icon_terminal">Terminal</string>
-    <string name="a11y_icon_language">Sprache</string>
     <string name="a11y_icon_copy_all">Alles kopieren</string>
     <string name="a11y_icon_compress">Komprimieren</string>
     <string name="a11y_icon_rate_review">Bewerten</string>

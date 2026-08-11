@@ -257,7 +257,6 @@
     <string name="chat_session_renamed">تم إعادة تسمية الجلسة</string>
     <string name="chat_session_rename_failed">فشل في إعادة التسمية</string>
     <string name="chat_menu_open_workspace">عرض مساحة العمل</string>
-    <string name="menu_open_in_web">فتح في الويب</string>
     <string name="menu_fork_session">تفرع الجلسة</string>
     <string name="menu_compact_session">تجميع الجلسة</string>
     <string name="menu_share_session">مشاركة الجلسة</string>
@@ -477,7 +476,6 @@
     <string name="a11y_icon_share">مشاركة</string>
     <string name="a11y_icon_unlink">إزالة الربط</string>
     <string name="a11y_icon_terminal">طرفية</string>
-    <string name="a11y_icon_language">اللغة</string>
     <string name="a11y_icon_copy_all">نسخ الكل</string>
     <string name="a11y_icon_compress">ضغط</string>
     <string name="a11y_icon_rate_review">تقييم</string>

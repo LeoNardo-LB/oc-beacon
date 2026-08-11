@@ -487,7 +487,6 @@
     <!-- Chat menu actions -->
     <string name="chat_menu_open_workspace">View Workspace</string>
     <string name="menu_quick_navigate">Quick navigate</string>
-    <string name="menu_open_in_web">Open in Web</string>
     <string name="menu_fork_session">Fork session</string>
     <string name="menu_compact_session">Compact session</string>
     <string name="menu_review_changes">Review changes</string>
@@ -576,7 +575,6 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_share">Share</string>
     <string name="a11y_icon_unlink">Unlink</string>
     <string name="a11y_icon_terminal">Terminal</string>
-    <string name="a11y_icon_language">Language</string>
     <string name="a11y_icon_copy_all">Copy all</string>
     <string name="a11y_icon_compress">Compress</string>
     <string name="a11y_icon_rate_review">Review</string>

@@ -241,7 +241,6 @@
     <string name="chat_session_renamed">Session renommée</string>
     <string name="chat_session_rename_failed">Échec du renommage</string>
     <string name="chat_menu_open_workspace">Voir l\'espace de travail</string>
-    <string name="menu_open_in_web">Ouvrir dans le navigateur</string>
     <string name="menu_fork_session">Dupliquer la session</string>
     <string name="menu_compact_session">Réduire la session</string>
     <string name="menu_share_session">Partager la session</string>
@@ -459,7 +458,6 @@
     <string name="a11y_icon_share">Partager</string>
     <string name="a11y_icon_unlink">Dissocier</string>
     <string name="a11y_icon_terminal">Terminal</string>
-    <string name="a11y_icon_language">Langue</string>
     <string name="a11y_icon_copy_all">Tout copier</string>
     <string name="a11y_icon_compress">Compresser</string>
     <string name="a11y_icon_rate_review">Réviser</string>

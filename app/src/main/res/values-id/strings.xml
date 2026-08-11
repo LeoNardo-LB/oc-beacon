@@ -299,7 +299,6 @@
     <string name="chat_summarized">Konteks dikompak</string>
     <!-- Chat menu actions -->
     <string name="chat_menu_open_workspace">Lihat ruang kerja</string>
-    <string name="menu_open_in_web">Buka di Web</string>
     <string name="menu_fork_session">Fork sesi</string>
     <string name="menu_compact_session">Kompak sesi</string>
     <string name="menu_share_session">Bagikan sesi</string>
@@ -467,7 +466,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_share">Bagikan</string>
     <string name="a11y_icon_unlink">Lepas tautan</string>
     <string name="a11y_icon_terminal">Terminal</string>
-    <string name="a11y_icon_language">Bahasa</string>
     <string name="a11y_icon_copy_all">Salin semua</string>
     <string name="a11y_icon_compress">Kompres</string>
     <string name="a11y_icon_rate_review">Beri ulasan</string>

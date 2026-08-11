@@ -251,7 +251,6 @@
     <string name="chat_session_rename_failed">重命名失败</string>
     <string name="chat_menu_open_workspace">查看工作空间</string>
     <string name="menu_quick_navigate">快速定位</string>
-    <string name="menu_open_in_web">在 Web 中打开</string>
     <string name="menu_fork_session">分叉会话</string>
     <string name="menu_compact_session">压缩会话</string>
     <string name="menu_share_session">分享会话</string>
@@ -475,7 +474,6 @@
     <string name="a11y_icon_share">分享</string>
     <string name="a11y_icon_unlink">取消链接</string>
     <string name="a11y_icon_terminal">终端</string>
-    <string name="a11y_icon_language">语言</string>
     <string name="a11y_icon_copy_all">全部复制</string>
     <string name="a11y_icon_compress">压缩</string>
     <string name="a11y_icon_rate_review">评价</string>

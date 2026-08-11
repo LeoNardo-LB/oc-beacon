@@ -241,7 +241,6 @@
     <string name="chat_session_renamed">세션 이름 변경됨</string>
     <string name="chat_session_rename_failed">이름 변경 실패</string>
     <string name="chat_menu_open_workspace">워크스페이스 보기</string>
-    <string name="menu_open_in_web">웹에서 열기</string>
     <string name="menu_fork_session">세션 포크</string>
     <string name="menu_compact_session">세션 압축</string>
     <string name="menu_share_session">세션 공유</string>
@@ -461,7 +460,6 @@
     <string name="a11y_icon_share">공유</string>
     <string name="a11y_icon_unlink">연결 해제</string>
     <string name="a11y_icon_terminal">터미널</string>
-    <string name="a11y_icon_language">언어</string>
     <string name="a11y_icon_copy_all">모두 복사</string>
     <string name="a11y_icon_compress">압축</string>
     <string name="a11y_icon_rate_review">리뷰</string>

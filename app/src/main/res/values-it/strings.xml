@@ -241,7 +241,6 @@
     <string name="chat_session_renamed">Sessione rinominata</string>
     <string name="chat_session_rename_failed">Impossibile rinominare</string>
     <string name="chat_menu_open_workspace">Visualizza area di lavoro</string>
-    <string name="menu_open_in_web">Apri nel Web</string>
     <string name="menu_fork_session">Biforca sessione</string>
     <string name="menu_compact_session">Compatta sessione</string>
     <string name="menu_share_session">Condividi sessione</string>
@@ -461,7 +460,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_share">Condividi</string>
     <string name="a11y_icon_unlink">Scollega</string>
     <string name="a11y_icon_terminal">Terminale</string>
-    <string name="a11y_icon_language">Lingua</string>
     <string name="a11y_icon_copy_all">Copia tutto</string>
     <string name="a11y_icon_compress">Comprimi</string>
     <string name="a11y_icon_rate_review">Rivedi</string>

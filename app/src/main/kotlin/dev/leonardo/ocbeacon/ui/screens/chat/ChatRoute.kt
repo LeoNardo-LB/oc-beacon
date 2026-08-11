@@ -20,7 +20,6 @@ import dev.leonardo.ocbeacon.ui.navigation.routes.ChatNav
  *     onNavigateBack = { ... },
  *     onNavigateToSession = { ... },
  *     onNavigateToChildSession = { ... },
- *     onOpenInWebView = { ... },
  *     onOpenWorkspace = { ... },
  *     getPendingShare = { sessionId -> ... },
  *     consumeShare = { ... }
@@ -32,7 +31,6 @@ fun NavGraphBuilder.chatScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSession: (serverId: String, sessionId: String) -> Unit,
     onNavigateToChildSession: (serverId: String, sessionId: String) -> Unit,
-    onOpenInWebView: (serverId: String, sessionId: String) -> Unit,
     onOpenWorkspace: (serverId: String, sessionId: String, directory: String) -> Unit,
     getPendingShare: (sessionId: String) -> List<Uri>,
     consumeShare: () -> Unit,
@@ -54,9 +52,6 @@ fun NavGraphBuilder.chatScreen(
             },
             onNavigateToChildSession = { childSessionId ->
                 onNavigateToChildSession(args.server.serverId, childSessionId)
-            },
-            onOpenInWebView = {
-                onOpenInWebView(args.server.serverId, args.sessionId)
             },
             onOpenWorkspace = {
                 onOpenWorkspace(args.server.serverId, args.sessionId, args.directory)
