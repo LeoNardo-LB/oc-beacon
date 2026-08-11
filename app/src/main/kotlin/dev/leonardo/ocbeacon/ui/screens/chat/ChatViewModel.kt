@@ -471,6 +471,11 @@ class ChatViewModel @Inject constructor(
             viewModelScope.launch {
                 try { sessionLifecycle.loadSession() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadSession failed", e) }
                 try { messageData.paginationDelegate.loadMessages() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadMessages failed", e) }
+                // 修复历史 completed==null（SSE 完成事件丢失/服务器重启场景）：
+                // 触发 REST 校验 → 服务器确认 idle 时 markSessionIdle（内存+落盘），
+                // 否则 "Thinking…" 计时器对已结束消息一直涨（2026-08-11 用户报告）。
+                // 服务器 busy（真实流式）时 REST 校验返回 busy，不误标记。
+                try { messageData.fixIncompleteMessagesIfIdle(sessionId) } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "fixIncompleteMessagesIfIdle failed", e) }
                 try { messageData.loadPendingQuestions() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadPendingQuestions failed", e) }
                 try { messageData.loadPendingPermissions() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadPendingPermissions failed", e) }
             }

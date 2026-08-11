@@ -457,6 +457,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_search">Cerca</string>
     <string name="a11y_icon_warning">Attenzione</string>
     <string name="a11y_icon_navigate_forward">Naviga avanti</string>
+    <string name="a11y_locate_task">Individua attività originale</string>
     <string name="a11y_icon_add">Aggiungi</string>
     <string name="a11y_icon_share">Condividi</string>
     <string name="a11y_icon_unlink">Scollega</string>

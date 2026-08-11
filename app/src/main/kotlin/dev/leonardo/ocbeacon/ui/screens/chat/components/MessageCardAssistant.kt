@@ -65,6 +65,8 @@ internal fun MessageCardAssistant(
     isStreamingTurn: Boolean = false,
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
+    onLocateTask: ((String) -> Unit)? = null,
+    locatableSubagentIds: Set<String> = emptySet(),
 ) {
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
 
@@ -113,6 +115,18 @@ internal fun MessageCardAssistant(
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
                                     color = dividerColor
+                                )
+                            }
+                        }
+                        is RenderItem.SyntheticNotice -> {
+                            // synthetic 系统通知卡片（后台任务完成）——嵌入气泡内渲染
+                            key(item.msgId) {
+                                SyntheticNotificationCard(
+                                    currentMessage = item.message,
+                                    isAmoled = isAmoled,
+                                    onViewSubSession = onViewSubSession,
+                                    onLocateTask = onLocateTask,
+                                    locatableSubagentIds = locatableSubagentIds,
                                 )
                             }
                         }

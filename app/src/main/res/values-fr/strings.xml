@@ -455,6 +455,7 @@
     <string name="a11y_icon_search">Rechercher</string>
     <string name="a11y_icon_warning">Avertissement</string>
     <string name="a11y_icon_navigate_forward">Naviguer en avant</string>
+    <string name="a11y_locate_task">Localiser la tâche d\'origine</string>
     <string name="a11y_icon_add">Ajouter</string>
     <string name="a11y_icon_share">Partager</string>
     <string name="a11y_icon_unlink">Dissocier</string>

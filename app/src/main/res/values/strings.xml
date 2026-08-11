@@ -571,6 +571,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_search">Search</string>
     <string name="a11y_icon_warning">Warning</string>
     <string name="a11y_icon_navigate_forward">Navigate forward</string>
+    <string name="a11y_locate_task">Locate originating task</string>
     <string name="a11y_icon_add">Add</string>
     <string name="a11y_icon_share">Share</string>
     <string name="a11y_icon_unlink">Unlink</string>

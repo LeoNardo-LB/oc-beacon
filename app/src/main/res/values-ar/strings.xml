@@ -473,6 +473,7 @@
     <string name="a11y_icon_search">بحث</string>
     <string name="a11y_icon_warning">تحذير</string>
     <string name="a11y_icon_navigate_forward">التقدم للأمام</string>
+    <string name="a11y_locate_task">تحديد موقع المهمة الأصلية</string>
     <string name="a11y_icon_add">إضافة</string>
     <string name="a11y_icon_share">مشاركة</string>
     <string name="a11y_icon_unlink">إزالة الربط</string>

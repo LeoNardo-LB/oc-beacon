@@ -465,6 +465,7 @@
     <string name="a11y_icon_search">Пошук</string>
     <string name="a11y_icon_warning">Попередження</string>
     <string name="a11y_icon_navigate_forward">Переміститися вперед</string>
+    <string name="a11y_locate_task">Знайти початкове завдання</string>
     <string name="a11y_icon_add">Додати</string>
     <string name="a11y_icon_share">Поділитися</string>
     <string name="a11y_icon_unlink">Відм’язати</string>

@@ -48,6 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -91,6 +94,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -148,6 +153,47 @@ fun ChatMessageList(
         } else {
             turnGroupsSigRef[0] = sig
             computeTurnGroups(rawMessages).also { turnGroupsRef[0] = it }
+        }
+    }
+
+    // 「定位发起卡片」支持（2026-08-11 用户要求）：
+    // - locatableSubagentIds：当前消息流中所有 task/subagent 工具卡片携带的
+    //   子会话 ID（metadata.sessionId）——synthetic 完成通知的 <task id> 与之匹配
+    //   时可定位到发起卡片。
+    // - highlightedTurnKey：点击定位后短暂高亮的 LazyColumn item key（3 秒后清除）。
+    val locatableSubagentIds: Set<String> = remember(rawMessages) {
+        rawMessages.flatMap { msg ->
+            msg.parts.filterIsInstance<Part.Tool>()
+                .filter { it.tool == "task" || it.tool == "subagent" }
+                .mapNotNull { tool -> extractToolSubagentSessionId(tool) }
+        }.toSet()
+    }
+    var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(highlightedTurnKey) {
+        if (highlightedTurnKey != null) {
+            delay(3000)
+            highlightedTurnKey = null
+        }
+    }
+    val onLocateTask: (String) -> Unit = { targetSessionId ->
+        val targetIndex = displayItems.indexOfFirst { (rawIndex, m) ->
+            val turnMsgs = turnGroups[rawIndex] ?: listOf(m)
+            turnMsgs.any { tm ->
+                tm.parts.any { p ->
+                    p is Part.Tool &&
+                        (p.tool == "task" || p.tool == "subagent") &&
+                        extractToolSubagentSessionId(p) == targetSessionId
+                }
+            }
+        }
+        if (targetIndex >= 0) {
+            coroutineScope.launch { listState.scrollToItem(targetIndex) }
+            val (rawIndex, targetMsg) = displayItems[targetIndex]
+            highlightedTurnKey = if (targetMsg.isUser) {
+                "u_${targetMsg.message.id}"
+            } else {
+                "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
+            }
         }
     }
 
@@ -515,6 +561,8 @@ fun ChatMessageList(
                         },
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
                     ) { displayItemIndex, (rawIndex, msg) ->
+                        val itemKey = if (msg.isUser) "u_${msg.message.id}"
+                            else "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
                         val isStreamingMsg = (turnGroups[rawIndex] ?: listOf(msg)).any { it.message.id == streamingMsgId }
                         val itemModifier = if (isStreamingMsg) {
                             Modifier
@@ -539,10 +587,26 @@ fun ChatMessageList(
                                     }
                                 }
                         } else Modifier.fillMaxWidth()
-                        Box(modifier = itemModifier) {
+                        // 定位发起卡片后的短暂高亮（3 秒后自动清除）
+                        val isHighlighted = itemKey == highlightedTurnKey
+                        Box(
+                            modifier = itemModifier.then(
+                                if (isHighlighted) {
+                                    Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.SELECTED)
+                                        )
+                                } else Modifier
+                            )
+                        ) {
                         when {
                             msg.isAssistant -> {
-                                val isTurnLast = rawIndex == rawMessages.lastIndex || rawMessages.getOrNull(rawIndex + 1)?.isAssistant != true
+                                // isTurnLast：下一条"非 synthetic"消息不是 assistant 才算 turn 尾。
+                                // synthetic 通知嵌入 turn 内（2026-08-11），不阻挡统计栏。
+                                val nextReal = rawMessages.subList(rawIndex + 1, rawMessages.size)
+                                    .firstOrNull { !it.isSynthetic }
+                                val isTurnLast = nextReal == null || !nextReal.isAssistant
 
                                 MessageCard(
                                     role = MessageCardRole.ASSISTANT,
@@ -559,6 +623,8 @@ fun ChatMessageList(
                                             snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
                                         }
                                     },
+                                    onLocateTask = onLocateTask,
+                                    locatableSubagentIds = locatableSubagentIds,
                                 )
                             }
                             msg.isUser -> {
@@ -729,3 +795,21 @@ fun ChatMessageList(
 }
 
 
+
+/**
+ * 提取 task/subagent 工具卡片的子会话 ID（metadata.sessionId / sessionID）。
+ * 与 TaskToolCard 的解析逻辑一致（小写优先）——synthetic 完成通知的 <task id>
+ * 与之匹配，用于「定位发起卡片」按钮（2026-08-11）。大写 sessionID 兜底
+ * （SSE 事件路径可能只写大写）。
+ */
+internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
+    val metadata = when (val state = tool.state) {
+        is ToolState.Completed -> state.metadata
+        is ToolState.Running -> state.metadata
+        else -> null
+    } ?: return null
+    val raw = metadata["sessionId"] ?: metadata["sessionID"] ?: return null
+    return runCatching { raw.jsonPrimitive.contentOrNull }
+        .getOrNull()
+        ?.takeIf { it.isNotBlank() }
+}

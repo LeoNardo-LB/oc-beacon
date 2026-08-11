@@ -35,6 +35,9 @@ sealed class RenderItem {
     data class TurnDivider(val msgId: String) : RenderItem()
     @Immutable
     data class GroupedParts(val group: PartGroup) : RenderItem()
+    /** synthetic 系统通知卡片（后台任务完成，2026-08-11 嵌入气泡内渲染）。 */
+    @Immutable
+    data class SyntheticNotice(val msgId: String, val message: ChatMessage) : RenderItem()
 }
 
 /**
@@ -49,9 +52,18 @@ fun computeRenderableTurn(
 ): RenderableTurn {
     val ordered = turnMessages?.reversed() ?: listOf(currentMessage)
 
-    // 单次遍历：过滤 + 分组 + 分隔线
+    // 单次遍历：过滤 + 分组 + 分隔线 + synthetic 卡片
     val renderItems = mutableListOf<RenderItem>()
     for ((msgIndex, msg) in ordered.withIndex()) {
+        if (msg.isSynthetic) {
+            // synthetic 通知：不渲染其 text parts（原文是 <task> 结构化标签），
+            // 以卡片渲染项嵌入气泡内（2026-08-11 用户要求：不独立成行截断气泡）。
+            renderItems.add(RenderItem.SyntheticNotice(msg.message.id, msg))
+            if (msgIndex < ordered.lastIndex) {
+                renderItems.add(RenderItem.TurnDivider(msg.message.id))
+            }
+            continue
+        }
         val msgParts = filterRenderableParts(msg.parts)
         val groups = groupContextParts(msgParts)
         for (group in groups) {
@@ -101,8 +113,9 @@ fun computeRenderableTurn(
         .filterIsInstance<Part.Agent>()
         .firstOrNull()?.name?.takeIf { it.isNotBlank() }
 
-    // 复制文本 —— 所有文本 parts 拼接
+    // 复制文本 —— 所有文本 parts 拼接（跳过 synthetic 的 <task> 结构化原文）
     val copyText = ordered
+        .filterNot { it.isSynthetic }
         .flatMap { it.parts.filterIsInstance<Part.Text>() }
         .map { it.text }
         .joinToString("\n\n")

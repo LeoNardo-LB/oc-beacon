@@ -457,6 +457,7 @@
     <string name="a11y_icon_search">검색</string>
     <string name="a11y_icon_warning">경고</string>
     <string name="a11y_icon_navigate_forward">앞으로 이동</string>
+    <string name="a11y_locate_task">원래 작업 찾기</string>
     <string name="a11y_icon_add">추가</string>
     <string name="a11y_icon_share">공유</string>
     <string name="a11y_icon_unlink">연결 해제</string>

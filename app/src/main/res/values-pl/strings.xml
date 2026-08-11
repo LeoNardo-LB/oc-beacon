@@ -465,6 +465,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_search">Szukaj</string>
     <string name="a11y_icon_warning">Ostrzeżenie</string>
     <string name="a11y_icon_navigate_forward">Nawiguj do przodu</string>
+    <string name="a11y_locate_task">Zlokalizuj pierwotne zadanie</string>
     <string name="a11y_icon_add">Dodaj</string>
     <string name="a11y_icon_share">Udostępnij</string>
     <string name="a11y_icon_unlink">Odłącz</string>

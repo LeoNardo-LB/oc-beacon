@@ -174,4 +174,6 @@ data class ChatMessage(
 ) {
     val isUser: Boolean get() = message is Message.User
     val isAssistant: Boolean get() = message is Message.Assistant
+    /** synthetic 系统通知（后台任务/subagent 完成注入）。嵌入 assistant turn 气泡内渲染。 */
+    val isSynthetic: Boolean get() = (message as? Message.User)?.role == "synthetic"
 }

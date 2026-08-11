@@ -83,8 +83,13 @@ class ChatRepositoryImpl @Inject constructor(
                     if (BuildConfig.DEBUG) {
                         AppLogger.d("ChatRepository", "[seed] session=$sessionId: ${cached.size} cached messages -> memory hot view")
                     }
+                    // #76 修复（2026-08-11）：observeMessages 返回降序
+                    //（ORDER BY created DESC, id DESC），而 mergeSortedMessages
+                    // 两路归并前提是升序——降序输入会导致归并错乱/消息丢失
+                    //（synthetic 卡片实测：seed 14 条 → REST refresh 后 UI 仅 12 条）。
                     // 沿用现有合并路径写入内存热视图（APPEND_ONLY：不去重已存在，幂等）
-                    eventDispatcher.upsertMessages(sessionId, cached, MergeStrategy.APPEND_ONLY)
+                    val cachedAsc = cached.sortedBy { it.info.time.created }
+                    eventDispatcher.upsertMessages(sessionId, cachedAsc, MergeStrategy.APPEND_ONLY)
                 } else if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatRepository", "[seed] session=$sessionId: no cache, waiting for REST")
                 }

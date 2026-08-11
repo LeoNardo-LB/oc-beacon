@@ -261,6 +261,16 @@ object V2MessageMapper {
     }
 
     /**
+     * V2 content 元素的 time {created, completed} → (start, end) 对。
+     * created 缺失时返回 null（无法定 start）；completed 缺失时 end 为 null（仍流式）。
+     */
+    private fun mapV2PartTime(timeObj: JsonObject?): Pair<Long, Long?>? {
+        val start = timeObj?.get("created")?.jsonPrimitive?.long ?: return null
+        val end = timeObj["completed"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+        return start to end
+    }
+
+    /**
      * 将 V2 content 元素映射为 Part 域模型。
      */
     private fun mapContentToPart(
@@ -274,13 +284,20 @@ object V2MessageMapper {
                 id = "",
                 sessionId = sessionId,
                 messageId = messageId,
-                text = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
+                text = obj["text"]?.jsonPrimitive?.contentOrNull ?: "",
+                // V2 content 元素 time: {created, completed}——映射到 V1 {start, end}。
+                // 缺失会导致 ReasoningBlock/文本流式判定（part.time.end == null）永远
+                // 为 true → 已结束消息仍显示 "Thinking…" 且计时器一直涨（2026-08-11 修复）。
+                time = mapV2PartTime(obj["time"]?.jsonObject)
+                    ?.let { (s, e) -> Part.Text.Time(start = s, end = e) }
             )
             "reasoning" -> Part.Reasoning(
                 id = "",
                 sessionId = sessionId,
                 messageId = messageId,
-                text = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
+                text = obj["text"]?.jsonPrimitive?.contentOrNull ?: "",
+                time = mapV2PartTime(obj["time"]?.jsonObject)
+                    ?.let { (s, e) -> Part.Reasoning.Time(start = s, end = e) }
             )
             "tool" -> {
                 val toolId = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""

@@ -15,9 +15,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -73,6 +75,8 @@ internal fun SyntheticNotificationCard(
     currentMessage: ChatMessage,
     isAmoled: Boolean = false,
     onViewSubSession: ((String) -> Unit)? = null,
+    onLocateTask: ((String) -> Unit)? = null,
+    locatableSubagentIds: Set<String> = emptySet(),
 ) {
     val text = currentMessage.parts
         .filterIsInstance<Part.Text>()
@@ -104,6 +108,11 @@ internal fun SyntheticNotificationCard(
         isError -> AgentError.copy(alpha = AlphaTokens.SELECTED)
         else -> AgentSuccess.copy(alpha = AlphaTokens.SELECTED)
     }
+    // 「定位发起卡片」按钮（2026-08-11 用户要求）：仅当子会话 id 能在当前
+    // 消息流中匹配到发起卡片（TaskToolCard 的 metadata.sessionId）时显示。
+    val canLocate = sessionId != null &&
+        sessionId in locatableSubagentIds &&
+        onLocateTask != null
 
     val title = when {
         info == null -> text
@@ -131,8 +140,22 @@ internal fun SyntheticNotificationCard(
             { onViewSubSession?.invoke(sessionId) }
         } else null,
         showExpandIcon = !hasNavArrow,
-        rightSideExtras = if (hasNavArrow) {
-            {
+        rightSideExtras = {
+            if (canLocate) {
+                // 「定位发起卡片」：滚动到发起该任务的 TaskToolCard 位置
+                IconButton(
+                    onClick = { onLocateTask?.invoke(sessionId) },
+                    modifier = Modifier.size(22.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = stringResource(R.string.a11y_locate_task),
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
+                    )
+                }
+            }
+            if (hasNavArrow) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
@@ -140,7 +163,7 @@ internal fun SyntheticNotificationCard(
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
-        } else null,
+        },
         titleContent = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(3.dp),

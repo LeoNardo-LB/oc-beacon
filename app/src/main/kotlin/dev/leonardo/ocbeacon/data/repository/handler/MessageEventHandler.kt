@@ -644,6 +644,10 @@ class MessageEventHandler @Inject constructor(
             }
             current + merged
         }
+        // 落盘（2026-08-11 修复）：REST refresh 合并后持久化——completed/内容更新
+        // 写入 Room。否则 SSE 完成事件丢失时数据库永远 completed==null，重启后
+        // seed 恢复旧状态 → UI 把已结束消息当流式（"Thinking…" 一直涨）。
+        persistSseUpdate(sessionId, incoming.map { it.info.id })
     }
 
     /**
@@ -734,6 +738,7 @@ class MessageEventHandler @Inject constructor(
      *   为空时标记整个会话（服务器空闲确认路径）。
      */
     fun markSessionIdle(sessionId: String, messageId: String = "") {
+        var changedIds: List<String>? = null
         _messages.update { current ->
             val sessionMessages = current[sessionId] ?: return@update current
             val now = System.currentTimeMillis()
@@ -746,7 +751,17 @@ class MessageEventHandler @Inject constructor(
                     msg
                 }
             }
+            val changed = updated.filterIndexed { i, m ->
+                m != sessionMessages[i]
+            }.map { it.id }
+            if (changed.isNotEmpty()) changedIds = changed
             current + (sessionId to updated)
+        }
+
+        // 落盘：completed 标记持久化（2026-08-11 修复——否则数据库永远 null，
+        // 重启 seed 后 UI 把已结束消息当流式，"Thinking…" 计时器一直涨）。
+        changedIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+            persistSseUpdate(sessionId, ids)
         }
 
         // 为所有未完成的 Reasoning part 标记 time.end

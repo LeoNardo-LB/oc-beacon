@@ -179,6 +179,7 @@ import dev.leonardo.ocbeacon.ui.theme.QueuedBadgeTextColor
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatTokenCount
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatDuration
+import dev.leonardo.ocbeacon.ui.screens.chat.util.isAdjacentToAssistant
 import dev.leonardo.ocbeacon.ui.screens.chat.util.resolveUserCommandLabel
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.util.codeHorizontalScroll
@@ -727,10 +728,16 @@ fun ChatScreen(
                         //（反转后的第一条 = 原始顺序中的最新 = 拥有最新回复文本的那条）。
                         // 之前的代码检查 nextMsg，保留了最旧的 assistant 消息
                         //（通常为空或仅有 reasoning），从而对用户隐藏了实际回复文本。
+                        // synthetic 系统通知（2026-08-11）：紧邻 assistant 时并入
+                        // turn 气泡内渲染（isAdjacentToAssistant），不独立成行；
+                        // 孤立 synthetic 保持独立条目。
                         val displayItems = remember(rawMessages) {
                             rawMessages.mapIndexedNotNull { index, msg ->
                                 when {
-                                    msg.isUser -> index to msg
+                                    msg.isUser && !msg.isSynthetic -> index to msg
+                                    msg.isSynthetic -> {
+                                        if (isAdjacentToAssistant(rawMessages, index)) null else index to msg
+                                    }
                                     msg.isAssistant -> {
                                         val prevMsg = rawMessages.getOrNull(index - 1)
                                         if (prevMsg?.isAssistant != true) index to msg else null

@@ -463,6 +463,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_search">Cari</string>
     <string name="a11y_icon_warning">Peringatan</string>
     <string name="a11y_icon_navigate_forward">Navigasi maju</string>
+    <string name="a11y_locate_task">Lokasikan tugas asal</string>
     <string name="a11y_icon_add">Tambah</string>
     <string name="a11y_icon_share">Bagikan</string>
     <string name="a11y_icon_unlink">Lepas tautan</string>

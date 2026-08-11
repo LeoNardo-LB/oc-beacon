@@ -364,6 +364,12 @@ internal class MessageDataDelegate(
      * 不得在轮询期间调用 —— 仅在显式用户操作
      *（进入会话、中止）时调用，以避免破坏过早空闲保护。
      *
+     * 2026-08-11 修复：改为触发 [SessionStateRepository.requestValidation]
+     *（REST 校验）而非直接 onRestValidation(Idle)——FSM 的 restValidation
+     * 无条件接受 Idle 并 forceComplete，直接传 Idle 会把真正流式（busy）的
+     * 会话误标记完成。REST 校验由服务器返回真实状态：idle → forceComplete
+     * → markSessionIdle（含落盘）；busy → 不标记，安全。
+     *
      * 通过 [SessionStateService.onRestValidation] 路由 —— FSM 的 forceComplete
      * 机制通过在 [EventDispatcher] 的 init 块中连接的回调触发 [MessageEventHandler.markSessionIdle]。
      */
@@ -371,8 +377,8 @@ internal class MessageDataDelegate(
         val messages = _rawMessagesList.value
         val hasIncomplete = messages.any { it is Message.Assistant && it.time.completed == null }
         if (hasIncomplete) {
-            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Fixing incomplete messages for session $sid (server confirmed idle)")
-            sessionStateService.onRestValidation(sid, SessionStatus.Idle)
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Fixing incomplete messages for session $sid (REST validation)")
+            sessionStateService.requestValidation(sid)
         }
     }
 
