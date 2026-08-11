@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.domain.model.Draft
 import dev.leonardo.ocbeacon.logging.AppLogger
+import dev.leonardo.ocbeacon.util.safeCatch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -51,24 +52,27 @@ class DraftDataStore @Inject constructor(
     }
 
     /** 从 DataStore 读取草稿映射；若 DataStore 无数据则尝试从旧 File 格式迁移。 */
-    private suspend fun loadFromDisk(): Map<String, Draft> = try {
-        val content = dataStore.data.first()[draftsKey]
-        if (content.isNullOrBlank()) {
-            // 一次性迁移：旧 File 格式 → DataStore（迁移后删除旧文件，幂等）
-            migrateFromLegacyFile()
-        } else {
-            json.decodeFromString<Map<String, Draft>>(content)
+    private suspend fun loadFromDisk(): Map<String, Draft> = safeCatch(
+        block = {
+            val content = dataStore.data.first()[draftsKey]
+            if (content.isNullOrBlank()) {
+                // 一次性迁移：旧 File 格式 → DataStore（迁移后删除旧文件，幂等）
+                migrateFromLegacyFile()
+            } else {
+                json.decodeFromString<Map<String, Draft>>(content)
+            }
+        },
+        fallback = { e ->
+            AppLogger.w(TAG, "Failed to load drafts, starting fresh: ${e.message}")
+            emptyMap()
         }
-    } catch (e: Exception) {
-        AppLogger.w(TAG, "Failed to load drafts, starting fresh: ${e.message}")
-        emptyMap()
-    }
+    )
 
     /** 读取旧 File 格式草稿（若有），迁移到 DataStore 并删除旧文件。幂等：文件不存在直接返回空。 */
-    private suspend fun migrateFromLegacyFile(): Map<String, Draft> {
-        val legacyFile = File(context.filesDir, LEGACY_DRAFTS_FILE)
-        if (!legacyFile.exists()) return emptyMap()
-        return try {
+    private suspend fun migrateFromLegacyFile(): Map<String, Draft> = safeCatch(
+        block = {
+            val legacyFile = File(context.filesDir, LEGACY_DRAFTS_FILE)
+            if (!legacyFile.exists()) return@safeCatch emptyMap()
             val content = legacyFile.readText()
             val legacy = if (content.isNullOrBlank()) emptyMap()
             else json.decodeFromString<Map<String, Draft>>(content)
@@ -78,11 +82,12 @@ class DraftDataStore @Inject constructor(
             legacyFile.delete()
             AppLogger.i(TAG, "Migrated ${legacy.size} drafts from legacy file")
             legacy
-        } catch (e: Exception) {
+        },
+        fallback = { e ->
             AppLogger.w(TAG, "Legacy draft migration failed (file kept): ${e.message}")
             emptyMap()
         }
-    }
+    )
 
     override suspend fun getDraft(sessionId: String): Draft? {
         val d = ensureLoaded()[sessionId]
@@ -112,13 +117,14 @@ class DraftDataStore @Inject constructor(
     }
 
     /** 将映射持久化到 DataStore（suspend，不阻塞调用线程）。 */
-    private suspend fun persist(map: Map<String, Draft>) {
-        try {
+    private suspend fun persist(map: Map<String, Draft>) = safeCatch(
+        block = {
             dataStore.edit { prefs ->
                 prefs[draftsKey] = json.encodeToString(map)
             }
-        } catch (e: Exception) {
+        },
+        fallback = { e ->
             AppLogger.e(TAG, "Failed to persist drafts: ${e.message}")
         }
-    }
+    )
 }
