@@ -36,6 +36,24 @@ interface MessageDao {
     @Query("SELECT * FROM cached_parts WHERE messageId IN (:messageIds)")
     suspend fun partsForMessages(messageIds: List<String>): List<CachedPartEntity>
 
+    /**
+     * 分块 IN 查询（#59：Room 单条 @Query 无法处理 SQLite IN 999 变量上限，
+     * 原分块逻辑散落 MessageStore 业务层——下沉 DAO 统一封装）。
+     */
+    suspend fun partsForMessagesChunked(messageIds: List<String>): List<CachedPartEntity> {
+        if (messageIds.isEmpty()) return emptyList()
+        if (messageIds.size <= SQLITE_IN_VARIABLE_LIMIT) {
+            return partsForMessages(messageIds)
+        }
+        return messageIds.chunked(SQLITE_IN_VARIABLE_LIMIT)
+            .flatMap { chunk -> partsForMessages(chunk) }
+    }
+
+    companion object {
+        /** SQLite 默认 SQLITE_MAX_VARIABLE_NUMBER=999；留余量取 900。 */
+        const val SQLITE_IN_VARIABLE_LIMIT = 900
+    }
+
     @Query("SELECT id FROM cached_messages WHERE sessionId = :sessionId ORDER BY created ASC, id ASC LIMIT 1")
     suspend fun oldestMessageId(sessionId: String): String?
 

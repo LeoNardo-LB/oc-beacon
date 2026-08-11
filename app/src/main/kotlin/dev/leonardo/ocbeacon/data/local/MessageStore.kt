@@ -358,14 +358,8 @@ class MessageStore @Inject constructor(
      * "too many SQL variables"（2026-08-10 模拟器实证 1896 条消息会话触发）。
      * 切成 ≤900 的块分别查询后合并——结果与单次查询等价。
      */
-    private suspend fun partsForMessagesChunked(messageIds: List<String>): List<CachedPartEntity> {
-        if (messageIds.isEmpty()) return emptyList()
-        if (messageIds.size <= SQLITE_IN_VARIABLE_LIMIT) {
-            return dao.partsForMessages(messageIds)
-        }
-        return messageIds.chunked(SQLITE_IN_VARIABLE_LIMIT)
-            .flatMap { chunk -> dao.partsForMessages(chunk) }
-    }
+    private suspend fun partsForMessagesChunked(messageIds: List<String>): List<CachedPartEntity> =
+        dao.partsForMessagesChunked(messageIds)
 
     companion object {
         private const val TAG = "MessageStore"
@@ -374,7 +368,5 @@ class MessageStore @Inject constructor(
         const val ARCHIVE_BUCKET_MAX_BYTES = 512 * 1024           // 512KB（调研约束）
         const val ARCHIVE_BUCKET_MAX_MESSAGES = 200
         const val ARCHIVE_BUCKET_LIMIT = 200                      // 每会话桶保护上限 ≈ 20 万条历史
-        /** SQLite 单条 SQL 变量上限（999），留余量取 900。 */
-        private const val SQLITE_IN_VARIABLE_LIMIT = 900
     }
 }
