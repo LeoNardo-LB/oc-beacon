@@ -37,6 +37,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -110,6 +111,7 @@ class ChatRepositoryImpl @Inject constructor(
                 AppLogger.e("ChatRepository", "Error in getParts", e)
                 emit(emptyList())
             }
+            .distinctUntilChanged()
 
     override fun getAllPartsMap(): Flow<Map<String, List<Part>>> =
         eventDispatcher.parts
@@ -122,6 +124,7 @@ class ChatRepositoryImpl @Inject constructor(
                 AppLogger.e("ChatRepository", "Error in getPermissionsFlow", e)
                 emit(emptyList())
             }
+            .distinctUntilChanged()
 
     override fun getQuestionsFlow(sessionId: String): Flow<List<QuestionState>> =
         eventDispatcher.questions.map { events ->
@@ -131,6 +134,7 @@ class ChatRepositoryImpl @Inject constructor(
                 AppLogger.e("ChatRepository", "Error in getQuestionsFlow", e)
                 emit(emptyList())
             }
+            .distinctUntilChanged()
 
     override fun getAllQuestionsFlow(): Flow<Map<String, List<SseEvent.QuestionAsked>>> =
         eventDispatcher.questions
@@ -146,6 +150,7 @@ class ChatRepositoryImpl @Inject constructor(
                 AppLogger.e("ChatRepository", "Error in getActiveToolProgress", e)
                 emit(null)
             }
+            .distinctUntilChanged()
 
     override fun getStepProgress(serverId: String): Flow<StepProgressInfo?> =
         eventDispatcher.stepProgress.map { it[serverId]?.toDomain() }
@@ -153,6 +158,7 @@ class ChatRepositoryImpl @Inject constructor(
                 AppLogger.e("ChatRepository", "Error in getStepProgress", e)
                 emit(null)
             }
+            .distinctUntilChanged()
 
     override fun getCompactionState(serverId: String): Flow<CompactionStateInfo?> =
         eventDispatcher.compactionState.map { it[serverId]?.toDomain() }
@@ -160,6 +166,7 @@ class ChatRepositoryImpl @Inject constructor(
                 AppLogger.e("ChatRepository", "Error in getCompactionState", e)
                 emit(null)
             }
+            .distinctUntilChanged()
 
     // ============ 网络操作 ============
 
@@ -501,16 +508,16 @@ class ChatRepositoryImpl @Inject constructor(
         eventDispatcher.sessions.value
 
     override fun getActiveToolProgressForSession(sessionId: String): Flow<List<ToolProgressInfo>?> =
-        eventDispatcher.activeToolProgress.map { map -> map[sessionId]?.map { it.toDomain() } }
+        eventDispatcher.activeToolProgress.map { map -> map[sessionId]?.map { it.toDomain() } }.distinctUntilChanged()
 
     override fun getStepProgressForSession(sessionId: String): Flow<StepProgressInfo?> =
-        eventDispatcher.stepProgress.map { it[sessionId]?.toDomain() }
+        eventDispatcher.stepProgress.map { it[sessionId]?.toDomain() }.distinctUntilChanged()
 
     override fun getCompactionStateForSession(sessionId: String): Flow<CompactionStateInfo?> =
-        eventDispatcher.compactionState.map { it[sessionId]?.toDomain() }
+        eventDispatcher.compactionState.map { it[sessionId]?.toDomain() }.distinctUntilChanged()
 
     override fun getSessionDiffsForSession(sessionId: String): Flow<List<FileDiff>> =
-        eventDispatcher.sessionDiffs.map { it[sessionId] ?: emptyList() }
+        eventDispatcher.sessionDiffs.map { it[sessionId] ?: emptyList() }.distinctUntilChanged()
 
     // ============ 权限自动批准 ============
 
