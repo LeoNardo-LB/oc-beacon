@@ -44,6 +44,7 @@ class V2EventParser(private val json: Json) : SseEventParser {
         "session.message.",
         "session.shell.",
         "session.execution.",
+        "session.instructions.",
         "shell."
     )
 

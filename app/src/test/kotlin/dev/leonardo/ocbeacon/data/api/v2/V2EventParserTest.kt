@@ -87,6 +87,19 @@ class V2EventParserTest {
     }
 
     @Test
+    fun `instructions updated maps to Unknown without throwing`() {
+        // 实测（2026-08-11）：data 可能是数组（多条指令）——jsonObject 扩展会抛异常
+        val event = parser.parse(
+            "session.instructions.updated",
+            props("""{"sessionID":"ses_1","data":[{"type":"text","text":"instruction"}]}""")
+        )
+        assertNotNull(event)
+        assertTrue(event is SseEvent.SessionNext)
+        val unknown = (event as SseEvent.SessionNext).event as? dev.leonardo.ocbeacon.domain.model.SessionNextEvent.Unknown
+        assertEquals("session.instructions.updated", unknown?.rawType)
+    }
+
+    @Test
     fun `unhandled event falls back to SessionNext Unknown`() {
         val event = parser.parse(
             "session.usage.updated",

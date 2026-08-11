@@ -231,8 +231,10 @@ class SseClientV2 @Inject constructor(
             // 1. 旧格式：payload 在 data 字段（对象）——{type, data:{...}}
             // 2. 新格式：字段直接在顶层——{id, created, type, durable, location, sessionID, ...}
             //    （无 data 包装；剥除非数据字段后即 payload）
-            val payload = root["data"]?.jsonObject
-                ?: root["properties"]?.jsonObject  // V1 风格兼容
+            // 类型防御：data/properties 为数组（如 session.instructions.updated 的 data
+            // 是数组）时 jsonObject 扩展抛异常 → 显式判型回退顶层字段路径。
+            val payload = root["data"]?.takeIf { it is JsonObject }?.jsonObject
+                ?: root["properties"]?.takeIf { it is JsonObject }?.jsonObject  // V1 风格兼容
                 ?: root.filterKeys { it !in EVENT_META_KEYS }
                     .takeIf { it.isNotEmpty() }
                     ?.let { JsonObject(it) }
