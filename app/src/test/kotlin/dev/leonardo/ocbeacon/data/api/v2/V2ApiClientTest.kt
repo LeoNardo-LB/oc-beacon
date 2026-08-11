@@ -374,8 +374,8 @@ class V2ApiClientTest {
     fun `getConfig parses bare array with info subobject`() = runTest {
         // 真实服务器契约：裸数组 [{type:"document", path, info:{配置}}]
         val responseBody = """[{"type":"document","path":"/home/.config/opencode/opencode.jsonc",
-            "info":{"$schema":"https://opencode.ai/config.json","default_agent":"build",
-                    "disabled_providers":["provider-x"],"model":"glm-5.2"}}]"""
+            "info":{"`$`schema":"https://opencode.ai/config.json","default_agent":"build",
+                    "disabled_providers":["provider-x"],"model":"glm-5.2"}}]""".replace("`$`", "\$")
         val engine = MockEngine { request ->
             assertEquals("/api/config", request.url.encodedPath)
             respond(responseBody, HttpStatusCode.OK,
