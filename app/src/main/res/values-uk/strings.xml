@@ -173,6 +173,8 @@
     <string name="chat_status_searching">Пошук у кодовій базі</string>
     <string name="chat_status_fetching_url">Отримання URL</string>
     <string name="chat_status_running_subagent">Запуск під-агента</string>
+    <string name="chat_task_completed">Завдання виконано</string>
+    <string name="chat_task_failed">Завдання не виконано</string>
     <string name="chat_status_updating_tasks">Оновлення завдань</string>
     <string name="chat_status_thinking">Думає</string>
     <string name="chat_tool_running_command">Виконання команди…</string>

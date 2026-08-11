@@ -135,6 +135,8 @@
     <string name="chat_status_searching">Searching codebase</string>
     <string name="chat_status_fetching_url">Fetching URL</string>
     <string name="chat_status_running_subagent">Running sub-agent</string>
+    <string name="chat_task_completed">Task completed</string>
+    <string name="chat_task_failed">Task failed</string>
     <string name="chat_status_updating_tasks">Updating tasks</string>
     <string name="chat_status_thinking">Thinking</string>
     <string name="chat_thinking_complete">Thought for %1$s</string>

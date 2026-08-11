@@ -167,6 +167,8 @@
     <string name="chat_status_searching">Codebasis wird durchsucht</string>
     <string name="chat_status_fetching_url">URL wird abgerufen</string>
     <string name="chat_status_running_subagent">Sub-Agent wird ausgeführt</string>
+    <string name="chat_task_completed">Aufgabe abgeschlossen</string>
+    <string name="chat_task_failed">Aufgabe fehlgeschlagen</string>
     <string name="chat_status_updating_tasks">Aufgaben werden aktualisiert</string>
     <string name="chat_status_thinking">Denkt nach</string>
     <string name="chat_tool_running_command">Befehl wird ausgeführt…</string>

@@ -167,6 +167,8 @@
     <string name="chat_status_searching">Cercando nel codice</string>
     <string name="chat_status_fetching_url">Recuperando URL</string>
     <string name="chat_status_running_subagent">Eseguendo sotto-agente</string>
+    <string name="chat_task_completed">Attività completata</string>
+    <string name="chat_task_failed">Attività non riuscita</string>
     <string name="chat_status_updating_tasks">Aggiornando attività</string>
     <string name="chat_status_thinking">Elaborando</string>
     <string name="chat_tool_running_command">Eseguendo comando…</string>

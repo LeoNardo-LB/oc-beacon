@@ -167,6 +167,8 @@
     <string name="chat_status_searching">Codebase\'de aranıyor</string>
     <string name="chat_status_fetching_url">URL alınıyor</string>
     <string name="chat_status_running_subagent">Alt agent çalıştırılıyor</string>
+    <string name="chat_task_completed">Görev tamamlandı</string>
+    <string name="chat_task_failed">Görev başarısız</string>
     <string name="chat_status_updating_tasks">Görevler güncelleniyor</string>
     <string name="chat_status_thinking">Düşünüyor</string>
     <string name="chat_tool_running_command">Komut çalıştırılıyor…</string>

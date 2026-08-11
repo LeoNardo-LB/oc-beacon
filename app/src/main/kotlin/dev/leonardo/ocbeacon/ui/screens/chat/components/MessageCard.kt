@@ -37,6 +37,7 @@ internal fun MessageCard(
         MessageCardRole.SYNTHETIC -> SyntheticNotificationCard(
             currentMessage = currentMessage,
             isAmoled = isAmoled,
+            onViewSubSession = onViewSubSession,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(
             renderableTurn = renderableTurn ?: error("renderableTurn is required for ASSISTANT role"),

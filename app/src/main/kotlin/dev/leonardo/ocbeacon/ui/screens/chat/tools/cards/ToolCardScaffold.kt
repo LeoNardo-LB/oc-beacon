@@ -71,6 +71,9 @@ import kotlinx.coroutines.launch
  * @param titleContent 可选的自定义标题内容。为 null 时使用简单的图标 + 文本行。
  * @param expandedContent 展开时显示的内容
  * @param showExpandIcon 是否显示展开/折叠 chevron 图标。默认 true。
+ * @param containerColor 卡片背景色（非 AMOLED）。默认 surface。
+ *   AMOLED 下仍为纯黑 + 边框。用于任务类卡片的状态底色语义
+ *  （发起=蓝 / 完成=绿 / 失败=红，2026-08-11 用户要求）。
  */
 @Composable
 internal fun ToolCardScaffold(
@@ -89,6 +92,7 @@ internal fun ToolCardScaffold(
     trailingExtras: @Composable (RowScope.() -> Unit)? = null,
     titleContent: (@Composable RowScope.() -> Unit)? = null,
     showExpandIcon: Boolean = true,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     expandedContent: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -100,6 +104,7 @@ internal fun ToolCardScaffold(
 
     AmoledSurface(
         isAmoledDark = isAmoled,
+        normalColor = containerColor,
         shape = ShapeTokens.smallMedium,
         normalTonalElevation = 1.dp,
         modifier = modifier.fillMaxWidth()

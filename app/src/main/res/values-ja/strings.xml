@@ -167,6 +167,8 @@
     <string name="chat_status_searching">コードベース検索中</string>
     <string name="chat_status_fetching_url">URL取得中</string>
     <string name="chat_status_running_subagent">サブエージェント実行中</string>
+    <string name="chat_task_completed">タスク完了</string>
+    <string name="chat_task_failed">タスク失敗</string>
     <string name="chat_status_updating_tasks">タスク更新中</string>
     <string name="chat_status_thinking">思考中</string>
     <string name="chat_tool_running_command">コマンド実行中…</string>
