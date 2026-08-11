@@ -969,16 +969,14 @@ class V2ApiClient @Inject constructor(
         val bodyText = httpClient.get("${conn.baseUrl}/api/config") {
             conn.authHeader?.let { header("Authorization", it) }
         }.bodyAsText()
-        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
-        return json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj)
+        return parseConfigBody(bodyText)
     }
 
     suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
         val bodyText = httpClient.get("${conn.baseUrl}/api/config") {
             conn.authHeader?.let { header("Authorization", it) }
         }.bodyAsText()
-        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
-        return json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj)
+        return parseConfigBody(bodyText)
     }
 
     suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
@@ -987,8 +985,7 @@ class V2ApiClient @Inject constructor(
             contentType(ContentType.Application.Json)
             setBody(patch)
         }.bodyAsText()
-        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
-        return json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj)
+        return parseConfigBody(bodyText)
     }
 
     suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
@@ -997,8 +994,26 @@ class V2ApiClient @Inject constructor(
             contentType(ContentType.Application.Json)
             setBody(patch)
         }.bodyAsText()
-        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
-        return json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj)
+        return parseConfigBody(bodyText)
+    }
+
+    /**
+     * 解析 /api/config 响应（2026-08-11 实测契约）：
+     * 裸数组 `[{type:"document", path, info:{配置对象}}, ...]`——取第一个元素的 info 子对象。
+     * 兼容对象包裹 `{data: ...}` 或直接配置对象（V1 风格）。
+     */
+    private fun parseConfigBody(bodyText: String): ServerConfigResponse {
+        val element = json.parseToJsonElement(bodyText)
+        val configObj = when (element) {
+            is JsonArray -> element.firstOrNull()?.jsonObject?.get("info")?.jsonObject
+                ?: element.firstOrNull()?.jsonObject
+            is JsonObject -> element["info"]?.jsonObject ?: element["data"]?.jsonObject ?: element
+            else -> null
+        }
+        return configObj?.let { obj ->
+            runCatching { json.decodeFromJsonElement(ServerConfigResponse.serializer(), obj) }
+                .getOrNull()
+        } ?: ServerConfigResponse()
     }
 
     suspend fun disposeGlobal(conn: ServerConnection): Boolean {

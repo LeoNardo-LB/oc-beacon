@@ -371,6 +371,24 @@ class V2ApiClientTest {
     }
 
     @Test
+    fun `getConfig parses bare array with info subobject`() = runTest {
+        // 真实服务器契约：裸数组 [{type:"document", path, info:{配置}}]
+        val responseBody = """[{"type":"document","path":"/home/.config/opencode/opencode.jsonc",
+            "info":{"$schema":"https://opencode.ai/config.json","default_agent":"build",
+                    "disabled_providers":["provider-x"],"model":"glm-5.2"}}]"""
+        val engine = MockEngine { request ->
+            assertEquals("/api/config", request.url.encodedPath)
+            respond(responseBody, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val result = api.getConfig(v2Conn)
+        assertEquals("build", result.defaultAgent)
+        assertEquals(listOf("provider-x"), result.disabledProviders)
+        assertEquals("glm-5.2", result.model)
+    }
+
+    @Test
     fun `getMcpStatus parses data array with nested status objects`() = runTest {
         // 真实服务器契约：{"location":..., "data":[{name, status:{status}}]}
         val responseBody = """{"location":{"directory":"/home"},"data":[
