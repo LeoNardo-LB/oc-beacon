@@ -60,15 +60,16 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
  *   <task_result|task_error>…输出…</task_result|task_error>
  *   </task>
  *
- * 设计目标（与发起卡片 TaskToolCard 对称，用户 2026-08-11 要求）：
- * - 同一 ToolCardScaffold 视觉语言，左对齐卡片，不再用独立居中条
- * - 状态色彩/图标区分：完成 = 绿色 CheckCircle，失败 = 红色 ErrorOutline
- * - 标题 = "Task completed/failed"，描述 = summary（含发起时 description，
- *   与发起卡片呼应）
- * - 右侧：解析出 subagent sessionID → 导航箭头跳转子会话
- *   （与 TaskToolCard 行为一致——"开始卡片"与"结束卡片"互相引用）
- * - 有输出时可展开查看完整内容（同 TaskToolCard 交互）
- * - 解析失败 fallback：Info 图标 + 全文（无跳转/展开）
+ * 设计目标（用户 2026-08-11 要求：与 subagent/shell 任务卡片类似，
+ * 参照 opencode TUI 的 task 帧逻辑：标题 + 描述 + 结果）：
+ * - 布局 = TaskToolCard 标题行 + ShellCard 状态行（方案 A）：
+ *   第 1 行 = 图标 + "Sub-agent" 标题 + 任务描述（同行，CodeTypography），
+ *   第 2 行 = 状态文本（Completed/Failed）+ "· " + 结果摘要（labelSmall）
+ * - 状态区分：完成 = 绿色底 CheckCircle / 失败 = 红色底 ErrorOutline /
+ *   未知 = 默认 Info（三色语义：发起=蓝 / 完成=绿 / 失败=红）
+ * - 右侧：定位发起卡片按钮（sessionId 匹配时）+ 导航箭头跳转子会话
+ *   （"开始卡片"与"结束卡片"互相引用）+ 复制 + 展开完整输出
+ * - 解析失败 fallback：Info 图标 + 全文（无状态行/跳转/展开）
  */
 @Composable
 internal fun SyntheticNotificationCard(
@@ -114,12 +115,25 @@ internal fun SyntheticNotificationCard(
         sessionId in locatableSubagentIds &&
         onLocateTask != null
 
-    val title = when {
-        info == null -> text
+    // 第 1 行主标题：任务描述（summary 去 "Background task completed/failed: " 前缀）
+    // ——与发起卡片（TaskToolCard）的 description 对应；fallback 用原文。
+    val taskTitle = info?.summary?.let(::extractTaskDescription) ?: text
+    // 第 2 行状态（与 ShellCard 的 "Running · 输出摘要" 同构）：
+    // 状态文本 + 输出摘要首行
+    val statusText = when {
+        info == null -> null
         isError -> stringResource(R.string.chat_task_failed)
         else -> stringResource(R.string.chat_task_completed)
     }
-    val summary = info?.summary?.takeIf { it.isNotBlank() }
+    val statusColor = when {
+        info == null -> null
+        isError -> AgentError
+        else -> AgentSuccess
+    }
+    val outputSummary = output?.lineSequence()
+        ?.map { it.trim() }
+        ?.filter { it.isNotBlank() }
+        ?.firstOrNull()
 
     var expanded by remember { mutableStateOf(false) }
     val hasNavArrow = sessionId != null
@@ -128,7 +142,7 @@ internal fun SyntheticNotificationCard(
     ToolCardScaffold(
         icon = icon,
         iconTint = iconTint,
-        title = title,
+        title = "",
         copyText = text,
         isExpanded = expanded,
         isRunning = false,
@@ -177,20 +191,58 @@ internal fun SyntheticNotificationCard(
                     tint = iconTint
                 )
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (summary != null && summary != title) {
-                        Text(
-                            text = summary,
-                            style = CodeTypography,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    // 第 1 行：Agent 标题 + 任务描述（TaskToolCard 同款标题行）
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (info == null) {
+                            // fallback：直接显示原文（无任务格式）
+                            Text(
+                                text = text,
+                                style = CodeTypography,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(R.string.tool_sub_agent),
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1
+                            )
+                            if (taskTitle != text) {
+                                Text(
+                                    text = "· $taskTitle",
+                                    style = CodeTypography,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                    // 第 2 行：状态 + 结果摘要（ShellCard 同款状态行）
+                    if (statusText != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = statusText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusColor ?: MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (outputSummary != null) {
+                                Text(
+                                    text = "· $outputSummary",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -226,6 +278,16 @@ internal fun SyntheticNotificationCard(
             }
         }
     }
+}
+
+/** 从 summary 提取任务描述：去 "Background task completed/failed: " 前缀。 */
+internal fun extractTaskDescription(summary: String?): String {
+    val s = summary?.trim() ?: return ""
+    val stripped = Regex(
+        "^Background task (?:completed|failed):\\s*",
+        RegexOption.IGNORE_CASE
+    ).replaceFirst(s, "").trim()
+    return stripped.ifBlank { s }
 }
 
 /** 解析服务器 synthetic 文本的 <task> 结构化格式。解析失败返回 null。 */

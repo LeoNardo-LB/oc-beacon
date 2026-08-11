@@ -94,4 +94,38 @@ class SyntheticTaskParserTest {
         assertEquals("completed", info?.state)
         assertNull(info?.output)
     }
+
+    // ============ extractTaskDescription（summary 前缀剥离）============
+
+    @Test
+    fun `completed summary 剥离前缀得到任务描述`() {
+        assertEquals(
+            "扫描项目结构",
+            extractTaskDescription("Background task completed: 扫描项目结构")
+        )
+    }
+
+    @Test
+    fun `failed summary 剥离前缀`() {
+        assertEquals(
+            "执行部署脚本",
+            extractTaskDescription("Background task failed: 执行部署脚本")
+        )
+    }
+
+    @Test
+    fun `无前缀 summary 原样返回`() {
+        assertEquals("自定义通知文本", extractTaskDescription("自定义通知文本"))
+    }
+
+    @Test
+    fun `null 或空白 summary 返回空串`() {
+        assertEquals("", extractTaskDescription(null))
+        assertEquals("", extractTaskDescription("   "))
+    }
+
+    @Test
+    fun `前缀后空白内容回退到原文`() {
+        assertEquals("Background task completed:", extractTaskDescription("Background task completed:"))
+    }
 }
