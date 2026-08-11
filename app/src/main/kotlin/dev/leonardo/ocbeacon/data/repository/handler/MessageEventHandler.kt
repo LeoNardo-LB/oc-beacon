@@ -6,6 +6,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,6 +73,34 @@ class MessageEventHandler @Inject constructor(
     private val pendingDeltas = mutableListOf<PendingDelta>()
     private val pendingLock = Any()
     private var batchJob: Job? = null
+
+    // ---- 持久化 actor（#57）----
+    // 所有 SSE 双写落盘请求经 Channel 入队，由单一写协程串行处理：
+    // - 协程数恒为 1（原实现每 48ms flush 一个 fire-and-forget 协程，
+    //   活跃流式下无上限创建）
+    // - Channel BUFFERED 提供背压（写入慢时请求排队，不丢）
+    // - App 进程消亡时随进程终止（MessageEventHandler 为 @Singleton）
+    private data class PersistRequest(
+        val store: MessageCacheRepository,
+        val sessionId: String,
+        val payload: List<MessageWithParts>,
+    )
+
+    private val persistQueue = Channel<PersistRequest>(Channel.BUFFERED)
+
+    init {
+        batchScope.launch {
+            for (req in persistQueue) {
+                try {
+                    req.store.upsertMessages(req.sessionId, req.payload, persistOldBeyondWindow = false)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // 写失败静默（MessageStore 内部已捕获，内存视图不受影响）
+                }
+            }
+        }
+    }
 
     private fun scheduleFlush() {
         // 不要取消进行中的定时器——那会在 token 到达速率 > 1/48ms 时
@@ -207,9 +236,8 @@ class MessageEventHandler @Inject constructor(
         if (msgs.isEmpty()) return
         val parts = _parts.value
         val payload = msgs.map { MessageWithParts(it, parts[it.id] ?: emptyList()) }
-        batchScope.launch {
-            store.upsertMessages(sessionId, payload, persistOldBeyondWindow = false)
-        }
+        // #57：入队由单写协程处理（不再每 48ms 创建 fire-and-forget 协程）
+        persistQueue.trySend(PersistRequest(store, sessionId, payload))
     }
 
     /**
