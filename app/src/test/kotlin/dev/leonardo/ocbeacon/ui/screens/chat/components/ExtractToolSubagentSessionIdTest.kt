@@ -41,6 +41,22 @@ class ExtractToolSubagentSessionIdTest {
     }
 
     @Test
+    fun `completed with jobId extracted (V2 server key)`() {
+        // V2 服务器 metadata 用 jobId 存子会话 ID（task.ts: jobId = nextSession.id）
+        val meta = buildJsonObject { put("jobId", "ses_child_job") }
+        assertEquals("ses_child_job", extractToolSubagentSessionId(toolWithMetadata(meta)))
+    }
+
+    @Test
+    fun `sessionId 优先于 jobId`() {
+        val meta = buildJsonObject {
+            put("sessionId", "ses_child_primary")
+            put("jobId", "ses_child_job")
+        }
+        assertEquals("ses_child_primary", extractToolSubagentSessionId(toolWithMetadata(meta)))
+    }
+
+    @Test
     fun `no metadata returns null`() {
         assertNull(extractToolSubagentSessionId(toolWithMetadata(null)))
     }

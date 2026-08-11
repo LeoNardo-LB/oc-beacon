@@ -83,7 +83,11 @@ internal fun TaskToolCard(
         ?: stringResource(R.string.tool_sub_agent)
     val subSessionId = when (val state = tool.state) {
             is ToolState.Completed -> state.metadata?.get("sessionId")
+                ?: state.metadata?.get("sessionID")
+                ?: state.metadata?.get("jobId")  // V2 服务器用 jobId 存子会话 ID（2026-08-11 实测）
             is ToolState.Running -> state.metadata?.get("sessionId")
+                ?: state.metadata?.get("sessionID")
+                ?: state.metadata?.get("jobId")
             else -> null
         }?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
             ?.takeIf { it.isNotBlank() }

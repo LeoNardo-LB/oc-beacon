@@ -156,44 +156,6 @@ fun ChatMessageList(
         }
     }
 
-    // 「定位发起卡片」支持（2026-08-11 用户要求）：
-    // 点击完成通知卡片上的定位按钮 → 在消息流中查找发起卡片（task/subagent
-    // 工具的 metadata.sessionId == synthetic <task id>）→ 滚动 + 3 秒高亮；
-    // 找不到时 Snackbar 提示。不再预匹配（发起卡片可能被分页/折叠导致预匹配
-    // 失败 → 按钮隐藏用户看不到）。
-    var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(highlightedTurnKey) {
-        if (highlightedTurnKey != null) {
-            delay(3000)
-            highlightedTurnKey = null
-        }
-    }
-    val onLocateTask: (String) -> Unit = { targetSessionId ->
-        val targetIndex = displayItems.indexOfFirst { (rawIndex, m) ->
-            val turnMsgs = turnGroups[rawIndex] ?: listOf(m)
-            turnMsgs.any { tm ->
-                tm.parts.any { p ->
-                    p is Part.Tool &&
-                        (p.tool == "task" || p.tool == "subagent") &&
-                        extractToolSubagentSessionId(p) == targetSessionId
-                }
-            }
-        }
-        if (targetIndex >= 0) {
-            coroutineScope.launch { listState.scrollToItem(targetIndex) }
-            val (rawIndex, targetMsg) = displayItems[targetIndex]
-            highlightedTurnKey = if (targetMsg.isUser) {
-                "u_${targetMsg.message.id}"
-            } else {
-                "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
-            }
-        } else {
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_task_not_found))
-            }
-        }
-    }
-
     // 来自 ChatRepository 的实时状态 —— 领域类型。
     // 置于 renderableTurns 之前：其缓存开关（activeTools 是否为空）需要在此计算。
     val currentSessionId = viewModel.sessionId
@@ -350,6 +312,56 @@ fun ChatMessageList(
             }
         }
         onQuickNavigateDismiss()
+    }
+
+    // 「定位发起卡片」支持（2026-08-11 用户要求）：
+    // 点击完成通知卡片上的定位按钮 → 在消息流中查找发起卡片（task/subagent
+    // 工具的 metadata.sessionId/jobId == synthetic <task id>）→ 滚动 + 3 秒高亮；
+    // 找不到时 Snackbar 提示。滚动逻辑与 jumpToMessage 相同（bannerCount 偏移
+    // + reverseLayout 位置修正——2026-08-11 修复：原 scrollToItem 无偏移导致
+    // 滚动位置错乱，用户反馈"跳转不能用、下拉跟跳转混乱"）。
+    var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(highlightedTurnKey) {
+        if (highlightedTurnKey != null) {
+            delay(3000)
+            highlightedTurnKey = null
+        }
+    }
+    val onLocateTask: (String) -> Unit = { targetSessionId ->
+        val targetIndex = displayItems.indexOfFirst { (rawIndex, m) ->
+            val turnMsgs = turnGroups[rawIndex] ?: listOf(m)
+            turnMsgs.any { tm ->
+                tm.parts.any { p ->
+                    p is Part.Tool &&
+                        (p.tool == "task" || p.tool == "subagent") &&
+                        extractToolSubagentSessionId(p) == targetSessionId
+                }
+            }
+        }
+        if (targetIndex >= 0) {
+            val lazyIndex = bannerCount + targetIndex
+            coroutineScope.launch {
+                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                listState.scroll {
+                    val info = listState.layoutInfo
+                    val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                    if (item != null) {
+                        val delta = (info.viewportStartOffset - item.offset).toFloat()
+                        scrollBy(delta)
+                    }
+                }
+            }
+            val (rawIndex, targetMsg) = displayItems[targetIndex]
+            highlightedTurnKey = if (targetMsg.isUser) {
+                "u_${targetMsg.message.id}"
+            } else {
+                "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
+            }
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_task_not_found))
+            }
+        }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -793,10 +805,12 @@ fun ChatMessageList(
 
 
 /**
- * 提取 task/subagent 工具卡片的子会话 ID（metadata.sessionId / sessionID）。
- * 与 TaskToolCard 的解析逻辑一致（小写优先）——synthetic 完成通知的 <task id>
- * 与之匹配，用于「定位发起卡片」按钮（2026-08-11）。大写 sessionID 兜底
- * （SSE 事件路径可能只写大写）。
+ * 提取 task/subagent 工具卡片的子会话 ID（metadata.sessionId / sessionID / jobId）。
+ * - V1 task 工具：metadata.sessionId
+ * - V2 subagent 工具：服务器返回 metadata.jobId（= 子会话 ID，task.ts:
+ *   `metadata: {..., jobId: nextSession.id}`）——2026-08-11 实测发现
+ *   键不匹配导致子会话跳转/定位失效
+ * - synthetic 完成通知的 <task id> 与之匹配，用于「定位发起卡片」按钮。
  */
 internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
     val metadata = when (val state = tool.state) {
@@ -804,7 +818,7 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
         is ToolState.Running -> state.metadata
         else -> null
     } ?: return null
-    val raw = metadata["sessionId"] ?: metadata["sessionID"] ?: return null
+    val raw = metadata["sessionId"] ?: metadata["sessionID"] ?: metadata["jobId"] ?: return null
     return runCatching { raw.jsonPrimitive.contentOrNull }
         .getOrNull()
         ?.takeIf { it.isNotBlank() }
