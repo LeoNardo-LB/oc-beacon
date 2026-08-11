@@ -292,9 +292,42 @@ class MessageEventHandler @Inject constructor(
                 if (incoming.text.length >= existing.text.length) incoming
                 else existing.copy(time = incoming.time, metadata = incoming.metadata)
             }
+            existing is Part.Tool && incoming is Part.Tool -> {
+                // Tool part：SSE 中间状态（Running）可能缺少 metadata（如 subagent 子会话 ID），
+                // 但 REST 快照/早期 SSE 已完成状态包含完整 metadata。
+                // 若 incoming 缺少 metadata 而 existing 有，保留 existing 的 metadata，
+                // 避免 subagent 卡片失去子会话跳转能力（backlog: subagent 卡片不可点击）。
+                val incomingMetadata = incoming.stateMetadata()
+                val existingMetadata = existing.stateMetadata()
+                if (incomingMetadata.isNullOrEmpty() && !existingMetadata.isNullOrEmpty()) {
+                    incoming.withStateMetadata(existingMetadata)
+                } else {
+                    incoming
+                }
+            }
             else -> incoming
         }
     }
+
+    /** 提取 Part.Tool 的 state.metadata（各 ToolState 子类）。 */
+    private fun Part.Tool.stateMetadata(): Map<String, kotlinx.serialization.json.JsonElement>? = when (val s = state) {
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Pending -> null // Pending 无 metadata 字段
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Running -> s.metadata
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Completed -> s.metadata
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Error -> s.metadata
+    }
+
+    /** 用保留的 metadata 重建 Part.Tool（state 替换为携带 metadata 的副本）。 */
+    private fun Part.Tool.withStateMetadata(
+        metadata: Map<String, kotlinx.serialization.json.JsonElement>
+    ): Part.Tool = copy(
+        state = when (val s = state) {
+            is dev.leonardo.ocbeacon.domain.model.ToolState.Pending -> s // Pending 无 metadata 字段，保留原样
+            is dev.leonardo.ocbeacon.domain.model.ToolState.Running -> s.copy(metadata = metadata)
+            is dev.leonardo.ocbeacon.domain.model.ToolState.Completed -> s.copy(metadata = metadata)
+            is dev.leonardo.ocbeacon.domain.model.ToolState.Error -> s.copy(metadata = metadata)
+        }
+    )
 
     private fun mergePartsList(existingParts: List<Part>, incomingParts: List<Part>): List<Part> {
         val existingById = existingParts.associateBy { it.id }

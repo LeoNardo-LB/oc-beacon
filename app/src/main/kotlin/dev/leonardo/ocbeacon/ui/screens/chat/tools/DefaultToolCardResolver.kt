@@ -57,6 +57,10 @@ class DefaultToolCardResolver @Inject constructor() : ToolCardResolver {
         "task" to { tool, expanded, toggle, viewSub, agentName, _ ->
             { TaskToolCard(tool = tool, onViewSubSession = viewSub, turnAgentName = agentName, isExpanded = expanded, onToggleExpand = toggle) }
         },
+        // V2 工具名为 "subagent"（V1 为 "task"）——都映射到 TaskToolCard（子会话跳转）
+        "subagent" to { tool, expanded, toggle, viewSub, agentName, _ ->
+            { TaskToolCard(tool = tool, onViewSubSession = viewSub, turnAgentName = agentName, isExpanded = expanded, onToggleExpand = toggle) }
+        },
         "webfetch" to { tool, expanded, toggle, _, _, _ ->
             { WebFetchToolCard(tool = tool, isExpanded = expanded, onToggleExpand = toggle) }
         },

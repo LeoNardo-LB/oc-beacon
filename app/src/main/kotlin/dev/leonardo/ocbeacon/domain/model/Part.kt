@@ -74,10 +74,10 @@ sealed class Part {
     @Serializable
     data class Tool(
         override val id: String,
-        @SerialName("sessionID") override val sessionId: String,
-        @SerialName("messageID") override val messageId: String,
-        @SerialName("callID") val callId: String,
-        val tool: String,
+        @SerialName("sessionID") override val sessionId: String = "",
+        @SerialName("messageID") override val messageId: String = "",
+        @SerialName("callID") val callId: String = "",
+        val tool: String = "",
         val state: ToolState,
         val metadata: Map<String, JsonElement>? = null
     ) : Part()

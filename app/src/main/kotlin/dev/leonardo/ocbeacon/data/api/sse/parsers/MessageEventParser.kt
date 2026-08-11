@@ -96,7 +96,68 @@ class MessageEventParser(private val json: Json) : SseEventParser {
             when (type) {
                 "text" -> json.decodeFromJsonElement<Part.Text>(obj)
                 "reasoning" -> json.decodeFromJsonElement<Part.Reasoning>(obj)
-                "tool" -> json.decodeFromJsonElement<Part.Tool>(obj)
+                "tool" -> {
+                // V2 兼容：V2 结构用 name 字段（V1 用 tool）、id 即 callID、无 sessionID/messageID
+                // 反序列化前补全字段，避免 MissingFieldException 且保留工具名
+                val normalized = obj.toMutableMap()
+                if (normalized["name"] != null && normalized["tool"] == null) {
+                    normalized["tool"] = normalized["name"]!!
+                }
+                if (normalized["callID"] == null && normalized["id"] != null) {
+                    normalized["callID"] = normalized["id"]!!
+                }
+                if (normalized["sessionID"] == null) {
+                    normalized["sessionID"] = JsonPrimitive("")
+                }
+                if (normalized["messageID"] == null) {
+                    normalized["messageID"] = JsonPrimitive("")
+                }
+                // V2 双层 metadata 展平：state.metadata 可能为 {metadata: {sessionID: ...}}
+                // 反序列化前归一化，让 ToolState 拿到内层 metadata 并双写 sessionId/sessionID
+                val stateObj = obj["state"]?.jsonObject
+                if (stateObj != null) {
+                    val normalizedState = stateObj.toMutableMap()
+                    val meta = stateObj["metadata"]
+                    if (meta is JsonObject) {
+                        val inner = if (meta.size == 1 && meta["metadata"] is JsonObject) {
+                            meta["metadata"]!!.jsonObject
+                        } else meta
+                        val mapped = inner.toMutableMap()
+                        val sid = inner["sessionID"] ?: inner["sessionId"]
+                        if (sid != null) {
+                            mapped["sessionId"] = sid
+                            mapped["sessionID"] = sid
+                        }
+                        normalizedState["metadata"] = JsonObject(mapped)
+                    }
+                    // V2 error 字段可能是对象 {type, message}，V1 ToolState.Error.error 期望字符串
+                    val err = stateObj["error"]
+                    if (err is JsonObject) {
+                        normalizedState["error"] = JsonPrimitive(
+                            err["message"]?.jsonPrimitive?.contentOrNull ?: err.toString()
+                        )
+                    }
+                    normalized["state"] = JsonObject(normalizedState)
+                }
+                // V2 的 state.content 是 Tool.Content 数组，V1 Completed.output 期望纯文本字符串。
+                // 反序列化后若 output 为空但有 content 数组，提取文本补全。
+                val partObj = JsonObject(normalized)
+                val decoded = json.decodeFromJsonElement<Part.Tool>(partObj)
+                val contentText = stateObj?.get("content")?.jsonArray
+                    ?.mapNotNull { it.jsonObject["text"]?.jsonPrimitive?.contentOrNull }
+                    ?.joinToString("\n")
+                if (!contentText.isNullOrEmpty()) {
+                    when (val st = decoded.state) {
+                        is dev.leonardo.ocbeacon.domain.model.ToolState.Completed ->
+                            decoded.copy(state = st.copy(output = contentText))
+                        is dev.leonardo.ocbeacon.domain.model.ToolState.Running ->
+                            decoded.copy(state = st.copy(output = contentText))
+                        else -> decoded
+                    }
+                } else {
+                    decoded
+                }
+            }
                 "step-start" -> json.decodeFromJsonElement<Part.StepStart>(obj)
                 "step-finish" -> json.decodeFromJsonElement<Part.StepFinish>(obj)
                 "file" -> json.decodeFromJsonElement<Part.File>(obj)

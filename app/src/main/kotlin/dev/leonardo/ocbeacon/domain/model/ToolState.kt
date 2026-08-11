@@ -31,12 +31,14 @@ object ToolStateSerializer : JsonContentPolymorphicSerializer<ToolState>(ToolSta
 sealed class ToolState {
     @Serializable
     data class Pending(
+        val status: String = "pending",
         val input: Map<String, JsonElement> = emptyMap(),
         val raw: String? = null
     ) : ToolState()
 
     @Serializable
     data class Running(
+        val status: String = "running",
         val input: Map<String, JsonElement> = emptyMap(),
         val output: String = "",
         val title: String? = null,
@@ -49,6 +51,7 @@ sealed class ToolState {
 
     @Serializable
     data class Completed(
+        val status: String = "completed",
         val input: Map<String, JsonElement> = emptyMap(),
         val output: String = "",
         val title: String? = null,
@@ -68,6 +71,7 @@ sealed class ToolState {
 
     @Serializable
     data class Error(
+        val status: String = "error",
         val input: Map<String, JsonElement> = emptyMap(),
         val error: String = "",
         val metadata: Map<String, JsonElement>? = null,

@@ -295,10 +295,15 @@ object V2MessageMapper {
                     obj2.mapValues { (_, v) -> v }
                 } ?: emptyMap()
                 val metadataMap = stateObj?.get("metadata")?.jsonObject?.let { obj2 ->
-                    val mapped = obj2.mapValues { (_, v) -> v }.toMutableMap()
+                    // V2 服务器 metadata 可能是双层嵌套：{metadata: {sessionID: ...}}
+                    // 展平：若 obj2 只有一个 "metadata" 键且值为对象，取其内层
+                    val inner = if (obj2.size == 1 && obj2["metadata"] is JsonObject) {
+                        obj2["metadata"]!!.jsonObject
+                    } else obj2
+                    val mapped = inner.mapValues { (_, v) -> v }.toMutableMap()
                     // V2 用 metadata.sessionID（大写），V1 TaskToolCard 读取 sessionId（小写）
                     // 双写兼容，让子会话跳转在两种格式下都可用
-                    val sessionIdUpper = obj2["sessionID"] ?: obj2["sessionId"]
+                    val sessionIdUpper = inner["sessionID"] ?: inner["sessionId"]
                     if (sessionIdUpper != null) {
                         mapped["sessionId"] = sessionIdUpper
                         mapped["sessionID"] = sessionIdUpper
@@ -322,7 +327,15 @@ object V2MessageMapper {
                     )
                     "error" -> ToolState.Error(
                         input = inputMap,
-                        error = stateObj?.get("error")?.jsonPrimitive?.contentOrNull ?: ""
+                        error = stateObj?.get("error")?.let { elem ->
+                            // V2 error 可能是字符串（V1 兼容）或对象（{type, message}）
+                            when {
+                                elem is JsonPrimitive -> elem.contentOrNull
+                                elem is JsonObject -> elem["message"]?.jsonPrimitive?.contentOrNull
+                                    ?: elem.toString()
+                                else -> elem.toString()
+                            }
+                        } ?: ""
                     )
                     else -> ToolState.Pending(input = inputMap)
                 }
