@@ -293,17 +293,30 @@ class MessageEventHandler @Inject constructor(
                 else existing.copy(time = incoming.time, metadata = incoming.metadata)
             }
             existing is Part.Tool && incoming is Part.Tool -> {
+                var merged = incoming
+                // 工具名保留：v2 中间事件（tool.input.ended/called 等）不带 name 字段，
+                // 仅 tool.input.started 携带——若 incoming 缺名则保留 existing 的
+                val incomingTool = merged.tool
+                val existingTool = existing.tool
+                if (incomingTool.isBlank() && existingTool.isNotBlank()) {
+                    merged = merged.copy(tool = existingTool)
+                }
+                // input 保留：incoming 中间状态可能缺 input（input.ended 只有 output）
+                val incomingInput = merged.stateInput()
+                val existingInput = existing.stateInput()
+                if (incomingInput.isEmpty() && existingInput.isNotEmpty()) {
+                    merged = merged.withStateInput(existingInput)
+                }
                 // Tool part：SSE 中间状态（Running）可能缺少 metadata（如 subagent 子会话 ID），
                 // 但 REST 快照/早期 SSE 已完成状态包含完整 metadata。
                 // 若 incoming 缺少 metadata 而 existing 有，保留 existing 的 metadata，
                 // 避免 subagent 卡片失去子会话跳转能力（backlog: subagent 卡片不可点击）。
-                val incomingMetadata = incoming.stateMetadata()
+                val incomingMetadata = merged.stateMetadata()
                 val existingMetadata = existing.stateMetadata()
                 if (incomingMetadata.isNullOrEmpty() && !existingMetadata.isNullOrEmpty()) {
-                    incoming.withStateMetadata(existingMetadata)
-                } else {
-                    incoming
+                    merged = merged.withStateMetadata(existingMetadata)
                 }
+                merged
             }
             else -> incoming
         }
@@ -316,6 +329,26 @@ class MessageEventHandler @Inject constructor(
         is dev.leonardo.ocbeacon.domain.model.ToolState.Completed -> s.metadata
         is dev.leonardo.ocbeacon.domain.model.ToolState.Error -> s.metadata
     }
+
+    /** 提取 Part.Tool 的 state.input（各 ToolState 子类）。 */
+    private fun Part.Tool.stateInput(): Map<String, kotlinx.serialization.json.JsonElement> = when (val s = state) {
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Pending -> s.input
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Running -> s.input
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Completed -> s.input
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Error -> s.input
+    }
+
+    /** 用保留的 input 重建 Part.Tool（state 替换为携带 input 的副本）。 */
+    private fun Part.Tool.withStateInput(
+        input: Map<String, kotlinx.serialization.json.JsonElement>
+    ): Part.Tool = copy(
+        state = when (val s = state) {
+            is dev.leonardo.ocbeacon.domain.model.ToolState.Pending -> s.copy(input = input)
+            is dev.leonardo.ocbeacon.domain.model.ToolState.Running -> s.copy(input = input)
+            is dev.leonardo.ocbeacon.domain.model.ToolState.Completed -> s.copy(input = input)
+            is dev.leonardo.ocbeacon.domain.model.ToolState.Error -> s.copy(input = input)
+        }
+    )
 
     /** 用保留的 metadata 重建 Part.Tool（state 替换为携带 metadata 的副本）。 */
     private fun Part.Tool.withStateMetadata(
