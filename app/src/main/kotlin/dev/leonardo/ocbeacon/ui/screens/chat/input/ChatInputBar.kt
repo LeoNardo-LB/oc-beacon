@@ -16,6 +16,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.CommandInfo
@@ -78,7 +83,12 @@ internal fun ChatInputBar(
     onInputModeChange: (ChatInputMode) -> Unit = {},
     onStop: () -> Unit = {},
     restoredDraft: RevertedDraftPayload? = null,
-    onConsumeRestoredDraft: () -> Unit = {}
+    onConsumeRestoredDraft: () -> Unit = {},
+    backgroundBadgeCount: Int = 0,
+    onOpenBackground: () -> Unit = {},
+    showBackgroundToolbar: Boolean = false,
+    backgroundToolbarText: String = "",
+    onBackgroundSession: () -> Unit = {},
 ) {
     // 发送失败时恢复草稿文本
     androidx.compose.runtime.LaunchedEffect(restoredDraft) {
@@ -167,6 +177,20 @@ internal fun ChatInputBar(
                 .padding(start = SpacingTokens.LG.dp, end = SpacingTokens.LG.dp, top = 2.dp, bottom = 6.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
         ) {
+            // 转后台工具栏——有前台 subagent 运行时从输入栏上方滑出（fade + expand 动画）。
+            // 对应 TUI 的 ctrl+b：一键将当前所有前台 subagent 转为后台执行。
+            AnimatedVisibility(
+                visible = showBackgroundToolbar && !isShellMode,
+                enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+            ) {
+                BackgroundToolbar(
+                    text = backgroundToolbarText,
+                    onBackgroundSession = onBackgroundSession,
+                    onOpenBackground = onOpenBackground
+                )
+            }
+
             // Agent + 模型 + 变体 + 附件选择器行——小巧、低调
             AgentModelVariantSelector(
                 modelLabel = modelLabel,
@@ -180,6 +204,8 @@ internal fun ChatInputBar(
                 onCycleVariant = onCycleVariant,
                 onAttach = onAttach,
                 showBusy = isBusy,
+                backgroundBadgeCount = backgroundBadgeCount,
+                onOpenBackground = onOpenBackground,
             )
 
             // 图片附件缩略图

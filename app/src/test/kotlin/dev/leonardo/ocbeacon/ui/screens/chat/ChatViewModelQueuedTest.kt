@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.data.repository.ShellJobsStore
 import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
 
 import dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
@@ -121,6 +122,7 @@ class ChatViewModelQueuedTest {
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             ownershipRegistry = StreamingOwnershipRegistry(),
         )
         every { sessionStateService.statusFlow } returns testStatusFlow
@@ -308,6 +310,7 @@ class ChatViewModelQueuedTest {
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,
+            shellJobsStore = ShellJobsStore(),
         )
     }
 

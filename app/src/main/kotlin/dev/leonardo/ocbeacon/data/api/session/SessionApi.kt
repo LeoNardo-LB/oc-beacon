@@ -84,6 +84,12 @@ interface SessionApi {
 
     suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem>
 
+    /**
+     * 将当前会话所有前台可后台化工具（subagent）批量转为后台（V2）。
+     * V1 不支持（返回 false）。
+     */
+    suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean
+
     suspend fun listSessionStatus(conn: ServerConnection, directory: String? = null): Map<String, SessionStatusInfo>
 
     suspend fun fetchSessionStatus(
@@ -202,4 +208,7 @@ class SessionApiImpl @Inject constructor(
         directory: String?
     ): Result<Map<String, RestSessionStatusInfo>> =
         if (conn.apiVersion.isV2) v2.fetchSessionStatus(conn, directory) else v1.fetchSessionStatus(conn, directory)
+
+    override suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean =
+        if (conn.apiVersion.isV2) v2.backgroundSession(conn, sessionId) else false
 }

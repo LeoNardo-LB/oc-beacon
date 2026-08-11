@@ -12,6 +12,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +54,8 @@ internal fun AgentModelVariantSelector(
     onCycleVariant: () -> Unit,
     onAttach: () -> Unit,
     showBusy: Boolean = false,
+    backgroundBadgeCount: Int = 0,
+    onOpenBackground: () -> Unit = {},
 ) {
     // 不提前返回：配置未就绪（agents 空 / modelLabel 空 / variantNames 空）时，
     // 左侧标签区为空但 Row 高度由右侧附件按钮（32.dp）稳定支撑；
@@ -164,6 +169,32 @@ internal fun AgentModelVariantSelector(
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
+            }
+            // 后台活动入口（BadgedBox + 图标按钮）—— 角标实时显示后台任务/subagent 总数。
+            // 无后台活动时角标隐藏，仅剩低调图标。
+            BadgedBox(
+                badge = {
+                    if (backgroundBadgeCount > 0) {
+                        Badge(containerColor = MaterialTheme.colorScheme.tertiary) {
+                            Text(
+                                text = backgroundBadgeCount.coerceAtMost(99).toString(),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            ) {
+                IconButton(
+                    onClick = onOpenBackground,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.Layers,
+                        contentDescription = stringResource(R.string.a11y_icon_background),
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
+                    )
+                }
             }
             // 附件按钮（回形针）—— 始终可见，固定在右侧，与发送按钮对齐
             IconButton(

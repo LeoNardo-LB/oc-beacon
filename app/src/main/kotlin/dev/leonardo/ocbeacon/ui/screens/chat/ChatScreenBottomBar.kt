@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -62,10 +64,18 @@ internal fun ChatScreenBottomBar(
     onPendingSendActionSet: ((() -> Unit)?) -> Unit,
     coroutineScope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
+    onOpenBackgroundSheet: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val view = LocalView.current
     val clipboard = LocalClipboard.current
+    val backgroundUi by viewModel.backgroundUiState.collectAsStateWithLifecycle()
+    val backgroundToolbarText = if (backgroundUi.foregroundSubagentCount > 0) {
+        context.getString(
+            R.string.background_toolbar_subagents,
+            backgroundUi.foregroundSubagentCount
+        )
+    } else ""
 
     if (sessionMeta.sessionParentId == null && !isTerminalMode && interaction.error == null) {
         val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
@@ -366,7 +376,12 @@ internal fun ChatScreenBottomBar(
                 },
                 onStop = { viewModel.abortSession() },
                 restoredDraft = restoredDraft,
-                onConsumeRestoredDraft = { viewModel.consumeRestoredDraft() }
+                onConsumeRestoredDraft = { viewModel.consumeRestoredDraft() },
+                backgroundBadgeCount = backgroundUi.badgeCount,
+                onOpenBackground = onOpenBackgroundSheet,
+                showBackgroundToolbar = backgroundUi.showBackgroundToolbar,
+                backgroundToolbarText = backgroundToolbarText,
+                onBackgroundSession = { viewModel.backgroundSession() }
             )
         }
     }

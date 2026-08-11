@@ -53,6 +53,7 @@ class SessionRepositoryImplTest {
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             ownershipRegistry = StreamingOwnershipRegistry(),
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())

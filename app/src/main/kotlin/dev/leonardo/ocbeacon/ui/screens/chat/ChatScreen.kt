@@ -327,6 +327,7 @@ fun ChatScreen(
 
     var showModelPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showBackgroundSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var isTerminalMode by rememberSaveable { mutableStateOf(startInTerminalMode) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -652,6 +653,7 @@ fun ChatScreen(
                 onPendingSendActionSet = { pendingSendAction = it },
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
+                onOpenBackgroundSheet = { showBackgroundSheet = true },
             )
         },
     ) { padding ->
@@ -831,6 +833,28 @@ fun ChatScreen(
     )
     } // CompositionLocalProvider
     } // ChatSettingsProvider
+
+    // 后台活动面板（ModalBottomSheet）—— 入口在输入栏第一行右侧（角标按钮）
+    if (showBackgroundSheet) {
+        val backgroundUi by viewModel.backgroundUiState.collectAsStateWithLifecycle()
+        val shellOutputs = remember { mutableStateMapOf<String, String?>() }
+        BackgroundSheet(
+            state = backgroundUi,
+            onDismiss = { showBackgroundSheet = false },
+            onOpenSubSession = { sessionId -> onNavigateToChildSession(sessionId) },
+            onRemoveShell = { id -> viewModel.removeShell(id) },
+            shellOutputProvider = { shell ->
+                // 详情页打开时若事件输出为空则异步拉取（按 id 缓存）
+                if (shell.output == null && !shellOutputs.containsKey(shell.id)) {
+                    shellOutputs[shell.id] = null // 占位防重入
+                    viewModel.fetchShellOutput(shell.id) { out ->
+                        shellOutputs[shell.id] = out?.output
+                    }
+                }
+                shellOutputs[shell.id] ?: shell.output
+            }
+        )
+    }
 
     // FileViewer 浮层 —— 请求时渲染在 ChatScreen 之上。
     fileViewerRequest?.let { params ->

@@ -30,6 +30,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCallCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ViewToolRequest
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.PatchCard
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.ShellCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.TodoListCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.ToolCardScaffold
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalCollapseTools
@@ -98,8 +99,7 @@ internal fun PartContent(
                 )
             }
         }
-        is Part.Tool -> {
-            // todoread parts 完全过滤掉（WebUI 约定）
+        is Part.Tool -> {            // todoread parts 完全过滤掉（WebUI 约定）
             val toolExpandedStates = LocalToolExpandedStates.current
             val onToggleToolExpanded = LocalOnToggleToolExpanded.current
             if (part.tool == "todoread") {
@@ -176,6 +176,16 @@ internal fun PartContent(
                 }
                 } // 关闭 question-summary 的 else 分支
             }
+        }
+        is Part.Shell -> {
+            // 后台 shell 命令卡片（V2）——2 行布局，与 TaskToolCard 对称
+            val toolExpandedStates = LocalToolExpandedStates.current
+            val onToggleToolExpanded = LocalOnToggleToolExpanded.current
+            ShellCard(
+                shell = part,
+                isExpanded = toolExpandedStates[part.id] ?: false,
+                onToggleExpand = { onToggleToolExpanded(part.id, true) }
+            )
         }
         is Part.StepStart -> {
             // 步骤之间的视觉分隔符（已隐藏 —— WebUI 不显示这些）

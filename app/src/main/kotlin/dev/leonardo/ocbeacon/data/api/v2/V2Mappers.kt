@@ -6,6 +6,7 @@ import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import kotlinx.serialization.json.Json
@@ -349,6 +350,30 @@ object V2MessageMapper {
                     state = toolState
                 )
             }
+            "shell" -> {
+                // V2 后台 shell part：{id, shellID, command, status, exit?, output?, time?, metadata?}
+                Part.Shell(
+                    id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
+                    sessionId = sessionId,
+                    messageId = messageId,
+                    shellId = obj["shellID"]?.jsonPrimitive?.contentOrNull
+                        ?: obj["shell_id"]?.jsonPrimitive?.contentOrNull
+                        ?: "",
+                    command = obj["command"]?.jsonPrimitive?.contentOrNull ?: "",
+                    status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                    exit = obj["exit"]?.jsonPrimitive?.intOrNull,
+                    output = obj["output"]?.jsonPrimitive?.contentOrNull,
+                    time = obj["time"]?.jsonObject?.let { t ->
+                        Part.Shell.Time(
+                            start = t["start"]?.jsonPrimitive?.long ?: 0L,
+                            end = t["end"]?.jsonPrimitive?.long
+                        )
+                    },
+                    metadata = obj["metadata"]?.jsonObject?.let { m ->
+                        m.mapValues { (_, v) -> v }
+                    }
+                )
+            }
             else -> Part.Unknown(
                 id = "",
                 sessionId = sessionId,
@@ -356,4 +381,41 @@ object V2MessageMapper {
             )
         }
     }
+}
+
+/**
+ * V2 Shell.Info JSON → ShellJob 域模型映射。
+ *
+ * V2 Shell.Info：`{id, status, command, cwd, shell, file, pid, exit, metadata, time}`
+ * - metadata.sessionID 标识归属会话
+ * - time = {start, end?}
+ */
+object V2ShellMapper {
+
+    fun toShellJob(obj: JsonObject): ShellJob {
+        val metadataObj = obj["metadata"]?.jsonObject
+        val sessionId = metadataObj?.get("sessionID")?.jsonPrimitive?.contentOrNull
+            ?: metadataObj?.get("sessionId")?.jsonPrimitive?.contentOrNull
+        val timeObj = obj["time"]?.jsonObject
+        return ShellJob(
+            id = obj["id"]?.jsonPrimitive?.contentOrNull ?: "",
+            status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "",
+            command = obj["command"]?.jsonPrimitive?.contentOrNull ?: "",
+            cwd = obj["cwd"]?.jsonPrimitive?.contentOrNull ?: "",
+            shell = obj["shell"]?.jsonPrimitive?.contentOrNull ?: "",
+            file = obj["file"]?.jsonPrimitive?.contentOrNull ?: "",
+            pid = obj["pid"]?.jsonPrimitive?.contentOrNull?.toLongOrNull(),
+            exit = obj["exit"]?.jsonPrimitive?.intOrNull,
+            sessionId = sessionId,
+            startedAt = timeObj?.get("start")?.jsonPrimitive?.long,
+            completedAt = timeObj?.get("end")?.jsonPrimitive?.long,
+            metadata = metadataObj?.let { m -> m.mapValues { (_, v) -> v } }
+        )
+    }
+
+    /**
+     * 解包 shell 列表响应（`{location, data: [...]}` 或裸数组）。
+     */
+    fun shellList(bodyText: String, json: Json): List<ShellJob> =
+        V2ResponseWrapper.flexibleList(bodyText, json).map { toShellJob(it) }
 }

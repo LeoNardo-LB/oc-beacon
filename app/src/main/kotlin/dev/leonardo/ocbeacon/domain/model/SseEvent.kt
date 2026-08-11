@@ -194,6 +194,14 @@ sealed class SseEvent {
     @Serializable
     data class PtyDeleted(val id: String) : SseEvent()
 
+    // V2 后台 shell 命令事件（session.shell.started/ended）
+    // 与 Pty（交互式终端）不同：非交互命令，输出捕获到文件。
+    @Serializable
+    data class ShellJobStarted(val info: ShellJob) : SseEvent()
+
+    @Serializable
+    data class ShellJobEnded(val info: ShellJob, val output: String? = null) : SseEvent()
+
     // 工作区事件
     @Serializable
     data class WorkspaceReady(val workspaceId: String) : SseEvent()

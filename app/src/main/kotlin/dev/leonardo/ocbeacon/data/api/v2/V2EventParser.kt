@@ -40,6 +40,7 @@ class V2EventParser(private val json: Json) : SseEventParser {
         "session.usage.",
         "session.text.",
         "session.message.",
+        "session.shell.",
         "shell."
     )
 
@@ -49,6 +50,25 @@ class V2EventParser(private val json: Json) : SseEventParser {
     override fun parse(eventType: String, props: JsonObject): SseEvent? {
         if (BuildConfig.DEBUG) {
             AppLogger.d(TAG, "V2 event: $eventType ${props.toString().take(150)}")
+        }
+        // 后台 shell 生命周期——映射为具体事件（驱动 ShellJob 状态流与消息流 Shell 卡片）
+        when (eventType) {
+            "session.shell.started" -> {
+                val shellObj = props["shell"]?.jsonObject
+                if (shellObj != null) {
+                    return SseEvent.ShellJobStarted(V2ShellMapper.toShellJob(shellObj))
+                }
+            }
+            "session.shell.ended" -> {
+                val shellObj = props["shell"]?.jsonObject
+                if (shellObj != null) {
+                    val output = props["output"]?.jsonPrimitive?.contentOrNull
+                    return SseEvent.ShellJobEnded(
+                        info = V2ShellMapper.toShellJob(shellObj),
+                        output = output
+                    )
+                }
+            }
         }
         // 提取会话 ID（不同事件可能在不同字段）
         val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull

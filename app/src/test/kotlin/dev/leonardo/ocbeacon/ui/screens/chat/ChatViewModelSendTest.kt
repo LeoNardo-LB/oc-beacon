@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
+import dev.leonardo.ocbeacon.data.repository.ShellJobsStore
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.service.SessionFocusHolder
 import dev.leonardo.ocbeacon.service.AppNotificationManager
@@ -177,6 +178,7 @@ class ChatViewModelSendTest {
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,
+            shellJobsStore = ShellJobsStore(),
         )
     }
 

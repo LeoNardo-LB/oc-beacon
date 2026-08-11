@@ -24,6 +24,8 @@ import dev.leonardo.ocbeacon.domain.model.PermissionState
 import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.ShellJob
+import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
@@ -54,6 +56,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val messageApi: MessageApi,
     private val sessionApi: SessionApi,
     private val terminalApi: TerminalApi,
+    private val shellApi: dev.leonardo.ocbeacon.data.api.shell.ShellApi,
     private val providerApi: ProviderApi,
     private val eventDispatcher: EventDispatcher,
     private val serverRepo: ServerDataStore,
@@ -270,6 +273,38 @@ class ChatRepositoryImpl @Inject constructor(
             DataModelSelection(providerId = providerId, modelId = modelId)
         } else null
         terminalApi.runShellCommand(conn, sessionId, command, agent, model, directory)
+    }
+
+    override suspend fun backgroundSession(serverId: String, sessionId: String): Result<Boolean> =
+        runCatching {
+            val conn = resolveConnection(serverId)
+            sessionApi.backgroundSession(conn, sessionId)
+        }
+
+    override suspend fun listShells(serverId: String, directory: String?): Result<List<ShellJob>> =
+        runCatching {
+            val conn = resolveConnection(serverId)
+            shellApi.listShells(conn, directory)
+        }
+
+    override suspend fun getShellOutput(
+        serverId: String,
+        shellId: String,
+        cursor: Long?,
+        limit: Int?,
+        directory: String?
+    ): Result<ShellOutput?> = runCatching {
+        val conn = resolveConnection(serverId)
+        shellApi.getShellOutput(conn, shellId, cursor, limit, directory)
+    }
+
+    override suspend fun removeShell(
+        serverId: String,
+        shellId: String,
+        directory: String?
+    ): Result<Boolean> = runCatching {
+        val conn = resolveConnection(serverId)
+        shellApi.removeShell(conn, shellId, directory)
     }
 
     override fun getToolExpandedStates(): Map<String, Boolean> = toolExpandedStates

@@ -330,6 +330,7 @@ class MessageStore @Inject constructor(
         is Part.Text -> "text"
         is Part.Reasoning -> "reasoning"
         is Part.Tool -> "tool"
+        is Part.Shell -> "shell"
         is Part.StepStart -> "step-start"
         is Part.StepFinish -> "step-finish"
         is Part.File -> "file"

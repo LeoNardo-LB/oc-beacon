@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository
 
+import dev.leonardo.ocbeacon.data.repository.handler.ShellJobsHandler
 import dev.leonardo.ocbeacon.data.repository.handler.MiscEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.MessageEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.MessagePartHandler
@@ -57,6 +58,7 @@ class EventDispatcherUnreadTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(),
+            shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(

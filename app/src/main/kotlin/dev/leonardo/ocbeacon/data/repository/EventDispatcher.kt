@@ -44,6 +44,7 @@ class EventDispatcher @Inject constructor(
     private val questionHandler: QuestionEventHandler,
     private val miscHandler: MiscEventHandler,
     private val sessionNextHandler: SessionNextEventHandler,
+    private val shellJobsHandler: ShellJobsHandler,
     private val sessionStateService: SessionStateService,
     private val settingsDataStore: SettingsDataStore,
     private val unreadBadgeService: UnreadBadgeService,
@@ -145,6 +146,11 @@ class EventDispatcher @Inject constructor(
         )
         // SessionNext → SessionNextEventHandler
         bind(sessionNextHandler, SseEvent.SessionNext::class)
+        // V2 后台 shell → ShellJobsHandler
+        bind(
+            shellJobsHandler,
+            SseEvent.ShellJobStarted::class, SseEvent.ShellJobEnded::class
+        )
         return map
     }
 
@@ -327,6 +333,9 @@ class EventDispatcher @Inject constructor(
             is SseEvent.PtyCreated -> null
             is SseEvent.PtyUpdated -> null
             is SseEvent.PtyDeleted -> null
+            // V2 后台 shell（按归属会话路由）
+            is SseEvent.ShellJobStarted -> event.info.sessionId
+            is SseEvent.ShellJobEnded -> event.info.sessionId
             is SseEvent.WorkspaceReady -> null
             is SseEvent.WorkspaceFailed -> null
             is SseEvent.FileEdited -> null

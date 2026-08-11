@@ -74,6 +74,7 @@ class ChatViewModel @Inject constructor(
     private val appNotificationManager: dev.leonardo.ocbeacon.service.AppNotificationManager,
     private val toolSnapshotCache: dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache,
     private val serverRepository: ServerRepository,
+    private val shellJobsStore: dev.leonardo.ocbeacon.data.repository.ShellJobsStore,
 ) : ViewModel() {
 
     // ============ 工具快照缓存（已提取到 ToolCacheDelegate） ============
@@ -106,6 +107,54 @@ class ChatViewModel @Inject constructor(
         onStartObservingMessages = { startObservingMessages() },
     )
     val sessionId: String get() = sessionLifecycle.sessionId
+
+    // ============ 后台活动聚合（subagent + shell） ============
+    private val backgroundAggregator = BackgroundAggregator(
+        sessionRepository = sessionRepository,
+        chatRepository = chatRepository,
+        shellJobsStore = shellJobsStore,
+        serverId = serverId,
+        sessionIdFlow = sessionLifecycle.sessionIdFlow,
+        scope = viewModelScope,
+    )
+
+    /** 后台活动聚合状态（角标计数 / 转后台工具栏 / 面板数据）。 */
+    val backgroundUiState: StateFlow<BackgroundUiState> get() = backgroundAggregator.uiState
+
+    /**
+     * 将当前会话所有前台 subagent 转为后台（对应 TUI ctrl+b）。
+     */
+    fun backgroundSession() {
+        val sid = sessionId
+        if (sid.isEmpty()) return
+        viewModelScope.launch {
+            chatRepository.backgroundSession(serverId, sid)
+        }
+    }
+
+    /**
+     * 终止并删除后台 shell。
+     */
+    fun removeShell(shellId: String) {
+        viewModelScope.launch {
+            chatRepository.removeShell(serverId, shellId)
+        }
+    }
+
+    /**
+     * 读取后台 shell 输出（分页游标模式）。
+     */
+    fun fetchShellOutput(
+        shellId: String,
+        cursor: Long? = null,
+        limit: Int? = null,
+        onResult: (dev.leonardo.ocbeacon.domain.model.ShellOutput?) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val result = chatRepository.getShellOutput(serverId, shellId, cursor, limit)
+            onResult(result.getOrNull())
+        }
+    }
 
     fun onSessionFocused(notificationManager: android.app.NotificationManager) {
         appNotificationManager.cancelSessionNotifications(notificationManager, serverId, sessionId)

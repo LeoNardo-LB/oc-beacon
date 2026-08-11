@@ -12,6 +12,8 @@ import dev.leonardo.ocbeacon.domain.model.PermissionState
 import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.ShellJob
+import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
@@ -184,6 +186,34 @@ interface ChatRepository {
         modelId: String? = null,
         directory: String? = null
     ): Result<Boolean>
+
+    // ============ 后台活动（V2） ============
+
+    /**
+     * 将当前会话所有前台可后台化工具（subagent）批量转为后台（V2）。
+     */
+    suspend fun backgroundSession(serverId: String, sessionId: String): Result<Boolean>
+
+    /**
+     * 列出运行中的后台 shell 命令（V2）。
+     */
+    suspend fun listShells(serverId: String, directory: String? = null): Result<List<ShellJob>>
+
+    /**
+     * 分页读取后台 shell 输出（V2）。
+     */
+    suspend fun getShellOutput(
+        serverId: String,
+        shellId: String,
+        cursor: Long? = null,
+        limit: Int? = null,
+        directory: String? = null
+    ): Result<ShellOutput?>
+
+    /**
+     * 终止并删除后台 shell（V2）。
+     */
+    suspend fun removeShell(serverId: String, shellId: String, directory: String? = null): Result<Boolean>
 
     // ============ UI 状态 ============
 

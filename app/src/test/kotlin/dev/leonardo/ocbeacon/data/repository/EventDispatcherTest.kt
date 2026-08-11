@@ -55,6 +55,7 @@ class EventDispatcherTest {
             questionHandler = questionHandler,
             miscHandler = miscHandler,
             sessionNextHandler = sessionNextHandler,
+            shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),

@@ -17,6 +17,7 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
             "text" -> Part.Text.serializer()
             "reasoning" -> Part.Reasoning.serializer()
             "tool" -> Part.Tool.serializer()
+            "shell" -> Part.Shell.serializer()
             "step-start" -> Part.StepStart.serializer()
             "step-finish" -> Part.StepFinish.serializer()
             "file" -> Part.File.serializer()
@@ -81,6 +82,30 @@ sealed class Part {
         val state: ToolState,
         val metadata: Map<String, JsonElement>? = null
     ) : Part()
+
+    /**
+     * 后台 shell 命令 part（V2 消息流中的 Shell 卡片数据）。
+     *
+     * V2 服务器在 `session.shell.started` 时向会话注入该 part：
+     * `{id, type:"shell", shellID, command, status, metadata, time:{created}}`，
+     * `session.shell.ended` 时更新 status/exit/output。
+     */
+    @Serializable
+    data class Shell(
+        override val id: String,
+        @SerialName("sessionID") override val sessionId: String = "",
+        @SerialName("messageID") override val messageId: String = "",
+        @SerialName("shellID") val shellId: String = "",
+        val command: String = "",
+        val status: String = "",
+        val exit: Int? = null,
+        val output: String? = null,
+        val time: Time? = null,
+        val metadata: Map<String, JsonElement>? = null
+    ) : Part() {
+        @Serializable
+        data class Time(val start: Long, val end: Long? = null)
+    }
 
     @Serializable
     data class StepStart(

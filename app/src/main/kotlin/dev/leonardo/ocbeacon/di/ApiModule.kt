@@ -38,6 +38,9 @@ abstract class ApiModule {
     abstract fun bindTerminalApi(impl: TerminalApiImpl): TerminalApi
 
     @Binds
+    abstract fun bindShellApi(impl: dev.leonardo.ocbeacon.data.api.shell.ShellApiImpl): dev.leonardo.ocbeacon.data.api.shell.ShellApi
+
+    @Binds
     abstract fun bindProviderApi(impl: ProviderApiImpl): ProviderApi
 
     @Binds

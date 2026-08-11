@@ -43,6 +43,9 @@ import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerHealth
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
+import dev.leonardo.ocbeacon.domain.model.ShellJob
+import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.logging.AppLogger
 import io.ktor.client.call.body
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -224,10 +227,145 @@ class V2ApiClient @Inject constructor(
         }
     }
 
+    // ============ Background & Shell ============
+
+    /**
+     * 活跃会话列表（GET /api/session/active）。
+     * V2 返回 `{data: {sessionID: {type: "running"}}}`——
+     * 出现在结果中的是前台活跃会话，absent 的为后台/空闲。
+     * 可用于前后台状态判定。
+     */
+    suspend fun activeSessions(
+        conn: ServerConnection,
+        directory: String? = null
+    ): Map<String, ActiveSessionInfo> {
+        val response = httpClient.get("${conn.baseUrl}/api/session/active") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+        }
+        val root = parseRoot(response.bodyAsText())
+        val data = root["data"]?.jsonObject
+            ?: return emptyMap()
+        return data.mapValues { (_, v) ->
+            ActiveSessionInfo(
+                type = v.jsonObject?.get("type")?.jsonPrimitive?.contentOrNull ?: ""
+            )
+        }
+    }
+
+    /**
+     * 后台化（POST /api/session/:sessionID/background）。
+     * 将当前会话所有前台可后台化工具（subagent）批量转为后台，
+     * 主会话立即恢复交互。无前台可后台化工具时是 no-op。
+     */
+    suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean {
+        val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/background") {
+            conn.authHeader?.let { header("Authorization", it) }
+        }
+        return response.status.isSuccess()
+    }
+
+    /**
+     * 列出运行中的后台 shell 命令（GET /api/shell）。
+     * 已退出的命令不包含在列表中。
+     */
+    suspend fun listShells(
+        conn: ServerConnection,
+        directory: String? = null
+    ): List<ShellJob> {
+        val response = httpClient.get("${conn.baseUrl}/api/shell") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+        }
+        return V2ShellMapper.shellList(response.bodyAsText(), json)
+    }
+
+    /**
+     * 获取单个后台 shell（GET /api/shell/:id），含状态与退出码。
+     */
+    suspend fun getShell(
+        conn: ServerConnection,
+        shellId: String,
+        directory: String? = null
+    ): ShellJob? {
+        val response = httpClient.get("${conn.baseUrl}/api/shell/$shellId") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+        }
+        if (!response.status.isSuccess()) return null
+        val root = parseRoot(response.bodyAsText())
+        val data = V2ResponseWrapper.unwrap(root)
+        return V2ShellMapper.toShellJob(data)
+    }
+
+    /**
+     * 分页读取后台 shell 输出（GET /api/shell/:id/output）。
+     * 按字节游标读取捕获的 stdout/stderr 合并输出。
+     */
+    suspend fun getShellOutput(
+        conn: ServerConnection,
+        shellId: String,
+        cursor: Long? = null,
+        limit: Int? = null,
+        directory: String? = null
+    ): ShellOutput? {
+        val response = httpClient.get("${conn.baseUrl}/api/shell/$shellId/output") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+            cursor?.let { parameter("cursor", it) }
+            limit?.let { parameter("limit", it) }
+        }
+        if (!response.status.isSuccess()) return null
+        val root = parseRoot(response.bodyAsText())
+        val data = V2ResponseWrapper.unwrap(root)
+        return ShellOutput(
+            output = data["output"]?.jsonPrimitive?.contentOrNull ?: "",
+            cursor = data["cursor"]?.jsonPrimitive?.long ?: 0L,
+            size = data["size"]?.jsonPrimitive?.long ?: 0L,
+            truncated = data["truncated"]?.jsonPrimitive?.content?.toBoolean() ?: false
+        )
+    }
+
+    /**
+     * 终止并删除后台 shell（DELETE /api/shell/:id）。
+     */
+    suspend fun removeShell(
+        conn: ServerConnection,
+        shellId: String,
+        directory: String? = null
+    ): Boolean {
+        val response = httpClient.delete("${conn.baseUrl}/api/shell/$shellId") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+        }
+        return response.status.isSuccess()
+    }
+
+    /**
+     * 更新后台 shell 超时（PATCH /api/shell/:id/timeout）。
+     * 从当前时刻重新计时；传 0 清除超时。
+     */
+    suspend fun updateShellTimeout(
+        conn: ServerConnection,
+        shellId: String,
+        timeoutMillis: Long,
+        directory: String? = null
+    ): ShellJob? {
+        val response = httpClient.patch("${conn.baseUrl}/api/shell/$shellId/timeout") {
+            conn.authHeader?.let { header("Authorization", it) }
+            directoryHeader(directory)
+            contentType(io.ktor.http.ContentType.Application.Json)
+            setBody("""{"timeout":$timeoutMillis}""")
+        }
+        if (!response.status.isSuccess()) return null
+        val root = parseRoot(response.bodyAsText())
+        val data = V2ResponseWrapper.unwrap(root)
+        return V2ShellMapper.toShellJob(data)
+    }
+
     // ============ Message ============
 
-    suspend fun listMessages(
-        conn: ServerConnection,
+    suspend fun listMessages(        conn: ServerConnection,
         sessionId: String,
         limit: Int? = null
     ): MessagePage {
