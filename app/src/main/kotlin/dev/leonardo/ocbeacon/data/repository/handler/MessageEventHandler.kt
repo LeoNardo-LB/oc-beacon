@@ -391,11 +391,23 @@ class MessageEventHandler @Inject constructor(
     )
 
     private fun mergePartsList(existingParts: List<Part>, incomingParts: List<Part>): List<Part> {
+        // 2026-08-12 根因修复（流式内容消失）：
+        // 1. incoming 为空（REST 流式消息 content 未提交 / SSE 部分更新）时
+        //    保留 existing——原实现返回 [] 清空 SSE 累积文本。
+        // 2. 保留 incoming 中不存在的已有 parts：REST text part id="" 与 SSE
+        //    派生 id="msg_ord_N" 契约不一致（V2Mappers.kt:294 vs V2SseMapper
+        //    derivePartId）→ 原实现丢弃 existing 独有（SSE 累积）文本。
+        //    顺序：incoming（REST 权威）在前，SSE 独有追加在后；完成后 REST
+        //    全量返回 → preserved 为空 → 顺序完全按 REST。
+        if (incomingParts.isEmpty()) return existingParts
         val existingById = existingParts.associateBy { it.id }
-        return incomingParts.map { incoming ->
+        val merged = incomingParts.map { incoming ->
             val existing = existingById[incoming.id]
             if (existing != null) mergePart(existing, incoming) else incoming
         }
+        val incomingIds = incomingParts.mapTo(HashSet()) { it.id }
+        val preserved = existingParts.filter { it.id !in incomingIds }
+        return merged + preserved
     }
 
     /**

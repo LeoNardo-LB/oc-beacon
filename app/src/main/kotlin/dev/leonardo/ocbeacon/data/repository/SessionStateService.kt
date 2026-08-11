@@ -142,6 +142,18 @@ class SessionStateService @Inject constructor(
         is SseEvent.SessionIdle -> FsmEvent.SseIdle
         is SseEvent.SessionError -> FsmEvent.SseError(event.error)
         is SseEvent.SessionNext -> mapSessionNextEvent(event.event)
+        // 2026-08-12 根因修复（流式内容消失）：V2 的文本/消息事件（V2SseMapper
+        // 直接映射为消息级事件，不走 SessionNext）也必须更新 FSM lastEventAt——
+        // 否则 staleness guard（15s 无活动）误判连接陈旧 → 触发 REST 校验 →
+        // REST_AUTHORITY 合并因 part ID 契约差异（REST id="" vs SSE 派生 id）
+        // 丢弃 SSE 累积文本 → 流式内容周期性消失（V1→V2 回归：V1 文本走
+        // SessionNext(TextDelta) 正常更新 lastEventAt）。
+        // 语义：delta → Streaming 活动；part/消息级更新 → 内容活动（TextStarted）。
+        // activityEvent 在 Busy 时更新 activity+lastEventAt；Idle 时仅更新
+        // lastEventAt 并标记 suspicious（无害，语义正确）。
+        is SseEvent.MessagePartDelta -> FsmEvent.TextDelta(event.delta)
+        is SseEvent.MessagePartUpdated -> FsmEvent.TextStarted
+        is SseEvent.MessageUpdated -> FsmEvent.TextStarted
         else -> null
     }
 
@@ -281,11 +293,18 @@ class SessionStateService @Inject constructor(
                     // 滑动第二轮 slowUI 26-30 恰好撞上 L3 校验）。校验只需补漏最新消息，
                     // 取最新 50 条足够（陈旧窗口的漏消息远少于 50，且进入会话时
                     // loadMessagesForSession 已做增量同步）。
-                    sessionRepoProvider.get().listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT)
-                        .onSuccess { page ->
-                            messageRefresher.refreshMessages(sessionId, page.messages)
-                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs")
-                        }
+                    // 2026-08-12 根因修复（流式内容消失）：服务器确认 Busy（流式
+                    // 进行中）时跳过消息刷新——SSE 连接活着无需 REST 补漏；且
+                    // REST_AUTHORITY 合并会因 part ID 契约差异（REST text id=""
+                    // vs SSE 派生 id）丢弃 SSE 累积文本 → 内容周期性消失。
+                    // 仅 Idle / 缺失（需要补漏）时才刷新。
+                    if (serverStatus !is SessionStatus.Busy) {
+                        sessionRepoProvider.get().listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT)
+                            .onSuccess { page ->
+                                messageRefresher.refreshMessages(sessionId, page.messages)
+                                if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs")
+                            }
+                    }
                 }
             } catch (e: Exception) {
                 AppLogger.w(TAG, "[$sessionId] L3 REST validation failed: ${e.message}")
