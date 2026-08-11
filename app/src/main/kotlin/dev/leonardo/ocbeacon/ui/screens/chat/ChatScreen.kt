@@ -252,8 +252,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 private const val TAG_SCROLL = "ChatScroll"
 
-/** 进入会话加载过渡的最小显示时长（ms）：缓存秒开时 PulsingDots 也不一闪而过（2026-08-10）。 */
-private const val MIN_LOADING_VISIBLE_MS = 400
+
 
 // jumpToBottom / animateScrollToBottom 已移除 —— reverseLayout=true 原生锚定底部。
 
@@ -431,21 +430,9 @@ fun ChatScreen(
         }
     }
 
-    // 进入会话加载过渡（2026-08-10 修复）：本地缓存秒开后 PulsingDots 一闪而过不可见，
-    // 用户感知"过渡动画没了"。给加载指示器加"最小显示时长"（MIN_LOADING_VISIBLE_MS）：
-    // 即使消息立即到达，PulsingDots 也至少显示 ~400ms 再淡出，提供平滑的进入过渡反馈。
-    // 与已移除的"加载蒙版"不同：此指示器不遮挡内容、不拦截触摸（无 pointerInput 消费）。
-    // 初始值：仅当"首次进入且内容未加载完"时显示过渡；返回已有会话（messages 非空）不显示。
-    val messagesLoaded = messageState.messages.isNotEmpty() || !interaction.isLoading
-    var showLoadingTransition by remember {
-        mutableStateOf(messageState.messages.isEmpty() && interaction.isLoading)
-    }
-    LaunchedEffect(messagesLoaded) {
-        if (messagesLoaded) {
-            delay(MIN_LOADING_VISIBLE_MS.toLong())
-            showLoadingTransition = false
-        }
-    }
+    // ============ 加载过渡 ============
+    // （#53：2026-08-10 的 MIN_LOADING_VISIBLE_MS 人为延迟已移除——NavHost 全局
+    // fadeIn 过渡提供进入动画；PulsingDots 仅在真正加载时显示，不欺骗感知）
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -677,12 +664,10 @@ fun ChatScreen(
                         snackbarHostState = snackbarHostState,
                     )
                 }
-                // 进入会话加载过渡（2026-08-10 修复）：PulsingDots 至少显示
-                // MIN_LOADING_VISIBLE_MS 再消失——即使消息立即到达（缓存秒开），
-                // 也提供可见的进入过渡反馈（此前加载太快时动画一闪而过，用户感知
-                // "过渡动画没了"）。showLoadingTransition 由 messagesLoaded 驱动
-                // 延迟置 false（见上方 LaunchedEffect），期间保持此分支显示加载指示器。
-                showLoadingTransition && !isTerminalMode && interaction.error == null -> {
+                // 进入会话加载过渡：仅在真正加载时显示 PulsingDots。
+                // （#53：移除 2026-08-10 的 MIN_LOADING_VISIBLE_MS 人为延迟补丁——
+                // NavHost 全局 fadeIn 过渡已提供进入过渡感，双过渡叠加是反模式）
+                interaction.isLoading && !isTerminalMode && interaction.error == null -> {
                     PulsingDotsIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
