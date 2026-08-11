@@ -272,27 +272,30 @@ class MessageStore @Inject constructor(
         beforeCreated: Long,
     ): List<MessageWithParts> = withContext(Dispatchers.IO) {
         databaseRecovery.withCorruptionRecovery {
+            // #49+#50（2026-08-11）：原实现每桶 1 查询 + 1 touch 写（N+1）；
+            // 现一次查询 limit 个桶（每桶 ≥1 条消息 → limit 桶必凑满），按需
+            // 解码 + 每桶只取窗口内最新 need 条——消除 N+1 且减少解压浪费。
+            // 语义：SQL 保证返回桶 bucketEnd < beforeCreated → 桶内全部在窗口内。
+            val buckets = archiveDao.latestBefore(sessionId, beforeCreated, limit = limit.coerceAtLeast(1))
+            if (buckets.isEmpty()) return@withCorruptionRecovery emptyList()
             val result = mutableListOf<MessageWithParts>()
-            var beforeEnd = beforeCreated
             var need = limit
-            while (need > 0) {
-                val buckets = archiveDao.latestBefore(sessionId, beforeEnd, limit = 1)
-                if (buckets.isEmpty()) break
-                val bucket = buckets[0]
+            for (bucket in buckets) {
+                if (need <= 0) break
                 val decoded = runCatching { decodeBucket(bucket) }.getOrElse { e ->
                     AppLogger.e(TAG, "[dearchive] session=$sessionId bucket=${bucket.id}: decode failed, skipping", e)
                     emptyList()
                 }
                 archiveDao.touch(bucket.id, clock())
-                result.addAll(decoded)
                 if (BuildConfig.DEBUG && decoded.isNotEmpty()) {
-                    AppLogger.d(TAG, "[dearchive] session=$sessionId bucket=${bucket.id}: ${decoded.size} msgs (before=$beforeEnd)")
+                    AppLogger.d(TAG, "[dearchive] session=$sessionId bucket=${bucket.id}: ${decoded.size} msgs (before=$beforeCreated)")
                 }
-                need -= decoded.size
-                beforeEnd = bucket.bucketStart  // 下个桶必须更早（用桶起点做游标，避免边界重复）
-                if (decoded.isEmpty()) continue  // 坏桶跳过，游标已推进到 bucketStart，不会死循环
+                // 桶内升序 → takeLast 取最新 need 条（该桶更旧部分不解压浪费到结果中）
+                val take = decoded.takeLast(need)
+                result.addAll(take)
+                need -= take.size
             }
-            result
+            result.sortedBy { it.info.time.created }
         } ?: emptyList()
     }
 
