@@ -1,18 +1,15 @@
-## OC Beacon 0.3.0-beta.4 — 2026-08-11
+## OC Beacon 0.3.0-beta.5 — 2026-08-11
 
-> **支持 OpenCode V2 API——自动检测服务器版本，V1/V2 双 API 无缝切换**
+> **修复 V2 连接稳定性与 subagent 卡片跳转——全面适配 OpenCode V2 API**
 
-### Added
+### Fixed
 
-- **OpenCode V2 API 全面支持**：连接服务器时自动探测 API 版本（V1 或 V2），后续所有请求自动路由到对应版本——用户无需关心服务器版本差异
-- **版本徽章显示**：服务器卡片上显示检测到的 API 版本和服务器版本号（如 `API v2 · 2.0.1`）
-- **V2 SSE 流式解析**：支持 V2 标准 SSE 帧格式（`event:` + `data:` 行），流式消息/工具调用/权限请求实时推送
-
-### Changed
-
-- **API 层架构重构**：V1 和 V2 各自独立实现（V1ApiClient + V2ApiClient），6 个 API 分发类变为纯策略选择层，上层业务代码零改动
-- **V2 端点全覆盖**：72 个 API 方法 100% 覆盖 V2 路径，包括 Session（abort→interrupt）、Message（type 判别联合+content 数组）、Provider（credential 替代 auth）、File（/api/fs/*）、Terminal（/api/pty/*）等
+- **subagent 卡片恢复跳转子会话**：V2 工具名（subagent）正确映射，点击已完成 subagent 卡片可跳转到对应子会话页面（之前只能展开基本信息）
+- **修复退出进行中会话的报错**：V2 SSE 心跳逻辑修正——活跃会话不再每 40 秒误判超时断连重连
+- **修复会话列表报错**：V2 响应格式（`{location,data}` 包裹）兼容解析，不再出现 JsonConvert 错误
+- **V2 tool 数据完整映射**：工具输入/输出/元数据（含子会话 ID）正确保留，tool 卡片渲染完整
+- **V2 事件流正确解析**：`session.reasoning.delta`/`session.text.delta` 等增量事件正确映射到消息流式管线
 
 
 ---
-完整变更记录：[Full Changelog](https://github.com/LeoNardo-LB/oc-beacon/compare/v0.3.0-beta.3...v0.3.0-beta.4)
+完整变更记录：[Full Changelog](https://github.com/LeoNardo-LB/oc-beacon/compare/v0.3.0-beta.4...v0.3.0-beta.5)
