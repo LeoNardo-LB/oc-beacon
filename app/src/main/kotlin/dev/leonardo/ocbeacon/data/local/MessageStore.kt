@@ -224,7 +224,12 @@ class MessageStore @Inject constructor(
     override suspend fun loadRange(sessionId: String, limit: Int, beforeId: String?): List<MessageWithParts> =
         withContext(Dispatchers.IO) {
             databaseRecovery.withCorruptionRecovery {
-                val entities = dao.messagesForSession(sessionId, limit, beforeId)
+                // #51：拆两条查询（无 OR 子句，避免 SQLite 放弃复合索引）
+                val entities = if (beforeId != null) {
+                    dao.messagesBefore(sessionId, beforeId, limit)
+                } else {
+                    dao.messagesForSession(sessionId, limit)
+                }
                 if (entities.isEmpty()) return@withCorruptionRecovery emptyList()
                 val partsByMsg = partsForMessagesChunked(entities.map { it.id })
                     .groupBy { it.messageId }

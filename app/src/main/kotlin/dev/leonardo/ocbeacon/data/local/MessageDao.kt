@@ -15,13 +15,19 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertParts(entities: List<CachedPartEntity>)
 
-    /** 分页读：按 created DESC 取 [limit] 条；beforeId 非空时只取比它更早的。 */
+    /** 分页读：最新 limit 条（无游标）。 */
     @Query(
         "SELECT * FROM cached_messages WHERE sessionId = :sessionId " +
-            "AND (:beforeId IS NULL OR id < :beforeId) " +  // ULID 字典序 = 时间序
             "ORDER BY created DESC, id DESC LIMIT :limit",
     )
-    suspend fun messagesForSession(sessionId: String, limit: Int, beforeId: String?): List<CachedMessageEntity>
+    suspend fun messagesForSession(sessionId: String, limit: Int): List<CachedMessageEntity>
+
+    /** 分页读：取比 beforeId 更早的 limit 条（游标分页）。 */
+    @Query(
+        "SELECT * FROM cached_messages WHERE sessionId = :sessionId AND id < :beforeId " +  // ULID 字典序 = 时间序
+            "ORDER BY created DESC, id DESC LIMIT :limit",
+    )
+    suspend fun messagesBefore(sessionId: String, beforeId: String, limit: Int): List<CachedMessageEntity>
 
     /** Room Flow：本地库变化 → 自动发新值。 */
     @Query("SELECT * FROM cached_messages WHERE sessionId = :sessionId ORDER BY created DESC, id DESC")

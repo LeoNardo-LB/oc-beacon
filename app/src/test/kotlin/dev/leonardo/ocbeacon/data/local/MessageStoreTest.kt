@@ -125,7 +125,7 @@ class MessageStoreTest {
     fun loadRange_passesBeforeCursor() = runTest {
         store.loadRange("ses_1", limit = 50, beforeId = "msg_5")
 
-        coVerify(exactly = 1) { dao.messagesForSession("ses_1", 50, "msg_5") }
+        coVerify(exactly = 1) { dao.messagesBefore("ses_1", "msg_5", 50) }
     }
 
     @Test
@@ -343,7 +343,7 @@ class MessageStoreTest {
         val entities = ids.mapIndexed { i, id ->
             CachedMessageEntity(id, "ses_1", i.toLong(), "assistant", json.encodeToString(Message.Assistant(id = id, sessionId = "ses_1", time = TimeInfo(i.toLong()), parentId = "p0")))
         }
-        coEvery { dao.messagesForSession("ses_1", 2000, null) } returns entities
+        coEvery { dao.messagesForSession("ses_1", 2000) } returns entities
         // parts：分块后每次调用返回对应的 mock 结果（按调用参数匹配）
         coEvery { dao.partsForMessages(any()) } answers { arg<List<String>>(0).map { CachedPartEntity(id = "p_$it", messageId = it, sessionId = "ses_1", type = "text", text = "{}", payload = "{}") } }
 
