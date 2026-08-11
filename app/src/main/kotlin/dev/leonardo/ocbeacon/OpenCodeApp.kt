@@ -31,6 +31,23 @@ private const val CRASH_DIR = "oc_beacon_crash"
 private const val MAX_LOG_FILES = 10
 
 /**
+ * 崩溃日志目录：优先外部 Download（用户可直接访问）；不可访问时
+ *（旧 uid 遗留目录权限锁死 / 外部存储不可用）fallback 应用私有目录。
+ * 崩溃写入与启动提示统一走此函数，保证日志不丢失、提示可检测。
+ */
+private fun Application.crashLogDir(): File {
+    val external = File(
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+        CRASH_DIR
+    )
+    return if (external.canWrite() || external.mkdirs()) {
+        external
+    } else {
+        File(filesDir, CRASH_DIR)
+    }
+}
+
+/**
  * OC Beacon Application
  * Hilt 依赖注入的入口
  */
@@ -53,14 +70,13 @@ class OpenCodeApp : Application() {
         appScope.launch { diagnosticRepo.initialize() }
         AppLogger.i("App", "OC Beacon ${BuildConfig.VERSION_NAME} (code ${BuildConfig.VERSION_CODE}) started")
 
-        val crashDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), CRASH_DIR)
-
         // ---- 全局未捕获异常处理器 ----
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             // 在进程死亡前将崩溃持久化到诊断数据库
             runCatching { AppLogger.recordCrash(thread, throwable) }
             try {
+                val crashDir = crashLogDir()
                 crashDir.mkdirs()
                 val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
                 val logFile = File(crashDir, "crash_${timestamp}.txt")
@@ -115,11 +131,26 @@ class OpenCodeApp : Application() {
             defaultHandler?.uncaughtException(thread, throwable)
         }
 
-        // ---- 若存在崩溃日志，则在下次启动时通知用户 ----
-        val hasUnreadCrash = crashDir.listFiles()
-            ?.any { it.name.startsWith("crash_") && it.name.endsWith(".txt") } == true
-        if (hasUnreadCrash) {
+        // ---- 若存在新崩溃日志（上次提示之后），则通知用户（2026-08-11 重构）----
+        // 旧逻辑：只要有 crash 文件（含历史残留）每次启动都提示——07:26 崩溃循环
+        // 遗留 14 个文件（其中 10 个属主为旧 uid，重装后 App 无权限删除/读取）导致
+        // 用户每次启动都看到报错 Toast。改为：① SharedPreferences 记录上次提示时间，
+        // 仅对更新的崩溃文件提示（"仅在真正发生崩溃时提示"，旧残留不再打扰）；
+        // ② 崩溃目录 Download 不可访问时 fallback 应用私有目录（crashLogDir()）——
+        // 旧 uid 遗留目录权限锁死场景下崩溃日志仍可写入与检测。
+        val crashPrefs = getSharedPreferences("crash_notify", MODE_PRIVATE)
+        val lastNotifiedCrashTs = crashPrefs.getLong("last_notified_ts", 0L)
+        val newCrashFiles = crashLogDir().listFiles()
+            ?.filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }
+            ?.filter { file ->
+                val name = file.name.removePrefix("crash_").removeSuffix(".txt")
+                runCatching {
+                    SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(name)?.time ?: 0L
+                }.getOrDefault(0L) > lastNotifiedCrashTs
+            }
+        if (newCrashFiles?.isNotEmpty() == true) {
             Toast.makeText(this, getString(R.string.crash_logs_dir, CRASH_DIR), Toast.LENGTH_LONG).show()
+            crashPrefs.edit().putLong("last_notified_ts", System.currentTimeMillis()).apply()
         }
 
         // 跟踪应用前台/后台状态，用于通知抑制
