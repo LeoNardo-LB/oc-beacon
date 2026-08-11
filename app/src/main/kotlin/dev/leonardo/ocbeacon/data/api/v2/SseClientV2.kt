@@ -30,6 +30,9 @@ import io.ktor.utils.io.ByteReadChannel
 private const val TAG = "SseClientV2"
 private const val HEARTBEAT_TIMEOUT_MS = 40_000L
 
+/** V2 事件信封元字段（非 payload 数据）——顶层格式剥除用。 */
+private val EVENT_META_KEYS = setOf("id", "created", "type", "durable", "location", "event")
+
 /**
  * V2 SSE 客户端——解析 OpenCode V2 的 Server-Sent Events 格式。
  *
@@ -224,9 +227,15 @@ class SseClientV2 @Inject constructor(
 
         val type = root["type"]?.jsonPrimitive?.content
         if (type != null) {
-            // V2 真实格式：payload 在 data 字段（对象）
+            // V2 payload 提取（2026-08-11 实测两种格式）：
+            // 1. 旧格式：payload 在 data 字段（对象）——{type, data:{...}}
+            // 2. 新格式：字段直接在顶层——{id, created, type, durable, location, sessionID, ...}
+            //    （无 data 包装；剥除非数据字段后即 payload）
             val payload = root["data"]?.jsonObject
                 ?: root["properties"]?.jsonObject  // V1 风格兼容
+                ?: root.filterKeys { it !in EVENT_META_KEYS }
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { JsonObject(it) }
                 ?: JsonObject(emptyMap())
             return handleEvent(type, payload)
         }

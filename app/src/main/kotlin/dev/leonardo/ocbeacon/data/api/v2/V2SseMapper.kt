@@ -73,7 +73,7 @@ object V2SseMapper {
                     time = TimeInfo(System.currentTimeMillis()),
                     parentId = props["parentID"]?.jsonPrimitive?.contentOrNull ?: "",
                     agent = props["agent"]?.jsonPrimitive?.contentOrNull,
-                    modelId = props["model"]?.jsonPrimitive?.contentOrNull
+                    modelId = modelIdFrom(props)
                 )
             )
         }
@@ -293,5 +293,20 @@ object V2SseMapper {
             ?: props["ordinal"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
             ?: return null
         return Triple(sessionId, messageId, ordinal)
+    }
+
+    /**
+     * 提取模型 ID（V2 model 是 Ref 对象 {providerID, modelID}，非字符串）。
+     */
+    private fun modelIdFrom(props: JsonObject): String? {
+        val model = props["model"] ?: return null
+        return when {
+            model is kotlinx.serialization.json.JsonPrimitive -> model.contentOrNull
+            model is JsonObject -> {
+                model["modelID"]?.jsonPrimitive?.contentOrNull
+                    ?: model["model"]?.jsonPrimitive?.contentOrNull
+            }
+            else -> null
+        }
     }
 }
