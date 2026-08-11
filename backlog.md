@@ -611,3 +611,10 @@ efactor
   - 问题：2026-08-11 Diagnostics 日志 5 次 `V2 parse error: session.instructions.updated`（15:42-16:07）——parseV2Event 对 `data` 为数组的事件回退顶层字段路径，但 instructions.updated 顶层只有 metadata（无 type 所需字段）→ 后续解析抛异常被记为 ERROR；同时 `session.created` 解析失败（16:03，Kotlin reflection 序列化异常）
   - 修复方向：instructions.updated 显式处理（metadata 提取或忽略）；session.created 序列化调查（Kotlin reflection 异常——可能与 Json 配置/多态有关）
   - 工时：~0.5d | 难度：低 | 涉及：V2SseMapper / SseClientV2.parseV2Event
+
+- [ ] **#76 冷启动 seed 消息顺序降序 vs mergeSortedMessages 升序前提（REST refresh 丢本地独有消息）** `data` `bug`
+  - 问题：2026-08-11 synthetic 卡片实测发现——`MessageDao.observeMessages` 返回 `ORDER BY created DESC`（降序），而 `ChatRepositoryImpl.getMessagesFlow` 冷启动 seed 直接喂给 `upsertMessages(APPEND_ONLY)` → `mergeSortedMessages` 两路归并**前提要求升序**（MessageEventHandler.kt:408-410）→ 合并结果乱序/异常；随后 L3 REST refresh（REST_AUTHORITY）再次用降序 existing 归并 → **服务器上不存在的本地独有消息（如本地注入/服务器已删除）被丢弃**（实测：seed 14 条 → REST refresh 后 UI 仅 12 条，2 条注入 synthetic 消失）
+  - 影响：低概率但真实——本地缓存与服务器不一致（服务器删除/回滚、本地注入）时消息丢失；日常场景（服务器权威数据）被掩盖
+  - 修复：seed 前 `sortedBy { it.time.created }` 升序化（或 MessageDao 提供升序查询）；合并后断言有序
+  - 工时：~0.5h | 难度：低 | 涉及：ChatRepositoryImpl.getMessagesFlow（seed 路径）
+  - 来源：2026-08-11 synthetic 卡片实测
