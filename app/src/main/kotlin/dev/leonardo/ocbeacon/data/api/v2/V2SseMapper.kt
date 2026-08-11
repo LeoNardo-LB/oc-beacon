@@ -82,7 +82,12 @@ object V2SseMapper {
         "session.step.ended" -> {
             val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
             val messageId = props["assistantMessageID"]?.jsonPrimitive?.contentOrNull ?: return null
-            val cost = props["cost"]?.jsonObject?.get("total")?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+            // cost 可能是对象 {total: 1.25}（实测）或裸数字（0.9）——都兼容
+            val cost = when (val c = props["cost"]) {
+                is JsonObject -> c["total"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+                is kotlinx.serialization.json.JsonPrimitive -> c.contentOrNull?.toDoubleOrNull()
+                else -> null
+            }
             SseEvent.MessageUpdated(
                 Message.Assistant(
                     id = messageId,
