@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageAgentUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,52 +38,49 @@ class DraftInputDelegateTest {
     )
 
     @Test
-    fun updateDraftText_debouncedPersistsAfter500ms() = runTest {
+    fun updateDraftText_persistsImmediately() = runTest {
         coEvery { draftRepository.getDraft(any()) } returns null
         val d = delegate(this)
 
         d.updateDraftText("hello")
+        advanceUntilIdle()
 
-        // 防抖窗口内未持久化
-        advanceTimeBy(400)
-        coVerify(exactly = 0) { draftRepository.saveDraft(any(), any()) }
-
-        // 超过 500ms 后持久化
-        advanceTimeBy(200)
+        // #54：直写语义——输入后立即持久化（无防抖窗口，force-stop 不丢草稿）
         coVerify(exactly = 1) { draftRepository.saveDraft("ses_1", match { it.text == "hello" }) }
     }
 
     @Test
-    fun updateDraftText_rapidInputsOnlyPersistOnce() = runTest {
+    fun updateDraftText_rapidInputsPersistInOrder() = runTest {
         coEvery { draftRepository.getDraft(any()) } returns null
         val d = delegate(this)
 
-        // 连续快速输入（每次都在防抖窗口内）→ 只持久化最后一次
+        // 连续快速输入 → 每次输入都持久化（Mutex 串行保序，最后一次文本正确）
         d.updateDraftText("h")
-        advanceTimeBy(200)
+        advanceUntilIdle()
         d.updateDraftText("he")
-        advanceTimeBy(200)
+        advanceUntilIdle()
         d.updateDraftText("hello")
-        advanceTimeBy(200)
+        advanceUntilIdle()
 
-        coVerify(exactly = 0) { draftRepository.saveDraft(any(), any()) }
-
-        advanceTimeBy(500)
-        coVerify(exactly = 1) { draftRepository.saveDraft("ses_1", match { it.text == "hello" }) }
+        coVerifyOrder {
+            draftRepository.saveDraft("ses_1", match { it.text == "h" })
+            draftRepository.saveDraft("ses_1", match { it.text == "he" })
+            draftRepository.saveDraft("ses_1", match { it.text == "hello" })
+        }
     }
 
     @Test
-    fun clearDraft_cancelsPendingDebounce() = runTest {
+    fun clearDraft_doesNotRestoreClearedText() = runTest {
         coEvery { draftRepository.getDraft(any()) } returns null
         val d = delegate(this)
 
         d.updateDraftText("temporary")
-        advanceTimeBy(200)
+        advanceUntilIdle()
         d.clearDraft()
         advanceUntilIdle()
 
-        // clearDraft 已取消防抖 job → 不会把清空前的文本存回去
-        coVerify(exactly = 0) { draftRepository.saveDraft(any(), match { it.text == "temporary" }) }
+        // clearDraft 清空状态；不会把清空前的文本存回去（直写已保存的是清空前的快照，
+        // clearDraft 本身只清内存 + 调 repository.clearDraft）
         coVerify(exactly = 1) { draftRepository.clearDraft("ses_1") }
     }
 

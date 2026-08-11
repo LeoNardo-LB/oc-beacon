@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "DraftInputDelegate"
 
@@ -130,21 +132,18 @@ internal class DraftInputDelegate(
 
     // ============ 草稿管理 ============
 
-    /** 防抖保存草稿的 job（每次输入取消并重启；500ms 无输入即持久化）。 */
-    private var draftSaveJob: Job? = null
+    /** 持久化串行锁（#54：防抖直写后，连续输入产生并发写——Mutex 保证先调先写）。 */
+    private val persistMutex = Mutex()
 
     /**
      * 更新草稿文本（每次按键时调用）。
-     * 500ms 防抖自动持久化——进程被系统/force-stop 杀死时草稿不丢
-     *（onCleared 兜底只在正常导航退出时触发）。
+     * #54（2026-08-11）：移除 500ms 防抖 Job（高频输入 Job 创建销毁 + 防抖窗口内
+     * force-stop 杀进程仍丢草稿）→ 直写 DataStore（DataStore.edit 内部串行合并，
+     * 写放大可控；Mutex 保证顺序，防乱序覆盖）。
      */
     fun updateDraftText(text: String) {
         _draftText.value = text
-        draftSaveJob?.cancel()
-        draftSaveJob = scope.launch {
-            delay(DRAFT_SAVE_DEBOUNCE_MS)
-            saveDraft()
-        }
+        saveDraft()
     }
 
     /** 向草稿添加附件 URI。 */
@@ -163,7 +162,6 @@ internal class DraftInputDelegate(
 
     /** 清除所有草稿状态（发送消息后调用）。 */
     fun clearDraft() {
-        draftSaveJob?.cancel()
         _draftText.value = ""
         _draftAttachmentUris.value = emptyList()
         scope.launch {
@@ -176,7 +174,7 @@ internal class DraftInputDelegate(
         _restoredDraft.value = null
     }
 
-    /** 将当前草稿持久化到磁盘（异步：DataStore IO 不阻塞调用线程）。 */
+    /** 将当前草稿持久化到磁盘（异步：DataStore IO 不阻塞调用线程；Mutex 串行保序）。 */
     fun saveDraft() {
         val agentPair = selectedAgentProvider()
         val draft = Draft(
@@ -187,7 +185,9 @@ internal class DraftInputDelegate(
             selectedVariant = selectedVariantProvider()
         )
         scope.launch {
-            draftRepository.saveDraft(sessionIdProvider(), draft)
+            persistMutex.withLock {
+                draftRepository.saveDraft(sessionIdProvider(), draft)
+            }
         }
     }
 
@@ -232,6 +232,5 @@ internal class DraftInputDelegate(
 
     companion object {
         /** 草稿防抖保存间隔：停止输入 500ms 后持久化。 */
-        private const val DRAFT_SAVE_DEBOUNCE_MS = 500L
     }
 }
