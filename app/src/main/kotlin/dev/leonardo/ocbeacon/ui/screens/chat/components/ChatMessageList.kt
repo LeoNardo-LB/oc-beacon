@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
+import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
@@ -608,7 +609,14 @@ fun ChatMessageList(
                                 }
 
                                 MessageCard(
-                                    role = MessageCardRole.USER,
+                                    role = if (chatMessage.message is Message.User &&
+                                        (chatMessage.message as Message.User).role == "synthetic"
+                                    ) {
+                                        // #67：synthetic 系统通知（后台任务/subagent 完成注入）用独立样式
+                                        MessageCardRole.SYNTHETIC
+                                    } else {
+                                        MessageCardRole.USER
+                                    },
                                     currentMessage = chatMessage,
                                     isQueued = chatMessage.message.id in messageState.queuedMessageIds,
                                     onViewSubSession = navigateToChildSession,

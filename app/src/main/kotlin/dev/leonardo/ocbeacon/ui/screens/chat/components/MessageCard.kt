@@ -5,7 +5,7 @@ import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 
-enum class MessageCardRole { USER, ASSISTANT }
+enum class MessageCardRole { USER, ASSISTANT, SYNTHETIC }
 
 @Composable
 internal fun MessageCard(
@@ -32,6 +32,10 @@ internal fun MessageCard(
             isQueued = isQueued,
             onRevert = onRevert,
             onCopyText = onCopyText,
+            isAmoled = isAmoled,
+        )
+        MessageCardRole.SYNTHETIC -> SyntheticNotificationCard(
+            currentMessage = currentMessage,
             isAmoled = isAmoled,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(
