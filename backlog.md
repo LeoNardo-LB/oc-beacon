@@ -238,6 +238,33 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#67 V2 后台完成通知：synthetic 消息被过滤（PartContent Text 分支）** `sse` `ui`
+  - 问题：2026-08-11 V2 契约对齐调研确认——opencode v2 后台任务/subagent 完成时向主会话注入 `POST /api/session/{id}/synthetic` 合成消息；但 oc-beacon 的 PartContent.kt Text 分支 `part.synthetic != true` 直接过滤 → 用户看不到后台完成通知
+  - 方案：识别 synthetic 消息并以特殊样式（卡片/淡色+标签）渲染，或独立事件通道驱动通知
+  - 来源：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md §3（synthetic 端点）+ 后台系统调研
+
+- [ ] **#68 V2 新会话创建后 get/pending 404（服务器怪癖）** `session` `data`
+  - 问题：2026-08-11 实测——新建会话出现在 `GET /api/session` 列表（自动生成标题），但 `GET /api/session/{id}` / `pending` 返回 `SessionNotFoundError`（带/不带 x-opencode-directory 均 404）；服务端重启/升级（next-17132→17135）后可能自愈
+  - 方案：待复现确认；若稳定复现需调研 V2 location/workspace 路由语义（列表可能跨 location 返回而 get 限定 location）
+  - 来源：模拟器 E2E 实测（2026-08-11）
+
+- [ ] **#69 session.instructions.updated 事件未处理（低频 parse error）** `sse`
+  - 问题：2026-08-11 回归走查发现 1 次 `session.instructions.updated` parse error（无 parser 匹配且触发异常路径）；频率极低（指令更新时）
+  - 方案：V2EventParser handledPrefixes 加 `session.instructions.` 占位解析（返回 SessionNext Unknown 即可）
+  - 来源：回归走查 logcat（2026-08-11）
+
+- [ ] **#70 V2 事件体系未确认项（设计文档 §7，实施时补测）** `sse` `refactor`
+  - 问题：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md §7 列出 7 项未确认：
+    1. `session.retry.scheduled` payload 结构（未触发重试未抓到）——影响 Retry 状态映射
+    2. `/api/config` info 已实测无 mcp 字段——McpRepositoryImpl 的 mcp 配置来源需确认（当前 type 回退 "local"）
+    3. `/api/session/active` type 完整枚举（目前仅见 "running"）
+    4. listPtyShells 正确端点已实测 = `/api/pty`（✅ 已修复 #Task7）
+    5. completeProviderOauth 已补 `/api` 前缀（✅ 已修复 #Task7）
+    6. `session.tool.failed` 事件已实测存在（✅ mapper 已支持）
+    7. 多 step 工具循环已实测同 assistantMessageID（✅ 幂等 upsert 天然处理）
+  - 方案：剩余 1/2/3 项在下次触碰相关功能时补测；4-7 已闭环
+  - 来源：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md
+
 - [~] **#29 androidTest 编译修复（#25 已读标记遗留）** `refactor` `data`
   - 问题：commit 5793957f（#25 已读标记服务器域重构）为 SessionRepository 增加 `getLastCompletedReplyTimeFlow()`、SettingsRepository 增加 5 个已读状态方法，但 FakeSessionRepository/FakeSettingsRepository 未同步实现 → `compileDevDebugAndroidTestKotlin` 从该 commit 起持续失败（2026-08-08 悲观重构验证时发现，与重构无关的预存在问题）
   - 方案：Fake 补缺失接口方法（按接口签名 + 现有 fake 语义实现），恢复 androidTest 编译
