@@ -19,6 +19,7 @@ import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -166,6 +167,20 @@ internal fun MessageCardUser(
             images to others
         }
 
+        // 2026-08-12 根治：跳转预渲染——为第一个可渲染文本 part 创建 MarkdownState
+        // 并注册到 LocalMarkdownStateRegistry（scrollToDisplayItem await 解析完成
+        // 信号用）。state 提升到此处 → 组合即开始解析 → 进入视口时可能已 Success。
+        val jumpTextPart = renderableOtherParts.filterIsInstance<Part.Text>().firstOrNull()
+        val jumpMdState = jumpTextPart?.let { part ->
+            com.mikepenz.markdown.model.rememberMarkdownState(part.text, retainState = true)
+        }
+        val mdRegistry = LocalMarkdownStateRegistry.current
+        LaunchedEffect(jumpMdState) {
+            if (jumpMdState != null) {
+                mdRegistry[currentMessage.message.id] = jumpMdState
+            }
+        }
+
         // 以水平行渲染图片缩略图
         if (imageFiles.isNotEmpty()) {
             ImageThumbnailRow(imageFiles = imageFiles)
@@ -177,6 +192,7 @@ internal fun MessageCardUser(
                 PartContent(
                     part = part,
                     textColor = textColor,
+                    markdownStateOverride = if (part.id == jumpTextPart?.id) jumpMdState else null,
                     isUser = true,
                     onViewSubSession = null
                 )

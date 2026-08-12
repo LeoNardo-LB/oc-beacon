@@ -33,6 +33,7 @@ import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
+import com.mikepenz.markdown.model.MarkdownState
 
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -133,6 +134,9 @@ internal fun MarkdownContent(
     isUser: Boolean,
     @Suppress("UNUSED_PARAMETER") customFontSize: String? = null,
     @Suppress("UNUSED_PARAMETER") immediate: Boolean = false,
+    // 2026-08-12 根治：跳转预渲染——外部（MessageCardUser）创建的 MarkdownState
+    //（用于 await 解析完成信号）；null = 内部自建（常规渲染路径）。
+    overrideState: MarkdownState? = null,
 ) {
     // 注意：customFontSize 和 immediate 保留是为了调用点兼容性
     //（PartContent / ReasoningBlock 仍传入它们），但有意不使用
@@ -365,7 +369,7 @@ internal fun MarkdownContent(
         listIndent = 4.dp,
     )
 
-    val markdownState = rememberMarkdownState(
+    val markdownState = overrideState ?: rememberMarkdownState(
         content = normalizedMarkdown,
         retainState = true,
     )

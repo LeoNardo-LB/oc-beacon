@@ -43,6 +43,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolExpandedStates
 import dev.leonardo.ocbeacon.ui.screens.chat.util.QuestionParser
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.viewer.FileViewerSource
+import com.mikepenz.markdown.model.MarkdownState
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -54,7 +55,9 @@ internal fun PartContent(
     onViewSubSession: ((String) -> Unit)? = null,
     turnAgentName: String? = null,
     onOpenFile: ((filePath: String) -> Unit)? = null,
-    onViewTool: ((ViewToolRequest) -> Unit)? = null
+    onViewTool: ((ViewToolRequest) -> Unit)? = null,
+    // 2026-08-12 根治：跳转预渲染——透传外部 MarkdownState（见 MarkdownContent）
+    markdownStateOverride: MarkdownState? = null,
 ) {
     when (part) {
         is Part.Text -> {
@@ -70,7 +73,8 @@ internal fun PartContent(
                             markdown = part.text,
                             textColor = textColor,
                             isUser = isUser,
-                            immediate = !isUser
+                            immediate = !isUser,
+                            overrideState = markdownStateOverride
                         )
                     }
                 }

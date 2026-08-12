@@ -56,7 +56,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.ScrollScope
-import androidx.compose.foundation.lazy.layout.LazyLayoutScrollScope
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -107,6 +106,20 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.util.MessageFingerprints
+import com.mikepenz.markdown.model.MarkdownState
+import com.mikepenz.markdown.model.State
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * 跳转预渲染注册表（根治方案 2026-08-12）：
+ * 消息组件（MessageCardUser）为跳转目标消息创建 MarkdownState 后注册到此表，
+ * scrollToDisplayItem 从表里取目标 state 并 await 解析完成（State.Success）——
+ * 用"渲染完成信号"精确等待，替代尺寸轮询（内容展示前渲染完）。
+ */
+val LocalMarkdownStateRegistry = androidx.compose.runtime.staticCompositionLocalOf<MutableMap<String, MarkdownState>> {
+    mutableMapOf()
+}
 
 /**
  * 主会话和子会话消息列表共用的 composable。
@@ -319,6 +332,10 @@ fun ChatMessageList(
     // "目标不在视口顶部"——logcat 实证 positioned 后被 auto-load 推走）。
     var jumpLockActive by remember { mutableStateOf(false) }
 
+    // 2026-08-12 根治：跳转预渲染注册表——目标消息组件（MessageCardUser）
+    // 注册其 MarkdownState，scrollToDisplayItem await 解析完成信号。
+    val mdRegistry = remember { mutableMapOf<String, MarkdownState>() }
+
     // jumpToMessage 的核心滚动 + 高亮（立即路径与异步路径共用）。
     // 2026-08-12：目标定位到"视口安全区"（顶部下方 100px）——完全可见，
     // 不被顶部 topBar 遮挡（LazyColumn 视口含标题栏区域）。
@@ -339,14 +356,15 @@ fun ChatMessageList(
             AppLogger.d("ChatPaging", "scrollToDisplayItem: displayIdx=$displayItemIndex lazyIdx=$initialLazyIndex msg=${targetMsgId.take(12)}")
         }
         coroutineScope.launch {
-            // 2026-08-12 动画版跳转定位（用户要求 0.6s 缓快缓平滑移动 + 提前渲染）：
-            // - 段 A：目标不在视口时先瞬间定位到视口底部（offset=0）——目标立即
-            //   进入视口开始组合/渲染（"提前渲染"：渲染发生在动画期间而非到顶后）
-            // - 段 B：0.6s EaseInOut 帧循环，每帧 requestScroll 渐变 offset
-            //   （0 → viewportHeight - size）——pending 位置机制天然平滑，
-            //   无需距离 API；**每帧按最新渲染 size 重算目标** → 渲染导致的
-            //   尺寸变化（实测 214→331）自适应，不产生顶边偏差
-            // - 精确微调：动画后把顶边残差收敛到 ±2px（兜底任何残余渲染变化）
+            // 2026-08-12 预渲染模式（用户要求：先预渲染测绘，再动画挪上去）：
+            // - Phase 1：瞬间定位到目标（视口底部）——目标进入视口开始渲染，
+            //   画面显示目标内容的渐进渲染（天然 loading 反馈）
+            // - Phase 2：**预渲染测绘**——轮询目标 size（每 100ms），连续 3 轮
+            //   不变 = 渲染稳定（Markdown 异步解析完成，实测 size 214→331 是
+            //   渲染过程变化）——**用最终尺寸定位，从根上消除渲染误差**
+            // - Phase 3：0.6s EaseInOut 动画挪到顶部（offset 渐变 0→vh-size，
+            //   每帧按最新 size 重算——渲染若再变自适应）
+            // - Phase 4：精确微调 ±2px + 稳定收敛循环（兜底）
             var attempts = 0
             var positioned = false
             while (attempts < 4 && !positioned) {
@@ -360,33 +378,31 @@ fun ChatMessageList(
                     continue
                 }
                 val lazyIndex = bannerCount + currentIdx
-                // 段 A：目标不在视口 → **动画**滚到目标（0.25s，无瞬间跳）——
-                // scroll 块 receiver 运行时实现 LazyLayoutScrollScope（public），
-                // cast 后可用 calculateDistanceTo（官方 scrollToItem 内部的距离
-                // API，item 未布局时也能算）——从当前位置平滑滚到"目标在视口
-                // 底部"，目标进入视口即开始渲染（提前渲染）。
-                val inViewport = listState.layoutInfo.visibleItemsInfo.any {
-                    it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
+                // Phase 1：瞬间定位到目标（目标进入视口底部，渲染立即开始）
+                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                withFrameNanos { }
+                withFrameNanos { }
+                // Phase 2（根治）：等待目标 MarkdownState 注册（目标组合后）→
+                // await 解析完成（State.Success）——内容展示前渲染完，用最终
+                // 尺寸定位，替代尺寸轮询（收敛循环随之移除）。
+                val mdState = withTimeoutOrNull(1500) {
+                    while (mdRegistry[targetMsgId] == null) delay(50)
+                    mdRegistry[targetMsgId]
                 }
-                if (!inViewport) {
-                    listState.scroll {
-                        val scope = this as? LazyLayoutScrollScope
-                        if (scope != null) {
-                            val dist = scope.calculateDistanceTo(lazyIndex, 0).toFloat()
-                            if (BuildConfig.DEBUG) {
-                                AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 段A 动画到目标 dist=$dist")
-                            }
-                            animateScrollByEased(dist, 250)
-                        } else {
-                            // 理论不可达（scroll 块 receiver 恒实现该接口）；兜底瞬间定位
-                            LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
-                        }
+                if (mdState != null) {
+                    val parsed = withTimeoutOrNull(2500) {
+                        mdState.state.first { it is State.Success || it is State.Error }
                     }
-                    // 等 2 帧让目标进入布局并开始渲染（测量出真实 size）
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 预渲染信号 ${parsed?.let { if (it is State.Success) "Success" else "Error" } ?: "超时"}")
+                    }
+                    // 解析完成后等布局稳定（高度更新到最终值）
                     withFrameNanos { }
                     withFrameNanos { }
+                } else if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标无 MarkdownState（fallback 文本）——直接继续")
                 }
-                // 段 B：0.6s EaseInOut 帧循环——requestScroll offset 渐变
+                // Phase 3：0.6s EaseInOut 动画挪到顶部——requestScroll offset 渐变
                 val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
                 val durationNanos = 600_000_000L
                 val startNanos = withFrameNanos { it }
@@ -445,36 +461,8 @@ fun ChatMessageList(
                     AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 未到位 gap=$gap")
                 }
             }
-            // 2026-08-12 修复：稳定收敛——Markdown 异步渲染会持续改变目标
-            // size（实测 214→331→更大），一次性微调后 size 再变 → 顶边又偏移
-            //（用户反馈"回滚过头一点点"——顶边超出视口顶部被裁）。改为轮询
-            // 微调直到稳定：每 250ms 检查顶边偏差（offset+size-vh），>2px 微调，
-            // 连续 2 轮稳定即退（最多 10 轮 = 2.5s，覆盖异步渲染完成窗口）。
-            var stableRounds = 0
-            for (round in 1..10) {
-                delay(250)
-                listState.scroll {
-                    val info = listState.layoutInfo
-                    val it3 = info.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                        ?: info.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                    if (it3 != null) {
-                        val vh3 = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-                        val gap3 = (it3.offset + it3.size - vh3).toFloat()
-                        if (BuildConfig.DEBUG) {
-                            AppLogger.d("ChatPaging", "scrollToDisplayItem: 收敛 round=$round gap=$gap3 size=${it3.size}")
-                        }
-                        if (kotlin.math.abs(gap3) > 2f) {
-                            // gap>0 = 顶边超出视口（渲染后 size 变大）→ scrollBy(正)
-                            // 使 offset 减小回位；gap<0 = 顶边有空隙 → scrollBy(负)
-                            scrollBy(gap3)
-                            stableRounds = 0
-                        } else {
-                            stableRounds++
-                        }
-                    }
-                }
-                if (stableRounds >= 2) break
-            }
+            // 2026-08-12 根治：预渲染信号（await State.Success）已确保尺寸为
+            // 最终值——不再需要收敛循环。保留短延迟防止 SSE/分页在解锁前干扰。
             delay(300)
             jumpLockActive = false
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: autoLoad 解锁")
@@ -555,22 +543,27 @@ fun ChatMessageList(
         if (targetIndex >= 0) {
             val lazyIndex = bannerCount + targetIndex
             coroutineScope.launch {
-                // 2026-08-12 动画版：段 A 瞬间定位（目标进入视口开始渲染）→
-                // 0.6s EaseInOut requestScroll 渐变到"顶边贴视口顶边"
-                //（每帧按最新 size 重算）→ 精确微调 ±2px。
-                val inViewport = listState.layoutInfo.visibleItemsInfo.any { it.index == lazyIndex }
-                if (!inViewport) {
-                    // 段 A 动画（同 scrollToDisplayItem）：从当前位置平滑滚到目标
-                    listState.scroll {
-                        val scope = this as? LazyLayoutScrollScope
-                        if (scope != null) {
-                            animateScrollByEased(scope.calculateDistanceTo(lazyIndex, 0).toFloat(), 250)
-                        } else {
-                            LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
-                        }
+                // 2026-08-12 预渲染模式（同 scrollToDisplayItem）：瞬间定位 →
+                // 等待 size 稳定（渲染完成）→ 0.6s easeInOut 动画到顶部 → 微调。
+                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                withFrameNanos { }
+                withFrameNanos { }
+                // 预渲染测绘：等 size 稳定
+                var stableCount = 0
+                var lastSize = -1
+                var probeRounds = 0
+                while (stableCount < 3 && probeRounds < 30) {
+                    delay(100)
+                    probeRounds++
+                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                    if (item == null) {
+                        LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                        withFrameNanos { }
+                        stableCount = 0
+                        lastSize = -1
+                        continue
                     }
-                    withFrameNanos { }
-                    withFrameNanos { }
+                    if (item.size == lastSize) stableCount++ else { stableCount = 1; lastSize = item.size }
                 }
                 val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
                 val durationNanos = 600_000_000L
@@ -737,6 +730,9 @@ fun ChatMessageList(
                 }
             }
 
+            // 2026-08-12 根治：预渲染注册表注入——消息组件（MessageCardUser）
+            // 通过 LocalMarkdownStateRegistry 注册目标的 MarkdownState。
+            androidx.compose.runtime.CompositionLocalProvider(LocalMarkdownStateRegistry provides mdRegistry) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize()
@@ -1059,7 +1055,8 @@ fun ChatMessageList(
                             }
                         }
                     }
-                }
+                } // LazyColumn 结束（CompositionLocalProvider 内）
+            } // CompositionLocalProvider 结束
 
             // 定位加载指示器：jumpToMessage 目标未加载时双向加载期间显示（覆盖层）
             if (isLoadingAround) {
@@ -1166,24 +1163,3 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
  */
 private fun easeInOutCubic(t: Float): Float =
     if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
-
-/**
- * 帧驱动滚动动画（easeInOutCubic 缓快缓）——在 LazyListState.scroll 块内调用。
- * 按帧推进 [durationMs] 毫秒曲线，把 [distance] px 距离分帧 scrollBy。
- * distance 是**初始总距离**（动画开始前一次性计算，如 calculateDistanceTo）。
- */
-private suspend fun ScrollScope.animateScrollByEased(distance: Float, durationMs: Long) {
-    if (kotlin.math.abs(distance) <= 1f) return
-    val durationNanos = durationMs * 1_000_000L
-    val start = withFrameNanos { it }
-    var prev = 0f
-    while (true) {
-        val now = withFrameNanos { it }
-        val progress = ((now - start).toFloat() / durationNanos).coerceIn(0f, 1f)
-        val eased = easeInOutCubic(progress)
-        val d = distance * (eased - prev)
-        if (kotlin.math.abs(d) > 0.1f) scrollBy(d)
-        prev = eased
-        if (progress >= 1f) break
-    }
-}
