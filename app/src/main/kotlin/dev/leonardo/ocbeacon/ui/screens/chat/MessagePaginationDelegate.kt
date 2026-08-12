@@ -10,6 +10,7 @@ import dev.leonardo.ocbeacon.domain.usecase.LoadOlderSource
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
 import dev.leonardo.ocbeacon.domain.usecase.PaginationFSM
+import dev.leonardo.ocbeacon.domain.util.CursorCodec
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -288,10 +289,16 @@ internal class MessagePaginationDelegate(
      * - newer = loadRangeNewer(afterId=target)：更新 limit 条
      * - target 单独 messageById（cursor 结果不含目标本身；确保进入 displayItems）
      *
-     * 游标：olderCursor=Network(id,created)（无 serverCursor → loadOlder 走 V1 网络编码）。
-     * newer 方向：本地无 V2 服务器游标（loadNewer 依赖 serverCursor，无之则 no-op），
-     * 故 newerCursor=null + hasNewer=false——避免 hasNewer=true 但 loadNewer 空转。
-     * 功能缺口（target 后超 limit 条的更新消息）由全量导航列表弥补（跳到更新的 Q）。
+     * 游标：
+     * - olderCursor=Network(id,created)（无 serverCursor → loadOlder 走网络编码）。
+     * - newerCursor：
+     *   - V2 → 自定义 cursor（{id:target, order:"desc", direction:"previous"}，经
+     *     CursorCodec.encodeV2 构造）。用户下滑超出本地 newer 窗口后，ChatMessageList
+     *     滚动接近底部触发 loadNewerMessages，用此 cursor 请求服务器 → 返回 target 之后
+     *     limit 条；响应的 cursor.previous 是真实继续游标，FSM LoadNewerSucceeded 自动推进
+     *    （不再重复用自定义 cursor）→ 可持续下滑加载。
+     *   - V1 → null（V1 协议无 after/cursor 能力，更新方向固不可用；loadNewerMessages 遇
+     *     null serverCursor 时 no-op，保留现有行为）。
      */
     private suspend fun loadAroundFromLocal(sid: String, targetId: String) {
         val target = messageStore.messageById(sid, targetId)
@@ -306,16 +313,26 @@ internal class MessagePaginationDelegate(
         val olderCursor = oldest?.let {
             PaginationCursor.Network(id = it.info.id, created = it.info.time.created)
         }
+        // newer 游标：V2 自定义 cursor 启用下滑自动加载更新（用户下滑触发 loadNewerMessages，
+        // 用此 cursor 请求服务器）；V1 无 after/cursor 能力 → null（no-op 防空转）
+        val isV2 = messagePaging.isV2Server(serverId)
+        val newerCursor = if (isV2) {
+            PaginationCursor.Network(
+                serverCursor = CursorCodec.encodeV2(targetId, CursorCodec.V2Direction.NEWER),
+                id = target.info.id,
+                created = target.info.time.created,
+            )
+        } else null
         applyTransition(
             PaginationFSM.Event.AroundLoaded(
                 olderCursor = olderCursor,
                 hasOlderMessages = older.size >= currentMessageLimit,
-                newerCursor = null,
-                hasNewerMessages = false,
+                newerCursor = newerCursor,
+                hasNewerMessages = isV2,
             ),
         )
         if (BuildConfig.DEBUG) {
-            AppLogger.d(TAG, "loadAround[local] sid=${sid.take(12)} target=${targetId.take(12)} older=${older.size} newer=${newer.size} hasOlder=${older.size >= currentMessageLimit}")
+            AppLogger.d(TAG, "loadAround[local] sid=${sid.take(12)} target=${targetId.take(12)} older=${older.size} newer=${newer.size} hasOlder=${older.size >= currentMessageLimit} hasNewer=$isV2")
         }
     }
 

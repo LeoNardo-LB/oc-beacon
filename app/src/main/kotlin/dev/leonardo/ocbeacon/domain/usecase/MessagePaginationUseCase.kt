@@ -240,6 +240,16 @@ class MessagePaginationUseCase @Inject constructor(
         LoadNewerResult(page.messages, page.previousCursor)
     }
 
+    /**
+     * 当前服务器是否为 V2 API（支持双向 cursor 翻页：next=更旧 / previous=更新）。
+     *
+     * 供 Delegate 的本地优先分支（loadAroundFromLocal）判断 newer 方向自定义 cursor
+     * 是否可用：V2 → 构造自定义 cursor 启用下滑自动加载更新；V1 → 保持 newerCursor=null
+     *（V1 协议无 after/cursor 能力，更新方向不可用）。
+     */
+    suspend fun isV2Server(serverId: String): Boolean =
+        sessionRepository.getApiVersion(serverId).isV2
+
     private fun mergeLocalAndRemote(
         local: List<MessageWithParts>,
         remote: List<MessageWithParts>,
