@@ -321,12 +321,15 @@ fun ChatMessageList(
     // 2026-08-12：目标定位到"视口安全区"（顶部下方 100px）——完全可见，
     // 不被顶部 topBar 遮挡（LazyColumn 视口含标题栏区域）。
     fun scrollToDisplayItem(displayItemIndex: Int) {
-        // 2026-08-12：目标定位到"用户可见窗口最上方"——LazyColumn 视口起点
-        // 屏幕在 0px（topBar 覆盖在列表上），目标 offset 111 时屏幕 111px
-        // 仍在 topBar（~164-259px）内被遮挡（用户反馈"只向上挪了一小段/没放顶部"）。
-        // 目标需滚到屏幕 ~296px（topBar 下方消息区顶部）——offset = viewportStart
-        // + 317（本设备 topBar 95px + 消息区偏移；跨设备需动态化——待优化）。
-        val TARGET_SAFE_OFFSET = 317f
+        // 2026-08-12 根因修复（reverseLayout 语义系统性调研）：
+        // reverseLayout=true 时 LazyListItemInfo.offset = 目标底边距**视口底部**
+        //（视觉）的像素距离（offset 大 = 视觉越靠上；历史注释 JumpTargetExtractor
+        // "minByOrNull(offset) 实测选出视觉底部"）。viewportStartOffset 恒为
+        // -21（= -contentPadding.top，滚动后不变）——不是视觉顶部滚动坐标。
+        // 旧公式 delta = item.offset - (viewportStartOffset + TARGET) 把相对偏移
+        // 与绝对滚动坐标混算，数值上恰等于"目标上移 TARGET px（从底部起算）"→
+        // 317px 在 ~1900px 视口中只是"一小段"（用户反馈"没放最上面"）。
+        // 正确目标：目标顶边贴视口顶边 → offset = viewportHeight - item.size。
         val (rawIndex, msg) = displayItems[displayItemIndex]
         val targetMsgId = msg.message.id
         val initialLazyIndex = bannerCount + displayItemIndex
@@ -369,15 +372,18 @@ fun ChatMessageList(
                         ?: info.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
                         ?: info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                     if (item != null) {
-                        // 2026-08-12 修复：目标到"视口安全区"（viewportStart + 100）
-                        // ——原修正到 viewportStart（-21）会被顶部 topBar 遮挡
-                        //（LazyColumn 视口含标题栏区域——目标滚到标题后面不可见）。
-                        // delta = item.offset - 目标位置：目标在下方（offset 小）→
-                        // 负值 → scrollBy(负) 内容下移 → 目标下移到安全区。
-                        //（reverseLayout 中 scrollBy(正) 内容上移——已验证。）
-                        val delta = (item.offset - (info.viewportStartOffset + TARGET_SAFE_OFFSET)).toFloat()
+                        // 2026-08-12 根因修复（reverse 布局调研）：目标顶边贴视口顶边。
+                        // viewportHeight = end - start（滚动坐标差 = 视口高度，与布局方向无关）。
+                        // item.offset = 目标底边距视口底部；目标顶边距底部 = offset + size。
+                        // 顶边贴视口顶边 → offset + size = viewportHeight → offsetTarget
+                        // = viewportHeight - size。scrollBy(x) 使 offset 变化 -x（实测），
+                        // delta = item.offset - offsetTarget → scrollBy(delta) 后 offset
+                        // = offsetTarget ✓。
+                        val viewportHeight = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                        val offsetTarget = viewportHeight - item.size
+                        val delta = (item.offset - offsetTarget).toFloat()
                         if (BuildConfig.DEBUG) {
-                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts curIdx=$currentIdx key=${item.key} item offset=${item.offset} delta=$delta")
+                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts curIdx=$currentIdx key=${item.key} item offset=${item.offset} size=${item.size} viewport=$viewportHeight target=$offsetTarget delta=$delta")
                         }
                         if (kotlin.math.abs(delta) > 1f) scrollBy(delta)
                     } else if (BuildConfig.DEBUG) {
@@ -390,31 +396,33 @@ fun ChatMessageList(
                 // 验证：按 key 找目标项（bannerCount 偏差时 index 验证不可靠）
                 val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                     ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                // 目标在安全区（viewportStart + 100 ± 60）才算定位成功
+                // 目标顶边贴视口顶边（offset + size ≈ viewportHeight，±60px）才算定位成功
+                val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
                 val nearTop = after != null &&
-                    kotlin.math.abs(after.offset - (listState.layoutInfo.viewportStartOffset + TARGET_SAFE_OFFSET)) < 60f
+                    kotlin.math.abs(after.offset + after.size - vh) < 60f
                 val ok = if (nearTop) true else (attempts >= 6 && after != null)
                 if (ok) {
                     positioned = true
                     if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts key=${after?.key} after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset} nearTop=$nearTop")
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts key=${after?.key} after=${after?.offset} size=${after?.size} viewport=$vh nearTop=$nearTop")
                     }
                 } else if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标未达安全区（after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}）")
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标未达视口顶部（after=${after?.offset} size=${after?.size} viewport=$vh）")
                 }
             }
             // 2026-08-12 修复：定位完成后延迟重验——跳转期间进行中的 loadOlder
             //（older 批插入目标上方）或 SSE 会推走目标（logcat 实证 positioned
-            // 后视口显示更早区域）。1 秒后重验目标仍可见且近安全区；被推则重滚一次。
+            // 后视口显示更早区域）。1 秒后重验目标仍顶边贴视口顶边；被推则重滚一次。
             delay(1000)
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验目标位置")
             val recheck = listState.layoutInfo.visibleItemsInfo.firstOrNull {
                 it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
             }
+            val vhRe = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
             val okAfterSettle = recheck != null &&
-                kotlin.math.abs(recheck.offset - (listState.layoutInfo.viewportStartOffset + TARGET_SAFE_OFFSET)) < 200f
+                kotlin.math.abs(recheck.offset + recheck.size - vhRe) < 200f
             if (!okAfterSettle) {
-                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验目标被推（after=${recheck?.offset}）——重滚一次")
+                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验目标被推（after=${recheck?.offset} size=${recheck?.size} viewport=$vhRe）——重滚一次")
                 val idx2 = displayItems.indexOfFirst { it.second.message.id == targetMsgId }
                 if (idx2 >= 0) {
                     LazyListReflection.requestScrollToItemNoCancel(listState, bannerCount + idx2, 0)
@@ -424,7 +432,8 @@ fun ChatMessageList(
                         val item = info2.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                             ?: info2.visibleItemsInfo.firstOrNull { it.index == bannerCount + idx2 }
                         if (item != null) {
-                            val d = (item.offset - (info2.viewportStartOffset + TARGET_SAFE_OFFSET)).toFloat()
+                            val vh2 = (info2.viewportEndOffset - info2.viewportStartOffset).toFloat()
+                            val d = (item.offset - (vh2 - item.size)).toFloat()
                             if (kotlin.math.abs(d) > 1f) scrollBy(d)
                         }
                     }
@@ -432,7 +441,7 @@ fun ChatMessageList(
                     withFrameNanos { }
                 }
             } else if (BuildConfig.DEBUG) {
-                AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验通过——目标稳定在安全区")
+                AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验通过——目标顶边稳定在视口顶部")
             }
             delay(300)
             jumpLockActive = false
@@ -520,10 +529,12 @@ fun ChatMessageList(
                     val info = listState.layoutInfo
                     val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                     if (item != null) {
-                        // 2026-08-12 修复：delta 符号与 scrollToDisplayItem 一致
-                        //（reverseLayout 中 scrollBy 方向取反——见 scrollToDisplayItem 注释）
-                        val delta = (item.offset - info.viewportStartOffset).toFloat()
-                        scrollBy(delta)
+                        // 2026-08-12 根因修复：与 scrollToDisplayItem 同公式——
+                        // 目标顶边贴视口顶边（reverseLayout：offset = 距视口底部，
+                        // 目标顶边 = offset + size ≈ viewportHeight）。
+                        val vh = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                        val delta = (item.offset - (vh - item.size)).toFloat()
+                        if (kotlin.math.abs(delta) > 1f) scrollBy(delta)
                     }
                 }
             }
