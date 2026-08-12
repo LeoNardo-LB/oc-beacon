@@ -58,7 +58,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -336,6 +338,9 @@ fun ChatMessageList(
     // 注册其 MarkdownState，scrollToDisplayItem await 解析完成信号。
     val mdRegistry = remember { mutableMapOf<String, MarkdownState>() }
 
+    // 2026-08-13 观测：LazyColumn 视口顶边的屏幕 y（判断气泡顶是否超出 topBar）
+    var listTopY by remember { mutableStateOf(-1f) }
+
     // jumpToMessage 的核心滚动 + 高亮（立即路径与异步路径共用）。
     // 2026-08-12：目标定位到"视口安全区"（顶部下方 100px）——完全可见，
     // 不被顶部 topBar 遮挡（LazyColumn 视口含标题栏区域）。
@@ -482,12 +487,13 @@ fun ChatMessageList(
                 val gap = if (after != null) after.offset + after.size - vhV else Float.MAX_VALUE
                 // 精确观测（用户要求依靠日志）：item 顶边滚动坐标 vs viewportEndOffset
                 // itemTopScroll = start + offset + size；超出 = itemTopScroll - end
+                // 气泡顶屏幕 y = listTopY + (itemTopScroll - end)（贴顶时 = listTopY）
                 val itemTopScroll = if (after != null) {
                     infoV.viewportStartOffset + after.offset + after.size
                 } else Int.MIN_VALUE
                 val endScroll = infoV.viewportEndOffset
                 if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 观测 gap=$gap itemTopScroll=$itemTopScroll end=$endScroll 超出=${if (after != null) itemTopScroll - endScroll else "N/A"}px start=${infoV.viewportStartOffset}")
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 观测 gap=$gap itemTopScroll=$itemTopScroll end=$endScroll 超出=${if (after != null) itemTopScroll - endScroll else "N/A"}px 视口顶屏幕y=$listTopY 气泡顶屏幕y=${if (after != null) listTopY + (itemTopScroll - endScroll) else "N/A"}")
                 }
                 if (after != null && kotlin.math.abs(gap) < 10f) {
                     positioned = true
@@ -784,7 +790,10 @@ fun ChatMessageList(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize()
-                        .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
+                        .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) }
+                        .onGloballyPositioned { coords ->
+                            listTopY = coords.positionInWindow().y
+                        },
                     contentPadding = PaddingValues(
                         start = SpacingTokens.MD.dp,
                         top = SpacingTokens.SM.dp,
