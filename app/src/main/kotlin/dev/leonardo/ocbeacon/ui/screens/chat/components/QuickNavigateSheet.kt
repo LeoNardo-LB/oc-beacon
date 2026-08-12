@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,11 +22,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,12 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -58,6 +60,7 @@ import java.util.Locale
  * @param onJump 用户点击某个提问时以 msgId 调用
  * @param onDismiss 对话框应关闭时调用
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickNavigateSheet(
     show: Boolean,
@@ -81,64 +84,67 @@ fun QuickNavigateSheet(
         }
     }
 
-    Dialog(
+    // 2026-08-12 用户要求：快速导航改为抽屉形式（ModalBottomSheet，与后台面板/模型选择一致）
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        dragHandle = {},
+        shape = ShapeTokens.large,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
-        Surface(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.8f),
-            shape = ShapeTokens.large,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
+                // 与后台面板/模型选择统一：30%-75% 屏高
+                .heightIn(
+                    min = LocalConfiguration.current.screenHeightDp.dp * 0.3f,
+                    max = LocalConfiguration.current.screenHeightDp.dp * 0.75f
+                )
+                .navigationBarsPadding()
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // 头部
-                Row(
+            // 头部
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.quick_navigate),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
+                }
+            }
+
+            if (jumpTargets.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.no_questions),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.quick_navigate),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
-                    }
-                }
+                        .padding(vertical = SpacingTokens.XXL.dp),
+                    textAlign = TextAlign.Center,
+                )
+                return@Column
+            }
 
-                if (jumpTargets.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.no_questions),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = SpacingTokens.XXL.dp),
-                        textAlign = TextAlign.Center,
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = SpacingTokens.XXL.dp),
+            ) {
+                items(jumpTargets, key = { it.msgId }) { target ->
+                    JumpTargetRow(
+                        target = target,
+                        isCurrent = target.rawIndex == currentRawIndex,
+                        onClick = { onJump(target.msgId) },
                     )
-                    return@Column
-                }
-
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(bottom = SpacingTokens.XXL.dp),
-                ) {
-                    items(jumpTargets, key = { it.msgId }) { target ->
-                        JumpTargetRow(
-                            target = target,
-                            isCurrent = target.rawIndex == currentRawIndex,
-                            onClick = { onJump(target.msgId) },
-                        )
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-                        )
-                    }
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+                    )
                 }
             }
         }

@@ -113,11 +113,18 @@ class BackgroundAggregator(
         val toolParts = partsMap[currentSessionId].orEmpty()
             .filterIsInstance<Part.Tool>()
 
-        children.map { child ->
+        children.mapNotNull { child ->
             val toolPart = toolParts.firstOrNull { part ->
                 part.state is ToolState.Running &&
                     part.metadata?.get("sessionId")?.let { it.jsonPrimitive.contentOrNull } == child.id
             }
+            // 2026-08-12 用户要求：面板只记录"明确放到后台"的 subagent——
+            // 即 task 工具 background=true 派发的（前台任务不展示）。
+            val isExplicitlyBackground = toolParts.any { part ->
+                part.metadata?.get("sessionId")?.let { it.jsonPrimitive.contentOrNull } == child.id &&
+                    isBackgroundTask(part)
+            }
+            if (!isExplicitlyBackground) return@mapNotNull null
             SubagentSummary(
                 sessionId = child.id,
                 agent = child.agent,
@@ -146,10 +153,13 @@ class BackgroundAggregator(
     ): Int {
         val mainBusy = currentSessionId in runningIds || currentSessionId in activeSessionIds.value
         if (!mainBusy) return 0
+        // 2026-08-12 放宽：V2 下 AI 派发 subagent 基本都带 background=true，
+        // 严格按"前台"过滤工具栏几乎永不显示（用户反馈看不到）——
+        // 改为：主会话 busy + 存在 task/subagent tool part（不限 background）
+        // 即显示工具栏（提供"全部转后台"操作——服务器对已后台任务 no-op）。
         return toolParts.count { part ->
             part.state is ToolState.Running &&
-                (part.tool == "task" || part.tool == "subagent") &&
-                !isBackgroundTask(part)
+                (part.tool == "task" || part.tool == "subagent")
         }
     }
 
@@ -181,7 +191,10 @@ class BackgroundAggregator(
         foregroundCountFlow,
         sessionIdFlow
     ) { subagents, jobsBySession, foregroundCount, currentSessionId ->
-        val shells = jobsBySession[currentSessionId].orEmpty()
+        // 2026-08-12 用户要求：面板只记录明确放到后台的任务——shell 工具无
+        // background 参数（服务器 shell 无后台概念），工具调用的 shell 不展示；
+        // 仅保留运行中的（实时监控有意义，已完成看消息流 shell 卡片）。
+        val shells = jobsBySession[currentSessionId].orEmpty().filter { it.isRunning }
         val runningSubagents = subagents.filter { it.isRunning }
         BackgroundUiState(
             shells = shells,

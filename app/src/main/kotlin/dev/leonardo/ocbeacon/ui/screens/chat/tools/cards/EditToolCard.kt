@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.tools.cards
 
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.extractFileName
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -30,6 +32,8 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
+import dev.leonardo.ocbeacon.ui.screens.chat.util.codeHorizontalScroll
+import dev.leonardo.ocbeacon.ui.screens.chat.util.toolOutputContainerColor
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.DiffChangesInline
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.DiffLineType
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.SimpleDiffView
@@ -139,7 +143,32 @@ internal fun EditToolCard(
                     }
                 } else {
                     SelectionContainer {
-                        SimpleDiffView(before = diffBefore, after = diffAfter)
+                        Column(
+                            modifier = Modifier.padding(top = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            // 2026-08-12 用户要求：展开后显示具体文件路径（样式同 ReadToolCard）
+                            if (filePath.isNotBlank()) {
+                                Surface(
+                                    shape = ShapeTokens.extraSmall,
+                                    color = toolOutputContainerColor(),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = filePath,
+                                        style = CodeTypography.copy(
+                                            fontSize = 11.sp,
+                                            color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.HIGH)
+                                        ),
+                                        modifier = Modifier
+                                            .padding(4.dp)
+                                            .codeHorizontalScroll()
+                                    )
+                                }
+                            }
+                            // 编辑内容 diff 视图
+                            SimpleDiffView(before = diffBefore, after = diffAfter)
+                        }
                     }
                 }
             }

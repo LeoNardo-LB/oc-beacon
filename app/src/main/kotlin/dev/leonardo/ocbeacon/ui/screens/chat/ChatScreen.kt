@@ -863,20 +863,46 @@ fun ChatScreen(
     if (showBackgroundSheet) {
         val backgroundUi by viewModel.backgroundUiState.collectAsStateWithLifecycle()
         val shellOutputs = remember { mutableStateMapOf<String, String?>() }
+        // 消息流 tool parts（shell 输出回填数据源——collect 缓存）
+        val allPartsMap by viewModel.chatRepositoryExposed.getAllPartsMap()
+            .collectAsStateWithLifecycle(initialValue = emptyMap())
+        // 2026-08-12 系统性修复：服务器执行完 shell 即删除（/api/shell 空、
+        // /api/shell/{id}/output 404 ShellNotFoundError）——已完成 shell 的输出
+        // 服务器不保留，唯一可靠源是消息流 tool part（assistant 消息 content 的
+        // shell 输出）。provider 优先级：事件输出 → 消息流回填 → REST 拉取。
+        fun findShellOutputInMessages(shell: ShellJob): String? {
+            val parts = allPartsMap[viewModel.sessionId].orEmpty()
+            return parts.asSequence()
+                .filterIsInstance<Part.Tool>()
+                .filter { it.tool == "shell" || it.tool == "bash" }
+                .filter { part ->
+                    val cmd = (part.state as? ToolState.Completed)?.input
+                        ?.get("command")?.jsonPrimitive?.contentOrNull
+                    cmd == shell.command
+                }
+                .mapNotNull { (it.state as? ToolState.Completed)?.output }
+                .lastOrNull()
+        }
         BackgroundSheet(
             state = backgroundUi,
             onDismiss = { showBackgroundSheet = false },
             onOpenSubSession = { sessionId -> onNavigateToChildSession(sessionId) },
             onRemoveShell = { id -> viewModel.removeShell(id) },
             shellOutputProvider = { shell ->
-                // 详情页打开时若事件输出为空则异步拉取（按 id 缓存）
-                if (shell.output == null && !shellOutputs.containsKey(shell.id)) {
-                    shellOutputs[shell.id] = null // 占位防重入
-                    viewModel.fetchShellOutput(shell.id) { out ->
-                        shellOutputs[shell.id] = out?.output
+                // 1. 事件携带的输出（SSE shell.exited 通常无 output）
+                shell.output
+                    // 2. 消息流 tool part 回填（服务器不保留已完成 shell 输出）
+                    ?: findShellOutputInMessages(shell)
+                    // 3. 异步 REST 拉取（运行中 shell 仍可读 output 端点）
+                    ?: run {
+                        if (!shellOutputs.containsKey(shell.id)) {
+                            shellOutputs[shell.id] = null // 占位防重入
+                            viewModel.fetchShellOutput(shell.id) { out ->
+                                shellOutputs[shell.id] = out?.output
+                            }
+                        }
+                        shellOutputs[shell.id]
                     }
-                }
-                shellOutputs[shell.id] ?: shell.output
             }
         )
     }

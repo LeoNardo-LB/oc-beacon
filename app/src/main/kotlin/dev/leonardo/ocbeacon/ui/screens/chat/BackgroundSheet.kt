@@ -98,10 +98,10 @@ fun BackgroundSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // 2026-08-12 用户要求：面板高度 30%-60% 屏（与模型选择一致）
+                // 2026-08-12 用户要求：面板高度 30%-75% 屏（与模型选择一致）
                 .heightIn(
                     min = LocalConfiguration.current.screenHeightDp.dp * 0.3f,
-                    max = LocalConfiguration.current.screenHeightDp.dp * 0.6f
+                    max = LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 )
                 .padding(bottom = 24.dp)
         ) {

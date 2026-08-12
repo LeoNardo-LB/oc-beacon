@@ -230,18 +230,19 @@ internal fun SyntheticNotificationCard(
                             Spacer(modifier = Modifier.weight(1f))
                         }
                     }
-                    if (hasOutput) {
-                        IconButton(
-                            onClick = { expanded = !expanded },
-                            modifier = Modifier.size(22.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = stringResource(R.string.chat_expand),
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
-                            )
-                        }
+                    // 2026-08-12 用户要求：展开按钮与跳转按钮位置对调——
+                    // 顺序 [跳转][定位][展开]（跳转最左、展开最右）
+                    if (hasNavArrow) {
+                        // 跳转：进入 subagent 子会话（shell 类通知无子会话 id → 无箭头）
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clickable { onViewSubSession?.invoke(sessionId) }
+                                .padding(3.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                     if (canLocate) {
                         // 「定位发起卡片」：滚动到发起该任务的 TaskToolCard 位置
@@ -257,18 +258,18 @@ internal fun SyntheticNotificationCard(
                             )
                         }
                     }
-                    if (hasNavArrow) {
-                        // 2026-08-12：箭头可点击 → 进入 subagent 子会话（与展开同栏）
-                        // （shell 类通知无子会话 id → hasNavArrow=false → 无箭头）
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
-                            modifier = Modifier
-                                .size(22.dp)
-                                .clickable { onViewSubSession?.invoke(sessionId) }
-                                .padding(3.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    if (hasOutput) {
+                        IconButton(
+                            onClick = { expanded = !expanded },
+                            modifier = Modifier.size(22.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = stringResource(R.string.chat_expand),
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
+                            )
+                        }
                     }
                 }
 

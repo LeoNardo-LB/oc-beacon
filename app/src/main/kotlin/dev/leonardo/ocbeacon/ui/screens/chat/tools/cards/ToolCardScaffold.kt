@@ -197,13 +197,20 @@ internal fun ToolCardScaffold(
                             }
                         }
                         // 4. 展开/折叠图标（最右侧）
+                        // 2026-08-12 bug 修复：原为纯 Icon（无 onClick）——点击无反应
+                        // 且误触相邻复制按钮（用户反馈"点展开变复制"）——改为 IconButton
                         if (showExpandIcon) {
-                            Icon(
-                                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = title,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                            )
+                            IconButton(
+                                onClick = onToggleExpand,
+                                modifier = Modifier.size(22.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = context.getString(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                                )
+                            }
                         }
                     }
                 }

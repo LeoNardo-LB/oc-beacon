@@ -14,11 +14,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -30,7 +29,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ModelCatalog
 import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
@@ -64,28 +62,25 @@ internal fun ModelPickerDialog(
             .sortedWith(compareBy<ProviderCatalog> { it.id != "opencode" }.thenBy { it.name.lowercase() })
     }
 
-    BasicAlertDialog(
+    // 2026-08-12 用户要求：模型选择改为抽屉式（与后台面板一致——ModalBottomSheet，
+    // 无拉杆，高度 30%-75% 屏）
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        dragHandle = {},
+        containerColor = params.containerColor,
+        shape = params.shape,
     ) {
-        Surface(
-            shape = params.shape,
-            color = params.containerColor,
-            border = params.border,
-            tonalElevation = params.tonalElevation,
-            modifier = Modifier.fillMaxWidth()
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                // 2026-08-12 用户要求：与后台面板高度一致（30%-75% 屏高）
+                .heightIn(
+                    min = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.3f,
+                    max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.75f
+                )
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // 2026-08-12 用户要求：与后台面板高度一致（30%-60% 屏高）
-                    .heightIn(
-                        min = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.3f,
-                        max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.6f
-                    )
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
                 for ((index, provider) in sortedProviders.withIndex()) {
                     val topPad = if (index == 0) 0.dp else 12.dp
 
@@ -164,5 +159,4 @@ internal fun ModelPickerDialog(
                 }
             }
         }
-    }
 }
