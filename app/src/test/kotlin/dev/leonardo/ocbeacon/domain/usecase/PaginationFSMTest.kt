@@ -238,4 +238,172 @@ class PaginationFSMTest {
         assertEquals(7, after.autoLoadFailures)
         assertEquals(now + 8000L, after.autoLoadPausedUntil)
     }
+
+    // ============ AroundLoaded（loadAround 双向定位加载） ============
+
+    @Test
+    fun `aroundLoaded sets both older and newer cursors`() {
+        val before = PaginationFSM.State()
+        val olderCursor = PaginationCursor.Network(serverCursor = "older-next", id = "m-old", created = 10L)
+        val newerCursor = PaginationCursor.Network(serverCursor = "newer-prev", id = "m-new", created = 90L)
+        val after = PaginationFSM.transition(
+            before,
+            PaginationFSM.Event.AroundLoaded(
+                olderCursor = olderCursor,
+                hasOlderMessages = true,
+                newerCursor = newerCursor,
+                hasNewerMessages = true,
+            ),
+        )
+        assertEquals(olderCursor, after.cursor)
+        assertTrue(after.hasOlderMessages)
+        assertEquals(newerCursor, after.newerCursor)
+        assertTrue(after.hasNewerMessages)
+    }
+
+    @Test
+    fun `aroundLoaded with null newer cursor disables newer direction`() {
+        // V1 降级：newer 不可用
+        val after = PaginationFSM.transition(
+            PaginationFSM.State(),
+            PaginationFSM.Event.AroundLoaded(
+                olderCursor = PaginationCursor.Network(id = "m-old", created = 10L),
+                hasOlderMessages = true,
+                newerCursor = null,
+                hasNewerMessages = false,
+            ),
+        )
+        assertTrue(after.hasOlderMessages)
+        assertNull(after.newerCursor)
+        assertFalse(after.hasNewerMessages)
+    }
+
+    @Test
+    fun `aroundLoaded resets backoff and unpauses`() {
+        val before = PaginationFSM.State(
+            autoLoadFailures = 3,
+            autoLoadPaused = true,
+            autoLoadPausedUntil = now + 8000L,
+        )
+        val after = PaginationFSM.transition(
+            before,
+            PaginationFSM.Event.AroundLoaded(
+                olderCursor = null,
+                hasOlderMessages = false,
+                newerCursor = null,
+                hasNewerMessages = false,
+            ),
+        )
+        assertEquals(0, after.autoLoadFailures)
+        assertFalse(after.autoLoadPaused)
+        // olderCursor=null → 回落 HotStart
+        assertEquals(PaginationCursor.HotStart, after.cursor)
+    }
+
+    // ============ LoadNewerSucceeded（更新方向游标推进） ============
+
+    @Test
+    fun `loadNewerSucceeded advances newer cursor with server previousCursor`() {
+        val before = PaginationFSM.State(
+            newerCursor = PaginationCursor.Network(serverCursor = "prev-cursor-1", id = "m-50", created = 50L),
+            hasNewerMessages = true,
+        )
+        val after = PaginationFSM.transition(
+            before,
+            PaginationFSM.Event.LoadNewerSucceeded(
+                newestId = "m-80",
+                newestCreated = 80L,
+                previousCursor = "prev-cursor-2",
+                pageSize = 30,
+                limit = 30,
+            ),
+        )
+        val cursor = after.newerCursor as PaginationCursor.Network
+        assertEquals("prev-cursor-2", cursor.serverCursor)
+        assertEquals("m-80", cursor.id)
+        assertEquals(80L, cursor.created)
+        assertTrue("满页 + 有游标 → 还有更新", after.hasNewerMessages)
+    }
+
+    @Test
+    fun `loadNewerSucceeded without previousCursor falls back to id plus created`() {
+        // V1 路径：无服务器游标 → Network(id, created)
+        val before = PaginationFSM.State(
+            newerCursor = PaginationCursor.Network(id = "m-50", created = 50L),
+            hasNewerMessages = true,
+        )
+        val after = PaginationFSM.transition(
+            before,
+            PaginationFSM.Event.LoadNewerSucceeded(
+                newestId = "m-80",
+                newestCreated = 80L,
+                previousCursor = null,
+                pageSize = 30,
+                limit = 30,
+            ),
+        )
+        val cursor = after.newerCursor as PaginationCursor.Network
+        assertNull(cursor.serverCursor)
+        assertEquals("m-80", cursor.id)
+        assertEquals(80L, cursor.created)
+        // 满页但无游标 → 可能还有（保守 true）
+        assertTrue(after.hasNewerMessages)
+    }
+
+    @Test
+    fun `loadNewerSucceeded empty page clears newer direction`() {
+        // 读尽：空页 + 无游标 → hasNewer=false（UI 停止触发）
+        val before = PaginationFSM.State(
+            newerCursor = PaginationCursor.Network(serverCursor = "prev-1", id = "m-90", created = 90L),
+            hasNewerMessages = true,
+        )
+        val after = PaginationFSM.transition(
+            before,
+            PaginationFSM.Event.LoadNewerSucceeded(
+                newestId = null,
+                newestCreated = null,
+                previousCursor = null,
+                pageSize = 0,
+                limit = 30,
+            ),
+        )
+        // 空页无 id/created → newerCursor=null
+        assertNull(after.newerCursor)
+        assertFalse(after.hasNewerMessages)
+    }
+
+    @Test
+    fun `loadNewerSucceeded partial page with no cursor sets hasNewer false`() {
+        val after = PaginationFSM.transition(
+            PaginationFSM.State(hasNewerMessages = true),
+            PaginationFSM.Event.LoadNewerSucceeded(
+                newestId = "m-95",
+                newestCreated = 95L,
+                previousCursor = null,
+                pageSize = 10,
+                limit = 30,
+            ),
+        )
+        // 不足一页 + 无游标 → 已到最新
+        assertFalse(after.hasNewerMessages)
+    }
+
+    // ============ SessionReloaded 重置 newer 方向 ============
+
+    @Test
+    fun `sessionReloaded resets newer direction`() {
+        val before = PaginationFSM.State(
+            cursor = PaginationCursor.Network(serverCursor = "old", id = "m-1", created = 1L),
+            hasOlderMessages = true,
+            newerCursor = PaginationCursor.Network(serverCursor = "new", id = "m-99", created = 99L),
+            hasNewerMessages = true,
+        )
+        val after = PaginationFSM.transition(before, PaginationFSM.Event.SessionReloaded(true))
+        // older 方向重置
+        assertEquals(PaginationCursor.HotStart, after.cursor)
+        assertTrue(after.hasOlderMessages)
+        // newer 方向重置（回到最新边界）
+        assertNull(after.newerCursor)
+        assertFalse(after.hasNewerMessages)
+    }
 }

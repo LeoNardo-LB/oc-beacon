@@ -8,6 +8,8 @@ import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.usecase.LoadAroundResult
+import dev.leonardo.ocbeacon.domain.usecase.LoadNewerResult
 import dev.leonardo.ocbeacon.domain.usecase.LoadOlderResult
 import dev.leonardo.ocbeacon.domain.usecase.LoadOlderSource
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
@@ -33,6 +35,12 @@ class MessagePaginationDelegateTest {
             parts = emptyList(),
         )
     }
+
+    /** 构造指定 id + created 的消息（loadAround/loadNewer 测试用）。 */
+    private fun mkMsg(id: String, created: Long): MessageWithParts = MessageWithParts(
+        info = Message.User(id = id, sessionId = "sid-1", time = TimeInfo(created = created)),
+        parts = emptyList(),
+    )
 
     @Test
     fun `initial limit is 30 and hasOlderMessages false`() = runTest {
@@ -426,6 +434,154 @@ class MessagePaginationDelegateTest {
         delegate.loadMessagesForSession()
 
         assertEquals(30, delegate.currentLimitValue)
+    }
+
+    // ============ loadAround / loadNewer（快速导航双向加载） ============
+
+    @Test
+    fun `loadAround sets both cursors and hasNewerMessages`() = runTest {
+        val older = (0..29).map { mkMsg("o-$it", it.toLong()) }       // created 0..29
+        val newer = (31..60).map { mkMsg("n-$it", it.toLong()) }      // created 31..60
+        val target = mkMsg("target", 30L)
+        val paging = mockk<MessagePaginationUseCase> {
+            coEvery { loadAround("srv", "sid-1", "target", 30) } returns Result.success(
+                LoadAroundResult(
+                    target = target,
+                    olderMessages = older,
+                    newerMessages = newer,
+                    olderNextCursor = "older-cursor",
+                    newerPreviousCursor = "newer-cursor",
+                ),
+            )
+        }
+        val repo = mockk<ChatRepository>(relaxed = true)
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = mockk(relaxed = true),
+            chatRepository = repo,
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadAround("target")
+        advanceUntilIdle()
+
+        assertFalse(delegate.isLoadingAround.value)
+        assertTrue(delegate.hasOlderMessages.value)
+        assertTrue(delegate.hasNewerMessages.value)
+        // 单次 upsert（target + older + newer 合并）
+        verify(exactly = 1) { repo.upsertMessages("sid-1", any(), MergeStrategy.APPEND_ONLY) }
+    }
+
+    @Test
+    fun `loadAround V1 fallback - no newer cursor sets hasNewer false`() = runTest {
+        val older = (0..29).map { mkMsg("o-$it", it.toLong()) }
+        val paging = mockk<MessagePaginationUseCase> {
+            coEvery { loadAround("srv", "sid-1", "target", 30) } returns Result.success(
+                LoadAroundResult(
+                    target = mkMsg("target", 30L),
+                    olderMessages = older,
+                    newerMessages = emptyList(),
+                    olderNextCursor = null,       // V1 无服务器游标
+                    newerPreviousCursor = null,   // V1 无更新方向
+                ),
+            )
+        }
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = mockk(relaxed = true),
+            chatRepository = mockk(relaxed = true),
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadAround("target")
+        advanceUntilIdle()
+
+        // older 满页 → hasOlder=true（V1 仍可向旧加载）
+        assertTrue(delegate.hasOlderMessages.value)
+        // V1 无更新方向 → hasNewer=false
+        assertFalse(delegate.hasNewerMessages.value)
+    }
+
+    @Test
+    fun `loadNewerMessages uses newerCursor from loadAround and advances`() = runTest {
+        // 先 loadAround 建立 newer 游标，再 loadNewer 推进
+        val older = (0..29).map { mkMsg("o-$it", it.toLong()) }
+        val newer = (31..60).map { mkMsg("n-$it", it.toLong()) }
+        val paging = mockk<MessagePaginationUseCase> {
+            coEvery { loadAround("srv", "sid-1", "target", 30) } returns Result.success(
+                LoadAroundResult(
+                    target = mkMsg("target", 30L),
+                    olderMessages = older,
+                    newerMessages = newer,
+                    olderNextCursor = "older-cursor",
+                    newerPreviousCursor = "newer-cursor-1",
+                ),
+            )
+            // loadNewer 用 newer-cursor-1，返回下一批 + 推进游标
+            coEvery { loadNewerMessages("srv", "sid-1", 30, "newer-cursor-1") } returns Result.success(
+                LoadNewerResult(
+                    messages = (61..90).map { mkMsg("n-$it", it.toLong()) },
+                    previousCursor = "newer-cursor-2",
+                ),
+            )
+        }
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = mockk(relaxed = true),
+            chatRepository = mockk(relaxed = true),
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadAround("target")
+        advanceUntilIdle()
+        delegate.loadNewerMessages()
+        advanceUntilIdle()
+
+        // loadNewer 用 loadAround 建立的游标调用一次
+        coVerify(exactly = 1) { paging.loadNewerMessages("srv", "sid-1", 30, "newer-cursor-1") }
+        assertTrue(delegate.hasNewerMessages.value)
+        assertFalse(delegate.isLoadingNewer.value)
+    }
+
+    @Test
+    fun `loadNewerMessages no-op when newerCursor is null`() = runTest {
+        // 无 loadAround → newerCursor=null → loadNewer 不应调用 useCase
+        val paging = mockk<MessagePaginationUseCase>(relaxed = true)
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = mockk(relaxed = true),
+            chatRepository = mockk(relaxed = true),
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadNewerMessages()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { paging.loadNewerMessages(any(), any(), any(), any()) }
     }
 
     // ============ 自动续载防风暴（退避/暂停/恢复） ============

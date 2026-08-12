@@ -169,6 +169,21 @@ interface SessionRepository {
         before: String? = null,
     ): Result<MessagePage>
 
+    /**
+     * 获取单条消息（快速导航定位 target 用）。
+     * V2: GET /api/session/{id}/message/{messageId}；V1: GET /session/{id}/message/{messageId}。
+     */
+    suspend fun getMessage(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageWithParts>
+
+    /**
+     * 服务器 API 版本（决定游标构造格式：V2 用 {id,order,direction}，V1 用 {id,time}）。
+     */
+    suspend fun getApiVersion(serverId: String): dev.leonardo.ocbeacon.domain.model.ApiVersion
+
     // ============ 当前 Agent/Model（SSE session.next）============
 
     /**

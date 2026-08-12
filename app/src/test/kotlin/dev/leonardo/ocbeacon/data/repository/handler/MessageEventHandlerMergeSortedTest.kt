@@ -132,6 +132,62 @@ class MessageEventHandlerMergeSortedTest {
         assertEquiv(e, i, "all-overlap")
     }
 
+    // ============ 双向分页去重（loadAround / loadNewer 场景） ============
+
+    /**
+     * loadAround 场景：existing 已含初始窗口（m-60..m-90）；定位加载 target=m-30，
+     * older=[m-1..m-29]（无重叠），newer=[m-31..m-60]（与 existing 在 m-60 处重叠）。
+     * 合并后 m-60 不可重复出现，且按 created 升序。
+     */
+    @Test
+    fun `bidirectional loadAround - older and newer overlap with existing deduped`() {
+        // existing：初始窗口 m-60(t60)..m-90(t90)
+        val existing = (60..90).map { msg("m-$it", it.toLong(), "e$it") }
+        // incoming = older + target + newer（按 created 升序，模拟 upsertAppendOnce 内部排序后输入）。
+        // older=[m-1..m-29]（无重叠），target=m-30，newer=[m-31..m-60]（与 existing 在 m-60 处重叠）。
+        val target = msg("m-30", 30L, "t30")
+        val older = (1..29).map { msg("m-$it", it.toLong(), "o$it") }       // 更旧方向
+        val newer = (31..60).map { msg("m-$it", it.toLong(), "n$it") }      // 更新方向（m-60 与 existing 重叠）
+        val incoming = older + listOf(target) + newer  // created 升序：1..29, 30, 31..60
+
+        val merged = handler.mergeSortedMessages(existing, incoming) { e, _ -> e }
+
+        // 无重复 id
+        val ids = merged.map { it.id }
+        assertEquals("合并后无重复 id", ids.size, ids.toSet().size)
+        // m-60 只出现一次（existing 与 newer 都有）
+        assertEquals(1, ids.count { it == "m-60" })
+        // 按 created 升序
+        val createdSeq = merged.map { it.time.created }
+        assertEquals(createdSeq, createdSeq.sorted())
+        // m-60 保留 existing 版本（APPEND_ONLY 语义：{ e, _ -> e }）
+        val m60 = merged.first { it.id == "m-60" } as Message.Assistant
+        assertEquals("e60", m60.modelId)
+    }
+
+    /**
+     * loadNewer + SSE 并发场景：existing=[m-30..m-60]；loadNewer 拉回 [m-61..m-90]；
+     * 同时 SSE 推送了 m-70（实时新消息，已在 existing 之外）。两次合并串行执行，
+     * 最终无重复。模拟 Delegate 两次 upsert APPEND_ONLY 的串行合并。
+     */
+    @Test
+    fun `loadNewer then SSE - serial merges dedupe across directions`() {
+        var current: List<Message> = (30..60).map { msg("m-$it", it.toLong(), "e$it") }
+        // 第一次：loadNewer 拉回 m-61..m-90（其中 m-65 与未来 SSE 重叠）
+        val newerBatch = (61..90).map { msg("m-$it", it.toLong(), "n$it") }
+        current = handler.mergeSortedMessages(current, newerBatch) { e, _ -> e }
+        // 第二次：SSE 推送 m-65（已在 newerBatch 中）+ m-91（全新）
+        val sseBatch = listOf(msg("m-65", 65L, "sse65"), msg("m-91", 91L, "sse91"))
+        current = handler.mergeSortedMessages(current, sseBatch) { e, _ -> e }
+
+        val ids = current.map { it.id }
+        assertEquals("跨方向串行合并无重复", ids.size, ids.toSet().size)
+        assertEquals(1, ids.count { it == "m-65" })
+        // m-65 保留首个版本（newerBatch 的 n65，因为第一次合并已加入）
+        val m65 = current.first { it.id == "m-65" } as Message.Assistant
+        assertEquals("n65", m65.modelId)
+    }
+
     @Test
     fun `no overlap interleaved`() {
         val e = listOf(msg("A", 1, "eA"), msg("C", 3, "eC"))

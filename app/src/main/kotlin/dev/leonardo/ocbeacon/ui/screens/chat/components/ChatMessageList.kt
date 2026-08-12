@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -172,6 +173,11 @@ fun ChatMessageList(
         CompactionStateInfo(isActive = it.isActive, reason = it.reason)
     }
 
+    // 快速导航双向加载状态（直接从 viewModel 收集，避免侵入 messageListState combine 管道）
+    val isLoadingAround by viewModel.isLoadingAround.collectAsStateWithLifecycle(initialValue = false)
+    val hasNewerMessages by viewModel.hasNewerMessages.collectAsStateWithLifecycle(initialValue = false)
+    val isLoadingNewer by viewModel.isLoadingNewer.collectAsStateWithLifecycle(initialValue = false)
+
     // 判断当前哪条消息在流式输出 —— 仅基于 completed 时间戳，
     // 而非 sessionMeta.isStreaming。后者是在 668384e3 中加入的，
     // 但可能无法反映活跃流式状态（生产环境观察到 stuck false），
@@ -292,9 +298,18 @@ fun ChatMessageList(
         (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0)
     }
 
-    fun jumpToMessage(msgId: String) {
-        val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
-        if (displayItemIndex < 0) return
+    // 高亮 key（3 秒后自动清除）—— scrollToDisplayItem / onLocateTask 共用。
+    var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(highlightedTurnKey) {
+        if (highlightedTurnKey != null) {
+            delay(3000)
+            highlightedTurnKey = null
+        }
+    }
+
+    // jumpToMessage 的核心滚动 + 高亮（立即路径与异步路径共用）。
+    fun scrollToDisplayItem(displayItemIndex: Int) {
+        val (rawIndex, msg) = displayItems[displayItemIndex]
         val lazyIndex = bannerCount + displayItemIndex
         coroutineScope.launch {
             // reverseLayout=true：requestScrollToItemNoCancel 将项放置在
@@ -311,22 +326,49 @@ fun ChatMessageList(
                 }
             }
         }
-        onQuickNavigateDismiss()
-    }
-
-    // 「定位发起卡片」支持（2026-08-11 用户要求）：
-    // 点击完成通知卡片上的定位按钮 → 在消息流中查找发起卡片（task/subagent
-    // 工具的 metadata.sessionId/jobId == synthetic <task id>）→ 滚动 + 3 秒高亮；
-    // 找不到时 Snackbar 提示。滚动逻辑与 jumpToMessage 相同（bannerCount 偏移
-    // + reverseLayout 位置修正——2026-08-11 修复：原 scrollToItem 无偏移导致
-    // 滚动位置错乱，用户反馈"跳转不能用、下拉跟跳转混乱"）。
-    var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(highlightedTurnKey) {
-        if (highlightedTurnKey != null) {
-            delay(3000)
-            highlightedTurnKey = null
+        highlightedTurnKey = if (msg.isUser) {
+            "u_${msg.message.id}"
+        } else {
+            "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
         }
     }
+
+    // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
+    // 消息进入 displayItems → 此 LaunchedEffect 重启（displayItems 是 key）→ 滚动 + 高亮。
+    // 以 displayItems 为 key：每次重组（新消息到达）都会重新检查目标是否已出现。
+    var pendingJumpTarget by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pendingJumpTarget, displayItems) {
+        val target = pendingJumpTarget ?: return@LaunchedEffect
+        val idx = displayItems.indexOfFirst { it.second.message.id == target }
+        if (idx >= 0) {
+            pendingJumpTarget = null
+            scrollToDisplayItem(idx)
+        }
+    }
+
+    /**
+     * 快速导航跳转。
+     *
+     * - 目标已加载（在 displayItems）→ 直接 scrollToDisplayItem + 高亮。
+     * - 目标未加载 → 触发 viewModel.loadAround 双向加载（前后各 N 条），
+     *   设 pendingJumpTarget；LaunchedEffect 监听 displayItems，目标进入后滚动 + 高亮。
+     *   （2026-08-12：修复"快速定位不准确"——原实现 displayItemIndex < 0 直接 return，
+     *   目标未加载时静默失败。）
+     */
+    fun jumpToMessage(msgId: String) {
+        val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
+        if (displayItemIndex >= 0) {
+            scrollToDisplayItem(displayItemIndex)
+            onQuickNavigateDismiss()
+        } else {
+            // 未加载：触发异步定位加载，等待消息进入 displayItems 后滚动
+            pendingJumpTarget = msgId
+            onQuickNavigateDismiss()
+            coroutineScope.launch { viewModel.loadAround(msgId) }
+        }
+    }
+    // 「定位发起卡片」支持：点击完成通知卡片上的定位按钮 → 查找发起卡片
+    //（task/subagent 工具的 metadata.sessionId/jobId）→ 滚动 + 3 秒高亮。
     val onLocateTask: (String) -> Unit = { targetSessionId ->
         val targetIndex = displayItems.indexOfFirst { (rawIndex, m) ->
             val turnMsgs = turnGroups[rawIndex] ?: listOf(m)
@@ -426,6 +468,50 @@ fun ChatMessageList(
                             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load triggered (nearTop=true, hasOlder=true)")
                             viewModel.loadOlderMessages()
                         }
+                }
+            }
+
+            // 自动分页（更新方向）：用户距视觉底部 8 项以内时触发加载更新消息。
+            // 仅在 loadAround 定位后激活（hasNewerMessages=true）；正常会话状态
+            //（已在最新）hasNewerMessages=false，永不触发。
+            //
+            // reverseLayout=true：firstVisible（visibleItemsInfo 最低索引）接近 0
+            // = 视觉底部（更新方向）。与 older 的 `total - firstVisible <= 8`（视觉顶部）
+            // 对称。无更多更新数据时服务器返回不足一页 → FSM 置 hasNewer=false → 停止。
+            LaunchedEffect(
+                hasNewerMessages,
+                isLoadingNewer,
+            ) {
+                if (hasNewerMessages && !isLoadingNewer) {
+                    snapshotFlow { listState.layoutInfo }
+                        .map { layoutInfo ->
+                            val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
+                            if (BuildConfig.DEBUG && firstVisible <= 12) {
+                                AppLogger.d("ChatPaging", "nearBottom probe: firstVisible=$firstVisible")
+                            }
+                            firstVisible <= 8
+                        }
+                        .distinctUntilChanged()
+                        .filter { it }
+                        .collect {
+                            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load newer triggered (nearBottom=true, hasNewer=true)")
+                            viewModel.loadNewerMessages()
+                        }
+                }
+            }
+
+            // loadAround 失败保护：加载结束（isLoadingAround=false）但目标未进入
+            // displayItems（pendingJumpTarget 仍悬空）→ 清除并 Snackbar 提示，避免悬死。
+            LaunchedEffect(isLoadingAround) {
+                if (!isLoadingAround && pendingJumpTarget != null) {
+                    val target = pendingJumpTarget
+                    val found = displayItems.indexOfFirst { it.second.message.id == target } >= 0
+                    if (!found) {
+                        pendingJumpTarget = null
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_task_not_found))
+                        }
+                    }
                 }
             }
 
@@ -752,6 +838,32 @@ fun ChatMessageList(
                         }
                     }
                 }
+
+            // 定位加载指示器：jumpToMessage 目标未加载时双向加载期间显示（覆盖层）
+            if (isLoadingAround) {
+                Surface(
+                    shape = ShapeTokens.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 6.dp,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.MD.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(SpacingTokens.SM.dp))
+                        Text(
+                            text = stringResource(R.string.loading),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
 
             // 滚动到底部 FAB
             if (!isAtBottom) {

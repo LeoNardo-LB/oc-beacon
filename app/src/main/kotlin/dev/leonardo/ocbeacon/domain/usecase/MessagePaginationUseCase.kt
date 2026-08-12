@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -26,6 +27,30 @@ data class LoadOlderResult(
      * Delegate 存入 PaginationFSM.Network.serverCursor，下次翻页直接透传。
      */
     val nextCursor: String? = null,
+)
+
+/**
+ * loadAround（快速导航定位加载）的返回值。
+ *
+ * - [target]：定位目标消息（单独获取以保证其在 displayItems 中）。
+ * - [olderMessages]：目标之前（更旧）的消息。
+ * - [newerMessages]：目标之后（更新）的消息（V1 恒为空——V1 不支持更新方向）。
+ * - [olderNextCursor]：older 方向的服务器游标（V2 cursor.next；用于后续 loadOlder）。
+ * - [newerPreviousCursor]：newer 方向的服务器游标（V2 cursor.previous；用于后续 loadNewer）。
+ */
+data class LoadAroundResult(
+    val target: MessageWithParts,
+    val olderMessages: List<MessageWithParts>,
+    val newerMessages: List<MessageWithParts>,
+    val olderNextCursor: String? = null,
+    val newerPreviousCursor: String? = null,
+)
+
+/** loadNewerMessages 的返回值。 */
+data class LoadNewerResult(
+    val messages: List<MessageWithParts>,
+    /** 下一页更新方向游标（V2 cursor.previous；为空表示已到最新）。 */
+    val previousCursor: String? = null,
 )
 
 class MessagePaginationUseCase @Inject constructor(
@@ -139,6 +164,80 @@ class MessagePaginationUseCase @Inject constructor(
             messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
             LoadOlderResult(page.messages, LoadOlderSource.NETWORK, nextCursor = page.nextCursor)
         }
+    }
+
+    /**
+     * 快速导航定位加载：以 [targetMessageId] 为中心，前后各 [limit] 条双向加载。
+     *
+     * - **V2**：构造双向 cursor（{id:target, direction:next/previous}）分别请求更旧/更新；
+     *   目标本身不在 cursor 结果中，单独 getMessage 获取。三批消息合并 upsert（APPEND_ONLY
+     *   按 id 去重，见 MessageEventHandler.mergeSortedMessages）。
+     * - **V1 降级**：仅单条 target + before 向旧加载 [limit] 条；更新方向不可用
+     *   （V1 无 after/cursor，依赖本地缓存；newerMessages 为空、newerPreviousCursor=null）。
+     *
+     * 返回的双向游标供 Delegate 写入 FSM（AroundLoaded）：后续滚动分页（older/newer）复用。
+     *
+     * SSE 竞态：mergeSortedMessages 已按 id 去重，SSE 实时新消息与定位加载合并不重复。
+     */
+    suspend fun loadAround(
+        serverId: String,
+        sessionId: String,
+        targetMessageId: String,
+        limit: Int,
+    ): Result<LoadAroundResult> = runCatching {
+        val isV2 = sessionRepository.getApiVersion(serverId).isV2
+        // 单条目标（cursor 结果不含目标本身）
+        val target = sessionRepository.getMessage(serverId, sessionId, targetMessageId).getOrThrow()
+
+        if (isV2) {
+            // V2 双向 cursor：direction="next"=更旧，"previous"=更新
+            val olderCursor = CursorCodec.encodeV2(targetMessageId, CursorCodec.V2Direction.OLDER)
+            val newerCursor = CursorCodec.encodeV2(targetMessageId, CursorCodec.V2Direction.NEWER)
+            val olderPage = sessionRepository.listMessages(serverId, sessionId, limit, before = olderCursor).getOrThrow()
+            val newerPage = sessionRepository.listMessages(serverId, sessionId, limit, before = newerCursor).getOrThrow()
+            // 合并 upsert（target + older + newer；APPEND_ONLY 路径按 id 去重）
+            val all = listOf(target) + olderPage.messages + newerPage.messages
+            messageStore.upsertMessages(sessionId, all, persistOldBeyondWindow = false)
+            LoadAroundResult(
+                target = target,
+                olderMessages = olderPage.messages,
+                newerMessages = newerPage.messages,
+                olderNextCursor = olderPage.nextCursor,
+                newerPreviousCursor = newerPage.previousCursor,
+            )
+        } else {
+            // V1 降级：target + before 向旧加载
+            val before = CursorCodec.encode(targetMessageId, target.info.time.created)
+            val olderPage = sessionRepository.listMessages(serverId, sessionId, limit, before = before).getOrThrow()
+            val all = listOf(target) + olderPage.messages
+            messageStore.upsertMessages(sessionId, all, persistOldBeyondWindow = false)
+            LoadAroundResult(
+                target = target,
+                olderMessages = olderPage.messages,
+                newerMessages = emptyList(),
+                olderNextCursor = olderPage.nextCursor,
+                newerPreviousCursor = null,
+            )
+        }
+    }
+
+    /**
+     * 向更新方向加载（定位到中间后，向下滑触发）。
+     *
+     * [newerServerCursor] 为上次 newer 方向请求返回的 cursor.previous（V2）。
+     * 为空（V1 或已读尽）→ 返回空结果（Delegate 不应在此状态下调用）。
+     */
+    suspend fun loadNewerMessages(
+        serverId: String,
+        sessionId: String,
+        limit: Int,
+        newerServerCursor: String?,
+    ): Result<LoadNewerResult> = runCatching {
+        if (newerServerCursor == null) return@runCatching LoadNewerResult(emptyList(), null)
+        val page = sessionRepository.listMessages(serverId, sessionId, limit, before = newerServerCursor)
+            .getOrThrow()
+        messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
+        LoadNewerResult(page.messages, page.previousCursor)
     }
 
     private fun mergeLocalAndRemote(

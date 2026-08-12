@@ -508,6 +508,27 @@ class ChatViewModel @Inject constructor(
     /** 自动续载的退避等待毫秒（0 = 无需等待）——UI 触发自动分页前查询。 */
     fun autoLoadWaitMillis(): Long = messageData.paginationDelegate.autoLoadWaitMillis()
 
+    // ============ 快速导航双向加载（门面 —— MessagePaginationDelegate） ============
+
+    /** 快速导航定位加载（前后各 N 条）。suspend —— 调用方在协程中 await。 */
+    suspend fun loadAround(targetMessageId: String) =
+        messageData.paginationDelegate.loadAround(targetMessageId)
+
+    /** 向更新方向加载（定位到中间后下滑触发）。 */
+    fun loadNewerMessages() = messageData.paginationDelegate.loadNewerMessages()
+
+    /** 服务器上是否存在更新方向（newer）的更多消息。 */
+    val hasNewerMessages: kotlinx.coroutines.flow.StateFlow<Boolean> =
+        messageData.paginationDelegate.hasNewerMessages
+
+    /** "定位加载" 请求是否进行中（jumpToMessage 异步加载指示）。 */
+    val isLoadingAround: kotlinx.coroutines.flow.StateFlow<Boolean> =
+        messageData.paginationDelegate.isLoadingAround
+
+    /** "加载更新" 请求是否进行中。 */
+    val isLoadingNewer: kotlinx.coroutines.flow.StateFlow<Boolean> =
+        messageData.paginationDelegate.isLoadingNewer
+
     // ============ @ 文件提及搜索 + 草稿管理（门面 —— DraftInputDelegate） ============
 
     val fileSearchResults: StateFlow<List<String>> get() = draftDelegate.fileSearchResults

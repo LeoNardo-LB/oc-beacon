@@ -384,12 +384,20 @@ class V2ApiClient @Inject constructor(
             // 2026-08-11 实测：服务器翻页参数名是 cursor（before 被忽略）。
             // cursor 值必须用服务器上次响应返回的 cursor.next（base64url 的
             // {"id","order","direction"}）——本地 CursorCodec 的 {"id","time"} 格式不兼容。
+            // 2026-08-12 双向分页：cursor 也可由调用方构造（loadAround/loadNewer），
+            // direction="next"=更旧、"previous"=更新，服务器据此返回对应方向数据。
             cursor?.let { parameter("cursor", it) }
         }
         val root = parseRoot(response.bodyAsText())
-        val (items, nextCursor) = V2ResponseWrapper.unwrapList(root)
-        val messages = items.mapNotNull { V2MessageMapper.toMessageWithParts(it, sessionId) }
-        return MessagePage(messages = messages, nextCursor = nextCursor)
+        // 双向游标：nextCursor（cursor.next）= 更旧方向；previousCursor（cursor.previous）= 更新方向。
+        // 原 unwrapList 只提取 next，丢弃 previous —— 双向分页需保留两者。
+        val unwrapped = V2ResponseWrapper.unwrapListFull(root)
+        val messages = unwrapped.items.mapNotNull { V2MessageMapper.toMessageWithParts(it, sessionId) }
+        return MessagePage(
+            messages = messages,
+            nextCursor = unwrapped.nextCursor,
+            previousCursor = unwrapped.previousCursor,
+        )
     }
 
     suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {

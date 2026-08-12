@@ -74,13 +74,22 @@ internal class MessagePaginationDelegate(
 
     /** 服务器上是否存在超出当前限制的更多消息（FSM 同步投影）。 */
     private val _hasOlderMessages = MutableStateFlow(false)
+    /** 服务器上是否存在更新方向（newer）的更多消息（FSM 同步投影）。 */
+    private val _hasNewerMessages = MutableStateFlow(false)
     /** 自动续载暂停（连续失败达上限）——UI 停止自动分页，等待手动触发（FSM 同步投影）。 */
     private val _autoLoadPaused = MutableStateFlow(false)
     /** "加载更早" 请求是否进行中（入口互斥标志，生命周期性质，不属 FSM 状态）。 */
     private val _isLoadingOlder = MutableStateFlow(false)
+    /** "定位加载" 请求是否进行中（快速导航 jumpToMessage 异步加载时显示加载指示）。 */
+    private val _isLoadingAround = MutableStateFlow(false)
+    /** "加载更新" 请求是否进行中（入口互斥标志）。 */
+    private val _isLoadingNewer = MutableStateFlow(false)
 
     val hasOlderMessages: StateFlow<Boolean> = _hasOlderMessages.asStateFlow()
+    val hasNewerMessages: StateFlow<Boolean> = _hasNewerMessages.asStateFlow()
     val isLoadingOlder: StateFlow<Boolean> = _isLoadingOlder.asStateFlow()
+    val isLoadingAround: StateFlow<Boolean> = _isLoadingAround.asStateFlow()
+    val isLoadingNewer: StateFlow<Boolean> = _isLoadingNewer.asStateFlow()
     val autoLoadPaused: StateFlow<Boolean> = _autoLoadPaused.asStateFlow()
 
     /**
@@ -93,6 +102,7 @@ internal class MessagePaginationDelegate(
             val newState = PaginationFSM.transition(_paginationState.value, event)
             _paginationState.value = newState
             _hasOlderMessages.value = newState.hasOlderMessages
+            _hasNewerMessages.value = newState.hasNewerMessages
             _autoLoadPaused.value = newState.autoLoadPaused
         }
     }
@@ -233,6 +243,123 @@ internal class MessagePaginationDelegate(
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(TAG, "loadOlder END sid=${sid.take(12)} isLoadingOlder=false failures=${paginationState.value.autoLoadFailures} paused=${paginationState.value.autoLoadPaused} waitMs=${autoLoadWaitMillis()}")
                 }
+            }
+        }
+    }
+
+    /**
+     * 快速导航定位加载：以 [targetMessageId] 为中心双向加载（前后各 [currentMessageLimit] 条）。
+     *
+     * 流程（设计约束 #2）：
+     * 1. 调用 useCase.loadAround（V2 双向 cursor / V1 降级单条+before）
+     * 2. 合并 upsert（APPEND_ONLY 按 id 去重——SSE 实时新消息与定位加载不冲突）
+     * 3. 写入 FSM AroundLoaded（设置 older+newer 游标，不破坏后续滚动分页）
+     *
+     * 调用方（ChatMessageList.jumpToMessage）在 await 完成后通过 snapshotFlow/LaunchedEffect
+     * 等待目标进入 displayItems 再滚动 + 高亮。
+     */
+    suspend fun loadAround(targetMessageId: String) {
+        val sid = sessionIdProvider()
+        _isLoadingAround.value = true
+        try {
+            val result = messagePaging.loadAround(serverId, sid, targetMessageId, currentMessageLimit)
+                .getOrThrow()
+            // 合并 target + older + newer（APPEND_ONLY 按 id 去重）
+            val all = listOf(result.target) + result.olderMessages + result.newerMessages
+            chatRepository.upsertMessages(sid, all, MergeStrategy.APPEND_ONLY)
+
+            // 构造 older 游标（后续 loadOlder 复用）
+            val oldest = result.olderMessages.minByOrNull { it.info.time.created }
+            val olderCursor = when {
+                result.olderNextCursor != null -> PaginationCursor.Network(
+                    serverCursor = result.olderNextCursor,
+                    id = oldest?.info?.id,
+                    created = oldest?.info?.time?.created,
+                )
+                oldest != null -> PaginationCursor.Network(
+                    id = oldest.info.id,
+                    created = oldest.info.time.created,
+                )
+                else -> null
+            }
+            val hasOlder = result.olderNextCursor != null || result.olderMessages.size >= currentMessageLimit
+
+            // 构造 newer 游标（后续 loadNewer 复用；V1 为 null）
+            val newest = result.newerMessages.maxByOrNull { it.info.time.created }
+            val newerCursor = if (result.newerPreviousCursor != null) {
+                PaginationCursor.Network(
+                    serverCursor = result.newerPreviousCursor,
+                    id = newest?.info?.id,
+                    created = newest?.info?.time?.created,
+                )
+            } else null
+            val hasNewer = result.newerPreviousCursor != null || result.newerMessages.size >= currentMessageLimit
+
+            applyTransition(
+                PaginationFSM.Event.AroundLoaded(
+                    olderCursor = olderCursor,
+                    hasOlderMessages = hasOlder,
+                    newerCursor = newerCursor,
+                    hasNewerMessages = hasNewer,
+                ),
+            )
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "loadAround sid=${sid.take(12)} target=${targetMessageId.take(12)} older=${result.olderMessages.size} newer=${result.newerMessages.size} hasOlder=$hasOlder hasNewer=$hasNewer")
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Failed to load around target ${targetMessageId.take(12)}", e)
+        } finally {
+            _isLoadingAround.value = false
+        }
+    }
+
+    /**
+     * 向更新方向加载（定位到中间后，向下滑触发）。
+     *
+     * 读取 FSM 的 newerCursor.serverCursor 作为请求游标（V2 cursor.previous）。
+     * 无游标（V1 / 已读尽 / 未定位过）→ 直接返回（UI 由 hasNewerMessages=false 不触发）。
+     * 更新方向无更多数据时静默停止（hasNewerMessages=false）。
+     */
+    fun loadNewerMessages() {
+        val sid = sessionIdProvider()
+        scope.launch {
+            // 入口互斥（与 loadOlder 同模式）
+            synchronized(this) {
+                if (_isLoadingNewer.value) return@launch
+                _isLoadingNewer.value = true
+            }
+            try {
+                val newerCursor = paginationState.value.newerCursor
+                val serverCursor = (newerCursor as? PaginationCursor.Network)?.serverCursor
+                if (serverCursor == null) return@launch
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "loadNewer START sid=${sid.take(12)} limit=$currentMessageLimit cursor=${serverCursor.take(16)}")
+                }
+                val result = messagePaging.loadNewerMessages(serverId, sid, currentMessageLimit, serverCursor)
+                    .getOrThrow()
+                chatRepository.upsertMessages(sid, result.messages, MergeStrategy.APPEND_ONLY)
+                val newest = result.messages.maxByOrNull { it.info.time.created }
+                applyTransition(
+                    PaginationFSM.Event.LoadNewerSucceeded(
+                        newestId = newest?.info?.id,
+                        newestCreated = newest?.info?.time?.created,
+                        previousCursor = result.previousCursor,
+                        pageSize = result.messages.size,
+                        limit = currentMessageLimit,
+                    ),
+                )
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "loadNewer: ${result.messages.size} msgs (limit=$currentMessageLimit), hasNewer=${paginationState.value.hasNewerMessages}")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 更新方向失败不触发防风暴（older 的退避独立）；用户滚动即重试
+                AppLogger.e(TAG, "Failed to load newer messages", e)
+            } finally {
+                _isLoadingNewer.value = false
             }
         }
     }

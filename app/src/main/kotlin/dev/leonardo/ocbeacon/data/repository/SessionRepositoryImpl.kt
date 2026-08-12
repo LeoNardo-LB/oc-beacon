@@ -224,6 +224,19 @@ class SessionRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getMessage(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageWithParts> = runCatching {
+        val conn = resolveConnection(serverId)
+        messageApi.getMessage(conn, sessionId, messageId)
+    }
+
+    override suspend fun getApiVersion(serverId: String): dev.leonardo.ocbeacon.domain.model.ApiVersion =
+        serverRepo.getServer(serverId)?.apiVersion
+            ?: dev.leonardo.ocbeacon.domain.model.ApiVersion.UNKNOWN
+
     // ============ 私有辅助方法 ============
 
     private suspend fun resolveConnection(serverId: String): ServerConnection {

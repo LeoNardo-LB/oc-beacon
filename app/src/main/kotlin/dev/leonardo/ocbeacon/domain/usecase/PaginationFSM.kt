@@ -32,6 +32,14 @@ object PaginationFSM {
         val cursor: PaginationCursor = PaginationCursor.HotStart,
         /** 服务器上是否存在超出当前限制的更多消息（UI 停止自动分页的依据）。 */
         val hasOlderMessages: Boolean = false,
+        /**
+         * 下一次 loadNewerMessages 的读取边界（更新方向）。
+         * null = 更新方向未激活（正常会话状态：已在最新，无更新可加载）。
+         * 由 loadAround 设置；loadNewerMessages 推进；读尽后回落 null。
+         */
+        val newerCursor: PaginationCursor? = null,
+        /** 服务器上是否存在更新方向（newer）的更多消息（UI 停止自动分页的依据）。 */
+        val hasNewerMessages: Boolean = false,
         /** 自动续载连续失败次数（成功清零）。 */
         val autoLoadFailures: Int = 0,
         /** 退避截止时间戳（ms）：此前的自动续载触发应等待。 */
@@ -66,12 +74,52 @@ object PaginationFSM {
 
         /** loadOlderMessages 失败（网络/归档损坏）：记录失败 + 指数退避（达上限暂停）。 */
         data class LoadFailed(val now: Long = System.currentTimeMillis()) : Event
+
+        /**
+         * loadAround（快速导航定位加载）成功：一次性设置 older + newer 双向游标。
+         *
+         * 这是一次性"定位加载"——不破坏后续滚动分页的游标语义：
+         * - older 游标由调用方根据 older 方向响应构造（V2 = Network.serverCursor=nextCursor；
+         *   V1 = Network(id, created)）；后续 loadOlderMessages 正常推进。
+         * - newer 游标由调用方根据 newer 方向响应构造（V2 = Network.serverCursor=previousCursor；
+         *   V1 = null，更新方向不可用）；后续 loadNewerMessages 推进。
+         *
+         * @param olderCursor older 方向起始游标（null = 已无更旧）。
+         * @param hasOlderMessages older 方向是否还有更多。
+         * @param newerCursor newer 方向起始游标（null = 已无更新或 V1 不可用）。
+         * @param hasNewerMessages newer 方向是否还有更多。
+         */
+        data class AroundLoaded(
+            val olderCursor: PaginationCursor?,
+            val hasOlderMessages: Boolean,
+            val newerCursor: PaginationCursor?,
+            val hasNewerMessages: Boolean,
+        ) : Event
+
+        /**
+         * loadNewerMessages 成功：推进 newer 游标 + 更新 hasNewer + 重置防风暴。
+         *
+         * @param newestId 本次返回的最新消息 ID（V1 回落用；空页为 null）。
+         * @param newestCreated 本次返回的最新消息 created（V1 编码回落用）。
+         * @param previousCursor 服务器返回的更新方向下一页游标（V2 cursor.previous，更新方向；
+         *   V1 恒为 null）。
+         */
+        data class LoadNewerSucceeded(
+            val newestId: String?,
+            val newestCreated: Long?,
+            val previousCursor: String?,
+            val pageSize: Int,
+            val limit: Int,
+        ) : Event
     }
 
     fun transition(state: State, event: Event): State = when (event) {
         is Event.SessionReloaded -> state.copy(
             cursor = PaginationCursor.HotStart,
             hasOlderMessages = event.hasOlderMessages,
+            // 会话重新加载 → 回到最新边界，更新方向重置（无更新可加载）
+            newerCursor = null,
+            hasNewerMessages = false,
         )
 
         is Event.LoadSucceeded -> {
@@ -113,6 +161,41 @@ object PaginationFSM {
                 autoLoadFailures = failures,
                 autoLoadPausedUntil = event.now + backoffMs,
                 autoLoadPaused = failures >= MAX_AUTO_LOAD_FAILURES,
+            )
+        }
+
+        is Event.AroundLoaded -> state.copy(
+            cursor = event.olderCursor ?: PaginationCursor.HotStart,
+            hasOlderMessages = event.hasOlderMessages,
+            newerCursor = event.newerCursor,
+            hasNewerMessages = event.hasNewerMessages,
+            // 定位加载视为成功操作，重置防风暴（与 LoadSucceeded 一致）
+            autoLoadFailures = 0,
+            autoLoadPausedUntil = 0L,
+            autoLoadPaused = false,
+        )
+
+        is Event.LoadNewerSucceeded -> {
+            // newer 游标推进：与 LoadSucceeded(NETWORK) 对称。
+            // V2 服务器游标优先（previousCursor）；否则回落最新消息 ID + created（V1）；
+            // 空页/读尽（previousCursor 为空且不足一页）→ newerCursor=null + hasNewer=false。
+            val newerCursor = when {
+                event.previousCursor != null -> PaginationCursor.Network(
+                    serverCursor = event.previousCursor,
+                    id = event.newestId,
+                    created = event.newestCreated,
+                )
+                event.newestId != null && event.newestCreated != null ->
+                    PaginationCursor.Network(id = event.newestId, created = event.newestCreated)
+                else -> null
+            }
+            state.copy(
+                newerCursor = newerCursor,
+                // 有服务器游标 → 一定还有更多更新；否则按页大小判断（满页可能还有）
+                hasNewerMessages = event.previousCursor != null || event.pageSize >= event.limit,
+                autoLoadFailures = 0,
+                autoLoadPausedUntil = 0L,
+                autoLoadPaused = false,
             )
         }
     }

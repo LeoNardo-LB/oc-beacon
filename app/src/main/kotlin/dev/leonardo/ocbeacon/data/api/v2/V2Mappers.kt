@@ -27,6 +27,16 @@ import kotlinx.serialization.json.long
  * V2 REST 响应格式：`{ "data": <实际数据> }`
  * 列表响应：`{ "data": [...], "cursor": { "previous": "...", "next": "..." } }`
  */
+
+/** 双向游标列表解包结果（[V2ResponseWrapper.unwrapListFull]）。 */
+data class UnwrappedList(
+    val items: List<JsonObject>,
+    /** cursor.next —— 更旧方向游标。 */
+    val nextCursor: String?,
+    /** cursor.previous —— 更新方向游标。 */
+    val previousCursor: String?,
+)
+
 object V2ResponseWrapper {
 
     /**
@@ -46,6 +56,22 @@ object V2ResponseWrapper {
         val items = data.mapNotNull { it.jsonObject }
         val nextCursor = root["cursor"]?.jsonObject?.get("next")?.jsonPrimitive?.contentOrNull
         return items to nextCursor
+    }
+
+    /**
+     * 解包 V2 列表响应（含双向游标）—— 用于消息双向分页。
+     *
+     * V2 cursor 对象：`{previous, next}`（base64 的 JSON）：
+     * - [UnwrappedList.nextCursor]（cursor.next）→ 更旧方向（older）。
+     * - [UnwrappedList.previousCursor]（cursor.previous）→ 更新方向（newer）。
+     */
+    fun unwrapListFull(root: JsonObject): UnwrappedList {
+        val data = root["data"]?.jsonArray ?: JsonArray(emptyList())
+        val items = data.mapNotNull { it.jsonObject }
+        val cursorObj = root["cursor"]?.jsonObject
+        val nextCursor = cursorObj?.get("next")?.jsonPrimitive?.contentOrNull
+        val previousCursor = cursorObj?.get("previous")?.jsonPrimitive?.contentOrNull
+        return UnwrappedList(items, nextCursor, previousCursor)
     }
 
     /**
