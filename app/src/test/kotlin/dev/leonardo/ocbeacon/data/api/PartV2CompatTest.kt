@@ -70,6 +70,24 @@ class PartV2CompatTest {
     }
 
     @Test
+    fun `PartSerializer infers Text from payload without type field`() {
+        // 2026-08-12 修复：旧数据/SSE 播种的 Part.Text 序列化省略默认值
+        //（text="" 时不写 text 字段、从不写 type）→ 无 type 有 text 时按字段推断
+        val payload = """{"id":"msg_x_summary","sessionID":"s1","messageID":"msg_x","text":"大致说下当前目录下有哪些内容"}"""
+        val part = json.decodeFromString<Part>(payload)
+        assertTrue("expected Text, got $part", part is Part.Text)
+        assertEquals("大致说下当前目录下有哪些内容", (part as Part.Text).text)
+    }
+
+    @Test
+    fun `PartSerializer maps textless summary payload to Unknown`() {
+        // text="" 默认值被省略 → payload 无 type 无 text → Unknown（不误判为 Tool）
+        val payload = """{"id":"msg_x_summary","sessionID":"s1","messageID":"msg_x"}"""
+        val part = json.decodeFromString<Part>(payload)
+        assertTrue("expected Unknown, got $part", part is Part.Unknown)
+    }
+
+    @Test
     fun `V1 PartSerializer decodes V2 tool with double-nested metadata`() {
         // V2 服务器实际返回的双层嵌套 metadata：{metadata: {sessionID: ...}}
         val parser = dev.leonardo.ocbeacon.data.api.sse.parsers.MessageEventParser(json)

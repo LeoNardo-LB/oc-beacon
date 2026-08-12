@@ -13,7 +13,8 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
     override fun selectDeserializer(element: JsonElement): DeserializationStrategy<Part> {
-        return when (element.jsonObject["type"]?.jsonPrimitive?.content) {
+        val obj = element.jsonObject
+        return when (obj["type"]?.jsonPrimitive?.content) {
             "text" -> Part.Text.serializer()
             "reasoning" -> Part.Reasoning.serializer()
             "tool" -> Part.Tool.serializer()
@@ -29,7 +30,19 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
             "abort" -> Part.Abort.serializer()
             "agent" -> Part.Agent.serializer()
             "session-turn" -> Part.SessionTurn.serializer()
-            else -> Part.Unknown.serializer()
+            // 2026-08-12 修复：旧数据/SSE 播种的 parts 无 "type" 字段
+            //（Part.Text(text="") 序列化省略默认值 → payload 无 type 无 text）
+            // ——按顶层字段推断，避免降级为 Unknown（Unknown 导致消息流
+            // 误导显示 "Running command…"——用户反馈"缺少数据/对话快速访问问题"）
+            else -> when {
+                obj.containsKey("text") -> Part.Text.serializer()
+                obj.containsKey("reasoning") -> Part.Reasoning.serializer()
+                obj.containsKey("tool") || obj.containsKey("state") -> Part.Tool.serializer()
+                obj.containsKey("shell") -> Part.Shell.serializer()
+                obj.containsKey("subtask") -> Part.Subtask.serializer()
+                obj.containsKey("patch") -> Part.Patch.serializer()
+                else -> Part.Unknown.serializer()
+            }
         }
     }
 }

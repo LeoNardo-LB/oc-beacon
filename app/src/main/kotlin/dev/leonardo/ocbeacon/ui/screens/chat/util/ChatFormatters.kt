@@ -102,6 +102,9 @@ internal fun resolveUserCommandLabel(parts: List<Part>): String? {
     return when (command) {
         "review" -> stringResource(R.string.menu_review_changes)
         null -> {
+            // 2026-08-12 修复：Part.Unknown（Room 反序列化失败的旧数据）不算
+            // "运行中"——空壳 user 消息（全部 Unknown）不再显示误导性的
+            // "Running command…"（用户反馈"看起来缺少数据/对话快速访问问题"）
             val hasNonRenderableOnly = parts.any { part ->
                 part !is Part.Text &&
                         part !is Part.Reasoning &&
@@ -110,7 +113,8 @@ internal fun resolveUserCommandLabel(parts: List<Part>): String? {
                         part !is Part.Permission &&
                         part !is Part.Question &&
                         part !is Part.Abort &&
-                        part !is Part.Retry
+                        part !is Part.Retry &&
+                        part !is Part.Unknown
             }
             if (hasNonRenderableOnly) stringResource(R.string.chat_tool_running_command) else null
         }
