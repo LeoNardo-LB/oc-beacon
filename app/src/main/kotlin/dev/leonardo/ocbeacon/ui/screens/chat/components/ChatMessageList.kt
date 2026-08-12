@@ -321,11 +321,12 @@ fun ChatMessageList(
     // 2026-08-12：目标定位到"视口安全区"（顶部下方 100px）——完全可见，
     // 不被顶部 topBar 遮挡（LazyColumn 视口含标题栏区域）。
     fun scrollToDisplayItem(displayItemIndex: Int) {
-        // 2026-08-12：目标定位到"视口安全区"（顶部下方 132px）——LazyColumn
-        // 视口起点屏幕在 topBar 顶部（Scaffold 未消费 insets），目标需滚到
-        // topBar（~95px）下方消息区顶部（~132px）才完全可见且位于"用户可见
-        // 窗口最上方"（此前 100px 仍在 topBar 内被遮挡——用户反馈目标不可见）。
-        val TARGET_SAFE_OFFSET = 132f
+        // 2026-08-12：目标定位到"用户可见窗口最上方"——LazyColumn 视口起点
+        // 屏幕在 0px（topBar 覆盖在列表上），目标 offset 111 时屏幕 111px
+        // 仍在 topBar（~164-259px）内被遮挡（用户反馈"只向上挪了一小段/没放顶部"）。
+        // 目标需滚到屏幕 ~296px（topBar 下方消息区顶部）——offset = viewportStart
+        // + 317（本设备 topBar 95px + 消息区偏移；跨设备需动态化——待优化）。
+        val TARGET_SAFE_OFFSET = 317f
         val (rawIndex, msg) = displayItems[displayItemIndex]
         val targetMsgId = msg.message.id
         val initialLazyIndex = bannerCount + displayItemIndex
