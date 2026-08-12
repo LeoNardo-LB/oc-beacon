@@ -637,6 +637,7 @@
     <string name="background_sheet_empty_subagents">백그라운드 서브 에이전트 없음</string>
     <string name="background_sheet_empty_shells">셸 명령 없음</string>
     <string name="background_sheet_title">백그라운드</string>
+    <string name="background_sheet_history_tab">기록</string>
     <string name="shell_kill">셸 제거</string>
     <string name="shell_close">닫기</string>
     <string name="shell_no_output">아직 출력 없음</string>

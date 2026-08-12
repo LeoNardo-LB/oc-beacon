@@ -635,6 +635,7 @@
     <string name="background_sheet_empty_subagents">Aucun sous-agent en arrière-plan</string>
     <string name="background_sheet_empty_shells">Aucune commande shell</string>
     <string name="background_sheet_title">Arrière-plan</string>
+    <string name="background_sheet_history_tab">Historique</string>
     <string name="shell_kill">Supprimer le shell</string>
     <string name="shell_close">Fermer</string>
     <string name="shell_no_output">Aucune sortie pour le moment</string>

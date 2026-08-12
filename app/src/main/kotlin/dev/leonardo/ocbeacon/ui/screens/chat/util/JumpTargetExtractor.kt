@@ -126,3 +126,22 @@ private fun isNavigableUser(item: Pair<Int, ChatMessage>): Boolean =
 /** 根据 LazyColumn 索引（含 banner 偏移）取 displayItems 项并判定可导航。 */
 private fun hasText(displayItems: List<Pair<Int, ChatMessage>>, displayIdx: Int): Boolean =
     displayIdx in displayItems.indices && isNavigableUser(displayItems[displayIdx])
+
+/**
+ * 当前可见区域的时间锚点（可见消息项中 index 最大的 created）——
+ * 用于快速导航打开时定位"当前位置附近"的问题（currentMsgId 无法匹配时降级）。
+ * 返回 null 表示无法确定。
+ */
+fun findCurrentAnchorTimestamp(
+    listState: LazyListState,
+    displayItems: List<Pair<Int, ChatMessage>>,
+    bannerCount: Int,
+): Long? {
+    val anchor = listState.layoutInfo.visibleItemsInfo
+        .filter { (it.key as? String)?.let { k -> k.startsWith("u_") || k.startsWith("t_") } == true }
+        .maxByOrNull { it.index }
+        ?: return null
+    val displayIdx = anchor.index - bannerCount
+    if (displayIdx !in displayItems.indices) return null
+    return displayItems[displayIdx].second.message.time.created
+}

@@ -116,11 +116,13 @@ internal fun ModelPickerDialog(
                     item(key = "provider_header_${provider.id}") {
                         // 2026-08-12 用户要求：聚合行行高与正常 item 一致——
                         // 显式 height(40.dp) 对齐模型行（8dp padding + bodyMedium 24sp ≈ 40dp）
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 40.dp)
-                                .padding(horizontal = 12.dp),
+            // 2026-08-12 用户要求：聚合行顶格（左边无空缺——空缺代表 subitem 归属聚合，
+            // 模型行保留缩进）。聚合行 start=4dp 仅给图标留最小边距。
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 40.dp)
+                    .padding(start = 4.dp, end = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {

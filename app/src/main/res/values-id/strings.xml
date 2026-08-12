@@ -643,6 +643,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_empty_subagents">Tidak ada sub-agent latar belakang</string>
     <string name="background_sheet_empty_shells">Tidak ada perintah shell</string>
     <string name="background_sheet_title">Latar belakang</string>
+    <string name="background_sheet_history_tab">Riwayat</string>
     <string name="shell_kill">Hapus shell</string>
     <string name="shell_close">Tutup</string>
     <string name="shell_no_output">Belum ada output</string>

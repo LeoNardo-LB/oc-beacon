@@ -637,6 +637,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_empty_subagents">No hay sub-agentes en segundo plano</string>
     <string name="background_sheet_empty_shells">No hay comandos shell</string>
     <string name="background_sheet_title">Segundo plano</string>
+    <string name="background_sheet_history_tab">Historial</string>
     <string name="shell_kill">Quitar shell</string>
     <string name="shell_close">Cerrar</string>
     <string name="shell_no_output">Aún no hay salida</string>

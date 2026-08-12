@@ -653,6 +653,7 @@
     <string name="background_sheet_empty_subagents">لا يوجد وكلاء فرعيون في الخلفية</string>
     <string name="background_sheet_empty_shells">لا توجد أوامر طرفية</string>
     <string name="background_sheet_title">الخلفية</string>
+    <string name="background_sheet_history_tab">السجل</string>
     <string name="shell_kill">إزالة الطرفية</string>
     <string name="shell_close">إغلاق</string>
     <string name="shell_no_output">لا يوجد إخراج بعد</string>

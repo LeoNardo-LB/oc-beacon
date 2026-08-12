@@ -62,6 +62,8 @@ import java.util.Locale
  * @param show 对话框是否可见
  * @param jumpTargets 提取的用户提问（参见 JumpTargetExtractor；数据源为 Room 全量 user 消息）
  * @param currentMsgId 当前可见问题的 msgId，用于高亮；null = 无
+ * @param anchorTimestampMs 当前可见区域时间锚点（ms），currentMsgId 匹配不到时
+ *   降级定位到时间最近的问题；null = 无锚点（降级到最新项）
  * @param isLoading jumpTargets 正在异步加载（Room 查询期间显示 loading 指示）
  * @param onJump 用户点击某个提问时以 msgId 调用
  * @param onDismiss 对话框应关闭时调用
@@ -72,6 +74,7 @@ fun QuickNavigateSheet(
     show: Boolean,
     jumpTargets: List<JumpTarget>,
     currentMsgId: String?,
+    anchorTimestampMs: Long? = null,
     isLoading: Boolean = false,
     onJump: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -84,15 +87,24 @@ fun QuickNavigateSheet(
     // 让用户看到自己所在位置而不是 Q1。
     // 2026-08-12 修复迭代：
     // 1. key 加 jumpTargets.size——jumpTargets 异步加载，打开瞬间为空。
-    // 2. currentMsgId 匹配不到时降级滚动到列表最新项（用户当前所在区域）——
-    //    主会话最新消息常为长 assistant 回复/空壳（无文本 user 不在列表），
-    //    currentMsgId=null 或 index=-1 时保持 Q1 会让用户迷失。
-    LaunchedEffect(show, currentMsgId, jumpTargets.size) {
+    // 2. currentMsgId 匹配不到时降级：先按 anchorTimestampMs（当前可见区域时间锚点）
+    //    定位到时间最近的问题；无锚点才回退列表最新项——主会话最新消息常为
+    //    长 assistant 回复/空壳（无文本 user 不在列表），currentMsgId=null 时
+    //    应定位到"当前位置附近"而非最新（用户反馈"没有定位到当前所在位置"）。
+    LaunchedEffect(show, currentMsgId, anchorTimestampMs, jumpTargets.size) {
         if (jumpTargets.isEmpty()) return@LaunchedEffect
         val targetIndex = currentMsgId?.let { id -> jumpTargets.indexOfFirst { it.msgId == id } } ?: -1
-        val scrollIndex = if (targetIndex >= 0) targetIndex else jumpTargets.lastIndex
+        val scrollIndex = when {
+            targetIndex >= 0 -> targetIndex
+            anchorTimestampMs != null -> {
+                // 时间锚点：找 timestampMs 最接近的 item
+                jumpTargets.minByOrNull { kotlin.math.abs(it.timestampMs - anchorTimestampMs) }
+                    ?.let { jumpTargets.indexOf(it) } ?: jumpTargets.lastIndex
+            }
+            else -> jumpTargets.lastIndex
+        }
         if (BuildConfig.DEBUG) {
-            AppLogger.d("QuickNavigate", "scroll-to: current=${currentMsgId?.take(12)} targets=${jumpTargets.size} match=$targetIndex scroll=$scrollIndex")
+            AppLogger.d("QuickNavigate", "scroll-to: current=${currentMsgId?.take(12)} anchor=$anchorTimestampMs targets=${jumpTargets.size} match=$targetIndex scroll=$scrollIndex")
         }
         listState.scrollToItem(scrollIndex)
     }

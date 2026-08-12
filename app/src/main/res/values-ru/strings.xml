@@ -646,6 +646,7 @@
     <string name="background_sheet_empty_subagents">Нет фоновых суб-агентов</string>
     <string name="background_sheet_empty_shells">Нет команд shell</string>
     <string name="background_sheet_title">Фон</string>
+    <string name="background_sheet_history_tab">История</string>
     <string name="shell_kill">Удалить shell</string>
     <string name="shell_close">Закрыть</string>
     <string name="shell_no_output">Вывода пока нет</string>

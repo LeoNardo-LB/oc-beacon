@@ -645,6 +645,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_empty_subagents">Brak sub-agentów w tle</string>
     <string name="background_sheet_empty_shells">Brak poleceń powłoki</string>
     <string name="background_sheet_title">Tło</string>
+    <string name="background_sheet_history_tab">Historia</string>
     <string name="shell_kill">Usuń powłokę</string>
     <string name="shell_close">Zamknij</string>
     <string name="shell_no_output">Brak danych wyjściowych</string>

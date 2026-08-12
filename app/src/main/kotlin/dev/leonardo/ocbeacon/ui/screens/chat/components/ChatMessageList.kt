@@ -87,6 +87,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocbeacon.ui.screens.chat.util.computeTurnGroups
 import dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets
+import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentAnchorTimestamp
 import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentQuestionMsgId
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
 import kotlinx.coroutines.CoroutineScope
@@ -296,6 +297,10 @@ fun ChatMessageList(
     val currentQuestionMsgId by remember(displayItems, bannerCount) {
         derivedStateOf { findCurrentQuestionMsgId(listState, displayItems, bannerCount) }
     }
+    // 当前可见区域时间锚点（快速导航打开时降级定位用——见 QuickNavigateSheet）
+    val currentAnchorTimestamp by remember(displayItems, bannerCount) {
+        derivedStateOf { findCurrentAnchorTimestamp(listState, displayItems, bannerCount) }
+    }
 
     // 高亮 key（3 秒后自动清除）—— scrollToDisplayItem / onLocateTask 共用。
     var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
@@ -450,11 +455,19 @@ fun ChatMessageList(
                         .map { layoutInfo ->
                             val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
                             val total = layoutInfo.totalItemsCount
-                            if (BuildConfig.DEBUG && total > 0 && total - firstVisible <= 12) {
-                                // 低频诊断：仅距顶 12 项内打印（滚动高频段不刷屏）
-                                AppLogger.d("ChatPaging", "nearTop probe: firstVisible=$firstVisible total=$total dist=${total - firstVisible}")
+                            val nearTop = total - firstVisible <= 8
+                            // 2026-08-12 修复：内容不足一屏（最后可见项未填满视口）时也触发。
+                            // 主会话初始加载经 displayItems 过滤后可能仅剩 13 条——不足一屏时
+                            // 用户无法滚动（firstVisible 恒 0），永达不到 nearTop → 历史加载
+                            // 静默失效（用户反馈"向上滑动加载历史消息也没有"）。
+                            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+                            val contentDoesNotFillViewport = lastVisible == null ||
+                                lastVisible.offset + lastVisible.size < layoutInfo.viewportEndOffset
+                            if (BuildConfig.DEBUG && total > 0 && (nearTop || contentDoesNotFillViewport)) {
+                                // 低频诊断：触发条件附近打印（滚动高频段不刷屏）
+                                AppLogger.d("ChatPaging", "auto-load probe: firstVisible=$firstVisible total=$total nearTop=$nearTop fillsViewport=${!contentDoesNotFillViewport}")
                             }
-                            total - firstVisible <= 8
+                            nearTop || contentDoesNotFillViewport
                         }
                         .distinctUntilChanged()
                         .filter { it }
@@ -464,7 +477,7 @@ fun ChatMessageList(
                                 if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load backoff wait ${waitMs}ms before retry")
                                 delay(waitMs)
                             }
-                            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load triggered (nearTop=true, hasOlder=true)")
+                            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load triggered (hasOlder=true)")
                             viewModel.loadOlderMessages()
                         }
                 }
@@ -892,6 +905,7 @@ fun ChatMessageList(
                 show = showQuickNavigate,
                 jumpTargets = jumpTargets,
                 currentMsgId = currentQuestionMsgId,
+                anchorTimestampMs = currentAnchorTimestamp,
                 isLoading = jumpTargetsLoading,
                 onJump = { msgId -> jumpToMessage(msgId) },
                 onDismiss = onQuickNavigateDismiss,

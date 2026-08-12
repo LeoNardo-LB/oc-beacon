@@ -637,6 +637,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_empty_subagents">Nessun sotto-agente in background</string>
     <string name="background_sheet_empty_shells">Nessun comando shell</string>
     <string name="background_sheet_title">Sfondo</string>
+    <string name="background_sheet_history_tab">Cronologia</string>
     <string name="shell_kill">Rimuovi shell</string>
     <string name="shell_close">Chiudi</string>
     <string name="shell_no_output">Nessun output per ora</string>

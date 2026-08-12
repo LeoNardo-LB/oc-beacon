@@ -637,6 +637,7 @@
     <string name="background_sheet_empty_subagents">バックグラウンドのサブエージェントはありません</string>
     <string name="background_sheet_empty_shells">シェルコマンドはありません</string>
     <string name="background_sheet_title">バックグラウンド</string>
+    <string name="background_sheet_history_tab">履歴</string>
     <string name="shell_kill">シェルを削除</string>
     <string name="shell_close">閉じる</string>
     <string name="shell_no_output">まだ出力はありません</string>

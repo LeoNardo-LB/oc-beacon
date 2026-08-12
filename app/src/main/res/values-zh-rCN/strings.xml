@@ -640,6 +640,7 @@
     <string name="background_sheet_empty_subagents">没有后台子代理</string>
     <string name="background_sheet_empty_shells">没有 Shell 命令</string>
     <string name="background_sheet_title">后台</string>
+    <string name="background_sheet_history_tab">历史</string>
     <string name="shell_kill">移除 Shell</string>
     <string name="shell_close">关闭</string>
     <string name="shell_no_output">暂无输出</string>

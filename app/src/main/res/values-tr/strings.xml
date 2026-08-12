@@ -637,6 +637,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_empty_subagents">Arka planda alt agent yok</string>
     <string name="background_sheet_empty_shells">Shell komutu yok</string>
     <string name="background_sheet_title">Arka plan</string>
+    <string name="background_sheet_history_tab">Geçmiş</string>
     <string name="shell_kill">Shell kaldır</string>
     <string name="shell_close">Kapat</string>
     <string name="shell_no_output">Henüz çıktı yok</string>

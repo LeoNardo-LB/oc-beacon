@@ -203,6 +203,7 @@
     <string name="background_sheet_empty_subagents">No background subagents</string>
     <string name="background_sheet_empty_shells">No shell commands</string>
     <string name="background_sheet_title">Background</string>
+    <string name="background_sheet_history_tab">History</string>
     <string name="shell_kill">Remove shell</string>
     <string name="shell_close">Close</string>
     <string name="shell_no_output">No output yet</string>

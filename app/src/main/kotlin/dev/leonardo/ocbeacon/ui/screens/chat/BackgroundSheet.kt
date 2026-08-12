@@ -26,6 +26,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
@@ -79,6 +82,14 @@ fun BackgroundSheet(
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var selectedShellId by rememberSaveable { mutableStateOf<String?>(null) }
+    // 2026-08-12 用户要求：进行中/历史统一切换（标题栏 SegmentedButton）
+    var showHistory by rememberSaveable { mutableStateOf(false) }
+
+    // 2026-08-12：按视图过滤——进行中 = isRunning；历史 = 已完成（含失败）
+    val visibleSubagents = if (showHistory) state.subagents.filter { !it.isRunning }
+        else state.subagents.filter { it.isRunning }
+    val visibleShells = if (showHistory) state.shells.filter { !it.isRunning }
+        else state.shells.filter { it.isRunning }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -107,7 +118,7 @@ fun BackgroundSheet(
                 .padding(bottom = 24.dp)
         ) {
             // 2026-08-12 用户要求：抽屉式组件统一标题栏（与快速导航一致）——
-            // 标题 + 关闭按钮（此前标题区域被去掉，现按用户新要求补回标准样式）
+            // 标题 + 进行中/历史切换 + 计数 + 关闭按钮
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -119,15 +130,34 @@ fun BackgroundSheet(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
-                // 2026-08-12 用户要求：标题栏显示当前进行中任务数（关闭按钮左侧）
-                if (state.badgeCount > 0) {
-                    Text(
-                        text = "${state.badgeCount} ${stringResource(R.string.shell_status_running)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.padding(end = SpacingTokens.SM.dp),
-                    )
+                // 2026-08-12 用户要求：进行中/历史统一切换（标题栏，Subagents/Shells 两 tab 共用）
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.padding(end = SpacingTokens.SM.dp),
+                ) {
+                    SegmentedButton(
+                        selected = !showHistory,
+                        onClick = { showHistory = false },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    ) {
+                        Text(stringResource(R.string.shell_status_running), style = MaterialTheme.typography.labelMedium)
+                    }
+                    SegmentedButton(
+                        selected = showHistory,
+                        onClick = { showHistory = true },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    ) {
+                        Text(stringResource(R.string.background_sheet_history_tab), style = MaterialTheme.typography.labelMedium)
+                    }
                 }
+                // 2026-08-12 用户要求：标题栏显示当前进行中任务数（关闭按钮左侧）。
+                // 始终显示（0 也显示——用户反馈"没看到计数"是因为无任务时不渲染）。
+                Text(
+                    text = "${state.badgeCount} ${stringResource(R.string.shell_status_running)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (state.badgeCount > 0) MaterialTheme.colorScheme.tertiary
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
+                    modifier = Modifier.padding(end = SpacingTokens.SM.dp),
+                )
                 IconButton(onClick = onDismiss) {
                     Icon(
                         Icons.Default.Close,
@@ -152,7 +182,7 @@ fun BackgroundSheet(
                             )
                             Text(
                                 stringResource(R.string.background_sheet_subagents_tab) +
-                                    " (${state.subagents.size})"
+                                    " (${visibleSubagents.size})"
                             )
                         }
                     }
@@ -173,7 +203,7 @@ fun BackgroundSheet(
                             )
                             Text(
                                 stringResource(R.string.background_sheet_shells_tab) +
-                                    " (${state.shells.size})"
+                                    " (${visibleShells.size})"
                             )
                         }
                     }
@@ -187,10 +217,10 @@ fun BackgroundSheet(
             ) {
                 when (selectedTab) {
                     0 -> {
-                        if (state.subagents.isEmpty()) {
+                        if (visibleSubagents.isEmpty()) {
                             item { EmptyHint(stringResource(R.string.background_sheet_empty_subagents)) }
                         } else {
-                            itemsIndexed(state.subagents, key = { _, it -> it.sessionId }) { index, sub ->
+                            itemsIndexed(visibleSubagents, key = { _, it -> it.sessionId }) { index, sub ->
                                 // 2026-08-12 用户要求：item 之间加分界线
                                 if (index > 0) {
                                     HorizontalDivider(
@@ -252,10 +282,10 @@ fun BackgroundSheet(
                         }
                     }
                     1 -> {
-                        if (state.shells.isEmpty()) {
+                        if (visibleShells.isEmpty()) {
                             item { EmptyHint(stringResource(R.string.background_sheet_empty_shells)) }
                         } else {
-                            itemsIndexed(state.shells, key = { _, it -> it.id }) { index, shell ->
+                            itemsIndexed(visibleShells, key = { _, it -> it.id }) { index, shell ->
                                 // 2026-08-12 用户要求：item 之间加分界线
                                 if (index > 0) {
                                     HorizontalDivider(
