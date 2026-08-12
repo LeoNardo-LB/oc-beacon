@@ -51,22 +51,46 @@ class ShellJobsStore @Inject constructor() {
     fun onShellEnded(info: ShellJob, output: String?) {
         val sid = info.sessionId ?: ""
         _jobsBySession.update { all ->
-            val current = all[sid].orEmpty()
-            val updated = current.map { job ->
-                if (job.id == info.id) {
-                    job.copy(
-                        status = info.status,
-                        exit = info.exit ?: job.exit,
-                        completedAt = info.completedAt ?: job.completedAt,
-                        output = output ?: job.output
-                    )
-                } else job
-            }
-            // 事件到达时列表可能还没有该 job（如 App 中途连接）——补录
-            if (updated.none { it.id == info.id }) {
-                all + (sid to (updated + info.copy(output = output ?: info.output)))
+            // 2026-08-12 修复（后台 shell 卡 Running 永不结束）：
+            // V2 服务器 shell.exited 事件 payload 为 {id, exit, status}
+            // （无 info / 无 metadata.sessionID）→ ShellJob.sessionId=null →
+            // 按 "" 组更新找不到 job（started 事件带 metadata.sessionID 已正确
+            // 归组）→ 状态永远卡 Running。sessionId 缺失时按 id 在所有会话组
+            // 中全局查找更新。
+            if (sid.isEmpty()) {
+                var found = false
+                val newAll = all.mapValues { (_, jobs) ->
+                    jobs.map { job ->
+                        if (job.id == info.id) {
+                            found = true
+                            job.copy(
+                                status = info.status,
+                                exit = info.exit ?: job.exit,
+                                completedAt = info.completedAt ?: job.completedAt,
+                                output = output ?: job.output
+                            )
+                        } else job
+                    }
+                }
+                if (found) newAll else all
             } else {
-                all + (sid to updated)
+                val current = all[sid].orEmpty()
+                val updated = current.map { job ->
+                    if (job.id == info.id) {
+                        job.copy(
+                            status = info.status,
+                            exit = info.exit ?: job.exit,
+                            completedAt = info.completedAt ?: job.completedAt,
+                            output = output ?: job.output
+                        )
+                    } else job
+                }
+                // 事件到达时列表可能还没有该 job（如 App 中途连接）——补录
+                if (updated.none { it.id == info.id }) {
+                    all + (sid to (updated + info.copy(output = output ?: info.output)))
+                } else {
+                    all + (sid to updated)
+                }
             }
         }
     }
