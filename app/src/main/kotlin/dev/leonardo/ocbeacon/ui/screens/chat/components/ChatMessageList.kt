@@ -444,42 +444,25 @@ fun ChatMessageList(
                 if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 布局稳定 size=$lastSize rounds=$probeRounds")
                 }
-                // Phase 3：0.6s EaseInOut 动画挪到顶部——requestScroll offset 渐变。
-                // 2026-08-13 修正（日志实证）：viewportEndOffset 对应的屏幕位置 =
-                // 视口顶 - contentPadding.top（实测气泡 Card 顶=275 < 视口顶 296，
-                // 被 topBar 遮 21px——用户看到"气泡上边缘距视口顶十多个像素"）。
-                // 目标：item 顶边屏幕 y = 视口顶 → offset = vh - size - contentPaddingTop
-                //（实测拟合：desired=1477→Card顶=275；+21→254（上移）；减 21→296 ✓）
+                // Phase 3：**实验（2026-08-13）：去动画，一次瞬时定位**——
+                // 布局稳定确认（Phase 2b）已保证 size 为最终值，验证一次
+                // requestScroll 能否精确到位（gap=0、气泡距视口顶=0）。
                 val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
                 val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
-                val durationNanos = 600_000_000L
-                val startNanos = withFrameNanos { it }
-                var lastLogged = false
-                while (true) {
-                    val now = withFrameNanos { it }
-                    val progress = ((now - startNanos).toFloat() / durationNanos).coerceIn(0f, 1f)
-                    val eased = easeInOutCubic(progress)
-                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                    if (item != null) {
-                        // 每帧按最新渲染 size 重算目标（渲染误差自适应）。
-                        // **注意**：requestScrollToItemNoCancel 的 scrollOffset 在
-                        // reverse 布局中被取反解释（实测 req=347 → item.offset=-278），
-                        // 因此传负值（-desired）→ 目标 offset 从 0 渐进到 desired。
-                        // 2026-08-13：desired 减 contentPaddingTop（21px）——实测拟合：
-                        // desired=1477→Card顶=275；desired+21→Card顶-21（上移）→
-                        // 要 Card 顶=视口顶(296) 需 desired=vh-size-paddingTop。
-                        val desired = vh - item.size - contentPaddingTop
-                        LazyListReflection.requestScrollToItemNoCancel(
-                            listState, lazyIndex, -(desired * eased).toInt()
-                        )
-                        if (BuildConfig.DEBUG && !lastLogged) {
-                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 动画中 size=${item.size} viewport=$vh paddingTop=$contentPaddingTop desired=$desired eased=$eased")
-                            lastLogged = true
-                        }
+                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                if (item != null) {
+                    // **注意**：requestScrollToItemNoCancel 的 scrollOffset 在 reverse
+                    // 布局中被取反解释（实测 req=347 → item.offset=-278）→ 传负值。
+                    // desired = vh - size - paddingTop（2026-08-13 实测拟合）
+                    val desired = vh - item.size - contentPaddingTop
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 一次定位 size=${item.size} viewport=$vh paddingTop=$contentPaddingTop desired=$desired")
                     }
-                    if (progress >= 1f) break
+                    LazyListReflection.requestScrollToItemNoCancel(
+                        listState, lazyIndex, -(desired.toInt())
+                    )
                 }
                 // 精确微调：最终布局数据把顶边残差收敛到 ±2px（含 paddingTop 修正）
                 withFrameNanos { }
