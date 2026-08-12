@@ -357,7 +357,18 @@ fun ChatMessageList(
 
     // 2026-08-13 架构根治（状态机）：跳转定位状态机——蒙版/门控/锁从状态派生
     //（单一真相源——消除 jumpLoading/settled/jumpLockActive 各自为政的竞态）。
-    val jumpController = remember { JumpNavigationController(listState, renderReadiness, coroutineScope) }
+    val jumpController = remember {
+        JumpNavigationController(
+            listState,
+            renderReadiness,
+            coroutineScope,
+            resolveLazyIndex = { msgId ->
+                displayItems.indexOfFirst { it.second.message.id == msgId }
+                    .takeIf { it >= 0 }
+                    ?.let { bannerCount + it }
+            },
+        )
+    }
     val jumpPhase by jumpController.phase.collectAsStateWithLifecycle()
     val jumpLoading = jumpController.showMask
 
@@ -540,8 +551,9 @@ fun ChatMessageList(
             LaunchedEffect(
                 hasNewerMessages,
                 isLoadingNewer,
+                jumpLockActive,
             ) {
-                if (hasNewerMessages && !isLoadingNewer) {
+                if (hasNewerMessages && !isLoadingNewer && !jumpLockActive) {
                     snapshotFlow { listState.layoutInfo }
                         .map { layoutInfo ->
                             val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0

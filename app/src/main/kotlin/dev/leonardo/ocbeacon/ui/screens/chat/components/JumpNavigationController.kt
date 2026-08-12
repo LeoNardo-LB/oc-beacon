@@ -108,6 +108,9 @@ class JumpNavigationController(
     private val listState: LazyListState,
     private val readiness: RenderReadinessRegistry,
     private val scope: CoroutineScope,
+    /** 2026-08-13：按 msgId 解析最新 lazy index（displayItems 变化后旧 index 失效——
+     * SSE 插入新消息会改变目标 index——轮询 item=null 时重定位用）。 */
+    private val resolveLazyIndex: (String) -> Int?,
 ) {
     private val _phase = MutableStateFlow<JumpPhase>(JumpPhase.Idle)
     val phase: StateFlow<JumpPhase> = _phase
@@ -132,15 +135,18 @@ class JumpNavigationController(
         _phase.value = JumpPhase.Preparing(msgId)
         scope.launch {
             // Preparing：预解析（后台）→ ParsedReady
+            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: Preparing 开始 msg=${msgId.take(12)}")
             if (preParseText != null) readiness.preParse(msgId, preParseText, scope)
             val parsed = withTimeoutOrNull(2500) {
                 readiness.flow(msgId).first { it is RenderReadiness.Parsed || it is RenderReadiness.Failed }
             }
+            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 预解析 ${if (parsed != null) "完成" else "超时"}")
             if (parsed == null) {
                 _phase.value = jumpTransition(_phase.value, JumpEvent.TimedOut("parsing"))
                 return@launch
             }
             _phase.value = jumpTransition(_phase.value, JumpEvent.ParsedReady)
+            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 进入测量 msg=${msgId.take(12)} idx=$lazyIndex")
             // Measuring：一次定位到最终位置（估算高度——目标不再移动，避免回收振荡）
             measureAndSettle(msgId, lazyIndex)
         }
@@ -178,22 +184,66 @@ class JumpNavigationController(
         val desired = computeDesiredOffset(vh, estimatedHeight, contentPaddingTop)
         LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, -(desired.toInt()))
         kotlinx.coroutines.delay(32)  // 等 2 帧（约 16ms/帧）——非组合环境用 delay 替代 withFrameNanos
+        if (BuildConfig.DEBUG) {
+            val vis = listState.layoutInfo.visibleItemsInfo.map { "${it.index}:${it.key}" }.take(12)
+            AppLogger.d("ChatPaging", "jump: 估算定位 desired=$desired 可见=[$vis]")
+        }
 
-        // Measuring：等待 Ready（组件测量稳定）+ 列表尺寸同步（Mikepenz 渐进测量
-        // 214→331——列表布局与组件测量可能不同步）
-        val ready = withTimeoutOrNull(2500) { readiness.awaitReady(msgId, 2500) }
+        // Measuring：轮询目标 item.size（布局权威数据——连续 2 轮不变 = 稳定）。
+        // 2026-08-13 修复：不依赖 MessageCardUser 的 onSizeChanged 上报链
+        //（该链在 SSE/重组下会重启/静默失败——实测"上报Ready准备"打了但
+        // update 未执行 → Ready 超时）。布局测量是 LazyColumn 的权威数据。
+        var lastSize = -1
+        var stableCount = 0
+        var ready: RenderReadiness.Ready? = null
+        var nullStreak = 0
+        var lastRelocateAt = 0L
+        withTimeoutOrNull(2500) {
+            while (true) {
+                kotlinx.coroutines.delay(100)
+                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+                    it.key == "u_$msgId" || it.key == "t_$msgId"
+                }
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatPaging", "jump: 轮询 item=${item?.let { "size=${it.size} off=${it.offset}" } ?: "null"}")
+                }
+                if (item == null) {
+                    // 2026-08-13 修复：目标被布局重排推出视口——**节流重定位**：
+                    // 连续 2 次 null + 300ms 冷却（重定位本身触发目标组合→布局
+                    // 重排→被推——自激振荡；节流打破循环）
+                    nullStreak++
+                    val now = System.currentTimeMillis()
+                    if (nullStreak >= 2 && now - lastRelocateAt > 300) {
+                        val freshIndex = resolveLazyIndex(msgId) ?: lazyIndex
+                        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 重定位 idx=$freshIndex（null=$nullStreak）")
+                        LazyListReflection.requestScrollToItemNoCancel(
+                            listState, freshIndex,
+                            -(computeDesiredOffset(vh, 240f, contentPaddingTop).toInt())
+                        )
+                        lastRelocateAt = now
+                        nullStreak = 0
+                    }
+                    lastSize = -1
+                    stableCount = 0
+                    continue
+                }
+                nullStreak = 0
+                if (item.size == lastSize) {
+                    stableCount++
+                    if (stableCount >= 2) {
+                        ready = RenderReadiness.Ready(item.size)
+                        break
+                    }
+                } else {
+                    stableCount = 0
+                    lastSize = item.size
+                }
+            }
+        }
+        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 布局稳定 ${ready?.let { "finalHeight=${it.finalHeight}" } ?: "超时"}")
         if (ready == null) {
             _phase.value = jumpTransition(_phase.value, JumpEvent.TimedOut("measuring"))
             return
-        }
-        withTimeoutOrNull(1500) {
-            while (true) {
-                val syncItem = listState.layoutInfo.visibleItemsInfo.firstOrNull {
-                    it.key == "u_$msgId" || it.key == "t_$msgId"
-                }
-                if (syncItem != null && syncItem.size >= ready.finalHeight - 2) break
-                kotlinx.coroutines.delay(50)
-            }
         }
         _phase.value = jumpTransition(_phase.value, JumpEvent.MeasureReady)
 

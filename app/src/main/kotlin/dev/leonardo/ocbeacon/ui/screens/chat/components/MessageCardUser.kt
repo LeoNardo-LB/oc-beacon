@@ -162,9 +162,13 @@ internal fun MessageCardUser(
             readiness is RenderReadiness.Parsed &&
             readiness !is RenderReadiness.Ready
         ) {
+            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "MCU: 上报Ready准备 msg=${msgIdForReady.take(12)} h=$latestH")
             delay(150)
             // 150ms 内无新尺寸变化 → 布局稳定 → 上报 Ready（含最终高度）
             readinessRegistry.update(msgIdForReady, RenderReadiness.Ready(latestH))
+            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "MCU: 已上报Ready h=$latestH")
+        } else if (BuildConfig.DEBUG && isJumpObserveTarget) {
+            AppLogger.d("ChatPaging", "MCU: 条件未满足 target=${msgIdForReady.take(12)} readiness=${readiness::class.simpleName} latestH=$latestH")
         }
     }
 
