@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -121,8 +122,19 @@ internal fun SyntheticNotificationCard(
     // metadata.sessionId）并滚动+高亮；找不到时提示。
     val canLocate = sessionId != null && onLocateTask != null
 
-    // 标签行文案（2026-08-12 统一：类型标签"后台消息"；完成/失败由图标色体现）
+    // 标签行（2026-08-12 用户要求组合）：时间 + "Background" + "Agent/Shell Completed" + 成功/失败图标
     val labelText = stringResource(R.string.chat_label_background)
+    val statusLabel = when {
+        info == null -> null
+        isError -> stringResource(
+            if (info.source == "shell") R.string.chat_background_shell_failed
+            else R.string.chat_background_agent_failed
+        )
+        else -> stringResource(
+            if (info.source == "shell") R.string.chat_background_shell_completed
+            else R.string.chat_background_agent_completed
+        )
+    }
 
     // 标题行：任务描述（summary 去 "Background task completed/failed: " 前缀）
     val taskTitle = info?.summary?.let(::extractTaskDescription) ?: text
@@ -136,8 +148,8 @@ internal fun SyntheticNotificationCard(
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentMessage.message.time.created))
     }
 
-    // 统一容器（MessageBubble）：标签栏（时间 + 状态图标 + "后台消息" + 右侧定位/跳转）
-    // 边框类型 + 背景透明（区别于普通气泡底色）
+    // 统一容器（MessageBubble）：标签栏 = 时间 + "Background" + "Agent/Shell Completed" + 状态图标
+    // 操作按钮（展开/定位/跳转）统一放第 2 行（2026-08-12 用户要求）
     MessageBubble(
         alignEnd = false,
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -149,44 +161,25 @@ internal fun SyntheticNotificationCard(
         shape = ShapeTokens.medium,
         label = labelText,
         timeMs = currentMessage.message.time.created,
-        labelLeading = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = iconTint
-            )
-        },
-        labelTrailing = {
-            if (canLocate) {
-                IconButton(
-                    onClick = { onLocateTask?.invoke(sessionId) },
-                    modifier = Modifier.size(22.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = stringResource(R.string.a11y_locate_task),
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
-                    )
-                }
-            }
-            if (hasNavArrow) {
-                // 2026-08-12：箭头可点击 → 进入 subagent 子会话
-                // （shell 类通知无子会话 id → hasNavArrow=false → 无箭头）
+        labelSuffix = {
+            // 状态文案 + 成功/失败图标（2026-08-12 用户要求组合）
+            if (statusLabel != null) {
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = if (isError) AgentError else AgentSuccess,
+                    maxLines = 1
+                )
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clickable { onViewSubSession?.invoke(sessionId) }
-                        .padding(3.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = iconTint
                 )
             }
         },
     ) {
-        // 第 2 行（2026-08-12 用户要求）：子代理类型 + 标题 + 展开图标
+        // 第 2 行（2026-08-12 用户要求）：子代理类型 + 标题 + [展开][定位][跳转]
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -250,13 +243,41 @@ internal fun SyntheticNotificationCard(
                             )
                         }
                     }
+                    if (canLocate) {
+                        // 「定位发起卡片」：滚动到发起该任务的 TaskToolCard 位置
+                        IconButton(
+                            onClick = { onLocateTask?.invoke(sessionId) },
+                            modifier = Modifier.size(22.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = stringResource(R.string.a11y_locate_task),
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
+                            )
+                        }
+                    }
+                    if (hasNavArrow) {
+                        // 2026-08-12：箭头可点击 → 进入 subagent 子会话（与展开同栏）
+                        // （shell 类通知无子会话 id → hasNavArrow=false → 无箭头）
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clickable { onViewSubSession?.invoke(sessionId) }
+                                .padding(3.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
-                // 展开输出（2026-08-12：加展开/收起动画——AnimatedVisibility）
+                // 展开输出（2026-08-12：tween 动画——spring 默认有回弹 overshoot，
+                // 收起收尾会"跳一下"；tween 无回弹平滑收尾）
                 AnimatedVisibility(
                     visible = hasOutput && expanded,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
+                    enter = fadeIn(animationSpec = tween(150)) + expandVertically(animationSpec = tween(150)),
+                    exit = fadeOut(animationSpec = tween(150)) + shrinkVertically(animationSpec = tween(150))
                 ) {
                     val halfScreenHeight = halfScreenHeight()
                     val scrollState = rememberScrollState()
@@ -270,15 +291,15 @@ internal fun SyntheticNotificationCard(
                             .verticalScroll(scrollState)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
-                            Text(
-                                text = stringResource(R.string.chat_task_output_summary),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            // 2026-08-12 用户要求：去掉 "Output summary" 文案——直接输出内容；
+                            // agent 通知展示总结（截断足够）；shell 通知展示全部内容（不截断）
                             SelectionContainer {
                                 MarkdownContent(
-                                    markdown = output?.take(2000) ?: "",
+                                    markdown = if (info?.source == "shell") {
+                                        output ?: ""
+                                    } else {
+                                        output?.take(2000) ?: ""
+                                    },
                                     textColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                     isUser = false
                                 )

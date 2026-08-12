@@ -53,6 +53,8 @@ internal fun MessageBubble(
     shape: Shape = ShapeTokens.medium,
     border: BorderStroke? = null,
     labelLeading: (@Composable () -> Unit)? = null,
+    /** label 之后的附加内容（如状态文案 + 状态图标——后台通知用）。 */
+    labelSuffix: (@Composable () -> Unit)? = null,
     labelTrailing: (@Composable RowScope.() -> Unit)? = null,
     statsBar: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
@@ -99,6 +101,7 @@ internal fun MessageBubble(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
+                    labelSuffix?.invoke()
                     Spacer(modifier = Modifier.weight(1f))
                     labelTrailing?.invoke(this)
                 }

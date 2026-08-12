@@ -108,6 +108,10 @@
     <string name="background_sheet_subagent_completed">Selesai</string>
     <string name="chat_label_user">Pengguna</string>
     <string name="chat_label_agent">Agen</string>
+    <string name="chat_background_agent_completed">Agen selesai</string>
+    <string name="chat_background_agent_failed">Agen gagal</string>
+    <string name="chat_background_shell_completed">Shell selesai</string>
+    <string name="chat_background_shell_failed">Shell gagal</string>
     <string name="chat_label_background">Latar</string>
     <string name="chat_subagent_completed_notification">Sub-agent selesai</string>
     <string name="chat_subagent_failed_notification">Sub-agent gagal</string>

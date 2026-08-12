@@ -173,6 +173,10 @@
     <string name="background_sheet_subagent_completed">Completado</string>
     <string name="chat_label_user">Usuario</string>
     <string name="chat_label_agent">Asistente</string>
+    <string name="chat_background_agent_completed">Agente completado</string>
+    <string name="chat_background_agent_failed">Agente falló</string>
+    <string name="chat_background_shell_completed">Shell completado</string>
+    <string name="chat_background_shell_failed">Shell falló</string>
     <string name="chat_label_background">Fondo</string>
     <string name="chat_subagent_completed_notification">Sub-agent completado</string>
     <string name="chat_subagent_failed_notification">Sub-agent falló</string>

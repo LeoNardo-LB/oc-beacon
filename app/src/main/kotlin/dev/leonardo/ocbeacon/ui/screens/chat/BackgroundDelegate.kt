@@ -29,7 +29,11 @@ data class SubagentSummary(
     val title: String?,
     val isRunning: Boolean,
     /** 描述（从 tool part input 提取，可能为 null） */
-    val description: String? = null
+    val description: String? = null,
+    /** 开始时间（子会话创建时间，2026-08-12 面板第二行展示） */
+    val startedAt: Long? = null,
+    /** 子会话模型 id（2026-08-12 面板第二行展示） */
+    val modelId: String? = null,
 )
 
 /**
@@ -120,7 +124,10 @@ class BackgroundAggregator(
                 title = child.title,
                 // FSM Busy（SSE 驱动，V1）或 active 轮询（V2）任一命中即运行中
                 isRunning = child.id in runningIds || child.id in activeSessionIds.value,
-                description = toolPart?.let { extractSubagentDescription(it) }
+                description = toolPart?.let { extractSubagentDescription(it) },
+                // 2026-08-12：面板第二行（agent 徽章 + 开始时间 + 模型）
+                startedAt = child.time.created.takeIf { it > 0 },
+                modelId = child.model?.id
             )
         }
     }.distinctUntilChanged()

@@ -24,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -40,11 +41,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatusIcon
+import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * 后台活动面板——ModalBottomSheet（上拉）+ TabRow（Subagents / Shells 双 tab）。
@@ -137,29 +144,51 @@ fun BackgroundSheet(
                             items(state.subagents, key = { it.sessionId }) { sub ->
                                 val running = sub.isRunning
                                 ListItem(
+                                    // 2026-08-12 用户要求：左对齐 2 行——第一行标题
                                     headlineContent = {
+                                        Text(
+                                            text = sub.title ?: sub.sessionId,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    // 第二行：agent 徽章（样式同 agent 回复统计栏）+ 开始时间 + 模型
+                                    supportingContent = {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            // 2026-08-12 用户要求：左对齐展示子代理类型 + 标题
                                             sub.agent?.takeIf { it.isNotBlank() }?.let { agent ->
+                                                val tagColor = agentColor(agent, emptyList())
+                                                Surface(
+                                                    shape = ShapeTokens.smallMedium,
+                                                    color = tagColor.copy(alpha = AlphaTokens.FAINT)
+                                                ) {
+                                                    Text(
+                                                        text = agent.replaceFirstChar { it.uppercase() },
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                        color = tagColor,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                            sub.startedAt?.let { ms ->
                                                 Text(
-                                                    text = agent.replaceFirstChar { it.uppercase() },
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    maxLines = 1
+                                                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms)),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                                 )
                                             }
-                                            Text(
-                                                text = sub.title ?: sub.sessionId,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
+                                            sub.modelId?.takeIf { it.isNotBlank() }?.let { model ->
+                                                Text(
+                                                    text = model,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
                                         }
-                                    },
-                                    supportingContent = sub.description?.let { desc ->
-                                        { Text(desc, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                     },
                                     // 2026-08-12 用户要求：左对齐最左边不需要图标（leading 移除）
                                     trailingContent = {
@@ -192,14 +221,28 @@ fun BackgroundSheet(
                                         )
                                     },
                                     supportingContent = {
-                                        // 2026-08-12 用户要求：左边展示命令上下文（cwd）
-                                        Text(
-                                            text = shell.cwd.takeIf { it.isNotBlank() } ?: " ",
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                                        )
+                                        // 2026-08-12 用户要求：左边第二行 = cwd + 开始时间
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            shell.cwd.takeIf { it.isNotBlank() }?.let { cwd ->
+                                                Text(
+                                                    text = cwd,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                                                )
+                                            }
+                                            shell.startedAt?.let { ms ->
+                                                Text(
+                                                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms)),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                                                )
+                                            }
+                                        }
                                     },
                                     // 2026-08-12 用户要求：左对齐最左边不需要图标（leading 移除）
                                     trailingContent = {
