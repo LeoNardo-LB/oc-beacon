@@ -55,6 +55,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -337,19 +338,17 @@ fun ChatMessageList(
             AppLogger.d("ChatPaging", "scrollToDisplayItem: displayIdx=$displayItemIndex lazyIdx=$initialLazyIndex msg=${targetMsgId.take(12)}")
         }
         coroutineScope.launch {
-            // reverseLayout=true：requestScrollToItemNoCancel 将项放置在
-            // 视口滚动起点（视觉上的底部）。后续的 scrollBy 将其
-            // 移到顶部，使跳转到的消息立即可读。
-            //
-            // 2026-08-12 修复（定位不精确——"点击 Q1 定位到 Q1 下方附近/跳动几下"，
-            // "Q2 上方显示了同时间的消息"）：微调循环每次**基于最新 displayItems
-            // 重算目标索引**——原实现用进入时快照（lazyIndex），loadAround 分批
-            // upsert / SSE 使 displayItems 变化后索引失效（older 批插入目标上方，
-            // 目标 index 17→47，循环仍滚 index 17）→ 滚到错误位置（Q1 下方附近）
-            // + 多次 requestScroll 视觉跳动。
+            // 2026-08-12 动画版跳转定位（用户要求 0.6s 缓快缓平滑移动 + 提前渲染）：
+            // - 段 A：目标不在视口时先瞬间定位到视口底部（offset=0）——目标立即
+            //   进入视口开始组合/渲染（"提前渲染"：渲染发生在动画期间而非到顶后）
+            // - 段 B：0.6s EaseInOut 帧循环，每帧 requestScroll 渐变 offset
+            //   （0 → viewportHeight - size）——pending 位置机制天然平滑，
+            //   无需距离 API；**每帧按最新渲染 size 重算目标** → 渲染导致的
+            //   尺寸变化（实测 214→331）自适应，不产生顶边偏差
+            // - 精确微调：动画后把顶边残差收敛到 ±2px（兜底任何残余渲染变化）
             var attempts = 0
             var positioned = false
-            while (attempts < 6 && !positioned) {
+            while (attempts < 4 && !positioned) {
                 attempts++
                 // 每次基于最新 displayItems 重算目标索引（displayItems 变化后
                 // 旧索引失效——loadAround 分批/SSE 场景）
@@ -360,85 +359,100 @@ fun ChatMessageList(
                     continue
                 }
                 val lazyIndex = bannerCount + currentIdx
-                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                // 段 A：目标不在视口 → 瞬间定位到视口底部（渲染立即开始）
+                val inViewport = listState.layoutInfo.visibleItemsInfo.any {
+                    it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
+                }
+                if (!inViewport) {
+                    LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                    // 等 2 帧让目标进入布局并开始渲染（测量出真实 size）
+                    withFrameNanos { }
+                    withFrameNanos { }
+                }
+                // 段 B：0.6s EaseInOut 帧循环——requestScroll offset 渐变
+                val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
+                val durationNanos = 600_000_000L
+                val startNanos = withFrameNanos { it }
+                var lastLogged = false
+                while (true) {
+                    val now = withFrameNanos { it }
+                    val progress = ((now - startNanos).toFloat() / durationNanos).coerceIn(0f, 1f)
+                    val eased = easeInOutCubic(progress)
+                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                    if (item != null) {
+                        // 每帧按最新渲染 size 重算目标（渲染误差自适应）。
+                        // **注意**：requestScrollToItemNoCancel 的 scrollOffset 在
+                        // reverse 布局中被取反解释（实测 req=347 → item.offset=-278），
+                        // 因此传负值（-desired）→ 目标 offset 从 0 渐进到 desired。
+                        val desired = vh - item.size
+                        LazyListReflection.requestScrollToItemNoCancel(
+                            listState, lazyIndex, -(desired * eased).toInt()
+                        )
+                        if (BuildConfig.DEBUG && !lastLogged) {
+                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 动画中 size=${item.size} viewport=$vh desired=$desired eased=$eased")
+                            lastLogged = true
+                        }
+                    }
+                    if (progress >= 1f) break
+                }
+                // 精确微调：最终布局数据把顶边残差收敛到 ±2px
+                withFrameNanos { }
                 withFrameNanos { }
                 listState.scroll {
                     val info = listState.layoutInfo
-                    // 2026-08-12 修复：按 key 找目标项（"u_<id>"）——bannerCount
-                    // 偏差时 index 不可靠（验证到错误项 → 误判 positioned）。
-                    // 目标通常是 user（快速导航）；assistant 目标（onLocateTask）
-                    // key 是 "t_<next>"——两种都试，兜底按 index。
-                    val item = info.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                    val it2 = info.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                         ?: info.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                        ?: info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                    if (item != null) {
-                        // 2026-08-12 根因修复（reverse 布局调研）：目标顶边贴视口顶边。
-                        // viewportHeight = end - start（滚动坐标差 = 视口高度，与布局方向无关）。
-                        // item.offset = 目标底边距视口底部；目标顶边距底部 = offset + size。
-                        // 顶边贴视口顶边 → offset + size = viewportHeight → offsetTarget
-                        // = viewportHeight - size。scrollBy(x) 使 offset 变化 -x（实测），
-                        // delta = item.offset - offsetTarget → scrollBy(delta) 后 offset
-                        // = offsetTarget ✓。
-                        val viewportHeight = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-                        val offsetTarget = viewportHeight - item.size
-                        val delta = (item.offset - offsetTarget).toFloat()
+                    if (it2 != null) {
+                        val vh2 = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                        val residual = (it2.offset + it2.size - vh2).toFloat()
                         if (BuildConfig.DEBUG) {
-                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts curIdx=$currentIdx key=${item.key} item offset=${item.offset} size=${item.size} viewport=$viewportHeight target=$offsetTarget delta=$delta")
+                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 微调 residual=$residual offset=${it2.offset} size=${it2.size}")
                         }
-                        if (kotlin.math.abs(delta) > 1f) scrollBy(delta)
-                    } else if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标($lazyIndex) 不可见（visible=${info.visibleItemsInfo.map { it.index }})——重试")
+                        if (kotlin.math.abs(residual) > 2f) scrollBy(residual)
                     }
                 }
-                // 等 2 帧让滚动应用与布局稳定后再验证
+                // 验证：顶边与视口顶边偏差 < 10px 才算定位成功
                 withFrameNanos { }
-                withFrameNanos { }
-                // 验证：按 key 找目标项（bannerCount 偏差时 index 验证不可靠）
                 val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                     ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                // 目标顶边贴视口顶边（offset + size ≈ viewportHeight，±60px）才算定位成功
-                val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
-                val nearTop = after != null &&
-                    kotlin.math.abs(after.offset + after.size - vh) < 60f
-                val ok = if (nearTop) true else (attempts >= 6 && after != null)
-                if (ok) {
+                val vhV = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
+                val gap = if (after != null) after.offset + after.size - vhV else Float.MAX_VALUE
+                if (after != null && kotlin.math.abs(gap) < 10f) {
                     positioned = true
                     if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts key=${after?.key} after=${after?.offset} size=${after?.size} viewport=$vh nearTop=$nearTop")
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts gap=$gap after=${after.offset} size=${after.size}")
                     }
                 } else if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标未达视口顶部（after=${after?.offset} size=${after?.size} viewport=$vh）")
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 未到位 gap=$gap")
                 }
             }
             // 2026-08-12 修复：定位完成后延迟重验——跳转期间进行中的 loadOlder
-            //（older 批插入目标上方）或 SSE 会推走目标（logcat 实证 positioned
-            // 后视口显示更早区域）。1 秒后重验目标仍顶边贴视口顶边；被推则重滚一次。
+            //（older 批插入目标上方）或 SSE 会推走目标。1 秒后重验顶边仍贴
+            // 视口顶边（±30px）；被推则微调回位。
             delay(1000)
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验目标位置")
             val recheck = listState.layoutInfo.visibleItemsInfo.firstOrNull {
                 it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
             }
             val vhRe = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
-            val okAfterSettle = recheck != null &&
-                kotlin.math.abs(recheck.offset + recheck.size - vhRe) < 200f
+            val gapRe = if (recheck != null) recheck.offset + recheck.size - vhRe else Float.MAX_VALUE
+            val okAfterSettle = recheck != null && kotlin.math.abs(gapRe) < 30f
             if (!okAfterSettle) {
-                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验目标被推（after=${recheck?.offset} size=${recheck?.size} viewport=$vhRe）——重滚一次")
+                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验目标被推（gap=$gapRe）——微调回位")
                 val idx2 = displayItems.indexOfFirst { it.second.message.id == targetMsgId }
                 if (idx2 >= 0) {
-                    LazyListReflection.requestScrollToItemNoCancel(listState, bannerCount + idx2, 0)
-                    withFrameNanos { }
                     listState.scroll {
                         val info2 = listState.layoutInfo
                         val item = info2.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                             ?: info2.visibleItemsInfo.firstOrNull { it.index == bannerCount + idx2 }
                         if (item != null) {
                             val vh2 = (info2.viewportEndOffset - info2.viewportStartOffset).toFloat()
-                            val d = (item.offset - (vh2 - item.size)).toFloat()
-                            if (kotlin.math.abs(d) > 1f) scrollBy(d)
+                            val residual = (item.offset + item.size - vh2).toFloat()
+                            if (kotlin.math.abs(residual) > 2f) scrollBy(residual)
                         }
                     }
-                    withFrameNanos { }
-                    withFrameNanos { }
                 }
             } else if (BuildConfig.DEBUG) {
                 AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验通过——目标顶边稳定在视口顶部")
@@ -523,18 +537,40 @@ fun ChatMessageList(
         if (targetIndex >= 0) {
             val lazyIndex = bannerCount + targetIndex
             coroutineScope.launch {
-                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                // 2026-08-12 动画版：段 A 瞬间定位（目标进入视口开始渲染）→
+                // 0.6s EaseInOut requestScroll 渐变到"顶边贴视口顶边"
+                //（每帧按最新 size 重算）→ 精确微调 ±2px。
+                val inViewport = listState.layoutInfo.visibleItemsInfo.any { it.index == lazyIndex }
+                if (!inViewport) {
+                    LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                    withFrameNanos { }
+                    withFrameNanos { }
+                }
+                val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
+                val durationNanos = 600_000_000L
+                val startNanos = withFrameNanos { it }
+                while (true) {
+                    val now = withFrameNanos { it }
+                    val progress = ((now - startNanos).toFloat() / durationNanos).coerceIn(0f, 1f)
+                    val eased = easeInOutCubic(progress)
+                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                    if (item != null) {
+                        LazyListReflection.requestScrollToItemNoCancel(
+                            listState, lazyIndex, -((vh - item.size) * eased).toInt()
+                        )
+                    }
+                    if (progress >= 1f) break
+                }
+                // 精确微调
+                withFrameNanos { }
                 withFrameNanos { }
                 listState.scroll {
                     val info = listState.layoutInfo
-                    val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                    if (item != null) {
-                        // 2026-08-12 根因修复：与 scrollToDisplayItem 同公式——
-                        // 目标顶边贴视口顶边（reverseLayout：offset = 距视口底部，
-                        // 目标顶边 = offset + size ≈ viewportHeight）。
-                        val vh = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-                        val delta = (item.offset - (vh - item.size)).toFloat()
-                        if (kotlin.math.abs(delta) > 1f) scrollBy(delta)
+                    val it2 = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                    if (it2 != null) {
+                        val vh2 = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                        val residual = (it2.offset + it2.size - vh2).toFloat()
+                        if (kotlin.math.abs(residual) > 2f) scrollBy(residual)
                     }
                 }
             }
@@ -584,6 +620,7 @@ fun ChatMessageList(
                 messageState.hasOlderMessages,
                 messageState.isLoadingOlder,
                 messageState.autoLoadPaused,
+                jumpLockActive,
             ) {
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(
@@ -1096,3 +1133,10 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
         .getOrNull()
         ?.takeIf { it.isNotBlank() }
 }
+
+/**
+ * 标准 easeInOutCubic 缓动（等价于 Compose EaseInOut 的 CubicBezier
+ * (0.42, 0, 0.58, 1)）：缓-快-缓，用于跳转定位的 0.6s 平滑滚动动画。
+ */
+private fun easeInOutCubic(t: Float): Float =
+    if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
