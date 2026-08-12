@@ -142,16 +142,14 @@ internal fun MessageCardUser(
         }
     }
 
-    // 2026-08-13 观测：跳转目标气泡（Card）真实屏幕顶 y（用户反馈"气泡上边缘
-    // 距视口顶还有十多个像素"——直接测量而非推算）
-    val isJumpObserveTarget = JumpBubbleObserve.targetMsgId == currentMessage.message.id
-
-    // 2026-08-13 架构根治：门控展示——跳转目标在 **收敛完成（settled）** 前
-    // alpha=0（透明——渲染/测量/修正全部在不可见状态完成）→ settled 后显示
-    // 最终状态。**settled 后恒显示**（不再受 readiness 波动影响——SSE 更新
-    // 可能重置 readiness 状态，若门控依赖它会造成反复隐藏/显示=重复闪烁）。
-    // 非目标恒 1。
-    val jumpReady = !isJumpObserveTarget || JumpBubbleObserve.settled || readiness is RenderReadiness.Failed
+    // 2026-08-13 架构根治：门控展示从状态机派生（Displayed/Failed 前 alpha=0
+    // 透明——渲染/测量/收敛全部在不可见状态完成；状态机终点后恒显示——不受
+    // readiness 波动影响）。非目标恒 1。
+    val jumpController = LocalJumpController.current
+    val isJumpObserveTarget = jumpController.currentTargetMsgId == currentMessage.message.id
+    val jumpPhase by jumpController.phase.collectAsState()
+    val jumpReady = !isJumpObserveTarget ||
+        jumpPhase is JumpPhase.Displayed || jumpPhase is JumpPhase.Failed
     val jumpAlpha = if (jumpReady) 1f else 0f
 
     // 布局稳定上报 Ready(finalHeight)（仅跳转目标；流式消息不参与——持续变化）。

@@ -351,292 +351,64 @@ fun ChatMessageList(
     // "目标不在视口顶部"——logcat 实证 positioned 后被 auto-load 推走）。
     var jumpLockActive by remember { mutableStateOf(false) }
 
-    // 2026-08-13：跳转定位 loading 蒙版（用户建议——遮住定位过程的所有
-    // 视口跳动/透明渲染，完成后直接显示目标——用户只看到 loading → 目标）。
-    var jumpLoading by remember { mutableStateOf(false) }
+    // 2026-08-13 架构根治：渲染就绪信号注册表（统一信号层——预解析、就绪
+    // 上报、awaitReady 消费；替代分散的 preParsed map + 轮询）
+    val renderReadiness = remember { RenderReadinessRegistry() }
+
+    // 2026-08-13 架构根治（状态机）：跳转定位状态机——蒙版/门控/锁从状态派生
+    //（单一真相源——消除 jumpLoading/settled/jumpLockActive 各自为政的竞态）。
+    val jumpController = remember { JumpNavigationController(listState, renderReadiness, coroutineScope) }
+    val jumpPhase by jumpController.phase.collectAsStateWithLifecycle()
+    val jumpLoading = jumpController.showMask
+
+    // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
+    // 消息进入 displayItems → LaunchedEffect 重启 → 状态机跳转
+    var pendingJumpTarget by remember { mutableStateOf<String?>(null) }
+
+    // 2026-08-13 架构根治：jumpLock 解锁由状态机终点驱动（Displayed/Failed——
+    // 定位结束才放行 autoLoad；不再靠旧流程末尾手动解锁）
+    LaunchedEffect(jumpPhase) {
+        if (jumpPhase is JumpPhase.Displayed || jumpPhase is JumpPhase.Failed) {
+            delay(300)
+            jumpLockActive = false
+            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 状态机终点——autoLoad 解锁")
+        }
+    }
 
     // 2026-08-13 根治：跳转预渲染注册表——目标消息组件（MessageCardUser）
     // 注册其 MarkdownState，scrollToDisplayItem await 解析完成信号。
     val mdRegistry = remember { mutableMapOf<String, MarkdownState>() }
 
-    // 2026-08-13 架构根治：渲染就绪信号注册表（统一信号层——预解析、就绪
-    // 上报、awaitReady 消费；替代分散的 preParsed map + 轮询）
-    val renderReadiness = remember { RenderReadinessRegistry() }
-
     // 2026-08-13 观测：LazyColumn 视口顶边的屏幕 y（判断气泡顶是否超出 topBar）
     var listTopY by remember { mutableStateOf(-1f) }
 
-    // jumpToMessage 的核心滚动 + 高亮（立即路径与异步路径共用）。
-    // 2026-08-12：目标定位到"视口安全区"（顶部下方 100px）——完全可见，
-    // 不被顶部 topBar 遮挡（LazyColumn 视口含标题栏区域）。
-    fun scrollToDisplayItem(displayItemIndex: Int) {
-        // 2026-08-12 根因修复（reverseLayout 语义系统性调研）：
-        // reverseLayout=true 时 LazyListItemInfo.offset = 目标底边距**视口底部**
-        //（视觉）的像素距离（offset 大 = 视觉越靠上；历史注释 JumpTargetExtractor
-        // "minByOrNull(offset) 实测选出视觉底部"）。viewportStartOffset 恒为
-        // -21（= -contentPadding.top，滚动后不变）——不是视觉顶部滚动坐标。
-        // 旧公式 delta = item.offset - (viewportStartOffset + TARGET) 把相对偏移
-        // 与绝对滚动坐标混算，数值上恰等于"目标上移 TARGET px（从底部起算）"→
-        // 317px 在 ~1900px 视口中只是"一小段"（用户反馈"没放最上面"）。
-        // 正确目标：目标顶边贴视口顶边 → offset = viewportHeight - item.size。
-        val (rawIndex, msg) = displayItems[displayItemIndex]
-        val targetMsgId = msg.message.id
-        JumpBubbleObserve.targetMsgId = targetMsgId
-        JumpBubbleObserve.settled = false
-        val initialLazyIndex = bannerCount + displayItemIndex
-        if (BuildConfig.DEBUG) {
-            AppLogger.d("ChatPaging", "scrollToDisplayItem: displayIdx=$displayItemIndex lazyIdx=$initialLazyIndex msg=${targetMsgId.take(12)}")
-        }
-        coroutineScope.launch {
-            // 2026-08-12 预渲染模式（用户要求：先预渲染测绘，再动画挪上去）：
-            // - Phase 1：瞬间定位到目标（视口底部）——目标进入视口开始渲染，
-            //   画面显示目标内容的渐进渲染（天然 loading 反馈）
-            // - Phase 2：**预渲染测绘**——轮询目标 size（每 100ms），连续 3 轮
-            //   不变 = 渲染稳定（Markdown 异步解析完成，实测 size 214→331 是
-            //   渲染过程变化）——**用最终尺寸定位，从根上消除渲染误差**
-            // - Phase 3：0.6s EaseInOut 动画挪到顶部（offset 渐变 0→vh-size，
-            //   每帧按最新 size 重算——渲染若再变自适应）
-            // - Phase 4：精确微调 ±2px + 稳定收敛循环（兜底）
-            var attempts = 0
-            var positioned = false
-            while (attempts < 4 && !positioned) {
-                attempts++
-                // 每次基于最新 displayItems 重算目标索引（displayItems 变化后
-                // 旧索引失效——loadAround 分批/SSE 场景）
-                val currentIdx = displayItems.indexOfFirst { it.second.message.id == targetMsgId }
-                if (currentIdx < 0) {
-                    if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标暂不在 displayItems——等待")
-                    withFrameNanos { }
-                    continue
-                }
-                val lazyIndex = bannerCount + currentIdx
-                // Phase 0（终极解法）：await 预解析完成（Parsed——内容就绪）→
-                // 触发预组合（JumpPrefetchStrategy 视口外预热内容树——目标进入
-                // 视口时组合已构建，Ready 更快）。**预组合尺寸（首帧 214）不可靠**，
-                // 仅作预热，定位用 Ready(finalHeight)（视口内稳定测量值）。
-                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts await 预解析")
-                withTimeoutOrNull(2000) {
-                    renderReadiness.flow(targetMsgId).first {
-                        it is RenderReadiness.Parsed || it is RenderReadiness.Failed
-                    }
-                }
-                viewModel.jumpPrefetch.reset()
-                viewModel.jumpPrefetch.pendingIndex = lazyIndex
-                // 2026-08-13：预组合已禁用（premeasure 尺寸污染 item 布局——
-                // 214 vs 331 错位 117px）；不再 await 预组合，直接进入
-                // 透明测量流程（await Parsed 已保证内容就绪）。
-                // Phase 1（2026-08-13 无动画）：一次定位到**视口中部**——目标进入
-                // 视口（门控 alpha=0 透明），渲染/测量在不可见状态完成。
-                val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
-                val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
-                val vhMid = (vh - contentPaddingTop).toInt() / 2
-                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, -vhMid)
-                // Phase 2：await Ready(finalHeight)（组件 onSizeChanged 稳定上报——
-                // 目标透明测量中完成）
-                val ready = renderReadiness.awaitReady(targetMsgId, 2500)
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 就绪信号 ${ready?.let { "Ready(finalHeight=${it.finalHeight})" } ?: "超时"}")
-                }
-                // 2026-08-13 修复"列表尺寸滞后"：Ready 是组件测量（331），但
-                // LazyColumn 布局的 item.size 可能仍用旧值（214）——两者不一致
-                // 时定位必然错位（实测 gap=117）。等待列表布局同步（item.size
-                // 达到 Ready 高度）后再定位——一次到位（微调 0）。
-                if (ready != null) {
-                    withTimeoutOrNull(1500) {
-                        while (true) {
-                            val syncItem = listState.layoutInfo.visibleItemsInfo.firstOrNull {
-                                it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
-                            }
-                            if (syncItem != null && syncItem.size >= ready.finalHeight - 2) break
-                            delay(50)
-                        }
-                    }
-                    if (BuildConfig.DEBUG) {
-                        val syncSize = listState.layoutInfo.visibleItemsInfo.firstOrNull {
-                            it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
-                        }?.size
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 列表尺寸同步 size=$syncSize")
-                    }
-                }
-                // Phase 3：一次定位到顶部（透明状态——用户不可见）→ Ready 后显示
-                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                val finalHeight = ready?.finalHeight ?: item?.size ?: 0
-                if (finalHeight > 0) {
-                    // **注意**：requestScrollToItemNoCancel 的 scrollOffset 在 reverse
-                    // 布局中被取反解释（实测 req=347 → item.offset=-278）→ 传负值。
-                    // desired = vh - size - paddingTop（2026-08-13 实测拟合）
-                    val desired = vh - finalHeight - contentPaddingTop
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 一次定位 finalHeight=$finalHeight viewport=$vh paddingTop=$contentPaddingTop desired=$desired")
-                    }
-                    LazyListReflection.requestScrollToItemNoCancel(
-                        listState, lazyIndex, -(desired.toInt())
-                    )
-                }
-                // 精确微调：最终布局数据把顶边残差收敛到 ±2px（含 paddingTop 修正）
-                withFrameNanos { }
-                withFrameNanos { }
-                listState.scroll {
-                    val info = listState.layoutInfo
-                    val it2 = info.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                        ?: info.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                    if (it2 != null) {
-                        val vh2 = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-                        val pt2 = -info.viewportStartOffset.toFloat()
-                        val residual = (it2.offset + it2.size - (vh2 - pt2)).toFloat()
-                        if (BuildConfig.DEBUG) {
-                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 微调 residual=$residual offset=${it2.offset} size=${it2.size}")
-                        }
-                        if (kotlin.math.abs(residual) > 2f) scrollBy(residual)
-                    }
-                }
-                // 2026-08-13 收敛循环（Mikepenz 渐进测量特性 214→331：目标移动
-                // 触发重新测量——透明状态轮询修正直到位置+尺寸完全稳定）。
-                // 收敛完成（gap<2 连续 2 轮）→ settled=true（门控显示——显示即
-                // 最终状态：内容完整、高度最终、位置精确——无"空气泡→增高"）。
-                var convergedRounds = 0
-                for (round in 1..6) {
-                    delay(150)
-                    listState.scroll {
-                        val info3 = listState.layoutInfo
-                        val it3 = info3.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                            ?: info3.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                        if (it3 != null) {
-                            val vh3 = (info3.viewportEndOffset - info3.viewportStartOffset).toFloat()
-                            val pt3 = -info3.viewportStartOffset.toFloat()
-                            val gap3 = (it3.offset + it3.size - (vh3 - pt3)).toFloat()
-                            if (BuildConfig.DEBUG) {
-                                AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 收敛 round=$round gap=$gap3 size=${it3.size}")
-                            }
-                            if (kotlin.math.abs(gap3) > 2f) {
-                                scrollBy(gap3)
-                                convergedRounds = 0
-                            } else {
-                                convergedRounds++
-                            }
-                        }
-                    }
-                    if (convergedRounds >= 2) break
-                }
-                JumpBubbleObserve.settled = true
-                jumpLoading = false
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 收敛完成 settled=true 蒙版移除")
-                }
-                // 验证：item 顶边屏幕 y 对齐视口顶（offset+size = vh+paddingTop，±10px）
-                withFrameNanos { }
-                val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                val infoV = listState.layoutInfo
-                val vhV = (infoV.viewportEndOffset - infoV.viewportStartOffset).toFloat()
-                val ptV = -infoV.viewportStartOffset.toFloat()
-                val gap = if (after != null) after.offset + after.size - (vhV - ptV) else Float.MAX_VALUE
-                // 精确观测（用户要求依靠日志）：气泡顶屏幕 y = listTopY + gap
-                val itemTopScroll = if (after != null) {
-                    infoV.viewportStartOffset + after.offset + after.size
-                } else Int.MIN_VALUE
-                val endScroll = infoV.viewportEndOffset
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 观测 gap=$gap itemTopScroll=$itemTopScroll end=$endScroll 视口顶屏幕y=$listTopY 气泡顶屏幕y=${if (after != null) listTopY + gap else "N/A"}")
-                }
-                if (after != null && kotlin.math.abs(gap) < 10f) {
-                    positioned = true
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts gap=$gap after=${after.offset} size=${after.size}")
-                    }
-                } else if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 未到位 gap=$gap")
-                }
-            }
-            // 2026-08-12 根治：预渲染信号（await State.Success）+ 布局稳定确认已
-            // 确保尺寸为最终值——不再需要收敛循环。动画后 500ms 最终确认：
-            // 若渲染仍在变化（size 改变）→ 顶边会偏移，日志暴露真实偏差。
-            delay(500)
-            if (BuildConfig.DEBUG) {
-                val fin = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                if (fin != null) {
-                    val infoF = listState.layoutInfo
-                    val ptF = -infoF.viewportStartOffset.toFloat()
-                    val topF = infoF.viewportStartOffset + fin.offset + fin.size
-                    val targetTop = infoF.viewportEndOffset + ptF.toInt()
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 最终确认 topScroll=$topF 目标=$targetTop size=${fin.size} 气泡Card顶屏幕y=${JumpBubbleObserve.bubbleTopY} 视口顶屏幕y=$listTopY 气泡距视口顶=${JumpBubbleObserve.bubbleTopY - listTopY}px")
-                }
-            }
-            delay(300)
-            jumpLockActive = false
-            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: autoLoad 解锁")
-        }
-        highlightedTurnKey = if (msg.isUser) {
-            "u_${msg.message.id}"
-        } else {
-            "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
-        }
-    }
-
-    // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
-    // 消息进入 displayItems → 此 LaunchedEffect 重启（displayItems 是 key）→ 滚动 + 高亮。
-    // 以 displayItems 为 key：每次重组（新消息到达）都会重新检查目标是否已出现。
-    var pendingJumpTarget by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(pendingJumpTarget, displayItems) {
-        val target = pendingJumpTarget ?: return@LaunchedEffect
-        val idx = displayItems.indexOfFirst { it.second.message.id == target }
-        if (idx >= 0) {
-            // 2026-08-12 修复（用户反馈"点击 Qn 后列表项没渲染然后乱跳"）：
-            // loadAround 一次性插入 60 条 → LazyColumn 渲染延迟——displayItems
-            // 变化时目标项可能尚未布局（滚动与渲染竞态）。等 3 帧（约 50ms）
-            // 让组合/布局稳定后再滚动，减少"乱跳"。
-            withFrameNanos { }
-            withFrameNanos { }
-            withFrameNanos { }
-            pendingJumpTarget = null
-            scrollToDisplayItem(idx)
-        }
-    }
-
-    /**
-     * 快速导航跳转。
-     *
-     * - 目标已加载（在 displayItems）→ 直接 scrollToDisplayItem + 高亮。
-     * - 目标未加载 → 触发 viewModel.loadAround 双向加载（前后各 N 条），
-     *   设 pendingJumpTarget；LaunchedEffect 监听 displayItems，目标进入后滚动 + 高亮。
-     *   （2026-08-12：修复"快速定位不准确"——原实现 displayItemIndex < 0 直接 return，
-     *   目标未加载时静默失败。）
-     */
+    // ===== 状态机版跳转（2026-08-13 架构根治——旧 scrollToDisplayItem 已删除）=====
+    // 定位决策全部在 JumpNavigationController 状态机（Preparing→Measuring→Settling→
+    // Displayed/Failed）；蒙版/门控从状态派生（单一真相源）；目标一次定位到最终位置
+    //（不移动→不回收→不重测→无"重复乱跳"根因）。
     fun jumpToMessage(msgId: String) {
         jumpLockActive = true
         val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
-        // 2026-08-13 架构根治（Mikepenz 官方 Parse-ahead + 就绪信号层）：
-        // 点击瞬间 renderReadiness.preParse 后台解析目标文本 → Parsed(State) →
-        // 消息组件组合时用 Markdown(state) 直接渲染（内容即最终状态，无骤变）。
-        // **注意**：文本必须与渲染归一化一致（normalizeForRender）——否则解析
-        // AST 与渲染内容不同（换行差异 → 高度 214 vs 331，预组合尺寸失真）。
+        // 2026-08-13 架构根治（Mikepenz 官方 Parse-ahead + 状态机）：
+        // 文本必须与渲染归一化一致（normalizeForRender）——否则解析 AST 与
+        // 渲染内容不同（换行差异 → 高度 214 vs 331）。preParse 在状态机内触发。
         val jumpText = displayItems.getOrNull(displayItemIndex)
             ?.second?.parts?.filterIsInstance<Part.Text>()
             ?.firstOrNull { it.text.isNotBlank() }?.text
-        if (jumpText != null) {
-            renderReadiness.preParse(
-                msgId,
-                normalizeForRender(jumpText, isUser = true),
-                coroutineScope,
-            )
-        }
         // 2026-08-12 修复：目标在 displayItems 但 parts 为空（Room 有消息但
-        // parts 未 upsert 到内存——重启后内存只加载最新窗口，fetchAllMessages
-        // 落库的旧消息 parts 不在内存）→ 直接滚动会渲染空项（用户反馈"目标
-        // 不可见/和之前一样"）→ 强制 loadAround 加载 parts。
+        // parts 未 upsert 到内存——重启后内存只加载最新窗口）→ loadAround 加载。
         val targetHasRenderableContent = displayItemIndex >= 0 &&
             displayItems[displayItemIndex].second.parts.any { it is Part.Text && it.text.isNotBlank() }
         if (BuildConfig.DEBUG) {
-            val parts = if (displayItemIndex >= 0) displayItems[displayItemIndex].second.parts else emptyList()
-            val textPart = parts.filterIsInstance<Part.Text>().firstOrNull { it.text.isNotBlank() }
-            AppLogger.d("ChatPaging", "jumpToMessage: msgId=${msgId.take(12)} inDisplay=$displayItemIndex renderable=$targetHasRenderableContent parts=${parts.size} textPart=${textPart?.text?.take(30)}")
+            AppLogger.d("ChatPaging", "jumpToMessage: msgId=${msgId.take(12)} inDisplay=$displayItemIndex renderable=$targetHasRenderableContent")
         }
         if (targetHasRenderableContent) {
-            jumpLoading = true
-            scrollToDisplayItem(displayItemIndex)
+            // 状态机跳转：一次定位 + 蒙版/门控从状态派生
+            jumpController.jumpTo(
+                msgId,
+                bannerCount + displayItemIndex,
+                jumpText?.let { normalizeForRender(it, isUser = true) },
+            )
             onQuickNavigateDismiss()
         } else {
             // 未加载或 parts 为空：触发异步定位加载，等待消息进入 displayItems 后滚动
@@ -660,54 +432,12 @@ fun ChatMessageList(
         }
         if (targetIndex >= 0) {
             val lazyIndex = bannerCount + targetIndex
-            coroutineScope.launch {
-                // 2026-08-12 预渲染模式（同 scrollToDisplayItem）：瞬间定位 →
-                // 等待 size 稳定（渲染完成）→ 一次定位到顶部 → 微调。
-                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
-                withFrameNanos { }
-                withFrameNanos { }
-                // 预渲染测绘：等 size 稳定
-                var stableCount = 0
-                var lastSize = -1
-                var probeRounds = 0
-                while (stableCount < 2 && probeRounds < 20) {
-                    delay(100)
-                    probeRounds++
-                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                    if (item == null) {
-                        LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
-                        withFrameNanos { }
-                        stableCount = 0
-                        lastSize = -1
-                        continue
-                    }
-                    if (item.size == lastSize) stableCount++ else { stableCount = 1; lastSize = item.size }
-                }
-                // 一次定位（去动画，2026-08-13 与 scrollToDisplayItem 同步）：
-                // desired = vh - size - paddingTop（气泡顶边贴视口顶）
-                val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
-                val pt = -listState.layoutInfo.viewportStartOffset.toFloat()
-                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                if (item != null) {
-                    LazyListReflection.requestScrollToItemNoCancel(
-                        listState, lazyIndex, -((vh - item.size - pt).toInt())
-                    )
-                }
-                // 精确微调
-                withFrameNanos { }
-                withFrameNanos { }
-                listState.scroll {
-                    val info = listState.layoutInfo
-                    val it2 = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                    if (it2 != null) {
-                        val vh2 = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-                        val pt2 = -info.viewportStartOffset.toFloat()
-                        val residual = (it2.offset + it2.size - (vh2 - pt2)).toFloat()
-                        if (kotlin.math.abs(residual) > 2f) scrollBy(residual)
-                    }
-                }
-            }
             val (rawIndex, targetMsg) = displayItems[targetIndex]
+            val targetMsgId = targetMsg.message.id
+            // 2026-08-13 架构根治：onLocateTask 复用状态机（同一定位流程——一次
+            // 定位 + 蒙版/门控 + 收敛；assistant 目标无预解析，直接测量）
+            jumpLockActive = true
+            jumpController.jumpToTask(lazyIndex, targetMsgId)
             highlightedTurnKey = if (targetMsg.isUser) {
                 "u_${targetMsg.message.id}"
             } else {
@@ -829,6 +559,30 @@ fun ChatMessageList(
                 }
             }
 
+            // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
+            // 消息进入 displayItems → 此 LaunchedEffect 重启（displayItems 是 key）→
+            // 状态机跳转（2026-08-13 架构根治——旧 scrollToDisplayItem 已删除）。
+            LaunchedEffect(pendingJumpTarget, displayItems) {
+                val target = pendingJumpTarget ?: return@LaunchedEffect
+                val idx = displayItems.indexOfFirst { it.second.message.id == target }
+                if (idx >= 0) {
+                    // 等 3 帧（约 50ms）让组合/布局稳定后再跳转（loadAround 批量插入）
+                    withFrameNanos { }
+                    withFrameNanos { }
+                    withFrameNanos { }
+                    pendingJumpTarget = null
+                    val text = displayItems[idx].second.parts
+                        .filterIsInstance<Part.Text>()
+                        .firstOrNull { it.text.isNotBlank() }?.text
+                    jumpLockActive = true
+                    jumpController.jumpTo(
+                        target,
+                        bannerCount + idx,
+                        text?.let { normalizeForRender(it, isUser = true) },
+                    )
+                }
+            }
+
             // loadAround 失败保护：加载结束（isLoadingAround=false）但目标未进入
             // displayItems（pendingJumpTarget 仍悬空）→ 清除并 Snackbar 提示，避免悬死。
             LaunchedEffect(isLoadingAround) {
@@ -846,9 +600,11 @@ fun ChatMessageList(
 
             // 2026-08-12 根治：预渲染注册表注入——消息组件（MessageCardUser）
             // 通过 LocalMarkdownStateRegistry 注册目标的 MarkdownState；
+            // 2026-08-13 状态机注入（门控读 LocalJumpController）。
                         androidx.compose.runtime.CompositionLocalProvider(
                 LocalMarkdownStateRegistry provides mdRegistry,
                 LocalRenderReadiness provides renderReadiness,
+                LocalJumpController provides jumpController,
             ) {
                 LazyColumn(
                     state = listState,
