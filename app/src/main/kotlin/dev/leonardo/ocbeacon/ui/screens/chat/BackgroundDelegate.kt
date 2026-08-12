@@ -118,13 +118,11 @@ class BackgroundAggregator(
                 part.state is ToolState.Running &&
                     part.metadata?.get("sessionId")?.let { it.jsonPrimitive.contentOrNull } == child.id
             }
-            // 2026-08-12 用户要求：面板只记录"明确放到后台"的 subagent——
-            // 即 task 工具 background=true 派发的（前台任务不展示）。
-            val isExplicitlyBackground = toolParts.any { part ->
-                part.metadata?.get("sessionId")?.let { it.jsonPrimitive.contentOrNull } == child.id &&
-                    isBackgroundTask(part)
-            }
-            if (!isExplicitlyBackground) return@mapNotNull null
+            // 2026-08-12 修复（历史 subagent 恒空）：V2 服务器主会话消息流中
+            // 不存在 task/subagent tool part（实测翻 1000 条消息 0 个——
+            // V2 派发子代理走 session.create，无工具调用记录）→ 原
+            // isExplicitlyBackground 过滤恒 false → subagents 恒空。
+            // 子会话（parentId==currentSessionId）本身就是后台任务，直接展示。
             SubagentSummary(
                 sessionId = child.id,
                 agent = child.agent,
@@ -161,17 +159,6 @@ class BackgroundAggregator(
             part.state is ToolState.Running &&
                 (part.tool == "task" || part.tool == "subagent")
         }
-    }
-
-    /** task/subagent tool part 是否 background 派发（input.background == true）。 */
-    private fun isBackgroundTask(part: Part.Tool): Boolean {
-        val input = when (val s = part.state) {
-            is ToolState.Running -> s.input
-            is ToolState.Completed -> s.input
-            else -> return false
-        }
-        val bg = input["background"] as? JsonPrimitive
-        return bg?.contentOrNull?.toBooleanStrictOrNull() == true
     }
 
     private val foregroundCountFlow = combine(

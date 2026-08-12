@@ -114,28 +114,27 @@ internal fun ModelPickerDialog(
                         .sortedWith(compareBy<ModelCatalog> { !isModelFree(provider.id, it) }.thenBy { it.name.lowercase() })
 
                     item(key = "provider_header_${provider.id}") {
-                        // 2026-08-12 用户要求：聚合行行高与正常 item 一致——
-                        // 显式 height(40.dp) 对齐模型行（8dp padding + bodyMedium 24sp ≈ 40dp）
-            // 2026-08-12 用户要求：聚合行顶格（左边无空缺——空缺代表 subitem 归属聚合，
-            // 模型行保留缩进）。聚合行 start=4dp 仅给图标留最小边距。
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 40.dp)
-                    .padding(start = 4.dp, end = 12.dp),
+                        // 2026-08-12 用户要求：聚合标题样式与正常 item 一致——
+                        // 简单图标 + title（移除 uppercase/letterSpacing/次级强调色）
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 40.dp)
+                                .padding(start = 4.dp, end = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             ProviderIcon(
                                 providerId = provider.id,
-                                size = 16.dp,
+                                size = 18.dp,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                             )
                             Text(
-                                text = (provider.name.ifEmpty { provider.id }).uppercase(),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
-                                letterSpacing = 1.sp
+                                text = provider.name.ifEmpty { provider.id },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }

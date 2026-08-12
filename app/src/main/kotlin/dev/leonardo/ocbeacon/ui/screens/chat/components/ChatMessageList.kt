@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -315,18 +316,59 @@ fun ChatMessageList(
     fun scrollToDisplayItem(displayItemIndex: Int) {
         val (rawIndex, msg) = displayItems[displayItemIndex]
         val lazyIndex = bannerCount + displayItemIndex
+        if (BuildConfig.DEBUG) {
+            AppLogger.d("ChatPaging", "scrollToDisplayItem: displayIdx=$displayItemIndex lazyIdx=$lazyIndex msg=${msg.message.id.take(12)}")
+        }
         coroutineScope.launch {
             // reverseLayout=true：requestScrollToItemNoCancel 将项放置在
             // 视口滚动起点（视觉上的底部）。后续的 scrollBy 将其
             // 移到顶部，使跳转到的消息立即可读。
-            LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
-            listState.scroll {
-                val info = listState.layoutInfo
-                val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                if (item != null) {
-                    // 负 delta = 向后滚动 = 内容上移 = 项升至顶部
-                    val delta = (info.viewportStartOffset - item.offset).toFloat()
-                    scrollBy(delta)
+            //
+            // 2026-08-12 修复（快速导航跳转位置错误，logcat 实证两轮）：
+            // 1. 反射设置滚动位置异步应用——同帧 layoutInfo 旧布局 → item
+            //    不可见 → scrollBy 修正被跳过 → 目标留在视口外。修复：
+            //    withFrameNanos 等一帧布局后再修正。
+            // 2. 主会话活跃（SSE 流式/新消息）时 scrollBy 后仍可能被干扰
+            //    （视口回到近期消息区）→ 修正后验证目标位置，未达顶部则
+            //    重试（最多 3 次，每次重新 requestScroll + 等帧 + 修正）。
+            var attempts = 0
+            var positioned = false
+            while (attempts < 3 && !positioned) {
+                attempts++
+                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                withFrameNanos { }
+                listState.scroll {
+                    val info = listState.layoutInfo
+                    val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                    if (item != null) {
+                        // 2026-08-12 修复（跳转位置错误最终根因）：delta 符号在
+                        // reverseLayout 中取反——原代码 delta = viewportStartOffset -
+                        // item.offset（负值），scrollBy(负) 在 reverseLayout 中实际
+                        // 内容下移（logcat 实证：目标 offset 533 → scrollBy(-554) 后
+                        // 反而到 1087——方向反了）。改为 delta = item.offset -
+                        // viewportStartOffset（正值 = 目标在视口下方 = 内容上移）。
+                        val delta = (item.offset - info.viewportStartOffset).toFloat()
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item offset=${item.offset} delta=$delta")
+                        }
+                        if (kotlin.math.abs(delta) > 1f) scrollBy(delta)
+                    } else if (BuildConfig.DEBUG) {
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item($lazyIndex) 不可见（visible=${info.visibleItemsInfo.map { it.index }})——重试")
+                    }
+                }
+                // 2026-08-12 修复：scroll 块内 layoutInfo 是块起始快照——
+                // scrollBy 后同帧读取是旧值（误判"未达顶部"→ 重试破坏定位）。
+                // 等 3 帧让滚动应用与布局稳定后再验证真实位置。
+                withFrameNanos { }
+                withFrameNanos { }
+                withFrameNanos { }
+                val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                val ok = after != null &&
+                    kotlin.math.abs(after.offset - listState.layoutInfo.viewportStartOffset) < 100f
+                if (ok) {
+                    positioned = true
+                } else if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 未达顶部 after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}——重试")
                 }
             }
         }
@@ -388,11 +430,14 @@ fun ChatMessageList(
             val lazyIndex = bannerCount + targetIndex
             coroutineScope.launch {
                 LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                withFrameNanos { }
                 listState.scroll {
                     val info = listState.layoutInfo
                     val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                     if (item != null) {
-                        val delta = (info.viewportStartOffset - item.offset).toFloat()
+                        // 2026-08-12 修复：delta 符号与 scrollToDisplayItem 一致
+                        //（reverseLayout 中 scrollBy 方向取反——见 scrollToDisplayItem 注释）
+                        val delta = (item.offset - info.viewportStartOffset).toFloat()
                         scrollBy(delta)
                     }
                 }
