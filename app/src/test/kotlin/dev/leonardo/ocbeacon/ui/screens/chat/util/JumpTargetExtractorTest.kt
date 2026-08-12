@@ -75,11 +75,50 @@ class JumpTargetExtractorTest {
     }
 
     @Test
-    fun `extractJumpTargets uses placeholder when text is blank`() {
-        val msgs = listOf(userMsgWithParts("u1", "   ", 1000))
-        val targets = extractJumpTargets(msgs, "(无文本)")
+    fun `skips shell user messages with no text and no summary`() {
+        // 2026-08-12 空壳修复：服务器历史遗留/已删除消息（Room 有记录但无 parts
+        // 且无 summary.body）——直接跳过，不显示 "(无文本)" 占位
+        val shell = MessageWithParts(
+            info = Message.User(id = "u1", sessionId = "s1", role = "user", time = TimeInfo(created = 1000)),
+            parts = emptyList(),
+        )
+        val targets = extractJumpTargets(listOf(shell), "(无文本)")
+        assertEquals(0, targets.size)
+    }
+
+    @Test
+    fun `uses summary body as preview fallback`() {
+        // 无 Part.Text 但有 summary.body（Room payload 的 User 消息摘要）→ 回退
+        val withSummary = MessageWithParts(
+            info = Message.User(
+                id = "u1",
+                sessionId = "s1",
+                role = "user",
+                time = TimeInfo(created = 1000),
+                summary = Message.User.UserSummary(body = "从 summary 提取的文本"),
+            ),
+            parts = emptyList(),
+        )
+        val targets = extractJumpTargets(listOf(withSummary))
         assertEquals(1, targets.size)
-        assertEquals("(无文本)", targets[0].preview)
+        assertEquals("从 summary 提取的文本", targets[0].preview)
+    }
+
+    @Test
+    fun `labels stay sequential after filtering shells`() {
+        // 过滤空壳后编号连续（Q1、Q2……不跳号）
+        val msgs = listOf(
+            userMsgWithParts("u1", "first", 1000),
+            MessageWithParts(
+                info = Message.User(id = "shell2", sessionId = "s1", role = "user", time = TimeInfo(created = 2000)),
+                parts = emptyList(),
+            ),
+            userMsgWithParts("u3", "third", 3000),
+        )
+        val targets = extractJumpTargets(msgs)
+        assertEquals(2, targets.size)
+        assertEquals(listOf("Q1", "Q2"), targets.map { it.label })
+        assertEquals(listOf("u1", "u3"), targets.map { it.msgId })
     }
 
     @Test

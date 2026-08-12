@@ -10,7 +10,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 data class JumpTarget(
     val label: String,        // "Q1"、"Q2" ...
     val timestampMs: Long,    // message.time.created（epoch 毫秒）
-    val preview: String,      // 第一个 Part.Text 内容，或占位符
+    val preview: String,      // 第一个 Part.Text 内容，或回退 summary.body
     val msgId: String         // message.id，用于跳转查找与当前高亮匹配
 )
 
@@ -26,9 +26,14 @@ data class JumpTarget(
  * displayItems 中独立存在，跳转时 indexOfFirst 找不到目标会静默失败
  * （2026-08-12 用户反馈"快速定位有些 item 点击没反应"的根因）。
  *
+ * 排除空壳 user 消息（2026-08-12 用户反馈"很多 item 没有内容"根因）：
+ * 服务器历史遗留/已删除消息在 Room 保留记录但无 parts 且无 summary.body
+ *（实测主会话 62 条 user 中 23 条为空壳，服务器单条查询 404）——
+ * 无任何可展示文本的 item 直接跳过，不进入快速导航列表。
+ *
  * 纯函数 —— 无 Android/Compose 依赖。
  *
- * @param noTextPlaceholder 无文本时的占位符（由调用方本地化）。
+ * @param noTextPlaceholder 保留参数（兼容调用方）；空壳消息将被过滤而非显示占位符。
  */
 fun extractJumpTargets(
     messages: List<MessageWithParts>,
@@ -37,14 +42,21 @@ fun extractJumpTargets(
     return messages
         .filter { it.info is Message.User && it.info.role != "synthetic" }
         .sortedBy { it.info.time.created }
-        .mapIndexed { i, mwp ->
+        .mapNotNull { mwp ->
+            val preview = mwp.parts.firstOrNull { it is Part.Text }
+                ?.let { (it as Part.Text).text }
+                ?.takeIf { it.isNotBlank() }
+                ?: (mwp.info as? Message.User)?.summary?.body
+                    ?.takeIf { it.isNotBlank() }
+            preview?.let { p ->
+                mwp to p
+            }
+        }
+        .mapIndexed { i, (mwp, preview) ->
             JumpTarget(
                 label = "Q${i + 1}",
                 timestampMs = mwp.info.time.created,
-                preview = mwp.parts.firstOrNull { it is Part.Text }
-                    ?.let { (it as Part.Text).text }
-                    ?.takeIf { it.isNotBlank() }
-                    ?: noTextPlaceholder,
+                preview = preview,
                 msgId = mwp.info.id,
             )
         }

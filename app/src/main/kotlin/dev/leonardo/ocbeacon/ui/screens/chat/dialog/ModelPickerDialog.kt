@@ -14,8 +14,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -37,6 +39,7 @@ import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +73,7 @@ internal fun ModelPickerDialog(
         containerColor = params.containerColor,
         shape = params.shape,
     ) {
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 // 2026-08-12 用户要求：与后台面板高度一致（30%-75% 屏高）
@@ -78,6 +81,30 @@ internal fun ModelPickerDialog(
                     min = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.3f,
                     max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 )
+        ) {
+            // 2026-08-12 用户要求：抽屉式组件统一标题栏（与快速导航一致）——标题 + 关闭按钮
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.a11y_icon_select_model),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(R.string.close),
+                    )
+                }
+            }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
@@ -159,4 +186,5 @@ internal fun ModelPickerDialog(
                 }
             }
         }
+    }
 }

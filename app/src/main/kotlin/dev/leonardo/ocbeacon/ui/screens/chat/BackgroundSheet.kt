@@ -56,6 +56,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatusIcon
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -105,7 +106,26 @@ fun BackgroundSheet(
                 )
                 .padding(bottom = 24.dp)
         ) {
-            // 2026-08-12 用户要求：去掉 "Background" 标题区域
+            // 2026-08-12 用户要求：抽屉式组件统一标题栏（与快速导航一致）——
+            // 标题 + 关闭按钮（此前标题区域被去掉，现按用户新要求补回标准样式）
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.background_sheet_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(R.string.close),
+                    )
+                }
+            }
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
