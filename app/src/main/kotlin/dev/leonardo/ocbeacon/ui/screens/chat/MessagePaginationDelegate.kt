@@ -203,7 +203,18 @@ internal class MessagePaginationDelegate(
                 }
                 val beforeCreated = (cursor as? PaginationCursor.Archive)?.created
                 val networkBeforeCreated = (cursor as? PaginationCursor.Network)?.created
+                // 2026-08-12 修复（分页死锁——用户反馈"滚动不上去了"）：
+                // V2 首次翻页（HotStart）构造 V2 格式游标（{id,order,direction}）——
+                // 原回落（use case 154-161）用 V1 编码 {"id","time"}，V2 服务器解析
+                // 失败返回 0 条 → FSM hasOlder=false → 更旧消息永远加载不到。
+                // 注意：此分支使 use case 走 networkCursor 分支（122-129），跳过归档。
                 val networkCursor = (cursor as? PaginationCursor.Network)?.serverCursor
+                    ?: if (cursor is PaginationCursor.HotStart &&
+                        messagePaging.isV2Server(serverId) &&
+                        hotOldestId != null
+                    ) {
+                        CursorCodec.encodeV2(hotOldestId, CursorCodec.V2Direction.OLDER)
+                    } else null
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(TAG, "loadOlder START sid=${sid.take(12)} limit=$currentMessageLimit beforeId=${beforeId?.take(16)} cursor=$cursor failures=${paginationState.value.autoLoadFailures} paused=${paginationState.value.autoLoadPaused}")
                 }

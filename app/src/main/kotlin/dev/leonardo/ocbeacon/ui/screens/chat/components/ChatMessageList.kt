@@ -501,10 +501,16 @@ fun ChatMessageList(
                 if (messageState.hasOlderMessages && !messageState.isLoadingOlder && !messageState.autoLoadPaused) {
                     snapshotFlow { listState.layoutInfo }
                         .map { layoutInfo ->
-                            val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
+                            // 2026-08-12 修复：视觉顶部 = 可见项中 index 最大
+                            //（reverseLayout：最旧在最上、index 最大）——原实现用
+                            // visibleItemsInfo.firstOrNull()（index 最小 = 视觉底部），
+                            // 用户滑到顶部时底部项 index 仍远离 total → nearTop 永不
+                            // 满足 → 更旧消息永远加载不了（用户反馈"滚动不上去了"，
+                            // 视口卡在 11:44——该处已是已加载最旧但 loadOlder 未触发）。
+                            val topVisible = layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
                             val total = layoutInfo.totalItemsCount
-                            val nearTop = total - firstVisible <= 8
-                            // 2026-08-12 修复：内容不足一屏（最后可见项未填满视口）时也触发。
+                            val nearTop = total - topVisible <= 8
+                            // 内容不足一屏（最后可见项未填满视口）时也触发。
                             // 主会话初始加载经 displayItems 过滤后可能仅剩 13 条——不足一屏时
                             // 用户无法滚动（firstVisible 恒 0），永达不到 nearTop → 历史加载
                             // 静默失效（用户反馈"向上滑动加载历史消息也没有"）。
@@ -513,7 +519,7 @@ fun ChatMessageList(
                                 lastVisible.offset + lastVisible.size < layoutInfo.viewportEndOffset
                             if (BuildConfig.DEBUG && total > 0 && (nearTop || contentDoesNotFillViewport)) {
                                 // 低频诊断：触发条件附近打印（滚动高频段不刷屏）
-                                AppLogger.d("ChatPaging", "auto-load probe: firstVisible=$firstVisible total=$total nearTop=$nearTop fillsViewport=${!contentDoesNotFillViewport}")
+                                AppLogger.d("ChatPaging", "auto-load probe: topVisible=$topVisible total=$total nearTop=$nearTop fillsViewport=${!contentDoesNotFillViewport}")
                             }
                             nearTop || contentDoesNotFillViewport
                         }
