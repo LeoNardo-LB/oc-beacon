@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.RateReview
+import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.logging.AppLogger
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
@@ -93,6 +95,13 @@ internal fun MessageCardUser(
     val contentParts = visibleParts
 
     val hasRenderableUserPart = contentParts.any(::isBubbleRenderablePart)
+    // 2026-08-12 调试：快速导航跳转目标渲染空排查（用户反馈目标不可见）
+    if (BuildConfig.DEBUG && currentMessage.message.id == "msg_ff4ecf004001YB2VggI2UfMF7w") {
+        AppLogger.d("ChatPaging", "MessageCardUser DEBUG: id=${currentMessage.message.id.take(12)} parts=${currentMessage.parts.size} visible=${visibleParts.size} hasRenderable=$hasRenderableUserPart fallback=$userFallbackText cmdLabel=$userCommandLabel")
+        visibleParts.forEachIndexed { i, p ->
+            AppLogger.d("ChatPaging", "  part[$i]: ${p::class.simpleName} text=${(p as? Part.Text)?.text?.take(30)}")
+        }
+    }
     if (!hasRenderableUserPart && userFallbackText == null && userCommandLabel == null) {
         return
     }

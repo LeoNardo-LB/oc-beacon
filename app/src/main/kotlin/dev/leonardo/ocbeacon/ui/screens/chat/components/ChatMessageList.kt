@@ -312,11 +312,20 @@ fun ChatMessageList(
         }
     }
 
+    // 2026-08-12 修复：跳转定位锁定——jumpToMessage 期间抑制 autoLoad
+    //（loadOlder 自动补载会插入 older 批 → 目标被推下视口，用户反馈
+    // "目标不在视口顶部"——logcat 实证 positioned 后被 auto-load 推走）。
+    var jumpLockActive by remember { mutableStateOf(false) }
+
     // jumpToMessage 的核心滚动 + 高亮（立即路径与异步路径共用）。
     // 2026-08-12：目标定位到"视口安全区"（顶部下方 100px）——完全可见，
     // 不被顶部 topBar 遮挡（LazyColumn 视口含标题栏区域）。
     fun scrollToDisplayItem(displayItemIndex: Int) {
-        val TARGET_SAFE_OFFSET = 100f
+        // 2026-08-12：目标定位到"视口安全区"（顶部下方 132px）——LazyColumn
+        // 视口起点屏幕在 topBar 顶部（Scaffold 未消费 insets），目标需滚到
+        // topBar（~95px）下方消息区顶部（~132px）才完全可见且位于"用户可见
+        // 窗口最上方"（此前 100px 仍在 topBar 内被遮挡——用户反馈目标不可见）。
+        val TARGET_SAFE_OFFSET = 132f
         val (rawIndex, msg) = displayItems[displayItemIndex]
         val targetMsgId = msg.message.id
         val initialLazyIndex = bannerCount + displayItemIndex
@@ -393,6 +402,40 @@ fun ChatMessageList(
                     AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标未达安全区（after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}）")
                 }
             }
+            // 2026-08-12 修复：定位完成后延迟重验——跳转期间进行中的 loadOlder
+            //（older 批插入目标上方）或 SSE 会推走目标（logcat 实证 positioned
+            // 后视口显示更早区域）。1 秒后重验目标仍可见且近安全区；被推则重滚一次。
+            delay(1000)
+            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验目标位置")
+            val recheck = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+                it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
+            }
+            val okAfterSettle = recheck != null &&
+                kotlin.math.abs(recheck.offset - (listState.layoutInfo.viewportStartOffset + TARGET_SAFE_OFFSET)) < 200f
+            if (!okAfterSettle) {
+                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验目标被推（after=${recheck?.offset}）——重滚一次")
+                val idx2 = displayItems.indexOfFirst { it.second.message.id == targetMsgId }
+                if (idx2 >= 0) {
+                    LazyListReflection.requestScrollToItemNoCancel(listState, bannerCount + idx2, 0)
+                    withFrameNanos { }
+                    listState.scroll {
+                        val info2 = listState.layoutInfo
+                        val item = info2.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                            ?: info2.visibleItemsInfo.firstOrNull { it.index == bannerCount + idx2 }
+                        if (item != null) {
+                            val d = (item.offset - (info2.viewportStartOffset + TARGET_SAFE_OFFSET)).toFloat()
+                            if (kotlin.math.abs(d) > 1f) scrollBy(d)
+                        }
+                    }
+                    withFrameNanos { }
+                    withFrameNanos { }
+                }
+            } else if (BuildConfig.DEBUG) {
+                AppLogger.d("ChatPaging", "scrollToDisplayItem: 重验通过——目标稳定在安全区")
+            }
+            delay(300)
+            jumpLockActive = false
+            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: autoLoad 解锁")
         }
         highlightedTurnKey = if (msg.isUser) {
             "u_${msg.message.id}"
@@ -431,6 +474,7 @@ fun ChatMessageList(
      *   目标未加载时静默失败。）
      */
     fun jumpToMessage(msgId: String) {
+        jumpLockActive = true
         val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
         // 2026-08-12 修复：目标在 displayItems 但 parts 为空（Room 有消息但
         // parts 未 upsert 到内存——重启后内存只加载最新窗口，fetchAllMessages
@@ -438,6 +482,11 @@ fun ChatMessageList(
         // 不可见/和之前一样"）→ 强制 loadAround 加载 parts。
         val targetHasRenderableContent = displayItemIndex >= 0 &&
             displayItems[displayItemIndex].second.parts.any { it is Part.Text && it.text.isNotBlank() }
+        if (BuildConfig.DEBUG) {
+            val parts = if (displayItemIndex >= 0) displayItems[displayItemIndex].second.parts else emptyList()
+            val textPart = parts.filterIsInstance<Part.Text>().firstOrNull { it.text.isNotBlank() }
+            AppLogger.d("ChatPaging", "jumpToMessage: msgId=${msgId.take(12)} inDisplay=$displayItemIndex renderable=$targetHasRenderableContent parts=${parts.size} textPart=${textPart?.text?.take(30)}")
+        }
         if (targetHasRenderableContent) {
             scrollToDisplayItem(displayItemIndex)
             onQuickNavigateDismiss()
@@ -530,7 +579,7 @@ fun ChatMessageList(
                         "auto-load effect restart: hasOlder=${messageState.hasOlderMessages} isLoading=${messageState.isLoadingOlder} paused=${messageState.autoLoadPaused}"
                     )
                 }
-                if (messageState.hasOlderMessages && !messageState.isLoadingOlder && !messageState.autoLoadPaused) {
+                if (messageState.hasOlderMessages && !messageState.isLoadingOlder && !messageState.autoLoadPaused && !jumpLockActive) {
                     snapshotFlow { listState.layoutInfo }
                         .map { layoutInfo ->
                             // 2026-08-12 修复：视觉顶部 = 可见项中 index 最大
