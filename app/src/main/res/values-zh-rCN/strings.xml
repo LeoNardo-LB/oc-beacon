@@ -171,6 +171,7 @@
     <string name="chat_status_running_subagent">正在运行子代理</string>
     <string name="chat_task_completed">任务已完成</string>
     <string name="chat_task_failed">任务失败</string>
+    <string name="chat_system_notification">系统通知</string>
     <string name="chat_status_updating_tasks">正在更新任务</string>
     <string name="chat_status_thinking">思考中</string>
     <string name="chat_thinking_complete">思考完毕 · %1$s</string>

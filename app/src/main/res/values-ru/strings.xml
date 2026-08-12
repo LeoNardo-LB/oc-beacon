@@ -195,6 +195,7 @@
     <string name="chat_status_running_subagent">Запуск под-агента</string>
     <string name="chat_task_completed">Задача выполнена</string>
     <string name="chat_task_failed">Задача не выполнена</string>
+    <string name="chat_system_notification">Системное уведомление</string>
     <string name="chat_status_updating_tasks">Обновление задач</string>
     <string name="chat_status_thinking">Обработка</string>
     <string name="chat_tool_running_command">Выполнение команды…</string>

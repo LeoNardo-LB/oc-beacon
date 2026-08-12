@@ -179,7 +179,6 @@ import dev.leonardo.ocbeacon.ui.theme.QueuedBadgeTextColor
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatTokenCount
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatDuration
-import dev.leonardo.ocbeacon.ui.screens.chat.util.isAdjacentToAssistant
 import dev.leonardo.ocbeacon.ui.screens.chat.util.resolveUserCommandLabel
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.util.codeHorizontalScroll
@@ -730,9 +729,10 @@ fun ChatScreen(
                                             .filterIsInstance<Part.Text>()
                                             .any { it.text.isNotBlank() } ||
                                             (msg.message as? Message.User)?.summary?.body?.isNotBlank() == true
+                                        // 2026-08-12 用户决策：synthetic 是独立消息 → 独立气泡
+                                        // （与 user 消息同构，ChatMessageList 已按 role 分发
+                                        // SYNTHETIC 卡片）。不再邻接判断/嵌入 assistant turn。
                                         if (!hasText) {
-                                            null
-                                        } else if (isAdjacentToAssistant(rawMessages, index)) {
                                             null
                                         } else {
                                             index to msg

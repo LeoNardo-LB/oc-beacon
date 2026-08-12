@@ -169,6 +169,7 @@
     <string name="chat_status_running_subagent">서브 에이전트 실행 중</string>
     <string name="chat_task_completed">작업 완료</string>
     <string name="chat_task_failed">작업 실패</string>
+    <string name="chat_system_notification">시스템 알림</string>
     <string name="chat_status_updating_tasks">작업 업데이트 중</string>
     <string name="chat_status_thinking">생각 중</string>
     <string name="chat_tool_running_command">명령 실행 중…</string>

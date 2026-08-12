@@ -169,6 +169,7 @@
     <string name="chat_status_running_subagent">Eseguendo sotto-agente</string>
     <string name="chat_task_completed">Attività completata</string>
     <string name="chat_task_failed">Attività non riuscita</string>
+    <string name="chat_system_notification">Notifica di sistema</string>
     <string name="chat_status_updating_tasks">Aggiornando attività</string>
     <string name="chat_status_thinking">Elaborando</string>
     <string name="chat_tool_running_command">Eseguendo comando…</string>

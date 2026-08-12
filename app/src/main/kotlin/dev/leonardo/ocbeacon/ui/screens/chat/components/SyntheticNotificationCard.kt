@@ -15,6 +15,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
@@ -36,11 +38,10 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
-import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.ToolCardScaffold
 import dev.leonardo.ocbeacon.ui.screens.chat.util.halfScreenHeight
-import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.toolOutputContainerColor
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AgentError
@@ -48,27 +49,27 @@ import dev.leonardo.ocbeacon.ui.theme.AgentInfo
 import dev.leonardo.ocbeacon.ui.theme.AgentSuccess
 import dev.leonardo.ocbeacon.ui.theme.CodeTypography
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
- * 后台任务完成通知卡片（#67 synthetic 消息，2026-08-11 重新设计）。
+ * 后台任务完成通知卡片（#67 synthetic 消息）。
  *
  * opencode 服务器在后台 task/subagent 完成时向主会话注入 synthetic 消息
- * （REST GET /message 的 type="synthetic" + 顶层 text；无 SSE 事件），
- * text 为结构化格式：
- *   <task id="ses_xxx" state="completed|error">
- *   <summary>Background task completed: <描述></summary>
- *   <task_result|task_error>…输出…</task_result|task_error>
- *   </task>
+ * （type="synthetic" + 顶层 text；客户端实时经 session.input.promoted 接收，
+ * 2026-08-12 与 TUI 机制对齐），text 为结构化格式：
+ *   <task id="ses_xxx" state="completed|error"><summary>…</summary><task_result>…</task_result></task>
+ *   <subagent id="ses_xxx" state="completed" description="…">结果</subagent>
  *
- * 设计目标（用户 2026-08-11 要求：与 subagent/shell 任务卡片类似，
- * 参照 opencode TUI 的 task 帧逻辑：标题 + 描述 + 结果）：
- * - 布局 = TaskToolCard 标题行 + ShellCard 状态行（方案 A）：
- *   第 1 行 = 图标 + "Sub-agent" 标题 + 任务描述（同行，CodeTypography），
- *   第 2 行 = 状态文本（Completed/Failed）+ "· " + 结果摘要（labelSmall）
- * - 状态区分：完成 = 绿色底 CheckCircle / 失败 = 红色底 ErrorOutline /
- *   未知 = 默认 Info（三色语义：发起=蓝 / 完成=绿 / 失败=红）
- * - 右侧：定位发起卡片按钮（sessionId 匹配时）+ 导航箭头跳转子会话
- *   （"开始卡片"与"结束卡片"互相引用）+ 复制 + 展开完整输出
+ * 渲染（2026-08-12 用户决策：独立气泡方案 A）：
+ * - synthetic 是**独立消息**，独立气泡渲染（不再嵌入 assistant turn）
+ * - 气泡结构与 assistant 同构：左对齐 + surfaceVariant 底 + ShapeTokens.medium 圆角
+ * - **区别点**：顶部"系统通知"标签行（状态图标 绿✓/红✗/蓝ℹ + primary 标签色）
+ * - 内容：标题行（Sub-agent · 任务描述）+ 状态行（Task completed/failed · 结果摘要）
+ * - 右侧操作：展开输出 / 定位发起卡片 / 跳转子会话
+ * - 页脚：时间（HH:mm，同 assistant 页脚格式）
  * - 解析失败 fallback：Info 图标 + 全文（无状态行/跳转/展开）
  */
 @Composable
@@ -101,25 +102,14 @@ internal fun SyntheticNotificationCard(
         isError -> AgentError
         else -> AgentSuccess
     }
-    // 状态底色语义（2026-08-11 用户要求）：完成=绿底 / 失败=红底 /
-    // 未知=默认；与发起卡片（TaskToolCard 蓝底）形成三色体系。
-    val containerColor = when {
-        info == null -> MaterialTheme.colorScheme.surface
-        isError -> AgentError.copy(alpha = AlphaTokens.SELECTED)
-        else -> AgentSuccess.copy(alpha = AlphaTokens.SELECTED)
-    }
     // 「定位发起卡片」按钮（2026-08-11 用户要求）：有子会话 id 即显示，
     // 点击后由 ChatMessageList 在消息流中查找发起卡片（TaskToolCard 的
-    // metadata.sessionId）并滚动+高亮；找不到时提示（不再依赖 locatable
-    // 预匹配——真实场景常因发起卡片被分页/折叠而预匹配失败，按钮隐藏导致
-    // 用户看不到该功能）。
+    // metadata.sessionId）并滚动+高亮；找不到时提示。
     val canLocate = sessionId != null && onLocateTask != null
 
     // 第 1 行主标题：任务描述（summary 去 "Background task completed/failed: " 前缀）
-    // ——与发起卡片（TaskToolCard）的 description 对应；fallback 用原文。
     val taskTitle = info?.summary?.let(::extractTaskDescription) ?: text
-    // 第 2 行状态（与 ShellCard 的 "Running · 输出摘要" 同构）：
-    // 状态文本 + 输出摘要首行
+    // 第 2 行状态（与 ShellCard 的 "Running · 输出摘要" 同构）
     val statusText = when {
         info == null -> null
         isError -> stringResource(R.string.chat_task_failed)
@@ -139,141 +129,180 @@ internal fun SyntheticNotificationCard(
     val hasNavArrow = sessionId != null
     val hasOutput = output != null
 
-    ToolCardScaffold(
-        icon = icon,
-        iconTint = iconTint,
-        title = "",
-        copyText = text,
-        isExpanded = expanded,
-        isRunning = false,
-        hasContent = hasOutput,
-        isAmoled = isAmoled,
-        onToggleExpand = { expanded = !expanded },
-        containerColor = containerColor,
-        onClick = if (hasNavArrow) {
-            { onViewSubSession?.invoke(sessionId) }
-        } else null,
-        showExpandIcon = !hasNavArrow,
-        rightSideExtras = {
-            if (canLocate) {
-                // 「定位发起卡片」：滚动到发起该任务的 TaskToolCard 位置
-                IconButton(
-                    onClick = { onLocateTask?.invoke(sessionId) },
-                    modifier = Modifier.size(22.dp)
+    // 页脚时间（同 assistant 页脚格式，MessageCardAssistant HH:mm）
+    val timeText = remember(currentMessage.message.time.created) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentMessage.message.time.created))
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Surface(
+            shape = ShapeTokens.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            border = if (isAmoled) AmoledDefaultBorder else null,
+            tonalElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(
+                    horizontal = SpacingTokens.LG.dp,
+                    vertical = 12.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // 顶部标签行：状态图标 + "系统通知" + 右侧操作（展开/定位/跳转）
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = stringResource(R.string.a11y_locate_task),
+                        imageVector = icon,
+                        contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
+                        tint = iconTint
                     )
+                    Text(
+                        text = stringResource(R.string.chat_system_notification),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (hasOutput) {
+                        IconButton(
+                            onClick = { expanded = !expanded },
+                            modifier = Modifier.size(22.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = stringResource(R.string.chat_expand),
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
+                            )
+                        }
+                    }
+                    if (canLocate) {
+                        IconButton(
+                            onClick = { onLocateTask?.invoke(sessionId) },
+                            modifier = Modifier.size(22.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = stringResource(R.string.a11y_locate_task),
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
+                            )
+                        }
+                    }
+                    if (hasNavArrow) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
-            }
-            if (hasNavArrow) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        },
-        titleContent = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = iconTint
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    // 第 1 行：Agent 标题 + 任务描述（TaskToolCard 同款标题行）
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (info == null) {
-                            // fallback：直接显示原文（无任务格式）
+
+                // 标题行：Sub-agent · 任务描述（TaskToolCard 同款标题行）
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (info == null) {
+                        // fallback：直接显示原文（无任务格式）
+                        Text(
+                            text = text,
+                            style = CodeTypography,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.tool_sub_agent),
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1
+                        )
+                        if (taskTitle != text) {
                             Text(
-                                text = text,
+                                text = "· $taskTitle",
                                 style = CodeTypography,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                        } else {
-                            Text(
-                                text = stringResource(R.string.tool_sub_agent),
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1
-                            )
-                            if (taskTitle != text) {
-                                Text(
-                                    text = "· $taskTitle",
-                                    style = CodeTypography,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
                         }
                     }
-                    // 第 2 行：状态 + 结果摘要（ShellCard 同款状态行）
-                    if (statusText != null) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
+                }
+
+                // 状态行：Task completed/failed · 结果摘要（ShellCard 同款）
+                if (statusText != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statusColor ?: MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (outputSummary != null) {
                             Text(
-                                text = statusText,
+                                text = "· $outputSummary",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = statusColor ?: MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            if (outputSummary != null) {
-                                Text(
-                                    text = "· $outputSummary",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                        }
+                    }
+                }
+
+                // 展开输出（点击标签行右侧展开按钮）
+                if (hasOutput && expanded) {
+                    val halfScreenHeight = halfScreenHeight()
+                    val scrollState = rememberScrollState()
+                    Surface(
+                        shape = ShapeTokens.extraSmall,
+                        color = toolOutputContainerColor(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 3.dp)
+                            .heightIn(max = halfScreenHeight)
+                            .verticalScroll(scrollState)
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(
+                                text = stringResource(R.string.chat_task_output_summary),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            SelectionContainer {
+                                MarkdownContent(
+                                    markdown = output.take(2000),
+                                    textColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    isUser = false
                                 )
                             }
                         }
                     }
                 }
-            }
-        }
-    ) {
-        if (hasOutput) {
-            val halfScreenHeight = halfScreenHeight()
-            val scrollState = rememberScrollState()
-            Surface(
-                shape = ShapeTokens.extraSmall,
-                color = toolOutputContainerColor(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 3.dp)
-                    .heightIn(max = halfScreenHeight)
-                    .verticalScroll(scrollState)
-            ) {
-                Column(modifier = Modifier.padding(8.dp)) {
+
+                // 页脚：时间（同 assistant 页脚，右对齐）
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
                     Text(
-                        text = stringResource(R.string.chat_task_output_summary),
+                        text = timeText,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    SelectionContainer {
-                        MarkdownContent(
-                            markdown = output.take(2000),
-                            textColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            isUser = false
-                        )
-                    }
                 }
             }
         }

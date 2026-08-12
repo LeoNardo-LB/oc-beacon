@@ -175,6 +175,7 @@
     <string name="chat_status_running_subagent">Uruchamianie pod-agenta</string>
     <string name="chat_task_completed">Zadanie ukończone</string>
     <string name="chat_task_failed">Zadanie nieudane</string>
+    <string name="chat_system_notification">Powiadomienie systemowe</string>
     <string name="chat_status_updating_tasks">Aktualizowanie zadań</string>
     <string name="chat_status_thinking">Myśli</string>
     <string name="chat_tool_running_command">Wykonywanie komendy…</string>

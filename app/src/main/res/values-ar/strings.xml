@@ -181,6 +181,7 @@
     <string name="chat_status_running_subagent">تشغيل وكيل فرعي</string>
     <string name="chat_task_completed">اكتملت المهمة</string>
     <string name="chat_task_failed">فشلت المهمة</string>
+    <string name="chat_system_notification">إشعار النظام</string>
     <string name="chat_status_updating_tasks">تحديث المهام</string>
     <string name="chat_status_thinking">يفكر</string>
     <string name="chat_tool_running_command">تشغيل الأمر…</string>

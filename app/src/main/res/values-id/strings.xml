@@ -104,6 +104,7 @@
     <string name="chat_status_running_subagent">Menjalankan sub-agent</string>
     <string name="chat_task_completed">Tugas selesai</string>
     <string name="chat_task_failed">Tugas gagal</string>
+    <string name="chat_system_notification">Notifikasi sistem</string>
     <string name="chat_status_updating_tasks">Memperbarui tugas</string>
     <string name="chat_status_thinking">Berpikir</string>
     <string name="chat_tool_running_command">Menjalankan perintah…</string>

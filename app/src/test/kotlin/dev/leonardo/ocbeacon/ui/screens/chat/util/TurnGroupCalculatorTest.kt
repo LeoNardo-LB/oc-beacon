@@ -84,21 +84,23 @@ class TurnGroupCalculatorTest {
     )
 
     @Test
-    fun `synthetic between assistants merged into turn`() {
+    fun `synthetic between assistants splits turns`() {
+        // 2026-08-12 用户决策：synthetic 独立气泡——不并入 assistant turn，
+        // 也不合并两侧 assistant（turn = 连续 assistant 序列）
         val msgs = listOf(assistantMsg("a1"), syntheticMsg("s1"), assistantMsg("a2"))
         val result = computeTurnGroups(msgs)
-        // synthetic 前后都有 assistant → 并入同一个 turn（不中断气泡）
-        assertEquals(listOf(msgs[0], msgs[1], msgs[2]), result[0])
-        assertEquals(listOf(msgs[0], msgs[1], msgs[2]), result[1])
-        assertEquals(listOf(msgs[0], msgs[1], msgs[2]), result[2])
+        assertEquals(listOf(msgs[0]), result[0])
+        assertEquals(null, result[1])
+        assertEquals(listOf(msgs[2]), result[2])
     }
 
     @Test
-    fun `synthetic after assistant merged into turn`() {
+    fun `synthetic after assistant stays independent`() {
+        // 2026-08-12 用户决策：synthetic 不再并入 assistant turn
         val msgs = listOf(assistantMsg("a1"), syntheticMsg("s1"))
         val result = computeTurnGroups(msgs)
-        assertEquals(listOf(msgs[0], msgs[1]), result[0])
-        assertEquals(listOf(msgs[0], msgs[1]), result[1])
+        assertEquals(listOf(msgs[0]), result[0])
+        assertEquals(null, result[1])
     }
 
     @Test
