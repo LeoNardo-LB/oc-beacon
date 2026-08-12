@@ -61,7 +61,10 @@ internal fun EditToolCard(
 ) {
     val isAmoled = isAmoledTheme()
     val input = extractToolInput(tool)
-    val filePath = input["filePath"]?.jsonPrimitive?.contentOrNull ?: ""
+    // 2026-08-12 修复：服务器实际发送 path 字段（schema 声明 filePath，实测 input 为
+    // {"path": ...}）——兼容两者，否则标题缺文件名
+    val filePath = input["filePath"]?.jsonPrimitive?.contentOrNull
+        ?: input["path"]?.jsonPrimitive?.contentOrNull ?: ""
     val shortPath = extractFileName(filePath)
     val dirPath = dev.leonardo.ocbeacon.util.PathUtils.parentDir(filePath)
     val oldString = input["oldString"]?.jsonPrimitive?.contentOrNull ?: ""

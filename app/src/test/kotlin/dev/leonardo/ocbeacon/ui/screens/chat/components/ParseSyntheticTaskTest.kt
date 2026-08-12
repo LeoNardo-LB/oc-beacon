@@ -70,6 +70,21 @@ class ParseSyntheticTaskTest {
     }
 
     @Test
+    fun `parses shell format`() {
+        // 2026-08-12 修复：<shell> 标签正文提取（此前只 <subagent> 走正文提取，
+        // shell 通知 output null → 无展开按钮）
+        val text = """<shell id="sh_123" state="completed" description="echo hello">
+hello
+</shell>"""
+        val info = parseSyntheticTask(text)
+        assertEquals("sh_123", info?.sessionId)
+        assertEquals("completed", info?.state)
+        assertEquals("echo hello", info?.summary)
+        assertEquals("hello", info?.output)
+        assertEquals("shell", info?.source)
+    }
+
+    @Test
     fun `returns null for non task text`() {
         assertNull(parseSyntheticTask("普通文本没有结构化标记"))
         assertNull(parseSyntheticTask(""))

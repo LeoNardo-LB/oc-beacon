@@ -341,6 +341,8 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
     val taskMatch = Regex("""<(?:task|subagent|shell)\b[^>]*>""").find(text) ?: return null
     val taskTag = taskMatch.value
     val isSubagentTag = taskTag.startsWith("<subagent")
+    // 2026-08-12 修复：<shell> 标签同 <subagent>——正文在标签之间（非 task_result 包裹）
+    val isBodyTag = isSubagentTag || taskTag.startsWith("<shell")
     // 来源类型（2026-08-12）：agent = subagent/task 注入；shell = shell 通知（未来）
     val source = when {
         isSubagentTag || taskTag.startsWith("<task") -> "agent"
@@ -352,7 +354,7 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
     // state 决定完成/失败语义与色彩——缺失则视为无效格式（fallback 纯文本）
     val state = Regex("""state="([^"]*)"""").find(taskTag)
         ?.groupValues?.get(1)?.takeIf { it.isNotBlank() } ?: return null
-    val summary = if (isSubagentTag) {
+    val summary = if (isBodyTag) {
         Regex("""description="([^"]*)"""").find(taskTag)?.groupValues?.get(1)?.trim()
     } else {
         Regex(
@@ -360,9 +362,10 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
             RegexOption.DOT_MATCHES_ALL
         ).find(text)?.groupValues?.get(1)?.trim()
     }
-    val output = if (isSubagentTag) {
-        // 正文 = 开标签与 </subagent> 之间的文本
-        val closeIdx = text.indexOf("</subagent>")
+    val output = if (isBodyTag) {
+        // 正文 = 开标签与对应闭合标签之间的文本（subagent/shell 都是标签间正文）
+        val closeTag = if (isSubagentTag) "</subagent>" else "</shell>"
+        val closeIdx = text.indexOf(closeTag)
         val bodyStart = taskMatch.range.last + 1
         if (closeIdx > bodyStart) {
             text.substring(bodyStart, closeIdx).trim().takeIf { it.isNotBlank() }
