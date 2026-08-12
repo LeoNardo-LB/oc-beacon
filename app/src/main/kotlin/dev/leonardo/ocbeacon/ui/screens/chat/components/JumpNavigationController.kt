@@ -112,6 +112,12 @@ class JumpNavigationController(
      * SSE 插入新消息会改变目标 index——轮询 item=null 时重定位用）。 */
     private val resolveLazyIndex: (String) -> Int?,
 ) {
+    /** 2026-08-13 根治"定位到回复"：目标 key 前缀——user 目标只匹配 "u_"，
+     * assistant 目标（onLocateTask）只匹配 "t_"——t_/u_ 同 id 时不再歧义
+     *（旧逻辑 `u_ || t_` firstOrNull 会匹配到同 id 的 assistant turn）。 */
+    private var targetKeyPrefix: String = "u"
+
+    private fun targetKey(msgId: String): String = "${targetKeyPrefix}_$msgId"
     private val _phase = MutableStateFlow<JumpPhase>(JumpPhase.Idle)
     val phase: StateFlow<JumpPhase> = _phase
 
@@ -131,6 +137,7 @@ class JumpNavigationController(
 
     /** 跳转（快速导航——user 消息目标）。 */
     fun jumpTo(msgId: String, lazyIndex: Int, preParseText: String?) {
+        targetKeyPrefix = "u"
         currentTargetMsgId = msgId
         _phase.value = JumpPhase.Preparing(msgId)
         scope.launch {
@@ -154,6 +161,7 @@ class JumpNavigationController(
 
     /** 定位发起卡片（assistant 目标——同状态机，参数化目标）。 */
     fun jumpToTask(lazyIndex: Int, targetMsgId: String) {
+        targetKeyPrefix = "t"
         currentTargetMsgId = targetMsgId
         _phase.value = JumpPhase.Preparing(targetMsgId)
         scope.launch {
@@ -177,16 +185,14 @@ class JumpNavigationController(
         val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
         val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
 
-        // 一次定位：估算高度（无测量——目标未进入视口）——目标直接到最终位置附近。
-        // **注意**：requestScroll 的 scrollOffset 在 reverse 布局取反（实测 req=347
-        // → offset=-278）→ 传负值。估算偏差由收敛修正（小位移——目标不滚出视口）。
-        val estimatedHeight = 240f
-        val desired = computeDesiredOffset(vh, estimatedHeight, contentPaddingTop)
-        LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, -(desired.toInt()))
+        // Measuring 定位：**底部对齐**（requestScroll offset=0——目标底边贴视口
+        // 底——一定在视口内，不会因估算高度偏差滚过头/丢失；蒙版遮住后续移动）
+        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 底部定位 idx=$lazyIndex")
+        LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
         kotlinx.coroutines.delay(32)  // 等 2 帧（约 16ms/帧）——非组合环境用 delay 替代 withFrameNanos
         if (BuildConfig.DEBUG) {
             val vis = listState.layoutInfo.visibleItemsInfo.map { "${it.index}:${it.key}" }.take(12)
-            AppLogger.d("ChatPaging", "jump: 估算定位 desired=$desired 可见=[$vis]")
+            AppLogger.d("ChatPaging", "jump: 底部定位后可见=[$vis]")
         }
 
         // Measuring：轮询目标 item.size（布局权威数据——连续 2 轮不变 = 稳定）。
@@ -202,7 +208,7 @@ class JumpNavigationController(
             while (true) {
                 kotlinx.coroutines.delay(100)
                 val item = listState.layoutInfo.visibleItemsInfo.firstOrNull {
-                    it.key == "u_$msgId" || it.key == "t_$msgId"
+                    it.key == targetKey(msgId)
                 }
                 if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatPaging", "jump: 轮询 item=${item?.let { "size=${it.size} off=${it.offset}" } ?: "null"}")
@@ -216,10 +222,7 @@ class JumpNavigationController(
                     if (nullStreak >= 2 && now - lastRelocateAt > 300) {
                         val freshIndex = resolveLazyIndex(msgId) ?: lazyIndex
                         if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 重定位 idx=$freshIndex（null=$nullStreak）")
-                        LazyListReflection.requestScrollToItemNoCancel(
-                            listState, freshIndex,
-                            -(computeDesiredOffset(vh, 240f, contentPaddingTop).toInt())
-                        )
+                        LazyListReflection.requestScrollToItemNoCancel(listState, freshIndex, 0)
                         lastRelocateAt = now
                         nullStreak = 0
                     }
@@ -247,14 +250,23 @@ class JumpNavigationController(
         }
         _phase.value = jumpTransition(_phase.value, JumpEvent.MeasureReady)
 
-        // Settling：收敛小修正（目标在视口内——不回收——修正后稳定）
+        // Settling：测量稳定后**一次定位到顶部**（用最终高度——目标底边从 0
+        // 移到 vh - H - pt；蒙版遮住移动）→ 收敛微调（小位移）
+        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 一次定位顶部 H=${ready.finalHeight}")
+        LazyListReflection.requestScrollToItemNoCancel(
+            listState, lazyIndex,
+            -(computeDesiredOffset(vh, ready.finalHeight.toFloat(), contentPaddingTop).toInt())
+        )
+        kotlinx.coroutines.delay(32)
+
+        // 收敛小修正（目标在视口内——不回收——修正后稳定）
         var converged = 0
         var settled = false
         for (round in 1..6) {
             kotlinx.coroutines.delay(150)
             listState.scroll {
                 val info3 = listState.layoutInfo
-                val it3 = info3.visibleItemsInfo.firstOrNull { it.key == "u_$msgId" || it.key == "t_$msgId" }
+                val it3 = info3.visibleItemsInfo.firstOrNull { it.key == targetKey(msgId) }
                 if (it3 != null) {
                     val vh3 = (info3.viewportEndOffset - info3.viewportStartOffset).toFloat()
                     val pt3 = -info3.viewportStartOffset.toFloat()
@@ -284,7 +296,7 @@ class JumpNavigationController(
             kotlinx.coroutines.delay(150)
             listState.scroll {
                 val info4 = listState.layoutInfo
-                val it4 = info4.visibleItemsInfo.firstOrNull { it.key == "u_$msgId" || it.key == "t_$msgId" }
+                val it4 = info4.visibleItemsInfo.firstOrNull { it.key == targetKey(msgId) }
                 if (it4 != null) {
                     val vh4 = (info4.viewportEndOffset - info4.viewportStartOffset).toFloat()
                     val pt4 = -info4.viewportStartOffset.toFloat()
