@@ -119,6 +119,15 @@ fun BackgroundSheet(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
+                // 2026-08-12 用户要求：标题栏显示当前进行中任务数（关闭按钮左侧）
+                if (state.badgeCount > 0) {
+                    Text(
+                        text = "${state.badgeCount} ${stringResource(R.string.shell_status_running)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.padding(end = SpacingTokens.SM.dp),
+                    )
+                }
                 IconButton(onClick = onDismiss) {
                     Icon(
                         Icons.Default.Close,

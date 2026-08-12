@@ -45,7 +45,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
@@ -80,13 +82,19 @@ fun QuickNavigateSheet(
 
     // 对话框打开时自动滚动到当前高亮的提问，
     // 让用户看到自己所在位置而不是 Q1。
-    LaunchedEffect(show, currentMsgId) {
-        if (currentMsgId != null) {
-            val targetIndex = jumpTargets.indexOfFirst { it.msgId == currentMsgId }
-            if (targetIndex >= 0) {
-                listState.scrollToItem(targetIndex)
-            }
+    // 2026-08-12 修复迭代：
+    // 1. key 加 jumpTargets.size——jumpTargets 异步加载，打开瞬间为空。
+    // 2. currentMsgId 匹配不到时降级滚动到列表最新项（用户当前所在区域）——
+    //    主会话最新消息常为长 assistant 回复/空壳（无文本 user 不在列表），
+    //    currentMsgId=null 或 index=-1 时保持 Q1 会让用户迷失。
+    LaunchedEffect(show, currentMsgId, jumpTargets.size) {
+        if (jumpTargets.isEmpty()) return@LaunchedEffect
+        val targetIndex = currentMsgId?.let { id -> jumpTargets.indexOfFirst { it.msgId == id } } ?: -1
+        val scrollIndex = if (targetIndex >= 0) targetIndex else jumpTargets.lastIndex
+        if (BuildConfig.DEBUG) {
+            AppLogger.d("QuickNavigate", "scroll-to: current=${currentMsgId?.take(12)} targets=${jumpTargets.size} match=$targetIndex scroll=$scrollIndex")
         }
+        listState.scrollToItem(scrollIndex)
     }
 
     // 2026-08-12 用户要求：快速导航改为抽屉形式（ModalBottomSheet，与后台面板/模型选择一致）

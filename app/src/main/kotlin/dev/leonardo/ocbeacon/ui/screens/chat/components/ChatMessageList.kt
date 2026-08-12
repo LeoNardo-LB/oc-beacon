@@ -270,11 +270,6 @@ fun ChatMessageList(
         }
     }
 
-    // 当前可见问题（msgId 驱动，与 Room 全量列表的 JumpTarget.msgId 匹配高亮）。
-    val currentQuestionMsgId by remember(rawMessages) {
-        derivedStateOf { findCurrentQuestionMsgId(listState, rawMessages) }
-    }
-
     // LazyColumn 中 itemsIndexed 之前渲染的非消息项数量。
     // 必须与下面的条件 `item { ... }` 块保持一致（见横幅渲染）。
     val bannerCount = remember(
@@ -293,6 +288,13 @@ fun ChatMessageList(
         (if (currentStep != null) 1 else 0) +
         (if (interaction.pendingQuestions.isNotEmpty()) 1 else 0) +
         (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0)
+    }
+
+    // 当前可见问题（msgId 驱动，与 Room 全量列表的 JumpTarget.msgId 匹配高亮）。
+    // 2026-08-12 修复：基于 displayItems 显示序列（原 rawMessages 索引与显示序列
+    // 不一致导致 currentMsgId 恒为 null——见 JumpTargetExtractor 注释）。
+    val currentQuestionMsgId by remember(displayItems, bannerCount) {
+        derivedStateOf { findCurrentQuestionMsgId(listState, displayItems, bannerCount) }
     }
 
     // 高亮 key（3 秒后自动清除）—— scrollToDisplayItem / onLocateTask 共用。

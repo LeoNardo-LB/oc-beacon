@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -109,27 +110,28 @@ internal fun ModelPickerDialog(
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
                 for ((index, provider) in sortedProviders.withIndex()) {
-                    val topPad = if (index == 0) 0.dp else 12.dp
-
                     val sortedModels = provider.models.values
                         .sortedWith(compareBy<ModelCatalog> { !isModelFree(provider.id, it) }.thenBy { it.name.lowercase() })
 
                     item(key = "provider_header_${provider.id}") {
+                        // 2026-08-12 用户要求：聚合行行高与正常 item 一致——
+                        // 显式 height(40.dp) 对齐模型行（8dp padding + bodyMedium 24sp ≈ 40dp）
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = topPad, bottom = 2.dp, start = 4.dp),
+                                .heightIn(min = 40.dp)
+                                .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             ProviderIcon(
                                 providerId = provider.id,
-                                size = 14.dp,
+                                size = 16.dp,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                             )
                             Text(
                                 text = (provider.name.ifEmpty { provider.id }).uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
                                 letterSpacing = 1.sp
                             )
@@ -144,6 +146,8 @@ internal fun ModelPickerDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                // 2026-08-12 用户要求：单行 item 统一高度（与聚合行一致——40dp 密集规格）
+                                .heightIn(min = 40.dp)
                                 .clip(ShapeTokens.small)
                                 .background(
                                     if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.MUTED)
@@ -156,22 +160,23 @@ internal fun ModelPickerDialog(
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            // 2026-08-12 用户要求：统一单行展示——模型名左 + Free 标签右 + 选中勾
+                            Text(
+                                text = model.name.ifEmpty { model.id },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (isModelFree(provider.id, model)) {
                                 Text(
-                                    text = model.name.ifEmpty { model.id },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    text = stringResource(R.string.chat_free_label),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.HIGH),
+                                    modifier = Modifier.padding(start = 8.dp),
                                 )
-                                if (isModelFree(provider.id, model)) {
-                                    Text(
-                                        text = stringResource(R.string.chat_free_label),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.HIGH)
-                                    )
-                                }
                             }
                             if (isSelected) {
                                 Icon(

@@ -1,9 +1,11 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.util
 
 import androidx.compose.foundation.lazy.LazyListState
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 
 /** 可从快速导航面板跳转的用户问题。 */
@@ -72,26 +74,55 @@ fun findNearestUserIndexBefore(rawMessages: List<ChatMessage>, rawIdx: Int): Int
 }
 
 /**
- * 识别当前可见顶部消息对应的用户问题，返回其 **msgId**（用于与 Room 全量
- * 导航列表的 [JumpTarget.msgId] 匹配高亮）。
+ * 识别当前可见的用户问题，返回其 **msgId**（用于与 Room 全量导航列表的
+ * [JumpTarget.msgId] 匹配高亮）。
  *
- * 使用 listState.layoutInfo.visibleItemsInfo + 消息 key 格式
- *（"u_<id>" 为用户，"t_<id>" 为 assistant —— 见 ChatMessageList.kt:391-392）。
- * reverseLayout=true：视觉上最顶部的可见消息 = 最小偏移。
+ * 2026-08-12 修复（两次迭代）：
+ * - 原实现：key 解析 id → rawMessages 索引向上找 user——displayItems 过滤
+ *   消息（synthetic/turn 合并）导致索引与显示序列不一致 → currentMsgId 恒 null。
+ * - 第一次改版：minByOrNull(offset) 取"视觉顶部"——reverseLayout 下 offset
+ *   语义不可靠（实测选出的是最新消息/视觉底部），且向上找 user 方向错。
+ * - 最终方案：直接取 **可见项中 key 以 "u_" 开头（user）且 index 最大**
+ *   （降序列表 index 大 = 更旧 = 视觉更靠上）——不依赖 offset 语义，
+ *   不受 displayItems 过滤影响，语义 = "用户当前正在查看区域最上方的问题"。
  *
- * 返回当前用户问题的 msgId，无法确定时返回 null。
+ * 返回当前用户问题的 msgId：
+ * - 视口内有可见 user 消息 → 取 index 最大（视觉最靠上）的那个
+ * - 视口内无 user（如最新回复为长 assistant 占满视口）→ 以可见项中
+ *   index 最大（最旧可见）为锚点，向更旧方向找最近 user；再向更新方向找
+ * - 跳过空壳 user（无文本 parts——与 extractJumpTargets 过滤一致，
+ *   否则返回的 id 不在导航列表 → index=-1 无法高亮/滚动）
+ * - 均无 → null
  */
 fun findCurrentQuestionMsgId(
     listState: LazyListState,
-    rawMessages: List<ChatMessage>,
+    displayItems: List<Pair<Int, ChatMessage>>,
+    bannerCount: Int,
 ): String? {
-    val visibleMsgs = listState.layoutInfo.visibleItemsInfo.filter { info ->
-        (info.key as? String)?.let { it.startsWith("u_") || it.startsWith("t_") } == true
+    val visible = listState.layoutInfo.visibleItemsInfo
+        .filter { (it.key as? String)?.let { k -> k.startsWith("u_") || k.startsWith("t_") } == true }
+    val anchor = visible
+        .filter { (it.key as? String)?.startsWith("u_") == true && hasText(displayItems, it.index - bannerCount) }
+        .maxByOrNull { it.index }
+        ?: visible.maxByOrNull { it.index }
+        ?: run {
+            if (BuildConfig.DEBUG) AppLogger.d("QuickNavigate", "findCurrent: 可见区无消息项 (total=${listState.layoutInfo.visibleItemsInfo.size})")
+            return null
+        }
+    val displayIdx = anchor.index - bannerCount
+    if (BuildConfig.DEBUG) {
+        AppLogger.d("QuickNavigate", "findCurrent: anchorIdx=${anchor.index} banner=$bannerCount displayIdx=$displayIdx items=${displayItems.size}")
     }
-    val topMsg = visibleMsgs.minByOrNull { it.offset } ?: return null
-    val key = topMsg.key as String
-    val msgId = key.removePrefix("u_").removePrefix("t_")
-    val rawIdx = rawMessages.indexOfFirst { it.message.id == msgId }
-    if (rawIdx < 0) return null
-    return findNearestUserIndexBefore(rawMessages, rawIdx)?.let { rawMessages[it].message.id }
+    if (displayIdx < 0 || displayIdx >= displayItems.size) return null
+    val found = (displayIdx until displayItems.size).firstOrNull { isNavigableUser(displayItems[it]) }
+        ?: (displayIdx downTo 0).firstOrNull { isNavigableUser(displayItems[it]) }
+    return found?.let { displayItems[it].second.message.id }
 }
+
+/** user 且至少有一个非空 Part.Text（可导航判定，与快速导航列表过滤一致）。 */
+private fun isNavigableUser(item: Pair<Int, ChatMessage>): Boolean =
+    item.second.isUser && item.second.parts.any { it is Part.Text && it.text.isNotBlank() }
+
+/** 根据 LazyColumn 索引（含 banner 偏移）取 displayItems 项并判定可导航。 */
+private fun hasText(displayItems: List<Pair<Int, ChatMessage>>, displayIdx: Int): Boolean =
+    displayIdx in displayItems.indices && isNavigableUser(displayItems[displayIdx])
