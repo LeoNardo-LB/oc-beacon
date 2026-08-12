@@ -92,7 +92,12 @@ fun QuickNavigateSheet(
     //    定位到时间最近的问题；无锚点才回退列表最新项——主会话最新消息常为
     //    长 assistant 回复/空壳（无文本 user 不在列表），currentMsgId=null 时
     //    应定位到"当前位置附近"而非最新（用户反馈"没有定位到当前所在位置"）。
-    LaunchedEffect(show, currentMsgId, anchorTimestampMs, jumpTargets.size) {
+    // 3. 2026-08-12 再修复：key **不含** currentMsgId/anchorTimestampMs——
+    //    SSE 流式期间 displayItems 每 48ms 变化 → 锚点持续重算（logcat 实证
+    //    findCurrent 每 ~50ms 刷屏）→ 本 effect 反复重启 → 抽屉列表反复
+    //    scrollToItem → 用户点击 Q 时条目正在移动 → 点击落空（用户反馈
+    //    "选中了之后没有挪动"）。只在打开/列表加载完成时定位一次。
+    LaunchedEffect(show, jumpTargets.size) {
         if (jumpTargets.isEmpty()) return@LaunchedEffect
         // 2026-08-12 修复：等一帧布局完成再 scrollToItem——jumpTargets.size 变化
         // 触发本 effect 时 LazyColumn 可能尚未布局新列表，scrollToItem 无效
