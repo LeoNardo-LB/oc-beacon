@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -93,6 +94,10 @@ fun QuickNavigateSheet(
     //    应定位到"当前位置附近"而非最新（用户反馈"没有定位到当前所在位置"）。
     LaunchedEffect(show, currentMsgId, anchorTimestampMs, jumpTargets.size) {
         if (jumpTargets.isEmpty()) return@LaunchedEffect
+        // 2026-08-12 修复：等一帧布局完成再 scrollToItem——jumpTargets.size 变化
+        // 触发本 effect 时 LazyColumn 可能尚未布局新列表，scrollToItem 无效
+        //（实测 scroll=11 但视口停在 Q4——定位失效）
+        withFrameNanos { }
         val targetIndex = currentMsgId?.let { id -> jumpTargets.indexOfFirst { it.msgId == id } } ?: -1
         val scrollIndex = when {
             targetIndex >= 0 -> targetIndex

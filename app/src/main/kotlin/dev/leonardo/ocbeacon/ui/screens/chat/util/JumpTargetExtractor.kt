@@ -119,9 +119,11 @@ fun findCurrentQuestionMsgId(
     return found?.let { displayItems[it].second.message.id }
 }
 
-/** user 且至少有一个非空 Part.Text（可导航判定，与快速导航列表过滤一致）。 */
+/** user 且非 synthetic、至少一个非空 Part.Text（可导航判定，与快速导航列表过滤一致）。 */
 private fun isNavigableUser(item: Pair<Int, ChatMessage>): Boolean =
-    item.second.isUser && item.second.parts.any { it is Part.Text && it.text.isNotBlank() }
+    item.second.isUser &&
+        item.second.message.role != "synthetic" &&
+        item.second.parts.any { it is Part.Text && it.text.isNotBlank() }
 
 /** 根据 LazyColumn 索引（含 banner 偏移）取 displayItems 项并判定可导航。 */
 private fun hasText(displayItems: List<Pair<Int, ChatMessage>>, displayIdx: Int): Boolean =
