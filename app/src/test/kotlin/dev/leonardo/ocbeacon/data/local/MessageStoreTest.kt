@@ -349,6 +349,9 @@ class MessageStoreTest {
         val realDao = object : MessageDao {
             override suspend fun messagesForSession(sessionId: String, limit: Int) = entities
             override suspend fun messagesBefore(sessionId: String, beforeId: String, limit: Int) = emptyList<CachedMessageEntity>()
+            override suspend fun messagesAfter(sessionId: String, afterId: String, limit: Int) = emptyList<CachedMessageEntity>()
+            override suspend fun userMessages(sessionId: String, limit: Int) = emptyList<CachedMessageEntity>()
+            override suspend fun messageById(sessionId: String, messageId: String): CachedMessageEntity? = null
             override suspend fun partsForMessages(messageIds: List<String>): List<CachedPartEntity> {
                 chunkSizes.add(messageIds.size)
                 return messageIds.map { CachedPartEntity(id = "p_$it", messageId = it, sessionId = "ses_1", type = "text", text = "{}", payload = "{}") }
@@ -370,5 +373,60 @@ class MessageStoreTest {
         assertEquals(1500, result.size)
         // 分块：1500/900 → 2 次调用（900 + 600）
         assertEquals(listOf(900, 600), chunkSizes)
+    }
+
+    // ---- userMessages / loadRangeNewer / messageById（快速导航全量列表 + loadAround 本地分支） ----
+
+    @Test
+    fun userMessages_delegatesToDaoAndMapsToMessageWithParts() = runTest {
+        val u1 = msg("msg_1", 100)
+        coEvery { dao.userMessages("ses_1", 1000) } returns listOf(
+            CachedMessageEntity("msg_1", "ses_1", 100, "user", json.encodeToString(u1.info)),
+        )
+        coEvery { dao.partsForMessagesChunked(listOf("msg_1")) } returns emptyList()
+
+        val result = store.userMessages("ses_1", 1000)
+
+        assertEquals(1, result.size)
+        assertEquals("msg_1", result[0].info.id)
+        coVerify(exactly = 1) { dao.userMessages("ses_1", 1000) }
+    }
+
+    @Test
+    fun userMessages_emptyWhenDaoReturnsEmpty() = runTest {
+        coEvery { dao.userMessages("ses_1", any()) } returns emptyList()
+
+        assertEquals(emptyList<MessageWithParts>(), store.userMessages("ses_1", 1000))
+    }
+
+    @Test
+    fun loadRangeNewer_passesAfterCursorToDao() = runTest {
+        store.loadRangeNewer("ses_1", limit = 30, afterId = "msg_5")
+
+        coVerify(exactly = 1) { dao.messagesAfter("ses_1", "msg_5", 30) }
+    }
+
+    @Test
+    fun loadRangeNewer_emptyWhenDaoReturnsEmpty() = runTest {
+        coEvery { dao.messagesAfter("ses_1", "msg_5", 30) } returns emptyList()
+
+        assertEquals(emptyList<MessageWithParts>(), store.loadRangeNewer("ses_1", 30, "msg_5"))
+    }
+
+    @Test
+    fun messageById_returnsMessageWithPartsWhenPresent() = runTest {
+        val u1 = msg("msg_1", 100)
+        coEvery { dao.messageById("ses_1", "msg_1") } returns
+            CachedMessageEntity("msg_1", "ses_1", 100, "user", json.encodeToString(u1.info))
+        coEvery { dao.partsForMessagesChunked(listOf("msg_1")) } returns emptyList()
+
+        assertEquals("msg_1", store.messageById("ses_1", "msg_1")?.info?.id)
+    }
+
+    @Test
+    fun messageById_returnsNullWhenAbsent() = runTest {
+        coEvery { dao.messageById("ses_1", "msg_x") } returns null
+
+        assertNull(store.messageById("ses_1", "msg_x"))
     }
 }

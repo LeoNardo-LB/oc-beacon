@@ -237,6 +237,41 @@ class MessageStore @Inject constructor(
             } ?: emptyList()
         }
 
+    /** 向新方向游标分页读（loadAround 本地分支用）。模式同 [loadRange]，仅 DAO 查询方向不同。 */
+    override suspend fun loadRangeNewer(sessionId: String, limit: Int, afterId: String): List<MessageWithParts> =
+        withContext(Dispatchers.IO) {
+            databaseRecovery.withCorruptionRecovery {
+                val entities = dao.messagesAfter(sessionId, afterId, limit)
+                if (entities.isEmpty()) return@withCorruptionRecovery emptyList()
+                val partsByMsg = partsForMessagesChunked(entities.map { it.id })
+                    .groupBy { it.messageId }
+                entities.map { toMessageWithParts(it, partsByMsg[it.id] ?: emptyList()) }
+            } ?: emptyList()
+        }
+
+    /** 快速导航全量列表：role='user' 的最近 limit 条（含 parts）。 */
+    override suspend fun userMessages(sessionId: String, limit: Int): List<MessageWithParts> =
+        withContext(Dispatchers.IO) {
+            databaseRecovery.withCorruptionRecovery {
+                val entities = dao.userMessages(sessionId, limit)
+                if (entities.isEmpty()) return@withCorruptionRecovery emptyList()
+                val partsByMsg = partsForMessagesChunked(entities.map { it.id })
+                    .groupBy { it.messageId }
+                entities.map { toMessageWithParts(it, partsByMsg[it.id] ?: emptyList()) }
+            } ?: emptyList()
+        }
+
+    /** 单条消息查询（loadAround 本地分支取 target）。null = 不在热表。 */
+    override suspend fun messageById(sessionId: String, messageId: String): MessageWithParts? =
+        withContext(Dispatchers.IO) {
+            databaseRecovery.withCorruptionRecovery {
+                val entity = dao.messageById(sessionId, messageId)
+                    ?: return@withCorruptionRecovery null
+                val parts = dao.partsForMessagesChunked(listOf(messageId))
+                toMessageWithParts(entity, parts)
+            }
+        }
+
     override suspend fun oldestMessageId(sessionId: String): String? =
         withContext(Dispatchers.IO) {
             databaseRecovery.withCorruptionRecovery { dao.oldestMessageId(sessionId) }

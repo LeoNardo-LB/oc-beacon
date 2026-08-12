@@ -47,7 +47,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),
             messagePaging = mockk(relaxed = true),
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = mockk(relaxed = true),
             settingsRepository = mockk(),
             serverId = "srv",
@@ -277,7 +277,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = useCase,
             messagePaging = mockk(relaxed = true),
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = repo,
             settingsRepository = mockk(),
             serverId = "srv",
@@ -305,7 +305,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = useCase,
             messagePaging = mockk(relaxed = true),
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = mockk(relaxed = true),
             settingsRepository = mockk(),
             serverId = "srv",
@@ -333,7 +333,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = useCase,
             messagePaging = mockk(relaxed = true),
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = repo,
             settingsRepository = mockk(),
             serverId = "srv",
@@ -362,7 +362,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = useCase,
             messagePaging = mockk(relaxed = true),
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = repo,
             settingsRepository = mockk(),
             serverId = "srv",
@@ -393,7 +393,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),
             messagePaging = paging,
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = repo,
             settingsRepository = settings,
             serverId = "srv",
@@ -421,7 +421,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),
             messagePaging = paging,
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = mockk(relaxed = true),
             settingsRepository = settings,
             serverId = "srv",
@@ -458,7 +458,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),
             messagePaging = paging,
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = repo,
             settingsRepository = mockk(),
             serverId = "srv",
@@ -495,7 +495,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),
             messagePaging = paging,
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = mockk(relaxed = true),
             settingsRepository = mockk(),
             serverId = "srv",
@@ -540,7 +540,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),
             messagePaging = paging,
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = mockk(relaxed = true),
             settingsRepository = mockk(),
             serverId = "srv",
@@ -568,7 +568,7 @@ class MessagePaginationDelegateTest {
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),
             messagePaging = paging,
-            messageStore = mockk(relaxed = true),
+            messageStore = mockk<MessageStore> { coEvery { messageCreatedAt(any()) } returns null },
             chatRepository = mockk(relaxed = true),
             settingsRepository = mockk(),
             serverId = "srv",
@@ -744,5 +744,116 @@ class MessagePaginationDelegateTest {
         coVerify(exactly = 1) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", null, 0, "cursor-A") }
         coVerify(exactly = 1) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) }
         assertTrue(delegate.hasOlderMessages.value)
+    }
+
+    // ============ loadAround 本地优先（目标在 Room 热表 → 本地分支） ============
+
+    @Test
+    fun `loadAround uses local cache when target in hot table`() = runTest {
+        val target = mkMsg("target", 50L)
+        val older = (0..29).map { mkMsg("o-$it", it.toLong()) }
+        val newer = (51..80).map { mkMsg("n-$it", it.toLong()) }
+        val store = mockk<MessageStore> {
+            coEvery { messageCreatedAt("target") } returns 50L  // 目标在热表 → 本地分支
+            coEvery { messageById("sid-1", "target") } returns target
+            coEvery { loadRange("sid-1", 30, "target") } returns older
+            coEvery { loadRangeNewer("sid-1", 30, "target") } returns newer
+        }
+        val paging = mockk<MessagePaginationUseCase>(relaxed = true)
+        val repo = mockk<ChatRepository>(relaxed = true)
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = store,
+            chatRepository = repo,
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadAround("target")
+        advanceUntilIdle()
+
+        // 走本地分支：不调服务器 loadAround
+        coVerify(exactly = 0) { paging.loadAround(any(), any(), any(), any()) }
+        // 调本地三查询
+        coVerify(exactly = 1) { store.messageById("sid-1", "target") }
+        coVerify(exactly = 1) { store.loadRange("sid-1", 30, "target") }
+        coVerify(exactly = 1) { store.loadRangeNewer("sid-1", 30, "target") }
+        // 合并 upsert 一次（target + older + newer）
+        verify(exactly = 1) { repo.upsertMessages("sid-1", any(), MergeStrategy.APPEND_ONLY) }
+        // older 满页（30）→ hasOlder=true；本地分支 hasNewer 固定 false
+        assertTrue(delegate.hasOlderMessages.value)
+        assertFalse(delegate.hasNewerMessages.value)
+        assertFalse(delegate.isLoadingAround.value)
+    }
+
+    @Test
+    fun `loadAround local sets hasOlder false when older under limit`() = runTest {
+        val store = mockk<MessageStore> {
+            coEvery { messageCreatedAt("target") } returns 50L
+            coEvery { messageById("sid-1", "target") } returns mkMsg("target", 50L)
+            coEvery { loadRange("sid-1", 30, "target") } returns mkMessages(10)  // 不足页
+            coEvery { loadRangeNewer("sid-1", 30, "target") } returns emptyList()
+        }
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = mockk(relaxed = true),
+            messageStore = store,
+            chatRepository = mockk(relaxed = true),
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadAround("target")
+        advanceUntilIdle()
+
+        assertFalse(delegate.hasOlderMessages.value)
+        assertFalse(delegate.hasNewerMessages.value)
+    }
+
+    @Test
+    fun `loadAround falls back to server when target not cached`() = runTest {
+        val older = (0..29).map { mkMsg("o-$it", it.toLong()) }
+        val paging = mockk<MessagePaginationUseCase> {
+            coEvery { loadAround("srv", "sid-1", "target", 30) } returns Result.success(
+                LoadAroundResult(
+                    target = mkMsg("target", 30L),
+                    olderMessages = older,
+                    newerMessages = emptyList(),
+                    olderNextCursor = null,
+                    newerPreviousCursor = null,
+                ),
+            )
+        }
+        val store = mockk<MessageStore> {
+            coEvery { messageCreatedAt("target") } returns null  // 不在热表 → 服务器版
+        }
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = store,
+            chatRepository = mockk(relaxed = true),
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadAround("target")
+        advanceUntilIdle()
+
+        // 走服务器版
+        coVerify(exactly = 1) { paging.loadAround("srv", "sid-1", "target", 30) }
+        assertTrue(delegate.hasOlderMessages.value)  // older 满页
     }
 }

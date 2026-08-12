@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
+import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
@@ -528,6 +529,9 @@ class ChatViewModel @Inject constructor(
     /** "加载更新" 请求是否进行中。 */
     val isLoadingNewer: kotlinx.coroutines.flow.StateFlow<Boolean> =
         messageData.paginationDelegate.isLoadingNewer
+
+    /** 快速导航全量列表（Room 热表 role='user'，含 parts）。suspend —— 调用方在协程中 await。 */
+    suspend fun loadJumpTargets(): List<MessageWithParts> = messageData.loadJumpTargets()
 
     // ============ @ 文件提及搜索 + 草稿管理（门面 —— DraftInputDelegate） ============
 

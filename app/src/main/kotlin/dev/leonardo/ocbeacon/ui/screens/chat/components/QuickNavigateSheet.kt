@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,6 +24,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -55,8 +58,9 @@ import java.util.Locale
  * 列出所有用户提问以便快速导航的对话框。
  *
  * @param show 对话框是否可见
- * @param jumpTargets 提取的用户提问（参见 JumpTargetExtractor）
- * @param currentRawIndex 当前可见问题的 rawIndex，用于高亮；null = 无
+ * @param jumpTargets 提取的用户提问（参见 JumpTargetExtractor；数据源为 Room 全量 user 消息）
+ * @param currentMsgId 当前可见问题的 msgId，用于高亮；null = 无
+ * @param isLoading jumpTargets 正在异步加载（Room 查询期间显示 loading 指示）
  * @param onJump 用户点击某个提问时以 msgId 调用
  * @param onDismiss 对话框应关闭时调用
  */
@@ -65,7 +69,8 @@ import java.util.Locale
 fun QuickNavigateSheet(
     show: Boolean,
     jumpTargets: List<JumpTarget>,
-    currentRawIndex: Int?,
+    currentMsgId: String?,
+    isLoading: Boolean = false,
     onJump: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -75,9 +80,9 @@ fun QuickNavigateSheet(
 
     // 对话框打开时自动滚动到当前高亮的提问，
     // 让用户看到自己所在位置而不是 Q1。
-    LaunchedEffect(show, currentRawIndex) {
-        if (currentRawIndex != null) {
-            val targetIndex = jumpTargets.indexOfFirst { it.rawIndex == currentRawIndex }
+    LaunchedEffect(show, currentMsgId) {
+        if (currentMsgId != null) {
+            val targetIndex = jumpTargets.indexOfFirst { it.msgId == currentMsgId }
             if (targetIndex >= 0) {
                 listState.scrollToItem(targetIndex)
             }
@@ -119,15 +124,36 @@ fun QuickNavigateSheet(
             }
 
             if (jumpTargets.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.no_questions),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = SpacingTokens.XXL.dp),
-                    textAlign = TextAlign.Center,
-                )
+                if (isLoading) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = SpacingTokens.XXL.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(SpacingTokens.SM.dp))
+                        Text(
+                            text = stringResource(R.string.loading),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    Text(
+                        text = stringResource(R.string.no_questions),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = SpacingTokens.XXL.dp),
+                        textAlign = TextAlign.Center,
+                    )
+                }
                 return@Column
             }
 
@@ -139,7 +165,7 @@ fun QuickNavigateSheet(
                 items(jumpTargets, key = { it.msgId }) { target ->
                     JumpTargetRow(
                         target = target,
-                        isCurrent = target.rawIndex == currentRawIndex,
+                        isCurrent = target.msgId == currentMsgId,
                         onClick = { onJump(target.msgId) },
                     )
                     HorizontalDivider(

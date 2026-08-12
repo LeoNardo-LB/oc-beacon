@@ -250,10 +250,14 @@ internal class MessagePaginationDelegate(
     /**
      * 快速导航定位加载：以 [targetMessageId] 为中心双向加载（前后各 [currentMessageLimit] 条）。
      *
-     * 流程（设计约束 #2）：
-     * 1. 调用 useCase.loadAround（V2 双向 cursor / V1 降级单条+before）
-     * 2. 合并 upsert（APPEND_ONLY 按 id 去重——SSE 实时新消息与定位加载不冲突）
-     * 3. 写入 FSM AroundLoaded（设置 older+newer 游标，不破坏后续滚动分页）
+     * **本地优先**（设计约束 #2）：
+     * 1. 目标在 Room 热表（[messageStore.messageCreatedAt] 非空）→ [loadAroundFromLocal]
+     *    本地加载前后各 limit 条，走现有 upsert 路径（无网络往返，即时定位）。
+     * 2. 目标不在热表（归档 / 未缓存）→ [loadAroundFromServer] 服务器版
+     *    （V2 双向 cursor / V1 降级单条+before）。
+     *
+     * 两条路径均复用 [_isLoadingAround] 互斥 + [chatRepository.upsertMessages]（APPEND_ONLY）
+     * + [PaginationFSM.Event.AroundLoaded] 游标写入。
      *
      * 调用方（ChatMessageList.jumpToMessage）在 await 完成后通过 snapshotFlow/LaunchedEffect
      * 等待目标进入 displayItems 再滚动 + 高亮。
@@ -262,49 +266,11 @@ internal class MessagePaginationDelegate(
         val sid = sessionIdProvider()
         _isLoadingAround.value = true
         try {
-            val result = messagePaging.loadAround(serverId, sid, targetMessageId, currentMessageLimit)
-                .getOrThrow()
-            // 合并 target + older + newer（APPEND_ONLY 按 id 去重）
-            val all = listOf(result.target) + result.olderMessages + result.newerMessages
-            chatRepository.upsertMessages(sid, all, MergeStrategy.APPEND_ONLY)
-
-            // 构造 older 游标（后续 loadOlder 复用）
-            val oldest = result.olderMessages.minByOrNull { it.info.time.created }
-            val olderCursor = when {
-                result.olderNextCursor != null -> PaginationCursor.Network(
-                    serverCursor = result.olderNextCursor,
-                    id = oldest?.info?.id,
-                    created = oldest?.info?.time?.created,
-                )
-                oldest != null -> PaginationCursor.Network(
-                    id = oldest.info.id,
-                    created = oldest.info.time.created,
-                )
-                else -> null
-            }
-            val hasOlder = result.olderNextCursor != null || result.olderMessages.size >= currentMessageLimit
-
-            // 构造 newer 游标（后续 loadNewer 复用；V1 为 null）
-            val newest = result.newerMessages.maxByOrNull { it.info.time.created }
-            val newerCursor = if (result.newerPreviousCursor != null) {
-                PaginationCursor.Network(
-                    serverCursor = result.newerPreviousCursor,
-                    id = newest?.info?.id,
-                    created = newest?.info?.time?.created,
-                )
-            } else null
-            val hasNewer = result.newerPreviousCursor != null || result.newerMessages.size >= currentMessageLimit
-
-            applyTransition(
-                PaginationFSM.Event.AroundLoaded(
-                    olderCursor = olderCursor,
-                    hasOlderMessages = hasOlder,
-                    newerCursor = newerCursor,
-                    hasNewerMessages = hasNewer,
-                ),
-            )
-            if (BuildConfig.DEBUG) {
-                AppLogger.d(TAG, "loadAround sid=${sid.take(12)} target=${targetMessageId.take(12)} older=${result.olderMessages.size} newer=${result.newerMessages.size} hasOlder=$hasOlder hasNewer=$hasNewer")
+            // 本地优先：目标在热表 → 本地加载（无网络往返）
+            if (messageStore.messageCreatedAt(targetMessageId) != null) {
+                loadAroundFromLocal(sid, targetMessageId)
+            } else {
+                loadAroundFromServer(sid, targetMessageId)
             }
         } catch (e: CancellationException) {
             throw e
@@ -312,6 +278,92 @@ internal class MessagePaginationDelegate(
             AppLogger.e(TAG, "Failed to load around target ${targetMessageId.take(12)}", e)
         } finally {
             _isLoadingAround.value = false
+        }
+    }
+
+    /**
+     * 本地分支：目标已在 Room 热表 → 本地加载 target 前后各 [currentMessageLimit] 条。
+     *
+     * - older = loadRange(beforeId=target)：更旧 limit 条
+     * - newer = loadRangeNewer(afterId=target)：更新 limit 条
+     * - target 单独 messageById（cursor 结果不含目标本身；确保进入 displayItems）
+     *
+     * 游标：olderCursor=Network(id,created)（无 serverCursor → loadOlder 走 V1 网络编码）。
+     * newer 方向：本地无 V2 服务器游标（loadNewer 依赖 serverCursor，无之则 no-op），
+     * 故 newerCursor=null + hasNewer=false——避免 hasNewer=true 但 loadNewer 空转。
+     * 功能缺口（target 后超 limit 条的更新消息）由全量导航列表弥补（跳到更新的 Q）。
+     */
+    private suspend fun loadAroundFromLocal(sid: String, targetId: String) {
+        val target = messageStore.messageById(sid, targetId)
+            ?: error("Target ${targetId.take(12)} vanished from cache after existence check")
+        val older = messageStore.loadRange(sid, currentMessageLimit, beforeId = targetId)
+        val newer = messageStore.loadRangeNewer(sid, currentMessageLimit, afterId = targetId)
+        // 合并 target + older + newer（APPEND_ONLY 按 id 去重）
+        chatRepository.upsertMessages(sid, listOf(target) + older + newer, MergeStrategy.APPEND_ONLY)
+
+        // older 游标：本地最老 older 的 id+created（无 serverCursor → loadOlder 走网络）
+        val oldest = older.minByOrNull { it.info.time.created }
+        val olderCursor = oldest?.let {
+            PaginationCursor.Network(id = it.info.id, created = it.info.time.created)
+        }
+        applyTransition(
+            PaginationFSM.Event.AroundLoaded(
+                olderCursor = olderCursor,
+                hasOlderMessages = older.size >= currentMessageLimit,
+                newerCursor = null,
+                hasNewerMessages = false,
+            ),
+        )
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "loadAround[local] sid=${sid.take(12)} target=${targetId.take(12)} older=${older.size} newer=${newer.size} hasOlder=${older.size >= currentMessageLimit}")
+        }
+    }
+
+    /** 服务器分支：目标不在热表 → V2 双向 cursor / V1 降级单条+before。 */
+    private suspend fun loadAroundFromServer(sid: String, targetMessageId: String) {
+        val result = messagePaging.loadAround(serverId, sid, targetMessageId, currentMessageLimit)
+            .getOrThrow()
+        // 合并 target + older + newer（APPEND_ONLY 按 id 去重）
+        val all = listOf(result.target) + result.olderMessages + result.newerMessages
+        chatRepository.upsertMessages(sid, all, MergeStrategy.APPEND_ONLY)
+
+        // 构造 older 游标（后续 loadOlder 复用）
+        val oldest = result.olderMessages.minByOrNull { it.info.time.created }
+        val olderCursor = when {
+            result.olderNextCursor != null -> PaginationCursor.Network(
+                serverCursor = result.olderNextCursor,
+                id = oldest?.info?.id,
+                created = oldest?.info?.time?.created,
+            )
+            oldest != null -> PaginationCursor.Network(
+                id = oldest.info.id,
+                created = oldest.info.time.created,
+            )
+            else -> null
+        }
+        val hasOlder = result.olderNextCursor != null || result.olderMessages.size >= currentMessageLimit
+
+        // 构造 newer 游标（后续 loadNewer 复用；V1 为 null）
+        val newest = result.newerMessages.maxByOrNull { it.info.time.created }
+        val newerCursor = if (result.newerPreviousCursor != null) {
+            PaginationCursor.Network(
+                serverCursor = result.newerPreviousCursor,
+                id = newest?.info?.id,
+                created = newest?.info?.time?.created,
+            )
+        } else null
+        val hasNewer = result.newerPreviousCursor != null || result.newerMessages.size >= currentMessageLimit
+
+        applyTransition(
+            PaginationFSM.Event.AroundLoaded(
+                olderCursor = olderCursor,
+                hasOlderMessages = hasOlder,
+                newerCursor = newerCursor,
+                hasNewerMessages = hasNewer,
+            ),
+        )
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "loadAround[server] sid=${sid.take(12)} target=${targetMessageId.take(12)} older=${result.olderMessages.size} newer=${result.newerMessages.size} hasOlder=$hasOlder hasNewer=$hasNewer")
         }
     }
 

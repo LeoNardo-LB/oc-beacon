@@ -87,7 +87,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocbeacon.ui.screens.chat.util.computeTurnGroups
 import dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets
-import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentQuestionRawIndex
+import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentQuestionMsgId
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -257,25 +257,22 @@ fun ChatMessageList(
         }
     }
 
-    // 快速导航：提取跳转目标 + 跟踪当前问题
-    // jumpTargets 缓存（v6）：只依赖 user 消息（发送后静态）+ id 序列结构，
-    // 签名未变时复用 —— 消除流式期间每 48ms 全量重建的分配压力。
+    // 快速导航：Room 全量 user 消息列表（抽屉打开时异步查询一次）。
+    // 数据源为 Room 热表（≤1000 条全量 user），覆盖内存窗口（rawMessages ~30 条）外的更早历史。
     val noTextPlaceholder = stringResource(R.string.no_text)
-    val jumpTargetsSigRef = remember { intArrayOf(Int.MIN_VALUE) }
-    val jumpTargetsRef = remember { arrayOfNulls<List<JumpTarget>>(1) }
-    val jumpTargets: List<JumpTarget> = remember(rawMessages, noTextPlaceholder) {
-        val sig = MessageFingerprints.messagesSignature(rawMessages) * 31 + noTextPlaceholder.hashCode()
-        val cached = jumpTargetsRef[0]
-        if (cached != null && sig == jumpTargetsSigRef[0]) {
-            cached
-        } else {
-            jumpTargetsSigRef[0] = sig
-            extractJumpTargets(rawMessages, noTextPlaceholder).also { jumpTargetsRef[0] = it }
+    var jumpTargets by remember { mutableStateOf<List<JumpTarget>>(emptyList()) }
+    var jumpTargetsLoading by remember { mutableStateOf(false) }
+    LaunchedEffect(showQuickNavigate, currentSessionId) {
+        if (showQuickNavigate) {
+            jumpTargetsLoading = true
+            jumpTargets = extractJumpTargets(viewModel.loadJumpTargets(), noTextPlaceholder)
+            jumpTargetsLoading = false
         }
     }
 
-    val currentQuestionRawIndex by remember(rawMessages) {
-        derivedStateOf { findCurrentQuestionRawIndex(listState, rawMessages) }
+    // 当前可见问题（msgId 驱动，与 Room 全量列表的 JumpTarget.msgId 匹配高亮）。
+    val currentQuestionMsgId by remember(rawMessages) {
+        derivedStateOf { findCurrentQuestionMsgId(listState, rawMessages) }
     }
 
     // LazyColumn 中 itemsIndexed 之前渲染的非消息项数量。
@@ -892,7 +889,8 @@ fun ChatMessageList(
             QuickNavigateSheet(
                 show = showQuickNavigate,
                 jumpTargets = jumpTargets,
-                currentRawIndex = currentQuestionRawIndex,
+                currentMsgId = currentQuestionMsgId,
+                isLoading = jumpTargetsLoading,
                 onJump = { msgId -> jumpToMessage(msgId) },
                 onDismiss = onQuickNavigateDismiss,
             )

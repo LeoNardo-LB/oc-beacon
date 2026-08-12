@@ -23,6 +23,15 @@ interface MessageCacheRepository {
 
     suspend fun loadRange(sessionId: String, limit: Int, beforeId: String? = null): List<MessageWithParts>
 
+    /** 向新方向游标分页读：取比 afterId 更新的 limit 条（loadAround 本地分支用）。 */
+    suspend fun loadRangeNewer(sessionId: String, limit: Int, afterId: String): List<MessageWithParts>
+
+    /** 快速导航全量列表：role='user' 的最近 limit 条消息（含 parts）。 */
+    suspend fun userMessages(sessionId: String, limit: Int): List<MessageWithParts>
+
+    /** 单条消息查询（loadAround 本地分支取 target）。null = 不在热表。 */
+    suspend fun messageById(sessionId: String, messageId: String): MessageWithParts?
+
     suspend fun oldestMessageId(sessionId: String): String?
 
     suspend fun messageCreatedAt(messageId: String): Long?

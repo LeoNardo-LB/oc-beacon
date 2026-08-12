@@ -22,12 +22,32 @@ interface MessageDao {
     )
     suspend fun messagesForSession(sessionId: String, limit: Int): List<CachedMessageEntity>
 
-    /** 分页读：取比 beforeId 更早的 limit 条（游标分页）。 */
+    /** 分页读：取比 beforeId 更早的 limit 条（游标分页，向旧方向）。 */
     @Query(
         "SELECT * FROM cached_messages WHERE sessionId = :sessionId AND id < :beforeId " +  // ULID 字典序 = 时间序
             "ORDER BY created DESC, id DESC LIMIT :limit",
     )
     suspend fun messagesBefore(sessionId: String, beforeId: String, limit: Int): List<CachedMessageEntity>
+
+    /** 分页读：取比 afterId 更新的 limit 条（游标分页，向新方向，loadAround 本地分支用）。 */
+    @Query(
+        "SELECT * FROM cached_messages WHERE sessionId = :sessionId AND id > :afterId " +  // ULID 字典序 = 时间序
+            "ORDER BY created ASC, id ASC LIMIT :limit",
+    )
+    suspend fun messagesAfter(sessionId: String, afterId: String, limit: Int): List<CachedMessageEntity>
+
+    /** 快速导航全量列表：role='user' 的最近 limit 条（created 降序）。
+     *  role 是独立字段值（user/assistant/synthetic/compaction/system），
+     *  role='user' 天然排除 synthetic（其 role='synthetic'）。 */
+    @Query(
+        "SELECT * FROM cached_messages WHERE sessionId = :sessionId AND role = 'user' " +
+            "ORDER BY created DESC, id DESC LIMIT :limit",
+    )
+    suspend fun userMessages(sessionId: String, limit: Int): List<CachedMessageEntity>
+
+    /** 单条消息查询（loadAround 本地分支取 target 用）。 */
+    @Query("SELECT * FROM cached_messages WHERE sessionId = :sessionId AND id = :messageId")
+    suspend fun messageById(sessionId: String, messageId: String): CachedMessageEntity?
 
     /** Room Flow：本地库变化 → 自动发新值。 */
     @Query("SELECT * FROM cached_messages WHERE sessionId = :sessionId ORDER BY created DESC, id DESC")

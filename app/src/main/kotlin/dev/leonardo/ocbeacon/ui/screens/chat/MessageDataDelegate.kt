@@ -6,6 +6,7 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.model.Message
+import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
@@ -355,6 +356,18 @@ internal class MessageDataDelegate(
         } finally {
             _isRefreshing.value = false
         }
+    }
+
+    /**
+     * 快速导航全量列表：从 Room 热表加载 role='user' 的最近 [MessageStore.SESSION_MESSAGE_LIMIT]
+     * 条消息（含 parts）。覆盖内存窗口外的更早历史——内存热视图（rawMessages）仅含
+     * 已加载窗口（~30 条），Room 热表含 ≤1000 条全量 user 消息。
+     *
+     * IO 线程查询（[MessageStore] 内 withContext(Dispatchers.IO)）；调用方在协程中 await。
+     */
+    suspend fun loadJumpTargets(): List<MessageWithParts> {
+        val sid = sessionIdFlow.value
+        return messageStore.userMessages(sid, MessageStore.SESSION_MESSAGE_LIMIT)
     }
 
     /**
