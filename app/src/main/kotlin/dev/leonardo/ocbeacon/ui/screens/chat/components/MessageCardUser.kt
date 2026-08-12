@@ -18,15 +18,20 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import com.mikepenz.markdown.model.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
@@ -102,9 +107,48 @@ internal fun MessageCardUser(
 
     var showRevertConfirmation by remember { mutableStateOf(false) }
 
+    // 2026-08-13：将 parts 分组计算提升到 MessageBubble 外——jumpMdState（跳转
+    // 预渲染注册 + 淡入）需要在这里创建（content lambda 内定义则外层不可见）。
+    val (imageFiles, renderableOtherParts) = remember(contentParts) {
+        val images = contentParts.filterIsInstance<Part.File>()
+            .filter { it.mime.startsWith("image/") && !it.url.isNullOrBlank() }
+        val others = contentParts.filter { part ->
+            !(part is Part.File && part.mime.startsWith("image/") && !part.url.isNullOrBlank())
+        }.filter(::isBubbleRenderablePart)
+        images to others
+    }
+
+    // 2026-08-12 根治：跳转预渲染——为第一个可渲染文本 part 创建 MarkdownState
+    // 并注册到 LocalMarkdownStateRegistry（scrollToDisplayItem await 解析完成
+    // 信号用）。state 提升到此处 → 组合即开始解析 → 进入视口时可能已 Success。
+    val jumpTextPart = renderableOtherParts.filterIsInstance<Part.Text>().firstOrNull()
+    val jumpMdState = jumpTextPart?.let { part ->
+        com.mikepenz.markdown.model.rememberMarkdownState(part.text, retainState = true)
+    }
+    val mdRegistry = LocalMarkdownStateRegistry.current
+    LaunchedEffect(jumpMdState) {
+        if (jumpMdState != null) {
+            mdRegistry[currentMessage.message.id] = jumpMdState
+        }
+    }
+
     // 2026-08-13 观测：跳转目标气泡（Card）真实屏幕顶 y（用户反馈"气泡上边缘
     // 距视口顶还有十多个像素"——直接测量而非推算）
     val isJumpObserveTarget = JumpBubbleObserve.targetMsgId == currentMessage.message.id
+
+    // 2026-08-13 渲染骤变修复：跳转目标在 Markdown 渲染完成前 alpha=0
+    //（占位不可见——不显示 loading→内容的骤变），渲染完成后在最终位置
+    // 淡入（250ms）——用户只看到气泡柔和浮现（完整内容），无原始状态骤变。
+    // 非目标消息恒 alpha=1（不受影响）。
+    val jumpParsedState = jumpMdState?.state?.collectAsState(initial = null)
+    val jumpParsed = jumpParsedState?.value
+    val jumpReady = !isJumpObserveTarget || jumpMdState == null ||
+        jumpParsed is State.Success || jumpParsed is State.Error
+    val jumpAlpha by animateFloatAsState(
+        targetValue = if (jumpReady) 1f else 0f,
+        animationSpec = tween(250),
+        label = "jumpFadeIn",
+    )
 
     MessageBubble(
         alignEnd = true,
@@ -114,9 +158,11 @@ internal fun MessageCardUser(
         label = stringResource(R.string.chat_label_user),
         timeMs = currentMessage.message.time.created,
         modifier = if (isJumpObserveTarget) {
-            Modifier.onGloballyPositioned { coords ->
-                JumpBubbleObserve.bubbleTopY = coords.positionInWindow().y
-            }
+            Modifier
+                .onGloballyPositioned { coords ->
+                    JumpBubbleObserve.bubbleTopY = coords.positionInWindow().y
+                }
+                .graphicsLayer { alpha = jumpAlpha }
         } else {
             Modifier
         },
@@ -170,29 +216,8 @@ internal fun MessageCardUser(
         }
     ) {
         // 内容 parts（文本、推理、补丁等）
-        // 将图片文件 parts 分组为紧凑的缩略图行
-        val (imageFiles, renderableOtherParts) = remember(contentParts) {
-            val images = contentParts.filterIsInstance<Part.File>()
-                .filter { it.mime.startsWith("image/") && !it.url.isNullOrBlank() }
-            val others = contentParts.filter { part ->
-                !(part is Part.File && part.mime.startsWith("image/") && !part.url.isNullOrBlank())
-            }.filter(::isBubbleRenderablePart)
-            images to others
-        }
-
-        // 2026-08-12 根治：跳转预渲染——为第一个可渲染文本 part 创建 MarkdownState
-        // 并注册到 LocalMarkdownStateRegistry（scrollToDisplayItem await 解析完成
-        // 信号用）。state 提升到此处 → 组合即开始解析 → 进入视口时可能已 Success。
-        val jumpTextPart = renderableOtherParts.filterIsInstance<Part.Text>().firstOrNull()
-        val jumpMdState = jumpTextPart?.let { part ->
-            com.mikepenz.markdown.model.rememberMarkdownState(part.text, retainState = true)
-        }
-        val mdRegistry = LocalMarkdownStateRegistry.current
-        LaunchedEffect(jumpMdState) {
-            if (jumpMdState != null) {
-                mdRegistry[currentMessage.message.id] = jumpMdState
-            }
-        }
+        // 2026-08-13：imageFiles/renderableOtherParts/jumpMdState 已提升到
+        // MessageBubble 外层（跳转预渲染 + 淡入需要）——此处直接使用。
 
         // 以水平行渲染图片缩略图
         if (imageFiles.isNotEmpty()) {

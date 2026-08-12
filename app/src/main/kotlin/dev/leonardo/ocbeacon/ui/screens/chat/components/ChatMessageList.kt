@@ -602,7 +602,7 @@ fun ChatMessageList(
             val lazyIndex = bannerCount + targetIndex
             coroutineScope.launch {
                 // 2026-08-12 预渲染模式（同 scrollToDisplayItem）：瞬间定位 →
-                // 等待 size 稳定（渲染完成）→ 0.6s easeInOut 动画到顶部 → 微调。
+                // 等待 size 稳定（渲染完成）→ 一次定位到顶部 → 微调。
                 LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
                 withFrameNanos { }
                 withFrameNanos { }
@@ -610,7 +610,7 @@ fun ChatMessageList(
                 var stableCount = 0
                 var lastSize = -1
                 var probeRounds = 0
-                while (stableCount < 3 && probeRounds < 30) {
+                while (stableCount < 2 && probeRounds < 20) {
                     delay(100)
                     probeRounds++
                     val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
@@ -623,20 +623,15 @@ fun ChatMessageList(
                     }
                     if (item.size == lastSize) stableCount++ else { stableCount = 1; lastSize = item.size }
                 }
+                // 一次定位（去动画，2026-08-13 与 scrollToDisplayItem 同步）：
+                // desired = vh - size - paddingTop（气泡顶边贴视口顶）
                 val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
-                val durationNanos = 600_000_000L
-                val startNanos = withFrameNanos { it }
-                while (true) {
-                    val now = withFrameNanos { it }
-                    val progress = ((now - startNanos).toFloat() / durationNanos).coerceIn(0f, 1f)
-                    val eased = easeInOutCubic(progress)
-                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                    if (item != null) {
-                        LazyListReflection.requestScrollToItemNoCancel(
-                            listState, lazyIndex, -((vh - item.size) * eased).toInt()
-                        )
-                    }
-                    if (progress >= 1f) break
+                val pt = -listState.layoutInfo.viewportStartOffset.toFloat()
+                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                if (item != null) {
+                    LazyListReflection.requestScrollToItemNoCancel(
+                        listState, lazyIndex, -((vh - item.size - pt).toInt())
+                    )
                 }
                 // 精确微调
                 withFrameNanos { }
@@ -646,7 +641,8 @@ fun ChatMessageList(
                     val it2 = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                     if (it2 != null) {
                         val vh2 = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-                        val residual = (it2.offset + it2.size - vh2).toFloat()
+                        val pt2 = -info.viewportStartOffset.toFloat()
+                        val residual = (it2.offset + it2.size - (vh2 - pt2)).toFloat()
                         if (kotlin.math.abs(residual) > 2f) scrollBy(residual)
                     }
                 }
@@ -1217,10 +1213,3 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
         .getOrNull()
         ?.takeIf { it.isNotBlank() }
 }
-
-/**
- * 标准 easeInOutCubic 缓动（等价于 Compose EaseInOut 的 CubicBezier
- * (0.42, 0, 0.58, 1)）：缓-快-缓，用于跳转定位的 0.6s 平滑滚动动画。
- */
-private fun easeInOutCubic(t: Float): Float =
-    if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
