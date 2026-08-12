@@ -76,6 +76,7 @@ import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
+import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel
@@ -350,7 +351,11 @@ fun ChatMessageList(
     // "目标不在视口顶部"——logcat 实证 positioned 后被 auto-load 推走）。
     var jumpLockActive by remember { mutableStateOf(false) }
 
-    // 2026-08-12 根治：跳转预渲染注册表——目标消息组件（MessageCardUser）
+    // 2026-08-13：跳转定位 loading 蒙版（用户建议——遮住定位过程的所有
+    // 视口跳动/透明渲染，完成后直接显示目标——用户只看到 loading → 目标）。
+    var jumpLoading by remember { mutableStateOf(false) }
+
+    // 2026-08-13 根治：跳转预渲染注册表——目标消息组件（MessageCardUser）
     // 注册其 MarkdownState，scrollToDisplayItem await 解析完成信号。
     val mdRegistry = remember { mutableMapOf<String, MarkdownState>() }
 
@@ -516,8 +521,9 @@ fun ChatMessageList(
                     if (convergedRounds >= 2) break
                 }
                 JumpBubbleObserve.settled = true
+                jumpLoading = false
                 if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 收敛完成 settled=true")
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 收敛完成 settled=true 蒙版移除")
                 }
                 // 验证：item 顶边屏幕 y 对齐视口顶（offset+size = vh+paddingTop，±10px）
                 withFrameNanos { }
@@ -629,6 +635,7 @@ fun ChatMessageList(
             AppLogger.d("ChatPaging", "jumpToMessage: msgId=${msgId.take(12)} inDisplay=$displayItemIndex renderable=$targetHasRenderableContent parts=${parts.size} textPart=${textPart?.text?.take(30)}")
         }
         if (targetHasRenderableContent) {
+            jumpLoading = true
             scrollToDisplayItem(displayItemIndex)
             onQuickNavigateDismiss()
         } else {
@@ -1217,6 +1224,30 @@ fun ChatMessageList(
                         contentDescription = stringResource(R.string.chat_scroll_bottom),
                         modifier = Modifier.size(20.dp)
                     )
+                }
+            }
+
+            // 2026-08-13 跳转定位 loading 蒙版（用户建议——参考进入会话蒙版）：
+            // 遮住定位过程的全部视口跳动/透明渲染/收敛修正——完成后直接显示
+            // 目标（用户只看到 loading → 目标完整出现，无乱跳）。
+            if (jumpLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                        .pointerInput(Unit) { }
+                        .align(Alignment.Center),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        PulsingDotsIndicator()
+                        Spacer(Modifier.height(SpacingTokens.MD.dp))
+                        Text(
+                            text = stringResource(R.string.loading),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM),
+                        )
+                    }
                 }
             }
 
