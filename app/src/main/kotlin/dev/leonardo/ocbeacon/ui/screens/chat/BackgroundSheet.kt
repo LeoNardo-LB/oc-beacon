@@ -75,7 +75,11 @@ fun BackgroundSheet(
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var selectedShellId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        // 2026-08-12 用户要求：不需要拉杆（dragHandle 为空）
+        dragHandle = {}
+    ) {
         // 详情视图（点击 shell 项后内嵌展示）
         val selectedShell = selectedShellId?.let { id -> state.shells.firstOrNull { it.id == id } }
         if (selectedShell != null) {

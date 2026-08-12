@@ -113,9 +113,9 @@ internal fun MessageCardUser(
             // 右侧：状态指示器（QUEUED 徽章）
             // 悲观模式：无 Sending/Failed/Sent 状态（消息以服务器权威直接出现）。
             // 仅保留 QUEUED 徽章（FSM 队列状态派生）。
-            // 2026-08-12：与 agent 标签同款紧凑标签（Chip 偏大已撤）
+            // 2026-08-12：紧凑 M3 Chip（contentPadding 压缩高度）
             if (isQueued) {
-                CompactTag(
+                CompactSuggestionChip(
                     text = stringResource(R.string.chat_queued),
                     containerColor = QueuedBadgeColor,
                     contentColor = QueuedBadgeTextColor,
