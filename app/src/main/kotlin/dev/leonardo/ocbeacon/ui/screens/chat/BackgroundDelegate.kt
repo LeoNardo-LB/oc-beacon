@@ -191,10 +191,11 @@ class BackgroundAggregator(
         foregroundCountFlow,
         sessionIdFlow
     ) { subagents, jobsBySession, foregroundCount, currentSessionId ->
-        // 2026-08-12 用户要求：面板只记录明确放到后台的任务——shell 工具无
-        // background 参数（服务器 shell 无后台概念），工具调用的 shell 不展示；
-        // 仅保留运行中的（实时监控有意义，已完成看消息流 shell 卡片）。
-        val shells = jobsBySession[currentSessionId].orEmpty().filter { it.isRunning }
+        // 2026-08-12 用户要求：面板支持"进行中/历史"切换——shells 保留全部
+        //（含已结束的，ShellJobsStore 注释"便于面板展示历史"），过滤交给
+        // UI 层（BackgroundSheet showHistory 切换）。此前仅保留运行中——
+        // 用户反馈"没看到历史记录切换"后扩展。
+        val shells = jobsBySession[currentSessionId].orEmpty()
         val runningSubagents = subagents.filter { it.isRunning }
         BackgroundUiState(
             shells = shells,

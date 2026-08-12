@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -26,15 +28,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -130,34 +130,31 @@ fun BackgroundSheet(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
-                // 2026-08-12 用户要求：进行中/历史统一切换（标题栏，Subagents/Shells 两 tab 共用）
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.padding(end = SpacingTokens.SM.dp),
-                ) {
-                    SegmentedButton(
-                        selected = !showHistory,
-                        onClick = { showHistory = false },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    ) {
-                        Text(stringResource(R.string.shell_status_running), style = MaterialTheme.typography.labelMedium)
+                // 2026-08-12 用户要求（第四次修正）：切换改为文字显示当前模式——
+                // 进行中视图显示"运行中"、历史视图显示"历史"（图标无法直观体现
+                // 当前页面状态）。点击文字切换；角标（右上角）显示进行中任务数。
+                BadgedBox(
+                    badge = {
+                        if (state.badgeCount > 0) {
+                            Badge(containerColor = MaterialTheme.colorScheme.tertiary) {
+                                Text(
+                                    text = state.badgeCount.coerceAtMost(99).toString(),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
                     }
-                    SegmentedButton(
-                        selected = showHistory,
-                        onClick = { showHistory = true },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    ) {
-                        Text(stringResource(R.string.background_sheet_history_tab), style = MaterialTheme.typography.labelMedium)
+                ) {
+                    TextButton(onClick = { showHistory = !showHistory }) {
+                        Text(
+                            text = stringResource(
+                                if (showHistory) R.string.background_sheet_history_tab
+                                else R.string.shell_status_running
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
                     }
                 }
-                // 2026-08-12 用户要求：标题栏显示当前进行中任务数（关闭按钮左侧）。
-                // 始终显示（0 也显示——用户反馈"没看到计数"是因为无任务时不渲染）。
-                Text(
-                    text = "${state.badgeCount} ${stringResource(R.string.shell_status_running)}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (state.badgeCount > 0) MaterialTheme.colorScheme.tertiary
-                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
-                    modifier = Modifier.padding(end = SpacingTokens.SM.dp),
-                )
                 IconButton(onClick = onDismiss) {
                     Icon(
                         Icons.Default.Close,
