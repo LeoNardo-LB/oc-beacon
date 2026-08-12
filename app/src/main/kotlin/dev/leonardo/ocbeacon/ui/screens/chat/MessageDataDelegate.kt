@@ -363,11 +363,47 @@ internal class MessageDataDelegate(
      * 条消息（含 parts）。覆盖内存窗口外的更早历史——内存热视图（rawMessages）仅含
      * 已加载窗口（~30 条），Room 热表含 ≤1000 条全量 user 消息。
      *
+     * 2026-08-12 修复（用户反馈"Q1 之上还有内容"）：Room 只保留初始加载的消息
+     *（分页加载的窗口外消息不落库——防 prune 循环设计）→ 快速导航列表不全
+     *（实测 12/34）。服务器翻页全量拉取补充：落库（persistOldBeyondWindow=true，
+     * <1000 条无 prune 风险）+ 会话内标记，下次打开直接 Room。
+     *
      * IO 线程查询（[MessageStore] 内 withContext(Dispatchers.IO)）；调用方在协程中 await。
      */
     suspend fun loadJumpTargets(): List<MessageWithParts> {
         val sid = sessionIdFlow.value
-        return messageStore.userMessages(sid, MessageStore.SESSION_MESSAGE_LIMIT)
+        val cached = messageStore.userMessages(sid, MessageStore.SESSION_MESSAGE_LIMIT)
+        if (jumpTargetsServerSync) return cached
+        return try {
+            val all = fetchAllMessages(sid)
+            if (all.isNotEmpty()) {
+                messageStore.upsertMessages(sid, all, persistOldBeyondWindow = true)
+                jumpTargetsServerSync = true
+                all.filter { it.info is Message.User }
+            } else {
+                cached
+            }
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "loadJumpTargets server refresh failed, fallback cached (${cached.size})", e)
+            cached
+        }
+    }
+
+    /** 会话内标记：服务器全量消息已同步（避免每次打开快速导航重复翻页）。 */
+    private var jumpTargetsServerSync = false
+
+    /** 服务器翻页全量消息（cursor.next 直到读尽；防呆 20 页上限）。 */
+    private suspend fun fetchAllMessages(sid: String): List<MessageWithParts> {
+        val all = mutableListOf<MessageWithParts>()
+        var cursor: String? = null
+        var guard = 0
+        while (guard++ < 20) {
+            val page = sessionRepository.listMessages(serverId, sid, 50, cursor).getOrThrow()
+            all += page.messages
+            cursor = page.nextCursor ?: break
+            if (page.messages.isEmpty()) break
+        }
+        return all.distinctBy { it.info.id }
     }
 
     /**
