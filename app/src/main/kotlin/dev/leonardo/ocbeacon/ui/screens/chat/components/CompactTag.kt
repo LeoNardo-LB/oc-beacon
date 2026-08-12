@@ -48,12 +48,10 @@ internal fun CompactTag(
             .background(containerColor)
             .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp)
     ) {
+        val baseStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = fontWeight)
         Text(
             text = text,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = fontWeight,
-                fontSize = fontSize?.sp
-            ),
+            style = if (fontSize != null) baseStyle.copy(fontSize = fontSize.sp) else baseStyle,
             color = contentColor
         )
     }
