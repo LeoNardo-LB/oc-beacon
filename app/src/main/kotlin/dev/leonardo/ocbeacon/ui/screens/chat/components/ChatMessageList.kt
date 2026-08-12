@@ -398,8 +398,11 @@ fun ChatMessageList(
                     continue
                 }
                 val lazyIndex = bannerCount + currentIdx
-                // Phase 1：瞬间定位到目标（目标进入视口底部，渲染立即开始）
-                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                // Phase 1（2026-08-13 减闪）：定位目标到**视口中部**——目标进入
+                // 视口即显示 Parsed 完整内容（无底部空白期、无"内容突变"）；
+                // 后续 Phase 3 只做小位移到顶部（一次动作）。
+                val vhMid = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset) / 2
+                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, -vhMid)
                 withFrameNanos { }
                 withFrameNanos { }
                 // Phase 2（根治）：等待目标 MarkdownState 注册（目标组合后）→

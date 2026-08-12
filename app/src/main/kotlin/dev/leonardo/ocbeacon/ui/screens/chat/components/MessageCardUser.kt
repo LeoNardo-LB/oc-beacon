@@ -144,10 +144,11 @@ internal fun MessageCardUser(
     // 距视口顶还有十多个像素"——直接测量而非推算）
     val isJumpObserveTarget = JumpBubbleObserve.targetMsgId == currentMessage.message.id
 
-    // 2026-08-13 架构根治：门控展示——跳转目标在 Ready（布局稳定）前 alpha=0
-    //（不显示 loading/中间态；内容在 alpha=0 时渲染测量）→ Ready 后一次性
-    // 显示最终状态（无骤变、无淡入）。非目标消息恒 alpha=1。
+    // 2026-08-13 架构根治：门控展示——跳转目标在 **Parsed**（解析完成）前
+    // alpha=0（不显示 loading/中间态）→ Parsed 后内容用 Markdown(state) 直接
+    // 渲染（完整内容）并立即显示——无空白期、无 loading、无骤变。非目标恒 1。
     val jumpReady = !isJumpObserveTarget ||
+        readiness is RenderReadiness.Parsed ||
         readiness is RenderReadiness.Ready || readiness is RenderReadiness.Failed
     val jumpAlpha = if (jumpReady) 1f else 0f
 
