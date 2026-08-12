@@ -10,8 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -65,11 +66,13 @@ internal fun MessageBubble(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start
     ) {
-        Surface(
+        // 2026-08-12 M3 优化：Surface → M3 Card（Filled/Outlined 通用——shape/
+        // colors/border/elevation 全参数化，支持气泡样式；阴影设 0 保持气泡观感）
+        Card(
             shape = shape,
-            color = containerColor,
+            colors = CardDefaults.cardColors(containerColor = containerColor),
             border = border,
-            tonalElevation = 0.dp,
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(

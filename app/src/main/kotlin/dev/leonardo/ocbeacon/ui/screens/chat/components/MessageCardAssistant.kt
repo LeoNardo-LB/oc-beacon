@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -117,20 +119,23 @@ internal fun MessageCardAssistant(
                     // 与 48ms flush 叠加 ~30 次/s footer 重组）；完成 = 固定时长。
                     val startMs = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
 
-                    // Agent 名称标签（样式类似 QUEUED 徽章，带 agent 颜色）
+                    // Agent 名称标签（2026-08-12 M3 优化：自定义 Surface 徽章 → SuggestionChip，
+                    // 仅色彩适配 agentColor，样式保持 M3 原生）
                     if (!agentName.isNullOrBlank()) {
                         val tagColor = agentColor(agentName, agents)
-                        Surface(
-                            shape = ShapeTokens.smallMedium,
-                            color = tagColor.copy(alpha = AlphaTokens.FAINT)
-                        ) {
-                            Text(
-                                text = agentName.replaceFirstChar { it.uppercase() },
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = tagColor,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        SuggestionChip(
+                            onClick = {},
+                            label = {
+                                Text(
+                                    text = agentName.replaceFirstChar { it.uppercase() },
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
+                                )
+                            },
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = tagColor.copy(alpha = AlphaTokens.FAINT),
+                                labelColor = tagColor
                             )
-                        }
+                        )
                     }
                     // 提供商图标 + 模型名
                     val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()

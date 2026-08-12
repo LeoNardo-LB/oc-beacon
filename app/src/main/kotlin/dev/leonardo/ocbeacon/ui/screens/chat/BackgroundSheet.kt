@@ -24,6 +24,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -160,17 +162,20 @@ fun BackgroundSheet(
                                         ) {
                                             sub.agent?.takeIf { it.isNotBlank() }?.let { agent ->
                                                 val tagColor = agentColor(agent, emptyList())
-                                                Surface(
-                                                    shape = ShapeTokens.smallMedium,
-                                                    color = tagColor.copy(alpha = AlphaTokens.FAINT)
-                                                ) {
-                                                    Text(
-                                                        text = agent.replaceFirstChar { it.uppercase() },
-                                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                                        color = tagColor,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                // 2026-08-12 M3 优化：SuggestionChip（仅色彩适配）
+                                                SuggestionChip(
+                                                    onClick = {},
+                                                    label = {
+                                                        Text(
+                                                            text = agent.replaceFirstChar { it.uppercase() },
+                                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
+                                                        )
+                                                    },
+                                                    colors = SuggestionChipDefaults.suggestionChipColors(
+                                                        containerColor = tagColor.copy(alpha = AlphaTokens.FAINT),
+                                                        labelColor = tagColor
                                                     )
-                                                }
+                                                )
                                             }
                                             sub.startedAt?.let { ms ->
                                                 Text(

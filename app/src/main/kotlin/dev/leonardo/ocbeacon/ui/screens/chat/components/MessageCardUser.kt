@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -111,21 +113,24 @@ internal fun MessageCardUser(
             // 右侧：状态指示器（QUEUED 徽章）
             // 悲观模式：无 Sending/Failed/Sent 状态（消息以服务器权威直接出现）。
             // 仅保留 QUEUED 徽章（FSM 队列状态派生）。
+            // 2026-08-12 M3 优化：自定义 Surface 徽章 → SuggestionChip（仅色彩适配）
             if (isQueued) {
-                Surface(
-                    shape = ShapeTokens.extraSmall,
-                    color = QueuedBadgeColor
-                ) {
-                    Text(
-                        text = stringResource(R.string.chat_queued),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 8.sp,
-                            color = QueuedBadgeTextColor
-                        ),
-                        modifier = Modifier.padding(horizontal = SpacingTokens.XS.dp, vertical = 1.dp)
+                SuggestionChip(
+                    onClick = {},
+                    label = {
+                        Text(
+                            text = stringResource(R.string.chat_queued),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 8.sp
+                            )
+                        )
+                    },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = QueuedBadgeColor,
+                        labelColor = QueuedBadgeTextColor
                     )
-                }
+                )
             }
 
             // Undo 按钮（仅主会话，onRevert != null 时显示）
