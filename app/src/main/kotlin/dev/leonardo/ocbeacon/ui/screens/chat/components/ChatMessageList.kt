@@ -124,6 +124,15 @@ val LocalMarkdownStateRegistry = androidx.compose.runtime.staticCompositionLocal
 }
 
 /**
+ * 2026-08-13 观测：跳转目标气泡（Card）的真实屏幕顶 y——
+ * 用户反馈"气泡上边缘距视口顶还有十多个像素"，直接测量定位。
+ */
+internal object JumpBubbleObserve {
+    var targetMsgId: String? = null
+    var bubbleTopY = -1f
+}
+
+/**
  * 主会话和子会话消息列表共用的 composable。
  *
  * 结构：PullToRefreshBox > LazyColumn（待处理问题/权限、revert 横幅、
@@ -356,6 +365,7 @@ fun ChatMessageList(
         // 正确目标：目标顶边贴视口顶边 → offset = viewportHeight - item.size。
         val (rawIndex, msg) = displayItems[displayItemIndex]
         val targetMsgId = msg.message.id
+        JumpBubbleObserve.targetMsgId = targetMsgId
         val initialLazyIndex = bannerCount + displayItemIndex
         if (BuildConfig.DEBUG) {
             AppLogger.d("ChatPaging", "scrollToDisplayItem: displayIdx=$displayItemIndex lazyIdx=$initialLazyIndex msg=${targetMsgId.take(12)}")
@@ -434,8 +444,14 @@ fun ChatMessageList(
                 if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 布局稳定 size=$lastSize rounds=$probeRounds")
                 }
-                // Phase 3：0.6s EaseInOut 动画挪到顶部——requestScroll offset 渐变
+                // Phase 3：0.6s EaseInOut 动画挪到顶部——requestScroll offset 渐变。
+                // 2026-08-13 修正（日志实证）：viewportEndOffset 对应的屏幕位置 =
+                // 视口顶 - contentPadding.top（实测气泡 Card 顶=275 < 视口顶 296，
+                // 被 topBar 遮 21px——用户看到"气泡上边缘距视口顶十多个像素"）。
+                // 目标：item 顶边屏幕 y = 视口顶 → offset = vh - size - contentPaddingTop
+                //（实测拟合：desired=1477→Card顶=275；+21→254（上移）；减 21→296 ✓）
                 val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
+                val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
                 val durationNanos = 600_000_000L
                 val startNanos = withFrameNanos { it }
                 var lastLogged = false
@@ -451,18 +467,21 @@ fun ChatMessageList(
                         // **注意**：requestScrollToItemNoCancel 的 scrollOffset 在
                         // reverse 布局中被取反解释（实测 req=347 → item.offset=-278），
                         // 因此传负值（-desired）→ 目标 offset 从 0 渐进到 desired。
-                        val desired = vh - item.size
+                        // 2026-08-13：desired 减 contentPaddingTop（21px）——实测拟合：
+                        // desired=1477→Card顶=275；desired+21→Card顶-21（上移）→
+                        // 要 Card 顶=视口顶(296) 需 desired=vh-size-paddingTop。
+                        val desired = vh - item.size - contentPaddingTop
                         LazyListReflection.requestScrollToItemNoCancel(
                             listState, lazyIndex, -(desired * eased).toInt()
                         )
                         if (BuildConfig.DEBUG && !lastLogged) {
-                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 动画中 size=${item.size} viewport=$vh desired=$desired eased=$eased")
+                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 动画中 size=${item.size} viewport=$vh paddingTop=$contentPaddingTop desired=$desired eased=$eased")
                             lastLogged = true
                         }
                     }
                     if (progress >= 1f) break
                 }
-                // 精确微调：最终布局数据把顶边残差收敛到 ±2px
+                // 精确微调：最终布局数据把顶边残差收敛到 ±2px（含 paddingTop 修正）
                 withFrameNanos { }
                 withFrameNanos { }
                 listState.scroll {
@@ -471,29 +490,29 @@ fun ChatMessageList(
                         ?: info.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
                     if (it2 != null) {
                         val vh2 = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-                        val residual = (it2.offset + it2.size - vh2).toFloat()
+                        val pt2 = -info.viewportStartOffset.toFloat()
+                        val residual = (it2.offset + it2.size - (vh2 - pt2)).toFloat()
                         if (BuildConfig.DEBUG) {
                             AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 微调 residual=$residual offset=${it2.offset} size=${it2.size}")
                         }
                         if (kotlin.math.abs(residual) > 2f) scrollBy(residual)
                     }
                 }
-                // 验证：顶边与视口顶边偏差 < 10px 才算定位成功
+                // 验证：item 顶边屏幕 y 对齐视口顶（offset+size = vh+paddingTop，±10px）
                 withFrameNanos { }
                 val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                     ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
                 val infoV = listState.layoutInfo
                 val vhV = (infoV.viewportEndOffset - infoV.viewportStartOffset).toFloat()
-                val gap = if (after != null) after.offset + after.size - vhV else Float.MAX_VALUE
-                // 精确观测（用户要求依靠日志）：item 顶边滚动坐标 vs viewportEndOffset
-                // itemTopScroll = start + offset + size；超出 = itemTopScroll - end
-                // 气泡顶屏幕 y = listTopY + (itemTopScroll - end)（贴顶时 = listTopY）
+                val ptV = -infoV.viewportStartOffset.toFloat()
+                val gap = if (after != null) after.offset + after.size - (vhV - ptV) else Float.MAX_VALUE
+                // 精确观测（用户要求依靠日志）：气泡顶屏幕 y = listTopY + gap
                 val itemTopScroll = if (after != null) {
                     infoV.viewportStartOffset + after.offset + after.size
                 } else Int.MIN_VALUE
                 val endScroll = infoV.viewportEndOffset
                 if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 观测 gap=$gap itemTopScroll=$itemTopScroll end=$endScroll 超出=${if (after != null) itemTopScroll - endScroll else "N/A"}px 视口顶屏幕y=$listTopY 气泡顶屏幕y=${if (after != null) listTopY + (itemTopScroll - endScroll) else "N/A"}")
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 观测 gap=$gap itemTopScroll=$itemTopScroll end=$endScroll 视口顶屏幕y=$listTopY 气泡顶屏幕y=${if (after != null) listTopY + gap else "N/A"}")
                 }
                 if (after != null && kotlin.math.abs(gap) < 10f) {
                     positioned = true
@@ -513,8 +532,10 @@ fun ChatMessageList(
                     ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
                 if (fin != null) {
                     val infoF = listState.layoutInfo
+                    val ptF = -infoF.viewportStartOffset.toFloat()
                     val topF = infoF.viewportStartOffset + fin.offset + fin.size
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 最终确认 topScroll=$topF end=${infoF.viewportEndOffset} 超出=${topF - infoF.viewportEndOffset}px size=${fin.size}")
+                    val targetTop = infoF.viewportEndOffset + ptF.toInt()
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 最终确认 topScroll=$topF 目标=$targetTop size=${fin.size} 气泡Card顶屏幕y=${JumpBubbleObserve.bubbleTopY} 视口顶屏幕y=$listTopY 气泡距视口顶=${JumpBubbleObserve.bubbleTopY - listTopY}px")
                 }
             }
             delay(300)

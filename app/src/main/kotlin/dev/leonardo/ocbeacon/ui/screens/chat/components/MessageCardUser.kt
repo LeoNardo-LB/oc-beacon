@@ -25,6 +25,8 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
@@ -100,6 +102,10 @@ internal fun MessageCardUser(
 
     var showRevertConfirmation by remember { mutableStateOf(false) }
 
+    // 2026-08-13 观测：跳转目标气泡（Card）真实屏幕顶 y（用户反馈"气泡上边缘
+    // 距视口顶还有十多个像素"——直接测量而非推算）
+    val isJumpObserveTarget = JumpBubbleObserve.targetMsgId == currentMessage.message.id
+
     MessageBubble(
         alignEnd = true,
         containerColor = backgroundColor,
@@ -107,6 +113,13 @@ internal fun MessageCardUser(
         shape = UserBubbleShape,
         label = stringResource(R.string.chat_label_user),
         timeMs = currentMessage.message.time.created,
+        modifier = if (isJumpObserveTarget) {
+            Modifier.onGloballyPositioned { coords ->
+                JumpBubbleObserve.bubbleTopY = coords.positionInWindow().y
+            }
+        } else {
+            Modifier
+        },
         statsBar = {
             // 弹性空白
             Spacer(modifier = Modifier.weight(1f))
