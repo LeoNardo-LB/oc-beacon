@@ -333,7 +333,7 @@ fun ChatMessageList(
             // + 多次 requestScroll 视觉跳动。
             var attempts = 0
             var positioned = false
-            while (attempts < 5 && !positioned) {
+            while (attempts < 6 && !positioned) {
                 attempts++
                 // 每次基于最新 displayItems 重算目标索引（displayItems 变化后
                 // 旧索引失效——loadAround 分批/SSE 场景）
@@ -348,33 +348,40 @@ fun ChatMessageList(
                 withFrameNanos { }
                 listState.scroll {
                     val info = listState.layoutInfo
-                    val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                    // 2026-08-12 修复：按 key 找目标项（"u_<id>"）——bannerCount
+                    // 偏差时 index 不可靠（验证到错误项 → 误判 positioned）。
+                    // 目标通常是 user（快速导航）；assistant 目标（onLocateTask）
+                    // key 是 "t_<next>"——两种都试，兜底按 index。
+                    val item = info.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                        ?: info.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                        ?: info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                     if (item != null) {
                         // delta 符号：reverseLayout 中 scrollBy 方向取反——
                         // item.offset - viewportStartOffset 正值 = 内容上移 = 目标升至顶部
                         val delta = (item.offset - info.viewportStartOffset).toFloat()
                         if (BuildConfig.DEBUG) {
-                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts curIdx=$currentIdx item offset=${item.offset} delta=$delta")
+                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts curIdx=$currentIdx key=${item.key} item offset=${item.offset} delta=$delta")
                         }
                         if (kotlin.math.abs(delta) > 1f) scrollBy(delta)
                     } else if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item($lazyIndex) 不可见（visible=${info.visibleItemsInfo.map { it.index }})——重试")
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标($lazyIndex) 不可见（visible=${info.visibleItemsInfo.map { it.index }})——重试")
                     }
                 }
                 // 等 2 帧让滚动应用与布局稳定后再验证
                 withFrameNanos { }
                 withFrameNanos { }
-                val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                // 目标接近视口顶部（<100px）才算定位成功——原"可见即成功"
-                // 导致目标在视口中部（上方一叠更早消息）也通过 → 定位不精确。
-                // 5 次尝试后仍不可达（SSE 持续干扰）降级为可见即接受（尽力而为）。
+                // 验证：按 key 找目标项（bannerCount 偏差时 index 验证不可靠——
+                // 用户反馈"目标在视口最下方"：验证到错误项误判成功）
+                val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                // 目标接近视口顶部（<100px）才算定位成功
                 val nearTop = after != null &&
                     kotlin.math.abs(after.offset - listState.layoutInfo.viewportStartOffset) < 100f
-                val ok = if (nearTop) true else (attempts >= 5 && after != null)
+                val ok = if (nearTop) true else (attempts >= 6 && after != null)
                 if (ok) {
                     positioned = true
                     if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset} nearTop=$nearTop")
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts key=${after?.key} after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset} nearTop=$nearTop")
                     }
                 } else if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标未达顶部（after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}）")
