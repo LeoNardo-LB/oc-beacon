@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -77,6 +78,11 @@ internal fun ModelPickerDialog(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // 2026-08-12 用户要求：与后台面板高度一致（30%-60% 屏高）
+                    .heightIn(
+                        min = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.3f,
+                        max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.6f
+                    )
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
             ) {

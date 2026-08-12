@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountTree
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -40,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AgentTag
+import dev.leonardo.ocbeacon.ui.screens.chat.components.CompactTag
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatusIcon
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
@@ -94,6 +98,11 @@ fun BackgroundSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // 2026-08-12 用户要求：面板高度 30%-60% 屏（与模型选择一致）
+                .heightIn(
+                    min = LocalConfiguration.current.screenHeightDp.dp * 0.3f,
+                    max = LocalConfiguration.current.screenHeightDp.dp * 0.6f
+                )
                 .padding(bottom = 24.dp)
         ) {
             // 2026-08-12 用户要求：去掉 "Background" 标题区域
@@ -142,13 +151,24 @@ fun BackgroundSheet(
                 )
             }
 
-            LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
                 when (selectedTab) {
                     0 -> {
                         if (state.subagents.isEmpty()) {
                             item { EmptyHint(stringResource(R.string.background_sheet_empty_subagents)) }
                         } else {
-                            items(state.subagents, key = { it.sessionId }) { sub ->
+                            itemsIndexed(state.subagents, key = { _, it -> it.sessionId }) { index, sub ->
+                                // 2026-08-12 用户要求：item 之间加分界线
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                                    )
+                                }
                                 val running = sub.isRunning
                                 ListItem(
                                     // 2026-08-12 用户要求：左对齐 2 行——第一行标题
@@ -159,7 +179,7 @@ fun BackgroundSheet(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     },
-                                    // 第二行：agent 徽章（样式同 agent 回复统计栏）+ 开始时间 + 模型
+                                    // 第二行：agent 徽章（样式同 agent 回复统计栏）+ 开始时间 + 模型徽标
                                     supportingContent = {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
@@ -178,12 +198,11 @@ fun BackgroundSheet(
                                                 )
                                             }
                                             sub.modelId?.takeIf { it.isNotBlank() }?.let { model ->
-                                                Text(
+                                                // 2026-08-12 用户要求：模型名称也改为徽标模式
+                                                CompactTag(
                                                     text = model,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
+                                                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.FAINT),
+                                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
@@ -207,7 +226,14 @@ fun BackgroundSheet(
                         if (state.shells.isEmpty()) {
                             item { EmptyHint(stringResource(R.string.background_sheet_empty_shells)) }
                         } else {
-                            items(state.shells, key = { it.id }) { shell ->
+                            itemsIndexed(state.shells, key = { _, it -> it.id }) { index, shell ->
+                                // 2026-08-12 用户要求：item 之间加分界线
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                                    )
+                                }
                                 val running = shell.isRunning
                                 ListItem(
                                     headlineContent = {
