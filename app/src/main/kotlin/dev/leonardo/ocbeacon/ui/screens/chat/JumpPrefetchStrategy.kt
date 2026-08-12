@@ -56,14 +56,13 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
     }
 
     private fun LazyListPrefetchScope.maybeScheduleJump(layoutInfo: LazyListLayoutInfo) {
-        val idx = pendingIndex
-        if (idx >= 0 && idx < layoutInfo.totalItemsCount && idx != lastScheduledJump) {
-            lastScheduledJump = idx
-            schedulePrefetch(idx) {
-                // LazyListPrefetchResultScope 直接提供主轴尺寸（vertical：高度）
-                onCompleted?.invoke(index, mainAxisSize)
-            }
-        }
+        // 2026-08-13 禁用：预组合的 premeasure 尺寸会污染 item 布局
+        //（214 vs 最终 331——实测微调 residual=-117 错位）。预组合收益
+        //（内容树预热）< 代价（尺寸污染）。跳转目标由"进入视口自然渲染
+        // + 透明门控"处理——JumpPrefetchStrategy 仅保留滚动方向预测。
+        // 保留 pendingIndex 复位逻辑供调用方（未来修复后重新启用）。
+        @Suppress("UNUSED_EXPRESSION")
+        pendingIndex
     }
 
     /** 复位（下次跳转重新调度） */

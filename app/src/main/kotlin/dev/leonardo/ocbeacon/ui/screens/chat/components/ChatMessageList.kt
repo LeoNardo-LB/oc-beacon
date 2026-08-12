@@ -132,6 +132,10 @@ val LocalMarkdownStateRegistry = androidx.compose.runtime.staticCompositionLocal
 internal object JumpBubbleObserve {
     var targetMsgId: String? = null
     var bubbleTopY = -1f
+    /** 2026-08-13：定位收敛完成标记（Compose state——MessageCardUser 门控显示）：
+     * 收敛完成（位置精确 + 列表尺寸稳定）前目标保持透明——显示即最终状态，
+     * 无"空气泡→突然增高"的视觉突变。 */
+    var settled by androidx.compose.runtime.mutableStateOf(false)
 }
 
 
@@ -373,6 +377,7 @@ fun ChatMessageList(
         val (rawIndex, msg) = displayItems[displayItemIndex]
         val targetMsgId = msg.message.id
         JumpBubbleObserve.targetMsgId = targetMsgId
+        JumpBubbleObserve.settled = false
         val initialLazyIndex = bannerCount + displayItemIndex
         if (BuildConfig.DEBUG) {
             AppLogger.d("ChatPaging", "scrollToDisplayItem: displayIdx=$displayItemIndex lazyIdx=$initialLazyIndex msg=${targetMsgId.take(12)}")
@@ -411,45 +416,59 @@ fun ChatMessageList(
                     }
                 }
                 viewModel.jumpPrefetch.reset()
-                val prefetchDeferred = CompletableDeferred<Unit>()
-                viewModel.jumpPrefetch.onCompleted = { _, _ -> prefetchDeferred.complete(Unit) }
                 viewModel.jumpPrefetch.pendingIndex = lazyIndex
-                listState.scroll { scrollBy(1f); scrollBy(-1f) }
-                // 2026-08-13 根治"到达后空洞"：**等预组合完成后再滚动**——
-                // 目标内容树在视口外已构建（apply 即显示——无空白/无渲染过程）。
-                // 滚动到达时目标直接可见（内容完整），不再有"先空白后瞬间渲染"。
-                val prefetchDone = withTimeoutOrNull(2500) { prefetchDeferred.await() }
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 预组合 ${if (prefetchDone != null) "完成" else "超时（继续滚动）"}")
-                }
-                // Phase 1（2026-08-13 恢复动画）：0.6s easeInOut **平滑滚动**到目标
-                // ——去动画后的瞬间跳动产生"闪"感。目标透明（门控 Ready）——动画
-                // 期间目标在视口内渲染/测量（不可见），Ready 完成后每帧重算 desired
-                // → 动画终点精确；用户看到的是平滑滚动（无跳）+ 目标完整出现。
+                // 2026-08-13：预组合已禁用（premeasure 尺寸污染 item 布局——
+                // 214 vs 331 错位 117px）；不再 await 预组合，直接进入
+                // 透明测量流程（await Parsed 已保证内容就绪）。
+                // Phase 1（2026-08-13 无动画）：一次定位到**视口中部**——目标进入
+                // 视口（门控 alpha=0 透明），渲染/测量在不可见状态完成。
                 val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
                 val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
-                val durationNanos = 600_000_000L
-                val startNanos = withFrameNanos { it }
-                var ready: RenderReadiness.Ready? = null
-                while (true) {
-                    val now = withFrameNanos { it }
-                    val progress = ((now - startNanos).toFloat() / durationNanos).coerceIn(0f, 1f)
-                    val eased = easeInOutCubic(progress)
-                    // Ready 信号（动画期间完成——目标透明渲染测量）；非挂起检查
-                    val ready = renderReadiness.current(targetMsgId) as? RenderReadiness.Ready
-                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                    val h = ready?.finalHeight ?: item?.size ?: 214
-                    // desired = vh - size - paddingTop（reverse 取反：传负值）
-                    val desired = vh - h - contentPaddingTop
-                    LazyListReflection.requestScrollToItemNoCancel(
-                        listState, lazyIndex, -(desired * eased).toInt()
-                    )
-                    if (BuildConfig.DEBUG && progress >= 0.99f) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 动画终点 progress=$progress h=$h ready=${ready != null} desired=$desired")
+                val vhMid = (vh - contentPaddingTop).toInt() / 2
+                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, -vhMid)
+                // Phase 2：await Ready(finalHeight)（组件 onSizeChanged 稳定上报——
+                // 目标透明测量中完成）
+                val ready = renderReadiness.awaitReady(targetMsgId, 2500)
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 就绪信号 ${ready?.let { "Ready(finalHeight=${it.finalHeight})" } ?: "超时"}")
+                }
+                // 2026-08-13 修复"列表尺寸滞后"：Ready 是组件测量（331），但
+                // LazyColumn 布局的 item.size 可能仍用旧值（214）——两者不一致
+                // 时定位必然错位（实测 gap=117）。等待列表布局同步（item.size
+                // 达到 Ready 高度）后再定位——一次到位（微调 0）。
+                if (ready != null) {
+                    withTimeoutOrNull(1500) {
+                        while (true) {
+                            val syncItem = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+                                it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
+                            }
+                            if (syncItem != null && syncItem.size >= ready.finalHeight - 2) break
+                            delay(50)
+                        }
                     }
-                    if (progress >= 1f) break
+                    if (BuildConfig.DEBUG) {
+                        val syncSize = listState.layoutInfo.visibleItemsInfo.firstOrNull {
+                            it.key == "u_$targetMsgId" || it.key == "t_$targetMsgId"
+                        }?.size
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 列表尺寸同步 size=$syncSize")
+                    }
+                }
+                // Phase 3：一次定位到顶部（透明状态——用户不可见）→ Ready 后显示
+                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                val finalHeight = ready?.finalHeight ?: item?.size ?: 0
+                if (finalHeight > 0) {
+                    // **注意**：requestScrollToItemNoCancel 的 scrollOffset 在 reverse
+                    // 布局中被取反解释（实测 req=347 → item.offset=-278）→ 传负值。
+                    // desired = vh - size - paddingTop（2026-08-13 实测拟合）
+                    val desired = vh - finalHeight - contentPaddingTop
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 一次定位 finalHeight=$finalHeight viewport=$vh paddingTop=$contentPaddingTop desired=$desired")
+                    }
+                    LazyListReflection.requestScrollToItemNoCancel(
+                        listState, lazyIndex, -(desired.toInt())
+                    )
                 }
                 // 精确微调：最终布局数据把顶边残差收敛到 ±2px（含 paddingTop 修正）
                 withFrameNanos { }
@@ -467,6 +486,38 @@ fun ChatMessageList(
                         }
                         if (kotlin.math.abs(residual) > 2f) scrollBy(residual)
                     }
+                }
+                // 2026-08-13 收敛循环（Mikepenz 渐进测量特性 214→331：目标移动
+                // 触发重新测量——透明状态轮询修正直到位置+尺寸完全稳定）。
+                // 收敛完成（gap<2 连续 2 轮）→ settled=true（门控显示——显示即
+                // 最终状态：内容完整、高度最终、位置精确——无"空气泡→增高"）。
+                var convergedRounds = 0
+                for (round in 1..6) {
+                    delay(150)
+                    listState.scroll {
+                        val info3 = listState.layoutInfo
+                        val it3 = info3.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                            ?: info3.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                        if (it3 != null) {
+                            val vh3 = (info3.viewportEndOffset - info3.viewportStartOffset).toFloat()
+                            val pt3 = -info3.viewportStartOffset.toFloat()
+                            val gap3 = (it3.offset + it3.size - (vh3 - pt3)).toFloat()
+                            if (BuildConfig.DEBUG) {
+                                AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 收敛 round=$round gap=$gap3 size=${it3.size}")
+                            }
+                            if (kotlin.math.abs(gap3) > 2f) {
+                                scrollBy(gap3)
+                                convergedRounds = 0
+                            } else {
+                                convergedRounds++
+                            }
+                        }
+                    }
+                    if (convergedRounds >= 2) break
+                }
+                JumpBubbleObserve.settled = true
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 收敛完成 settled=true")
                 }
                 // 验证：item 顶边屏幕 y 对齐视口顶（offset+size = vh+paddingTop，±10px）
                 withFrameNanos { }
