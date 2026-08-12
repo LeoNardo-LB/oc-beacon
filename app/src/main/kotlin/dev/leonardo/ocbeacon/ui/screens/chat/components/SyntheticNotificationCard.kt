@@ -299,21 +299,41 @@ internal data class SyntheticTaskInfo(
 )
 
 internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
-    val taskMatch = Regex("""<task\b[^>]*>""").find(text) ?: return null
+    // 兼容两种服务器 synthetic 格式（2026-08-12 修复）：
+    // - 新版源码：<task id="..." state="..."><summary>...</summary><task_result|task_error>...</task_result></task>
+    // - 运行中的旧版服务器：<subagent id="..." state="..." description="...">结果</subagent>
+    //   旧格式没有 <summary>/<task_result> 标签——description 属性作摘要、标签正文作结果。
+    //   修复前只认 <task>，<subagent> 格式解析失败 → 降级显示原始 XML 文本
+    //   （用户反馈"主对话看不到通知提醒"的根因）。
+    val taskMatch = Regex("""<(?:task|subagent)\b[^>]*>""").find(text) ?: return null
     val taskTag = taskMatch.value
+    val isSubagentTag = taskTag.startsWith("<subagent")
     val sessionId = Regex("""id="([^"]*)"""").find(taskTag)
         ?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
     // state 决定完成/失败语义与色彩——缺失则视为无效格式（fallback 纯文本）
     val state = Regex("""state="([^"]*)"""").find(taskTag)
         ?.groupValues?.get(1)?.takeIf { it.isNotBlank() } ?: return null
-    val summary = Regex(
-        """<summary>(.*?)</summary>""",
-        RegexOption.DOT_MATCHES_ALL
-    ).find(text)?.groupValues?.get(1)?.trim()
-    val outputTag = if (state == "error") "task_error" else "task_result"
-    val output = Regex(
-        """<$outputTag>(.*?)</$outputTag>""",
-        RegexOption.DOT_MATCHES_ALL
-    ).find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
+    val summary = if (isSubagentTag) {
+        Regex("""description="([^"]*)"""").find(taskTag)?.groupValues?.get(1)?.trim()
+    } else {
+        Regex(
+            """<summary>(.*?)</summary>""",
+            RegexOption.DOT_MATCHES_ALL
+        ).find(text)?.groupValues?.get(1)?.trim()
+    }
+    val output = if (isSubagentTag) {
+        // 正文 = 开标签与 </subagent> 之间的文本
+        val closeIdx = text.indexOf("</subagent>")
+        val bodyStart = taskMatch.range.last + 1
+        if (closeIdx > bodyStart) {
+            text.substring(bodyStart, closeIdx).trim().takeIf { it.isNotBlank() }
+        } else null
+    } else {
+        val outputTag = if (state == "error") "task_error" else "task_result"
+        Regex(
+            """<$outputTag>(.*?)</$outputTag>""",
+            RegexOption.DOT_MATCHES_ALL
+        ).find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
+    }
     return SyntheticTaskInfo(sessionId, state, summary, output)
 }
