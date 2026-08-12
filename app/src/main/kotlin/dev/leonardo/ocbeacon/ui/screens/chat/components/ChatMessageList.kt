@@ -402,6 +402,33 @@ fun ChatMessageList(
                 } else if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标无 MarkdownState（fallback 文本）——直接继续")
                 }
+                // Phase 2b（根治）：布局稳定确认——Success 信号只保证"解析完成"，
+                // 组合/测量（Markdown 树重组、图片占位）可能仍改变 item.size
+                //（实测 size 214→331；复杂消息 Success 后可能再变）→ 动画必须用
+                // 最终尺寸，否则顶边偏移（用户反馈"顶部还是会超出"）。
+                // 轮询 size 连续 2 轮（100ms 间隔）不变 = 布局完全稳定（最多 2s）。
+                var stableCount = 0
+                var lastSize = -1
+                var probeRounds = 0
+                while (stableCount < 2 && probeRounds < 20) {
+                    delay(100)
+                    probeRounds++
+                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                    if (item == null) {
+                        // 目标不在视口（被 SSE/autoLoad 推走）→ 重新定位
+                        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 布局稳定中目标消失——重新定位")
+                        LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                        withFrameNanos { }
+                        stableCount = 0
+                        lastSize = -1
+                        continue
+                    }
+                    if (item.size == lastSize) stableCount++ else { stableCount = 1; lastSize = item.size }
+                }
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 布局稳定 size=$lastSize rounds=$probeRounds")
+                }
                 // Phase 3：0.6s EaseInOut 动画挪到顶部——requestScroll offset 渐变
                 val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
                 val durationNanos = 600_000_000L
@@ -450,8 +477,18 @@ fun ChatMessageList(
                 withFrameNanos { }
                 val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                     ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                val vhV = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
+                val infoV = listState.layoutInfo
+                val vhV = (infoV.viewportEndOffset - infoV.viewportStartOffset).toFloat()
                 val gap = if (after != null) after.offset + after.size - vhV else Float.MAX_VALUE
+                // 精确观测（用户要求依靠日志）：item 顶边滚动坐标 vs viewportEndOffset
+                // itemTopScroll = start + offset + size；超出 = itemTopScroll - end
+                val itemTopScroll = if (after != null) {
+                    infoV.viewportStartOffset + after.offset + after.size
+                } else Int.MIN_VALUE
+                val endScroll = infoV.viewportEndOffset
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 观测 gap=$gap itemTopScroll=$itemTopScroll end=$endScroll 超出=${if (after != null) itemTopScroll - endScroll else "N/A"}px start=${infoV.viewportStartOffset}")
+                }
                 if (after != null && kotlin.math.abs(gap) < 10f) {
                     positioned = true
                     if (BuildConfig.DEBUG) {
@@ -461,8 +498,19 @@ fun ChatMessageList(
                     AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 未到位 gap=$gap")
                 }
             }
-            // 2026-08-12 根治：预渲染信号（await State.Success）已确保尺寸为
-            // 最终值——不再需要收敛循环。保留短延迟防止 SSE/分页在解锁前干扰。
+            // 2026-08-12 根治：预渲染信号（await State.Success）+ 布局稳定确认已
+            // 确保尺寸为最终值——不再需要收敛循环。动画后 500ms 最终确认：
+            // 若渲染仍在变化（size 改变）→ 顶边会偏移，日志暴露真实偏差。
+            delay(500)
+            if (BuildConfig.DEBUG) {
+                val fin = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                if (fin != null) {
+                    val infoF = listState.layoutInfo
+                    val topF = infoF.viewportStartOffset + fin.offset + fin.size
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: 最终确认 topScroll=$topF end=${infoF.viewportEndOffset} 超出=${topF - infoF.viewportEndOffset}px size=${fin.size}")
+                }
+            }
             delay(300)
             jumpLockActive = false
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: autoLoad 解锁")
