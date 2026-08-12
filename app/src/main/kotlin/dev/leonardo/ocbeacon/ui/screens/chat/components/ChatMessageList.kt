@@ -94,6 +94,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets
 import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentAnchorTimestamp
 import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentQuestionMsgId
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -108,6 +109,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.util.MessageFingerprints
+import dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender
 import com.mikepenz.markdown.model.MarkdownState
 import com.mikepenz.markdown.model.State
 import kotlinx.coroutines.flow.first
@@ -398,70 +400,34 @@ fun ChatMessageList(
                     continue
                 }
                 val lazyIndex = bannerCount + currentIdx
-                // Phase 1（2026-08-13 减闪）：定位目标到**视口中部**——目标进入
-                // 视口即显示 Parsed 完整内容（无底部空白期、无"内容突变"）；
-                // 后续 Phase 3 只做小位移到顶部（一次动作）。
-                val vhMid = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset) / 2
+                // Phase 0（终极解法）：await 预解析完成（Parsed——内容就绪）→
+                // 触发预组合（JumpPrefetchStrategy 视口外预热内容树——目标进入
+                // 视口时组合已构建，Ready 更快）。**预组合尺寸（首帧 214）不可靠**，
+                // 仅作预热，定位用 Ready(finalHeight)（视口内稳定测量值）。
+                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts await 预解析")
+                withTimeoutOrNull(2000) {
+                    renderReadiness.flow(targetMsgId).first {
+                        it is RenderReadiness.Parsed || it is RenderReadiness.Failed
+                    }
+                }
+                viewModel.jumpPrefetch.reset()
+                viewModel.jumpPrefetch.pendingIndex = lazyIndex
+                listState.scroll { scrollBy(1f); scrollBy(-1f) }
+                // Phase 1：定位目标到**视口中部**——目标进入视口（门控 alpha=0
+                // 透明），渲染/测量在不可见状态完成（无用户可见过程）。
+                val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
+                val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
+                val vhMid = (vh - contentPaddingTop).toInt() / 2
                 LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, -vhMid)
-                withFrameNanos { }
-                withFrameNanos { }
-                // Phase 2（根治）：等待目标 MarkdownState 注册（目标组合后）→
-                // await 解析完成（State.Success）——内容展示前渲染完，用最终
-                // 尺寸定位，替代尺寸轮询（收敛循环随之移除）。
-                // Phase 2（架构根治 2026-08-13）：await 渲染就绪信号——
-                // RenderReadinessRegistry.awaitReady 等待 Ready(finalHeight)，
-                // 替代"await mdRegistry + 布局稳定轮询"的分散逻辑。
+                // Phase 2：await Ready(finalHeight)（组件 onSizeChanged 稳定上报）
                 val ready = renderReadiness.awaitReady(targetMsgId, 2500)
                 if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 就绪信号 ${ready?.let { "Ready(finalHeight=${it.finalHeight})" } ?: "超时"}")
                 }
-                if (ready != null) {
-                    // Ready 已含布局稳定确认（消息组件上报）——2 帧保险
-                    withFrameNanos { }
-                    withFrameNanos { }
-                } else {
-                    // 超时兜底：mdRegistry（组件自解析路径）+ 布局稳定轮询
-                    val mdState = withTimeoutOrNull(1500) {
-                        while (mdRegistry[targetMsgId] == null) delay(50)
-                        mdRegistry[targetMsgId]
-                    }
-                    if (mdState != null) {
-                        withTimeoutOrNull(2500) {
-                            mdState.state.first { it is State.Success || it is State.Error }
-                        }
-                    }
-                    // 布局稳定轮询（兜底——组件未上报 Ready 时）
-                    var stableCount = 0
-                    var lastSize = -1
-                    var probeRounds = 0
-                    while (stableCount < 2 && probeRounds < 20) {
-                        delay(100)
-                        probeRounds++
-                        val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                            ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                        if (item == null) {
-                            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: 布局稳定中目标消失——重新定位")
-                            LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
-                            withFrameNanos { }
-                            stableCount = 0
-                            lastSize = -1
-                            continue
-                        }
-                        if (item.size == lastSize) stableCount++ else { stableCount = 1; lastSize = item.size }
-                    }
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 回退布局稳定 size=$lastSize rounds=$probeRounds")
-                    }
-                }
-                // Phase 3：一次瞬时定位——用就绪信号的最终高度（Ready.finalHeight
-                // 优先；信号缺失时回退 item.size 瞬时值）。布局稳定已确认 → 一次到位。
-                val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
-                val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
+                // Phase 3：定位顶部（透明状态——用户不可见）→ Ready 后显示
                 val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                     ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
                     ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                // 架构根治：用 Ready(finalHeight)（消息组件上报的最终高度）——
-                // 不依赖 item.size 的瞬时测量值（渲染中间值 214 vs 最终 331）
                 val finalHeight = ready?.finalHeight ?: item?.size ?: 0
                 if (finalHeight > 0) {
                     // **注意**：requestScrollToItemNoCancel 的 scrollOffset 在 reverse
@@ -577,12 +543,18 @@ fun ChatMessageList(
         val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
         // 2026-08-13 架构根治（Mikepenz 官方 Parse-ahead + 就绪信号层）：
         // 点击瞬间 renderReadiness.preParse 后台解析目标文本 → Parsed(State) →
-        // 消息组件组合时用 Markdown(state) 直接渲染（内容即最终状态，无骤变）
+        // 消息组件组合时用 Markdown(state) 直接渲染（内容即最终状态，无骤变）。
+        // **注意**：文本必须与渲染归一化一致（normalizeForRender）——否则解析
+        // AST 与渲染内容不同（换行差异 → 高度 214 vs 331，预组合尺寸失真）。
         val jumpText = displayItems.getOrNull(displayItemIndex)
             ?.second?.parts?.filterIsInstance<Part.Text>()
             ?.firstOrNull { it.text.isNotBlank() }?.text
         if (jumpText != null) {
-            renderReadiness.preParse(msgId, jumpText, coroutineScope)
+            renderReadiness.preParse(
+                msgId,
+                normalizeForRender(jumpText, isUser = true),
+                coroutineScope,
+            )
         }
         // 2026-08-12 修复：目标在 displayItems 但 parts 为空（Room 有消息但
         // parts 未 upsert 到内存——重启后内存只加载最新窗口，fetchAllMessages

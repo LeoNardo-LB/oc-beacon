@@ -365,16 +365,20 @@ class ChatViewModel @Inject constructor(
     // 默认 LazyListPrefetchStrategy 每次只预取 1 个 item，fling 快速滚动（向下滑/看更旧）
     // 时预取跟不上 → item 进入视口才现场组合（重型 Markdown 耗时）→ 整个气泡被跳过。
     // v5 迭代（日志证实）：拖拽摩擦时同一 item 反复销毁重建（behind 太小）+ fling
-    // 启动瞬间组合跟不上（ahead 太小）→ 双时机卡顿。早期 v2 大窗口仍卡的根因是
-    // 数据层每 48ms 全量重建导致窗口内 item 全量重组 —— 已由 renderableTurns 指纹
-    // 缓存 + ChatMessage 实例缓存修复（2026-08）。数据层稳定后大窗口预组合优势可
-    // 重新启用：对称 1.5 屏覆盖上下两个方向的摩擦保持与 fling 预组合。
+    // 2026-08-13 终极解法：跳转预组合策略——视口外预组合跳转目标（组合+测量
+    // 不显示），滚动到视口时即静态显示（零渲染过程）；同时承担滚动方向预测
+    // 预组合（替代原 cacheWindow 大窗口——二者构造不可兼得）。
+    @OptIn(ExperimentalFoundationApi::class)
+    val jumpPrefetch = JumpPrefetchStrategy()
+
+    // 2026-08-13：LazyListState 改用 prefetchStrategy（跳转预组合 + 滚动预测），
+    // 原 cacheWindow（ahead/behind 1.5 屏）由 JumpPrefetchStrategy 的滚动方向
+    // 预测替代——流式/滚动预组合收益保持。
     @OptIn(ExperimentalFoundationApi::class)
     val listState = androidx.compose.foundation.lazy.LazyListState(
-        cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(
-            aheadFraction = 1.5f,
-            behindFraction = 1.5f,
-        ),
+        firstVisibleItemIndex = 0,
+        firstVisibleItemScrollOffset = 0,
+        prefetchStrategy = jumpPrefetch,
     )
 
     val restoredDraftState: StateFlow<RevertedDraftPayload?> get() = draftDelegate.restoredDraftState

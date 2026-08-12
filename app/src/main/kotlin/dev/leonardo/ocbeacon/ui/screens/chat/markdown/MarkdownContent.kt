@@ -128,6 +128,14 @@ private fun ensureBlankLineBeforeGfmTables(text: String): String {
     }
 }
 
+/**
+ * 渲染归一化（2026-08-13 提取）：与 MarkdownContent 渲染完全一致的文本预处理
+ * ——预解析（parseMarkdownFlow）必须用同一归一化结果，否则解析出的 AST 与
+ * 实际渲染内容不一致（换行差异 → 高度不同——实测 214 vs 331）。
+ */
+internal fun normalizeForRender(raw: String, isUser: Boolean): String =
+    normalizeTaskListMarkers(normalizeMarkdown(raw, isUser))
+
 @Composable
 internal fun MarkdownContent(
     markdown: String,
@@ -147,7 +155,7 @@ internal fun MarkdownContent(
     // ——排版/密度现在由 LocalChatDensity 驱动，且 Mikepenz Markdown
     // 同步解析，因此 immediate 标志无效果。
     val normalizedMarkdown = remember(markdown, isUser) {
-        normalizeTaskListMarkers(normalizeMarkdown(markdown, isUser))
+        normalizeForRender(markdown, isUser)
     }
 
     val isAmoled = isAmoledTheme()
