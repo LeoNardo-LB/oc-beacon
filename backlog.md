@@ -244,6 +244,12 @@
   - 工时：P0 ~0.5d | 难度：中 | 涉及：MessageStore.upsertParts + 工具卡片展开按需加载
   - 与 #80（快速导航全量列表）不冲突——列表基于 role=user 元数据，不受 parts 截断影响
 
+- [ ] **#81 度量/风格/边距统一提取为 token 主题系统** `refactor` `ui`
+  - 需求：2026-08-12 用户提出——将度量参数（如模型列表单行 item 高度 40dp）、风格、边距等样式统一提取为 token/主题系统
+  - 现状：已有 SpacingTokens/ShapeTokens/AlphaTokens/ButtonTokens（ui/theme/），但部分组件仍硬编码数值（如 ModelPickerDialog 的 heightIn(min=40.dp)、padding 12/8dp 等散落各处）
+  - 方向：新增 ItemTokens（列表项高度/密度规格：40dp 密集 / 48dp 紧凑 / 56dp 标准）、统一列表项 padding/间距引用；对照 docs/ui-conventions.md 的 token 体系扩展
+  - 工时：~1d | 难度：中 | 涉及：ui/theme/* + 各列表组件（ModelPicker/QuickNavigate/后台面板等）
+
 - [ ] **#80 快速导航全量列表（本地 Room 全量 user 消息，非仅已加载窗口）** `data` `feature`
   - 需求：2026-08-12 用户反馈"快速定位不准确"——实测根因：快速导航列表基于 rawMessages（已加载窗口）只显示 7 个 item，本地热表实际有 35 条 user 消息（多会话 3939 条中 role=user 占比 35/153）
   - 方案：JumpTargetExtractor 数据源扩展为本地 Room 全量（热表 role=user 查询）；点击未加载目标 → loadAround（c0d28535 已实现服务器版）本地优先（beforeId+afterId 双查询）→ 现有 merge 路径
