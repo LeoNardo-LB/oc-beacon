@@ -333,42 +333,45 @@ fun ChatMessageList(
             //    重试（最多 3 次，每次重新 requestScroll + 等帧 + 修正）。
             var attempts = 0
             var positioned = false
+            // 初始定位：反射将目标放到视口底部（reverseLayout 起点）
+            LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+            withFrameNanos { }
+            // 微调循环：基于最新布局重算 delta 逐步逼近视口顶部。
+            // 2026-08-12 修复：**不再 requestScroll 重试**——重试的 requestScroll
+            // 会把已定位的目标拉回底部，覆盖前一次滚动结果（logcat 实证：
+            // attempt 之间目标 offset 979→841→979 震荡无法收敛）。
+            // 目标可见（offset >= viewportStart - 50）即成功；SSE 活跃时会
+            // 持续推目标，顶部完美定位不现实，可见即为可用状态。
             while (attempts < 3 && !positioned) {
                 attempts++
-                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
-                withFrameNanos { }
                 listState.scroll {
                     val info = listState.layoutInfo
                     val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                     if (item != null) {
-                        // 2026-08-12 修复（跳转位置错误最终根因）：delta 符号在
-                        // reverseLayout 中取反——原代码 delta = viewportStartOffset -
-                        // item.offset（负值），scrollBy(负) 在 reverseLayout 中实际
-                        // 内容下移（logcat 实证：目标 offset 533 → scrollBy(-554) 后
-                        // 反而到 1087——方向反了）。改为 delta = item.offset -
-                        // viewportStartOffset（正值 = 目标在视口下方 = 内容上移）。
+                        // delta 符号：reverseLayout 中 scrollBy 方向取反——
+                        // item.offset - viewportStartOffset 正值 = 内容上移 = 目标升至顶部
                         val delta = (item.offset - info.viewportStartOffset).toFloat()
                         if (BuildConfig.DEBUG) {
                             AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item offset=${item.offset} delta=$delta")
                         }
                         if (kotlin.math.abs(delta) > 1f) scrollBy(delta)
                     } else if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item($lazyIndex) 不可见（visible=${info.visibleItemsInfo.map { it.index }})——重试")
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item($lazyIndex) 不可见（visible=${info.visibleItemsInfo.map { it.index }})——微调跳过")
                     }
                 }
-                // 2026-08-12 修复：scroll 块内 layoutInfo 是块起始快照——
-                // scrollBy 后同帧读取是旧值（误判"未达顶部"→ 重试破坏定位）。
-                // 等 3 帧让滚动应用与布局稳定后再验证真实位置。
-                withFrameNanos { }
+                // 等 2 帧让滚动应用与布局稳定后再验证
                 withFrameNanos { }
                 withFrameNanos { }
                 val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                 val ok = after != null &&
-                    kotlin.math.abs(after.offset - listState.layoutInfo.viewportStartOffset) < 100f
+                    after.offset >= listState.layoutInfo.viewportStartOffset - 50f
                 if (ok) {
                     positioned = true
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}")
+                    }
                 } else if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 未达顶部 after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}——重试")
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标不可见/未达（after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}）")
                 }
             }
         }

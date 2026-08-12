@@ -205,11 +205,17 @@ object V2MessageMapper {
                 val message = Message.User(
                     id = id,
                     sessionId = sessionId,
-                    time = TimeInfo(created = timeCreated)
+                    time = TimeInfo(created = timeCreated),
+                    // 2026-08-12 修复：REST 加载同时生成 summary——Room parts
+                    // 丢失/覆盖时（历史 bug：空 id 主键冲突）仍有兜底文本可提取，
+                    // 快速导航 preview 与消息恢复不依赖 parts 完整性
+                    summary = Message.User.UserSummary(body = text),
                 )
                 val parts = if (text.isNotEmpty()) {
                     listOf(Part.Text(
-                        id = "",
+                        // 2026-08-12 修复：唯一 id（此前 "" 导致 Room 主键冲突
+                        // 互相覆盖——实测测试会话 35 条 user 消息只剩 1 条有 parts）
+                        id = "${id}_text",
                         sessionId = sessionId,
                         messageId = id,
                         text = text

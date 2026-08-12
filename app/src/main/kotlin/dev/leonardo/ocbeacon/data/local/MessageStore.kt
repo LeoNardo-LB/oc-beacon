@@ -72,9 +72,12 @@ class MessageStore @Inject constructor(
                 )
                 dao.upsertParts(
                     toPersist.flatMap { m ->
-                        m.parts.map { p ->
+                        m.parts.mapIndexed { index, p ->
                             CachedPartEntity(
-                                id = p.id,
+                                // 2026-08-12 修复：空 part id（REST 加载历史产生 ""）
+                                // 主键冲突互相覆盖（实测 35 条 user 消息只剩 1 条有 parts）
+                                // ——落库时生成稳定唯一 id（消息 id + 位置索引）
+                                id = p.id.ifEmpty { "${m.info.id}_p$index" },
                                 messageId = m.info.id,
                                 sessionId = sessionId,
                                 type = p.typeName(),
