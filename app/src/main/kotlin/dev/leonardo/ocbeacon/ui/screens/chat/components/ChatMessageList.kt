@@ -313,7 +313,10 @@ fun ChatMessageList(
     }
 
     // jumpToMessage 的核心滚动 + 高亮（立即路径与异步路径共用）。
+    // 2026-08-12：目标定位到"视口安全区"（顶部下方 100px）——完全可见，
+    // 不被顶部 topBar 遮挡（LazyColumn 视口含标题栏区域）。
     fun scrollToDisplayItem(displayItemIndex: Int) {
+        val TARGET_SAFE_OFFSET = 100f
         val (rawIndex, msg) = displayItems[displayItemIndex]
         val targetMsgId = msg.message.id
         val initialLazyIndex = bannerCount + displayItemIndex
@@ -356,9 +359,13 @@ fun ChatMessageList(
                         ?: info.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
                         ?: info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
                     if (item != null) {
-                        // delta 符号：reverseLayout 中 scrollBy 方向取反——
-                        // item.offset - viewportStartOffset 正值 = 内容上移 = 目标升至顶部
-                        val delta = (item.offset - info.viewportStartOffset).toFloat()
+                        // 2026-08-12 修复：目标到"视口安全区"（viewportStart + 100）
+                        // ——原修正到 viewportStart（-21）会被顶部 topBar 遮挡
+                        //（LazyColumn 视口含标题栏区域——目标滚到标题后面不可见）。
+                        // delta = item.offset - 目标位置：目标在下方（offset 小）→
+                        // 负值 → scrollBy(负) 内容下移 → 目标下移到安全区。
+                        //（reverseLayout 中 scrollBy(正) 内容上移——已验证。）
+                        val delta = (item.offset - (info.viewportStartOffset + TARGET_SAFE_OFFSET)).toFloat()
                         if (BuildConfig.DEBUG) {
                             AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts curIdx=$currentIdx key=${item.key} item offset=${item.offset} delta=$delta")
                         }
@@ -370,13 +377,12 @@ fun ChatMessageList(
                 // 等 2 帧让滚动应用与布局稳定后再验证
                 withFrameNanos { }
                 withFrameNanos { }
-                // 验证：按 key 找目标项（bannerCount 偏差时 index 验证不可靠——
-                // 用户反馈"目标在视口最下方"：验证到错误项误判成功）
+                // 验证：按 key 找目标项（bannerCount 偏差时 index 验证不可靠）
                 val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
                     ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                // 目标接近视口顶部（<100px）才算定位成功
+                // 目标在安全区（viewportStart + 100 ± 60）才算定位成功
                 val nearTop = after != null &&
-                    kotlin.math.abs(after.offset - listState.layoutInfo.viewportStartOffset) < 100f
+                    kotlin.math.abs(after.offset - (listState.layoutInfo.viewportStartOffset + TARGET_SAFE_OFFSET)) < 60f
                 val ok = if (nearTop) true else (attempts >= 6 && after != null)
                 if (ok) {
                     positioned = true
@@ -384,7 +390,7 @@ fun ChatMessageList(
                         AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts key=${after?.key} after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset} nearTop=$nearTop")
                     }
                 } else if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标未达顶部（after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}）")
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标未达安全区（after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}）")
                 }
             }
         }
@@ -426,11 +432,17 @@ fun ChatMessageList(
      */
     fun jumpToMessage(msgId: String) {
         val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
-        if (displayItemIndex >= 0) {
+        // 2026-08-12 修复：目标在 displayItems 但 parts 为空（Room 有消息但
+        // parts 未 upsert 到内存——重启后内存只加载最新窗口，fetchAllMessages
+        // 落库的旧消息 parts 不在内存）→ 直接滚动会渲染空项（用户反馈"目标
+        // 不可见/和之前一样"）→ 强制 loadAround 加载 parts。
+        val targetHasRenderableContent = displayItemIndex >= 0 &&
+            displayItems[displayItemIndex].second.parts.any { it is Part.Text && it.text.isNotBlank() }
+        if (targetHasRenderableContent) {
             scrollToDisplayItem(displayItemIndex)
             onQuickNavigateDismiss()
         } else {
-            // 未加载：触发异步定位加载，等待消息进入 displayItems 后滚动
+            // 未加载或 parts 为空：触发异步定位加载，等待消息进入 displayItems 后滚动
             pendingJumpTarget = msgId
             onQuickNavigateDismiss()
             coroutineScope.launch { viewModel.loadAround(msgId) }
