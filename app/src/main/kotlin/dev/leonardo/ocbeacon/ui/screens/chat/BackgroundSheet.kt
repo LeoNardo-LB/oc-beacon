@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -40,6 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ShellJob
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatus
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatusIcon
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
@@ -78,30 +82,48 @@ fun BackgroundSheet(
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
         ) {
-            Text(
-                text = stringResource(R.string.background_sheet_title),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            // 2026-08-12 用户要求：去掉 "Background" 标题区域
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
+                    // 2026-08-12 用户要求：图标与文字同一行（icon+text 都放 text 槽位，Row 排列）
                     text = {
-                        Text(
-                            stringResource(R.string.background_sheet_subagents_tab) +
-                                " (${state.subagents.size})"
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountTree,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                stringResource(R.string.background_sheet_subagents_tab) +
+                                    " (${state.subagents.size})"
+                            )
+                        }
                     }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
+                    // 2026-08-12 用户要求：图标与文字同一行
                     text = {
-                        Text(
-                            stringResource(R.string.background_sheet_shells_tab) +
-                                " (${state.shells.size})"
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Terminal,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                stringResource(R.string.background_sheet_shells_tab) +
+                                    " (${state.shells.size})"
+                            )
+                        }
                     }
                 )
             }
@@ -116,38 +138,36 @@ fun BackgroundSheet(
                                 val running = sub.isRunning
                                 ListItem(
                                     headlineContent = {
-                                        Text(
-                                            text = sub.title ?: sub.agent ?: sub.sessionId,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            // 2026-08-12 用户要求：左对齐展示子代理类型 + 标题
+                                            sub.agent?.takeIf { it.isNotBlank() }?.let { agent ->
+                                                Text(
+                                                    text = agent.replaceFirstChar { it.uppercase() },
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                            Text(
+                                                text = sub.title ?: sub.sessionId,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     },
                                     supportingContent = sub.description?.let { desc ->
                                         { Text(desc, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                                     },
-                                    leadingContent = {
-                                        if (running) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                strokeWidth = 2.dp,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.CheckCircle,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    },
+                                    // 2026-08-12 用户要求：左对齐最左边不需要图标（leading 移除）
                                     trailingContent = {
-                                        if (running) {
-                                            Text(
-                                                text = stringResource(R.string.shell_status_running),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
+                                        // 统一状态图标系统（TaskStatusIcon）：进行中=转圈 / 完成=CheckCircle 绿
+                                        TaskStatusIcon(
+                                            status = if (running) TaskStatus.RUNNING else TaskStatus.SUCCESS,
+                                            contentDescription = if (running) null else stringResource(R.string.background_sheet_subagent_completed)
+                                        )
                                     },
                                     modifier = Modifier.clickable {
                                         onOpenSubSession(sub.sessionId)
@@ -172,43 +192,45 @@ fun BackgroundSheet(
                                         )
                                     },
                                     supportingContent = {
+                                        // 2026-08-12 用户要求：左边展示命令上下文（cwd）
                                         Text(
-                                            text = if (running) {
-                                                stringResource(R.string.shell_status_running)
-                                            } else if (shell.exit != null) {
-                                                stringResource(R.string.shell_status_exit, shell.exit)
-                                            } else {
-                                                stringResource(R.string.shell_status_done)
-                                            },
-                                            color = if (running) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            }
+                                            text = shell.cwd.takeIf { it.isNotBlank() } ?: " ",
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                         )
                                     },
-                                    leadingContent = {
-                                        if (running) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                strokeWidth = 2.dp,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Terminal,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    },
+                                    // 2026-08-12 用户要求：左对齐最左边不需要图标（leading 移除）
                                     trailingContent = {
-                                        IconButton(onClick = { onRemoveShell(shell.id) }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = stringResource(R.string.shell_kill),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
+                                        // 统一状态图标系统（TaskStatusIcon）：进行中/成功/异常（不用文字）
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            TaskStatusIcon(
+                                                status = when {
+                                                    running -> TaskStatus.RUNNING
+                                                    shell.exit != null && shell.exit != 0 -> TaskStatus.ERROR
+                                                    else -> TaskStatus.SUCCESS
+                                                },
+                                                contentDescription = if (running) null else {
+                                                    stringResource(
+                                                        if (shell.exit != null && shell.exit != 0) R.string.shell_status_exit else R.string.shell_status_done,
+                                                        shell.exit ?: 0
+                                                    )
+                                                }
                                             )
+                                            IconButton(
+                                                onClick = { onRemoveShell(shell.id) },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = stringResource(R.string.shell_kill),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
+                                                )
+                                            }
                                         }
                                     },
                                     modifier = Modifier.clickable { selectedShellId = shell.id }

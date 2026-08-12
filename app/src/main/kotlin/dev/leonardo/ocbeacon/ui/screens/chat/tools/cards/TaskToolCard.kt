@@ -57,7 +57,8 @@ internal fun TaskToolCard(
     val isAmoled = isAmoledTheme()
     val input = extractToolInput(tool)
     val description = input["description"]?.jsonPrimitive?.contentOrNull
-    val inputAgentType = input["subagent_type"]?.jsonPrimitive?.contentOrNull?.replaceFirstChar { it.uppercase() }
+    val inputAgentType = (input["subagent_type"] ?: input["agent"])
+        ?.jsonPrimitive?.contentOrNull?.replaceFirstChar { it.uppercase() }
     val metadataAgentName = when (val s = tool.state) {
         is ToolState.Completed -> s.metadata?.get("agent")?.jsonPrimitive?.contentOrNull
         is ToolState.Running -> s.metadata?.get("agent")?.jsonPrimitive?.contentOrNull
