@@ -119,23 +119,11 @@ internal fun MessageCardAssistant(
                     // 与 48ms flush 叠加 ~30 次/s footer 重组）；完成 = 固定时长。
                     val startMs = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
 
-                    // Agent 名称标签（2026-08-12 M3 优化：自定义 Surface 徽章 → SuggestionChip，
-                    // 仅色彩适配 agentColor，样式保持 M3 原生）
+                    // Agent 名称标签（2026-08-12：与输入组件 agent 选择器同款紧凑标签——
+                    // M3 SuggestionChip 32dp 偏大，用户确认改回紧凑样式）
                     if (!agentName.isNullOrBlank()) {
                         val tagColor = agentColor(agentName, agents)
-                        SuggestionChip(
-                            onClick = {},
-                            label = {
-                                Text(
-                                    text = agentName.replaceFirstChar { it.uppercase() },
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
-                                )
-                            },
-                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = tagColor.copy(alpha = AlphaTokens.FAINT),
-                                labelColor = tagColor
-                            )
-                        )
+                        AgentTag(agent = agentName, tagColor = tagColor)
                     }
                     // 提供商图标 + 模型名
                     val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()

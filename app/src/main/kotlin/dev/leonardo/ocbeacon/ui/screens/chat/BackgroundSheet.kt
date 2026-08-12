@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ShellJob
+import dev.leonardo.ocbeacon.ui.screens.chat.components.AgentTag
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatusIcon
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
@@ -161,21 +162,9 @@ fun BackgroundSheet(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             sub.agent?.takeIf { it.isNotBlank() }?.let { agent ->
+                                                // 2026-08-12：与输入组件同款紧凑标签（Chip 偏大已撤）
                                                 val tagColor = agentColor(agent, emptyList())
-                                                // 2026-08-12 M3 优化：SuggestionChip（仅色彩适配）
-                                                SuggestionChip(
-                                                    onClick = {},
-                                                    label = {
-                                                        Text(
-                                                            text = agent.replaceFirstChar { it.uppercase() },
-                                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
-                                                        )
-                                                    },
-                                                    colors = SuggestionChipDefaults.suggestionChipColors(
-                                                        containerColor = tagColor.copy(alpha = AlphaTokens.FAINT),
-                                                        labelColor = tagColor
-                                                    )
-                                                )
+                                                AgentTag(agent = agent, tagColor = tagColor)
                                             }
                                             sub.startedAt?.let { ms ->
                                                 Text(
