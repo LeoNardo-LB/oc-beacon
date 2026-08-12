@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.outlined.Layers
@@ -56,6 +57,7 @@ internal fun AgentModelVariantSelector(
     showBusy: Boolean = false,
     backgroundBadgeCount: Int = 0,
     onOpenBackground: () -> Unit = {},
+    onQuickNavigate: () -> Unit = {},
 ) {
     // 不提前返回：配置未就绪（agents 空 / modelLabel 空 / variantNames 空）时，
     // 左侧标签区为空但 Row 高度由右侧附件按钮（32.dp）稳定支撑；
@@ -195,6 +197,18 @@ internal fun AgentModelVariantSelector(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                     )
                 }
+            }
+            // 快速导航入口（2026-08-12 用户要求：移入输入组件——后台按钮旁）
+            IconButton(
+                onClick = onQuickNavigate,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.FormatListBulleted,
+                    contentDescription = stringResource(R.string.menu_quick_navigate),
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
+                )
             }
             // 附件按钮（回形针）—— 始终可见，固定在右侧，与发送按钮对齐
             IconButton(

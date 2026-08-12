@@ -65,6 +65,7 @@ internal fun ChatScreenBottomBar(
     coroutineScope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     onOpenBackgroundSheet: () -> Unit = {},
+    onQuickNavigate: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -377,6 +378,7 @@ internal fun ChatScreenBottomBar(
                 onConsumeRestoredDraft = { viewModel.consumeRestoredDraft() },
                 backgroundBadgeCount = backgroundUi.badgeCount,
                 onOpenBackground = onOpenBackgroundSheet,
+                onQuickNavigate = onQuickNavigate,
                 showBackgroundToolbar = backgroundUi.showBackgroundToolbar,
                 backgroundToolbarText = backgroundToolbarText,
                 onBackgroundSession = { viewModel.backgroundSession() }

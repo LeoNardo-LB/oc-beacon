@@ -86,6 +86,7 @@ internal fun ChatInputBar(
     onConsumeRestoredDraft: () -> Unit = {},
     backgroundBadgeCount: Int = 0,
     onOpenBackground: () -> Unit = {},
+    onQuickNavigate: () -> Unit = {},
     showBackgroundToolbar: Boolean = false,
     backgroundToolbarText: String = "",
     onBackgroundSession: () -> Unit = {},
@@ -206,6 +207,7 @@ internal fun ChatInputBar(
                 showBusy = isBusy,
                 backgroundBadgeCount = backgroundBadgeCount,
                 onOpenBackground = onOpenBackground,
+                onQuickNavigate = onQuickNavigate,
             )
 
             // 图片附件缩略图

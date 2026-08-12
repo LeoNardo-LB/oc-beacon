@@ -660,6 +660,7 @@ fun ChatScreen(
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
                 onOpenBackgroundSheet = { showBackgroundSheet = true },
+                onQuickNavigate = { showQuickNavigate = true },
             )
         },
     ) { padding ->
