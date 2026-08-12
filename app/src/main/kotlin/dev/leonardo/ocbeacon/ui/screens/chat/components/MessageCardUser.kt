@@ -18,8 +18,6 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,7 +28,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
+import kotlinx.coroutines.delay
 import com.mikepenz.markdown.model.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -118,10 +118,18 @@ internal fun MessageCardUser(
         images to others
     }
 
+    // 2026-08-13 架构根治：渲染就绪信号——preParse 已后台解析 → Parsed(state)
+    // 组合时直接用（Markdown(state) 渲染——无 loading/骤变）；布局稳定后
+    // 上报 Ready(finalHeight)（消费方 awaitReady 精确定位）
+    val readinessRegistry = LocalRenderReadiness.current
+    val readiness by readinessRegistry.flow(currentMessage.message.id).collectAsState()
+    val preParsedState = (readiness as? RenderReadiness.Parsed)?.state
+
     // 2026-08-12 根治：跳转预渲染——为第一个可渲染文本 part 创建 MarkdownState
     // 并注册到 LocalMarkdownStateRegistry（scrollToDisplayItem await 解析完成
     // 信号用）。state 提升到此处 → 组合即开始解析 → 进入视口时可能已 Success。
-    val jumpTextPart = renderableOtherParts.filterIsInstance<Part.Text>().firstOrNull()
+    // 2026-08-13：预解析已成功时不再创建（直接用预解析结果渲染）。
+    val jumpTextPart = if (preParsedState != null) null else renderableOtherParts.filterIsInstance<Part.Text>().firstOrNull()
     val jumpMdState = jumpTextPart?.let { part ->
         com.mikepenz.markdown.model.rememberMarkdownState(part.text, retainState = true)
     }
@@ -136,19 +144,28 @@ internal fun MessageCardUser(
     // 距视口顶还有十多个像素"——直接测量而非推算）
     val isJumpObserveTarget = JumpBubbleObserve.targetMsgId == currentMessage.message.id
 
-    // 2026-08-13 渲染骤变修复：跳转目标在 Markdown 渲染完成前 alpha=0
-    //（占位不可见——不显示 loading→内容的骤变），渲染完成后在最终位置
-    // 淡入（250ms）——用户只看到气泡柔和浮现（完整内容），无原始状态骤变。
-    // 非目标消息恒 alpha=1（不受影响）。
-    val jumpParsedState = jumpMdState?.state?.collectAsState(initial = null)
-    val jumpParsed = jumpParsedState?.value
-    val jumpReady = !isJumpObserveTarget || jumpMdState == null ||
-        jumpParsed is State.Success || jumpParsed is State.Error
-    val jumpAlpha by animateFloatAsState(
-        targetValue = if (jumpReady) 1f else 0f,
-        animationSpec = tween(250),
-        label = "jumpFadeIn",
-    )
+    // 2026-08-13 架构根治：门控展示——跳转目标在 Ready（布局稳定）前 alpha=0
+    //（不显示 loading/中间态；内容在 alpha=0 时渲染测量）→ Ready 后一次性
+    // 显示最终状态（无骤变、无淡入）。非目标消息恒 alpha=1。
+    val jumpReady = !isJumpObserveTarget ||
+        readiness is RenderReadiness.Ready || readiness is RenderReadiness.Failed
+    val jumpAlpha = if (jumpReady) 1f else 0f
+
+    // 布局稳定上报 Ready(finalHeight)（仅跳转目标；流式消息不参与——持续变化）。
+    // onSizeChanged 只在尺寸变化时回调——改为"记录最新高度 + 延迟 150ms 确认
+    //（期间无新变化 = 布局稳定）"→ 上报 Ready。
+    val msgIdForReady = currentMessage.message.id
+    var latestH by remember { mutableStateOf(0) }
+    LaunchedEffect(latestH, readiness) {
+        if (isJumpObserveTarget && latestH > 0 &&
+            readiness is RenderReadiness.Parsed &&
+            readiness !is RenderReadiness.Ready
+        ) {
+            delay(150)
+            // 150ms 内无新尺寸变化 → 布局稳定 → 上报 Ready（含最终高度）
+            readinessRegistry.update(msgIdForReady, RenderReadiness.Ready(latestH))
+        }
+    }
 
     MessageBubble(
         alignEnd = true,
@@ -161,6 +178,9 @@ internal fun MessageCardUser(
             Modifier
                 .onGloballyPositioned { coords ->
                     JumpBubbleObserve.bubbleTopY = coords.positionInWindow().y
+                }
+                .onSizeChanged { size ->
+                    latestH = size.height
                 }
                 .graphicsLayer { alpha = jumpAlpha }
         } else {
@@ -231,6 +251,7 @@ internal fun MessageCardUser(
                     part = part,
                     textColor = textColor,
                     markdownStateOverride = if (part.id == jumpTextPart?.id) jumpMdState else null,
+                    preParsedState = if (part.id == jumpTextPart?.id) preParsedState else null,
                     isUser = true,
                     onViewSubSession = null
                 )

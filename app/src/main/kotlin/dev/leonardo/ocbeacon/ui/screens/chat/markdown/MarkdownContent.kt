@@ -34,6 +34,7 @@ import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.MarkdownState
+import com.mikepenz.markdown.model.State
 
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -137,6 +138,9 @@ internal fun MarkdownContent(
     // 2026-08-12 根治：跳转预渲染——外部（MessageCardUser）创建的 MarkdownState
     //（用于 await 解析完成信号）；null = 内部自建（常规渲染路径）。
     overrideState: MarkdownState? = null,
+    // 2026-08-13 根本方案：跳转目标预解析结果（parseMarkdownFlow 后台解析的
+    // State）——非空时直接用 Markdown(state) 重载渲染（无解析等待/loading）
+    preParsedState: State? = null,
 ) {
     // 注意：customFontSize 和 immediate 保留是为了调用点兼容性
     //（PartContent / ReasoningBlock 仍传入它们），但有意不使用
@@ -368,6 +372,22 @@ internal fun MarkdownContent(
         listItemBottom = spacing.listItemBottom,
         listIndent = 4.dp,
     )
+
+    // 2026-08-13 根本方案：预解析结果存在时直接用 Markdown(state) 重载渲染
+    //（无解析等待/loading——内容直接是最终状态）
+    if (preParsedState != null) {
+        Markdown(
+            state = preParsedState,
+            colors = colors,
+            typography = typography,
+            components = components,
+            padding = padding,
+            animations = markdownAnimations(animateTextSize = { this }),
+            imageTransformer = Coil3ImageTransformerImpl,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        return
+    }
 
     val markdownState = overrideState ?: rememberMarkdownState(
         content = normalizedMarkdown,
