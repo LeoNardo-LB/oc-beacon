@@ -413,33 +413,34 @@ fun ChatMessageList(
                 viewModel.jumpPrefetch.reset()
                 viewModel.jumpPrefetch.pendingIndex = lazyIndex
                 listState.scroll { scrollBy(1f); scrollBy(-1f) }
-                // Phase 1：定位目标到**视口中部**——目标进入视口（门控 alpha=0
-                // 透明），渲染/测量在不可见状态完成（无用户可见过程）。
+                // Phase 1（2026-08-13 恢复动画）：0.6s easeInOut **平滑滚动**到目标
+                // ——去动画后的瞬间跳动产生"闪"感。目标透明（门控 Ready）——动画
+                // 期间目标在视口内渲染/测量（不可见），Ready 完成后每帧重算 desired
+                // → 动画终点精确；用户看到的是平滑滚动（无跳）+ 目标完整出现。
                 val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
                 val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
-                val vhMid = (vh - contentPaddingTop).toInt() / 2
-                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, -vhMid)
-                // Phase 2：await Ready(finalHeight)（组件 onSizeChanged 稳定上报）
-                val ready = renderReadiness.awaitReady(targetMsgId, 2500)
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 就绪信号 ${ready?.let { "Ready(finalHeight=${it.finalHeight})" } ?: "超时"}")
-                }
-                // Phase 3：定位顶部（透明状态——用户不可见）→ Ready 后显示
-                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
-                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
-                    ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                val finalHeight = ready?.finalHeight ?: item?.size ?: 0
-                if (finalHeight > 0) {
-                    // **注意**：requestScrollToItemNoCancel 的 scrollOffset 在 reverse
-                    // 布局中被取反解释（实测 req=347 → item.offset=-278）→ 传负值。
-                    // desired = vh - size - paddingTop（2026-08-13 实测拟合）
-                    val desired = vh - finalHeight - contentPaddingTop
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 一次定位 finalHeight=$finalHeight viewport=$vh paddingTop=$contentPaddingTop desired=$desired")
-                    }
+                val durationNanos = 600_000_000L
+                val startNanos = withFrameNanos { it }
+                var ready: RenderReadiness.Ready? = null
+                while (true) {
+                    val now = withFrameNanos { it }
+                    val progress = ((now - startNanos).toFloat() / durationNanos).coerceIn(0f, 1f)
+                    val eased = easeInOutCubic(progress)
+                    // Ready 信号（动画期间完成——目标透明渲染测量）；非挂起检查
+                    val ready = renderReadiness.current(targetMsgId) as? RenderReadiness.Ready
+                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "u_$targetMsgId" }
+                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "t_$targetMsgId" }
+                        ?: listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
+                    val h = ready?.finalHeight ?: item?.size ?: 214
+                    // desired = vh - size - paddingTop（reverse 取反：传负值）
+                    val desired = vh - h - contentPaddingTop
                     LazyListReflection.requestScrollToItemNoCancel(
-                        listState, lazyIndex, -(desired.toInt())
+                        listState, lazyIndex, -(desired * eased).toInt()
                     )
+                    if (BuildConfig.DEBUG && progress >= 0.99f) {
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 动画终点 progress=$progress h=$h ready=${ready != null} desired=$desired")
+                    }
+                    if (progress >= 1f) break
                 }
                 // 精确微调：最终布局数据把顶边残差收敛到 ±2px（含 paddingTop 修正）
                 withFrameNanos { }
@@ -1208,3 +1209,10 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
         .getOrNull()
         ?.takeIf { it.isNotBlank() }
 }
+
+/**
+ * 标准 easeInOutCubic 缓动（缓-快-缓）——跳转滚动动画（2026-08-13 恢复：
+ * 去动画后视口瞬间跳动产生"闪"感——平滑滚动 + 透明门控组合根治）。
+ */
+private fun easeInOutCubic(t: Float): Float =
+    if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
