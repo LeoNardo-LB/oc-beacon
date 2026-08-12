@@ -234,6 +234,21 @@
   - 来源：F §P1-1 / A 环节 E（补丁判定）
   - **2026-08-10 完成（待真机验证）**：ScrollCompensation.kt 初始化一次性探测 3 个反射成员（失败永久降级）+ 调用 try-catch 防御（catch Throwable 降级官方 requestScrollToItem）+ 注释标明 Compose BOM 2026.05.01 与字段名；ChatMessageList.kt 3 处调用点均经封装无需改（SSE 滚动铁律零接触）；模拟器程序化滚动/补偿正常无崩溃
 
+- [ ] **#79 本地存储精简：工具返回值截断（占用降 90%+）** `data` `refactor` `storage`
+  - 需求：2026-08-12 用户系统性评估——会话全量信息本地保存是否合理。实测多会话数据库 28MB，其中 **tool parts（工具返回值）占 12.4MB（97%）**：shell 输出 5.1MB / read 2.6MB / websearch 1.1MB / edit 1.1MB / grep 667KB / webfetch 627KB；消息元数据仅 1.18MB + text 239KB（对话本体很小，纯文本合理）
+  - 方案（已系统性分析，按优先级）：
+    - **P0**：Room 写入时截断 tool part 的 state（返回值）——只存前 200~500 字符预览 + 总长度标记；展开时调 `getMessage(messageId)`（API 已有 V2ApiClient:409）按需拉全量。**只影响本地落库**，内存渲染不受影响（消息在内存时工具卡片完整可展开）
+    - **P1**：reasoning 截断/丢弃；patch 只存统计（+N/-M）+ 文件名不存 diff 全文
+    - **P2**：synthetic 通知不落库或保留最近 N 条；subagent 内容不落库（点击进入时加载）
+  - 权衡：离线恢复时工具卡片显示摘要无法展开全量（可接受）；服务器始终保留全量可重拉
+  - 工时：P0 ~0.5d | 难度：中 | 涉及：MessageStore.upsertParts + 工具卡片展开按需加载
+  - 与 #80（快速导航全量列表）不冲突——列表基于 role=user 元数据，不受 parts 截断影响
+
+- [ ] **#80 快速导航全量列表（本地 Room 全量 user 消息，非仅已加载窗口）** `data` `feature`
+  - 需求：2026-08-12 用户反馈"快速定位不准确"——实测根因：快速导航列表基于 rawMessages（已加载窗口）只显示 7 个 item，本地热表实际有 35 条 user 消息（多会话 3939 条中 role=user 占比 35/153）
+  - 方案：JumpTargetExtractor 数据源扩展为本地 Room 全量（热表 role=user 查询）；点击未加载目标 → loadAround（c0d28535 已实现服务器版）本地优先（beforeId+afterId 双查询）→ 现有 merge 路径
+  - 状态：**2026-08-12 实施中**（子代理 ses_00ac3104cffeSVtl7pteLrgWOD）
+
 ---
 
 ## P2 — 优化与锦上添花
