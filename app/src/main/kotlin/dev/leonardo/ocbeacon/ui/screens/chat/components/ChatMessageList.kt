@@ -411,8 +411,17 @@ fun ChatMessageList(
                     }
                 }
                 viewModel.jumpPrefetch.reset()
+                val prefetchDeferred = CompletableDeferred<Unit>()
+                viewModel.jumpPrefetch.onCompleted = { _, _ -> prefetchDeferred.complete(Unit) }
                 viewModel.jumpPrefetch.pendingIndex = lazyIndex
                 listState.scroll { scrollBy(1f); scrollBy(-1f) }
+                // 2026-08-13 根治"到达后空洞"：**等预组合完成后再滚动**——
+                // 目标内容树在视口外已构建（apply 即显示——无空白/无渲染过程）。
+                // 滚动到达时目标直接可见（内容完整），不再有"先空白后瞬间渲染"。
+                val prefetchDone = withTimeoutOrNull(2500) { prefetchDeferred.await() }
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 预组合 ${if (prefetchDone != null) "完成" else "超时（继续滚动）"}")
+                }
                 // Phase 1（2026-08-13 恢复动画）：0.6s easeInOut **平滑滚动**到目标
                 // ——去动画后的瞬间跳动产生"闪"感。目标透明（门控 Ready）——动画
                 // 期间目标在视口内渲染/测量（不可见），Ready 完成后每帧重算 desired
