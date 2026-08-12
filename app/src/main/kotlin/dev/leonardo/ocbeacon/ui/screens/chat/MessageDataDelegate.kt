@@ -379,7 +379,11 @@ internal class MessageDataDelegate(
             if (all.isNotEmpty()) {
                 messageStore.upsertMessages(sid, all, persistOldBeyondWindow = true)
                 jumpTargetsServerSync = true
-                all.filter { it.info is Message.User }
+                // 2026-08-12 用户要求：连续无回复的 user（无 assistant 间隔——
+                // 如 compaction 测试消息 "Nothing to compact yet" 连续多条）合并为
+                // 一条导航项（只保留组末一条——preview 用组末文本；点击跳转到组内）。
+                // 此前每条 user 算一个 Q → 列表出现大量无回复的孤立项。
+                mergeUnrepliedUsers(all)
             } else {
                 cached
             }
@@ -387,6 +391,33 @@ internal class MessageDataDelegate(
             AppLogger.e(TAG, "loadJumpTargets server refresh failed, fallback cached (${cached.size})", e)
             cached
         }
+    }
+
+    /**
+     * 合并连续无回复的 user：升序遍历，user 的下一条（时间上）仍是 user（无
+     * assistant 间隔）→ 该 user 无独立回复——归入当前组；下一条是 assistant 或
+     * 结束 → 组末保留为导航项（preview 用组末文本）。synthetic 已排除。
+     */
+    private fun mergeUnrepliedUsers(all: List<MessageWithParts>): List<MessageWithParts> {
+        val sorted = all.sortedBy { it.info.time.created }
+        val users = sorted.filter { it.info is Message.User && it.info.role != "synthetic" }
+        if (users.size < 2) return users
+        val result = mutableListOf<MessageWithParts>()
+        for ((i, u) in users.withIndex()) {
+            val nextUser = users.getOrNull(i + 1)
+            // 该 user 与下一条 user 之间是否有 assistant（非 user 消息）
+            val hasAssistantBetween = nextUser != null && sorted.any {
+                it.info.time.created > u.info.time.created &&
+                    it.info.time.created < nextUser.info.time.created &&
+                    it.info !is Message.User
+            }
+            // 独立项：无下一条 user，或与下一条之间有 assistant（有回复）
+            // 连续无回复的组：当前跳过，组末由下一条的判定保留（组末 nextUser==null → 保留）
+            if (nextUser == null || hasAssistantBetween) {
+                result += u
+            }
+        }
+        return result
     }
 
     /** 会话内标记：服务器全量消息已同步（避免每次打开快速导航重复翻页）。 */

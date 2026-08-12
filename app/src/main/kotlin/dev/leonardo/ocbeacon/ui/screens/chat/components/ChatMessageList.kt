@@ -315,35 +315,37 @@ fun ChatMessageList(
     // jumpToMessage 的核心滚动 + 高亮（立即路径与异步路径共用）。
     fun scrollToDisplayItem(displayItemIndex: Int) {
         val (rawIndex, msg) = displayItems[displayItemIndex]
-        val lazyIndex = bannerCount + displayItemIndex
+        val targetMsgId = msg.message.id
+        val initialLazyIndex = bannerCount + displayItemIndex
         if (BuildConfig.DEBUG) {
-            AppLogger.d("ChatPaging", "scrollToDisplayItem: displayIdx=$displayItemIndex lazyIdx=$lazyIndex msg=${msg.message.id.take(12)}")
+            AppLogger.d("ChatPaging", "scrollToDisplayItem: displayIdx=$displayItemIndex lazyIdx=$initialLazyIndex msg=${targetMsgId.take(12)}")
         }
         coroutineScope.launch {
             // reverseLayout=true：requestScrollToItemNoCancel 将项放置在
             // 视口滚动起点（视觉上的底部）。后续的 scrollBy 将其
             // 移到顶部，使跳转到的消息立即可读。
             //
-            // 2026-08-12 修复（快速导航跳转位置错误，logcat 实证两轮）：
-            // 1. 反射设置滚动位置异步应用——同帧 layoutInfo 旧布局 → item
-            //    不可见 → scrollBy 修正被跳过 → 目标留在视口外。修复：
-            //    withFrameNanos 等一帧布局后再修正。
-            // 2. 主会话活跃（SSE 流式/新消息）时 scrollBy 后仍可能被干扰
-            //    （视口回到近期消息区）→ 修正后验证目标位置，未达顶部则
-            //    重试（最多 3 次，每次重新 requestScroll + 等帧 + 修正）。
+            // 2026-08-12 修复（定位不精确——"点击 Q1 定位到 Q1 下方附近/跳动几下"，
+            // "Q2 上方显示了同时间的消息"）：微调循环每次**基于最新 displayItems
+            // 重算目标索引**——原实现用进入时快照（lazyIndex），loadAround 分批
+            // upsert / SSE 使 displayItems 变化后索引失效（older 批插入目标上方，
+            // 目标 index 17→47，循环仍滚 index 17）→ 滚到错误位置（Q1 下方附近）
+            // + 多次 requestScroll 视觉跳动。
             var attempts = 0
             var positioned = false
-            // 初始定位：反射将目标放到视口底部（reverseLayout 起点）
-            LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
-            withFrameNanos { }
-            // 微调循环：基于最新布局重算 delta 逐步逼近视口顶部。
-            // 2026-08-12 修复：**不再 requestScroll 重试**——重试的 requestScroll
-            // 会把已定位的目标拉回底部，覆盖前一次滚动结果（logcat 实证：
-            // attempt 之间目标 offset 979→841→979 震荡无法收敛）。
-            // 目标可见（offset >= viewportStart - 50）即成功；SSE 活跃时会
-            // 持续推目标，顶部完美定位不现实，可见即为可用状态。
-            while (attempts < 3 && !positioned) {
+            while (attempts < 5 && !positioned) {
                 attempts++
+                // 每次基于最新 displayItems 重算目标索引（displayItems 变化后
+                // 旧索引失效——loadAround 分批/SSE 场景）
+                val currentIdx = displayItems.indexOfFirst { it.second.message.id == targetMsgId }
+                if (currentIdx < 0) {
+                    if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标暂不在 displayItems——等待")
+                    withFrameNanos { }
+                    continue
+                }
+                val lazyIndex = bannerCount + currentIdx
+                LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+                withFrameNanos { }
                 listState.scroll {
                     val info = listState.layoutInfo
                     val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
@@ -352,26 +354,30 @@ fun ChatMessageList(
                         // item.offset - viewportStartOffset 正值 = 内容上移 = 目标升至顶部
                         val delta = (item.offset - info.viewportStartOffset).toFloat()
                         if (BuildConfig.DEBUG) {
-                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item offset=${item.offset} delta=$delta")
+                            AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts curIdx=$currentIdx item offset=${item.offset} delta=$delta")
                         }
                         if (kotlin.math.abs(delta) > 1f) scrollBy(delta)
                     } else if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item($lazyIndex) 不可见（visible=${info.visibleItemsInfo.map { it.index }})——微调跳过")
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts item($lazyIndex) 不可见（visible=${info.visibleItemsInfo.map { it.index }})——重试")
                     }
                 }
                 // 等 2 帧让滚动应用与布局稳定后再验证
                 withFrameNanos { }
                 withFrameNanos { }
                 val after = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lazyIndex }
-                val ok = after != null &&
-                    after.offset >= listState.layoutInfo.viewportStartOffset - 50f
+                // 目标接近视口顶部（<100px）才算定位成功——原"可见即成功"
+                // 导致目标在视口中部（上方一叠更早消息）也通过 → 定位不精确。
+                // 5 次尝试后仍不可达（SSE 持续干扰）降级为可见即接受（尽力而为）。
+                val nearTop = after != null &&
+                    kotlin.math.abs(after.offset - listState.layoutInfo.viewportStartOffset) < 100f
+                val ok = if (nearTop) true else (attempts >= 5 && after != null)
                 if (ok) {
                     positioned = true
                     if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}")
+                        AppLogger.d("ChatPaging", "scrollToDisplayItem: positioned ✓ attempt=$attempts after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset} nearTop=$nearTop")
                     }
                 } else if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标不可见/未达（after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}）")
+                    AppLogger.d("ChatPaging", "scrollToDisplayItem: attempt=$attempts 目标未达顶部（after=${after?.offset} viewportStart=${listState.layoutInfo.viewportStartOffset}）")
                 }
             }
         }
@@ -390,6 +396,13 @@ fun ChatMessageList(
         val target = pendingJumpTarget ?: return@LaunchedEffect
         val idx = displayItems.indexOfFirst { it.second.message.id == target }
         if (idx >= 0) {
+            // 2026-08-12 修复（用户反馈"点击 Qn 后列表项没渲染然后乱跳"）：
+            // loadAround 一次性插入 60 条 → LazyColumn 渲染延迟——displayItems
+            // 变化时目标项可能尚未布局（滚动与渲染竞态）。等 3 帧（约 50ms）
+            // 让组合/布局稳定后再滚动，减少"乱跳"。
+            withFrameNanos { }
+            withFrameNanos { }
+            withFrameNanos { }
             pendingJumpTarget = null
             scrollToDisplayItem(idx)
         }
