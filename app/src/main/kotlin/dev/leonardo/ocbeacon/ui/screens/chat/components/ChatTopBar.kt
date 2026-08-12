@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -62,8 +61,6 @@ fun ChatTopBar(
     onUnshare: () -> Unit,
     onExport: () -> Unit,
     onOpenWorkspace: () -> Unit,
-    onQuickNavigate: () -> Unit,
-
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showContextDialog by remember { mutableStateOf(false) }
@@ -160,16 +157,6 @@ fun ChatTopBar(
                                 Icon(Icons.Default.Folder, contentDescription = null)
                             },
                             modifier = Modifier.testTag("menu_open_workspace")
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.menu_quick_navigate)) },
-                            onClick = {
-                                showMenu = false
-                                onQuickNavigate()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = null)
-                            }
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.tool_terminal)) },

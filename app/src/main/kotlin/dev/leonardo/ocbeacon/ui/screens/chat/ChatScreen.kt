@@ -626,8 +626,6 @@ fun ChatScreen(
                             attachmentHandler.launchExport("$slug.json")
                         },
                         onOpenWorkspace = onOpenWorkspace,
-                        onQuickNavigate = { showQuickNavigate = true },
-
                     )
                 }
             }

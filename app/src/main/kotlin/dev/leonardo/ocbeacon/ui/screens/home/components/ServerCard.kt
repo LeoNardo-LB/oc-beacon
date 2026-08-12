@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.home.components
 
 import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -162,12 +163,13 @@ internal fun ServerCard(
                 )
             }
 
-            // 操作按钮行
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (isConnected) {
+            // 2026-08-12 用户要求：连接成功后两个按钮同一行，
+            // 用不同按钮风格区分——会话（filled 主操作）+ 断开（outlined 危险操作）
+            if (isConnected) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Button(
                         onClick = onOpenSessions,
                         modifier = Modifier.weight(1f),
@@ -178,18 +180,16 @@ internal fun ServerCard(
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.sessions_title), maxLines = 1)
                     }
-                }
-            }
-            if (isConnected) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Button(
+                    OutlinedButton(
                         onClick = onDisconnect,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonTokens.filledColors(),
-                        border = ButtonTokens.amoledBorder()
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.error.copy(alpha = AlphaTokens.MEDIUM)
+                        )
                     ) {
                         Icon(Icons.Default.Close, contentDescription = stringResource(R.string.a11y_icon_close), modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
