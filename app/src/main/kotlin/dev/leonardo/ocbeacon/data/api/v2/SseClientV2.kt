@@ -8,8 +8,10 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.SseAuthException
 import dev.leonardo.ocbeacon.data.api.SseConnectionException
+import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.header
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.URLEncoder
@@ -65,6 +68,13 @@ class SseClientV2 @Inject constructor(
         dev.leonardo.ocbeacon.data.api.sse.parsers.SessionNextEventParser(json),
         V2EventParser(json)
     )
+
+    // synthetic 实时通知（2026-08-12）：服务器 synthetic 注入经
+    // session.input.admitted（带完整 input）→ session.input.promoted（带 inputID）
+    // 两阶段广播。admitted 时缓存 input，promoted 时消费——TUI 前端即靠此机制
+    // 实时显示后台任务完成通知（与 task 工具注入一致）。SSE 事件单线程顺序
+    // 消费（同一 flow），HashMap 无需并发保护。
+    private val pendingInputs = HashMap<String, JsonObject>()
 
     /**
      * 连接到 V2 事件流。
@@ -269,6 +279,54 @@ class SseClientV2 @Inject constructor(
      * 统一事件分发：优先解析器，特殊处理 V2 delta 流事件。
      */
     private fun handleEvent(type: String, props: JsonObject): SseEvent? {
+        // synthetic 实时通知（2026-08-12 修复，与 TUI 机制对齐）：
+        // session.input.admitted {inputID, input:{type, data:{text, description, metadata}}}
+        //   → 缓存 input；同时继续走 V2SseMapper（user 消息播种保持原逻辑）。
+        // session.input.promoted {inputID} → 消费缓存：input.type != "user"（如
+        //   "synthetic"）→ 构造 MessageUpdated(User(role=type, summary.body=text))，
+        //   下游 handleMessageUpdated 播种 Part.Text → 实时渲染通知卡片。
+        //   修复前客户端忽略 promoted → synthetic 只能等 REST 刷新（L3，~15-20s）。
+        if (type == "session.input.admitted") {
+            val inputID = props["inputID"]?.jsonPrimitive?.contentOrNull
+            val input = props["input"]?.jsonObject
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "admitted: inputID=$inputID type=${input?.get("type")?.jsonPrimitive?.contentOrNull}")
+            }
+            if (inputID != null && input != null) {
+                pendingInputs[inputID] = input
+            }
+        } else if (type == "session.input.promoted") {
+            val inputID = props["inputID"]?.jsonPrimitive?.contentOrNull
+            val input = inputID?.let { pendingInputs.remove(it) }
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "promoted: inputID=$inputID cached=${input != null} pendingSize=${pendingInputs.size}")
+            }
+            if (input != null) {
+                val inputType = input["type"]?.jsonPrimitive?.contentOrNull
+                if (inputType != null && inputType != "user") {
+                    val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val dataObj = input["data"]?.jsonObject
+                    val text = dataObj?.get("text")?.jsonPrimitive?.contentOrNull ?: ""
+                    val description = dataObj?.get("description")?.jsonPrimitive?.contentOrNull
+                    return SseEvent.MessageUpdated(
+                        Message.User(
+                            id = inputID,
+                            sessionId = sessionId,
+                            role = inputType, // "synthetic"（兼容其他非 user 类型）
+                            time = TimeInfo(created = System.currentTimeMillis()),
+                            summary = Message.User.UserSummary(
+                                body = text,
+                                title = description
+                            )
+                        )
+                    )
+                }
+                // user 类型：admitted 时已播种消息，promoted 无需处理——
+                // 消费掉避免 unhandled 噪音（2026-08-12）
+                return null
+            }
+        }
+
         // V2SseMapper 优先：v2 细粒度生命周期事件 → 领域事件
         // （input.admitted / step / reasoning / text / tool 全映射）
         val mapped = V2SseMapper.map(type, props)

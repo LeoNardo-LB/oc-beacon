@@ -83,7 +83,6 @@ class MessageEventHandlerV2ChainTest {
         val userParts = handler.parts.value["msg_user_1"].orEmpty()
         assertEquals(1, userParts.size)
         assertEquals("你好", (userParts[0] as Part.Text).text)
-
         // assistant parts：reasoning + text + tool（按 ordinal 派生 id）
         val parts = handler.parts.value["msg_asst_1"].orEmpty()
         assertEquals("应有 3 个 part（reasoning/text/tool）", 3, parts.size)
@@ -103,5 +102,41 @@ class MessageEventHandlerV2ChainTest {
             "ses_child_9",
             completed.metadata?.get("sessionId")?.jsonPrimitive?.contentOrNull
         )
+    }
+
+    @Test
+    fun `synthetic message updated seeds message and text part for realtime notification`() {
+        // 2026-08-12：SseClientV2 消费 session.input.promoted 后构造的
+        // synthetic MessageUpdated（role="synthetic" + summary.body=完整标记文本）
+        // → handleMessageUpdated 播种 Part.Text → SyntheticNotificationCard 实时渲染。
+        // 对应实测服务器 payload：input.type="synthetic"，text 为
+        // <subagent id=... state=completed description=...>结果</subagent>
+        val synthetic = SseEvent.MessageUpdated(
+            Message.User(
+                id = "msg_syn_1",
+                sessionId = "ses_1",
+                role = "synthetic",
+                time = dev.leonardo.ocbeacon.domain.model.TimeInfo(created = 2000L),
+                summary = Message.User.UserSummary(
+                    body = """<subagent id="ses_child_42" state="completed" description="测试任务">42</subagent>""",
+                    title = "测试任务"
+                )
+            )
+        )
+        handler.handleMessageUpdated(synthetic)
+
+        // 消息入库 + role 标记
+        val messages = handler.messages.value["ses_1"].orEmpty()
+        assertEquals(1, messages.size)
+        val msg = messages.single()
+        assertTrue(msg is Message.User)
+        assertEquals("synthetic", (msg as Message.User).role)
+
+        // parts 播种（summary.body → Part.Text）
+        val parts = handler.parts.value["msg_syn_1"].orEmpty()
+        assertEquals(1, parts.size)
+        val textPart = parts.single() as Part.Text
+        assertTrue(textPart.text.contains("<subagent"))
+        assertTrue(textPart.text.contains("42"))
     }
 }

@@ -126,7 +126,10 @@ class BackgroundAggregator(
     }.distinctUntilChanged()
 
     /** 前台 subagent 计数——TUI foregroundTasks 语义：
-     *  主会话 busy（正在等待）+ 消息流中存在 running 的 task/subagent tool part。
+     *  主会话 busy（正在等待）+ 消息流中存在 running 的 task/subagent tool part
+     *  且**非 background 派发**（2026-08-12 修复：task 工具 background=true 的
+     *  子会话是后台任务，不算前台——修复前 background 任务也被计入 → 转后台
+     *  工具栏误显示"有前台任务"，用户反馈"代理还是前台的，没转后台"）。
      *  V2 转后台后主会话立即恢复（idle/继续工作），前台归零；
      *  子会话本身继续 running（计入角标 runningSubagentCount）。 */
     private fun foregroundCount(
@@ -138,8 +141,20 @@ class BackgroundAggregator(
         if (!mainBusy) return 0
         return toolParts.count { part ->
             part.state is ToolState.Running &&
-                (part.tool == "task" || part.tool == "subagent")
+                (part.tool == "task" || part.tool == "subagent") &&
+                !isBackgroundTask(part)
         }
+    }
+
+    /** task/subagent tool part 是否 background 派发（input.background == true）。 */
+    private fun isBackgroundTask(part: Part.Tool): Boolean {
+        val input = when (val s = part.state) {
+            is ToolState.Running -> s.input
+            is ToolState.Completed -> s.input
+            else -> return false
+        }
+        val bg = input["background"] as? JsonPrimitive
+        return bg?.contentOrNull?.toBooleanStrictOrNull() == true
     }
 
     private val foregroundCountFlow = combine(
