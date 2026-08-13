@@ -224,21 +224,21 @@ internal fun MessageCardAssistant(
                                     turnAgentName = if (item.group.part is Part.Tool && item.group.part.tool == "task") {
                                         renderableTurn.taskAgentName
                                     } else null,
-                                    // 2026-08-14：待处理提问嵌入思考卡片（ReasoningBlock）内部渲染
-                                    trailingContent = if (item.group.part is Part.Reasoning && pendingQuestion != null) {
-                                        {
-                                            QuestionCard(
-                                                question = pendingQuestion,
-                                                onSubmit = { answers ->
-                                                    onQuestionSubmit?.invoke(pendingQuestion.id, answers)
-                                                },
-                                                onReject = {
-                                                    onQuestionReject?.invoke(pendingQuestion.id)
-                                                }
-                                            )
-                                        }
-                                    } else null,
                                 )
+                                // 2026-08-14：待处理提问渲染为独立提问卡片——
+                                // 位于思考卡片（ReasoningBlock）之后、气泡内；
+                                // 不嵌入推理文本内部（用户反馈"嵌入到思考过程中"是 bug）
+                                if (item.group.part is Part.Reasoning && pendingQuestion != null) {
+                                    QuestionCard(
+                                        question = pendingQuestion,
+                                        onSubmit = { answers ->
+                                            onQuestionSubmit?.invoke(pendingQuestion.id, answers)
+                                        },
+                                        onReject = {
+                                            onQuestionReject?.invoke(pendingQuestion.id)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }

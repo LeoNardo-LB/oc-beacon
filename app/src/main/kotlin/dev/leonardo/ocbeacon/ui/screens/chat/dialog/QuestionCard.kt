@@ -100,9 +100,6 @@ internal fun QuestionCard(
 
     // 防止多次提交——状态通过 remember(key) 按问题作用域化
     var submitted by remember(question.id) { mutableStateOf(initiallySubmitted) }
-    // 默认折叠——点击头部展开选项。
-    // 对于历史记录（initiallySubmitted），起始展开以便用户立即看到答案。
-    var expanded by remember(question.id) { mutableStateOf(true) }  // 始终展开——无折叠
 
     // 多问题时将 pagerState 提升到 QuestionCard，以便"下一个"按钮控制翻页；
     // 单问题时为 null，QuestionPagerView 走单页分支（不建 pagerState）。
@@ -133,7 +130,9 @@ internal fun QuestionCard(
     val accentColor = MaterialTheme.colorScheme.primary
 
     // 2026-08-14：样式对齐 ReasoningBlock（思考卡片）——surfaceContainer 底色 +
-    // 轻量容器（嵌入思考卡片内部时视觉融合；独立保底时也可读）
+    // 轻量容器。架构（用户要求）：无内层 "Question" 标题行容器——卡片直接承担
+    // 展开容器（默认展开），内容 = 问题域 / 答案域 / 按钮域；
+    // 回答问题后 pendingQuestion 移除 → 卡片关闭（消失）。
     Surface(
         shape = ShapeTokens.small,
         color = containerColor,
@@ -143,48 +142,6 @@ internal fun QuestionCard(
             modifier = Modifier.padding(SpacingTokens.SM.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
-            // 标题行——左类型图标 + Question 标签，右 Q tabs + 展开按钮
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // 类型图标：当前页题目 multiple → CheckBox，否则 RadioButton（14dp 小图标）
-                val currentQuestion = question.questions.getOrNull(currentPage)
-                Icon(
-                    imageVector = if (currentQuestion?.multiple == true) Icons.Default.CheckBox else Icons.Default.RadioButtonChecked,
-                    contentDescription = stringResource(R.string.a11y_icon_question),
-                    modifier = Modifier.size(14.dp),
-                    tint = accentColor
-                )
-                Text(
-                    text = stringResource(R.string.chat_question_label),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = contentColor
-                )
-                Spacer(Modifier.weight(1f))
-                // Q tabs（多问题时右对齐，与标题栏同级——下拉即切换问题）
-                if (question.questions.size > 1 && pagerState != null) {
-                    QuestionCompactTabs(pagerState, question.questions)
-                }
-                Icon(
-                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) stringResource(R.string.chat_collapse) else stringResource(R.string.chat_expand),
-                    modifier = Modifier.size(18.dp).clip(ShapeTokens.small).clickable {
-                        performHaptic(hapticView, hapticOn)
-                        expanded = !expanded
-                    },
-                    tint = contentColor.copy(alpha = AlphaTokens.FAINT)
-                )
-            }
-
-            // 可展开内容——点击头部切换
-            AnimatedVisibility(
-                visible = expanded,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
             // 子 agent 来源标签（当问题来自子会话时显示）
             if (question.sourceSessionTitle != null) {
                 Text(
@@ -194,14 +151,14 @@ internal fun QuestionCard(
                 )
             }
 
-            // 问题分区
+            // 问题分区（问题域 + 答案域；Q tabs 嵌入问题域行）
             QuestionPagerView(
                 questions = question.questions,
                 selectedAnswers = answersPerQuestion.map { it.toSet() },
                 readOnly = submitted,
                 pagerState = pagerState,
                 onPageSelected = { currentPage = it },
-                showTabs = false,
+                showTabs = question.questions.size > 1,
                 onOptionClick = { pageIndex, label ->
                     if (!submitted) {
                         performHaptic(hapticView, hapticOn)
@@ -272,8 +229,6 @@ internal fun QuestionCard(
                         }
                     }
                 }
-                } // 关闭内部 Column
-            } // 关闭 AnimatedVisibility
         }
         // 未回答确认弹窗（AmoledCard 内部、Column 之外）
         if (showUnansweredDialog) {

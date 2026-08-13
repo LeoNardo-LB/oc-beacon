@@ -56,7 +56,7 @@ import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleExpand: () -> Unit = {}, durationMs: Long? = null, isStreaming: Boolean = false, startTimeMs: Long? = null, trailingContent: (@Composable () -> Unit)? = null) {
+internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleExpand: () -> Unit = {}, durationMs: Long? = null, isStreaming: Boolean = false, startTimeMs: Long? = null) {
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
@@ -190,8 +190,6 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                             customFontSize = "small"
                         )
                         }
-                        // 2026-08-14：嵌入思考卡片内部的内容（如待处理提问卡片）
-                        trailingContent?.invoke()
                     }
                 }
             }

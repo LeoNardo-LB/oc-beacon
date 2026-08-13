@@ -61,9 +61,6 @@ internal fun PartContent(
     markdownStateOverride: MarkdownState? = null,
     // 2026-08-13 根本方案：跳转目标预解析结果（见 MarkdownContent）
     preParsedState: State? = null,
-    /** 2026-08-14：嵌入思考卡片内部的尾部内容（待处理提问卡片），
-     *  仅 Part.Reasoning 分支使用（PartContent 通用透传）。 */
-    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     when (part) {
         is Part.Text -> {
@@ -102,14 +99,11 @@ internal fun PartContent(
                 val expandReasoningDefault = LocalExpandReasoning.current
                 ReasoningBlock(
                     text = part.text,
-                    // 2026-08-14：有嵌入提问（trailingContent）时强制默认展开——
-                    // 提问折叠在思考卡片内会导致用户看不到待回答问题（UX 修复）
-                    isExpanded = (trailingContent != null) || (toolExpandedStates[part.id] ?: expandReasoningDefault),
+                    isExpanded = toolExpandedStates[part.id] ?: expandReasoningDefault,
                     onToggleExpand = { onToggleToolExpanded(part.id, expandReasoningDefault) },
                     durationMs = reasoningDuration,
                     isStreaming = isStreaming,
-                    startTimeMs = startTimeMs,
-                    trailingContent = trailingContent
+                    startTimeMs = startTimeMs
                 )
             }
         }
@@ -124,9 +118,40 @@ internal fun PartContent(
                     isExpanded = toolExpandedStates[part.id] ?: true,
                     onToggleExpand = { onToggleToolExpanded(part.id, true) }
                 )
+            } else if (part.tool == "question") {
+                // 2026-08-14 根因修复：question 工具是内部提问机制（与 todoread
+                // 同模式按工具名分流），**不渲染通用工具卡片**——
+                // 活跃（未完成）：不渲染任何内容（提问由嵌入的 QuestionCard 展示，
+                //   避免出现"Question loading 卡片"与提问卡片重复）；
+                // 完成（历史）：渲染答案视图（ToolCardScaffold "Asked" + 已选选项）。
+                val completedState = part.state as? ToolState.Completed
+                if (completedState != null) {
+                    val toolInput = completedState.input ?: emptyMap()
+                    val toolOutput = completedState.output ?: ""
+                    val parsed = remember(part.id) {
+                        QuestionParser.parseQuestionFromToolData(part.id, toolInput, toolOutput)
+                    }
+                    if (parsed.any { it.options.isNotEmpty() }) {
+                        val autoExpand = LocalCollapseTools.current
+                        ToolCardScaffold(
+                            icon = Icons.AutoMirrored.Filled.HelpOutline,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = completedState.title ?: "Asked",
+                            copyText = toolOutput,
+                            isExpanded = toolExpandedStates[part.id] ?: autoExpand,
+                            isRunning = false,
+                            hasContent = true,
+                            isAmoled = isAmoledTheme(),
+                            onToggleExpand = { onToggleToolExpanded(part.id, autoExpand) },
+                        ) {
+                            QuestionExpandedOptions(parsed)
+                        }
+                    }
+                    // 完成但无有效问题数据（异常）：不渲染
+                }
+                // 未完成（活跃）：不渲染——提问由 QuestionCard 展示
             } else {
-                // 拦截 question-summary 工具 —— 保持 ToolCardScaffold 外观，
-                // 但展开内容显示所有选项并标记用户的已选答案。
+                // 历史兼容：工具名非 "question" 但输出含问题数据的（旧服务器/旧数据）
                 val completedState = part.state as? ToolState.Completed
                 val toolInput = completedState?.input ?: emptyMap()
                 val toolOutput = completedState?.output ?: ""

@@ -1,7 +1,9 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
@@ -236,23 +239,42 @@ internal fun QuestionPagerView(
 ) {
     if (questions.size <= 1) {
         questions.firstOrNull()?.let { q ->
-            QuestionOptionRows(q, selectedAnswers.firstOrNull() ?: emptySet(), readOnly) { onOptionClick?.invoke(0, it) }
+            QuestionOptionRows(
+                question = q,
+                selected = selectedAnswers.firstOrNull() ?: emptySet(),
+                readOnly = readOnly,
+                onOptionClick = { onOptionClick?.invoke(0, it) },
+            )
         }
     } else {
-        val density = androidx.compose.ui.platform.LocalDensity.current
-        var maxPageHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
         val state = pagerState ?: rememberPagerState(pageCount = { questions.size })
+        val density = androidx.compose.ui.platform.LocalDensity.current
         androidx.compose.runtime.LaunchedEffect(state.currentPage) {
             onPageSelected(state.currentPage)
         }
-        Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
-            if (showTabs) {
-                QuestionCompactTabs(state, questions, Modifier.fillMaxWidth())
+        // 2026-08-14：高度随切换进度线性插值（一元一次方程）——
+        // h = h_当前页 + (h_目标页 − h_当前页) × |滑动进度|
+        // 各页内容高度由 onGloballyPositioned 记录（含预组合相邻页）
+        val pageHeights = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
+        val interpolatedHeightPx by androidx.compose.runtime.remember {
+            androidx.compose.runtime.derivedStateOf {
+                val from = state.currentPage
+                val offset = state.currentPageOffsetFraction
+                val progress = kotlin.math.abs(offset).coerceIn(0f, 1f)
+                val h1 = pageHeights[from] ?: 0
+                val target = if (offset > 0f) from + 1 else from - 1
+                val h2 = pageHeights[target] ?: h1
+                if (h1 == 0) 0 else (h1 + (h2 - h1) * progress).roundToInt()
             }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
             HorizontalPager(
                 state = state,
                 modifier = Modifier.fillMaxWidth().then(
-                    if (maxPageHeight > 0) Modifier.height(with(density) { maxPageHeight.toDp() }) else Modifier
+                    // 未测量前 wrap（高度 0 会塌陷）；测量后按插值高度
+                    if (interpolatedHeightPx > 0) {
+                        Modifier.height(with(density) { interpolatedHeightPx.toDp() })
+                    } else Modifier
                 ),
                 beyondViewportPageCount = 1,
                 pageSpacing = 8.dp,
@@ -261,7 +283,7 @@ internal fun QuestionPagerView(
                 Box(modifier = Modifier
                     .onGloballyPositioned { coords ->
                         val h = coords.size.height
-                        if (h > maxPageHeight) maxPageHeight = h
+                        if (pageHeights[page] != h) pageHeights[page] = h
                     }
                     .graphicsLayer {
                         alpha = (1f - pageOffset * 0.3f).coerceIn(0.7f, 1f)
@@ -269,8 +291,17 @@ internal fun QuestionPagerView(
                         scaleY = 1f - pageOffset * 0.04f
                     }
                 ) {
-                    QuestionOptionRows(questions[page], selectedAnswers.getOrNull(page) ?: emptySet(), readOnly)
-                    { onOptionClick?.invoke(page, it) }
+                    // 2026-08-14：Q tabs 嵌入问题域行（headerTabs slot），
+                    // 不再在 pager 上方独立渲染
+                    QuestionOptionRows(
+                        questions[page],
+                        selectedAnswers.getOrNull(page) ?: emptySet(),
+                        readOnly,
+                        { onOptionClick?.invoke(page, it) },
+                        headerTabs = if (showTabs) {
+                            { QuestionCompactTabs(state, questions) }
+                        } else null,
+                    )
                 }
             }
         }
@@ -282,23 +313,77 @@ internal fun QuestionOptionRows(
     question: SseEvent.QuestionAsked.Question,
     selected: Set<String>,
     readOnly: Boolean,
-    onOptionClick: (String) -> Unit
+    onOptionClick: (String) -> Unit,
+    /** 2026-08-14：Q tabs 嵌入问题域行（用户架构：问题域 → 答案域 → 按钮域，
+     *  无独立标题行；tabs 与问题描述同级别）。 */
+    headerTabs: (@Composable () -> Unit)? = null,
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
     val contentColor = MaterialTheme.colorScheme.onSurface
     val isMultiple = question.multiple
+    // 2026-08-14：自定义输入草稿状态提升到组件顶层——分支（②/③）切换时
+    // Compose 不会丢弃槽位状态（用户要求：输入框有内容时点选选项内容保留）
+    var customDraft by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
         if (question.question.isNotBlank()) {
-            // 2026-08-14 #28 修复：问题文本 bodySmall → bodyMedium（用户反馈字体偏小不协调）
-            Text(question.question, style = MaterialTheme.typography.bodyMedium, color = contentColor)
+            // 2026-08-14：问题域用背景色卡片包裹（用户方案：卡片形成视觉分隔，
+            // 不动高度；色用 surfaceVariant 与卡片容器 surfaceContainer 区分）
+            Surface(
+                shape = ShapeTokens.small,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                    modifier = Modifier.padding(
+                        horizontal = SpacingTokens.MD.dp,
+                        vertical = SpacingTokens.SM.dp
+                    )
+                ) {                    // 类型徽标（2026-08-14 用户要求：嵌入问题域的行内轻量 tag——
+                    // 非固定高度独立块；高度跟随文本行，与问题描述自然同排）
+                    Surface(
+                        shape = ShapeTokens.small,
+                        color = if (isMultiple) {
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.SELECTED)
+                        } else {
+                            accentColor.copy(alpha = AlphaTokens.SELECTED)
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (isMultiple) R.string.question_multi_choice else R.string.question_single_choice
+                            ),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                            ),
+                            color = if (isMultiple) MaterialTheme.colorScheme.tertiary else accentColor,
+                            modifier = Modifier.padding(horizontal = SpacingTokens.SM.dp, vertical = 2.dp),
+                            maxLines = 1
+                        )
+                    }
+                    Text(question.question, style = MaterialTheme.typography.bodyMedium, color = contentColor)
+                    // 2026-08-14：Q tabs 嵌入问题域行（右对齐，多问题时）
+                    if (headerTabs != null) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        headerTabs()
+                    }
+                }
+            }
         }
         question.options.forEach { option ->
             val isSelected = option.label in selected
             Surface(onClick = { onOptionClick(option.label) }, enabled = !readOnly,
                 shape = ShapeTokens.small,
                 color = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                // 2026-08-14：所有选项默认边框（选中时 accent 边框）
+                border = BorderStroke(
+                    1.dp,
+                    if (isSelected) accentColor.copy(alpha = AlphaTokens.MEDIUM)
+                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                ),
                 modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.defaultMinSize(minHeight = 40.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.defaultMinSize(minHeight = 44.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(option.label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
                         if (option.description.isNotBlank()) {
@@ -316,46 +401,119 @@ internal fun QuestionOptionRows(
         if (question.custom != false) {
             val optionLabels = question.options.map { it.label }.toSet()
             val customAnswer = selected.firstOrNull { it !in optionLabels }
-            if (customAnswer != null) {
+            if (customAnswer != null && readOnly) {
+                // 历史只读视图：高亮答案行 + ✔（无交互）
                 Surface(onClick = {}, enabled = false, shape = ShapeTokens.small,
-                    color = accentColor.copy(alpha = AlphaTokens.SELECTED), modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.defaultMinSize(minHeight = 40.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    color = accentColor.copy(alpha = AlphaTokens.SELECTED),
+                    border = BorderStroke(1.dp, accentColor.copy(alpha = AlphaTokens.MEDIUM)),
+                    modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.defaultMinSize(minHeight = 44.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor, modifier = Modifier.weight(1f))
                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
                     }
                 }
-            }
-            if (!readOnly && customAnswer == null) {
-                var isEditing by remember { mutableStateOf(false) }
-                var customText by remember { mutableStateOf("") }
-                if (!isEditing) {
-                    Surface(onClick = { isEditing = true }, shape = ShapeTokens.small, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.defaultMinSize(minHeight = 40.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor.copy(alpha = AlphaTokens.MEDIUM))
-                            Text(stringResource(R.string.custom_input), style = MaterialTheme.typography.bodySmall, color = accentColor.copy(alpha = AlphaTokens.MEDIUM))
+            } else if (customAnswer != null) {
+                // 2026-08-14 用户决策：③ 输入完毕态 = ②编辑态样式（输入框外观），
+                // 图标换 Edit；点击 Edit 进入修改（预填已有答案，修改后重新提交替换）
+                var editing by remember(customAnswer) { mutableStateOf(false) }
+                var editText by remember(customAnswer) { mutableStateOf(customAnswer) }
+                if (!editing) {
+                    // ③ 输入完毕态：与普通答案 item 完全相同的行结构（右对齐一致），
+                    // Edit 与 ✔ 同样式（16dp、统一间距）——2026-08-14 用户要求
+                    Surface(
+                        onClick = {},
+                        enabled = false,
+                        shape = ShapeTokens.small,
+                        color = accentColor.copy(alpha = AlphaTokens.SELECTED),
+                        border = BorderStroke(1.dp, accentColor.copy(alpha = AlphaTokens.MEDIUM)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            Modifier.defaultMinSize(minHeight = 44.dp)
+                                .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor, modifier = Modifier.weight(1f))
+                            // 编辑（左）与 ✔（右）：同样式同边距
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(ShapeTokens.small)
+                                    .clickable { editing = true; editText = customAnswer },
+                                tint = accentColor
+                            )
+                            Spacer(modifier = Modifier.size(4.dp))
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
                         }
                     }
                 } else {
+                    // 修改编辑态：输入框 + 小飞机（2026-08-14 用户要求：不要 X）
                     androidx.compose.material3.OutlinedTextField(
-                        value = customText, onValueChange = { customText = it },
+                        value = editText, onValueChange = { editText = it },
                         placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                         textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
+                        // 背景与其他答案 item 统一（偏白 surface）；边框未选中态淡色
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                            focusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+                        ),
                         trailingIcon = {
-                            Row {
-                                androidx.compose.material3.IconButton(onClick = {
-                                    val t = customText.trim()
-                                    if (t.isNotBlank()) { onOptionClick(t); isEditing = false; customText = "" }
-                                }, enabled = customText.isNotBlank()) {
-                                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-                                }
-                                androidx.compose.material3.IconButton(onClick = { isEditing = false; customText = "" }) {
-                                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                                }
-                            }
+                            Icon(
+                                Icons.AutoMirrored.Filled.Send,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(ShapeTokens.small)
+                                    .clickable(enabled = editText.isNotBlank() && editText != customAnswer) {
+                                        val t = editText.trim()
+                                        if (t.isNotBlank()) {
+                                            // 修改 = 替换旧自定义：先移除旧值（toggle），再提交新值
+                                            onOptionClick(customAnswer)
+                                            onOptionClick(t)
+                                            editing = false
+                                        }
+                                    },
+                                tint = if (editText.isNotBlank() && editText != customAnswer) accentColor
+                                    else accentColor.copy(alpha = AlphaTokens.FAINT)
+                            )
                         }
                     )
                 }
+            } else if (!readOnly) {
+                // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）
+                androidx.compose.material3.OutlinedTextField(
+                    value = customDraft, onValueChange = { customDraft = it },
+                    placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
+                    // 背景与其他答案 item 统一（偏白 surface）；边框未选中态淡色
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                        focusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+                    ),
+                    trailingIcon = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Send,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(ShapeTokens.small)
+                                .clickable(enabled = customDraft.isNotBlank()) {
+                                    val t = customDraft.trim()
+                                    if (t.isNotBlank()) { onOptionClick(t); customDraft = "" }
+                                },
+                            tint = if (customDraft.isNotBlank()) accentColor else accentColor.copy(alpha = AlphaTokens.FAINT)
+                        )
+                    }
+                )
             }
         }
     }
