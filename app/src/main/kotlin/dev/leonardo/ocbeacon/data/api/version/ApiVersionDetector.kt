@@ -8,6 +8,8 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -70,11 +72,32 @@ class ApiVersionDetector @Inject constructor(
             }
             if (!response.status.isSuccess()) return null
 
+            // 防御 1：content-type 必须是 JSON——SPA fallback 的 HTML 页面不算健康响应
+            val contentType = response.contentType()
+            if (contentType == null || !contentType.match(ContentType.Application.Json)) {
+                AppLogger.w(TAG, "V2 probe at $url: non-JSON content-type $contentType, not V2")
+                return null
+            }
+
             val body: JsonObject = apiClient.json.parseToJsonElement(response.bodyAsText()).jsonObject
             val version = body["version"]?.jsonPrimitive?.content
-            val healthy = body["healthy"]?.jsonPrimitive?.content?.toBoolean() ?: true
+            val healthy = body["healthy"]?.jsonPrimitive?.content?.toBoolean() ?: false
+            // V2 特征字段：pid（实测 V2 响应必有，V1 过渡形态无）
+            val hasPid = body["pid"] != null
 
-            if (healthy) DetectionResult(ApiVersion.V2, version) else null
+            // 防御 2（核心修复）：版本交叉验证——只有确认是 V2 才判定 V2。
+            // 判定规则（按优先级）：
+            //   1. version 解析为 2.x → 明确 V2
+            //   2. 响应含 pid 字段 → V2 特征（V2 预发布版 version 为 "0.0.0-next-xxx"，major=0 解析不出 2.x）
+            //   3. version 缺失且无 pid → 过渡形态（如 1.18.18 的 /api/health 只返回 {"healthy":true}）
+            //      → 不是 V2 → 回退 V1，避免 V2ApiClient 请求不存在的 /api/* 路径拿到 SPA HTML fallback
+            val isV2 = ApiVersion.fromVersionString(version) == ApiVersion.V2 || hasPid
+            if (healthy && isV2) {
+                DetectionResult(ApiVersion.V2, version)
+            } else {
+                AppLogger.i(TAG, "V2 probe at $url: healthy=$healthy version=$version hasPid=$hasPid — cross-check failed, not V2")
+                null
+            }
         } catch (e: Exception) {
             AppLogger.d(TAG, "V2 probe failed for $url: ${e.message}")
             null
@@ -89,9 +112,16 @@ class ApiVersionDetector @Inject constructor(
             }
             if (!response.status.isSuccess()) return null
 
+            // 防御：content-type 必须是 JSON
+            val contentType = response.contentType()
+            if (contentType == null || !contentType.match(ContentType.Application.Json)) {
+                AppLogger.w(TAG, "V1 probe at $url: non-JSON content-type $contentType, not V1")
+                return null
+            }
+
             val body: JsonObject = apiClient.json.parseToJsonElement(response.bodyAsText()).jsonObject
             val version = body["version"]?.jsonPrimitive?.content
-            val healthy = body["healthy"]?.jsonPrimitive?.content?.toBoolean() ?: true
+            val healthy = body["healthy"]?.jsonPrimitive?.content?.toBoolean() ?: false
 
             if (healthy) DetectionResult(ApiVersion.V1, version) else null
         } catch (e: Exception) {

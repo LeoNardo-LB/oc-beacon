@@ -61,6 +61,29 @@ class V2ApiClientTest {
         assertEquals("2.0.1", health.version)
     }
 
+    @Test
+    fun `listSessions throws NonJsonResponseException when server returns HTML`() = runTest {
+        // 回归：opencode 1.18.18 过渡形态对不存在的 /api/* 路径返回 SPA HTML（HTTP 200）
+        // 旧行为：JsonDecodingException "Unexpected JSON token at offset 11..."（用户报错）
+        // 新行为：NonJsonResponseException 携带可读信息
+        val html = "<!doctype html><html lang=\"en\"><body>opencode web ui</body></html>"
+        val engine = MockEngine { request ->
+            assertEquals("/api/session", request.url.encodedPath)
+            respond(
+                html,
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("text/html"))
+            )
+        }
+        val api = buildClient(engine)
+        try {
+            api.listSessions(v2Conn)
+            fail("应抛出 NonJsonResponseException")
+        } catch (e: dev.leonardo.ocbeacon.data.api.NonJsonResponseException) {
+            assertTrue(e.message!!.contains("HTML"))
+        }
+    }
+
     // ============ Session ============
 
     @Test
@@ -408,5 +431,35 @@ class V2ApiClientTest {
         assertEquals("connected", result["context7"]?.status)
         assertEquals("failed", result["failed-mcp"]?.status)
         assertEquals("connection refused", result["failed-mcp"]?.error)
+    }
+
+    @Test
+    fun `listDirectory handles V2 response without name field`() = runTest {
+        // 回归：V2 /api/fs/list 响应项只有 {path, type}（无 name）——旧代码 decode 抛
+        // MissingFieldException → 空列表（"V2 下 Open other project 不显示任何东西" 根因）
+        val responseBody = """{"location":{"directory":"/home"},"data":[
+            {"path":".agentmemory/","type":"directory"},
+            {"path":"README.md","type":"file"}
+        ]}"""
+        val engine = MockEngine { request ->
+            assertEquals("/api/fs/list", request.url.encodedPath)
+            // 真实调用（DirectoryManager）：path 参数为空 + x-opencode-directory header 带浏览路径
+            assertEquals("", request.url.parameters["path"])
+            assertTrue(request.headers.contains("x-opencode-directory"))
+            respond(responseBody, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val result = api.listDirectory(v2Conn, path = "", directory = "/home")
+        assertEquals(2, result.size)
+        // name 从 path 推导
+        assertEquals(".agentmemory", result[0].name)
+        assertEquals("README.md", result[1].name)
+        assertEquals("directory", result[0].type)
+        assertEquals("file", result[1].type)
+        // absolute 从浏览目录 + path 推导（V2 响应无 absolute；空值会导致
+        // UI LazyColumn key="" 重复崩溃——回归测试）
+        assertEquals("/home/.agentmemory", result[0].absolute)
+        assertEquals("/home/README.md", result[1].absolute)
     }
 }

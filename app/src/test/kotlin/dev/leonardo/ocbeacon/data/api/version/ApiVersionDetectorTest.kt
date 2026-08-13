@@ -115,4 +115,141 @@ class ApiVersionDetectorTest {
         // V2 healthy=false → V2 探测失败 → 回退 V1
         assertEquals(ApiVersion.V1, result.version)
     }
+
+    @Test
+    fun `1x server exposing api health responds but version is 1x → detected as V1`() = runTest {
+        // 回归测试：opencode 1.18.18 过渡形态同时暴露 /api/health 与 /global/health，
+        // /api/health 返回 {"healthy":true,"version":"1.18.18"}。
+        // 旧逻辑只看 healthy → 误判 V2 → V2ApiClient 请求不存在的 /api/* 路径 → HTML 崩溃。
+        // 新逻辑：版本交叉验证 version=1.18.18 → 不是 2.x → 回退 V1。
+        val engine = MockEngine { request ->
+            when (request.url.encodedPath) {
+                "/api/health" -> respond(
+                    """{"healthy":true,"version":"1.18.18"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                "/global/health" -> respond(
+                    """{"healthy":true,"version":"1.18.18"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val detector = buildDetector(engine)
+        val result = detector.detect("http://localhost:4096")
+        assertEquals(ApiVersion.V1, result.version)
+        assertEquals("1.18.18", result.serverVersionString)
+    }
+
+    @Test
+    fun `api health without version field → fallback to V1`() = runTest {
+        // 实测形态：opencode 1.18.18 的 /api/health 只返回 {"healthy":true}（无 version）。
+        // 无版本信息 → 不能判定为 V2 → 回退 V1。
+        val engine = MockEngine { request ->
+            when (request.url.encodedPath) {
+                "/api/health" -> respond(
+                    """{"healthy":true}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                "/global/health" -> respond(
+                    """{"healthy":true,"version":"1.18.18"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val detector = buildDetector(engine)
+        val result = detector.detect("http://localhost:4096")
+        assertEquals(ApiVersion.V1, result.version)
+    }
+
+    @Test
+    fun `api health returns HTML page → not V2, fallback to V1`() = runTest {
+        // 防御：SPA fallback 返回 text/html 页面（如 <!doctype html>）。
+        // content-type 非 JSON → V2 探测失败 → 回退 V1。
+        val html = "<!doctype html><html><body>opencode web ui</body></html>"
+        val engine = MockEngine { request ->
+            when (request.url.encodedPath) {
+                "/api/health" -> respond(
+                    html,
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("text/html"))
+                )
+                "/global/health" -> respond(
+                    """{"healthy":true,"version":"1.18.18"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val detector = buildDetector(engine)
+        val result = detector.detect("http://localhost:4096")
+        assertEquals(ApiVersion.V1, result.version)
+    }
+
+    @Test
+    fun `api health returns 200 JSON but body is not parseable → fallback to V1`() = runTest {
+        // 防御：即使 content-type 是 JSON，body 解析失败也不崩溃 → 回退 V1。
+        val engine = MockEngine { request ->
+            when (request.url.encodedPath) {
+                "/api/health" -> respond(
+                    "not-json-at-all",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                "/global/health" -> respond(
+                    """{"healthy":true,"version":"1.2.0"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val detector = buildDetector(engine)
+        val result = detector.detect("http://localhost:4096")
+        assertEquals(ApiVersion.V1, result.version)
+    }
+
+    @Test
+    fun `V2 prerelease with 0 0 0-next version and pid field → detected as V2`() = runTest {
+        // 回归：真实 V2 服务器版本号是 "0.0.0-next-17403"（npm next 预发布），
+        // major=0 解析不出 2.x——必须靠 pid 字段识别 V2，否则真 V2 被误判 V1。
+        val engine = MockEngine { request ->
+            when (request.url.encodedPath) {
+                "/api/health" -> respond(
+                    """{"healthy":true,"version":"0.0.0-next-17403","pid":51955}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val detector = buildDetector(engine)
+        val result = detector.detect("http://localhost:4096")
+        assertEquals(ApiVersion.V2, result.version)
+        assertEquals("0.0.0-next-17403", result.serverVersionString)
+    }
+
+    @Test
+    fun `V2 without version but with pid field → detected as V2`() = runTest {
+        // 兼容：V2 响应即使缺少 version 字段，pid 特征也能识别。
+        val engine = MockEngine { request ->
+            when (request.url.encodedPath) {
+                "/api/health" -> respond(
+                    """{"healthy":true,"pid":{"id":123}}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val detector = buildDetector(engine)
+        val result = detector.detect("http://localhost:4096")
+        assertEquals(ApiVersion.V2, result.version)
+    }
 }

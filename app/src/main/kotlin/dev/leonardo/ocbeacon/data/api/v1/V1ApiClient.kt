@@ -284,6 +284,13 @@ class V1ApiClient @Inject constructor(
             limit?.let { parameter("limit", it) }
             before?.let { parameter("before", it) }
         }
+        // 防御（#87）：会话已删除/不存在（404）或服务器错误时返回空页——
+        // 旧代码直接 body<List>() 会把 404 JSON 错误体（对象）按数组解析 →
+        // JsonConvertException 刷日志（压测实测 302 次/25 分钟，5 秒周期 L2 stale 轮询）。
+        if (!response.status.isSuccess()) {
+            AppLogger.w(TAG, "listMessages failed: status=${response.status} session=$sessionId")
+            return MessagePage(messages = emptyList(), nextCursor = null)
+        }
         val messages = response.body<List<MessageWithParts>>()
         val nextCursor = response.headers["X-Next-Cursor"]
         return MessagePage(messages = messages, nextCursor = nextCursor)

@@ -279,4 +279,56 @@ class V2MappersTest {
         assertEquals("ses_child_2", completed.metadata?.get("sessionId")?.jsonPrimitive?.content)
         assertEquals("ses_child_2", completed.metadata?.get("sessionID")?.jsonPrimitive?.content)
     }
+
+    // ============ HTML 防御（SPA fallback 回归） ============
+
+    @Test
+    fun `flexibleList throws NonJsonResponseException on HTML response`() {
+        // 回归：1.18.18 过渡形态对不存在的 /api/* 路径返回 <!doctype html>（HTTP 200）
+        val html = "<!doctype html><html lang=\"en\"><body>opencode web ui</body></html>"
+        try {
+            V2ResponseWrapper.flexibleList(html, json)
+            fail("应抛出 NonJsonResponseException")
+        } catch (e: dev.leonardo.ocbeacon.data.api.NonJsonResponseException) {
+            assertTrue(e.message!!.contains("HTML"))
+        }
+    }
+
+    @Test
+    fun `flexibleObject throws NonJsonResponseException on HTML response`() {
+        val html = "<html><body>404 page</body></html>"
+        try {
+            V2ResponseWrapper.flexibleObject(html, json)
+            fail("应抛出 NonJsonResponseException")
+        } catch (e: dev.leonardo.ocbeacon.data.api.NonJsonResponseException) {
+            assertTrue(e.message!!.contains("HTML"))
+        }
+    }
+
+    @Test
+    fun `flexibleList parses wrapped data array`() {
+        val items = V2ResponseWrapper.flexibleList(
+            """{"location":{},"data":[{"id":"1"},{"id":"2"}],"cursor":{}}""",
+            json
+        )
+        assertEquals(2, items.size)
+    }
+
+    @Test
+    fun `flexibleList parses bare array`() {
+        val items = V2ResponseWrapper.flexibleList("""[{"id":"1"}]""", json)
+        assertEquals(1, items.size)
+    }
+
+    @Test
+    fun `flexibleObject unwraps data object`() {
+        val obj = V2ResponseWrapper.flexibleObject("""{"data":{"id":"x"}}""", json)
+        assertEquals("x", obj["id"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `flexibleObject handles non object root`() {
+        val obj = V2ResponseWrapper.flexibleObject("""[1,2,3]""", json)
+        assertTrue(obj.isEmpty())
+    }
 }

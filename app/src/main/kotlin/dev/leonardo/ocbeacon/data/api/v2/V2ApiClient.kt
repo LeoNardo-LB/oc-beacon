@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.api.v2
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
+import dev.leonardo.ocbeacon.data.api.NonJsonResponseException
 import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
 import dev.leonardo.ocbeacon.data.api.directoryHeader
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
@@ -99,8 +100,24 @@ class V2ApiClient @Inject constructor(
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
-    private fun parseRoot(bodyText: String): JsonObject =
-        json.parseToJsonElement(bodyText).jsonObject
+    private fun parseRoot(bodyText: String): JsonObject {
+        rejectHtmlResponse(bodyText)
+        return json.parseToJsonElement(bodyText).jsonObject
+    }
+
+    /**
+     * 防御：服务器 SPA fallback 会把不存在的 API 路径返回为 HTML 页面（HTTP 200）。
+     * 在 JSON 解析前检测 HTML 特征，抛出可读异常（而非 JsonDecodingException）。
+     * 触发条件通常是 API 版本误判（V1 服务器被当成 V2 请求 /api/... 路径）。
+     */
+    private fun rejectHtmlResponse(bodyText: String) {
+        val trimmed = bodyText.trimStart()
+        if (trimmed.startsWith("<!doctype html", ignoreCase = true) || trimmed.startsWith("<html", ignoreCase = true)) {
+            val preview = trimmed.take(120).replace('\n', ' ')
+            AppLogger.e(TAG, "Non-JSON (HTML) response from server: $preview")
+            throw NonJsonResponseException("服务器返回了 HTML 页面而非 JSON（API 路径可能不存在或版本不匹配）：$preview")
+        }
+    }
 
     // ============ Health ============
 
@@ -387,6 +404,11 @@ class V2ApiClient @Inject constructor(
             // 2026-08-12 双向分页：cursor 也可由调用方构造（loadAround/loadNewer），
             // direction="next"=更旧、"previous"=更新，服务器据此返回对应方向数据。
             cursor?.let { parameter("cursor", it) }
+        }
+        // 防御（#87）：非 2xx（404 会话不存在/5xx）返回空页，避免解析错误体。
+        if (!response.status.isSuccess()) {
+            AppLogger.w(TAG, "listMessages failed: status=${response.status} session=$sessionId")
+            return MessagePage(messages = emptyList(), nextCursor = null, previousCursor = null)
         }
         val root = parseRoot(response.bodyAsText())
         // 双向游标：nextCursor（cursor.next）= 更旧方向；previousCursor（cursor.previous）= 更新方向。
@@ -900,7 +922,14 @@ class V2ApiClient @Inject constructor(
                 conn.authHeader?.let { header("Authorization", it) }
             }.bodyAsText()
             val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
-            json.decodeFromJsonElement(ServerPaths.serializer(), obj)
+            val decoded = json.decodeFromJsonElement(ServerPaths.serializer(), obj)
+            // V2 /api/location 只有 directory 字段（无 home）——directory 语义 = 当前工作目录，
+            // 回退为 home，否则 OpenProjectDialog 的 homeDir 为空（路径栏/新建文件夹受影响）
+            if (decoded.home.isBlank() && decoded.directory.isNotBlank()) {
+                decoded.copy(home = decoded.directory)
+            } else {
+                decoded
+            }
         }.getOrElse { ServerPaths() }
     }
 
@@ -1121,7 +1150,24 @@ class V2ApiClient @Inject constructor(
         }
         val bodyText = response.bodyAsText()
         return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
-            json.decodeFromJsonElement(FileNodeDto.serializer(), obj)
+            val dto = json.decodeFromJsonElement(FileNodeDto.serializer(), obj)
+            // V2 /api/fs/list 响应项只有 {path, type}——name/absolute 缺失。
+            // 缺 name 时 decode 会抛 MissingFieldException（旧 bug：V2 下 Open other project 空列表）；
+            // absolute 缺失时 UI LazyColumn key={it.absolute} 全部为空字符串 → Key "" already used 崩溃（回归 2）。
+            if (dto.name.isBlank() || dto.absolute.isNullOrBlank()) {
+                val name = dto.name.ifBlank {
+                    dto.path.trimEnd('/').substringAfterLast('/').ifBlank { dto.path }
+                }
+                val absolute = dto.absolute?.takeIf { it.isNotBlank() }
+                    ?: buildString {
+                        val base = directory?.trimEnd('/') ?: ""
+                        if (base.isNotEmpty()) { append(base); append('/') }
+                        append(dto.path.trimEnd('/'))
+                    }
+                dto.copy(name = name, absolute = absolute)
+            } else {
+                dto
+            }
         }
     }
 

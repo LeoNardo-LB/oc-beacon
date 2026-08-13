@@ -41,7 +41,8 @@ data class FileContentDto(
 
 @Serializable
 data class FileNodeDto(
-    val name: String,
+    /** V2 /api/fs/list 响应无 name 字段（只有 path/type）——默认空，由调用方从 path 推导 */
+    val name: String = "",
     val path: String,
     val type: String,
     val absolute: String? = null,
