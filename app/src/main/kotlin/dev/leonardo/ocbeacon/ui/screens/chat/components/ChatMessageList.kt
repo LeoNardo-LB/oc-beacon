@@ -835,7 +835,8 @@ fun ChatMessageList(
                                     .firstOrNull { !it.isSynthetic }
                                 val isTurnLast = nextReal == null || !nextReal.isAssistant
 
-                                // 嵌入式提问卡片：按 tool.messageId 匹配当前消息
+                                // 嵌入式提问卡片：按 tool.messageId 匹配当前消息，
+                                // 嵌入该消息的思考卡片（ReasoningBlock）内部渲染
                                 val embeddedQ = embeddedQuestionByMsgId[msg.message.id]
 
                                 MessageCard(
@@ -854,21 +855,15 @@ fun ChatMessageList(
                                         }
                                     },
                                     onLocateTask = onLocateTask,
-                                    trailingContent = if (embeddedQ != null) {
-                                        {
-                                            QuestionCard(
-                                                question = embeddedQ,
-                                                onSubmit = { answers ->
-                                                    viewModel.replyToQuestion(embeddedQ.id, answers)
-                                                    onForceScrollToBottom()
-                                                },
-                                                onReject = {
-                                                    viewModel.rejectQuestion(embeddedQ.id)
-                                                    onForceScrollToBottom()
-                                                }
-                                            )
-                                        }
-                                    } else null,
+                                    pendingQuestion = embeddedQ,
+                                    onQuestionSubmit = { qId, answers ->
+                                        viewModel.replyToQuestion(qId, answers)
+                                        onForceScrollToBottom()
+                                    },
+                                    onQuestionReject = { qId ->
+                                        viewModel.rejectQuestion(qId)
+                                        onForceScrollToBottom()
+                                    },
                                 )
                             }
                             msg.isUser -> {

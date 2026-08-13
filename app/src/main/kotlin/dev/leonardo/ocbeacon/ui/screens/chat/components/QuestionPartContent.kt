@@ -16,6 +16,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
@@ -26,8 +27,12 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -182,7 +187,8 @@ internal fun QuestionExpandedOptions(items: List<QHistItem>) {
 
 /**
  * 紧凑 Q tab 行（2026-08-13：从 QuestionPagerView 抽出，供交互卡片标题行共用）。
- * 自绘 28dp 胶囊 tab——替代 M3 SecondaryTabRow（默认 48dp 偏大）。
+ * 2026-08-14 用户决策：换 M3 SingleChoiceSegmentedButtonRow（官方组件语义/
+ * 无障碍/主题一致性）；压缩高度 32dp 避免"太大太高"回潮。
  */
 @Composable
 internal fun QuestionCompactTabs(
@@ -191,31 +197,24 @@ internal fun QuestionCompactTabs(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val accentColor = MaterialTheme.colorScheme.primary
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-        verticalAlignment = Alignment.CenterVertically
+    // M3 SegmentedButton 默认最小交互尺寸 40dp（用户反馈过大）→ 压缩到 32dp
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.material3.LocalMinimumInteractiveComponentSize provides 32.dp
     ) {
-        questions.indices.forEach { i ->
-            val selected = pagerState.currentPage == i
-            Surface(
-                onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
-                shape = ShapeTokens.small,
-                color = if (selected) {
-                    accentColor.copy(alpha = AlphaTokens.SELECTED)
-                } else {
-                    MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM)
-                },
-                modifier = Modifier.height(28.dp)
-            ) {
-                Text(
-                    text = "Q${i + 1}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+        SingleChoiceSegmentedButtonRow(modifier = modifier) {
+            questions.indices.forEach { i ->
+                SegmentedButton(
+                    selected = pagerState.currentPage == i,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
+                    shape = SegmentedButtonDefaults.itemShape(index = i, count = questions.size),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text(
+                        text = "Q${i + 1}",
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -288,9 +287,9 @@ internal fun QuestionOptionRows(
     val accentColor = MaterialTheme.colorScheme.primary
     val contentColor = MaterialTheme.colorScheme.onSurface
     val isMultiple = question.multiple
-    Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
         if (question.question.isNotBlank()) {
-            // 2026-08-13 #28 修复：问题文本 bodySmall → bodyMedium（用户反馈字体偏小不协调）
+            // 2026-08-14 #28 修复：问题文本 bodySmall → bodyMedium（用户反馈字体偏小不协调）
             Text(question.question, style = MaterialTheme.typography.bodyMedium, color = contentColor)
         }
         question.options.forEach { option ->
@@ -299,15 +298,16 @@ internal fun QuestionOptionRows(
                 shape = ShapeTokens.small,
                 color = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
                 modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.defaultMinSize(minHeight = 48.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (isMultiple) (if (isSelected) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank) else (if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked),
-                        contentDescription = null, modifier = Modifier.size(24.dp),
-                        tint = if (isSelected) accentColor else accentColor.copy(alpha = AlphaTokens.MEDIUM))
+                Row(Modifier.defaultMinSize(minHeight = 40.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(option.label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
                         if (option.description.isNotBlank()) {
-                            Text(option.description, style = MaterialTheme.typography.bodyMedium, color = contentColor.copy(alpha = AlphaTokens.MEDIUM))
+                            Text(option.description, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = AlphaTokens.MEDIUM))
                         }
+                    }
+                    // 2026-08-14 新设计：选中项右对齐小 ✔（替代左侧单选/多选图标）
+                    if (isSelected) {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
                     }
                 }
             }
@@ -319,9 +319,9 @@ internal fun QuestionOptionRows(
             if (customAnswer != null) {
                 Surface(onClick = {}, enabled = false, shape = ShapeTokens.small,
                     color = accentColor.copy(alpha = AlphaTokens.SELECTED), modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.defaultMinSize(minHeight = 48.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(if (isMultiple) Icons.Default.CheckBox else Icons.Default.RadioButtonChecked, contentDescription = null, modifier = Modifier.size(24.dp), tint = accentColor)
+                    Row(Modifier.defaultMinSize(minHeight = 40.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor, modifier = Modifier.weight(1f))
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
                     }
                 }
             }
@@ -330,8 +330,8 @@ internal fun QuestionOptionRows(
                 var customText by remember { mutableStateOf("") }
                 if (!isEditing) {
                     Surface(onClick = { isEditing = true }, shape = ShapeTokens.small, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.defaultMinSize(minHeight = 48.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(24.dp), tint = accentColor.copy(alpha = AlphaTokens.MEDIUM))
+                        Row(Modifier.defaultMinSize(minHeight = 40.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor.copy(alpha = AlphaTokens.MEDIUM))
                             Text(stringResource(R.string.custom_input), style = MaterialTheme.typography.bodySmall, color = accentColor.copy(alpha = AlphaTokens.MEDIUM))
                         }
                     }

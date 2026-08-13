@@ -61,6 +61,9 @@ internal fun PartContent(
     markdownStateOverride: MarkdownState? = null,
     // 2026-08-13 根本方案：跳转目标预解析结果（见 MarkdownContent）
     preParsedState: State? = null,
+    /** 2026-08-14：嵌入思考卡片内部的尾部内容（待处理提问卡片），
+     *  仅 Part.Reasoning 分支使用（PartContent 通用透传）。 */
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     when (part) {
         is Part.Text -> {
@@ -99,11 +102,14 @@ internal fun PartContent(
                 val expandReasoningDefault = LocalExpandReasoning.current
                 ReasoningBlock(
                     text = part.text,
-                    isExpanded = toolExpandedStates[part.id] ?: expandReasoningDefault,
+                    // 2026-08-14：有嵌入提问（trailingContent）时强制默认展开——
+                    // 提问折叠在思考卡片内会导致用户看不到待回答问题（UX 修复）
+                    isExpanded = (trailingContent != null) || (toolExpandedStates[part.id] ?: expandReasoningDefault),
                     onToggleExpand = { onToggleToolExpanded(part.id, expandReasoningDefault) },
                     durationMs = reasoningDuration,
                     isStreaming = isStreaming,
-                    startTimeMs = startTimeMs
+                    startTimeMs = startTimeMs,
+                    trailingContent = trailingContent
                 )
             }
         }

@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.runtime.Composable
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 
@@ -26,7 +27,10 @@ internal fun MessageCard(
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
-    trailingContent: (@Composable () -> Unit)? = null,
+    /** 嵌入思考卡片的待处理提问（按 tool.messageId 匹配，2026-08-14）。 */
+    pendingQuestion: SseEvent.QuestionAsked? = null,
+    onQuestionSubmit: ((String, List<List<String>>) -> Unit)? = null,
+    onQuestionReject: ((String) -> Unit)? = null,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -53,7 +57,9 @@ internal fun MessageCard(
             agents = agents,
             onCopy = onCopy,
             onLocateTask = onLocateTask,
-            trailingContent = trailingContent,
+            pendingQuestion = pendingQuestion,
+            onQuestionSubmit = onQuestionSubmit,
+            onQuestionReject = onQuestionReject,
         )
     }
 }

@@ -34,9 +34,11 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.components.ProviderIcon
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
+import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ContextToolGroupCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.PartGroup
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
@@ -73,7 +75,10 @@ internal fun MessageCardAssistant(
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
-    trailingContent: (@Composable () -> Unit)? = null,
+    /** 嵌入思考卡片（ReasoningBlock）的待处理提问（2026-08-14）。 */
+    pendingQuestion: SseEvent.QuestionAsked? = null,
+    onQuestionSubmit: ((String, List<List<String>>) -> Unit)? = null,
+    onQuestionReject: ((String) -> Unit)? = null,
 ) {
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
 
@@ -219,6 +224,20 @@ internal fun MessageCardAssistant(
                                     turnAgentName = if (item.group.part is Part.Tool && item.group.part.tool == "task") {
                                         renderableTurn.taskAgentName
                                     } else null,
+                                    // 2026-08-14：待处理提问嵌入思考卡片（ReasoningBlock）内部渲染
+                                    trailingContent = if (item.group.part is Part.Reasoning && pendingQuestion != null) {
+                                        {
+                                            QuestionCard(
+                                                question = pendingQuestion,
+                                                onSubmit = { answers ->
+                                                    onQuestionSubmit?.invoke(pendingQuestion.id, answers)
+                                                },
+                                                onReject = {
+                                                    onQuestionReject?.invoke(pendingQuestion.id)
+                                                }
+                                            )
+                                        }
+                                    } else null,
                                 )
                             }
                         }
@@ -242,9 +261,6 @@ internal fun MessageCardAssistant(
                     )
                 }
             }
-
-            // 嵌入式内容（如提问卡片）——紧跟正文之后，气泡内部
-            trailingContent?.invoke()
         }
     }
 }

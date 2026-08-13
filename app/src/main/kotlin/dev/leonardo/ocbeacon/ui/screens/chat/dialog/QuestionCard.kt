@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
@@ -127,37 +128,33 @@ internal fun QuestionCard(
         }
     }
 
-    val containerColor = MaterialTheme.colorScheme.surfaceVariant
+    val containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
     val accentColor = MaterialTheme.colorScheme.primary
 
-    AmoledCard(
-        isAmoledDark = isAmoled,
-        normalContainerColor = containerColor,
-        shape = ShapeTokens.medium,
+    // 2026-08-14：样式对齐 ReasoningBlock（思考卡片）——surfaceContainer 底色 +
+    // 轻量容器（嵌入思考卡片内部时视觉融合；独立保底时也可读）
+    Surface(
+        shape = ShapeTokens.small,
+        color = containerColor,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(SpacingTokens.MD.dp),
+            modifier = Modifier.padding(SpacingTokens.SM.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
-            // 标题行——左 Question 标签，右 Q tabs + 展开按钮
+            // 标题行——左类型图标 + Question 标签，右 Q tabs + 展开按钮
             Row(
-                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(ShapeTokens.small)
-                    .clickable {
-                        performHaptic(hapticView, hapticOn)
-                        expanded = !expanded
-                    }
+                modifier = Modifier.fillMaxWidth()
             ) {
+                // 类型图标：当前页题目 multiple → CheckBox，否则 RadioButton（14dp 小图标）
+                val currentQuestion = question.questions.getOrNull(currentPage)
                 Icon(
-                    @Suppress("DEPRECATION")
-                    Icons.Default.HelpOutline,
+                    imageVector = if (currentQuestion?.multiple == true) Icons.Default.CheckBox else Icons.Default.RadioButtonChecked,
                     contentDescription = stringResource(R.string.a11y_icon_question),
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(14.dp),
                     tint = accentColor
                 )
                 Text(
@@ -173,7 +170,10 @@ internal fun QuestionCard(
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) stringResource(R.string.chat_collapse) else stringResource(R.string.chat_expand),
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(18.dp).clip(ShapeTokens.small).clickable {
+                        performHaptic(hapticView, hapticOn)
+                        expanded = !expanded
+                    },
                     tint = contentColor.copy(alpha = AlphaTokens.FAINT)
                 )
             }
