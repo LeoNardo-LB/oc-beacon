@@ -307,6 +307,8 @@
     <string name="notification_group_summary">OpenCode 알림</string>
     <string name="notification_export_progress">세션 내보내기 진행 중</string>
     <string name="chat_summarized">컨텍스트 압축됨</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">백그라운드로 이동됨</string>
     <string name="menu_export_session">세션 내보내기</string>
     <string name="chat_session_exported">세션 내보내기 완료</string>
     <string name="chat_session_export_failed">세션 내보내기 실패</string>
@@ -636,7 +638,10 @@
     <string name="background_sheet_shells_tab">셸</string>
     <string name="background_sheet_empty_subagents">백그라운드 서브 에이전트 없음</string>
     <string name="background_sheet_empty_shells">셸 명령 없음</string>
-    <string name="background_sheet_title">백그라운드</string>
+    <string name="background_sheet_title">작업</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">포그라운드</string>
+    <string name="task_background">백그라운드</string>
     <string name="background_sheet_history_tab">기록</string>
     <string name="shell_kill">셸 제거</string>
     <string name="shell_close">닫기</string>

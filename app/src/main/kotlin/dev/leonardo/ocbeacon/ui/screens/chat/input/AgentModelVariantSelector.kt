@@ -12,8 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
@@ -191,7 +191,7 @@ internal fun AgentModelVariantSelector(
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
-                        Icons.Outlined.Layers,
+                        Icons.AutoMirrored.Filled.FormatListBulleted,
                         contentDescription = stringResource(R.string.a11y_icon_background),
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
@@ -204,7 +204,7 @@ internal fun AgentModelVariantSelector(
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
-                    Icons.AutoMirrored.Filled.FormatListBulleted,
+                    Icons.Filled.Place,
                     contentDescription = stringResource(R.string.menu_quick_navigate),
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)

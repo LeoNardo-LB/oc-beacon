@@ -308,6 +308,8 @@
     <string name="share_connect_first">Sambungkan ke server terlebih dahulu, lalu bagikan gambar</string>
     <!-- Chat pagination -->
     <string name="chat_summarized">Konteks dikompak</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">Dipindah ke latar belakang</string>
     <!-- Chat menu actions -->
     <string name="chat_menu_open_workspace">Lihat ruang kerja</string>
     <string name="menu_fork_session">Fork sesi</string>
@@ -642,7 +644,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_shells_tab">Shell</string>
     <string name="background_sheet_empty_subagents">Tidak ada sub-agent latar belakang</string>
     <string name="background_sheet_empty_shells">Tidak ada perintah shell</string>
-    <string name="background_sheet_title">Latar belakang</string>
+    <string name="background_sheet_title">Tugas</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">Latar depan</string>
+    <string name="task_background">Latar belakang</string>
     <string name="background_sheet_history_tab">Riwayat</string>
     <string name="shell_kill">Hapus shell</string>
     <string name="shell_close">Tutup</string>

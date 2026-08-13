@@ -315,6 +315,8 @@
     <string name="notification_group_summary">Powiadomienia OpenCode</string>
     <string name="notification_export_progress">Postęp eksportu sesji</string>
     <string name="chat_summarized">Kontekst skompaktowany</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">Przeniesiono do tła</string>
     <string name="menu_export_session">Wyeksportuj sesję</string>
     <string name="chat_session_exported">Sesja wyeksportowana</string>
     <string name="chat_session_export_failed">Nie udało się wyeksportować sesji</string>
@@ -644,7 +646,10 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_shells_tab">Powłoki</string>
     <string name="background_sheet_empty_subagents">Brak sub-agentów w tle</string>
     <string name="background_sheet_empty_shells">Brak poleceń powłoki</string>
-    <string name="background_sheet_title">Tło</string>
+    <string name="background_sheet_title">Zadania</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">Pierwszy plan</string>
+    <string name="task_background">Tło</string>
     <string name="background_sheet_history_tab">Historia</string>
     <string name="shell_kill">Usuń powłokę</string>
     <string name="shell_close">Zamknij</string>

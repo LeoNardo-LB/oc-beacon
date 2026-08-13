@@ -323,6 +323,8 @@
     <string name="notification_group_summary">إشعارات OpenCode</string>
     <string name="notification_export_progress">تقدم تصدير الجلسة</string>
     <string name="chat_summarized">تم تجميع السياق</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">نُقل إلى الخلفية</string>
     <string name="menu_export_session">تصدير الجلسة</string>
     <string name="chat_session_exported">تم تصدير الجلسة</string>
     <string name="chat_session_export_failed">فشل في تصدير الجلسة</string>
@@ -652,7 +654,10 @@
     <string name="background_sheet_shells_tab">Shells</string>
     <string name="background_sheet_empty_subagents">لا يوجد وكلاء فرعيون في الخلفية</string>
     <string name="background_sheet_empty_shells">لا توجد أوامر طرفية</string>
-    <string name="background_sheet_title">الخلفية</string>
+    <string name="background_sheet_title">المهام</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">أمامي</string>
+    <string name="task_background">خلفية</string>
     <string name="background_sheet_history_tab">السجل</string>
     <string name="shell_kill">إزالة الطرفية</string>
     <string name="shell_close">إغلاق</string>

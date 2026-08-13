@@ -291,6 +291,8 @@
     <string name="chat_session_renamed">Сессия переименована</string>
     <string name="chat_session_rename_failed">Не удалось переименовать</string>
     <string name="chat_summarized">Контекст сжат</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">Перемещено в фоновый режим</string>
     <string name="chat_menu_open_workspace">Открыть рабочую область</string>
     <string name="menu_fork_session">Форкнуть сессию</string>
     <string name="menu_compact_session">Сжать сессию</string>
@@ -645,7 +647,10 @@
     <string name="background_sheet_shells_tab">Shell</string>
     <string name="background_sheet_empty_subagents">Нет фоновых суб-агентов</string>
     <string name="background_sheet_empty_shells">Нет команд shell</string>
-    <string name="background_sheet_title">Фон</string>
+    <string name="background_sheet_title">Задачи</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">Передний план</string>
+    <string name="task_background">Фон</string>
     <string name="background_sheet_history_tab">История</string>
     <string name="shell_kill">Удалить shell</string>
     <string name="shell_close">Закрыть</string>

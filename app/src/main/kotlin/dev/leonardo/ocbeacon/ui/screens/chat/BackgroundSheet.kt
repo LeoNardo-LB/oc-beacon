@@ -241,6 +241,23 @@ fun BackgroundSheet(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
+                                            // 2026-08-13：前台/后台执行标记（主会话 busy +
+                                            // 子代理运行中 = 前台阻塞；转后台后主会话 idle = 后台）
+                                            CompactTag(
+                                                text = stringResource(
+                                                    if (sub.isForeground) R.string.task_foreground else R.string.task_background
+                                                ),
+                                                containerColor = if (sub.isForeground) {
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.FAINT)
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT)
+                                                },
+                                                contentColor = if (sub.isForeground) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                }
+                                            )
                                             sub.agent?.takeIf { it.isNotBlank() }?.let { agent ->
                                                 // 2026-08-12：与输入组件同款紧凑标签（Chip 偏大已撤）
                                                 val tagColor = agentColor(agent, emptyList())

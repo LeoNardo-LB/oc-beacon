@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.CircularProgressIndicator
@@ -202,7 +202,7 @@ fun ChatTopBar(
                                 onBackgroundSession()
                             },
                             leadingIcon = {
-                                Icon(Icons.Outlined.Layers, contentDescription = null)
+                                Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = null)
                             }
                         )
                         // 根据当前分享状态显示分享或取消分享

@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
@@ -60,7 +60,7 @@ internal fun BackgroundToolbar(
             horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
         ) {
             Icon(
-                imageVector = Icons.Outlined.Layers,
+                imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
                 contentDescription = null,
                 modifier = Modifier.size(14.dp),
                 tint = MaterialTheme.colorScheme.primary

@@ -28,6 +28,9 @@ data class SubagentSummary(
     val agent: String?,
     val title: String?,
     val isRunning: Boolean,
+    /** 前台（阻塞主会话）标记：子代理运行中 + 主会话 busy——2026-08-13
+     *  任务面板改造（区分前台/后台执行；转后台后主会话 idle → false） */
+    val isForeground: Boolean = false,
     /** 描述（从 tool part input 提取，可能为 null） */
     val description: String? = null,
     /** 开始时间（子会话创建时间，2026-08-12 面板第二行展示） */
@@ -123,12 +126,17 @@ class BackgroundAggregator(
             // V2 派发子代理走 session.create，无工具调用记录）→ 原
             // isExplicitlyBackground 过滤恒 false → subagents 恒空。
             // 子会话（parentId==currentSessionId）本身就是后台任务，直接展示。
+            val childRunning = child.id in runningIds || child.id in activeSessionIds.value
+            // 2026-08-13：前台/后台标记——子代理运行中 + 主会话 busy（阻塞中）
+            // = 前台；转后台后主会话恢复（idle）→ 后台
+            val mainBusy = currentSessionId in runningIds || currentSessionId in activeSessionIds.value
             SubagentSummary(
                 sessionId = child.id,
                 agent = child.agent,
                 title = child.title,
                 // FSM Busy（SSE 驱动，V1）或 active 轮询（V2）任一命中即运行中
-                isRunning = child.id in runningIds || child.id in activeSessionIds.value,
+                isRunning = childRunning,
+                isForeground = mainBusy && childRunning,
                 description = toolPart?.let { extractSubagentDescription(it) },
                 // 2026-08-12：面板第二行（agent 徽章 + 开始时间 + 模型）
                 startedAt = child.time.created.takeIf { it > 0 },

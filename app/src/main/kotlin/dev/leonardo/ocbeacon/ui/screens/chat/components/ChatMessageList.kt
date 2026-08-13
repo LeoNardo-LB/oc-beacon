@@ -116,6 +116,10 @@ import com.mikepenz.markdown.model.State
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
+/** 转后台 synthetic 系统提示的服务器固定模板（匹配 → 分割线渲染）。 */
+private const val BACKGROUND_SYNTHETIC_MARKER =
+    "User requested that active blocking work be moved to the background"
+
 /**
  * 跳转预渲染注册表（根治方案 2026-08-12）：
  * 消息组件（MessageCardUser）为跳转目标消息创建 MarkdownState 后注册到此表，
@@ -882,6 +886,43 @@ fun ChatMessageList(
                                         )
                                     }
                                     return@itemsIndexed
+                                }
+
+                                // 2026-08-13：转后台 synthetic 系统提示（服务器固定模板
+                                // "User requested that active blocking work be moved to the
+                                // background"）→ 分割线渲染（类似压缩分割线——简短提示
+                                //「已移至后台」，丢弃服务器英文系统提示文本）
+                                val isSyntheticMsg = chatMessage.message is Message.User &&
+                                    (chatMessage.message as Message.User).role == "synthetic"
+                                if (isSyntheticMsg) {
+                                    val syntheticText = chatMessage.parts
+                                        .filterIsInstance<Part.Text>()
+                                        .joinToString("\n") { it.text }
+                                    if (syntheticText.contains(BACKGROUND_SYNTHETIC_MARKER)) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = SpacingTokens.XS.dp, horizontal = SpacingTokens.XXL.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            HorizontalDivider(
+                                                modifier = Modifier.weight(1f),
+                                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.chat_moved_to_background),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                                modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp)
+                                            )
+                                            HorizontalDivider(
+                                                modifier = Modifier.weight(1f),
+                                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                                            )
+                                        }
+                                        return@itemsIndexed
+                                    }
                                 }
 
                                 MessageCard(

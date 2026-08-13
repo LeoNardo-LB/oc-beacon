@@ -307,6 +307,8 @@
     <string name="notification_group_summary">OpenCode bildirimleri</string>
     <string name="notification_export_progress">Oturum dışa aktarma ilerlemesi</string>
     <string name="chat_summarized">Bağlam küçültüldü</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">Arka plana taşındı</string>
     <string name="menu_export_session">Oturumu dışa aktar</string>
     <string name="chat_session_exported">Oturum dışa aktarıldı</string>
     <string name="chat_session_export_failed">Oturum dışa aktarılamadı</string>
@@ -636,7 +638,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_shells_tab">Shell</string>
     <string name="background_sheet_empty_subagents">Arka planda alt agent yok</string>
     <string name="background_sheet_empty_shells">Shell komutu yok</string>
-    <string name="background_sheet_title">Arka plan</string>
+    <string name="background_sheet_title">Görevler</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">Ön plan</string>
+    <string name="task_background">Arka plan</string>
     <string name="background_sheet_history_tab">Geçmiş</string>
     <string name="shell_kill">Shell kaldır</string>
     <string name="shell_close">Kapat</string>

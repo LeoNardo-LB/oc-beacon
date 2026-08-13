@@ -307,6 +307,8 @@
     <string name="notification_group_summary">OpenCode通知</string>
     <string name="notification_export_progress">セッションエクスポート進行中</string>
     <string name="chat_summarized">コンテキストがコンパクト化されました</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">バックグラウンドに移動しました</string>
     <string name="menu_export_session">セッションをエクスポート</string>
     <string name="chat_session_exported">セッションをエクスポートしました</string>
     <string name="chat_session_export_failed">セッションのエクスポートに失敗しました</string>
@@ -636,7 +638,10 @@
     <string name="background_sheet_shells_tab">シェル</string>
     <string name="background_sheet_empty_subagents">バックグラウンドのサブエージェントはありません</string>
     <string name="background_sheet_empty_shells">シェルコマンドはありません</string>
-    <string name="background_sheet_title">バックグラウンド</string>
+    <string name="background_sheet_title">タスク</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">フォアグラウンド</string>
+    <string name="task_background">バックグラウンド</string>
     <string name="background_sheet_history_tab">履歴</string>
     <string name="shell_kill">シェルを削除</string>
     <string name="shell_close">閉じる</string>

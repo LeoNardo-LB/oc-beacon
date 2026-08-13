@@ -307,6 +307,8 @@
     <string name="notification_group_summary">OpenCode-Benachrichtigungen</string>
     <string name="notification_export_progress">Sitzungsexport läuft</string>
     <string name="chat_summarized">Kontext komprimiert</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">In den Hintergrund verschoben</string>
     <string name="menu_export_session">Sitzung exportieren</string>
     <string name="chat_session_exported">Sitzung exportiert</string>
     <string name="chat_session_export_failed">Sitzung konnte nicht exportiert werden</string>
@@ -636,7 +638,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="background_sheet_shells_tab">Shells</string>
     <string name="background_sheet_empty_subagents">Keine Hintergrund-Sub-Agenten</string>
     <string name="background_sheet_empty_shells">Keine Shell-Befehle</string>
-    <string name="background_sheet_title">Hintergrund</string>
+    <string name="background_sheet_title">Aufgaben</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">Vordergrund</string>
+    <string name="task_background">Hintergrund</string>
     <string name="background_sheet_history_tab">Verlauf</string>
     <string name="shell_kill">Shell entfernen</string>
     <string name="shell_close">Schließen</string>

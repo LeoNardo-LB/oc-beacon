@@ -202,7 +202,10 @@
     <string name="background_sheet_shells_tab">Shells</string>
     <string name="background_sheet_empty_subagents">No background subagents</string>
     <string name="background_sheet_empty_shells">No shell commands</string>
-    <string name="background_sheet_title">Background</string>
+    <string name="background_sheet_title">Tasks</string>
+    <!-- 2026-08-13：任务面板前台/后台标记（子代理阻塞主会话 = 前台） -->
+    <string name="task_foreground">Foreground</string>
+    <string name="task_background">Background</string>
     <string name="background_sheet_history_tab">History</string>
     <string name="shell_kill">Remove shell</string>
     <string name="shell_close">Close</string>
@@ -495,6 +498,8 @@
 
     <!-- Chat pagination -->
     <string name="chat_summarized">Context compacted</string>
+    <!-- 2026-08-13：转后台 synthetic 系统提示 → 消息流分割线（简短提示） -->
+    <string name="chat_moved_to_background">Moved to background</string>
 
     <!-- Chat menu actions -->
     <string name="chat_menu_open_workspace">View Workspace</string>

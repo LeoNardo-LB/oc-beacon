@@ -315,6 +315,8 @@
     <string name="notification_group_summary">Сповіщення OpenCode</string>
     <string name="notification_export_progress">Експорт сесії — прогрес</string>
     <string name="chat_summarized">Контекст стиснуто</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">Переміщено у фон</string>
     <string name="menu_export_session">Експортувати сесію</string>
     <string name="chat_session_exported">Сесію експортовано</string>
     <string name="chat_session_export_failed">Не вдалося експортувати сесію</string>
@@ -644,7 +646,10 @@
     <string name="background_sheet_shells_tab">Shell</string>
     <string name="background_sheet_empty_subagents">Немає фонових суб-агентів</string>
     <string name="background_sheet_empty_shells">Немає команд shell</string>
-    <string name="background_sheet_title">Фон</string>
+    <string name="background_sheet_title">Завдання</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">Передній план</string>
+    <string name="task_background">Фон</string>
     <string name="background_sheet_history_tab">Історія</string>
     <string name="shell_kill">Видалити shell</string>
     <string name="shell_close">Закрити</string>

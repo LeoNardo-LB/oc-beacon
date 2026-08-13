@@ -324,6 +324,8 @@
     <string name="notification_group_summary">OpenCode 通知</string>
     <string name="notification_export_progress">会话导出进度</string>
     <string name="chat_summarized">上下文已压缩</string>
+    <!-- 2026-08-13：转后台 synthetic → 消息流分割线 -->
+    <string name="chat_moved_to_background">已移至后台</string>
     <string name="menu_export_session">导出会话</string>
     <string name="chat_session_exported">会话已导出</string>
     <string name="chat_session_export_failed">导出会话失败</string>
@@ -639,7 +641,10 @@
     <string name="background_sheet_shells_tab">Shell</string>
     <string name="background_sheet_empty_subagents">没有后台子代理</string>
     <string name="background_sheet_empty_shells">没有 Shell 命令</string>
-    <string name="background_sheet_title">后台</string>
+    <string name="background_sheet_title">任务</string>
+    <!-- 2026-08-13：任务面板前台/后台标记 -->
+    <string name="task_foreground">前台</string>
+    <string name="task_background">后台</string>
     <string name="background_sheet_history_tab">历史</string>
     <string name="shell_kill">移除 Shell</string>
     <string name="shell_close">关闭</string>
