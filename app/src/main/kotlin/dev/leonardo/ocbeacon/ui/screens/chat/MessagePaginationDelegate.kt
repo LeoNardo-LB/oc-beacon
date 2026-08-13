@@ -316,8 +316,13 @@ internal class MessagePaginationDelegate(
             ?: error("Target ${targetId.take(12)} vanished from cache after existence check")
         val older = messageStore.loadRange(sid, currentMessageLimit, beforeId = targetId)
         val newer = messageStore.loadRangeNewer(sid, currentMessageLimit, afterId = targetId)
-        // 合并 target + older + newer（APPEND_ONLY 按 id 去重）
-        chatRepository.upsertMessages(sid, listOf(target) + older + newer, MergeStrategy.APPEND_ONLY)
+        // #82 修复（2026-08-13）：older（messagesBefore）返回**降序**
+        //（ORDER BY created DESC, id DESC），与 newer（ASC）混合后破坏
+        // mergeSortedMessages 升序前提（MessageEventHandlerMergeSortedTest 声明）→
+        // 归并错乱丢消息（实测：跨页跳转 loadAround 后最新消息从 UI 消失——
+        // 服务器有但客户端内存热视图丢失）。合并前统一升序化（与 #76 seed 路径同款修复）。
+        val all = (listOf(target) + older + newer).sortedBy { it.info.time.created }
+        chatRepository.upsertMessages(sid, all, MergeStrategy.APPEND_ONLY)
 
         // older 游标：本地最老 older 的 id+created（无 serverCursor → loadOlder 走网络）
         val oldest = older.minByOrNull { it.info.time.created }
@@ -351,8 +356,10 @@ internal class MessagePaginationDelegate(
     private suspend fun loadAroundFromServer(sid: String, targetMessageId: String) {
         val result = messagePaging.loadAround(serverId, sid, targetMessageId, currentMessageLimit)
             .getOrThrow()
-        // 合并 target + older + newer（APPEND_ONLY 按 id 去重）
-        val all = listOf(result.target) + result.olderMessages + result.newerMessages
+        // #82 修复（2026-08-13）：与本地分支同款——服务器 older/newer 方向顺序
+        // 不保证升序，合并前统一升序化（mergeSortedMessages 前提）
+        val all = (listOf(result.target) + result.olderMessages + result.newerMessages)
+            .sortedBy { it.info.time.created }
         chatRepository.upsertMessages(sid, all, MergeStrategy.APPEND_ONLY)
 
         // 构造 older 游标（后续 loadOlder 复用）
