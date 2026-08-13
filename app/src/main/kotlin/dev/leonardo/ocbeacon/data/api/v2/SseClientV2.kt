@@ -20,6 +20,7 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.ClosedReadChannelException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -116,13 +117,19 @@ class SseClientV2 @Inject constructor(
             AppLogger.i(TAG, "V2 SSE stream opened, reading events...")
 
             while (!channel.isClosedForRead) {
-                if (System.currentTimeMillis() - lastActivity > HEARTBEAT_TIMEOUT_MS) {
-                    AppLogger.w(TAG, "V2 SSE heartbeat timeout after $eventCount events")
+                // #108：阻塞读超时防护——半开 TCP（kill -9/NAT 静默断）下
+                // readSseFrame 内部阻塞读永久挂起（socketTimeout=Long.MAX_VALUE），
+                // 心跳检查永不执行 → 连接永久挂死，重连/冷却失效。
+                // 40s 无数据强制断开走重连。
+                val frame = withTimeoutOrNull(HEARTBEAT_TIMEOUT_MS) {
+                    readSseFrame(channel)
+                }
+                if (frame == null) {
+                    if (!channel.isClosedForRead) {
+                        AppLogger.w(TAG, "V2 SSE read timed out after ${HEARTBEAT_TIMEOUT_MS}ms (no data / half-open), reconnecting...")
+                    }
                     break
                 }
-
-                // 解析一个完整的 SSE 帧
-                val frame = readSseFrame(channel) ?: break
                 if (frame.isEmpty()) {
                     // 空帧（注释行如 ": heartbeat" 等）也是连接存活的证据
                     lastActivity = System.currentTimeMillis()
@@ -280,23 +287,33 @@ class SseClientV2 @Inject constructor(
      */
     private fun handleEvent(type: String, props: JsonObject): SseEvent? {
         // synthetic 实时通知（2026-08-12 修复，与 TUI 机制对齐）：
-        // session.input.admitted {inputID, input:{type, data:{text, description, metadata}}}
-        //   → 缓存 input；同时继续走 V2SseMapper（user 消息播种保持原逻辑）。
-        // session.input.promoted {inputID} → 消费缓存：input.type != "user"（如
-        //   "synthetic"）→ 构造 MessageUpdated(User(role=type, summary.body=text))，
-        //   下游 handleMessageUpdated 播种 Part.Text → 实时渲染通知卡片。
-        //   修复前客户端忽略 promoted → synthetic 只能等 REST 刷新（L3，~15-20s）。
-        if (type == "session.input.admitted") {
-            val inputID = props["inputID"]?.jsonPrimitive?.contentOrNull
-            val input = props["input"]?.jsonObject
+        // 事件契约演进（2026-08-14 实测抓帧）：
+        // 最新（next-17403+）：session.inbox.enqueued {sessionID, inboxID,
+        //   item:{type, payload:{text,...}, delivery}} → 缓存 item；
+        //   session.inbox.delivered {sessionID, inboxID} → 消费缓存。
+        // 旧版：session.input.admitted {inputID, input:{type, data:{...}}}
+        //   → 缓存 input；session.input.promoted {inputID} → 消费缓存。
+        // 消费时 type != "user"（如 "synthetic"）→ 构造 MessageUpdated(User(role=type,
+        //   summary.body=text)) → 下游 handleMessageUpdated 播种 Part.Text →
+        //   实时渲染通知卡片（修复前只能等 REST 刷新，L3 ~15-20s）。
+        if (type == "session.inbox.enqueued" || type == "session.input.admitted") {
+            val inputID = props["inboxID"]?.jsonPrimitive?.contentOrNull
+                ?: props["id"]?.jsonPrimitive?.contentOrNull
+                ?: props["inputID"]?.jsonPrimitive?.contentOrNull
+            // 新版 item（含 type/payload）；过渡 prompt；旧版 input（含 type/data）
+            val input = props["item"]?.jsonObject
+                ?: props["prompt"]?.jsonObject
+                ?: props["input"]?.jsonObject
             if (BuildConfig.DEBUG) {
                 AppLogger.d(TAG, "admitted: inputID=$inputID type=${input?.get("type")?.jsonPrimitive?.contentOrNull}")
             }
             if (inputID != null && input != null) {
                 pendingInputs[inputID] = input
             }
-        } else if (type == "session.input.promoted") {
-            val inputID = props["inputID"]?.jsonPrimitive?.contentOrNull
+        } else if (type == "session.inbox.delivered" || type == "session.input.promoted") {
+            val inputID = props["inboxID"]?.jsonPrimitive?.contentOrNull
+                ?: props["id"]?.jsonPrimitive?.contentOrNull
+                ?: props["inputID"]?.jsonPrimitive?.contentOrNull
             val input = inputID?.let { pendingInputs.remove(it) }
             if (BuildConfig.DEBUG) {
                 AppLogger.d(TAG, "promoted: inputID=$inputID cached=${input != null} pendingSize=${pendingInputs.size}")
@@ -305,7 +322,8 @@ class SseClientV2 @Inject constructor(
                 val inputType = input["type"]?.jsonPrimitive?.contentOrNull
                 if (inputType != null && inputType != "user") {
                     val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: ""
-                    val dataObj = input["data"]?.jsonObject
+                    // 新版 item.payload；旧版 input.data
+                    val dataObj = input["payload"]?.jsonObject ?: input["data"]?.jsonObject
                     val text = dataObj?.get("text")?.jsonPrimitive?.contentOrNull ?: ""
                     val description = dataObj?.get("description")?.jsonPrimitive?.contentOrNull
                     return SseEvent.MessageUpdated(
