@@ -46,12 +46,25 @@ object V2SseMapper {
     fun map(type: String, props: JsonObject): SseEvent? = when (type) {
         // ============ 消息生命周期 ============
 
-        // 用户消息播种：{sessionID, inputID, input:{type:"user", data:{text}, delivery}}
-        "session.input.admitted" -> {
+        // 用户消息播种。事件契约演进（2026-08-14 实测抓帧 + 官方 schema）：
+        // 最新（next-17403+）：session.inbox.enqueued
+        //   {sessionID, inboxID, item:{type:"user", payload:{text,agents}, delivery}}
+        // 过渡（next-171xx）：session.input.admitted
+        //   {sessionID, inputID, input:{type:"user", data:{text}, delivery}}
+        // 早期（已废弃）：{sessionID, id, prompt:{text,files,agents}, delivery, timeCreated}
+        // 事件名/字段读不到 → return null → 用户消息不播种（发送后不显示，重进才显示）
+        "session.inbox.enqueued", "session.input.admitted" -> {
             val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
-            val inputId = props["inputID"]?.jsonPrimitive?.contentOrNull ?: return null
-            val inputObj = props["input"]?.jsonObject
-            val text = inputObj?.get("data")?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+            val inputId = props["inboxID"]?.jsonPrimitive?.contentOrNull
+                ?: props["id"]?.jsonPrimitive?.contentOrNull
+                ?: props["inputID"]?.jsonPrimitive?.contentOrNull
+                ?: return null
+            // 新版：item.payload.text；过渡：prompt.text；旧版：input.data.text
+            val text = props["item"]?.jsonObject?.get("payload")?.jsonObject
+                ?.get("text")?.jsonPrimitive?.contentOrNull
+                ?: props["prompt"]?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+                ?: props["input"]?.jsonObject?.get("data")?.jsonObject
+                    ?.get("text")?.jsonPrimitive?.contentOrNull
             SseEvent.MessageUpdated(
                 Message.User(
                     id = inputId,

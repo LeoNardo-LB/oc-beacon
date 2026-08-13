@@ -38,6 +38,58 @@ class V2SseMapperTest {
     }
 
     @Test
+    fun `input admitted seeds user message with new contract (id + prompt)`() {
+        // 2026-08-14 过渡契约（官方 schema 实证，next-171xx）：
+        // {admittedSeq, id, sessionID, prompt:{text,files,agents}, delivery, timeCreated}
+        val event = V2SseMapper.map(
+            "session.input.admitted",
+            props("""{"admittedSeq":1,"id":"msg_user_new","sessionID":"ses_1","prompt":{"text":"新契约消息","files":[],"agents":[]},"delivery":{},"timeCreated":1755000000000}""")
+        )
+        assertNotNull(event)
+        val updated = event as SseEvent.MessageUpdated
+        val user = updated.info as Message.User
+        assertEquals("msg_user_new", user.id)
+        assertEquals("ses_1", user.sessionId)
+        assertEquals("新契约消息", user.summary?.body)
+    }
+
+    @Test
+    fun `inbox enqueued seeds user message with latest contract`() {
+        // 2026-08-14 最新契约（实测抓帧，next-17403+）：
+        // session.inbox.enqueued {sessionID, inboxID, item:{type, payload:{text,agents}, delivery}}
+        val event = V2SseMapper.map(
+            "session.inbox.enqueued",
+            props("""{"sessionID":"ses_1","inboxID":"msg_inbox_1","item":{"type":"user","payload":{"text":"inbox消息","agents":[{"name":"build"}]},"delivery":"steer"}}""")
+        )
+        assertNotNull(event)
+        val updated = event as SseEvent.MessageUpdated
+        val user = updated.info as Message.User
+        assertEquals("msg_inbox_1", user.id)
+        assertEquals("ses_1", user.sessionId)
+        assertEquals("inbox消息", user.summary?.body)
+    }
+
+    @Test
+    fun `inbox enqueued with missing inboxID returns null`() {
+        // 必须有 inboxID——字段缺失时不播种（避免空 id 幽灵消息）
+        val event = V2SseMapper.map(
+            "session.inbox.enqueued",
+            props("""{"sessionID":"ses_1","item":{"type":"user","payload":{"text":"无id"}}}""")
+        )
+        assertNull(event)
+    }
+
+    @Test
+    fun `input admitted with new contract but missing id returns null`() {
+        // 新契约必须有 id——字段缺失时不应播种（避免空 id 幽灵消息）
+        val event = V2SseMapper.map(
+            "session.input.admitted",
+            props("""{"admittedSeq":1,"sessionID":"ses_1","prompt":{"text":"无id"}}""")
+        )
+        assertNull(event)
+    }
+
+    @Test
     fun `step started creates assistant message`() {
         val event = V2SseMapper.map(
             "session.step.started",
