@@ -87,28 +87,27 @@ internal fun ServerCard(
                                 color = MaterialTheme.colorScheme.tertiary
                             )
                         }
-                        // API 版本徽章
-                        if (server.apiVersion != dev.leonardo.ocbeacon.domain.model.ApiVersion.V1) {
-                            Surface(
-                                shape = MaterialTheme.shapes.small,
+                        // API 版本徽章（V1/V2 均显示——2026-08-13 #86：V1 也显示版本号，
+                        // 与 V2 一致；UNKNOWN 回退显示 v1 与默认行为一致）
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = when (server.apiVersion) {
+                                dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            }
+                        ) {
+                            Text(
+                                text = "API v${if (server.apiVersion.isV2) "2" else "1"}" +
+                                    (server.serverVersion?.let { " · $it" } ?: ""),
+                                style = MaterialTheme.typography.labelSmall,
                                 color = when (server.apiVersion) {
                                     dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                }
-                            ) {
-                                Text(
-                                    text = "API v${if (server.apiVersion.isV2) "2" else "1"}" +
-                                        (server.serverVersion?.let { " · $it" } ?: ""),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = when (server.apiVersion) {
-                                        dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
                     }
                 }

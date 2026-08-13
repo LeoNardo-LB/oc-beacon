@@ -64,17 +64,17 @@ internal fun ChatScreenBottomBar(
     onPendingSendActionSet: ((() -> Unit)?) -> Unit,
     coroutineScope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
-    onOpenBackgroundSheet: () -> Unit = {},
+    onOpenTaskSheet: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val view = LocalView.current
     val clipboard = LocalClipboard.current
-    val backgroundUi by viewModel.backgroundUiState.collectAsStateWithLifecycle()
-    val backgroundToolbarText = if (backgroundUi.foregroundSubagentCount > 0) {
+    val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
+    val taskToolbarText = if (taskUi.foregroundSubagentCount > 0) {
         context.getString(
-            R.string.background_toolbar_subagents,
-            backgroundUi.foregroundSubagentCount
+            R.string.task_toolbar_subagents,
+            taskUi.foregroundSubagentCount
         )
     } else ""
 
@@ -376,11 +376,11 @@ internal fun ChatScreenBottomBar(
                 onStop = { viewModel.abortSession() },
                 restoredDraft = restoredDraft,
                 onConsumeRestoredDraft = { viewModel.consumeRestoredDraft() },
-                backgroundBadgeCount = backgroundUi.badgeCount,
-                onOpenBackground = onOpenBackgroundSheet,
+                taskBadgeCount = taskUi.badgeCount,
+                onOpenTaskPanel = onOpenTaskSheet,
                 onQuickNavigate = onQuickNavigate,
-                showBackgroundToolbar = backgroundUi.showBackgroundToolbar,
-                backgroundToolbarText = backgroundToolbarText,
+                showTaskToolbar = taskUi.showTaskToolbar,
+                taskToolbarText = taskToolbarText,
                 onBackgroundSession = { viewModel.backgroundSession() }
             )
         }

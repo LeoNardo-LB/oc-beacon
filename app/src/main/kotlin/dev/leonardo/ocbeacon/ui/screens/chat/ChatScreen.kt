@@ -326,7 +326,7 @@ fun ChatScreen(
 
     var showModelPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
-    var showBackgroundSheet by remember { mutableStateOf(false) }
+    var showTaskSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var isTerminalMode by rememberSaveable { mutableStateOf(startInTerminalMode) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -486,8 +486,8 @@ fun ChatScreen(
         if (viewModel.sessionId.isNotBlank()) {
             viewModel.syncSessionStatus()
             // 后台活动轮询（active 会话权威来源；幂等，组合即启动）
-            viewModel.startBackgroundPolling()
-            viewModel.refreshBackgroundNow()
+            viewModel.startTaskPolling()
+            viewModel.refreshTaskNow()
         }
     }
 
@@ -597,6 +597,7 @@ fun ChatScreen(
                             }
                         },
                         isShareSupported = serverApiVersion != ApiVersion.V2,
+                        isBackgroundSupported = serverApiVersion != ApiVersion.V1,
                         onShare = {
                             viewModel.shareSession { url ->
                                 coroutineScope.launch {
@@ -658,7 +659,7 @@ fun ChatScreen(
                 onPendingSendActionSet = { pendingSendAction = it },
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
-                onOpenBackgroundSheet = { showBackgroundSheet = true },
+                onOpenTaskSheet = { showTaskSheet = true },
                 onQuickNavigate = { showQuickNavigate = true },
             )
         },
@@ -859,9 +860,9 @@ fun ChatScreen(
     } // CompositionLocalProvider
     } // ChatSettingsProvider
 
-    // 后台活动面板（ModalBottomSheet）—— 入口在输入栏第一行右侧（角标按钮）
-    if (showBackgroundSheet) {
-        val backgroundUi by viewModel.backgroundUiState.collectAsStateWithLifecycle()
+    // 任务面板（ModalBottomSheet）—— 入口在输入栏第一行右侧（角标按钮）
+    if (showTaskSheet) {
+        val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
         val shellOutputs = remember { mutableStateMapOf<String, String?>() }
         // 消息流 tool parts（shell 输出回填数据源——collect 缓存）
         val allPartsMap by viewModel.chatRepositoryExposed.getAllPartsMap()
@@ -883,11 +884,12 @@ fun ChatScreen(
                 .mapNotNull { (it.state as? ToolState.Completed)?.output }
                 .lastOrNull()
         }
-        BackgroundSheet(
-            state = backgroundUi,
-            onDismiss = { showBackgroundSheet = false },
+        TaskSheet(
+            state = taskUi,
+            onDismiss = { showTaskSheet = false },
             onOpenSubSession = { sessionId -> onNavigateToChildSession(sessionId) },
             onRemoveShell = { id -> viewModel.removeShell(id) },
+            showRunningFilter = serverApiVersion != ApiVersion.V1,
             shellOutputProvider = { shell ->
                 // 1. 事件携带的输出（SSE shell.exited 通常无 output）
                 shell.output

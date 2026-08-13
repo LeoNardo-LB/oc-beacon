@@ -262,6 +262,7 @@ class ChatViewModelDeleteTest {
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,
             shellJobsStore = ShellJobsStore(),
+            eventDispatcher = mockk(relaxed = true),
         )
     }
 

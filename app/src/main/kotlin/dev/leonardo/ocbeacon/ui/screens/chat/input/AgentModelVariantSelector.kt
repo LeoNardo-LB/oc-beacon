@@ -55,8 +55,8 @@ internal fun AgentModelVariantSelector(
     onCycleVariant: () -> Unit,
     onAttach: () -> Unit,
     showBusy: Boolean = false,
-    backgroundBadgeCount: Int = 0,
-    onOpenBackground: () -> Unit = {},
+    taskBadgeCount: Int = 0,
+    onOpenTaskPanel: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
 ) {
     // 不提前返回：配置未就绪（agents 空 / modelLabel 空 / variantNames 空）时，
@@ -172,14 +172,14 @@ internal fun AgentModelVariantSelector(
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
             }
-            // 后台活动入口（BadgedBox + 图标按钮）—— 角标实时显示后台任务/subagent 总数。
-            // 无后台活动时角标隐藏，仅剩低调图标。
+            // 任务入口（BadgedBox + 图标按钮）—— 角标实时显示任务/subagent 总数。
+            // 无任务时角标隐藏，仅剩低调图标。
             BadgedBox(
                 badge = {
-                    if (backgroundBadgeCount > 0) {
+                    if (taskBadgeCount > 0) {
                         Badge(containerColor = MaterialTheme.colorScheme.tertiary) {
                             Text(
-                                text = backgroundBadgeCount.coerceAtMost(99).toString(),
+                                text = taskBadgeCount.coerceAtMost(99).toString(),
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -187,18 +187,18 @@ internal fun AgentModelVariantSelector(
                 }
             ) {
                 IconButton(
-                    onClick = onOpenBackground,
+                    onClick = onOpenTaskPanel,
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.FormatListBulleted,
-                        contentDescription = stringResource(R.string.a11y_icon_background),
+                        contentDescription = stringResource(R.string.a11y_icon_tasks),
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
                     )
                 }
             }
-            // 快速导航入口（2026-08-12 用户要求：移入输入组件——后台按钮旁）
+            // 快速导航入口（2026-08-12 用户要求：移入输入组件——任务入口旁）
             IconButton(
                 onClick = onQuickNavigate,
                 modifier = Modifier.size(32.dp)

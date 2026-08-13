@@ -60,6 +60,9 @@ fun ChatTopBar(
      *  2026-08-13 用户要求：顶部菜单增加入口（转后台工具栏显示条件苛刻——
      *  仅前台任务运行时出现，用户平时找不到）。 */
     onBackgroundSession: () -> Unit,
+    /** 服务器支持后台任务时显示 Background 菜单项（V1 无正式后台系统——
+     *  仅实验性 /experimental/session/{id}/background 且需 flag，见 backlog #85）。 */
+    isBackgroundSupported: Boolean = true,
     /** 服务器支持 share 端点时显示 Share/Unshare 菜单项（V2 当前无 share 端点，见 backlog #78）。 */
     isShareSupported: Boolean = true,
     onShare: () -> Unit,
@@ -195,16 +198,19 @@ fun ChatTopBar(
                         )
                         // 批量转后台（2026-08-13 用户要求：入口在顶部菜单——工具栏
                         // 显示条件苛刻平时找不到；服务器无前台任务时 no-op）
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.background_toolbar_action)) },
-                            onClick = {
-                                showMenu = false
-                                onBackgroundSession()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = null)
-                            }
-                        )
+                        // V1 无正式后台系统（实验性端点需 flag）→ 隐藏（backlog #85）
+                        if (isBackgroundSupported) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.task_toolbar_action)) },
+                                onClick = {
+                                    showMenu = false
+                                    onBackgroundSession()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = null)
+                                }
+                            )
+                        }
                         // 根据当前分享状态显示分享或取消分享
                         // （V2 服务器无 share 端点时整组隐藏，见 backlog #78）
                         if (isShareSupported) {

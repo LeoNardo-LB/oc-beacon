@@ -122,8 +122,8 @@ internal fun SyntheticNotificationCard(
     // metadata.sessionId）并滚动+高亮；找不到时提示。
     val canLocate = sessionId != null && onLocateTask != null
 
-    // 标签行（2026-08-12 用户要求组合）：时间 + "Background" + "Agent/Shell Completed" + 成功/失败图标
-    val labelText = stringResource(R.string.chat_label_background)
+    // 标签行（2026-08-12 用户要求组合）：时间 + "Tasks" + "Agent/Shell Completed" + 成功/失败图标
+    val labelText = stringResource(R.string.chat_label_tasks)
     val statusLabel = when {
         info == null -> null
         isError -> stringResource(

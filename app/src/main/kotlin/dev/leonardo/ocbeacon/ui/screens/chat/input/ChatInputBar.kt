@@ -84,11 +84,11 @@ internal fun ChatInputBar(
     onStop: () -> Unit = {},
     restoredDraft: RevertedDraftPayload? = null,
     onConsumeRestoredDraft: () -> Unit = {},
-    backgroundBadgeCount: Int = 0,
-    onOpenBackground: () -> Unit = {},
+    taskBadgeCount: Int = 0,
+    onOpenTaskPanel: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
-    showBackgroundToolbar: Boolean = false,
-    backgroundToolbarText: String = "",
+    showTaskToolbar: Boolean = false,
+    taskToolbarText: String = "",
     onBackgroundSession: () -> Unit = {},
 ) {
     // 发送失败时恢复草稿文本
@@ -178,17 +178,17 @@ internal fun ChatInputBar(
                 .padding(start = SpacingTokens.LG.dp, end = SpacingTokens.LG.dp, top = 2.dp, bottom = 6.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
         ) {
-            // 转后台工具栏——有前台 subagent 运行时从输入栏上方滑出（fade + expand 动画）。
+            // 任务工具栏——有前台 subagent 运行时从输入栏上方滑出（fade + expand 动画）。
             // 对应 TUI 的 ctrl+b：一键将当前所有前台 subagent 转为后台执行。
             AnimatedVisibility(
-                visible = showBackgroundToolbar && !isShellMode,
+                visible = showTaskToolbar && !isShellMode,
                 enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
                 exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
             ) {
-                BackgroundToolbar(
-                    text = backgroundToolbarText,
+                TaskToolbar(
+                    text = taskToolbarText,
                     onBackgroundSession = onBackgroundSession,
-                    onOpenBackground = onOpenBackground
+                    onOpenTaskPanel = onOpenTaskPanel
                 )
             }
 
@@ -205,8 +205,8 @@ internal fun ChatInputBar(
                 onCycleVariant = onCycleVariant,
                 onAttach = onAttach,
                 showBusy = isBusy,
-                backgroundBadgeCount = backgroundBadgeCount,
-                onOpenBackground = onOpenBackground,
+                taskBadgeCount = taskBadgeCount,
+                onOpenTaskPanel = onOpenTaskPanel,
                 onQuickNavigate = onQuickNavigate,
             )
 
