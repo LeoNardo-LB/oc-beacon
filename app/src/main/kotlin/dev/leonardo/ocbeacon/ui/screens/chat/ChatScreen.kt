@@ -625,6 +625,7 @@ fun ChatScreen(
                                 .ifBlank { "session" }
                             attachmentHandler.launchExport("$slug.json")
                         },
+                        onBackgroundSession = { viewModel.backgroundSession() },
                         onOpenWorkspace = onOpenWorkspace,
                     )
                 }

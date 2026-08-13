@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,6 +56,10 @@ fun ChatTopBar(
     onTerminalMode: () -> Unit,
     onForkSession: () -> Unit,
     onCompactSession: () -> Unit,
+    /** 批量转后台（对应 TUI ctrl+b——当前会话所有前台 subagent 转为后台）。
+     *  2026-08-13 用户要求：顶部菜单增加入口（转后台工具栏显示条件苛刻——
+     *  仅前台任务运行时出现，用户平时找不到）。 */
+    onBackgroundSession: () -> Unit,
     /** 服务器支持 share 端点时显示 Share/Unshare 菜单项（V2 当前无 share 端点，见 backlog #78）。 */
     isShareSupported: Boolean = true,
     onShare: () -> Unit,
@@ -186,6 +191,18 @@ fun ChatTopBar(
                             },
                             leadingIcon = {
                                 Icon(Icons.Default.Compress, contentDescription = stringResource(R.string.a11y_icon_compress))
+                            }
+                        )
+                        // 批量转后台（2026-08-13 用户要求：入口在顶部菜单——工具栏
+                        // 显示条件苛刻平时找不到；服务器无前台任务时 no-op）
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.background_toolbar_action)) },
+                            onClick = {
+                                showMenu = false
+                                onBackgroundSession()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Outlined.Layers, contentDescription = null)
                             }
                         )
                         // 根据当前分享状态显示分享或取消分享
