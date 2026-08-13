@@ -65,6 +65,12 @@ internal suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
             // 通道关闭：已收集字节作为部分行返回（原语义）；无字节则视为无更多数据
             if (result.isEmpty()) return null
             return result
+        } catch (e: java.io.EOFException) {
+            // #108：对端 FIN 关闭时 readByte 抛 EOFException（而非
+            // ClosedReadChannelException）——同样视为流结束返回 null，
+            // 避免正常 EOF 被当作异常走 catch 重连路径（日志误导）。
+            if (result.isEmpty()) return null
+            return result
         }
         if (!discarded) return result
         // 本行已丢弃：继续外层循环读取下一行
@@ -72,9 +78,19 @@ internal suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
 }
 
 /**
- * 将 byte 块列表拼接为完整字节数组，然后一次性 UTF-8 解码。
+ * 带超时的行读取——#108 核心防护。
+ *
+ * 半开 TCP（kill -9/NAT 静默断）下 [readRawLineBytes] 的阻塞读永久挂起
+ * （socketTimeout=Long.MAX_VALUE），心跳检查永不执行 → 连接永久挂死。
+ * 本函数保证最多等待 [timeoutMs]，超时返回 null——调用方据此断开走重连。
  */
-internal fun buildStringFromBytes(chunks: List<List<Byte>>): String {
+internal suspend fun ByteReadChannel.readRawLineBytesWithTimeout(
+    timeoutMs: Long = HEARTBEAT_TIMEOUT_MS
+): List<Byte>? = withTimeoutOrNull(timeoutMs) { readRawLineBytes() }
+
+/**
+ * 将 byte 块列表拼接为完整字节数组，然后一次性 UTF-8 解码。
+ */internal fun buildStringFromBytes(chunks: List<List<Byte>>): String {
     if (chunks.isEmpty()) return ""
     // SSE 规范：多条 data: 行必须以 \n（LF）连接。
     // 之前的实现未加分隔符直接拼接，导致多行 JSON
@@ -199,12 +215,21 @@ class SseClient @Inject constructor(
             AppLogger.i(TAG, "SSE stream opened, reading events...")
 
             while (!channel.isClosedForRead) {
-                if (System.currentTimeMillis() - lastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
-                    AppLogger.w(TAG, "Heartbeat timeout after $eventCount events, reconnecting...")
+                // #108：阻塞读超时防护——半开 TCP（kill -9/NAT 静默断）下
+                // readRawLineBytes 永久挂起（socketTimeout=Long.MAX_VALUE），
+                // 心跳检查永不执行 → 连接永久挂死，重连/冷却失效。
+                // withTimeoutOrNull 保证最多等待一个心跳周期，超时即断开走重连。
+                val lineBytes = channel.readRawLineBytesWithTimeout()
+                if (lineBytes == null) {
+                    if (!channel.isClosedForRead) {
+                        AppLogger.w(TAG, "SSE read timed out after ${HEARTBEAT_TIMEOUT_MS}ms (no data / half-open), reconnecting...")
+                    }
                     break
                 }
-
-                val lineBytes = channel.readRawLineBytes() ?: break
+                // #108：任何行到达（含空行=事件边界）都是连接存活的证据 → 刷新心跳。
+                // 对齐 V2 语义：V1 服务器长流式期间不发 server.heartbeat，
+                // 若只在 ServerHeartbeat 时刷新，活跃会话每 40s 假超时断连。
+                lastHeartbeat = System.currentTimeMillis()
 
                 if (lineBytes.isEmpty()) {
                     // 空白行 = SSE event 边界 → 解码整个 buffer
@@ -216,9 +241,8 @@ class SseClient @Inject constructor(
                             val event = parseEvent(data)
                             if (event != null) {
                                 eventCount++
-                                if (event is SseEvent.ServerHeartbeat) {
-                                    lastHeartbeat = System.currentTimeMillis()
-                                } else {
+                                // 心跳已由行级刷新覆盖（任意行到达即刷新，见循环顶部）
+                                if (event !is SseEvent.ServerHeartbeat) {
                                     emit(event)
                                 }
                             }
@@ -287,12 +311,16 @@ class SseClient @Inject constructor(
             var eventCount = 0
 
             while (!channel.isClosedForRead) {
-                if (System.currentTimeMillis() - lastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
-                    AppLogger.w(TAG, "Instance SSE heartbeat timeout after $eventCount events")
+                // #108：阻塞读超时防护（同 connectToGlobalEvents）
+                val lineBytes = channel.readRawLineBytesWithTimeout()
+                if (lineBytes == null) {
+                    if (!channel.isClosedForRead) {
+                        AppLogger.w(TAG, "Instance SSE read timed out after ${HEARTBEAT_TIMEOUT_MS}ms (no data / half-open), reconnecting...")
+                    }
                     break
                 }
-
-                val lineBytes = channel.readRawLineBytes() ?: break
+                // #108：任意行到达刷新心跳（对齐 V2 语义）
+                lastHeartbeat = System.currentTimeMillis()
 
                 if (lineBytes.isEmpty()) {
                     // 空白行 = SSE event 边界 → 解码整个 buffer
@@ -302,9 +330,8 @@ class SseClient @Inject constructor(
                             val event = parseEvent(data)
                             if (event != null) {
                                 eventCount++
-                                if (event is SseEvent.ServerHeartbeat) {
-                                    lastHeartbeat = System.currentTimeMillis()
-                                } else {
+                                // 心跳已由行级刷新覆盖（任意行到达即刷新，见循环顶部）
+                                if (event !is SseEvent.ServerHeartbeat) {
                                     emit(event)
                                 }
                             }

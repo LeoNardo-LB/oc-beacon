@@ -1,18 +1,63 @@
 package dev.leonardo.ocbeacon.data.api
 
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import io.ktor.utils.io.ByteChannel
+import io.ktor.utils.io.ByteReadChannel
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SseClientReadTimeoutTest {
+
+    // ============ #108 带超时行读取（半开 TCP 防护） ============
+
+    @Test
+    fun `readRawLineBytesWithTimeout returns null on silent channel instead of hanging`() = runTest {
+        // 无数据且未关闭的 ByteChannel：readByte 永久挂起——半开 TCP
+        // （kill -9/NAT 静默断）模拟。withTimeoutOrNull 在虚拟时间推进后
+        // 取消挂起，返回 null 而非永久挂死。
+        val channel = ByteChannel()
+
+        val result = channel.readRawLineBytesWithTimeout(timeoutMs = 1_000)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `readRawLineBytesWithTimeout returns line when data available`() = runTest {
+        val channel = ByteReadChannel("hello\n".encodeToByteArray())
+
+        val result = channel.readRawLineBytesWithTimeout(timeoutMs = 1_000)
+
+        assertEquals("hello".toByteArray().toList(), result)
+    }
+
+    @Test
+    fun `readRawLineBytesWithTimeout returns null when channel closed`() = runTest {
+        val channel = ByteChannel()
+        channel.close()
+
+        val result = channel.readRawLineBytesWithTimeout(timeoutMs = 1_000)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `readRawLineBytesWithTimeout handles CRLF`() = runTest {
+        val channel = ByteReadChannel("hello\r\n".encodeToByteArray())
+
+        val result = channel.readRawLineBytesWithTimeout(timeoutMs = 1_000)
+
+        assertEquals("hello".toByteArray().toList(), result)
+    }
 
     // ============ SseReadTimeoutTracker ============
 
