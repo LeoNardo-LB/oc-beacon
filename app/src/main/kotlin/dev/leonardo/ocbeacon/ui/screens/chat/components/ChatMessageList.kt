@@ -310,6 +310,23 @@ fun ChatMessageList(
         }
     }
 
+    // 预计算：可嵌入 assistant 消息气泡的待处理提问（按 tool.messageId 匹配可见消息）
+    val embeddedQuestionByMsgId: Map<String, SseEvent.QuestionAsked> = remember(
+        interaction.pendingQuestions, displayItems
+    ) {
+        val visibleMsgIds = displayItems.mapNotNull { (_, msg) ->
+            if (msg.isAssistant) msg.message.id else null
+        }.toSet()
+        interaction.pendingQuestions
+            .filter { q -> q.tool?.messageId != null && q.tool.messageId in visibleMsgIds }
+            .associateBy { it.tool!!.messageId }
+    }
+    // 未嵌入任何可见 assistant 消息的提问（保底独立显示）
+    val unembeddedQuestions = remember(interaction.pendingQuestions, embeddedQuestionByMsgId) {
+        val embeddedIds = embeddedQuestionByMsgId.values.map { it.id }.toSet()
+        interaction.pendingQuestions.filter { it.id !in embeddedIds }
+    }
+
     // LazyColumn 中 itemsIndexed 之前渲染的非消息项数量。
     // 必须与下面的条件 `item { ... }` 块保持一致（见横幅渲染）。
     val bannerCount = remember(
@@ -318,7 +335,7 @@ fun ChatMessageList(
         sessionMeta.sessionStatus,
         activeTools,
         currentStep,
-        interaction.pendingQuestions,
+        unembeddedQuestions,
         interaction.pendingPermissions,
     ) {
         (if (sessionMeta.revert != null) 1 else 0) +
@@ -326,7 +343,7 @@ fun ChatMessageList(
         (if (sessionMeta.sessionStatus is SessionStatus.Retry) 1 else 0) +
         (if (activeTools.isNotEmpty()) 1 else 0) +
         (if (currentStep != null) 1 else 0) +
-        (if (interaction.pendingQuestions.isNotEmpty()) 1 else 0) +
+        (if (unembeddedQuestions.isNotEmpty()) 1 else 0) +
         (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0)
     }
 
@@ -720,12 +737,12 @@ fun ChatMessageList(
                         }
                     }
 
-                    // 待处理问题 —— 一次显示一个（最旧优先）
-                    interaction.pendingQuestions.firstOrNull()?.let { question ->
+                    // 待处理问题（未嵌入消息气泡的保底显示）——一次显示一个（最旧优先）
+                    unembeddedQuestions.firstOrNull()?.let { question ->
                         item(key = "question_${question.id}") {
                             QuestionCard(
                                 question = question,
-                                positionLabel = if (interaction.pendingQuestions.size > 1) "1/${interaction.pendingQuestions.size}" else null,
+                                positionLabel = if (unembeddedQuestions.size > 1) "1/${unembeddedQuestions.size}" else null,
                                 onSubmit = { answers ->
                                     viewModel.replyToQuestion(question.id, answers)
                                     onForceScrollToBottom()
@@ -818,6 +835,9 @@ fun ChatMessageList(
                                     .firstOrNull { !it.isSynthetic }
                                 val isTurnLast = nextReal == null || !nextReal.isAssistant
 
+                                // 嵌入式提问卡片：按 tool.messageId 匹配当前消息
+                                val embeddedQ = embeddedQuestionByMsgId[msg.message.id]
+
                                 MessageCard(
                                     role = MessageCardRole.ASSISTANT,
                                     renderableTurn = renderableTurns[displayItemIndex],
@@ -834,6 +854,21 @@ fun ChatMessageList(
                                         }
                                     },
                                     onLocateTask = onLocateTask,
+                                    trailingContent = if (embeddedQ != null) {
+                                        {
+                                            QuestionCard(
+                                                question = embeddedQ,
+                                                onSubmit = { answers ->
+                                                    viewModel.replyToQuestion(embeddedQ.id, answers)
+                                                    onForceScrollToBottom()
+                                                },
+                                                onReject = {
+                                                    viewModel.rejectQuestion(embeddedQ.id)
+                                                    onForceScrollToBottom()
+                                                }
+                                            )
+                                        }
+                                    } else null,
                                 )
                             }
                             msg.isUser -> {

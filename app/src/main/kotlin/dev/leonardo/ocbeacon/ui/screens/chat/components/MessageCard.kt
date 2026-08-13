@@ -26,6 +26,7 @@ internal fun MessageCard(
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -52,6 +53,7 @@ internal fun MessageCard(
             agents = agents,
             onCopy = onCopy,
             onLocateTask = onLocateTask,
+            trailingContent = trailingContent,
         )
     }
 }

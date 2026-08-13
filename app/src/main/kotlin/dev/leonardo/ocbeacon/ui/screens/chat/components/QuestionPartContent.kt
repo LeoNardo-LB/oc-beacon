@@ -181,6 +181,47 @@ internal fun QuestionExpandedOptions(items: List<QHistItem>) {
 }
 
 /**
+ * 紧凑 Q tab 行（2026-08-13：从 QuestionPagerView 抽出，供交互卡片标题行共用）。
+ * 自绘 28dp 胶囊 tab——替代 M3 SecondaryTabRow（默认 48dp 偏大）。
+ */
+@Composable
+internal fun QuestionCompactTabs(
+    pagerState: androidx.compose.foundation.pager.PagerState,
+    questions: List<SseEvent.QuestionAsked.Question>,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val accentColor = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        questions.indices.forEach { i ->
+            val selected = pagerState.currentPage == i
+            Surface(
+                onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
+                shape = ShapeTokens.small,
+                color = if (selected) {
+                    accentColor.copy(alpha = AlphaTokens.SELECTED)
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM)
+                },
+                modifier = Modifier.height(28.dp)
+            ) {
+                Text(
+                    text = "Q${i + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+/**
  * 统一的问题展示：TabRow + HorizontalPager + Checkbox/RadioButton。
  * QuestionCard（交互式）和问题历史（只读）共用。
  */
@@ -191,14 +232,14 @@ internal fun QuestionPagerView(
     readOnly: Boolean = false,
     onOptionClick: ((pageIndex: Int, label: String) -> Unit)? = null,
     pagerState: androidx.compose.foundation.pager.PagerState? = null,
-    onPageSelected: (Int) -> Unit = {}
+    onPageSelected: (Int) -> Unit = {},
+    showTabs: Boolean = true,
 ) {
     if (questions.size <= 1) {
         questions.firstOrNull()?.let { q ->
             QuestionOptionRows(q, selectedAnswers.firstOrNull() ?: emptySet(), readOnly) { onOptionClick?.invoke(0, it) }
         }
     } else {
-        val scope = rememberCoroutineScope()
         val density = androidx.compose.ui.platform.LocalDensity.current
         var maxPageHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
         val state = pagerState ?: rememberPagerState(pageCount = { questions.size })
@@ -206,35 +247,8 @@ internal fun QuestionPagerView(
             onPageSelected(state.currentPage)
         }
         Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
-            // 紧凑 Q tab 行（2026-08-13 #28 修复：替代 SecondaryTabRow——
-            // M3 Tab 默认 48dp 高，用户反馈"太大太高"；自绘 28dp 胶囊 tab）
-            val accentColor = MaterialTheme.colorScheme.primary
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                questions.indices.forEach { i ->
-                    val selected = state.currentPage == i
-                    Surface(
-                        onClick = { scope.launch { state.animateScrollToPage(i) } },
-                        shape = ShapeTokens.small,
-                        color = if (selected) {
-                            accentColor.copy(alpha = AlphaTokens.SELECTED)
-                        } else {
-                            MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM)
-                        },
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Text(
-                            text = "Q${i + 1}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (selected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
-                }
+            if (showTabs) {
+                QuestionCompactTabs(state, questions, Modifier.fillMaxWidth())
             }
             HorizontalPager(
                 state = state,

@@ -68,6 +68,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.components.QuestionPagerView
+import dev.leonardo.ocbeacon.ui.screens.chat.components.QuestionCompactTabs
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -140,7 +141,7 @@ internal fun QuestionCard(
             modifier = Modifier.padding(SpacingTokens.MD.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
-            // 头部行——可点击展开/折叠，显示问题摘要
+            // 标题行——左 Question 标签，右 Q tabs + 展开按钮
             Row(
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -164,19 +165,10 @@ internal fun QuestionCard(
                     style = MaterialTheme.typography.labelLarge,
                     color = contentColor
                 )
-                // 将第一个问题文本作为摘要显示（截断）
-                val summary = question.questions.firstOrNull()?.question?.takeIf { it.isNotBlank() }
-                if (summary != null) {
-                    Text(
-                        text = summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = contentColor.copy(alpha = AlphaTokens.MUTED),
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f),
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                } else {
-                    Spacer(Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
+                // Q tabs（多问题时右对齐，与标题栏同级——下拉即切换问题）
+                if (question.questions.size > 1 && pagerState != null) {
+                    QuestionCompactTabs(pagerState, question.questions)
                 }
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -209,6 +201,7 @@ internal fun QuestionCard(
                 readOnly = submitted,
                 pagerState = pagerState,
                 onPageSelected = { currentPage = it },
+                showTabs = false,
                 onOptionClick = { pageIndex, label ->
                     if (!submitted) {
                         performHaptic(hapticView, hapticOn)

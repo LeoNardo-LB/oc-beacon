@@ -73,6 +73,7 @@ internal fun MessageCardAssistant(
     agents: List<AgentInfo> = emptyList(),
     onCopy: (() -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
 
@@ -241,6 +242,9 @@ internal fun MessageCardAssistant(
                     )
                 }
             }
+
+            // 嵌入式内容（如提问卡片）——紧跟正文之后，气泡内部
+            trailingContent?.invoke()
         }
     }
 }
