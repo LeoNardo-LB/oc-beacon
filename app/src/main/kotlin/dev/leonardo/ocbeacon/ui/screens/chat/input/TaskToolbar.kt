@@ -25,7 +25,7 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * 转后台工具栏——当有前台 subagent 运行时显示在输入栏上方。
+ * 任务工具栏——当有前台 subagent 运行时显示在输入栏上方。
  *
  * 对应 TUI 的 ctrl+b（"Background blocking session tools"）：
  * 一键将当前会话所有前台 subagent 批量转为后台执行，主会话立即恢复交互。
@@ -34,10 +34,10 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * 出现/消失动画由调用方 AnimatedVisibility 驱动。
  */
 @Composable
-internal fun BackgroundToolbar(
+internal fun TaskToolbar(
     text: String,
     onBackgroundSession: () -> Unit,
-    onOpenBackground: () -> Unit
+    onOpenTaskPanel: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -50,11 +50,11 @@ internal fun BackgroundToolbar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
     ) {
-        // 左侧：图标 + 状态文本（点击打开后台面板查看详情）
+        // 左侧：图标 + 状态文本（点击打开任务面板查看详情）
         Row(
             modifier = Modifier
                 .weight(1f)
-                .clickable(onClick = onOpenBackground)
+                .clickable(onClick = onOpenTaskPanel)
                 .padding(vertical = SpacingTokens.XS.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
@@ -76,7 +76,7 @@ internal fun BackgroundToolbar(
         // 右侧：转为后台操作
         SuggestionChip(
             onClick = onBackgroundSession,
-            label = { Text(stringResource(R.string.background_toolbar_action)) }
+            label = { Text(stringResource(R.string.task_toolbar_action)) }
         )
     }
 }

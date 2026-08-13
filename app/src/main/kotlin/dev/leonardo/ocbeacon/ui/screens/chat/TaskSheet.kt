@@ -65,20 +65,22 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 后台活动面板——ModalBottomSheet（上拉）+ TabRow（Subagents / Shells 双 tab）。
+ * 任务面板——ModalBottomSheet（上拉）+ TabRow（Subagents / Shells 双 tab）。
  *
- * 对应 TUI 的 composer 上拉面板：tab 区分后台 subagent 与后台 shell 任务。
+ * 对应 TUI 的 composer 上拉面板：tab 区分任务 subagent 与任务 shell 任务。
  * - Subagents：状态图标 + agent/title，点击跳转子会话
  * - Shells：Terminal 图标 + 命令，点击查看输出详情（Sheet 内嵌）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackgroundSheet(
-    state: BackgroundUiState,
+fun TaskSheet(
+    state: TaskUiState,
     onDismiss: () -> Unit,
     onOpenSubSession: (String) -> Unit = {},
     onRemoveShell: (String) -> Unit = {},
     shellOutputProvider: (ShellJob) -> String? = { null },
+    /** 是否显示"运行中/历史"切换（V1 下 false：隐藏切换、显示全部——V1 无后台化概念） */
+    showRunningFilter: Boolean = true,
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var selectedShellId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -86,10 +88,16 @@ fun BackgroundSheet(
     var showHistory by rememberSaveable { mutableStateOf(false) }
 
     // 2026-08-12：按视图过滤——进行中 = isRunning；历史 = 已完成（含失败）
-    val visibleSubagents = if (showHistory) state.subagents.filter { !it.isRunning }
+    // 2026-08-13：V1 下无后台化概念，Running/History 区分无意义——
+    // showRunningFilter=false 时不过滤，直接显示全部（state.subagents / state.shells）
+    val visibleSubagents = if (showRunningFilter) {
+        if (showHistory) state.subagents.filter { !it.isRunning }
         else state.subagents.filter { it.isRunning }
-    val visibleShells = if (showHistory) state.shells.filter { !it.isRunning }
+    } else state.subagents
+    val visibleShells = if (showRunningFilter) {
+        if (showHistory) state.shells.filter { !it.isRunning }
         else state.shells.filter { it.isRunning }
+    } else state.shells
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -126,7 +134,7 @@ fun BackgroundSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(R.string.background_sheet_title),
+                    text = stringResource(R.string.task_sheet_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
@@ -145,14 +153,16 @@ fun BackgroundSheet(
                         }
                     }
                 ) {
-                    TextButton(onClick = { showHistory = !showHistory }) {
-                        Text(
-                            text = stringResource(
-                                if (showHistory) R.string.background_sheet_history_tab
-                                else R.string.shell_status_running
-                            ),
-                            style = MaterialTheme.typography.labelMedium,
-                        )
+                    if (showRunningFilter) {
+                        TextButton(onClick = { showHistory = !showHistory }) {
+                            Text(
+                                text = stringResource(
+                                    if (showHistory) R.string.task_sheet_history_tab
+                                    else R.string.shell_status_running
+                                ),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
                     }
                 }
                 IconButton(onClick = onDismiss) {
@@ -178,7 +188,7 @@ fun BackgroundSheet(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                stringResource(R.string.background_sheet_subagents_tab) +
+                                stringResource(R.string.task_sheet_subagents_tab) +
                                     " (${visibleSubagents.size})"
                             )
                         }
@@ -199,7 +209,7 @@ fun BackgroundSheet(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                stringResource(R.string.background_sheet_shells_tab) +
+                                stringResource(R.string.task_sheet_shells_tab) +
                                     " (${visibleShells.size})"
                             )
                         }
@@ -215,7 +225,7 @@ fun BackgroundSheet(
                 when (selectedTab) {
                     0 -> {
                         if (visibleSubagents.isEmpty()) {
-                            item { EmptyHint(stringResource(R.string.background_sheet_empty_subagents)) }
+                            item { EmptyHint(stringResource(R.string.task_sheet_empty_subagents)) }
                         } else {
                             itemsIndexed(visibleSubagents, key = { _, it -> it.sessionId }) { index, sub ->
                                 // 2026-08-12 用户要求：item 之间加分界线
@@ -285,7 +295,7 @@ fun BackgroundSheet(
                                         // 统一状态图标系统（TaskStatusIcon）：进行中=转圈 / 完成=CheckCircle 绿
                                         TaskStatusIcon(
                                             status = if (running) TaskStatus.RUNNING else TaskStatus.SUCCESS,
-                                            contentDescription = if (running) null else stringResource(R.string.background_sheet_subagent_completed)
+                                            contentDescription = if (running) null else stringResource(R.string.task_sheet_subagent_completed)
                                         )
                                     },
                                     modifier = Modifier.clickable {
@@ -297,7 +307,7 @@ fun BackgroundSheet(
                     }
                     1 -> {
                         if (visibleShells.isEmpty()) {
-                            item { EmptyHint(stringResource(R.string.background_sheet_empty_shells)) }
+                            item { EmptyHint(stringResource(R.string.task_sheet_empty_shells)) }
                         } else {
                             itemsIndexed(visibleShells, key = { _, it -> it.id }) { index, shell ->
                                 // 2026-08-12 用户要求：item 之间加分界线

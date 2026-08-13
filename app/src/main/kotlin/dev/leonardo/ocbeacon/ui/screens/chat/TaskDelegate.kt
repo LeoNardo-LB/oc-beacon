@@ -21,7 +21,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * 后台 subagent 摘要（面板列表项数据）。
+ * 任务 subagent 摘要（任务面板列表项数据）。
  */
 data class SubagentSummary(
     val sessionId: String,
@@ -40,32 +40,32 @@ data class SubagentSummary(
 )
 
 /**
- * 后台活动聚合状态——驱动入口角标、转后台工具栏与后台面板。
+ * 任务聚合状态——驱动入口角标、任务工具栏与任务面板。
  */
-data class BackgroundUiState(
+data class TaskUiState(
     val shells: List<ShellJob> = emptyList(),
     val subagents: List<SubagentSummary> = emptyList(),
     /** 运行中的 subagent 数（角标计数） */
     val runningSubagentCount: Int = 0,
-    /** 前台运行中的 subagent 数（>0 时显示转后台工具栏） */
+    /** 前台运行中的 subagent 数（>0 时显示任务工具栏） */
     val foregroundSubagentCount: Int = 0,
     /** 运行中的 shell 数（角标计数） */
     val runningShellCount: Int = 0
 ) {
     /** 入口角标总数（运行中 subagent + shell）。 */
     val badgeCount: Int get() = runningSubagentCount + runningShellCount
-    /** 是否有前台 subagent 在运行（显示转后台工具栏）。 */
-    val showBackgroundToolbar: Boolean get() = foregroundSubagentCount > 0
+    /** 是否有前台 subagent 在运行（显示任务工具栏）。 */
+    val showTaskToolbar: Boolean get() = foregroundSubagentCount > 0
 }
 
 /**
- * 后台活动聚合器——遵循"单一真相源"：不维护独立状态，从现有数据源实时派生：
+ * 任务聚合器——遵循"单一真相源"：不维护独立状态，从现有数据源实时派生：
  * - 子会话：SessionRepository.getSessionsFlow 过滤 parentId（TUI session.family 语义）
  * - 前台 subagent：消息流 tool part（tool=="task"/"subagent" && Running && !background）
  *   （TUI foregroundTasks 语义）
  * - shell：ShellJobsStore（SSE 事件 + REST 快照）
  */
-class BackgroundAggregator(
+class TaskAggregator(
     private val sessionRepository: SessionRepository,
     private val chatRepository: ChatRepository,
     private val shellJobsStore: ShellJobsStore,
@@ -180,7 +180,7 @@ class BackgroundAggregator(
     }.distinctUntilChanged()
 
     /** 聚合状态：角标计数 + 面板数据。 */
-    val uiState: StateFlow<BackgroundUiState> = combine(
+    val uiState: StateFlow<TaskUiState> = combine(
         subagents,
         shellJobsStore.jobsBySession,
         foregroundCountFlow,
@@ -188,18 +188,18 @@ class BackgroundAggregator(
     ) { subagents, jobsBySession, foregroundCount, currentSessionId ->
         // 2026-08-12 用户要求：面板支持"进行中/历史"切换——shells 保留全部
         //（含已结束的，ShellJobsStore 注释"便于面板展示历史"），过滤交给
-        // UI 层（BackgroundSheet showHistory 切换）。此前仅保留运行中——
+        // UI 层（TaskSheet showHistory 切换）。此前仅保留运行中——
         // 用户反馈"没看到历史记录切换"后扩展。
         val shells = jobsBySession[currentSessionId].orEmpty()
         val runningSubagents = subagents.filter { it.isRunning }
-        BackgroundUiState(
+        TaskUiState(
             shells = shells,
             subagents = subagents,
             runningSubagentCount = runningSubagents.size,
             foregroundSubagentCount = foregroundCount,
             runningShellCount = shells.count { it.isRunning }
         )
-    }.stateIn(scope, SharingStarted.Eagerly, BackgroundUiState())
+    }.stateIn(scope, SharingStarted.Eagerly, TaskUiState())
 
     private fun extractSubagentDescription(tool: Part.Tool): String? {
         val state = tool.state
