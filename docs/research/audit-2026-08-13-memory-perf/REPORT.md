@@ -109,7 +109,7 @@
 
 ### 4.1 Critical（1 项）—— 必修，阻塞类
 
-#### **C-1 [LEAK] WebViewScreen 全屏 WebView 从不 destroy()，每次进出泄漏一个渲染进程**
+#### **C-1 [LEAK] WebViewScreen 全屏 WebView 从不 destroy()，每次进出泄漏一个渲染进程** — ✅ **已修复**（2026-08-13 c0c74a4c：DisposableEffect onDispose 完整销毁）
 
 | 维度 | 内容 |
 |------|------|
@@ -121,7 +121,7 @@
 
 ### 4.2 High（7 项）—— 应尽快修复
 
-#### **H-1 [LEAK] ErrorPayloadContent：聊天列表内 HTML 错误气泡的 WebView 无 onRelease**
+#### **H-1 [LEAK] ErrorPayloadContent：聊天列表内 HTML 错误气泡的 WebView 无 onRelease** — ✅ **已修复**（2026-08-13 c0c74a4c：AndroidView onRelease 销毁）
 
 | 维度 | 内容 |
 |------|------|
@@ -131,7 +131,7 @@
 | **影响** | 长会话含多条 HTML 错误消息时，滚动浏览即累积多个 WebView 渲染进程（单个 10–50MB 原生内存 + Activity 引用链），内存只增不减 |
 | **建议** | `onRelease = { (it as? WebView)?.let { w -> w.stopLoading(); w.loadUrl("about:blank"); w.destroy() } }`；或默认用 Code 模式（现有 SelectionContainer + Text） |
 
-#### **H-2 [LEAK] RenderWebView：文件查看器渲染面板的 WebView 永不销毁**
+#### **H-2 [LEAK] RenderWebView：文件查看器渲染面板的 WebView 永不销毁** — ✅ **已修复**（2026-08-13 c0c74a4c：DisposableEffect 销毁 + lastHtml/lastJsCommand 去重）
 
 | 维度 | 内容 |
 |------|------|
@@ -141,7 +141,7 @@
 | **影响** | 反复切换渲染模式/查看多个文件 → 原生内存持续累积（单 WebView 常驻 10-100MB），低端机抖动甚至 LMK/OOM |
 | **建议** | remember 持有 webViewRef + `DisposableEffect(Unit) { onDispose { stopLoading(); loadUrl("about:blank"); (parent as? ViewGroup)?.removeView(this); destroy() } }` |
 
-#### **H-3 [PERF] ImageThumbnailRow：主线程全分辨率 Bitmap 解码（80dp 缩略图解 48MB 位图）**
+#### **H-3 [PERF] ImageThumbnailRow：主线程全分辨率 Bitmap 解码（80dp 缩略图解 48MB 位图）** — ✅ **已修复**（2026-08-13 c0c74a4c：inJustDecodeBounds + inSampleSize 降采样）
 
 | 维度 | 内容 |
 |------|------|
@@ -241,7 +241,7 @@
 - **问题**：下一条消息插入后该 turn key 变为 `"t_<新id>"` → LazyColumn 判定新 item → **销毁重建整个气泡**（含所有工具卡片、remember 状态与 rememberMarkdownState → 长文本重新解析 + 高度补偿重新测量）
 - **建议**：key 改用 turn 自身稳定标识——组首条消息 id：`"t_${rawMessages.getOrNull(rawIndex)?.message?.id}"`
 
-#### **M-9 [PERF] MediaUtils 图片压缩前全分辨率解码（无 inSampleSize 预降采样）**
+#### **M-9 [PERF] MediaUtils 图片压缩前全分辨率解码（无 inSampleSize 预降采样）** — ✅ **已修复**（2026-08-13 c0c74a4c：降采样解码 + JPEG RGB_565）
 - **位置**：`ui/screens/chat/util/MediaUtils.kt:174-211`（人工复核）
 - **证据**：`BitmapFactory.decodeByteArray(bytes, 0, bytes.size)` 全分辨率 → `createScaledBitmap`；非压缩路径（162-171）原始字节直接 base64 进 dataUrl 常驻（ChatScreen 生命周期）
 - **影响**：选图瞬间内存峰值（4000×3000 ≈ 48MB，大图 100MB+）→ 低端机 OOM；多图并发叠加；base64 dataUrl（1.33× 膨胀）常驻

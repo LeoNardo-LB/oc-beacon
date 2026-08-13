@@ -81,10 +81,26 @@
   - 工时：~2-3d | 难度：高 | 涉及：ServerRouteParams / NavGraph（25+ 处）/ Chat·SessionList·Workspace·WebView·ServerSettings ViewModel
   - **2026-08-07 完成**：路由层+消费层+入口源头全部 serverId-only（commit 681bf0fb / 2326e8b5）；编译 ✅ 全量单测 ✅（52s）凭据 grep 0 引用 ✅；模拟器验收通过（9/9 步：会话/聊天/SSE/终端/通知深链/WebView Basic Auth 全正常，logcat 0 异常，凭据零泄露）；遗留 runBlocking 债务已登记 architecture-debt §6
 
+- [x] **#123 V2 用户消息不立即显示（session.inbox.enqueued 契约适配）** `sse` `data`
+  - 问题：2026-08-14 用户反馈"发送消息后不会立刻显示，重进会话才显示；Agent 回复能立刻看到"——根因：新版 opencode（next-17403+）把 `session.input.admitted/promoted` 改为 **`session.inbox.enqueued/delivered`**（事件名 + payload 结构全变）；App V2SseMapper 只处理旧事件名 → 用户消息播种失败（悲观消息设计：无本地占位，完全依赖 SSE 回显）→ 消息只等重进会话 REST 拉取才显示。Agent 回复走 step/text 事件不受影响（所以回复正常）
+  - 修复（2026-08-14，curl 抓帧实证）：
+    1. V2SseMapper 新增 `session.inbox.enqueued` 分支：{sessionID, inboxID, item:{type, payload:{text,agents}, delivery}}，兼容过渡契约 {id, prompt} 与旧契约 {inputID, input}
+    2. SseClientV2.handleEvent synthetic 缓存同步适配（inbox.enqueued 缓存 inboxID→item / inbox.delivered 消费；保留旧事件名分支）
+    3. +4 单测（inbox 播种 / 缺失 id 防御 / 过渡契约 / 旧契约保留）→ 1587 全通过
+  - 验证：模拟器实测——发送 E2E_final_verify_ok → logcat `admitted: inputID=msg_... type=user`（无 unhandled）→ **UI 用户消息立即显示 ✅**
+  - 工时：~1h | 难度：中 | 涉及：V2SseMapper/SseClientV2 | 优先级：P0（主流程）
+
+- [x] **#124 退出会话后列表状态闪烁（releaseSessionData 误清 FSM 状态）** `ui` `session`
+  - 问题：2026-08-14 用户反馈"从会话退到列表，退出会话的状态突然变没、突然又恢复在输出中，不连续"——根因：#89 修复引入的 releaseSessionData 在 ChatViewModel.onCleared（退出会话）时调用 `sessionStateService.clearSession(sessionId)` 清除 FSM 状态；但服务器仍在流式（SSE 全局连接持续投递 execution.started 等）→ 状态先清（列表显示无状态）→ 事件恢复（又显示 Working）→ 闪烁
+  - 修复（2026-08-14）：releaseSessionData **移除 clearSession**——FSM busy/streaming 是服务器状态镜像（与 permission/question 处理哲学一致：服务器状态退出不清理）；内存由 24h staleness 自动清扫兜底（STATE_RETENTION_MS，非 Busy 会话超时移除）
+  - 验证：模拟器实测——退出"opencode版本识别"会话（服务器流式中）→ 列表持续显示 Working（多次 dump 一致无闪烁）✅
+  - 工时：~10min | 难度：低 | 涉及：EventDispatcher.releaseSessionData | 优先级：P0（视觉回归）
+
 ### 2026-08-10 系统审计批次（F 报告 P0）
 来源：docs/research/audit-2026-08-10/F-FINAL-AUDIT-REPORT.md（5 路交叉验证：A 渲染 + B 数据 + C 状态 + D 历史 + E 实测）
 
-- [~] **#36 DatabaseRecovery catch 范围过宽 → 非损坏异常误删全库** `data` `security`
+- [x] **#36 DatabaseRecovery catch 范围过宽 → 非损坏异常误删全库** `data` `security`
+  - **2026-08-10 修复（37ef2129）**：withCorruptionRecovery 改为仅 `SQLiteDatabaseCorruptException`（含 cause 链遍历）触发删库；Full/Locked/Constraint/DiskIO/基类 SQLiteException 原样抛出不删库；DatabaseRecoveryTest 9 用例（损坏删库 / cause 链 / 5 类非损坏不删库 / 非 SQLite 传播）全通过
   - 问题：`DatabaseRecovery.kt:29-38` 捕获 `SQLiteException` 基类——`SQLiteDatabaseLockedException`（锁竞争）/`SQLiteConstraintException`（约束冲突）/`SQLiteFullException`（磁盘满）等非损坏异常都会触发 `deleteDatabase()`，缓存消息 + 归档 + 诊断日志全部清零。MessageStore 7 处调用点全包（:47, 226, 237, 242, 247, 269, 296）。唯一应触发删库的是 `SQLiteDatabaseCorruptException`
   - 修复：收窄 catch 到 `SQLiteDatabaseCorruptException`；或用 `Room.databaseBuilder().fallbackToDestructiveMigration()` 声明式；或返回 `Result<T>` 区分"损坏"（删）与"临时错误"（重试）
   - 工时：~2h | 难度：低 | 涉及：DatabaseRecovery.kt + DatabaseRecoveryTest
@@ -795,9 +811,9 @@ efactor
   - 工时：~2h | 难度：中 | 涉及：SessionNextEventHandler、TaskDelegate/TaskSheet
   - 来源：2026-08-13 综合验收（#71 附注）
 
-- [ ] **#93 WebView 销毁三件套（C-1+H-1+H-2，审计 Critical+High 泄漏）** `crash` `leak`
+- [x] **#93 WebView 销毁三件套（C-1+H-1+H-2，审计 Critical+High 泄漏）** `crash` `leak`
   - 来源：docs/research/audit-2026-08-13-memory-perf/REPORT.md §4.1-4.2（基线 3bdd7990，2026-08-13 静态审计）
-  - ✅ **2026-08-13 代码验证确认**：grep 三文件均无 onRelease/DisposableEffect/destroy（Agent 复核）
+  - ✅ **2026-08-13 修复完成（c0c74a4c）**：WebViewScreen 加 DisposableEffect onDispose 完整销毁（stopLoading→about:blank→clearHistory→removeView→destroy）；ErrorPayloadContent 加 AndroidView onRelease（滚出视口即销毁）；RenderWebView 加 DisposableEffect 销毁 + lastHtml/lastJsCommand 去重（消除无条件整文档重载）。grep 验证三处销毁齐全 ✅
   - 问题（✅ 2026-08-13 Agent 代码验证确认）：
     1. `ui/screens/webview/WebViewScreen.kt:149-292` 全屏 WebView **从不 destroy()**——无 onRelease/DisposableEffect，每次进出导航累积一个渲染进程（10-100MB）+ Activity 引用；Basic Auth 明文凭据随闭包驻留（91-99 行）
     2. `ui/screens/chat/components/ErrorPayloadContent.kt:79-101` HTML 错误气泡 WebView **无 onRelease**——滚出 LazyColumn 视口不销毁
@@ -807,9 +823,9 @@ efactor
   - 工时：~0.5d | 难度：低 | 涉及：WebViewScreen/ErrorPayloadContent/RenderWebView
   - 优先级：**P0**（每次操作累积，OOM/LMK 风险）
 
-- [ ] **#94 图片解码降采样（H-3+M-9，审计 High/Medium 性能）** `performance` `crash`
+- [x] **#94 图片解码降采样（H-3+M-9，审计 High/Medium 性能）** `performance` `crash`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-3 + §4.3 M-9
-  - ✅ **2026-08-13 代码验证确认**：ImagePreviewDialog:70,112 与 MediaUtils:174 均 decodeByteArray 无 inSampleSize（Agent 复核）
+  - ✅ **2026-08-13 修复完成（c0c74a4c）**：ImagePreviewDialog 加 inJustDecodeBounds + inSampleSize 降采样（缩略图 256px ~750KB / 预览 2048px ~12MB）；MediaUtils 压缩前降采样解码 + JPEG RGB_565（省 50%）+ token 估算用原始尺寸保证准确。grep 验证降采样齐全 ✅
   - 问题（✅ Agent 代码验证确认）：
     - `ImagePreviewDialog.kt:64-75,110-113` 主线程 `BitmapFactory.decodeByteArray` **全分辨率解码**（4000×3000 ≈ 48MB）只为 80dp 缩略图——滚入视口即掉帧/ANR；多图瞬时数百 MB → OOM
     - `MediaUtils.kt:174-211` 发送压缩前同样全分辨率解码（无 inSampleSize 预降采样）；非压缩路径原始字节 base64 dataUrl 常驻（1.33× 膨胀）
@@ -951,10 +967,11 @@ efactor
   - 6. **CI 门禁**：Android Lint 已默认启用但未配置 failOnError；Compose compiler 稳定性报告（-P composeCompilerReports）防新引入 unstable 参数
   - 工时：~1d | 难度：低 | 优先级：P3
 
-### 2026-08-14 跨维度审计批次（audit-2026-08-13-dimensions/REPORT.md，112 条）
+### 2026-08-14 跨维度审计批次（audit-2026-08-13-dimensions/REPORT.md，113 条）
 
-- [ ] **#108 SSE 心跳机制缺陷批次（D2-03 阻塞读挂死 + D2-05 V1 心跳不一致）** `sse` `network`
+- [x] **#108 SSE 心跳机制缺陷批次（D2-03 阻塞读挂死 + D2-05 V1 心跳不一致）** `sse` `network`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-03/D2-05（B 路 + 主代理双源）
+  - **2026-08-14 修复完成**：① 两客户端阻塞读套 `withTimeoutOrNull(40s)` 超时防护（SseClient 两处 + SseClientV2 帧级）——半开 TCP（kill -9/NAT 静默断）下 40s 无数据强制断开走重连，不再永久挂死；② V1 心跳与 V2 对齐（任意行/事件到达即刷新 lastHeartbeat，不再仅 ServerHeartbeat）——V1 长流式不再 40s 假超时断连；③ 测试驱动发现真实缺陷：对端 FIN 关闭时 readByte 抛 EOFException（非 ClosedReadChannelException）→ 正常 EOF 被当异常 → 补捕获（readRawLineBytesWithTimeout 辅助函数 +4 测试）；④ 模拟器实测：V2 SSE 连接建立 + 事件流正常 + kill 服务器后重连链路可用。单测 1587 全通过
   - 问题：① 两客户端 socketTimeout=Long.MAX_VALUE + 心跳检查仅在行间 → 半开 TCP（kill -9/NAT 静默断）连接永久挂死，重连/冷却失效；② V1 心跳只在 ServerHeartbeat 事件刷新（V2 已改任意事件刷新）→ V1 服务器长流式 40s 假超时断连
   - 方案：读循环套 withTimeoutOrNull(40s)；V1 心跳与 V2 对齐（任意事件/空帧刷新）；加日志观测命中率
   - 工时：~0.5d | 难度：低-中 | 涉及：SseClient/SseClientV2/SseConnectionManager | 优先级：P0
@@ -971,8 +988,9 @@ efactor
   - 方案：ConcurrentHashMap/按 serverId 隔离；复合键 (serverId, sessionId)；去掉 currentServerId 单值；isConnected 返回真实标志
   - 工时：~1-2d | 难度：中 | 涉及：SseClientV2/各 handler/SessionStateService/SseConnectionManager/McpRepositoryImpl | 优先级：P1
 
-- [ ] **#111 dataSync 前台服务 6h 时限（D2-04，Android 15+）** `android` `service`
+- [x] **#111 dataSync 前台服务 6h 时限（D2-04，Android 15+）** `android` `service`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-04（B 路）
+  - **2026-08-14 修复完成**：OpenCodeConnectionService 覆盖 `onTimeout(startId, fgsType)`——可观测日志（时限 + 当前活跃服务器）→ super 默认 stopSelf → 有活跃连接时延迟 2s 重启服务（新 6h 周期），已配置自动连接的服务器由 onCreate → autoConnectConfiguredServers 自动恢复。权限齐全（FOREGROUND_SERVICE + FOREGROUND_SERVICE_DATA_SYNC）。编译 + 单测通过；6h 时限无法加速验证，需真机长时间运行确认（可观测日志 "FGS dataSync timeout"）
   - 问题：targetSdk 36 + foregroundServiceType=dataSync + 0 处 onTimeout → Android 15+ 每 6h 系统终止服务，手动连接静默丢失
   - 方案：覆盖 onTimeout（快速重连/通知用户）；评估 FGS 类型；纳入可观测性日志；真机验证
   - 工时：~0.5d | 难度：低 | 涉及：OpenCodeConnectionService/Manifest | 优先级：P0
@@ -1019,8 +1037,28 @@ efactor
   - 方案：networkSecurityConfig 白名单化；R8 收窄；升级 Kotlin 后移除 force；备份规则排除凭据文件
   - 工时：~1d | 难度：中 | 涉及：Manifest/proguard/build.gradle.kts/SecretCipher | 优先级：P2
 
-- [ ] **#119 第一期报告状态回写（C-1/H-1/H-2/H-3/M-9 已修复）** `docs`
+- [x] **#119 第一期报告状态回写（C-1/H-1/H-2/H-3/M-9 已修复）** `docs`
   - 来源：audit-2026-08-13-dimensions/REPORT.md §6.1（c0c74a4c 实证）
+  - **2026-08-14 完成**：REPORT.md 五处条目（C-1/H-1/H-2/H-3/M-9）标题加"✅ 已修复（2026-08-13 c0c74a4c）"标记；backlog #93/#94 状态转正 [x]（grep 实证三处 WebView 销毁齐全 + 降采样齐全）；WebViewScreen 不可达（useNativeUi=true）确认删除项另登记
   - 问题：第一期 REPORT.md 的 C-1/H-1/H-2/H-3/M-9 仍标记未修复，实际已由提交 c0c74a4c 落地（2026-08-13 23:39）；backlog #93/#94 状态需转正
   - 方案：回写第一期报告状态 + 同步 backlog；WebViewScreen 已不可达（useNativeUi=true）需另行确认删除
   - 工时：~0.5h | 难度：低 | 优先级：P0（文档准确性）
+
+- [ ] **#120 Markdown/文案一致性批次（D2-07/D2-08/D2-09/D2-10/D2-32）** `markdown` `i18n` `ui`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md（C/E 路）
+  - 问题：① 跳转预渲染 fallback 用未归一化原始文本（MessageCardUser.kt:136 vs ChatMessageList.kt:442）→ 跳转目标首帧排版突变；② ClickableMarkdown 用 indexOf 定位可点击项（:95/:135）→ 重复文本段落点击/下划线错位；③ RetryBanner 双占位符恒显示 N/N（:49）；④ CompactionBanner 硬编码英文（:79）；⑤ SessionRow 硬编码英文 Diff 文案（:367-368）
+  - 方案：jumpMdState 前 normalizeForRender；AST offset/span range 映射点击；文案改单占位符；提取资源补齐 14 语言
+  - 工时：~0.5d | 难度：低-中 | 涉及：MessageCardUser/ClickableMarkdown/MarkdownTable/RetryBanner/CompactionBanner/SessionRow | 优先级：P2
+
+- [ ] **#121 V1/V2 双客户端一致性批次（D2-22/D2-23/D2-30/D2-31）** `consistency` `refactor`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md（A/E 路）
+  - 问题：① rejectHtmlResponse 两处复制且 V1ApiClient 无 HTML 防御（V2ApiClient.kt:113/V2Mappers.kt:124）；② V2SseMapper 把 ordinal 当时间戳（:125/:151）；③ 6 处 WebView 初始化样板不统一（销毁策略各异）；④ V2 fs.list 路径推导绕过 PathUtils（V2ApiClient.kt:1157-1166，Windows 服务器必错）
+  - 方案：rejectHtmlResponse 提公共 + V1 接入；SSE 时间取服务器字段；抽 WebView 工厂；改 PathUtils.fileName/joinPath
+  - 工时：~1d | 难度：中 | 涉及：V1/V2ApiClient/V2SseMapper/WebView 各文件 | 优先级：P2
+
+- [ ] **#122 状态性能与 AI Agent 功能批次（D2-15/D2-19/D2-25）** `perf` `sse` `ai-agent`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md（A/B 路）
+  - 问题：① SessionStateService 每 SSE 事件对 _fsmStates/_histories 整张 Map 拷贝 + mapValues 全量派生（:184-190/:212-216）→ 流式 GC 压力；② SSE id: 帧被忽略、无 Last-Event-ID 续传（SseClientV2.kt:182-184）→ 断连窗口事件可能永久缺失；③ PermissionAutoApprover.shouldAutoApprove 全库无调用方 → 自动批准规则从未生效（功能失效）
+  - 方案：toMutableMap 单次拷贝 + history 定长 + mapValues distinctUntilChanged；重连带 Last-Event-ID/游标循环补漏；在 PermissionAsked 路径接入自动 reply 或移除 UI 入口
+  - 工时：~1d | 难度：中 | 涉及：SessionStateService/SseClientV2/PermissionAutoApprover | 优先级：P2
+
