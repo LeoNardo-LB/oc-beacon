@@ -633,6 +633,13 @@ efactor
   - 修复方向：instructions.updated 显式处理（metadata 提取或忽略）；session.created 序列化调查（Kotlin reflection 异常——可能与 Json 配置/多态有关）
   - 工时：~0.5d | 难度：低 | 涉及：V2SseMapper / SseClientV2.parseV2Event
 
+- [ ] **#79 跨页跳转 loadAround 后最新消息丢失（UI 与服务器不同步）** `data` `sse`
+  - 问题：2026-08-13 跳转定位全面验证（模拟器）发现——发送消息（11:13 hello，服务器端确认存在：`GET /api/session/{id}/message` 最后一条 assistant 回复 11:15，会话 updated=11:13）后执行跨页跳转（Q5 → loadAround older=30 newer=30）→ 跳转完成后滚回列表最新位置，UI 仅显示 10:55 的消息（hello 及回复消失）——客户端内存/数据库窗口与服务器不一致；SSE 连接正常（V2 event 持续收到，含其他会话事件）
+  - 影响：跨页跳转（loadAround 重载窗口）后最新消息可能丢失显示——用户看不到刚发的消息/回复（重启应用或重新进入会话可能恢复）；与 #76 冷启动 seed 顺序问题同属"窗口/归并"类
+  - 修复方向：loadAround 后窗口合并需保留最新窗口（newer 方向补加载）；或跳转完成后触发增量刷新（REST 差异拉取）；排查 loadAround 的窗口替换逻辑是否丢弃最新已加载消息
+  - 工时：~0.5d | 难度：中 | 涉及：MessagePaginationDelegate / ChatRepositoryImpl / ChatViewModel
+  - 来源：2026-08-13 跳转定位全面验证（模拟器，dev 最新代码）
+
 - [x] **#76 冷启动 seed 消息顺序降序 vs mergeSortedMessages 升序前提（REST refresh 丢本地独有消息）** `data` `bug`
   - 问题：2026-08-11 synthetic 卡片实测发现——`MessageDao.observeMessages` 返回 `ORDER BY created DESC`（降序），而 `ChatRepositoryImpl.getMessagesFlow` 冷启动 seed 直接喂给 `upsertMessages(APPEND_ONLY)` → `mergeSortedMessages` 两路归并**前提要求升序**（MessageEventHandler.kt:408-410）→ 合并结果乱序/异常；随后 L3 REST refresh（REST_AUTHORITY）再次用降序 existing 归并 → **服务器上不存在的本地独有消息（如本地注入/服务器已删除）被丢弃**（实测：seed 14 条 → REST refresh 后 UI 仅 12 条，2 条注入 synthetic 消失）
   - 影响：低概率但真实——本地缓存与服务器不一致（服务器删除/回滚、本地注入）时消息丢失；日常场景（服务器权威数据）被掩盖
