@@ -60,6 +60,8 @@ internal fun ChatInputBar(
     onSend: () -> Unit,
     isSending: Boolean,
     isBusy: Boolean = false,
+    /** 2026-08-14：等待提问/权限响应时禁用输入（用户要求"提问时输入框不可以输入"）。 */
+    inputEnabled: Boolean = true,
     messages: List<ChatMessage> = emptyList(),
     attachments: List<ImageAttachment> = emptyList(),
     onAttach: () -> Unit = {},
@@ -114,7 +116,7 @@ internal fun ChatInputBar(
         stringResource(placeholderHintResIds[hintIndex.intValue])
     }
     val text = textFieldValue.text
-    val canSend = (text.isNotBlank() || attachments.isNotEmpty()) && !isSending && (!isShellMode || !isBusy)
+    val canSend = (text.isNotBlank() || attachments.isNotEmpty()) && !isSending && (!isShellMode || !isBusy) && inputEnabled
 
     // 构建合并的斜杠命令：客户端命令 + 服务器命令 + 技能（去重）
     val clientCmds = SlashCommandRegistry.clientCommands()
@@ -233,7 +235,8 @@ internal fun ChatInputBar(
                     placeholder = placeholder,
                     isShellMode = isShellMode,
                     isAmoled = isAmoled,
-                    confirmedFilePaths = confirmedFilePaths
+                    confirmedFilePaths = confirmedFilePaths,
+                    enabled = inputEnabled
                 )
 
                 // 发送/停止按钮——点击发送或停止，长按切换 shell 模式

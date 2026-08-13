@@ -41,7 +41,8 @@ internal fun RowScope.ChatTextField(
     placeholder: String,
     isShellMode: Boolean,
     isAmoled: Boolean,
-    confirmedFilePaths: Set<String>
+    confirmedFilePaths: Set<String>,
+    enabled: Boolean = true
 ) {
     val text = textFieldValue.text
 
@@ -90,6 +91,7 @@ internal fun RowScope.ChatTextField(
             BasicTextField(
                 value = textFieldValue,
                 onValueChange = onTextFieldValueChange,
+                enabled = enabled,
                 modifier = Modifier
                     .testTag("chat-input")
                     .fillMaxWidth(),

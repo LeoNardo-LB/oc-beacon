@@ -237,6 +237,8 @@ internal fun ChatScreenBottomBar(
                 },
                 isSending = interaction.isSending,
                 isBusy = sessionMeta.sessionStatus is SessionStatus.Busy || sessionMeta.sessionStatus is SessionStatus.Retry,
+                // 2026-08-14：等待提问/权限响应时禁用输入框（用户要求）
+                inputEnabled = interaction.pendingQuestions.isEmpty() && interaction.pendingPermissions.isEmpty(),
                 messages = messageState.messages,
                 attachments = attachments,
                 onAttach = { attachmentHandler.pickImages() },
