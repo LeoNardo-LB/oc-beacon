@@ -87,6 +87,9 @@ internal fun QuestionCard(
     initialAnswers: List<List<String>> = emptyList()
 ) {
     val isAmoled = isAmoledTheme()
+    // 注意：isSingle 仅用于"单问题场景"的整体分支（如 Submit 按钮布局）；
+    // 每道题的单选/多选语义必须按题目 multiple 判断（多问题场景中
+    // 每道题独立，修复 2026-08-13 用户验收发现：多问题里的单选题目也能多选）
     val isSingle = question.questions.size == 1 && question.questions[0].multiple != true
 
     val hapticView = LocalView.current
@@ -153,12 +156,12 @@ internal fun QuestionCard(
                     @Suppress("DEPRECATION")
                     Icons.Default.HelpOutline,
                     contentDescription = stringResource(R.string.a11y_icon_question),
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = accentColor
                 )
                 Text(
                     text = stringResource(R.string.chat_question_label),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.labelLarge,
                     color = contentColor
                 )
                 // 将第一个问题文本作为摘要显示（截断）
@@ -166,7 +169,7 @@ internal fun QuestionCard(
                 if (summary != null) {
                     Text(
                         text = summary,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = contentColor.copy(alpha = AlphaTokens.MUTED),
                         maxLines = 1,
                         modifier = Modifier.weight(1f),
@@ -210,7 +213,10 @@ internal fun QuestionCard(
                     if (!submitted) {
                         performHaptic(hapticView, hapticOn)
                         val current = answersPerQuestion.getOrNull(pageIndex)?.toMutableList() ?: mutableListOf()
-                        if (isSingle) {
+                        // 单选/多选按当前题目 multiple 判断（多问题场景每道题独立，
+                        // 单选题目必须互斥——2026-08-13 用户验收 bug 修复）
+                        val isSingleQuestion = question.questions.getOrNull(pageIndex)?.multiple != true
+                        if (isSingleQuestion) {
                             // 单选：toggle——选中项取消则清空，否则替换为该项（不再立即提交）
                             answersPerQuestion[pageIndex] = if (current == listOf(label)) emptyList() else listOf(label)
                         } else {

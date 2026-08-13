@@ -206,11 +206,34 @@ internal fun QuestionPagerView(
             onPageSelected(state.currentPage)
         }
         Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
-            SecondaryTabRow(selectedTabIndex = state.currentPage, containerColor = Color.Transparent) {
+            // 紧凑 Q tab 行（2026-08-13 #28 修复：替代 SecondaryTabRow——
+            // M3 Tab 默认 48dp 高，用户反馈"太大太高"；自绘 28dp 胶囊 tab）
+            val accentColor = MaterialTheme.colorScheme.primary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 questions.indices.forEach { i ->
-                    Tab(selected = state.currentPage == i,
+                    val selected = state.currentPage == i
+                    Surface(
                         onClick = { scope.launch { state.animateScrollToPage(i) } },
-                        text = { Text("Q${i + 1}", style = MaterialTheme.typography.labelSmall) })
+                        shape = ShapeTokens.small,
+                        color = if (selected) {
+                            accentColor.copy(alpha = AlphaTokens.SELECTED)
+                        } else {
+                            MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM)
+                        },
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text(
+                            text = "Q${i + 1}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (selected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             }
             HorizontalPager(
@@ -253,7 +276,8 @@ internal fun QuestionOptionRows(
     val isMultiple = question.multiple
     Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
         if (question.question.isNotBlank()) {
-            Text(question.question, style = MaterialTheme.typography.bodySmall, color = contentColor)
+            // 2026-08-13 #28 修复：问题文本 bodySmall → bodyMedium（用户反馈字体偏小不协调）
+            Text(question.question, style = MaterialTheme.typography.bodyMedium, color = contentColor)
         }
         question.options.forEach { option ->
             val isSelected = option.label in selected
@@ -268,7 +292,7 @@ internal fun QuestionOptionRows(
                     Column(Modifier.weight(1f)) {
                         Text(option.label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
                         if (option.description.isNotBlank()) {
-                            Text(option.description, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = AlphaTokens.MEDIUM))
+                            Text(option.description, style = MaterialTheme.typography.bodyMedium, color = contentColor.copy(alpha = AlphaTokens.MEDIUM))
                         }
                     }
                 }
