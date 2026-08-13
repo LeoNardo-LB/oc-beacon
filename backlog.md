@@ -636,8 +636,8 @@ efactor
 - [ ] **#82 跨页跳转 loadAround 后最新消息丢失（UI 与服务器不同步）** `data` `sse`
   - 问题：2026-08-13 跳转定位全面验证（模拟器）发现——发送消息（11:13 hello，服务器端确认存在：`GET /api/session/{id}/message` 最后一条 assistant 回复 11:15，会话 updated=11:13）后执行跨页跳转（Q5 → loadAround older=30 newer=30）→ 跳转完成后滚回列表最新位置，UI 仅显示 10:55 的消息（hello 及回复消失）——客户端内存/数据库窗口与服务器不一致；SSE 连接正常（V2 event 持续收到，含其他会话事件）
   - 影响：跨页跳转（loadAround 重载窗口）后最新消息可能丢失显示——用户看不到刚发的消息/回复（重启应用或重新进入会话可能恢复）；与 #76 冷启动 seed 顺序问题同属"窗口/归并"类
-  - 修复方向：loadAround 后窗口合并需保留最新窗口（newer 方向补加载）；或跳转完成后触发增量刷新（REST 差异拉取）；排查 loadAround 的窗口替换逻辑是否丢弃最新已加载消息
-  - 工时：~0.5d | 难度：中 | 涉及：MessagePaginationDelegate / ChatRepositoryImpl / ChatViewModel
+  - **2026-08-13 修复（根因 + 代码完成）**：与 #76 同类——`loadAroundFromLocal` 的 older（`messagesBefore` 查询 `ORDER BY created DESC`——降序）与 newer（ASC）混合后破坏 `mergeSortedMessages` 升序前提（MessageEventHandlerMergeSortedTest 声明的合法输入约束）→ 归并游标错乱 → 内存热视图丢消息。修复：loadAround 两分支（本地/服务器）合并前统一 `sortedBy { it.info.time.created }` 升序化（commit 3cb55ad8）。**验证状态**：assembleDevDebug 编译通过；单测受 replicant 环境 flavor 歧义限制未本地跑；模拟器（无 DISPLAY）无法行为复测——待环境恢复补跑单测 + 模拟器复现（跨页跳转 → 滚到底 → 最新消息在）
+  - 工时：~0.5d | 难度：中 | 涉及：MessagePaginationDelegate（loadAround 两分支）
   - 来源：2026-08-13 跳转定位全面验证（模拟器，dev 最新代码）
 
 - [x] **#76 冷启动 seed 消息顺序降序 vs mergeSortedMessages 升序前提（REST refresh 丢本地独有消息）** `data` `bug`
