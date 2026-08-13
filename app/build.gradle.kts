@@ -59,6 +59,11 @@ android {
             manifestPlaceholders["appLabel"] = "OC Beacon Dev"
             // GitHub 分发渠道保留应用内自更新
             buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "true")
+            // 2026-08-13 用户决策：dev 测试构建 versionCode 用 Unix 时间戳——
+            // 每次构建自动递增，adb install -r 可覆盖安装（保留 App 数据/服务器配置，
+            // 禁止卸载重装）；正式版本号（version.properties）仅 beta/stable 使用。
+            // 时间戳秒数 ~17.8 亿 < Int.MAX（21.4 亿），单调递增（不回拨时钟即可）。
+            versionCode = (System.currentTimeMillis() / 1000L).toInt()
         }
         create("beta") {
             dimension = "channel"

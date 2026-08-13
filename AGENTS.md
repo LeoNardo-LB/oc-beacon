@@ -15,6 +15,9 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🔴 MUST | [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md) | ChatScreen.kt 编辑协议（见下方承重约束） | 编辑 ChatScreen.kt 前 |
 | 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4 维验证框架 | 完成开发、声称"完成"前 |
 | 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归验证指南：变更分类（快速/完整回归）、12 能力域验证清单、问题处理流程（阻塞→根因修复；非阻塞→登记；补丁三件事） | 涉及已有能力的重构/接口变更/存储或渲染层改动前（必读），按能力域清单执行回归 |
+| 🟡 SHOULD | [`docs/observability-verification-guide.md`](docs/observability-verification-guide.md) | 可观测性验证手册：Logcat 规范、Room 数据库直查（run-as sqlite3）、SSE 事件流、服务器 curl 预测试、智谱截图分析、代码改动标准观测流程 | 任何代码改动验证、声称完成前（与 verification-requirements 维度 3 配合） |
+| 🟡 SHOULD | [`docs/v1-v2-differences.md`](docs/v1-v2-differences.md) | OpenCode V1 (1.18.x) vs V2 (2.x) 功能与 API 差异完整清单（端点/认证/SSE/配置/任务（后台化）），含客户端适配状态 | 涉及 V1/V2 兼容功能开发、版本探测、功能适配前（必读） |
+| 🟡 SHOULD | [`docs/simulator-walkthrough-v1v2.md`](docs/simulator-walkthrough-v1v2.md) | V1/V2 版本探测修复模拟器走查清单（A 探测/B V1 全功能/C V2 回归/D HTML 防御 + 操作路径 + 执行记录） | 版本探测/API 兼容类改动后的模拟器走查前（参考其清单结构） |
 | 🟡 SHOULD | [`docs/opencode-api-reference.md`](docs/opencode-api-reference.md) | OpenCode Server 完整 API 参考（62 REST/WS 端点 + 52 SSE 事件 + JSON Schema） | 开发新功能、调试接口问题前 |
 | 🟡 SHOULD | [`docs/architecture.md`](docs/architecture.md) | 架构分层、目录职责、关键模式、承重架构规则 | 理解/修改跨层结构、SessionStateService、日志、导航 |
 | 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 聊天 UI 事件生命周期：触摸传播、SSE 流式更新、消息状态机、竞态条件 | 修改 ChatScreen 内部机制、排查聊天交互竞态时 |
@@ -114,7 +117,8 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 
 核心红线（细节见 release-workflow.md）：
 - **`version.properties` 是版本号唯一真相源**（`VERSION_CODE` 只增不减——**0.x 阶段豁免**（2026-08-07 用户决策：首个版本 0.1.0-beta.1 保持 code=1，无已安装用户；**1.0.0 起严格只增不减**）；禁止在 build.gradle.kts 硬编码；CI 用 grep 提取，**不要改变文件格式**）
-- **严禁在 `version.properties` 修改前执行 `assemble*`**，否则 APK 内嵌版本号与 tag/release 不一致
+- **dev flavor 测试构建例外（2026-08-13 用户决策）**：`dev` flavor 的 `versionCode` 用 **Unix 时间戳**（build.gradle.kts 动态计算，见 app/build.gradle.kts `create("dev")`）——每次构建自动递增，`adb install -r` 即可覆盖安装（**保留 App 数据/服务器配置，禁止卸载重装**）；`version.properties` 仅 beta/stable 使用，不受 dev 构建影响。若覆盖安装报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`（签名不匹配），先核对 debug keystore 是否一致，**不要卸载重装**
+- **严禁在 `version.properties` 修改前执行 `assemble*`**（beta/stable），否则 APK 内嵌版本号与 tag/release 不一致（dev 构建不受此限——其 versionCode 与 version.properties 无关）
 - **每版本只发一个 APK**（命名 `oc-beacon-<VERSION>.apk`）；**不要删除历史 Release 和 Tag**（唯一例外：2026-08-07 用户决策清理全部 1.x 并重置 0.1.0，见 release-workflow §7）
 - **默认发预发布版**：除非用户明确说明"正式发版"或"发 stable"，否则一律 beta/dev（`--prerelease`）
 - `gh` CLI 不走代理，直接用直连（不加 `HTTP_PROXY`）

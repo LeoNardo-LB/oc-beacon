@@ -41,6 +41,8 @@ while [ "$($adb shell getprop sys.boot_completed 2>/dev/null)" != "1" ]; do slee
 
 ## 4. 构建 + 安装
 
+> **2026-08-13 规则（用户决策）**：测试构建**禁止卸载重装**——dev flavor 的 versionCode 用 Unix 时间戳（build.gradle.kts 动态计算），每次构建自动递增，`adb install -r` 即可覆盖安装并**保留 App 数据/服务器配置**（省去重新配置服务器的开销）。若报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`，先核对 debug keystore 一致性，不要卸载重装。
+
 ```bash
 ./gradlew :app:assembleDevDebug   # 构建（超时 300s）  Windows: .\gradlew.bat :app:assembleDevDebug
 # 安装（replicant adb-app install，或）：

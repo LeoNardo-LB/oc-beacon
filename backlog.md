@@ -662,3 +662,107 @@ efactor
   - 修复方向：V2 连接下隐藏 Share 菜单项（需将 apiVersion 传入 ChatTopBar）；或服务器提供 share 功能后适配
   - 工时：~0.5h | 难度：低 | 涉及：ChatTopBar / SessionActionsDelegate
   - **2026-08-12 完成**：V2 下隐藏 Share/Unshare 菜单项——ChatViewModel 暴露 serverApiVersion StateFlow；ChatTopBar 加 isShareSupported 参数包裹 Share 菜单组；ChatScreen 按 `serverApiVersion != ApiVersion.V2` 传参（V1 保留 Share）。注意：运行中的 V2 服务器（旧版）share 端点 404；新版 opencode 源码已有 `POST/DELETE /api/session/:id/share` 端点，且新版 Session.Info **无 share 字段**（分享链接由服务器内部维护）——服务器升级后需重新适配 share 协议再恢复菜单
+
+---
+
+### 2026-08-13 V1/V2 版本探测修复批次（反馈者复现 + 系统性调研）
+
+- [x] **#83 V1 1.18.18 过渡形态被误判 V2 → 会话界面 JSON 解析崩溃（HTML fallback）** `data` `bug`
+  - 问题：反馈者 opencode V1 1.18.18（V1/V2 双套端点过渡形态）——`GET /api/health` 返回 200 `{"healthy":true}`（无 version 字段）→ `ApiVersionDetector.tryV2` 只看 healthy → **误判 V2** → App 用 V2ApiClient 请求不存在的 `/api/*` 路径（rename/shell/todo/mcp/config/vcs/project/fork/import 等实测 16+ 端点）→ 服务器 SPA fallback 返回 `<!doctype html>`（HTTP 200）→ `parseToJsonElement` 崩溃：`Unexpected JSON token at offset 11: Expected EOF after parsing, but had h instead`（与反馈者截图完全一致，offset 11 = `<!doctype html>` 的 `h`）
+  - 实测证据（本机 1.18.18 隔离运行）：V2 路径正常 JSON 的仅 16 个（session CRUD/message/active/provider/model/agent/command/skill/permission/question/location/fs/pty），**返回 HTML 的 16+ 个**（background/rename/shell/command/children/todo/mcp/config/vcs×3/project×2/service/stop/fork/import）
+  - 修复（三层防御）：
+    1. **根因**：ApiVersionDetector.tryV2 增加**版本交叉验证**——`ApiVersion.fromVersionString(version) == V2` 才判 V2（1.18.18 version 缺失或 1.x → 回退 tryV1 → `/global/health` 返回 version=1.18.18 → 正确判 V1；V1 路径在 1.18.18 上全部存在，实测通过）
+    2. **content-type 防御**：tryV2/tryV1 校验响应 content-type 必须为 JSON（HTML 页面不算健康）
+    3. **解析层防御**：V2ApiClient.parseRoot + V2ResponseWrapper.flexibleList/flexibleObject 检测 HTML 特征 → 抛 `NonJsonResponseException`（可读信息 + AppLogger.e），不再裸抛 JsonDecodingException
+  - **2026-08-13 补充修复（反向回归）**：真实 V2 服务器版本号为 `0.0.0-next-17403`（npm next 预发布，major=0）→ `fromVersionString` 解析为 V1 → 修复 1 会把真 V2 误判 V1！补充判定规则：**version 解析为 2.x 或响应含 pid 字段（V2 特征，实测必有）→ V2**；version 缺失且无 pid → 过渡形态 → V1。新增测试 2 个（V2 预发布 pid 识别、V2 无 version 有 pid），全量 11 个探测测试通过
+  - 测试：ApiVersionDetectorTest +5（版本矛盾/无 version/HTML/content-type/不可解析）；V2MappersTest +6（HTML 防御×2 + flexible 正常×4）；V2ApiClientTest +1（HTML → NonJsonResponseException）——全量 1562 单测通过
+  - 工时：~0.5d | 难度：中 | 涉及：ApiVersionDetector、V2ApiClient、V2Mappers、NonJsonResponseException（新建）
+  - 来源：反馈者复现 + 本机 1.18.18 隔离实测 + 双 deep-explore 调研
+  - **验证状态**：编译 ✅ 单测 ✅；模拟器走查待执行（V1 连接 → 会话界面无报错）
+
+- [ ] **#84 V1/V2 功能差异适配清单（调研产出，需逐项评估）** `compat` `refactor`
+  - 问题：深度调研确认 V1(1.18.x) 与 V2(2.x) 是**三重断裂**（路径前缀 / 核心机制 / SSE 格式），客户端需按 apiVersion 区别处理以下功能（详见 docs/v1-v2-differences.md）：
+    - **发送消息**：V1 `POST /session/{id}/prompt_async`（204 fire-and-forget）vs V2 `POST /api/session/{id}/prompt`（200 返回 Inbox 条目）——App 已适配 [确认]
+    - **中断**：V1 `abort`（boolean）vs V2 `interrupt`（204 + `?continue=true`）——App 已适配 [确认]
+    - **后台任务**：V1 仅实验性 `/experimental/session/{id}/background`（需 flag）vs V2 正式 `/api/session/{id}/background`（204）——**V1 下后台化入口应隐藏或降级** [待办]
+    - **配置**：V1 `GET/PATCH /config` 可写 vs V2 `GET /api/config` **只读**（无 PATCH）——App 配置编辑在 V2 应禁用 [待办]
+    - **Todo**：V1 `GET /session/{id}/todo` vs V2 **移除**（form/question 替代）——V2 下 Todo 入口应隐藏 [待办]
+    - **Provider 认证**：V1 oauth authorize/callback 两步 vs V2 integration connect 多步异步——设置页认证流程 [待办]
+    - **Revert**：V1 直接 revert/unrevert vs V2 staged（stage/commit/clear）——App 回退功能 [待办]
+    - **SSE 格式**：V1 `{id,type,properties}` vs V2 `{id,event,data}`（data 二次 JSON）——App 已适配 [确认]
+    - **TUI 控制**：V1 13 个 `/tui/*` 端点 V2 移除——App 无依赖 [确认]
+    - **session/status**：V1 `GET /session/status` vs V2 无直接等价（active 替代）——App V2 用 activeSessions [确认]
+    - **配置格式**：V1 `config.json` 可读 vs V2 只读 `opencode.json(c)`；mcp 配置 `mcp.{name}` vs `mcp.servers.{name}`；权限模型工具分组 vs 有序数组——服务端侧差异，客户端只读展示 [评估中]
+  - 工时：需逐项评估 | 难度：中 | 涉及：多处 UI + API 客户端
+  - 来源：2026-08-13 网络 deep-explore（92% 充分度）+ 本地 1.18.18 实测
+
+- [~] **#85 V1 连接下应隐藏/降级的功能 UI（根据 #84 清单落地）** `ui` `compat`
+  - 问题：#84 调研结论中部分功能在 V1 下不可用/无意义，但当前 UI 未按 apiVersion 区分（参考 #78 已实现的 V2 隐藏 Share 模式）
+  - 待落地清单（V1 下）：任务面板入口（V1 无正式后台系统）[评估中]；V2 下：Todo 入口（V2 移除 todo）、配置编辑（V2 只读）
+  - 工时：~0.5d | 难度：低 | 涉及：ChatTopBar / 工具栏 / 设置页
+  - 来源：#84 调研产出
+  - **2026-08-13 完成**：
+    1. **Background 菜单 V1 隐藏** ✅——ChatTopBar 新增 `isBackgroundSupported` 参数，Background 菜单项包条件；ChatScreen 传 `serverApiVersion != V1`；模拟器验证：V1 菜单 6 项无 Background、V2 菜单 6 项有 Background、无崩溃
+    2. **配置编辑 V2 只读 guard** ✅——ServerSettingsViewModel 新增 `serverApiVersion` 字段（init 读取）；`setProviderEnabled`/`updateConfigPatch` V2 下直接提示失败（实测 V2 PATCH /api/config → 404）；`connectProviderApi`/`completeProviderOauth` 成功后 V2 跳过 disabledProviders PATCH（本地乐观更新，Provider 连接主操作不受影响）
+    3. **Todo 无需处理** ✅——补充走查确认 Todo 无独立 UI 入口（SSE 事件驱动渲染，`SseEvent.TodoUpdated`），非用户可触发
+  - 单测 1564 全通过；待用户验收
+
+- [~] **#86 V1 连接下抽屉不显示 API 版本号（V2 显示 API v2 · 版本，V1 仅 Connected）** `ui` `compat`
+  - 问题：2026-08-13 三轮走查发现——V2 服务器抽屉显示 `API v2 · 0.0.0-next-17403`，V1 服务器仅显示 `Connected` 无版本号。版本检测实际正确（logcat 证实 1.18.18），但用户无法从 UI 直观看到 V1 版本
+  - 建议：抽屉中对 V1 也显示 `API v1 · 1.18.18`（数据已有：ServerConfig.serverVersion）
+  - 工时：~0.5h | 难度：低 | 涉及：ServerCard/抽屉组件
+  - 来源：2026-08-13 补充走查（B7 项观察）
+  - **2026-08-13 完成**：ServerCard.kt 移除 `apiVersion != V1` 显示条件，V1/UNKNOWN 均显示版本徽章（颜色沿用 else 分支）；模拟器验证：V1 卡片显示 `API v1 · 1.18.18`、V2 显示 `API v2 · 0.0.0-next-17403`、logcat 判定正确、无崩溃——待用户验收
+
+- [x] **#83 补充验证记录（2026-08-13 三轮模拟器走查全部通过）**
+  - V1 走查（旧 APK）：`Detected V1 API (version=1.18.18)`；会话界面无 JSON 报错；发送/接收链路正常
+  - V2 走查（新 APK）：`Detected V2 API (version=0.0.0-next-17403, pid 特征识别)`；200 会话/4 项目加载；发送→SSE 回复；Share 菜单隐藏（#78 生效）；无崩溃
+  - 补充走查：V1 菜单含 Share（与 V2 隐藏对比成立）、Fork 成功无幽灵会话、重命名生效、新建会话成功、模型列表加载、设置页 logcat 证实 1.18.18、全程零 FATAL
+  - 走查清单：docs/simulator-walkthrough-v1v2.md（执行记录已填）
+
+- [~] **#87 V1 长会话压测发现：/message 轮询 JsonConvertException ×302（非致命）+ 回复偶发重复渲染** `data` `sse`
+  - 问题：2026-08-13 V1 长会话 40 条消息压测（全部通过、零崩溃）发现两个非阻塞观察项：
+    1. **JsonConvertException ×302（已修复）**：logcat 显示 App 以 **5 秒周期轮询** `GET /session/ses_0051ddbbdffed3UmOqzX8SamAC/message?limit=50`（该会话为压测 subagent 的服务器会话，**不存在于本地 V1 1.18.18 服务器**）→ 404 → 错误体 `{"name":"NotFoundError",...}`（对象）被按 `List` 解析 → JsonConvertException。根因：`V1ApiClient.listMessages`/`V2ApiClient.listMessages` **无状态码检查**（404 错误体直接当数组解析）。**修复（2026-08-13）**：两处 listMessages 非 2xx 返回空页 + AppLogger.w；新增 V1ApiClientTest 3 个（404/5xx/正常）；L2 stale 轮询源为压测环境外部会话（已删除会话的遗留轮询，非 App 常规路径）
+    2. **回复内容偶发重复渲染（已修复）**：部分回复出现重复文本（如 "Got it. Message 1 received.Got it. Message 1 received."）——根因：**REST 快照 text part `id=""` vs SSE part `id="prt_xxx"`**（part ID 契约差异）→ `handleMessagePartUpdated` 按 id 找不到 → 新增第二条 part → 同消息两条文本 part。**修复（2026-08-13）**：空 id 的 Text part 按**内容级匹配**（相等/前缀）合并而非新增；新增 MessageEventHandlerTest 3 个（内容合并/更长替换/内容不同仍新增）
+  - 验证：单测 1575 全通过；模拟器复测待执行（长会话重复渲染观察 + logcat 无 JsonConvertException）
+  - 工时：~0.5d | 难度：中 | 涉及：V1ApiClient/V2ApiClient.listMessages、MessageEventHandler
+
+- [~] **#88 目录浏览性能：每次导航 >500ms（V1/V2）+ V2 大目录 53 秒 ANR** `perf` `data`
+  - 问题：2026-08-13 用户反馈"各类目录点击卡卡的"→ 性能测试确认：OpenProjectDialog 目录浏览**每次前进导航 >500ms**（V1 一致 SLOW 506-763ms；V2 537-799ms + 极端 .opencode 目录 53 秒 ANR"not responding"）。会话列表目录树 toggle 正常（<50ms）
+  - 根因（两处）：
+    1. **ANR**：`FileRepositoryImpl.listDirectory` 无 `withContext(IO)`，OpenProjectDialog 的 LaunchedEffect 在 Main 调度器 → V2 大目录（node_modules）的 JSON decode + map 在主线程 → 阻塞 → ANR
+    2. **500ms 感知延迟**：每次目录导航无缓存，模拟器→宿主机网络往返 ~500ms 固有延迟（items 0-1 个也 >500ms）
+  - 修复（2026-08-13）：
+    1. FileRepositoryImpl.listDirectory 包 `withContext(Dispatchers.IO)`（网络+解析移出主线程）
+    2. DirectoryManager 增加 **30s 目录列表缓存**（ConcurrentHashMap：路径→{items, at}）——已浏览目录返回/重复浏览秒开（CACHE HIT <100ms）
+    3. 保留性能监控日志（listDirectories >500ms warn、buildTreeNodes >50ms warn、CACHE HIT debug）
+  - 验证：单测 1575 全通过；模拟器复测待执行（V1/V2 缓存命中 + .opencode ANR 消除）
+  - 工时：~0.5d | 难度：中 | 涉及：FileRepositoryImpl、DirectoryManager、OpenProjectDialog 链路
+  - 来源：2026-08-13 用户反馈 + 性能测试（V1/V2 全量数据）
+
+- [~] **#89 内存泄漏修复批次：Singleton keyed 状态会话切换后不清理** `data` `refactor`
+  - 问题：2026-08-13 用户反馈模拟器长时间运行后系统卡死（宿主机 swap 15Gi 满）→ 排查发现 App 内多处 **@Singleton 持有按 sessionId/serverId keyed 的可变集合**，正常切换会话（非 SessionDeleted/SSE 断开）不触发清理 → 数据永驻内存：
+    1. **DirectoryManager.dirCache**（目录浏览缓存）：只 put 不清理，浏览大量目录（含 node_modules 大列表）条目永驻 → 已修：上限 200 + 过期清理（近似 LRU）
+    2. **MessageEventHandler._messages/_parts**（按 sessionId）：ChatViewModel.onCleared 不清理 → 已修：EventDispatcher.releaseSessionData + ChatViewModel.onCleared 调用
+    3. **SessionEventHandler._sessionDiffs/_lastUserMessageTime**：无 clearForSession → 已补
+    4. **ShellJobsStore._jobsBySession**：有 clearForSession 但无调用点 → 已接入 releaseSessionData（经 ShellJobsHandler 委托）
+    5. **StreamingOwnershipRegistry.owners**：仅 SessionDeleted 释放 → 已接入 releaseSessionData
+    6. **AppNotificationManager 去重缓存 ×3**（(server, session) keyed）：仅断开/用户取消通知清理 → 已补 clearForSession（ChatViewModel.onCleared 直调，避免 EventDispatcher↔AppNotificationManager Dagger 循环）
+    7. **SessionEventHandler.locallyClearedReverts**：已补 clearForSession 清理（防御）
+    8. **ChatRepositoryImpl.toolExpandedStates**（toolId keyed，仅 UI 展开状态）→ 登记低优先级（#90）
+  - 修复（2026-08-13）：
+    - EventDispatcher 新增 `releaseSessionData(sessionId)`：级联清理 sessionHandler/messageHandler/permissionHandler/questionHandler/miscHandler/sessionNextHandler/sessionStateService/ownershipRegistry/shellJobsHandler
+    - ChatViewModel.onCleared 调用 releaseSessionData（runCatching 防异常）
+    - SessionEventHandler 新增 clearForSession；ShellJobsHandler 新增 clearForSession 委托
+    - DirectoryManager.dirCache 上限 200 + 过期清理
+    - 测试构造更新：5 个 ChatViewModel 测试加 mockk eventDispatcher
+  - 验证：编译 ✅ 单测 1575 全通过 ✅；模拟器长时间运行内存曲线待测（dumpsys meminfo）
+  - 工时：~0.5d | 难度：中 | 涉及：EventDispatcher、ChatViewModel、SessionEventHandler、ShellJobsHandler、DirectoryManager
+  - 来源：2026-08-13 用户反馈系统卡死 + 全局 Singleton keyed 状态扫描
+
+- [ ] **#90 ChatRepositoryImpl.toolExpandedStates 无上限（低优先级）** `refactor`
+  - 问题：2026-08-13 全局 keyed 状态扫描发现——`ChatRepositoryImpl.toolExpandedStates`（ConcurrentHashMap<toolId, Boolean>）只增不减（工具卡片展开状态记忆），toolId 随消息/工具调用增长 → 长期使用后无界
+  - 影响：低（单条 Boolean 值，千条工具调用才 KB 级）；且 UI 展开状态跨会话记忆有产品价值
+  - 方案：定期清理已结束消息的 toolId（需按消息关联）或 LRU 上限（如 1000 条）
+  - 工时：~0.5h | 难度：低 | 涉及：ChatRepositoryImpl
+  - 来源：2026-08-13 全局 Singleton keyed 状态扫描（#89 附属）
