@@ -225,7 +225,10 @@ internal class MessagePaginationDelegate(
                     networkCursor = networkCursor,
                 ).getOrThrow()
                 // 归档来源只进内存（不落热表 → 防死循环）；网络来源保持现状（upsert 内自控落库）
-                chatRepository.upsertMessages(sid, result.messages, MergeStrategy.APPEND_ONLY)
+                // #82 系统性防御（2026-08-13）：服务器 next 方向响应顺序不保证升序——
+                // 合并前统一升序化（mergeSortedMessages 前提；实测服务器通常升序——防御行为变化）
+                val ascending = result.messages.sortedBy { it.info.time.created }
+                chatRepository.upsertMessages(sid, ascending, MergeStrategy.APPEND_ONLY)
                 // 单次遍历取最老消息（同时服务 ID 与 created 游标推进）
                 val oldest = result.messages.minByOrNull { it.info.time.created }
                 applyTransition(
@@ -426,7 +429,10 @@ internal class MessagePaginationDelegate(
                 }
                 val result = messagePaging.loadNewerMessages(serverId, sid, currentMessageLimit, serverCursor)
                     .getOrThrow()
-                chatRepository.upsertMessages(sid, result.messages, MergeStrategy.APPEND_ONLY)
+                // #82 系统性防御（2026-08-13）：服务器 previous 方向响应顺序不保证
+                // 升序——合并前统一升序化（mergeSortedMessages 前提）
+                val ascending = result.messages.sortedBy { it.info.time.created }
+                chatRepository.upsertMessages(sid, ascending, MergeStrategy.APPEND_ONLY)
                 val newest = result.messages.maxByOrNull { it.info.time.created }
                 applyTransition(
                     PaginationFSM.Event.LoadNewerSucceeded(
