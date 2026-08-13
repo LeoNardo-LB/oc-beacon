@@ -182,9 +182,6 @@ class JumpNavigationController(
      * 估算高度定位 → 透明测量（Ready + 列表同步）→ 收敛小修正 → Displayed + 稳定窗口。
      */
     private suspend fun measureAndSettle(msgId: String, lazyIndex: Int) {
-        val vh = (listState.layoutInfo.viewportEndOffset - listState.layoutInfo.viewportStartOffset).toFloat()
-        val contentPaddingTop = -listState.layoutInfo.viewportStartOffset.toFloat()
-
         // Measuring 定位：**底部对齐**（requestScroll offset=0——目标底边贴视口
         // 底——一定在视口内，不会因估算高度偏差滚过头/丢失；蒙版遮住后续移动）
         if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 底部定位 idx=$lazyIndex")
@@ -195,102 +192,89 @@ class JumpNavigationController(
             AppLogger.d("ChatPaging", "jump: 底部定位后可见=[$vis]")
         }
 
-        // Measuring：轮询目标 item.size（布局权威数据——连续 4 轮不变 = 稳定）。
-        // 2026-08-13 修复：不依赖 MessageCardUser 的 onSizeChanged 上报链
-        //（该链在 SSE/重组下会重启/静默失败）。布局测量是 LazyColumn 的权威数据。
-        // 2026-08-13 加固：2→4 轮（长回复 turn 场景 item.size 会跳变 571/3378——
-        // 回复流式/布局重排影响——4 轮更抗跳变）
-        var lastSize = -1
+        // ===== 渐进定位（2026-08-13 根治——窗口模式实测暴露结构性问题） =====
+        // 根因：一次大滚动（vh - H - pt ≈ 1477px）把视口顶部换成大量未组合内容
+        // → Markdown 渐进测量（214→331 级跳变）→ 目标被推 → 滚出视口 → item
+        // 回收 → 重建重解析 → 振荡（headless 布局时序恰好未触发，窗口模式暴露）。
+        // 根治：目标从视口底部**小步逼近**顶部（每步 ≤ vh/2——新进入视口的内容
+        // 少、渐进测量量小、稳定快）；每步后等待**区域稳定**（全部可见 item 的
+        // key:size 签名连续 4 轮不变——目标及其上下邻居都在渐进测量中也不误判）；
+        // 目标全程在视口内（不回收、不重建）——机制上消除振荡。
+        var lastRegionSig: String? = null
         var stableCount = 0
-        var ready: RenderReadiness.Ready? = null
         var nullStreak = 0
         var lastRelocateAt = 0L
-        withTimeoutOrNull(3500) {
+        var settled = false
+        var finalHeight = -1
+        withTimeoutOrNull(5000) {
             while (true) {
                 kotlinx.coroutines.delay(100)
-                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull {
-                    it.key == targetKey(msgId)
-                }
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d("ChatPaging", "jump: 轮询 item=${item?.let { "size=${it.size} off=${it.offset}" } ?: "null"}")
-                }
-                if (item == null) {
-                    // 2026-08-13 修复：目标被布局重排推出视口——**节流重定位**：
-                    // 连续 2 次 null + 300ms 冷却（重定位本身触发目标组合→布局
-                    // 重排→被推——自激振荡；节流打破循环）
-                    nullStreak++
-                    val now = System.currentTimeMillis()
-                    if (nullStreak >= 2 && now - lastRelocateAt > 300) {
-                        val freshIndex = resolveLazyIndex(msgId) ?: lazyIndex
-                        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 重定位 idx=$freshIndex（null=$nullStreak）")
-                        LazyListReflection.requestScrollToItemNoCancel(listState, freshIndex, 0)
-                        lastRelocateAt = now
-                        nullStreak = 0
+                listState.scroll {
+                    val info = listState.layoutInfo
+                    val item = info.visibleItemsInfo.firstOrNull { it.key == targetKey(msgId) }
+                    if (item == null) {
+                        // 防御：极端布局下目标被推出——节流重定位（底部对齐——
+                        // 目标回视口内重新渐进）
+                        nullStreak++
+                        val now = System.currentTimeMillis()
+                        if (nullStreak >= 2 && now - lastRelocateAt > 300) {
+                            val freshIndex = resolveLazyIndex(msgId) ?: lazyIndex
+                            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 重定位 idx=$freshIndex（null=$nullStreak）")
+                            LazyListReflection.requestScrollToItemNoCancel(listState, freshIndex, 0)
+                            lastRelocateAt = now
+                            nullStreak = 0
+                        }
+                        lastRegionSig = null
+                        stableCount = 0
+                        return@scroll
                     }
-                    lastSize = -1
-                    stableCount = 0
-                    continue
-                }
-                nullStreak = 0
-                if (item.size == lastSize) {
+                    nullStreak = 0
+                    // 区域签名：全部可见 item 的 key:size——任何 item（含邻居）的
+                    // 渐进测量都打破稳定，避免"目标稳定但邻居在变"的误判
+                    val regionSig = info.visibleItemsInfo
+                        .sortedBy { it.index }
+                        .joinToString("|") { "${it.key}:${it.size}" }
+                    if (regionSig != lastRegionSig) {
+                        lastRegionSig = regionSig
+                        stableCount = 0
+                        return@scroll
+                    }
                     stableCount++
-                    if (stableCount >= 4) {
-                        ready = RenderReadiness.Ready(item.size)
-                        break
+                    if (stableCount < 4) return@scroll
+                    // 区域稳定（连续 4 轮签名不变）——计算目标顶边偏差
+                    val vhNow = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                    val ptNow = -info.viewportStartOffset.toFloat()
+                    val gapToTop = computeGap(item.offset, item.size, vhNow, ptNow)
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d("ChatPaging", "jump: 渐进 gap=$gapToTop size=${item.size} region=[$regionSig]")
                     }
-                } else {
+                    finalHeight = item.size
+                    if (kotlin.math.abs(gapToTop) <= 2f) {
+                        settled = true
+                        return@scroll
+                    }
+                    // 小步滚动：偏差 ≤ vh/2 时一步到位；否则步进 vh/2（新内容可控）
+                    val step = when {
+                        gapToTop < 0 -> maxOf(-(vhNow / 2).toInt(), gapToTop.toInt())
+                        else -> minOf((vhNow / 2).toInt(), gapToTop.toInt())
+                    }
+                    if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 渐进步进 step=$step")
+                    scrollBy(step.toFloat())
+                    lastRegionSig = null
                     stableCount = 0
-                    lastSize = item.size
                 }
+                if (settled) break
             }
         }
-        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 布局稳定 ${ready?.let { "finalHeight=${it.finalHeight}" } ?: "超时"}")
-        if (ready == null) {
+        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 布局稳定 ${if (finalHeight >= 0) "finalHeight=$finalHeight" else "超时"}")
+        if (!settled) {
             _phase.value = jumpTransition(_phase.value, JumpEvent.TimedOut("measuring"))
             return
         }
+        // 渐进定位完成 = 测量稳定 + 收敛完成（目标已贴视口顶）——状态机直通
         _phase.value = jumpTransition(_phase.value, JumpEvent.MeasureReady)
-
-        // Settling：测量稳定后**一次定位到顶部**（用最终高度——目标底边从 0
-        // 移到 vh - H - pt；蒙版遮住移动）→ 收敛微调（小位移）
-        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 一次定位顶部 H=${ready.finalHeight}")
-        LazyListReflection.requestScrollToItemNoCancel(
-            listState, lazyIndex,
-            -(computeDesiredOffset(vh, ready.finalHeight.toFloat(), contentPaddingTop).toInt())
-        )
-        kotlinx.coroutines.delay(32)
-
-        // 收敛小修正（目标在视口内——不回收——修正后稳定）
-        var converged = 0
-        var settled = false
-        for (round in 1..6) {
-            kotlinx.coroutines.delay(150)
-            listState.scroll {
-                val info3 = listState.layoutInfo
-                val it3 = info3.visibleItemsInfo.firstOrNull { it.key == targetKey(msgId) }
-                if (it3 != null) {
-                    val vh3 = (info3.viewportEndOffset - info3.viewportStartOffset).toFloat()
-                    val pt3 = -info3.viewportStartOffset.toFloat()
-                    val gap3 = computeGap(it3.offset, it3.size, vh3, pt3)
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "jump: 收敛 round=$round gap=$gap3 size=${it3.size} off=${it3.offset} key=${it3.key}")
-                    }
-                    if (kotlin.math.abs(gap3) > 2f) {
-                        scrollBy(gap3)
-                        converged = 0
-                    } else {
-                        converged++
-                    }
-                }
-            }
-            if (converged >= 2) { settled = true; break }
-        }
-        if (!settled) {
-            _phase.value = jumpTransition(_phase.value, JumpEvent.TimedOut("settling"))
-            return
-        }
         _phase.value = jumpTransition(_phase.value, JumpEvent.Settled)
-        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: Displayed（收敛完成）")
+        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: Displayed（渐进定位完成）")
 
         // 稳定窗口：显示后 1.5s 静默监控——gap 变化（SSE/布局重测量）则静默修正
         for (round in 1..10) {
