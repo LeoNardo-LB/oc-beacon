@@ -601,8 +601,13 @@ fun ChatMessageList(
 
             // loadAround 失败保护：加载结束（isLoadingAround=false）但目标未进入
             // displayItems（pendingJumpTarget 仍悬空）→ 清除并 Snackbar 提示，避免悬死。
+            // 2026-08-13 修复：**延迟 500ms 再查**——loadAround 完成（isLoadingAround=false）
+            // 与 displayItems 更新（内存热视图 → UI）存在协程调度时序差——立即查会
+            // 误判"未找到"→ 提前清 pendingJumpTarget → 目标已加载但永不跳转
+            //（用户反馈"只会第一次点击时加载"）。
             LaunchedEffect(isLoadingAround) {
                 if (!isLoadingAround && pendingJumpTarget != null) {
+                    delay(500)
                     val target = pendingJumpTarget
                     val found = displayItems.indexOfFirst { it.second.message.id == target } >= 0
                     if (!found) {

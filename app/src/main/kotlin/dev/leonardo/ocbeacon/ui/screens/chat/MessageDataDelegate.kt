@@ -423,12 +423,15 @@ internal class MessageDataDelegate(
     /** 会话内标记：服务器全量消息已同步（避免每次打开快速导航重复翻页）。 */
     private var jumpTargetsServerSync = false
 
-    /** 服务器翻页全量消息（cursor.next 直到读尽；防呆 20 页上限）。 */
+    /** 服务器翻页全量消息（cursor.next 直到读尽；防呆 100 页上限——5000 条）。
+     *  2026-08-13 修复：20 页（1000 条）对长会话（测试会话实测含大量初始化
+     *  + 多轮测试消息）会截断——截断导致部分 assistant 缺失 → mergeUnrepliedUsers
+     *  误判"无回复"合并 → 快速导航漏 Q（用户反馈"漏很多之前的消息"）。 */
     private suspend fun fetchAllMessages(sid: String): List<MessageWithParts> {
         val all = mutableListOf<MessageWithParts>()
         var cursor: String? = null
         var guard = 0
-        while (guard++ < 20) {
+        while (guard++ < 100) {
             val page = sessionRepository.listMessages(serverId, sid, 50, cursor).getOrThrow()
             all += page.messages
             cursor = page.nextCursor ?: break
