@@ -375,4 +375,50 @@ class MessageEventHandlerTest {
         val textAfter = handler.parts.value["m1"]!![0] as Part.Text
         assertEquals("Already-ended part keeps its original end time", 999L, textAfter.time?.end)
     }
+
+    // ============ #87b：REST 空 id 快照与 SSE part 内容级合并 ============
+
+    @Test
+    fun `part updated with blank id merges by content instead of adding duplicate`() {
+        // 回归（#87b）：REST 快照 text part id="" vs SSE part id="prt_xxx"——
+        // 旧代码按 id 找不到 → 新增第二条 part → 同消息两条文本 → UI 重复渲染
+        // （压测实测 "Got it. ... Got it. ..."）
+        val ssePart = Part.Text(id = "prt_abc", sessionId = "s1", messageId = "m1", text = "Got it. Message 1 received.")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(ssePart))
+
+        // REST 快照：同内容、空 id
+        val restSnapshot = Part.Text(id = "", sessionId = "s1", messageId = "m1", text = "Got it. Message 1 received.")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(restSnapshot))
+
+        val parts = handler.parts.value["m1"]!!
+        assertEquals("空 id 快照应与 SSE part 合并而非新增", 1, parts.size)
+    }
+
+    @Test
+    fun `part updated with blank id and longer content replaces by content match`() {
+        // REST 快照比 SSE 累积更长（完整文本）→ 内容前缀匹配后替换，不新增
+        val ssePart = Part.Text(id = "prt_abc", sessionId = "s1", messageId = "m1", text = "Got it. Message")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(ssePart))
+
+        val restSnapshot = Part.Text(id = "", sessionId = "s1", messageId = "m1", text = "Got it. Message 1 received.")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(restSnapshot))
+
+        val parts = handler.parts.value["m1"]!!
+        assertEquals(1, parts.size)
+        val merged = parts[0] as Part.Text
+        assertEquals("更长文本应胜出", "Got it. Message 1 received.", merged.text)
+    }
+
+    @Test
+    fun `part updated with blank id and distinct content still adds new part`() {
+        // 空 id 但内容完全不同（真·新 part）→ 不应误合并
+        val ssePart = Part.Text(id = "prt_abc", sessionId = "s1", messageId = "m1", text = "First part")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(ssePart))
+
+        val distinct = Part.Text(id = "", sessionId = "s1", messageId = "m1", text = "Completely different content")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(distinct))
+
+        val parts = handler.parts.value["m1"]!!
+        assertEquals("内容完全不同不应合并", 2, parts.size)
+    }
 }

@@ -521,6 +521,18 @@ class AppNotificationManager @Inject constructor(
         lastNotifiedAssistantMessageBySession.keys.removeIf { it.startsWith("$serverId::") }
     }
 
+    /**
+     * 清除单会话的去重缓存（内存泄漏修复 #89，会话退出时由 EventDispatcher 调用）。
+     * 旧代码仅 clearForServer（断开）与 dismissSessionNotifications（用户操作）时清理，
+     * 正常切换会话 3 条 key 永驻 → 按 (server, session) 无限增长。
+     */
+    fun clearForSession(serverId: String, sessionId: String) {
+        val prefix = sessionNotificationKey(serverId, sessionId)
+        lastNotifiedPermissionBySession.remove(prefix)
+        lastNotifiedQuestionBySession.remove(prefix)
+        lastNotifiedAssistantMessageBySession.remove(prefix)
+    }
+
     // ============ 私有辅助方法 ============
 
     private fun showServerGroupSummary(

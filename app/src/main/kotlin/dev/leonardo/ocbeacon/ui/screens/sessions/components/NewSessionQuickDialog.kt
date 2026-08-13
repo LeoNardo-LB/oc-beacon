@@ -50,6 +50,10 @@ internal fun recentSessionDirectories(
     sessions: List<Session>,
     limit: Int = 20,
 ): List<RecentSessionDirectory> = sessions
+    // 防御：V2 服务器存在 location.directory 为 "/" 的会话（实测 ses_005890631ffe...），
+    // "/" 经 trimEnd('/') 后为空 → 分组 key 空 → 产生"空目录"条目（2026-08-13 用户反馈）。
+    // 根目录无法作为新建会话目标，过滤（按 trim 后判断，覆盖 "" 与 "/" 两种形态）
+    .filter { it.directory.replace('\\', '/').trimEnd('/').isNotBlank() }
     .groupBy { it.directory.replace('\\', '/').trimEnd('/') }
     .map { (directory, items) ->
         RecentSessionDirectory(

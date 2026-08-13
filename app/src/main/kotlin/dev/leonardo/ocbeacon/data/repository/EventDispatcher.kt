@@ -451,6 +451,26 @@ class EventDispatcher @Inject constructor(
         ownershipRegistry.clearAll()
     }
 
+    /**
+     * 释放某会话的内存数据（消息/part/权限/问题/状态/通知去重）。
+     * 会话退出时调用（ChatViewModel.onCleared）——内存泄漏修复（#89）：
+     * 各 handler 是 Singleton 且按 sessionId 持有数据，正常切换会话
+     * 不触发 SessionDeleted → 旧会话数据永驻内存。
+     */
+    fun releaseSessionData(serverId: String, sessionId: String) {
+        // 可观测性（#89 验证）：清理入口日志——内存测试确认链路生效
+        AppLogger.i(TAG, "releaseSessionData: server=$serverId session=$sessionId")
+        sessionHandler.clearForSession(sessionId)
+        messageHandler.clearForSession(sessionId)
+        permissionHandler.clearForSession(sessionId)
+        questionHandler.clearForSession(sessionId)
+        miscHandler.clearForSession(sessionId)
+        sessionNextHandler.clearForSession(sessionId)
+        sessionStateService.clearSession(sessionId)
+        ownershipRegistry.release(sessionId)
+        shellJobsHandler.clearForSession(sessionId)
+    }
+
     fun clearForServer(serverId: String) {
         val sessionIds = sessionHandler.serverSessions.value[serverId] ?: emptySet()
         sessionHandler.clearForServer(serverId)

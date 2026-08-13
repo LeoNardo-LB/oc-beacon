@@ -77,6 +77,7 @@ class ChatViewModel @Inject constructor(
     private val toolSnapshotCache: dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache,
     private val serverRepository: ServerRepository,
     private val shellJobsStore: dev.leonardo.ocbeacon.data.repository.ShellJobsStore,
+    private val eventDispatcher: dev.leonardo.ocbeacon.data.repository.EventDispatcher,
 ) : ViewModel() {
 
     // ============ 工具快照缓存（已提取到 ToolCacheDelegate） ============
@@ -130,8 +131,8 @@ class ChatViewModel @Inject constructor(
     )
     val sessionId: String get() = sessionLifecycle.sessionId
 
-    // ============ 后台活动聚合（subagent + shell） ============
-    private val backgroundAggregator = BackgroundAggregator(
+    // ============ 任务聚合（subagent + shell） ============
+    private val taskAggregator = TaskAggregator(
         sessionRepository = sessionRepository,
         chatRepository = chatRepository,
         shellJobsStore = shellJobsStore,
@@ -140,16 +141,16 @@ class ChatViewModel @Inject constructor(
         scope = viewModelScope,
     )
 
-    /** 启动后台活动轮询（ChatScreen 组合时调用；幂等）。 */
-    fun startBackgroundPolling() = backgroundAggregator.startPolling(viewModelScope)
+    /** 启动任务轮询（ChatScreen 组合时调用；幂等）。 */
+    fun startTaskPolling() = taskAggregator.startPolling(viewModelScope)
 
-    /** 单次刷新后台活动状态。 */
-    fun refreshBackgroundNow() = viewModelScope.launch {
-        backgroundAggregator.refreshActiveSessions()
+    /** 单次刷新任务状态。 */
+    fun refreshTaskNow() = viewModelScope.launch {
+        taskAggregator.refreshActiveSessions()
     }
 
-    /** 后台活动聚合状态（角标计数 / 转后台工具栏 / 面板数据）。 */
-    val backgroundUiState: StateFlow<BackgroundUiState> get() = backgroundAggregator.uiState
+    /** 任务聚合状态（角标计数 / 任务工具栏 / 面板数据）。 */
+    val taskUiState: StateFlow<TaskUiState> get() = taskAggregator.uiState
 
     /**
      * 将当前会话所有前台 subagent 转为后台（对应 TUI ctrl+b）。
@@ -557,6 +558,13 @@ class ChatViewModel @Inject constructor(
         messageData.cancelSseJob()
         closeTerminalSession()
         super.onCleared()
+        // 内存泄漏修复（#89）：退出会话时释放该会话在 Singleton handler 中的
+        // 消息/part/权限/问题/通知去重数据——各 handler 按 sessionId 持有，
+        // 正常切换会话不触发 SessionDeleted → 旧会话数据永驻内存
+        runCatching { eventDispatcher.releaseSessionData(serverId, sessionId) }
+            .onFailure { dev.leonardo.ocbeacon.logging.AppLogger.w("ChatVM", "releaseSessionData failed: ${it.message}") }
+        runCatching { appNotificationManager.clearForSession(serverId, sessionId) }
+            .onFailure { dev.leonardo.ocbeacon.logging.AppLogger.w("ChatVM", "clearForSession failed: ${it.message}") }
         // 草稿持久化：异步执行（NonCancellable 保证 DataStore 写入在 scope 取消后仍完成）。
         // 同步 saveDraft() 内部 runBlocking 会阻塞主线程 → 退出会话 ANR（真机实证 2026-08-09）。
         viewModelScope.launch {

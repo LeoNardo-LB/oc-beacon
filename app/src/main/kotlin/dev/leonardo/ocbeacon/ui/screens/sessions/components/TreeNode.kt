@@ -62,6 +62,34 @@ fun buildTreeNodes(
     allReadAt: Long = 0L,
     pendingQuestionIds: Set<String> = emptySet(),
 ): List<TreeNode> {
+    // 性能监控（2026-08-13 用户反馈目录点击卡顿）：树重建 >50ms 打 warn
+    val buildStart = System.currentTimeMillis()
+    val result = buildTreeNodesInternal(
+        sessions, expandedDirs, baseDirectory, statuses, draftSessionIds,
+        sessionTags, lastMessageTime, readTimes, allReadAt, pendingQuestionIds
+    )
+    val elapsed = System.currentTimeMillis() - buildStart
+    if (elapsed > 50) {
+        dev.leonardo.ocbeacon.logging.AppLogger.w(
+            "SessionTree",
+            "buildTreeNodes SLOW: sessions=${sessions.size} expanded=${expandedDirs.size} took=${elapsed}ms"
+        )
+    }
+    return result
+}
+
+private fun buildTreeNodesInternal(
+    sessions: List<Session>,
+    expandedDirs: Set<String>,
+    baseDirectory: String?,
+    statuses: Map<String, SessionStatus>,
+    draftSessionIds: Set<String>,
+    sessionTags: Map<String, List<Tag>>,
+    lastMessageTime: Map<String, Long>,
+    readTimes: Map<String, Long>,
+    allReadAt: Long,
+    pendingQuestionIds: Set<String>,
+): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
     val rootSessions = mutableListOf<Session>()
     val normalizedBase = baseDirectory?.replace('\\', '/')?.trimEnd('/')

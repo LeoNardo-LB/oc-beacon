@@ -283,13 +283,32 @@ class MessageEventHandler @Inject constructor(
                 val merged = mergePart(old, event.part)
                 messageParts[idx] = merged
             } else {
-                // 新 part 到达——对所有消息类型保持文本不变。
-                // 旧代码会剥离 assistant 消息的文本（假设 SSE delta 会重新累积它）。
-                // 但若 delta 被错过（SSE 重连、网络中断），文本将永久丢失——
-                // 用户会看到空气泡，直到手动刷新。
-                // delta flush 的 endsWith() 去重 + mergePart 的"更长文本胜出"
-                // 一起处理潜在重叠且不丢数据。
-                messageParts.add(event.part)
+                // 防御（#87b）：part ID 契约差异——REST 快照的 text part id="" vs
+                // SSE 的 id="prt_xxx"。按 id 找不到时会新增第二条 part → 同消息
+                // 两条文本 part → UI 文本重复渲染（压测实测 "Got it. ... Got it. ..."）。
+                // 对空 id 的 Text part 按内容匹配（相等/前缀）合并而非新增。
+                val contentMatchIdx = if (partId.isBlank() && event.part is Part.Text) {
+                    messageParts.indexOfFirst { existing ->
+                        existing is Part.Text &&
+                            (existing.text == event.part.text ||
+                                existing.text.startsWith(event.part.text) ||
+                                event.part.text.startsWith(existing.text))
+                    }
+                } else {
+                    -1
+                }
+                if (contentMatchIdx >= 0) {
+                    val old = messageParts[contentMatchIdx]
+                    messageParts[contentMatchIdx] = mergePart(old, event.part)
+                } else {
+                    // 新 part 到达——对所有消息类型保持文本不变。
+                    // 旧代码会剥离 assistant 消息的文本（假设 SSE delta 会重新累积它）。
+                    // 但若 delta 被错过（SSE 重连、网络中断），文本将永久丢失——
+                    // 用户会看到空气泡，直到手动刷新。
+                    // delta flush 的 endsWith() 去重 + mergePart 的"更长文本胜出"
+                    // 一起处理潜在重叠且不丢数据。
+                    messageParts.add(event.part)
+                }
             }
             current + (messageId to messageParts)
         }
@@ -724,6 +743,11 @@ class MessageEventHandler @Inject constructor(
         _messages.update { it - sessionId }
         _parts.update { it - messageIds }
         assistantMessageIds.removeAll(messageIds)
+        // 可观测性（#89 验证）：记录清理量
+        dev.leonardo.ocbeacon.logging.AppLogger.d(
+            "MsgEvent",
+            "clearForSession: session=$sessionId messages=${messageIds.size} partsRemoved=$messageIds.size"
+        )
     }
 
     fun clearForServer(sessionIds: Set<String>) {

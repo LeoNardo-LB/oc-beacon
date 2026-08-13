@@ -54,6 +54,35 @@ class DirectoryManager(
     @Volatile
     private var cachedDrivesAt: Long = 0L
 
+    /** 目录列表缓存（2026-08-13 性能优化）：已浏览目录秒开，消除 500ms 网络往返感知延迟。 */
+    private data class DirCacheEntry(val items: List<FileNode>, val at: Long)
+
+    private val dirCache = java.util.concurrent.ConcurrentHashMap<String, DirCacheEntry>()
+
+    /** 目录列表缓存时长：目录内容变化不频繁，30s 内重复浏览直接命中。 */
+    private companion object {
+        const val DIR_CACHE_TTL_MS = 30_000L
+        /** 缓存条目上限：防止无限增长（2026-08-13 用户报告内存问题——
+         *  旧实现只 put 不清理，浏览大量目录时条目永驻 → 内存泄漏） */
+        const val DIR_CACHE_MAX_ENTRIES = 200
+    }
+
+    /** 写入缓存时清理过期/超限条目（LRU 近似：先清过期，仍超限清最旧）。 */
+    private fun putDirCache(key: String, entry: DirCacheEntry) {
+        if (dirCache.size >= DIR_CACHE_MAX_ENTRIES) {
+            val now = System.currentTimeMillis()
+            val expired = dirCache.entries.filter { now - it.value.at >= DIR_CACHE_TTL_MS }
+            if (expired.isNotEmpty()) {
+                expired.forEach { dirCache.remove(it.key) }
+            } else {
+                // 全为新鲜条目且超限：移除最旧的（近似 LRU）
+                val oldest = dirCache.entries.minByOrNull { it.value.at }
+                oldest?.let { dirCache.remove(it.key) }
+            }
+        }
+        dirCache[key] = entry
+    }
+
     /** 获取服务器路径，结果在委托生命周期内缓存。 */
     suspend fun getServerPaths(): ServerPaths {
         if (cachedServerPaths == null) {
@@ -125,12 +154,31 @@ class DirectoryManager(
         cachedDrivesAt = System.currentTimeMillis()
     }
 
-    /** 列出服务器上指定路径中的目录。 */
+    /** 列出服务器上指定路径中的目录（30s 内存缓存，已浏览目录秒开）。 */
     suspend fun listDirectories(directory: String): List<FileNode> {
+        val normalized = directory.replace('\\', '/').trimEnd('/').ifBlank { "/" }
+        // 缓存命中（30s 内）→ 直接返回，避免 500ms 网络往返感知延迟
+        val cached = dirCache[normalized]
+        val now = System.currentTimeMillis()
+        if (cached != null && now - cached.at < DIR_CACHE_TTL_MS) {
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "listDirectories CACHE HIT: dir=$normalized items=${cached.items.size}")
+            return cached.items
+        }
+        // 性能监控（2026-08-13 用户反馈目录点击卡顿）：记录耗时与条目数，
+        // 阈值 >500ms 打 warn（慢目录/网络），正常打 debug
+        val start = System.currentTimeMillis()
         return try {
-            fileRepository.listDirectory(serverId, directory, "").getOrThrow().filter { it.isDirectory() }
+            val result = fileRepository.listDirectory(serverId, directory, "").getOrThrow().filter { it.isDirectory() }
+            putDirCache(normalized, DirCacheEntry(result, System.currentTimeMillis()))
+            val elapsed = System.currentTimeMillis() - start
+            if (elapsed > 500) {
+                AppLogger.w(TAG, "listDirectories SLOW: dir=$directory items=${result.size} took=${elapsed}ms")
+            } else if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "listDirectories: dir=$directory items=${result.size} took=${elapsed}ms")
+            }
+            result
         } catch (e: Exception) {
-            AppLogger.e(TAG, "Failed to list directory: $directory", e)
+            AppLogger.e(TAG, "Failed to list directory: $directory took=${System.currentTimeMillis() - start}ms", e)
             emptyList()
         }
     }

@@ -24,4 +24,9 @@ class ShellJobsHandler @Inject constructor(
         }
         else -> false
     }
+
+    /** 释放单会话 shell 任务（内存泄漏修复 #89，由 EventDispatcher.releaseSessionData 调用）。 */
+    fun clearForSession(sessionId: String) {
+        shellJobsStore.clearForSession(sessionId)
+    }
 }

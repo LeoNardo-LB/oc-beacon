@@ -93,7 +93,11 @@ internal fun OpenProjectDialog(
             val paths = viewModel.getServerPaths()
             homeDir = paths.home
             if (currentPath == null) {
+                // 初始路径优先级：initialDirectory → 服务器 home 目录 → 平台根
+                // （2026-08-13：V2 /api/fs/list 对 path=/ 返回 500，且服务器 home 更友好——
+                //  home 为空时才回退 unixRoot/windowsDrivesRoot）
                 currentPath = initialDirectory?.let { DirectoryPath.forPath(it) }
+                    ?: homeDir?.takeIf { it.isNotBlank() }?.let { DirectoryPath.forPath(it) }
                     ?: if (viewModel.isWindowsServer) DirectoryPath.windowsDrivesRoot
                     else DirectoryPath.unixRoot
             }
