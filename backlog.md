@@ -152,14 +152,17 @@
 ### 2026-08-08 提问组件改进批次（待验证）
 来源：用户口头反馈（2026-08-08）。
 
-- [~] **#26 提问单选/复选控件语义纠正** `ui`
+- [x] **#26 提问单选/复选控件语义纠正** `ui`
+  - **2026-08-13 修复完成 + V1 实测通过 ✅**：单选互斥 bug 根因=isSingle 仅覆盖单问题场景，多问题中单选题目走 toggle 多选分支 → 修复：onOptionClick 按每道题 multiple 判断；头部紧凑化（16dp 图标 + labelLarge + bodyMedium 摘要）。V1 实测：Q1 点 Red 再点 Blue → Red 自动取消（仅 1 选中）；Q2 多选 Apple+Banana 保持双选；无崩溃
+  - 原问题：用户反馈"单选框、复选框全部都由单选框组件来承担职责"——多选问题应显示复选框，单选才用单选框
   - 问题：用户反馈"单选框、复选框全部都由单选框组件来承担职责"——多选问题应显示复选框，单选才用单选框
   - 现状（代码已确认）：QuestionOptionRows（QuestionPartContent.kt:259）已按 `question.multiple` 分支渲染 CheckBox/RadioButton 图标；但需验证 `multiple` 字段在 SSE 事件 → QuestionParser → UI 全链路传递是否可靠（服务器未传 / 解析丢失时可能全部退化为单选样式）；历史视图 CollapsibleQuestionPart（QuestionPartContent.kt:135）答案固定用 RadioButtonChecked 图标，多选答案也应显示 CheckBox 样式
   - 调研方向：先确认真实渲染路径（活动提问走 QuestionCard + QuestionPagerView，历史走 CollapsibleQuestionPart / QuestionExpandedOptions），定位 multiple 丢失点；再按 M3 语义修正图标
   - 工时：~2h | 难度：中 | 涉及：QuestionPartContent.kt / QuestionCard.kt / QuestionParser
   - **2026-08-08 代码完成（待人工验证）**：QuestionParser 新增 `ParsedQuestion.isMultiple`（JSON multiple 3 解析点 + 7 测试，commit 04b3fb33）；CollapsibleQuestionPart 历史答案图标按 isMultiple 分支 CheckBox/RadioButtonChecked + PartContent 调试日志清理（commit a86b2e87）；编译 ✅ 全量单测 ✅ i18n ✅；⚠️ 真机验证待用户：活动/历史多选显示复选框
 
-- [~] **#27 多问题提问"下一步/提交"流程** `ui`
+- [x] **#27 多问题提问"下一步/提交"流程** `ui`
+  - **2026-08-13 用户验收 ✅**：Next/Submit 切换正确、未答完弹窗正常（"第 X 个问题没有回答"→可继续提交）、单选点选可取消——全部通过
   - 问题：多问题场景（questions.size > 1）右下角直接是提交按钮；应改为非最后一个问题时显示"下一步"，点击跳转到下一个问题，最后一个问题才显示"提交"
   - 现状：QuestionCard.kt:207-232 底部 Row 只有 Dismiss + Submit（`!isSingle` 时显示）；QuestionPagerView 已有 TabRow + HorizontalPager（Q1/Q2/Q3 标签可点击跳转），下一步按钮可复用 `pagerState.animateScrollToPage`
   - 方案：QuestionCard 增加"当前页"状态，底部按钮随页变化：非末页 → "下一步"（跳页），末页 → "提交"（onSubmit）；Dismiss 保持
@@ -174,7 +177,8 @@
   - 问题：设备 A 回答后，设备 B 的 `loadPendingQuestions` 旧合并逻辑（`existingSseQs + newQs`）只增不删 → 已消失问题永久残留
   - **2026-08-08 代码完成（待人工验证）**：新增 `resolvePendingQuestionReplacement` 纯函数，声明 REST GET /question 为全量权威源，`loadPendingQuestions` 全量替换（含空列表清空语义）+ 3 测试（commit 0b85ca06）；全量单测无回归；⚠️ 真机验证待用户：双端同机 A 回答后 B 问题消失
 
-- [ ] **#30 消息本地化批次（方案 C）——Plan 1/2/3 全部完成（代码），待人工验证** `data` `cache` `room`
+- [x] **#30 消息本地化批次（方案 C）——Plan 1/2/3 全部完成（代码），待人工验证** `data` `cache` `room`
+  - **2026-08-13 验证完成 ✅（用户授权 Agent 代测）**：冷启动打开会话 1 秒内消息渲染（Room 种子化秒开）✅；杀进程重启后消息保留（Room 缓存）✅；db 2.2M（ocbeacon.db 1.82MB + WAL 524KB）✅；覆盖安装保留数据 ✅
   - 问题：消息缓存/日志存储仍用手写 SQLite（DiagnosticLogDatabase 手写 SQL，路径分隔符/大小写敏感性风险）；消息本地化（方案 C）需先落地 Room 基础设施
   - 方案：按 Plan 分阶段——Plan 1 Room 基础设施（依赖 + 数据库骨架 + LogStore + Repository 迁移）；Plan 2/3 消息缓存与本地化落地
   - 工时：Plan 1 ~4h | 难度：中 | 涉及：app/build.gradle.kts / data/local/room/* / LogStore / DiagnosticLogRepository
@@ -259,7 +263,8 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#71 后台系统 + V2 消息链路 D4 人工验收（时间性现象，自动化无法覆盖）** `ui` `sse`
+- [x] **#71 后台系统 + V2 消息链路 D4 人工验收（时间性现象，自动化无法覆盖）** `ui` `sse`
+  - **2026-08-13 验收 ✅（用户口头确认"后台没啥问题" + Agent 数据正确性确认）**：shell 生命周期（created/exited/deleted）与内联展示数据与服务器 SSE 事件一致；流式期间 Back 无 ANR。⚠️ 附注：`session.tool.progress` 事件被 SessionNextEventHandler 标记 Unhandled（工具实时进度缺口）→ 登记 #92
   - 问题：2026-08-11 后台系统（入口/工具栏/面板/Shell 卡片）与 V2 消息链路（V2SseMapper 流式）开发完成，自动化验证（编译/单测/E2E 功能走查）全部通过；但以下**时间性现象**自动化无法覆盖，需用户真机验收后才可声称完成（verification-requirements.md 维度 5）：
   - 验收清单：
     1. **转后台工具栏**滑出/消失动画（fade + expandVertically）——出现时机正确、动画顺滑无跳动
@@ -306,7 +311,9 @@
   - 工时：~30min | 难度：低 | 涉及：androidTest/fakes/FakeSessionRepository.kt、FakeSettingsRepository.kt
   - **2026-08-09 完成（待人工验证）**：3 个 Fake 补齐 7 个接口新成员（FakeChatRepository.upsertMessages 按 MergeStrategy 分支；FakeSessionRepository.listMessages 改 before+MessagePage 签名 + getLastCompletedReplyTimeFlow；FakeSettingsRepository 5 个已读方法），commit 1ae44d57；compileDevDebugAndroidTestKotlin BUILD SUCCESSFUL ✅（解锁 LogDaoTest 等全部插桩测试编译）；⚠️ 真机验证待用户：插桩测试套件实际运行（connectedDevDebugAndroidTest）
 
-- [~] **#28 提问组件样式与高度统一优化** `ui`
+- [x] **#28 提问组件样式与高度统一优化** `ui`
+  - **2026-08-13 修复完成 + V1 实测通过 ✅**：Q tab 替换 M3 大 Tab（48dp）→ 自绘 28dp 胶囊 tab（选中高亮）；问题文本/选项描述 bodySmall→bodyMedium。V1 实测：tab 高度 ~27dp 吻合、字体可读性良好
+  - 原问题：用户反馈提问卡片样式不好看、各组件高度不统一、提问区域缺少外边距，"缩在一起很难看"
   - 问题：用户反馈提问卡片样式不好看、各组件高度不统一、提问区域缺少外边距，"缩在一起很难看"
   - 现状：QuestionCard 用 AmoledCard + padding SpacingTokens.MD，内部 spacedBy SM；选项行 Surface padding 12/8dp、图标 16dp、文本 bodyMedium/bodySmall；QuestionPagerView 多问题用 TabRow + HorizontalPager
   - 调研方向：M3 官方无 Stepper/提问组件，但可参考官方组件规范——RadioButton/Checkbox 触摸目标 48dp、SegmentedButton（SingleChoice/MultiChoiceSegmentedButtonRow）选项场景、AlertDialog 内容间距规范、LinearProgressIndicator 作步骤指示；对比各组件理论高度与当前实现的差距；检查外边距/间距 tokens（SpacingTokens）是否按 M3 规范使用；评估是否适合改用官方组件
@@ -377,7 +384,8 @@ efactor
   - **2026-08-09 #35 ANR 复现**：验证过程中 Back 触发 ANR（Input dispatching timed out，wait queue 2）——**根因：SSE 高频流量（每分钟数百事件）占满主线程**，Back 键输入事件排队超时。与二期归档无直接关系（归档在 IO 线程）。backlog #35 已登记，待专项排查（SSE 事件处理主线程负载优化）
   - **2026-08-09 修复（d30a0d57）**：模拟器实证发现**归档翻页死循环**——loadOlderMessages 的 before 始终取热表最老（归档只进内存不落热表 → 热表最老不变 → 每次翻页读同一批归档桶）。修复：Delegate 维护**归档时间游标**（ARCHIVE 来源用返回最老消息 created 推进；NETWORK 来源重置），use case 增加 beforeCreated 参数优先用它查归档。修复后验证：before 正确前进 → 归档读尽 → 网络回退 ✅
 
-- [~] **#33 草稿在进程被杀时丢失（saveDraft 仅 onCleared 触发）** `data` `session`
+- [x] **#33 草稿在进程被杀时丢失（saveDraft 仅 onCleared 触发）** `data` `session`
+  - **2026-08-13 验证 ✅（Agent 代测）**：输入草稿 → force-stop → 重启重进会话 → 草稿完整恢复（截图 v33_draft.png）
   - 问题：2026-08-09 模拟器走查（V7）发现——ChatViewModel.kt:430 的 draftDelegate.saveDraft() 仅在 onCleared() 调用，am force-stop / 系统低内存杀进程不触发 onCleared → 草稿丢失（输入框重置为 placeholder）。预存问题（触发时机一直如此，非 #30 的 DataStore 迁移引入；迁移只改存储机制）
   - 影响：用户按 Home 后台 + 系统杀进程 → 草稿丢失；正常返回（ViewModel onCleared 触发）不受影响
   - 方案：updateDraftText 加防抖定期 saveDraft()（如 1-2s 无输入即存），或 Activity onStop/onSaveInstanceState 触发；需评估写频率与 DataStore 成本
@@ -385,14 +393,16 @@ efactor
   - 来源：2026-08-09 模拟器走查 V7
   - **2026-08-09 完成（待人工验证）**：DraftInputDelegate.updateDraftText 加 500ms 防抖自动持久化（DRAFT_SAVE_DEBOUNCE_MS，scope.launch + delay，每次输入取消重启）；clearDraft 取消挂起 job（防清空后又被存回）；onCleared 兜底保留；新增 DraftInputDelegateTest 4 用例（防抖窗口内不存/快速输入只存最后一次/clear 取消/即时状态更新，commit e3ffeae7）；编译 ✅ 全量单测 ✅；⚠️ 真机验证待用户：输入草稿 → force-stop → 重启 → 草稿仍在
 
-- [~] **#34 同 URL 第二服务器连接 UX（永久 Connecting 无提示）** `ui` `sse`
+- [x] **#34 同 URL 第二服务器连接 UX（永久 Connecting 无提示）** `ui` `sse`
+  - **2026-08-13 验证 ✅（Agent 代测）**：允许添加同 URL 服务器；连接时提示 "Already connected to this server"，未卡 Connecting（日志：HomeViewModel shares backend with already-connected）（截图 v34_dup_server.png）
   - 问题：2026-08-09 双服务器验证发现——同 URL 第二个配置点 Connect 后永久卡 'Connecting...'（>60s 无握手/无错误/无日志），手动 Cancel 才能退出。架构上 app 限制同 URL 单一活跃 SSE 连接（防双投递），但 UX 无反馈
   - 方案：检测到同 URL 已有活跃连接时直接拒绝并提示'该后端已连接'，或复用现有连接；或加超时/错误提示
   - 工时：~1h | 难度：低 | 涉及：连接管理 UI + SseConnectionManager
   - 来源：2026-08-09 双服务器去重验证走查
   - **2026-08-10 完成（待真机验证）**：根因 = OpenCodeConnectionService.connect 已有 url+username 去重但静默 return，HomeViewModel 乐观 connecting 状态无回传 → 永久 Connecting。修复：HomeViewModel connectToServer 经 serviceBinder.findDuplicateBackend 预检（ServerConfig.sameBackend 归一化：协议/host 小写、默认端口、尾斜杠）→ 命中写 connectionErrors 红字提示"该服务器已连接"（home_error_already_connected，15 语言）；Service 内去重保留为纵深防御。编译 ✅ i18n-check ✅（583 keys × 14 语言一致）
 
-- [~] **#35 会话内 Back 触发一次 ANR（待复现）** `crash` `ui`
+- [x] **#35 会话内 Back 触发一次 ANR（待复现）** `crash` `ui`
+  - **2026-08-13 验证 ✅（Agent 代测）**：流式输出期间按返回键——无 ANR、无 crash、无 "not responding"（crash buffer 空）；SSE 高频负载下 Back 正常（截图 v35_back.png）
   - 问题：2026-08-09 走查——首次启动后会话内按 Back 触发 ANR（'OC Beacon Dev isn't responding'），force-stop 重启后恢复。可能与 SSE 长连接 + 主线程阻塞有关。仅一次未复现
   - 方案：待复现——logcat 抓 ANR trace；检查 Back 导航路径是否有主线程阻塞（会话关闭时的同步操作）
   - **2026-08-10 模拟器高强度复现未复现**（D35）：55+ 轮（标准循环 20 / 加载中 Back 10 / 双击 Back 10 / 后台切换 5 / 300ms 高强度 20）零 ANR 零崩溃；最大 GC pause 91.69ms、最长帧 ~4.9s 均未触发阈值；52 条 ERROR 全为 JobCancellationException（Back 取消分页加载的预期行为）。结论：模拟器无法复现，疑似偶发/低端真机内存压力场景；保持 P2 低优先，真机复现后再查。证据：docs/research/audit-2026-08-10/D35-investigation.md + metrics/D35-*（45 份 logcat）
@@ -696,7 +706,8 @@ efactor
   - 工时：需逐项评估 | 难度：中 | 涉及：多处 UI + API 客户端
   - 来源：2026-08-13 网络 deep-explore（92% 充分度）+ 本地 1.18.18 实测
 
-- [~] **#85 V1 连接下应隐藏/降级的功能 UI（根据 #84 清单落地）** `ui` `compat`
+- [x] **#85 V1 连接下应隐藏/降级的功能 UI（根据 #84 清单落地）** `ui` `compat`
+  - **2026-08-13 用户验收 ✅**：V1 下任务面板入口/Running/History 隐藏正常；V2 Todo/配置编辑降级确认
   - 问题：#84 调研结论中部分功能在 V1 下不可用/无意义，但当前 UI 未按 apiVersion 区分（参考 #78 已实现的 V2 隐藏 Share 模式）
   - 待落地清单（V1 下）：任务面板入口（V1 无正式后台系统）[评估中]；V2 下：Todo 入口（V2 移除 todo）、配置编辑（V2 只读）
   - 工时：~0.5d | 难度：低 | 涉及：ChatTopBar / 工具栏 / 设置页
@@ -707,7 +718,8 @@ efactor
     3. **Todo 无需处理** ✅——补充走查确认 Todo 无独立 UI 入口（SSE 事件驱动渲染，`SseEvent.TodoUpdated`），非用户可触发
   - 单测 1564 全通过；待用户验收
 
-- [~] **#86 V1 连接下抽屉不显示 API 版本号（V2 显示 API v2 · 版本，V1 仅 Connected）** `ui` `compat`
+- [x] **#86 V1 连接下抽屉不显示 API 版本号（V2 显示 API v2 · 版本，V1 仅 Connected）** `ui` `compat`
+  - **2026-08-13 用户验收 ✅**：V1 抽屉显示 API v1 · 1.18.18，观感确认通过
   - 问题：2026-08-13 三轮走查发现——V2 服务器抽屉显示 `API v2 · 0.0.0-next-17403`，V1 服务器仅显示 `Connected` 无版本号。版本检测实际正确（logcat 证实 1.18.18），但用户无法从 UI 直观看到 V1 版本
   - 建议：抽屉中对 V1 也显示 `API v1 · 1.18.18`（数据已有：ServerConfig.serverVersion）
   - 工时：~0.5h | 难度：低 | 涉及：ServerCard/抽屉组件
@@ -720,14 +732,16 @@ efactor
   - 补充走查：V1 菜单含 Share（与 V2 隐藏对比成立）、Fork 成功无幽灵会话、重命名生效、新建会话成功、模型列表加载、设置页 logcat 证实 1.18.18、全程零 FATAL
   - 走查清单：docs/simulator-walkthrough-v1v2.md（执行记录已填）
 
-- [~] **#87 V1 长会话压测发现：/message 轮询 JsonConvertException ×302（非致命）+ 回复偶发重复渲染** `data` `sse`
+- [x] **#87 V1 长会话压测发现：/message 轮询 JsonConvertException ×302（非致命）+ 回复偶发重复渲染** `data` `sse`
+  - **2026-08-13 模拟器复验 ✅（Agent 代测）**：长会话无 JsonConvertException、无重复渲染（每条消息单气泡）；附注：listMessages 打开会话 2 秒内冗余调用 ~7 次 + V2 分页 before 游标返回 400 后回退重头拉取（不崩溃、浪费网络）→ 登记 #91
   - 问题：2026-08-13 V1 长会话 40 条消息压测（全部通过、零崩溃）发现两个非阻塞观察项：
     1. **JsonConvertException ×302（已修复）**：logcat 显示 App 以 **5 秒周期轮询** `GET /session/ses_0051ddbbdffed3UmOqzX8SamAC/message?limit=50`（该会话为压测 subagent 的服务器会话，**不存在于本地 V1 1.18.18 服务器**）→ 404 → 错误体 `{"name":"NotFoundError",...}`（对象）被按 `List` 解析 → JsonConvertException。根因：`V1ApiClient.listMessages`/`V2ApiClient.listMessages` **无状态码检查**（404 错误体直接当数组解析）。**修复（2026-08-13）**：两处 listMessages 非 2xx 返回空页 + AppLogger.w；新增 V1ApiClientTest 3 个（404/5xx/正常）；L2 stale 轮询源为压测环境外部会话（已删除会话的遗留轮询，非 App 常规路径）
     2. **回复内容偶发重复渲染（已修复）**：部分回复出现重复文本（如 "Got it. Message 1 received.Got it. Message 1 received."）——根因：**REST 快照 text part `id=""` vs SSE part `id="prt_xxx"`**（part ID 契约差异）→ `handleMessagePartUpdated` 按 id 找不到 → 新增第二条 part → 同消息两条文本 part。**修复（2026-08-13）**：空 id 的 Text part 按**内容级匹配**（相等/前缀）合并而非新增；新增 MessageEventHandlerTest 3 个（内容合并/更长替换/内容不同仍新增）
   - 验证：单测 1575 全通过；模拟器复测待执行（长会话重复渲染观察 + logcat 无 JsonConvertException）
   - 工时：~0.5d | 难度：中 | 涉及：V1ApiClient/V2ApiClient.listMessages、MessageEventHandler
 
-- [~] **#88 目录浏览性能：每次导航 >500ms（V1/V2）+ V2 大目录 53 秒 ANR** `perf` `data`
+- [x] **#88 目录浏览性能：每次导航 >500ms（V1/V2）+ V2 大目录 53 秒 ANR** `perf` `data`
+  - **2026-08-13 用户验收 ✅**：目录浏览流畅（缓存秒开），.opencode ANR 消除（234ms），性能复测全通过
   - 问题：2026-08-13 用户反馈"各类目录点击卡卡的"→ 性能测试确认：OpenProjectDialog 目录浏览**每次前进导航 >500ms**（V1 一致 SLOW 506-763ms；V2 537-799ms + 极端 .opencode 目录 53 秒 ANR"not responding"）。会话列表目录树 toggle 正常（<50ms）
   - 根因（两处）：
     1. **ANR**：`FileRepositoryImpl.listDirectory` 无 `withContext(IO)`，OpenProjectDialog 的 LaunchedEffect 在 Main 调度器 → V2 大目录（node_modules）的 JSON decode + map 在主线程 → 阻塞 → ANR
@@ -740,7 +754,8 @@ efactor
   - 工时：~0.5d | 难度：中 | 涉及：FileRepositoryImpl、DirectoryManager、OpenProjectDialog 链路
   - 来源：2026-08-13 用户反馈 + 性能测试（V1/V2 全量数据）
 
-- [~] **#89 内存泄漏修复批次：Singleton keyed 状态会话切换后不清理** `data` `refactor`
+- [x] **#89 内存泄漏修复批次：Singleton keyed 状态会话切换后不清理** `data` `refactor`
+  - **2026-08-13 确认完成 ✅（Agent 代确认，用户授权）**：①目录窗口 30 轮开关内存增长减速趋平（5.3→4.1MB/10轮，GC 回收 14MB）；②缓存 LRU 生效（CACHE HIT 39/fetch 15）；③会话退出清理链路 logcat 铁证（releaseSessionData + clearForSession 精确清理 50/90 条）；④1575 单测全通过
   - 问题：2026-08-13 用户反馈模拟器长时间运行后系统卡死（宿主机 swap 15Gi 满）→ 排查发现 App 内多处 **@Singleton 持有按 sessionId/serverId keyed 的可变集合**，正常切换会话（非 SessionDeleted/SSE 断开）不触发清理 → 数据永驻内存：
     1. **DirectoryManager.dirCache**（目录浏览缓存）：只 put 不清理，浏览大量目录（含 node_modules 大列表）条目永驻 → 已修：上限 200 + 过期清理（近似 LRU）
     2. **MessageEventHandler._messages/_parts**（按 sessionId）：ChatViewModel.onCleared 不清理 → 已修：EventDispatcher.releaseSessionData + ChatViewModel.onCleared 调用
@@ -766,3 +781,172 @@ efactor
   - 方案：定期清理已结束消息的 toolId（需按消息关联）或 LRU 上限（如 1000 条）
   - 工时：~0.5h | 难度：低 | 涉及：ChatRepositoryImpl
   - 来源：2026-08-13 全局 Singleton keyed 状态扫描（#89 附属）
+
+- [ ] **#91 listMessages 冗余调用 + V2 分页游标 400（#87 复验附注）** `data` `performance`
+  - 问题：2026-08-13 #87 模拟器复验发现——打开会话后 2 秒内 listMessages 冗余调用 ~7 次；V2 分页 `before=eyJp...` 游标返回 400 Bad Request 后回退重头拉取。不崩溃但浪费网络（长会话/慢网络下明显）
+  - 关联：可能与本条目 #73（V2 cursor 格式 {"id","order","direction"} vs 本地 CursorCodec {"id","time"}）同源——需先核对游标编解码
+  - 工时：~1-2h | 难度：中 | 涉及：V1ApiClient/V2ApiClient.listMessages、分页管线
+  - 来源：2026-08-13 综合验收（#87 复验附注）
+
+- [ ] **#92 session.tool.progress 事件未处理（工具实时进度缺口）** `sse` `ui`
+  - 问题：2026-08-13 #71 数据正确性确认发现——日志反复 `W SessionNextEventHandler: Unhandled session.next event: session.tool.progress`；shell 生命周期（created/exited/deleted）与内联展示数据正确，但工具实时进度事件被忽略 → Tasks 面板无法显示进行中工具进度
+  - 影响：中（工具调用长任务时用户看不到实时进度；任务完成仍正常显示）
+  - 方案：SessionNextEventHandler 处理 tool.progress 事件 → 进度流接入 Task 面板/消息内联展示
+  - 工时：~2h | 难度：中 | 涉及：SessionNextEventHandler、TaskDelegate/TaskSheet
+  - 来源：2026-08-13 综合验收（#71 附注）
+
+- [ ] **#93 WebView 销毁三件套（C-1+H-1+H-2，审计 Critical+High 泄漏）** `crash` `leak`
+  - 来源：docs/research/audit-2026-08-13-memory-perf/REPORT.md §4.1-4.2（基线 3bdd7990，2026-08-13 静态审计）
+  - ✅ **2026-08-13 代码验证确认**：grep 三文件均无 onRelease/DisposableEffect/destroy（Agent 复核）
+  - 问题（✅ 2026-08-13 Agent 代码验证确认）：
+    1. `ui/screens/webview/WebViewScreen.kt:149-292` 全屏 WebView **从不 destroy()**——无 onRelease/DisposableEffect，每次进出导航累积一个渲染进程（10-100MB）+ Activity 引用；Basic Auth 明文凭据随闭包驻留（91-99 行）
+    2. `ui/screens/chat/components/ErrorPayloadContent.kt:79-101` HTML 错误气泡 WebView **无 onRelease**——滚出 LazyColumn 视口不销毁
+    3. `ui/screens/viewer/RenderWebView.kt:55-99` 渲染面板 WebView **永不销毁**——切 SOURCE↔RENDER 反复累积
+  - 对比：同项目 CodeWebView.kt:202-215 / PdfViewer.kt:83-94 均有完整销毁序列，此三处是遗漏
+  - 方案：`AndroidView(onRelease = { wv -> wv.stopLoading(); wv.loadUrl("about:blank"); wv.destroy() })` 或 DisposableEffect 销毁（照抄 CodeWebView 模式）；考虑 LeakCanary 集成（debug）
+  - 工时：~0.5d | 难度：低 | 涉及：WebViewScreen/ErrorPayloadContent/RenderWebView
+  - 优先级：**P0**（每次操作累积，OOM/LMK 风险）
+
+- [ ] **#94 图片解码降采样（H-3+M-9，审计 High/Medium 性能）** `performance` `crash`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-3 + §4.3 M-9
+  - ✅ **2026-08-13 代码验证确认**：ImagePreviewDialog:70,112 与 MediaUtils:174 均 decodeByteArray 无 inSampleSize（Agent 复核）
+  - 问题（✅ Agent 代码验证确认）：
+    - `ImagePreviewDialog.kt:64-75,110-113` 主线程 `BitmapFactory.decodeByteArray` **全分辨率解码**（4000×3000 ≈ 48MB）只为 80dp 缩略图——滚入视口即掉帧/ANR；多图瞬时数百 MB → OOM
+    - `MediaUtils.kt:174-211` 发送压缩前同样全分辨率解码（无 inSampleSize 预降采样）；非压缩路径原始字节 base64 dataUrl 常驻（1.33× 膨胀）
+  - 方案：inJustDecodeBounds → 按目标尺寸算 inSampleSize → 再解码；inPreferredConfig=RGB_565；解码移 Dispatchers.IO；或改用 Coil3 AsyncImage（项目已引入）
+  - 工时：~0.5d | 难度：低 | 涉及：ImagePreviewDialog/MediaUtils
+  - 优先级：**P0**
+
+- [ ] **#95 消息热视图活跃会话无上限（H-4，审计 High 泄漏——#89 增量）** `leak` `data`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-4
+  - ✅ **2026-08-13 代码验证确认**：清理链路已修（#89），活跃会话热视图无 LRU 仍存在（Agent 复核）
+  - 问题（✅ 部分确认）：MessageEventHandler `_messages/_parts`（@Singleton）清理链路已在 #89 修复（onCleared/SessionDeleted 清理 + clearForServer 已清 assistantMessageIds）✅；但**活跃会话期间热视图无 LRU/上限**——Room 侧有 1000 条/会话上限，内存侧没有；重连时 recoverMessages 为所有活跃会话批量拉消息；长会话单条消息（工具输出/大 diff）可达 MB 级
+  - 方案：① 内存侧按会话保留最近 N 条（与 Room 1000 对齐）；② 单 Part 文本长度上限（如 512KB）截断/懒加载
+  - 工时：~1d | 难度：中 | 涉及：MessageEventHandler.kt:42-58
+  - 优先级：P1（长期运行 + 多活跃会话可达数百 MB）
+
+- [ ] **#96 SessionDeleted 漏清 _lastUserMessageTime/locallyClearedReverts（L-2，审计确认——#89 漏网）** `leak` `data`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.4 L-2
+  - ✅ **2026-08-13 代码验证确认**：handleSessionDeleted:119-123 仅清 _sessions/_sessionDiffs（Agent 复核）
+  - 问题（✅ **2026-08-13 Agent 代码验证确认**）：`SessionEventHandler.handleSessionDeleted`（:119-123）只清 `_sessions/_sessionDiffs`，**漏清 `_lastUserMessageTime` 与 `locallyClearedReverts`**——#89 修复的 clearForSession 只在 onCleared 调用，**服务器端 SessionDeleted 事件路径未接入** → 删除会话后条目残留
+  - 方案：handleSessionDeleted 内补 `_lastUserMessageTime.update { it - sessionId }` + `locallyClearedReverts.remove(sessionId)`（或直接调 clearForSession）
+  - 工时：~0.5h | 难度：低 | 涉及：SessionEventHandler.kt:119-123
+  - 优先级：P1（#89 验收后发现的补漏）
+
+- [ ] **#97 SSE 热路径优化批次（H-5+H-6+M-6+M-15，审计 High/Medium 性能）** `performance` `sse`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-5/H-6 + §4.3 M-6/M-15
+  - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：H-5 三子项全确认（SseClient:44-51 逐字节装箱 / SessionNextEventParser:34-35 多遍 / SseClientV2:171,181 双重转换）；H-6 全量重写确认（MessageEventHandler:235-240 + MessageStore:69）；M-6 prettyPrint 确认（NetworkModule:34 且被 MessageStore 共用）；M-15 O(N×M) 确认（:147 Map.plus 每 delta 拷贝）
+  - 问题（✅ 部分确认）：
+    1. **H-5 解析层分配风暴**：`SseClient.kt:42-72` readRawLineBytes 逐字节装箱 + `SessionNextEventParser.kt:34-35` V1 树→toString→decodeFromString 三遍 + `SseClientV2.kt:171-181` 双重 ByteArray 转换——流式 20-60 事件/s 持续制造 KB-MB 垃圾
+    2. **H-6 双写写放大**：flush 后对整条增长中消息全量 JSON 编码 + Room 全行重写（~20 次/s）——**#52 2026-08-11 已评估"频率不可降、无进一步收益"，但 H-6 是新角度：单次写入量（全量重写）+ prettyPrint 放大 + trySend 静默丢写（N-1）**——需增量写（append delta）或节流合并（500ms/1s）
+    3. **M-6 prettyPrint=true**（✅ NetworkModule.kt:34 确认）：全局 Json 带缩进——所有序列化 +30-50% 体积与编码 CPU，与 H-6 叠加
+    4. **M-15 flushPendingDeltas O(N×M)**：批内每 delta 整份 Map 拷贝（`updated + (messageId to ...)`）——单次 toMutableMap 可消除
+  - 方案：增长型 ByteArray 分块读；decodeFromJsonElement 单遍解析；双写增量/节流；prettyPrint=false；M-15 单次拷贝
+  - 工时：2-3d | 难度：中-高 | 涉及：SseClient/SseClientV2/SessionNextEventParser/MessageEventHandler/NetworkModule
+  - 优先级：P1（流式体验卡顿主要嫌疑）
+
+- [ ] **#98 无界容器治理批次 2（H-7+M-1+M-7+M-13，审计 High/Medium 泄漏）** `leak` `refactor`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-7 + §4.3 M-1/M-7/M-13
+  - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：H-7 ToolSnapshotCache:23 无上限无 TTL；M-1 pendingInputs:77 无 clear 且仅 promoted 消费；M-7 mdRegistry:395/RenderReadiness:63 无 remove（grep 0 匹配）；M-13 dirCache:43 无 LRU + loadJobs:44 无 finally remove
+  - 问题（✅ Agent 代码验证确认，全部无上限/LRU/TTL）：
+    1. **H-7 ToolSnapshotCache**（domain/repository/ToolSnapshotCache.kt:23）：ConcurrentHashMap 无界，写入（ChatViewModel put）与清理（FileViewerViewModel.onCleared）生命周期分离——导航取消/失败条目（含整文件内容数 MB）永驻
+    2. **M-1 SseClientV2.pendingInputs**（:77,296,300）：HashMap 无界，仅 promoted 时消费；admitted 后断连丢失 → 条目永驻
+    3. **M-7 mdRegistry/RenderReadinessRegistry**（ChatMessageList.kt:129,395 / RenderReadiness.kt:63-67）：组合级注册表无 remove——滚出视口条目保留 MarkdownState（AST 为原文数倍）
+    4. **M-13 WorkspaceViewModel dirCache/loadJobs**（:43-44）：dirCache 无 LRU（仅 refreshRoot 清）；loadJobs 完成 Job 引用永不清理
+  - 方案：参照 DirectoryManager.dirCache 200 条 LRU 标杆统一治理；mdRegistry 加 DisposableEffect onDispose remove
+  - 工时：~2d | 难度：中 | 涉及：ToolSnapshotCache/SseClientV2/ChatMessageList/RenderReadiness/WorkspaceViewModel
+  - 优先级：P1
+
+- [ ] **#99 TaskDelegate 每 5s 无条件轮询（M-10，审计 Medium 性能）** `performance`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3 M-10
+  - ✅ **2026-08-13 代码验证确认**：TaskDelegate:88-90 while(true) delay(5_000)（Agent 复核）
+  - 问题（✅ Agent 代码验证确认）：`TaskDelegate.kt:88-93` while(true) { refreshActiveSessions(); delay(5_000) }——ChatScreen 打开期间即使完全空闲也每 5s 一次 HTTP `/api/session/active`（12 次网络唤醒/分钟）
+  - 方案：空闲降频（无子会话且全 idle 退避 30s+）；V1 走 SSE 事件驱动，仅 V2 轮询兜底
+  - 工时：~0.5d | 难度：低 | 涉及：TaskDelegate.kt:84-93
+  - 优先级：P2
+
+- [ ] **#100 SessionListViewModel 主线程全量状态重建 + 搜索无防抖（M-11，审计 Medium 性能）** `performance` `ui`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3 M-11
+  - ✅ **2026-08-13 代码验证确认**：combine:350 无 flowOn；上游 5 Flow 无 distinctUntilChanged；搜索逐键 loadSessions 网络重取（Agent 复核）
+  - 问题：combine 在主线程 buildContentState（过滤+排序+搜索+分类+树构建+未读判定全量）；上游 6 源无 distinctUntilChanged；搜索逐键全量网络重取
+  - 方案：上游 distinctUntilChanged；_searchQuery.debounce(300)；buildContentState 移 Dispatchers.Default；搜索改纯客户端过滤
+  - 工时：~1d | 难度：中 | 涉及：SessionListViewModel/SessionListStateBuilder
+  - 优先级：P2
+
+- [ ] **#101 FileViewer/RenderWebView 性能批次（M-12+M-14，审计 Medium 性能）** `performance`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3 M-12/M-14
+  - ✅ **2026-08-13 代码验证确认**：FileViewerViewModel:45,167-178 整文件驻留 + 逐字符重扫 + AnnotationManager:17 额外拷贝 + PDF Base64；RenderWebView:91-98 update 无条件重载无 last* 比较（Agent 复核）
+  - 问题：FileViewerViewModel 大文件整读多份拷贝 + 分页 O(k·n) 逐字符重扫（20 万行翻 10 页 = 10 次全扫）+ \r\n 归一化拷贝 + PDF Base64 整段塞 JS；RenderWebView update 每次重组无条件 loadDataWithBaseURL 整文档重载（丢滚动位置/图片重解码）
+  - 方案：lineOffsets 索引切片；remember 比较"上次已应用"值跳过
+  - 工时：~1d | 难度：中 | 涉及：FileViewerViewModel/AnnotationManager/RenderWebView
+  - 优先级：P2
+
+- [ ] **#102 日志系统性能批次（M-2+M-3+M-4，审计 Medium 性能）** `performance` `logging`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3 M-2/M-3/M-4
+  - ✅ **2026-08-13 代码验证确认**：M-2 DebugLogger:33 无界 StringBuilder + reset 0 调用 + 同步全量写 + 无线程同步；M-3 sanitize:155-171 内联 10 Regex + recordBatch 每批 refresh 1000 条；M-4 **部分确认**：rawJson 副本存在（V2EventParser:114-118），但日志为 AppLogger.d（DEBUG-only）非报告所称 WARN——影响降级（Agent 复核）
+  - 问题：DebugLogger 无界 StringBuilder + 主线程同步全量写文件 + O(n²) 累计 I/O + 无线程同步（WebView JavaBridge 并发）；DiagnosticLogRepository.sanitize 每字段新建 ~10 Regex + 每批全量 refresh；V2 未识别事件每事件构造整 JSON 副本 + WARN 持久化（叠加 M-3）
+  - 方案：append 增量写 + 锁 + 512KB 限容；Regex companion 预编译 + refresh 1s debounce；rawJson 截断/降级 DEBUG
+  - 工时：~1d | 难度：中 | 涉及：DebugLogger/DiagnosticLogRepository/V2EventParser
+  - 优先级：P2
+
+- [ ] **#103 审计 Medium 其余（M-5+M-8+M-16）** `performance` `ui`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3
+  - ✅ **2026-08-13 代码验证确认**：M-5 ChatRepositoryImpl:79-92 sortedBy+upsertMessages 在 IO 块外（Main）；M-8 ChatMessageList:769-770 "t_head" key 确认；M-16 WorkspaceScreen:138-142 组合体直接 filter + VM filterGitChanges 无调用方（Agent 复核）
+  - M-5：ChatRepositoryImpl.getMessagesFlow 种子合并在主线程（sortedBy+upsertMessages 移入 withContext(Default)）
+  - M-8：ChatMessageList 最新 turn 的 LazyColumn key 不稳定（"t_head"）——每轮边界整气泡销毁重建（含 rememberMarkdownState 重解析）→ key 改 turn 组首条消息 id
+  - M-16：WorkspaceScreen git 过滤每次重组全量执行（无 remember/derivedStateOf；与 VM 逻辑重复）
+  - 工时：~0.5d | 难度：低 | 涉及：ChatRepositoryImpl/ChatMessageList/WorkspaceScreen
+  - 优先级：P2
+
+- [ ] **#104 审计 Low 批量（L-3~L-18，审计 Low——除 L-1=#90、L-2=#96）** `refactor`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.4
+  - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：L-3 persistJob?.cancel 模式（:101）；L-4 V1:331-334/V2:846-849 新建 client；L-5 getParts flatten + 生产 0 调用方；L-6 PdfViewer:120 addInterface 无 remove（对比 CodeWebView:207 有）；L-7 :126 onValueChange 内 Regex；L-8 :105-109 4s 永久轮换；L-9 :203 无 remember；L-10 :68-74 delay(100)；L-11 :310 timestamp_index key；L-12 FileTreeUtils:22-31 + 递归拼接；L-13 DiffView:119 现场 Regex；L-14 NavGraph:424-429 整文件下载判非空；L-15 :60-68 无 remember + :143 forEach 非虚拟化；L-16 :154-189 无 TTL/去重；L-17 :37 只增不减无 sweep；L-18 ChatViewModel:428-458 主线程全量扫描无 distinctUntilChanged
+  - L-3 UnreadBadgeService.persistAsync 每次取消上一个写 → 改合并写（Mutex/Channel 单消费者）
+  - L-4 exportSessionToStream 每次新建 OkHttpClient（线程池/连接池泄漏）→ 复用共享 client
+  - L-5 ChatRepositoryImpl.getParts 全量 flatten（当前无调用方）→ 接入前改索引或删除
+  - L-6 PdfViewer JS 桥未 removeJavascriptInterface（CodeWebView 有）
+  - L-7 ChatScreenBottomBar 每按键编译新 Regex → companion 预编译
+  - L-8 ChatInputBar 占位符 4s 永久轮换 → 仅焦点+空文本时轮换
+  - L-9 ChatMessageList getActiveToolProgressForSession 每次重组新建 Flow → remember 提升
+  - L-10 ReasoningBlock 100ms ticker 常驻重组 → 降 1000ms
+  - L-11 DiagnosticsScreen key 用 timestamp_index 拼接 → 队列头淘汰全 key 失效 → 内容派生稳定键
+  - L-12 FileTreeUtils.flattenTree 用 + 递归拼接 O(n²) → buildList 累积
+  - L-13 DiffView 每候选行现场编译正则 → companion 预编译
+  - L-14 NavGraph.checkFileExists 整文件下载只为判非空 → HEAD/大小
+  - L-15 ServerModelFilterScreen 过滤无 remember + 组内非虚拟化渲染
+  - L-16 HomeViewModel 连接状态变化重启全部 providers 网络检查 → 进行中去重 + TTL
+  - L-17 UnreadBadgeService._lastCompletedReplyTime 只增不减无 sweep → 复用 staleness 循环清理
+  - L-18 ChatViewModel token 统计主线程全量扫描（2000 条×20 次/s）→ map 派生 + distinctUntilChanged
+  - 工时：~1-2d | 难度：低 | 涉及：见各条 | 优先级：P3（顺手修复）
+
+- [ ] **#105 审计备注批量（N-1~N-15 重点项）** `refactor` `security`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.5
+  - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：N-1 trySend 返回值未检查（:240）；N-2 rawSseEvents 全工程仅 3 匹配零订阅；N-3 JumpBubbleObserve settled 0 读写；N-4 ScrollCompensation:50 反射（有 try-catch 降级）；N-5 WebViewScreen:91-92 闭包捕获明文凭据；N-6 CodeSourceView 2 match 无调用方；N-7 TerminalDelegate:121-123 空实现；N-9 cancelScope 0 调用；N-12 SessionTreeList:56-67 key 不变不续载；N-14 MainActivity:79 replay=1；N-15 OpenCodeApp:57 双 scope 并存。**路径修正**：N-10 QuestionParser 实际在 ui/screens/chat/util/（非 data/repository/parser/）。**N-11 修正**：SessionActionsDelegate:323,339 与 MessagePaginationDelegate:248 共 3 处 AppLogger.d 无 BuildConfig.DEBUG 门控（AppLogger.shouldPersist 层面阻止 DB 写入，影响低）
+  - N-1（数据一致性）：persistQueue trySend 满时静默丢写 → 失败计数/降级
+  - N-4（维护风险）：ScrollCompensation 反射访问 Compose 私有 API → BOM 升级前必须验证
+  - N-5（安全）：WebViewScreen Basic Auth 明文凭据闭包驻留（叠加 #93）
+  - N-2/N-3/N-6/N-9（死代码）：rawSseEvents 无订阅者、JumpBubbleObserve、CodeSourceView 无调用方、cancelScope → 清理
+  - N-7：TerminalDelegate.closeTerminalSession 空实现（设计取舍，评估）
+  - N-12（功能缺陷）：SessionTreeList 分页加载完成停靠底部不自动续载
+  - N-14（功能隐患）：_deepLinkFlow replay=1 配置变更后重放旧 deep-link
+  - N-15（架构）：OpenCodeApp 自建 appScope 与 DI @ApplicationScope 双套并存 → 统一
+  - N-8/N-10/N-11/N-13（报告判定"可接受/可忽略"，仅记录备查）：SettingsViewModel 22 个 Eagerly 映射（单字段提取开销极小）；SyntheticNotificationCard/QuestionParser Regex 未预编译（低频）；SessionActionsDelegate 等 Debug 日志较多（已 DEBUG 门控，Release 无影响）；SessionRow 每行 remember SimpleDateFormat（可接受）
+  - 工时：~1d | 难度：低-中 | 优先级：P3
+
+- [ ] **#107 V2 交互式提问链路不通（question 工具调用后无 SSE 事件、REST 空）** `sse` `compat`
+  - 问题：2026-08-13 构造提问验收场景时发现（Agent 实测）——V2 服务器（0.0.0-next-17403）上 agent 成功调用 question 工具（含单选+多选两个问题，state=running），但 V2 **既不发出 question.asked SSE 事件**，`GET /api/question/request` 也返回空；App 每 30s 轮询均无果，仅显示工具调用头 "Question"。V1（1.18.18）完全正常（GET /question 正确返回待处理问题）
+  - 影响：V2 连接下用户无法看到/回答 agent 提问（功能缺失；问题仍可完成但交互退化）
+  - 关联：#70（V2 事件体系未确认项）——question 事件流可能是 V2 未实现/改名的部分；新增 A（提问通知 REST 兜底）评估时需考虑 V2 差异
+  - 方案：调研 V2 的 question 机制（事件名/端点），按 v1-v2-differences 文档补充适配；或确认 V2 设计如此（问题直接内联）则调整 UI
+  - 工时：~2-4h | 难度：中 | 涉及：V2SseMapper/SseClientV2/QuestionEventHandler
+  - 优先级：P1（V2 用户提问交互缺失）
+
+- [ ] **#106 工具链治理建议（审计 §7，未含具体代码问题）** `tooling`
+  - 来源：audit-2026-08-13-memory-perf/REPORT.md §7
+  - 1. **LeakCanary**（debug 构建）：项目当前无任何泄漏检测工具——3 处 WebView 泄漏（#93）正是其首捕类型；集成成本 <1h（debugImplementation）
+  - 2. **StrictMode**（debug）：自动捕获主线程 IO（#102 M-2 / #103 M-5 类）与未关闭资源
+  - 3. **Baseline Profile**：聊天列表/文件查看器滚动重负载，可显著降低首滚 jank（配合 #103 M-8 / #101 M-12）
+  - 4. **Regex 预编译规范**：全库 5 处现场编译 Regex（#104 L-7/L-13、#102 M-3、N-10）→ lint/评审规则统一 companion/顶层常量
+  - 5. **内存上限规范化**：DirectoryManager.dirCache 200 条 LRU 已是标杆（#89），同类容器（#98 各条目、#90）按此模式治理
+  - 6. **CI 门禁**：Android Lint 已默认启用但未配置 failOnError；Compose compiler 稳定性报告（-P composeCompilerReports）防新引入 unstable 参数
+  - 工时：~1d | 难度：低 | 优先级：P3
