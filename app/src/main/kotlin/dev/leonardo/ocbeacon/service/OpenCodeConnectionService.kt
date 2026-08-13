@@ -7,8 +7,11 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
+import androidx.core.content.ContextCompat
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.api.NetworkMonitor
@@ -37,6 +40,8 @@ import dev.leonardo.ocbeacon.util.parseLocale
 private const val TAG = "OpenCodeService"
 private const val WAKELOCK_TAG = "OpenCodeRemote::SSEConnection"
 private const val QUESTION_POLL_INTERVAL_MS = 30_000L
+/** #111：dataSync FGS 6h 时限后重启延迟（等待旧实例 stopSelf 销毁完成）。 */
+private const val FGS_TIMEOUT_RESTART_DELAY_MS = 2_000L
 
 /**
  * 用于维护到多个服务器的 OpenCode SSE 连接的前台服务。
@@ -195,6 +200,38 @@ class OpenCodeConnectionService : Service() {
 
     override fun onBind(intent: Intent?): IBinder {
         return binder
+    }
+
+    /**
+     * Android 15+（API 35）dataSync 前台服务 6 小时时限回调（#111）。
+     *
+     * 系统到达时限调用本方法；若不处理，服务将被系统强制停止 →
+     * 手动连接静默丢失（用户无感知断连）。策略：
+     * 1. 记录可观测日志（时限触发 + 当前活跃服务器）
+     * 2. super 默认 stopSelf(startId)——满足系统"超时后必须停止"约束
+     * 3. 有活跃连接时延迟 2s 重启服务（新 6h 周期）——已配置自动连接的
+     *    服务器由 onCreate → autoConnectConfiguredServers 自动恢复
+     */
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        super.onTimeout(startId, fgsType)
+        val activeServers = connectionManager.connections.keys.toList()
+        AppLogger.w(TAG, "FGS dataSync timeout (6h) startId=$startId fgsType=$fgsType, activeServers=$activeServers")
+        if (activeServers.isEmpty()) {
+            AppLogger.i(TAG, "No active connections, skipping service restart after FGS timeout")
+            return
+        }
+        // 延迟重启：等待当前实例 stopSelf 销毁完成后启动新实例，获得新的 6h 时限
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                AppLogger.i(TAG, "Restarting service after FGS timeout (new 6h window)")
+                ContextCompat.startForegroundService(
+                    applicationContext,
+                    Intent(this, OpenCodeConnectionService::class.java)
+                )
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "FGS timeout restart failed", e)
+            }
+        }, FGS_TIMEOUT_RESTART_DELAY_MS)
     }
 
     override fun onDestroy() {
