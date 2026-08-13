@@ -468,9 +468,12 @@ class EventDispatcher @Inject constructor(
         // 2026-08-14：不清理 permissionHandler/questionHandler——pending
         // permission/question 是服务器状态，退出会话后应保留（列表 Asking 状态
         // 不闪烁）；回答/拒绝由 SSE 事件清理，SessionDeleted/断连时级联清理。
+        // 2026-08-14 再修复：不清理 sessionStateService FSM 状态——busy/streaming
+        // 同样是服务器状态镜像（execution.started→busy，SSE 事件持续更新）。
+        // 退出时清除 → 列表状态先消失再恢复（闪烁）；内存由 24h staleness
+        // 自动清扫兜底（STATE_RETENTION_MS，非 Busy 会话超时移除）。
         miscHandler.clearForSession(sessionId)
         sessionNextHandler.clearForSession(sessionId)
-        sessionStateService.clearSession(sessionId)
         ownershipRegistry.release(sessionId)
         shellJobsHandler.clearForSession(sessionId)
     }
