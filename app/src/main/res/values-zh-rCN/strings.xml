@@ -31,6 +31,8 @@
     <string name="permission_deny">拒绝</string>
     <!-- Questions -->
     <string name="question_submit">提交</string>
+    <string name="question_single_choice">SINGLE</string>
+    <string name="question_multi_choice">MULTI</string>
     <string name="question_next">下一个</string>
     <string name="question_unanswered_title">有未回答的问题</string>
     <string name="question_unanswered_confirm">第 %1$s 个问题没有回答。</string>

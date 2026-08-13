@@ -272,6 +272,8 @@
     
     <!-- Questions -->
     <string name="question_submit">Submit</string>
+    <string name="question_single_choice">SINGLE</string>
+    <string name="question_multi_choice">MULTI</string>
     <string name="question_next">Next</string>
     <string name="question_unanswered_title">Unanswered questions</string>
     <string name="question_unanswered_confirm">Questions %1$s have not been answered yet.</string>

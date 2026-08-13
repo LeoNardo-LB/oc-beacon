@@ -950,3 +950,77 @@ efactor
   - 5. **内存上限规范化**：DirectoryManager.dirCache 200 条 LRU 已是标杆（#89），同类容器（#98 各条目、#90）按此模式治理
   - 6. **CI 门禁**：Android Lint 已默认启用但未配置 failOnError；Compose compiler 稳定性报告（-P composeCompilerReports）防新引入 unstable 参数
   - 工时：~1d | 难度：低 | 优先级：P3
+
+### 2026-08-14 跨维度审计批次（audit-2026-08-13-dimensions/REPORT.md，112 条）
+
+- [ ] **#108 SSE 心跳机制缺陷批次（D2-03 阻塞读挂死 + D2-05 V1 心跳不一致）** `sse` `network`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md D2-03/D2-05（B 路 + 主代理双源）
+  - 问题：① 两客户端 socketTimeout=Long.MAX_VALUE + 心跳检查仅在行间 → 半开 TCP（kill -9/NAT 静默断）连接永久挂死，重连/冷却失效；② V1 心跳只在 ServerHeartbeat 事件刷新（V2 已改任意事件刷新）→ V1 服务器长流式 40s 假超时断连
+  - 方案：读循环套 withTimeoutOrNull(40s)；V1 心跳与 V2 对齐（任意事件/空帧刷新）；加日志观测命中率
+  - 工时：~0.5d | 难度：低-中 | 涉及：SseClient/SseClientV2/SseConnectionManager | 优先级：P0
+
+- [ ] **#109 V2 REST/SSE part id 契约错位（D2-01，可能双份渲染）** `compat` `sse`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md D2-01（A 路，主代理回读确认）
+  - 问题：V2Mappers 空 part id（id=""）与 SSE derivePartId（msg_ord_N）契约不一致 → mergePartsList preserved 双份保留 → 已完结消息文本双份渲染
+  - 方案：V2Mappers 统一 derivePartId；或 mergePartsList 空 id 内容匹配合并；先模拟器实测复现
+  - 工时：~0.5-1d | 难度：中 | 涉及：V2Mappers/MessageEventHandler | 优先级：P0（先实测）
+
+- [ ] **#110 多服务器共享状态批次（D2-02/D2-11/D2-12/D2-13/D2-24）** `race` `multi-server`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md（A/B 路）
+  - 问题：pendingInputs HashMap 跨服务器并发（D2-02）；状态容器 sessionId 单键无 serverId 维度（D2-11）；currentServerId 单值被覆盖 → L3 校验打错服务器（D2-12）；isConnected 语义 = job 活跃非连接（D2-13）；McpRepositoryImpl 共享 connection（D2-24）
+  - 方案：ConcurrentHashMap/按 serverId 隔离；复合键 (serverId, sessionId)；去掉 currentServerId 单值；isConnected 返回真实标志
+  - 工时：~1-2d | 难度：中 | 涉及：SseClientV2/各 handler/SessionStateService/SseConnectionManager/McpRepositoryImpl | 优先级：P1
+
+- [ ] **#111 dataSync 前台服务 6h 时限（D2-04，Android 15+）** `android` `service`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md D2-04（B 路）
+  - 问题：targetSdk 36 + foregroundServiceType=dataSync + 0 处 onTimeout → Android 15+ 每 6h 系统终止服务，手动连接静默丢失
+  - 方案：覆盖 onTimeout（快速重连/通知用户）；评估 FGS 类型；纳入可观测性日志；真机验证
+  - 工时：~0.5d | 难度：低 | 涉及：OpenCodeConnectionService/Manifest | 优先级：P0
+
+- [ ] **#112 通知链路竞态批次（D2-14 mark-before-show + D2-18 轮询门控 + D2-L30 250ms 启发式）** `notification`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md D2-14/D2-18/D2-L30（B 路）
+  - 问题：任务完成通知先标记去重后查抑制 → 抑制场景通知静默丢失；提问轮询 30s 无门控（通知关闭仍打 REST）；SessionIdle 通知依赖 250ms 固定延迟
+  - 方案：先预检抑制再标记；轮询退避/门控；事件驱动或多次轮询
+  - 工时：~0.5d | 难度：低-中 | 涉及：OpenCodeConnectionService/AppNotificationManager | 优先级：P2
+
+- [ ] **#113 UI 状态竞态批次（D2-06 草稿恢复 + D2-26 设置读改写 + D2-L66 clearDraft + D2-L67 答案 saveable）** `ui` `race`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md（C/D 路）
+  - 问题：冷启动草稿不回填（视觉丢失）；快速连切设置丢修改；clearDraft 与 saveDraft 并发；QuestionCard 答案旋转丢
+  - 方案：LaunchedEffect(draftText) 初始化；设置写串行化（Mutex/单消费者）；clearDraft 走同一写通道；rememberSaveable
+  - 工时：~0.5d | 难度：低 | 涉及：ChatScreen/ChatViewModel/SettingsViewModel/DraftInputDelegate/QuestionCard | 优先级：P1
+
+- [ ] **#114 认证头统一（D2-27，147 处内联）** `network` `refactor`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md D2-27（E+A 路，grep 实测 147 处）
+  - 问题：Authorization 逐请求内联 + Auth 插件空 install → 认证演进改 147+ 处，新端点易漏挂头 401
+  - 方案：配置 Auth provider 或抽 auth(conn) 扩展统一替换；V1/V2 双轨同步
+  - 工时：~1d | 难度：中 | 涉及：V1/V2ApiClient/NetworkModule | 优先级：P1
+
+- [ ] **#115 移动端生命周期批次（D2-16 onTrimMemory + D2-17 崩溃退避 + D2-L23~L25 rememberSaveable）** `android`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md D2-16/D2-17/D2-L23~L25
+  - 问题：无低内存回调；崩溃无条件重启（死循环风险）；手动连接进程死亡不恢复；20+ 处对话框 remember 非 saveable；FileViewerOverlay VM 重建丢批注
+  - 方案：onTrimMemory 分级清理；重启退避（10min 内最多 1 次）；记录 lastConnected 恢复；rememberSaveable 批量迁移（触发条件注意：旋转由 configChanges 处理，主要覆盖 recreate 场景）
+  - 工时：~1d | 难度：低-中 | 涉及：OpenCodeApp/OpenCodeConnectionService/各 Screen | 优先级：P1-P2
+
+- [ ] **#116 终端批次（D2-20 输入乱序 + D2-21 dispose 取消清理协程）** `terminal` `race`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md D2-20/D2-21（A 路）
+  - 问题：socket.send fire-and-forget 多线程乱序；dispose() 在清理协程完成前 scope.cancel() → 服务端 PTY 残留
+  - 方案：单发送 actor/Mutex；dispose 先 await 清理完成再 cancel
+  - 工时：~0.5d | 难度：中 | 涉及：ServerTerminalWorkspace/PtyToTermlibAdapter | 优先级：P2
+
+- [ ] **#117 死代码/弃用/重复代码清理批次（D2-L1~L22 + D2-L15 日期统一 + D2-L16 剪贴板 + D2-L52 死参数）** `refactor`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md 簇 A/B/F（多路命中）
+  - 问题：@Deprecated 委托链 ×9、桩方法 ×4、无调用方 API ×6、WebView 死分支 ~15KB（useNativeUi=true）、SimpleDateFormat 14 处、剪贴板 9 处、rejectHtmlResponse 复制、exportSessionToStream 整方法复制、ChatTerminalView snackbar 参数遮蔽、异常传播三套并存（D2-33，getOrThrow/Result/裸 List + ApiError 双重语义）等
+  - 方案：清理日集中删除（先 grep 测试引用）；抽 DateFormatters/copyToClipboard/WebView 工厂；WebViewScreen 死分支删除需先确认无入口
+  - 工时：~1-2d | 难度：低 | 涉及：见各条 | 优先级：P3
+
+- [ ] **#118 构建/安全批次（D2-28 cleartext + D2-29 R8 keep-all + D2-L64 版本倾斜/测试默认值 + D2-L28 备份密钥）** `build` `security`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md D2-28/D2-29/D2-L28/D2-L64
+  - 问题：明文流量全局放行无白名单；R8 keep-all 整库保留；Kotlin 2.3.21 + force metadata 2.4.0；isReturnDefaultValues；备份恢复后 Keystore 密钥缺失
+  - 方案：networkSecurityConfig 白名单化；R8 收窄；升级 Kotlin 后移除 force；备份规则排除凭据文件
+  - 工时：~1d | 难度：中 | 涉及：Manifest/proguard/build.gradle.kts/SecretCipher | 优先级：P2
+
+- [ ] **#119 第一期报告状态回写（C-1/H-1/H-2/H-3/M-9 已修复）** `docs`
+  - 来源：audit-2026-08-13-dimensions/REPORT.md §6.1（c0c74a4c 实证）
+  - 问题：第一期 REPORT.md 的 C-1/H-1/H-2/H-3/M-9 仍标记未修复，实际已由提交 c0c74a4c 落地（2026-08-13 23:39）；backlog #93/#94 状态需转正
+  - 方案：回写第一期报告状态 + 同步 backlog；WebViewScreen 已不可达（useNativeUi=true）需另行确认删除
+  - 工时：~0.5h | 难度：低 | 优先级：P0（文档准确性）

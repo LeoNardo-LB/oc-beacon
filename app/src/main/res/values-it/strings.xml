@@ -31,6 +31,8 @@
     <string name="permission_deny">Rifiuta</string>
     <!-- Questions -->
     <string name="question_submit">Invia</string>
+    <string name="question_single_choice">SINGLE</string>
+    <string name="question_multi_choice">MULTI</string>
     <string name="question_next">Avanti</string>
     <string name="question_unanswered_title">Domande senza risposta</string>
     <string name="question_unanswered_confirm">Le domande %1$s non hanno ancora risposta.</string>

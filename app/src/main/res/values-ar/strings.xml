@@ -31,6 +31,8 @@
     <string name="permission_deny">رفض</string>
     <!-- Questions -->
     <string name="question_submit">تقديم</string>
+    <string name="question_single_choice">SINGLE</string>
+    <string name="question_multi_choice">MULTI</string>
     <string name="question_next">التالي</string>
     <string name="question_unanswered_title">أسئلة بدون إجابة</string>
     <string name="question_unanswered_confirm">الأسئلة %1$s لم يتم الرد عليها بعد.</string>

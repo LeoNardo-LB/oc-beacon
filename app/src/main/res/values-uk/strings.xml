@@ -31,6 +31,8 @@
     <string name="permission_deny">Відхилити</string>
     <!-- Questions -->
     <string name="question_submit">Підтвердити</string>
+    <string name="question_single_choice">SINGLE</string>
+    <string name="question_multi_choice">MULTI</string>
     <string name="question_next">Далі</string>
     <string name="question_unanswered_title">Питання без відповіді</string>
     <string name="question_unanswered_confirm">Питання %1$s ще не мають відповіді.</string>

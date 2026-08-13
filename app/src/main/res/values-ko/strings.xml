@@ -31,6 +31,8 @@
     <string name="permission_deny">거부</string>
     <!-- Questions -->
     <string name="question_submit">제출</string>
+    <string name="question_single_choice">SINGLE</string>
+    <string name="question_multi_choice">MULTI</string>
     <string name="question_next">다음</string>
     <string name="question_unanswered_title">미응답 질문</string>
     <string name="question_unanswered_confirm">질문 %1$s은(는) 아직 답변되지 않았습니다.</string>

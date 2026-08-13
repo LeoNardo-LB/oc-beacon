@@ -56,6 +56,8 @@
     <string name="permission_deny">Отклонить</string>
     <!-- Questions -->
     <string name="question_submit">Отправить</string>
+    <string name="question_single_choice">SINGLE</string>
+    <string name="question_multi_choice">MULTI</string>
     <string name="question_next">Далее</string>
     <string name="question_unanswered_title">Вопросы без ответа</string>
     <string name="question_unanswered_confirm">Вопросы %1$s ещё не получили ответ.</string>
