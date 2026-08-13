@@ -195,16 +195,17 @@ class JumpNavigationController(
             AppLogger.d("ChatPaging", "jump: 底部定位后可见=[$vis]")
         }
 
-        // Measuring：轮询目标 item.size（布局权威数据——连续 2 轮不变 = 稳定）。
+        // Measuring：轮询目标 item.size（布局权威数据——连续 4 轮不变 = 稳定）。
         // 2026-08-13 修复：不依赖 MessageCardUser 的 onSizeChanged 上报链
-        //（该链在 SSE/重组下会重启/静默失败——实测"上报Ready准备"打了但
-        // update 未执行 → Ready 超时）。布局测量是 LazyColumn 的权威数据。
+        //（该链在 SSE/重组下会重启/静默失败）。布局测量是 LazyColumn 的权威数据。
+        // 2026-08-13 加固：2→4 轮（长回复 turn 场景 item.size 会跳变 571/3378——
+        // 回复流式/布局重排影响——4 轮更抗跳变）
         var lastSize = -1
         var stableCount = 0
         var ready: RenderReadiness.Ready? = null
         var nullStreak = 0
         var lastRelocateAt = 0L
-        withTimeoutOrNull(2500) {
+        withTimeoutOrNull(3500) {
             while (true) {
                 kotlinx.coroutines.delay(100)
                 val item = listState.layoutInfo.visibleItemsInfo.firstOrNull {
@@ -233,7 +234,7 @@ class JumpNavigationController(
                 nullStreak = 0
                 if (item.size == lastSize) {
                     stableCount++
-                    if (stableCount >= 2) {
+                    if (stableCount >= 4) {
                         ready = RenderReadiness.Ready(item.size)
                         break
                     }
@@ -272,7 +273,7 @@ class JumpNavigationController(
                     val pt3 = -info3.viewportStartOffset.toFloat()
                     val gap3 = computeGap(it3.offset, it3.size, vh3, pt3)
                     if (BuildConfig.DEBUG) {
-                        AppLogger.d("ChatPaging", "jump: 收敛 round=$round gap=$gap3 size=${it3.size}")
+                        AppLogger.d("ChatPaging", "jump: 收敛 round=$round gap=$gap3 size=${it3.size} off=${it3.offset} key=${it3.key}")
                     }
                     if (kotlin.math.abs(gap3) > 2f) {
                         scrollBy(gap3)
