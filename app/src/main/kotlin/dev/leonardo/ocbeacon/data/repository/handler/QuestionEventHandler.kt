@@ -66,6 +66,34 @@ class QuestionEventHandler @Inject constructor() : SseEventHandler {
         }
     }
 
+    /**
+     * 用 REST /question 轮询数据合并补全（2026-08-14 修复：V1 SSE 的
+     * question.asked 事件可能不含 tool 字段 → QuestionAsked.tool 为 null →
+     * 提问卡片无法嵌入触发消息气泡（回退独立卡片）。REST 响应含
+     * tool.messageID，轮询时按 id 合并补全。
+     * 语义：REST 有而 SSE 无的条目 → 添加；SSE 已有但 tool 为空且 REST 带 tool
+     * → 补全 tool；其余保留 SSE 数据（含 sourceSessionTitle 等瞬态字段）。
+     */
+    fun mergeFromREST(sessionId: String, qs: List<SseEvent.QuestionAsked>) {
+        _questions.update { current ->
+            val existing = current[sessionId]?.associateBy { it.id } ?: emptyMap()
+            val restById = qs.associateBy { it.id }
+            // 并集语义：REST 有而 SSE 无 → 添加；SSE 已有 → 保留 SSE
+            // （仅当 SSE tool 为空且 REST 带 tool 时补全）。REST 缺失的
+            // SSE 条目保留（轮询延迟窗口内不闪失），由 SSE 事件驱动删除。
+            val merged = (existing.keys + restById.keys).mapNotNull { id ->
+                val sseQ = existing[id]
+                val restQ = restById[id]
+                when {
+                    sseQ == null -> restQ
+                    sseQ.tool == null && restQ?.tool != null -> sseQ.copy(tool = restQ.tool)
+                    else -> sseQ
+                }
+            }
+            if (merged.isEmpty()) current - sessionId else current + (sessionId to merged)
+        }
+    }
+
     fun clearForSession(sessionId: String) {
         _questions.update { it - sessionId }
     }

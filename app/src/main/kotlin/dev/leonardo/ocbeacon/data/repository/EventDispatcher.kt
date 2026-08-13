@@ -422,6 +422,9 @@ class EventDispatcher @Inject constructor(
     fun setQuestions(sessionId: String, questions: List<SseEvent.QuestionAsked>) =
         questionHandler.setQuestions(sessionId, questions)
 
+    fun mergeQuestionsFromREST(sessionId: String, questions: List<SseEvent.QuestionAsked>) =
+        questionHandler.mergeFromREST(sessionId, questions)
+
     fun trackSequence(sessionId: String, seq: Long) {
         sessionNextHandler.trackSequence(sessionId, seq)
     }

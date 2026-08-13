@@ -402,6 +402,14 @@ class OpenCodeConnectionService : Service() {
                     val grouped = pending
                         .map { it.toQuestionAsked() }
                         .groupBy { it.sessionId }
+                    // 2026-08-14 修复：REST 数据合并进 QuestionEventHandler——
+                    // V1 SSE 的 question.asked 可能不含 tool.messageID（导致提问卡片
+                    // 无法嵌入触发消息气泡，回退独立卡片）；REST 响应含 tool，
+                    // 轮询合并补全，使 pendingQuestions 可关联到消息。
+                    grouped.forEach { (sid, qs) ->
+                        runCatching { eventDispatcher.mergeQuestionsFromREST(sid, qs) }
+                            .onFailure { AppLogger.w(TAG, "[${server.displayName}] merge questions failed: ${it.message}") }
+                    }
                     // 通知总开关与 SSE 路径保持一致（maybeNotify）；
                     // previousKnown 始终更新以避免重新启用后通知洪流。
                     if (settingsDataStore.notificationsEnabled.first()) {

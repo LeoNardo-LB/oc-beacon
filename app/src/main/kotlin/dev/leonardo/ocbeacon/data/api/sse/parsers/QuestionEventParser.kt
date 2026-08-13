@@ -30,7 +30,7 @@ class QuestionEventParser : SseEventParser {
                             callId = toolObj.str("callID")
                         )
                     }
-                    AppLogger.i(TAG, "Question asked for session $sessionId")
+                    AppLogger.i(TAG, "Question asked for session $sessionId tool=${toolRef?.messageId ?: "NULL"}")
                     val questionsArr = props["questions"]?.jsonArray
                     val questions = questionsArr?.map { qElement ->
                         val qObj = qElement.jsonObject
