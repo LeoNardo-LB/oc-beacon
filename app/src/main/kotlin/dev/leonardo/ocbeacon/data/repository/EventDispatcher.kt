@@ -465,8 +465,9 @@ class EventDispatcher @Inject constructor(
         AppLogger.i(TAG, "releaseSessionData: server=$serverId session=$sessionId")
         sessionHandler.clearForSession(sessionId)
         messageHandler.clearForSession(sessionId)
-        permissionHandler.clearForSession(sessionId)
-        questionHandler.clearForSession(sessionId)
+        // 2026-08-14：不清理 permissionHandler/questionHandler——pending
+        // permission/question 是服务器状态，退出会话后应保留（列表 Asking 状态
+        // 不闪烁）；回答/拒绝由 SSE 事件清理，SessionDeleted/断连时级联清理。
         miscHandler.clearForSession(sessionId)
         sessionNextHandler.clearForSession(sessionId)
         sessionStateService.clearSession(sessionId)

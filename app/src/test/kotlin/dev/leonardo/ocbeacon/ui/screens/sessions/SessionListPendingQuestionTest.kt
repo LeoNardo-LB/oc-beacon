@@ -53,22 +53,23 @@ class SessionListPendingQuestionTest {
             .first { it.id == id }
 
     @Test
-    fun `session with pending question gets flag`() = runTest {
+    fun `session with pending question gets Asking status`() = runTest {
         val state = buildContentState(baseData(setOf("s1")), ui(), "server_1", draftRepo)
-        assertTrue(nodeFor(state, "s1").session.hasPendingQuestion)
-        assertFalse(nodeFor(state, "s2").session.hasPendingQuestion)
+        // 2026-08-14：提问中并入状态枚举（替代 hasPendingQuestion 独立标记）
+        assertTrue(nodeFor(state, "s1").session.status is SessionStatus.Asking)
+        assertFalse(nodeFor(state, "s2").session.status is SessionStatus.Asking)
     }
 
     @Test
-    fun `no pending questions leaves flags false`() = runTest {
+    fun `no pending questions leaves statuses idle`() = runTest {
         val state = buildContentState(baseData(emptySet()), ui(), "server_1", draftRepo)
-        assertFalse(nodeFor(state, "s1").session.hasPendingQuestion)
+        assertFalse(nodeFor(state, "s1").session.status is SessionStatus.Asking)
     }
 
     @Test
     fun `pending ids from other server ignored`() = runTest {
         val state = buildContentState(baseData(setOf("s_other")), ui(), "server_1", draftRepo)
-        assertFalse(nodeFor(state, "s1").session.hasPendingQuestion)
-        assertFalse(nodeFor(state, "s2").session.hasPendingQuestion)
+        assertFalse(nodeFor(state, "s1").session.status is SessionStatus.Asking)
+        assertFalse(nodeFor(state, "s2").session.status is SessionStatus.Asking)
     }
 }

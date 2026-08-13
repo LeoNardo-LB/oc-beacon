@@ -60,13 +60,12 @@ fun buildTreeNodes(
     lastMessageTime: Map<String, Long> = emptyMap(),
     readTimes: Map<String, Long> = emptyMap(),
     allReadAt: Long = 0L,
-    pendingQuestionIds: Set<String> = emptySet(),
 ): List<TreeNode> {
     // 性能监控（2026-08-13 用户反馈目录点击卡顿）：树重建 >50ms 打 warn
     val buildStart = System.currentTimeMillis()
     val result = buildTreeNodesInternal(
         sessions, expandedDirs, baseDirectory, statuses, draftSessionIds,
-        sessionTags, lastMessageTime, readTimes, allReadAt, pendingQuestionIds
+        sessionTags, lastMessageTime, readTimes, allReadAt
     )
     val elapsed = System.currentTimeMillis() - buildStart
     if (elapsed > 50) {
@@ -88,7 +87,6 @@ private fun buildTreeNodesInternal(
     lastMessageTime: Map<String, Long>,
     readTimes: Map<String, Long>,
     allReadAt: Long,
-    pendingQuestionIds: Set<String>,
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
     val rootSessions = mutableListOf<Session>()
@@ -176,7 +174,7 @@ private fun buildTreeNodesInternal(
                 val status = statuses[session.id] ?: SessionStatus.Idle
                 result.add(TreeNode.Session(
                     id = session.id,
-                    session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status), hasPendingQuestion = session.id in pendingQuestionIds),
+                    session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status)),
                 ))
             }
         }
@@ -187,7 +185,7 @@ private fun buildTreeNodesInternal(
         val status = statuses[session.id] ?: SessionStatus.Idle
         result.add(TreeNode.Session(
             id = session.id,
-            session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status), hasPendingQuestion = session.id in pendingQuestionIds),
+            session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status)),
         ))
     }
 

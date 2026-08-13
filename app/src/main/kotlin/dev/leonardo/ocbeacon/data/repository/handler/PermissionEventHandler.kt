@@ -76,6 +76,8 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     fun clearForSession(sessionId: String) {
+        // 仅由 SessionDeleted 级联调用。会话退出（releaseSessionData）不调用——
+        // pending permissions 是服务器状态（2026-08-14 与 QuestionEventHandler 同批修复）。
         _permissions.update { it - sessionId }
     }
 

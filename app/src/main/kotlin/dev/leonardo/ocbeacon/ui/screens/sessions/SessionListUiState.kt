@@ -16,8 +16,6 @@ data class SessionItem(
     val tags: List<Tag> = emptyList(),
     /** 会话有比最后已读时间更新的消息（未读提示红点）。 */
     val hasUnread: Boolean = false,
-    /** 会话正等待用户回答 agent 的问题。 */
-    val hasPendingQuestion: Boolean = false,
 )
 
 // 低频数据输入（DataStore/服务派生，变化少）

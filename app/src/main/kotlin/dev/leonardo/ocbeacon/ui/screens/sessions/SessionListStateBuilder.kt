@@ -104,22 +104,26 @@ internal suspend fun buildContentState(
         }
     }
 
+    // 2026-08-14：提问中并入状态枚举——有 pending question 的会话状态为
+    // SessionStatus.Asking（替代独立的 hasPendingQuestion 布尔标记）
+    val mergedStatuses: Map<String, SessionStatus> =
+        data.statuses + data.pendingQuestionIds.associateWith { SessionStatus.Asking }
+
     val treeNodes = if (ui.viewMode == SessionViewMode.RECENT) {
         favoritesFilteredSessions.map { session ->
             TreeNode.Session(
                 id = session.id,
                 session = SessionItem(
                     session = session,
-                    status = data.statuses[session.id] ?: SessionStatus.Idle,
+                    status = mergedStatuses[session.id] ?: SessionStatus.Idle,
                     hasDraft = session.id in draftSessionIds,
                     tags = resolvedTags[session.id].orEmpty(),
-                    hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, data.statuses[session.id] ?: SessionStatus.Idle),
-                    hasPendingQuestion = session.id in data.pendingQuestionIds,
+                    hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, mergedStatuses[session.id] ?: SessionStatus.Idle),
                 )
             )
         }
     } else {
-        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, data.statuses, draftSessionIds, resolvedTags, data.lastReplyTime, readTimes, data.allReadAt, data.pendingQuestionIds)
+        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, mergedStatuses, draftSessionIds, resolvedTags, data.lastReplyTime, readTimes, data.allReadAt)
     }
 
     val prefillDirectory = if (ui.lastToggledDirectory != null && ui.lastToggledDirectory in ui.expandedPaths)

@@ -95,6 +95,9 @@ class QuestionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     fun clearForSession(sessionId: String) {
+        // 仅由 SessionDeleted 级联调用（服务器确认会话已删除时清理）。
+        // 会话退出（releaseSessionData）不调用——pending questions 是服务器状态，
+        // 退出后仍应显示 Asking（2026-08-14 修复返回列表状态闪烁）。
         _questions.update { it - sessionId }
     }
 

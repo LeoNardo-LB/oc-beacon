@@ -103,9 +103,11 @@ internal fun SessionRow(
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 状态图标
+        // 状态图标（2026-08-14：Asking 待回答会话——保持原气泡图标，
+        // 换填充高亮版 + primary 色，不换成问题图标）
         val (statusIcon, statusIconColor) = when (item.status) {
             is SessionStatus.Busy -> Icons.Filled.ChatBubble to MaterialTheme.colorScheme.tertiary
+            is SessionStatus.Asking -> Icons.Filled.ChatBubble to MaterialTheme.colorScheme.primary
             is SessionStatus.Retry -> Icons.Outlined.ErrorOutline to MaterialTheme.colorScheme.error
             else -> Icons.Outlined.ChatBubbleOutline to MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
         }
@@ -163,21 +165,6 @@ internal fun SessionRow(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                 )
 
-                // 待回答问题指示器（状态标签前，primary 色）
-                if (item.hasPendingQuestion) {
-                    Icon(
-                        Icons.Outlined.HelpOutline,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = stringResource(R.string.session_pending_question),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-
                 // 状态标签
                 when (item.status) {
                     is SessionStatus.Busy -> {
@@ -185,6 +172,20 @@ internal fun SessionRow(
                             text = stringResource(R.string.sessions_working),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
+                    is SessionStatus.Asking -> {
+                        // 2026-08-14：提问中并入状态枚举（原 hasPendingQuestion 独立标记移除）
+                        Icon(
+                            Icons.Outlined.HelpOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = stringResource(R.string.session_pending_question),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
                         )
                     }
                     is SessionStatus.Retry -> {

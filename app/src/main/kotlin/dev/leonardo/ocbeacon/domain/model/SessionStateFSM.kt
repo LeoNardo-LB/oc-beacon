@@ -106,6 +106,13 @@ object SessionStateFSM {
             isSuspicious = false,
             forceComplete = false
         )
+        // 2026-08-14：Asking 是列表层合成的状态（pending question），
+        // 服务器 SSE 不下发——保持当前状态不动
+        is SessionStatus.Asking -> TransitionResult(
+            newState = state.copy(lastEventAt = now),
+            isSuspicious = false,
+            forceComplete = false
+        )
     }
 
     private fun restValidation(state: SessionFSMState, status: SessionStatus, now: Long): TransitionResult = TransitionResult(

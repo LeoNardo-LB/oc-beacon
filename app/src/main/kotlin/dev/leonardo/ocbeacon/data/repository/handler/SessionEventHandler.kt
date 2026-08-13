@@ -167,16 +167,14 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
 
     /**
      * 释放单会话状态（内存泄漏修复 #89）：会话退出时由 EventDispatcher.releaseSessionData 调用。
-     * 清理 _sessionDiffs/_lastUserMessageTime/_sessions 中该会话的数据——
-     * 旧代码仅 clearForServer（SSE 断开）与 SessionDeleted 时清理，正常切换会话不触发 → 数据永驻。
+     * 只清理 per-session 缓存（_sessionDiffs/_lastUserMessageTime/locallyClearedReverts）——
+     * **不删除 _sessions/_serverSessions 中的会话元数据**（列表级共享数据，
+     * 2026-08-14 修复：过度清理导致返回会话列表后 item 消失，刷新/重启才恢复）。
+     * 会话元数据删除仅由服务器 SessionDeleted 事件（handleSessionDeleted）驱动。
      */
     fun clearForSession(sessionId: String) {
         _sessionDiffs.update { it - sessionId }
         _lastUserMessageTime.update { it - sessionId }
-        _sessions.update { it.filter { s -> s.id != sessionId } }
-        _serverSessions.update { map ->
-            map.mapValues { (_, ids) -> ids - sessionId }
-        }
         locallyClearedReverts.remove(sessionId)
     }
 
