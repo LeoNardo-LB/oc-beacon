@@ -67,7 +67,7 @@ internal fun ImageThumbnailRow(
                     val url = file.url ?: return@remember null
                     val base64Data = if (url.contains(",")) url.substringAfter(",") else url
                     val bytes = Base64.decode(base64Data, Base64.DEFAULT)
-                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    decodeSampledBitmap(bytes, 256, 256)
                 } catch (e: Exception) {
                     AppLogger.e("FileCard", "Failed to decode image: ${e.message}")
                     null
@@ -109,7 +109,7 @@ internal fun ImageThumbnailRow(
         val file = imageFiles[previewIndex]
         val imageBytes = remember(file.url) { decodePartFileBytes(file) }
         val bitmap = remember(imageBytes) {
-            imageBytes?.let { bytes -> android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
+            imageBytes?.let { bytes -> decodeSampledBitmap(bytes, 2048, 2048) }
         }
 
         if (bitmap != null) {
@@ -200,4 +200,40 @@ internal fun ImagePreviewDialog(
             }
         }
     }
+}
+
+/**
+ * 计算降采样率（2 的幂），使解码后图片略大于目标尺寸。
+ */
+private fun calculateInSampleSize(
+    outWidth: Int,
+    outHeight: Int,
+    reqWidth: Int,
+    reqHeight: Int,
+): Int {
+    var inSampleSize = 1
+    if (outHeight > reqHeight || outWidth > reqWidth) {
+        val halfHeight = outHeight / 2
+        val halfWidth = outWidth / 2
+        while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize
+}
+
+/**
+ * 先用 inJustDecodeBounds 读尺寸 → 计算 inSampleSize → 降采样解码，
+ * 显著降低内存占用（如 4000×3000 图从 48MB 降至 ~1MB for 256px 缩略图）。
+ */
+private fun decodeSampledBitmap(
+    bytes: ByteArray,
+    reqWidth: Int,
+    reqHeight: Int,
+): android.graphics.Bitmap? {
+    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    val sampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight, reqWidth, reqHeight)
+    val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sampleSize }
+    return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
 }

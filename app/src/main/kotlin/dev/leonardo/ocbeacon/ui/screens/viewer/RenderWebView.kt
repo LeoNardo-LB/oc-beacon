@@ -2,12 +2,17 @@ package dev.leonardo.ocbeacon.ui.screens.viewer
 
 import android.annotation.SuppressLint
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
@@ -52,6 +57,24 @@ fun RenderWebView(
         "renderMarkdown(`$escapedContent`, $isDark, '$bgHex', '$fgHex');"
     }
 
+    // 跟踪上次应用的值，避免重组时不必要的重新加载
+    var webViewRef: WebView? = null
+    var lastHtml by remember { mutableStateOf("") }
+    var lastJsCommand by remember { mutableStateOf("") }
+
+    // composable 离开组合时清理 WebView
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewRef?.apply {
+                stopLoading()
+                loadUrl("about:blank")
+                (parent as? ViewGroup)?.removeView(this)
+                destroy()
+            }
+            webViewRef = null
+        }
+    }
+
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { ctx ->
@@ -83,17 +106,26 @@ fun RenderWebView(
                 }
                 if (fileType == FileType.MARKDOWN) {
                     loadUrl("file:///android_asset/markdown_viewer.html")
+                    lastJsCommand = jsCommand
                 } else {
                     loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                    lastHtml = html
                 }
+                webViewRef = this
             }
         },
         update = { webView ->
             webView.visibility = if (visible) View.VISIBLE else View.GONE
             if (fileType == FileType.MARKDOWN) {
-                webView.evaluateJavascript(jsCommand, null)
+                if (jsCommand != lastJsCommand) {
+                    lastJsCommand = jsCommand
+                    webView.evaluateJavascript(jsCommand, null)
+                }
             } else {
-                webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                if (html != lastHtml) {
+                    lastHtml = html
+                    webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                }
             }
         }
     )

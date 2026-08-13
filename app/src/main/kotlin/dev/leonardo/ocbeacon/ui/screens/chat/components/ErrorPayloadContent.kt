@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import android.view.MotionEvent
+import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.border
@@ -110,6 +111,12 @@ internal fun ErrorPayloadContent(
                             null,
                         )
                     }
+                },
+                onRelease = { wv ->
+                    wv.stopLoading()
+                    wv.loadUrl("about:blank")
+                    (wv.parent as? ViewGroup)?.removeView(wv)
+                    wv.destroy()
                 },
                 modifier = Modifier
                     .fillMaxWidth()

@@ -128,6 +128,20 @@ fun WebViewScreen(
         }
     }
 
+    // 确保导航离开时销毁 WebView，避免渲染进程和 Activity 引用泄漏
+    DisposableEffect(Unit) {
+        onDispose {
+            webView?.apply {
+                stopLoading()
+                loadUrl("about:blank")
+                clearHistory()
+                (parent as? ViewGroup)?.removeView(this)
+                destroy()
+            }
+            webView = null
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()

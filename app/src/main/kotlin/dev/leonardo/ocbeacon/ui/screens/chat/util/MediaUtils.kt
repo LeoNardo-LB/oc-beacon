@@ -171,7 +171,22 @@ internal suspend fun buildAttachmentFromUri(
         )
     }
 
-    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    // 先读尺寸再降采样解码，避免全分辨率位图占用过多内存
+    val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
+    val origWidth = boundsOptions.outWidth
+    val origHeight = boundsOptions.outHeight
+    val sampleSize = if (maxLongSidePx > 0) {
+        calcInSampleSize(origWidth, origHeight, maxLongSidePx, maxLongSidePx)
+    } else {
+        1
+    }
+    val decodeOptions = BitmapFactory.Options().apply {
+        inSampleSize = sampleSize
+        // JPEG 无透明通道，用 RGB_565 节省 50% 内存
+        if (mimeType == "image/jpeg") inPreferredConfig = Bitmap.Config.RGB_565
+    }
+    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions)
     if (bitmap == null) {
         val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
         return@withContext PreparedAttachment(
@@ -246,8 +261,24 @@ internal suspend fun buildAttachmentFromUri(
         comparison = AttachmentComparison(
             originalBytes = bytes.size,
             optimizedBytes = webpBytes.size,
-            originalEstimatedTokens = estimateVisionTokens(srcWidth, srcHeight),
+            originalEstimatedTokens = estimateVisionTokens(origWidth, origHeight),
             optimizedEstimatedTokens = estimateVisionTokens(outWidth, outHeight)
         )
     )
+}
+
+/**
+ * 计算降采样率（2 的幂），使解码后图片略大于目标尺寸。
+ * 标准 Android 算法：取最大 2 的幂，使 halfDim/sampleSize >= reqDim。
+ */
+private fun calcInSampleSize(outWidth: Int, outHeight: Int, reqWidth: Int, reqHeight: Int): Int {
+    var inSampleSize = 1
+    if (outHeight > reqHeight || outWidth > reqWidth) {
+        val halfHeight = outHeight / 2
+        val halfWidth = outWidth / 2
+        while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize
 }
