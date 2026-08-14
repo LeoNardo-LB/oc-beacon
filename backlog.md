@@ -1107,3 +1107,12 @@ $(echo "
   - 服务器侧待办：升级 opencode 或向上游反馈；App 侧 QuestionAsked 处理逻辑本身正常（#26 已实现 + 单测）
   - 工时：待服务器侧 | 难度：未知 | 优先级：P2（阻塞 #125 UI 实测）
 " | sed 's/\`/`/g')
+
+- [ ] **#131 V1 协议 question 卡片嵌入渲染失败（数据到达但 UI 不显示）** `question` `v1`
+  - 现象：V1 服务器（1.18.18）agent 调用 question 工具（4 题多选）——服务器 /question 正常返回（含 tool.messageID），App 轮询/loadPendingQuestions 均拉到（`Replaced 1 questions for session ...`），但 UI 问题卡片不渲染（goon 的 assistant 消息气泡内无 QuestionCard）
+  - 对比：V1 单选卡片（首个问题）能正常显示——当时 question 经 SSE 事件到达或 tool 关联正常
+  - 疑点：① tool.messageID 与消息列表 id 匹配（截断/完整 id 差异）；② 已完成语义（step-finish）下嵌入逻辑不触发；③ unembedded 独立卡片也未显示 → 更可能是 pendingQuestions 未进 UI combine 或渲染条件不满足
+  - 证据：docs/dialogue-e2e-test-runbook.md（V1 question 实测记录）；logcat `Replaced 1 questions` + UI 无卡片
+  - 待办：深挖嵌入/独立卡片渲染条件，V1 全生命周期 E2E 前置
+  - 工时：~2h | 难度：中 | 涉及：ChatMessageList/QuestionEventHandler/MessageDataDelegate | 优先级：P1（阻塞 V1 question 功能 + #126 验证）
+
