@@ -64,6 +64,24 @@ class SessionEventHandlerTest {
     }
 
     @Test
+    fun `SessionDeleted clears lastUserMessageTime and sessionDiffs (#96)`() = runTest {
+        handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
+        handler.recordUserMessage("s1", 1234L)
+        handler.handle(SseEvent.SessionDiff("s1", emptyList()), "server1")
+
+        handler.handle(SseEvent.SessionDeleted(testSession("s1")), "server1")
+
+        assertTrue(
+            "SessionDeleted 后 lastUserMessageTime 不得残留（#96 泄漏）",
+            "s1" !in handler.lastUserMessageTime.value
+        )
+        assertTrue(
+            "SessionDeleted 后 sessionDiffs 不得残留",
+            "s1" !in handler.sessionDiffs.value
+        )
+    }
+
+    @Test
     fun `handles SessionStatus - acknowledged, no local status state`() = runTest {
         handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
 

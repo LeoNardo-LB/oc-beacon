@@ -120,6 +120,12 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         val sessionId = event.info.id
         _sessions.update { it.filter { s -> s.id != sessionId } }
         _sessionDiffs.update { it - sessionId }
+        // #96（L-2 泄漏补漏）：服务器确认删除的会话，per-session 缓存
+        // 必须同步清理——原实现漏清 _lastUserMessageTime 与
+        // locallyClearedReverts（#89 的 clearForSession 只在退出会话时调用，
+        // 服务器 SessionDeleted 路径未接入）→ 删除会话后条目永久残留。
+        _lastUserMessageTime.update { it - sessionId }
+        locallyClearedReverts.remove(sessionId)
     }
 
     private fun handleSessionDiff(event: SseEvent.SessionDiff) {
