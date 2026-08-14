@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  #118（D2-28）：cleartext 白名单化——原 manifest usesCleartextTraffic="true" 全局放行。
+  默认拒绝明文；仅放行本地/开发地址（模拟器宿主、localhost）。
+  用户自建 opencode 服务器的明文地址（LAN IP / Tailscale）如需明文连接，
+  在下方 domain-config 添加对应地址，或使用 HTTPS 服务器。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

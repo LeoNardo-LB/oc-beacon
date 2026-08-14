@@ -20,9 +20,14 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
-# Ktor
--keep class io.ktor.** { *; }
--keep class kotlinx.coroutines.** { *; }
+# Ktor（#118 D2-29：原全库保留 → 收窄为反射/序列化必要部分；release 构建后
+# 需连接冒烟验证——SSE/内容协商/OkHttp 引擎如出现 NoSuchMethodError 再补规则）
+-keep class io.ktor.serialization.** { *; }
+-keep class io.ktor.client.plugins.contentnegotiation.** { *; }
+-keep class io.ktor.client.plugins.sse.** { *; }
+-keep class io.ktor.client.engine.okhttp.** { *; }
+-keep class io.ktor.utils.io.** { *; }
+# kotlinx.coroutines：官方对 R8 完全支持，无需 keep（移除全库保留）
 -dontwarn kotlinx.atomicfu.**
 -dontwarn io.netty.**
 -dontwarn com.typesafe.**

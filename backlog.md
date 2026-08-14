@@ -1125,11 +1125,12 @@ efactor
     - ⚠️ D2-L17 directoryHeader 2 处内联 → SseClientV2 为 #122 文件保留
     - ⚠️ 异常传播三套并存（getOrThrow/Result/裸 List + ApiError 双重语义）→ 架构主题需独立设计（D2-33 的 prefetchGitCount 部分已随 #134 完结）
 
-- [ ] **#118 构建/安全批次（D2-28 cleartext + D2-29 R8 keep-all + D2-L64 版本倾斜/测试默认值 + D2-L28 备份密钥）** `build` `security`
+- [x] **#118 构建/安全批次（D2-28 cleartext + D2-29 R8 keep-all + D2-L64 版本倾斜/测试默认值 + D2-L28 备份密钥）** `build` `security`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-28/D2-29/D2-L28/D2-L64
   - 问题：明文流量全局放行无白名单；R8 keep-all 整库保留；Kotlin 2.3.21 + force metadata 2.4.0；isReturnDefaultValues；备份恢复后 Keystore 密钥缺失
   - 方案：networkSecurityConfig 白名单化；R8 收窄；升级 Kotlin 后移除 force；备份规则排除凭据文件
   - 工时：~1d | 难度：中 | 涉及：Manifest/proguard/build.gradle.kts/SecretCipher | 优先级：P2
+  - **2026-08-15 修复完成**：D2-28 networkSecurityConfig 白名单化（默认禁明文 + localhost/127.0.0.1/10.0.2.2 白名单，Lint 显式 includeSubdomains）；D2-29 R8 收窄（io.ktor 全库保留 → 序列化/SSE/OkHttp/utils 子集，移除 kotlinx.coroutines 全库保留——release 构建 + 模拟器连接冒烟通过：Connected + 会话列表正常）；D2-L28 核实已覆盖（backup_rules/data_extraction_rules 已排除 datastore/ 含加密密文）；D2-L64 评估保留（isReturnDefaultValues 为 mockk 标准测试配置；kotlin-metadata force 2.4.0 为 Mikepenz 0.43.0 依赖所需，注释已说明）
 
 - [x] **#119 第一期报告状态回写（C-1/H-1/H-2/H-3/M-9 已修复）** `docs`
   - 来源：audit-2026-08-13-dimensions/REPORT.md §6.1（c0c74a4c 实证）
