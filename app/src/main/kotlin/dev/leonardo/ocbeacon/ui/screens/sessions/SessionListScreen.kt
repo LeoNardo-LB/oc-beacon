@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -81,7 +82,8 @@ fun SessionListScreen(
     var showRenameDialog by remember { mutableStateOf(false) }
 var showMoreMenu by remember { mutableStateOf(false) }
     var renameSessionId by remember { mutableStateOf("") }
-    var renameText by remember { mutableStateOf(TextFieldValue("")) }
+    // #115（D2-L25）：renameText 输入态 saveable——重建后不丢重命名输入
+    var renameText by rememberSaveable { mutableStateOf(TextFieldValue("")) }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteSessionId by remember { mutableStateOf("") }

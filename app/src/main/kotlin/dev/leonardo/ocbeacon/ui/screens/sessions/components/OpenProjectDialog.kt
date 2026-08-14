@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -78,12 +79,13 @@ internal fun OpenProjectDialog(
     val scope = rememberCoroutineScope()
 
     // ── State ────────────────────────────────────────────────────────
-    var currentPath by remember { mutableStateOf<DirectoryPath?>(null) }
+    var currentPath by rememberSaveable { mutableStateOf<DirectoryPath?>(null) }
     var homeDir by remember { mutableStateOf<String?>(null) }
     var directories by remember { mutableStateOf<List<FileNode>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
-    var newFolderName by remember { mutableStateOf("") }
+    // #115（D2-L25）：新建文件夹输入 saveable
+    var newFolderName by rememberSaveable { mutableStateOf("") }
     var isCreatingFolder by remember { mutableStateOf(false) }
     var createFolderError by remember { mutableStateOf<String?>(null) }
 

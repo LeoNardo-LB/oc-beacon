@@ -7,6 +7,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
@@ -83,7 +84,8 @@ internal fun ServerDialog(
     onDismiss: () -> Unit,
     onSave: (name: String, url: String, username: String, password: String, autoConnect: Boolean) -> Unit
 ) {
-    var name by remember { mutableStateOf(server?.name ?: "") }
+    // #115（D2-L25）：服务器名输入 saveable
+    var name by rememberSaveable { mutableStateOf(server?.name ?: "") }
     var url by remember { mutableStateOf(server?.url ?: "http://") }
     var username by remember { mutableStateOf(server?.username ?: "opencode") }
     var password by remember { mutableStateOf(server?.password ?: "") }

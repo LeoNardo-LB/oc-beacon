@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,8 +76,10 @@ fun TagPickerDialog(
     onCreateTag: (name: String, color: String, icon: String) -> String,
 ) {
     val params = amoledDialogParams()
-    var selected by remember { mutableStateOf(selectedTagIds) }
-    var newCategoryName by remember { mutableStateOf("") }
+    // #115（D2-L25）：选中标签 saveable（Set<String> 可自动保存）
+    var selected by rememberSaveable { mutableStateOf(selectedTagIds) }
+    // #115（D2-L25）：新分类名输入 saveable
+    var newCategoryName by rememberSaveable { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf(SessionCategoryStyle.colorKeys.first()) }
     var selectedIcon by remember { mutableStateOf(SessionCategoryStyle.iconKeys.first()) }
 
