@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.v1
 
+import dev.leonardo.ocbeacon.data.api.auth
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
@@ -72,7 +74,7 @@ class V1ApiClient @Inject constructor(
         limit: Int = 50
     ): List<Session> {
         return httpClient.get("${conn.baseUrl}/session") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("roots", "true")
             search?.let { parameter("search", it) }
@@ -83,13 +85,13 @@ class V1ApiClient @Inject constructor(
 
     suspend fun getSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.get("${conn.baseUrl}/session/$sessionId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/session/$sessionId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
     }
 
@@ -104,7 +106,7 @@ class V1ApiClient @Inject constructor(
             parentId?.let { put("parentID", it) }
         }
         return httpClient.post("${conn.baseUrl}/session") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -113,14 +115,14 @@ class V1ApiClient @Inject constructor(
 
     suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/session/$sessionId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
 
     suspend fun updateSession(conn: ServerConnection, sessionId: String, title: String): Session {
         return httpClient.patch("${conn.baseUrl}/session/$sessionId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("title" to title))
         }.body()
@@ -132,7 +134,7 @@ class V1ApiClient @Inject constructor(
         fields: Map<String, Any>
     ): Session {
         return httpClient.patch("${conn.baseUrl}/session/$sessionId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(fields)
         }.body()
@@ -140,7 +142,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun abortSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/abort") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         return response.status.isSuccess()
@@ -148,19 +150,19 @@ class V1ApiClient @Inject constructor(
 
     suspend fun getSessionDiff(conn: ServerConnection, sessionId: String): List<FileDiff> {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/diff") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun shareSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.post("${conn.baseUrl}/session/$sessionId/share") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.delete("${conn.baseUrl}/session/$sessionId/share") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
@@ -171,7 +173,7 @@ class V1ApiClient @Inject constructor(
         modelId: String
     ): Boolean {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/summarize") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("providerID" to providerId, "modelID" to modelId))
         }
@@ -180,7 +182,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session {
         return httpClient.post("${conn.baseUrl}/session/$sessionId/revert") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("messageID" to messageId))
         }.body()
@@ -188,7 +190,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun unrevertSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.post("${conn.baseUrl}/session/$sessionId/unrevert") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
@@ -197,7 +199,7 @@ class V1ApiClient @Inject constructor(
             messageId?.let { put("messageID", it) }
         }
         return httpClient.post("${conn.baseUrl}/session/$sessionId/fork") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(body)
         }.body()
@@ -205,7 +207,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
         return httpClient.post("${conn.baseUrl}/session/import") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("url" to shareUrl))
         }.body()
@@ -224,7 +226,7 @@ class V1ApiClient @Inject constructor(
     ): Boolean {
         val body = mutableMapOf<String, Any>("command" to command, "arguments" to arguments)
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/command") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -234,19 +236,19 @@ class V1ApiClient @Inject constructor(
 
     suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/children") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/todo") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun listSessionStatus(conn: ServerConnection, directory: String? = null): Map<String, SessionStatusInfo> {
         return httpClient.get("${conn.baseUrl}/session/status") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.body()
     }
@@ -258,7 +260,7 @@ class V1ApiClient @Inject constructor(
         return runCatching {
             val response: Map<String, JsonObject> =
                 httpClient.get("${conn.baseUrl}/session/status") {
-                    conn.authHeader?.let { header("Authorization", it) }
+                    auth(conn)
                     directoryHeader(directory)
                 }.body()
             response.mapValues { (_, obj) ->
@@ -281,7 +283,7 @@ class V1ApiClient @Inject constructor(
         before: String? = null
     ): MessagePage {
         val response = httpClient.get("${conn.baseUrl}/session/$sessionId/message") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             limit?.let { parameter("limit", it) }
             before?.let { parameter("before", it) }
         }
@@ -299,7 +301,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/message") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
     }
 
@@ -320,7 +322,7 @@ class V1ApiClient @Inject constructor(
         val messagePath = "/session/$sessionId/message"
         // 写入会话信息（较小，可安全保存在内存中）
         val sessionJson = httpClient.get("${conn.baseUrl}$sessionPath") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
         val header = """{"info":$sessionJson,"messages":"""
         outputStream.write(header.toByteArray())
@@ -361,7 +363,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun getMessage(conn: ServerConnection, sessionId: String, messageId: String): MessageWithParts {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/message/$messageId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
@@ -375,7 +377,7 @@ class V1ApiClient @Inject constructor(
         directory: String?
     ): PromptAdmission? {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/prompt_async") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(PromptRequest(
@@ -394,14 +396,14 @@ class V1ApiClient @Inject constructor(
 
     suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/session/$sessionId/message/$messageId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
 
     suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/session/$sessionId/message/$messageId/part/$partIndex") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
@@ -418,7 +420,7 @@ class V1ApiClient @Inject constructor(
             message?.let { put("message", it) }
         }
         val result = httpClient.post("${conn.baseUrl}/permission/$requestId/reply") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -428,7 +430,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun listPendingPermissions(conn: ServerConnection, directory: String? = null): List<PermissionRequest> {
         return httpClient.get("${conn.baseUrl}/permission") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.body()
     }
@@ -443,7 +445,7 @@ class V1ApiClient @Inject constructor(
         val bodyJson = json.encodeToString(QuestionReplyBody.serializer(), QuestionReplyBody(answers = answers))
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "replyToQuestion: POST $url, directory=$directory, bodyJson=$bodyJson")
         val result = httpClient.post(url) {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             setBody(io.ktor.http.content.TextContent(bodyJson, ContentType.Application.Json))
         }
@@ -460,7 +462,7 @@ class V1ApiClient @Inject constructor(
         val url = "${conn.baseUrl}/question/$requestId/reject"
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "rejectQuestion: POST $url, directory=$directory")
         val result = httpClient.post(url) {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "rejectQuestion: status=${result.status}")
@@ -469,7 +471,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest> {
         return httpClient.get("${conn.baseUrl}/question") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.body()
     }
@@ -478,50 +480,50 @@ class V1ApiClient @Inject constructor(
 
     suspend fun getHealth(conn: ServerConnection): ServerHealth {
         return httpClient.get("${conn.baseUrl}/global/health") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
         return httpClient.get("${conn.baseUrl}/path") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun listAgents(conn: ServerConnection): List<AgentInfo> {
         return httpClient.get("${conn.baseUrl}/agent") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun listCommands(conn: ServerConnection): List<CommandInfo> {
         return httpClient.get("${conn.baseUrl}/command") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun listSkills(conn: ServerConnection, directory: String? = null): List<SkillInfo> {
         return httpClient.get("${conn.baseUrl}/skill") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
     suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> {
         return httpClient.get("${conn.baseUrl}/mcp") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean {
         return httpClient.post("${conn.baseUrl}/mcp/$name/connect") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun disconnectMcpServer(conn: ServerConnection, name: String): Boolean {
         return httpClient.post("${conn.baseUrl}/mcp/$name/disconnect") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
@@ -529,19 +531,19 @@ class V1ApiClient @Inject constructor(
 
     suspend fun getProviders(conn: ServerConnection): ProvidersResponse {
         return httpClient.get("${conn.baseUrl}/config/providers") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse {
         return httpClient.get("${conn.baseUrl}/provider") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>> {
         return httpClient.get("${conn.baseUrl}/provider/auth") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
@@ -551,7 +553,7 @@ class V1ApiClient @Inject constructor(
         methodIndex: Int
     ): ProviderOauthAuthorization? {
         val response = httpClient.post("${conn.baseUrl}/provider/$providerId/oauth/authorize") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("method" to methodIndex))
         }
@@ -581,7 +583,7 @@ class V1ApiClient @Inject constructor(
         else mapOf("method" to methodIndex)
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "completeProviderOauth: POST /provider/$providerId/oauth/callback body=$body")
         val response = httpClient.post("${conn.baseUrl}/provider/$providerId/oauth/callback") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(body)
         }
@@ -594,7 +596,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean {
         val response = httpClient.put("${conn.baseUrl}/auth/$providerId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("type" to "api", "key" to apiKey))
         }
@@ -604,7 +606,7 @@ class V1ApiClient @Inject constructor(
     suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean {
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderAuth: DELETE ${conn.baseUrl}/auth/$providerId")
         val response = httpClient.delete("${conn.baseUrl}/auth/$providerId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         if (BuildConfig.DEBUG) {
             val body = response.bodyAsText()
@@ -615,19 +617,19 @@ class V1ApiClient @Inject constructor(
 
     suspend fun getConfig(conn: ServerConnection): ServerConfigResponse {
         return httpClient.get("${conn.baseUrl}/config") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
         return httpClient.get("${conn.baseUrl}/global/config") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
         return httpClient.patch("${conn.baseUrl}/config") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(patch)
         }.body()
@@ -635,7 +637,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
         return httpClient.patch("${conn.baseUrl}/global/config") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(patch)
         }.body()
@@ -643,14 +645,14 @@ class V1ApiClient @Inject constructor(
 
     suspend fun disposeGlobal(conn: ServerConnection): Boolean {
         val response = httpClient.post("${conn.baseUrl}/global/dispose") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
 
     suspend fun disposeInstance(conn: ServerConnection): Boolean {
         val response = httpClient.post("${conn.baseUrl}/instance/dispose") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
@@ -666,7 +668,7 @@ class V1ApiClient @Inject constructor(
         dirs: String? = null
     ): List<String> {
         return httpClient.get("${conn.baseUrl}/find/file") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("query", query)
             type?.let { parameter("type", it) }
@@ -677,7 +679,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun readFile(conn: ServerConnection, path: String, directory: String? = null): FileContentDto {
         return httpClient.get("${conn.baseUrl}/file/content") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("path", path)
         }.body()
@@ -685,14 +687,14 @@ class V1ApiClient @Inject constructor(
 
     suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> {
         return httpClient.get("${conn.baseUrl}/find") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             parameter("pattern", pattern)
         }.body()
     }
 
     suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean {
         val response = httpClient.get("${conn.baseUrl}/file") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("path", "")
         }
@@ -701,7 +703,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun listDirectory(conn: ServerConnection, path: String, directory: String? = null): List<FileNodeDto> {
         val response = httpClient.get("${conn.baseUrl}/file") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("path", path)
         }
@@ -713,7 +715,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun findSymbols(conn: ServerConnection, query: String, directory: String? = null): List<SymbolInfo> {
         return httpClient.get("${conn.baseUrl}/find/symbol") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("query", query)
         }.body()
@@ -721,28 +723,28 @@ class V1ApiClient @Inject constructor(
 
     suspend fun getFileStatus(conn: ServerConnection, directory: String? = null): List<FileStatusInfo> {
         return httpClient.get("${conn.baseUrl}/file/status") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
     suspend fun getVcs(conn: ServerConnection, directory: String? = null): VcsBranchDto {
         return httpClient.get("${conn.baseUrl}/vcs") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
     suspend fun getVcsStatus(conn: ServerConnection, directory: String? = null): List<VcsChangeDto> {
         return httpClient.get("${conn.baseUrl}/vcs/status") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
     suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int = 3, directory: String? = null): List<FileDiffDto> {
         return httpClient.get("${conn.baseUrl}/vcs/diff") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("mode", mode)
             parameter("context", context)
@@ -751,13 +753,13 @@ class V1ApiClient @Inject constructor(
 
     suspend fun listProjects(conn: ServerConnection): List<Project> {
         return httpClient.get("${conn.baseUrl}/project") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
     suspend fun getCurrentProject(conn: ServerConnection): Project {
         return httpClient.get("${conn.baseUrl}/project/current") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.body()
     }
 
@@ -773,7 +775,7 @@ class V1ApiClient @Inject constructor(
             AppLogger.d(TAG, "createPty: POST ${conn.baseUrl}/pty title=$title cwd=$cwd directory=$directory")
         }
         val response = httpClient.post("${conn.baseUrl}/pty") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(PtyCreateRequest(title = title, cwd = cwd))
@@ -847,7 +849,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/pty/$ptyId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
@@ -865,7 +867,7 @@ class V1ApiClient @Inject constructor(
             AppLogger.d(TAG, "updatePtySize: PUT ${conn.baseUrl}/pty/$ptyId body=$jsonStr directory=$directory")
         }
         val response = httpClient.put("${conn.baseUrl}/pty/$ptyId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -891,7 +893,7 @@ class V1ApiClient @Inject constructor(
         val session = httpClient.webSocketSession {
             method = HttpMethod.Get
             url("$wsBase/pty/$ptyId/connect?cursor=$cursor")
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         return PtySocket(session)
@@ -899,7 +901,7 @@ class V1ApiClient @Inject constructor(
 
     suspend fun listPtyShells(conn: ServerConnection, directory: String? = null): List<ShellInfo> {
         return httpClient.get("${conn.baseUrl}/pty/shells") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.body()
     }
@@ -913,7 +915,7 @@ class V1ApiClient @Inject constructor(
         directory: String? = null
     ): Boolean {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/shell") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(

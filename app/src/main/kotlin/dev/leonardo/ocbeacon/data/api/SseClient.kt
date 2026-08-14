@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.data.api
 
+import dev.leonardo.ocbeacon.data.api.auth
+
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
@@ -186,7 +188,7 @@ class SseClient @Inject constructor(
         AppLogger.i(TAG, "Connecting to SSE: $sseUrl (auth=${conn.authHeader != null})")
 
         val statement = httpClient.prepareGet(sseUrl) {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             header("Accept", "text/event-stream")
             directory?.let { header("x-opencode-directory", URLEncoder.encode(it, "UTF-8")) }
 
@@ -286,7 +288,7 @@ class SseClient @Inject constructor(
         AppLogger.i(TAG, "Connecting to instance SSE: $sseUrl (auth=${conn.authHeader != null})")
 
         val statement = httpClient.prepareGet(sseUrl) {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             header("Accept", "text/event-stream")
             directory?.let { header("x-opencode-directory", URLEncoder.encode(it, "UTF-8")) }
 

@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.v2
 
+import dev.leonardo.ocbeacon.data.api.auth
+
 import dev.leonardo.ocbeacon.data.api.sse.parsers.SseEventParser
 import dev.leonardo.ocbeacon.data.api.appendDataLine
 import dev.leonardo.ocbeacon.data.api.buildStringFromBytes
@@ -98,7 +100,7 @@ class SseClientV2 @Inject constructor(
         AppLogger.i(TAG, "Connecting to V2 SSE: $sseUrl (auth=${conn.authHeader != null})")
 
         val statement = httpClient.prepareGet(sseUrl) {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             header("Accept", "text/event-stream")
             directory?.let { header("x-opencode-directory", URLEncoder.encode(it, "UTF-8")) }
 

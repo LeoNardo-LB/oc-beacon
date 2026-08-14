@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.version
 
+import dev.leonardo.ocbeacon.data.api.auth
+
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
@@ -72,7 +74,7 @@ class ApiVersionDetector @Inject constructor(
         return try {
             val conn = ServerConnection.from(url, username, password, ApiVersion.V2)
             val response = apiClient.httpClient.get("${conn.baseUrl}/api/health") {
-                conn.authHeader?.let { header("Authorization", it) }
+                auth(conn)
             }
             if (!response.status.isSuccess()) return null
 
@@ -112,7 +114,7 @@ class ApiVersionDetector @Inject constructor(
         return try {
             val conn = ServerConnection.from(url, username, password, ApiVersion.V1)
             val response = apiClient.httpClient.get("${conn.baseUrl}/global/health") {
-                conn.authHeader?.let { header("Authorization", it) }
+                auth(conn)
             }
             if (!response.status.isSuccess()) return null
 

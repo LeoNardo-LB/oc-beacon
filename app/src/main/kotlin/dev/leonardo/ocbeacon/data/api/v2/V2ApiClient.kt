@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.v2
 
+import dev.leonardo.ocbeacon.data.api.auth
+
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.api.NonJsonResponseException
@@ -124,7 +126,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getHealth(conn: ServerConnection): ServerHealth {
         val response = httpClient.get("${conn.baseUrl}/api/health") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         val root = parseRoot(response.bodyAsText())
         return ServerHealth(
@@ -143,7 +145,7 @@ class V2ApiClient @Inject constructor(
         limit: Int = 50
     ): List<Session> {
         val response = httpClient.get("${conn.baseUrl}/api/session") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             search?.let { parameter("search", it) }
             cursor?.let { parameter("cursor", it) }
@@ -156,7 +158,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getSession(conn: ServerConnection, sessionId: String): Session {
         val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         val root = parseRoot(response.bodyAsText())
         val data = V2ResponseWrapper.unwrap(root)
@@ -165,7 +167,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/api/session/$sessionId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
     }
 
@@ -186,7 +188,7 @@ class V2ApiClient @Inject constructor(
             }
         }
         val response = httpClient.post("${conn.baseUrl}/api/session") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(kotlinx.serialization.json.buildJsonObject { bodyObj.forEach { (k, v) -> put(k, v) } })
@@ -198,14 +200,14 @@ class V2ApiClient @Inject constructor(
 
     suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/api/session/$sessionId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
 
     suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/rename") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("title" to title))
         }
@@ -217,7 +219,7 @@ class V2ApiClient @Inject constructor(
     /** V2 用 interrupt 替代 V1 的 abort */
     suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/interrupt") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         return response.status.isSuccess()
@@ -233,7 +235,7 @@ class V2ApiClient @Inject constructor(
     ): Result<Map<String, RestSessionStatusInfo>> {
         return runCatching {
             val response = httpClient.get("${conn.baseUrl}/api/session/active") {
-                conn.authHeader?.let { header("Authorization", it) }
+                auth(conn)
                 directoryHeader(directory)
             }
             val root = parseRoot(response.bodyAsText())
@@ -265,7 +267,7 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): Map<String, ActiveSessionInfo> {
         val response = httpClient.get("${conn.baseUrl}/api/session/active") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         val root = parseRoot(response.bodyAsText())
@@ -285,7 +287,7 @@ class V2ApiClient @Inject constructor(
      */
     suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/background") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
@@ -299,7 +301,7 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): List<ShellJob> {
         val response = httpClient.get("${conn.baseUrl}/api/shell") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         return V2ShellMapper.shellList(response.bodyAsText(), json)
@@ -314,7 +316,7 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): ShellJob? {
         val response = httpClient.get("${conn.baseUrl}/api/shell/$shellId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         if (!response.status.isSuccess()) return null
@@ -335,7 +337,7 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): ShellOutput? {
         val response = httpClient.get("${conn.baseUrl}/api/shell/$shellId/output") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             cursor?.let { parameter("cursor", it) }
             limit?.let { parameter("limit", it) }
@@ -360,7 +362,7 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/api/shell/$shellId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         return response.status.isSuccess()
@@ -377,7 +379,7 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): ShellJob? {
         val response = httpClient.patch("${conn.baseUrl}/api/shell/$shellId/timeout") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(io.ktor.http.ContentType.Application.Json)
             setBody("""{"timeout":$timeoutMillis}""")
@@ -397,7 +399,7 @@ class V2ApiClient @Inject constructor(
         cursor: String? = null
     ): MessagePage {
         val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId/message") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             limit?.let { parameter("limit", it) }
             // 2026-08-11 实测：服务器翻页参数名是 cursor（before 被忽略）。
             // cursor 值必须用服务器上次响应返回的 cursor.next（base64url 的
@@ -425,13 +427,13 @@ class V2ApiClient @Inject constructor(
 
     suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/api/session/$sessionId/message") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
     }
 
     suspend fun getMessage(conn: ServerConnection, sessionId: String, messageId: String): MessageWithParts {
         val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId/message/$messageId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         val root = parseRoot(response.bodyAsText())
         val data = V2ResponseWrapper.unwrap(root)
@@ -469,7 +471,7 @@ class V2ApiClient @Inject constructor(
             AppLogger.d(TAG, "[prompt] POST /api/session/$sessionId/prompt textLen=${text.length} agent=$agent directory=$directory")
         }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/prompt") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
@@ -526,7 +528,7 @@ class V2ApiClient @Inject constructor(
             AppLogger.d(TAG, "[model] POST /api/session/$sessionId/model providerID=$providerId modelID=$modelId variant=$variant")
         }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/model") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
         }
@@ -538,7 +540,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/api/session/$sessionId/message/$messageId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
@@ -547,7 +549,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun listAgents(conn: ServerConnection): List<AgentInfo> {
         val response = httpClient.get("${conn.baseUrl}/api/agent") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         val root = parseRoot(response.bodyAsText())
         val (items, _) = V2ResponseWrapper.unwrapList(root)
@@ -564,7 +566,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun listCommands(conn: ServerConnection): List<CommandInfo> {
         val response = httpClient.get("${conn.baseUrl}/api/command") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         val root = parseRoot(response.bodyAsText())
         val (items, _) = V2ResponseWrapper.unwrapList(root)
@@ -579,7 +581,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun listSkills(conn: ServerConnection, directory: String? = null): List<SkillInfo> {
         val response = httpClient.get("${conn.baseUrl}/api/skill") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         val root = parseRoot(response.bodyAsText())
@@ -595,14 +597,14 @@ class V2ApiClient @Inject constructor(
 
     suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/mcp/$name/connect") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
 
     suspend fun disconnectMcpServer(conn: ServerConnection, name: String): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/mcp/$name/disconnect") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
@@ -614,7 +616,7 @@ class V2ApiClient @Inject constructor(
         // 1. GET /api/provider → provider 列表（不含模型）
         // 2. GET /api/model → 模型列表（每个模型带 providerID）
         val providerResponse = httpClient.get("${conn.baseUrl}/api/provider") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         val providerRoot = parseRoot(providerResponse.bodyAsText())
         val (providerItems, _) = V2ResponseWrapper.unwrapList(providerRoot)
@@ -622,7 +624,7 @@ class V2ApiClient @Inject constructor(
         // 获取模型列表
         val modelItems = runCatching {
             val modelResponse = httpClient.get("${conn.baseUrl}/api/model") {
-                conn.authHeader?.let { header("Authorization", it) }
+                auth(conn)
             }
             val modelRoot = parseRoot(modelResponse.bodyAsText())
             V2ResponseWrapper.unwrapList(modelRoot).first
@@ -694,7 +696,7 @@ class V2ApiClient @Inject constructor(
             message?.let { put("message", kotlinx.serialization.json.JsonPrimitive(it)) }
         }
         val response = httpClient.post("${conn.baseUrl}/api/permission/$requestId/reply") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
@@ -724,7 +726,7 @@ class V2ApiClient @Inject constructor(
             AppLogger.d(TAG, "replyToForm: POST /api/session/" + sessionId + "/form/" + formId + "/reply answer=" + keyedAnswers)
         }
         val response = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/form/" + formId + "/reply") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
@@ -743,7 +745,7 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): Boolean {
         val response = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/form/" + formId + "/cancel") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         return response.status.isSuccess()
@@ -780,7 +782,7 @@ class V2ApiClient @Inject constructor(
         modelId: String
     ): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/compact") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("providerID" to providerId, "modelID" to modelId))
         }
@@ -790,19 +792,19 @@ class V2ApiClient @Inject constructor(
     suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session {
         // V2 两步操作：stage + commit
         httpClient.post("${conn.baseUrl}/api/session/$sessionId/revert/stage") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("messageID" to messageId))
         }
         httpClient.post("${conn.baseUrl}/api/session/$sessionId/revert/commit") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return getSession(conn, sessionId)
     }
 
     suspend fun unrevertSession(conn: ServerConnection, sessionId: String): Session {
         httpClient.post("${conn.baseUrl}/api/session/$sessionId/revert/clear") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return getSession(conn, sessionId)
     }
@@ -812,7 +814,7 @@ class V2ApiClient @Inject constructor(
             messageId?.let { put("messageID", kotlinx.serialization.json.JsonPrimitive(it)) }
         }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/fork") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
         }
@@ -829,7 +831,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
         val bodyText = httpClient.post("${conn.baseUrl}/api/session/import") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(kotlinx.serialization.json.buildJsonObject {
                 put("url", kotlinx.serialization.json.JsonPrimitive(shareUrl))
@@ -851,7 +853,7 @@ class V2ApiClient @Inject constructor(
     ): Boolean {
         val body = mutableMapOf<String, Any>("command" to command, "arguments" to arguments)
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/command") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -884,7 +886,7 @@ class V2ApiClient @Inject constructor(
         val sessionPath = "/api/session/$sessionId"
         val messagePath = "/api/session/$sessionId/message"
         val sessionJson = httpClient.get("${conn.baseUrl}$sessionPath") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
         val header = """{"info":$sessionJson,"messages":"""
         outputStream.write(header.toByteArray())
@@ -945,7 +947,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun listPendingPermissions(conn: ServerConnection, directory: String? = null): List<PermissionRequest> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/permission/request") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.bodyAsText()
         return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
@@ -961,7 +963,7 @@ class V2ApiClient @Inject constructor(
      */
     suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/form/request") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.bodyAsText()
         return V2ResponseWrapper.flexibleList(bodyText, json)
@@ -973,7 +975,7 @@ class V2ApiClient @Inject constructor(
     suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
         return runCatching {
             val bodyText = httpClient.get("${conn.baseUrl}/api/location") {
-                conn.authHeader?.let { header("Authorization", it) }
+                auth(conn)
             }.bodyAsText()
             val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
             val decoded = json.decodeFromJsonElement(ServerPaths.serializer(), obj)
@@ -989,7 +991,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/mcp") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
         // 实测契约（2026-08-11）：{"location":..., "data":[{name, status:{status, error?}}, ...]}
         // 原 flexibleObject 解析对象包裹 → 遇 data 数组返回根对象 → 遍历 location（无 status）→ 崩溃
@@ -1038,7 +1040,7 @@ class V2ApiClient @Inject constructor(
         else mapOf("method" to methodIndex)
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "completeProviderOauth: POST /api/provider/$providerId/oauth/callback body=$body")
         val response = httpClient.post("${conn.baseUrl}/api/provider/$providerId/oauth/callback") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(body)
         }
@@ -1051,7 +1053,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean {
         val response = httpClient.patch("${conn.baseUrl}/api/credential/$providerId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("type" to "api", "key" to apiKey))
         }
@@ -1061,7 +1063,7 @@ class V2ApiClient @Inject constructor(
     suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean {
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderAuth: DELETE ${conn.baseUrl}/api/credential/$providerId")
         val response = httpClient.delete("${conn.baseUrl}/api/credential/$providerId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         if (BuildConfig.DEBUG) {
             val body = response.bodyAsText()
@@ -1072,21 +1074,21 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getConfig(conn: ServerConnection): ServerConfigResponse {
         val bodyText = httpClient.get("${conn.baseUrl}/api/config") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
         return parseConfigBody(bodyText)
     }
 
     suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
         val bodyText = httpClient.get("${conn.baseUrl}/api/config") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
         return parseConfigBody(bodyText)
     }
 
     suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
         val bodyText = httpClient.patch("${conn.baseUrl}/api/config") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(patch)
         }.bodyAsText()
@@ -1095,7 +1097,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
         val bodyText = httpClient.patch("${conn.baseUrl}/api/config") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             contentType(ContentType.Application.Json)
             setBody(patch)
         }.bodyAsText()
@@ -1123,14 +1125,14 @@ class V2ApiClient @Inject constructor(
 
     suspend fun disposeGlobal(conn: ServerConnection): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/service/stop") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
 
     suspend fun disposeInstance(conn: ServerConnection): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/service/stop") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
@@ -1146,7 +1148,7 @@ class V2ApiClient @Inject constructor(
         dirs: String? = null
     ): List<String> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/fs/find") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("query", query)
             type?.let { parameter("type", it) }
@@ -1166,7 +1168,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun readFile(conn: ServerConnection, path: String, directory: String? = null): FileContentDto {
         val bodyText = httpClient.get("${conn.baseUrl}/api/fs/read") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("path", path)
         }.bodyAsText()
@@ -1176,7 +1178,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/fs/find") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             parameter("pattern", pattern)
         }.bodyAsText()
         return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
@@ -1186,7 +1188,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean {
         val response = httpClient.get("${conn.baseUrl}/api/fs/list") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("path", "")
         }
@@ -1195,7 +1197,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun listDirectory(conn: ServerConnection, path: String, directory: String? = null): List<FileNodeDto> {
         val response = httpClient.get("${conn.baseUrl}/api/fs/list") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("path", path)
         }
@@ -1231,7 +1233,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getFileStatus(conn: ServerConnection, directory: String? = null): List<FileStatusInfo> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/vcs/status") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.bodyAsText()
         return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
@@ -1241,7 +1243,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getVcs(conn: ServerConnection, directory: String? = null): VcsBranchDto {
         val bodyText = httpClient.get("${conn.baseUrl}/api/vcs") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.bodyAsText()
         val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
@@ -1259,7 +1261,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getVcsStatus(conn: ServerConnection, directory: String? = null): List<VcsChangeDto> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/vcs/status") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }.bodyAsText()
         return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
@@ -1269,7 +1271,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int = 3, directory: String? = null): List<FileDiffDto> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/vcs/diff") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             parameter("mode", mode)
             parameter("context", context)
@@ -1281,7 +1283,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun listProjects(conn: ServerConnection): List<Project> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/project") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
         return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
             json.decodeFromJsonElement(Project.serializer(), obj)
@@ -1290,7 +1292,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun getCurrentProject(conn: ServerConnection): Project {
         val bodyText = httpClient.get("${conn.baseUrl}/api/project/current") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }.bodyAsText()
         val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
         return json.decodeFromJsonElement(Project.serializer(), obj)
@@ -1308,7 +1310,7 @@ class V2ApiClient @Inject constructor(
             AppLogger.d(TAG, "createPty: POST ${conn.baseUrl}/api/pty title=$title cwd=$cwd directory=$directory")
         }
         val response = httpClient.post("${conn.baseUrl}/api/pty") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(PtyCreateRequest(title = title, cwd = cwd))
@@ -1379,7 +1381,7 @@ class V2ApiClient @Inject constructor(
 
     suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/api/pty/$ptyId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
         }
         return response.status.isSuccess()
     }
@@ -1397,7 +1399,7 @@ class V2ApiClient @Inject constructor(
             AppLogger.d(TAG, "updatePtySize: PUT ${conn.baseUrl}/api/pty/$ptyId body=$jsonStr directory=$directory")
         }
         val response = httpClient.put("${conn.baseUrl}/api/pty/$ptyId") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(body)
@@ -1423,7 +1425,7 @@ class V2ApiClient @Inject constructor(
         val session = httpClient.webSocketSession {
             method = HttpMethod.Get
             url("$wsBase/api/pty/$ptyId/connect?cursor=$cursor")
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
         }
         return PtySocket(session)
@@ -1434,7 +1436,7 @@ class V2ApiClient @Inject constructor(
         // 正确端点是 /api/pty（location 作用域 PTY 列表）。
         return runCatching {
             val bodyText = httpClient.get("${conn.baseUrl}/api/pty") {
-                conn.authHeader?.let { header("Authorization", it) }
+                auth(conn)
                 directoryHeader(directory)
             }.bodyAsText()
             V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
@@ -1452,7 +1454,7 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/shell") {
-            conn.authHeader?.let { header("Authorization", it) }
+            auth(conn)
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(
