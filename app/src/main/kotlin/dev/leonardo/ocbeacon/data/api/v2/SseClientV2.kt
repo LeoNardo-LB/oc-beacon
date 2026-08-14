@@ -145,6 +145,19 @@ class SseClientV2 @Inject constructor(
                     eventCount++
                     if (event != null) {
                         if (event !is SseEvent.ServerHeartbeat) {
+                            if (BuildConfig.DEBUG) {
+                                // debug 级事件类型日志（不干扰正常日志）：逐条记录
+                                // 非高频事件；delta 高频事件（文本/reasoning/tool 增量）
+                                // 按 100 条节流汇总，避免流式期间刷屏。
+                                val typeName = event::class.simpleName ?: "?"
+                                if (event is SseEvent.MessagePartDelta) {
+                                    if (eventCount % 100 == 1) {
+                                        AppLogger.d(TAG, "[recv] ${typeName} (delta stream, eventCount=${eventCount})")
+                                    }
+                                } else {
+                                    AppLogger.d(TAG, "[recv] ${typeName} eventCount=${eventCount}")
+                                }
+                            }
                             emit(event)
                         }
                     }

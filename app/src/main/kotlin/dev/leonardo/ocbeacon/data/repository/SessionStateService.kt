@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.domain.model.*
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SyncResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -296,6 +297,16 @@ class SessionStateService @Inject constructor(
                             val quietMs = System.currentTimeMillis() - lastEventAt
                             if (quietMs > ZOMBIE_BUSY_MS) {
                                 AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
+                                // 2026-08-14 根因修复（转圈/无回复）：仅本地强制 Idle 只是"装样子"——
+                                // 服务器 runner 仍处于僵尸 running（/active 持续返回 running），
+                                // 用户再发消息 POST /prompt 虽 200+admitted，但僵尸 runner 永不消费
+                                // inbox → 无执行事件 → 消息永远无回复 + UI 转圈。
+                                // 实测（V2 next-17403）：POST /api/session/{id}/interrupt 返回 204
+                                // 且 /active 中该会话从 running 列表消失 = 服务器僵尸被解除。
+                                // 此处主动调用服务器 interrupt（V1 走 abortSession / V2 走
+                                // interruptSession，SessionRepository.abort 已按 apiVersion 分流），
+                                // 从根因解除僵尸；幂等安全（idle 会话调用无副作用）。
+                                interruptZombieRunner(sid, sessionId, directory)
                                 onRestValidation(sessionId, SessionStatus.Idle)
                             } else {
                                 onRestValidation(sessionId, serverStatus)
@@ -346,6 +357,41 @@ class SessionStateService @Inject constructor(
         job.invokeOnCompletion { activeValidations.remove(sessionId, job) }
     }
 
+    /**
+     * 解除服务器端僵尸 runner（2026-08-14 根因修复）。
+     *
+     * 触发条件：L3 REST 校验确认服务器说 Busy，但 App 侧超过 [ZOMBIE_BUSY_MS]
+     * 无任何 SSE 事件——服务器 runner 卡死但 /active 仍返回 running。
+     *
+     * 动作：调用服务器 interrupt/abort（按 apiVersion 分流：V2
+     * POST /api/session/{id}/interrupt，V1 POST /session/{id}/abort）。
+     * 幂等安全：对 idle 会话调用无副作用；服务器恢复执行时 execution.started
+     * 事件会重新置 Busy（FSM 自然跟随）。
+     *
+     * 注意：interrupt 是 fire-and-forget——僵尸解除后服务器可能发
+     * session.status/idle 事件，FSM 会自然同步；本方法不等待结果。
+     * 失败仅告警不阻断（本地 Idle 兜底仍会执行）。
+     */
+    private fun interruptZombieRunner(serverId: String, sessionId: String, directory: String?) {
+        val sid = currentServerId ?: serverId
+        appScope.launch {
+            try {
+                val result = sessionRepoProvider.get().abort(sid, sessionId, directory)
+                result.onSuccess {
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(TAG, "[$sessionId] zombie interrupt sent (server runner released)")
+                    }
+                }.onFailure { e ->
+                    AppLogger.w(TAG, "[$sessionId] zombie interrupt failed: ${e.message}")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "[$sessionId] zombie interrupt error: ${e.message}")
+            }
+        }
+    }
+
     // ============ L4：完整 REST 同步（统一恢复）============
     //
     // 跨 [projects] 的 directory 从服务器拉取每个会话状态（当 [projects]
@@ -369,6 +415,10 @@ class SessionStateService @Inject constructor(
                 aggregated[sessionId] = if (incompleteChecker.hasIncomplete(sessionId)) state.core  // 保护（SSE 可能仍在流式传输）
                                           else SessionStatus.Idle                                       // 缺失 = idle
             }
+        }
+        if (BuildConfig.DEBUG) {
+            val busyCount = aggregated.count { it.value is SessionStatus.Busy }
+            AppLogger.d(TAG, "[syncFromRest] aggregated=${aggregated.size} busy=${busyCount} dirs=${dirs.size}")
         }
         for ((sessionId, status) in aggregated) applyTransition(sessionId, FsmEvent.RestValidation(status))
         return SyncResult(aggregated.size, aggregated.count { it.value is SessionStatus.Busy })

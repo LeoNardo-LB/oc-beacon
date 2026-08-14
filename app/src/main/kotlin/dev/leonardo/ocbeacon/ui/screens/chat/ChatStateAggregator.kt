@@ -1,6 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.domain.model.SessionActivity
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
@@ -42,6 +44,9 @@ internal class ChatStateAggregator(
     private val serverName: StateFlow<String>,
     private val scope: CoroutineScope,
 ) {
+    /** debug 级 UI 状态变化日志的节流缓存（仅 DEBUG 构建使用）。 */
+    private var lastLoggedStatusName: String? = null
+    private var lastLoggedStreaming: Boolean? = null
     /**
      * 会话元数据 —— 会话信息更新时变化（标题、状态、agent）。
      * 包含 [sessionIdFlow] 作为数据源，使延迟会话创建触发立即重计算。
@@ -73,6 +78,18 @@ internal class ChatStateAggregator(
         val session = allSessions.find { it.id == sid }
         val sessionStatus = statuses[sid] ?: SessionStatus.Idle
         val isStreaming = activities[sid] is SessionActivity.Streaming
+
+        if (BuildConfig.DEBUG) {
+            // debug 级 UI 状态变化日志（不干扰正常日志）：仅在 status/isStreaming
+            // 实际变化时打印——这是输入区 showBusy 转圈的驱动源，用于定位
+            // "发送后一直转圈"是 FSM 状态卡住还是 UI 聚合问题。
+            val statusName = sessionStatus::class.simpleName ?: "?"
+            if (statusName != lastLoggedStatusName || isStreaming != lastLoggedStreaming) {
+                lastLoggedStatusName = statusName
+                lastLoggedStreaming = isStreaming
+                AppLogger.d("ChatStateAggregator", "[meta] sid=${sid.take(12)} status=$statusName streaming=$isStreaming")
+            }
+        }
 
         SessionMetaState(
             sessionTitle = session?.title ?: "",

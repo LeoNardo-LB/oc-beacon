@@ -464,17 +464,25 @@ class V2ApiClient @Inject constructor(
                 )))
             }
         }
+        val requestStartMs = System.currentTimeMillis()
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[prompt] POST /api/session/$sessionId/prompt textLen=${text.length} agent=$agent directory=$directory")
+        }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/prompt") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
         }
+        val elapsedMs = System.currentTimeMillis() - requestStartMs
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[prompt] POST /prompt status=${response.status.value} elapsed=${elapsedMs}ms session=$sessionId")
+        }
         if (!response.status.isSuccess()) return null
         // 2026-08-14 根治：200 响应体即 Inbox 条目
         // {"data":{"id":"msg_xxx","sessionID":"ses_xxx","timeCreated":...,"type":"user",
         //   "payload":{"text":"..."},"delivery":"steer"}}——解析失败仅降级（SSE 兜底）
-        return runCatching {
+        val admission = runCatching {
             val root = parseRoot(response.bodyAsText())
             val obj = V2ResponseWrapper.unwrap(root)
             val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return null
@@ -483,6 +491,10 @@ class V2ApiClient @Inject constructor(
                 ?.get("text")?.jsonPrimitive?.contentOrNull
             PromptAdmission(id = id, sessionId = sid, text = textValue)
         }.getOrNull()
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[prompt] admission id=${admission?.id ?: "null"} sid=${admission?.sessionId ?: "null"} (解析失败=null→依赖 SSE 回显)")
+        }
+        return admission
     }
 
     /**
@@ -497,15 +509,29 @@ class V2ApiClient @Inject constructor(
         modelId: String,
         variant: String? = null
     ): Boolean {
-        val bodyObj = kotlinx.serialization.json.buildJsonObject {
+        // 2026-08-14 契约修复（模拟器实测 400 "Missing key at [\"model\"]"）：
+        // V2 POST /api/session/{id}/model 的 body 必须是嵌套结构
+        // {"model": {"id": ..., "providerID": ..., "variant": ...}}，
+        // 扁平 {id, providerID} 会返回 400 InvalidRequestError。
+        // 嵌套格式实测返回 204（见 docs/research/dialogue-lifecycle-e2e 证据）。
+        val modelObj = kotlinx.serialization.json.buildJsonObject {
             put("id", kotlinx.serialization.json.JsonPrimitive(modelId))
             put("providerID", kotlinx.serialization.json.JsonPrimitive(providerId))
             variant?.let { put("variant", kotlinx.serialization.json.JsonPrimitive(it)) }
+        }
+        val bodyObj = kotlinx.serialization.json.buildJsonObject {
+            put("model", modelObj)
+        }
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[model] POST /api/session/$sessionId/model providerID=$providerId modelID=$modelId variant=$variant")
         }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/model") {
             conn.authHeader?.let { header("Authorization", it) }
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
+        }
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[model] status=${response.status.value} session=$sessionId")
         }
         return response.status.isSuccess()
     }

@@ -57,6 +57,9 @@ class EventDispatcher @Inject constructor(
      */
     private val unreadMigrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** debug 级分发日志的 delta 节流计数器（仅 DEBUG 构建使用）。 */
+    private var dispatchCounter = 0
+
     init {
         // SessionStateService 回调——在此接线以打破循环依赖
         //（EventDispatcher ← SessionStateService 经由 Provider，但回调
@@ -226,6 +229,19 @@ class EventDispatcher @Inject constructor(
         // 每个 handler 再通过自身的 `when` 块在内部过滤。
         val handler = registry[event::class]
         if (handler != null) {
+            if (BuildConfig.DEBUG) {
+                // debug 级分发日志：事件类型 + 目标 handler（不干扰正常日志）。
+                // delta 高频事件按 100 条节流，避免流式期间刷屏。
+                val typeName = event::class.simpleName ?: "?"
+                if (event is SseEvent.MessagePartDelta) {
+                    dispatchCounter++
+                    if (dispatchCounter % 100 == 1) {
+                        AppLogger.d(TAG, "[dispatch] ${typeName} -> ${handler::class.simpleName} (delta stream, counter=${dispatchCounter})")
+                    }
+                } else {
+                    AppLogger.d(TAG, "[dispatch] ${typeName} -> ${handler::class.simpleName} sid=${sessionId?.take(12)}")
+                }
+            }
             handler.handle(event, serverId)
         } else if (BuildConfig.DEBUG) {
             AppLogger.w(TAG, "No handler registered for ${event::class.simpleName}")

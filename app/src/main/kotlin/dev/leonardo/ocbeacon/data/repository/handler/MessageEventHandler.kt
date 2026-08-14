@@ -73,6 +73,8 @@ class MessageEventHandler @Inject constructor(
     private val pendingDeltas = mutableListOf<PendingDelta>()
     private val pendingLock = Any()
     private var batchJob: Job? = null
+    /** debug 级 delta flush 节流计数器（仅 DEBUG 构建使用）。 */
+    private var deltaFlushCounter = 0
 
     // ---- 持久化 actor（#57）----
     // 所有 SSE 双写落盘请求经 Channel 入队，由单一写协程串行处理：
@@ -118,6 +120,14 @@ class MessageEventHandler @Inject constructor(
             if (pendingDeltas.isEmpty()) return
             batch = pendingDeltas.toList()
             pendingDeltas.clear()
+        }
+        if (BuildConfig.DEBUG) {
+            // debug 级流式 flush 日志（节流：每 100 批打一次）——用于确认
+            // delta 正在落库（"无回复/输出中断"排查的关键节点）。
+            deltaFlushCounter++
+            if (deltaFlushCounter % 100 == 1) {
+                AppLogger.d(TAG, "[flush] deltas=${batch.size} (batch #${deltaFlushCounter}, first=${batch.first().messageId.take(12)})")
+            }
         }
 
         _parts.update { current ->
@@ -167,6 +177,11 @@ class MessageEventHandler @Inject constructor(
 
     internal fun handleMessageUpdated(event: SseEvent.MessageUpdated) {
         val sessionId = event.info.sessionId
+        if (BuildConfig.DEBUG) {
+            val role = event.info.role
+            val completed = (event.info as? Message.Assistant)?.time?.completed
+            AppLogger.d(TAG, "[msg] MessageUpdated sid=${sessionId.take(12)} id=${event.info.id.take(16)} role=$role completed=$completed")
+        }
         _messages.update { current ->
             val msgs = current[sessionId]?.toMutableList() ?: mutableListOf()
             val idx = msgs.indexOfFirst { it.id == event.info.id }
