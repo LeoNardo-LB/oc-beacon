@@ -117,6 +117,20 @@
 
 **轮次 6 结论**：E8-5 revert 完整 PASS（含草稿回填与重发闭环）。E8-6 分页代码正常、UI 手势受模拟器限制（登记真机）。#129 方案 C 已实现并构建。
 
+### 轮次 7：2026-08-14 18:20-18:30（真机 PLK110 · V2 协议 · #129 C 转圈点击中断真机验证）
+
+**环境基线**：
+- 真机 PLK110（OnePlus · Android 16/SDK 36 · serial 3B165D00SX600000），模拟器已关闭
+- 服务器：V2Real `http://192.168.110.53:4199`（0.0.0-next-17430，server a7e67a30-20f2-4a36-9a7b-709764fd7bea）
+- App：dev APK（含 #129 C commit 1160eeb9），模型 DeepSeek V4 Flash Free
+- 测试会话：ses_005890631ffehiUOLFiaodsAv7（opencode2失效重装原因）
+
+| 用例 | 结果 | 实际观察 | 对比期望 | 问题归属 | 备注 |
+|------|------|----------|----------|----------|------|
+| #129 C 转圈点击中断 | ✅ | 流式中（发送按钮变"停止"）点转圈中心 (887,1517) → `Busy/Streaming --ClientAbort--> Idle [force-complete]` → `POST /api/session/.../interrupt` → `SessionActionsDelegate: Aborted session` → `ChatViewModel: Aborted session` → 服务器回 `session.step.failed error:aborted` + `session.execution.interrupted reason:user` → 停止按钮变回发送 | 一致（完整闭环） | - | 铁证链：FSM 转换 + HTTP interrupt + 服务器双确认事件 + UI 停止→发送。转圈位置：任务活动图标左侧 x863-912/y1494-1541（像素分析），中心 (887,1517)——非 UnfoldMore 模型变体图标 [698,1497]，此前误点该处会打开模型选择器 |
+
+**轮次 7 结论**：#129 C 转圈点击立即中断在真机完整闭环验证通过（用户方案 C 落地确认）。#130 服务器缺陷仍待 opencode 上游修复。
+
 ---
 
 ## 未达成项跟踪
@@ -124,7 +138,8 @@
 | 用例 | 轮次 | 现象 | 归属 | 根因 | 状态 |
 |------|------|------|------|------|------|
 | E7-5 问题卡片 UI 实测（#125） | 3 | question 工具 running 但 request 端点为空、无 QuestionAsked SSE | 环境（服务器 next-17403 缺陷） | 服务器 question 工具不广播 | 已登记 backlog；App 侧修复待服务器修复后复测 |
-| #126 远页草稿保留（UI 手势） | 4 | 代码修复已确认（D1）；模拟器无法触发 Compose HorizontalPager fling（adb swipe 无效） | 观测（模拟器手势） | 模拟器不支持 pager fling 手势 | 需真机 fling 验证（Q1 输草稿→滑到 Q4→滑回 Q1 草稿保留） |
+| #126 远页草稿保留（UI 手势） | 4 | 代码修复已确认（D1）；模拟器无法触发 Compose HorizontalPager fling（adb swipe 无效） | 观测（模拟器手势） | 模拟器不支持 pager fling 手势 | 真机验证中（Q1 输草稿→滑到 Q4→滑回 Q1 草稿保留） |
+| #129 C 转圈点击中断 | 6 | 模拟器触摸被滚动手势拦截，无法验证点击 | 观测（模拟器触摸） | 模拟器限制 | ✅ 轮次 7 真机验证通过（18:28 铁证链） |
 
 ---
 
