@@ -1,35 +1,29 @@
 ## OC Beacon 0.3.0-beta.9 — 2026-08-14
 
-> 版本摘要：（待填写——本版主题一句话）
+> 本版聚焦**会话中断控制与调试体验**：转圈点击立即中断、调试通道 adb 一键直达，并修复快速连发输入丢失、V1 问题卡片渲染、僵尸会话卡死等稳定性问题。
 
 ### Added
 
-- #132 调试通道——预置套餐一键直达会话列表 + am start extra 启动直达
-- #129 方案 C——转圈指示器可点击立即中断（不等 3 分钟僵尸兜底）
+- **调试通道**：debug 构建下用 adb 参数一键直达任意服务器会话列表（`--es debug_url/--es debug_username/--es debug_password/--es debug_name`，仅 debug 构建，详见 `docs/debug-channel.md`）
+- **转圈即停止（#129 方案 C）**：会话进行中点击输入栏的**转圈指示器**立即中断生成，无需等待 3 分钟僵尸兜底
+- **统计栏模型展示 + token 占比圆环**：恢复统计信息显示（适配 V2 契约）
 
 ### Changed
 
-- #132 移除内置套餐——仅保留 adb 完整参数方式 + 版本探测修复（UNKNOWN 保留 apiVersion 防 V2 降级 V1）+ 文档
-- 僵尸误杀防护改为结构化 if/else——去除 return@onSuccess 非局部跳出
+- **版本探测更稳健**：探测失败不再把 V2 服务器误判为 V1——避免 V1 路径请求打 SPA 页面导致解析错误与连接假死
 
 ### Fixed
 
-- E8-1 快速连发输入清空竞态——发送成功仅当输入框仍是已发送文本时才清空（防静默丢失新输入）
-- #131 V1 question 卡片嵌入渲染失败——tool part 消息不渲染待处理问题卡片  根因（模拟器 V1 实测完整证据链）： - pendingQuestions 非空（4 题，输入框 enabled=false 佐证） - embeddedQuestionByMsgId 按 tool.messageId 匹配成功（msg_fff32fe2d001 存在）   → question 被算作已嵌入 → unembeddedQuestions 排除它（独立卡片不显示） - 但嵌入渲染条件 MessageCardAssistant:243 part is Part.Reasoning 不满足——   V1 question 工具调用消息是 Part.Tool（非 Reasoning）→ 卡片不渲染 - 结果：问题卡片凭空消失 + 输入框禁用（UI 卡死，用户无法回答问题）  修复：嵌入条件放宽为 Reasoning 或 Tool（question/permission 工具调用消息） 都渲染待处理问题卡片。  验证：模拟器 V1 实测——4 题卡片（1/4 分页 Alpha/Beta + Enter answer + Dismiss/Next/Submit）正常渲染；V1 会话列表显示 Pending answer 徽标
-- 走查发现的三处修复——僵尸 interrupt 误杀防护 + 草稿静默丢失 + 计数器原子性
-- V2 switchModel 契约修复 + 僵尸会话主动 interrupt 解除 + 关键节点 debug 日志
-- #128 beta 真机 CompletionHandlerException——runCatching 吞取消根因修复
-- 会话状态卡'进行中'——僵尸 Busy 兜底（服务器 drain 不释放）
-- fling 快速滑动跳过 agent 长气泡——预组合 1 项 → 6 项
-- 问题模块审计 3 bug（#125 多选自定义取消 + #126 远页草稿 + #127 越界保护）
-- 统计栏模型展示恢复 + token 占比圆环（V2 契约适配）
-- 用户消息气泡根治——prompt 响应体即 Inbox 条目，发送后立即本地播种
-- #124 退出会话列表状态闪烁——releaseSessionData 不再清 FSM
-- #123 synthetic 缓存分支适配 inbox 事件契约（随 V2SseMapper 同步）
-- #123 V2 用户消息不显示——session.inbox.enqueued 契约适配
-- #111 dataSync 前台服务 6h 时限——onTimeout 覆盖自动重启
-- #108 SSE 心跳——阻塞读 40s 超时防护 + V1 心跳对齐 + EOFException 捕获
-
+- **快速连发不再丢消息（E8-1）**：发送成功仅清空本次已发送内容；发送期间输入的新内容保留，可再次发送
+- **V1 问题卡片正常渲染（#131）**：question 工具调用消息（tool part）正确嵌入待处理问题卡片，不再凭空消失导致输入框卡死
+- **僵尸会话主动解除**：服务器 Busy 且 3 分钟无事件 → 自动 interrupt 恢复 Idle（含 pending 用户输入防护）
+- **流式退出不再崩溃（#128）**：取消异常正确传播，修复 CompletionHandlerException 崩溃根因
+- **fling 快速滑动跳过 agent 长气泡**：预组合 1 项 → 6 项，长回复快速滚动不再跳读
+- **多选问题自定义答案可取消（#125）**：自定义答案提交后可删除；修改态提交不再误取消已有选项
+- **远页草稿保留（#126）**：4+ 问题场景滑到远页再回来，自定义草稿不丢失
+- **会话列表状态闪烁（#124）**：退出会话不再错误清除 FSM 状态
+- **V2 用户消息显示（#123）**：适配 inbox 事件契约，用户消息即时显示
+- **SSE 心跳防护（#108/#111）**：阻塞读 40s 超时 + 前台服务 6h 时限自动重启
 
 ---
 完整变更记录：[Full Changelog](https://github.com/LeoNardo-LB/oc-beacon/compare/v0.3.0-beta.8...v0.3.0-beta.9)
