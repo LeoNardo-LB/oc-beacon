@@ -13,6 +13,10 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 **必须加载 `verification-before-completion` 技能**作为验证指导原则。该技能定义的 Gate Function 是本项目的强制执行标准：
 
+**验证方法论**：如何组织证据（多维度交叉验证、证据链完整性、操作可复现、并行验证节点）
+见 [`docs/qa-methodology.md`](qa-methodology.md)——本文档规定"验什么"（4 维框架 + 铁律），
+方法论规定"怎么验到交叉印证"（≥2 独立维度互证才算完成）。
+
 ```
 BEFORE claiming any status:
 1. IDENTIFY — 什么命令能证明这个声明？

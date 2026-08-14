@@ -14,6 +14,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/release-notes-template.md`](docs/release-notes-template.md) | GitHub Release 说明模板与写作规则（每次发版按此撰写） | 撰写发版说明、Release Notes 前 |
 | 🔴 MUST | [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md) | ChatScreen.kt 编辑协议（见下方承重约束） | 编辑 ChatScreen.kt 前 |
 | 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4 维验证框架 | 完成开发、声称"完成"前 |
+| 🟡 SHOULD | [`docs/qa-methodology.md`](docs/qa-methodology.md) | 质量保证方法论：多维度交叉验证（≥2 独立维度互证）、证据链完整性、操作可复现、并行验证节点委派（subagent 可并行跑验证） | 任何修复/功能声称完成前的验证设计与证据组织（与 verification-requirements 配合） |
 | 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归验证指南：变更分类（快速/完整回归）、12 能力域验证清单、问题处理流程（阻塞→根因修复；非阻塞→登记；补丁三件事） | 涉及已有能力的重构/接口变更/存储或渲染层改动前（必读），按能力域清单执行回归 |
 | 🟡 SHOULD | [`docs/observability-verification-guide.md`](docs/observability-verification-guide.md) | 可观测性验证手册：Logcat 规范、Room 数据库直查（run-as sqlite3）、SSE 事件流、服务器 curl 预测试、智谱截图分析、代码改动标准观测流程 | 任何代码改动验证、声称完成前（与 verification-requirements 维度 3 配合） |
 | 🟡 SHOULD | [`docs/v1-v2-differences.md`](docs/v1-v2-differences.md) | OpenCode V1 (1.18.x) vs V2 (2.x) 功能与 API 差异完整清单（端点/认证/SSE/配置/任务（后台化）），含客户端适配状态 | 涉及 V1/V2 兼容功能开发、版本探测、功能适配前（必读） |

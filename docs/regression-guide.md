@@ -327,6 +327,7 @@ adb shell dumpsys dropbox --print
 | 文档 | 关系 | 引用要点 |
 |------|------|----------|
 | `docs/verification-requirements.md` | 上位总纲 | 本文档遵守其铁律与 4+1 维框架，不重复命令细节 |
+| `docs/qa-methodology.md` | 方法论层 | 交叉验证矩阵（≥2 独立维度互证）、证据链完整性、可复现清单模板、并行验证节点委派 |
 | `AGENTS.md` | 项目规则源 | 本文档遵守验证铁律、backlog 纪律、ChatScreen 编辑协议、SSE 铁律 |
 | `backlog.md` | 问题登记去向 | §4 流程的非阻塞问题登记处 |
 | `docs/chatscreen-editing-protocol.md` | ChatScreen 编辑叠加协议 | §3.4 / §3.8 触及 ChatScreen 时叠加 |

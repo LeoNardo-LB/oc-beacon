@@ -120,6 +120,8 @@ curl -s -u "opencode:PASS" http://127.0.0.1:4199/api/session | head -c 200
    ├─ 数据库（run-as sqlite3 直查）
    └─ 截图（智谱 analyze_image 确认界面）
 6. 比对预期：日志值 == 设计值？数据库行 == 预期？UI 无报错？
+   └─ 交叉验证（qa-methodology.md §2）：同一结论至少 2 个独立维度互证
+       （如 logcat 事件 + DB 落库 + 截图可见三件套互相印证；单维度证据不算完成）
 7. 回归：docs/regression-guide.md 按变更分类执行
 8. 完成声明：只有证据齐全才能声称完成（verification-requirements.md 铁律）
 ```
