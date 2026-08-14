@@ -44,6 +44,11 @@ class FileViewerViewModel @AssistedInject constructor(
     // Phase 4：分页 — 缓存完整内容供 loadMore 切片使用
     private var fullContentCache: String = ""
 
+    // #115（D2-L23）：批注进程级保存——overlay 的 ViewModelStoreOwner 无
+    // SavedStateRegistry（remember 创建），语言切换/进程重建时 VM 重建丢批注。
+    // 用静态 map 按 (serverId,filePath) 保存，VM 重建后 restore；
+    // 提交成功或 clear 时移除。批注是纯数据类，静态持有安全（无 Activity 引用）。
+
     @AssistedFactory
     interface Factory {
         fun create(params: FileViewerParams): FileViewerViewModel
@@ -54,6 +59,13 @@ class FileViewerViewModel @AssistedInject constructor(
         const val PAGE_SIZE = 500
         const val EXTREMELY_LARGE_THRESHOLD = 100_000
         const val EXTREMELY_LARGE_INITIAL = 10_000
+
+        // #115（D2-L23）：进程级批注暂存（key = serverId + filePath）——
+        // overlay VM 无 SavedStateRegistry，语言切换/进程重建时 VM 重建丢批注
+        private val annotationsHolder = java.util.concurrent.ConcurrentHashMap<String, List<dev.leonardo.ocbeacon.domain.model.Annotation>>()
+
+        private fun holderKey(serverId: String, filePath: String): String =
+            serverId + "\u0000" + filePath
     }
 
     init {
@@ -120,7 +132,10 @@ class FileViewerViewModel @AssistedInject constructor(
                                              else minOf(totalLines, INITIAL_PAGE_SIZE)
                         val visible = takeFirstLines(c.content, initialVisible)
                         // AnnotationManager 使用完整内容，保证 loadMore 后行号正确
-                        annotationManager = AnnotationManager(fullContentCache)
+                        annotationManager = AnnotationManager(fullContentCache).also { manager ->
+                            // #115（D2-L23）：恢复进程级暂存的批注（语言切换/重建后不丢）
+                            annotationsHolder[holderKey(serverId, filePath)]?.let { manager.restore(it) }
+                        }
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -201,6 +216,7 @@ class FileViewerViewModel @AssistedInject constructor(
         if (_uiState.value.mode != FileViewerMode.SOURCE) return
         manager.add(selectedText, startChar, endChar, note)
         val all = manager.getAll()
+        annotationsHolder[holderKey(serverId, filePath)] = all
         _uiState.update { it.copy(annotations = all) }
     }
 
@@ -208,6 +224,7 @@ class FileViewerViewModel @AssistedInject constructor(
         val manager = annotationManager ?: return
         manager.delete(id)
         val all = manager.getAll()
+        annotationsHolder[holderKey(serverId, filePath)] = all
         _uiState.update { it.copy(annotations = all) }
     }
 
@@ -215,6 +232,7 @@ class FileViewerViewModel @AssistedInject constructor(
         val manager = annotationManager ?: return
         manager.update(id, note)
         val all = manager.getAll()
+        annotationsHolder[holderKey(serverId, filePath)] = all
         _uiState.update { it.copy(annotations = all) }
     }
 
@@ -229,6 +247,8 @@ class FileViewerViewModel @AssistedInject constructor(
             manager.clear()
             annotationManager = null
             fullContentCache = ""
+            // #115（D2-L23）：提交成功——移除暂存，防下次打开残留
+            annotationsHolder.remove(holderKey(serverId, filePath))
             _uiState.update { it.copy(annotations = emptyList(), content = "", isEmpty = true) }
         }
         return result
@@ -365,7 +385,9 @@ class FileViewerViewModel @AssistedInject constructor(
                          else content.count { it == '\n' } + if (content.endsWith('\n')) 0 else 1
         val initialVisible = minOf(totalLines, INITIAL_PAGE_SIZE)
         val visible = takeFirstLines(content, initialVisible)
-        annotationManager = AnnotationManager(content)
+        annotationManager = AnnotationManager(content).also { manager ->
+            annotationsHolder[holderKey(serverId, filePath)]?.let { manager.restore(it) }
+        }
         // 对于 Edit 工具：在完整文件中找到被修改的区域，滚动到那里
         val editSnippet = last.after ?: last.content ?: last.before ?: ""
         val scrollLine = if (editSnippet.isNotBlank()) {
