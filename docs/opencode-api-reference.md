@@ -23,6 +23,7 @@
 - [10. Message 端点](#10-message-端点)（7 个）
 - [11. Permission 端点](#11-permission-端点)（3 个）
 - [12. Question 端点](#12-question-端点)（3 个）
+- [12A. Form 端点（V2 form 服务，#130 实测）](#12a-form-端点v2-form-服务130-实测)（5 个）
 - [13. PTY 端点](#13-pty-端点)（8 个）
 - [14. TUI 端点](#14-tui-端点)（13 个）
 - [15. 控制平面基础端点](#15-控制平面基础端点)（3 个）
@@ -1932,6 +1933,92 @@ http://{host}:{port}
 
 ---
 
+## 12A. Form 端点（V2 form 服务，#130 实测）
+
+> **背景（2026-08-14 官方确认 + 真机抓帧）**：V2 的 question 工具已迁移到 **form 服务**。
+> 服务器发 `form.created` SSE（metadata.kind=question），客户端通过下列端点回复/取消。
+> 旧 `/api/question/request` + `question.asked` 是 stale surface（未来移除）——**App 已适配
+> form API，V1 服务器不受影响（仍走 /question 端点）**。
+
+### GET `/api/form/request`
+
+列出**所有会话**的待处理表单（仅未回复/未取消的）。
+
+**响应** `200`:
+```json
+{
+  "location": { "directory": "/home/leo-tkp", "project": { "id": "global" } },
+  "data": [ /* Form.Info 数组（与 form.created 事件同构） */ ]
+}
+```
+
+**错误**: 401 / 400
+
+### GET `/api/session/{sessionID}/form`
+
+列出某会话的表单（含已结算的）。**响应** `200`: `{ "data": [Form.Info, ...] }`
+
+### GET `/api/session/{sessionID}/form/{formID}`
+
+获取单个表单（含已结算）。**响应** `200`: `{ "data": Form.Info }`
+
+### GET `/api/session/{sessionID}/form/{formID}/state`
+
+查询表单状态。**响应** `200`:
+```json
+{ "data": { "status": "pending" | "answered" | "cancelled", "answer": { "q0": "..." } } }
+```
+
+### POST `/api/session/{sessionID}/form/{formID}/reply`
+
+回复表单。
+
+**请求体**:
+```json
+{
+  "answer": {
+    "q0": "米饭",                 // 单选（string 类型）：标量
+    "q1": ["Kotlin", "Rust"]      // 多选（multiselect 类型）：数组
+  }
+}
+```
+
+**响应** `204`（无 body）。**错误**: 404 / 409（`FormAlreadySettledError`）/ 400 / 401
+
+### POST `/api/session/{sessionID}/form/{formID}/cancel`
+
+取消表单。**无请求体**。**响应** `204`。**错误**: 404 / 409 / 400 / 401
+
+### Form.Info 结构（实测 next-17430）
+
+```json
+{
+  "id": "frm_...",
+  "sessionID": "ses_...",
+  "title": "Questions",
+  "metadata": {
+    "kind": "question",
+    "tool": { "messageID": "msg_...", "id": "call_..." }
+  },
+  "fields": [
+    {
+      "key": "q0",
+      "title": "今天吃什么",
+      "description": "问题1：今天想吃什么？",
+      "type": "string",
+      "options": [ { "value": "米饭", "label": "米饭", "description": "..." } ],
+      "custom": true
+    }
+  ]
+}
+```
+
+> field.type 语义：`string`（+options）= 单选；`multiselect` = 多选；`custom=true` 允许自由输入。
+> 单选 answer 提交 `option.value`（标量字符串），多选提交 value 数组。
+> 字段类型：string / multiselect / number / integer / boolean / external。
+
+---
+
 ## 13. PTY 端点
 
 > 路由：`groups/pty.ts` · Handler：`handlers/pty.ts`
@@ -3773,9 +3860,12 @@ v1 的 `message.part.updated` 传递**完整 Part 对象**，每次更新全量�
 - **properties**：`{ sessionID, requestID, reply }`
 - **同步**：❌
 
-### 21.11 Question 事件（6 个，v1 + v2 双轨）
+### 21.11 Question 事件（v1 遗留 + V2 form 服务，#130）
 
-> 同 Permission，v1 和 v2 并行发布，建议优先使用 v2。
+> **2026-08-14 变更**：V2 的 question 工具已迁移到 form 服务——服务器不再发
+> `question.v2.*`，而是发 `form.created`（metadata.kind=question）+ `form.replied` /
+> `form.cancelled`。App 将 form.created 映射为 QuestionAsked、form.replied/cancelled 映射为
+> QuestionReplied/QuestionRejected 复用现有卡片管道。以下 `question.*` 事件为 V1 遗留（1.18.x 仍正常）。
 
 **`question.asked`**（v1）— 问题请求
 - **触发**：AI 需要向用户提问（澄清需求、选择方案等）

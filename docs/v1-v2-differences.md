@@ -27,7 +27,7 @@ V1（1.18.x，npm `opencode-ai`）与 V2（2.x beta，npm `@opencode-ai/cli`）�
 | Permission | `GET /permission` + `POST /permission/{id}/reply` | `GET /api/permission/request` + 会话级 permission + saved permissions | 双客户端分流 | ✅ 已适配 |
 | 回退 revert | `POST /session/{id}/revert` + `/unrevert`（直接执行） | staged：`/revert/stage` → `/revert/commit` 或 `/revert/clear` | 双客户端分流 | ✅ 已适配 |
 | **Todo** | `GET /session/{id}/todo` | **移除**（form/question 替代） | **V2 下隐藏 Todo 入口** | ⏳ #85 |
-| Form 系统 | 无 | `GET/POST /api/session/{id}/form` + reply/state | V2 新增能力，暂不展示 | 评估中 |
+| Form 系统 | 无 | `GET/POST /api/session/{id}/form` + reply/state | **已适配（#130）**：question 工具的 form（kind=question）映射为 QuestionAsked 复用提问卡片；回复走 `POST /api/session/{id}/form/{formID}/reply`，取消走 `.../cancel`；轮询兜底走 `GET /api/form/request`。其他 kind 的 form 暂忽略 | ✅ 2026-08-14 |
 | Inbox/Steering | 无 | `/api/session/{id}/inbox` + steer + queue | V2 新增能力 | 评估中 |
 | Shell | `POST /session/{id}/shell`（会话级） | 会话级 + **独立** `/api/shell` + `/api/shell/{id}/output` | 双客户端分流 | ✅ 已适配 |
 | 文件系统 | `GET /file`, `/file/content`, `/find`, `/find/file`, `/find/symbol` | `GET /api/fs/read/*`, `/api/fs/list`, `/api/fs/find` | 双客户端分流 | ✅ 已适配 |

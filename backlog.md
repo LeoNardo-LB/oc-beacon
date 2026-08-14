@@ -1101,14 +1101,22 @@ efactor
   - 工时：~1d | 难度：中 | 涉及：SessionStateService/SseClientV2/PermissionAutoApprover | 优先级：P2
 
 $(echo "
-- [ ] **#130 V2 question 工具协议迁移——需适配 form API（form.created SSE + /api/form/* 端点）** `v2` `question` `form`
-  - 问题：2026-08-14 实测（两次独立尝试）——agent 调用 question 工具（multiple=true 多选），工具 state 为 `status=running` 但：① `GET /api/question/request` 恒返回空 data；② 服务器从不发 question.asked SSE 事件 → App 无法收到 QuestionAsked → 问题卡片永不渲染（#125 UI 实测因此受阻）
-  - 证据：docs/dialogue-e2e-test-runbook.md 轮次 3（tool state running vs request 空）
-  - 服务器侧待办：升级 opencode 或向上游反馈；App 侧 QuestionAsked 处理逻辑本身正常（#26 已实现 + 单测）
-  - 工时：待服务器侧 | 难度：未知 | 优先级：P2（阻塞 #125 UI 实测）
-  - 2026-08-14 官方回复（issue #42541 comment）：非缺陷而是**协议迁移**——V2 question 工具由 form 服务驱动：服务器发 `form.created`（metadata.kind=question + fields q0/q1...），待处理 `GET /api/form/request` / `GET /api/session/{id}/form`，回复 `POST /api/session/{id}/form/{formID}/reply` `{"answer":{"q0":...}}`，取消 `POST .../form/{formID}/cancel`；旧 question.asked + /api/question/request 是 stale surface（未来移除）
-  - 待办：App 适配（SSE form.created 解析 + form→QuestionCard 映射 + form reply/cancel API + 轮询兜底）；V1 不受影响（question API 正常）
-  - 工时：~0.5-1d | 难度：中 | 优先级：P1（V2 question 功能恢复）
+- [x] **#130 V2 question 工具协议迁移——已适配 form API（真机 E2E 验证通过）** `v2` `question` `form`
+  - 背景：2026-08-14 官方回复（issue #42541）——V2 question 工具由 form 服务驱动：`form.created` SSE（metadata.kind=question，fields q0/q1...，option 含 value/label）、回复 `POST /api/session/{id}/form/{formID}/reply` `{"answer":{"q0":..}}`、取消 `.../cancel`、轮询 `GET /api/form/request`；旧 question.asked + /api/question/request 是 stale surface
+  - 实现（commit 5993c1a9 + 547bb204）：
+    - 新增 `V2FormMapper`（data/api/v2）：form.created/replied/cancelled → QuestionAsked/QuestionReplied/QuestionRejected（仅 kind=question 映射，复用现有提问卡片管道零 UI 改动）；REST form → QuestionRequest DTO；`buildAnswerBody` 构造 answer map（label→value 映射：UI 提交 label，服务器收 value）
+    - `SseClientV2.handleEvent`：form.* 事件分支（V2SseMapper 前）
+    - `V2ApiClient`：listPendingQuestions 改走 GET /api/form/request；新增 replyToForm/rejectForm
+    - `MessageApi`：replyToQuestion 加 question 参数（V2 form 需要 sessionId+key/value）、rejectQuestion 加 sessionId；V1 分支原样
+    - 领域模型：QuestionAsked.Question 加 key、Option 加 value（V1 均为 null 兼容）
+  - 验证（2026-08-14 真机 PLK110 + V2Real 4199）：
+    - ✅ form.created → QuestionAsked 映射（logcat: `[recv] QuestionAsked` → `[dispatch] -> QuestionEventHandler`）+ 卡片渲染（单选/多选/Q tabs/自定义输入）
+    - ✅ 提交：label→value 映射正确（UI 选"米饭"提交 `{"q0":"rice","q1":["Water","Coffee"]}`，服务器 state=answered，agent 回复确认收到答案）
+    - ✅ 取消：`POST .../cancel` 204 → form.cancelled SSE → 卡片消失，服务器 state=cancelled
+    - ✅ 轮询兜底：App 每 30s GET /api/form/request（logcat 实证）
+    - ✅ V1 回归：V1 轮询仍走旧 /question 端点（代码未动）
+    - ✅ 单测：V2FormMapperTest 10 个用例（映射/REST/answer 构造）+ V2ApiClientTest form 端点路径
+  - 备注：form 字段类型仅映射 string（单选）/multiselect（多选），number/integer/boolean/external 暂不支持（question 工具不产生）；文档见 docs/opencode-api-reference.md §12A
 " | sed 's/\`/`/g')
 
 - [x] **#131 V1 协议 question 卡片嵌入渲染失败（数据到达但 UI 不显示）——已修复 eab5f964** `question` `v1`
