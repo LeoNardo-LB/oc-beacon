@@ -55,6 +55,8 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 
 **代理警告**：`gradle.properties` 硬编码了 `127.0.0.1:7897` 的 HTTP 代理。代理不可达时构建会失败。无代理构建时注释掉 4 行 `systemProp.*` 配置。
 
+**Gradle 构建禁止并发（同一 checkout）**：同时跑两个 Gradle 构建（如 test 与 assemble 并行）会竞写 `app/build` 中间目录 → 测试 JVM 读到半写类文件 → 无辜测试报 `NoClassDefFoundError: Hilt_*`（2026-08-14 实证：并发必现、单独跑全绿）。需要多个产物时用**单条多任务命令**（`./gradlew :app:testDevDebugUnitTest :app:assembleDevDebug`）或串行执行。
+
 **Gradle 超时（禁止无超时裸跑）**：
 - 编译检查（`compileDevDebugKotlin`）: 120 秒 · 单元测试: 180 秒 · 完整构建（`assemble*`）: 300 秒 · 依赖解析/首次构建: 600 秒
 
