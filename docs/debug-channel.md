@@ -1,59 +1,55 @@
 # 调试通道（Debug Channel）— #132
 
-> 预置服务器连接套餐，一键直达会话列表。仅 **debug 构建**可用（dev flavor + 所有
-> debug buildType）；release 构建完全不含（BuildConfig.DEBUG 守卫，profiles 恒空，
-> 密码字段为空字符串）。
+> 通过 **adb 外部参数**传入服务器地址/账号/密码，App 启动后自动保存（幂等）、
+> 连接并**直达会话列表**。仅 **debug 构建**可用（dev flavor + 所有 debug buildType）；
+> release 构建完全不含（BuildConfig.DEBUG 守卫）。
 
-## 入口
-
-### 1. Home 页入口卡片（UI 方式）
-
-debug 构建下，Home 页（服务器列表底部）显示 **"Debug Channel (dev)"** 卡片：
-
-1. 点入口卡片 → 套餐列表对话框
-2. 点套餐 → 自动完成：幂等保存服务器（同后端复用）→ 连接 → **直达会话列表**
-
-### 2. 外部参数启动直达（脚本方式）
+## 用法（adb 命令）
 
 ```bash
-# 冷启动直达（App 未运行）
 adb shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity \
-  --es debug_profile v1real
-
-# 热启动（App 已在运行，onNewIntent 处理）
-adb shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity \
-  --es debug_profile v2real
+  --es debug_url http://192.168.110.53:4199 \
+  --es debug_username opencode \
+  --es debug_password '<password>' \
+  --es debug_name 'V2 Real'     # 可选；建议英文（中文经 adb am 解析有歧义）
 ```
 
-## 套餐
+### 参数说明
 
-| id | label | url | 说明 |
-|----|-------|-----|------|
-| v1real | V1 Real | http://192.168.110.53:4096 | V1 真机（opencode 1.18.x） |
-| v2real | V2 Real | http://192.168.110.53:4199 | V2 真机（opencode 2.x） |
-| v1emu | V1 Emulator | http://10.0.2.2:4096 | V1 模拟器 |
-| v2emu | V2 Emulator | http://10.0.2.2:4199 | V2 模拟器 |
+| extra | 必填 | 默认值 | 说明 |
+|-------|------|--------|------|
+| `debug_url` | ✅ | - | 服务器地址，如 http://192.168.110.53:4199 |
+| `debug_username` | 否 | opencode | 认证用户名 |
+| `debug_password` | 否 | 空 | 认证密码；为空时幂等复用已有服务器密码（不覆盖） |
+| `debug_name` | 否 | Debug External | 服务器显示名（建议英文且**不含空格**——adb am 会按空格拆分参数，如 `V2_Real`） |
 
-## 密码注入
+### 冷启动 vs 热启动
 
-套餐密码**不硬编码**在源码，经 buildConfigField 从环境变量注入（仅 debug 构建有值）：
+- **App 未运行**：直接执行命令即可（冷启动，onCreate 处理）
+- **App 已在运行**：同样执行命令（onNewIntent 处理）
+
+## 行为
+
+1. **幂等保存**：同后端（url+username 归一化）已存在 → 复用并更新凭据；否则新建
+   （autoConnect=true）
+2. **版本探测**：自动探测 V1/V2 API 版本并修正 apiVersion（避免 V1 路径请求 V2 服务器）
+3. **连接 + 直达**：启动连接服务 → 直达该服务器**会话列表**
+
+## 示例
 
 ```bash
-export OCB_DEBUG_PWD='<password>'   # 构建前设置
-./gradlew :app:assembleDevDebug
+# V2 真机
+adb shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity \
+  --es debug_url http://192.168.110.53:4199 --es debug_username opencode \
+  --es debug_password leo12321 --es debug_name 'V2 Real'
+
+# V1 模拟器（10.0.2.2 = 模拟器访问宿主机）
+adb shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity \
+  --es debug_url http://10.0.2.2:4096 --es debug_password leo12321 --es debug_name 'V1 Emu'
 ```
-
-未设置时密码为空字符串（连接会失败，UI 通过 connectionErrors 呈现，不崩溃）。
-
-## 扩展套餐
-
-编辑 app/src/main/kotlin/dev/leonardo/ocbeacon/debug/DebugChannel.kt
-的 builtinProfiles()，追加 DebugProfile(id, label, url, username, password) 即可。
 
 ## 代码路径
 
-- 模型：domain/model/DebugProfile.kt
-- 套餐：debug/DebugChannel.kt
-- UI：ui/screens/home/components/DebugChannelComponents.kt + HomeScreen.kt
-- 激活：HomeViewModel.activateDebugProfile / MainActivity.handleDebugProfileIntent
-- 导航：NavGraph（debugChannelFlow 收集 → SessionList）
+- 模型：`domain/model/DebugProfile.kt`
+- 解析与激活：`MainActivity.handleDebugProfileIntent` / `MainActivity.activateDebugProfile`
+- 导航：`NavGraph`（debugChannelFlow 收集 → SessionList）

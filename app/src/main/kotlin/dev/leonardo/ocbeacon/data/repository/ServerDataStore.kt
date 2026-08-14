@@ -126,11 +126,18 @@ class ServerDataStore @Inject constructor(
                 version = detection.serverVersionString
             )
 
-            // 更新服务器健康状态和 API 版本
+            // 更新服务器健康状态和 API 版本。
+            // 探测失败（UNKNOWN）时保留原 apiVersion——不得把已知 V2 服务器
+            // 降级为 V1（2026-08-14 #132 联动：降级后 V1 路径请求 V2 → SPA HTML
+            // 解析错误 + SSE 假死）。
             val updatedServer = server.copy(
                 isHealthy = health.healthy,
                 lastConnected = System.currentTimeMillis(),
-                apiVersion = detection.version,
+                apiVersion = if (detection.version == dev.leonardo.ocbeacon.domain.model.ApiVersion.UNKNOWN) {
+                    server.apiVersion
+                } else {
+                    detection.version
+                },
                 serverVersion = detection.serverVersionString
             )
             updateServer(updatedServer)

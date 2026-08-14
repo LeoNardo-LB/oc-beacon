@@ -60,8 +60,12 @@ class ApiVersionDetector @Inject constructor(
             return v1Result
         }
 
-        AppLogger.w(TAG, "Could not detect API version at $url, defaulting to V1")
-        return DetectionResult(ApiVersion.V1)
+        // 2026-08-14 修复（#132 联动）：探测彻底失败必须返回 UNKNOWN 而非默认 V1。
+        // 旧行为默认 V1 会让 checkHealth 把已知 V2 服务器降级为 V1 → 后续所有
+        // V1 路径请求（/project、/global/event）打到 V2 的 SPA fallback → HTML
+        // 解析错误 + SSE 假死"正在连接"。UNKNOWN 语义：healthy=false + 保留原版本。
+        AppLogger.w(TAG, "Could not detect API version at $url, returning UNKNOWN")
+        return DetectionResult(ApiVersion.UNKNOWN)
     }
 
     private suspend fun tryV2(url: String, username: String, password: String?): DetectionResult? {

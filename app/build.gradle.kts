@@ -82,12 +82,6 @@ android {
 
     buildTypes {
         debug {
-            // 2026-08-14 #132 调试通道：套餐密码从环境变量注入（不进 VCS）。
-            // 仅 debug 构建有值；release 构建字段为空字符串 → DebugChannel.profiles 为空。
-            val debugChannelPwd = (System.getenv("OCB_DEBUG_PWD") ?: "")
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-            buildConfigField("String", "DEBUG_CHANNEL_PASSWORD", "\"$debugChannelPwd\"")
         }
         release {
             isMinifyEnabled = true

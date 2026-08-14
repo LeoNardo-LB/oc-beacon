@@ -25,8 +25,8 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.model.AppSettings
+import dev.leonardo.ocbeacon.domain.model.DebugProfile
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
-import dev.leonardo.ocbeacon.debug.DebugChannel
 import dev.leonardo.ocbeacon.service.OpenCodeConnectionService
 import dev.leonardo.ocbeacon.util.parseLocale
 import kotlinx.coroutines.flow.map
@@ -283,17 +283,35 @@ class MainActivity : ComponentActivity() {
 
     /**
      * #132 调试通道：外部参数一键直达（仅 debug 构建）。
-     * 用法：adb shell am start -n <pkg>/.MainActivity --es debug_profile <id>
-     * 行为：幂等保存套餐服务器 → 连接 → 直达该服务器会话列表。
+     *
+     * 用法（完整参数方式，任意服务器无需改代码）：
+     * adb shell am start -n <pkg>/.MainActivity \
+     *   --es debug_url http://192.168.110.53:4199 \
+     *   --es debug_username opencode \
+     *   --es debug_password <pwd> \
+     *   --es debug_name "V2 Real"
+     *
+     * 行为：幂等保存服务器 → 版本探测 → 连接 → 直达该服务器会话列表。
      */
     private fun handleDebugProfileIntent(intent: Intent?) {
         if (!BuildConfig.DEBUG) return
-        val profileId = intent?.getStringExtra("debug_profile") ?: return
-        val profile = DebugChannel.find(profileId) ?: run {
-            AppLogger.w(TAG, "Debug channel: unknown profile '" + profileId + "'")
-            return
-        }
+        val url = intent?.getStringExtra("debug_url") ?: return
+        val profile = DebugProfile(
+            id = "ext-" + url.hashCode().toString(16),
+            label = intent.getStringExtra("debug_name") ?: "Debug External",
+            url = url,
+            username = intent.getStringExtra("debug_username") ?: "opencode",
+            password = intent.getStringExtra("debug_password") ?: ""
+        )
         AppLogger.i(TAG, "Debug channel requested via extra: " + profile.id + " (" + profile.url + ")")
+        activateDebugProfile(profile)
+    }
+
+    /**
+     * #132 调试通道激活：幂等保存 → 版本探测 → 连接 → 直达会话列表。
+     * 供套餐方式与完整参数方式共用。
+     */
+    private fun activateDebugProfile(profile: DebugProfile) {
         lifecycleScope.launch {
             try {
                 val existing = serverRepository.getServersFlow().first()
@@ -303,12 +321,14 @@ class MainActivity : ComponentActivity() {
                 val serverId: String
                 if (existing != null) {
                     serverId = existing.id
+                    // 密码为空（构建时未注入 OCB_DEBUG_PWD）时保留已有密码——
+                    // 幂等复用不得破坏用户已配置的正确凭据（2026-08-14 真机 401 根因）。
                     serverRepository.updateServer(
                         existing.copy(
                             name = profile.label,
                             url = profile.url.trimEnd('/'),
                             username = profile.username,
-                            password = profile.password,
+                            password = profile.password.ifEmpty { existing.password },
                             autoConnect = true
                         )
                     )
@@ -324,6 +344,13 @@ class MainActivity : ComponentActivity() {
                             autoConnect = true,
                         )
                     )
+                }
+                // 版本探测（#132 联动）：激活前校验并修正 apiVersion——
+                // 探测失败返回 UNKNOWN 时 checkHealth 保留原值，不会把 V2 降级 V1。
+                // 不依赖结果（探测失败仍尝试连接，由服务/SSE 层兜底）。
+                val refreshed = serverRepository.getServer(serverId)
+                if (refreshed != null) {
+                    serverRepository.testConnection(refreshed).getOrNull()
                 }
                 val serviceIntent = Intent(this@MainActivity, OpenCodeConnectionService::class.java).apply {
                     putExtra("server_id", serverId)

@@ -16,7 +16,6 @@ import androidx.lifecycle.viewModelScope
 import dev.leonardo.ocbeacon.domain.model.AppSettings
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import java.util.UUID
-import dev.leonardo.ocbeacon.domain.model.DebugProfile
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.usecase.GetSettingsFlowUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageServerProvidersUseCase
@@ -336,65 +335,6 @@ class HomeViewModel @Inject constructor(
                 }
             } finally {
                 connectJobs.remove(serverId)
-            }
-        }
-    }
-
-    /**
-     * #132 调试通道：一键激活套餐 —— 幂等添加/更新服务器 → 连接 → 直达会话列表。
-     *
-     * [onReady] 在服务器已保存（可导航）后回调，携带 serverId；连接为异步进行，
-     * 失败通过 [HomeUiState.connectionErrors] 呈现，不阻塞直达导航。
-     */
-    fun activateDebugProfile(profile: DebugProfile, onReady: (String) -> Unit) {
-        viewModelScope.launch {
-            try {
-                // 幂等：同后端（协议+host+端口+用户名归一化）已存在则复用并更新凭据；
-                // 否则新建。避免重复添加同后端条目（backlog #34 同源防重）。
-                val existing = _uiState.value.servers.firstOrNull {
-                    ServerConfig.sameBackend(it.url, it.username, profile.url, profile.username)
-                }
-                val serverId: String
-                val server: ServerConfig
-                if (existing != null) {
-                    serverId = existing.id
-                    server = existing.copy(
-                        name = profile.label,
-                        url = profile.url.trimEnd('/'),
-                        username = profile.username,
-                        password = profile.password,
-                        autoConnect = true
-                    )
-                    serverRepository.updateServer(server)
-                } else {
-                    serverId = UUID.randomUUID().toString()
-                    server = ServerConfig(
-                        id = serverId,
-                        url = profile.url.trimEnd('/'),
-                        username = profile.username,
-                        password = profile.password,
-                        name = profile.label,
-                        autoConnect = true,
-                    )
-                    serverRepository.addServer(server)
-                }
-                // addServer/updateServer 后 servers flow 异步刷新；先手动更新本地快照，
-                // 使 connectToServer 能立即找到该服务器（避免"找不到"静默跳过）。
-                _uiState.update {
-                    it.copy(servers = it.servers.filterNot { s -> s.id == serverId } + server)
-                }
-                AppLogger.i(TAG, "Debug channel activated: " + profile.id + " -> server " + serverId)
-                connectToServer(serverId)
-                onReady(serverId)
-            } catch (ce: CancellationException) {
-                throw ce
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "Debug channel activation failed: " + e.message, e)
-                _uiState.update {
-                    it.copy(
-                        connectionErrors = it.connectionErrors + ("debug:" + profile.id to (e.message ?: "Debug channel activation failed"))
-                    )
-                }
             }
         }
     }
