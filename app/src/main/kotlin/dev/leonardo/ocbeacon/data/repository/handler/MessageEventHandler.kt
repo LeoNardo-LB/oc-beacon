@@ -35,8 +35,16 @@ class MessageEventHandler @Inject constructor(
     /** 测试用无参构造：禁用 SSE 双写。生产环境由 Hilt 注入非空 MessageCacheRepository。 */
     constructor() : this(null)
 
-    private companion object {
+    internal companion object {
         const val TAG = "MsgEventHandler"
+
+        /**
+         * #95（H-4 泄漏）：单会话消息热视图内存上限——与 Room 侧
+         * MessageStore.SESSION_MESSAGE_LIMIT（1000）对齐。超出后保留最新 N 条，
+         * 被裁剪消息的 parts / assistantMessageIds 同步清理（更早历史由
+         * 归档桶 + loadAround 按需分页加载，不依赖热视图）。
+         */
+        internal const val MEMORY_SESSION_MESSAGE_LIMIT = 1000
     }
 
     private val _messages = MutableStateFlow<Map<String, List<Message>>>(emptyMap())
@@ -233,6 +241,9 @@ class MessageEventHandler @Inject constructor(
         }
         // SSE 双写：消息元数据更新（新建/状态变更）→ 异步落盘到 Room
         persistSseUpdate(sessionId, listOf(event.info.id))
+        // #95：消息插入后应用热视图上限（未超限 O(1)）——放最后：
+        // 落盘先于裁剪，Room 保留全量（内存热视图才是被裁对象）
+        applyMessageCap(sessionId)
     }
 
     /**
@@ -679,6 +690,29 @@ class MessageEventHandler @Inject constructor(
             MergeStrategy.SSE_PRIORITY -> upsertSsePriority(sessionId, incoming)
             MergeStrategy.REST_AUTHORITY -> upsertRestAuthority(sessionId, incoming)
             MergeStrategy.APPEND_ONLY -> upsertAppendOnly(sessionId, incoming)
+        }
+        applyMessageCap(sessionId)
+    }
+
+    /**
+     * #95（H-4 泄漏）：热视图按会话保留最新 [MEMORY_SESSION_MESSAGE_LIMIT] 条
+     *（与 Room SESSION_MESSAGE_LIMIT 对齐）。写入路径已按 time.created 升序——
+     * 超限时裁掉最旧一段；被裁消息的 parts / assistantMessageIds 同步清理。
+     * 未超限时 O(1)（仅 size 检查）。更早历史由归档桶 + loadAround 按需加载。
+     */
+    private fun applyMessageCap(sessionId: String) {
+        var droppedIds: Set<String> = emptySet()
+        _messages.update { current ->
+            val msgs = current[sessionId] ?: return@update current
+            if (msgs.size <= MEMORY_SESSION_MESSAGE_LIMIT) return@update current
+            val overflow = msgs.size - MEMORY_SESSION_MESSAGE_LIMIT
+            droppedIds = msgs.subList(0, overflow).map { it.id }.toHashSet()
+            current + (sessionId to msgs.subList(overflow, msgs.size))
+        }
+        if (droppedIds.isNotEmpty()) {
+            _parts.update { p -> p.filterKeys { it !in droppedIds } }
+            assistantMessageIds.removeAll(droppedIds)
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Capped " + sessionId.take(12) + " to " + MEMORY_SESSION_MESSAGE_LIMIT + " msgs (dropped " + droppedIds.size + ")")
         }
     }
 
