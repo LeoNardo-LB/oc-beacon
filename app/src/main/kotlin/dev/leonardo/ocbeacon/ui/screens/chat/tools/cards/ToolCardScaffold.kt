@@ -54,6 +54,13 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.launch
 
 /**
+ * #137（D2-L50）：聊天内复制反馈通道——上层（ChatMessageList）注入 Snackbar
+ * 实现，统一聊天内复制反馈（原 ToolCardScaffold 用 Toast，与其他复制操作
+ * Snackbar 双通道不一致）。未注入时组件内 Toast 兜底。
+ */
+val LocalCopyFeedback = androidx.compose.runtime.staticCompositionLocalOf<(() -> Unit)?> { null }
+
+/**
  * 所有工具卡片共用的脚手架。
  * 封装通用的 Surface + 标题行 + 展开模式。
  *
@@ -101,6 +108,9 @@ internal fun ToolCardScaffold(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
+    // #137（D2-L50）：CompositionLocal.current 必须在 composable 上下文读取（onClick 非 composable）
+    val copyFeedback = LocalCopyFeedback.current
+    val copiedMessage = context.getString(R.string.chat_copied_clipboard)
 
     AmoledSurface(
         isAmoledDark = isAmoled,
@@ -184,7 +194,12 @@ internal fun ToolCardScaffold(
                                     clipScope.launch {
                                         clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("copy", copyText)))
                                     }
-                                    Toast.makeText(context, context.getString(R.string.chat_copied_clipboard), Toast.LENGTH_SHORT).show()
+                                    // #137（D2-L50）：优先走上层 Snackbar 通道（统一反馈），未注入时 Toast 兜底
+                                    if (copyFeedback != null) {
+                                        copyFeedback()
+                                    } else {
+                                        Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
+                                    }
                                 },
                                 modifier = Modifier.size(22.dp)
                             ) {

@@ -89,6 +89,10 @@ internal fun normalizeHtmlForEmbeddedPreview(html: String): String {
 
 // ============ Markdown 预处理 ============
 
+// #135（D2-L44）：正则顶层预编译——流式渲染每 token 重组时不再现场编译
+private val SINGLE_NEWLINE_REGEX = Regex("(?<!\n)\n(?!\n)")
+private val TABLE_AFTER_TEXT_REGEX = Regex("""([^\n]*[^\n|])\n([ \t]*\|[^\n]*\|)\n([ \t]*\|[-:\s|]+\|)""")
+
 /**
  * 最小化的 Markdown 预处理——让 Mikepenz Handle 原生解析。
  * 仅保留用户消息的换行规范化。
@@ -107,7 +111,7 @@ internal fun normalizeMarkdown(raw: String, isUser: Boolean): String {
 
     if (!isUser) return result
     // 用户消息：单个 \n 在 Markdown 中不换行（软换行）。
-    return result.replace(Regex("(?<!\n)\n(?!\n)"), "\n\n")
+    return result.replace(SINGLE_NEWLINE_REGEX, "\n\n")
 }
 
 /**
@@ -122,8 +126,7 @@ internal fun normalizeMarkdown(raw: String, isUser: Boolean): String {
 private fun ensureBlankLineBeforeGfmTables(text: String): String {
     // 匹配：不以 | 结尾的行，后跟表格表头行（以 | 开头），
     // 再跟分隔行（仅含 -、:、空格和 | 的 |）。
-    val tableAfterText = Regex("""([^\n]*[^\n|])\n([ \t]*\|[^\n]*\|)\n([ \t]*\|[-:\s|]+\|)""")
-    return text.replace(tableAfterText) { m ->
+    return text.replace(TABLE_AFTER_TEXT_REGEX) { m ->
         "${m.groupValues[1]}\n\n${m.groupValues[2]}\n${m.groupValues[3]}"
     }
 }

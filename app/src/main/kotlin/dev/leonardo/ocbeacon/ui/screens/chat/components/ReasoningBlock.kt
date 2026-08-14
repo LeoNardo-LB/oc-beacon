@@ -81,19 +81,25 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     val containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)
     val textColor = MaterialTheme.colorScheme.onSurface
 
-    // 思考圆点的脉冲动画（仅在 durationMs == null = 仍在思考时运行）
-    val infiniteTransition = rememberInfiniteTransition(label = "thinkingPulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = keyframes { durationMillis = AppMotion.PULSE_CYCLE; 0.7f at 400; 0.4f at 800 },
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
-
+    // #135（D2-L45）：脉冲动画仅"思考中"运行——已完成/折叠的思考卡片
+    // 原实现 rememberInfiniteTransition 无条件 60fps 渲染帧（动画值虽未被
+    // drawBehind 使用，仍持续驱动重组）；isComplete 时用静态 alpha。
     val isComplete = durationMs != null && !isStreaming
+    val pulseAlpha: Float = if (isComplete) {
+        0.4f
+    } else {
+        val infiniteTransition = rememberInfiniteTransition(label = "thinkingPulse")
+        val alpha by infiniteTransition.animateFloat(
+            initialValue = 0.3f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = keyframes { durationMillis = AppMotion.PULSE_CYCLE; 0.7f at 400; 0.4f at 800 },
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulseAlpha"
+        )
+        alpha
+    }
     val headerText = when {
         isStreaming -> stringResource(R.string.chat_thinking_in_progress, formatReasoningDuration(elapsedMs.longValue))
         isComplete -> stringResource(R.string.chat_thinking_complete, formatReasoningDuration(durationMs))
@@ -132,9 +138,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                                 .size(5.dp)
                                 .drawBehind {
                                     drawCircle(
-                                        color = accentColor.copy(
-                                            alpha = if (isComplete) 0.4f else pulseAlpha
-                                        )
+                                        color = accentColor.copy(alpha = pulseAlpha)
                                     )
                                 }
                         )

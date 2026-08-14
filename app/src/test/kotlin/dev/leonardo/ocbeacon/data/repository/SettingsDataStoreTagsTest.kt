@@ -92,7 +92,8 @@ class SettingsDataStoreTagsTest {
         // 模拟旧 favorite_sessions_<serverId> stringSet 数据（SettingsDataStoreFavorites 历史格式）
         val legacyKey = stringSetPreferencesKey("favorite_sessions_srv")
         store.dataStore.edit { it[legacyKey] = setOf("legacy-a", "legacy-b") }
-        // 首次读取：触发迁移分支，返回 legacy 数据
+        // #137（D2-L59）：迁移显式触发（原藏在 flow map 内，已移出）
+        store.migrateLegacyFavoritesIfNeeded("srv")
         val firstRead = store.favoriteSessionIds("srv").first()
         assertEquals(setOf("legacy-a", "legacy-b"), firstRead)
         // 迁移已写入 assignments map：再次读取时直接从 assignments 派生
@@ -106,7 +107,8 @@ class SettingsDataStoreTagsTest {
         val store = newStore()
         val legacyKey = stringSetPreferencesKey("favorite_sessions_srv")
         store.dataStore.edit { it[legacyKey] = setOf("legacy-a", "legacy-b") }
-        // 首次读取触发迁移，返回 legacy 数据
+        // #137（D2-L59）：迁移显式触发（原藏在 flow map 内，已移出）
+        store.migrateLegacyFavoritesIfNeeded("srv")
         val firstRead = store.favoriteSessionIds("srv").first()
         assertEquals(setOf("legacy-a", "legacy-b"), firstRead)
         // 迁移成功后 legacy key 必须已被删除（否则后续取消全部收藏会让迁移条件再次满足）

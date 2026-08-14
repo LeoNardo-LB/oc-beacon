@@ -223,7 +223,12 @@ class FileViewerViewModel @AssistedInject constructor(
         }
     }
 
-    fun nextHunk() { _uiState.update { it.copy(currentHunkIndex = (it.currentHunkIndex + 1).coerceAtMost(it.hunks.size - 1)) } }
+    fun nextHunk() {
+        // #137（D2-L31）：空 hunks 时 size-1 = -1 → coerceAtMost(-1) 把索引钳到 -1
+        // （无 diff 的文件点"下一个 hunk"会得到非法索引）；空列表时保持不动。
+        if (_uiState.value.hunks.isEmpty()) return
+        _uiState.update { it.copy(currentHunkIndex = (it.currentHunkIndex + 1).coerceAtMost(it.hunks.size - 1)) }
+    }
     fun prevHunk() { _uiState.update { it.copy(currentHunkIndex = (it.currentHunkIndex - 1).coerceAtLeast(0)) } }
 
     // ============ Phase 3：批注管理 ============

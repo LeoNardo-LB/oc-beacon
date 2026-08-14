@@ -40,6 +40,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
+/** #135（D2-L43）：ANSI 转义序列剥离正则——顶层预编译（原每次重组现场编译）。 */
+private val ANSI_ESCAPE_REGEX = Regex("\u001B\\[[0-9;]*[a-zA-Z]")
+
 /**
  * Bash 工具卡片 —— 显示 $ 命令 + 输出（2 行布局，2026-08-11 用户要求：
  * 与 ShellCard / TaskToolCard 视觉统一——subagent 与 shell 都可后台）：
@@ -60,7 +63,7 @@ internal fun BashToolCard(
     val input = extractToolInput(tool)
     val command = input["command"]?.jsonPrimitive?.contentOrNull ?: ""
     val output = extractToolOutput(tool)
-    val cleanedOutput = output.replace(Regex("\u001B\\[[0-9;]*[a-zA-Z]"), "")
+    val cleanedOutput = output.replace(ANSI_ESCAPE_REGEX, "")
     val displayText = buildString {
         if (command.isNotBlank()) {
             append("$ $command")

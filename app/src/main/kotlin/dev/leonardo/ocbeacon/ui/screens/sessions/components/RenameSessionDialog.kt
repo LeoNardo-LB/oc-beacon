@@ -25,6 +25,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +51,7 @@ internal fun RenameSessionDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.session_rename),
                     style = MaterialTheme.typography.titleMedium,

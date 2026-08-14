@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 private const val TAG = "PdfViewer"
 
@@ -187,7 +188,8 @@ fun PdfViewer(
         // ── 工具栏覆盖层（翻页） ──
         if (!isLoading && !hasError && totalPages > 0) {
             Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                // #137（D2-L49）：裸 alpha 0.9f → AlphaTokens.AMOLED（数值最接近 0.92）
+                color = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.AMOLED),
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)

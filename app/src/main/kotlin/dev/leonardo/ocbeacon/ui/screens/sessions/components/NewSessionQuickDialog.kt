@@ -34,6 +34,7 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 internal data class RecentSessionDirectory(
     val directory: String,
@@ -96,11 +97,11 @@ internal fun NewSessionQuickDialog(
             border = params.border,
             tonalElevation = params.tonalElevation,
         ) {
-            Column(modifier = Modifier.padding(vertical = 16.dp)) {
+            Column(modifier = Modifier.padding(vertical = SpacingTokens.LG.dp)) {
                 Text(
                     text = stringResource(R.string.sessions_new_dialog_title),
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = SpacingTokens.MD.dp),
                 )
 
                 LazyColumn(
@@ -113,9 +114,9 @@ internal fun NewSessionQuickDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onSelectDirectory(entry.directory) }
-                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                                .padding(horizontal = 20.dp, vertical = SpacingTokens.MD.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp),
                         ) {
                             Icon(
                                 Icons.Default.Folder,
@@ -150,7 +151,7 @@ internal fun NewSessionQuickDialog(
                 }
 
                 HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
+                    modifier = Modifier.padding(vertical = SpacingTokens.XS.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
                 )
 
@@ -158,9 +159,9 @@ internal fun NewSessionQuickDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onBrowse() }
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                        .padding(horizontal = 20.dp, vertical = SpacingTokens.MD.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp),
                 ) {
                     Icon(
                         Icons.Default.FolderOpen,

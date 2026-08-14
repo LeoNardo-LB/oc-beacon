@@ -107,6 +107,11 @@ class SessionListViewModel @Inject constructor(
     )
 
     init {
+        // #137（D2-L59）：旧收藏数据一次性迁移（原藏在 favoriteSessionIds flow map 内的
+        // 隐蔽写库副作用——flow 发射时写 DataStore；迁移显式化后此处触发）
+        viewModelScope.launch {
+            settingsRepository.migrateLegacyFavoritesIfNeeded(serverId)
+        }
         // backlog #38: 异步加载服务器配置，加载完成后设置 MCP 连接
         viewModelScope.launch {
             val config = kotlinx.coroutines.withContext(Dispatchers.IO) {

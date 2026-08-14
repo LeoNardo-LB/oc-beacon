@@ -1173,7 +1173,7 @@ $(echo "
   - D2-L47 ChatErrorState.kt:36 错误态固定 5s 无退避自动重试（服务器不可达时无限请求）
   - 工时：~0.5-1d | 难度：中 | 涉及：见各条 | 优先级：P1（并发一致性）
 
-- [ ] **#135 审计遗漏批次 3：性能（D2-L42/L43/L44/L45/L46/L68，6 项 UNFIXED）** `performance`
+- [x] **#135 审计遗漏批次 3：性能（D2-L42/L43/L44/L45/L46/L68，6 项 UNFIXED）** `performance`
   - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：6/6 UNFIXED）
   - D2-L42 AppLogger.kt:198 shouldPersist 每次日志现场构造 mapOf（流式 50-90 条/s → 每秒数百次分配）
   - D2-L43 BashToolCard.kt:63 ANSI 正则每次重组现场编译
@@ -1200,7 +1200,7 @@ $(echo "
     - #133：D2-L26 wakeLock 超时+续期 · D2-L27 毫秒时间戳 · D2-L40 cancelAndJoin 统一 · D2-L41 validated 分支
     - 新增单测：IsBackgroundMoveSyntheticTest(6) · SettingsLanguageMirrorTest(5) · TokenStatsTrackerConcurrencyTest(3) · DirectoryManagerServerPathsTest(3) · SessionEventHandlerTest +2
 
-- [ ] **#137 审计遗漏批次 5：清理/样式（D2-L31/L32/L34/L48/L49/L50/L59/L60/L61/L63/L65/N-01/N-02，13 项 UNFIXED）** `refactor`
+- [x] **#137 审计遗漏批次 5：清理/样式（D2-L31/L32/L34/L48/L49/L50/L59/L60/L61/L63/L65/N-01/N-02，13 项 UNFIXED）** `refactor`
   - 来源：audit-2026-08-13-dimensions + memory-perf（交叉验证 2026-08-14：13/13 UNFIXED）
   - D2-L31 FileViewerViewModel.kt:226 nextHunk 空 hunks → 索引 -1
   - D2-L32 NavGraph.kt:405 onNavigateToChildSession 无 launchSingleTop（同文件其余 9 处均有）
@@ -1216,6 +1216,11 @@ $(echo "
   - N-01 SessionFocusHolder.kt:44 shouldSuppress 分两次独立读非合并快照
   - N-02 SseClient.kt:171 rawSseEventFlow 零订阅者（死代码，注释称'V2 管线消费'不实）
   - 工时：~1d | 难度：低 | 涉及：见各条 | 优先级：P2（清理/样式，L32/L34 可提前）
+
+
+  - **2026-08-15 修复完成**：
+    - #135：D2-L42 级别映射预构造 · D2-L43 ANSI 正则预编译 · D2-L44 Markdown 正则预编译 · D2-L45 脉冲动画条件化 · D2-L46 表格测量缓存（探针/行高复用）· D2-L68 图片解码移 IO 线程
+    - #137：D2-L31 空 hunks 防护 · D2-L32 launchSingleTop · D2-L34 防双击 · D2-L49 alpha→AlphaTokens · D2-L50 复制反馈 Snackbar 通道（LocalCopyFeedback）· D2-L59 收藏迁移显式化（flow 纯读）· D2-L60 FileRepositoryImpl 全 IO · D2-L61 runCatching→runCatchingCancellable（取消传播）· D2-L63 崩溃检测移 IO · D2-L65 死代码删除 · N-01 合并快照 · N-02 rawSseEventFlow 死代码删除 · D2-L48 sessions/ 58 处 dp→SpacingTokens（subagent 执行）
 
 - [x] **#138 审计遗漏——交叉验证 FIXED/N_A 记录（D2-L35 FIXED + N-05 FIXED + D2-L37 N_A）** `docs`
   - 2026-08-14 交叉验证结论（非新问题，编号回写）：

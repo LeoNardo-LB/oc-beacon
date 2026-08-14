@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /** 设置页列表行（统一样式：padding 16/12 + leading 16dp + bodyLarge 标题 + bodySmall 副标题）。 */
 @Composable
@@ -33,7 +34,7 @@ fun SettingsListRow(
         modifier = modifier
             .fillMaxWidth()
             .then(clickable)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.MD.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         leading()

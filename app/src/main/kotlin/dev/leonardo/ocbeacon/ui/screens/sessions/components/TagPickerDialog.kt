@@ -132,8 +132,8 @@ fun TagPickerDialog(
                     } else {
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                            verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                         ) {
                             tags.forEach { tag ->
                                 TagChip(
@@ -148,7 +148,7 @@ fun TagPickerDialog(
                     }
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = SpacingTokens.MD.dp))
 
                 // 新建标签表单（常显）：名称 + 颜色 + 图标
                 OutlinedTextField(
@@ -164,7 +164,7 @@ fun TagPickerDialog(
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SessionCategoryStyle.colorKeys.forEach { key ->
@@ -181,7 +181,7 @@ fun TagPickerDialog(
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SessionCategoryStyle.iconKeys.forEach { key ->

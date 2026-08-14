@@ -20,6 +20,7 @@ import dev.leonardo.ocbeacon.service.SessionFocusHolder
 import dev.leonardo.ocbeacon.util.DebugLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.File
@@ -164,19 +165,26 @@ class OpenCodeApp : Application() {
         // 仅对更新的崩溃文件提示（"仅在真正发生崩溃时提示"，旧残留不再打扰）；
         // ② 崩溃目录 Download 不可访问时 fallback 应用私有目录（crashLogDir()）——
         // 旧 uid 遗留目录权限锁死场景下崩溃日志仍可写入与检测。
+        // #137（D2-L63）：listFiles + 崩溃文件名解析（含 SimpleDateFormat 解析）移出
+        // 主线程——外部目录（Download）在崩溃残留多时可致启动卡顿；IO 线程执行，
+        // Toast（需主线程）在检测完成后切回主线程。
         val crashPrefs = getSharedPreferences("crash_notify", MODE_PRIVATE)
         val lastNotifiedCrashTs = crashPrefs.getLong("last_notified_ts", 0L)
-        val newCrashFiles = crashLogDir().listFiles()
-            ?.filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }
-            ?.filter { file ->
-                val name = file.name.removePrefix("crash_").removeSuffix(".txt")
-                runCatching {
-                    SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(name)?.time ?: 0L
-                }.getOrDefault(0L) > lastNotifiedCrashTs
+        appScope.launch {
+            val newCrashFiles = withContext(Dispatchers.IO) {
+                crashLogDir().listFiles()
+                    ?.filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }
+                    ?.filter { file ->
+                        val name = file.name.removePrefix("crash_").removeSuffix(".txt")
+                        runCatching {
+                            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(name)?.time ?: 0L
+                        }.getOrDefault(0L) > lastNotifiedCrashTs
+                    }
             }
-        if (newCrashFiles?.isNotEmpty() == true) {
-            Toast.makeText(this, getString(R.string.crash_logs_dir, CRASH_DIR), Toast.LENGTH_LONG).show()
-            crashPrefs.edit().putLong("last_notified_ts", System.currentTimeMillis()).apply()
+            if (newCrashFiles?.isNotEmpty() == true) {
+                Toast.makeText(this@OpenCodeApp, getString(R.string.crash_logs_dir, CRASH_DIR), Toast.LENGTH_LONG).show()
+                crashPrefs.edit().putLong("last_notified_ts", System.currentTimeMillis()).apply()
+            }
         }
 
         // 跟踪应用前台/后台状态，用于通知抑制

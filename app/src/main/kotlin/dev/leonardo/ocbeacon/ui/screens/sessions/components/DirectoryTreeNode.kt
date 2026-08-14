@@ -50,6 +50,7 @@ import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 import dev.leonardo.ocbeacon.ui.components.DetailRow
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -71,7 +72,7 @@ internal fun DirectoryTreeNode(
                 onClick = onClick,
                 onLongClick = { showDetailsDialog = true },
             )
-            .padding(start = 12.dp, end = 8.dp)
+            .padding(start = SpacingTokens.MD.dp, end = SpacingTokens.SM.dp)
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -168,14 +169,14 @@ private fun DirectoryDetailsDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.session_directory_details),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(Modifier.height(16.dp))
                 SelectionContainer {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
                         DetailRow(label = stringResource(R.string.session_path), value = node.path)
                         DetailRow(label = stringResource(R.string.session_count), value = node.sessionCount.toString())
                     }

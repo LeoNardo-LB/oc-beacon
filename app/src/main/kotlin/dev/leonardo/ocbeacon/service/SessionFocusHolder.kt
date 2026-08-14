@@ -41,8 +41,11 @@ class SessionFocusHolder @Inject constructor() {
      *（应用在前台 且 用户正在查看此确切会话）。
      */
     fun shouldSuppress(serverId: String, sessionId: String): Boolean {
+        // #137（N-01）：_activeFocus 与 _isAppInForeground 两次独立读非合并快照——
+        // 两读之间状态变化会导致判断基于混合时刻；合并为一次读取
+        val foreground = _isAppInForeground.value
         val focus = _activeFocus.value ?: return false
-        return _isAppInForeground.value &&
+        return foreground &&
                 focus.serverId == serverId &&
                 focus.sessionId == sessionId
     }

@@ -38,6 +38,7 @@ import dev.leonardo.ocbeacon.domain.model.isDirectory
 import dev.leonardo.ocbeacon.ui.screens.workspace.FileTreeNode
 import dev.leonardo.ocbeacon.ui.screens.workspace.WorkspaceUiState
 import dev.leonardo.ocbeacon.ui.screens.workspace.flattenTree
+import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
@@ -148,7 +149,8 @@ fun FileTreeItem(
             },
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                alpha = if (isLoading) 0.4f else 1f
+                // #137（D2-L49）：裸 alpha 0.4f → AlphaTokens（数值最接近 FAINT 0.35）
+                alpha = if (isLoading) AlphaTokens.FAINT else 1f
             )
         )
         Spacer(Modifier.width(SpacingTokens.SM.dp))

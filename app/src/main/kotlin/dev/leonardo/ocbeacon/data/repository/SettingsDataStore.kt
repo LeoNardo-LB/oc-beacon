@@ -553,38 +553,46 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * 收藏会话 id（从统一分配 map 派生）。
-     * 首次读取时若统一 map 为空但存在旧 `favorite_sessions_*` stringSet 数据，则一次性迁移。
-     *
-     * 替换原 [SettingsDataStoreFavorites] 中的旧实现（直接读 stringSet）——
-     * 新模型以 FAVORITE_TAG_ID 作为内置标签写入统一分配 map，收藏与用户标签共用一套数据。
+     * 收藏会话 id（从统一分配 map 派生）——纯读取，无副作用。
+     * #137（D2-L59）：旧实现把一次性迁移（dataStore.edit）藏在 flow map 内——
+     * 每次数据发射都检查并可能写库（隐蔽副作用）；迁移改为显式
+     * [migrateLegacyFavoritesIfNeeded]，由使用方（SessionListViewModel）在 init 触发。
      */
     fun favoriteSessionIds(serverId: String): Flow<Set<String>> =
         dataStore.data.map { prefs ->
             val assignments = prefs[assignmentsKey(serverId)]?.let {
                 runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
             } ?: emptyMap()
-            val fromAssignments = assignments.filterValues { FAVORITE_TAG_ID in it }.keys
-            // 迁移：旧独立收藏 key（stringSet）→ 内置标签分配（一次性，写入后下次直接走 assignments）
-            val legacy = prefs[legacyFavoriteKey(serverId)]
-            if (legacy != null && fromAssignments.isEmpty() && legacy.isNotEmpty()) {
-                dataStore.edit { p ->
-                    val cur = p[assignmentsKey(serverId)]?.let {
-                        runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
-                    } ?: emptyMap()
-                    p[assignmentsKey(serverId)] = tagJson.encodeToString(
-                        assignmentMapSerializer,
-                        legacy.fold(cur) { acc, sid -> acc + (sid to (acc[sid].orEmpty() + FAVORITE_TAG_ID).distinct()) }
-                    )
-                    // 迁移成功后删源 key，保证幂等：否则用户取消全部收藏后 fromAssignments 重新变空，
-                    // 迁移条件再次满足会导致已取消的收藏被重新迁移"复活"（见 SettingsDataStoreTagsTest
-                    // `favoriteSessionIds migrate then unfavorite all does not resurrect`）。
-                    p.remove(legacyFavoriteKey(serverId))
-                }
-                AppLogger.d(TAG_DIAG, "[favoriteMigrate] server=$serverId count=${legacy.size}")
-                legacy
-            } else {
-                fromAssignments
-            }
+            assignments.filterValues { FAVORITE_TAG_ID in it }.keys
         }
+
+    /**
+     * #137（D2-L59）：旧独立收藏 key（stringSet）→ 内置标签分配的一次性迁移。
+     * 幂等：迁移成功后删除源 key——否则用户取消全部收藏后 fromAssignments 重新变空，
+     * 迁移条件再次满足会导致已取消的收藏被重新迁移"复活"（见 SettingsDataStoreTagsTest
+     * `favoriteSessionIds migrate then unfavorite all does not resurrect`）。
+     */
+    suspend fun migrateLegacyFavoritesIfNeeded(serverId: String) {
+        dataStore.edit { p ->
+            val legacy = p[legacyFavoriteKey(serverId)] ?: return@edit
+            if (legacy.isEmpty()) {
+                p.remove(legacyFavoriteKey(serverId))
+                return@edit
+            }
+            val cur = p[assignmentsKey(serverId)]?.let {
+                runCatching { tagJson.decodeFromString(assignmentMapSerializer, it) }.getOrDefault(emptyMap())
+            } ?: emptyMap()
+            if (cur.values.any { FAVORITE_TAG_ID in it }) {
+                // 已有收藏分配——不再迁移（避免覆盖用户新状态）
+                p.remove(legacyFavoriteKey(serverId))
+                return@edit
+            }
+            p[assignmentsKey(serverId)] = tagJson.encodeToString(
+                assignmentMapSerializer,
+                legacy.fold(cur) { acc, sid -> acc + (sid to (acc[sid].orEmpty() + FAVORITE_TAG_ID).distinct()) }
+            )
+            p.remove(legacyFavoriteKey(serverId))
+        }
+        AppLogger.d(TAG_DIAG, "[favoriteMigrate] server=" + serverId)
+    }
 }

@@ -60,6 +60,7 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionSearchBar
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SessionTreeList
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TagPickerDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.isAmoledTheme
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -279,7 +280,7 @@ viewModel.consumePendingReadSessionId()
                     ) {
                         Column(modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp)
+                            .padding(horizontal = SpacingTokens.LG.dp)
                         ) {
                             SessionSearchBar(
                                 isAmoled = isAmoled,

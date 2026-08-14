@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @Composable
 internal fun SessionListLoadingState() {
@@ -40,9 +41,9 @@ internal fun SessionListErrorState(
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.padding(32.dp),
+            modifier = Modifier.padding(SpacingTokens.XXL.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(SpacingTokens.LG.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Warning,

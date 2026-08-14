@@ -30,6 +30,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionListViewModel
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionViewMode
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -86,7 +87,7 @@ internal fun SessionTreeList(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 4.dp)
+        contentPadding = PaddingValues(vertical = SpacingTokens.XS.dp)
     ) {
         itemsIndexed(treeNodes, key = { _, node -> node.id }) { index, node ->
             when (node) {
@@ -154,7 +155,7 @@ internal fun SessionTreeList(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(SpacingTokens.LG.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(

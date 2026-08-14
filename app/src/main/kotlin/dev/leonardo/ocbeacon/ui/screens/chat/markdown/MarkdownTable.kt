@@ -51,6 +51,21 @@ private data class TableRow(
 )
 
 /**
+ * #135（D2-L46）：表格测量缓存——探针列宽与行高在"内容、约束、列宽"
+ * 未变时复用，避免流式渲染期间每次 measure 对全部单元格重复 3 遍 subcompose。
+ * 注意：final 的 [androidx.compose.ui.layout.Placeable] 依赖本次 measure 约束，
+ * 不可跨 measure 复用——final 一遍仍须每遍执行。
+ */
+private class MeasureCache {
+    /** 探针测量时的 maxWidth 约束签名（变化 → 列宽缓存失效）。 */
+    var probeMaxWidth: Int = -1
+    var probeWidths: IntArray? = null
+    /** 行高缓存依赖的 finalColWidths 签名（变化 → 行高缓存失效）。 */
+    var widthsSignature: IntArray? = null
+    var heights: IntArray? = null
+}
+
+/**
  * 表格组件——由最宽单元格内容驱动的统一列宽。
  *
  * 使用带 [MeasurePolicy] 的自定义 [Layout] 在单次遍历中测量所有单元格，
@@ -193,6 +208,17 @@ internal fun SimpleMarkdownTable(
                 }
             }
 
+            // #135（D2-L46）：测量缓存——原实现每次 measure 对全部单元格执行
+            // 3 遍 subcompose（probe/final-pass1/final）。流式渲染时内容变化频繁
+            // 但布局参数（内容、容器宽度、约束）未变，探针列宽与行高可复用，
+            // 重复测量降为 1 遍 subcompose（final 的 placeable 不可跨 measure 复用，
+            // 仍须每遍执行）。
+            // 缓存 key 用 content + tableNode（AST 引用，内容变化时必然变化）——
+            // bodyStyle 每次重组都是新 TextStyle 对象，不能作 key（否则缓存每次失效）
+            val measureCache = remember(content, tableNode, columnCount) {
+                MeasureCache()
+            }
+
             SubcomposeLayout { constraints ->
                 if (rows.isEmpty()) return@SubcomposeLayout layout(0, 0) {}
 
@@ -202,13 +228,19 @@ internal fun SimpleMarkdownTable(
                     minHeight = 0,
                     maxHeight = constraints.maxHeight,
                 )
-                val probeMeasurables = subcompose("probe", cellContent)
-                val probePlaceables = probeMeasurables.map { it.measure(looseConstraints) }
-
-                val colWidths = IntArray(columnCount) { 0 }
-                probePlaceables.forEachIndexed { index, placeable ->
-                    val col = index % columnCount
-                    colWidths[col] = maxOf(colWidths[col], placeable.width)
+                // 探针列宽：约束与内容未变时复用缓存（跳过整遍 subcompose）
+                val colWidths: IntArray
+                if (measureCache.probeMaxWidth == constraints.maxWidth && measureCache.probeWidths != null) {
+                    colWidths = measureCache.probeWidths!!
+                } else {
+                    val probePlaceables = subcompose("probe", cellContent).map { it.measure(looseConstraints) }
+                    colWidths = IntArray(columnCount) { 0 }
+                    probePlaceables.forEachIndexed { index, placeable ->
+                        val col = index % columnCount
+                        colWidths[col] = maxOf(colWidths[col], placeable.width)
+                    }
+                    measureCache.probeMaxWidth = constraints.maxWidth
+                    measureCache.probeWidths = colWidths
                 }
 
                 // 动态列宽上限：cap = max(容器宽 / 列数, MIN_CELL)
@@ -241,24 +273,30 @@ internal fun SimpleMarkdownTable(
                 val finalMeasurables = subcompose("final", cellContent)
                 val actualRowCount = rows.size
 
-                // 第一遍（独立 subcompose）：无行高约束测量，得到每个单元格的
-                // 真实内容高度，据此计算整行高度（行内最高单元格）。
-                val pass1Measurables = subcompose("final-pass1", cellContent)
-                val naturalPlaceables = pass1Measurables.mapIndexed { index, measurable ->
-                    val col = index % columnCount
-                    measurable.measure(
-                        Constraints(
-                            minWidth = finalColWidths[col],
-                            maxWidth = finalColWidths[col],
-                            minHeight = 0,
-                            maxHeight = constraints.maxHeight,
+                // 行高：finalColWidths 未变时复用缓存（内容/列宽不变 → 行高不变）
+                val rowHeights: IntArray
+                if (measureCache.heights != null && measureCache.widthsSignature?.contentEquals(finalColWidths) == true) {
+                    rowHeights = measureCache.heights!!
+                } else {
+                    val pass1Measurables = subcompose("final-pass1", cellContent)
+                    val naturalPlaceables = pass1Measurables.mapIndexed { index, measurable ->
+                        val col = index % columnCount
+                        measurable.measure(
+                            Constraints(
+                                minWidth = finalColWidths[col],
+                                maxWidth = finalColWidths[col],
+                                minHeight = 0,
+                                maxHeight = constraints.maxHeight,
+                            )
                         )
-                    )
-                }
-                val rowHeights = IntArray(actualRowCount) { 0 }
-                naturalPlaceables.forEachIndexed { index, placeable ->
-                    val row = index / columnCount
-                    rowHeights[row] = maxOf(rowHeights[row], placeable.height)
+                    }
+                    rowHeights = IntArray(actualRowCount) { 0 }
+                    naturalPlaceables.forEachIndexed { index, placeable ->
+                        val row = index / columnCount
+                        rowHeights[row] = maxOf(rowHeights[row], placeable.height)
+                    }
+                    measureCache.widthsSignature = finalColWidths.copyOf()
+                    measureCache.heights = rowHeights
                 }
 
                 // 第二遍：以行高作为 minHeight 重新测量，使每个单元格 Box

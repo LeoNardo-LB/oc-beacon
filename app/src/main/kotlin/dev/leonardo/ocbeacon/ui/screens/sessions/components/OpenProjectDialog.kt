@@ -51,6 +51,7 @@ import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionListViewModel
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -147,7 +148,7 @@ internal fun OpenProjectDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.sessions_open_project),
                     style = MaterialTheme.typography.titleMedium,
@@ -159,7 +160,7 @@ internal fun OpenProjectDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
+                        .padding(bottom = SpacingTokens.SM.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val canGoBack = path != null && !path.isRoot
@@ -280,7 +281,7 @@ internal fun OpenProjectDialog(
                 border = createFolderParams.border,
                 shape = createFolderParams.shape,
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
+                Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                     Text(
                         text = stringResource(R.string.sessions_create_folder_title),
                         style = MaterialTheme.typography.titleMedium,
@@ -319,6 +320,9 @@ internal fun OpenProjectDialog(
                                 stringResource(R.string.sessions_create_folder_create),
                                 DialogButtonRole.Primary,
                             ) {
+                                // #137（D2-L34）：创建中禁止重复触发（按钮未随
+                                // isCreatingFolder 禁用——快速双击会双发 createDirectory）
+                                if (isCreatingFolder) return@Triple
                                 val parent = currentPath?.rawPath ?: homeDir ?: "/"
                                 val name = newFolderName.trim()
                                 if (name.isBlank()) {

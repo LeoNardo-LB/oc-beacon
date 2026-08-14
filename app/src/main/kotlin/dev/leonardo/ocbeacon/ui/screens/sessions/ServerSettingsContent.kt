@@ -31,6 +31,7 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.components.McpServerRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsSectionHeader
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TagManagementSection
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @Composable
 fun ServerSettingsContent(
@@ -78,7 +79,7 @@ fun ServerSettingsContent(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(32.dp),
+                                    .padding(SpacingTokens.XXL.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator(modifier = Modifier.size(32.dp))
@@ -88,7 +89,7 @@ fun ServerSettingsContent(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(32.dp),
+                                    .padding(SpacingTokens.XXL.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(

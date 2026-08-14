@@ -112,7 +112,7 @@ fun TagManagementSection(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 24.dp),
+                            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XL.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Icon(
@@ -181,13 +181,13 @@ fun TagManagementSection(
                                 text = stringResource(R.string.no_sessions_with_tag),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 32.dp, end = 16.dp, bottom = 4.dp),
+                                modifier = Modifier.padding(start = SpacingTokens.XXL.dp, end = SpacingTokens.LG.dp, bottom = SpacingTokens.XS.dp),
                             )
                         } else {
                             assignedSessionIds.forEach { sessionId ->
                                 val session = sessions.firstOrNull { it.id == sessionId }
                                 SettingsListRow(
-                                    modifier = Modifier.padding(start = 32.dp),
+                                    modifier = Modifier.padding(start = SpacingTokens.XXL.dp),
                                     leading = {
                                         Icon(
                                             imageVector = Icons.Outlined.ChatBubbleOutline,
@@ -210,7 +210,7 @@ fun TagManagementSection(
 
                 // 新建标签按钮（列表下方）
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp),
                     horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(onClick = { creating = true }) {
@@ -310,7 +310,7 @@ private fun TagEditDialog(
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SessionCategoryStyle.colorKeys.forEach { key ->
@@ -327,7 +327,7 @@ private fun TagEditDialog(
                 Spacer(Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SessionCategoryStyle.iconKeys.forEach { key ->

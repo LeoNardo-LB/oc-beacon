@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /** 设置页可展开区块标题（统一样式：padding 16/12 + titleSmall + 箭头）。 */
 @Composable
@@ -31,7 +32,7 @@ fun SettingsSectionHeader(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.MD.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +47,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.decodePartFileBytes
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * 紧凑的水平图片缩略图行，点击可预览。
@@ -62,21 +65,26 @@ internal fun ImageThumbnailRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         for ((index, file) in imageFiles.withIndex()) {
-            val bitmap = remember(file.url) {
-                try {
-                    val url = file.url ?: return@remember null
-                    val base64Data = if (url.contains(",")) url.substringAfter(",") else url
-                    val bytes = Base64.decode(base64Data, Base64.DEFAULT)
-                    decodeSampledBitmap(bytes, 256, 256)
-                } catch (e: Exception) {
-                    AppLogger.e("FileCard", "Failed to decode image: ${e.message}")
-                    null
+            // #135（D2-L68）：Base64 解码 + 降采样移出主线程——原实现组合期
+            // 同步解码全量 data URL（MB 级）→ 滚动/首帧卡顿
+            val bitmap by produceState<android.graphics.Bitmap?>(null, file.url) {
+                value = withContext(Dispatchers.IO) {
+                    try {
+                        val url = file.url ?: return@withContext null
+                        val base64Data = if (url.contains(",")) url.substringAfter(",") else url
+                        val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+                        decodeSampledBitmap(bytes, 256, 256)
+                    } catch (e: Exception) {
+                        AppLogger.e("FileCard", "Failed to decode image: " + e.message)
+                        null
+                    }
                 }
             }
 
-            if (bitmap != null) {
+            val decodedBitmap = bitmap
+            if (decodedBitmap != null) {
                 Image(
-                    bitmap = bitmap.asImageBitmap(),
+                    bitmap = decodedBitmap.asImageBitmap(),
                     contentDescription = file.filename ?: stringResource(R.string.chat_image),
                     modifier = Modifier
                         .size(80.dp)
@@ -107,20 +115,21 @@ internal fun ImageThumbnailRow(
     // 全屏图片预览对话框
     if (previewIndex >= 0 && previewIndex < imageFiles.size) {
         val file = imageFiles[previewIndex]
-        val imageBytes = remember(file.url) { decodePartFileBytes(file) }
-        val bitmap = remember(imageBytes) {
-            imageBytes?.let { bytes -> decodeSampledBitmap(bytes, 2048, 2048) }
+        // #135（D2-L68）：解码 + 降采样移出主线程（原 remember 块内组合期同步执行）
+        val loaded by produceState<LoadedPreviewImage?>(null, file.url) {
+            value = withContext(Dispatchers.IO) {
+                val bytes = decodePartFileBytes(file) ?: return@withContext null
+                LoadedPreviewImage(bytes, decodeSampledBitmap(bytes, 2048, 2048) ?: return@withContext null)
+            }
         }
 
-        if (bitmap != null) {
+        if (loaded?.bitmap != null) {
             ImagePreviewDialog(
-                bitmap = bitmap.asImageBitmap(),
+                bitmap = loaded!!.bitmap.asImageBitmap(),
                 contentDescription = file.filename ?: stringResource(R.string.chat_image),
                 onDismiss = { previewIndex = -1 },
                 onSave = {
-                    if (imageBytes != null) {
-                        requestSaveImage(imageBytes, file.mime, file.filename)
-                    }
+                    loaded?.bytes?.let { requestSaveImage(it, file.mime, file.filename) }
                 },
             )
         }
@@ -201,6 +210,12 @@ internal fun ImagePreviewDialog(
         }
     }
 }
+
+/** #135（D2-L68）：异步预览加载结果（字节 + 降采样位图，IO 线程产出）。 */
+private data class LoadedPreviewImage(
+    val bytes: ByteArray,
+    val bitmap: android.graphics.Bitmap,
+)
 
 /**
  * 计算降采样率（2 的幂），使解码后图片略大于目标尺寸。

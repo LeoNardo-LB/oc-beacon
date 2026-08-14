@@ -7,6 +7,7 @@ import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.logging.AppLogger
+import dev.leonardo.ocbeacon.util.runCatchingCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -49,7 +50,7 @@ class MessageStore @Inject constructor(
         deltas: List<PartDelta>,
     ) = withContext(Dispatchers.IO) {
         if (deltas.isEmpty() || messages.isEmpty()) return@withContext
-        runCatching {
+        runCatchingCancellable {
             databaseRecovery.withCorruptionRecovery {
                 // 骨架消息 upsert（幂等 REPLACE；保证 part 的 FK 依赖存在）
                 dao.upsertMessages(messages.map { m ->
@@ -83,7 +84,7 @@ class MessageStore @Inject constructor(
         text: String,
     ) {
         withContext(Dispatchers.IO) {
-            runCatching {
+            runCatchingCancellable {
                 databaseRecovery.withCorruptionRecovery { dao.updatePartText(partId, text) }
             }.onFailure { e ->
                 AppLogger.e(TAG, "updatePartText failed (memory view unaffected)", e)
@@ -97,7 +98,7 @@ class MessageStore @Inject constructor(
         persistOldBeyondWindow: Boolean,
     ) = withContext(Dispatchers.IO) {
         if (messages.isEmpty()) return@withContext
-        runCatching {
+        runCatchingCancellable {
             databaseRecovery.withCorruptionRecovery {
                 val oldestId = dao.oldestMessageId(sessionId)
                 val oldestCreated = oldestId?.let { dao.messageCreatedAt(it) }
@@ -170,19 +171,19 @@ class MessageStore @Inject constructor(
      */
     private suspend fun archiveOverflow(sessionId: String, overflow: Int): Int {
         // 1. 归档增强（best-effort）：查最老 overflow 条 → 组装 DTO → 压缩分桶（事务外）。
-        val buckets = runCatching {
+        val buckets = runCatchingCancellable {
             val candidates = dao.oldestMessages(sessionId, overflow)
-            if (candidates.isEmpty()) return@runCatching emptyList()
+            if (candidates.isEmpty()) return@runCatchingCancellable emptyList()
             val partsByMsg = partsForMessagesChunked(candidates.map { it.id })
                 .groupBy { it.messageId }
             // 逐条容错：单条 payload 解码失败只跳过该条（记日志），不影响整批归档。
             // 否则一条坏消息会导致全部 overflow 消息归档失败 → 整批数据丢失（一期语义降级）。
             val messages = candidates.mapNotNull { entity ->
-                runCatching {
+                runCatchingCancellable {
                     ArchivedMessageDto(
                         info = json.decodeFromString<Message>(entity.payload),
                         parts = (partsByMsg[entity.id] ?: emptyList()).mapNotNull { pe ->
-                            pe.payload?.let { runCatching { json.decodeFromString<Part>(it) }.getOrNull() }
+                            pe.payload?.let { runCatchingCancellable { json.decodeFromString<Part>(it) }.getOrNull() }
                         },
                     )
                 }.onFailure { e ->
@@ -374,7 +375,7 @@ class MessageStore @Inject constructor(
             var need = limit
             for (bucket in buckets) {
                 if (need <= 0) break
-                val decoded = runCatching { decodeBucket(bucket) }.getOrElse { e ->
+                val decoded = runCatchingCancellable { decodeBucket(bucket) }.getOrElse { e ->
                     AppLogger.e(TAG, "[dearchive] session=$sessionId bucket=${bucket.id}: decode failed, skipping", e)
                     emptyList()
                 }
@@ -415,7 +416,7 @@ class MessageStore @Inject constructor(
         val info = json.decodeFromString<Message>(entity.payload)
         val parts = partEntities.mapNotNull { partEntity ->
             partEntity.payload?.let {
-                runCatching { json.decodeFromString<Part>(it) }
+                runCatchingCancellable { json.decodeFromString<Part>(it) }
                     .getOrNull()
             }
         }

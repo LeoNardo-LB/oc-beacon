@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -111,6 +112,7 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.util.MessageFingerprints
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.LocalCopyFeedback
 import com.mikepenz.markdown.model.MarkdownState
 import com.mikepenz.markdown.model.State
 import kotlinx.coroutines.flow.first
@@ -190,6 +192,12 @@ fun ChatMessageList(
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
+    // #137（D2-L50）：工具卡片复制反馈统一 Snackbar 通道（ToolCardScaffold 原用 Toast）
+    CompositionLocalProvider(LocalCopyFeedback provides {
+        coroutineScope.launch {
+            snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+        }
+    }) {
     // turnGroups 缓存（v6）：消息 id 序列未变时复用上次 Map，消除流式期间
     // 每 48ms 全量重建（~2000 entry/轮）的分配压力（GC 卡顿根因之一）。
     // 安全前提：renderableTurns 的 miss 分支（流式/新消息）用最新 msg 引用替换
@@ -1134,6 +1142,7 @@ fun ChatMessageList(
             }
         } // Box(weight)
     } // Column
+    } // CompositionLocalProvider(LocalCopyFeedback)
 }
 
 

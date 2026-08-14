@@ -407,7 +407,9 @@ fun NavGraph(
                         serverId = params.server.serverId,
                         sessionId = childSessionId
                     )
-                    navController.navigate(route)
+                    // #137（D2-L32）：与其他 9 处 navigate 一致加 launchSingleTop——
+                    // 重复打开同一子会话会栈顶叠加多个相同路由
+                    navController.navigate(route) { launchSingleTop = true }
                 },
                 onOpenWorkspace = {
                     scope.launch {

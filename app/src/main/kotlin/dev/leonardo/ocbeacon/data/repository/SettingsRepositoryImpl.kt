@@ -55,6 +55,10 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun toggleFavorite(serverId: String, sessionId: String) =
         dataRepo.toggleFavorite(serverId, sessionId)
 
+    // #137（D2-L59）：收藏迁移显式化（原藏在 favoriteSessionIds flow map 内的隐蔽副作用）
+    override suspend fun migrateLegacyFavoritesIfNeeded(serverId: String) =
+        dataRepo.migrateLegacyFavoritesIfNeeded(serverId)
+
     // ============ 会话已读（未读提示） ============
 
     override fun sessionReadTimes(serverId: String): Flow<Map<String, Long>> =

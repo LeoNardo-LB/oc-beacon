@@ -13,11 +13,7 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.utils.io.*
 import io.ktor.utils.io.ClosedReadChannelException
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.*
@@ -164,20 +160,6 @@ class SseClient @Inject constructor(
         ?: throw IllegalStateException("SessionNextEventParser not found in parser list")
 
     /**
-     * 来自活跃全局事件连接的原始 SSE JSON 字符串。
-     * V2 管线消费此流以避免重复的 HTTP 连接。
-     * 在 V1 解析之前发射——消费者能看到每一个非心跳 data 帧。
-     */
-    val rawSseEvents: MutableSharedFlow<String> = MutableSharedFlow(
-        replay = 0,
-        extraBufferCapacity = 64,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-
-    /** 外部消费者（V2 管线）的只读访问。 */
-    val rawSseEventFlow: SharedFlow<String> = rawSseEvents.asSharedFlow()
-
-    /**
      * 连接到全局事件流。
      * 返回一个发射 SSE 事件的 Flow。
      * 该 Flow 不会在内部自动重连——调用方应自行处理
@@ -242,8 +224,6 @@ class SseClient @Inject constructor(
                     val data = buildStringFromBytes(buffer)
                     if (data.isNotEmpty()) {
                         try {
-                            // 为 V2 管线发射原始 JSON（在 V1 解析之前）
-                            rawSseEvents.tryEmit(data)
                             val event = parseEvent(data)
                             if (event != null) {
                                 eventCount++

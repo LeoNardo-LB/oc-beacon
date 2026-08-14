@@ -757,23 +757,8 @@ fun ChatScreen(
                             }
                         }
 
-    // LocalOnViewTool 的稳定 lambda —— 必须 remember，因为 LocalOnViewTool
-    // 是 staticCompositionLocalOf：新的 lambda 实例会在每次 ChatScreen 重组时
-    //（例如每个 SSE token）强制所有 PartContent 消费者重组。
-    val onViewToolLambda = remember(viewModel, serverId, sessionId, directory) {
-        { request: ViewToolRequest ->
-            viewModel.cacheToolPart(request.part)
-            fileViewerRequest = FileViewerParams(
-                serverId = serverId,
-                sessionId = sessionId,
-                filePath = request.filePath,
-                directory = directory,
-                source = request.source,
-                toolPartIds = listOf(request.part.id)
-            )
-        }
-    }
-
+                    // #137（D2-L65）：此处原重复定义 onViewToolLambda（死代码——
+                    // LocalOnViewTool 由外层 516 行的定义提供，本内层定义从未被使用）
                     if (sessionMeta.sessionParentId == null) {
                         ChatMessageList(
                             listState = listState,

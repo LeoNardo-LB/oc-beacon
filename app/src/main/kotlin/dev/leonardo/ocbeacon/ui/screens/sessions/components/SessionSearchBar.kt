@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.components.amoledOutlinedTextFieldColors
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,7 +66,7 @@ internal fun SessionSearchBar(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = SpacingTokens.SM.dp),
         leadingIcon = {
             Icon(Icons.Default.Search, contentDescription = stringResource(R.string.a11y_icon_search))
         },
@@ -94,7 +95,7 @@ internal fun SessionSearchBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FilterChip(

@@ -58,8 +58,11 @@ interface SettingsRepository {
 
     // ============ 会话收藏（基于内置收藏标签派生） ============
 
-    /** 某台服务器上被收藏的会话 id（从统一分配 map 派生，首次读取时迁移旧 favorite_sessions_* stringSet）。 */
+    /** 某台服务器上被收藏的会话 id（从统一分配 map 派生，纯读取）。 */
     fun favoriteSessionIds(serverId: String): Flow<Set<String>>
+
+    /** #137（D2-L59）：旧 favorite_sessions_* stringSet → 统一分配 map 的一次性迁移（显式触发）。 */
+    suspend fun migrateLegacyFavoritesIfNeeded(serverId: String)
 
     /** 切换指定 (serverId, sessionId) 对的收藏状态。 */
     suspend fun toggleFavorite(serverId: String, sessionId: String)

@@ -194,8 +194,12 @@ object AppLogger {
         }
     }
 
+    // #135（D2-L42）：级别→优先级映射预构造——流式日志 50-90 条/s 时
+    // 原实现每次调用现场创建 mapOf（每秒数百次分配）
+    private val levelPriorities = mapOf("ERROR" to 0, "WARN" to 1, "INFO" to 2, "DEBUG" to 3)
+
     private fun shouldPersist(level: String): Boolean {
-        val priorities = mapOf("ERROR" to 0, "WARN" to 1, "INFO" to 2, "DEBUG" to 3)
+        val priorities = levelPriorities
         return (priorities[level] ?: 0) <= (priorities[minimumLevel] ?: 2)
     }
 

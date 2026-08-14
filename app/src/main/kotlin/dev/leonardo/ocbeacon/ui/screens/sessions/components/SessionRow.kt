@@ -67,6 +67,7 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 import dev.leonardo.ocbeacon.ui.theme.DiffAdded
 import dev.leonardo.ocbeacon.ui.theme.DiffRemoved
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -99,7 +100,7 @@ internal fun SessionRow(
                 onClick = onClick,
                 onLongClick = { showDetailsDialog = true },
             )
-            .padding(start = if (showDirectory) 12.dp else 28.dp, end = 8.dp)
+            .padding(start = if (showDirectory) SpacingTokens.MD.dp else 28.dp, end = SpacingTokens.SM.dp)
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -156,7 +157,7 @@ internal fun SessionRow(
             // 第二行（摘要行）：内容自适应高度
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -319,7 +320,7 @@ private fun SessionDetailsDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.session_session_details),
                     style = MaterialTheme.typography.titleMedium,
@@ -329,8 +330,8 @@ private fun SessionDetailsDialog(
                     Spacer(Modifier.height(12.dp))
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+                        verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
                     ) {
                         item.tags.forEach { tag ->
                             TagBadge(tag)
@@ -339,7 +340,7 @@ private fun SessionDetailsDialog(
                 }
                 Spacer(Modifier.height(16.dp))
                 SelectionContainer {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
                         DetailRow(
                             stringResource(R.string.session_details_name),
                             item.session.title ?: stringResource(R.string.session_untitled)
@@ -373,12 +374,12 @@ private fun SessionDetailsDialog(
                 Spacer(Modifier.height(16.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 ) {
                     // 第一行：复制会话 ID + 重命名会话
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                     ) {
                         Button(
                             onClick = { onCopyId() },
@@ -436,7 +437,7 @@ private fun TagChipsRow(tags: List<Tag>, modifier: Modifier = Modifier) {
         modifier = modifier
             .clip(RoundedCornerShape(4.dp)),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
     ) {
         tags.forEach { tag ->
             TagBadge(tag)

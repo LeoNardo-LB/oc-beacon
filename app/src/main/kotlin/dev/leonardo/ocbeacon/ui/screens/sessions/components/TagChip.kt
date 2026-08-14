@@ -24,6 +24,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.model.TagType
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 标签的本地化显示名。
@@ -47,7 +48,7 @@ fun TagBadge(tag: Tag) {
     Row(
         modifier = Modifier
             .background(tagColor.copy(alpha = AlphaTokens.SELECTED))
-            .padding(horizontal = 4.dp, vertical = 1.dp),
+            .padding(horizontal = SpacingTokens.XS.dp, vertical = 1.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
