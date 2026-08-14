@@ -1116,3 +1116,11 @@ $(echo "
   - 待办：深挖嵌入/独立卡片渲染条件，V1 全生命周期 E2E 前置
   - 工时：~2h | 难度：中 | 涉及：ChatMessageList/QuestionEventHandler/MessageDataDelegate | 优先级：P1（阻塞 V1 question 功能 + #126 验证）
 
+- [ ] **#132 调试通道模块（写死连接参数 + 一键连接 + 多套餐 + 外部参数）** `devtools` `debug`
+  - 来源：2026-08-14 用户需求（真机调试效率）
+  - 问题：真机调试需手动输入 URL/账号/密码（每次配置易错）；调试连接无一键入口
+  - 方案：调试模式下（BuildConfig.DEBUG）内置一套/多套连接套餐（服务器 URL、用户名、密码），密码存环境变量/签名配置不入库；提供一键连接入口（调试入口按钮或启动参数/深层链接）；外部参数（Intent extra / adb am start 参数）可覆盖套餐选择；多套套餐可并存（如 V1/V2/模拟器/真机局域网各一套）
+  - 待办：设计套餐数据模型（serverUrl/user/password/name/autoConnect）+ 注入方式（gradle BuildConfig 字段 / debug manifest meta-data / intent extra）；实现调试专用设置页或启动分流
+  - 工时：~0.5-1d | 难度：低-中 | 涉及：ServerConfig/连接层/启动导航 | 优先级：P2
+
+
