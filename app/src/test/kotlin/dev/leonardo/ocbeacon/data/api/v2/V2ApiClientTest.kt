@@ -341,23 +341,26 @@ class V2ApiClientTest {
     }
 
     @Test
-    fun `replyToQuestion posts answers to V2 question reply path`() = runTest {
+    fun `replyToForm posts answer to V2 form reply path`() = runTest {
         val engine = MockEngine { request ->
-            assertEquals("/api/question/req_1/reply", request.url.encodedPath)
-            respond("", HttpStatusCode.OK)
+            assertEquals("/api/session/ses_1/form/frm_1/reply", request.url.encodedPath)
+            respond("", HttpStatusCode.NoContent)
         }
         val api = buildClient(engine)
-        assertTrue(api.replyToQuestion(v2Conn, "req_1", listOf(listOf("option1"))))
+        val keyed = kotlinx.serialization.json.buildJsonObject {
+            put("q0", kotlinx.serialization.json.JsonPrimitive("rice"))
+        }
+        assertTrue(api.replyToForm(v2Conn, "ses_1", "frm_1", keyed))
     }
 
     @Test
-    fun `rejectQuestion posts to V2 question reject path`() = runTest {
+    fun `rejectForm posts to V2 form cancel path`() = runTest {
         val engine = MockEngine { request ->
-            assertEquals("/api/question/req_1/reject", request.url.encodedPath)
-            respond("", HttpStatusCode.OK)
+            assertEquals("/api/session/ses_1/form/frm_1/cancel", request.url.encodedPath)
+            respond("", HttpStatusCode.NoContent)
         }
         val api = buildClient(engine)
-        assertTrue(api.rejectQuestion(v2Conn, "req_1"))
+        assertTrue(api.rejectForm(v2Conn, "ses_1", "frm_1"))
     }
 
     // ============ Error handling ============
