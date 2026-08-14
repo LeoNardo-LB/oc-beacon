@@ -880,7 +880,7 @@ efactor
   - 工时：~0.5h | 难度：低 | 涉及：SessionEventHandler.kt:119-123 ✅ 2026-08-14 完结（TDD 红→绿：handleSessionDeleted 补 _lastUserMessageTime/locallyClearedReverts 清理）
   - 优先级：P1（#89 验收后发现的补漏）
 
-- [ ] **#97 SSE 热路径优化批次（H-5 ✅ + H-6 ⏳ 拆出 + M-6 ✅ + M-15 ✅，commit ddfc683c）** `performance` `sse`
+- [x] **#97 SSE 热路径优化批次（H-5/H-6/M-6/M-15 全完成）——已修复 ddfc683c + 98b90e34** `performance` `sse`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-5/H-6 + §4.3 M-6/M-15
   - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：H-5 三子项全确认（SseClient:44-51 逐字节装箱 / SessionNextEventParser:34-35 多遍 / SseClientV2:171,181 双重转换）；H-6 全量重写确认（MessageEventHandler:235-240 + MessageStore:69）；M-6 prettyPrint 确认（NetworkModule:34 且被 MessageStore 共用）；M-15 O(N×M) 确认（:147 Map.plus 每 delta 拷贝）
   - 问题（✅ 部分确认）：
@@ -890,7 +890,7 @@ efactor
     4. **M-15 flushPendingDeltas O(N×M)**：批内每 delta 整份 Map 拷贝（`updated + (messageId to ...)`）——单次 toMutableMap 可消除
   - 方案：增长型 ByteArray 分块读；decodeFromJsonElement 单遍解析；双写增量/节流；prettyPrint=false；M-15 单次拷贝
   - ✅ 2026-08-14 进展：H-5 三子项全修（readRawLineBytes→ByteArrayOutputStream 无装箱管线 + V1/V2 data: 行字节切片 + SessionNextEventParser decodeFromJsonElement 单遍）；M-6 prettyPrint=false；M-15 flush 单次 toMutableMap 就地聚合。1610 单测全绿 + 模拟器流式实测正常（"Thought for 210ms" 渲染正确）
-  - ⏳ H-6（双写写放大：全量 JSON 编码 + Room 全行重写 ~20 次/s）拆出独立处理——需增量写/节流设计，与 #52 结论（频率不可降）联动评估；prettyPrint 关闭已降低 30-50% 单次写入量
+  - ✅ 2026-08-14 H-6 完成（98b90e34）：SSE 双写增量落盘——flush 时按 part 追加文本（O(delta) 写，DAO appendPartText SQL 拼接），消息事件仍全量 upsert（ended 覆盖防漂移）；MessageEventHandlerIncrementalPersistTest 验证跨批累积与全量覆盖一致性
   - 工时：2-3d | 难度：中-高 | 涉及：SseClient/SseClientV2/SessionNextEventParser/MessageEventHandler/NetworkModule
   - 优先级：P1（流式体验卡顿主要嫌疑）
 
@@ -1029,7 +1029,7 @@ efactor
   - 问题：pendingInputs HashMap 跨服务器并发（D2-02）；状态容器 sessionId 单键无 serverId 维度（D2-11）；currentServerId 单值被覆盖 → L3 校验打错服务器（D2-12）；isConnected 语义 = job 活跃非连接（D2-13）；McpRepositoryImpl 共享 connection（D2-24）
   - 方案：ConcurrentHashMap/按 serverId 隔离；复合键 (serverId, sessionId)；去掉 currentServerId 单值；isConnected 返回真实标志
   - 2026-08-14：D2-02 随 #98（pendingInputs→ConcurrentHashMap+每连接清空+有界）；D2-12（session→server 归属映射，L3 校验优先归属）；D2-13（isConnected 真实连接标志）；D2-24（McpRepository 显式 conn 参数）
-  - 评估：D2-11（sessionId 单键）不改——V2 sessionId 随机生成跨服务器碰撞概率极低 + StreamingOwnershipRegistry 已按同后端去重；复合键波及全部 handler/UI 查询，收益不成比例
+  - 评估：D2-11（sessionId 单键）不改——实证（2026-08-14）：V2 sessionId 为 ses_ + 20+ hex 随机（碰撞概率 2^-80 数学上不可能）；StreamingOwnershipRegistry 已处理同后端多配置去重；复合键需改全部 handler/UI 的 Map<String,...> 键 + 破坏存档/分页键格式，防护对象不存在 → 记录为已验证不改
   - 工时：~1-2d | 难度：中 | 涉及：SseClientV2/各 handler/SessionStateService/SseConnectionManager/McpRepositoryImpl | 优先级：P1
 
 - [x] **#111 dataSync 前台服务 6h 时限（D2-04，Android 15+）** `android` `service`
@@ -1059,12 +1059,12 @@ efactor
   - 2026-08-14：新增 AuthHeader.kt auth(conn) 扩展（Auth 插件空 install 不适合多服务器——认证是每服务器属性而 HttpClient 全局单例）；147 处内联全部替换（5 文件）
   - 工时：~1d | 难度：中 | 涉及：V1/V2ApiClient/NetworkModule | 优先级：P1
 
-- [x] **#115 移动端生命周期批次（D2-16/D2-17/D2-L24；D2-L23/L25 评估登记）——已修复** `android`
+- [x] **#115 移动端生命周期批次（D2-16/D2-17/D2-L23/D2-L24/D2-L25 全完成）——已修复** `android`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-16/D2-17/D2-L23~L25
   - 问题：无低内存回调；崩溃无条件重启（死循环风险）；手动连接进程死亡不恢复；20+ 处对话框 remember 非 saveable；FileViewerOverlay VM 重建丢批注
   - 方案：onTrimMemory 分级清理；重启退避（10min 内最多 1 次）；记录 lastConnected 恢复；rememberSaveable 批量迁移（触发条件注意：旋转由 configChanges 处理，主要覆盖 recreate 场景）
   - 2026-08-14：D2-16（onTrimMemory 清理 ToolSnapshotCache）；D2-17（崩溃重启退避 10min/1 次防死循环）；D2-L24（HomeScreen pendingConnectServerId → rememberSaveable）
-  - 评估登记（不做）：D2-L23（FileViewer 批注 recreate 丢失——轻量数据且旋转不重建）；D2-L25（20+ 处对话框 remember→saveable——低价值大批量）
+  - ✅ 2026-08-14 补齐：D2-L23（355a707b，进程级 holder 按 (server,filePath) 暂存批注，VM 重建 restore，提交清除）；D2-L25（4ccd9ed4，6 处输入类对话框状态 → rememberSaveable：renameText/newFolderName/newCategoryName/name/selected；可见性标志保留 remember——重建后关闭为合理默认）
   - 工时：~1d | 难度：低-中 | 涉及：OpenCodeApp/OpenCodeConnectionService/各 Screen | 优先级：P1-P2
 
 - [ ] **#116 终端批次（D2-20 输入乱序 + D2-21 dispose 取消清理协程）** `terminal` `race`
