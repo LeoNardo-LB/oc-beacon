@@ -633,7 +633,7 @@
     <string name="shell_status_exit">종료 코드 %1$d</string>
     <string name="shell_status_done">완료</string>
     <string name="shell_status_failed">실패</string>
-    <string name="task_toolbar_action">작업</string>
+    <string name="task_toolbar_action">작업을 백그라운드로 이동</string>
     <string name="task_toolbar_subagents">포그라운드에서 실행 중인 서브 에이전트 %1$d개</string>
     <string name="a11y_icon_tasks">작업 활동</string>
     <string name="task_sheet_subagents_tab">서브 에이전트</string>

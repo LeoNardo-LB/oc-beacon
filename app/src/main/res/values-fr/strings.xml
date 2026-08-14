@@ -631,7 +631,7 @@
     <string name="shell_status_exit">Code de sortie %1$d</string>
     <string name="shell_status_done">Terminé</string>
     <string name="shell_status_failed">Échec</string>
-    <string name="task_toolbar_action">Tâches</string>
+    <string name="task_toolbar_action">Déplacer la tâche en arrière-plan</string>
     <string name="task_toolbar_subagents">%1$d sous-agent(s) en cours au premier plan</string>
     <string name="a11y_icon_tasks">Activités de tâche</string>
     <string name="task_sheet_subagents_tab">Sous-agents</string>

@@ -633,7 +633,7 @@
     <string name="shell_status_exit">終了コード %1$d</string>
     <string name="shell_status_done">完了</string>
     <string name="shell_status_failed">失敗</string>
-    <string name="task_toolbar_action">タスク</string>
+    <string name="task_toolbar_action">タスクをバックグラウンドに移動</string>
     <string name="task_toolbar_subagents">フォアグラウンドで実行中のサブエージェント %1$d 件</string>
     <string name="a11y_icon_tasks">タスクアクティビティ</string>
     <string name="task_sheet_subagents_tab">サブエージェント</string>

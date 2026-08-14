@@ -633,7 +633,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_exit">Código de saída %1$d</string>
     <string name="shell_status_done">Concluído</string>
     <string name="shell_status_failed">Falhou</string>
-    <string name="task_toolbar_action">Tarefas</string>
+    <string name="task_toolbar_action">Mover tarefa para segundo plano</string>
     <string name="task_toolbar_subagents">%1$d subagente(s) em execução em primeiro plano</string>
     <string name="a11y_icon_tasks">Atividades de tarefa</string>
     <string name="task_sheet_subagents_tab">Subagentes</string>

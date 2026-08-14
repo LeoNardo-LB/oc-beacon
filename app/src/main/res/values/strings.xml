@@ -195,7 +195,7 @@
     <string name="shell_status_exit">Exit %1$d</string>
     <string name="shell_status_done">Done</string>
     <string name="shell_status_failed">Failed</string>
-    <string name="task_toolbar_action">Tasks</string>
+    <string name="task_toolbar_action">Move task to background</string>
     <string name="task_toolbar_subagents">%1$d subagent(s) running in foreground</string>
     <string name="a11y_icon_tasks">Task activities</string>
     <string name="task_sheet_subagents_tab">Subagents</string>

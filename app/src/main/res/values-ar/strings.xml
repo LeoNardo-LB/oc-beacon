@@ -649,7 +649,7 @@
     <string name="shell_status_exit">رمز الخروج %1$d</string>
     <string name="shell_status_done">تم</string>
     <string name="shell_status_failed">فشل</string>
-    <string name="task_toolbar_action">المهام</string>
+    <string name="task_toolbar_action">نقل المهمة إلى الخلفية</string>
     <string name="task_toolbar_subagents">%1$d وكيل فرعي نشط في المقدمة</string>
     <string name="a11y_icon_tasks">أنشطة المهام</string>
     <string name="task_sheet_subagents_tab">الوكلاء الفرعيون</string>

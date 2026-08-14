@@ -633,7 +633,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_exit">Codice di uscita %1$d</string>
     <string name="shell_status_done">Completato</string>
     <string name="shell_status_failed">Non riuscito</string>
-    <string name="task_toolbar_action">Attività</string>
+    <string name="task_toolbar_action">Sposta attività in background</string>
     <string name="task_toolbar_subagents">%1$d sotto-agente in esecuzione in primo piano</string>
     <string name="a11y_icon_tasks">Attività in corso</string>
     <string name="task_sheet_subagents_tab">Sotto-agenti</string>

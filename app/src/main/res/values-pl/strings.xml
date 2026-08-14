@@ -641,7 +641,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_exit">Kod wyjścia %1$d</string>
     <string name="shell_status_done">Gotowe</string>
     <string name="shell_status_failed">Nieudane</string>
-    <string name="task_toolbar_action">Zadania</string>
+    <string name="task_toolbar_action">Przenieś zadanie do tła</string>
     <string name="task_toolbar_subagents">%1$d sub-agent(ów) działa na pierwszym planie</string>
     <string name="a11y_icon_tasks">Działania zadań</string>
     <string name="task_sheet_subagents_tab">Sub-agenci</string>

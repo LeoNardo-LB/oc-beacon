@@ -636,7 +636,7 @@
     <string name="shell_status_exit">退出码 %1$d</string>
     <string name="shell_status_done">完成</string>
     <string name="shell_status_failed">失败</string>
-    <string name="task_toolbar_action">任务</string>
+    <string name="task_toolbar_action">任务转后台</string>
     <string name="task_toolbar_subagents">%1$d 个子代理正在前台运行</string>
     <string name="a11y_icon_tasks">任务活动</string>
     <string name="task_sheet_subagents_tab">子代理</string>

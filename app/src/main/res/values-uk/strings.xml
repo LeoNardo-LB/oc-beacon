@@ -641,7 +641,7 @@
     <string name="shell_status_exit">Код виходу %1$d</string>
     <string name="shell_status_done">Готово</string>
     <string name="shell_status_failed">Не виконано</string>
-    <string name="task_toolbar_action">Завдання</string>
+    <string name="task_toolbar_action">Перемістити завдання у фон</string>
     <string name="task_toolbar_subagents">%1$d суб-агент(ів) на передньому плані</string>
     <string name="a11y_icon_tasks">Дії завдань</string>
     <string name="task_sheet_subagents_tab">Суб-агенти</string>

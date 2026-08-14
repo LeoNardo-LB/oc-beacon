@@ -633,7 +633,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_exit">Çıkış kodu %1$d</string>
     <string name="shell_status_done">Tamamlandı</string>
     <string name="shell_status_failed">Başarısız</string>
-    <string name="task_toolbar_action">Görevler</string>
+    <string name="task_toolbar_action">Görevi arka plana taşı</string>
     <string name="task_toolbar_subagents">Ön planda %1$d alt agent çalışıyor</string>
     <string name="a11y_icon_tasks">Görev etkinlikleri</string>
     <string name="task_sheet_subagents_tab">Alt agentlar</string>
