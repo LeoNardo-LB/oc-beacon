@@ -431,4 +431,51 @@ class MessageStoreTest {
 
         assertNull(store.messageById("ses_1", "msg_x"))
     }
+
+    @Test
+    fun loadArchivedRange_filtersBucketMessagesBeyondCursor() = runTest {
+        // #72 回归：游标推进到消息级（beforeCreated=300）时，同一桶内更旧消息
+        // （created 100/200）必须仍可读出——原实现按 bucketEnd 跳过整桶 → 永久读不出。
+        val msgs = listOf(100L, 200L, 300L, 400L, 500L).mapIndexed { i, created ->
+            ArchivedMessageDto(msg("m_" + i, created).info, msg("m_" + i, created).parts)
+        }
+        val jsonBytes = json.encodeToString(msgs).toByteArray(Charsets.UTF_8)
+        val realBucket = ArchiveBucketEntity(
+            id = 1L, sessionId = "ses_1",
+            bucketStart = 100L, bucketEnd = 500L,
+            messageCount = 5, uncompressedSize = jsonBytes.size,
+            payload = ZstdCodec.compress(jsonBytes),
+            createdAt = 1L, lastAccessedAt = 1L,
+        )
+        // 桶边界相交查询（bucketStart < beforeCreated）→ 该桶返回，桶内过滤
+        coEvery { archiveDao.latestBefore("ses_1", 300L, any()) } returns listOf(realBucket)
+
+        val result = store.loadArchivedRange("ses_1", limit = 50, beforeCreated = 300L)
+
+        assertEquals("游标之前的桶内消息必须读出（#72）", 2, result.size)
+        assertEquals(listOf(100L, 200L), result.map { it.info.time.created })
+    }
+
+    @Test
+    fun loadArchivedRange_resumesBucketAfterPartialRead() = runTest {
+        // #72 完整场景：首读 takeLast(2) 只取桶尾两条（400/500）→ 游标 400 →
+        // 再次读取必须拿到剩余 100/200/300（原实现整桶跳过 → 数据永久丢失）
+        val msgs = listOf(100L, 200L, 300L, 400L, 500L).mapIndexed { i, created ->
+            ArchivedMessageDto(msg("m_" + i, created).info, msg("m_" + i, created).parts)
+        }
+        val jsonBytes = json.encodeToString(msgs).toByteArray(Charsets.UTF_8)
+        val realBucket = ArchiveBucketEntity(
+            id = 1L, sessionId = "ses_1",
+            bucketStart = 100L, bucketEnd = 500L,
+            messageCount = 5, uncompressedSize = jsonBytes.size,
+            payload = ZstdCodec.compress(jsonBytes),
+            createdAt = 1L, lastAccessedAt = 1L,
+        )
+        coEvery { archiveDao.latestBefore("ses_1", 400L, any()) } returns listOf(realBucket)
+
+        val result = store.loadArchivedRange("ses_1", limit = 50, beforeCreated = 400L)
+
+        assertEquals(3, result.size)
+        assertEquals(listOf(100L, 200L, 300L), result.map { it.info.time.created })
+    }
 }

@@ -380,11 +380,14 @@ class MessageStore @Inject constructor(
                     emptyList()
                 }
                 archiveDao.touch(bucket.id, clock())
-                if (BuildConfig.DEBUG && decoded.isNotEmpty()) {
-                    AppLogger.d(TAG, "[dearchive] session=$sessionId bucket=${bucket.id}: ${decoded.size} msgs (before=$beforeCreated)")
+                // #72 根治：latestBefore 已按 bucketStart 相交返回"可能含更早消息"的桶——
+                // 桶内按消息级 created 过滤（游标推进到消息级时桶内剩余消息不再被跳过）
+                val inWindow = decoded.filter { it.info.time.created < beforeCreated }
+                if (BuildConfig.DEBUG && inWindow.isNotEmpty()) {
+                    AppLogger.d(TAG, "[dearchive] session=$sessionId bucket=${bucket.id}: ${inWindow.size}/${decoded.size} msgs (before=$beforeCreated)")
                 }
                 // 桶内升序 → takeLast 取最新 need 条（该桶更旧部分不解压浪费到结果中）
-                val take = decoded.takeLast(need)
+                val take = inWindow.takeLast(need)
                 result.addAll(take)
                 need -= take.size
             }
@@ -395,6 +398,8 @@ class MessageStore @Inject constructor(
     override suspend fun hasArchivedMessages(sessionId: String, beforeCreated: Long): Boolean =
         withContext(Dispatchers.IO) {
             databaseRecovery.withCorruptionRecovery {
+                // #72：latestBefore 现按 bucketStart 相交——相交桶内最老消息 = bucketStart
+                // < beforeCreated → 桶内必有更早消息（与 loadArchivedRange 的 filter 语义一致）
                 archiveDao.latestBefore(sessionId, beforeCreated, limit = 1).isNotEmpty()
             } ?: false
         }
