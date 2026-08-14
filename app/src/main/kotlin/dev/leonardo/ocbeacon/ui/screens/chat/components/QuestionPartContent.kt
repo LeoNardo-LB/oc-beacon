@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -237,6 +238,11 @@ internal fun QuestionPagerView(
     onPageSelected: (Int) -> Unit = {},
     showTabs: Boolean = true,
 ) {
+    // Bug #126: customDraft 提升到 pager 层按 pageIndex 存——
+    // HorizontalPager beyondViewportPageCount=1 时远页 composition 被销毁，
+    // 页内 remember 会丢失草稿；提升后翻回时草稿保留
+    val customDrafts = remember { mutableStateMapOf<Int, String>() }
+
     if (questions.size <= 1) {
         questions.firstOrNull()?.let { q ->
             QuestionOptionRows(
@@ -244,6 +250,8 @@ internal fun QuestionPagerView(
                 selected = selectedAnswers.firstOrNull() ?: emptySet(),
                 readOnly = readOnly,
                 onOptionClick = { onOptionClick?.invoke(0, it) },
+                customDraft = customDrafts[0] ?: "",
+                onCustomDraftChange = { customDrafts[0] = it },
             )
         }
     } else {
@@ -298,6 +306,8 @@ internal fun QuestionPagerView(
                         selectedAnswers.getOrNull(page) ?: emptySet(),
                         readOnly,
                         { onOptionClick?.invoke(page, it) },
+                        customDraft = customDrafts[page] ?: "",
+                        onCustomDraftChange = { customDrafts[page] = it },
                         headerTabs = if (showTabs) {
                             { QuestionCompactTabs(state, questions) }
                         } else null,
@@ -314,6 +324,10 @@ internal fun QuestionOptionRows(
     selected: Set<String>,
     readOnly: Boolean,
     onOptionClick: (String) -> Unit,
+    // Bug #126: customDraft 由调用方（QuestionPagerView）按 pageIndex 管理，
+    // 避免 HorizontalPager beyondViewportPageCount=1 销毁远页 composition 时丢失草稿
+    customDraft: String,
+    onCustomDraftChange: (String) -> Unit,
     /** 2026-08-14：Q tabs 嵌入问题域行（用户架构：问题域 → 答案域 → 按钮域，
      *  无独立标题行；tabs 与问题描述同级别）。 */
     headerTabs: (@Composable () -> Unit)? = null,
@@ -321,9 +335,6 @@ internal fun QuestionOptionRows(
     val accentColor = MaterialTheme.colorScheme.primary
     val contentColor = MaterialTheme.colorScheme.onSurface
     val isMultiple = question.multiple
-    // 2026-08-14：自定义输入草稿状态提升到组件顶层——分支（②/③）切换时
-    // Compose 不会丢弃槽位状态（用户要求：输入框有内容时点选选项内容保留）
-    var customDraft by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
         if (question.question.isNotBlank()) {
             // 2026-08-14：问题域用背景色卡片包裹（用户方案：卡片形成视觉分隔，
@@ -447,6 +458,18 @@ internal fun QuestionOptionRows(
                             )
                             Spacer(modifier = Modifier.size(4.dp))
                             Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
+                            // Bug #125: ✕ 删除自定义答案——toggle off 该自定义值
+                            // （多选 remove；单选若自定义是唯一选中则清空）
+                            Spacer(modifier = Modifier.size(4.dp))
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(ShapeTokens.small)
+                                    .clickable { onOptionClick(customAnswer) },
+                                tint = accentColor
+                            )
                         }
                     }
                 } else {
@@ -473,9 +496,13 @@ internal fun QuestionOptionRows(
                                     .clickable(enabled = editText.isNotBlank() && editText != customAnswer) {
                                         val t = editText.trim()
                                         if (t.isNotBlank()) {
-                                            // 修改 = 替换旧自定义：先移除旧值（toggle），再提交新值
+                                            // 修改 = 替换旧自定义：先移除旧值（toggle off）
                                             onOptionClick(customAnswer)
-                                            onOptionClick(t)
+                                            // Bug #125: 若新值是已有选项标签则不再 toggle on——
+                                            // 避免已选中选项被意外取消（toggle 语义为切换而非仅选中）
+                                            if (t !in optionLabels) {
+                                                onOptionClick(t)
+                                            }
                                             editing = false
                                         }
                                     },
@@ -488,7 +515,7 @@ internal fun QuestionOptionRows(
             } else if (!readOnly) {
                 // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）
                 androidx.compose.material3.OutlinedTextField(
-                    value = customDraft, onValueChange = { customDraft = it },
+                    value = customDraft, onValueChange = onCustomDraftChange,
                     placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                     textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
@@ -508,7 +535,14 @@ internal fun QuestionOptionRows(
                                 .clip(ShapeTokens.small)
                                 .clickable(enabled = customDraft.isNotBlank()) {
                                     val t = customDraft.trim()
-                                    if (t.isNotBlank()) { onOptionClick(t); customDraft = "" }
+                                    if (t.isNotBlank()) {
+                                        // Bug #125: 若输入文本已是选项标签则不 toggle——
+                                        // 避免已选中选项被意外取消
+                                        if (t !in optionLabels) {
+                                            onOptionClick(t)
+                                        }
+                                        onCustomDraftChange("")
+                                    }
                                 },
                             tint = if (customDraft.isNotBlank()) accentColor else accentColor.copy(alpha = AlphaTokens.FAINT)
                         )

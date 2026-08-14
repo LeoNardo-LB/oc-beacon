@@ -168,7 +168,10 @@ internal fun QuestionCard(
                         val isSingleQuestion = question.questions.getOrNull(pageIndex)?.multiple != true
                         if (isSingleQuestion) {
                             // 单选：toggle——选中项取消则清空，否则替换为该项（不再立即提交）
-                            answersPerQuestion[pageIndex] = if (current == listOf(label)) emptyList() else listOf(label)
+                            // Bug #127: 补越界保护（与多选分支 :174 对称）
+                            if (pageIndex < answersPerQuestion.size) {
+                                answersPerQuestion[pageIndex] = if (current == listOf(label)) emptyList() else listOf(label)
+                            }
                         } else {
                             if (label in current) current.remove(label) else current.add(label)
                             if (pageIndex < answersPerQuestion.size) answersPerQuestion[pageIndex] = current
