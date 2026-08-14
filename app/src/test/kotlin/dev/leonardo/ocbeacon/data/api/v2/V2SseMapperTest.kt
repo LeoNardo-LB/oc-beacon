@@ -104,6 +104,37 @@ class V2SseMapperTest {
     }
 
     @Test
+    fun `step started parses new model object contract (id + providerID)`() {
+        // 2026-08-14 抓帧实证：新版 model 是 {id, providerID, variant} 对象
+        val event = V2SseMapper.map(
+            "session.step.started",
+            props("""{"sessionID":"ses_1","assistantMessageID":"msg_asst_1","agent":"build","model":{"id":"deepseek-v4-flash","providerID":"deepseek","variant":"max"}}""")
+        )
+        assertNotNull(event)
+        val updated = event as SseEvent.MessageUpdated
+        val assistant = updated.info as Message.Assistant
+        assertEquals("deepseek-v4-flash", assistant.modelId)
+        assertEquals("deepseek", assistant.providerId)
+    }
+
+    @Test
+    fun `step ended parses tokens`() {
+        // 2026-08-14 抓帧实证：{finish, cost, tokens:{input,output,reasoning,cache:{read,write}}}
+        val event = V2SseMapper.map(
+            "session.step.ended",
+            props("""{"sessionID":"ses_1","assistantMessageID":"msg_asst_1","finish":"tool-calls","cost":0.00099,"tokens":{"input":84,"output":294,"reasoning":866,"cache":{"read":234368,"write":0}}}""")
+        )
+        assertNotNull(event)
+        val updated = event as SseEvent.MessageUpdated
+        val assistant = updated.info as Message.Assistant
+        assertEquals(84, assistant.tokens?.input)
+        assertEquals(294, assistant.tokens?.output)
+        assertEquals(866, assistant.tokens?.reasoning)
+        assertEquals(234368, assistant.tokens?.cache?.read)
+        assertEquals(0.00099, assistant.cost, 1e-9)
+    }
+
+    @Test
     fun `text delta uses derived partId`() {
         val event = V2SseMapper.map(
             "session.text.delta",
