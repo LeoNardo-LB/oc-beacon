@@ -42,9 +42,35 @@
 
 ---
 
-### 轮次 2：（待执行）
+### 轮次 2：2026-08-14 13:31（V2 协议 · 委派 subagent 执行 + 主 agent 抽查复核）
 
-（占位——每轮追加一节，格式同上）
+**执行方式**：模拟器 UI 交互委派 subagent（AGENTS.md 要求），证据落盘 /tmp/e2e_run1/；主 agent 抽查证据文件（anti-fabrication）。
+
+| 用例 | 结果 | 实际观察 | 对比期望 | 问题归属 | 备注 |
+|------|------|----------|----------|----------|------|
+| E2-1 输入文本 | ✅ | tap (476,1437) → 输入 `E2E_RUN1_1786685489` → 输入框显示 | 一致 | - | 键盘收起后 Send 位置稳定 |
+| E2-2 发送链路 | ✅ | `[model] 204` → `[prompt] status=200 elapsed=27ms` → `[send-seed] msg_ffec134e...` | 一致（V2 全链） | - | t2s.log 证据 |
+| E2-3 FSM Busy | ✅ | `Idle --ClientSendParts--> Busy/Waiting` → `[meta] Busy` → `--TextStarted--> Busy/Streaming` | 一致 | - | - |
+| E3-1 执行事件 | ✅ | `[recv] MessageUpdated` / `[recv] SessionStatus`；`[meta] streaming=true` | 一致 | - | 发送后 ~150ms 内 |
+| E4-1 完成事件 | ✅ | `SseIdle --> Idle [force-complete]`（全程 ~3.8s） | 一致 | - | - |
+| E4-2 转圈消失 | ✅ | 无旋转进度圈；唯一 ProgressBar = 顶栏徽标（视觉 MCP 确认非转圈） | 一致 | - | final_check.png |
+| E4-3 服务器 completed | ✅ | assistant msg_ffec135c `completed=1786685505814` 非空 | 一致 | - | msgs.json |
+| E4-5 完整回复 | ✅ | "收到测试标记：E2E_RUN1_1786685489。连接正常✓" | 一致 | - | - |
+| E0-4 基线 | ✅ | /active = {}（无僵尸） | 一致 | - | active.txt |
+
+**轮次 2 结论**：V2 发送→流式→完成全链路 PASS（9 项断言，≥2 维度交叉：logcat + 截图 + 服务器 curl + DB 落库）。未发现代码问题。
+
+---
+
+### 轮次 3：2026-08-14 13:41-13:55（V2 协议 · #129 僵尸自动解除实测 + #125 环境受限评估）
+
+| 用例 | 结果 | 实际观察 | 对比期望 | 问题归属 | 备注 |
+|------|------|----------|----------|----------|------|
+| E7-3 僵尸自动解除（#129） | ✅ | 会话卡 Busy/Waiting（服务器 Busy + 无 SSE 事件 184s）→ `zombie runner, forcing Idle` → **`zombie interrupt sent`** → 服务器回 `session.execution.interrupted` → /active 从 running → {} | 一致（App 侧完整闭环） | - | 与手动 curl 不同，本次为 **App 自动触发** |
+| 僵尸恢复后发送 | ✅ | `E2E_zombie_recovery_check_001` → assistant 回复 completed=True | 一致 | - | 证明僵尸解除后会话恢复可用 |
+| E7-5 权限/问题请求（#125 前置） | ⚠️ 受限 | question 工具调用（multiple=true 多选问题）两次均 `status=running` 但 `/api/question/request` 恒为空、无 QuestionAsked SSE | 未达期望 | **环境（服务器）** | opencode next-17403 问题工具广播缺陷；App 侧无 QuestionAsked 可处理 |
+
+**轮次 3 结论**：#129 App 侧修复在真实僵尸场景自动触发并解除（铁证链完整）。#125 的 UI 实测受服务器端问题工具缺陷阻塞（非 App 代码问题，App 侧修复代码已通过 D1 检查）。
 
 ---
 
@@ -52,7 +78,21 @@
 
 | 用例 | 轮次 | 现象 | 归属 | 根因 | 状态 |
 |------|------|------|------|------|------|
-| （无） | - | - | - | - | - |
+| E7-5 问题卡片 UI 实测（#125） | 3 | question 工具 running 但 request 端点为空、无 QuestionAsked SSE | 环境（服务器 next-17403 缺陷） | 服务器 question 工具不广播 | 已登记 backlog；App 侧修复待服务器修复后复测 |
+
+---
+
+## V1 协议测试评估（2026-08-14）
+
+**结论：环境受限，未执行 V1 全生命周期 E2E。** 原因与尝试：
+
+| 尝试 | 结果 | 说明 |
+|------|------|------|
+| V1 服务器启动（opencode 1.18.18 serve --port 4096） | ✅ 成功 | 隔离 XDG_DATA_HOME/XDG_CONFIG_HOME 后 `server listening on 0.0.0.0:4096`；会话创建、SSE `server.connected` 均正常 |
+| V1 模型配置 | ❌ 不可用 | V1 孤立配置无 provider 认证（需 HPC_AI_API_KEY 等）；主配置的 mcp 格式 V1 1.18 不兼容（schema 校验失败）→ agent 无法真实回复 |
+| App 连接 V1 服务器 | 未执行 | 服务器无模型回复能力，只能测发送链路（代码级已由 V1ApiClient 单测覆盖） |
+
+**待办**：配置带可用模型认证的 V1 服务器后，按期望文档执行 V1 协议用例（重点：prompt_async 204 无播种依赖 SSE 回显、V1 SSE 事件解析、V1 abort）。
 
 ---
 
@@ -62,6 +102,7 @@
 |------|------|----------|------|
 | 2026-08-14 | #129/#128/#125 前置 | commit 1bfa3f85：僵尸主动 interrupt + switchModel 契约修复 + debug 日志 | 模拟器 V2 全链实测 |
 | 2026-08-14 | #128 | commit ab20e24f：runCatchingCancellable 迁移（10 文件） | 1596 单测 0 失败 |
+| 2026-08-14 | #125/#126/#127 | commit 77074c05：多选自定义取消 ✕ + 远页草稿提升 + 越界保护 | D1 检查 + backlog 更新（UI 实测受服务器阻塞） |
 
 ---
 

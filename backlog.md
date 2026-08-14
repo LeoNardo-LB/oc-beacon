@@ -1100,3 +1100,10 @@ efactor
   - 方案：toMutableMap 单次拷贝 + history 定长 + mapValues distinctUntilChanged；重连带 Last-Event-ID/游标循环补漏；在 PermissionAsked 路径接入自动 reply 或移除 UI 入口
   - 工时：~1d | 难度：中 | 涉及：SessionStateService/SseClientV2/PermissionAutoApprover | 优先级：P2
 
+$(echo "
+- [ ] **#130 opencode next-17403 question 工具广播缺陷（request 端点恒空 + 无 QuestionAsked SSE）** `server` `question`
+  - 问题：2026-08-14 实测（两次独立尝试）——agent 调用 question 工具（multiple=true 多选），工具 state 为 `status=running` 但：① `GET /api/question/request` 恒返回空 data；② 服务器从不发 question.asked SSE 事件 → App 无法收到 QuestionAsked → 问题卡片永不渲染（#125 UI 实测因此受阻）
+  - 证据：docs/dialogue-e2e-test-runbook.md 轮次 3（tool state running vs request 空）
+  - 服务器侧待办：升级 opencode 或向上游反馈；App 侧 QuestionAsked 处理逻辑本身正常（#26 已实现 + 单测）
+  - 工时：待服务器侧 | 难度：未知 | 优先级：P2（阻塞 #125 UI 实测）
+" | sed 's/\`/`/g')
