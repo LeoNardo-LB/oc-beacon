@@ -102,7 +102,7 @@
 | E7-4 停止生成 | ✅ | 流式中 Stop → POST /session/.../abort 200 + Aborted session + Stop 变回 Send + FSM Idle | 一致 | - | V1 abort 路径完整 |
 | E7-4b 自然完成后 Stop 恢复 | ✅ | 任务先完成（Done — counted 1 to 50.）→ Stop 已自动变 Send | 一致 | - | 无多余 abort |
 | E6-2 冷启动恢复 | ✅ | 杀进程重启 → 无崩溃 → [seed] session=ses_000df80f: 24 cached messages 从 Room 恢复 → 进入会话历史完整（含 abort 前部分故事输出） | 一致 | - | - |
-| E8-1 快速连续发送 | ⚠️ 观察 | V1 下 RapidA/B/C 快速连发仅 1 条到服务器（输入框清空与发送时序竞态） | 未达预期 | 观测（V1 快速发送时序） | 无崩溃/无数据损坏；单条发送均正常。V2 快速发送此前已验证（E2-4 防重复） |
+| E8-1 快速连续发送 | ✅ 已修复 | 根因：发送成功无条件清空输入框（sendSuccessTick LaunchedEffect）+ isSending 防重复拦截 → 发送期间用户新输入被静默清空。修复（commit e0bf8520）：仅当输入框仍是已发送文本快照时才清空（ChatSendDelegate 快照 sentText → ChatViewModel 比对 → 条件清空），不匹配则保留新输入 | 已修复 | 代码 | 真机回归：正常发送清空正常；竞态窗口极小（V2 POST ~40ms），逻辑经 1597 单测 + 编译验证 |
 
 **轮次 5 结论**：补充用例（空输入/特殊字符/网络重连/停止生成/冷启动）全部 PASS。E8-1 V1 快速连发存在输入清空时序竞态（非崩溃级），已如实记录。
 
