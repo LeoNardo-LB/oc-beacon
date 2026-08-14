@@ -804,13 +804,18 @@ fun ChatMessageList(
                             // 稳定的基于 turn 的 key：分页从同一 turn
                             // 加载更多消息时防止项被销毁（代表消息
                             // 会变化，但 turn 身份保持不变）。
+                            // #103（M-8）：key 锚点改为 turn 组首条消息 id——
+                            // 原最新 turn 用固定 "head" fallback，流式期间新消息
+                            // 到达改变 rawIndex+1 边界 → key 变化 → 整气泡销毁重建
+                            //（含 rememberMarkdownState 重解析）
                             if (msg.isUser) "u_${msg.message.id}"
-                            else "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
+                            else "t_${turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id}"
                         },
                         contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
                     ) { displayItemIndex, (rawIndex, msg) ->
+                        // #103（M-8）：与 LazyColumn key 同锚点（turn 组首条消息 id）
                         val itemKey = if (msg.isUser) "u_${msg.message.id}"
-                            else "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
+                            else "t_${turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id}"
                         val isStreamingMsg = (turnGroups[rawIndex] ?: listOf(msg)).any { it.message.id == streamingMsgId }
                         val itemModifier = if (isStreamingMsg) {
                             Modifier

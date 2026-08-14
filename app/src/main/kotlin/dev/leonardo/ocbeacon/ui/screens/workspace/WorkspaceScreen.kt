@@ -135,11 +135,15 @@ fun WorkspaceScreen(
         }
     ) { padding ->
         if (uiState.isSearchMode) {
-            val filteredGitChanges = if (uiState.currentPanel == WorkspacePanel.GIT_CHANGES) {
-                uiState.gitChanges.filter {
-                    uiState.searchQuery.isBlank() || it.file.contains(uiState.searchQuery, ignoreCase = true)
-                }
-            } else emptyList()
+            // #103（M-16）：过滤结果 remember——原每次重组全量 filter（gitChanges
+            // 数百条 × 重组频率）；仅在输入/面板/列表变化时重算
+            val filteredGitChanges = remember(uiState.gitChanges, uiState.searchQuery, uiState.currentPanel) {
+                if (uiState.currentPanel == WorkspacePanel.GIT_CHANGES) {
+                    uiState.gitChanges.filter {
+                        uiState.searchQuery.isBlank() || it.file.contains(uiState.searchQuery, ignoreCase = true)
+                    }
+                } else emptyList()
+            }
             SearchOverlay(
                 activePanel = uiState.currentPanel,
                 query = uiState.searchQuery,

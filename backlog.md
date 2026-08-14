@@ -942,7 +942,7 @@ efactor
   - 工时：~1d | 难度：中 | 涉及：DebugLogger/DiagnosticLogRepository/V2EventParser
   - 优先级：P2
 
-- [ ] **#103 审计 Medium 其余（M-5+M-8+M-16）** `performance` `ui`
+- [x] **#103 审计 Medium 其余（M-5+M-8+M-16）** `performance` `ui`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3
   - ✅ **2026-08-13 代码验证确认**：M-5 ChatRepositoryImpl:79-92 sortedBy+upsertMessages 在 IO 块外（Main）；M-8 ChatMessageList:769-770 "t_head" key 确认；M-16 WorkspaceScreen:138-142 组合体直接 filter + VM filterGitChanges 无调用方（Agent 复核）
   - M-5：ChatRepositoryImpl.getMessagesFlow 种子合并在主线程（sortedBy+upsertMessages 移入 withContext(Default)）

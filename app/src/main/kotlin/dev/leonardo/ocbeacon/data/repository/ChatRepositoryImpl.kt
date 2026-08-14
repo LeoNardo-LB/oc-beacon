@@ -95,8 +95,11 @@ class ChatRepositoryImpl @Inject constructor(
                     // 两路归并前提是升序——降序输入会导致归并错乱/消息丢失
                     //（synthetic 卡片实测：seed 14 条 → REST refresh 后 UI 仅 12 条）。
                     // 沿用现有合并路径写入内存热视图（APPEND_ONLY：不去重已存在，幂等）
-                    val cachedAsc = cached.sortedBy { it.info.time.created }
-                    eventDispatcher.upsertMessages(sessionId, cachedAsc, MergeStrategy.APPEND_ONLY)
+                    // #103（M-5）：排序+合并移出主线程（原在 flow 收集线程=Main）
+                    withContext(Dispatchers.Default) {
+                        val cachedAsc = cached.sortedBy { it.info.time.created }
+                        eventDispatcher.upsertMessages(sessionId, cachedAsc, MergeStrategy.APPEND_ONLY)
+                    }
                 } else if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatRepository", "[seed] session=$sessionId: no cache, waiting for REST")
                 }
