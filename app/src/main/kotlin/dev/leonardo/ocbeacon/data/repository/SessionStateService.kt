@@ -296,34 +296,30 @@ class SessionStateService @Inject constructor(
                         // 3 分钟完全无事件 = 僵尸；服务器恢复执行时 execution.started
                         // 事件会重新置 Busy）。
                         if (serverStatus is SessionStatus.Busy) {
-                            // 僵尸判定：FSM lastEventAt 由真实事件更新（restValidation
-                            // 不刷新——见 SessionStateFSM.restValidation 修正注释）
+                            // 僵尸判定：FSM lastEventAt 由真实事件更新（restValidation 不刷新——见 SessionStateFSM.restValidation 修正注释）
                             val lastEventAt = _fsmStates.value[sessionId]?.lastEventAt ?: 0L
                             val quietMs = System.currentTimeMillis() - lastEventAt
                             if (quietMs > ZOMBIE_BUSY_MS) {
-                                // 2026-08-14 走查修复（误杀防护）：pending question/permission 时
-                                // 服务器在合法等待用户输入（此期间无 SSE 事件属正常，非僵尸）——
-                                // 不得 interrupt（会杀掉等待中的提问/权限对话框，用户 >3 分钟
-                                // 未回答即被误杀）。仍强制本地 Idle（转圈停、问题卡片可继续回答，
-                                // 用户提交后服务器恢复事件流）。QuestionAsked/PermissionAsked 事件
-                                // 不映射 FSM（见 mapSseEventToFsm）→ lastEventAt 不更新，故必须
-                                // 在此显式检查。
-                                if (pendingUserInputChecker(sessionId)) {
+                                // 2026-08-14 走查修复（误杀防护）：pending question/permission 时服务器在合法
+                                // 等待用户输入（此期间无 SSE 事件属正常，非僵尸）——不得 interrupt（会杀掉等待中的
+                                // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
+                                // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查。
+                                val hasPendingUserInput = pendingUserInputChecker(sessionId)
+                                if (hasPendingUserInput) {
+                                    // pending 用户输入：不 interrupt，仅本地强制 Idle（转圈停、问题卡片可继续回答，
+                                    // 用户提交后服务器恢复事件流、FSM 重新跟随 Busy）
                                     AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms; pending user input (question/permission) -> skip zombie interrupt, keep waiting")
-                                    onRestValidation(sessionId, SessionStatus.Idle)
-                                    return@onSuccess
+                                } else {
+                                    // 2026-08-14 根因修复（转圈/无回复）：仅本地强制 Idle 只是“装样子”——
+                                    // 服务器 runner 仍处于僵尸 running（/active 持续返回 running），用户再发消息
+                                    // POST /prompt 虽 200+admitted，但僵尸 runner 永不消费 inbox → 无执行事件 →
+                                    // 消息永远无回复 + UI 转圈。实测（V2 next-17403）：POST interrupt 返回 204 且
+                                    // /active 中该会话从 running 消失 = 服务器僵尸被解除。interrupt 幂等安全（idle
+                                    // 会话调用无副作用；V1 abortSession / V2 interruptSession 已按 apiVersion 分流）。
+                                    AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
+                                    interruptZombieRunner(sid, sessionId, directory)
                                 }
-                                AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
-                                // 2026-08-14 根因修复（转圈/无回复）：仅本地强制 Idle 只是"装样子"——
-                                // 服务器 runner 仍处于僵尸 running（/active 持续返回 running），
-                                // 用户再发消息 POST /prompt 虽 200+admitted，但僵尸 runner 永不消费
-                                // inbox → 无执行事件 → 消息永远无回复 + UI 转圈。
-                                // 实测（V2 next-17403）：POST /api/session/{id}/interrupt 返回 204
-                                // 且 /active 中该会话从 running 列表消失 = 服务器僵尸被解除。
-                                // 此处主动调用服务器 interrupt（V1 走 abortSession / V2 走
-                                // interruptSession，SessionRepository.abort 已按 apiVersion 分流），
-                                // 从根因解除僵尸；幂等安全（idle 会话调用无副作用）。
-                                interruptZombieRunner(sid, sessionId, directory)
+                                // 两种路径都强制本地 Idle（pending：转圈停卡片可答；僵尸：服务器已解除）
                                 onRestValidation(sessionId, SessionStatus.Idle)
                             } else {
                                 onRestValidation(sessionId, serverStatus)
