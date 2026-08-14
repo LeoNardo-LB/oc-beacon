@@ -537,11 +537,14 @@ internal fun QuestionOptionRows(
                                     val t = customDraft.trim()
                                     if (t.isNotBlank()) {
                                         // Bug #125: 若输入文本已是选项标签则不 toggle——
-                                        // 避免已选中选项被意外取消
+                                        // 避免已选中选项被意外取消。
+                                        // 2026-08-14 走查修复：匹配已有选项时保留草稿
+                                        // （原实现清空草稿 = 用户输入无声丢失，无任何反馈）；
+                                        // 用户可看到输入仍在，自行点选对应选项。
                                         if (t !in optionLabels) {
                                             onOptionClick(t)
+                                            onCustomDraftChange("")
                                         }
-                                        onCustomDraftChange("")
                                     }
                                 },
                             tint = if (customDraft.isNotBlank()) accentColor else accentColor.copy(alpha = AlphaTokens.FAINT)

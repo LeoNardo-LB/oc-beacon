@@ -183,6 +183,35 @@ class SessionStateServiceTest {
     }
 
     @Test
+    fun `triggerRestValidation zombie Busy with pending user input skips interrupt`() {
+        // 2026-08-14 走查修复（误杀防护）：pending question/permission 时服务器在合法
+        // 等待用户输入（无 SSE 事件属正常，非僵尸）——不得 interrupt（会杀掉等待中的
+        // 提问/权限对话框），但本地仍强制 Idle（转圈停，卡片可继续回答）。
+        val fakeRepo = mockk<SessionRepository>(relaxed = true)
+        coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
+        coEvery { fakeRepo.abort(any(), any(), any()) } returns Result.success(Unit)
+        val service = newServiceWith(fakeRepo)
+        service.setServerId("svr1")
+        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        // 模拟该会话有 pending question（EventDispatcher 接线的检查器）
+        service.pendingUserInputChecker = { sessionId -> sessionId == "s1" }
+        service.onClientSendParts("s1")
+        val field = SessionStateService::class.java.getDeclaredField("_fsmStates")
+        field.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val flow = field.get(service) as MutableStateFlow<Map<String, SessionFSMState>>
+        flow.value = flow.value + ("s1" to flow.value.getValue("s1").copy(
+            lastEventAt = System.currentTimeMillis() - ZOMBIE_BUSY_MS - 1000
+        ))
+        service.triggerRestValidation("s1")
+        testScope.runCurrent()
+        // 本地仍强制 Idle（UI 转圈停；问题卡片由独立状态管理，可继续回答）
+        assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
+        // 关键断言：不得 interrupt（等待用户输入的会话不是僵尸）
+        coVerify(exactly = 0) { fakeRepo.abort(any(), any(), any()) }
+    }
+
+    @Test
     fun `triggerRestValidation Busy with recent events stays Busy`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))

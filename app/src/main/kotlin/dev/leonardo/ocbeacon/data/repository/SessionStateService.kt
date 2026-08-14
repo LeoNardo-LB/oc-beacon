@@ -54,6 +54,11 @@ class SessionStateService @Inject constructor(
     var incompleteChecker: IncompleteAssistantChecker = IncompleteAssistantChecker { false }
     var messageForceCompleter: MessageForceCompleter = MessageForceCompleter {}
     var messageRefresher: MessageRefresher = MessageRefresher { _, _ -> }
+    /** 2026-08-14 走查修复（僵尸误杀防护）：该会话是否有等待用户输入的
+     *  pending question/permission——有时服务器合法"运行中"（等待用户回答），
+     *  此期间无 SSE 事件属正常，僵尸判定不得对其发 interrupt（会杀掉等待中的
+     *  提问/权限对话框）。由 EventDispatcher 接线（questionHandler/permissionHandler）。 */
+    var pendingUserInputChecker: (sessionId: String) -> Boolean = { false }
 
     @Volatile private var currentServerId: String? = null
 
@@ -296,6 +301,18 @@ class SessionStateService @Inject constructor(
                             val lastEventAt = _fsmStates.value[sessionId]?.lastEventAt ?: 0L
                             val quietMs = System.currentTimeMillis() - lastEventAt
                             if (quietMs > ZOMBIE_BUSY_MS) {
+                                // 2026-08-14 走查修复（误杀防护）：pending question/permission 时
+                                // 服务器在合法等待用户输入（此期间无 SSE 事件属正常，非僵尸）——
+                                // 不得 interrupt（会杀掉等待中的提问/权限对话框，用户 >3 分钟
+                                // 未回答即被误杀）。仍强制本地 Idle（转圈停、问题卡片可继续回答，
+                                // 用户提交后服务器恢复事件流）。QuestionAsked/PermissionAsked 事件
+                                // 不映射 FSM（见 mapSseEventToFsm）→ lastEventAt 不更新，故必须
+                                // 在此显式检查。
+                                if (pendingUserInputChecker(sessionId)) {
+                                    AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms; pending user input (question/permission) -> skip zombie interrupt, keep waiting")
+                                    onRestValidation(sessionId, SessionStatus.Idle)
+                                    return@onSuccess
+                                }
                                 AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
                                 // 2026-08-14 根因修复（转圈/无回复）：仅本地强制 Idle 只是"装样子"——
                                 // 服务器 runner 仍处于僵尸 running（/active 持续返回 running），

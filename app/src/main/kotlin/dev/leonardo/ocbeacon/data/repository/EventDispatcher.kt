@@ -57,8 +57,10 @@ class EventDispatcher @Inject constructor(
      */
     private val unreadMigrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** debug 级分发日志的 delta 节流计数器（仅 DEBUG 构建使用）。 */
-    private var dispatchCounter = 0
+    /** debug 级分发日志的 delta 节流计数器（仅 DEBUG 构建使用）。
+     *  2026-08-14 走查修复：多服务器 SSE 协程并发调用 processEvent →
+     *  改原子计数（原 var 非原子，仅日志节流不准，无功能影响）。 */
+    private val dispatchCounter = java.util.concurrent.atomic.AtomicLong(0L)
 
     init {
         // SessionStateService 回调——在此接线以打破循环依赖
@@ -81,6 +83,13 @@ class EventDispatcher @Inject constructor(
         }
         sessionStateService.messageRefresher = MessageRefresher { sessionId, messages ->
             messageHandler.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
+        }
+        // 2026-08-14 走查修复（僵尸误杀防护）：该会话有等待用户输入的
+        // pending question/permission 时，服务器合法运行中（等待用户回答），
+        // 僵尸判定不得 interrupt（否则 >3 分钟未回答即被误杀）。
+        sessionStateService.pendingUserInputChecker = { sessionId ->
+            questionHandler.questions.value[sessionId]?.isNotEmpty() == true ||
+                permissionHandler.permissions.value[sessionId]?.isNotEmpty() == true
         }
     }
 
@@ -234,9 +243,9 @@ class EventDispatcher @Inject constructor(
                 // delta 高频事件按 100 条节流，避免流式期间刷屏。
                 val typeName = event::class.simpleName ?: "?"
                 if (event is SseEvent.MessagePartDelta) {
-                    dispatchCounter++
-                    if (dispatchCounter % 100 == 1) {
-                        AppLogger.d(TAG, "[dispatch] ${typeName} -> ${handler::class.simpleName} (delta stream, counter=${dispatchCounter})")
+                    val n = dispatchCounter.incrementAndGet()
+                    if (n % 100L == 1L) {
+                        AppLogger.d(TAG, "[dispatch] ${typeName} -> ${handler::class.simpleName} (delta stream, counter=${n})")
                     }
                 } else {
                     AppLogger.d(TAG, "[dispatch] ${typeName} -> ${handler::class.simpleName} sid=${sessionId?.take(12)}")
