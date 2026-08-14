@@ -131,7 +131,7 @@ class V2SseMapperTest {
         assertEquals(294, assistant.tokens?.output)
         assertEquals(866, assistant.tokens?.reasoning)
         assertEquals(234368, assistant.tokens?.cache?.read)
-        assertEquals(0.00099, assistant.cost, 1e-9)
+        assertEquals(0.00099, assistant.cost ?: 0.0, 1e-9)
     }
 
     @Test
