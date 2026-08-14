@@ -51,6 +51,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -86,6 +88,8 @@ class SessionListViewModel @Inject constructor(
     companion object {
         /** 表示 Windows 盘符选择器根的虚拟路径。 */
         const val WINDOWS_DRIVES_ROOT = ":///drives"
+        /** #100（M-11）：搜索输入防抖间隔。 */
+        const val SEARCH_DEBOUNCE_MS = 300L
         /** ChatScreen 在用户发送消息时写入的 SavedStateHandle key；
          * 此 ViewModel 在返回时消费它以将列表滚动回顶部。 */
         const val KEY_SCROLL_TO_TOP = "session_list_scroll_to_top"
@@ -242,17 +246,19 @@ class SessionListViewModel @Inject constructor(
     )
 
     // kotlinx.coroutines combine 仅有 2-5 源的类型化重载；第 6 源用嵌套 combine 接入。
+    // #100（M-11）：上游 6 源 distinctUntilChanged——重复发射（内容未变）不触发
+    // 下游 combine 全量重建（过滤+排序+分类+树构建+未读判定）
     private val sessionDataFlow = combine(
         combine(
-            sessionRepository.getSessionsFlow(serverId),
+            sessionRepository.getSessionsFlow(serverId).distinctUntilChanged(),
             sessionStateService.statusFlow,
-            sessionRepository.getServerSessionsFlow(),
-            sessionRepository.getLastUserMessageTimeFlow(),
-            sessionRepository.getLastCompletedReplyTimeFlow(),
+            sessionRepository.getServerSessionsFlow().distinctUntilChanged(),
+            sessionRepository.getLastUserMessageTimeFlow().distinctUntilChanged(),
+            sessionRepository.getLastCompletedReplyTimeFlow().distinctUntilChanged(),
         ) { sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime ->
             SessionCorePart(sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime)
         },
-        chatRepository.getAllQuestionsFlow(),
+        chatRepository.getAllQuestionsFlow().distinctUntilChanged(),
     ) { core, questions ->
         SessionDataPart(core.sessions, core.statuses, core.serverSessionMap, core.lastUserMessageTime, core.lastReplyTime, questions)
     }
@@ -275,9 +281,9 @@ class SessionListViewModel @Inject constructor(
     )
 
     private val settingDataFlow = combine(
-        settingsRepository.sessionTagAssignments(serverId),
+        settingsRepository.sessionTagAssignments(serverId).distinctUntilChanged(),
         sessionTags,
-        settingsRepository.sessionReadTimes(serverId),
+        settingsRepository.sessionReadTimes(serverId).distinctUntilChanged(),
         sessionReadSignal.justRead,
     ) { assignments, tags, readTimes, justRead ->
         SettingDataPart(assignments, tags, readTimes, justRead)
@@ -291,7 +297,7 @@ class SessionListViewModel @Inject constructor(
 
     private val miscDataFlow = combine(
         _favoritesOnly,
-        settingsRepository.allReadAt(serverId),
+        settingsRepository.allReadAt(serverId).distinctUntilChanged(),
     ) { favoritesOnly, allReadAt ->
         MiscDataPart(favoritesOnly, allReadAt)
     }
@@ -341,7 +347,8 @@ class SessionListViewModel @Inject constructor(
             UiGroup1Part(expandedPaths, selectedIds, baseDirectory, lastToggledDirectory)
         },
         combine(
-            _searchQuery, _viewMode, _categoryFilters,
+            // #100（M-11）：搜索输入防抖 300ms——逐键过滤改为停顿后过滤（纯客户端过滤）
+            _searchQuery.debounce(SEARCH_DEBOUNCE_MS), _viewMode, _categoryFilters,
         ) { searchQuery, viewMode, categoryFilterIds ->
             UiGroup2Part(searchQuery, viewMode, categoryFilterIds)
         },
@@ -358,6 +365,9 @@ class SessionListViewModel @Inject constructor(
     }
 
     // 内容册（最终）
+    // #100（M-11）：上游 distinctUntilChanged + 搜索防抖已大幅降低全量重建频率；
+    // buildContentState 保持收集线程（移 flowOn(Default) 会在测试/组合期引入
+    // Dispatchers.Main 访问竞态——2026-08-15 实测 SessionListShellStateTest 失败）
     val contentState: StateFlow<SessionListContentState> = combine(
         dataFlow, uiFlow,
     ) { data, ui ->

@@ -824,7 +824,7 @@ efactor
   - 工时：~0.5d | 难度：中 | 涉及：EventDispatcher、ChatViewModel、SessionEventHandler、ShellJobsHandler、DirectoryManager
   - 来源：2026-08-13 用户反馈系统卡死 + 全局 Singleton keyed 状态扫描
 
-- [ ] **#90 ChatRepositoryImpl.toolExpandedStates 无上限（低优先级）** `refactor`
+- [x] **#90 ChatRepositoryImpl.toolExpandedStates 无上限（低优先级）** `refactor`
   - 问题：2026-08-13 全局 keyed 状态扫描发现——`ChatRepositoryImpl.toolExpandedStates`（ConcurrentHashMap<toolId, Boolean>）只增不减（工具卡片展开状态记忆），toolId 随消息/工具调用增长 → 长期使用后无界
   - 影响：低（单条 Boolean 值，千条工具调用才 KB 级）；且 UI 展开状态跨会话记忆有产品价值
   - 方案：定期清理已结束消息的 toolId（需按消息关联）或 LRU 上限（如 1000 条）
@@ -910,7 +910,7 @@ efactor
   - 工时：~2d | 难度：中 | 涉及：ToolSnapshotCache/SseClientV2/ChatMessageList/RenderReadiness/WorkspaceViewModel
   - 优先级：P1
 
-- [ ] **#99 TaskDelegate 每 5s 无条件轮询（M-10，审计 Medium 性能）** `performance`
+- [x] **#99 TaskDelegate 每 5s 无条件轮询（M-10，审计 Medium 性能）** `performance`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3 M-10
   - ✅ **2026-08-13 代码验证确认**：TaskDelegate:88-90 while(true) delay(5_000)（Agent 复核）
   - 问题（✅ Agent 代码验证确认）：`TaskDelegate.kt:88-93` while(true) { refreshActiveSessions(); delay(5_000) }——ChatScreen 打开期间即使完全空闲也每 5s 一次 HTTP `/api/session/active`（12 次网络唤醒/分钟）
@@ -918,7 +918,7 @@ efactor
   - 工时：~0.5d | 难度：低 | 涉及：TaskDelegate.kt:84-93
   - 优先级：P2
 
-- [ ] **#100 SessionListViewModel 主线程全量状态重建 + 搜索无防抖（M-11，审计 Medium 性能）** `performance` `ui`
+- [x] **#100 SessionListViewModel 主线程全量状态重建 + 搜索无防抖（M-11，审计 Medium 性能）** `performance` `ui`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3 M-11
   - ✅ **2026-08-13 代码验证确认**：combine:350 无 flowOn；上游 5 Flow 无 distinctUntilChanged；搜索逐键 loadSessions 网络重取（Agent 复核）
   - 问题：combine 在主线程 buildContentState（过滤+排序+搜索+分类+树构建+未读判定全量）；上游 6 源无 distinctUntilChanged；搜索逐键全量网络重取

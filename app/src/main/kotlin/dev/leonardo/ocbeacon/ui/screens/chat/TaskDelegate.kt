@@ -80,14 +80,27 @@ class TaskAggregator(
      *  避免 ViewModel 测试在 runTest 虚拟时间下无限循环 OOM）。 */
     private val activeSessionIds = MutableStateFlow<Set<String>>(emptySet())
 
-    /** 启动 active 会话轮询（幂等）。 */
+    /**
+     * 启动 active 会话轮询（幂等）。
+     * #99（M-10）：原每 5s 无条件打 REST（无任何活跃会话时也无限空转）；
+     * 现连续无活跃会话时指数退避（5s → 10s → 30s 封顶），有活跃会话恢复 5s
+     * 精度——active 轮询只是 V2 无 status SSE 的兜底观测，非实时依赖。
+     */
     fun startPolling(scope: CoroutineScope) {
         if (pollingStarted) return
         pollingStarted = true
         scope.launch {
+            var quietCycles = 0
             while (true) {
                 refreshActiveSessions()
-                delay(5_000)
+                val hasActive = activeSessionIds.value.isNotEmpty()
+                val intervalMs = when {
+                    hasActive -> POLL_INTERVAL_MS
+                    quietCycles >= MAX_QUIET_CYCLES -> POLL_BACKOFF_MS
+                    else -> POLL_INTERVAL_MS
+                }
+                if (hasActive) quietCycles = 0 else quietCycles++
+                delay(intervalMs)
             }
         }
     }
@@ -102,6 +115,15 @@ class TaskAggregator(
     }
 
     private var pollingStarted = false
+
+    private companion object {
+        /** #99（M-10）：活跃时的轮询间隔。 */
+        const val POLL_INTERVAL_MS = 5_000L
+        /** 连续无活跃达到该轮数后进入退避间隔。 */
+        const val MAX_QUIET_CYCLES = 2
+        /** 空闲退避间隔（30s 封顶，REST 频率 5s → 30s）。 */
+        const val POLL_BACKOFF_MS = 30_000L
+    }
 
     private val subagents = combine(
         sessionRepository.getSessionsFlow(serverId),
