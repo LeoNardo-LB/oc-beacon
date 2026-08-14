@@ -112,7 +112,8 @@
 |------|------|----------|----------|----------|------|
 | E8-5 revert 回滚 | ✅ | 点 Revert → 确认对话框 → 确认 → Setting revert + POST /session/.../revert 200 + Reverted session → 被回滚文本恢复输入框 → 重新发送 → 服务器重建会话（Write_a_500 重现） | 一致 | - | revert 完整闭环（回滚+草稿回填+重发） |
 | E8-6 大会话分页 | ⚠️ 受限 | 分页代码验证：listMessages limit=50 before=cursor 游标分页日志正常；50 条消息 seed 加载。UI 滚动手势受模拟器限制（Compose LazyColumn 无法 adb swipe 触发，与 #126 pager 同类） | 分页逻辑一致，UI 手势受限 | 观测（模拟器手势） | 需真机滚动验证 |
-| #129 方案 C（转圈点击中断） | ✅ 代码+构建 | AgentModelVariantSelector 转圈可点击（onStopBusyClick→onStop→abortSession）；编译通过 + 1597 单测 | 一致 | - | 待交互实测 |
+| #129 方案 C（转圈点击中断） | ⚠️ 代码完成+交互受限 | 代码实现正确（clip+clickable+onStopBusyClick→onStop→abortSession，编译+1597 单测）；交互点击模拟器受限——转圈在 HorizontalScrollView 内，合成触摸被滚动手势拦截 | 代码一致，交互受限 | 观测（模拟器触摸） | 需真机点击验证 |
+| #130 反馈官方 | ✅ | GitHub issue #42541 已提交（anomalyco/opencode），含复现步骤/REST+SSE 实测/V1 对照；交叉引用 #19702/#19140/#17920/#35840 | 完成 | - | https://github.com/anomalyco/opencode/issues/42541 |
 
 **轮次 6 结论**：E8-5 revert 完整 PASS（含草稿回填与重发闭环）。E8-6 分页代码正常、UI 手势受模拟器限制（登记真机）。#129 方案 C 已实现并构建。
 
