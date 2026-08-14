@@ -109,14 +109,22 @@ class SseConnectionManager @Inject constructor(
         server: ServerConfig,
         onEvent: (ServerConfig, SseEvent) -> Unit
     ): Job {
-        // RS-004 修复：针对重复调用的自我保护。若已存在连接，
-        // 在启动新连接前先取消旧连接。调用方
-        //（OpenCodeConnectionService.connect）也会检查，但这可以防止
-        // 直接调用 startConnection 时（测试、未来重构）的泄漏。
-        connections[server.id]?.sseJob?.cancel()
-
         val conn = ServerConnection.from(server.url, server.username, server.password, server.apiVersion)
-        val job = startSseConnection(server, conn, onEvent)
+        val previous = connections[server.id]
+        val job: Job = if (previous != null && previous.sseJob.isActive) {
+            // RS-004 修复：针对重复调用的自我保护。若已存在连接，在启动新连接前
+            // 先取消旧连接。调用方（OpenCodeConnectionService.connect）也会检查，
+            // 但这可以防止直接调用 startConnection 时（测试、未来重构）的泄漏。
+            // #133（D2-L40）：与 reconnectServer 统一为 cancelAndJoin 语义——
+            // 裸 cancel 后立即启动会新旧 SSE 流短暂并发（旧协程取消是异步的）；
+            // 先完全停止旧协程再启动新连接。
+            scope.launch {
+                previous.sseJob.cancelAndJoin()
+                runSseConnectionLoop(server, conn, onEvent)
+            }
+        } else {
+            startSseConnection(server, conn, onEvent)
+        }
 
         connections[server.id] = ServerConnectionState(
             config = server, conn = conn, sseJob = job, isConnected = false, onEvent = onEvent
@@ -237,8 +245,16 @@ class SseConnectionManager @Inject constructor(
         server: ServerConfig,
         conn: ServerConnection,
         onEvent: (ServerConfig, SseEvent) -> Unit
-    ): Job {
-        return scope.launch {
+    ): Job = scope.launch {
+        runSseConnectionLoop(server, conn, onEvent)
+    }
+
+    /** SSE 连接主循环（重连退避）；[startConnection] 的 cancelAndJoin 分支也复用。 */
+    private suspend fun CoroutineScope.runSseConnectionLoop(
+        server: ServerConfig,
+        conn: ServerConnection,
+        onEvent: (ServerConfig, SseEvent) -> Unit
+    ) {
             var attempt = 0
             val tracker = timeoutTrackers.getOrPut(server.id) { SseReadTimeoutTracker() }
 
@@ -325,7 +341,6 @@ class SseConnectionManager @Inject constructor(
                 AppLogger.i(TAG, "[${server.displayName}] Reconnecting in ${delayMs}ms (attempt #$attempt)")
                 delay(delayMs)
             }
-        }
     }
 
     private suspend fun preLoadSessions(server: ServerConfig, conn: ServerConnection) {

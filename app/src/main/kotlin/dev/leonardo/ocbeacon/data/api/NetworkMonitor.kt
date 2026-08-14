@@ -100,6 +100,11 @@ class NetworkMonitor @Inject constructor(
                 )
                 if (hasInternet && validated) {
                     _networkState.value = NetworkState.Available
+                } else if (!validated) {
+                    // #133（D2-L41）：失去 VALIDATED（captive portal / 认证墙）——
+                    // 网络名义可用但请求会被劫持/失败。原实现只处理 validated 分支，
+                    // 失去验证后状态卡在旧值（Available）→ 连接层误判在线。
+                    _networkState.value = NetworkState.Unavailable
                 }
             }
         }

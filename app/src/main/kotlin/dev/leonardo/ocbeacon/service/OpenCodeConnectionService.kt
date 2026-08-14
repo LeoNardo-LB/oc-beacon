@@ -39,6 +39,11 @@ import dev.leonardo.ocbeacon.util.parseLocale
 
 private const val TAG = "OpenCodeService"
 private const val WAKELOCK_TAG = "OpenCodeRemote::SSEConnection"
+
+/** #133（D2-L26）：wake lock 单次持有时长（超时兜底——异常路径下自动释放防永久持锁）。 */
+private const val WAKELOCK_HOLD_MS = 10 * 60 * 1000L
+/** 续期提前量：超时前 30s 重新 acquire（连接存活期间持续持锁）。 */
+private const val WAKELOCK_RENEW_EARLY_MS = 30_000L
 private const val QUESTION_POLL_INTERVAL_MS = 30_000L
 /** #111：dataSync FGS 6h 时限后重启延迟（等待旧实例 stopSelf 销毁完成）。 */
 private const val FGS_TIMEOUT_RESTART_DELAY_MS = 2_000L
@@ -117,6 +122,8 @@ class OpenCodeConnectionService : Service() {
     private var connectionStateNotificationJob: Job? = null
     private var networkRecoveryJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    /** #133（D2-L26）：wake lock 周期续期协程（release 时取消）。 */
+    private var wakeLockRenewJob: Job? = null
 
     /** 每个服务器的 REST 轮询协程。disconnect 时取消，防止重连后重复轮询。 */
     private val pollingJobs = mutableMapOf<String, Job>()
@@ -620,16 +627,37 @@ class OpenCodeConnectionService : Service() {
 
     // ============ WakeLock ============
 
+    /**
+     * 获取共享 wake lock（首次 connect 获取，最后断开释放）。
+     * #133（D2-L26）：原 acquire() 无超时——若释放路径异常（崩溃/被杀前未走
+     * disconnect）则永久持锁耗电；现 acquire(timeout) 兜底 + 周期续期协程
+     * （连接存活期间超时前重新持有，释放路径取消续期）。
+     */
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG).apply {
-            acquire()
+            acquire(WAKELOCK_HOLD_MS)
+        }
+        // 周期续期：超时前重新 acquire（仅当连接仍活跃——release 后 renew job 取消）
+        wakeLockRenewJob?.cancel()
+        wakeLockRenewJob = serviceScope.launch {
+            while (isActive) {
+                delay(WAKELOCK_HOLD_MS - WAKELOCK_RENEW_EARLY_MS)
+                val lock = wakeLock ?: break
+                if (lock.isHeld) {
+                    lock.release()
+                    lock.acquire(WAKELOCK_HOLD_MS)
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "WakeLock renewed")
+                }
+            }
         }
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "WakeLock acquired")
     }
 
     private fun releaseWakeLock() {
+        wakeLockRenewJob?.cancel()
+        wakeLockRenewJob = null
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()

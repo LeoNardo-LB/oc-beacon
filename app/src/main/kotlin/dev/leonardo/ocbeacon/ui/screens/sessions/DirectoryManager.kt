@@ -19,6 +19,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "DirectoryManager"
@@ -46,7 +48,11 @@ class DirectoryManager(
     private val fileRepository: FileRepository,
 ) {
 
+    @Volatile
     private var cachedServerPaths: ServerPaths? = null
+    /** #134（D2-L38）：getServerPaths 失败时间戳——失败不缓存（防毒化），冷却期内不重试。 */
+    @Volatile
+    private var serverPathsFailureAt = 0L
 
     @Volatile
     private var cachedDrives: List<FileNode>? = null
@@ -59,12 +65,21 @@ class DirectoryManager(
 
     private val dirCache = java.util.concurrent.ConcurrentHashMap<String, DirCacheEntry>()
 
+    /** #134（D2-L38）：getServerPaths 并发去重（suspend 临界区）。 */
+    private val pathsMutex = Mutex()
+
     /** 目录列表缓存时长：目录内容变化不频繁，30s 内重复浏览直接命中。 */
-    private companion object {
+    internal companion object {
         const val DIR_CACHE_TTL_MS = 30_000L
         /** 缓存条目上限：防止无限增长（2026-08-13 用户报告内存问题——
          *  旧实现只 put 不清理，浏览大量目录时条目永驻 → 内存泄漏） */
         const val DIR_CACHE_MAX_ENTRIES = 200
+        /** #134（D2-L38）：失败后重试冷却——瞬时网络失败不毒化缓存，冷却后自动恢复。 */
+        const val SERVER_PATHS_FAILURE_COOLDOWN_MS = 5_000L
+
+        /** 冷却判定（纯函数，供单测）：距上次失败已过冷却期则可重试。 */
+        internal fun shouldRetryServerPaths(now: Long, failureAt: Long): Boolean =
+            now - failureAt >= SERVER_PATHS_FAILURE_COOLDOWN_MS
     }
 
     /** 写入缓存时清理过期/超限条目（LRU 近似：先清过期，仍超限清最旧）。 */
@@ -83,18 +98,29 @@ class DirectoryManager(
         dirCache[key] = entry
     }
 
-    /** 获取服务器路径，结果在委托生命周期内缓存。 */
-    suspend fun getServerPaths(): ServerPaths {
-        if (cachedServerPaths == null) {
-            cachedServerPaths = try {
-                getServerPathsUseCase(serverId).getOrThrow()
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "Failed to get server paths", e)
-                ServerPaths()
-            }
-            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Server home directory: ${cachedServerPaths!!.home}")
+    /**
+     * 获取服务器路径，成功结果在委托生命周期内缓存。
+     * #134（D2-L38）：原失败也缓存空 ServerPaths() 且永不失效——一次瞬时
+     * 网络失败毒化整个 VM 生命周期（home/cwd 全空）。现失败不缓存，
+     * 冷却期内返回空路径不重复请求，冷却后自动重新获取。
+     */
+    suspend fun getServerPaths(): ServerPaths = pathsMutex.withLock {
+        cachedServerPaths?.let { return@withLock it }
+        val now = System.currentTimeMillis()
+        if (!shouldRetryServerPaths(now, serverPathsFailureAt)) {
+            return@withLock ServerPaths()
         }
-        return cachedServerPaths!!
+        try {
+            getServerPathsUseCase(serverId).getOrThrow().also { result ->
+                cachedServerPaths = result
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Server home directory: " + result.home)
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            AppLogger.e(TAG, "Failed to get server paths", e)
+            serverPathsFailureAt = System.currentTimeMillis()
+            ServerPaths()
+        }
     }
 
     /** 服务器是否运行在 Windows 上（通过主目录路径中的反斜杠检测）。 */

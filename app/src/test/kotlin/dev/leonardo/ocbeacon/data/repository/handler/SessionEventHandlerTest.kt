@@ -200,4 +200,44 @@ class SessionEventHandlerTest {
 
         assertFalse(handler.serverSessions.value.containsKey("server1"))
     }
+
+    // #134（D2-L54）：revert=null 的 SessionUpdated 清除本地清除标志；
+    // 副作用从 update lambda 移出后语义不变（CAS 重试不重复执行）。
+    @Test
+    fun `SessionUpdated with revert null clears locallyClearedReverts flag`() = runTest {
+        handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
+        val withRevert = testSession("s1").copy(
+            revert = Session.Revert(messageId = "msg_old")
+        )
+        handler.handle(SseEvent.SessionUpdated(withRevert), "server1")
+        assertEquals(withRevert.revert, handler.sessions.value[0].revert)
+
+        // 用户发消息 → 本地清除 revert
+        handler.clearRevert("s1")
+        assertEquals(null, handler.sessions.value[0].revert)
+
+        // 服务器确认 revert=null → 清除标志（副作用移出 update lambda 后仍生效）
+        handler.handle(SseEvent.SessionUpdated(testSession("s1")), "server1")
+
+        // 标志已清：后续新 revert 不再被抑制（陈旧抑制只保护确认前的窗口）
+        val newRevert = testSession("s1").copy(
+            revert = Session.Revert(messageId = "msg_new")
+        )
+        handler.handle(SseEvent.SessionUpdated(newRevert), "server1")
+        assertEquals("msg_new", handler.sessions.value[0].revert?.messageId)
+    }
+
+    @Test
+    fun `stale SessionUpdated with revert is suppressed while flag set`() = runTest {
+        handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
+        handler.clearRevert("s1")
+
+        // 服务器陈旧 revert 恢复尝试 → 被抑制（本地清除优先）
+        val stale = testSession("s1").copy(
+            revert = Session.Revert(messageId = "msg_stale")
+        )
+        handler.handle(SseEvent.SessionUpdated(stale), "server1")
+
+        assertEquals(null, handler.sessions.value[0].revert)
+    }
 }

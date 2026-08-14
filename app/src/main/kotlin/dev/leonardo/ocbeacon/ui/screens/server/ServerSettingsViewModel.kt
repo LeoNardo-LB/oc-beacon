@@ -91,6 +91,11 @@ class ServerSettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val serverConfigRepository: ServerConfigRepository) : ViewModel() {
 
+    private companion object {
+        /** #134（D2-L36）：初始加载源数量（config + hidden + providers + config + agents + authMethods）。 */
+        const val INITIAL_LOAD_SOURCES = 6
+    }
+
     private val serverId: String = safeDecodeParam(
         savedStateHandle.get<String>("serverId") ?: ""
     )
@@ -108,6 +113,13 @@ class ServerSettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ServerSettingsUiState(isLoading = true))
     val uiState: StateFlow<ServerSettingsUiState> = _uiState.asStateFlow()
 
+    /** #134（D2-L36）：初始加载待完成计数——全部 loader 完成才结束 loading。
+     * 原实现任一 loader 完成即 rebuildUi() 清 isLoading → 页面 loading 抖动 +
+     * 部分数据未就绪即显示。计数：config + hiddenModels + providers + config + agents + authMethods = 6。 */
+    private val initialLoadsPending = java.util.concurrent.atomic.AtomicInteger(INITIAL_LOAD_SOURCES)
+    @Volatile
+    private var initialLoadComplete = false
+
     init {
         viewModelScope.launch {
             val config = serverConfigRepository.getServer(serverId)
@@ -116,17 +128,28 @@ class ServerSettingsViewModel @Inject constructor(
                 serverApiVersion = config.apiVersion
                 _uiState.update { it.copy(serverName = serverDisplayName) }
             }
+            markInitialLoadDone()
         }
         viewModelScope.launch {
             settingsRepository.hiddenModels(serverId).collect { hidden ->
                 _hiddenModels.value = hidden
                 rebuildUi()
+                markInitialLoadDone()
             }
         }
         loadProviders()
         loadConfig()
         loadAgents()
         loadAuthMethods()
+    }
+
+    /** #134（D2-L36）：标记一路初始加载完成；全部完成后结束 isLoading。幂等（完成后再调无副作用）。 */
+    private fun markInitialLoadDone() {
+        if (initialLoadComplete) return
+        if (initialLoadsPending.decrementAndGet() <= 0) {
+            initialLoadComplete = true
+            _uiState.update { it.copy(isLoading = false) }
+        }
     }
 
     fun loadProviders() {
@@ -141,6 +164,7 @@ class ServerSettingsViewModel @Inject constructor(
                 _providerConnected.value = status.connected
                 _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 rebuildUi()
+                markInitialLoadDone()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load providers", e)
@@ -150,6 +174,7 @@ class ServerSettingsViewModel @Inject constructor(
                         error = e.message ?: context.getString(R.string.server_settings_providers_load_failed)
                     )
                 }
+                markInitialLoadDone()
             }
         }
     }
@@ -159,9 +184,11 @@ class ServerSettingsViewModel @Inject constructor(
             try {
                 _authMethods.value = providerRepository.getProviderAuthMethods(serverId).getOrThrow()
                 rebuildUi()
+                markInitialLoadDone()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load auth methods", e)
+                markInitialLoadDone()
             }
         }
     }
@@ -171,9 +198,11 @@ class ServerSettingsViewModel @Inject constructor(
             try {
                 _config.value = providerRepository.getGlobalConfig(serverId).getOrThrow()
                 rebuildUi()
+                markInitialLoadDone()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load config", e)
+                markInitialLoadDone()
             }
         }
     }
@@ -183,9 +212,11 @@ class ServerSettingsViewModel @Inject constructor(
             try {
                 _agents.value = agentRepository.listAgents(serverId).getOrThrow()
                 rebuildUi()
+                markInitialLoadDone()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load agents", e)
+                markInitialLoadDone()
             }
         }
     }
@@ -497,7 +528,8 @@ class ServerSettingsViewModel @Inject constructor(
                 authMethods = _authMethods.value,
                 pendingOauth = it.pendingOauth,
                 isSaving = it.isSaving,
-                isLoading = false,
+                // #134（D2-L36）：初始加载完成前不清 loading（全部 loader 就绪才显示）
+                isLoading = if (initialLoadComplete) false else it.isLoading,
                 error = it.error
             )
         }

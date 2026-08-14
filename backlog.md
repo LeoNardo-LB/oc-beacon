@@ -1153,7 +1153,7 @@ $(echo "
 > 用 4 个并行 subagent 逐项读码交叉验证（+主会话抽查复核），结论：37 UNFIXED / 2 FIXED / 1 N_A。
 > 37 项 UNFIXED 按性质分 5 批；FIXED/N_A 单独记录。
 
-- [ ] **#133 审计遗漏批次 1：连接稳定性（D2-L26/L27/L40/L41，4 项 UNFIXED）** `stability`
+- [x] **#133 审计遗漏批次 1：连接稳定性（D2-L26/L27/L40/L41，4 项 UNFIXED）** `stability`
   - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：4/4 UNFIXED）
   - D2-L26 OpenCodeConnectionService.kt:626 newWakeLock(PARTIAL).acquire() 无超时兜底；释放仅正常断开路径 → acquire(timeout)+周期续期
   - D2-L27 OpenCodeApp.kt:84 崩溃日志文件名秒级分辨率，同秒两次崩溃互相覆盖 → 加纳秒/序号
@@ -1161,7 +1161,7 @@ $(echo "
   - D2-L41 NetworkMonitor.kt:91 onCapabilitiesChanged 失去 VALIDATED（captive portal）时状态卡旧值 → 补非 validated 分支
   - 工时：~0.5d | 难度：低-中 | 涉及：见各条 | 优先级：P1（连接稳定性）
 
-- [ ] **#134 审计遗漏批次 2：一致性/竞态（D2-L33/L36/L38/L39/L47/L54/L57/L62，8 项 UNFIXED）** `consistency`
+- [x] **#134 审计遗漏批次 2：一致性/竞态（D2-L33/L36/L38/L39/L47/L54/L57/L62，8 项 UNFIXED）** `consistency`
   - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：8/8 UNFIXED）
   - D2-L33 WorkspaceViewModel.kt:168 prefetchGitCount 无 in-flight 保护，切面板双发 VCS status
   - D2-L36 ServerSettingsViewModel.kt:111 init 4 路并行加载各自 rebuildUi → loading 抖动无去重
@@ -1183,7 +1183,7 @@ $(echo "
   - D2-L68 ImagePreviewDialog.kt:69 主线程 Base64 解码全量 data URL（仅加降采样未移线程）
   - 工时：~0.5-1d | 难度：中 | 涉及：见各条 | 优先级：P2（流式/渲染性能）
 
-- [ ] **#136 审计遗漏批次 4：安全/隐私（D2-L29/L51/L53/L55/L56/L58，6 项 UNFIXED）** `security`
+- [x] **#136 审计遗漏批次 4：安全/隐私（D2-L29/L51/L53/L55/L56/L58，6 项 UNFIXED）** `security`
   - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：6/6 UNFIXED）
   - D2-L29 ServerProvidersScreen.kt:234 API key 输入框无 PasswordVisualTransformation（明文；ServerDialog:176 有遮蔽）
   - D2-L51 MarkdownPreviewDialog.kt:88 performHaptic(view,true) 硬编码触觉反馈无视用户设置
@@ -1192,6 +1192,13 @@ $(echo "
   - D2-L56 SettingsDataStore.kt:138 SharedPreferences 与 DataStore 双写镜像无启动校验（两写间崩溃 → 语言漂移）
   - D2-L58 UpdateRepository.kt:161 .apk.part 临时文件进程被杀残留（check/restore 前不清理）
   - 工时：~0.5d | 难度：低-中 | 涉及：见各条 | 优先级：P1（明文凭据 + 文案误导）
+
+
+  - **2026-08-15 修复完成**（commit 见 git log）：
+    - #136：D2-L29 密码遮蔽 · D2-L51 触觉设置 · D2-L53 文案/级别 · D2-L55 模板变体 · D2-L56 镜像校验 · D2-L58 残留清理
+    - #134：D2-L33 in-flight · D2-L36 loading 去重 · D2-L38 失败不缓存 · D2-L39 CAS · D2-L47 退避 · D2-L54 副作用移出 · D2-L57 单次 edit · D2-L62 append 幂等
+    - #133：D2-L26 wakeLock 超时+续期 · D2-L27 毫秒时间戳 · D2-L40 cancelAndJoin 统一 · D2-L41 validated 分支
+    - 新增单测：IsBackgroundMoveSyntheticTest(6) · SettingsLanguageMirrorTest(5) · TokenStatsTrackerConcurrencyTest(3) · DirectoryManagerServerPathsTest(3) · SessionEventHandlerTest +2
 
 - [ ] **#137 审计遗漏批次 5：清理/样式（D2-L31/L32/L34/L48/L49/L50/L59/L60/L61/L63/L65/N-01/N-02，13 项 UNFIXED）** `refactor`
   - 来源：audit-2026-08-13-dimensions + memory-perf（交叉验证 2026-08-14：13/13 UNFIXED）

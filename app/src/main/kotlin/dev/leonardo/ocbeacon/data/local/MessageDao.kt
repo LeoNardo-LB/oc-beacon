@@ -19,11 +19,17 @@ interface MessageDao {
      * #97（H-6）：增量追加 part 文本——流式 delta 落盘（O(delta) 写，替代全量重写）。
      * UPSERT 语义：part 行不存在时插入（V2 流式中 REST 快照可能未到，
      * 纯 UPDATE 影响 0 行 → 增量丢失——2026-08-14 模拟器 DB 实测发现）。
+     *
+     * #134（D2-L62）：追加幂等去重——flush（增量 append）与 persistSseUpdate
+     * （全量 REPLACE）并发时，全量快照可能已含 flush 刚写入内存的 delta，
+     * 随后 append 同一 delta → 文本重复。CASE 分支：行尾已等于 delta 则跳过。
      */
     @Query(
         "INSERT OR REPLACE INTO cached_parts (id, messageId, sessionId, type, text, payload) " +
         "VALUES (:partId, :messageId, :sessionId, :type, :delta, NULL) " +
-        "ON CONFLICT(id) DO UPDATE SET text = COALESCE(text, '') || :delta"
+        "ON CONFLICT(id) DO UPDATE SET text = CASE " +
+        "  WHEN substr(text, -length(:delta)) = :delta THEN text " +
+        "  ELSE COALESCE(text, '') || :delta END"
     )
     suspend fun appendPartText(partId: String, messageId: String, sessionId: String, type: String, delta: String)
 

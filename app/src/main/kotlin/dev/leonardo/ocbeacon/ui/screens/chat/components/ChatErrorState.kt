@@ -23,9 +23,14 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import kotlinx.coroutines.delay
 
+private const val INITIAL_RETRY_SECONDS = 5
+private const val MAX_RETRY_SECONDS = 60
+
 /**
  * Error state shown when loading fails and there are no messages to display.
- * Auto-retries after a 5-second countdown.
+ * Auto-retries with exponential backoff: 5s → 10s → 20s → 40s → 60s (capped).
+ * #134（D2-L47）：原固定 5s 自动重试——服务器不可达时无限高频请求；
+ * 连续失败间隔翻倍，成功加载（本组件退出组合）后重置。
  */
 @Composable
 fun ChatErrorState(
@@ -33,15 +38,19 @@ fun ChatErrorState(
     error: String?,
     onRetry: () -> Unit
 ) {
-    var countdown by remember(error) { mutableIntStateOf(5) }
+    // 退避状态跨 error 变化保留（连续失败递增）；组件退出组合（加载成功）后自然重置
+    var retryDelaySec by remember { mutableIntStateOf(INITIAL_RETRY_SECONDS) }
+    var countdown by remember(error) { mutableIntStateOf(INITIAL_RETRY_SECONDS) }
 
     LaunchedEffect(error) {
-        countdown = 5
+        countdown = retryDelaySec
         while (countdown > 0) {
             delay(1000)
             countdown--
         }
         onRetry()
+        // 下一次自动重试间隔指数退避（封顶）
+        retryDelaySec = (retryDelaySec * 2).coerceAtMost(MAX_RETRY_SECONDS)
     }
 
     Column(

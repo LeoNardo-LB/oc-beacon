@@ -215,6 +215,44 @@ class SettingsDataStore @Inject constructor(
         setPref(TERMINAL_FONT_SIZE_KEY, size.coerceIn(6f, 20f))
     }
 
+    /**
+     * #134（D2-L57）：批量写入全部设置——单次 DataStore edit 原子落盘。
+     * 替代 [SettingsRepositoryImpl.updateSettings] 的 21 次独立 edit
+     * （每次 edit 都全文件重写+同步；中途崩溃留下半套设置的窗口）。
+     * 语言镜像同步（attachBaseContext 同步读取）一并更新。
+     */
+    suspend fun updateAll(settings: AppSettings) {
+        dataStore.edit { prefs ->
+            prefs[LANGUAGE_KEY] = settings.appLanguage
+            prefs[THEME_KEY] = settings.appTheme
+            prefs[DYNAMIC_COLOR_KEY] = settings.dynamicColor
+            prefs[AMOLED_DARK_KEY] = settings.amoledDark
+            prefs[FONT_SIZE_KEY] = settings.chatFontSize
+            prefs[CHAT_DENSITY_KEY] = settings.chatDensity
+            prefs[INITIAL_MESSAGE_COUNT_KEY] = settings.initialMessageCount
+            prefs[RECENT_DIRECTORY_COUNT_KEY] = settings.recentDirectoryCount
+            prefs[CONFIRM_BEFORE_SEND_KEY] = settings.confirmBeforeSend
+            prefs[COMPACT_MESSAGES_KEY] = settings.compactMessages
+            prefs[COLLAPSE_TOOLS_KEY] = settings.collapseTools
+            prefs[EXPAND_REASONING_KEY] = settings.expandReasoning
+            prefs[SHOW_TURN_DIVIDERS_KEY] = settings.showTurnDividers
+            prefs[NOTIFICATIONS_KEY] = settings.notificationsEnabled
+            prefs[SILENT_NOTIFICATIONS_KEY] = settings.silentNotifications
+            prefs[HAPTIC_FEEDBACK_KEY] = settings.hapticFeedback
+            prefs[RECONNECT_MODE_KEY] = settings.reconnectMode
+            prefs[KEEP_SCREEN_ON_KEY] = settings.keepScreenOn
+            prefs[COMPRESS_IMAGE_ATTACHMENTS_KEY] = settings.compressImageAttachments
+            prefs[IMAGE_ATTACHMENT_MAX_LONG_SIDE_KEY] = settings.imageAttachmentMaxLongSide
+            prefs[IMAGE_ATTACHMENT_WEBP_QUALITY_KEY] = settings.imageAttachmentWebpQuality
+            prefs[TERMINAL_FONT_SIZE_KEY] = settings.terminalFontSize
+        }
+        // 语言镜像（#136 D2-L56 同源机制）：真相源已写，镜像同步
+        context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(LOCALE_PREFS_KEY, settings.appLanguage)
+            .apply()
+    }
+
     // ============ 行为 ============
 
     /** 发送消息前是否显示确认对话框。默认：false。 */

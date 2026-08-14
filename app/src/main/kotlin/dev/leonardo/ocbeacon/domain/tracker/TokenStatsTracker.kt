@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.domain.tracker
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,7 +23,9 @@ class TokenStatsTracker @Inject constructor() {
     val stats: StateFlow<TokenStats> = _stats
 
     fun update(block: TokenStats.() -> TokenStats) {
-        _stats.value = _stats.value.block()
+        // #134（D2-L39）：裸读-改-写非 CAS——并发 update（多会话 token 事件同时到达）
+        // 会丢更新；StateFlow.update 为 CAS 循环，原子合并
+        _stats.update { it.block() }
     }
 
     fun reset() {

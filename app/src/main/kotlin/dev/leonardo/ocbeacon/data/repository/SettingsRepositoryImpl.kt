@@ -73,26 +73,8 @@ class SettingsRepositoryImpl @Inject constructor(
         dataRepo.runUnreadStateV2Migration()
 
     override suspend fun updateSettings(settings: AppSettings): Result<Unit> = runCatchingCancellable {
-        dataRepo.setAppLanguage(settings.appLanguage)
-        dataRepo.setAppTheme(settings.appTheme)
-        dataRepo.setDynamicColor(settings.dynamicColor)
-        dataRepo.setAmoledDark(settings.amoledDark)
-        dataRepo.setChatFontSize(settings.chatFontSize)
-        dataRepo.setChatDensity(settings.chatDensity)
-        dataRepo.setInitialMessageCount(settings.initialMessageCount)
-        dataRepo.setConfirmBeforeSend(settings.confirmBeforeSend)
-        dataRepo.setCompactMessages(settings.compactMessages)
-        dataRepo.setCollapseTools(settings.collapseTools)
-        dataRepo.setExpandReasoning(settings.expandReasoning)
-        dataRepo.setShowTurnDividers(settings.showTurnDividers)
-        dataRepo.setNotificationsEnabled(settings.notificationsEnabled)
-        dataRepo.setSilentNotifications(settings.silentNotifications)
-        dataRepo.setHapticFeedback(settings.hapticFeedback)
-        dataRepo.setReconnectMode(settings.reconnectMode)
-        dataRepo.setKeepScreenOn(settings.keepScreenOn)
-        dataRepo.setCompressImageAttachments(settings.compressImageAttachments)
-        dataRepo.setImageAttachmentMaxLongSide(settings.imageAttachmentMaxLongSide)
-        dataRepo.setImageAttachmentWebpQuality(settings.imageAttachmentWebpQuality)
-        dataRepo.setTerminalFontSize(settings.terminalFontSize)
+        // #134（D2-L57）：单次 DataStore edit 原子落盘（原 21 次独立 edit——
+        // 中途崩溃留下半套设置，且每次 edit 全文件重写）
+        dataRepo.updateAll(settings)
     }
 }

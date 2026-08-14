@@ -90,7 +90,9 @@ class OpenCodeApp : Application() {
             try {
                 val crashDir = crashLogDir()
                 crashDir.mkdirs()
-                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                // #133（D2-L27）：毫秒级时间戳——原秒级分辨率同秒两次崩溃互相覆盖
+                // （崩溃文件名唯一性；通知/清理解析端 yyyyMMdd_HHmmss 宽松解析前缀，兼容）
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
                 val logFile = File(crashDir, "crash_${timestamp}.txt")
                 logFile.writeText(buildString {
                     append("App: ${packageName} (${BuildConfig.VERSION_NAME})\n")

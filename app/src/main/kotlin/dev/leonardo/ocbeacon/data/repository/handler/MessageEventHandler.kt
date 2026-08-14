@@ -297,6 +297,10 @@ class MessageEventHandler @Inject constructor(
     private fun persistSseUpdate(sessionId: String, messageIds: List<String>) {
         val store = messageStore ?: return
         if (messageIds.isEmpty()) return
+        // #134（D2-L62）：_messages/_parts 为两个独立 StateFlow，无法一次原子读取
+        // 两份快照；固定读取顺序（先 messages 后 parts）并把不一致的残余影响
+        // 交给落盘侧兜底——appendPartText 已幂等去重（全量快照与增量 append
+        // 并发交错时不会重复追加），最坏情况是快照落后一拍，下批 flush 收敛。
         val msgs = _messages.value[sessionId]?.filter { it.id in messageIds } ?: return
         if (msgs.isEmpty()) return
         val parts = _parts.value

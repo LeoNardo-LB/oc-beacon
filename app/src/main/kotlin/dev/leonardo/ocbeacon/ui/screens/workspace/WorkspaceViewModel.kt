@@ -55,6 +55,8 @@ class WorkspaceViewModel @Inject constructor(
         const val DIR_CACHE_MAX = 200
     }
     private var searchJob: Job? = null
+    /** #134（D2-L33）：git 状态加载共享 job——prefetch 与完整加载互斥（in-flight 保护）。 */
+    private var gitLoadJob: Job? = null
 
     private val _dirLoadEvents = MutableSharedFlow<DirectoryLoadResult>()
     val dirLoadEvents: SharedFlow<DirectoryLoadResult> = _dirLoadEvents.asSharedFlow()
@@ -147,8 +149,10 @@ class WorkspaceViewModel @Inject constructor(
 
     fun loadGitChanges() {
         if (serverId.isBlank()) return
+        // #134（D2-L33）：取消在跑的 prefetch——完整加载与其结果互斥，避免双发 VCS status
+        gitLoadJob?.cancel()
         _uiState.update { it.copy(gitLoading = true, gitError = null, isNonGit = false) }
-        viewModelScope.launch {
+        gitLoadJob = viewModelScope.launch {
             getVcsStatus(serverId, directory)
                 .onSuccess { c ->
                     _uiState.update {
@@ -166,7 +170,9 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     private fun prefetchGitCount() {
-        viewModelScope.launch {
+        // #134（D2-L33）：in-flight 保护——完整加载进行中（或已有 prefetch）不重复发请求
+        if (gitLoadJob?.isActive == true) return
+        gitLoadJob = viewModelScope.launch {
             getVcsStatus(serverId, directory)
                 .onSuccess { c -> _uiState.update { it.copy(gitChangeCount = c.size) } }
         }

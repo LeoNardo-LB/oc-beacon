@@ -97,6 +97,10 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     private fun handleSessionUpdated(event: SseEvent.SessionUpdated, serverId: String) {
         AppLogger.i(TAG, "SessionUpdated: id=${event.info.id} title=${event.info.title}")
         trackSession(serverId, event.info.id)
+        // #134（D2-L54）：locallyClearedReverts.remove 是副作用——原实现位于
+        // _sessions.update lambda 内，CAS 重试会重复执行。移出 lambda：
+        // 服务器确认 revert=null 即清除标志（幂等操作，语义不变）。
+        if (event.info.revert == null) locallyClearedReverts.remove(event.info.id)
         _sessions.update { current ->
             val idx = current.indexOfFirst { it.id == event.info.id }
             if (idx >= 0) {
@@ -106,7 +110,6 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
                 val merged = if (event.info.id in locallyClearedReverts && event.info.revert != null) {
                     event.info.copy(revert = null)
                 } else {
-                    if (event.info.revert == null) locallyClearedReverts.remove(event.info.id)
                     event.info
                 }
                 current.toMutableList().apply { set(idx, merged) }
