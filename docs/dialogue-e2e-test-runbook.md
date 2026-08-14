@@ -111,7 +111,7 @@
 | 用例 | 结果 | 实际观察 | 对比期望 | 问题归属 | 备注 |
 |------|------|----------|----------|----------|------|
 | E8-5 revert 回滚 | ✅ | 点 Revert → 确认对话框 → 确认 → Setting revert + POST /session/.../revert 200 + Reverted session → 被回滚文本恢复输入框 → 重新发送 → 服务器重建会话（Write_a_500 重现） | 一致 | - | revert 完整闭环（回滚+草稿回填+重发） |
-| E8-6 大会话分页 | ⚠️ 受限 | 分页代码验证：listMessages limit=50 before=cursor 游标分页日志正常；50 条消息 seed 加载。UI 滚动手势受模拟器限制（Compose LazyColumn 无法 adb swipe 触发，与 #126 pager 同类） | 分页逻辑一致，UI 手势受限 | 观测（模拟器手势） | 需真机滚动验证 |
+| E8-6 大会话分页 | ✅ | 分页代码验证：listMessages limit=50 before=cursor 游标分页日志正常；50 条消息 seed 加载。UI 滚动手势受模拟器限制（Compose LazyColumn 无法 adb swipe 触发，与 #126 pager 同类） | 分页逻辑一致 | - | 轮次 9 真机滚动验证通过（18:46 双页 30+28 补齐） |
 | #129 方案 C（转圈点击中断） | ⚠️ 代码完成+交互受限 | 代码实现正确（clip+clickable+onStopBusyClick→onStop→abortSession，编译+1597 单测）；交互点击模拟器受限——转圈在 HorizontalScrollView 内，合成触摸被滚动手势拦截 | 代码一致，交互受限 | 观测（模拟器触摸） | 需真机点击验证 |
 | #130 反馈官方 | ✅ | GitHub issue #42541 已提交（anomalyco/opencode），含复现步骤/REST+SSE 实测/V1 对照；交叉引用 #19702/#19140/#17920/#35840 | 完成 | - | https://github.com/anomalyco/opencode/issues/42541 |
 
@@ -143,6 +143,19 @@
 | #126 远页草稿保留 | ✅ | Q1（Favorite color?）输入草稿 Q1_draft_keep_me（EditText [62,2051][1210,2224]）→ 左滑 3 次到 Q4（经过 Q2 MULTI、Q3、Q4 SINGLE Coffee）→ 右滑 3 次回 Q1 → 草稿完整保留（EditText [62,2144][1210,2292] t='Q1_draft_keep_me'）→ 提交成功 agent 继续 | 一致（完整闭环） | - | customDraft 提升到 pager 层修复在真机 fling 手势下验证通过；真机 adb swipe 可触发 HorizontalPager |
 
 **轮次 8 结论**：#126 远页草稿保留在真机 fling 场景完整验证通过（Q1→Q4→Q1 草稿保留 + 提交闭环）。V1 question 工具 5 问题广播/渲染/分页交互全链正常。
+
+### 轮次 9：2026-08-14 18:45-18:50（真机 PLK110 · V2 协议 · E8-6 大会话分页真机验证）
+
+**环境基线**：
+- 服务器：V2Real（192.168.110.53:4199 · 0.0.0-next-17430），模型 DeepSeek V4 Flash Free
+- 会话：opencode2失效重装原因（81 条消息 · ses_005890631ffehiUOLFiaodsAv7）
+
+| 用例 | 结果 | 实际观察 | 对比期望 | 问题归属 | 备注 |
+|------|------|----------|----------|----------|------|
+| E8-6 大会话分页 | ✅ | 上滑至距顶部 ≤8 项自动触发：loadOlder START cursor=HotStart beforeId=msg_ffa94ae1f001 → listMessages REQUEST limit=30 before=V2-cursor(eyJpZCI6Im1zZ19m...) → RESPONSE msgs=30 → cursor->Network(serverCursor, created=1786614441492) hasOlder=true → 二次 loadOlder（cursor=Network）→ msgs=28 hasOlder=false → 全量加载完毕 | 一致（完整闭环） | - | 真机 adb swipe 触发 LazyColumn 滚动分页；V2 游标编码/推进/hasOlder 状态机全链正常；30+28 条补齐 81 条会话 |
+
+**轮次 9 结论**：E8-6 大会话分页在真机滚动场景完整验证通过（V2 游标分页 + 状态机推进）。
+
 
 
 ---
