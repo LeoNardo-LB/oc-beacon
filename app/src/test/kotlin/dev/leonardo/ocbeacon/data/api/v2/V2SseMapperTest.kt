@@ -142,7 +142,7 @@ class V2SseMapperTest {
         )
         assertNotNull(event)
         val delta = event as SseEvent.MessagePartDelta
-        assertEquals("msg_asst_1_ord_2", delta.partId)
+        assertEquals("msg_asst_1_text_ord_2", delta.partId)
         assertEquals("text", delta.field)
         assertEquals("Hello", delta.delta)
     }
@@ -156,7 +156,7 @@ class V2SseMapperTest {
         assertNotNull(event)
         val partEvent = event as SseEvent.MessagePartUpdated
         val part = partEvent.part as Part.Reasoning
-        assertEquals("msg_asst_1_ord_1", part.id)
+        assertEquals("msg_asst_1_reasoning_ord_1", part.id)
         assertEquals("msg_asst_1", part.messageId)
     }
 
@@ -169,7 +169,7 @@ class V2SseMapperTest {
         assertNotNull(event)
         val partEvent = event as SseEvent.MessagePartUpdated
         val part = partEvent.part as Part.Text
-        assertEquals("msg_asst_1_ord_2", part.id)
+        assertEquals("msg_asst_1_text_ord_2", part.id)
         assertEquals("Full text", part.text)
     }
 

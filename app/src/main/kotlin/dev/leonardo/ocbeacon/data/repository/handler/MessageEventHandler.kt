@@ -347,12 +347,26 @@ class MessageEventHandler @Inject constructor(
                 // 更长文本胜出：SSE 流式传输随时间累积更长文本，
                 // REST 快照可能已过时。若传入文本更长（全新的完整替换），
                 // 使用它；否则保留现有（保护流式文本）。
-                if (incoming.text.length >= existing.text.length) incoming
-                else existing.copy(time = incoming.time, metadata = incoming.metadata)
+                // #109：时间取回退链——ended 事件 start=0（未知）时用 started
+                // 记录的本地时刻，REST 真实时间戳（>0）优先。
+                val time = Part.Text.Time(
+                    start = incoming.time?.start?.takeIf { it > 0 }
+                        ?: existing.time?.start?.takeIf { it > 0 }
+                        ?: (incoming.time?.end ?: existing.time?.end) ?: 0L,
+                    end = incoming.time?.end ?: existing.time?.end
+                )
+                if (incoming.text.length >= existing.text.length) incoming.copy(time = time)
+                else existing.copy(time = time, metadata = incoming.metadata)
             }
             existing is Part.Reasoning && incoming is Part.Reasoning -> {
-                if (incoming.text.length >= existing.text.length) incoming
-                else existing.copy(time = incoming.time, metadata = incoming.metadata)
+                val time = Part.Reasoning.Time(
+                    start = incoming.time?.start?.takeIf { it > 0 }
+                        ?: existing.time?.start?.takeIf { it > 0 }
+                        ?: (incoming.time?.end ?: existing.time?.end) ?: 0L,
+                    end = incoming.time?.end ?: existing.time?.end
+                )
+                if (incoming.text.length >= existing.text.length) incoming.copy(time = time)
+                else existing.copy(time = time, metadata = incoming.metadata)
             }
             existing is Part.Tool && incoming is Part.Tool -> {
                 var merged = incoming
@@ -441,8 +455,47 @@ class MessageEventHandler @Inject constructor(
         }
         val incomingIds = incomingParts.mapTo(HashSet()) { it.id }
         val preserved = existingParts.filter { it.id !in incomingIds }
-        return merged + preserved
+        return dedupOverlappingTextParts(merged + preserved)
     }
+
+    /**
+     * #109（D2-01 兜底）：part id 契约演进期间（Room 旧数据 id=""、旧版派生
+     * id `msg_ord_N` 与新版 `msg_type_ord_N`），同一逻辑 part 的两个版本可能
+     * 同时存活 → 已完结消息文本双份渲染。对 Text/Reasoning 按**内容重叠**
+     * （相等/前缀）去重：至少一侧 id 非新版契约时才合并（两条新版 id 不同的
+     * part 视为真不同），保留文本更长、等长优先非空 id 的一条。
+     * 与 handleMessagePartUpdated 的 #87b 空内容匹配防御同一权衡。
+     */
+    private fun dedupOverlappingTextParts(parts: List<Part>): List<Part> {
+        if (parts.size < 2) return parts
+        val result = mutableListOf<Part>()
+        outer@ for (p in parts) {
+            for (i in result.indices) {
+                val r = result[i]
+                val sameKind = when {
+                    r is Part.Text && p is Part.Text -> true
+                    r is Part.Reasoning && p is Part.Reasoning -> true
+                    else -> false
+                }
+                if (!sameKind) continue
+                val rt = (r as? Part.Text)?.text ?: (r as? Part.Reasoning)?.text ?: continue
+                val pt = (p as? Part.Text)?.text ?: (p as? Part.Reasoning)?.text ?: continue
+                val overlaps = rt == pt ||
+                    (rt.length <= pt.length && pt.startsWith(rt)) ||
+                    (pt.length <= rt.length && rt.startsWith(pt))
+                if (overlaps && (isNewPartId(r.id).not() || isNewPartId(p.id).not())) {
+                    result[i] = if (pt.length > rt.length || (pt.length == rt.length && p.id.isNotBlank())) p else r
+                    continue@outer
+                }
+            }
+            result.add(p)
+        }
+        return result
+    }
+
+    /** #109 新版派生 id 契约：`<msg>_text_ord_N` / `<msg>_reasoning_ord_N`。 */
+    private fun isNewPartId(id: String): Boolean =
+        id.contains("_text_ord_") || id.contains("_reasoning_ord_")
 
     /**
      * 合并两个按 [Message.time.created] 升序的消息列表，按 id 去重。

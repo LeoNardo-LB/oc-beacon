@@ -407,12 +407,14 @@ class SseClientV2 @Inject constructor(
         }
         // partId 派生（2026-08-11 修复）：V2 delta 无 partID，ordinal 即定位键——
         // 原硬编码 "" 导致每个 delta 新建 Part.Text(id="")，多 part 错乱。
+        // #109（2026-08-14）：id 必须含 type——服务器 ordinal 按类型独立计数，
+        // 同消息 reasoning[0]/text[0] 会碰撞（见 V2SseMapper.derivePartId）。
         val ordinal = props["ordinal"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
 
         return SseEvent.MessagePartDelta(
             sessionId = sessionId,
             messageId = messageId,
-            partId = V2SseMapper.derivePartId(messageId, ordinal),
+            partId = V2SseMapper.derivePartId(messageId, field, ordinal),
             field = field,
             delta = delta
         )

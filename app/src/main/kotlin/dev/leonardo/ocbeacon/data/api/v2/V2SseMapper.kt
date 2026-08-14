@@ -36,9 +36,14 @@ object V2SseMapper {
 
     private val taskToolNames = setOf("task", "subagent")
 
-    /** partId 派生规则：text/reasoning part 的稳定 id。 */
-    fun derivePartId(assistantMessageId: String, ordinal: Long): String =
-        "${assistantMessageId}_ord_${ordinal}"
+    /**
+     * partId 派生规则：text/reasoning part 的稳定 id（含 type——#109 id 碰撞修复）。
+     * 服务器 ordinal 按类型独立计数（同消息 reasoning[0] 与 text[0] 并存），
+     * id 不含 type 会碰撞 → text.started 按 id 命中 Reasoning part 并替换（内容丢失）。
+     * @param kind "text" 或 "reasoning"（与服务器 SSE 事件域对应）
+     */
+    fun derivePartId(assistantMessageId: String, kind: String, ordinal: Long): String =
+        "${assistantMessageId}_${kind}_ord_${ordinal}"
 
     /**
      * 尝试将 V2 事件映射为领域 SseEvent。不识别的事件返回 null（由下游 parser 处理）。
@@ -133,10 +138,12 @@ object V2SseMapper {
             val (sessionId, messageId, ordinal) = partLocator(props) ?: return null
             SseEvent.MessagePartUpdated(
                 Part.Reasoning(
-                    id = derivePartId(messageId, ordinal),
+                    id = derivePartId(messageId, "reasoning", ordinal),
                     sessionId = sessionId,
                     messageId = messageId,
-                    text = ""
+                    text = "",
+                    // #109：started 事件无时间戳——用本地时刻；ended 合并时作为回退 start
+                    time = Part.Reasoning.Time(start = System.currentTimeMillis())
                 )
             )
         }
@@ -146,11 +153,13 @@ object V2SseMapper {
             val text = props["text"]?.jsonPrimitive?.contentOrNull ?: ""
             SseEvent.MessagePartUpdated(
                 Part.Reasoning(
-                    id = derivePartId(messageId, ordinal),
+                    id = derivePartId(messageId, "reasoning", ordinal),
                     sessionId = sessionId,
                     messageId = messageId,
                     text = text,
-                    time = Part.Reasoning.Time(start = ordinal, end = System.currentTimeMillis())
+                    // #109：start=0 表示未知——mergePart 回退到 started 记录的本地时刻
+                    // （旧实现 start=ordinal → epoch 0 → "思考完毕 · 29778524m" 垃圾时长）
+                    time = Part.Reasoning.Time(start = 0L, end = System.currentTimeMillis())
                 )
             )
         }
@@ -159,10 +168,11 @@ object V2SseMapper {
             val (sessionId, messageId, ordinal) = partLocator(props) ?: return null
             SseEvent.MessagePartUpdated(
                 Part.Text(
-                    id = derivePartId(messageId, ordinal),
+                    id = derivePartId(messageId, "text", ordinal),
                     sessionId = sessionId,
                     messageId = messageId,
-                    text = ""
+                    text = "",
+                    time = Part.Text.Time(start = System.currentTimeMillis())
                 )
             )
         }
@@ -172,11 +182,11 @@ object V2SseMapper {
             val text = props["text"]?.jsonPrimitive?.contentOrNull ?: ""
             SseEvent.MessagePartUpdated(
                 Part.Text(
-                    id = derivePartId(messageId, ordinal),
+                    id = derivePartId(messageId, "text", ordinal),
                     sessionId = sessionId,
                     messageId = messageId,
                     text = text,
-                    time = Part.Text.Time(start = ordinal, end = System.currentTimeMillis())
+                    time = Part.Text.Time(start = 0L, end = System.currentTimeMillis())
                 )
             )
         }
@@ -189,7 +199,7 @@ object V2SseMapper {
             SseEvent.MessagePartDelta(
                 sessionId = sessionId,
                 messageId = messageId,
-                partId = derivePartId(messageId, ordinal),
+                partId = derivePartId(messageId, "reasoning", ordinal),
                 field = "reasoning",
                 delta = delta
             )
@@ -201,7 +211,7 @@ object V2SseMapper {
             SseEvent.MessagePartDelta(
                 sessionId = sessionId,
                 messageId = messageId,
-                partId = derivePartId(messageId, ordinal),
+                partId = derivePartId(messageId, "text", ordinal),
                 field = "text",
                 delta = delta
             )

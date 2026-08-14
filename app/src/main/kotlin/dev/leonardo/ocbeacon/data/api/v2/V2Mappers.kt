@@ -253,10 +253,22 @@ object V2MessageMapper {
                     time = TimeInfo(created = timeCreated, completed = timeCompleted)
                 )
 
+                // #109（D2-01）：text/reasoning part id 用与 SSE 相同的派生规则
+                // （messageId_type_ord_N，N 为该类型在 content 中的出现序）。
+                // 旧实现 id="" 与 SSE 派生 id 契约错位 → mergePartsList 双保留 →
+                // 已完结消息文本双份渲染。服务器 ordinal 按类型独立计数，
+                // REST 按同类型出现顺序编号即与 SSE 对齐。
+                var textOrdinal = 0L
+                var reasoningOrdinal = 0L
                 val parts = contentArray.mapNotNull { element ->
                     val contentObj = element.jsonObject
                     val contentType = contentObj["type"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                    mapContentToPart(contentObj, contentType, sessionId, id)
+                    val ordinal = when (contentType) {
+                        "text" -> textOrdinal++
+                        "reasoning" -> reasoningOrdinal++
+                        else -> null
+                    }
+                    mapContentToPart(contentObj, contentType, sessionId, id, ordinal)
                 }
 
                 MessageWithParts(info = message, parts = parts)
@@ -340,11 +352,14 @@ object V2MessageMapper {
         obj: JsonObject,
         type: String,
         sessionId: String,
-        messageId: String
+        messageId: String,
+        ordinal: Long? = null
     ): Part? {
         return when (type) {
             "text" -> Part.Text(
-                id = "",
+                // #109：与 SSE 派生 id 对齐（ordinal 缺失时回退 ""，由
+                // mergePartsList 内容去重兜底）
+                id = ordinal?.let { V2SseMapper.derivePartId(messageId, "text", it) } ?: "",
                 sessionId = sessionId,
                 messageId = messageId,
                 text = obj["text"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -355,7 +370,7 @@ object V2MessageMapper {
                     ?.let { (s, e) -> Part.Text.Time(start = s, end = e) }
             )
             "reasoning" -> Part.Reasoning(
-                id = "",
+                id = ordinal?.let { V2SseMapper.derivePartId(messageId, "reasoning", it) } ?: "",
                 sessionId = sessionId,
                 messageId = messageId,
                 text = obj["text"]?.jsonPrimitive?.contentOrNull ?: "",

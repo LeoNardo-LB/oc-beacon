@@ -979,13 +979,11 @@ efactor
   - N-8/N-10/N-11/N-13（报告判定"可接受/可忽略"，仅记录备查）：SettingsViewModel 22 个 Eagerly 映射（单字段提取开销极小）；SyntheticNotificationCard/QuestionParser Regex 未预编译（低频）；SessionActionsDelegate 等 Debug 日志较多（已 DEBUG 门控，Release 无影响）；SessionRow 每行 remember SimpleDateFormat（可接受）
   - 工时：~1d | 难度：低-中 | 优先级：P3
 
-- [ ] **#107 V2 交互式提问链路不通（question 工具调用后无 SSE 事件、REST 空）** `sse` `compat`
+- [x] **#107 V2 交互式提问链路不通（question 工具调用后无 SSE 事件、REST 空）——已修复（与 #130 同根因，form API 适配）** `sse` `compat`
   - 问题：2026-08-13 构造提问验收场景时发现（Agent 实测）——V2 服务器（0.0.0-next-17403）上 agent 成功调用 question 工具（含单选+多选两个问题，state=running），但 V2 **既不发出 question.asked SSE 事件**，`GET /api/question/request` 也返回空；App 每 30s 轮询均无果，仅显示工具调用头 "Question"。V1（1.18.18）完全正常（GET /question 正确返回待处理问题）
-  - 影响：V2 连接下用户无法看到/回答 agent 提问（功能缺失；问题仍可完成但交互退化）
-  - 关联：#70（V2 事件体系未确认项）——question 事件流可能是 V2 未实现/改名的部分；新增 A（提问通知 REST 兜底）评估时需考虑 V2 差异
-  - 方案：调研 V2 的 question 机制（事件名/端点），按 v1-v2-differences 文档补充适配；或确认 V2 设计如此（问题直接内联）则调整 UI
-  - 工时：~2-4h | 难度：中 | 涉及：V2SseMapper/SseClientV2/QuestionEventHandler
-  - 优先级：P1（V2 用户提问交互缺失）
+  - 根因（2026-08-14 官方确认 issue #42541）：非缺陷而是**协议迁移**——V2 question 工具由 form 服务驱动（`form.created` SSE + /api/form/* 端点），旧 question.asked + /api/question/request 是 stale surface
+  - 修复：#130 form API 适配（commit 5993c1a9/547bb204）——form.created → QuestionAsked 映射 + reply/cancel + /api/form/request 轮询兜底；真机 E2E 验证通过（卡片渲染/回答/取消/agent 续答全链路）
+  - 优先级：P1 ✅ 2026-08-14 完结（随 #130）
 
 - [ ] **#106 工具链治理建议（审计 §7，未含具体代码问题）** `tooling`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §7

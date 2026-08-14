@@ -87,10 +87,10 @@ class MessageEventHandlerV2ChainTest {
         val parts = handler.parts.value["msg_asst_1"].orEmpty()
         assertEquals("应有 3 个 part（reasoning/text/tool）", 3, parts.size)
 
-        val reasoning = parts.first { it.id == "msg_asst_1_ord_1" } as Part.Reasoning
+        val reasoning = parts.first { it.id == "msg_asst_1_reasoning_ord_1" } as Part.Reasoning
         assertEquals("思考中完整", reasoning.text)
 
-        val text = parts.first { it.id == "msg_asst_1_ord_2" } as Part.Text
+        val text = parts.first { it.id == "msg_asst_1_text_ord_2" } as Part.Text
         assertEquals("Hello world", text.text)
 
         val tool = parts.first { it.id == "call_9" } as Part.Tool
