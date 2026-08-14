@@ -8,7 +8,7 @@ import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.serialization.json.*
 
-private const val TAG = "SseClient"
+private const val TAG = "SessionEventParser"
 
 /**
  * 解析会话生命周期事件：

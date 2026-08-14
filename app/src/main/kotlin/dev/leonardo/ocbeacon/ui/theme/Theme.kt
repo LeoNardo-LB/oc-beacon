@@ -64,11 +64,20 @@ private val LightColorScheme = lightColorScheme(
 )
 
 /**
- * AMOLED 深色配色方案 — 纯黑表面以节省 OLED 电量。
- * 主表面使用真黑色（#000000），容器使用极深色调，
- * 确保卡片/底部弹层仍可与背景视觉区分。
+ * AMOLED 覆盖的 8 个 surface 系色值（D2-L18：动态取色分支与静态 AMOLED 深色共用，消除复制粘贴）。
  */
-private val AmoledDarkColorScheme = DarkColorScheme.copy(
+private data class AmoledSurfaces(
+    val background: Color,
+    val surface: Color,
+    val surfaceVariant: Color,
+    val surfaceContainer: Color,
+    val surfaceContainerLow: Color,
+    val surfaceContainerLowest: Color,
+    val surfaceContainerHigh: Color,
+    val surfaceContainerHighest: Color,
+)
+
+private val AmoledSurfaceOverrides = AmoledSurfaces(
     background = Color.Black,
     surface = Color.Black,
     surfaceVariant = Color(0xFF1A1A22),
@@ -77,6 +86,22 @@ private val AmoledDarkColorScheme = DarkColorScheme.copy(
     surfaceContainerLowest = Color.Black,
     surfaceContainerHigh = Color(0xFF141419),
     surfaceContainerHighest = Color(0xFF2A2A36)
+)
+
+/**
+ * AMOLED 深色配色方案 — 纯黑表面以节省 OLED 电量。
+ * 主表面使用真黑色（#000000），容器使用极深色调，
+ * 确保卡片/底部弹层仍可与背景视觉区分。
+ */
+private val AmoledDarkColorScheme = DarkColorScheme.copy(
+    background = AmoledSurfaceOverrides.background,
+    surface = AmoledSurfaceOverrides.surface,
+    surfaceVariant = AmoledSurfaceOverrides.surfaceVariant,
+    surfaceContainer = AmoledSurfaceOverrides.surfaceContainer,
+    surfaceContainerLow = AmoledSurfaceOverrides.surfaceContainerLow,
+    surfaceContainerLowest = AmoledSurfaceOverrides.surfaceContainerLowest,
+    surfaceContainerHigh = AmoledSurfaceOverrides.surfaceContainerHigh,
+    surfaceContainerHighest = AmoledSurfaceOverrides.surfaceContainerHighest
 )
 
 /**
@@ -103,15 +128,16 @@ fun OpenCodeTheme(
                 // 仅覆盖 surface/container token 以实现 AMOLED 纯黑效果。
                 // 保留动态取色的 onSurface/onSurfaceVariant，
                 // 使壁纸生成的调色板保持一致。
+                // D2-L18：色值与 AmoledDarkColorScheme 共用同一数据源。
                 scheme.copy(
-                    background = Color.Black,
-                    surface = Color.Black,
-                    surfaceVariant = Color(0xFF1A1A22),
-                    surfaceContainer = Color(0xFF0D0D12),
-                    surfaceContainerLow = Color(0xFF080810),
-                    surfaceContainerLowest = Color.Black,
-                    surfaceContainerHigh = Color(0xFF141419),
-                    surfaceContainerHighest = Color(0xFF2A2A36)
+                    background = AmoledSurfaceOverrides.background,
+                    surface = AmoledSurfaceOverrides.surface,
+                    surfaceVariant = AmoledSurfaceOverrides.surfaceVariant,
+                    surfaceContainer = AmoledSurfaceOverrides.surfaceContainer,
+                    surfaceContainerLow = AmoledSurfaceOverrides.surfaceContainerLow,
+                    surfaceContainerLowest = AmoledSurfaceOverrides.surfaceContainerLowest,
+                    surfaceContainerHigh = AmoledSurfaceOverrides.surfaceContainerHigh,
+                    surfaceContainerHighest = AmoledSurfaceOverrides.surfaceContainerHighest
                 )
             } else {
                 scheme

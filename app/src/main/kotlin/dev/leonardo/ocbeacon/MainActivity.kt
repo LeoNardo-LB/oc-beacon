@@ -28,7 +28,7 @@ import dev.leonardo.ocbeacon.domain.model.AppSettings
 import dev.leonardo.ocbeacon.domain.model.DebugProfile
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.service.OpenCodeConnectionService
-import dev.leonardo.ocbeacon.util.parseLocale
+import dev.leonardo.ocbeacon.util.applyAppLanguage
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import androidx.core.content.ContextCompat
@@ -117,18 +117,9 @@ class MainActivity : ComponentActivity() {
 
     override fun attachBaseContext(newBase: Context) {
         // 同步从 SharedPreferences 读取存储的语言（无需 Hilt）。
-        val languageCode = dev.leonardo.ocbeacon.data.repository.SettingsDataStore.getStoredLanguage(newBase)
-        appliedLanguage = languageCode
-
-        if (languageCode.isNotEmpty()) {
-            val locale = parseLocale(languageCode)
-            Locale.setDefault(locale)
-            val config = newBase.resources.configuration
-            config.setLocale(locale)
-            super.attachBaseContext(newBase.createConfigurationContext(config))
-        } else {
-            super.attachBaseContext(newBase)
-        }
+        // D2-L20：语言应用逻辑与 OpenCodeConnectionService 共享 [applyAppLanguage]。
+        appliedLanguage = dev.leonardo.ocbeacon.data.repository.SettingsDataStore.getStoredLanguage(newBase)
+        super.attachBaseContext(newBase.applyAppLanguage())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

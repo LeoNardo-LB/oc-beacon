@@ -6,7 +6,7 @@ import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.serialization.json.*
 
-private const val TAG = "SseClient"
+private const val TAG = "SessionNextEventParser"
 
 /**
  * 通过前缀匹配解析 session.next.* 事件。

@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.tools.cards
 
-import android.content.ClipData
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -34,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -44,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.ui.components.AmoledSurface
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
@@ -192,7 +191,7 @@ internal fun ToolCardScaffold(
                             IconButton(
                                 onClick = {
                                     clipScope.launch {
-                                        clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("copy", copyText)))
+                                        clipboard.copyToClipboard("copy", copyText)
                                     }
                                     // #137（D2-L50）：优先走上层 Snackbar 通道（统一反馈），未注入时 Toast 兜底
                                     if (copyFeedback != null) {

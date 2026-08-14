@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
-import android.content.ClipData
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -22,10 +21,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.util.copyToClipboard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -49,7 +48,7 @@ fun CopyButton(
     IconButton(
         onClick = {
             clipScope.launch {
-                clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("copy", text)))
+                clipboard.copyToClipboard("copy", text)
                 copied = true
                 onCopied?.invoke()
                 delay(1500)

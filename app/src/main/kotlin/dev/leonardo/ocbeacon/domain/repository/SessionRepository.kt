@@ -73,12 +73,6 @@ interface SessionRepository {
     suspend fun deleteSession(serverId: String, sessionId: String): Result<Unit>
 
     /**
-     * 切换当前活跃会话。
-     * Phase 3 实现：委托给 SessionApi 或 connection service。
-     */
-    suspend fun switchSession(sessionId: String): Result<Unit>
-
-    /**
      * 按 ID 获取单个会话。
      */
     suspend fun getSession(serverId: String, sessionId: String): Result<Session>

@@ -81,7 +81,8 @@ internal fun MessageCardAssistant(
     onQuestionSubmit: ((String, List<List<String>>) -> Unit)? = null,
     onQuestionReject: ((String) -> Unit)? = null,
 ) {
-    val textColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
+    // D2-L22：原 if(isAmoled) 两分支相同（死条件）——直接取 onSurface
+    val textColor = MaterialTheme.colorScheme.onSurface
 
     if (renderableTurn.isEmpty) return
 

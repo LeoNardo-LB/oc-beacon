@@ -8,8 +8,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -104,7 +107,13 @@ internal fun ChatInputBar(
     val isShellMode = inputMode == ChatInputMode.SHELL
     // 每 4 秒轮换占位符提示
     val hintIndex = remember { mutableIntStateOf(0) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    var textFieldFocused by remember { mutableStateOf(false) }
+    val text = textFieldValue.text
+    // L-8：仅输入框聚焦且文本为空时轮换——原 4s 永久轮换即使无焦点也持续
+    // 触发 state 写 + 重组；占位符仅在空文本时可见，空且无焦点时轮换无意义。
+    val shouldRotateHint = textFieldFocused && text.isEmpty()
+    androidx.compose.runtime.LaunchedEffect(shouldRotateHint) {
+        if (!shouldRotateHint) return@LaunchedEffect
         while (true) {
             kotlinx.coroutines.delay(4000)
             hintIndex.intValue = (hintIndex.intValue + 1) % placeholderHintResIds.size
@@ -115,7 +124,6 @@ internal fun ChatInputBar(
     } else {
         stringResource(placeholderHintResIds[hintIndex.intValue])
     }
-    val text = textFieldValue.text
     val canSend = (text.isNotBlank() || attachments.isNotEmpty()) && !isSending && (!isShellMode || !isBusy) && inputEnabled
 
     // 构建合并的斜杠命令：客户端命令 + 服务器命令 + 技能（去重）
@@ -238,7 +246,8 @@ internal fun ChatInputBar(
                     isShellMode = isShellMode,
                     isAmoled = isAmoled,
                     confirmedFilePaths = confirmedFilePaths,
-                    enabled = inputEnabled
+                    enabled = inputEnabled,
+                    onFocusChange = { textFieldFocused = it }
                 )
 
                 // 发送/停止按钮——点击发送或停止，长按切换 shell 模式

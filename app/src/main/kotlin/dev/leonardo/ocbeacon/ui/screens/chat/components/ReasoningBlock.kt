@@ -70,7 +70,8 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
             while (true) {
                 // 下限钳制为 0 —— 服务器时钟偏差可能使其为负
                 elapsedMs.longValue = (System.currentTimeMillis() - effectiveStart).coerceAtLeast(0L)
-                delay(100L)
+                // L-10：1s ticker（原 100ms 常驻 10 次/s state 写——流式推理期间持续重组）
+                delay(1000L)
             }
         } else {
             elapsedMs.longValue = durationMs ?: 0L

@@ -52,11 +52,6 @@ class ServerDataStore @Inject constructor(
     }
     
     /**
-     * 获取所有服务器（servers Flow 的别名）
-     */
-    fun getAllServers(): Flow<List<ServerConfig>> = servers
-    
-    /**
      * 添加新服务器
      */
     suspend fun addServer(

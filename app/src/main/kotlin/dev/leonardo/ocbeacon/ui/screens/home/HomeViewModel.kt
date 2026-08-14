@@ -35,6 +35,9 @@ import javax.inject.Inject
 
 private const val TAG = "HomeViewModel"
 
+/** L-16：providers 检查完成后的 TTL——连接状态变化（含其他服务器连/断）不重启刚完成的检查。 */
+private const val PROVIDERS_CHECK_TTL_MS = 30_000L
+
 data class HomeUiState(
     val servers: List<ServerConfig> = emptyList(),
     val connectedServerIds: Set<String> = emptySet(),
@@ -64,6 +67,8 @@ class HomeViewModel @Inject constructor(
     private var serviceBinder: OpenCodeConnectionService.LocalBinder? = null
     private var sseObserverJob: Job? = null
     private val serverSettingsCheckJobs = mutableMapOf<String, Job>()
+    /** L-16：每服务器最近一次 providers 检查完成时刻（TTL 去重）。 */
+    private val lastProvidersCheckAt = mutableMapOf<String, Long>()
 
     /** 进行中的连接尝试（testConnection 阶段），支持取消。 */
     private val connectJobs = mutableMapOf<String, Job>()
@@ -152,19 +157,26 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun refreshServerSettingsAvailability(connectedIds: Set<String>) {
-        // 取消对已断开服务器的检查
+        // 取消对已断开服务器的检查（并清除其 TTL 记录——重连后需重新检查）
         val disconnected = serverSettingsCheckJobs.keys - connectedIds
         disconnected.forEach { id ->
             serverSettingsCheckJobs.remove(id)?.cancel()
+            lastProvidersCheckAt.remove(id)
         }
 
         // 为已连接的服务器启动或重启检查
         connectedIds.forEach { serverId ->
-            serverSettingsCheckJobs.remove(serverId)?.cancel()
+            // L-16：进行中不重启（同 key 去重）；TTL 内已检查过也跳过——
+            // 原实现每次连接状态变化（含其他服务器连/断）都取消并重启全部检查。
+            val activeJob = serverSettingsCheckJobs[serverId]
+            if (activeJob != null && activeJob.isActive) return@forEach
+            val now = System.currentTimeMillis()
+            if (now - (lastProvidersCheckAt[serverId] ?: 0L) < PROVIDERS_CHECK_TTL_MS) return@forEach
             serverSettingsCheckJobs[serverId] = viewModelScope.launch {
                 val server = _uiState.value.servers.find { it.id == serverId }
                 if (server == null) {
                     _uiState.update { it.copy(serverSettingsReadyIds = it.serverSettingsReadyIds - serverId) }
+                    lastProvidersCheckAt[serverId] = System.currentTimeMillis()
                     return@launch
                 }
 
@@ -187,6 +199,7 @@ class HomeViewModel @Inject constructor(
                     _uiState.update { it.copy(serverSettingsReadyIds = it.serverSettingsReadyIds - serverId) }
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "Providers check failed for $serverId: ${e.message}")
                 }
+                lastProvidersCheckAt[serverId] = System.currentTimeMillis()
             }
         }
     }

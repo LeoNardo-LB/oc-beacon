@@ -951,39 +951,64 @@ efactor
   - 工时：~0.5d | 难度：低 | 涉及：ChatRepositoryImpl/ChatMessageList/WorkspaceScreen
   - 优先级：P2
 
-- [ ] **#104 审计 Low 批量（L-3~L-18，审计 Low——除 L-1=#90、L-2=#96）** `refactor`
+- [x] **#104 审计 Low 批量（L-3~L-18，审计 Low——除 L-1=#90、L-2=#96）** `refactor`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.4
   - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：L-3 persistJob?.cancel 模式（:101）；L-4 V1:331-334/V2:846-849 新建 client；L-5 getParts flatten + 生产 0 调用方；L-6 PdfViewer:120 addInterface 无 remove（对比 CodeWebView:207 有）；L-7 :126 onValueChange 内 Regex；L-8 :105-109 4s 永久轮换；L-9 :203 无 remember；L-10 :68-74 delay(100)；L-11 :310 timestamp_index key；L-12 FileTreeUtils:22-31 + 递归拼接；L-13 DiffView:119 现场 Regex；L-14 NavGraph:424-429 整文件下载判非空；L-15 :60-68 无 remember + :143 forEach 非虚拟化；L-16 :154-189 无 TTL/去重；L-17 :37 只增不减无 sweep；L-18 ChatViewModel:428-458 主线程全量扫描无 distinctUntilChanged
   - L-3 UnreadBadgeService.persistAsync 每次取消上一个写 → 改合并写（Mutex/Channel 单消费者）
+  - ✅ 2026-08-15 修复：persistAsync 改 Channel(CONFLATED) 单消费者合并写（写前取最新快照，不再取消进行中的 DataStore 写）
   - L-4 exportSessionToStream 每次新建 OkHttpClient（线程池/连接池泄漏）→ 复用共享 client
+  - ⚠️ 2026-08-15 保留：#121 正在处理 V1/V2ApiClient；复用共享 client（NetworkModule 长超时单例）需协调
   - L-5 ChatRepositoryImpl.getParts 全量 flatten（当前无调用方）→ 接入前改索引或删除
+  - ⚠️ 2026-08-15 保留：#103 正在处理 ChatRepositoryImpl（getParts 所在文件）
   - L-6 PdfViewer JS 桥未 removeJavascriptInterface（CodeWebView 有）
+  - ✅ 2026-08-15 修复：onDispose 先 removeJavascriptInterface("PdfViewerInterface") 再 destroy（与 CodeWebView 一致）
   - L-7 ChatScreenBottomBar 每按键编译新 Regex → companion 预编译
+  - ✅ 2026-08-15 修复：AT_MENTION_REGEX / WHITESPACE_SPLIT_REGEX 顶层预编译（3 处现场编译清零）
   - L-8 ChatInputBar 占位符 4s 永久轮换 → 仅焦点+空文本时轮换
+  - ✅ 2026-08-15 修复：占位符轮换仅聚焦+空文本时进行（ChatTextField 增 onFocusChange 上报）
   - L-9 ChatMessageList getActiveToolProgressForSession 每次重组新建 Flow → remember 提升
+  - ⚠️ 2026-08-15 保留：#103 正在处理 ChatMessageList
   - L-10 ReasoningBlock 100ms ticker 常驻重组 → 降 1000ms
+  - ✅ 2026-08-15 修复：ticker delay 100ms→1000ms（与 StreamingElapsedText 一致）
   - L-11 DiagnosticsScreen key 用 timestamp_index 拼接 → 队列头淘汰全 key 失效 → 内容派生稳定键
+  - ✅ 2026-08-15 修复：key 改内容派生稳定键（timestamp+category+message hash）
   - L-12 FileTreeUtils.flattenTree 用 + 递归拼接 O(n²) → buildList 累积
+  - ✅ 2026-08-15 修复：flattenTree 改 buildList+addAll 累积（O(n²)→O(n)）
   - L-13 DiffView 每候选行现场编译正则 → companion 预编译
+  - ✅ 2026-08-15 修复：INDEX_LINE_REGEX 顶层预编译
   - L-14 NavGraph.checkFileExists 整文件下载只为判非空 → HEAD/大小
+  - ⚠️ 2026-08-15 保留：FileRepository/FileApi 无 HEAD/stat 端点，需新增服务器 API（超出清理范围）
   - L-15 ServerModelFilterScreen 过滤无 remember + 组内非虚拟化渲染
+  - ⚠️ 2026-08-15 部分修复：过滤已加 remember(search, groups)；组内非虚拟化→拍平独立 lazy items 为 UI 重构（需类型结构设计），保留
   - L-16 HomeViewModel 连接状态变化重启全部 providers 网络检查 → 进行中去重 + TTL
+  - ✅ 2026-08-15 修复：进行中不重启（同 key 去重）+ 30s TTL（lastProvidersCheckAt，断开时清除）
   - L-17 UnreadBadgeService._lastCompletedReplyTime 只增不减无 sweep → 复用 staleness 循环清理
+  - ⚠️ 2026-08-15 保留：复用 SessionStateService staleness 循环（#122 正在处理该文件）+ sweep 策略需设计
   - L-18 ChatViewModel token 统计主线程全量扫描（2000 条×20 次/s）→ map 派生 + distinctUntilChanged
+  - ✅ 2026-08-15 修复：map 派生 TokenStats + distinctUntilChanged + flowOn(Default)（扫描移出主线程）
   - 工时：~1-2d | 难度：低 | 涉及：见各条 | 优先级：P3（顺手修复）
 
-- [ ] **#105 审计备注批量（N-1~N-15 重点项）** `refactor` `security`
+- [x] **#105 审计备注批量（N-1~N-15 重点项）** `refactor` `security`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.5
   - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：N-1 trySend 返回值未检查（:240）；N-2 rawSseEvents 全工程仅 3 匹配零订阅；N-3 JumpBubbleObserve settled 0 读写；N-4 ScrollCompensation:50 反射（有 try-catch 降级）；N-5 WebViewScreen:91-92 闭包捕获明文凭据；N-6 CodeSourceView 2 match 无调用方；N-7 TerminalDelegate:121-123 空实现；N-9 cancelScope 0 调用；N-12 SessionTreeList:56-67 key 不变不续载；N-14 MainActivity:79 replay=1；N-15 OpenCodeApp:57 双 scope 并存。**路径修正**：N-10 QuestionParser 实际在 ui/screens/chat/util/（非 data/repository/parser/）。**N-11 修正**：SessionActionsDelegate:323,339 与 MessagePaginationDelegate:248 共 3 处 AppLogger.d 无 BuildConfig.DEBUG 门控（AppLogger.shouldPersist 层面阻止 DB 写入，影响低）
   - N-1（数据一致性）：persistQueue trySend 满时静默丢写 → 失败计数/降级
+  - ✅ 2026-08-15 修复：trySend 失败计数 + 周期性 WARN（可观测性；完整"降级"策略待评估）
   - N-4（维护风险）：ScrollCompensation 反射访问 Compose 私有 API → BOM 升级前必须验证
+  - ⚠️ 2026-08-15 保留：BOM 升级前验证（记录性条目，已有 try-catch 降级）
   - N-5（安全）：WebViewScreen Basic Auth 明文凭据闭包驻留（叠加 #93）
+  - ⚠️ 2026-08-15 保留：叠加 #93；WebViewScreen 为 #121 涉及文件（D2-L7 删除待协调）
   - N-2/N-3/N-6/N-9（死代码）：rawSseEvents 无订阅者、JumpBubbleObserve、CodeSourceView 无调用方、cancelScope → 清理
+  - ✅ 2026-08-15 N-2 核实：已过时——rawSseEvents 全库 grep 0 匹配（早已删除）；N-6 修复：CodeSourceView.kt 整文件删除（grep 仅自引用+HighlightBuilder 文档注释）；N-9 修复：cancelScope() 删除（grep 无调用方）；N-3 ⚠️ 保留：#103/#120 正在处理 ChatMessageList/MessageCardUser（bubbleTopY 写入点）
   - N-7：TerminalDelegate.closeTerminalSession 空实现（设计取舍，评估）
+  - ⚠️ 2026-08-15 保留：设计取舍（终端跨屏幕常驻），需产品决策
   - N-12（功能缺陷）：SessionTreeList 分页加载完成停靠底部不自动续载
+  - ⚠️ 2026-08-15 保留：功能性缺陷（shouldLoadMore key 不自动续载），非清理类，需功能改动
   - N-14（功能隐患）：_deepLinkFlow replay=1 配置变更后重放旧 deep-link
+  - ⚠️ 2026-08-15 保留：功能性隐患（加已消费标记属功能改动）
   - N-15（架构）：OpenCodeApp 自建 appScope 与 DI @ApplicationScope 双套并存 → 统一
+  - ⚠️ 2026-08-15 保留：架构统一需协调（OpenCodeApp，#115 曾涉及）
   - N-8/N-10/N-11/N-13（报告判定"可接受/可忽略"，仅记录备查）：SettingsViewModel 22 个 Eagerly 映射（单字段提取开销极小）；SyntheticNotificationCard/QuestionParser Regex 未预编译（低频）；SessionActionsDelegate 等 Debug 日志较多（已 DEBUG 门控，Release 无影响）；SessionRow 每行 remember SimpleDateFormat（可接受）
+  - ✅ 2026-08-15 核实：报告判定"可接受/可忽略"，仅记录备查，无需处理（未改）
   - 工时：~1d | 难度：低-中 | 优先级：P3
 
 - [x] **#107 V2 交互式提问链路不通（question 工具调用后无 SSE 事件、REST 空）——已修复（与 #130 同根因，form API 适配）** `sse` `compat`
@@ -1071,17 +1096,34 @@ efactor
   - ✅ 2026-08-14 补齐：D2-L23（355a707b，进程级 holder 按 (server,filePath) 暂存批注，VM 重建 restore，提交清除）；D2-L25（4ccd9ed4，6 处输入类对话框状态 → rememberSaveable：renameText/newFolderName/newCategoryName/name/selected；可见性标志保留 remember——重建后关闭为合理默认）
   - 工时：~1d | 难度：低-中 | 涉及：OpenCodeApp/OpenCodeConnectionService/各 Screen | 优先级：P1-P2
 
-- [ ] **#116 终端批次（D2-20 输入乱序 + D2-21 dispose 取消清理协程）** `terminal` `race`
+- [x] **#116 终端批次（D2-20 输入乱序 + D2-21 dispose 取消清理协程）** `terminal` `race`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-20/D2-21（A 路）
   - 问题：socket.send fire-and-forget 多线程乱序；dispose() 在清理协程完成前 scope.cancel() → 服务端 PTY 残留
   - 方案：单发送 actor/Mutex；dispose 先 await 清理完成再 cancel
   - 工时：~0.5d | 难度：中 | 涉及：ServerTerminalWorkspace/PtyToTermlibAdapter | 优先级：P2
 
-- [ ] **#117 死代码/弃用/重复代码清理批次（D2-L1~L22 + D2-L15 日期统一 + D2-L16 剪贴板 + D2-L52 死参数）** `refactor`
+- [x] **#117 死代码/弃用/重复代码清理批次（D2-L1~L22 + D2-L15 日期统一 + D2-L16 剪贴板 + D2-L52 死参数）** `refactor`
   - 来源：audit-2026-08-13-dimensions/REPORT.md 簇 A/B/F（多路命中）
   - 问题：@Deprecated 委托链 ×9、桩方法 ×4、无调用方 API ×6、WebView 死分支 ~15KB（useNativeUi=true）、SimpleDateFormat 14 处、剪贴板 9 处、rejectHtmlResponse 复制、exportSessionToStream 整方法复制、ChatTerminalView snackbar 参数遮蔽、异常传播三套并存（D2-33，getOrThrow/Result/裸 List + ApiError 双重语义）等
   - 方案：清理日集中删除（先 grep 测试引用）；抽 DateFormatters/copyToClipboard/WebView 工厂；WebViewScreen 死分支删除需先确认无入口
   - 工时：~1-2d | 难度：低 | 涉及：见各条 | 优先级：P3
+  - ✅ 2026-08-15 处理结果（D2-L1~L22 + D2-L15/L16/L52）：
+    - ✅ D2-L4 connectToInstanceEvents 删除（~88 行，grep 无调用方）；D2-L5 AppLoadingEdge.kt 死组件整文件删除；D2-L6 TruncationBanner 删除 + isExtremelyLarge/正常分支 CodeWebView 合并单一调用点
+    - ✅ D2-L10 getAllServers() 别名删除（ServerRepositoryImpl 直接用 servers）；D2-L14 7 个解析器 TAG 改为各自类名；D2-L18 AmoledSurfaceOverrides 抽取（动态取色 + 静态 AMOLED 共用 8 色）
+    - ✅ D2-L20 applyAppLanguage(context) 抽取（LocaleUtils，MainActivity+OpenCodeConnectionService 复用）；D2-L21 fetchAllSessions() 提取（loadSessions/refreshSessions 去重 ~40 行）；D2-L22 textColor 死条件化简
+    - ✅ D2-L52 ChatTerminalView 删除函数内 remember 遮蔽，改用传入参数（ChatScreen host 生效，terminal snackbar 不再静默丢失）
+    - ✅ D2-L15 部分：DateFormatters 抽取 + 8 文件 11 处迁移（ShareTargetPickerDialog/TaskSheet/QuickNavigateSheet/MessageBubble/SyntheticNotificationCard/ContextDetailDialog/DiagnosticsScreen/OpenCodeApp）；SessionRow(#120)/DebugLogger(#102) ⚠️ 保留
+    - ✅ D2-L16 部分：copyToClipboard 抽取 + 7 处迁移（CopyButton/ChatScreenBottomBar/ToolCardScaffold/ServerProvidersScreen/FileViewerOverlay/SessionListViewModel/DiagnosticsScreen）；ChatMessageList(#103)/ChatScreen(编辑协议) ⚠️ 保留
+    - ⚠️ D2-L1 @Deprecated 委托链（EventDispatcher/ChatRepositoryImpl/ChatRepository/MessageEventHandler）→ #103 正在处理 ChatRepository 系文件，收敛 upsertMessages(MergeStrategy) 需协调
+    - ⚠️ D2-L2 部分：switchSession/switchAgent 桩已删除（接口+实现+测试）；sendMessage 占位/replyQuestion → ChatRepositoryImpl 为 #103 文件保留
+    - ⚠️ D2-L3 无调用方 API（getActiveToolProgress/getStepProgress/getCompactionState）→ ChatRepository 系为 #103 文件保留
+    - ⚠️ D2-L7 WebView 死分支（useNativeUi=true，~15KB）→ WebViewScreen/WebViewNav 为 #121 涉及文件，删除需协调（#119 已登记待确认）
+    - ⚠️ D2-L8 部分：NavGraph URLDecoder 死导入已删；ChatMessageList/ChatViewModel 残留 → #103 文件保留
+    - ⚠️ D2-L9 deleteMessagePart 返回 false → 需产品决策（可区分异常或 UI 隐藏入口）；V2ApiClient 为 #121 文件
+    - ⚠️ D2-L11 exportSessionToStream 整方法复制 → #121 正在处理 V1/V2ApiClient（顺带修 L-4），抽公共方法需协调
+    - ⚠️ D2-L12 V2SseMapper partLocator / D2-L13 V2 会话映射两份 / D2-L19 扩展名→语言映射 ×3 → 分别为 #121（V2SseMapper/V2Mappers/CodeWebView）文件保留
+    - ⚠️ D2-L17 directoryHeader 2 处内联 → SseClientV2 为 #122 文件保留
+    - ⚠️ 异常传播三套并存（getOrThrow/Result/裸 List + ApiError 双重语义）→ 架构主题需独立设计（D2-33 的 prefetchGitCount 部分已随 #134 完结）
 
 - [ ] **#118 构建/安全批次（D2-28 cleartext + D2-29 R8 keep-all + D2-L64 版本倾斜/测试默认值 + D2-L28 备份密钥）** `build` `security`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-28/D2-29/D2-L28/D2-L64

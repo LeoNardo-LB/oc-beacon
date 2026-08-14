@@ -100,6 +100,16 @@ class MessageEventHandler @Inject constructor(
 
     private val persistQueue = Channel<PersistRequest>(Channel.BUFFERED)
 
+    /** N-1：persistQueue 满时 trySend 静默丢写的可观测性计数（内存视图不受影响，落盘由后续写补齐）。 */
+    private var droppedPersistWrites = 0
+
+    private fun onPersistQueueFull() {
+        droppedPersistWrites++
+        if (droppedPersistWrites == 1 || droppedPersistWrites % 50 == 0) {
+            AppLogger.w(TAG, "persist queue full, dropped $droppedPersistWrites write requests (Room slower than SSE production)")
+        }
+    }
+
     init {
         batchScope.launch {
             for (req in persistQueue) {
@@ -203,14 +213,17 @@ class MessageEventHandler @Inject constructor(
                 )
             }
             val payload = msgs.map { MessageWithParts(it, _parts.value[it.id] ?: emptyList()) }
-            persistQueue.trySend(
-                PersistRequest(
-                    store = store,
-                    sessionId = sessionId,
-                    payload = payload,
-                    incrementalDeltas = incrementalDeltas,
-                )
-            )
+            if (persistQueue.trySend(
+                    PersistRequest(
+                        store = store,
+                        sessionId = sessionId,
+                        payload = payload,
+                        incrementalDeltas = incrementalDeltas,
+                    )
+                ).isFailure
+            ) {
+                onPersistQueueFull()
+            }
         }
     }
 
@@ -306,7 +319,9 @@ class MessageEventHandler @Inject constructor(
         val parts = _parts.value
         val payload = msgs.map { MessageWithParts(it, parts[it.id] ?: emptyList()) }
         // #57：入队由单写协程处理（不再每 48ms 创建 fire-and-forget 协程）
-        persistQueue.trySend(PersistRequest(store, sessionId, payload))
+        if (persistQueue.trySend(PersistRequest(store, sessionId, payload)).isFailure) {
+            onPersistQueueFull()
+        }
     }
 
     /**

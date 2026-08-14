@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -42,7 +43,9 @@ internal fun RowScope.ChatTextField(
     isShellMode: Boolean,
     isAmoled: Boolean,
     confirmedFilePaths: Set<String>,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    /** 焦点变化回调（L-8：占位符轮换需感知聚焦状态）。 */
+    onFocusChange: (Boolean) -> Unit = {},
 ) {
     val text = textFieldValue.text
 
@@ -94,7 +97,8 @@ internal fun RowScope.ChatTextField(
                 enabled = enabled,
                 modifier = Modifier
                     .testTag("chat-input")
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .onFocusChanged { onFocusChange(it.isFocused) },
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontFamily = if (isShellMode) FontFamily.Monospace else FontFamily.Default

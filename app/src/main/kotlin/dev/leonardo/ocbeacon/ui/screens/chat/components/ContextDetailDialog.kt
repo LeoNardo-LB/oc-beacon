@@ -29,9 +29,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatTokenCount
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
-import java.text.SimpleDateFormat
+import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +70,7 @@ internal fun ContextDetailDialog(state: ContextDetailState?, onDismiss: () -> Un
                     }
                 }
                 state.timestamps?.let { ts ->
-                    val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+                    val fmt = DateFormatters.monthDayHourMinute()
                     Text(
                         text = stringResource(R.string.chat_context_timestamps, fmt.format(Date(ts.created)), fmt.format(Date(ts.updated))),
                         style = MaterialTheme.typography.labelSmall,

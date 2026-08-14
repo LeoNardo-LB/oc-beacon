@@ -29,7 +29,6 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -93,7 +92,8 @@ fun ChatTerminalView(
     var terminalVirtualFnDown by remember { mutableStateOf(false) }
     var suppressFnTildeUntil by remember { mutableStateOf(0L) }
     val terminalFocusRequester = remember { FocusRequester() }
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    // D2-L52：使用传入的 snackbarHostState（ChatScreen 已承载 SnackbarHost）——
+    // 原函数内 remember 遮蔽参数，传入的 host 成为死参数，终端 snackbar 从不显示。
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val isAmoled = isAmoledTheme()

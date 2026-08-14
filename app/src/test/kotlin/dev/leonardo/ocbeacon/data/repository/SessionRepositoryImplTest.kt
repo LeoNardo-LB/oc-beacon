@@ -139,12 +139,4 @@ class SessionRepositoryImplTest {
         val result = repo.deleteSession("server1", "s1")
         assertTrue(result.isFailure)
     }
-
-    // ============ switchSession ============
-
-    @Test
-    fun `switchSession always succeeds`() = runTest {
-        val result = repo.switchSession("any-session")
-        assertTrue(result.isSuccess)
-    }
 }

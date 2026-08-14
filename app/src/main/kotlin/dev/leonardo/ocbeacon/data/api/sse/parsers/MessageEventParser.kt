@@ -7,7 +7,7 @@ import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.serialization.json.*
 
-private const val TAG = "SseClient"
+private const val TAG = "MessageEventParser"
 
 /**
  * 解析消息相关事件：

@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatAttachmentsHandler
@@ -27,6 +28,12 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+
+/** @file 提及正则：光标前最后一个 @query（onValueChange / 文件选择共用，L-7 预编译）。 */
+private val AT_MENTION_REGEX = Regex("@(\\S*)$")
+
+/** 斜杠命令参数分割（发送时解析 /cmd args）。 */
+private val WHITESPACE_SPLIT_REGEX = Regex("\\s+")
 
 /**
  * 从 ChatScreen 中抽取的底部栏 composable。
@@ -123,7 +130,7 @@ internal fun ChatScreenBottomBar(
                     // 检测光标前的 @query 以进行文件提及
                     val cursorPos = normalizedValue.selection.start
                     val textBefore = normalizedValue.text.substring(0, cursorPos)
-                    val atMatch = Regex("@(\\S*)$").find(textBefore)
+                    val atMatch = AT_MENTION_REGEX.find(textBefore)
                     if (atMatch != null) {
                         val query = atMatch.groupValues[1]
                         viewModel.searchFilesForMention(query)
@@ -181,7 +188,7 @@ internal fun ChatScreenBottomBar(
                         }
                         // 检测斜杠命令（例如 /skillname arguments）
                         if (rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
-                            val parts = rawText.trim().split("\\s+".toRegex(), 2)
+                            val parts = rawText.trim().split(WHITESPACE_SPLIT_REGEX, 2)
                             val commandName = parts[0].removePrefix("/")
                             val commandArgs = parts.getOrElse(1) { "" }
                             if (commandName.isNotBlank()) {
@@ -267,7 +274,7 @@ internal fun ChatScreenBottomBar(
                     // 用 @path 替换文本中的 @query
                     val cursorPos = inputText.selection.start
                     val textBefore = inputText.text.substring(0, cursorPos)
-                    val atMatch = Regex("@(\\S*)$").find(textBefore)
+                    val atMatch = AT_MENTION_REGEX.find(textBefore)
                     if (atMatch != null) {
                         val matchStart = atMatch.range.first
                         val replacement = "@$path "
@@ -312,7 +319,7 @@ internal fun ChatScreenBottomBar(
                             viewModel.shareSession { url ->
                                 coroutineScope.launch {
                                     if (url != null) {
-                                        clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("url", url)))
+                                        clipboard.copyToClipboard("url", url)
                                         snackbarHostState.showSnackbar(context.getString(R.string.chat_share_url_copied))
                                     } else {
                                         snackbarHostState.showSnackbar(context.getString(R.string.chat_share_failed))

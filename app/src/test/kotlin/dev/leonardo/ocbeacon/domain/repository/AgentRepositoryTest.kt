@@ -6,10 +6,9 @@ import org.junit.Test
 class AgentRepositoryTest {
 
     @Test
-    fun `interface defines listAgents, switchAgent, loadCommands, searchFiles`() {
+    fun `interface defines listAgents, loadCommands, searchFiles`() {
         val methods = AgentRepository::class.java.declaredMethods.map { it.name }
         assertTrue("Expected listAgents in $methods", methods.any { it.startsWith("listAgents") })
-        assertTrue("Expected switchAgent in $methods", methods.any { it.startsWith("switchAgent") })
         assertTrue("Expected loadCommands in $methods", methods.any { it.startsWith("loadCommands") })
         assertTrue("Expected searchFiles in $methods", methods.any { it.startsWith("searchFiles") })
     }

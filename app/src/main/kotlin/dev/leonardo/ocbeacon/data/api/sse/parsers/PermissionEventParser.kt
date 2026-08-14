@@ -6,7 +6,7 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.ToolRef
 import kotlinx.serialization.json.*
 
-private const val TAG = "SseClient"
+private const val TAG = "PermissionEventParser"
 
 /**
  * 解析权限事件：

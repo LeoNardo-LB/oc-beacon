@@ -18,18 +18,19 @@ internal fun flattenTree(
     expandedDirs: Set<String>,
     showIgnored: Boolean,
     depth: Int = 0
-): List<Pair<FileTreeNode, Int>> =
-    nodes.filter { showIgnored || !it.node.ignored }.flatMap { treeNode ->
-        listOf(treeNode to depth) +
-            if (treeNode.node.isDirectory() &&
-                treeNode.node.path in expandedDirs &&
-                treeNode.children != null
-            ) {
-                flattenTree(treeNode.children, expandedDirs, showIgnored, depth + 1)
-            } else {
-                emptyList()
-            }
+): List<Pair<FileTreeNode, Int>> = buildList {
+    // L-12：buildList + addAll 累积——原实现用 `+` 递归拼接每层拷贝整棵扁平列表（O(n²)）
+    for (treeNode in nodes) {
+        if (!showIgnored && treeNode.node.ignored) continue
+        add(treeNode to depth)
+        if (treeNode.node.isDirectory() &&
+            treeNode.node.path in expandedDirs &&
+            treeNode.children != null
+        ) {
+            addAll(flattenTree(treeNode.children, expandedDirs, showIgnored, depth + 1))
+        }
     }
+}
 
 /**
  * 返回一棵新树，其中 [path] 处的节点其 [children] 已被替换。

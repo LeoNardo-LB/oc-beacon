@@ -61,9 +61,8 @@ import dev.leonardo.ocbeacon.ui.theme.AgentSuccess
 import dev.leonardo.ocbeacon.ui.theme.CodeTypography
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
-import java.text.SimpleDateFormat
+import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
-import java.util.Locale
 
 /**
  * 后台任务完成通知卡片（#67 synthetic 消息）。
@@ -145,7 +144,7 @@ internal fun SyntheticNotificationCard(
 
     // 标签行时间（同 user/assistant 标签行格式，左对齐最左边）
     val timeText = remember(currentMessage.message.time.created) {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentMessage.message.time.created))
+        DateFormatters.timeOnly().format(Date(currentMessage.message.time.created))
     }
 
     // 统一容器（MessageBubble）：标签栏 = 时间 + "Background" + "Agent/Shell Completed" + 状态图标

@@ -53,9 +53,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
-import java.text.SimpleDateFormat
+import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
-import java.util.Locale
 
 /**
  * 列出所有用户提问以便快速导航的对话框。
@@ -214,7 +213,7 @@ private fun JumpTargetRow(
     onClick: () -> Unit,
 ) {
     val timeText = remember(target.timestampMs) {
-        SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(target.timestampMs))
+        DateFormatters.monthDayHourMinute().format(Date(target.timestampMs))
     }
     val highlightBg = if (isCurrent) {
         MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.SELECTED)

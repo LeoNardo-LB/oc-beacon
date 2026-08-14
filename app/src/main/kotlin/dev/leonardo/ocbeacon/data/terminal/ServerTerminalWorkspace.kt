@@ -22,6 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.connectbot.terminal.TerminalEmulatorFactory
 import java.util.UUID
 
@@ -64,6 +65,9 @@ internal class ServerTerminalWorkspace(
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** #116（D2-21）：清理协程专用 scope——socket.close/removePty 在主 scope.cancel 后
+     *  仍能完成（原实现 dispose 在异步清理完成前 cancel → 服务端 PTY 残留）。 */
+    private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val tabs = mutableListOf<RuntimeTab>()
     private val lock = Any()
     private var defaultFontSizeSp: Float = DEFAULT_TERMINAL_FONT_SIZE_SP
@@ -393,7 +397,8 @@ internal class ServerTerminalWorkspace(
             tab.adapter.release()
             tab.readerJob?.cancel()
             tab.reconnectJob?.cancel()
-            scope.launch {
+            // #116（D2-21）：清理在 cleanupScope 执行（dispose 会等待其完成）
+            cleanupScope.launch {
                 try {
                     tab.socket?.close()
                 } catch (e: Exception) {
@@ -416,7 +421,12 @@ internal class ServerTerminalWorkspace(
      */
     fun dispose() {
         closeAll()
+        // #116（D2-21）：等待清理协程（socket 关闭/PTY 移除，网络往返）完成后再取消
+        // 主 scope——原实现 scope.cancel 在异步清理完成前执行 → 清理被取消 → 服务端
+        // PTY 残留（连接泄漏）。runBlocking 仅在销毁路径短暂阻塞（毫秒级网络关闭）。
+        runBlocking { cleanupScope.coroutineContext[Job]?.children?.forEach { it.join() } }
         scope.cancel()
+        cleanupScope.cancel()
     }
 
     private fun activeTabLocked(): RuntimeTab? {

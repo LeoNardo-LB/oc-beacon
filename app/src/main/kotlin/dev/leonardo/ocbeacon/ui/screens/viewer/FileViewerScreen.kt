@@ -167,39 +167,29 @@ fun FileViewerScreen(
 
                             Box(Modifier.fillMaxSize()) {
                                 // ── 源码面板（CodeWebView） ── 始终存在，显示渲染时隐藏
-                                if (uiState.isExtremelyLarge) {
-                                    Column(Modifier.fillMaxSize()) {
+                                // D2-L6：isExtremelyLarge 分支与正常分支的 CodeWebView 调用复制粘贴
+                                // 合并为单一调用点——仅外层 LargeFileWarningBanner 按条件包裹，
+                                // initialScrollLine 统一传递（原大文件分支遗漏该参数）。
+                                Column(Modifier.fillMaxSize()) {
+                                    if (uiState.isExtremelyLarge) {
                                         LargeFileWarningBanner(lineCount = uiState.totalLineCount)
-                                        CodeWebView(
-                                            content = uiState.content,
-                                            filePath = uiState.filePath,
-                                            visible = !showRender,
-                                            wordWrap = wordWrap,
-                                            onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
-                                            annotationsJson = annotationsJson,
-                                            onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
-                                            onAnnotationClick = { idStr ->
-                                                val idx = idStr.toIntOrNull()
-                                                DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
-                                                detailAnnotation = uiState.annotations.find { it.index == idx }
-                                            },
-                                        )
                                     }
-                                } else CodeWebView(
-                                    content = uiState.content,
-                                    filePath = uiState.filePath,
-                                    visible = !showRender,
-                                    wordWrap = wordWrap,
-                                    onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
-                                    annotationsJson = annotationsJson,
-                                    onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
-                                    onAnnotationClick = { idStr ->
-                                        val idx = idStr.toIntOrNull()
-                                        DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
-                                        detailAnnotation = uiState.annotations.find { it.index == idx }
-                                    },
-                                    initialScrollLine = uiState.initialScrollLine,
-                                )
+                                    CodeWebView(
+                                        content = uiState.content,
+                                        filePath = uiState.filePath,
+                                        visible = !showRender,
+                                        wordWrap = wordWrap,
+                                        onAnnotate = { text, start, end -> pendingAnnotation = Triple(text, start, end) },
+                                        annotationsJson = annotationsJson,
+                                        onLoadMore = if (!uiState.isFullyLoaded) onLoadMoreLines else null,
+                                        onAnnotationClick = { idStr ->
+                                            val idx = idStr.toIntOrNull()
+                                            DebugLogger.log("FileViewer", "onAnnotationClick: idStr='$idStr', idx=$idx, annIndices=${uiState.annotations.map { it.index }}")
+                                            detailAnnotation = uiState.annotations.find { it.index == idx }
+                                        },
+                                        initialScrollLine = uiState.initialScrollLine,
+                                    )
+                                }
 
                                 // ── 渲染面板 ── 条件组合，避免拦截触摸事件
                                 if (showRender && uiState.fileType.supportsRender) {
@@ -464,24 +454,6 @@ private fun MessageState(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun TruncationBanner(loadedLines: Int, totalLines: Int) {
-    Surface(
-        color = MaterialTheme.colorScheme.tertiaryContainer,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = stringResource(R.string.viewer_loading_progress, loadedLines, totalLines),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onTertiaryContainer,
-            modifier = Modifier.padding(
-                horizontal = SpacingTokens.LG.dp,
-                vertical = SpacingTokens.SM.dp
-            )
-        )
     }
 }
 

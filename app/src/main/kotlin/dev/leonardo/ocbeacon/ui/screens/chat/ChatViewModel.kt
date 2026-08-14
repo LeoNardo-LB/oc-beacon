@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -429,35 +431,42 @@ class ChatViewModel @Inject constructor(
 
         // 观察消息并更新 token 统计跟踪器。
         viewModelScope.launch {
-            messageData.messagesList.collect { messages ->
-                val assistantMessages = messages.filterIsInstance<dev.leonardo.ocbeacon.domain.model.Message.Assistant>()
-
-                val totalCost = assistantMessages.sumOf { it.cost ?: 0.0 }
-
-                val lastWithTokens = assistantMessages.lastOrNull { (it.tokens?.output ?: 0) > 0 }
-                val lastTokens = lastWithTokens?.tokens
-                val totalInputTokens = lastTokens?.input ?: 0
-                val totalOutputTokens = lastTokens?.output ?: 0
-                val totalReasoningTokens = lastTokens?.reasoning ?: 0
-                val totalCacheReadTokens = lastTokens?.cache?.read ?: 0
-                val totalCacheWriteTokens = lastTokens?.cache?.write ?: 0
-
-                val lastContextTokens = lastTokens?.let { t ->
-                    t.input + t.output + t.reasoning + t.cache.read + t.cache.write
-                } ?: 0
-
-                tokenStatsTracker.update {
-                    copy(
+            // L-18：全量扫描移出主线程（flowOn Default）+ distinctUntilChanged——
+            // 48ms 批处理下消息列表变化不必然改变 token 统计（流式 token 更新才变）；
+            // 原实现主线程每帧 filterIsInstance+sumOf+lastOrNull 全量扫描大会话（2000 条 × 20 次/s）。
+            messageData.messagesList
+                .map { messages ->
+                    val assistantMessages = messages.filterIsInstance<dev.leonardo.ocbeacon.domain.model.Message.Assistant>()
+                    val totalCost = assistantMessages.sumOf { it.cost ?: 0.0 }
+                    val lastWithTokens = assistantMessages.lastOrNull { (it.tokens?.output ?: 0) > 0 }
+                    val lastTokens = lastWithTokens?.tokens
+                    TokenStatsTracker.TokenStats(
                         totalCost = totalCost,
-                        totalInputTokens = totalInputTokens,
-                        totalOutputTokens = totalOutputTokens,
-                        totalReasoningTokens = totalReasoningTokens,
-                        totalCacheReadTokens = totalCacheReadTokens,
-                        totalCacheWriteTokens = totalCacheWriteTokens,
-                        lastContextTokens = lastContextTokens,
+                        totalInputTokens = lastTokens?.input ?: 0,
+                        totalOutputTokens = lastTokens?.output ?: 0,
+                        totalReasoningTokens = lastTokens?.reasoning ?: 0,
+                        totalCacheReadTokens = lastTokens?.cache?.read ?: 0,
+                        totalCacheWriteTokens = lastTokens?.cache?.write ?: 0,
+                        lastContextTokens = lastTokens?.let { t ->
+                            t.input + t.output + t.reasoning + t.cache.read + t.cache.write
+                        } ?: 0,
                     )
                 }
-            }
+                .distinctUntilChanged()
+                .flowOn(kotlinx.coroutines.Dispatchers.Default)
+                .collect { stats ->
+                    tokenStatsTracker.update {
+                        copy(
+                            totalCost = stats.totalCost,
+                            totalInputTokens = stats.totalInputTokens,
+                            totalOutputTokens = stats.totalOutputTokens,
+                            totalReasoningTokens = stats.totalReasoningTokens,
+                            totalCacheReadTokens = stats.totalCacheReadTokens,
+                            totalCacheWriteTokens = stats.totalCacheWriteTokens,
+                            lastContextTokens = stats.lastContextTokens,
+                        )
+                    }
+                }
         }
 
         // 从磁盘恢复草稿（异步：DataStore IO 不阻塞主线程，backlog #38 根因修复）

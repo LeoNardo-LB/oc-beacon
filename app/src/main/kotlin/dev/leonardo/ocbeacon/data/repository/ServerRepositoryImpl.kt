@@ -34,7 +34,7 @@ class ServerRepositoryImpl @Inject constructor(
 
     // ── 服务器 CRUD ──
 
-    override fun getServersFlow(): Flow<List<ServerConfig>> = dataRepo.getAllServers()
+    override fun getServersFlow(): Flow<List<ServerConfig>> = dataRepo.servers
 
     override suspend fun addServer(config: ServerConfig): Result<Unit> = runCatchingCancellable {
         dataRepo.addServer(

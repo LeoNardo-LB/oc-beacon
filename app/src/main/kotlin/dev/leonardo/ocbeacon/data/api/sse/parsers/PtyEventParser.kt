@@ -5,7 +5,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.serialization.json.*
 
-private const val TAG = "SseClient"
+private const val TAG = "PtyEventParser"
 
 /**
  * 解析 PTY 和命令事件：

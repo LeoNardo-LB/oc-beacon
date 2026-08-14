@@ -25,9 +25,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.StringWriter
-import java.text.SimpleDateFormat
+import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
-import java.util.Locale
 
 private const val TAG = "CrashLogger"
 private const val CRASH_DIR = "oc_beacon_crash"
@@ -93,13 +92,13 @@ class OpenCodeApp : Application() {
                 crashDir.mkdirs()
                 // #133（D2-L27）：毫秒级时间戳——原秒级分辨率同秒两次崩溃互相覆盖
                 // （崩溃文件名唯一性；通知/清理解析端 yyyyMMdd_HHmmss 宽松解析前缀，兼容）
-                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+                val timestamp = DateFormatters.crashFileName().format(Date())
                 val logFile = File(crashDir, "crash_${timestamp}.txt")
                 logFile.writeText(buildString {
                     append("App: ${packageName} (${BuildConfig.VERSION_NAME})\n")
                     append("Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n")
                     append("Device: ${Build.MANUFACTURER} ${Build.MODEL}\n")
-                    append("Time: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date())}\n")
+                    append("Time: ${DateFormatters.crashDetail().format(Date())}\n")
                     append("Thread: $thread\n")
                     append("Exception: ${throwable.javaClass.name}\n")
                     append("Message: ${throwable.message}\n\n")
@@ -177,7 +176,7 @@ class OpenCodeApp : Application() {
                     ?.filter { file ->
                         val name = file.name.removePrefix("crash_").removeSuffix(".txt")
                         runCatching {
-                            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(name)?.time ?: 0L
+                            DateFormatters.crashFileNameParse().parse(name)?.time ?: 0L
                         }.getOrDefault(0L) > lastNotifiedCrashTs
                     }
             }

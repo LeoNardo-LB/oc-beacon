@@ -56,15 +56,18 @@ fun ServerModelFilterScreen(
     val isAmoled = LocalAmoledMode.current
     var search by remember { mutableStateOf("") }
 
-    val normalized = search.trim().lowercase()
-    val filteredGroups = uiState.groups.mapNotNull { group ->
-        val models = group.models.filter {
-            normalized.isEmpty() ||
-                it.modelName.lowercase().contains(normalized) ||
-                it.modelId.lowercase().contains(normalized)
+    // L-15：过滤结果 remember——原实现每次重组全量重算（无 remember/derivedStateOf）
+    val filteredGroups = remember(search, uiState.groups) {
+        val normalized = search.trim().lowercase()
+        uiState.groups.mapNotNull { group ->
+            val models = group.models.filter {
+                normalized.isEmpty() ||
+                    it.modelName.lowercase().contains(normalized) ||
+                    it.modelId.lowercase().contains(normalized)
+            }
+            if (models.isEmpty()) return@mapNotNull null
+            group.copy(models = models)
         }
-        if (models.isEmpty()) return@mapNotNull null
-        group.copy(models = models)
     }
 
     Scaffold(

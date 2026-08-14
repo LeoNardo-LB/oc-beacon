@@ -37,6 +37,9 @@ import dev.leonardo.ocbeacon.ui.theme.DiffAdded
 import dev.leonardo.ocbeacon.ui.theme.DiffRemoved
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
+/** index 元数据行格式（L-13 预编译）：`index abc123..def456` 或带 mode 后缀。 */
+private val INDEX_LINE_REGEX = Regex("^index [0-9a-f]+\\.\\.[0-9a-f]+( \\d+)?$")
+
 /**
  * 渲染 unified diff [FileViewerUiState.diff] 补丁，带可选的 hunk 导航。
  *
@@ -116,7 +119,7 @@ private fun filterPatchLines(patch: String): Pair<List<String>, IntArray> {
 private fun isPatchMetadataLine(line: String): Boolean {
     if (line.startsWith("@@")) return true
     if (line.startsWith("diff --git ")) return true
-    if (line.startsWith("index ") && line.matches(Regex("^index [0-9a-f]+\\.\\.[0-9a-f]+( \\d+)?$"))) return true
+    if (line.startsWith("index ") && INDEX_LINE_REGEX.matches(line)) return true
     if (line.startsWith("--- ") || line.startsWith("+++ ")) return true
     if (line.startsWith("new file mode ") || line.startsWith("deleted file mode ")) return true
     if (line.startsWith("old mode ") || line.startsWith("new mode ")) return true

@@ -2,7 +2,6 @@ package dev.leonardo.ocbeacon.ui.screens.server
 
 import dev.leonardo.ocbeacon.logging.AppLogger
 
-import android.content.ClipData
 import android.widget.Toast
 import dev.leonardo.ocbeacon.BuildConfig
 import androidx.compose.foundation.BorderStroke
@@ -48,7 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -66,6 +64,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
@@ -314,7 +313,7 @@ fun ServerProvidersScreen(
                                 .fillMaxWidth()
                                 .clickable {
                                     clipScope.launch {
-                                        clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("device_code", deviceCode)))
+                                        clipboard.copyToClipboard("device_code", deviceCode)
                                     }
                                     Toast.makeText(
                                         context,

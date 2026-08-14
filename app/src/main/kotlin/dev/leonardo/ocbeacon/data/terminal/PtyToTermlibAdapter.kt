@@ -6,6 +6,7 @@ import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,6 +52,27 @@ class PtyToTermlibAdapter(
     private val lock = Any()
     private var socket: PtySocket? = null
     private var readerJob: Job? = null
+    // #116（D2-20）：单发送 actor——fire-and-forget launch 并发 send 会乱序
+    //（快速键盘输入/多线程回调）；Channel 单消费者协程保证发送顺序
+    // 生命周期：bind 启动 / release 停止（重连时重启）——不在构造时启动
+    //（测试 scope 下无限循环协程会导致 UncompletedCoroutinesError）
+    private val sendChannel = Channel<String>(Channel.BUFFERED)
+    private var senderJob: Job? = null
+
+    private fun startSender() {
+        if (senderJob?.isActive == true) return
+        senderJob = scope.launch {
+            for (text in sendChannel) {
+                val target = synchronized(lock) { socket } ?: continue
+                try {
+                    target.send(text)
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    AppLogger.e(TAG, "failed to send to pty socket", e)
+                }
+            }
+        }
+    }
 
     private val _version = MutableStateFlow(0L)
     val version: StateFlow<Long> = _version.asStateFlow()
@@ -79,6 +101,7 @@ class PtyToTermlibAdapter(
         }
         priorJob?.cancel()
         if (socket == null) return
+        startSender()
 
         val job = scope.launch {
             try {
@@ -104,16 +127,8 @@ class PtyToTermlibAdapter(
      * TerminalEmulatorFactory.create(onKeyboardInput = ...) 内部调用。
      */
     fun dispatchKeyboardOutput(bytes: ByteArray) {
-        val target = synchronized(lock) { socket } ?: return
-        val text = bytes.toString(Charsets.UTF_8)
-        scope.launch {
-            try {
-                target.send(text)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                AppLogger.e(TAG, "failed to send keyboard output", e)
-            }
-        }
+        // #116（D2-20）：入队发送 actor（串行保序；原 fire-and-forget 并发乱序）
+        sendChannel.trySend(bytes.toString(Charsets.UTF_8))
     }
 
     /**
@@ -121,15 +136,8 @@ class PtyToTermlibAdapter(
      * 已产生 ANSI 转义序列的 Ctrl-C / clear / Fn 键工具栏操作。
      */
     fun sendInput(text: String) {
-        val target = synchronized(lock) { socket } ?: return
-        scope.launch {
-            try {
-                target.send(text)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                AppLogger.e(TAG, "failed to send input", e)
-            }
-        }
+        // #116（D2-20）：入队发送 actor（串行保序）
+        sendChannel.trySend(text)
     }
 
     /**
@@ -167,6 +175,9 @@ class PtyToTermlibAdapter(
             j to s
         }
         priorJob?.cancel()
+        // #116（D2-20）：停止发送 actor；bind 重连时 startSender 重启
+        senderJob?.cancel()
+        senderJob = null
         if (priorSocket != null) {
             scope.launch {
                 try { priorSocket.close() } catch (e: Exception) { AppLogger.w(TAG, "priorSocket.close failed: ${e.message}", e) }

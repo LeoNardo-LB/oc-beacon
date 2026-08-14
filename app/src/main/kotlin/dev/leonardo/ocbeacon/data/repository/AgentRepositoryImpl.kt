@@ -22,10 +22,6 @@ class AgentRepositoryImpl @Inject constructor(
         systemApi.listAgents(conn).map { it.toDomain() }
     }
 
-    override suspend fun switchAgent(serverId: String, sessionId: String, agentId: String): Result<Unit> {
-        return Result.failure(UnsupportedOperationException("switchAgent not yet supported by API"))
-    }
-
     override suspend fun loadCommands(serverId: String): Result<List<CommandInfo>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         systemApi.listCommands(conn).map { it.toDomain() }

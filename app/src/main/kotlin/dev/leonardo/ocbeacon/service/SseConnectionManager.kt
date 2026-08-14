@@ -232,13 +232,6 @@ class SseConnectionManager @Inject constructor(
         return connections[serverId]?.conn
     }
 
-    /**
-     * 取消内部协程作用域。在服务销毁时调用。
-     */
-    fun cancelScope() {
-        scope.cancel()
-    }
-
     // ============ 带自动重连的 SSE 连接 ============
 
     private fun startSseConnection(

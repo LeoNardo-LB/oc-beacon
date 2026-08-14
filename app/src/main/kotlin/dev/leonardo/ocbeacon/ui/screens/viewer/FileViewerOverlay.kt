@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
-import android.content.ClipData
 import android.widget.Toast
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -12,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -25,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dagger.hilt.android.EntryPointAccessors
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.util.copyToClipboard
 import kotlinx.coroutines.launch
 
 @Composable
@@ -85,7 +84,7 @@ private fun FileViewerDialogContent(
             onPrevHunk = viewModel::prevHunk,
             onCopyAllContent = {
                 scope.launch {
-                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("content", uiState.content)))
+                    clipboard.copyToClipboard("content", uiState.content)
                     snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard))
                 }
             },

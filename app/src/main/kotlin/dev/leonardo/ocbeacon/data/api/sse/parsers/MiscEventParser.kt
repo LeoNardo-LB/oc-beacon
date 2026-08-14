@@ -5,7 +5,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.serialization.json.*
 
-private const val TAG = "SseClient"
+private const val TAG = "MiscEventParser"
 
 /**
  * 解析不属于其他类别的杂项事件：

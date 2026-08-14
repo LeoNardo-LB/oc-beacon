@@ -21,7 +21,7 @@ import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.Session
-import java.text.SimpleDateFormat
+import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.*
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
@@ -41,7 +41,7 @@ internal fun ShareTargetPickerDialog(
     onNewSession: (server: ServerConfig) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
+    val dateFormat = remember { DateFormatters.monthDayTime() }
 
     // 构建 (server, session) 配对列表，按会话最近更新时间排序
     data class PickerItem(val server: ServerConfig, val session: Session)

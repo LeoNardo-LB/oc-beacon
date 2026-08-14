@@ -68,6 +68,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogEntry
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository
 import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
@@ -75,11 +76,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.text.SimpleDateFormat
+import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
-import java.util.Locale
 
 private val LEVELS = listOf("ERROR", "WARN", "INFO", "DEBUG")
+
+/**
+ * 日志条目的内容派生稳定键（L-11）——队列头淘汰/过滤变化时存留条目 key 保持稳定，
+ * 避免原 timestamp_index 拼接导致全表 key 失效 → 全量重组合 + 滚动跳动。
+ * timestamp 非唯一（同一毫秒多条日志），叠加 category + message hash 保证唯一性。
+ */
+private fun logEntryKey(entry: DiagnosticLogEntry): String =
+    "${entry.timestamp}_${entry.category}_${entry.message.hashCode()}"
 
 @Composable
 private fun levelColor(level: String): Color = when (level) {
@@ -185,9 +193,7 @@ fun DiagnosticsScreen(
                                 onClick = {
                                     scope.launch {
                                         val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
-                                        clipboard?.setPrimaryClip(
-                                            android.content.ClipData.newPlainText("diagnostics", exportText()),
-                                        )
+                                        clipboard?.copyToClipboard("diagnostics", exportText())
                                     }
                                     showActionsMenu = false
                                 },
@@ -301,14 +307,13 @@ fun DiagnosticsScreen(
                     )
                 }
             } else {
-                val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.getDefault()) }
+                val dateFormat = remember { DateFormatters.diagnostics() }
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    // timestamp 不是唯一键：同一毫秒内可能有多条日志（崩溃捕获、
-                    // 连续错误写入），直接用 timestamp 作 key 会导致
-                    // "Key was already used" 崩溃。追加 index 保证唯一，
-                    // 新日志追加在列表尾部时已有项 key 保持稳定。
-                    itemsIndexed(filteredEntries, key = { index, entry -> "${entry.timestamp}_$index" }) { index, entry ->
-                        val entryKey = "${entry.timestamp}_$index"
+                    // L-11：内容派生稳定键（timestamp+category+message hash）。
+                    // timestamp 非唯一（同一毫秒多条日志），叠加内容字段保证唯一；
+                    // 队列头淘汰时存留条目 key 不变（原 timestamp_index 拼接全表失效）。
+                    itemsIndexed(filteredEntries, key = { _, entry -> logEntryKey(entry) }) { index, entry ->
+                        val entryKey = logEntryKey(entry)
                         DiagnosticLogItem(
                             entry = entry,
                             timeLabel = dateFormat.format(Date(entry.timestamp)),

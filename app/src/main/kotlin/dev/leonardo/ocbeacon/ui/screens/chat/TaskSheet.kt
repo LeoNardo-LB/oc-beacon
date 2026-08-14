@@ -60,9 +60,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
-import java.text.SimpleDateFormat
+import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
-import java.util.Locale
 
 /**
  * 任务面板——ModalBottomSheet（上拉）+ TabRow（Subagents / Shells 双 tab）。
@@ -275,7 +274,7 @@ fun TaskSheet(
                                             }
                                             sub.startedAt?.let { ms ->
                                                 Text(
-                                                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms)),
+                                                    text = DateFormatters.timeOnly().format(Date(ms)),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                                 )
@@ -344,7 +343,7 @@ fun TaskSheet(
                                             }
                                             shell.startedAt?.let { ms ->
                                                 Text(
-                                                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms)),
+                                                    text = DateFormatters.timeOnly().format(Date(ms)),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                                 )

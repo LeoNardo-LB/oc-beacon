@@ -87,6 +87,9 @@ fun PdfViewer(
                 stopLoading()
                 loadUrl("about:blank")
                 clearHistory()
+                // L-6：先移除 JS 桥再销毁（与 CodeWebView 一致——addJavascriptInterface
+                // 的对象由 WebView 强引用，不移除则泄漏到 JavaBridge 线程）。
+                removeJavascriptInterface("PdfViewerInterface")
                 (parent as? android.view.ViewGroup)?.removeView(this)
                 destroy()
             }

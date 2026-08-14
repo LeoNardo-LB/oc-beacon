@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -38,7 +39,22 @@ class UnreadBadgeService @Inject constructor(
     private val _lastCompletedReplyTime = MutableStateFlow<Map<String, Long>>(emptyMap())
     val lastCompletedReplyTime: StateFlow<Map<String, Long>> = _lastCompletedReplyTime
 
-    private var persistJob: Job? = null
+    // L-3：合并写通道——单消费者 + 写前取最新快照，不取消进行中的写
+    //（原 persistAsync 每次 cancel 上一个 DataStore 写；突发写请求经 CONFLATED 合并为最新一次）。
+    private val persistChannel = Channel<Unit>(capacity = Channel.CONFLATED)
+
+    /** 单消费者协程（声明先于 init：属性初始化按声明顺序执行，后声明会被 init 前的初始值覆盖）。 */
+    private var persistChannelConsumer: Job? = null
+
+    init {
+        persistChannelConsumer = scope.launch {
+            for (msg in persistChannel) {
+                val snapshot = _lastCompletedReplyTime.value
+                runCatchingCancellable { settingsDataStore.saveLastCompletedReplyTimes(snapshot) }
+                    .onFailure { e -> AppLogger.e(TAG, "persist failed (seed will recover on next start)", e) }
+            }
+        }
+    }
 
     /** SSE MessageUpdated(completed!=null) 增量：max 合并 + 异步落盘。 */
     fun onMessageCompleted(sessionId: String, completed: Long) {
@@ -99,12 +115,8 @@ class UnreadBadgeService @Inject constructor(
      * 把当前内存红点值落盘（无新值产生，仅触发已有值的持久化）。
      */
     fun persistAsync(): Boolean {
-        persistJob?.cancel()
-        persistJob = scope.launch {
-            val snapshot = _lastCompletedReplyTime.value
-            runCatchingCancellable { settingsDataStore.saveLastCompletedReplyTimes(snapshot) }
-                .onFailure { e -> AppLogger.e(TAG, "persist failed (seed will recover on next start)", e) }
-        }
+        // L-3：入队（CONFLATED 天然合并突发写）——不再取消进行中的写。
+        persistChannel.trySend(Unit)
         return true
     }
 

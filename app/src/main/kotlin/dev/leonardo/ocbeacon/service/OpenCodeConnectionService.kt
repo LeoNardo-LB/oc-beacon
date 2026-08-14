@@ -33,9 +33,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import java.util.Locale
 import javax.inject.Inject
-import dev.leonardo.ocbeacon.util.parseLocale
+import dev.leonardo.ocbeacon.util.applyAppLanguage
 
 private const val TAG = "OpenCodeService"
 private const val WAKELOCK_TAG = "OpenCodeRemote::SSEConnection"
@@ -65,16 +64,8 @@ private const val FGS_TIMEOUT_RESTART_DELAY_MS = 2_000L
 class OpenCodeConnectionService : Service() {
 
     override fun attachBaseContext(newBase: Context) {
-        val languageCode = SettingsDataStore.getStoredLanguage(newBase)
-        if (languageCode.isNotEmpty()) {
-            val locale = parseLocale(languageCode)
-            Locale.setDefault(locale)
-            val config = newBase.resources.configuration
-            config.setLocale(locale)
-            super.attachBaseContext(newBase.createConfigurationContext(config))
-        } else {
-            super.attachBaseContext(newBase)
-        }
+        // D2-L20：与 MainActivity 共享语言应用逻辑。
+        super.attachBaseContext(newBase.applyAppLanguage())
     }
 
     @Inject

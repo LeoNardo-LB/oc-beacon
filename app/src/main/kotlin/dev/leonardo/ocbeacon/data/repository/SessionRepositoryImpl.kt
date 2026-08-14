@@ -112,12 +112,6 @@ class SessionRepositoryImpl @Inject constructor(
         sessionApi.deleteSession(conn, sessionId)
     }
 
-    override suspend fun switchSession(sessionId: String): Result<Unit> = runCatchingCancellable {
-        // 切换是 UI/导航层面的关注点——无需服务端 API 调用。
-        // 会话数据已由 EventDispatcher 跟踪。
-        Unit
-    }
-
     override suspend fun getSession(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.getSession(conn, sessionId)

@@ -59,6 +59,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import dev.leonardo.ocbeacon.util.copyToClipboard
 import javax.inject.Inject
 
 @HiltViewModel
@@ -527,39 +528,11 @@ class SessionListViewModel @Inject constructor(
             _isLoading.value = true
             _error.value = null
             resetPagination()
-            try {
-                val projects = listProjectsUseCase(serverId).getOrThrow()
-                _projects.value = projects
-                if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${projects.size} projects for multi-project session fetch")
-
-                if (projects.isEmpty()) {
-                    val sessions = listSessionsUseCase(serverId, search = _searchQuery.value)
-                    sessionRepository.setSessions(serverId, sessions)
-                    if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions (no projects)")
-                } else {
-                    var totalSessions = 0
-                    for (project in projects) {
-                        try {
-                            val sessions = listSessionsUseCase(serverId, directory = project.worktree, search = _searchQuery.value)
-                            sessionRepository.setSessions(serverId, sessions)
-                            totalSessions += sessions.size
-                            if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions for project ${project.displayName}")
-                        } catch (e: Exception) {
-                            AppLogger.w(TAG_SESSION_LIST_VM, "Failed to load sessions for project ${project.displayName}: ${e.message}")
-                        }
-                    }
-                    if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Total: loaded $totalSessions sessions across ${projects.size} projects for server $serverId")
-                }
-                // 通过统一的 FSM 管线从服务器同步会话状态
-                //（跨项目 worktree 聚合 + 缺失即 idle + 不完整保护）。
-                sessionStateService.setServerId(serverId)
-                sessionStateService.syncFromRest(_projects.value)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to load sessions", e)
-                _error.value = e.message ?: "Failed to load sessions"
-            } finally {
-                if (_expandedPaths.value.isEmpty()) {
+            val failure = fetchAllSessions()
+            if (failure != null) {
+                _error.value = failure
+            }
+            if (_expandedPaths.value.isEmpty()) {
                     // 首次加载时默认展开所有目录
                     // firstOrNull：Flow 未发射值时不抛 NoSuchElementException（曾导致协程异常泄漏到全局线程池，污染其他 TestScope）
                     val currentSessions = sessionRepository.getSessionsFlow(serverId).firstOrNull() ?: emptyList()
@@ -577,7 +550,6 @@ class SessionListViewModel @Inject constructor(
                     _expandedPaths.value = dirs
                 }
                 _isLoading.value = false
-            }
         }
     }
 
@@ -586,33 +558,50 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             _error.value = null
-            try {
-                val projects = listProjectsUseCase(serverId).getOrThrow()
-                _projects.value = projects
-                if (projects.isEmpty()) {
-                    val sessions = listSessionsUseCase(serverId, search = _searchQuery.value)
-                    sessionRepository.setSessions(serverId, sessions)
-                } else {
-                    for (project in projects) {
-                        try {
-                            val sessions = listSessionsUseCase(serverId, directory = project.worktree, search = _searchQuery.value)
-                            sessionRepository.setSessions(serverId, sessions)
-                        } catch (e: Exception) {
-                            AppLogger.w(TAG_SESSION_LIST_VM, "Failed to refresh sessions for project ${project.displayName}: ${e.message}")
-                        }
-                    }
-                }
-                // 通过统一的 FSM 管线从服务器同步会话状态。
-                sessionStateService.setServerId(serverId)
-                sessionStateService.syncFromRest(_projects.value)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                AppLogger.e(TAG_SESSION_LIST_VM, "Failed to refresh sessions", e)
-                _error.value = e.message ?: "Failed to refresh sessions"
-            } finally {
-                _isRefreshing.value = false
+            val failure = fetchAllSessions()
+            if (failure != null) {
+                _error.value = failure
             }
+            _isRefreshing.value = false
         }
+    }
+
+    /**
+     * 拉取所有项目的会话并同步 FSM 状态（D2-L21：loadSessions/refreshSessions 共享）。
+     * @return 失败时的错误信息（成功为 null）。
+     */
+    private suspend fun fetchAllSessions(): String? = try {
+        val projects = listProjectsUseCase(serverId).getOrThrow()
+        _projects.value = projects
+        if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${projects.size} projects for multi-project session fetch")
+
+        if (projects.isEmpty()) {
+            val sessions = listSessionsUseCase(serverId, search = _searchQuery.value)
+            sessionRepository.setSessions(serverId, sessions)
+            if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions (no projects)")
+        } else {
+            var totalSessions = 0
+            for (project in projects) {
+                try {
+                    val sessions = listSessionsUseCase(serverId, directory = project.worktree, search = _searchQuery.value)
+                    sessionRepository.setSessions(serverId, sessions)
+                    totalSessions += sessions.size
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions for project ${project.displayName}")
+                } catch (e: Exception) {
+                    AppLogger.w(TAG_SESSION_LIST_VM, "Failed to load sessions for project ${project.displayName}: ${e.message}")
+                }
+            }
+            if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Total: loaded $totalSessions sessions across ${projects.size} projects for server $serverId")
+        }
+        // 通过统一的 FSM 管线从服务器同步会话状态
+        //（跨项目 worktree 聚合 + 缺失即 idle + 不完整保护）。
+        sessionStateService.setServerId(serverId)
+        sessionStateService.syncFromRest(_projects.value)
+        null
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        AppLogger.e(TAG_SESSION_LIST_VM, "Failed to load sessions", e)
+        e.message ?: "Failed to load sessions"
     }
 
     fun resetPagination() {
@@ -712,7 +701,7 @@ class SessionListViewModel @Inject constructor(
 
     fun copyToClipboard(text: String, context: Context) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("label", text))
+        clipboard.copyToClipboard("label", text)
     }
 
     // ============ 批量选择 ============

@@ -30,9 +30,8 @@ import dev.leonardo.ocbeacon.ui.theme.ChatDensity
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
-import java.text.SimpleDateFormat
+import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
-import java.util.Locale
 
 /**
  * 统一消息气泡容器（2026-08-12 用户要求：标签栏/正文栏/统计栏样式强一致）。
@@ -84,7 +83,7 @@ internal fun MessageBubble(
             ) {
                 // ① 标签栏（统一）：[时间] [前导图标?] [类型标签] [Spacer] [右侧操作]
                 val timeText = remember(timeMs) {
-                    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMs))
+                    DateFormatters.timeOnly().format(Date(timeMs))
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
