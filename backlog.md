@@ -926,7 +926,7 @@ efactor
   - 工时：~1d | 难度：中 | 涉及：SessionListViewModel/SessionListStateBuilder
   - 优先级：P2
 
-- [ ] **#101 FileViewer/RenderWebView 性能批次（M-12+M-14，审计 Medium 性能）** `performance`
+- [x] **#101 FileViewer/RenderWebView 性能批次（M-12+M-14，审计 Medium 性能）** `performance`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3 M-12/M-14
   - ✅ **2026-08-13 代码验证确认**：FileViewerViewModel:45,167-178 整文件驻留 + 逐字符重扫 + AnnotationManager:17 额外拷贝 + PDF Base64；RenderWebView:91-98 update 无条件重载无 last* 比较（Agent 复核）
   - 问题：FileViewerViewModel 大文件整读多份拷贝 + 分页 O(k·n) 逐字符重扫（20 万行翻 10 页 = 10 次全扫）+ \r\n 归一化拷贝 + PDF Base64 整段塞 JS；RenderWebView update 每次重组无条件 loadDataWithBaseURL 整文档重载（丢滚动位置/图片重解码）

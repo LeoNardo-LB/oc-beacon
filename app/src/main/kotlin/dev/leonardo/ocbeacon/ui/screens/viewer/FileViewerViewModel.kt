@@ -138,6 +138,7 @@ class FileViewerViewModel @AssistedInject constructor(
                             return@launch
                         }
                         fullContentCache = c.content
+                        resetSlice()
                         val totalLines = if (c.content.isEmpty()) 0
                                          else c.content.count { it == '\n' } + if (c.content.endsWith('\n')) 0 else 1
                         val extremelyLarge = totalLines > EXTREMELY_LARGE_THRESHOLD
@@ -195,19 +196,40 @@ class FileViewerViewModel @AssistedInject constructor(
         }
     }
 
-    /** 返回 [content] 的前 [lineCount] 行（包含最后一行的尾随换行符）。 */
+    /** 上次增量切片状态（#101 M-12：避免每次 loadMoreLines 从头重扫全文件 O(k·n)）。 */
+    private var sliceLineCount = 0
+    private var sliceEndOffset = 0
+
+    /** 新文件/新内容加载前重置增量切片状态。 */
+    private fun resetSlice() {
+        sliceLineCount = 0
+        sliceEndOffset = 0
+    }
+
+    /** 返回 [content] 的前 [lineCount] 行（包含最后一行的尾随换行符）。
+     *  #101（M-12）：增量切片——从上次扫描位置继续（loadMoreLines 只扫新增行，
+     *  原实现每次从头重扫 → 20 万行翻 10 页 = 10 次全扫）。 */
     private fun takeFirstLines(content: String, lineCount: Int): String {
         if (lineCount <= 0 || content.isEmpty()) return ""
-        var seen = 0
-        val sb = StringBuilder()
-        for (i in content.indices) {
-            sb.append(content[i])
-            if (content[i] == '\n') {
-                seen++
-                if (seen >= lineCount) break
-            }
+        if (lineCount < sliceLineCount) {
+            // 倒退（新内容/新文件加载）——重置后重扫
+            sliceLineCount = 0
+            sliceEndOffset = 0
         }
-        return sb.toString()
+        var seen = sliceLineCount
+        var idx = sliceEndOffset
+        while (idx < content.length && seen < lineCount) {
+            idx = content.indexOf('\n', idx)
+            if (idx < 0) {
+                idx = content.length
+                break
+            }
+            idx++
+            seen++
+        }
+        sliceLineCount = seen
+        sliceEndOffset = idx
+        return content.substring(0, idx)
     }
 
     private fun loadGitDiff() {
@@ -403,6 +425,7 @@ class FileViewerViewModel @AssistedInject constructor(
         val first = snapshots.first()
         val last = snapshots.last()
         fullContentCache = content
+        resetSlice()
         val totalLines = if (content.isEmpty()) 0
                          else content.count { it == '\n' } + if (content.endsWith('\n')) 0 else 1
         val initialVisible = minOf(totalLines, INITIAL_PAGE_SIZE)
