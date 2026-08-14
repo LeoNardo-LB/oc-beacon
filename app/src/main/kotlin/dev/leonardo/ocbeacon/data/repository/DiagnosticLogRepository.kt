@@ -17,6 +17,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
+import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 /**
  * 持久化到本地 SQLite 数据库的单条诊断日志条目。
@@ -119,7 +120,7 @@ class DiagnosticLogRepository @Inject constructor(
         level = entity.level,
         category = entity.category,
         message = entity.message,
-        details = runCatching {
+        details = runCatchingCancellable {
             json.decodeFromString<Map<String, String>>(entity.details)
         }.getOrDefault(emptyMap()),
     )

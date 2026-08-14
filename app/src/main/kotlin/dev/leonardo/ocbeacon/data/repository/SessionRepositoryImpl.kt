@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
+import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 /**
  * [SessionRepository] 的实现。
@@ -96,7 +97,7 @@ class SessionRepositoryImpl @Inject constructor(
 
     // ============ CRUD ============
 
-    override suspend fun createSession(serverId: String, opts: CreateSessionOpts): Result<Session> = runCatching {
+    override suspend fun createSession(serverId: String, opts: CreateSessionOpts): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.createSession(
             conn = conn,
@@ -106,59 +107,59 @@ class SessionRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun deleteSession(serverId: String, sessionId: String): Result<Unit> = runCatching {
+    override suspend fun deleteSession(serverId: String, sessionId: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.deleteSession(conn, sessionId)
     }
 
-    override suspend fun switchSession(sessionId: String): Result<Unit> = runCatching {
+    override suspend fun switchSession(sessionId: String): Result<Unit> = runCatchingCancellable {
         // 切换是 UI/导航层面的关注点——无需服务端 API 调用。
         // 会话数据已由 EventDispatcher 跟踪。
         Unit
     }
 
-    override suspend fun getSession(serverId: String, sessionId: String): Result<Session> = runCatching {
+    override suspend fun getSession(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.getSession(conn, sessionId)
     }
 
     // ============ 会话生命周期 ============
 
-    override suspend fun abort(serverId: String, sessionId: String, directory: String?): Result<Unit> = runCatching {
+    override suspend fun abort(serverId: String, sessionId: String, directory: String?): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.abortSession(conn, sessionId, directory)
     }
 
-    override suspend fun rename(serverId: String, sessionId: String, title: String): Result<Unit> = runCatching {
+    override suspend fun rename(serverId: String, sessionId: String, title: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.updateSession(conn, sessionId, title)
     }
 
-    override suspend fun fork(serverId: String, sessionId: String): Result<Session> = runCatching {
+    override suspend fun fork(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.forkSession(conn, sessionId)
     }
 
     // ============ 归档 ============
 
-    override suspend fun archive(serverId: String, sessionId: String): Result<Session> = runCatching {
+    override suspend fun archive(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.updateSessionFields(conn, sessionId, mapOf("archived" to true))
     }
 
-    override suspend fun unarchive(serverId: String, sessionId: String): Result<Session> = runCatching {
+    override suspend fun unarchive(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.updateSessionFields(conn, sessionId, mapOf("archived" to false))
     }
 
     // ============ 分享 / 导出 ============
 
-    override suspend fun shareSession(serverId: String, sessionId: String): Result<Session> = runCatching {
+    override suspend fun shareSession(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.shareSession(conn, sessionId)
     }
 
-    override suspend fun unshareSession(serverId: String, sessionId: String): Result<Unit> = runCatching {
+    override suspend fun unshareSession(serverId: String, sessionId: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.unshareSession(conn, sessionId)
     }
@@ -168,7 +169,7 @@ class SessionRepositoryImpl @Inject constructor(
         sessionId: String,
         providerId: String,
         modelId: String
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.summarizeSession(conn, sessionId, providerId, modelId)
     }
@@ -178,14 +179,14 @@ class SessionRepositoryImpl @Inject constructor(
         sessionId: String,
         outputStream: OutputStream,
         onProgress: (Long) -> Unit
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.exportSessionToStream(conn, sessionId, outputStream, onProgress)
     }
 
     // ============ 导入 ============
 
-    override suspend fun importSession(serverId: String, shareUrl: String): Result<Session> = runCatching {
+    override suspend fun importSession(serverId: String, shareUrl: String): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.importSession(conn, shareUrl)
     }
@@ -196,7 +197,7 @@ class SessionRepositoryImpl @Inject constructor(
         serverId: String,
         sessionId: String,
         messageId: String
-    ): Result<Boolean> = runCatching {
+    ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.deleteMessage(conn, sessionId, messageId)
     }
@@ -206,7 +207,7 @@ class SessionRepositoryImpl @Inject constructor(
         sessionId: String,
         messageId: String,
         partIndex: Int
-    ): Result<Boolean> = runCatching {
+    ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.deleteMessagePart(conn, sessionId, messageId, partIndex)
     }
@@ -216,7 +217,7 @@ class SessionRepositoryImpl @Inject constructor(
         sessionId: String,
         limit: Int,
         before: String?,
-    ): Result<MessagePage> = runCatching {
+    ): Result<MessagePage> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages REQUEST server=$serverId sid=${sessionId.take(12)} limit=$limit before=${before?.take(16)}")
         messageApi.listMessages(conn, sessionId, limit, before).also {
@@ -228,7 +229,7 @@ class SessionRepositoryImpl @Inject constructor(
         serverId: String,
         sessionId: String,
         messageId: String,
-    ): Result<dev.leonardo.ocbeacon.domain.model.MessageWithParts> = runCatching {
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageWithParts> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.getMessage(conn, sessionId, messageId)
     }
@@ -273,7 +274,7 @@ class SessionRepositoryImpl @Inject constructor(
 
     // ============ 会话状态同步 ============
 
-    override suspend fun fetchSessionStatuses(serverId: String, directory: String?): Result<Map<String, SessionStatus>> = runCatching {
+    override suspend fun fetchSessionStatuses(serverId: String, directory: String?): Result<Map<String, SessionStatus>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         val rawStatuses = sessionApi.fetchSessionStatus(conn, directory = directory).getOrThrow()
         rawStatuses.mapValues { (_, info) ->

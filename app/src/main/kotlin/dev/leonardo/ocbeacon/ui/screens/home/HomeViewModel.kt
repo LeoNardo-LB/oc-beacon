@@ -180,6 +180,9 @@ class HomeViewModel @Inject constructor(
                             }
                         )
                     }
+                } catch (ce: CancellationException) {
+                    // 协程取消必须传播（#128 根因：吞掉取消 → 取消链 handler 异常 → 主线程崩溃）
+                    throw ce
                 } catch (e: Exception) {
                     _uiState.update { it.copy(serverSettingsReadyIds = it.serverSettingsReadyIds - serverId) }
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "Providers check failed for $serverId: ${e.message}")

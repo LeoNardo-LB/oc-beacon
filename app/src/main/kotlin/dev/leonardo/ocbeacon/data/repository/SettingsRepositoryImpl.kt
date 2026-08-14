@@ -6,6 +6,7 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
+import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 /**
  * [SettingsRepository] 的实现。
@@ -71,7 +72,7 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun runUnreadStateV2Migration() =
         dataRepo.runUnreadStateV2Migration()
 
-    override suspend fun updateSettings(settings: AppSettings): Result<Unit> = runCatching {
+    override suspend fun updateSettings(settings: AppSettings): Result<Unit> = runCatchingCancellable {
         dataRepo.setAppLanguage(settings.appLanguage)
         dataRepo.setAppTheme(settings.appTheme)
         dataRepo.setDynamicColor(settings.dynamicColor)

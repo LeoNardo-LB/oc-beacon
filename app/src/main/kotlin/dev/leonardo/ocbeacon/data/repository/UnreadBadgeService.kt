@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 private const val TAG = "UnreadBadgeService"
 
@@ -74,7 +75,7 @@ class UnreadBadgeService @Inject constructor(
      * 幂等；迁移（runUnreadStateV2Migration）必须先于本方法执行（EventDispatcher init 顺序保证）。
      */
     suspend fun seedFromStorage() {
-        val seed = runCatching { settingsDataStore.lastCompletedReplyTimes().first() }
+        val seed = runCatchingCancellable { settingsDataStore.lastCompletedReplyTimes().first() }
             .getOrDefault(emptyMap())
         AppLogger.d(TAG, "[seed] loaded ${seed.size} entries: ${seed.entries.take(3)}")
         _lastCompletedReplyTime.update { current ->
@@ -101,14 +102,14 @@ class UnreadBadgeService @Inject constructor(
         persistJob?.cancel()
         persistJob = scope.launch {
             val snapshot = _lastCompletedReplyTime.value
-            runCatching { settingsDataStore.saveLastCompletedReplyTimes(snapshot) }
+            runCatchingCancellable { settingsDataStore.saveLastCompletedReplyTimes(snapshot) }
                 .onFailure { e -> AppLogger.e(TAG, "persist failed (seed will recover on next start)", e) }
         }
         return true
     }
 
     private suspend fun persistNow() {
-        runCatching { settingsDataStore.saveLastCompletedReplyTimes(_lastCompletedReplyTime.value) }
+        runCatchingCancellable { settingsDataStore.saveLastCompletedReplyTimes(_lastCompletedReplyTime.value) }
             .onFailure { e -> AppLogger.e(TAG, "seed persist failed", e) }
     }
 }

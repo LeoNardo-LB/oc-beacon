@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 /**
  * [ChatRepository] 的实现。
@@ -175,7 +176,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     // ============ 网络操作 ============
 
-    override suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message> = runCatching {
+    override suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message> = runCatchingCancellable {
         val conn = resolveConnectionForSession(sessionId)
         val promptParts = parts.map { it.toDataPromptPart() }
         messageApi.promptAsync(conn, sessionId, promptParts)
@@ -188,7 +189,7 @@ class ChatRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun replyQuestion(questionId: String, answer: String): Result<Boolean> = runCatching {
+    override suspend fun replyQuestion(questionId: String, answer: String): Result<Boolean> = runCatchingCancellable {
         val sessionId = findSessionForQuestion(questionId)
             ?: throw IllegalStateException("Session not found for question $questionId")
         val conn = resolveConnectionForSession(sessionId)
@@ -203,7 +204,7 @@ class ChatRepositoryImpl @Inject constructor(
         agent: String?,
         variant: String?,
         directory: String?
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         val admission = messageApi.promptAsync(
             conn, sessionId, parts.map { it.toData() }, model?.toData(), agent, variant, directory
@@ -233,12 +234,12 @@ class ChatRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit> = runCatching {
+    override suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.revertSession(conn, sessionId, messageId)
     }
 
-    override suspend fun unrevertSession(serverId: String, sessionId: String): Result<Unit> = runCatching {
+    override suspend fun unrevertSession(serverId: String, sessionId: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.unrevertSession(conn, sessionId)
     }
@@ -248,19 +249,19 @@ class ChatRepositoryImpl @Inject constructor(
         permissionId: String,
         reply: String,
         directory: String?
-    ): Result<Boolean> = runCatching {
+    ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.replyToPermission(conn, permissionId, reply, directory = directory)
     }
 
     // ============ 待处理查询 ============
 
-    override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>> = runCatching {
+    override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.listPendingPermissions(conn, directory).map { it.toDomainPermissionState() }
     }
 
-    override suspend fun listPendingQuestions(serverId: String, directory: String?): Result<List<QuestionState>> = runCatching {
+    override suspend fun listPendingQuestions(serverId: String, directory: String?): Result<List<QuestionState>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.listPendingQuestions(conn, directory).map { it.toDomainQuestionState() }
     }
@@ -270,7 +271,7 @@ class ChatRepositoryImpl @Inject constructor(
         requestId: String,
         answers: List<List<String>>,
         directory: String?
-    ): Result<Boolean> = runCatching {
+    ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.replyToQuestion(conn, requestId, answers, directory)
     }
@@ -279,7 +280,7 @@ class ChatRepositoryImpl @Inject constructor(
         serverId: String,
         requestId: String,
         directory: String?
-    ): Result<Boolean> = runCatching {
+    ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         messageApi.rejectQuestion(conn, requestId, directory)
     }
@@ -292,7 +293,7 @@ class ChatRepositoryImpl @Inject constructor(
         command: String,
         arguments: String,
         directory: String?
-    ): Result<Boolean> = runCatching {
+    ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.executeCommand(conn, sessionId, command, arguments, directory)
     }
@@ -305,7 +306,7 @@ class ChatRepositoryImpl @Inject constructor(
         providerId: String?,
         modelId: String?,
         directory: String?
-    ): Result<Boolean> = runCatching {
+    ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         val model = if (providerId != null && modelId != null) {
             DataModelSelection(providerId = providerId, modelId = modelId)
@@ -314,19 +315,19 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun backgroundSession(serverId: String, sessionId: String): Result<Boolean> =
-        runCatching {
+        runCatchingCancellable {
             val conn = resolveConnection(serverId)
             sessionApi.backgroundSession(conn, sessionId)
         }
 
     override suspend fun listActiveSessions(serverId: String): Result<Map<String, ActiveSessionInfo>> =
-        runCatching {
+        runCatchingCancellable {
             val conn = resolveConnection(serverId)
             sessionApi.activeSessions(conn)
         }
 
     override suspend fun listShells(serverId: String, directory: String?): Result<List<ShellJob>> =
-        runCatching {
+        runCatchingCancellable {
             val conn = resolveConnection(serverId)
             shellApi.listShells(conn, directory)
         }
@@ -337,7 +338,7 @@ class ChatRepositoryImpl @Inject constructor(
         cursor: Long?,
         limit: Int?,
         directory: String?
-    ): Result<ShellOutput?> = runCatching {
+    ): Result<ShellOutput?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         shellApi.getShellOutput(conn, shellId, cursor, limit, directory)
     }
@@ -346,7 +347,7 @@ class ChatRepositoryImpl @Inject constructor(
         serverId: String,
         shellId: String,
         directory: String?
-    ): Result<Boolean> = runCatching {
+    ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         shellApi.removeShell(conn, shellId, directory)
     }

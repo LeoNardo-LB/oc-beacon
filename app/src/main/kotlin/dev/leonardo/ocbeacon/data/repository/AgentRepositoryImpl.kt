@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.domain.model.CommandInfo
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 @Singleton
 class AgentRepositoryImpl @Inject constructor(
@@ -16,7 +17,7 @@ class AgentRepositoryImpl @Inject constructor(
     private val serverRepo: ServerDataStore
 ) : AgentRepository {
 
-    override suspend fun listAgents(serverId: String): Result<List<AgentInfo>> = runCatching {
+    override suspend fun listAgents(serverId: String): Result<List<AgentInfo>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         systemApi.listAgents(conn).map { it.toDomain() }
     }
@@ -25,7 +26,7 @@ class AgentRepositoryImpl @Inject constructor(
         return Result.failure(UnsupportedOperationException("switchAgent not yet supported by API"))
     }
 
-    override suspend fun loadCommands(serverId: String): Result<List<CommandInfo>> = runCatching {
+    override suspend fun loadCommands(serverId: String): Result<List<CommandInfo>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         systemApi.listCommands(conn).map { it.toDomain() }
     }
@@ -36,7 +37,7 @@ class AgentRepositoryImpl @Inject constructor(
         dirs: String,
         directory: String?,
         limit: Int
-    ): Result<List<String>> = runCatching {
+    ): Result<List<String>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         fileApi.findFiles(conn, query, dirs = dirs, directory = directory, limit = limit)
     }
