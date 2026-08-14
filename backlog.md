@@ -996,6 +996,12 @@ efactor
   - 6. **CI 门禁**：Android Lint 已默认启用但未配置 failOnError；Compose compiler 稳定性报告（-P composeCompilerReports）防新引入 unstable 参数
   - 工时：~1d | 难度：低 | 优先级：P3
 
+- [ ] **#129 opencode 服务器僵尸 running（会话结束 drain 不释放）——App 已兜底** `sse` `session`
+  - 问题：2026-08-14 用户反馈"会话已结束但列表仍显示进行中"（网盘MCP与CLI工具调研 ses_00223cbb1ffeG2e92AziDs0e5E）——curl 实证：会话 30+ 分钟无新消息、无子会话、无后台任务，但 `/api/session/active` 持续返回 running；App L3 校验服务器也回复 Busy。**服务器端 session runner/drain 不释放**（opencode next-17403 行为）
+  - App 兜底（2026-08-14 已修复）：FSM restValidation 不再刷新 lastEventAt（校验≠会话活动）+ L3 校验僵尸判定（服务器 Busy + 3 分钟无真实 SSE 事件 → 强制 Idle）。模拟器实证：网盘MCP 259s 无事件 → 转 idle 列表恢复；真实活跃会话不误判
+  - 服务器侧待办：升级 opencode 或向上游反馈（drain 泄漏）；App 兜底已覆盖显示正确性
+  - 工时：App 侧已完成 | 难度：低（App 侧） | 涉及：SessionStateService/SessionStateFSM | 优先级：P2（已兜底）
+
 ### 2026-08-14 跨维度审计批次（audit-2026-08-13-dimensions/REPORT.md，113 条）
 
 - [x] **#108 SSE 心跳机制缺陷批次（D2-03 阻塞读挂死 + D2-05 V1 心跳不一致）** `sse` `network`
