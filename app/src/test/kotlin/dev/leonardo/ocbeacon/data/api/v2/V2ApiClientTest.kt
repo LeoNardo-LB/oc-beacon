@@ -181,16 +181,30 @@ class V2ApiClientTest {
     }
 
     @Test
-    fun `prompt posts text to V2 prompt endpoint`() = runTest {
+    fun `prompt posts text to V2 prompt endpoint and parses admission`() = runTest {
         val engine = MockEngine { request ->
             assertEquals("/api/session/sess_1/prompt", request.url.encodedPath)
             assertEquals("POST", request.method.value)
-            respond("""{"data":{"id":"pending_1","sessionID":"sess_1","timeCreated":1000,"type":"user","data":{"text":"test"},"delivery":"steer"}}""",
+            // 真实响应体（2026-08-14 curl 实证）：{data:{id, sessionID, payload:{text}, delivery}}
+            respond("""{"data":{"id":"msg_abc123","sessionID":"sess_1","timeCreated":1000,"type":"user","payload":{"text":"test message"},"delivery":"steer"}}""",
                 HttpStatusCode.OK,
                 headersOf(HttpHeaders.ContentType to listOf("application/json")))
         }
         val api = buildClient(engine)
-        assertTrue(api.prompt(v2Conn, "sess_1", "test message"))
+        val result = api.prompt(v2Conn, "sess_1", "test message")
+        assertNotNull(result)
+        assertEquals("msg_abc123", result?.id)
+        assertEquals("sess_1", result?.sessionId)
+        assertEquals("test message", result?.text)
+    }
+
+    @Test
+    fun `prompt returns null on non-success status`() = runTest {
+        val engine = MockEngine { request ->
+            respond("""{"error":"bad"}""", HttpStatusCode.BadRequest)
+        }
+        val api = buildClient(engine)
+        assertNull(api.prompt(v2Conn, "sess_1", "test"))
     }
 
     @Test

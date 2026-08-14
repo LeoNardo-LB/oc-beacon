@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
 import dev.leonardo.ocbeacon.data.api.directoryHeader
+import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
 import dev.leonardo.ocbeacon.data.dto.response.*
@@ -372,7 +373,7 @@ class V1ApiClient @Inject constructor(
         agent: String?,
         variant: String?,
         directory: String?
-    ) {
+    ): PromptAdmission? {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/prompt_async") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
@@ -387,6 +388,8 @@ class V1ApiClient @Inject constructor(
         if (!response.status.isSuccess()) {
             throw RuntimeException("prompt_async failed: ${response.status}")
         }
+        // V1 prompt_async 为 204 无响应体——无法本地播种，依赖 SSE 回显
+        return null
     }
 
     suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {

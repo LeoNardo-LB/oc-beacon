@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.api.NonJsonResponseException
 import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
 import dev.leonardo.ocbeacon.data.api.directoryHeader
+import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import dev.leonardo.ocbeacon.data.dto.request.PromptPart
@@ -452,7 +453,7 @@ class V2ApiClient @Inject constructor(
         text: String,
         directory: String? = null,
         agent: String? = null
-    ): Boolean {
+    ): PromptAdmission? {
         val bodyObj = kotlinx.serialization.json.buildJsonObject {
             put("text", kotlinx.serialization.json.JsonPrimitive(text))
             agent?.let {
@@ -469,7 +470,19 @@ class V2ApiClient @Inject constructor(
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
         }
-        return response.status.isSuccess()
+        if (!response.status.isSuccess()) return null
+        // 2026-08-14 根治：200 响应体即 Inbox 条目
+        // {"data":{"id":"msg_xxx","sessionID":"ses_xxx","timeCreated":...,"type":"user",
+        //   "payload":{"text":"..."},"delivery":"steer"}}——解析失败仅降级（SSE 兜底）
+        return runCatching {
+            val root = parseRoot(response.bodyAsText())
+            val obj = V2ResponseWrapper.unwrap(root)
+            val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return null
+            val sid = obj["sessionID"]?.jsonPrimitive?.contentOrNull ?: sessionId
+            val textValue = obj["payload"]?.jsonObject
+                ?.get("text")?.jsonPrimitive?.contentOrNull
+            PromptAdmission(id = id, sessionId = sid, text = textValue)
+        }.getOrNull()
     }
 
     /**
@@ -881,13 +894,13 @@ class V2ApiClient @Inject constructor(
         agent: String?,
         variant: String?,
         directory: String?
-    ) {
+    ): PromptAdmission? {
         val text = parts.firstOrNull { it.type == "text" }?.text
             ?: parts.joinToString { it.text ?: "" }
         if (model != null) {
             switchModel(conn, sessionId, model.providerId, model.modelId, variant)
         }
-        prompt(conn, sessionId, text, directory, agent)
+        return prompt(conn, sessionId, text, directory, agent)
     }
 
     suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {

@@ -39,7 +39,7 @@ interface MessageApi {
         agent: String? = null,
         variant: String? = null,
         directory: String? = null
-    )
+    ): PromptAdmission?
 
     /**
      * 从会话中删除一条消息。
@@ -141,10 +141,9 @@ class MessageApiImpl @Inject constructor(
         agent: String?,
         variant: String?,
         directory: String?
-    ) {
+    ): PromptAdmission? =
         if (conn.apiVersion.isV2) v2.promptAsync(conn, sessionId, parts, model, agent, variant, directory)
         else v1.promptAsync(conn, sessionId, parts, model, agent, variant, directory)
-    }
 
     override suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean =
         if (conn.apiVersion.isV2) v2.deleteMessage(conn, sessionId, messageId)

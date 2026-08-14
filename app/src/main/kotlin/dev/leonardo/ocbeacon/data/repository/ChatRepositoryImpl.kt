@@ -205,7 +205,32 @@ class ChatRepositoryImpl @Inject constructor(
         directory: String?
     ): Result<Unit> = runCatching {
         val conn = resolveConnection(serverId)
-        messageApi.promptAsync(conn, sessionId, parts.map { it.toData() }, model?.toData(), agent, variant, directory)
+        val admission = messageApi.promptAsync(
+            conn, sessionId, parts.map { it.toData() }, model?.toData(), agent, variant, directory
+        )
+        // 2026-08-14 根治（用户消息"发送后无气泡"系统性修复）：
+        // V2 prompt 响应体即 Inbox 条目（含消息 id）——立即本地播种用户消息，
+        // 不等 SSE session.inbox.enqueued 回显。SSE 到达时同 id 幂等合并
+        // （handleMessageUpdated idx>=0 替换分支）；SSE 丢失/延迟/服务器
+        // 版本事件名差异均不再导致用户消息气泡缺失。
+        // V1（prompt_async 204 无响应体）→ admission=null → 依赖 SSE 回显。
+        val text = parts.firstOrNull { it.type == "text" }?.text
+        if (admission != null && admission.id.isNotBlank()) {
+            if (BuildConfig.DEBUG) {
+                AppLogger.d("ChatRepository", "[send-seed] user message ${admission.id} (SSE 回显前本地播种)")
+            }
+            eventDispatcher.processEvent(
+                SseEvent.MessageUpdated(
+                    Message.User(
+                        id = admission.id,
+                        sessionId = admission.sessionId,
+                        time = TimeInfo(System.currentTimeMillis()),
+                        summary = Message.User.UserSummary(body = admission.text ?: text)
+                    )
+                ),
+                serverId
+            )
+        }
     }
 
     override suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit> = runCatching {

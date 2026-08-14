@@ -192,7 +192,7 @@ class ChatRepositoryImplTest {
         coEvery { serverRepo.getServer("server1") } returns ServerConfig(
             id = "server1", url = "http://localhost:4096"
         )
-        coEvery { messageApi.promptAsync(any(), "s1", any()) } returns Unit
+        coEvery { messageApi.promptAsync(any(), "s1", any()) } returns null
 
         val textPart = Part.Text(id = "", sessionId = "s1", messageId = "", text = "hello")
         val result = repo.sendMessage("s1", listOf(textPart))
