@@ -437,11 +437,17 @@ fun ChatScreen(
     val sendSuccessTick by viewModel.sendSuccessTick.collectAsStateWithLifecycle()
     LaunchedEffect(sendSuccessTick) {
         if (sendSuccessTick > 0) {
-            inputText = TextFieldValue("")
-            viewModel.clearDraft()
-            viewModel.clearConfirmedPaths()
-            viewModel.clearFileSearch()
-            attachmentHandler.clearAttachments()
+            // E8-1 修复（2026-08-14）：仅当输入框内容仍是本次已发送的文本时才清空。
+            // 发送期间用户输入的新内容会被防重复拦截（sendParts isSending 锁）——
+            // 无条件清空会静默丢失用户新输入（快速连发 A→B 时 B 丢失）。
+            // 不匹配时保留输入框（含草稿/附件），用户可再次发送。
+            if (inputText.text == viewModel.lastSentTextSnapshotForClear) {
+                inputText = TextFieldValue("")
+                viewModel.clearDraft()
+                viewModel.clearConfirmedPaths()
+                viewModel.clearFileSearch()
+                attachmentHandler.clearAttachments()
+            }
         }
     }
 

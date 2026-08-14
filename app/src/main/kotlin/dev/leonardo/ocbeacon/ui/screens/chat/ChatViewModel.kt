@@ -110,6 +110,9 @@ class ChatViewModel @Inject constructor(
     private val _sendSuccessTick = MutableStateFlow(0L)
     /** 发送成功递增信号 —— ChatScreen LaunchedEffect 监听后清空输入框。 */
     val sendSuccessTick: StateFlow<Long> = _sendSuccessTick.asStateFlow()
+    /** E8-1：最近一次成功发送的纯文本快照（输入框清空前比对，防误清新输入）。 */
+    private var lastSentTextSnapshot: String = ""
+    val lastSentTextSnapshotForClear: String get() = lastSentTextSnapshot
     private val _sendFailure = MutableStateFlow<String?>(null)
     /** 发送失败消息（非空时 ChatScreen 弹 AlertDialog）。 */
     val sendFailure: StateFlow<String?> = _sendFailure.asStateFlow()
@@ -593,7 +596,12 @@ class ChatViewModel @Inject constructor(
         selectedVariantProvider = { modelConfig.selectedVariantValue },
         errorSink = { messageData.reportError(it) },
         sendFailureSink = { _sendFailure.value = it },
-        onSendSuccess = { _sendSuccessTick.value++ },
+        onSendSuccess = { sentText ->
+            // E8-1：记录已发送文本快照——UI 清空输入框前比对，用户发送期间
+            // 输入的新内容（被防重复拦截）不会被误清。
+            lastSentTextSnapshot = sentText
+            _sendSuccessTick.value++
+        },
         draftDelegate = draftDelegate,
     )
 

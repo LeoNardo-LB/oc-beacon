@@ -50,7 +50,7 @@ internal class ChatSendDelegate(
     /** 发送失败弹窗通道（AlertDialog）——与 [errorSink]（snackbar）分离。 */
     private val sendFailureSink: (String) -> Unit,
     /** 发送成功信号（驱动输入框清空——失败时输入框消息保留，用户要求）。 */
-    private val onSendSuccess: () -> Unit,
+    private val onSendSuccess: (String) -> Unit,
     private val draftDelegate: DraftInputDelegate,
 ) {
     fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) {
@@ -102,6 +102,12 @@ internal class ChatSendDelegate(
             return
         }
         sendStateStore.setSending(true)
+        // E8-1 修复（2026-08-14）：快照本次实际发送的纯文本。发送期间用户
+        // 输入的新内容会被 isSending 拦截（防重复发送）——成功回调携带快照，
+        // 供 UI 比对：输入框仍是快照才清空，否则保留用户新输入（不静默丢失）。
+        val sentText = parts.asSequence()
+            .filter { it.type == "text" }
+            .joinToString("") { it.text ?: "" }
         scrollSignal.requestScrollToTop()
         scope.launch {
             try {
@@ -136,8 +142,9 @@ internal class ChatSendDelegate(
                 )
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
                 refreshSessionTitleDelayed(currentSessionId)
-                // 发送成功：通知 UI 清空输入框（失败时不通知——消息保留在输入框）
-                onSendSuccess()
+                // 发送成功：通知 UI 清空输入框（失败时不通知——消息保留在输入框）。
+                // 携带已发送文本快照，供 UI 判断输入框是否已被用户改写。
+                onSendSuccess(sentText)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to send message", e)

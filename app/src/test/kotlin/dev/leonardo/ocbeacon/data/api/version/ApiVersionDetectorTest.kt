@@ -19,7 +19,7 @@ import org.junit.Test
  * ApiVersionDetector 测试——验证版本探测逻辑：
  * V2 服务器 → 检测为 V2
  * V1 服务器 → 检测为 V1
- * 两者均不可达 → UNKNOWN（回退 V1）
+ * 两者均不可达 → UNKNOWN（非 V1；checkHealth 保留原 apiVersion）
  */
 class ApiVersionDetectorTest {
 
@@ -76,10 +76,11 @@ class ApiVersionDetectorTest {
         }
         val detector = buildDetector(engine)
         val result = detector.detect("http://unreachable:9999")
-        // 两端探测都失败 → 默认 V1（向后兼容）
-        // 注意：detect() 在两者均不可达时返回 V1 作为安全默认值，
-        // 而非 UNKNOWN（确保旧服务器仍能工作）
-        assertEquals(ApiVersion.V1, result.version)
+        // 2026-08-14 修复（#132 联动）：两端探测都失败 → UNKNOWN（非 V1）。
+        // 旧行为默认 V1 会让 checkHealth 把已知 V2 服务器降级为 V1 → 后续
+        // V1 路径请求打到 V2 SPA fallback → HTML 解析错误 + SSE 假死。
+        // UNKNOWN 语义：healthy=false + checkHealth 保留原 apiVersion。
+        assertEquals(ApiVersion.UNKNOWN, result.version)
     }
 
     @Test
