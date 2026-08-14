@@ -193,7 +193,10 @@ class ChatRepositoryImpl @Inject constructor(
         val sessionId = findSessionForQuestion(questionId)
             ?: throw IllegalStateException("Session not found for question $questionId")
         val conn = resolveConnectionForSession(sessionId)
-        messageApi.replyToQuestion(conn, questionId, listOf(listOf(answer)))
+        // #130：V2 form reply 需要领域问题（key/value 映射）——从 pending 状态查找。
+        val question = eventDispatcher.questions.value.values.flatten()
+            .firstOrNull { it.id == questionId }
+        messageApi.replyToQuestion(conn, questionId, listOf(listOf(answer)), question = question)
     }
 
     override suspend fun promptAsync(
@@ -273,7 +276,11 @@ class ChatRepositoryImpl @Inject constructor(
         directory: String?
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        messageApi.replyToQuestion(conn, requestId, answers, directory)
+        // #130：V2 form reply 需要领域问题（sessionId + key/value 映射）。
+        // V1 分支忽略该参数；找不到时 V2 返回 false（调用方移除卡片兜底）。
+        val question = eventDispatcher.questions.value.values.flatten()
+            .firstOrNull { it.id == requestId }
+        messageApi.replyToQuestion(conn, requestId, answers, directory, question)
     }
 
     override suspend fun rejectQuestion(
@@ -282,7 +289,10 @@ class ChatRepositoryImpl @Inject constructor(
         directory: String?
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        messageApi.rejectQuestion(conn, requestId, directory)
+        // #130：V2 form cancel 需要 sessionID（路径参数）。
+        val sessionId = eventDispatcher.questions.value.entries
+            .firstOrNull { (_, qs) -> qs.any { it.id == requestId } }?.key
+        messageApi.rejectQuestion(conn, requestId, directory, sessionId)
     }
 
     // ============ 命令执行 ============
@@ -402,8 +412,9 @@ class ChatRepositoryImpl @Inject constructor(
                 multiple = q.multiple,
                 custom = q.custom,
                 options = q.options.map { o ->
-                    QuestionState.Option(label = o.label, description = o.description)
-                }
+                    QuestionState.Option(label = o.label, description = o.description, value = o.value)
+                },
+                key = q.key
             )
         },
         tool = tool
@@ -430,8 +441,9 @@ class ChatRepositoryImpl @Inject constructor(
                 multiple = q.multiple,
                 custom = q.custom,
                 options = q.options.map { o ->
-                    QuestionState.Option(label = o.label, description = o.description)
-                }
+                    QuestionState.Option(label = o.label, description = o.description, value = o.value)
+                },
+                key = q.key
             )
         },
         tool = tool

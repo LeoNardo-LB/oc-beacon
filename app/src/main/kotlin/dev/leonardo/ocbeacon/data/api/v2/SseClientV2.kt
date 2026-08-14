@@ -361,6 +361,14 @@ class SseClientV2 @Inject constructor(
             }
         }
 
+        // #130：form 服务事件（form.created/replied/cancelled）→ 领域事件。
+        // V2 question 工具已迁移到 form 服务（2026-08-14 官方确认），
+        // 在 V2SseMapper 之前处理——form.created(kind=question) 映射为
+        // QuestionAsked（复用现有提问卡片管道），replied/cancelled 映射为
+        // QuestionReplied/QuestionRejected（复用卡片移除路径）。
+        val formMapped = V2FormMapper.map(type, props)
+        if (formMapped != null) return formMapped
+
         // V2SseMapper 优先：v2 细粒度生命周期事件 → 领域事件
         // （input.admitted / step / reasoning / text / tool 全映射）
         val mapped = V2SseMapper.map(type, props)

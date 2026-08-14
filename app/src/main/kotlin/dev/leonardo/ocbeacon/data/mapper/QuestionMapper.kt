@@ -40,7 +40,8 @@ object QuestionMapper {
             question = question,
             multiple = multiple,
             custom = custom,
-            options = options.map { SseEvent.QuestionAsked.Option(it.label, it.description) }
+            options = options.map { SseEvent.QuestionAsked.Option(it.label, it.description, it.value) },
+            key = key
         )
     }
 
@@ -48,9 +49,10 @@ object QuestionMapper {
         return QuestionInfo(
             question = question,
             header = header,
-            options = options.map { QuestionOption(it.label, it.description) },
+            options = options.map { QuestionOption(it.label, it.description, it.value) },
             multiple = multiple,
-            custom = custom
+            custom = custom,
+            key = key
         )
     }
 }

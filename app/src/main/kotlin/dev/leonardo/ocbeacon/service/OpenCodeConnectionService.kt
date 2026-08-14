@@ -479,8 +479,9 @@ class OpenCodeConnectionService : Service() {
                     multiple = q.multiple,
                     custom = q.custom,
                     options = q.options.map { o ->
-                        SseEvent.QuestionAsked.Option(label = o.label, description = o.description)
-                    }
+                        SseEvent.QuestionAsked.Option(label = o.label, description = o.description, value = o.value)
+                    },
+                    key = q.key
                 )
             },
             tool = tool

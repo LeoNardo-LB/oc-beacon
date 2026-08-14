@@ -120,13 +120,17 @@ sealed class SseEvent {
             val question: String,
             val multiple: Boolean = false,
             val custom: Boolean = true,
-            val options: List<Option>
+            val options: List<Option>,
+            /** V2 form field key（q0/q1...）；V1 为 null。用于 form reply 构造 answer map。 */
+            val key: String? = null
         )
 
         @Serializable
         data class Option(
             val label: String,
-            val description: String
+            val description: String,
+            /** V2 form option value（提交用）；V1 为 null（label 即提交值）。 */
+            val value: String? = null
         )
     }
 

@@ -5,9 +5,11 @@ import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
 import dev.leonardo.ocbeacon.data.dto.response.*
+import dev.leonardo.ocbeacon.data.api.v2.V2FormMapper
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -74,24 +76,33 @@ interface MessageApi {
 
     /**
      * 回复问题请求。
-     * POST /question/{requestID}/reply
-     * Body: { answers: string[][] }
+     * V1：POST /question/{requestID}/reply，Body: { answers: string[][] }
+     * V2（#130）：POST /api/session/{sessionID}/form/{formID}/reply，
+     *   Body: { answer: {key: value | [values]} }——form 服务路径。
+     *
+     * @param question 领域问题（V2 form 需要 sessionId + key/value 映射；
+     *   V1 忽略）。为 null 时 V2 分支返回 false（无法构造 form answer）。
      */
     suspend fun replyToQuestion(
         conn: ServerConnection,
         requestId: String,
         answers: List<List<String>>,
-        directory: String? = null
+        directory: String? = null,
+        question: SseEvent.QuestionAsked? = null
     ): Boolean
 
     /**
-     * 拒绝问题请求。
-     * POST /question/{requestID}/reject
+     * 拒绝/取消问题请求。
+     * V1：POST /question/{requestID}/reject
+     * V2（#130）：POST /api/session/{sessionID}/form/{formID}/cancel
+     *
+     * @param sessionId 表单所属会话（V2 cancel 路径需要；V1 忽略）
      */
     suspend fun rejectQuestion(
         conn: ServerConnection,
         requestId: String,
-        directory: String? = null
+        directory: String? = null,
+        sessionId: String? = null
     ): Boolean
 
     /**
@@ -171,18 +182,37 @@ class MessageApiImpl @Inject constructor(
         conn: ServerConnection,
         requestId: String,
         answers: List<List<String>>,
-        directory: String?
+        directory: String?,
+        question: SseEvent.QuestionAsked?
     ): Boolean =
-        if (conn.apiVersion.isV2) v2.replyToQuestion(conn, requestId, answers, directory)
-        else v1.replyToQuestion(conn, requestId, answers, directory)
+        if (conn.apiVersion.isV2) {
+            // #130：V2 form reply——需要 sessionId + key/value 映射。
+            // question 为 null（无法定位）时返回 false，调用方走 fallback 移除卡片。
+            val q = question ?: return false
+            v2.replyToForm(
+                conn,
+                sessionId = q.sessionId,
+                formId = requestId,
+                keyedAnswers = V2FormMapper.buildJsonAnswerMap(answers, q.questions),
+                directory = directory
+            )
+        } else {
+            v1.replyToQuestion(conn, requestId, answers, directory)
+        }
 
     override suspend fun rejectQuestion(
         conn: ServerConnection,
         requestId: String,
-        directory: String?
+        directory: String?,
+        sessionId: String?
     ): Boolean =
-        if (conn.apiVersion.isV2) v2.rejectQuestion(conn, requestId, directory)
-        else v1.rejectQuestion(conn, requestId, directory)
+        if (conn.apiVersion.isV2) {
+            // #130：V2 form cancel——需要 sessionID（路径参数）。
+            val sid = sessionId ?: return false
+            v2.rejectForm(conn, sid, requestId, directory)
+        } else {
+            v1.rejectQuestion(conn, requestId, directory)
+        }
 
     override suspend fun listPendingQuestions(conn: ServerConnection, directory: String?): List<QuestionRequest> =
         if (conn.apiVersion.isV2) v2.listPendingQuestions(conn, directory)

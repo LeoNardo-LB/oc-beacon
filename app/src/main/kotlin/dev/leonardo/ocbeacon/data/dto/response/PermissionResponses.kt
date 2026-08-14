@@ -30,11 +30,15 @@ data class QuestionInfo(
     val header: String,
     val options: List<QuestionOption>,
     val multiple: Boolean = false,
-    val custom: Boolean = true
+    val custom: Boolean = true,
+    /** V2 form field key（q0/q1...）；V1 为 null。 */
+    val key: String? = null
 )
 
 @Serializable
 data class QuestionOption(
     val label: String,
-    val description: String
+    val description: String,
+    /** V2 form option value（提交用）；V1 为 null。 */
+    val value: String? = null
 )

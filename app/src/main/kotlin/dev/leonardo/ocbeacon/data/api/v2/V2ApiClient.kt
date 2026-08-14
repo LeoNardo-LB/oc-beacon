@@ -702,23 +702,28 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun replyToQuestion(
+    /**
+     * #130：V2 question 工具已迁移到 form 服务——回复走
+     * POST /api/session/{sessionID}/form/{formID}/reply，body {answer:{key:value|[...]}}。
+     * 旧 /api/question/{id}/reply 是 stale surface（未来移除）。
+     *
+     * @param sessionId 表单所属会话（form reply 路径需要 sessionID）
+     * @param keyedAnswers 已按 form field key 构造的 answer map（由 V2FormMapper.buildJsonAnswerMap 生成）
+     */
+    suspend fun replyToForm(
         conn: ServerConnection,
-        requestId: String,
-        answers: List<List<String>>,
+        sessionId: String,
+        formId: String,
+        keyedAnswers: kotlinx.serialization.json.JsonObject,
         directory: String? = null
     ): Boolean {
-        val answersArray = kotlinx.serialization.json.JsonArray(
-            answers.map { inner ->
-                kotlinx.serialization.json.JsonArray(
-                    inner.map { kotlinx.serialization.json.JsonPrimitive(it) }
-                )
-            }
-        )
         val bodyObj = kotlinx.serialization.json.buildJsonObject {
-            put("answers", answersArray)
+            put("answer", keyedAnswers)
         }
-        val response = httpClient.post("${conn.baseUrl}/api/question/$requestId/reply") {
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "replyToForm: POST /api/session/" + sessionId + "/form/" + formId + "/reply answer=" + keyedAnswers)
+        }
+        val response = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/form/" + formId + "/reply") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
             contentType(ContentType.Application.Json)
@@ -727,12 +732,17 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun rejectQuestion(
+    /**
+     * #130：V2 取消 form——POST /api/session/{sessionID}/form/{formID}/cancel。
+     * 旧 /api/question/{id}/reject 是 stale surface。
+     */
+    suspend fun rejectForm(
         conn: ServerConnection,
-        requestId: String,
+        sessionId: String,
+        formId: String,
         directory: String? = null
     ): Boolean {
-        val response = httpClient.post("${conn.baseUrl}/api/question/$requestId/reject") {
+        val response = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/form/" + formId + "/cancel") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
         }
@@ -943,14 +953,19 @@ class V2ApiClient @Inject constructor(
         }
     }
 
+    /**
+     * #130：V2 question 工具已迁移到 form 服务——待处理表单从
+     * GET /api/form/request 读取（旧 /api/question/request 是 stale surface，
+     * 2026-08-14 实测恒返回空）。kind=question 的表单映射为 QuestionRequest DTO，
+     * 供轮询兜底/通知复用；其他 kind 的表单忽略。
+     */
     suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest> {
-        val bodyText = httpClient.get("${conn.baseUrl}/api/question/request") {
+        val bodyText = httpClient.get("${conn.baseUrl}/api/form/request") {
             conn.authHeader?.let { header("Authorization", it) }
             directoryHeader(directory)
         }.bodyAsText()
-        return V2ResponseWrapper.flexibleList(bodyText, json).map { obj ->
-            json.decodeFromJsonElement(QuestionRequest.serializer(), obj)
-        }
+        return V2ResponseWrapper.flexibleList(bodyText, json)
+            .mapNotNull { V2FormMapper.toQuestionRequest(it) }
     }
 
     // ============ System (supplementary) ============
