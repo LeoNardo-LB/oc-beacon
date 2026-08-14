@@ -31,7 +31,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
-        prettyPrint = true
+        // #97（M-6）：prettyPrint 关闭——全局 Json 被 SSE 双写（MessageStore 落盘）
+        // 共用，流式 ~20 次/s 全量编码时缩进使体积 +30-50% 且多耗编码 CPU。
+        // 需要可读 JSON 的场景（导出/调试）用局部 Json 实例。
+        prettyPrint = false
         isLenient = true
         ignoreUnknownKeys = true
         coerceInputValues = true

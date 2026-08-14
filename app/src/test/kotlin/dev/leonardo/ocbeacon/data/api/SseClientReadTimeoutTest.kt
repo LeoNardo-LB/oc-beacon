@@ -37,7 +37,7 @@ class SseClientReadTimeoutTest {
 
         val result = channel.readRawLineBytesWithTimeout(timeoutMs = 1_000)
 
-        assertEquals("hello".toByteArray().toList(), result)
+        assertTrue("hello".encodeToByteArray().contentEquals(result))
     }
 
     @Test
@@ -56,7 +56,7 @@ class SseClientReadTimeoutTest {
 
         val result = channel.readRawLineBytesWithTimeout(timeoutMs = 1_000)
 
-        assertEquals("hello".toByteArray().toList(), result)
+        assertTrue("hello".encodeToByteArray().contentEquals(result))
     }
 
     // ============ SseReadTimeoutTracker ============

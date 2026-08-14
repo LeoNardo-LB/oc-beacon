@@ -39,21 +39,26 @@ private const val MAX_SSE_EVENT_SIZE = 1_048_576
  * 并继续读取下一行——不中断 SSE 连接（2026-08-10 #63：原实现 abort
  * 整个读循环触发重连，超大 payload 批次会造成无谓断连与丢帧窗口）。
  */
-internal suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
+/**
+ * #97（H-5）：返回 ByteArray（原 List<Byte> 逐字节装箱——流式 20-60 事件/s
+ * 持续制造 KB 级装箱垃圾；ByteArrayOutputStream 内部原始字节存储，无装箱）。
+ */
+internal suspend fun ByteReadChannel.readRawLineBytes(): ByteArray? {
     while (true) {
-        val result = mutableListOf<Byte>()
+        val out = java.io.ByteArrayOutputStream(256)
+        var size = 0
         var discarded = false
         try {
             while (true) {
                 val b = readByte()
                 if (b == '\n'.code.toByte()) break
                 if (b == '\r'.code.toByte()) continue  // 兼容 CRLF
-                result.add(b)
-                if (result.size > MAX_SSE_LINE_SIZE) {
+                out.write(b.toInt())
+                if (++size > MAX_SSE_LINE_SIZE) {
                     // 单行 OOM 防护：丢弃整行（清空已收集字节，继续消费到行尾），连接不断开
                     AppLogger.w(TAG, "SSE line exceeds $MAX_SSE_LINE_SIZE bytes, discarding line")
                     discarded = true
-                    result.clear()
+                    out.reset()
                     while (true) {
                         val c = readByte()
                         if (c == '\n'.code.toByte()) break
@@ -63,16 +68,16 @@ internal suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
             }
         } catch (e: ClosedReadChannelException) {
             // 通道关闭：已收集字节作为部分行返回（原语义）；无字节则视为无更多数据
-            if (result.isEmpty()) return null
-            return result
+            if (size == 0 && out.size() == 0) return null
+            return out.toByteArray()
         } catch (e: java.io.EOFException) {
             // #108：对端 FIN 关闭时 readByte 抛 EOFException（而非
             // ClosedReadChannelException）——同样视为流结束返回 null，
             // 避免正常 EOF 被当作异常走 catch 重连路径（日志误导）。
-            if (result.isEmpty()) return null
-            return result
+            if (size == 0 && out.size() == 0) return null
+            return out.toByteArray()
         }
-        if (!discarded) return result
+        if (!discarded) return out.toByteArray()
         // 本行已丢弃：继续外层循环读取下一行
     }
 }
@@ -86,11 +91,11 @@ internal suspend fun ByteReadChannel.readRawLineBytes(): List<Byte>? {
  */
 internal suspend fun ByteReadChannel.readRawLineBytesWithTimeout(
     timeoutMs: Long = HEARTBEAT_TIMEOUT_MS
-): List<Byte>? = withTimeoutOrNull(timeoutMs) { readRawLineBytes() }
+): ByteArray? = withTimeoutOrNull(timeoutMs) { readRawLineBytes() }
 
 /**
  * 将 byte 块列表拼接为完整字节数组，然后一次性 UTF-8 解码。
- */internal fun buildStringFromBytes(chunks: List<List<Byte>>): String {
+ */internal fun buildStringFromBytes(chunks: List<ByteArray>): String {
     if (chunks.isEmpty()) return ""
     // SSE 规范：多条 data: 行必须以 \n（LF）连接。
     // 之前的实现未加分隔符直接拼接，导致多行 JSON
@@ -103,9 +108,8 @@ internal suspend fun ByteReadChannel.readRawLineBytesWithTimeout(
         if (idx > 0) {
             array[pos++] = '\n'.code.toByte()  // SSE 规范：data: 行之间以 \n 分隔
         }
-        for (b in chunk) {
-            array[pos++] = b
-        }
+        chunk.copyInto(array, pos)
+        pos += chunk.size
     }
     return array.toString(Charsets.UTF_8)
 }
@@ -118,8 +122,8 @@ internal suspend fun ByteReadChannel.readRawLineBytesWithTimeout(
  * 可见性为 internal 以支持单元测试（[maxEventSize] 参数允许测试用小限制快速验证）。
  */
 internal fun appendDataLine(
-    buffer: MutableList<List<Byte>>,
-    payload: List<Byte>,
+    buffer: MutableList<ByteArray>,
+    payload: ByteArray,
     maxEventSize: Int = MAX_SSE_EVENT_SIZE
 ) {
     val projected = buffer.sumOf { it.size } + payload.size + buffer.size // buffer.size ≈ \n 分隔符数
@@ -209,7 +213,7 @@ class SseClient @Inject constructor(
 
             val channel = response.bodyAsChannel()
             var lastHeartbeat = System.currentTimeMillis()
-            val buffer = mutableListOf<List<Byte>>()
+            val buffer = mutableListOf<ByteArray>()
             var eventCount = 0
 
             AppLogger.i(TAG, "SSE stream opened, reading events...")
@@ -256,14 +260,14 @@ class SseClient @Inject constructor(
                     val prefix = "data:".encodeToByteArray()
                     var start = 0
                     if (lineBytes.size >= prefix.size &&
-                        lineBytes.subList(0, prefix.size) == prefix.toList()) {
+                        lineBytes.copyOfRange(0, prefix.size).contentEquals(prefix)) {
                         start = prefix.size
                         if (start < lineBytes.size && lineBytes[start] == ' '.code.toByte()) {
                             start++  // 跳过 "data: " 中的空格
                         }
                     }
                     if (start < lineBytes.size) {
-                        appendDataLine(buffer, lineBytes.subList(start, lineBytes.size))
+                        appendDataLine(buffer, lineBytes.copyOfRange(start, lineBytes.size))
                     }
                 }
             }
@@ -307,7 +311,7 @@ class SseClient @Inject constructor(
 
             val channel = response.bodyAsChannel()
             var lastHeartbeat = System.currentTimeMillis()
-            val buffer = mutableListOf<List<Byte>>()
+            val buffer = mutableListOf<ByteArray>()
             var eventCount = 0
 
             while (!channel.isClosedForRead) {
@@ -345,14 +349,14 @@ class SseClient @Inject constructor(
                     val prefix = "data:".encodeToByteArray()
                     var start = 0
                     if (lineBytes.size >= prefix.size &&
-                        lineBytes.subList(0, prefix.size) == prefix.toList()) {
+                        lineBytes.copyOfRange(0, prefix.size).contentEquals(prefix)) {
                         start = prefix.size
                         if (start < lineBytes.size && lineBytes[start] == ' '.code.toByte()) {
                             start++  // 跳过 "data: " 中的空格
                         }
                     }
                     if (start < lineBytes.size) {
-                        appendDataLine(buffer, lineBytes.subList(start, lineBytes.size))
+                        appendDataLine(buffer, lineBytes.copyOfRange(start, lineBytes.size))
                     }
                 }
             }

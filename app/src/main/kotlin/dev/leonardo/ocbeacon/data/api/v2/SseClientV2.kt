@@ -176,7 +176,7 @@ class SseClientV2 @Inject constructor(
      * 空字符串表示跳过（注释行等）。
      */
     private suspend fun readSseFrame(channel: ByteReadChannel): String? {
-        val dataBuffer = mutableListOf<List<Byte>>()
+        val dataBuffer = mutableListOf<ByteArray>()
         var eventType: String? = null
 
         while (!channel.isClosedForRead) {
@@ -188,17 +188,24 @@ class SseClientV2 @Inject constructor(
                 break
             }
 
-            val line = lineBytes.toByteArray().toString(Charsets.UTF_8)
+            // #97（H-5）：readRawLineBytes 已返回 ByteArray——消除双重转换
+            val line = lineBytes.toString(Charsets.UTF_8)
 
             when {
                 line.startsWith("event:") -> {
                     eventType = line.removePrefix("event:").trim()
                 }
                 line.startsWith("data:") -> {
-                    val data = line.removePrefix("data:").let {
-                        if (it.startsWith(" ")) it.substring(1) else it
+                    // #97（H-5）：直接按字节切片（原 String→List<Byte> 双重转换）。
+                    // data: 前缀 + 可选空格在 ASCII 域内，字节级定位安全。
+                    val prefix = "data:".encodeToByteArray()
+                    var start = prefix.size
+                    if (start < lineBytes.size && lineBytes[start] == ' '.code.toByte()) {
+                        start++  // 跳过 "data: " 中的空格
                     }
-                    appendDataLine(dataBuffer, data.toByteArray().toList())
+                    if (start < lineBytes.size) {
+                        appendDataLine(dataBuffer, lineBytes.copyOfRange(start, lineBytes.size))
+                    }
                 }
                 line.startsWith("id:") -> {
                     // 事件 ID——当前不使用，忽略

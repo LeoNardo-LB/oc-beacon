@@ -32,7 +32,9 @@ class SessionNextEventParser(private val json: Json) : SseEventParser {
         return try {
             // 将 type 注入 props，使判别器能选择正确的变体
             val propsWithType = JsonObject(props + ("type" to JsonPrimitive(type)))
-            val result = json.decodeFromString<SessionNextEvent>(propsWithType.toString())
+            // #97（H-5）：decodeFromJsonElement 单遍解析（原 props.toString()
+            // 再 decodeFromString = 树→字符串→再解析 三遍，流式高频事件放大）
+            val result = json.decodeFromJsonElement<SessionNextEvent>(propsWithType)
             // 序列化器将未知类型路由到 Unknown，但不会从 "type" 填充 rawType
             if (result is SessionNextEvent.Unknown && result.rawType.isEmpty()) {
                 result.copy(rawType = type, rawJson = props.toString())

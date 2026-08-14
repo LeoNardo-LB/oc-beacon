@@ -139,9 +139,11 @@ class MessageEventHandler @Inject constructor(
         }
 
         _parts.update { current ->
-            var updated = current
+            // #97（M-15）：原实现批内每 delta 都整份 Map 拷贝（updated + (...)）——
+            // O(N×M)。改为一次 toMutableMap，批内按 messageId 聚合就地更新。
+            val updated = current.toMutableMap()
             for (entry in batch) {
-                val messageParts = updated[entry.messageId]?.toMutableList() ?: mutableListOf()
+                val messageParts = (updated[entry.messageId] ?: emptyList()).toMutableList()
                 val idx = messageParts.indexOfFirst { it.id == entry.partId }
                 if (idx >= 0) {
                     val part = messageParts[idx]
@@ -162,7 +164,7 @@ class MessageEventHandler @Inject constructor(
                         text = entry.delta
                     ))
                 }
-                updated = updated + (entry.messageId to messageParts)
+                updated[entry.messageId] = messageParts
             }
             updated
         }
