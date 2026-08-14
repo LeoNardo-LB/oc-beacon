@@ -54,18 +54,31 @@ class FileViewerViewModel @AssistedInject constructor(
         fun create(params: FileViewerParams): FileViewerViewModel
     }
 
-    private companion object {
+    internal companion object {
         const val INITIAL_PAGE_SIZE = 500
         const val PAGE_SIZE = 500
         const val EXTREMELY_LARGE_THRESHOLD = 100_000
         const val EXTREMELY_LARGE_INITIAL = 10_000
 
         // #115（D2-L23）：进程级批注暂存（key = serverId + filePath）——
-        // overlay VM 无 SavedStateRegistry，语言切换/进程重建时 VM 重建丢批注
-        private val annotationsHolder = java.util.concurrent.ConcurrentHashMap<String, List<dev.leonardo.ocbeacon.domain.model.Annotation>>()
+        // overlay VM 无 SavedStateRegistry，语言切换/进程重建时 VM 重建丢批注。
+        // 值带时间戳：仅重建窗口（RECREATE_GRACE_MS）内恢复——防陈旧批注
+        // 在"用户关闭后重新打开同一文件"或测试残留时错误恢复。
+        private const val RECREATE_GRACE_MS = 30_000L
+        private val annotationsHolder = java.util.concurrent.ConcurrentHashMap<String, AnnotationHolder>()
+
+        private data class AnnotationHolder(
+            val annotations: List<dev.leonardo.ocbeacon.domain.model.Annotation>,
+            val savedAt: Long,
+        )
 
         private fun holderKey(serverId: String, filePath: String): String =
             serverId + "\u0000" + filePath
+
+        /** 测试隔离：清空进程级暂存（测试 tearDown 调用，防跨测试残留）。 */
+        internal fun clearAnnotationsHolderForTest() {
+            annotationsHolder.clear()
+        }
     }
 
     init {
@@ -134,7 +147,11 @@ class FileViewerViewModel @AssistedInject constructor(
                         // AnnotationManager 使用完整内容，保证 loadMore 后行号正确
                         annotationManager = AnnotationManager(fullContentCache).also { manager ->
                             // #115（D2-L23）：恢复进程级暂存的批注（语言切换/重建后不丢）
-                            annotationsHolder[holderKey(serverId, filePath)]?.let { manager.restore(it) }
+                            annotationsHolder[holderKey(serverId, filePath)]?.let { h ->
+                                if (System.currentTimeMillis() - h.savedAt <= RECREATE_GRACE_MS) {
+                                    manager.restore(h.annotations)
+                                }
+                            }
                         }
                         _uiState.update {
                             it.copy(
@@ -216,7 +233,7 @@ class FileViewerViewModel @AssistedInject constructor(
         if (_uiState.value.mode != FileViewerMode.SOURCE) return
         manager.add(selectedText, startChar, endChar, note)
         val all = manager.getAll()
-        annotationsHolder[holderKey(serverId, filePath)] = all
+        annotationsHolder[holderKey(serverId, filePath)] = AnnotationHolder(all, System.currentTimeMillis())
         _uiState.update { it.copy(annotations = all) }
     }
 
@@ -224,7 +241,7 @@ class FileViewerViewModel @AssistedInject constructor(
         val manager = annotationManager ?: return
         manager.delete(id)
         val all = manager.getAll()
-        annotationsHolder[holderKey(serverId, filePath)] = all
+        annotationsHolder[holderKey(serverId, filePath)] = AnnotationHolder(all, System.currentTimeMillis())
         _uiState.update { it.copy(annotations = all) }
     }
 
@@ -232,7 +249,7 @@ class FileViewerViewModel @AssistedInject constructor(
         val manager = annotationManager ?: return
         manager.update(id, note)
         val all = manager.getAll()
-        annotationsHolder[holderKey(serverId, filePath)] = all
+        annotationsHolder[holderKey(serverId, filePath)] = AnnotationHolder(all, System.currentTimeMillis())
         _uiState.update { it.copy(annotations = all) }
     }
 
@@ -386,7 +403,11 @@ class FileViewerViewModel @AssistedInject constructor(
         val initialVisible = minOf(totalLines, INITIAL_PAGE_SIZE)
         val visible = takeFirstLines(content, initialVisible)
         annotationManager = AnnotationManager(content).also { manager ->
-            annotationsHolder[holderKey(serverId, filePath)]?.let { manager.restore(it) }
+            annotationsHolder[holderKey(serverId, filePath)]?.let { h ->
+                if (System.currentTimeMillis() - h.savedAt <= RECREATE_GRACE_MS) {
+                    manager.restore(h.annotations)
+                }
+            }
         }
         // 对于 Edit 工具：在完整文件中找到被修改的区域，滚动到那里
         val editSnippet = last.after ?: last.content ?: last.before ?: ""

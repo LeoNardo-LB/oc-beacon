@@ -140,6 +140,8 @@ class FileViewerViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        // #115（D2-L23）：清进程级批注暂存——静态状态跨测试残留会污染断言
+        FileViewerViewModel.clearAnnotationsHolderForTest()
     }
 
     // 1. LIVE 来源成功加载内容
