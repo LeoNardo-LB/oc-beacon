@@ -37,6 +37,54 @@ class MessageStore @Inject constructor(
     private val clock: () -> Long = System::currentTimeMillis,
 ) : MessageCacheRepository {
 
+    /**
+     * #97（H-6）：SSE delta 增量落盘——按 part 追加文本（O(delta) 写），
+     * 替代原每 48ms 批整条消息 JSON 编码 + 全行重写（写放大 ~20/s）。
+     * 消息骨架（元数据）由调用方随请求传入（handler 持有内存最新状态）；
+     * delta 追加到 part 行，ended 时由 [upsertMessages] 全量覆盖最终文本。
+     */
+    override suspend fun appendPartTexts(
+        sessionId: String,
+        messages: List<MessageWithParts>,
+        deltas: List<Pair<String, String>>,
+    ) = withContext(Dispatchers.IO) {
+        if (deltas.isEmpty() || messages.isEmpty()) return@withContext
+        runCatching {
+            databaseRecovery.withCorruptionRecovery {
+                // 骨架消息 upsert（幂等 REPLACE；保证 part 的 FK 依赖存在）
+                dao.upsertMessages(messages.map { m ->
+                    CachedMessageEntity(
+                        id = m.info.id,
+                        sessionId = sessionId,
+                        created = m.info.time.created,
+                        role = m.info.role,
+                        payload = json.encodeToString(m.info),
+                    )
+                })
+                deltas.forEach { (partId, delta) ->
+                    dao.appendPartText(partId, delta)
+                }
+            }
+        }.onFailure { e ->
+            AppLogger.e(TAG, "appendPartTexts failed (memory view unaffected)", e)
+        }
+    }
+
+    /** #97（H-6）：ended 覆盖最终文本（防增量与 REST 快照漂移）。 */
+    override suspend fun updatePartText(
+        sessionId: String,
+        partId: String,
+        text: String,
+    ) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                databaseRecovery.withCorruptionRecovery { dao.updatePartText(partId, text) }
+            }.onFailure { e ->
+                AppLogger.e(TAG, "updatePartText failed (memory view unaffected)", e)
+            }
+        }
+    }
+
     override suspend fun upsertMessages(
         sessionId: String,
         messages: List<MessageWithParts>,

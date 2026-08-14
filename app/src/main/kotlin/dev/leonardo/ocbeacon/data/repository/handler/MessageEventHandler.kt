@@ -94,6 +94,8 @@ class MessageEventHandler @Inject constructor(
         val store: MessageCacheRepository,
         val sessionId: String,
         val payload: List<MessageWithParts>,
+        /** #97（H-6）：非空时走增量落盘（appendPartTexts），空时全量 upsert。 */
+        val incrementalDeltas: List<Pair<String, String>> = emptyList(),
     )
 
     private val persistQueue = Channel<PersistRequest>(Channel.BUFFERED)
@@ -102,7 +104,12 @@ class MessageEventHandler @Inject constructor(
         batchScope.launch {
             for (req in persistQueue) {
                 try {
-                    req.store.upsertMessages(req.sessionId, req.payload, persistOldBeyondWindow = false)
+                    if (req.incrementalDeltas.isNotEmpty()) {
+                        // #97（H-6）：增量写——只追加 delta 文本 + 骨架消息
+                        req.store.appendPartTexts(req.sessionId, req.payload, req.incrementalDeltas)
+                    } else {
+                        req.store.upsertMessages(req.sessionId, req.payload, persistOldBeyondWindow = false)
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -169,11 +176,30 @@ class MessageEventHandler @Inject constructor(
             updated
         }
 
-        // SSE 双写：48ms 批处理已聚合——按 sessionId 分组落盘受影响的消息。
-        // 不逐 delta 写（会写放大）；批处理后一次性写。
-        val bySession = batch.groupBy { it.sessionId }
-        bySession.forEach { (sessionId, deltas) ->
-            persistSseUpdate(sessionId, deltas.map { it.messageId }.distinct())
+        // SSE 双写：#97（H-6）增量落盘——本批 delta 只追加到对应 part 行
+        //（O(delta) 写，替代原整条消息 JSON 编码 + 全行重写）。
+        // 按 (sessionId, messageId) 聚合 partId→文本（同 part 多次 delta 合并）。
+        val store = messageStore ?: return
+        val byMessage = batch.groupBy { it.sessionId to it.messageId }
+        for ((key, deltas) in byMessage) {
+            val (sessionId, messageId) = key
+            // 骨架消息：内存最新元数据（增量 upsert 保证 part FK 存在）
+            val msgs = _messages.value[sessionId]?.filter { it.id == messageId } ?: continue
+            if (msgs.isEmpty()) continue
+            // 同一 part 的多次 delta 预聚合为单次追加（写量最小化）
+            val aggregated = LinkedHashMap<String, String>()
+            for (d in deltas) {
+                aggregated[d.partId] = (aggregated[d.partId] ?: "") + d.delta
+            }
+            val payload = msgs.map { MessageWithParts(it, _parts.value[it.id] ?: emptyList()) }
+            persistQueue.trySend(
+                PersistRequest(
+                    store = store,
+                    sessionId = sessionId,
+                    payload = payload,
+                    incrementalDeltas = aggregated.toList(),
+                )
+            )
         }
     }
 

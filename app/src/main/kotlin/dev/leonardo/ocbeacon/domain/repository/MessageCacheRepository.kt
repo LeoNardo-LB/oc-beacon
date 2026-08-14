@@ -13,6 +13,21 @@ import kotlinx.coroutines.flow.Flow
  * 遵循 Clean Architecture 的依赖方向（UI → Domain ← Data）。
  */
 interface MessageCacheRepository {
+    /**
+     * #97（H-6）：SSE delta 增量落盘——流式期间按 part 追加文本（O(delta) 写），
+     * 替代原每 48ms 批全量 JSON 编码 + 整行重写（写放大）。
+     * 消息 ended 时由 [upsertMessages] 全量覆盖（最终 payload + 元数据）。
+     * @param messages 消息骨架（内存最新元数据，保证 part FK 存在）
+     * @param deltas partId → 追加文本（同一 part 的多次 delta 由调用方预聚合）
+     */
+    suspend fun appendPartTexts(
+        sessionId: String,
+        messages: List<MessageWithParts>,
+        deltas: List<Pair<String, String>>,
+    )
+
+    /** 按 partId 更新完整文本（ended 时覆盖最终文本，防增量与快照漂移）。 */
+    suspend fun updatePartText(sessionId: String, partId: String, text: String)
     suspend fun upsertMessages(
         sessionId: String,
         messages: List<MessageWithParts>,

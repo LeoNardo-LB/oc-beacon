@@ -15,6 +15,14 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertParts(entities: List<CachedPartEntity>)
 
+    /** #97（H-6）：增量追加 part 文本——流式 delta 落盘（O(delta) 写，替代全量重写）。 */
+    @Query("UPDATE cached_parts SET text = text || :delta WHERE id = :partId")
+    suspend fun appendPartText(partId: String, delta: String)
+
+    /** #97（H-6）：ended 时覆盖最终文本（防增量与 REST 快照漂移）。 */
+    @Query("UPDATE cached_parts SET text = :text WHERE id = :partId")
+    suspend fun updatePartText(partId: String, text: String)
+
     /** 分页读：最新 limit 条（无游标）。 */
     @Query(
         "SELECT * FROM cached_messages WHERE sessionId = :sessionId " +
