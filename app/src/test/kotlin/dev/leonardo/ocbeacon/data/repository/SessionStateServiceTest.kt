@@ -85,7 +85,7 @@ class SessionStateServiceTest {
         val service = newService()
         service.messageForceCompleter = forceCompleter
         service.onClientSendParts("s1")
-        service.onSseEvent(SseEvent.SessionIdle(sessionId = "s1"), "s1")
+        service.onSseEvent(SseEvent.SessionIdle(sessionId = "s1"), "s1", "server1")
         testScope.runCurrent()
         assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
         verify { forceCompleter.markIdle("s1") }

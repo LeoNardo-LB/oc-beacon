@@ -210,7 +210,11 @@ class SseConnectionManager @Inject constructor(
      * 检查指定服务器是否已连接。
      */
     fun isConnected(serverId: String): Boolean {
-        return connections[serverId]?.sseJob?.isActive == true
+        // #110（D2-13）：返回真实连接标志——sseJob.isActive 在退避/重连
+        // 期间仍为 true（重连循环活跃），但此时无活跃 SSE 流；依赖
+        // isConnected 的调用方（如 question 轮询）会误以为在线而继续
+        // 打 REST。SSE 首事件到达时置 true，流错误/结束/断开置 false。
+        return connections[serverId]?.isConnected == true
     }
 
     /**

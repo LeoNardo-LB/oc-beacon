@@ -62,6 +62,15 @@ class SessionStateService @Inject constructor(
 
     @Volatile private var currentServerId: String? = null
 
+    /**
+     * #110（D2-12）：session → 归属服务器映射。onSseEvent 时由实际投递的
+     * serverId 记录——多服务器并发时各会话的 REST 校验打到自己的服务器
+     *（原全局 currentServerId 单值被后连接者覆盖 → L3 校验打错服务器 →
+     * forceComplete 提前完结流式）。currentServerId 保留为 fallback
+     *（无归属记录的外部校验请求，如 SessionListViewModel 手动刷新）。
+     */
+    private val sessionServerOwnership = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     private var stalenessJob: Job? = null
 
     /**
@@ -142,7 +151,9 @@ class SessionStateService @Inject constructor(
     override fun onRestValidation(sessionId: String, status: SessionStatus) =
         applyTransition(sessionId, FsmEvent.RestValidation(status))
 
-    fun onSseEvent(event: SseEvent, sessionId: String) {
+    fun onSseEvent(event: SseEvent, sessionId: String, serverId: String) {
+        // #110（D2-12）：记录事件投递来源——REST 校验的服务器归属。
+        sessionServerOwnership[sessionId] = serverId
         val fsmEvent = mapSseEventToFsm(event) ?: return
         applyTransition(sessionId, fsmEvent)
     }
@@ -242,6 +253,7 @@ class SessionStateService @Inject constructor(
         _histories.update { it - sessionId }
         // 取消此会话进行中的 REST 校验（RS-012）
         activeValidations.remove(sessionId)?.cancel()
+        sessionServerOwnership.remove(sessionId)
     }
 
     override fun clearForServer(sessionIds: Set<String>) {
@@ -250,6 +262,7 @@ class SessionStateService @Inject constructor(
         // 取消已清除会话进行中的 REST 校验（RS-012）
         for (sessionId in sessionIds) {
             activeValidations.remove(sessionId)?.cancel()
+            sessionServerOwnership.remove(sessionId)
         }
     }
 
@@ -258,6 +271,7 @@ class SessionStateService @Inject constructor(
         // applyTransition 通过其自身的 CAS 写入复活已清除的状态。
         _fsmStates.update { emptyMap() }
         _histories.update { emptyMap() }
+        sessionServerOwnership.clear()
         // 取消所有进行中的 REST 校验（RS-012）
         activeValidations.values.forEach { it.cancel() }
         activeValidations.clear()
@@ -274,7 +288,9 @@ class SessionStateService @Inject constructor(
     // 状态 map 中缺失时，将其视为 Idle（服务器会从 map 中丢弃 idle 会话）。
     // 当 [directory] 为 null（未知实例）时，缺失是歧义的——跳过以避免误判 Idle。
     internal fun triggerRestValidation(sessionId: String) {
-        val sid = currentServerId ?: return
+        // #110（D2-12）：优先用会话归属服务器（SSE 投递记录）；
+        // 无归属（手动刷新等）回退全局 currentServerId。
+        val sid = sessionServerOwnership[sessionId] ?: currentServerId ?: return
         val directory = directoryResolver.resolve(sessionId)
         // RS-012 修复：对同一会话的并发校验去重。
         // 模式：launch → merge（原子替换，取消前一个）→ invokeOnCompletion（清理）。

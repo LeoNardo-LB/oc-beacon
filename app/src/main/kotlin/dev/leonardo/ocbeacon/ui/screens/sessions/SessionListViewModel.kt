@@ -116,11 +116,17 @@ class SessionListViewModel @Inject constructor(
             val conn = config?.let {
                 ServerConnection.from(it.url, it.username, it.password, it.apiVersion)
             } ?: ServerConnection.from("", "", null)
+            // #110（D2-24）：本 VM 缓存 conn 供 MCP 调用（显式传入，
+            // 避免共享单例可变 connection 被其他服务器 VM 覆盖）。
+            _mcpConn = conn
             mcpRepository.setConnection(conn)
         }
     }
 
     // ============ 内部状态 ============
+
+    /** #110（D2-24）：本 VM 的服务器连接（loadConfig 时解析，MCP 调用显式使用）。 */
+    private var _mcpConn: ServerConnection? = null
 
     private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
@@ -744,7 +750,8 @@ class SessionListViewModel @Inject constructor(
     fun loadMcpServers() {
         viewModelScope.launch {
             _mcpInitialLoading.value = true
-            mcpRepository.getMcpServers()
+            val conn = _mcpConn ?: run { _mcpInitialLoading.value = false; return@launch }
+            mcpRepository.getMcpServers(conn)
                 .onSuccess { _mcpServers.value = it }
                 .onFailure {
                     _mcpError.emit(it.message ?: "Failed to load MCP servers")
@@ -760,9 +767,10 @@ class SessionListViewModel @Inject constructor(
         _mcpLoading.value = name
 
         viewModelScope.launch {
-            mcpRepository.toggleMcpServer(name, connect)
+            val conn = _mcpConn ?: run { _mcpLoading.value = null; return@launch }
+            mcpRepository.toggleMcpServer(conn, name, connect)
                 .onSuccess {
-                    mcpRepository.getMcpServers()
+                    mcpRepository.getMcpServers(conn)
                         .onSuccess { _mcpServers.value = it }
                 }
                 .onFailure {

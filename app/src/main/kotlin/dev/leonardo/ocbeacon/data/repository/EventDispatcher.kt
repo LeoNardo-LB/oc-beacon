@@ -255,7 +255,7 @@ class EventDispatcher @Inject constructor(
         } else if (BuildConfig.DEBUG) {
             AppLogger.w(TAG, "No handler registered for ${event::class.simpleName}")
         }
-        forwardToSessionStateService(event)
+        forwardToSessionStateService(event, serverId)
 
         // 跨 handler：SessionDeleted 级联清理其他 handler
         if (event is SseEvent.SessionDeleted) {
@@ -312,10 +312,13 @@ class EventDispatcher @Inject constructor(
     /**
      * 将 SSE 事件转发给 [SessionStateService]（单一真相源）进行 FSM 处理。
      */
-    private fun forwardToSessionStateService(event: SseEvent) {
+    private fun forwardToSessionStateService(event: SseEvent, serverId: String) {
         val fsmSessionId = extractSessionId(event)
         if (fsmSessionId != null) {
-            sessionStateService.onSseEvent(event, fsmSessionId)
+            // #110（D2-12）：serverId 一并传入——SessionStateService 记录
+            // session→server 归属，REST 校验打到正确服务器（原全局
+            // currentServerId 单值被后连接服务器覆盖 → L3 误判）。
+            sessionStateService.onSseEvent(event, fsmSessionId, serverId)
         }
     }
 
