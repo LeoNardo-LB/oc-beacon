@@ -894,7 +894,7 @@ efactor
   - 工时：2-3d | 难度：中-高 | 涉及：SseClient/SseClientV2/SessionNextEventParser/MessageEventHandler/NetworkModule
   - 优先级：P1（流式体验卡顿主要嫌疑）
 
-- [ ] **#98 无界容器治理批次 2（H-7+M-1+M-7+M-13，审计 High/Medium 泄漏）** `leak` `refactor`
+- [x] **#98 无界容器治理批次 2（H-7+M-1+M-7+M-13 全完成）——已修复 4da3fe60** `leak` `refactor`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-7 + §4.3 M-1/M-7/M-13
   - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：H-7 ToolSnapshotCache:23 无上限无 TTL；M-1 pendingInputs:77 无 clear 且仅 promoted 消费；M-7 mdRegistry:395/RenderReadiness:63 无 remove（grep 0 匹配）；M-13 dirCache:43 无 LRU + loadJobs:44 无 finally remove
   - 问题（✅ Agent 代码验证确认，全部无上限/LRU/TTL）：
@@ -903,6 +903,7 @@ efactor
     3. **M-7 mdRegistry/RenderReadinessRegistry**（ChatMessageList.kt:129,395 / RenderReadiness.kt:63-67）：组合级注册表无 remove——滚出视口条目保留 MarkdownState（AST 为原文数倍）
     4. **M-13 WorkspaceViewModel dirCache/loadJobs**（:43-44）：dirCache 无 LRU（仅 refreshRoot 清）；loadJobs 完成 Job 引用永不清理
   - 方案：参照 DirectoryManager.dirCache 200 条 LRU 标杆统一治理；mdRegistry 加 DisposableEffect onDispose remove
+  - ✅ 2026-08-14 完成（4da3fe60）：ToolSnapshotCache LRU 200 + 访问同步化；pendingInputs ConcurrentHashMap + 有界 64 + 每连接清空（兼修 D2-02）；mdRegistry/RenderReadiness onDispose 注销；workspace dirCache LRU 200 + Job 完成自清理。ToolSnapshotCacheBoundedTest 2 用例
   - 工时：~2d | 难度：中 | 涉及：ToolSnapshotCache/SseClientV2/ChatMessageList/RenderReadiness/WorkspaceViewModel
   - 优先级：P1
 
@@ -1146,4 +1147,69 @@ $(echo "
   - 验证（2026-08-14 真机 PLK110 通过）：adb am start 完整参数方式（debug_url=http://192.168.110.53:4199 + username/password/name）冷启动直达 V2 会话列表（幂等复用 a7e67a30；logcat 三连证据链；错误 0）；联动修复：版本探测失败不再降级 apiVersion（V2 被降 V1 → SPA HTML 解析错误的根因）
   - 实现：commit 20017337 + f14043a7（移除内置套餐，仅参数方式）；用法见 docs/debug-channel.md
 
+# ============ 2026-08-14 审计遗漏补登（交叉验证：需求↔代码一致性） ============
 
+> 背景：精确核对 audit-2026-08-13-dimensions + memory-perf 两份报告的 161 个发现，40 项未登记。
+> 用 4 个并行 subagent 逐项读码交叉验证（+主会话抽查复核），结论：37 UNFIXED / 2 FIXED / 1 N_A。
+> 37 项 UNFIXED 按性质分 5 批；FIXED/N_A 单独记录。
+
+- [ ] **#133 审计遗漏批次 1：连接稳定性（D2-L26/L27/L40/L41，4 项 UNFIXED）** `stability`
+  - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：4/4 UNFIXED）
+  - D2-L26 OpenCodeConnectionService.kt:626 newWakeLock(PARTIAL).acquire() 无超时兜底；释放仅正常断开路径 → acquire(timeout)+周期续期
+  - D2-L27 OpenCodeApp.kt:84 崩溃日志文件名秒级分辨率，同秒两次崩溃互相覆盖 → 加纳秒/序号
+  - D2-L40 SseConnectionManager.kt:116 startConnection 裸 cancel() vs reconnectServer cancelAndJoin() 不一致 → 统一
+  - D2-L41 NetworkMonitor.kt:91 onCapabilitiesChanged 失去 VALIDATED（captive portal）时状态卡旧值 → 补非 validated 分支
+  - 工时：~0.5d | 难度：低-中 | 涉及：见各条 | 优先级：P1（连接稳定性）
+
+- [ ] **#134 审计遗漏批次 2：一致性/竞态（D2-L33/L36/L39/L54/L57/L62，6 项 UNFIXED）** `consistency`
+  - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：6/6 UNFIXED）
+  - D2-L33 WorkspaceViewModel.kt:168 prefetchGitCount 无 in-flight 保护，切面板双发 VCS status
+  - D2-L36 ServerSettingsViewModel.kt:111 init 4 路并行加载各自 rebuildUi → loading 抖动无去重
+  - D2-L39 TokenStatsTracker.kt:24 update() 裸读-改-写非 CAS（并发丢更新）
+  - D2-L54 SessionEventHandler.kt:109 locallyClearedReverts.remove 仍在 _sessions.update lambda 内（CAS 重试重复执行副作用）
+  - D2-L57 SettingsRepositoryImpl.kt:75 updateSettings 21 次独立 DataStore edit → 单一 updateAll（半套落盘风险）
+  - D2-L62 MessageEventHandler.kt:300 persistSseUpdate 分两次读 _messages/_parts 非原子快照
+  - 工时：~0.5-1d | 难度：中 | 涉及：见各条 | 优先级：P1（并发一致性）
+
+- [ ] **#135 审计遗漏批次 3：性能（D2-L42/L43/L44/L45/L46/L68，6 项 UNFIXED）** `performance`
+  - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：6/6 UNFIXED）
+  - D2-L42 AppLogger.kt:198 shouldPersist 每次日志现场构造 mapOf（流式 50-90 条/s → 每秒数百次分配）
+  - D2-L43 BashToolCard.kt:63 ANSI 正则每次重组现场编译
+  - D2-L44 MarkdownContent.kt:110,125 normalizeMarkdown 内容变化时现场编译 2 个 Regex（流式每 token）
+  - D2-L45 ReasoningBlock.kt:85 rememberInfiniteTransition 无条件运行——已完成/折叠思考卡片仍 60fps 动画帧
+  - D2-L46 MarkdownTable.kt:196 每次 measure 全部单元格 3 遍 subcompose 无缓存
+  - D2-L68 ImagePreviewDialog.kt:69 主线程 Base64 解码全量 data URL（仅加降采样未移线程）
+  - 工时：~0.5-1d | 难度：中 | 涉及：见各条 | 优先级：P2（流式/渲染性能）
+
+- [ ] **#136 审计遗漏批次 4：安全/隐私（D2-L29/L51/L53/L55/L56/L58，6 项 UNFIXED）** `security`
+  - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：6/6 UNFIXED）
+  - D2-L29 ServerProvidersScreen.kt:234 API key 输入框无 PasswordVisualTransformation（明文；ServerDialog:176 有遮蔽）
+  - D2-L51 MarkdownPreviewDialog.kt:88 performHaptic(view,true) 硬编码触觉反馈无视用户设置
+  - D2-L53 PermissionEventHandler.kt:46,59 文案 auto-approved/auto-denied 与真实语义不符 + release INFO/WARN 级别
+  - D2-L55 ChatMessageList.kt:120 硬编码服务器模板字符串匹配（服务器改文案即静默失效）
+  - D2-L56 SettingsDataStore.kt:138 SharedPreferences 与 DataStore 双写镜像无启动校验（两写间崩溃 → 语言漂移）
+  - D2-L58 UpdateRepository.kt:161 .apk.part 临时文件进程被杀残留（check/restore 前不清理）
+  - 工时：~0.5d | 难度：低-中 | 涉及：见各条 | 优先级：P1（明文凭据 + 文案误导）
+
+- [ ] **#137 审计遗漏批次 5：清理/样式（D2-L31/L32/L34/L48/L49/L50/L59/L60/L61/L63/L65/N-01/N-02，13 项 UNFIXED）** `refactor`
+  - 来源：audit-2026-08-13-dimensions + memory-perf（交叉验证 2026-08-14：13/13 UNFIXED）
+  - D2-L31 FileViewerViewModel.kt:226 nextHunk 空 hunks → 索引 -1
+  - D2-L32 NavGraph.kt:405 onNavigateToChildSession 无 launchSingleTop（同文件其余 9 处均有）
+  - D2-L34 OpenProjectDialog.kt:318 创建文件夹按钮未随 isCreatingFolder 禁用 → 双击双发
+  - D2-L48 sessions/ 目录裸 dp 145 处 vs SpacingTokens 4 处（令牌覆盖不均）
+  - D2-L49 FileTreePanel.kt:151 / PdfViewer.kt:190 硬编码 alpha 0.4f/0.9f 绕过 AlphaTokens
+  - D2-L50 ToolCardScaffold.kt:187 复制反馈 Toast vs Snackbar 双通道不统一
+  - D2-L59 SettingsDataStore.kt:506 favoriteSessionIds 读 flow 内执行 edit 写（隐蔽副作用迁移）
+  - D2-L60 FileRepositoryImpl.kt 仅 listDirectory 有 IO，其余 6 方法裸调用
+  - D2-L61 MessageStore.kt:100 runCatching 吞一切异常（约束冲突本不抛，危害面小，IO 瞬态仍需降级日志）
+  - D2-L63 OpenCodeApp.kt:156 onCreate 主线程 listFiles+解析崩溃文件名（未移 IO）
+  - D2-L65 ChatScreen.kt:516 vs 763 onViewToolLambda 重复定义（内层死代码）
+  - N-01 SessionFocusHolder.kt:44 shouldSuppress 分两次独立读非合并快照
+  - N-02 SseClient.kt:171 rawSseEventFlow 零订阅者（死代码，注释称'V2 管线消费'不实）
+  - 工时：~1d | 难度：低 | 涉及：见各条 | 优先级：P2（清理/样式，L32/L34 可提前）
+
+- [x] **#138 审计遗漏——交叉验证 FIXED/N_A 记录（D2-L35 FIXED + N-05 FIXED + D2-L37 N_A）** `docs`
+  - 2026-08-14 交叉验证结论（非新问题，编号回写）：
+  - D2-L35 FIXED：SessionListViewModel.kt:172 DataStore 写 markSessionRead 已移 viewModelScope.launch 异步（组合期调用仅内存操作，注释明确设计）
+  - N-05 FIXED：SseConnectionManager.kt:212 isConnected 已由 #110 D2-13（commit 2f0aa0cc）改为真实连接标志（弃用 sseJob.isActive）
+  - D2-L37 N_A（审计误报）：HomeViewModel.kt:265 connectToServer guard 主线程同步更新 connectingServerIds 先于 launch，同帧双击二次调用读到更新后状态提前 return——双发 testConnection 不可复现
