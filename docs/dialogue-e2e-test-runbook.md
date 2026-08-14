@@ -131,6 +131,20 @@
 
 **轮次 7 结论**：#129 C 转圈点击立即中断在真机完整闭环验证通过（用户方案 C 落地确认）。#130 服务器缺陷仍待 opencode 上游修复。
 
+### 轮次 8：2026-08-14 18:35-18:45（真机 PLK110 · V1 协议 · #126 远页草稿保留真机验证）
+
+**环境基线**：
+- 服务器：V1Real（opencode 1.18.18 · http://192.168.110.53:4096，隔离 XDG /tmp/v1run，setsid 持久启动），模型 opencode/deepseek-v4-flash-free
+- 会话：System verification check（ses_000df80f3ffewNwzwi2vjWcIKy · /tmp）
+- 触发：发送指令 → agent 调用 question 工具 asking questions=5（服务器日志确认）；App 经 GET /question 拉取渲染 5 页问题卡片（SINGLE/MULTI 混合）
+
+| 用例 | 结果 | 实际观察 | 对比期望 | 问题归属 | 备注 |
+|------|------|----------|----------|----------|------|
+| #126 远页草稿保留 | ✅ | Q1（Favorite color?）输入草稿 Q1_draft_keep_me（EditText [62,2051][1210,2224]）→ 左滑 3 次到 Q4（经过 Q2 MULTI、Q3、Q4 SINGLE Coffee）→ 右滑 3 次回 Q1 → 草稿完整保留（EditText [62,2144][1210,2292] t='Q1_draft_keep_me'）→ 提交成功 agent 继续 | 一致（完整闭环） | - | customDraft 提升到 pager 层修复在真机 fling 手势下验证通过；真机 adb swipe 可触发 HorizontalPager |
+
+**轮次 8 结论**：#126 远页草稿保留在真机 fling 场景完整验证通过（Q1→Q4→Q1 草稿保留 + 提交闭环）。V1 question 工具 5 问题广播/渲染/分页交互全链正常。
+
+
 ---
 
 ## 未达成项跟踪
@@ -138,7 +152,7 @@
 | 用例 | 轮次 | 现象 | 归属 | 根因 | 状态 |
 |------|------|------|------|------|------|
 | E7-5 问题卡片 UI 实测（#125） | 3 | question 工具 running 但 request 端点为空、无 QuestionAsked SSE | 环境（服务器 next-17403 缺陷） | 服务器 question 工具不广播 | 已登记 backlog；App 侧修复待服务器修复后复测 |
-| #126 远页草稿保留（UI 手势） | 4 | 代码修复已确认（D1）；模拟器无法触发 Compose HorizontalPager fling（adb swipe 无效） | 观测（模拟器手势） | 模拟器不支持 pager fling 手势 | 真机验证中（Q1 输草稿→滑到 Q4→滑回 Q1 草稿保留） |
+| #126 远页草稿保留（UI 手势） | 4 | 代码修复已确认（D1）；模拟器无法触发 Compose HorizontalPager fling（adb swipe 无效） | 观测（模拟器手势） | 模拟器不支持 pager fling 手势 | ✅ 轮次 8 真机验证通过（18:42 Q1→Q4→Q1 草稿保留） |
 | #129 C 转圈点击中断 | 6 | 模拟器触摸被滚动手势拦截，无法验证点击 | 观测（模拟器触摸） | 模拟器限制 | ✅ 轮次 7 真机验证通过（18:28 铁证链） |
 
 ---
