@@ -72,3 +72,48 @@ Caused by: kotlinx.coroutines.CompletionHandlerException: Exception in completio
 2. 全库搜 `invokeOnCompletion`/`invokeOnCancelling` 回调内做 flow emit/UI 操作的代码
 3. 模拟器复现（若可）
 4. 修复后验证 + beta 发版
+
+## 2026-08-14 根因定位与修复（mapping 反混淆实证）
+
+### 反混淆结果（betaRelease mapping.txt）
+
+| 混淆符号 | 源码类 | 角色 |
+|----------|--------|------|
+| ci1 | HomeViewModel | ci1.e = refreshServerSettingsAvailability（调用 Job.cancel） |
+| yh1 | HomeViewModel$loadServers$1$1（R8 合并类） | collect 回调调用 refreshServerSettingsAvailability |
+| j20 / mz | R8 lambda 合并类（classId 分派） | flow 收集链中间层 |
+| to | BaseContinuationImpl | 协程恢复 |
+
+### 崩溃链（主线程）
+
+Handler(主线程) → StateFlowImpl.collect（connectedServerIds，viewModelScope Main.immediate）
+→ collect 回调 → refreshServerSettingsAvailability
+→ serverSettingsCheckJobs.remove(id)?.cancel()  ← Job.cancel()
+→ notifyCancelling → 被取消 job 的 handler 抛异常
+→ CompletionHandlerException → 主线程崩溃
+
+### 根因
+
+被取消的 loadProviders 检查 job 正在执行 Ktor 网络请求，链路被 runCatching { } 包裹
+（数据层 117 处之一）。Kotlin 的 runCatching 捕获所有 Throwable 包括 CancellationException：
+1. job.cancel() 后 job 进入 Cancelling，但协程体不响应取消继续执行；
+2. 协程完成时 JobSupport 完成处理与取消状态竞争；
+3. 完成回调链 handler 抛异常 → CompletionHandlerException → 主线程崩溃。
+
+### 修复（根因，2026-08-14）
+
+1. 新增 util/RunCatchingCancellable.kt：CancellationException 重新抛出（取消必须传播）。
+2. 数据层全量迁移（约 80 处）：ServerRepositoryImpl/SessionRepositoryImpl/ChatRepositoryImpl
+   /AgentRepositoryImpl/McpRepositoryImpl/VcsRepositoryImpl/FileRepositoryImpl
+   /DiagnosticLogRepository/SettingsRepositoryImpl/UnreadBadgeService。
+3. HomeViewModel：catch(Exception) 前置 catch(CancellationException) rethrow。
+
+修复后：取消在挂起点立即传播 → 协程干净退出 → 完成链无 handler 异常。
+
+### 验证
+
+- compileDevDebugKotlin BUILD SUCCESSFUL
+- RunCatchingCancellableTest +2 用例通过
+- 全量单测通过
+- 待办：真机复验（时间性竞态，需连接服务器反复触发 connectedServerIds 变化）
+

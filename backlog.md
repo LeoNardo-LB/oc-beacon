@@ -96,7 +96,7 @@
   - 验证：模拟器实测——退出"opencode版本识别"会话（服务器流式中）→ 列表持续显示 Working（多次 dump 一致无闪烁）✅
   - 工时：~10min | 难度：低 | 涉及：EventDispatcher.releaseSessionData | 优先级：P0（视觉回归）
 
-- [ ] **#128 beta 真机崩溃：CompletionHandlerException（协程取消回调内抛异常）** `crash`
+- [x] **#128 beta 真机崩溃：CompletionHandlerException（协程取消回调内抛异常）** `crash`
   - 问题：2026-08-14 用户真机（OnePlus PLK110, Android 16）beta 0.3.0-beta.8 崩溃——`kotlinx.coroutines.CompletionHandlerException: Exception in completion handler InvokeOnCancelling@c520a61 for StandaloneCoroutine{Cancelling}`（主线程）；栈特征：`StateFlowImpl.collect → dropWhile → takeWhile → SafeCollector.emit`——协程取消回调链里执行 flow emit → 触发下游 cancel → 嵌套 handler 异常；R8 混淆（ci1/yh1/j20/mz）无法直接定位源码
   - 完整日志：docs/research/crash-2026-08-14-completion-handler-beta.md
   - 初步方向（低置信）：① 全库搜 invokeOnCompletion/invokeOnCancelling 回调内做 emit/UI 操作；② 会话退出/切换的取消链（#124 onCleared 清理相关）；③ MessageEventHandler batchScope/persistQueue（#57 actor）；④ 用 betaRelease mapping 反混淆
