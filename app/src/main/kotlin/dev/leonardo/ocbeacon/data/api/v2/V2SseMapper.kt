@@ -86,7 +86,8 @@ object V2SseMapper {
                     time = TimeInfo(System.currentTimeMillis()),
                     parentId = props["parentID"]?.jsonPrimitive?.contentOrNull ?: "",
                     agent = props["agent"]?.jsonPrimitive?.contentOrNull,
-                    modelId = modelIdFrom(props)
+                    modelId = modelIdFrom(props),
+                    providerId = providerIdFrom(props)
                 )
             )
         }
@@ -101,13 +102,27 @@ object V2SseMapper {
                 is kotlinx.serialization.json.JsonPrimitive -> c.contentOrNull?.toDoubleOrNull()
                 else -> null
             }
+            // 2026-08-14：解析 tokens（统计栏 token 占比圆环数据源——修复前
+            // V2 下 tokens 恒 null，统计栏无 token 展示）
+            val tokens = props["tokens"]?.jsonObject?.let { t ->
+                Message.Assistant.Tokens(
+                    input = t["input"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                    output = t["output"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                    reasoning = t["reasoning"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                    cache = Message.Assistant.Tokens.Cache(
+                        read = t["cache"]?.jsonObject?.get("read")?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                        write = t["cache"]?.jsonObject?.get("write")?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0
+                    )
+                )
+            }
             SseEvent.MessageUpdated(
                 Message.Assistant(
                     id = messageId,
                     sessionId = sessionId,
                     time = TimeInfo(System.currentTimeMillis()),
                     parentId = "",
-                    cost = cost
+                    cost = cost,
+                    tokens = tokens
                 )
             )
         }
@@ -314,17 +329,26 @@ object V2SseMapper {
     }
 
     /**
-     * 提取模型 ID（V2 model 是 Ref 对象 {providerID, modelID}，非字符串）。
+     * 提取模型 ID。契约演进（2026-08-14 抓帧实证）：
+     * - 新版（next-17403+）：model 是对象 {id, providerID, variant}——字段是 id
+     * - 旧版：model 是 Ref 对象 {providerID, modelID} 或字符串
      */
     private fun modelIdFrom(props: JsonObject): String? {
         val model = props["model"] ?: return null
         return when {
             model is kotlinx.serialization.json.JsonPrimitive -> model.contentOrNull
             model is JsonObject -> {
-                model["modelID"]?.jsonPrimitive?.contentOrNull
+                model["id"]?.jsonPrimitive?.contentOrNull
+                    ?: model["modelID"]?.jsonPrimitive?.contentOrNull
                     ?: model["model"]?.jsonPrimitive?.contentOrNull
             }
             else -> null
         }
+    }
+
+    /** 提取模型提供商 ID（新版 model 对象 {id, providerID, variant}；旧版无 → null）。 */
+    private fun providerIdFrom(props: JsonObject): String? {
+        val model = props["model"] as? kotlinx.serialization.json.JsonObject ?: return null
+        return model["providerID"]?.jsonPrimitive?.contentOrNull
     }
 }

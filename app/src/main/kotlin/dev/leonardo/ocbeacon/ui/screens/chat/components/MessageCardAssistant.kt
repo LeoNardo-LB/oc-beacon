@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
@@ -155,6 +156,17 @@ internal fun MessageCardAssistant(
                                 )
                             }
                         }
+                    }
+                    // Token 占比圆环（2026-08-14 恢复：input/output 比例——
+                    // 数据来自 step.ended 的 tokens；无数据时占位浅环）
+                    val turnTokens = assistantMsg?.tokens
+                    if (turnTokens != null && (turnTokens.input + turnTokens.output + turnTokens.reasoning) > 0) {
+                        Spacer(modifier = Modifier.width(2.dp))
+                        TokenRatioRing(
+                            inputTokens = turnTokens.input,
+                            outputTokens = turnTokens.output,
+                            reasoningTokens = turnTokens.reasoning
+                        )
                     }
                     // 耗时（流式 = 实时 ticker 子 composable；完成 = 固定）
                     if (isStreaming && startMs != null) {
