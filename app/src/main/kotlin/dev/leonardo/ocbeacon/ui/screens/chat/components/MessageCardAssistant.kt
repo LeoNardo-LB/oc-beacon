@@ -239,8 +239,15 @@ internal fun MessageCardAssistant(
                                 )
                                 // 2026-08-14：待处理提问渲染为独立提问卡片——
                                 // 位于思考卡片（ReasoningBlock）之后、气泡内；
-                                // 不嵌入推理文本内部（用户反馈"嵌入到思考过程中"是 bug）
-                                if (item.group.part is Part.Reasoning && pendingQuestion != null) {
+                                // 不嵌入推理文本内部（用户反馈"嵌入到思考过程中"是 bug）。
+                                // 2026-08-14 走查修复（#131）：V1 的 question 工具调用消息是
+                                // Part.Tool 而非 Part.Reasoning——原条件仅 Reasoning 导致
+                                // tool 消息上的问题卡片不渲染；同时 unembeddedQuestions 因
+                                // 已匹配嵌入而排除 → 卡片凭空消失 + 输入框禁用（UI 卡死）。
+                                // 放宽为 Reasoning 或 Tool（question/permission 工具调用）都渲染。
+                                if (pendingQuestion != null &&
+                                    (item.group.part is Part.Reasoning || item.group.part is Part.Tool)
+                                ) {
                                     QuestionCard(
                                         question = pendingQuestion,
                                         onSubmit = { answers ->
