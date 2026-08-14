@@ -863,23 +863,24 @@ efactor
   - 工时：~0.5d | 难度：低 | 涉及：ImagePreviewDialog/MediaUtils
   - 优先级：**P0**
 
-- [ ] **#95 消息热视图活跃会话无上限（H-4，审计 High 泄漏——#89 增量）** `leak` `data`
+- [x] **#95 消息热视图活跃会话无上限（H-4）——已修复 92418445（方案①）** `leak` `data`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-4
   - ✅ **2026-08-13 代码验证确认**：清理链路已修（#89），活跃会话热视图无 LRU 仍存在（Agent 复核）
   - 问题（✅ 部分确认）：MessageEventHandler `_messages/_parts`（@Singleton）清理链路已在 #89 修复（onCleared/SessionDeleted 清理 + clearForServer 已清 assistantMessageIds）✅；但**活跃会话期间热视图无 LRU/上限**——Room 侧有 1000 条/会话上限，内存侧没有；重连时 recoverMessages 为所有活跃会话批量拉消息；长会话单条消息（工具输出/大 diff）可达 MB 级
   - 方案：① 内存侧按会话保留最近 N 条（与 Room 1000 对齐）；② 单 Part 文本长度上限（如 512KB）截断/懒加载
-  - 工时：~1d | 难度：中 | 涉及：MessageEventHandler.kt:42-58
+  - 工时：~1d | 难度：中 | 涉及：MessageEventHandler.kt:42-58 ✅ 2026-08-14 完结（方案①：MEMORY_SESSION_MESSAGE_LIMIT=1000 与 Room 对齐；upsertMessages/handleMessageUpdated 写入路径应用上限，裁剪最旧段并同步清 parts/assistantMessageIds；未超限 O(1)；MessageEventHandlerMemoryCapTest 3 用例）
+  - 备注：方案②（单 Part 文本长度上限）未做——涉及 UI 截断展示设计，如有 MB 级工具输出需求再立项
   - 优先级：P1（长期运行 + 多活跃会话可达数百 MB）
 
-- [ ] **#96 SessionDeleted 漏清 _lastUserMessageTime/locallyClearedReverts（L-2，审计确认——#89 漏网）** `leak` `data`
+- [x] **#96 SessionDeleted 漏清 _lastUserMessageTime/locallyClearedReverts——已修复 6c29b8b6** `leak` `data`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.4 L-2
   - ✅ **2026-08-13 代码验证确认**：handleSessionDeleted:119-123 仅清 _sessions/_sessionDiffs（Agent 复核）
   - 问题（✅ **2026-08-13 Agent 代码验证确认**）：`SessionEventHandler.handleSessionDeleted`（:119-123）只清 `_sessions/_sessionDiffs`，**漏清 `_lastUserMessageTime` 与 `locallyClearedReverts`**——#89 修复的 clearForSession 只在 onCleared 调用，**服务器端 SessionDeleted 事件路径未接入** → 删除会话后条目残留
   - 方案：handleSessionDeleted 内补 `_lastUserMessageTime.update { it - sessionId }` + `locallyClearedReverts.remove(sessionId)`（或直接调 clearForSession）
-  - 工时：~0.5h | 难度：低 | 涉及：SessionEventHandler.kt:119-123
+  - 工时：~0.5h | 难度：低 | 涉及：SessionEventHandler.kt:119-123 ✅ 2026-08-14 完结（TDD 红→绿：handleSessionDeleted 补 _lastUserMessageTime/locallyClearedReverts 清理）
   - 优先级：P1（#89 验收后发现的补漏）
 
-- [ ] **#97 SSE 热路径优化批次（H-5+H-6+M-6+M-15，审计 High/Medium 性能）** `performance` `sse`
+- [ ] **#97 SSE 热路径优化批次（H-5 ✅ + H-6 ⏳ 拆出 + M-6 ✅ + M-15 ✅，commit ddfc683c）** `performance` `sse`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.2 H-5/H-6 + §4.3 M-6/M-15
   - ✅ **2026-08-13 代码验证确认**（Agent 分区复核）：H-5 三子项全确认（SseClient:44-51 逐字节装箱 / SessionNextEventParser:34-35 多遍 / SseClientV2:171,181 双重转换）；H-6 全量重写确认（MessageEventHandler:235-240 + MessageStore:69）；M-6 prettyPrint 确认（NetworkModule:34 且被 MessageStore 共用）；M-15 O(N×M) 确认（:147 Map.plus 每 delta 拷贝）
   - 问题（✅ 部分确认）：
@@ -888,6 +889,8 @@ efactor
     3. **M-6 prettyPrint=true**（✅ NetworkModule.kt:34 确认）：全局 Json 带缩进——所有序列化 +30-50% 体积与编码 CPU，与 H-6 叠加
     4. **M-15 flushPendingDeltas O(N×M)**：批内每 delta 整份 Map 拷贝（`updated + (messageId to ...)`）——单次 toMutableMap 可消除
   - 方案：增长型 ByteArray 分块读；decodeFromJsonElement 单遍解析；双写增量/节流；prettyPrint=false；M-15 单次拷贝
+  - ✅ 2026-08-14 进展：H-5 三子项全修（readRawLineBytes→ByteArrayOutputStream 无装箱管线 + V1/V2 data: 行字节切片 + SessionNextEventParser decodeFromJsonElement 单遍）；M-6 prettyPrint=false；M-15 flush 单次 toMutableMap 就地聚合。1610 单测全绿 + 模拟器流式实测正常（"Thought for 210ms" 渲染正确）
+  - ⏳ H-6（双写写放大：全量 JSON 编码 + Room 全行重写 ~20 次/s）拆出独立处理——需增量写/节流设计，与 #52 结论（频率不可降）联动评估；prettyPrint 关闭已降低 30-50% 单次写入量
   - 工时：2-3d | 难度：中-高 | 涉及：SseClient/SseClientV2/SessionNextEventParser/MessageEventHandler/NetworkModule
   - 优先级：P1（流式体验卡顿主要嫌疑）
 
@@ -1012,11 +1015,14 @@ efactor
   - 方案：读循环套 withTimeoutOrNull(40s)；V1 心跳与 V2 对齐（任意事件/空帧刷新）；加日志观测命中率
   - 工时：~0.5d | 难度：低-中 | 涉及：SseClient/SseClientV2/SseConnectionManager | 优先级：P0
 
-- [ ] **#109 V2 REST/SSE part id 契约错位（D2-01，可能双份渲染）** `compat` `sse`
+- [x] **#109 V2 REST/SSE part id 契约错位（D2-01）——已修复 5b749536（真机+模拟器 DB 双重验证）** `compat` `sse`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-01（A 路，主代理回读确认）
   - 问题：V2Mappers 空 part id（id=""）与 SSE derivePartId（msg_ord_N）契约不一致 → mergePartsList preserved 双份保留 → 已完结消息文本双份渲染
   - 方案：V2Mappers 统一 derivePartId；或 mergePartsList 空 id 内容匹配合并；先模拟器实测复现
-  - 工时：~0.5-1d | 难度：中 | 涉及：V2Mappers/MessageEventHandler | 优先级：P0（先实测）
+  - 工时：~0.5-1d | 难度：中 | 涉及：V2Mappers/MessageEventHandler | 优先级：P0 ✅ 2026-08-14 完结
+  - 根因实测补充（2026-08-14 真机抓帧 + 服务器二进制）：服务器 ordinal **按类型独立计数**（同消息 reasoning[0]/text[0] 并存，TUI 片段键 k(msg,"text",ordinal) 同构）——旧 derivePartId 漏 type，三缺陷：① id 碰撞 → text.started 按 id 命中并替换 Reasoning part（推理丢失）；② REST id="" vs SSE 派生 id 双保留（双份渲染）；③ Time(start=ordinal) 伪造时长（"思考完毕 · 29778524m"）
+  - 修复：derivePartId 统一 `(msg, type, ordinal)` 契约（SSE started/ended/delta + REST content 按类型计数对齐）；mergePart 时间回退链（started 本地时刻→ended/REST 真实时间戳）；mergePartsList 增加 dedupOverlappingTextParts（契约演进期内容重叠去重兜底）
+  - 验证：V2PartIdContractTest 4 用例（TDD 红→绿）；1610 全量单测绿；真机 Room DB part id 全部新契约无碰撞；模拟器实测 "Thought for 210ms" 时长正常 + 无重复渲染
 
 - [ ] **#110 多服务器共享状态批次（D2-02/D2-11/D2-12/D2-13/D2-24）** `race` `multi-server`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（A/B 路）
