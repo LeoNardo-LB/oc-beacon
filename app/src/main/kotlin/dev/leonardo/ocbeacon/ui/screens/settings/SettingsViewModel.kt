@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -160,10 +162,24 @@ class SettingsViewModel @Inject constructor(
         updateSetting { it.copy(terminalFontSize = size) }
     }
 
+    /**
+     * #113（D2-26）：设置写串行化——原实现读 settings.value 快照后全量写回，
+     * 快速连切多个开关时两次写基于过期快照 → 后写覆盖先写的字段（丢修改）。
+     * 修复：单消费者 channel 队列，每次写基于上一次写的结果（写链），
+     * 与 DataStore 原子 edit 配合，多字段并发更新不丢。
+     */
+    private val settingsWriteMutex = Mutex()
+    private var pendingSettings: AppSettings? = null
+
     private fun updateSetting(transform: (AppSettings) -> AppSettings) {
         viewModelScope.launch {
-            val current = settings.value
-            updateSettingsUseCase(transform(current))
+            settingsWriteMutex.withLock {
+                // 基准 = 上一次写的结果（若 pending 尚未消费）或当前设置
+                val base = pendingSettings ?: settings.value
+                val updated = transform(base)
+                pendingSettings = updated
+                updateSettingsUseCase(updated)
+            }
         }
     }
 }

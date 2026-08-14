@@ -165,7 +165,12 @@ internal class DraftInputDelegate(
         _draftText.value = ""
         _draftAttachmentUris.value = emptyList()
         scope.launch {
-            draftRepository.clearDraft(sessionIdProvider())
+            // #113（D2-L66）：clear 与 saveDraft 走同一 Mutex 写通道——
+            // 原实现 clearDraft 直写 DataStore 不经锁，与 in-flight 的
+            // saveDraft（Mutex 内）乱序 → 清除后又写回旧草稿。
+            persistMutex.withLock {
+                draftRepository.clearDraft(sessionIdProvider())
+            }
         }
     }
 

@@ -50,6 +50,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,7 +100,9 @@ internal fun QuestionCard(
     val scope = rememberCoroutineScope()
 
     // 防止多次提交——状态通过 remember(key) 按问题作用域化
-    var submitted by remember(question.id) { mutableStateOf(initiallySubmitted) }
+    // #113（D2-L67）：rememberSaveable——旋转/进程重建后答案不丢（原 remember
+    // 在配置变更后重置，用户已选答案丢失需重选）。
+    var submitted by rememberSaveable(question.id) { mutableStateOf(initiallySubmitted) }
 
     // 多问题时将 pagerState 提升到 QuestionCard，以便"下一个"按钮控制翻页；
     // 单问题时为 null，QuestionPagerView 走单页分支（不建 pagerState）。
@@ -108,14 +111,23 @@ internal fun QuestionCard(
     } else null
 
     // 当前页（来自 pagerState.currentPage 回调；单问题固定 0）
-    var currentPage by remember(question.id) { mutableIntStateOf(0) }
+    // #113（D2-L67）：旋转/重建后恢复当前页
+    var currentPage by rememberSaveable(question.id) { mutableIntStateOf(0) }
     // 未回答确认弹窗
     var showUnansweredDialog by remember(question.id) { mutableStateOf(false) }
 
     // 按问题跟踪答案
+    // #113（D2-L67）：答案列表 saveable——mutableStateListOf 无法直接保存，
+    // 用序列化 List<List<String>> 兜底（旋转后重建，避免答案丢失需重选）。
+    var savedAnswers by rememberSaveable(question.id) {
+        mutableStateOf(emptyList<List<String>>())
+    }
     val answersPerQuestion = remember {
         mutableStateListOf<List<String>>().apply {
-            if (initiallySubmitted && initialAnswers.isNotEmpty()) {
+            val restored = savedAnswers
+            if (restored.isNotEmpty()) {
+                addAll(restored)
+            } else if (initiallySubmitted && initialAnswers.isNotEmpty()) {
                 repeat(question.questions.size) { idx ->
                     add(if (idx < initialAnswers.size) initialAnswers[idx] else emptyList())
                 }
@@ -123,6 +135,10 @@ internal fun QuestionCard(
                 repeat(question.questions.size) { add(emptyList()) }
             }
         }
+    }
+    // #113（D2-L67）：答案变更同步到 saveable（旋转重建后恢复）
+    androidx.compose.runtime.SideEffect {
+        savedAnswers = answersPerQuestion.map { it.toList() }
     }
 
     val containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)

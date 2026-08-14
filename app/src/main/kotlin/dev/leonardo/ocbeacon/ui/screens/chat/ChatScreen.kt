@@ -288,13 +288,16 @@ fun ChatScreen(
     val serverApiVersion by viewModel.serverApiVersion.collectAsStateWithLifecycle()
     val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsStateWithLifecycle()
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
-    // 首次组合时从草稿同步一次 inputText
-    var draftTextInitialized by remember { mutableStateOf(false) }
-    if (!draftTextInitialized && draftText.isNotEmpty()) {
-        inputText = TextFieldValue(draftText, TextRange(draftText.length))
-        draftTextInitialized = true
-    } else if (!draftTextInitialized) {
-        draftTextInitialized = true
+    // 首次组合时从草稿同步一次 inputText。
+    // #113（D2-06）：原实现用 remember 布尔标记，在 restoredDraft（DataStore
+    // 异步读）完成前首帧即置 true → 冷启动草稿视觉丢失（数据仍在，继续输入
+    // 即覆盖）。改为 LaunchedEffect(draftText)：草稿恢复驱动（而非组合首帧），
+    // 且只在用户尚未输入（inputText 仍为空）时回填——不覆盖用户早输入。
+    var userHasTyped by remember { mutableStateOf(false) }
+    LaunchedEffect(draftText) {
+        if (!userHasTyped && draftText.isNotEmpty() && inputText.text.isEmpty()) {
+            inputText = TextFieldValue(draftText, TextRange(draftText.length))
+        }
     }
     // 监听应将文本恢复到输入框的 revert 事件
     LaunchedEffect(Unit) {
@@ -656,7 +659,7 @@ fun ChatScreen(
                 restoredDraft = restoredDraft,
                 onNavigateToSession = onNavigateToSession,
                 inputText = inputText,
-                onInputTextChange = { inputText = it },
+                onInputTextChange = { inputText = it; userHasTyped = true },
                 onInputModeChange = { inputMode = it },
                 onForceScroll = { scrollController.forceScrollToBottom() },
                 onShowModelPicker = { showModelPicker = true },
