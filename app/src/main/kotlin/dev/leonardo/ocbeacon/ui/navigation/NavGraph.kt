@@ -57,6 +57,7 @@ private const val TAG = "NavGraph"
 fun NavGraph(
     windowSizeClass: WindowSizeClass,
     deepLinkFlow: MutableSharedFlow<SessionDeepLink>,
+    debugChannelFlow: MutableSharedFlow<String>,
     sharedImagesFlow: SharedFlow<List<Uri>>,
     settingsRepository: SettingsRepository,
     serverRepository: ServerRepository,
@@ -154,6 +155,15 @@ fun NavGraph(
                 pendingShareUris = emptyList()
             }
         )
+    }
+
+    // #132 调试通道：外部参数（am start --es debug_profile <id>）激活后直达会话列表
+    LaunchedEffect(Unit) {
+        debugChannelFlow.collect { serverId ->
+            debugChannelFlow.resetReplayCache()
+            AppLogger.i(TAG, "Debug channel → SessionList for server $serverId")
+            navController.navigate(SessionListNav.createRoute(serverId)) { launchSingleTop = true }
+        }
     }
 
     // 监听来自通知点击的深度链接事件

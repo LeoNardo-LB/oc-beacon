@@ -31,9 +31,12 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.debug.DebugChannel
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.home.components.*
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 首页 — 服务器列表与管理
@@ -53,6 +56,10 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // #132 调试通道（仅 debug 构建非空；release 下列表为空 → 入口不渲染）
+    val debugProfiles = remember { DebugChannel.profiles }
+    var showDebugChannelDialog by remember { mutableStateOf(false) }
 
     // 跟踪电池优化状态，应用恢复时重新检查
     var isBatteryOptimized by remember { mutableStateOf(false) }
@@ -186,6 +193,16 @@ fun HomeScreen(
                                     onDelete = { viewModel.deleteServer(server.id) }
                                 )
                             }
+
+                            // #132 调试通道入口（debug 构建专用）
+                            if (debugProfiles.isNotEmpty()) {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "__debug_channel") {
+                                    DebugChannelEntryCard(
+                                        onClick = { showDebugChannelDialog = true },
+                                        modifier = Modifier.padding(top = SpacingTokens.SM.dp)
+                                    )
+                                }
+                            }
                         }
                     } else {
                         LazyColumn(
@@ -246,10 +263,34 @@ fun HomeScreen(
                                     onDelete = { viewModel.deleteServer(server.id) }
                                 )
                             }
+
+                            // #132 调试通道入口（debug 构建专用）
+                            if (debugProfiles.isNotEmpty()) {
+                                item(key = "__debug_channel") {
+                                    DebugChannelEntryCard(
+                                        onClick = { showDebugChannelDialog = true },
+                                        modifier = Modifier.padding(top = SpacingTokens.SM.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+
+        // #132 调试通道套餐选择对话框
+        if (showDebugChannelDialog && debugProfiles.isNotEmpty()) {
+            DebugChannelDialog(
+                profiles = debugProfiles,
+                onDismiss = { showDebugChannelDialog = false },
+                onSelect = { profile ->
+                    showDebugChannelDialog = false
+                    viewModel.activateDebugProfile(profile) { serverId ->
+                        onNavigateToSessions(serverId)
+                    }
+                }
+            )
         }
 
         // 添加/编辑服务器对话框

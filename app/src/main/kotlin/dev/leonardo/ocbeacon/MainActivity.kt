@@ -25,9 +25,14 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.model.AppSettings
+import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.debug.DebugChannel
 import dev.leonardo.ocbeacon.service.OpenCodeConnectionService
 import dev.leonardo.ocbeacon.util.parseLocale
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import androidx.core.content.ContextCompat
+import java.util.UUID
 import dev.leonardo.ocbeacon.ui.navigation.NavGraph
 import dev.leonardo.ocbeacon.ui.theme.OpenCodeTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -77,6 +82,13 @@ class MainActivity : ComponentActivity() {
      * 使用 replay=1，确保在 NavGraph 开始收集之前的冷启动 deep-link 不会丢失。
      */
     private val _deepLinkFlow = MutableSharedFlow<SessionDeepLink>(replay = 1)
+
+    /**
+     * #132 调试通道：外部参数激活（am start --es debug_profile <id>）后携带
+     * serverId 的导航事件。NavGraph 订阅并直达会话列表。
+     * replay=1 保证冷启动（NavGraph 尚未收集）时不丢失。
+     */
+    private val _debugChannelNavFlow = MutableSharedFlow<String>(replay = 1)
 
     /**
      * 用于通过 ACTION_SEND / ACTION_SEND_MULTIPLE 接收图片的 SharedFlow。
@@ -141,6 +153,8 @@ class MainActivity : ComponentActivity() {
         handleSessionIntent(intent)
         // 处理启动 Activity 的图片分享
         handleShareIntent(intent)
+        // #132 调试通道：外部参数直达（debug 构建专用）
+        handleDebugProfileIntent(intent)
         
         @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
         setContent {
@@ -172,6 +186,7 @@ class MainActivity : ComponentActivity() {
                     NavGraph(
                         windowSizeClass = windowSizeClass,
                         deepLinkFlow = _deepLinkFlow,
+                        debugChannelFlow = _debugChannelNavFlow,
                         sharedImagesFlow = sharedImagesFlow,
                         settingsRepository = settingsRepository,
                         serverRepository = serverRepository,
@@ -190,6 +205,8 @@ class MainActivity : ComponentActivity() {
         handleSessionIntent(intent)
         // 当 Activity 已在运行时处理图片分享
         handleShareIntent(intent)
+        // #132 调试通道：外部参数直达（debug 构建专用）
+        handleDebugProfileIntent(intent)
     }
     
     private fun handleSessionIntent(intent: Intent?) {
@@ -259,8 +276,70 @@ class MainActivity : ComponentActivity() {
                     // 分享 intent 授予的临时权限仍然有效。
                 }
             }
-            AppLogger.i(TAG, "Received ${uris.size} shared image(s)")
+            AppLogger.i(TAG, "Received \${uris.size} shared image(s)")
             _sharedImagesFlow.tryEmit(uris)
+        }
+    }
+
+    /**
+     * #132 调试通道：外部参数一键直达（仅 debug 构建）。
+     * 用法：adb shell am start -n <pkg>/.MainActivity --es debug_profile <id>
+     * 行为：幂等保存套餐服务器 → 连接 → 直达该服务器会话列表。
+     */
+    private fun handleDebugProfileIntent(intent: Intent?) {
+        if (!BuildConfig.DEBUG) return
+        val profileId = intent?.getStringExtra("debug_profile") ?: return
+        val profile = DebugChannel.find(profileId) ?: run {
+            AppLogger.w(TAG, "Debug channel: unknown profile '" + profileId + "'")
+            return
+        }
+        AppLogger.i(TAG, "Debug channel requested via extra: " + profile.id + " (" + profile.url + ")")
+        lifecycleScope.launch {
+            try {
+                val existing = serverRepository.getServersFlow().first()
+                    .firstOrNull {
+                        ServerConfig.sameBackend(it.url, it.username, profile.url, profile.username)
+                    }
+                val serverId: String
+                if (existing != null) {
+                    serverId = existing.id
+                    serverRepository.updateServer(
+                        existing.copy(
+                            name = profile.label,
+                            url = profile.url.trimEnd('/'),
+                            username = profile.username,
+                            password = profile.password,
+                            autoConnect = true
+                        )
+                    )
+                } else {
+                    serverId = UUID.randomUUID().toString()
+                    serverRepository.addServer(
+                        ServerConfig(
+                            id = serverId,
+                            url = profile.url.trimEnd('/'),
+                            username = profile.username,
+                            password = profile.password,
+                            name = profile.label,
+                            autoConnect = true,
+                        )
+                    )
+                }
+                val serviceIntent = Intent(this@MainActivity, OpenCodeConnectionService::class.java).apply {
+                    putExtra("server_id", serverId)
+                }
+                try {
+                    ContextCompat.startForegroundService(this@MainActivity, serviceIntent)
+                } catch (e: Exception) {
+                    AppLogger.w(TAG, "Debug channel: FGS start failed (will auto-connect next launch): " + e.message)
+                }
+                AppLogger.i(TAG, "Debug channel activated: " + profile.id + " -> server " + serverId)
+                _debugChannelNavFlow.tryEmit(serverId)
+            } catch (ce: kotlinx.coroutines.CancellationException) {
+                throw ce
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Debug channel activation failed: " + e.message, e)
+            }
         }
     }
 
