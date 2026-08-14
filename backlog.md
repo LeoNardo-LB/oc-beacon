@@ -1161,14 +1161,16 @@ $(echo "
   - D2-L41 NetworkMonitor.kt:91 onCapabilitiesChanged 失去 VALIDATED（captive portal）时状态卡旧值 → 补非 validated 分支
   - 工时：~0.5d | 难度：低-中 | 涉及：见各条 | 优先级：P1（连接稳定性）
 
-- [ ] **#134 审计遗漏批次 2：一致性/竞态（D2-L33/L36/L39/L54/L57/L62，6 项 UNFIXED）** `consistency`
-  - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：6/6 UNFIXED）
+- [ ] **#134 审计遗漏批次 2：一致性/竞态（D2-L33/L36/L38/L39/L47/L54/L57/L62，8 项 UNFIXED）** `consistency`
+  - 来源：audit-2026-08-13-dimensions §4（交叉验证 2026-08-14：8/8 UNFIXED）
   - D2-L33 WorkspaceViewModel.kt:168 prefetchGitCount 无 in-flight 保护，切面板双发 VCS status
   - D2-L36 ServerSettingsViewModel.kt:111 init 4 路并行加载各自 rebuildUi → loading 抖动无去重
   - D2-L39 TokenStatsTracker.kt:24 update() 裸读-改-写非 CAS（并发丢更新）
   - D2-L54 SessionEventHandler.kt:109 locallyClearedReverts.remove 仍在 _sessions.update lambda 内（CAS 重试重复执行副作用）
   - D2-L57 SettingsRepositoryImpl.kt:75 updateSettings 21 次独立 DataStore edit → 单一 updateAll（半套落盘风险）
   - D2-L62 MessageEventHandler.kt:300 persistSseUpdate 分两次读 _messages/_parts 非原子快照
+  - D2-L38 DirectoryManager.kt:87 getServerPaths 失败也缓存空 ServerPaths() 无 TTL → 一次瞬时失败毒化整个 VM 生命周期
+  - D2-L47 ChatErrorState.kt:36 错误态固定 5s 无退避自动重试（服务器不可达时无限请求）
   - 工时：~0.5-1d | 难度：中 | 涉及：见各条 | 优先级：P1（并发一致性）
 
 - [ ] **#135 审计遗漏批次 3：性能（D2-L42/L43/L44/L45/L46/L68，6 项 UNFIXED）** `performance`
