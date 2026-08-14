@@ -72,4 +72,7 @@ adb -s emulator-5554 logcat -d | grep "onTrimMemory"
 
 | 日期 | 场景 | 观测项 | 结果 | 结论 |
 |------|------|--------|------|------|
-| - | - | - | - | - |
+| 2026-08-14 | SSE 流式 GC（#97） | 700 字流式期间 GC 计数/暂停 | GC 并发 compact，freed 7-11MB/次，暂停 <12ms | 无卡顿 GC；H-6 增量落盘 UPSERT 修复前 937 字节正文丢失（part 行不存在）→ 修复后完整持久化 |
+| 2026-08-14 | 回归 | D2-L25 saveable 迁移 | SessionList 进会话列表崩溃（TextFieldValue 无 Saver）→ 已修（TextFieldValue.Saver + DirectoryPath 回退） | 迁移引入的回归已闭环；模拟器实测进会话列表正常 |
+| 2026-08-14 | 长会话内存（#95/#98） | 滚动 10+ 屏 PSS 变化 | 滚动后 PSS 260MB→256MB 收敛（无累积）；Java Heap 24→29MB（懒加载正常） | 注册表 onDispose 清理生效；#95 上限由 MessageEventHandlerMemoryCapTest 单测覆盖（1005→1000），长会话端到端待后续实测 |
+| 2026-08-14 | onTrimMemory（#115 D2-16） | am send-trim-memory RUNNING_LOW | logcat：onTrimMemory level=10 - cleared ToolSnapshotCache | 低内存回调正确清理可重建缓存 |
