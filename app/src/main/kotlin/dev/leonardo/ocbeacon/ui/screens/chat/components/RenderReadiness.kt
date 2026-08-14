@@ -66,6 +66,15 @@ class RenderReadinessRegistry {
         flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }.value = readiness
     }
 
+    /**
+     * #98（M-7）：消息组件销毁（滚出视口）时注销条目。终态（Ready/Failed）
+     * 的 StateFlow 含解析产物；Pending/Parsing 占空条目——滚出视口后跳转
+     * 定位不再需要旧条目（重新组合会重建），保留即无界增长。
+     */
+    fun remove(msgId: String) {
+        flows.remove(msgId)
+    }
+
     fun current(msgId: String): RenderReadiness = flow(msgId).value
 
     /**

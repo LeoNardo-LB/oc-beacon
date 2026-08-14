@@ -40,8 +40,20 @@ class WorkspaceViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(WorkspaceUiState(directory = directory))
     val uiState: StateFlow<WorkspaceUiState> = _uiState.asStateFlow()
 
-    private val dirCache = mutableMapOf<String, List<FileNode>>()
+    // #98（M-13）：LRU 有界（原仅 refreshRoot 清理——深层目录浏览累积无界）。
+    // LinkedHashMap 访问序淘汰，容量对齐 DirectoryManager.dirCache 标杆。
+    private val dirCache = object : LinkedHashMap<String, List<FileNode>>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<FileNode>>): Boolean {
+            return size > DIR_CACHE_MAX
+        }
+    }
+    // #98（M-13）：完成的 Job 引用原永不清理——invokeOnCompletion 即时移除
+    //（in-flight 的取消/去重语义保留）。
     private val loadJobs = mutableMapOf<String, Job>()
+
+    private companion object {
+        const val DIR_CACHE_MAX = 200
+    }
     private var searchJob: Job? = null
 
     private val _dirLoadEvents = MutableSharedFlow<DirectoryLoadResult>()
@@ -65,7 +77,7 @@ class WorkspaceViewModel @Inject constructor(
         } else {
             _uiState.update { it.copy(loadingDirs = it.loadingDirs + path) }
         }
-        loadJobs[path] = viewModelScope.launch {
+        val job = viewModelScope.launch {
             listDirectory(serverId, directory, path)
                 .onSuccess { nodes ->
                     dirCache[path] = nodes
@@ -93,6 +105,9 @@ class WorkspaceViewModel @Inject constructor(
                     }
                 }
         }
+        // #98（M-13）：完成（含取消/失败）即移除引用，防 Job 永驻
+        job.invokeOnCompletion { loadJobs.remove(path) }
+        loadJobs[path] = job
     }
 
     fun toggleExpand(path: String) {

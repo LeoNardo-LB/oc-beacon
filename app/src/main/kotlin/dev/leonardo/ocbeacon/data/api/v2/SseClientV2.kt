@@ -75,7 +75,14 @@ class SseClientV2 @Inject constructor(
     // 两阶段广播。admitted 时缓存 input，promoted 时消费——TUI 前端即靠此机制
     // 实时显示后台任务完成通知（与 task 工具注入一致）。SSE 事件单线程顺序
     // 消费（同一 flow），HashMap 无需并发保护。
-    private val pendingInputs = HashMap<String, JsonObject>()
+    // #98（M-1，叠加 D2-02 多服务器竞态）：HashMap → ConcurrentHashMap（多服务器
+    // 各自 flow 并发访问同一单例字段）+ 有界（admitted 后断连/丢 promoted 的
+    // 条目原本永驻）+ 每次连接建立时清空（残留的 admitted 属于上一代连接，
+    // promoted 不会再来，直接丢弃）。
+    private val pendingInputs = java.util.concurrent.ConcurrentHashMap<String, JsonObject>()
+
+    /** 单代连接内的 pending 上限——正常两阶段间隔毫秒级，远超即异常泄漏。 */
+    private val pendingInputsMax = 64
 
     /**
      * 连接到 V2 事件流。
@@ -85,6 +92,9 @@ class SseClientV2 @Inject constructor(
      */
     fun connectToEvents(conn: ServerConnection, directory: String? = null): Flow<SseEvent> = flow {
         val sseUrl = "${conn.baseUrl}/api/event"
+        // #98（M-1）：新连接代际开始——上一代残留的 admitted 条目
+        //（断连丢失 promoted）不再有配对事件，清空防永驻。
+        pendingInputs.clear()
         AppLogger.i(TAG, "Connecting to V2 SSE: $sseUrl (auth=${conn.authHeader != null})")
 
         val statement = httpClient.prepareGet(sseUrl) {
@@ -328,6 +338,11 @@ class SseClientV2 @Inject constructor(
                 AppLogger.d(TAG, "admitted: inputID=$inputID type=${input?.get("type")?.jsonPrimitive?.contentOrNull}")
             }
             if (inputID != null && input != null) {
+                if (pendingInputs.size >= pendingInputsMax) {
+                    // #98（M-1）：异常泄漏防护（正常毫秒级配对，64 条远超常态）——
+                    // 丢弃最旧一批，保容器有界。
+                    pendingInputs.keys.take(pendingInputsMax / 2).forEach { pendingInputs.remove(it) }
+                }
                 pendingInputs[inputID] = input
             }
         } else if (type == "session.inbox.delivered" || type == "session.input.promoted") {

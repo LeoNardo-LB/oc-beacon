@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.domain.repository
 
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,30 +19,41 @@ class ToolSnapshotCache @Inject constructor() {
     // ConcurrentHashMap：ChatViewModel（主线程写入）与 FileViewerViewModel
     //（主线程清除）可能在不同生命周期交错访问，且未来可能引入后台线程，
     // 非线程安全 map 存在并发损坏风险。
-    private val snapshots = ConcurrentHashMap<String, Snapshot>()
+    // #98（H-7）：LRU 有界——快照含整文件内容（可达 MB 级），导航取消/失败
+    // 时 onCleared 不触发 → 无界版本永驻。插入序即导航序，超限淘汰最旧。
+    private val snapshots = object : LinkedHashMap<String, Snapshot>(16, 0.75f, false) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Snapshot>): Boolean {
+            return size > MAX_SNAPSHOTS
+        }
+    }
 
     fun put(partId: String, snapshot: Snapshot) {
-        snapshots[partId] = snapshot
+        synchronized(snapshots) { snapshots[partId] = snapshot }
     }
 
     fun putAll(snapshots: Map<String, Snapshot>) {
-        this.snapshots.putAll(snapshots)
+        synchronized(this.snapshots) { this.snapshots.putAll(snapshots) }
     }
 
-    fun get(partId: String): Snapshot? = snapshots[partId]
+    fun get(partId: String): Snapshot? = synchronized(snapshots) { snapshots[partId] }
 
     fun getAll(partIds: List<String>): List<Snapshot> =
-        partIds.mapNotNull { snapshots[it] }
+        synchronized(snapshots) { partIds.mapNotNull { snapshots[it] } }
 
     fun clear(partIds: List<String>) {
-        partIds.forEach { snapshots.remove(it) }
+        synchronized(snapshots) { partIds.forEach { snapshots.remove(it) } }
     }
 
     fun clear() {
-        snapshots.clear()
+        synchronized(snapshots) { snapshots.clear() }
     }
 
-    fun size(): Int = snapshots.size
+    fun size(): Int = synchronized(snapshots) { snapshots.size }
+
+    private companion object {
+        /** #98（H-7）：条目上限（参照 DirectoryManager.dirCache 200 LRU 标杆）。 */
+        const val MAX_SNAPSHOTS = 200
+    }
 
     data class Snapshot(
         val filePath: String,

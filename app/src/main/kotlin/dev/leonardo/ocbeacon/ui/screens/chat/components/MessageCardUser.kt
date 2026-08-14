@@ -126,6 +126,11 @@ internal fun MessageCardUser(
     val readinessRegistry = LocalRenderReadiness.current
     val readiness by readinessRegistry.flow(currentMessage.message.id).collectAsState()
     val preParsedState = (readiness as? RenderReadiness.Parsed)?.state
+    // #98（M-7）：滚出视口时注销就绪信号条目（终态 StateFlow 含解析产物，
+    // 保留即无界增长；重新组合会以 Pending 重建，语义不变）。
+    androidx.compose.runtime.DisposableEffect(currentMessage.message.id) {
+        onDispose { readinessRegistry.remove(currentMessage.message.id) }
+    }
 
     // 2026-08-12 根治：跳转预渲染——为第一个可渲染文本 part 创建 MarkdownState
     // 并注册到 LocalMarkdownStateRegistry（scrollToDisplayItem await 解析完成
@@ -136,10 +141,14 @@ internal fun MessageCardUser(
         com.mikepenz.markdown.model.rememberMarkdownState(part.text, retainState = true)
     }
     val mdRegistry = LocalMarkdownStateRegistry.current
-    LaunchedEffect(jumpMdState) {
+    // #98（M-7）：DisposableEffect onDispose remove——滚出视口/组件销毁时
+    // 注销条目。MarkdownState 持有已解析 AST（内存为原文数倍），旧实现
+    // 只增不减 → 长会话滚动后注册表无界增长。
+    androidx.compose.runtime.DisposableEffect(currentMessage.message.id, jumpMdState) {
         if (jumpMdState != null) {
             mdRegistry[currentMessage.message.id] = jumpMdState
         }
+        onDispose { mdRegistry.remove(currentMessage.message.id) }
     }
 
     // 2026-08-13 架构根治：门控展示从状态机派生（Displayed/Failed 前 alpha=0
