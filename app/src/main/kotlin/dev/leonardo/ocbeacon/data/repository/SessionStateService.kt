@@ -54,6 +54,8 @@ class SessionStateService @Inject constructor(
     var incompleteChecker: IncompleteAssistantChecker = IncompleteAssistantChecker { false }
     var messageForceCompleter: MessageForceCompleter = MessageForceCompleter {}
     var messageRefresher: MessageRefresher = MessageRefresher { _, _ -> }
+    /** #55：本地最新消息 id 提供者——L3 校验增量补漏的游标锚点（V2 NEWER 方向），由 EventDispatcher 接线。 */
+    var latestMessageIdProvider: (sessionId: String) -> String? = { null }
     /** 2026-08-14 走查修复（僵尸误杀防护）：该会话是否有等待用户输入的
      *  pending question/permission——有时服务器合法"运行中"（等待用户回答），
      *  此期间无 SSE 事件属正常，僵尸判定不得对其发 interrupt（会杀掉等待中的
@@ -364,10 +366,25 @@ class SessionStateService @Inject constructor(
                     // vs SSE 派生 id）丢弃 SSE 累积文本 → 内容周期性消失。
                     // 仅 Idle / 缺失（需要补漏）时才刷新。
                     if (serverStatus !is SessionStatus.Busy) {
-                        sessionRepoProvider.get().listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT)
+                        // #55 根因修复：V2 游标增量补漏替代固定 limit=50 拉最新——
+                        // 长时间离线陈旧窗口 >50 条仍丢消息。用本地最新消息 id 构造
+                        // NEWER 方向游标（CursorCodec.encodeV2 direction=previous），
+                        // 服务器返回该 id 之后的消息（limit 内）；V1 无 after/cursor
+                        // 能力保持 limit=50 拉最新（协议限制，不更差）。
+                        val anchorId = latestMessageIdProvider(sessionId)
+                        val isV2 = sessionRepoProvider.get().getApiVersion(sid).isV2
+                        val cursor = if (isV2 && anchorId != null) {
+                            dev.leonardo.ocbeacon.domain.util.CursorCodec.encodeV2(
+                                anchorId,
+                                dev.leonardo.ocbeacon.domain.util.CursorCodec.V2Direction.NEWER,
+                            )
+                        } else null
+                        sessionRepoProvider.get().listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = cursor)
                             .onSuccess { page ->
-                                messageRefresher.refreshMessages(sessionId, page.messages)
-                                if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs")
+                                if (page.messages.isNotEmpty()) {
+                                    messageRefresher.refreshMessages(sessionId, page.messages)
+                                }
+                                if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs (cursor=${cursor?.take(10)})")
                             }
                     }
                 }

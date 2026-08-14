@@ -214,46 +214,46 @@
 ### 2026-08-10 系统审计批次（F 报告 P1）
 来源：docs/research/audit-2026-08-10/F-FINAL-AUDIT-REPORT.md §3.2
 
-- [~] **#37 combine 索引错位 args[8]→args[9]，工具进度 UI 永久失效** `ui` `sse`
+- [x] **#37 combine 索引错位 args[8]→args[9]，工具进度 UI 永久失效** `ui` `sse`
   - 问题：`MessageDataDelegate.kt:172` 错把 `args[8]`（statuses Map）当作 `args[9]`（progressList）→ `progressList` 永远 null → `progressOutputs = emptyMap()` → 工具进度 output 注入永久失效，用户看不到工具执行中的实时 output。combine 第 8 参是 statusFlow、第 9 参是 getActiveToolProgressForSession(sid)
   - 修复：line 172 `args[8]` → `args[9]`（改一个字符）；或用类型安全 combine 变体 / data class 包装根治
   - 工时：~10min | 难度：低 | 涉及：MessageDataDelegate.kt:172
   - 来源：F §P1-7 / C S3
 
-- [~] **#38 ChatViewModel.init / SessionListViewModel 构造期 runBlocking 主线程阻塞** `ui` `refactor`
+- [x] **#38 ChatViewModel.init / SessionListViewModel 构造期 runBlocking 主线程阻塞** `ui` `refactor`
   - 问题：ViewModel 构造在 Hilt 主线程执行，两处 runBlocking 同步阻塞：① `ChatViewModel.kt:93-96` `runBlocking(IO) { serverRepository.getServer(serverId) }`；② `ChatViewModel.kt:368-373` `draftDelegate.restorePersistedDraft()` → `DraftDataStore.ensureLoaded` → `runBlocking { dataStore.data.first() }`（DraftDataStore.kt:34-50）；`SessionListViewModel.kt:97-99` 同样问题。低端设备/磁盘忙时成 ANR（实测 99th 300ms × 3 帧，首帧贡献源之一）。0eaac6dc 仅修了 onCleared 路径，init 路径完整保留
   - 修复：serverConfig 改 StateFlow<ServerConfig?> + TerminalDelegate 派生 flow；DraftRepository 接口改 suspend fun getDraft 或 Flow<Draft>；DraftDataStore 内部 runBlocking 改 withContext(IO)
   - 工时：~1-2d | 难度：高 | 涉及：ChatViewModel / SessionListViewModel / DraftDataStore / DraftInputDelegate / DraftRepository 接口
   - 来源：F §P1-5 / C S1,S5 + D §2.3
 
-- [~] **#39 日志风暴残留（ChatMessageList 诊断埋点无 DEBUG 门控）** `ui` `performance`
+- [x] **#39 日志风暴残留（ChatMessageList 诊断埋点无 DEBUG 门控）** `ui` `performance`
   - 问题：b07b7ccc 清理了 MessageDataDelegate 日志风暴，但 ChatMessageList 内诊断埋点遗漏——① `ChatMessageList.kt:251-267` JUMP 检测 `LaunchedEffect(Unit)` snapshotFlow 持续 collect 每帧（注释明示"诊断埋点...验证后"）；② `ChatMessageList.kt:555-557` 每 item 组合日志 `AppLogger.d` 无 BuildConfig.DEBUG 门控。直接贡献 Slow UI thread（实测 48/160 = 30%）
   - 修复：删除诊断埋点（诊断任务已完成，注释明示）；与 b07b7ccc 一致策略
   - 工时：~30min | 难度：低 | 涉及：ChatMessageList.kt:251-267, 555-557
   - 来源：F §P1-2 / A 环节 F + D 模式 B
 
-- [~] **#40 StateFlow.update CAS lambda 内副作用日志（UnreadDiag/PartUpdated）** `refactor` `performance`
+- [x] **#40 StateFlow.update CAS lambda 内副作用日志（UnreadDiag/PartUpdated）** `refactor` `performance`
   - 问题：高频 SSE 场景下 `update{}` CAS 重试导致日志被多次持久化到 Room（INFO 级即使 DEBUG 关也持久化）+ 违反纯函数约定：① `MessageEventHandler.kt:567-582`（line 575）`AppLogger.i("UnreadDiag", "[markIdle]...")` 在 `_messages.update {}` 内（实测 1.6 条/s）；② `MessageEventHandler.kt:238-272`（line 250-258）`AppLogger.w("[PartUpdated]...")` 在 `_parts.update {}` 内（实测 11 条/s 活跃，CAS 重试可能 2x）。b07b7ccc 遗漏残留
   - 修复：日志移到 `.update` 外（先 update 拿结果再 log）；或彻底删除诊断日志；对所有 `_*.update {}` lambda 做 lint 禁止副作用
   - 工时：~1h | 难度：低 | 涉及：MessageEventHandler.kt:238-272, 419-428, 463-472, 567-582
   - 来源：F §P1-6 / C S2 + D 模式 B + E 实测（5 路最高置信度）
   - **2026-08-10 完成（待真机验证）**：grep 全量确认 21 处 `_messages.update`/`_parts.update` lambda 内零 AppLogger 调用（此前 DIAG 清理已移除），无需改动；R2 流式 10s 应用日志 0 条佐证
 
-- [~] **#41 loadOlderMessages 缺乏并发保护 → 竞态重复加载** `data` `session`
+- [x] **#41 loadOlderMessages 缺乏并发保护 → 竞态重复加载** `data` `session`
   - 问题：翻页时多个并发 launch 可能用相同 archiveCursorCreated 拉相同消息。`MessagePaginationDelegate.kt:194-260` line 197 `_isLoadingOlder.value=true` 在 scope.launch 内无入口 guard；触发链 `ChatMessageList.kt:361-385` snapshotFlow collect 无去抖。`_isLoadingOlder` 仅作 UI 状态指示未作互斥锁
   - 修复：入口 guard `if (_isLoadingOlder.value) return`；或 MutableStateFlow.update CAS pattern；或 actor/Semaphore(1) 串行化
   - 工时：~1h | 难度：中 | 涉及：MessagePaginationDelegate.kt:194-260
   - 来源：F §P1-3 / B P1-1
   - **2026-08-10 完成（待真机验证）**：`synchronized(this)` 包住 check-then-set 入口 guard（StateFlow 无 CAS，synchronized 与项目现状一致）；finally 已覆盖异常路径复位；编译+全量单测 1364/0；⚠️ 模拟器上滑触发受 #64 超长消息滚动失效阻碍未完整实测，逻辑已单测覆盖
 
-- [~] **#42 upsert 写入路径 O(n log n) 排序残留** `performance` `refactor`
+- [x] **#42 upsert 写入路径 O(n log n) 排序残留** `performance` `refactor`
   - 问题：b07b7ccc 移除了 combine 内排序，但写入路径 sortBy/distinctBy+sortedBy 仍在：`MessageEventHandler.kt:151`(handleMessageUpdated)、`408`(upsertSsePriority)、`453`(upsertRestAuthority)、`508`(upsertAppendOnly)。1000-2000 条会话每次变更 ~10000-40000 次比较；batchScope 后台线程但高频累积 CPU
   - 修复：existing 已有序时改 merge（O(n)）替代 sortedBy（O(n log n)）；或用 TreeMap/有序数据结构维护
   - 工时：~0.5d | 难度：中 | 涉及：MessageEventHandler.kt:151, 408, 453, 508
   - 来源：F §P1-4 / B P1-2 + D TD-9 + A §3 表（3 路确认）
   - **2026-08-10 完成（待真机验证）**：4 处全部改 `mergeSortedMessages` 线性两路归并（O(n+m)），同 id 冲突/相同 created/稳定排序语义与 `distinctBy+sortedBy` 逐字节等价（多组边界推演）；incomingSorted 计算移出 update lambda 避免 CAS 重试重复计算；模拟器 R2orderingtest42 3 轮发送严格按序无乱序/重复/丢失；编译+全量单测 1364/0
 
-- [~] **#43 反射依赖 Compose internal 字段 → 升级必崩** `crash` `refactor`
+- [x] **#43 反射依赖 Compose internal 字段 → 升级必崩** `crash` `refactor`
   - 问题：高度补偿通过反射访问 LazyListState private 字段（scrollPosition、requestPositionAndForgetLastKnownKey、measurementScopeInvalidator）——`ScrollCompensation.kt:22-46`；调用点 `ChatMessageList.kt:318, 448, 539`（3 处）。Compose 版本升级会运行时崩溃（NoSuchFieldError/NoSuchMethodError），无编译期保护。根因：官方 requestScrollToItem 会通过 scroll{} 互斥锁杀死 fling，无"设置位置但不取消 fling"公开 API → 反射 hack 补丁
   - 修复（短期）：try-catch 包裹 + NoSuchFieldError 时降级 requestScrollToItem；Compose 升级前手动测试反射字段名。长期：向 Compose 提 feature request
   - 工时：~0.5d | 难度：中 | 涉及：ScrollCompensation.kt:22-46 + ChatMessageList.kt 3 处调用
@@ -327,7 +327,7 @@
   - 方案：剩余 1/2/3 项在下次触碰相关功能时补测；4-7 已闭环
   - 来源：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md
 
-- [~] **#29 androidTest 编译修复（#25 已读标记遗留）** `refactor` `data`
+- [x] **#29 androidTest 编译修复（#25 已读标记遗留）** `refactor` `data`
   - 问题：commit 5793957f（#25 已读标记服务器域重构）为 SessionRepository 增加 `getLastCompletedReplyTimeFlow()`、SettingsRepository 增加 5 个已读状态方法，但 FakeSessionRepository/FakeSettingsRepository 未同步实现 → `compileDevDebugAndroidTestKotlin` 从该 commit 起持续失败（2026-08-08 悲观重构验证时发现，与重构无关的预存在问题）
   - 方案：Fake 补缺失接口方法（按接口签名 + 现有 fake 语义实现），恢复 androidTest 编译
   - 工时：~30min | 难度：低 | 涉及：androidTest/fakes/FakeSessionRepository.kt、FakeSettingsRepository.kt
@@ -389,7 +389,7 @@ efactor
   - 状态：**调研中**（2026-08-07 起）——需先完成时间戳来源全图谱 + 历史演进梳理，再定优化重构 or 根治方案
   - 工时：调研后再估 | 难度：中-高 | 涉及：EventDispatcher.kt / MessageEventHandler.kt / SessionStateService.kt / SettingsDataStore
   - **2026-08-07 完成**：红点改派生状态模型——maxCompleted（服务器 completed 时刻）+ isUnread 加 status==Idle 门控（turn 结束才红点）+ 已读标记/一键已读改服务器域（markRead 传 completedTs、全局 max）+ v2 迁移（EventDispatcher init 触发，清旧客户端域值）。全量单测（39s）+ 构建安装 + 真机回归 6 场景通过 5/6。**含重启未读恢复**：maxCompleted 持久化（82fc2493）——杀进程重启后未读回复红点恢复，spec §5.7 原"遗留 concern"已解决
-- [~] **#31 本地库损坏自愈（Room 版）** `data` `room`
+- [x] **#31 本地库损坏自愈（Room 版）** `data` `room`
   - 问题：Plan 1 迁移后删除了旧 withDatabaseRecovery（catch SQLiteException → deleteDatabase 重建），Room 版无等价兜底；ocbeacon.db 损坏时 recordBatch 异常会传播至 AppLogger。Room+WAL 较旧实现健壮，诊断日志非用户资产，属低风险
   - **2026-08-09 完成（待人工验证）**：新建 DatabaseRecovery（@Singleton，`withCorruptionRecovery` 捕获 SQLiteException → deleteDatabase → Room 自动重建空库，commit 6fdff190）；LogStore/MessageStore 读写路径接入；DatabaseRecoveryTest 3 用例（成功/SQLiteException 触发删除/非 SQLite 传播）+ 全量单测 PASS；⚠️ 真机验证待用户：模拟 db 损坏后 App 自愈（可选，低优先级）
 
@@ -473,11 +473,12 @@ efactor
 ### 2026-08-10 系统审计批次（F 报告 P2 + 补丁债 + 模式）
 来源：docs/research/audit-2026-08-10/F-FINAL-AUDIT-REPORT.md §3.3 + §6.2 补丁债根因修复 + §6.3 模式发现
 
-- [ ] **#44 sseJob + messageListState 双订阅同源（2x combine 重组）** `performance` `refactor`
+- [x] **#44 sseJob + messageListState 双订阅同源（2x combine 重组）** `performance` `refactor`
   - 问题：每个 SSE 事件触发两个独立 combine 同时重组，CPU 翻倍。`MessageDataDelegate.kt:142-143`（messageListState）vs `319-333`（sseJob）观察相同 getMessagesFlow + getParts；1896 条消息场景每 48ms 2x O(n) 扫描
   - 修复：让 messageListState 同时暴露 rawMessages 字段，消除 sseJob 独立 combine
   - 工时：~0.5d | 难度：中 | 涉及：MessageDataDelegate.kt:142-143, 319-333
   - 来源：F §P2-1 / C S4 + A 间接 + E janky 贡献（3 路确认）
+  - **2026-08-15 核实完成**：startObservingMessages 已改为 messageListState 投影（MessageDataDelegate.kt:320-342 注释明示 #44 消除双订阅），每 SSE 事件仅一次扫描
 
 - [x] **#45 AppLogger 字符串拼接未门控** `refactor` `performance`
   - 问题：高频路径调用方未加 `if (BuildConfig.DEBUG)` 门控，字符串模板在传参前已拼接，即使 shouldPersist 返回 false 也已付出成本。`AppLogger.kt:154-175`；EventDispatcher:249、MessageEventHandler:575/255 无门控（对比 :157 有门控）
@@ -557,11 +558,12 @@ efactor
   - 来源：F §P2-11 + D §2.3/TD-3 + C S6
   - **2026-08-11 完成**：updateDraftText 去防抖 Job 直写 DataStore（DataStore.edit 内部串行合并）+ saveDraft persistMutex 串行保序（防乱序覆盖）；测试适配直写语义（立即持久化/顺序保存/clear 不恢复）
 
-- [ ] **#55 L3 校验 limit=50 魔法常量（补丁债，长时间离线仍漏消息）** `data` `session`
+- [x] **#55 L3 校验 limit=50 魔法常量（补丁债，长时间离线仍漏消息）** `data` `session`
   - 问题：**当前实现是补丁**。`SessionStateService.kt:34, 276-282`（REST_REFRESH_LIMIT=50）魔法常量无 A/B 依据；长时间离线陈旧窗口 >50 条仍丢消息。a7aec358 引入（limit=0→50）
   - 根因修复（D TD-4）：`lastSyncCursorPerSession` Map，L3 校验用 `before=encode(lastSyncCursor)` 增量同步；同步成功后推进游标
   - 工时：~0.5d | 难度：中 | 涉及：SessionStateService.kt
   - 来源：F §P2-12 + D §2.1/TD-4
+  - **2026-08-15 根因修复完成**：V2 游标增量补漏（SessionStateService.latestMessageIdProvider + CursorCodec.encodeV2 NEWER 方向游标，EventDispatcher 接线）；V1 无 cursor 能力保持 limit=50（协议限制不更差）
   - **2026-08-11 调研结论（暂缓）**：~~V2 listMessages 不支持 before~~ **2026-08-11 实测修正**：V2 服务器**支持**分页（参数名 `cursor`，值=响应体 cursor.next，base64url {"id","order","direction"}；before 参数被忽略）；App 端 V2ApiClient 原缺失 cursor 参数（#56 联动已修复 dfdc116d）；增量游标方案仍待实测（#70）；现状 limit=50 + 进入会话 loadMessagesForSession 全量兜底已覆盖绝大多数场景
 
 - [x] **#56 分页状态散落重构（TD-1，高严重度技术债）** `refactor` `session`

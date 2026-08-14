@@ -84,6 +84,10 @@ class EventDispatcher @Inject constructor(
         sessionStateService.messageRefresher = MessageRefresher { sessionId, messages ->
             messageHandler.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
         }
+        // #55：L3 校验增量补漏的游标锚点——本地最新消息 id（V2 NEWER 方向增量拉取）
+        sessionStateService.latestMessageIdProvider = { sessionId ->
+            messageHandler.messages.value[sessionId]?.maxByOrNull { it.time.created }?.id
+        }
         // 2026-08-14 走查修复（僵尸误杀防护）：该会话有等待用户输入的
         // pending question/permission 时，服务器合法运行中（等待用户回答），
         // 僵尸判定不得 interrupt（否则 >3 分钟未回答即被误杀）。
