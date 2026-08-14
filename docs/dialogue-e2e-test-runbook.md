@@ -74,11 +74,32 @@
 
 ---
 
+### 轮次 4：2026-08-14 16:10-16:40（V1 协议 · 问题卡片全生命周期 + #131 修复验证）
+
+**环境**：V1 服务器（opencode 1.18.18 @ 4096，zhipuai/glm-5.2 coding-plan 端点）；App 含 #131 修复（eab5f964）。
+
+| 用例 | 结果 | 实际观察 | 对比期望 | 问题归属 | 备注 |
+|------|------|----------|----------|----------|------|
+| E1-1 V1 进入会话 | ✅ | System verification check 会话正常进入，消息加载 | 一致 | - | - |
+| V1 发送（prompt_async） | ✅ | POST /session/.../prompt_async 204；assistant 回复 V1_ALIVE_OK（V1 无本地播种，依赖 SSE 回显） | 一致（V1 契约） | - | - |
+| #131 修复验证：4 题卡片渲染 | ✅ | Ask_4_questions → question 工具 → 4 题卡片渲染（1/4 分页 Alpha/Beta + Enter answer + Dismiss/Next/Submit） | 修复生效 | - | 修复前此卡片凭空消失+输入框禁用 |
+| #131 修复验证：列表 Pending answer | ✅ | V1 会话列表显示 Pending answer 徽标 | 一致 | - | 修复后待回答状态正确显示 |
+| E7-5 V1 question 触发→回答→提交 | ✅ | 单选 Pick one option? 卡片渲染 → 选 Two → Submit → replyToQuestion status=200 + QuestionReplied → pending 1→0 → agent 回复 "You picked Two."（收到答案继续执行） | 一致（V1 全闭环） | - | V1 question 全生命周期 PASS |
+| 未答完提交校验 | ✅ | 只答 Q4 提交 → 弹窗 Unanswered questions: Questions 1,2,3 not answered | 一致 | - | 多题卡片校验逻辑正常 |
+| #126 远页草稿保留 | ⚠️ 受限 | 代码修复已确认（D1：customDraft 在 pager 层）；UI 手势验证受模拟器限制（Compose HorizontalPager fling 无法通过 adb swipe 触发） | 未达 UI 验证 | 观测（模拟器手势） | 需真机 fling 验证（backlog 备注） |
+| 滚动稳定性（V2 2000 字） | ✅ | 长文 fling 两帧内容连续，无跳底/闪烁（vision 确认） | 一致 | - | - |
+| V1 4 题卡片 Dismiss | ✅ | Dismiss 关闭卡片回消息列表 | 一致 | - | - |
+
+**轮次 4 结论**：V1 协议 question 全生命周期 PASS（触发→渲染→回答→提交→agent 继续）。#131 修复验证通过。#126 UI 手势受模拟器限制（登记待真机）。V1 发送链路（prompt_async 204 无播种依赖 SSE 回显）验证通过。
+
+---
+
 ## 未达成项跟踪
 
 | 用例 | 轮次 | 现象 | 归属 | 根因 | 状态 |
 |------|------|------|------|------|------|
 | E7-5 问题卡片 UI 实测（#125） | 3 | question 工具 running 但 request 端点为空、无 QuestionAsked SSE | 环境（服务器 next-17403 缺陷） | 服务器 question 工具不广播 | 已登记 backlog；App 侧修复待服务器修复后复测 |
+| #126 远页草稿保留（UI 手势） | 4 | 代码修复已确认（D1）；模拟器无法触发 Compose HorizontalPager fling（adb swipe 无效） | 观测（模拟器手势） | 模拟器不支持 pager fling 手势 | 需真机 fling 验证（Q1 输草稿→滑到 Q4→滑回 Q1 草稿保留） |
 
 ---
 
