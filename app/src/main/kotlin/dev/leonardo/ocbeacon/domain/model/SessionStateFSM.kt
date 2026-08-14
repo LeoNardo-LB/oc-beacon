@@ -120,7 +120,12 @@ object SessionStateFSM {
             core = status,
             activity = if (status is SessionStatus.Busy) SessionActivity.Waiting else null,
             savedActivity = null,
-            lastEventAt = now,
+            // 2026-08-14 修正：REST 校验**不是会话活动**——不刷新 lastEventAt。
+            // 原实现 lastEventAt=now 导致"服务器 Busy + 无真实事件超阈值"的
+            // 僵尸判定永远无法触发（每次校验都刷新）。保留 lastCoreTransitionAt
+            // 更新（校验仍是 core 状态转移）。L2 stale 检测（Busy + lastEventAt
+            // 15s 旧 → 触发校验）在无真实事件时持续触发校验（周期 15s，原 20s），
+            // 校验请求是轻量状态查询，频率可接受。
             lastCoreTransitionAt = now
         ),
         isSuspicious = false,

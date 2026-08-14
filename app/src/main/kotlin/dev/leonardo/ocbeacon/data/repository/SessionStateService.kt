@@ -38,6 +38,10 @@ private const val STALENESS_THRESHOLD_MS = 15_000L
 private const val REST_REFRESH_LIMIT = 50
 /** 防御性清理阈值：会话状态超过该时长无事件且非 Busy 时从状态容器移除。 */
 private const val STATE_RETENTION_MS = 24 * 60 * 60 * 1000L
+/** 2026-08-14 僵尸判定阈值：服务器说 Busy 但 App 侧超过该时长无任何 SSE 事件
+ *  （reasoning/text/tool/usage 均无）→ 视为服务器 runner 卡死（僵尸 running），
+ *  强制转 Idle 恢复列表状态。真实执行中即使模型思考也会有 reasoning delta。 */
+internal const val ZOMBIE_BUSY_MS = 3 * 60 * 1000L
 
 @Singleton
 class SessionStateService @Inject constructor(
@@ -277,7 +281,28 @@ class SessionStateService @Inject constructor(
                     val serverStatus = statuses[sessionId]
                     if (serverStatus != null) {
                         if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST validation: server says ${serverStatus::class.simpleName}")
-                        onRestValidation(sessionId, serverStatus)
+                        // 2026-08-14 僵尸兜底（用户反馈"会话已结束但列表仍显示进行中"）：
+                        // opencode 服务器（next-17403 实测）在会话结束后 drain 可能不释放
+                        // → /active 持续返回 running → App 忠实跟随 → 列表图标卡"进行中"。
+                        // 判定：服务器说 Busy + App 侧超过 ZOMBIE_BUSY_MS 无任何 SSE 事件
+                        // （reasoning/text/tool/usage 均无）→ 服务器 runner 卡死/僵尸 →
+                        // 强制转 Idle 恢复列表（真实执行中即使思考也有 reasoning delta，
+                        // 3 分钟完全无事件 = 僵尸；服务器恢复执行时 execution.started
+                        // 事件会重新置 Busy）。
+                        if (serverStatus is SessionStatus.Busy) {
+                            // 僵尸判定：FSM lastEventAt 由真实事件更新（restValidation
+                            // 不刷新——见 SessionStateFSM.restValidation 修正注释）
+                            val lastEventAt = _fsmStates.value[sessionId]?.lastEventAt ?: 0L
+                            val quietMs = System.currentTimeMillis() - lastEventAt
+                            if (quietMs > ZOMBIE_BUSY_MS) {
+                                AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
+                                onRestValidation(sessionId, SessionStatus.Idle)
+                            } else {
+                                onRestValidation(sessionId, serverStatus)
+                            }
+                        } else {
+                            onRestValidation(sessionId, serverStatus)
+                        }
                     } else if (directory != null) {
                         // 服务器会从其状态 map 中删除 idle 会话——缺失即 idle。
                         // 仅当查询的是会话自身的 directory 时才信任此结论。

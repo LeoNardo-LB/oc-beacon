@@ -7,6 +7,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -146,6 +147,47 @@ class SessionStateServiceTest {
         service.triggerRestValidation("s1")
         testScope.runCurrent()
         assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])  // 不会误判为 idle
+    }
+
+    // ============ 2026-08-14：僵尸 Busy 兜底（服务器 drain 不释放） ============
+
+    @Test
+    fun `triggerRestValidation zombie Busy with stale lastEventAt forces Idle`() {
+        val fakeRepo = mockk<SessionRepository>(relaxed = true)
+        // 服务器说 Busy（僵尸 running：会话已结束但 /active 持续返回 running）
+        coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
+        val service = newServiceWith(fakeRepo)
+        service.setServerId("svr1")
+        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        service.onClientSendParts("s1")  // 本地 Busy
+        // 反射：把 FSM lastEventAt 改旧（超过 ZOMBIE_BUSY_MS——3 分钟无真实事件）。
+        // restValidation 转移已修正为不刷新 lastEventAt（2026-08-14），
+        // 因此 lastEventAt 只反映真实 SSE 事件/客户端操作时间。
+        val field = SessionStateService::class.java.getDeclaredField("_fsmStates")
+        field.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val flow = field.get(service) as MutableStateFlow<Map<String, SessionFSMState>>
+        flow.value = flow.value + ("s1" to flow.value.getValue("s1").copy(
+            lastEventAt = System.currentTimeMillis() - ZOMBIE_BUSY_MS - 1000
+        ))
+        service.triggerRestValidation("s1")
+        testScope.runCurrent()
+        // 僵尸判定：服务器 Busy + 无真实事件超阈值 → 强制 Idle（列表图标恢复）
+        assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
+    }
+
+    @Test
+    fun `triggerRestValidation Busy with recent events stays Busy`() {
+        val fakeRepo = mockk<SessionRepository>(relaxed = true)
+        coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
+        val service = newServiceWith(fakeRepo)
+        service.setServerId("svr1")
+        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        service.onClientSendParts("s1")
+        // lastEventAt 是刚刚（有事件）——不触发僵尸判定
+        service.triggerRestValidation("s1")
+        testScope.runCurrent()
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])
     }
 
     // ============ Task 5：syncFromRest ============
