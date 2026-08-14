@@ -17,13 +17,26 @@ import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
  *
  * 本策略同时承担两种职责：
  * 1. **滚动预测**（替代默认策略/cacheWindow）：按滚动方向预组合视口边缘
- *    下一项——保持流式/滚动的预组合收益
+ *    前方一个窗口（[PREFETCH_AHEAD] 项）——保持流式/滚动的预组合收益，
+ *    覆盖 fling 距离避免长气泡跳过
  * 2. **跳转目标预组合**（[pendingIndex]）：jumpToMessage 设置目标 index 后，
  *    触发一次伪滚动 → schedulePrefetch(目标) → [onCompleted] 回调拿到
  *    **主轴尺寸**（定位直接用，无需目标进入视口测量）
  */
 @OptIn(ExperimentalFoundationApi::class)
 class JumpPrefetchStrategy : LazyListPrefetchStrategy {
+
+    /**
+     * 滚动方向预组合的 item 数量。
+     *
+     * 替代旧 `LazyLayoutCacheWindow(1.5f, 1.5f)`（~1.5 视口 ≈ 5-8 条消息）。
+     * 值太小（如原 1）→ fling 快速滚动时长消息来不及组合 → 空白/跳过（铁律 7）。
+     * schedulePrefetch 内部去重（已组合的 item 重复调度为 no-op），
+     * 多余调度不造成浪费——每帧 edge 变化才会重新调度窗口。
+     */
+    private companion object {
+        const val PREFETCH_AHEAD = 6
+    }
 
     /** 跳转目标 lazy index（-1 = 无）；jumpToMessage 设置 */
     var pendingIndex: Int = -1
@@ -35,13 +48,38 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
     private var lastPredicted = -1
 
     override fun LazyListPrefetchScope.onScroll(delta: Float, layoutInfo: LazyListLayoutInfo) {
-        // 滚动预测：滚动方向视口边缘的下一项（vertical：delta<0 = 内容上移 = 向底部/向后）
+        // 滚动方向预测预组合。
+        // vertical：delta<0 = 内容上移 = 向底部/向后（reverseLayout 更高 index = 更旧消息）
+        //
+        // 2026-08-14 修复 fling 跳过长气泡：原实现仅预组合滚动方向 1 项——
+        // 快速 fling 时长 assistant 气泡（重型 Markdown 解析 + 多工具卡片）
+        // 来不及在进入视口前完成组合 → 空白/跳过，需慢速回滚才能看到。
+        // 改为预组合一个窗口（PREFETCH_AHEAD 项），覆盖 fling 距离。
+        // 这替代了旧 cacheWindow(1.5f, 1.5f) 的预组合覆盖量（铁律 7: ahead 太小 →
+        // fling 高速滚动时视口瞬间滚出已组合区域 → 新 item 被迫即时组合 → 跳过）。
         val vis = layoutInfo.visibleItemsInfo
         if (vis.isNotEmpty()) {
-            val predict = if (delta < 0) vis.last().index + 1 else vis.first().index - 1
-            if (predict in 0 until layoutInfo.totalItemsCount && predict != lastPredicted) {
-                lastPredicted = predict
-                schedulePrefetch(predict) { }
+            val total = layoutInfo.totalItemsCount
+            if (delta < 0) {
+                // 向更旧消息方向（reverseLayout: vis.last() = 视觉顶部 = 最高 index）
+                val edge = vis.last().index
+                if (edge != lastPredicted) {
+                    lastPredicted = edge
+                    val end = minOf(edge + 1 + PREFETCH_AHEAD, total)
+                    for (i in (edge + 1) until end) {
+                        schedulePrefetch(i) { }
+                    }
+                }
+            } else if (delta > 0) {
+                // 向更新消息方向（reverseLayout: vis.first() = 视觉底部 = 最低 index）
+                val edge = vis.first().index
+                if (edge != lastPredicted) {
+                    lastPredicted = edge
+                    val start = maxOf(edge - PREFETCH_AHEAD, 0)
+                    for (i in (edge - 1) downTo start) {
+                        schedulePrefetch(i) { }
+                    }
+                }
             }
         }
         maybeScheduleJump(layoutInfo)
