@@ -55,6 +55,8 @@ internal fun AgentModelVariantSelector(
     onCycleVariant: () -> Unit,
     onAttach: () -> Unit,
     showBusy: Boolean = false,
+    /** 2026-08-14 #129 方案 C：转圈指示器可点击 → 立即中断（等不及 3 分钟僵尸兜底时手动解除）。 */
+    onStopBusyClick: (() -> Unit)? = null,
     taskBadgeCount: Int = 0,
     onOpenTaskPanel: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
@@ -163,10 +165,20 @@ internal fun AgentModelVariantSelector(
             // 会话状态指示器（圆形进度条）—— 附件按钮左侧。
             // 会话活跃（agent 工作中/流式）时显示，不依赖回复气泡是否出现。
             if (showBusy) {
-                CircularProgressIndicator(
-                    modifier = Modifier
+                // 2026-08-14 #129 方案 C：转圈可点击 → 立即 interrupt（不等 3 分钟）。
+                // 语义：转圈 = agent 工作中/可能僵尸，点击 = 主动中断（等价 Stop）。
+                // 复用 onStop（abortSession），interrupt 幂等安全。
+                val spinnerModifier = if (onStopBusyClick != null) {
+                    Modifier
                         .padding(end = SpacingTokens.XS.dp)
-                        .size(16.dp),
+                        .size(16.dp)
+                        .clip(ShapeTokens.small)
+                        .clickable { onStopBusyClick?.invoke() }
+                } else {
+                    Modifier.padding(end = SpacingTokens.XS.dp).size(16.dp)
+                }
+                CircularProgressIndicator(
+                    modifier = spinnerModifier,
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,

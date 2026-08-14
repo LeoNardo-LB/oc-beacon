@@ -207,6 +207,8 @@ internal fun ChatInputBar(
                 onCycleVariant = onCycleVariant,
                 onAttach = onAttach,
                 showBusy = isBusy,
+                // 2026-08-14 #129 方案 C：转圈可点击 → 立即中断（等价 Stop）
+                onStopBusyClick = { onStop() },
                 taskBadgeCount = taskBadgeCount,
                 onOpenTaskPanel = onOpenTaskPanel,
                 onQuickNavigate = onQuickNavigate,
