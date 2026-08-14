@@ -602,11 +602,12 @@ efactor
   - 来源：F §6.2 TD-6 + §6.3 模式 C
   - **2026-08-11 完成（工具落地）**：SafeCatch.kt（suspend safeCatch：CancellationException 重抛传播）+ SafeCatchTest 3 用例；DraftDataStore 3 处典型模式迁移示范；剩余 41 文件 123 处逐步迁移（登记 #70）
 
-- [ ] **#61 多 commit 打包修复（流程改进，降低可审计性）** `refactor`
+- [x] **#61 多 commit 打包修复（流程改进，降低可审计性）** `refactor`
   - 问题：一个 commit 打包多项修复（b07b7ccc/1beb846b/16c7a15c/c5e0ea56），降低可审计性。D §4 模式 E
   - 修复（D 模式 E）：fix commit 一事一 commit；PR review 检查打包项
   - 工时：流程改进 | 难度：低 | 涉及：提交流程规范
   - 来源：F §6.3 模式 E
+  - **2026-08-15 完成**：后续 fix 提交均一事一 commit（#136/#134/#133/#135/#137/#55 各自独立 commit，可审计性达标）
 
 - [x] **#62 Ktor Client HTTP 引擎日志量偏大（实测 90 条/10s，当前最大日志源）** `refactor` `performance`
   - 问题：2026-08-10 模拟器复测（#39 修复后）发现——应用诊断日志已降至 20 条/10s，但 Ktor Client HTTP 引擎日志仍 90 条/10s（响应头/请求元数据逐条打印），成为当前最大日志源。证据：docs/research/audit-2026-08-10/metrics/R39-stream-10s.log
@@ -1001,7 +1002,7 @@ efactor
   - 6. **CI 门禁**：Android Lint 已默认启用但未配置 failOnError；Compose compiler 稳定性报告（-P composeCompilerReports）防新引入 unstable 参数
   - 工时：~1d | 难度：低 | 优先级：P3
 
-- [ ] **#129 opencode 服务器僵尸 running（会话结束 drain 不释放）——App 已兜底+主动解除** `sse` `session`
+- [x] **#129 opencode 服务器僵尸 running（会话结束 drain 不释放）——App 已兜底+主动解除** `sse` `session`
   - 问题：2026-08-14 用户反馈"会话已结束但列表仍显示进行中"（网盘MCP与CLI工具调研 ses_00223cbb1ffeG2e92AziDs0e5E）——curl 实证：会话 30+ 分钟无新消息、无子会话、无后台任务，但 `/api/session/active` 持续返回 running；App L3 校验服务器也回复 Busy。**服务器端 session runner/drain 不释放**（opencode next-17403 行为）
   - 升级症状（2026-08-14 二次实测）：僵尸会话内**发消息无回复**——POST /prompt 返回 200+admission+SSE admitted 事件，但僵尸 runner 永不消费 inbox → 无执行事件 → UI 一直转圈（showBusy）+ 消息永远无回复（3 分钟后兜底 Idle 转圈才停）
   - App 兜底（2026-08-14 已修复）：FSM restValidation 不再刷新 lastEventAt（校验≠会话活动）+ L3 校验僵尸判定（服务器 Busy + 3 分钟无真实 SSE 事件 → 强制 Idle）。模拟器实证：网盘MCP 259s 无事件 → 转 idle 列表恢复；真实活跃会话不误判
