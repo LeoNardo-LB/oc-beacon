@@ -934,7 +934,7 @@ efactor
   - 工时：~1d | 难度：中 | 涉及：FileViewerViewModel/AnnotationManager/RenderWebView
   - 优先级：P2
 
-- [ ] **#102 日志系统性能批次（M-2+M-3+M-4，审计 Medium 性能）** `performance` `logging`
+- [x] **#102 日志系统性能批次（M-2+M-3+M-4，审计 Medium 性能）** `performance` `logging`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §4.3 M-2/M-3/M-4
   - ✅ **2026-08-13 代码验证确认**：M-2 DebugLogger:33 无界 StringBuilder + reset 0 调用 + 同步全量写 + 无线程同步；M-3 sanitize:155-171 内联 10 Regex + recordBatch 每批 refresh 1000 条；M-4 **部分确认**：rawJson 副本存在（V2EventParser:114-118），但日志为 AppLogger.d（DEBUG-only）非报告所称 WARN——影响降级（Agent 复核）
   - 问题：DebugLogger 无界 StringBuilder + 主线程同步全量写文件 + O(n²) 累计 I/O + 无线程同步（WebView JavaBridge 并发）；DiagnosticLogRepository.sanitize 每字段新建 ~10 Regex + 每批全量 refresh；V2 未识别事件每事件构造整 JSON 副本 + WARN 持久化（叠加 M-3）

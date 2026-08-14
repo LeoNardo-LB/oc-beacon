@@ -114,9 +114,16 @@ class V2EventParser(private val json: Json) : SseEventParser {
         return SseEvent.SessionNext(
             dev.leonardo.ocbeacon.domain.model.SessionNextEvent.Unknown(
                 rawType = eventType,
-                rawJson = props.toString()
+                // #102（M-4）：rawJson 截断——未知事件完整 JSON 可能 MB 级
+                // （如超大 tool 输出/附件元数据），诊断用途只保留头部
+                rawJson = props.toString().take(RAW_JSON_MAX_CHARS)
             )
         )
+    }
+
+    private companion object {
+        /** #102（M-4）：Unknown 事件 rawJson 截断上限（诊断用途）。 */
+        const val RAW_JSON_MAX_CHARS = 2_000
     }
 
     private fun sessionIdOrNull(props: JsonObject): String? =

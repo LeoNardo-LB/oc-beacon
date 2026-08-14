@@ -53,6 +53,9 @@ class DiagnosticLogRepository @Inject constructor(
 ) {
     private val logLevelKey = stringPreferencesKey("diagnostic_log_level")
     private val _entries = MutableStateFlow<List<DiagnosticLogEntry>>(emptyList())
+    /** #102（M-3）：刷新节流——recordBatch 每批全量查 latest()（AppLogger 消费 ~6 批/s），
+     *  节流为至少 1s 一次；跳过的批由后续批覆盖（诊断页非实时，可接受）。 */
+    private val refreshThrottle = java.util.concurrent.atomic.AtomicLong(0L)
 
     val logLevel: Flow<String> = dataStore.data.map { it[logLevelKey] ?: "INFO" }
 
@@ -86,7 +89,7 @@ class DiagnosticLogRepository @Inject constructor(
         if (entries.isEmpty()) return
         withContext(Dispatchers.IO) {
             logStore.insert(entries.map(::sanitizeEntry).map(::toEntity))
-            refresh()
+            refreshThrottled()
         }
     }
 
@@ -132,6 +135,14 @@ class DiagnosticLogRepository @Inject constructor(
         _entries.value = logStore.latest().map(::fromEntity).asReversed()
     }
 
+    /** #102（M-3）：刷新节流——至少 [REFRESH_MIN_INTERVAL_MS] 间隔才实际查询。 */
+    private suspend fun refreshThrottled() {
+        val now = System.currentTimeMillis()
+        if (now - refreshThrottle.get() < REFRESH_MIN_INTERVAL_MS) return
+        refreshThrottle.set(now)
+        refresh()
+    }
+
     // ---- 脱敏 ----------------------------------------------------
 
     companion object {
@@ -153,21 +164,19 @@ class DiagnosticLogRepository @Inject constructor(
          * OAuth 查询参数、URL 凭据、IPv4/IPv6 地址和本地用户路径。
          * 每个字段截断为 1000 字符。
          */
-        internal fun sanitize(value: String): String {
+                internal fun sanitize(value: String): String {
+            // #102（M-3）：正则预编译（SANITIZE_REGEX_* 常量）——原每次调用现场编译
             return value
-                .replace(Regex("(?im)^(authorization|proxy-authorization|cookie|set-cookie)\\s*[:=].*$"), "$1: [REDACTED]")
-                .replace(Regex("(?i)(authorization\\s*[:=]\\s*)[^\\r\\n,]+"), "$1[REDACTED]")
-                .replace(Regex("(?i)\\b(bearer|basic)\\s+[^\\s,]+"), "$1 [REDACTED]")
-                .replace(Regex("(?i)(password|passwd|secret|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|code[_-]?verifier|code[_-]?challenge|credential)(\\s*[\"']?\\s*[:=]\\s*[\"']?)[^\\s,;&\"'}]+"), "$1$2[REDACTED]")
-                .replace(Regex("(?i)([?&](?:code|state|code_challenge|code_verifier|access_token|refresh_token|api_key|key)=)[^&\\s]+"), "$1[REDACTED]")
-                .replace(Regex("(?i)(https?://)[^/@\\s]+:[^/@\\s]+@"), "$1[REDACTED]@")
-                .replace(Regex("(?<![A-Za-z0-9])(?:\\d{1,3}\\.){3}\\d{1,3}(?![A-Za-z0-9])"), "[IP]")
-                .replace(
-                    Regex("(?i)(?<![A-F0-9:])(?:(?:[A-F0-9]{1,4}:){4,7}[A-F0-9]{0,4}|(?:[A-F0-9]{0,4}:){1,7}:[A-F0-9]{0,4})(?![A-F0-9:])"),
-                    "[IP]",
-                )
-                .replace(Regex("(?:/home/|/Users/|/build/)[^\\s,;]+"), "[PATH]")
-                .replace(Regex("(?i)[A-Z]:\\\\Users\\\\[^\\s,;]+"), "[PATH]")
+                .replace(SANITIZE_REGEX_0, "$1: [REDACTED]")
+                .replace(SANITIZE_REGEX_1, "$1[REDACTED]")
+                .replace(SANITIZE_REGEX_2, "$1 [REDACTED]")
+                .replace(SANITIZE_REGEX_3, "$1$2[REDACTED]")
+                .replace(SANITIZE_REGEX_4, "$1[REDACTED]")
+                .replace(SANITIZE_REGEX_5, "$1[REDACTED]@")
+                .replace(SANITIZE_REGEX_6, "[IP]")
+                .replace(SANITIZE_REGEX_IPV6, "[IP]")
+                .replace(SANITIZE_REGEX_7, "[PATH]")
+                .replace(SANITIZE_REGEX_8, "[PATH]")
                 .take(1000)
         }
 
@@ -179,5 +188,19 @@ class DiagnosticLogRepository @Inject constructor(
         )
 
         private const val MAX_DETAIL_FIELDS = 20
+
+        /** #102（M-3）：脱敏正则预编译——原每次 sanitize 现场编译 10 个 Regex。 */
+        private val SANITIZE_REGEX_0 = Regex("(?im)^(authorization|proxy-authorization|cookie|set-cookie)\\s*[:=].*$")
+        private val SANITIZE_REGEX_1 = Regex("(?i)(authorization\\s*[:=]\\s*)[^\\r\\n,]+")
+        private val SANITIZE_REGEX_2 = Regex("(?i)\\b(bearer|basic)\\s+[^\\s,]+")
+        private val SANITIZE_REGEX_3 = Regex("(?i)(password|passwd|secret|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|code[_-]?verifier|code[_-]?challenge|credential)(\\s*[\"']?\\s*[:=]\\s*[\"']?)[^\\s,;&\"'}]+")
+        private val SANITIZE_REGEX_4 = Regex("(?i)([?&](?:code|state|code_challenge|code_verifier|access_token|refresh_token|api_key|key)=)[^&\\s]+")
+        private val SANITIZE_REGEX_5 = Regex("(?i)(https?://)[^/@\\s]+:[^/@\\s]+@")
+        private val SANITIZE_REGEX_6 = Regex("(?<![A-Za-z0-9])(?:\\d{1,3}\\.){3}\\d{1,3}(?![A-Za-z0-9])")
+        private val SANITIZE_REGEX_IPV6 = Regex("(?i)(?<![A-F0-9:])(?:(?:[A-F0-9]{1,4}:){4,7}[A-F0-9]{0,4}|(?:[A-F0-9]{0,4}:){1,7}:[A-F0-9]{0,4})(?![A-F0-9:])" )
+        private val SANITIZE_REGEX_7 = Regex("(?:/home/|/Users/|/build/)[^\\s,;]+")
+        private val SANITIZE_REGEX_8 = Regex("(?i)[A-Z]:\\\\Users\\\\[^\\s,;]+")
+        /** #102（M-3）：刷新最小间隔（原每批全量查询）。 */
+        private const val REFRESH_MIN_INTERVAL_MS = 1_000L
     }
 }

@@ -29,8 +29,14 @@ import java.util.Locale
 object DebugLogger {
     private const val TAG = "DebugLogger"
     private const val FILE_NAME = "annotate_debug.log"
+    /** #102（M-2）：缓冲区上限（512KB）——超出后丢弃最旧部分，防止无界增长。 */
+    private const val MAX_BUFFER_CHARS = 512 * 1024
+    /** 超限后保留的最新长度（256KB）。 */
+    private const val KEEP_BUFFER_CHARS = 256 * 1024
 
     private val buffer = StringBuilder()
+    /** #102（M-2）：线程同步——WebView JavaBridge 等并发调用下 StringBuilder/文件写竞态。 */
+    private val lock = Any()
     private val timeFmt = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
     private var ctx: Context? = null
     private var cachedUri: Uri? = null
@@ -41,9 +47,11 @@ object DebugLogger {
 
     /** 清空缓冲区并删除文件——在开始新的采集会话时调用。 */
     fun reset() {
-        buffer.setLength(0)
-        cachedUri = null
-        deleteFile()
+        synchronized(lock) {
+            buffer.setLength(0)
+            cachedUri = null
+            deleteFile()
+        }
     }
 
     fun log(tag: String, message: String) {
@@ -52,11 +60,15 @@ object DebugLogger {
         // 1. logcat
         AppLogger.d(tag, message)
 
-        // 2. 内存缓冲区
-        buffer.append(line)
-
-        // 3. 将完整缓冲区 flush 到 Downloads 文件
-        flush()
+        // 2. 内存缓冲区（#102 M-2：限容——超限丢最旧保最新，防无界增长）
+        synchronized(lock) {
+            buffer.append(line)
+            if (buffer.length > MAX_BUFFER_CHARS) {
+                buffer.delete(0, buffer.length - KEEP_BUFFER_CHARS)
+            }
+            // 3. 将完整缓冲区 flush 到 Downloads 文件（锁内串行，防并发写竞态）
+            flush()
+        }
     }
 
     private fun flush() {
