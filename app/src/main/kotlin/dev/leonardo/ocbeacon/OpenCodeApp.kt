@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon
 
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.os.Build
 import android.os.Environment
 import android.widget.Toast
@@ -29,6 +30,8 @@ import java.util.Locale
 private const val TAG = "CrashLogger"
 private const val CRASH_DIR = "oc_beacon_crash"
 private const val MAX_LOG_FILES = 10
+/** #115（D2-17）：崩溃重启退避窗口（10 分钟内最多重启 1 次，防确定性崩溃死循环）。 */
+private const val CRASH_RESTART_BACKOFF_MS = 10 * 60 * 1000L
 
 /**
  * 崩溃日志目录：优先外部 Download（用户可直接访问）；不可访问时
@@ -114,18 +117,30 @@ class OpenCodeApp : Application() {
             }
 
             // 携带崩溃信息重启主 Activity
-            try {
-                val intent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    putExtra("crash_occurred", true)
-                    putExtra("crash_message", throwable.message ?: "Unknown error")
-                    putExtra("crash_exception", throwable.javaClass.simpleName)
+            // #115（D2-17）：重启退避——确定性崩溃（如坏数据/环境）会立刻再次
+            // 崩溃 → 无限重启死循环（07:26 先例只修了提示）。10 分钟内最多重启
+            // 一次：首次崩溃尝试恢复，复崩溃只记录日志交给系统退出，防死循环。
+            val now = System.currentTimeMillis()
+            val crashPrefsForBackoff = getSharedPreferences("crash_restart", MODE_PRIVATE)
+            val lastRestartTs = crashPrefsForBackoff.getLong("last_restart_ts", 0L)
+            val canRestart = now - lastRestartTs > CRASH_RESTART_BACKOFF_MS
+            if (canRestart) {
+                crashPrefsForBackoff.edit().putLong("last_restart_ts", now).apply()
+                try {
+                    val intent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        putExtra("crash_occurred", true)
+                        putExtra("crash_message", throwable.message ?: "Unknown error")
+                        putExtra("crash_exception", throwable.javaClass.simpleName)
+                    }
+                    if (intent != null) {
+                        startActivity(intent)
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "Failed to restart activity after crash", e)
                 }
-                if (intent != null) {
-                    startActivity(intent)
-                }
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "Failed to restart activity after crash", e)
+            } else {
+                AppLogger.e(TAG, "Crash within ${CRASH_RESTART_BACKOFF_MS}ms of last restart - backing off (no restart loop)", throwable)
             }
 
             defaultHandler?.uncaughtException(thread, throwable)
@@ -169,6 +184,24 @@ class OpenCodeApp : Application() {
             }
         })
     }
+
+    /**
+     * #115（D2-16）：低内存分级清理——进程级可重建缓存（工具快照含整文件
+     * 内容 MB 级）在系统内存压力时释放，降低 LMK 杀进程概率。
+     * 仅清可重建缓存（ToolSnapshotCache 导航失败可重读）；不触碰持久状态。
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+        ) {
+            runCatching {
+                EntryPointAccessors.fromApplication(this, CacheEntryPoint::class.java)
+                    .toolSnapshotCache().clear()
+                AppLogger.i("App", "onTrimMemory level=$level - cleared ToolSnapshotCache")
+            }.onFailure { AppLogger.e("App", "onTrimMemory cleanup failed", it) }
+        }
+    }
 }
 
 @EntryPoint
@@ -181,4 +214,11 @@ interface SessionFocusEntryPoint {
 @InstallIn(SingletonComponent::class)
 interface DiagnosticLogEntryPoint {
     fun diagnosticLogRepository(): DiagnosticLogRepository
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface CacheEntryPoint {
+    /** #115（D2-16）：可重建缓存的低内存清理入口。 */
+    fun toolSnapshotCache(): dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
 }

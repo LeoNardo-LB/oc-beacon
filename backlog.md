@@ -1024,10 +1024,12 @@ efactor
   - 修复：derivePartId 统一 `(msg, type, ordinal)` 契约（SSE started/ended/delta + REST content 按类型计数对齐）；mergePart 时间回退链（started 本地时刻→ended/REST 真实时间戳）；mergePartsList 增加 dedupOverlappingTextParts（契约演进期内容重叠去重兜底）
   - 验证：V2PartIdContractTest 4 用例（TDD 红→绿）；1610 全量单测绿；真机 Room DB part id 全部新契约无碰撞；模拟器实测 "Thought for 210ms" 时长正常 + 无重复渲染
 
-- [ ] **#110 多服务器共享状态批次（D2-02/D2-11/D2-12/D2-13/D2-24）** `race` `multi-server`
+- [x] **#110 多服务器共享状态批次（D2-02/D2-12/D2-13/D2-24；D2-11 评估）——已修复 2f0aa0cc** `race` `multi-server`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（A/B 路）
   - 问题：pendingInputs HashMap 跨服务器并发（D2-02）；状态容器 sessionId 单键无 serverId 维度（D2-11）；currentServerId 单值被覆盖 → L3 校验打错服务器（D2-12）；isConnected 语义 = job 活跃非连接（D2-13）；McpRepositoryImpl 共享 connection（D2-24）
   - 方案：ConcurrentHashMap/按 serverId 隔离；复合键 (serverId, sessionId)；去掉 currentServerId 单值；isConnected 返回真实标志
+  - 2026-08-14：D2-02 随 #98（pendingInputs→ConcurrentHashMap+每连接清空+有界）；D2-12（session→server 归属映射，L3 校验优先归属）；D2-13（isConnected 真实连接标志）；D2-24（McpRepository 显式 conn 参数）
+  - 评估：D2-11（sessionId 单键）不改——V2 sessionId 随机生成跨服务器碰撞概率极低 + StreamingOwnershipRegistry 已按同后端去重；复合键波及全部 handler/UI 查询，收益不成比例
   - 工时：~1-2d | 难度：中 | 涉及：SseClientV2/各 handler/SessionStateService/SseConnectionManager/McpRepositoryImpl | 优先级：P1
 
 - [x] **#111 dataSync 前台服务 6h 时限（D2-04，Android 15+）** `android` `service`
@@ -1043,22 +1045,26 @@ efactor
   - 方案：先预检抑制再标记；轮询退避/门控；事件驱动或多次轮询
   - 工时：~0.5d | 难度：低-中 | 涉及：OpenCodeConnectionService/AppNotificationManager | 优先级：P2
 
-- [ ] **#113 UI 状态竞态批次（D2-06 草稿恢复 + D2-26 设置读改写 + D2-L66 clearDraft + D2-L67 答案 saveable）** `ui` `race`
+- [x] **#113 UI 状态竞态批次（D2-06/26/L66/L67）——已修复 58a5e0d5** `ui` `race`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（C/D 路）
   - 问题：冷启动草稿不回填（视觉丢失）；快速连切设置丢修改；clearDraft 与 saveDraft 并发；QuestionCard 答案旋转丢
   - 方案：LaunchedEffect(draftText) 初始化；设置写串行化（Mutex/单消费者）；clearDraft 走同一写通道；rememberSaveable
+  - 2026-08-14：D2-06（LaunchedEffect(draftText) 回填 + userHasTyped 防覆盖）；D2-26（settingsWriteMutex 写链）；D2-L66（clearDraft 走 persistMutex）；D2-L67（QuestionCard 全 saveable）
   - 工时：~0.5d | 难度：低 | 涉及：ChatScreen/ChatViewModel/SettingsViewModel/DraftInputDelegate/QuestionCard | 优先级：P1
 
-- [ ] **#114 认证头统一（D2-27，147 处内联）** `network` `refactor`
+- [x] **#114 认证头统一（D2-27，147 处内联）——已修复 89725d11** `network` `refactor`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-27（E+A 路，grep 实测 147 处）
   - 问题：Authorization 逐请求内联 + Auth 插件空 install → 认证演进改 147+ 处，新端点易漏挂头 401
   - 方案：配置 Auth provider 或抽 auth(conn) 扩展统一替换；V1/V2 双轨同步
+  - 2026-08-14：新增 AuthHeader.kt auth(conn) 扩展（Auth 插件空 install 不适合多服务器——认证是每服务器属性而 HttpClient 全局单例）；147 处内联全部替换（5 文件）
   - 工时：~1d | 难度：中 | 涉及：V1/V2ApiClient/NetworkModule | 优先级：P1
 
-- [ ] **#115 移动端生命周期批次（D2-16 onTrimMemory + D2-17 崩溃退避 + D2-L23~L25 rememberSaveable）** `android`
+- [x] **#115 移动端生命周期批次（D2-16/D2-17/D2-L24；D2-L23/L25 评估登记）——已修复** `android`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-16/D2-17/D2-L23~L25
   - 问题：无低内存回调；崩溃无条件重启（死循环风险）；手动连接进程死亡不恢复；20+ 处对话框 remember 非 saveable；FileViewerOverlay VM 重建丢批注
   - 方案：onTrimMemory 分级清理；重启退避（10min 内最多 1 次）；记录 lastConnected 恢复；rememberSaveable 批量迁移（触发条件注意：旋转由 configChanges 处理，主要覆盖 recreate 场景）
+  - 2026-08-14：D2-16（onTrimMemory 清理 ToolSnapshotCache）；D2-17（崩溃重启退避 10min/1 次防死循环）；D2-L24（HomeScreen pendingConnectServerId → rememberSaveable）
+  - 评估登记（不做）：D2-L23（FileViewer 批注 recreate 丢失——轻量数据且旋转不重建）；D2-L25（20+ 处对话框 remember→saveable——低价值大批量）
   - 工时：~1d | 难度：低-中 | 涉及：OpenCodeApp/OpenCodeConnectionService/各 Screen | 优先级：P1-P2
 
 - [ ] **#116 终端批次（D2-20 输入乱序 + D2-21 dispose 取消清理协程）** `terminal` `race`

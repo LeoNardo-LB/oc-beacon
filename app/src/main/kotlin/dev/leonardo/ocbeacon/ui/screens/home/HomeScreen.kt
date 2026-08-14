@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -70,7 +71,9 @@ fun HomeScreen(
 
     // 需要记录哪个服务器请求了通知权限，
     // 以便在权限对话框之后恢复连接流程。
-    var pendingConnectServerId by remember { mutableStateOf<String?>(null) }
+    // #115（D2-L24）：rememberSaveable——recreate（语言切换/进程重建）后
+    // 权限回调仍需继续连接（原 remember 在 recreate 时丢失 → 回调静默中断）。
+    var pendingConnectServerId by rememberSaveable { mutableStateOf<String?>(null) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
