@@ -1101,11 +1101,14 @@ efactor
   - 工时：~1d | 难度：中 | 涉及：SessionStateService/SseClientV2/PermissionAutoApprover | 优先级：P2
 
 $(echo "
-- [ ] **#130 opencode next-17403 question 工具广播缺陷（request 端点恒空 + 无 QuestionAsked SSE）** `server` `question`
+- [ ] **#130 V2 question 工具协议迁移——需适配 form API（form.created SSE + /api/form/* 端点）** `v2` `question` `form`
   - 问题：2026-08-14 实测（两次独立尝试）——agent 调用 question 工具（multiple=true 多选），工具 state 为 `status=running` 但：① `GET /api/question/request` 恒返回空 data；② 服务器从不发 question.asked SSE 事件 → App 无法收到 QuestionAsked → 问题卡片永不渲染（#125 UI 实测因此受阻）
   - 证据：docs/dialogue-e2e-test-runbook.md 轮次 3（tool state running vs request 空）
   - 服务器侧待办：升级 opencode 或向上游反馈；App 侧 QuestionAsked 处理逻辑本身正常（#26 已实现 + 单测）
   - 工时：待服务器侧 | 难度：未知 | 优先级：P2（阻塞 #125 UI 实测）
+  - 2026-08-14 官方回复（issue #42541 comment）：非缺陷而是**协议迁移**——V2 question 工具由 form 服务驱动：服务器发 `form.created`（metadata.kind=question + fields q0/q1...），待处理 `GET /api/form/request` / `GET /api/session/{id}/form`，回复 `POST /api/session/{id}/form/{formID}/reply` `{"answer":{"q0":...}}`，取消 `POST .../form/{formID}/cancel`；旧 question.asked + /api/question/request 是 stale surface（未来移除）
+  - 待办：App 适配（SSE form.created 解析 + form→QuestionCard 映射 + form reply/cancel API + 轮询兜底）；V1 不受影响（question API 正常）
+  - 工时：~0.5-1d | 难度：中 | 优先级：P1（V2 question 功能恢复）
 " | sed 's/\`/`/g')
 
 - [x] **#131 V1 协议 question 卡片嵌入渲染失败（数据到达但 UI 不显示）——已修复 eab5f964** `question` `v1`
