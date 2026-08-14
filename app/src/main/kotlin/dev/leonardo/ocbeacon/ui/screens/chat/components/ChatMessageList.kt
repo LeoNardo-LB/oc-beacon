@@ -116,9 +116,22 @@ import com.mikepenz.markdown.model.State
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** 转后台 synthetic 系统提示的服务器固定模板（匹配 → 分割线渲染）。 */
-private const val BACKGROUND_SYNTHETIC_MARKER =
-    "User requested that active blocking work be moved to the background"
+/**
+ * 转后台 synthetic 系统提示的服务器已知模板变体（命中 → 分割线渲染）。
+ * #136（D2-L55）：原先单个硬编码模板——服务器改文案即静默失效；
+ * 现改为变体列表，任一命中即视为转后台提示。
+ * 服务器再次改文案导致特性失效时，在此追加新变体（并在 backlog 登记）。
+ */
+private val BACKGROUND_SYNTHETIC_MARKERS = listOf(
+    "User requested that active blocking work be moved to the background",
+    "active blocking work be moved to the background",
+    "active blocking work was moved to the background",
+)
+
+/** 判断 synthetic 消息文本是否为服务器"转后台"系统提示（供分割线渲染分支与单测使用）。
+ * 大小写不敏感——服务器模板可能调整大小写/时态，任一变体命中即视为转后台提示。 */
+internal fun isBackgroundMoveSynthetic(text: String): Boolean =
+    BACKGROUND_SYNTHETIC_MARKERS.any { text.contains(it, ignoreCase = true) }
 
 /**
  * 跳转预渲染注册表（根治方案 2026-08-12）：
@@ -933,7 +946,7 @@ fun ChatMessageList(
                                     val syntheticText = chatMessage.parts
                                         .filterIsInstance<Part.Text>()
                                         .joinToString("\n") { it.text }
-                                    if (syntheticText.contains(BACKGROUND_SYNTHETIC_MARKER)) {
+                                    if (isBackgroundMoveSynthetic(syntheticText)) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()

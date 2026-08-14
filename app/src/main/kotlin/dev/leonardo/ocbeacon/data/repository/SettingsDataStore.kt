@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.model.TagType
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
@@ -80,6 +81,10 @@ class SettingsDataStore @Inject constructor(
                 .getString(LOCALE_PREFS_KEY, "") ?: ""
         }
 
+        /** #136（D2-L56）收敛决策：镜像与真相源不一致时返回应以 DataStore 为准的值；一致返回 null（无需回写）。 */
+        internal fun resolveLanguageMirror(stored: String, mirror: String): String? =
+            if (stored != mirror) stored else null
+
         // ============ 已读状态 keys / 序列化 ============
 
         private const val SESSION_READ_TIMES_PREFIX = "session_read_times_"
@@ -134,13 +139,35 @@ class SettingsDataStore @Inject constructor(
     /** 选定的语言代码（例如 "en"、"ru"、"de"），空字符串表示系统默认。 */
     val appLanguage: Flow<String> = prefFlow(LANGUAGE_KEY, "")
 
-    /** 同时写入 SharedPreferences 以便在 attachBaseContext 中同步读取。 */
+    /**
+     * 同时写入 SharedPreferences 以便在 attachBaseContext 中同步读取。
+     * #136（D2-L56）：先写 DataStore（真相源）再写镜像——任何写入窗口崩溃
+     * 都只让镜像"落后"而非"超前"，配合 [reconcileLanguageMirror] 启动收敛。
+     */
     suspend fun setAppLanguage(languageCode: String) {
+        setPref(LANGUAGE_KEY, languageCode)
         context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(LOCALE_PREFS_KEY, languageCode)
             .apply()
-        setPref(LANGUAGE_KEY, languageCode)
+    }
+
+    /**
+     * 启动校验：DataStore（真相源）与 SharedPreferences 语言镜像不一致时，
+     * 以 DataStore 为准回写镜像（[resolveLanguageMirror] 为纯决策，便于单测）。
+     * 镜像值优先被 attachBaseContext 同步读取——不收敛则语言漂移。
+     */
+    suspend fun reconcileLanguageMirror() {
+        val stored = dataStore.data.first()[LANGUAGE_KEY] ?: ""
+        val mirror = context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
+            .getString(LOCALE_PREFS_KEY, "") ?: ""
+        resolveLanguageMirror(stored, mirror)?.let { corrected ->
+            AppLogger.d("SettingsDataStore", "Language mirror mismatch: prefs=" + mirror + ", datastore=" + stored + " -> restoring mirror")
+            context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(LOCALE_PREFS_KEY, corrected)
+                .apply()
+        }
     }
 
     // ============ 外观 ============

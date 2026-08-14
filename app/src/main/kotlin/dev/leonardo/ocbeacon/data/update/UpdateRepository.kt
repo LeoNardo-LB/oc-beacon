@@ -66,6 +66,8 @@ class UpdateRepository @Inject constructor(
         // Google Play (stable) 渠道禁用应用内自更新（政策禁止 REQUEST_INSTALL_PACKAGES 自更新）
         if (!BuildConfig.ENABLE_AUTO_UPDATE) return@withLock
         if (_state.value is UpdateState.Downloading || _state.value is UpdateState.ReadyToInstall) return@withLock
+        // #136（D2-L58）：进程被杀（kill -9 等）会残留 .apk.part——启动即清理，防缓存目录堆积
+        cleanupStalePartFiles()
         val preferences = dataStore.data.first()
         decodeCachedRelease(preferences[CACHED_RELEASE_KEY])
             ?.takeIf { UpdatePolicy.isNewer(it, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME) }
@@ -158,6 +160,8 @@ class UpdateRepository @Inject constructor(
     private suspend fun downloadAndValidateApk(release: AvailableUpdate): File {
         val updatesDir = File(context.cacheDir, "updates")
         require(updatesDir.exists() || updatesDir.mkdirs()) { "Unable to create update directory" }
+        // #136（D2-L58）：下载前再次清理历史残留（正常路径 catch 已删，此处兜底异常中断残留）
+        cleanupStalePartFiles(updatesDir)
         val tempFile = File.createTempFile("update-", ".apk.part", updatesDir)
         val targetFile = File(updatesDir, "oc-beacon-${release.versionName}.apk")
         try {
@@ -206,6 +210,13 @@ class UpdateRepository @Inject constructor(
             tempFile.delete()
             throw error
         }
+    }
+
+    /** #136（D2-L58）：删除 updates 目录中所有遗留的 *.apk.part（进程被杀残留）。 */
+    private fun cleanupStalePartFiles(updatesDir: File = File(context.cacheDir, "updates")) {
+        if (!updatesDir.isDirectory) return
+        updatesDir.listFiles { file -> file.name.endsWith(".apk.part") }
+            ?.forEach { file -> runCatching { file.delete() } }
     }
 
     @Suppress("DEPRECATION")

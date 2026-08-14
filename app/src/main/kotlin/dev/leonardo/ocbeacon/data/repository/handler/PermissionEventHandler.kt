@@ -43,7 +43,9 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     private fun handlePermissionAsked(event: SseEvent.PermissionAsked) {
-        AppLogger.i(TAG, "Permission auto-approved: id=${event.id}, permission=${event.permission}, sessionId=${event.sessionId}")
+        // #136（D2-L53）：PermissionAsked 是待用户决定的 pending 请求，非"auto-approved"；
+        // 正常流程事件降为 DEBUG（release 不再刷 INFO 日志）
+        AppLogger.d(TAG, "Permission requested (pending): id=${event.id}, permission=${event.permission}, sessionId=${event.sessionId}")
         _permissions.update { current ->
             val sessionPerms = current[event.sessionId]?.toMutableList() ?: mutableListOf()
             if (sessionPerms.any { it.id == event.id }) {
@@ -56,7 +58,9 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     private fun handlePermissionReplied(event: SseEvent.PermissionReplied) {
-        AppLogger.w(TAG, "Permission auto-denied: requestId=${event.requestId}, sessionId=${event.sessionId}")
+        // #136（D2-L53）：PermissionReplied 表示请求已处理（从 pending 移除），非"auto-denied"；
+        // 正常流程事件降为 DEBUG（release 不再刷 WARN 日志）
+        AppLogger.d(TAG, "Permission resolved (removed from pending): requestId=${event.requestId}, sessionId=${event.sessionId}")
         _permissions.update { current ->
             val sessionPerms = current[event.sessionId]?.filter { it.id != event.requestId }
             if (sessionPerms != null) current + (event.sessionId to sessionPerms) else current

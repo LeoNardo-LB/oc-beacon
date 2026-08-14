@@ -54,6 +54,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -237,6 +240,8 @@ fun ServerProvidersScreen(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text(stringResource(R.string.server_settings_api_key_placeholder)) },
                         singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         colors = if (isAmoled) {
                             amoledOutlinedTextFieldColors()
                         } else androidx.compose.material3.OutlinedTextFieldDefaults.colors()

@@ -24,6 +24,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
+import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 
 private enum class PreviewMode { SOURCE, RENDERED }
@@ -51,6 +52,8 @@ internal fun MarkdownPreviewDialog(
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
     val view = LocalView.current
+    // #136（D2-L51）：复制反馈遵循用户触觉设置（此前硬编码 true 无视设置）
+    val hapticOn = LocalHapticFeedbackEnabled.current
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -85,7 +88,7 @@ internal fun MarkdownPreviewDialog(
                         }
                         // 复制全部按钮
                         IconButton(onClick = {
-                            performHaptic(view, true)
+                            performHaptic(view, hapticOn)
                             onCopyAll()
                         }) {
                             Icon(

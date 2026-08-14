@@ -14,6 +14,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository
+import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.service.SessionFocusHolder
 import dev.leonardo.ocbeacon.util.DebugLogger
@@ -72,6 +73,14 @@ class OpenCodeApp : Application() {
         AppLogger.initialize(diagnosticRepo)
         appScope.launch { diagnosticRepo.initialize() }
         AppLogger.i("App", "OC Beacon ${BuildConfig.VERSION_NAME} (code ${BuildConfig.VERSION_CODE}) started")
+
+        // ---- #136（D2-L56）：语言镜像启动校验（双写窗口崩溃 → 语言漂移收敛）----
+        appScope.launch {
+            runCatching {
+                EntryPointAccessors.fromApplication(this@OpenCodeApp, SettingsEntryPoint::class.java)
+                    .settingsDataStore().reconcileLanguageMirror()
+            }.onFailure { AppLogger.e(TAG, "Language mirror reconciliation failed", it) }
+        }
 
         // ---- 全局未捕获异常处理器 ----
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
@@ -214,6 +223,13 @@ interface SessionFocusEntryPoint {
 @InstallIn(SingletonComponent::class)
 interface DiagnosticLogEntryPoint {
     fun diagnosticLogRepository(): DiagnosticLogRepository
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface SettingsEntryPoint {
+    /** #136（D2-L56）：语言镜像启动校验入口。 */
+    fun settingsDataStore(): SettingsDataStore
 }
 
 @EntryPoint
