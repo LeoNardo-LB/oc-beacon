@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.domain.model.*
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.cancel
@@ -156,6 +157,9 @@ class SessionStateServiceTest {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         // 服务器说 Busy（僵尸 running：会话已结束但 /active 持续返回 running）
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
+        // 2026-08-14 根因修复：僵尸判定必须主动调用服务器 abort/interrupt
+        //（解除服务器僵尸，否则后续发消息仍无回复）——断言 abort 被调用。
+        coEvery { fakeRepo.abort(any(), any(), any()) } returns Result.success(Unit)
         val service = newServiceWith(fakeRepo)
         service.setServerId("svr1")
         service.directoryResolver = DirectoryResolver { "D:/proj" }
@@ -174,6 +178,8 @@ class SessionStateServiceTest {
         testScope.runCurrent()
         // 僵尸判定：服务器 Busy + 无真实事件超阈值 → 强制 Idle（列表图标恢复）
         assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
+        // 根因修复断言：主动 interrupt 解除服务器僵尸（不再只本地装 Idle）
+        coVerify(exactly = 1) { fakeRepo.abort("svr1", "s1", "D:/proj") }
     }
 
     @Test
