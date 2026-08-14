@@ -95,7 +95,7 @@ class MessageEventHandler @Inject constructor(
         val sessionId: String,
         val payload: List<MessageWithParts>,
         /** #97（H-6）：非空时走增量落盘（appendPartTexts），空时全量 upsert。 */
-        val incrementalDeltas: List<Pair<String, String>> = emptyList(),
+        val incrementalDeltas: List<dev.leonardo.ocbeacon.data.local.PartDelta> = emptyList(),
     )
 
     private val persistQueue = Channel<PersistRequest>(Channel.BUFFERED)
@@ -191,13 +191,24 @@ class MessageEventHandler @Inject constructor(
             for (d in deltas) {
                 aggregated[d.partId] = (aggregated[d.partId] ?: "") + d.delta
             }
+            // 从内存 parts 查每个 part 的 type（reasoning/text）——增量 UPSERT 需要
+            val partsByMsg = _parts.value[messageId].orEmpty().associateBy { it.id }
+            val incrementalDeltas = aggregated.map { (partId, delta) ->
+                dev.leonardo.ocbeacon.data.local.PartDelta(
+                    partId = partId,
+                    messageId = messageId,
+                    sessionId = sessionId,
+                    type = if (partsByMsg[partId] is Part.Reasoning) "reasoning" else "text",
+                    delta = delta,
+                )
+            }
             val payload = msgs.map { MessageWithParts(it, _parts.value[it.id] ?: emptyList()) }
             persistQueue.trySend(
                 PersistRequest(
                     store = store,
                     sessionId = sessionId,
                     payload = payload,
-                    incrementalDeltas = aggregated.toList(),
+                    incrementalDeltas = incrementalDeltas,
                 )
             )
         }

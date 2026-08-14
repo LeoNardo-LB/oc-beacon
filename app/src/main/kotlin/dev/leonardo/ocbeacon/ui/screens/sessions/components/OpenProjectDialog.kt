@@ -79,7 +79,7 @@ internal fun OpenProjectDialog(
     val scope = rememberCoroutineScope()
 
     // ── State ────────────────────────────────────────────────────────
-    var currentPath by rememberSaveable { mutableStateOf<DirectoryPath?>(null) }
+    var currentPath by remember { mutableStateOf<DirectoryPath?>(null) }
     var homeDir by remember { mutableStateOf<String?>(null) }
     var directories by remember { mutableStateOf<List<FileNode>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }

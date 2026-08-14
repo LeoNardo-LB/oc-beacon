@@ -46,7 +46,7 @@ class MessageStore @Inject constructor(
     override suspend fun appendPartTexts(
         sessionId: String,
         messages: List<MessageWithParts>,
-        deltas: List<Pair<String, String>>,
+        deltas: List<PartDelta>,
     ) = withContext(Dispatchers.IO) {
         if (deltas.isEmpty() || messages.isEmpty()) return@withContext
         runCatching {
@@ -61,8 +61,14 @@ class MessageStore @Inject constructor(
                         payload = json.encodeToString(m.info),
                     )
                 })
-                deltas.forEach { (partId, delta) ->
-                    dao.appendPartText(partId, delta)
+                deltas.forEach { d ->
+                    dao.appendPartText(
+                        partId = d.partId,
+                        messageId = d.messageId,
+                        sessionId = d.sessionId,
+                        type = d.type,
+                        delta = d.delta,
+                    )
                 }
             }
         }.onFailure { e ->

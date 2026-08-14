@@ -18,12 +18,12 @@ interface MessageCacheRepository {
      * 替代原每 48ms 批全量 JSON 编码 + 整行重写（写放大）。
      * 消息 ended 时由 [upsertMessages] 全量覆盖（最终 payload + 元数据）。
      * @param messages 消息骨架（内存最新元数据，保证 part FK 存在）
-     * @param deltas partId → 追加文本（同一 part 的多次 delta 由调用方预聚合）
+     * @param deltas 增量追加（含 UPSERT 所需元数据）
      */
     suspend fun appendPartTexts(
         sessionId: String,
         messages: List<MessageWithParts>,
-        deltas: List<Pair<String, String>>,
+        deltas: List<dev.leonardo.ocbeacon.data.local.PartDelta>,
     )
 
     /** 按 partId 更新完整文本（ended 时覆盖最终文本，防增量与快照漂移）。 */

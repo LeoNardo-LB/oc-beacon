@@ -15,9 +15,17 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertParts(entities: List<CachedPartEntity>)
 
-    /** #97（H-6）：增量追加 part 文本——流式 delta 落盘（O(delta) 写，替代全量重写）。 */
-    @Query("UPDATE cached_parts SET text = text || :delta WHERE id = :partId")
-    suspend fun appendPartText(partId: String, delta: String)
+    /**
+     * #97（H-6）：增量追加 part 文本——流式 delta 落盘（O(delta) 写，替代全量重写）。
+     * UPSERT 语义：part 行不存在时插入（V2 流式中 REST 快照可能未到，
+     * 纯 UPDATE 影响 0 行 → 增量丢失——2026-08-14 模拟器 DB 实测发现）。
+     */
+    @Query(
+        "INSERT OR REPLACE INTO cached_parts (id, messageId, sessionId, type, text, payload) " +
+        "VALUES (:partId, :messageId, :sessionId, :type, :delta, NULL) " +
+        "ON CONFLICT(id) DO UPDATE SET text = COALESCE(text, '') || :delta"
+    )
+    suspend fun appendPartText(partId: String, messageId: String, sessionId: String, type: String, delta: String)
 
     /** #97（H-6）：ended 时覆盖最终文本（防增量与 REST 快照漂移）。 */
     @Query("UPDATE cached_parts SET text = :text WHERE id = :partId")

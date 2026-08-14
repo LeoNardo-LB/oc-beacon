@@ -83,7 +83,9 @@ fun SessionListScreen(
 var showMoreMenu by remember { mutableStateOf(false) }
     var renameSessionId by remember { mutableStateOf("") }
     // #115（D2-L25）：renameText 输入态 saveable——重建后不丢重命名输入
-    var renameText by rememberSaveable { mutableStateOf(TextFieldValue("")) }
+    // #115（D2-L25）：TextFieldValue 需显式 Saver（默认 Saver 不支持——
+    // 直接 rememberSaveable 会 IllegalArgumentException 崩溃）
+    var renameText by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteSessionId by remember { mutableStateOf("") }
