@@ -61,6 +61,14 @@ class SseClientV2 @Inject constructor(
     private val json: Json,
     private val httpClient: io.ktor.client.HttpClient
 ) {
+    /**
+     * 2026-08-15（research/06 P0）：durable.seq 游标回调——每条含 durable 信封
+     * 的事件到达时上报（aggregateId, seq），供消费方（EventDispatcher 装配）
+     * 维护 per-session 最后 seq + gap 检测（服务器严格递增，core/event.ts:294）。
+     */
+    @Volatile
+    var sequenceTracker: ((aggregateId: String, seq: Long) -> Unit)? = null
+
     private val parsers: List<SseEventParser> = listOf(
         dev.leonardo.ocbeacon.data.api.sse.parsers.MiscEventParser(),
         dev.leonardo.ocbeacon.data.api.sse.parsers.SessionEventParser(json),
@@ -288,6 +296,15 @@ class SseClientV2 @Inject constructor(
                     .takeIf { it.isNotEmpty() }
                     ?.let { JsonObject(it) }
                 ?: JsonObject(emptyMap())
+            // 2026-08-15（research/06 P0）：提取 durable.seq（服务器严格递增游标，
+            // core/event.ts:294）→ 接线 gap 检测（此前 trackSequence 无调用方——
+            // 死代码）。aggregateID 即 sessionId；seq 缺失（V1 兼容/部分事件）跳过。
+            val durable = root["durable"] as? JsonObject
+            val seq = durable?.get("seq")?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+            val aggregateId = durable?.get("aggregateID")?.jsonPrimitive?.contentOrNull
+            if (seq != null && aggregateId != null) {
+                sequenceTracker?.invoke(aggregateId, seq)
+            }
             return handleEvent(type, payload)
         }
 

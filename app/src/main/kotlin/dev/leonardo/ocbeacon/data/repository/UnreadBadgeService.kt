@@ -65,6 +65,15 @@ class UnreadBadgeService @Inject constructor(
         if (_lastCompletedReplyTime.value != old) persistAsync()
     }
 
+    /**
+     * 2026-08-15（research/11 P1）：会话错误产生未读——对齐官方 Web
+     *（notification.tsx:366-397：session.error 计入未读）。复用 maxCompleted
+     * 水位线通道（error 时刻 > 已读时刻 → isUnread=true），无需新存储。
+     */
+    fun onSessionError(sessionId: String) {
+        onMessageCompleted(sessionId, System.currentTimeMillis())
+    }
+
     /** REST 整批替换后重算：只增不减（见类注释）。 */
     fun recomputeMaxCompleted(sessionId: String, messages: List<Message>) {
         val maxTs = messages.filterIsInstance<Message.Assistant>()

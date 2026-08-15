@@ -345,26 +345,42 @@ class V2ApiClientTest {
     }
 
     @Test
-    fun `replyToForm posts answer to V2 form reply path`() = runTest {
+    fun `replyToForm prefers question v2 path then falls back to form`() = runTest {
+        // 2026-08-15（research/09 P0）：question.v2 优先（主干契约），404 降级
+        // form（next-17430 中间契约）——双通道并存
+        val paths = mutableListOf<String>()
         val engine = MockEngine { request ->
-            assertEquals("/api/session/ses_1/form/frm_1/reply", request.url.encodedPath)
-            respond("", HttpStatusCode.NoContent)
+            paths.add(request.url.encodedPath)
+            if (request.url.encodedPath.endsWith("/question/frm_1/reply")) {
+                respond("", HttpStatusCode.NotFound)
+            } else {
+                assertEquals("/api/session/ses_1/form/frm_1/reply", request.url.encodedPath)
+                respond("", HttpStatusCode.NoContent)
+            }
         }
         val api = buildClient(engine)
         val keyed = kotlinx.serialization.json.buildJsonObject {
             put("q0", kotlinx.serialization.json.JsonPrimitive("rice"))
         }
         assertTrue(api.replyToForm(v2Conn, "ses_1", "frm_1", keyed))
+        assertEquals(listOf("/api/session/ses_1/question/frm_1/reply", "/api/session/ses_1/form/frm_1/reply"), paths)
     }
 
     @Test
-    fun `rejectForm posts to V2 form cancel path`() = runTest {
+    fun `rejectForm prefers question v2 path then falls back to form`() = runTest {
+        val paths = mutableListOf<String>()
         val engine = MockEngine { request ->
-            assertEquals("/api/session/ses_1/form/frm_1/cancel", request.url.encodedPath)
-            respond("", HttpStatusCode.NoContent)
+            paths.add(request.url.encodedPath)
+            if (request.url.encodedPath.endsWith("/question/frm_1/reject")) {
+                respond("", HttpStatusCode.NotFound)
+            } else {
+                assertEquals("/api/session/ses_1/form/frm_1/cancel", request.url.encodedPath)
+                respond("", HttpStatusCode.NoContent)
+            }
         }
         val api = buildClient(engine)
         assertTrue(api.rejectForm(v2Conn, "ses_1", "frm_1"))
+        assertEquals(listOf("/api/session/ses_1/question/frm_1/reject", "/api/session/ses_1/form/frm_1/cancel"), paths)
     }
 
     // ============ Error handling ============

@@ -69,7 +69,52 @@ object V2FormMapper {
             val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
             SseEvent.QuestionRejected(sessionId = sessionId, requestId = id)
         }
+        // 2026-08-15（research/09 P0）：V2 主干已用 question.v2.* 取代 form.*
+        //（next-17430 为中间契约，两代并存）。payload = Request 字段平铺：
+        // {id, sessionID, questions:[{question,header,options,multiple?,custom?}], tool?}
+        // ——与领域 Question 结构同构（label/description 一致），直接映射。
+        "question.v2.asked" -> parseQuestionV2(props)
+        "question.v2.replied" -> {
+            val id = props["requestID"]?.jsonPrimitive?.contentOrNull
+                ?: props["id"]?.jsonPrimitive?.contentOrNull ?: return null
+            val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
+            SseEvent.QuestionReplied(sessionId = sessionId, requestId = id)
+        }
+        "question.v2.rejected" -> {
+            val id = props["requestID"]?.jsonPrimitive?.contentOrNull
+                ?: props["id"]?.jsonPrimitive?.contentOrNull ?: return null
+            val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
+            SseEvent.QuestionRejected(sessionId = sessionId, requestId = id)
+        }
         else -> null
+    }
+
+    /** question.v2.asked payload（Request 平铺）→ QuestionAsked。 */
+    private fun parseQuestionV2(props: JsonObject): SseEvent.QuestionAsked? {
+        val id = props["id"]?.jsonPrimitive?.contentOrNull ?: return null
+        val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
+        val questions = (props["questions"]?.jsonArray ?: JsonArray(emptyList()))
+            .mapNotNull { el ->
+                (el as? JsonObject)?.let { q ->
+                    val options = (q["options"]?.jsonArray ?: JsonArray(emptyList()))
+                        .mapNotNull { o -> (o as? JsonObject)?.toOption() }
+                    SseEvent.QuestionAsked.Question(
+                        header = q["header"]?.jsonPrimitive?.contentOrNull ?: "",
+                        question = q["question"]?.jsonPrimitive?.contentOrNull ?: "",
+                        multiple = q["multiple"]?.jsonPrimitive?.booleanOrNull ?: false,
+                        custom = q["custom"]?.jsonPrimitive?.booleanOrNull ?: true,
+                        options = options,
+                        key = null
+                    )
+                }
+            }
+        if (questions.isEmpty()) return null
+        return SseEvent.QuestionAsked(
+            id = id,
+            sessionId = sessionId,
+            questions = questions,
+            tool = (props["tool"] as? JsonObject)?.toToolRef()
+        )
     }
 
     /** form.created 的 form 对象 → QuestionAsked（仅 kind=question）。 */

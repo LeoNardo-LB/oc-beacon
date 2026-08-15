@@ -679,13 +679,45 @@ class V2ApiClient @Inject constructor(
             val modelsMap = providerModels.associate { mObj ->
                 val modelId = mObj["id"]?.jsonPrimitive?.contentOrNull ?: mObj["modelID"]?.jsonPrimitive?.contentOrNull ?: ""
                 val modelName = mObj["name"]?.jsonPrimitive?.contentOrNull ?: modelId
+                // 2026-08-15（research/07 P0）：补全 V2 映射——此前丢弃
+                // variants/capabilities/cost → variantNames 恒空 → cycleVariant
+                // 空转。V2 variants 是**数组** [{id,settings}]（V1 是 map）——
+                // 转 map（key=variant id，value=原始元素供后续透传）。
+                val variants = mObj["variants"]?.jsonArray
+                    ?.mapNotNull { v -> (v as? kotlinx.serialization.json.JsonObject) }
+                    ?.filter { v -> v["id"]?.jsonPrimitive?.contentOrNull != null }
+                    ?.associate { v -> v["id"]!!.jsonPrimitive.content to v }
+                // V2 capabilities 无 reasoning 布尔（{tools,input,output}）——
+                // 从 variants 非空推断（官方 transform.ts:1656：仅 reasoning
+                // 模型生成 variants）
+                val v1Caps = mObj["capabilities"]?.jsonObject?.let { c ->
+                    dev.leonardo.ocbeacon.data.dto.response.ModelCapabilities(
+                        toolcall = c["tools"]?.jsonPrimitive?.contentOrNull == "true",
+                        reasoning = !variants.isNullOrEmpty()
+                    )
+                } ?: variants?.let {
+                    // capabilities 缺失但 variants 非空：至少标记 reasoning
+                    dev.leonardo.ocbeacon.data.dto.response.ModelCapabilities(reasoning = true)
+                }
+                // V2 cost 是数组 [ModelCost]（取首条）
+                val v2Cost = mObj["cost"]?.jsonArray
+                    ?.firstOrNull()?.let { c -> c as? kotlinx.serialization.json.JsonObject }
+                val cost = v2Cost?.let { c ->
+                    dev.leonardo.ocbeacon.data.dto.response.ModelCost(
+                        input = c["input"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull() ?: 0.0,
+                        output = c["output"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull() ?: 0.0
+                    )
+                }
                 modelId to dev.leonardo.ocbeacon.data.dto.response.ProviderModel(
                     id = modelId,
                     providerId = providerId,
                     name = modelName,
                     family = mObj["family"]?.jsonPrimitive?.contentOrNull,
                     status = mObj["status"]?.jsonPrimitive?.contentOrNull ?: "active",
-                    limit = parseModelLimit(mObj)
+                    capabilities = v1Caps,
+                    cost = cost,
+                    limit = parseModelLimit(mObj),
+                    variants = variants
                 )
             }
 
@@ -696,9 +728,25 @@ class V2ApiClient @Inject constructor(
                 models = modelsMap
             )
         }
+        // 2026-08-15（research/07 P0）：V2 默认模型——旧实现恒空 map → 回退
+        // 退化为"无序第一个模型"。官方语义：provider_default 排序后的默认。
+        // 消费方（ModelConfigDelegate:137）按 providerId→modelId 取值。
+        val defaultMap: Map<String, String> = modelItems
+            .filter { m ->
+                (m["enabled"]?.jsonPrimitive?.contentOrNull ?: "true") == "true" &&
+                    (m["status"]?.jsonPrimitive?.contentOrNull ?: "active") == "active"
+            }
+            .groupBy { m -> m["providerID"]?.jsonPrimitive?.contentOrNull ?: "" }
+            .mapNotNull { (_, models) ->
+                val m = models.first()
+                val pid = m["providerID"]?.jsonPrimitive?.contentOrNull ?: ""
+                val mid = m["id"]?.jsonPrimitive?.contentOrNull ?: ""
+                if (pid.isNotBlank() && mid.isNotBlank()) pid to mid else null
+            }
+            .toMap()
         return dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse(
             providers = providers,
-            default = emptyMap()
+            default = defaultMap
         )
     }
 
@@ -754,6 +802,31 @@ class V2ApiClient @Inject constructor(
         keyedAnswers: kotlinx.serialization.json.JsonObject,
         directory: String? = null
     ): Boolean {
+        // 2026-08-15（research/09 P0）：question.v2 优先（主干契约，实测 200）：
+        // POST /api/session/:id/question/:requestID/reply {answers: string[][]}
+        //（按 questions 顺序的数组，每个 answer 是选中 label 数组——与 form
+        // 的 keyed map 不同）。form 通道降级（next-17430 中间契约）。
+        // keyedAnswers 的 key 即 question key（q0/q1...）——按序转数组。
+        val orderedAnswers = keyedAnswers.keys.mapNotNull { k ->
+            (keyedAnswers[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        }.map { listOf(it) }
+        val v2Body = kotlinx.serialization.json.buildJsonObject {
+            put("answers", kotlinx.serialization.json.JsonArray(
+                orderedAnswers.map { ans ->
+                    kotlinx.serialization.json.JsonArray(ans.map { kotlinx.serialization.json.JsonPrimitive(it) })
+                }
+            ))
+        }
+        val v2Resp = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/question/" + formId + "/reply") {
+            auth(conn)
+            directoryHeader(directory)
+            contentType(ContentType.Application.Json)
+            setBody(v2Body)
+        }
+        if (v2Resp.status.isSuccess()) return true
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "replyToForm: question.v2 status=${v2Resp.status.value} -> fallback form path")
+        }
         val bodyObj = kotlinx.serialization.json.buildJsonObject {
             put("answer", keyedAnswers)
         }
@@ -779,6 +852,13 @@ class V2ApiClient @Inject constructor(
         formId: String,
         directory: String? = null
     ): Boolean {
+        // 2026-08-15（research/09 P0）：question.v2 优先（POST .../question/:id/reject）
+        // form cancel 降级
+        val v2Resp = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/question/" + formId + "/reject") {
+            auth(conn)
+            directoryHeader(directory)
+        }
+        if (v2Resp.status.isSuccess()) return true
         val response = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/form/" + formId + "/cancel") {
             auth(conn)
             directoryHeader(directory)

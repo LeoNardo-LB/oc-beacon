@@ -81,6 +81,16 @@ class SseConnectionManager @Inject constructor(
     /** 每服务器的超时跟踪器，用于 SSE 读取超时冷却逻辑。 */
     private val timeoutTrackers = ConcurrentHashMap<String, SseReadTimeoutTracker>()
 
+    init {
+        // 2026-08-15（research/06 P0）：接线 durable.seq gap 检测——服务器每事件
+        // seq 严格递增（core/event.ts:294）；连接代内 gap = 事件丢失（非断连，
+        // 如订阅队列溢出丢弃）→ 记录 gapDetected（L3/观测层消费；后续可接
+        // /api/session/:id/event?after= 精确补漏——官方端点已支持）。
+        sseClientV2.sequenceTracker = { aggregateId, seq ->
+            eventDispatcher.trackSequence(aggregateId, seq)
+        }
+    }
+
     /**
      * RS-017 修复：每服务器的重连守卫。防止在网络状态抖动
      *（Available → Lost → Available）且 debounce + distinctUntilChanged

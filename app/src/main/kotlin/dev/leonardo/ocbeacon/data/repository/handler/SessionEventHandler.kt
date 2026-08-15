@@ -31,6 +31,10 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     val serverSessions: StateFlow<Map<String, Set<String>>> = _serverSessions.asStateFlow()
 
     private val _sessions = MutableStateFlow<List<Session>>(emptyList())
+
+    /** 2026-08-15：已压缩会话 id 集合（SessionCompacted 事件累积）——UI 监听触发刷新。 */
+    private val _compactedSessions = MutableStateFlow<Set<String>>(emptySet())
+    val compactedSessions: kotlinx.coroutines.flow.StateFlow<Set<String>> = _compactedSessions.asStateFlow()
     val sessions: StateFlow<List<Session>> = _sessions.asStateFlow()
 
     private val _sessionDiffs = MutableStateFlow<Map<String, List<FileDiff>>>(emptyMap())
@@ -67,7 +71,12 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.SessionDiff -> { handleSessionDiff(event); true }
             is SseEvent.SessionError -> { handleSessionError(event); true }
             is SseEvent.SessionCompacted -> {
-                AppLogger.i(TAG, "Session ${event.sessionId} compacted"); true
+                AppLogger.i(TAG, "Session ${event.sessionId} compacted")
+                // 2026-08-15：通知 UI 刷新——压缩后服务器把历史替换为 compaction
+                // 消息 + 摘要，不刷新的话压缩卡片要重进会话才显示（用户实测
+                // "点击压缩无任何反馈"成因之一）。
+                _compactedSessions.value = _compactedSessions.value + event.sessionId
+                true
             }
             is SseEvent.VcsBranchUpdated -> { _vcsBranch.value = event.branch; true }
             is SseEvent.ProjectUpdated -> { _projectInfo.value = event.info; true }
@@ -137,7 +146,16 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
 
     private fun handleSessionError(event: SseEvent.SessionError) {
         AppLogger.e(TAG, "Session ${event.sessionId} error: ${event.error}")
+        // 2026-08-15（research/11 P1）：error 产生未读——对齐官方 Web
+        //（notification.tsx:366-397：session.error 计入未读且 unseenHasError
+        // 区分）。挂后台会话失败时用户有感知。sessionId 可空（协议防御）——
+        // 空则跳过。
+        event.sessionId?.let { sid -> onSessionError?.invoke(sid, event.error) }
     }
+
+    /** 2026-08-15（research/11 P1）：error 未读回调（EventDispatcher 装配 → UnreadBadgeService）。 */
+    @Volatile
+    var onSessionError: ((sessionId: String, error: String) -> Unit)? = null
 
     // ============ 批量操作 ============
 
@@ -181,6 +199,23 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
      * 2026-08-14 修复：过度清理导致返回会话列表后 item 消失，刷新/重启才恢复）。
      * 会话元数据删除仅由服务器 SessionDeleted 事件（handleSessionDeleted）驱动。
      */
+    /** 2026-08-15（research/11 P1）：session.next.moved——更新缓存会话的 directory
+     *  （对齐官方 TUI sync.tsx:300-314 增量更新；分组随 sessionsFlow 重算）。 */
+    fun updateSessionDirectory(sessionId: String, location: String, subdirectory: String?) {
+        val newDir = buildString {
+            append(location)
+            if (!subdirectory.isNullOrEmpty()) {
+                if (isNotEmpty() && !endsWith("/")) append("/")
+                append(subdirectory)
+            }
+        }
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id == sessionId && s.directory != newDir) s.copy(directory = newDir) else s
+            }
+        }
+    }
+
     fun clearForSession(sessionId: String) {
         _sessionDiffs.update { it - sessionId }
         _lastUserMessageTime.update { it - sessionId }

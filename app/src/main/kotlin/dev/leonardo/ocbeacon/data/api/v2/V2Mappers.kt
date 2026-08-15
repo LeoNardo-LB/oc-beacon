@@ -327,9 +327,23 @@ object V2MessageMapper {
                     role = type,
                     time = TimeInfo(created = timeCreated)
                 )
-                val parts = if (text.isNotEmpty()) {
-                    listOf(Part.Text(id = "", sessionId = sessionId, messageId = id, text = text))
-                } else emptyList()
+                // 2026-08-15 修复（压缩完成无分割线）：compaction 消息生成
+                // Part.Compaction（含摘要全文）——UI 渲染层靠
+                // parts.any { it is Part.Compaction } 识别压缩点渲染
+                // 可展开的压缩卡片（分割线+轻量边框样式，与 synthetic 通知
+                // 卡片一致的视觉语言）；此前生成 Part.Text → 永不匹配 →
+                // 用户点击压缩后界面无任何反馈。
+                val parts = when {
+                    type == "compaction" && text.isNotEmpty() ->
+                        listOf(Part.Compaction(
+                            id = "${id}_compaction",
+                            sessionId = sessionId,
+                            messageId = id,
+                            summary = text
+                        ))
+                    text.isNotEmpty() -> listOf(Part.Text(id = "", sessionId = sessionId, messageId = id, text = text))
+                    else -> emptyList()
+                }
                 MessageWithParts(info = message, parts = parts)
             }
         }

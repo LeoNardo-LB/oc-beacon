@@ -66,6 +66,10 @@ class SessionNextEventHandler @Inject constructor(
 
     // ============ 公共状态（只读）============
 
+    /** 2026-08-15（research/11 P1）：session.next.moved → 会话缓存 directory 更新回调（EventDispatcher 装配）。 */
+    @Volatile
+    var sessionMovedListener: ((sessionId: String, location: String, subdirectory: String?) -> Unit)? = null
+
     private val _currentAgent = MutableStateFlow<Map<String, String>>(emptyMap())
     val currentAgent: StateFlow<Map<String, String>> = _currentAgent.asStateFlow()
 
@@ -110,6 +114,10 @@ class SessionNextEventHandler @Inject constructor(
         when (event) {
             is SessionNextEvent.AgentSwitched -> handleAgentSwitched(event)
             is SessionNextEvent.ModelSwitched -> handleModelSwitched(event)
+            // 2026-08-15（research/11 P1）：会话跨目录移动——更新本地会话缓存
+            // 的 directory（对齐官方 TUI sync.tsx:300-314 增量更新；分组随
+            // sessionsFlow 自动重算）。
+            is SessionNextEvent.Moved -> sessionMovedListener?.invoke(event.sessionId, event.location, event.subdirectory)
 
             // 文本/推理流式事件不携带需在此跟踪的状态——part 内容
             // 和 time.end 通过 MessagePartHandler 中的 message.part.* 事件更新。

@@ -18,6 +18,7 @@ object SessionNextEventSerializer : JsonContentPolymorphicSerializer<SessionNext
         val type = element.jsonObject["type"]?.jsonPrimitive?.content ?: return SessionNextEvent.Unknown.serializer()
         return when (type) {
             "session.next.agent.switched" -> SessionNextEvent.AgentSwitched.serializer()
+            "session.next.moved" -> SessionNextEvent.Moved.serializer()
             "session.next.model.switched" -> SessionNextEvent.ModelSwitched.serializer()
             "session.next.text.started" -> SessionNextEvent.TextStarted.serializer()
             "session.next.text.delta" -> SessionNextEvent.TextDelta.serializer()
@@ -64,6 +65,18 @@ sealed class SessionNextEvent {
     data class AgentSwitched(
         @SerialName("sessionID") override val sessionId: String,
         val agent: String
+    ) : SessionNextEvent()
+
+    /**
+     * 2026-08-15（research/11 P1）：会话跨目录移动（V2 session.next.moved，
+     * payload {location, subdirectory}）——官方 TUI 增量更新 directory
+     *（sync.tsx:300-314）。此前未处理 → 会话移动后本地分组错位。
+     */
+    @Serializable
+    data class Moved(
+        @SerialName("sessionID") override val sessionId: String,
+        val location: String = "",
+        val subdirectory: String? = null
     ) : SessionNextEvent()
 
     /** 此会话切换了 Model。 */

@@ -115,6 +115,16 @@ class EventDispatcher @Inject constructor(
                 children.any { statuses[it.id] is dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy }
             }
         }
+        // 2026-08-15（research/11 P1）：session.next.moved → 更新会话缓存
+        // directory（对齐官方 TUI 增量更新；无 sessionHandler 依赖倒置问题）
+        sessionNextHandler.sessionMovedListener = { sessionId, location, subdirectory ->
+            sessionHandler.updateSessionDirectory(sessionId, location, subdirectory)
+        }
+        // 2026-08-15（research/11 P1）：error 产生未读（对齐官方 Web——挂后台
+        // 会话失败时列表有感知）
+        sessionHandler.onSessionError = { sessionId, _ ->
+            unreadBadgeService.onSessionError(sessionId)
+        }
     }
 
     // ============ 事件处理器注册表（开闭原则）============
