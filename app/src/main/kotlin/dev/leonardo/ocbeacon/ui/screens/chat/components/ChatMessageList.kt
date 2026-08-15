@@ -920,30 +920,18 @@ fun ChatMessageList(
                                     }
 
                                     @OptIn(ExperimentalFoundationApi::class)
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .combinedClickable(
-                                                onClick = { },
-                                                onLongClick = { showRevertDialog = true }
-                                            )
-                                            .padding(vertical = SpacingTokens.XS.dp, horizontal = SpacingTokens.XXL.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        HorizontalDivider(
-                                            modifier = Modifier.weight(1f),
-                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.chat_summarized),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                                            modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp)
-                                        )
-                                        HorizontalDivider(
-                                            modifier = Modifier.weight(1f),
-                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                                    // 2026-08-15：压缩分割线升级为可展开卡片
+                                    //（CompactionCard：分割线收起态 + 无边框轻量
+                                    // 卡片摘要展开态——与 synthetic 通知卡片一致
+                                    // 的视觉语言）；长按仍触发回退确认。
+                                    Column(modifier = Modifier.combinedClickable(
+                                        onClick = { },
+                                        onLongClick = { showRevertDialog = true }
+                                    )) {
+                                        CompactionCard(
+                                            summary = chatMessage.parts
+                                                .filterIsInstance<Part.Compaction>()
+                                                .firstOrNull()?.summary
                                         )
                                     }
                                     return@itemsIndexed
