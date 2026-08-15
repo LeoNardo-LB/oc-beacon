@@ -31,10 +31,23 @@ internal fun formatFileSize(bytes: Int): String {
 }
 
 internal fun formatDuration(ms: Long): String {
+    // 2026-08-15 用户要求：耗时用时分秒分解形式（2m 30s / 1h 2m 3s），
+    // 不用小数分钟（3.2m）。秒级（<1min）保留 1 位小数——流式期间
+    // ticker 0.1s 更新，小数提供进度感。
     return when {
         ms < 1000 -> "${ms}ms"
         ms < 60000 -> "%.1fs".format(ms / 1000.0)
-        else -> "%.1fm".format(ms / 60000.0)
+        else -> {
+            val totalSec = ms / 1000
+            val h = totalSec / 3600
+            val m = (totalSec % 3600) / 60
+            val s = totalSec % 60
+            buildString {
+                if (h > 0) append("${h}h ")
+                if (m > 0) append("${m}m ")
+                append("${s}s")
+            }
+        }
     }
 }
 

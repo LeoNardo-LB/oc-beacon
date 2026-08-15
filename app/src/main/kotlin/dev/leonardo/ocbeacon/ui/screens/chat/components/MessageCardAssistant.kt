@@ -288,7 +288,8 @@ internal fun MessageCardAssistant(
 /**
  * 流式耗时实时显示（#47 优化）。
  *
- * 独立子 composable：内部 100ms ticker 更新自身 state——重组范围仅限
+ * 独立子 composable：内部 ticker（2026-08-15 用户要求：1s → 300ms，
+ * 秒级小数进度感）更新自身 state——重组范围仅限
  * 本 Text，不触发整个 footer Row 重组（原实现 ticker state 在 footer 级，
  * 与 48ms SSE flush 叠加导致 ~30 次/s footer 重组）。
  */
@@ -299,7 +300,7 @@ private fun StreamingElapsedText(startMs: Long) {
         while (true) {
             val elapsedMs = System.currentTimeMillis() - startMs
             elapsedText = formatDuration(elapsedMs)
-            delay(1000)
+            delay(300)
         }
     }
     Text(
