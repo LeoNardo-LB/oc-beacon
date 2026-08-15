@@ -13,8 +13,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
+import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.util.snapToBottom
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+
+/** ChatScrollController 专属日志 TAG。 */
+private const val TAG = "ChatScrollController"
 
 /**
  * 滚动状态集群 —— 从 ChatScreen 抽取。
@@ -103,24 +109,29 @@ internal fun rememberChatScrollController(
     // requestScrollToItem 非挂起：在 effect（apply 后、layout 前）同步注册请求，
     // 下一帧布局直接按位置定位 —— 无"旧 key 锚定偏移一帧 → 再拉回"的闪烁循环。
     LaunchedEffect(messageCount) {
-        if (messageCount > 0 && autoScrollEnabled.value && !listState.isScrollInProgress) {
+        if (messageCount > 0 && autoScrollEnabled.value) {
+            // 2026-08-16 根治：死代码根因。原实现 `!listState.isScrollInProgress`
+            // 条件失败（新消息恰逢用户 fling 惯性中到达）时静默跳过且不重试。
+            // 现改为等待 fling 真实停止（snapshotFlow 订阅真实 State）后再锚定，
+            // 带 2s 兜底防死等。
+            if (listState.isScrollInProgress) {
+                withTimeoutOrNull(2_000) {
+                    snapshotFlow { listState.isScrollInProgress }.first { !it }
+                }
+            }
             listState.requestScrollToItem(0)
         }
     }
 
     LaunchedEffect(forceScrollTick.intValue) {
         if (forceScrollTick.intValue > 0) {
-            // 2026-08-16 修复（发送后不滚底）：悲观消息模式下点击发送时消息
-            // **尚未进列表**（POST 往返 + SSE 回显后才有）——原实现立即
-            // requestScrollToItem(0) 滚到当前底部（落空），随后消息插入时
-            // autoScrollEnabled 可能已被关 → 不跟随。
-            // 修复：等待消息数实际增加后再锚定底部（最多等 5s 兜底——
-            // 发送失败/无回显时仍执行一次避免死等）。
-            val startCount = messageCount
-            val startTime = System.currentTimeMillis()
-            snapshotFlow { messageCount }
-                .first { it > startCount || System.currentTimeMillis() - startTime > 5_000 }
-            listState.requestScrollToItem(0)
+            // 2026-08-16 根治：死代码根因。原实现 `snapshotFlow { messageCount }`
+            // 捕获的是不可变 Int 函数参数（非 State），block 内零 State 读取 →
+            // flow 只发射一次初始值 → `.first{}` 永久挂起，连 5s 兜底（写在
+            // 永不重跑的谓词内）都不执行 —— tick 路径完全不滚。
+            // 现改为经 [ForceScrollExecutor] 订阅 LazyListState.layoutInfo
+            // （derived state，随组合/布局更新重新求值）等待真实增长。
+            ForceScrollExecutor(gate = LazyListStateGate(listState)).execute()
         }
     }
 
@@ -137,4 +148,96 @@ internal fun rememberChatScrollController(
         autoScrollEnabledState = autoScrollEnabled,
         forceScrollTickState = forceScrollTick,
     )
+}
+
+/**
+ * LazyListState 的最小滚动门面 —— 2026-08-16 根治：死代码根因。
+ *
+ * 目的：把"等待 + 滚动 + 校验"逻辑从 Composable 抽到 [ForceScrollExecutor]，
+ * 使其可以在无 UI/布局环境的 JVM 单测中用 State 驱动的 Fake 验证。
+ * 生产实现为 [LazyListStateGate]，属性直读 LazyListState 的快照/derived state。
+ */
+internal interface ScrollListGate {
+    /** 列表总项数（对应 `LazyListState.layoutInfo.totalItemsCount`）。 */
+    val totalItemsCount: Int
+
+    /** 是否有滚动（拖动/fling/程序化）正在进行。 */
+    val isScrollInProgress: Boolean
+
+    val firstVisibleItemIndex: Int
+    val firstVisibleItemScrollOffset: Int
+
+    /** 非挂起位置请求（下一帧布局生效），对应 `LazyListState.requestScrollToItem`。 */
+    fun requestScrollToItem(index: Int)
+}
+
+/** [ScrollListGate] 的生产实现：直读 [LazyListState] 的快照属性。 */
+internal class LazyListStateGate(private val state: LazyListState) : ScrollListGate {
+    override val totalItemsCount: Int get() = state.layoutInfo.totalItemsCount
+    override val isScrollInProgress: Boolean get() = state.isScrollInProgress
+    override val firstVisibleItemIndex: Int get() = state.firstVisibleItemIndex
+    override val firstVisibleItemScrollOffset: Int get() = state.firstVisibleItemScrollOffset
+    override fun requestScrollToItem(index: Int) = state.requestScrollToItem(index)
+}
+
+/**
+ * 强制滚底执行器（发送后跟随）—— 2026-08-16 根治：死代码根因。
+ *
+ * 流程：
+ * 1. 等待 [ScrollListGate.totalItemsCount] 真实增长（订阅 derived state，替代
+ *    捕获不可变 Int 参数的 snapshotFlow —— 那是 flow 只发射一次、`.first{}`
+ *    永久挂起、5s 兜底也永不执行的死代码根因）。最多 [GROWTH_TIMEOUT_MS]。
+ * 2. 若用户 fling 惯性中，等待其停止（最多 [FLING_TIMEOUT_MS]）—— 替代
+ *    一次性条件检查的静默跳过。
+ * 3. `requestScrollToItem(0)` 锚定底部，等一帧布局后校验位置；未到位则再等
+ *    [VERIFY_TIMEOUT_MS]（布局补偿收敛），仍不到位则重滚一次。
+ *
+ * @param gate 滚动门面（生产=LazyListStateGate；测试=State 驱动 Fake）
+ * @param onGrowthTimeout 消息增长等待超时的日志回调（测试中兼作断言探针）
+ * @param waitOneFrame 等一帧布局的挂起块（生产 `withFrameNanos`；测试注入空实现，
+ *        因 JVM 单测无 MonotonicFrameClock，`withFrameNanos` 会永久挂起）
+ */
+internal class ForceScrollExecutor(
+    private val gate: ScrollListGate,
+    private val onGrowthTimeout: (String) -> Unit = { AppLogger.d(TAG, it) },
+    private val waitOneFrame: suspend () -> Unit = { withFrameNanos { } },
+) {
+    /** 底部判定：首项 index==0 且偏移 < 100（reverseLayout 下 0 即最底）。 */
+    private fun atBottom(): Boolean =
+        gate.firstVisibleItemIndex == 0 && gate.firstVisibleItemScrollOffset < AT_BOTTOM_OFFSET_MAX
+
+    suspend fun execute() {
+        val startCount = gate.totalItemsCount
+        val grew = withTimeoutOrNull(GROWTH_TIMEOUT_MS) {
+            snapshotFlow { gate.totalItemsCount }.first { it > startCount }
+        }
+
+        // 滚前等待用户 fling 结束（替代一次性 if 静默跳过——fling 中到达是高频场景）
+        if (gate.isScrollInProgress) {
+            withTimeoutOrNull(FLING_TIMEOUT_MS) {
+                snapshotFlow { gate.isScrollInProgress }.first { !it }
+            }
+        }
+
+        gate.requestScrollToItem(0)
+
+        // 滚后校验：超时兜底路径（grew==null，消息未到/发送失败）与补偿后未到位时重滚一次
+        waitOneFrame()
+        if (!atBottom()) {
+            withTimeoutOrNull(VERIFY_TIMEOUT_MS) {
+                snapshotFlow { atBottom() }.first { it }
+            } ?: gate.requestScrollToItem(0)
+        }
+
+        if (grew == null) {
+            onGrowthTimeout("[scroll] force tick timed out waiting for message growth, scrolled anyway")
+        }
+    }
+
+    private companion object {
+        const val GROWTH_TIMEOUT_MS = 5_000L
+        const val FLING_TIMEOUT_MS = 2_000L
+        const val VERIFY_TIMEOUT_MS = 1_000L
+        const val AT_BOTTOM_OFFSET_MAX = 100
+    }
 }
