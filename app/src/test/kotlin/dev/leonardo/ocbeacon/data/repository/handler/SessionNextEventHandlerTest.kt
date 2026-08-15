@@ -12,7 +12,7 @@ class SessionNextEventHandlerTest {
 
     @Before
     fun setup() {
-        handler = SessionNextEventHandler()
+        handler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker())
     }
 
     // ============ Agent / Model State ============

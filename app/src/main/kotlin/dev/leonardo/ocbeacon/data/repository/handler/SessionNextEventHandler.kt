@@ -55,7 +55,10 @@ data class ShellStateInfo(
  * 压缩状态和 shell 状态。
  */
 @Singleton
-class SessionNextEventHandler @Inject constructor() : SseEventHandler {
+class SessionNextEventHandler @Inject constructor(
+    /** 2026-08-15：session 级 token 用量（usage.updated）直写统计跟踪器。 */
+    private val tokenStatsTracker: dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker,
+) : SseEventHandler {
 
     companion object {
         private const val TAG = "SessionNextEventHandler"
@@ -140,6 +143,7 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
             is SessionNextEvent.Retried -> {
                 _retryState.update { it + (event.sessionId to event.attempt) }
             }
+            is SessionNextEvent.UsageUpdated -> handleUsageUpdated(event)
             is SessionNextEvent.Synthetic -> { /* 信息性 */ }
             is SessionNextEvent.Unknown -> {
                 AppLogger.w(TAG, "Unhandled session.next event: ${event.rawType}")
@@ -209,6 +213,22 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         _shellState.update { it + (event.sessionId to ShellStateInfo(command = event.command)) }
     }
 
+    // ============ 会话级 token 用量（2026-08-15：顶部 context 指示器数据源） ============
+
+    private val _sessionUsage = MutableStateFlow<Map<String, SessionNextEvent.UsageUpdated>>(emptyMap())
+    /** 按 sessionId 的最新 usage（V2 session.usage.updated 实时推送）。 */
+    val sessionUsage: StateFlow<Map<String, SessionNextEvent.UsageUpdated>> = _sessionUsage.asStateFlow()
+
+    /**
+     * 2026-08-15：session 级 token 用量（V2 session.usage.updated）——服务器
+     * 权威累计值。**只记录不写全局 tracker**（tracker 是单会话作用域，而本
+     * handler 收到服务器全部会话的事件——直接写入会跨会话污染）。由
+     * ChatViewModel 按当前会话订阅消费。
+     */
+    private fun handleUsageUpdated(event: SessionNextEvent.UsageUpdated) {
+        _sessionUsage.update { it + (event.sessionId to event) }
+    }
+
     private fun handleShellEnded(sessionId: String) {
         _shellState.update { it - sessionId }
     }
@@ -249,6 +269,7 @@ class SessionNextEventHandler @Inject constructor() : SseEventHandler {
         _retryState.update { it - sessionId }
         _lastEventSeq.update { it - sessionId }
         _gapDetected.update { it - sessionId }
+        _sessionUsage.update { it - sessionId }
     }
 
     fun clearForServer(sessionIds: Set<String>) {

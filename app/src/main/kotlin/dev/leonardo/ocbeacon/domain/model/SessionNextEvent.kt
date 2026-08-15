@@ -41,6 +41,7 @@ object SessionNextEventSerializer : JsonContentPolymorphicSerializer<SessionNext
             "session.next.compaction.ended" -> SessionNextEvent.CompactionEnded.serializer()
             "session.next.prompted" -> SessionNextEvent.Prompted.serializer()
             "session.next.retried" -> SessionNextEvent.Retried.serializer()
+            "session.next.usage.updated" -> SessionNextEvent.UsageUpdated.serializer()
             "session.next.synthetic" -> SessionNextEvent.Synthetic.serializer()
             else -> SessionNextEvent.Unknown.serializer()
         }
@@ -273,6 +274,43 @@ sealed class SessionNextEvent {
         val attempt: Int = 0,
         val error: String = ""
     ) : SessionNextEvent()
+
+    /**
+     * 2026-08-15：session 级 token 用量更新（V2 `session.usage.updated`，
+     * 实测 payload：{sessionID, cost, tokens:{input,output,reasoning,cache:{read,write}}}）。
+     * 服务器权威的累计用量——顶部 context 指示器的正解数据源（消息级 tokens
+     * 会因 REST 覆盖/冷启动缺失而归零，session 级始终有效）。
+     */
+    @Serializable
+    data class UsageUpdated(
+        @SerialName("sessionID") override val sessionId: String,
+        val cost: Double = 0.0,
+        val tokens: SessionUsageTokens = SessionUsageTokens()
+    ) : SessionNextEvent()
+
+    @Serializable
+    data class SessionUsageTokens(
+        val input: Int = 0,
+        val output: Int = 0,
+        val reasoning: Int = 0,
+        val cache: SessionUsageCache = SessionUsageCache()
+    ) {
+        /**
+         * 上下文占用量。2026-08-15 修正：**不含 cache.read**——session 级
+         * tokens 的 cache.read 是历史累计（跨所有请求求和，实测可达数百万），
+         * 不是当前上下文构成；加入会超 100%（实测 447%）。上下文占用 =
+         * input + output + reasoning（活跃部分，与 opencode TUI 语义一致）。
+         * 消息级 tokens（step.ended）的 cache.read 是单次请求快照，语义不同
+         * （消息级统计口径不变，见 ChatViewModel collect）。
+         */
+        val contextTotal: Int get() = input + output + reasoning
+    }
+
+    @Serializable
+    data class SessionUsageCache(
+        val read: Int = 0,
+        val write: Int = 0
+    )
 
     @Serializable
     data class Synthetic(

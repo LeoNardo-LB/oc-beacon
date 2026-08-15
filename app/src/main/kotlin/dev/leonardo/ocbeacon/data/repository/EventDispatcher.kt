@@ -210,6 +210,8 @@ class EventDispatcher @Inject constructor(
     val activeToolProgress: StateFlow<Map<String, List<ToolProgressInfo>>> get() = sessionNextHandler.activeToolProgress
     val stepProgress: StateFlow<Map<String, StepProgressInfo>> get() = sessionNextHandler.stepProgress
     val compactionState: StateFlow<Map<String, CompactionStateInfo>> get() = sessionNextHandler.compactionState
+    /** 2026-08-15：按 sessionId 的实时 token 用量（V2 session.usage.updated）。 */
+    val sessionUsage: StateFlow<Map<String, dev.leonardo.ocbeacon.domain.model.SessionNextEvent.UsageUpdated>> get() = sessionNextHandler.sessionUsage
     val shellState: StateFlow<Map<String, ShellStateInfo>> get() = sessionNextHandler.shellState
     val retryState: StateFlow<Map<String, Int>> get() = sessionNextHandler.retryState
     val gapDetected: StateFlow<Set<String>> get() = sessionNextHandler.gapDetected

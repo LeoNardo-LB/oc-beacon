@@ -70,8 +70,9 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
             while (true) {
                 // 下限钳制为 0 —— 服务器时钟偏差可能使其为负
                 elapsedMs.longValue = (System.currentTimeMillis() - effectiveStart).coerceAtLeast(0L)
-                // L-10：1s ticker（原 100ms 常驻 10 次/s state 写——流式推理期间持续重组）
-                delay(1000L)
+                // 2026-08-15 用户要求：0.3s ticker（秒级小数进度感；独立 state，
+                // 重组范围仅限本组件，与 #47/L-10 的重组治理不冲突）
+                delay(300L)
             }
         } else {
             elapsedMs.longValue = durationMs ?: 0L

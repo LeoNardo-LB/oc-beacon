@@ -158,17 +158,8 @@ internal fun MessageCardAssistant(
                             }
                         }
                     }
-                    // Token 占比圆环（2026-08-14 恢复：input/output 比例——
-                    // 数据来自 step.ended 的 tokens；无数据时占位浅环）
-                    val turnTokens = assistantMsg?.tokens
-                    if (turnTokens != null && (turnTokens.input + turnTokens.output + turnTokens.reasoning) > 0) {
-                        Spacer(modifier = Modifier.width(2.dp))
-                        TokenRatioRing(
-                            inputTokens = turnTokens.input,
-                            outputTokens = turnTokens.output,
-                            reasoningTokens = turnTokens.reasoning
-                        )
-                    }
+                    // 2026-08-15 用户要求：移除 Token 占比圆环——无信息量。
+                    // 统计栏仅保留：agent 徽标 / 模型图标+模型名 / 耗时 / 右对齐复制。
                     // 耗时（流式 = 实时 ticker 子 composable；完成 = 固定）
                     if (isStreaming && startMs != null) {
                         StreamingElapsedText(startMs)

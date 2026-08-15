@@ -429,6 +429,62 @@ class ChatViewModel @Inject constructor(
         // 重置上一会话的 token 统计（TokenStatsTracker 是 @Singleton，跨会话共享）
         tokenStatsTracker.reset()
 
+        // 2026-08-15：session 级权威 tokens 兜底（V1 无 usage SSE 事件、V2 冷启动
+        // 也需要）——GET /session/{id} 的 tokens 字段（V1/V2 实测结构一致：
+        // {input,output,reasoning,cache:{read,write}}）。进会话即写入 tracker →
+        // 顶部 context 指示器常显（不再依赖消息级 tokens——会因 REST 覆盖归零）。
+        if (!isNewSession) {
+            viewModelScope.launch {
+                runCatching {
+                    val session = manageSessionUseCase.getSession(serverId, sessionId)
+                    val t = session.tokens ?: return@runCatching
+                    // 上下文占用 = input+output+reasoning（cache.read 是历史累计
+                    // 非当前上下文——实测 V2 会话 tokens.cache.read 可达数百万，
+                    // 计入会超 100%，见 SessionUsageTokens.contextTotal 注释）
+                    val total = t.input + t.output + t.reasoning
+                    if (total > 0) {
+                        tokenStatsTracker.update {
+                            copy(
+                                totalInputTokens = maxOf(totalInputTokens, t.input),
+                                totalOutputTokens = maxOf(totalOutputTokens, t.output),
+                                totalReasoningTokens = maxOf(totalReasoningTokens, t.reasoning),
+                                totalCacheReadTokens = maxOf(totalCacheReadTokens, t.cache.read),
+                                totalCacheWriteTokens = maxOf(totalCacheWriteTokens, t.cache.write),
+                                lastContextTokens = maxOf(lastContextTokens, total)
+                            )
+                        }
+                    }
+                }.onFailure { e ->
+                    if (e is CancellationException) throw e
+                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                        AppLogger.d(TAG, "session tokens bootstrap skipped: ${e.message}")
+                    }
+                }
+            }
+        }
+
+        // 2026-08-15：V2 实时 usage 流（session.usage.updated）——只消费当前会话
+        //（handler 收到服务器全部会话事件，跨会话写入会污染 tracker——实测主
+        // 会话 13M tokens 把测试会话指示器顶到 100%）。V1 无此事件（REST 兜底覆盖）。
+        viewModelScope.launch {
+            try {
+                eventDispatcher.sessionUsage.collect { usageMap ->
+                    val usage = usageMap[sessionId] ?: return@collect
+                    tokenStatsTracker.update {
+                        copy(
+                            totalInputTokens = maxOf(totalInputTokens, usage.tokens.input),
+                            totalOutputTokens = maxOf(totalOutputTokens, usage.tokens.output),
+                            totalReasoningTokens = maxOf(totalReasoningTokens, usage.tokens.reasoning),
+                            lastContextTokens = maxOf(lastContextTokens, usage.tokens.contextTotal)
+                        )
+                    }
+                }
+            } catch (e: Throwable) {
+                if (e is CancellationException) throw e
+                // 测试环境 relaxed mock 可能无法构造该 flow——静默跳过（不影响生产）
+            }
+        }
+
         // 观察消息并更新 token 统计跟踪器。
         viewModelScope.launch {
             // L-18：全量扫描移出主线程（flowOn Default）+ distinctUntilChanged——
@@ -456,14 +512,17 @@ class ChatViewModel @Inject constructor(
                 .flowOn(kotlinx.coroutines.Dispatchers.Default)
                 .collect { stats ->
                     tokenStatsTracker.update {
+                        // 2026-08-15：消息级统计与 session 级（usage.updated/session
+                        // 详情兜底）max 合并——消息级会因消息切换/REST 覆盖暂时归零，
+                        // 直接 copy 会把 session 级权威值清掉（顶部指示器闪烁消失）。
                         copy(
                             totalCost = stats.totalCost,
-                            totalInputTokens = stats.totalInputTokens,
-                            totalOutputTokens = stats.totalOutputTokens,
-                            totalReasoningTokens = stats.totalReasoningTokens,
-                            totalCacheReadTokens = stats.totalCacheReadTokens,
-                            totalCacheWriteTokens = stats.totalCacheWriteTokens,
-                            lastContextTokens = stats.lastContextTokens,
+                            totalInputTokens = maxOf(totalInputTokens, stats.totalInputTokens),
+                            totalOutputTokens = maxOf(totalOutputTokens, stats.totalOutputTokens),
+                            totalReasoningTokens = maxOf(totalReasoningTokens, stats.totalReasoningTokens),
+                            totalCacheReadTokens = maxOf(totalCacheReadTokens, stats.totalCacheReadTokens),
+                            totalCacheWriteTokens = maxOf(totalCacheWriteTokens, stats.totalCacheWriteTokens),
+                            lastContextTokens = maxOf(lastContextTokens, stats.lastContextTokens),
                         )
                     }
                 }

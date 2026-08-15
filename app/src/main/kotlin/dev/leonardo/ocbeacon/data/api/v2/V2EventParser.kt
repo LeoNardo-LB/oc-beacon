@@ -108,6 +108,36 @@ class V2EventParser(private val json: Json) : SseEventParser {
                 )
             )
         }
+        // 2026-08-15：session 级 token 用量（实测 payload：{sessionID, cost,
+        // tokens:{input,output,reasoning,cache:{read,write}}}）——服务器权威
+        // 累计值，顶部 context 指示器的实时数据源（此前被 Unknown 丢弃）。
+        if (eventType == "session.usage.updated") {
+            val sid = sessionIdOrNull(props) ?: return null
+            val tokens = props["tokens"]?.jsonObject
+            // cost 兼容对象/数字/缺失（防御——历史测试样本曾出现对象形态）
+            val cost = when (val c = props["cost"]) {
+                is kotlinx.serialization.json.JsonPrimitive -> c.contentOrNull?.toDoubleOrNull() ?: 0.0
+                is JsonObject -> c["total"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull() ?: 0.0
+                else -> 0.0
+            }
+            return SseEvent.SessionNext(
+                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.UsageUpdated(
+                    sessionId = sid,
+                    cost = cost,
+                    tokens = tokens?.let { t ->
+                        dev.leonardo.ocbeacon.domain.model.SessionNextEvent.SessionUsageTokens(
+                            input = t["input"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                            output = t["output"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                            reasoning = t["reasoning"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                            cache = dev.leonardo.ocbeacon.domain.model.SessionNextEvent.SessionUsageCache(
+                                read = t["cache"]?.jsonObject?.get("read")?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0,
+                                write = t["cache"]?.jsonObject?.get("write")?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0
+                            )
+                        )
+                    } ?: dev.leonardo.ocbeacon.domain.model.SessionNextEvent.SessionUsageTokens()
+                )
+            )
+        }
         // 提取会话 ID（不同事件可能在不同字段）
         val sessionId = sessionIdOrNull(props)
 

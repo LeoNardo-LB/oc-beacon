@@ -38,7 +38,7 @@ class EventDispatcherTest {
         permissionHandler = PermissionEventHandler()
         questionHandler = QuestionEventHandler()
         miscHandler = MiscEventHandler()
-        sessionNextHandler = SessionNextEventHandler()
+        sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker())
         sessionStateService = SessionStateService(
             appScope = stateServiceScope,
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },

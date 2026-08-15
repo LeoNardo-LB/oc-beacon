@@ -109,7 +109,7 @@ class ChatViewModelPermissionTest {
             permissionHandler = PermissionEventHandler(),
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
-            sessionNextHandler = SessionNextEventHandler(),
+            sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),

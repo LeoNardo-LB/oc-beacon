@@ -67,7 +67,7 @@ class ChatRepositoryImplTest {
             permissionHandler = permissionHandler,
             questionHandler = questionHandler,
             miscHandler = miscHandler,
-            sessionNextHandler = SessionNextEventHandler(),
+            sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,

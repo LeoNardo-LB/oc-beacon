@@ -100,14 +100,44 @@ class V2EventParserTest {
     }
 
     @Test
-    fun `unhandled event falls back to SessionNext Unknown`() {
+    fun `usage updated maps to UsageUpdated with tokens`() {
+        // 2026-08-15：session.usage.updated 已识别（此前 Unknown 丢弃）——
+        // 实测 payload {sessionID, cost, tokens:{...}} → UsageUpdated
+        // （顶部 context 指示器实时数据源）
+        val event = parser.parse(
+            "session.usage.updated",
+            props("""{"sessionID":"ses_1","cost":0.042,"tokens":{"input":100,"output":20,"reasoning":5,"cache":{"read":300,"write":0}}}""")
+        )
+        assertNotNull(event)
+        val usage = (event as SseEvent.SessionNext).event as dev.leonardo.ocbeacon.domain.model.SessionNextEvent.UsageUpdated
+        assertEquals("ses_1", usage.sessionId)
+        assertEquals(0.042, usage.cost, 1e-9)
+        assertEquals(100, usage.tokens.input)
+        assertEquals(125, usage.tokens.contextTotal)
+    }
+
+    @Test
+    fun `usage updated with object cost or missing tokens does not throw`() {
+        // 防御：cost 为对象（历史样本形态）或 tokens 缺失时不抛异常
         val event = parser.parse(
             "session.usage.updated",
             props("""{"sessionID":"ses_1","cost":{"total":1.5}}""")
         )
         assertNotNull(event)
+        val usage = (event as SseEvent.SessionNext).event as dev.leonardo.ocbeacon.domain.model.SessionNextEvent.UsageUpdated
+        assertEquals(1.5, usage.cost, 1e-9)
+        assertEquals(0, usage.tokens.contextTotal)
+    }
+
+    @Test
+    fun `unhandled event falls back to SessionNext Unknown`() {
+        val event = parser.parse(
+            "session.usage.something.else",
+            props("""{"sessionID":"ses_1"}""")
+        )
+        assertNotNull(event)
         assertTrue(event is SseEvent.SessionNext)
         val unknown = (event as SseEvent.SessionNext).event as? dev.leonardo.ocbeacon.domain.model.SessionNextEvent.Unknown
-        assertEquals("session.usage.updated", unknown?.rawType)
+        assertEquals("session.usage.something.else", unknown?.rawType)
     }
 }
