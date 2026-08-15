@@ -1,10 +1,16 @@
-## OC Beacon 0.3.1-dev.2 — 2026-08-15
+## OC Beacon 0.3.1-dev.3 — 2026-08-15
 
-> 版本摘要：紧急修复——cleartext 白名单化误伤自建服务器，Tailscale/LAN IP 明文连接被拦截。
+> 版本摘要：顶部 token/上下文统计指示器消失修复（REST 覆盖抹掉流式 tokens 回归）+ 统计栏耗时改时分秒格式。
 
 ### Fixed
 
-- **安装 0.3.1-dev.1 后 Tailscale/LAN 服务器连不上**：上一版的安全加固把明文 HTTP 白名单收窄到 localhost/127.0.0.1/10.0.2.2（模拟器地址），真机经 Tailscale（100.x.x.x）或局域网 IP 连接自建服务器被 Android 直接拒绝。本应用是自建服务器客户端，明文 HTTP 是核心场景——已恢复全局放行。
+- **顶部导航栏 token/上下文统计指示器消失**：上一版修复断连恢复后，每次重连/刷新的 REST 快照（服务器不返回 tokens）会把流式写入的 tokens 覆盖掉 → 上下文占比归零 → 指示器隐藏。改为字段级合并——REST 权威语义不变（带值时覆盖），tokens/模型等元数据不再丢失；历史消息的统计也随 Room 缓存恢复显示
+- **统计栏耗时显示**：小数分钟形式（3.2m）改为时分秒分解形式（3m 12s / 1h 2m 3s）；秒级保留 1 位小数
+- 流式计时器刷新间隔 1s → 300ms（秒数进度更顺滑）
+
+### Changed
+
+- 流式中途断网恢复后的消息完整性已在上版修复并保持（编号列表 1-80 断连压测零缺失）
 
 ---
-完整变更记录：[Full Changelog](https://github.com/LeoNardo-LB/oc-beacon/compare/v0.3.1-dev.1...v0.3.1-dev.2)
+完整变更记录：[Full Changelog](https://github.com/LeoNardo-LB/oc-beacon/compare/v0.3.1-dev.2...v0.3.1-dev.3)
