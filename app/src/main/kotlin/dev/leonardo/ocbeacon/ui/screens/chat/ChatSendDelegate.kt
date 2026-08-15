@@ -117,7 +117,6 @@ internal class ChatSendDelegate(
         scope.launch {
             try {
                 val currentSessionId = ensureSession()
-                sessionStateService.onClientSendParts(currentSessionId)
                 // P5-5：从 modelConfigState（已解析的有效值）读取，而非
                 // 原始 _selectedProviderId（在新会话首次发送时可能为 null）。
                 val modelCfg = modelConfigProvider()
@@ -146,6 +145,12 @@ internal class ChatSendDelegate(
                     directory = sessionDirectoryProvider()
                 )
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
+                // 2026-08-16 修复（进行中图标过早）：置 Busy 从"POST 发出前"移到
+                // "POST 成功后"——用户期望：发送按钮转圈（本地 isSending）表示
+                // 上传中；消息实际到达服务器（POST 2xx）后才显示输入栏"会话
+                // 进行中"。原实现乐观置 Busy → 两个指示同时出现。服务器的
+                // execution.started 事件随后到达会自然保持/跟随 Busy。
+                sessionStateService.onClientSendParts(currentSessionId)
                 refreshSessionTitleDelayed(currentSessionId)
                 // 发送成功：通知 UI 清空输入框（失败时不通知——消息保留在输入框）。
                 // 携带已发送文本快照，供 UI 判断输入框是否已被用户改写。

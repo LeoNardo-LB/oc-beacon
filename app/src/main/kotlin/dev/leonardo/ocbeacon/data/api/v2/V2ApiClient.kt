@@ -902,14 +902,18 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session {
-        // V2 两步操作：stage + commit
+        // 2026-08-16 修复（撤回的消息复活，对齐官方 research/10 差异3）：
+        // 官方 Web/TUI 撤回**只 stage 不 commit**——commit 由下一条消息隐式
+        // 触发（core/revert.ts:113-121 committed 事件后 projector 才真正删除
+        // boundary 后消息）。原实现 stage+commit 连打：commit 后服务器 revert
+        // 立即清空 → UI 的 revert 过滤消失，而 message.removed 删除事件逐条
+        // 到达有延迟/遗漏 → 被撤回的消息短暂"复活"。
+        // 只 stage：revert 状态持续到用户发下一条消息（此时 clearRevert +
+        // 服务器隐式 commit 接管，语义与官方完全一致）。
         httpClient.post("${conn.baseUrl}/api/session/$sessionId/revert/stage") {
             auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("messageID" to messageId))
-        }
-        httpClient.post("${conn.baseUrl}/api/session/$sessionId/revert/commit") {
-            auth(conn)
         }
         return getSession(conn, sessionId)
     }

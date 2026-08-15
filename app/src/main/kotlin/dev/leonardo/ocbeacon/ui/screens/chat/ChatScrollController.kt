@@ -110,6 +110,16 @@ internal fun rememberChatScrollController(
 
     LaunchedEffect(forceScrollTick.intValue) {
         if (forceScrollTick.intValue > 0) {
+            // 2026-08-16 修复（发送后不滚底）：悲观消息模式下点击发送时消息
+            // **尚未进列表**（POST 往返 + SSE 回显后才有）——原实现立即
+            // requestScrollToItem(0) 滚到当前底部（落空），随后消息插入时
+            // autoScrollEnabled 可能已被关 → 不跟随。
+            // 修复：等待消息数实际增加后再锚定底部（最多等 5s 兜底——
+            // 发送失败/无回显时仍执行一次避免死等）。
+            val startCount = messageCount
+            val startTime = System.currentTimeMillis()
+            snapshotFlow { messageCount }
+                .first { it > startCount || System.currentTimeMillis() - startTime > 5_000 }
             listState.requestScrollToItem(0)
         }
     }
