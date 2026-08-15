@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  #118（D2-28）：cleartext 白名单化——原 manifest usesCleartextTraffic="true" 全局放行。
-  默认拒绝明文；仅放行本地/开发地址（模拟器宿主、localhost）。
-  用户自建 opencode 服务器的明文地址（LAN IP / Tailscale）如需明文连接，
-  在下方 domain-config 添加对应地址，或使用 HTTPS 服务器。
+  #118（D2-28）→ 2026-08-15 修正：cleartext 白名单化误伤自建服务器场景。
+  原白名单仅 localhost/127.0.0.1/10.0.2.2——用户通过 Tailscale（100.x.x.x）、
+  LAN IP 等明文地址连接自建 opencode 服务器时被 Android 网络安全策略拦截
+  （真实反馈：0.3.1-dev.1 安装后 Tailscale 连不上）。
+  本应用定位是自建服务器客户端，明文 HTTP 是核心场景；恢复全局放行。
+  Play 上架审计说明：不请求敏感权限、凭据本地 Keystore 加密，明文传输
+  是用户自己选择的服务器地址（等价于用户自担的运维决策）。
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">127.0.0.1</domain>
-        <domain includeSubdomains="false">10.0.2.2</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>
