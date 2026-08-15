@@ -199,10 +199,16 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean {
-        val response = httpClient.delete("${conn.baseUrl}/api/session/$sessionId") {
-            auth(conn)
-        }
-        return response.status.isSuccess()
+        // 2026-08-15（research/10 P0 + 实测勘误）：V2 协议无 DELETE /api/session/:id
+        //（404 实测）；主干源码 legacy /session/:id 由 InstanceHttpApi 挂载，但
+        // **当前部署版（next-17430）未挂载**（405 实测）——两路均探测，兼容
+        // 主干部署与旧部署。均失败时 UI 层提示"服务器不支持删除"。
+        val apiResp = httpClient.delete("${conn.baseUrl}/api/session/$sessionId") { auth(conn) }
+        if (apiResp.status.isSuccess()) return true
+        val legacyResp = httpClient.delete("${conn.baseUrl}/session/$sessionId") { auth(conn) }
+        if (legacyResp.status.isSuccess()) return true
+        AppLogger.w(TAG, "deleteSession: neither /api/session (404) nor legacy /session (405) worked — deployed server may not support delete")
+        return false
     }
 
     suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
@@ -456,25 +462,52 @@ class V2ApiClient @Inject constructor(
         directory: String? = null,
         agent: String? = null
     ): PromptAdmission? {
-        val bodyObj = kotlinx.serialization.json.buildJsonObject {
-            put("text", kotlinx.serialization.json.JsonPrimitive(text))
-            agent?.let {
-                put("agents", kotlinx.serialization.json.JsonArray(listOf(
-                    kotlinx.serialization.json.buildJsonObject {
-                        put("name", kotlinx.serialization.json.JsonPrimitive(it))
-                    }
-                )))
+        // 2026-08-15（research/09 P0，双契约探测适配）：
+        // - 主干 V2 契约：POST /api/session/:id/prompt {prompt:{text,files,agents}, delivery}
+        // - 旧部署（next-17403/17430）：平铺 {text, agents:[{name}]}
+        // 先发新契约（prompt 包裹 + agent 以 prompt.agents 表达），400 时降级
+        // 旧契约（当前实测部署版形态）。响应体双读 prompt.text/payload.text。
+        suspend fun postBody(bodyObj: kotlinx.serialization.json.JsonObject) =
+            httpClient.post("${conn.baseUrl}/api/session/$sessionId/prompt") {
+                auth(conn)
+                directoryHeader(directory)
+                contentType(ContentType.Application.Json)
+                setBody(bodyObj)
             }
-        }
+
         val requestStartMs = System.currentTimeMillis()
         if (BuildConfig.DEBUG) {
             AppLogger.d(TAG, "[prompt] POST /api/session/$sessionId/prompt textLen=${text.length} agent=$agent directory=$directory")
         }
-        val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/prompt") {
-            auth(conn)
-            directoryHeader(directory)
-            contentType(ContentType.Application.Json)
-            setBody(bodyObj)
+        // 新契约（主干）：prompt 包裹；agent 独立字段（switchAgent 语义近似——
+        // 旧契约的 agents 数组是 @子代理附件语义，不承载当前 agent 选择）
+        val modernBody = kotlinx.serialization.json.buildJsonObject {
+            put("prompt", kotlinx.serialization.json.buildJsonObject {
+                put("text", kotlinx.serialization.json.JsonPrimitive(text))
+                agent?.let {
+                    put("agents", kotlinx.serialization.json.JsonArray(listOf(
+                        kotlinx.serialization.json.buildJsonObject {
+                            put("name", kotlinx.serialization.json.JsonPrimitive(it))
+                        }
+                    )))
+                }
+            })
+        }
+        var response = postBody(modernBody)
+        if (response.status.value == 400) {
+            // 降级旧契约（当前部署实测形态：平铺 body）
+            val legacyBody = kotlinx.serialization.json.buildJsonObject {
+                put("text", kotlinx.serialization.json.JsonPrimitive(text))
+                agent?.let {
+                    put("agents", kotlinx.serialization.json.JsonArray(listOf(
+                        kotlinx.serialization.json.buildJsonObject {
+                            put("name", kotlinx.serialization.json.JsonPrimitive(it))
+                        }
+                    )))
+                }
+            }
+            response = postBody(legacyBody)
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "[prompt] modern 400 -> legacy body retry status=${response.status.value}")
         }
         val elapsedMs = System.currentTimeMillis() - requestStartMs
         if (BuildConfig.DEBUG) {
@@ -484,6 +517,7 @@ class V2ApiClient @Inject constructor(
         // 2026-08-14 根治：200 响应体即 Inbox 条目
         // {"data":{"id":"msg_xxx","sessionID":"ses_xxx","timeCreated":...,"type":"user",
         //   "payload":{"text":"..."},"delivery":"steer"}}——解析失败仅降级（SSE 兜底）
+        // 2026-08-15：双读 payload.text（旧）/ prompt.text（主干 Admitted 契约）
         val admission = runCatching {
             val root = parseRoot(response.bodyAsText())
             val obj = V2ResponseWrapper.unwrap(root)
@@ -491,6 +525,7 @@ class V2ApiClient @Inject constructor(
             val sid = obj["sessionID"]?.jsonPrimitive?.contentOrNull ?: sessionId
             val textValue = obj["payload"]?.jsonObject
                 ?.get("text")?.jsonPrimitive?.contentOrNull
+                ?: obj["prompt"]?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
             PromptAdmission(id = id, sessionId = sid, text = textValue)
         }.getOrNull()
         if (BuildConfig.DEBUG) {

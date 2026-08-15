@@ -354,12 +354,17 @@ internal class SessionActionsDelegate(
 
     // ============ 撤销 / 重做 ============
 
-    /** 撤销会话中最后一条用户消息，将其文本恢复到输入框。 */
+    /** 撤销会话中最后一条用户消息，将其文本恢复到输入框。
+     *  2026-08-15（research/10 P0）：消息列表为升序（MessageDataDelegate:187），
+     *  原 `firstOrNull{it.isUser}` 取到**最旧** user 消息——undo 直接回退到
+     *  会话开头。官方语义（TUI index.tsx:621/Web :341）：最后一条可见 user。
+     *  改 lastOrNull；连续 undo 语义（revert 存在时取边界前一条）由服务器
+     *  staged revert 天然支持（每次 revert 推进边界）。 */
     fun undoMessage(onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
                 val messages = messageListProvider()
-                val lastUser = messages.firstOrNull { it.isUser }
+                val lastUser = messages.lastOrNull { it.isUser }
                 if (lastUser == null) {
                     onResult(false)
                     return@launch
@@ -589,10 +594,12 @@ internal class SessionActionsDelegate(
 
     // ============ 辅助方法 ============
 
-    /** 获取最后一条 assistant 消息文本以供复制。 */
+    /** 获取最后一条 assistant 消息文本以供复制。
+     *  2026-08-15（research/10 P0）：升序列表取 firstOrNull = 最旧 assistant——
+     *  改 lastOrNull（同 undoMessage 修复）。 */
     fun getLastAssistantText(): String? {
         val msgs = messageListProvider()
-        val last = msgs.firstOrNull { it.isAssistant } ?: return null
+        val last = msgs.lastOrNull { it.isAssistant } ?: return null
         return last.parts
             .filterIsInstance<Part.Text>()
             .joinToString("") { it.text }
