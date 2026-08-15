@@ -452,9 +452,6 @@ class MessageEventHandler @Inject constructor(
     private fun mergePart(existing: Part, incoming: Part): Part {
         return when {
             existing is Part.Text && incoming is Part.Text -> {
-                // 更长文本胜出：SSE 流式传输随时间累积更长文本，
-                // REST 快照可能已过时。若传入文本更长（全新的完整替换），
-                // 使用它；否则保留现有（保护流式文本）。
                 // #109：时间取回退链——ended 事件 start=0（未知）时用 started
                 // 记录的本地时刻，REST 真实时间戳（>0）优先。
                 val time = Part.Text.Time(
@@ -463,7 +460,19 @@ class MessageEventHandler @Inject constructor(
                         ?: (incoming.time?.end ?: existing.time?.end) ?: 0L,
                     end = incoming.time?.end ?: existing.time?.end
                 )
-                if (incoming.text.length >= existing.text.length) incoming.copy(time = time)
+                // 2026-08-16 修复（内容中段重复，对齐官方 research/04 P0）：
+                // text.ended 是官方的**全量值边界**（"Ended is the replayable
+                // full-value boundary"——session-event.ts:209），携带完整最终
+                // 文本，必须**直接覆盖**。原"更长文本胜出"启发式在 REST 快照
+                // 与 SSE 累积前缀不一致时选错基线 → 中段内容重复（用户实测
+                // "最后一句话被随机重复"）。
+                // 判定 ended：incoming 是 text.ended 映射（时间回退链后
+                // end != null 且非空文本全量）——ended 映射处显式标记：
+                // incoming.text 含完整文本且 end!=0。保守策略：
+                // incoming 带 end 时间戳（ended/REST 语义）→ 覆盖；
+                // 纯 started/delta 路径（无 end）→ 保留更长者（流式保护）。
+                val isTerminal = (incoming.time?.end ?: 0L) != 0L
+                if (isTerminal || incoming.text.length >= existing.text.length) incoming.copy(time = time)
                 else existing.copy(time = time, metadata = incoming.metadata)
             }
             existing is Part.Reasoning && incoming is Part.Reasoning -> {

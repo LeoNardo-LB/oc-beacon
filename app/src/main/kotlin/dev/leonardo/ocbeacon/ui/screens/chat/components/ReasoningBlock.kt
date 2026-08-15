@@ -72,7 +72,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 elapsedMs.longValue = (System.currentTimeMillis() - effectiveStart).coerceAtLeast(0L)
                 // 2026-08-15 用户要求：0.3s ticker（秒级小数进度感；独立 state，
                 // 重组范围仅限本组件，与 #47/L-10 的重组治理不冲突）
-                delay(300L)
+                delay(100L)
             }
         } else {
             elapsedMs.longValue = durationMs ?: 0L

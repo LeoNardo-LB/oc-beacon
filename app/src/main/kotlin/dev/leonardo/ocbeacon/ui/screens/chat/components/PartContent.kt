@@ -98,10 +98,20 @@ internal fun PartContent(
         is Part.Reasoning -> {
             if (part.text.isNotBlank()) {
                 // Reasoning 在 Waiting 阶段流式输出（TextStarted 之前）。
-                // 必须直接检查 part.time?.end，而不是 LocalSessionStreaming ——
-                // reasoning 期间 FSM 活动状态是 "Waiting" 而非 "Streaming"。
-                val isStreaming = part.time?.end == null
-                val startTimeMs = part.time?.start
+                // 2026-08-16 修复（重进后计时停住）：原判定只看 part.time?.end——
+                // 退出重进后从 Room/REST 恢复的 part 是完结快照（end!=null），
+                // 即使服务器仍在跑（reasoning 继续输出），计时也会冻结。
+                // 三态合成：part 未结束 ∨（会话流式 ∧ 本 part 是流式焦点——
+                // reasoning 无 end 且属于未完成消息）→ 继续计时。
+                val sessionStreaming = LocalSessionStreaming.current
+                val partEnded = part.time?.end != null
+                val isLastPartOfStreamingMsg = sessionStreaming && !partEnded
+                val isStreaming = !partEnded || isLastPartOfStreamingMsg
+                // start 回退链：part.time.start（>0）→ 0（ReasoningBlock 内部
+                // fallback 到组合时刻——重进场景即"从进入时刻续计"，正确语义：
+                // 服务器侧真实起点不可知（V2 reasoning.started 无服务器时间戳，
+                // 本地时刻在退出时丢失），续计优于冻结）。
+                val startTimeMs = part.time?.start?.takeIf { it > 0 }
                 val reasoningDuration = part.time?.let { t ->
                     t.end?.let { end -> end - t.start }
                 }

@@ -291,7 +291,7 @@ private fun StreamingElapsedText(startMs: Long) {
         while (true) {
             val elapsedMs = System.currentTimeMillis() - startMs
             elapsedText = formatDuration(elapsedMs)
-            delay(300)
+            delay(100)
         }
     }
     Text(
