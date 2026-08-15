@@ -60,14 +60,18 @@ internal class ChatSendDelegate(
             parts.add(PromptPart(type = "text", text = text))
         }
         parts.addAll(attachments)
-        sendParts(parts)
+        sendParts(parts, text)
     }
 
-    /** 发送预构建的 prompt parts（当 @ 文件提及需要结构化 parts 时使用）。 */
-    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>) {
+    /** 发送预构建的 prompt parts（当 @ 文件提及需要结构化 parts 时使用）。
+     *  [rawText] 为输入框原始文本——发送成功快照比对用。不能用 parts 重组值：
+     *  PromptBuilder.buildPromptParts 会 trim() 并拆分 @file 提及，重组结果
+     *  与输入框原始文本（含尾随空格/换行/@mention）不一致 → E8-1 比对失败 →
+     *  发送成功后输入框偶发不清空（2026-08-15 修复）。 */
+    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String) {
         val parts = promptParts + attachments
         if (parts.isEmpty()) return
-        sendParts(parts)
+        sendParts(parts, rawText)
     }
 
     /**
@@ -94,7 +98,7 @@ internal class ChatSendDelegate(
         }
     }
 
-    private fun sendParts(parts: List<PromptPart>) {
+    private fun sendParts(parts: List<PromptPart>, snapshotText: String) {
         // RS-007 修复：防止快速双击。_isSending 由 setSending 同步设置，
         // 但 Compose 重组（禁用按钮）有 1 帧延迟。此检查消除了竞态窗口。
         if (sendStateStore.isSendingValue) {
@@ -105,9 +109,10 @@ internal class ChatSendDelegate(
         // E8-1 修复（2026-08-14）：快照本次实际发送的纯文本。发送期间用户
         // 输入的新内容会被 isSending 拦截（防重复发送）——成功回调携带快照，
         // 供 UI 比对：输入框仍是快照才清空，否则保留用户新输入（不静默丢失）。
-        val sentText = parts.asSequence()
-            .filter { it.type == "text" }
-            .joinToString("") { it.text ?: "" }
+        // 2026-08-15 修复：快照改用调用方传入的原始输入文本（snapshotText）——
+        // 原实现用 parts 重组（trim + @file 拆分），与输入框原始文本不一致，
+        // 导致 E8-1 比对偶发失败 → 发送成功后输入框不清空。
+        val sentText = snapshotText
         scrollSignal.requestScrollToTop()
         scope.launch {
             try {

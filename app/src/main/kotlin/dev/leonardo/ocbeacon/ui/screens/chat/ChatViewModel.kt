@@ -617,8 +617,8 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) =
         sendDelegate.sendMessage(text, attachments)
 
-    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>) =
-        sendDelegate.sendMessage(promptParts, attachments)
+    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String) =
+        sendDelegate.sendMessage(promptParts, attachments, rawText)
 
     // ============ 权限/问题回复（门面 —— SessionActionsDelegate） ============
 
