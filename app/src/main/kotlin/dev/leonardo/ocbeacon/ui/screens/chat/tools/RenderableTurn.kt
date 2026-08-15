@@ -83,13 +83,17 @@ fun computeRenderableTurn(
     // 2026-08-15 修复（agent 徽标跳变，对齐官方 TUI 语义）：agent/model 取
     // **turn 内首条** assistant（用户消息开启 turn 的语义）——官方 TUI 每条
     // 消息 agent 创建时写入一次永不改写（tui data.tsx:208-222），turn 内
-    // agent 变化只影响新消息；原实现取"代表消息"（turn 内最新 assistant，
-    // ChatScreen displayItems 选择），后台 subagent 注入的 agent=deep-explore
-    // 消息会把整个 turn 徽标覆盖掉（用户反馈"agent 跳变"）。
-    // 首选 turn 内首条（按 created 最早）；currentMessage 兜底（空 turn）。
+    // agent 变化只影响新消息；原实现取"代表消息"（turn 内最新 assistant），
+    // 后台 subagent 完成注入主会话的 agent=deep-explore 消息（task.ts:216-239
+    // synthetic 注入路径）会把整个 turn 徽标覆盖掉（用户反馈"agent 跳变"）。
+    // 二次加固：V2SseMapper step.started 用本地 currentTimeMillis——同 turn
+    // 多条消息可能同毫秒，minByOrNull 在相等时依赖列表顺序（reversed 后
+    // 首项=最新，不稳定）。比较器：(created, id) 双键，稳定取最早。
     val currentAssistant = currentMessage.message as? dev.leonardo.ocbeacon.domain.model.Message.Assistant
     val assistantsForMeta = ordered.mapNotNull { it.message as? dev.leonardo.ocbeacon.domain.model.Message.Assistant }
-    val firstAssistant = assistantsForMeta.minByOrNull { it.time.created }
+    val firstAssistant = assistantsForMeta.minWithOrNull(
+        compareBy<dev.leonardo.ocbeacon.domain.model.Message.Assistant> { it.time.created }.thenBy { it.id }
+    )
     val agentName = (firstAssistant ?: currentAssistant)?.agent
     val modelId = (firstAssistant ?: currentAssistant)?.modelId
 
