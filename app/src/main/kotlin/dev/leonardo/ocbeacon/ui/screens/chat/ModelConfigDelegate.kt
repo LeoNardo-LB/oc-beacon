@@ -139,10 +139,20 @@ internal class ModelConfigDelegate(
             }
 
             // 如果未显式更改，从最后一条用户消息解析 agent
+            // 2026-08-16 修复（对齐官方 TUI prompt/index.tsx:323-326）：只回填
+            // **primary agent**——官方明确防御"Only set agent if it's a primary
+            // agent (not a subagent)"。原实现 lastOrNull{agent!=null} 会取到
+            // subagent 上下文注入的消息（agent=deep-explore 等）→ 进会话时
+            // agent 选择器被置成 subagent 且需手动切回（用户实测根因）。
             val effectiveAgent = if (!isAgentExplicitlySelected) {
+                val agentList = args[5] as List<AgentInfo>
+                val primaryAgentNames = agentList
+                    .filter { it.mode != "subagent" && !it.hidden }
+                    .map { it.name }
+                    .toSet()
                 val lastUserAgent = sessionMessages
                     .filterIsInstance<Message.User>()
-                    .lastOrNull { it.agent != null }
+                    .lastOrNull { !it.agent.isNullOrBlank() && it.agent in primaryAgentNames }
                     ?.agent
                 lastUserAgent ?: selectedAgent
             } else {
