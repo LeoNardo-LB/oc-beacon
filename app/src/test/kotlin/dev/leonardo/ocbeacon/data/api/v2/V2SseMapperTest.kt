@@ -80,6 +80,37 @@ class V2SseMapperTest {
     }
 
     @Test
+    fun `inbox enqueued with synthetic type seeds synthetic role not user`() {
+        // 2026-08-15 修复：subagent/后台任务完成通知同样经 inbox.enqueued 投递
+        // （实测 item.type="synthetic"，body 含 <subagent ...>子代理输出全文，
+        // 可达数 KB）。修复前播种 role 默认 "user" → 通知渲染成 user 气泡
+        // （用户看到"多出大段用户回复"/"assistant 内容进 user 气泡"）。
+        // 修复后 role="synthetic" → SyntheticNotificationCard 通知卡片。
+        val event = V2SseMapper.map(
+            "session.inbox.enqueued",
+            props("""{"sessionID":"ses_1","inboxID":"msg_inbox_s","item":{"type":"synthetic","payload":{"text":"<subagent id=\"ses_x\" state=\"completed\" description=\"任务\">报告全文</subagent>"}}}""")
+        )
+        assertNotNull(event)
+        val updated = event as SseEvent.MessageUpdated
+        val user = updated.info as Message.User
+        assertEquals("synthetic", user.role)
+        assertTrue(user.summary?.body?.contains("<subagent") == true)
+    }
+
+    @Test
+    fun `text delta with missing ordinal defaults to zero`() {
+        // 2026-08-15 修复：ordinal 缺失兜底 0（原实现 return null 丢弃整条
+        // delta 事件——流式内容缺失成因之一；且原两行重复为复制粘贴错误）
+        val event = V2SseMapper.map(
+            "session.text.delta",
+            props("""{"sessionID":"ses_1","assistantMessageID":"msg_a","delta":"hello"}""")
+        )
+        assertNotNull(event)
+        val delta = event as SseEvent.MessagePartDelta
+        assertEquals("msg_a_text_ord_0", delta.partId)
+    }
+
+    @Test
     fun `input admitted with new contract but missing id returns null`() {
         // 新契约必须有 id——字段缺失时不应播种（避免空 id 幽灵消息）
         val event = V2SseMapper.map(

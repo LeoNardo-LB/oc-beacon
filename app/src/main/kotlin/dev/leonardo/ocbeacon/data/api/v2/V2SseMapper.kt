@@ -70,10 +70,23 @@ object V2SseMapper {
                 ?: props["prompt"]?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
                 ?: props["input"]?.jsonObject?.get("data")?.jsonObject
                     ?.get("text")?.jsonPrimitive?.contentOrNull
+            // 2026-08-15 修复（subagent/后台完成通知误渲染成 user 气泡）：
+            // inbox 不只装用户输入——subagent/后台任务完成通知等 synthetic
+            // 消息同样经 inbox.enqueued 投递（实测 item.type="synthetic"，
+            // body 为 <subagent ...>子代理全部输出</subagent>，可达数 KB）。
+            // 原实现无条件按 Message.User（role 默认 "user"）播种 → 通知被
+            // 渲染成 user 气泡，子代理（assistant）的输出全文进了用户气泡。
+            // 修复：读取 item.type，非 "user" 类型设置对应 role——下游
+            // ChatMessageList 按 role=="synthetic" 走 SyntheticNotificationCard
+            // （#67 通知卡片：状态标签 + 任务描述 + 可展开 output）。
+            val inputType = props["item"]?.jsonObject?.get("type")?.jsonPrimitive?.contentOrNull
+                ?: props["input"]?.jsonObject?.get("type")?.jsonPrimitive?.contentOrNull
+                ?: "user"
             SseEvent.MessageUpdated(
                 Message.User(
                     id = inputId,
                     sessionId = sessionId,
+                    role = inputType,
                     time = TimeInfo(System.currentTimeMillis()),
                     summary = Message.User.UserSummary(body = text)
                 )
@@ -332,9 +345,13 @@ object V2SseMapper {
     private fun partLocator(props: JsonObject): Triple<String, String, Long>? {
         val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
         val messageId = props["assistantMessageID"]?.jsonPrimitive?.contentOrNull ?: return null
-        val ordinal = props["ordinal"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
-            ?: props["ordinal"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
-            ?: return null
+        // 2026-08-15 修复：ordinal 缺失兜底 0（与 mapV2DeltaEvent 二级兜底一致）。
+        // 原实现 return null——ordinal 字段缺失/为 null 的 delta 事件被整条
+        // 静默丢弃（流式内容缺失成因之一）；且原 :348-349 两行重复为复制粘贴
+        // 错误。实测（Room 落库证据）会话 part ordinal 恒 0——单 text/reasoning
+        // part 场景下兜底 0 即正确值。sessionId/messageId 缺失仍返回 null
+        //（无法定位目标消息，丢弃合理）。
+        val ordinal = props["ordinal"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: 0L
         return Triple(sessionId, messageId, ordinal)
     }
 

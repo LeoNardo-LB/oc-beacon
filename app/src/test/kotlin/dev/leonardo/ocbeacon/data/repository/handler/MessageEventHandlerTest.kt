@@ -64,6 +64,58 @@ class MessageEventHandlerTest {
         assertEquals("m2", msgs[2].id)
     }
 
+    // ============ 2026-08-15：统计栏丢模型/耗时（step.ended 整替换修复） ============
+
+    @Test
+    fun `step ended update preserves model metadata from step started`() {
+        // V2 场景：step.started 写入模型信息 → step.ended（契约不含 model）到达。
+        // 修复前：整替换 → modelId/agent 被抹（统计栏丢模型名）；
+        // 修复后：非空合并 → 模型保留 + tokens/cost 写入。
+        val started = Message.Assistant(
+            id = "a1", sessionId = "s1", parentId = "p1",
+            time = TimeInfo(created = 1000L),
+            modelId = "glm-5.2", providerId = "zai", agent = "build"
+        )
+        handler.handleMessageUpdated(SseEvent.MessageUpdated(started))
+
+        val ended = Message.Assistant(
+            id = "a1", sessionId = "s1", parentId = "",
+            time = TimeInfo(created = 9000L),  // step.ended 映射用本地时刻（晚于 started）
+            cost = 0.5,
+            tokens = Message.Assistant.Tokens(input = 100, output = 50)
+        )
+        handler.handleMessageUpdated(SseEvent.MessageUpdated(ended))
+
+        val result = handler.messages.value["s1"]!![0] as Message.Assistant
+        assertEquals("glm-5.2", result.modelId)      // 修复点：不被 step.ended 抹掉
+        assertEquals("zai", result.providerId)
+        assertEquals("build", result.agent)
+        assertEquals(0.5, result.cost!!, 0.001)      // step.ended 携带的 cost 写入
+        assertEquals(50, result.tokens!!.output)     // tokens 写入（圆环数据源）
+        assertEquals(1000L, result.time.created)     // created 取较早值（耗时不归零）
+    }
+
+    @Test
+    fun `assistant update with model overwrites existing null model`() {
+        // REST 权威数据（带 model）到达时覆盖 SSE 的空值（正常覆盖语义保留）
+        val started = Message.Assistant(
+            id = "a1", sessionId = "s1", parentId = "p1",
+            time = TimeInfo(created = 1000L)
+        )
+        handler.handleMessageUpdated(SseEvent.MessageUpdated(started))
+
+        val withModel = Message.Assistant(
+            id = "a1", sessionId = "s1", parentId = "p1",
+            time = TimeInfo(created = 1000L, completed = 2000L),
+            modelId = "deepseek-v4-pro", providerId = "deepseek"
+        )
+        handler.handleMessageUpdated(SseEvent.MessageUpdated(withModel))
+
+        val result = handler.messages.value["s1"]!![0] as Message.Assistant
+        assertEquals("deepseek-v4-pro", result.modelId)
+        assertEquals(2000L, result.time.completed)
+    }
+
     @Test
     fun `handles MessageRemoved`() {
         handler.handleMessageUpdated(SseEvent.MessageUpdated(testUserMessage("m1", "s1")))
