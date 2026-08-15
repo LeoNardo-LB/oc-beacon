@@ -249,7 +249,17 @@ class MessageEventHandler @Inject constructor(
             // 每次 MessageUpdated 都 O(n) 扫描 1896 条消息（仅用于日志），
             // SSE 活跃时每秒多次 → 真机掉帧（性能根因之一）。
             if (idx >= 0) {
-                msgs[idx] = event.info
+                // 2026-08-15 修复（统计栏丢模型/耗时）：V2 step.ended 事件映射的
+                // Assistant 不含 modelId/providerId/agent（服务器契约本就没有），
+                // 原实现整对象替换会抹掉 step.started 写入的模型信息（tokens 却
+                // 随 step.ended 同事件写入 → "圆圈在、模型无"的不对称根因）。
+                // 改为非空字段合并：incoming 缺失的元数据保留 existing。
+                val existing = msgs[idx]
+                msgs[idx] = if (existing is Message.Assistant && event.info is Message.Assistant) {
+                    mergeAssistantMeta(existing, event.info)
+                } else {
+                    event.info
+                }
             } else {
                 // existing 已按 created 升序——二分查找插入位置，
                 // 避免全量 O(n log n) 排序（高频 MessageUpdated 事件下累积 CPU）。
@@ -297,6 +307,35 @@ class MessageEventHandler @Inject constructor(
         // 落盘先于裁剪，Room 保留全量（内存热视图才是被裁对象）
         applyMessageCap(sessionId)
     }
+
+    /**
+     * 2026-08-15：Assistant 消息非空字段合并（统计栏丢模型/耗时修复）。
+     *
+     * V2 SSE 的 step.ended 事件不含 modelId/providerId/agent（服务器契约就没有），
+     * 但携带 tokens/cost；step.started 相反（带模型信息、不带 tokens）。原实现
+     * 整对象替换会让两个事件互相抹掉（tokens 在而模型无的不对称）。合并规则：
+     * - incoming 非空的字段以 incoming 为准（REST 权威数据可覆盖 SSE 估计值）
+     * - incoming 为空的字段保留 existing（step.ended 不抹 step.started 的模型）
+     * - time.created 取较早值：step.ended 映射用本地当前时刻，晚于 step.started
+     *   的原始时刻——顶替会让单步消息耗时 ≈ 0 → 统计栏耗时被 `>0` 门隐藏
+     * - time.completed 以 incoming 非空为准（V2 SSE 从不携带，由 markSessionIdle
+     *   或 REST 兜底补齐）
+     */
+    private fun mergeAssistantMeta(existing: Message.Assistant, incoming: Message.Assistant): Message.Assistant =
+        incoming.copy(
+            modelId = incoming.modelId ?: existing.modelId,
+            providerId = incoming.providerId ?: existing.providerId,
+            agent = incoming.agent ?: existing.agent,
+            mode = incoming.mode ?: existing.mode,
+            parentId = incoming.parentId.ifBlank { existing.parentId },
+            cost = incoming.cost ?: existing.cost,
+            tokens = incoming.tokens ?: existing.tokens,
+            finish = incoming.finish ?: existing.finish,
+            time = incoming.time.copy(
+                created = minOf(existing.time.created, incoming.time.created),
+                completed = incoming.time.completed ?: existing.time.completed
+            )
+        )
 
     /**
      * SSE 双写辅助：将指定 sessionId 下的消息（含 parts）异步落盘到 Room。
@@ -688,18 +727,29 @@ class MessageEventHandler @Inject constructor(
         if (sse is Message.User) return rest
         if (sse !is Message.Assistant) return rest
 
+        // 2026-08-15：REST 元数据兜底——SSE 侧 modelId/providerId/agent 为空时
+        // 采纳 REST 值。V2 SSE step.ended 契约本就不含模型信息（曾整替换抹掉
+        // step.started 写入的值），REST listMessages 的 model 映射完整——
+        // 让 REST 兜底路径真正能修复统计栏的模型名。
+        val restA = rest as? Message.Assistant
+        fun withMeta(m: Message.Assistant): Message.Assistant = if (restA == null) m else m.copy(
+            modelId = m.modelId ?: restA.modelId,
+            providerId = m.providerId ?: restA.providerId,
+            agent = m.agent ?: restA.agent
+        )
+
         // 对于 Assistant 消息：
         // - 若 SSE 显示已完成（流式结束），完全信任 SSE
         // - 若 SSE 显示未完成但 REST 显示已完成，信任 REST 的完成时间
         //   但保留 SSE 的其他字段（finish、tokens、cost 可能更新）
         return if (sse.time.completed != null) {
-            sse  // SSE 拥有最终状态，优先使用它
+            withMeta(sse)  // SSE 拥有最终状态，优先使用它（模型元数据 REST 兜底）
         } else if (rest.time.completed != null) {
             // REST 显示已完成但 SSE 尚未看到——合并完成时间
-            sse.copy(time = sse.time.copy(completed = rest.time.completed))
+            withMeta(sse.copy(time = sse.time.copy(completed = rest.time.completed)))
         } else {
             // 两者都未完成——优先 SSE（更新的流式状态）
-            sse
+            withMeta(sse)
         }
     }
 

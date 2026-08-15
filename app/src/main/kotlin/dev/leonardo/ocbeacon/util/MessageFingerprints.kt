@@ -25,14 +25,21 @@ object MessageFingerprints {
      * 轻量内容指纹：只覆盖会随 SSE 流式 / 工具输出注入 / 完成替换变异的字段，
      * 避免对整个消息做深 hashCode（大文本逐字符开销）。
      * 覆盖：Text/Reasoning 文本尾部、Tool output 尾部、消息完成时间与错误。
-     * 未覆盖字段（agent/modelId/parts 静态字段）在消息生命周期内不变。
+     * 2026-08-15：追加覆盖 modelId/providerId/agent——原注释假设"生命周期内
+     * 不变"在 V2 下为假（step.ended 事件不含模型信息会触发字段变异、REST 兜底
+     * 也会补值）；不纳入会导致 RenderableTurn 缓存复用陈旧值（统计栏丢模型不恢复）。
      */
     fun messageFingerprint(msg: ChatMessage): Int {
         val m = msg.message
         var h = partsFingerprint(msg.parts)
         h = h * 31 + (m.time.completed ?: 0L).hashCode()
-        if (m is Message.Assistant && m.error != null) {
-            h = h * 31 + m.error.name.hashCode() * 31 + (m.error.data?.toString()?.hashCode() ?: 0)
+        if (m is Message.Assistant) {
+            h = h * 31 + (m.modelId ?: "").hashCode()
+            h = h * 31 + (m.providerId ?: "").hashCode()
+            h = h * 31 + (m.agent ?: "").hashCode()
+            if (m.error != null) {
+                h = h * 31 + m.error.name.hashCode() * 31 + (m.error.data?.toString()?.hashCode() ?: 0)
+            }
         }
         return h
     }
