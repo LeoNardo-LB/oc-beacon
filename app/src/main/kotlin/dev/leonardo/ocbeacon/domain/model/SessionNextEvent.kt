@@ -167,7 +167,18 @@ sealed class SessionNextEvent {
         @SerialName("callID") val callId: String,
         val progress: String? = null,
         val title: String? = null,
-        val content: List<ToolOutputContent> = emptyList()
+        val content: List<ToolOutputContent> = emptyList(),
+        /**
+         * 2026-08-15（research/08 P0，对齐官方 V2 契约）：progress 事件的
+         * 结构化输出——官方语义是**整体替换**（非拼接）：
+         * - `session.tool.progress`（当前部署版，实测抓帧）：metadata.output
+         *   为服务端 preview(last+chunk) 全量尾部快照（core shell.ts:220）
+         * - `session.next.tool.progress`（主干 schema）：structured+content
+         * 保留原始 JSON 由消费侧按需提取。
+         */
+        val structured: kotlinx.serialization.json.JsonObject? = null,
+        /** 实测（2026-08-15 抓帧）当前部署版的输出在 metadata 字段。 */
+        val metadata: kotlinx.serialization.json.JsonObject? = null
     ) : SessionNextEvent()
 
     @Serializable

@@ -138,6 +138,28 @@ class V2EventParser(private val json: Json) : SseEventParser {
                 )
             )
         }
+        // 2026-08-15（research/08 P0）：工具实时进度（当前部署版实测抓帧：
+        // session.tool.progress {sessionID, assistantMessageID, id(=callId),
+        // metadata:{output: 全量尾部快照,...}}）——此前落入 Unknown 丢弃，
+        // 工具运行中输出从未显示。映射到 ToolProgress（metadata 整体替换语义）。
+        if (eventType == "session.tool.progress") {
+            val sid = sessionIdOrNull(props)
+            val messageId = props["assistantMessageID"]?.jsonPrimitive?.contentOrNull
+            val callId = props["id"]?.jsonPrimitive?.contentOrNull
+            if (sid != null && messageId != null && callId != null) {
+                return SseEvent.SessionNext(
+                    dev.leonardo.ocbeacon.domain.model.SessionNextEvent.ToolProgress(
+                        sessionId = sid,
+                        messageId = messageId,
+                        partId = callId,
+                        callId = callId,
+                        progress = null,
+                        title = null,
+                        metadata = props["metadata"]?.jsonObject
+                    )
+                )
+            }
+        }
         // 提取会话 ID（不同事件可能在不同字段）
         val sessionId = sessionIdOrNull(props)
 

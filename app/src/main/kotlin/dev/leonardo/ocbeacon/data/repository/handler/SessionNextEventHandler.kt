@@ -175,6 +175,14 @@ class SessionNextEventHandler @Inject constructor(
     private fun handleToolProgress(event: SessionNextEvent.ToolProgress) {
         _activeToolProgress.update { current ->
             val sessionTools = current[event.sessionId] ?: return@update current
+            // 2026-08-15（research/08 P0）：对齐官方 V2 契约——progress 输出是
+            // **整体替换**语义（非拼接）。优先级：metadata.output（当前部署版
+            // 实测抓帧）> structured.output（主干 .next schema）> content 拼接
+            // （旧契约兼容）。success 后由 Completed.output 终态覆盖。
+            val replacementOutput = event.metadata?.get("output")
+                ?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
+                ?: event.structured?.get("output")
+                    ?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
             val outputDelta = event.content.joinToString("") { it.text }
             val updated = sessionTools.map { tool ->
                 if (tool.callId == event.callId) {
@@ -182,7 +190,7 @@ class SessionNextEventHandler @Inject constructor(
                         status = "running",
                         progress = event.progress,
                         title = event.title,
-                        output = tool.output + outputDelta
+                        output = replacementOutput ?: (tool.output + outputDelta)
                     )
                 } else tool
             }
