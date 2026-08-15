@@ -605,7 +605,11 @@ class ChatViewModel @Inject constructor(
 
     // ============ 消息加载/刷新（门面 —— MessageDataDelegate / SessionActionsDelegate） ============
 
-    private suspend fun loadMessagesForSession() = messageData.paginationDelegate.loadMessagesForSession()
+    private suspend fun loadMessagesForSession() = messageData.paginationDelegate.loadMessagesForSession().also {
+        // 2026-08-15（research/01）：进会话后台预取全量消息（快速定位数据源）——
+        // 官方 TUI 模式（index.tsx:314：进会话 sync，Timeline 打开零 IO）
+        messageData.prefetchJumpTargets(viewModelScope)
+    }
     private fun startObservingMessages() = messageData.startObservingMessages()
 
     fun loadMessages() = messageData.paginationDelegate.loadMessages()

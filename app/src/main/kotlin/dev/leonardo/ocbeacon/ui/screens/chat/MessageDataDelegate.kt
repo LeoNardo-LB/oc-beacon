@@ -372,24 +372,41 @@ internal class MessageDataDelegate(
      */
     suspend fun loadJumpTargets(): List<MessageWithParts> {
         val sid = sessionIdFlow.value
-        val cached = messageStore.userMessages(sid, MessageStore.SESSION_MESSAGE_LIMIT)
-        if (jumpTargetsServerSync) return cached
-        return try {
-            val all = fetchAllMessages(sid)
-            if (all.isNotEmpty()) {
-                messageStore.upsertMessages(sid, all, persistOldBeyondWindow = true)
-                jumpTargetsServerSync = true
-                // 2026-08-12 用户要求：连续无回复的 user（无 assistant 间隔——
-                // 如 compaction 测试消息 "Nothing to compact yet" 连续多条）合并为
-                // 一条导航项（只保留组末一条——preview 用组末文本；点击跳转到组内）。
-                // 此前每条 user 算一个 Q → 列表出现大量无回复的孤立项。
-                mergeUnrepliedUsers(all)
-            } else {
-                cached
+        // 2026-08-15（research/01 修复：快速定位慢/缺消息/不更新）：
+        // 打开抽屉**只查 Room**（快照路径零网络——官方 Timeline 是纯内存同步
+        // 读取，延迟 0；全量同步移到进会话预取 prefetchJumpTargets）。
+        //
+        // ⚠️ 2026-08-15 追加修复（列表只剩 1 条）：Room 快照是 userMessages
+        // 查询（**只含 user 消息**）——mergeUnrepliedUsers 的"之间有无 assistant"
+        // 判定在纯 user 列表上恒 false → 除最后一条外全部被合并丢弃（实测
+        // 82 条只剩 Q1）。合并语义需要全量消息——快照路径**跳过合并**
+        //（多显示几条连续无回复的项无害，漏掉绝大多数项有害）。
+        return messageStore.userMessages(sid, MessageStore.SESSION_MESSAGE_LIMIT)
+    }
+
+    /**
+     * 2026-08-15（research/01）：进会话后**后台预取**全量消息落库（官方 TUI
+     * index.tsx:314 模式：进入会话 sync，Timeline 打开零 IO）。由
+     * loadMessagesForSession 完成后触发；失败静默（下次打开抽屉兜底）。
+     * 完成后 jumpTargetsServerSync 置位（首次打开兜底路径用）。
+     */
+    fun prefetchJumpTargets(scope: kotlinx.coroutines.CoroutineScope) {
+        val sid = sessionIdFlow.value
+        if (jumpTargetsServerSync) return
+        scope.launch {
+            try {
+                val all = fetchAllMessages(sid)
+                if (all.isNotEmpty()) {
+                    messageStore.upsertMessages(sid, all, persistOldBeyondWindow = true)
+                    jumpTargetsServerSync = true
+                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                        AppLogger.d(TAG, "[jump] prefetch complete: ${all.size} msgs -> Room (timeline ready)")
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.w(TAG, "[jump] prefetch failed (will fallback on drawer open): ${e.message}")
             }
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "loadJumpTargets server refresh failed, fallback cached (${cached.size})", e)
-            cached
         }
     }
 
