@@ -131,15 +131,13 @@ class V2ApiClientTest {
     }
 
     @Test
-    fun `deleteSession tries V2 api path then legacy path`() = runTest {
-        // 2026-08-15（research/10 P0 + 实测勘误）：V2 无 /api DELETE 端点；当前
-        // 部署版（next-17430）legacy 也不挂载（405）——两路探测取先成功者
+    fun `deleteSession sends DELETE to V2 api path`() = runTest {
+        // 2026-08-15 勘误：DELETE /api/session/:id 实测支持（真实会话 204 +
+        // 列表确认删除）——此前用不存在 id 探测 404 误判端点不存在
         val engine = MockEngine { request ->
-            when (request.url.encodedPath) {
-                "/api/session/sess_1" -> respond("", HttpStatusCode.NotFound)
-                "/session/sess_1" -> respond("", HttpStatusCode.OK)
-                else -> respond("", HttpStatusCode.NotFound)
-            }
+            assertEquals("/api/session/sess_1", request.url.encodedPath)
+            assertEquals("DELETE", request.method.value)
+            respond("", HttpStatusCode.NoContent)
         }
         val api = buildClient(engine)
         assertTrue(api.deleteSession(v2Conn, "sess_1"))

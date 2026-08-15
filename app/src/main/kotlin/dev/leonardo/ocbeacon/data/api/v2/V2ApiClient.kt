@@ -199,16 +199,13 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean {
-        // 2026-08-15（research/10 P0 + 实测勘误）：V2 协议无 DELETE /api/session/:id
-        //（404 实测）；主干源码 legacy /session/:id 由 InstanceHttpApi 挂载，但
-        // **当前部署版（next-17430）未挂载**（405 实测）——两路均探测，兼容
-        // 主干部署与旧部署。均失败时 UI 层提示"服务器不支持删除"。
-        val apiResp = httpClient.delete("${conn.baseUrl}/api/session/$sessionId") { auth(conn) }
-        if (apiResp.status.isSuccess()) return true
-        val legacyResp = httpClient.delete("${conn.baseUrl}/session/$sessionId") { auth(conn) }
-        if (legacyResp.status.isSuccess()) return true
-        AppLogger.w(TAG, "deleteSession: neither /api/session (404) nor legacy /session (405) worked — deployed server may not support delete")
-        return false
+        // 2026-08-15 勘误：DELETE /api/session/:id 实测**支持**（真实会话 204 +
+        // 列表确认删除；此前用不存在 id 探测得 404 被误判为端点不存在）。
+        // 直接走标准 V2 路径。
+        val response = httpClient.delete("${conn.baseUrl}/api/session/$sessionId") {
+            auth(conn)
+        }
+        return response.status.isSuccess()
     }
 
     suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
