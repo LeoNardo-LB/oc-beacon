@@ -1273,3 +1273,39 @@ $(echo "
   - D2-L35 FIXED：SessionListViewModel.kt:172 DataStore 写 markSessionRead 已移 viewModelScope.launch 异步（组合期调用仅内存操作，注释明确设计）
   - N-05 FIXED：SseConnectionManager.kt:212 isConnected 已由 #110 D2-13（commit 2f0aa0cc）改为真实连接标志（弃用 sseJob.isActive）
   - D2-L37 N_A（审计误报）：HomeViewModel.kt:265 connectToServer guard 主线程同步更新 connectingServerIds 先于 launch，同帧双击二次调用读到更新后状态提前 return——双发 testConnection 不可复现
+
+---
+
+## 2026-08-15 主对话流程 bug 批次（用户 V2 真机反馈，全链路根因修复）
+
+- [x] **#139 发送成功后输入框偶发不清空** `ui`
+  - 现象：点击发送后输入框内容偶发残留（消息已发出）
+  - 根因：ChatSendDelegate 的 E8-1 清空快照 = prompt parts 重组文本，而 PromptBuilder.buildPromptParts 对文本 trim() 并拆分 @file 提及 → 快照与输入框原始文本（含尾随空格/换行/@mention）不一致 → ChatScreen 比对失败不清空。干净单行文本恰好匹配 → "偶发"
+  - 修复（668d7b0e）：sendMessage(promptParts, attachments, rawText) 增加 rawText，快照直接用输入框原始文本（V1/V2 通用）
+  - 验证：E2E 发送尾随文本 → 输入框清空 ✅（V2）+ V1 回归 ✅；1642 单测全绿
+
+- [x] **#140 统计栏有概率丢模型名/耗时只剩圆圈（subagent 高发）** `ui` `sse`
+  - 根因（三层）：① V2 session.step.ended 契约不含 modelId/providerId/agent，handleMessageUpdated 整对象替换抹掉 step.started 写入的模型信息（tokens 同事件写入 → "圆圈在、模型无"不对称）；② 耗时 completed 在 V2 SSE 从不携带，且 step.ended 的 created=本地时刻顶替原始时刻 → 单步消息耗时≈0 被 >0 门隐藏；③ MessageFingerprints 不含 modelId → RenderableTurn 缓存陈旧值不恢复。subagent 高发：子会话全程 Busy → L3 校验跳过 + 增量游标拉不回旧消息
+  - 修复（3fcc11ae）：mergeAssistantMeta 非空字段合并（incoming 空保留 existing；created 取较早值）+ mergeMessageMeta 采纳 REST 模型元数据兜底 + 指纹纳入 modelId/providerId/agent。V1 message.updated 带全量字段 → incoming 覆盖，行为不变（E2E V1 实证统计栏正常）
+  - 验证：V2 E2E deepseek-v4-pro + 5.2s/13.9s 显示 ✅（智谱识图 D3 复核）；V1 3.2m 统计栏正常 ✅
+
+- [x] **#141 转后台/subagent 完成通知误渲染成 user 气泡（"多出大段用户回复"/"assistant 内容进 user 气泡"）** `sse` `ui`
+  - 现象：转后台后多出一大段"用户的回复"，且内容是 assistant（subagent）的输出
+  - 根因（Room+curl 双实证）：subagent/后台任务完成通知同样经 session.inbox.enqueued 投递（item.type="synthetic"，body=<subagent …>子代理全部输出</subagent>，实测 5KB）；V2SseMapper 播种分支无条件构造 Message.User（role 默认 "user"）→ 通知渲染成 user 气泡
+  - 修复（6ca1f357）：播种读 item.type，非 user 类型设置对应 role → 下游走 SyntheticNotificationCard 通知卡片（V1 无 inbox 机制不受影响）
+  - 验证：curl 注入 synthetic → logcat "admitted type=synthetic → MessageUpdated role=synthetic"（修复前 role=user）→ UI 渲染 "Sub-agent · E2E 测试任务" 通知卡片 ✅ 无 user 气泡
+
+- [x] **#142 流式期间内容大段缺失、完结/重进后完整（断连窗口）** `sse` `data`
+  - 根因（iptables 断连复现实证）：SseConnectionManager 的 attempt 在连接成功后重置为 0 → "曾成功连接→断连→重连"场景 attempt 恒为 1 → `if (attempt > 1) recoverMessages()` 永不触发 → 断连窗口（40s 心跳超时+退避）SSE 事件永久丢失，内容缺失不恢复（直到 text.ended 全量覆盖/重进 REST）
+  - 修复（8bbcb216）：独立 hasConnectedOnce 标志——曾成功连接过的重连都执行 recoverMessages（REST_AUTHORITY + mergePartsList 更长文本胜出恢复）
+  - 附带修复（同 commit 批次 6ca1f357）：V2SseMapper.partLocator ordinal 缺失 return null 静默丢弃整条 delta（且两行重复为复制粘贴错误）→ 兜底 0
+  - 验证：断连 18s 场景 → 修复前无 Recover 日志；修复后 "Recovering messages for 50 sessions → Recovered 50/50" → Room 故事 2505 字 vs 服务器 2623 字一致 ✅
+  - 已知边界（非缺陷）：断连窗口若丢 step.ended 事件则该消息无 tokens（圆环不显示）——REST 协议不返回 tokens，属服务器契约限制
+
+### 遗留观察项（非本次修复引入）
+
+- [x] **#143 V1 发送后"用户消息不显示"——2026-08-15 判定为误报（验证方法缺陷）** `v1`
+  - 现象：V1 E2E 中发送 v1_regression_e2e_final_check 后 UI dump 找不到该文本 → 误判"消息不显示"
+  - 真相（三重误判）：① Markdown 将 `_regression_e2e_` 等下划线段渲染为斜体 → 文本变 "V1 regression e2e final check"，grep 原文落空；② agent 回复本身调用了 question 工具（SINGLE 卡片 Pass/Fail），气泡形态与预期文本回复不同；③ 视口采样偏差（uiautomator 单点 dump 未覆盖消息位置）
+  - 复核证据：快速导航（Room 全量 user 消息）中该消息在列；点击跳转后消息与回复完整渲染（10:57 时间标签 + question 卡片 turn）；Room/seed/NetTrace 28 条消息全链路一致
+  - 结论：V1 全链路正常，无 bug；教训：E2E 文本断言需考虑 Markdown 转换（下划线→斜体）与工具卡片形态
