@@ -124,6 +124,9 @@ class ChatViewModelQueuedTest {
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             ownershipRegistry = StreamingOwnershipRegistry(),
+            sessionRepoProvider = object : javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository> {
+                override fun get() = io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true)
+            },
         )
         every { sessionStateService.statusFlow } returns testStatusFlow
         every { sessionStateService.activityFlow } returns MutableStateFlow(emptyMap())

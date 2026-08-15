@@ -271,7 +271,11 @@ class V2SseMapperTest {
         val updated = event as SseEvent.MessageUpdated
         val assistant = updated.info as Message.Assistant
         assertEquals(1.25, assistant.cost ?: 0.0, 0.001)
-        assertNull(assistant.time.completed)
+        // 2026-08-15（对齐官方 TUI data.tsx:224-235）：step.ended 是消息级完成
+        // 边界——置 time.completed 与 finish（原断言 null 是旧语义：依赖
+        // REST 兜底导致"消息永不完成/耗时缺失"窗口）
+        assertNotNull(assistant.time.completed)
+        assertEquals("tool-calls", assistant.finish)
     }
 
     @Test

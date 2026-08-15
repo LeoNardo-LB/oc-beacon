@@ -70,6 +70,17 @@ internal fun PartContent(
                 // 检测该格式并以可折叠卡片渲染
                 if (part.text.contains("questions:") && part.text.contains("User has answered")) {
                     CollapsibleQuestionPart(question = part.text)
+                } else if (isUser) {
+                    // 2026-08-15 用户要求 + 官方 TUI 对齐（tui index.tsx:1420 纯文本
+                    // <text> 渲染）：用户消息不渲染 Markdown——所见即所得，避免
+                    // 下划线转斜体（v1_regression_e2e 误判根因）等意外转换。
+                    SelectionContainer {
+                        Text(
+                            text = part.text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = textColor,
+                        )
+                    }
                 } else {
                     SelectionContainer {
                         MarkdownContent(

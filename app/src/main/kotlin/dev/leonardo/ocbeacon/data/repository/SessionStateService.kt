@@ -62,6 +62,16 @@ class SessionStateService @Inject constructor(
      *  提问/权限对话框）。由 EventDispatcher 接线（questionHandler/permissionHandler）。 */
     var pendingUserInputChecker: (sessionId: String) -> Boolean = { false }
 
+    /**
+     * 2026-08-15（僵尸误杀修复·二）：该会话有**活跃子会话**（parentID 指向它
+     * 且仍在服务器 running）时，主会话的 running 是合法等待状态（V2 drain
+     * 语义：后台任务/subagent 活跃期间主会话保持 running 但自身无事件流），
+     * 僵尸判定不得 interrupt——实测（2026-08-15）：主会话委派 3 个后台调研
+     * 子代理后等待中，3 分钟无主会话事件 → 被 zombie interrupt 误杀
+     * （用户零操作被打断，logcat 实证 interrupt 打到主会话）。
+     */
+    var activeChildrenChecker: (serverId: String, sessionId: String) -> Boolean = { _, _ -> false }
+
     @Volatile private var currentServerId: String? = null
 
     /**
@@ -323,10 +333,15 @@ class SessionStateService @Inject constructor(
                                 // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
                                 // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查。
                                 val hasPendingUserInput = pendingUserInputChecker(sessionId)
-                                if (hasPendingUserInput) {
-                                    // pending 用户输入：不 interrupt，仅本地强制 Idle（转圈停、问题卡片可继续回答，
-                                    // 用户提交后服务器恢复事件流、FSM 重新跟随 Busy）
-                                    AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms; pending user input (question/permission) -> skip zombie interrupt, keep waiting")
+                                // 2026-08-15（僵尸误杀修复·二）：有活跃子会话（后台任务/
+                                // subagent running）时主会话 running 是 V2 drain 合法等待
+                                // 状态——不 interrupt（否则等待后台任务的主会话被误杀，
+                                // 用户零操作被打断）。仅本地转 Idle 跟随显示。
+                                val hasActiveChildren = activeChildrenChecker(sid, sessionId)
+                                if (hasPendingUserInput || hasActiveChildren) {
+                                    // pending 用户输入 / 活跃子会话：不 interrupt，仅本地强制 Idle
+                                    //（转圈停；用户提交或后台任务完成后事件流恢复、FSM 重新跟随）
+                                    AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms; ${if (hasActiveChildren) "active background children" else "pending user input"} -> skip zombie interrupt, keep waiting")
                                 } else {
                                     // 2026-08-14 根因修复（转圈/无回复）：仅本地强制 Idle 只是“装样子”——
                                     // 服务器 runner 仍处于僵尸 running（/active 持续返回 running），用户再发消息
@@ -419,22 +434,17 @@ class SessionStateService @Inject constructor(
      * 失败仅告警不阻断（本地 Idle 兜底仍会执行）。
      */
     private fun interruptZombieRunner(serverId: String, sessionId: String, directory: String?) {
-        val sid = currentServerId ?: serverId
-        appScope.launch {
-            try {
-                val result = sessionRepoProvider.get().abort(sid, sessionId, directory)
-                result.onSuccess {
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d(TAG, "[$sessionId] zombie interrupt sent (server runner released)")
-                    }
-                }.onFailure { e ->
-                    AppLogger.w(TAG, "[$sessionId] zombie interrupt failed: ${e.message}")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                AppLogger.w(TAG, "[$sessionId] zombie interrupt error: ${e.message}")
-            }
+        // 2026-08-15（对齐官方调研结论，research/05 文档）：官方客户端（TUI/Web）
+        // **不存在任何自动 interrupt**——所有 interrupt 由用户显式动作触发
+        //（Esc 三连击/停止按钮/undo 前置）。官方对"running 但无事件"的态度是
+        // 无限期等待、只修本地显示。我们的自动 zombie interrupt 已实证误杀
+        //（主会话等待后台子代理被打断——用户零操作）。
+        // 收紧：默认只修显示（本地转 Idle，不调服务器 interrupt）。
+        // 自动 interrupt 关闭；未来如需恢复，须以用户手动入口（会话详情
+        // "强制解除卡死"）+ 长工具静默防护 + V1 禁用（V1 abort 级联取消
+        // 后台 job，run-state.ts:77-86）为前提。
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[$sessionId] zombie display-fix only (auto interrupt disabled per official semantics)")
         }
     }
 

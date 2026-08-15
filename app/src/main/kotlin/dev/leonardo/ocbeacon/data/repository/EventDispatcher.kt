@@ -49,6 +49,7 @@ class EventDispatcher @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val unreadBadgeService: UnreadBadgeService,
     private val ownershipRegistry: StreamingOwnershipRegistry,
+    private val sessionRepoProvider: javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository>,
 ) {
     /**
      * 一次性 unread v2 迁移 scope：App 启动时清空旧域已读标记（readTimes/allReadAt/
@@ -94,6 +95,25 @@ class EventDispatcher @Inject constructor(
         sessionStateService.pendingUserInputChecker = { sessionId ->
             questionHandler.questions.value[sessionId]?.isNotEmpty() == true ||
                 permissionHandler.permissions.value[sessionId]?.isNotEmpty() == true
+        }
+        // 2026-08-15（僵尸误杀修复·二）：该会话有活跃子会话（parentID 指向它
+        // 且服务器 running）时不得 interrupt——V2 drain 语义下等待后台任务的
+        // 主会话自身无事件流（子会话事件的 sessionID 不是父会话），3 分钟
+        // 静默会被误判僵尸。用会话缓存的 parentID + 服务器 /active 对照：
+        // triggerRestValidation 已拉过该 directory 的全量状态 map，此处复用
+        // 同一数据源（fetchSessionStatuses）避免双倍请求。
+        sessionStateService.activeChildrenChecker = { serverId, sessionId ->
+            kotlinx.coroutines.runBlocking {
+                // 子会话候选：会话缓存中 parentID 指向本会话的
+                val children = sessionHandler.sessions.value
+                    .filter { it.parentId == sessionId }
+                if (children.isEmpty()) return@runBlocking false
+                // 服务器侧确认任一子会话 running 才算活跃（缓存可能滞后）
+                val directory = children.firstNotNullOfOrNull { it.directory.ifBlank { null } }
+                val statuses = sessionRepoProvider.get()
+                    .fetchSessionStatuses(serverId, directory).getOrNull() ?: return@runBlocking false
+                children.any { statuses[it.id] is dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy }
+            }
         }
     }
 
@@ -212,6 +232,8 @@ class EventDispatcher @Inject constructor(
     val compactionState: StateFlow<Map<String, CompactionStateInfo>> get() = sessionNextHandler.compactionState
     /** 2026-08-15：按 sessionId 的实时 token 用量（V2 session.usage.updated）。 */
     val sessionUsage: StateFlow<Map<String, dev.leonardo.ocbeacon.domain.model.SessionNextEvent.UsageUpdated>> get() = sessionNextHandler.sessionUsage
+    /** 2026-08-15：已压缩会话集合（SessionCompacted 事件）——UI 监听刷新消息列表。 */
+    val compactedSessions: StateFlow<Set<String>> get() = sessionHandler.compactedSessions
     val shellState: StateFlow<Map<String, ShellStateInfo>> get() = sessionNextHandler.shellState
     val retryState: StateFlow<Map<String, Int>> get() = sessionNextHandler.retryState
     val gapDetected: StateFlow<Set<String>> get() = sessionNextHandler.gapDetected

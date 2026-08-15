@@ -429,30 +429,25 @@ class ChatViewModel @Inject constructor(
         // 重置上一会话的 token 统计（TokenStatsTracker 是 @Singleton，跨会话共享）
         tokenStatsTracker.reset()
 
-        // 2026-08-15：session 级权威 tokens 兜底（V1 无 usage SSE 事件、V2 冷启动
-        // 也需要）——GET /session/{id} 的 tokens 字段（V1/V2 实测结构一致：
-        // {input,output,reasoning,cache:{read,write}}）。进会话即写入 tracker →
-        // 顶部 context 指示器常显（不再依赖消息级 tokens——会因 REST 覆盖归零）。
+        // 2026-08-15：session 级权威 tokens 兜底——对齐官方语义（调研 03 文档）：
+        // 官方 TUI 的 context% 只用消息级快照（findLast output>0），session 级
+        // tokens 是 SQL 累计值（压缩不下降）**不代表当前上下文**。此 bootstrap
+        // 仅用于冷启动兜底（尚无任何 assistant tokens 时给初值）+ totalCost；
+        // 一旦消息级数据到达即被覆盖（下方 collect 为直接覆盖语义）。
         if (!isNewSession) {
             viewModelScope.launch {
                 runCatching {
                     val session = manageSessionUseCase.getSession(serverId, sessionId)
+                    // cost：session 级累计（官方同源——prompt/index.tsx:277）
+                    if (session.cost != null && session.cost!! > 0) {
+                        tokenStatsTracker.update { copy(totalCost = session.cost!!) }
+                    }
                     val t = session.tokens ?: return@runCatching
-                    // 上下文占用 = input+output+reasoning（cache.read 是历史累计
-                    // 非当前上下文——实测 V2 会话 tokens.cache.read 可达数百万，
-                    // 计入会超 100%，见 SessionUsageTokens.contextTotal 注释）
                     val total = t.input + t.output + t.reasoning
-                    if (total > 0) {
-                        tokenStatsTracker.update {
-                            copy(
-                                totalInputTokens = maxOf(totalInputTokens, t.input),
-                                totalOutputTokens = maxOf(totalOutputTokens, t.output),
-                                totalReasoningTokens = maxOf(totalReasoningTokens, t.reasoning),
-                                totalCacheReadTokens = maxOf(totalCacheReadTokens, t.cache.read),
-                                totalCacheWriteTokens = maxOf(totalCacheWriteTokens, t.cache.write),
-                                lastContextTokens = maxOf(lastContextTokens, total)
-                            )
-                        }
+                    // 仅在尚无消息级数据时作为初始 lastContextTokens（冷启动指示器
+                    // 常显；消息级快照到达后覆盖为准确值）
+                    if (total > 0 && tokenStatsTracker.stats.value.lastContextTokens == 0) {
+                        tokenStatsTracker.update { copy(lastContextTokens = total) }
                     }
                 }.onFailure { e ->
                     if (e is CancellationException) throw e
@@ -464,19 +459,25 @@ class ChatViewModel @Inject constructor(
         }
 
         // 2026-08-15：V2 实时 usage 流（session.usage.updated）——只消费当前会话
-        //（handler 收到服务器全部会话事件，跨会话写入会污染 tracker——实测主
-        // 会话 13M tokens 把测试会话指示器顶到 100%）。V1 无此事件（REST 兜底覆盖）。
+        //（handler 收到服务器全部会话事件，跨会话写入会污染）。官方 Web app 对
+        // usage.updated 直接覆盖（server-session.ts:957，非 max）——但该值是
+        // session 累计口径（压缩不下降），仅作为**消息级快照缺失时的兜底**
+        //（消息级到达即覆盖为准确值，见下方 collect）。V1 无此事件。
         viewModelScope.launch {
             try {
                 eventDispatcher.sessionUsage.collect { usageMap ->
                     val usage = usageMap[sessionId] ?: return@collect
-                    tokenStatsTracker.update {
-                        copy(
-                            totalInputTokens = maxOf(totalInputTokens, usage.tokens.input),
-                            totalOutputTokens = maxOf(totalOutputTokens, usage.tokens.output),
-                            totalReasoningTokens = maxOf(totalReasoningTokens, usage.tokens.reasoning),
-                            lastContextTokens = maxOf(lastContextTokens, usage.tokens.contextTotal)
-                        )
+                    val current = tokenStatsTracker.stats.value
+                    // 仅当消息级尚未提供数据时更新（保底常显，不干扰官方口径）
+                    if (current.lastContextTokens == 0 && usage.tokens.contextTotal > 0) {
+                        tokenStatsTracker.update {
+                            copy(
+                                totalInputTokens = usage.tokens.input,
+                                totalOutputTokens = usage.tokens.output,
+                                totalReasoningTokens = usage.tokens.reasoning,
+                                lastContextTokens = usage.tokens.contextTotal
+                            )
+                        }
                     }
                 }
             } catch (e: Throwable) {
@@ -485,11 +486,42 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        // 观察消息并更新 token 统计跟踪器。
+        // 2026-08-15：压缩完成事件驱动刷新——SessionCompacted 到达时（本会话）
+        // 立即拉最新消息（含 compaction 消息→分割线卡片），无需用户重进会话。
+        //（此前仅记日志——用户点击压缩后界面无任何反馈的成因之二）
         viewModelScope.launch {
-            // L-18：全量扫描移出主线程（flowOn Default）+ distinctUntilChanged——
-            // 48ms 批处理下消息列表变化不必然改变 token 统计（流式 token 更新才变）；
-            // 原实现主线程每帧 filterIsInstance+sumOf+lastOrNull 全量扫描大会话（2000 条 × 20 次/s）。
+            try {
+                var lastCompacted = eventDispatcher.compactedSessions.value
+                eventDispatcher.compactedSessions.collect { compacted ->
+                    if (sessionId in compacted && compacted != lastCompacted) {
+                        lastCompacted = compacted
+                        messageData.refreshMessages()
+                        // 压缩后上下文重置——session 级 tokens 重新拉取（bootstrap 语义）
+                        runCatching {
+                            val s = manageSessionUseCase.getSession(serverId, sessionId)
+                            val t = s.tokens ?: return@runCatching
+                            val total = t.input + t.output + t.reasoning
+                            if (total > 0) {
+                                tokenStatsTracker.update {
+                                    copy(lastContextTokens = maxOf(lastContextTokens, total))
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Throwable) {
+                if (e is CancellationException) throw e
+                // 测试环境 relaxed mock 可能无法构造该 flow——静默跳过
+            }
+        }
+
+        // 2026-08-15：消息级统计——对齐官方语义（tui prompt/index.tsx:264-282）：
+        // context% 唯一权威源 = 最后一条 output>0 的 assistant 消息的单次调用
+        // tokens 快照（input+output+reasoning+cache.read+cache.write），**直接覆盖**
+        //（官方 step.ended → tokens 覆盖，tui data.tsx:224-234）。原 maxOf 合并
+        // 是为防消息级归零，但导致压缩后永不回落（session 累计值单向增大）。
+        // 消息级归零场景已由 lastOrNull{output>0} + 空/0 跳过覆盖。
+        viewModelScope.launch {
             messageData.messagesList
                 .map { messages ->
                     val assistantMessages = messages.filterIsInstance<dev.leonardo.ocbeacon.domain.model.Message.Assistant>()
@@ -512,17 +544,16 @@ class ChatViewModel @Inject constructor(
                 .flowOn(kotlinx.coroutines.Dispatchers.Default)
                 .collect { stats ->
                     tokenStatsTracker.update {
-                        // 2026-08-15：消息级统计与 session 级（usage.updated/session
-                        // 详情兜底）max 合并——消息级会因消息切换/REST 覆盖暂时归零，
-                        // 直接 copy 会把 session 级权威值清掉（顶部指示器闪烁消失）。
+                        // 直接覆盖（官方语义）；lastContextTokens=0（无任何 output>0
+                        // 消息的瞬时态）时保留现值防闪烁
                         copy(
                             totalCost = stats.totalCost,
-                            totalInputTokens = maxOf(totalInputTokens, stats.totalInputTokens),
-                            totalOutputTokens = maxOf(totalOutputTokens, stats.totalOutputTokens),
-                            totalReasoningTokens = maxOf(totalReasoningTokens, stats.totalReasoningTokens),
-                            totalCacheReadTokens = maxOf(totalCacheReadTokens, stats.totalCacheReadTokens),
-                            totalCacheWriteTokens = maxOf(totalCacheWriteTokens, stats.totalCacheWriteTokens),
-                            lastContextTokens = maxOf(lastContextTokens, stats.lastContextTokens),
+                            totalInputTokens = stats.totalInputTokens,
+                            totalOutputTokens = stats.totalOutputTokens,
+                            totalReasoningTokens = stats.totalReasoningTokens,
+                            totalCacheReadTokens = stats.totalCacheReadTokens,
+                            totalCacheWriteTokens = stats.totalCacheWriteTokens,
+                            lastContextTokens = if (stats.lastContextTokens > 0) stats.lastContextTokens else lastContextTokens,
                         )
                     }
                 }

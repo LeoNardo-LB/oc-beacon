@@ -80,21 +80,27 @@ fun computeRenderableTurn(
         formatError(am?.error)
     }
 
-    // 来自当前消息的 agent 名称和模型 —— 无论 isTurnLast 与否始终提取，
-    // 因为 displayItems 过滤器可能选择非最后的 assistant 作为 turn 代表。
+    // 2026-08-15 修复（agent 徽标跳变，对齐官方 TUI 语义）：agent/model 取
+    // **turn 内首条** assistant（用户消息开启 turn 的语义）——官方 TUI 每条
+    // 消息 agent 创建时写入一次永不改写（tui data.tsx:208-222），turn 内
+    // agent 变化只影响新消息；原实现取"代表消息"（turn 内最新 assistant，
+    // ChatScreen displayItems 选择），后台 subagent 注入的 agent=deep-explore
+    // 消息会把整个 turn 徽标覆盖掉（用户反馈"agent 跳变"）。
+    // 首选 turn 内首条（按 created 最早）；currentMessage 兜底（空 turn）。
     val currentAssistant = currentMessage.message as? dev.leonardo.ocbeacon.domain.model.Message.Assistant
-    val agentName = currentAssistant?.agent
-    val modelId = currentAssistant?.modelId
+    val assistantsForMeta = ordered.mapNotNull { it.message as? dev.leonardo.ocbeacon.domain.model.Message.Assistant }
+    val firstAssistant = assistantsForMeta.minByOrNull { it.time.created }
+    val agentName = (firstAssistant ?: currentAssistant)?.agent
+    val modelId = (firstAssistant ?: currentAssistant)?.modelId
 
     // turn 起点 —— turn 内首条 assistant 消息的 created。
     // turn 分组只含 assistant 消息；minOf 比较时间戳不依赖列表顺序。
-    val assistants = ordered.mapNotNull { it.message as? dev.leonardo.ocbeacon.domain.model.Message.Assistant }
-    val turnStartMs: Long? = assistants.minOfOrNull { it.time.created }
+    val turnStartMs: Long? = assistantsForMeta.minOfOrNull { it.time.created }
 
     // 时长 —— turn 级跨度：首条 created → 末条 completed。
     // 仅当 turn 内所有 assistant 消息均 completed 时给值；任一仍流式 → null（流式 ticker 接管）。
-    val completedTimes = assistants.mapNotNull { it.time.completed }
-    val durationMs: Long? = if (turnStartMs != null && completedTimes.size == assistants.size) {
+    val completedTimes = assistantsForMeta.mapNotNull { it.time.completed }
+    val durationMs: Long? = if (turnStartMs != null && completedTimes.size == assistantsForMeta.size) {
         completedTimes.max() - turnStartMs
     } else {
         null

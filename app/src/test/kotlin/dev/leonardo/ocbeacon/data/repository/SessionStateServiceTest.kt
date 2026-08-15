@@ -178,8 +178,11 @@ class SessionStateServiceTest {
         testScope.runCurrent()
         // 僵尸判定：服务器 Busy + 无真实事件超阈值 → 强制 Idle（列表图标恢复）
         assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
-        // 根因修复断言：主动 interrupt 解除服务器僵尸（不再只本地装 Idle）
-        coVerify(exactly = 1) { fakeRepo.abort("svr1", "s1", "D:/proj") }
+        // 2026-08-15（对齐官方调研结论 research/05）：官方客户端无任何自动
+        // interrupt（全部用户显式触发）——自动 zombie interrupt 已实证误杀
+        //（主会话等待后台子代理被打断）。收紧为"仅显示修复"：**断言 abort
+        // 不被调用**；本地 Idle 兜底仍然生效（上方断言）。
+        coVerify(exactly = 0) { fakeRepo.abort(any(), any(), any()) }
     }
 
     @Test

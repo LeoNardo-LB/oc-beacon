@@ -60,6 +60,7 @@ class EventDispatcherTest {
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
+            sessionRepoProvider = Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true) },
         )
     }
 

@@ -288,5 +288,6 @@ class SessionNextEventHandler @Inject constructor(
         _retryState.value = emptyMap()
         _lastEventSeq.value = emptyMap()
         _gapDetected.value = emptySet()
+        _sessionUsage.value = emptyMap()
     }
 }

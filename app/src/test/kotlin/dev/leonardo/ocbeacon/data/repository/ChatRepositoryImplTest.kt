@@ -73,6 +73,9 @@ class ChatRepositoryImplTest {
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
+            sessionRepoProvider = object : javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository> {
+                override fun get() = io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true)
+            },
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
         repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore)

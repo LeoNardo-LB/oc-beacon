@@ -133,14 +133,21 @@ object V2SseMapper {
                     )
                 )
             }
+            // 2026-08-15（对齐官方 TUI data.tsx:224-235）：step.ended 是消息级
+            // 完成边界——置 time.completed 与 finish（官方直接写入）。原实现
+            // 不置 → 消息永不完成（completed 依赖 REST 兜底 mergeMessageMeta）
+            // → 统计栏耗时缺失/流式 ticker 永不停。completed 用服务器事件
+            // 到达时刻（无服务器时间戳字段；偏差毫秒级可接受）。
+            val now = System.currentTimeMillis()
             SseEvent.MessageUpdated(
                 Message.Assistant(
                     id = messageId,
                     sessionId = sessionId,
-                    time = TimeInfo(System.currentTimeMillis()),
+                    time = TimeInfo(created = now, completed = now),
                     parentId = "",
                     cost = cost,
-                    tokens = tokens
+                    tokens = tokens,
+                    finish = props["finish"]?.jsonPrimitive?.contentOrNull
                 )
             )
         }
