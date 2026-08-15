@@ -181,7 +181,12 @@ class OpenCodeApp : Application() {
                     }
             }
             if (newCrashFiles?.isNotEmpty() == true) {
-                Toast.makeText(this@OpenCodeApp, getString(R.string.crash_logs_dir, CRASH_DIR), Toast.LENGTH_LONG).show()
+                // 2026-08-16 修复：Toast 必须主线程——原实现在 appScope（IO 调度器）
+                // 直接 show → "Can't toast on a thread that has not called
+                // Looper.prepare()" NPE 二次崩溃（migration 崩溃后重启链实测）。
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@OpenCodeApp, getString(R.string.crash_logs_dir, CRASH_DIR), Toast.LENGTH_LONG).show()
+                }
                 crashPrefs.edit().putLong("last_notified_ts", System.currentTimeMillis()).apply()
             }
         }

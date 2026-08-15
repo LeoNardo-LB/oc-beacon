@@ -353,6 +353,55 @@ class MessageStore @Inject constructor(
     }
 
     /**
+     * 2026-08-16（快速定位缺失根治·对账）：服务器权威全量替换热表（清+写
+     * 同事务原子）。归档不动——若被替换集小于热表限额，历史归档保持分层。
+     */
+    override suspend fun replaceSessionMessages(sessionId: String, messages: List<MessageWithParts>) {
+        if (messages.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            runCatchingCancellable {
+                databaseRecovery.withCorruptionRecovery {
+                    database.withTransaction {
+                        dao.clearSession(sessionId)
+                        upsertInTransaction(sessionId, messages)
+                    }
+                }
+            }.onFailure { e ->
+                AppLogger.e(TAG, "replaceSessionMessages failed (keep existing cache)", e)
+            }
+        }
+    }
+
+    /** 事务内写入（不嵌套 withTransaction；不触发归档——对账场景写入量=服务器全量，超限由下次常规 upsert 的 prune 管理）。 */
+    private suspend fun upsertInTransaction(sessionId: String, messages: List<MessageWithParts>) {
+        dao.upsertMessages(
+            messages.map { m ->
+                CachedMessageEntity(
+                    id = m.info.id,
+                    sessionId = sessionId,
+                    created = m.info.time.created,
+                    role = m.info.role,
+                    payload = json.encodeToString(m.info),
+                )
+            },
+        )
+        dao.upsertParts(
+            messages.flatMap { m ->
+                m.parts.mapIndexed { index, p ->
+                    CachedPartEntity(
+                        id = p.id.ifEmpty { "${m.info.id}_p$index" },
+                        messageId = m.info.id,
+                        sessionId = sessionId,
+                        type = p.typeName(),
+                        text = (p as? Part.Text)?.text,
+                        payload = json.encodeToString(p),
+                    )
+                }
+            },
+        )
+    }
+
+    /**
      * 游标分页读归档：从 [beforeCreated] 往更早方向逐桶解压。
      *
      * 注：返回顺序是 advisory——按桶粒度凑满 [limit]，桶间/桶内可能非严格 created 升序

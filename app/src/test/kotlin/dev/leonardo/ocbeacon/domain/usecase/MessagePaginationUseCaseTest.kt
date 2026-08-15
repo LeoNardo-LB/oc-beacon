@@ -46,7 +46,7 @@ class MessagePaginationUseCaseTest {
         // 返回本地 + 增量合并
         assertEquals(3, result.getOrThrow().size)
         // 增量落库
-        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_4", 400)), false) }
+        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_4", 400)), true) }
     }
 
     @Test
@@ -60,7 +60,7 @@ class MessagePaginationUseCaseTest {
 
         assertTrue(result.isSuccess)
         assertEquals(1, result.getOrThrow().size)
-        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_1", 100)), false) }
+        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_1", 100)), true) }
     }
 
     @Test
@@ -107,7 +107,7 @@ class MessagePaginationUseCaseTest {
         assertTrue(result.isSuccess)
         assertEquals(LoadOlderSource.NETWORK, result.getOrThrow().source)
         assertEquals(1, result.getOrThrow().messages.size)
-        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_0", 50)), false) }
+        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_0", 50)), true) }
     }
 
     @Test
@@ -142,7 +142,7 @@ class MessagePaginationUseCaseTest {
         assertTrue(result.isSuccess)
         assertEquals(LoadOlderSource.NETWORK, result.getOrThrow().source)
         assertEquals(1, result.getOrThrow().messages.size)
-        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_0", 50)), false) }
+        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_0", 50)), true) }
     }
 
     @Test
@@ -194,6 +194,6 @@ class MessagePaginationUseCaseTest {
         assertTrue(result.isSuccess)
         assertEquals(LoadOlderSource.NETWORK, result.getOrThrow().source)
         coVerify(exactly = 0) { messageStore.hasArchivedMessages(any(), any()) }
-        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_50", 500)), false) }
+        coVerify { messageStore.upsertMessages("ses_1", listOf(msg("msg_50", 500)), true) }
     }
 }

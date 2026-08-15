@@ -23,7 +23,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): OcBeaconDatabase =
         // WAL 模式：Room 对 targetSdk>=16 默认开启（JournalMode.WRITE_AHEAD_LOGGING）
         Room.databaseBuilder(context, OcBeaconDatabase::class.java, "ocbeacon.db")
-            .addMigrations(Migrations.MIGRATION_1_2)
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
             .build()
 
     @Provides

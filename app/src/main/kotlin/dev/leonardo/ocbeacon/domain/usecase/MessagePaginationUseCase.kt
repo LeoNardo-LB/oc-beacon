@@ -98,7 +98,9 @@ class MessagePaginationUseCase @Inject constructor(
             }
             val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
-            messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
+            // 2026-08-16（缺 Q 根治·第 3 层一致化）：进会话增量同样落库
+            //（与 loadOlderMessages 对齐；窗口过滤已保护归档分层）。
+            messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = true)
             mergeLocalAndRemote(local, page.messages)
         }.recoverCatching { e ->
             // 网络失败回退：本地有缓存则返回缓存（缓存优先理念），无缓存保持失败
@@ -138,7 +140,13 @@ class MessagePaginationUseCase @Inject constructor(
             return runCatching {
                 val page = sessionRepository.listMessages(serverId, sessionId, limit, before = networkCursor)
                     .getOrThrow()
-                messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
+                // 2026-08-16（缺 Q 根治·第 3 层：翻页落库）：浏览过的更早消息也落 Room
+                //（persistOldBeyondWindow=true）——快速定位/重进的本地数据覆盖
+                // 用户浏览范围。原 false 是防 prune 循环的旧设计：归档游标
+                //（FSM Archive）与网络游标（Network）分离后该顾虑已消除
+                //（#56 修复），且 upsertMessages 的窗口过滤（热表最旧之前跳过）
+                // 已保护归档分层。
+                messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = true)
                 LoadOlderResult(page.messages, LoadOlderSource.NETWORK, nextCursor = page.nextCursor)
             }
         }
@@ -151,7 +159,13 @@ class MessagePaginationUseCase @Inject constructor(
                 )
                 val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                     .getOrThrow()
-                messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
+                // 2026-08-16（缺 Q 根治·第 3 层：翻页落库）：浏览过的更早消息也落 Room
+                //（persistOldBeyondWindow=true）——快速定位/重进的本地数据覆盖
+                // 用户浏览范围。原 false 是防 prune 循环的旧设计：归档游标
+                //（FSM Archive）与网络游标（Network）分离后该顾虑已消除
+                //（#56 修复），且 upsertMessages 的窗口过滤（热表最旧之前跳过）
+                // 已保护归档分层。
+                messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = true)
                 LoadOlderResult(page.messages, LoadOlderSource.NETWORK, nextCursor = page.nextCursor)
             }
         }
@@ -176,7 +190,7 @@ class MessagePaginationUseCase @Inject constructor(
             }
             val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
-            messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = false)
+            messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = true)
             LoadOlderResult(page.messages, LoadOlderSource.NETWORK, nextCursor = page.nextCursor)
         }
     }
@@ -212,7 +226,7 @@ class MessagePaginationUseCase @Inject constructor(
             val newerPage = sessionRepository.listMessages(serverId, sessionId, limit, before = newerCursor).getOrThrow()
             // 合并 upsert（target + older + newer；APPEND_ONLY 路径按 id 去重）
             val all = listOf(target) + olderPage.messages + newerPage.messages
-            messageStore.upsertMessages(sessionId, all, persistOldBeyondWindow = false)
+            messageStore.upsertMessages(sessionId, all, persistOldBeyondWindow = true)
             LoadAroundResult(
                 target = target,
                 olderMessages = olderPage.messages,
@@ -225,7 +239,7 @@ class MessagePaginationUseCase @Inject constructor(
             val before = CursorCodec.encode(targetMessageId, target.info.time.created)
             val olderPage = sessionRepository.listMessages(serverId, sessionId, limit, before = before).getOrThrow()
             val all = listOf(target) + olderPage.messages
-            messageStore.upsertMessages(sessionId, all, persistOldBeyondWindow = false)
+            messageStore.upsertMessages(sessionId, all, persistOldBeyondWindow = true)
             LoadAroundResult(
                 target = target,
                 olderMessages = olderPage.messages,

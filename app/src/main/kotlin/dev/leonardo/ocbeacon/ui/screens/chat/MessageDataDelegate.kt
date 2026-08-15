@@ -372,16 +372,45 @@ internal class MessageDataDelegate(
      */
     suspend fun loadJumpTargets(): List<MessageWithParts> {
         val sid = sessionIdFlow.value
-        // 2026-08-15（research/01 修复：快速定位慢/缺消息/不更新）：
-        // 打开抽屉**只查 Room**（快照路径零网络——官方 Timeline 是纯内存同步
-        // 读取，延迟 0；全量同步移到进会话预取 prefetchJumpTargets）。
-        //
-        // ⚠️ 2026-08-15 追加修复（列表只剩 1 条）：Room 快照是 userMessages
-        // 查询（**只含 user 消息**）——mergeUnrepliedUsers 的"之间有无 assistant"
-        // 判定在纯 user 列表上恒 false → 除最后一条外全部被合并丢弃（实测
-        // 82 条只剩 Q1）。合并语义需要全量消息——快照路径**跳过合并**
-        //（多显示几条连续无回复的项无害，漏掉绝大多数项有害）。
-        return messageStore.userMessages(sid, MessageStore.SESSION_MESSAGE_LIMIT)
+        // 2026-08-16（缺 Q 根治·第 1 层：数据源合并）：导航列表 = Room 全量 ∪
+        // 内存热视图（按 id 去重、按 created 排序）。根治"主对话流有、导航没有"：
+        // 向上翻页加载的更早消息进内存但不落 Room（persistOldBeyondWindow=false
+        // 防裁剪的旧设计）→ 只查 Room 的导航永远缺失这部分。合并后不依赖任何
+        // 时序（预取完成与否、翻页落库策略），结构性保证 导航 ⊇ 主对话流所见。
+        // 内存 user 消息的 parts 从 _parts 取（与主对话流同源）。
+        val roomMsgs = messageStore.userMessages(sid, MessageStore.SESSION_MESSAGE_LIMIT)
+        val memUsers = _rawMessagesList.value
+            .filterIsInstance<Message.User>()
+            .filter { it.role != "synthetic" }
+        if (memUsers.isEmpty()) return roomMsgs
+        val roomIds = roomMsgs.map { it.info.id }.toHashSet()
+        val memOnly = memUsers.filter { it.id !in roomIds }
+        if (memOnly.isEmpty()) return roomMsgs
+        val memWithParts = memOnly.map { u ->
+            MessageWithParts(
+                info = u,
+                parts = messagePartsProvider(u.id).orEmpty().map { it },
+            )
+        }
+        return (roomMsgs + memWithParts).sortedBy { it.info.time.created }
+    }
+
+    /** 内存 parts 快照读取（懒加载注入，避免构造环）。复用 messageListState
+     *  的 partsByMessageId（combine 内部已有，与主对话流完全同源）。 */
+    private var messagePartsProvider: (String) -> List<Part>? = { null }
+
+    init {
+        // 启动一个轻量镜像：combine 产出 partsByMessageId 时同步缓存最近快照
+        //（仅在 parts 变化时赋值，读取方 loadJumpTargets 同步取用）。
+        scope.launch {
+            try {
+                chatRepository.getAllPartsMap().collect { map ->
+                    messagePartsProvider = { id -> map[id] }
+                }
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+            }
+        }
     }
 
     /**
@@ -398,11 +427,19 @@ internal class MessageDataDelegate(
                 val all = fetchAllMessages(sid)
                 if (all.isNotEmpty()) {
                     messageStore.upsertMessages(sid, all, persistOldBeyondWindow = true)
-                    jumpTargetsServerSync = true
+                    // 2026-08-16（快速定位缺失根治·对账）：以服务器全量为权威——
+                    // 压缩（compaction 裁剪历史）/删除后服务器消息集变小，Room
+                    // 中多出的幽灵消息（upsert 不删缺席项）会让主对话流/快速
+                    // 导航显示服务器已不存在的消息（用户反馈"Q1 之上还有我发
+                    // 的消息"的数据根源——历史压缩残留）。clearSession + 重写
+                    // 服务器全集，语义等同官方 TUI reconcile 全量替换。
+                    val serverIds = all.map { it.info.id }.toSet()
+                    messageStore.replaceSessionMessages(sid, all)
                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                        AppLogger.d(TAG, "[jump] prefetch complete: ${all.size} msgs -> Room (timeline ready)")
+                        AppLogger.d(TAG, "[jump] prefetch complete: ${all.size} msgs (reconciled, server-authoritative) -> Room")
                     }
                 }
+                jumpTargetsServerSync = true
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 AppLogger.w(TAG, "[jump] prefetch failed (will fallback on drawer open): ${e.message}")

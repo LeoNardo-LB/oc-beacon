@@ -22,4 +22,19 @@ object Migrations {
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_archive_buckets_sessionId_bucketEnd` ON `archive_buckets` (`sessionId`, `bucketEnd`)")
         }
     }
+
+    /**
+     * v2 → v3（2026-08-16，快速定位性能）：导航/翻页查询索引（sessionId +
+     * created + id，与 userMessages 的 ORDER BY 对齐）。Room 2.8 Index 注解
+     * 不支持部分索引（WHERE），故为普通复合索引（role 过滤在索引结果上做，
+     * sessionId 前缀等值已把扫描范围缩到单会话）。
+     */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_cached_messages_sessionId_created_id` " +
+                    "ON `cached_messages` (`sessionId`, `created`, `id`)",
+            )
+        }
+    }
 }

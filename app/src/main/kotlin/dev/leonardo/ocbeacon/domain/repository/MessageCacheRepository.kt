@@ -54,6 +54,14 @@ interface MessageCacheRepository {
     suspend fun clearSession(sessionId: String)
 
     /**
+     * 2026-08-16（快速定位缺失根治·对账）：以传入消息集**全量替换**该会话的
+     * 热表数据（清+写同事务原子）——服务器压缩/删除后调用，消除本地幽灵消息
+     * （upsert 语义不删缺席项导致的服务器/本地不一致）。归档不动（更早历史
+     * 的分层存储，由 prune 语义管理）。
+     */
+    suspend fun replaceSessionMessages(sessionId: String, messages: List<MessageWithParts>)
+
+    /**
      * 归档读取：查 session 在 [beforeCreated] 之前的归档桶（bucketEnd < beforeCreated），
      * 跨桶解压拼接直到凑满 [limit] 条；读到的桶 touch(lastAccessedAt)。无归档返回 emptyList。
      */

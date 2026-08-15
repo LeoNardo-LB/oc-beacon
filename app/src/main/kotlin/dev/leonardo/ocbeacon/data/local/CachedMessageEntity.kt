@@ -10,7 +10,14 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "cached_messages",
-    indices = [Index(value = ["sessionId", "created"])],
+    indices = [
+        Index(value = ["sessionId", "created"]),
+        // 2026-08-16 v3：导航/翻页查询索引（sessionId 等值 + created DESC + id DESC
+        // tie-breaker，与 userMessages/loadRange 的 ORDER BY 完全对齐；role 过滤
+        // 在索引结果上做）。Room 2.8 Index 注解不支持部分索引（WHERE 子句），
+        // 此处为普通复合索引，MIGRATION_2_3 创建同名索引保证 schema 校验通过。
+        Index(value = ["sessionId", "created", "id"]),
+    ],
 )
 data class CachedMessageEntity(
     @PrimaryKey val id: String,          // msg_ ULID，单调递增，去重/游标

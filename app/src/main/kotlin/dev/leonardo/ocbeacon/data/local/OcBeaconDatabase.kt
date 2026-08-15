@@ -9,7 +9,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [CachedMessageEntity::class, CachedPartEntity::class, LogEntity::class, ArchiveBucketEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class OcBeaconDatabase : RoomDatabase() {
