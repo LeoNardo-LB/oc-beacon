@@ -76,10 +76,25 @@ class MessagePaginationUseCase @Inject constructor(
         val local = messageStore.loadRange(sessionId, limit, beforeId = null)
         val oldestId = messageStore.oldestMessageId(sessionId)
         return runCatching {
+            // 2026-08-15 修复（统计栏只剩 token 圆圈——历史损坏数据无法自愈）：
+            // 0.3.1-dev.1/2 时代 REST_AUTHORITY 纯覆盖把 assistant 的 model/
+            // tokens 抹掉的旧消息已固化在 Room。增量游标（before=本地最旧）
+            // 只拉新消息，损坏的旧消息永远不会被 REST 重新拉取修复。
+            // 检测到缓存中存在元数据损坏（assistant 无 modelId）→ 本次改走
+            // 全量拉取（before=null）→ REST 带回 model → Room REPLACE 落库
+            // + SSE_PRIORITY 的 mergeMessageMeta(withMeta) 修复内存。
+            // 修复后缓存干净，下次进入恢复增量路径（一次性代价）。
+            val hasDamagedMeta = local.any { m ->
+                m.info is dev.leonardo.ocbeacon.domain.model.Message.Assistant &&
+                    m.info.modelId == null
+            }
             // 本地有缓存时，只拉取本地最旧游标之后的新消息
-            val before = oldestId?.let { id ->
+            val before = if (hasDamagedMeta) null else oldestId?.let { id ->
                 val created = messageStore.messageCreatedAt(id)
                 if (created != null) CursorCodec.encode(id, created) else null
+            }
+            if (hasDamagedMeta) {
+                AppLogger.i(TAG, "Session $sessionId has assistant messages without modelId (legacy overwrite damage), doing full refresh to repair")
             }
             val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
@@ -254,7 +269,22 @@ class MessagePaginationUseCase @Inject constructor(
         local: List<MessageWithParts>,
         remote: List<MessageWithParts>,
     ): List<MessageWithParts> {
-        val byId = (local + remote).associateBy { it.info.id }
+        // 2026-08-15：同 id 冲突默认 local 优先（本地流式数据更新），但 local
+        // 是元数据损坏的 assistant（modelId 缺失——历史覆盖损坏）时采用 remote
+        // （REST 权威修复版），否则全量修复拉取的结果被本地损坏版再次覆盖。
+        val byId = LinkedHashMap<String, MessageWithParts>()
+        for (m in local) {
+            byId[m.info.id] = m
+        }
+        for (m in remote) {
+            val existing = byId[m.info.id]
+            byId[m.info.id] = when {
+                existing == null -> m
+                existing.info is dev.leonardo.ocbeacon.domain.model.Message.Assistant &&
+                    existing.info.modelId == null -> m
+                else -> existing
+            }
+        }
         return byId.values.sortedBy { it.info.time.created }
     }
 }
