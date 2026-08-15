@@ -250,6 +250,14 @@ class SseConnectionManager @Inject constructor(
     ) {
             var attempt = 0
             val tracker = timeoutTrackers.getOrPut(server.id) { SseReadTimeoutTracker() }
+            // 2026-08-15 修复（断连窗口流式内容缺失）：attempt 在连接成功后会被
+            // 重置为 0（下方 collect 内），"曾成功连接→断连→重连"场景下 attempt
+            // 恒为 1 → 原 `if (attempt > 1)` 永不触发 recoverMessages → 断连窗口
+            //（40s 心跳超时+退避期间）的消息事件永久丢失，流式内容缺失大段且不
+            // 恢复（直到 text.ended 全量覆盖/重进会话 REST）。
+            // 修复：独立 hasConnectedOnce 标志——本次循环内曾成功连接过，
+            // 后续每次重连都执行 recoverMessages（REST 快照补漏）。
+            var hasConnectedOnce = false
 
             while (isActive) {
                 attempt++
@@ -267,7 +275,7 @@ class SseConnectionManager @Inject constructor(
                 preLoadSessions(server, conn)
 
                 // 重连时（非首次连接），恢复断连期间错过的消息
-                if (attempt > 1) {
+                if (attempt > 1 || hasConnectedOnce) {
                     recoverMessages(server, conn)
                 }
 
@@ -296,6 +304,7 @@ class SseConnectionManager @Inject constructor(
                             if (!currentState.isConnected) {
                                 updateServerConnected(server.id, true)
                                 attempt = 0
+                                hasConnectedOnce = true
                             }
                             tracker.recordSuccess()
                             // 分发到 EventDispatcher 以更新状态
