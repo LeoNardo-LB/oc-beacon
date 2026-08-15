@@ -116,6 +116,59 @@ class MessageEventHandlerTest {
         assertEquals(2000L, result.time.completed)
     }
 
+    // ============ 2026-08-15：REST_AUTHORITY 不抹 tokens（顶部统计回归） ============
+
+    @Test
+    fun `rest authority preserves SSE tokens when REST payload lacks them`() {
+        // 场景：SSE step.ended 已写入 tokens（顶部 context 指示器数据源）→
+        // 重连 recoverMessages / L3 刷新以 REST_AUTHORITY 到达（V2 REST 契约
+        // 不返回 tokens）→ 原 `{ _, inc -> inc }` 纯覆盖抹掉 tokens →
+        // lastContextTokens=0 → 顶部导航栏统计消失（0.3.1-dev.1/2 回归）。
+        val sseVersion = Message.Assistant(
+            id = "a1", sessionId = "s1", parentId = "p1",
+            time = TimeInfo(created = 1000L, completed = 2000L),
+            modelId = "glm-5.2", providerId = "zai", agent = "build",
+            tokens = Message.Assistant.Tokens(input = 100, output = 50)
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(sseVersion, emptyList())), MergeStrategy.SSE_PRIORITY)
+
+        val restVersion = Message.Assistant(
+            id = "a1", sessionId = "s1", parentId = "p1",
+            time = TimeInfo(created = 1000L, completed = 2000L),
+            modelId = "glm-5.2", providerId = "zai", agent = "build"
+            // 无 tokens —— V2 REST 契约不返回
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(restVersion, emptyList())), MergeStrategy.REST_AUTHORITY)
+
+        val result = handler.messages.value["s1"]!![0] as Message.Assistant
+        assertNotNull("tokens 不应被 REST 覆盖抹掉", result.tokens)
+        assertEquals(50, result.tokens!!.output)
+    }
+
+    @Test
+    fun `rest authority still overwrites when REST carries real values`() {
+        // REST_AUTHORITY 权威语义保留：REST 携带真实值时覆盖 existing
+        val sseVersion = Message.Assistant(
+            id = "a1", sessionId = "s1", parentId = "p1",
+            time = TimeInfo(created = 1000L),  // 未完成
+            modelId = "old-model"
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(sseVersion, emptyList())), MergeStrategy.SSE_PRIORITY)
+
+        val restVersion = Message.Assistant(
+            id = "a1", sessionId = "s1", parentId = "p1",
+            time = TimeInfo(created = 1000L, completed = 5000L),
+            modelId = "new-model",
+            tokens = Message.Assistant.Tokens(input = 999, output = 999)
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(restVersion, emptyList())), MergeStrategy.REST_AUTHORITY)
+
+        val result = handler.messages.value["s1"]!![0] as Message.Assistant
+        assertEquals("new-model", result.modelId)      // REST 权威覆盖
+        assertEquals(999, result.tokens!!.output)      // REST 带值时覆盖
+        assertEquals(5000L, result.time.completed)
+    }
+
     @Test
     fun `handles MessageRemoved`() {
         handler.handleMessageUpdated(SseEvent.MessageUpdated(testUserMessage("m1", "s1")))

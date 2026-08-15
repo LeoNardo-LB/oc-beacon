@@ -868,8 +868,19 @@ class MessageEventHandler @Inject constructor(
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             // O(n+m) 两路归并替代 O((n+m) log(n+m)) 全量排序（见 mergeSortedMessages 前提）
-            // REST_AUTHORITY：同 id 时 incoming 完全覆盖（原 `incomingById[msg.id]?.info ?: msg`）
-            val merged = mergeSortedMessages(existing, incomingSorted) { _, inc -> inc }
+            // REST_AUTHORITY：同 id 时 incoming 覆盖（原 `incomingById[msg.id]?.info ?: msg`）。
+            // 2026-08-15 修正（顶部 token 统计消失回归）：V2 REST 契约不返回
+            // tokens/cost（V2Mappers 无映射），纯覆盖会把 SSE step.ended 写入的
+            // tokens 抹掉 → lastContextTokens=0 → 顶部导航栏 context 指示器消失。
+            // Assistant 改字段级合并（mergeAssistantMeta：incoming 非空字段权威、
+            // 空字段保留 existing）——REST 权威语义不变，元数据不再丢失。
+            val merged = mergeSortedMessages(existing, incomingSorted) { e, inc ->
+                if (e is Message.Assistant && inc is Message.Assistant) {
+                    mergeAssistantMeta(e, inc)
+                } else {
+                    inc
+                }
+            }
             current + (sessionId to merged)
         }
         incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
