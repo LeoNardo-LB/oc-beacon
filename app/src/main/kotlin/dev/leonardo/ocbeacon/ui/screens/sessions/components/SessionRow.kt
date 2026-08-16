@@ -364,9 +364,10 @@ private fun SessionDetailsDialog(
                         )
                         val summary = item.session.summary
                         if (summary != null) {
+                            // #120（D2-32）：硬编码英文 → 15 语言资源
                             DetailRow(
-                                "Diff",
-                                "+${summary.additions} -${summary.deletions} (${summary.files} files)"
+                                stringResource(R.string.session_details_diff),
+                                stringResource(R.string.session_details_diff_summary, summary.additions, summary.deletions, summary.files)
                             )
                         }
                     }

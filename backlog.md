@@ -1302,7 +1302,29 @@ $(echo "
   - 验证：断连 18s 场景 → 修复前无 Recover 日志；修复后 "Recovering messages for 50 sessions → Recovered 50/50" → Room 故事 2505 字 vs 服务器 2623 字一致 ✅
   - 已知边界（非缺陷）：断连窗口若丢 step.ended 事件则该消息无 tokens（圆环不显示）——REST 协议不返回 tokens，属服务器契约限制
 
-### 遗留观察项（非本次修复引入）
+
+- [ ] **#144 subagent 调研会话卡死（31.6 分钟/17 分钟无消息输出）** `refactor`
+  - 现象：2026-08-16 主对话委派的 deep-explore 子会话两个停滞（ses_ff8f1c73affe…卡片内容截断调研 31.6 分钟无消息；ses_ff8e68cacffe…subagent 跳转调研 17 分钟无消息），第三个（回复不可见）正常完成
+  - 影响：主对话等待挂起，需人工重派；已重派并带线索缩小范围
+  - 待分析方向：是否长工具调用无超时（grep 大文件/webfetch 无 timeout）、上下文溢出静默挂起、或平台调度问题——下次出现时查 opencode.db 中该子会话最后一条消息的 pending tool 调用
+  - 状态：`[ ]` 已登记，等下次触发时归因
+
+- [ ] **#145 任务面板 subagent 列表项显示执行时长** `ui`
+  - 需求（用户 2026-08-16）：任务面板（TaskSheet）的 subagent 列表项需要看到执行时间，放在 list item 右对齐合适位置
+  - 现状：TaskSheet 列表项已显示开始时间（time.created，如 "10:22"）；执行时长 = 子会话完成时间（最后消息 time.completed）- created，运行中则 now - created（需要 1s 级刷新才能看到走时）
+  - 注意与 ChatViewModel 侧思考计时（0.1s 间隔）区分——任务面板多个 item 同时走时需评估重组开销，可复用现有计时基础设施
+  - 状态：`[ ]` 待实现（随任务面板修复批次一起做）
+
+
+- [ ] **#146 OpenCode 官方问题清单（issue/PR 候选，2026-08-16 调研批次产出）** `upstream`
+  - 提 PR 前提（用户定规）：本地定位官方源码（opencode-src V2 主干 / opencode-v1）→ 对应缺陷修复 → 本地完整测试（含端到端+交叉验证）→ 人工测试完毕 → 才可提交
+  - ① **V2 不发 compaction.started 事件**（仅单个 session.compacted）：客户端无法事件驱动显示"压缩进行中"。候选 issue：建议 V2 补发 started/ended 对或文档化契约。本地已用"本地置态"绕行（代码注释标记 🟠）
+  - ② **SSE 断线重连后无事件回溯**：错过的 idle/完成事件不补发，客户端通知与状态永久缺失。候选 issue：建议提供重连后事件重放或状态快照端点。客户端 REST 补查仅 best-effort（代码注释标记 🟠）
+  - ③ **V2 cursor 参数收到 V1 格式 {id,time} 返回 400**：而非忽略或宽容降级；与官方文档/直觉不符，且错误信息无 cursor 格式提示。候选 issue（文档澄清或宽容处理）。客户端已改 encodeV2 根治
+  - ④ **V2 fork 端点 handleRaw 冲突 bug**（任何 body 400）：已知服务器 bug，等官方修复或提 PR（需按前提流程）
+  - ⑤ **工具输出保尾截头（30K 字符/2000 行）语义**：设计使然非缺陷；候选 feature request——progress metadata 提前携带 truncated/outputPath 让客户端更早提示
+  - 状态：`[ ]` 候选池——提 issue/PR 前逐项按前提流程执行
+\n### 遗留观察项（非本次修复引入）
 
 - [x] **#143 V1 发送后"用户消息不显示"——2026-08-15 判定为误报（验证方法缺陷）** `v1`
   - 现象：V1 E2E 中发送 v1_regression_e2e_final_check 后 UI dump 找不到该文本 → 误判"消息不显示"

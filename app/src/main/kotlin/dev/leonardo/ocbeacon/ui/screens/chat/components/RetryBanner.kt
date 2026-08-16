@@ -46,7 +46,8 @@ internal fun RetryBanner(retry: SessionStatus.Retry) {
             Spacer(modifier = Modifier.size(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.session_status_retry, retry.attempt, retry.attempt),
+                    // #120（D2-09）：单占位符——原双占位符传同一值恒显示 N/N
+                    text = stringResource(R.string.session_status_retry, retry.attempt),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onErrorContainer

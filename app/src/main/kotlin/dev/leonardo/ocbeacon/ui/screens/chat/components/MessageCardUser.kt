@@ -32,6 +32,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import kotlinx.coroutines.delay
 import com.mikepenz.markdown.model.State
+import dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 import androidx.compose.ui.Alignment
@@ -138,7 +139,12 @@ internal fun MessageCardUser(
     // 2026-08-13：预解析已成功时不再创建（直接用预解析结果渲染）。
     val jumpTextPart = if (preParsedState != null) null else renderableOtherParts.filterIsInstance<Part.Text>().firstOrNull()
     val jumpMdState = jumpTextPart?.let { part ->
-        com.mikepenz.markdown.model.rememberMarkdownState(part.text, retainState = true)
+        // #120（D2-07）：与跳转预解析（ChatMessageList normalizeForRender）同归一化——
+        // 原用原始文本创建 MarkdownState → 跳转目标首帧排版突变（换行差异 → 高度不一致）
+        com.mikepenz.markdown.model.rememberMarkdownState(
+            normalizeForRender(part.text, isUser = true),
+            retainState = true
+        )
     }
     val mdRegistry = LocalMarkdownStateRegistry.current
     // #98（M-7）：DisposableEffect onDispose remove——滚出视口/组件销毁时
