@@ -401,6 +401,9 @@ fun NavGraph(
                         }
                     }
                 },
+                onNavigateToModelFilter = {
+                    navController.navigate(ServerModelFilterNav.createRoute(params.server.serverId))
+                },
                 onNavigateToChildSession = { childSessionId ->
                     val route = ChatNav.createRoute(
                         serverId = params.server.serverId,

@@ -205,6 +205,7 @@
     </plurals>
     <string name="chat_free_label">무료</string>
     <string name="chat_default_model">기본 모델</string>
+    <string name="chat_manage_models">모델 관리</string>
     <string name="chat_output_truncated">서버에서 출력이 잘렸습니다. 전체 출력은 %1$s에 저장되었습니다</string>
     <string name="chat_question_label">질문</string>
     <string name="chat_permission_label">권한: %1$s</string>

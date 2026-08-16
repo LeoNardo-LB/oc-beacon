@@ -31,6 +31,8 @@ fun NavGraphBuilder.chatScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSession: (serverId: String, sessionId: String) -> Unit,
     onNavigateToChildSession: (serverId: String, sessionId: String) -> Unit,
+    /** 2026-08-16（管理入口）：跳服务器模型管理页（模型开关/搜索） */
+    onNavigateToModelFilter: () -> Unit,
     onOpenWorkspace: (serverId: String, sessionId: String, directory: String) -> Unit,
     getPendingShare: (sessionId: String) -> List<Uri>,
     consumeShare: () -> Unit,
@@ -53,6 +55,7 @@ fun NavGraphBuilder.chatScreen(
             onNavigateToChildSession = { childSessionId ->
                 onNavigateToChildSession(args.server.serverId, childSessionId)
             },
+            onNavigateToModelFilter = { onNavigateToModelFilter() },
             onOpenWorkspace = {
                 onOpenWorkspace(args.server.serverId, args.sessionId, args.directory)
             },

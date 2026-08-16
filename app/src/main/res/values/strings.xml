@@ -177,6 +177,7 @@
     </plurals>
     <string name="chat_free_label">Free</string>
     <string name="chat_default_model">Default model</string>
+    <string name="chat_manage_models">Manage models</string>
     <string name="chat_output_truncated">Output truncated by server. Full output saved to: %1$s</string>
     <string name="chat_question_label">Question</string>
     <string name="chat_permission_label">Permission: %1$s</string>

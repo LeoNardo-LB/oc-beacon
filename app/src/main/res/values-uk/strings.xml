@@ -213,6 +213,7 @@
     </plurals>
     <string name="chat_free_label">Безкоштовно</string>
     <string name="chat_default_model">Модель за замовчуванням</string>
+    <string name="chat_manage_models">Керувати моделями</string>
     <string name="chat_output_truncated">Вивід скорочено сервером. Повний вивід збережено в: %1$s</string>
     <string name="chat_question_label">Питання</string>
     <string name="chat_permission_label">Дозвіл: %1$s</string>

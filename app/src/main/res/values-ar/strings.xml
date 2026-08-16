@@ -221,6 +221,7 @@
     </plurals>
     <string name="chat_free_label">مجاني</string>
     <string name="chat_default_model">النموذج الافتراضي</string>
+    <string name="chat_manage_models">إدارة النماذج</string>
     <string name="chat_output_truncated">تم اقتطاع المخرجات بواسطة الخادم. المخرجات الكاملة محفوظة في: %1$s</string>
     <string name="chat_question_label">سؤال</string>
     <string name="chat_permission_label">الإذن: %1$s</string>

@@ -267,6 +267,8 @@ fun ChatScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSession: (sessionId: String) -> Unit = {},
     onNavigateToChildSession: (String) -> Unit = {},
+    /** 2026-08-16（管理入口）：跳服务器模型管理页 */
+    onNavigateToModelFilter: () -> Unit = {},
     onOpenWorkspace: () -> Unit = {},
     onOpenFile: (filePath: String) -> Unit = {},
     onOpenDirectory: (directoryPath: String) -> Unit = {},
@@ -856,6 +858,7 @@ fun ChatScreen(
         onSetDefaultModel = { providerId, modelId ->
             viewModel.toggleDefaultModel(providerId, modelId)
         },
+        onManageModels = onNavigateToModelFilter,
         sessionTitle = sessionMeta.sessionTitle,
         onRename = { newTitle ->
             viewModel.renameSession(newTitle) { ok ->

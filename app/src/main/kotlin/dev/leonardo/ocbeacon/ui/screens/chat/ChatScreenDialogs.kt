@@ -28,6 +28,7 @@ internal fun ChatScreenDialogs(
     sessionTitle: String,
     defaultModel: String? = null,
     onSetDefaultModel: (String, String) -> Unit = { _, _ -> },
+    onManageModels: () -> Unit = {},
     onRename: (String) -> Unit,
 ) {
     // 模型选择对话框
@@ -40,6 +41,7 @@ internal fun ChatScreenDialogs(
             onDismiss = onDismissModelPicker,
             defaultModel = defaultModel,
             onSetDefault = onSetDefaultModel,
+            onManageModels = onManageModels,
         )
     }
 

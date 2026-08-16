@@ -98,7 +98,6 @@ class V2EventParser(private val json: Json) : SseEventParser {
                 return SseEvent.ShellJobEnded(info = info, output = output)
             }
         }
-        // V2 压缩完成事件（2026-08-16 更新：部署版也发 compaction.started，见上方分支）
         // V2 压缩完成事件。2026-08-16 重大更新（E2E 实证）：next-17430 部署版
         // **会发 session.compaction.started**（此前调研结论「V2 只发单个
         // session.compacted」基于旧版本，已过时）——现补齐解析为
@@ -110,6 +109,21 @@ class V2EventParser(private val json: Json) : SseEventParser {
                     sessionId = sid,
                     messageId = props["messageID"]?.jsonPrimitive?.contentOrNull ?: "",
                     reason = props["reason"]?.jsonPrimitive?.contentOrNull ?: "",
+                )
+            )
+        }
+        // 2026-08-16（compaction.failed 补全）：压缩失败事件——映射 CompactionEnded
+        // 结束进行中气泡（失败提示走 HTTP 回调路径已有 snackbar；此映射保证
+        // FSM 不会停留在 Busy/Compacting——E2E 曾实测该事件到达但被 unhandled）。
+        if (eventType == "session.compaction.failed") {
+            val sid = sessionIdOrNull(props) ?: return null
+            if (BuildConfig.DEBUG) {
+                AppLogger.w(TAG, "compaction.failed: ${props["reason"]?.jsonPrimitive?.contentOrNull ?: ""} err=${props["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull?.take(80)}")
+            }
+            return SseEvent.SessionNext(
+                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionEnded(
+                    sessionId = sid,
+                    messageId = props["messageID"]?.jsonPrimitive?.contentOrNull ?: "",
                 )
             )
         }

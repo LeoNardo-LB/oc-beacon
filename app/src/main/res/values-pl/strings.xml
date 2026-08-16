@@ -213,6 +213,7 @@
     </plurals>
     <string name="chat_free_label">Bezpłatne</string>
     <string name="chat_default_model">Model domyślny</string>
+    <string name="chat_manage_models">Zarządzaj modelami</string>
     <string name="chat_output_truncated">Dane wyjściowe skrócone przez serwer. Pełne dane zapisane w: %1$s</string>
     <string name="chat_question_label">Pytanie</string>
     <string name="chat_permission_label">Uprawnienie: %1$s</string>

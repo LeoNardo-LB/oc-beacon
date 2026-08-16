@@ -24,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -56,6 +57,8 @@ internal fun ModelPickerDialog(
     defaultModel: String? = null,
     /** 点星标设置/取消默认模型 */
     onSetDefault: (providerId: String, modelId: String) -> Unit = { _, _ -> },
+    /** 2026-08-16（管理入口）：跳转服务器模型管理页（开关/搜索） */
+    onManageModels: () -> Unit = {},
 ) {
     val isAmoled = isAmoledTheme()
     val params = amoledDialogParams(shape = ShapeTokens.largeMedium)
@@ -100,6 +103,10 @@ internal fun ModelPickerDialog(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
+                // 2026-08-16（管理入口）：模型管理（服务器设置→Models 的快捷入口）
+                TextButton(onClick = onManageModels) {
+                    Text(stringResource(dev.leonardo.ocbeacon.R.string.chat_manage_models))
+                }
                 IconButton(onClick = onDismiss) {
                     Icon(
                         Icons.Default.Close,

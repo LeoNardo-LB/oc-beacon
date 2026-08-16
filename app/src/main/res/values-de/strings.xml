@@ -205,6 +205,7 @@
     </plurals>
     <string name="chat_free_label">Kostenlos</string>
     <string name="chat_default_model">Standardmodell</string>
+    <string name="chat_manage_models">Modelle verwalten</string>
     <string name="chat_output_truncated">Ausgabe vom Server gekürzt. Vollständige Ausgabe gespeichert unter: %1$s</string>
     <string name="chat_question_label">Frage</string>
     <string name="chat_permission_label">Berechtigung: %1$s</string>

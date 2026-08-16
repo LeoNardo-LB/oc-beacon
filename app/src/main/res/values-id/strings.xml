@@ -138,6 +138,7 @@
     </plurals>
     <string name="chat_free_label">Gratis</string>
     <string name="chat_default_model">Model bawaan</string>
+    <string name="chat_manage_models">Kelola model</string>
     <string name="chat_output_truncated">Output dipotong oleh server. Output lengkap disimpan di: %1$s</string>
     <string name="chat_question_label">Pertanyaan</string>
     <string name="chat_permission_label">Izin: %1$s</string>

@@ -205,6 +205,7 @@
     </plurals>
     <string name="chat_free_label">Ücretsiz</string>
     <string name="chat_default_model">Varsayılan model</string>
+    <string name="chat_manage_models">Modelleri yönet</string>
     <string name="chat_output_truncated">Çıktı sunucu tarafından kesildi. Tam çıktı şu konuma kaydedildi: %1$s</string>
     <string name="chat_question_label">Soru</string>
     <string name="chat_permission_label">İzin: %1$s</string>

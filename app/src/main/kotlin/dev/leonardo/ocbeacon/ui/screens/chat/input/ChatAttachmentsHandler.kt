@@ -271,7 +271,12 @@ internal fun rememberAttachmentHandler(
 
     return ChatAttachmentsHandler(
         attachments = attachments,
-        pickImages = { imagePickerLauncher.launch("image/*") },
+        pickImages = {
+            // 2026-08-16（文档附件入口激活）：image/* → */*——校验链
+            //（validateLocalAttachment 支持 image/pdf/text）此前因选择器只出
+            // 图片而不可达。SAF 全类型选择器让 PDF/文本附件真正可用。
+            imagePickerLauncher.launch("*/*")
+        },
         requestSaveImage = requestSaveImage,
         launchExport = exportLauncher::launch,
     )

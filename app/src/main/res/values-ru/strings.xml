@@ -233,6 +233,7 @@
     </plurals>
     <string name="chat_free_label">Бесплатно</string>
     <string name="chat_default_model">Модель по умолчанию</string>
+    <string name="chat_manage_models">Управление моделями</string>
     <string name="chat_output_truncated">Вывод усечён сервером. Полный вывод сохранён в: %1$s</string>
     <string name="chat_question_label">Вопрос</string>
     <string name="chat_permission_label">Разрешение: %1$s</string>

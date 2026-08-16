@@ -158,6 +158,18 @@ internal suspend fun buildAttachmentFromUri(
 
     val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@withContext null
 
+    // 2026-08-16（大小防御补全）：SAF 元数据 size=null 时按 0 过检（:155），
+    // 实际字节数在读取后才可知——读后二次校验防绕过（超限拒绝，不给
+    // base64 放大 3.2× 的机会进内存二次峰值）。
+    run {
+        val extension2 = originalFilename.substringAfterLast('.', "").lowercase()
+        val isText2 = mimeType.startsWith("text/") || extension2 in TEXT_FILE_EXTENSIONS || mimeType in TEXT_MIME_TYPES
+        if (validateLocalAttachment(mimeType, originalFilename, bytes.size.toLong()) != LocalAttachmentValidation.ACCEPTED) {
+            return@withContext null
+        }
+        if (isText2 && bytes.size > MAX_TEXT_ATTACHMENT_BYTES) return@withContext null
+    }
+
     val shouldOptimize = compressImages && (mimeType == "image/png" || mimeType == "image/jpeg")
     if (!shouldOptimize) {
         val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
