@@ -82,8 +82,10 @@ internal fun MessageBubble(
                 verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
             ) {
                 // ① 标签栏（统一）：[时间] [前导图标?] [类型标签] [Spacer] [右侧操作]
+                // 2026-08-16（标题栏规范）：条件时间戳——当天 HH:mm:ss，
+                // 非当天 yyyy-MM-dd HH:mm:ss（DateFormatters.messageTimestamp）
                 val timeText = remember(timeMs) {
-                    DateFormatters.timeOnly().format(Date(timeMs))
+                    DateFormatters.messageTimestamp(timeMs)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

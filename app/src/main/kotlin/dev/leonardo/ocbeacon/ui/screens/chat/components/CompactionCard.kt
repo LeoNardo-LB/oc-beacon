@@ -52,10 +52,12 @@ internal fun CompactionCard(summary: String?) {
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // 分割线行（收起/展开共用）：—— 上下文已压缩 ▾ ——
+        // 2026-08-16（卡片职责分离规范）：整行 clickable 移除——展开/收缩
+        // 仅由「标签+箭头」组合按钮承担（含 8dp 纵向点击区），分割线本身
+        // 不可点（避免大区域误触）。
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .let { m -> if (canExpand) m.clickable { expanded = !expanded } else m }
                 .padding(vertical = SpacingTokens.XS.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
@@ -64,20 +66,29 @@ internal fun CompactionCard(summary: String?) {
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
             )
-            Text(
-                text = stringResource(R.string.chat_summarized),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp)
-            )
-            if (canExpand) {
-                Icon(
-                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+            Row(
+                modifier = Modifier
+                    .let { m -> if (canExpand) m.clickable { expanded = !expanded } else m }
+                    .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.chat_summarized),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
                 )
-                Spacer(modifier = Modifier.width(SpacingTokens.XS.dp))
+                if (canExpand) {
+                    Spacer(modifier = Modifier.width(SpacingTokens.XS.dp))
+                    Icon(
+                        imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = if (expanded)
+                            stringResource(R.string.chat_collapse)
+                        else
+                            stringResource(R.string.chat_expand),
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                    )
+                }
             }
             HorizontalDivider(
                 modifier = Modifier.weight(1f),

@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -125,7 +126,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { performHaptic(hapticView, hapticOn); onToggleExpand() }
+                    // 2026-08-16（卡片职责分离规范）：卡片本体不可点击——
+                    // 展开/收缩与复制由右侧专门按钮承担，避免大区域误触与
+                    // 点击落空不可预期（与 CompactionCard/SyntheticNotificationCard
+                    // 统一）。
                     .padding(start = 12.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)
             ) {
                 Row(
@@ -152,15 +156,32 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         )
                     }
 
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (expanded)
-                            stringResource(R.string.chat_collapse)
-                        else
-                            stringResource(R.string.chat_expand),
-                        modifier = Modifier.size(18.dp),
-                        tint = textColor.copy(alpha = AlphaTokens.FAINT)
-                    )
+                    // 2026-08-16（思考内容可复制）：复用 CopyButton 先例
+                    //（图标复制→对勾动画，自带反馈无需 Snackbar）。
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (text.isNotBlank()) {
+                            CopyButton(
+                                text = text,
+                                modifier = Modifier.size(28.dp),
+                                contentDescription = stringResource(R.string.chat_copy),
+                            )
+                        }
+                        // 展开职责由专门按钮承担（原整卡 clickable 移除）
+                        IconButton(
+                            onClick = { performHaptic(hapticView, hapticOn); onToggleExpand() },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (expanded)
+                                    stringResource(R.string.chat_collapse)
+                                else
+                                    stringResource(R.string.chat_expand),
+                                modifier = Modifier.size(18.dp),
+                                tint = textColor.copy(alpha = AlphaTokens.FAINT)
+                            )
+                        }
+                    }
                 }
 
                 // 文本为空时的流式占位符
