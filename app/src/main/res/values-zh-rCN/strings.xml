@@ -20,7 +20,7 @@
     <string name="sessions_new">新建会话</string>
     <string name="session_status_idle">空闲</string>
     <string name="session_status_busy">处理中…</string>
-    <string name="session_status_retry">重试中（%1$d/%2$d）</string>
+    <string name="session_status_retry">重试中（%1$d）</string>
     <!-- Chat Screen -->
     <string name="chat_send">发送</string>
     <string name="chat_empty">与 OpenCode 开始对话</string>
@@ -121,6 +121,8 @@
     <string name="session_delete_confirm">确定要删除“%1$s”？此操作无法撤销。</string>
     <string name="chat_stop">停止</string>
     <string name="chat_copy">复制</string>
+    <string name="chat_compressing_context">正在压缩上下文：%1$s</string>
+    <string name="chat_compressing_context_plain">正在压缩上下文…</string>
     <string name="chat_revert">还原</string>
     <string name="chat_revert_title">还原消息？</string>
     <string name="chat_revert_message">此操作将撤销该消息及之后所有消息，文件更改也将被回退。</string>
@@ -425,6 +427,8 @@
     <string name="session_details_status">状态</string>
     <string name="session_details_created">创建时间</string>
     <string name="session_details_updated">更新时间</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d（%3$d 个文件）</string>
     <string name="chat_token_usage_total">%,d 个 token</string>
     <string name="chat_token_input">输入</string>
     <string name="chat_token_output">输出</string>

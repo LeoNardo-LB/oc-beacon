@@ -20,7 +20,7 @@
     <string name="sessions_new">新規セッション</string>
     <string name="session_status_idle">アイドル</string>
     <string name="session_status_busy">作業中…</string>
-    <string name="session_status_retry">再試行中（%1$d/%2$d）</string>
+    <string name="session_status_retry">再試行中（%1$d）</string>
     <!-- Chat Screen -->
     <string name="chat_send">送信</string>
     <string name="chat_empty">OpenCodeと会話を始める</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">「%1$s」を削除しますか？この操作は元に戻せません。</string>
     <string name="chat_stop">停止</string>
     <string name="chat_copy">コピー</string>
+    <string name="chat_compressing_context">コンテキストを圧縮中: %1$s</string>
+    <string name="chat_compressing_context_plain">コンテキストを圧縮中…</string>
     <string name="chat_revert">元に戻す</string>
     <string name="chat_revert_title">メッセージを元に戻しますか？</string>
     <string name="chat_revert_message">この操作で、このメッセージと以降のメッセージが取り消されます。ファイルの変更も元に戻されます。</string>
@@ -408,6 +410,8 @@
     <string name="session_details_status">ステータス</string>
     <string name="session_details_created">作成日時</string>
     <string name="session_details_updated">更新日時</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d ファイル)</string>
     <string name="chat_thinking_complete">%1$s考察済み</string>
     <string name="chat_token_usage_total">%,dトークン</string>
     <string name="chat_token_input">入力</string>

@@ -52,12 +52,21 @@ class SessionFocusHolder @Inject constructor() {
 
     /**
      * 当此会话的事件通知应被抑制时返回 true
-     *（用户正在查看此确切会话，无论应用是否在前台）。
+     *（应用在前台 且 用户正在查看此确切会话）。
      * 用于权限/问题/错误等需要用户即时响应的事件通知——
      * 用户正在该会话中时弹出通知只会打断当前交互。
+     *
+     * 2026-08-16 修复（通知 P1）：补 isAppInForeground 条件（与 shouldSuppress
+     * 对齐）——原实现无论前后台都抑制，用户在聊天页按 Home 键回桌面后
+     * focus 未清（DisposableEffect 不触发），该会话的权限/问题/错误通知
+     * 在后台被静默吞掉，可能完全错过权限请求。回桌面 = 看不到界面 =
+     * 通知不该被抑制。
      */
     fun shouldSuppressEvent(serverId: String, sessionId: String): Boolean {
+        val foreground = _isAppInForeground.value
         val focus = _activeFocus.value ?: return false
-        return focus.serverId == serverId && focus.sessionId == sessionId
+        return foreground &&
+                focus.serverId == serverId &&
+                focus.sessionId == sessionId
     }
 }

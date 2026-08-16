@@ -360,7 +360,14 @@ internal class SessionActionsDelegate(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to export session", e)
-                notificationManager.cancel(notificationId)
+                // 2026-08-16 修复（通知 P2）：导出失败不再直接 cancel 通知——
+                // 用户离开应用后导出失败无任何感知。改发失败通知（同 channel，
+                // 静音自动消失，文本用已有 chat_session_export_failed）。
+                builder.setContentTitle(context.getString(dev.leonardo.ocbeacon.R.string.chat_session_export_failed))
+                    .setContentText(e.message?.take(80) ?: "")
+                    .setProgress(0, 0, false)
+                    .setAutoCancel(true)
+                notificationManager.notify(notificationId, builder.build())
                 withContext(Dispatchers.Main) {
                     onResult(false)
                 }
