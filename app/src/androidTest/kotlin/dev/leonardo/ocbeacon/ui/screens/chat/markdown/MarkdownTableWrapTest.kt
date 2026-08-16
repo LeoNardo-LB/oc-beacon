@@ -2,7 +2,8 @@ package dev.leonardo.ocbeacon.ui.screens.chat.markdown
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import dev.leonardo.ocbeacon.HiltComponentActivity
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import org.junit.Assert.assertTrue
@@ -12,7 +13,7 @@ import org.junit.Test
 class MarkdownTableWrapTest {
 
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createAndroidComposeRule<HiltComponentActivity>()
 
     private fun setMarkdown(md: String) {
         composeRule.setContent {

@@ -3,7 +3,6 @@ package dev.leonardo.ocbeacon.chat
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
-import dev.leonardo.ocbeacon.HiltComponentActivity
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.fakes.FakeChatRepository
 import dev.leonardo.ocbeacon.fakes.FakeSessionRepository
@@ -28,7 +27,7 @@ class ChatSmokeTest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
-    val composeRule = createAndroidComposeRule<HiltComponentActivity>()
+    val composeRule = createAndroidComposeRule<dev.leonardo.ocbeacon.HiltEntryActivity>()
 
     @Inject lateinit var chatRepo: ChatRepository
     @Inject lateinit var sessionRepo: SessionRepository

@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <!-- 2026-08-16（#147）：androidTest Compose 宿主（app 进程声明——
+             test APK manifest 的 Activity 归属 .test 进程，与 instrumentation
+             跨进程 startActivitySync 报错；app 进程 + HiltTestRunner 替换的
+             HiltTestApplication 使 Fake 图照常生效）。 -->
         <activity
             android:name="dev.leonardo.ocbeacon.HiltComponentActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <activity
+            android:name="dev.leonardo.ocbeacon.HiltEntryActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
 </manifest>

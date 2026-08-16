@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.ui.components
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import dev.leonardo.ocbeacon.HiltComponentActivity
 import androidx.compose.ui.test.onNodeWithText
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ToolProgressCard
@@ -11,7 +12,7 @@ import org.junit.Test
 class ToolProgressCardTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val composeTestRule = createAndroidComposeRule<HiltComponentActivity>()
 
     @Test
     fun showsToolName() {

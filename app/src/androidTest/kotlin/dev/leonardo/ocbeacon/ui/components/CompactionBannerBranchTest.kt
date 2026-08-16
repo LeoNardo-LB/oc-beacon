@@ -2,7 +2,8 @@ package dev.leonardo.ocbeacon.ui.components
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import dev.leonardo.ocbeacon.HiltComponentActivity
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
@@ -13,7 +14,7 @@ import org.junit.Test
 class CompactionBannerBranchTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val composeTestRule = createAndroidComposeRule<HiltComponentActivity>()
 
     @Test
     fun activeWithReason_showsReasonText() {
@@ -32,7 +33,7 @@ class CompactionBannerBranchTest {
                 state = CompactionStateInfo(isActive = true, reason = "")
             )
         }
-        composeTestRule.onNodeWithText("Compressing context...").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Compressing context…").assertIsDisplayed()
     }
 
     @Test
@@ -42,7 +43,7 @@ class CompactionBannerBranchTest {
                 state = CompactionStateInfo(isActive = true, reason = "   ")
             )
         }
-        composeTestRule.onNodeWithText("Compressing context...").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Compressing context…").assertIsDisplayed()
     }
 
     @Test
@@ -74,7 +75,7 @@ class CompactionBannerBranchTest {
                 state = CompactionStateInfo(isActive = false)
             )
         }
-        composeTestRule.onAllNodesWithText("Compressing context...").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("Compressing context…").assertCountEquals(0)
     }
 
     @Test

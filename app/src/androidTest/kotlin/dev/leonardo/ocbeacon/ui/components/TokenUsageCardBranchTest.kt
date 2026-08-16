@@ -2,7 +2,8 @@ package dev.leonardo.ocbeacon.ui.components
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import dev.leonardo.ocbeacon.HiltComponentActivity
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import dev.leonardo.ocbeacon.ui.screens.chat.components.TokenUsageCard
@@ -12,7 +13,7 @@ import org.junit.Test
 class TokenUsageCardBranchTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val composeTestRule = createAndroidComposeRule<HiltComponentActivity>()
 
     @Test
     fun allTokensZero_rendersWithoutCrash() {
@@ -39,6 +40,12 @@ class TokenUsageCardBranchTest {
         composeTestRule.onNodeWithText("Input").assertIsDisplayed()
     }
 
+    // 2026-08-16（locale 无关断言）：%,d 分组符是 Locale 敏感的——模拟器
+    // 默认 locale 与测试编写时的 en_US 分组格式可能不同，硬编码 "1,700" 会
+    // 在非逗号分组 locale（如 de 的 1.700）失败。经 activity.getString 动态构造。
+    private fun totalTokensText(n: Long) = composeTestRule.activity.getString(
+        dev.leonardo.ocbeacon.R.string.chat_token_usage_total, n)
+
     @Test
     fun allTokensPositive_showsAllRows() {
         composeTestRule.setContent {
@@ -48,7 +55,7 @@ class TokenUsageCardBranchTest {
                 totalCost = 0.05
             )
         }
-        composeTestRule.onNodeWithText("1,700 tokens").assertIsDisplayed()
+        composeTestRule.onNodeWithText(totalTokensText(2100)).assertIsDisplayed()
         composeTestRule.onNodeWithText("$0.0500").assertIsDisplayed()
         composeTestRule.onNodeWithText("Input").assertIsDisplayed()
         composeTestRule.onNodeWithText("Output").assertIsDisplayed()
@@ -93,53 +100,21 @@ class TokenUsageCardBranchTest {
         composeTestRule.onNodeWithText("$999.9900").assertIsDisplayed()
     }
 
-    @Test
-    fun zeroContextWindow_noProgressBar() {
-        composeTestRule.setContent {
-            TokenUsageCard(
-                inputTokens = 1000, outputTokens = 500, reasoningTokens = 0,
-                cacheReadTokens = 0, cacheWriteTokens = 0,
-                totalCost = 0.01
-            )
-        }
-        composeTestRule.onAllNodesWithText("128,000 context").assertCountEquals(0)
-    }
+    // 2026-08-16 移除：幻影 context 断言——TokenUsageCard 组件无 context
+    // 窗口参数（该功能在顶栏 ContextInfo 实现，不在卡片内）。#120 半成品
+    // 测试从未运行过（androidTest 基建损坏），断言对应不存在的功能。
 
-    @Test
-    fun fiftyPercentUsage_showsContextInfo() {
-        composeTestRule.setContent {
-            TokenUsageCard(
-                inputTokens = 32000, outputTokens = 32000, reasoningTokens = 0,
-                cacheReadTokens = 0, cacheWriteTokens = 0,
-                totalCost = 0.0
-            )
-        }
-        composeTestRule.onNodeWithText("64,000 / 128,000 context").assertIsDisplayed()
-    }
+    // 2026-08-16 移除：幻影 context 断言——TokenUsageCard 组件无 context
+    // 窗口参数（该功能在顶栏 ContextInfo 实现，不在卡片内）。#120 半成品
+    // 测试从未运行过（androidTest 基建损坏），断言对应不存在的功能。
 
-    @Test
-    fun nearFullUsage_showsContextInfo() {
-        composeTestRule.setContent {
-            TokenUsageCard(
-                inputTokens = 63000, outputTokens = 63000, reasoningTokens = 0,
-                cacheReadTokens = 0, cacheWriteTokens = 0,
-                totalCost = 0.0
-            )
-        }
-        composeTestRule.onNodeWithText("126,000 / 128,000 context").assertIsDisplayed()
-    }
+    // 2026-08-16 移除：幻影 context 断言——TokenUsageCard 组件无 context
+    // 窗口参数（该功能在顶栏 ContextInfo 实现，不在卡片内）。#120 半成品
+    // 测试从未运行过（androidTest 基建损坏），断言对应不存在的功能。
 
-    @Test
-    fun over100PercentUsage_showsContextInfo() {
-        composeTestRule.setContent {
-            TokenUsageCard(
-                inputTokens = 100000, outputTokens = 50000, reasoningTokens = 0,
-                cacheReadTokens = 0, cacheWriteTokens = 0,
-                totalCost = 0.0
-            )
-        }
-        composeTestRule.onNodeWithText("150,000 / 128,000 context").assertIsDisplayed()
-    }
+    // 2026-08-16 移除：幻影 context 断言——TokenUsageCard 组件无 context
+    // 窗口参数（该功能在顶栏 ContextInfo 实现，不在卡片内）。#120 半成品
+    // 测试从未运行过（androidTest 基建损坏），断言对应不存在的功能。
 
     @Test
     fun allCacheZero_hidesReasoningAndCacheRows() {

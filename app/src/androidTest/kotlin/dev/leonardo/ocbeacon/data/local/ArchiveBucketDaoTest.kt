@@ -53,9 +53,14 @@ class ArchiveBucketDaoTest {
 
         val result = dao.latestBefore("ses_1", beforeEnd = 2500L, limit = 10)
 
-        assertEquals(2, result.size)
-        assertEquals(2000L, result[0].bucketEnd)
-        assertEquals(1000L, result[1].bucketEnd)
+        // 2026-08-16 断言更新（#72 根治语义）：latestBefore 按 bucketStart 相交
+        // 判定（bucketStart=0 < 2500 → 三桶全部相交）——旧断言（2 桶）对应
+        // bucketEnd < beforeEnd 的历史行为，桶内消息级过滤已上移到
+        // MessageStore.loadArchivedRange。androidTest 首次运行暴露过时。
+        assertEquals(3, result.size)
+        assertEquals(3000L, result[0].bucketEnd)
+        assertEquals(2000L, result[1].bucketEnd)
+        assertEquals(1000L, result[2].bucketEnd)
     }
 
     @Test
@@ -65,7 +70,10 @@ class ArchiveBucketDaoTest {
 
         val result = dao.latestBefore("ses_1", beforeEnd = 1000L, limit = 10)
 
-        assertEquals(0, result.size)
+        // 2026-08-16 断言更新（#72 语义）：bucketStart=0 < 1000 → 两桶相交
+        // 均返回（桶内消息级过滤在 MessageStore）。旧断言 0 对应
+        // bucketEnd < beforeEnd 历史行为。
+        assertEquals(2, result.size)
     }
 
     @Test

@@ -5,7 +5,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
-import dev.leonardo.ocbeacon.HiltComponentActivity
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogEntry
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository
 import dev.leonardo.ocbeacon.ui.theme.OpenCodeTheme
@@ -32,7 +31,7 @@ class DiagnosticsScreenDuplicateTimestampTest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
-    val composeRule = createAndroidComposeRule<HiltComponentActivity>()
+    val composeRule = createAndroidComposeRule<dev.leonardo.ocbeacon.HiltEntryActivity>()
 
     @Inject
     lateinit var repository: DiagnosticLogRepository

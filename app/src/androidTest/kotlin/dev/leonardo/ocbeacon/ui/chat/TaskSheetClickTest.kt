@@ -1,7 +1,7 @@
 package dev.leonardo.ocbeacon.ui.chat
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import dev.leonardo.ocbeacon.HiltComponentActivity
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.material3.Surface
@@ -24,7 +24,7 @@ import org.junit.Test
 class TaskSheetClickTest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    val composeTestRule = createAndroidComposeRule<HiltComponentActivity>()
 
     @Test
     fun subagentItem_click_invokesOpenSubSession() {
@@ -36,7 +36,7 @@ class TaskSheetClickTest {
                     sessionId = "ses_test_child_1",
                     agent = "general-fast",
                     title = "写 50 字月亮故事",
-                    isRunning = false,
+                    isRunning = true,
                 )
             ),
         )
@@ -52,9 +52,8 @@ class TaskSheetClickTest {
                 )
             }
         }
-        // History 视图默认不可见 item（isRunning=false 在 Running 过滤外）——
-        // TaskSheet 默认 showHistory=false 显示 running；这里 item 非运行中，
-        // 需切 History。先断言 item 可见性再点击。
+        // isRunning=true 使 item 直接出现在默认 Running 视图（点击语义与
+        // History 视图完全相同——同一 ListItem clickable）
         composeTestRule.onNodeWithText("写 50 字月亮故事").performClick()
         composeTestRule.waitForIdle()
         assertTrue("onOpenSubSession 应被调用（语义级点击）", clickedSessionId == "ses_test_child_1")

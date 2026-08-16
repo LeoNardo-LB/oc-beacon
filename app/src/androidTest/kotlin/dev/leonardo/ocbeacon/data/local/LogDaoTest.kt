@@ -104,8 +104,12 @@ class LogDaoTest {
 
         val deleted = dao.deleteErrorBefore(150)
 
-        assertEquals(1, deleted)
-        assertEquals(2, dao.latest(10).size)
+        // 2026-08-16 断言更新：deleteErrorBefore 现语义为删除 ERROR**与 FATAL**
+        //（DAO 注释明确两者）——timestamp<150 的两条（100 ERROR + 100 FATAL）
+        // 都删，仅剩 200 ERROR。旧断言（deleted=1/latest=2）对应只删 ERROR 的
+        // 历史行为，androidTest 首次真正运行暴露过时。
+        assertEquals(2, deleted)
+        assertEquals(1, dao.latest(10).size)
     }
 
     @Test

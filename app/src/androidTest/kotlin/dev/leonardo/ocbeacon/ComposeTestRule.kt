@@ -1,6 +1,6 @@
 package dev.leonardo.ocbeacon
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Rule
 
 /**
@@ -10,5 +10,5 @@ import org.junit.Rule
 interface ComposeTestRule {
     @get:Rule
     val composeTestRule: androidx.compose.ui.test.junit4.ComposeTestRule
-        get() = createComposeRule()
+        get() = createAndroidComposeRule<HiltComponentActivity>()
 }

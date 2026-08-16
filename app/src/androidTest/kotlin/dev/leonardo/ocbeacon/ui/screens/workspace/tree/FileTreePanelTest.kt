@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.workspace.tree
 
 import androidx.activity.ComponentActivity
+import dev.leonardo.ocbeacon.HiltComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -25,7 +26,7 @@ import org.junit.Test
 class FileTreePanelTest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    val composeTestRule = createAndroidComposeRule<HiltComponentActivity>()
 
     @Test
     fun loadingState_showsProgressIndicator() {
@@ -62,7 +63,7 @@ class FileTreePanelTest {
         composeTestRule.onNodeWithText(
             composeTestRule.activity.getString(R.string.workspace_error_load_failed)
         ).assertIsDisplayed()
-        composeTestRule.onNodeWithText("重试").assertIsDisplayed()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(dev.leonardo.ocbeacon.R.string.retry)).assertIsDisplayed()
     }
 
     @Test
@@ -80,7 +81,7 @@ class FileTreePanelTest {
                 onToggleExpand = {}
             )
         }
-        composeTestRule.onNodeWithText("空目录").assertIsDisplayed()
+        composeTestRule.onNodeWithText(composeTestRule.activity.getString(dev.leonardo.ocbeacon.R.string.workspace_empty_directory)).assertIsDisplayed()
     }
 
     @Test
@@ -90,7 +91,9 @@ class FileTreePanelTest {
                 uiState = WorkspaceUiState(
                     rootLoading = false,
                     rootNodes = sampleNodes(),
-                    showIgnored = false
+                    showIgnored = false,
+                    // 2026-08-16：子文件仅在目录展开时 flatten（FileTreeUtils 契约）
+                    expandedDirs = setOf("app")
                 ),
                 onRefreshRoot = {},
                 onToggleShowIgnored = {},
@@ -113,7 +116,9 @@ class FileTreePanelTest {
                 uiState = WorkspaceUiState(
                     rootLoading = false,
                     rootNodes = sampleNodes(),
-                    showIgnored = false
+                    showIgnored = false,
+                    // 2026-08-16：子文件仅在目录展开时 flatten（FileTreeUtils 契约）
+                    expandedDirs = setOf("app")
                 ),
                 onRefreshRoot = {},
                 onToggleShowIgnored = { toggled = true },

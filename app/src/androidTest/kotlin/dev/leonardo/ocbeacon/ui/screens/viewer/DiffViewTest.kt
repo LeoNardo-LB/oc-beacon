@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.viewer
 
 import androidx.activity.ComponentActivity
+import dev.leonardo.ocbeacon.HiltComponentActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
@@ -25,7 +26,7 @@ import org.junit.Test
 class DiffViewTest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    val composeTestRule = createAndroidComposeRule<HiltComponentActivity>()
 
     @Test
     fun diffView_rendersHunksAndNavigatesOnNextTap() {
@@ -49,7 +50,9 @@ class DiffViewTest {
                 onPrevHunk = {}
             )
         }
-        composeTestRule.onNodeWithText("@@ -1,3 +1,4 @@").assertIsDisplayed()
+        // 2026-08-16 修正：@@ 元数据头由 filterPatchLines 过滤（DiffView 设计，
+        // LazyList 只渲染内容行）——改断言首条内容行存在。
+        composeTestRule.onNodeWithText("package dev.leonardo.ocbeacon.data.api", substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText("[1/3]").assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(
             composeTestRule.activity.getString(R.string.a11y_icon_hunk_next)

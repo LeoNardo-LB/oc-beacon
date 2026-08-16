@@ -69,10 +69,17 @@ class MigrationTest {
             .use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
         // room_master_table：Room 用其 identityHash 在 onOpen 判断是否需要 onCreate。若 v1 手工库缺
         // 此表，Room 会走 createAllTables（建全 v2 表）而非 onUpgrade（迁移）→ 测不到 MIGRATION_1_2。
-        // 这里复制 v2 的 identityHash 行，使 Room 认为已就绪（hash 匹配）→ 仅按 version 1→2 跑迁移。
+        // 这里复制 v3 的 identityHash 行，使 Room 认为已就绪（hash 匹配）→ 仅按 version 1→2 跑迁移。
+        // 2026-08-16 适配：Room 2.8 的 room_master_table 列结构可能变化——动态探测
+        // identityHash 列名（hash 列为唯一的非 id 文本列），避免硬编码列名失效。
         val roomMasterSql = tableSql("room_master_table")
+        val hashColumn: String = freshDb
+            .query("PRAGMA table_info(room_master_table)")
+            .use { c -> buildList { while (c.moveToNext()) add(c.getString(1)) } }
+            .firstOrNull { it != "id" && it.contains("ash", ignoreCase = true) }
+            ?: "identityHash"
         val roomMasterRow: List<Pair<Int, String>> = freshDb
-            .query("SELECT id, identityHash FROM room_master_table")
+            .query("SELECT id, $hashColumn FROM room_master_table")
             .use { c -> buildList { while (c.moveToNext()) add(c.getInt(0) to c.getString(1)) } }
         fresh.close()
 
@@ -87,7 +94,8 @@ class MigrationTest {
             baseIndexSqls.forEach { ddl -> sqlite.execSQL(ddl) }
             sqlite.execSQL(roomMasterSql!!)
             roomMasterRow.forEach { (id, hash) ->
-                sqlite.execSQL("INSERT INTO room_master_table(id, identityHash) VALUES($id, ?)", arrayOf(hash))
+                // 2026-08-16：hash 列名与上方探测一致（Room 2.8 列结构可能变化）
+                sqlite.execSQL("INSERT INTO room_master_table(id, $hashColumn) VALUES($id, ?)", arrayOf(hash))
             }
             sqlite.execSQL(
                 "INSERT INTO cached_messages(id, sessionId, created, role, payload) " +
@@ -98,7 +106,7 @@ class MigrationTest {
 
         // ---- 3. 以 v2 builder + MIGRATION_1_2 重开 → Room 检测 1→2 并执行迁移 ----
         val migrated = Room.databaseBuilder(context, OcBeaconDatabase::class.java, DB_NAME)
-            .addMigrations(Migrations.MIGRATION_1_2)
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
             .build()
         val migratedDb = migrated.openHelper.readableDatabase  // 触发打开（即迁移）
 

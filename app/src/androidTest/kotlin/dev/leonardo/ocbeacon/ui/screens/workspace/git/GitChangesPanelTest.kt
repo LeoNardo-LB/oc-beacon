@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.workspace.git
 
 import androidx.activity.ComponentActivity
+import dev.leonardo.ocbeacon.HiltComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -20,7 +21,7 @@ import org.junit.Test
 class GitChangesPanelTest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    val composeTestRule = createAndroidComposeRule<HiltComponentActivity>()
 
     @Test
     fun gitChangesPanel_rendersChangesWithStatusBadges() {
