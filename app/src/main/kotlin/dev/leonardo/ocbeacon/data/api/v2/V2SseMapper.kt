@@ -6,6 +6,7 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -88,15 +89,39 @@ object V2SseMapper {
                     sessionId = sessionId,
                     role = inputType,
                     time = TimeInfo(System.currentTimeMillis()),
-                    summary = Message.User.UserSummary(body = text)
+                    // 2026-08-16 根治（P0 附件 SSE 通道丢失）：inbox 携带的 files
+                    // 文件名并入播种文本——发送带附件消息后 SSE 回显立即显示
+                    // 附件 chip（完整 Part.File 由 REST 对账/进会话增量的
+                    // V2Mappers files 映射补全，缩略图随后出现）。
+                    summary = Message.User.UserSummary(
+                        body = listOfNotNull(
+                            text,
+                            (props["item"]?.jsonObject?.get("payload")?.jsonObject?.get("files") as? JsonArray
+                                ?: props["prompt"]?.jsonObject?.get("files") as? JsonArray)
+                                ?.takeIf { it.isNotEmpty() }
+                                ?.joinToString(" ") { el ->
+                                    (el as? JsonObject)?.get("name")?.jsonPrimitive?.contentOrNull ?: "📎"
+                                },
+                        ).joinToString("\n")
+                    ),
                 )
             )
         }
 
         // assistant 消息创建：{sessionID, assistantMessageID, agent, model, snapshot?}
         "session.step.started" -> {
-            val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
-            val messageId = props["assistantMessageID"]?.jsonPrimitive?.contentOrNull ?: return null
+            val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull
+            val messageId = props["assistantMessageID"]?.jsonPrimitive?.contentOrNull
+            // 2026-08-16（回复不可见 R1 排障）：字段缺失时此前静默 return null
+            //（消息永不播种、后续 delta 成孤儿 part）。降级消息已由
+            // MessageEventHandler 孤儿 part 自愈兜底，此日志用于归因事件丢失。
+            if (sessionId == null || messageId == null) {
+                dev.leonardo.ocbeacon.logging.AppLogger.w(
+                    "V2SseMapper",
+                    "[step.started] dropped: missing ${if (sessionId == null) "sessionID" else ""}${if (sessionId == null && messageId == null) "+" else ""}${if (messageId == null) "assistantMessageID" else ""} keys=${props.keys.joinToString(",")}",
+                )
+                return null
+            }
             // TEMP-PROBE（agent 跳变排查，验证后移除）：记录每条 step.started 的
             // agent 归属——用户复现"徽标跳 deep-explore"时抓此日志定位注入源。
             if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {

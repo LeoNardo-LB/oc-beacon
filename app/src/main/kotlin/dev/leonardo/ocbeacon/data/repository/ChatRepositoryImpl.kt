@@ -441,8 +441,9 @@ class ChatRepositoryImpl @Inject constructor(
     private fun dev.leonardo.ocbeacon.data.dto.response.PermissionRequest.toDomainPermissionState() = PermissionState(
         id = id,
         sessionId = sessionId,
-        permission = permission,
-        patterns = patterns,
+        // 2026-08-16（F6）：V2 REST 条目无 permission/patterns——action/resources 兜底
+        permission = permission ?: action ?: "",
+        patterns = patterns.ifEmpty { resources },
         // metadata 在 DTO 中是 Map<String, JsonElement>，在领域模型中是 Map<String, String>
         metadata = metadata?.mapValues { it.value.toString() },
         always = always?.toString()?.toBoolean() ?: false,

@@ -412,8 +412,11 @@ class V2ApiClient @Inject constructor(
             cursor?.let { parameter("cursor", it) }
         }
         // 防御（#87）：非 2xx（404 会话不存在/5xx）返回空页，避免解析错误体。
+        // 2026-08-16（cursor 400 排障）：400 升 Error 级并带 cursor 前缀——
+        // cursor 参数收到 V1 格式 {id,time}（缺 order/direction）或窗口外 id
+        // 时服务器 400/空页，此前 warning+空页吞错导致排障盲区（本轮误诊源头）。
         if (!response.status.isSuccess()) {
-            AppLogger.w(TAG, "listMessages failed: status=${response.status} session=$sessionId")
+            AppLogger.e(TAG, "listMessages failed: status=${response.status} session=$sessionId cursor=${cursor?.take(48)}")
             return MessagePage(messages = emptyList(), nextCursor = null, previousCursor = null)
         }
         val root = parseRoot(response.bodyAsText())
@@ -457,7 +460,12 @@ class V2ApiClient @Inject constructor(
         sessionId: String,
         text: String,
         directory: String? = null,
-        agent: String? = null
+        agent: String? = null,
+        // 2026-08-16 根治（P0 静默丢附件）：附件以官方 data: URI 内嵌——
+        // 平铺契约顶层 files:[{uri,name}]（部署版 curl 实证 200）；
+        // 嵌套契约 prompt.files（官方主干 submit.ts 同构，部署版 prompt 包裹本身
+        // 400 时走平铺降级，两者都带 files 保证未来部署升级即生效）。
+        files: List<kotlinx.serialization.json.JsonObject> = emptyList(),
     ): PromptAdmission? {
         // 2026-08-15（research/09 P0，双契约探测适配）：
         // - 主干 V2 契约：POST /api/session/:id/prompt {prompt:{text,files,agents}, delivery}
@@ -481,6 +489,12 @@ class V2ApiClient @Inject constructor(
         val modernBody = kotlinx.serialization.json.buildJsonObject {
             put("prompt", kotlinx.serialization.json.buildJsonObject {
                 put("text", kotlinx.serialization.json.JsonPrimitive(text))
+                if (files.isNotEmpty()) {
+                    // TODO 2026-08-16（F1）：嵌套契约 prompt.files 未经部署版实证
+                    //（部署版 next-17430 对嵌套 body 一律 400 → 走下方平铺降级，
+                    // files 在顶层）；主干部署后需 E2E 验证此分支再考虑收敛。
+                    put("files", kotlinx.serialization.json.JsonArray(files))
+                }
                 agent?.let {
                     put("agents", kotlinx.serialization.json.JsonArray(listOf(
                         kotlinx.serialization.json.buildJsonObject {
@@ -495,6 +509,11 @@ class V2ApiClient @Inject constructor(
             // 降级旧契约（当前部署实测形态：平铺 body）
             val legacyBody = kotlinx.serialization.json.buildJsonObject {
                 put("text", kotlinx.serialization.json.JsonPrimitive(text))
+                if (files.isNotEmpty()) {
+                    // 部署版平铺契约：files 为顶层字段（curl 实证
+                    // {uri:"data:...;base64,...", name} → 200 + payload.files 回显）
+                    put("files", kotlinx.serialization.json.JsonArray(files))
+                }
                 agent?.let {
                     put("agents", kotlinx.serialization.json.JsonArray(listOf(
                         kotlinx.serialization.json.buildJsonObject {
@@ -1051,10 +1070,23 @@ class V2ApiClient @Inject constructor(
     ): PromptAdmission? {
         val text = parts.firstOrNull { it.type == "text" }?.text
             ?: parts.joinToString { it.text ?: "" }
+        // 2026-08-16 根治（P0 静默丢附件）：原实现只提取 text part，file parts
+        // 全部丢弃——V2 下选图发送=文本发出、图丢、UI 清空附件，用户无感知。
+        // 现收集 file parts 传入 prompt，平铺契约以顶层 files 字段发送
+        //（curl 实证部署版接受 {uri:dataUrl, name} 并解析为 inline 附件）。
+        val files = parts.filter { it.type == "file" }
+            .mapNotNull { part ->
+                val uri = part.url ?: return@mapNotNull null
+                kotlinx.serialization.json.buildJsonObject {
+                    put("uri", kotlinx.serialization.json.JsonPrimitive(uri))
+                    part.filename?.let { put("name", kotlinx.serialization.json.JsonPrimitive(it)) }
+                }
+            }
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "[prompt] files=${files.size} textLen=${text.length}")
         if (model != null) {
             switchModel(conn, sessionId, model.providerId, model.modelId, variant)
         }
-        return prompt(conn, sessionId, text, directory, agent)
+        return prompt(conn, sessionId, text, directory, agent, files)
     }
 
     suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {

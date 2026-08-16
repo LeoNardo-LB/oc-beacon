@@ -226,7 +226,32 @@ object V2MessageMapper {
                     // 快速导航 preview 与消息恢复不依赖 parts 完整性
                     summary = Message.User.UserSummary(body = text),
                 )
-                val parts = if (text.isNotEmpty()) {
+                // 2026-08-16 根治（P0 附件恢复丢失）：读回的 user 消息 files 字段
+                // 映射为 Part.File——原实现只映射 text，重进会话后图片缩略图/
+                // 文件卡片消失。服务器契约（curl 实证）：
+                // files:[{data:"<base64>", mime:"image/png", name, source:{type:"inline"}}]
+                // url 重组为 dataUrl（data 与 mime 分离）；若元素直接给 uri 则优先。
+                val filesArray = obj["files"] as? JsonArray
+                val fileParts = filesArray?.mapIndexedNotNull { idx, fileEl ->
+                    val fileObj = fileEl as? JsonObject ?: return@mapIndexedNotNull null
+                    val mime = fileObj["mime"]?.jsonPrimitive?.contentOrNull ?: "application/octet-stream"
+                    val name = fileObj["name"]?.jsonPrimitive?.contentOrNull
+                    val uri = fileObj["uri"]?.jsonPrimitive?.contentOrNull
+                        ?: fileObj["data"]?.jsonPrimitive?.contentOrNull?.let { data ->
+                            if (data.startsWith("data:")) data else "data:$mime;base64,$data"
+                        }
+                    if (uri == null) return@mapIndexedNotNull null
+                    Part.File(
+                        id = "${id}_file$idx",
+                        sessionId = sessionId,
+                        messageId = id,
+                        mime = mime,
+                        filename = name,
+                        url = uri,
+                        source = fileObj["source"],
+                    )
+                }.orEmpty()
+                val textParts = if (text.isNotEmpty()) {
                     listOf(Part.Text(
                         // 2026-08-12 修复：唯一 id（此前 "" 导致 Room 主键冲突
                         // 互相覆盖——实测测试会话 35 条 user 消息只剩 1 条有 parts）
@@ -236,7 +261,7 @@ object V2MessageMapper {
                         text = text
                     ))
                 } else emptyList()
-                MessageWithParts(info = message, parts = parts)
+                MessageWithParts(info = message, parts = textParts + fileParts)
             }
             "assistant" -> {
                 val agent = obj["agent"]?.jsonPrimitive?.contentOrNull ?: "build"

@@ -309,6 +309,56 @@ class MessageEventHandler @Inject constructor(
     }
 
     /**
+     * 2026-08-16 修复（F4 回复不可见 R1——孤儿 part 自愈）：
+     *
+     * 根因：V2 SSE 契约不发 message.updated，assistant 消息的唯一播种入口是
+     * session.step.started。该事件丢失（SSE 断连窗口/字段解析失败）时，后续
+     * reasoning/text/tool part 事件仍会到达——parts 写入 [_parts] 但
+     * [_messages] 无宿主消息 →「有 part 无消息」→ UI 按 _messages 渲染 →
+     * 用户看到"发送成功但无回复"（重进会话由 REST 恢复才可见）。
+     *
+     * 自愈：part/delta 写入前检查宿主存在性，缺失则以事件携带的
+     * sessionId+messageId 构造骨架 Assistant（time.created=now，agent/model
+     * =null——后续 step.ended/REST 兜底经 mergeAssistantMeta 非空字段合并
+     * 补齐元数据），二分插入保持 created 升序（与 handleMessageUpdated 一致）。
+     *
+     * 幂等：双检查（O(1) assistantMessageIds 快路径 + update 内二次确认）。
+     */
+    internal fun ensureAssistantSkeleton(sessionId: String, messageId: String) {
+        // O(1) 快路径：宿主已播种（step.started/REST/skeleton 曾写入）
+        if (messageId in assistantMessageIds) return
+        // 兜底线性检查：消息存在但不在集合（如 User 消息——part 宿主理论恒为
+        // assistant，此分支防同 id 冲突时误插骨架）
+        if (_messages.value[sessionId]?.any { it.id == messageId } == true) return
+        _messages.update { current ->
+            val msgs = current[sessionId]?.toMutableList() ?: mutableListOf()
+            // update 内二次确认（CAS 重试/并发骨架竞争窗口）
+            if (msgs.any { it.id == messageId }) return@update current
+            val skeleton = Message.Assistant(
+                id = messageId,
+                sessionId = sessionId,
+                time = TimeInfo(created = System.currentTimeMillis()),
+                parentId = ""
+            )
+            // 二分插入保持 created 升序（combine flow 依赖写入路径有序）
+            val key = skeleton.time.created
+            var lo = 0
+            var hi = msgs.size
+            while (lo < hi) {
+                val mid = (lo + hi) ushr 1
+                if (msgs[mid].time.created <= key) lo = mid + 1 else hi = mid
+            }
+            msgs.add(lo, skeleton)
+            current + (sessionId to msgs)
+        }
+        assistantMessageIds.add(messageId)
+        AppLogger.w(
+            TAG,
+            "[skeleton] orphan part host missing -> seeded assistant skeleton sid=${sessionId.take(12)} msg=${messageId.take(16)} (step.started 丢失自愈)"
+        )
+    }
+
+    /**
      * 2026-08-15：Assistant 消息非空字段合并（统计栏丢模型/耗时修复）。
      *
      * V2 SSE 的 step.ended 事件不含 modelId/providerId/agent（服务器契约就没有），
@@ -396,6 +446,11 @@ class MessageEventHandler @Inject constructor(
     }
 
     internal fun handleMessagePartUpdated(event: SseEvent.MessagePartUpdated) {
+        // 2026-08-16 修复（F4 回复不可见 R1）：part 宿主消息缺失时播种骨架
+        // Assistant——V2 契约中 assistant 消息唯一播种入口是 session.step.started，
+        // 该事件丢失/解析失败时后续 part 事件成为"孤儿"（_parts 有数据但
+        // _messages 无宿主 → UI 按 _messages 渲染 → 回复整体不可见）。
+        ensureAssistantSkeleton(event.part.sessionId, event.part.messageId)
         val messageId = event.part.messageId
         val partId = event.part.id
         _parts.update { current ->
@@ -763,6 +818,10 @@ class MessageEventHandler @Inject constructor(
     }
 
     internal fun handleMessagePartDelta(event: SseEvent.MessagePartDelta) {
+        // 2026-08-16 修复（F4 回复不可见 R1）：同 handleMessagePartUpdated——
+        // delta 流宿主缺失时播种骨架（骨架经 mergeAssistantMeta 由后续
+        // step.ended/REST 兜底补齐 agent/model 元数据）。
+        ensureAssistantSkeleton(event.sessionId, event.messageId)
         // 缓冲 delta 以批量 flush（48ms 窗口）——将重组频率
         // 从逐 token 降至约 20 次/秒，消除布局抖动。
         val partType = when (_parts.value[event.messageId]

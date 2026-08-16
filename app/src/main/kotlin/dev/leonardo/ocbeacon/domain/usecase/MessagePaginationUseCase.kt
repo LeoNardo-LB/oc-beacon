@@ -89,7 +89,16 @@ class MessagePaginationUseCase @Inject constructor(
                     m.info.modelId == null
             }
             // 本地有缓存时，只拉取本地最旧游标之后的新消息
-            val before = if (hasDamagedMeta) null else oldestId?.let { id ->
+            // 2026-08-16 根治（cursor 400 → 增量静默失效）：原实现无条件用 V1
+            // 格式 CursorCodec.encode(id,time)，经 MessageApiImpl V2 分支以
+            // cursor 参数名发送 → 部署版 V2 服务器对 V1 格式 cursor 直接 400
+            //（curl 三组对照实证）→ 空页 → mergeLocalAndRemote 回退本地，
+            // 增量同步静默失效。且 curl 进一步实证：V2 cursor 是**服务器窗口
+            // 语义**——本地构造的 V2 格式 cursor 换任意老消息 id 也返回空页
+            //（仅近期窗口内 id 有效），本地构造锚点根本不可靠。
+            // 根治：V2 增量不传 cursor（拉最新 limit 窗口），mergeLocalAndRemote
+            // 按 id 去重合并——语义等价（增量=刷新最新窗口）且不依赖锚点有效性。
+            val before = if (hasDamagedMeta || isV2Server(serverId)) null else oldestId?.let { id ->
                 val created = messageStore.messageCreatedAt(id)
                 if (created != null) CursorCodec.encode(id, created) else null
             }
@@ -180,11 +189,17 @@ class MessagePaginationUseCase @Inject constructor(
                 return Result.success(LoadOlderResult(archived, LoadOlderSource.ARCHIVE))
             }
         }
-        // 归档读尽 → 网络（首次翻页：无服务器游标，用本地 CursorCodec 编码——V2 服务器会忽略
-        // 该格式并返回最新数据；首次翻页冗余一次请求，响应携带 cursor.next 后后续翻页正常）
+        // 归档读尽 → 网络首次翻页。2026-08-16 根治（cursor 400）：
+        // V2 服务器对 V1 格式 cursor（经 cursor 参数名）返回 400；且本地构造
+        // V2 格式 cursor 也不可靠（服务器窗口语义——仅近期 id 有效，curl 实证
+        // 换中部历史 id 返回空页）。故 V2 首次翻页**不传 cursor**：服务器返回
+        // 最新窗口 + 原生 cursor.next（与已加载内容重叠，APPEND_ONLY 去重），
+        // 响应携带的 nextCursor 进 FSM Network 态后，后续翻页走 networkCursor
+        // 分支用服务器原生游标（唯一可靠模式）。
+        // V1 保持本地 CursorCodec.encode（before 参数语义，实测有效）。
         return runCatching {
-            // before 游标需要 base64url 编码（裸 ID 服务端不识别）
-            val before = beforeId?.let { id ->
+            val isV2 = isV2Server(serverId)
+            val before = if (isV2) null else beforeId?.let { id ->
                 val msgCreated = messageStore.messageCreatedAt(id)
                 if (msgCreated != null) CursorCodec.encode(id, msgCreated) else null
             }

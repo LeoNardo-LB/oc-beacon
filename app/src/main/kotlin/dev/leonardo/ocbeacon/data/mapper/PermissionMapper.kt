@@ -27,8 +27,10 @@ object PermissionMapper {
         return SseEvent.PermissionAsked(
             id = dto.id,
             sessionId = dto.sessionId,
-            permission = dto.permission,
-            patterns = dto.patterns,
+            // 2026-08-16（F6）：V2 REST 条目无 permission/patterns 字段——
+            // 官方 PermissionV2.Request 用 action/resources 表达同一语义，兜底映射。
+            permission = dto.permission ?: dto.action ?: "",
+            patterns = dto.patterns.ifEmpty { dto.resources },
             metadata = metadataStrings,
             always = alwaysBoolean,
             tool = dto.tool

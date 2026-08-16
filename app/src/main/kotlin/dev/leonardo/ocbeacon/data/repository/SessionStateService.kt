@@ -37,6 +37,10 @@ private const val STALENESS_CHECK_INTERVAL_MS = 5_000L
 private const val STALENESS_THRESHOLD_MS = 15_000L
 /** L3 REST 校验补漏消息数：最新 50 条足够（陈旧窗口漏消息远少于 50；避免 limit=0 全量拉取大会话）。 */
 private const val REST_REFRESH_LIMIT = 50
+/** 2026-08-16（F5 补漏失败重试）：补漏失败最大重试次数（线性退避 attempt×base）。 */
+private const val REST_BACKFILL_MAX_RETRIES = 3
+/** 2026-08-16（F5）：重试退避基数——attempt 1→2s、2→4s、3→6s。 */
+private const val REST_BACKFILL_RETRY_BASE_MS = 2_000L
 /** 防御性清理阈值：会话状态超过该时长无事件且非 Busy 时从状态容器移除。 */
 private const val STATE_RETENTION_MS = 24 * 60 * 60 * 1000L
 /** 2026-08-14 僵尸判定阈值：服务器说 Busy 但 App 侧超过该时长无任何 SSE 事件
@@ -92,6 +96,15 @@ class SessionStateService @Inject constructor(
      *（staleness guard + 可疑转移 + 外部）产生 REST 请求风暴。
      */
     private val activeValidations = ConcurrentHashMap<String, Job>()
+
+    /**
+     * 2026-08-16 修复（F5 补漏失败重试）：L3 REST 校验的消息补漏
+     * （V2 NEWER 游标 / V1 limit=50）失败退避重试计数（会话级）。
+     * 根因：原实现只 onSuccess 刷新——补漏请求失败（网络抖动/服务器 5xx）
+     * 被静默吞掉，SSE 断连窗口漏掉的消息无人补齐，直到下次 staleness 触发。
+     * 重试上限 [REST_BACKFILL_MAX_RETRIES]，线性退避；成功即清零。
+     */
+    private val restBackfillRetries = ConcurrentHashMap<String, Int>()
 
     init { startStalenessGuard() }
 
@@ -266,6 +279,8 @@ class SessionStateService @Inject constructor(
         // 取消此会话进行中的 REST 校验（RS-012）
         activeValidations.remove(sessionId)?.cancel()
         sessionServerOwnership.remove(sessionId)
+        // 2026-08-16（F5）：清理补漏重试计数（会话已清除，重试不再有意义）
+        restBackfillRetries.remove(sessionId)
     }
 
     override fun clearForServer(sessionIds: Set<String>) {
@@ -275,6 +290,8 @@ class SessionStateService @Inject constructor(
         for (sessionId in sessionIds) {
             activeValidations.remove(sessionId)?.cancel()
             sessionServerOwnership.remove(sessionId)
+            // 2026-08-16（F5）：清理补漏重试计数
+            restBackfillRetries.remove(sessionId)
         }
     }
 
@@ -287,6 +304,8 @@ class SessionStateService @Inject constructor(
         // 取消所有进行中的 REST 校验（RS-012）
         activeValidations.values.forEach { it.cancel() }
         activeValidations.clear()
+        // 2026-08-16（F5）：清理补漏重试计数
+        restBackfillRetries.clear()
     }
 
     // ============ L3：REST 校验（absence=idle 闭环）============
@@ -394,13 +413,51 @@ class SessionStateService @Inject constructor(
                                 dev.leonardo.ocbeacon.domain.util.CursorCodec.V2Direction.NEWER,
                             )
                         } else null
-                        sessionRepoProvider.get().listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = cursor)
-                            .onSuccess { page ->
-                                if (page.messages.isNotEmpty()) {
-                                    messageRefresher.refreshMessages(sessionId, page.messages)
-                                }
-                                if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs (cursor=${cursor?.take(10)})")
+                        val backfillResult = sessionRepoProvider.get()
+                            .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = cursor)
+                        backfillResult.onSuccess { page ->
+                            // 2026-08-16（F5）：补漏成功清零重试计数
+                            restBackfillRetries.remove(sessionId)
+                            if (page.messages.isNotEmpty()) {
+                                messageRefresher.refreshMessages(sessionId, page.messages)
+                            } else if (cursor != null) {
+                                // 2026-08-16 根治（窗口外锚点静默空转）：curl 实证 V2
+                                // cursor 是服务器窗口语义——本地构造的 encodeV2 游标
+                                // 若锚点落在服务器近期窗口外（长时间断连后本地最新
+                                // id 已老），服务器返回 200+空页而非错误 → 增量补漏
+                                // 静默拿不到任何消息。兜底：无游标重拉最新窗口
+                                //（REST_REFRESH_LIMIT 条），refreshMessages 合并
+                                // 幂等（已存在的消息不会重复）。
+                                AppLogger.w(TAG, "[$sessionId] L3 backfill empty page with local cursor (anchor out of server window?) -> fallback fetch latest window")
+                                sessionRepoProvider.get()
+                                    .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = null)
+                                    .onSuccess { fallbackPage ->
+                                        if (fallbackPage.messages.isNotEmpty()) {
+                                            messageRefresher.refreshMessages(sessionId, fallbackPage.messages)
+                                        }
+                                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 fallback refresh: ${fallbackPage.messages.size} msgs")
+                                    }
                             }
+                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST message refresh: ${page.messages.size} msgs (cursor=${cursor?.take(10)})")
+                        }
+                        backfillResult.onFailure { e ->
+                            // 2026-08-16 修复（F5 补漏失败重试）：原实现只 onSuccess——
+                            // 补漏失败被静默吞掉，SSE 断连窗口漏掉的消息无人补齐
+                            //（外层 catch 捕不到 Result.failure）。改为退避重试整个
+                            // triggerRestValidation（保留"先转 Idle 后补漏"的原顺序——
+                            // 重试仅补漏段；状态已收敛为 Idle，重跑校验幂等安全）。
+                            val attempt = restBackfillRetries.merge(sessionId, 1, Int::plus) ?: 1
+                            if (attempt <= REST_BACKFILL_MAX_RETRIES) {
+                                AppLogger.w(TAG, "[$sessionId] L3 backfill failed (attempt $attempt/$REST_BACKFILL_MAX_RETRIES): ${e.message} -> retry with backoff")
+                                appScope.launch {
+                                    delay(REST_BACKFILL_RETRY_BASE_MS * attempt)
+                                    triggerRestValidation(sessionId)
+                                }
+                            } else {
+                                AppLogger.w(TAG, "[$sessionId] L3 backfill failed after $attempt attempts, giving up (下次 staleness 检查会重新触发)")
+                                restBackfillRetries.remove(sessionId)
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
