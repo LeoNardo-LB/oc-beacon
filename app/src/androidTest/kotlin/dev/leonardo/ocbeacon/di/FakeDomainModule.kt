@@ -52,6 +52,9 @@ abstract class FakeDomainModule {
     @Binds @Singleton abstract fun bindDraftRepository(impl: FakeDraftRepository): DraftRepository
     @Binds @Singleton abstract fun bindFileRepository(impl: FakeFileRepository): FileRepository
     @Binds @Singleton abstract fun bindVcsRepository(impl: FakeVcsRepository): VcsRepository
+
+    // 2026-08-16：androidTest 测试图补 MessageCacheRepository（此前源集从未编译、缺口被掩盖）
+    @Binds @Singleton abstract fun bindMessageCacheRepository(impl: dev.leonardo.ocbeacon.fakes.FakeMessageCacheRepository): dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
     @Binds @Singleton abstract fun bindMcpRepository(impl: FakeMcpRepository): McpRepository
 
     // ServerRepository 及其 2 个子接口 —— 全部由单个 FakeServerRepository 支撑

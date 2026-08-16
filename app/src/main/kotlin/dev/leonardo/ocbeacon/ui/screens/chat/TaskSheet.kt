@@ -118,7 +118,9 @@ fun TaskSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // 2026-08-16（用户决策）：只留 75% 上限（去 30% 下限，内容自然收缩）
+                // 2026-08-16（用户决策）：只留 75% 上限（去 30% 下限，内容自然收缩）。
+                // 排查备注：曾怀疑短 sheet 拖拽手势吞点击——已证伪（模拟器长时间
+                // 运行后输入系统劣化导致的假象，重启后正常；非 App 代码问题）。
                 .heightIn(
                     max = LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 )
