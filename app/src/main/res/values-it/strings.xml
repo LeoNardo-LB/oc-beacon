@@ -20,7 +20,7 @@
     <string name="sessions_new">Nuova sessione</string>
     <string name="session_status_idle">Inattivo</string>
     <string name="session_status_busy">Operativo…</string>
-    <string name="session_status_retry">Riprova (%1$d/%2$d)</string>
+    <string name="session_status_retry">Riprova (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Invia</string>
     <string name="chat_empty">Inizia una conversazione con OpenCode</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">Eliminare "%1$s"? Questa operazione non può essere annullata.</string>
     <string name="chat_stop">Ferma</string>
     <string name="chat_copy">Copia</string>
+    <string name="chat_compressing_context">Compressione contesto: %1$s</string>
+    <string name="chat_compressing_context_plain">Compressione contesto…</string>
     <string name="chat_revert">Ripristina</string>
     <string name="chat_revert_title">Ripristinare il messaggio?</string>
     <string name="chat_revert_message">Questo annullerà questo messaggio e tutti i successivi. Le modifiche ai file saranno annullate.</string>
@@ -202,6 +204,8 @@
         <item quantity="other">%1$d file modificati</item>
     </plurals>
     <string name="chat_free_label">Gratis</string>
+    <string name="chat_default_model">Modello predefinito</string>
+    <string name="chat_output_truncated">Output troncato dal server. Output completo salvato in: %1$s</string>
     <string name="chat_question_label">Domanda</string>
     <string name="chat_permission_label">Permesso: %1$s</string>
     <string name="chat_aborted">Interrotto: %1$s</string>
@@ -408,6 +412,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_status">Stato</string>
     <string name="session_details_created">Creata</string>
     <string name="session_details_updated">Aggiornata</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d file)</string>
     <string name="chat_thinking_complete">Pensiero per %1$s</string>
     <string name="chat_token_usage_total">%,d token</string>
     <string name="chat_token_input">Input</string>

@@ -262,6 +262,19 @@ class ChatViewModel @Inject constructor(
     val modelConfigState: StateFlow<ModelConfigState> get() = modelConfig.modelConfigState
     fun selectAgent(name: String) = modelConfig.selectAgent(name)
     fun cycleVariant() = modelConfig.cycleVariant()
+    /** 2026-08-16（方案 A·默认模型）：星标切换——设为默认/再点取消。
+     *  存 "providerId|modelId"（variants 不参与默认——保持简单）。 */
+    fun toggleDefaultModel(providerId: String, modelId: String) {
+        viewModelScope.launch {
+            val current = modelConfig.localDefaultModel
+            val newValue = if (current == "$providerId|$modelId") null else "$providerId|$modelId"
+            settingsRepository.setDefaultModel(serverId, newValue)
+        }
+    }
+
+    /** 2026-08-16（方案 A·默认模型）：本地默认模型（"pid|mid"），供 UI 星标态 */
+    val localDefaultModel: String? get() = modelConfig.localDefaultModel
+
     fun selectModel(providerId: String, modelId: String) = modelConfig.selectModel(providerId, modelId)
 
     // ============ 消息数据 Delegate ============
@@ -607,6 +620,8 @@ class ChatViewModel @Inject constructor(
         }
 
         modelConfig.observeHiddenModels()
+        // 2026-08-16（方案 A·默认模型）
+        modelConfig.observeLocalDefaultModel()
 
         // 加载数据
         if (!isNewSession) {

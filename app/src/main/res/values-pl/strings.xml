@@ -20,7 +20,7 @@
     <string name="sessions_new">Nowa sesja</string>
     <string name="session_status_idle">Bezczynny</string>
     <string name="session_status_busy">Pracuje…</string>
-    <string name="session_status_retry">Ponawianie próby (%1$d/%2$d)</string>
+    <string name="session_status_retry">Ponawianie próby (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Wyślij</string>
     <string name="chat_empty">Rozpocznij rozmowę z OpenCode</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">Usunąć "%1$s"? Tego nie można cofnąć.</string>
     <string name="chat_stop">Zatrzymaj</string>
     <string name="chat_copy">Kopiuj</string>
+    <string name="chat_compressing_context">Kompresowanie kontekstu: %1$s</string>
+    <string name="chat_compressing_context_plain">Kompresowanie kontekstu…</string>
     <string name="chat_revert">Cofnij</string>
     <string name="chat_revert_title">Cofnąć wiadomość?</string>
     <string name="chat_revert_message">To cofnie tę wiadomość oraz wszystkie kolejne. Zmiany plików zostaną odwrócone.</string>
@@ -210,6 +212,8 @@
         <item quantity="other">%1$d pliku zmieniono</item>
     </plurals>
     <string name="chat_free_label">Bezpłatne</string>
+    <string name="chat_default_model">Model domyślny</string>
+    <string name="chat_output_truncated">Dane wyjściowe skrócone przez serwer. Pełne dane zapisane w: %1$s</string>
     <string name="chat_question_label">Pytanie</string>
     <string name="chat_permission_label">Uprawnienie: %1$s</string>
     <string name="chat_aborted">Przerwano: %1$s</string>
@@ -416,6 +420,8 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_status">Status</string>
     <string name="session_details_created">Utworzona</string>
     <string name="session_details_updated">Zaktualizowana</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d plików)</string>
     <string name="chat_thinking_complete">Myślał przez %1$s</string>
     <string name="chat_token_usage_total">%,d tokenów</string>
     <string name="chat_token_input">Wejście</string>

@@ -204,6 +204,8 @@
         <item quantity="other">%1$d件のファイル変更</item>
     </plurals>
     <string name="chat_free_label">無料</string>
+    <string name="chat_default_model">デフォルトモデル</string>
+    <string name="chat_output_truncated">出力がサーバーによって切り捨てられました。完全な出力は %1$s に保存されました</string>
     <string name="chat_question_label">質問</string>
     <string name="chat_permission_label">権限: %1$s</string>
     <string name="chat_aborted">中止: %1$s</string>

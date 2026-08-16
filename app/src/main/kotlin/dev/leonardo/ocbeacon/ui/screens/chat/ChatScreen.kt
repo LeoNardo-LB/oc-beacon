@@ -851,6 +851,10 @@ fun ChatScreen(
         onSelectModel = { providerId, modelId ->
             viewModel.selectModel(providerId, modelId)
         },
+        defaultModel = viewModel.localDefaultModel,
+        onSetDefaultModel = { providerId, modelId ->
+            viewModel.toggleDefaultModel(providerId, modelId)
+        },
         sessionTitle = sessionMeta.sessionTitle,
         onRename = { newTitle ->
             viewModel.renameSession(newTitle) { ok ->

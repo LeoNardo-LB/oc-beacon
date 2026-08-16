@@ -20,7 +20,7 @@
     <string name="sessions_new">Nova sessão</string>
     <string name="session_status_idle">Inativo</string>
     <string name="session_status_busy">Trabalhando…</string>
-    <string name="session_status_retry">Tentando novamente (%1$d/%2$d)</string>
+    <string name="session_status_retry">Tentando novamente (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Enviar</string>
     <string name="chat_empty">Inicie uma conversa com OpenCode</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">Excluir "%1$s"? Isso não pode ser desfeito.</string>
     <string name="chat_stop">Parar</string>
     <string name="chat_copy">Copiar</string>
+    <string name="chat_compressing_context">Comprimindo contexto: %1$s</string>
+    <string name="chat_compressing_context_plain">Comprimindo contexto…</string>
     <string name="chat_revert">Reverter</string>
     <string name="chat_revert_title">Reverter mensagem?</string>
     <string name="chat_revert_message">Isso irá desfazer esta mensagem e todas as mensagens seguintes. Alterações de arquivos serão revertidas.</string>
@@ -202,6 +204,8 @@
         <item quantity="other">%1$d arquivos alterados</item>
     </plurals>
     <string name="chat_free_label">Grátis</string>
+    <string name="chat_default_model">Modelo padrão</string>
+    <string name="chat_output_truncated">Saída truncada pelo servidor. Saída completa salva em: %1$s</string>
     <string name="chat_question_label">Pergunta</string>
     <string name="chat_permission_label">Permissão: %1$s</string>
     <string name="chat_aborted">Abortado: %1$s</string>
@@ -408,6 +412,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_status">Status</string>
     <string name="session_details_created">Criada</string>
     <string name="session_details_updated">Atualizada</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d arquivos)</string>
     <string name="chat_thinking_complete">Pensou por %1$s</string>
     <string name="chat_token_usage_total">%,d tokens</string>
     <string name="chat_token_input">Entrada</string>

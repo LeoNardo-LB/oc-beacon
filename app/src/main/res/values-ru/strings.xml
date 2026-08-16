@@ -30,7 +30,7 @@
     <string name="sessions_new">Новая сессия</string>
     <string name="session_status_idle">Ожидание</string>
     <string name="session_status_busy">Выполняется…</string>
-    <string name="session_status_retry">Повтор попытки (%1$d/%2$d)</string>
+    <string name="session_status_retry">Повтор попытки (%1$d)</string>
     <string name="session_rename">Переименовать сессию</string>
     <string name="session_rename_title">Заголовок</string>
     <string name="session_rename_button">Переименовать</string>
@@ -41,6 +41,8 @@
     <string name="chat_stop">Остановить</string>
     <string name="chat_empty">Начать разговор с OpenCode</string>
     <string name="chat_copy">Копировать</string>
+    <string name="chat_compressing_context">Сжатие контекста: %1$s</string>
+    <string name="chat_compressing_context_plain">Сжатие контекста…</string>
     <string name="chat_revert">Отменить изменения</string>
     <string name="chat_revert_title">Отменить сообщение?</string>
     <string name="chat_revert_message">Это отменит это сообщение и все последующие. Изменения файлов будут возвращены.</string>
@@ -230,6 +232,8 @@
         <item quantity="other">%1$d файла изменено</item>
     </plurals>
     <string name="chat_free_label">Бесплатно</string>
+    <string name="chat_default_model">Модель по умолчанию</string>
+    <string name="chat_output_truncated">Вывод усечён сервером. Полный вывод сохранён в: %1$s</string>
     <string name="chat_question_label">Вопрос</string>
     <string name="chat_permission_label">Разрешение: %1$s</string>
     <string name="chat_aborted">Прервано: %1$s</string>
@@ -417,6 +421,8 @@
     <string name="session_details_status">Статус</string>
     <string name="session_details_created">Создана</string>
     <string name="session_details_updated">Обновлена</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d файлов)</string>
     <string name="chat_thinking_complete">Размышлял %1$s</string>
     <string name="chat_token_usage_total">%,d токенов</string>
     <string name="chat_token_input">Вход</string>

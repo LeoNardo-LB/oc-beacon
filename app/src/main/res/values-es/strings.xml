@@ -20,7 +20,7 @@
     <string name="sessions_new">Nueva sesión</string>
     <string name="session_status_idle">Inactivo</string>
     <string name="session_status_busy">Trabajando…</string>
-    <string name="session_status_retry">Reintentando (%1$d/%2$d)</string>
+    <string name="session_status_retry">Reintentando (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Enviar</string>
     <string name="chat_empty">Inicia una conversación con OpenCode</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">¿Eliminar "%1$s"? Esto no se puede deshacer.</string>
     <string name="chat_stop">Detener</string>
     <string name="chat_copy">Copiar</string>
+    <string name="chat_compressing_context">Comprimiendo contexto: %1$s</string>
+    <string name="chat_compressing_context_plain">Comprimiendo contexto…</string>
     <string name="chat_revert">Revertir</string>
     <string name="chat_revert_title">¿Revertir mensaje?</string>
     <string name="chat_revert_message">Esto deshará este mensaje y todos los mensajes posteriores. Los cambios en archivos se revertirán.</string>
@@ -202,6 +204,8 @@
         <item quantity="other">%1$d archivos modificados</item>
     </plurals>
     <string name="chat_free_label">Gratis</string>
+    <string name="chat_default_model">Modelo predeterminado</string>
+    <string name="chat_output_truncated">Salida truncada por el servidor. La salida completa se guardó en: %1$s</string>
     <string name="chat_question_label">Pregunta</string>
     <string name="chat_permission_label">Permiso: %1$s</string>
     <string name="chat_aborted">Abortado: %1$s</string>
@@ -408,6 +412,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_status">Estado</string>
     <string name="session_details_created">Creado</string>
     <string name="session_details_updated">Actualizado</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d archivos)</string>
     <string name="chat_thinking_complete">Pensando durante %1$s</string>
     <string name="chat_token_usage_total">%,d tokens</string>
     <string name="chat_token_input">Entrada</string>

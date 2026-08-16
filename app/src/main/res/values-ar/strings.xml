@@ -20,7 +20,7 @@
     <string name="sessions_new">جلسة جديدة</string>
     <string name="session_status_idle">خامل</string>
     <string name="session_status_busy">يعمل…</string>
-    <string name="session_status_retry">إعادة المحاولة (%1$d/%2$d)</string>
+    <string name="session_status_retry">إعادة المحاولة (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">إرسال</string>
     <string name="chat_empty">ابدأ محادثة مع OpenCode</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">حذف "%1$s"؟ لا يمكن التراجع عن ذلك.</string>
     <string name="chat_stop">إيقاف</string>
     <string name="chat_copy">نسخ</string>
+    <string name="chat_compressing_context">ضغط السياق: %1$s</string>
+    <string name="chat_compressing_context_plain">جارٍ ضغط السياق…</string>
     <string name="chat_revert">استرجاع</string>
     <string name="chat_revert_title">استرجاع الرسالة؟</string>
     <string name="chat_revert_message">سيتم التراجع عن هذه الرسالة وكل الرسائل التالية. سيتم عكس تغييرات الملفات.</string>
@@ -218,6 +220,8 @@
         <item quantity="other">%1$d ملف تم تغييره</item>
     </plurals>
     <string name="chat_free_label">مجاني</string>
+    <string name="chat_default_model">النموذج الافتراضي</string>
+    <string name="chat_output_truncated">تم اقتطاع المخرجات بواسطة الخادم. المخرجات الكاملة محفوظة في: %1$s</string>
     <string name="chat_question_label">سؤال</string>
     <string name="chat_permission_label">الإذن: %1$s</string>
     <string name="chat_aborted">تم الإيقاف: %1$s</string>
@@ -424,6 +428,8 @@
     <string name="session_details_status">الحالة</string>
     <string name="session_details_created">تاريخ الإنشاء</string>
     <string name="session_details_updated">تاريخ التحديث</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d ملف)</string>
     <string name="chat_thinking_complete">تفكير لمدة %1$s</string>
     <string name="chat_token_usage_total">%,d رمزي</string>
     <string name="chat_token_input">الإدخال</string>

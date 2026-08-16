@@ -33,6 +33,13 @@ interface SettingsRepository {
      */
     suspend fun setModelVisibility(serverId: String, providerId: String, modelId: String, visible: Boolean)
 
+    /** 2026-08-16（方案 A·默认模型）：某服务器的本地默认模型（null=未设）。
+     *  格式 "providerId|modelId|variant"，由调用方编解码。 */
+    fun defaultModel(serverId: String): Flow<String?>
+
+    /** 设置/清除默认模型（value=null 清除）。 */
+    suspend fun setDefaultModel(serverId: String, value: String?)
+
     // ============ 会话标签 ============
 
     /** 该服务器的用户标签集（不含内置收藏标签）。 */

@@ -20,7 +20,7 @@
     <string name="sessions_new">새 세션</string>
     <string name="session_status_idle">대기 중</string>
     <string name="session_status_busy">작업 중…</string>
-    <string name="session_status_retry">재시도 중 (%1$d/%2$d)</string>
+    <string name="session_status_retry">재시도 중 (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">보내기</string>
     <string name="chat_empty">OpenCode와 대화를 시작하세요</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">"%1$s"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
     <string name="chat_stop">중지</string>
     <string name="chat_copy">복사</string>
+    <string name="chat_compressing_context">컨텍스트 압축 중: %1$s</string>
+    <string name="chat_compressing_context_plain">컨텍스트 압축 중…</string>
     <string name="chat_revert">되돌리기</string>
     <string name="chat_revert_title">메시지를 되돌리시겠습니까?</string>
     <string name="chat_revert_message">이 작업은 해당 메시지와 이후 모든 메시지를 취소합니다. 파일 변경도 되돌려집니다.</string>
@@ -202,6 +204,8 @@
         <item quantity="other">%1$d개 파일 변경됨</item>
     </plurals>
     <string name="chat_free_label">무료</string>
+    <string name="chat_default_model">기본 모델</string>
+    <string name="chat_output_truncated">서버에서 출력이 잘렸습니다. 전체 출력은 %1$s에 저장되었습니다</string>
     <string name="chat_question_label">질문</string>
     <string name="chat_permission_label">권한: %1$s</string>
     <string name="chat_aborted">중단됨: %1$s</string>
@@ -408,6 +412,8 @@
     <string name="session_details_status">상태</string>
     <string name="session_details_created">생성 시간</string>
     <string name="session_details_updated">업데이트 시간</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (파일 %3$d개)</string>
     <string name="chat_thinking_complete">%1$s 간 생각 완료</string>
     <string name="chat_token_usage_total">%,d 토킰</string>
     <string name="chat_token_input">입력</string>

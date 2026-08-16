@@ -57,7 +57,7 @@
     <string name="sessions_create_session">Create Session</string>
     <string name="session_status_idle">Idle</string>
     <string name="session_status_busy">Working…</string>
-    <string name="session_status_retry">Retrying (%1$d/%2$d)</string>
+    <string name="session_status_retry">Retrying (%1$d)</string>
     <string name="session_rename">Rename Session</string>
     <string name="session_rename_title">Title</string>
     <string name="session_rename_button">Rename</string>
@@ -82,6 +82,9 @@
     <string name="session_details_status">Status</string>
     <string name="session_details_created">Created</string>
     <string name="session_details_updated">Updated</string>
+    <!-- #120（D2-32）：详情行 Diff 摘要（原硬编码英文） -->
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d files)</string>
 
     <!-- Chat Screen -->
     <string name="chat_send">Send</string>
@@ -90,6 +93,9 @@
     <string name="chat_stop">Stop</string>
     <string name="chat_empty">Start a conversation with OpenCode</string>
     <string name="chat_copy">Copy</string>
+    <!-- #120（D2-10）：压缩中提示（原硬编码英文，绕过 i18n） -->
+    <string name="chat_compressing_context">Compressing context: %1$s</string>
+    <string name="chat_compressing_context_plain">Compressing context…</string>
     <string name="chat_revert">Revert</string>
     <string name="chat_revert_title">Revert message?</string>
     <string name="chat_revert_message">This will undo this message and all subsequent messages. File changes will be reversed.</string>
@@ -170,6 +176,8 @@
         <item quantity="other">%1$d files changed</item>
     </plurals>
     <string name="chat_free_label">Free</string>
+    <string name="chat_default_model">Default model</string>
+    <string name="chat_output_truncated">Output truncated by server. Full output saved to: %1$s</string>
     <string name="chat_question_label">Question</string>
     <string name="chat_permission_label">Permission: %1$s</string>
     <string name="chat_aborted">Aborted: %1$s</string>

@@ -207,6 +207,8 @@
         <item quantity="other">%1$d 个文件已更改</item>
     </plurals>
     <string name="chat_free_label">免费</string>
+    <string name="chat_default_model">默认模型</string>
+    <string name="chat_output_truncated">输出已被服务器截断。完整输出已保存至：%1$s</string>
     <string name="chat_question_label">问题</string>
     <string name="chat_permission_label">权限：%1$s</string>
     <string name="chat_aborted">已中止：%1$s</string>

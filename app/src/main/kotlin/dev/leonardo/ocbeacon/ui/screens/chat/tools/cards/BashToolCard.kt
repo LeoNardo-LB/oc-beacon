@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -70,7 +71,9 @@ internal fun BashToolCard(
         }
         if (cleanedOutput.isNotBlank()) {
             if (isNotEmpty()) append("\n\n")
-            append(cleanedOutput.take(5000))
+            // 2026-08-16：移除 take(5000) 二次截尾——服务器已是保尾截头语义
+            //（progress 30K 字符/终态 2000 行），再截尾丢信息且方向错误
+            append(cleanedOutput)
         }
     }
 
@@ -160,6 +163,25 @@ internal fun BashToolCard(
     ) {
         val halfScreenHeight = halfScreenHeight()
         val scrollState = rememberScrollState()
+        // 2026-08-16（#8 根治呈现）：服务器对 shell/bash 输出有意保尾截头
+        //（官方 shell.ts：progress 超 30K 字符 slice(-30000)；终态超 2000 行/
+        // 50KB 加 "...output truncated...\n\nFull output saved to: <path>"）。
+        // 检测该前缀显示提示条——把截断事实告知用户而非静默缺开头。
+        val truncationPath = remember(displayText) {
+            val m = Regex("""output truncated[\s\S]*?(?:saved to|Full output saved to:)\s*(\S+)""").find(displayText)
+            m?.groupValues?.get(1)
+        }
+        val isTruncated = remember(displayText) {
+            displayText.contains("output truncated") || displayText.startsWith("...")
+        }
+        if (isTruncated) {
+            Text(
+                text = stringResource(dev.leonardo.ocbeacon.R.string.chat_output_truncated, truncationPath ?: ""),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
+            )
+        }
         Surface(
             shape = ShapeTokens.extraSmall,
             color = toolOutputContainerColor(),

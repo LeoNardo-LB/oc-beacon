@@ -20,7 +20,7 @@
     <string name="sessions_new">Yeni Oturum</string>
     <string name="session_status_idle">Boşta</string>
     <string name="session_status_busy">Çalışıyor…</string>
-    <string name="session_status_retry">Yeniden deneniyor (%1$d/%2$d)</string>
+    <string name="session_status_retry">Yeniden deneniyor (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Gönder</string>
     <string name="chat_empty">OpenCode ile bir sohbet başlat</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">"%1$s" silinsin mi? Bu işlem geri alınamaz.</string>
     <string name="chat_stop">Dur</string>
     <string name="chat_copy">Kopyala</string>
+    <string name="chat_compressing_context">Bağlam sıkıştırılıyor: %1$s</string>
+    <string name="chat_compressing_context_plain">Bağlam sıkıştırılıyor…</string>
     <string name="chat_revert">Geri al</string>
     <string name="chat_revert_title">Mesajı geri al?</string>
     <string name="chat_revert_message">Bu işlem bu mesajı ve sonraki tüm mesajları geri alacak. Dosya değişiklikleri de geri alınacak.</string>
@@ -202,6 +204,8 @@
         <item quantity="other">%1$d dosya değişti</item>
     </plurals>
     <string name="chat_free_label">Ücretsiz</string>
+    <string name="chat_default_model">Varsayılan model</string>
+    <string name="chat_output_truncated">Çıktı sunucu tarafından kesildi. Tam çıktı şu konuma kaydedildi: %1$s</string>
     <string name="chat_question_label">Soru</string>
     <string name="chat_permission_label">İzin: %1$s</string>
     <string name="chat_aborted">İptal edildi: %1$s</string>
@@ -408,6 +412,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_status">Durum</string>
     <string name="session_details_created">Oluşturulma</string>
     <string name="session_details_updated">Güncelleme</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d dosya)</string>
     <string name="chat_thinking_complete">%1$s düşündü</string>
     <string name="chat_token_usage_total">%,d token</string>
     <string name="chat_token_input">Giriş</string>

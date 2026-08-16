@@ -20,7 +20,7 @@
     <string name="sessions_new">Nouvelle session</string>
     <string name="session_status_idle">Inactif</string>
     <string name="session_status_busy">En cours…</string>
-    <string name="session_status_retry">Nouvelle tentative (%1$d/%2$d)</string>
+    <string name="session_status_retry">Nouvelle tentative (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Envoyer</string>
     <string name="chat_empty">Démarrer une conversation avec OpenCode</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">Supprimer « %1$s » ? Cette action est irréversible.</string>
     <string name="chat_stop">Arrêter</string>
     <string name="chat_copy">Copier</string>
+    <string name="chat_compressing_context">Compression du contexte : %1$s</string>
+    <string name="chat_compressing_context_plain">Compression du contexte…</string>
     <string name="chat_revert">Rétablir</string>
     <string name="chat_revert_title">Rétablir le message ?</string>
     <string name="chat_revert_message">Cela annulera ce message et tous les suivants. Les modifications de fichiers seront annulées.</string>
@@ -202,6 +204,8 @@
         <item quantity="other">%1$d fichiers modifiés</item>
     </plurals>
     <string name="chat_free_label">Gratuit</string>
+    <string name="chat_default_model">Modèle par défaut</string>
+    <string name="chat_output_truncated">Sortie tronquée par le serveur. Sortie complète enregistrée dans : %1$s</string>
     <string name="chat_question_label">Question</string>
     <string name="chat_permission_label">Autorisation : %1$s</string>
     <string name="chat_aborted">Annulé : %1$s</string>
@@ -406,6 +410,8 @@
     <string name="session_details_status">Statut</string>
     <string name="session_details_created">Créé</string>
     <string name="session_details_updated">Mis à jour</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d fichiers)</string>
     <string name="chat_thinking_complete">Réflexion pendant %1$s</string>
     <string name="chat_token_usage_total">%,d jetons</string>
     <string name="chat_token_input">Entrée</string>

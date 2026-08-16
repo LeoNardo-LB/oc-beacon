@@ -64,6 +64,7 @@ class SettingsDataStore @Inject constructor(
         private const val LOCALE_PREFS_KEY = "app_language"
 
         private const val SERVER_MODEL_HIDDEN_PREFIX = "server_model_hidden_"
+        private const val SERVER_DEFAULT_MODEL_PREFIX = "server_default_model_"
 
         /**
          * 从旧版 font size / compact 标志推导聊天密度。
@@ -352,6 +353,27 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { preferences ->
             val current = preferences[prefsKey] ?: emptySet()
             preferences[prefsKey] = if (visible) current - key else current + key
+        }
+    }
+
+    // ============ 默认模型（2026-08-16 方案 A） ============
+
+    private fun serverDefaultModelKey(serverId: String) =
+        stringPreferencesKey(SERVER_DEFAULT_MODEL_PREFIX + serverId)
+
+    /** 某服务器的本地默认模型（JSON "providerId|modelId|variant"，null=未设）。
+     *  🟠 妥协标记：V2 服务器 config.model 只读（PATCH 404），默认模型只能
+     *  客户端本地存（换设备/清数据丢失）——换 V1/V2 行为统一的代价。 */
+    fun defaultModel(serverId: String): Flow<String?> = dataStore.data.map { preferences ->
+        preferences[serverDefaultModelKey(serverId)]
+    }
+
+    /** 设置/清除默认模型（value=null 清除）。 */
+    suspend fun setDefaultModel(serverId: String, value: String?) {
+        val prefsKey = serverDefaultModelKey(serverId)
+        dataStore.edit { preferences ->
+            if (value == null) preferences.remove(prefsKey)
+            else preferences[prefsKey] = value
         }
     }
 

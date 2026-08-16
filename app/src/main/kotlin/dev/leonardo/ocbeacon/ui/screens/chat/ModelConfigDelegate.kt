@@ -59,6 +59,9 @@ internal class ModelConfigDelegate(
     private val _providers = MutableStateFlow<List<ProviderCatalog>>(emptyList())
     private val _hiddenModels = MutableStateFlow<Set<String>>(emptySet())
     private val _defaultModels = MutableStateFlow<Map<String, String>>(emptyMap())
+    /** 2026-08-16（方案 A·默认模型）：服务器级本地默认模型（"pid|mid|variant"）。
+     *  解析链优先级：显式选择 > 会话最后模型 > **本地默认** > provider default。 */
+    private val _localDefaultModel = MutableStateFlow<String?>(null)
     private val _selectedProviderId = MutableStateFlow<String?>(null)
     private val _selectedModelId = MutableStateFlow<String?>(null)
     // 跟踪模型是否被用户显式选择，以避免用默认值/历史覆盖
@@ -96,6 +99,9 @@ internal class ModelConfigDelegate(
             messagePaging.observeMessages(sid),
             sessionRepository.getSessionsFlow(serverId),
             tokenStatsTracker.stats,
+            // 2026-08-16（方案 A·默认模型）：作为 combine 源（缺位会重蹈任务面板
+            // R1 覆辙——状态在 lambda 内读但非源，变化不触发重算）
+            _localDefaultModel,
         ) { args ->
             @Suppress("UNCHECKED_CAST")
             val allProviders = args[0] as List<ProviderCatalog>
@@ -131,10 +137,20 @@ internal class ModelConfigDelegate(
                 if (lastUserWithModel?.model != null) {
                     effectiveProviderId = lastUserWithModel.model.providerId
                     effectiveModelId = lastUserWithModel.model.modelId
-                } else if (effectiveModelId == null && defaultModels.isNotEmpty()) {
-                    val entry = defaultModels.entries.first()
-                    effectiveProviderId = entry.key
-                    effectiveModelId = entry.value
+                } else if (effectiveModelId == null) {
+                    // 2026-08-16（方案 A·默认模型）：本地默认优先于 provider
+                    // default——新会话（无历史消息）即用默认模型。
+                    val localDefault = (args[12] as String?)?.split("|")
+                    if (localDefault != null && localDefault.size >= 2 &&
+                        localDefault[0].isNotBlank() && localDefault[1].isNotBlank()
+                    ) {
+                        effectiveProviderId = localDefault[0]
+                        effectiveModelId = localDefault[1]
+                    } else if (defaultModels.isNotEmpty()) {
+                        val entry = defaultModels.entries.first()
+                        effectiveProviderId = entry.key
+                        effectiveModelId = entry.value
+                    }
                 }
             }
 
@@ -286,6 +302,19 @@ internal class ModelConfigDelegate(
             }
         }
     }
+
+    /** 2026-08-16（方案 A·默认模型）：观察本地默认模型变化（combine 已含
+     *  _localDefaultModel 时自动重算——见下方 combine 源补位说明）。 */
+    fun observeLocalDefaultModel() {
+        scope.launch {
+            settingsRepository.defaultModel(serverId).collect { value ->
+                _localDefaultModel.value = value
+            }
+        }
+    }
+
+    /** 当前本地默认模型（"pid|mid|variant" 或 null）。 */
+    val localDefaultModel: String? get() = _localDefaultModel.value
 
     // ============ 选择（UI 门面） ============
 

@@ -41,7 +41,7 @@
     <string name="sessions_retrying">Mencoba ulang</string>
     <string name="session_status_idle">Tidak aktif</string>
     <string name="session_status_busy">Bekerja…</string>
-    <string name="session_status_retry">Mencoba ulang (%1$d/%2$d)</string>
+    <string name="session_status_retry">Mencoba ulang (%1$d)</string>
     <string name="session_rename">Ganti Nama Sesi</string>
     <string name="session_rename_title">Judul</string>
     <string name="session_rename_button">Ganti Nama</string>
@@ -57,6 +57,8 @@
     <string name="chat_stop">Stop</string>
     <string name="chat_empty">Mulai percakapan dengan OpenCode</string>
     <string name="chat_copy">Salin</string>
+    <string name="chat_compressing_context">Mengompresi konteks: %1$s</string>
+    <string name="chat_compressing_context_plain">Mengompresi konteks…</string>
     <string name="chat_revert">Batalkan perubahan</string>
     <string name="chat_revert_title">Batalkan pesan?</string>
     <string name="chat_revert_message">Ini akan membatalkan pesan ini dan semua pesan berikutnya. Perubahan file akan dikembalikan.</string>
@@ -135,6 +137,8 @@
         <item quantity="other">%1$d file diubah</item>
     </plurals>
     <string name="chat_free_label">Gratis</string>
+    <string name="chat_default_model">Model bawaan</string>
+    <string name="chat_output_truncated">Output dipotong oleh server. Output lengkap disimpan di: %1$s</string>
     <string name="chat_question_label">Pertanyaan</string>
     <string name="chat_permission_label">Izin: %1$s</string>
     <string name="chat_aborted">Dibatalkan: %1$s</string>
@@ -414,6 +418,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_status">Status</string>
     <string name="session_details_created">Dibuat</string>
     <string name="session_details_updated">Diperbarui</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d file)</string>
     <string name="chat_thinking_complete">Berpikir selama %1$s</string>
     <string name="chat_token_usage_total">%,d token</string>
     <string name="chat_token_input">Input</string>

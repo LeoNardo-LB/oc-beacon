@@ -28,6 +28,12 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setModelVisibility(serverId: String, providerId: String, modelId: String, visible: Boolean) =
         dataRepo.setModelVisibility(serverId, providerId, modelId, visible)
 
+    // 2026-08-16（方案 A·默认模型）
+    override fun defaultModel(serverId: String): Flow<String?> = dataRepo.defaultModel(serverId)
+
+    override suspend fun setDefaultModel(serverId: String, value: String?) =
+        dataRepo.setDefaultModel(serverId, value)
+
     // ============ 会话标签 ============
 
     override fun sessionTags(serverId: String): Flow<List<Tag>> = dataRepo.sessionTags(serverId)

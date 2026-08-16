@@ -20,7 +20,7 @@
     <string name="sessions_new">Нова сесія</string>
     <string name="session_status_idle">Очікує</string>
     <string name="session_status_busy">Працює…</string>
-    <string name="session_status_retry">Повтор спроби (%1$d/%2$d)</string>
+    <string name="session_status_retry">Повтор спроби (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Надіслати</string>
     <string name="chat_empty">Почніть розмову з OpenCode</string>
@@ -119,6 +119,8 @@
     <string name="session_delete_confirm">Видалити "%1$s"? Це неможливо скасувати.</string>
     <string name="chat_stop">Зупинити</string>
     <string name="chat_copy">Копіювати</string>
+    <string name="chat_compressing_context">Стиснення контексту: %1$s</string>
+    <string name="chat_compressing_context_plain">Стиснення контексту…</string>
     <string name="chat_revert">Відмінити зміни</string>
     <string name="chat_revert_title">Відмінити повідомлення?</string>
     <string name="chat_revert_message">Це скасує це повідомлення та всі наступні. Зміни файлів буде повернуто.</string>
@@ -210,6 +212,8 @@
         <item quantity="other">%1$d файла змінено</item>
     </plurals>
     <string name="chat_free_label">Безкоштовно</string>
+    <string name="chat_default_model">Модель за замовчуванням</string>
+    <string name="chat_output_truncated">Вивід скорочено сервером. Повний вивід збережено в: %1$s</string>
     <string name="chat_question_label">Питання</string>
     <string name="chat_permission_label">Дозвіл: %1$s</string>
     <string name="chat_aborted">Перервано: %1$s</string>
@@ -416,6 +420,8 @@
     <string name="session_details_status">Статус</string>
     <string name="session_details_created">Створена</string>
     <string name="session_details_updated">Оновлена</string>
+    <string name="session_details_diff">Diff</string>
+    <string name="session_details_diff_summary">+%1$d −%2$d (%3$d файлів)</string>
     <string name="chat_thinking_complete">Думав %1$s</string>
     <string name="chat_token_usage_total">%,d токенів</string>
     <string name="chat_token_input">Ввід</string>

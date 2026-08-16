@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,7 +51,11 @@ internal fun ModelPickerDialog(
     selectedProviderId: String?,
     selectedModelId: String?,
     onSelect: (providerId: String, modelId: String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    /** 2026-08-16（方案 A·默认模型）：当前本地默认模型（"pid|mid"），null=未设 */
+    defaultModel: String? = null,
+    /** 点星标设置/取消默认模型 */
+    onSetDefault: (providerId: String, modelId: String) -> Unit = { _, _ -> },
 ) {
     val isAmoled = isAmoledTheme()
     val params = amoledDialogParams(shape = ShapeTokens.largeMedium)
@@ -176,6 +182,21 @@ internal fun ModelPickerDialog(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.HIGH),
                                     modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
+                            // 2026-08-16（方案 A·默认模型）：星标=设/取消默认模型
+                            //（职责分离规范：专门按钮承担动作，整行点击仍是选模型）
+                            val isDefault = defaultModel == "${provider.id}|${model.id}"
+                            IconButton(
+                                onClick = { onSetDefault(provider.id, model.id) },
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    imageVector = if (isDefault) androidx.compose.material.icons.Icons.Filled.Star else androidx.compose.material.icons.Icons.Outlined.Star,
+                                    contentDescription = stringResource(dev.leonardo.ocbeacon.R.string.chat_default_model),
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isDefault) MaterialTheme.colorScheme.tertiary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = dev.leonardo.ocbeacon.ui.theme.AlphaTokens.MUTED)
                                 )
                             }
                             if (isSelected) {
