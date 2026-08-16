@@ -59,10 +59,15 @@ class ServerDataStore @Inject constructor(
         username: String = "opencode",
         password: String? = null,
         name: String? = null,
-        autoConnect: Boolean = false
+        autoConnect: Boolean = false,
+        /** 2026-08-17 根治（debug 激活 not found）：尊重调用方指定的 id——
+         *  原实现无条件 UUID.randomUUID()，调用方（MainActivity debug 激活）
+         *  持有的 id 与落盘 id 不一致 → 后续 resolveConnection 全部
+         *  "Server config not found" + 跳过版本探测停留 V1。 */
+        id: String = UUID.randomUUID().toString()
     ): ServerConfig {
         val server = ServerConfig(
-            id = UUID.randomUUID().toString(),
+            id = id,
             url = url.trimEnd('/'),
             username = username,
             password = password,

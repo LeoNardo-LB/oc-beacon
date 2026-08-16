@@ -123,6 +123,7 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 核心红线（细节见 release-workflow.md）：
 - **`version.properties` 是版本号唯一真相源**（`VERSION_CODE` 只增不减——**0.x 阶段豁免**（2026-08-07 用户决策：首个版本 0.1.0-beta.1 保持 code=1，无已安装用户；**1.0.0 起严格只增不减**）；禁止在 build.gradle.kts 硬编码；CI 用 grep 提取，**不要改变文件格式**）
 - **dev flavor 测试构建例外（2026-08-13 用户决策）**：`dev` flavor 的 `versionCode` 用 **Unix 时间戳**（build.gradle.kts 动态计算，见 app/build.gradle.kts `create("dev")`）——每次构建自动递增，`adb install -r` 即可覆盖安装（**保留 App 数据/服务器配置，禁止卸载重装**）；`version.properties` 仅 beta/stable 使用，不受 dev 构建影响。若覆盖安装报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`（签名不匹配），先核对 debug keystore 是否一致，**不要卸载重装**
+- **真机 dev 包跨签名源切换例外（2026-08-17 用户决策）**：真机上的 dev 包若来自 **CI 构建**（CI Secrets 签名），本地 `assembleDevDebug` 产物（本地 debug keystore）无法覆盖安装——此时允许**卸载重装**，代价仅是重新录入服务器配置（用户明确接受）。此为唯一例外：同签名源（本地↔本地）仍禁止卸载重装
 - **严禁在 `version.properties` 修改前执行 `assemble*`**（beta/stable），否则 APK 内嵌版本号与 tag/release 不一致（dev 构建不受此限——其 versionCode 与 version.properties 无关）
 - **每版本只发一个 APK**（命名 `oc-beacon-<VERSION>.apk`）；**不要删除历史 Release 和 Tag**（唯一例外：2026-08-07 用户决策清理全部 1.x 并重置 0.1.0，见 release-workflow §7）
 - **默认发预发布版**：除非用户明确说明"正式发版"或"发 stable"，否则一律 beta/dev（`--prerelease`）

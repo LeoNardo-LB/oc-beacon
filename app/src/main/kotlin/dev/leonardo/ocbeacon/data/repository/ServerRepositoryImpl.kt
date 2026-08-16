@@ -37,12 +37,15 @@ class ServerRepositoryImpl @Inject constructor(
     override fun getServersFlow(): Flow<List<ServerConfig>> = dataRepo.servers
 
     override suspend fun addServer(config: ServerConfig): Result<Unit> = runCatchingCancellable {
+        // 2026-08-17 根治：透传 config.id——原实现丢弃调用方 id 另造 UUID，
+        // debug 激活路径持有的 id 与落盘不一致 → "Server config not found"。
         dataRepo.addServer(
             url = config.url,
             username = config.username,
             password = config.password,
             name = config.name,
-            autoConnect = config.autoConnect
+            autoConnect = config.autoConnect,
+            id = config.id
         )
     }
 

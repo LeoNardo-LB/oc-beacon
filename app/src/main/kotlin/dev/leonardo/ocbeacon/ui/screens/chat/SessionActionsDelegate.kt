@@ -209,13 +209,47 @@ internal class SessionActionsDelegate(
                 )
                 val resultMsg = "[Question] replyToQuestion result: id=$requestId success=$success"
                 AppLogger.i(TAG, resultMsg)
-                chatRepository.removeQuestion(requestId)
+                // 2026-08-17 根治（问题卡片重复弹出）：success=false 时不再
+                // 无条件清内存——reply 未到达服务器（网络/契约失败）时服务器
+                // 侧 form 仍 pending，清内存只是让卡片暂时消失，下次进入会话
+                // loadPendingQuestions 重新注入 → 用户「每次进入都要重新点」。
+                // 失败路径：复核服务器侧状态——仍 pending 则保留卡片 + 提示
+                // 重试（用户可重点）；服务器已无此 pending（超时清理/已答）才移除。
+                if (success) {
+                    chatRepository.removeQuestion(requestId)
+                } else {
+                    removeQuestionIfGoneOnServer(requestId, "reply")
+                }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 val errMsg = "[Question] Exception replying to $requestId: ${e.javaClass.simpleName}: ${e.message}"
                 AppLogger.e(TAG, errMsg, e)
-                chatRepository.removeQuestion(requestId)
+                // 异常同理：服务器侧状态未知——复核后决定（不再静默清内存）
+                removeQuestionIfGoneOnServer(requestId, "reply(exception)")
             }
+        }
+    }
+
+    /**
+     * 2026-08-17 根治（问题卡片重复弹出）：reply/reject 失败后的去留判定——
+     * 复核服务器 pending 列表：该 id 仍存在 → 保留卡片（等待用户重试）；
+     * 已不存在（服务器超时清理/已被处理）→ 移除卡片。
+     */
+    private suspend fun removeQuestionIfGoneOnServer(requestId: String, op: String) {
+        val stillPending = try {
+            managePermissionUseCase.listPendingQuestions(serverId, sessionDirectoryProvider())
+                .any { it.id == requestId }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            AppLogger.w(TAG, "[Question] $op failed and re-check also failed for $requestId, keeping card: ${e.message}")
+            true // 复核失败时保守保留卡片（宁可多弹一次，不可静默丢回复）
+        }
+        if (!stillPending) {
+            AppLogger.i(TAG, "[Question] $op failed but server no longer pending $requestId -> remove card")
+            chatRepository.removeQuestion(requestId)
+        } else {
+            // 保留卡片（用户可重新提交）；卡片仍在场即视觉反馈，无 snackbar 通道
+            AppLogger.w(TAG, "[Question] $op failed for $requestId, server still pending -> keep card for retry")
         }
     }
 
@@ -234,12 +268,18 @@ internal class SessionActionsDelegate(
                 )
                 val resultMsg = "[Question] rejectQuestion result: id=$requestId success=$success"
                 AppLogger.i(TAG, resultMsg)
-                chatRepository.removeQuestion(requestId)
+                // 2026-08-17 根治（问题卡片重复弹出）：与 replyToQuestion 同理——
+                // reject 未到达服务器时保留卡片（复核服务器后决定）。
+                if (success) {
+                    chatRepository.removeQuestion(requestId)
+                } else {
+                    removeQuestionIfGoneOnServer(requestId, "reject")
+                }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 val errMsg = "[Question] Exception rejecting $requestId: ${e.javaClass.simpleName}: ${e.message}"
                 AppLogger.e(TAG, errMsg, e)
-                chatRepository.removeQuestion(requestId)
+                removeQuestionIfGoneOnServer(requestId, "reject(exception)")
             }
         }
     }

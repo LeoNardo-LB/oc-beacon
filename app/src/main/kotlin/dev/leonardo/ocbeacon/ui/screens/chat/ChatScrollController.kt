@@ -110,7 +110,7 @@ internal fun rememberChatScrollController(
     // 下一帧布局直接按位置定位 —— 无"旧 key 锚定偏移一帧 → 再拉回"的闪烁循环。
     LaunchedEffect(messageCount) {
         if (messageCount > 0 && autoScrollEnabled.value) {
-            dev.leonardo.ocbeacon.logging.AppLogger.d(TAG, "[probe] msgCount effect n=$messageCount autoScroll=${autoScrollEnabled.value} scrollInProgress=${listState.isScrollInProgress}")
+            // [probe] msgCount effect n=$messageCount autoScroll=${autoScrollEnabled.value} scrollInProgress=${listState.isScrollInProgress}
             // 2026-08-16 根治：死代码根因。原实现 `!listState.isScrollInProgress`
             // 条件失败（新消息恰逢用户 fling 惯性中到达）时静默跳过且不重试。
             // 现改为等待 fling 真实停止（snapshotFlow 订阅真实 State）后再锚定，
@@ -120,7 +120,14 @@ internal fun rememberChatScrollController(
                     snapshotFlow { listState.isScrollInProgress }.first { !it }
                 }
             }
-            listState.requestScrollToItem(0)
+            // 2026-08-17 根治（fling 跳底）：effect 启动时读到的 autoScroll 是
+            // 一次性快照——若用户恰在 effect 启动后开始拖动（快照时 autoScroll
+            // 仍 true），等待 fling 结束后无条件 requestScrollToItem(0) 会把
+            // 用户正翻看的历史位置强拉回底部。等待结束后**重新校验**：用户
+            // 拖动已置 autoScroll=false 则放弃锚定（尊重用户的阅读位置）。
+            if (autoScrollEnabled.value) {
+                listState.requestScrollToItem(0)
+            }
         }
     }
 
@@ -140,7 +147,18 @@ internal fun rememberChatScrollController(
     LaunchedEffect(pendingCount) {
         if (pendingCount > 0 && autoScrollEnabled.value) {
             snapshotFlow(hasMessages).first { it }
-            listState.snapToBottom()
+            // 2026-08-17 根治（fling 跳底）：pending 卡片注入（进入会话时
+            // loadPending 延迟到达）触发的 snapToBottom 不能打断用户手势——
+            // 用户正在拖动/fling 时跳过本次（下一个 effect 周期或 force 路径
+            // 兜底）；等待后再重新校验 autoScroll（拖动已关闭则不动）。
+            if (listState.isScrollInProgress) {
+                withTimeoutOrNull(2_000) {
+                    snapshotFlow { listState.isScrollInProgress }.first { !it }
+                }
+            }
+            if (autoScrollEnabled.value) {
+                listState.snapToBottom()
+            }
         }
     }
 
