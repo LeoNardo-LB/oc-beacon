@@ -16,6 +16,25 @@ object DateFormatters {
     fun timeOnly(locale: Locale = Locale.getDefault()): SimpleDateFormat =
         SimpleDateFormat("HH:mm", locale)
 
+    /**
+     * 消息气泡标题栏的条件时间戳（2026-08-16 用户需求）：
+     * 当天 → "HH:mm:ss"；非当天 → "yyyy-MM-dd HH:mm:ss"。
+     * 实现：两条格式化器 + 当天判断（按本地时区自然日，非 24h 滚动窗口——
+     * 跨零点后前一天的立即显示完整日期，符合"看日期才知道是哪天"直觉）。
+     * 调用方 remember(timeMs) 按时间戳缓存结果。
+     */
+    fun messageTimestamp(timeMs: Long, nowMs: Long = System.currentTimeMillis(), locale: Locale = Locale.getDefault()): String {
+        val cal = java.util.Calendar.getInstance(locale).apply { timeInMillis = timeMs }
+        val now = java.util.Calendar.getInstance(locale).apply { timeInMillis = nowMs }
+        val sameDay = cal.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+            cal.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR)
+        return if (sameDay) {
+            SimpleDateFormat("HH:mm:ss", locale).format(java.util.Date(timeMs))
+        } else {
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", locale).format(java.util.Date(timeMs))
+        }
+    }
+
     /** "MM-dd HH:mm"（Locale.getDefault()）——快速导航/上下文详情。 */
     fun monthDayHourMinute(locale: Locale = Locale.getDefault()): SimpleDateFormat =
         SimpleDateFormat("MM-dd HH:mm", locale)

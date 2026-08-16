@@ -128,9 +128,10 @@ fun QuickNavigateSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // 与后台面板/模型选择统一：30%-75% 屏高
+                // 2026-08-16（用户决策）：抽屉只设上限 75% 屏高——去掉 30% 下限，
+                // 内容少时自然收缩不强制撑高；内容多时截断到 75% 内部滚动。
+                // 与后台面板/模型选择统一。
                 .heightIn(
-                    min = LocalConfiguration.current.screenHeightDp.dp * 0.3f,
                     max = LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 )
                 .navigationBarsPadding()

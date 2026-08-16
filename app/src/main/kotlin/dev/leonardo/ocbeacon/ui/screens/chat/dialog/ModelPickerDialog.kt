@@ -77,9 +77,8 @@ internal fun ModelPickerDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // 2026-08-12 用户要求：与后台面板高度一致（30%-75% 屏高）
+                // 2026-08-16（用户决策）：只设上限 75% 屏高（去 30% 下限，内容自然收缩）
                 .heightIn(
-                    min = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.3f,
                     max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.75f
                 )
         ) {
