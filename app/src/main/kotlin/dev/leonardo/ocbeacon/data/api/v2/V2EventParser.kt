@@ -45,6 +45,7 @@ class V2EventParser(private val json: Json) : SseEventParser {
         "session.shell.",
         "session.execution.",
         "session.instructions.",
+        "session.compaction.",
         "session.compacted",
         "shell."
     )
@@ -97,8 +98,21 @@ class V2EventParser(private val json: Json) : SseEventParser {
                 return SseEvent.ShellJobEnded(info = info, output = output)
             }
         }
-        // V2 压缩完成事件（2026-08-12 实测：V2 服务器只发单个
-        // session.compacted {sessionID}，无 V1 的 started/delta/ended 三件套）
+        // V2 压缩完成事件（2026-08-16 更新：部署版也发 compaction.started，见上方分支）
+        // V2 压缩完成事件。2026-08-16 重大更新（E2E 实证）：next-17430 部署版
+        // **会发 session.compaction.started**（此前调研结论「V2 只发单个
+        // session.compacted」基于旧版本，已过时）——现补齐解析为
+        // CompactionStarted（事件驱动优先于 SessionActionsDelegate 本地置态）。
+        if (eventType == "session.compaction.started") {
+            val sid = sessionIdOrNull(props) ?: return null
+            return SseEvent.SessionNext(
+                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionStarted(
+                    sessionId = sid,
+                    messageId = props["messageID"]?.jsonPrimitive?.contentOrNull ?: "",
+                    reason = props["reason"]?.jsonPrimitive?.contentOrNull ?: "",
+                )
+            )
+        }
         if (eventType == "session.compacted") {
             val sid = sessionIdOrNull(props) ?: return null
             return SseEvent.SessionNext(

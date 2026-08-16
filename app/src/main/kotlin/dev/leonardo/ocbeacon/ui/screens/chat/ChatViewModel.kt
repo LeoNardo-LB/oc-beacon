@@ -313,6 +313,12 @@ class ChatViewModel @Inject constructor(
     )
     val draftText: StateFlow<String> get() = draftDelegate.draftText
     val revertedDraftEvent: SharedFlow<RevertedDraftPayload> get() = draftDelegate.revertedDraftEvent
+
+    /** 2026-08-16（压缩完成后才通知）：SSE session.compacted 事件（压缩完毕
+     *  确切时刻）触发的完成通知——ChatScreen collect 显示 snackbar。 */
+    private val _compactionDoneEvent = kotlinx.coroutines.flow.MutableSharedFlow<Boolean>(extraBufferCapacity = 4)
+    val compactionDoneEvent: SharedFlow<Boolean> = _compactionDoneEvent
+
     val draftAttachmentUris: StateFlow<List<String>> get() = draftDelegate.draftAttachmentUris
     val confirmedFilePaths: StateFlow<Set<String>> get() = draftDelegate.confirmedFilePaths
 
@@ -339,6 +345,20 @@ class ChatViewModel @Inject constructor(
         loadPendingQuestions = { messageData.loadPendingQuestions() },
         loadPendingPermissions = { messageData.loadPendingPermissions() },
         restoreRevertedDraft = { draftDelegate.restoreRevertedDraft(it) },
+        // 2026-08-16（压缩气泡·V2 适配）：压缩状态注入 EventDispatcher ——
+        // compactSession 发起前置 CompactionStarted（V2 无服务器 started 事件，
+        // 进行中气泡唯一驱动），结束时 CompactionEnded（幂等）。
+        compactionNotifier = { sid, started, reason ->
+            val next = if (started) {
+                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionStarted(sid, messageId = "", reason = reason)
+            } else {
+                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionEnded(sid, messageId = "")
+            }
+            eventDispatcher.processEvent(
+                dev.leonardo.ocbeacon.domain.model.SseEvent.SessionNext(next),
+                serverId,
+            )
+        },
     )
 
     // ============ 设置 StateFlow Delegate ============
@@ -498,6 +518,11 @@ class ChatViewModel @Inject constructor(
                     if (sessionId in compacted && compacted != lastCompacted) {
                         lastCompacted = compacted
                         messageData.refreshMessages()
+                        // 2026-08-16（压缩完成后才通知·用户需求）：SSE
+                        // session.compacted 事件 = 压缩**完毕**的确切时刻——
+                        // 成功通知从 HTTP 回调挪到这里（HTTP 返回≠压缩完成的
+                        // 语义歧义消除；失败通知仍走 HTTP 回调——SSE 无事件）。
+                        _compactionDoneEvent.tryEmit(true)
                         // 压缩后上下文重置——session 级 tokens 重新拉取（bootstrap 语义）
                         runCatching {
                             val s = manageSessionUseCase.getSession(serverId, sessionId)

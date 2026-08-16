@@ -66,6 +66,12 @@ internal class SessionActionsDelegate(
     private val loadPendingQuestions: suspend () -> Unit,
     private val loadPendingPermissions: suspend () -> Unit,
     private val restoreRevertedDraft: (RevertedDraftPayload) -> Unit,
+    /** 2026-08-16（压缩气泡·V2 适配）：压缩状态注入回调——发起前注入
+     *  CompactionStarted（V2 服务器只发单个 session.compacted 完成事件，
+     *  无 V1 的 started 三件套 → 进行中气泡在 V2 永不显示的根因），
+     *  HTTP 返回/失败注入 CompactionEnded（幂等，SSE compacted 事件
+     *  到达时同样 Ended）。由 ChatViewModel 转发到 EventDispatcher。 */
+    private val compactionNotifier: (sessionId: String, started: Boolean, reason: String) -> Unit = { _, _, _ -> },
 ) {
     private val sessionId: String get() = sessionIdProvider()
 
@@ -277,9 +283,19 @@ internal class SessionActionsDelegate(
                     onResult(false)
                     return@launch
                 }
-                shareExportUseCase.compactSession(serverId, sessionId, providerId, modelId)
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Compacted session $sessionId")
-                onResult(true)
+                // 2026-08-16（压缩气泡·V2 适配）：本地置「压缩进行中」——V1 服务器
+                // 随后发 compaction.started 三件套（幂等覆盖）；V2 只有单个
+                // session.compacted 完成事件，本地置态是进行中气泡唯一驱动。
+                // HTTP 挂起期间（服务器跑 LLM 摘要可达数十秒）界面不再静止。
+                compactionNotifier(sessionId, true, "")
+                try {
+                    shareExportUseCase.compactSession(serverId, sessionId, providerId, modelId)
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Compacted session $sessionId")
+                    onResult(true)
+                } finally {
+                    // 成功/失败都结束进行中态（成功时 SSE compacted 也会 Ended——幂等）
+                    compactionNotifier(sessionId, false, "")
+                }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to compact session", e)

@@ -343,6 +343,13 @@ fun ChatScreen(
         coroutineScope = coroutineScope,
     )
     val context = LocalContext.current
+    // 2026-08-16（压缩完成后才通知·用户需求）：成功通知由 SSE
+    // session.compacted 事件驱动（压缩完毕的确切时刻）——HTTP 回调只报失败。
+    LaunchedEffect(Unit) {
+        viewModel.compactionDoneEvent.collect {
+            snackbarHostState.showSnackbar(context.getString(R.string.chat_session_compacted))
+        }
+    }
 
     // 首次进入 ChatScreen 时预热 WebView V8 引擎，避免第一次打开文件变慢。
     // 每个进程只执行一次；一次性 WebView 会自动销毁。
@@ -598,10 +605,14 @@ fun ChatScreen(
                         onCompactSession = {
                             scrollController.forceScrollToBottom()
                             viewModel.compactSession { ok ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_session_compacted) else context.getString(R.string.chat_session_compact_failed)
-                                    )
+                                // 2026-08-16：成功通知移到 SSE compacted 事件
+                                //（压缩完毕才提示）；HTTP 回调只报失败
+                                if (!ok) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            context.getString(R.string.chat_session_compact_failed)
+                                        )
+                                    }
                                 }
                             }
                         },
