@@ -62,6 +62,8 @@ interface MessageApi {
      */
     suspend fun replyToPermission(
         conn: ServerConnection,
+        /** 2026-08-17：V2 新契约需要——权限所属会话（子会话权限传子会话 id）。 */
+        sessionId: String,
         requestId: String,
         reply: String, // "once"、"always" 或 "reject"
         message: String? = null,
@@ -166,12 +168,13 @@ class MessageApiImpl @Inject constructor(
 
     override suspend fun replyToPermission(
         conn: ServerConnection,
+        sessionId: String,
         requestId: String,
         reply: String,
         message: String?,
         directory: String?
     ): Boolean =
-        if (conn.apiVersion.isV2) v2.replyToPermission(conn, requestId, reply, message, directory)
+        if (conn.apiVersion.isV2) v2.replyToPermission(conn, sessionId, requestId, reply, message, directory)
         else v1.replyToPermission(conn, requestId, reply, message, directory)
 
     override suspend fun listPendingPermissions(conn: ServerConnection, directory: String?): List<PermissionRequest> =

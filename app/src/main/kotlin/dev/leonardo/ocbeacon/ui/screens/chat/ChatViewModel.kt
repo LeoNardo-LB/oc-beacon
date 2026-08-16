@@ -758,8 +758,8 @@ class ChatViewModel @Inject constructor(
 
     // ============ 权限/问题回复（门面 —— SessionActionsDelegate） ============
 
-    fun replyToPermission(requestId: String, reply: String) =
-        sessionActions.replyToPermission(requestId, reply)
+    fun replyToPermission(requestId: String, reply: String, sessionId: String? = null) =
+        sessionActions.replyToPermission(requestId, reply, sessionId)
 
     fun savePermissionRule(event: dev.leonardo.ocbeacon.domain.model.SseEvent.PermissionAsked, directory: String) =
         sessionActions.savePermissionRule(event, directory)

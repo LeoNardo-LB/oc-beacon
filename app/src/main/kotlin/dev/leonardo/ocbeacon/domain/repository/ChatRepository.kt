@@ -126,6 +126,8 @@ interface ChatRepository {
      */
     suspend fun respondPermission(
         serverId: String,
+        /** 2026-08-17：V2 reply 路由需要——权限所属会话 id。 */
+        sessionId: String,
         permissionId: String,
         reply: String,
         directory: String? = null

@@ -550,6 +550,7 @@ class OpenCodeConnectionService : Service() {
                         val replied = runCatching {
                             managePermissionUseCase.replyToPermission(
                                 serverId = server.id,
+                                sessionId = event.sessionId,
                                 requestId = event.id,
                                 reply = "always",
                                 directory = sessionDirectory,

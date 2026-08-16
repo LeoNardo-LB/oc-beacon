@@ -334,12 +334,14 @@ class V2ApiClientTest {
 
     @Test
     fun `replyToPermission posts to V2 permission reply path`() = runTest {
+        // 2026-08-17 根治（权限卡重弹）：真实契约为
+        // /api/session/{sid}/permission/{id}/reply + {"reply":"once"}（真机 E2E 实测 204）
         val engine = MockEngine { request ->
-            assertEquals("/api/permission/req_1/reply", request.url.encodedPath)
+            assertEquals("/api/session/ses_1/permission/req_1/reply", request.url.encodedPath)
             respond("", HttpStatusCode.OK)
         }
         val api = buildClient(engine)
-        assertTrue(api.replyToPermission(v2Conn, "req_1", "once"))
+        assertTrue(api.replyToPermission(v2Conn, "ses_1", "req_1", "once"))
     }
 
     @Test

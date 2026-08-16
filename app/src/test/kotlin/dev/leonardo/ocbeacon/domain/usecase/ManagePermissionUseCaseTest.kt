@@ -16,18 +16,18 @@ class ManagePermissionUseCaseTest {
 
     @Test
     fun `replyToPermission delegates to chatRepository and returns true`() = runTest {
-        coEvery { chatRepository.respondPermission("server1", "p1", "allow", any()) } returns Result.success(true)
+        coEvery { chatRepository.respondPermission("server1", "ses_x", "p1", "allow", any()) } returns Result.success(true)
 
-        val result = useCase.replyToPermission("server1", "p1", "allow", null)
+        val result = useCase.replyToPermission("server1", "ses_x", "p1", "allow", null)
 
         assertTrue(result)
     }
 
     @Test
     fun `replyToPermission delegates to chatRepository and returns false`() = runTest {
-        coEvery { chatRepository.respondPermission("server1", "p1", "deny", any()) } returns Result.success(false)
+        coEvery { chatRepository.respondPermission("server1", "ses_x", "p1", "deny", any()) } returns Result.success(false)
 
-        val result = useCase.replyToPermission("server1", "p1", "deny", null)
+        val result = useCase.replyToPermission("server1", "ses_x", "p1", "deny", null)
 
         assertEquals(false, result)
     }

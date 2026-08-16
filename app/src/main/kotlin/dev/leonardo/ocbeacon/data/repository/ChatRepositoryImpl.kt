@@ -258,12 +258,13 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun respondPermission(
         serverId: String,
+        sessionId: String,
         permissionId: String,
         reply: String,
         directory: String?
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        messageApi.replyToPermission(conn, permissionId, reply, directory = directory)
+        messageApi.replyToPermission(conn, sessionId, permissionId, reply, directory = directory)
     }
 
     // ============ 待处理查询 ============

@@ -15,8 +15,8 @@ class ManagePermissionUseCase @Inject constructor(
     suspend fun listPendingPermissions(serverId: String, directory: String?): List<PermissionState> =
         chatRepository.listPendingPermissions(serverId, directory).getOrThrow()
 
-    suspend fun replyToPermission(serverId: String, requestId: String, reply: String, directory: String?): Boolean =
-        chatRepository.respondPermission(serverId, requestId, reply, directory).getOrThrow()
+    suspend fun replyToPermission(serverId: String, sessionId: String, requestId: String, reply: String, directory: String?): Boolean =
+        chatRepository.respondPermission(serverId, sessionId, requestId, reply, directory).getOrThrow()
 
     suspend fun listPendingQuestions(serverId: String, directory: String?): List<QuestionState> =
         chatRepository.listPendingQuestions(serverId, directory).getOrThrow()

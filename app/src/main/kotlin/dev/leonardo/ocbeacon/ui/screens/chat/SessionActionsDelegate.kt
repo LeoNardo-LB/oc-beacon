@@ -151,32 +151,61 @@ internal class SessionActionsDelegate(
      * @param requestId 权限请求 ID
      * @param reply 取值之一："once"、"always"、"reject"
      */
-    fun replyToPermission(requestId: String, reply: String) {
+    fun replyToPermission(requestId: String, reply: String, sessionId: String? = null) {
         scope.launch {
-            val logMsg = "[Permission] replyToPermission: id=$requestId reply=$reply dir=${sessionDirectoryProvider()}"
+            val logMsg = "[Permission] replyToPermission: id=$requestId reply=$reply sid=$sessionId dir=${sessionDirectoryProvider()}"
             AppLogger.i(TAG, logMsg)
             try {
                 val success = managePermissionUseCase.replyToPermission(
                     serverId = serverId,
+                    // 2026-08-17：V2 reply 路由需要权限所属会话（子会话权限必须
+                    // 传子会话 id，父会话 404）。缺省回退当前会话（V1 与同会话场景）。
+                    sessionId = sessionId ?: sessionIdProvider(),
                     requestId = requestId,
                     reply = reply,
                     directory = sessionDirectoryProvider()
                 )
                 val resultMsg = "[Permission] replyToPermission result: id=$requestId success=$success"
                 AppLogger.i(TAG, resultMsg)
+                // 2026-08-17 根治（权限卡每次进入重弹）：失败不再无条件清卡——
+                // 原 fallback 假设「失败=已回复过」不成立：网络/路由失败时服务器
+                // 侧仍 pending，清内存只是暂时消失，下次进入 loadPendingPermissions
+                // 重新注入 → 用户「每次进入都要重新点」。失败复核服务器：
+                // 仍 pending 保留卡片；已不在（真已回复）才移除。
                 if (success) {
                     chatRepository.removePermission(requestId)
                 } else {
-                    val warnMsg = "[Permission] API returned failure for $requestId, removing card as fallback (likely already replied)"
-                    AppLogger.w(TAG, warnMsg)
-                    chatRepository.removePermission(requestId)
+                    removePermissionIfGoneOnServer(requestId, "reply")
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 val errMsg = "[Permission] Exception replying to $requestId: ${e.javaClass.simpleName}: ${e.message}"
                 AppLogger.e(TAG, errMsg, e)
-                chatRepository.removePermission(requestId)
+                // 异常同理：服务器侧状态未知——复核后决定
+                removePermissionIfGoneOnServer(requestId, "reply(exception)")
             }
+        }
+    }
+
+    /**
+     * 2026-08-17 根治（权限卡每次进入重弹）：reply 失败后的去留判定——
+     * 复核服务器 pending 列表：该 id 仍存在 → 保留卡片（用户重试）；
+     * 已不存在 → 移除。复核自身失败时保守保留（宁多重弹，不静默丢授权）。
+     */
+    private suspend fun removePermissionIfGoneOnServer(requestId: String, op: String) {
+        val stillPending = try {
+            managePermissionUseCase.listPendingPermissions(serverId, sessionDirectoryProvider())
+                .any { it.id == requestId }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            AppLogger.w(TAG, "[Permission] $op failed and re-check also failed for $requestId, keeping card: ${e.message}")
+            true
+        }
+        if (!stillPending) {
+            AppLogger.i(TAG, "[Permission] $op failed but server no longer pending $requestId -> remove card")
+            chatRepository.removePermission(requestId)
+        } else {
+            AppLogger.w(TAG, "[Permission] $op failed for $requestId, server still pending -> keep card for retry")
         }
     }
 

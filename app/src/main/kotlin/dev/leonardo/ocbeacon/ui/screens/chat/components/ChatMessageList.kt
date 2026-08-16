@@ -784,12 +784,12 @@ fun ChatMessageList(
                                 permission = permission,
                                 positionLabel = if (interaction.pendingPermissions.size > 1) "1/${interaction.pendingPermissions.size}" else null,
                                 onOnce = {
-                                    viewModel.replyToPermission(permission.id, "once")
+                                    viewModel.replyToPermission(permission.id, "once", permission.sessionId)
                                     onForceScrollToBottom()
                                 },
                                 onAlways = { showAlwaysDialog = permission },
                                 onReject = {
-                                    viewModel.replyToPermission(permission.id, "reject")
+                                    viewModel.replyToPermission(permission.id, "reject", permission.sessionId)
                                     onForceScrollToBottom()
                                 }
                             )
@@ -1129,7 +1129,7 @@ fun ChatMessageList(
                     directoryPattern = viewModel.getSessionDirectory() ?: "*",
                     onConfirm = {
                         viewModel.savePermissionRule(perm, viewModel.getSessionDirectory() ?: "*")
-                        viewModel.replyToPermission(perm.id, "always")
+                        viewModel.replyToPermission(perm.id, "always", perm.sessionId)
                         showAlwaysDialog = null
                     },
                     onDismiss = { showAlwaysDialog = null }

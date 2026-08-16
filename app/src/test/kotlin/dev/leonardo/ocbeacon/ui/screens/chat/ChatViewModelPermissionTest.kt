@@ -448,7 +448,7 @@ class ChatViewModelPermissionTest {
         coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "perm-reply")
         )
-        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } returns true
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any(), any()) } returns true
 
         val vm = createViewModel()
         assertEquals("Precondition: 1 permission loaded",
@@ -456,7 +456,7 @@ class ChatViewModelPermissionTest {
 
         vm.replyToPermission("perm-reply", "once")
 
-        coVerify { managePermissionUseCase.replyToPermission(any(), "perm-reply", "once", any()) }
+        coVerify { managePermissionUseCase.replyToPermission(any(), any(), "perm-reply", "once", any()) }
         assertTrue(eventDispatcher.permissions.value[testSessionId].isNullOrEmpty())
     }
 
@@ -465,13 +465,13 @@ class ChatViewModelPermissionTest {
         coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pa")
         )
-        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } returns true
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any(), any()) } returns true
 
         val vm = createViewModel()
 
         vm.replyToPermission("pa", "always")
 
-        coVerify { managePermissionUseCase.replyToPermission(any(), "pa", "always", any()) }
+        coVerify { managePermissionUseCase.replyToPermission(any(), any(), "pa", "always", any()) }
         assertTrue(eventDispatcher.permissions.value[testSessionId].isNullOrEmpty())
     }
 
@@ -480,28 +480,43 @@ class ChatViewModelPermissionTest {
         coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pr")
         )
-        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } returns true
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any(), any()) } returns true
 
         val vm = createViewModel()
 
         vm.replyToPermission("pr", "reject")
 
-        coVerify { managePermissionUseCase.replyToPermission(any(), "pr", "reject", any()) }
+        coVerify { managePermissionUseCase.replyToPermission(any(), any(), "pr", "reject", any()) }
         assertTrue(eventDispatcher.permissions.value[testSessionId].isNullOrEmpty())
     }
 
     @Test
-    fun `replyToPermission removes card even when API returns false`() = runTest {
+    fun `replyToPermission API false keeps card when server still pending`() = runTest {
+        // 2026-08-17 根治（权限卡重弹）：失败不再无条件清卡——复核服务器
+        // 仍 pending → 保留卡片（旧「失败也移除」正是重弹根因的一半）。
         coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pf")
         )
-        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } returns false
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any(), any()) } returns false
 
         val vm = createViewModel()
 
         vm.replyToPermission("pf", "once")
 
-        // 即使 API 失败也会移除卡片，防止 UI 状态卡死
+        val perms = eventDispatcher.permissions.value[testSessionId]
+        assertEquals(1, perms?.size)
+        assertEquals("pf", perms?.firstOrNull()?.id)
+    }
+
+    @Test
+    fun `replyToPermission API false removes card when server confirms gone`() = runTest {
+        coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns emptyList()
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any(), any()) } returns false
+
+        val vm = createViewModel()
+
+        vm.replyToPermission("pf", "once")
+
         assertTrue(eventDispatcher.permissions.value[testSessionId].isNullOrEmpty())
     }
 
@@ -511,7 +526,7 @@ class ChatViewModelPermissionTest {
             createTestPermissionRequest(id = "p1", permission = "bash"),
             createTestPermissionRequest(id = "p2", permission = "write")
         )
-        coEvery { managePermissionUseCase.replyToPermission(any(), "p1", any(), any()) } returns true
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), "p1", any(), any()) } returns true
 
         val vm = createViewModel()
 
@@ -524,18 +539,19 @@ class ChatViewModelPermissionTest {
     }
 
     @Test
-    fun `replyToPermission removes card even on API exception`() = runTest {
+    fun `replyToPermission API exception keeps card when server still pending`() = runTest {
+        // 2026-08-17 根治：异常后复核服务器——仍 pending 保留卡片（用户重试）。
         coEvery { managePermissionUseCase.listPendingPermissions(any(), any()) } returns listOf(
             createTestPermissionRequest(id = "pe")
         )
-        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any()) } throws RuntimeException("err")
+        coEvery { managePermissionUseCase.replyToPermission(any(), any(), any(), any(), any()) } throws RuntimeException("err")
 
         val vm = createViewModel()
 
         vm.replyToPermission("pe", "once")
 
-        // 即使出现异常也会移除卡片，防止 UI 状态卡死
-        assertTrue(eventDispatcher.permissions.value[testSessionId].isNullOrEmpty())
+        val perms = eventDispatcher.permissions.value[testSessionId]
+        assertEquals(1, perms?.size)
     }
 
     // ============================================================
