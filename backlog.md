@@ -1324,7 +1324,26 @@ $(echo "
   - ④ **V2 fork 端点 handleRaw 冲突 bug**（任何 body 400）：已知服务器 bug，等官方修复或提 PR（需按前提流程）
   - ⑤ **工具输出保尾截头（30K 字符/2000 行）语义**：设计使然非缺陷；候选 feature request——progress metadata 提前携带 truncated/outputPath 让客户端更早提示
   - 状态：`[ ]` 候选池——提 issue/PR 前逐项按前提流程执行
-\n### 遗留观察项（非本次修复引入）
+\n
+- [ ] **#147 androidTest UI 测试全部失败（HiltTestRunner 与 Compose 测试规则不兼容）** `refactor` `test`
+  - 现象：2026-08-16 修复 androidTest 编译后首次真跑，全部 UI 测试报
+    "No compose hierarchies found in the app"（HiltTestRunner 启动的 Activity
+    与 createComposeRule/createAndroidComposeRule<ComponentActivity> 不兼容）
+  - 修复方向：迁移 androidx.compose.ui.test.junit4.v2 API + HiltAndroidRule
+    组合，或为非 Hilt 测试提供独立 TestRunner（gradle 配置多 runner）
+  - 已完成的前置：Fake 接口对齐（6 个）+ FakeMessageCacheRepository +
+    Hilt 测试图 MissingBinding 修复——编译层已通，仅剩运行时规则问题
+  - 状态：`[ ]` 待修复
+
+- [x] **#148 任务面板 subagent 点击「无法进入」——2026-08-16 归因关闭（环境问题非 App bug）** `ui`
+  - 现象：模拟器点击 TaskSheet 列表项无反应（探针 0 触发、sendevent 原始注入同样失效）
+  - 排查：git 回退 TaskSheet+ChatScreen+ChatViewModel 至正常版本仍复现 →
+    排除代码；**重启模拟器后恢复正常**（完整跳转链验证 ✅）
+  - 结论：模拟器长时间运行（8h+）输入系统劣化——仅 ModalBottomSheet 内
+    Compose clickable 失效。E2E 排障守则：长会话后「点击无反应」先重启模拟器
+  - 状态：`[x]` 归因关闭（无代码缺陷；App 实际跳转功能正常，dev.11 真机可验）
+
+### 遗留观察项（非本次修复引入）
 
 - [x] **#143 V1 发送后"用户消息不显示"——2026-08-15 判定为误报（验证方法缺陷）** `v1`
   - 现象：V1 E2E 中发送 v1_regression_e2e_final_check 后 UI dump 找不到该文本 → 误判"消息不显示"
