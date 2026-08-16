@@ -132,6 +132,14 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         val sessionId = event.info.id
         _sessions.update { it.filter { s -> s.id != sessionId } }
         _sessionDiffs.update { it - sessionId }
+        // 2026-08-16（F6 泄漏清理）：_serverSessions（会话归属服务器映射）同步
+        // 清理——原实现只清 _sessions/_sessionDiffs，删除的会话 id 永驻映射
+        //（无害但随时间无限增长）。
+        _serverSessions.update { map ->
+            val mutable = map.toMutableMap()
+            mutable.values.removeAll { it.contains(sessionId) }
+            mutable.mapValues { (_, v) -> v }.toMap()
+        }
         // #96（L-2 泄漏补漏）：服务器确认删除的会话，per-session 缓存
         // 必须同步清理——原实现漏清 _lastUserMessageTime 与
         // locallyClearedReverts（#89 的 clearForSession 只在退出会话时调用，

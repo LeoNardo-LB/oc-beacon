@@ -144,6 +144,8 @@ class ChatViewModel @Inject constructor(
         serverId = serverId,
         sessionIdFlow = sessionLifecycle.sessionIdFlow,
         scope = viewModelScope,
+        // 2026-08-16（R3 僵尸自愈）：active 轮询发现 FSM 与服务器分歧时触发 L3 校验
+        sessionStateService = sessionStateService,
     )
 
     /** 启动任务轮询（ChatScreen 组合时调用；幂等）。 */

@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.data.repository.ShellJobsStore
+import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.ShellJob
@@ -37,6 +38,8 @@ data class SubagentSummary(
     val startedAt: Long? = null,
     /** 子会话模型 id（2026-08-12 面板第二行展示） */
     val modelId: String? = null,
+    /** 2026-08-16（#145）：执行时长 ms（完成态 updated-created 近似；运行中 null=UI 走时） */
+    val durationMs: Long? = null,
 )
 
 /**
@@ -71,7 +74,10 @@ class TaskAggregator(
     private val shellJobsStore: ShellJobsStore,
     private val serverId: String,
     sessionIdFlow: kotlinx.coroutines.flow.Flow<String>,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    /** 2026-08-16（R3 僵尸自愈）：active 轮询发现 FSM 与服务器状态分歧时触发
+     *  L3 校验。可空——测试/旧调用方不传时跳过否定校验（仅派生展示）。 */
+    private val sessionStateService: dev.leonardo.ocbeacon.domain.repository.SessionStateRepository? = null,
 ) {
     /** 前台活跃会话 ID（V2 /api/session/active 轮询）——运行中会话的权威来源。
      *  V2 不广播 session.status SSE 事件（V1 才有），FSM 的 statusFlow 无法
@@ -107,11 +113,27 @@ class TaskAggregator(
 
     /** 单次刷新（供一次性同步与测试）。 */
     suspend fun refreshActiveSessions() {
-        activeSessionIds.value = chatRepository.listActiveSessions(serverId)
+        val active = chatRepository.listActiveSessions(serverId)
             .getOrNull()
             ?.filterValues { it.type == "running" || it.type == "busy" }
             ?.keys
             ?: emptySet()
+        activeSessionIds.value = active
+        // 2026-08-16 根治（任务面板 R3——僵尸「进行中」永不自愈）：FSM 对子会话
+        // 置 Busy 后若 execution.succeeded 丢失（服务器重启/竞态），FSM 恒 Busy
+        // 且 activeSessionIds 只加不减的 OR 语义无法纠正。轮询结果是服务器权威
+        // 快照——对「FSM Busy 但不在 active」的会话触发 L3 REST 校验
+        //（SessionStateService.requestValidation → fetchSessionStatuses 对比
+        // 修正，含僵尸清理），轮询从"只加不减的摆设"变为否定信号源。
+        if (active.isNotEmpty() || sessionStateService != null) {
+            val busyIds = sessionStateService?.statusFlow?.value
+                ?.filterValues { it == SessionStatus.Busy }?.keys.orEmpty()
+            val staleBusy = busyIds - active
+            if (staleBusy.isNotEmpty()) {
+                AppLogger.d("TaskAggregator", "[active-poll] ${staleBusy.size} FSM-Busy sessions absent from /active -> request L3 validation")
+                staleBusy.forEach { sessionStateService?.requestValidation(it) }
+            }
+        }
     }
 
     private var pollingStarted = false
@@ -129,11 +151,22 @@ class TaskAggregator(
         sessionRepository.getSessionsFlow(serverId),
         sessionRepository.getSessionStatusesFlow(serverId),
         chatRepository.getAllPartsMap(),
-        sessionIdFlow
-    ) { sessions, statuses, partsMap, currentSessionId ->
+        sessionIdFlow,
+        // 2026-08-16 根治（任务面板 R1——进行中任务不显示）：activeSessionIds
+        // 原先在 lambda 内读取但不在 combine 源中——V2 下 FSM 错过
+        // execution.started（断线/冷启动）时子会话无 Busy，active 轮询拿到
+        // 正确结果也**不触发重算**，进行中任务永不出现在「运行中」视图。
+        // 补为第 5 源后轮询结果直接驱动派生（combine 五参类型安全重载）。
+        activeSessionIds,
+    ) { sessions, statuses, partsMap, currentSessionId, activeIds ->
         val children = sessions
             .filter { it.parentId == currentSessionId }
-            .sortedByDescending { it.time.updated }
+            // 2026-08-16（用户需求）：任务列表按创建时间倒序（新任务在前）；
+            // id tie-break 保证同毫秒创建的稳定排序（避免上游混合序抖动）。
+            .sortedWith(
+                compareByDescending<dev.leonardo.ocbeacon.domain.model.Session> { it.time.created }
+                    .thenByDescending { it.id }
+            )
         val runningIds = statuses.filterValues { it == SessionStatus.Busy }.keys
         val toolParts = partsMap[currentSessionId].orEmpty()
             .filterIsInstance<Part.Tool>()
@@ -148,10 +181,10 @@ class TaskAggregator(
             // V2 派发子代理走 session.create，无工具调用记录）→ 原
             // isExplicitlyBackground 过滤恒 false → subagents 恒空。
             // 子会话（parentId==currentSessionId）本身就是后台任务，直接展示。
-            val childRunning = child.id in runningIds || child.id in activeSessionIds.value
+            val childRunning = child.id in runningIds || child.id in activeIds
             // 2026-08-13：前台/后台标记——子代理运行中 + 主会话 busy（阻塞中）
             // = 前台；转后台后主会话恢复（idle）→ 后台
-            val mainBusy = currentSessionId in runningIds || currentSessionId in activeSessionIds.value
+            val mainBusy = currentSessionId in runningIds || currentSessionId in activeIds
             SubagentSummary(
                 sessionId = child.id,
                 agent = child.agent,
@@ -162,7 +195,16 @@ class TaskAggregator(
                 description = toolPart?.let { extractSubagentDescription(it) },
                 // 2026-08-12：面板第二行（agent 徽章 + 开始时间 + 模型）
                 startedAt = child.time.created.takeIf { it > 0 },
-                modelId = child.model?.id
+                modelId = child.model?.id,
+                // 2026-08-16（#145 执行时长）🟠 服务器契约限制：V2 部署版
+                // session.time.updated 创建后不随活动更新（实测 diff 6-13ms 恒定）、
+                // V2 主会话无 task/subagent tool part（无 part.time.completed）、
+                // 子会话消息默认未加载——完成态执行时长**无数据源**，仅当
+                // updated-created > 5s（真实活动过的罕见场景）才显示。
+                // 运行中返回 null——UI 走时 now-created（核心场景：后台任务
+                // 跑着回来看跑了多久）。upstream 候选见 backlog #146。
+                durationMs = if (childRunning) null
+                else (child.time.updated - child.time.created).takeIf { it > 5_000 },
             )
         }
     }.distinctUntilChanged()
