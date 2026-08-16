@@ -794,6 +794,7 @@ fun ChatScreen(
                             showQuickNavigate = showQuickNavigate,
                             onQuickNavigateDismiss = { showQuickNavigate = false },
                             agents = modelConfig.agents,
+                onAgentClick = { agentName -> viewModel.selectAgent(agentName) },
 
                             modifier = Modifier.fillMaxSize(),
                         )

@@ -45,6 +45,10 @@ class FakeSessionStateRepository @Inject constructor() : SessionStateRepository 
         requestedValidations.add(sessionId)
     }
 
+    override fun reconcileWithActiveSessions(activeIds: Set<String>) {
+        // 2026-08-16：接口新增（active 轮询双向对账）——Fake 空实现
+    }
+
     override fun onClientSendParts(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientSendParts)
 
     override fun onClientAbort(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientAbort)

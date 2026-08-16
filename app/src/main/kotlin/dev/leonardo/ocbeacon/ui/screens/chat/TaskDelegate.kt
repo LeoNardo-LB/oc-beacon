@@ -119,21 +119,16 @@ class TaskAggregator(
             ?.keys
             ?: emptySet()
         activeSessionIds.value = active
-        // 2026-08-16 根治（任务面板 R3——僵尸「进行中」永不自愈）：FSM 对子会话
-        // 置 Busy 后若 execution.succeeded 丢失（服务器重启/竞态），FSM 恒 Busy
-        // 且 activeSessionIds 只加不减的 OR 语义无法纠正。轮询结果是服务器权威
-        // 快照——对「FSM Busy 但不在 active」的会话触发 L3 REST 校验
-        //（SessionStateService.requestValidation → fetchSessionStatuses 对比
-        // 修正，含僵尸清理），轮询从"只加不减的摆设"变为否定信号源。
-        if (active.isNotEmpty() || sessionStateService != null) {
-            val busyIds = sessionStateService?.statusFlow?.value
-                ?.filterValues { it == SessionStatus.Busy }?.keys.orEmpty()
-            val staleBusy = busyIds - active
-            if (staleBusy.isNotEmpty()) {
-                AppLogger.d("TaskAggregator", "[active-poll] ${staleBusy.size} FSM-Busy sessions absent from /active -> request L3 validation")
-                staleBusy.forEach { sessionStateService?.requestValidation(it) }
-            }
-        }
+        // 2026-08-16 根治（会话状态显示不对——双向对账收口到 SessionStateService）：
+        // 原 R3 内联逻辑只有反向否定（FSM Busy 但不在 active→L3），且无新鲜度护栏
+        // （活跃流式中的会话也可能被送 L3 → REST「缺失即 idle」误杀 → FSM turn 内
+        // 不可自愈 → 列表页/对话页都不显示进行中、内容冻结，重进才恢复——用户实测）。
+        // 且缺正向自愈：SSE 断连窗口丢 execution.started 后 active 明明拿到 running
+        // 却无回写机制。现统一走 reconcileWithActiveSessions：
+        // - 正向：active 含但 FSM 非 Busy（连续 2 轮确认）→ L3 恢复 Busy
+        // - 反向：FSM Busy 但 active 缺失**且**事件陈旧（≥15s）→ L3 僵尸自愈
+        // - 空集直接返回（V1 active 恒空——无信息，防 L3 风暴与 activity 重置）
+        sessionStateService?.reconcileWithActiveSessions(active)
     }
 
     private var pollingStarted = false

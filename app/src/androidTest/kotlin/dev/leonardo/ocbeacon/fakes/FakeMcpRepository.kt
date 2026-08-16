@@ -14,9 +14,9 @@ class FakeMcpRepository @Inject constructor() : McpRepository {
 
     var fakeConnection: ServerConnection? = null
 
-    override suspend fun getMcpServers(): Result<List<McpServerStatus>> = getMcpServersResult
+    override suspend fun getMcpServers(conn: dev.leonardo.ocbeacon.domain.model.ServerConnection): Result<List<McpServerStatus>> = getMcpServersResult
 
-    override suspend fun toggleMcpServer(name: String, connect: Boolean): Result<Boolean> = toggleMcpResult
+    override suspend fun toggleMcpServer(conn: dev.leonardo.ocbeacon.domain.model.ServerConnection, name: String, connect: Boolean): Result<Boolean> = toggleMcpResult
 
     override fun setConnection(conn: ServerConnection) {
         fakeConnection = conn

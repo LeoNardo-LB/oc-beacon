@@ -12,15 +12,17 @@ class FakeAgentRepository @Inject constructor() : AgentRepository {
     var agentsResult: Result<List<AgentInfo>> = Result.success(emptyList())
     var commandsResult: Result<List<CommandInfo>> = Result.success(emptyList())
     var searchFilesResult: Result<List<String>> = Result.success(emptyList())
-    var switchAgentResult: Result<Unit> = Result.success(Unit)
 
     val switchedAgents = mutableListOf<Triple<String, String, String>>()
 
     override suspend fun listAgents(serverId: String): Result<List<AgentInfo>> = agentsResult
 
-    override suspend fun switchAgent(serverId: String, sessionId: String, agentId: String): Result<Unit> {
+    // 2026-08-16：switchAgent 已随死代码删除（2face6d7）——override 残留导致
+    // androidTest 源集编译失败（接口无此方法）。switchedAgents 记录保留供
+    // 历史断言迁移参考；agent 切换现走 prompt body（V2ApiClient prompt）。
+    suspend fun switchAgent(serverId: String, sessionId: String, agentId: String): Result<Unit> {
         switchedAgents.add(Triple(serverId, sessionId, agentId))
-        return switchAgentResult
+        return Result.success(Unit)
     }
 
     override suspend fun loadCommands(serverId: String): Result<List<CommandInfo>> = commandsResult

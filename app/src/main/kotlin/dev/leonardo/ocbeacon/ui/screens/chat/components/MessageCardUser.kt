@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.RateReview
@@ -193,6 +194,15 @@ internal fun MessageCardUser(
         border = bubbleBorder,
         shape = UserBubbleShape,
         label = stringResource(R.string.chat_label_user),
+        // 2026-08-16（标题栏规范·类型图标）：用户=Person，14dp FAINT
+        labelLeading = {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Filled.Person,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+            )
+        },
         timeMs = currentMessage.message.time.created,
         modifier = if (isJumpObserveTarget) {
             Modifier

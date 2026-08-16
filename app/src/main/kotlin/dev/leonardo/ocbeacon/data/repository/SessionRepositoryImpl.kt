@@ -271,16 +271,26 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun fetchSessionStatuses(serverId: String, directory: String?): Result<Map<String, SessionStatus>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         val rawStatuses = sessionApi.fetchSessionStatus(conn, directory = directory).getOrThrow()
-        rawStatuses.mapValues { (_, info) ->
-            when (info.type) {
+        // 2026-08-16（状态误杀修复）：未知 type 不再翻译成 Idle——V2ApiClient
+        // 已把 running/busy 归一化为 "busy"，此处未知值意味着服务器出现了新枚举
+        //（backlog #70 type 完整枚举未确认），语义未知时跳过该条目（走「缺失」
+        // 路径，由 SessionStateService 的新鲜度护栏保护），绝不把「服务器说活跃」
+        // 翻译成 Idle。明确 "idle"（V1）保持 Idle 映射。
+        rawStatuses.mapNotNull { (sid, info) ->
+            val status = when (info.type) {
                 "busy" -> SessionStatus.Busy
                 "retry" -> SessionStatus.Retry(
                     attempt = info.attempt ?: 0,
                     message = info.message ?: "",
                     next = info.next ?: 0L
                 )
-                else -> SessionStatus.Idle
+                "idle" -> SessionStatus.Idle
+                else -> {
+                    AppLogger.w("SessionRepository", "fetchSessionStatuses: unknown type='${info.type}' for $sid, skipping (not mapping to Idle)")
+                    null
+                }
             }
-        }
+            if (status != null) sid to status else null
+        }.toMap()
     }
 }

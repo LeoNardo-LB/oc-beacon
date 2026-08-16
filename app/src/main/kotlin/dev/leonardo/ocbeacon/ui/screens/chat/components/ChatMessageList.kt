@@ -190,6 +190,7 @@ fun ChatMessageList(
     showQuickNavigate: Boolean,
     onQuickNavigateDismiss: () -> Unit,
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
+    onAgentClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // #137（D2-L50）：工具卡片复制反馈统一 Snackbar 通道（ToolCardScaffold 原用 Toast）
@@ -875,6 +876,7 @@ fun ChatMessageList(
                                     isTurnLast = isTurnLast,
                                     isStreamingTurn = isStreamingMsg,
                                     agents = agents,
+                                    onAgentClick = onAgentClick,
                                     onCopy = {
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))

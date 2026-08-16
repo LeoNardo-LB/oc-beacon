@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,11 +41,16 @@ internal fun CompactTag(
     // AgentModelVariantSelector 完全一致；特殊场景（QUEUED 8sp）显式传值。
     fontSize: Int? = null,
     shape: RoundedCornerShape = ShapeTokens.smallMedium,
+    // 2026-08-16（agent 徽标可点击）：非空时标签可点（涟漪限定标签区域）。
+    // 此前消息流 agent 徽标纯静态 Box（从未有过点击行为），与输入栏同款
+    // 视觉却不可点造成感知错位——点击 = 选中该 agent 到输入栏（影响下次发送）。
+    onClick: (() -> Unit)? = null,
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .clip(shape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(containerColor)
             .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp)
     ) {
@@ -66,11 +72,14 @@ internal fun AgentTag(
     agent: String,
     tagColor: Color,
     modifier: Modifier = Modifier,
+    // 2026-08-16（agent 徽标可点击）：透传 CompactTag
+    onClick: (() -> Unit)? = null,
 ) {
     CompactTag(
         text = agent.replaceFirstChar { it.uppercase() },
         containerColor = tagColor.copy(alpha = AlphaTokens.FAINT),
         contentColor = tagColor,
-        modifier = modifier
+        modifier = modifier,
+        onClick = onClick,
     )
 }

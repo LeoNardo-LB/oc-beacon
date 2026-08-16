@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.CheckCircle
@@ -159,6 +160,16 @@ internal fun SyntheticNotificationCard(
         ),
         shape = ShapeTokens.medium,
         label = labelText,
+        // 2026-08-16（标题栏规范·类型图标）：后台通知=Notifications
+        //（labelSuffix 的状态图标 ✓/✗ 保持不变——类型与状态分离）
+        labelLeading = {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Filled.Notifications,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+            )
+        },
         timeMs = currentMessage.message.time.created,
         labelSuffix = {
             // 状态文案 + 成功/失败图标（2026-08-12 用户要求组合）

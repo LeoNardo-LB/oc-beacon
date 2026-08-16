@@ -25,6 +25,7 @@ internal fun MessageCard(
      *  延迟到回复完毕才出现。由 ChatMessageList 传入 isStreamingMsg。 */
     isStreamingTurn: Boolean = false,
     agents: List<AgentInfo> = emptyList(),
+    onAgentClick: ((String) -> Unit)? = null,
     onCopy: (() -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
     /** 嵌入思考卡片的待处理提问（按 tool.messageId 匹配，2026-08-14）。 */
@@ -55,6 +56,7 @@ internal fun MessageCard(
             isTurnLast = isTurnLast,
             isStreamingTurn = isStreamingTurn,
             agents = agents,
+            onAgentClick = onAgentClick,
             onCopy = onCopy,
             onLocateTask = onLocateTask,
             pendingQuestion = pendingQuestion,

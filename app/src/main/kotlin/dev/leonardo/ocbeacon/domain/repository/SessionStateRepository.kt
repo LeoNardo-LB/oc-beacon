@@ -33,6 +33,14 @@ interface SessionStateRepository {
     /** 请求对该会话执行 REST 状态校验。 */
     fun requestValidation(sessionId: String)
 
+    /**
+     * 2026-08-16（会话状态对账）：active 轮询结果与 FSM 双向对账——
+     * 正向（active 含但 FSM 非 Busy → L3 恢复，修 SSE 断连丢 execution.started）
+     * + 反向（FSM Busy 但 active 缺失且事件陈旧 → L3 僵尸自愈）。
+     * 空集直接返回（V1 active 恒空——无信息不判定）。
+     */
+    fun reconcileWithActiveSessions(activeIds: Set<String>)
+
     /** 客户端发送消息时通知 FSM。 */
     fun onClientSendParts(sessionId: String)
 

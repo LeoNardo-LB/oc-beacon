@@ -35,6 +35,16 @@ class FakeSettingsRepository @Inject constructor() : SettingsRepository {
         hiddenModelsState.value = if (visible) hiddenModelsState.value - key else hiddenModelsState.value + key
     }
 
+    // 2026-08-16（方案 A·默认模型）：接口新增成员的 Fake 实现
+    private val defaultModelFlow = MutableStateFlow<String?>(null)
+    override fun defaultModel(serverId: String): Flow<String?> = defaultModelFlow
+    override suspend fun setDefaultModel(serverId: String, value: String?) {
+        defaultModelFlow.value = value
+    }
+
+    // 2026-08-16（androidTest 源集修复）：接口既有成员的缺失实现
+    override suspend fun migrateLegacyFavoritesIfNeeded(serverId: String) = Unit
+
     override fun sessionTags(serverId: String): Flow<List<Tag>> = sessionTagsState
 
     override fun sessionTagAssignments(serverId: String): Flow<Map<String, List<String>>> = tagAssignmentsState

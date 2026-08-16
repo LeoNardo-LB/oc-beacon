@@ -71,7 +71,10 @@ class EventDispatcher @Inject constructor(
             hasIncompleteAssistant(sessionId)
         }
         sessionStateService.directoryResolver = DirectoryResolver { sessionId ->
-            sessionHandler.sessions.value.find { it.id == sessionId }?.directory
+            // 2026-08-16（状态误杀修复）：directory 空串归一化为 null——空串非 null
+            // 会以空 directory header 查询 /active，服务器路由结果未定义 → 活跃
+            // 会话查不到 → 「缺失即 idle」误杀。对齐 EventDispatcher:112 的 ifBlank 防御。
+            sessionHandler.sessions.value.find { it.id == sessionId }?.directory?.ifBlank { null }
         }
         sessionStateService.messageForceCompleter = MessageForceCompleter { sessionId ->
             // markSessionIdle 用客户端 now 标记 UI 流式终止，但不写入红点时间源

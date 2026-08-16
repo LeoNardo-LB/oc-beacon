@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
@@ -74,6 +75,9 @@ internal fun MessageCardAssistant(
      *  回复完毕才出现（2026-08 修复：统计栏应在气泡出现时同步出现）。 */
     isStreamingTurn: Boolean = false,
     agents: List<AgentInfo> = emptyList(),
+    // 2026-08-16（agent 徽标可点击）：点击徽标=选中该 agent 到输入栏（复用
+    // selectAgent 链，影响下一次发送——历史消息的 agent 不可改写，官方语义）
+    onAgentClick: ((String) -> Unit)? = null,
     onCopy: (() -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
     /** 嵌入思考卡片（ReasoningBlock）的待处理提问（2026-08-14）。 */
@@ -119,6 +123,15 @@ internal fun MessageCardAssistant(
             border = if (isAmoled) AmoledDefaultBorder else null,
             shape = ShapeTokens.medium,
             label = stringResource(R.string.chat_label_agent),
+            // 2026-08-16（标题栏规范·类型图标）：智能体=SmartToy
+            labelLeading = {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
+                    contentDescription = null,
+                    modifier = Modifier.size(13.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                )
+            },
             timeMs = currentMessage.message.time.created,
             statsBar = if (showStatsBar) {
                 {
@@ -131,7 +144,7 @@ internal fun MessageCardAssistant(
                     // M3 SuggestionChip 32dp 偏大，用户确认改回紧凑样式）
                     if (!agentName.isNullOrBlank()) {
                         val tagColor = agentColor(agentName, agents)
-                        AgentTag(agent = agentName, tagColor = tagColor)
+                        AgentTag(agent = agentName, tagColor = tagColor, onClick = { onAgentClick?.invoke(agentName) })
                     }
                     // 提供商图标 + 模型名
                     val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()

@@ -31,7 +31,6 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
         )
     )
     var deleteSessionResult: Result<Unit> = Result.success(Unit)
-    var switchSessionResult: Result<Unit> = Result.success(Unit)
     var getSessionResult: Result<Session> = Result.success(
         Session(
             id = "test-session",
@@ -108,9 +107,18 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
 
     override suspend fun deleteSession(serverId: String, sessionId: String): Result<Unit> = deleteSessionResult
 
-    override suspend fun switchSession(sessionId: String): Result<Unit> = switchSessionResult
 
     override suspend fun getSession(serverId: String, sessionId: String): Result<Session> = getSessionResult
+
+    // 2026-08-16（androidTest 源集修复）：接口既有成员缺失实现的补齐
+    override suspend fun getMessage(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageWithParts> = Result.failure(UnsupportedOperationException("fake"))
+
+    override suspend fun getApiVersion(serverId: String): dev.leonardo.ocbeacon.domain.model.ApiVersion =
+        dev.leonardo.ocbeacon.domain.model.ApiVersion.UNKNOWN
 
     // ============ 会话生命周期 ============
 

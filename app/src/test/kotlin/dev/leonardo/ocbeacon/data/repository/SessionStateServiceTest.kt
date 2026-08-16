@@ -125,7 +125,7 @@ class SessionStateServiceTest {
     // ============ Task 4：triggerRestValidation 缺失时 = idle ============
 
     @Test
-    fun `triggerRestValidation absence with known directory marks Idle`() {
+    fun `triggerRestValidation absence with fresh SSE keeps status（2026-08-16 新鲜度护栏）`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())  // 缺失
         val service = newServiceWith(fakeRepo)
@@ -134,7 +134,10 @@ class SessionStateServiceTest {
         service.onClientSendParts("s1")
         service.triggerRestValidation("s1")
         testScope.runCurrent()
-        assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
+        // 2026-08-16 语义变更（会话状态误杀修复）：onClientSendParts 刚更新
+        // lastEventAt（SSE fresh <60s）——active 是不完整快照，活跃证据更强，
+        // 不因缺失强转 Idle（旧行为转 Idle 正是「输出中被强杀」根因之一）。
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])
     }
 
     @Test

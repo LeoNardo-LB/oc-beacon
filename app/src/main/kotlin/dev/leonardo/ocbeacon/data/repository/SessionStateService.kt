@@ -35,6 +35,13 @@ private const val TAG = "SessionStateService"
 private const val HISTORY_MAX = 20
 private const val STALENESS_CHECK_INTERVAL_MS = 5_000L
 private const val STALENESS_THRESHOLD_MS = 15_000L
+
+/** 2026-08-16（状态对账）：正向自愈确认轮数（×轮询间隔 ≈10s，防 started 在途误判）。 */
+private const val ACTIVE_POSITIVE_CONFIRM_ROUNDS = 2
+
+/** 2026-08-16（状态对账）：「active 缺失即 idle」的新鲜度护栏——SSE 近期有
+ *  活动的会话不因快照缺失强转 Idle（active 是不完整快照，SSE 是更强证据）。 */
+private const val ABSENT_FRESHNESS_GRACE_MS = 60_000L
 /** L3 REST 校验补漏消息数：最新 50 条足够（陈旧窗口漏消息远少于 50；避免 limit=0 全量拉取大会话）。 */
 private const val REST_REFRESH_LIMIT = 50
 /** 2026-08-16（F5 补漏失败重试）：补漏失败最大重试次数（线性退避 attempt×base）。 */
@@ -96,6 +103,9 @@ class SessionStateService @Inject constructor(
      *（staleness guard + 可疑转移 + 外部）产生 REST 请求风暴。
      */
     private val activeValidations = ConcurrentHashMap<String, Job>()
+
+    /** 2026-08-16（状态对账）：正向自愈连续采样计数（active 含但 FSM 非 Busy）。 */
+    private val activePositiveStreak = ConcurrentHashMap<String, Int>()
 
     /**
      * 2026-08-16 修复（F5 补漏失败重试）：L3 REST 校验的消息补漏
@@ -167,6 +177,63 @@ class SessionStateService @Inject constructor(
      * 机制会自动处理不完整消息的修复。
      */
     override fun requestValidation(sessionId: String) = triggerRestValidation(sessionId)
+
+    /**
+     * active 轮询结果与 FSM 的双向对账——2026-08-16 根治（会话状态显示不对：
+     * 输出中但列表页/对话页均不显示，重进才发现内容已变多）。
+     *
+     * 根因（实测+调研）：V2 无 session.status SSE，turn 信号只有
+     * execution.started/succeeded。SSE 断连窗口（App 后台冻结/半开连接，
+     * 重连需 40s 心跳超时+退避）丢失 execution.started 后：
+     * - FSM 不进 Busy → 列表页/对话页共用 statusFlow → 都不显示「进行中」
+     * - 后续 delta 在 Idle core 只标 suspicious 不恢复 Busy（FSM 不可自愈）
+     * - active 轮询每 5s 都拿到 running（实测 type=running）却无回写机制
+     *
+     * 对账规则（active 是不完整快照——服务器僵尸会持续 running，不能盲信）：
+     * - **空集直接返回**：V1 active 恒空（无信息不做任何判定——防 L3 风暴）；
+     *   V2 无活跃会话同理
+     * - **正向**（核心，修 SSE 断连丢 started）：active 含会话但 FSM 非 Busy →
+     *   连续 2 次采样（≈10s，防 execution.started 仍在传输路上的误判）确认后
+     *   触发 L3 校验——走完整链路（directory 查询+僵尸判定）：服务器确认
+     *   running → onRestValidation(Busy)；服务器僵尸会被既有 L2+ZOMBIE_BUSY_MS
+     *   链路收拾（quietMs>3min 强制 Idle/interrupt），不会永久 Busy
+     * - **反向**（R3 僵尸自愈+新鲜度护栏）：FSM Busy 但不在 active **且**
+     *   lastEventAt 陈旧（≥STALENESS_THRESHOLD_MS，L2 同款判据——活跃流式中
+     *   的会话绝不送 L3，防 REST「缺失即 idle」误杀正在输出的会话）
+     */
+    override fun reconcileWithActiveSessions(activeIds: Set<String>) {
+        if (activeIds.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val states = _fsmStates.value
+        val busyIds = states.filterValues { it.core is SessionStatus.Busy }.keys
+
+        // 正向：active 含但 FSM 非 Busy——连续采样确认后触发 L3（恢复 Busy）
+        for (sid in activeIds) {
+            if (sid in busyIds) {
+                activePositiveStreak.remove(sid)
+                continue
+            }
+            val streak = activePositiveStreak.merge(sid, 1, Int::plus) ?: 1
+            if (streak >= ACTIVE_POSITIVE_CONFIRM_ROUNDS) {
+                activePositiveStreak.remove(sid)
+                AppLogger.d(TAG, "[$sid] active says running but FSM not Busy (streak=$streak, SSE gap?) -> L3 validation to recover")
+                requestValidation(sid)
+            }
+        }
+        // 会话不在本次 active 的正向计数清零（抖动保护）
+        activePositiveStreak.keys.removeAll { it !in activeIds }
+
+        // 反向：FSM Busy 但不在 active 且事件陈旧——L3 校验（僵尸自愈）。
+        // 活跃流式（lastEventAt 新鲜）绝不送——SSE 是比 active 快照更强的证据。
+        for (sid in busyIds) {
+            if (sid in activeIds) continue
+            val lastEventAt = states[sid]?.lastEventAt ?: 0L
+            if (now - lastEventAt >= STALENESS_THRESHOLD_MS) {
+                AppLogger.d(TAG, "[$sid] FSM Busy but absent from active & stale for ${now - lastEventAt}ms -> L3 validation")
+                requestValidation(sid)
+            }
+        }
+    }
 
     // ============ 事件入口 ============
     override fun onClientSendParts(sessionId: String) {
@@ -382,8 +449,17 @@ class SessionStateService @Inject constructor(
                     } else if (directory != null) {
                         // 服务器会从其状态 map 中删除 idle 会话——缺失即 idle。
                         // 仅当查询的是会话自身的 directory 时才信任此结论。
-                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST validation: absent from own directory -> idle")
-                        onRestValidation(sessionId, SessionStatus.Idle)
+                        // 2026-08-16 护栏（状态误杀修复）：SSE 近期（<60s）有事件的
+                        // 会话不因 active 快照缺失强转 Idle——active 是不完整快照
+                        //（目录路由差异/时序），活跃流式是更强证据，宁可信 SSE。
+                        val lastEventAt = _fsmStates.value[sessionId]?.lastEventAt ?: 0L
+                        val sseFresh = System.currentTimeMillis() - lastEventAt < ABSENT_FRESHNESS_GRACE_MS
+                        if (sseFresh) {
+                            AppLogger.w(TAG, "[$sessionId] L3: absent from active but SSE fresh (${System.currentTimeMillis() - lastEventAt}ms ago) -> keep current status")
+                        } else {
+                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 REST validation: absent from own directory -> idle")
+                            onRestValidation(sessionId, SessionStatus.Idle)
+                        }
                     }
                     // directory == null + 缺失 -> 跳过（避免在未知实例上误判 idle）
 

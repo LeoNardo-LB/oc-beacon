@@ -345,10 +345,11 @@ class SessionStateServiceConcurrencyTest {
         service.onClientSendParts("s1")
         testScope.runCurrent()
 
-        // 第一次校验 —— 完成，标记为 Idle
+        // 第一次校验 —— 完成（2026-08-16 新鲜度护栏：onClientSendParts 后
+        // lastEventAt fresh，缺失不转 Idle——保持 Busy，见 SessionStateServiceTest 同名用例）
         service.triggerRestValidation("s1")
         testScope.runCurrent()
-        assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])
 
         // 第二次校验 —— 应被允许（第一次已完成）
         service.onClientSendParts("s1")
