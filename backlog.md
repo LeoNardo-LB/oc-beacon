@@ -1343,6 +1343,17 @@ $(echo "
     Compose clickable 失效。E2E 排障守则：长会话后「点击无反应」先重启模拟器
   - 状态：`[x]` 归因关闭（无代码缺陷；App 实际跳转功能正常，dev.11 真机可验）
 
+
+- [ ] **#149 androidTest 剩余 7 个 swipe 触摸注入失败（ChatScrollStability/ChatInteraction/FileTree）** `test`
+  - 现象：2026-08-16 androidTest 修复至 129/136 后，剩余 7 个全部
+    "Failed to inject touch input"——新模拟器同样失败（非环境劣化）
+  - 涉及：ChatScrollStabilityTest×4（SSE 铁律守护测试）/ChatInteraction×2/
+    FileTreePanelTest.filterChip×1
+  - 方向：与 ChatScrollController 重构（ScrollListGate 抽取）后的节点结构
+    变化相关——swipe 目标越界或列表高度不足；逐个核对 performTouchInput
+    的坐标系与列表填充数据
+  - 状态：`[ ]` 待修复
+
 ### 遗留观察项（非本次修复引入）
 
 - [x] **#143 V1 发送后"用户消息不显示"——2026-08-15 判定为误报（验证方法缺陷）** `v1`
