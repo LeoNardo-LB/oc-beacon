@@ -111,14 +111,15 @@ class AppNotificationDedupTest {
     }
 
     @Test
-    fun `focused session still suppresses when app in background`() {
+    fun `focused session NOT suppressed when app in background`() {
         val holder = SessionFocusHolder()
         holder.setAppInForeground(false)
         holder.setActiveFocus("server1", "session1")
         val focused = buildManager(holder)
 
-        // shouldSuppressEvent 不要求前台 → 后台也抑制
-        assertFalse(focused.shouldNotifyPermission("server1", "session1", "fs.write"))
+        // 2026-08-16 语义修正（通知 P1）：后台不抑制——用户看不到界面，
+        // 权限通知必须发出（旧行为静默吞通知，可能错过权限请求）
+        assertTrue(focused.shouldNotifyPermission("server1", "session1", "fs.write"))
     }
 
     @Test
@@ -133,8 +134,10 @@ class AppNotificationDedupTest {
     }
 
     @Test
-    fun `focused session question also suppressed`() {
+    fun `focused session question also suppressed in foreground`() {
         val holder = SessionFocusHolder()
+        // 2026-08-16：补前台状态（新语义仅前台聚焦时抑制）
+        holder.setAppInForeground(true)
         holder.setActiveFocus("server1", "session1")
         val focused = buildManager(holder)
 

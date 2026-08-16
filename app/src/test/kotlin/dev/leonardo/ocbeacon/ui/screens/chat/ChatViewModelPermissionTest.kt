@@ -148,6 +148,7 @@ class ChatViewModelPermissionTest {
         coEvery { draftRepository.getDraft(any()) } returns null
 
         every { settingsRepository.hiddenModels(any()) } returns flowOf(emptySet())
+        every { settingsRepository.defaultModel(any()) } returns flowOf(null)
         every { settingsRepository.getSettingsFlow() } returns flowOf(
             AppSettings(
                 terminalFontSize = 13f,

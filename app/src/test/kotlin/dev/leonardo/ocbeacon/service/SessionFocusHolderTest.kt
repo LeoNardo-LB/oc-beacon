@@ -65,10 +65,12 @@ class SessionFocusHolderTest {
     // ============ shouldSuppressEvent（事件通知抑制：不要求前台） ============
 
     @Test
-    fun `shouldSuppressEvent suppresses in background for focused session`() {
+    fun `shouldSuppressEvent does NOT suppress in background for focused session`() {
+        // 2026-08-16 语义修正（通知 P1）：后台不再抑制——按 Home 键回桌面后
+        // 用户看不到界面，权限/问题/错误通知必须发出（原旧行为会静默吞通知）
         holder.setAppInForeground(false)
         holder.setActiveFocus("server1", "session1")
-        assertTrue(holder.shouldSuppressEvent("server1", "session1"))
+        assertFalse(holder.shouldSuppressEvent("server1", "session1"))
     }
 
     @Test
