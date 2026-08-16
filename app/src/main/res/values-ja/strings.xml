@@ -432,6 +432,8 @@
     <string name="permission_reject_reason_hint">拒否の理由を入力…</string>
     <string name="permission_reject_button">拒否</string>
     <string name="settings_auto_approve_rules">自動承認ルール</string>
+    <string name="settings_auto_allow_permissions">すべての権限リクエストを自動許可</string>
+    <string name="settings_auto_allow_permissions_desc">毎回の権限リクエストに「常に許可」と自動応答します。ルールは永続化されます——信頼できるサーバーでのみ使用してください。</string>
     <string name="settings_no_auto_approve_rules">保存済みの自動承認ルールがありません</string>
     <string name="settings_delete_rule">ルールを削除</string>
     <string name="settings_expand_reasoning">推論を自動展開</string>
@@ -448,6 +450,7 @@
     <string name="chat_retry_send">再試行</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">コンテキスト使用詳細</string>
+    <string name="a11y_settings_auto_allow_permissions">すべての権限リクエストを自動許可</string>
     <string name="a11y_settings_language">言語</string>
     <string name="a11y_settings_reconnect_mode">再接続モード</string>
     <string name="a11y_settings_theme">テーマ</string>

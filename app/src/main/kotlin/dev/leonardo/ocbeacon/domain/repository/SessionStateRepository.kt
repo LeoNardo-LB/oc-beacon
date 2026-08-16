@@ -41,6 +41,13 @@ interface SessionStateRepository {
      */
     fun reconcileWithActiveSessions(activeIds: Set<String>)
 
+    /**
+     * 2026-08-16 根治（回复不可见）：SSE 断连窗口消息补漏——cursor 增量
+     * 拉取 + SSE_PRIORITY 合并（流式进行中安全）。触发点：ON_RESUME、
+     * SSE 重连成功。不碰 FSM，仅补内容。
+     */
+    fun backfillMissedMessages(sessionId: String)
+
     /** 客户端发送消息时通知 FSM。 */
     fun onClientSendParts(sessionId: String)
 

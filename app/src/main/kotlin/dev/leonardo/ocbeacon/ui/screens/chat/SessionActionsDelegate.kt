@@ -133,6 +133,11 @@ internal class SessionActionsDelegate(
         if (sessionId.isNotBlank()) {
             awaitSessionLoaded()
             sessionStateService.requestValidation(sessionId)
+            // 2026-08-16 根治（回复不可见）：ON_RESUME 无条件 cursor 增量补漏
+            //（SSE_PRIORITY）——覆盖 L3 在服务器仍 Busy 时跳过刷新的缺口：
+            // 后台冻结断连窗口丢失的回复事件，在服务器 running（含 V2 僵尸
+            // drain）期间此前无任何补漏触发点，回复不可见直到用户退出重进。
+            sessionStateService.backfillMissedMessages(sessionId)
         }
         loadPendingQuestions()
         loadPendingPermissions()

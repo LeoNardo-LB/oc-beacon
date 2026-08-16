@@ -448,6 +448,8 @@
     <string name="permission_reject_reason_hint">شرح سبب الرفض…</string>
     <string name="permission_reject_button">رفض</string>
     <string name="settings_auto_approve_rules">قواعد الموافقة التلقائية</string>
+    <string name="settings_auto_allow_permissions">السماح تلقائيًا بجميع طلبات الأذونات</string>
+    <string name="settings_auto_allow_permissions_desc">يرد تلقائيًا بـ\'السماح دائمًا\'. تُحفظ القواعد بشكل دائم — فقط مع الخوادم الموثوقة.</string>
     <string name="settings_no_auto_approve_rules">لا توجد قواعد محفوظة للموافقة التلقائية</string>
     <string name="settings_delete_rule">حذف القاعدة</string>
     <string name="settings_expand_reasoning">توسيع الاستدلال تلقائيًا</string>
@@ -464,6 +466,7 @@
     <string name="chat_retry_send">إعادة المحاولة</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">تفاصيل استخدام السياق</string>
+    <string name="a11y_settings_auto_allow_permissions">السماح تلقائيًا بجميع طلبات الأذونات</string>
     <string name="a11y_settings_language">اللغة</string>
     <string name="a11y_settings_reconnect_mode">وضع إعادة الاتصال</string>
     <string name="a11y_settings_theme">المظهر</string>

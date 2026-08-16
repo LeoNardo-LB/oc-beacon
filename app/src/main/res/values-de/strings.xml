@@ -432,6 +432,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_reject_reason_hint">Erklären, warum abgelehnt…</string>
     <string name="permission_reject_button">Ablehnen</string>
     <string name="settings_auto_approve_rules">Auto-Genehmigungsregeln</string>
+    <string name="settings_auto_allow_permissions">Alle Berechtigungsanfragen automatisch erlauben</string>
+    <string name="settings_auto_allow_permissions_desc">Beantwortet jede Anfrage automatisch mit \'Immer erlauben\'. Regeln werden dauerhaft gespeichert – nur für vertrauenswürdige Server.</string>
     <string name="settings_no_auto_approve_rules">Keine gespeicherten Auto-Genehmigungsregeln</string>
     <string name="settings_delete_rule">Regel löschen</string>
     <string name="settings_expand_reasoning">Schlussfolgerung auto-erweitern</string>
@@ -448,6 +450,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_retry_send">Wiederholen</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">Kontextverwendungsdetails</string>
+    <string name="a11y_settings_auto_allow_permissions">Alle Berechtigungsanfragen automatisch erlauben</string>
     <string name="a11y_settings_language">Sprache</string>
     <string name="a11y_settings_reconnect_mode">Wiederverbindungsmodus</string>
     <string name="a11y_settings_theme">Design</string>

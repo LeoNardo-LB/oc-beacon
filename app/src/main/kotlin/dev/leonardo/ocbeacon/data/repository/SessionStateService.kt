@@ -29,7 +29,18 @@ import javax.inject.Singleton
 fun interface DirectoryResolver { fun resolve(sessionId: String): String? }
 fun interface IncompleteAssistantChecker { fun hasIncomplete(sessionId: String): Boolean }
 fun interface MessageForceCompleter { fun markIdle(sessionId: String) }
-fun interface MessageRefresher { fun refreshMessages(sessionId: String, messages: List<MessageWithParts>) }
+/**
+ * 2026-08-16 根治（回复不可见）：新增 [strategy] 参数——SSE 断连窗口补漏
+ * 用 SSE_PRIORITY（SSE 已累积的流式文本不动，仅补本地缺失）；
+ * L3 校验路径传 REST_AUTHORITY（服务器已确认终态，权威覆盖）。
+ */
+interface MessageRefresher {
+    fun refreshMessages(
+        sessionId: String,
+        messages: List<MessageWithParts>,
+        strategy: MergeStrategy,
+    )
+}
 
 private const val TAG = "SessionStateService"
 private const val HISTORY_MAX = 20
@@ -64,7 +75,9 @@ class SessionStateService @Inject constructor(
     var directoryResolver: DirectoryResolver = DirectoryResolver { null }
     var incompleteChecker: IncompleteAssistantChecker = IncompleteAssistantChecker { false }
     var messageForceCompleter: MessageForceCompleter = MessageForceCompleter {}
-    var messageRefresher: MessageRefresher = MessageRefresher { _, _ -> }
+    var messageRefresher: MessageRefresher = object : MessageRefresher {
+        override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) {}
+    }
     /** #55：本地最新消息 id 提供者——L3 校验增量补漏的游标锚点（V2 NEWER 方向），由 EventDispatcher 接线。 */
     var latestMessageIdProvider: (sessionId: String) -> String? = { null }
     /** 2026-08-14 走查修复（僵尸误杀防护）：该会话是否有等待用户输入的
@@ -232,6 +245,77 @@ class SessionStateService @Inject constructor(
                 AppLogger.d(TAG, "[$sid] FSM Busy but absent from active & stale for ${now - lastEventAt}ms -> L3 validation")
                 requestValidation(sid)
             }
+        }
+    }
+
+    // ============ SSE 断连窗口补漏（2026-08-16 根治·回复不可见） ============
+
+    /** 补漏 job 去重表（同会话并发补漏：merge 取消旧 job）。 */
+    private val backfillJobs = ConcurrentHashMap<String, Job>()
+
+    /**
+     * 2026-08-16 根治（用户报告"发送后必须退出会话重进才能看到 agent 回复"）。
+     *
+     * 根因链（实证）：
+     * 1. 发送后 FSM Busy → 用户切后台/锁屏 → Android 冻结进程 → SSE 断连
+     *    （半开，服务器不知情继续流式生成）；
+     * 2. 断连窗口内服务器发出的 MessageUpdated/PartDelta 全部丢失；
+     * 3. 切回后 L3 校验：服务器仍 running（含 V2 僵尸 drain）→ **跳过消息刷新**
+     *    （8-12 修复的护栏——REST_AUTHORITY 合并会丢 SSE 累积文本）；
+     * 4. SSE 重连后服务器只发新事件（不重发历史）→ 无任何补漏触发点；
+     * 5. 服务器僵尸 running 时 active 恒含该会话 → 反向对账（Idle 时补漏）
+     *    永不触发 → 回复永久不可见，直到用户退出会话重进（进入时增量拉取）。
+     *
+     * 修复：cursor 增量补漏（anchorId 之后的消息）+ **SSE_PRIORITY 合并**——
+     * 流式进行中调用也安全（不覆盖 SSE 已有内容）。与 L3 补漏的差异：
+     * 不做任何状态判定（Busy 也补），只补内容不碰 FSM。
+     */
+    override fun backfillMissedMessages(sessionId: String) {
+        val sid = sessionServerOwnership[sessionId] ?: currentServerId ?: return
+        // merge 模式（同 RS-012）：新 job 取消旧 job，防重复拉取
+        val job = appScope.launch {
+            try {
+                val anchorId = latestMessageIdProvider(sessionId) ?: return@launch
+                val directory = directoryResolver.resolve(sessionId)
+                val isV2 = sessionRepoProvider.get().getApiVersion(sid).isV2
+                val cursor = if (isV2) {
+                    dev.leonardo.ocbeacon.domain.util.CursorCodec.encodeV2(
+                        anchorId,
+                        dev.leonardo.ocbeacon.domain.util.CursorCodec.V2Direction.NEWER,
+                    )
+                } else null
+                sessionRepoProvider.get()
+                    .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = cursor)
+                    .onSuccess { page ->
+                        if (page.messages.isNotEmpty()) {
+                            messageRefresher.refreshMessages(sessionId, page.messages, MergeStrategy.SSE_PRIORITY)
+                            if (BuildConfig.DEBUG) {
+                                AppLogger.d(TAG, "[$sessionId] reconnect backfill: +${page.messages.size} msgs (SSE_PRIORITY)")
+                            }
+                        }
+                    }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                AppLogger.e(TAG, "[$sessionId] reconnect backfill failed: ${e.message}", e)
+            } finally {
+                backfillJobs.remove(sessionId)
+            }
+        }
+        backfillJobs.merge(sessionId, job) { old, new -> old.cancel(); new }
+    }
+
+    /**
+     * SSE 重连成功时补漏该服务器名下的活跃会话（Busy 或 FSM 有状态且近期有事件）。
+     * 重连=断连窗口结束的权威信号——错过的事件无法重发，靠本方法内容对账。
+     */
+    fun backfillActiveForServer(serverId: String) {
+        val now = System.currentTimeMillis()
+        _fsmStates.value.forEach { (sid, state) ->
+            val owner = sessionServerOwnership[sid] ?: return@forEach
+            if (owner != serverId) return@forEach
+            val isBusy = state.core is SessionStatus.Busy
+            val recent = now - state.lastEventAt < STATE_RETENTION_MS
+            if (isBusy || recent) backfillMissedMessages(sid)
         }
     }
 
@@ -495,7 +579,7 @@ class SessionStateService @Inject constructor(
                             // 2026-08-16（F5）：补漏成功清零重试计数
                             restBackfillRetries.remove(sessionId)
                             if (page.messages.isNotEmpty()) {
-                                messageRefresher.refreshMessages(sessionId, page.messages)
+                                messageRefresher.refreshMessages(sessionId, page.messages, MergeStrategy.REST_AUTHORITY)
                             } else if (cursor != null) {
                                 // 2026-08-16 根治（窗口外锚点静默空转）：curl 实证 V2
                                 // cursor 是服务器窗口语义——本地构造的 encodeV2 游标
@@ -509,7 +593,7 @@ class SessionStateService @Inject constructor(
                                     .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = null)
                                     .onSuccess { fallbackPage ->
                                         if (fallbackPage.messages.isNotEmpty()) {
-                                            messageRefresher.refreshMessages(sessionId, fallbackPage.messages)
+                                            messageRefresher.refreshMessages(sessionId, fallbackPage.messages, MergeStrategy.REST_AUTHORITY)
                                         }
                                         if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 fallback refresh: ${fallbackPage.messages.size} msgs")
                                     }

@@ -315,6 +315,11 @@ class SseConnectionManager @Inject constructor(
                                 updateServerConnected(server.id, true)
                                 attempt = 0
                                 hasConnectedOnce = true
+                                // 2026-08-16 根治（回复不可见）：重连成功 =
+                                // 断连窗口结束的权威信号——窗口内丢失的
+                                // MessageUpdated/PartDelta 无法重发，靠 cursor
+                                // 增量补漏对账（SSE_PRIORITY，流式中安全）。
+                                eventDispatcher.backfillActiveForServer(server.id)
                             }
                             tracker.recordSuccess()
                             // 分发到 EventDispatcher 以更新状态

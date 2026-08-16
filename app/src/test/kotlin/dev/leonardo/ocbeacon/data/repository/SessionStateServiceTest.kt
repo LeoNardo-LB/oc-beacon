@@ -272,4 +272,57 @@ class SessionStateServiceTest {
         testScope.runCurrent()
         assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])  // 受到保护
     }
+
+    // ============ 2026-08-16 根治（回复不可见）：断连窗口补漏 ============
+
+    /**
+     * backfillMissedMessages：cursor 增量拉取 + **SSE_PRIORITY** 合并
+     * （不覆盖 SSE 累积流式文本——与 L3 的 REST_AUTHORITY 相反）。
+     */
+    @Test
+    fun backfillMissedMessages_usesCursorAndSsePriorityMerge() {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { repo.getApiVersion(any()) } returns ApiVersion.V2
+        coEvery { repo.listMessages(any(), any(), any(), any()) } returns Result.success(
+            MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
+        )
+        val service = SessionStateService(testScope, Provider { repo })
+        val strategies = mutableListOf<MergeStrategy>()
+        service.messageRefresher = object : MessageRefresher {
+            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) {
+                strategies.add(strategy)
+            }
+        }
+        service.latestMessageIdProvider = { "msg_anchor_1" }
+        // 会话归属：SSE 投递记录（onSseEvent 会写 sessionServerOwnership）
+        service.onSseEvent(SseEvent.SessionIdle("ses_x"), "ses_backfill", "server-1")
+
+        service.backfillMissedMessages("ses_backfill")
+        testScope.runCurrent()
+
+        // SSE_PRIORITY（流式安全），非 REST_AUTHORITY
+        assertEquals(listOf(MergeStrategy.SSE_PRIORITY), strategies)
+        // cursor 增量：V2 时 before 参数非空（NEWER 方向游标）
+        coVerify { repo.listMessages(any(), "ses_backfill", any(), any()) }
+    }
+
+    /** 无锚点（本地无消息）时直接返回——不拉取不合并。 */
+    @Test
+    fun backfillMissedMessages_noAnchor_skips() {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        val service = SessionStateService(testScope, Provider { repo })
+        var called = 0
+        service.messageRefresher = object : MessageRefresher {
+            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) { called++ }
+        }
+        service.latestMessageIdProvider = { null }
+        service.onSseEvent(SseEvent.SessionIdle("ses_x"), "ses_noanchor", "server-1")
+
+        service.backfillMissedMessages("ses_noanchor")
+        testScope.runCurrent()
+
+        assertEquals(0, called)
+        coVerify(exactly = 0) { repo.listMessages(any(), any(), any(), any()) }
+    }
+
 }

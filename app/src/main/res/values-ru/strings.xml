@@ -441,6 +441,8 @@
     <string name="permission_reject_reason_hint">Объясните, почему отклонено…</string>
     <string name="permission_reject_button">Отклонить</string>
     <string name="settings_auto_approve_rules">Правила автоодобрения</string>
+    <string name="settings_auto_allow_permissions">Автоматически разрешать все запросы разрешений</string>
+    <string name="settings_auto_allow_permissions_desc">Автоматически отвечает \'Всегда разрешать\'. Правила сохраняются навсегда — только для доверенных серверов.</string>
     <string name="settings_no_auto_approve_rules">Нет сохранённых правил автоодобрения</string>
     <string name="settings_delete_rule">Удалить правило</string>
     <string name="settings_expand_reasoning">Авторазворачивать размышление</string>
@@ -457,6 +459,7 @@
     <string name="chat_retry_send">Повторить</string>
     <string name="chat_title_placeholder">Чат</string>
     <string name="chat_context_detail_title">Детали использования контекста</string>
+    <string name="a11y_settings_auto_allow_permissions">Автоматически разрешать все запросы разрешений</string>
     <string name="a11y_settings_language">Язык</string>
     <string name="a11y_settings_reconnect_mode">Режим подключения</string>
     <string name="a11y_settings_theme">Тема</string>

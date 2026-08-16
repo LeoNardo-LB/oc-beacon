@@ -43,6 +43,7 @@ class SettingsViewModel @Inject constructor(
     val initialMessageCount = settings.map { it.initialMessageCount }.stateIn(viewModelScope, SharingStarted.Eagerly, 50)
     val recentDirectoryCount = settings.map { it.recentDirectoryCount }.stateIn(viewModelScope, SharingStarted.Eagerly, 20)
     val confirmBeforeSend = settings.map { it.confirmBeforeSend }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val autoAllowPermissions = settings.map { it.autoAllowPermissions }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val amoledDark = settings.map { it.amoledDark }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val compactMessages = settings.map { it.compactMessages }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val collapseTools = settings.map { it.collapseTools }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -102,6 +103,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setRecentDirectoryCount(count: Int) {
         updateSetting { it.copy(recentDirectoryCount = count) }
+    }
+
+    fun setAutoAllowPermissions(enabled: Boolean) {
+        updateSetting { it.copy(autoAllowPermissions = enabled) }
     }
 
     fun setConfirmBeforeSend(enabled: Boolean) {

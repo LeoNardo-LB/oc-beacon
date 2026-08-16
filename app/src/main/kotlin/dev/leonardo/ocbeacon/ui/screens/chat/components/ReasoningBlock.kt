@@ -130,7 +130,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // 展开/收缩与复制由右侧专门按钮承担，避免大区域误触与
                     // 点击落空不可预期（与 CompactionCard/SyntheticNotificationCard
                     // 统一）。
-                    .padding(start = 12.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)
+                    // 2026-08-16（用户反馈）：折叠态行高与其他卡片单行一致——
+                    // 垂直 padding 8dp → 4dp（对齐 ToolCardScaffold 的
+                    // Column padding(4.dp)），总高 ~36dp 与工具卡折叠态等高。
+                    .padding(start = 12.dp, end = 10.dp, top = 4.dp, bottom = 4.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -152,46 +155,39 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         Text(
                             text = headerText,
                             style = MaterialTheme.typography.labelMedium,
-                            color = textColor.copy(alpha = AlphaTokens.MUTED)
+                            color = textColor.copy(alpha = AlphaTokens.MUTED),
+                            maxLines = 1,
+                        )
+                        // 2026-08-16（用户反馈）：流式占位进度圈并入标题行内——
+                        // 原实现单独占一行使折叠态高度翻倍，超出其他卡片单行高度。
+                        if (isStreaming && text.isBlank()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = accentColor.copy(alpha = AlphaTokens.MUTED)
+                            )
+                        }
+                    }
+
+                    // 2026-08-16（用户反馈调整）：复制改为**部分复制**——
+                    // 内容区 SelectionContainer 选中文本复制（与 ReadToolCard
+                    // 等工具卡一致），移除整卡全量 CopyButton。
+                    // 展开职责由专门按钮承担（原整卡 clickable 移除）。
+                    IconButton(
+                        onClick = { performHaptic(hapticView, hapticOn); onToggleExpand() },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (expanded)
+                                stringResource(R.string.chat_collapse)
+                            else
+                                stringResource(R.string.chat_expand),
+                            modifier = Modifier.size(18.dp),
+                            tint = textColor.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
-
-                    // 2026-08-16（思考内容可复制）：复用 CopyButton 先例
-                    //（图标复制→对勾动画，自带反馈无需 Snackbar）。
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (text.isNotBlank()) {
-                            CopyButton(
-                                text = text,
-                                modifier = Modifier.size(28.dp),
-                                contentDescription = stringResource(R.string.chat_copy),
-                            )
-                        }
-                        // 展开职责由专门按钮承担（原整卡 clickable 移除）
-                        IconButton(
-                            onClick = { performHaptic(hapticView, hapticOn); onToggleExpand() },
-                            modifier = Modifier.size(28.dp),
-                        ) {
-                            Icon(
-                                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = if (expanded)
-                                    stringResource(R.string.chat_collapse)
-                                else
-                                    stringResource(R.string.chat_expand),
-                                modifier = Modifier.size(18.dp),
-                                tint = textColor.copy(alpha = AlphaTokens.FAINT)
-                            )
-                        }
-                    }
-                }
-
-                // 文本为空时的流式占位符
-                if (isStreaming && text.isBlank()) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = accentColor.copy(alpha = AlphaTokens.MUTED)
-                    )
                 }
 
                 // 可展开内容
@@ -202,20 +198,28 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 ) {
                     Column {
                         Spacer(modifier = Modifier.height(6.dp))
-                        val halfScreenHeight = halfScreenHeight()
+                        // 2026-08-16（用户反馈调整）：高度上限从半屏收紧为固定值——
+                        // 思考内容是长 Markdown，半屏上限下总是顶满（其他工具卡片
+                        // 内容短、实际远达不到半屏上限），视觉上显著高于其他卡片。
+                        // 240.dp 与多数工具卡片展开态的实际视觉高度一致。
                         val reasoningScrollState = rememberScrollState()
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = halfScreenHeight)
+                                .heightIn(max = 240.dp)
                                 .verticalScroll(reasoningScrollState)
                         ) {
-                        MarkdownContent(
-                            markdown = text,
-                            textColor = textColor.copy(alpha = AlphaTokens.MUTED),
-                            isUser = false,
-                            customFontSize = "small"
-                        )
+                            // 2026-08-16（部分复制）：SelectionContainer 包裹内容——
+                            // 用户可选中任意片段复制（与 ReadToolCard 一致），
+                            // 替代此前的整卡全量复制按钮。
+                            androidx.compose.foundation.text.selection.SelectionContainer {
+                                MarkdownContent(
+                                    markdown = text,
+                                    textColor = textColor.copy(alpha = AlphaTokens.MUTED),
+                                    isUser = false,
+                                    customFontSize = "small"
+                                )
+                            }
                         }
                     }
                 }

@@ -276,6 +276,8 @@
     <string name="permission_reject_reason_hint">Explain why this is denied…</string>
     <string name="permission_reject_button">Reject</string>
     <string name="settings_auto_approve_rules">Auto-approve rules</string>
+    <string name="settings_auto_allow_permissions">Auto-allow all permission requests</string>
+    <string name="settings_auto_allow_permissions_desc">Automatically reply \'Always allow\' to every permission request. Rules are saved persistently — use with trusted servers only.</string>
     <string name="settings_no_auto_approve_rules">No saved auto-approve rules</string>
     <string name="settings_delete_rule">Delete rule</string>
     
@@ -575,6 +577,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_settings_auto_expand_tools">Auto-expand tools</string>
     <string name="a11y_settings_expand_reasoning">Expand reasoning</string>
     <string name="a11y_settings_initial_messages">Initial messages</string>
+    <string name="a11y_settings_auto_allow_permissions">Auto-allow all permission requests</string>
     <string name="a11y_settings_confirm_send">Confirm before sending</string>
     <string name="a11y_settings_haptic_feedback">Haptic feedback</string>
     <string name="a11y_settings_keep_screen_on">Keep screen on</string>

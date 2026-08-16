@@ -85,8 +85,12 @@ class EventDispatcher @Inject constructor(
             //（seed 恢复兜底，有界丢失窗口：毫秒级）。
             unreadBadgeService.persistAsync()
         }
-        sessionStateService.messageRefresher = MessageRefresher { sessionId, messages ->
-            messageHandler.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
+        // 2026-08-16 根治：透传合并策略——SSE 断连窗口补漏用 SSE_PRIORITY
+        //（不覆盖 SSE 累积流式文本），L3 校验保持 REST_AUTHORITY。
+        sessionStateService.messageRefresher = object : MessageRefresher {
+            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) {
+                messageHandler.upsertMessages(sessionId, messages, strategy)
+            }
         }
         // #55：L3 校验增量补漏的游标锚点——本地最新消息 id（V2 NEWER 方向增量拉取）
         sessionStateService.latestMessageIdProvider = { sessionId ->
@@ -263,6 +267,16 @@ class EventDispatcher @Inject constructor(
      * 仅首个获得会话所有权的服务器处理其事件。来自不同 serverId
      * 的同一会话的后续事件会被跳过，以防止流式输出翻倍。
      */
+    /**
+     * 2026-08-16 根治（回复不可见）：SSE 重连成功后的断连窗口内容对账——
+     * 委托 [SessionStateService.backfillActiveForServer]（cursor 增量 +
+     * SSE_PRIORITY 合并，流式进行中调用安全）。由 SseConnectionManager
+     * 在连接恢复处调用。
+     */
+    fun backfillActiveForServer(serverId: String) {
+        sessionStateService.backfillActiveForServer(serverId)
+    }
+
     fun processEvent(event: SseEvent, serverId: String) {
         // 所有权检查：当两条 SSE 连接投递相同事件
         //（同一后端，不同配置）时，防止重复事件处理。

@@ -110,6 +110,7 @@ internal fun rememberChatScrollController(
     // 下一帧布局直接按位置定位 —— 无"旧 key 锚定偏移一帧 → 再拉回"的闪烁循环。
     LaunchedEffect(messageCount) {
         if (messageCount > 0 && autoScrollEnabled.value) {
+            dev.leonardo.ocbeacon.logging.AppLogger.d(TAG, "[probe] msgCount effect n=$messageCount autoScroll=${autoScrollEnabled.value} scrollInProgress=${listState.isScrollInProgress}")
             // 2026-08-16 根治：死代码根因。原实现 `!listState.isScrollInProgress`
             // 条件失败（新消息恰逢用户 fling 惯性中到达）时静默跳过且不重试。
             // 现改为等待 fling 真实停止（snapshotFlow 订阅真实 State）后再锚定，
@@ -125,6 +126,7 @@ internal fun rememberChatScrollController(
 
     LaunchedEffect(forceScrollTick.intValue) {
         if (forceScrollTick.intValue > 0) {
+            dev.leonardo.ocbeacon.logging.AppLogger.d(TAG, "[probe] force tick=$forceScrollTick.intValue autoScroll=${autoScrollEnabled.value}")
             // 2026-08-16 根治：死代码根因。原实现 `snapshotFlow { messageCount }`
             // 捕获的是不可变 Int 函数参数（非 State），block 内零 State 读取 →
             // flow 只发射一次初始值 → `.first{}` 永久挂起，连 5s 兜底（写在
@@ -208,9 +210,11 @@ internal class ForceScrollExecutor(
 
     suspend fun execute() {
         val startCount = gate.totalItemsCount
+        dev.leonardo.ocbeacon.logging.AppLogger.d(TAG, "[probe] executor start count=$startCount scrollInProgress=${gate.isScrollInProgress}")
         val grew = withTimeoutOrNull(GROWTH_TIMEOUT_MS) {
             snapshotFlow { gate.totalItemsCount }.first { it > startCount }
         }
+        dev.leonardo.ocbeacon.logging.AppLogger.d(TAG, "[probe] executor grew=${grew ?: -1} (start=$startCount)")
 
         // 滚前等待用户 fling 结束（替代一次性 if 静默跳过——fling 中到达是高频场景）
         if (gate.isScrollInProgress) {

@@ -169,8 +169,40 @@ internal fun PartContent(
                         }
                     }
                     // 完成但无有效问题数据（异常）：不渲染
+                } else {
+                    // 2026-08-16 修复（用户报告"回答完毕后问题卡片直接消失"）：
+                    // 服务器回答后常以 error 态收尾 question part——实测 8 样本中 6 个为
+                    // error="Tool execution interrupted[: question]"（回答动作本身触发）、
+                    // 1 个 "The user dismissed this question"（取消）。error 态 input
+                    // 保留完整 questions 结构（与 completed 同构），但此前只认 Completed
+                    // → as? 转型为 null → 不渲染 → 交互卡片随 pendingQuestions 移除而
+                    // 消失，折叠卡片又不出现 = 卡片彻底消失。
+                    // 修复：error 态同样渲染折叠卡片（复用 QuestionExpandedOptions，
+                    // output 传空 → 无答案高亮，展开可看问题与选项）。
+                    val errorState = part.state as? ToolState.Error
+                    if (errorState != null) {
+                        val parsed = remember(part.id) {
+                            QuestionParser.parseQuestionFromToolData(part.id, errorState.input, "")
+                        }
+                        if (parsed.any { it.options.isNotEmpty() }) {
+                            val autoExpand = LocalCollapseTools.current
+                            ToolCardScaffold(
+                                icon = Icons.AutoMirrored.Filled.HelpOutline,
+                                iconTint = MaterialTheme.colorScheme.primary,
+                                title = "Asked",
+                                copyText = "",
+                                isExpanded = toolExpandedStates[part.id] ?: autoExpand,
+                                isRunning = false,
+                                hasContent = true,
+                                isAmoled = isAmoledTheme(),
+                                onToggleExpand = { onToggleToolExpanded(part.id, autoExpand) },
+                            ) {
+                                QuestionExpandedOptions(parsed)
+                            }
+                        }
+                    }
+                    // 未完成（活跃）：不渲染——提问由 QuestionCard 展示
                 }
-                // 未完成（活跃）：不渲染——提问由 QuestionCard 展示
             } else {
                 // 历史兼容：工具名非 "question" 但输出含问题数据的（旧服务器/旧数据）
                 val completedState = part.state as? ToolState.Completed

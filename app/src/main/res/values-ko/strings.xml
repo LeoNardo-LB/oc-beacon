@@ -432,6 +432,8 @@
     <string name="permission_reject_reason_hint">거부 사유를 입력하십시오…</string>
     <string name="permission_reject_button">거부</string>
     <string name="settings_auto_approve_rules">자동 승인 규칙</string>
+    <string name="settings_auto_allow_permissions">모든 권한 요청 자동 허용</string>
+    <string name="settings_auto_allow_permissions_desc">모든 권한 요청에 \'항상 허용\'으로 자동 응답합니다. 규칙이 영구 저장됩니다——신뢰하는 서버에서만 사용하세요.</string>
     <string name="settings_no_auto_approve_rules">저장된 자동 승인 규칙이 없습니다</string>
     <string name="settings_delete_rule">규칙 삭제</string>
     <string name="settings_expand_reasoning">추론 자동 확장</string>
@@ -448,6 +450,7 @@
     <string name="chat_retry_send">재시도</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">컨텍스트 사용 세부</string>
+    <string name="a11y_settings_auto_allow_permissions">모든 권한 요청 자동 허용</string>
     <string name="a11y_settings_language">언어</string>
     <string name="a11y_settings_reconnect_mode">재접속 모드</string>
     <string name="a11y_settings_theme">테마</string>

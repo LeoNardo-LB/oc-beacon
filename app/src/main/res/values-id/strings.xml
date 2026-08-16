@@ -438,6 +438,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_reject_reason_hint">Jelaskan mengapa ditolak…</string>
     <string name="permission_reject_button">Tolak</string>
     <string name="settings_auto_approve_rules">Aturan auto-approve</string>
+    <string name="settings_auto_allow_permissions">Izinkan otomatis semua permintaan izin</string>
+    <string name="settings_auto_allow_permissions_desc">Menjawab \'Selalu izinkan\' secara otomatis. Aturan disimpan permanen — hanya untuk server tepercaya.</string>
     <string name="settings_no_auto_approve_rules">Tidak ada aturan auto-approve tersimpan</string>
     <string name="settings_delete_rule">Hapus aturan</string>
     <string name="settings_expand_reasoning">Auto-perluas penalaran</string>
@@ -454,6 +456,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_retry_send">Coba lagi</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">Detail penggunaan konteks</string>
+    <string name="a11y_settings_auto_allow_permissions">Izinkan otomatis semua permintaan izin</string>
     <string name="a11y_settings_language">Bahasa</string>
     <string name="a11y_settings_reconnect_mode">Mode sambung ulang</string>
     <string name="a11y_settings_theme">Tema</string>

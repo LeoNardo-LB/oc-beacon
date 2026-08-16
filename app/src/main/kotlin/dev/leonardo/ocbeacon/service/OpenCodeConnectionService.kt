@@ -534,6 +534,35 @@ class OpenCodeConnectionService : Service() {
             }
             is SseEvent.PermissionAsked -> {
                 maybeNotify(server) {
+                    // 2026-08-16（用户需求·自动允许开关）：开关开启时自动应答
+                    // always（服务器落持久规则，同类请求不再询问）并跳过通知。
+                    // maybeNotify 的 action 为 suspend lambda——可挂起读开关
+                    //（与下方 notificationsEnabled.first() 同模式）。应答失败
+                    // 不中断：落回原通知路径由用户手动处理。
+                    if (event.id.isNotBlank() &&
+                        runCatching { settingsDataStore.autoAllowPermissions.first() }.getOrDefault(false)
+                    ) {
+                        // 会话 directory（V2 reply 路由 header 用）——从事件
+                        // 派发器的会话表查；空串归 null（服务器默认项目）。
+                        val sessionDirectory = eventDispatcher.sessions.value
+                            .find { it.id == event.sessionId }?.directory
+                            ?.takeIf { it.isNotBlank() }
+                        val replied = runCatching {
+                            managePermissionUseCase.replyToPermission(
+                                serverId = server.id,
+                                requestId = event.id,
+                                reply = "always",
+                                directory = sessionDirectory,
+                            )
+                        }.onFailure { e ->
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            AppLogger.e(TAG, "[${server.displayName}] Auto-allow failed for ${event.permission} (id=${event.id}): ${e.message}", e)
+                        }.isSuccess
+                        if (replied) {
+                            AppLogger.i(TAG, "[${server.displayName}] Auto-allowed permission ${event.permission} (id=${event.id}, session=${event.sessionId})")
+                            return@maybeNotify
+                        }
+                    }
                     val targetSessionId = if (appNotificationManager.isChildSession(event.sessionId)) {
                         // 子 session 权限冒泡到父 session 通知
                         val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }

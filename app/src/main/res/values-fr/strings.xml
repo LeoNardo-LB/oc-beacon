@@ -430,6 +430,8 @@
     <string name="permission_reject_reason_hint">Expliquez pourquoi cela est refusé…</string>
     <string name="permission_reject_button">Refuser</string>
     <string name="settings_auto_approve_rules">Règles d\'approbation automatique</string>
+    <string name="settings_auto_allow_permissions">Autoriser automatiquement toutes les demandes d\'autorisation</string>
+    <string name="settings_auto_allow_permissions_desc">Répond automatiquement \'Toujours autoriser\'. Les règles sont enregistrées de façon persistante — serveurs de confiance uniquement.</string>
     <string name="settings_no_auto_approve_rules">Aucune règle d\'approbation automatique enregistrée</string>
     <string name="settings_delete_rule">Supprimer la règle</string>
     <string name="settings_expand_reasoning">Développer automatiquement le raisonnement</string>
@@ -446,6 +448,7 @@
     <string name="chat_retry_send">Réessayer</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">Détails d\'utilisation du contexte</string>
+    <string name="a11y_settings_auto_allow_permissions">Autoriser automatiquement toutes les demandes d\'autorisation</string>
     <string name="a11y_settings_language">Langue</string>
     <string name="a11y_settings_reconnect_mode">Mode de reconnexion</string>
     <string name="a11y_settings_theme">Thème</string>

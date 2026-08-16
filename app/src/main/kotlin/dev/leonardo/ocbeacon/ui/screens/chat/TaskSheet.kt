@@ -293,35 +293,42 @@ fun TaskSheet(
                                     },
                                     // 2026-08-12 用户要求：左对齐最左边不需要图标（leading 移除）
                                     trailingContent = {
-                                        // 2026-08-16（#145 执行时长）：右对齐展示执行时长——
-                                        // 运行中 now-startedAt 走时（面板可见期间 1s tick）；
-                                        // 完成态显示 durationMs（updated-created 近似）。
-                                        val elapsed = if (running) {
-                                            val now by produceState(System.currentTimeMillis()) {
-                                                while (true) {
-                                                    kotlinx.coroutines.delay(1_000)
-                                                    value = System.currentTimeMillis()
-                                                }
-                                            }
-                                            sub.startedAt?.let { now - it }
-                                        } else {
-                                            sub.durationMs
-                                        }
-                                        elapsed?.let { ms ->
-                                            Text(
-                                                text = formatTaskDuration(ms),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                    alpha = AlphaTokens.MUTED
-                                                ),
-                                                modifier = Modifier.padding(end = SpacingTokens.XS.dp)
+                                        // 2026-08-16（用户反馈修复）：时长与状态图标改为垂直排列——
+                                        // 原 Row 水平排列在 trailing 空间不足时（agent 标题长）两者
+                                        // 挤压重叠；现图标在上、时长在图标正下方（右对齐），
+                                        // 任意宽度下都不重叠。
+                                        Column(
+                                            horizontalAlignment = Alignment.End
+                                        ) {
+                                            // 统一状态图标系统（TaskStatusIcon）：进行中=转圈 / 完成=CheckCircle 绿
+                                            TaskStatusIcon(
+                                                status = if (running) TaskStatus.RUNNING else TaskStatus.SUCCESS,
+                                                contentDescription = if (running) null else stringResource(R.string.task_sheet_subagent_completed)
                                             )
+                                            // 2026-08-16（#145 执行时长）：运行中 now-startedAt 走时
+                                            //（面板可见期间 1s tick）；完成态显示 durationMs
+                                            //（updated-created 近似）。
+                                            val elapsed = if (running) {
+                                                val now by produceState(System.currentTimeMillis()) {
+                                                    while (true) {
+                                                        kotlinx.coroutines.delay(1_000)
+                                                        value = System.currentTimeMillis()
+                                                    }
+                                                }
+                                                sub.startedAt?.let { now - it }
+                                            } else {
+                                                sub.durationMs
+                                            }
+                                            elapsed?.let { ms ->
+                                                Text(
+                                                    text = formatTaskDuration(ms),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = AlphaTokens.MUTED
+                                                    )
+                                                )
+                                            }
                                         }
-                                        // 统一状态图标系统（TaskStatusIcon）：进行中=转圈 / 完成=CheckCircle 绿
-                                        TaskStatusIcon(
-                                            status = if (running) TaskStatus.RUNNING else TaskStatus.SUCCESS,
-                                            contentDescription = if (running) null else stringResource(R.string.task_sheet_subagent_completed)
-                                        )
                                     },
                                     modifier = Modifier.clickable {
                                         onOpenSubSession(sub.sessionId)

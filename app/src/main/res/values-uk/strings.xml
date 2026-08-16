@@ -440,6 +440,8 @@
     <string name="permission_reject_reason_hint">Поясніть, почому відхилено…</string>
     <string name="permission_reject_button">Відхилити</string>
     <string name="settings_auto_approve_rules">Правила автозатвердження</string>
+    <string name="settings_auto_allow_permissions">Автоматично дозволяти всі запити дозволів</string>
+    <string name="settings_auto_allow_permissions_desc">Автоматично відповідає \'Завжди дозволяти\'. Правила зберігаються постійно — лише з надійними серверами.</string>
     <string name="settings_no_auto_approve_rules">Немає збережених правил автозатвердження</string>
     <string name="settings_delete_rule">Видалити правило</string>
     <string name="settings_expand_reasoning">Авторозгортань розумовіння</string>
@@ -456,6 +458,7 @@
     <string name="chat_retry_send">Повторити</string>
     <string name="chat_title_placeholder">Чат</string>
     <string name="chat_context_detail_title">Деталі використання контексту</string>
+    <string name="a11y_settings_auto_allow_permissions">Автоматично дозволяти всі запити дозволів</string>
     <string name="a11y_settings_language">Мова</string>
     <string name="a11y_settings_reconnect_mode">Режим підключення</string>
     <string name="a11y_settings_theme">Тема</string>

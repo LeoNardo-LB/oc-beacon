@@ -33,6 +33,9 @@ data class AppSettings(
     val hapticFeedback: Boolean = true,
     val reconnectMode: String = "normal",
     val keepScreenOn: Boolean = false,
+    /** 2026-08-16（用户需求）：权限请求到达时自动应答 always（服务器落持久规则）。
+     *  默认 false——安全默认，仅对可信服务器手动开启。 */
+    val autoAllowPermissions: Boolean = false,
 
     // --- 图片附件 ---
     val compressImageAttachments: Boolean = true,

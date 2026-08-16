@@ -448,6 +448,8 @@
     <string name="permission_reject_reason_hint">说明拒绝原因…</string>
     <string name="permission_reject_button">拒绝</string>
     <string name="settings_auto_approve_rules">自动批准规则</string>
+    <string name="settings_auto_allow_permissions">自动允许所有权限请求</string>
+    <string name="settings_auto_allow_permissions_desc">对每个权限请求自动应答「始终允许」。规则会持久保存——仅对可信服务器开启。</string>
     <string name="settings_no_auto_approve_rules">没有已保存的自动批准规则</string>
     <string name="settings_delete_rule">删除规则</string>
     <string name="chat_meta_tokens">%d 个 token</string>
@@ -462,6 +464,7 @@
     <string name="chat_retry_send">重试</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">上下文使用详情</string>
+    <string name="a11y_settings_auto_allow_permissions">自动允许所有权限请求</string>
     <string name="a11y_settings_language">语言</string>
     <string name="a11y_settings_reconnect_mode">重连模式</string>
     <string name="a11y_settings_theme">主题</string>

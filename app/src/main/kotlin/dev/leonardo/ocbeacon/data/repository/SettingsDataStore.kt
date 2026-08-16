@@ -51,6 +51,7 @@ class SettingsDataStore @Inject constructor(
         private val EXPAND_REASONING_KEY = booleanPreferencesKey("expand_reasoning")
         private val SHOW_TURN_DIVIDERS_KEY = booleanPreferencesKey("show_turn_dividers")
         private val HAPTIC_FEEDBACK_KEY = booleanPreferencesKey("haptic_feedback")
+        private val AUTO_ALLOW_PERMISSIONS_KEY = booleanPreferencesKey("auto_allow_permissions")
         private val RECONNECT_MODE_KEY = stringPreferencesKey("reconnect_mode")
         private val KEEP_SCREEN_ON_KEY = booleanPreferencesKey("keep_screen_on")
         private val SILENT_NOTIFICATIONS_KEY = booleanPreferencesKey("silent_notifications")
@@ -240,6 +241,7 @@ class SettingsDataStore @Inject constructor(
             prefs[NOTIFICATIONS_KEY] = settings.notificationsEnabled
             prefs[SILENT_NOTIFICATIONS_KEY] = settings.silentNotifications
             prefs[HAPTIC_FEEDBACK_KEY] = settings.hapticFeedback
+            prefs[AUTO_ALLOW_PERMISSIONS_KEY] = settings.autoAllowPermissions
             prefs[RECONNECT_MODE_KEY] = settings.reconnectMode
             prefs[KEEP_SCREEN_ON_KEY] = settings.keepScreenOn
             prefs[COMPRESS_IMAGE_ATTACHMENTS_KEY] = settings.compressImageAttachments
@@ -279,6 +281,8 @@ class SettingsDataStore @Inject constructor(
     /** 是否启用触感反馈。默认：true。 */
     val hapticFeedback: Flow<Boolean> = prefFlow(HAPTIC_FEEDBACK_KEY, true)
     suspend fun setHapticFeedback(enabled: Boolean) = setPref(HAPTIC_FEEDBACK_KEY, enabled)
+    val autoAllowPermissions: Flow<Boolean> = prefFlow(AUTO_ALLOW_PERMISSIONS_KEY, false)
+    suspend fun setAutoAllowPermissions(enabled: Boolean) = setPref(AUTO_ALLOW_PERMISSIONS_KEY, enabled)
 
     /** 重连模式："aggressive"/"normal"/"conservative"。默认："normal"。 */
     val reconnectMode: Flow<String> = prefFlow(RECONNECT_MODE_KEY, "normal")
@@ -404,6 +408,7 @@ class SettingsDataStore @Inject constructor(
             notificationsEnabled = prefs[NOTIFICATIONS_KEY] ?: true,
             silentNotifications = prefs[SILENT_NOTIFICATIONS_KEY] ?: false,
             hapticFeedback = prefs[HAPTIC_FEEDBACK_KEY] ?: true,
+            autoAllowPermissions = prefs[AUTO_ALLOW_PERMISSIONS_KEY] ?: false,
             reconnectMode = prefs[RECONNECT_MODE_KEY] ?: "normal",
             keepScreenOn = prefs[KEEP_SCREEN_ON_KEY] ?: false,
             compressImageAttachments = prefs[COMPRESS_IMAGE_ATTACHMENTS_KEY] ?: true,

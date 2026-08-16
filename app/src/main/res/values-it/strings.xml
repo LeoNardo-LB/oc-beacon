@@ -432,6 +432,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_reject_reason_hint">Spiega perché è negato…</string>
     <string name="permission_reject_button">Rifiuta</string>
     <string name="settings_auto_approve_rules">Regole di approvazione automatica</string>
+    <string name="settings_auto_allow_permissions">Consenti automaticamente tutte le richieste di autorizzazione</string>
+    <string name="settings_auto_allow_permissions_desc">Risponde \'Consenti sempre\' automaticamente. Le regole sono salvate in modo persistente: solo server affidabili.</string>
     <string name="settings_no_auto_approve_rules">Nessuna regola di approvazione automatica salvata</string>
     <string name="settings_delete_rule">Elimina regola</string>
     <string name="settings_expand_reasoning">Espansione automatica del ragionamento</string>
@@ -448,6 +450,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_retry_send">Riprova</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">Dettagli utilizzo contesto</string>
+    <string name="a11y_settings_auto_allow_permissions">Consenti automaticamente tutte le richieste di autorizzazione</string>
     <string name="a11y_settings_language">Lingua</string>
     <string name="a11y_settings_reconnect_mode">Modalità riconnessione</string>
     <string name="a11y_settings_theme">Tema</string>
