@@ -406,119 +406,26 @@ internal fun QuestionOptionRows(
             )
         }
         // 自定义答案支持
+        // 2026-08-17 E2E 发现修复：多选渲染**全部**自定义答案（原 firstOrNull
+        // 只显示第一个——第二个自定义在 selection 里却"隐形"，仍会被提交）；
+        // 单选语义至多一个。多选时输入框常驻（可连续添加多个自定义）。
         if (question.custom != false) {
             val optionLabels = question.options.map { it.label }.toSet()
-            val customAnswer = selected.firstOrNull { it !in optionLabels }
-            if (customAnswer != null && readOnly) {
-                // 历史只读视图：自定义答案行（2026-08-17 与选项行统一为 ListItem）
-                ListItem(
-                    headlineContent = {
-                        Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
-                    },
-                    leadingContent = {
-                        if (isMultiple == true) {
-                            Checkbox(checked = true, onCheckedChange = null, enabled = false)
-                        } else {
-                            RadioButton(selected = true, onClick = null, enabled = false)
-                        }
-                    },
-                    colors = ListItemDefaults.colors(
-                        containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+            val customAnswers = selected.filter { it !in optionLabels }.let {
+                if (isMultiple == true) it else it.take(1)
+            }
+            customAnswers.forEach { custom ->
+                CustomAnswerRow(
+                    customAnswer = custom,
+                    readOnly = readOnly,
+                    isMultiple = isMultiple,
+                    accentColor = accentColor,
+                    optionLabels = optionLabels,
+                    onOptionClick = onOptionClick,
                 )
-            } else if (customAnswer != null) {
-                // 2026-08-14 用户决策：③ 输入完毕态 = ②编辑态样式（输入框外观），
-                // 图标换 Edit；点击 Edit 进入修改（预填已有答案，修改后重新提交替换）
-                var editing by remember(customAnswer) { mutableStateOf(false) }
-                var editText by remember(customAnswer) { mutableStateOf(customAnswer) }
-                if (!editing) {
-                    // ③ 输入完毕态：与选项行同款 ListItem（2026-08-17 统一），
-                    // trailing = Edit / ✔ / ✕（16dp 统一样式）——
-                    // ✔ 为选中标记；Edit 进入修改；✕ 删除（Bug #125：toggle off）
-                    ListItem(
-                        headlineContent = {
-                            Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
-                        },
-                        leadingContent = {
-                            if (isMultiple == true) {
-                                Checkbox(checked = true, onCheckedChange = null)
-                            } else {
-                                RadioButton(selected = true, onClick = null)
-                            }
-                        },
-                        trailingContent = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(ShapeTokens.small)
-                                        .clickable { editing = true; editText = customAnswer },
-                                    tint = accentColor
-                                )
-                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(ShapeTokens.small)
-                                        .clickable { onOptionClick(customAnswer) },
-                                    tint = accentColor
-                                )
-                            }
-                        },
-                        colors = ListItemDefaults.colors(
-                            containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    // 修改编辑态：输入框 + 小飞机（2026-08-14 用户要求：不要 X）
-                    androidx.compose.material3.OutlinedTextField(
-                        value = editText, onValueChange = { editText = it },
-                        placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(),
-                        textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
-                        // 背景与其他答案 item 统一（偏白 surface）；边框未选中态淡色
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
-                            focusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-                        ),
-                        trailingIcon = {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Send,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(ShapeTokens.small)
-                                    .clickable(enabled = editText.isNotBlank() && editText != customAnswer) {
-                                        val t = editText.trim()
-                                        if (t.isNotBlank()) {
-                                            // 修改 = 替换旧自定义：先移除旧值（toggle off）
-                                            onOptionClick(customAnswer)
-                                            // Bug #125: 若新值是已有选项标签则不再 toggle on——
-                                            // 避免已选中选项被意外取消（toggle 语义为切换而非仅选中）
-                                            if (t !in optionLabels) {
-                                                onOptionClick(t)
-                                            }
-                                            editing = false
-                                        }
-                                    },
-                                tint = if (editText.isNotBlank() && editText != customAnswer) accentColor
-                                    else accentColor.copy(alpha = AlphaTokens.FAINT)
-                            )
-                        }
-                    )
-                }
-            } else if (!readOnly) {
+            }
+            // 输入框：多选常驻（继续添加）；单选仅无自定义时显示（修改走行内 Edit）
+            if (!readOnly && (isMultiple == true || customAnswers.isEmpty())) {
                 // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）
                 androidx.compose.material3.OutlinedTextField(
                     value = customDraft, onValueChange = onCustomDraftChange,
@@ -559,5 +466,129 @@ internal fun QuestionOptionRows(
                 )
             }
         }
+    }
+}
+
+/**
+ * 单条自定义答案行（2026-08-17 E2E 发现修复时从 QuestionOptionRows 抽出）。
+ *
+ * 完毕态：ListItem（选中控件 + accent 淡染）+ trailing Edit/✔/✕；
+ * 编辑态：OutlinedTextField + 纸飞机（修改 = 移除旧值 + 加入新值）。
+ * editing/editText 状态按 customAnswer 作用域化（值变即重置）——
+ * E2E 观察到的"预填陈旧草稿"实为并行测试污染，本组件预填恒为当前值。
+ */
+@Composable
+private fun CustomAnswerRow(
+    customAnswer: String,
+    readOnly: Boolean,
+    isMultiple: Boolean?,
+    accentColor: Color,
+    optionLabels: Set<String>,
+    onOptionClick: (String) -> Unit,
+) {
+    if (readOnly) {
+        // 历史只读视图：选中态行（无交互）
+        ListItem(
+            headlineContent = {
+                Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
+            },
+            leadingContent = {
+                if (isMultiple == true) {
+                    Checkbox(checked = true, onCheckedChange = null, enabled = false)
+                } else {
+                    RadioButton(selected = true, onClick = null, enabled = false)
+                }
+            },
+            colors = ListItemDefaults.colors(
+                containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+        return
+    }
+    // ③ 完毕态 ⇄ 编辑态（2026-08-14 用户决策：Edit 进入修改，预填当前值）
+    var editing by remember(customAnswer) { mutableStateOf(false) }
+    var editText by remember(customAnswer) { mutableStateOf(customAnswer) }
+    if (!editing) {
+        ListItem(
+            headlineContent = {
+                Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
+            },
+            leadingContent = {
+                if (isMultiple == true) {
+                    Checkbox(checked = true, onCheckedChange = null)
+                } else {
+                    RadioButton(selected = true, onClick = null)
+                }
+            },
+            trailingContent = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(ShapeTokens.small)
+                            .clickable { editing = true; editText = customAnswer },
+                        tint = accentColor
+                    )
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
+                    // Bug #125: ✕ 删除自定义答案——toggle off 该自定义值
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(ShapeTokens.small)
+                            .clickable { onOptionClick(customAnswer) },
+                        tint = accentColor
+                    )
+                }
+            },
+            colors = ListItemDefaults.colors(
+                containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+    } else {
+        androidx.compose.material3.OutlinedTextField(
+            value = editText, onValueChange = { editText = it },
+            placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
+            singleLine = true, modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
+                focusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+            ),
+            trailingIcon = {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(ShapeTokens.small)
+                        .clickable(enabled = editText.isNotBlank() && editText != customAnswer) {
+                            val t = editText.trim()
+                            if (t.isNotBlank()) {
+                                // 修改 = 替换旧自定义：先移除旧值（toggle off）；
+                                // Bug #125: 新值是已有选项标签时不再 toggle on
+                                // （避免已选中选项被意外取消）
+                                onOptionClick(customAnswer)
+                                if (t !in optionLabels) {
+                                    onOptionClick(t)
+                                }
+                                editing = false
+                            }
+                        },
+                    tint = if (editText.isNotBlank() && editText != customAnswer) accentColor
+                        else accentColor.copy(alpha = AlphaTokens.FAINT)
+                )
+            }
+        )
     }
 }
