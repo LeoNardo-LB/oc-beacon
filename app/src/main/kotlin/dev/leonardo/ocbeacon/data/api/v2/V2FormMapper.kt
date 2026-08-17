@@ -94,7 +94,7 @@ object V2FormMapper {
         val id = props["id"]?.jsonPrimitive?.contentOrNull ?: return null
         val sessionId = props["sessionID"]?.jsonPrimitive?.contentOrNull ?: return null
         val questions = (props["questions"]?.jsonArray ?: JsonArray(emptyList()))
-            .mapNotNull { el ->
+            .mapIndexedNotNull { index, el ->
                 (el as? JsonObject)?.let { q ->
                     val options = (q["options"]?.jsonArray ?: JsonArray(emptyList()))
                         .mapNotNull { o -> (o as? JsonObject)?.toOption() }
@@ -104,7 +104,12 @@ object V2FormMapper {
                         multiple = q["multiple"]?.jsonPrimitive?.booleanOrNull ?: false,
                         custom = q["custom"]?.jsonPrimitive?.booleanOrNull ?: true,
                         options = options,
-                        key = null
+                        // 2026-08-17（自定义输入变 skip 根治）：question.v2.asked 无 key 字段，
+                        // 此前 key=null → buildJsonAnswerMap 全跳过 → 空 answers → 服务器
+                        // QuestionTool 输出 "Unanswered"（=用户报告的"跳过"）。按题目序号
+                        // 合成 key（q0/q1...），与 form 版 field key 命名一致；仅用于
+                        // answer map 构造（UI/通知不读 key，无副作用）。
+                        key = "q$index"
                     )
                 }
             }
@@ -254,4 +259,28 @@ object V2FormMapper {
         }
         return JsonObject(fields)
     }
+
+    /**
+     * 2026-08-17（自定义输入变 skip 根治）：构造 question.v2 reply 的 answers
+     * （`{"answers": string[][]}`，POST /api/session/{sid}/question/{id}/reply）。
+     *
+     * 官方契约（sst/opencode 源码 Question.Reply + 官方 TUI question.tsx submit()）：
+     * - "User answers **in order of questions** (each answer is an array of selected **labels**)"
+     * - 每题一项、未答题用空数组 `[]` 占位（TUI: `questions.map((_, i) => store.answers[i] ?? [])`）
+     * - 自定义输入文本直接作为 label 数组项（TUI: `pick(text, true)`），服务器端不校验 label
+     * - QuestionTool 对空 answer 输出 "Unanswered"——即此前 key=null/mapNotNull 丢项导致的"跳过"
+     *
+     * 注意与 [buildJsonAnswerMap]（form 契约：key→option.value）不同：此处传 **UI 原始 label
+     * 原文**（不转 option.value）——question.v2 语义就是 label。
+     *
+     * @param answers UI 提交的原始答案（每题 label 列表，按 questions 顺序）
+     * @param questionCount 题目总数（用于未答题补 `[]` 占位，防止数组缩短错位）
+     */
+    fun buildOrderedLabelAnswers(answers: List<List<String>>, questionCount: Int): JsonArray =
+        JsonArray(
+            (0 until questionCount).map { i ->
+                val labels = answers.getOrNull(i).orEmpty()
+                JsonArray(labels.map { JsonPrimitive(it) })
+            }
+        )
 }

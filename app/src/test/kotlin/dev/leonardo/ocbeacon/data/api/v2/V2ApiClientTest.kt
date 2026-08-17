@@ -12,6 +12,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.http.content.TextContent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
@@ -362,8 +363,35 @@ class V2ApiClientTest {
         val keyed = kotlinx.serialization.json.buildJsonObject {
             put("q0", kotlinx.serialization.json.JsonPrimitive("rice"))
         }
-        assertTrue(api.replyToForm(v2Conn, "ses_1", "frm_1", keyed))
+        val ordered = V2FormMapper.buildOrderedLabelAnswers(listOf(listOf("rice")), questionCount = 1)
+        assertTrue(api.replyToForm(v2Conn, "ses_1", "frm_1", keyed, ordered))
         assertEquals(listOf("/api/session/ses_1/question/frm_1/reply", "/api/session/ses_1/form/frm_1/reply"), paths)
+    }
+
+    @Test
+    fun `replyToForm question v2 body carries custom input labels in order`() = runTest {
+        // 2026-08-17（自定义输入变 skip 根治）：question.v2 主路径 body 必须是
+        // 按题目顺序的 label 数组——自定义文本原文保留、多选原样数组、未答补 [] 占位
+        //（官方契约 Question.Reply + TUI submit()；此前 mapNotNull 反推会丢多选/错位）。
+        var v2Body: String? = null
+        val engine = MockEngine { request ->
+            if (request.url.encodedPath.endsWith("/question/frm_1/reply")) {
+                v2Body = (request.body as TextContent).text
+                respond("true", HttpStatusCode.OK)
+            } else {
+                respond("", HttpStatusCode.NoContent)
+            }
+        }
+        val api = buildClient(engine)
+        // 场景：q0 自定义输入（非预定义选项）、q1 未答、q2 多选 2 项
+        val ordered = V2FormMapper.buildOrderedLabelAnswers(
+            answers = listOf(listOf("my-custom-text"), emptyList(), listOf("Kotlin", "Rust")),
+            questionCount = 3
+        )
+        assertTrue(api.replyToForm(v2Conn, "ses_1", "frm_1", kotlinx.serialization.json.JsonObject(emptyMap()), ordered))
+        // answers 长度=题数 3；q0=自定义原文；q1=[]；q2=多选数组
+        val expected = """{"answers":[["my-custom-text"],[],["Kotlin","Rust"]]}"""
+        assertEquals(expected, v2Body)
     }
 
     @Test

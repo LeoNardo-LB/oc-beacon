@@ -157,4 +157,82 @@ class V2FormMapperTest {
         )
         assertTrue(body["answer"]!!.jsonObject.isEmpty())
     }
+
+    // ============ 2026-08-17 自定义输入变 skip 根治 ============
+
+    @Test
+    fun `question v2 asked assigns synthetic keys by question order`() {
+        // 主干契约 question.v2.asked 无 key 字段——此前 key=null 导致 buildJsonAnswerMap
+        // 全跳过 → 空 answers → 服务器 QuestionTool 输出 "Unanswered"（=跳过）。
+        // 修复：按题目序号合成 key（q0/q1...），与 form 版 field key 命名一致。
+        val event = V2FormMapper.map(
+            "question.v2.asked",
+            props(
+                """{"id":"qus_1","sessionID":"ses_1","questions":[
+                    {"question":"Q1 eat?","header":"eat","options":[{"label":"rice","description":""}],"custom":true},
+                    {"question":"Q2 langs?","header":"langs","options":[{"label":"Kotlin","description":""}],"multiple":true}
+                ]}"""
+            )
+        )
+        assertNotNull(event)
+        val asked = event as SseEvent.QuestionAsked
+        assertEquals("q0", asked.questions[0].key)
+        assertEquals("q1", asked.questions[1].key)
+    }
+
+    @Test
+    fun `question v2 synthetic keys make answer map carry custom input`() {
+        // question.v2.asked + 自定义输入：key 合成后 buildJsonAnswerMap 不再返回空 map
+        val event = V2FormMapper.map(
+            "question.v2.asked",
+            props(
+                """{"id":"qus_1","sessionID":"ses_1","questions":[
+                    {"question":"Q1 eat?","header":"eat","options":[{"label":"rice","description":""}],"custom":true}
+                ]}"""
+            )
+        ) as SseEvent.QuestionAsked
+        val map = V2FormMapper.buildJsonAnswerMap(listOf(listOf("my-custom-dish")), event.questions)
+        assertEquals("my-custom-dish", map["q0"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `ordered label answers keeps custom input and pads unanswered with empty array`() {
+        // 官方契约（Question.Reply + TUI submit()）：answers 按题目顺序、未答题补 [] 占位，
+        // 自定义文本原文作为数组项——不经 label→value 转换（question.v2 语义就是 label）
+        val answers = V2FormMapper.buildOrderedLabelAnswers(
+            answers = listOf(listOf("my-custom-text")),
+            questionCount = 2
+        )
+        assertEquals(2, answers.size)
+        assertEquals("my-custom-text", answers[0].jsonArray[0].jsonPrimitive.content)
+        assertTrue(answers[1].jsonArray.isEmpty())
+    }
+
+    @Test
+    fun `ordered label answers keeps multiple selections as arrays`() {
+        // 多选答案必须原样数组（此前 mapNotNull { as? JsonPrimitive } 会整题丢弃 → 错位）
+        val answers = V2FormMapper.buildOrderedLabelAnswers(
+            answers = listOf(listOf("rice"), emptyList(), listOf("Kotlin", "Rust")),
+            questionCount = 3
+        )
+        assertEquals(3, answers.size)
+        assertEquals(listOf("Kotlin", "Rust"), answers[2].jsonArray.map { it.jsonPrimitive.content })
+    }
+
+    @Test
+    fun `ordered label answers uses raw labels not option values`() {
+        // question.v2 主路径传 label 原文（form 契约才传 option.value）——
+        // formCreatedJson 中 value==label，构造 value≠label 的场景验证不转换
+        val event = V2FormMapper.map("form.created", props(formCreatedJson)) as SseEvent.QuestionAsked
+        // 提交 label "rice"（form 版 value 恰好也是 rice）；换自定义场景更直接：
+        // 预定义 label 的原样透传（value 不参与）
+        val answers = V2FormMapper.buildOrderedLabelAnswers(
+            answers = listOf(listOf("rice")),
+            questionCount = 1
+        )
+        assertEquals("rice", answers[0].jsonArray[0].jsonPrimitive.content)
+        // 对照：buildJsonAnswerMap（form 契约）会转 value——两者语义分离
+        val keyed = V2FormMapper.buildJsonAnswerMap(listOf(listOf("rice")), event.questions.take(1))
+        assertEquals("rice", keyed["q0"]!!.jsonPrimitive.content)
+    }
 }

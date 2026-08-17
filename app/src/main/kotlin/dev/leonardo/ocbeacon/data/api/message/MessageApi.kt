@@ -197,6 +197,9 @@ class MessageApiImpl @Inject constructor(
                 sessionId = q.sessionId,
                 formId = requestId,
                 keyedAnswers = V2FormMapper.buildJsonAnswerMap(answers, q.questions),
+                // 2026-08-17：question.v2 主路径用原始 label 按序数组（未答题补 [] 占位、
+                // 自定义输入原文保留）——官方契约 answers 是 label 数组，不经 key/value 转换。
+                orderedAnswers = V2FormMapper.buildOrderedLabelAnswers(answers, q.questions.size),
                 directory = directory
             )
         } else {

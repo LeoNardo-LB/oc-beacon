@@ -830,28 +830,30 @@ class V2ApiClient @Inject constructor(
      *
      * @param sessionId 表单所属会话（form reply 路径需要 sessionID）
      * @param keyedAnswers 已按 form field key 构造的 answer map（由 V2FormMapper.buildJsonAnswerMap 生成）
+     * @param orderedAnswers 2026-08-17（自定义输入变 skip 根治）：question.v2 主路径专用——
+     *   按题目顺序的 label 数组（`{"answers": string[][]}`，由 V2FormMapper.buildOrderedLabelAnswers
+     *   生成：未答题补 `[]` 占位、多选原样数组、自定义文本原文）。
+     *   官方契约（sst/opencode Question.Reply + TUI submit()）：answers 按题目序、每项为
+     *   选中 label 数组；此前从 keyedAnswers 反推（mapNotNull 只取 JsonPrimitive）会丢
+     *   多选答案且无空位占位 → 数组缩短错位 → 服务器 QuestionTool 输出 "Unanswered"（跳过）。
      */
     suspend fun replyToForm(
         conn: ServerConnection,
         sessionId: String,
         formId: String,
         keyedAnswers: kotlinx.serialization.json.JsonObject,
+        orderedAnswers: kotlinx.serialization.json.JsonArray,
         directory: String? = null
     ): Boolean {
         // 2026-08-15（research/09 P0）：question.v2 优先（主干契约，实测 200）：
         // POST /api/session/:id/question/:requestID/reply {answers: string[][]}
         //（按 questions 顺序的数组，每个 answer 是选中 label 数组——与 form
         // 的 keyed map 不同）。form 通道降级（next-17430 中间契约）。
-        // keyedAnswers 的 key 即 question key（q0/q1...）——按序转数组。
-        val orderedAnswers = keyedAnswers.keys.mapNotNull { k ->
-            (keyedAnswers[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
-        }.map { listOf(it) }
         val v2Body = kotlinx.serialization.json.buildJsonObject {
-            put("answers", kotlinx.serialization.json.JsonArray(
-                orderedAnswers.map { ans ->
-                    kotlinx.serialization.json.JsonArray(ans.map { kotlinx.serialization.json.JsonPrimitive(it) })
-                }
-            ))
+            put("answers", orderedAnswers)
+        }
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "replyToForm: POST question.v2 reply sessionId=$sessionId formId=$formId answers=$orderedAnswers")
         }
         val v2Resp = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/question/" + formId + "/reply") {
             auth(conn)
