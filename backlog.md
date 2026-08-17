@@ -61,6 +61,7 @@
 - [ ] **E2E-C 导航往返丢提问卡已选答案/自定义草稿** `ui` `sse`
   - 现象：聊天页返回会话列表再进入，卡内已选答案重置（rememberSaveable 未在该导航路径生效）
   - 2026-08-18 双输入框验证中第三次独立复现：误按 BACK 退列表重进，未 Submit 的自定义草稿（Mango pie 行）消失（服务端卡仍 pending）——非单一测试现场特例
+  - 2026-08-18 输入框美化验证中第四个复现向量：font_scale 切换（1.0↔1.15/1.3，Activity recreate）同样丢——已选 Apple（像素验证 wash 消失）与已保存自定义行（"Mango grape pie" dump 不再出现）全部清空、输入框回空态；#113 的 rememberSaveable(question.id)+SideEffect 同步链（QuestionCard.kt:89-109）在配置变更路径未生效，疑 SideEffect 时序或 question.id 重建变化，待查
   - 疑点：ChatMessageList LazyColumn item 的 rememberSaveable 生命周期——返回列表 pop 会话 screen 时 saveable 状态被丢弃（导航未启用 saveState 或 key 变化导致 registry miss）
   - 优先级：P1（影响体验但不崩溃）；E2E-A/B 的两轮误判均由它污染现场引起，修复价值高
 

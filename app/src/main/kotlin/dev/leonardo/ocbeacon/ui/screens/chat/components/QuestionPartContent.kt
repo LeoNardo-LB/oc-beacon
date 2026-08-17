@@ -1,7 +1,13 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,9 +48,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.absoluteValue
@@ -417,50 +425,24 @@ internal fun QuestionOptionRows(
             // 输入框：无自定义答案时显示（输入即提交自定义回答）；有自定义时
             // 隐藏（修改走行内 Edit）；编辑态激活时隐藏（同时只有一个输入框）
             if (!readOnly && customAnswer == null) {
-                // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）；
-                // 高度与紧凑选项行对齐（2026-08-17 第四轮）。M3 输入框固有
-                // MinHeight=56dp（TextFieldDefaults，defaultMinSize 垫底）——
-                // E2E 两轮实证：heightIn(44)/压 LocalMinimumInteractiveComponentSize
-                // 均无效（后者只管 icon 边距）；显式 height(44.dp) 精确约束才能压下
-                // 2026-08-18 美化（审计 D1/D2）：Outlined→Filled——消灭第三层描边
-                // 与"白洞"（surface@0.7 白底明度 245）；containerColor 用
-                // surfaceContainerHigh 实底（比卡底 surfaceContainerHighest 略亮一档，
-                // 读作"内嵌字段"而非"洞"）；底部指示线去除（tonal 卡内无线条语言）
-                androidx.compose.material3.TextField(
-                    value = customDraft, onValueChange = onCustomDraftChange,
-                    placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
-                    singleLine = true, modifier = Modifier.fillMaxWidth().height(44.dp),
-                    textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
-                    colors = androidx.compose.material3.TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                    ),
-                    trailingIcon = {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(ShapeTokens.small)
-                                .clickable(enabled = customDraft.isNotBlank()) {
-                                    val t = customDraft.trim()
-                                    if (t.isNotBlank()) {
-                                        // Bug #125: 若输入文本已是选项标签则不 toggle——
-                                        // 避免已选中选项被意外取消。
-                                        // 2026-08-14 走查修复：匹配已有选项时保留草稿
-                                        // （原实现清空草稿 = 用户输入无声丢失，无任何反馈）；
-                                        // 用户可看到输入仍在，自行点选对应选项。
-                                        if (t !in optionLabels) {
-                                            onOptionClick(t)
-                                            onCustomDraftChange("")
-                                        }
-                                    }
-                                },
-                            tint = if (customDraft.isNotBlank()) accentColor else accentColor.copy(alpha = AlphaTokens.FAINT)
-                        )
-                    }
+                // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）。
+                // 2026-08-18 全面重构：M3 TextField + 显式 height(44.dp) →
+                // 自绘 CustomAnswerInput——修复字体缩放裁切 + 字号/焦点/触达
+                // 美化（见 CustomAnswerInput 注释）。提交语义不变（Bug #125 保留）。
+                CustomAnswerInput(
+                    value = customDraft,
+                    onValueChange = onCustomDraftChange,
+                    submitEnabled = customDraft.isNotBlank(),
+                    accentColor = accentColor,
+                    onSubmit = {
+                        val t = customDraft.trim()
+                        // Bug #125: 若输入文本已是选项标签则不 toggle——避免已选中
+                        // 选项被意外取消；保留草稿让用户看到输入仍在（无声丢失=坏 UX）。
+                        if (t.isNotBlank() && t !in optionLabels) {
+                            onOptionClick(t)
+                            onCustomDraftChange("")
+                        }
+                    },
                 )
             }
         }
@@ -533,6 +515,117 @@ private fun CompactSelectedRow(
 }
 
 /**
+ * 自定义答案输入框（空态默认输入 / 编辑态共用，2026-08-18 全面重构）。
+ *
+ * 裁切修复（用户反馈"下方字母被切断"）：原 M3 TextField + 显式
+ * height(44.dp)——M3 内部 MinHeight(56dp)/contentPadding 与外部定高互相
+ * 挤压，E2E 复现（font_scale=1.3）：sp 随系统字体缩放放大后内容溢出
+ * 44dp 定高，字形上下被硬切。改 [BasicTextField] 自绘装饰盒 +
+ * heightIn(min=44dp) 内容驱动高度：任何字体缩放下高度随内容增长，不裁。
+ *
+ * 美化（tonal 语言，延续审计 D1-D4）：
+ * - 字号统一 bodyMedium(14sp)——与选项行同号，消除 12/14 字号锯齿；
+ *   占位符 FAINT（令牌语义：占位符归 FAINT）
+ * - 焦点反馈无描边：聚焦 = accent 淡染 SELECTED(0.12)（与选中行同语言）
+ *   animateColorAsState 过渡；失焦 = surfaceContainerHigh 实底（内嵌字段）
+ * - 光标 accent；键盘 ImeAction.Send 直接提交
+ * - 纸飞机触达 40dp（原 18dp 图标可点区过小）+ 语义描述（chat_send）
+ * - [onCancel] 非空时显示 ✕ 取消（编辑态退出通道）
+ */
+@Composable
+private fun CustomAnswerInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    submitEnabled: Boolean,
+    accentColor: Color,
+    onSubmit: () -> Unit,
+    onCancel: (() -> Unit)? = null,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    val focusWash by animateColorAsState(
+        targetValue = if (focused) accentColor.copy(alpha = AlphaTokens.SELECTED) else Color.Transparent,
+        label = "customAnswerFocusWash"
+    )
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            // 内容驱动高度：scale=1.0 时 MD(12)×2 + bodyMedium 行高(20) = 44dp
+            // 与紧凑选项行视觉对齐；字体放大时随内容增长——与原 height(44.dp)
+            // 定高的本质区别（不再裁切）
+            .heightIn(min = 44.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, ShapeTokens.small)
+            .background(focusWash, ShapeTokens.small),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+            color = MaterialTheme.colorScheme.onSurface
+        ),
+        cursorBrush = SolidColor(accentColor),
+        singleLine = true,
+        interactionSource = interactionSource,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+        keyboardActions = KeyboardActions(
+            onSend = { if (submitEnabled) onSubmit() }
+        ),
+        decorationBox = { innerTextField ->
+            Row(
+                modifier = Modifier.padding(
+                    start = SpacingTokens.LG.dp,
+                    end = SpacingTokens.XS.dp,
+                    top = SpacingTokens.MD.dp,
+                    bottom = SpacingTokens.MD.dp
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
+            ) {
+                Box(Modifier.weight(1f)) {
+                    innerTextField()
+                    if (value.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.input_answer),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
+                        )
+                    }
+                }
+                if (onCancel != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(ShapeTokens.small)
+                            .clickable(onClick = onCancel),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.a11y_icon_dismiss),
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(ShapeTokens.small)
+                        .clickable(enabled = submitEnabled, onClick = onSubmit),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = stringResource(R.string.chat_send),
+                        modifier = Modifier.size(20.dp),
+                        tint = if (submitEnabled) accentColor
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
+                    )
+                }
+            }
+        }
+    )
+}
+
+/**
  * 单条自定义答案行（2026-08-17 E2E 发现修复时从 QuestionOptionRows 抽出）。
  *
  * 完毕态：ListItem（选中控件 + accent 淡染）+ trailing Edit/✔/✕；
@@ -599,43 +692,26 @@ private fun CustomAnswerRow(
             },
         )
     } else {
-        // 高度对齐同默认编辑态（显式 height(44)，见默认编辑态注释）
-        // 2026-08-18 美化：同默认编辑态——Filled 无描边实底（见上方注释）
-        androidx.compose.material3.TextField(
-            value = editText, onValueChange = { editText = it },
-            placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
-            singleLine = true, modifier = Modifier.fillMaxWidth().height(44.dp),
-            textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
-            colors = androidx.compose.material3.TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-            ),
-            trailingIcon = {
-                Icon(
-                    Icons.AutoMirrored.Filled.Send,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(ShapeTokens.small)
-                        .clickable(enabled = editText.isNotBlank() && editText != customAnswer) {
-                            val t = editText.trim()
-                            if (t.isNotBlank()) {
-                                // 修改 = 替换旧自定义：先移除旧值（toggle off）；
-                                // Bug #125: 新值是已有选项标签时不再 toggle on
-                                // （避免已选中选项被意外取消）
-                                onOptionClick(customAnswer)
-                                if (t !in optionLabels) {
-                                    onOptionClick(t)
-                                }
-                                onEditEnd()
-                            }
-                        },
-                    tint = if (editText.isNotBlank() && editText != customAnswer) accentColor
-                        else accentColor.copy(alpha = AlphaTokens.FAINT)
-                )
-            }
+        CustomAnswerInput(
+            value = editText,
+            onValueChange = { editText = it },
+            submitEnabled = editText.isNotBlank() && editText != customAnswer,
+            accentColor = accentColor,
+            onSubmit = {
+                val t = editText.trim()
+                if (t.isNotBlank()) {
+                    // 修改 = 替换旧自定义：先移除旧值（toggle off）；
+                    // Bug #125: 新值是已有选项标签时不再 toggle on
+                    // （避免已选中选项被意外取消）
+                    onOptionClick(customAnswer)
+                    if (t !in optionLabels) {
+                        onOptionClick(t)
+                    }
+                    onEditEnd()
+                }
+            },
+            // 编辑态可取消：修复"进入编辑后不改文字就退不出"的死局
+            onCancel = onEditEnd,
         )
     }
 }
