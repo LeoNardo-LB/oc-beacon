@@ -47,6 +47,7 @@
 - [x] **E2E-B question 提交后 agent 收到"未作答"** `ui` `sse`
   - **2026-08-17 定点重测定性：功能正常**。干净提交：orderedAnswers=[["Apple","Peach","Banana"]] 完整送达，fallback form {"q0":[...]} success=true，agent 明确复述收到全部答案（含自定义 Peach）
   - **2026-08-18 翻案：此定性有误——真根因是 REST 恢复路径 key=null**（41811a2d 修复）。用户真机复现（00:39 logcat）：orderedAnswers 完整但 fallback answer={} 空体。真正区分变量不是"现场污染"而是**卡来源**：SSE 直达（V2FormMapper 合成 q0/q1）✅ vs REST 恢复（轮询兜底/loadPendingQuestions key=null 直传 → buildJsonAnswerMap 全跳过）❌。08-17 定点重测成功恰好用了 SSE 直达卡，E2E-3 失败恰好是重装后 REST 恢复卡——同根因不同表象
+  - **2026-08-18 修复验证 ✅（精确复现用户场景）**：触发卡 → force-stop 杀进程 → 重启（REST 恢复路径实证：loadPendingQuestions 日志 + 新 pid）→ 提交 → fallback `answer={"q0":["Apple","Banana"]}` 非空 + success=true + agent 复述收到答案（同会话旧轮对照"未作答"）+ FATAL=0（/tmp/e2e10/）
   - **v2 主路径恒 404 是结构性**（衍生登记见 E2E-D）：POST /api/session/{sid}/question/{formId}/reply 端点在 V2 服务器不存在（API 文档 §12：V2 只有 /form/{formId}/reply；question reply 是 V1 app 级端点）——v2-first 探测恒失败后 fallback 是实际工作路径
 
 - [ ] **E2E-C 导航往返丢提问卡已选答案/自定义草稿** `ui` `sse`
