@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
@@ -20,6 +24,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.ui.screens.chat.input.BusyIndicatorSmoother
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatAttachmentsHandler
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatInputBar
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatInputMode
@@ -243,7 +248,16 @@ internal fun ChatScreenBottomBar(
                     }
                 },
                 isSending = interaction.isSending,
-                isBusy = sessionMeta.sessionStatus is SessionStatus.Busy || sessionMeta.sessionStatus is SessionStatus.Retry,
+                // 2026-08-17 修复（busy 指示闪烁）：显示侧下降沿消抖——
+                // FSM 原始 isBusy 在 V2 drain 窗口会 Busy↔Idle 循环（L3 正向
+                // 对账复活 Busy），语义正确但按钮视觉抖动。stableBusy：true
+                // 立即传导，false 需稳定 2.5s；isSending 参与（吸收 POST 完成
+                // → FSM Busy 接管的组合缝隙）。FSM/单一真相源不动。
+                isBusy = rememberStableBusyIndicator(
+                    isBusy = sessionMeta.sessionStatus is SessionStatus.Busy ||
+                        sessionMeta.sessionStatus is SessionStatus.Retry,
+                    isSending = interaction.isSending,
+                ),
                 // 2026-08-14：等待提问/权限响应时禁用输入框（用户要求）
                 inputEnabled = interaction.pendingQuestions.isEmpty() && interaction.pendingPermissions.isEmpty(),
                 messages = messageState.messages,
@@ -394,4 +408,31 @@ internal fun ChatScreenBottomBar(
             )
         }
     }
+}
+
+/**
+ * 发送按钮 busy 指示的显示侧消抖（2026-08-17 修复：流式输出期间进度圈闪烁）。
+ *
+ * - true（busy 或 sending）立即传导
+ * - 两者皆 false 后保持 [BusyIndicatorSmoother.DEFAULT_RELEASE_DELAY_MS] 才释放
+ *   （覆盖 V2 drain 窗口 FSM Busy↔Idle 抖动周期与 isSending→isBusy 接管缝隙）
+ * - 释放等待期间任一变 true → 取消挂起的释放，立即回 true
+ *
+ * 只影响输入区视觉（showStop/busySpinner/shell canSend）；abort 等业务逻辑
+ * 仍读 FSM 原始状态。FSM 语义与 SessionStateService 单一真相源不变。
+ */
+@Composable
+private fun rememberStableBusyIndicator(isBusy: Boolean, isSending: Boolean): Boolean {
+    val smoother = remember { BusyIndicatorSmoother() }
+    var stable by remember { mutableStateOf(false) }
+    LaunchedEffect(isBusy, isSending) {
+        val now = System.currentTimeMillis()
+        stable = smoother.update(isBusy, isSending, now)
+        val remaining = smoother.remainingMs(now)
+        if (remaining > 0) {
+            kotlinx.coroutines.delay(remaining)
+            stable = smoother.update(false, false, System.currentTimeMillis())
+        }
+    }
+    return stable
 }
