@@ -544,7 +544,11 @@ internal class MessageDataDelegate(
                     SseEvent.QuestionAsked(
                         id = req.id,
                         sessionId = req.sessionId,
-                        questions = req.questions.map { q ->
+                        // key 合成 fallback（2026-08-18 E2E-B 真根因修复）：REST
+                        // 恢复的卡 key=null → reply keyedAnswers 全跳过 → answer={}
+                        // → 服务器"未作答"。与 V2FormMapper 同规则合成 q$index；
+                        // option value 同步补传（V2 提交用）。
+                        questions = req.questions.mapIndexed { index, q ->
                             SseEvent.QuestionAsked.Question(
                                 header = q.header,
                                 question = q.question,
@@ -553,9 +557,11 @@ internal class MessageDataDelegate(
                                 options = q.options.map { o ->
                                     SseEvent.QuestionAsked.Option(
                                         label = o.label,
-                                        description = o.description
+                                        description = o.description,
+                                        value = o.value
                                     )
-                                }
+                                },
+                                key = q.key ?: "q$index"
                             )
                         },
                         tool = req.tool,

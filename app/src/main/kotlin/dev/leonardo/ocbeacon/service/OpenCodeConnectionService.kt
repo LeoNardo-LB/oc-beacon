@@ -465,12 +465,18 @@ class OpenCodeConnectionService : Service() {
         }
     }
 
-    /** 将 [QuestionState] 转换为 [SseEvent.QuestionAsked] 以复用通知路径。 */
+    /**
+     * 将 [QuestionState] 转换为 [SseEvent.QuestionAsked] 以复用通知路径。
+     * key 合成 fallback（2026-08-18 E2E-B 真根因修复）：REST GET /question 响应
+     * 无 key 字段（同 question.v2.asked SSE payload），q.key=null 直传会导致
+     * replyToForm fallback 的 keyedAnswers 全跳过 → answer={} → 服务器
+     * "未作答"。与 V2FormMapper.parseQuestionV2 同规则合成 q$index。
+     */
     private fun QuestionState.toQuestionAsked(): SseEvent.QuestionAsked =
         SseEvent.QuestionAsked(
             id = id,
             sessionId = sessionId,
-            questions = questions.map { q ->
+            questions = questions.mapIndexed { index, q ->
                 SseEvent.QuestionAsked.Question(
                     header = q.header,
                     question = q.question,
@@ -479,7 +485,7 @@ class OpenCodeConnectionService : Service() {
                     options = q.options.map { o ->
                         SseEvent.QuestionAsked.Option(label = o.label, description = o.description, value = o.value)
                     },
-                    key = q.key
+                    key = q.key ?: "q$index"
                 )
             },
             tool = tool
