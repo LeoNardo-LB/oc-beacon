@@ -275,10 +275,17 @@ class SessionStateService @Inject constructor(
         // merge 模式（同 RS-012）：新 job 取消旧 job，防重复拉取
         val job = appScope.launch {
             try {
-                val anchorId = latestMessageIdProvider(sessionId) ?: return@launch
+                // 2026-08-17 R3 缺口修复（缺口①）：anchorId 为 null 时不再直接放弃——
+                // 本地无锚点消息（清数据/新装后重连）会永久漏补。退化为无 cursor
+                // 拉最新 REST_REFRESH_LIMIT 条（V1/V2 均传 null cursor，与 L3 校验
+                // 路径的兜底同款）。
+                val anchorId = latestMessageIdProvider(sessionId)
+                if (anchorId == null) {
+                    AppLogger.d(TAG, "[$sessionId] backfill no anchor -> fallback latest")
+                }
                 val directory = directoryResolver.resolve(sessionId)
                 val isV2 = sessionRepoProvider.get().getApiVersion(sid).isV2
-                val cursor = if (isV2) {
+                val cursor = if (isV2 && anchorId != null) {
                     dev.leonardo.ocbeacon.domain.util.CursorCodec.encodeV2(
                         anchorId,
                         dev.leonardo.ocbeacon.domain.util.CursorCodec.V2Direction.NEWER,
@@ -292,6 +299,23 @@ class SessionStateService @Inject constructor(
                             if (BuildConfig.DEBUG) {
                                 AppLogger.d(TAG, "[$sessionId] reconnect backfill: +${page.messages.size} msgs (SSE_PRIORITY)")
                             }
+                        } else if (cursor != null) {
+                            // 2026-08-17 R3 缺口修复（缺口②）：V2 cursor 是服务器窗口
+                            // 语义，anchorId 滑出服务器 cursor 窗口时返回 200+空页 →
+                            // 增量补漏永远拿不到消息。兜底：无 cursor 重拉最新
+                            // REST_REFRESH_LIMIT 条一次（同 L3 校验路径兜底）；兜底
+                            // 结果不再递归兜底（只兜底一层，防死循环）。
+                            AppLogger.d(TAG, "[$sessionId] backfill empty page -> fallback latest")
+                            sessionRepoProvider.get()
+                                .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = null)
+                                .onSuccess { fallbackPage ->
+                                    if (fallbackPage.messages.isNotEmpty()) {
+                                        messageRefresher.refreshMessages(sessionId, fallbackPage.messages, MergeStrategy.SSE_PRIORITY)
+                                    }
+                                    if (BuildConfig.DEBUG) {
+                                        AppLogger.d(TAG, "[$sessionId] reconnect backfill fallback: +${fallbackPage.messages.size} msgs (SSE_PRIORITY)")
+                                    }
+                                }
                         }
                     }
             } catch (e: Exception) {

@@ -306,10 +306,18 @@ class SessionStateServiceTest {
         coVerify { repo.listMessages(any(), "ses_backfill", any(), any()) }
     }
 
-    /** 无锚点（本地无消息）时直接返回——不拉取不合并。 */
+    /**
+     * 2026-08-17 R3 缺口修复（缺口①）：无锚点（本地无消息）时不再放弃——
+     * 退化为无 cursor 拉最新 REST_REFRESH_LIMIT 条（before=null），消息非空时
+     * 以 SSE_PRIORITY 合并（与 L3 校验路径兜底同款）。
+     */
     @Test
-    fun backfillMissedMessages_noAnchor_skips() {
+    fun backfillMissedMessages_noAnchor_fallsBackToLatest() {
         val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { repo.getApiVersion(any()) } returns ApiVersion.V2
+        coEvery { repo.listMessages(any(), any(), any(), any()) } returns Result.success(
+            MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
+        )
         val service = SessionStateService(testScope, Provider { repo })
         var called = 0
         service.messageRefresher = object : MessageRefresher {
@@ -321,8 +329,69 @@ class SessionStateServiceTest {
         service.backfillMissedMessages("ses_noanchor")
         testScope.runCurrent()
 
+        // 兜底拉取发生且合并走 SSE_PRIORITY
+        assertEquals(1, called)
+        coVerify(exactly = 1) { repo.listMessages(any(), "ses_noanchor", any(), null) }
+    }
+
+    /**
+     * 2026-08-17 R3 缺口修复（缺口②）：V2 cursor 返回空页（anchorId 滑出服务器
+     * cursor 窗口）时，无 cursor 重拉最新窗口一次；兜底拿到消息则以 SSE_PRIORITY 合并。
+     */
+    @Test
+    fun backfillMissedMessages_emptyPage_fallsBackToLatestOnce() {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { repo.getApiVersion(any()) } returns ApiVersion.V2
+        // cursor 路径（before 非 null）返回空页
+        coEvery { repo.listMessages(any(), any(), any(), any()) } returns Result.success(
+            MessagePage(messages = emptyList(), nextCursor = null)
+        )
+        // 兜底路径（before=null）返回有消息（后声明的匹配 stub 优先）
+        coEvery { repo.listMessages(any(), any(), any(), isNull()) } returns Result.success(
+            MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
+        )
+        val service = SessionStateService(testScope, Provider { repo })
+        val strategies = mutableListOf<MergeStrategy>()
+        service.messageRefresher = object : MessageRefresher {
+            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) {
+                strategies.add(strategy)
+            }
+        }
+        service.latestMessageIdProvider = { "msg_anchor_stale" }
+        service.onSseEvent(SseEvent.SessionIdle("ses_x"), "ses_empty", "server-1")
+
+        service.backfillMissedMessages("ses_empty")
+        testScope.runCurrent()
+
+        assertEquals(listOf(MergeStrategy.SSE_PRIORITY), strategies)
+        // 总共恰好 2 次拉取（cursor 路径 1 次 + 兜底 1 次），其中 before=null 的
+        // 兜底恰好 1 次——只兜底一层，防死循环。
+        coVerify(exactly = 2) { repo.listMessages(any(), "ses_empty", any(), any()) }
+        coVerify(exactly = 1) { repo.listMessages(any(), "ses_empty", any(), isNull()) }
+    }
+
+    /** 2026-08-17 R3 缺口修复（缺口②）：兜底拉取仍为空页时停止——只兜底一层，不递归。 */
+    @Test
+    fun backfillMissedMessages_fallbackEmpty_stopsAfterOneLayer() {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { repo.getApiVersion(any()) } returns ApiVersion.V2
+        coEvery { repo.listMessages(any(), any(), any(), any()) } returns Result.success(
+            MessagePage(messages = emptyList(), nextCursor = null)
+        )
+        val service = SessionStateService(testScope, Provider { repo })
+        var called = 0
+        service.messageRefresher = object : MessageRefresher {
+            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) { called++ }
+        }
+        service.latestMessageIdProvider = { "msg_anchor_stale" }
+        service.onSseEvent(SseEvent.SessionIdle("ses_x"), "ses_stoplevel", "server-1")
+
+        service.backfillMissedMessages("ses_stoplevel")
+        testScope.runCurrent()
+
         assertEquals(0, called)
-        coVerify(exactly = 0) { repo.listMessages(any(), any(), any(), any()) }
+        // cursor 路径 + 兜底各 1 次，共 2 次——兜底空页后不再第三次拉取
+        coVerify(exactly = 2) { repo.listMessages(any(), "ses_stoplevel", any(), any()) }
     }
 
 }
