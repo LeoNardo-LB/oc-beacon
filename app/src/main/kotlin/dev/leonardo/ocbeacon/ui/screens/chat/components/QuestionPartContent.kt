@@ -26,13 +26,11 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -371,10 +369,14 @@ internal fun QuestionOptionRows(
                 color = contentColor
             )
         }
-        // 2026-08-17 用户决策（grilling Q6）：M3 ListItem + 原生 RadioButton/Checkbox
-        // （M3 选择列表标准模式：leading 控件 + 整行点击）——替代自绘 Surface 行
-        // （手写 BorderStroke/defaultMinSize/padding 全套）。选中 = 控件原生选中态
-        // + accent 容器淡染（AlphaTokens.SELECTED）；未选中透明融入卡片。
+        // 2026-08-17 用户决策（两轮迭代终态）：M3 ListItem 行结构（内边距/涟漪/
+        // 原生高度替代自绘 Surface+BorderStroke 全套）+ **右侧 ✔ 选择指示**
+        // （选中才显示，未选中无控件——用户明确偏好；首版 grilling Q6 的左侧
+        // 常驻 Radio/Checkbox 经真机目测后弃用）。选中 = accent 文字 + ✔ +
+        // 容器淡染（AlphaTokens.SELECTED）。
+        // 2026-08-17 用户视觉决策：选择指示 = 右侧 ✔（选中才显示，未选中无控件）
+        // ——替代 M3 选择列表的左侧常驻 Radio/Checkbox（用户明确偏好轻量的
+        // trailing-check 样式）；行结构仍用 ListItem（内边距/涟漪/原生高度）
         question.options.forEach { option ->
             val isSelected = option.label in selected
             val headline: @Composable () -> Unit = {
@@ -383,13 +385,9 @@ internal fun QuestionOptionRows(
             val supporting: (@Composable () -> Unit)? = if (option.description.isNotBlank()) {
                 { Text(option.description, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = AlphaTokens.MEDIUM)) }
             } else null
-            val leading: @Composable () -> Unit = {
-                if (isMultiple == true) {
-                    Checkbox(checked = isSelected, onCheckedChange = null, enabled = !readOnly)
-                } else {
-                    RadioButton(selected = isSelected, onClick = null, enabled = !readOnly)
-                }
-            }
+            val trailing: (@Composable () -> Unit)? = if (isSelected) {
+                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor) }
+            } else null
             val itemColors = ListItemDefaults.colors(
                 containerColor = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else Color.Transparent
             )
@@ -398,7 +396,7 @@ internal fun QuestionOptionRows(
             ListItem(
                 headlineContent = headline,
                 supportingContent = supporting,
-                leadingContent = leading,
+                trailingContent = trailing,
                 colors = itemColors,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -487,17 +485,13 @@ private fun CustomAnswerRow(
     onOptionClick: (String) -> Unit,
 ) {
     if (readOnly) {
-        // 历史只读视图：选中态行（无交互）
+        // 历史只读视图：选中态行（无交互；右侧 ✔ 指示，2026-08-17 与选项行统一）
         ListItem(
             headlineContent = {
                 Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
             },
-            leadingContent = {
-                if (isMultiple == true) {
-                    Checkbox(checked = true, onCheckedChange = null, enabled = false)
-                } else {
-                    RadioButton(selected = true, onClick = null, enabled = false)
-                }
+            trailingContent = {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor)
             },
             colors = ListItemDefaults.colors(
                 containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
@@ -513,13 +507,6 @@ private fun CustomAnswerRow(
         ListItem(
             headlineContent = {
                 Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
-            },
-            leadingContent = {
-                if (isMultiple == true) {
-                    Checkbox(checked = true, onCheckedChange = null)
-                } else {
-                    RadioButton(selected = true, onClick = null)
-                }
             },
             trailingContent = {
                 Row(
