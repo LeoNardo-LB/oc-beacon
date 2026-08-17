@@ -401,6 +401,10 @@ internal fun QuestionOptionRows(
             val customAnswers = selected.filter { it !in optionLabels }.let {
                 if (isMultiple == true) it else it.take(1)
             }
+            // 编辑态提升（2026-08-17 用户反馈"多选两个输入框"）：正在编辑某条
+            // 自定义答案时隐藏下方常驻输入框——同时只保留一个输入框；
+            // editingCustom 记录正在编辑的答案值（null = 无编辑）
+            var editingCustom by remember { mutableStateOf<String?>(null) }
             customAnswers.forEach { custom ->
                 CustomAnswerRow(
                     customAnswer = custom,
@@ -409,10 +413,14 @@ internal fun QuestionOptionRows(
                     accentColor = accentColor,
                     optionLabels = optionLabels,
                     onOptionClick = onOptionClick,
+                    isEditing = editingCustom == custom,
+                    onEditStart = { editingCustom = custom },
+                    onEditEnd = { if (editingCustom == custom) editingCustom = null },
                 )
             }
-            // 输入框：多选常驻（继续添加）；单选仅无自定义时显示（修改走行内 Edit）
-            if (!readOnly && (isMultiple == true || customAnswers.isEmpty())) {
+            // 输入框：多选常驻（继续添加）；单选仅无自定义时显示（修改走行内 Edit）；
+            // 任一编辑态激活时隐藏（避免与行内编辑框同时出现两个输入框）
+            if (!readOnly && editingCustom == null && (isMultiple == true || customAnswers.isEmpty())) {
                 // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）；
                 // 高度与紧凑选项行对齐（2026-08-17 第四轮）。M3 输入框固有
                 // MinHeight=56dp（TextFieldDefaults，defaultMinSize 垫底）——
@@ -539,6 +547,10 @@ private fun CustomAnswerRow(
     accentColor: Color,
     optionLabels: Set<String>,
     onOptionClick: (String) -> Unit,
+    /** 编辑态由父级持有（2026-08-17 双输入框修复）：同时只有一个输入框 */
+    isEditing: Boolean,
+    onEditStart: () -> Unit,
+    onEditEnd: () -> Unit,
 ) {
     if (readOnly) {
         // 历史只读视图：选中态行（无交互；右侧 ✔ 指示）
@@ -549,10 +561,10 @@ private fun CustomAnswerRow(
         )
         return
     }
-    // ③ 完毕态 ⇄ 编辑态（2026-08-14 用户决策：Edit 进入修改，预填当前值）
-    var editing by remember(customAnswer) { mutableStateOf(false) }
+    // ③ 完毕态 ⇄ 编辑态（2026-08-14 用户决策：Edit 进入修改，预填当前值）；
+    // editing 标志提升至父级（isEditing），行内只保留草稿文本状态
     var editText by remember(customAnswer) { mutableStateOf(customAnswer) }
-    if (!editing) {
+    if (!isEditing) {
         // 图标序（2026-08-17 用户第四轮）：Edit / ✕ / ✔——✔ 最右与普通选项行
         // 的 ✔ 位置对齐（视觉语言统一）；✕=删除该自定义答案（Bug #125）
         CompactSelectedRow(
@@ -569,7 +581,7 @@ private fun CustomAnswerRow(
                         modifier = Modifier
                             .size(16.dp)
                             .clip(ShapeTokens.small)
-                            .clickable { editing = true; editText = customAnswer },
+                            .clickable { editText = customAnswer; onEditStart() },
                         tint = accentColor
                     )
                     Icon(
@@ -615,7 +627,7 @@ private fun CustomAnswerRow(
                                 if (t !in optionLabels) {
                                     onOptionClick(t)
                                 }
-                                editing = false
+                                onEditEnd()
                             }
                         },
                     tint = if (editText.isNotBlank() && editText != customAnswer) accentColor
