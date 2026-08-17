@@ -49,8 +49,9 @@
   - 上轮"空体未作答"实为 E2E-C 状态重置后提交的 selection 本身为空
   - **v2 主路径恒 404 是结构性**（衍生登记见 E2E-D）：POST /api/session/{sid}/question/{formId}/reply 端点在 V2 服务器不存在（API 文档 §12：V2 只有 /form/{formId}/reply；question reply 是 V1 app 级端点）——v2-first 探测恒失败后 fallback 是实际工作路径
 
-- [ ] **E2E-C 导航往返丢提问卡已选答案** `ui` `sse`
+- [ ] **E2E-C 导航往返丢提问卡已选答案/自定义草稿** `ui` `sse`
   - 现象：聊天页返回会话列表再进入，卡内已选答案重置（rememberSaveable 未在该导航路径生效）
+  - 2026-08-18 双输入框验证中第三次独立复现：误按 BACK 退列表重进，未 Submit 的自定义草稿（Mango pie 行）消失（服务端卡仍 pending）——非单一测试现场特例
   - 疑点：ChatMessageList LazyColumn item 的 rememberSaveable 生命周期——返回列表 pop 会话 screen 时 saveable 状态被丢弃（导航未启用 saveState 或 key 变化导致 registry miss）
   - 优先级：P1（影响体验但不崩溃）；E2E-A/B 的两轮误判均由它污染现场引起，修复价值高
 
