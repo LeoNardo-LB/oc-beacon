@@ -38,6 +38,8 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 @Composable
 internal fun SendStopButton(
     showStop: Boolean,
+    /** 2026-08-17（用户需求）：会话进行中——状态表示（转圈）放发送按钮上，点击中断。 */
+    isBusy: Boolean = false,
     canSend: Boolean,
     isSending: Boolean,
     isShellMode: Boolean,
@@ -46,6 +48,9 @@ internal fun SendStopButton(
     onSend: () -> Unit,
     onInputModeChange: (ChatInputMode) -> Unit
 ) {
+    // busy 且有输入（showStop=false）时：转圈样式 + 点击中断
+    //（#129 方案 C 语义迁移：等不及僵尸兜底时手动解除）
+    val busySpinner = isBusy && !showStop && !isSending
     Box(
         modifier = Modifier
             .testTag("chat-send")
@@ -91,6 +96,9 @@ internal fun SendStopButton(
                 onClick = {
                     if (showStop) {
                         onStop()
+                    } else if (busySpinner) {
+                        // 2026-08-17：busy 中点击 = 中断（原第一行转圈的可点击语义）
+                        onStop()
                     } else if (canSend) {
                         onSend()
                     }
@@ -112,6 +120,25 @@ internal fun SendStopButton(
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.error
             )
+        } else if (busySpinner) {
+            // 2026-08-17（用户需求）：会话进行中——状态表示（环形进度）+ 停止小图标，
+            // 点击中断（原第一行转圈样式合并至此）
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(2.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT)
+                )
+                Icon(
+                    Icons.Default.Stop,
+                    contentDescription = stringResource(R.string.chat_stop),
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         } else if (isSending) {
             // 2026-08-11 用户要求：外壁大小不变，飞机图标保留，
             // loading 动效附着内壁（环形进度圈绕图标一圈）。

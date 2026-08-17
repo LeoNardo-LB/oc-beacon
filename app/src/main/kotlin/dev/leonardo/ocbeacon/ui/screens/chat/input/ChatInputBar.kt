@@ -214,9 +214,6 @@ internal fun ChatInputBar(
                 onAgentSelect = onAgentSelect,
                 onCycleVariant = onCycleVariant,
                 onAttach = onAttach,
-                showBusy = isBusy,
-                // 2026-08-14 #129 方案 C：转圈可点击 → 立即中断（等价 Stop）
-                onStopBusyClick = { onStop() },
                 taskBadgeCount = taskBadgeCount,
                 onOpenTaskPanel = onOpenTaskPanel,
                 onQuickNavigate = onQuickNavigate,
@@ -251,9 +248,12 @@ internal fun ChatInputBar(
                 )
 
                 // 发送/停止按钮——点击发送或停止，长按切换 shell 模式
+                // 2026-08-17（用户需求）：会话状态表示（busy 转圈）放按钮上——
+                // isBusy 且无文本时显示停止图标；isBusy 且有输入时显示转圈（点击中断）
                 val showStop = isBusy && text.isBlank()
                 SendStopButton(
                     showStop = showStop,
+                    isBusy = isBusy,
                     canSend = canSend,
                     isSending = isSending,
                     isShellMode = isShellMode,

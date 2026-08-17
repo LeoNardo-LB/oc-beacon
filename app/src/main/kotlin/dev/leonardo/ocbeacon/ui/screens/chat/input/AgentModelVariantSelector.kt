@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,10 +36,10 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * Agent / Model / Variant 选择器行，带附件按钮与会话状态指示器。
+ * Agent / Model / Variant 选择器行，带附件按钮。
  *
- * [showBusy] 为 true 时在附件按钮左侧显示圆形进度条 —— 会话状态
- * （agent 正在工作/流式）不依赖回复气泡是否出现，输入模块始终可见。
+ * 2026-08-17：会话状态指示（busy 转圈）已移至发送按钮（SendStopButton），
+ * 本行不再显示状态。
  */
 @Composable
 internal fun AgentModelVariantSelector(
@@ -54,9 +53,6 @@ internal fun AgentModelVariantSelector(
     onAgentSelect: (String) -> Unit,
     onCycleVariant: () -> Unit,
     onAttach: () -> Unit,
-    showBusy: Boolean = false,
-    /** 2026-08-14 #129 方案 C：转圈指示器可点击 → 立即中断（等不及 3 分钟僵尸兜底时手动解除）。 */
-    onStopBusyClick: (() -> Unit)? = null,
     taskBadgeCount: Int = 0,
     onOpenTaskPanel: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
@@ -162,28 +158,6 @@ internal fun AgentModelVariantSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            // 会话状态指示器（圆形进度条）—— 附件按钮左侧。
-            // 会话活跃（agent 工作中/流式）时显示，不依赖回复气泡是否出现。
-            if (showBusy) {
-                // 2026-08-14 #129 方案 C：转圈可点击 → 立即 interrupt（不等 3 分钟）。
-                // 语义：转圈 = agent 工作中/可能僵尸，点击 = 主动中断（等价 Stop）。
-                // 复用 onStop（abortSession），interrupt 幂等安全。
-                val spinnerModifier = if (onStopBusyClick != null) {
-                    Modifier
-                        .padding(end = SpacingTokens.XS.dp)
-                        .size(16.dp)
-                        .clip(ShapeTokens.small)
-                        .clickable { onStopBusyClick?.invoke() }
-                } else {
-                    Modifier.padding(end = SpacingTokens.XS.dp).size(16.dp)
-                }
-                CircularProgressIndicator(
-                    modifier = spinnerModifier,
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                )
-            }
             // 任务入口（BadgedBox + 图标按钮）—— 角标实时显示任务/subagent 总数。
             // 无任务时角标隐藏，仅剩低调图标。
             BadgedBox(
