@@ -106,6 +106,30 @@ internal fun MessageCardAssistant(
     val copyText = renderableTurn.copyText
     val modelId = renderableTurn.modelId
 
+    // 2026-08-17（多卡片 bug 修复）：待处理提问卡片每条消息只渲染一张。
+    // 原条件（part is Reasoning || part is Tool）在每个符合条件的 part 后都
+    // 渲染 → 一条消息含多个 Reasoning/Tool part（如先思考再调工具）时出现
+    // N 张相同卡片（用户报告"主对话流突然多出好多卡片，提交一张后其余消失"
+    // ——提交后 pendingQuestion 移除，全部重复卡一起消失）。
+    // 锚定策略：优先 pendingQuestion.tool.callId 精确匹配的 Tool part；
+    // 否则最后一个 Reasoning/Tool part（保持"渲染在思考流末尾"原语义）。
+    val questionAnchorPartId = remember(pendingQuestion?.id, renderableTurn) {
+        if (pendingQuestion == null) {
+            null
+        } else {
+            val singles = renderableTurn.renderItems.mapNotNull { item ->
+                (item as? RenderItem.GroupedParts)?.group
+                    ?.let { it as? PartGroup.Single }?.part
+            }
+            val callId = pendingQuestion.tool?.callId?.takeIf { it.isNotBlank() }
+            val toolMatch = callId?.let { cid ->
+                singles.lastOrNull { it is Part.Tool && (it.callId == cid || it.id == cid) }
+            }
+            toolMatch?.id
+                ?: singles.lastOrNull { it is Part.Reasoning || it is Part.Tool }?.id
+        }
+    }
+
     // 统一统计栏 —— 消息气泡页脚（流式/完成是同一事物的两种状态，2026-08-07 合并）。
     // 流式：显示实时耗时（ticker 每秒刷新）；完成：显示固定时长 + 复制按钮。
     // 显示条件：流式必有；完成态有统计内容（时长/模型/agent）或仅需复制按钮时显示。
@@ -250,8 +274,10 @@ internal fun MessageCardAssistant(
                                 // tool 消息上的问题卡片不渲染；同时 unembeddedQuestions 因
                                 // 已匹配嵌入而排除 → 卡片凭空消失 + 输入框禁用（UI 卡死）。
                                 // 放宽为 Reasoning 或 Tool（question/permission 工具调用）都渲染。
+                                // 2026-08-17（多卡片修复）：锚定 questionAnchorPartId——
+                                // 只在锚 part 后渲染一张（原条件会按 part 数量重复渲染）。
                                 if (pendingQuestion != null &&
-                                    (item.group.part is Part.Reasoning || item.group.part is Part.Tool)
+                                    item.group.part.id == questionAnchorPartId
                                 ) {
                                     QuestionCard(
                                         question = pendingQuestion,
