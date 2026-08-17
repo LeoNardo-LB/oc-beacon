@@ -50,6 +50,13 @@
   - **2026-08-18 修复验证 ✅（精确复现用户场景）**：触发卡 → force-stop 杀进程 → 重启（REST 恢复路径实证：loadPendingQuestions 日志 + 新 pid）→ 提交 → fallback `answer={"q0":["Apple","Banana"]}` 非空 + success=true + agent 复述收到答案（同会话旧轮对照"未作答"）+ FATAL=0（/tmp/e2e10/）
   - **v2 主路径恒 404 是结构性**（衍生登记见 E2E-D）：POST /api/session/{sid}/question/{formId}/reply 端点在 V2 服务器不存在（API 文档 §12：V2 只有 /form/{formId}/reply；question reply 是 V1 app 级端点）——v2-first 探测恒失败后 fallback 是实际工作路径
 
+- [ ] **E2E-F [P1] 删除自定义答案后提交载荷污染（UI 与状态不一致）** `ui` `sse`
+  - 现象（2026-08-18 像素复审计两次独立复现）：多选卡加 Mango（自动选中）→ ✕ 删除（像素验证 UI 零选中）→ Submit → 服务器收到 **"Mango + Cherry"**（Cherry 全程未被点）；单选卡同法干净复现：删 Mango 后 Q1 零选中 → Submit → 回传 Q1="Cherry"
+  - 严重性：P1 数据正确性——UI 可见状态与提交载荷不一致，用户以为删了实际没删、还带上了无关选项
+  - 疑点方向：① answersPerQuestion（mutableStateListOf）与渲染 selected 集合的同步链断裂 ② HorizontalPager page 索引错位 ③ 删除路径 onOptionClick toggle off 未生效但行消失（渲染源与状态源不同）④ Cherry= options 末位，疑似 stale index 映射
+  - 附带：✕ 删除的文本"退回输入框"现象（子代理观察，与删除语义冲突）；待答卡选中态进程被杀后不恢复（同 E2E-C 家族）
+  - 另：多选选中行明度 Δ15.9 微超阈值 0.9 + 单/多选选中色不一致（(217,226,255) 蓝 vs (208,210,223) 灰紫）——待查渲染源，P2 顺带修
+
 - [ ] **E2E-C 导航往返丢提问卡已选答案/自定义草稿** `ui` `sse`
   - 现象：聊天页返回会话列表再进入，卡内已选答案重置（rememberSaveable 未在该导航路径生效）
   - 2026-08-18 双输入框验证中第三次独立复现：误按 BACK 退列表重进，未 Submit 的自定义草稿（Mango pie 行）消失（服务端卡仍 pending）——非单一测试现场特例
