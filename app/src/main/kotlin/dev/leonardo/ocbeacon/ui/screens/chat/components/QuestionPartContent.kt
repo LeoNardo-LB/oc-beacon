@@ -25,12 +25,10 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -81,13 +79,11 @@ internal fun CollapsibleQuestionPart(question: String) {
     }
 
     // 2026-08-17 用户决策（grilling Q5/Q8）：换 M3 OutlinedCard——与活动提问卡
-    // （QuestionCard）统一容器语言（描边 + surfaceContainer 底），活动/历史
-    // 提问并排时是同一套视觉体系；原 surfaceVariant + tonalElevation 自绘容器。
-    OutlinedCard(
+    // （QuestionCard）统一容器语言——2026-08-18 美化：与活动卡同步换
+    // tonal 实底 Surface（surfaceContainerHighest + 无描边），消除明度锯齿。
+    Surface(
         shape = ShapeTokens.smallMedium,
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)
-        ),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(SpacingTokens.XS.dp).fillMaxWidth()) {
@@ -99,7 +95,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                 Icon(
                     Icons.AutoMirrored.Filled.HelpOutline,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = accentColor
                 )
                 Text(
@@ -117,7 +113,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = contentColor.copy(alpha = AlphaTokens.FAINT)
                 )
             }
@@ -344,7 +340,8 @@ internal fun QuestionTypeLabel(isMultiple: Boolean?) {
         text = stringResource(
             if (isMultiple == true) R.string.question_multi_choice else R.string.question_single_choice
         ),
-        style = MaterialTheme.typography.labelSmall,
+        // labelMedium（12sp）：字号阶梯严格 14>12（审计 D3：11sp 谷底切断标题行重心）
+        style = MaterialTheme.typography.labelMedium,
         color = if (isMultiple == true) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
         maxLines = 1
     )
@@ -371,7 +368,11 @@ internal fun QuestionOptionRows(
             // 容器与内嵌 tag 一并移除，bodyLarge 突出问题本体
             Text(
                 text = question.question,
-                style = MaterialTheme.typography.bodyLarge,
+                // 2026-08-18 美化：bodyLarge→bodyMedium+Medium——与选项同号（14sp），
+                // 靠字重分层（审计 D3：16sp 夹在 14/12 间破坏节奏）
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                ),
                 color = contentColor
             )
         }
@@ -426,24 +427,27 @@ internal fun QuestionOptionRows(
                 // MinHeight=56dp（TextFieldDefaults，defaultMinSize 垫底）——
                 // E2E 两轮实证：heightIn(44)/压 LocalMinimumInteractiveComponentSize
                 // 均无效（后者只管 icon 边距）；显式 height(44.dp) 精确约束才能压下
-                androidx.compose.material3.OutlinedTextField(
+                // 2026-08-18 美化（审计 D1/D2）：Outlined→Filled——消灭第三层描边
+                // 与"白洞"（surface@0.7 白底明度 245）；containerColor 用
+                // surfaceContainerHigh 实底（比卡底 surfaceContainerHighest 略亮一档，
+                // 读作"内嵌字段"而非"洞"）；底部指示线去除（tonal 卡内无线条语言）
+                androidx.compose.material3.TextField(
                     value = customDraft, onValueChange = onCustomDraftChange,
                     placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
                     singleLine = true, modifier = Modifier.fillMaxWidth().height(44.dp),
                     textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
-                    // 背景与其他答案 item 统一（偏白 surface）；边框未选中态淡色
-                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
-                        focusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+                    colors = androidx.compose.material3.TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
                     ),
                     trailingIcon = {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
                             modifier = Modifier
-                                .size(20.dp)
+                                .size(18.dp)
                                 .clip(ShapeTokens.small)
                                 .clickable(enabled = customDraft.isNotBlank()) {
                                     val t = customDraft.trim()
@@ -492,7 +496,9 @@ private fun CompactOptionRow(
                 if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else Color.Transparent,
                 ShapeTokens.small
             )
-            .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp),
+            // 左缘收敛（审计 D4）：horizontal MD→XS——选项文字从 +24dp 收到 +16dp，
+            // 逼近问题/标题主列（+12dp），三套 x 起点收敛
+            .padding(horizontal = SpacingTokens.XS.dp, vertical = SpacingTokens.SM.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
     ) {
@@ -522,7 +528,7 @@ private fun CompactSelectedRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(accentColor.copy(alpha = AlphaTokens.SELECTED), ShapeTokens.small)
-            .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp),
+            .padding(horizontal = SpacingTokens.XS.dp, vertical = SpacingTokens.SM.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
     ) {
@@ -579,7 +585,7 @@ private fun CustomAnswerRow(
                         Icons.Default.Edit,
                         contentDescription = null,
                         modifier = Modifier
-                            .size(16.dp)
+                            .size(18.dp)
                             .clip(ShapeTokens.small)
                             .clickable { editText = customAnswer; onEditStart() },
                         tint = accentColor
@@ -588,7 +594,7 @@ private fun CustomAnswerRow(
                         Icons.Default.Close,
                         contentDescription = null,
                         modifier = Modifier
-                            .size(16.dp)
+                            .size(18.dp)
                             .clip(ShapeTokens.small)
                             .clickable { onOptionClick(customAnswer) },
                         tint = accentColor
@@ -599,23 +605,24 @@ private fun CustomAnswerRow(
         )
     } else {
         // 高度对齐同默认编辑态（显式 height(44)，见默认编辑态注释）
-        androidx.compose.material3.OutlinedTextField(
+        // 2026-08-18 美化：同默认编辑态——Filled 无描边实底（见上方注释）
+        androidx.compose.material3.TextField(
             value = editText, onValueChange = { editText = it },
             placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
             singleLine = true, modifier = Modifier.fillMaxWidth().height(44.dp),
             textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
-            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
-                focusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+            colors = androidx.compose.material3.TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
             ),
             trailingIcon = {
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(18.dp)
                         .clip(ShapeTokens.small)
                         .clickable(enabled = editText.isNotBlank() && editText != customAnswer) {
                             val t = editText.trim()

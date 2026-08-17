@@ -9,14 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -114,52 +111,40 @@ internal fun QuestionCard(
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
     val accentColor = MaterialTheme.colorScheme.primary
 
-    // 2026-08-17 用户决策（grilling Q5=A）：换 M3 原生 OutlinedCard + 表单头部。
-    // 提问卡是等待用户操作的表单（不是被动内容）——描边 + 头部让它"不一样得
-    // 有章法"，与聊天气泡的有意对比取代原自绘 Surface 容器的"外来物"拼盘感。
-    // 底色保留 surfaceContainer 半透明（延续 AMOLED 兼容）；架构不变：卡片直接
-    // 承担展开容器，内容 = 问题域 / 答案域 / 按钮域；回答后卡片消失。
-    OutlinedCard(
-        shape = ShapeTokens.small,
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM),
-            contentColor = contentColor
-        ),
+    // 2026-08-18 美化重构（用户"不协调"反馈 + 双路审计：代码 8 维 + 像素 7 维
+    // 交叉定位 TOP3 = 明度锯齿/嵌套白洞/三层框中框）：
+    // - 容器：OutlinedCard → 无描边 tonal Surface（M3 Filled Card 形态），
+    //   surfaceContainerHighest **实底**（alpha 拷贝是明度锯齿元凶——M3 surface
+    //   阶梯本为嵌套容器设计的成套渐变，直接用）
+    // - 圆角 small(8)→medium(12)：与 assistant 气泡（ShapeTokens.medium）同族
+    // - 删分割线（tonal 容器内的 FAINT 线存在感弱且增加线条数）
+    // - 标题降阶：titleSmall→labelMedium 小字行（弱化"表单感"，问题本体才是主角）
+    Surface(
+        shape = ShapeTokens.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = contentColor,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // 2026-08-17 用户第四轮：内边距/垂直间距 SM→MD——问题域与分割线、
-        // 上下元素间增加呼吸感（原 8dp 太紧凑）
         Column(
             modifier = Modifier.padding(SpacingTokens.MD.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
         ) {
-            // 表单头部（Q5=A + 2026-08-17 用户决策：元信息入标题栏）：
-            // [?] 待你回答 …… [Q1|Q2] MULTI/SINGLE——Q chips 与类型标签
-            // 是"卡片的元信息"而非"问题的内容"，与标题同行；
-            // 子 agent 来源（若有）降为标题行下方的小字行。
+            // 元信息行（降为一行小字）：待你回答 · 类型 · [Q1|Q2]
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.HelpOutline,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = accentColor
-                )
                 Text(
                     text = stringResource(R.string.question_awaiting_reply),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = accentColor
                 )
-                Spacer(Modifier.weight(1f))
-                // 2026-08-17 用户第四轮：类型标签左、Q chips 右（元信息行序调换）
                 QuestionTypeLabel(
                     isMultiple = question.questions.getOrNull(currentPage)?.multiple
                 )
+                Spacer(Modifier.weight(1f))
                 if (question.questions.size > 1 && pagerState != null) {
-                    Spacer(Modifier.size(SpacingTokens.SM.dp))
                     QuestionCompactTabs(pagerState, question.questions)
                 }
             }
@@ -170,11 +155,6 @@ internal fun QuestionCard(
                     color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
                 )
             }
-            // 2026-08-17 用户重设计：标题栏与正文的形式化分隔（元信息行/问题域/
-            // 答案域/按钮域的分界起点）
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
-            )
 
             // 问题分区（问题域 + 答案域；Q tabs 嵌入问题域行）
             QuestionPagerView(
