@@ -27,13 +27,15 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -191,10 +193,8 @@ internal fun QuestionExpandedOptions(items: List<QHistItem>) {
 
 /**
  * 紧凑 Q tab 行（2026-08-13：从 QuestionPagerView 抽出，供交互卡片标题行共用）。
- * 2026-08-17 用户决策（grilling Q7）：换 M3 FilterChip——32dp 是芯片自身的
- * 设计高度（此前 SegmentedButton 压高 32dp 是 hack，段内边距被挤压）；
- * 官方定位"过滤/选择"场景，选中高亮原生自带，与选项行的 RadioButton/
- * Checkbox 形成"chip 选问题、radio 选答案"的清晰分工。
+ * 2026-08-17 用户决策：M3 SegmentedButton 原生高度（40dp，不压高）——
+ * 放置位置改为卡片标题栏（与"待你回答"同行），标题栏有充足高度容纳。
  */
 @Composable
 internal fun QuestionCompactTabs(
@@ -203,19 +203,19 @@ internal fun QuestionCompactTabs(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
+    SingleChoiceSegmentedButtonRow(modifier = modifier) {
         questions.indices.forEach { i ->
-            FilterChip(
+            SegmentedButton(
                 selected = pagerState.currentPage == i,
                 onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
-                label = {
-                    Text(
-                        text = "Q${i + 1}",
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1
-                    )
-                }
-            )
+                shape = SegmentedButtonDefaults.itemShape(index = i, count = questions.size),
+            ) {
+                Text(
+                    text = "Q${i + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
@@ -233,6 +233,9 @@ internal fun QuestionPagerView(
     pagerState: androidx.compose.foundation.pager.PagerState? = null,
     onPageSelected: (Int) -> Unit = {},
     showTabs: Boolean = true,
+    /** 2026-08-17 用户决策：元信息（Q chips + 类型标签）放卡片标题栏时置 false
+     *  （QuestionCard 头部自行渲染）；历史视图保持 true（pager 上方元信息行）。 */
+    showMetaRow: Boolean = true,
 ) {
     // Bug #126: customDraft 提升到 pager 层按 pageIndex 存——
     // HorizontalPager beyondViewportPageCount=1 时远页 composition 被销毁，
@@ -242,7 +245,7 @@ internal fun QuestionPagerView(
     if (questions.size <= 1) {
         questions.firstOrNull()?.let { q ->
             Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
-                QuestionTypeLabel(isMultiple = q.multiple)
+                if (showMetaRow) QuestionTypeLabel(isMultiple = q.multiple)
                 QuestionOptionRows(
                     question = q,
                     selected = selectedAnswers.firstOrNull() ?: emptySet(),
@@ -275,18 +278,20 @@ internal fun QuestionPagerView(
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
-            // 2026-08-17 用户重设计：元信息行（Q chips + 当前页类型标签）——
-            // 位置指示与类型是"元信息"，从问题域上移至 pager 层；
-            // 历史（QuestionExpandedOptions）复用同一路径自动获得一致布局。
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (showTabs) {
-                    QuestionCompactTabs(state, questions)
-                    Spacer(Modifier.weight(1f))
+            // 2026-08-17 用户重设计：元信息行（Q chips + 当前页类型标签）。
+            // 活动卡（QuestionCard）置 showMetaRow=false，元信息在卡片标题栏；
+            // 历史视图保持此处（pager 上方元信息行）。
+            if (showMetaRow) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (showTabs) {
+                        QuestionCompactTabs(state, questions)
+                        Spacer(Modifier.weight(1f))
+                    }
+                    QuestionTypeLabel(isMultiple = questions.getOrNull(state.currentPage)?.multiple)
                 }
-                QuestionTypeLabel(isMultiple = questions.getOrNull(state.currentPage)?.multiple)
             }
             HorizontalPager(
                 state = state,
@@ -326,11 +331,11 @@ internal fun QuestionPagerView(
 }
 
 /**
- * 类型标签（单选/多选）——2026-08-17 用户重设计：元信息不进问题域，
- * 以纯文本 label 呈现在元信息行（M3 overline/meta label 模式）。
+ * 类型标签（单选/多选）——2026-08-17 用户重设计：元信息不进问题域。
+ * 活动卡放标题栏（QuestionCard 头部右侧）；历史放元信息行。
  */
 @Composable
-private fun QuestionTypeLabel(isMultiple: Boolean?) {
+internal fun QuestionTypeLabel(isMultiple: Boolean?) {
     Text(
         text = stringResource(
             if (isMultiple == true) R.string.question_multi_choice else R.string.question_single_choice

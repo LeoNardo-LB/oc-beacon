@@ -39,6 +39,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.components.QuestionPagerView
+import dev.leonardo.ocbeacon.ui.screens.chat.components.QuestionCompactTabs
+import dev.leonardo.ocbeacon.ui.screens.chat.components.QuestionTypeLabel
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -129,8 +131,10 @@ internal fun QuestionCard(
             modifier = Modifier.padding(SpacingTokens.SM.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
-            // 表单头部（Q5=A）：图标 + "待你回答"标签——刻意的表单可供性；
-            // 子 agent 来源（若有）右对齐同一行
+            // 表单头部（Q5=A + 2026-08-17 用户决策：元信息入标题栏）：
+            // [?] 待你回答 …… [Q1|Q2] MULTI/SINGLE——Q chips 与类型标签
+            // 是"卡片的元信息"而非"问题的内容"，与标题同行；
+            // 子 agent 来源（若有）降为标题行下方的小字行。
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
@@ -147,14 +151,22 @@ internal fun QuestionCard(
                     style = MaterialTheme.typography.titleSmall,
                     color = accentColor
                 )
-                if (question.sourceSessionTitle != null) {
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = question.sourceSessionTitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
-                    )
+                Spacer(Modifier.weight(1f))
+                // 元信息：Q chips（多问题）+ 当前页类型标签（SegmentedButton 原生高度）
+                if (question.questions.size > 1 && pagerState != null) {
+                    QuestionCompactTabs(pagerState, question.questions)
+                    Spacer(Modifier.size(SpacingTokens.SM.dp))
                 }
+                QuestionTypeLabel(
+                    isMultiple = question.questions.getOrNull(currentPage)?.multiple
+                )
+            }
+            if (question.sourceSessionTitle != null) {
+                Text(
+                    text = question.sourceSessionTitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
+                )
             }
             // 2026-08-17 用户重设计：标题栏与正文的形式化分隔（元信息行/问题域/
             // 答案域/按钮域的分界起点）
@@ -170,6 +182,7 @@ internal fun QuestionCard(
                 pagerState = pagerState,
                 onPageSelected = { currentPage = it },
                 showTabs = question.questions.size > 1,
+                showMetaRow = false, // 元信息在标题栏（本卡片头部）
                 onOptionClick = { pageIndex, label ->
                     if (!submitted) {
                         performHaptic(hapticView, hapticOn)
