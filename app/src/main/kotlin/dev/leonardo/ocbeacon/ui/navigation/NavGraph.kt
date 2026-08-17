@@ -405,13 +405,23 @@ fun NavGraph(
                     navController.navigate(ServerModelFilterNav.createRoute(params.server.serverId))
                 },
                 onNavigateToChildSession = { childSessionId ->
-                    val route = ChatNav.createRoute(
-                        serverId = params.server.serverId,
-                        sessionId = childSessionId
-                    )
-                    // #137（D2-L32）：与其他 9 处 navigate 一致加 launchSingleTop——
-                    // 重复打开同一子会话会栈顶叠加多个相同路由
-                    navController.navigate(route) { launchSingleTop = true }
+                    // 防重复：已在目标子会话时不重复导航（#137 场景）。
+                    // 注意：这里不能用 launchSingleTop——chat 主/子会话共享同一
+                    // route pattern（同一 composable 节点），singleTop 按
+                    // destination 实例匹配会触发 onLaunchSingleTop 栈调整，
+                    // 把栈中已有的主对话 entry 移除，导致返回键跳过主对话直达
+                    // 会话列表（navigation 2.9.8 模拟器实测，DIAG 日志证实）。
+                    val currentSessionId = navController.currentBackStackEntry
+                        ?.arguments?.getString(ChatNav.PARAM_SESSION_ID)
+                    if (currentSessionId == childSessionId) {
+                        AppLogger.d(TAG, "Skip duplicate child-session navigation: $childSessionId")
+                    } else {
+                        val route = ChatNav.createRoute(
+                            serverId = params.server.serverId,
+                            sessionId = childSessionId
+                        )
+                        navController.navigate(route)
+                    }
                 },
                 onOpenWorkspace = {
                     scope.launch {
