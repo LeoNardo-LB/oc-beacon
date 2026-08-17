@@ -414,11 +414,17 @@ internal fun QuestionOptionRows(
             // 输入框：多选常驻（继续添加）；单选仅无自定义时显示（修改走行内 Edit）
             if (!readOnly && (isMultiple == true || customAnswers.isEmpty())) {
                 // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）；
-                // 高度与紧凑选项行对齐（2026-08-17 用户第四轮）
-                androidx.compose.material3.OutlinedTextField(
-                    value = customDraft, onValueChange = onCustomDraftChange,
-                    placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
-                    singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                // 高度与紧凑选项行对齐（2026-08-17 用户第四轮）——
+                // E2E 实测 heightIn(44) 压不过 M3 输入框固有最小高度（内部
+                // LocalMinimumInteractiveComponentSize 48dp 撑底 → 实际 56dp）；
+                // 包 CompositionLocalProvider 压至 40dp 后 heightIn 才生效
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.material3.LocalMinimumInteractiveComponentSize provides 40.dp
+                ) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = customDraft, onValueChange = onCustomDraftChange,
+                        placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
                     textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
                     // 背景与其他答案 item 统一（偏白 surface）；边框未选中态淡色
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
@@ -452,6 +458,7 @@ internal fun QuestionOptionRows(
                         )
                     }
                 )
+                }
             }
         }
     }
@@ -583,10 +590,14 @@ private fun CustomAnswerRow(
             },
         )
     } else {
-        androidx.compose.material3.OutlinedTextField(
-            value = editText, onValueChange = { editText = it },
-            placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
-            singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        // 高度对齐同默认编辑态（E2E 实测 heightIn 单独不生效，需压最小交互尺寸）
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.material3.LocalMinimumInteractiveComponentSize provides 40.dp
+        ) {
+            androidx.compose.material3.OutlinedTextField(
+                value = editText, onValueChange = { editText = it },
+                placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
+                singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
             textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
@@ -618,6 +629,7 @@ private fun CustomAnswerRow(
                         else accentColor.copy(alpha = AlphaTokens.FAINT)
                 )
             }
-        )
+            )
+        }
     }
 }

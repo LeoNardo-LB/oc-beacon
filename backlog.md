@@ -54,6 +54,11 @@
   - 疑点：ChatMessageList LazyColumn item 的 rememberSaveable 生命周期——返回列表 pop 会话 screen 时 saveable 状态被丢弃（导航未启用 saveState 或 key 变化导致 registry miss）
   - 优先级：P1（影响体验但不崩溃）；E2E-A/B 的两轮误判均由它污染现场引起，修复价值高
 
+- [ ] **E2E-E 多问题 pager 固定高度裁剪输入框底边** `ui`
+  - 现象（2026-08-17 第五版 E2E 发现）：双行问题文本时页内容 642px > pager 插值高度 630px，自定义输入框底边被裁 12px（135px vs 正常 147px）
+  - 根因方向：QuestionPagerView 高度线性插值按 onGloballyPositioned 记录的页高计算，键盘态/裁剪态测量偏小或 pageSpacing 未计入
+  - 优先级：P2（视觉瑕疵，功能可用）
+
 - [ ] **E2E-D question.v2 reply 探测恒 404（浪费往返 + 日志噪音）** `ui` `sse`
   - 现象：每次提问回复先 POST /api/session/{sid}/question/{formId}/reply 恒 404（端点结构性不存在，见 E2E-B 定性），再 fallback form 路径——每次多一次无效往返
   - 背景：2026-08-15 research/09 时该端点曾实测 200（next-17430 中间契约）；现服务器已无此端点
