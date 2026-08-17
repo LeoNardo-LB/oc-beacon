@@ -127,9 +127,11 @@ internal fun QuestionCard(
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
+        // 2026-08-17 用户第四轮：内边距/垂直间距 SM→MD——问题域与分割线、
+        // 上下元素间增加呼吸感（原 8dp 太紧凑）
         Column(
-            modifier = Modifier.padding(SpacingTokens.SM.dp),
-            verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
+            modifier = Modifier.padding(SpacingTokens.MD.dp),
+            verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
         ) {
             // 表单头部（Q5=A + 2026-08-17 用户决策：元信息入标题栏）：
             // [?] 待你回答 …… [Q1|Q2] MULTI/SINGLE——Q chips 与类型标签
@@ -152,14 +154,14 @@ internal fun QuestionCard(
                     color = accentColor
                 )
                 Spacer(Modifier.weight(1f))
-                // 元信息：Q chips（多问题）+ 当前页类型标签（SegmentedButton 原生高度）
-                if (question.questions.size > 1 && pagerState != null) {
-                    QuestionCompactTabs(pagerState, question.questions)
-                    Spacer(Modifier.size(SpacingTokens.SM.dp))
-                }
+                // 2026-08-17 用户第四轮：类型标签左、Q chips 右（元信息行序调换）
                 QuestionTypeLabel(
                     isMultiple = question.questions.getOrNull(currentPage)?.multiple
                 )
+                if (question.questions.size > 1 && pagerState != null) {
+                    Spacer(Modifier.size(SpacingTokens.SM.dp))
+                    QuestionCompactTabs(pagerState, question.questions)
+                }
             }
             if (question.sourceSessionTitle != null) {
                 Text(

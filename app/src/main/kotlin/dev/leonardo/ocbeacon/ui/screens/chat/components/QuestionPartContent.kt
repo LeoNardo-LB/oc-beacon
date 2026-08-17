@@ -27,8 +27,8 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.SegmentedButton
@@ -191,8 +191,8 @@ internal fun QuestionExpandedOptions(items: List<QHistItem>) {
 
 /**
  * 紧凑 Q tab 行（2026-08-13：从 QuestionPagerView 抽出，供交互卡片标题行共用）。
- * 2026-08-17 用户决策：M3 SegmentedButton 原生高度（40dp，不压高）——
- * 放置位置改为卡片标题栏（与"待你回答"同行），标题栏有充足高度容纳。
+ * 2026-08-17 用户第四轮：压至 32dp + labelSmall（用户反馈 40dp 太大）——
+ * 位置在卡片标题栏右侧。触摸目标 <48dp 为用户明确取舍。
  */
 @Composable
 internal fun QuestionCompactTabs(
@@ -201,18 +201,23 @@ internal fun QuestionCompactTabs(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    SingleChoiceSegmentedButtonRow(modifier = modifier) {
-        questions.indices.forEach { i ->
-            SegmentedButton(
-                selected = pagerState.currentPage == i,
-                onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
-                shape = SegmentedButtonDefaults.itemShape(index = i, count = questions.size),
-            ) {
-                Text(
-                    text = "Q${i + 1}",
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1
-                )
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.material3.LocalMinimumInteractiveComponentSize provides 32.dp
+    ) {
+        SingleChoiceSegmentedButtonRow(modifier = modifier) {
+            questions.indices.forEach { i ->
+                SegmentedButton(
+                    selected = pagerState.currentPage == i,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
+                    shape = SegmentedButtonDefaults.itemShape(index = i, count = questions.size),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text(
+                        text = "Q${i + 1}",
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -280,15 +285,16 @@ internal fun QuestionPagerView(
             // 活动卡（QuestionCard）置 showMetaRow=false，元信息在卡片标题栏；
             // 历史视图保持此处（pager 上方元信息行）。
             if (showMetaRow) {
+                // 2026-08-17 用户第四轮：类型标签左、chips 右（与活动卡标题栏同序）
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (showTabs) {
-                        QuestionCompactTabs(state, questions)
-                        Spacer(Modifier.weight(1f))
-                    }
                     QuestionTypeLabel(isMultiple = questions.getOrNull(state.currentPage)?.multiple)
+                    if (showTabs) {
+                        Spacer(Modifier.weight(1f))
+                        QuestionCompactTabs(state, questions)
+                    }
                 }
             }
             HorizontalPager(
@@ -369,38 +375,21 @@ internal fun QuestionOptionRows(
                 color = contentColor
             )
         }
-        // 2026-08-17 用户决策（两轮迭代终态）：M3 ListItem 行结构（内边距/涟漪/
-        // 原生高度替代自绘 Surface+BorderStroke 全套）+ **右侧 ✔ 选择指示**
-        // （选中才显示，未选中无控件——用户明确偏好；首版 grilling Q6 的左侧
-        // 常驻 Radio/Checkbox 经真机目测后弃用）。选中 = accent 文字 + ✔ +
-        // 容器淡染（AlphaTokens.SELECTED）。
-        // 2026-08-17 用户视觉决策：选择指示 = 右侧 ✔（选中才显示，未选中无控件）
-        // ——替代 M3 选择列表的左侧常驻 Radio/Checkbox（用户明确偏好轻量的
-        // trailing-check 样式）；行结构仍用 ListItem（内边距/涟漪/原生高度）
+        // 2026-08-17 用户第四轮：紧凑行（settings 同款模式——clickable Row +
+        // 紧凑 padding）替代 M3 ListItem——ListItem 容器高度是固定 token
+        // （单行 48dp 起，无 padding 参数）压不矮，用户反馈"item 太高"；
+        // 此模式行高更紧凑且与自定义输入框可对齐。选择指示保持右侧 ✔
+        // （选中才显示，未选中无控件）。
         question.options.forEach { option ->
             val isSelected = option.label in selected
-            val headline: @Composable () -> Unit = {
-                Text(option.label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
-            }
-            val supporting: (@Composable () -> Unit)? = if (option.description.isNotBlank()) {
-                { Text(option.description, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = AlphaTokens.MEDIUM)) }
-            } else null
-            val trailing: (@Composable () -> Unit)? = if (isSelected) {
-                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor) }
-            } else null
-            val itemColors = ListItemDefaults.colors(
-                containerColor = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else Color.Transparent
-            )
-            // material3 1.4.0 的 ListItem 无 onClick 重载——交互态用 Modifier.clickable
-            // （与项目 ToolGroupList 行点击同模式，涟漪由 clickable indication 提供）
-            ListItem(
-                headlineContent = headline,
-                supportingContent = supporting,
-                trailingContent = trailing,
-                colors = itemColors,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(if (!readOnly) Modifier.clickable { onOptionClick(option.label) } else Modifier)
+            CompactOptionRow(
+                label = option.label,
+                description = option.description.takeIf { it.isNotBlank() },
+                isSelected = isSelected,
+                readOnly = readOnly,
+                accentColor = accentColor,
+                contentColor = contentColor,
+                onClick = { onOptionClick(option.label) },
             )
         }
         // 自定义答案支持
@@ -424,11 +413,12 @@ internal fun QuestionOptionRows(
             }
             // 输入框：多选常驻（继续添加）；单选仅无自定义时显示（修改走行内 Edit）
             if (!readOnly && (isMultiple == true || customAnswers.isEmpty())) {
-                // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）
+                // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）；
+                // 高度与紧凑选项行对齐（2026-08-17 用户第四轮）
                 androidx.compose.material3.OutlinedTextField(
                     value = customDraft, onValueChange = onCustomDraftChange,
                     placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
-                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
                     textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
                     // 背景与其他答案 item 统一（偏白 surface）；边框未选中态淡色
                     colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
@@ -467,6 +457,69 @@ internal fun QuestionOptionRows(
     }
 }
 
+
+/**
+ * 紧凑选项行（2026-08-17 用户第四轮）——clickable Row + 紧凑 padding
+ * （settings 列表同款模式，行高 ~36-40dp，替代 M3 ListItem 的固定 48dp+）。
+ * 未选中：纯文本无控件；选中：accent 文字 + 右侧 ✔ + 淡染背景（圆角）。
+ */
+@Composable
+private fun CompactOptionRow(
+    label: String,
+    description: String?,
+    isSelected: Boolean,
+    readOnly: Boolean,
+    accentColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (!readOnly) Modifier.clickable(onClick = onClick) else Modifier)
+            .background(
+                if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else Color.Transparent,
+                ShapeTokens.small
+            )
+            .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
+            if (description != null) {
+                Text(description, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = AlphaTokens.MEDIUM))
+            }
+        }
+        if (isSelected) {
+            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor)
+        }
+    }
+}
+
+/**
+ * 已选自定义答案行（紧凑，与 [CompactOptionRow] 同视觉）；trailing 槽位
+ * 供 Edit/✕/✔ 操作图标（交互态）或空（只读态）。
+ */
+@Composable
+private fun CompactSelectedRow(
+    text: String,
+    accentColor: Color,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(accentColor.copy(alpha = AlphaTokens.SELECTED), ShapeTokens.small)
+            .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
+    ) {
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = accentColor, modifier = Modifier.weight(1f))
+        trailing?.invoke()
+    }
+}
+
 /**
  * 单条自定义答案行（2026-08-17 E2E 发现修复时从 QuestionOptionRows 抽出）。
  *
@@ -485,18 +538,11 @@ private fun CustomAnswerRow(
     onOptionClick: (String) -> Unit,
 ) {
     if (readOnly) {
-        // 历史只读视图：选中态行（无交互；右侧 ✔ 指示，2026-08-17 与选项行统一）
-        ListItem(
-            headlineContent = {
-                Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
-            },
-            trailingContent = {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor)
-            },
-            colors = ListItemDefaults.colors(
-                containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
-            ),
-            modifier = Modifier.fillMaxWidth()
+        // 历史只读视图：选中态行（无交互；右侧 ✔ 指示）
+        CompactSelectedRow(
+            text = customAnswer,
+            accentColor = accentColor,
+            trailing = null,
         )
         return
     }
@@ -504,14 +550,15 @@ private fun CustomAnswerRow(
     var editing by remember(customAnswer) { mutableStateOf(false) }
     var editText by remember(customAnswer) { mutableStateOf(customAnswer) }
     if (!editing) {
-        ListItem(
-            headlineContent = {
-                Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
-            },
-            trailingContent = {
+        // 图标序（2026-08-17 用户第四轮）：Edit / ✕ / ✔——✔ 最右与普通选项行
+        // 的 ✔ 位置对齐（视觉语言统一）；✕=删除该自定义答案（Bug #125）
+        CompactSelectedRow(
+            text = customAnswer,
+            accentColor = accentColor,
+            trailing = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
                 ) {
                     Icon(
                         Icons.Default.Edit,
@@ -522,8 +569,6 @@ private fun CustomAnswerRow(
                             .clickable { editing = true; editText = customAnswer },
                         tint = accentColor
                     )
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
-                    // Bug #125: ✕ 删除自定义答案——toggle off 该自定义值
                     Icon(
                         Icons.Default.Close,
                         contentDescription = null,
@@ -533,18 +578,15 @@ private fun CustomAnswerRow(
                             .clickable { onOptionClick(customAnswer) },
                         tint = accentColor
                     )
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor)
                 }
             },
-            colors = ListItemDefaults.colors(
-                containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
-            ),
-            modifier = Modifier.fillMaxWidth()
         )
     } else {
         androidx.compose.material3.OutlinedTextField(
             value = editText, onValueChange = { editText = it },
             placeholder = { Text(stringResource(R.string.input_answer), style = MaterialTheme.typography.bodySmall) },
-            singleLine = true, modifier = Modifier.fillMaxWidth(),
+            singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
             textStyle = MaterialTheme.typography.bodySmall, shape = ShapeTokens.small,
             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
