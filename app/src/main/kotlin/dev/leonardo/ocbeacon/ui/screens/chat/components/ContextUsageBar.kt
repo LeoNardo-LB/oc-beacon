@@ -13,30 +13,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
-/**
- * 从 StepFinish parts 计算上下文窗口使用率。
- *
- * @param parts 当前会话消息中的所有 parts。
- * @param contextLimit 模型的上下文窗口上限（token）。0 = 未知。
- * @return 使用率 0f..1f。contextLimit 为 0 或未找到 token 时返回 0f。
- */
-fun calculateContextUsage(parts: List<Part>, contextLimit: Int): Float {
-    if (contextLimit <= 0) return 0f
-
-    var totalTokens = 0
-    for (part in parts) {
-        if (part is Part.StepFinish) {
-            val tokens = part.tokens ?: continue
-            totalTokens += tokens.total ?: (tokens.input + tokens.output + tokens.reasoning)
-        }
-    }
-
-    if (totalTokens <= 0) return 0f
-    return (totalTokens.toFloat() / contextLimit.toFloat()).coerceIn(0f, 1f)
-}
+// 2026-08-17 上下文占用口径修正（ACP：input+cache.read）：删除
+// calculateContextUsage(parts, contextLimit)——无生产调用点（显示唯一来源
+// 是 ChatTopBar，基于 lastContextTokens/contextWindow），系早期实现遗留。
 
 /**
  * 根据使用率返回进度条的颜色。
@@ -54,7 +35,7 @@ fun contextUsageColor(ratio: Float) = when {
 /**
  * 以进度条形式展示上下文窗口使用率的 composable。
  *
- * @param usageRatio 来自 [calculateContextUsage] 的使用率 0f..1f。
+ * @param usageRatio 使用率 0f..1f。
  * @param modifier 可选 modifier。
  */
 @Composable

@@ -467,8 +467,12 @@ class ChatViewModel @Inject constructor(
         // 2026-08-15：session 级权威 tokens 兜底——对齐官方语义（调研 03 文档）：
         // 官方 TUI 的 context% 只用消息级快照（findLast output>0），session 级
         // tokens 是 SQL 累计值（压缩不下降）**不代表当前上下文**。此 bootstrap
-        // 仅用于冷启动兜底（尚无任何 assistant tokens 时给初值）+ totalCost；
-        // 一旦消息级数据到达即被覆盖（下方 collect 为直接覆盖语义）。
+        // 仅用于 totalCost（官方同源——prompt/index.tsx:277）。
+        // 2026-08-17 上下文占用口径修正（ACP：input+cache.read）：删除
+        // lastContextTokens 兜底写入——累计值远超实际窗口占用（每轮累加、
+        // 压缩不下降）→ 显示超 100%。lastContextTokens 唯一写入源 =
+        // 消息级快照（见下方 collect）；冷启动期间无数据保持 0（指示器
+        // 隐藏，可接受）。
         if (!isNewSession) {
             viewModelScope.launch {
                 runCatching {
@@ -476,13 +480,6 @@ class ChatViewModel @Inject constructor(
                     // cost：session 级累计（官方同源——prompt/index.tsx:277）
                     if (session.cost != null && session.cost!! > 0) {
                         tokenStatsTracker.update { copy(totalCost = session.cost!!) }
-                    }
-                    val t = session.tokens ?: return@runCatching
-                    val total = t.input + t.output + t.reasoning
-                    // 仅在尚无消息级数据时作为初始 lastContextTokens（冷启动指示器
-                    // 常显；消息级快照到达后覆盖为准确值）
-                    if (total > 0 && tokenStatsTracker.stats.value.lastContextTokens == 0) {
-                        tokenStatsTracker.update { copy(lastContextTokens = total) }
                     }
                 }.onFailure { e ->
                     if (e is CancellationException) throw e
@@ -493,33 +490,11 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        // 2026-08-15：V2 实时 usage 流（session.usage.updated）——只消费当前会话
-        //（handler 收到服务器全部会话事件，跨会话写入会污染）。官方 Web app 对
-        // usage.updated 直接覆盖（server-session.ts:957，非 max）——但该值是
-        // session 累计口径（压缩不下降），仅作为**消息级快照缺失时的兜底**
-        //（消息级到达即覆盖为准确值，见下方 collect）。V1 无此事件。
-        viewModelScope.launch {
-            try {
-                eventDispatcher.sessionUsage.collect { usageMap ->
-                    val usage = usageMap[sessionId] ?: return@collect
-                    val current = tokenStatsTracker.stats.value
-                    // 仅当消息级尚未提供数据时更新（保底常显，不干扰官方口径）
-                    if (current.lastContextTokens == 0 && usage.tokens.contextTotal > 0) {
-                        tokenStatsTracker.update {
-                            copy(
-                                totalInputTokens = usage.tokens.input,
-                                totalOutputTokens = usage.tokens.output,
-                                totalReasoningTokens = usage.tokens.reasoning,
-                                lastContextTokens = usage.tokens.contextTotal
-                            )
-                        }
-                    }
-                }
-            } catch (e: Throwable) {
-                if (e is CancellationException) throw e
-                // 测试环境 relaxed mock 可能无法构造该 flow——静默跳过（不影响生产）
-            }
-        }
+        // 2026-08-17 上下文占用口径修正（ACP：input+cache.read）：删除
+        // session.usage.updated 对 lastContextTokens 的兜底写入——该值是
+        // session 累计口径（每轮累加、压缩不下降），写入会让指示器远超实际
+        // 占用（显示超 100%）。lastContextTokens 唯一写入源 = 消息级快照
+        //（见下方 collect）。V1/V2 均不再消费此事件更新 token 统计。
 
         // 2026-08-15：压缩完成事件驱动刷新——SessionCompacted 到达时（本会话）
         // 立即拉最新消息（含 compaction 消息→分割线卡片），无需用户重进会话。
@@ -536,17 +511,11 @@ class ChatViewModel @Inject constructor(
                         // 成功通知从 HTTP 回调挪到这里（HTTP 返回≠压缩完成的
                         // 语义歧义消除；失败通知仍走 HTTP 回调——SSE 无事件）。
                         _compactionDoneEvent.tryEmit(true)
-                        // 压缩后上下文重置——session 级 tokens 重新拉取（bootstrap 语义）
-                        runCatching {
-                            val s = manageSessionUseCase.getSession(serverId, sessionId)
-                            val t = s.tokens ?: return@runCatching
-                            val total = t.input + t.output + t.reasoning
-                            if (total > 0) {
-                                tokenStatsTracker.update {
-                                    copy(lastContextTokens = maxOf(lastContextTokens, total))
-                                }
-                            }
-                        }
+                        // 2026-08-17 上下文占用口径修正（ACP：input+cache.read）：
+                        // 删除压缩后 maxOf(lastContextTokens, session 累计 total)
+                        // 兜底——session 级 tokens 是 SQL 累计（只增不减），
+                        // 写入导致压缩后占用永不回落。压缩后 refreshMessages
+                        // 拉到新消息，下次消息级快照（input+cache.read）自然回落。
                     }
                 }
             } catch (e: Throwable) {
@@ -557,10 +526,16 @@ class ChatViewModel @Inject constructor(
 
         // 2026-08-15：消息级统计——对齐官方语义（tui prompt/index.tsx:264-282）：
         // context% 唯一权威源 = 最后一条 output>0 的 assistant 消息的单次调用
-        // tokens 快照（input+output+reasoning+cache.read+cache.write），**直接覆盖**
-        //（官方 step.ended → tokens 覆盖，tui data.tsx:224-234）。原 maxOf 合并
-        // 是为防消息级归零，但导致压缩后永不回落（session 累计值单向增大）。
-        // 消息级归零场景已由 lastOrNull{output>0} + 空/0 跳过覆盖。
+        // tokens 快照，**直接覆盖**（官方 step.ended → tokens 覆盖，tui
+        // data.tsx:224-234）。原 maxOf 合并是为防消息级归零，但导致压缩后
+        // 永不回落（session 累计值单向增大）。消息级归零场景已由
+        // lastOrNull{output>0} + 空/0 跳过覆盖。
+        // 2026-08-17 上下文占用口径修正（ACP：input+cache.read）：占用 =
+        // input + cache.read（sst/opencode acp/usage.ts:207；二者不重叠，
+        // cache.read 是已扣除了缓存命中部分的 input 计费口径）。原先五项
+        // 相加（含 output/reasoning/cache.write）多算了不占 input window
+        // 的项 → 显示超 100%（如 104%）。output/reasoning 等仍写入
+        // total* 消耗统计字段（下方），不受影响。
         viewModelScope.launch {
             messageData.messagesList
                 .map { messages ->
@@ -576,7 +551,7 @@ class ChatViewModel @Inject constructor(
                         totalCacheReadTokens = lastTokens?.cache?.read ?: 0,
                         totalCacheWriteTokens = lastTokens?.cache?.write ?: 0,
                         lastContextTokens = lastTokens?.let { t ->
-                            t.input + t.output + t.reasoning + t.cache.read + t.cache.write
+                            t.input + t.cache.read
                         } ?: 0,
                     )
                 }

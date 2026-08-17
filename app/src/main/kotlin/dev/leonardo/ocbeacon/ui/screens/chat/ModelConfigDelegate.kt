@@ -209,10 +209,16 @@ internal class ModelConfigDelegate(
 
             // 解析上下文窗口，回退到 provider 模型信息
             val session = allSessions.find { it.id == sid }
+            // 2026-08-17 上下文占用口径修正（ACP：input+cache.read）：删除
+            // `?: currentModel?.contextWindow` 兜底——session 模型在 catalog
+            // 查不到时 currentModel 是「第一个 provider 第一个模型」的回退值，
+            // 其 limit.context 可能远小于实际窗口（分母错小数倍 → 显示超
+            // 100%）。查不到时置 0——UI（ChatTopBar/ContextDetailDialog）对
+            // contextWindow<=0 的处理是隐藏指示器，不崩溃。
             val contextWindow = tokenStats.contextWindow.let { cw ->
                 if (cw > 0) cw else session?.model?.let { sm ->
                     providers.find { it.id == sm.providerId }?.models?.get(sm.id)?.contextWindow
-                } ?: currentModel?.contextWindow ?: 0
+                } ?: 0
             }
 
             ModelConfigState(
