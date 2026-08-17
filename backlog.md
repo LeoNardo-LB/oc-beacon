@@ -37,24 +37,28 @@
 
 ## P0 — 主流程阻塞
 
-### 2026-08-17 提问卡 E2E 终验发现批次（调查中）
+### 2026-08-17 提问卡 E2E 终验发现批次（已定性）
 
-- [ ] **E2E-A 多选第二自定义答案不渲染（含修复包上复现）** `ui` `sse`
-  - 现象：E2E-3 在 v4 包（dex 实证含 CustomAnswerRow 修复）上，发送第二个自定义 Peach 后只渲染 Mango 行；删除 Mango 后 Peach 行立即浮现（dump 铁证：Peach 在 selection 中，渲染层行为等价 take(1)）
-  - 矛盾点：修复代码（customAnswers filter 全渲染）已在包内，但行为未变——需干净现场重测定性（E2E-3 现场被 E2E-B 缺陷污染：中途误退会话重置状态）
-  - 待办：新会话定点重测 3c；若复现，审查 HorizontalPager 页内容重组链路
+- [x] **E2E-A 多选第二自定义答案不渲染** `ui` `sse`
+  - **2026-08-17 定点重测定性：不可复现，系上轮现场污染**。干净会话（全程不退出）中 Mango+Peach 双自定义行同屏渲染（dump 双行 bounds 铁证）、删除 Mango 后 Peach 保留——b6bf568f 修复行为正确
+  - 上轮 E2E-3 的"复现"实为 E2E-C（中途退出会话重置状态）污染所致
+  - 附：上轮"APK 不含修复（构建早 commit 64 秒）"的时间线推断不成立——dex 实证 CustomAnswerRow 在包内（commit 时间 ≠ 代码定稿时间）
 
-- [ ] **E2E-B question 提交后 agent 收到"未作答"（reply 通道疑点）** `ui` `sse`
-  - 现象：E2E-3 提交时 logcat 见 question.v2 404 → fallback POST answer={}（空体）→ agent 表格显示全部"未作答"
-  - 已排除：key 合成修复（ad2e124b 2026-08-17 11:08）在包内（构建 20:48 晚于提交）；E2E 报告"修复同波次不在包内"的推断不成立（dex + 时间线实证）
-  - 疑点：v2 404 的原因（requestID 过期？端点变化？）；keyedAnswers 为空的路径
-  - 测试污染：现场同时发生 E2E-C（导航重置）+ 误触 Cherry，提交的 selection 与操作者以为的不同
-  - 待办：新会话干净提交，logcat 抓 replyToForm 全链（v2 status / orderedAnswers 内容 / fallback 结果）；必要时 curl 直接复现
+- [x] **E2E-B question 提交后 agent 收到"未作答"** `ui` `sse`
+  - **2026-08-17 定点重测定性：功能正常**。干净提交：orderedAnswers=[["Apple","Peach","Banana"]] 完整送达，fallback form {"q0":[...]} success=true，agent 明确复述收到全部答案（含自定义 Peach）
+  - 上轮"空体未作答"实为 E2E-C 状态重置后提交的 selection 本身为空
+  - **v2 主路径恒 404 是结构性**（衍生登记见 E2E-D）：POST /api/session/{sid}/question/{formId}/reply 端点在 V2 服务器不存在（API 文档 §12：V2 只有 /form/{formId}/reply；question reply 是 V1 app 级端点）——v2-first 探测恒失败后 fallback 是实际工作路径
 
 - [ ] **E2E-C 导航往返丢提问卡已选答案** `ui` `sse`
   - 现象：聊天页返回会话列表再进入，卡内已选答案重置（rememberSaveable 未在该导航路径生效）
   - 疑点：ChatMessageList LazyColumn item 的 rememberSaveable 生命周期——返回列表 pop 会话 screen 时 saveable 状态被丢弃（导航未启用 saveState 或 key 变化导致 registry miss）
-  - 优先级：P1（影响体验但不崩溃）
+  - 优先级：P1（影响体验但不崩溃）；E2E-A/B 的两轮误判均由它污染现场引起，修复价值高
+
+- [ ] **E2E-D question.v2 reply 探测恒 404（浪费往返 + 日志噪音）** `ui` `sse`
+  - 现象：每次提问回复先 POST /api/session/{sid}/question/{formId}/reply 恒 404（端点结构性不存在，见 E2E-B 定性），再 fallback form 路径——每次多一次无效往返
+  - 背景：2026-08-15 research/09 时该端点曾实测 200（next-17430 中间契约）；现服务器已无此端点
+  - 方向：按服务器版本/连接缓存探测结果（首 404 后跳过），或按 V1/V2 探测结果直选路径；注意未来服务器可能重新引入
+  - 优先级：P2（功能无损，仅性能/噪音）
 
 ### 2026-08-06 Play 上架合规批次（已完成）
 来源：Google Play 上架审计（2026-08-06），目标 2026-08-31 政策截止。
@@ -314,8 +318,13 @@
     3. Q7：Q1/Q2/Q3 tab 压高 SegmentedButton（hack）→ **原生 FilterChip**（32dp 自身设计高度）
     4. Q8：CollapsibleQuestionPart 历史折叠卡容器 → OutlinedCard（与活动卡统一）；展开态经 QuestionPagerView(readOnly) 自动继承
     5. 死导入清理：QuestionCard.kt 30+ / QuestionPartContent.kt 8
-  - 验证：compileDevDebugKotlin ✅ 全量单测 ✅（--rerun 1m7s）i18n 15 文件 ×1 ✅；⚠️ 人工验证待用户：卡片观感/选项行触摸/FilterChip 切换/历史视图统一度（维度 5 视觉目测）
-  - 行为保持：单选互斥/多选/单选可取消/三按钮流程/#125 自定义答案删除/#126 草稿提升 全部未动
+  - 验证：compileDevDebugKotlin ✅ 全量单测 ✅ i18n 15 文件 ×1 ✅
+  - **2026-08-17 E2E 三轮实测（模拟器独占，真实 V2 服务器）**：
+    - 布局终态（用户迭代三轮）：标题栏（? + 待你回答 + **Q1|Q2 SegmentedButton 原生高度** + SINGLE/MULTI 标签同行右侧）→ 分割线 → 纯问题文本 → ListItem 选项行 → 输入框 → 按钮；历史视图元信息行在 pager 上方（无标题栏）——E2E-3 截图确认全部渲染正确
+    - 行为：单选互斥 ✅ / 多选勾选 ✅ / SegmentedButton 双向翻页 ✅ / 多自定义共存+定点删除+Edit 替换 ✅（定点重测 dump 铁证）/ 提交通道送达 ✅（agent 复述完整答案）/ 历史折叠展开 ✅ / FATAL=0
+    - 迭代中发现并修复：多选自定义只渲染第一个的结构缺陷（b6bf568f）；衍生登记 E2E-C（导航丢状态 P1）/E2E-D（v2 reply 恒 404 P2）
+  - ⚠️ 人工验收待用户：整体观感（维度 5 视觉目测，截图在 /tmp/e2e3/ /tmp/e2e4/）
+  - 行为保持：单选互斥/多选/单选可取消/三按钮流程/#125/#126 全部未动
 
 - [ ] **权限卡视觉复审（提问卡原生化后的配套）** `ui`
   - 来源：2026-08-17 grilling Q9 用户决策不纳入本次——权限卡（PermissionRequestCard，errorContainer 红系）与提问卡新视觉语言（OutlinedCard 系）是否需要统一，待提问卡验收后复审
