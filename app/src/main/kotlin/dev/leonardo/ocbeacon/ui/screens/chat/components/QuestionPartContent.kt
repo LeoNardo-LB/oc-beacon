@@ -491,9 +491,9 @@ private fun CompactOptionRow(
                 if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else Color.Transparent,
                 ShapeTokens.small
             )
-            // 左缘收敛（审计 D4）：horizontal MD→XS——选项文字从 +24dp 收到 +16dp，
-            // 逼近问题/标题主列（+12dp），三套 x 起点收敛
-            .padding(horizontal = SpacingTokens.XS.dp, vertical = SpacingTokens.SM.dp),
+            // 左缘（审计 D4 折中）：SM(8dp)——选项文字 +20dp，与输入框文字(+28dp,
+            // M3 默认 start 16dp)差收窄到 8dp；XS 太贴边、MD 又回到 24dp 老问题
+            .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.SM.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
     ) {
@@ -523,7 +523,7 @@ private fun CompactSelectedRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(accentColor.copy(alpha = AlphaTokens.SELECTED), ShapeTokens.small)
-            .padding(horizontal = SpacingTokens.XS.dp, vertical = SpacingTokens.SM.dp),
+            .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.SM.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
     ) {
