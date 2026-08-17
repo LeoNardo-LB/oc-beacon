@@ -37,6 +37,25 @@
 
 ## P0 — 主流程阻塞
 
+### 2026-08-17 提问卡 E2E 终验发现批次（调查中）
+
+- [ ] **E2E-A 多选第二自定义答案不渲染（含修复包上复现）** `ui` `sse`
+  - 现象：E2E-3 在 v4 包（dex 实证含 CustomAnswerRow 修复）上，发送第二个自定义 Peach 后只渲染 Mango 行；删除 Mango 后 Peach 行立即浮现（dump 铁证：Peach 在 selection 中，渲染层行为等价 take(1)）
+  - 矛盾点：修复代码（customAnswers filter 全渲染）已在包内，但行为未变——需干净现场重测定性（E2E-3 现场被 E2E-B 缺陷污染：中途误退会话重置状态）
+  - 待办：新会话定点重测 3c；若复现，审查 HorizontalPager 页内容重组链路
+
+- [ ] **E2E-B question 提交后 agent 收到"未作答"（reply 通道疑点）** `ui` `sse`
+  - 现象：E2E-3 提交时 logcat 见 question.v2 404 → fallback POST answer={}（空体）→ agent 表格显示全部"未作答"
+  - 已排除：key 合成修复（ad2e124b 2026-08-17 11:08）在包内（构建 20:48 晚于提交）；E2E 报告"修复同波次不在包内"的推断不成立（dex + 时间线实证）
+  - 疑点：v2 404 的原因（requestID 过期？端点变化？）；keyedAnswers 为空的路径
+  - 测试污染：现场同时发生 E2E-C（导航重置）+ 误触 Cherry，提交的 selection 与操作者以为的不同
+  - 待办：新会话干净提交，logcat 抓 replyToForm 全链（v2 status / orderedAnswers 内容 / fallback 结果）；必要时 curl 直接复现
+
+- [ ] **E2E-C 导航往返丢提问卡已选答案** `ui` `sse`
+  - 现象：聊天页返回会话列表再进入，卡内已选答案重置（rememberSaveable 未在该导航路径生效）
+  - 疑点：ChatMessageList LazyColumn item 的 rememberSaveable 生命周期——返回列表 pop 会话 screen 时 saveable 状态被丢弃（导航未启用 saveState 或 key 变化导致 registry miss）
+  - 优先级：P1（影响体验但不崩溃）
+
 ### 2026-08-06 Play 上架合规批次（已完成）
 来源：Google Play 上架审计（2026-08-06），目标 2026-08-31 政策截止。
 
