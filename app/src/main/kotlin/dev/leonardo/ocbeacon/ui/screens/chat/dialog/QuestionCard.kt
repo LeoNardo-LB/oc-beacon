@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
@@ -155,6 +156,11 @@ internal fun QuestionCard(
                     )
                 }
             }
+            // 2026-08-17 用户重设计：标题栏与正文的形式化分隔（元信息行/问题域/
+            // 答案域/按钮域的分界起点）
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+            )
 
             // 问题分区（问题域 + 答案域；Q tabs 嵌入问题域行）
             QuestionPagerView(

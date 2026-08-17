@@ -241,14 +241,17 @@ internal fun QuestionPagerView(
 
     if (questions.size <= 1) {
         questions.firstOrNull()?.let { q ->
-            QuestionOptionRows(
-                question = q,
-                selected = selectedAnswers.firstOrNull() ?: emptySet(),
-                readOnly = readOnly,
-                onOptionClick = { onOptionClick?.invoke(0, it) },
-                customDraft = customDrafts[0] ?: "",
-                onCustomDraftChange = { customDrafts[0] = it },
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
+                QuestionTypeLabel(isMultiple = q.multiple)
+                QuestionOptionRows(
+                    question = q,
+                    selected = selectedAnswers.firstOrNull() ?: emptySet(),
+                    readOnly = readOnly,
+                    onOptionClick = { onOptionClick?.invoke(0, it) },
+                    customDraft = customDrafts[0] ?: "",
+                    onCustomDraftChange = { customDrafts[0] = it },
+                )
+            }
         }
     } else {
         val state = pagerState ?: rememberPagerState(pageCount = { questions.size })
@@ -272,6 +275,19 @@ internal fun QuestionPagerView(
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
+            // 2026-08-17 用户重设计：元信息行（Q chips + 当前页类型标签）——
+            // 位置指示与类型是"元信息"，从问题域上移至 pager 层；
+            // 历史（QuestionExpandedOptions）复用同一路径自动获得一致布局。
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (showTabs) {
+                    QuestionCompactTabs(state, questions)
+                    Spacer(Modifier.weight(1f))
+                }
+                QuestionTypeLabel(isMultiple = questions.getOrNull(state.currentPage)?.multiple)
+            }
             HorizontalPager(
                 state = state,
                 modifier = Modifier.fillMaxWidth().then(
@@ -295,8 +311,6 @@ internal fun QuestionPagerView(
                         scaleY = 1f - pageOffset * 0.04f
                     }
                 ) {
-                    // 2026-08-14：Q tabs 嵌入问题域行（headerTabs slot），
-                    // 不再在 pager 上方独立渲染
                     QuestionOptionRows(
                         questions[page],
                         selectedAnswers.getOrNull(page) ?: emptySet(),
@@ -304,14 +318,27 @@ internal fun QuestionPagerView(
                         { onOptionClick?.invoke(page, it) },
                         customDraft = customDrafts[page] ?: "",
                         onCustomDraftChange = { customDrafts[page] = it },
-                        headerTabs = if (showTabs) {
-                            { QuestionCompactTabs(state, questions) }
-                        } else null,
                     )
                 }
             }
         }
     }
+}
+
+/**
+ * 类型标签（单选/多选）——2026-08-17 用户重设计：元信息不进问题域，
+ * 以纯文本 label 呈现在元信息行（M3 overline/meta label 模式）。
+ */
+@Composable
+private fun QuestionTypeLabel(isMultiple: Boolean?) {
+    Text(
+        text = stringResource(
+            if (isMultiple == true) R.string.question_multi_choice else R.string.question_single_choice
+        ),
+        style = MaterialTheme.typography.labelSmall,
+        color = if (isMultiple == true) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+        maxLines = 1
+    )
 }
 
 @Composable
@@ -324,59 +351,20 @@ internal fun QuestionOptionRows(
     // 避免 HorizontalPager beyondViewportPageCount=1 销毁远页 composition 时丢失草稿
     customDraft: String,
     onCustomDraftChange: (String) -> Unit,
-    /** 2026-08-14：Q tabs 嵌入问题域行（用户架构：问题域 → 答案域 → 按钮域，
-     *  无独立标题行；tabs 与问题描述同级别）。 */
-    headerTabs: (@Composable () -> Unit)? = null,
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
     val contentColor = MaterialTheme.colorScheme.onSurface
     val isMultiple = question.multiple
     Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
         if (question.question.isNotBlank()) {
-            // 2026-08-14：问题域用背景色卡片包裹（用户方案：卡片形成视觉分隔，
-            // 不动高度；色用 surfaceVariant 与卡片容器 surfaceContainer 区分）
-            Surface(
-                shape = ShapeTokens.small,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
-                    modifier = Modifier.padding(
-                        horizontal = SpacingTokens.MD.dp,
-                        vertical = SpacingTokens.SM.dp
-                    )
-                ) {                    // 类型徽标（2026-08-14 用户要求：嵌入问题域的行内轻量 tag——
-                    // 非固定高度独立块；高度跟随文本行，与问题描述自然同排）
-                    Surface(
-                        shape = ShapeTokens.small,
-                        color = if (isMultiple) {
-                            MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.SELECTED)
-                        } else {
-                            accentColor.copy(alpha = AlphaTokens.SELECTED)
-                        }
-                    ) {
-                        Text(
-                            text = stringResource(
-                                if (isMultiple) R.string.question_multi_choice else R.string.question_single_choice
-                            ),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                            ),
-                            color = if (isMultiple) MaterialTheme.colorScheme.tertiary else accentColor,
-                            modifier = Modifier.padding(horizontal = SpacingTokens.SM.dp, vertical = 2.dp),
-                            maxLines = 1
-                        )
-                    }
-                    Text(question.question, style = MaterialTheme.typography.bodyMedium, color = contentColor)
-                    // 2026-08-14：Q tabs 嵌入问题域行（右对齐，多问题时）
-                    if (headerTabs != null) {
-                        Spacer(modifier = Modifier.weight(1f))
-                        headerTabs()
-                    }
-                }
-            }
+            // 2026-08-17 用户重设计：问题域只承载问题描述——元信息（Q chips/
+            // 类型标签）上移至 QuestionPagerView 元信息行；原 surfaceVariant
+            // 容器与内嵌 tag 一并移除，bodyLarge 突出问题本体
+            Text(
+                text = question.question,
+                style = MaterialTheme.typography.bodyLarge,
+                color = contentColor
+            )
         }
         // 2026-08-17 用户决策（grilling Q6）：M3 ListItem + 原生 RadioButton/Checkbox
         // （M3 选择列表标准模式：leading 控件 + 整行点击）——替代自绘 Surface 行
