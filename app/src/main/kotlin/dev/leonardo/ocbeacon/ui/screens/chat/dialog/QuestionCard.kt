@@ -201,7 +201,10 @@ internal fun QuestionCard(
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
                             if (!isSingle && pagerState != null) {
-                                Button(
+                                // 2026-08-18 审计②补：Next 是翻页导航非主动作——
+                                // Filled→FilledTonalButton（避免双深色 pill 并排，
+                                // 全屏最硬边界 ΔL0.71 只留给唯一的 Submit）
+                                androidx.compose.material3.FilledTonalButton(
                                     onClick = {
                                         performHaptic(hapticView, hapticOn)
                                         scope.launch {

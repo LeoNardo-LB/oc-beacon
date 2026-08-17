@@ -29,9 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -187,8 +185,10 @@ internal fun QuestionExpandedOptions(items: List<QHistItem>) {
 
 /**
  * 紧凑 Q tab 行（2026-08-13：从 QuestionPagerView 抽出，供交互卡片标题行共用）。
- * 2026-08-17 用户第四轮：压至 32dp + labelSmall（用户反馈 40dp 太大）——
- * 位置在卡片标题栏右侧。触摸目标 <48dp 为用户明确取舍。
+ * 2026-08-18 审计①补（响度倒置）：SegmentedButton 的段描边（实测 ΔL 0.63）
+ * 比已删除的卡外描边还响 4 倍——"框中框"拥挤感的真凶是内层响度盖过外层。
+ * 换 FilterChip（tonal 无描边，selected=secondaryContainer 实底高亮），
+ * 保持 32dp 高度与单选语义。
  */
 @Composable
 internal fun QuestionCompactTabs(
@@ -197,24 +197,19 @@ internal fun QuestionCompactTabs(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    androidx.compose.runtime.CompositionLocalProvider(
-        androidx.compose.material3.LocalMinimumInteractiveComponentSize provides 32.dp
-    ) {
-        SingleChoiceSegmentedButtonRow(modifier = modifier) {
-            questions.indices.forEach { i ->
-                SegmentedButton(
-                    selected = pagerState.currentPage == i,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
-                    shape = SegmentedButtonDefaults.itemShape(index = i, count = questions.size),
-                    modifier = Modifier.height(32.dp)
-                ) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
+        questions.indices.forEach { i ->
+            FilterChip(
+                selected = pagerState.currentPage == i,
+                onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
+                label = {
                     Text(
                         text = "Q${i + 1}",
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1
                     )
                 }
-            }
+            )
         }
     }
 }
