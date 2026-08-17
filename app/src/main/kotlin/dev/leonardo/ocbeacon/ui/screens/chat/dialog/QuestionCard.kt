@@ -168,19 +168,19 @@ internal fun QuestionCard(
                 onOptionClick = { pageIndex, label ->
                     if (!submitted) {
                         performHaptic(hapticView, hapticOn)
-                        val current = answersPerQuestion.getOrNull(pageIndex)?.toMutableList() ?: mutableListOf()
+                        val q = question.questions.getOrNull(pageIndex)
                         // 单选/多选按当前题目 multiple 判断（多问题场景每道题独立，
                         // 单选题目必须互斥——2026-08-13 用户验收 bug 修复）
-                        val isSingleQuestion = question.questions.getOrNull(pageIndex)?.multiple != true
-                        if (isSingleQuestion) {
-                            // 单选：toggle——选中项取消则清空，否则替换为该项（不再立即提交）
-                            // Bug #127: 补越界保护（与多选分支 :174 对称）
-                            if (pageIndex < answersPerQuestion.size) {
-                                answersPerQuestion[pageIndex] = if (current == listOf(label)) emptyList() else listOf(label)
-                            }
-                        } else {
-                            if (label in current) current.remove(label) else current.add(label)
-                            if (pageIndex < answersPerQuestion.size) answersPerQuestion[pageIndex] = current
+                        val isSingleQuestion = q?.multiple != true
+                        val optionLabels = q?.options?.map { it.label }?.toSet() ?: emptySet()
+                        // Bug #127: 越界保护
+                        if (pageIndex < answersPerQuestion.size) {
+                            // 2026-08-18 用户反馈修复：点选项不再清掉已保存的自定义答案
+                            // （反向同理：单选卡保存自定义不再静默清掉已选选项）——
+                            // 选项/自定义两槽位互不挤占，见 toggleQuestionAnswer
+                            answersPerQuestion[pageIndex] = toggleQuestionAnswer(
+                                answersPerQuestion[pageIndex], label, optionLabels, isSingleQuestion
+                            )
                         }
                     }
                 }
@@ -282,4 +282,43 @@ internal fun unansweredQuestionIndexes(
     return (0 until questionCount)
         .filter { idx -> answers.getOrNull(idx).isNullOrEmpty() }
         .map { it + 1 }
+}
+
+/**
+ * 提问卡答案 toggle 纯函数——[QuestionCard] onOptionClick 的单一真相源
+ * （CustomAnswerToggleFlowTest 直接调用本函数，不再复刻镜像）。
+ *
+ * 核心不变量（2026-08-18 用户反馈修复）：**选项槽位与自定义槽位互不挤占**——
+ * 点选项只改选项槽位（自定义条目保留），toggle 自定义条目（保存/✕删除/
+ * 编辑替换）只改自定义槽位（选项选择保留）。旧实现单选分支整表替换
+ * `listOf(label)`：点选项会丢已保存的自定义答案、保存自定义会静默丢已选
+ * 选项——两个方向都是同一根因。
+ *
+ * 自定义槽位恒 ≤1：UI 三态输入框模式保证（输入框仅在没有自定义答案时
+ * 显示；编辑替换 = 先 toggle off 旧值再 toggle on 新值）。
+ *
+ * @param isSingle true=单选（选项槽位互斥：再点已选项清空，否则替换）；
+ *                 false=多选（选项槽位 toggle 追加/移除，顺序保留）
+ */
+internal fun toggleQuestionAnswer(
+    current: List<String>,
+    label: String,
+    optionLabels: Set<String>,
+    isSingle: Boolean
+): List<String> {
+    val options = current.filter { it in optionLabels }
+    val customs = current.filter { it !in optionLabels }
+    return if (label !in optionLabels) {
+        // 自定义条目 toggle——选项槽位原样保留
+        val newCustoms = if (label in customs) customs - label else customs + label
+        options + newCustoms
+    } else if (isSingle) {
+        // 单选：选项槽位互斥（再点已选=清空），自定义槽位保留
+        val newOptions = if (options == listOf(label)) emptyList() else listOf(label)
+        newOptions + customs
+    } else {
+        // 多选：选项槽位 toggle（顺序保留），自定义槽位保留
+        val newOptions = if (label in options) options - label else options + label
+        newOptions + customs
+    }
 }
