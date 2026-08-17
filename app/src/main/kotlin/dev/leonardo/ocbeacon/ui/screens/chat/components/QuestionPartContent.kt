@@ -392,31 +392,31 @@ internal fun QuestionOptionRows(
         // 2026-08-17 E2E 发现修复：多选渲染**全部**自定义答案（原 firstOrNull
         // 只显示第一个——第二个自定义在 selection 里却"隐形"，仍会被提交）；
         // 单选语义至多一个。多选时输入框常驻（可连续添加多个自定义）。
+        // 2026-08-18 用户语义澄清（重要回滚）：自定义输入 = **提交自己的回答**，
+        // 不是"往选项列表添加新选项"！至多一个自定义答案——输入 → 纸飞机保存
+        // → 成为回答（输入框转为已输入态，Edit 可改、✕ 可删回到空输入框）。
+        // 此前 b6bf568f 误把"只渲染第一个"当缺陷做成"多自定义支持"（多选可
+        // 连续添加多条）——语义错误，回滚为单自定义（三态输入框模式）。
         if (question.custom != false) {
             val optionLabels = question.options.map { it.label }.toSet()
-            val customAnswers = selected.filter { it !in optionLabels }.let {
-                if (isMultiple == true) it else it.take(1)
-            }
-            // 编辑态提升（2026-08-17 用户反馈"多选两个输入框"）：正在编辑某条
-            // 自定义答案时隐藏下方常驻输入框——同时只保留一个输入框；
-            // editingCustom 记录正在编辑的答案值（null = 无编辑）
+            val customAnswer = selected.firstOrNull { it !in optionLabels }
             var editingCustom by remember { mutableStateOf<String?>(null) }
-            customAnswers.forEach { custom ->
+            if (customAnswer != null) {
                 CustomAnswerRow(
-                    customAnswer = custom,
+                    customAnswer = customAnswer,
                     readOnly = readOnly,
                     isMultiple = isMultiple,
                     accentColor = accentColor,
                     optionLabels = optionLabels,
                     onOptionClick = onOptionClick,
-                    isEditing = editingCustom == custom,
-                    onEditStart = { editingCustom = custom },
-                    onEditEnd = { if (editingCustom == custom) editingCustom = null },
+                    isEditing = editingCustom == customAnswer,
+                    onEditStart = { editingCustom = customAnswer },
+                    onEditEnd = { if (editingCustom == customAnswer) editingCustom = null },
                 )
             }
-            // 输入框：多选常驻（继续添加）；单选仅无自定义时显示（修改走行内 Edit）；
-            // 任一编辑态激活时隐藏（避免与行内编辑框同时出现两个输入框）
-            if (!readOnly && editingCustom == null && (isMultiple == true || customAnswers.isEmpty())) {
+            // 输入框：无自定义答案时显示（输入即提交自定义回答）；有自定义时
+            // 隐藏（修改走行内 Edit）；编辑态激活时隐藏（同时只有一个输入框）
+            if (!readOnly && customAnswer == null) {
                 // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）；
                 // 高度与紧凑选项行对齐（2026-08-17 第四轮）。M3 输入框固有
                 // MinHeight=56dp（TextFieldDefaults，defaultMinSize 垫底）——
