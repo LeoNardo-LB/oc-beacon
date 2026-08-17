@@ -682,6 +682,116 @@ class SseEventParserTest {
         assertEquals("sess_fallback", (event as SseEvent.SessionCreated).info.id)
     }
 
+    // ==================== V2 扁平格式 session.created（2026-08-17 Running 恒空修复） ====================
+
+    /** 2026-08-17：真实抓帧行政格式——model 为对象 {id, providerID, variant}。
+     *  修复前 `?.jsonPrimitive` 读 model 抛 IllegalArgumentException →
+     *  parse() catch 吞掉整条事件 → 子会话永不注册（任务面板 Running 恒空）。 */
+    @Test
+    fun `SessionEventParser parse v2 flat session_created with model object`() {
+        val parser = SessionEventParser(json)
+        // 2026-08-17 实测抓帧（V2 next-17498，服务器派发 subagent 时广播）
+        val props = parseJsonObject(
+            """{
+                "sessionID": "ses_child_1",
+                "slug": "proud-comet",
+                "version": "0.0.0-beta-17498",
+                "projectID": "71b9c369afbe",
+                "parentID": "ses_parent_1",
+                "location": {"directory": "/home/user/project"},
+                "subpath": "",
+                "title": "子代理跑 sleep 40",
+                "agent": "general-fast",
+                "model": {"id": "deepseek-v4-flash-free", "providerID": "opencode"}
+            }"""
+        )
+        val event = parser.parse("session.created", props)
+        assertNotNull("model 为对象时不得丢弃整条事件", event)
+        val session = (event as SseEvent.SessionCreated).info
+        assertEquals("ses_child_1", session.id)
+        assertEquals("ses_parent_1", session.parentId)
+        assertEquals("子代理跑 sleep 40", session.title)
+        assertEquals("general-fast", session.agent)
+        assertEquals("/home/user/project", session.directory)
+        assertNotNull(session.model)
+        assertEquals("deepseek-v4-flash-free", session.model!!.id)
+        assertEquals("opencode", session.model!!.providerId)
+        assertTrue("startedAt 依据：created 时间戳必须 > 0", session.time.created > 0)
+    }
+
+    @Test
+    fun `SessionEventParser parse v2 flat session_created with model object variant`() {
+        val parser = SessionEventParser(json)
+        val props = parseJsonObject(
+            """{
+                "sessionID": "ses_child_2",
+                "parentID": "ses_parent_1",
+                "title": "task",
+                "model": {"id": "glm-5.3", "providerID": "zhipuai-coding-plan", "variant": "default"}
+            }"""
+        )
+        val event = parser.parse("session.created", props)
+        assertNotNull(event)
+        val session = (event as SseEvent.SessionCreated).info
+        assertEquals("glm-5.3", session.model?.id)
+        assertEquals("zhipuai-coding-plan", session.model?.providerId)
+        assertEquals("default", session.model?.variant)
+    }
+
+    /** 兼容路径：model 为纯字符串（旧格式）仍可解析。 */
+    @Test
+    fun `SessionEventParser parse v2 flat session_created with model string`() {
+        val parser = SessionEventParser(json)
+        val props = parseJsonObject(
+            """{
+                "sessionID": "ses_child_3",
+                "parentID": "ses_parent_1",
+                "model": "claude-4"
+            }"""
+        )
+        val event = parser.parse("session.created", props)
+        assertNotNull(event)
+        val session = (event as SseEvent.SessionCreated).info
+        assertEquals("claude-4", session.model?.id)
+    }
+
+    /** 防御：model 类型异常（数组）不抛异常、不丢弃整条事件。 */
+    @Test
+    fun `SessionEventParser parse v2 flat session_created with unexpected model type`() {
+        val parser = SessionEventParser(json)
+        val props = parseJsonObject(
+            """{
+                "sessionID": "ses_child_4",
+                "parentID": "ses_parent_1",
+                "model": ["bad"]
+            }"""
+        )
+        val event = parser.parse("session.created", props)
+        assertNotNull(event)
+        val session = (event as SseEvent.SessionCreated).info
+        assertEquals("ses_child_4", session.id)
+        assertNull(session.model)
+    }
+
+    /** session.updated 同走 decodeSessionCompat——对象 model 也不得丢事件。 */
+    @Test
+    fun `SessionEventParser parse v2 flat session_updated with model object`() {
+        val parser = SessionEventParser(json)
+        val props = parseJsonObject(
+            """{
+                "sessionID": "ses_child_1",
+                "parentID": "ses_parent_1",
+                "title": "更新后的标题",
+                "model": {"id": "m1", "providerID": "p1"}
+            }"""
+        )
+        val event = parser.parse("session.updated", props)
+        assertNotNull(event)
+        val session = (event as SseEvent.SessionUpdated).info
+        assertEquals("更新后的标题", session.title)
+        assertEquals("m1", session.model?.id)
+    }
+
     // ==================== 解析器间隔离 ====================
 
     @Test

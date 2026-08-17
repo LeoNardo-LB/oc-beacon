@@ -137,9 +137,33 @@ class SessionEventParser(private val json: Json) : SseEventParser {
             version = obj["version"]?.jsonPrimitive?.contentOrNull ?: "",
             time = Session.Time(created = now, updated = now),
             agent = obj["agent"]?.jsonPrimitive?.contentOrNull,
-            model = obj["model"]?.jsonPrimitive?.contentOrNull?.let { modelId ->
-                Session.SessionModel(id = modelId, providerId = "")
-            }
+            // 2026-08-17 修复（任务面板 Running 恒空）：V2 广播的 model 是对象
+            // `{"id":"...","providerID":"...","variant":"..."}`（实测抓帧），
+            // 原按 `?.jsonPrimitive` 字符串读取遇 JsonObject 抛
+            // IllegalArgumentException → parse() 的 catch 吞掉整条事件 →
+            // session.created 被静默丢弃 → 子会话永不进 sessions flow →
+            // 任务面板进行中任务恒空（只有回列表页 REST 刷新才出现）。
+            model = parseSessionModelCompat(obj["model"])
         )
+    }
+
+    /** model 字段兼容解析：V2 对象 {id, providerID, variant} / 纯字符串 id /
+     *  其他类型（null/数组）→ null。任何形态都不抛异常（防御性：单字段类型
+     *  演进不应导致整条会话事件丢失）。 */
+    private fun parseSessionModelCompat(el: JsonElement?): Session.SessionModel? {
+        return when (el) {
+            is JsonObject -> {
+                val id = el["id"]?.jsonPrimitive?.contentOrNull ?: return null
+                Session.SessionModel(
+                    id = id,
+                    providerId = el["providerID"]?.jsonPrimitive?.contentOrNull
+                        ?: el["providerId"]?.jsonPrimitive?.contentOrNull ?: "",
+                    variant = el["variant"]?.jsonPrimitive?.contentOrNull
+                )
+            }
+            is JsonPrimitive -> el.contentOrNull?.takeIf { it.isNotBlank() }
+                ?.let { Session.SessionModel(id = it, providerId = "") }
+            else -> null
+        }
     }
 }
