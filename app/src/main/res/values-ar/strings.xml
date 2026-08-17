@@ -38,6 +38,7 @@
     <string name="question_unanswered_confirm">الأسئلة %1$s لم يتم الرد عليها بعد.</string>
     <string name="question_unanswered_separator">،\u0020</string>
     <string name="question_continue">متابعة</string>
+    <string name="question_awaiting_reply">في انتظار إجابتك</string>
     <!-- Settings -->
     <string name="settings_title">الإعدادات</string>
     <string name="settings_theme">المظهر</string>

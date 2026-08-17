@@ -185,6 +185,7 @@
     <string name="question_unanswered_confirm">Pertanyaan %1$s belum dijawab.</string>
     <string name="question_unanswered_separator">,\u0020</string>
     <string name="question_continue">Lanjutkan</string>
+    <string name="question_awaiting_reply">Menunggu jawaban Anda</string>
     <!-- Settings -->
     <string name="settings_title">Pengaturan</string>
     <string name="settings_theme">Tema</string>

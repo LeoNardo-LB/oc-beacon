@@ -287,6 +287,21 @@
 
 ## P2 — 优化与锦上添花
 
+- [~] **提问卡片 M3 原生化改造（消除"外来物"拼盘感）** `ui`
+  - 背景：2026-08-17 用户反馈主对话中提问卡不美观，希望用 M3 原生组件。grilling 共识（Q5=A/Q6=B/Q7=A/Q8=A/Q9=不纳入）：内嵌保留 + 控件原生化 + 活动/历史统一 + 分页保留
+  - **2026-08-17 代码完成（待人工验证）**：
+    1. Q5：QuestionCard 容器 Surface → **OutlinedCard** + 表单头部（AutoMirrored HelpOutline + "待你回答"新键 question_awaiting_reply，15 语言）；AMOLED contentColor 语义保留
+    2. Q6：选项行自绘 Surface+BorderStroke+Check → **M3 ListItem + 原生 RadioButton/Checkbox**（leading 控件 + 整行 clickable；material3 1.4.0 ListItem 无 onClick 重载，用 Modifier.clickable）；自定义答案三态同步 ListItem 化
+    3. Q7：Q1/Q2/Q3 tab 压高 SegmentedButton（hack）→ **原生 FilterChip**（32dp 自身设计高度）
+    4. Q8：CollapsibleQuestionPart 历史折叠卡容器 → OutlinedCard（与活动卡统一）；展开态经 QuestionPagerView(readOnly) 自动继承
+    5. 死导入清理：QuestionCard.kt 30+ / QuestionPartContent.kt 8
+  - 验证：compileDevDebugKotlin ✅ 全量单测 ✅（--rerun 1m7s）i18n 15 文件 ×1 ✅；⚠️ 人工验证待用户：卡片观感/选项行触摸/FilterChip 切换/历史视图统一度（维度 5 视觉目测）
+  - 行为保持：单选互斥/多选/单选可取消/三按钮流程/#125 自定义答案删除/#126 草稿提升 全部未动
+
+- [ ] **权限卡视觉复审（提问卡原生化后的配套）** `ui`
+  - 来源：2026-08-17 grilling Q9 用户决策不纳入本次——权限卡（PermissionRequestCard，errorContainer 红系）与提问卡新视觉语言（OutlinedCard 系）是否需要统一，待提问卡验收后复审
+  - 注意：error 色系是语义设计（批准/拒绝权重高），复审时评估描边容器化是否适用
+
 - [x] **#71 后台系统 + V2 消息链路 D4 人工验收（时间性现象，自动化无法覆盖）** `ui` `sse`
   - **2026-08-13 验收 ✅（用户口头确认"后台没啥问题" + Agent 数据正确性确认）**：shell 生命周期（created/exited/deleted）与内联展示数据与服务器 SSE 事件一致；流式期间 Back 无 ANR。⚠️ 附注：`session.tool.progress` 事件被 SessionNextEventHandler 标记 Unhandled（工具实时进度缺口）→ 登记 #92
   - 问题：2026-08-11 后台系统（入口/工具栏/面板/Shell 卡片）与 V2 消息链路（V2SseMapper 流式）开发完成，自动化验证（编译/单测/E2E 功能走查）全部通过；但以下**时间性现象**自动化无法覆盖，需用户真机验收后才可声称完成（verification-requirements.md 维度 5）：

@@ -38,6 +38,7 @@
     <string name="question_unanswered_confirm">質問 %1$s はまだ回答されていません。</string>
     <string name="question_unanswered_separator">、</string>
     <string name="question_continue">続ける</string>
+    <string name="question_awaiting_reply">回答をお待ちしています</string>
     <!-- Settings -->
     <string name="settings_title">設定</string>
     <string name="settings_theme">テーマ</string>

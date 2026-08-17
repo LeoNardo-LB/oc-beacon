@@ -38,6 +38,7 @@
     <string name="question_unanswered_confirm">Les questions %1$s n\'ont pas encore été répondues.</string>
     <string name="question_unanswered_separator">,\u0020</string>
     <string name="question_continue">Continuer</string>
+    <string name="question_awaiting_reply">En attente de votre réponse</string>
     <!-- Settings -->
     <string name="settings_title">Paramètres</string>
     <string name="settings_theme">Thème</string>

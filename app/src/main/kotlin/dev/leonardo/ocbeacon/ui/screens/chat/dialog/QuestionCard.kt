@@ -1,46 +1,21 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.dialog
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.HelpOutline
-import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,23 +29,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SseEvent
-import dev.leonardo.ocbeacon.ui.components.AmoledCard
-import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
-import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.components.QuestionPagerView
-import dev.leonardo.ocbeacon.ui.screens.chat.components.QuestionCompactTabs
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -141,30 +108,52 @@ internal fun QuestionCard(
         savedAnswers = answersPerQuestion.map { it.toList() }
     }
 
-    val containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
     val accentColor = MaterialTheme.colorScheme.primary
 
-    // 2026-08-14：样式对齐 ReasoningBlock（思考卡片）——surfaceContainer 底色 +
-    // 轻量容器。架构（用户要求）：无内层 "Question" 标题行容器——卡片直接承担
-    // 展开容器（默认展开），内容 = 问题域 / 答案域 / 按钮域；
-    // 回答问题后 pendingQuestion 移除 → 卡片关闭（消失）。
-    Surface(
+    // 2026-08-17 用户决策（grilling Q5=A）：换 M3 原生 OutlinedCard + 表单头部。
+    // 提问卡是等待用户操作的表单（不是被动内容）——描边 + 头部让它"不一样得
+    // 有章法"，与聊天气泡的有意对比取代原自绘 Surface 容器的"外来物"拼盘感。
+    // 底色保留 surfaceContainer 半透明（延续 AMOLED 兼容）；架构不变：卡片直接
+    // 承担展开容器，内容 = 问题域 / 答案域 / 按钮域；回答后卡片消失。
+    OutlinedCard(
         shape = ShapeTokens.small,
-        color = containerColor,
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM),
+            contentColor = contentColor
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(SpacingTokens.SM.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
-            // 子 agent 来源标签（当问题来自子会话时显示）
-            if (question.sourceSessionTitle != null) {
-                Text(
-                    text = question.sourceSessionTitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
+            // 表单头部（Q5=A）：图标 + "待你回答"标签——刻意的表单可供性；
+            // 子 agent 来源（若有）右对齐同一行
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.HelpOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = accentColor
                 )
+                Text(
+                    text = stringResource(R.string.question_awaiting_reply),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = accentColor
+                )
+                if (question.sourceSessionTitle != null) {
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = question.sourceSessionTitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = AlphaTokens.MEDIUM)
+                    )
+                }
             }
 
             // 问题分区（问题域 + 答案域；Q tabs 嵌入问题域行）

@@ -38,6 +38,7 @@
     <string name="question_unanswered_confirm">Питання %1$s ще не мають відповіді.</string>
     <string name="question_unanswered_separator">,\u0020</string>
     <string name="question_continue">Продовжити</string>
+    <string name="question_awaiting_reply">Очікуємо на вашу відповідь</string>
     <!-- Settings -->
     <string name="settings_title">Налаштування</string>
     <string name="settings_theme">Тема</string>

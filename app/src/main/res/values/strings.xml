@@ -290,6 +290,7 @@
     <string name="question_unanswered_confirm">Questions %1$s have not been answered yet.</string>
     <string name="question_unanswered_separator">,\u0020</string>
     <string name="question_continue">Continue</string>
+    <string name="question_awaiting_reply">Awaiting your reply</string>
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>

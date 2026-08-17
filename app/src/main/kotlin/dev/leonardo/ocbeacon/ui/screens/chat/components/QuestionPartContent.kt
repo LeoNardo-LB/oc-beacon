@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,23 +19,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckBox
-import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -75,7 +72,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.QuestionParser
 @Composable
 internal fun CollapsibleQuestionPart(question: String) {
     var expanded by remember { mutableStateOf(false) }
-    val containerColor = MaterialTheme.colorScheme.surfaceVariant
     val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
     val accentColor = MaterialTheme.colorScheme.primary
 
@@ -84,10 +80,14 @@ internal fun CollapsibleQuestionPart(question: String) {
         QuestionParser.parseQuestionContent(question)
     }
 
-    androidx.compose.material3.Surface(
-        shape = dev.leonardo.ocbeacon.ui.theme.ShapeTokens.smallMedium,
-        color = containerColor,
-        tonalElevation = 1.dp,
+    // 2026-08-17 用户决策（grilling Q5/Q8）：换 M3 OutlinedCard——与活动提问卡
+    // （QuestionCard）统一容器语言（描边 + surfaceContainer 底），活动/历史
+    // 提问并排时是同一套视觉体系；原 surfaceVariant + tonalElevation 自绘容器。
+    OutlinedCard(
+        shape = ShapeTokens.smallMedium,
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(SpacingTokens.XS.dp).fillMaxWidth()) {
@@ -191,8 +191,10 @@ internal fun QuestionExpandedOptions(items: List<QHistItem>) {
 
 /**
  * 紧凑 Q tab 行（2026-08-13：从 QuestionPagerView 抽出，供交互卡片标题行共用）。
- * 2026-08-14 用户决策：换 M3 SingleChoiceSegmentedButtonRow（官方组件语义/
- * 无障碍/主题一致性）；压缩高度 32dp 避免"太大太高"回潮。
+ * 2026-08-17 用户决策（grilling Q7）：换 M3 FilterChip——32dp 是芯片自身的
+ * 设计高度（此前 SegmentedButton 压高 32dp 是 hack，段内边距被挤压）；
+ * 官方定位"过滤/选择"场景，选中高亮原生自带，与选项行的 RadioButton/
+ * Checkbox 形成"chip 选问题、radio 选答案"的清晰分工。
  */
 @Composable
 internal fun QuestionCompactTabs(
@@ -201,25 +203,19 @@ internal fun QuestionCompactTabs(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    // M3 SegmentedButton 默认最小交互尺寸 40dp（用户反馈过大）→ 压缩到 32dp
-    androidx.compose.runtime.CompositionLocalProvider(
-        androidx.compose.material3.LocalMinimumInteractiveComponentSize provides 32.dp
-    ) {
-        SingleChoiceSegmentedButtonRow(modifier = modifier) {
-            questions.indices.forEach { i ->
-                SegmentedButton(
-                    selected = pagerState.currentPage == i,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
-                    shape = SegmentedButtonDefaults.itemShape(index = i, count = questions.size),
-                    modifier = Modifier.height(32.dp)
-                ) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
+        questions.indices.forEach { i ->
+            FilterChip(
+                selected = pagerState.currentPage == i,
+                onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
+                label = {
                     Text(
                         text = "Q${i + 1}",
                         style = MaterialTheme.typography.labelMedium,
                         maxLines = 1
                     )
                 }
-            }
+            )
         }
     }
 }
@@ -382,96 +378,113 @@ internal fun QuestionOptionRows(
                 }
             }
         }
+        // 2026-08-17 用户决策（grilling Q6）：M3 ListItem + 原生 RadioButton/Checkbox
+        // （M3 选择列表标准模式：leading 控件 + 整行点击）——替代自绘 Surface 行
+        // （手写 BorderStroke/defaultMinSize/padding 全套）。选中 = 控件原生选中态
+        // + accent 容器淡染（AlphaTokens.SELECTED）；未选中透明融入卡片。
         question.options.forEach { option ->
             val isSelected = option.label in selected
-            Surface(onClick = { onOptionClick(option.label) }, enabled = !readOnly,
-                shape = ShapeTokens.small,
-                color = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else MaterialTheme.colorScheme.surface.copy(alpha = AlphaTokens.MEDIUM),
-                // 2026-08-14：所有选项默认边框（选中时 accent 边框）
-                border = BorderStroke(
-                    1.dp,
-                    if (isSelected) accentColor.copy(alpha = AlphaTokens.MEDIUM)
-                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
-                ),
-                modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.defaultMinSize(minHeight = 44.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(option.label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
-                        if (option.description.isNotBlank()) {
-                            Text(option.description, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = AlphaTokens.MEDIUM))
-                        }
-                    }
-                    // 2026-08-14 新设计：选中项右对齐小 ✔（替代左侧单选/多选图标）
-                    if (isSelected) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
-                    }
+            val headline: @Composable () -> Unit = {
+                Text(option.label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
+            }
+            val supporting: (@Composable () -> Unit)? = if (option.description.isNotBlank()) {
+                { Text(option.description, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = AlphaTokens.MEDIUM)) }
+            } else null
+            val leading: @Composable () -> Unit = {
+                if (isMultiple == true) {
+                    Checkbox(checked = isSelected, onCheckedChange = null, enabled = !readOnly)
+                } else {
+                    RadioButton(selected = isSelected, onClick = null, enabled = !readOnly)
                 }
             }
+            val itemColors = ListItemDefaults.colors(
+                containerColor = if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else Color.Transparent
+            )
+            // material3 1.4.0 的 ListItem 无 onClick 重载——交互态用 Modifier.clickable
+            // （与项目 ToolGroupList 行点击同模式，涟漪由 clickable indication 提供）
+            ListItem(
+                headlineContent = headline,
+                supportingContent = supporting,
+                leadingContent = leading,
+                colors = itemColors,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (!readOnly) Modifier.clickable { onOptionClick(option.label) } else Modifier)
+            )
         }
         // 自定义答案支持
         if (question.custom != false) {
             val optionLabels = question.options.map { it.label }.toSet()
             val customAnswer = selected.firstOrNull { it !in optionLabels }
             if (customAnswer != null && readOnly) {
-                // 历史只读视图：高亮答案行 + ✔（无交互）
-                Surface(onClick = {}, enabled = false, shape = ShapeTokens.small,
-                    color = accentColor.copy(alpha = AlphaTokens.SELECTED),
-                    border = BorderStroke(1.dp, accentColor.copy(alpha = AlphaTokens.MEDIUM)),
-                    modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.defaultMinSize(minHeight = 44.dp).padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor, modifier = Modifier.weight(1f))
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
-                    }
-                }
+                // 历史只读视图：自定义答案行（2026-08-17 与选项行统一为 ListItem）
+                ListItem(
+                    headlineContent = {
+                        Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
+                    },
+                    leadingContent = {
+                        if (isMultiple == true) {
+                            Checkbox(checked = true, onCheckedChange = null, enabled = false)
+                        } else {
+                            RadioButton(selected = true, onClick = null, enabled = false)
+                        }
+                    },
+                    colors = ListItemDefaults.colors(
+                        containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
             } else if (customAnswer != null) {
                 // 2026-08-14 用户决策：③ 输入完毕态 = ②编辑态样式（输入框外观），
                 // 图标换 Edit；点击 Edit 进入修改（预填已有答案，修改后重新提交替换）
                 var editing by remember(customAnswer) { mutableStateOf(false) }
                 var editText by remember(customAnswer) { mutableStateOf(customAnswer) }
                 if (!editing) {
-                    // ③ 输入完毕态：与普通答案 item 完全相同的行结构（右对齐一致），
-                    // Edit 与 ✔ 同样式（16dp、统一间距）——2026-08-14 用户要求
-                    Surface(
-                        onClick = {},
-                        enabled = false,
-                        shape = ShapeTokens.small,
-                        color = accentColor.copy(alpha = AlphaTokens.SELECTED),
-                        border = BorderStroke(1.dp, accentColor.copy(alpha = AlphaTokens.MEDIUM)),
+                    // ③ 输入完毕态：与选项行同款 ListItem（2026-08-17 统一），
+                    // trailing = Edit / ✔ / ✕（16dp 统一样式）——
+                    // ✔ 为选中标记；Edit 进入修改；✕ 删除（Bug #125：toggle off）
+                    ListItem(
+                        headlineContent = {
+                            Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor)
+                        },
+                        leadingContent = {
+                            if (isMultiple == true) {
+                                Checkbox(checked = true, onCheckedChange = null)
+                            } else {
+                                RadioButton(selected = true, onClick = null)
+                            }
+                        },
+                        trailingContent = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(ShapeTokens.small)
+                                        .clickable { editing = true; editText = customAnswer },
+                                    tint = accentColor
+                                )
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(ShapeTokens.small)
+                                        .clickable { onOptionClick(customAnswer) },
+                                    tint = accentColor
+                                )
+                            }
+                        },
+                        colors = ListItemDefaults.colors(
+                            containerColor = accentColor.copy(alpha = AlphaTokens.SELECTED)
+                        ),
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            Modifier.defaultMinSize(minHeight = 44.dp)
-                                .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(customAnswer, style = MaterialTheme.typography.bodyMedium, color = accentColor, modifier = Modifier.weight(1f))
-                            // 编辑（左）与 ✔（右）：同样式同边距
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clip(ShapeTokens.small)
-                                    .clickable { editing = true; editText = customAnswer },
-                                tint = accentColor
-                            )
-                            Spacer(modifier = Modifier.size(4.dp))
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = accentColor)
-                            // Bug #125: ✕ 删除自定义答案——toggle off 该自定义值
-                            // （多选 remove；单选若自定义是唯一选中则清空）
-                            Spacer(modifier = Modifier.size(4.dp))
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clip(ShapeTokens.small)
-                                    .clickable { onOptionClick(customAnswer) },
-                                tint = accentColor
-                            )
-                        }
-                    }
+                    )
                 } else {
                     // 修改编辑态：输入框 + 小飞机（2026-08-14 用户要求：不要 X）
                     androidx.compose.material3.OutlinedTextField(
