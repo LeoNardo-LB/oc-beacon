@@ -101,6 +101,7 @@
   - 完整日志：docs/research/crash-2026-08-14-completion-handler-beta.md
   - 初步方向（低置信）：① 全库搜 invokeOnCompletion/invokeOnCancelling 回调内做 emit/UI 操作；② 会话退出/切换的取消链（#124 onCleared 清理相关）；③ MessageEventHandler batchScope/persistQueue（#57 actor）；④ 用 betaRelease mapping 反混淆
   - 工时：待定位 | 难度：中-高 | 涉及：协程取消链 | 优先级：P1（真机崩溃，beta 用户受影响）
+  - **2026-08-14 根因定位与修复完成（mapping 反混淆实证，commit ab20e24f）**：根因 = 数据层 runCatching 吞 CancellationException（Kotlin 已知陷阱）——HomeViewModel 主线程 collect 回调取消 loadProviders job 时协程不响应取消继续执行，完成处理链与取消状态竞争 → handler 抛异常 → 主线程 CompletionHandlerException。修复：① 新增 util/RunCatchingCancellable.kt（CancellationException 重抛，取消必须传播）② 数据层全量迁移 94 处/12 文件（Server/Session/Chat/File/Agent/Mcp/Vcs/DiagnosticLog/Settings/UnreadBadge/MessageStore）③ HomeViewModel catch(CancellationException) 前置 rethrow；RunCatchingCancellableTest +2 用例 → 1596 全通过；真机流式退出/切换压力测试 CompletionHandler 零出现（runbook 轮次10，commit 218754d7）；完整归档：docs/research/crash-2026-08-14-completion-handler-beta.md
 
 ### 2026-08-10 系统审计批次（F 报告 P0）
 来源：docs/research/audit-2026-08-10/F-FINAL-AUDIT-REPORT.md（5 路交叉验证：A 渲染 + B 数据 + C 状态 + D 历史 + E 实测）
@@ -279,7 +280,8 @@
 - [x] **#80 快速导航全量列表（本地 Room 全量 user 消息，非仅已加载窗口）** `data` `feature`
   - 需求：2026-08-12 用户反馈"快速定位不准确"——实测根因：快速导航列表基于 rawMessages（已加载窗口）只显示 7 个 item，本地热表实际有 35 条 user 消息（多会话 3939 条中 role=user 占比 35/153）
   - 方案：JumpTargetExtractor 数据源扩展为本地 Room 全量（热表 role=user 查询）；点击未加载目标 → loadAround（c0d28535 已实现服务器版）本地优先（beforeId+afterId 双查询）→ 现有 merge 路径
-  - 状态：**2026-08-12 实施中**（子代理 ses_00ac3104cffeSVtl7pteLrgWOD）
+  - **2026-08-12 实施完成**：JumpTargetExtractor 数据源切至 MessageStore.userMessages（Room 热表 role='user' 全量，上限 1000 条）+ synthetic/空壳消息过滤
+  - **2026-08-13~14 用户反馈驱动多轮迭代**：① JumpNavigationController 跳转状态机——架构根治（dd15c352）② 目标 key 前缀匹配——根治"定位到回复"（d3340c18）③ 漏消息（fetchAllMessages 防呆上限 20→100 页）+ 只第一次加载（loadAround 失败保护延迟 500ms 竞态修复，2979fa94）④ fling 快速滑动跳过 agent 长气泡——预组合窗口 1→6 项（4395ec8c）
 
 ---
 
