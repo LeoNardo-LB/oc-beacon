@@ -2,6 +2,22 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.serialization.Serializable
+
+/**
+ * 提问卡答案快照——**提交载荷与"保留未勾选"的自定义内容分离**
+ * （2026-08-18 用户反馈修复：单选选了其他选项时，自定义答案应
+ * "保留内容，但取消勾选"，而非一直处于勾选态）。
+ *
+ * @param answers 每题的选中集（提交载荷：选项 + 已勾选的自定义，至多 1 条自定义）
+ * @param parkedCustoms 每题保留未勾选的自定义内容（null=无）；不参与提交，
+ *   仅用于 UI 恢复"可再勾选"的草稿行
+ */
+@Serializable
+data class QuestionAnswersSnapshot(
+    val answers: List<List<String>> = emptyList(),
+    val parkedCustoms: List<String?> = emptyList()
+)
 
 /**
  * 提问卡答案的**应用级**存储（E2E-C 向量1/2 修复，2026-08-18）。
@@ -17,18 +33,18 @@ import javax.inject.Singleton
 @Singleton
 class QuestionAnswerStore @Inject constructor() {
 
-    private val cache = java.util.concurrent.ConcurrentHashMap<String, List<List<String>>>()
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, QuestionAnswersSnapshot>()
 
     /** QuestionCard 初始化时读取（恢复优先级：store > saveable > initialAnswers）。 */
-    fun get(questionId: String): List<List<String>>? = cache[questionId]
+    fun get(questionId: String): QuestionAnswersSnapshot? = cache[questionId]
 
     /** QuestionCard SideEffect 双写目标之一。 */
-    fun put(questionId: String, answers: List<List<String>>) {
+    fun put(questionId: String, snapshot: QuestionAnswersSnapshot) {
         if (cache.size >= MAX_ENTRIES && !cache.containsKey(questionId)) {
             // 防御：异常场景下（如大量未消费问题）限制容量，丢弃最旧
             cache.keys.firstOrNull()?.let { cache.remove(it) }
         }
-        cache[questionId] = answers
+        cache[questionId] = snapshot
     }
 
     /** 答案已消费（提交/拒绝）——ChatViewModel 调用，防串新卡。 */

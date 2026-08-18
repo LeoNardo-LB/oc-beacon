@@ -34,6 +34,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.components.AmoledSurface
 import dev.leonardo.ocbeacon.ui.screens.chat.QuestionAnswerStore
+import dev.leonardo.ocbeacon.ui.screens.chat.QuestionAnswersSnapshot
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
@@ -102,29 +103,44 @@ internal fun QuestionCard(
     var savedAnswersJson by rememberSaveable(question.id) {
         mutableStateOf("")
     }
-    val answersPerQuestion = remember {
-        mutableStateListOf<List<String>>().apply {
-            // 恢复优先级：应用级 store（跨导航/recreate，E2E-C 终版）> saveable
-            // JSON > initialAnswers（历史）> 空
-            val fromCache = answersStore?.get(question.id).orEmpty()
-            val restored = if (fromCache.isNotEmpty()) fromCache else runCatching {
-                json.decodeFromString<List<List<String>>>(savedAnswersJson)
-            }.getOrNull().orEmpty()
-            if (restored.isNotEmpty()) {
-                addAll(restored)
-            } else if (initiallySubmitted && initialAnswers.isNotEmpty()) {
-                repeat(question.questions.size) { idx ->
-                    add(if (idx < initialAnswers.size) initialAnswers[idx] else emptyList())
-                }
-            } else {
-                repeat(question.questions.size) { add(emptyList()) }
+    // 2026-08-18 反馈修复：每题两槽位——selected（提交载荷）与 parkedCustom
+    // （保留未勾选的自定义内容）。原扁平 List<String> 里"存在即勾选"，
+    // 无法表达"保留内容，但取消勾选"（用户反馈的单选 bug 根因）。
+    val answersPerQuestion = remember { mutableStateListOf<List<String>>() }
+    val parkedCustoms = remember { mutableStateListOf<String?>() }
+    remember {
+        // 恢复优先级：应用级 store（跨导航/recreate，E2E-C 终版）> saveable
+        // JSON > initialAnswers（历史）> 空
+        val restored = answersStore?.get(question.id)
+            ?: runCatching {
+                json.decodeFromString<QuestionAnswersSnapshot>(savedAnswersJson)
+            }.getOrNull()
+        if (restored != null && (restored.answers.isNotEmpty() || restored.parkedCustoms.any { it != null })) {
+            repeat(question.questions.size) { idx ->
+                answersPerQuestion.add(restored.answers.getOrNull(idx) ?: emptyList())
+                parkedCustoms.add(restored.parkedCustoms.getOrNull(idx))
+            }
+        } else if (initiallySubmitted && initialAnswers.isNotEmpty()) {
+            repeat(question.questions.size) { idx ->
+                answersPerQuestion.add(if (idx < initialAnswers.size) initialAnswers[idx] else emptyList())
+                parkedCustoms.add(null)
+            }
+        } else {
+            repeat(question.questions.size) {
+                answersPerQuestion.add(emptyList())
+                parkedCustoms.add(null)
             }
         }
+        true
     }
     // 答案变更双写：saveable（同 entry recreate）+ 应用级 store（pop/recreate 全路径）
     androidx.compose.runtime.SideEffect {
-        savedAnswersJson = json.encodeToString(answersPerQuestion.map { it.toList() })
-        answersStore?.put(question.id, answersPerQuestion.map { it.toList() })
+        val snapshot = QuestionAnswersSnapshot(
+            answers = answersPerQuestion.map { it.toList() },
+            parkedCustoms = parkedCustoms.toList()
+        )
+        savedAnswersJson = json.encodeToString(snapshot)
+        answersStore?.put(question.id, snapshot)
     }
 
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
@@ -192,6 +208,7 @@ internal fun QuestionCard(
                 onPageSelected = { currentPage = it },
                 showTabs = question.questions.size > 1,
                 showMetaRow = false, // 元信息在标题栏（本卡片头部）
+                parkedCustoms = parkedCustoms,
                 onOptionClick = { pageIndex, label ->
                     if (!submitted) {
                         performHaptic(hapticView, hapticOn)
@@ -201,14 +218,29 @@ internal fun QuestionCard(
                         val isSingleQuestion = q?.multiple != true
                         val optionLabels = q?.options?.map { it.label }?.toSet() ?: emptySet()
                         // Bug #127: 越界保护
-                        if (pageIndex < answersPerQuestion.size) {
-                            // 2026-08-18 用户反馈修复：点选项不再清掉已保存的自定义答案
-                            // （反向同理：单选卡保存自定义不再静默清掉已选选项）——
-                            // 选项/自定义两槽位互不挤占，见 toggleQuestionAnswer
-                            answersPerQuestion[pageIndex] = toggleQuestionAnswer(
-                                answersPerQuestion[pageIndex], label, optionLabels, isSingleQuestion
+                        if (pageIndex < answersPerQuestion.size && pageIndex < parkedCustoms.size) {
+                            // 2026-08-18 用户反馈修复：单选点其他选项时自定义
+                            // "保留内容，但取消勾选"（入 parked 槽）——不再恒勾选
+                            val result = toggleQuestionAnswer(
+                                answersPerQuestion[pageIndex],
+                                parkedCustoms[pageIndex],
+                                label,
+                                optionLabels,
+                                isSingleQuestion
                             )
+                            answersPerQuestion[pageIndex] = result.selected
+                            parkedCustoms[pageIndex] = result.parkedCustom
                         }
+                    }
+                },
+                // ✕ 彻底删除自定义：选中槽位移除（若在）+ parked 清空 → 回到空输入框
+                onCustomDiscard = { pageIndex ->
+                    if (!submitted && pageIndex < answersPerQuestion.size && pageIndex < parkedCustoms.size) {
+                        val q = question.questions.getOrNull(pageIndex)
+                        val optionLabels = q?.options?.map { it.label }?.toSet() ?: emptySet()
+                        answersPerQuestion[pageIndex] =
+                            answersPerQuestion[pageIndex].filter { it in optionLabels }
+                        parkedCustoms[pageIndex] = null
                     }
                 }
             )
@@ -312,40 +344,60 @@ internal fun unansweredQuestionIndexes(
 }
 
 /**
+ * toggle 结果：[selected]（提交载荷）+ [parkedCustom]（保留未勾选的自定义内容）。
+ */
+internal data class QuestionToggleResult(
+    val selected: List<String>,
+    val parkedCustom: String?
+)
+
+/**
  * 提问卡答案 toggle 纯函数——[QuestionCard] onOptionClick 的单一真相源
  * （CustomAnswerToggleFlowTest 直接调用本函数，不再复刻镜像）。
  *
- * 核心不变量（2026-08-18 用户反馈修复）：**选项槽位与自定义槽位互不挤占**——
- * 点选项只改选项槽位（自定义条目保留），toggle 自定义条目（保存/✕删除/
- * 编辑替换）只改自定义槽位（选项选择保留）。旧实现单选分支整表替换
- * `listOf(label)`：点选项会丢已保存的自定义答案、保存自定义会静默丢已选
- * 选项——两个方向都是同一根因。
+ * 三态模型（2026-08-18 用户反馈修复）：自定义答案有 **勾选 / 保留未勾选
+ * （parked）/ 不存在** 三态——原扁平列表「存在即勾选」无法表达 parked
+ * （用户反馈：单选保存自定义后再选其他选项，自定义仍处于勾选态，
+ * 且单选提交载荷出现双答案）。
  *
- * 自定义槽位恒 ≤1：UI 三态输入框模式保证（输入框仅在没有自定义答案时
- * 显示；编辑替换 = 先 toggle off 旧值再 toggle on 新值）。
+ * 语义（label ∉ optionLabels ⇒ 自定义交互；自定义恒 ≤1 由 UI 三态输入框保证）：
+ * - 单选勾选自定义：选项槽位让位（选项行仍可见可再选，非内容丢失）——
+ *   真·单选互斥，提交载荷恒 ≤1 条
+ * - 单选点选项：已勾选自定义 → 取消勾选但**内容入 parked 槽保留**
+ *   （✕ 才彻底删除）；重按已选选项 = 清空选择，parked 保留
+ * - 多选：选项与自定义各自独立 toggle；自定义取消勾选同样入 parked 保留
+ * - 重按已勾选自定义 = 取消勾选（内容入 parked）
  *
- * @param isSingle true=单选（选项槽位互斥：再点已选项清空，否则替换）；
- *                 false=多选（选项槽位 toggle 追加/移除，顺序保留）
+ * @param isSingle true=单选（选项与自定义互斥，载荷恒 ≤1）；false=多选
  */
 internal fun toggleQuestionAnswer(
-    current: List<String>,
+    currentSelected: List<String>,
+    currentParked: String?,
     label: String,
     optionLabels: Set<String>,
     isSingle: Boolean
-): List<String> {
-    val options = current.filter { it in optionLabels }
-    val customs = current.filter { it !in optionLabels }
+): QuestionToggleResult {
+    val options = currentSelected.filter { it in optionLabels }
+    val customChecked = currentSelected.firstOrNull { it !in optionLabels }
     return if (label !in optionLabels) {
-        // 自定义条目 toggle——选项槽位原样保留
-        val newCustoms = if (label in customs) customs - label else customs + label
-        options + newCustoms
+        if (customChecked == label) {
+            // 重按已勾选自定义 = 取消勾选，内容保留（parked）
+            QuestionToggleResult(options, label)
+        } else if (isSingle) {
+            // 单选勾选自定义：选项槽位让位（选项行仍可见，非丢失）
+            QuestionToggleResult(listOf(label), null)
+        } else {
+            // 多选勾选自定义：与已选选项共存
+            QuestionToggleResult(options + label, null)
+        }
     } else if (isSingle) {
-        // 单选：选项槽位互斥（再点已选=清空），自定义槽位保留
+        // 单选点选项：互斥（再点已选=清空）；已勾选自定义取消勾选入 parked
         val newOptions = if (options == listOf(label)) emptyList() else listOf(label)
-        newOptions + customs
+        QuestionToggleResult(newOptions, customChecked ?: currentParked)
     } else {
-        // 多选：选项槽位 toggle（顺序保留），自定义槽位保留
+        // 多选点选项：选项 toggle，已勾选自定义保持，parked 不动
         val newOptions = if (label in options) options - label else options + label
-        newOptions + customs
+        val keptCustom = customChecked?.let { listOf(it) } ?: emptyList()
+        QuestionToggleResult(newOptions + keptCustom, currentParked)
     }
 }

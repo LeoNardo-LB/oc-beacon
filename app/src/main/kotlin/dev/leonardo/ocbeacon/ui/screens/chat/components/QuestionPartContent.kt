@@ -238,8 +238,12 @@ internal fun QuestionCompactTabs(
 internal fun QuestionPagerView(
     questions: List<SseEvent.QuestionAsked.Question>,
     selectedAnswers: List<Set<String>>,
+    /** 每题保留未勾选的自定义内容（2026-08-18 三态模型；只读历史默认空） */
+    parkedCustoms: List<String?> = emptyList(),
     readOnly: Boolean = false,
     onOptionClick: ((pageIndex: Int, label: String) -> Unit)? = null,
+    /** ✕ 彻底删除该题自定义（选中槽位 + parked 一并清空） */
+    onCustomDiscard: (pageIndex: Int) -> Unit = {},
     pagerState: androidx.compose.foundation.pager.PagerState? = null,
     onPageSelected: (Int) -> Unit = {},
     showTabs: Boolean = true,
@@ -259,8 +263,10 @@ internal fun QuestionPagerView(
                 QuestionOptionRows(
                     question = q,
                     selected = selectedAnswers.firstOrNull() ?: emptySet(),
+                    parkedCustom = parkedCustoms.firstOrNull(),
                     readOnly = readOnly,
                     onOptionClick = { onOptionClick?.invoke(0, it) },
+                    onCustomDiscard = { onCustomDiscard(0) },
                     customDraft = customDrafts[0] ?: "",
                     onCustomDraftChange = { customDrafts[0] = it },
                 )
@@ -330,8 +336,10 @@ internal fun QuestionPagerView(
                     QuestionOptionRows(
                         questions[page],
                         selectedAnswers.getOrNull(page) ?: emptySet(),
+                        parkedCustoms.getOrNull(page),
                         readOnly,
                         { onOptionClick?.invoke(page, it) },
+                        { onCustomDiscard(page) },
                         customDraft = customDrafts[page] ?: "",
                         onCustomDraftChange = { customDrafts[page] = it },
                     )
@@ -362,8 +370,12 @@ internal fun QuestionTypeLabel(isMultiple: Boolean?) {
 internal fun QuestionOptionRows(
     question: SseEvent.QuestionAsked.Question,
     selected: Set<String>,
+    /** 保留未勾选的自定义内容（null=无）：渲染为可再勾选的 parked 行 */
+    parkedCustom: String? = null,
     readOnly: Boolean,
     onOptionClick: (String) -> Unit,
+    /** ✕ 彻底删除自定义（选中槽位 + parked 一并清空 → 回空输入框） */
+    onCustomDiscard: () -> Unit = {},
     // Bug #126: customDraft 由调用方（QuestionPagerView）按 pageIndex 管理，
     // 避免 HorizontalPager beyondViewportPageCount=1 销毁远页 composition 时丢失草稿
     customDraft: String,
@@ -371,7 +383,6 @@ internal fun QuestionOptionRows(
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
     val contentColor = MaterialTheme.colorScheme.onSurface
-    val isMultiple = question.multiple
     Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
         if (question.question.isNotBlank()) {
             // 2026-08-17 用户重设计：问题域只承载问题描述——元信息（Q chips/
@@ -405,14 +416,13 @@ internal fun QuestionOptionRows(
             )
         }
         // 自定义答案支持
-        // 2026-08-17 E2E 发现修复：多选渲染**全部**自定义答案（原 firstOrNull
-        // 只显示第一个——第二个自定义在 selection 里却"隐形"，仍会被提交）；
-        // 单选语义至多一个。多选时输入框常驻（可连续添加多个自定义）。
-        // 2026-08-18 用户语义澄清（重要回滚）：自定义输入 = **提交自己的回答**，
-        // 不是"往选项列表添加新选项"！至多一个自定义答案——输入 → 纸飞机保存
-        // → 成为回答（输入框转为已输入态，Edit 可改、✕ 可删回到空输入框）。
-        // 此前 b6bf568f 误把"只渲染第一个"当缺陷做成"多自定义支持"（多选可
-        // 连续添加多条）——语义错误，回滚为单自定义（三态输入框模式）。
+        // 2026-08-18 用户语义澄清：自定义输入 = **提交自己的回答**，至多一个
+        // ——输入 → 纸飞机保存 → 成为回答（Edit 可改、✕ 可删回到空输入框）。
+        // 2026-08-18 三态模型（用户反馈：单选保存自定义后再选其他选项，
+        // 自定义应"保留内容，但取消勾选"）：三分支渲染——
+        // ① 已勾选：CustomAnswerRow（✎/✕/✔，行点击=取消勾选入 parked）
+        // ② parked 保留：ParkedCustomRow（行点击=重新勾选；✕=彻底删除）
+        // ③ 不存在：CustomAnswerInput 空输入框
         if (question.custom != false) {
             val optionLabels = question.options.map { it.label }.toSet()
             val customAnswer = selected.firstOrNull { it !in optionLabels }
@@ -421,18 +431,26 @@ internal fun QuestionOptionRows(
                 CustomAnswerRow(
                     customAnswer = customAnswer,
                     readOnly = readOnly,
-                    isMultiple = isMultiple,
                     accentColor = accentColor,
                     optionLabels = optionLabels,
                     onOptionClick = onOptionClick,
+                    onDiscard = onCustomDiscard,
                     isEditing = editingCustom == customAnswer,
                     onEditStart = { editingCustom = customAnswer },
                     onEditEnd = { if (editingCustom == customAnswer) editingCustom = null },
                 )
+            } else if (!readOnly && parkedCustom != null) {
+                // 只读历史不渲染 parked 行（历史载荷只有已提交答案，无此概念）
+                ParkedCustomRow(
+                    text = parkedCustom,
+                    contentColor = contentColor,
+                    onCheck = { onOptionClick(parkedCustom) },
+                    onDiscard = onCustomDiscard,
+                )
             }
-            // 输入框：无自定义答案时显示（输入即提交自定义回答）；有自定义时
-            // 隐藏（修改走行内 Edit）；编辑态激活时隐藏（同时只有一个输入框）
-            if (!readOnly && customAnswer == null) {
+            // 输入框：无自定义（含 parked）时显示（输入即提交自定义回答）；
+            // 有自定义时隐藏（修改走行内 Edit）；编辑态激活时隐藏（同时只有一个输入框）
+            if (!readOnly && customAnswer == null && parkedCustom == null) {
                 // ② 默认编辑态（2026-08-14 用户决策：无入口态，直接显示输入框）。
                 // 2026-08-18 全面重构：M3 TextField + 显式 height(44.dp) →
                 // 自绘 CustomAnswerInput——修复字体缩放裁切 + 字号/焦点/触达
@@ -508,10 +526,13 @@ private fun CompactSelectedRow(
     text: String,
     accentColor: Color,
     trailing: (@Composable () -> Unit)? = null,
+    /** 行点击（已勾选自定义行=取消勾选入 parked；只读态 null=不可点） */
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .background(accentColor.copy(alpha = AlphaTokens.SELECTED), ShapeTokens.small)
             .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.SM.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -634,10 +655,12 @@ private fun CustomAnswerInput(
 }
 
 /**
- * 单条自定义答案行（2026-08-17 E2E 发现修复时从 QuestionOptionRows 抽出）。
+ * 单条自定义答案行（已勾选态，2026-08-17 从 QuestionOptionRows 抽出）。
  *
- * 完毕态：ListItem（选中控件 + accent 淡染）+ trailing Edit/✔/✕；
- * 编辑态：OutlinedTextField + 纸飞机（修改 = 移除旧值 + 加入新值）。
+ * 完毕态：accent 淡染行 + trailing ✎/✕/✔；**行点击 = 取消勾选入 parked**
+ * （2026-08-18 三态模型：内容保留、不再提交，与选项行 tap-toggle 同语言）；
+ * ✕ = 彻底删除（选中槽位 + parked 一并清空 → 回空输入框）。
+ * 编辑态：CustomAnswerInput + 纸飞机（修改 = park 旧值 + 勾选新值）。
  * editing/editText 状态按 customAnswer 作用域化（值变即重置）——
  * E2E 观察到的"预填陈旧草稿"实为并行测试污染，本组件预填恒为当前值。
  */
@@ -645,10 +668,11 @@ private fun CustomAnswerInput(
 private fun CustomAnswerRow(
     customAnswer: String,
     readOnly: Boolean,
-    isMultiple: Boolean?,
     accentColor: Color,
     optionLabels: Set<String>,
     onOptionClick: (String) -> Unit,
+    /** ✕ 彻底删除（不再走 toggle——toggle 现在是"取消勾选入 parked"） */
+    onDiscard: () -> Unit,
     /** 编辑态由父级持有（2026-08-17 双输入框修复）：同时只有一个输入框 */
     isEditing: Boolean,
     onEditStart: () -> Unit,
@@ -667,11 +691,13 @@ private fun CustomAnswerRow(
     // editing 标志提升至父级（isEditing），行内只保留草稿文本状态
     var editText by remember(customAnswer) { mutableStateOf(customAnswer) }
     if (!isEditing) {
-        // 图标序（2026-08-17 用户第四轮）：Edit / ✕ / ✔——✔ 最右与普通选项行
-        // 的 ✔ 位置对齐（视觉语言统一）；✕=删除该自定义答案（Bug #125）
+        // 图标序（2026-08-17 用户第四轮）：✎ / ✕ / ✔——✔ 最右与普通选项行
+        // 的 ✔ 位置对齐（视觉语言统一）
         CompactSelectedRow(
             text = customAnswer,
             accentColor = accentColor,
+            // 行点击 = 取消勾选（内容入 parked，与选项行 tap-toggle 同语言）
+            onClick = { onOptionClick(customAnswer) },
             trailing = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -688,11 +714,11 @@ private fun CustomAnswerRow(
                     )
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.a11y_icon_dismiss),
                         modifier = Modifier
                             .size(18.dp)
                             .clip(ShapeTokens.small)
-                            .clickable { onOptionClick(customAnswer) },
+                            .clickable { onDiscard() },
                         tint = accentColor
                     )
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp), tint = accentColor)
@@ -708,9 +734,10 @@ private fun CustomAnswerRow(
             onSubmit = {
                 val t = editText.trim()
                 if (t.isNotBlank()) {
-                    // 修改 = 替换旧自定义：先移除旧值（toggle off）；
+                    // 修改 = 替换旧自定义：旧值取消勾选入 parked，再勾选新值
+                    // （最终 parked 被新值覆盖为 null，见 toggle 纯函数）；
                     // Bug #125: 新值是已有选项标签时不再 toggle on
-                    // （避免已选中选项被意外取消）
+                    // （避免已选中选项被意外取消；旧值此时已 parked）
                     onOptionClick(customAnswer)
                     if (t !in optionLabels) {
                         onOptionClick(t)
@@ -720,6 +747,47 @@ private fun CustomAnswerRow(
             },
             // 编辑态可取消：修复"进入编辑后不改文字就退不出"的死局
             onCancel = onEditEnd,
+        )
+    }
+}
+
+/**
+ * 保留未勾选的自定义答案行（2026-08-18 三态模型，用户反馈：单选选了
+ * 其他选项时自定义应"保留内容，但取消勾选"）。
+ *
+ * 视觉与未选中选项行同语言：无淡染、无选中控件，文本 MEDIUM 弱化
+ * （区分"已保存草稿"与"当前勾选中"）；trailing ✕ = 彻底删除回空输入框。
+ * 行点击 = 重新勾选（单选语义下替换选项选择——选项行仍可见可再选）。
+ */
+@Composable
+private fun ParkedCustomRow(
+    text: String,
+    contentColor: Color,
+    onCheck: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onCheck)
+            .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.SM.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = contentColor.copy(alpha = AlphaTokens.MEDIUM),
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            Icons.Default.Close,
+            contentDescription = stringResource(R.string.a11y_icon_dismiss),
+            modifier = Modifier
+                .size(18.dp)
+                .clip(ShapeTokens.small)
+                .clickable(onClick = onDiscard),
+            tint = contentColor.copy(alpha = AlphaTokens.FAINT)
         )
     }
 }
