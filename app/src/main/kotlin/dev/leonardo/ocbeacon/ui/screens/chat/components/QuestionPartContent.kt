@@ -59,6 +59,7 @@ import kotlin.math.absoluteValue
 import kotlinx.coroutines.launch
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -87,9 +88,9 @@ internal fun CollapsibleQuestionPart(question: String) {
     // 2026-08-17 用户决策（grilling Q5/Q8）：换 M3 OutlinedCard——与活动提问卡
     // （QuestionCard）统一容器语言——2026-08-18 美化：与活动卡同步换
     // tonal 实底 Surface（surfaceContainerHighest + 无描边），消除明度锯齿。
-    Surface(
-        shape = ShapeTokens.smallMedium,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    // 2026-08-18 二次修正（用户反馈"应有基础容器"）：与活动卡同换
+    // EmbeddedCardContainer（圆角随之统一 smallMedium→medium，样式细节见其注释）
+    EmbeddedCardContainer(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(SpacingTokens.XS.dp).fillMaxWidth()) {

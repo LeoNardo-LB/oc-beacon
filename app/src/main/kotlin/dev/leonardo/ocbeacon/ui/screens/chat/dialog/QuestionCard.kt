@@ -32,6 +32,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
+import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
@@ -119,9 +121,10 @@ internal fun QuestionCard(
     // - 圆角 small(8)→medium(12)：与 assistant 气泡（ShapeTokens.medium）同族
     // - 删分割线（tonal 容器内的 FAINT 线存在感弱且增加线条数）
     // - 标题降阶：titleSmall→labelMedium 小字行（弱化"表单感"，问题本体才是主角）
-    Surface(
-        shape = ShapeTokens.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    // 2026-08-18 二次修正（用户反馈"应有基础容器"）：tonal 一档差在气泡内
+    // 不读作独立卡片 → 换共享基础容器 EmbeddedCardContainer（surfaceContainerLow
+    // + 1dp 细边框，与 FileCard 等其他内嵌卡片同一容器语言）
+    EmbeddedCardContainer(
         contentColor = contentColor,
         modifier = Modifier.fillMaxWidth()
     ) {
