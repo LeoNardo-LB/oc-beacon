@@ -128,7 +128,53 @@ class PaginationFSMTest {
     }
 
     @Test
+    fun `network overlap page with server cursor keeps hasOlder true even if partial`() {
+        // 2026-08-18 回归（V2 长会话历史不可达）：null-cursor 首翻返回的重叠页——
+        // 即使页大小 < limit（服务器窗口截断），只要携带 cursor.next 就还有更早。
+        val before = PaginationFSM.State(cursor = PaginationCursor.HotStart)
+        val after = PaginationFSM.transition(
+            before,
+            succeeded(
+                source = LoadOlderSource.NETWORK,
+                oldestId = "m-60",
+                oldestCreated = 60L,
+                nextCursor = "server-cursor-60",
+                pageSize = 12, // 不足一页但有游标
+                limit = 30,
+            ),
+        )
+        val cursor = after.cursor as PaginationCursor.Network
+        assertEquals("server-cursor-60", cursor.serverCursor)
+        assertTrue("服务器游标非空 → 一定还有更早", after.hasOlderMessages)
+    }
+
+    @Test
+    fun `network overlap full page with server cursor advances to network state`() {
+        // 2026-08-18 回归：V2 首翻 null-cursor 路径的满页重叠场景——
+        // 满页（全是已加载重复）+ cursor.next → FSM 必须进入 Network(serverCursor)
+        // 态且 hasOlder=true，后续翻页才能透传服务器游标。
+        val before = PaginationFSM.State(cursor = PaginationCursor.HotStart)
+        val after = PaginationFSM.transition(
+            before,
+            succeeded(
+                source = LoadOlderSource.NETWORK,
+                oldestId = "m-30",
+                oldestCreated = 30L,
+                nextCursor = "native-next-cursor",
+                pageSize = 30,
+                limit = 30,
+            ),
+        )
+        val cursor = after.cursor as PaginationCursor.Network
+        assertEquals("native-next-cursor", cursor.serverCursor)
+        assertTrue(after.hasOlderMessages)
+    }
+
+    @Test
     fun `network partial page sets hasOlder false`() {
+        // 2026-08-18 勘误：本测试原参数 nextCursor 非空却断言读尽——自相矛盾
+        //（服务器返回游标 = 一定还有更早，见 LoadNewerSucceeded 对称语义）。
+        // 修正为真正的读尽场景：不足一页且无游标。
         val before = PaginationFSM.State(cursor = PaginationCursor.Archive(30L))
         val after = PaginationFSM.transition(
             before,
@@ -136,14 +182,15 @@ class PaginationFSMTest {
                 source = LoadOlderSource.NETWORK,
                 oldestId = "m-90",
                 oldestCreated = 90L,
-                nextCursor = "server-cursor-90",
+                nextCursor = null,
                 pageSize = 10,
                 limit = 30,
             ),
         )
         val cursor = after.cursor as PaginationCursor.Network
-        assertEquals("server-cursor-90", cursor.serverCursor)
-        assertFalse("不足一页 → 已读尽", after.hasOlderMessages)
+        assertNull(cursor.serverCursor)
+        assertEquals("m-90", cursor.id)
+        assertFalse("不足一页且无游标 → 已读尽", after.hasOlderMessages)
     }
 
     @Test

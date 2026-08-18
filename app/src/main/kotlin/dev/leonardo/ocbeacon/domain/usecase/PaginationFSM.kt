@@ -145,7 +145,11 @@ object PaginationFSM {
                 cursor = cursor,
                 hasOlderMessages = when (event.source) {
                     LoadOlderSource.ARCHIVE -> true
-                    LoadOlderSource.NETWORK -> event.pageSize >= event.limit
+                    // 2026-08-18：与 LoadNewerSucceeded 对称——服务器游标非空一定还有
+                    // 更多（V2 首翻 null-cursor 场景：满页与已加载重叠但携带 cursor.next，
+                    // 页大小判断之外还需游标判断，防重叠页误判读尽）
+                    LoadOlderSource.NETWORK ->
+                        event.nextCursor != null || event.pageSize >= event.limit
                 },
                 autoLoadFailures = 0,
                 autoLoadPausedUntil = 0L,

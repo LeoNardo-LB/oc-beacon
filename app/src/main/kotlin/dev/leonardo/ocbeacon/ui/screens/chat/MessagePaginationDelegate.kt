@@ -203,18 +203,17 @@ internal class MessagePaginationDelegate(
                 }
                 val beforeCreated = (cursor as? PaginationCursor.Archive)?.created
                 val networkBeforeCreated = (cursor as? PaginationCursor.Network)?.created
-                // 2026-08-12 修复（分页死锁——用户反馈"滚动不上去了"）：
-                // V2 首次翻页（HotStart）构造 V2 格式游标（{id,order,direction}）——
-                // 原回落（use case 154-161）用 V1 编码 {"id","time"}，V2 服务器解析
-                // 失败返回 0 条 → FSM hasOlder=false → 更旧消息永远加载不到。
-                // 注意：此分支使 use case 走 networkCursor 分支（122-129），跳过归档。
+                // 2026-08-18 修复（V2 长会话历史不可达，P1）：删除 2026-08-12 补丁的
+                // 本地 encodeV2 构造——该补丁旁路了 use case 2026-08-16 根治路径
+                // （V2 首翻不传 cursor，依赖响应原生 cursor.next）。本地构造的 cursor
+                // 用热表最老 id（长会话中是中部历史 id），服务器窗口语义下（仅近期
+                // id 有效，curl 双盲区实证：历史 id → 0 条 + next=null）返回空页 →
+                // FSM hasOlder=false 误判读尽 → 501 条会话只见 40 条，历史永久不可达。
+                // 现在 HotStart 首翻走 use case 的 null-cursor 路径：服务器返回最新
+                // 窗口（与已加载内容重叠，APPEND_ONLY 去重）+ 原生 cursor.next 建立
+                // Network 边界，后续翻页透传服务器游标（唯一可靠模式）。
+                // 归档优先顺序同时恢复（原补丁使首翻跳过归档检查）。
                 val networkCursor = (cursor as? PaginationCursor.Network)?.serverCursor
-                    ?: if (cursor is PaginationCursor.HotStart &&
-                        messagePaging.isV2Server(serverId) &&
-                        hotOldestId != null
-                    ) {
-                        CursorCodec.encodeV2(hotOldestId, CursorCodec.V2Direction.OLDER)
-                    } else null
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(TAG, "loadOlder START sid=${sid.take(12)} limit=$currentMessageLimit beforeId=${beforeId?.take(16)} cursor=$cursor failures=${paginationState.value.autoLoadFailures} paused=${paginationState.value.autoLoadPaused}")
                 }

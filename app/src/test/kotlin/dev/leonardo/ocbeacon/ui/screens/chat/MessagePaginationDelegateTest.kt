@@ -98,6 +98,44 @@ class MessagePaginationDelegateTest {
     }
 
     @Test
+    fun `loadOlderMessages v2 hot start passes null cursor - no local encodeV2 bypass`() = runTest {
+        // 2026-08-18 回归（V2 长会话历史不可达）：HotStart+V2 首翻不得本地构造
+        // encodeV2 游标（2026-08-12 补丁曾旁路 use case 2026-08-16 根治路径——
+        // 中部历史 id 在服务器窗口语义下返回空页 → hasOlder=false 误判读尽）。
+        // 必须传 networkCursor=null，让 use case 走 null-cursor 首翻拿原生 cursor.next。
+        val paging = mockk<MessagePaginationUseCase> {
+            coEvery { isV2Server(any()) } returns true
+            coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) } returns
+                Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.NETWORK, nextCursor = "native-next"))
+        }
+        val store = mockk<MessageStore> {
+            coEvery { oldestMessageId("sid-1") } returns "m-0"
+            coEvery { messageCreatedAt(any()) } returns null
+            coEvery { hasArchivedMessages("sid-1", any()) } returns false
+        }
+        val repo = mockk<ChatRepository>(relaxed = true)
+        val delegate = MessagePaginationDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            messagePaging = paging,
+            messageStore = store,
+            chatRepository = repo,
+            settingsRepository = mockk(),
+            serverId = "srv",
+            scope = this,
+            sessionIdProvider = { "sid-1" },
+            loadingSink = {},
+            errorSink = {},
+        )
+
+        delegate.loadOlderMessages()
+        advanceUntilIdle()
+
+        // 首翻 networkCursor=null（null-cursor 路径）；响应携带原生游标 → FSM Network 态
+        coVerify(exactly = 1) { paging.loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) }
+        assertTrue(delegate.hasOlderMessages.value)
+    }
+
+    @Test
     fun `loadOlderMessages sets hasOlderMessages false when fewer than limit`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
