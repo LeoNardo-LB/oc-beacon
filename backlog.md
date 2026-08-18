@@ -51,12 +51,13 @@
   - **2026-08-18 修复验证 ✅（精确复现用户场景）**：触发卡 → force-stop 杀进程 → 重启（REST 恢复路径实证：loadPendingQuestions 日志 + 新 pid）→ 提交 → fallback `answer={"q0":["Apple","Banana"]}` 非空 + success=true + agent 复述收到答案（同会话旧轮对照"未作答"）+ FATAL=0（/tmp/e2e10/）
   - **v2 主路径恒 404 是结构性**（衍生登记见 E2E-D）：POST /api/session/{sid}/question/{formId}/reply 端点在 V2 服务器不存在（API 文档 §12：V2 只有 /form/{formId}/reply；question reply 是 V1 app 级端点）——v2-first 探测恒失败后 fallback 是实际工作路径
 
-- [~] **E2E-F [已定性：测试操作污染为主 + 数据流单测排除代码 bug]** `ui` `sse`
+- [x] **E2E-F [已定性：测试操作污染为主 + 数据流单测排除代码 bug；2026-08-19 模拟器代验收结案]** `ui` `sse`
   - 现象（2026-08-18 像素复审计两次独立复现）：多选卡加 Mango（自动选中）→ ✕ 删除（像素验证 UI 零选中）→ Submit → 服务器收到 **"Mango + Cherry"**（Cherry 全程未被点）；单选卡同法干净复现：删 Mango 后 Q1 零选中 → Submit → 回传 Q1="Cherry"
   - 严重性：P1 数据正确性——UI 可见状态与提交载荷不一致，用户以为删了实际没删、还带上了无关选项
   - 疑点方向：① answersPerQuestion（mutableStateListOf）与渲染 selected 集合的同步链断裂 ② HorizontalPager page 索引错位 ③ 删除路径 onOptionClick toggle off 未生效但行消失（渲染源与状态源不同）④ Cherry= options 末位，疑似 stale index 映射
   - 附带：✕ 删除的文本"退回输入框"现象（子代理观察，与删除语义冲突）；待答卡选中态进程被杀后不恢复（同 E2E-C 家族）
   - 另：多选选中行明度 Δ15.9 微超阈值 0.9 + 单/多选选中色不一致（(217,226,255) 蓝 vs (208,210,223) 灰紫）——待查渲染源，P2 顺带修
+  - **2026-08-19 模拟器代验收 ✅ 结案**：干净复现路径（双问题卡 Q1 单选/Q2 多选+自定义）——Q2 加自定义 Emacs（保存行三图标 Edit/✕/✔ 实证）→ ✕ 删除（行消失+输入框复原）→ 选 VSCode → Submit 载荷 `answers=[[Python],[VSCode]]` **不含 Emacs**——删除项零泄漏，原污染不复现（当时系 E2E-C 家族现场污染）。附带 P2 一并消除：选中色像素实测单/多选同为 (221,222,237) accent wash、未选同为 (241,240,249)——M3 改造后已统一（证据 /tmp/verify-acceptance/p6_01/p6_06 + pixel_check）
 
 - [x] **E2E-G [P1→已修复] 待答卡 + BACK → 全屏空白（根因：FSM Busy↔Idle 抖动机）** `ui` `session`
   - **2026-08-18 诊断完成（子代理取证 + 因果链证伪）**：原报"主输入框打字→空白"归因错误——tap/打字是旁观者（disabled 实现正确，5 状态 uiautomator 均 false；E2E 的 input text 实际落入卡内自定义输入框）
@@ -276,7 +277,7 @@
   - 工时：~1.5h | 难度：中 | 涉及：QuestionCard.kt / QuestionPagerView.kt（可能）+ i18n（下一步文案 15 语言）
   - **2026-08-08 代码完成（待人工验证）**：QuestionCard 三按钮体系（忽略/下一步/提交，末页置灰）+ 未答完提交弹窗（"第 X 个问题没有回答" → 继续提交）+ 单选点选不立即提交可取消选中；QuestionPagerView page-aware 签名；纯函数 `unansweredQuestionIndexes` + 4 测试；i18n 新增 4 键（15 语言，commit 10757799）；编译 ✅ 全量单测 ✅ i18n ✅；⚠️ 真机验证待用户：三按钮流程/弹窗/单选可取消
 
-- [~] **新增 A：会话列表"待回答"标记 + 提问通知 REST 兜底——2026-08-18 模拟器验证：功能有效但发现并修复两个 P1 兜底缺陷** `ui` `session` `sse`
+- [x] **新增 A：会话列表"待回答"标记 + 提问通知 REST 兜底——2026-08-18 模拟器验证：功能有效但发现并修复两个 P1 兜底缺陷；2026-08-19 通知形态代验收 ✅** `ui` `session` `sse`
   - 问题：有提问的会话在列表无任何提示；SSE 不推 question 事件时通知不可达（无兜底链路）
   - **2026-08-08 代码完成（待人工验证）**：SessionRow 增加 HelpOutline 图标 + "Pending answer" 标记（i18n 15 语言，commit a989890e）；OpenCodeConnectionService 新增 30s REST 轮询兜底（`notifyPendingQuestionsFromREST` + `diffNewQuestionIds` 纯函数 + 3 测试，commit 1d1b2a75）；编译 ✅ 全量单测 ✅ i18n ✅；⚠️ 真机验证待用户：列表标记显示/通知弹出
   - **2026-08-18 模拟器验证（SSE 路径 ✅ + 发现 REST 兜底两缺陷已修）**：
@@ -284,12 +285,13 @@
     - ❌→✅ **缺陷1（轮询永久死亡，P1，已修 32765cf6）**：原 `if (!isConnected) break` 在 connect 后 SSE 握手窗口首轮 tick 即杀死轮询且永不复活——实测启动 12 分钟 form/request **0 次**（对照组 /api/session/active 40 次），服务器端存在 pending form 的会话（E2E-C）列表无标记。修复：轮询生命周期只跟随用户连接意图（disconnect 显式取消兜底），去掉 isConnected 检查
     - ❌→✅ **缺陷2（location 覆盖缺口，P1，已修 32765cf6）**：V2 form/request 按 x-opencode-directory 分 location 返回，不带头只返回 global——项目目录的 pending form 永远查不到（实测 oc-beacon location 的 Favorite Season form）。修复：遍历 global + 全部项目目录（directory 字段缺失回退 canonical——beta-17595 只返回 canonical），10 轮缓存
     - 修复闭环验证：force-stop 后服务器新 form → 冷启动纯 REST 路径 22s 内 form/request 8 次 + 列表 2 行 "Pending answer" 出现；1690 单测全绿
-  - ⚠️ 剩余待用户真机验收：通知实际弹出形态（通知栏目测）
+  - **2026-08-19 模拟器代验收（通知形态）✅**：授权 `pm grant POST_NOTIFICATIONS` 后重触发——A1 dumpsys 铁证：`opencode_questions` 通道 mImportance=4 + 声音/闪光/振动全启用；A2 通知栏实拍（ab_11_shade_notif.png + vision）：`OC Beacon Dev` 应用图标 + 标题 **`问题 · 验收测试会话AB`** + 正文 + 时间戳，浅灰圆角卡片形态规范；A3 列表标记 uidump 三行实证（测试会话本行「待回答」bounds [409,605] + 两行 legacy 会话）。注意：首次测试发现模拟器通知权限从未授予（importance=NONE）——环境前置而非 App 缺陷。附带发现（P3 已登记）：通知正文取最后一条用户消息（触发 prompt 原文）而非问题文本本身（AppNotificationManager:379 findLatestUserMessages 优先于 questionText）
 
-- [~] **新增 B：双端同机问题状态同步修复——2026-08-18 模拟器验证 ✅（A 回答 → B 消失闭环）** `data` `session`
+- [x] **新增 B：双端同机问题状态同步修复——2026-08-18 模拟器验证 ✅（A 回答 → B 消失闭环）；2026-08-19 代验收 ✅** `data` `session`
   - 问题：设备 A 回答后，设备 B 的 `loadPendingQuestions` 旧合并逻辑（`existingSseQs + newQs`）只增不删 → 已消失问题永久残留
   - **2026-08-08 代码完成（待人工验证）**：新增 `resolvePendingQuestionReplacement` 纯函数，声明 REST GET /question 为全量权威源，`loadPendingQuestions` 全量替换（含空列表清空语义）+ 3 测试（commit 0b85ca06）；全量单测无回归；⚠️ 真机验证待用户：双端同机 A 回答后 B 问题消失
   - **2026-08-18 模拟器验证 ✅**：B 端（App）进 E2E-C 会话 → REST 恢复卡片渲染（`loadPendingQuestions: 1 total pending → Replaced 1 questions (REST authoritative)` 日志）→ 设备 A（curl 直答 form 204）→ B 端 6s 内收到 `form.replied` SSE → 卡片消失转 "Asked" 折叠态——双端同步完整闭环。⚠️ 待用户最终验收
+  - **2026-08-19 模拟器代验收 ✅（精确计时）**：curl 答 form（HTTP 204, 16ms）→ SSE `QuestionReplied` 到达 App 并派发（logcat 01:21:56.669）→ 首个观察截图（t0+1.5s）卡片已折叠 "Asked" 态——**端到端 ≤1.5s**；agent 复述「已收到你的回复：Apple（苹果）🍎」确认答案真实送达。三轮问答（fruit/color/animal）同路径全部即时同步（证据 /tmp/verify-acceptance/b_01~b_04）
 
 - [x] **#30 消息本地化批次（方案 C）——Plan 1/2/3 全部完成（代码），待人工验证** `data` `cache` `room`
   - **2026-08-13 验证完成 ✅（用户授权 Agent 代测）**：冷启动打开会话 1 秒内消息渲染（Room 种子化秒开）✅；杀进程重启后消息保留（Room 缓存）✅；db 2.2M（ocbeacon.db 1.82MB + WAL 524KB）✅；覆盖安装保留数据 ✅
@@ -361,6 +363,7 @@
   - 权衡：离线恢复时工具卡片显示摘要无法展开全量（可接受）；服务器始终保留全量可重拉
   - 工时：P0 ~0.5d | 难度：中 | 涉及：MessageStore.upsertParts + 工具卡片展开按需加载
   - **2026-08-18 P0 完成（e7ca830f）**：ToolOutputTruncator——落库前 tool part payload JSON 层重写 state.output（500 字符预览+截断标记；其余字段原样；解析失败原样返回）。E2E 实证：bash 500 行 40KB 输出 → DB payload 965 字节（~98% 降），内存渲染完整（UI 显示执行摘要+输出行不受影响）；单测 5/5 + 全量绿。⚠️ 展开按需拉全量（getMessage）未做——离线恢复时工具卡片仅摘要（权衡已获用户接受）
+  - **2026-08-19 P0 离线观感代验收 ✅**：飞行模式 + force-stop 重启（pid 变更实证）→ Room 缓存渲染会话列表/消息正常 → 「批量输出命令执行」会话（500 行 bash 输出源数据）工具卡片以摘要形态渲染：折叠态 = 命令头 `$ for I in $(seq 1 500)...` + 完成状态行 `完成 · Line 1: 这是一行测试输出 lorem ipsum dolor si...`（预览首行）+ 展开箭头；无乱码/无空白卡/无崩溃（FATAL=0）。观感符合「摘要可读、完整输出在服务器」的产品预期（证据 /tmp/verify-acceptance/p3_01~p3_05）。P1/P2 仍待做，条目保持 [~]
   - 与 #80（快速导航全量列表）不冲突——列表基于 role=user 元数据，不受 parts 截断影响
 
 - [ ] **#81 度量/风格/边距统一提取为 token 主题系统** `refactor` `ui`
@@ -379,7 +382,7 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **提问卡片 M3 原生化改造（消除"外来物"拼盘感）** `ui`
+- [x] **提问卡片 M3 原生化改造（消除"外来物"拼盘感）——2026-08-19 模拟器代验收 ✅** `ui`
   - 背景：2026-08-17 用户反馈主对话中提问卡不美观，希望用 M3 原生组件。grilling 共识（Q5=A/Q6=B/Q7=A/Q8=A/Q9=不纳入）：内嵌保留 + 控件原生化 + 活动/历史统一 + 分页保留
   - **2026-08-17 代码完成（待人工验证）**：
     1. Q5：QuestionCard 容器 Surface → **OutlinedCard** + 表单头部（AutoMirrored HelpOutline + "待你回答"新键 question_awaiting_reply，15 语言）；AMOLED contentColor 语义保留
@@ -400,6 +403,7 @@
     - 注：视觉模型对全卡截图 3 次幻觉"左侧有控件"，最终以逐行裁剪放大 + 像素扫描定性（E2E 截图判读的方法学经验）
   - **第五轮视觉微调（6bad8c39 + a3e181d6）**：① 元信息序调换——SINGLE/MULTI 标签左、Q1|Q2 分段按钮右（E2E px 证据）② 分段按钮 40→32dp+labelSmall ③ 问题域间距 SM→MD（实测 12.6dp）④ 行紧凑化——M3 ListItem（固定 48dp+ 无 padding 参数压不矮）→ 紧凑 Row（单行实测 27.8dp；带 description 双行内容驱动）⑤ 自定义行图标序 Edit/✕/✔（✔ 最右对齐普通行；✕=删除该自定义）⑥ 输入框高度对齐 44dp——三轮演进：heightIn(44) 无效（min 非上限）→ Provider 压 LocalMinimumInteractiveComponentSize 无效（M3 源码实证该 Local 只管 icon 边距）→ **显式 height(44.dp)** 终验达标（可视边框精确 44.0dp、无裁剪、三态恒定、FATAL=0）
   - ⚠️ 人工验收待用户：整体观感（维度 5 视觉目测，截图在 /tmp/e2e3/ /tmp/e2e5/ /tmp/e2e6/ /tmp/e2e8/）
+  - **2026-08-19 模拟器代验收（用户授权"用模拟机搞定"）✅**：多状态画廊 + 视觉审查（/tmp/verify-acceptance/p4_01/p6_01~06）——双问题活动卡（待你回答 + SINGLE 标签左 / Q1|Q2 chips 右、问题文本、紧凑选项行含 description 副文本、自定义输入框、忽略/下一个/提交三按钮）、选中态（accent wash (221,222,237) + 右侧 ✔，单/多选像素一致）、自定义三态（Emacs 保存行 Edit/✕/✔ + 删除复原）、折叠历史 "Asked" 态。vision 审查：tonal 实底圆角容器、无拼盘感、行语言统一。结合 2026-08-18 补充复验与真机终验（e2e15/16），观感维度以模拟器画廊 + 真机功能终验合并结案
   - **2026-08-18 补充复验（模拟器，beta-17595）**：双题卡全交互链正常——SINGLE/MULTI 标签、Q1|Q2 FilterChip 分页、选项行（含 description 副文本）、自定义三态（输入→保存勾选 accent wash 像素 221,222,237）、三按钮（Dismiss/Next/Submit）、提交后折叠 "Asked" 态。截图 /tmp/verify-0818/20-29；交互细节归档见「2026-08-18 模拟器验证批次」
   - 行为保持：单选互斥/多选/单选可取消/三按钮流程/#125/#126 全部未动
 
@@ -496,9 +500,8 @@
   - 工时：~1-2h | 难度：中 | 涉及：app/src/test/...
   - **2026-08-07 完成**：PermissionAutoApproverTest 固定 createdAt 消除毫秒默认值竞态；真根因在 SessionListViewModel finally 块空流 first() 抛 NoSuchElementException 泄漏全局线程池污染无关测试（改 firstOrNull）；FileViewerViewModelTest 防御性加固；全量单测连续 3 次全过
 
-- [x] **#23 SessionList combine 魔法索引 tuple 化重构** 
-efactor
-  - 问题：SessionListViewModel.combine 22 个源 + SessionListStateBuilder 的 alues[18..22] 魔法索引——加源/删源时索引错位（2026-08-07 已踩坑多次：多选/未读/基线/一键已读各加一次源，每次索引偏移导致编译错误多轮修复）
+- [x] **#23 SessionList combine 魔法索引 tuple 化重构** `refactor`
+  - 问题：SessionListViewModel.combine 22 个源 + SessionListStateBuilder 的 values[18..22] 魔法索引——加源/删源时索引错位（2026-08-07 已踩坑多次：多选/未读/基线/一键已读各加一次源，每次索引偏移导致编译错误多轮修复）
   - 方案：combine lambda 内构造具名数据类（如 SessionListInputs），StateBuilder 接收它而非裸 Array<Any?>；或 combine 嵌套分组
   - 风险：中（改动 combine 签名 + StateBuilder + 相关测试）；收益：消除索引错位类 bug
   - 备注：索引语义注释已加（StateBuilder 顶部），缓解了短期风险
@@ -961,10 +964,11 @@ efactor
   - 工时：~0.5h | 难度：低 | 涉及：ChatRepositoryImpl
   - 来源：2026-08-13 全局 Singleton keyed 状态扫描（#89 附属）
 
-- [~] **#91 listMessages 冗余调用 + V2 分页游标 400——2026-08-18 主体修复（去重 fcbffbb6 + 心跳 00fbdda3 组合），残留串行对 P3** `data` `performance`
+- [x] **#91 listMessages 冗余调用 + V2 分页游标 400——2026-08-18 主体修复（去重 fcbffbb6 + 心跳 00fbdda3 组合），残留串行对 P3；2026-08-19 复验收 ✅** `data` `performance`
   - 问题：2026-08-13 #87 模拟器复验发现——打开会话后 2 秒内 listMessages 冗余调用 ~7 次；V2 分页 `before=eyJp...` 游标返回 400 Bad Request 后回退重头拉取。不崩溃但浪费网络（长会话/慢网络下明显）
   - **2026-08-18 模拟器重现（加重）→ 主体修复**：进入 501 条会话 22ms 内 8 次重复（同 cursor 精确成对）/ 20s 内 30 次。归因：多链并发（初始加载 + SSE 重连 backfill + L3 校验）+ 40s 断连循环持续触发 recover。**修复组合**：① 心跳修复（00fbdda3）消除空闲断连循环 → recover 触发从每 40s 降至仅会话进入一次；② 在途去重（fcbffbb6，SessionRepositoryImpl 同参并发共享单一请求 + 3 单测）消除真并发重复。修后：仅进入时一次 burst（~29 次/1.2s）其后 18s+ 零请求
   - **残留（P3）**：相邻串行对（首请求完成后 31ms 跟随者再发同参——去重窗口已关的边缘竞态，burst 内 ~10 对）；根治需上游三链协调（backfill/L3/初始加载），涉 SSE 状态链风险高暂缓；form/request 双调用同族待顺带
+  - **2026-08-19 模拟器复验收 ✅**：501 条会话（ses_0115b9cc）进入 8s 窗口 30 次请求（并发初始化 burst，与 08-18 记录的 ~29 一致）→ **稳态 20s 零请求**（无断连循环、无冗余轮询）——修复效果保持。残留串行对维持 P3 暂缓（性价比低 + 风险高），主条目结案
   - 关联：可能与本条目 #73（V2 cursor 格式 {"id","order","direction"} vs 本地 CursorCodec {"id","time"}）同源——需先核对游标编解码
   - 工时：~1-2h | 难度：中 | 涉及：V1ApiClient/V2ApiClient.listMessages、分页管线
   - 来源：2026-08-13 综合验收（#87 复验附注）
@@ -1288,9 +1292,9 @@ efactor
   - 问题：① SessionStateService 每 SSE 事件对 _fsmStates/_histories 整张 Map 拷贝 + mapValues 全量派生（:184-190/:212-216）→ 流式 GC 压力；② SSE id: 帧被忽略、无 Last-Event-ID 续传（SseClientV2.kt:182-184）→ 断连窗口事件可能永久缺失；③ PermissionAutoApprover.shouldAutoApprove 全库无调用方 → 自动批准规则从未生效（功能失效）
   - 方案：toMutableMap 单次拷贝 + history 定长 + mapValues distinctUntilChanged；重连带 Last-Event-ID/游标循环补漏；在 PermissionAsked 路径接入自动 reply 或移除 UI 入口
   - **2026-08-18 D2-25 接线完成（e3cde191）**：EventDispatcher.processEvent 的 PermissionAsked 分支挂钩 maybeAutoApprovePermission（规则匹配→异步 respondPermission("once")；独立 IO scope 失败仅 WARN；空规则天然关闭）。WiringTest 3/3。⚠️ 待用户真机验收：设置页存规则后权限自动通过
+  - **2026-08-19 模拟器代验收 ✅（全链路 E2E，用户授权）**：关闭 2026-08-16 全自动允许开关（DataStore 字节级验证 0x00）→ 权限卡正常弹出（需要权限/拒绝/仅一次/始终允许三按钮 dump 铁证）→ 点「始终允许」+ 确认对话框 → reply=always success + **本地规则落库**（DataStore `permission_auto_approve_rules` 字节实证）→ 新 PermissionAsked 到达 → **`[auto-approve] rule matched … replying once` 日志 + 7ms 后服务器 PermissionReplied 回执**——规则匹配→自动应答→服务器接受全链实证，无卡弹出。测试现场已还原（规则删除、开关复原 TRUE、服务器配置 diff=0 重启复验探针 allow）。⚠️ 方法论存档：beta-17595 需临时在 agent permissions 加 ask 规则（**last-match-wins，ask 必须放 allow 之后**）+ POST /session/{id}/permission 评估端点触发询问——默认配置全放行时无自然询问（详见新增 beta-17595 兼容发现条目）
   - 工时：~1d | 难度：中 | 涉及：SessionStateService/SseClientV2/PermissionAutoApprover | 优先级：P2
 
-$(echo "
 - [x] **#130 V2 question 工具协议迁移——已适配 form API（真机 E2E 验证通过）** `v2` `question` `form`
   - 背景：2026-08-14 官方回复（issue #42541）——V2 question 工具由 form 服务驱动：`form.created` SSE（metadata.kind=question，fields q0/q1...，option 含 value/label）、回复 `POST /api/session/{id}/form/{formID}/reply` `{"answer":{"q0":..}}`、取消 `.../cancel`、轮询 `GET /api/form/request`；旧 question.asked + /api/question/request 是 stale surface
   - 实现（commit 5993c1a9 + 547bb204）：
@@ -1307,7 +1311,6 @@ $(echo "
     - ✅ V1 回归：V1 轮询仍走旧 /question 端点（代码未动）
     - ✅ 单测：V2FormMapperTest 10 个用例（映射/REST/answer 构造）+ V2ApiClientTest form 端点路径
   - 备注：form 字段类型仅映射 string（单选）/multiselect（多选），number/integer/boolean/external 暂不支持（question 工具不产生）；文档见 docs/opencode-api-reference.md §12A
-" | sed 's/\`/`/g')
 
 - [x] **#131 V1 协议 question 卡片嵌入渲染失败（数据到达但 UI 不显示）——已修复 eab5f964** `question` `v1`
   - 现象：V1 服务器（1.18.18）agent 调用 question 工具（4 题多选）——服务器 /question 正常返回（含 tool.messageID），App 轮询/loadPendingQuestions 均拉到（`Replaced 1 questions for session ...`），但 UI 问题卡片不渲染（goon 的 assistant 消息气泡内无 QuestionCard）
@@ -1457,8 +1460,8 @@ $(echo "
   - ④ **V2 fork 端点 handleRaw 冲突 bug**（任何 body 400）：已知服务器 bug，等官方修复或提 PR（需按前提流程）
   - ⑤ **工具输出保尾截头（30K 字符/2000 行）语义**：设计使然非缺陷；候选 feature request——progress metadata 提前携带 truncated/outputPath 让客户端更早提示
   - 状态：`[ ]` 候选池——提 issue/PR 前逐项按前提流程执行
-\n
-- [ ] **#147 androidTest UI 测试全部失败——2026-08-18 定性更新：已非"全部失败"，改为"接口漂移致编译断 + 12/19 可过"** `refactor` `test`
+
+- [x] **#147 androidTest UI 测试失败（编译断 + touch 注入败）——已随 #149 全量修复结案（136/136 全绿）** `refactor` `test`
   - 现象：2026-08-16 修复 androidTest 编译后首次真跑，全部 UI 测试报
     "No compose hierarchies found in the app"（HiltTestRunner 启动的 Activity
     与 createComposeRule/createAndroidComposeRule<ComponentActivity> 不兼容）
@@ -1467,7 +1470,7 @@ $(echo "
     组合，或为非 Hilt 测试提供独立 TestRunner（gradle 配置多 runner）
   - 已完成的前置：Fake 接口对齐（6 个 + 2026-08-18 再补 2 处）+ FakeMessageCacheRepository +
     Hilt 测试图 MissingBinding 修复
-  - 状态：`[ ]` 待修复
+  - **2026-08-19 结案**：#149 修复三类根因（hasScrollAction 多匹配 → testTag 选择器 / 文案漂移 / 断言过时）后 androidTest **136/136 全绿**（含全量）；"No compose hierarchies" 现象未再现，原修复方向（junit4.v2 迁移）不再必要。标题同步改写（原标题"12/19 可过"已过时）
 
 - [x] **#148 任务面板 subagent 点击「无法进入」——2026-08-16 归因关闭（环境问题非 App bug）** `ui`
   - 现象：模拟器点击 TaskSheet 列表项无反应（探针 0 触发、sendevent 原始注入同样失效）
@@ -1534,3 +1537,32 @@ $(echo "
   - 真相（三重误判）：① Markdown 将 `_regression_e2e_` 等下划线段渲染为斜体 → 文本变 "V1 regression e2e final check"，grep 原文落空；② agent 回复本身调用了 question 工具（SINGLE 卡片 Pass/Fail），气泡形态与预期文本回复不同；③ 视口采样偏差（uiautomator 单点 dump 未覆盖消息位置）
   - 复核证据：快速导航（Room 全量 user 消息）中该消息在列；点击跳转后消息与回复完整渲染（10:57 时间标签 + question 卡片 turn）；Room/seed/NetTrace 28 条消息全链路一致
   - 结论：V1 全链路正常，无 bug；教训：E2E 文本断言需考虑 Markdown 转换（下划线→斜体）与工具卡片形态
+
+## 2026-08-19 模拟器代验收批次（用户授权"待验收项模拟器搞定"）
+
+> 环境：Pixel6_Android36（dev 0.3.1-dev.15 @ master a199fdd6）+ V2 服务器 0.0.0-beta-17595（10.0.2.2:4199）。
+> 证据目录：/tmp/verify-acceptance/（截图 ab_*/b_*/p2_*/p3_*/p4_*/p5_*/p6_* + uidump + dumpsys + DataStore 副本 + 像素脚本）。
+> 本批完成 6 项待验收代验 + 2 项部分更新（详见各条目回写）。
+
+- [x] **新增A/新增B/E2E-F/提问卡M3/#91 全部代验收 ✅；#122 D2-25 / #79 P0 部分更新**（证据回写至各条目，此处不重复）
+  - 新增A：dumpsys 通道铁证（opencode_questions mImportance=4 声光振动）+ 通知栏实拍（问题 · 会话名）+ 列表标记三行 uidump
+  - 新增B：curl 答 form → SSE QuestionReplied → 卡片折叠 Asked，端到端 ≤1.5s，agent 复述确认
+  - E2E-F：删除自定义 Emacs 后载荷 [[Python],[VSCode]] 零泄漏；选中色单/多选像素一致 (221,222,237)
+  - M3：多状态画廊（双问题卡/选中态/三态自定义/折叠历史）vision 审查通过
+  - #91：burst 30 次（并发初始化）→ 稳态 20s 零请求
+  - #122 D2-25：权限卡 → 总是允许 → 规则落库 → 新询问 [auto-approve] 7ms 自动应答全链路
+  - #79 P0：飞行模式 + force-stop → Room 渲染工具卡摘要形态，FATAL=0
+
+- [ ] **新增 P3：提问通知正文显示触发 prompt 而非问题文本** `ui` `notification`
+  - 现象（2026-08-19 代验收新增A时发现）：通知正文 = 会话最后一条用户消息（原始 prompt "Use the question tool to ask me: What is your favorite animal? ..."），而非问题本身（"What is your favorite animal?"）——信息密度低，用户需读完整 prompt 才知道被问了什么
+  - 根因：AppNotificationManager.showQuestionNotification（:379 附近）contentText 优先 findLatestUserMessages(sessionId,1)，questionText 仅作空回退——SSE 路径传入了正确的 questionText 但被用户消息覆盖
+  - 方案：正文改优先 questionText（问题文本短且直接），用户消息可留作第二行或弃用；涉及 15 语言无需新键
+  - 工时：~30min | 难度：低 | 涉及：AppNotificationManager | 优先级：P3
+
+- [ ] **beta-17595 服务器兼容发现批次（E2E 方法论 + App 侧影响，2026-08-19 实测）** `compat` `upstream`
+  - ① **prompt body agent 选择失效**：App 的 agent 切换（flat body agents 数组）在 beta-17595 被服务器忽略——curl 四种路径实测（agents 数组 / 顶层 agent 字段 / @mention 文本 / modern 包裹契约 400）全部仍用 build agent。**App 侧影响：模型选择器里的 agent 切换在此服务器上无效**（next-17403 上曾工作）。OpenAPI 有 POST /api/session/{id}/agent 端点（未实测）——待验证后改走该端点
+  - ② **agent permissions 配置的 ask 规则不生效（默认评估链）**：用户配置 general/general-fast 的 git commit/push ask 规则从未触发（agent 直接执行）；build 加 ask 规则 + 重启服务器仍 allow——**规则顺序 last-match-wins（ask 必须放在 "*"/"*" allow 之后才生效）**，且需经 POST /api/session/{id}/permission 评估端点触发的路径行为一致。用户现有配置中 git ask 规则全部排在 allow 之后（顺序正确）但仍未触发——疑似工具调用路径不经该评估（仅 API 端点评估）
+  - ③ **权限询问 E2E 触发方法论**：beta-17595 默认配置下无自然权限询问；可靠触发 = 临时加 ask 规则（放 allow 后）+ curl POST /session/{id}/permission {action,resources} → effect=ask + SSE PermissionAsked（App 正常弹卡）。测试后配置已还原（diff=0 + 重启复验探针 allow）
+  - ④ **服务器 saved permission 规则**（GET /api/permission/saved）含历史 always 应答累积（shell/echo *、git commit * 等 6+ 条 global 规则）——App "总是允许"的 always 应答在服务器侧持久化；DELETE /api/permission/saved/{id} 可清理
+  - 上游候选（并入 #146 候选池）：agent 切换端点契约（prompt body agents 语义 vs 独立端点）；agent permissions 评估链是否覆盖工具调用路径
+  - 状态：`[ ]` ① 待验证 POST /api/session/{id}/agent 端点后修复 App 切换；②③④ 已归档为方法论
