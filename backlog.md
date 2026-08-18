@@ -65,6 +65,17 @@
   - **2026-08-18 修复验证通过（7bfc2d0c）**：pending/子会话路径保持 FSM Busy 跟随服务器（消除抖动机）。E2E 实证：等待窗口 137 次 "keep Busy (waiting)" 零翻转（原版此窗口每 10s 抖）；原 bug 场景（pending+周期中 BACK）3/3 无空白；正常提交不受影响（Busy(streaming)→Idle 自然转换）；FATAL=0（/tmp/e2e20/）
   - H-A（NavGraph fade 与 onCleared 时序竞态）随抖动机消除后无实际触发路径，降级为理论性防御优化——若未来再出现状态突变+BACK 组合空白，再动 NavGraph.kt:225
 
+- [ ] **E2E-H 自定义答案未随提交发送（待查，可能假象）** `ui` `sse`
+  - 现象（2026-08-18 e2e22 终验）：卡上 Mango 行显示但提交载荷仅 [Apple, Banana]；自定义行点击无法勾选
+  - 疑点：该轮正值 E2E-C 修复失败版本（VM 缓存）——Mango 行是 pop 丢状态前的残留渲染还是真选中存疑；**e2e23 终版终验中同样场景 Mango 已正常入载荷**（[[Apple,Banana,Mango]]），矛盾未解
+  - 待办：若再复现，dump 当时 store 内容与渲染行对照；也可能与"自定义行点击无法勾选"有关（行本身不可点击是设计——只有 ✕/✎，但用户可能期望整行可 toggle）
+  - 优先级：P2（一次矛盾观察，主路径正常）
+
+- [ ] **E2E-I 整屏空白再现（E2E-G 修复后仍见 2 次）** `ui`
+  - 现象（2026-08-18 e2e22 终验中）：聊天输入框 tap + input text 组合后整屏空白（Compose 树空、无 FATAL、surface 存活），force-stop 恢复——与 E2E-G 症状同族但触发描述不同（E2E-G 已修：BACK+抖动竞态）
+  - 待查：是否同一 fade 竞态的另一触发路径（H-A 理论性防御未做），或独立问题；下次复现时抓 dumpsys activity top + logcat 全量
+  - 优先级：P2（低频，恢复成本低）
+
 - [ ] **SSE 长时间无事件不自动重连（8 分钟+）** `sse`
   - 现象（E2E 顺带观察）：SSE 流停滞 8 分钟+ 无自动重连，仅靠 REST 校验兜底
   - 优先级：P2
