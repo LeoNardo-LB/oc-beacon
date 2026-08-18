@@ -23,19 +23,12 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
  * - 圆角 ShapeTokens.medium(12dp)——与 assistant 气泡同族
  * - tonalElevation 0——层级由色彩差承担，不加投影
  *
- * 使用方（2026-08-18 全量统一后）：提问卡（活动/历史）、FileCard、全部工具卡
- * （ToolCardScaffold 家族）、TokenUsageCard、ToolProgressCard、CompactionCard
- * 展开态、ReasoningBlock、SyntheticNotificationCard——聊天内中性内容卡片的
- * 唯一容器语言。语义色卡（任务状态蓝/绿/红、错误红）通过 [containerColor]
- * 覆盖底色，形状/边框语言不变。
+ * 使用方：提问卡（活动 QuestionCard / 历史 CollapsibleQuestionPart）、FileCard。
  */
 @Composable
 fun EmbeddedCardContainer(
     modifier: Modifier = Modifier,
     contentColor: Color = Color.Unspecified,
-    /** 底色覆盖（语义状态卡用：任务 发起=蓝/完成=绿/失败=红 等）。
-     *  默认 Unspecified → surfaceContainerLow（标准内嵌卡片底）。 */
-    containerColor: Color = Color.Unspecified,
     content: @Composable () -> Unit,
 ) {
     val isAmoled = isAmoledTheme()
@@ -46,9 +39,7 @@ fun EmbeddedCardContainer(
     }
     Surface(
         shape = ShapeTokens.medium,
-        color = if (containerColor == Color.Unspecified) {
-            MaterialTheme.colorScheme.surfaceContainerLow
-        } else containerColor,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = contentColor,
         border = BorderStroke(1.dp, borderColor),
         tonalElevation = 0.dp,

@@ -150,15 +150,13 @@ internal fun SyntheticNotificationCard(
 
     // 统一容器（MessageBubble）：标签栏 = 时间 + "Background" + "Agent/Shell Completed" + 状态图标
     // 操作按钮（展开/定位/跳转）统一放第 2 行（2026-08-12 用户要求）
-    // 2026-08-18 容器统一：透明+outline 边框 → EmbeddedCardContainer 同款
-    //（surfaceContainerLow 实底 + outlineVariant 1dp）；错误态边框保持语义红
     MessageBubble(
         alignEnd = false,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         border = BorderStroke(
             1.dp,
             if (isError) AgentError.copy(alpha = AlphaTokens.MEDIUM)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.AMOLED)
+            else MaterialTheme.colorScheme.outline.copy(alpha = AlphaTokens.MEDIUM)
         ),
         shape = ShapeTokens.medium,
         label = labelText,

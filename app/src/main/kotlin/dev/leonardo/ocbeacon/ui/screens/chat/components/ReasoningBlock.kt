@@ -47,7 +47,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.halfScreenHeight
@@ -82,6 +81,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     }
 
     val accentColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM)
+    val containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)
     val textColor = MaterialTheme.colorScheme.onSurface
 
     // #135（D2-L45）：脉冲动画仅"思考中"运行——已完成/折叠的思考卡片
@@ -109,9 +109,9 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         else -> stringResource(R.string.chat_status_thinking)
     }
 
-    // 2026-08-18 容器统一：直角(0) + 半透明 surfaceContainer → 共享容器
-    //（medium 圆角 + 实底 + 1dp 边框）；accent 左条保留（Surface 裁剪随圆角）
-    EmbeddedCardContainer(
+    Surface(
+        shape = ShapeTokens.none,
+        color = containerColor,
         modifier = Modifier.fillMaxWidth()
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {

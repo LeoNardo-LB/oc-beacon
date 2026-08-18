@@ -44,7 +44,6 @@ import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.ui.components.AmoledSurface
-import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
@@ -112,12 +111,11 @@ internal fun ToolCardScaffold(
     val copyFeedback = LocalCopyFeedback.current
     val copiedMessage = context.getString(R.string.chat_copied_clipboard)
 
-    // 2026-08-18 容器统一（用户"样式尽量统一"）：smallMedium(6)+surface+tonal
-    // → EmbeddedCardContainer（medium(12) + surfaceContainerLow + 1dp 边框，
-    // 聊天内嵌卡片唯一容器语言）。语义状态底色（蓝/绿/红）经 containerColor
-    // 透传；AMOLED 保持纯黑底（原 AmoledSurface 行为）。
-    EmbeddedCardContainer(
-        containerColor = if (isAmoled) Color.Black else containerColor,
+    AmoledSurface(
+        isAmoledDark = isAmoled,
+        normalColor = containerColor,
+        shape = ShapeTokens.smallMedium,
+        normalTonalElevation = 1.dp,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(4.dp)) {
