@@ -65,19 +65,22 @@
   - **2026-08-18 修复验证通过（7bfc2d0c）**：pending/子会话路径保持 FSM Busy 跟随服务器（消除抖动机）。E2E 实证：等待窗口 137 次 "keep Busy (waiting)" 零翻转（原版此窗口每 10s 抖）；原 bug 场景（pending+周期中 BACK）3/3 无空白；正常提交不受影响（Busy(streaming)→Idle 自然转换）；FATAL=0（/tmp/e2e20/）
   - H-A（NavGraph fade 与 onCleared 时序竞态）随抖动机消除后无实际触发路径，降级为理论性防御优化——若未来再出现状态突变+BACK 组合空白，再动 NavGraph.kt:225
 
-- [ ] **E2E-H 自定义答案未随提交发送（待查，可能假象）** `ui` `sse`
+- [x] **E2E-H 自定义答案未随提交发送——2026-08-18 模拟器复验结案（假象确认）** `ui` `sse`
   - 现象（2026-08-18 e2e22 终验）：卡上 Mango 行显示但提交载荷仅 [Apple, Banana]；自定义行点击无法勾选
   - 疑点：该轮正值 E2E-C 修复失败版本（VM 缓存）——Mango 行是 pop 丢状态前的残留渲染还是真选中存疑；**e2e23 终版终验中同样场景 Mango 已正常入载荷**（[[Apple,Banana,Mango]]），矛盾未解
-  - 待办：若再复现，dump 当时 store 内容与渲染行对照；也可能与"自定义行点击无法勾选"有关（行本身不可点击是设计——只有 ✕/✎，但用户可能期望整行可 toggle）
-  - 优先级：P2（一次矛盾观察，主路径正常）
+  - **2026-08-18 模拟器全链路复验 ✅ 结案（假象确认）**：干净会话双题卡（Q1 单选+自定义 / Q2 多选）——Q1 输入 Mango 保存（像素验证勾选态底色 221,222,237 accent wash）→ Submit → logcat 载荷 `answers=[[Mango], [Red, Green]]` → fallback `answer={"q0":"Mango","q1":["Red","Green"]}` 200 → agent 复述"您选择了自填答案 Mango（芒果）+ Red/Green"——**自定义答案完整送达，无丢失**。当时矛盾观察确系 E2E-C 修复中间版本（VM 缓存）的残留渲染假象（证据链 /tmp/verify-0818/，截图 28-35）
+  - 附：三态模型语义同时验证——Mango 勾选自动让位 Q1 选项（载荷仅 1 项互斥正确）
 
-- [ ] **E2E-I 整屏空白再现（E2E-G 修复后仍见 2 次）** `ui`
+- [ ] **E2E-I 整屏空白再现（E2E-G 修复后仍见；2026-08-18 模拟器第三次独立复现+完整取证）** `ui`
   - 现象（2026-08-18 e2e22 终验中）：聊天输入框 tap + input text 组合后整屏空白（Compose 树空、无 FATAL、surface 存活），force-stop 恢复——与 E2E-G 症状同族但触发描述不同（E2E-G 已修：BACK+抖动竞态）
-  - 待查：是否同一 fade 竞态的另一触发路径（H-A 理论性防御未做），或独立问题；下次复现时抓 dumpsys activity top + logcat 全量
+  - **2026-08-18 模拟器复现 + 完整取证**：输入 prompt 后点 Send 前的 UI dump 骤缩（36k→2.6k 字节）——Compose 树仅剩宿主 View 链（0 内容节点）；dumpsys：MainActivity topResumed + mCurrentFocus + task visible（Activity 前台正常）；进程活（无 FATAL，"FATAL"匹配 60 条全系 uiautomator 自身日志）；截图 vision 确认纯白屏（仅状态栏+手势条）；BACK 恢复（回桌面，App 退后台）→ 热启动恢复完整 UI。触发上下文：输入框聚焦+键盘弹出+模型切换（GLM→DeepSeek）组合后。证据：/tmp/verify-0818/10_*.png|xml|txt、11-12 恢复序列
+  - 待查：是否同一 fade 竞态的另一触发路径（H-A 理论性防御未做），或独立问题；已按待办要求抓齐 dumpsys activity top + logcat 全量（10_logcat_full.txt）
   - 优先级：P2（低频，恢复成本低）
 
-- [ ] **SSE 长时间无事件不自动重连（8 分钟+）** `sse`
+- [ ] **SSE 长时间无事件不自动重连（8 分钟+）——2026-08-18 定性反转：beta-17595 上是"过于频繁重连"而非"不重连"** `sse`
   - 现象（E2E 顺带观察）：SSE 流停滞 8 分钟+ 无自动重连，仅靠 REST 校验兜底
+  - **2026-08-18 模拟器实证（服务器 0.0.0-beta-17595）**：该服务器 SSE 流**不发心跳帧** → App 40s 读超时（`V2 SSE read timed out after 40000ms`）每 40s 必断一次 → 重连 → Recover 51 会话 → 再 40s 断——完整周期日志实证（21:22:55 等 4 次）。原"8 分钟不重连"现象属旧服务器（next-17403 有心跳）；现为相反方向的兼容问题
+  - 衍生发现：**SSE 冷却死循环**——连续 5 次超时后进入 cooldown，日志 `SSE in cooldown, waiting 30000ms` 每 30s 打一次但**从不真正重连**（21:33-21:35 三轮 waiting 无连接尝试）；见下方 2026-08-18 批次新登记
   - 优先级：P2
 
 - [x] **E2E-C 提问卡丢已选答案（终版修复 137c8c7a，双向量终验全 PASS）** `ui` `sse`
@@ -101,13 +104,15 @@
   - 验证 ✅：单测 14/14（CustomAnswerToggleFlowTest 重写覆盖三态矩阵）；E2E 六断言全 PASS（/tmp/e2e-parked/，dump+像素+logcat 三维交叉）：保存勾选(accent 80,100,151) → 点 Red 后 Mango parked(弱灰 99,100,105，与未选项 50,51,56 可区分) → parked 重勾选+Red 让位(互斥) → 提交载荷 [["Red"]] 不含 parked → ✕ 删除回输入框(dump 无节点) → BACK 重进 parked+勾选双保留(store 恢复)；三问载荷 [[Red]]/[[Banana]]/[[Blue]] 全部正确
   - 附带：E2E-H 的"自定义行点击无法勾选"疑点已消除——行现在整行可点击（勾选⇄取消勾选）
 
-- [ ] **E2E-E 多问题 pager 固定高度裁剪输入框底边** `ui`
+- [ ] **E2E-E 多问题 pager 固定高度裁剪输入框底边——2026-08-18 加重：长选项页下部选项与输入框完全不可达** `ui`
   - 现象（2026-08-17 第五版 E2E 发现）：双行问题文本时页内容 642px > pager 插值高度 630px，自定义输入框底边被裁 12px（135px vs 正常 147px）
-  - 根因方向：QuestionPagerView 高度线性插值按 onGloballyPositioned 记录的页高计算，键盘态/裁剪态测量偏小或 pageSpacing 未计入
-  - 优先级：P2（视觉瑕疵，功能可用）
+  - **2026-08-18 模拟器加重（6 选项页实测）**：Q2 多选 6 选项（Blue/Green/Red/Yellow/Black/White）+custom=true——视口只见前 3 项，Yellow/Black/White 与自定义输入框**无论何种手势（swipe/swipe 短/fling × 多角度）均不可达**：提问卡内无独立滚动机制（HorizontalPager 页内容不可滚），外层消息列表 swipe 又被 pager 消费为翻页/无效——**功能性缺失**（6+ 选项题无法完整作答），比"裁 12px 视觉瑕疵"严重。证据：/tmp/verify-0818/22-25（4 次 dump 均无 Yellow+，vision 复核）
+  - 根因方向：QuestionPagerView 高度线性插值按 onGloballyPositioned 记录的页高计算，键盘态/裁剪态测量偏小或 pageSpacing 未计入；需页内容可滚动（ColumnScrollable）或高度按最高页计算
+  - 优先级：P2 → **建议升 P1**（6+ 选项题功能不可用）
 
 - [ ] **E2E-D question.v2 reply 探测恒 404（浪费往返 + 日志噪音）** `ui` `sse`
   - 现象：每次提问回复先 POST /api/session/{sid}/question/{formId}/reply 恒 404（端点结构性不存在，见 E2E-B 定性），再 fallback form 路径——每次多一次无效往返
+  - **2026-08-18 模拟器精确重现**（beta-17595）：Submit → `replyToForm: POST question.v2 reply → 404 Not Found（25ms）→ fallback form path → 200 success` 完整日志链——行为与定性一致，未修
   - 背景：2026-08-15 research/09 时该端点曾实测 200（next-17430 中间契约）；现服务器已无此端点
   - 方向：按服务器版本/连接缓存探测结果（首 404 后跳过），或按 V1/V2 探测结果直选路径；注意未来服务器可能重新引入
   - 优先级：P2（功能无损，仅性能/噪音）
@@ -267,13 +272,20 @@
   - 工时：~1.5h | 难度：中 | 涉及：QuestionCard.kt / QuestionPagerView.kt（可能）+ i18n（下一步文案 15 语言）
   - **2026-08-08 代码完成（待人工验证）**：QuestionCard 三按钮体系（忽略/下一步/提交，末页置灰）+ 未答完提交弹窗（"第 X 个问题没有回答" → 继续提交）+ 单选点选不立即提交可取消选中；QuestionPagerView page-aware 签名；纯函数 `unansweredQuestionIndexes` + 4 测试；i18n 新增 4 键（15 语言，commit 10757799）；编译 ✅ 全量单测 ✅ i18n ✅；⚠️ 真机验证待用户：三按钮流程/弹窗/单选可取消
 
-- [~] **新增 A：会话列表"待回答"标记 + 提问通知 REST 兜底** `ui` `session` `sse`
+- [~] **新增 A：会话列表"待回答"标记 + 提问通知 REST 兜底——2026-08-18 模拟器验证：功能有效但发现并修复两个 P1 兜底缺陷** `ui` `session` `sse`
   - 问题：有提问的会话在列表无任何提示；SSE 不推 question 事件时通知不可达（无兜底链路）
   - **2026-08-08 代码完成（待人工验证）**：SessionRow 增加 HelpOutline 图标 + "Pending answer" 标记（i18n 15 语言，commit a989890e）；OpenCodeConnectionService 新增 30s REST 轮询兜底（`notifyPendingQuestionsFromREST` + `diffNewQuestionIds` 纯函数 + 3 测试，commit 1d1b2a75）；编译 ✅ 全量单测 ✅ i18n ✅；⚠️ 真机验证待用户：列表标记显示/通知弹出
+  - **2026-08-18 模拟器验证（SSE 路径 ✅ + 发现 REST 兜底两缺陷已修）**：
+    - ✅ SSE 路径：agent 调 question → 列表行 "Pending answer" 标记正常显示（Untitled session 实证）；通知日志 `Question asked for session ses_…` 落库（App logs 表）+ opencode_questions 通知通道（importance=4 声光振动）存在
+    - ❌→✅ **缺陷1（轮询永久死亡，P1，已修 32765cf6）**：原 `if (!isConnected) break` 在 connect 后 SSE 握手窗口首轮 tick 即杀死轮询且永不复活——实测启动 12 分钟 form/request **0 次**（对照组 /api/session/active 40 次），服务器端存在 pending form 的会话（E2E-C）列表无标记。修复：轮询生命周期只跟随用户连接意图（disconnect 显式取消兜底），去掉 isConnected 检查
+    - ❌→✅ **缺陷2（location 覆盖缺口，P1，已修 32765cf6）**：V2 form/request 按 x-opencode-directory 分 location 返回，不带头只返回 global——项目目录的 pending form 永远查不到（实测 oc-beacon location 的 Favorite Season form）。修复：遍历 global + 全部项目目录（directory 字段缺失回退 canonical——beta-17595 只返回 canonical），10 轮缓存
+    - 修复闭环验证：force-stop 后服务器新 form → 冷启动纯 REST 路径 22s 内 form/request 8 次 + 列表 2 行 "Pending answer" 出现；1690 单测全绿
+  - ⚠️ 剩余待用户真机验收：通知实际弹出形态（通知栏目测）
 
-- [~] **新增 B：双端同机问题状态同步修复** `data` `session`
+- [~] **新增 B：双端同机问题状态同步修复——2026-08-18 模拟器验证 ✅（A 回答 → B 消失闭环）** `data` `session`
   - 问题：设备 A 回答后，设备 B 的 `loadPendingQuestions` 旧合并逻辑（`existingSseQs + newQs`）只增不删 → 已消失问题永久残留
   - **2026-08-08 代码完成（待人工验证）**：新增 `resolvePendingQuestionReplacement` 纯函数，声明 REST GET /question 为全量权威源，`loadPendingQuestions` 全量替换（含空列表清空语义）+ 3 测试（commit 0b85ca06）；全量单测无回归；⚠️ 真机验证待用户：双端同机 A 回答后 B 问题消失
+  - **2026-08-18 模拟器验证 ✅**：B 端（App）进 E2E-C 会话 → REST 恢复卡片渲染（`loadPendingQuestions: 1 total pending → Replaced 1 questions (REST authoritative)` 日志）→ 设备 A（curl 直答 form 204）→ B 端 6s 内收到 `form.replied` SSE → 卡片消失转 "Asked" 折叠态——双端同步完整闭环。⚠️ 待用户最终验收
 
 - [x] **#30 消息本地化批次（方案 C）——Plan 1/2/3 全部完成（代码），待人工验证** `data` `cache` `room`
   - **2026-08-13 验证完成 ✅（用户授权 Agent 代测）**：冷启动打开会话 1 秒内消息渲染（Room 种子化秒开）✅；杀进程重启后消息保留（Room 缓存）✅；db 2.2M（ocbeacon.db 1.82MB + WAL 524KB）✅；覆盖安装保留数据 ✅
@@ -383,6 +395,7 @@
     - 注：视觉模型对全卡截图 3 次幻觉"左侧有控件"，最终以逐行裁剪放大 + 像素扫描定性（E2E 截图判读的方法学经验）
   - **第五轮视觉微调（6bad8c39 + a3e181d6）**：① 元信息序调换——SINGLE/MULTI 标签左、Q1|Q2 分段按钮右（E2E px 证据）② 分段按钮 40→32dp+labelSmall ③ 问题域间距 SM→MD（实测 12.6dp）④ 行紧凑化——M3 ListItem（固定 48dp+ 无 padding 参数压不矮）→ 紧凑 Row（单行实测 27.8dp；带 description 双行内容驱动）⑤ 自定义行图标序 Edit/✕/✔（✔ 最右对齐普通行；✕=删除该自定义）⑥ 输入框高度对齐 44dp——三轮演进：heightIn(44) 无效（min 非上限）→ Provider 压 LocalMinimumInteractiveComponentSize 无效（M3 源码实证该 Local 只管 icon 边距）→ **显式 height(44.dp)** 终验达标（可视边框精确 44.0dp、无裁剪、三态恒定、FATAL=0）
   - ⚠️ 人工验收待用户：整体观感（维度 5 视觉目测，截图在 /tmp/e2e3/ /tmp/e2e5/ /tmp/e2e6/ /tmp/e2e8/）
+  - **2026-08-18 补充复验（模拟器，beta-17595）**：双题卡全交互链正常——SINGLE/MULTI 标签、Q1|Q2 FilterChip 分页、选项行（含 description 副文本）、自定义三态（输入→保存勾选 accent wash 像素 221,222,237）、三按钮（Dismiss/Next/Submit）、提交后折叠 "Asked" 态。截图 /tmp/verify-0818/20-29；交互细节归档见「2026-08-18 模拟器验证批次」
   - 行为保持：单选互斥/多选/单选可取消/三按钮流程/#125/#126 全部未动
 
 - [x] **提问卡容器对齐工具卡主流语言（7f278a93 + a76cd513）** `ui`
@@ -561,6 +574,7 @@ efactor
   - **根因 7**：上滑分页失效——reverseLayout 下 lastVisibleItemIndex 语义错误（恒等于底部 → 无限翻页/不触发）→ firstVisibleItemIndex + isScrollInProgress
   - **根因 8**：ANR——onCleared 主线程 runBlocking（已在 #35 修复）
   - 验证：模拟器实证——上滑翻页归档加载 ✅（`Loaded older: 20 msgs source=ARCHIVE`）；SQLite 错误 0 ✅；L3 refresh 50 msgs ✅；slowUI 26→0 ✅；全量单测 1343 PASS ✅；i18n PASS ✅
+  - **2026-08-18 模拟器帧数据基线（软渲染参考，非真机结论）**：8 轮快速 fling（上下交替）gfxinfo——106 帧渲染 / jank 24.5%（legacy 82%）/ p50=30ms p90=40ms p99=69ms / 慢 UI 线程 19 / **无 >300ms 卡死帧、无 ANR**。模拟器 swiftshader 软渲染天花板明显（p50 30ms 即超 16.7ms 预算），8 项根因修复无劣化证据；真机基线仍待用户复测（数据 /tmp/verify-0818/49_gfxinfo.txt）
   - ⚠️ **待真机复测**：用户拿回手机后验证——滑动跟手度（无拉伸）/上滑翻页/掉帧（SSE 活跃时）
 
 - [ ] **新增 E：上滑分页后底部最新消息消失（已修复，待真机复测）** `data` `session`
@@ -568,6 +582,7 @@ efactor
   - **根因**：`MessageEventHandler.upsertAppendOnly`（APPEND_ONLY 合并策略）的 `_messages.update` 用 `incomingMsgs.map { existingById[newMsg.id] ?: newMsg }`——**把整个 _messages 替换为分页加载的"更早消息"**（incoming 只含更早，不含现有最新）→ **现有最新消息（底部）全部丢失**。二期 caf8019b（upsert 合并策略统一）引入；注释语义"仅补充缺失"与实现不符
   - **修复（ff192fd5）**：改为 `(existing + incomingMsgs).distinctBy { it.id }.sortedBy { it.time.created }`——existing 保留 + incoming 补充缺失 + 按 created 排序（combine 依赖写入路径有序）。同时修正 EventDispatcherTest 旧断言（固化 bug 的 size=1 → size=2），新增 2 回归测试（APPEND_ONLY 保留最新 + 分页场景）
   - 验证：模拟器实证——上滑分页 18 次（540 条更早消息）后下滑，底部最新消息仍保留 ✅；全量单测 1345 PASS ✅
+  - **2026-08-18 模拟器复验受阻**：本轮 501 条会话上滑验证时遭遇新 P1（V2 长会话历史 0 条加载，见下方 2026-08-18 批次登记）——历史页拉不出导致"上滑→下滑回底"场景无法完整走完；底部最新消息在等价操作（进入+多次上滑+下滑）后仍保留 ✅（部分验证）
   - ⚠️ **待真机复测**：上滑加载更早后下滑能回到最底部，最新消息不消失
 
 - [ ] **新增 F：上滑自动加载更多失效（已修复，模拟器实证，待真机复测）** `ui` `session`
@@ -577,6 +592,7 @@ efactor
   - **根因 3（防风暴）**：自动续载无保护——连续失败会无限重试。修复：失败指数退避（500ms→8s）+ 3 次失败暂停（autoLoadPaused，UI 停止自动续载）+ 成功恢复清零
   - 日志：ChatPaging（auto-load triggered/backoff wait）+ loadOlder START/END/NETWORK/ARCHIVE/退避/暂停/恢复全链路
   - 验证：模拟器实证——停在顶部 8s 自动续载、游标 fe0c5862→fe0b9e6e→fe0b4438 前进、读尽 hasOlder=false 自动停止 ✅；全量单测 1350 PASS ✅（新增 5 回归测试：游标前进/网络游标跳过归档/退避/暂停/恢复）；i18n PASS ✅
+  - **2026-08-18 模拟器复验：触发机制 ✅ 但 V2 长会话数据管线断裂（新 P1）**：auto-load 触发链完整工作（`auto-load probe → triggered → loadOlder START` 日志），但 501 条会话 NETWORK 首翻返回 **0 条 → hasOlder=false 误判读尽**——461 条更早消息永久不可达（根因定性见下方 2026-08-18 批次「V2 长会话历史分页不可达」）。旧服务器（next-17403）上的原始验证结论不受影响
   - ⚠️ **待真机复测**：上滑到顶停住 → 自动加载更早直到读尽，不重复加载、不风暴
 
 ### 2026-08-10 系统审计批次（F 报告 P2 + 补丁债 + 模式）
@@ -940,8 +956,9 @@ efactor
   - 工时：~0.5h | 难度：低 | 涉及：ChatRepositoryImpl
   - 来源：2026-08-13 全局 Singleton keyed 状态扫描（#89 附属）
 
-- [ ] **#91 listMessages 冗余调用 + V2 分页游标 400（#87 复验附注）** `data` `performance`
+- [ ] **#91 listMessages 冗余调用 + V2 分页游标 400（#87 复验附注）——2026-08-18 仍在重现** `data` `performance`
   - 问题：2026-08-13 #87 模拟器复验发现——打开会话后 2 秒内 listMessages 冗余调用 ~7 次；V2 分页 `before=eyJp...` 游标返回 400 Bad Request 后回退重头拉取。不崩溃但浪费网络（长会话/慢网络下明显）
+  - **2026-08-18 模拟器重现（加重）**：进入 501 条会话瞬间 22ms 内 `message?limit=50&cursor=…direction=next` **8 次重复请求**（两 cursor 交替循环）；进 E2E-C 会话 145ms 内 form/request ×2（loadPendingQuestions 双调用）。频率比 08-13 记录更高
   - 关联：可能与本条目 #73（V2 cursor 格式 {"id","order","direction"} vs 本地 CursorCodec {"id","time"}）同源——需先核对游标编解码
   - 工时：~1-2h | 难度：中 | 涉及：V1ApiClient/V2ApiClient.listMessages、分页管线
   - 来源：2026-08-13 综合验收（#87 复验附注）
@@ -1434,14 +1451,15 @@ $(echo "
   - ⑤ **工具输出保尾截头（30K 字符/2000 行）语义**：设计使然非缺陷；候选 feature request——progress metadata 提前携带 truncated/outputPath 让客户端更早提示
   - 状态：`[ ]` 候选池——提 issue/PR 前逐项按前提流程执行
 \n
-- [ ] **#147 androidTest UI 测试全部失败（HiltTestRunner 与 Compose 测试规则不兼容）** `refactor` `test`
+- [ ] **#147 androidTest UI 测试全部失败——2026-08-18 定性更新：已非"全部失败"，改为"接口漂移致编译断 + 12/19 可过"** `refactor` `test`
   - 现象：2026-08-16 修复 androidTest 编译后首次真跑，全部 UI 测试报
     "No compose hierarchies found in the app"（HiltTestRunner 启动的 Activity
     与 createComposeRule/createAndroidComposeRule<ComponentActivity> 不兼容）
+  - **2026-08-18 复验定性**：① 编译再次断裂——主代码接口演进（respondPermission 加 sessionId、SessionStateRepository 加 backfillMissedMessages）后 Fake 未同步（已修 6023bd5f，androidTest 编译恢复）；② 修复编译后 19 用例 **12 通过 / 7 失败**——"全部失败 No compose hierarchies"已不复现（当时问题似乎已随某次修复消散），现存失败移交 #149（5 touch 注入 + 2 节点超时）
   - 修复方向：迁移 androidx.compose.ui.test.junit4.v2 API + HiltAndroidRule
     组合，或为非 Hilt 测试提供独立 TestRunner（gradle 配置多 runner）
-  - 已完成的前置：Fake 接口对齐（6 个）+ FakeMessageCacheRepository +
-    Hilt 测试图 MissingBinding 修复——编译层已通，仅剩运行时规则问题
+  - 已完成的前置：Fake 接口对齐（6 个 + 2026-08-18 再补 2 处）+ FakeMessageCacheRepository +
+    Hilt 测试图 MissingBinding 修复
   - 状态：`[ ]` 待修复
 
 - [x] **#148 任务面板 subagent 点击「无法进入」——2026-08-16 归因关闭（环境问题非 App bug）** `ui`
@@ -1453,15 +1471,54 @@ $(echo "
   - 状态：`[x]` 归因关闭（无代码缺陷；App 实际跳转功能正常，dev.11 真机可验）
 
 
-- [ ] **#149 androidTest 剩余 7 个 swipe 触摸注入失败（ChatScrollStability/ChatInteraction/FileTree）** `test`
+- [ ] **#149 androidTest 剩余 7 个失败——2026-08-18 精确复现：5×touch 注入 + 2×节点超时** `test`
   - 现象：2026-08-16 androidTest 修复至 129/136 后，剩余 7 个全部
     "Failed to inject touch input"——新模拟器同样失败（非环境劣化）
+  - **2026-08-18 复现明细（19 用例 12 过 7 败）**：`Failed to inject touch input` ×5（ChatScrollStabilityTest.userScrollsAway / autoScrollEnabledResets / shouldCompensateResets / completedMessageHeight 四个 SSE 铁律守护 + FileTreePanelTest.filterChipClick，与 08-16 记录一致）+ `ComposeTimeoutException 10s` ×2（ChatInteractionTest.contextUsageBar_shows / questionDialog_appears——非 touch 注入族，节点等待超时，独立定性）
   - 涉及：ChatScrollStabilityTest×4（SSE 铁律守护测试）/ChatInteraction×2/
     FileTreePanelTest.filterChip×1
   - 方向：与 ChatScrollController 重构（ScrollListGate 抽取）后的节点结构
     变化相关——swipe 目标越界或列表高度不足；逐个核对 performTouchInput
     的坐标系与列表填充数据
   - 状态：`[ ]` 待修复
+
+## 2026-08-18 模拟器验证批次（backlog 待验证项集中复验 + 新发现）
+
+> 环境：Pixel6_Android36 模拟器（API 36，dev 0.3.1-dev.15 @ master 8d65a387）+ V2 服务器 0.0.0-beta-17595（10.0.2.2:4199）。
+> 证据目录：/tmp/verify-0818/（截图 00-57 编号序列 + logcat + dumpsys + gfxinfo + Room DB 副本）。
+> 修复 commit：32765cf6（question 轮询）+ 6023bd5f（androidTest Fake）。
+
+- [ ] **V2 长会话历史分页不可达（501 条只见 40 条，NETWORK 首翻恒 0 条）** `data` `sse`
+  - 现象（2026-08-18 模拟器复验新增F 时发现）：进入 501 条消息的测试会话 → 上滑到顶触发 auto-load（触发机制正常：`auto-load probe → triggered → loadOlder START`）→ **NETWORK 返回 0 msgs → hasOlder=false 误判读尽** → 461 条更早消息永久不可达
+  - 根因（curl 双盲区实证）：**两处修复打架**——MessagePaginationDelegate:216（2026-08-12 补丁）在 HotStart+V2 时本地构造 `encodeV2(hotOldestId)` cursor，而 MessagePaginationUseCase:200（2026-08-16 根治）已明确 V2 首翻**不传 cursor**（依赖响应的 cursor.next）。热表最老是中部历史 id → 服务器**窗口外 id 返回空页**（curl 复现：构造 cursor=历史id → count=0 且 next=null；cursor=近期id → 30 条 next 正常）——08-16 根治被 08-12 补丁旁路
+  - 服务器行为补充：beta-17595 窗口语义 = 仅近期 id 的 cursor 有效；与 #73（窗口外空页）同族，服务器升级后窗口收紧
+  - 修复方向：删除 Delegate:212-217 的本地 encodeV2 构造（让 HotStart 首翻走 use case 的 null-cursor 路径拿原生 cursor.next）
+  - 工时：~1h | 难度：低 | 涉及：MessagePaginationDelegate
+  - 优先级：**P1**（长会话历史完全不可看）
+
+- [ ] **SSE 冷却死循环（连续超时后永不真正重连）** `sse`
+  - 现象（2026-08-18 修复轮询验证时发现）：beta-17595 服务器无心跳帧 → SSE 每 40s 读超时 → 连续 5 次后进入 cooldown → 日志每 30s 打 `SSE in cooldown, waiting 30000ms` **但从不发起连接尝试**（观察 3 轮 waiting 零连接）——SSE 通道假活（REST 正常），直到进程重启
+  - 证据：21:33-21:35 logcat（`Reconnecting in 30000ms (attempt #6)` 后只有 waiting 无 attempt）
+  - 修复方向：冷却计数到达后 attempt 应实际执行 startConnection；查 SseConnectionManager 冷却分支的 attempt 递增与重连触发脱节
+  - 工时：~2h | 难度：中 | 涉及：SseConnectionManager
+  - 优先级：**P1**（SSE 长断后事件流永久丢失，仅 REST 兜底）
+  - 关联：#142 修复引入的 hasConnectedOnce/recoverMessages 链路（8bbcb216）；#108 的 40s 超时防护
+
+- [ ] **beta-17595 服务器契约适配批次（升级引发的兼容缺口）** `compat` `sse`
+  - 服务器从 next-17403 → beta-17595，本次验证实证的缺口（App 当前均有降级路径，不崩溃）：
+    1. **SSE 无心跳帧** → 40s 读超时断连循环（#108 防护反而成为断连源；每 40s recover 51 会话的开销）——待服务器确认是否回归；若确认无心跳需拉长超时或协议层 ping
+    2. **/api/project 只返回 canonical**（无 worktree/directory）→ 已修（32765cf6 轮询的 canonical 回退）；其余消费 Project.displayName/worktree 的 UI 需排查
+    3. **prompt modern 契约 400** → App 已有 legacy body retry（logcat: `modern 400 -> legacy body retry status=200`）✅ 已适配
+    4. **消息 content 内联格式**（{type,text} 无 part id/ordinal 包装）→ 本次未验证渲染回归（501 条会话 dump 受限），需专项走查历史会话渲染（怀疑与 #109 part id 契约演进相关）
+  - 工时：排查 ~0.5d | 涉及：SseClientV2 / V2Mappers / V2ApiClient
+  - 优先级：P1（3/4 项影响主流程质量）
+
+- [x] **提问卡三态模型 + E2E-H 结案 + 双端同步复验（本次验证通过项归档）** `ui` `sse`
+  - 三态模型（勾选/parked/删除）✅：Q1 自定义 Mango 保存勾选（像素 221,222,237 accent wash）→ 提交载荷 [[Mango],[Red,Green]] 恒 ≤1 互斥 → agent 复述确认收到
+  - E2E-H ✅ 结案（假象确认，见上文章目）
+  - 新增B 双端同步 ✅（curl 模拟设备 A → B 端 6s 内卡片消失）
+  - E2E-D 404 探测 ✅ 精确重现（行为与定性一致，P2 待修不变）
+  - 新增A SSE 路径 ✅ + REST 兜底两缺陷修复闭环（32765cf6，12 分钟 0 请求 → 22s 8 请求 + 列表标记出现）
 
 ### 遗留观察项（非本次修复引入）
 
