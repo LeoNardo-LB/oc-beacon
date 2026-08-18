@@ -582,7 +582,7 @@ efactor
   - **根因**：`MessageEventHandler.upsertAppendOnly`（APPEND_ONLY 合并策略）的 `_messages.update` 用 `incomingMsgs.map { existingById[newMsg.id] ?: newMsg }`——**把整个 _messages 替换为分页加载的"更早消息"**（incoming 只含更早，不含现有最新）→ **现有最新消息（底部）全部丢失**。二期 caf8019b（upsert 合并策略统一）引入；注释语义"仅补充缺失"与实现不符
   - **修复（ff192fd5）**：改为 `(existing + incomingMsgs).distinctBy { it.id }.sortedBy { it.time.created }`——existing 保留 + incoming 补充缺失 + 按 created 排序（combine 依赖写入路径有序）。同时修正 EventDispatcherTest 旧断言（固化 bug 的 size=1 → size=2），新增 2 回归测试（APPEND_ONLY 保留最新 + 分页场景）
   - 验证：模拟器实证——上滑分页 18 次（540 条更早消息）后下滑，底部最新消息仍保留 ✅；全量单测 1345 PASS ✅
-  - **2026-08-18 模拟器复验受阻**：本轮 501 条会话上滑验证时遭遇新 P1（V2 长会话历史 0 条加载，见下方 2026-08-18 批次登记）——历史页拉不出导致"上滑→下滑回底"场景无法完整走完；底部最新消息在等价操作（进入+多次上滑+下滑）后仍保留 ✅（部分验证）
+  - **2026-08-18 模拟器复验受阻→修复后完整验证 ✅**：首轮受阻于新 P1（V2 长会话历史 0 条，已修 53cfea68）；修复后 501 条会话深翻（total 226+ 项、游标深入 8月12日历史）→ 回滚穿越全程消息连续渲染，Q174 跳转定位正常、新消息（01:57→10:20 区间）全部保留在流中——**底部最新消息不消失** ✅；Room 热表 501 条全量
   - ⚠️ **待真机复测**：上滑加载更早后下滑能回到最底部，最新消息不消失
 
 - [ ] **新增 F：上滑自动加载更多失效（已修复，模拟器实证，待真机复测）** `ui` `session`
@@ -592,7 +592,7 @@ efactor
   - **根因 3（防风暴）**：自动续载无保护——连续失败会无限重试。修复：失败指数退避（500ms→8s）+ 3 次失败暂停（autoLoadPaused，UI 停止自动续载）+ 成功恢复清零
   - 日志：ChatPaging（auto-load triggered/backoff wait）+ loadOlder START/END/NETWORK/ARCHIVE/退避/暂停/恢复全链路
   - 验证：模拟器实证——停在顶部 8s 自动续载、游标 fe0c5862→fe0b9e6e→fe0b4438 前进、读尽 hasOlder=false 自动停止 ✅；全量单测 1350 PASS ✅（新增 5 回归测试：游标前进/网络游标跳过归档/退避/暂停/恢复）；i18n PASS ✅
-  - **2026-08-18 模拟器复验：触发机制 ✅ 但 V2 长会话数据管线断裂（新 P1）**：auto-load 触发链完整工作（`auto-load probe → triggered → loadOlder START` 日志），但 501 条会话 NETWORK 首翻返回 **0 条 → hasOlder=false 误判读尽**——461 条更早消息永久不可达（根因定性见下方 2026-08-18 批次「V2 长会话历史分页不可达」）。旧服务器（next-17403）上的原始验证结论不受影响
+  - **2026-08-18 模拟器复验：首轮断裂→修复后完整闭环 ✅**：首轮 NETWORK 首翻 0 条误判读尽（P1，根因 08-12 补丁旁路 08-16 根治，已修 53cfea68）；修复后 auto-load 全链工作——probe 触发（`topVisible=75 total=137`）→ loadOlder NETWORK 30 msgs → 游标链逐页前进（serverCursor 透传）→ 自动续载不停（hasOlder 恒 true 至读尽）、无重复无风暴（failures=0 paused=false 恒定）
   - ⚠️ **待真机复测**：上滑到顶停住 → 自动加载更早直到读尽，不重复加载、不风暴
 
 ### 2026-08-10 系统审计批次（F 报告 P2 + 补丁债 + 模式）
@@ -1488,20 +1488,17 @@ $(echo "
 > 证据目录：/tmp/verify-0818/（截图 00-57 编号序列 + logcat + dumpsys + gfxinfo + Room DB 副本）。
 > 修复 commit：32765cf6（question 轮询）+ 6023bd5f（androidTest Fake）。
 
-- [ ] **V2 长会话历史分页不可达（501 条只见 40 条，NETWORK 首翻恒 0 条）** `data` `sse`
+- [x] **V2 长会话历史分页不可达（501 条只见 40 条，NETWORK 首翻恒 0 条）——已修复 53cfea68** `data` `sse`
   - 现象（2026-08-18 模拟器复验新增F 时发现）：进入 501 条消息的测试会话 → 上滑到顶触发 auto-load（触发机制正常：`auto-load probe → triggered → loadOlder START`）→ **NETWORK 返回 0 msgs → hasOlder=false 误判读尽** → 461 条更早消息永久不可达
   - 根因（curl 双盲区实证）：**两处修复打架**——MessagePaginationDelegate:216（2026-08-12 补丁）在 HotStart+V2 时本地构造 `encodeV2(hotOldestId)` cursor，而 MessagePaginationUseCase:200（2026-08-16 根治）已明确 V2 首翻**不传 cursor**（依赖响应的 cursor.next）。热表最老是中部历史 id → 服务器**窗口外 id 返回空页**（curl 复现：构造 cursor=历史id → count=0 且 next=null；cursor=近期id → 30 条 next 正常）——08-16 根治被 08-12 补丁旁路
   - 服务器行为补充：beta-17595 窗口语义 = 仅近期 id 的 cursor 有效；与 #73（窗口外空页）同族，服务器升级后窗口收紧
-  - 修复方向：删除 Delegate:212-217 的本地 encodeV2 构造（让 HotStart 首翻走 use case 的 null-cursor 路径拿原生 cursor.next）
-  - 工时：~1h | 难度：低 | 涉及：MessagePaginationDelegate
-  - 优先级：**P1**（长会话历史完全不可看）
+  - **2026-08-18 修复完成（53cfea68）+ 模拟器闭环 ✅**：删除 Delegate 本地 encodeV2 构造（HotStart 首翻走 use case null-cursor 路径拿原生 cursor.next，归档优先顺序恢复）+ PaginationFSM.LoadSucceeded 加固（hasOlder = nextCursor != null || pageSize >= limit，与 LoadNewerSucceeded 对称；顺带勘误既有测试自相矛盾参数）。验证：回归测试 ×3；模拟器 501 条会话游标链逐页前进（created 递减至 8月12日）、total 137→226 持续加载、Room 热表 **501 条全量落库**（08-05→08-18 14:23 与服务器一致）、深翻回滚消息连续渲染无丢失；61 分页单测 + 1694 全量单测全绿
 
-- [ ] **SSE 冷却死循环（连续超时后永不真正重连）** `sse`
+- [x] **SSE 冷却死循环（连续超时后永不真正重连）——已修复 bd04d060** `sse`
   - 现象（2026-08-18 修复轮询验证时发现）：beta-17595 服务器无心跳帧 → SSE 每 40s 读超时 → 连续 5 次后进入 cooldown → 日志每 30s 打 `SSE in cooldown, waiting 30000ms` **但从不发起连接尝试**（观察 3 轮 waiting 零连接）——SSE 通道假活（REST 正常），直到进程重启
   - 证据：21:33-21:35 logcat（`Reconnecting in 30000ms (attempt #6)` 后只有 waiting 无 attempt）
-  - 修复方向：冷却计数到达后 attempt 应实际执行 startConnection；查 SseConnectionManager 冷却分支的 attempt 递增与重连触发脱节
-  - 工时：~2h | 难度：中 | 涉及：SseConnectionManager
-  - 优先级：**P1**（SSE 长断后事件流永久丢失，仅 REST 兜底）
+  - **2026-08-18 根因修正（比登记定性更深一层）**：不是"waiting 不重连"——冷却到期后**会**重连，但 0 事件连接（无心跳服务器 40s 内零事件）在 collect 首事件前超时 → `consecutiveTimeouts` 从未清零仍 ≥ 阈值 → 立即再次 enterCooldown → 「5min 冷却 → 40s 尝试 → 5min 冷却」永续（SSE 仅 ~12% 时间在线）
+  - **2026-08-18 修复完成（bd04d060）+ 模拟器全周期实证 ✅**：enterCooldown() 清零 consecutiveTimeouts（冷却代价付清后重新计数）+ 两处冷却日志先读计数再 enter。验证：飞行模式 5 连败 → 冷却 → 网络恢复 → 冷却到期**立即真正重连**（Pre-load 200 + Recover 50/50 + Connected）→ 后续 40s 周期正常循环无再进冷却；1694 全量单测全绿
   - 关联：#142 修复引入的 hasConnectedOnce/recoverMessages 链路（8bbcb216）；#108 的 40s 超时防护
 
 - [ ] **beta-17595 服务器契约适配批次（升级引发的兼容缺口）** `compat` `sse`
