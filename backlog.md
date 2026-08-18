@@ -1282,10 +1282,11 @@ efactor
   - 方案：rejectHtmlResponse 提公共 + V1 接入；SSE 时间取服务器字段；抽 WebView 工厂；改 PathUtils.fileName/joinPath
   - 工时：~1d | 难度：中 | 涉及：V1/V2ApiClient/V2SseMapper/WebView 各文件 | 优先级：P2
 
-- [ ] **#122 状态性能与 AI Agent 功能批次（D2-15/D2-19/D2-25）** `perf` `sse` `ai-agent`
+- [~] **#122 状态性能与 AI Agent 功能批次（D2-25 AutoApprover 已接线 e3cde191；D2-15/D2-19 待做）** `perf` `sse` `ai-agent`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（A/B 路）
   - 问题：① SessionStateService 每 SSE 事件对 _fsmStates/_histories 整张 Map 拷贝 + mapValues 全量派生（:184-190/:212-216）→ 流式 GC 压力；② SSE id: 帧被忽略、无 Last-Event-ID 续传（SseClientV2.kt:182-184）→ 断连窗口事件可能永久缺失；③ PermissionAutoApprover.shouldAutoApprove 全库无调用方 → 自动批准规则从未生效（功能失效）
   - 方案：toMutableMap 单次拷贝 + history 定长 + mapValues distinctUntilChanged；重连带 Last-Event-ID/游标循环补漏；在 PermissionAsked 路径接入自动 reply 或移除 UI 入口
+  - **2026-08-18 D2-25 接线完成（e3cde191）**：EventDispatcher.processEvent 的 PermissionAsked 分支挂钩 maybeAutoApprovePermission（规则匹配→异步 respondPermission("once")；独立 IO scope 失败仅 WARN；空规则天然关闭）。WiringTest 3/3。⚠️ 待用户真机验收：设置页存规则后权限自动通过
   - 工时：~1d | 难度：中 | 涉及：SessionStateService/SseClientV2/PermissionAutoApprover | 优先级：P2
 
 $(echo "
@@ -1476,16 +1477,20 @@ $(echo "
   - 状态：`[x]` 归因关闭（无代码缺陷；App 实际跳转功能正常，dev.11 真机可验）
 
 
-- [ ] **#149 androidTest 剩余 7 个失败——2026-08-18 精确复现：5×touch 注入 + 2×节点超时** `test`
+- [x] **#149 androidTest 剩余 7 个失败——已修复 6f574128（三类根因，136 全绿）** `test`
   - 现象：2026-08-16 androidTest 修复至 129/136 后，剩余 7 个全部
     "Failed to inject touch input"——新模拟器同样失败（非环境劣化）
   - **2026-08-18 复现明细（19 用例 12 过 7 败）**：`Failed to inject touch input` ×5（ChatScrollStabilityTest.userScrollsAway / autoScrollEnabledResets / shouldCompensateResets / completedMessageHeight 四个 SSE 铁律守护 + FileTreePanelTest.filterChipClick，与 08-16 记录一致）+ `ComposeTimeoutException 10s` ×2（ChatInteractionTest.contextUsageBar_shows / questionDialog_appears——非 touch 注入族，节点等待超时，独立定性）
   - 涉及：ChatScrollStabilityTest×4（SSE 铁律守护测试）/ChatInteraction×2/
     FileTreePanelTest.filterChip×1
-  - 方向：与 ChatScrollController 重构（ScrollListGate 抽取）后的节点结构
-    变化相关——swipe 目标越界或列表高度不足；逐个核对 performTouchInput
-    的坐标系与列表填充数据
-  - 状态：`[ ]` 待修复
+  - **2026-08-18 修复（6f574128）——与 ScrollListGate 重构无关，三类独立根因**：
+    ① touch 注入 ×5：诊断用例实证 hasScrollAction() 在 ChatScreen 树匹配 2 节点
+    （消息列表+底部输入栏可滚动）→ onNode 多匹配坐标无效——LazyColumn 加
+    testTag(chat-message-list)，选择器改 onNodeWithTag（含 IsolatedTest 同病）；
+    ② FileTree chip：断言与资源文案不一致（改版未跟测试）——加 testTag；
+    ③ 超时 ×2：question 卡标题改版 Awaiting your reply + contextWindow 兜底被
+    0cb68851 删除（改 tokenStats 直供）。验证：136/136 全绿（含全量 androidTest）
+  - 状态：[x] 已修复
 
 ## 2026-08-18 模拟器验证批次（backlog 待验证项集中复验 + 新发现）
 
