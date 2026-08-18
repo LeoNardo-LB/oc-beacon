@@ -32,8 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SseEvent
-import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
-import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
+import dev.leonardo.ocbeacon.ui.components.AmoledSurface
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
@@ -124,8 +123,15 @@ internal fun QuestionCard(
     // 2026-08-18 二次修正（用户反馈"应有基础容器"）：tonal 一档差在气泡内
     // 不读作独立卡片 → 换共享基础容器 EmbeddedCardContainer（surfaceContainerLow
     // + 1dp 细边框，与 FileCard 等其他内嵌卡片同一容器语言）
-    EmbeddedCardContainer(
-        contentColor = contentColor,
+    // 2026-08-18 三次修正（用户澄清方向）：提问卡向**其他卡片主流语言**看齐
+    // （ToolCardScaffold：smallMedium 6dp + surfaceContainer 底 + tonal 1dp，
+    // 无边框，AMOLED 纯黑+边框由 AmoledSurface 处理）——不是其他卡片改跟
+    // 提问卡；此前两轮方向做反（a90dbead FileCard 基准 / d9cbb252 全家迁移已回滚）。
+    AmoledSurface(
+        isAmoledDark = isAmoled,
+        normalColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = ShapeTokens.smallMedium,
+        normalTonalElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(

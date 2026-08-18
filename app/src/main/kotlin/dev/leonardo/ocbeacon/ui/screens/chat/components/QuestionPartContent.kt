@@ -59,11 +59,12 @@ import kotlin.math.absoluteValue
 import kotlinx.coroutines.launch
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
+import dev.leonardo.ocbeacon.ui.components.AmoledSurface
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.ui.screens.chat.util.QHistItem
+import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.QuestionParser
 
 /**
@@ -90,7 +91,12 @@ internal fun CollapsibleQuestionPart(question: String) {
     // tonal 实底 Surface（surfaceContainerHighest + 无描边），消除明度锯齿。
     // 2026-08-18 二次修正（用户反馈"应有基础容器"）：与活动卡同换
     // EmbeddedCardContainer（圆角随之统一 smallMedium→medium，样式细节见其注释）
-    EmbeddedCardContainer(
+    // 2026-08-18 三次修正：与活动卡同换工具卡语言（AmoledSurface 6dp + tonal 1dp）
+    AmoledSurface(
+        isAmoledDark = isAmoledTheme(),
+        normalColor = MaterialTheme.colorScheme.surfaceContainer,
+        shape = ShapeTokens.smallMedium,
+        normalTonalElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(SpacingTokens.XS.dp).fillMaxWidth()) {
