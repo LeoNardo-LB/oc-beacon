@@ -349,9 +349,12 @@
   - ⚠️ 人工验收待用户：整体观感（维度 5 视觉目测，截图在 /tmp/e2e3/ /tmp/e2e5/ /tmp/e2e6/ /tmp/e2e8/）
   - 行为保持：单选互斥/多选/单选可取消/三按钮流程/#125/#126 全部未动
 
+- [x] **聊天内嵌卡片容器全量统一（d9cbb252）** `ui`
+  - 2026-08-18 完成：用户"提问卡好看但与其他卡片不协调"——审计发现 6 种容器语言并存（提问卡系 12dp+边框 / ToolCardScaffold 6dp+tonal / TokenUsage 8dp / ToolProgress 半透明 / Compaction/Synthetic 透明+灰框 / Reasoning 直角+半透明）。全部迁入 EmbeddedCardContainer（新增 containerColor 支持语义色）；工具卡状态色透传保留、AMOLED 纯黑保留、Reasoning accent 左条保留。例外：语义告警卡（Revert/Retry/ErrorPayload）不接入。模拟器验证三族卡片容器像素一致（亮底+边框 202-203 vs 气泡 227），FATAL=0
+
 - [ ] **权限卡视觉复审（提问卡原生化后的配套）** `ui`
-  - 来源：2026-08-17 grilling Q9 用户决策不纳入本次——权限卡（PermissionRequestCard，errorContainer 红系）与提问卡新视觉语言（OutlinedCard 系）是否需要统一，待提问卡验收后复审
-  - 注意：error 色系是语义设计（批准/拒绝权重高），复审时评估描边容器化是否适用
+  - 来源：2026-08-17 grilling Q9 决策不纳入当时批次
+  - 2026-08-18 更新：EmbeddedCardContainer 已支持 containerColor 语义色覆盖——权限卡可低成本迁入（骨架统一 + error 红语义底透传，参照 ToolCardScaffold 状态色模式）
 
 - [x] **#71 后台系统 + V2 消息链路 D4 人工验收（时间性现象，自动化无法覆盖）** `ui` `sse`
   - **2026-08-13 验收 ✅（用户口头确认"后台没啥问题" + Agent 数据正确性确认）**：shell 生命周期（created/exited/deleted）与内联展示数据与服务器 SSE 事件一致；流式期间 Back 无 ANR。⚠️ 附注：`session.tool.progress` 事件被 SessionNextEventHandler 标记 Unhandled（工具实时进度缺口）→ 登记 #92
