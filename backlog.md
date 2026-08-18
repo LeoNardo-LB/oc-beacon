@@ -349,8 +349,10 @@
   - ⚠️ 人工验收待用户：整体观感（维度 5 视觉目测，截图在 /tmp/e2e3/ /tmp/e2e5/ /tmp/e2e6/ /tmp/e2e8/）
   - 行为保持：单选互斥/多选/单选可取消/三按钮流程/#125/#126 全部未动
 
-- [x] **聊天内嵌卡片容器全量统一（d9cbb252）** `ui`
-  - 2026-08-18 完成：用户"提问卡好看但与其他卡片不协调"——审计发现 6 种容器语言并存（提问卡系 12dp+边框 / ToolCardScaffold 6dp+tonal / TokenUsage 8dp / ToolProgress 半透明 / Compaction/Synthetic 透明+灰框 / Reasoning 直角+半透明）。全部迁入 EmbeddedCardContainer（新增 containerColor 支持语义色）；工具卡状态色透传保留、AMOLED 纯黑保留、Reasoning accent 左条保留。例外：语义告警卡（Revert/Retry/ErrorPayload）不接入。模拟器验证三族卡片容器像素一致（亮底+边框 202-203 vs 气泡 227），FATAL=0
+- [x] **提问卡容器对齐工具卡主流语言（7f278a93 + a76cd513）** `ui`
+  - 2026-08-18 完成（含方向纠正）：用户澄清诉求是"提问卡改成跟其他卡片一致"（此前两轮 a90dbead/d9cbb252 做反成"其他卡片改跟提问卡"——d9cbb252 已 revert 8db1e786，其他 6 种卡片恢复原样）
+  - 提问卡（活动+历史）换 ToolCardScaffold 主流语言：AmoledSurface + **surface 同色** + smallMedium(6dp) + tonal 1dp 无边框（AMOLED 纯黑+边框内建）
+  - E2E 同屏像素证据：提问卡与 Shell 工具卡均无描边、同 6dp 圆角、tonal 家族、底色一致（/tmp/e2e19_both.png）；toggle 两槽位/自定义三态逻辑零改动（diff 铁证）；EmbeddedCardContainer 组件保留（FileCard 用）
 
 - [ ] **权限卡视觉复审（提问卡原生化后的配套）** `ui`
   - 来源：2026-08-17 grilling Q9 决策不纳入当时批次
