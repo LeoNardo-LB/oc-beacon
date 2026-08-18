@@ -43,6 +43,11 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+/** E2E-C 修复：saveable 答案 JSON 序列化用（Bundle 可存）。 */
+private val json = Json { ignoreUnknownKeys = true }
 
 /**
  * 用于回答 agent 问题的交互式卡片。
@@ -85,14 +90,18 @@ internal fun QuestionCard(
     var showUnansweredDialog by remember(question.id) { mutableStateOf(false) }
 
     // 按问题跟踪答案
-    // #113（D2-L67）：答案列表 saveable——mutableStateListOf 无法直接保存，
-    // 用序列化 List<List<String>> 兜底（旋转后重建，避免答案丢失需重选）。
-    var savedAnswers by rememberSaveable(question.id) {
-        mutableStateOf(emptyList<List<String>>())
+    // #113（D2-L67）→ 2026-08-18 E2E-C 根因修复：原实现直接存 List<List<String>>——
+    // rememberSaveable 的 autoSaver canBeSaved 对该类型返回 false（普通 Kotlin List
+    // 非 Bundle 合法类型）→ **静默不保存**：导航 pop 与 Activity recreate 双向量丢答案
+    // （E2E-C 三次独立复现的根因）。改为 JSON 字符串（Bundle 原生可存）序列化。
+    var savedAnswersJson by rememberSaveable(question.id) {
+        mutableStateOf("")
     }
     val answersPerQuestion = remember {
         mutableStateListOf<List<String>>().apply {
-            val restored = savedAnswers
+            val restored = runCatching {
+                json.decodeFromString<List<List<String>>>(savedAnswersJson)
+            }.getOrNull().orEmpty()
             if (restored.isNotEmpty()) {
                 addAll(restored)
             } else if (initiallySubmitted && initialAnswers.isNotEmpty()) {
@@ -104,9 +113,9 @@ internal fun QuestionCard(
             }
         }
     }
-    // #113（D2-L67）：答案变更同步到 saveable（旋转重建后恢复）
+    // 答案变更同步到 saveable（旋转/重建后恢复）——JSON 序列化保证可存性
     androidx.compose.runtime.SideEffect {
-        savedAnswers = answersPerQuestion.map { it.toList() }
+        savedAnswersJson = json.encodeToString(answersPerQuestion.map { it.toList() })
     }
 
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
