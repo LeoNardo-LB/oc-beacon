@@ -77,11 +77,12 @@
   - 待查：是否同一 fade 竞态的另一触发路径（H-A 理论性防御未做），或独立问题；已按待办要求抓齐 dumpsys activity top + logcat 全量（10_logcat_full.txt）
   - 优先级：P2（低频，恢复成本低）
 
-- [ ] **SSE 长时间无事件不自动重连（8 分钟+）——2026-08-18 定性反转：beta-17595 上是"过于频繁重连"而非"不重连"** `sse`
+- [x] **SSE 长时间无事件不自动重连（8 分钟+）——两轮勘误后结案：真根因是心跳帧被吞（00fbdda3 已修）** `sse`
   - 现象（E2E 顺带观察）：SSE 流停滞 8 分钟+ 无自动重连，仅靠 REST 校验兜底
   - **2026-08-18 模拟器实证（服务器 0.0.0-beta-17595）**：该服务器 SSE 流**不发心跳帧** → App 40s 读超时（`V2 SSE read timed out after 40000ms`）每 40s 必断一次 → 重连 → Recover 51 会话 → 再 40s 断——完整周期日志实证（21:22:55 等 4 次）。原"8 分钟不重连"现象属旧服务器（next-17403 有心跳）；现为相反方向的兼容问题
-  - 衍生发现：**SSE 冷却死循环**——连续 5 次超时后进入 cooldown，日志 `SSE in cooldown, waiting 30000ms` 每 30s 打一次但**从不真正重连**（21:33-21:35 三轮 waiting 无连接尝试）；见下方 2026-08-18 批次新登记
-  - 优先级：P2
+  - **2026-08-18 二次勘误（同日深夜）**：上段「服务器无心跳帧」结论错误——curl 挂 100s 实测每 15s 一条 `: heartbeat` 注释帧；真根因是 App 帧聚合吞掉注释帧（见 beta-17595 契约批次子项 1）。**已修（00fbdda3）**：空闲 150s 零断连实证
+  - 衍生发现：**SSE 冷却永续循环**（连续超时后 5min 冷却到期即再进）——同日已修（bd04d060）
+  - 结论：旧服务器"8 分钟不重连"原始观察未在本轮复现（该服务器已下线无法回测）；当前 master 空闲保持/断连恢复/冷却退出三链路全部实证正常，结案
 
 - [x] **E2E-C 提问卡丢已选答案（终版修复 137c8c7a，双向量终验全 PASS）** `ui` `sse`
   - 现象：聊天页返回会话列表再进入，卡内已选答案重置（rememberSaveable 未在该导航路径生效）
@@ -1502,14 +1503,13 @@ $(echo "
   - **2026-08-18 修复完成（bd04d060）+ 模拟器全周期实证 ✅**：enterCooldown() 清零 consecutiveTimeouts（冷却代价付清后重新计数）+ 两处冷却日志先读计数再 enter。验证：飞行模式 5 连败 → 冷却 → 网络恢复 → 冷却到期**立即真正重连**（Pre-load 200 + Recover 50/50 + Connected）→ 后续 40s 周期正常循环无再进冷却；1694 全量单测全绿
   - 关联：#142 修复引入的 hasConnectedOnce/recoverMessages 链路（8bbcb216）；#108 的 40s 超时防护
 
-- [ ] **beta-17595 服务器契约适配批次（升级引发的兼容缺口）** `compat` `sse`
-  - 服务器从 next-17403 → beta-17595，本次验证实证的缺口（App 当前均有降级路径，不崩溃）：
-    1. **SSE 无心跳帧** → 40s 读超时断连循环（#108 防护反而成为断连源；每 40s recover 51 会话的开销）——待服务器确认是否回归；若确认无心跳需拉长超时或协议层 ping
-    2. **/api/project 只返回 canonical**（无 worktree/directory）→ 已修（32765cf6 轮询的 canonical 回退）；其余消费 Project.displayName/worktree 的 UI 需排查
-    3. **prompt modern 契约 400** → App 已有 legacy body retry（logcat: `modern 400 -> legacy body retry status=200`）✅ 已适配
-    4. **消息 content 内联格式**（{type,text} 无 part id/ordinal 包装）→ 本次未验证渲染回归（501 条会话 dump 受限），需专项走查历史会话渲染（怀疑与 #109 part id 契约演进相关）
-  - 工时：排查 ~0.5d | 涉及：SseClientV2 / V2Mappers / V2ApiClient
-  - 优先级：P1（3/4 项影响主流程质量）
+- [x] **beta-17595 服务器契约适配批次——4 子项全部闭环（00fbdda3 心跳修复 + 32765cf6 + 排查定性）** `compat` `sse`
+  - 服务器从 next-17403 → beta-17595，本次验证实证的缺口：
+    1. ✅ **SSE 心跳（勘误+已修 00fbdda3）**：原定性「无心跳帧」错误——服务器每 15s 发标准 `: heartbeat` 注释帧（curl 100s 实测 7 条）；真根因是 SseClientV2.readSseFrame 帧级聚合把纯注释帧在函数内吞掉永不返回，外层 40s 计时器看不到进展 → 空闲必断连循环。修复：注释帧边界返回空帧标记（外层既有 isEmpty 分支刷新计时）。验证：空闲 150s 零断连 + 事件流正常接收
+    2. ✅ **/api/project 只返回 canonical** → 轮询已修（32765cf6）；Project.displayName getter 本就有 canonical 回退链（name→worktree→canonical→path→id，SseEvent.kt）——UI 无需改
+    3. ✅ **prompt modern 契约 400** → App 已有 legacy body retry（`modern 400 -> legacy body retry status=200`）
+    4. ✅ **消息 content 内联格式**（{type,text}）→ V2Mappers.contentArray.mapNotNull 按类型计数派生 part id（#109 契约），天然兼容；501 条会话历史连续渲染实证（分页深翻+回滚全程无丢失）
+  - 工时：实际 ~2h | 涉及：SseClientV2 / V2Mappers / V2ApiClient
 
 - [x] **提问卡三态模型 + E2E-H 结案 + 双端同步复验（本次验证通过项归档）** `ui` `sse`
   - 三态模型（勾选/parked/删除）✅：Q1 自定义 Mango 保存勾选（像素 221,222,237 accent wash）→ 提交载荷 [[Mango],[Red,Green]] 恒 ≤1 互斥 → agent 复述确认收到
