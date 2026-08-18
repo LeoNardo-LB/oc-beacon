@@ -104,11 +104,12 @@
   - 验证 ✅：单测 14/14（CustomAnswerToggleFlowTest 重写覆盖三态矩阵）；E2E 六断言全 PASS（/tmp/e2e-parked/，dump+像素+logcat 三维交叉）：保存勾选(accent 80,100,151) → 点 Red 后 Mango parked(弱灰 99,100,105，与未选项 50,51,56 可区分) → parked 重勾选+Red 让位(互斥) → 提交载荷 [["Red"]] 不含 parked → ✕ 删除回输入框(dump 无节点) → BACK 重进 parked+勾选双保留(store 恢复)；三问载荷 [[Red]]/[[Banana]]/[[Blue]] 全部正确
   - 附带：E2E-H 的"自定义行点击无法勾选"疑点已消除——行现在整行可点击（勾选⇄取消勾选）
 
-- [ ] **E2E-E 多问题 pager 固定高度裁剪输入框底边——2026-08-18 加重：长选项页下部选项与输入框完全不可达** `ui`
+- [x] **E2E-E 多问题 pager 固定高度裁剪输入框底边——已修复 7b3362c4（页限高+页内滚动）** `ui`
   - 现象（2026-08-17 第五版 E2E 发现）：双行问题文本时页内容 642px > pager 插值高度 630px，自定义输入框底边被裁 12px（135px vs 正常 147px）
   - **2026-08-18 模拟器加重（6 选项页实测）**：Q2 多选 6 选项（Blue/Green/Red/Yellow/Black/White）+custom=true——视口只见前 3 项，Yellow/Black/White 与自定义输入框**无论何种手势（swipe/swipe 短/fling × 多角度）均不可达**：提问卡内无独立滚动机制（HorizontalPager 页内容不可滚），外层消息列表 swipe 又被 pager 消费为翻页/无效——**功能性缺失**（6+ 选项题无法完整作答），比"裁 12px 视觉瑕疵"严重。证据：/tmp/verify-0818/22-25（4 次 dump 均无 Yellow+，vision 复核）
   - 根因方向：QuestionPagerView 高度线性插值按 onGloballyPositioned 记录的页高计算，键盘态/裁剪态测量偏小或 pageSpacing 未计入；需页内容可滚动（ColumnScrollable）或高度按最高页计算
-  - 优先级：P2 → **建议升 P1**（6+ 选项题功能不可用）
+  - **2026-08-18 修复完成（7b3362c4）+ 模拟器 E2E 全闭环 ✅**：页内容限高（屏高 40%）+ 页内 verticalScroll；高度记录移至滚动内容内层（无界测量，防键盘态测量偏小复发）；插值抽纯函数 lerpCappedPageHeight（单测 5 用例）。E2E：10 选项卡初始视口截断 → 卡片内上滑 → 底部选项 + Enter answer 全部可达 → 滚动位置选 Swift 提交 success；双题短页卡插值回归正常 + [[Tea],[Morning]] 闭环。⚠️ 剩余待用户真机验收：滚动观感（维度 5）
+  - 优先级：P1（已修）
 
 - [ ] **E2E-D question.v2 reply 探测恒 404（浪费往返 + 日志噪音）** `ui` `sse`
   - 现象：每次提问回复先 POST /api/session/{sid}/question/{formId}/reply 恒 404（端点结构性不存在，见 E2E-B 定性），再 fallback form 路径——每次多一次无效往返
