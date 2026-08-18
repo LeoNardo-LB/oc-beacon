@@ -193,18 +193,29 @@ class SseClientV2 @Inject constructor(
     /**
      * 读取一个完整的 SSE 帧（直到空行边界）。
      * 返回帧的所有行内容，或 null 表示流结束。
-     * 空字符串表示跳过（注释行等）。
+     * 空字符串表示跳过（注释行等——2026-08-18：纯注释帧=服务器心跳，
+     * 返回空帧标记让外层刷新存活计时，防空闲 40s 假超时断连循环）。
      */
-    private suspend fun readSseFrame(channel: ByteReadChannel): String? {
+    internal suspend fun readSseFrame(channel: ByteReadChannel): String? {
         val dataBuffer = mutableListOf<ByteArray>()
         var eventType: String? = null
+        // 2026-08-18 修复（SSE 空闲 40s 断连循环）：注释帧（如 beta-17595 每 15s
+        // 一条 ": heartbeat" + 空行）是服务器心跳——原实现空行边界 continue 把
+        // 纯注释帧在函数内部吞掉永不返回，外层 withTimeoutOrNull 看不到任何
+        // 进展 → 空闲期 40s 必超时断连（实测每 40s 断连+重连+recover 全量会话
+        // 开销；且连续 5 次后进 5min 冷却）。返回空帧标记让外层刷新存活计时
+        // （外层已有 frame.isEmpty() → 刷新 lastActivity + continue 分支）。
+        var sawCommentLine = false
 
         while (!channel.isClosedForRead) {
             val lineBytes = channel.readRawLineBytes() ?: return null
 
             if (lineBytes.isEmpty()) {
                 // 空白行 = SSE 帧边界
-                if (dataBuffer.isEmpty() && eventType == null) continue
+                if (dataBuffer.isEmpty() && eventType == null) {
+                    if (sawCommentLine) return ""  // 纯注释帧（心跳）——外层刷新存活
+                    continue
+                }
                 break
             }
 
@@ -231,7 +242,8 @@ class SseClientV2 @Inject constructor(
                     // 事件 ID——当前不使用，忽略
                 }
                 line.startsWith(":") -> {
-                    // SSE 注释行——忽略
+                    // SSE 注释行——帧内忽略内容，但记录见过注释（边界判定心跳帧用）
+                    sawCommentLine = true
                 }
             }
         }
