@@ -126,7 +126,10 @@ class FileTreePanelTest {
                 onToggleExpand = {}
             )
         }
-        composeTestRule.onNodeWithText("显示隐藏").performClick()
+        // 2026-08-18（#149）：原断言 onNodeWithText("显示隐藏") 在 en 测试环境
+        // 匹配 0 节点（资源实为"显示忽略项"/"Show ignored"，文案已改测试未跟）
+        // → 注入失败。改用 testTag（locale 无关）
+        composeTestRule.onNodeWithTag("file_tree_show_ignored").performClick()
         assert(toggled) { "onToggleShowIgnored should be invoked on chip click" }
     }
 

@@ -217,8 +217,11 @@ class ChatInteractionTest : BaseChatTest() {
 
         // 在 ViewModel init 之后设置 token 统计（init 会调用 tokenStatsTracker.reset()）
         // percentage = round(64000 / 128000 * 100) = 50
+        // 2026-08-18 更新（#149）：0cb68851 口径修正删除了 currentModel 兜底，
+        // fake 会话无 model → catalog 分支查不到——改由 tokenStats.contextWindow
+        // 直接提供分母（解析链优先分支，tokenStats.contextWindow > 0 即命中）
         tokenStatsTracker.update {
-            copy(lastContextTokens = 64000)
+            copy(lastContextTokens = 64000, contextWindow = 128000)
         }
 
         // 等待上下文指示器渲染（需要 providers 已加载 + token 统计已设置）
@@ -348,13 +351,15 @@ class ChatInteractionTest : BaseChatTest() {
 
         // 等待 interactionState flow 将问题传播到 pendingQuestions
         // 并渲染 QuestionCard。
-        // QuestionCard 渲染 R.string.chat_question_label = "Question"
+        // 2026-08-18 更新（#149）：卡片标题 2026-08-17 改版——
+        // R.string.chat_question_label("Question") → R.string.question_awaiting_reply
+        //（"Awaiting your reply"，M3 原生化标题栏）
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            composeRule.onAllNodesWithText("Question")
+            composeRule.onAllNodesWithText("Awaiting your reply")
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        composeRule.onNodeWithText("Question").assertIsDisplayed()
+        composeRule.onNodeWithText("Awaiting your reply").assertIsDisplayed()
 
         // 问题文本也应当可见（QuestionCard 中 summary Text 与输入框可能各含一次该文本，用 onAllNodes 兼容）
         composeRule.onAllNodesWithText("Which framework?", substring = true).onFirst().assertIsDisplayed()

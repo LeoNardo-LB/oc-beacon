@@ -60,6 +60,7 @@ import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.Clipboard
@@ -669,6 +670,10 @@ fun ChatMessageList(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize()
+                        // #149：唯一 testTag——ChatScreen 树中有 2 个 scrollable 节点
+                        //（消息列表 + 底部输入栏），androidTest 的 hasScrollAction()
+                        // 匹配多节点导致 touch 注入失败
+                        .testTag("chat-message-list")
                         .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) }
                         .onGloballyPositioned { coords ->
                             listTopY = coords.positionInWindow().y

@@ -68,6 +68,9 @@ fun FileTreePanel(
             FilterChip(
                 selected = uiState.showIgnored,
                 onClick = onToggleShowIgnored,
+                // #149：testTag 供 androidTest 唯一定位（文案随 locale 变化，
+                // onNodeWithText 中文断言在 en 测试环境匹配 0 节点 → 注入失败）
+                modifier = Modifier.testTag("file_tree_show_ignored"),
                 label = { Text(stringResource(R.string.workspace_show_ignored)) },
                 leadingIcon = { Icon(Icons.Filled.Visibility, contentDescription = null) }
             )

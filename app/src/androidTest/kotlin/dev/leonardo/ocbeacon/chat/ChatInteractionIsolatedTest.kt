@@ -1,6 +1,6 @@
 package dev.leonardo.ocbeacon.chat
 
-import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performTouchInput
@@ -179,7 +179,9 @@ class ChatInteractionIsolatedTest : BaseChatTest() {
         // 滑动以从底部滚离（reverseLayout：swipeDown 向上滚动）。
         // 用 onNode(hasScrollAction()) + 默认 swipeDown()（与 ChatScrollStabilityTest 一致）；
         // 3 次确保越过 isAtBottom 阈值（firstVisibleItemIndex==0 && scrollOffset<100）。
-        composeRule.onNode(hasScrollAction()).performTouchInput {
+        // 2026-08-18（#149）：hasScrollAction 匹配 2 节点（消息列表+底部栏）
+        // 导致注入失败——改用唯一 testTag（与 ChatScrollStabilityTest 同修）
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput {
             repeat(3) { swipeDown() }
         }
         composeRule.waitForIdle()

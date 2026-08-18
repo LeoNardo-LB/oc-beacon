@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.chat
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -143,8 +144,8 @@ class ChatScrollStabilityTest : BaseChatTest() {
         // 在顶部。swipeDown（手指从上到下）将内容向下拖动，揭示视觉上
         // 位于上方的条目 —— 即更早的消息。
         // 两次滑动确保在长列表中滚动到最早的条目。
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput { swipeDown() }
         composeRule.waitForIdle()
 
         // 验证一条较早的消息现已可见（确认我们滚动成功）
@@ -185,8 +186,8 @@ class ChatScrollStabilityTest : BaseChatTest() {
         renderChatScreen()
 
         // 向更早的消息方向滚动（reverseLayout 中的 swipeDown，见测试 2）
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput { swipeDown() }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Earlier question 0", substring = true).assertIsDisplayed()
 
@@ -288,8 +289,8 @@ class ChatScrollStabilityTest : BaseChatTest() {
         renderChatScreen()
 
         // 向更早的消息方向滚动（reverseLayout 中的 swipeDown，见测试 2）
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput { swipeDown() }
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Background question 0", substring = true).assertIsDisplayed()
 
@@ -374,8 +375,8 @@ class ChatScrollStabilityTest : BaseChatTest() {
         renderChatScreen()
 
         // 向更早的消息方向滚动（reverseLayout 中的 swipeDown，见测试 2）
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
-        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("chat-message-list").performTouchInput { swipeDown() }
         composeRule.waitForIdle()
 
         // 验证我们已滚动到能看到较早内容
