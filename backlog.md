@@ -58,11 +58,12 @@
   - 附带：✕ 删除的文本"退回输入框"现象（子代理观察，与删除语义冲突）；待答卡选中态进程被杀后不恢复（同 E2E-C 家族）
   - 另：多选选中行明度 Δ15.9 微超阈值 0.9 + 单/多选选中色不一致（(217,226,255) 蓝 vs (208,210,223) 灰紫）——待查渲染源，P2 顺带修
 
-- [~] **E2E-G [P1→诊断完成] 待答卡 + BACK → 全屏空白（fade 过渡卡 alpha≈0）** `ui` `session`
+- [x] **E2E-G [P1→已修复] 待答卡 + BACK → 全屏空白（根因：FSM Busy↔Idle 抖动机）** `ui` `session`
   - **2026-08-18 诊断完成（子代理取证 + 因果链证伪）**：原报"主输入框打字→空白"归因错误——tap/打字是旁观者（disabled 实现正确，5 状态 uiautomator 均 false；E2E 的 input text 实际落入卡内自定义输入框）
   - 真因果链：pending 卡 → SSE 静默 → 40s 超时重连周期 → 僵尸判定 ≥3min 进入 **Busy↔Idle 抖动循环**（SessionStateService.kt:535-550：pending 走 skip zombie interrupt 但 :550 仍强转 Idle，10s 后 :150 校验又复活 Busy）→ **BACK 落在 status 翻转 1-2s 窗口** → onCleared 清数据+重连回填重灌 + pop 过渡（NavGraph.kt:225 fade tween）竞态 → 目的地卡 alpha≈0 → 全屏空白（顶栏底栏全失，进程活无 crash；再 BACK 或重启恢复）
   - 排除：无限测量死循环（主线程响应+a11y 可查）/ OOM（RSS 405MB 稳定）/ disabled 失效
-  - 修复方向：H-B（抖动机）：SessionStateService pending 分支不强转 Idle 或去抖；H-A（过渡竞态）：pop 过渡完成后才 release 数据。最小复现配方见诊断报告（/tmp/diagg/）
+  - **2026-08-18 修复验证通过（7bfc2d0c）**：pending/子会话路径保持 FSM Busy 跟随服务器（消除抖动机）。E2E 实证：等待窗口 137 次 "keep Busy (waiting)" 零翻转（原版此窗口每 10s 抖）；原 bug 场景（pending+周期中 BACK）3/3 无空白；正常提交不受影响（Busy(streaming)→Idle 自然转换）；FATAL=0（/tmp/e2e20/）
+  - H-A（NavGraph fade 与 onCleared 时序竞态）随抖动机消除后无实际触发路径，降级为理论性防御优化——若未来再出现状态突变+BACK 组合空白，再动 NavGraph.kt:225
 
 - [ ] **SSE 长时间无事件不自动重连（8 分钟+）** `sse`
   - 现象（E2E 顺带观察）：SSE 流停滞 8 分钟+ 无自动重连，仅靠 REST 校验兜底
