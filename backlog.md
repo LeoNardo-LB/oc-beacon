@@ -88,6 +88,19 @@
   - **2026-08-18 终版修复（137c8c7a）终验全 PASS**：三次迭代定位正确抽象层级——rememberSaveable List 静默不存（从未生效）→ JSON saveable（recreate 假阳性）→ VM 缓存（9f66bacd 终验双 FAIL：hiltViewModel 作用域=NavBackStackEntry，pop 销毁/recreate 重建，宿主活不过去）→ **QuestionAnswerStore @Singleton 应用级单例**（同 SessionScrollSignal 模式）。终验：向量 1（pop×2）/向量 2（recreate×2）全保留（像素 tint 判定）；消费清理后新卡从空开始；最强交叉验证——pop/recreate 存活后的终态直接提交 answers=[[Apple,Banana,Mango]] 全量送达（/tmp/e2e23/）
   - 勘误：REST 轮询周期 30s（QUESTION_POLL_INTERVAL_MS）；50a055ba 的"向量2实证有效"为假阳性（重进组合非真实 recreate）
 
+- [x] **单选保存自定义后再选其他选项，自定义仍恒勾选（用户反馈 2026-08-18 晚，已修复）** `ui`
+  - 用户场景：单选 + 自定义输入保存（勾选态）→ 再选别的选项 → 自定义"还是处于勾选状态"；期望**保留内容，但取消勾选**
+  - 根因：answersPerQuestion 扁平 List<String>「存在即勾选」——"内容保留"与"勾选状态"没有分离表达；且旧行为单选双勾选会提交双答案（载荷语义错误）
+  - 修复（三态模型：勾选 / parked 保留未勾选 / 不存在）：每题拆 **selected（提交载荷）+ parkedCustom（保留未勾选）** 两槽位
+    - 单选点选项：已勾选自定义 → 取消勾选入 parked（内容保留；✕ 才彻底删除）
+    - 单选勾选自定义：选项槽位让位（选项行仍可见可再选，真·互斥，载荷恒 ≤1）
+    - 重按已勾选自定义行 = 取消勾选入 parked；parked 行点击 = 重新勾选；多选取消勾选同样入 parked
+    - ✕ = 彻底删除回空输入框（不再走 toggle）
+    - UI：新增 ParkedCustomRow（弱化文字 + ✕，行点击重勾选）；已勾选行整行可点击（tap-toggle 与选项行同语言）
+    - 持久化：QuestionAnswersSnapshot（answers + parkedCustoms）贯通 QuestionAnswerStore 与 saveable JSON
+  - 验证 ✅：单测 14/14（CustomAnswerToggleFlowTest 重写覆盖三态矩阵）；E2E 六断言全 PASS（/tmp/e2e-parked/，dump+像素+logcat 三维交叉）：保存勾选(accent 80,100,151) → 点 Red 后 Mango parked(弱灰 99,100,105，与未选项 50,51,56 可区分) → parked 重勾选+Red 让位(互斥) → 提交载荷 [["Red"]] 不含 parked → ✕ 删除回输入框(dump 无节点) → BACK 重进 parked+勾选双保留(store 恢复)；三问载荷 [[Red]]/[[Banana]]/[[Blue]] 全部正确
+  - 附带：E2E-H 的"自定义行点击无法勾选"疑点已消除——行现在整行可点击（勾选⇄取消勾选）
+
 - [ ] **E2E-E 多问题 pager 固定高度裁剪输入框底边** `ui`
   - 现象（2026-08-17 第五版 E2E 发现）：双行问题文本时页内容 642px > pager 插值高度 630px，自定义输入框底边被裁 12px（135px vs 正常 147px）
   - 根因方向：QuestionPagerView 高度线性插值按 onGloballyPositioned 记录的页高计算，键盘态/裁剪态测量偏小或 pageSpacing 未计入
