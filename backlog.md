@@ -958,9 +958,10 @@ efactor
   - 工时：~0.5h | 难度：低 | 涉及：ChatRepositoryImpl
   - 来源：2026-08-13 全局 Singleton keyed 状态扫描（#89 附属）
 
-- [ ] **#91 listMessages 冗余调用 + V2 分页游标 400（#87 复验附注）——2026-08-18 仍在重现** `data` `performance`
+- [~] **#91 listMessages 冗余调用 + V2 分页游标 400——2026-08-18 主体修复（去重 fcbffbb6 + 心跳 00fbdda3 组合），残留串行对 P3** `data` `performance`
   - 问题：2026-08-13 #87 模拟器复验发现——打开会话后 2 秒内 listMessages 冗余调用 ~7 次；V2 分页 `before=eyJp...` 游标返回 400 Bad Request 后回退重头拉取。不崩溃但浪费网络（长会话/慢网络下明显）
-  - **2026-08-18 模拟器重现（加重）**：进入 501 条会话瞬间 22ms 内 `message?limit=50&cursor=…direction=next` **8 次重复请求**（两 cursor 交替循环）；进 E2E-C 会话 145ms 内 form/request ×2（loadPendingQuestions 双调用）。频率比 08-13 记录更高
+  - **2026-08-18 模拟器重现（加重）→ 主体修复**：进入 501 条会话 22ms 内 8 次重复（同 cursor 精确成对）/ 20s 内 30 次。归因：多链并发（初始加载 + SSE 重连 backfill + L3 校验）+ 40s 断连循环持续触发 recover。**修复组合**：① 心跳修复（00fbdda3）消除空闲断连循环 → recover 触发从每 40s 降至仅会话进入一次；② 在途去重（fcbffbb6，SessionRepositoryImpl 同参并发共享单一请求 + 3 单测）消除真并发重复。修后：仅进入时一次 burst（~29 次/1.2s）其后 18s+ 零请求
+  - **残留（P3）**：相邻串行对（首请求完成后 31ms 跟随者再发同参——去重窗口已关的边缘竞态，burst 内 ~10 对）；根治需上游三链协调（backfill/L3/初始加载），涉 SSE 状态链风险高暂缓；form/request 双调用同族待顺带
   - 关联：可能与本条目 #73（V2 cursor 格式 {"id","order","direction"} vs 本地 CursorCodec {"id","time"}）同源——需先核对游标编解码
   - 工时：~1-2h | 难度：中 | 涉及：V1ApiClient/V2ApiClient.listMessages、分页管线
   - 来源：2026-08-13 综合验收（#87 复验附注）
