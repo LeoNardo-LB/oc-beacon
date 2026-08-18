@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -38,7 +39,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 /**
  * 压缩完成卡片（2026-08-15）：
  * - 收起态：居中分割线 + 「上下文已压缩」+ 展开箭头（轻量，不占视觉重量）
- * - 展开态：分割线下方展示无边框轻量卡片（透明背景 + 细边框，与
+ * - 展开态：分割线下方展示共享基础容器卡片（EmbeddedCardContainer，与
  *   SyntheticNotificationCard 一致的视觉语言）内含摘要全文（Markdown 源文本
  *   等宽呈现，保持服务器原始格式）+ 收起箭头
  *
@@ -96,15 +97,9 @@ internal fun CompactionCard(summary: String?) {
             )
         }
 
-        // 展开态：无边框轻量卡片（透明背景 + 细边框，同 synthetic 通知卡片）
+        // 展开态：2026-08-18 容器统一——透明+outline 边框 → 共享容器
         AnimatedVisibility(visible = expanded && canExpand) {
-            Surface(
-                color = androidx.compose.ui.graphics.Color.Transparent,
-                border = BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = AlphaTokens.MEDIUM)
-                ),
-                shape = ShapeTokens.medium,
+            EmbeddedCardContainer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = SpacingTokens.XL.dp, vertical = SpacingTokens.XS.dp)

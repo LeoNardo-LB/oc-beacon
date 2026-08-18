@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 
@@ -32,11 +33,8 @@ fun TokenUsageCard(
     totalCost: Double,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = ShapeTokens.small,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = modifier.fillMaxWidth()
-    ) {
+    // 2026-08-18 容器统一：small(8) 无边框 → 共享容器（medium + 1dp 边框）
+    EmbeddedCardContainer(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
