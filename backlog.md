@@ -58,6 +58,17 @@
   - 附带：✕ 删除的文本"退回输入框"现象（子代理观察，与删除语义冲突）；待答卡选中态进程被杀后不恢复（同 E2E-C 家族）
   - 另：多选选中行明度 Δ15.9 微超阈值 0.9 + 单/多选选中色不一致（(217,226,255) 蓝 vs (208,210,223) 灰紫）——待查渲染源，P2 顺带修
 
+- [ ] **E2E-G [P1] 待答提问卡存在时，主输入框打字 → 全屏空白** `ui` `crash`
+  - 现象（2026-08-18 容器验证中 E2E 发现，复现 3 次）：有 pending 提问卡时，tap 主聊天输入框 + input text → 整个 UI 渲染空白（进程存活、无 crash/ANR、无 FATAL）；恢复需 back + 重启 Activity。无待答卡时打字正常；卡内 inline 输入正常
+  - 复现组合：11:52 MULTI 待答、12:20/12:23 SINGLE 待答——与卡类型无关，与"主输入框获得焦点/输入"相关
+  - 混淆因子：每次发生时 SSE 流恰也停滞 7-13 分钟（"no SSE events for 466889ms; pending user input -> skip zombie interrupt"日志）——两因素未隔离，待专测
+  - 疑点方向：① ChatScreen 在 pendingQuestion + 输入焦点组合下的重组异常（无限重组/OOM 前兆？）② pending 状态下主输入框本应 disabled（此前 E2E 曾观察到 disabled），为何还能获得焦点——disabled 状态与实际不一致 ③ SSE 停滞 + pending 的组合路径
+  - 证据：/tmp/e2e18/i6_bash_typed.png（空白屏）；dropbox 无新 crash
+
+- [ ] **SSE 长时间无事件不自动重连（8 分钟+）** `sse`
+  - 现象（E2E 顺带观察）：SSE 流停滞 8 分钟+ 无自动重连，仅靠 REST 校验兜底
+  - 优先级：P2
+
 - [ ] **E2E-C 导航往返丢提问卡已选答案/自定义草稿** `ui` `sse`
   - 现象：聊天页返回会话列表再进入，卡内已选答案重置（rememberSaveable 未在该导航路径生效）
   - 2026-08-18 双输入框验证中第三次独立复现：误按 BACK 退列表重进，未 Submit 的自定义草稿（Mango pie 行）消失（服务端卡仍 pending）——非单一测试现场特例
