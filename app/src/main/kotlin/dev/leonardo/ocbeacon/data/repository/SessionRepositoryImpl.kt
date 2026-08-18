@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.io.OutputStream
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import dev.leonardo.ocbeacon.util.runCatchingCancellable
@@ -35,6 +36,53 @@ class SessionRepositoryImpl @Inject constructor(
     private val eventDispatcher: EventDispatcher,
     private val serverRepo: ServerDataStore,
 ) : SessionRepository {
+
+    // ============ listMessages 在途去重（#91，2026-08-18） ============
+    // 会话进入瞬间多链并发拉同一窗口（初始加载 / SSE 重连 backfill / reconcile /
+    // L3 校验），实测同 (sessionId, cursor) 精确重复请求成对出现（22ms 内 8 次、
+    // 20s 内 30 次）。GET 幂等——相同参数的并发调用共享同一在途结果，完成后
+    // 立即移除（不缓存：消息流是活数据，缓存会引入陈旧窗口）。
+    private val inFlightListMessages =
+        ConcurrentHashMap<String, kotlinx.coroutines.CompletableDeferred<Result<MessagePage>>>()
+
+    private suspend fun listMessagesDeduped(
+        serverId: String,
+        sessionId: String,
+        limit: Int,
+        before: String?,
+    ): Result<MessagePage> {
+        val key = "$serverId|$sessionId|$limit|" + (before ?: "-")
+        while (true) {
+            val existing = inFlightListMessages[key]
+            if (existing != null) return existing.await()
+            val deferred = kotlinx.coroutines.CompletableDeferred<Result<MessagePage>>()
+            val winner = inFlightListMessages.putIfAbsent(key, deferred)
+            if (winner != null) return winner.await()
+            try {
+                val result = listMessagesDirect(serverId, sessionId, limit, before)
+                deferred.complete(result)
+                return result
+            } catch (t: Throwable) {
+                deferred.completeExceptionally(t)
+                throw t
+            } finally {
+                inFlightListMessages.remove(key, deferred)
+            }
+        }
+    }
+
+    private suspend fun listMessagesDirect(
+        serverId: String,
+        sessionId: String,
+        limit: Int,
+        before: String?,
+    ): Result<MessagePage> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages REQUEST server=$serverId sid=${sessionId.take(12)} limit=$limit before=${before?.take(16)}")
+        messageApi.listMessages(conn, sessionId, limit, before).also {
+            if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages RESPONSE server=$serverId sid=${sessionId.take(12)} msgs=${it.messages.size} (limit=$limit)")
+        }
+    }
 
     // ============ 状态观察 ============
 
@@ -211,13 +259,7 @@ class SessionRepositoryImpl @Inject constructor(
         sessionId: String,
         limit: Int,
         before: String?,
-    ): Result<MessagePage> = runCatchingCancellable {
-        val conn = resolveConnection(serverId)
-        if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages REQUEST server=$serverId sid=${sessionId.take(12)} limit=$limit before=${before?.take(16)}")
-        messageApi.listMessages(conn, sessionId, limit, before).also {
-            if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages RESPONSE server=$serverId sid=${sessionId.take(12)} msgs=${it.messages.size} (limit=$limit)")
-        }
-    }
+    ): Result<MessagePage> = listMessagesDeduped(serverId, sessionId, limit, before)
 
     override suspend fun getMessage(
         serverId: String,
