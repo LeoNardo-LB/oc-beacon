@@ -137,7 +137,13 @@ class MessageStore @Inject constructor(
                                 sessionId = sessionId,
                                 type = p.typeName(),
                                 text = (p as? Part.Text)?.text,
-                                payload = json.encodeToString(p),
+                                // #79 P0（2026-08-18）：tool part 落库截断——
+                                // 工具返回值占 DB 97%（12.4MB/28MB 实测），本地只存
+                                // 500 字符预览；内存渲染不受影响（消息在内存时完整），
+                                // 服务器保留全量可重拉。非 tool part 原样。
+                                payload = if (p is Part.Tool) {
+                                    ToolOutputTruncator.truncateIfNeeded(json.encodeToString(p))
+                                } else json.encodeToString(p),
                             )
                         }
                     },
