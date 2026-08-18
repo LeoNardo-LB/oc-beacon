@@ -192,7 +192,8 @@ class SessionStateServiceTest {
     fun `triggerRestValidation zombie Busy with pending user input skips interrupt`() {
         // 2026-08-14 走查修复（误杀防护）：pending question/permission 时服务器在合法
         // 等待用户输入（无 SSE 事件属正常，非僵尸）——不得 interrupt（会杀掉等待中的
-        // 提问/权限对话框），但本地仍强制 Idle（转圈停，卡片可继续回答）。
+        // 提问/权限对话框）。2026-08-18 E2E-G 修复：也不再强转 Idle——服务器 running
+        // 是真实状态（等待输入），FSM 保持 Busy 跟随，消除 Busy↔Idle 10s 抖动循环。
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
         coEvery { fakeRepo.abort(any(), any(), any()) } returns Result.success(Unit)
@@ -211,8 +212,9 @@ class SessionStateServiceTest {
         ))
         service.triggerRestValidation("s1")
         testScope.runCurrent()
-        // 本地仍强制 Idle（UI 转圈停；问题卡片由独立状态管理，可继续回答）
-        assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
+        // 2026-08-18 E2E-G 修复后：保持 Busy 跟随服务器（等待用户输入是真实 running
+        // 状态；原强转 Idle 会与 active-running 校验抖动，且与 BACK fade 过渡竞态致空白屏）
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])
         // 关键断言：不得 interrupt（等待用户输入的会话不是僵尸）
         coVerify(exactly = 0) { fakeRepo.abort(any(), any(), any()) }
     }
