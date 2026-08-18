@@ -352,7 +352,7 @@
   - 来源：F §P1-1 / A 环节 E（补丁判定）
   - **2026-08-10 完成（待真机验证）**：ScrollCompensation.kt 初始化一次性探测 3 个反射成员（失败永久降级）+ 调用 try-catch 防御（catch Throwable 降级官方 requestScrollToItem）+ 注释标明 Compose BOM 2026.05.01 与字段名；ChatMessageList.kt 3 处调用点均经封装无需改（SSE 滚动铁律零接触）；模拟器程序化滚动/补偿正常无崩溃
 
-- [ ] **#79 本地存储精简：工具返回值截断（占用降 90%+）** `data` `refactor` `storage`
+- [~] **#79 本地存储精简：工具返回值截断——P0 已完成 e7ca830f（P1/P2 待做）** `data` `refactor` `storage`
   - 需求：2026-08-12 用户系统性评估——会话全量信息本地保存是否合理。实测多会话数据库 28MB，其中 **tool parts（工具返回值）占 12.4MB（97%）**：shell 输出 5.1MB / read 2.6MB / websearch 1.1MB / edit 1.1MB / grep 667KB / webfetch 627KB；消息元数据仅 1.18MB + text 239KB（对话本体很小，纯文本合理）
   - 方案（已系统性分析，按优先级）：
     - **P0**：Room 写入时截断 tool part 的 state（返回值）——只存前 200~500 字符预览 + 总长度标记；展开时调 `getMessage(messageId)`（API 已有 V2ApiClient:409）按需拉全量。**只影响本地落库**，内存渲染不受影响（消息在内存时工具卡片完整可展开）
@@ -360,6 +360,7 @@
     - **P2**：synthetic 通知不落库或保留最近 N 条；subagent 内容不落库（点击进入时加载）
   - 权衡：离线恢复时工具卡片显示摘要无法展开全量（可接受）；服务器始终保留全量可重拉
   - 工时：P0 ~0.5d | 难度：中 | 涉及：MessageStore.upsertParts + 工具卡片展开按需加载
+  - **2026-08-18 P0 完成（e7ca830f）**：ToolOutputTruncator——落库前 tool part payload JSON 层重写 state.output（500 字符预览+截断标记；其余字段原样；解析失败原样返回）。E2E 实证：bash 500 行 40KB 输出 → DB payload 965 字节（~98% 降），内存渲染完整（UI 显示执行摘要+输出行不受影响）；单测 5/5 + 全量绿。⚠️ 展开按需拉全量（getMessage）未做——离线恢复时工具卡片仅摘要（权衡已获用户接受）
   - 与 #80（快速导航全量列表）不冲突——列表基于 role=user 元数据，不受 parts 截断影响
 
 - [ ] **#81 度量/风格/边距统一提取为 token 主题系统** `refactor` `ui`
