@@ -366,6 +366,16 @@
   - **2026-08-19 P0 离线观感代验收 ✅**：飞行模式 + force-stop 重启（pid 变更实证）→ Room 缓存渲染会话列表/消息正常 → 「批量输出命令执行」会话（500 行 bash 输出源数据）工具卡片以摘要形态渲染：折叠态 = 命令头 `$ for I in $(seq 1 500)...` + 完成状态行 `完成 · Line 1: 这是一行测试输出 lorem ipsum dolor si...`（预览首行）+ 展开箭头；无乱码/无空白卡/无崩溃（FATAL=0）。观感符合「摘要可读、完整输出在服务器」的产品预期（证据 /tmp/verify-acceptance/p3_01~p3_05）。P1/P2 仍待做，条目保持 [~]
   - 与 #80（快速导航全量列表）不冲突——列表基于 role=user 元数据，不受 parts 截断影响
 
+- [x] **新会话默认模型（方案 A·本地默认，2026-08-16 实现 658abb11；2026-08-19 模拟器 E2E 代验收 ✅）** `model` `feature`
+  - 需求：用户 2026-08-16 提出——新会话可设置默认模型，免去每次手动切换
+  - 实现（658abb11，当日即时实现未走 backlog，本条目补登）：
+    - 存储：SettingsDataStore 按 serverId 存 `server_default_model_<id>` = "pid|mid"（🟠 V2 config 只读硬约束 → 本地存，代价=换设备丢失，代码注释标记）
+    - 解析链：显式选择 > 会话最后模型 > **本地默认** > provider default（ModelConfigDelegate combine 第 13 源——状态非源不触发重算的前车之鉴）
+    - UI：ModelPicker 每行星标（content-desc "默认模型"）设置/取消；整行点击仍选模型（职责分离）；i18n 15 语言
+    - 传输：发送时 sendMessage → switchModel（POST /api/session/{id}/model 嵌套契约，2026-08-14 实证 204 端点）→ prompt
+  - **2026-08-19 模拟器 E2E 全链路验证 ✅（证据 /tmp/verify-dm/）**：新会话#1 pill=GLM-5.3（无默认时 provider default）→ picker 星标 DeepSeek V4 Flash Free → DataStore 字节实证 `opencode|deepseek-v4-flash-free` + 星标 filled → **新会话#2（全新无历史）pill 立即显示 Build·DeepSeek V4 Flash Free（uidump 铁证）**→ 发消息 logcat `[model] POST .../model providerID=opencode modelID=deepseek-v4-flash-free` → **服务器 assistant 回复 model={"id":"deepseek-v4-flash-free"}**（模型真实切换非仅 UI）→ 取消星标 DataStore CLEARED + 测试会话已删。注意：与 agent 切换（beta-17595 body agents 被忽略，见 2026-08-19 兼容发现）不同，模型切换走独立端点可靠
+  - 已知限制（设计内）：variants 不参与默认（保持简单）；换设备丢失（本地存储）
+
 - [ ] **#81 度量/风格/边距统一提取为 token 主题系统** `refactor` `ui`
   - 需求：2026-08-12 用户提出——将度量参数（如模型列表单行 item 高度 40dp）、风格、边距等样式统一提取为 token/主题系统
   - 现状：已有 SpacingTokens/ShapeTokens/AlphaTokens/ButtonTokens（ui/theme/），但部分组件仍硬编码数值（如 ModelPickerDialog 的 heightIn(min=40.dp)、padding 12/8dp 等散落各处）
