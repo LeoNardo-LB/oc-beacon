@@ -332,6 +332,12 @@ class SseReadTimeoutTracker(
 
     /** 进入冷却模式。 */
     fun enterCooldown() {
+        // 2026-08-18 修复（SSE 冷却永续循环）：进入冷却时清零连续计数——
+        // 否则冷却到期后第一个 0 事件连接/超时（consecutiveTimeouts 仍 ≥ 阈值）
+        // 立即再次 enterCooldown，形成「5min 冷却 → 40s 尝试 → 5min 冷却」
+        // 永续循环（beta-17595 无心跳服务器实测：冷却后 SSE 仅 ~12% 时间在线）。
+        // 冷却期本身就是 5 次连续失败的代价，付清后应重新计数。
+        consecutiveTimeouts = 0
         cooldownUntilMs = System.currentTimeMillis() + cooldownDurationMs
     }
 

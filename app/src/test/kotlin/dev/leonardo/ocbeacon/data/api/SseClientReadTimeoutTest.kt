@@ -109,6 +109,19 @@ class SseClientReadTimeoutTest {
     }
 
     @Test
+    fun `tracker enterCooldown resets consecutive timeout count`() {
+        // 2026-08-18 回归（SSE 冷却永续循环）：冷却到期后首个超时不得立即
+        // 再进冷却——enterCooldown 必须清零连续计数（代价付清重新计数）。
+        val tracker = SseReadTimeoutTracker(maxConsecutiveTimeouts = 3, cooldownDurationMs = 60_000L)
+        repeat(3) { tracker.recordTimeout() }
+        assertTrue(tracker.shouldEnterCooldown())
+        tracker.enterCooldown()
+        // 冷却后：一次超时不应再触发冷却（需要重新累积到阈值）
+        tracker.recordTimeout()
+        assertTrue(!tracker.shouldEnterCooldown())
+    }
+
+    @Test
     fun `tracker reset clears cooldown and timeouts`() {
         val tracker = SseReadTimeoutTracker(maxConsecutiveTimeouts = 5, cooldownDurationMs = 300_000L)
         tracker.recordTimeout()

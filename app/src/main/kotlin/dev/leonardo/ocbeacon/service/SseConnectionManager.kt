@@ -332,8 +332,11 @@ class SseConnectionManager @Inject constructor(
                     AppLogger.w(TAG, "[${server.displayName}] SSE stream completed")
                     updateServerConnected(server.id, false)
                     if (tracker.shouldEnterCooldown()) {
+                        // 2026-08-18：先读计数再 enterCooldown（其内部清零计数——
+                        // 冷却代价付清后重新累积，防「5min 冷却→1 次超时→再冷却」永续）
+                        val timeouts = tracker.consecutiveTimeouts
                         tracker.enterCooldown()
-                        AppLogger.w(TAG, "[${server.displayName}] Entering SSE cooldown after ${tracker.consecutiveTimeouts} consecutive timeouts")
+                        AppLogger.w(TAG, "[${server.displayName}] Entering SSE cooldown after $timeouts consecutive timeouts")
                     } else {
                         tracker.recordTimeout()
                     }
@@ -344,8 +347,9 @@ class SseConnectionManager @Inject constructor(
                     AppLogger.e(TAG, "[${server.displayName}] SSE connection failed: ${e.message}")
                     updateServerConnected(server.id, false)
                     if (tracker.shouldEnterCooldown()) {
+                        val timeouts = tracker.consecutiveTimeouts
                         tracker.enterCooldown()
-                        AppLogger.w(TAG, "[${server.displayName}] Entering SSE cooldown after ${tracker.consecutiveTimeouts} consecutive timeouts")
+                        AppLogger.w(TAG, "[${server.displayName}] Entering SSE cooldown after $timeouts consecutive timeouts")
                     } else {
                         tracker.recordTimeout()
                     }
