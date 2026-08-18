@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Surface
@@ -51,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -230,6 +233,26 @@ internal fun QuestionCompactTabs(
     }
 }
 
+/** 页内容高度上限占屏比（2026-08-18 E2E-E）——超出部分页内滚动补足可达性。 */
+private const val QUESTION_PAGE_MAX_HEIGHT_FRACTION = 0.4f
+
+/**
+ * 页高插值 + 上限截断（2026-08-18 E2E-E）：两页高度先各自按 [maxHeightPx]
+ * 截断，再按 [progress] 线性插值。fromHeight 为 0（未测量）时返回 0
+ * （调用方保持 wrap 不塌陷）。超高页截断后卡片高度恒定于上限，不撑爆视口。
+ */
+internal fun lerpCappedPageHeight(
+    fromHeight: Int,
+    targetHeight: Int,
+    progress: Float,
+    maxHeightPx: Int,
+): Int {
+    val h1 = fromHeight.coerceIn(0, maxHeightPx)
+    val h2 = targetHeight.coerceIn(0, maxHeightPx)
+    if (h1 == 0) return 0
+    return (h1 + (h2 - h1) * progress.coerceIn(0f, 1f)).roundToInt()
+}
+
 /**
  * 统一的问题展示：TabRow + HorizontalPager + Checkbox/RadioButton。
  * QuestionCard（交互式）和问题历史（只读）共用。
@@ -256,9 +279,21 @@ internal fun QuestionPagerView(
     // 页内 remember 会丢失草稿；提升后翻回时草稿保留
     val customDrafts = remember { mutableStateMapOf<Int, String>() }
 
+    // 2026-08-18 E2E-E 修复：页内容限高 + 页内垂直滚动——
+    // 超高页（6+ 选项 + 自定义输入）此前在消息流中整体不可达（卡片高于视口时
+    // reverseLayout 锚定 + 自动回底使下部选项/输入框任何手势都滚不进视口，
+    // E2E 实证 6 选项只见 3 + 输入框不可达）。限高后页内滚动补足可达性；
+    // 历史只读视图共用本组件自动受益。比例取屏高 40%（M3 对话场景折中）。
+    val maxPageHeight = (LocalConfiguration.current.screenHeightDp * QUESTION_PAGE_MAX_HEIGHT_FRACTION).dp
+
     if (questions.size <= 1) {
         questions.firstOrNull()?.let { q ->
-            Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = maxPageHeight)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+            ) {
                 if (showMetaRow) QuestionTypeLabel(isMultiple = q.multiple)
                 QuestionOptionRows(
                     question = q,
@@ -280,7 +315,9 @@ internal fun QuestionPagerView(
         }
         // 2026-08-14：高度随切换进度线性插值（一元一次方程）——
         // h = h_当前页 + (h_目标页 − h_当前页) × |滑动进度|
-        // 各页内容高度由 onGloballyPositioned 记录（含预组合相邻页）
+        // 各页内容高度由 onGloballyPositioned 记录（含预组合相邻页）。
+        // 2026-08-18 E2E-E：插值前按页高上限截断（超高页不撑爆卡片）
+        val maxPageHeightPx = with(density) { maxPageHeight.toPx() }.roundToInt()
         val pageHeights = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<Int, Int>() }
         val interpolatedHeightPx by androidx.compose.runtime.remember {
             androidx.compose.runtime.derivedStateOf {
@@ -290,7 +327,7 @@ internal fun QuestionPagerView(
                 val h1 = pageHeights[from] ?: 0
                 val target = if (offset > 0f) from + 1 else from - 1
                 val h2 = pageHeights[target] ?: h1
-                if (h1 == 0) 0 else (h1 + (h2 - h1) * progress).roundToInt()
+                lerpCappedPageHeight(h1, h2, progress, maxPageHeightPx)
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
@@ -323,26 +360,37 @@ internal fun QuestionPagerView(
             ) { page ->
                 val pageOffset = ((state.currentPage - page) + state.currentPageOffsetFraction).absoluteValue
                 Box(modifier = Modifier
-                    .onGloballyPositioned { coords ->
-                        val h = coords.size.height
-                        if (pageHeights[page] != h) pageHeights[page] = h
-                    }
+                    // 2026-08-18 E2E-E：页限高 + 页内滚动（滚动状态随页 composition——
+                    // beyondViewportPageCount 销毁远页时滚动位置重置，可接受：
+                    // 翻回时从顶部重看，选项草稿已由 customDrafts 提升#126 保护）
+                    .heightIn(max = maxPageHeight)
+                    .verticalScroll(rememberScrollState())
                     .graphicsLayer {
                         alpha = (1f - pageOffset * 0.3f).coerceIn(0.7f, 1f)
                         scaleX = 1f - pageOffset * 0.04f
                         scaleY = 1f - pageOffset * 0.04f
                     }
                 ) {
-                    QuestionOptionRows(
-                        questions[page],
-                        selectedAnswers.getOrNull(page) ?: emptySet(),
-                        parkedCustoms.getOrNull(page),
-                        readOnly,
-                        { onOptionClick?.invoke(page, it) },
-                        { onCustomDiscard(page) },
-                        customDraft = customDrafts[page] ?: "",
-                        onCustomDraftChange = { customDrafts[page] = it },
-                    )
+                    // 高度记录移至滚动内容内层——verticalScroll 内子项按无界高度
+                    // 测量，记录的是完整内容高度（防键盘态/插值过渡期"测量偏小"
+                    // 复发——E2E-E 原始 12px 裁剪根因）
+                    Column(
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            val h = coords.size.height
+                            if (pageHeights[page] != h) pageHeights[page] = h
+                        }
+                    ) {
+                        QuestionOptionRows(
+                            questions[page],
+                            selectedAnswers.getOrNull(page) ?: emptySet(),
+                            parkedCustoms.getOrNull(page),
+                            readOnly,
+                            { onOptionClick?.invoke(page, it) },
+                            { onCustomDiscard(page) },
+                            customDraft = customDrafts[page] ?: "",
+                            onCustomDraftChange = { customDrafts[page] = it },
+                        )
+                    }
                 }
             }
         }
