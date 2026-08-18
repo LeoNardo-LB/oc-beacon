@@ -84,6 +84,8 @@ internal fun MessageCardAssistant(
     pendingQuestion: SseEvent.QuestionAsked? = null,
     onQuestionSubmit: ((String, List<List<String>>) -> Unit)? = null,
     onQuestionReject: ((String) -> Unit)? = null,
+    /** E2E-C 向量1：宿主答案缓存透传（ChatViewModel.questionAnswerCache） */
+    questionAnswersCache: MutableMap<String, List<List<String>>>? = null,
 ) {
     // D2-L22：原 if(isAmoled) 两分支相同（死条件）——直接取 onSurface
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -286,7 +288,8 @@ internal fun MessageCardAssistant(
                                         },
                                         onReject = {
                                             onQuestionReject?.invoke(pendingQuestion.id)
-                                        }
+                                        },
+                                        answersCache = questionAnswersCache,
                                     )
                                 }
                             }

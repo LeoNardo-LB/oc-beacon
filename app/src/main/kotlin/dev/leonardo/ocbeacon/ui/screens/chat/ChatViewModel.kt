@@ -760,11 +760,20 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun replyToQuestion(requestId: String, answers: List<List<String>>) =
-        sessionActions.replyToQuestion(requestId, answers)
+    /** 2026-08-18 E2E-C 向量1修复：提问卡答案宿主缓存（question.id → answers）。
+     * ViewModel 存活期跨导航条目——BACK pop 销毁 saveable 作用域后重进，
+     * QuestionCard 从此恢复；提交/拒绝（答案已消费）时移除。 */
+    val questionAnswerCache = androidx.compose.runtime.mutableStateMapOf<String, List<List<String>>>()
 
-    fun rejectQuestion(requestId: String) =
+    fun replyToQuestion(requestId: String, answers: List<List<String>>) {
+        questionAnswerCache.remove(requestId)
+        sessionActions.replyToQuestion(requestId, answers)
+    }
+
+    fun rejectQuestion(requestId: String) {
+        questionAnswerCache.remove(requestId)
         sessionActions.rejectQuestion(requestId)
+    }
 
     // ============ 斜杠命令/分享/导出操作（门面 —— SessionActionsDelegate） ============
 

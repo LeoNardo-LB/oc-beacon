@@ -772,7 +772,8 @@ fun ChatMessageList(
                                 onReject = {
                                     viewModel.rejectQuestion(question.id)
                                     onForceScrollToBottom()
-                                }
+                                },
+                                answersCache = viewModel.questionAnswerCache,
                             )
                         }
                     }
@@ -892,6 +893,7 @@ fun ChatMessageList(
                                         viewModel.rejectQuestion(qId)
                                         onForceScrollToBottom()
                                     },
+                                    questionAnswersCache = viewModel.questionAnswerCache,
                                 )
                             }
                             msg.isUser -> {

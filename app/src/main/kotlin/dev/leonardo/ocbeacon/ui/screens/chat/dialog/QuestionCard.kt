@@ -60,7 +60,11 @@ internal fun QuestionCard(
     onReject: () -> Unit,
     positionLabel: String? = null,
     initiallySubmitted: Boolean = false,
-    initialAnswers: List<List<String>> = emptyList()
+    initialAnswers: List<List<String>> = emptyList(),
+    /** 2026-08-18 E2E-C 向量1修复：宿主级答案缓存（ChatViewModel.questionAnswerCache）。
+     * 跨导航条目存活——BACK pop 销毁 saveable 作用域后重进，从 cache 恢复。
+     * null（无宿主）时退回纯 saveable 行为。 */
+    answersCache: MutableMap<String, List<List<String>>>? = null,
 ) {
     val isAmoled = isAmoledTheme()
     // 注意：isSingle 仅用于"单问题场景"的整体分支（如 Submit 按钮布局）；
@@ -99,7 +103,10 @@ internal fun QuestionCard(
     }
     val answersPerQuestion = remember {
         mutableStateListOf<List<String>>().apply {
-            val restored = runCatching {
+            // 恢复优先级：宿主 cache（跨导航条目，E2E-C 向量1）> saveable JSON
+            // （recreate，向量2）> initialAnswers（历史）> 空
+            val fromCache = answersCache?.get(question.id).orEmpty()
+            val restored = if (fromCache.isNotEmpty()) fromCache else runCatching {
                 json.decodeFromString<List<List<String>>>(savedAnswersJson)
             }.getOrNull().orEmpty()
             if (restored.isNotEmpty()) {
@@ -113,9 +120,10 @@ internal fun QuestionCard(
             }
         }
     }
-    // 答案变更同步到 saveable（旋转/重建后恢复）——JSON 序列化保证可存性
+    // 答案变更双写：saveable（recreate 恢复）+ 宿主 cache（pop 后重进恢复）
     androidx.compose.runtime.SideEffect {
         savedAnswersJson = json.encodeToString(answersPerQuestion.map { it.toList() })
+        answersCache?.put(question.id, answersPerQuestion.map { it.toList() })
     }
 
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
