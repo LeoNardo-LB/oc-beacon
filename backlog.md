@@ -69,13 +69,13 @@
   - 现象（E2E 顺带观察）：SSE 流停滞 8 分钟+ 无自动重连，仅靠 REST 校验兜底
   - 优先级：P2
 
-- [~] **E2E-C 提问卡丢已选答案（向量 2 已修 / 向量 1 待决）** `ui` `sse`
+- [x] **E2E-C 提问卡丢已选答案（终版修复 137c8c7a，双向量终验全 PASS）** `ui` `sse`
   - 现象：聊天页返回会话列表再进入，卡内已选答案重置（rememberSaveable 未在该导航路径生效）
   - 2026-08-18 双输入框验证中第三次独立复现：误按 BACK 退列表重进，未 Submit 的自定义草稿（Mango pie 行）消失（服务端卡仍 pending）——非单一测试现场特例
   - 2026-08-18 输入框美化验证中第四个复现向量：font_scale 切换（1.0↔1.15/1.3，Activity recreate）同样丢——已选 Apple（像素验证 wash 消失）与已保存自定义行（"Mango grape pie" dump 不再出现）全部清空、输入框回空态；#113 的 rememberSaveable(question.id)+SideEffect 同步链（QuestionCard.kt:89-109）在配置变更路径未生效，疑 SideEffect 时序或 question.id 重建变化，待查
   - **2026-08-18 根因定位 + 向量 2 修复闭环（7f15f0c5）**：原 rememberSaveable 直接存 List<List<String>>——autoSaver canBeSaved=false **静默不保存**（#113 的"旋转恢复"从未生效）。改 JSON 字符串后：**recreate 向量已修好**（E2E 实证 font_scale 1.3 真实 recreate 后 Apple+Mango 完整保留，且 REST 替换竞争无害——挂载点稳定时不冲突）
-  - **向量 1（导航 pop）待决**：popBackStack() 全部裸调用无 saveState → 导航条目 saveable 作用域销毁，重进全丢且永久（E2E 实证：REST 替换/对象身份/竞争全部排除——id 全程稳定、空闲轮询/recreate 后 Replaced 均不丢）。修复方向：答案按 question.id 提升到 ChatViewModel（跨导航条目存活），顺带消解两挂载点（standalone/气泡内嵌）迁移风险——V1 下 SSE tool=null → 30s REST merge 填 tool 触发 standalone→embedded 换挂载点（代码级推断的第三丢失路径）
-  - 优先级：P1（向量 1）；勘误：REST 轮询周期 30s（QUESTION_POLL_INTERVAL_MS）
+  - **2026-08-18 终版修复（137c8c7a）终验全 PASS**：三次迭代定位正确抽象层级——rememberSaveable List 静默不存（从未生效）→ JSON saveable（recreate 假阳性）→ VM 缓存（9f66bacd 终验双 FAIL：hiltViewModel 作用域=NavBackStackEntry，pop 销毁/recreate 重建，宿主活不过去）→ **QuestionAnswerStore @Singleton 应用级单例**（同 SessionScrollSignal 模式）。终验：向量 1（pop×2）/向量 2（recreate×2）全保留（像素 tint 判定）；消费清理后新卡从空开始；最强交叉验证——pop/recreate 存活后的终态直接提交 answers=[[Apple,Banana,Mango]] 全量送达（/tmp/e2e23/）
+  - 勘误：REST 轮询周期 30s（QUESTION_POLL_INTERVAL_MS）；50a055ba 的"向量2实证有效"为假阳性（重进组合非真实 recreate）
 
 - [ ] **E2E-E 多问题 pager 固定高度裁剪输入框底边** `ui`
   - 现象（2026-08-17 第五版 E2E 发现）：双行问题文本时页内容 642px > pager 插值高度 630px，自定义输入框底边被裁 12px（135px vs 正常 147px）
