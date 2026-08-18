@@ -32,8 +32,8 @@ internal fun MessageCard(
     pendingQuestion: SseEvent.QuestionAsked? = null,
     onQuestionSubmit: ((String, List<List<String>>) -> Unit)? = null,
     onQuestionReject: ((String) -> Unit)? = null,
-    /** E2E-C 向量1：宿主答案缓存透传（ChatViewModel.questionAnswerCache） */
-    questionAnswersCache: MutableMap<String, List<List<String>>>? = null,
+    /** E2E-C 终版：应用级答案存储透传（QuestionAnswerStore 单例） */
+    questionAnswersCache: dev.leonardo.ocbeacon.ui.screens.chat.QuestionAnswerStore? = null,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(

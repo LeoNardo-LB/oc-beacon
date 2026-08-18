@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.components.AmoledSurface
+import dev.leonardo.ocbeacon.ui.screens.chat.QuestionAnswerStore
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
@@ -61,10 +62,10 @@ internal fun QuestionCard(
     positionLabel: String? = null,
     initiallySubmitted: Boolean = false,
     initialAnswers: List<List<String>> = emptyList(),
-    /** 2026-08-18 E2E-C 向量1修复：宿主级答案缓存（ChatViewModel.questionAnswerCache）。
-     * 跨导航条目存活——BACK pop 销毁 saveable 作用域后重进，从 cache 恢复。
-     * null（无宿主）时退回纯 saveable 行为。 */
-    answersCache: MutableMap<String, List<List<String>>>? = null,
+    /** 2026-08-18 E2E-C 修复（终版）：应用级答案存储（QuestionAnswerStore 单例）。
+     * VM 级缓存已被终验证伪（pop 销毁 entry/recreate 重建 VM 双路径宿主皆亡）；
+     * store 跨导航条目与 recreate 存活。null（无宿主）时退回纯 saveable 行为。 */
+    answersStore: QuestionAnswerStore? = null,
 ) {
     val isAmoled = isAmoledTheme()
     // 注意：isSingle 仅用于"单问题场景"的整体分支（如 Submit 按钮布局）；
@@ -103,9 +104,9 @@ internal fun QuestionCard(
     }
     val answersPerQuestion = remember {
         mutableStateListOf<List<String>>().apply {
-            // 恢复优先级：宿主 cache（跨导航条目，E2E-C 向量1）> saveable JSON
-            // （recreate，向量2）> initialAnswers（历史）> 空
-            val fromCache = answersCache?.get(question.id).orEmpty()
+            // 恢复优先级：应用级 store（跨导航/recreate，E2E-C 终版）> saveable
+            // JSON > initialAnswers（历史）> 空
+            val fromCache = answersStore?.get(question.id).orEmpty()
             val restored = if (fromCache.isNotEmpty()) fromCache else runCatching {
                 json.decodeFromString<List<List<String>>>(savedAnswersJson)
             }.getOrNull().orEmpty()
@@ -120,10 +121,10 @@ internal fun QuestionCard(
             }
         }
     }
-    // 答案变更双写：saveable（recreate 恢复）+ 宿主 cache（pop 后重进恢复）
+    // 答案变更双写：saveable（同 entry recreate）+ 应用级 store（pop/recreate 全路径）
     androidx.compose.runtime.SideEffect {
         savedAnswersJson = json.encodeToString(answersPerQuestion.map { it.toList() })
-        answersCache?.put(question.id, answersPerQuestion.map { it.toList() })
+        answersStore?.put(question.id, answersPerQuestion.map { it.toList() })
     }
 
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant

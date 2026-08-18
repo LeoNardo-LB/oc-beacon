@@ -760,18 +760,18 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    /** 2026-08-18 E2E-C 向量1修复：提问卡答案宿主缓存（question.id → answers）。
-     * ViewModel 存活期跨导航条目——BACK pop 销毁 saveable 作用域后重进，
-     * QuestionCard 从此恢复；提交/拒绝（答案已消费）时移除。 */
-    val questionAnswerCache = androidx.compose.runtime.mutableStateMapOf<String, List<List<String>>>()
+    /** 2026-08-18 E2E-C 终版：应用级答案存储（单例）——VM 级缓存被终验证伪
+     * （pop 销毁 entry/recreate 重建 VM），store 跨一切存活；消费时清理。 */
+    @javax.inject.Inject
+    lateinit var questionAnswerStore: QuestionAnswerStore
 
     fun replyToQuestion(requestId: String, answers: List<List<String>>) {
-        questionAnswerCache.remove(requestId)
+        questionAnswerStore.consume(requestId)
         sessionActions.replyToQuestion(requestId, answers)
     }
 
     fun rejectQuestion(requestId: String) {
-        questionAnswerCache.remove(requestId)
+        questionAnswerStore.consume(requestId)
         sessionActions.rejectQuestion(requestId)
     }
 

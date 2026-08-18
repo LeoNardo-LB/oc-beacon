@@ -773,7 +773,7 @@ fun ChatMessageList(
                                     viewModel.rejectQuestion(question.id)
                                     onForceScrollToBottom()
                                 },
-                                answersCache = viewModel.questionAnswerCache,
+                                answersStore = viewModel.questionAnswerStore,
                             )
                         }
                     }
@@ -893,7 +893,7 @@ fun ChatMessageList(
                                         viewModel.rejectQuestion(qId)
                                         onForceScrollToBottom()
                                     },
-                                    questionAnswersCache = viewModel.questionAnswerCache,
+                                    questionAnswersCache = viewModel.questionAnswerStore,
                                 )
                             }
                             msg.isUser -> {
