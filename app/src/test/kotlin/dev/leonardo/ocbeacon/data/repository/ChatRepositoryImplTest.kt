@@ -76,6 +76,9 @@ class ChatRepositoryImplTest {
             sessionRepoProvider = object : javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository> {
                 override fun get() = io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true)
             },
+            // #122 接线新增：自动批准（relaxed mock——既有用例不受影响）
+            permissionAutoApprover = permissionAutoApprover,
+            chatRepoProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.ChatRepository>(relaxed = true) },
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
         repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore)

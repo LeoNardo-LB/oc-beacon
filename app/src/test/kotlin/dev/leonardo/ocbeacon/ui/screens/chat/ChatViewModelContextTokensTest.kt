@@ -117,6 +117,9 @@ class ChatViewModelContextTokensTest {
             sessionRepoProvider = object : javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository> {
                 override fun get() = io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true)
             },
+            // #122 接线新增：自动批准（relaxed mock——既有用例不受影响）
+            permissionAutoApprover = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover>(relaxed = true),
+            chatRepoProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.ChatRepository>(relaxed = true) },
         )
         every { sessionStateService.statusFlow } returns testStatusFlow
         every { sessionStateService.activityFlow } returns MutableStateFlow(emptyMap())

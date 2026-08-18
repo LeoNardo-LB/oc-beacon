@@ -50,6 +50,10 @@ class EventDispatcher @Inject constructor(
     private val unreadBadgeService: UnreadBadgeService,
     private val ownershipRegistry: StreamingOwnershipRegistry,
     private val sessionRepoProvider: javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository>,
+    // #122（2026-08-18 接线）：PermissionAutoApprover 此前全库零调用——用户在设置页
+    // 保存的自动批准规则从未生效（功能失效）。接线进 PermissionAsked 分发路径。
+    private val permissionAutoApprover: PermissionAutoApprover,
+    private val chatRepoProvider: javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.ChatRepository>,
 ) {
     /**
      * 一次性 unread v2 迁移 scope：App 启动时清空旧域已读标记（readTimes/allReadAt/
@@ -57,6 +61,9 @@ class EventDispatcher @Inject constructor(
      * （boolean 标记）。独立 scope，不阻塞事件处理（与已删 replyTimePersistScope 同模式）。
      */
     private val unreadMigrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** #122：自动批准协程 scope（IO；失败仅日志，不影响事件分发主路径）。 */
+    private val autoApproveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** debug 级分发日志的 delta 节流计数器（仅 DEBUG 构建使用）。
      *  2026-08-14 走查修复：多服务器 SSE 协程并发调用 processEvent →
@@ -277,6 +284,35 @@ class EventDispatcher @Inject constructor(
         sessionStateService.backfillActiveForServer(serverId)
     }
 
+    /**
+     * #122（2026-08-18）：PermissionAsked 自动批准钩子。
+     *
+     * 规则匹配（AutoApproveRule.matches：toolName/sessionId/directoryPattern）
+     * → 异步 respondPermission("once")。目录取该会话的 Session.directory
+     * （sessionHandler 内存态；查不到时传空串，directoryPattern="*" 的规则
+     * 仍可匹配）。失败仅 WARN 日志——自动批准是尽力而为的增强，不阻塞
+     * 事件主路径（用户仍可手动回复）。
+     */
+    private fun maybeAutoApprovePermission(event: SseEvent.PermissionAsked, serverId: String) {
+        autoApproveScope.launch {
+            try {
+                val sessionDirectory = sessionHandler.sessions.value
+                    .firstOrNull { it.id == event.sessionId }?.directory ?: ""
+                if (!permissionAutoApprover.shouldAutoApprove(event, sessionDirectory)) return@launch
+                AppLogger.i(TAG, "[auto-approve] rule matched: permission=" + event.permission + " sid=" + event.sessionId.take(12) + " dir=" + sessionDirectory + " — replying once")
+                val ok = chatRepoProvider.get()
+                    .respondPermission(serverId, event.sessionId, event.id, "once", sessionDirectory.takeIf { it.isNotBlank() })
+                    .getOrDefault(false)
+                if (!ok) {
+                    AppLogger.w(TAG, "[auto-approve] respondPermission returned false (request may have expired): id=" + event.id)
+                }
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                AppLogger.w(TAG, "[auto-approve] failed: " + t.message)
+            }
+        }
+    }
+
     fun processEvent(event: SseEvent, serverId: String) {
         // 所有权检查：当两条 SSE 连接投递相同事件
         //（同一后端，不同配置）时，防止重复事件处理。
@@ -311,6 +347,14 @@ class EventDispatcher @Inject constructor(
             AppLogger.w(TAG, "No handler registered for ${event::class.simpleName}")
         }
         forwardToSessionStateService(event, serverId)
+
+        // #122（2026-08-18 接线）：PermissionAsked 自动批准——匹配用户保存的
+        // AutoApproveRule 时异步回复（规则列表为空 = shouldAutoApprove 恒 false，
+        // 天然关闭；不阻塞事件分发主路径）。成功后 PermissionReplied 事件回流
+        // 自然清卡片（handler 幂等去重已防重复）。
+        if (event is SseEvent.PermissionAsked) {
+            maybeAutoApprovePermission(event, serverId)
+        }
 
         // 跨 handler：SessionDeleted 级联清理其他 handler
         if (event is SseEvent.SessionDeleted) {
