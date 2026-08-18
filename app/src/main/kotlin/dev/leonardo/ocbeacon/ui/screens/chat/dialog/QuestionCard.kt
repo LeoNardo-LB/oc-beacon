@@ -129,7 +129,7 @@ internal fun QuestionCard(
     // 提问卡；此前两轮方向做反（a90dbead FileCard 基准 / d9cbb252 全家迁移已回滚）。
     AmoledSurface(
         isAmoledDark = isAmoled,
-        normalColor = MaterialTheme.colorScheme.surfaceContainer,
+        normalColor = MaterialTheme.colorScheme.surface, // 与工具卡完全同色（E2E 对比后对齐）
         shape = ShapeTokens.smallMedium,
         normalTonalElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()

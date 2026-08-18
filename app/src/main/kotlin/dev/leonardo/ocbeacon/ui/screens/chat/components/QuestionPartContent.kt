@@ -91,10 +91,11 @@ internal fun CollapsibleQuestionPart(question: String) {
     // tonal 实底 Surface（surfaceContainerHighest + 无描边），消除明度锯齿。
     // 2026-08-18 二次修正（用户反馈"应有基础容器"）：与活动卡同换
     // EmbeddedCardContainer（圆角随之统一 smallMedium→medium，样式细节见其注释）
-    // 2026-08-18 三次修正：与活动卡同换工具卡语言（AmoledSurface 6dp + tonal 1dp）
+    // 2026-08-18 三次修正：与活动卡同换工具卡语言（AmoledSurface 6dp + tonal 1dp，
+    // surface 同色——与工具卡完全一致）
     AmoledSurface(
         isAmoledDark = isAmoledTheme(),
-        normalColor = MaterialTheme.colorScheme.surfaceContainer,
+        normalColor = MaterialTheme.colorScheme.surface,
         shape = ShapeTokens.smallMedium,
         normalTonalElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()
