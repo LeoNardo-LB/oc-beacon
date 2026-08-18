@@ -44,6 +44,9 @@ private const val WAKELOCK_HOLD_MS = 10 * 60 * 1000L
 /** 续期提前量：超时前 30s 重新 acquire（连接存活期间持续持锁）。 */
 private const val WAKELOCK_RENEW_EARLY_MS = 30_000L
 private const val QUESTION_POLL_INTERVAL_MS = 30_000L
+
+/** question 轮询的项目列表缓存轮数（10 轮 = 5 分钟刷新一次 /api/project）。 */
+private const val PROJECT_LIST_CACHE_ROUNDS = 10
 /** #111：dataSync FGS 6h 时限后重启延迟（等待旧实例 stopSelf 销毁完成）。 */
 private const val FGS_TIMEOUT_RESTART_DELAY_MS = 2_000L
 
@@ -97,6 +100,9 @@ class OpenCodeConnectionService : Service() {
 
     @Inject
     lateinit var managePermissionUseCase: ManagePermissionUseCase
+
+    @Inject
+    lateinit var fileRepository: dev.leonardo.ocbeacon.domain.repository.FileRepository
 
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(
@@ -429,11 +435,22 @@ class OpenCodeConnectionService : Service() {
         pollingJobs[server.id] = serviceScope.launch {
             var previousKnown = emptyMap<String, Set<String>>()
             while (isActive) {
-                if (!connectionManager.isConnected(server.id)) break
+                // 2026-08-18 修复（question 轮询永久死亡，两轮迭代）：
+                // 原版 `if (!isConnected) break` 在 SSE 握手窗口/40s 心跳超时
+                // 重连窗口杀死轮询且永不复活（实测：启动 12 分钟 0 次
+                // form/request，E2E-C 会话列表无 Pending 标记）。第一版改为
+                // 等待重连仍不够——SSE 冷却/长断连时兜底随之失效，违背设计初衷
+                //（兜底就是为 SSE 不可达场景而生）。轮询生命周期只跟随用户
+                // 连接意图：disconnect() 显式取消 pollingJobs 即停，这里不再
+                // 检查 isConnected（REST 每 30s 一次成本可忽略，失败有 catch）。
                 try {
-                    val pending = managePermissionUseCase.listPendingQuestions(
-                        server.id, directory = null
-                    )
+                    // 2026-08-18 修复（location 覆盖缺口）：V2 form/request 按
+                    // x-opencode-directory 头分 location 返回——不带头只返回
+                    // global location 的 form，项目目录（如 ~/code/oc-beacon）
+                    // 的 pending form 永远查不到（实测：Favorite Season form 在
+                    // oc-beacon location，轮询 0 发现）。遍历 global + 全部项目
+                    // 目录；project 列表缓存 PROJECT_LIST_CACHE_ROUNDS 轮刷新。
+                    val pending = pollPendingQuestionsAllLocations(server)
                     val grouped = pending
                         .map { it.toQuestionAsked() }
                         .groupBy { it.sessionId }
@@ -463,6 +480,50 @@ class OpenCodeConnectionService : Service() {
                 delay(QUESTION_POLL_INTERVAL_MS)
             }
         }
+    }
+
+    /** project 列表缓存（轮询轮数计）——避免每 30s 拉一次 /api/project。 */
+    private var polledProjectDirectories: List<String>? = null
+    private var polledProjectRounds: Int = 0
+
+    /**
+     * 遍历 global（directory=null）+ 全部项目目录查询 pending questions，
+     * 按 form id 去重（同一 form 理论上只属一个 location，防御性去重）。
+     */
+    private suspend fun pollPendingQuestionsAllLocations(server: ServerConfig): List<dev.leonardo.ocbeacon.domain.model.QuestionState> {
+        val result = mutableListOf<dev.leonardo.ocbeacon.domain.model.QuestionState>()
+        result += managePermissionUseCase.listPendingQuestions(server.id, directory = null)
+        val dirs = refreshPolledProjectDirectories(server)
+        for (dir in dirs) {
+            runCatching {
+                result += managePermissionUseCase.listPendingQuestions(server.id, directory = dir)
+            }.onFailure {
+                AppLogger.w(TAG, "[${'$'}{server.displayName}] question polling (dir=${'$'}dir) failed: ${'$'}{it.message}")
+            }
+        }
+        return result.distinctBy { it.id }
+    }
+
+    /** 项目目录列表（带轮数缓存，每 [PROJECT_LIST_CACHE_ROUNDS] 轮刷新一次）。 */
+    private suspend fun refreshPolledProjectDirectories(server: ServerConfig): List<String> {
+        if (polledProjectDirectories != null && polledProjectRounds > 0) {
+            polledProjectRounds--
+            return polledProjectDirectories.orEmpty()
+        }
+        val dirs = runCatching {
+            fileRepository.listProjects(server.id).getOrDefault(emptyList())
+                // beta-17595 实测 /api/project 只返回 canonical（无 worktree/directory）；
+                // 老版本返回 directory。两者都取，canonical 兜底。
+                .mapNotNull { p ->
+                    p.directory?.takeIf { it.isNotBlank() }
+                        ?: p.canonical?.takeIf { it.isNotBlank() }
+                }
+                .filter { it != "/" } // global project 的 canonical=/ 对应 directory=null 已查
+                .distinct()
+        }.getOrDefault(emptyList())
+        polledProjectDirectories = dirs
+        polledProjectRounds = PROJECT_LIST_CACHE_ROUNDS
+        return dirs
     }
 
     /**
