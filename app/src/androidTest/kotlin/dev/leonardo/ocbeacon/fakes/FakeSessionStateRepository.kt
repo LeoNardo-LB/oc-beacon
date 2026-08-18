@@ -51,6 +51,9 @@ class FakeSessionStateRepository @Inject constructor() : SessionStateRepository 
 
     override fun onClientSendParts(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientSendParts)
 
+    /** SSE 重连补拉——Fake 无内容可补，空实现。 */
+    override fun backfillMissedMessages(sessionId: String) = Unit
+
     override fun onClientAbort(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientAbort)
 
     override fun onRestValidation(sessionId: String, status: SessionStatus) =

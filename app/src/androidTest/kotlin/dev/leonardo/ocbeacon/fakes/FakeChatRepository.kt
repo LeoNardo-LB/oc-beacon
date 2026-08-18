@@ -153,6 +153,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     override suspend fun respondPermission(
         serverId: String,
+        sessionId: String,
         permissionId: String,
         reply: String,
         directory: String?
