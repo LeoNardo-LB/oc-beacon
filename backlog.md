@@ -1580,10 +1580,11 @@
   - **2026-08-19 修复（2d9636bc）✅**：正文优先 questionText，缺失回退用户消息（REST 兜底路径）再回退通用文案。E2E 铁证：dumpsys `android.text=String (What is your favorite season?)`——问题文本而非 prompt 全文；测试 form 已答清
   - 工时：~30min | 难度：低 | 涉及：AppNotificationManager | 优先级：P3
 
-- [ ] **新增 P3：CodePath（文件路径链接）点击无反应** `ui` `markdown`
+- [x] **新增 P3：CodePath 点击「无反应」——已修 e26d0c35（定性勘误：实为 P1 文件读取契约全链路断裂）** `ui` `markdown`
   - 现象（2026-08-19 D2-08 E2E 顺带发现，两轮独立复验一致）：assistant 消息中的文件路径 span（`app/build.gradle.kts`，已正确渲染 monospace+下划线+链接色）点击后无任何可见反应——无浏览器/无文件查看器/无 toast/无崩溃（进程存活）。链接（http/https）同场景点击正常打开浏览器
   - 根因方向：clickableMarkdown 对 CodePath 走 `uriHandler.openUri(item.text)`——裸相对路径非合法 URI（无 scheme），系统隐式 Intent 解析失败被静默吞
   - 方案：CodePath 命中改为打开应用内文件查看器（FileViewer 路由，参照消息附件的查看链路）或至少 toast 反馈；与 ChatMessageList 既有的 @文件点击行为对齐
+  - **2026-08-19 修复（e26d0c35）——定性勘误 + 根因升级 P1**：主会话亲自复现发现点击实际有 Snackbar「文件未找到」（子代理漏看瞬态提示）；真根因是 **beta-17595 文件读取契约双重断裂**：① 端点为 GET /api/fs/read/<path> 通配符段（旧 ?path= 查询参数恒 500，curl 双形态对照实证）；② 响应为裸文件内容（无 JSON 信封，旧解析必抛）。**影响面远超 CodePath：文件查看器/existence 检查全链路在此部署版静默失效**。修复：通配符拼接（按段编码保斜杠）+ 裸文本回退解析（JSON 信封优先兼容老服务器）。E2E 全闭环：tap 代码路径 → 文件查看器打开渲染 build.gradle.kts 全文（修复前 Snackbar 报错）；单测 +3 全量绿；测试会话已删
   - 工时：~1h | 难度：低 | 涉及：ClickableMarkdown/文件查看导航 | 优先级：P3（点击是死路但无害）
 
 - [ ] **beta-17595 服务器兼容发现批次（E2E 方法论 + App 侧影响，2026-08-19 实测）** `compat` `upstream`
