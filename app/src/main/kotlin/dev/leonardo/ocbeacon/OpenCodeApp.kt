@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.ComponentCallbacks2
 import android.os.Build
 import android.os.Environment
+import android.os.StrictMode
 import android.widget.Toast
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -64,6 +65,29 @@ class OpenCodeApp : Application() {
         super.onCreate()
 
         DebugLogger.init(this)
+
+        // ---- #106-2 工具链治理：StrictMode（仅 debug 构建启用）----
+        // 自动捕获主线程 IO（#102 M-2 / #103 M-5 类）与未关闭资源/Activity 泄漏，
+        // 违规仅记录 logcat（tag=StrictMode），不启用 death penalty 防误杀开发构建。
+        // 注：不检测 cleartext 网络——本应用连接 LAN http 服务器是合法使用场景，
+        // 检测只会对每个请求刷无意义违规日志。
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                StrictMode.ThreadPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+            StrictMode.setVmPolicy(
+                StrictMode.VmPolicy.Builder()
+                    .detectActivityLeaks()
+                    .detectLeakedClosableObjects()
+                    .detectLeakedSqlLiteObjects()
+                    .penaltyLog()
+                    .build()
+            )
+            AppLogger.i("App", "StrictMode enabled (debug): thread=detectAll+log, vm=activityLeaks/closable/sqlLite+log")
+        }
 
         // ---- 初始化持久化诊断日志 ----
         val diagnosticRepo = EntryPointAccessors.fromApplication(
