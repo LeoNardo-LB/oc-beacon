@@ -256,7 +256,14 @@ object V2MessageMapper {
                 val agent = obj["agent"]?.jsonPrimitive?.contentOrNull ?: "build"
                 val modelObj = obj["model"]?.jsonObject
                 val contentArray = obj["content"]?.jsonArray ?: JsonArray(emptyList())
-
+                // token 统计图标回归修复（2026-08-19 用户报告顶栏图标消失）：
+                // V2 REST 消息带 tokens/cost（实测 {input,output,reasoning,
+                // cache:{read,write}}），原映射漏填 → lastContextTokens 恒 0 →
+                // ChatTopBar 上下文进度圈（显示条件 tokens>0）永不出现。
+                // beta-17639 SSE 不发 message.updated（整 turn 仅 session.* 事件），
+                // REST 是 tokens 唯一可靠来源——此处漏映射即全链断。
+                val tokensObj = obj["tokens"]?.jsonObject
+                val cacheObj = tokensObj?.get("cache")?.jsonObject
                 val message = Message.Assistant(
                     id = id,
                     sessionId = sessionId,
@@ -264,7 +271,19 @@ object V2MessageMapper {
                     modelId = modelObj?.get("id")?.jsonPrimitive?.contentOrNull,
                     providerId = modelObj?.get("providerID")?.jsonPrimitive?.contentOrNull,
                     agent = agent,
-                    time = TimeInfo(created = timeCreated, completed = timeCompleted)
+                    time = TimeInfo(created = timeCreated, completed = timeCompleted),
+                    cost = obj["cost"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull(),
+                    tokens = tokensObj?.let { tk ->
+                        Message.Assistant.Tokens(
+                            input = tk["input"]?.jsonPrimitive?.intOrNull ?: 0,
+                            output = tk["output"]?.jsonPrimitive?.intOrNull ?: 0,
+                            reasoning = tk["reasoning"]?.jsonPrimitive?.intOrNull ?: 0,
+                            cache = Message.Assistant.Tokens.Cache(
+                                read = cacheObj?.get("read")?.jsonPrimitive?.intOrNull ?: 0,
+                                write = cacheObj?.get("write")?.jsonPrimitive?.intOrNull ?: 0
+                            )
+                        )
+                    }
                 )
 
                 // #109（D2-01）：text/reasoning part id 用与 SSE 相同的派生规则
