@@ -1297,13 +1297,14 @@
   - 工时：~0.5d | 难度：低-中 | 涉及：MessageCardUser/ClickableMarkdown/MarkdownTable/RetryBanner/CompactionBanner/SessionRow | 优先级：P2
   - **2026-08-19 D2-08 修复（78e38e3a）✅ E2E 闭环（两轮独立复验交叉确证）**：ClickableMarkdownResult 增预计算 `ranges`（items 一一对应的绝对字符区间）——Link 优先匹配链接 span（精确 offset，文档序消费 + 文本校验）；span 不可用/CodePath 走顺序文本搜索（全局游标单调推进——重复文本依次消费各自出现位置）。单测 +1（同文本双链接区间不重叠各归其位）。E2E：tap 第二 docs → example.com/b、tap 第一 docs → example.com/a（**两轮四 tap 全部差分路由正确**，uidump 地址栏 ground truth，link_02/03）；无错位/游离下划线（D2-08 回归信号缺失）；FATAL=0；会话已清理。视觉子断言勘误：像素级实证 docs 文本为深色无下划线（两轮一致）——属主题链接样式现状（深色主题下不显眼），非本修复回归，如需改进另行登记
 
-- [~] **#121 V1/V2 双客户端一致性批次——D2-22/D2-31 已修 498fb643；D2-23 盘点已修（#109）；仅剩 D2-30 WebView 工厂** `consistency` `refactor`
+- [x] **#121 V1/V2 双客户端一致性批次——全部闭环（D2-22/31 修 498fb643；D2-23 盘点已修 #109；D2-30 盘点已解决）** `consistency` `refactor`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（A/E 路）
   - 问题：① rejectHtmlResponse 两处复制且 V1ApiClient 无 HTML 防御（V2ApiClient.kt:113/V2Mappers.kt:124）；② V2SseMapper 把 ordinal 当时间戳（:125/:151）；③ 6 处 WebView 初始化样板不统一（销毁策略各异）；④ V2 fs.list 路径推导绕过 PathUtils（V2ApiClient.kt:1157-1166，Windows 服务器必错）
   - 方案：rejectHtmlResponse 提公共 + V1 接入；SSE 时间取服务器字段；抽 WebView 工厂；改 PathUtils.fileName/joinPath
   - 工时：~1d | 难度：中 | 涉及：V1/V2ApiClient/V2SseMapper/WebView 各文件 | 优先级：P2
   - **2026-08-19 盘点 + 部分修复（498fb643）**：① D2-22 ✅——rejectHtmlResponse 提公共（data/api 包级函数，带可选日志；两份私有复制删除）+ V1ApiClient.listSessions 接入（版本误判时 ContentTransformationException → 可读 NonJsonResponseException）；② **D2-23 盘点已修**——#109（5b749536）已实现时间回退链（start=本地时刻/0L+end=now，:196/:212/:225 注释在位），条目过时；④ D2-31 ✅——name 推导改 PathUtils.fileName（Windows 反斜杠 `C:\a\b` 旧 substringAfterLast('/') 返回整串）+ absolute 拼接改 joinPath；单测 +1 反斜杠回归。③ **D2-30（WebView 工厂）仍待做**
   - 验证层级：防御性数据层修复——全量单测绿（含 listDirectory/V1 listSessions MockEngine 回归）；D2-31 Windows 真实服务器分支以单测反斜杠用例覆盖（本地无 Windows 服务器）
+  - **2026-08-19 D2-30 盘点：已解决，无需工厂**——审计时点（08-13）后 #93（c0c74a4c）统一了销毁：现存 6 处构造点销毁全覆盖（WebViewScreen onDispose:133 / ErrorPayloadContent onRelease:115 / RenderWebView onDispose:67 / PdfViewer onDispose:84 含 JS 桥移除 / CodeWebView onDispose:202 含 cleanup+桥移除 / WebViewWarmer 预热后自毁）。初始化差异为**按用途安全姿态**（error=JS 全禁、html=禁文件访问、pdf=file URL 供 pdf.js worker、browser=混合内容放行、code=JS 桥+自定义 UA）——各点位注释在位，抽工厂会把安全敏感配置藏进预设反而降低可审计性。**#121 四子项全部闭环，结案**
 
 - [~] **#122 状态性能与 AI Agent 功能批次（D2-25 AutoApprover 已接线 e3cde191；D2-15/D2-19 待做）** `perf` `sse` `ai-agent`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（A/B 路）
@@ -1577,6 +1578,12 @@
   - 方案：正文改优先 questionText（问题文本短且直接），用户消息可留作第二行或弃用；涉及 15 语言无需新键
   - **2026-08-19 修复（2d9636bc）✅**：正文优先 questionText，缺失回退用户消息（REST 兜底路径）再回退通用文案。E2E 铁证：dumpsys `android.text=String (What is your favorite season?)`——问题文本而非 prompt 全文；测试 form 已答清
   - 工时：~30min | 难度：低 | 涉及：AppNotificationManager | 优先级：P3
+
+- [ ] **新增 P3：CodePath（文件路径链接）点击无反应** `ui` `markdown`
+  - 现象（2026-08-19 D2-08 E2E 顺带发现，两轮独立复验一致）：assistant 消息中的文件路径 span（`app/build.gradle.kts`，已正确渲染 monospace+下划线+链接色）点击后无任何可见反应——无浏览器/无文件查看器/无 toast/无崩溃（进程存活）。链接（http/https）同场景点击正常打开浏览器
+  - 根因方向：clickableMarkdown 对 CodePath 走 `uriHandler.openUri(item.text)`——裸相对路径非合法 URI（无 scheme），系统隐式 Intent 解析失败被静默吞
+  - 方案：CodePath 命中改为打开应用内文件查看器（FileViewer 路由，参照消息附件的查看链路）或至少 toast 反馈；与 ChatMessageList 既有的 @文件点击行为对齐
+  - 工时：~1h | 难度：低 | 涉及：ClickableMarkdown/文件查看导航 | 优先级：P3（点击是死路但无害）
 
 - [ ] **beta-17595 服务器兼容发现批次（E2E 方法论 + App 侧影响，2026-08-19 实测）** `compat` `upstream`
   - ① **prompt body agent 选择失效**：App 的 agent 切换（flat body agents 数组）在 beta-17595 被服务器忽略——curl 四种路径实测（agents 数组 / 顶层 agent 字段 / @mention 文本 / modern 包裹契约 400）全部仍用 build agent。**App 侧影响：模型选择器里的 agent 切换在此服务器上无效**（next-17403 上曾工作）。OpenAPI 有 POST /api/session/{id}/agent 端点（未实测）——待验证后改走该端点
