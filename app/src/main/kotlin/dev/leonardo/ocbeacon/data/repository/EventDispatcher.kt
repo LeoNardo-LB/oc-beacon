@@ -54,6 +54,10 @@ class EventDispatcher @Inject constructor(
     // 保存的自动批准规则从未生效（功能失效）。接线进 PermissionAsked 分发路径。
     private val permissionAutoApprover: PermissionAutoApprover,
     private val chatRepoProvider: javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.ChatRepository>,
+    // 堆积消息管线（2026-08-20）：Provider 打破 EventDispatcher→ChatRepository 循环；
+    // init 中 eager 构造 + 接线 naturalTurnEndListener
+    private val pendingMessagePipelineProvider: javax.inject.Provider<PendingMessagePipeline>,
+    private val pendingMessageRepository: dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository,
 ) {
     /**
      * 一次性 unread v2 迁移 scope：App 启动时清空旧域已读标记（readTimes/allReadAt/
@@ -128,6 +132,13 @@ class EventDispatcher @Inject constructor(
                     .fetchSessionStatuses(serverId, directory).getOrNull() ?: return@runBlocking false
                 children.any { statuses[it.id] is dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy }
             }
+        }
+        // 堆积消息管线（2026-08-20 设计定稿）：eager 构造 + 接线自然成功
+        // turn 结束监听。Pipeline 经 Provider 注入（其内部 SendMessageUseCase
+        // → ChatRepositoryImpl → EventDispatcher 循环由 Provider 延迟解析打破）。
+        val pendingPipeline = pendingMessagePipelineProvider.get()
+        sessionStateService.naturalTurnEndListener = { sessionId, serverId ->
+            pendingPipeline.onNaturalTurnEnd(sessionId, serverId)
         }
         // 2026-08-15（research/11 P1）：session.next.moved → 更新会话缓存
         // directory（对齐官方 TUI 增量更新；无 sessionHandler 依赖倒置问题）
@@ -367,6 +378,10 @@ class EventDispatcher @Inject constructor(
             miscHandler.clearForSession(deletedSessionId)
             sessionNextHandler.clearForSession(deletedSessionId)
             sessionStateService.clearSession(deletedSessionId)
+            // 堆积消息级联删除（2026-08-20）：会话没了，队列无意义
+            kotlinx.coroutines.runBlocking {
+                runCatching { pendingMessageRepository.deleteForSession(deletedSessionId) }
+            }
         }
 
         // 跨 handler：SessionCompacted（V2 session.compaction.ended 映射 /

@@ -48,6 +48,9 @@ class PendingMessageRepositoryImpl @Inject constructor(
     override suspend fun dequeueHead(sessionId: String): PendingMessage? =
         dao.dequeueHead(sessionId)?.toDomain()
 
+    override suspend fun peekHead(sessionId: String): PendingMessage? =
+        dao.peekHead(sessionId)?.toDomain()
+
     override suspend fun deleteForSession(sessionId: String) = dao.deleteForSession(sessionId)
 }
 

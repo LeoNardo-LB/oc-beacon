@@ -33,6 +33,9 @@ interface PendingMessageRepository {
     /** 原子弹出队首；队列空返回 null。 */
     suspend fun dequeueHead(sessionId: String): PendingMessage?
 
+    /** 查看队首（不删除）。推进管线 peek→send→delete 语义用。 */
+    suspend fun peekHead(sessionId: String): PendingMessage?
+
     /** 会话删除时的级联清理（无外键可用，删除路径显式调用）。 */
     suspend fun deleteForSession(sessionId: String)
 }

@@ -100,6 +100,16 @@ class SessionStateService @Inject constructor(
      */
     var activeChildrenChecker: (serverId: String, sessionId: String) -> Boolean = { _, _ -> false }
 
+    /**
+     * 堆积消息推进（2026-08-20 设计定稿）：「自然成功 turn 结束」监听器——
+     * Busy→Idle 且触发事件为 SSE 自然成功信号（V2 execution.succeeded→SseIdle；
+     * V1 session.status(idle)→SseStatus(Idle)）时回调。由 EventDispatcher 接线
+     * （Provider 打破 EventDispatcher→ChatRepository 循环）。手动 abort
+     * （ClientAbort）/错误（SseError）/REST 兜底（RestValidation）不会走到这里；
+     * V1 status/idle 双发的第二发到达时已 Idle（fromCore 非 Busy）天然去重。
+     */
+    var naturalTurnEndListener: (sessionId: String, serverId: String?) -> Unit = { _, _ -> }
+
     @Volatile private var currentServerId: String? = null
 
     /**
@@ -442,6 +452,13 @@ class SessionStateService @Inject constructor(
         // 副作用
         if (res.forceComplete) messageForceCompleter.markIdle(sessionId)
         if (res.isSuspicious) triggerRestValidation(sessionId)
+        // 堆积消息推进：仅自然成功 turn 结束触发（见 naturalTurnEndListener 注释）
+        if (from.core is SessionStatus.Busy &&
+            res.newState.core is SessionStatus.Idle &&
+            (event is FsmEvent.SseIdle || (event is FsmEvent.SseStatus && event.status is SessionStatus.Idle))
+        ) {
+            naturalTurnEndListener(sessionId, sessionServerOwnership[sessionId] ?: currentServerId)
+        }
     }
 
     private fun recordHistory(sessionId: String, from: SessionFSMState, result: SessionStateFSM.TransitionResult, event: FsmEvent) {
