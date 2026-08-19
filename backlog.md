@@ -1577,4 +1577,4 @@
   - ③ **权限询问 E2E 触发方法论**：beta-17595 默认配置下无自然权限询问；可靠触发 = 临时加 ask 规则（放 allow 后）+ curl POST /session/{id}/permission {action,resources} → effect=ask + SSE PermissionAsked（App 正常弹卡）。测试后配置已还原（diff=0 + 重启复验探针 allow）
   - ④ **服务器 saved permission 规则**（GET /api/permission/saved）含历史 always 应答累积（shell/echo *、git commit * 等 6+ 条 global 规则）——App "总是允许"的 always 应答在服务器侧持久化；DELETE /api/permission/saved/{id} 可清理
   - 上游候选（并入 #146 候选池）：agent 切换端点契约（prompt body agents 语义 vs 独立端点）；agent permissions 评估链是否覆盖工具调用路径
-  - 状态：`[ ]` ① 待验证 POST /api/session/{id}/agent 端点后修复 App 切换；②③④ 已归档为方法论
+  - 状态：`[ ]` ① ✅ **已修 76f337f5（2026-08-19）**——端点验证可用（204 + session.agent 持久变化 + SSE session.agent.selected 广播，带/不带 directory 头均生效）；实现 switchAgent（promptAsync 发送前显式切换，同 switchModel 模式）+ **resolveAgentId 显示名→id 解析**（E2E 发现的真 bug：listAgents 映射 name "Plan"，端点按 id "plan" 区分大小写匹配，原样发送 → execution.failed "Agent not found"；目录大小写不敏感双向匹配 + @Singleton 缓存 + 失败自适应重拉）。E2E 全链路：UI 切换 → `agent=plan (from=Plan)` → execution.started→succeeded → 服务器回复 agent=plan；②③④ 已归档为方法论
