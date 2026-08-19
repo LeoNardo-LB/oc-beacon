@@ -1297,11 +1297,13 @@
   - 工时：~0.5d | 难度：低-中 | 涉及：MessageCardUser/ClickableMarkdown/MarkdownTable/RetryBanner/CompactionBanner/SessionRow | 优先级：P2
   - **2026-08-19 D2-08 修复（78e38e3a）✅ E2E 闭环（两轮独立复验交叉确证）**：ClickableMarkdownResult 增预计算 `ranges`（items 一一对应的绝对字符区间）——Link 优先匹配链接 span（精确 offset，文档序消费 + 文本校验）；span 不可用/CodePath 走顺序文本搜索（全局游标单调推进——重复文本依次消费各自出现位置）。单测 +1（同文本双链接区间不重叠各归其位）。E2E：tap 第二 docs → example.com/b、tap 第一 docs → example.com/a（**两轮四 tap 全部差分路由正确**，uidump 地址栏 ground truth，link_02/03）；无错位/游离下划线（D2-08 回归信号缺失）；FATAL=0；会话已清理。视觉子断言勘误：像素级实证 docs 文本为深色无下划线（两轮一致）——属主题链接样式现状（深色主题下不显眼），非本修复回归，如需改进另行登记
 
-- [ ] **#121 V1/V2 双客户端一致性批次（D2-22/D2-23/D2-30/D2-31）** `consistency` `refactor`
+- [~] **#121 V1/V2 双客户端一致性批次——D2-22/D2-31 已修 498fb643；D2-23 盘点已修（#109）；仅剩 D2-30 WebView 工厂** `consistency` `refactor`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（A/E 路）
   - 问题：① rejectHtmlResponse 两处复制且 V1ApiClient 无 HTML 防御（V2ApiClient.kt:113/V2Mappers.kt:124）；② V2SseMapper 把 ordinal 当时间戳（:125/:151）；③ 6 处 WebView 初始化样板不统一（销毁策略各异）；④ V2 fs.list 路径推导绕过 PathUtils（V2ApiClient.kt:1157-1166，Windows 服务器必错）
   - 方案：rejectHtmlResponse 提公共 + V1 接入；SSE 时间取服务器字段；抽 WebView 工厂；改 PathUtils.fileName/joinPath
   - 工时：~1d | 难度：中 | 涉及：V1/V2ApiClient/V2SseMapper/WebView 各文件 | 优先级：P2
+  - **2026-08-19 盘点 + 部分修复（498fb643）**：① D2-22 ✅——rejectHtmlResponse 提公共（data/api 包级函数，带可选日志；两份私有复制删除）+ V1ApiClient.listSessions 接入（版本误判时 ContentTransformationException → 可读 NonJsonResponseException）；② **D2-23 盘点已修**——#109（5b749536）已实现时间回退链（start=本地时刻/0L+end=now，:196/:212/:225 注释在位），条目过时；④ D2-31 ✅——name 推导改 PathUtils.fileName（Windows 反斜杠 `C:\a\b` 旧 substringAfterLast('/') 返回整串）+ absolute 拼接改 joinPath；单测 +1 反斜杠回归。③ **D2-30（WebView 工厂）仍待做**
+  - 验证层级：防御性数据层修复——全量单测绿（含 listDirectory/V1 listSessions MockEngine 回归）；D2-31 Windows 真实服务器分支以单测反斜杠用例覆盖（本地无 Windows 服务器）
 
 - [~] **#122 状态性能与 AI Agent 功能批次（D2-25 AutoApprover 已接线 e3cde191；D2-15/D2-19 待做）** `perf` `sse` `ai-agent`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（A/B 路）
