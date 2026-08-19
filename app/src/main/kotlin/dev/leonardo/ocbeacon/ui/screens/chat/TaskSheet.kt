@@ -232,7 +232,7 @@ fun TaskSheet(
                                 // 2026-08-12 用户要求：item 之间加分界线
                                 if (index > 0) {
                                     HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                                     )
                                 }
@@ -345,7 +345,7 @@ fun TaskSheet(
                                 // 2026-08-12 用户要求：item 之间加分界线
                                 if (index > 0) {
                                     HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                                     )
                                 }

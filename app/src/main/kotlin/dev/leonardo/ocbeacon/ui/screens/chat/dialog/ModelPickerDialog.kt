@@ -43,6 +43,7 @@ import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.ItemTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,7 +120,7 @@ internal fun ModelPickerDialog(
                 .fillMaxWidth()
                 .weight(1f)
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp)
         ) {
                 for ((index, provider) in sortedProviders.withIndex()) {
                     val sortedModels = provider.models.values
@@ -131,8 +132,8 @@ internal fun ModelPickerDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 40.dp)
-                                .padding(start = 4.dp, end = 12.dp),
+                                .heightIn(min = ItemTokens.MinHeightDense.dp)
+                                .padding(start = SpacingTokens.XS.dp, end = SpacingTokens.MD.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -160,7 +161,7 @@ internal fun ModelPickerDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 // 2026-08-12 用户要求：单行 item 统一高度（与聚合行一致——40dp 密集规格）
-                                .heightIn(min = 40.dp)
+                                .heightIn(min = ItemTokens.MinHeightDense.dp)
                                 .clip(ShapeTokens.small)
                                 .background(
                                     if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = AlphaTokens.MUTED)
@@ -170,7 +171,7 @@ internal fun ModelPickerDialog(
                                     onSelect(provider.id, model.id)
                                     onDismiss()
                                 }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // 2026-08-12 用户要求：统一单行展示——模型名左 + Free 标签右 + 选中勾
