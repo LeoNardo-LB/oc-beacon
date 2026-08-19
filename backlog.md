@@ -366,6 +366,7 @@
   - **2026-08-18 P0 完成（e7ca830f）**：ToolOutputTruncator——落库前 tool part payload JSON 层重写 state.output（500 字符预览+截断标记；其余字段原样；解析失败原样返回）。E2E 实证：bash 500 行 40KB 输出 → DB payload 965 字节（~98% 降），内存渲染完整（UI 显示执行摘要+输出行不受影响）；单测 5/5 + 全量绿。⚠️ 展开按需拉全量（getMessage）未做——离线恢复时工具卡片仅摘要（权衡已获用户接受）
   - **2026-08-19 P0 离线观感代验收 ✅**：飞行模式 + force-stop 重启（pid 变更实证）→ Room 缓存渲染会话列表/消息正常 → 「批量输出命令执行」会话（500 行 bash 输出源数据）工具卡片以摘要形态渲染：折叠态 = 命令头 `$ for I in $(seq 1 500)...` + 完成状态行 `完成 · Line 1: 这是一行测试输出 lorem ipsum dolor si...`（预览首行）+ 展开箭头；无乱码/无空白卡/无崩溃（FATAL=0）。观感符合「摘要可读、完整输出在服务器」的产品预期（证据 /tmp/verify-acceptance/p3_01~p3_05）。P1/P2 仍待做，条目保持 [~]
   - 与 #80（快速导航全量列表）不冲突——列表基于 role=user 元数据，不受 parts 截断影响
+  - **2026-08-19 P1 完成（ea4b7f4a）**：reasoning text 截断（truncateReasoningIfNeeded）+ tool state.input/metadata 递归原语截断（JSON 结构保留，短值零拷贝，≤2×limit 快速路径，数字/布尔不误改）。实测依据：P0 后 reasoning 736KB/637 条（max 45KB）+ write input 18.8KB/edit metadata 5.5KB 为剩余大头。**patch 无需处理**（模型层已是 hash+文件名，无 diff 全文——盘点核实）。E2E 铁证：新会话冷启动落库后 reasoning 截断标记 0→1、tool 326→327、UI 无恙、FATAL=0。既有数据不重写（upsert 幂等设计）。单测 11/11。**P2（synthetic/subagent 不落库）仍待做**
 
 - [x] **新会话默认模型（方案 A·本地默认，2026-08-16 实现 658abb11；2026-08-19 模拟器 E2E 代验收 ✅）** `model` `feature`
   - 需求：用户 2026-08-16 提出——新会话可设置默认模型，免去每次手动切换
