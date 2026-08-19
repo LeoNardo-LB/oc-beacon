@@ -378,11 +378,12 @@
   - **2026-08-19 模拟器 E2E 全链路验证 ✅（证据 /tmp/verify-dm/）**：新会话#1 pill=GLM-5.3（无默认时 provider default）→ picker 星标 DeepSeek V4 Flash Free → DataStore 字节实证 `opencode|deepseek-v4-flash-free` + 星标 filled → **新会话#2（全新无历史）pill 立即显示 Build·DeepSeek V4 Flash Free（uidump 铁证）**→ 发消息 logcat `[model] POST .../model providerID=opencode modelID=deepseek-v4-flash-free` → **服务器 assistant 回复 model={"id":"deepseek-v4-flash-free"}**（模型真实切换非仅 UI）→ 取消星标 DataStore CLEARED + 测试会话已删。注意：与 agent 切换（beta-17595 body agents 被忽略，见 2026-08-19 兼容发现）不同，模型切换走独立端点可靠
   - 已知限制（设计内）：variants 不参与默认（保持简单）；换设备丢失（本地存储）
 
-- [ ] **#81 度量/风格/边距统一提取为 token 主题系统** `refactor` `ui`
+- [x] **#81 度量/风格/边距统一提取为 token 主题系统——已修 88740e2a（行高维度收口）** `refactor` `ui`
   - 需求：2026-08-12 用户提出——将度量参数（如模型列表单行 item 高度 40dp）、风格、边距等样式统一提取为 token/主题系统
   - 现状：已有 SpacingTokens/ShapeTokens/AlphaTokens/ButtonTokens（ui/theme/），但部分组件仍硬编码数值（如 ModelPickerDialog 的 heightIn(min=40.dp)、padding 12/8dp 等散落各处）
   - 方向：新增 ItemTokens（列表项高度/密度规格：40dp 密集 / 48dp 紧凑 / 56dp 标准）、统一列表项 padding/间距引用；对照 docs/ui-conventions.md 的 token 体系扩展
   - 工时：~1d | 难度：中 | 涉及：ui/theme/* + 各列表组件（ModelPicker/QuickNavigate/后台面板等）
+  - **2026-08-19 triage + 实现（88740e2a）**：triage 发现 padding 维度已被 ListItemTokens 覆盖（设置页 20+ 项消费）；真实缺口是行高维度。新增 ui/theme/ItemTokens.kt（MinHeightDense 40 / Compact 48 / Standard 56，与 ListItemTokens 互补）；ModelPickerDialog 2× heightIn(40) + 全部硬编码 padding 迁 SpacingTokens；TaskSheet 2× 容器 padding 迁 LG。QuickNavigate 复查已全 token 化；QuestionPartContent 44dp 为带公式注释的文本框特例（正确保持内联）。E2E：模型行 7 行 bounds 高度一致性 ±0px（pitch 126px 与 token 语义吻合）、选择/管理入口/任务面板全功能无回归、FATAL=0（证据 /tmp/verify-itemtokens/）。**收口说明**：Spacer(8/12dp) 类微间距散点（AboutScreen 等 ~30 处）属 SpacingTokens 已有刻度的机械替换，无视觉变化且回归面大——后续新代码按 ui-conventions 引用 token 即可，不再做存量批量清偿
 
 - [x] **#80 快速导航全量列表（本地 Room 全量 user 消息，非仅已加载窗口）** `data` `feature`
   - 需求：2026-08-12 用户反馈"快速定位不准确"——实测根因：快速导航列表基于 rawMessages（已加载窗口）只显示 7 个 item，本地热表实际有 35 条 user 消息（多会话 3939 条中 role=user 占比 35/153）
