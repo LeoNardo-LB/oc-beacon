@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.dialog
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +34,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.theme.CodeTypography
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.ui.components.AmoledSurface
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -57,22 +56,25 @@ internal fun PermissionCard(
     var submitted by remember(permission.id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // 使用 error-container 颜色以表示安全敏感性（与 Question 的 tertiary 区分）
-    val containerColor = MaterialTheme.colorScheme.errorContainer
+    // 权限卡视觉复审（2026-08-19）：从独立 Card(errorContainer + medium 12dp +
+    // 自定义 error 边框) 迁入统一交互卡骨架——与提问卡/工具卡（ToolCardScaffold
+    // 语言）同构：AmoledSurface + smallMedium 6dp + tonal 1dp，AMOLED 纯黑 +
+    // 标准边框（参照 ToolCardScaffold 状态色模式：语义色仅普通主题生效）。
+    // error 红语义经 normalColor=errorContainer 透传（与 Question 的中性 surface
+    // 区分安全敏感性）；文字/图标语义色两主题保留。
     val contentColor = if (isAmoled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onErrorContainer
-    val accentTint = if (isAmoled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.error
+    val accentTint = MaterialTheme.colorScheme.error
 
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = containerColor
-        ),
-        border = if (isAmoled) BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = AlphaTokens.MEDIUM)) else null,
-        shape = ShapeTokens.medium,
+    AmoledSurface(
+        isAmoledDark = isAmoled,
+        normalColor = MaterialTheme.colorScheme.errorContainer,
+        shape = ShapeTokens.smallMedium,
+        normalTonalElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(SpacingTokens.MD.dp),
+            verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
             // 头部行：安全图标 + "权限请求"标题
             Row(
