@@ -224,6 +224,10 @@ fun CodeWebView(
                 settings.loadWithOverviewMode = true
                 settings.useWideViewPort = false
                 setBackgroundColor(bgColorArgb)
+                // JavascriptInterface（#106 lint 清偿）：lint 误报——SelectionBridge
+                // 的 onSelection/onAnnotationClick 均已 @JavascriptInterface 注解
+                // （本文件 53/60 行），apply 作用域解析混淆了类型收窄。
+                @Suppress("JavascriptInterface")
                 addJavascriptInterface(bridge, "AndroidBridge")
 
                 // 捕获 JS console.log → DebugLogger，用于诊断批注点击

@@ -122,11 +122,11 @@ fun Modifier.amoledSurface(
     isAmoledDark: Boolean,
 ): Modifier {
     return if (isAmoledDark) {
-        this.then(
-            border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM),
-            )
+        // #106 lint 清偿：原 this.then(border(...)) 中 border 以隐式接收者链在 this 上，
+        // then() 纯冗余——直接链式等价简化
+        this.border(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM),
         )
     } else {
         this

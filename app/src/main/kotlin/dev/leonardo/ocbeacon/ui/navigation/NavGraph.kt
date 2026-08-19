@@ -186,9 +186,9 @@ fun NavGraph(
                         serverId = deepLink.serverId,
                         sessionId = sessionId
                     )
-                val currentSessionId = navController.currentBackStackEntry
-                    ?.arguments
-                    ?.getString("sessionId")
+                    val currentSessionId = navController.currentBackStackEntry
+                        ?.arguments
+                        ?.getString("sessionId")
 
                     AppLogger.i(TAG, "Deep-link → native Chat: targetSession=$sessionId currentSession=$currentSessionId")
 

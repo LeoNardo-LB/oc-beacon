@@ -52,7 +52,7 @@
         errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/SessionActionsDelegate.kt"
-            line="422"
+            line="430"
             column="38"/>
     </issue>
 
@@ -97,29 +97,13 @@
     </issue>
 
     <issue
-        id="SuspiciousIndentation"
-        message="Suspicious indentation: This is indented but is not continuing the previous expression (`val currentSessionId`...)"
-        errorLine1="                    AppLogger.i(TAG, &quot;Deep-link → native Chat: targetSession=$sessionId currentSession=$currentSessionId&quot;)"
-        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/navigation/NavGraph.kt"
-            line="193"
-            column="21"/>
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/navigation/NavGraph.kt"
-            line="189"
-            column="17"
-            message="Previous statement here"/>
-    </issue>
-
-    <issue
         id="AppBundleLocaleChanges"
         message="Found dynamic locale changes, but did not find corresponding Play Core library calls for downloading languages and splitting by language is not disabled in the `bundle` configuration"
         errorLine1="    config.setLocale(locale)"
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/util/LocaleUtils.kt"
-            line="20"
+            line="38"
             column="5"/>
     </issue>
 
@@ -443,39 +427,6 @@
     </issue>
 
     <issue
-        id="RestrictedApi"
-        message="ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=`androidx.core` with prefix androidx from groupId=`OC Beacon`)"
-        errorLine1="    override fun dispatchKeyEvent(event: KeyEvent): Boolean {"
-        errorLine2="                 ~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/MainActivity.kt"
-            line="111"
-            column="18"/>
-    </issue>
-
-    <issue
-        id="RestrictedApi"
-        message="ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=`androidx.core` with prefix androidx from groupId=`OC Beacon`)"
-        errorLine1="        return super.dispatchKeyEvent(event)"
-        errorLine2="                     ~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/MainActivity.kt"
-            line="115"
-            column="22"/>
-    </issue>
-
-    <issue
-        id="RestrictedApi"
-        message="ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=`androidx.core` with prefix androidx from groupId=`OC Beacon`)"
-        errorLine1="        return super.dispatchKeyEvent(event)"
-        errorLine2="                                      ~~~~~">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/MainActivity.kt"
-            line="115"
-            column="39"/>
-    </issue>
-
-    <issue
         id="ConfigurationScreenWidthHeight"
         message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
         errorLine1="    return maxOf(LocalConfiguration.current.screenHeightDp.dp / 2, 200.dp)"
@@ -504,7 +455,7 @@
         errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/dialog/ModelPickerDialog.kt"
-            line="91"
+            line="92"
             column="27"/>
     </issue>
 
@@ -713,7 +664,7 @@
         errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ChatScreen.kt"
-            line="867"
+            line="873"
             column="33"/>
     </issue>
 
@@ -724,7 +675,7 @@
         errorLine2="                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ChatScreen.kt"
-            line="867"
+            line="873"
             column="87"/>
     </issue>
 
@@ -1243,17 +1194,6 @@
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/ToolGroupList.kt"
             line="41"
             column="5"/>
-    </issue>
-
-    <issue
-        id="SuspiciousModifierThen"
-        message="Using Modifier.then with a Modifier factory function with an implicit receiver"
-        errorLine1="            border("
-        errorLine2="            ~~~~~~">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/AmoledCard.kt"
-            line="126"
-            column="13"/>
     </issue>
 
     <issue
@@ -1796,17 +1736,6 @@
     </issue>
 
     <issue
-        id="JavascriptInterface"
-        message="None of the methods in the added interface (T) have been annotated with `@android.webkit.JavascriptInterface`; they will not be visible in API 17"
-        errorLine1="                addJavascriptInterface(bridge, &quot;AndroidBridge&quot;)"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/viewer/CodeWebView.kt"
-            line="227"
-            column="17"/>
-    </issue>
-
-    <issue
         id="SetJavaScriptEnabled"
         message="Using `setJavaScriptEnabled` can introduce XSS vulnerabilities into your application, review carefully"
         errorLine1="                settings.javaScriptEnabled = true"
@@ -1857,7 +1786,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/SessionActionsDelegate.kt"
-            line="393"
+            line="401"
             column="17"/>
     </issue>
 
@@ -2524,7 +2453,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/OpenCodeApp.kt"
-            line="163"
+            line="179"
             column="17"/>
     </issue>
 
@@ -2535,7 +2464,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/OpenCodeApp.kt"
-            line="214"
+            line="232"
             column="17"/>
     </issue>
 

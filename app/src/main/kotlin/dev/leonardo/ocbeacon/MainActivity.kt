@@ -108,6 +108,10 @@ class MainActivity : ComponentActivity() {
         terminalKeyInterceptor = interceptor
     }
 
+    // RestrictedApi（#106 lint 清偿）：ComponentActivity.dispatchKeyEvent 标记为
+    // restricted（库组内 API）——此处是有意覆盖：终端模式音量键虚拟 CTRL/FN 拦截
+    // 必须在 Activity 分发层截获（2026-08 终端按键方案），无公开替代 API。
+    @Suppress("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (terminalKeyInterceptor?.invoke(event) == true) {
             return true
