@@ -48,6 +48,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -99,6 +100,8 @@ fun ChatTerminalView(
     // 原函数内 remember 遮蔽参数，传入的 host 成为死参数，终端 snackbar 从不显示。
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    // #106 lint 清偿：snackbar 文案 hoist stringResource（三处 lambda 共用）
+    val terminalConnectFailedMsg = stringResource(R.string.chat_terminal_connect_failed)
     val isAmoled = isAmoledTheme()
     val keyboardController = LocalSoftwareKeyboardController.current
     val clipboard = LocalClipboard.current
@@ -124,7 +127,7 @@ fun ChatTerminalView(
             viewModel.openTerminalSession { ok ->
                 if (!ok) {
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar(context.getString(R.string.chat_terminal_connect_failed))
+                        snackbarHostState.showSnackbar(terminalConnectFailedMsg)
                     }
                     onTerminalModeChanged(false)
                 }
@@ -342,7 +345,7 @@ fun ChatTerminalView(
                                         viewModel.reconnectTerminalTab(tab.id) { ok ->
                                             if (!ok) {
                                                 coroutineScope.launch {
-                                                    snackbarHostState.showSnackbar(context.getString(R.string.chat_terminal_connect_failed))
+                                                    snackbarHostState.showSnackbar(terminalConnectFailedMsg)
                                                 }
                                             }
                                         }
@@ -363,7 +366,7 @@ fun ChatTerminalView(
                                 viewModel.createTerminalTab { ok ->
                                     if (!ok) {
                                         coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(context.getString(R.string.chat_terminal_connect_failed))
+                                            snackbarHostState.showSnackbar(terminalConnectFailedMsg)
                                         }
                                     }
                                 }

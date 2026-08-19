@@ -77,6 +77,11 @@ internal fun OpenProjectDialog(
         OutlinedTextFieldDefaults.colors()
     }
     val context = LocalContext.current
+    // #106 lint 清偿：建目录结果文案 hoist（回调/Toast 内不可调用 @Composable）；
+    // 成功文案带路径参数——hoist 模板 + .format()
+    val createFolderInvalidName = stringResource(R.string.sessions_create_folder_invalid_name)
+    val createFolderSuccessTpl = stringResource(R.string.sessions_create_folder_success)
+    val createFolderFailedMsg = stringResource(R.string.sessions_create_folder_failed)
     val scope = rememberCoroutineScope()
 
     // ── State ────────────────────────────────────────────────────────
@@ -326,7 +331,7 @@ internal fun OpenProjectDialog(
                                 val parent = currentPath?.rawPath ?: homeDir ?: "/"
                                 val name = newFolderName.trim()
                                 if (name.isBlank()) {
-                                    createFolderError = context.getString(R.string.sessions_create_folder_invalid_name)
+                                    createFolderError = createFolderInvalidName
                                     return@Triple
                                 }
 
@@ -345,8 +350,7 @@ internal fun OpenProjectDialog(
                                         Toast
                                             .makeText(
                                                 context,
-                                                context.getString(
-                                                    R.string.sessions_create_folder_success,
+                                                createFolderSuccessTpl.format(
                                                     DirectoryPath.forPath(createdPath)
                                                         .display(homeDir)
                                                 ),
@@ -355,7 +359,7 @@ internal fun OpenProjectDialog(
                                             .show()
                                     }.onFailure { error ->
                                         createFolderError = error.message
-                                            ?: context.getString(R.string.sessions_create_folder_failed)
+                                            ?: createFolderFailedMsg
                                     }
                                 }
                             },

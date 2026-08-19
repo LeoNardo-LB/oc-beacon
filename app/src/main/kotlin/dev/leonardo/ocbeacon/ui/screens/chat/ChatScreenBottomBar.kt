@@ -16,7 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -46,8 +46,9 @@ private val WHITESPACE_SPLIT_REGEX = Regex("\\s+")
  * 包含聊天输入栏及其全部关联逻辑：文本编辑、shell 模式、
  * 斜杠命令、文件提及、附件、模型选择与发送处理。
  *
- * 内部重新获取 [LocalContext]、[LocalView] 和 [LocalClipboard] —— 这些
- * 环境值在整个组合树中返回同一实例。
+ * 内部重新获取 [LocalView] 和 [LocalClipboard] —— 这些
+ * 环境值在整个组合树中返回同一实例。（原 [LocalContext] 仅供资源读取，
+ * #106 lint 清偿后已由 stringResource 取代）
  */
 @Composable
 internal fun ChatScreenBottomBar(
@@ -79,16 +80,32 @@ internal fun ChatScreenBottomBar(
     onOpenTaskSheet: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
 ) {
-    val context = LocalContext.current
     val view = LocalView.current
     val clipboard = LocalClipboard.current
     val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
     val taskToolbarText = if (taskUi.foregroundSubagentCount > 0) {
-        context.getString(
-            R.string.task_toolbar_subagents,
-            taskUi.foregroundSubagentCount
-        )
+        stringResource(R.string.task_toolbar_subagents, taskUi.foregroundSubagentCount)
     } else ""
+
+    // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist 到
+    // 组合层 stringResource（lambda 内不可调用 @Composable）；带参格式串 hoist
+    // 模板、调用点 .format()（保留 locale 占位符次序）
+    val shellEmptyMsg = stringResource(R.string.chat_shell_empty)
+    val shellAttachmentsUnsupportedMsg = stringResource(R.string.chat_shell_attachments_unsupported)
+    val shellFailedMsg = stringResource(R.string.chat_shell_failed)
+    val cmdExecutedTpl = stringResource(R.string.chat_command_executed)
+    val cmdFailedTpl = stringResource(R.string.chat_command_failed)
+    val sessionCompactedMsg = stringResource(R.string.chat_session_compacted)
+    val sessionCompactFailedMsg = stringResource(R.string.chat_session_compact_failed)
+    val forkFailedMsg = stringResource(R.string.chat_fork_failed)
+    val shareUrlCopiedMsg = stringResource(R.string.chat_share_url_copied)
+    val shareFailedMsg = stringResource(R.string.chat_share_failed)
+    val sessionUnsharedMsg = stringResource(R.string.chat_session_unshared)
+    val sessionUnshareFailedMsg = stringResource(R.string.chat_session_unshare_failed)
+    val messageUndoneMsg = stringResource(R.string.chat_message_undone)
+    val messageUndoFailedMsg = stringResource(R.string.chat_message_undo_failed)
+    val messageRedoneMsg = stringResource(R.string.chat_message_redone)
+    val messageRedoFailedMsg = stringResource(R.string.chat_message_redo_failed)
 
     if (sessionMeta.sessionParentId == null && !isTerminalMode && interaction.error == null) {
         val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
@@ -164,20 +181,20 @@ internal fun ChatScreenBottomBar(
                         if (shellCommand != null) {
                             if (shellCommand.isBlank()) {
                                 coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(context.getString(R.string.chat_shell_empty))
+                                    snackbarHostState.showSnackbar(shellEmptyMsg)
                                 }
                                 return@doSend
                             }
                             if (attachments.isNotEmpty()) {
                                 coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(context.getString(R.string.chat_shell_attachments_unsupported))
+                                    snackbarHostState.showSnackbar(shellAttachmentsUnsupportedMsg)
                                 }
                                 return@doSend
                             }
                             viewModel.runShellCommand(shellCommand) { ok ->
                                 if (!ok) {
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(context.getString(R.string.chat_shell_failed))
+                                        snackbarHostState.showSnackbar(shellFailedMsg)
                                     }
                                 }
                             }
@@ -200,8 +217,8 @@ internal fun ChatScreenBottomBar(
                                 viewModel.executeCommand(commandName, commandArgs) { ok ->
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar(
-                                            if (ok) context.getString(R.string.chat_command_executed, commandName)
-                                            else context.getString(R.string.chat_command_failed, commandName)
+                                            if (ok) cmdExecutedTpl.format(commandName)
+                                            else cmdFailedTpl.format(commandName)
                                         )
                                     }
                                 }
@@ -313,7 +330,7 @@ internal fun ChatScreenBottomBar(
                             viewModel.compactSession { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_session_compacted) else context.getString(R.string.chat_session_compact_failed)
+                                        if (ok) sessionCompactedMsg else sessionCompactFailedMsg
                                     )
                                 }
                             }
@@ -324,7 +341,7 @@ internal fun ChatScreenBottomBar(
                                     onNavigateToSession(session.id)
                                 } else {
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(context.getString(R.string.chat_fork_failed))
+                                        snackbarHostState.showSnackbar(forkFailedMsg)
                                     }
                                 }
                             }
@@ -334,9 +351,9 @@ internal fun ChatScreenBottomBar(
                                 coroutineScope.launch {
                                     if (url != null) {
                                         clipboard.copyToClipboard("url", url)
-                                        snackbarHostState.showSnackbar(context.getString(R.string.chat_share_url_copied))
+                                        snackbarHostState.showSnackbar(shareUrlCopiedMsg)
                                     } else {
-                                        snackbarHostState.showSnackbar(context.getString(R.string.chat_share_failed))
+                                        snackbarHostState.showSnackbar(shareFailedMsg)
                                     }
                                 }
                             }
@@ -345,7 +362,7 @@ internal fun ChatScreenBottomBar(
                             viewModel.unshareSession { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_session_unshared) else context.getString(R.string.chat_session_unshare_failed)
+                                        if (ok) sessionUnsharedMsg else sessionUnshareFailedMsg
                                     )
                                 }
                             }
@@ -354,7 +371,7 @@ internal fun ChatScreenBottomBar(
                             viewModel.undoMessage { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_message_undone) else context.getString(R.string.chat_message_undo_failed)
+                                        if (ok) messageUndoneMsg else messageUndoFailedMsg
                                     )
                                 }
                             }
@@ -363,7 +380,7 @@ internal fun ChatScreenBottomBar(
                             viewModel.redoMessage { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_message_redone) else context.getString(R.string.chat_message_redo_failed)
+                                        if (ok) messageRedoneMsg else messageRedoFailedMsg
                                     )
                                 }
                             }
@@ -379,7 +396,7 @@ internal fun ChatScreenBottomBar(
                             viewModel.executeCommand("review") { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_command_executed, "review") else context.getString(R.string.chat_command_failed, "review")
+                                        if (ok) cmdExecutedTpl.format("review") else cmdFailedTpl.format("review")
                                     )
                                 }
                             }
@@ -389,7 +406,7 @@ internal fun ChatScreenBottomBar(
                             viewModel.executeCommand(cmd.name) { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_command_executed, cmd.name) else context.getString(R.string.chat_command_failed, cmd.name)
+                                        if (ok) cmdExecutedTpl.format(cmd.name) else cmdFailedTpl.format(cmd.name)
                                     )
                                 }
                             }

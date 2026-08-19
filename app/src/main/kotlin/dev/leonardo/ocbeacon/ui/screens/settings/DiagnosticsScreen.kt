@@ -126,6 +126,10 @@ fun DiagnosticsScreen(
 
     val crashCount = entries.count { it.level == "FATAL" }
 
+    // #106 lint 清偿：导出/分享文案 hoist stringResource（局部 suspend/fun 内不可调用）
+    val diagnosticsEmptyMsg = stringResource(R.string.diagnostics_empty)
+    val diagnosticsShareTitle = stringResource(R.string.diagnostics_share)
+
     suspend fun exportText(): String = buildString {
         val timeRange = entries.takeIf { it.isNotEmpty() }?.let {
             "${java.time.Instant.ofEpochMilli(it.first().timestamp)}..${java.time.Instant.ofEpochMilli(it.last().timestamp)}"
@@ -139,7 +143,7 @@ fun DiagnosticsScreen(
         appendLine("Dropped queue entries: ${viewModel.droppedEntryCount()}")
         appendLine("Included: lifecycle, connection, REST/SSE result classes, and crashes; no chat or terminal payloads")
         appendLine()
-        append(viewModel.export().ifBlank { context.getString(R.string.diagnostics_empty) })
+        append(viewModel.export().ifBlank { diagnosticsEmptyMsg })
     }
 
     fun shareAsFile() {
@@ -156,7 +160,7 @@ fun DiagnosticsScreen(
                 putExtra(Intent.EXTRA_SUBJECT, "OC Beacon diagnostics")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(intent, context.getString(R.string.diagnostics_share)))
+            context.startActivity(Intent.createChooser(intent, diagnosticsShareTitle))
         }
     }
 

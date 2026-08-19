@@ -109,7 +109,7 @@ internal fun ToolCardScaffold(
     val expanded = isExpanded
     // #137（D2-L50）：CompositionLocal.current 必须在 composable 上下文读取（onClick 非 composable）
     val copyFeedback = LocalCopyFeedback.current
-    val copiedMessage = context.getString(R.string.chat_copied_clipboard)
+    val copiedMessage = stringResource(R.string.chat_copied_clipboard)
 
     AmoledSurface(
         isAmoledDark = isAmoled,
@@ -204,7 +204,7 @@ internal fun ToolCardScaffold(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = context.getString(R.string.chat_copy),
+                                    contentDescription = stringResource(R.string.chat_copy),
                                     modifier = Modifier.size(14.dp),
                                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
                                 )
@@ -220,7 +220,7 @@ internal fun ToolCardScaffold(
                             ) {
                                 Icon(
                                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    contentDescription = context.getString(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
+                                    contentDescription = stringResource(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
                                     modifier = Modifier.size(14.dp),
                                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                                 )

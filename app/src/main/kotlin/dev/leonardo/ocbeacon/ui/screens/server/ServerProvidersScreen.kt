@@ -264,6 +264,8 @@ fun ServerProvidersScreen(
     }
 
     uiState.pendingOauth?.let { pending ->
+        // #106 lint 清偿：Toast 文案 hoist（clickable lambda 内不可调用）
+        val oauthCodeCopiedToast = stringResource(R.string.server_settings_oauth_code_copied)
         val deviceCode = remember(pending.authorization.instructions) {
             extractOAuthDeviceCode(pending.authorization.instructions)
         }
@@ -317,7 +319,7 @@ fun ServerProvidersScreen(
                                     }
                                     Toast.makeText(
                                         context,
-                                        context.getString(R.string.server_settings_oauth_code_copied),
+                                        oauthCodeCopiedToast,
                                         Toast.LENGTH_SHORT,
                                     ).show()
                                 },

@@ -345,11 +345,23 @@ fun ChatScreen(
         coroutineScope = coroutineScope,
     )
     val context = LocalContext.current
+
+    // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist
+    // stringResource（lambda 内不可调用 @Composable）；context 仍供通知服务等使用
+    val sessionCompactedMsg = stringResource(R.string.chat_session_compacted)
+    val forkFailedMsg = stringResource(R.string.chat_fork_failed)
+    val sessionCompactFailedMsg = stringResource(R.string.chat_session_compact_failed)
+    val shareUrlCopiedMsg = stringResource(R.string.chat_share_url_copied)
+    val shareFailedMsg = stringResource(R.string.chat_share_failed)
+    val sessionUnsharedMsg = stringResource(R.string.chat_session_unshared)
+    val sessionUnshareFailedMsg = stringResource(R.string.chat_session_unshare_failed)
+    val sessionRenamedMsg = stringResource(R.string.chat_session_renamed)
+    val sessionRenameFailedMsg = stringResource(R.string.chat_session_rename_failed)
     // 2026-08-16（压缩完成后才通知·用户需求）：成功通知由 SSE
     // session.compacted 事件驱动（压缩完毕的确切时刻）——HTTP 回调只报失败。
     LaunchedEffect(Unit) {
         viewModel.compactionDoneEvent.collect {
-            snackbarHostState.showSnackbar(context.getString(R.string.chat_session_compacted))
+            snackbarHostState.showSnackbar(sessionCompactedMsg)
         }
     }
 
@@ -599,7 +611,7 @@ fun ChatScreen(
                                     onNavigateToSession(session.id)
                                 } else {
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(context.getString(R.string.chat_fork_failed))
+                                        snackbarHostState.showSnackbar(forkFailedMsg)
                                     }
                                 }
                             }
@@ -612,7 +624,7 @@ fun ChatScreen(
                                 if (!ok) {
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar(
-                                            context.getString(R.string.chat_session_compact_failed)
+                                            sessionCompactFailedMsg
                                         )
                                     }
                                 }
@@ -625,9 +637,9 @@ fun ChatScreen(
                                 coroutineScope.launch {
                                     if (url != null) {
                                         clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("url", url)))
-                                        snackbarHostState.showSnackbar(context.getString(R.string.chat_share_url_copied))
+                                        snackbarHostState.showSnackbar(shareUrlCopiedMsg)
                                     } else {
-                                        snackbarHostState.showSnackbar(context.getString(R.string.chat_share_failed))
+                                        snackbarHostState.showSnackbar(shareFailedMsg)
                                     }
                                 }
                             }
@@ -636,7 +648,7 @@ fun ChatScreen(
                             viewModel.unshareSession { ok ->
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        if (ok) context.getString(R.string.chat_session_unshared) else context.getString(R.string.chat_session_unshare_failed)
+                                        if (ok) sessionUnsharedMsg else sessionUnshareFailedMsg
                                     )
                                 }
                             }
@@ -870,7 +882,7 @@ fun ChatScreen(
             viewModel.renameSession(newTitle) { ok ->
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar(
-                        if (ok) context.getString(R.string.chat_session_renamed) else context.getString(R.string.chat_session_rename_failed)
+                        if (ok) sessionRenamedMsg else sessionRenameFailedMsg
                     )
                 }
             }

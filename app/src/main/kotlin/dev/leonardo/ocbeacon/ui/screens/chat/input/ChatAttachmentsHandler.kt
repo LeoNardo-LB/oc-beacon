@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ImageAttachment
 import dev.leonardo.ocbeacon.ui.screens.chat.util.AttachmentComparison
@@ -67,6 +68,14 @@ internal fun rememberAttachmentHandler(
 ): ChatAttachmentsHandler {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist
+    // stringResource；带参汇总模板 hoist 后 .format()（占位符 5 个）
+    val sessionExportedMsg = stringResource(R.string.chat_session_exported)
+    val sessionExportFailedMsg = stringResource(R.string.chat_session_export_failed)
+    val imageSavedMsg = stringResource(R.string.chat_image_saved)
+    val imageSaveFailedMsg = stringResource(R.string.chat_image_save_failed)
+    val imagesOptimizedTpl = stringResource(R.string.chat_images_optimized_summary)
 
     // -- 可变附件列表 --------------------------------------------------
     val attachments = remember { mutableStateListOf<ImageAttachment>() }
@@ -158,8 +167,7 @@ internal fun rememberAttachmentHandler(
                 val totalTokensBefore = optimizedComparisons.sumOf { it.originalEstimatedTokens }
                 val totalTokensAfter = optimizedComparisons.sumOf { it.optimizedEstimatedTokens }
                 onShowSnackbar(
-                    context.getString(
-                        R.string.chat_images_optimized_summary,
+                    imagesOptimizedTpl.format(
                         optimizedComparisons.size,
                         formatFileSize(totalOriginal),
                         formatFileSize(totalOptimized),
@@ -179,9 +187,9 @@ internal fun rememberAttachmentHandler(
             onExportSession(context, uri) { success ->
                 coroutineScope.launch {
                     if (success) {
-                        onShowSnackbar(context.getString(R.string.chat_session_exported))
+                        onShowSnackbar(sessionExportedMsg)
                     } else {
-                        onShowSnackbar(context.getString(R.string.chat_session_export_failed))
+                        onShowSnackbar(sessionExportFailedMsg)
                     }
                 }
             }
@@ -202,9 +210,9 @@ internal fun rememberAttachmentHandler(
                 context.contentResolver.openOutputStream(uri)?.use { it.write(request.bytes) }
                     ?: error("Unable to open output stream")
             }.onSuccess {
-                onShowSnackbar(context.getString(R.string.chat_image_saved))
+                onShowSnackbar(imageSavedMsg)
             }.onFailure {
-                onShowSnackbar(context.getString(R.string.chat_image_save_failed))
+                onShowSnackbar(imageSaveFailedMsg)
             }
         }
     }
@@ -256,8 +264,7 @@ internal fun rememberAttachmentHandler(
             val totalTokensBefore = optimizedComparisons.sumOf { it.originalEstimatedTokens }
             val totalTokensAfter = optimizedComparisons.sumOf { it.optimizedEstimatedTokens }
             onShowSnackbar(
-                context.getString(
-                    R.string.chat_images_optimized_summary,
+                imagesOptimizedTpl.format(
                     optimizedComparisons.size,
                     formatFileSize(totalOriginal),
                     formatFileSize(totalOptimized),

@@ -52,6 +52,8 @@ internal fun SessionTreeList(
     onAssignTags: (sessionId: String, currentTagIds: Set<String>) -> Unit,
 ) {
     val context = LocalContext.current
+    // #106 lint 清偿：复制提示 hoist（两处 lambda 共用；context 仍供剪贴板）
+    val copiedToClipboardMsg = stringResource(R.string.menu_copied_to_clipboard)
     val untitledLabel = stringResource(R.string.session_untitled)
     val listState = rememberLazyListState()
     val shouldLoadMore by remember {
@@ -97,7 +99,7 @@ internal fun SessionTreeList(
                         onClick = { viewModel.toggleDirectory(node.path) },
                         onCopyPath = { path ->
                             viewModel.copyToClipboard(path, context)
-                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
+                            scope.launch { snackbarHostState.showSnackbar(copiedToClipboardMsg) }
                         },
                         onNewSession = { directory ->
                             // 进入会话前标记：返回列表时回到顶部
@@ -130,7 +132,7 @@ internal fun SessionTreeList(
                         },
                         onCopyId = { id ->
                             viewModel.copyToClipboard(id, context)
-                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard)) }
+                            scope.launch { snackbarHostState.showSnackbar(copiedToClipboardMsg) }
                         },
                         onAssignCategory = {
                             onAssignTags(node.id, node.session.tags.map { it.id }.toSet())

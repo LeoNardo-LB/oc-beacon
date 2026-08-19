@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -75,6 +76,10 @@ private fun FileViewerDialogContent(
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         var isSubmitting by remember { mutableStateOf(false) }
+        // #106 lint 清偿：文案 hoist stringResource（Toast/Snackbar lambda 内不可调用）
+        val copiedToClipboardMsg = stringResource(R.string.menu_copied_to_clipboard)
+        val annotationSubmittedToast = stringResource(R.string.annotation_submitted_toast)
+        val annotationSubmitFailedMsg = stringResource(R.string.annotation_submit_failed)
 
         FileViewerScreen(
             uiState = uiState,
@@ -85,7 +90,7 @@ private fun FileViewerDialogContent(
             onCopyAllContent = {
                 scope.launch {
                     clipboard.copyToClipboard("content", uiState.content)
-                    snackbarHostState.showSnackbar(context.getString(R.string.menu_copied_to_clipboard))
+                    snackbarHostState.showSnackbar(copiedToClipboardMsg)
                 }
             },
             onToggleRenderMode = viewModel::toggleRenderMode,
@@ -106,10 +111,10 @@ private fun FileViewerDialogContent(
                         val result = viewModel.submitAnnotations(overallNote, editedNotes)
                         isSubmitting = false
                         if (result.isSuccess) {
-                            Toast.makeText(context, context.getString(R.string.annotation_submitted_toast), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, annotationSubmittedToast, Toast.LENGTH_SHORT).show()
                             onDismiss()
                         } else {
-                            snackbarHostState.showSnackbar(context.getString(R.string.annotation_submit_failed))
+                            snackbarHostState.showSnackbar(annotationSubmitFailedMsg)
                         }
                     }
                 }
