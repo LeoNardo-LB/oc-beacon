@@ -39,6 +39,28 @@
     <!-- Chat Screen -->
     <string name="chat_send">Отправить</string>
     <string name="chat_stop">Остановить</string>
+    <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
+    <string name="chat_busy_menu_send_now">Отправить сейчас</string>
+    <string name="chat_busy_menu_send_now_desc">Ставится в очередь на сервере, отображается сразу, отменить нельзя</string>
+    <string name="chat_busy_menu_stack">Отложить сообщение</string>
+    <string name="chat_busy_menu_stack_desc">Хранится локально и отправляется автоматически по завершении этого хода</string>
+    <string name="chat_busy_menu_stack_no_attachments">Сообщения с вложениями нужно отправлять сразу</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">Отложенные сообщения и TODO</string>
+    <string name="pending_sheet_title">Отложенные и TODO</string>
+    <string name="pending_tab_stacked">Отложенные %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">Продолжить</string>
+    <string name="pending_clear">Очистить</string>
+    <string name="pending_clear_confirm_title">Очистить отложенные сообщения?</string>
+    <string name="pending_clear_confirm_text">%1$d отложенных сообщений будет удалено.</string>
+    <string name="pending_edit_dialog_title">Изменить отложенное сообщение</string>
+    <string name="pending_item_edit">Изменить</string>
+    <string name="pending_item_delete">Удалить</string>
+    <string name="pending_item_send">Отправить сейчас</string>
+    <string name="pending_empty">Нет отложенных сообщений. Пока агент отвечает, коснитесь значка загрузки, чтобы отложить сообщение.</string>
+    <string name="pending_item_sending">Отправка…</string>
+    <string name="todo_empty">Нет элементов TODO</string>
     <string name="chat_empty">Начать разговор с OpenCode</string>
     <string name="chat_copy">Копировать</string>
     <string name="chat_compressing_context">Сжатие контекста: %1$s</string>

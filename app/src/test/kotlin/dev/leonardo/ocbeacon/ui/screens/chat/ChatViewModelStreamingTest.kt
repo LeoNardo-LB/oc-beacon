@@ -236,6 +236,13 @@ class ChatViewModelStreamingTest {
             serverRepository = serverRepository,
             shellJobsStore = ShellJobsStore(),
             eventDispatcher = mockk(relaxed = true),
+            // 堆积消息（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
+            pendingMessageRepository = mockk(relaxed = true),
+            pendingMessagePipeline = mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true).also { mk ->
+                // drainingSessions 暴露真实空 StateFlow——relaxed mock 的属性 getter
+                // 会返回无 value 的 mock flow，VM init 链上任何收集都可能挂起
+                every { mk.drainingSessions } returns kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>())
+            },
         )
     }
 

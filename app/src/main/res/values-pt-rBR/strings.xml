@@ -119,6 +119,28 @@
     <string name="session_delete">Excluir sessão</string>
     <string name="session_delete_confirm">Excluir "%1$s"? Isso não pode ser desfeito.</string>
     <string name="chat_stop">Parar</string>
+    <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
+    <string name="chat_busy_menu_send_now">Enviar agora</string>
+    <string name="chat_busy_menu_send_now_desc">Enfileirado no servidor, visível de imediato, não pode ser desfeito</string>
+    <string name="chat_busy_menu_stack">Adiar mensagem</string>
+    <string name="chat_busy_menu_stack_desc">Mantida localmente, enviada automaticamente quando esta rodada terminar</string>
+    <string name="chat_busy_menu_stack_no_attachments">Mensagens com anexos devem ser enviadas agora</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">Mensagens adiadas e TODO</string>
+    <string name="pending_sheet_title">Adiadas e TODO</string>
+    <string name="pending_tab_stacked">Adiadas %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">Continuar</string>
+    <string name="pending_clear">Limpar</string>
+    <string name="pending_clear_confirm_title">Limpar mensagens adiadas?</string>
+    <string name="pending_clear_confirm_text">%1$d mensagens adiadas serão removidas.</string>
+    <string name="pending_edit_dialog_title">Editar mensagem adiada</string>
+    <string name="pending_item_edit">Editar</string>
+    <string name="pending_item_delete">Excluir</string>
+    <string name="pending_item_send">Enviar agora</string>
+    <string name="pending_empty">Nenhuma mensagem adiada. Enquanto o assistente responde, toque no indicador de carregamento para adiar uma mensagem.</string>
+    <string name="pending_item_sending">Enviando…</string>
+    <string name="todo_empty">Nenhum item TODO</string>
     <string name="chat_copy">Copiar</string>
     <string name="chat_compressing_context">Comprimindo contexto: %1$s</string>
     <string name="chat_compressing_context_plain">Comprimindo contexto…</string>

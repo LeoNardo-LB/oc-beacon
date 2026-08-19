@@ -119,6 +119,28 @@
     <string name="session_delete">セッション削除</string>
     <string name="session_delete_confirm">「%1$s」を削除しますか？この操作は元に戻せません。</string>
     <string name="chat_stop">停止</string>
+    <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
+    <string name="chat_busy_menu_send_now">今すぐ送信</string>
+    <string name="chat_busy_menu_send_now_desc">サーバーのキューに投入され、すぐに表示されます。取り消せません</string>
+    <string name="chat_busy_menu_stack">メッセージを保留</string>
+    <string name="chat_busy_menu_stack_desc">端末に保存され、このターンの終了後に自動で送信されます</string>
+    <string name="chat_busy_menu_stack_no_attachments">添付ファイル付きのメッセージは今すぐ送信する必要があります</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">保留中のメッセージとTODO</string>
+    <string name="pending_sheet_title">保留とTODO</string>
+    <string name="pending_tab_stacked">保留 %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">続ける</string>
+    <string name="pending_clear">クリア</string>
+    <string name="pending_clear_confirm_title">保留中のメッセージをクリアしますか？</string>
+    <string name="pending_clear_confirm_text">保留中のメッセージ%1$d件が削除されます。</string>
+    <string name="pending_edit_dialog_title">保留中のメッセージを編集</string>
+    <string name="pending_item_edit">編集</string>
+    <string name="pending_item_delete">削除</string>
+    <string name="pending_item_send">今すぐ送信</string>
+    <string name="pending_empty">保留中のメッセージはありません。エージェントの応答中は、スピナーをタップするとメッセージを保留できます。</string>
+    <string name="pending_item_sending">送信中…</string>
+    <string name="todo_empty">TODOアイテムはありません</string>
     <string name="chat_copy">コピー</string>
     <string name="chat_compressing_context">コンテキストを圧縮中: %1$s</string>
     <string name="chat_compressing_context_plain">コンテキストを圧縮中…</string>

@@ -119,6 +119,28 @@
     <string name="session_delete">Elimina sessione</string>
     <string name="session_delete_confirm">Eliminare "%1$s"? Questa operazione non può essere annullata.</string>
     <string name="chat_stop">Ferma</string>
+    <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
+    <string name="chat_busy_menu_send_now">Invia ora</string>
+    <string name="chat_busy_menu_send_now_desc">Accodato sul server, visibile immediatamente, non annullabile</string>
+    <string name="chat_busy_menu_stack">Metti in attesa</string>
+    <string name="chat_busy_menu_stack_desc">Conservato localmente, inviato automaticamente al termine di questo turno</string>
+    <string name="chat_busy_menu_stack_no_attachments">I messaggi con allegati devono essere inviati subito</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">Messaggi in attesa e TODO</string>
+    <string name="pending_sheet_title">In attesa e TODO</string>
+    <string name="pending_tab_stacked">In attesa %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">Continua</string>
+    <string name="pending_clear">Cancella</string>
+    <string name="pending_clear_confirm_title">Cancellare i messaggi in attesa?</string>
+    <string name="pending_clear_confirm_text">%1$d messaggi in attesa verranno rimossi.</string>
+    <string name="pending_edit_dialog_title">Modifica messaggio in attesa</string>
+    <string name="pending_item_edit">Modifica</string>
+    <string name="pending_item_delete">Elimina</string>
+    <string name="pending_item_send">Invia ora</string>
+    <string name="pending_empty">Nessun messaggio in attesa. Mentre l\'assistente risponde, tocca l\'indicatore di caricamento per mettere un messaggio in attesa.</string>
+    <string name="pending_item_sending">Invio…</string>
+    <string name="todo_empty">Nessun elemento TODO</string>
     <string name="chat_copy">Copia</string>
     <string name="chat_compressing_context">Compressione contesto: %1$s</string>
     <string name="chat_compressing_context_plain">Compressione contesto…</string>

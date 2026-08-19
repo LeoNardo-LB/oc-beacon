@@ -119,6 +119,28 @@
     <string name="session_delete">Usuń sesję</string>
     <string name="session_delete_confirm">Usunąć "%1$s"? Tego nie można cofnąć.</string>
     <string name="chat_stop">Zatrzymaj</string>
+    <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
+    <string name="chat_busy_menu_send_now">Wyślij teraz</string>
+    <string name="chat_busy_menu_send_now_desc">Kolejkowane na serwerze, widoczne od razu, nie można cofnąć</string>
+    <string name="chat_busy_menu_stack">Odłóż wiadomość</string>
+    <string name="chat_busy_menu_stack_desc">Przechowywana lokalnie, wysyłana automatycznie po zakończeniu tej tury</string>
+    <string name="chat_busy_menu_stack_no_attachments">Wiadomości z załącznikami muszą być wysłane teraz</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">Odłożone wiadomości i TODO</string>
+    <string name="pending_sheet_title">Odłożone i TODO</string>
+    <string name="pending_tab_stacked">Odłożone %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">Kontynuuj</string>
+    <string name="pending_clear">Wyczyść</string>
+    <string name="pending_clear_confirm_title">Wyczyścić odłożone wiadomości?</string>
+    <string name="pending_clear_confirm_text">%1$d odłożonych wiadomości zostanie usuniętych.</string>
+    <string name="pending_edit_dialog_title">Edytuj odłożoną wiadomość</string>
+    <string name="pending_item_edit">Edytuj</string>
+    <string name="pending_item_delete">Usuń</string>
+    <string name="pending_item_send">Wyślij teraz</string>
+    <string name="pending_empty">Brak odłożonych wiadomości. Gdy agent odpowiada, dotknij wskaźnika ładowania, aby odłożyć wiadomość.</string>
+    <string name="pending_item_sending">Wysyłanie…</string>
+    <string name="todo_empty">Brak elementów TODO</string>
     <string name="chat_copy">Kopiuj</string>
     <string name="chat_compressing_context">Kompresowanie kontekstu: %1$s</string>
     <string name="chat_compressing_context_plain">Kompresowanie kontekstu…</string>

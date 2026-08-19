@@ -130,6 +130,9 @@ class ChatViewModelQueuedTest {
             // #122 接线新增：自动批准（relaxed mock——既有用例不受影响）
             permissionAutoApprover = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover>(relaxed = true),
             chatRepoProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.ChatRepository>(relaxed = true) },
+            // 堆积消息管线（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
+            pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
+            pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
         every { sessionStateService.statusFlow } returns testStatusFlow
         every { sessionStateService.activityFlow } returns MutableStateFlow(emptyMap())
@@ -320,6 +323,13 @@ class ChatViewModelQueuedTest {
             serverRepository = serverRepository,
             shellJobsStore = ShellJobsStore(),
             eventDispatcher = mockk(relaxed = true),
+            // 堆积消息（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
+            pendingMessageRepository = mockk(relaxed = true),
+            pendingMessagePipeline = mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true).also { mk ->
+                // drainingSessions 暴露真实空 StateFlow——relaxed mock 的属性 getter
+                // 会返回无 value 的 mock flow，VM init 链上任何收集都可能挂起
+                every { mk.drainingSessions } returns kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>())
+            },
         )
     }
 

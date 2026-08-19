@@ -61,9 +61,12 @@ class SessionRepositoryImplTest {
             // #122 接线新增：自动批准（relaxed mock——既有用例不受影响）
             permissionAutoApprover = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover>(relaxed = true),
             chatRepoProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.ChatRepository>(relaxed = true) },
+            // 堆积消息管线（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
+            pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
+            pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
         every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
-        repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo)
+        repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo, mockk(relaxed = true))
     }
 
     private fun testSession(id: String) = Session(

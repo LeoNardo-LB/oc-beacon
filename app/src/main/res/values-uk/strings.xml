@@ -119,6 +119,28 @@
     <string name="session_delete">Видалити сесію</string>
     <string name="session_delete_confirm">Видалити "%1$s"? Це неможливо скасувати.</string>
     <string name="chat_stop">Зупинити</string>
+    <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
+    <string name="chat_busy_menu_send_now">Надіслати зараз</string>
+    <string name="chat_busy_menu_send_now_desc">Ставиться в чергу на сервері, видно одразу, скасувати не можна</string>
+    <string name="chat_busy_menu_stack">Відкласти повідомлення</string>
+    <string name="chat_busy_menu_stack_desc">Зберігається локально та надсилається автоматично після завершення цього ходу</string>
+    <string name="chat_busy_menu_stack_no_attachments">Повідомлення з вкладеннями потрібно надсилати зараз</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">Відкладені повідомлення та TODO</string>
+    <string name="pending_sheet_title">Відкладені та TODO</string>
+    <string name="pending_tab_stacked">Відкладені %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">Продовжити</string>
+    <string name="pending_clear">Очистити</string>
+    <string name="pending_clear_confirm_title">Очистити відкладені повідомлення?</string>
+    <string name="pending_clear_confirm_text">%1$d відкладених повідомлень буде видалено.</string>
+    <string name="pending_edit_dialog_title">Редагувати відкладене повідомлення</string>
+    <string name="pending_item_edit">Редагувати</string>
+    <string name="pending_item_delete">Видалити</string>
+    <string name="pending_item_send">Надіслати зараз</string>
+    <string name="pending_empty">Немає відкладених повідомлень. Поки агент відповідає, торкніться індикатора завантаження, щоб відкласти повідомлення.</string>
+    <string name="pending_item_sending">Надсилання…</string>
+    <string name="todo_empty">Немає елементів TODO</string>
     <string name="chat_copy">Копіювати</string>
     <string name="chat_compressing_context">Стиснення контексту: %1$s</string>
     <string name="chat_compressing_context_plain">Стиснення контексту…</string>

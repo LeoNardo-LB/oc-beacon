@@ -55,6 +55,28 @@
     <!-- Chat Screen -->
     <string name="chat_send">Kirim</string>
     <string name="chat_stop">Stop</string>
+    <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
+    <string name="chat_busy_menu_send_now">Kirim sekarang</string>
+    <string name="chat_busy_menu_send_now_desc">Masuk antrean di server, langsung terlihat, dan tidak dapat dibatalkan</string>
+    <string name="chat_busy_menu_stack">Tunda pesan</string>
+    <string name="chat_busy_menu_stack_desc">Disimpan secara lokal, dikirim otomatis saat giliran ini berakhir</string>
+    <string name="chat_busy_menu_stack_no_attachments">Pesan dengan lampiran harus dikirim sekarang</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">Pesan tertunda dan TODO</string>
+    <string name="pending_sheet_title">Tertunda &amp; TODO</string>
+    <string name="pending_tab_stacked">Tertunda %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">Lanjutkan</string>
+    <string name="pending_clear">Hapus</string>
+    <string name="pending_clear_confirm_title">Hapus pesan tertunda?</string>
+    <string name="pending_clear_confirm_text">%1$d pesan tertunda akan dihapus.</string>
+    <string name="pending_edit_dialog_title">Edit pesan tertunda</string>
+    <string name="pending_item_edit">Edit</string>
+    <string name="pending_item_delete">Hapus</string>
+    <string name="pending_item_send">Kirim sekarang</string>
+    <string name="pending_empty">Belum ada pesan tertunda. Saat agen sedang membalas, ketuk ikon pemuatan untuk menunda pesan.</string>
+    <string name="pending_item_sending">Mengirim…</string>
+    <string name="todo_empty">Tidak ada item TODO</string>
     <string name="chat_empty">Mulai percakapan dengan OpenCode</string>
     <string name="chat_copy">Salin</string>
     <string name="chat_compressing_context">Mengompresi konteks: %1$s</string>

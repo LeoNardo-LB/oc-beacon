@@ -30,6 +30,8 @@ class SessionRepositoryImplDedupTest {
         messageApi = messageApi,
         eventDispatcher = mockk(relaxed = true),
         serverRepo = serverStore,
+        // 堆积消息级联删除（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
+        pendingMessageRepository = mockk(relaxed = true),
     )
 
     private fun stubConfig() {

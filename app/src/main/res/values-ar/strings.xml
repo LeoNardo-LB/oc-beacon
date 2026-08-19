@@ -119,6 +119,28 @@
     <string name="session_delete">حذف الجلسة</string>
     <string name="session_delete_confirm">حذف "%1$s"؟ لا يمكن التراجع عن ذلك.</string>
     <string name="chat_stop">إيقاف</string>
+    <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
+    <string name="chat_busy_menu_send_now">إرسال الآن</string>
+    <string name="chat_busy_menu_send_now_desc">توضع في قائمة الانتظار على الخادم وتظهر فورًا ولا يمكن التراجع عنها</string>
+    <string name="chat_busy_menu_stack">تأجيل الرسالة</string>
+    <string name="chat_busy_menu_stack_desc">تُحفظ محليًا وتُرسل تلقائيًا عند انتهاء هذا الدور</string>
+    <string name="chat_busy_menu_stack_no_attachments">يجب إرسال الرسائل التي تحتوي على مرفقات الآن</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">الرسائل المؤجلة وTODO</string>
+    <string name="pending_sheet_title">المؤجلة وTODO</string>
+    <string name="pending_tab_stacked">المؤجلة %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">متابعة</string>
+    <string name="pending_clear">مسح</string>
+    <string name="pending_clear_confirm_title">مسح الرسائل المؤجلة؟</string>
+    <string name="pending_clear_confirm_text">ستتم إزالة %1$d من الرسائل المؤجلة.</string>
+    <string name="pending_edit_dialog_title">تعديل الرسالة المؤجلة</string>
+    <string name="pending_item_edit">تعديل</string>
+    <string name="pending_item_delete">حذف</string>
+    <string name="pending_item_send">إرسال الآن</string>
+    <string name="pending_empty">لا توجد رسائل مؤجلة. أثناء رد الوكيل، انقر على مؤشر التحميل لتأجيل رسالة.</string>
+    <string name="pending_item_sending">جارٍ الإرسال…</string>
+    <string name="todo_empty">لا توجد عناصر TODO</string>
     <string name="chat_copy">نسخ</string>
     <string name="chat_compressing_context">ضغط السياق: %1$s</string>
     <string name="chat_compressing_context_plain">جارٍ ضغط السياق…</string>
