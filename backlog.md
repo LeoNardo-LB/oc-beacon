@@ -1595,13 +1595,13 @@
   - 上游候选（并入 #146 候选池）：agent 切换端点契约（prompt body agents 语义 vs 独立端点）；agent permissions 评估链是否覆盖工具调用路径
   - 状态：`[ ]` ① ✅ **已修 76f337f5（2026-08-19）**——端点验证可用（204 + session.agent 持久变化 + SSE session.agent.selected 广播，带/不带 directory 头均生效）；实现 switchAgent（promptAsync 发送前显式切换，同 switchModel 模式）+ **resolveAgentId 显示名→id 解析**（E2E 发现的真 bug：listAgents 映射 name "Plan"，端点按 id "plan" 区分大小写匹配，原样发送 → execution.failed "Agent not found"；目录大小写不敏感双向匹配 + @Singleton 缓存 + 失败自适应重拉）。E2E 全链路：UI 切换 → `agent=plan (from=Plan)` → execution.started→succeeded → 服务器回复 agent=plan；②③④ 已归档为方法论
 
-- [ ] **新增 P2：StrictMode 首轮走查发现——主线程 IO 批次（165 条，2026-08-19 c3078b41 采集）** `perf` `main-thread`
+- [ ] **新增 P2：StrictMode 首轮走查发现——主线程 IO 批次（165 条，2026-08-19 c3078b41 采集；①已修 48ae416f，余 15 条启动期一次性读）** `perf` `main-thread`
   - 背景：#106-2 接入 StrictMode 后首轮模拟器走查（导航/滚动/进会话/设置，19:23-19:27）捕获 165 条违规，100% 主线程（PID=TID）。证据 /tmp/verify-strictmode/violations.txt
-  - ① **SecretCipher 主线程 AndroidKeyStore 解密 125 条（76%）** `P2`：SecretCipher.decrypt（SecretCipher.kt:62）← ServerDataStore.withDecryptedPassword（ServerDataStore.kt:184）——CustomViolation 75（KeyStore update/finish/abort）+ DiskRead 25（getKeyEntry/createOperation）+ DiskWrite 25。**不止启动期：会话界面存活期每 ~5s 周期性爆发一组 6 条**（密码被反复解密）——低端机聊天 jank 潜在源。方案方向：解密结果内存缓存（限时）/ withDecryptedPassword 调用方全部 IO 化/解密一次后持有
-  - ② **MainActivity.attachBaseContext 语言读 187ms（×5）** `P3`：SettingsDataStore.getStoredLanguage（SettingsDataStore.kt:82）阻塞 DataStore 读——单次最重 187ms 主线程启动延迟。方案方向：语言镜像（#136 reconcileLanguageMirror 已有）attachBaseContext 优先读同步快照（SharedPreferences 镜像）
-  - ③ **OpenCodeApp.onCreate 启动磁盘读（×3）** `P3`：EntryPoint 解析路径上的直接磁盘访问（Hilt 装配触发 DiagnosticLogRepository 等初始化读）
+  - ① **SecretCipher 主线程 AndroidKeyStore 解密 125 条（76%）** ✅ **2026-08-19 已修 48ae416f**：解密记忆化（ConcurrentHashMap，密文为 key，encrypt 清空/失败不缓存）+ servers flow flowOn(IO)。同路径走查对照：SecretCipher 违规 **125→0**，总违规 **165→15（−91%）**，90s+20s 会话停留窗口零违规（上轮每 ~5s 爆发），零 FATAL 无回归（证据 /tmp/verify-p2cipher/）。原描述：SecretCipher.decrypt（SecretCipher.kt:62）← ServerDataStore.withDecryptedPassword（ServerDataStore.kt:184）——CustomViolation 75（KeyStore update/finish/abort）+ DiskRead 25（getKeyEntry/createOperation）+ DiskWrite 25。**不止启动期：会话界面存活期每 ~5s 周期性爆发一组 6 条**（密码被反复解密）——低端机聊天 jank 潜在源。方案方向：解密结果内存缓存（限时）/ withDecryptedPassword 调用方全部 IO 化/解密一次后持有
+  - ② **启动期语言镜像 SharedPreferences 读** `P3`（修复后精确归属，合计 ×5）：MainActivity.attachBaseContext→SettingsDataStore.getStoredLanguage（SettingsDataStore.kt:82）×3 + OpenCodeConnectionService.attachBaseContext→applyAppLanguage（LocaleUtils.kt:15）×2——#136 有意设计的同步镜像（冷启动首读加载 XML，187ms 为模拟器上最重单次；SharedPreferences 单例后命中内存）阻塞 DataStore 读——单次最重 187ms 主线程启动延迟。方案方向：语言镜像（#136 reconcileLanguageMirror 已有）attachBaseContext 优先读同步快照（SharedPreferences 镜像）
+  - ③ **启动期其他一次性读盘** `P3`（修复后精确归属）：OpenCodeApp.onCreate 崩溃通知 SharedPreferences（×3，crash_notify/crash_restart）+ NetworkModule.provideHttpClient 初始化（NetworkModule.kt:48，ZipFile/RandomAccessFile ×7——OkHttp/Ktor 类路径资源加载，框架行为）
   - 泄漏类（Closeable/Activity/SqlLite）0 条——VmPolicy 检测器无信号
-  - 工时：①~0.5d ②③~0.5d | 难度：中 | 涉及：SecretCipher/ServerDataStore/MainActivity/SettingsDataStore | 优先级：P2（①）+ P3（②③）
+  - 工时：①已完成 ②③~0.5d | 难度：中 | 涉及：SecretCipher/ServerDataStore/MainActivity/SettingsDataStore | 优先级：P2（①✅）+ P3（②③）
 
 - [ ] **新增 P3：Android Lint 存量清偿（59 errors baseline 入册，2026-08-19 aa551535）** `lint` `tech-debt`
   - 背景：#106-6 开发版 lint 门禁——新增 error 卡发版，存量 59 errors/163 warnings/11 hints 由 app/lint-baseline.xml 豁免（不阻塞但持续可见）
