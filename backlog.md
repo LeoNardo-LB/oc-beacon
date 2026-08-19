@@ -460,7 +460,7 @@
   - 来源：回归走查 logcat（2026-08-11）
   - **2026-08-11 完成**：SseClientV2.parseV2Event data/properties 判型防御（instructions data 是数组时 jsonObject 扩展抛异常 → 回退顶层字段）+ V2EventParser handledPrefixes 加 session.instructions.；V2EventParserTest 新增用例；实测 parse error 归零
 
-- [ ] **#70 V2 事件体系未确认项（设计文档 §7，实施时补测）** `sse` `refactor`
+- [x] **#70 V2 事件体系未确认项——已完结（①崩溃路径实证排除 + durable 恢复发现）** `sse` `refactor`
   - 问题：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md §7 列出 7 项未确认：
     1. `session.retry.scheduled` payload 结构（未触发重试未抓到）——影响 Retry 状态映射
     2. `/api/config` info 已实测无 mcp 字段——McpRepositoryImpl 的 mcp 配置来源需确认（当前 type 回退 "local"）
@@ -472,6 +472,7 @@
   - 方案：剩余 1/2/3 项在下次触碰相关功能时补测；4-7 已闭环
   - 来源：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md
   - **2026-08-19 盘点补测（beta-17595 curl）**：② **已答**——/api/config 的 document 条目 info **含 mcp 字段**（用户配置有 mcp 块；当时"无 mcp 字段"应为旧版本或配置为空），McpRepositoryImpl 可从 config info 读取；③ **已答**——/api/session/active 返回 **map 格式** `{data:{sessionId:{type:"running"}}}`，类型仅见 "running"（无 idle/error 等其他值可观测）。① retry.scheduled 仍无法主动触发（需真实失败重试场景），保持 touch-when-needed。**条目收敛：仅剩①（条件触发时抓 payload）**
+  - **2026-08-19 ①崩溃路径实证（kill -9 实验，两个 SSE 监视窗口全程捕获）**：生成中（65 reasoning.delta 已流）kill -9 服务器 → 重启 → **durable 事件日志自动恢复被中断的 turn**（74 reasoning.delta + 36 text.delta + text.ended，最终 assistant 1179 字符完整交付，会话转 idle 无僵尸）——**全程无 session.retry.scheduled**。结论：① 崩溃-重启路径不发出该事件（durable 恢复静默续跑取代之，App 重连后自然看到续流，无需 Retry UI）；剩余唯一触发面 = provider 级瞬时失败（429/5xx）需真实故障 provider—— inherent 外部条件，与「下次发生时抓」同义。**App 侧有价值的副产品认知：服务器崩溃不丢 turn，SSE 重连即续**
 
 - [x] **#29 androidTest 编译修复（#25 已读标记遗留）** `refactor` `data`
   - 问题：commit 5793957f（#25 已读标记服务器域重构）为 SessionRepository 增加 `getLastCompletedReplyTimeFlow()`、SettingsRepository 增加 5 个已读状态方法，但 FakeSessionRepository/FakeSettingsRepository 未同步实现 → `compileDevDebugAndroidTestKotlin` 从该 commit 起持续失败（2026-08-08 悲观重构验证时发现，与重构无关的预存在问题）
