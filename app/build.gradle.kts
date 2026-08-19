@@ -80,6 +80,13 @@ android {
         }
     }
 
+    // #106-6 工具链治理：Android Lint 门禁——存量问题入 baseline（只卡新增），
+    // abortOnError 显式声明（AGP 默认 true，这里自文档化）
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = true
+    }
+
     buildTypes {
         debug {
         }

@@ -56,6 +56,11 @@ jobs:
         if: ${{ env.KEYSTORE_BASE64 != '' }}
         run: bash scripts/ci-decode-keystore.sh
 
+      # #106-6 工具链治理：Android Lint 门禁——存量问题由 app/lint-baseline.xml 豁免，
+      # 新增 error 直接卡住发版（abortOnError=true）
+      - name: Android Lint gate (baseline-tracked, new issues fail)
+        run: ./gradlew :app:lint${{ steps.flavor.outputs.flavor }}Release
+
       - name: Build Release APK
         run: ./gradlew :app:assemble${{ steps.flavor.outputs.flavor }}Release
 
