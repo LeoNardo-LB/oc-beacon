@@ -1611,12 +1611,13 @@
   - 方向：53 条批量场次优先；散点逐个判断真伪（误报 @Suppress + 注释说明）
   - 工时：~1-1.5d | 难度：低-中 | 优先级：P3（门禁已开，存量只影响报告噪音）
 
-- [ ] **新增 P2：空会话中权限卡/提问卡不渲染（ChatEmptyState 整块吞掉 ChatMessageList）** `ui` `chat`
+- [x] **新增 P2：空会话中权限卡/提问卡不渲染（ChatEmptyState 整块吞掉 ChatMessageList）——已修 a4862397** `ui` `chat`
   - 发现（2026-08-19 权限卡 E2E）：空会话收到 PermissionAsked——App 事件链全部正常（SSE recv → dispatch → PermissionEventHandler pending，logcat 铁证），但卡片不显示。根因：ChatScreen 内容分支 messageState.messages.isEmpty() && !isLoading → ChatEmptyState **替换**整个消息区，而权限/提问卡是 ChatMessageList 的 LazyColumn item——空会话永远渲染不到
   - 复现：新建空会话 → 服务器发出 permission.asked（或 question）→ 无卡片；同会话注入任一消息后触发 → 卡片正常渲染（绕过实证）
   - 影响：真实场景（用户新建会话发首条消息、agent 首轮就要权限/提问）卡片不可达——permission 3 分钟无人应答超时
   - 方案：空分支条件收紧（有 pendingQuestions/pendingPermissions 时仍走 ChatMessageList）或空态与卡片区叠加渲染
-  - 工时：~2h | 难度：低 | 涉及：ChatScreen 空态分支 | 优先级：P2
+  - **2026-08-19 修复（a4862397）**：空态分支条件收紧（pending 非空走 ChatMessageList）。E2E 双向验证：空会话挂起 ask → 卡片渲染 → 拒绝 → 空态正确回归；live 触发（原始失败路径）同验证 + 非空会话回归。**顺带修复 auto-approve 空名伪命中**：live ask 2ms 内被吞的根因是上轮 always 确认在空名 ask 上存了 toolName="" 规则（评估端点事件不带 permission 显示名）——savePermissionRule 空名守卫 + matches 双端空名防御（历史遗留规则即刻失效，无需迁移），单测 +2。证据 /tmp/verify-permcard/emptyfix_*.png
+  - 工时：~2h | 难度：低 | 涉及：ChatScreen 空态分支 | 优先级：P2 ✅ 2026-08-19 完结
 
 - [ ] **新增 P3：App「自动允许所有权限请求」开关测试后遗留 ON** `process`
   - 发现（2026-08-19 权限卡 E2E）：2026-08-19 上午验收明确关闭过该开关（DataStore 0x00 验证），但本轮 E2E 时又为 ON（毫秒级自动应答 always 导致卡片不显示，排查消耗两轮）。可能是下午某 E2E 子代理重新打开未还原
