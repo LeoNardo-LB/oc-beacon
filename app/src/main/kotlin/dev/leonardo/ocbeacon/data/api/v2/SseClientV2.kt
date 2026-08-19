@@ -27,6 +27,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.URLEncoder
 import javax.inject.Inject
@@ -449,9 +450,14 @@ class SseClientV2 @Inject constructor(
      * 映射：assistantMessageID → messageId，sessionID → sessionId
      */
     private fun mapV2DeltaEvent(type: String, props: JsonObject): SseEvent? {
-        val delta = props["delta"]?.jsonPrimitive?.content ?: return null
-        val sessionId = props["sessionID"]?.jsonPrimitive?.content ?: return null
-        val messageId = props["assistantMessageID"]?.jsonPrimitive?.content ?: return null
+        // E2E-I 复现链顺带发现（2026-08-19）：session.instructions.updated 等事件
+        // 落入本兜底映射时，其 payload 字段可能为 JsonObject（如 metadata.instructions）
+        // ——原 jsonPrimitive 硬转换直接抛 IllegalArgumentException（被读循环 catch
+        // 吞掉但刷 E 级日志）。改用 as? 安全转型：意外形态静默返回 null，
+        // 走 unhandled 路径。
+        val delta = (props["delta"] as? JsonPrimitive)?.content ?: return null
+        val sessionId = (props["sessionID"] as? JsonPrimitive)?.content ?: return null
+        val messageId = (props["assistantMessageID"] as? JsonPrimitive)?.content ?: return null
 
         val field = when (type) {
             "session.reasoning.delta" -> "reasoning"
@@ -462,7 +468,7 @@ class SseClientV2 @Inject constructor(
         // 原硬编码 "" 导致每个 delta 新建 Part.Text(id="")，多 part 错乱。
         // #109（2026-08-14）：id 必须含 type——服务器 ordinal 按类型独立计数，
         // 同消息 reasoning[0]/text[0] 会碰撞（见 V2SseMapper.derivePartId）。
-        val ordinal = props["ordinal"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
+        val ordinal = (props["ordinal"] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L
 
         return SseEvent.MessagePartDelta(
             sessionId = sessionId,
