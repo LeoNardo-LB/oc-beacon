@@ -1566,10 +1566,11 @@
   - #122 D2-25：权限卡 → 总是允许 → 规则落库 → 新询问 [auto-approve] 7ms 自动应答全链路
   - #79 P0：飞行模式 + force-stop → Room 渲染工具卡摘要形态，FATAL=0
 
-- [ ] **新增 P3：提问通知正文显示触发 prompt 而非问题文本** `ui` `notification`
+- [x] **新增 P3：提问通知正文显示触发 prompt 而非问题文本——已修 2d9636bc** `ui` `notification`
   - 现象（2026-08-19 代验收新增A时发现）：通知正文 = 会话最后一条用户消息（原始 prompt "Use the question tool to ask me: What is your favorite animal? ..."），而非问题本身（"What is your favorite animal?"）——信息密度低，用户需读完整 prompt 才知道被问了什么
   - 根因：AppNotificationManager.showQuestionNotification（:379 附近）contentText 优先 findLatestUserMessages(sessionId,1)，questionText 仅作空回退——SSE 路径传入了正确的 questionText 但被用户消息覆盖
   - 方案：正文改优先 questionText（问题文本短且直接），用户消息可留作第二行或弃用；涉及 15 语言无需新键
+  - **2026-08-19 修复（2d9636bc）✅**：正文优先 questionText，缺失回退用户消息（REST 兜底路径）再回退通用文案。E2E 铁证：dumpsys `android.text=String (What is your favorite season?)`——问题文本而非 prompt 全文；测试 form 已答清
   - 工时：~30min | 难度：低 | 涉及：AppNotificationManager | 优先级：P3
 
 - [ ] **beta-17595 服务器兼容发现批次（E2E 方法论 + App 侧影响，2026-08-19 实测）** `compat` `upstream`
