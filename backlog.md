@@ -72,11 +72,18 @@
   - **2026-08-18 模拟器全链路复验 ✅ 结案（假象确认）**：干净会话双题卡（Q1 单选+自定义 / Q2 多选）——Q1 输入 Mango 保存（像素验证勾选态底色 221,222,237 accent wash）→ Submit → logcat 载荷 `answers=[[Mango], [Red, Green]]` → fallback `answer={"q0":"Mango","q1":["Red","Green"]}` 200 → agent 复述"您选择了自填答案 Mango（芒果）+ Red/Green"——**自定义答案完整送达，无丢失**。当时矛盾观察确系 E2E-C 修复中间版本（VM 缓存）的残留渲染假象（证据链 /tmp/verify-0818/，截图 28-35）
   - 附：三态模型语义同时验证——Mango 勾选自动让位 Q1 选项（载荷仅 1 项互斥正确）
 
-- [ ] **E2E-I 整屏空白再现（2026-08-18 根因分析推进：毫秒级时间线锁定，IME insets 线索）** `ui`
+- [ ] **E2E-I 整屏空白（2026-08-19 重大推进：原 QuestionAsked 归因证伪——真触发 = 聊天输入文本注入；Activity 无故 finish/recreate 机制待 instrument 定位）** `ui`
   - 现象（2026-08-18 e2e22 终验中）：聊天输入框 tap + input text 组合后整屏空白（Compose 树空、无 FATAL、surface 存活），force-stop 恢复——与 E2E-G 症状同族但触发描述不同（E2E-G 已修：BACK+抖动竞态）
   - **2026-08-18 模拟器复现 + 完整取证**：输入 prompt 后点 Send 前的 UI dump 骤缩（36k→2.6k 字节）——Compose 树仅剩宿主 View 链（0 内容节点）；dumpsys：MainActivity topResumed + mCurrentFocus + task visible（Activity 前台正常）；进程活（无 FATAL，"FATAL"匹配 60 条全系 uiautomator 自身日志）；截图 vision 确认纯白屏（仅状态栏+手势条）；BACK 恢复（回桌面，App 退后台）→ 热启动恢复完整 UI。触发上下文：输入框聚焦+键盘弹出+模型切换（GLM→DeepSeek）组合后。证据：/tmp/verify-0818/10_*.png|xml|txt、11-12 恢复序列
   - **2026-08-18 深夜根因分析（毫秒级时间线）**：21:07:39.692 键盘弹出（tap 输入框）→ 21:07:48.163 **QuestionAsked SSE 到达**（form 创建）→ 输入框 disabled（pendingQuestions 非空 → ChatScreenBottomBar inputEnabled=false）→ 21:07:48.332 IME hide（HIDE_SOFT_INPUT_BY_INSETS_API）→ **21:07:48.333 `InsetsController: Setting requestedVisibleTypes to -9 (was -1)`**（IME insets 类型从窗口协商中移除——insets 动画通道关闭，此前 21:07:30 第一次 hide 已有 IME_INSETS_HIDE_ANIMATION CUJ 丢帧警告）→ 此后 Compose 重组静默（dump 2.6KB 空树）。**候选机制**：pending 状态切换 + IME insets 协商的交叉窗口，AbstractComposeView composition 放弃/停止（无异常无 crash——异常被吞或 recomposer 停摆待查）；非 NavGraph 路由（无导航日志，排除 E2E-G 老根因直接复发）
-  - 深挖方向（下次触发时）：① ChatScreen 输入 disabled 分支与 windowInsets/imePadding 协商链 ② Recomposer 状态（composition retained?）③ requestedVisibleTypes=-9 的调用源（AndroidX core insets API 使用点全库 grep）
+  - 深挖方向（下次触发时）：① ChatScreen 输入 disabled 分支与 windowInsets/imePadding 协商链 ② Recomposer 状态（composition retained?）③ requestedVis
+  - **2026-08-19 实验性二分定位（4 触发/3 对照）**：原「QuestionAsked → 输入 disabled」归因**证伪**——复现完全无需 question/prompt/服务器事件：
+    - 触发组 4/4（R1 prompt+tap+text、R2 同、B 仅 tap+text、D 仅 tap+text）：**聊天输入框 tap + adb input text 注入后 ~1.5-2s，MainActivity 无故 finish/recreate**——窗口从 dumpsys window 消失、releaseSessionData（ChatViewModel 清理）、R1 变体还连带 Service destroyed + 50 会话状态全清 + SSE 取消（`SSE job cancelled, not reconnecting`）→ 整屏空白（2627B 坍缩 dump 签名）/ IME-only 残窗（8944B）
+    - 对照组 0/3（A 仅 prompt、C 仅 tap、E 会话列表搜索框注入同文本）：一切正常——**锁定聊天输入管线独有**（草稿直写 DataStore 链是最显著差异变量；搜索框无持久化）
+    - 全程无 FATAL、crash buffer 空、进程存活；LeakCanary 堆转储 + WebView renderer crash 为重建的**后果**非原因；语言镜像值一致（prefs zh-CN == DataStore zh-CN）排除语言监视器 recreate 直觉路径
+    - 已修（c1e06e61）：取证链上的独立契约缺陷——session.instructions.updated 的 delta 是 JsonObject（指令哈希表），mapV2DeltaEvent 硬转换抛异常（每个首 prompt 必现 E 级日志），as? 安全转型修复
+    - **下一步（已具备 5 秒稳定复现）**：instrument 构建——MainActivity finish/recreate 路径 + 语言监视器 + DraftInputDelegate 写链加临时日志（logcat 环形缓冲被 LeakCanary 刷屏挤出起点证据，需即时分段取证或加大缓冲），一次复现即可锁定 finish 发起者
+    - 影响面备注：疑似 adb 注入突发特有（人类逐键输入未见普遍报告），但 R1 变体的服务销毁+状态全清用户可见ibleTypes=-9 的调用源（AndroidX core insets API 使用点全库 grep）
   - 待查：是否同一 fade 竞态的另一触发路径（H-A 理论性防御未做），或独立问题；已按待办要求抓齐 dumpsys activity top + logcat 全量（10_logcat_full.txt）
   - 优先级：P2（低频，恢复成本低）
 
