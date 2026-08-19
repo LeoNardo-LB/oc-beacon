@@ -15,6 +15,10 @@ data class AutoApproveRule(
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun matches(event: SseEvent.PermissionAsked, sessionDirectory: String): Boolean {
+        // 新增P2（2026-08-19）：空名防御——历史遗留的空 toolName 规则/空名事件
+        // 互相匹配是伪命中（无语义），双端任一为空即不匹配
+        if (toolName.isBlank() || event.permission.isBlank()) return false
+
         // 工具名必须匹配（精确匹配或通配符）
         if (toolName != "*" && event.permission != toolName) return false
 

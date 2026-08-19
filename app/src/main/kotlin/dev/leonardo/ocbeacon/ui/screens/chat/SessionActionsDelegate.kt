@@ -211,6 +211,14 @@ internal class SessionActionsDelegate(
 
     fun savePermissionRule(event: SseEvent.PermissionAsked, directory: String) {
         scope.launch {
+            // 新增P2（2026-08-19）：空 toolName 守卫——部分 ask 事件不带 permission
+            // 显示名（如评估端点产生），保存 toolName="" 的规则会让 matches() 把
+            // 后续所有空名 ask 误判为命中（实测：2ms 内被 auto-approve 吞掉，
+            // 卡片不显示）。空名无语义，跳过保存。
+            if (event.permission.isBlank()) {
+                AppLogger.w(TAG, "[Permission] skip saving auto-approve rule with blank toolName (request=" + event.id + ")")
+                return@launch
+            }
             val rule = AutoApproveRule(
                 toolName = event.permission,
                 sessionId = null,

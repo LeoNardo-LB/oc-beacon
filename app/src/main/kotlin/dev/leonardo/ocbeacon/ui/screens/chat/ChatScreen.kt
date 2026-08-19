@@ -718,7 +718,13 @@ fun ChatScreen(
                         onRetry = { viewModel.loadMessages() }
                     )
                 }
-                messageState.messages.isEmpty() && !interaction.isLoading -> {
+                // 新增P2（2026-08-19）：空会话仍有待处理权限/提问时不得落入空态分支
+                // ——ChatEmptyState 整块替换消息区，而权限/提问卡是 ChatMessageList
+                // 的 LazyColumn item，空会话下永远不可渲染（真实场景：新建会话
+                // agent 首轮就要权限/提问，3 分钟无人应答即超时）。有 pending 卡片
+                // 时走完整消息列表分支（空消息 + 卡片 item，LazyColumn 正常渲染）。
+                messageState.messages.isEmpty() && !interaction.isLoading &&
+                    interaction.pendingQuestions.isEmpty() && interaction.pendingPermissions.isEmpty() -> {
                     ChatEmptyState(
                         modifier = Modifier.align(Alignment.Center)
                     )

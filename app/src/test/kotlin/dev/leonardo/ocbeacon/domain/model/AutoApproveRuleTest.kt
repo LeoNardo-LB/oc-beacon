@@ -56,4 +56,19 @@ class AutoApproveRuleTest {
         val event = testEvent(permission = "bash", callId = null)
         assertTrue(rule.matches(event, "/project"))
     }
+
+    @Test
+    fun `blank rule tool name never matches even blank event - P2 empty-name artifact`() {
+        // 新增P2（2026-08-19）：历史遗留 toolName="" 规则与空名事件互相匹配是伪命中
+        val rule = AutoApproveRule(toolName = "", directoryPattern = "/home/leo-tkp")
+        assertFalse(rule.matches(testEvent(permission = ""), "/home/leo-tkp"))
+        assertFalse(rule.matches(testEvent(permission = "bash"), "/home/leo-tkp"))
+    }
+
+    @Test
+    fun `blank event permission never matches even wildcard rule`() {
+        // 新增P2（2026-08-19）：空名事件（如评估端点产生的 ask）不应命中任何规则
+        val rule = AutoApproveRule(toolName = "*")
+        assertFalse(rule.matches(testEvent(permission = ""), "/project"))
+    }
 }
