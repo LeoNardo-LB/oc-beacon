@@ -1605,11 +1605,12 @@
   - 泄漏类（Closeable/Activity/SqlLite）0 条——VmPolicy 检测器无信号。**条目终态：同型走查 165 → 10（−94%），余量 100% 为有意保留的 NetworkModule 框架类加载；两次冷启动复验无竞态抖动**
   - 工时：①②③已完成（48ae416f + ae40b014） | 难度：中 | 涉及：SecretCipher/ServerDataStore/LocaleUtils/MainActivity/OpenCodeApp | 优先级：P2 ✅ 2026-08-19 完结
 
-- [ ] **新增 P3：Android Lint 存量清偿（59 errors baseline 入册，2026-08-19 aa551535）** `lint` `tech-debt`
+- [ ] **新增 P3：Android Lint 存量清偿（59→53 errors；散点已清 67dc50e4，余 53 条批量专场）** `lint` `tech-debt`
   - 背景：#106-6 开发版 lint 门禁——新增 error 卡发版，存量 59 errors/163 warnings/11 hints 由 app/lint-baseline.xml 豁免（不阻塞但持续可见）
   - 构成：**LocalContextGetResourceValueCall ×53**（LocalContext.current 资源读取 → stringResource 化批量重构，量大需专场）；RestrictedApi ×3（MainActivity.dispatchKeyEvent——按键分发有意使用，需 @SuppressLint 或重构）；SuspiciousIndentation ×1（NavGraph.kt:193）；SuspiciousModifierThen ×1（AmoledCard.kt:126 隐式接收者捕获）；JavascriptInterface ×1（CodeWebView.kt:227——**疑误报**：SelectionBridge 两方法均有 @JavascriptInterface 注解，源码目检确认，lint 对 apply 作用域解析混淆）
   - 顺带已修：DebugLogger.flushMediaStore NewApi 误报（@RequiresApi(Q)，60→59）
   - 方向：53 条批量场次优先；散点逐个判断真伪（误报 @Suppress + 注释说明）
+  - **2026-08-19 第一批（67dc50e4）：散点 6 条全消，59→53**——① NavGraph 缩进错乱真实修复；② AmoledCard 冗余 then() 等价简化；③ RestrictedApi ×3 有意使用（终端按键拦截）@Suppress+理由；④ JavascriptInterface 误报（SelectionBridge 已注解）@Suppress+理由。baseline 重生成 + 门禁复跑通过 + 单测绿 + 冒烟导航 FATAL=0。**剩余 53 条 = 100% LocalContextGetResourceValueCall（LocalContext 资源读取 → stringResource 化）**
   - 工时：~1-1.5d | 难度：低-中 | 优先级：P3（门禁已开，存量只影响报告噪音）
 
 - [x] **新增 P2：空会话中权限卡/提问卡不渲染（ChatEmptyState 整块吞掉 ChatMessageList）——已修 a4862397** `ui` `chat`
