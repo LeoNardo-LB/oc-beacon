@@ -104,22 +104,8 @@ class V2ApiClient @Inject constructor(
     private val json get() = apiClient.json
 
     private fun parseRoot(bodyText: String): JsonObject {
-        rejectHtmlResponse(bodyText)
+        dev.leonardo.ocbeacon.data.api.rejectHtmlResponse(bodyText, TAG)
         return json.parseToJsonElement(bodyText).jsonObject
-    }
-
-    /**
-     * 防御：服务器 SPA fallback 会把不存在的 API 路径返回为 HTML 页面（HTTP 200）。
-     * 在 JSON 解析前检测 HTML 特征，抛出可读异常（而非 JsonDecodingException）。
-     * 触发条件通常是 API 版本误判（V1 服务器被当成 V2 请求 /api/... 路径）。
-     */
-    private fun rejectHtmlResponse(bodyText: String) {
-        val trimmed = bodyText.trimStart()
-        if (trimmed.startsWith("<!doctype html", ignoreCase = true) || trimmed.startsWith("<html", ignoreCase = true)) {
-            val preview = trimmed.take(120).replace('\n', ' ')
-            AppLogger.e(TAG, "Non-JSON (HTML) response from server: $preview")
-            throw NonJsonResponseException("服务器返回了 HTML 页面而非 JSON（API 路径可能不存在或版本不匹配）：$preview")
-        }
     }
 
     // ============ Health ============
@@ -1485,15 +1471,18 @@ class V2ApiClient @Inject constructor(
             // 缺 name 时 decode 会抛 MissingFieldException（旧 bug：V2 下 Open other project 空列表）；
             // absolute 缺失时 UI LazyColumn key={it.absolute} 全部为空字符串 → Key "" already used 崩溃（回归 2）。
             if (dto.name.isBlank() || dto.absolute.isNullOrBlank()) {
+                // D2-31（#121，2026-08-19）：name 推导改 PathUtils.fileName——
+                // Windows 服务器路径（反斜杠）下 substringAfterLast('/') 返回
+                // 整串 → name=全路径。absolute 拼接改 PathUtils.joinPath
+                //（两端分隔符规范化）。
                 val name = dto.name.ifBlank {
-                    dto.path.trimEnd('/').substringAfterLast('/').ifBlank { dto.path }
+                    dev.leonardo.ocbeacon.util.PathUtils.fileName(dto.path.trimEnd('/', '\\')).ifBlank { dto.path }
                 }
                 val absolute = dto.absolute?.takeIf { it.isNotBlank() }
-                    ?: buildString {
-                        val base = directory?.trimEnd('/') ?: ""
-                        if (base.isNotEmpty()) { append(base); append('/') }
-                        append(dto.path.trimEnd('/'))
-                    }
+                    ?: dev.leonardo.ocbeacon.util.PathUtils.joinPath(
+                        directory.orEmpty(),
+                        dto.path.trimEnd('/', '\\'),
+                    )
                 dto.copy(name = name, absolute = absolute)
             } else {
                 dto

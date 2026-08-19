@@ -1218,11 +1218,11 @@
   - 方案：覆盖 onTimeout（快速重连/通知用户）；评估 FGS 类型；纳入可观测性日志；真机验证
   - 工时：~0.5d | 难度：低 | 涉及：OpenCodeConnectionService/Manifest | 优先级：P0
 
-- [ ] **#112 通知链路竞态批次（D2-14 mark-before-show + D2-18 轮询门控 + D2-L30 250ms 启发式）** `notification`
+- [x] **#112 通知链路竞态批次——结案（D2-L30 已修 8ba18844；D2-14 N/A；D2-18 按设计）** `notification`
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-14/D2-18/D2-L30（B 路）
   - 问题：任务完成通知先标记去重后查抑制 → 抑制场景通知静默丢失；提问轮询 30s 无门控（通知关闭仍打 REST）；SessionIdle 通知依赖 250ms 固定延迟
   - 方案：先预检抑制再标记；轮询退避/门控；事件驱动或多次轮询
-  - **2026-08-19 盘点 + 处置**：① **D2-14 N/A**——现行 showTaskCompleteNotification 已无任何去重标记（grep 无 markTask*），仅 shouldSuppressEvent 紧邻 notify 检查（AppNotificationManager:273），审计前提（先标记后抑制）已随后续重构消失；② **D2-18 按设计**——轮询已双职责：mergeQuestionsFromREST 供 UI 状态（提问卡 tool 补全/列表标记），通知投递本身已被 notificationsEnabled 门控（OpenCodeConnectionService:467），「关闭通知停 REST」会破坏 UI 状态链——审计前提过时；③ **D2-L30 已修**——response-ready 检查改最多 3 次重试（间隔 250ms，首次命中即通知，慢设备/长末段不再静默丢通知；无输出会话最坏 750ms 后台等待）。全量单测绿；E2E 见回写
+  - **2026-08-19 盘点 + 处置**：① **D2-14 N/A**——现行 showTaskCompleteNotification 已无任何去重标记（grep 无 markTask*），仅 shouldSuppressEvent 紧邻 notify 检查（AppNotificationManager:273），审计前提（先标记后抑制）已随后续重构消失；② **D2-18 按设计**——轮询已双职责：mergeQuestionsFromREST 供 UI 状态（提问卡 tool 补全/列表标记），通知投递本身已被 notificationsEnabled 门控（OpenCodeConnectionService:467），「关闭通知停 REST」会破坏 UI 状态链——审计前提过时；③ **D2-L30 已修（8ba18844）**——response-ready 检查改最多 3 次重试（间隔 250ms，首次命中即通知，慢设备/长末段不再静默丢通知；无输出会话最坏 750ms 后台等待）。验证层级：编译 + 全量单测绿（重试加固最坏行为与原版一致——3 次后放弃 vs 1 次后放弃，正常路径 250ms 首次命中即通知不变；通知管线 E2E 已在此前批次多次覆盖，慢 reducer 场景无法确定性构造）。**#112 结案：1 修复 + 1 N/A + 1 按设计**
   - 工时：~0.5d | 难度：低-中 | 涉及：OpenCodeConnectionService/AppNotificationManager | 优先级：P2
 
 - [x] **#113 UI 状态竞态批次（D2-06/26/L66/L67）——已修复 58a5e0d5** `ui` `race`

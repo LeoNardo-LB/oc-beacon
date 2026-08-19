@@ -606,4 +606,27 @@ class V2ApiClientTest {
         assertEquals("/home/.agentmemory", result[0].absolute)
         assertEquals("/home/README.md", result[1].absolute)
     }
+
+    /**
+     * D2-31（#121，2026-08-19）：Windows 服务器反斜杠路径——name 推导改
+     * PathUtils.fileName（旧 substringAfterLast('/') 对 `C:\\a\\b` 返回整串
+     * → name=全路径）；absolute 拼接经 joinPath 规范化分隔符。
+     */
+    @Test
+    fun `listDirectory derives name from windows backslash paths`() = runTest {
+        val responseBody = """{"location":{"directory":"C:\\\\Users\\\\leo"},"data":[
+            {"path":"C:\\\\\\\\myproj\\\\src\\\\Main.kt","type":"file"},
+            {"path":".agentmemory\\\\","type":"directory"}
+        ]}"""
+        val engine = MockEngine { _ ->
+            respond(responseBody, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val result = api.listDirectory(v2Conn, path = "", directory = "C:\\Users\\leo")
+        assertEquals(2, result.size)
+        // 反斜杠分隔的 name 推导（旧实现此处会返回整段路径）
+        assertEquals("Main.kt", result[0].name)
+        assertEquals(".agentmemory", result[1].name)
+    }
 }

@@ -14,3 +14,23 @@ package dev.leonardo.ocbeacon.data.api
 class NonJsonResponseException(
     message: String,
 ) : Exception(message)
+
+/**
+ * HTML 响应防御（D2-22/#121，2026-08-19 提取公共）：服务器 SPA fallback
+ * 会把不存在的 API 路径返回为 HTML 页面（HTTP 200）。在 JSON 解析前
+ * 检测 HTML 特征，抛 [NonJsonResponseException]（而非难懂的
+ * JsonDecodingException）。触发通常是 API 版本误判（V1 服务器被当 V2
+ * 请求 /api/... 或反之）。
+ *
+ * [logTag] 非空时额外打 ERROR 日志（预览 120 字符）。
+ */
+fun rejectHtmlResponse(bodyText: String, logTag: String? = null) {
+    val trimmed = bodyText.trimStart()
+    if (trimmed.startsWith("<!doctype html", ignoreCase = true) || trimmed.startsWith("<html", ignoreCase = true)) {
+        val preview = trimmed.take(120).replace('\n', ' ')
+        if (logTag != null) {
+            dev.leonardo.ocbeacon.logging.AppLogger.e(logTag, "Non-JSON (HTML) response from server: $preview")
+        }
+        throw NonJsonResponseException("服务器返回了 HTML 页面而非 JSON（API 路径可能不存在或版本不匹配）：$preview")
+    }
+}

@@ -34,6 +34,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -73,14 +74,19 @@ class V1ApiClient @Inject constructor(
         cursor: String? = null,
         limit: Int = 50
     ): List<Session> {
-        return httpClient.get("${conn.baseUrl}/session") {
+        // D2-22（#121，2026-08-19）：V1 接入 HTML 防御——版本误判（V2 服务器
+        // + V1 路径）时 SPA fallback 返回 HTML（HTTP 200），无防御时
+        // .body<List<Session>>() 抛 ContentTransformationException 难定位。
+        val bodyText = httpClient.get("${conn.baseUrl}/session") {
             auth(conn)
             directoryHeader(directory)
             parameter("roots", "true")
             search?.let { parameter("search", it) }
             cursor?.let { parameter("cursor", it) }
             parameter("limit", limit)
-        }.body()
+        }.bodyAsText()
+        dev.leonardo.ocbeacon.data.api.rejectHtmlResponse(bodyText, TAG)
+        return json.decodeFromString(ListSerializer(Session.serializer()), bodyText)
     }
 
     suspend fun getSession(conn: ServerConnection, sessionId: String): Session {
