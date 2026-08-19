@@ -1685,3 +1685,14 @@
   - 观察②：离线冷启动进入的会话（未完成加载）中输入框不在 uiautomator 层级；同场景会话已加载时输入框在位（tv2_final 实证）——两条件行为不一致，疑与 loading/disabled 门控有关，待下次离线路径验证时顺带核对
   - 处置：登记不展开（触发条件苛刻、无用户报告）；若未来做离线体验优化一并处理
   - 工时：~1h | 难度：低 | 涉及：TerminalDelegate / ChatScreenBottomBar | 优先级：P3
+
+## 2026-08-20 堆积消息/TODO 功能批次（发送按钮 busy 态交互设计定稿实现）
+
+- [x] **堆积面板删除后列表残留被删行——已修 be3a0cc5** `queue` `ui`
+  - 发现（E2E 阶段 1 步骤 9）：面板删除一条后 tab 计数已变「堆积 1」但列表仍渲染两行（/tmp/q1_22.png、q1_23.png 为证）
+  - 根因：StackedList 用「本地镜像 order + LaunchedEffect(queue) 同步」模式——queue 变化要等组合完成后的 effect 运行才回写镜像，存在陈旧窗口
+  - 修复：渲染源改为 dragOrder ?: queue——非拖拽时直接渲染 Room 流（零残留），仅拖拽期间持有本地副本
+- [ ] **新增 P3：面板开关期间 a11y 树偶发只剩遮罩节点（E2E 阶段 1 观察，2026-08-20 登记）** `queue` `ui` `a11y`
+  - 现象：堆积面板一次开/关循环后 uiautomator dump 只剩「关闭工作表」节点，数秒后自愈；未见用户可感知影响（触摸交互正常）
+  - 处置：登记观察（模拟器长时间运行后 uiautomator 自身劣化先例见 TaskSheet 2026-08-16 记录）；真机复现再升级
+  - 工时：待定 | 难度：低 | 涉及：PendingTodoSheet / ModalBottomSheet | 优先级：P3
