@@ -1702,3 +1702,7 @@
   - 现象：dev 包长时间 E2E（两阶段 60+ 分钟、多次 force-stop/冷启）后 LeakCanary 捕获 1 个 distinct leak（LocalBinder）
   - 处置：登记观察（服务绑定生命周期既有问题，与本功能无关——堆积/TODO 未触碰该服务）；后续专门排查
   - 工时：待定 | 难度：中 | 涉及：OpenCodeConnectionService | 优先级：P3
+
+- **E2E 附带观察两条（阶段 2+3 报告，2026-08-20 登记，均不阻塞）**：
+  - ① busy 气泡菜单：点击置灰项（附件堆积）时 Popup 直接 dismiss（无 ripple 无动作）——与「点外部关闭」语义略异但无害，属 Q11 关闭行为的边缘 case；真机验收时顺带感受，不适再调
+  - ② 服务器 /api/session/{id}/message 返回顺序非时间序且固定 50 条页大小——E2E 脚本断言需按 time.created 排序后取最新（测试基建备忘，已写入本批 E2E 任务书经验）
