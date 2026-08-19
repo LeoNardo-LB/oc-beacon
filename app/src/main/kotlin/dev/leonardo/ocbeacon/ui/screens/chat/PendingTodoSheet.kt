@@ -239,9 +239,11 @@ private fun StackedList(
         EmptyHint(text = stringResource(R.string.pending_empty))
         return
     }
-    // 本地顺序镜像（拖拽即时反馈；松手才提交持久化重排；queue 外部变化时重置）
-    var order by remember { mutableStateOf(queue) }
-    LaunchedEffect(queue) { order = queue }
+    // 渲染源（2026-08-20 E2E 修复：原「本地镜像 + LaunchedEffect 同步」模式在
+    // 删除/编辑后有陈旧窗口——tab 计数已变而列表仍旧值。改为非拖拽时直接渲染
+    // queue（Room 更新即时反映零残留），仅拖拽期间使用本地副本）
+    var dragOrder by remember { mutableStateOf<List<PendingMessage>?>(null) }
+    val order = dragOrder ?: queue
     var drag by remember { mutableStateOf<DragState?>(null) }
     val swapThreshold = with(LocalDensity.current) { 48.dp.toPx() }
 
@@ -262,7 +264,9 @@ private fun StackedList(
                         if (isDraining) return@pointerInput
                         detectDragGesturesAfterLongPress(
                             onDragStart = {
+                                // 拖拽开始：快照当前渲染列表为本地副本
                                 drag = DragState(index, 0f)
+                                dragOrder = order
                             },
                             onDrag = { change, amount ->
                                 change.consume()
@@ -270,7 +274,8 @@ private fun StackedList(
                                 var newOffset = d.offset + amount.y
                                 var newIndex = d.index
                                 // 越过一行高度即与相邻行交换（本地即时反馈）
-                                while (newOffset > swapThreshold && newIndex < order.size - 1) {
+                                val current = dragOrder ?: order
+                                while (newOffset > swapThreshold && newIndex < current.size - 1) {
                                     newIndex++
                                     newOffset -= swapThreshold
                                 }
@@ -280,7 +285,7 @@ private fun StackedList(
                                 }
                                 newOffset = newOffset.coerceIn(-swapThreshold, swapThreshold)
                                 if (newIndex != d.index) {
-                                    order = order.toMutableList().apply {
+                                    dragOrder = current.toMutableList().apply {
                                         val moved = removeAt(d.index)
                                         add(newIndex, moved)
                                     }
@@ -288,12 +293,14 @@ private fun StackedList(
                                 drag = DragState(newIndex, newOffset)
                             },
                             onDragEnd = {
+                                onReorder((dragOrder ?: order).map { it.id })
                                 drag = null
-                                onReorder(order.map { it.id })
+                                // 提交后清本地副本——Room 重排发射的 queue 接管渲染
+                                dragOrder = null
                             },
                             onDragCancel = {
                                 drag = null
-                                order = queue
+                                dragOrder = null
                             },
                         )
                     },
