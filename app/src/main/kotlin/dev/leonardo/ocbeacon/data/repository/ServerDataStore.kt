@@ -11,8 +11,10 @@ import dev.leonardo.ocbeacon.data.security.SecretCipher
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.ServerHealth
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -49,7 +51,11 @@ class ServerDataStore @Inject constructor(
             AppLogger.e(TAG, "Failed to decode servers", e)
             emptyList()
         }
-    }
+    }.flowOn(Dispatchers.IO)
+    // flowOn（StrictMode 首轮发现 P2，2026-08-19）：map 内的 DataStore 反序列化 +
+    // Keystore 解密（记忆化未命中的首次解密）固定在 IO 线程执行——收集方
+    // （ViewModel Main 作用域 / resolveConnection 高频调用）不再把 Keystore
+    // 慢调用带回主线程。
     
     /**
      * 添加新服务器
