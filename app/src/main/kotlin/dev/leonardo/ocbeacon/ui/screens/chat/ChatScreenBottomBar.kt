@@ -78,11 +78,16 @@ internal fun ChatScreenBottomBar(
     coroutineScope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     onOpenTaskSheet: () -> Unit = {},
+    onOpenPendingSheet: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
 ) {
     val view = LocalView.current
     val clipboard = LocalClipboard.current
     val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
+    // 堆积/TODO（2026-08-20 设计定稿）：选择器行入口的角标与打开回调
+    val pendingQueue by viewModel.pendingQueue.collectAsStateWithLifecycle()
+    val sessionTodos by viewModel.sessionTodos.collectAsStateWithLifecycle()
+    val todoPendingCount = sessionTodos.count { it.status == "pending" || it.status == "in_progress" }
     val taskToolbarText = if (taskUi.foregroundSubagentCount > 0) {
         stringResource(R.string.task_toolbar_subagents, taskUi.foregroundSubagentCount)
     } else ""
@@ -427,6 +432,9 @@ internal fun ChatScreenBottomBar(
                 onConsumeRestoredDraft = { viewModel.consumeRestoredDraft() },
                 taskBadgeCount = taskUi.badgeCount,
                 onOpenTaskPanel = onOpenTaskSheet,
+                pendingBadgeCount = pendingQueue.size,
+                todoPendingCount = todoPendingCount,
+                onOpenPendingPanel = onOpenPendingSheet,
                 onQuickNavigate = onQuickNavigate,
                 showTaskToolbar = taskUi.showTaskToolbar,
                 taskToolbarText = taskToolbarText,

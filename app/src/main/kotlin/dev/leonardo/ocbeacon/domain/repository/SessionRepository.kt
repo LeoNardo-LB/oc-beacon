@@ -198,6 +198,14 @@ interface SessionRepository {
      */
     fun setSessions(serverId: String, sessions: List<Session>)
 
+    // ============ TODO（2026-08-20 堆积/TODO 面板） ============
+
+    /**
+     * 获取会话 TODO。成功：回填 hydrate 缓存（EventDispatcher.sessionTodos）；
+     * 服务器无端点（V2 beta 实测 404）→ failure，调用方据此隐藏 TODO tab。
+     */
+    suspend fun getSessionTodos(serverId: String, sessionId: String): Result<List<dev.leonardo.ocbeacon.domain.model.SseEvent.TodoUpdated.Todo>>
+
     // ============ 会话状态同步 ============
 
     /**

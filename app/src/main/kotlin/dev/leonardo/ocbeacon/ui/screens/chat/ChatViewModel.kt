@@ -191,6 +191,39 @@ class ChatViewModel @Inject constructor(
         pendingMessagePipeline.sendOneNow(sessionLifecycle.sessionId, serverId, id, text)
     }
 
+    // ============ TODO（面板数据源 + 服务器能力探测，2026-08-20） ============
+    /** 当前会话 TODO（SSE 实时 + REST hydrate 同源）。 */
+    @kotlinx.coroutines.ExperimentalCoroutinesApi
+    val sessionTodos: StateFlow<List<dev.leonardo.ocbeacon.domain.model.SseEvent.TodoUpdated.Todo>> =
+        sessionLifecycle.sessionIdFlow
+            .flatMapLatest { sid ->
+                eventDispatcher.sessionTodos.map { it[sid].orEmpty() }.distinctUntilChanged()
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _todoCapable = MutableStateFlow(false)
+    /** 服务器是否支持 TODO（V2 beta 无此端点 → 隐藏 TODO tab；V1 恒支持）。 */
+    val todoCapable: StateFlow<Boolean> = _todoCapable.asStateFlow()
+
+    private var todoProbeStarted = false
+
+    /** 探测 TODO 能力并 hydrate 首屏（幂等：VM 生命周期内一次）。 */
+    fun probeTodoCapability() {
+        if (todoProbeStarted) return
+        todoProbeStarted = true
+        viewModelScope.launch {
+            val sid = sessionLifecycle.sessionId
+            val result = runCatching { sessionRepository.getSessionTodos(serverId, sid).getOrThrow() }
+            _todoCapable.value = result.isSuccess
+            if (result.isFailure) {
+                dev.leonardo.ocbeacon.logging.AppLogger.i(
+                    "ChatViewModel",
+                    "todo capability probe failed (hiding TODO tab): " + serverId,
+                )
+            }
+        }
+    }
+
 
     // ============ 任务聚合（subagent + shell） ============
     private val taskAggregator = TaskAggregator(

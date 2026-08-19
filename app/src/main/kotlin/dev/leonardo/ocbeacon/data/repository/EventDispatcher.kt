@@ -231,6 +231,14 @@ class EventDispatcher @Inject constructor(
     val sessions: StateFlow<List<Session>> get() = sessionHandler.sessions
     /** [SessionStateService.statusFlow] 的门面——会话状态的单一真相源。 */
     val sessionStatuses: StateFlow<Map<String, SessionStatus>> get() = sessionStateService.statusFlow
+
+    /** 会话 TODO（2026-08-20 面板数据源）：SSE todo.updated 实时 + REST hydrate。 */
+    val sessionTodos: StateFlow<Map<String, List<SseEvent.TodoUpdated.Todo>>> get() = miscHandler.todos
+
+    /** REST hydrate 委托（SessionRepositoryImpl.getSessionTodos 成功后回填）。 */
+    fun hydrateTodos(sessionId: String, todos: List<SseEvent.TodoUpdated.Todo>) {
+        miscHandler.setTodos(sessionId, todos)
+    }
     val messages: StateFlow<Map<String, List<Message>>> get() = messageHandler.messages
     val parts: StateFlow<Map<String, List<Part>>> get() = messageHandler.parts
     val sessionDiffs: StateFlow<Map<String, List<FileDiff>>> get() = sessionHandler.sessionDiffs

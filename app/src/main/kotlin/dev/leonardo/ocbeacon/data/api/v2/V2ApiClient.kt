@@ -1107,8 +1107,17 @@ class V2ApiClient @Inject constructor(
             .getOrElse { emptyList() }
     }
 
+    /** TODO 端点缺失（V2 beta 服务器无此功能，2026-08-20 实测 404）——供上层能力判定。 */
+    class TodoEndpointMissingException : Exception("server has no todo endpoint")
+
     suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
-        return emptyList()
+        // V2 dev 分支重新实现了 todo（/api/session/{id}/todo，事件 todo.updated），
+        // beta-17639 无此路由（实测 404）。探测语义：404 = 服务器不支持。
+        val resp = httpClient.get("${conn.baseUrl}/api/session/$sessionId/todo") {
+            auth(conn)
+        }
+        if (resp.status.value == 404) throw TodoEndpointMissingException()
+        return resp.body()
     }
 
     suspend fun listSessionStatus(conn: ServerConnection, directory: String? = null): Map<String, SessionStatusInfo> {

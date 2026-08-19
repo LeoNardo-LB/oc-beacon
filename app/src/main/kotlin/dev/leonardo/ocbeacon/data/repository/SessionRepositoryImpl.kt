@@ -157,6 +157,23 @@ class SessionRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun getSessionTodos(
+        serverId: String,
+        sessionId: String,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.SseEvent.TodoUpdated.Todo>> = runCatching {
+        val conn = resolveConnection(serverId)
+        sessionApi.getSessionTodos(conn, sessionId).map { item ->
+            dev.leonardo.ocbeacon.domain.model.SseEvent.TodoUpdated.Todo(
+                content = item.content,
+                status = item.status,
+                priority = item.priority,
+            )
+        }
+    }.onSuccess { todos ->
+        // hydrate 回填（SSE todo.updated 后续增量覆盖，同型幂等）
+        eventDispatcher.hydrateTodos(sessionId, todos)
+    }
+
     override suspend fun deleteSession(serverId: String, sessionId: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.deleteSession(conn, sessionId)

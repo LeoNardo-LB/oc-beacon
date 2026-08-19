@@ -332,6 +332,7 @@ fun ChatScreen(
     var showModelPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showTaskSheet by remember { mutableStateOf(false) }
+    var showPendingSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var isTerminalMode by rememberSaveable { mutableStateOf(startInTerminalMode) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -697,6 +698,10 @@ fun ChatScreen(
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
                 onOpenTaskSheet = { showTaskSheet = true },
+                onOpenPendingSheet = {
+                    viewModel.probeTodoCapability()
+                    showPendingSheet = true
+                },
                 onQuickNavigate = { showQuickNavigate = true },
             )
         },
@@ -945,6 +950,32 @@ fun ChatScreen(
                         shellOutputs[shell.id]
                     }
             }
+        )
+    }
+
+    // 堆积/TODO 面板（ModalBottomSheet，2026-08-20 设计定稿）—— 入口在
+    // 输入栏第一行右侧（双角标图标按钮）。TODO tab 按服务器能力门控
+    //（V2 beta 无端点 → 隐藏；SSE 已有数据视为有能力）。
+    if (showPendingSheet) {
+        val pendingQueue by viewModel.pendingQueue.collectAsStateWithLifecycle()
+        val sessionTodos by viewModel.sessionTodos.collectAsStateWithLifecycle()
+        val todoCapable by viewModel.todoCapable.collectAsStateWithLifecycle()
+        val pendingDraining by viewModel.pendingDraining.collectAsStateWithLifecycle()
+        val isSessionIdle = sessionMeta.sessionStatus !is SessionStatus.Busy &&
+            sessionMeta.sessionStatus !is SessionStatus.Retry
+        PendingTodoSheet(
+            queue = pendingQueue,
+            todos = sessionTodos,
+            showTodoTab = todoCapable || sessionTodos.isNotEmpty(),
+            isSessionIdle = isSessionIdle,
+            isDraining = pendingDraining.contains(viewModel.sessionId),
+            onContinue = viewModel::continuePendingQueue,
+            onClear = viewModel::clearPendingMessages,
+            onEdit = { id, text -> viewModel.editPendingMessage(id, text) },
+            onDelete = { id -> viewModel.deletePendingMessage(id) },
+            onSendOne = { id, text -> viewModel.sendPendingNow(id, text) },
+            onReorder = { ids -> viewModel.reorderPendingMessages(ids) },
+            onDismiss = { showPendingSheet = false },
         )
     }
 

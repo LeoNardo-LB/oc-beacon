@@ -25,6 +25,11 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
     private val _todos = MutableStateFlow<Map<String, List<SseEvent.TodoUpdated.Todo>>>(emptyMap())
     val todos: StateFlow<Map<String, List<SseEvent.TodoUpdated.Todo>>> = _todos.asStateFlow()
 
+    /** REST hydrate（进会话补首屏 todo，2026-08-20）；与 SSE 路径同型幂等覆盖。 */
+    fun setTodos(sessionId: String, todos: List<SseEvent.TodoUpdated.Todo>) {
+        _todos.update { it + (sessionId to todos) }
+    }
+
     override fun handle(event: SseEvent, serverId: String): Boolean {
         return when (event) {
             is SseEvent.TodoUpdated -> { _todos.update { it + (event.sessionId to event.todos) }; true }

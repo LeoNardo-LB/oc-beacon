@@ -97,6 +97,22 @@
     <string name="chat_busy_menu_stack">Stack message</string>
     <string name="chat_busy_menu_stack_desc">Kept locally, sent automatically when this turn ends</string>
     <string name="chat_busy_menu_stack_no_attachments">Messages with attachments must be sent now</string>
+    <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
+    <string name="a11y_icon_pending_todo">Stacked messages and TODO</string>
+    <string name="pending_sheet_title">Stacked &amp; TODO</string>
+    <string name="pending_tab_stacked">Stacked %1$d</string>
+    <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_continue">Continue</string>
+    <string name="pending_clear">Clear</string>
+    <string name="pending_clear_confirm_title">Clear stacked messages?</string>
+    <string name="pending_clear_confirm_text">%1$d stacked messages will be removed.</string>
+    <string name="pending_edit_dialog_title">Edit stacked message</string>
+    <string name="pending_item_edit">Edit</string>
+    <string name="pending_item_delete">Delete</string>
+    <string name="pending_item_send">Send now</string>
+    <string name="pending_empty">No stacked messages. While the agent is replying, tap the spinner to stack a message.</string>
+    <string name="pending_item_sending">Sending…</string>
+    <string name="todo_empty">No TODO items</string>
     <string name="chat_empty">Start a conversation with OpenCode</string>
     <string name="chat_copy">Copy</string>
     <!-- #120（D2-10）：压缩中提示（原硬编码英文，绕过 i18n） -->
