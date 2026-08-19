@@ -902,14 +902,14 @@
   - 来源：反馈者复现 + 本机 1.18.18 隔离实测 + 双 deep-explore 调研
   - **验证状态**：编译 ✅ 单测 ✅；模拟器走查待执行（V1 连接 → 会话界面无报错）
 
-- [~] **#84 V1/V2 功能差异适配清单——key 连接已修 e0bc781c（beta-17595 曾完全不可用）；仅剩 V2 OAuth 多步流（4 集成可用，其余全部已适配）** `compat` `refactor`
+- [x] **#84 V1/V2 功能差异适配清单——结案（全清单适配完毕；V2 OAuth 多步流关闭不做，2026-08-19 用户决策）** `compat` `refactor`
   - 问题：深度调研确认 V1(1.18.x) 与 V2(2.x) 是**三重断裂**（路径前缀 / 核心机制 / SSE 格式），客户端需按 apiVersion 区别处理以下功能（详见 docs/v1-v2-differences.md）：
     - **发送消息**：V1 `POST /session/{id}/prompt_async`（204 fire-and-forget）vs V2 `POST /api/session/{id}/prompt`（200 返回 Inbox 条目）——App 已适配 [确认]
     - **中断**：V1 `abort`（boolean）vs V2 `interrupt`（204 + `?continue=true`）——App 已适配 [确认]
     - **后台任务**：V1 仅实验性 `/experimental/session/{id}/background`（需 flag）vs V2 正式 `/api/session/{id}/background`（204）——**V1 下后台化入口应隐藏或降级** [待办]
     - **配置**：V1 `GET/PATCH /config` 可写 vs V2 `GET /api/config` **只读**（无 PATCH）——App 配置编辑在 V2 应禁用 [待办]
     - **Todo**：V1 `GET /session/{id}/todo` vs V2 **移除**（form/question 替代）——V2 下 Todo 入口应隐藏 [待办]
-    - **Provider 认证**：V1 oauth authorize/callback 两步 vs V2 integration connect 多步异步——设置页认证流程 [待办]
+    - **Provider 认证**：V1 oauth authorize/callback 两步 vs V2 integration connect 多步异步——设置页认证流程 [→ V2 OAuth 部分关闭不做，见下方终局决策]
     - **Revert**：V1 直接 revert/unrevert vs V2 staged（stage/commit/clear）——App 回退功能 [待办]
     - **SSE 格式**：V1 `{id,type,properties}` vs V2 `{id,event,data}`（data 二次 JSON）——App 已适配 [确认]
     - **TUI 控制**：V1 13 个 `/tui/*` 端点 V2 移除——App 无依赖 [确认]
@@ -918,7 +918,8 @@
   - 工时：需逐项评估 | 难度：中 | 涉及：多处 UI + API 客户端
   - 来源：2026-08-13 网络 deep-explore（92% 充分度）+ 本地 1.18.18 实测
   - **2026-08-19 盘点核实（代码证据）**：① V1 后台化降级 → 已随 #85 完成（Background 菜单 V1 隐藏）；② V2 配置只读 → 已随 #85 完成（V2 PATCH guard）；③ Revert staged → **已实现**（V2ApiClient:954 `revert/stage` + :963 `revert/clear`，含 commit 后 revert 立即清空的时间差注释——只 stage 策略）；④ Todo → #85 确认无独立 UI 入口无需处理；⑤ SSE 格式/中断/发送/session status → 已适配。**仅剩 Provider 认证流程**（V1 oauth 两步 vs V2 integration connect 多步异步）[待办]——条目收敛为该单项
-  - **2026-08-19 Provider 认证落地（e0bc781c）**：key 连接修复——curl 契约实测 beta-17595 的 PATCH /api/credential 要求 **label 必填**，App 原发 {type,key} 恒 400（**API key 连接在此部署版完全不可用**，盘点发现的隐藏断裂）；补 label="oc-beacon" 后 204。单测 +1（body 断言）+ 全量绿；探针凭证已 DELETE 清理。**残留：V2 OAuth 多步流未实现**（getProviderAuthMethods/authorizeProviderOauth 返回空）——API 全貌已摸清：194 集成中 4 个支持 OAuth（github-copilot/openai/opencode/xai），流程 = POST connect/oauth {methodID} → attemptID+URL → 用户授权 → POST .../complete {code}；属独立功能开发（~0.5-1d），非适配缺口，待用户需要时实施
+  - **2026-08-19 Provider 认证落地（e0bc781c）**：key 连接修复——curl 契约实测 beta-17595 的 PATCH /api/credential 要求 **label 必填**，App 原发 {type,key} 恒 400（**API k
+  - **2026-08-19 终局决策：V2 OAuth 多步流关闭不做（用户拍板）**——理由：① **零在用场景**：服务器 credential 库实测 3 条凭据全部为 API key 型（zhipuai-coding-plan/deepseek/opencode-go），无任何 OAuth 型 Provider 在用；② **完整替代路径**：OAuth Provider 在服务器主机跑 `opencode auth login` 即完成，App 直连现成连接——App 内 OAuth 只省'碰一次服务器终端'；③ **验证不可完整**：真实 OAuth 回调需 Provider 账号，模拟器 E2E 无法闭环；④ 不增加任何新能力（V1 时代就有的功能，V2 只是协议变形）。触发重启条件：真要用 OAuth-only Provider（如 GitHub Copilot）且不便碰服务器时重新立项（0.5-1d：V2ApiClient 换 integration connect 端点 + 等待/轮询 UI + 设备码 chip 串联）ey 连接在此部署版完全不可用**，盘点发现的隐藏断裂）；补 label="oc-beacon" 后 204。单测 +1（body 断言）+ 全量绿；探针凭证已 DELETE 清理。**残留：V2 OAuth 多步流未实现**（getProviderAuthMethods/authorizeProviderOauth 返回空）——API 全貌已摸清：194 集成中 4 个支持 OAuth（github-copilot/openai/opencode/xai），流程 = POST connect/oauth {methodID} → attemptID+URL → 用户授权 → POST .../complete {code}；属独立功能开发（~0.5-1d），非适配缺口，待用户需要时实施
 
 - [x] **#85 V1 连接下应隐藏/降级的功能 UI（根据 #84 清单落地）** `ui` `compat`
   - **2026-08-13 用户验收 ✅**：V1 下任务面板入口/Running/History 隐藏正常；V2 Todo/配置编辑降级确认
