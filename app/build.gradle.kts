@@ -145,6 +145,10 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
+    // #106-1 工具链治理：LeakCanary 泄漏检测（仅 debug 变体打包，release 零依赖零开销）
+    // WebView/Activity/Fragment 泄漏首捕工具——#93 类问题的持续防线
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
+
     // 导航
     implementation("androidx.navigation:navigation-compose:2.9.8")
 
