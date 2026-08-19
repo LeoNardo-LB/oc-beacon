@@ -1679,3 +1679,9 @@
 - **回归②③④⑤记录（2026-08-20 扫描清单收官）**：②语言往返 zh→en→zh 7/7 PASS（7 组文案对照 + prefs 直读 + 两次 Activity relaunch 日志三维互证；发现：应用设置真入口是主页顶栏齿轮，底部"设置"tab 是 MCP 服务器管理——已写进子代理任务书防重复踩坑）③AMOLED 权限卡 PASS（像素断言纯黑 RGB(0,0,0) 51.6% + 视觉层次确认 + 拒绝链路送达服务器；Compose Switch 的 uidump checked 不可信 → DataStore proto 解码为权威）④空会话提问卡为陈旧项（a4862397 已于 08-19 验证完结）⑤即上述终端 snackbar 竞态（发现→修复→复验闭环）。⑤执行中还发现 E2E 离线冷启动被连接入口挡住（与 V3 走查记录一致，架构使然）
 
 - **终局回归（第二轮，2026-08-20 02:30）**：全量单测 --rerun EXIT=0 全绿（含终端修复）；发送流 curl prompt → 流式渲染「收到」+ FSM 完成 + 输入恢复 ✓；token 环无回归（顶栏 8% 文本在位——f37f482d 修复经受住压缩+终端两轮改动）✓；FATAL=0 / AndroidRuntime E=0 ✓
+
+- [ ] **新增 P3：离线态终端打开的 sessionDirectory=null + 输入框层级缺失（终端失败路径 E2E 的次生观察，2026-08-20 登记）** `terminal` `edge-case`
+  - 观察①：服务器不可达时 openTerminalSession 的 sessionDirectory=null（会话未加载完 directory 即空）→ createPty 以 cwd=null 发出——瞬断恢复窗口（点击时断网、请求时恢复）下 PTY 会落到服务器默认目录而非会话目录。影响极小（网络全断时请求本就失败）
+  - 观察②：离线冷启动进入的会话（未完成加载）中输入框不在 uiautomator 层级；同场景会话已加载时输入框在位（tv2_final 实证）——两条件行为不一致，疑与 loading/disabled 门控有关，待下次离线路径验证时顺带核对
+  - 处置：登记不展开（触发条件苛刻、无用户报告）；若未来做离线体验优化一并处理
+  - 工时：~1h | 难度：低 | 涉及：TerminalDelegate / ChatScreenBottomBar | 优先级：P3
