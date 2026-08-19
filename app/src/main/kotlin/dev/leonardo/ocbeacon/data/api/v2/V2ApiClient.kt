@@ -626,6 +626,14 @@ class V2ApiClient @Inject constructor(
     private var agentIdCache: Map<String, String>? = null
 
     /**
+     * E2E-D（2026-08-19）：question.v2 reply/reject 端点「404 已探明」的服务器
+     * 集合（baseUrl）。beta-17595 无此端点——每次提交先 404 再 fallback 白耗
+     * 往返。仅 404 标记（400 可能是 body 问题保留重试）；进程重启清空自动
+     * 重探（未来服务器重新引入端点无需发版）。
+     */
+    private val questionV2ReplyAbsent = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /**
      * 把 UI 层持有的 agent 值（AgentInfo.name 显示名，如 "Plan"）解析为
      * 服务器 agent id（如 "plan"）。大小写不敏感双向匹配 id/name；
      * 解析失败返回原值（保持旧行为——由服务器报错兜底）。
@@ -917,21 +925,35 @@ class V2ApiClient @Inject constructor(
         // POST /api/session/:id/question/:requestID/reply {answers: string[][]}
         //（按 questions 顺序的数组，每个 answer 是选中 label 数组——与 form
         // 的 keyed map 不同）。form 通道降级（next-17430 中间契约）。
-        val v2Body = kotlinx.serialization.json.buildJsonObject {
-            put("answers", orderedAnswers)
-        }
-        if (BuildConfig.DEBUG) {
-            AppLogger.d(TAG, "replyToForm: POST question.v2 reply sessionId=$sessionId formId=$formId answers=$orderedAnswers")
-        }
-        val v2Resp = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/question/" + formId + "/reply") {
-            auth(conn)
-            directoryHeader(directory)
-            contentType(ContentType.Application.Json)
-            setBody(v2Body)
-        }
-        if (v2Resp.status.isSuccess()) return true
-        if (BuildConfig.DEBUG) {
-            AppLogger.d(TAG, "replyToForm: question.v2 status=${v2Resp.status.value} -> fallback form path")
+        //
+        // E2E-D（2026-08-19）：beta-17595 无此端点——每次提交先 404 再 fallback，
+        // 白耗一次往返 + 日志噪音。按 baseUrl 记忆「404 已探明」跳过探测；
+        // 仅 404 标记（400 可能是 body 问题，保留重试），进程重启自动重探
+        //（未来服务器重新引入端点时无需发版）。
+        val v2KnownAbsent = questionV2ReplyAbsent.contains(conn.baseUrl)
+        if (!v2KnownAbsent) {
+            val v2Body = kotlinx.serialization.json.buildJsonObject {
+                put("answers", orderedAnswers)
+            }
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "replyToForm: POST question.v2 reply sessionId=$sessionId formId=$formId answers=$orderedAnswers")
+            }
+            val v2Resp = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/question/" + formId + "/reply") {
+                auth(conn)
+                directoryHeader(directory)
+                contentType(ContentType.Application.Json)
+                setBody(v2Body)
+            }
+            if (v2Resp.status.isSuccess()) return true
+            if (v2Resp.status.value == 404) {
+                questionV2ReplyAbsent.add(conn.baseUrl)
+                AppLogger.i(TAG, "replyToForm: question.v2 endpoint 404 on ${conn.baseUrl} — cached absent, skipping probe until restart")
+            }
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "replyToForm: question.v2 status=${v2Resp.status.value} -> fallback form path")
+            }
+        } else if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "replyToForm: question.v2 known absent on ${conn.baseUrl} — direct form path")
         }
         val bodyObj = kotlinx.serialization.json.buildJsonObject {
             put("answer", keyedAnswers)
@@ -959,12 +981,19 @@ class V2ApiClient @Inject constructor(
         directory: String? = null
     ): Boolean {
         // 2026-08-15（research/09 P0）：question.v2 优先（POST .../question/:id/reject）
-        // form cancel 降级
-        val v2Resp = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/question/" + formId + "/reject") {
-            auth(conn)
-            directoryHeader(directory)
+        // form cancel 降级。E2E-D（2026-08-19）：404 已探明的服务器跳过探测
+        //（与 replyToForm 同策略，见 questionV2ReplyAbsent 注释）。
+        if (!questionV2ReplyAbsent.contains(conn.baseUrl)) {
+            val v2Resp = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/question/" + formId + "/reject") {
+                auth(conn)
+                directoryHeader(directory)
+            }
+            if (v2Resp.status.isSuccess()) return true
+            if (v2Resp.status.value == 404) {
+                questionV2ReplyAbsent.add(conn.baseUrl)
+                AppLogger.i(TAG, "rejectForm: question.v2 endpoint 404 on ${conn.baseUrl} — cached absent, skipping probe until restart")
+            }
         }
-        if (v2Resp.status.isSuccess()) return true
         val response = httpClient.post(conn.baseUrl + "/api/session/" + sessionId + "/form/" + formId + "/cancel") {
             auth(conn)
             directoryHeader(directory)

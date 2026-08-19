@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * V2ApiClient 端点测试——验证 V2 API 的 URL 路径、请求方法、响应解析。
@@ -413,6 +414,37 @@ class V2ApiClientTest {
         val ordered = V2FormMapper.buildOrderedLabelAnswers(listOf(listOf("rice")), questionCount = 1)
         assertTrue(api.replyToForm(v2Conn, "ses_1", "frm_1", keyed, ordered))
         assertEquals(listOf("/api/session/ses_1/question/frm_1/reply", "/api/session/ses_1/form/frm_1/reply"), paths)
+    }
+
+    /**
+     * E2E-D（2026-08-19）：beta-17595 无 question.v2 端点——首次 404 后按
+     * baseUrl 记忆「已探明缺失」，后续提交直接走 form 路径（省一次往返
+     * + 日志噪音）。仅 404 标记；进程重启（新实例）自动重探。
+     */
+    @Test
+    fun `replyToForm caches 404 absent and skips v2 probe on subsequent replies`() = runTest {
+        val questionV2ProbeCount = AtomicInteger(0)
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath.endsWith("/question/frm_1/reply") ||
+                    request.url.encodedPath.endsWith("/question/frm_2/reply") -> {
+                    questionV2ProbeCount.incrementAndGet()
+                    respond("", HttpStatusCode.NotFound)
+                }
+                else -> respond("", HttpStatusCode.NoContent) // form 路径恒成功
+            }
+        }
+        val api = buildClient(engine)
+        val keyed = kotlinx.serialization.json.buildJsonObject {
+            put("q0", kotlinx.serialization.json.JsonPrimitive("rice"))
+        }
+        val ordered = V2FormMapper.buildOrderedLabelAnswers(listOf(listOf("rice")), questionCount = 1)
+        // 第一次：探测 404 → 标记 → form 成功
+        assertTrue(api.replyToForm(v2Conn, "ses_1", "frm_1", keyed, ordered))
+        assertEquals(1, questionV2ProbeCount.get())
+        // 第二次（同服务器）：跳过探测直达 form
+        assertTrue(api.replyToForm(v2Conn, "ses_1", "frm_2", keyed, ordered))
+        assertEquals("second reply must skip the 404 probe (cached absent)", 1, questionV2ProbeCount.get())
     }
 
     @Test
