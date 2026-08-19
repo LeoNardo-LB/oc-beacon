@@ -115,12 +115,13 @@
   - **2026-08-18 修复完成（7b3362c4）+ 模拟器 E2E 全闭环 ✅**：页内容限高（屏高 40%）+ 页内 verticalScroll；高度记录移至滚动内容内层（无界测量，防键盘态测量偏小复发）；插值抽纯函数 lerpCappedPageHeight（单测 5 用例）。E2E：10 选项卡初始视口截断 → 卡片内上滑 → 底部选项 + Enter answer 全部可达 → 滚动位置选 Swift 提交 success；双题短页卡插值回归正常 + [[Tea],[Morning]] 闭环。⚠️ 剩余待用户真机验收：滚动观感（维度 5）
   - 优先级：P1（已修）
 
-- [ ] **E2E-D question.v2 reply 探测恒 404（浪费往返 + 日志噪音）** `ui` `sse`
+- [x] **E2E-D question.v2 reply 探测恒 404——已修 852b7681（404 缓存直达 form）** `ui` `sse`
   - 现象：每次提问回复先 POST /api/session/{sid}/question/{formId}/reply 恒 404（端点结构性不存在，见 E2E-B 定性），再 fallback form 路径——每次多一次无效往返
   - **2026-08-18 模拟器精确重现**（beta-17595）：Submit → `replyToForm: POST question.v2 reply → 404 Not Found（25ms）→ fallback form path → 200 success` 完整日志链——行为与定性一致，未修
   - 背景：2026-08-15 research/09 时该端点曾实测 200（next-17430 中间契约）；现服务器已无此端点
   - 方向：按服务器版本/连接缓存探测结果（首 404 后跳过），或按 V1/V2 探测结果直选路径；注意未来服务器可能重新引入
-  - 优先级：P2（功能无损，仅性能/噪音）
+  - **2026-08-19 修复（852b7681）**：V2ApiClient(@Singleton) 按 baseUrl 记忆「404 已探明」——后续提交跳过探测直达 form 路径；仅 404 标记（400 保留重试）；进程重启清空自动重探（未来端点回归无需发版）；reply/reject 双通道同修。E2E 两问两答：首提 404→`cached absent` 标记→form 200；次提 `known absent — direct form path` 零探测直达（logcat 铁证）；全量单测绿
+  - 优先级：P2（功能无损，仅性能/噪音）——✅ 已修
 
 ### 2026-08-06 Play 上架合规批次（已完成）
 来源：Google Play 上架审计（2026-08-06），目标 2026-08-31 政策截止。
