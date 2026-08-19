@@ -369,6 +369,14 @@ class EventDispatcher @Inject constructor(
             sessionStateService.clearSession(deletedSessionId)
         }
 
+        // 跨 handler：SessionCompacted（V2 session.compaction.ended 映射 /
+        // legacy session.compacted）——服务器压缩真实完成，终结压缩横幅。
+        // 用户发起路径的 HTTP 回调注入（SessionNext(CompactionEnded)）已幂等
+        // 处理；auto-compaction 只有本事件，此前横幅永久停留。
+        if (event is SseEvent.SessionCompacted) {
+            sessionNextHandler.endCompaction(event.sessionId)
+        }
+
         // 跨 handler：CommandExecuted——仅将命令所属的消息标记为已完成。
         // command.executed 是消息级事件（properties 含 messageID）；
         // 用 messageId 精确终结该消息，避免误杀同一会话中仍在流式的

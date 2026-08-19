@@ -261,6 +261,29 @@ class EventDispatcherIntegrationTest {
             dispatcher.compactionState.value.containsKey("s1"))
     }
 
+    @Test
+    fun `session compacted event ends compaction banner and joins compacted set`() = runTest {
+        // 2026-08-19：V2 session.compaction.ended 映射为 SessionCompacted——
+        // auto-compaction 无 HTTP 回调注入兜底，压缩横幅须由本事件终结
+        //（EventDispatcher 跨 handler 调 endCompaction）；同时进入
+        // compactedSessions（ChatViewModel 完成 snackbar + 刷新的数据源）
+        dispatcher.processEvent(
+            SseEvent.SessionNext(SessionNextEvent.CompactionStarted(
+                sessionId = "s1", messageId = "m1", reason = "context limit"
+            )), "svr1"
+        )
+        assertTrue(dispatcher.compactionState.value.containsKey("s1"))
+
+        dispatcher.processEvent(
+            SseEvent.SessionCompacted(sessionId = "s1"), "svr1"
+        )
+
+        assertFalse("SessionCompacted 应终结压缩横幅",
+            dispatcher.compactionState.value.containsKey("s1"))
+        assertTrue("SessionCompacted 应进入 compactedSessions",
+            dispatcher.compactedSessions.value.contains("s1"))
+    }
+
     // ============ 场景 4：Agent/Model 切换链路 ============
 
     @Test

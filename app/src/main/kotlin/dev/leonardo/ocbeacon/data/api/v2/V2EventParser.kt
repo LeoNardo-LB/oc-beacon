@@ -127,6 +127,31 @@ class V2EventParser(private val json: Json) : SseEventParser {
                 )
             )
         }
+        // 2026-08-19（compaction.ended/delta 补全）：beta-17639 实测——V2 细粒度
+        // 压缩事件为 started/delta/ended 三段，不再发 legacy session.compacted。
+        // .ended 此前落入 Unknown（E2E 实证：服务器压缩成功但完成 snackbar 永不
+        // 显示）。映射为 SessionCompacted（"压缩完毕"的既有语义信号）：驱动
+        // compactedSessions → ChatViewModel 完成 snackbar + 消息刷新（含压缩
+        // 分割线卡片）；压缩横幅终结由 EventDispatcher.processEvent 跨 handler
+        // 处理。刻意**不**映射 SessionNext(CompactionEnded)：HTTP 回调的合成注入
+        // （ChatViewModel.compactionNotifier）也用该类型——复用会把"本地幂等结束"
+        // 与"服务器真实完成"混为一谈（后者才是 snackbar 的正确触发时机）。
+        if (eventType == "session.compaction.ended") {
+            val sid = sessionIdOrNull(props) ?: return null
+            return SseEvent.SessionCompacted(sessionId = sid)
+        }
+        // 2026-08-19：压缩摘要流式增量——映射 CompactionDelta（handler 无状态
+        // 变更已跟踪；消灭 Unhandled 日志噪音，保持事件可观察 + 心跳计数）。
+        if (eventType == "session.compaction.delta") {
+            val sid = sessionIdOrNull(props) ?: return null
+            return SseEvent.SessionNext(
+                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionDelta(
+                    sessionId = sid,
+                    messageId = props["messageID"]?.jsonPrimitive?.contentOrNull ?: "",
+                    delta = props["delta"]?.jsonPrimitive?.contentOrNull ?: "",
+                )
+            )
+        }
         if (eventType == "session.compacted") {
             val sid = sessionIdOrNull(props) ?: return null
             return SseEvent.SessionNext(

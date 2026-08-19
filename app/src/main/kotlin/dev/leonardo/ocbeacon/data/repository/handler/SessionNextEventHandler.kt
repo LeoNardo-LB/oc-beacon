@@ -260,6 +260,18 @@ class SessionNextEventHandler @Inject constructor(
         _compactionState.update { it - sessionId }
     }
 
+    /**
+     * 2026-08-19：跨 handler 入口——SessionCompacted（服务器压缩真实完成：
+     * V2 session.compaction.ended 映射 / legacy session.compacted）时终结
+     * 压缩横幅。用户发起路径的 HTTP 回调注入（SessionNext(CompactionEnded)）
+     * 已覆盖且幂等；auto-compaction 只有服务器事件，此前横幅会永久停留。
+     * 由 EventDispatcher.processEvent 调用（每事件类唯一 handler 的注册表
+     * 分发模型下，跨 handler 逻辑显式写在 dispatcher）。
+     */
+    fun endCompaction(sessionId: String) {
+        handleCompactionEnded(sessionId)
+    }
+
     fun trackSequence(sessionId: String, seq: Long) {
         val last = _lastEventSeq.value[sessionId]
         if (last != null && seq > last + 1) {
