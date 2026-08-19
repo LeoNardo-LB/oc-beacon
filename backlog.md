@@ -355,7 +355,7 @@
   - 来源：F §P1-1 / A 环节 E（补丁判定）
   - **2026-08-10 完成（待真机验证）**：ScrollCompensation.kt 初始化一次性探测 3 个反射成员（失败永久降级）+ 调用 try-catch 防御（catch Throwable 降级官方 requestScrollToItem）+ 注释标明 Compose BOM 2026.05.01 与字段名；ChatMessageList.kt 3 处调用点均经封装无需改（SSE 滚动铁律零接触）；模拟器程序化滚动/补偿正常无崩溃
 
-- [~] **#79 本地存储精简：工具返回值截断——P0 已完成 e7ca830f（P1/P2 待做）** `data` `refactor` `storage`
+- [~] **#79 本地存储精简：工具返回值截断——P0 ✅ e7ca830f + P1 ✅ ea4b7f4a；P2 评估不做（收益≈0）** `data` `refactor` `storage`
   - 需求：2026-08-12 用户系统性评估——会话全量信息本地保存是否合理。实测多会话数据库 28MB，其中 **tool parts（工具返回值）占 12.4MB（97%）**：shell 输出 5.1MB / read 2.6MB / websearch 1.1MB / edit 1.1MB / grep 667KB / webfetch 627KB；消息元数据仅 1.18MB + text 239KB（对话本体很小，纯文本合理）
   - 方案（已系统性分析，按优先级）：
     - **P0**：Room 写入时截断 tool part 的 state（返回值）——只存前 200~500 字符预览 + 总长度标记；展开时调 `getMessage(messageId)`（API 已有 V2ApiClient:409）按需拉全量。**只影响本地落库**，内存渲染不受影响（消息在内存时工具卡片完整可展开）
@@ -366,7 +366,7 @@
   - **2026-08-18 P0 完成（e7ca830f）**：ToolOutputTruncator——落库前 tool part payload JSON 层重写 state.output（500 字符预览+截断标记；其余字段原样；解析失败原样返回）。E2E 实证：bash 500 行 40KB 输出 → DB payload 965 字节（~98% 降），内存渲染完整（UI 显示执行摘要+输出行不受影响）；单测 5/5 + 全量绿。⚠️ 展开按需拉全量（getMessage）未做——离线恢复时工具卡片仅摘要（权衡已获用户接受）
   - **2026-08-19 P0 离线观感代验收 ✅**：飞行模式 + force-stop 重启（pid 变更实证）→ Room 缓存渲染会话列表/消息正常 → 「批量输出命令执行」会话（500 行 bash 输出源数据）工具卡片以摘要形态渲染：折叠态 = 命令头 `$ for I in $(seq 1 500)...` + 完成状态行 `完成 · Line 1: 这是一行测试输出 lorem ipsum dolor si...`（预览首行）+ 展开箭头；无乱码/无空白卡/无崩溃（FATAL=0）。观感符合「摘要可读、完整输出在服务器」的产品预期（证据 /tmp/verify-acceptance/p3_01~p3_05）。P1/P2 仍待做，条目保持 [~]
   - 与 #80（快速导航全量列表）不冲突——列表基于 role=user 元数据，不受 parts 截断影响
-  - **2026-08-19 P1 完成（ea4b7f4a）**：reasoning text 截断（truncateReasoningIfNeeded）+ tool state.input/metadata 递归原语截断（JSON 结构保留，短值零拷贝，≤2×limit 快速路径，数字/布尔不误改）。实测依据：P0 后 reasoning 736KB/637 条（max 45KB）+ write input 18.8KB/edit metadata 5.5KB 为剩余大头。**patch 无需处理**（模型层已是 hash+文件名，无 diff 全文——盘点核实）。E2E 铁证：新会话冷启动落库后 reasoning 截断标记 0→1、tool 326→327、UI 无恙、FATAL=0。既有数据不重写（upsert 幂等设计）。单测 11/11。**P2（synthetic/subagent 不落库）仍待做**
+  - **2026-08-19 P2 评估：不做**（收益≈0）——实测 synthetic 消息 77 条共 10.7KB、subagent parts 31 条共 35KB，合计 <47KB 占 12.9MB 库 **0.36%**（P0/P1 已消掉 97% 大头）；而代价是离线时 synthetic 通知卡消失、subagent 卡片内容丢失。按目标铁律「确认每点真实存在/适配当前代码」登记为不适配。条目保持 [~] 仅因用户最终验收（P0/P1 观感）
 
 - [x] **新会话默认模型（方案 A·本地默认，2026-08-16 实现 658abb11；2026-08-19 模拟器 E2E 代验收 ✅）** `model` `feature`
   - 需求：用户 2026-08-16 提出——新会话可设置默认模型，免去每次手动切换
@@ -1222,6 +1222,7 @@
   - 来源：audit-2026-08-13-dimensions/REPORT.md D2-14/D2-18/D2-L30（B 路）
   - 问题：任务完成通知先标记去重后查抑制 → 抑制场景通知静默丢失；提问轮询 30s 无门控（通知关闭仍打 REST）；SessionIdle 通知依赖 250ms 固定延迟
   - 方案：先预检抑制再标记；轮询退避/门控；事件驱动或多次轮询
+  - **2026-08-19 盘点 + 处置**：① **D2-14 N/A**——现行 showTaskCompleteNotification 已无任何去重标记（grep 无 markTask*），仅 shouldSuppressEvent 紧邻 notify 检查（AppNotificationManager:273），审计前提（先标记后抑制）已随后续重构消失；② **D2-18 按设计**——轮询已双职责：mergeQuestionsFromREST 供 UI 状态（提问卡 tool 补全/列表标记），通知投递本身已被 notificationsEnabled 门控（OpenCodeConnectionService:467），「关闭通知停 REST」会破坏 UI 状态链——审计前提过时；③ **D2-L30 已修**——response-ready 检查改最多 3 次重试（间隔 250ms，首次命中即通知，慢设备/长末段不再静默丢通知；无输出会话最坏 750ms 后台等待）。全量单测绿；E2E 见回写
   - 工时：~0.5d | 难度：低-中 | 涉及：OpenCodeConnectionService/AppNotificationManager | 优先级：P2
 
 - [x] **#113 UI 状态竞态批次（D2-06/26/L66/L67）——已修复 58a5e0d5** `ui` `race`
@@ -1289,11 +1290,12 @@
   - 方案：回写第一期报告状态 + 同步 backlog；WebViewScreen 已不可达（useNativeUi=true）需另行确认删除
   - 工时：~0.5h | 难度：低 | 优先级：P0（文档准确性）
 
-- [ ] **#120 Markdown/文案一致性批次——2026-08-19 盘点：D2-07/09/10/32 已修，仅剩 D2-08 ClickableMarkdown indexOf 定位** `markdown` `i18n` `ui`
+- [x] **#120 Markdown/文案一致性批次——全部完成（D2-08 已修 78e38e3a；盘点核实 D2-07/09/10/32 先前已修）** `markdown` `i18n` `ui`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（C/E 路）
   - 问题：① 跳转预渲染 fallback 用未归一化原始文本（MessageCardUser.kt:136 vs ChatMessageList.kt:442）→ 跳转目标首帧排版突变；② ClickableMarkdown 用 indexOf 定位可点击项（:95/:135）→ 重复文本段落点击/下划线错位；③ RetryBanner 双占位符恒显示 N/N（:49）；④ CompactionBanner 硬编码英文（:79）；⑤ SessionRow 硬编码英文 Diff 文案（:367-368）
   - 方案：jumpMdState 前 normalizeForRender；AST offset/span range 映射点击；文案改单占位符；提取资源补齐 14 语言
   - 工时：~0.5d | 难度：低-中 | 涉及：MessageCardUser/ClickableMarkdown/MarkdownTable/RetryBanner/CompactionBanner/SessionRow | 优先级：P2
+  - **2026-08-19 D2-08 修复（78e38e3a）✅ E2E 闭环（两轮独立复验交叉确证）**：ClickableMarkdownResult 增预计算 `ranges`（items 一一对应的绝对字符区间）——Link 优先匹配链接 span（精确 offset，文档序消费 + 文本校验）；span 不可用/CodePath 走顺序文本搜索（全局游标单调推进——重复文本依次消费各自出现位置）。单测 +1（同文本双链接区间不重叠各归其位）。E2E：tap 第二 docs → example.com/b、tap 第一 docs → example.com/a（**两轮四 tap 全部差分路由正确**，uidump 地址栏 ground truth，link_02/03）；无错位/游离下划线（D2-08 回归信号缺失）；FATAL=0；会话已清理。视觉子断言勘误：像素级实证 docs 文本为深色无下划线（两轮一致）——属主题链接样式现状（深色主题下不显眼），非本修复回归，如需改进另行登记
 
 - [ ] **#121 V1/V2 双客户端一致性批次（D2-22/D2-23/D2-30/D2-31）** `consistency` `refactor`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（A/E 路）

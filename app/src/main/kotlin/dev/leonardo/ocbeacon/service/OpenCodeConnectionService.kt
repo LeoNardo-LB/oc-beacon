@@ -583,9 +583,21 @@ class OpenCodeConnectionService : Service() {
                     if (!settingsDataStore.notificationsEnabled.first()) return@launch
 
                     // 给 reducer 片刻时间接收后续的 message/part 事件。
-                    delay(250)
-
-                    val assistantMessageId = appNotificationManager.checkNewAssistantMessage(server.id, event.sessionId)
+                    // D2-L30（#112，2026-08-19）：原固定单次 250ms 在慢设备/
+                    // 长末段输出下 reducer 可能仍未收敛 → 完成通知静默丢失。
+                    // 改为最多 3 次检查（每次间隔 250ms），首次命中即通知；
+                    // 无输出会话最坏多等 750ms（后台协程，成本可忽略）。
+                    var assistantMessageId: String? = null
+                    for (attempt in 0 until 3) {
+                        delay(250)
+                        assistantMessageId = appNotificationManager.checkNewAssistantMessage(server.id, event.sessionId)
+                        if (assistantMessageId != null) {
+                            if (attempt > 0) {
+                                AppLogger.d(TAG, "[${server.displayName}] Response-ready check recovered after ${attempt + 1} attempts (${event.sessionId})")
+                            }
+                            break
+                        }
+                    }
                     if (assistantMessageId == null) {
                         if (BuildConfig.DEBUG) {
                             AppLogger.d(TAG, "[${server.displayName}] Skip response-ready: no assistant text output (${event.sessionId})")
