@@ -1660,3 +1660,22 @@
   - 影响：冷启动/离线瞬间统计图标短暂缺失（REST 成功后立即恢复）；在线使用全程可见。低优先级
   - 方向：SSE_PRIORITY 合并后对 tokens/cost 变化的行触发增量 persist（或 REST refresh 后 persist 变更行）
   - 工时：~2h | 难度：中 | 涉及：MessageEventHandler/MessageStore | 优先级：P3
+
+## 2026-08-20 第二轮扫描批次（压缩 snackbar 复活 + 终端失败 snackbar 竞态 + 回归五项）
+
+- [x] **压缩完成 snackbar 失效（V2 session.compaction.ended/delta 未映射）——已修 ac7c046e + 5d534dd1** `sse` `v2`
+  - 发现（2026-08-19 会话操作回归轮）：beta-17639 细粒度压缩事件为 started/**delta**/**ended** 三段，不再发 legacy `session.compacted`——`.ended` 落入 Unknown（logcat 实证 `Unhandled session.next event: session.compaction.ended`），服务器压缩成功但「会话已压缩」snackbar 永不显示；auto-compaction（无 HTTP 回调兜底）的进行中横幅也会永久停留
+  - 修复（ac7c046e）：`.ended` → `SseEvent.SessionCompacted`（"服务器真实完成"既有语义链：compactedSessions → snackbar+刷新；EventDispatcher 跨 handler 新增 endCompaction 终结横幅）；`.delta` → `SessionNext(CompactionDelta)`（消灭 Unhandled 噪音）。**刻意不**映射 `SessionNext(CompactionEnded)`——那是 ChatViewModel.compactionNotifier 合成注入的类型，复用会让"本地幂等结束"冒充"真实完成"触发 premature snackbar
+  - 契约修正（5d534dd1）：E2E 抓帧实证 delta 增量文本在 **`text`** 字段（V1 域事件用 `delta`）——text 优先 + delta 兼容回退
+  - E2E 三路铁证：logcat `[recv] SessionCompacted` + `[dispatch] → SessionEventHandler` + Unhandled 计数 0；视觉 run_15 snackbar「会话已压缩」逐字；final.png「上下文已压缩」分割线 + 无卡死横幅（证据 /tmp/compact_*.png）
+
+- [x] **终端连接失败 snackbar 被 scope 取消竞态——已修 f3cc5fb7** `terminal` `ui`
+  - 发现（本轮回归⑤）：飞行模式断网 + 开终端：数据层失败链完整触发（ENETUNREACH → Failed to create tab → onResult(false)）、终端模式正确自动退出，但「终端打开失败」snackbar **从未显示**（双截图序列 md5 相同 + vision 确认无提示条）
+  - 根因：ChatTerminalView 失败回调在本地 `rememberCoroutineScope` launch showSnackbar 后立即 `onTerminalModeChanged(false)`——视图随 isTerminalMode=false 离开组合（ChatScreen when 分支），排队中的 snackbar 协程被 scope.cancel() 杀死
+  - 修复：新增 `onConnectFailed` 回调参数，snackbar 展示移交 ChatScreen 存活 scope（文案 hoist 同步迁移）；抽屉内重连/新建 tab 两条失败提示保持本地 scope（该路径视图保持组合，语义正确）
+  - E2E 复验（修复后重装 APK + SIGSTOP 监督进程制造确定性停服窗口）：logcat `ECONNREFUSED → Failed to create tab` + 视觉帧 5 snackbar「终端打开失败」逐字 + 终端自动退出回聊天视图（证据 /tmp/tv2_run_*.png）
+  - 环境备忘：opencode serve 被 `opencode2 -c`（TUI）监督秒级拉起——`pkill -f` 会自匹配误杀 shell；确定性停服 = SIGSTOP 监督者 + `pkill -9 -x opencode2.exe`（测后 SIGCONT，服务器自愈 pid 3343989）；模拟器 airplane-mode 对连接池半死 TCP 可能静默挂起（15s connect timeout）而非立即失败，停服（RST）才是可靠触发
+
+- **回归②③④⑤记录（2026-08-20 扫描清单收官）**：②语言往返 zh→en→zh 7/7 PASS（7 组文案对照 + prefs 直读 + 两次 Activity relaunch 日志三维互证；发现：应用设置真入口是主页顶栏齿轮，底部"设置"tab 是 MCP 服务器管理——已写进子代理任务书防重复踩坑）③AMOLED 权限卡 PASS（像素断言纯黑 RGB(0,0,0) 51.6% + 视觉层次确认 + 拒绝链路送达服务器；Compose Switch 的 uidump checked 不可信 → DataStore proto 解码为权威）④空会话提问卡为陈旧项（a4862397 已于 08-19 验证完结）⑤即上述终端 snackbar 竞态（发现→修复→复验闭环）。⑤执行中还发现 E2E 离线冷启动被连接入口挡住（与 V3 走查记录一致，架构使然）
+
+- **终局回归（第二轮，2026-08-20 02:30）**：全量单测 --rerun EXIT=0 全绿（含终端修复）；发送流 curl prompt → 流式渲染「收到」+ FSM 完成 + 输入恢复 ✓；token 环无回归（顶栏 8% 文本在位——f37f482d 修复经受住压缩+终端两轮改动）✓；FATAL=0 / AndroidRuntime E=0 ✓
