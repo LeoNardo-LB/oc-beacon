@@ -1622,7 +1622,17 @@
   - **2026-08-19 修复（a4862397）**：空态分支条件收紧（pending 非空走 ChatMessageList）。E2E 双向验证：空会话挂起 ask → 卡片渲染 → 拒绝 → 空态正确回归；live 触发（原始失败路径）同验证 + 非空会话回归。**顺带修复 auto-approve 空名伪命中**：live ask 2ms 内被吞的根因是上轮 always 确认在空名 ask 上存了 toolName="" 规则（评估端点事件不带 permission 显示名）——savePermissionRule 空名守卫 + matches 双端空名防御（历史遗留规则即刻失效，无需迁移），单测 +2。证据 /tmp/verify-permcard/emptyfix_*.png
   - 工时：~2h | 难度：低 | 涉及：ChatScreen 空态分支 | 优先级：P2 ✅ 2026-08-19 完结
 
-- [ ] **新增 P3：App「自动允许所有权限请求」开关测试后遗留 ON** `process`
+- [x] **新增 P3：App「自动允许所有权限请求」开关测试后遗留 ON——已完结（备忘目的达成）** `process`
   - 发现（2026-08-19 权限卡 E2E）：2026-08-19 上午验收明确关闭过该开关（DataStore 0x00 验证），但本轮 E2E 时又为 ON（毫秒级自动应答 always 导致卡片不显示，排查消耗两轮）。可能是下午某 E2E 子代理重新打开未还原
   - 处置：本轮已重新关闭。登记目的：后续 E2E runbook 若依赖权限卡显示，需先检查该开关状态（设置 → 自动允许所有权限请求）
-  - 工时：已处置 | 优先级：P3（流程备忘）
+  - **2026-08-19 完结**：备忘目的已达成——空会话卡片修复轮与终局回归均按此检查（开关保持 OFF）；且根因侧的 auto-approve 空名守卫已随 a4862397 落地，误应答面收窄
+  - 工时：已处置 | 优先级：P3（流程备忘）✅ 完结
+
+## 终局回归记录（2026-08-19，全部可开发项完成后）
+
+- **D0 静态全绿**：compileDevDebugKotlin ✓ / 全量单测 --rerun ✓ / lint **0 errors**（门禁 no new issues）✓ / i18n-check 628 键 ×14 语言 ✓ / androidTest 编译 ✓
+- **能力域 A（启动/连接/列表）**：冷启 2436ms（2 次取优）/ 热启 115ms / crash buffer 0B / dropbox 本次窗口零新增（历史 7 条 08-17 并发构建损坏签名与本次无关）/ Accept_AB 已连接 API v2 / 列表 12 会话 / 搜索实时过滤 ✓（CJK 注入受模拟器 LatinIME 限制，AB 代测同路径）/ 滚动 gfxinfo Janky 74% p50=73 p90=97 p99=117ms（debug+软渲染基线）✓（证据 /tmp/regress-a/ 4 截图）
+- **能力域 B（聊天发送流/控制/草稿）**：草稿保存恢复 ✓ / 发送即显+输入清空 ✓ / 流式回复 ✓（服务器侧全文 banana apple cherry）/ 停止生成 ✓（截停后空 assistant）/ 模型切换 ✓（model-switched 事件）/ FATAL=0 / 测试会话已清理（证据 /tmp/regress-b/ 4 截图 + REST 双侧验证）
+- **能力域 C（卡片/终端）**：工具卡/权限卡/文件查看器/Markdown 渲染——当日早前轮次证据（/tmp/verify-regex/ 21 截图、/tmp/verify-permcard/、/tmp/verify-dm/）；**终端模式本轮实测**：更多选项→终端 进入（黑面像素+键盘 overlay+TerminalDelegate 日志+IME）→ BACK×2 退出正常（/tmp/regress-b/06_terminal.png）
+- **全程 FATAL=0、crash buffer 0 字节**；服务器配置 diff=0 复验
+
