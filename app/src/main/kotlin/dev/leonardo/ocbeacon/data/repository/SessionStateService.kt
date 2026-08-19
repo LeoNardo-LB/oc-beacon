@@ -47,6 +47,10 @@ private const val HISTORY_MAX = 20
 private const val STALENESS_CHECK_INTERVAL_MS = 5_000L
 private const val STALENESS_THRESHOLD_MS = 15_000L
 
+/** #122 D2-15：lastEventAt 无变化节流窗口——仅时间戳变化的事件在该窗口内
+ *  跳过状态写入（lastEventAt 消费阈值最小 15s，1s 粒度无损）。 */
+private const val LAST_EVENT_THROTTLE_MS = 1_000L
+
 /** 2026-08-16（状态对账）：正向自愈确认轮数（×轮询间隔 ≈10s，防 started 在途误判）。 */
 private const val ACTIVE_POSITIVE_CONFIRM_ROUNDS = 2
 
@@ -402,16 +406,38 @@ class SessionStateService @Inject constructor(
         // 副作用（历史记录、forceComplete 等）使用。
         var fromState: SessionFSMState? = null
         var result: SessionStateFSM.TransitionResult? = null
+        // #122 D2-15：无变化短路是否命中（见下方判断处注释）
+        var stateChanged = true
         _fsmStates.update { states ->
             val current = states[sessionId] ?: SessionFSMState.initial()
             val transitionResult = SessionStateFSM.transition(current, event)
             fromState = current
             result = transitionResult
-            states + (sessionId to transitionResult.newState)
+            val ns = transitionResult.newState
+            // #122 D2-15（流式 GC 压力根治）：流式期间高频事件（TextDelta/
+            // MessageUpdated ~48ms/次）在稳定活动态（如 Streaming）下 newState
+            // 与 current 的差异**仅剩 lastEventAt**——而 lastEventAt 的全部
+            // 消费阈值（最小 STALENESS_THRESHOLD_MS=15s）远大于秒级。仅时间戳
+            // 变化且增量 < LAST_EVENT_THROTTLE_MS 时跳过整表拷贝与下游发射
+            //（返回原 map 引用 → StateFlow equality O(1) 短路），同时跳过
+            // history 记录（状态未变即无转移可记，也省一次 O(n) 拷贝）。
+            // 副作用（suspicious/forceComplete）不受影响照常执行。
+            val onlyTimestampChanged =
+                ns.copy(lastEventAt = current.lastEventAt) == current
+            if (onlyTimestampChanged &&
+                ns.lastEventAt - current.lastEventAt < LAST_EVENT_THROTTLE_MS
+            ) {
+                stateChanged = false
+                states
+            } else {
+                states + (sessionId to ns)
+            }
         }
         val from = fromState!!
         val res = result!!
-        recordHistory(sessionId, from, res, event)
+        if (stateChanged) {
+            recordHistory(sessionId, from, res, event)
+        }
         if (BuildConfig.DEBUG) logTransition(sessionId, from, res, event)
         // 副作用
         if (res.forceComplete) messageForceCompleter.markIdle(sessionId)

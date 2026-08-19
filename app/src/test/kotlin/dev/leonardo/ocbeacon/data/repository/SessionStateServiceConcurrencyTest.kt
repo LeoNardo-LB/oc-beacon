@@ -155,8 +155,15 @@ class SessionStateServiceConcurrencyTest {
             pool.submit {
                 readyLatch.countDown()
                 startLatch.await(5, TimeUnit.SECONDS)
-                repeat(transitionsPerSession) {
-                    service.applyTransition(sessionId, FsmEvent.ClientSendParts)
+                // #122 D2-15 后：重复同事件在稳定态只剩时间戳变化（被短路，
+                // 不记 history）——压测改用交替真实转移（Idle↔Busy），每事件
+                // 均为真实转移，CAS 压力不变且 history 断言精确有效。
+                repeat(transitionsPerSession) { i ->
+                    if (i % 2 == 0) {
+                        service.applyTransition(sessionId, FsmEvent.ClientSendParts)
+                    } else {
+                        service.applyTransition(sessionId, FsmEvent.SseIdle)
+                    }
                 }
             }
         }

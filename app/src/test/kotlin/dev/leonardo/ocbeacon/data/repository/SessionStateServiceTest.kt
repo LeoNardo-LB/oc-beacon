@@ -105,10 +105,66 @@ class SessionStateServiceTest {
     @Test
     fun `history trims to max 20 entries`() {
         val service = newService()
-        repeat(25) { service.onClientSendParts("s1") }  // 每次都是一次状态转移
+        // #122 D2-15 后：稳定态重复事件被短路不记 history——用交替真实
+        // 转移（Idle↔Busy）驱动 25 次真实转移，验证修剪到 ≤20。
+        repeat(25) { i ->
+            if (i % 2 == 0) service.onClientSendParts("s1")
+            else service.onSseEvent(SseEvent.SessionIdle(sessionId = "s1"), "s1", "server1")
+        }
         testScope.runCurrent()
         val history = service.historyFlow.value["s1"]!!
         assertTrue("history should be trimmed to <= 20, was ${history.size}", history.size <= 20)
+    }
+
+    // ============ #122 D2-15：仅时间戳变化短路 ============
+
+    /**
+     * 流式高频事件（delta/updated ~48ms/次）在稳定活动态下 newState 与
+     * current 差异仅剩 lastEventAt——短路跳过整表拷贝与下游发射。
+     * 验证：状态仍正确（Busy/Streaming 保持），且不产生多余 history 记录。
+     */
+    @Test
+    fun `D2-15 timestamp-only events within throttle window are short-circuited`() {
+        val service = newService()
+        service.onClientSendParts("s1")
+        service.onSseEvent(SseEvent.SessionNext(SessionNextEvent.TextStarted("s1", "m1", "p1")), "s1", "srv")
+        testScope.runCurrent()
+        assertEquals(2, service.historyFlow.value["s1"]!!.size) // Idle→Busy + →Streaming
+
+        // 高频 delta：Streaming 稳定态下仅 lastEventAt 变化（<1s 窗口）→ 短路
+        repeat(20) {
+            service.onSseEvent(SseEvent.SessionNext(SessionNextEvent.TextDelta("s1", "m1", "p1", "x")), "s1", "srv")
+        }
+        testScope.runCurrent()
+
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])
+        assertEquals(SessionActivity.Streaming, service.activityFlow.value["s1"])
+        assertEquals(
+            "timestamp-only deltas must not append history (short-circuited)",
+            2,
+            service.historyFlow.value["s1"]!!.size,
+        )
+    }
+
+    /** 短路不吞真实转移：活动态变化（Streaming→ToolCalling）仍照常记录。 */
+    @Test
+    fun `D2-15 short-circuit does not swallow real activity transitions`() {
+        val service = newService()
+        service.onClientSendParts("s1")
+        service.onSseEvent(SseEvent.SessionNext(SessionNextEvent.TextStarted("s1", "m1", "p1")), "s1", "srv")
+        service.onSseEvent(SseEvent.SessionNext(SessionNextEvent.TextDelta("s1", "m1", "p1", "a")), "s1", "srv")
+        testScope.runCurrent()
+
+        // 工具调用 = 真实活动转移（Streaming→ToolCalling）→ 必须记录
+        service.onSseEvent(
+            SseEvent.SessionNext(SessionNextEvent.ToolInputStarted("s1", "m1", "p1", "c1", "bash")),
+            "s1", "srv",
+        )
+        testScope.runCurrent()
+
+        assertEquals(SessionActivity.ToolCalling("bash", "c1"), service.activityFlow.value["s1"])
+        val history = service.historyFlow.value["s1"]!!
+        assertEquals(3, history.size) // Idle→Busy, →Streaming, →ToolCalling
     }
 
     @Test
