@@ -249,84 +249,15 @@ private fun StackedList(
         itemsIndexed(order, key = { _, item -> item.id }) { index, item ->
             val isDragged = drag?.index == index
             val isHeadSending = isDraining && index == 0
-            Surface(
-                color = if (isDragged) {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-                shape = ShapeTokens.medium,
+            // 包裹式结构（修复 2026-08-20 初稿 bug：手势 Box 原是 Surface 的
+            // 兄弟节点——0 高度不覆盖行内容，长按拖拽永远不命中）：单一 Box
+            // 同时承载视觉位移（graphicsLayer/zIndex）、拖拽手势与行内容。
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .graphicsLayer { translationY = if (isDragged) drag?.offset ?: 0f else 0f }
                     .zIndex(if (isDragged) 1f else 0f)
-                    .animateItem(),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = item.text,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        val timeText = remember(item.createdAt) {
-                            SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(item.createdAt))
-                        }
-                        Text(
-                            text = if (isHeadSending) {
-                                stringResource(R.string.pending_item_sending)
-                            } else {
-                                timeText
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isHeadSending) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                            },
-                        )
-                    }
-                    IconButton(onClick = { onEdit(item) }, enabled = !isDraining, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = stringResource(R.string.pending_item_edit),
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
-                        )
-                    }
-                    IconButton(onClick = { onDelete(item.id) }, enabled = !isDraining, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = stringResource(R.string.pending_item_delete),
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
-                        )
-                    }
-                    IconButton(
-                        onClick = { onSendOne(item.id, item.text) },
-                        enabled = !isDraining,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = stringResource(R.string.pending_item_send),
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM),
-                        )
-                    }
-                }
-            }
-            // 拖拽手势挂在行内容上（长按启动；推送中禁用防竞态）
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
+                    .animateItem()
                     .pointerInput(item.id, isDraining, order.size) {
                         if (isDraining) return@pointerInput
                         detectDragGesturesAfterLongPress(
@@ -338,7 +269,7 @@ private fun StackedList(
                                 val d = drag ?: return@detectDragGesturesAfterLongPress
                                 var newOffset = d.offset + amount.y
                                 var newIndex = d.index
-                                // 越过半行高度即与相邻行交换（本地即时反馈）
+                                // 越过一行高度即与相邻行交换（本地即时反馈）
                                 while (newOffset > swapThreshold && newIndex < order.size - 1) {
                                     newIndex++
                                     newOffset -= swapThreshold
@@ -366,7 +297,78 @@ private fun StackedList(
                             },
                         )
                     },
-            ) {}
+            ) {
+                Surface(
+                    color = if (isDragged) {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+                    shape = ShapeTokens.medium,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            val timeText = remember(item.createdAt) {
+                                SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(item.createdAt))
+                            }
+                            Text(
+                                text = if (isHeadSending) {
+                                    stringResource(R.string.pending_item_sending)
+                                } else {
+                                    timeText
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isHeadSending) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                                },
+                            )
+                        }
+                        IconButton(onClick = { onEdit(item) }, enabled = !isDraining, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = stringResource(R.string.pending_item_edit),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
+                            )
+                        }
+                        IconButton(onClick = { onDelete(item.id) }, enabled = !isDraining, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = stringResource(R.string.pending_item_delete),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
+                            )
+                        }
+                        IconButton(
+                            onClick = { onSendOne(item.id, item.text) },
+                            enabled = !isDraining,
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Send,
+                                contentDescription = stringResource(R.string.pending_item_send),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

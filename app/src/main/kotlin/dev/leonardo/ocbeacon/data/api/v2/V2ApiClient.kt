@@ -1110,13 +1110,24 @@ class V2ApiClient @Inject constructor(
     /** TODO 端点缺失（V2 beta 服务器无此功能，2026-08-20 实测 404）——供上层能力判定。 */
     class TodoEndpointMissingException : Exception("server has no todo endpoint")
 
+    /**
+     * TODO 端点缺失记忆（按 baseUrl，进程级）——沿 questionV2ReplyAbsent 先例
+     *（question.v2 404 探测缓存）：首次 404 后直达缺失路径，不再发 HTTP。
+     * V2 beta 服务器每个会话 VM 的能力探测只打一次真实请求。
+     */
+    private val todoEndpointAbsent = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
         // V2 dev 分支重新实现了 todo（/api/session/{id}/todo，事件 todo.updated），
         // beta-17639 无此路由（实测 404）。探测语义：404 = 服务器不支持。
+        if (todoEndpointAbsent.contains(conn.baseUrl)) throw TodoEndpointMissingException()
         val resp = httpClient.get("${conn.baseUrl}/api/session/$sessionId/todo") {
             auth(conn)
         }
-        if (resp.status.value == 404) throw TodoEndpointMissingException()
+        if (resp.status.value == 404) {
+            todoEndpointAbsent.add(conn.baseUrl)
+            throw TodoEndpointMissingException()
+        }
         return resp.body()
     }
 

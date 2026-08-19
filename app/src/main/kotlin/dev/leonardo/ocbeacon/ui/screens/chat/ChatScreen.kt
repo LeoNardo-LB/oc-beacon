@@ -376,6 +376,11 @@ fun ChatScreen(
         kotlinx.coroutines.delay(500)
         dev.leonardo.ocbeacon.ui.screens.viewer.WebViewWarmer.warm(context)
     }
+    // 堆积/TODO 面板（2026-08-20 设计定稿）：组合即探测 TODO 能力——
+    // 不开面板也能亮下角标（V1 恒支持；V2 beta 404 按 baseUrl 记忆缺失）。
+    LaunchedEffect(Unit) {
+        viewModel.probeTodoCapability()
+    }
     val isAmoled = isAmoledTheme()
     val keyboardController = LocalSoftwareKeyboardController.current
     val clipboard = androidx.compose.ui.platform.LocalClipboard.current
