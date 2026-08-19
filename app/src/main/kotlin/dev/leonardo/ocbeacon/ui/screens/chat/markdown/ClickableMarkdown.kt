@@ -29,6 +29,11 @@ internal sealed interface ClickableItem {
 internal data class ClickableMarkdownResult(
     val annotatedString: AnnotatedString,
     val items: List<ClickableItem>,
+    /** #120（D2-08）：可点击项的绝对字符区间（AnnotatedString 坐标系）。
+     *  Link 区间取自 buildMarkdownAnnotatedString 的链接 span（精确 offset，
+     *  不受重复文本干扰）；CodePath 区间取自顺序搜索（顺序推进 searchFrom，
+     *  与既有语义一致但以真实命中为准）。 */
+    val ranges: List<IntRange>,
 )
 
 /**
@@ -106,13 +111,53 @@ internal fun buildClickableMarkdown(
             }
         }
     }
-    return ClickableMarkdownResult(annotated, items)
+    // #120（D2-08）：为全部 items 建立绝对区间。Link 的区间直接取自
+    // 链接 span 的 start/end——精确 offset，重复文本/同文名不再错位；
+    // CodePath 沿用顺序搜索区间。items 与 ranges 一一对应（未命中为 EMPTY）。
+    //
+    // 双路定位：① Link 优先匹配链接 span（精确 offset，annotator 配置了
+    // 链接样式时可用——按文档序消费 + 文本一致性校验）；② span 不可用
+    //（最小 annotator / 样式未注册）或 CodePath → 顺序文本搜索，全局
+    // 游标单调推进——重复文本的同名项依次消费各自的出现位置，不再
+    // 全部命中第一个（旧 indexOf 逐项独立搜索的错位根因）。
+    var spanIdx = 0
+    var textCursor = 0
+    val ranges = items.map { item ->
+        var matched = IntRange.EMPTY
+        if (item is ClickableItem.Link) {
+            var i = spanIdx
+            while (i < rawAnnotated.spanStyles.size) {
+                val sp = rawAnnotated.spanStyles[i]
+                if (sp.end <= rawAnnotated.text.length &&
+                    rawAnnotated.text.substring(sp.start, sp.end) == item.text
+                ) {
+                    matched = sp.start..<(sp.end)
+                    spanIdx = i + 1
+                    break
+                }
+                i++
+            }
+        }
+        if (matched != IntRange.EMPTY) {
+            textCursor = maxOf(textCursor, matched.last + 1)
+            matched
+        } else {
+            val idx = annotated.text.indexOf(item.text, textCursor)
+            if (idx >= 0) {
+                textCursor = idx + item.text.length
+                idx..<(idx + item.text.length)
+            } else IntRange.EMPTY
+        }
+    }
+    return ClickableMarkdownResult(annotated, items, ranges)
 }
 
 /**
  * 为 [ClickableMarkdownResult] 中的可点击项注册点击手势处理。
  *
  * 使用 [TextLayoutResult] 将点击位置映射到 item → [uriHandler].openUri()。
+ * #120（D2-08）：按预计算的绝对区间判定命中——不再 indexOf 搜索，
+ * 重复文本段落不再点击错位/误开链接。
  * 必须在 @Composable 上下文中调用。
  */
 @Composable
@@ -129,18 +174,16 @@ internal fun Modifier.clickableMarkdown(
             detectTapGestures { pos ->
                 val layout = layoutResultProvider() ?: return@detectTapGestures
                 val offset = layout.getOffsetForPosition(pos)
-                val text = result.annotatedString.text
-                var searchFrom = 0
-                for (item in result.items) {
-                    val idx = text.indexOf(item.text, searchFrom)
-                    if (idx >= 0 && offset >= idx && offset < idx + item.text.length) {
-                        when (item) {
+                // 区间倒序查首个命中（嵌套/重叠时取最内层=最晚出现的样式）
+                for (i in result.ranges.indices) {
+                    val r = result.ranges[i]
+                    if (offset in r) {
+                        when (val item = result.items[i]) {
                             is ClickableItem.Link -> uriHandler.openUri(item.url)
                             is ClickableItem.CodePath -> uriHandler.openUri(item.text)
                         }
                         return@detectTapGestures
                     }
-                    if (idx >= 0) searchFrom = idx + item.text.length
                 }
             }
         }
