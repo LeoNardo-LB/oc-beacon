@@ -1312,10 +1312,14 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean {
+        // 2026-08-19（#84 契约实测）：beta-17595 的 PATCH /api/credential 要求
+        // label 必填——缺省时 400 "Missing key at [label]"（provider API key 连接
+        // 在此部署版完全不可用）。补 "oc-beacon" 标识来源，便于用户在服务器侧
+        // 区分客户端写入的凭据。带 label 实测 204。
         val response = httpClient.patch("${conn.baseUrl}/api/credential/$providerId") {
             auth(conn)
             contentType(ContentType.Application.Json)
-            setBody(mapOf("type" to "api", "key" to apiKey))
+            setBody(mapOf("type" to "api", "key" to apiKey, "label" to "oc-beacon"))
         }
         return response.status.isSuccess()
     }

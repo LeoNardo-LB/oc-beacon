@@ -240,6 +240,26 @@ class V2ApiClientTest {
     }
 
     /**
+     * #84（2026-08-19 契约实测）：beta-17595 的 PATCH /api/credential 要求
+     * label 必填——缺省 400 "Missing key at [label]"（API key 连接完全不可用）。
+     * 带实测 204。
+     */
+    @Test
+    fun `setProviderApiKey body includes required label field`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/credential/anthropic", request.url.encodedPath)
+            assertEquals("PATCH", request.method.value)
+            val body = (request.body as TextContent).text
+            assertTrue("body must contain label: $body", body.contains("\"label\":\"oc-beacon\""))
+            assertTrue(body.contains("\"type\":\"api\""))
+            assertTrue(body.contains("\"key\":\"sk-test\""))
+            respond("", HttpStatusCode.NoContent)
+        }
+        val api = buildClient(engine)
+        assertTrue(api.setProviderApiKey(v2Conn, "anthropic", "sk-test"))
+    }
+
+    /**
      * 2026-08-19（beta-17595 根治二段）：UI 层持有 AgentInfo.name 显示名
      *（"Plan"），而服务器 /agent 端点按 id（"plan"）区分大小写匹配——
      * E2E 实证原样发送显示名 → session.execution.failed "Agent not found: Plan"。
