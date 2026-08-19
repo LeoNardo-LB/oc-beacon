@@ -649,4 +649,51 @@ class V2ApiClientTest {
         assertEquals("Main.kt", result[0].name)
         assertEquals(".agentmemory", result[1].name)
     }
+
+    /**
+     * 文件读取契约修复（2026-08-19，beta-17595）：端点为通配符路径段形态
+     *（路径直接拼在 /api/fs/read 之后；旧 ?path= 查询参数形态 500），响应为裸文件内容
+     *（curl 实证）。文件查看器/CodePath 点击/existence 检查全链路在旧形态
+     * 下静默失效（表现：点击文件路径 Snackbar「文件未找到」）。
+     */
+    @Test
+    fun `readFile uses wildcard path suffix returning bare text`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/fs/read/app/build.gradle.kts", request.url.encodedPath)
+            assertNull("path must not be a query param", request.url.parameters["path"])
+            assertTrue(request.headers.contains("x-opencode-directory"))
+            respond("import java.io.FileInputStream", HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("text/plain")))
+        }
+        val api = buildClient(engine)
+        val content = api.readFile(v2Conn, "app/build.gradle.kts", "/home/leo-tkp/Documents/code/mine/oc-beacon")
+        assertEquals("import java.io.FileInputStream", content.content)
+        assertEquals("text", content.type)
+    }
+
+    /** 老服务器 JSON 信封（{data:{type,content}}）兼容。 */
+    @Test
+    fun `readFile still parses json envelope when provided`() = runTest {
+        val envelope = """{"data":{"type":"text","content":"enveloped"}}"""
+        val engine = MockEngine { _ ->
+            respond(envelope, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        assertEquals("enveloped", api.readFile(v2Conn, "a.kt").content)
+    }
+
+    /** 空格等特殊字符按段编码，斜杠结构保留。 */
+    @Test
+    fun `readFile encodes segments but keeps slashes`() = runTest {
+        var capturedPath = ""
+        val engine = MockEngine { request ->
+            capturedPath = request.url.encodedPath
+            respond("x", HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("text/plain")))
+        }
+        val api = buildClient(engine)
+        api.readFile(v2Conn, "src/My File.kt", null)
+        assertTrue("slash structure kept: $capturedPath", capturedPath.endsWith("/api/fs/read/src/My%20File.kt"))
+    }
 }

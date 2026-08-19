@@ -66,6 +66,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLParameter
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -1431,13 +1432,28 @@ class V2ApiClient @Inject constructor(
     }
 
     suspend fun readFile(conn: ServerConnection, path: String, directory: String? = null): FileContentDto {
-        val bodyText = httpClient.get("${conn.baseUrl}/api/fs/read") {
+        // 2026-08-19（#CodePath/文件查看 P1 契约修复，beta-17595）：读取端点是
+        // GET /api/fs/read/*（路径为通配符后缀段），旧 ?path= 查询参数形态 500——
+        // 文件查看器/CodePath 点击/existence 检查全链路在此部署版静默失效
+        //（表现：点击文件路径 Snackbar「文件未找到」，E2E 复现 + curl 双形态
+        // 对照实证：?path= → 500；通配符 → 200 带内容）。
+        // 路径按段编码（保留 / 结构），相对路径由 x-opencode-directory 头解析
+        //（curl 实证），绝对路径原样可用。
+        val encodedPath = path.split('/').joinToString("/") { it.encodeURLParameter() }
+        val bodyText = httpClient.get("${conn.baseUrl}/api/fs/read/$encodedPath") {
             auth(conn)
             directoryHeader(directory)
-            parameter("path", path)
         }.bodyAsText()
-        val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
-        return json.decodeFromJsonElement(FileContentDto.serializer(), obj)
+        // 2026-08-19：通配符端点返回裸文件内容（curl 实证）——旧 JSON 信封解析
+        // 必抛。双路：先试 JSON 信封（老服务器 {data:{type,content}}），失败
+        // 回退裸文本为 content（JSON 文件裸内容以 { 开头时 envelope 解码因缺
+        // type/content 字段失败 → 自然落入裸文本分支）。
+        return runCatching {
+            val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
+            json.decodeFromJsonElement(FileContentDto.serializer(), obj)
+        }.getOrElse {
+            FileContentDto(type = "text", content = bodyText)
+        }
     }
 
     suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> {
