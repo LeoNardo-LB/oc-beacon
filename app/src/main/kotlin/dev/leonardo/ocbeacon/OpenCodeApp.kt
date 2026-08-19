@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon
 
 import android.app.Application
 import android.content.ComponentCallbacks2
+import android.content.Context
 import android.os.Build
 import android.os.Environment
 import android.os.StrictMode
@@ -16,6 +17,7 @@ import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import kotlin.concurrent.thread
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.service.SessionFocusHolder
 import dev.leonardo.ocbeacon.util.DebugLogger
@@ -60,6 +62,20 @@ private fun Application.crashLogDir(): File {
 class OpenCodeApp : Application() {
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * StrictMode ②（2026-08-19）：预热语言镜像 SharedPreferences。
+     * MainActivity/OpenCodeConnectionService 的 attachBaseContext 需同步读
+     * locale_prefs（#136 有意设计）；冷启动首读会加载 XML——在最早的生命周期
+     * 点（早于 Application.onCreate / ContentProvider / Activity attach）用
+     * 后台线程触发加载，让后续主线程同步读命中已加载内存。
+     */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        thread(name = "locale-prefs-warmup", isDaemon = true) {
+            runCatching { SettingsDataStore.getStoredLanguage(base) }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -191,9 +207,11 @@ class OpenCodeApp : Application() {
         // #137（D2-L63）：listFiles + 崩溃文件名解析（含 SimpleDateFormat 解析）移出
         // 主线程——外部目录（Download）在崩溃残留多时可致启动卡顿；IO 线程执行，
         // Toast（需主线程）在检测完成后切回主线程。
-        val crashPrefs = getSharedPreferences("crash_notify", MODE_PRIVATE)
-        val lastNotifiedCrashTs = crashPrefs.getLong("last_notified_ts", 0L)
         appScope.launch {
+            // StrictMode ③（2026-08-19）：prefs 读移入后台协程（原 onCreate 主线程
+            // 读盘——该值仅在 IO 过滤崩溃文件时使用，无需主线程预读）
+            val crashPrefs = getSharedPreferences("crash_notify", MODE_PRIVATE)
+            val lastNotifiedCrashTs = crashPrefs.getLong("last_notified_ts", 0L)
             val newCrashFiles = withContext(Dispatchers.IO) {
                 crashLogDir().listFiles()
                     ?.filter { it.name.startsWith("crash_") && it.name.endsWith(".txt") }

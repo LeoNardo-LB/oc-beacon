@@ -118,7 +118,8 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         // 同步从 SharedPreferences 读取存储的语言（无需 Hilt）。
         // D2-L20：语言应用逻辑与 OpenCodeConnectionService 共享 [applyAppLanguage]。
-        appliedLanguage = dev.leonardo.ocbeacon.data.repository.SettingsDataStore.getStoredLanguage(newBase)
+        // StrictMode ②：统一经 readStoredLanguagePermitted（设计读显式声明）。
+        appliedLanguage = dev.leonardo.ocbeacon.util.readStoredLanguagePermitted(newBase)
         super.attachBaseContext(newBase.applyAppLanguage())
     }
 
