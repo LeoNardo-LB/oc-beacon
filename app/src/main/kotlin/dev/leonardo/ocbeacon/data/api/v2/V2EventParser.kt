@@ -142,13 +142,15 @@ class V2EventParser(private val json: Json) : SseEventParser {
         }
         // 2026-08-19：压缩摘要流式增量——映射 CompactionDelta（handler 无状态
         // 变更已跟踪；消灭 Unhandled 日志噪音，保持事件可观察 + 心跳计数）。
+        // 字段契约（beta-17639 E2E 实测）：增量文本在 "text"（V1 域事件用 "delta"）。
         if (eventType == "session.compaction.delta") {
             val sid = sessionIdOrNull(props) ?: return null
             return SseEvent.SessionNext(
                 dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionDelta(
                     sessionId = sid,
                     messageId = props["messageID"]?.jsonPrimitive?.contentOrNull ?: "",
-                    delta = props["delta"]?.jsonPrimitive?.contentOrNull ?: "",
+                    delta = props["text"]?.jsonPrimitive?.contentOrNull
+                        ?: props["delta"]?.jsonPrimitive?.contentOrNull ?: "",
                 )
             )
         }
