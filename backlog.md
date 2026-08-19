@@ -424,9 +424,10 @@
   - 提问卡（活动+历史）换 ToolCardScaffold 主流语言：AmoledSurface + **surface 同色** + smallMedium(6dp) + tonal 1dp 无边框（AMOLED 纯黑+边框内建）
   - E2E 同屏像素证据：提问卡与 Shell 工具卡均无描边、同 6dp 圆角、tonal 家族、底色一致（/tmp/e2e19_both.png）；toggle 两槽位/自定义三态逻辑零改动（diff 铁证）；EmbeddedCardContainer 组件保留（FileCard 用）
 
-- [ ] **权限卡视觉复审（提问卡原生化后的配套）** `ui`
+- [x] **权限卡视觉复审（提问卡原生化后的配套）——已修 8d452e08** `ui`
   - 来源：2026-08-17 grilling Q9 决策不纳入当时批次
   - 2026-08-18 更新：EmbeddedCardContainer 已支持 containerColor 语义色覆盖——权限卡可低成本迁入（骨架统一 + error 红语义底透传，参照 ToolCardScaffold 状态色模式）
+  - **2026-08-19 triage 勘误 + 实现（8d452e08）**：EmbeddedCardContainer 实际**无** containerColor 参数（2026-08-18 记录超前于实现，且该容器全家迁移已在 d9cbb252 回滚）；提问卡终态（三次修正后）= ToolCardScaffold 语言（AmoledSurface + smallMedium 6dp + tonal 1dp）。权限卡照此迁移：AmoledSurface(normalColor=errorContainer) + 标准边框（AMOLED 纯黑），内容/按钮/触感零改动。E2E：卡片渲染（需要权限+图标+位置标签+三按钮）、像素铁证（卡片 249,222,220 红调 vs 背景 250,248,255 中性）、三按钮全链路（拒绝/仅一次无规则/始终允许+确认框）、FATAL=0（证据 /tmp/verify-permcard/）。AMOLED 形态未单独复验（同组件此前批次已验证）
 
 - [x] **#71 后台系统 + V2 消息链路 D4 人工验收（时间性现象，自动化无法覆盖）** `ui` `sse`
   - **2026-08-13 验收 ✅（用户口头确认"后台没啥问题" + Agent 数据正确性确认）**：shell 生命周期（created/exited/deleted）与内联展示数据与服务器 SSE 事件一致；流式期间 Back 无 ANR。⚠️ 附注：`session.tool.progress` 事件被 SessionNextEventHandler 标记 Unhandled（工具实时进度缺口）→ 登记 #92
@@ -1609,3 +1610,15 @@
   - 顺带已修：DebugLogger.flushMediaStore NewApi 误报（@RequiresApi(Q)，60→59）
   - 方向：53 条批量场次优先；散点逐个判断真伪（误报 @Suppress + 注释说明）
   - 工时：~1-1.5d | 难度：低-中 | 优先级：P3（门禁已开，存量只影响报告噪音）
+
+- [ ] **新增 P2：空会话中权限卡/提问卡不渲染（ChatEmptyState 整块吞掉 ChatMessageList）** `ui` `chat`
+  - 发现（2026-08-19 权限卡 E2E）：空会话收到 PermissionAsked——App 事件链全部正常（SSE recv → dispatch → PermissionEventHandler pending，logcat 铁证），但卡片不显示。根因：ChatScreen 内容分支 messageState.messages.isEmpty() && !isLoading → ChatEmptyState **替换**整个消息区，而权限/提问卡是 ChatMessageList 的 LazyColumn item——空会话永远渲染不到
+  - 复现：新建空会话 → 服务器发出 permission.asked（或 question）→ 无卡片；同会话注入任一消息后触发 → 卡片正常渲染（绕过实证）
+  - 影响：真实场景（用户新建会话发首条消息、agent 首轮就要权限/提问）卡片不可达——permission 3 分钟无人应答超时
+  - 方案：空分支条件收紧（有 pendingQuestions/pendingPermissions 时仍走 ChatMessageList）或空态与卡片区叠加渲染
+  - 工时：~2h | 难度：低 | 涉及：ChatScreen 空态分支 | 优先级：P2
+
+- [ ] **新增 P3：App「自动允许所有权限请求」开关测试后遗留 ON** `process`
+  - 发现（2026-08-19 权限卡 E2E）：2026-08-19 上午验收明确关闭过该开关（DataStore 0x00 验证），但本轮 E2E 时又为 ON（毫秒级自动应答 always 导致卡片不显示，排查消耗两轮）。可能是下午某 E2E 子代理重新打开未还原
+  - 处置：本轮已重新关闭。登记目的：后续 E2E runbook 若依赖权限卡显示，需先检查该开关状态（设置 → 自动允许所有权限请求）
+  - 工时：已处置 | 优先级：P3（流程备忘）
