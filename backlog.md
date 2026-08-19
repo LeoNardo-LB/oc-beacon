@@ -467,6 +467,7 @@
     7. 多 step 工具循环已实测同 assistantMessageID（✅ 幂等 upsert 天然处理）
   - 方案：剩余 1/2/3 项在下次触碰相关功能时补测；4-7 已闭环
   - 来源：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md
+  - **2026-08-19 盘点补测（beta-17595 curl）**：② **已答**——/api/config 的 document 条目 info **含 mcp 字段**（用户配置有 mcp 块；当时"无 mcp 字段"应为旧版本或配置为空），McpRepositoryImpl 可从 config info 读取；③ **已答**——/api/session/active 返回 **map 格式** `{data:{sessionId:{type:"running"}}}`，类型仅见 "running"（无 idle/error 等其他值可观测）。① retry.scheduled 仍无法主动触发（需真实失败重试场景），保持 touch-when-needed。**条目收敛：仅剩①（条件触发时抓 payload）**
 
 - [x] **#29 androidTest 编译修复（#25 已读标记遗留）** `refactor` `data`
   - 问题：commit 5793957f（#25 已读标记服务器域重构）为 SessionRepository 增加 `getLastCompletedReplyTimeFlow()`、SettingsRepository 增加 5 个已读状态方法，但 FakeSessionRepository/FakeSettingsRepository 未同步实现 → `compileDevDebugAndroidTestKotlin` 从该 commit 起持续失败（2026-08-08 悲观重构验证时发现，与重构无关的预存在问题）
@@ -680,7 +681,7 @@
   - 来源：F §P2-8 / B P2-3
   - **2026-08-11 完成**：拆两条查询（messagesForSession 无条件 / messagesBefore 带 beforeId），MessageStore.loadRange 按游标分支；测试适配
 
-- [ ] **#52 SSE 双写高频落盘** `data` `performance`
+- [x] **#52 SSE 双写高频落盘——2026-08-19 盘点结案（评估=无进一步收益，保持现状）** `data` `performance`
   - 问题：每 48ms flush → upsertMessages 3 查询 + 写 + 可能归档；活跃流式 ~20 次/s 落盘。`MessageEventHandler.kt:86-129, 194-204`；WAL 缓解
   - 修复：合并写入 / 降低 flush 频率 / 批量 upsert
   - 工时：~0.5d | 难度：中 | 涉及：MessageEventHandler.kt:86-129, 194-204
@@ -882,7 +883,7 @@
   - 来源：反馈者复现 + 本机 1.18.18 隔离实测 + 双 deep-explore 调研
   - **验证状态**：编译 ✅ 单测 ✅；模拟器走查待执行（V1 连接 → 会话界面无报错）
 
-- [ ] **#84 V1/V2 功能差异适配清单（调研产出，需逐项评估）** `compat` `refactor`
+- [ ] **#84 V1/V2 功能差异适配清单——2026-08-19 盘点：仅剩 Provider 认证流程单项，其余全部已适配** `compat` `refactor`
   - 问题：深度调研确认 V1(1.18.x) 与 V2(2.x) 是**三重断裂**（路径前缀 / 核心机制 / SSE 格式），客户端需按 apiVersion 区别处理以下功能（详见 docs/v1-v2-differences.md）：
     - **发送消息**：V1 `POST /session/{id}/prompt_async`（204 fire-and-forget）vs V2 `POST /api/session/{id}/prompt`（200 返回 Inbox 条目）——App 已适配 [确认]
     - **中断**：V1 `abort`（boolean）vs V2 `interrupt`（204 + `?continue=true`）——App 已适配 [确认]
@@ -897,6 +898,7 @@
     - **配置格式**：V1 `config.json` 可读 vs V2 只读 `opencode.json(c)`；mcp 配置 `mcp.{name}` vs `mcp.servers.{name}`；权限模型工具分组 vs 有序数组——服务端侧差异，客户端只读展示 [评估中]
   - 工时：需逐项评估 | 难度：中 | 涉及：多处 UI + API 客户端
   - 来源：2026-08-13 网络 deep-explore（92% 充分度）+ 本地 1.18.18 实测
+  - **2026-08-19 盘点核实（代码证据）**：① V1 后台化降级 → 已随 #85 完成（Background 菜单 V1 隐藏）；② V2 配置只读 → 已随 #85 完成（V2 PATCH guard）；③ Revert staged → **已实现**（V2ApiClient:954 `revert/stage` + :963 `revert/clear`，含 commit 后 revert 立即清空的时间差注释——只 stage 策略）；④ Todo → #85 确认无独立 UI 入口无需处理；⑤ SSE 格式/中断/发送/session status → 已适配。**仅剩 Provider 认证流程**（V1 oauth 两步 vs V2 integration connect 多步异步）[待办]——条目收敛为该单项
 
 - [x] **#85 V1 连接下应隐藏/降级的功能 UI（根据 #84 清单落地）** `ui` `compat`
   - **2026-08-13 用户验收 ✅**：V1 下任务面板入口/Running/History 隐藏正常；V2 Todo/配置编辑降级确认
@@ -1285,7 +1287,7 @@
   - 方案：回写第一期报告状态 + 同步 backlog；WebViewScreen 已不可达（useNativeUi=true）需另行确认删除
   - 工时：~0.5h | 难度：低 | 优先级：P0（文档准确性）
 
-- [ ] **#120 Markdown/文案一致性批次（D2-07/D2-08/D2-09/D2-10/D2-32）** `markdown` `i18n` `ui`
+- [ ] **#120 Markdown/文案一致性批次——2026-08-19 盘点：D2-07/09/10/32 已修，仅剩 D2-08 ClickableMarkdown indexOf 定位** `markdown` `i18n` `ui`
   - 来源：audit-2026-08-13-dimensions/REPORT.md（C/E 路）
   - 问题：① 跳转预渲染 fallback 用未归一化原始文本（MessageCardUser.kt:136 vs ChatMessageList.kt:442）→ 跳转目标首帧排版突变；② ClickableMarkdown 用 indexOf 定位可点击项（:95/:135）→ 重复文本段落点击/下划线错位；③ RetryBanner 双占位符恒显示 N/N（:49）；④ CompactionBanner 硬编码英文（:79）；⑤ SessionRow 硬编码英文 Diff 文案（:367-368）
   - 方案：jumpMdState 前 normalizeForRender；AST offset/span range 映射点击；文案改单占位符；提取资源补齐 14 语言
@@ -1455,7 +1457,7 @@
   - 待分析方向：是否长工具调用无超时（grep 大文件/webfetch 无 timeout）、上下文溢出静默挂起、或平台调度问题——下次出现时查 opencode.db 中该子会话最后一条消息的 pending tool 调用
   - 状态：`[ ]` 已登记，等下次触发时归因
 
-- [ ] **#145 任务面板 subagent 列表项显示执行时长** `ui`
+- [~] **#145 任务面板 subagent 列表项显示执行时长——已实现 5056694b（08-16），2026-08-19 盘点核实代码在位** `ui`
   - 需求（用户 2026-08-16）：任务面板（TaskSheet）的 subagent 列表项需要看到执行时间，放在 list item 右对齐合适位置
   - 现状：TaskSheet 列表项已显示开始时间（time.created，如 "10:22"）；执行时长 = 子会话完成时间（最后消息 time.completed）- created，运行中则 now - created（需要 1s 级刷新才能看到走时）
   - 注意与 ChatViewModel 侧思考计时（0.1s 间隔）区分——任务面板多个 item 同时走时需评估重组开销，可复用现有计时基础设施

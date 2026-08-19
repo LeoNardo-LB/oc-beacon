@@ -589,6 +589,74 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
+    /**
+     * V2 切换会话 agent。
+     * POST /api/session/{sessionID}/agent  Body: { "agent": name }
+     *
+     * 2026-08-19（beta-17595 兼容根治）：prompt body 的 agents 数组在该部署版被
+     * 服务器忽略（flat/modern/顶层字段/@mention 四路 curl 实测均不切 agent），
+     * App 的 agent 选择器因此失效。V2 专用端点实测 204 且 session.agent 持久
+     * 变化（带/不带 x-opencode-directory 头均生效）。与 [switchModel] 同模式：
+     * promptAsync 发送前显式切换；服务器幂等，重复同值无害。
+     */
+    suspend fun switchAgent(conn: ServerConnection, sessionId: String, agent: String): Boolean {
+        val agentId = resolveAgentId(conn, agent)
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[agent] POST /api/session/$sessionId/agent agent=$agentId (from=$agent)")
+        }
+        val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/agent") {
+            auth(conn)
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("agent" to agentId))
+        }
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(TAG, "[agent] status=${response.status.value} session=$sessionId")
+        }
+        if (!response.status.isSuccess()) {
+            // 目录可能过期（服务器 agent 配置变更）——清缓存，下次发送重拉
+            agentIdCache = null
+        }
+        return response.status.isSuccess()
+    }
+
+    /**
+     * agent 目录解析缓存（小写 name/id → 真实 id）。@Singleton 进程内存活；
+     * 切换失败时清空，下次发送重拉（服务器 agent 配置变更后自适应）。
+     */
+    private var agentIdCache: Map<String, String>? = null
+
+    /**
+     * 把 UI 层持有的 agent 值（AgentInfo.name 显示名，如 "Plan"）解析为
+     * 服务器 agent id（如 "plan"）。大小写不敏感双向匹配 id/name；
+     * 解析失败返回原值（保持旧行为——由服务器报错兜底）。
+     *
+     * 背景（2026-08-19 E2E 实证）：listAgents 映射 name 字段（"Plan"），
+     * 而 /agent 端点与执行引擎按 id（"plan"）匹配——原样发送显示名会
+     * session.execution.failed "Agent not found: Plan"。
+     */
+    private suspend fun resolveAgentId(conn: ServerConnection, agent: String): String {
+        agentIdCache?.let { cache ->
+            return cache[agent.lowercase()] ?: agent
+        }
+        return runCatching {
+            val root = parseRoot(
+                httpClient.get("${conn.baseUrl}/api/agent") { auth(conn) }.bodyAsText()
+            )
+            val (items, _) = V2ResponseWrapper.unwrapList(root)
+            val cache = buildMap {
+                items.forEach { obj ->
+                    val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return@forEach
+                    put(id.lowercase(), id)
+                    obj["name"]?.jsonPrimitive?.contentOrNull?.let { name ->
+                        put(name.lowercase(), id)
+                    }
+                }
+            }
+            agentIdCache = cache
+            cache[agent.lowercase()] ?: agent
+        }.getOrDefault(agent)
+    }
+
     suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/api/session/$sessionId/message/$messageId") {
             auth(conn)
@@ -1107,6 +1175,13 @@ class V2ApiClient @Inject constructor(
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "[prompt] files=${files.size} textLen=${text.length}")
         if (model != null) {
             switchModel(conn, sessionId, model.providerId, model.modelId, variant)
+        }
+        // 2026-08-19（beta-17595 兼容根治）：body agents 数组被部署版忽略——
+        // agent 选择改走专用端点（见 switchAgent 注释）。失败不阻断发送
+        //（body 兜底仍在；旧版服务器 body 语义可能仍有效）。
+        if (agent != null) {
+            runCatching { switchAgent(conn, sessionId, agent) }
+                .onFailure { AppLogger.w(TAG, "[agent] switch failed (continuing with prompt): ${it.message}") }
         }
         return prompt(conn, sessionId, text, directory, agent, files)
     }

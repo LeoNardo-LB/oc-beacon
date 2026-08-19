@@ -220,6 +220,53 @@ class V2ApiClientTest {
         assertTrue(api.switchModel(v2Conn, "sess_1", "openai", "gpt-4"))
     }
 
+    /**
+     * 2026-08-19（beta-17595 兼容根治）：prompt body agents 数组被部署版忽略，
+     * agent 切换改走专用端点 POST /api/session/{id}/agent {"agent": name}
+     *（curl 实证 204 + session.agent 持久变化，带/不带 directory 头均生效）。
+     */
+    @Test
+    fun `switchAgent posts to V2 agent endpoint with agent body`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/session/sess_1/agent", request.url.encodedPath)
+            assertEquals("POST", request.method.value)
+            val body = (request.body as io.ktor.http.content.TextContent).text
+            assertTrue("body must contain agent name: \$body", body.contains("\"agent\":\"general\""))
+            respond("", HttpStatusCode.NoContent)
+        }
+        val api = buildClient(engine)
+        assertTrue(api.switchAgent(v2Conn, "sess_1", "general"))
+    }
+
+    /**
+     * 2026-08-19（beta-17595 根治二段）：UI 层持有 AgentInfo.name 显示名
+     *（"Plan"），而服务器 /agent 端点按 id（"plan"）区分大小写匹配——
+     * E2E 实证原样发送显示名 → session.execution.failed "Agent not found: Plan"。
+     * resolveAgentId 先拉目录做大小写不敏感双向匹配（name/id → id）。
+     */
+    @Test
+    fun `switchAgent resolves display name to lowercase agent id`() = runTest {
+        val agentCatalog = """{"data":[{"id":"build","name":"Build"},{"id":"plan","name":"Plan"}]}"""
+        var agentPostCount = 0
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath == "/api/agent" ->
+                    respond(agentCatalog, HttpStatusCode.OK,
+                        headersOf(HttpHeaders.ContentType to listOf("application/json")))
+                request.url.encodedPath == "/api/session/sess_1/agent" -> {
+                    agentPostCount++
+                    val body = (request.body as io.ktor.http.content.TextContent).text
+                    assertTrue("must send resolved id, got: \$body", body.contains("\"agent\":\"plan\""))
+                    respond("", HttpStatusCode.NoContent)
+                }
+                else -> error("unexpected path \${request.url.encodedPath}")
+            }
+        }
+        val api = buildClient(engine)
+        assertTrue(api.switchAgent(v2Conn, "sess_1", "Plan"))
+        assertEquals(1, agentPostCount)
+    }
+
     @Test
     fun `deleteMessage sends DELETE on V2 path`() = runTest {
         val engine = MockEngine { request ->
