@@ -141,9 +141,14 @@ class MessageStore @Inject constructor(
                                 // 工具返回值占 DB 97%（12.4MB/28MB 实测），本地只存
                                 // 500 字符预览；内存渲染不受影响（消息在内存时完整），
                                 // 服务器保留全量可重拉。非 tool part 原样。
-                                payload = if (p is Part.Tool) {
-                                    ToolOutputTruncator.truncateIfNeeded(json.encodeToString(p))
-                                } else json.encodeToString(p),
+                                payload = when (p) {
+                                    // #79 P0+P1：tool（output/input/metadata）与
+                                    // reasoning（text）落库截断——内存渲染不受影响，
+                                    // 服务器保留全量可重拉（权衡已获用户接受）
+                                    is Part.Tool -> ToolOutputTruncator.truncateIfNeeded(json.encodeToString(p))
+                                    is Part.Reasoning -> ToolOutputTruncator.truncateReasoningIfNeeded(json.encodeToString(p))
+                                    else -> json.encodeToString(p)
+                                },
                             )
                         }
                     },
