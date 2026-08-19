@@ -37,4 +37,22 @@ object Migrations {
             )
         }
     }
+
+    /** v3 → v4（2026-08-20，堆积消息）：turn 结束后待发送消息的本地暂存表。 */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `pending_messages` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`sessionId` TEXT NOT NULL, " +
+                    "`position` INTEGER NOT NULL, " +
+                    "`text` TEXT NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_pending_messages_sessionId_position` " +
+                    "ON `pending_messages` (`sessionId`, `position`)",
+            )
+        }
+    }
 }
