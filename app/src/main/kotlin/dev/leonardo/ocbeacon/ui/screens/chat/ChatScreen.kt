@@ -357,6 +357,9 @@ fun ChatScreen(
     val sessionUnshareFailedMsg = stringResource(R.string.chat_session_unshare_failed)
     val sessionRenamedMsg = stringResource(R.string.chat_session_renamed)
     val sessionRenameFailedMsg = stringResource(R.string.chat_session_rename_failed)
+    // 2026-08-19：终端连接失败文案——经 onConnectFailed 在本 scope 展示
+    //（ChatTerminalView 随 isTerminalMode=false 离开组合，其本地 scope 不可靠）
+    val terminalConnectFailedMsg = stringResource(R.string.chat_terminal_connect_failed)
     // 2026-08-16（压缩完成后才通知·用户需求）：成功通知由 SSE
     // session.compacted 事件驱动（压缩完毕的确切时刻）——HTTP 回调只报失败。
     LaunchedEffect(Unit) {
@@ -713,6 +716,11 @@ fun ChatScreen(
                         startInTerminalMode = startInTerminalMode,
                         onNavigateBack = onNavigateBack,
                         snackbarHostState = snackbarHostState,
+                        onConnectFailed = {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(terminalConnectFailedMsg)
+                            }
+                        },
                     )
                 }
                 // 进入会话加载过渡：仅在真正加载时显示 PulsingDots。

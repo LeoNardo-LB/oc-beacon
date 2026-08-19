@@ -83,6 +83,15 @@ fun ChatTerminalView(
     startInTerminalMode: Boolean,
     onNavigateBack: () -> Unit,
     snackbarHostState: androidx.compose.material3.SnackbarHostState,
+    /**
+     * 2026-08-19（连接失败 snackbar 消失·竞态根治）：PTY 连接失败的 snackbar
+     * 展示移交 ChatScreen 的存活 scope。原实现在本视图的
+     * rememberCoroutineScope 上 launch showSnackbar 后立即
+     * onTerminalModeChanged(false)——本视图离开组合，排队中的 snackbar
+     * 协程被 scope.cancel() 杀死（E2E 实证：ENETUNREACH 失败链完整触发、
+     * 终端模式正确退出，但用户看不到任何反馈）。
+     */
+    onConnectFailed: () -> Unit,
 ) {
     val terminalState by viewModel.terminalState.collectAsStateWithLifecycle()
     val terminalTabs by viewModel.terminalTabs.collectAsStateWithLifecycle()
@@ -100,7 +109,8 @@ fun ChatTerminalView(
     // 原函数内 remember 遮蔽参数，传入的 host 成为死参数，终端 snackbar 从不显示。
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    // #106 lint 清偿：snackbar 文案 hoist stringResource（三处 lambda 共用）
+    // #106 lint 清偿：snackbar 文案 hoist stringResource（抽屉重连/新建 tab 的
+    // 失败提示共用——这两条路径终端视图保持组合，本地 scope 可靠）
     val terminalConnectFailedMsg = stringResource(R.string.chat_terminal_connect_failed)
     val isAmoled = isAmoledTheme()
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -126,9 +136,9 @@ fun ChatTerminalView(
         if (isTerminalMode) {
             viewModel.openTerminalSession { ok ->
                 if (!ok) {
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar(terminalConnectFailedMsg)
-                    }
+                    // snackbar 经 onConnectFailed 在 ChatScreen 的存活 scope 展示
+                    //（本视图即将离开组合，本地 scope 会被取消——见参数注释）
+                    onConnectFailed()
                     onTerminalModeChanged(false)
                 }
             }
