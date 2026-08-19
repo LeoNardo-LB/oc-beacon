@@ -95,6 +95,8 @@ internal fun ChatInputBar(
     showTaskToolbar: Boolean = false,
     taskToolbarText: String = "",
     onBackgroundSession: () -> Unit = {},
+    /** 堆积消息（2026-08-20 设计定稿）：busy+有内容时气泡菜单的「堆积」回调；null=不支持。 */
+    onEnqueue: (() -> Unit)? = null,
 ) {
     // 发送失败时恢复草稿文本
     androidx.compose.runtime.LaunchedEffect(restoredDraft) {
@@ -258,9 +260,11 @@ internal fun ChatInputBar(
                     isSending = isSending,
                     isShellMode = isShellMode,
                     isAmoled = isAmoled,
+                    hasAttachments = attachments.isNotEmpty(),
                     onStop = onStop,
                     onSend = onSend,
-                    onInputModeChange = onInputModeChange
+                    onInputModeChange = onInputModeChange,
+                    onEnqueue = onEnqueue
                 )
             }
         }
