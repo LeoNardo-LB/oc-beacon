@@ -1696,3 +1696,9 @@
   - 现象：堆积面板一次开/关循环后 uiautomator dump 只剩「关闭工作表」节点，数秒后自愈；未见用户可感知影响（触摸交互正常）
   - 处置：登记观察（模拟器长时间运行后 uiautomator 自身劣化先例见 TaskSheet 2026-08-16 记录）；真机复现再升级
   - 工时：待定 | 难度：低 | 涉及：PendingTodoSheet / ModalBottomSheet | 优先级：P3
+
+- **E2E 阶段 2+3 收官记录（2026-08-20，7/7 PASS）**：A 删除后 ≤0.3s 一致更新（be3a0cc5 修复复验；阶段 1 的「残留」定性为单帧捕获时序）｜B 手动停止零误发（红停止图标→Idle，queued message sent=0、角标保留）｜C「继续」手动放行队首 1 条（transcript+DB 双证）｜D 清空确认框→列表空+角标消失｜E TODO tab 在 beta-17639 隐藏（probe 404×2 + curl 404 互证）｜F force-stop 冷启后队列完整、空闲 15s 零 pipeline 事件（重启不自动发）｜G 附件置灰（min 像素 130 vs 27）+点击无入队。审计线：8 enqueued / 仅 C 的 1 sent——误发为零。附带登记：
+- [ ] **新增 P3：LeakCanary 报 OpenCodeConnectionService\$LocalBinder 泄漏（E2E 阶段 2 期间 1 个 distinct，2026-08-20 登记）** `leak` `service`
+  - 现象：dev 包长时间 E2E（两阶段 60+ 分钟、多次 force-stop/冷启）后 LeakCanary 捕获 1 个 distinct leak（LocalBinder）
+  - 处置：登记观察（服务绑定生命周期既有问题，与本功能无关——堆积/TODO 未触碰该服务）；后续专门排查
+  - 工时：待定 | 难度：中 | 涉及：OpenCodeConnectionService | 优先级：P3
