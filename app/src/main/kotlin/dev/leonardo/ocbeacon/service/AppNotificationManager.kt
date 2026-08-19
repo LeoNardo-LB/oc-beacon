@@ -325,8 +325,14 @@ class AppNotificationManager @Inject constructor(
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
             ?: context.getString(R.string.notification_new_session)
         val title = "${context.getString(R.string.notification_tag_question)} · $displayName"
-        val contentText = findLatestUserMessages(sessionId, 1).firstOrNull()?.text
-            ?: questionText.ifBlank { context.getString(R.string.notification_new_message) }
+        // P3（2026-08-19）：正文优先问题文本本身——短且直接（"What is your
+        // favorite animal?"）；此前优先最后一条用户消息，正文是触发 prompt
+        // 全文（"Use the question tool to ask me: ..."）信息密度低。问题文本
+        // 缺失时回退用户消息（REST 兜底路径可能无 question 文本）。
+        val contentText = questionText.ifBlank {
+            findLatestUserMessages(sessionId, 1).firstOrNull()?.text
+                ?: context.getString(R.string.notification_new_message)
+        }
 
         val notifId = eventNotificationId(server.id, sessionId, 2000)
         val pendingIntent = createSessionPendingIntent(context, server, sessionId, notifId)
