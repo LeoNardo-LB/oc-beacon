@@ -1653,3 +1653,10 @@
 - **能力域 C（卡片/终端）**：工具卡/权限卡/文件查看器/Markdown 渲染——当日早前轮次证据（/tmp/verify-regex/ 21 截图、/tmp/verify-permcard/、/tmp/verify-dm/）；**终端模式本轮实测**：更多选项→终端 进入（黑面像素+键盘 overlay+TerminalDelegate 日志+IME）→ BACK×2 退出正常（/tmp/regress-b/06_terminal.png）
 - **全程 FATAL=0、crash buffer 0 字节**；服务器配置 diff=0 复验
 
+
+- [ ] **新增 P3：Room 缓存行 tokens 持久化缺口（token 图标修复的残留，2026-08-19 f37f482d 顺带发现）** `data` `storage`
+  - 现象：V2MessageMapper 补 tokens 映射后（f37f482d），重进会话 UI 图标恢复（REST→内存→UI 链通），但 Room cached_messages 的 assistant 行 tokens 仍为 null（新产生的消息实测同样）
+  - 链路分析：REST refresh 走 upsertSsePriority 只更新内存（_messages/_parts），不触发 Room 重写；Room 写入仅在 SSE persistSseUpdate（handleMessageUpdated/delta flush）窗口——重进后的 REST 数据不落库
+  - 影响：冷启动/离线瞬间统计图标短暂缺失（REST 成功后立即恢复）；在线使用全程可见。低优先级
+  - 方向：SSE_PRIORITY 合并后对 tokens/cost 变化的行触发增量 persist（或 REST refresh 后 persist 变更行）
+  - 工时：~2h | 难度：中 | 涉及：MessageEventHandler/MessageStore | 优先级：P3
