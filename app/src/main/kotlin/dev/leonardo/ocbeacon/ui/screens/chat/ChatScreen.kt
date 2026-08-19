@@ -644,7 +644,7 @@ fun ChatScreen(
                         onExport = {
                             val slug = sessionMeta.sessionTitle
                                 .take(30)
-                                .replace(Regex("[^a-zA-Z0-9_-]"), "_")
+                                .replace(EXPORT_SLUG_INVALID_CHARS_REGEX, "_")
                                 .ifBlank { "session" }
                             attachmentHandler.launchExport("$slug.json")
                         },
@@ -930,6 +930,9 @@ fun ChatScreen(
         )
     }
 }
+
+/** #106-4：会话导出文件名清理正则——顶层预编译（原 onExport 点击时现场编译）。 */
+private val EXPORT_SLUG_INVALID_CHARS_REGEX = Regex("[^a-zA-Z0-9_-]")
 
 /**
  * 包装 composable：收集设置流并通过 CompositionLocals 提供。

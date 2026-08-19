@@ -44,6 +44,9 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 /** #135（D2-L43）：ANSI 转义序列剥离正则——顶层预编译（原每次重组现场编译）。 */
 private val ANSI_ESCAPE_REGEX = Regex("\u001B\\[[0-9;]*[a-zA-Z]")
 
+/** #106-4（#8 提示条）：截断路径提取正则——顶层预编译（原 remember(displayText) 内现场编译）。 */
+private val OUTPUT_TRUNCATION_PATH_REGEX = Regex("""output truncated[\s\S]*?(?:saved to|Full output saved to:)\s*(\S+)""")
+
 /**
  * Bash 工具卡片 —— 显示 $ 命令 + 输出（2 行布局，2026-08-11 用户要求：
  * 与 ShellCard / TaskToolCard 视觉统一——subagent 与 shell 都可后台）：
@@ -168,7 +171,7 @@ internal fun BashToolCard(
         // 50KB 加 "...output truncated...\n\nFull output saved to: <path>"）。
         // 检测该前缀显示提示条——把截断事实告知用户而非静默缺开头。
         val truncationPath = remember(displayText) {
-            val m = Regex("""output truncated[\s\S]*?(?:saved to|Full output saved to:)\s*(\S+)""").find(displayText)
+            val m = OUTPUT_TRUNCATION_PATH_REGEX.find(displayText)
             m?.groupValues?.get(1)
         }
         val isTruncated = remember(displayText) {

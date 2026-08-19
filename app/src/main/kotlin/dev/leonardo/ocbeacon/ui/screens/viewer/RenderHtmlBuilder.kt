@@ -7,6 +7,10 @@ object RenderHtmlBuilder {
 
     private val jsonPretty = Json { prettyPrint = true; prettyPrintIndent = "  " }
 
+    // #106-4：JSON 高亮正则预编译（原每次 JSON 渲染现场编译）
+    private val jsonKeyRegex = Regex("""(".*?")(\s*:)""")
+    private val jsonColonValueRegex = Regex(""":\s*(".*?")""")
+
     fun build(fileType: FileType, content: String, isDark: Boolean, bgHex: String, fgHex: String): String {
         val headerBg = if (isDark) "#2a2a2a" else "#f0f0f0"
         val borderColor = if (isDark) "#444" else "#ccc"
@@ -115,10 +119,10 @@ object RenderHtmlBuilder {
             val element: JsonElement = Json.parseToJsonElement(trimmed)
             val pretty = jsonPretty.encodeToString(JsonElement.serializer(), element)
             val highlighted = pretty
-                .replace(Regex("""(".*?")(\s*:)""")) { match ->
+                .replace(jsonKeyRegex) { match ->
                     "<span style=\"color:#7ec699\">${match.groupValues[1]}</span>${match.groupValues[2]}"
                 }
-                .replace(Regex(""":\s*(".*?")""")) { match ->
+                .replace(jsonColonValueRegex) { match ->
                     ": <span style=\"color:#f9c859\">${match.groupValues[1]}</span>"
                 }
             "<pre>$highlighted</pre>"

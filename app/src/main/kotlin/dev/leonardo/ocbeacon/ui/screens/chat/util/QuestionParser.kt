@@ -30,19 +30,24 @@ internal data class QHistItem(
 /** 纯逻辑的 question 字段解析 —— 从 PartContent.kt 抽取。 */
 internal object QuestionParser {
 
+        // #106-4：解析正则预编译（原每条 question 渲染现场编译）
+    private val QUESTION_FIELD_REGEX = Regex("\"question\"\\s*:\\s*\"([^\"]+)\"")
+    private val QUOTED_STRING_REGEX = Regex("\"([^\"]+)\"")
+    private val ANSWER_PAIR_REGEX = Regex("\"([^\"]+)\"=\"([^\"]+)\"")
+
     /** 解析 question 字段 —— 处理纯文本、JSON 和 opencode 文本格式。 */
     fun parseQuestionContent(raw: String): ParsedQuestion {
         val trimmed = raw.trim()
 
         // 格式 1：opencode 文本（"questions: [...]\nUser has answered: ..."）
         if (trimmed.contains("questions:") || trimmed.contains("User has answered")) {
-            val questionText = Regex("\"question\"\\s*:\\s*\"([^\"]+)\"").find(trimmed)?.groupValues?.getOrNull(1)
+            val questionText = QUESTION_FIELD_REGEX.find(trimmed)?.groupValues?.getOrNull(1)
                 ?: trimmed.lines().firstOrNull { it.isNotBlank() && !it.startsWith("Asked") }
                 ?: trimmed
             val answers = mutableListOf<String>()
             val answerSection = trimmed.substringAfter("User has answered", "")
             if (answerSection.isNotBlank()) {
-                val quoted = Regex("\"([^\"]+)\"").findAll(answerSection).map { it.groupValues[1] }.toList()
+                val quoted = QUOTED_STRING_REGEX.findAll(answerSection).map { it.groupValues[1] }.toList()
                 if (quoted.isNotEmpty()) answers.addAll(quoted)
                 else {
                     val plain = answerSection.removePrefix(":").removePrefix(" your questions:").trim()
@@ -142,7 +147,7 @@ internal object QuestionParser {
         // 2. 从输出格式提取用户答案："question text"="answer1, answer2"
         val answerSection = output.substringAfter("User has answered", "")
             .substringBefore(". You can")
-        val answerPairs = Regex("\"([^\"]+)\"=\"([^\"]+)\"").findAll(answerSection).toList()
+        val answerPairs = ANSWER_PAIR_REGEX.findAll(answerSection).toList()
         answerPairs.forEachIndexed { idx, match ->
             val answers = match.groupValues[2].split(",").map { it.trim() }.filter { it.isNotBlank() }
             if (idx < items.size) {

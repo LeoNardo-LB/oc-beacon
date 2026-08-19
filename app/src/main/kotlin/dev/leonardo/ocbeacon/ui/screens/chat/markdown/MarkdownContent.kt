@@ -81,7 +81,7 @@ internal fun normalizeHtmlForEmbeddedPreview(html: String): String {
 
     val styleBlock = "<style>$overrideCss</style>"
     return if (html.contains("</head>", ignoreCase = true)) {
-        html.replaceFirst(Regex("(?i)</head>"), "$styleBlock</head>")
+        html.replaceFirst(CLOSE_HEAD_REGEX, "$styleBlock</head>")
     } else {
         "<head>$styleBlock</head>$html"
     }
@@ -89,7 +89,8 @@ internal fun normalizeHtmlForEmbeddedPreview(html: String): String {
 
 // ============ Markdown 预处理 ============
 
-// #135（D2-L44）：正则顶层预编译——流式渲染每 token 重组时不再现场编译
+// #135（D2-L44）+ #106-4：正则顶层预编译——流式渲染每 token 重组时不再现场编译
+private val CLOSE_HEAD_REGEX = Regex("(?i)</head>")
 private val SINGLE_NEWLINE_REGEX = Regex("(?<!\n)\n(?!\n)")
 private val TABLE_AFTER_TEXT_REGEX = Regex("""([^\n]*[^\n|])\n([ \t]*\|[^\n]*\|)\n([ \t]*\|[-:\s|]+\|)""")
 

@@ -17,6 +17,10 @@ private val FLAVOR_APPLICATION_IDS = setOf(
     "dev.leonardo.ocbeacon.dev",
 )
 
+// #106-4：更新元数据校验正则——顶层预编译（原每次校验现场编译）
+private val SHA256_HEX_REGEX = Regex("^[0-9a-fA-F]{64}$")
+private val SEMVER_REGEX = Regex("^\\d+\\.\\d+\\.\\d+([-.][0-9A-Za-z.-]+)?$")
+
 @Serializable
 data class UpdateManifestDto(
     val versionName: String,
@@ -121,7 +125,7 @@ object UpdatePolicy {
         if (supplied.any { it == null }) return false
         return release.packageName in FLAVOR_APPLICATION_IDS &&
             release.apkUrl == expectedApkUrl(release.versionName) &&
-            release.sha256?.matches(Regex("^[0-9a-fA-F]{64}$")) == true
+            release.sha256?.matches(SHA256_HEX_REGEX) == true
     }
 
     private fun expectedApkUrl(versionName: String): String {
@@ -134,7 +138,7 @@ object UpdatePolicy {
     }
 
     private fun parseSemVer(version: String): List<Int>? {
-        if (!Regex("^\\d+\\.\\d+\\.\\d+([-.][0-9A-Za-z.-]+)?$").matches(version)) return null
+        if (!SEMVER_REGEX.matches(version)) return null
         return version.substringBefore('-').split('.').map { it.toIntOrNull() ?: return null }
     }
 }

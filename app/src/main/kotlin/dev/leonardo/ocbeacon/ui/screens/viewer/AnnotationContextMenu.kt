@@ -57,6 +57,9 @@ private data object AnnotationMenuKey
  * 可选的，因为新的基于 Column 的布局（gutter Column | code Column）
  * 可能把 "1code" 拼在一起，行号与代码文本之间没有空格。
  */
+/** #106-4：顶层预编译——原每次选区清理现场编译。 */
+private val GUTTER_NUMBERS_REGEX = Regex("(?m)^\\s*\\d+\\s?")
+
 internal fun stripGutterNumbers(text: String): String {
-    return text.replace(Regex("(?m)^\\s*\\d+\\s?"), "")
+    return text.replace(GUTTER_NUMBERS_REGEX, "")
 }

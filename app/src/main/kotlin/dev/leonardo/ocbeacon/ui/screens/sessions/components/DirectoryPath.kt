@@ -42,7 +42,7 @@ data class DirectoryPath private constructor(
     /** 此路径是否为 Windows 盘符根，如 `C:\` 或 `D:\`。 */
     val isDriveRoot: Boolean
         get() = isWindows && rawPath.length <= 3 &&
-                rawPath.matches(Regex("[A-Za-z]:[/\\\\]?"))
+                rawPath.matches(DRIVE_ROOT_REGEX)
 
     /** 显示友好的路径（若提供 home 前缀，则用 `~` 替换）。 */
     fun display(homeDir: String? = null): String {
@@ -80,7 +80,7 @@ data class DirectoryPath private constructor(
         val parentStr = normalized.substring(0, lastSep)
 
         // Windows："D:"（剥离后父路径为空）→ 盘符根
-        if (isWindows && parentStr.matches(Regex("[A-Za-z]:$"))) {
+        if (isWindows && parentStr.matches(BARE_DRIVE_REGEX)) {
             return forPath(parentStr + sep)
         }
 
@@ -111,6 +111,11 @@ data class DirectoryPath private constructor(
         /** 虚拟 Windows 盘符选择器的哨兵值。绝不发送给服务器。 */
         private const val DRIVES_ROOT_SENTINEL = ":///drives"
 
+        // #106-4：路径判定正则预编译（原 isDriveRoot/parent/forPath 每次调用现场编译）
+        private val DRIVE_ROOT_REGEX = Regex("[A-Za-z]:[/\\\\]?")
+        private val BARE_DRIVE_REGEX = Regex("[A-Za-z]:$")
+        private val WINDOWS_PATH_HINT_REGEX = Regex("^[A-Za-z]:.*")
+
         /** 表示 Windows 盘符选择器页面的虚拟根。 */
         val windowsDrivesRoot: DirectoryPath = DirectoryPath(DRIVES_ROOT_SENTINEL, isWindows = true)
 
@@ -122,7 +127,7 @@ data class DirectoryPath private constructor(
          * 根据是否包含 `\` 或盘符前缀推断 [isWindows]。
          */
         fun forPath(rawPath: String): DirectoryPath {
-            val isWindows = rawPath.contains('\\') || rawPath.matches(Regex("^[A-Za-z]:.*"))
+            val isWindows = rawPath.contains('\\') || rawPath.matches(WINDOWS_PATH_HINT_REGEX)
             return DirectoryPath(rawPath, isWindows)
         }
     }

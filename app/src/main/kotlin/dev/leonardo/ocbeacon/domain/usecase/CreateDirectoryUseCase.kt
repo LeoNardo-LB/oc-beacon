@@ -18,6 +18,9 @@ import javax.inject.Inject
  * 3. finally：删除临时会话
  * 4. 轮询探测目标目录是否已创建
  */
+/** #106-4：目录名斜杠规范化正则——顶层预编译（原每次调用现场编译）。 */
+private val REPEATED_SLASH_REGEX = Regex("/+")
+
 class CreateDirectoryUseCase @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val manageTerminalUseCase: ManageTerminalUseCase,
@@ -28,7 +31,7 @@ class CreateDirectoryUseCase @Inject constructor(
         parentDirectory: String,
         folderName: String,
     ): Result<String> {
-        val sanitized = folderName.trim().trim('/').replace(Regex("/+"), "/")
+        val sanitized = folderName.trim().trim('/').replace(REPEATED_SLASH_REGEX, "/")
         if (sanitized.isBlank() || sanitized == "." || sanitized == "..") {
             return Result.failure(IllegalArgumentException("Invalid folder name"))
         }

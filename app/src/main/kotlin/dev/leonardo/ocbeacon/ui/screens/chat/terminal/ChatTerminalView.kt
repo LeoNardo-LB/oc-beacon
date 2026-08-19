@@ -65,6 +65,9 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
+/** #106-4：终端粘贴控制字符清理正则——顶层预编译（原每次粘贴现场编译）。 */
+private val TERMINAL_CONTROL_CHARS_REGEX = Regex("[\u001B\u0080-\u009F]")
+
 /**
  * 从 ChatScreen 抽取的终端模式视图。
  *
@@ -203,7 +206,7 @@ fun ChatTerminalView(
             val clip = clipboard.getClipEntry()?.clipData?.getItemAt(0)?.text ?: return@launch
             if (clip.isEmpty()) return@launch
             val cleaned = clip.toString()
-                .replace(Regex("[\u001B\u0080-\u009F]"), "")
+                .replace(TERMINAL_CONTROL_CHARS_REGEX, "")
                 .replace("\r\n", "\r")
                 .replace('\n', '\r')
             if (cleaned.isNotEmpty()) {

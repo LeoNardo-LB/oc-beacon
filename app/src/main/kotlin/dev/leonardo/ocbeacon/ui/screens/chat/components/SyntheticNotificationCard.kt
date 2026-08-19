@@ -321,13 +321,23 @@ internal fun SyntheticNotificationCard(
             }
 }
 
+// #106-4：synthetic 解析正则——顶层预编译（原每条通知渲染现场编译）
+private val BACKGROUND_TASK_PREFIX_REGEX = Regex(
+    "^Background task (?:completed|failed):\\s*",
+    RegexOption.IGNORE_CASE
+)
+private val TASK_TAG_REGEX = Regex("""<(?:task|subagent|shell)\b[^>]*>""")
+private val TASK_ID_ATTR_REGEX = Regex("""id="([^"]*)"""")
+private val TASK_STATE_ATTR_REGEX = Regex("""state="([^"]*)"""")
+private val TASK_DESCRIPTION_ATTR_REGEX = Regex("""description="([^"]*)"""")
+private val TASK_SUMMARY_REGEX = Regex("""<summary>(.*?)</summary>""", RegexOption.DOT_MATCHES_ALL)
+private val TASK_RESULT_TAG_REGEX = Regex("""<task_result>(.*?)</task_result>""", RegexOption.DOT_MATCHES_ALL)
+private val TASK_ERROR_TAG_REGEX = Regex("""<task_error>(.*?)</task_error>""", RegexOption.DOT_MATCHES_ALL)
+
 /** 从 summary 提取任务描述：去 "Background task completed/failed: " 前缀。 */
 internal fun extractTaskDescription(summary: String?): String {
     val s = summary?.trim() ?: return ""
-    val stripped = Regex(
-        "^Background task (?:completed|failed):\\s*",
-        RegexOption.IGNORE_CASE
-    ).replaceFirst(s, "").trim()
+    val stripped = BACKGROUND_TASK_PREFIX_REGEX.replaceFirst(s, "").trim()
     return stripped.ifBlank { s }
 }
 
@@ -348,7 +358,7 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
     //   旧格式没有 <summary>/<task_result> 标签——description 属性作摘要、标签正文作结果。
     //   修复前只认 <task>，<subagent> 格式解析失败 → 降级显示原始 XML 文本
     //   （用户反馈"主对话看不到通知提醒"的根因）。
-    val taskMatch = Regex("""<(?:task|subagent|shell)\b[^>]*>""").find(text) ?: return null
+    val taskMatch = TASK_TAG_REGEX.find(text) ?: return null
     val taskTag = taskMatch.value
     val isSubagentTag = taskTag.startsWith("<subagent")
     // 2026-08-12 修复：<shell> 标签同 <subagent>——正文在标签之间（非 task_result 包裹）
@@ -359,18 +369,15 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
         taskTag.startsWith("<shell") -> "shell"
         else -> null
     }
-    val sessionId = Regex("""id="([^"]*)"""").find(taskTag)
+    val sessionId = TASK_ID_ATTR_REGEX.find(taskTag)
         ?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
     // state 决定完成/失败语义与色彩——缺失则视为无效格式（fallback 纯文本）
-    val state = Regex("""state="([^"]*)"""").find(taskTag)
+    val state = TASK_STATE_ATTR_REGEX.find(taskTag)
         ?.groupValues?.get(1)?.takeIf { it.isNotBlank() } ?: return null
     val summary = if (isBodyTag) {
-        Regex("""description="([^"]*)"""").find(taskTag)?.groupValues?.get(1)?.trim()
+        TASK_DESCRIPTION_ATTR_REGEX.find(taskTag)?.groupValues?.get(1)?.trim()
     } else {
-        Regex(
-            """<summary>(.*?)</summary>""",
-            RegexOption.DOT_MATCHES_ALL
-        ).find(text)?.groupValues?.get(1)?.trim()
+        TASK_SUMMARY_REGEX.find(text)?.groupValues?.get(1)?.trim()
     }
     val output = if (isBodyTag) {
         // 正文 = 开标签与对应闭合标签之间的文本（subagent/shell 都是标签间正文）
@@ -381,11 +388,8 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
             text.substring(bodyStart, closeIdx).trim().takeIf { it.isNotBlank() }
         } else null
     } else {
-        val outputTag = if (state == "error") "task_error" else "task_result"
-        Regex(
-            """<$outputTag>(.*?)</$outputTag>""",
-            RegexOption.DOT_MATCHES_ALL
-        ).find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
+        val outputRegex = if (state == "error") TASK_ERROR_TAG_REGEX else TASK_RESULT_TAG_REGEX
+        outputRegex.find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
     }
     return SyntheticTaskInfo(sessionId, state, summary, output, source)
 }

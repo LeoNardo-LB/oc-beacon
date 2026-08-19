@@ -12,6 +12,10 @@ import javax.inject.Inject
 
 private const val TAG = "FileViewerDiag"
 
+// #106-4：Read 工具输出剥离正则——顶层预编译（原每个 tool part 现场编译，流式高频）
+private val CONTENT_WRAPPER_REGEX = Regex("<content>(?:\\r?\\n)?(.*?)(?:\\r?\\n)?</content>", RegexOption.DOT_MATCHES_ALL)
+private val EMBEDDED_LINE_NUMBERS_REGEX = Regex("(?m)^\\s*\\d+:\\s")
+
 /**
  * 从 Tool parts 中提取并缓存文件快照，供文件查看器使用。
  *
@@ -75,7 +79,7 @@ class ToolCacheDelegate @Inject constructor(
      */
     private fun cleanReadToolOutput(raw: String): String {
         var result = raw
-        val contentMatch = Regex("<content>(?:\\r?\\n)?(.*?)(?:\\r?\\n)?</content>", RegexOption.DOT_MATCHES_ALL).find(result)
+        val contentMatch = CONTENT_WRAPPER_REGEX.find(result)
         result = if (contentMatch != null) {
             contentMatch.groupValues[1]
         } else {
@@ -85,7 +89,7 @@ class ToolCacheDelegate @Inject constructor(
                 !line.startsWith("<content>") && !line.startsWith("</content>")
             }.joinToString("\n")
         }
-        result = result.replace(Regex("(?m)^\\s*\\d+:\\s"), "")
+        result = result.replace(EMBEDDED_LINE_NUMBERS_REGEX, "")
         return result.trim()
     }
 }

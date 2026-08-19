@@ -522,7 +522,9 @@ fun ServerProvidersScreen(
     }
 }
 
+/** #106-4：顶层预编译（原每次调用现场编译）。 */
+private val OAUTH_DEVICE_CODE_REGEX = Regex("\\b[A-Z0-9]{3,}(?:-[A-Z0-9]{3,})+\\b")
+
 private fun extractOAuthDeviceCode(instructions: String): String? {
-    val codePattern = Regex("\\b[A-Z0-9]{3,}(?:-[A-Z0-9]{3,})+\\b")
-    return codePattern.find(instructions)?.value
+    return OAUTH_DEVICE_CODE_REGEX.find(instructions)?.value
 }
