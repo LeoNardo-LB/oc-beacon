@@ -72,7 +72,7 @@
   - **2026-08-18 模拟器全链路复验 ✅ 结案（假象确认）**：干净会话双题卡（Q1 单选+自定义 / Q2 多选）——Q1 输入 Mango 保存（像素验证勾选态底色 221,222,237 accent wash）→ Submit → logcat 载荷 `answers=[[Mango], [Red, Green]]` → fallback `answer={"q0":"Mango","q1":["Red","Green"]}` 200 → agent 复述"您选择了自填答案 Mango（芒果）+ Red/Green"——**自定义答案完整送达，无丢失**。当时矛盾观察确系 E2E-C 修复中间版本（VM 缓存）的残留渲染假象（证据链 /tmp/verify-0818/，截图 28-35）
   - 附：三态模型语义同时验证——Mango 勾选自动让位 Q1 选项（载荷仅 1 项互斥正确）
 
-- [ ] **E2E-I 整屏空白（2026-08-19 重大推进：原 QuestionAsked 归因证伪——真触发 = 聊天输入文本注入；Activity 无故 finish/recreate 机制待 instrument 定位）** `ui`
+- [x] **E2E-I 整屏空白——结案（2026-08-19 instrument 定位：非 App 缺陷，模拟器 adb 注入伪影触发系统预测性 back）** `ui`
   - 现象（2026-08-18 e2e22 终验中）：聊天输入框 tap + input text 组合后整屏空白（Compose 树空、无 FATAL、surface 存活），force-stop 恢复——与 E2E-G 症状同族但触发描述不同（E2E-G 已修：BACK+抖动竞态）
   - **2026-08-18 模拟器复现 + 完整取证**：输入 prompt 后点 Send 前的 UI dump 骤缩（36k→2.6k 字节）——Compose 树仅剩宿主 View 链（0 内容节点）；dumpsys：MainActivity topResumed + mCurrentFocus + task visible（Activity 前台正常）；进程活（无 FATAL，"FATAL"匹配 60 条全系 uiautomator 自身日志）；截图 vision 确认纯白屏（仅状态栏+手势条）；BACK 恢复（回桌面，App 退后台）→ 热启动恢复完整 UI。触发上下文：输入框聚焦+键盘弹出+模型切换（GLM→DeepSeek）组合后。证据：/tmp/verify-0818/10_*.png|xml|txt、11-12 恢复序列
   - **2026-08-18 深夜根因分析（毫秒级时间线）**：21:07:39.692 键盘弹出（tap 输入框）→ 21:07:48.163 **QuestionAsked SSE 到达**（form 创建）→ 输入框 disabled（pendingQuestions 非空 → ChatScreenBottomBar inputEnabled=false）→ 21:07:48.332 IME hide（HIDE_SOFT_INPUT_BY_INSETS_API）→ **21:07:48.333 `InsetsController: Setting requestedVisibleTypes to -9 (was -1)`**（IME insets 类型从窗口协商中移除——insets 动画通道关闭，此前 21:07:30 第一次 hide 已有 IME_INSETS_HIDE_ANIMATION CUJ 丢帧警告）→ 此后 Compose 重组静默（dump 2.6KB 空树）。**候选机制**：pending 状态切换 + IME insets 协商的交叉窗口，AbstractComposeView composition 放弃/停止（无异常无 crash——异常被吞或 recomposer 停摆待查）；非 NavGraph 路由（无导航日志，排除 E2E-G 老根因直接复发）
@@ -82,10 +82,12 @@
     - 对照组 0/3（A 仅 prompt、C 仅 tap、E 会话列表搜索框注入同文本）：一切正常——**锁定聊天输入管线独有**（草稿直写 DataStore 链是最显著差异变量；搜索框无持久化）
     - 全程无 FATAL、crash buffer 空、进程存活；LeakCanary 堆转储 + WebView renderer crash 为重建的**后果**非原因；语言镜像值一致（prefs zh-CN == DataStore zh-CN）排除语言监视器 recreate 直觉路径
     - 已修（c1e06e61）：取证链上的独立契约缺陷——session.instructions.updated 的 delta 是 JsonObject（指令哈希表），mapV2DeltaEvent 硬转换抛异常（每个首 prompt 必现 E 级日志），as? 安全转型修复
-    - **下一步（已具备 5 秒稳定复现）**：instrument 构建——MainActivity finish/recreate 路径 + 语言监视器 + DraftInputDelegate 写链加临时日志（logcat 环形缓冲被 LeakCanary 刷屏挤出起点证据，需即时分段取证或加大缓冲），一次复现即可锁定 finish 发起者
+    - **2026-08-19 深夜 instrument 决定性定位（诊断构建已回滚）**：① 语言监视器 recreate 排除（instrument 零输出——无 emission 无 recreate）② MainActivity.onDestroy 未执行（排除 finish/recreate 全家）③ NavGraph popBackStack instrument 抓到真凶：`popBackStack from=graph-direct dest=home`——**BACK 按键事件驱动**。④ dumpsys input RecentQueue 铁证：注入字符以 DOWN+UP 同 eventTime 对到达（`source=KEYBOARD, displayId=-1, scanCode=0` 合成事件），系统 `KEY_GESTURE_TYPE_BACK ×9` 与注入字符数对应——**模拟器 adb 注入伪影：瞬时合成键盘事件对触发预测性 back 手势**，被预测 back 系统拦截后 App 收到 BACK → ChatScreen popBackStack → 回列表/面板（多次 pop 连击时窗口耗尽 → 整屏白 2627B 签名；R1 连击达服务销毁）
+    - 对照实验矩阵（8 组）：慢速逐字符/纯字母/IME 预先收起再注入**全部触发**（排除打字节奏、空格、IME 因素）；仅 tap 不注入/搜索框注入同文本/仅 prompt **全部不触发**（锁定聊天屏 KEYBOARD 事件）；真实用户路径不受影响（人类敲键盘走物理输入层，无 displayId=-1 合成对）
+    - **结论定性：非 App 缺陷——模拟器 E2E 工具链伪影**（adb input text 在该 API 36 镜像 + GMS 键盘组合下的系统级预测 back 误触发）。App 侧行为（收 BACK → popBackStack）完全正确。**收口**：① E2E 自动化改用 IME 直达通道（ADBKeyboard 广播/unicode 直塞）或 `input keyevent KEYCODE_*` 逐键替代 `input text` 突发串 ② 本条目关闭，G/H-A fade 竞态理论另案（从未有复现证据）
     - 影响面备注：疑似 adb 注入突发特有（人类逐键输入未见普遍报告），但 R1 变体的服务销毁+状态全清用户可见ibleTypes=-9 的调用源（AndroidX core insets API 使用点全库 grep）
   - 待查：是否同一 fade 竞态的另一触发路径（H-A 理论性防御未做），或独立问题；已按待办要求抓齐 dumpsys activity top + logcat 全量（10_logcat_full.txt）
-  - 优先级：P2（低频，恢复成本低）
+  - 优先级：P2 ✅ 2026-08-19 完结（工具链备忘归 E2E runbook：自动化注入改 IME 直达通道）
 
 - [x] **SSE 长时间无事件不自动重连（8 分钟+）——两轮勘误后结案：真根因是心跳帧被吞（00fbdda3 已修）** `sse`
   - 现象（E2E 顺带观察）：SSE 流停滞 8 分钟+ 无自动重连，仅靠 REST 校验兜底
