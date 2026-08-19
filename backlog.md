@@ -1168,15 +1168,15 @@
   - 修复：#130 form API 适配（commit 5993c1a9/547bb204）——form.created → QuestionAsked 映射 + reply/cancel + /api/form/request 轮询兜底；真机 E2E 验证通过（卡片渲染/回答/取消/agent 续答全链路）
   - 优先级：P1 ✅ 2026-08-14 完结（随 #130）
 
-- [ ] **#106 工具链治理建议（审计 §7，未含具体代码问题）** `tooling`
+- [x] **#106 工具链治理建议（审计 §7）——4/6 实现，1 延后（需真机），1 已失效** `tooling`
   - 来源：audit-2026-08-13-memory-perf/REPORT.md §7
-  - 1. **LeakCanary**（debug 构建）：项目当前无任何泄漏检测工具——3 处 WebView 泄漏（#93）正是其首捕类型；集成成本 <1h（debugImplementation）
-  - 2. **StrictMode**（debug）：自动捕获主线程 IO（#102 M-2 / #103 M-5 类）与未关闭资源
-  - 3. **Baseline Profile**：聊天列表/文件查看器滚动重负载，可显著降低首滚 jank（配合 #103 M-8 / #101 M-12）
-  - 4. **Regex 预编译规范**：全库 5 处现场编译 Regex（#104 L-7/L-13、#102 M-3、N-10）→ lint/评审规则统一 companion/顶层常量
-  - 5. **内存上限规范化**：DirectoryManager.dirCache 200 条 LRU 已是标杆（#89），同类容器（#98 各条目、#90）按此模式治理
-  - 6. **CI 门禁**：Android Lint 已默认启用但未配置 failOnError；Compose compiler 稳定性报告（-P composeCompilerReports）防新引入 unstable 参数
-  - 工时：~1d | 难度：低 | 优先级：P3
+  - 1. **LeakCanary** ✅ **2026-08-19 已修 493f0c07**：debugImplementation leakcanary-android:2.14（3.0 尚 alpha 选稳定线）。模拟器 E2E 五重证据：就绪日志 "LeakCanary is running and ready to detect memory leaks." + manifest 合并组件（LeakActivity/LeakLauncherActivity + 3 Provider）+ Leaks 桌面入口可开 + About 页 "About LeakCanary 2.14" + DEX 含库类（证据 /tmp/verify-leakcanary/）。已知行为变化（仅 debug）：桌面多一个 Leaks 图标；monkey 启动可能误开 Leaks——E2E 工具链须用显式组件名启动主 App
+  - 2. **StrictMode** ✅ **2026-08-19 已修 c3078b41**：OpenCodeApp onCreate（BuildConfig.DEBUG 守卫）ThreadPolicy detectAll+penaltyLog / VmPolicy activityLeaks+closable+sqlLite+penaltyLog（不检测 cleartext——LAN http 是合法场景；不用 death penalty 防误杀）。首轮真实走查即捕获 **165 条主线程违规**（76% 为 SecretCipher 周期性 Keystore 解密，会话界面存活期每 ~5s 爆发）→ 登记为新条目「StrictMode 首轮发现」（见下）
+  - 3. **Baseline Profile** ⏸ **延后（需用户真机）**：macrobenchmark/profileuron 生成需真实设备（官方指引：模拟器生成结果不代表真机性能分布，模拟器上"验证通过"无意义）；且需新建 benchmark 模块（~1d+ 基建）。触发条件：用户提供真机做 profile 采集时再立项
+  - 4. **Regex 预编译规范** ✅ **2026-08-19 已修 d3e97478**：全库排查实际内联调用点 24 处（远超审计的 5 处，多数在 #135 批次已治理），13 文件等价重构提升为顶层/伴生预编译常量（含 ChatScreen 导出 slug——遵循编辑协议）。grep 复查内联清零 + 全量单测绿 + 模拟器冒烟 21 截图（工具卡/文件浏览器多级导航/长按菜单/markdown 滚动/synthetic 卡）零 FATAL（证据 /tmp/verify-regex/）
+  - 5. **内存上限规范化** ❌ **已失效（2026-08-19 验证）**：指向的 #89（Singleton keyed 状态清理）/#90（toolExpandedStates）/#98（无界容器批次 2，4da3fe60）全部已修复关闭——无剩余同类容器，无需治理
+  - 6. **CI 门禁** ✅ **2026-08-19 已修 aa551535**：lint { baseline + abortOnError=true } + release.yml 发版前 lint 步骤（此前 assemble* 从不跑 lint）。存量 59 errors 入 baseline（新 error 卡发版）；DebugLogger NewApi 误报以 @RequiresApi(Q) 消除（60→59）。存量清偿登记为新条目（见下）。**Compose 稳定性报告评估为不启用**：Kotlin 2.x 需 composeCompiler DSL 常开（每次编译产出报告拖慢构建），且无 CI 消费方——需要时一行 DSL 临时开启（app/build.gradle.kts composeCompiler { reportsDestination }），不设为默认
+  - 工时：~1d（实际） | 难度：低 | 优先级：P3 ✅ 2026-08-19 完结（4 实现 + 1 延后 + 1 失效）
 
 - [x] **#129 opencode 服务器僵尸 running（会话结束 drain 不释放）——App 已兜底+主动解除** `sse` `session`
   - 问题：2026-08-14 用户反馈"会话已结束但列表仍显示进行中"（网盘MCP与CLI工具调研 ses_00223cbb1ffeG2e92AziDs0e5E）——curl 实证：会话 30+ 分钟无新消息、无子会话、无后台任务，但 `/api/session/active` 持续返回 running；App L3 校验服务器也回复 Busy。**服务器端 session runner/drain 不释放**（opencode next-17403 行为）
@@ -1594,3 +1594,18 @@
   - ④ **服务器 saved permission 规则**（GET /api/permission/saved）含历史 always 应答累积（shell/echo *、git commit * 等 6+ 条 global 规则）——App "总是允许"的 always 应答在服务器侧持久化；DELETE /api/permission/saved/{id} 可清理
   - 上游候选（并入 #146 候选池）：agent 切换端点契约（prompt body agents 语义 vs 独立端点）；agent permissions 评估链是否覆盖工具调用路径
   - 状态：`[ ]` ① ✅ **已修 76f337f5（2026-08-19）**——端点验证可用（204 + session.agent 持久变化 + SSE session.agent.selected 广播，带/不带 directory 头均生效）；实现 switchAgent（promptAsync 发送前显式切换，同 switchModel 模式）+ **resolveAgentId 显示名→id 解析**（E2E 发现的真 bug：listAgents 映射 name "Plan"，端点按 id "plan" 区分大小写匹配，原样发送 → execution.failed "Agent not found"；目录大小写不敏感双向匹配 + @Singleton 缓存 + 失败自适应重拉）。E2E 全链路：UI 切换 → `agent=plan (from=Plan)` → execution.started→succeeded → 服务器回复 agent=plan；②③④ 已归档为方法论
+
+- [ ] **新增 P2：StrictMode 首轮走查发现——主线程 IO 批次（165 条，2026-08-19 c3078b41 采集）** `perf` `main-thread`
+  - 背景：#106-2 接入 StrictMode 后首轮模拟器走查（导航/滚动/进会话/设置，19:23-19:27）捕获 165 条违规，100% 主线程（PID=TID）。证据 /tmp/verify-strictmode/violations.txt
+  - ① **SecretCipher 主线程 AndroidKeyStore 解密 125 条（76%）** `P2`：SecretCipher.decrypt（SecretCipher.kt:62）← ServerDataStore.withDecryptedPassword（ServerDataStore.kt:184）——CustomViolation 75（KeyStore update/finish/abort）+ DiskRead 25（getKeyEntry/createOperation）+ DiskWrite 25。**不止启动期：会话界面存活期每 ~5s 周期性爆发一组 6 条**（密码被反复解密）——低端机聊天 jank 潜在源。方案方向：解密结果内存缓存（限时）/ withDecryptedPassword 调用方全部 IO 化/解密一次后持有
+  - ② **MainActivity.attachBaseContext 语言读 187ms（×5）** `P3`：SettingsDataStore.getStoredLanguage（SettingsDataStore.kt:82）阻塞 DataStore 读——单次最重 187ms 主线程启动延迟。方案方向：语言镜像（#136 reconcileLanguageMirror 已有）attachBaseContext 优先读同步快照（SharedPreferences 镜像）
+  - ③ **OpenCodeApp.onCreate 启动磁盘读（×3）** `P3`：EntryPoint 解析路径上的直接磁盘访问（Hilt 装配触发 DiagnosticLogRepository 等初始化读）
+  - 泄漏类（Closeable/Activity/SqlLite）0 条——VmPolicy 检测器无信号
+  - 工时：①~0.5d ②③~0.5d | 难度：中 | 涉及：SecretCipher/ServerDataStore/MainActivity/SettingsDataStore | 优先级：P2（①）+ P3（②③）
+
+- [ ] **新增 P3：Android Lint 存量清偿（59 errors baseline 入册，2026-08-19 aa551535）** `lint` `tech-debt`
+  - 背景：#106-6 开发版 lint 门禁——新增 error 卡发版，存量 59 errors/163 warnings/11 hints 由 app/lint-baseline.xml 豁免（不阻塞但持续可见）
+  - 构成：**LocalContextGetResourceValueCall ×53**（LocalContext.current 资源读取 → stringResource 化批量重构，量大需专场）；RestrictedApi ×3（MainActivity.dispatchKeyEvent——按键分发有意使用，需 @SuppressLint 或重构）；SuspiciousIndentation ×1（NavGraph.kt:193）；SuspiciousModifierThen ×1（AmoledCard.kt:126 隐式接收者捕获）；JavascriptInterface ×1（CodeWebView.kt:227——**疑误报**：SelectionBridge 两方法均有 @JavascriptInterface 注解，源码目检确认，lint 对 apply 作用域解析混淆）
+  - 顺带已修：DebugLogger.flushMediaStore NewApi 误报（@RequiresApi(Q)，60→59）
+  - 方向：53 条批量场次优先；散点逐个判断真伪（误报 @Suppress + 注释说明）
+  - 工时：~1-1.5d | 难度：低-中 | 优先级：P3（门禁已开，存量只影响报告噪音）
