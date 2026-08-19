@@ -596,7 +596,7 @@
   - 来源：2026-08-10 真机排查滑动卡顿（用户口头反馈，明确"记一下，后面修复"）
   - **2026-08-10 根因并修复**：加载动画逻辑存在（`isLoading && messages.isEmpty()` 显示 PulsingDots），但**消息本地化（一期）后缓存秒开** → 加载太快 → PulsingDots 一闪而过不可见 → 用户感知"过渡没了"。修复（ec875ff7）：ChatScreen 加 `showLoadingTransition` 状态 + `MIN_LOADING_VISIBLE_MS=400`——即使消息立即到达，PulsingDots 也至少显示 400ms 再消失（仅首次进入且内容未加载完时显示；返回已有会话不显示；不遮挡内容/不拦截触摸，区别于已移除的"加载蒙版"）。验证：模拟器实证——进入"系统优化"/"生成对话标题"会话，150-250ms 加载指示器清晰可见 ✅；全量单测 1343 PASS ✅；i18n PASS ✅；⚠️ 真机复测待用户
 
-- [ ] **新增 D：会话列表滑动卡顿/掉帧（8 项根因已修复，待真机复测）** `ui` `performance`
+- [x] **新增 D：会话列表滑动卡顿/掉帧——结案（3 轮模拟器验证 + 环境校准排除假回归；2026-08-19 用户指示模拟器优先）** `ui` `performance`
   - 问题：2026-08-10 真机排查——会话列表滑动"卡手"（拉伸动画中无法反向滑动）+ 掉帧（SSE 活跃时 90th 17ms / 99th 30ms+ / slowUI 40-50 次）
   - **根因 1（卡手）**：Android 12+ 默认 Stretch overscroll 拉伸动画拦截输入 → 全局禁用（`LocalOverscrollFactory provides null`，MainActivity）
   - **根因 2（掉帧）**：日志风暴——MessageDataDelegate combine 每 48ms 打 4 条 MsgDiag（每秒 ~80 条 logcat 写入）→ 彻底删除
@@ -609,16 +609,18 @@
   - 验证：模拟器实证——上滑翻页归档加载 ✅（`Loaded older: 20 msgs source=ARCHIVE`）；SQLite 错误 0 ✅；L3 refresh 50 msgs ✅；slowUI 26→0 ✅；全量单测 1343 PASS ✅；i18n PASS ✅
   - **2026-08-18 模拟器帧数据基线（软渲染参考，非真机结论）**：8 轮快速 fling（上下交替）gfxinfo——106 帧渲染 / jank 24.5%（legacy 82%）/ p50=30ms p90=40ms p99=69ms / 慢 UI 线程 19 / **无 >300ms 卡死帧、无 ANR**。模拟器 swiftshader 软渲染天花板明显（p50 30ms 即超 16.7ms 预算），8 项根因修复无劣化证据；真机基线仍待用户复测（数据 /tmp/verify-0818/49_gfxinfo.txt）
   - ⚠️ **待真机复测**：用户拿回手机后验证——滑动跟手度（无拉伸）/上滑翻页/掉帧（SSE 活跃时）
+  - **2026-08-19 第三轮模拟器复测 + 结案（用户指示模拟器校验优先减少人工）**：① 功能全过——双向 fling ×8 到达两端、零 ANR/零 FATAL、深滚无卡死，overscroll 禁用代码在位（根因1）；② 帧数据三测（86%/74%/75% jank）高于 08-18 基线 → **环境校准实验**：同窗口原生系统设置应用滚动 jank 78.8%/p50=65——与 App（75%/61）同水位，App 略优 → 判定今日软渲染环境整体偏慢（宿主负载），**非 App 回归**；③ 滚动窗口 StrictMode 违规 0 条（排除 c3078b41 penaltyLog 干扰）。真机主观跟手度仍可选复测，不阻塞
 
-- [ ] **新增 E：上滑分页后底部最新消息消失（已修复，待真机复测）** `data` `session`
+- [x] **新增 E：上滑分页后底部最新消息消失——结案（3 轮模拟器实证，2026-08-19 用户指示模拟器优先）** `data` `session`
   - 问题：2026-08-10 用户实测——进入主对话界面后，上滑（加载更早消息）再下滑，**无法回到最底部**；"最底部的消息像是直接从整个主对话流中没有了一样"
   - **根因**：`MessageEventHandler.upsertAppendOnly`（APPEND_ONLY 合并策略）的 `_messages.update` 用 `incomingMsgs.map { existingById[newMsg.id] ?: newMsg }`——**把整个 _messages 替换为分页加载的"更早消息"**（incoming 只含更早，不含现有最新）→ **现有最新消息（底部）全部丢失**。二期 caf8019b（upsert 合并策略统一）引入；注释语义"仅补充缺失"与实现不符
   - **修复（ff192fd5）**：改为 `(existing + incomingMsgs).distinctBy { it.id }.sortedBy { it.time.created }`——existing 保留 + incoming 补充缺失 + 按 created 排序（combine 依赖写入路径有序）。同时修正 EventDispatcherTest 旧断言（固化 bug 的 size=1 → size=2），新增 2 回归测试（APPEND_ONLY 保留最新 + 分页场景）
   - 验证：模拟器实证——上滑分页 18 次（540 条更早消息）后下滑，底部最新消息仍保留 ✅；全量单测 1345 PASS ✅
   - **2026-08-18 模拟器复验受阻→修复后完整验证 ✅**：首轮受阻于新 P1（V2 长会话历史 0 条，已修 53cfea68）；修复后 501 条会话深翻（total 226+ 项、游标深入 8月12日历史）→ 回滚穿越全程消息连续渲染，Q174 跳转定位正常、新消息（01:57→10:20 区间）全部保留在流中——**底部最新消息不消失** ✅；Room 热表 501 条全量
   - ⚠️ **待真机复测**：上滑加载更早后下滑能回到最底部，最新消息不消失
+  - **2026-08-19 第三轮模拟器复测 + 结案**：127 条会话深翻多轮（最新消息 → 劳务派遣 → 劳动合同 → 追缴 → 027 电话多段更早内容连续渲染，无断裂）→ 滑回绝对底部 → **最新消息（「模板已创建：劳动保障监察投诉书」）完整渲染在底**，服务器侧最新消息与 App 渲染一致（REST 双侧对照）。分页内容完整性 + 底部保留双验收达成
 
-- [ ] **新增 F：上滑自动加载更多失效（已修复，模拟器实证，待真机复测）** `ui` `session`
+- [x] **新增 F：上滑自动加载更多失效——结案（3 轮模拟器实证，2026-08-19 用户指示模拟器优先）** `ui` `session`
   - 问题：2026-08-10 用户实测——主对话界面上滑"看似滑到顶"但不再加载更多（有更多内容却加载不出来）
   - **根因 1（不触发）**：`shouldPaginate` 依赖 `listState.isScrollInProgress`——用户滑到顶**停住**时 =false → 不触发。修复：改 `LaunchedEffect(hasOlderMessages, isLoadingOlder, autoLoadPaused)` + `snapshotFlow { listState.layoutInfo }` 持续监听——距顶 ≤8 即触发（无论是否滚动中）；`isLoadingOlder` 作 key → 加载完成重启监听 → 停在阈值内自动续载
   - **根因 2（死循环）**：NETWORK 分页游标不前进——热表最老不变（窗口外消息不落热表）+ use case 的 before 编码依赖 `messageCreatedAt(beforeId)`（游标消息不在热表 → null → before 不编码 → 服务器返回最新 → 游标 A→B 交替循环，模拟器实证每 ~100ms 拉同一批）。修复：Delegate 新增 `networkCursorId/Created` 独立游标 + use case 新增 `networkBeforeCreated` 参数（跳过归档直接 `CursorCodec.encode(id, created)`）
@@ -627,6 +629,7 @@
   - 验证：模拟器实证——停在顶部 8s 自动续载、游标 fe0c5862→fe0b9e6e→fe0b4438 前进、读尽 hasOlder=false 自动停止 ✅；全量单测 1350 PASS ✅（新增 5 回归测试：游标前进/网络游标跳过归档/退避/暂停/恢复）；i18n PASS ✅
   - **2026-08-18 模拟器复验：首轮断裂→修复后完整闭环 ✅**：首轮 NETWORK 首翻 0 条误判读尽（P1，根因 08-12 补丁旁路 08-16 根治，已修 53cfea68）；修复后 auto-load 全链工作——probe 触发（`topVisible=75 total=137`）→ loadOlder NETWORK 30 msgs → 游标链逐页前进（serverCursor 透传）→ 自动续载不停（hasOlder 恒 true 至读尽）、无重复无风暴（failures=0 paused=false 恒定）
   - ⚠️ **待真机复测**：上滑到顶停住 → 自动加载更早直到读尽，不重复加载、不风暴
+  - **2026-08-19 第三轮模拟器复测 + 结案**：深翻全程内容连续加载渲染（无卡死/无重复/无风暴——零 ChatPaging 报错）；今日 127 条会话 < 初始加载窗口（hasOlder=false 不触发自动续载 = 正确行为，热表全量命中）；触发路径（probe/游标前进/退避/读尽停止）已有 08-10 首验 + 08-18 完整闭环（501 条会话游标深入历史）两轮实证。真机如遇长会话可选抽查，不阻塞
 
 ### 2026-08-10 系统审计批次（F 报告 P2 + 补丁债 + 模式）
 来源：docs/research/audit-2026-08-10/F-FINAL-AUDIT-REPORT.md §3.3 + §6.2 补丁债根因修复 + §6.3 模式发现
