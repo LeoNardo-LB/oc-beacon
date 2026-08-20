@@ -148,7 +148,10 @@ class EventDispatcher @Inject constructor(
         // 2026-08-15（research/11 P1）：error 产生未读（对齐官方 Web——挂后台
         // 会话失败时列表有感知）
         sessionHandler.onSessionError = { sessionId, _ ->
-            unreadBadgeService.onSessionError(sessionId)
+            // 客户端时刻——事件类型显式承载该例外（research/11 P1）
+            unreadBadgeService.onEvent(
+                UnreadEvent.SessionErrorOccurred(sessionId, System.currentTimeMillis())
+            )
         }
     }
 
@@ -417,7 +420,9 @@ class EventDispatcher @Inject constructor(
         // 红点时间源：assistant 消息完成（服务器 completed）→ 增量更新 maxCompleted。
         // 与 markSessionIdle（客户端 now，UI 流式终止）解耦——红点判定只用服务器时刻。
         if (event is SseEvent.MessageUpdated && event.info is Message.Assistant && event.info.time.completed != null) {
-            unreadBadgeService.onMessageCompleted(event.info.sessionId, event.info.time.completed)
+            unreadBadgeService.onEvent(
+                UnreadEvent.ServerMessageCompleted(event.info.sessionId, event.info.time.completed)
+            )
         }
 
         // 跟踪用户消息时间，用于稳定的会话排序。
@@ -529,43 +534,58 @@ class EventDispatcher @Inject constructor(
     fun setRevert(sessionId: String, messageId: String) =
         sessionHandler.setRevert(sessionId, messageId)
 
+    /**
+     * 服务器载荷 upsert（SSE_PRIORITY/REST_AUTHORITY）：合并进消息缓存 + 红点水位线
+     * 从**载荷本身**提取（#171 切断消费侧——不再扫合并缓存，本地终结戳无从混入）。
+     * 本地/DB 缓存种子请走 [seedCachedMessages]（不触红点）。
+     */
     fun upsertMessages(
         sessionId: String,
         messages: List<MessageWithParts>,
         strategy: MergeStrategy,
     ) {
         messageHandler.upsertMessages(sessionId, messages, strategy)
-        recomputeMaxCompleted(sessionId)
+        recomputeMaxCompleted(sessionId, messages)
+    }
+
+    /**
+     * 本地缓存种子（Room 回读 → 内存热视图）：纯缓存写，**不喂红点**。
+     * DB 中的 completed 可能携带 markSessionIdle 的客户端终结戳（展示域正当，
+     * 落盘持久化亦正当）——红点域只消费服务器载荷，DB 回环由此封死（#171）。
+     */
+    fun seedCachedMessages(sessionId: String, messages: List<MessageWithParts>) {
+        messageHandler.upsertMessages(sessionId, messages, MergeStrategy.APPEND_ONLY)
     }
 
     @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
     fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.setMessages(sessionId, messages)
-        recomputeMaxCompleted(sessionId)
+        recomputeMaxCompleted(sessionId, messages)
     }
 
     @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
     fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.mergeMessages(sessionId, messages)
-        recomputeMaxCompleted(sessionId)
+        recomputeMaxCompleted(sessionId, messages)
     }
 
     @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
     fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) {
         messageHandler.replaceMessages(sessionId, messages)
-        recomputeMaxCompleted(sessionId)
+        recomputeMaxCompleted(sessionId, messages)
     }
 
     /**
-     * 重算某会话的 maxCompleted（REST 整批替换后调用）——委托 [UnreadBadgeService]。
-     * **只增不减**：REST 快照滞后（会话流式中 completed=null）时不移除已记录的
-     * maxCompleted（详见 UnreadBadgeService 类注释）。
+     * 从**载荷**提取 maxCompleted 喂红点（#171：不扫合并缓存——本地终结戳/DB 回读
+     * 的客户端时刻从数据流上无法到达水位线；只增不减语义见 UnreadBadgeService 类注释）。
      */
-    private fun recomputeMaxCompleted(sessionId: String) {
-        unreadBadgeService.recomputeMaxCompleted(
-            sessionId,
-            messageHandler.messages.value[sessionId].orEmpty()
-        )
+    private fun recomputeMaxCompleted(sessionId: String, payload: List<MessageWithParts>) {
+        val maxTs = payload
+            .map { it.info }
+            .filterIsInstance<Message.Assistant>()
+            .mapNotNull { it.time.completed }
+            .maxOrNull() ?: return
+        unreadBadgeService.onEvent(UnreadEvent.RestSnapshot(sessionId, maxTs))
     }
 
     fun removePermission(permissionId: String) =

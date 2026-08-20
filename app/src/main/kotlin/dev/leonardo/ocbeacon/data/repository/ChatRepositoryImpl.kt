@@ -98,7 +98,9 @@ class ChatRepositoryImpl @Inject constructor(
                     // #103（M-5）：排序+合并移出主线程（原在 flow 收集线程=Main）
                     withContext(Dispatchers.Default) {
                         val cachedAsc = cached.sortedBy { it.info.time.created }
-                        eventDispatcher.upsertMessages(sessionId, cachedAsc, MergeStrategy.APPEND_ONLY)
+                        // #171：缓存种子走纯缓存入口——DB 回读载荷不喂红点水位线
+                        //（completed 可能携带 markSessionIdle 的客户端终结戳）
+                        eventDispatcher.seedCachedMessages(sessionId, cachedAsc)
                     }
                 } else if (BuildConfig.DEBUG) {
                     AppLogger.d("ChatRepository", "[seed] session=$sessionId: no cache, waiting for REST")
