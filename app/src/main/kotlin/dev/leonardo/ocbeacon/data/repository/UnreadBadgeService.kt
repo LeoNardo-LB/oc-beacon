@@ -19,14 +19,45 @@ import dev.leonardo.ocbeacon.util.runCatchingCancellable
 private const val TAG = "UnreadBadgeService"
 
 /**
+ * 红点域事件——时钟域编码进类型（#171）：
+ * - [ServerMessageCompleted]/[RestSnapshot] 携带**服务器时刻**（唯一常规来源）
+ * - [SessionErrorOccurred] 携带**客户端时刻**——唯一的故意例外（research/11 P1：
+ *   会话错误产生未读，复用 maxCompleted 水位线通道，对齐官方 Web notification.tsx）
+ *
+ * 调用方构造事件时必须选择类型：什么域的时间装进什么事件，传错编译不过。
+ * 时间戳域从注释升级为签名上的显式契约。
+ */
+sealed class UnreadEvent {
+    abstract val sessionId: String
+
+    /** SSE MessageUpdated(completed != null) 增量——服务器 completed。 */
+    data class ServerMessageCompleted(
+        override val sessionId: String,
+        val serverTs: Long,
+    ) : UnreadEvent()
+
+    /** REST 载荷快照——从 REST 响应原文提取的 maxCompleted（服务器域）。 */
+    data class RestSnapshot(
+        override val sessionId: String,
+        val serverTs: Long,
+    ) : UnreadEvent()
+
+    /** 会话错误——客户端 now（故意例外，见类注释）。 */
+    data class SessionErrorOccurred(
+        override val sessionId: String,
+        val clientNow: Long,
+    ) : UnreadEvent()
+}
+
+/**
  * 红点时间源——每会话最后完成 assistant 消息的 completed（**服务器时刻**）的单一真相源。
  *
  * 从 EventDispatcher 抽出（原 _lastCompletedReplyTime + 4 处增量维护 + runBlocking 落盘）。
  *
- * 语义不变量（2026-08-07 历史决策）：
+ * 语义不变量（2026-08-07 历史决策，#171 起由事件类型承载）：
  * - maxCompleted **只增不减**：REST 快照滞后（流式中 completed=null）不移除已记录值
  * - 只有 removeSession（SessionDeleted）移除；clearForServer/clearAll 不清红点数据
- * - 判定只用服务器 completed，不用客户端 now
+ * - 判定只用服务器 completed，不用客户端 now（例外：SessionErrorOccurred 显式携带客户端时刻）
  *
  * 落盘策略：异步（[persistAsync]）+ seed 恢复兜底。相比旧 runBlocking 同步写，
  * kill 进程窗口内未落盘的值由下次启动 [seedFromStorage] 的 max 合并恢复（有界丢失：毫秒级）。
@@ -56,13 +87,25 @@ class UnreadBadgeService @Inject constructor(
         }
     }
 
-    /** SSE MessageUpdated(completed!=null) 增量：max 合并 + 异步落盘。 */
-    fun onMessageCompleted(sessionId: String, completed: Long) {
+    /** 事件入口（#171）：时钟域由事件类型承载，本模块不接收裸时间戳。 */
+    fun onEvent(event: UnreadEvent) {
+        val (sessionId, ts) = when (event) {
+            is UnreadEvent.ServerMessageCompleted -> event.sessionId to event.serverTs
+            is UnreadEvent.RestSnapshot -> event.sessionId to event.serverTs
+            is UnreadEvent.SessionErrorOccurred -> event.sessionId to event.clientNow
+        }
         val old = _lastCompletedReplyTime.value
         _lastCompletedReplyTime.updateAndGet { map ->
-            if (completed > (map[sessionId] ?: 0L)) map + (sessionId to completed) else map
+            if (ts > (map[sessionId] ?: 0L)) map + (sessionId to ts) else map
         }
         if (_lastCompletedReplyTime.value != old) persistAsync()
+    }
+
+    /** SSE MessageUpdated(completed!=null) 增量：max 合并 + 异步落盘。 */
+    @Deprecated("Use onEvent(UnreadEvent.ServerMessageCompleted)",
+        ReplaceWith("onEvent(UnreadEvent.ServerMessageCompleted(sessionId, completed))"))
+    fun onMessageCompleted(sessionId: String, completed: Long) {
+        onEvent(UnreadEvent.ServerMessageCompleted(sessionId, completed))
     }
 
     /**
@@ -70,22 +113,20 @@ class UnreadBadgeService @Inject constructor(
      *（notification.tsx:366-397：session.error 计入未读）。复用 maxCompleted
      * 水位线通道（error 时刻 > 已读时刻 → isUnread=true），无需新存储。
      */
+    @Deprecated("Use onEvent(UnreadEvent.SessionErrorOccurred)",
+        ReplaceWith("onEvent(UnreadEvent.SessionErrorOccurred(sessionId, System.currentTimeMillis()))"))
     fun onSessionError(sessionId: String) {
-        onMessageCompleted(sessionId, System.currentTimeMillis())
+        onEvent(UnreadEvent.SessionErrorOccurred(sessionId, System.currentTimeMillis()))
     }
 
     /** REST 整批替换后重算：只增不减（见类注释）。 */
+    @Deprecated("Use onEvent(UnreadEvent.RestSnapshot)",
+        ReplaceWith("onEvent(UnreadEvent.RestSnapshot(sessionId, maxTs))"))
     fun recomputeMaxCompleted(sessionId: String, messages: List<Message>) {
         val maxTs = messages.filterIsInstance<Message.Assistant>()
             .mapNotNull { it.time.completed }
             .maxOrNull()
-        val old = _lastCompletedReplyTime.value
-        _lastCompletedReplyTime.updateAndGet { map ->
-            if (maxTs == null) map
-            else if (maxTs > (map[sessionId] ?: 0L)) map + (sessionId to maxTs)
-            else map
-        }
-        if (_lastCompletedReplyTime.value != old) persistAsync()
+        if (maxTs != null) onEvent(UnreadEvent.RestSnapshot(sessionId, maxTs))
     }
 
     /** SessionDeleted 级联：删除会话的红点条目。 */
