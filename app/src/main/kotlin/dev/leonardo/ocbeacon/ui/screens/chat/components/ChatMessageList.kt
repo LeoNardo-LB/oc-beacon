@@ -891,6 +891,14 @@ fun ChatMessageList(
                                 if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load backoff wait ${waitMs}ms before retry")
                                 delay(waitMs)
                             }
+                            // 2026-08-21 竞态修复：!jumpLockActive 只在 effect 启动时检查一次——
+                            // 跳转滚动使 nearTop 在旧实例 collect 里发射时（jumpLock 翻转与
+                            // effect 重启之间有重组延迟窗口），闸门已失效 → settle 期间数据变动。
+                            // 触发前复查当前值（跳转结束后 effect 重启会重新评估，不丢正常触发）。
+                            if (jumpLockActive) {
+                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load skipped (jumpLock active at fire time)")
+                                return@collect
+                            }
                             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load triggered (hasOlder=true)")
                             viewModel.loadOlderMessages()
                         }
@@ -921,6 +929,13 @@ fun ChatMessageList(
                         .distinctUntilChanged()
                         .filter { it }
                         .collect {
+                            // 2026-08-21 竞态修复（真机日志实证：jumpToMessage 置锁后
+                            // +136ms nearBottom 发射仍漏过启动时闸门 → 渐进步进卡
+                            // gap=-343 空转 7 次、蒙版多挂 ~2s）——触发前复查 jumpLock。
+                            if (jumpLockActive) {
+                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load newer skipped (jumpLock active at fire time)")
+                                return@collect
+                            }
                             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load newer triggered (nearBottom=true, hasNewer=true)")
                             viewModel.loadNewerMessages()
                         }

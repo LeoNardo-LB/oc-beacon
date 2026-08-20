@@ -295,9 +295,22 @@ class JumpNavigationController(
                         else -> minOf((vhNow / 2).toInt(), gapToTop.toInt())
                     }
                     if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 渐进步进 step=$step")
-                    scrollBy(step.toFloat())
+                    val actualScrolled = scrollBy(step.toFloat())
                     lastRegionSig = null
                     stableCount = 0
+                    // 2026-08-21 夹持修复（幽灵 gap 真根因）：前向跳到列表端附近时
+                    // 目标下方内容不足一屏——gap 物理上无法归零，scrollBy 被内容
+                    // 边界夹持（实际位移 < 请求位移）。旧实现继续空转步进直至 5s
+                    // 超时 TimedOut（真机日志：step=-343 ×7 无效步进）——现检测到
+                    // 夹持即接受当前物理最接近位置收场（Displayed，省 ~3.5s 蒙版）。
+                    // 稳定窗口的 gap 修正对夹持位置是天然 no-op（滚不动即不动）。
+                    if (kotlin.math.abs(actualScrolled - step) > 1f) {
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d("ChatPaging", "jump: 滚动被内容边界夹持（请求${step}/实际${actualScrolled.toInt()}）——接受当前位置")
+                        }
+                        settled = true
+                        return@scroll
+                    }
                 }
                 if (needRelocate) {
                     // 时钟基（D-4）：elapsedRealtime 单调——currentTimeMillis 可被
