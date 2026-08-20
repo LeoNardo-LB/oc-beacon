@@ -28,8 +28,8 @@ data class SessionListDataInputs(
     val sessionTags: List<Tag>,
     val favoritesOnly: Boolean,
     val lastReplyTime: Map<String, Long>,
+    /** 合并已读位置（持久 ∥ 内存即时，红点模块单源——#171）。 */
     val readTimes: Map<String, Long>,
-    val justRead: Map<String, Long>,
     val allReadAt: Long,
     /** 有待回答问题（agent 提问等待回答）的会话 id 集合。 */
     val pendingQuestionIds: Set<String> = emptySet(),

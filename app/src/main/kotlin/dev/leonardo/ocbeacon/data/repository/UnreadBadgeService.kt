@@ -2,13 +2,18 @@ package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.di.ApplicationScope
 import dev.leonardo.ocbeacon.domain.model.Message
+import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
@@ -129,11 +134,85 @@ class UnreadBadgeService @Inject constructor(
         if (maxTs != null) onEvent(UnreadEvent.RestSnapshot(sessionId, maxTs))
     }
 
-    /** SessionDeleted 级联：删除会话的红点条目。 */
+    /** SessionDeleted 级联：删除会话的红点条目（水位线 + 内存已读信号）。 */
     fun removeSession(sessionId: String) {
         val old = _lastCompletedReplyTime.value
         _lastCompletedReplyTime.updateAndGet { it - sessionId }
+        _justRead.update { it - sessionId }
         if (_lastCompletedReplyTime.value != old) persistAsync()
+    }
+
+    // ============ 已读侧（#171 阶段 2：吸收 SessionReadSignal + 持久化已读） ============
+
+    /**
+     * 内存即时已读（跨屏幕）——DataStore 异步写窗口期的先行信号，消除
+     * "退出瞬间持久化未完成 → 列表读到旧已读时间 → 红点闪一下再消失"（2026-08-07）。
+     */
+    private val _justRead = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val justRead: StateFlow<Map<String, Long>> = _justRead
+
+    /** 合并读：持久 readTimes ∥ 内存 justRead，每会话取 max（吸收原 mergeReadTimes）。 */
+    fun mergedReadTimes(serverId: String): Flow<Map<String, Long>> =
+        combine(
+            settingsDataStore.sessionReadTimes(serverId).catch { emit(emptyMap()) },
+            justRead,
+        ) { persisted, inMemory ->
+            (persisted.keys + inMemory.keys).associateWith {
+                maxOf(persisted[it] ?: 0L, inMemory[it] ?: 0L)
+            }
+        }.distinctUntilChanged()
+
+    /** 该服务器的一键已读位置（透传持久层）。 */
+    fun allReadAt(serverId: String): Flow<Long> = settingsDataStore.allReadAt(serverId)
+
+    /**
+     * 标记会话已读（退出会话/列表消费路径）：已读位置 = **模块自身水位线**（服务器域），
+     * 不再扫描消息缓存（#171——ChatViewModel 原 markSessionRead 的泄漏入口封死）。
+     * 无水位线记录（秒退/消息未加载）则跳过：用户未消费内容，之后红点合理。
+     * 内存信号先行；持久化走模块 ApplicationScope——比调用方 ViewModel 活得久，
+     * 导航返回销毁 VM 不丢写入（原 NonCancellable+viewModelScope 方案的语义强化）。
+     */
+    fun markSessionRead(serverId: String, sessionId: String) {
+        val ts = _lastCompletedReplyTime.value[sessionId] ?: return
+        _justRead.update { it + (sessionId to ts) }
+        scope.launch {
+            runCatchingCancellable { settingsDataStore.markSessionRead(serverId, sessionId, ts) }
+                .onFailure { e -> AppLogger.e(TAG, "markSessionRead persist failed", e) }
+        }
+    }
+
+    /**
+     * 一键已读：全局 max（#184：跨服务器时钟混合为已登记债务，语义保持不变）广播
+     * 内存信号 + 持久化。无任何水位线记录时 no-op。
+     */
+    fun markAllSessionsRead(serverId: String) {
+        val globalMax = _lastCompletedReplyTime.value.values.maxOrNull() ?: return
+        _lastCompletedReplyTime.value.keys.forEach { sid ->
+            _justRead.update { it + (sid to globalMax) }
+        }
+        scope.launch {
+            runCatchingCancellable { settingsDataStore.markAllSessionsRead(serverId, globalMax) }
+                .onFailure { e -> AppLogger.e(TAG, "markAllSessionsRead persist failed", e) }
+        }
+    }
+
+    companion object {
+        /**
+         * 未读判定（#171 从 SessionListStateBuilder 迁入——判定与时间源同域所有权）：
+         * 会话 Idle（turn 完全结束）且有水位线记录，且晚于 max(已读位置, 一键已读位置)。
+         * 全部服务器时刻，纯函数。
+         */
+        fun isUnread(
+            sessionId: String,
+            maxCompleted: Map<String, Long>,
+            readTimes: Map<String, Long>,
+            allReadAt: Long = 0L,
+            status: SessionStatus,
+        ): Boolean {
+            if (status != SessionStatus.Idle) return false
+            val last = maxCompleted[sessionId] ?: return false
+            return last > maxOf(readTimes[sessionId] ?: 0L, allReadAt)
+        }
     }
 
     /**

@@ -24,7 +24,6 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.*
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.DefaultToolCardResolver
-import dev.leonardo.ocbeacon.ui.screens.sessions.SessionReadSignal
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
 import io.mockk.*
 import kotlinx.coroutines.CoroutineScope
@@ -111,7 +110,7 @@ class ChatViewModelContextTokensTest {
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             sessionStateService = sessionStateService,
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             ownershipRegistry = StreamingOwnershipRegistry(),
             sessionRepoProvider = object : javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository> {
@@ -275,7 +274,7 @@ class ChatViewModelContextTokensTest {
             sessionStateService = sessionStateService,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
-            sessionReadSignal = SessionReadSignal(),
+            unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,

@@ -82,7 +82,7 @@ class SessionListViewModel @Inject constructor(
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     private val settingsRepository: SettingsRepository,
     private val serverRepository: ServerRepository,
-    private val sessionReadSignal: SessionReadSignal,
+    private val unreadBadgeService: dev.leonardo.ocbeacon.data.repository.UnreadBadgeService,
     private val chatRepository: ChatRepository,
 ) : ViewModel() {
 
@@ -182,13 +182,8 @@ class SessionListViewModel @Inject constructor(
     fun consumePendingReadSessionId(): String? {
         val sid = _pendingReadSessionId.value ?: return null
         _pendingReadSessionId.value = null
-        val ts = lastCompletedReplyTime.value[sid]
-        if (ts != null) {
-            sessionReadSignal.markRead(sid, ts)
-            viewModelScope.launch {
-                settingsRepository.markSessionRead(serverId, sid, ts)
-            }
-        }
+        // #171：已读写路径收进红点模块（水位线快照 + 内存信号 + app-scope 持久化）
+        unreadBadgeService.markSessionRead(serverId, sid)
         return sid
     }
 
@@ -273,21 +268,19 @@ class SessionListViewModel @Inject constructor(
         val lastReplyTime: Map<String, Long>,
     )
 
-    // 分组2：设置数据（4 源）
+    // 分组2：设置数据（3 源——已读合并读收进红点模块单源，#171）
     private data class SettingDataPart(
         val categoryAssignments: Map<String, List<String>>,
         val sessionTags: List<Tag>,
         val readTimes: Map<String, Long>,
-        val justRead: Map<String, Long>,
     )
 
     private val settingDataFlow = combine(
         settingsRepository.sessionTagAssignments(serverId).distinctUntilChanged(),
         sessionTags,
-        settingsRepository.sessionReadTimes(serverId).distinctUntilChanged(),
-        sessionReadSignal.justRead,
-    ) { assignments, tags, readTimes, justRead ->
-        SettingDataPart(assignments, tags, readTimes, justRead)
+        unreadBadgeService.mergedReadTimes(serverId),
+    ) { assignments, tags, readTimes ->
+        SettingDataPart(assignments, tags, readTimes)
     }
 
     // 分组3：杂项（2 源）
@@ -298,7 +291,7 @@ class SessionListViewModel @Inject constructor(
 
     private val miscDataFlow = combine(
         _favoritesOnly,
-        settingsRepository.allReadAt(serverId).distinctUntilChanged(),
+        unreadBadgeService.allReadAt(serverId),
     ) { favoritesOnly, allReadAt ->
         MiscDataPart(favoritesOnly, allReadAt)
     }
@@ -317,7 +310,6 @@ class SessionListViewModel @Inject constructor(
             favoritesOnly = miscData.favoritesOnly,
             lastReplyTime = sessionData.lastReplyTime,
             readTimes = settingData.readTimes,
-            justRead = settingData.justRead,
             allReadAt = miscData.allReadAt,
             pendingQuestionIds = sessionData.questions
                 .filterKeys { it in sessionData.serverSessionMap[serverId].orEmpty() }
@@ -421,12 +413,8 @@ class SessionListViewModel @Inject constructor(
      * 消除所有红点；此后新完成的回复才重新红点。
      */
     fun markAllSessionsRead() {
-        viewModelScope.launch {
-            val completedMap = sessionRepository.getLastCompletedReplyTimeFlow().first()
-            val globalMax = completedMap.values.maxOrNull() ?: return@launch
-            completedMap.keys.forEach { sessionReadSignal.markRead(it, globalMax) }
-            settingsRepository.markAllSessionsRead(serverId, globalMax)
-        }
+        // #171：水位线全局 max + 内存广播 + 持久化收进红点模块单点
+        unreadBadgeService.markAllSessionsRead(serverId)
     }
 
     /** 替换指定会话上的用户标签集（保留内置收藏标签）。 */
@@ -651,8 +639,8 @@ class SessionListViewModel @Inject constructor(
                 val result = deleteSessionUseCase(serverId, sessionId)
                 if (result.isSuccess) {
                     if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Deleted session $sessionId")
-                    // 清理内存已读信号残留（已删除会话的 key）
-                    sessionReadSignal.remove(sessionId)
+                    // 清理红点条目与内存已读信号残留（已删除会话的 key）
+                    unreadBadgeService.removeSession(sessionId)
                     loadSessions()
                 } else {
                     _error.value = "Failed to delete session"

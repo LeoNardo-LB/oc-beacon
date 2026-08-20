@@ -33,7 +33,6 @@ class SessionListPendingQuestionTest {
         favoritesOnly = false,
         lastReplyTime = emptyMap(),
         readTimes = emptyMap(),
-        justRead = emptyMap(),
         allReadAt = 0L,
         pendingQuestionIds = pendingIds
     )

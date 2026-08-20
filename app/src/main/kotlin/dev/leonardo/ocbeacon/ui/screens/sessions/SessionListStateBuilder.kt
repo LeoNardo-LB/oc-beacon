@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
@@ -7,20 +8,8 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.buildTreeNodes
 
 /**
- * 合并持久化已读时间与内存即时已读信号（取每会话较大值）。
- * 退出会话瞬间 DataStore 写入未完成时，内存信号先生效——消除红点闪烁。
- */
-internal fun mergeReadTimes(
-    persisted: Map<String, Long>,
-    inMemory: Map<String, Long>,
-): Map<String, Long> = (persisted.keys + inMemory.keys).associateWith {
-    maxOf(persisted[it] ?: 0L, inMemory[it] ?: 0L)
-}
-
-/**
- * 未读判定：会话状态为 Idle（turn 完全结束）且有完成回复时间，
- * 且晚于 max(最后已读位置, 一键已读位置)。全部服务器时刻，纯函数。
- * 会话状态未知/进行中（非 Idle）→ 不红点。
+ * 未读判定转发：逻辑已迁 [UnreadBadgeService.Companion.isUnread]（#171——
+ * 判定与时间源同域所有权）。保留本转发以维持 Builder 调用点与既有测试稳定。
  */
 internal fun isUnread(
     sessionId: String,
@@ -28,11 +17,7 @@ internal fun isUnread(
     readTimes: Map<String, Long>,
     allReadAt: Long = 0L,
     status: SessionStatus,
-): Boolean {
-    if (status != SessionStatus.Idle) return false
-    val last = maxCompleted[sessionId] ?: return false
-    return last > maxOf(readTimes[sessionId] ?: 0L, allReadAt)
-}
+): Boolean = UnreadBadgeService.isUnread(sessionId, maxCompleted, readTimes, allReadAt, status)
 
 /**
  * 内容册构建纯函数——从 [SessionListDataInputs] + [SessionListUiInputs] 构建列表渲染状态。
@@ -47,7 +32,8 @@ internal suspend fun buildContentState(
     serverId: String,
     draftRepository: DraftRepository,
 ): SessionListContentState {
-    val readTimes = mergeReadTimes(data.readTimes, data.justRead)
+    // #171：readTimes 已是模块合并读（持久 ∥ 内存）单源产物，无需再合并
+    val readTimes = data.readTimes
 
     val serverSessionIds = data.serverSessionMap[serverId].orEmpty()
 

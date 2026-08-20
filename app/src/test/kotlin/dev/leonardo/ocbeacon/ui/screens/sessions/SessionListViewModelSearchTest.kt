@@ -109,7 +109,10 @@ class SessionListViewModelSearchTest {
             getSettingsFlowUseCase = mockk(relaxed = true),
             settingsRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),
-            sessionReadSignal = SessionReadSignal(),
+            unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService> {
+                io.mockk.every { mergedReadTimes(any()) } returns kotlinx.coroutines.flow.flowOf(emptyMap<String, Long>())
+                io.mockk.every { allReadAt(any()) } returns kotlinx.coroutines.flow.flowOf(0L)
+            },
             chatRepository = mockk(relaxed = true),
         )
     }

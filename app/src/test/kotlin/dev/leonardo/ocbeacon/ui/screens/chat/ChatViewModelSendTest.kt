@@ -18,7 +18,6 @@ import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.*
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
-import dev.leonardo.ocbeacon.ui.screens.sessions.SessionReadSignal
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -176,7 +175,7 @@ class ChatViewModelSendTest {
             sessionStateService = sessionStateService,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
-            sessionReadSignal = SessionReadSignal(),
+            unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,

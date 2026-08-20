@@ -1,18 +1,28 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
+import dev.leonardo.ocbeacon.data.repository.UnreadEvent
 import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TreeNode
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 未读判定纯函数测试。 */
+/** 未读判定纯函数 + 红点模块已读合并链路测试（#171 迁移后）。 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionListUnreadTest {
 
@@ -42,19 +52,33 @@ class SessionListUnreadTest {
         assertTrue(isUnread("s1", mapOf("s1" to 1000L), emptyMap(), status = SessionStatus.Idle))
     }
 
+    /** 模块真实链路：水位线事件 → markSessionRead（读水位线）→ 合并读（内存信号压过旧持久值）。 */
+    private fun unreadServiceWith(persisted: Map<String, Long>): UnreadBadgeService {
+        val ds = mockk<SettingsDataStore> {
+            every { sessionReadTimes(any()) } returns flowOf(persisted)
+            io.mockk.coEvery { markSessionRead(any(), any(), any()) } returns Unit
+            io.mockk.coEvery { markAllSessionsRead(any(), any()) } returns Unit
+        }
+        return UnreadBadgeService(ds, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()))
+    }
+
     @Test
-    fun `in-memory read signal suppresses unread immediately`() {
-        // 持久化还是旧值（DataStore 写入未完成），内存信号已更新 → 不未读
-        val merged = mergeReadTimes(
-            persisted = mapOf("s1" to 1000L),
-            inMemory = mapOf("s1" to 9000L),
-        )
+    fun `markSessionRead in-memory signal suppresses unread over stale persisted`() = runTest {
+        // 持久化还是旧值（DataStore 写入未完成），内存信号取水位线新值 → 不未读
+        val service = unreadServiceWith(persisted = mapOf("s1" to 1000L))
+        service.onEvent(UnreadEvent.ServerMessageCompleted("s1", 9000L))
+        service.markSessionRead("srv", "s1")
+        val merged = service.mergedReadTimes("srv").first()
+        assertEquals(mapOf("s1" to 9000L), merged)
         assertFalse(isUnread("s1", mapOf("s1" to 8000L), merged, status = SessionStatus.Idle))
     }
 
     @Test
-    fun `in-memory signal without persisted entry also works`() {
-        val merged = mergeReadTimes(persisted = emptyMap(), inMemory = mapOf("s1" to 9000L))
+    fun `in-memory signal without persisted entry also works`() = runTest {
+        val service = unreadServiceWith(persisted = emptyMap())
+        service.onEvent(UnreadEvent.ServerMessageCompleted("s1", 9000L))
+        service.markSessionRead("srv", "s1")
+        val merged = service.mergedReadTimes("srv").first()
         assertFalse(isUnread("s1", mapOf("s1" to 8000L), merged, status = SessionStatus.Idle))
         // 未在信号中的会话不受影响
         assertTrue(isUnread("s2", mapOf("s2" to 8000L), merged, status = SessionStatus.Idle))
@@ -114,7 +138,6 @@ class SessionListUnreadTest {
             favoritesOnly = false,
             lastReplyTime = mapOf(sessions[0].id to 5000L),
             readTimes = mapOf(sessions[0].id to 1000L),
-            justRead = emptyMap(),
             allReadAt = 0L,
         )
         val ui = SessionListUiInputs(
@@ -168,7 +191,6 @@ class SessionListUnreadTest {
             favoritesOnly = favoritesOnly,
             lastReplyTime = emptyMap(),
             readTimes = emptyMap(),
-            justRead = emptyMap(),
             allReadAt = 0L,
         )
         val ui = SessionListUiInputs(

@@ -57,7 +57,7 @@ private const val TAG = "ChatViewModel"
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val scrollSignal: dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal,
-    private val sessionReadSignal: dev.leonardo.ocbeacon.ui.screens.sessions.SessionReadSignal,
+    private val unreadBadgeService: dev.leonardo.ocbeacon.data.repository.UnreadBadgeService,
     private val sendMessageUseCase: SendMessageUseCase,
     private val manageSessionUseCase: ManageSessionUseCase,
     private val managePermissionUseCase: ManagePermissionUseCase,
@@ -292,30 +292,17 @@ class ChatViewModel @Inject constructor(
         sessionFocusHolder.setActiveFocus(null, null)
     }
 
-    /** 离开会话时标记已读（清除未读提示）：打开期间到达的消息也算已读。
-     *  先更新内存信号（列表立即感知，消除 DataStore 异步写入窗口期的红点闪烁），
-     *  再在 [NonCancellable] 下持久化——导航返回时 ViewModel 随返回栈销毁，
-     *  viewModelScope 会被 cancel，普通 launch 的 DataStore 写入可能在完成前
-     *  被取消（红点不消除的根因，2026-08-07 修复）。 */
+    /**
+     * 离开会话时标记已读（清除未读提示）：已读位置 = 红点模块自身水位线（服务器域），
+     * **不再扫描消息缓存**（#171——原实现从合并缓存取 max，markSessionIdle 的客户端
+     * 终结戳可能混入已读标记）。无水位线记录（秒退/消息未加载）模块内跳过。
+     * 内存信号先行 + ApplicationScope 持久化（比 VM 活得久，导航返回不丢写入）。
+     */
     fun markSessionRead() {
         val srv = serverId
         val sid = sessionId
         if (srv.isNotBlank() && sid.isNotBlank()) {
-            // 已读位置 = 该会话最后一条完成 assistant 消息的 completed（服务器时刻）。
-            // 会话无任何完成消息（如秒退、消息未加载）→ 不更新已读标记（用户未消费内容，之后红点合理）。
-            val lastCompleted = messageData.messagesList.value
-                .filterIsInstance<dev.leonardo.ocbeacon.domain.model.Message.Assistant>()
-                .mapNotNull { it.time.completed }
-                .maxOrNull()
-            if (lastCompleted == null) {
-                AppLogger.d("UnreadDiag", "[markRead] sid=${sid.take(12)} no completed msg, skip")
-                return
-            }
-            AppLogger.d("UnreadDiag", "[markRead] sid=${sid.take(12)} completed=$lastCompleted")
-            sessionReadSignal.markRead(sid, lastCompleted)
-            viewModelScope.launch {
-                withContext(NonCancellable) { settingsRepository.markSessionRead(srv, sid, lastCompleted) }
-            }
+            unreadBadgeService.markSessionRead(srv, sid)
         }
     }
 
