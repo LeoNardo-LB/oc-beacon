@@ -83,6 +83,84 @@ class ApiVersionDetectorTest {
         assertEquals(ApiVersion.UNKNOWN, result.version)
     }
 
+    // ============ #150 方案 B（2026-08-21）：按已知版本排序探测 ============
+
+    @Test
+    fun `known V1 probes global health first - single RTT for V1 servers`() = runTest {
+        val requestOrder = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            requestOrder.add(request.url.encodedPath)
+            when (request.url.encodedPath) {
+                "/global/health" -> respond(
+                    """{"healthy":true,"version":"1.18.18"}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val detector = buildDetector(engine)
+        val result = detector.detect("http://localhost:4096", knownVersion = ApiVersion.V1)
+        assertEquals(ApiVersion.V1, result.version)
+        // 核心断言：V1 已知时先探 /global/health 且一次即中——不再白跑 /api/health
+        assertEquals(listOf("/global/health"), requestOrder)
+    }
+
+    @Test
+    fun `known V1 but server upgraded to V2 falls back and corrects in same connection`() = runTest {
+        val requestOrder = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            requestOrder.add(request.url.encodedPath)
+            when (request.url.encodedPath) {
+                // 旧 V1 端点已不可用（V2 服务器对未知路径返回 SPA HTML/404）
+                "/global/health" -> respond(
+                    "<!doctype html><html></html>",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("text/html"))
+                )
+                "/api/health" -> respond(
+                    """{"healthy":true,"version":"2.0.1","pid":{"id":123}}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        val detector = buildDetector(engine)
+        val result = detector.detect("http://localhost:4096", knownVersion = ApiVersion.V1)
+        // 升级场景：V1 探测失败（HTML 防御拒绝）→ 回退 V2 探测 → 当次纠正
+        assertEquals(ApiVersion.V2, result.version)
+        assertEquals(listOf("/global/health", "/api/health"), requestOrder)
+    }
+
+    @Test
+    fun `known V2 keeps api health first and unknown defaults to V2-first`() = runTest {
+        val orderKnown = mutableListOf<String>()
+        val engineKnown = MockEngine { request ->
+            orderKnown.add(request.url.encodedPath)
+            when (request.url.encodedPath) {
+                "/api/health" -> respond(
+                    """{"healthy":true,"version":"2.0.1","pid":{"id":123}}""",
+                    HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json"))
+                )
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+        buildDetector(engineKnown).detect("http://localhost:4096", knownVersion = ApiVersion.V2)
+        assertEquals(listOf("/api/health"), orderKnown)
+
+        val orderUnknown = mutableListOf<String>()
+        val engineUnknown = MockEngine { request ->
+            orderUnknown.add(request.url.encodedPath)
+            respond("", HttpStatusCode.NotFound)
+        }
+        val result = buildDetector(engineUnknown).detect("http://localhost:4096", knownVersion = ApiVersion.UNKNOWN)
+        // 未知版本维持原 V2-first 顺序；全失败 → UNKNOWN（#132 语义）
+        assertEquals(ApiVersion.UNKNOWN, result.version)
+        assertEquals(listOf("/api/health", "/global/health"), orderUnknown)
+    }
+
     @Test
     fun `ApiVersion fromVersionString parses major version`() {
         assertEquals(ApiVersion.V2, ApiVersion.fromVersionString("2.0.1"))
