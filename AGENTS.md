@@ -112,6 +112,7 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 - CI 使用 GitHub Secrets（`KEYSTORE_BASE64`、`KEYSTORE_ALIAS`、`KEYSTORE_PASSWORD`）。**Secrets 未配置时 CI 会回退 debug 签名**，且每次构建（全新 runner）生成不同 debug.keystore → 每次发版签名不同 → 用户升级报"已安装签名冲突的应用"。配置方法：`gh secret set KEYSTORE_BASE64 --body "$([Convert]::ToBase64String([IO.File]::ReadAllBytes('app/keystore/release.jks')))"`（alias/password 同理）
 - 发版后必须用 `apksigner verify --print-certs` 验证产物签名为 `CN=OC Beacon, OU=Development, O=LeoNardo-LB, C=CN`（非 `CN=Android Debug`），见 `docs/release-workflow.md` §6
 - **2026-08-06 keystore 更换**：release keystore 已重建（CN=OC Beacon，alias=oc-tether）。**1.2.0 起使用新签名**——1.1.1 及更早版本安装的用户升级 1.2.0 时**必须卸载重装一次**（签名不同，无法覆盖安装）
+- **2026-08-20 keystore 再次更换（旧文件确认丢失）**：旧 release.jks 无任何本地/git 副本，CI Secrets 只写不读。已生成同 DN 新 keystore（alias=oc-tether，30 年有效）→ 本地 `app/keystore/` + CI Secrets 已更新（2026-08-20）。**v0.3.1-dev.18 是旧签名最后一版**；下一起 CI 构建起新签名生效，≤dev.18 的 CI 签名包升级新包需卸载重装一次（0.x 用户仅开发者本人，已接受）
 - **2026-08-06 版本体系重置**：VERSION_NAME 1.2.0 → **0.2.0**、VERSION_CODE 18 → **1**（未正式发版不配 1.x；用户明确接受卸载重装、不追求覆盖安装）。此后从 0.2.0 重新计数（0.2.0→0.3.0→…→1.0.0）
 - **2026-08-07 版本体系再重置**：用户决策清理 GitHub 与本地**全部 1.x Release/Tag**（17 个；0.2.0 从未发布，无用户影响）。VERSION_NAME 0.2.0 → **0.1.0**、VERSION_CODE 保持 **1**，从 0.1.0 重新计数（0.1.0→0.1.1→…→1.0.0）
 - **2026-08-07 首个发版 0.1.0-beta.1**：首个版本号即 0.1.0（beta 预发布 0.1.0-beta.1），**VERSION_CODE=1 保持**（0.x 阶段无已安装用户，不要求覆盖安装兼容；**1.0.0 起严格只增不减**）
