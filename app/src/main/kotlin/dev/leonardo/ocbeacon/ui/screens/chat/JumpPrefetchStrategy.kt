@@ -27,15 +27,44 @@ import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
 class JumpPrefetchStrategy : LazyListPrefetchStrategy {
 
     /**
-     * 滚动方向预组合的 item 数量。
+     * 滚动方向预组合——速度自适应窗口（2026-08-20 第二轮滚动卡顿修复）。
      *
-     * 替代旧 `LazyLayoutCacheWindow(1.5f, 1.5f)`（~1.5 视口 ≈ 5-8 条消息）。
-     * 值太小（如原 1）→ fling 快速滚动时长消息来不及组合 → 空白/跳过（铁律 7）。
-     * schedulePrefetch 内部去重（已组合的 item 重复调度为 no-op），
-     * 多余调度不造成浪费——每帧 edge 变化才会重新调度窗口。
+     * 背景：08-14 设定固定 PREFETCH_AHEAD=6 时，长 assistant 消息还是
+     * 13 万字符整 item——fling 会整气泡跳过，宽窗是必要的。0faa6984
+     * 块级分片后单个 item 已缩到 ~5000 字符，宽窗的原始理由消失；
+     * 而预取在**主线程**执行（foundation 1.11.2 AndroidPrefetchScheduler：
+     * view.post + Choreographer deadline），预算感知粒度 = 整个 item 的
+     * subcompose——开始后不可中断。120Hz 设备帧预算仅 8.33ms，慢速拖动
+     * 时 edge 每跨一个 item 就调度 6 个重 chunk 预组合 → 后续连续数帧
+     * 各被单个 chunk 组合超支 → "新消息临近顿一下"（症状①）与长消息
+     * 内滚动卡顿（症状③，chunk 边界 = item 边界）。
+     *
+     * 方案：按滚动速度（onScroll 帧间位移/wall-clock dt 的 EMA）分档——
+     * 慢速拖动只需 1 个 ahead（下一 item 进视口前有整段拖动时间完成组合），
+     * fling 高速段保留 6 个宽窗（防整气泡跳过——铁律 7 仍然有效）。
+     * schedulePrefetch 内部去重（已组合 item 重复调度为 no-op）。
      */
     private companion object {
-        const val PREFETCH_AHEAD = 6
+        /** fling 高速段窗口（保持 08-14 铁律 7 的防跳过覆盖量） */
+        const val PREFETCH_AHEAD_FLING = 6
+
+        /** 快速拖动窗口 */
+        const val PREFETCH_AHEAD_FAST_DRAG = 3
+
+        /** 慢速拖动窗口（120Hz 帧预算下的预算保护） */
+        const val PREFETCH_AHEAD_SLOW_DRAG = 1
+
+        /** 判定为 fling 的速度阈值（px/s）——SafeFlingBehavior 限速后典型 5k-30k */
+        const val VELOCITY_FLING = 6000f
+
+        /** 判定为快速拖动的速度阈值（px/s） */
+        const val VELOCITY_FAST_DRAG = 2500f
+
+        /** 速度 EMA 平滑系数 */
+        const val EMA_ALPHA = 0.25f
+
+        /** onScroll 调用间隔超过此值（ns）视为新手势/停顿——EMA 重置 */
+        const val CALL_GAP_RESET_NS = 200_000_000L
     }
 
     /** 跳转目标 lazy index（-1 = 无）；jumpToMessage 设置 */
@@ -47,16 +76,15 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
     private var lastScheduledJump = -1
     private var lastPredicted = -1
 
+    /** 滚动速度 EMA（px/s，绝对值） */
+    private var velocityEma = 0f
+    private var lastOnScrollNanos = 0L
+
     override fun LazyListPrefetchScope.onScroll(delta: Float, layoutInfo: LazyListLayoutInfo) {
+        val ahead = updateVelocity(delta)
+
         // 滚动方向预测预组合。
         // vertical：delta<0 = 内容上移 = 向底部/向后（reverseLayout 更高 index = 更旧消息）
-        //
-        // 2026-08-14 修复 fling 跳过长气泡：原实现仅预组合滚动方向 1 项——
-        // 快速 fling 时长 assistant 气泡（重型 Markdown 解析 + 多工具卡片）
-        // 来不及在进入视口前完成组合 → 空白/跳过，需慢速回滚才能看到。
-        // 改为预组合一个窗口（PREFETCH_AHEAD 项），覆盖 fling 距离。
-        // 这替代了旧 cacheWindow(1.5f, 1.5f) 的预组合覆盖量（铁律 7: ahead 太小 →
-        // fling 高速滚动时视口瞬间滚出已组合区域 → 新 item 被迫即时组合 → 跳过）。
         val vis = layoutInfo.visibleItemsInfo
         if (vis.isNotEmpty()) {
             val total = layoutInfo.totalItemsCount
@@ -65,7 +93,7 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
                 val edge = vis.last().index
                 if (edge != lastPredicted) {
                     lastPredicted = edge
-                    val end = minOf(edge + 1 + PREFETCH_AHEAD, total)
+                    val end = minOf(edge + 1 + ahead, total)
                     for (i in (edge + 1) until end) {
                         schedulePrefetch(i) { }
                     }
@@ -75,7 +103,7 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
                 val edge = vis.first().index
                 if (edge != lastPredicted) {
                     lastPredicted = edge
-                    val start = maxOf(edge - PREFETCH_AHEAD, 0)
+                    val start = maxOf(edge - ahead, 0)
                     for (i in (edge - 1) downTo start) {
                         schedulePrefetch(i) { }
                     }
@@ -83,6 +111,33 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
             }
         }
         maybeScheduleJump(layoutInfo)
+    }
+
+    /**
+     * 帧间速度估计 + 分档窗口。
+     *
+     * onScroll 在滚动期间每帧（measure 阶段）调用一次，delta 为本帧位移——
+     * 用 wall-clock 差分求瞬时速度再 EMA 平滑。间隔异常（>200ms，滚动
+     * 停止后的残留调用/新手势）时重置，避免新手势首跨携带上一手势的
+     * 高速 EMA。
+     */
+    private fun updateVelocity(delta: Float): Int {
+        val now = System.nanoTime()
+        if (lastOnScrollNanos > 0) {
+            val dt = now - lastOnScrollNanos
+            if (dt in 1_000_000L..100_000_000L) {
+                val v = kotlin.math.abs(delta) / (dt / 1_000_000_000f)
+                velocityEma += EMA_ALPHA * (v - velocityEma)
+            } else if (dt > CALL_GAP_RESET_NS) {
+                velocityEma = 0f
+            }
+        }
+        lastOnScrollNanos = now
+        return when {
+            velocityEma >= VELOCITY_FLING -> PREFETCH_AHEAD_FLING
+            velocityEma >= VELOCITY_FAST_DRAG -> PREFETCH_AHEAD_FAST_DRAG
+            else -> PREFETCH_AHEAD_SLOW_DRAG
+        }
     }
 
     override fun LazyListPrefetchScope.onVisibleItemsUpdated(layoutInfo: LazyListLayoutInfo) {
@@ -103,10 +158,12 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
         pendingIndex
     }
 
-    /** 复位（下次跳转重新调度） */
+    /** 复位（下次跳转重新调度；速度状态一并清零） */
     fun reset() {
         pendingIndex = -1
         lastScheduledJump = -1
         onCompleted = null
+        velocityEma = 0f
+        lastOnScrollNanos = 0L
     }
 }
