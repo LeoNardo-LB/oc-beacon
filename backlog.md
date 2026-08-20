@@ -1681,7 +1681,9 @@
 
 - **终局回归（第二轮，2026-08-20 02:30）**：全量单测 --rerun EXIT=0 全绿（含终端修复）；发送流 curl prompt → 流式渲染「收到」+ FSM 完成 + 输入恢复 ✓；token 环无回归（顶栏 8% 文本在位——f37f482d 修复经受住压缩+终端两轮改动）✓；FATAL=0 / AndroidRuntime E=0 ✓
 
-- [ ] **新增 P3：离线态终端打开的 sessionDirectory=null + 输入框层级缺失（终端失败路径 E2E 的次生观察，2026-08-20 登记）** `terminal` `edge-case`
+- [~] **新增 P3：离线态终端打开的 sessionDirectory=null + 输入框层级缺失（终端失败路径 E2E 的次生观察，2026-08-20 登记）** `terminal` `edge-case`
+  - **2026-08-20 观察①已修（de96758c）**：TerminalDelegate 门放行后 directory 仍空时经 reloadDirectory 兜底重拉（ChatViewModel 注入 getSession → fillDirectoryFromRetry 仅空时回填）；编译 ✅ 全量单测 ✅
+  - **观察②核查定性：不可达路径关闭**——真机实证（/tmp/termverify/）：会话列表完全由服务器 SSE/REST 驱动（无本地缓存渲染），离线冷启动停在「正在连接」页**无法进入会话页**；原 E2E 观察为瞬态连接窗口偶发捕获，当前架构下场景不可达。⚠️ 观察①待用户真机验收（需真实瞬断场景）
   - 观察①：服务器不可达时 openTerminalSession 的 sessionDirectory=null（会话未加载完 directory 即空）→ createPty 以 cwd=null 发出——瞬断恢复窗口（点击时断网、请求时恢复）下 PTY 会落到服务器默认目录而非会话目录。影响极小（网络全断时请求本就失败）
   - 观察②：离线冷启动进入的会话（未完成加载）中输入框不在 uiautomator 层级；同场景会话已加载时输入框在位（tv2_final 实证）——两条件行为不一致，疑与 loading/disabled 门控有关，待下次离线路径验证时顺带核对
   - 处置：登记不展开（触发条件苛刻、无用户报告）；若未来做离线体验优化一并处理
