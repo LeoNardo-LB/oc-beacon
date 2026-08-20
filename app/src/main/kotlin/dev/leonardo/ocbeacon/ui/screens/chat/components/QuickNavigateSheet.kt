@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -276,4 +277,36 @@ private fun JumpTargetRow(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         )
     }
+}
+
+
+/**
+ * QuickNavigateSheet 的读取范围包装（2026-08-20 第二轮滚动卡顿 B-F3）。
+ *
+ * 真机 Perfetto 定罪：最差帧 63.5% 耗在 Compose:recompose——currentMsgId/
+ * anchorTimestamp 两个 derived（读 layoutInfo）原先在 ChatMessageList 主体
+ *（~1200 行作用域）以 by 委托读取，每次滚动跨 item 就使整个主体失效重启
+ *（分片后 = 每个 chunk 交叉一次）。本包装把 .value 读取限制到此小作用域，
+ * 且仅在 show=true 时订阅——sheet 关闭期间零依赖、零重算、零重启。
+ */
+@Composable
+internal fun QuickNavigateHost(
+    show: Boolean,
+    jumpTargets: List<JumpTarget>,
+    questionMsgIdState: State<String?>,
+    anchorTimestampState: State<Long?>,
+    isLoading: Boolean,
+    onJump: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (!show) return // 关闭期间不读取 derived（B-F3 核心：无订阅则无重算）
+    QuickNavigateSheet(
+        show = show,
+        jumpTargets = jumpTargets,
+        currentMsgId = questionMsgIdState.value,
+        anchorTimestampMs = anchorTimestampState.value,
+        isLoading = isLoading,
+        onJump = onJump,
+        onDismiss = onDismiss,
+    )
 }

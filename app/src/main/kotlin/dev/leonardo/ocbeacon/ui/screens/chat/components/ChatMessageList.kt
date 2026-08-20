@@ -424,11 +424,17 @@ fun ChatMessageList(
     // 当前可见问题（msgId 驱动，与 Room 全量列表的 JumpTarget.msgId 匹配高亮）。
     // 2026-08-12 修复：基于 displayItems 显示序列（原 rawMessages 索引与显示序列
     // 不一致导致 currentMsgId 恒为 null——见 JumpTargetExtractor 注释）。
-    val currentQuestionMsgId by remember(displayItems, bannerCount, chatEntries) {
+    // 2026-08-20 B-F3：只建 State 对象不在此读取——原 by 委托在 ChatMessageList
+    // 主体（~1200 行组合作用域）读取 .value，每次滚动跨 item 触发整个主体重启
+    //（分片后 = 每个 chunk 交叉）；读取下沉到 QuickNavigateHost 小作用域 +
+    // 条件订阅（sheet 关闭时零依赖零重算——这两个 derived 读 layoutInfo，
+    // 重算本身也贵，关闭期间完全没有必要算）。真机 Perfetto 定罪：最差帧
+    // 63.5% 时间在 Compose:recompose（重组读放大是头号根因）。
+    val currentQuestionMsgIdState = remember(displayItems, bannerCount, chatEntries) {
         derivedStateOf { findCurrentQuestionMsgId(listState, displayItems, bannerCount, chatEntries.entryDisplayIndex) }
     }
     // 当前可见区域时间锚点（快速导航打开时降级定位用——见 QuickNavigateSheet）
-    val currentAnchorTimestamp by remember(displayItems, bannerCount, chatEntries) {
+    val currentAnchorTimestampState = remember(displayItems, bannerCount, chatEntries) {
         derivedStateOf { findCurrentAnchorTimestamp(listState, displayItems, bannerCount, chatEntries.entryDisplayIndex) }
     }
 
@@ -1408,12 +1414,13 @@ fun ChatMessageList(
                 }
             }
 
-            // 快速导航底部弹窗
-            QuickNavigateSheet(
+            // 快速导航底部弹窗（B-F3：经 Host 包装——derived 读取发生在
+            // Host 小作用域，且仅在 show=true 时订阅/重算）
+            QuickNavigateHost(
                 show = showQuickNavigate,
                 jumpTargets = jumpTargets,
-                currentMsgId = currentQuestionMsgId,
-                anchorTimestampMs = currentAnchorTimestamp,
+                questionMsgIdState = currentQuestionMsgIdState,
+                anchorTimestampState = currentAnchorTimestampState,
                 isLoading = jumpTargetsLoading,
                 onJump = { msgId -> jumpToMessage(msgId) },
                 onDismiss = onQuickNavigateDismiss,
