@@ -148,3 +148,39 @@ crash buffer 空。多服务器场景无第二台真实服务器，由 C4 teardo
 - **Maestro E2E 套件普查（35 文件）**：与批次相关的现成链——regression-unread-chain-a/b.yaml（#171 红点出现/消费清除/杀进程持久）、l2-session-load-more + e2e-large-file-pagination（#172 分页回归）、e2e-chat-flow/l4-chat-ui（#173）、perf-session-scroll（全批次滚动基准）。⚠️ 如实标注：chain A 依赖真实 LLM turn 完成，测试服务器 LLM 链路不可用（#170 时已实证 prompt 200 无生成）——#171 真机验证以 chain B 消费/重启半链 + 既有会话水位线 + 人工清单为主，A 链缺口记录。
 - **全量单测基线（工作树 fc251f41）**：--rerun 新鲜执行 1802/1802 绿 0 跳过（XML 汇总解析）。backlog-check 通过（#184 > #183，201 行）。
 
+## 五候选总设计定案（2026-08-21，用户 grilling 作答 21/23，Q171-2/3 已讲透推荐 A 待最终确认）
+
+### 跨切面
+
+- **G1 顺序**：171 → 174 → 175 → 172 → 173（依赖与风险形状：#171 独立且封真实静默破坏路径并顺带瘦身 #173 的输入；#174 小而干净先稳 SessionStateService 形状；#175 纯清理缩小表面积；#172 大 data 层翻转；#173 大 UI 重组吃前四项红利）
+- **G2 验证范围**：通用协议（分段 compile+commit / JVM / 全量 --rerun / assemble+真机）之上——#171 加 DB 回读污染反例 JVM + 真机红点四态；#174 迁移 3 测试文件 ~30 处 + 真机 FSM 烟雾；#175 现有测试 + 真机烟雾；#172 策略双版本 JVM + 真机 V2 全流程（V1 缺口如实标注，模拟器走查可选）；#173 对话全生命周期 E2E + 维度 5
+- **G3 验收**：每候选依次真机 E2E（自动化证据齐即转 `[~]`）+ 批次末人工统一测试（用户定，含 #170 一并）
+- **G4 落地**：本章节即总设计记录；CONTEXT.md 术语随各候选实现添加
+
+### #171 未读红点时钟域（Q1/Q4-Q8 已定，Q2/Q3 推荐 A 待确认）
+
+- Q1=A **全吸收**：水位线 + 已读（写+读）+ 判定全收进 UnreadBadgeService；SessionReadSignal 并入（Q5=A）；markRead/markAllRead 读模块自身水位线不再扫消息缓存
+- Q4=A 判定为模块方法 hasUnread(sessionId, status)，status 由调用方传入（FSM 域留外）
+- Q6=A markAllSessionsRead 跨服务器 globalMax 混合**不动**，登记新 backlog 卡
+- Q7=A 沿用 UnreadBadgeService 原位深化；Q8=A 三段式（①interface 事件化+泄漏封死 ②已读侧吸收+判定入模块 ③JVM 测试），每段 compile+commit
+- Q2 待确认，**推荐 A 切断消费侧**：红点时间源只消费事件载荷（SSE payload/REST 响应原始数据），永不扫合并缓存或 DB 回读消息列表——markSessionIdle 客户端 now 对展示域正当，泄漏在红点域去"读"它
+- Q3 待确认，**推荐 A 事件对象**：sealed UnreadEvent（ServerMessageCompleted(serverTs)/RestSnapshot(serverTs)/SessionErrorOccurred(clientNow 故意例外，research/11 定案)）——时钟域编码进类型，传错编译不过；B 命名约定与现状同级
+
+### #174 SessionStateService 8 旋钮 → 1 必需协作者（全 A）
+
+Q1=A 单 interface 8 方法全抽象无默认（漏接=编译错误）；Q2=A 独立 @Singleton SessionStateCollaboratorImpl（data/repository/，构造注入 messageHandler/sessionHandler/questionHandler/permissionHandler/sessionRepoProvider/pendingMessagePipelineProvider——已验证无环），EventDispatcher.init 75 行接线块整体迁入；Q3=A 命名 SessionStateCollaborator(+Impl)；Q4=A 测试 ~30 处 var 赋值改构造 fake（3 文件经 newService() 工厂单点改造）；Q5=A sessionMovedListener/onSessionError 两桥接不纳入（EventDispatcher 本职，onSessionError 归 #171 域）
+
+### #175 顺手清理四件（Q1 全做 + Q2 照此）
+
+①ChatMessageList 双调用点参数化合一（4 差异内移，ChatScreen 编辑协议）②删三壳 handler（MessageEventHandler 实现 SseEventHandler 5 分支 + registry 单 bind；Boolean 签名保留——5 测试文件 ~20 处识别契约）③shouldSuppressEvent 并入 shouldSuppress（9 生产调用点 + 过期测试节标题修正 + #137 重复注释收敛）④ScrollPositionDelegate 死代码删除（82 行 + 测试文件）。Q2=A 补 5+1 识别契约 JVM 测试
+
+### #172 V1/V2 seam（Q1=A，Q2-Q4 照推荐）
+
+- Q1 用户规则落定："B 若非彻底根治则选 A"——B 不是根治（拆的是健康组织：门面已收敛，病灶全在门外），**定 A 泄漏收编+策略抽出**：①PaginationCursorPolicy 双实现收编 6 处泄漏 + 删 isV2Server（isV2 从 domain/UI 绝迹）②ServerCapabilities 作 ServerConnection 派生属性（when(apiVersion) 纯映射，resolveConnection 每次重建=天然新鲜）收编 UI 门控。**god-client 不拆**，门面 78 if 保持，登记终局债务
+- Q2 PaginationCursorPolicy（~5 方法）domain 层接口+V1/V2 实现，工厂 for(serverId) 内读一次版本；V2 实现整协议移植（不传 cursor 拉最新+cursor.next 续页+空页兜底——行为规格来源=MessagePaginationUseCase:85-104 与 SessionStateService:630-674 注释链）
+- Q3 ServerCapabilities = ServerConnection 派生属性；Q4 门面测试不动+策略双版本 JVM+泄漏点测试改注入 fake 策略，V1 缺口如实标注
+
+### #173 ChatViewModel 状态簇（Q1/Q3/Q4=A，Q2/Q5 照推荐）
+
+Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext 被依赖 ②ConversationData 含 SSE 生命周期单一入口 ③Composer ④ModelConfig 自反馈环原样 + 外围 Terminal/Settings+Tasks；abort/revert 编排留薄 VM）；Q3=A uiState 退役 + 重写 6 harness；Q4=A 死代码已并入 #175；Q5=四段串行（Terminal 迁出 → 簇内部成型 → UI 按子组件串行迁移 → 测试重写），ChatScreen 编辑协议每步 compile+commit
+
