@@ -1783,8 +1783,8 @@
 - **MIUI 安装通道经验**：全新安装（非覆盖）一律弹用户确认（pm/cmd package/session 均拦），需用户点允许；覆盖升级（同签名 -r）静默。debug↔release 签名切换需 uninstall 重装（数据经 intent 重配）。
 - **调研沉淀（/tmp/perf-round3/research.md，357 行 31 来源）**：FrameMetrics 产自 app 进程 HWUI 与 HyperOS SF 无关（可信）；回调须拷贝+去重（b/206956036）；JankStats 1.0.0 无相位分解；graphicsLayer 加 item 可实现纯平移但有条件与代价。
 - **遗留登记**：
-  - [ ] **P3：PerfMon 观察者效应改进** `perf` `dev-infra`——HUD 移独立 overlay window（当前同窗口 Compose HUD 有污染）+ FrameMetrics 拷贝/去重 + Choreographer 心跳门控。工时 ~2h | 难度：中
-  - [ ] **P2：Baseline Profile** `perf`——release 已证实收益空间（p95 7.9ms 仍有预算内波动），手工 app/src/main/baseline-prof.txt 圈 chat UI 热路径。工时 ~3h | 难度：中
+  - [x] **P3：PerfMon 观察者效应改进** `perf` `dev-infra` ✅ 2026-08-20 第四轮交付（dc57cba0：VSYNC 去重/dropCount 记账/独立悬浮窗 HUD）——悬浮窗授权真机走查待用户
+  - [x] **P2：Baseline Profile** `perf` ✅ 2026-08-20 第四轮交付（5b284b4c：APK 内 baseline.prof + 真机 ProfileInstaller 安装日志确认）
   - [ ] **P3：慢拖残余 ~18ms 偶发尖刺** `perf`——F5 后残余（draw 4-8ms + input 3-5ms），量少（12 轮 10 条）；候选：预取 idle_frame 深挖。工时 ~2h | 难度：中
 
 ## 2026-08-20 第二轮滚动卡顿深度调查批次（120Hz 帧预算口径重建）
