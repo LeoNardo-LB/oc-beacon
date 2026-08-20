@@ -16,8 +16,8 @@ object RaceProbe {
     @Volatile
     var isEnabled: Boolean = false
 
-    fun probe(message: String) {
+    fun probe(message: () -> String) {
         if (!isEnabled) return
-        AppLogger.w("RaceProbe", message)
+        AppLogger.w("RaceProbe", message())
     }
 }

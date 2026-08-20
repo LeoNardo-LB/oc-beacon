@@ -144,6 +144,21 @@ class JumpNavigationController(
     private val _phase = MutableStateFlow<JumpPhase>(JumpPhase.Idle)
     val phase: StateFlow<JumpPhase> = _phase
 
+    // ============ 2026-08-20 A-F1/D-1 竞态根治：Job 管理 + 代际令牌 ============
+    // 旧实现 jumpTo/jumpToTask 各自 scope.launch 且无取消——快速连跳时旧
+    // measureAndSettle（含 Displayed 后 1.5s 稳定窗口的每 150ms scrollBy 修正）
+    // 继续运行：两个位置写者互搏（终停位置=最后写者，可停在中段 chunk）+
+    // targetKeyPrefix 共享可变（旧协程查错 key）+ 旧协程 TimedOut 写穿新跳转
+    // 的 Preparing/Measuring 成 Failed（蒙版提前消失 + 门控时间戳被骗开）。
+    // 修复：新跳转取消旧 Job；协程内用 isActive 防写穿（取消即放弃写 phase）。
+    private var activeJob: kotlinx.coroutines.Job? = null
+
+    /** 发起新代际：取消旧跳转协程（含稳定窗口）。 */
+    private fun cancelPreviousJump() {
+        activeJob?.cancel()
+        activeJob = null
+    }
+
     /** 当前跳转目标 msgId（MessageCardUser 门控判断用）。 */
     var currentTargetMsgId: String? = null
         private set
@@ -160,10 +175,12 @@ class JumpNavigationController(
 
     /** 跳转（快速导航——user 消息目标）。 */
     fun jumpTo(msgId: String, lazyIndex: Int, preParseText: String?) {
+        cancelPreviousJump() // A-F1/D-1：旧代协程（含稳定窗口）立即失效
         targetKeyPrefix = "u"
         currentTargetMsgId = msgId
         _phase.value = JumpPhase.Preparing(msgId)
-        scope.launch {
+        activeJob = scope.launch {
+            try {
             // Preparing：预解析（后台）→ ParsedReady
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: Preparing 开始 msg=${msgId.take(12)}")
             if (preParseText != null) readiness.preParse(msgId, preParseText, scope)
@@ -179,15 +196,20 @@ class JumpNavigationController(
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 进入测量 msg=${msgId.take(12)} idx=$lazyIndex")
             // Measuring：一次定位到最终位置（估算高度——目标不再移动，避免回收振荡）
             measureAndSettle(msgId, lazyIndex)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // 被新跳转取消：静默退出（新代已接管 phase/滚动，不写穿）
+                throw e
+            }
         }
     }
 
     /** 定位发起卡片（assistant 目标——同状态机，参数化目标）。 */
     fun jumpToTask(lazyIndex: Int, targetMsgId: String) {
+        cancelPreviousJump() // A-F1/D-1：同 jumpTo
         targetKeyPrefix = "t"
         currentTargetMsgId = targetMsgId
         _phase.value = JumpPhase.Preparing(targetMsgId)
-        scope.launch {
+        activeJob = scope.launch {
             // 无预解析（assistant 目标）——直接进入测量
             _phase.value = jumpTransition(_phase.value, JumpEvent.ParsedReady)
             measureAndSettle(targetMsgId, lazyIndex)
@@ -299,9 +321,19 @@ class JumpNavigationController(
         _phase.value = jumpTransition(_phase.value, JumpEvent.Settled)
         if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: Displayed（渐进定位完成）")
 
-        // 稳定窗口：显示后 1.5s 静默监控——gap 变化（SSE/布局重测量）则静默修正
-        for (round in 1..10) {
+        // 稳定窗口（C-R2/D-4 修正 2026-08-20）：显示后监控 gap 变化并静默修正。
+        // 旧版 1.5s（10×150ms）且 scroll{} 走 MutatorMutex——用户跳转后立即滚动
+        // 会被修正循环『杀死』（滚动卡主因）；且 1.5s 协程 delay vs 2s 墙钟门控
+        // 在巨帧下时钟错配。改为：用户开始触摸即退出窗口（isScrollInProgress
+        // 由手势置位）+ 总时长缩至 900ms + gap 显著才修（>8f，小漂移不抢滚动）。
+        val settleStart = android.os.SystemClock.elapsedRealtime()
+        while (android.os.SystemClock.elapsedRealtime() - settleStart < 900) {
             kotlinx.coroutines.delay(150)
+            if (listState.isScrollInProgress) {
+                // 用户已接管滚动——立即放弃修正（不再与手势对拉）
+                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 稳定窗口提前退出（用户滚动）")
+                break
+            }
             listState.scroll {
                 val info4 = listState.layoutInfo
                 val it4 = findJumpTargetItem(info4.visibleItemsInfo, targetKey(msgId))
@@ -309,7 +341,7 @@ class JumpNavigationController(
                     val vh4 = (info4.viewportEndOffset - info4.viewportStartOffset).toFloat()
                     val pt4 = -info4.viewportStartOffset.toFloat()
                     val gap4 = computeGap(it4.offset, it4.size, vh4, pt4)
-                    if (kotlin.math.abs(gap4) > 2f) scrollBy(gap4)
+                    if (kotlin.math.abs(gap4) > 8f) scrollBy(gap4)
                 }
             }
         }

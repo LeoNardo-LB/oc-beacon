@@ -121,7 +121,13 @@ internal fun buildChatEntries(
         } else {
             "t_" + (turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id)
         }
-        val plan = if (!msg.isUser && streamingMsgId == null && turnKey !in recentStreamedTurnKeys) {
+        // C-R3 修复（2026-08-20 spec/impl 背离）：原条件 streamingMsgId == null 是
+        // 全局粒度（任一消息流式 → 全表 chunked turn 合并为单 item；流式结束
+        // → 全表再裂变）——视口内 key 双向翻转无门控 = 叠放竞态源 + 流式期长
+        // turn 巨帧回归。改为 turn 粒度：仅流式消息所在 turn 不分片，其余照常。
+        val isStreamingTurn = streamingMsgId != null &&
+            (turnGroups[displayIdx] ?: listOf(msg)).any { it.message.id == streamingMsgId }
+        val plan = if (!msg.isUser && !isStreamingTurn && turnKey !in recentStreamedTurnKeys) {
             val turnMsgs = turnGroups[rawIndex] ?: listOf(msg)
             turnMsgs.firstNotNullOfOrNull { cm ->
                 cm.parts.firstOrNull { it is Part.Text && it.id in chunkPlans }?.let { chunkPlans[it.id] }
