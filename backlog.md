@@ -1725,7 +1725,7 @@
   - **根因 ②：超长消息单 LazyItem 组合巨帧**（已修 0faa6984）——一条 130K 字符消息 = 一个 LazyItem；LazyColumn 子项滚动方向无限高约束 → 首次组合必须同步建完整棵 Markdown 树（trace 单个 Compose:recompose scope 49.7ms；prefetch:measure max 150ms——item 是预取原子单位）。mikepenz 0.43.0 无块级懒加载参数（全部重载核对）、LazyMarkdownSuccess 不能嵌套同向列表 → 唯一治本 = LazyItem 粒度分片。实现：MarkdownChunking.kt（块级分片计划 MdChunkPlan + ChatEntry + buildChatEntries）+ ChatMessageList 发射 chatEntries + ChunkedAssistantMessage 分段渲染（首段标签栏/末段统计栏、分段圆角、SelectionContainer 按 chunk）+ MarkdownContent blockRange success 槽 + 流式/刚结束 turn 不分片（recentStreamedTurnKeys 防视口 key 裂变闪跳）+ isTurnLast O(N²)→O(1) 查表（原每 assistant item 组合 subList 线性扫 rawMessages）+ 跳转索引 displayEntryStart 映射适配
   - **真机验证（0faa6984）**：验收测试会话AB（107 条含 3 条巨型）5 连发 fling 穿越巨型区：1836 帧 janky 0.27% p50=6ms p95=9ms p99=30ms（修复前 p50 61-73ms、400ms 巨帧、fling ~120ms 早死）；LEAP total=94（+35 items = 分片生效）连续翻越 chunk、RESIZE=0；视觉复核分段气泡无接缝/无重复头部；全量单测绿
   - **根因 ③（环境因素，非 App 缺陷）：GKD 无障碍服务对 Compose 的专属税**——用户真机常开 GKD（跳广告）。实测：GKD 开时聊天屏 p50 23-77ms（语义三件套 getAllUncoveredSemanticsNodes 219ms/8s + checkForSemanticsChanges 172ms + sendAccessibility...Events 143ms，最大帧 110-150ms）；系统 Settings（View 体系）同条件 0% jank——此税 Compose 专属（并行语义树 diff+派发）。已试 MessageBubble semantics(mergeDescendants) 收益噪声级（~10%）且流式期有 merged config 整气泡重建隐患 → 放弃（stash 已丢弃）。**无低风险 App 内修复**；结论：开着 GKD 的用户群体感知上限受限，为已知环境因素
-  - ⚠️ 待用户验收：真机手感复验（GKD 开/关两种状态）——尤其巨型消息会话的 fling
+  - ✅ 用户验收通过（2026-08-20）：三轮修复 + isAtBottom 下沉后的 devRelease 真机复验——"十分丝滑"（用户原话）。GKD 关闭状态；开 GKD 场景因服务已长期关闭未测，如重开且卡顿回归参照根因③结论
   - **基建沉淀**：/tmp/perf/*（frameparse.py 逐帧分解、phases.py 相位分解、perfetto trace-config + base64 直装法、drag/fling 场景脚本）+ 子代理报告（fling 根因含库源码核对路径 /tmp/mdn-src、a11y 备选方案评估）
 
 - **a11y 子代理报告附带发现（2026-08-20 登记）**：
