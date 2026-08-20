@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#177**。
+**编号**：全局递增，不回收。下一编号：**#184**。
 
 **优先级定义**：
 
@@ -44,12 +44,7 @@
 
 ## P0 — 主流程阻塞
 
-> 架构评审批次（2026-08-21，用户定 P0）：六候选 + 顺手清理，证据与设计定案全在 journal。#169 本批次实现，其余排队。
-
-- [~] **#169 架构评审候选 1：抽出渲染供给协调器 RenderSupplyCoordinator——已实现，待用户真机验收** `refactor` `ui`
-  - 三段式落地（cb0143f8/28ccee24/6f5bb63f）：~193 行驱动外移纯 Kotlin 模块 + 跳转门控收编 + 10 条 JVM 测试；1792 全量单测通过；真机 E2E 预解析窗口/跳转×2/crash 空
-  - 待用户验收：滚动手感 + 跳转观感（维度 5）；真机分片探针因服务器无 ≥3000 字符数据未触发（单测已全链覆盖，见 journal 覆盖缺口节）
-  - → `docs/journal/2026-08-21-arch-review-deepening.md` · `CONTEXT.md`
+> 架构评审批次（2026-08-21，用户定 P0）：六候选 + 顺手清理，证据与设计定案全在 journal。#169 已完结（用户验收 2026-08-21，归档 journal），当前推进 #170。
 
 - [ ] **#170 架构评审候选 2：每服务器连接生命周期 module（teardown 单入口）** `refactor`
   - 连接状态 ≥6 module 分持、teardown 双份、20+ 带日期竞态注释——收敛为 per-server 生命周期 module，Service 退化为纯 FGS adapter
@@ -108,6 +103,42 @@
   - 已实现并合回 master（25927de5）：V1 冷首连 ~3×（81-138ms→25-43ms），模拟器 E2E 5 项全过（含升级场景真机复现）
   - 剩余：真机复验（2026-08-20 真机优先方针）+ 回复 upstream issue #1
   - → `docs/journal/2026-08-21-issue1-v1-speed.md`
+
+- [ ] **#176 busy 气泡「堆积消息」TOCTOU 竞态：turn 在气泡打开期间结束 → 消息入队后永不自动发** `queue` `session`
+  - 弹气泡时 busy、点击「堆积消息」时 turn 已结束 → `enqueuePendingMessage` 无条件入队不重验 FSM 状态；而自动发送唯一触发器 `onNaturalTurnEnd` 在 turn 结束瞬间已 no-op 过（当时队列空）→ 消息滞留至手动「继续」
+  - 修复与 **#177 统一**：状态补偿 drain（FSM Idle + 队列非空 → 发送）为 #177 的超集方案，一并覆盖本条
+  - 代码锚点：`ui/screens/chat/input/SendStopButton.kt:217` · `ui/screens/chat/ChatViewModel.kt:158` · `data/repository/PendingMessagePipeline.kt:54,91`
+
+- [ ] **#177 堆积队列退出会话/切后台后滞留：边沿触发无补偿 → 改状态驱动 drain** `queue` `session`
+  - 三断点（2026-08-21 deep-explore 静态链验证）：①边沿错过即死（#176 同构）；②drain 时 POST 失败 → Idle+队列非空+无未来边沿的不动点（`PendingMessagePipeline.kt:92-95` "等下一次自然结束"假设结构性不成立）；③切后台断连后 L3 恢复的 RestValidation(Idle) 不在 naturalTurnEnd 白名单（`SessionStateService.kt:456-458`）→ 不推进
+  - 已排除：listener 生命周期（应用级单例接线 `EventDispatcher.kt:139-142`，退出会话不丢）与 SSE 存活（FGS+WakeLock 保护）
+  - 用户需求：会话退出后、app 切后台后队列均能自动发送；修复方向：应用级"FSM Idle + 队列非空 → drain"状态补偿（挂入既有 5s reconcile 循环 + enqueue 时查 statusFlow + RestValidation 确认 Idle 亦触发），统一覆盖 #176；手动「继续」入口可补会话列表长按
+
+- [ ] **#178 点发送/拉起 busy 气泡时软键盘被收起——应保持拉起** `ui` `input`
+  - 成因两路（2026-08-21 调查）：①气泡 `Popup(focusable=true)`（`SendStopButton.kt:223`）抢窗级焦点 → IME 收起；②发送路径无显式 hide，唯一候选是滚动触发 hide（`ChatScreen.kt:394-402`，发送后 forceScroll 在列表非底部时可能命中）
+  - 修复方向：气泡 `focusable=false` 保持键盘，副作用是返回键不再触发 onDismissRequest——需补 BackHandler 关闭；发送路径先深挖 forceScroll→hide 是否真实触发再定改法
+
+- [ ] **#179 消息气泡间距变大（主观）——常量未变，疑分片/空行化副作用，待定位** `ui`
+  - 已排除：`messageSpacing`=8dp 未变（`ChatScreen.kt:763`）、SpacingTokens 未变；两嫌疑（中置信）：①0faa6984（08-20）分片重构把巨型 turn 拆 chunk，首末段各保留标签栏/统计栏+vertPad；②92e2855c（08-20）≥3000 字符段落空行化撑高气泡内部
+  - 下一步需用户提供截图/确认是"气泡与气泡间"还是"气泡内部变高"再精确归因
+
+- [ ] **#180 subagent 卡片进行中无法点击进入子会话（结束后可点）** `session` `ui`
+  - 根因候选：点击导航依赖 metadata 中的 sessionId/jobId（`TaskToolCard.kt:84-98`），V2 服务器疑似仅在 completed 下发 childID（`V2Mappers.kt:326` 注释佐证）[推断] → Running 期间 clickAction=null，点击回落到展开切换而 output 为空 → 无可感知反应；且 `TaskToolCard.kt:101` showNavArrow 显式排除 isRunning（Running 时无导航箭头视觉提示）
+  - 待确认：Running 期间 SSE tool part metadata 实际内容（真机 logcat）；修复方向：补齐 Running 期 childID 解析或从 step 事件流关联
+  - 注：#148（08-16）「无法点击」为模拟器环境劣化已关闭，与本次主对话场景不同
+
+- [ ] **#181 subagent 卡片缺展开/收起按钮（结束后导航态下 chevron 消失）** `ui`
+  - 根因明确：`TaskToolCard.kt:113` `showExpandIcon = !showNavArrow`——卡片结束且有子会话时导航箭头与展开 chevron 互斥，chevron 被隐藏；同时标题行点击被导航覆盖（`ToolCardScaffold.kt:136` `onClick ?: onToggleExpand`）→ 展开入口完全消失，输出内容无法查看
+  - 修复方向：chevron 与导航箭头并存（showExpandIcon 独立于 showNavArrow），与 #180 一并处理
+
+- [ ] **#182 subagent 卡片展开内容截断——三层嫌疑，"之前修复"未动 UI/DB 两条截断链** `ui` `data`
+  - 三层：①UI 硬截断 `output.take(2000)`（`TaskToolCard.kt:179`，"展示一半戛然而止"最直接嫌疑）；②DB 落库 500 字符预览（#79 e7ca830f，设计声明"内存渲染完整"但未覆盖重进会话从 DB 回读场景——回读后最多 500 字符）；③半屏限高 + verticalScroll（`TaskToolCard.kt:167`，可滚动、疑非根因）
+  - git 考古：take(2000) 与 halfScreenHeight 均自旧提交 84476ccd 起未变，未见专门修复 commit [推断：用户记忆中的修复为 #79 落库批次或限高调整]
+  - 修复方向：take(2000) 改为分片渲染或取消 + DB 回读场景需完整 output 与 500 字符预览的取舍重评（与 #79 的 DB 体积目标冲突，需设计）
+
+- [ ] **#183 turn 分割线上下留空减半（用户期望明确）** `ui`
+  - 现值：`padding(vertical = compact 3dp : 6dp)`，两处同改：完整气泡 `MessageCardAssistant.kt:248` + 分片 chunk `MessageCardAssistant.kt:558`（RenderItem.TurnDivider 渲染）
+  - 改法：normal 6→3dp、compact 3→1.5dp；若减半后视觉仍偏高再查相邻 block spacing 叠加。markdown `---` 线（`MarkdownContent.kt:470`）仅 h1 下且非本条对象
 
 ## P2 — 优化与锦上添花
 
