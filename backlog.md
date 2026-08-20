@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#169**。
+**编号**：全局递增，不回收。下一编号：**#176**。
 
 **优先级定义**：
 
@@ -44,7 +44,35 @@
 
 ## P0 — 主流程阻塞
 
-（当前无未决项）
+> 架构评审批次（2026-08-21，用户定 P0）：六候选 + 顺手清理，证据与设计定案全在 journal。#169 本批次实现，其余排队。
+
+- [ ] **#169 架构评审候选 1：抽出渲染供给协调器 RenderSupplyCoordinator** `refactor` `ui`
+  - ChatMessageList ~190 行视口→预解析+分片 LaunchedEffect 外移为纯 Kotlin 模块（窄接口 + 相位/时钟注入）；五条隐含约束收进 implementation，9 条 JVM 测试钉死历史竞态根因；grilling Q1-Q11 已定案
+  - → `docs/journal/2026-08-21-arch-review-deepening.md` · `CONTEXT.md`
+
+- [ ] **#170 架构评审候选 2：每服务器连接生命周期 module（teardown 单入口）** `refactor`
+  - 连接状态 ≥6 module 分持、teardown 双份、20+ 带日期竞态注释——收敛为 per-server 生命周期 module，Service 退化为纯 FGS adapter
+  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+
+- [ ] **#171 架构评审候选 3：未读红点时钟域收进 interface** `refactor` `data`
+  - 三条铁律散 3 层 6 文件 + 静默泄漏路径（markSessionIdle 客户端 now 混入服务器域水位线）——单一 Unread module，interface 喂事件不喂裸时间戳
+  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+
+- [ ] **#172 架构评审候选 4：V1/V2 seam 按域翻转（79 决策点 → 7+1）** `refactor`
+  - 每域一 interface、V1/V2 各一 adapter，版本连接时选定一次；isV2 从 SessionStateService/分页用例收回 adapter 内
+  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+
+- [ ] **#173 架构评审候选 5：ChatViewModel delegate 按状态簇重组（消灭假 seam）** `refactor` `ui`
+  - UI 消费 98 成员 + delegate 间 sink 回写/lambda 互接——按状态簇重组为 3-4 个所有权完整 module；排序在 #169 之后
+  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+
+- [ ] **#174 架构评审候选 6：SessionStateService 8 回调旋钮 → 1 必需协作者** `refactor`
+  - 8 个可缺省 var 回调漏接即静默降级——收拢为单一接线 interface 构造期注入；FSM 单一真相源不动
+  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+
+- [ ] **#175 架构评审顺手清理三件（deletion test 全正）** `refactor`
+  - ChatMessageList 双调用点合一（ChatScreen 812-866）· 三个纯转发壳 handler + SseEventHandler 残留 Boolean · SessionFocusHolder 同体双胞胎方法合并
+  - → `docs/journal/2026-08-21-arch-review-deepening.md`
 
 ## P1 — 核心功能需求
 

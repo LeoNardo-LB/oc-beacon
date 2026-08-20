@@ -115,6 +115,8 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.MutableStateFlow
 import dev.leonardo.ocbeacon.util.MessageFingerprints
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.LocalCopyFeedback
@@ -377,45 +379,43 @@ fun ChatMessageList(
     }
 
     // ===== 2026-08-20 fling 巨帧根治：超长消息块级分片 =====
-    // 分片计划（预解析完成时计算，视口驱动 collector 写入——见下方 driver）。
-    // 快照粒度 = 整 Map 实例替换：写频率 = 长消息预解析完成（低频），
-    // 读方（entries 构建 remember）失效重算为纯 CPU 列表构建，无重组风暴
-    //（与 RenderReadinessRegistry 的教训对照：不在组合路径 per-key 读写快照 Map）。
-    var chunkPlans by remember { mutableStateOf<Map<String, MdChunkPlan>>(emptyMap()) }
-    // 2026-08-20 B-F2（视口内 key 裂变门控）：plan 就绪先入 pending 队列，
-    // 仅当所属 turn 不在视口时才提交进 chunkPlans——历史长消息以 t_id 进
-    // 视口后预解析完成 → 直接写 chunkPlans → key 裂成 t_id#c0..N +
-    // contentType 变化 → LazyColumn remove+insert+锚点修正 = 可见顿挫
-    //（症状1；recentStreamedTurnKeys 只覆盖流式 turn，历史消息无门控）。
-    // pending 条目 = partId to (plan, turnDisplayIdx)。
-    var pendingChunkPlans by remember { mutableStateOf<Map<String, Pair<MdChunkPlan, Int>>>(emptyMap()) }
-    // 流式刚结束的 turn 延迟分片（滚出预解析窗口后清除）——避免视口内
-    // key 从 1 裂成 N 的闪变（见 buildChatEntries 文档）。
-    val recentStreamedTurnKeys = remember { mutableStateOf<Set<String>>(emptySet()) }
+    // ===== 2026-08-21 架构评审候选 1：渲染供给协调器（Render Supply）=====
+    // 原 chunkPlans/pendingChunkPlans/recentStreamedTurnKeys 三个 Compose 状态 +
+    // ~190 行视口驱动 LaunchedEffect 收进 RenderSupplyCoordinator（纯 Kotlin，
+    // 可 JVM 单测）；本组合只保留只读流消费 + 快照装配桥。
+    // 跳转相位共享流：JNC 状态机驱动，协调器构造期直读（B-F3 语义）。
+    val sharedJumpPhase = remember { MutableStateFlow<JumpPhase>(JumpPhase.Idle) }
+    // 渲染就绪注册表（原声明位置上移——协调器构造依赖）。
+    val renderReadiness = remember { RenderReadinessRegistry() }
+    val renderSupply = remember {
+        RenderSupplyCoordinator(renderReadiness, coroutineScope, sharedJumpPhase)
+    }
+    val chunkPlans by renderSupply.chunkPlans.collectAsState()
+    val recentStreamedTurnKeys by renderSupply.recentStreamedTurnKeys.collectAsState()
 
     val lastStreamingMsgId = remember { mutableStateOf<String?>(null) }
     // ===== 2026-08-20 fling 巨帧根治：分片发射表（消息区 entries）=====
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
-    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys.value) {
+    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys) {
         dev.leonardo.ocbeacon.debug.RaceProbe.probe {
             "ENTRIES rebuild n=" + displayItems.size +
                 " chunkPlans=" + chunkPlans.size +
                 " streaming=" + (streamingMsgId != null) +
-                " recentN=" + recentStreamedTurnKeys.value.size
+                " recentN=" + recentStreamedTurnKeys.size
         }
-        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys.value)
+        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys)
     }
     val chatEntriesForPreparse = androidx.compose.runtime.rememberUpdatedState(chatEntries)
     // 流式结束瞬间记录 turn key（延迟分片——防视口内 key 裂变闪跳；
-    // 由预解析 driver 的窗口清理负责释放）。
+    // 由协调器的窗口清理负责释放）。
     LaunchedEffect(streamingMsgId) {
         if (streamingMsgId == null && lastStreamingMsgId.value != null) {
             val found = displayItems.indexOfFirst { (_, m) -> m.message.id == lastStreamingMsgId.value }
             if (found >= 0) {
                 val (ri, m) = displayItems[found]
                 val tk = "t_" + (turnGroups[ri]?.firstOrNull()?.message?.id ?: m.message.id)
-                recentStreamedTurnKeys.value = recentStreamedTurnKeys.value + tk
+                renderSupply.noteStreamTurnEnded(tk)
             }
         }
         lastStreamingMsgId.value = streamingMsgId
@@ -452,10 +452,6 @@ fun ChatMessageList(
     // "目标不在视口顶部"——logcat 实证 positioned 后被 auto-load 推走）。
     var jumpLockActive by remember { mutableStateOf(false) }
 
-
-    // 2026-08-13 架构根治：渲染就绪信号注册表（统一信号层——预解析、就绪
-    // 上报、awaitReady 消费；替代分散的 preParsed map + 轮询）
-    val renderReadiness = remember { RenderReadinessRegistry() }
 
     // ===== 临时诊断（ScrollDiag，2026-08-20 真机滚动取证，DEBUG-only，行为零变化）=====
     // ① 位置流 LEAP 检测：index/offset 在两次发射间异常跳变（程序化滚动/锚点修正）
@@ -509,6 +505,7 @@ fun ChatMessageList(
         JumpNavigationController(
             listState,
             coroutineScope,
+            sharedJumpPhase,
             resolveLazyIndex = { msgId ->
                 displayItemsForJump.value.indexOfFirst { it.second.message.id == msgId }
                     .takeIf { it >= 0 }
@@ -537,21 +534,11 @@ fun ChatMessageList(
     // 真机取证（ScrollDiag RESIZE）：assistant 长回复初次组合仅测得占位高度
     // （412px），markdown 异步解析完成后暴涨（412→16746px）→ LazyColumn 锚点
     // 修正 → fling 中视口瞬移 1.4 万 px（用户报"下跳"，长回复稳定复现）。
-    // 本驱动对视口前后 [PREPARSE_AHEAD] 项内的 assistant 长文本 part 提前
-    // 后台解析（RenderReadinessRegistry），消费端（MessageCardAssistant）
-    // 组合时直接取 Parsed state——首测即最终高度，消除渐进测量。
+    // 2026-08-21 候选 1：驱动决策外移 RenderSupplyCoordinator——本桥只做
+    // snapshotFlow 视口采集 + 世界快照装配（窗口/门控/LRU/提交全在协调器）。
     val displayItemsForPreparse = androidx.compose.runtime.rememberUpdatedState(displayItems)
     val turnGroupsForPreparse = androidx.compose.runtime.rememberUpdatedState(turnGroups)
-    // 2026-08-20 D 修复：B-F2 提交门控升级——原 !jumpLockActive 在状态机终点
-    // 300ms 后解锁，但稳定窗口（Displayed 后 1.5s 静默监控）仍在跑：期间 pending
-    // 分片提交使窗口边缘 turn key 裂变 → LazyColumn remove+insert remeasure 竞态
-    // → 单帧 item 叠放错乱（用户报『一条消息浮在另一条上、回复被拦腰斩断』，
-    // 低概率瞬态）。升级为：phase 完全回 Idle 后再等 500ms 才允许提交。
-    //（2026-08-21：jumpPhaseForPreparse 死变量已删——B-F3 修正后门控直读
-    // phase.value，此 rememberUpdatedState 无消费者，且其组合期读 jumpPhase
-    // 是全主体重组的最后一处贡献者。）
     val streamingMsgIdForPreparse = androidx.compose.runtime.rememberUpdatedState(streamingMsgId)
-    val preparseSeenKeys = remember { LinkedHashSet<String>() }
     LaunchedEffect(listState, bannerCount) {
         snapshotFlow {
             val info = listState.layoutInfo
@@ -562,167 +549,18 @@ fun ChatMessageList(
                 "VIEW window " + firstIdx + ".." + lastIdx + " keys=" +
                     listState.layoutInfo.visibleItemsInfo.take(6).joinToString(",", "[", "]") { "${it.key}" }
             }
-            val registry = renderReadiness
-            val items = displayItemsForPreparse.value
-            val groups = turnGroupsForPreparse.value
-            val window = LinkedHashSet<String>()
-            // 2026-08-20 分片适配：±PREPARSE_AHEAD 窗口语义保持 display 粒度
-            //（entry index 先映射 displayIndex 再扩展——chunk 化后 ±8 entries
-            // ≈ ±2 turns，物理窗口缩水会导致预解析供给不足）。
-            val entriesNow = chatEntriesForPreparse.value
-            val firstDisplay = entriesNow.entryDisplayIndex
-                .getOrNull((firstIdx - bannerCount).coerceAtLeast(0)) ?: 0
-            val lastDisplay = entriesNow.entryDisplayIndex
-                .getOrNull(lastIdx - bannerCount) ?: (items.size - 1)
-            val head = (firstDisplay - PREPARSE_AHEAD).coerceAtLeast(0)
-            val tail = (lastDisplay + PREPARSE_AHEAD).coerceAtMost(items.size - 1)
-            for (di in head..tail) {
-                if (di !in items.indices) continue
-                val (rawIdx, msg) = items[di]
-                if (!msg.isAssistant) continue
-                val turnMsgs = groups[rawIdx] ?: continue
-                // B-F2 修复：跳过流式 turn——流式中途的部分文本快照若被预解析，
-                // registry 永不重析 → 分片渲染部分 AST = 回复尾部永久截断
-                // （末段带统计栏显得完整，极具迷惑性）
-                val streamingNow = streamingMsgIdForPreparse.value
-                if (streamingNow != null && turnMsgs.any { it.message.id == streamingNow }) continue
-                for (cm in turnMsgs) {
-                    for (part in cm.parts) {
-                        if (part is Part.Text &&
-                            part.text.length >= PREPARSE_MIN_CHARS &&
-                            part.synthetic != true && part.ignored != true &&
-                            // 与 PartContent 的 CollapsibleQuestionPart 分支保持互斥
-                            !part.text.contains("User has answered")
-                        ) {
-                            // key = part.id（服务器全局唯一；多消息 turn 下代表消息
-                            // id 与 part 归属消息可能不一致，不能混入 msgId）
-                            val key = part.id
-                            window.add(key)
-                            if (registry.current(key) is RenderReadiness.Pending) {
-                                val textForParse = part.text
-                                registry.preParse(
-                                    key,
-                                    normalizeForRender(textForParse, isUser = false),
-                                    coroutineScope,
-                                ) { st ->
-                                    // 2026-08-20 分片：巨型 part 解析完成即计算块级
-                                    // 分片计划（主线程回调）——后续该 turn 进入视口时
-                                    // 按计划发射 N 个 chunk item（见 buildChatEntries）。
-                                    if (textForParse.length >= CHUNK_MIN_CHARS) {
-                                        computeChunkPlan(key, st, CHUNK_MIN_CHARS, CHUNK_TARGET_CHARS)
-                                            ?.let { plan ->
-                                                if (BuildConfig.DEBUG) {
-                                                    AppLogger.d(
-                                                        "ScrollDiag",
-                                                        "CHUNK plan part=" + key.take(14) +
-                                                            " blocks=" + st.node.children.size +
-                                                            " chunks=" + plan.ranges.size
-                                                    )
-                                                }
-                                                // B-F2：入 pending 队列，视口外才提交
-                                                pendingChunkPlans = pendingChunkPlans +
-                                                    (key to (plan to di))
-                                            }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // 有界性（#98 同款防无界增长）：裁剪窗口外条目，LRU 上限。
-            // 注：chunkPlans 不随 LRU 淘汰——分片中的 turn 需要稳定计划（视口内
-            // 淘汰会导致 chunk key 消失→回退单 item→巨帧回归）；巨型消息每会话
-            // 个位数，AST 常驻内存可忽略（130K 字符 ≈ 400KB/条）。
-            preparseSeenKeys.removeAll { it !in window }
-            preparseSeenKeys.addAll(window)
-            while (preparseSeenKeys.size > PREPARSE_LRU) {
-                val oldest = preparseSeenKeys.firstOrNull() ?: break
-                preparseSeenKeys.remove(oldest)
-                registry.remove(oldest)
-            }
-            // recentStreamedTurnKeys 有界清理：turn 离开窗口（display 粒度）即允许分片
-            if (recentStreamedTurnKeys.value.isNotEmpty()) {
-                val windowKeys = buildSet {
-                    for (di in head..tail) {
-                        if (di !in items.indices) continue
-                        val (ri, m) = items[di]
-                        add(if (m.isUser) "u_" + m.message.id
-                            else "t_" + (groups[ri]?.firstOrNull()?.message?.id ?: m.message.id))
-                    }
-                }
-                recentStreamedTurnKeys.value =
-                    recentStreamedTurnKeys.value.filterTo(mutableSetOf()) { it in windowKeys }
-            }
-            // B-F2：pending 分片计划提交——仅当所属 turn 离开预解析窗口
-            //（head..tail，±PREPARSE_AHEAD display 粒度）才写入 chunkPlans。
-            // 视口/窗口内保持单 item（key 稳定不裂变）；turn 离开窗口后
-            // 裂变点远离视口（±8 item 缓冲），预取到它时已是分片版。
-            //
-            // 2026-08-20 竞态根治（第五轮叠放 bug）：三处修复——
-            // F1 锚点重解析：旧实现存入队时 display index（di），loadAround 整批
-            //   upsert 重建 displayItems 后 di 全部失效 → 过滤器用陈旧索引判定 →
-            //   视口内 turn 被误提交裂变 = 气泡叠放/语义树破坏根因。现提交时用
-            //   partId 反查当前 turn 的 display index（陈旧即重算，永不失配）。
-            // F2 视口内防线：重解析后 index 仍在预解析窗口内 → 本轮跳过不提交
-            //   （等真正滚出窗口）——即使 F1 有遗漏也不会视口内裂变。
-            // F3 门控回退：D 版 2s 冻结让预取在跳转后组合未分片长消息（巨帧=滚动
-            //   卡）且放大 di 陈旧暴露窗口。锚点化后视口内裂变已不可能误伤，
-            //   门控收回为『跳转进行中或稳定窗口内不提交』（终点+2s 内），
-            //   其余时间恢复供给。
-            // B-F3 修正：直读 StateFlow.value（同步快照）——rememberUpdatedState
-            // 桥有 1-2 组合帧滞后，新跳转启动瞬间门是开的（跳转进行中提交）。
-            val phaseNow = jumpController.phase.value
-            // 门控：非终态全挡（Preparing/Measuring/Settling）；终态在打点后
-            // 2s 内=稳定窗口也挡（墙钟口径；D-4 的时钟混用已通过稳定窗口改为
-            // 短窗口缓解——见 measureAndSettle 尾部调整）。
-            val jumpActiveOrSettling = phaseNow !is JumpPhase.Idle &&
-                phaseNow !is JumpPhase.Displayed && phaseNow !is JumpPhase.Failed ||
-                (lastJumpEndAtMillis > 0L &&
-                    android.os.SystemClock.elapsedRealtime() - lastJumpEndAtMillis < 2000)
-            if (pendingChunkPlans.isNotEmpty() && !jumpActiveOrSettling) {
-                // F1：partId → 所属消息 → turn 首 key → 当前 display index
-                fun resolveTurnDisplayIndex(partId: String): Int {
-                    for (di2 in items.indices) {
-                        val (ri2, m2) = items[di2]
-                        val msgs2 = groups[ri2] ?: listOf(m2)
-                        if (msgs2.any { cm -> cm.parts.any { it.id == partId } }) return di2
-                    }
-                    return -1
-                }
-                val committed = HashMap<String, MdChunkPlan>()
-                val staleDropped = mutableListOf<String>()
-                for ((partId, planAndLegacyDi) in pendingChunkPlans) {
-                    val freshDi = resolveTurnDisplayIndex(partId)
-                    if (freshDi < 0) {
-                        // C-R4c 修复：所属 turn 已不在当前列表（被过滤/会话切换）
-                        // ——真正丢弃（从 pending 移除且不进 chunkPlans；旧实现
-                        // 反而提交了，与注释意图相反）
-                        staleDropped += partId
-                        continue
-                    }
-                    if (freshDi in head..tail) continue // F2：窗口内防线
-                    committed[partId] = planAndLegacyDi.first
-                }
-                if (staleDropped.isNotEmpty()) {
-                    pendingChunkPlans = pendingChunkPlans - staleDropped.toSet()
-                    dev.leonardo.ocbeacon.debug.RaceProbe.probe {
-                        "CHUNK drop-stale n=" + staleDropped.size
-                    }
-                }
-                if (committed.isNotEmpty()) {
-                    dev.leonardo.ocbeacon.debug.RaceProbe.probe {
-                        "CHUNK commit n=" + committed.size + " legacyDi=" +
-                            pendingChunkPlans.entries.joinToString(",", "[", "]") { (k, v) -> k.take(12) + "@" + v.second } +
-                            " window=" + head + ".." + tail
-                    }
-                    chunkPlans = chunkPlans + committed
-                    pendingChunkPlans = pendingChunkPlans - committed.keys
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d("ScrollDiag", "CHUNK commit(anchored) n=" + committed.size + " remain=" + (pendingChunkPlans.size - committed.size))
-                    }
-                }
-            }
+            renderSupply.onViewportChanged(
+                firstIdx,
+                lastIdx,
+                RenderSupplyWorld(
+                    displayItems = displayItemsForPreparse.value,
+                    turnGroups = turnGroupsForPreparse.value,
+                    entries = chatEntriesForPreparse.value,
+                    bannerCount = bannerCount,
+                    streamingMsgId = streamingMsgIdForPreparse.value,
+                    lastJumpEndAtMillis = lastJumpEndAtMillis,
+                ),
+            )
         }
     }
 
@@ -1622,23 +1460,7 @@ private fun ScrollBottomFab(
     }
 }
 
-/** 视口前后各预解析的 item 数（覆盖 fling/预组合窗口）。 */
-private const val PREPARSE_AHEAD = 8
-/** 只预解析超过该字符数的文本 part（短文本同步解析成本可忽略）。 */
-private const val PREPARSE_MIN_CHARS = 200
-/** 预解析条目 LRU 上限（Parsed state 持有 AST，防无界增长）。 */
-private const val PREPARSE_LRU = 32
-
-// ===== 2026-08-20 fling 巨帧根治：超长消息块级分片常量 =====
-// 低于 CHUNK_MIN_CHARS 的 part 不分片（单次组合 ~20 块内可容忍）；
-// 目标每片 ~CHUNK_TARGET_CHARS 字符（130K 消息 ≈ 26 片，单片组合 ~2ms）。
-// 2026-08-20 第二轮调优（C 审计：中文消息实测 ~48 字符/内容块——5000 字符
-// 单片 ≈100 内容块+50 EOL ≈150 组合单元，首组合 8-15ms 超 120Hz 帧预算
-// 8.33ms = 长消息内滚动卡顿）：目标降至 2500（≈52 内容块，首组合 ~4-6ms
-// 预算内），门槛 8000→3000 让 3K+ 消息即可分片；配合 normalizeForRender
-// 的超长段落空行化（splitOversizedParagraphs），巨型单段消息终于可切。
-private const val CHUNK_MIN_CHARS = 3000
-private const val CHUNK_TARGET_CHARS = 2500
+// 预解析/分片调参常量已随驱动外移 RenderSupplyCoordinator.companion（候选 1）。
 
 /**
  * 跳转定位 loading 蒙版（2026-08-21 D-11-2 从主体下沉为小组件）：

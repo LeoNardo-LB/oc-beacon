@@ -129,6 +129,10 @@ val LocalJumpController = androidx.compose.runtime.staticCompositionLocalOf<Jump
 class JumpNavigationController(
     private val listState: LazyListState,
     private val scope: CoroutineScope,
+    /** 2026-08-21 渲染供给抽出（架构评审候选 1）：相位流可注入——与
+     * RenderSupplyCoordinator 共享同一实例（其提交门控直读 phase.value）。
+     * 默认自建，既有调用点行为不变。 */
+    phaseFlow: MutableStateFlow<JumpPhase> = MutableStateFlow(JumpPhase.Idle),
     /** 2026-08-13：按 msgId 解析最新 lazy index（displayItems 变化后旧 index 失效——
      * SSE 插入新消息会改变目标 index——轮询 item=null 时重定位用）。 */
     private val resolveLazyIndex: (String) -> Int?,
@@ -139,7 +143,7 @@ class JumpNavigationController(
     private var targetKeyPrefix: String = "u"
 
     private fun targetKey(msgId: String): String = "${targetKeyPrefix}_$msgId"
-    private val _phase = MutableStateFlow<JumpPhase>(JumpPhase.Idle)
+    private val _phase = phaseFlow
     val phase: StateFlow<JumpPhase> = _phase
 
     // ============ 2026-08-20 A-F1/D-1 竞态根治：Job 管理 + 代际令牌 ============
