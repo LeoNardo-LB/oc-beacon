@@ -288,13 +288,20 @@ internal fun MarkdownContent(
         else -> MaterialTheme.colorScheme.primary
     }
 
-    val colors = markdownColor(
-        text = textColor,
-        codeBackground = codeBlockBg,
-        inlineCodeBackground = inlineCodeBg,
-        dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-        tableBackground = MaterialTheme.colorScheme.surfaceContainerLow,
-    )
+    // 2026-08-20 C-F4：remember（分片后一条消息 = N 个 MarkdownContent，
+    // 每次重组重建 N 份配置对象——typography 含 15+ TextStyle.copy；53 chunk
+    // 慢滚实测 p95 恶化 4ms）。key 含全部依赖（主题/密度/颜色角色）。
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+    val tableBackground = MaterialTheme.colorScheme.surfaceContainerLow
+    val colors = remember(textColor, codeBlockBg, inlineCodeBg, dividerColor, tableBackground) {
+        com.mikepenz.markdown.model.DefaultMarkdownColors(
+            text = textColor,
+            codeBackground = codeBlockBg,
+            inlineCodeBackground = inlineCodeBg,
+            dividerColor = dividerColor,
+            tableBackground = tableBackground,
+        )
+    }
 
     val bodyStyle = MaterialTheme.typography.bodyMedium.copy(
         color = textColor,
@@ -302,38 +309,40 @@ internal fun MarkdownContent(
         lineHeight = tokens.bodyLineHeight,
     )
 
-    val typography = markdownTypography(
-        h1 = MaterialTheme.typography.titleLarge.copy(
+    val mt = MaterialTheme.typography // C-F4：composable 读取提出，remember lambda 内不可读
+    val typography = remember(textColor, codeBlockFg, inlineCodeFg, linkColor, density, tokens, mt) {
+        com.mikepenz.markdown.model.DefaultMarkdownTypography(
+        h1 = mt.titleLarge.copy(
             color = textColor,
             fontSize = tokens.h1.fontSize,
             lineHeight = tokens.h1.lineHeight,
             fontWeight = tokens.h1.fontWeight,
         ),
-        h2 = MaterialTheme.typography.titleLarge.copy(
+        h2 = mt.titleLarge.copy(
             color = textColor,
             fontSize = tokens.h2.fontSize,
             lineHeight = tokens.h2.lineHeight,
             fontWeight = tokens.h2.fontWeight,
         ),
-        h3 = MaterialTheme.typography.titleMedium.copy(
+        h3 = mt.titleMedium.copy(
             color = textColor,
             fontSize = tokens.h3.fontSize,
             lineHeight = tokens.h3.lineHeight,
             fontWeight = tokens.h3.fontWeight,
         ),
-        h4 = MaterialTheme.typography.titleSmall.copy(
+        h4 = mt.titleSmall.copy(
             color = textColor,
             fontSize = tokens.h4.fontSize,
             lineHeight = tokens.h4.lineHeight,
             fontWeight = tokens.h4.fontWeight,
         ),
-        h5 = MaterialTheme.typography.bodyMedium.copy(
+        h5 = mt.bodyMedium.copy(
             color = textColor,
             fontSize = tokens.h5.fontSize,
             lineHeight = tokens.h5.lineHeight,
             fontWeight = tokens.h5.fontWeight,
         ),
-        h6 = MaterialTheme.typography.bodyMedium.copy(
+        h6 = mt.bodyMedium.copy(
             color = textColor.copy(alpha = tokens.h6.alpha),
             fontSize = tokens.h6.fontSize,
             lineHeight = tokens.h6.lineHeight,
@@ -369,6 +378,7 @@ internal fun MarkdownContent(
             ).toSpanStyle()
         ),
     )
+    }
 
     // 显式链接处理器——在此作用域捕获 LocalUriHandler，确保
     // 即使在 SelectionContainer 内部，链接点击也使用
@@ -470,6 +480,8 @@ internal fun MarkdownContent(
         )
     }
 
+    // padding 工厂返回 private data class 无法直接构造；工厂本身是纯小对象
+    // 分配（无 TextStyle.copy 风暴），保留每次调用（typography 才是重组大头）
     val padding = markdownPadding(
         block = spacing.block,
         list = 0.dp,
@@ -477,6 +489,9 @@ internal fun MarkdownContent(
         listItemBottom = spacing.listItemBottom,
         listIndent = 4.dp,
     )
+
+    // C-F4：animations 每次 Markdown() 调用重建新 lambda —— 提为单实例
+    val animations = remember { com.mikepenz.markdown.model.DefaultMarkdownAnimation(animateTextSize = { this }) }
 
     // 2026-08-13 根本方案：预解析结果存在时直接用 Markdown(state) 重载渲染
     //（无解析等待/loading——内容直接是最终状态）
@@ -491,7 +506,7 @@ internal fun MarkdownContent(
                 typography = typography,
                 components = components,
                 padding = padding,
-                animations = markdownAnimations(animateTextSize = { this }),
+                animations = animations,
                 imageTransformer = Coil3ImageTransformerImpl,
                 modifier = Modifier.fillMaxWidth(),
                 success = chunkSuccessSlot(blockRange),
@@ -503,7 +518,7 @@ internal fun MarkdownContent(
                 typography = typography,
                 components = components,
                 padding = padding,
-                animations = markdownAnimations(animateTextSize = { this }),
+                animations = animations,
                 imageTransformer = Coil3ImageTransformerImpl,
                 modifier = Modifier.fillMaxWidth(),
             )
