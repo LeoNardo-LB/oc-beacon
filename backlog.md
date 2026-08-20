@@ -1716,6 +1716,18 @@
   - 现象：移除网络后进会话，消息正文/统计行从 Room 完整渲染，但顶栏 context 圆环不显示——showContext 要求 contextWindow>0 且 lastContextTokens>0，前者来自 /api/provider 等会话级 REST（离线全败），无本地持久化
   - 现状定性：ChatViewModel.kt:568-571 注释已声明该隐藏为可接受行为（非缺陷）；仅当用户期望离线可见时才需做——方向：contextWindow 随会话元数据落库
   - 工时：~2h | 难度：低 | 涉及：ChatViewModel / 会话元数据存储 | 优先级：P3
+## 2026-08-20 滚动卡顿深度调查批次（用户"还是卡"→ 三层根因全修）
+
+- [~] **真机滚动仍有卡顿（用户复报）→ 系统性帧级取证定位三层根因，全部修复** `ui` `perf`
+  - 用户报告（2026-08-20）：上一批修复后滑动手感仍卡（慢拖 + fling 都一顿一顿/不跟手）
+  - **取证方法**：dumpsys gfxinfo framestats 逐帧分解 + Perfetto atrace（UI 线程 slice 解剖 + 主线程 busy 直方图）+ 系统 Settings 对照（同注入 246 帧 0.41% janky = 设备/注入无罪）+ Room sqlite 直查（定位 3 条 111-130K 字符巨型消息）+ 子代理 ×2 只读调查（fling 巨帧根因 / a11y 语义树方案）
+  - **根因 ①：RenderReadinessRegistry 快照 Map 整表失效重组风暴**（已修 67f4209c）——flows 原为 mutableStateMapOf，读依赖是整 Map 级：每个可见消息卡片组合中读 Map（flow()/current()），而滚动期间 Map 持续被写（滚出视口 remove()、预解析 put、LRU 淘汰）→ 任一次写全卡片失效重组。trace 实证：拖动期 Recomposer 单帧 23-26ms、一次 9 个 scope 成批重组。修复：ConcurrentHashMap + 消费端 collectAsState 订阅单 key。A/B 同场景实测：慢拖 janky 41.7%→0.88%、p95 400ms→14ms
+  - **根因 ②：超长消息单 LazyItem 组合巨帧**（已修 0faa6984）——一条 130K 字符消息 = 一个 LazyItem；LazyColumn 子项滚动方向无限高约束 → 首次组合必须同步建完整棵 Markdown 树（trace 单个 Compose:recompose scope 49.7ms；prefetch:measure max 150ms——item 是预取原子单位）。mikepenz 0.43.0 无块级懒加载参数（全部重载核对）、LazyMarkdownSuccess 不能嵌套同向列表 → 唯一治本 = LazyItem 粒度分片。实现：MarkdownChunking.kt（块级分片计划 MdChunkPlan + ChatEntry + buildChatEntries）+ ChatMessageList 发射 chatEntries + ChunkedAssistantMessage 分段渲染（首段标签栏/末段统计栏、分段圆角、SelectionContainer 按 chunk）+ MarkdownContent blockRange success 槽 + 流式/刚结束 turn 不分片（recentStreamedTurnKeys 防视口 key 裂变闪跳）+ isTurnLast O(N²)→O(1) 查表（原每 assistant item 组合 subList 线性扫 rawMessages）+ 跳转索引 displayEntryStart 映射适配
+  - **真机验证（0faa6984）**：验收测试会话AB（107 条含 3 条巨型）5 连发 fling 穿越巨型区：1836 帧 janky 0.27% p50=6ms p95=9ms p99=30ms（修复前 p50 61-73ms、400ms 巨帧、fling ~120ms 早死）；LEAP total=94（+35 items = 分片生效）连续翻越 chunk、RESIZE=0；视觉复核分段气泡无接缝/无重复头部；全量单测绿
+  - **根因 ③（环境因素，非 App 缺陷）：GKD 无障碍服务对 Compose 的专属税**——用户真机常开 GKD（跳广告）。实测：GKD 开时聊天屏 p50 23-77ms（语义三件套 getAllUncoveredSemanticsNodes 219ms/8s + checkForSemanticsChanges 172ms + sendAccessibility...Events 143ms，最大帧 110-150ms）；系统 Settings（View 体系）同条件 0% jank——此税 Compose 专属（并行语义树 diff+派发）。已试 MessageBubble semantics(mergeDescendants) 收益噪声级（~10%）且流式期有 merged config 整气泡重建隐患 → 放弃（stash 已丢弃）。**无低风险 App 内修复**；结论：开着 GKD 的用户群体感知上限受限，为已知环境因素
+  - ⚠️ 待用户验收：真机手感复验（GKD 开/关两种状态）——尤其巨型消息会话的 fling
+  - **基建沉淀**：/tmp/perf/*（frameparse.py 逐帧分解、phases.py 相位分解、perfetto trace-config + base64 直装法、drag/fling 场景脚本）+ 子代理报告（fling 根因含库源码核对路径 /tmp/mdn-src、a11y 备选方案评估）
+
 ## 2026-08-20 真机滚动稳定性批次（卡顿 + fling 下跳根治）
 
 - [~] **真机滚动两问题：①滑过气泡卡顿 ②fling 下跳（长 agent 回复稳定复现）——已修 f03a89d5** `ui` `perf`
