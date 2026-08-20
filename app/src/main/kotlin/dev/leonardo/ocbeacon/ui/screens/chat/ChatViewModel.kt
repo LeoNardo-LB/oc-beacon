@@ -393,6 +393,13 @@ class ChatViewModel @Inject constructor(
         scope = viewModelScope,
         sessionDirectoryProvider = { sessionLifecycle.sessionDirectory },
         sessionLoaded = sessionLifecycle.sessionLoaded,
+        // 离线兜底：重拉会话信息并同步 sessionDirectory（loadSession 失败场景）
+        reloadDirectory = {
+            manageSessionUseCase.getSession(serverId, sessionLifecycle.sessionId)
+                .directory
+                .ifBlank { null }
+                ?.also { sessionLifecycle.fillDirectoryFromRetry(it) }
+        },
     )
     val terminalTabs: StateFlow<List<TerminalTabUi>> get() = terminalDelegate.terminalTabs
     val activeTerminalTabId: StateFlow<String?> get() = terminalDelegate.activeTerminalTabId

@@ -65,6 +65,13 @@ internal class SessionLifecycleDelegate(
     var sessionDirectory: String? = null
         private set
 
+    /** 离线兜底重拉后回填（2026-08-20 终端 P3：loadSession 失败路径）。 */
+    fun fillDirectoryFromRetry(directory: String?) {
+        if (!directory.isNullOrBlank() && sessionDirectory.isNullOrBlank()) {
+            sessionDirectory = directory
+        }
+    }
+
     /** Mutex 防止并发会话创建。 */
     private val sessionCreateMutex = Mutex()
 

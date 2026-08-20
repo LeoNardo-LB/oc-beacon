@@ -38,6 +38,8 @@ internal class TerminalDelegate(
     private val scope: CoroutineScope,
     private val sessionDirectoryProvider: () -> String?,
     private val sessionLoaded: CompletableDeferred<Unit>,
+    /** 门放行后 directory 仍空时的兜底重拉（返回会话 directory；失败抛异常）。 */
+    private val reloadDirectory: (suspend () -> String?)? = null,
 ) {
     private val terminalWorkspace = terminalRegistry.workspaceFor(
         serverId, conn,
@@ -76,7 +78,17 @@ internal class TerminalDelegate(
             // 这防止了 PTY 以 directory=null 创建后
             // 再用真实目录尝试 resize 的竞态条件。
             sessionLoaded.await()
-            val dir = sessionDirectoryProvider()
+            var dir = sessionDirectoryProvider()
+            // 2026-08-20（P3 离线终端）：loadSession 失败（如进入会话时断网）会在
+            // finally 放行门但 sessionDirectory 保持 null → PTY 落到服务器默认目录。
+            // 瞬断恢复窗口（点击时网络已恢复）下由回调补拉一次会话信息兜底；
+            // 仍失败（真离线）则维持 null —— createPty 请求本会失败，无错误目录可言。
+            if (dir.isNullOrBlank()) {
+                dir = runCatching { reloadDirectory?.invoke() }.getOrNull()
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TERMINAL_DELEGATE_TAG, "openTerminalSession: dir null after gate, retry=$dir")
+                }
+            }
             if (BuildConfig.DEBUG) AppLogger.d(TERMINAL_DELEGATE_TAG, "openTerminalSession: sessionDirectory=$dir")
             terminalWorkspace.ensureActiveTab(cwd = dir, directory = dir, onResult = onResult)
         }
