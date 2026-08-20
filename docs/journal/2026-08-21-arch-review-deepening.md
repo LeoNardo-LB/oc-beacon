@@ -202,6 +202,23 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 
 （补记：用户随后显式确认 "Q172-1 选A；Q171-2选A；Q171-3选A"——三题从按推荐落定升级为显式定案。）
 
+## #174（候选 6）实现记录（2026-08-21 完成，真机烟雾全绿）
+
+### 提交链
+
+| 阶段 | commit | 内容 |
+|------|--------|------|
+| 主迁移 | f179ad70 | SessionStateCollaborator 接口（8 方法全抽象无默认）+ SessionStateCollaboratorImpl（EventDispatcher.init 75 行接线块整体迁入，逻辑零变更；PMP 环经 Provider 同款断法）+ @Binds 模块；SessionStateService 8 var 旋钮 + 4 typealias 删除，构造注入 collaborator（漏接=编译错误）；14 个消费点改经协作者；3 测试文件迁移 StubCollaborator（可单点覆写桩），4 个 EventDispatcher 套件构造点补默认桩 |
+| 接线测试 | ab2c36c3 | SessionStateCollaboratorTest 7 条：流式检测/未知目录 null/forceComplete 终结+落盘兜底（verify persistAsync）/refresh 委托/游标锚点 newest/无 pending 输入 false/pipeline 委托 |
+
+### 验证证据（2026-08-21 真机 houji，versionCode 1787270139）
+
+- **自动化**：全量单测 1808/1808 一次全绿（含 7 新增）；受影响 7 测试类 110/110
+- **真机烟雾**：冷启动 DI 环解出（Hilt 图 SessionStateCollaboratorImpl 绑定活）；**FSM 完整生命周期**：ClientSendParts→Busy/Waiting → TextStarted→Streaming → 提问→回答 → Busy/Streaming --SseIdle--> Idle [force-complete]（forceCompleteSession→markIdle+persist 链）+ Idle --RestValidation--> Idle [force-complete] + SUSPICIOUS 检测；L2 stale→L3 校验（directoryResolver/refreshMessages 接线）活跃
+- **附带发现**：LLM 链路恢复（deepseek-chat 真实生成+提问）——#171 记录的 chain A 无 LLM 缺口已消除（后续候选真机验证可覆盖更多生成路径）
+- crash buffer 0 条；hasActiveChildren/hasPendingUserInput 僵尸场景（需 3min busy）JVM 覆盖（既有 ConcurrencyTest）
+- ⏳ 维度 5：FSM 状态 UI 观感（busy 计时/流式/提问卡片）待用户验收
+
 ## #171（候选 3）实现记录（2026-08-21 完成，真机 E2E 全绿）
 
 ### 提交链（三段式，每段独立编译 + commit）

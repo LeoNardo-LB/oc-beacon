@@ -64,8 +64,9 @@
   - UI 消费 98 成员 + delegate 间 sink 回写/lambda 互接——按状态簇重组为 3-4 个所有权完整 module；排序在 #169 之后
   - → `docs/journal/2026-08-21-arch-review-deepening.md`
 
-- [ ] **#174 架构评审候选 6：SessionStateService 8 回调旋钮 → 1 必需协作者** `refactor`
-  - 8 个可缺省 var 回调漏接即静默降级——收拢为单一接线 interface 构造期注入；FSM 单一真相源不动
+- [~] **#174 架构评审候选 6：SessionStateService 8 回调旋钮 → 1 必需协作者——已实现，真机烟雾全绿，待用户验收** `refactor`
+  - f179ad70+ab2c36c3：SessionStateCollaborator 构造注入（漏接=编译错误），EventDispatcher 接线块迁入 Impl，1808 单测全绿；真机 FSM 完整生命周期经新接线实证（含 force-complete×2）
+  - ⏳ 维度 5（FSM 状态 UI 观感）待验收；僵尸场景（3min busy）JVM 覆盖
   - → `docs/journal/2026-08-21-arch-review-deepening.md`
 
 - [ ] **#175 架构评审顺手清理三件（deletion test 全正）** `refactor`
