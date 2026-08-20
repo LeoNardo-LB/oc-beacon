@@ -163,6 +163,13 @@ class MainActivity : ComponentActivity() {
         // #132 调试通道：外部参数直达（debug 构建专用）
         handleDebugProfileIntent(intent)
 
+        // 2026-08-20 竞态取证埋点（debug_race extra；release 也生效——概率 bug
+        // 需在用户日常环境复现取证，故不设 BuildConfig.DEBUG 门）
+        if (intent?.getBooleanExtra("debug_race", false) == true) {
+            dev.leonardo.ocbeacon.debug.RaceProbe.isEnabled = true
+            AppLogger.i(TAG, "RaceProbe enabled")
+        }
+
         // 2026-08-20 性能监测 HUD（debug_perf extra；仅 debug）
         if (BuildConfig.DEBUG && intent?.getBooleanExtra("debug_perf", false) == true) {
             val refresh = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

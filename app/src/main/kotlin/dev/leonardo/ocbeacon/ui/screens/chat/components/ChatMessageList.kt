@@ -416,6 +416,12 @@ fun ChatMessageList(
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
     val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys.value) {
+        dev.leonardo.ocbeacon.debug.RaceProbe.probe(
+            "ENTRIES rebuild n=" + displayItems.size +
+                " chunkPlans=" + chunkPlans.size +
+                " streaming=" + (streamingMsgId != null) +
+                " recentN=" + recentStreamedTurnKeys.value.size
+        )
         buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys.value)
     }
     val chatEntriesForPreparse = androidx.compose.runtime.rememberUpdatedState(chatEntries)
@@ -556,6 +562,10 @@ fun ChatMessageList(
             (info.visibleItemsInfo.firstOrNull()?.index ?: 0) to
                 (info.visibleItemsInfo.lastOrNull()?.index ?: 0)
         }.collect { (firstIdx, lastIdx) ->
+            dev.leonardo.ocbeacon.debug.RaceProbe.probe(
+                "VIEW window " + firstIdx + ".." + lastIdx + " keys=" +
+                    listState.layoutInfo.visibleItemsInfo.take(6).joinToString(",", "[", "]") { "${it.key}" }
+            )
             val registry = renderReadiness
             val items = displayItemsForPreparse.value
             val groups = turnGroupsForPreparse.value
@@ -647,25 +657,54 @@ fun ChatMessageList(
             //（head..tail，±PREPARSE_AHEAD display 粒度）才写入 chunkPlans。
             // 视口/窗口内保持单 item（key 稳定不裂变）；turn 离开窗口后
             // 裂变点远离视口（±8 item 缓冲），预取到它时已是分片版。
-            // 2026-08-20 竞态补丁（D 升级）：跳转期间及其稳定窗口内禁止提交。
-            // v1 (!jumpLockActive) 在终点 300ms 解锁，但稳定窗口（1.5s 静默监控
-            // gap 并静默 scrollBy 修正）仍在运行——期间提交使窗口边缘 turn key
-            // 裂变 → remeasure 竞态 → 单帧 item 叠放错乱（用户报『消息浮在消息
-            // 上、回复拦腰斩断』，低概率瞬态）。现要求 phase 回 Idle 再等 500ms。
+            //
+            // 2026-08-20 竞态根治（第五轮叠放 bug）：三处修复——
+            // F1 锚点重解析：旧实现存入队时 display index（di），loadAround 整批
+            //   upsert 重建 displayItems 后 di 全部失效 → 过滤器用陈旧索引判定 →
+            //   视口内 turn 被误提交裂变 = 气泡叠放/语义树破坏根因。现提交时用
+            //   partId 反查当前 turn 的 display index（陈旧即重算，永不失配）。
+            // F2 视口内防线：重解析后 index 仍在预解析窗口内 → 本轮跳过不提交
+            //   （等真正滚出窗口）——即使 F1 有遗漏也不会视口内裂变。
+            // F3 门控回退：D 版 2s 冻结让预取在跳转后组合未分片长消息（巨帧=滚动
+            //   卡）且放大 di 陈旧暴露窗口。锚点化后视口内裂变已不可能误伤，
+            //   门控收回为『跳转进行中或稳定窗口内不提交』（终点+2s 内），
+            //   其余时间恢复供给。
             val phaseNow = jumpPhaseForPreparse.value
-            // 从未跳转（0L）恒放行；跳转后需终点 + 2s（稳定窗口 1.5s + 解锁 300ms + 余量）
-            val jumpFullySettled = lastJumpEndAtMillis == 0L ||
-                ((phaseNow is JumpPhase.Displayed || phaseNow is JumpPhase.Failed) &&
-                    (System.currentTimeMillis() - lastJumpEndAtMillis > 2000))
-            if (pendingChunkPlans.isNotEmpty() && jumpFullySettled) {
-                val committed = pendingChunkPlans.filterValues { (_, turnDi) ->
-                    turnDi !in head..tail
+            val jumpActiveOrSettling = phaseNow is JumpPhase.Preparing ||
+                phaseNow is JumpPhase.Measuring || phaseNow is JumpPhase.Settling ||
+                (lastJumpEndAtMillis > 0L &&
+                    System.currentTimeMillis() - lastJumpEndAtMillis < 2000)
+            if (pendingChunkPlans.isNotEmpty() && !jumpActiveOrSettling) {
+                // F1：partId → 所属消息 → turn 首 key → 当前 display index
+                fun resolveTurnDisplayIndex(partId: String): Int {
+                    for (di2 in items.indices) {
+                        val (ri2, m2) = items[di2]
+                        val msgs2 = groups[ri2] ?: listOf(m2)
+                        if (msgs2.any { cm -> cm.parts.any { it.id == partId } }) return di2
+                    }
+                    return -1
+                }
+                val committed = HashMap<String, MdChunkPlan>()
+                for ((partId, planAndLegacyDi) in pendingChunkPlans) {
+                    val freshDi = resolveTurnDisplayIndex(partId)
+                    if (freshDi < 0) {
+                        // 所属 turn 已不在当前列表（被过滤/会话切换）——丢弃计划
+                        committed[partId] = planAndLegacyDi.first
+                        continue
+                    }
+                    if (freshDi in head..tail) continue // F2：窗口内防线
+                    committed[partId] = planAndLegacyDi.first
                 }
                 if (committed.isNotEmpty()) {
-                    chunkPlans = chunkPlans + committed.mapValues { it.value.first }
+                    dev.leonardo.ocbeacon.debug.RaceProbe.probe(
+                        "CHUNK commit n=" + committed.size + " legacyDi=" +
+                            pendingChunkPlans.entries.joinToString(",", "[", "]") { (k, v) -> k.take(12) + "@" + v.second } +
+                            " window=" + head + ".." + tail
+                    )
+                    chunkPlans = chunkPlans + committed
                     pendingChunkPlans = pendingChunkPlans - committed.keys
                     if (BuildConfig.DEBUG) {
-                        AppLogger.d("ScrollDiag", "CHUNK commit pending=" + committed.size + " remain=" + (pendingChunkPlans.size - committed.size))
+                        AppLogger.d("ScrollDiag", "CHUNK commit(anchored) n=" + committed.size + " remain=" + (pendingChunkPlans.size - committed.size))
                     }
                 }
             }
@@ -695,6 +734,10 @@ fun ChatMessageList(
     // Displayed/Failed）；蒙版/门控从状态派生（单一真相源）；目标一次定位到最终位置
     //（不移动→不回收→不重测→无"重复乱跳"根因）。
     fun jumpToMessage(msgId: String) {
+        dev.leonardo.ocbeacon.debug.RaceProbe.probe(
+            "JUMP start msg=" + msgId.take(14) + " entries=" + chatEntries.entries.size +
+                " displayN=" + displayItems.size
+        )
         jumpLockActive = true
         val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
         // 2026-08-13 架构根治（Mikepenz 官方 Parse-ahead + 状态机）：
