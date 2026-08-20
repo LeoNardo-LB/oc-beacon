@@ -29,6 +29,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/ui-conventions.md`](docs/ui-conventions.md) | UI 约定：Material 3、Theme Tokens、表格渲染一致性 | 编写/修改 UI 组件、主题、颜色、间距 |
 | 🟡 SHOULD | [`docs/agents-file-design.md`](docs/agents-file-design.md) | AGENTS.md 维护规范（本文件的设计依据） | 新增/修改 AGENTS.md 规则时 |
 | 🟡 SHOULD | [`backlog.md`](backlog.md) | 待办需求/问题登记（P0-P2 优先级 + Tag + 状态流转） | 录入新条目前（避免重复）、开始新任务了解待办时 |
+| 🟡 SHOULD | [`docs/error-report-github-design.md`](docs/error-report-github-design.md) | 错误日志 GitHub 上报设计 spec（device flow 授权/指纹查重/重复评论/脱敏管道） | 实现或修改错误上报、GitHub 集成、Diagnostics 上报入口前（必读） |
 | 🟢 MAY | [`docs/architecture-debt.md`](docs/architecture-debt.md) | 已登记的技术债务与后续计划 | 接触相关模块时了解限制 |
 
 ## Build & Run

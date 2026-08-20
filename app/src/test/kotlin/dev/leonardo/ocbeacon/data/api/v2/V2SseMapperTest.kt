@@ -15,7 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * V2SseMapper 映射测试——用 2026-08-11 实测样本（docs/superpowers/specs §3.2）。
+ * V2SseMapper 映射测试——用 2026-08-11 实测样本（docs/archive/specs/2026-08-11-v2-contract-alignment-design.md §3.2）。
  */
 class V2SseMapperTest {
 

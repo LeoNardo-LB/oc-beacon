@@ -4,7 +4,7 @@
 - 环境：模拟器 emulator-5554 + 真实 V2 服务器（10.0.2.2:4199，next-17135）
 - 变更分类：状态机/数据流变更（SSE 事件处理/FSM/V2 契约）+ UI/渲染变更（后台系统）→ **完整回归**
 - 被测 commit：`fix(v2): step.ended cost 双格式兼容`（含此前 10+ 个相关 commit）
-- 计划：docs/superpowers/plans/2026-08-11-v2-contract-alignment.md（8 Task 全完成）
+- 计划：原 docs/superpowers/plans/2026-08-11-v2-contract-alignment.md（8 Task 全完成；2026-08-21 文档清理时移除，设计存 docs/archive/specs/2026-08-11-v2-contract-alignment-design.md）
 
 ## 结论
 

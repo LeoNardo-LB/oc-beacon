@@ -456,7 +456,7 @@
 - [x] **#67 V2 后台完成通知：synthetic 消息被过滤（PartContent Text 分支）** `sse` `ui`
   - 问题：2026-08-11 V2 契约对齐调研确认——opencode v2 后台任务/subagent 完成时向主会话注入 `POST /api/session/{id}/synthetic` 合成消息；但 oc-beacon 的 PartContent.kt Text 分支 `part.synthetic != true` 直接过滤 → 用户看不到后台完成通知
   - 方案：识别 synthetic 消息并以特殊样式（卡片/淡色+标签）渲染，或独立事件通道驱动通知
-  - 来源：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md §3（synthetic 端点）+ 后台系统调研
+  - 来源：docs/archive/specs/2026-08-11-v2-contract-alignment-design.md §3（synthetic 端点）+ 后台系统调研
   - **2026-08-11 完成（实测澄清）**：Part.Text.synthetic 全项目无赋值点（过滤是死代码，消息本就能显示）；服务器 POST synthetic 后不广播 SSE 事件（仅 REST 可见）。新增 MessageCardRole.SYNTHETIC + SyntheticNotificationCard（居中淡色卡片+图标+时间），模拟器实测显示 "后台测试完成通知：subagent X 已完成" ✅
 
 - [x] **#68 V2 新会话创建后 get/pending 404（服务器怪癖）** `session` `data`
@@ -471,7 +471,7 @@
   - **2026-08-11 完成**：SseClientV2.parseV2Event data/properties 判型防御（instructions data 是数组时 jsonObject 扩展抛异常 → 回退顶层字段）+ V2EventParser handledPrefixes 加 session.instructions.；V2EventParserTest 新增用例；实测 parse error 归零
 
 - [x] **#70 V2 事件体系未确认项——已完结（①崩溃路径实证排除 + durable 恢复发现）** `sse` `refactor`
-  - 问题：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md §7 列出 7 项未确认：
+  - 问题：docs/archive/specs/2026-08-11-v2-contract-alignment-design.md §7 列出 7 项未确认：
     1. `session.retry.scheduled` payload 结构（未触发重试未抓到）——影响 Retry 状态映射
     2. `/api/config` info 已实测无 mcp 字段——McpRepositoryImpl 的 mcp 配置来源需确认（当前 type 回退 "local"）
     3. `/api/session/active` type 完整枚举（目前仅见 "running"）
@@ -480,7 +480,7 @@
     6. `session.tool.failed` 事件已实测存在（✅ mapper 已支持）
     7. 多 step 工具循环已实测同 assistantMessageID（✅ 幂等 upsert 天然处理）
   - 方案：剩余 1/2/3 项在下次触碰相关功能时补测；4-7 已闭环
-  - 来源：docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md
+  - 来源：docs/archive/specs/2026-08-11-v2-contract-alignment-design.md
   - **2026-08-19 盘点补测（beta-17595 curl）**：② **已答**——/api/config 的 document 条目 info **含 mcp 字段**（用户配置有 mcp 块；当时"无 mcp 字段"应为旧版本或配置为空），McpRepositoryImpl 可从 config info 读取；③ **已答**——/api/session/active 返回 **map 格式** `{data:{sessionId:{type:"running"}}}`，类型仅见 "running"（无 idle/error 等其他值可观测）。① retry.scheduled 仍无法主动触发（需真实失败重试场景），保持 touch-when-needed。**条目收敛：仅剩①（条件触发时抓 payload）**
   - **2026-08-19 ①崩溃路径实证（kill -9 实验，两个 SSE 监视窗口全程捕获）**：生成中（65 reasoning.delta 已流）kill -9 服务器 → 重启 → **durable 事件日志自动恢复被中断的 turn**（74 reasoning.delta + 36 text.delta + text.ended，最终 assistant 1179 字符完整交付，会话转 idle 无僵尸）——**全程无 session.retry.scheduled**。结论：① 崩溃-重启路径不发出该事件（durable 恢复静默续跑取代之，App 重连后自然看到续流，无需 Retry UI）；剩余唯一触发面 = provider 级瞬时失败（429/5xx）需真实故障 provider—— inherent 外部条件，与「下次发生时抓」同义。**App 侧有价值的副产品认知：服务器崩溃不丢 turn，SSE 重连即续**
 
@@ -531,7 +531,7 @@
   - 方案：combine lambda 内构造具名数据类（如 SessionListInputs），StateBuilder 接收它而非裸 Array<Any?>；或 combine 嵌套分组
   - 风险：中（改动 combine 签名 + StateBuilder + 相关测试）；收益：消除索引错位类 bug
   - 备注：索引语义注释已加（StateBuilder 顶部），缓解了短期风险
-  - 备注：2026-08-07 已落地——状态切片方案（spec: docs/superpowers/specs/2026-08-07-session-list-state-slicing-design.md）
+  - 备注：2026-08-07 已落地——状态切片方案（spec: docs/archive/specs/2026-08-07-session-list-state-slicing-design.md）
 
 - [x] **#24 长 turn（多步工具调用）期间未读红点延迟** ui session
   - 问题：agent 长回复（多 step 循环）期间，红点要等整个 turn 结束（服务器发 SessionStatus=idle）才出现——用户在列表等待时迟迟看不到红点（2026-08-07 subagent 实测：后台 13 分钟长 turn 无红点）

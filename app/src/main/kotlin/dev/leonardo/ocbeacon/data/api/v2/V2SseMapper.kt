@@ -16,7 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * V2 SSE 事件 → 领域事件映射层（纯函数）。
  *
- * 2026-08-11 实测契约（docs/superpowers/specs/2026-08-11-v2-contract-alignment-design.md §3.2）：
+ * 2026-08-11 实测契约（docs/archive/specs/2026-08-11-v2-contract-alignment-design.md §3.2）：
  * v2 **不发** message.updated / message.part.updated / session.status；
  * 消息与 part 通过细粒度生命周期事件传递：
  *

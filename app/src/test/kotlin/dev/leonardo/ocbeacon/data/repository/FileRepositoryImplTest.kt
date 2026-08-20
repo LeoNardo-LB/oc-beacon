@@ -107,7 +107,7 @@ class FileRepositoryImplTest {
         val expectedPaths = listOf(
             "app/src/main/kotlin/dev/minios/ocremote/ui/screens/workspace/WorkspaceScreen.kt",
             "app/src/main/kotlin/dev/minios/ocremote/ui/screens/viewer/FileViewerScreen.kt",
-            "docs/superpowers/specs/2026-06-18-workspace-file-viewer-design.md"
+            "docs/archive/specs/2026-06-18-workspace-file-viewer-design.md"
         )
         coEvery {
             api.findFiles(testConn, query = "Screen", type = any(), directory = any(), limit = any(), dirs = any())

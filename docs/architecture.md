@@ -80,4 +80,4 @@ di/                Hilt 模块（NetworkModule, DomainModule）
 2. **连接停止 ≠ 会话删除**：`clearForServer`/`clearAll`（SSE 断连/切换服务器）不得触碰 maxCompleted；仅 `SessionDeleted` 事件（会话真删）移除并持久化
 3. **markSessionIdle 的客户端 now 解耦**：它只做 UI 流式终止，不流入红点时间源（曾因 CommandExecuted 覆盖 completed 导致高频污染）
 
-持久化：maxCompleted 在更新点**同步落盘**（`persistLastCompletedReplyTime`，DataStore edit 返回即写文件）——"红点出现时刻 = 已落盘"，杀进程不丢；重启后 seed 恢复。设计详见 `docs/superpowers/specs/2026-08-07-unread-derived-state-design.md`。
+持久化：maxCompleted 在更新点**同步落盘**（`persistLastCompletedReplyTime`，DataStore edit 返回即写文件）——"红点出现时刻 = 已落盘"，杀进程不丢；重启后 seed 恢复。设计详见 `docs/archive/specs/2026-08-07-unread-derived-state-design.md`。

@@ -17,7 +17,7 @@ import org.junit.Test
 
 /**
  * V2 事件链集成测试——v2 生命周期事件经 V2SseMapper + MessageEventHandler
- * 的端到端状态（docs/superpowers/specs 2026-08-11 §3.2 实测序列）。
+ * 的端到端状态（docs/archive/specs/2026-08-11-v2-contract-alignment-design.md §3.2 实测序列）。
  */
 class MessageEventHandlerV2ChainTest {
 

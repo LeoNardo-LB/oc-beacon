@@ -9,7 +9,7 @@ import dev.leonardo.ocbeacon.domain.model.ToolState
  * Pure function —— 在 MessageDataDelegate 的 combine 管道中调用，使所有读取
  * `Part.Tool.state` 的 UI 自动获得运行期输出，无需各卡片单独查询 progress 流。
  *
- * 设计依据：`docs/superpowers/specs/2026-07-02-shell-streaming-and-patchcard-restyle-design.md` §2.5
+ * 设计依据：`docs/archive/specs/2026-07-02-shell-streaming-and-patchcard-restyle-design.md` §2.5
  * —— Running.output 为本地增强，tool.success 时 Completed.output（服务器权威）经 message
  * 通道自然覆盖，无冲突。
  */
