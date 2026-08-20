@@ -95,7 +95,7 @@ adb -s e69a99d8 shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeaco
 
 ## E2E 操作纪律（真机差异点）
 
-- 禁止 `input text`（合成键盘事件触发预测性 back 伪影）——只 `input tap / swipe / keyevent`，打字需求用 [/tmp/type.sh keyevent 脚本] 或干脆用 intent 传参绕过
+- 禁止 `input text`（合成键盘事件触发预测性 back 伪影）——只 `input tap / swipe / keyevent`，打字需求用 `./scripts/type.sh "text" [serial]`（纯 keyevent，已入库）或干脆用 intent 传参绕过
 - MIUI 上 `uiautomator dump` 约 2-3s/次，耐心重试；Compose 弹层（Popup/sheet 内自绘组件）节点不可见，按 content-desc/文本定位
 - MIUI 首启权限弹窗不一定出现，dump 检查后点「允许」即可
 - 截图取证：`adb -s e69a99d8 exec-out screencap -p > x.png`（exec-out 避免换行污染）
