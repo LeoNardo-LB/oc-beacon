@@ -74,6 +74,7 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 - `VERSION_NAME`：显示字符串，遵循上述 SemVer 格式。
 - `app/build.gradle.kts` 从 `version.properties` 读取 — 禁止在 build.gradle.kts 中硬编码版本号。
 - CI 通过 grep `version.properties` 提取版本 — **不要改变文件格式**。
+- **dev flavor 例外（2026-08-13 用户决策）**：`dev` 的 `versionCode` 用 **Unix 时间戳**（`app/build.gradle.kts`：`(System.currentTimeMillis() / 1000L).toInt()`——秒级 ~17.8 亿 < Int.MAX 21.4 亿，单调递增，不回拨时钟即可）→ 每次构建自动递增，`adb install -r` 直接覆盖安装（**保留 App 数据/服务器配置，禁止卸载重装**）。`version.properties` 仅 beta/stable 使用，不受 dev 构建影响。覆盖安装报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 时先核对签名源（处置见 [`docs/real-device-testing.md`](real-device-testing.md)）。
 
 ---
 
@@ -276,3 +277,46 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 - AGENTS.md 中"Version Management"章节引用本文档（发版前必读）。
 - 本文档 §4.5 引用 [`docs/release-notes-template.md`](release-notes-template.md)（GitHub Release 说明模板与写作规则）。
 - 本文档变更时，同步检查 AGENTS.md 是否需要更新。
+
+
+---
+
+## 9. 签名体系（keystore 与 CI Secrets）
+
+### 9.1 现行架构（以代码为准）
+
+| 环节 | 机制 | 出处 |
+|------|------|------|
+| 本地 release 签名 | `app/keystore/signing.properties` 存在 → 读 `keystore` / `keystore.alias` / `keystore.password` 三键建 `release` signingConfig | `app/build.gradle.kts` |
+| 本地回退 | `signing.properties` **不存在**时，release buildType 回退 debug 签名（`if (!hasPropertiesFile)` 分支）。**禁止无条件覆盖为 debug**，否则 release keystore 永不生效 | `app/build.gradle.kts` buildTypes |
+| CI 签名 | `release.yml` Decode Keystore 步骤：三个 Secret（`KEYSTORE_BASE64`/`KEYSTORE_ALIAS`/`KEYSTORE_PASSWORD`）→ `scripts/ci-decode-keystore.sh` 还原出 `app/keystore/release.keystore` + `signing.properties` | `.github/workflows/release.yml` |
+| CI 回退 | `KEYSTORE_BASE64` 为空时跳过解码 → CI 无 keystore → debug 签名；且全新 runner 每次生成**不同** debug.keystore → 每次发版签名不同 → 用户升级报"签名冲突" | 同上 |
+| 版本控制 | `*.keystore` 与 `app/keystore/` 整目录 gitignore——**git 历史零记录**，密钥仅存本地文件与 CI Secrets 两处 | `.gitignore` |
+
+### 9.2 验证与 Secrets 配置
+
+- 发版后验证：`apksigner verify --print-certs` 证书 DN 必须为 `CN=OC Beacon, OU=Development, O=LeoNardo-LB, C=CN`（alias=`oc-beacon`），不得是 `CN=Android Debug`（清单见 §6）。
+- CI Secrets 三件套配置（Linux checkout）：
+  ```bash
+  gh secret set KEYSTORE_BASE64   --body "$(base64 -w0 app/keystore/release.jks)"
+  gh secret set KEYSTORE_ALIAS    --body "oc-beacon"
+  gh secret set KEYSTORE_PASSWORD --body "<signing.properties 中的 keystore.password>"
+  gh secret list   # 确认三个 Secret 均在
+  ```
+- **换 keystore 后三个 Secret 必须同批重设，并立即触发一次构建 + apksigner 验证**（见 §9.3 教训）。
+
+### 9.3 编年史（历史，供追溯）
+
+- **2026-08-06 keystore 更换**：release keystore 重建（CN=OC Beacon，alias=oc-tether）。1.2.0 起使用新签名，1.1.1 及更早版本需卸载重装——该受众已随 2026-08-07 的全部 1.x Release/Tag 清理（§7）消失。
+- **2026-08-20 keystore 再次更换（旧文件确认丢失）**：旧 release.jks 无任何本地/git 副本，CI Secrets 只写不读。生成同 DN 新 keystore（alias 由 oc-tether 改名 **oc-beacon**——keytool changealias 只改条目名，密钥材料与签名兼容性不变）→ 本地 `app/keystore/` + CI Secrets 同批更新。**v0.3.1-dev.18 是旧签名最后一版**；≤dev.18 的 CI 签名包升级新包需卸载重装一次（0.x 用户仅开发者本人，已接受）。
+- **2026-08-21 CI Secrets 不匹配事故**：08-20 的 Secrets 更新不完整（KEYSTORE_BASE64 与 KEYSTORE_ALIAS 不匹配）→ v0.3.1-dev.19 首次构建报 `No key with alias found` → 以本地 keystore 重设三个 Secret 后重跑成功，apksigner 验证通过。教训已固化为 §9.2 的"同批重设 + 立即验证"要求。
+- **版本体系重置史**（2026-08-06/07 两次，1.x 全清 → 0.1.0 起计数）：见 §2.3/§7 注记。
+
+### 9.4 签名覆盖矩阵（谁能覆盖谁）
+
+| 已安装 ← 新包 | CI release 签名 | 本地（debug keystore） |
+|--------------|----------------|----------------------|
+| CI release 签名 | ✅ `install -r` | ❌ 卸载重装 |
+| 本地 debug 签名 | ❌ 卸载重装 | ✅ `install -r` |
+
+唯一例外（2026-08-17 用户决策）：真机 dev 包跨签名源切换允许卸载重装，代价仅重新录入服务器配置；同签名源（本地↔本地）仍禁止。细则见 [`docs/real-device-testing.md`](real-device-testing.md)。
