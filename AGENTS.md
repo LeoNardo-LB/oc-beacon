@@ -22,7 +22,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/observability-verification-guide.md`](docs/observability-verification-guide.md) | 可观测性验证手册：Logcat 规范、Room 数据库直查（run-as sqlite3）、SSE 事件流、服务器 curl 预测试、智谱截图分析、代码改动标准观测流程 | 任何代码改动验证、声称完成前（与 verification-requirements 维度 3 配合） |
 | 🟡 SHOULD | [`docs/v1-v2-differences.md`](docs/v1-v2-differences.md) | OpenCode V1 (1.18.x) vs V2 (2.x) 功能与 API 差异完整清单（端点/认证/SSE/配置/任务（后台化）），含客户端适配状态 | 涉及 V1/V2 兼容功能开发、版本探测、功能适配前（必读） |
 | 🟡 SHOULD | [`docs/simulator-walkthrough-v1v2.md`](docs/simulator-walkthrough-v1v2.md) | V1/V2 版本探测修复模拟器走查清单（A 探测/B V1 全功能/C V2 回归/D HTML 防御 + 操作路径 + 执行记录） | 版本探测/API 兼容类改动后的模拟器走查前（参考其清单结构） |
-| 🟡 SHOULD | [`docs/opencode-api-reference.md`](docs/opencode-api-reference.md) | OpenCode Server 完整 API 参考（62 REST/WS 端点 + 52 SSE 事件 + JSON Schema） | 开发新功能、调试接口问题前 |
+| 🟡 SHOULD | [`docs/opencode-api-reference-v1.md`](docs/opencode-api-reference-v1.md) | OpenCode **V1** Server 完整 API 参考（129 REST/WS 端点 + 89 SSE 事件 + JSON Schema；V2 差异见 v1-v2-differences.md） | 开发新功能、调试接口问题前（注意本档为 V1，V2 端点以实测为准） |
 | 🟡 SHOULD | [`docs/architecture.md`](docs/architecture.md) | 架构分层、目录职责、关键模式、承重架构规则 | 理解/修改跨层结构、SessionStateService、日志、导航 |
 | 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 聊天 UI 事件生命周期：触摸传播、SSE 流式更新、消息状态机、竞态条件 | 修改 ChatScreen 内部机制、排查聊天交互竞态时 |
 | 🟡 SHOULD | [`docs/i18n-guide.md`](docs/i18n-guide.md) | 国际化工作流（15 语言直接维护 + 检查脚本 + CI） | 涉及任何文案：新增/修改/删除 UI 字符串、占位符、plurals 前（必读） |

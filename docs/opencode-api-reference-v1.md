@@ -1,5 +1,7 @@
-# OpenCode Server API Reference
+# OpenCode Server V1 API Reference
 
+> **范围声明（2026-08-21 明确）**：本文档是 OpenCode **V1**（1.x）服务器的 API 参考。V2（2.0 beta）服务器已移除/变更部分端点——例：`DELETE /session/{id}` 在本机 V2（beta-17728）实测 405。V2 差异与客户端适配状态见 [`v1-v2-differences.md`](v1-v2-differences.md)；个别标注「V2 实测」的小节（如 §12A Form）为后续在 V2 环境的补充验证，保留原注。
+>
 > 基于 opencode 源码（`packages/opencode` + `packages/core`，2026-06 版本）深度调研验证。
 > 覆盖 **129 个 HTTP/WebSocket 端点**（128 REST + 1 WebSocket）+ **89 种 SSE 事件类型**。
 > 每个描述均有源码证据；不确定的标注 `[待确认]`。

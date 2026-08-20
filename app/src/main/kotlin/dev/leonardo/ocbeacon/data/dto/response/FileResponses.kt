@@ -6,7 +6,7 @@ import kotlinx.serialization.json.JsonElement
 
 /**
  * /find 文本搜索匹配结果。
- * API 形状（见 docs/opencode-api-reference.md /find 响应）：
+ * API 形状（见 docs/opencode-api-reference-v1.md /find 响应）：
  * path/lines 是嵌套 { text } 对象，line_number/absolute_offset 为 snake_case，
  * submatches 为 match:{text} + start/end。
  */

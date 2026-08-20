@@ -53,7 +53,7 @@ AGENTS.md 的**文档索引表**不能只有"用途 + use when"，还必须有**
 | 级别 | 大写关键字 | 含义 | 本仓库示例 |
 |------|-----------|------|-----------|
 | 🔴 必读 | **MUST** | 绝对要求。该场景下**必须先读再行动**，跳过会导致错误、违规或返工 | `docs/release-workflow.md`（发版前）、`docs/verification-requirements.md`（声称完成前）、`docs/chatscreen-editing-protocol.md`（编辑 ChatScreen.kt 前） |
-| 🟡 建议 | **SHOULD** | 推荐。有正当理由可跳过，但需理解后果后再决定 | `docs/opencode-api-reference.md`（开发前）、`docs/architecture.md`（跨层修改时） |
+| 🟡 建议 | **SHOULD** | 推荐。有正当理由可跳过，但需理解后果后再决定 | `docs/opencode-api-reference-v1.md`（开发前）、`docs/architecture.md`（跨层修改时） |
 | 🟢 可选 | **MAY** | 真正可选。了解即可，不读不影响正确性 | `docs/architecture-debt.md`（了解限制） |
 
 **判定问题**：这条文档不读，agent 会不会犯错/违规？

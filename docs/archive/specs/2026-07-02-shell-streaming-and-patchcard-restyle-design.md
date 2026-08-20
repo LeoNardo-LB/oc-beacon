@@ -24,7 +24,7 @@ OpenCode TUI 端，Shell 命令运行期间持续输出 stdout/stderr。但在 O
 
 经代码追踪，根因是 **数据通道断裂**，非 UI 渲染问题。完整链条：
 
-1. OpenCode 服务器在工具运行期间，通过 `session.next.tool.progress` 事件持续推送 `content: ToolOutput.Content[]`（即 stdout/stderr，有界更新 cadence）。参见 `docs/opencode-api-reference.md` L3650。
+1. OpenCode 服务器在工具运行期间，通过 `session.next.tool.progress` 事件持续推送 `content: ToolOutput.Content[]`（即 stdout/stderr，有界更新 cadence）。参见 `docs/opencode-api-reference-v1.md` L3650（原 opencode-api-reference.md，2026-08-21 更名）。
 2. OC Remote 的 `SessionNextEvent.ToolProgress`（`domain/model/SessionNextEvent.kt` L155-160）**只解析了 `progress: String?` 字段，丢弃了 `content` 字段**。
 3. 即便 progress 被处理，它存入独立的 `_activeToolProgress` 流（`SessionNextEventHandler.kt` L70），**从不触碰 `Part.Tool`**。`ToolCalled`/`ToolSuccess` 在该 handler 中均为 "no state change"（L121/L123）。
 4. `Part.Tool`（含 state）走 **message 通道**（`message.part.updated` 整体替换），与 progress 的 **session.next 通道** 分离，两者不交汇。

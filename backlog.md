@@ -1380,7 +1380,7 @@
     - ✅ 轮询兜底：App 每 30s GET /api/form/request（logcat 实证）
     - ✅ V1 回归：V1 轮询仍走旧 /question 端点（代码未动）
     - ✅ 单测：V2FormMapperTest 10 个用例（映射/REST/answer 构造）+ V2ApiClientTest form 端点路径
-  - 备注：form 字段类型仅映射 string（单选）/multiselect（多选），number/integer/boolean/external 暂不支持（question 工具不产生）；文档见 docs/opencode-api-reference.md §12A
+  - 备注：form 字段类型仅映射 string（单选）/multiselect（多选），number/integer/boolean/external 暂不支持（question 工具不产生）；文档见 docs/opencode-api-reference-v1.md §12A（原 opencode-api-reference.md，2026-08-21 更名）
 
 - [x] **#131 V1 协议 question 卡片嵌入渲染失败（数据到达但 UI 不显示）——已修复 eab5f964** `question` `v1`
   - 现象：V1 服务器（1.18.18）agent 调用 question 工具（4 题多选）——服务器 /question 正常返回（含 tool.messageID），App 轮询/loadPendingQuestions 均拉到（`Replaced 1 questions for session ...`），但 UI 问题卡片不渲染（goon 的 assistant 消息气泡内无 QuestionCard）

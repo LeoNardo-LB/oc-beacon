@@ -1,6 +1,6 @@
 # OpenCode V1 vs V2 — 功能差异与客户端适配清单
 
-> 调研日期：2026-08-13 · 来源：官方文档（opencode.ai / open-code.ai）+ GitHub issues + 本机 1.18.18 实测 + 本地 `opencode-api-reference.md`
+> 调研日期：2026-08-13 · 来源：官方文档（opencode.ai / open-code.ai）+ GitHub issues + 本机 1.18.18 实测 + 本地 `opencode-api-reference-v1.md`
 > 关联：backlog #83（版本误判修复）、#84（适配清单）、#85（UI 隐藏落地）
 
 ## 结论摘要
@@ -85,5 +85,5 @@ V1（1.18.x，npm `opencode-ai`）与 V2（2.x beta，npm `@opencode-ai/cli`）�
 - V1 文档：https://open-code.ai/en/docs/server
 - V2 迁移指南：https://opencode.ai/v2/docs/migrate-v1
 - V2 API 参考：https://opencode.ai/v2/docs/api
-- 本地 V2 调研：`docs/opencode-api-reference.md`（129 端点 + 52 SSE 事件）
+- 本地 V1 全量 API 参考：`docs/opencode-api-reference-v1.md`（129 端点 + 89 SSE 事件——2026-08-21 更名明确范围）
 - 本机实测：opencode-ai 1.18.18 隔离运行（XDG_DATA_HOME/XDG_CONFIG_HOME），全端点扫描
