@@ -1737,12 +1737,13 @@
   - **修复（两 commit）**：① collect 触发点复查 jumpLock（跳转结束 effect 重启会重新评估，不丢正常触发）；② JumpNavigationController 渐进循环检测 scrollBy 返回值 |实际-请求|>1px 即判定夹持，接受物理最接近位置收场（Displayed）——稳定窗口的 gap 修正对夹持位置是天然 no-op
   - **真机红绿验证**：红（修复前）前向跳 5.2s 蒙版 + 7 次无效步进；绿（修复后）同场景 1.1s 收场（日志实证「请求-660/实际-317——接受当前位置」），回退跳回归 gap 正常归零、解锁后 hasOlder 正常触发（无误伤），后续 6 循环前向跳 clamp 稳定命中 ×6 零 Failed；全量单测绿
   - 工时：1h（含根因修正）| 难度：低-中 | 涉及：ChatMessageList 自动分页两 effect / JumpNavigationController 渐进循环
-  - **根因层级自查（2026-08-21 用户质询「是根因吗」时补）**：夹持修复=根因级（终止条件在内容边界物理不可满足——检测后接受即正确语义）；竞态修复=**机制级修补而非体系级根治**——fire-time 复查模式正确且无 TOCTOU（loadNewer/Older 为非挂起 fun，检查与调用间无挂起点，主线程 dispatcher 上原子），但 `jumpLockActive` 本身是 phase 状态机的**手工镜像标志**（3 处写点），「镜像标志 + effect key 门控」模式结构性易竞态（违反项目单一真相源原则）。体系级根治方向：门控直接从 jumpController.phase 派生（删除镜像标志）或 load 入口统一拒绝。见下方结构优化条目
+  - **根因层级自查（2026-08-21 用户质询「是根因吗」时补）**：夹持修复=根因级（终止条件在内容边界物理不可满足——检测后接受即正确语义）；竞态修复当日升级为**根因级**（见下）
+  - **根因完备化（同日第二轮，系统性调研后）**：① 机制定论——effect 重启是**帧驱动**（recomposition apply 时取消旧实例），snapshotFlow 发射是**快照提交驱动**（不经帧），二者排序无保证；跳转本身制造最重主线程负载恰好把窗口往危险方向拉宽（实证 136ms ≈ 8+ 帧）；「启动时闸门」构造性不健全，「触发时闸门」才是正确模式。② 修复升级——fire-time 复查从读镜像改为**直读 phase 真源**（`isJumpInProgress`，jumpTo/jumpToTask 入口同步置 Preparing，与镜像写点间纯同步无 interleaved，严密性等价）——正确的时机 × 正确的源，不再依赖 4 处人肉同步点。③ **直接证据（设计性实验，此前只有间接证据）**：loadAround 武装 hasNewer → 前向跳 ×3，rnd2 完整命中：pre-unlock probe=1（旧实例收到发射=窗口真实开启）+ skip=1（守卫真源拦截）+ TRIG=0（零泄漏），post-unlock 5 次合法加载照常（无过度封锁）；与原始红日志（02:34 probe+triggered 双发）构成同窗口有/无守卫对照闭环。rnd3 restart-won（窗口时变，符合预期）
 
-- [ ] **新增 P3（结构优化）：jumpLockActive 镜像标志应从 JumpNavigationController.phase 派生（2026-08-21 竞态根因层级分析衍生）** `arch` `jump`
+- [~] **新增 P3（结构优化）：jumpLockActive 镜像标志应从 JumpNavigationController.phase 派生（2026-08-21 竞态根因层级分析衍生）** `arch` `jump`
+  - **核心部分已完成（同日第二轮）**：两个自动分页 effect 的 fire-time 门控已改直读 `isJumpInProgress` 真源（正确性不再依赖镜像）；剩余范围收窄为纯清理——启动 key 与 B-F2 提交门控仍读镜像（后者带 2s 时窗语义，需一并设计），全部删除镜像标志后收口
   - 现状：jumpLockActive 是手写镜像（ChatMessageList 3 处写点：jumpToMessage/异步定位 effect/phase 终点收集器），已因此出过一次竞态（见上条）；镜像与真源不一致窗口 = 结构性风险
-  - 方向：`val jumpLockActive = jumpController.phase.value is Preparing/Measuring/Settling`（derived state 或直接订阅），删除全部手工写点；两个自动分页 effect 的门控改为读派生值
-  - 现修复已使漏发 impossible-by-construction（fire-time 复查无挂起点），本条目是纯架构卫生，无行为收益，暂不做
+  - 方向：`val jumpLockActive = jumpController.phase.value is Preparing/Measuring/Settling`（derived state 或直接订阅），删除全部手工写点
   - 工时：~1h | 难度：低 | 涉及：ChatMessageList / JumpNavigationController | 优先级：P3
 
 - **E2E 阶段 2+3 收官记录（2026-08-20，7/7 PASS）**：A 删除后 ≤0.3s 一致更新（be3a0cc5 修复复验；阶段 1 的「残留」定性为单帧捕获时序）｜B 手动停止零误发（红停止图标→Idle，queued message sent=0、角标保留）｜C「继续」手动放行队首 1 条（transcript+DB 双证）｜D 清空确认框→列表空+角标消失｜E TODO tab 在 beta-17639 隐藏（probe 404×2 + curl 404 互证）｜F force-stop 冷启后队列完整、空闲 15s 零 pipeline 事件（重启不自动发）｜G 附件置灰（min 像素 130 vs 27）+点击无入队。审计线：8 enqueued / 仅 C 的 1 sent——误发为零。附带登记：
