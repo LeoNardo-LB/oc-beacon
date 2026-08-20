@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -169,7 +171,32 @@ internal fun Modifier.clickableMarkdown(
     // 注意：旧实现在此处有一个空的 .clickable { } 修饰符，
     // 它会拦截长按手势，阻止 SelectionContainer 显示复制/选择工具栏。
     // 链接点击处理只需要 .pointerInput。
+    // 2026-08-20 a11y P3：补 semantics onClick——TalkBack 用户此前无法触发
+    // 链接/代码路径点击（纯 pointerInput 无语义动作）。onClick 语义不带
+    // Role.Button 也不拦截手势（与 pointerInput 并存，各自独立触发）。
     return this
+        .semantics {
+            onClick(label = null) {
+                // 无布局信息时无法定位具体 item——TalkBack 激活时以节点中心
+                // 作为点击位置（近似 90% 场景：短文本节点只有一个可点项）
+                val layout = layoutResultProvider()
+                if (layout != null) {
+                    val center = layout.size
+                    val pos = androidx.compose.ui.geometry.Offset(center.width / 2f, center.height / 2f)
+                    val offset = layout.getOffsetForPosition(pos)
+                    for (i in result.ranges.indices) {
+                        if (offset in result.ranges[i]) {
+                            when (val item = result.items[i]) {
+                                is ClickableItem.Link -> uriHandler.openUri(item.url)
+                                is ClickableItem.CodePath -> uriHandler.openUri(item.text)
+                            }
+                            break
+                        }
+                    }
+                }
+                true
+            }
+        }
         .pointerInput(result.annotatedString) {
             detectTapGestures { pos ->
                 val layout = layoutResultProvider() ?: return@detectTapGestures

@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1245,10 +1248,26 @@ fun ChatMessageList(
                                     //（CompactionCard：分割线收起态 + 无边框轻量
                                     // 卡片摘要展开态——与 synthetic 通知卡片一致
                                     // 的视觉语言）；长按仍触发回退确认。
-                                    Column(modifier = Modifier.combinedClickable(
-                                        onClick = { },
-                                        onLongClick = { showRevertDialog = true }
-                                    )) {
+                                    // 2026-08-20 a11y P3：空 onClick 的 combinedClickable
+                                    // 会被 TalkBack 朗读为可点击但无动作——改为纯
+                                    // pointerInput 长按 + semantics 自定义无障碍动作
+                                    //（长按=回退确认，标签复用已翻译的 chat_revert）。
+                                    val revertActionLabel = stringResource(R.string.chat_revert)
+                                    Column(modifier = Modifier
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onLongPress = { showRevertDialog = true }
+                                            )
+                                        }
+                                        .semantics {
+                                            customActions = listOf(
+                                                CustomAccessibilityAction(
+                                                    label = revertActionLabel,
+                                                    action = { showRevertDialog = true; true }
+                                                )
+                                            )
+                                        }
+                                    ) {
                                         CompactionCard(
                                             summary = chatMessage.parts
                                                 .filterIsInstance<Part.Compaction>()
