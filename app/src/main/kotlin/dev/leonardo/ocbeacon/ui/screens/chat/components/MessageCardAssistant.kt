@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -267,16 +268,24 @@ internal fun MessageCardAssistant(
                             }
                             is PartGroup.Single -> key(item.group.part.id) {
                                 // 滚动预解析消费：长文本 part 取 Parsed state（与驱动端
-                                // key 约定：msgId|partId；阈值一致 ≥200 字符）
-                                val preParsedAssistantState = (item.group.part as? Part.Text)
+                                // key 约定：partId；阈值一致 ≥200 字符）。
+                                // 2026-08-20 滚动卡顿根因修复：原 current() 走快照 Map 读
+                                // （整 Map 依赖，滚动期任一 remove/put 全卡片失效重组）；
+                                // 改为订阅该 part 的 StateFlow——写 Map 零重组，预解析完成
+                                // 仅重组这一个 scope。
+                                val longTextPart = (item.group.part as? Part.Text)
                                     ?.takeIf {
                                         it.text.length >= 200 && it.synthetic != true &&
                                             it.ignored != true && !it.text.contains("User has answered")
                                     }
-                                    ?.let { textPart ->
-                                        (readinessRegistry.current(textPart.id)
-                                            as? RenderReadiness.Parsed)?.state
-                                    }
+                                val preParsedAssistantState = if (longTextPart != null) {
+                                    val partReadiness by readinessRegistry
+                                        .flow(longTextPart.id)
+                                        .collectAsState()
+                                    (partReadiness as? RenderReadiness.Parsed)?.state
+                                } else {
+                                    null
+                                }
                                 PartContent(
                                     part = item.group.part,
                                     textColor = textColor,

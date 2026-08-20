@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.parseMarkdownFlow
@@ -59,7 +58,14 @@ sealed interface RenderReadiness {
  * - [awaitReady]：挂起等待渲染完成（返回 Ready——含最终高度），供定位消费
  */
 class RenderReadinessRegistry {
-    private val flows = mutableStateMapOf<String, MutableStateFlow<RenderReadiness>>()
+    // 2026-08-20 滚动卡顿根因修复：快照 Map（mutableStateMapOf）的读依赖是
+    // 整 Map 级——每个可见消息卡片在组合中读 Map（flow()/current() 的 getOrPut），
+    // 而滚动期间 Map 被持续写入（滚出视口 remove()、预解析 put、LRU 淘汰），
+    // 任一次写都会让全部可见卡片失效重组（真机 trace：拖动期每帧 ~10 个 scope
+    // 的 26ms 重组风暴，慢拖 1s 仅渲染 4 帧）。改为普通并发 Map + 消费端
+    // collectAsState 订阅各自的 StateFlow——写 Map 不再触发任何重组，条目
+    // 状态变化只重组订阅该条目的单个 scope。
+    private val flows = java.util.concurrent.ConcurrentHashMap<String, MutableStateFlow<RenderReadiness>>()
 
     fun flow(msgId: String): StateFlow<RenderReadiness> =
         flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }
