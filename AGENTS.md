@@ -14,6 +14,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/release-notes-template.md`](docs/release-notes-template.md) | GitHub Release 说明模板与写作规则（每次发版按此撰写） | 撰写发版说明、Release Notes 前 |
 | 🔴 MUST | [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md) | ChatScreen.kt 编辑协议（见下方承重约束） | 编辑 ChatScreen.kt 前 |
 | 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4 维验证框架 | 完成开发、声称"完成"前 |
+| 🟡 SHOULD | [`docs/real-device-testing.md`](docs/real-device-testing.md) | 真机测试 runbook：静默装包（`pm install`，无人工确认）、`adb reverse` 服务器连通、debug intent 一键配置、签名备忘 | 任何真机测试/E2E/装包前（2026-08-20 方针：测试一律真机优先） |
 | 🟡 SHOULD | [`docs/qa-methodology.md`](docs/qa-methodology.md) | 质量保证方法论：多维度交叉验证（≥2 独立维度互证）、证据链完整性、操作可复现、并行验证节点委派（subagent 可并行跑验证） | 任何修复/功能声称完成前的验证设计与证据组织（与 verification-requirements 配合） |
 | 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归验证指南：变更分类（快速/完整回归）、12 能力域验证清单、问题处理流程（阻塞→根因修复；非阻塞→登记；补丁三件事） | 涉及已有能力的重构/接口变更/存储或渲染层改动前（必读），按能力域清单执行回归 |
 | 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 对话全生命周期 E2E 期望文档：正向/逆向/极端用例、时间点截图断言、日志/DB 期望、V1/V2 双协议标注、动态/静态/脚本编排 | 对话相关改动/发版前的 E2E 测试设计（与 qa-methodology §4.3 双文档模式配合） |
@@ -143,6 +144,7 @@ JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Win
 
 环境：
 - opencode server 端口：4199，用户名 `opencode`，密码：配置文件 `/persistent/home/leo-tkp/.config/opencode/service.json`（`password` 字段，**不是环境变量**）
+- **真机测试优先**（2026-08-20 用户方针）：测试机小米 houji serial `e69a99d8`；装包用 `pm install` 静默法（无弹窗），详见 [`docs/real-device-testing.md`](docs/real-device-testing.md)
 - 模拟器访问宿主机：`10.0.2.2`
 - **模拟器调试应使用 subagent 执行**：UI 交互（tap/input/scroll）、截图、logcat 读取等派给 `task` subagent 处理，避免主会话上下文溢出
 
