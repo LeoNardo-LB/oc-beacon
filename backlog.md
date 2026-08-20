@@ -1477,11 +1477,11 @@
   - 已知边界（非缺陷）：断连窗口若丢 step.ended 事件则该消息无 tokens（圆环不显示）——REST 协议不返回 tokens，属服务器契约限制
 
 
-- [ ] **#144 subagent 调研会话卡死（31.6 分钟/17 分钟无消息输出）** `refactor`
+- [x] **#144 subagent 调研会话卡死（31.6 分钟/17 分钟无消息输出）——2026-08-21 DB 取证归因关闭（opencode 服务器侧）** `upstream`
   - 现象：2026-08-16 主对话委派的 deep-explore 子会话两个停滞（ses_ff8f1c73affe…卡片内容截断调研 31.6 分钟无消息；ses_ff8e68cacffe…subagent 跳转调研 17 分钟无消息），第三个（回复不可见）正常完成
   - 影响：主对话等待挂起，需人工重派；已重派并带线索缩小范围
-  - 待分析方向：是否长工具调用无超时（grep 大文件/webfetch 无 timeout）、上下文溢出静默挂起、或平台调度问题——下次出现时查 opencode.db 中该子会话最后一条消息的 pending tool 调用
-  - 状态：`[ ]` 已登记，等下次触发时归因
+  - **2026-08-21 DB 取证完成（opencode.db 直查，归因钉死）**：两个卡死会话最后一条消息均以 `tool part status='running'` 永久挂起——ses_ff8f1c73 卡在 `read /persistent/.../opencode/service.json`（limit 15）；ses_ff8e68c8 卡在 `glob /persistent/.../.config/opencode pattern='*'`。共同点：**I/O 目标全在 `/persistent` 挂载（Tailscale 网络盘）**——网络盘 I/O 无限阻塞 + 服务器工具调用无超时 → 会话永远停在 running（旁证：当时 /api/session/active 全程返回 running，且『31.6 分钟无输出』期间 DB 零新消息落库——非慢，是死等）。父会话当时对同路径的 find 命令秒回，仅子会话工具调用挂起——服务器侧工具执行路径问题，非本 App 缺陷
+  - 状态：`[x]` 归因关闭（服务器侧）。上游候选并入 #146 ⑥：deep-explore/task 工具调用对网络挂载路径 I/O 无 watchdog/timeout
 
 - [x] **#145 任务面板 subagent 列表项显示执行时长——结案（5056694b 实现 + 2026-08-19 模拟器 E2E 走时验证 ✅）** `ui`
   - 需求（用户 2026-08-16）：任务面板（TaskSheet）的 subagent 列表项需要看到执行时间，放在 list item 右对齐合适位置
@@ -1498,7 +1498,14 @@
   - ③ **V2 cursor 参数收到 V1 格式 {id,time} 返回 400**：而非忽略或宽容降级；与官方文档/直觉不符，且错误信息无 cursor 格式提示。候选 issue（文档澄清或宽容处理）。客户端已改 encodeV2 根治
   - ④ **V2 fork 端点 handleRaw 冲突 bug**（任何 body 400）：已知服务器 bug，等官方修复或提 PR（需按前提流程）
   - ⑤ **工具输出保尾截头（30K 字符/2000 行）语义**：设计使然非缺陷；候选 feature request——progress metadata 提前携带 truncated/outputPath 让客户端更早提示
-  - 状态：`[ ]` 候选池——提 issue/PR 前逐项按前提流程执行
+  - **2026-08-21 上游核查完成（子代理调研 + /tmp/opencode-src 主干 clone）**：上游 repo 已迁至 **anomalyco/opencode**（sst/opencode 为旧地址，~199k stars，默认分支 dev）；本机 4199 = `@opencode-ai/cli@0.0.0-beta-17728`（当前最新 beta，08-20 发布）；`0.0.0-<channel>-<N>` 为 2.0 开发线、GitHub Releases 只发 1.x 稳定线。逐候选状态：
+    - ① **仍存在·此角度未报告**：事件发射点只在新核心引擎（packages/core/.../compaction.ts:192/222），shipping 旧引擎（opencode2.exe serve）只发粗粒度 session.compacted——『契约有、引擎没接线』。行动：提窄 issue（legacy serve path 补发 started/ended），先评论 #36187/#40494 防重；客户端超时启发式保留
+    - ② **上游已两次 not_planned（#25657/#19584），PR #25658 未合并——不再提**。官方方向 = 拉取式 sync：主干已有 POST /sync/history（seq 游标补发 durable 事件）但 17728 未发布；且 session.status/idle 是纯内存 live 事件，回放补不了。客户端已有 REST 对账即正解；关注该端点发布后迁移
+    - ③ **仍存在·未报告·值得小 PR**：packages/server/src/handlers/message.ts:38 与 session.ts:30 catch-all 只报 "Invalid cursor"（V2 cursor 实为 base64 JSON {id,order,direction}）。改动小被拒风险低，按完整流程走（源码副本已备）
+    - ④ **移动靶——先升级重测再决定**：17728 要求 boundary 字段（{} → 400 Missing key boundary），但主干已改为 ForkInput={sessionID, messageID?} + 空 body 容忍（handlers/session.ts:218-231）——契约一周内刚翻新。等下一 beta 三形态重测
+    - ⑤ **暂缓**：截断限制已可配置（PR #23770 merged：tool_output.max_lines/max_bytes）——先服务器配置放宽；progress 事件 shipping 引擎无发射点（仅 schema），FR 等 2.0 引擎 cutover
+    - ⑥（新增自 #144）：工具调用对网络挂载路径（/persistent 等）I/O 无超时 → 会话永久 running。候选 issue
+  - 状态：`[ ]` 候选池（①③⑥ 可行动；②关闭；④等升级；⑤暂缓）
 
 - [x] **#147 androidTest UI 测试失败（编译断 + touch 注入败）——已随 #149 全量修复结案（136/136 全绿）** `refactor` `test`
   - 现象：2026-08-16 修复 androidTest 编译后首次真跑，全部 UI 测试报
@@ -1606,13 +1613,13 @@
   - **2026-08-19 修复（e26d0c35）——定性勘误 + 根因升级 P1**：主会话亲自复现发现点击实际有 Snackbar「文件未找到」（子代理漏看瞬态提示）；真根因是 **beta-17595 文件读取契约双重断裂**：① 端点为 GET /api/fs/read/<path> 通配符段（旧 ?path= 查询参数恒 500，curl 双形态对照实证）；② 响应为裸文件内容（无 JSON 信封，旧解析必抛）。**影响面远超 CodePath：文件查看器/existence 检查全链路在此部署版静默失效**。修复：通配符拼接（按段编码保斜杠）+ 裸文本回退解析（JSON 信封优先兼容老服务器）。E2E 全闭环：tap 代码路径 → 文件查看器打开渲染 build.gradle.kts 全文（修复前 Snackbar 报错）；单测 +3 全量绿；测试会话已删
   - 工时：~1h | 难度：低 | 涉及：ClickableMarkdown/文件查看导航 | 优先级：P3（点击是死路但无害）
 
-- [ ] **beta-17595 服务器兼容发现批次（E2E 方法论 + App 侧影响，2026-08-19 实测）** `compat` `upstream`
+- [x] **beta-17595 服务器兼容发现批次——2026-08-21 结案（① 已修 + ②③④ 归档方法论）** `compat` `upstream`
   - ① **prompt body agent 选择失效**：App 的 agent 切换（flat body agents 数组）在 beta-17595 被服务器忽略——curl 四种路径实测（agents 数组 / 顶层 agent 字段 / @mention 文本 / modern 包裹契约 400）全部仍用 build agent。**App 侧影响：模型选择器里的 agent 切换在此服务器上无效**（next-17403 上曾工作）。OpenAPI 有 POST /api/session/{id}/agent 端点（未实测）——待验证后改走该端点
   - ② **agent permissions 配置的 ask 规则不生效（默认评估链）**：用户配置 general/general-fast 的 git commit/push ask 规则从未触发（agent 直接执行）；build 加 ask 规则 + 重启服务器仍 allow——**规则顺序 last-match-wins（ask 必须放在 "*"/"*" allow 之后才生效）**，且需经 POST /api/session/{id}/permission 评估端点触发的路径行为一致。用户现有配置中 git ask 规则全部排在 allow 之后（顺序正确）但仍未触发——疑似工具调用路径不经该评估（仅 API 端点评估）
   - ③ **权限询问 E2E 触发方法论**：beta-17595 默认配置下无自然权限询问；可靠触发 = 临时加 ask 规则（放 allow 后）+ curl POST /session/{id}/permission {action,resources} → effect=ask + SSE PermissionAsked（App 正常弹卡）。测试后配置已还原（diff=0 + 重启复验探针 allow）
   - ④ **服务器 saved permission 规则**（GET /api/permission/saved）含历史 always 应答累积（shell/echo *、git commit * 等 6+ 条 global 规则）——App "总是允许"的 always 应答在服务器侧持久化；DELETE /api/permission/saved/{id} 可清理
   - 上游候选（并入 #146 候选池）：agent 切换端点契约（prompt body agents 语义 vs 独立端点）；agent permissions 评估链是否覆盖工具调用路径
-  - 状态：`[ ]` ① ✅ **已修 76f337f5（2026-08-19）**——端点验证可用（204 + session.agent 持久变化 + SSE session.agent.selected 广播，带/不带 directory 头均生效）；实现 switchAgent（promptAsync 发送前显式切换，同 switchModel 模式）+ **resolveAgentId 显示名→id 解析**（E2E 发现的真 bug：listAgents 映射 name "Plan"，端点按 id "plan" 区分大小写匹配，原样发送 → execution.failed "Agent not found"；目录大小写不敏感双向匹配 + @Singleton 缓存 + 失败自适应重拉）。E2E 全链路：UI 切换 → `agent=plan (from=Plan)` → execution.started→succeeded → 服务器回复 agent=plan；②③④ 已归档为方法论
+  - 状态：`[ ]` ① ✅ **已修 76f337f5（2026-08-19）**——端点验证可用（204 + session.agent 持久变化 + SSE session.agent.selected 广播，带/不带 directory 头均生效）；实现 switchAgent（promptAsync 发送前显式切换，同 switchModel 模式）+ **resolveAgentId 显示名→id 解析**（E2E 发现的真 bug：listAgents 映射 name "Plan"，端点按 id "plan" 区分大小写匹配，原样发送 → execution.failed "Agent not found"；目录大小写不敏感双向匹配 + @Singleton 缓存 + 失败自适应重拉）。E2E 全链路：UI 切换 → `agent=plan (from=Plan)` → execution.started→succeeded → 服务器回复 agent=plan；②③④ 已归档为方法论。**2026-08-21 结案勾选**（唯一 App 侧缺口①已修；服务器现已升至 beta-17728）
 
 - [x] **新增 P2：StrictMode 首轮走查发现——主线程 IO 批次（165 条，2026-08-19 c3078b41 采集）——①②③全部终态（48ae416f + ae40b014）** `perf` `main-thread`
   - 背景：#106-2 接入 StrictMode 后首轮模拟器走查（导航/滚动/进会话/设置，19:23-19:27）捕获 165 条违规，100% 主线程（PID=TID）。证据 /tmp/verify-strictmode/violations.txt
@@ -1750,8 +1757,8 @@
 - **真机压力回归（修复后）**：5 轮 {连跳×2 + 立即滚动×8} 组合暴力测试——全部落点正常、无叠放/无直角异常/顶部完整；滚动质量 4190 帧 5-7ms 占 97%+、无 >31ms 帧（跳转后立即滚动顺滑——稳定窗口让位生效）。
 - **遗留登记**：
   - [ ] **P3：RaceProbe 复现取证待用户执行** `race`——若叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可直接重放：JUMP entries 数 vs VIEW keys 错位即定位）
-  - [ ] **P3：A-F4 反射 requestPositionAndForgetLastKnownKey** `refactor`——跳转路径建议换官方 scrollToItem（反射仅留 SSE 补偿）
-  - [ ] **P3：卫生群**（D 报告 #7-11）：jumpPhase 1500 行主体直读、mdRegistry/velocityEma 等死代码清理、RenderReadiness remove 实例置换、时钟基统一
+  - [x] **P3：A-F4 反射 requestPositionAndForgetLastKnownKey** `refactor` ✅ 2026-08-21（fe784374）——跳转路径两处换官方挂起 scrollToItem（互斥锁内重定位改为块外标记+块外执行）；反射 LazyListReflection 仅留 SSE 高度补偿两处调用点
+  - [x] **P3：卫生群**（D 报告 #7-11）✅ 2026-08-21（ae0d079c + 07507ae7）——① mdRegistry/JumpBubbleObserve/Ready 上报链/JPS pendingIndex·onCompleted·reset/JNC reset 全删（零读者实证）；② user 跳转预解析直通 Measuring（PartContent isUser 纯 Text 渲染，预解析纯延迟——附带性能修复）；③ RenderReadiness D-7 实例置换修复（解析前捕获 flow 实例直写，remove 后不复活、旧订阅者收得到完成态）+ update/awaitReady 死 API 移除；④ jumpPhase 订阅下沉 JumpMaskOverlay 小组件（蒙版显隐不再重组 1500 行主体）+ 时钟基统一 elapsedRealtime（门控/解锁/重定位节流/稳定窗口同基）
 
 ## 2026-08-20 第五轮：跳转悬浮叠放瞬态（低概率）+ MIUI 安装机制调研
 
@@ -1822,4 +1829,12 @@
   - **真机测试 runbook（本批次打通，后续复用）**：① 装包**一律用 pm install 静默法**（2026-08-20 实证 3 轮 0.4s 无弹窗）：adb -s e69a99d8 push <apk> /data/local/tmp/t.apk && adb -s e69a99d8 shell pm install -r /data/local/tmp/t.apk && adb -s e69a99d8 shell rm /data/local/tmp/t.apk——MIUI 确认弹窗只挂在 adb install 流程（PackageInstaller UI），shell 直装不经过；降级加 -d。次选：adb install 需 MIUI 开「USB 安装」且屏幕解锁常亮（弹窗手点；svc power stayon usb 保常亮）② 服务器打通用 adb reverse tcp:4199 tcp:4199（设备 127.0.0.1:4199 → 宿主机）③ 一键配置服务器走 debug 构建 intent：am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity --es debug_url http://127.0.0.1:4199 --es debug_username opencode --es debug_password <pwd>（仅 BuildConfig.DEBUG 生效；dev-release 本地无 keystore 回退 debug 签名且非 debuggable 不可降级覆盖）④ 本地 keystore 已失（仅 CI Secrets 存留）——本地构建恒为 debug 签名，与 CI release 包互不覆盖，切换需卸载重装
   - ⚠️ 待用户验收：观感（固定高度后空内容抽屉底部留白是否符合预期）——测试构建已在真机可直接体验
 - [x] **新增 P3：SystemPromptDialog + extractSystemPrompt 疑似死代码（2026-08-20 抽屉统一批次顺带发现）** `refactor`
+
+## 2026-08-21 GitHub issue #1 遗留调研批次（V1 连接速度）
+
+- [ ] **#150 V1 连接速度慢于 beta.4 误判 V2——探测复用 + 预加载/SSE 并行化** `perf` `v1`
+  - 来源：GitHub issue #1（ISuuuu）遗留反馈"连接方式 v1 连接速度没有 0.3.0-beta.4 的 v2 快"（报错部分已由 4c2b6d8a 修复并经报告人确认）
+  - **调研结论（完整证据链见 docs/research/issue-1-v1-connect-speed-2026-08-21.md）**：beta.4 的"v2 快"是误判产物——V1 1.18.18 过渡形态 /api/health 返回 {"healthy":true} 被判 V2，随后 preLoadSessions 在 /api/project 的 SPA HTML 上快速失败被整体跳过（6 步串行缩为 3 步；本机回环实测 165ms vs 37ms）。真实根因：① runSseConnectionLoop 把 preLoadSessions（/project + N×/session + N×/session/status）**串行放在 SSE 之前**，"已连接"翻转被整段阻塞；② 每次手动连接都重新双探（V2-first 白跑一次 RTT，已持久化的 apiVersion 不复用）；③ V1 特有 /session/status 每目录一串往返 + Windows /project 冷调用慢（实测首调 214ms vs 热 8ms）
+  - 修复方向（按收益）：探测结果复用 + 后台重探（保留 #132 UNKNOWN 语义）→ preLoadSessions 与 SSE 并行（首事件立即翻转已连接，preload 并发补）→ 项目间并行拉取（并发 2-4）。**不建议**复现 beta.4 误判行为（#83 回归）
+  - 已排除：SSE 首事件延迟（两版本握手即推 server.connected）、心跳节奏、payload 包装解析、初始消息分页、认证方式——均实测/代码验证无差异
   - **2026-08-20 清理完成 ✅**：全库 grep（main+test）确认零调用方后删除 SystemPromptDialog.kt 整文件 + 15 语言 2 个孤儿键（chat_system_prompt_title/empty，646 键一致）；编译 ✅ 全量单测 --rerun ✅ i18n-check PASSED。附带成果：本地 devRelease 首次以新 keystore 签名成功（8fbc136e…，与 keytool 指纹一致）
