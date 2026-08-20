@@ -1707,13 +1707,15 @@
   - 处置：登记观察（模拟器长时间运行后 uiautomator 自身劣化先例见 TaskSheet 2026-08-16 记录）；真机复现再升级
   - **2026-08-20 真机定向复现尝试：11 轮零复现**（houji：5 常规节奏开关 + 6 连打开关，每轮 dump 树均完整 32.9KB、入口节点在位、无遮罩-only 状态）——支持「模拟器 uiautomator 自身劣化」假说，维持登记不升级
   - **2026-08-21 真机首次复现（跳转 E2E 附带，fe784374/ae0d079c 复验轮）**：快速导航 sheet + 远跳（loadAround 路径）周期后 ~2s，dump 出 91 节点但**全部 text/content-desc 为空**（视觉/触摸完全正常），~15s 内自愈（后续 dump 恢复 27 文本节点）。同轮 4 次跳转仅 1 次出现（另 2 次窗口内跳 + 1 次前向跳均健康）；**对照实验：仅 sheet 开/关（不跳转）×4 采样全部健康** → 与「跳转+蒙版周期」相关性 >「sheet 周期」。定性更新：非模拟器专属，真机偶发；机制未定位（候选：全屏遮罩增删后 Compose semantics 刷新延迟）；零用户可感知影响，维持 P3 观察
+  - **2026-08-21 频率探查（修复验证轮 +6 循环）**：交替前向/回退远跳 ×6（每轮 +2.5s/+10.5s 双采样）全部健康（22-29 文本节点）；两晚合计 12 次跳转 **1 次退化（~8%）**，均自愈、零用户影响。维持 P3 观察，不升级
   - 工时：待定 | 难度：低 | 涉及：PendingTodoSheet / ModalBottomSheet / JumpMaskOverlay | 优先级：P3
 
-- [ ] **新增 P3：跳转期间 nearBottom auto-load(newer) 竞态漏发——渐进步进幽灵 gap 空转（2026-08-21 跳转 E2E 发现）** `race` `jump` `perf`
+- [x] **新增 P3：跳转期间 nearBottom auto-load(newer) 竞态漏发 + 渐进步进幽灵 gap 空转（2026-08-21 跳转 E2E 发现）** `race` `jump` `perf` ✅ 2026-08-21 修复（双根因双修，真机红绿验证）
   - 现象（houji 真机日志 02:34:15.334→20.568）：前向远跳至最新提问，jumpToMessage 置 jumpLockActive=true 后 **+136ms** nearBottom 探针（firstVisible=0）仍触发 `auto-load newer triggered` → settle 期间 displayItems 变动 → 渐进步进卡 gap=-343 连续 **7 次无效步进**（~3.1s），靠无进展回退才 `布局稳定`（跳转总时长 5.2s vs 正常 3.2s）；最终落点正确、无 Failed、无崩溃
-  - 根因：ChatMessageList.kt:907-928（newer）与 ~861-895（older）两处 LaunchedEffect 的 `!jumpLockActive` **仅在 effect 启动时检查一次**，collect 回调内不复查——jumpLock 翻转与 effect key 重启之间存在重组延迟窗口，旧实例的 snapshotFlow 发射（跳转滚动使 firstVisible≤8）赶在重启前漏过闸门
-  - 修复方向：collect 内触发前复查当前值（`if (!jumpLockActive) viewModel.loadNewerMessages()`，两处各 1 行）；older 方向含 backoff delay，窗口更宽，一并修
-  - 工时：0.5h | 难度：低 | 涉及：ChatMessageList 自动分页两 effect | 优先级：P3（自愈型：无进展回退兜底，代价仅蒙版多挂 ~2s）
+  - **根因 ×2（修复过程修正了最初归因）**：① 竞态确实存在——ChatMessageList 两处 LaunchedEffect（newer ~907/older ~849）的 `!jumpLockActive` 仅在 effect 启动时检查一次，collect 内不复查，漏发 loadNewer；② 但幽灵 gap 的**主因是 scrollBy 内容边界夹持**——前向跳到列表端附近，目标下方内容不足一屏，gap 物理上无法归零（step=-660 实际只滚 -317），循环空转到 5s 超时（修掉①后 -343 空转依旧，才定位到②）
+  - **修复（两 commit）**：① collect 触发点复查 jumpLock（跳转结束 effect 重启会重新评估，不丢正常触发）；② JumpNavigationController 渐进循环检测 scrollBy 返回值 |实际-请求|>1px 即判定夹持，接受物理最接近位置收场（Displayed）——稳定窗口的 gap 修正对夹持位置是天然 no-op
+  - **真机红绿验证**：红（修复前）前向跳 5.2s 蒙版 + 7 次无效步进；绿（修复后）同场景 1.1s 收场（日志实证「请求-660/实际-317——接受当前位置」），回退跳回归 gap 正常归零、解锁后 hasOlder 正常触发（无误伤），后续 6 循环前向跳 clamp 稳定命中 ×6 零 Failed；全量单测绿
+  - 工时：1h（含根因修正）| 难度：低-中 | 涉及：ChatMessageList 自动分页两 effect / JumpNavigationController 渐进循环
 
 - **E2E 阶段 2+3 收官记录（2026-08-20，7/7 PASS）**：A 删除后 ≤0.3s 一致更新（be3a0cc5 修复复验；阶段 1 的「残留」定性为单帧捕获时序）｜B 手动停止零误发（红停止图标→Idle，queued message sent=0、角标保留）｜C「继续」手动放行队首 1 条（transcript+DB 双证）｜D 清空确认框→列表空+角标消失｜E TODO tab 在 beta-17639 隐藏（probe 404×2 + curl 404 互证）｜F force-stop 冷启后队列完整、空闲 15s 零 pipeline 事件（重启不自动发）｜G 附件置灰（min 像素 130 vs 27）+点击无入队。审计线：8 enqueued / 仅 C 的 1 sent——误发为零。附带登记：
 - [~] **新增 P3：LeakCanary 报 OpenCodeConnectionService\$LocalBinder 泄漏（E2E 阶段 2 期间 1 个 distinct，2026-08-20 登记）** `leak` `service`
