@@ -531,6 +531,8 @@ fun ChatMessageList(
     // 2026-08-20：loadAround 未命中重试一次（深分页/服务器时序一次加载可能不够，
     // 此前直接 snackbar 误报『此会话中未找到发起任务』——用户快速连跳时必现）
     var pendingJumpRetried by remember { mutableStateOf(false) }
+    // 2026-08-20 D 修复：最近一次跳转终点时刻（phase 回 Idle 时间戳，B-F2 提交门控用）
+    var lastJumpEndAtMillis by remember { mutableStateOf(0L) }
 
     // ===== 2026-08-20 滚动稳定性：滚动预解析驱动（fling 下跳根因修复） =====
     // 真机取证（ScrollDiag RESIZE）：assistant 长回复初次组合仅测得占位高度
@@ -541,6 +543,12 @@ fun ChatMessageList(
     // 组合时直接取 Parsed state——首测即最终高度，消除渐进测量。
     val displayItemsForPreparse = androidx.compose.runtime.rememberUpdatedState(displayItems)
     val turnGroupsForPreparse = androidx.compose.runtime.rememberUpdatedState(turnGroups)
+    // 2026-08-20 D 修复：B-F2 提交门控升级——原 !jumpLockActive 在状态机终点
+    // 300ms 后解锁，但稳定窗口（Displayed 后 1.5s 静默监控）仍在跑：期间 pending
+    // 分片提交使窗口边缘 turn key 裂变 → LazyColumn remove+insert remeasure 竞态
+    // → 单帧 item 叠放错乱（用户报『一条消息浮在另一条上、回复被拦腰斩断』，
+    // 低概率瞬态）。升级为：phase 完全回 Idle 后再等 500ms 才允许提交。
+    val jumpPhaseForPreparse = androidx.compose.runtime.rememberUpdatedState(jumpPhase)
     val preparseSeenKeys = remember { LinkedHashSet<String>() }
     LaunchedEffect(listState, bannerCount) {
         snapshotFlow {
@@ -639,12 +647,17 @@ fun ChatMessageList(
             //（head..tail，±PREPARSE_AHEAD display 粒度）才写入 chunkPlans。
             // 视口/窗口内保持单 item（key 稳定不裂变）；turn 离开窗口后
             // 裂变点远离视口（±8 item 缓冲），预取到它时已是分片版。
-            // 2026-08-20 竞态补丁：跳转期间（jumpLockActive）禁止提交——跳转
-            // 窗口快速扫过大范围，落窗外 turn 的提交会使 chatEntries 裂变，
-            // 而状态机已按裂变前 index 发出的 scrollToItem 会落在错误位置
-            //（真机复现：Q33 跳转落进 05:04 文章 chunk 中间）。与 auto-load
-            // 同门控；跳转结束 300ms 后解锁自然恢复提交。
-            if (pendingChunkPlans.isNotEmpty() && !jumpLockActive) {
+            // 2026-08-20 竞态补丁（D 升级）：跳转期间及其稳定窗口内禁止提交。
+            // v1 (!jumpLockActive) 在终点 300ms 解锁，但稳定窗口（1.5s 静默监控
+            // gap 并静默 scrollBy 修正）仍在运行——期间提交使窗口边缘 turn key
+            // 裂变 → remeasure 竞态 → 单帧 item 叠放错乱（用户报『消息浮在消息
+            // 上、回复拦腰斩断』，低概率瞬态）。现要求 phase 回 Idle 再等 500ms。
+            val phaseNow = jumpPhaseForPreparse.value
+            // 从未跳转（0L）恒放行；跳转后需终点 + 2s（稳定窗口 1.5s + 解锁 300ms + 余量）
+            val jumpFullySettled = lastJumpEndAtMillis == 0L ||
+                ((phaseNow is JumpPhase.Displayed || phaseNow is JumpPhase.Failed) &&
+                    (System.currentTimeMillis() - lastJumpEndAtMillis > 2000))
+            if (pendingChunkPlans.isNotEmpty() && jumpFullySettled) {
                 val committed = pendingChunkPlans.filterValues { (_, turnDi) ->
                     turnDi !in head..tail
                 }
@@ -663,6 +676,9 @@ fun ChatMessageList(
     // 定位结束才放行 autoLoad；不再靠旧流程末尾手动解锁）
     LaunchedEffect(jumpPhase) {
         if (jumpPhase is JumpPhase.Displayed || jumpPhase is JumpPhase.Failed) {
+            // D 修复：记录终点时刻（B-F2 提交门控：终点 + 2s = 稳定窗口(1.5s)+
+            // 解锁延迟(300ms)+余量，全部结束后才允许分片提交）
+            lastJumpEndAtMillis = System.currentTimeMillis()
             delay(300)
             jumpLockActive = false
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 状态机终点——autoLoad 解锁")
