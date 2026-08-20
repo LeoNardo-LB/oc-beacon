@@ -51,6 +51,12 @@ internal class ChatPerfMonitor(
     private var worstSinceSteadyMs = 0.0
     private var worstPhases = DoubleArray(7)
 
+    // 2026-08-20 观察者效应批次：平台有重复 FrameMetrics 事件前科
+    //（b/206956036，JankStats 源码内有去重补丁）——按 vsync 时间戳去重；
+    // dropCount 记账（回调第 3 参：两次回调间被丢弃的帧报告数——量化丢样）
+    private var lastVsyncNanos = -1L
+    private var droppedReports = 0L
+
     data class HudData(
         val fpsEstimate: Int = 0,
         val p50Ms: Double = 0.0,
@@ -58,6 +64,7 @@ internal class ChatPerfMonitor(
         val overBudgetPct: Double = 0.0,
         val totalJank: Long = 0,
         val windowFrames: Int = 0,
+        val droppedReports: Long = 0,
     )
 
     data class Marker(val atNanos: Long, val tag: String)
@@ -70,7 +77,8 @@ internal class ChatPerfMonitor(
         }
     }
 
-    private val listener = Window.OnFrameMetricsAvailableListener { _, frameMetrics, _ ->
+    private val listener = Window.OnFrameMetricsAvailableListener { _, frameMetrics, dropCount ->
+        droppedReports += dropCount
         onFrame(frameMetrics)
     }
 
@@ -85,6 +93,11 @@ internal class ChatPerfMonitor(
     }
 
     private fun onFrame(metrics: FrameMetrics) {
+        val vsync = metrics.getMetric(FrameMetrics.VSYNC_TIMESTAMP)
+        if (vsync > 0) {
+            if (vsync == lastVsyncNanos) return // 平台重复事件（b/206956036）
+            lastVsyncNanos = vsync
+        }
         val totalNs = metrics.getMetric(FrameMetrics.TOTAL_DURATION)
         if (totalNs <= 0) return
         val totalMs = totalNs / 1_000_000.0
@@ -113,6 +126,7 @@ internal class ChatPerfMonitor(
                 overBudgetPct = s.overBudgetPct,
                 totalJank = statsWindow.totalJank,
                 windowFrames = s.frames,
+                droppedReports = droppedReports,
             )
         }
 

@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
@@ -110,6 +111,9 @@ class MainActivity : ComponentActivity() {
     // 2026-08-20 第三轮：开发用性能监测（am start --ez debug_perf true 开启，
     // 仅 debug 构建；release 恒 null——监测器代码虽打进包但永不 attach，零开销）。
     private var perfMonitor: dev.leonardo.ocbeacon.debug.ChatPerfMonitor? = null
+    // 2026-08-20 观察者效应：优先独立 overlay window HUD（不污染被测窗口帧流）；
+    // 无 SYSTEM_ALERT_WINDOW 授权时回退同窗口 Compose HUD 并引导授权一次
+    private var perfHudOverlay: dev.leonardo.ocbeacon.debug.PerfHudOverlay? = null
 
     fun setTerminalKeyInterceptor(interceptor: ((KeyEvent) -> Boolean)?) {
         terminalKeyInterceptor = interceptor
@@ -170,6 +174,21 @@ class MainActivity : ComponentActivity() {
                 it.attach(window)
                 AppLogger.i(TAG, "PerfMon attached: refresh=${refresh}Hz budget=${1000f / refresh}ms")
             }
+            val overlay = dev.leonardo.ocbeacon.debug.PerfHudOverlay(applicationContext)
+            perfHudOverlay = overlay
+            if (overlay.isAvailable()) {
+                overlay.show()
+                AppLogger.i(TAG, "PerfMon HUD: overlay window（隔离帧流）")
+            } else {
+                // 引导授权一次（MIUI 系统设置页）；本次回退同窗口 HUD
+                runCatching {
+                    startActivity(android.content.Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName"),
+                    ))
+                }
+                AppLogger.i(TAG, "PerfMon HUD: 无悬浮窗权限，回退同窗口（授权后重启生效）")
+            }
         }
         
         @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
@@ -213,12 +232,20 @@ class MainActivity : ComponentActivity() {
                             fileRepository = fileRepository
                         )
                         perfMonitor?.let { mon ->
-                            dev.leonardo.ocbeacon.debug.PerfHud(
-                                hud = mon.hud,
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .statusBarsPadding(),
-                            )
+                            val overlay = perfHudOverlay
+                            if (overlay != null && overlay.isAvailable()) {
+                                // 独立窗口 HUD：组合层只挂数据桥（overlay 自身零 Compose 开销）
+                                androidx.compose.runtime.LaunchedEffect(mon) {
+                                    snapshotFlow { mon.hud.value }.collect { overlay.update(it) }
+                                }
+                            } else {
+                                dev.leonardo.ocbeacon.debug.PerfHud(
+                                    hud = mon.hud,
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .statusBarsPadding(),
+                                )
+                            }
                         }
                     }
                 }

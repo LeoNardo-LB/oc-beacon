@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 2026-08-20 PerfMon 观察者效应：独立悬浮窗 HUD（debug 专属；
+         授权经 ACTION_MANAGE_OVERLAY_PERMISSION 一次授予） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application>
         <!-- 2026-08-16（#147）：androidTest Compose 宿主（app 进程声明——
              test APK manifest 的 Activity 归属 .test 进程，与 instrumentation
