@@ -31,11 +31,34 @@ adb -s e69a99d8 shell rm /data/local/tmp/t.apk
 
 备选 `adb install -r`：会弹 MIUI 确认窗，需**屏幕解锁亮屏 + 人工点「安装」**；锁屏状态下弹窗无法显示，直接报 `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`。不要用「关闭 MIUI 优化」换取 adb install 静默（副作用大：权限管理/双开等特性退化，且开关位置深）。
 
+### 全新安装的弹窗自动点穿（无人值守首装，2026-08-21 实证）
+
+覆盖安装（同签名 `-r`）走上面的静默法即可；但**全新安装**（卸载后 / 新包名）MIUI 必弹用户确认——`pm install` 同样被拦，无人点击约 25s 后报 `INSTALL_FAILED_USER_RESTRICTED`。无人值守方案：后台跑 `pm install`，同时轮询 uiautomator 树把确认按钮点掉（实测 2s 内点一次「继续安装」即过）。**前提：设备解锁亮屏**（锁屏下弹窗不显示，直接失败）。
+
+一键脚本（按钮文案 zh 匹配，其他语言需补 `BUTTONS` 文案）：
+
+```bash
+./scripts/miui-install.sh <apk路径> [serial] [额外 pm install 参数...]
+# 例: ./scripts/miui-install.sh app/build/outputs/apk/dev/debug/app-dev-debug.apk
+#     ./scripts/miui-install.sh foo.apk e69a99d8 -r -d
+```
+
+核心命令（脚本本质，手动执行用）：
+
+```bash
+adb -s e69a99d8 push app.apk /data/local/tmp/t.apk
+adb -s e69a99d8 shell pm install /data/local/tmp/t.apk &   # 后台
+# 循环（2s 一次）直到包出现：dump → 找「继续安装」/「安装」/「确定」按钮 bounds → input tap 中心点
+adb -s e69a99d8 shell uiautomator dump /sdcard/ui.xml
+adb -s e69a99d8 shell cat /sdcard/ui.xml   # 在其中找 text="继续安装" 节点的 bounds="[x1,y1][x2,y2]"
+adb -s e69a99d8 shell input tap $(( (x1+x2)/2 )) $(( (y1+y2)/2 ))
+```
+
 常见错误：
 
 | 报错 | 含义 / 处置 |
 |---|---|
-| `INSTALL_FAILED_USER_RESTRICTED` | adb install 弹窗被取消（锁屏或未点）→ 改用 pm install 静默法 |
+| `INSTALL_FAILED_USER_RESTRICTED` | 弹窗被取消（锁屏或未点）。覆盖安装 → 改用 pm install 静默法；全新安装 → `scripts/miui-install.sh` 自动点穿（见上节），或人工点「安装」 |
 | `INSTALL_FAILED_VERSION_DOWNGRADE` | dev flavor versionCode 是 Unix 时间戳，旧构建装不上去 → `pm install -r -d`（debug 构建可降级；release 构建非 debuggable 不可降级，只能卸载重装） |
 
 ## 服务器连通：adb reverse
