@@ -18,7 +18,6 @@ import dev.leonardo.ocbeacon.data.api.NetworkMonitor
 import dev.leonardo.ocbeacon.data.api.NetworkState
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.ServerDataStore
-import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
@@ -94,9 +93,6 @@ class OpenCodeConnectionService : Service() {
 
     @Inject
     lateinit var sessionFocusHolder: SessionFocusHolder
-
-    @Inject
-    lateinit var terminalRegistry: ServerTerminalRegistry
 
     @Inject
     lateinit var serverConfigRepository: ServerConfigRepository
@@ -193,7 +189,7 @@ class OpenCodeConnectionService : Service() {
         when (intent?.action) {
             ACTION_DISCONNECT_ALL -> {
                 AppLogger.i(TAG, "Disconnect All requested via notification")
-                disconnectAllVisibleServers()
+                disconnectAll()  // #170：registry 即全部可见集合
                 return START_NOT_STICKY
             }
             ACTION_DISCONNECT -> {
@@ -347,10 +343,6 @@ class OpenCodeConnectionService : Service() {
 
     // ============ 内部 ============
 
-    private fun disconnectAllVisibleServers() {
-        // #170：与 disconnectAll 同义（registry 即"visible"集合——双份 teardown 已合一）。
-        lifecycleCoordinator.disconnectAll()
-    }
 
     private suspend fun autoConnectConfiguredServers() {
         try {
