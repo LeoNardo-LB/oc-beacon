@@ -75,6 +75,9 @@ class OpenCodeConnectionService : Service() {
     lateinit var connectionManager: SseConnectionManager
 
     @Inject
+    lateinit var lifecycleCoordinator: ConnectionLifecycleCoordinator
+
+    @Inject
     lateinit var appNotificationManager: AppNotificationManager
 
     @Inject
@@ -146,6 +149,25 @@ class OpenCodeConnectionService : Service() {
         systemNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         appNotificationManager.createNotificationChannels(systemNotificationManager, this)
 
+        // ===== 连接生命周期接线（#170：编排收进 Coordinator，本类为 FGS adapter）=====
+        // SSE 事件路由（通知/权限域）与 question 轮询体（通知域，依赖 Context）
+        // 留宿主；启停决策在 Coordinator。
+        lifecycleCoordinator.onEvent = ::processEvent
+        lifecycleCoordinator.questionPollingFactory =
+            ConnectionLifecycleCoordinator.QuestionPollingFactory { server ->
+                startQuestionPolling(server)
+            }
+        // FGS/wakeLock/持久通知联动：从生命周期状态派生（最后一个断开 → 收尾）。
+        lifecycleCoordinator.onLifecycleChanged = { _, _ ->
+            if (lifecycleCoordinator.activeServerIds.value.isEmpty()) {
+                onLastServerDisconnected()
+            } else {
+                ensureForegroundStarted()
+                acquireWakeLock()
+                updatePersistentNotification()
+            }
+        }
+
         // 启动网络监控并观察恢复事件
         networkMonitor.startMonitoring()
         networkRecoveryJob = serviceScope.launch {
@@ -153,8 +175,8 @@ class OpenCodeConnectionService : Service() {
                 .debounce(2_000L)
                 .distinctUntilChanged()
                 .collect { state ->
-                    if (state == NetworkState.Available && connectionManager.connections.isNotEmpty()) {
-                        AppLogger.i(TAG, "Network recovered, reconnecting ${connectionManager.connections.size} server(s)")
+                    if (state == NetworkState.Available && lifecycleCoordinator.activeServerIds.value.isNotEmpty()) {
+                        AppLogger.i(TAG, "Network recovered, reconnecting ${lifecycleCoordinator.activeServerIds.value.size} server(s)")
                         connectionManager.reconnectAll()
                     }
                 }
@@ -218,7 +240,7 @@ class OpenCodeConnectionService : Service() {
      */
     override fun onTimeout(startId: Int, fgsType: Int) {
         super.onTimeout(startId, fgsType)
-        val activeServers = connectionManager.connections.keys.toList()
+        val activeServers = lifecycleCoordinator.activeServerIds.value.toList()
         AppLogger.w(TAG, "FGS dataSync timeout (6h) startId=$startId fgsType=$fgsType, activeServers=$activeServers")
         if (activeServers.isEmpty()) {
             AppLogger.i(TAG, "No active connections, skipping service restart after FGS timeout")
@@ -249,7 +271,9 @@ class OpenCodeConnectionService : Service() {
         networkRecoveryJob?.cancel()
         networkRecoveryJob = null
         networkMonitor.stopMonitoring()
-        connectionManager.stopAllConnections()
+        // #170：经协调器统一断开（registry + 四路清理单点）——
+        // 与 Service 销毁语义一致（单例 registry 不残留已销毁会话）。
+        lifecycleCoordinator.disconnectAll()
         serviceScope.cancel()
     }
 
@@ -264,83 +288,45 @@ class OpenCodeConnectionService : Service() {
     fun connect(server: ServerConfig) {
         // 泄漏修复（路径 1b）：onStartCommand/autoConnect 经 serviceScope.launch
         // 挂起（DB 读取）后到达此处；若期间 onDestroy 已执行（serviceScope.cancel
-        // + stopAllConnections），继续执行会用已销毁 Service 的 ::processEvent
+        // + 断开全部），继续执行会用已销毁 Service 的 ::processEvent
         // 重填单例 map，连接永久滞留。作用域已取消则放弃本次连接。
         if (!serviceScope.isActive) {
             AppLogger.w(TAG, "Service scope inactive (destroyed), skipping connect to ${server.displayName}")
             return
         }
-        if (connectionManager.connections.containsKey(server.id)) {
-            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Already connected to server ${server.id}, skipping")
-            return
-        }
-
-        // 按后端签名去重：相同的 url + username = 同一个 OpenCode serve 实例。
-        // 到同一后端的两条 SSE 连接会投递重复的全局事件，
-        // 导致 MessagePartDelta（追加语义）使流式文本翻倍。
-        // backlog #34：用归一化比较（host 大小写 / 默认端口 / 尾斜杠），
-        // 避免"看起来不同但实际相同"的 URL 绕过去重。
-        val existingBackend = connectionManager.connections.values.firstOrNull { state ->
-            ServerConfig.sameBackend(state.config.url, state.config.username, server.url, server.username)
-        }
-        if (existingBackend != null) {
-            AppLogger.w(TAG, "Backend ${server.url} already connected via '${existingBackend.config.displayName}'" +
-                " (id=${existingBackend.config.id}), skipping duplicate for '${server.displayName}'")
-            return
-        }
-
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Connecting to server: ${server.displayName} (${server.url})")
-
-        ensureForegroundStarted()
-
-        // 获取 wake lock（共享——首次 connect 获取，最后断开释放）
-        acquireWakeLock()
-
-        // 启动带自动重连的 SSE 连接；事件路由到 processEvent
-        connectionManager.startConnection(server, ::processEvent)
-
-        // REST 兜底：SSE 不推 question 事件时定期轮询 GET /question
-        startQuestionPolling(server)
-
-        // 观察连接状态：SSE 连接建立后持久通知从"连接中"刷新为"已连接"
+        // #170：七步编排（幂等/同后端去重/FGS/wakeLock/SSE/轮询/通知）
+        // 收进 ConnectionLifecycleCoordinator；FGS/wakeLock 经
+        // onLifecycleChanged 回调派生。通知观察全局一次（onCreate/此处幂等）。
         startPersistentNotificationObserver()
-
-        // 更新持久通知
-        updatePersistentNotification()
+        lifecycleCoordinator.connect(server)
     }
 
     /**
      * 断开单个服务器。
      */
     fun disconnect(serverId: String) {
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Disconnecting server $serverId")
+        // #170：四路清理（轮询/SSE/终端工作区/通知去重缓存）单点在
+        // Coordinator；"最后一个服务器断开"由 onLifecycleChanged 派生。
+        lifecycleCoordinator.disconnect(serverId)
+    }
 
-        // 取消该服务器的 REST 轮询协程，防止重连后旧协程继续运行导致重复轮询
-        pollingJobs.remove(serverId)?.cancel()
-        connectionManager.stopConnection(serverId)
-        // 释放该服务器的终端工作区（关闭 tab + 取消协程作用域），防止泄漏
-        terminalRegistry.removeWorkspace(serverId)
-        // 清除该服务器的通知去重缓存，防止跨会话残留增长
-        appNotificationManager.clearForServer(serverId)
-
-        if (connectionManager.connections.isEmpty()) {
-            // 最后一个服务器已断开——清理并停止服务
-            releaseWakeLock()
-            connectionStateNotificationJob?.cancel()
-            connectionStateNotificationJob = null
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            foregroundStarted = false
-            stopSelf()
-        } else {
-            updatePersistentNotification()
-        }
+    /** 最后一个服务器断开（Coordinator 回调派生）——清理并停止 FGS。 */
+    private fun onLastServerDisconnected() {
+        releaseWakeLock()
+        connectionStateNotificationJob?.cancel()
+        connectionStateNotificationJob = null
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        foregroundStarted = false
+        stopSelf()
     }
 
     /**
      * 断开所有服务器并停止服务。
      */
     fun disconnectAll() {
-        disconnectAllInternal(stopService = true)
+        // #170：双份 teardown 合一——Coordinator.disconnectAll 单实现，
+        // 最后一个服务器断开同样经回调收尾（stopService 语义）。
+        lifecycleCoordinator.disconnectAll()
     }
 
     /**
@@ -356,49 +342,14 @@ class OpenCodeConnectionService : Service() {
      * 供 UI 在发起连接前预检：若返回非 null，说明该后端已通过另一个服务器条目连接，
      * 应拒绝新连接并提示用户，避免 Service 静默拒绝导致 UI 永久显示 "Connecting"。
      */
-    fun findDuplicateBackend(url: String, username: String?): ServerConfig? {
-        return connectionManager.connections.values.firstOrNull { state ->
-            ServerConfig.sameBackend(state.config.url, state.config.username, url, username)
-        }?.config
-    }
+    fun findDuplicateBackend(url: String, username: String?): ServerConfig? =
+        lifecycleCoordinator.findDuplicateBackend(url, username)
 
     // ============ 内部 ============
 
     private fun disconnectAllVisibleServers() {
-        val visibleServerIds = connectionManager.connections.values
-            .map { it.config.id }
-
-        if (visibleServerIds.isEmpty()) {
-            updatePersistentNotification()
-            return
-        }
-
-        for (serverId in visibleServerIds) {
-            disconnect(serverId)
-        }
-    }
-
-    private fun disconnectAllInternal(stopService: Boolean) {
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Disconnecting all servers")
-
-        val allServerIds = connectionManager.connections.keys.toList()
-        // 取消所有服务器的 REST 轮询协程
-        pollingJobs.keys.toList().forEach { pollingJobs.remove(it)?.cancel() }
-        connectionManager.stopAllConnections()
-        // 释放全部服务器终端工作区（防泄漏）
-        terminalRegistry.removeAllWorkspaces()
-        // 清除全部通知去重缓存
-        allServerIds.forEach { appNotificationManager.clearForServer(it) }
-
-        releaseWakeLock()
-        connectionStateNotificationJob?.cancel()
-        connectionStateNotificationJob = null
-
-        if (stopService) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            foregroundStarted = false
-            stopSelf()
-        }
+        // #170：与 disconnectAll 同义（registry 即"visible"集合——双份 teardown 已合一）。
+        lifecycleCoordinator.disconnectAll()
     }
 
     private suspend fun autoConnectConfiguredServers() {
@@ -414,6 +365,8 @@ class OpenCodeConnectionService : Service() {
 
     private fun ensureForegroundStarted() {
         if (foregroundStarted) return
+        // 通知内容读传输真实状态（连接中/已连接显示）——数据源是 Manager；
+        // FGS 启停决策才用 Coordinator 的生命周期 registry（#170 边界）。
         val notification = appNotificationManager.createPersistentNotification(
             this, connectionManager.connections
         )
@@ -435,12 +388,12 @@ class OpenCodeConnectionService : Service() {
      * `settingsDataStore.notificationsEnabled` 为 true 时才投递通知；
      * `previousKnown` 在开关外更新，避免重新启用时一次性补发积压通知。
      */
-    private fun startQuestionPolling(server: ServerConfig) {
+    private fun startQuestionPolling(server: ServerConfig): Job {
         // 重连保护：若该服务器已有轮询协程在运行，先取消旧协程，
         // 避免与即将启动的新协程同时运行（旧协程可能因 isConnected
         // 再次变 true 而永远不会自停）。
         pollingJobs[server.id]?.cancel()
-        pollingJobs[server.id] = serviceScope.launch {
+        val job = serviceScope.launch {
             var previousKnown = emptyMap<String, Set<String>>()
             while (isActive) {
                 // 2026-08-18 修复（question 轮询永久死亡，两轮迭代）：
@@ -488,6 +441,8 @@ class OpenCodeConnectionService : Service() {
                 delay(QUESTION_POLL_INTERVAL_MS)
             }
         }
+        pollingJobs[server.id] = job
+        return job
     }
 
     /** project 列表缓存（轮询轮数计）——避免每 30s 拉一次 /api/project。 */

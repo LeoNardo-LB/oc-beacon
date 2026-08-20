@@ -15,3 +15,7 @@ _Avoid_: 流式消息（易与"正在显示的消息"混淆）
 **跳转稳定窗口（Jump Settling Window）**:
 跳转终点后的短冻结期（现值 2s）；期间禁止分片提交，防止视口边缘 key 裂变。
 _Avoid_: 跳转锁（jump lock——那是 autoLoad 抑制，另一个概念）
+
+**连接生命周期协调（Connection Lifecycle）**:
+一台服务器从纳入连接到断开的完整编排——SSE 连接驱动、轮询启停、终端与通知资源清理的单一决策点。
+_Avoid_: "Service 管连接"（Service 是 Android 前台服务 adapter，不持有生命周期状态）
