@@ -395,6 +395,13 @@ fun ChatMessageList(
     // 读方（entries 构建 remember）失效重算为纯 CPU 列表构建，无重组风暴
     //（与 RenderReadinessRegistry 的教训对照：不在组合路径 per-key 读写快照 Map）。
     var chunkPlans by remember { mutableStateOf<Map<String, MdChunkPlan>>(emptyMap()) }
+    // 2026-08-20 B-F2（视口内 key 裂变门控）：plan 就绪先入 pending 队列，
+    // 仅当所属 turn 不在视口时才提交进 chunkPlans——历史长消息以 t_id 进
+    // 视口后预解析完成 → 直接写 chunkPlans → key 裂成 t_id#c0..N +
+    // contentType 变化 → LazyColumn remove+insert+锚点修正 = 可见顿挫
+    //（症状1；recentStreamedTurnKeys 只覆盖流式 turn，历史消息无门控）。
+    // pending 条目 = partId to (plan, turnDisplayIdx)。
+    var pendingChunkPlans by remember { mutableStateOf<Map<String, Pair<MdChunkPlan, Int>>>(emptyMap()) }
     // 流式刚结束的 turn 延迟分片（滚出预解析窗口后清除）——避免视口内
     // key 从 1 裂成 N 的闪变（见 buildChatEntries 文档）。
     val recentStreamedTurnKeys = remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -585,7 +592,9 @@ fun ChatMessageList(
                                                             " chunks=" + plan.ranges.size
                                                     )
                                                 }
-                                                chunkPlans = chunkPlans + (key to plan)
+                                                // B-F2：入 pending 队列，视口外才提交
+                                                pendingChunkPlans = pendingChunkPlans +
+                                                    (key to (plan to di))
                                             }
                                     }
                                 }
@@ -618,6 +627,22 @@ fun ChatMessageList(
                 recentStreamedTurnKeys.value =
                     recentStreamedTurnKeys.value.filterTo(mutableSetOf()) { it in windowKeys }
             }
+            // B-F2：pending 分片计划提交——仅当所属 turn 离开预解析窗口
+            //（head..tail，±PREPARSE_AHEAD display 粒度）才写入 chunkPlans。
+            // 视口/窗口内保持单 item（key 稳定不裂变）；turn 离开窗口后
+            // 裂变点远离视口（±8 item 缓冲），预取到它时已是分片版。
+            if (pendingChunkPlans.isNotEmpty()) {
+                val committed = pendingChunkPlans.filterValues { (_, turnDi) ->
+                    turnDi !in head..tail
+                }
+                if (committed.isNotEmpty()) {
+                    chunkPlans = chunkPlans + committed.mapValues { it.value.first }
+                    pendingChunkPlans = pendingChunkPlans - committed.keys
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d("ScrollDiag", "CHUNK commit pending=" + committed.size + " remain=" + (pendingChunkPlans.size - committed.size))
+                    }
+                }
+            }
         }
     }
 
@@ -635,8 +660,6 @@ fun ChatMessageList(
     // 注册其 MarkdownState，scrollToDisplayItem await 解析完成信号。
     val mdRegistry = remember { mutableMapOf<String, MarkdownState>() }
 
-    // 2026-08-13 观测：LazyColumn 视口顶边的屏幕 y（判断气泡顶是否超出 topBar）
-    var listTopY by remember { mutableStateOf(-1f) }
 
     // ===== 状态机版跳转（2026-08-13 架构根治——旧 scrollToDisplayItem 已删除）=====
     // 定位决策全部在 JumpNavigationController 状态机（Preparing→Measuring→Settling→
@@ -880,10 +903,7 @@ fun ChatMessageList(
                         //（消息列表 + 底部输入栏），androidTest 的 hasScrollAction()
                         // 匹配多节点导致 touch 注入失败
                         .testTag("chat-message-list")
-                        .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) }
-                        .onGloballyPositioned { coords ->
-                            listTopY = coords.positionInWindow().y
-                        },
+                        .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
                     contentPadding = PaddingValues(
                         start = SpacingTokens.MD.dp,
                         top = SpacingTokens.SM.dp,
