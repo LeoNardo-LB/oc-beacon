@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#184**。
+**编号**：全局递增，不回收。下一编号：**#186**。
 
 **优先级定义**：
 
@@ -199,3 +199,11 @@
 - [ ] **#168 慢拖残余 ~18ms 偶发尖刺——最低优先级** `perf`
   - F5 后残余（draw 4-8ms + input 3-5ms，12 轮仅 10 条）；「预取 idle_frame」候选已否证；release 口径 p95 7.9ms 已低于感知阈值，再深挖方向为 draw/input 相位本身（~2h）
   - → `docs/journal/2026-08-20-perf-monitoring-round3.md`（提升自该批子条目）
+
+- [ ] **#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data`
+  - markAllSessionsRead 对不分服务器的水位线 map 取全局 max（SessionListViewModel:423-430）——多服务器时钟不同域时一键已读可能错杀/漏杀红点；#171 grilling Q6 定案：不动存储 schema，登记不动
+  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+
+- [ ] **#185 V1/V2 god-client 拆解（终局债务，显式不做）** `refactor`
+  - V1ApiClient(72 方法)/V2ApiClient(84) 全域 god-client + 7 门面 78 处 if 分发——#172 grilling Q1 定案：seam 已在门面 interface 正确收敛，拆轴属内部代码组织（22 测试文件重写 + 缓存式适配器版本竞态），显式登记不拆
+  - → `docs/journal/2026-08-21-arch-review-deepening.md`
