@@ -227,10 +227,15 @@ class JumpNavigationController(
      * 估算高度定位 → 透明测量（Ready + 列表同步）→ 收敛小修正 → Displayed + 稳定窗口。
      */
     private suspend fun measureAndSettle(msgId: String, lazyIndex: Int) {
-        // Measuring 定位：**底部对齐**（requestScroll offset=0——目标底边贴视口
-        // 底——一定在视口内，不会因估算高度偏差滚过头/丢失；蒙版遮住后续移动）
+        // Measuring 定位：**底部对齐**（offset=0——目标底边贴视口底——一定在
+        // 视口内，不会因估算高度偏差滚过头/丢失；蒙版遮住后续移动）。
+        // A-F4（2026-08-21）：跳转路径改官方挂起 scrollToItem——显式导航
+        // 接管视口，取消进行中的用户 fling 是预期语义（反射 NoCancel 仅保留
+        // 给 SSE 高度补偿——ChatMessageList 两处调用点）。scrollToItem 内部
+        // 同为 requestPositionAndForgetLastKnownKey（锚 key 语义不变），但经
+        // scroll{} 互斥锁有序执行，无反射成员依赖。
         if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 底部定位 idx=$lazyIndex")
-        LazyListReflection.requestScrollToItemNoCancel(listState, lazyIndex, 0)
+        listState.scrollToItem(lazyIndex, 0)
         kotlinx.coroutines.delay(32)  // 等 2 帧（约 16ms/帧）——非组合环境用 delay 替代 withFrameNanos
         if (BuildConfig.DEBUG) {
             val vis = listState.layoutInfo.visibleItemsInfo.map { "${it.index}:${it.key}" }.take(12)
@@ -254,6 +259,11 @@ class JumpNavigationController(
         withTimeoutOrNull(5000) {
             while (true) {
                 kotlinx.coroutines.delay(100)
+                // A-F4：重定位判定与执行分离——官方 scrollToItem 内部经 scroll{}
+                // 互斥锁，不能在下方已持锁的 scroll{} 块内调用（会取消本轮
+                // 收敛循环自身；旧实现因此只能反射绕锁）。块内只置标记，块外
+                // 挂起上下文执行官方 API。
+                var needRelocate = false
                 listState.scroll {
                     val info = listState.layoutInfo
                     val item = findJumpTargetItem(info.visibleItemsInfo, targetKey(msgId))
@@ -261,14 +271,7 @@ class JumpNavigationController(
                         // 防御：极端布局下目标被推出——节流重定位（底部对齐——
                         // 目标回视口内重新渐进）
                         nullStreak++
-                        val now = System.currentTimeMillis()
-                        if (nullStreak >= 2 && now - lastRelocateAt > 300) {
-                            val freshIndex = resolveLazyIndex(msgId) ?: lazyIndex
-                            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 重定位 idx=$freshIndex（null=$nullStreak）")
-                            LazyListReflection.requestScrollToItemNoCancel(listState, freshIndex, 0)
-                            lastRelocateAt = now
-                            nullStreak = 0
-                        }
+                        if (nullStreak >= 2) needRelocate = true
                         lastRegionSig = null
                         stableCount = 0
                         return@scroll
@@ -307,6 +310,18 @@ class JumpNavigationController(
                     scrollBy(step.toFloat())
                     lastRegionSig = null
                     stableCount = 0
+                }
+                if (needRelocate) {
+                    // 时钟基（D-4）：elapsedRealtime 单调——currentTimeMillis 可被
+                    // NTP/手动调时倒退，300ms 节流假失效/永失效。
+                    val nowReloc = android.os.SystemClock.elapsedRealtime()
+                    if (nowReloc - lastRelocateAt > 300) {
+                        val freshIndex = resolveLazyIndex(msgId) ?: lazyIndex
+                        if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 重定位 idx=$freshIndex（null=$nullStreak）")
+                        listState.scrollToItem(freshIndex, 0)
+                        lastRelocateAt = nowReloc
+                        nullStreak = 0
+                    }
                 }
                 if (settled) break
             }
