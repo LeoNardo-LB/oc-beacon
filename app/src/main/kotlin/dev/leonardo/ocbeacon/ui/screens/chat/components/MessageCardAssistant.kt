@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.Message
+import dev.leonardo.ocbeacon.ui.screens.chat.components.RenderReadiness
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
@@ -99,6 +100,13 @@ internal fun MessageCardAssistant(
 
     // 保留供统计栏显示（agent/模型）
     val assistantMsg = currentMessage.message as? Message.Assistant
+
+    // 2026-08-20 滚动稳定性：滚动预解析消费端——assistant 长文本 part 组合时
+    // 优先取后台预解析结果（Parsed state → Markdown(state) 直接渲染，首测即
+    // 最终高度）。根因（ScrollDiag 取证）：异步解析使初次组合仅测得占位高度
+    // （412px），解析完成后长回复暴涨（+16334px）→ LazyColumn 锚点修正 →
+    // fling 中视口瞬移。驱动端见 ChatMessageList 滚动预解析 driver。
+    val readinessRegistry = LocalRenderReadiness.current
     // turn 级流式判定：turn 内任一消息仍在流式即视为流式（多消息 turn 的
     // 代表消息是 oldest 可能已完成，仅看自身会漏判 → 统计栏延迟出现）。
     val isStreaming = isStreamingTurn || (assistantMsg?.time?.completed == null)
@@ -258,12 +266,24 @@ internal fun MessageCardAssistant(
                                 )
                             }
                             is PartGroup.Single -> key(item.group.part.id) {
+                                // 滚动预解析消费：长文本 part 取 Parsed state（与驱动端
+                                // key 约定：msgId|partId；阈值一致 ≥200 字符）
+                                val preParsedAssistantState = (item.group.part as? Part.Text)
+                                    ?.takeIf {
+                                        it.text.length >= 200 && it.synthetic != true &&
+                                            it.ignored != true && !it.text.contains("User has answered")
+                                    }
+                                    ?.let { textPart ->
+                                        (readinessRegistry.current(textPart.id)
+                                            as? RenderReadiness.Parsed)?.state
+                                    }
                                 PartContent(
                                     part = item.group.part,
                                     textColor = textColor,
                                     isUser = false,
                                     onViewSubSession = onViewSubSession,
                                     onOpenFile = onOpenFile,
+                                    preParsedState = preParsedAssistantState,
                                     turnAgentName = if (item.group.part is Part.Tool && item.group.part.tool == "task") {
                                         renderableTurn.taskAgentName
                                     } else null,

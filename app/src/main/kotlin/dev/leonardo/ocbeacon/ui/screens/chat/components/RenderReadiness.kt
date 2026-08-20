@@ -5,7 +5,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.parseMarkdownFlow
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -83,7 +85,11 @@ class RenderReadinessRegistry {
      */
     fun preParse(msgId: String, text: String, scope: CoroutineScope) {
         scope.launch {
-            parseMarkdownFlow(text).collect { st ->
+            // 2026-08-20：解析移出主线程——库的 parseMarkdownFlow 无 flowOn，
+            // 原在收集者上下文（主线程）执行，长文本（16KB+）解析阻塞 UI
+            // 100ms+，滚动预解析驱动批量触发时打断拖拽/fling（ScrollDiag 实证）。
+            // flowOn(Default) 后仅 update 回主线程（快照写）。
+            parseMarkdownFlow(text).flowOn(Dispatchers.Default).collect { st ->
                 when (st) {
                     is State.Success -> update(msgId, RenderReadiness.Parsed(st))
                     is State.Error -> update(msgId, RenderReadiness.Failed(st.result))

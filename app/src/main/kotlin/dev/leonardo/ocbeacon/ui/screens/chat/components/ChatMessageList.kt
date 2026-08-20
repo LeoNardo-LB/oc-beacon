@@ -88,6 +88,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.SessionMetaState
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
+import dev.leonardo.ocbeacon.ui.screens.chat.util.rememberSafeFlingBehavior
 import dev.leonardo.ocbeacon.ui.screens.chat.util.snapToBottom
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
@@ -399,6 +400,44 @@ fun ChatMessageList(
     // 上报、awaitReady 消费；替代分散的 preParsed map + 轮询）
     val renderReadiness = remember { RenderReadinessRegistry() }
 
+    // ===== 临时诊断（ScrollDiag，2026-08-20 真机滚动取证，DEBUG-only，行为零变化）=====
+    // ① 位置流 LEAP 检测：index/offset 在两次发射间异常跳变（程序化滚动/锚点修正）
+    // ② 手势起止记录：与 LEAP 对照区分「用户手势期间」与「停稳后」的跳变
+    if (BuildConfig.DEBUG) {
+        LaunchedEffect(listState) {
+            var lastIdx = -1
+            var lastOff = -1
+            snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+                .collect { (idx, off) ->
+                    if (lastIdx >= 0) {
+                        val dIdx = idx - lastIdx
+                        val dOff = off - lastOff
+                        if (kotlin.math.abs(dIdx) > 1 || kotlin.math.abs(dOff) > 350) {
+                            AppLogger.w(
+                                "ScrollDiag",
+                                "LEAP idx " + lastIdx + "->" + idx + " (dIdx=" + dIdx + ") off " +
+                                    lastOff + "->" + off + " (dOff=" + dOff + ") inProgress=" +
+                                    listState.isScrollInProgress + " total=" + listState.layoutInfo.totalItemsCount
+                            )
+                        }
+                    }
+                    lastIdx = idx
+                    lastOff = off
+                }
+        }
+        LaunchedEffect(listState) {
+            snapshotFlow { listState.isScrollInProgress }.collect { p ->
+                AppLogger.d(
+                    "ScrollDiag",
+                    "gesture=" + p + " idx=" + listState.firstVisibleItemIndex +
+                        " off=" + listState.firstVisibleItemScrollOffset +
+                        " streamingMsgId=" + (streamingMsgId ?: "null") +
+                        " shouldComp=" + compensateState.shouldCompensate
+                )
+            }
+        }
+    }
+
     // 2026-08-13 架构根治（状态机）：跳转定位状态机——蒙版/门控/锁从状态派生
     //（单一真相源——消除 jumpLoading/settled/jumpLockActive 各自为政的竞态）。
     val jumpController = remember {
@@ -419,6 +458,68 @@ fun ChatMessageList(
     // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
     // 消息进入 displayItems → LaunchedEffect 重启 → 状态机跳转
     var pendingJumpTarget by remember { mutableStateOf<String?>(null) }
+
+    // ===== 2026-08-20 滚动稳定性：滚动预解析驱动（fling 下跳根因修复） =====
+    // 真机取证（ScrollDiag RESIZE）：assistant 长回复初次组合仅测得占位高度
+    // （412px），markdown 异步解析完成后暴涨（412→16746px）→ LazyColumn 锚点
+    // 修正 → fling 中视口瞬移 1.4 万 px（用户报"下跳"，长回复稳定复现）。
+    // 本驱动对视口前后 [PREPARSE_AHEAD] 项内的 assistant 长文本 part 提前
+    // 后台解析（RenderReadinessRegistry），消费端（MessageCardAssistant）
+    // 组合时直接取 Parsed state——首测即最终高度，消除渐进测量。
+    val displayItemsForPreparse = androidx.compose.runtime.rememberUpdatedState(displayItems)
+    val turnGroupsForPreparse = androidx.compose.runtime.rememberUpdatedState(turnGroups)
+    val preparseSeenKeys = remember { LinkedHashSet<String>() }
+    LaunchedEffect(listState, bannerCount) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            (info.visibleItemsInfo.firstOrNull()?.index ?: 0) to
+                (info.visibleItemsInfo.lastOrNull()?.index ?: 0)
+        }.collect { (firstIdx, lastIdx) ->
+            val registry = renderReadiness
+            val items = displayItemsForPreparse.value
+            val groups = turnGroupsForPreparse.value
+            val window = LinkedHashSet<String>()
+            val head = (firstIdx - PREPARSE_AHEAD).coerceAtLeast(0)
+            val tail = lastIdx + PREPARSE_AHEAD
+            for (i in head..tail) {
+                val di = i - bannerCount
+                if (di !in items.indices) continue
+                val (rawIdx, msg) = items[di]
+                if (!msg.isAssistant) continue
+                val turnMsgs = groups[rawIdx] ?: continue
+                for (cm in turnMsgs) {
+                    for (part in cm.parts) {
+                        if (part is Part.Text &&
+                            part.text.length >= PREPARSE_MIN_CHARS &&
+                            part.synthetic != true && part.ignored != true &&
+                            // 与 PartContent 的 CollapsibleQuestionPart 分支保持互斥
+                            !part.text.contains("User has answered")
+                        ) {
+                            // key = part.id（服务器全局唯一；多消息 turn 下代表消息
+                            // id 与 part 归属消息可能不一致，不能混入 msgId）
+                            val key = part.id
+                            window.add(key)
+                            if (registry.current(key) is RenderReadiness.Pending) {
+                                registry.preParse(
+                                    key,
+                                    normalizeForRender(part.text, isUser = false),
+                                    coroutineScope,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            // 有界性（#98 同款防无界增长）：裁剪窗口外条目，LRU 上限
+            preparseSeenKeys.removeAll { it !in window }
+            preparseSeenKeys.addAll(window)
+            while (preparseSeenKeys.size > PREPARSE_LRU) {
+                val oldest = preparseSeenKeys.firstOrNull() ?: break
+                preparseSeenKeys.remove(oldest)
+                registry.remove(oldest)
+            }
+        }
+    }
 
     // 2026-08-13 架构根治：jumpLock 解锁由状态机终点驱动（Displayed/Failed——
     // 定位结束才放行 autoLoad；不再靠旧流程末尾手动解锁）
@@ -669,6 +770,9 @@ fun ChatMessageList(
             ) {
                 LazyColumn(
                     state = listState,
+                    // 2026-08-20 滚动稳定性：限速 fling——每帧 ≤ 视口高/8，
+                    // 高速段不再冲入未组合区（与滚动预解析驱动配合，见上方）
+                    flingBehavior = rememberSafeFlingBehavior(listState),
                     modifier = Modifier.fillMaxSize()
                         // #149：唯一 testTag——ChatScreen 树中有 2 个 scrollable 节点
                         //（消息列表 + 底部输入栏），androidTest 的 hasScrollAction()
@@ -735,6 +839,14 @@ fun ChatMessageList(
                                         val realHeight = placeable.height
                                         val delta = realHeight - toolCompensateState.lastHeight
                                         if (compensateState.shouldCompensate && toolCompensateState.lastHeight > 0 && delta > 0) {
+                                            if (BuildConfig.DEBUG) {
+                                                AppLogger.w(
+                                                    "ScrollDiag",
+                                                    "COMP-TOOL fire delta=" + delta + " lastH=" + toolCompensateState.lastHeight +
+                                                        " realH=" + realHeight + " idx=" + listState.firstVisibleItemIndex +
+                                                        " off=" + listState.firstVisibleItemScrollOffset
+                                                )
+                                            }
                                             LazyListReflection.requestScrollToItemNoCancel(
                                                 listState,
                                                 listState.firstVisibleItemIndex,
@@ -834,6 +946,14 @@ fun ChatMessageList(
                                     val realHeight = placeable.height
                                     val delta = realHeight - compensateState.lastHeight
                                     if (compensateState.shouldCompensate && compensateState.lastHeight > 0 && delta > 0) {
+                                        if (BuildConfig.DEBUG) {
+                                            AppLogger.w(
+                                                "ScrollDiag",
+                                                "COMP-MSG fire delta=" + delta + " lastH=" + compensateState.lastHeight +
+                                                    " realH=" + realHeight + " idx=" + listState.firstVisibleItemIndex +
+                                                    " off=" + listState.firstVisibleItemScrollOffset
+                                            )
+                                        }
                                         LazyListReflection.requestScrollToItemNoCancel(
                                             listState,
                                             listState.firstVisibleItemIndex,
@@ -849,6 +969,9 @@ fun ChatMessageList(
                         } else Modifier.fillMaxWidth()
                         // 定位发起卡片后的短暂高亮（3 秒后自动清除）
                         val isHighlighted = itemKey == highlightedTurnKey
+                        // 临时诊断（ScrollDiag，DEBUG-only）：item 初次测量后的高度变化
+                        //（渐进测量/异步重排检测——跳变根因取证）
+                        val diagLastSize = remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
                         Box(
                             modifier = itemModifier.then(
                                 if (isHighlighted) {
@@ -858,7 +981,20 @@ fun ChatMessageList(
                                             MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.SELECTED)
                                         )
                                 } else Modifier
-                            )
+                            ).onSizeChanged { s ->
+                                if (BuildConfig.DEBUG) {
+                                    val prev = diagLastSize.value
+                                    if (prev != androidx.compose.ui.unit.IntSize.Zero && s.height != prev.height) {
+                                        AppLogger.w(
+                                            "ScrollDiag",
+                                            "RESIZE key=" + itemKey.take(18) + " h " + prev.height + "->" + s.height +
+                                                " (d=" + (s.height - prev.height) + ") dispIdx=" + displayItemIndex +
+                                                " inProgress=" + listState.isScrollInProgress
+                                        )
+                                    }
+                                }
+                                diagLastSize.value = s
+                            }
                         ) {
                         when {
                             msg.isAssistant -> {
@@ -1175,3 +1311,11 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
  */
 private fun easeInOutCubic(t: Float): Float =
     if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
+
+// ===== 2026-08-20 滚动预解析驱动参数 =====
+/** 视口前后各预解析的 item 数（覆盖 fling/预组合窗口）。 */
+private const val PREPARSE_AHEAD = 8
+/** 只预解析超过该字符数的文本 part（短文本同步解析成本可忽略）。 */
+private const val PREPARSE_MIN_CHARS = 200
+/** 预解析条目 LRU 上限（Parsed state 持有 AST，防无界增长）。 */
+private const val PREPARSE_LRU = 32
