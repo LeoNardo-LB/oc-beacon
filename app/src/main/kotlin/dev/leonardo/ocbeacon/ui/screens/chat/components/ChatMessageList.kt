@@ -639,7 +639,12 @@ fun ChatMessageList(
             //（head..tail，±PREPARSE_AHEAD display 粒度）才写入 chunkPlans。
             // 视口/窗口内保持单 item（key 稳定不裂变）；turn 离开窗口后
             // 裂变点远离视口（±8 item 缓冲），预取到它时已是分片版。
-            if (pendingChunkPlans.isNotEmpty()) {
+            // 2026-08-20 竞态补丁：跳转期间（jumpLockActive）禁止提交——跳转
+            // 窗口快速扫过大范围，落窗外 turn 的提交会使 chatEntries 裂变，
+            // 而状态机已按裂变前 index 发出的 scrollToItem 会落在错误位置
+            //（真机复现：Q33 跳转落进 05:04 文章 chunk 中间）。与 auto-load
+            // 同门控；跳转结束 300ms 后解锁自然恢复提交。
+            if (pendingChunkPlans.isNotEmpty() && !jumpLockActive) {
                 val committed = pendingChunkPlans.filterValues { (_, turnDi) ->
                     turnDi !in head..tail
                 }
