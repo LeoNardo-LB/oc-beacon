@@ -1738,6 +1738,20 @@
   - **文档建议（零代码风险）**：FAQ/README 注明 GKD 用户可将本 App 加入排除规则（gkd.li/guide/faq 规则级排除）或使用时暂停服务——直接消除查询侧主成本；随下次文档批次落地
 
 
+
+## 2026-08-20 第四轮：快速定位渲染缺陷根因修复 + 三性能项落地
+
+- **快速定位渲染缺陷（用户真机报告：气泡不完整/非从头回复 + 『未找到任务』弹窗）——四处根因全修**：
+  - `25a20535` ① pendingJumpTarget 回调路径漏分片适配（三条跳转入口唯一漏网——display 粒度 index 直传 scrollToItem，窗口内有分片 turn 时落点错位=截图主源）；② 状态机 `it.key == targetKey` 精确匹配对分片 key（t_xxx#cN）必失败→5s 超时（findJumpTargetItem 前缀匹配取首 chunk）；③ loadAround 未命中直接报错（重试一次再判）
+  - `8347acd0` ④ 跳转期间 B-F2 分片提交无门控——跳转窗口扫过触发 key 裂变使已算好的 index 失效（Q33 复现落进文章 chunk 中间；补 !jumpLockActive 门控与 auto-load 同款）
+  - 验证：真机连跳序列（Q25/Q26/Q33/Q35）全部落点精准，目标气泡完整置顶；FindJumpTargetItemTest 6 用例 + 全量单测绿
+  - 方法论教训：视觉模型提问会被引导性措辞污染（先问『有没有问题』三个落点全报有问题，改中性事实描述后 J2/J3 实为完美）——截图取证必须用中性提问
+- **Baseline Profile（`5b284b4c`）**：手工规则圈 chat UI 热路径 + Compose lazy/runtime/text + mikepenz + 协程；APK 含 assets/dexopt/baseline.prof、真机 ProfileInstaller 安装日志确认。收益为官方 ~30% 口径（本 App 实测增量需 macrobenchmark 基建，未建——诚实边界）
+- **PerfMon 观察者效应（`dc57cba0`）**：FrameMetrics 按 VSYNC 去重（b/206956036）+ dropCount 记账入 HUD + PerfHudOverlay 独立悬浮窗（纯 View 直绘、独立帧流零污染；无授权回退同窗口 HUD）
+- **遗留登记**：
+  - [ ] **P3：慢拖 ~18ms 偶发尖刺 A/B 未执行** `perf`——两轮 debug 安装弹窗被系统取消，A/B 中断；该项 release 本就低于感知阈值（p95 7.9ms），价值边际。方案已备：F5 后重测 slow-drag ahead=1 vs 0。工时 ~1h | 难度：低
+  - [ ] **P3：overlay HUD 真机授权走查** `dev-infra`——悬浮窗权限授予 + overlay 显示/dropCount 读数验证（代码已交付 dc57cba0，未真机走查）
+
 ## 2026-08-20 第三轮：开发用性能检测系统 + 残余卡顿闭环 + debug/release 定量对比
 
 - **性能检测系统（090507be + f3c62ae7）**：应用内常驻 PerfMon——Window FrameMetrics 监听 + 七相位分解（input/anim/layout/draw/sync/gpu/swap）+ 滚动窗口统计（真实刷新率推导预算）+ jank 事件日志（AppLogger/Diagnostics 可见）+ 稳态采样器（窗口 over%>25 时每 2s 输出摘要+期间最差帧相位）+ HUD（am start --ez debug_perf true 开启，仅 debug）。单测 5 用例。替代外挂 gfxinfo/perfetto 管线——本轮全部定位都由它完成。
