@@ -3,6 +3,8 @@
 日期：2026-08-08
 状态：已批准（用户确认"1、2都可以"）
 
+> **2026-08-21 归档注**：设计 1（turn 级时长统计，turnStartMs）已落地；设计 2（统一加载蒙版）已被 #53 取代——ChatScreen 改用 NavHost fadeIn 过渡 + 仅内容区 PulsingDots（见 ChatScreen.kt:503 注释）。本文其余内容按历史记录保留。
+
 ## 背景
 
 两个 UI/UX 问题：

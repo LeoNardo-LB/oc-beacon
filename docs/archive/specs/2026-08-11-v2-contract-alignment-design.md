@@ -1,7 +1,7 @@
 # opencode v2 契约对齐修复设计（V2 Contract Alignment）
 
 > 日期：2026-08-11 · 状态：已确认 · 类型：缺陷修复/契约对齐
-> 配套实施计划：`docs/superpowers/plans/2026-08-11-v2-contract-alignment.md`
+> 配套实施计划：原 `docs/superpowers/plans/2026-08-11-v2-contract-alignment.md`（8 Task 全部完成后，2026-08-21 文档清理时随 plans 目录移除；回归记录见 `docs/research/RG-2026-08-11-v2-contract-background.md`）
 
 ## 1. 背景与动机
 
