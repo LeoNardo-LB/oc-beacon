@@ -126,6 +126,27 @@ curl -s -u "opencode:PASS" http://127.0.0.1:4199/api/session | head -c 200
 8. 完成声明：只有证据齐全才能声称完成（verification-requirements.md 铁律）
 ```
 
+## 六点五、滚动问题取证（ScrollDiag 插桩，2026-08-20 滚动稳定性批次引入）
+
+滚动类问题（卡顿/跳变/视口瞬移）的真机取证基建——ChatMessageList.kt 内置 DEBUG-only 插桩，无需改代码直接抓：
+
+```bash
+adb -s e69a99d8 logcat -c
+# …执行滚动操作（fling/拖拽）…
+adb -s e69a99d8 logcat -d -v time | grep ScrollDiag
+```
+
+| 日志 | 含义 | 判读 |
+|------|------|------|
+| LEAP idx A->B off X->Y inProgress= | 首可见项位置两次发射间跳变 | dOff >350 或 dIdx>1 = 疑似程序化瞬移；对照 inProgress 区分手势中/停稳后 |
+| gesture=true/false idx= off= | 滚动手势起止 + 当时位置 | fling 起 ~150ms 内 false = fling 被杀（主线程阻塞或 requestScrollToItem 取消） |
+| RESIZE key= h A->B (d=±N) | item 组合后高度变化 | 长回复 d>+1000 = markdown 渐进测量（异步解析迟到）→ 必然触发锚点修正瞬移 |
+| COMP-MSG / COMP-TOOL fire delta= | 高度补偿触发 | 流式外的触发 = 补偿泄漏到非流式场景 |
+
+配套客观手段：
+- 逐帧视频分析：screenrecord（等录完再 pull，提前 pull 会得到无 moov 的废文件）→ ffmpeg 抽帧 → 模板匹配算帧间位移（/tmp/frames2.py 可复用）→ 检测位移不连续（同向暴增/反转/停稳后突跳）
+- gfxinfo：dumpsys gfxinfo <pkg> reset → 操作 → 再 dump；janky% + p90/p99（卡顿定量）
+
 ## 七、本次修复（#83）的可观测证据模板
 
 | 观测点 | 手段 | 预期证据 |
