@@ -1728,21 +1728,31 @@
   - ⚠️ 待用户验收：真机手感复验（GKD 开/关两种状态）——尤其巨型消息会话的 fling
   - **基建沉淀**：/tmp/perf/*（frameparse.py 逐帧分解、phases.py 相位分解、perfetto trace-config + base64 直装法、drag/fling 场景脚本）+ 子代理报告（fling 根因含库源码核对路径 /tmp/mdn-src、a11y 备选方案评估）
 
-- **a11y 子代理报告附带发现（2026-08-20 登记，只登记不实现）**：
-  - [ ] **P3：AssistantTurnBubble.kt 疑似死代码（全库无调用点）** `refactor`
-    - 子代理语义树调查时确认：MessageCardAssistant.kt 是唯一气泡实现，AssistantTurnBubble 无调用方；清理前需全库 grep 复核（含 test）
-    - 工时：~0.5h | 难度：低 | 涉及：AssistantTurnBubble.kt | 优先级：P3
-  - [ ] **P3：clickableMarkdown 的 CodePath 点击仅 pointerInput——TalkBack 不可达** `a11y`
-    - Markdown 代码块路径的点击处理是纯 pointerInput（无 semantics onClick 动作），TalkBack 用户无法触发；修复方向：补 semantics { onClick } 或 clickable 语义
-    - 工时：~1h | 难度：低 | 涉及：ClickableMarkdown.kt | 优先级：P3
-  - [ ] **P3：CompactionCard combinedClickable 空 onClick——朗读为可点击但无动作** `a11y`
-    - 朗读器宣布可点击，实际点击无动作（空 lambda）；修复方向：给 a11y 动作或改为非交互展示
-    - 工时：~0.5h | 难度：低 | 涉及：CompactionCard | 优先级：P3
-  - [ ] **P2（可选实验，带中止判据）：长文本 Part 级 semantics merge** `perf` `a11y`
+- **a11y 子代理报告附带发现（2026-08-20 登记）**：
+  - [x] **P3：AssistantTurnBubble.kt 疑似死代码（全库无调用点）** `refactor` ✅ 2026-08-20 已删（48fbd97f，全库 grep 复核含 test 零调用）
+  - [x] **P3：clickableMarkdown 的 CodePath 点击仅 pointerInput——TalkBack 不可达** `a11y` ✅ 2026-08-20 补 semantics onClick（9bb4a537，节点中心定位）——TalkBack 实机走查待用户验收
+  - [x] **P3：CompactionCard combinedClickable 空 onClick——朗读为可点击但无动作** `a11y` ✅ 2026-08-20 改 pointerInput 长按 + semantics 自定义动作（9bb4a537，标签复用 chat_revert）——TalkBack 实机走查待用户验收
+  - [ ] **P3（降级 2026-08-20：GKD 已长期关闭，主收益消失；仅 GKD 用户重新开启时才有价值）：长文本 Part 级 semantics merge** `perf` `a11y`
     - 唯一有机制优势的 GKD 税缓解变体：失效 containment（流式只重建单 part 而非整气泡）、标签栏/statsBar 保持独立节点。仅已完成长文本 part、流式 part 不加；交错 A/B 验证——GKD 关 p50 回退 >2ms 或 p95 改善 <15% 即 abort（气泡级 merge 实测仅 ~10% 且有流式隐患，Part 级预期相近）
     - 工时：~3h | 难度：中 | 涉及：PartContent/MarkdownContent | 优先级：P2
   - **文档建议（零代码风险）**：FAQ/README 注明 GKD 用户可将本 App 加入排除规则（gkd.li/guide/faq 规则级排除）或使用时暂停服务——直接消除查询侧主成本；随下次文档批次落地
 
+## 2026-08-20 第二轮滚动卡顿深度调查批次（120Hz 帧预算口径重建）
+
+- **背景**：用户反馈首轮修复后仍有三项残余症状（新消息临近顿挫 / 整体迟滞 / 长消息内卡顿）。首轮 gfxinfo 判定口径（16.7ms）在 120Hz 设备上漏报——本轮以 8.33ms 重建基准，四路子代理并行（真机测量 / UI 状态审计 / Markdown 渲染审计 / 文献调研）+ 主线交叉验证。
+- **测量基础（真机 e69a99d8，会话 验收测试会话AB）**：滚动期间确认真 120Hz（doFrame p50=8.32ms，96.9% 落 8.33ms 节拍桶，118.8fps 均值）；本机 SF 三层宽松预算（WorkloadTarget 13.7ms + legacy 16.7ms）把 60% 超 8.33ms 的帧全判不 jank——系统计数器全绿是假象。
+- **基线（8.33ms 口径）**：S1 慢拖普通区 >8.33ms 63.92% p99=32.3ms；S2 fling 12.53% p99=35.6ms；S3 巨型消息内 59.35% p99=25.1ms；最差帧归因 Compose:recompose 63.5%。
+- **根因与修复（6 项全部落地）**：
+  1. `47edb53c` 预取窗口速度自适应（慢拖1/快拖3/fling6）——PREFETCH_AHEAD=6 是 13 万字符单 item 时代设定，分片后宽窗纯剩主线程预取预算冲突
+  2. `92e2855c` 超长段落空行化 + chunk 参数调优（8000/5000→3000/2500）——真实 GFM parser 实测巨型消息顶层仅 7 块（主体 129K 单 PARAGRAPH），分片对最坏消息完全失效；空行化后 blocks=8998 chunks=53
+  3. `8548c3f7` 快速导航 derived 读取下沉 + 条件订阅（B-F3 重组风暴）
+  4. `4cb549d5` Markdown 配置对象 remember（C-F4——53 片后每片重建 15+ TextStyle.copy 的回收）
+  5. `a80b3e68` 视口内 key 裂变门控（B-F2 pending 队列）+ LazyColumn 容器每帧死回调删除（listTopY 零读取者，trace 实证 544ms/1127 次）
+  6. `9bb4a537` 两个 TalkBack 可达性 P3 修复（见上方条目）
+- **最终验收（vs 基线）**：S1 p99 32.29→22.38ms（-31%）；S3 >8.33ms 59.35%→53.06%、p50 9.13→8.60ms；S2 >8.33ms 12.53%→9.28%、p50 6.66→5.24ms。
+- **诚实边界**：S1/S3 中位帧 ~9ms 未消除——R8-on-debug 实验（e8fe5219）证伪 debug 构建税（p50 无改善），trace 构成 = 每帧真实工作量（measure 1.3ms + recordDraw 1.1ms + RT Drawing 2.8ms + touch 0.5ms）。进一步压缩需 item RenderNode 层化（调研明确反对于全列表铺开）或 Baseline Profile（已登记下方）。
+- **工具沉淀（/tmp/perf-round2/）**：scenario_runner.py（环形缓冲 ~120 帧逐轮快照 + VsyncId 去重）、merge2.py（多 PROFILEDATA 块合并修复）、frameparse.py 8.33ms 口径、scope 分析脚本、四路子代理报告（device-report / code-audit-uistate / code-audit-markdown / research）。
+- **已登记未做**：Baseline Profile（app/baseline-prof.txt 手工通配 ui/screens/chat/**，官方 ~30% 代码路径加速口径）——下一批次候选。
 
 ## 2026-08-20 真机滚动稳定性批次（卡顿 + fling 下跳根治）
 
