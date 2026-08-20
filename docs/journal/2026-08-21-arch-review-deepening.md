@@ -141,3 +141,10 @@ crash buffer 空。多服务器场景无第二台真实服务器，由 C4 teardo
 - **③SessionFocusHolder 双胞胎**：shouldSuppress/shouldSuppressEvent 方法体逐字节相同（2026-08-16 对齐后成同体）；调用点按文件完全隔离（4 处 OpenCodeConnectionService vs 5 处 AppNotificationManager）→ 删 Event 版 + 9 生产调用改名 + 修正过期测试节标题 + #137 重复注释收敛。
 - **④新发现：ScrollPositionDelegate 生产死代码**（grep 复核：仅定义处引用 + ScrollPositionDelegateTest）→ 删 82 行 + 测试文件。
 
+### D. 补充取证（2026-08-21，grilling 等待期间）
+
+- **#171 实现接缝读全**：SettingsRepository 已读 4 方法（sessionReadTimes/allReadAt/markAllSessionsRead/markSessionRead:80-92）· SessionListViewModel settingDataFlow(4源)/miscDataFlow(2源) 双 combine:284-304 · deleteSession→signal.remove:655 · buildTreeNodes 8 参穿线(TreeNode:54-69) · SessionReadSignal 全文（33 行，markRead/remove 两方法）。
+- **#172 泄漏点行为契约就地文档核实**：MessagePaginationUseCase:85-104 完整保留 2026-08-16 cursor-400 根治注释链（V2 不传 cursor 拉最新窗口 + id 去重合并；V1 本地 {id,time} 锚点）；SessionStateService:630-674 L3 补漏含空页兜底（窗口外锚点 200+空页 → 无游标重拉最新窗口）。两处是 PaginationCursorPolicy 移植时的行为规格来源。
+- **Maestro E2E 套件普查（35 文件）**：与批次相关的现成链——regression-unread-chain-a/b.yaml（#171 红点出现/消费清除/杀进程持久）、l2-session-load-more + e2e-large-file-pagination（#172 分页回归）、e2e-chat-flow/l4-chat-ui（#173）、perf-session-scroll（全批次滚动基准）。⚠️ 如实标注：chain A 依赖真实 LLM turn 完成，测试服务器 LLM 链路不可用（#170 时已实证 prompt 200 无生成）——#171 真机验证以 chain B 消费/重启半链 + 既有会话水位线 + 人工清单为主，A 链缺口记录。
+- **全量单测基线（工作树 fc251f41）**：--rerun 新鲜执行 1802/1802 绿 0 跳过（XML 汇总解析）。backlog-check 通过（#184 > #183，201 行）。
+
