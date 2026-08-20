@@ -27,6 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -370,4 +373,290 @@ private fun StreamingElapsedText(startMs: Long) {
         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
     )
+}
+
+/**
+ * 2026-08-20 fling 巨帧根治：超长 assistant turn 的块级分片渲染。
+ *
+ * 根因：一条长消息 = 一个 LazyItem；LazyColumn 子项滚动方向无限高约束 →
+ * 首次组合必须建完整棵 Markdown 树（130K 字符 ≈ 300+ 块 = 单帧 50-80ms，
+ * 真机 trace 单个 recompose scope 49.7ms；prefetch 单位是 item，巨型 item
+ * 预取无效——prefetch:measure max 150ms）。分片：已完结长 turn 发射 N 个
+ * chunk item（见 ChatMessageList / buildChatEntries），每 item 只组合一片。
+ *
+ * 本组件只处理已完结 turn：无流式补偿、无 pendingQuestion（历史消息）、
+ * 无 error（错误 turn 不分片——buildChatEntries 未排除，但 errorText 非空
+ * 的 turn 通常无巨型 text part；防御性在末段渲染 errorText）。
+ * AMOLED 边框简化：分片段不描边（AmoledDefaultBorder 是整圈 BorderStroke，
+ * 无法分段；AMOLED + 巨型历史消息的罕见组合接受无框）。
+ */
+@Composable
+internal fun ChunkedAssistantMessage(
+    renderableTurn: RenderableTurn,
+    currentMessage: ChatMessage,
+    chunk: ChatEntry.Chunk,
+    isAmoled: Boolean,
+    isTurnLast: Boolean,
+    agents: List<AgentInfo>,
+    onAgentClick: ((String) -> Unit)?,
+    onCopy: (() -> Unit)?,
+    onViewSubSession: ((String) -> Unit)?,
+    onOpenFile: ((String) -> Unit)?,
+    onLocateTask: ((String) -> Unit)?,
+) {
+    if (renderableTurn.isEmpty) return
+    val compact = LocalChatDensity.current == ChatDensity.Compact
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val containerColor = MaterialTheme.colorScheme.surfaceVariant
+    val readinessRegistry = LocalRenderReadiness.current
+    val assistantMsg = currentMessage.message as? Message.Assistant
+
+    // 巨型 part 在 renderItems 中的定位（其余 items 按位置分首/末段）
+    val targetIdx = renderableTurn.renderItems.indexOfFirst { item ->
+        (item as? RenderItem.GroupedParts)?.group is PartGroup.Single &&
+            ((item.group as PartGroup.Single).part.id == chunk.plan.partId)
+    }
+    val range = chunk.plan.ranges[chunk.chunkIndex]
+    val horizPad = if (compact) 10.dp else SpacingTokens.LG.dp
+    val vertPad = if (compact) SpacingTokens.SM.dp else 14.dp
+
+    // 分段 shape：首段顶圆角 / 中段直角 / 末段底圆角（12dp = ShapeTokens.medium）
+    val shape = when {
+        chunk.isFirst -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+        chunk.isLast -> RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
+        else -> RoundedCornerShape(0.dp)
+    }
+
+    Surface(color = containerColor, shape = shape, modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(
+                start = horizPad, end = horizPad,
+                top = if (chunk.isFirst) vertPad else 0.dp,
+                bottom = if (chunk.isLast) vertPad else 0.dp,
+            ),
+        ) {
+            // ① 标签栏（仅首段）——与 MessageBubble 标签栏视觉一致
+            if (chunk.isFirst) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
+                ) {
+                    Text(
+                        text = remember(currentMessage.message.time.created) {
+                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
+                    Text(
+                        text = stringResource(R.string.chat_label_agent),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
+            }
+            // ② 首段：巨型 part 之前的 renderItems（reasoning / 工具卡等）
+            if (chunk.isFirst && targetIdx > 0) {
+                ChunkAssistantItems(
+                    items = renderableTurn.renderItems.subList(0, targetIdx),
+                    textColor = textColor,
+                    isAmoled = isAmoled,
+                    onViewSubSession = onViewSubSession,
+                    onOpenFile = onOpenFile,
+                    onLocateTask = onLocateTask,
+                    renderableTurn = renderableTurn,
+                    compact = compact,
+                    readinessRegistry = readinessRegistry,
+                )
+            }
+            // ③ Markdown 分片主体（所有段都有）
+            SelectionContainer {
+                dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent(
+                    markdown = "",
+                    textColor = textColor,
+                    isUser = false,
+                    preParsedState = chunk.plan.state,
+                    blockRange = range,
+                )
+            }
+            // ④ 末段：巨型 part 之后的 renderItems + 统计栏 + error
+            if (chunk.isLast) {
+                if (targetIdx in 0 until renderableTurn.renderItems.size - 1) {
+                    ChunkAssistantItems(
+                        items = renderableTurn.renderItems.subList(targetIdx + 1, renderableTurn.renderItems.size),
+                        textColor = textColor,
+                        isAmoled = isAmoled,
+                        onViewSubSession = onViewSubSession,
+                        onOpenFile = onOpenFile,
+                        onLocateTask = onLocateTask,
+                        renderableTurn = renderableTurn,
+                        compact = compact,
+                        readinessRegistry = readinessRegistry,
+                    )
+                }
+                if (renderableTurn.errorText != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),
+                        shape = ShapeTokens.mediumSmall,
+                        modifier = Modifier.padding(top = 6.dp),
+                    ) {
+                        Text(
+                            text = renderableTurn.errorText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textColor,
+                            modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+                ChunkStatsBar(
+                    renderableTurn = renderableTurn,
+                    assistantMsg = assistantMsg,
+                    isTurnLast = isTurnLast,
+                    agents = agents,
+                    onAgentClick = onAgentClick,
+                    onCopy = onCopy,
+                )
+            }
+        }
+    }
+}
+
+/** 分片场景的 renderItems 渲染（复制自 MessageCardAssistant 主循环的精简版：
+ *  无 pendingQuestion / 无 question 锚定——历史已完结 turn 不含待处理提问）。 */
+@Composable
+private fun ChunkAssistantItems(
+    items: List<RenderItem>,
+    textColor: Color,
+    isAmoled: Boolean,
+    onViewSubSession: ((String) -> Unit)?,
+    onOpenFile: ((String) -> Unit)?,
+    onLocateTask: ((String) -> Unit)?,
+    renderableTurn: RenderableTurn,
+    compact: Boolean,
+    readinessRegistry: RenderReadinessRegistry,
+) {
+    val showTurnDividers = LocalShowTurnDividers.current
+    for (item in items) {
+        when (item) {
+            is RenderItem.TurnDivider -> if (showTurnDividers) {
+                val dividerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
+                    color = dividerColor,
+                )
+            }
+            is RenderItem.SyntheticNotice -> key(item.msgId) {
+                SyntheticNotificationCard(
+                    currentMessage = item.message,
+                    isAmoled = isAmoled,
+                    onViewSubSession = onViewSubSession,
+                    onLocateTask = onLocateTask,
+                )
+            }
+            is RenderItem.GroupedParts -> when (item.group) {
+                is PartGroup.Context -> key(item.group.parts.first().id) {
+                    ContextToolGroupCard(
+                        parts = item.group.parts,
+                        onOpenFile = onOpenFile ?: {},
+                    )
+                }
+                is PartGroup.Single -> key(item.group.part.id) {
+                    val part = item.group.part
+                    val preParsed = (part as? Part.Text)
+                        ?.takeIf { it.text.length >= 200 && it.synthetic != true && it.ignored != true && !it.text.contains("User has answered") }
+                        ?.let { tp ->
+                            val pr by readinessRegistry.flow(tp.id).collectAsState()
+                            (pr as? RenderReadiness.Parsed)?.state
+                        }
+                    PartContent(
+                        part = part,
+                        textColor = textColor,
+                        isUser = false,
+                        onViewSubSession = onViewSubSession,
+                        onOpenFile = onOpenFile,
+                        preParsedState = preParsed,
+                        turnAgentName = if (part is Part.Tool && part.tool == "task") renderableTurn.taskAgentName else null,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 分片场景统计栏（历史消息：isStreaming=false 恒成立）。 */
+@Composable
+private fun ChunkStatsBar(
+    renderableTurn: RenderableTurn,
+    assistantMsg: Message.Assistant?,
+    isTurnLast: Boolean,
+    agents: List<AgentInfo>,
+    onAgentClick: ((String) -> Unit)?,
+    onCopy: (() -> Unit)?,
+) {
+    val agentName = renderableTurn.agentName
+    val copyText = renderableTurn.copyText
+    val modelId = renderableTurn.modelId
+    val durationMs = renderableTurn.durationMs
+    val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
+    if (!hasFooter && !(copyText != null && isTurnLast)) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (!agentName.isNullOrBlank()) {
+            AgentTag(agent = agentName, tagColor = agentColor(agentName, agents), onClick = { onAgentClick?.invoke(agentName) })
+        }
+        val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
+        if (hasProviderOrModel) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                if (assistantMsg?.providerId != null) {
+                    ProviderIcon(
+                        providerId = assistantMsg.providerId,
+                        size = 10.dp,
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
+                }
+                if (!modelId.isNullOrBlank()) {
+                    Text(
+                        text = modelId,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        if ((durationMs ?: 0L) > 0) {
+            Text(
+                text = formatDuration(durationMs!!),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+            )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        if (copyText != null) {
+            CopyButton(text = copyText, modifier = Modifier.size(14.dp), onCopied = onCopy)
+        }
+    }
 }

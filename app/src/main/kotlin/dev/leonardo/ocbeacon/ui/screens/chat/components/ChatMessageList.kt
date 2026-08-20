@@ -351,6 +351,24 @@ fun ChatMessageList(
         interaction.pendingQuestions.filter { it.id !in embeddedIds }
     }
 
+    // 2026-08-20 滚动性能修复：isTurnLast 的 O(1) 索引。
+    // 原实现在每个 assistant item 的组合中执行
+    // rawMessages.subList(rawIndex + 1, size).firstOrNull { !it.isSynthetic }——
+    // 每条消息从头线性扫描，长会话（百条级）fling 时每帧多次扫描 = O(N²)；
+    // 真机 trace：fling 期单帧 49.7ms 巨帧的复合放大器之一。
+    // 预计算：每条非 synthetic 消息 → 它后面第一条非 synthetic 消息 id。
+    val nextRealIsAssistantByMsgId = remember(rawMessages) {
+        val m = HashMap<String, Boolean?>(rawMessages.size)
+        var prevReal: ChatMessage? = null
+        for (cm in rawMessages) {
+            if (cm.isSynthetic) continue
+            if (prevReal != null) m[prevReal.message.id] = cm.isAssistant
+            prevReal = cm
+        }
+        if (prevReal != null) m[prevReal.message.id] = null  // 会话最后一条：无后继 = turn 尾
+        m
+    }
+
     // LazyColumn 中 itemsIndexed 之前渲染的非消息项数量。
     // 必须与下面的条件 `item { ... }` 块保持一致（见横幅渲染）。
     val bannerCount = remember(
@@ -371,15 +389,47 @@ fun ChatMessageList(
         (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0)
     }
 
+    // ===== 2026-08-20 fling 巨帧根治：超长消息块级分片 =====
+    // 分片计划（预解析完成时计算，视口驱动 collector 写入——见下方 driver）。
+    // 快照粒度 = 整 Map 实例替换：写频率 = 长消息预解析完成（低频），
+    // 读方（entries 构建 remember）失效重算为纯 CPU 列表构建，无重组风暴
+    //（与 RenderReadinessRegistry 的教训对照：不在组合路径 per-key 读写快照 Map）。
+    var chunkPlans by remember { mutableStateOf<Map<String, MdChunkPlan>>(emptyMap()) }
+    // 流式刚结束的 turn 延迟分片（滚出预解析窗口后清除）——避免视口内
+    // key 从 1 裂成 N 的闪变（见 buildChatEntries 文档）。
+    val recentStreamedTurnKeys = remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    val lastStreamingMsgId = remember { mutableStateOf<String?>(null) }
+    // ===== 2026-08-20 fling 巨帧根治：分片发射表（消息区 entries）=====
+    // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
+    // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
+    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys.value) {
+        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys.value)
+    }
+    val chatEntriesForPreparse = androidx.compose.runtime.rememberUpdatedState(chatEntries)
+    // 流式结束瞬间记录 turn key（延迟分片——防视口内 key 裂变闪跳；
+    // 由预解析 driver 的窗口清理负责释放）。
+    LaunchedEffect(streamingMsgId) {
+        if (streamingMsgId == null && lastStreamingMsgId.value != null) {
+            val found = displayItems.indexOfFirst { (_, m) -> m.message.id == lastStreamingMsgId.value }
+            if (found >= 0) {
+                val (ri, m) = displayItems[found]
+                val tk = "t_" + (turnGroups[ri]?.firstOrNull()?.message?.id ?: m.message.id)
+                recentStreamedTurnKeys.value = recentStreamedTurnKeys.value + tk
+            }
+        }
+        lastStreamingMsgId.value = streamingMsgId
+    }
+
     // 当前可见问题（msgId 驱动，与 Room 全量列表的 JumpTarget.msgId 匹配高亮）。
     // 2026-08-12 修复：基于 displayItems 显示序列（原 rawMessages 索引与显示序列
     // 不一致导致 currentMsgId 恒为 null——见 JumpTargetExtractor 注释）。
-    val currentQuestionMsgId by remember(displayItems, bannerCount) {
-        derivedStateOf { findCurrentQuestionMsgId(listState, displayItems, bannerCount) }
+    val currentQuestionMsgId by remember(displayItems, bannerCount, chatEntries) {
+        derivedStateOf { findCurrentQuestionMsgId(listState, displayItems, bannerCount, chatEntries.entryDisplayIndex) }
     }
     // 当前可见区域时间锚点（快速导航打开时降级定位用——见 QuickNavigateSheet）
-    val currentAnchorTimestamp by remember(displayItems, bannerCount) {
-        derivedStateOf { findCurrentAnchorTimestamp(listState, displayItems, bannerCount) }
+    val currentAnchorTimestamp by remember(displayItems, bannerCount, chatEntries) {
+        derivedStateOf { findCurrentAnchorTimestamp(listState, displayItems, bannerCount, chatEntries.entryDisplayIndex) }
     }
 
     // 高亮 key（3 秒后自动清除）—— scrollToDisplayItem / onLocateTask 共用。
@@ -395,6 +445,7 @@ fun ChatMessageList(
     //（loadOlder 自动补载会插入 older 批 → 目标被推下视口，用户反馈
     // "目标不在视口顶部"——logcat 实证 positioned 后被 auto-load 推走）。
     var jumpLockActive by remember { mutableStateOf(false) }
+
 
     // 2026-08-13 架构根治：渲染就绪信号注册表（统一信号层——预解析、就绪
     // 上报、awaitReady 消费；替代分散的 preParsed map + 轮询）
@@ -448,7 +499,8 @@ fun ChatMessageList(
             resolveLazyIndex = { msgId ->
                 displayItems.indexOfFirst { it.second.message.id == msgId }
                     .takeIf { it >= 0 }
-                    ?.let { bannerCount + it }
+                    // 2026-08-20 分片适配：turn 首 chunk
+                    ?.let { bannerCount + chatEntries.displayEntryStart[it] }
             },
         )
     }
@@ -479,10 +531,17 @@ fun ChatMessageList(
             val items = displayItemsForPreparse.value
             val groups = turnGroupsForPreparse.value
             val window = LinkedHashSet<String>()
-            val head = (firstIdx - PREPARSE_AHEAD).coerceAtLeast(0)
-            val tail = lastIdx + PREPARSE_AHEAD
-            for (i in head..tail) {
-                val di = i - bannerCount
+            // 2026-08-20 分片适配：±PREPARSE_AHEAD 窗口语义保持 display 粒度
+            //（entry index 先映射 displayIndex 再扩展——chunk 化后 ±8 entries
+            // ≈ ±2 turns，物理窗口缩水会导致预解析供给不足）。
+            val entriesNow = chatEntriesForPreparse.value
+            val firstDisplay = entriesNow.entryDisplayIndex
+                .getOrNull((firstIdx - bannerCount).coerceAtLeast(0)) ?: 0
+            val lastDisplay = entriesNow.entryDisplayIndex
+                .getOrNull(lastIdx - bannerCount) ?: (items.size - 1)
+            val head = (firstDisplay - PREPARSE_AHEAD).coerceAtLeast(0)
+            val tail = (lastDisplay + PREPARSE_AHEAD).coerceAtMost(items.size - 1)
+            for (di in head..tail) {
                 if (di !in items.indices) continue
                 val (rawIdx, msg) = items[di]
                 if (!msg.isAssistant) continue
@@ -500,23 +559,58 @@ fun ChatMessageList(
                             val key = part.id
                             window.add(key)
                             if (registry.current(key) is RenderReadiness.Pending) {
+                                val textForParse = part.text
                                 registry.preParse(
                                     key,
-                                    normalizeForRender(part.text, isUser = false),
+                                    normalizeForRender(textForParse, isUser = false),
                                     coroutineScope,
-                                )
+                                ) { st ->
+                                    // 2026-08-20 分片：巨型 part 解析完成即计算块级
+                                    // 分片计划（主线程回调）——后续该 turn 进入视口时
+                                    // 按计划发射 N 个 chunk item（见 buildChatEntries）。
+                                    if (textForParse.length >= CHUNK_MIN_CHARS) {
+                                        computeChunkPlan(key, st, CHUNK_MIN_CHARS, CHUNK_TARGET_CHARS)
+                                            ?.let { plan ->
+                                                if (BuildConfig.DEBUG) {
+                                                    AppLogger.d(
+                                                        "ScrollDiag",
+                                                        "CHUNK plan part=" + key.take(14) +
+                                                            " blocks=" + st.node.children.size +
+                                                            " chunks=" + plan.ranges.size
+                                                    )
+                                                }
+                                                chunkPlans = chunkPlans + (key to plan)
+                                            }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-            // 有界性（#98 同款防无界增长）：裁剪窗口外条目，LRU 上限
+            // 有界性（#98 同款防无界增长）：裁剪窗口外条目，LRU 上限。
+            // 注：chunkPlans 不随 LRU 淘汰——分片中的 turn 需要稳定计划（视口内
+            // 淘汰会导致 chunk key 消失→回退单 item→巨帧回归）；巨型消息每会话
+            // 个位数，AST 常驻内存可忽略（130K 字符 ≈ 400KB/条）。
             preparseSeenKeys.removeAll { it !in window }
             preparseSeenKeys.addAll(window)
             while (preparseSeenKeys.size > PREPARSE_LRU) {
                 val oldest = preparseSeenKeys.firstOrNull() ?: break
                 preparseSeenKeys.remove(oldest)
                 registry.remove(oldest)
+            }
+            // recentStreamedTurnKeys 有界清理：turn 离开窗口（display 粒度）即允许分片
+            if (recentStreamedTurnKeys.value.isNotEmpty()) {
+                val windowKeys = buildSet {
+                    for (di in head..tail) {
+                        if (di !in items.indices) continue
+                        val (ri, m) = items[di]
+                        add(if (m.isUser) "u_" + m.message.id
+                            else "t_" + (groups[ri]?.firstOrNull()?.message?.id ?: m.message.id))
+                    }
+                }
+                recentStreamedTurnKeys.value =
+                    recentStreamedTurnKeys.value.filterTo(mutableSetOf()) { it in windowKeys }
             }
         }
     }
@@ -560,9 +654,10 @@ fun ChatMessageList(
         }
         if (targetHasRenderableContent) {
             // 状态机跳转：一次定位 + 蒙版/门控从状态派生
+            // 2026-08-20 分片适配：lazyIndex = turn 首 chunk（含标签栏）
             jumpController.jumpTo(
                 msgId,
-                bannerCount + displayItemIndex,
+                bannerCount + chatEntries.displayEntryStart[displayItemIndex],
                 jumpText?.let { normalizeForRender(it, isUser = true) },
             )
             onQuickNavigateDismiss()
@@ -587,7 +682,8 @@ fun ChatMessageList(
             }
         }
         if (targetIndex >= 0) {
-            val lazyIndex = bannerCount + targetIndex
+            // 2026-08-20 分片适配：turn 首 chunk
+            val lazyIndex = bannerCount + chatEntries.displayEntryStart[targetIndex]
             val (rawIndex, targetMsg) = displayItems[targetIndex]
             val targetMsgId = targetMsg.message.id
             // 2026-08-13 架构根治：onLocateTask 复用状态机（同一定位流程——一次
@@ -789,7 +885,9 @@ fun ChatMessageList(
                         bottom = SpacingTokens.SM.dp
                     ),
                     reverseLayout = true,
-                    verticalArrangement = Arrangement.spacedBy(messageSpacing)
+                    // 2026-08-20 分片：移除 spacedBy（chunk item 间不能有间隙——
+                    // 同一气泡的分段视觉连续），改为 item 级 bottom padding
+                    //（横幅/Turn/Chunk 末段加 messageSpacing，chunk 非末段为 0）。
                 ) {
                     // reverseLayout=true：先声明的项渲染在底部。
                     // 视觉顺序（上→下）：最旧消息 → 最新消息 → revert → pending。
@@ -798,6 +896,7 @@ fun ChatMessageList(
                     // Revert 横幅
                     if (sessionMeta.revert != null) {
                         item(key = "revert_banner") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             RevertBanner(onRedo = {
                                 viewModel.redoMessage { ok ->
                                     coroutineScope.launch {
@@ -808,13 +907,16 @@ fun ChatMessageList(
                                 }
                                 onForceScrollToBottom()
                             })
+                            }
                         }
                     }
 
                     // Compaction 横幅
                     if (currentCompaction != null && currentCompaction.isActive) {
                         item(key = "compaction_banner") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             CompactionBanner(state = currentCompaction)
+                            }
                         }
                     }
 
@@ -822,13 +924,16 @@ fun ChatMessageList(
                     val retryStatus = sessionMeta.sessionStatus
                     if (retryStatus is SessionStatus.Retry) {
                         item(key = "retry_banner") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             RetryBanner(retryStatus)
+                            }
                         }
                     }
 
                     // 工具进度卡片（带漂移补偿）
                     if (activeTools.isNotEmpty()) {
                         item(key = "tool_progress") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -863,6 +968,7 @@ fun ChatMessageList(
                                     ToolProgressCard(toolInfo = toolInfo)
                                 }
                             }
+                            }
                         }
                     } else {
                         // 无活跃工具时重置
@@ -872,13 +978,16 @@ fun ChatMessageList(
                     // 步骤进度指示器
                     if (currentStep != null) {
                         item(key = "step_progress") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             StepProgressIndicator(stepInfo = currentStep)
+                            }
                         }
                     }
 
                     // 待处理问题（未嵌入消息气泡的保底显示）——一次显示一个（最旧优先）
                     unembeddedQuestions.firstOrNull()?.let { question ->
                         item(key = "question_${question.id}") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             QuestionCard(
                                 question = question,
                                 positionLabel = if (unembeddedQuestions.size > 1) "1/${unembeddedQuestions.size}" else null,
@@ -892,12 +1001,14 @@ fun ChatMessageList(
                                 },
                                 answersStore = viewModel.questionAnswerStore,
                             )
+                            }
                         }
                     }
 
                     // 待处理权限 —— 一次显示一个（最旧优先）
                     interaction.pendingPermissions.firstOrNull()?.let { permission ->
                         item(key = "perm_${permission.id}") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             PermissionCard(
                                 permission = permission,
                                 positionLabel = if (interaction.pendingPermissions.size > 1) "1/${interaction.pendingPermissions.size}" else null,
@@ -911,27 +1022,60 @@ fun ChatMessageList(
                                     onForceScrollToBottom()
                                 }
                             )
+                            }
                         }
                     }
 
                     // 聊天消息：displayItems 已经是新的在前（降序）。
                     // reverseLayout=true 将索引 0（最新）渲染在底部。
                     // 视觉结果：最旧在顶部，最新在底部。
+                    // 2026-08-20 分片：items = chatEntries（巨型 turn 已展开为
+                    // N 个 chunk item；key 语义不变——buildChatEntries 与原逻辑
+                    // 一致，chunk 追加 #c<i> 后缀且保持 t_/u_ 前缀）。
                     itemsIndexed(
-                        displayItems,
-                        key = { _, (rawIndex, msg) ->
-                            // 稳定的基于 turn 的 key：分页从同一 turn
-                            // 加载更多消息时防止项被销毁（代表消息
-                            // 会变化，但 turn 身份保持不变）。
-                            // #103（M-8）：key 锚点改为 turn 组首条消息 id——
-                            // 原最新 turn 用固定 "head" fallback，流式期间新消息
-                            // 到达改变 rawIndex+1 边界 → key 变化 → 整气泡销毁重建
-                            //（含 rememberMarkdownState 重解析）
-                            if (msg.isUser) "u_${msg.message.id}"
-                            else "t_${turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id}"
+                        chatEntries.entries,
+                        key = { _, entry -> entry.key },
+                        contentType = { _, entry ->
+                            when (entry) {
+                                is ChatEntry.Chunk -> "assistant_chunk"
+                                is ChatEntry.Turn ->
+                                    if (displayItems[entry.displayIndex].second.isUser) "user" else "assistant"
+                            }
                         },
-                        contentType = { _, item -> if (item.second.isUser) "user" else "assistant" }
-                    ) { displayItemIndex, (rawIndex, msg) ->
+                    ) { _, entry ->
+                        when (entry) {
+                            is ChatEntry.Chunk -> {
+                                val displayItemIndex = entry.displayIndex
+                                val (rawIndex, msg) = displayItems[entry.displayIndex]
+                                val nextRealIsAssistant = nextRealIsAssistantByMsgId[msg.message.id]
+                                val isTurnLast = nextRealIsAssistant != true
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().let { m ->
+                                        if (entry.isLast) m.padding(bottom = messageSpacing) else m
+                                    }
+                                ) {
+                                    ChunkedAssistantMessage(
+                                        renderableTurn = renderableTurns[displayItemIndex] ?: return@itemsIndexed,
+                                        currentMessage = msg,
+                                        chunk = entry,
+                                        isAmoled = isAmoled,
+                                        isTurnLast = isTurnLast,
+                                        agents = agents,
+                                        onAgentClick = onAgentClick,
+                                        onCopy = {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+                                            }
+                                        },
+                                        onViewSubSession = navigateToChildSession,
+                                        onOpenFile = onOpenFile,
+                                        onLocateTask = onLocateTask,
+                                    )
+                                }
+                            }
+                            is ChatEntry.Turn -> {
+                        val displayItemIndex = entry.displayIndex
+                        val (rawIndex, msg) = displayItems[entry.displayIndex]
                         // #103（M-8）：与 LazyColumn key 同锚点（turn 组首条消息 id）
                         val itemKey = if (msg.isUser) "u_${msg.message.id}"
                             else "t_${turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id}"
@@ -981,7 +1125,12 @@ fun ChatMessageList(
                                             MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.SELECTED)
                                         )
                                 } else Modifier
-                            ).onSizeChanged { s ->
+                            )
+                            // 2026-08-20 分片：item 级间距（原 spacedBy 移除——
+                            // chunk item 间需无缝，Turn 与相邻项间隙在此补）。
+                            // 置于 layout{} 补偿之外，不影响补偿测量高度。
+                            .padding(bottom = messageSpacing)
+                            .onSizeChanged { s ->
                                 if (BuildConfig.DEBUG) {
                                     val prev = diagLastSize.value
                                     if (prev != androidx.compose.ui.unit.IntSize.Zero && s.height != prev.height) {
@@ -1000,9 +1149,10 @@ fun ChatMessageList(
                             msg.isAssistant -> {
                                 // isTurnLast：下一条"非 synthetic"消息不是 assistant 才算 turn 尾。
                                 // synthetic 通知嵌入 turn 内（2026-08-11），不阻挡统计栏。
-                                val nextReal = rawMessages.subList(rawIndex + 1, rawMessages.size)
-                                    .firstOrNull { !it.isSynthetic }
-                                val isTurnLast = nextReal == null || !nextReal.isAssistant
+                                // 2026-08-20：O(1) 查表（见上方
+                                // nextRealIsAssistantByMsgId），原 subList 线性扫描
+                                // 为 O(N²) 复合放大器。null = 无后继（turn 尾）。
+                                val isTurnLast = nextRealIsAssistantByMsgId[msg.message.id] != true
 
                                 // 嵌入式提问卡片：按 tool.messageId 匹配当前消息，
                                 // 嵌入该消息的思考卡片（ReasoningBlock）内部渲染
@@ -1162,11 +1312,14 @@ fun ChatMessageList(
                             }
                         }
                         } // Box freeze
+                            }
+                        }
                     }
 
                     // 分页加载指示器 —— 抓取更旧消息时出现在视觉顶部（reverseLayout）
                     if (messageState.isLoadingOlder) {
                         item(key = "loading_older") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             Box(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = SpacingTokens.MD.dp),
                                 contentAlignment = Alignment.Center
@@ -1175,6 +1328,7 @@ fun ChatMessageList(
                                     modifier = Modifier.size(20.dp),
                                     strokeWidth = 2.dp,
                                 )
+                            }
                             }
                         }
                     }
@@ -1319,3 +1473,9 @@ private const val PREPARSE_AHEAD = 8
 private const val PREPARSE_MIN_CHARS = 200
 /** 预解析条目 LRU 上限（Parsed state 持有 AST，防无界增长）。 */
 private const val PREPARSE_LRU = 32
+
+// ===== 2026-08-20 fling 巨帧根治：超长消息块级分片常量 =====
+// 低于 CHUNK_MIN_CHARS 的 part 不分片（单次组合 ~20 块内可容忍）；
+// 目标每片 ~CHUNK_TARGET_CHARS 字符（130K 消息 ≈ 26 片，单片组合 ~2ms）。
+private const val CHUNK_MIN_CHARS = 8000
+private const val CHUNK_TARGET_CHARS = 5000

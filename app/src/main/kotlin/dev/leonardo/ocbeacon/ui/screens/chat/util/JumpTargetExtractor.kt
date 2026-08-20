@@ -98,18 +98,21 @@ fun findCurrentQuestionMsgId(
     listState: LazyListState,
     displayItems: List<Pair<Int, ChatMessage>>,
     bannerCount: Int,
+    // 2026-08-20 分片适配：LazyColumn index（-bannerCount）→ displayItems 索引
+    //（巨型 turn 展开为 N 个 chunk item 后二者不再相等）。
+    entryDisplayIndex: IntArray? = null,
 ): String? {
     val visible = listState.layoutInfo.visibleItemsInfo
         .filter { (it.key as? String)?.let { k -> k.startsWith("u_") || k.startsWith("t_") } == true }
     val anchor = visible
-        .filter { (it.key as? String)?.startsWith("u_") == true && hasText(displayItems, it.index - bannerCount) }
+        .filter { (it.key as? String)?.startsWith("u_") == true && hasText(displayItems, mapToDisplay(it.index, bannerCount, entryDisplayIndex)) }
         .maxByOrNull { it.index }
         ?: visible.maxByOrNull { it.index }
         ?: run {
             if (BuildConfig.DEBUG) AppLogger.d("QuickNavigate", "findCurrent: 可见区无消息项 (total=${listState.layoutInfo.visibleItemsInfo.size})")
             return null
         }
-    val displayIdx = anchor.index - bannerCount
+    val displayIdx = mapToDisplay(anchor.index, bannerCount, entryDisplayIndex)
     if (BuildConfig.DEBUG) {
         AppLogger.d("QuickNavigate", "findCurrent: anchorIdx=${anchor.index} banner=$bannerCount displayIdx=$displayIdx items=${displayItems.size}")
     }
@@ -117,6 +120,13 @@ fun findCurrentQuestionMsgId(
     val found = (displayIdx until displayItems.size).firstOrNull { isNavigableUser(displayItems[it]) }
         ?: (displayIdx downTo 0).firstOrNull { isNavigableUser(displayItems[it]) }
     return found?.let { displayItems[it].second.message.id }
+}
+
+/** LazyColumn index → displayItems 索引（分片时经 entryDisplayIndex 映射）。 */
+internal fun mapToDisplay(lazyIndex: Int, bannerCount: Int, entryDisplayIndex: IntArray?): Int {
+    val entryIdx = lazyIndex - bannerCount
+    if (entryDisplayIndex == null || entryIdx !in entryDisplayIndex.indices) return entryIdx
+    return entryDisplayIndex[entryIdx]
 }
 
 /** user 且非 synthetic、至少一个非空 Part.Text（可导航判定，与快速导航列表过滤一致）。 */
@@ -138,12 +148,13 @@ fun findCurrentAnchorTimestamp(
     listState: LazyListState,
     displayItems: List<Pair<Int, ChatMessage>>,
     bannerCount: Int,
+    entryDisplayIndex: IntArray? = null,
 ): Long? {
     val anchor = listState.layoutInfo.visibleItemsInfo
         .filter { (it.key as? String)?.let { k -> k.startsWith("u_") || k.startsWith("t_") } == true }
         .maxByOrNull { it.index }
         ?: return null
-    val displayIdx = anchor.index - bannerCount
+    val displayIdx = mapToDisplay(anchor.index, bannerCount, entryDisplayIndex)
     if (displayIdx !in displayItems.indices) return null
     return displayItems[displayIdx].second.message.time.created
 }

@@ -153,6 +153,9 @@ internal fun MarkdownContent(
     // 2026-08-13 根本方案：跳转目标预解析结果（parseMarkdownFlow 后台解析的
     // State）——非空时直接用 Markdown(state) 重载渲染（无解析等待/loading）
     preParsedState: State? = null,
+    // 2026-08-20 fling 巨帧根治：块级分片渲染区间（顶层 AST children 的
+    // [from, to) 子列表）——null = 全量（原行为）。仅与 preParsedState 组合使用。
+    blockRange: IntRange? = null,
 ) {
     // 注意：customFontSize 和 immediate 保留是为了调用点兼容性
     //（PartContent / ReasoningBlock 仍传入它们），但有意不使用
@@ -388,16 +391,33 @@ internal fun MarkdownContent(
     // 2026-08-13 根本方案：预解析结果存在时直接用 Markdown(state) 重载渲染
     //（无解析等待/loading——内容直接是最终状态）
     if (preParsedState != null) {
-        Markdown(
-            state = preParsedState,
-            colors = colors,
-            typography = typography,
-            components = components,
-            padding = padding,
-            animations = markdownAnimations(animateTextSize = { this }),
-            imageTransformer = Coil3ImageTransformerImpl,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // 2026-08-20 分片：blockRange 非空时只渲染 [from, to) 区间的顶层块
+        //（其余块由同 turn 的相邻 chunk item 渲染——引用式链接在解析期已
+        // 写入 referenceLinkHandler，拆开渲染不破坏跨块引用）。
+        if (blockRange != null) {
+            Markdown(
+                state = preParsedState,
+                colors = colors,
+                typography = typography,
+                components = components,
+                padding = padding,
+                animations = markdownAnimations(animateTextSize = { this }),
+                imageTransformer = Coil3ImageTransformerImpl,
+                modifier = Modifier.fillMaxWidth(),
+                success = chunkSuccessSlot(blockRange),
+            )
+        } else {
+            Markdown(
+                state = preParsedState,
+                colors = colors,
+                typography = typography,
+                components = components,
+                padding = padding,
+                animations = markdownAnimations(animateTextSize = { this }),
+                imageTransformer = Coil3ImageTransformerImpl,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         return
     }
 
@@ -418,4 +438,22 @@ internal fun MarkdownContent(
     )
 }
 
-
+/**
+ * 2026-08-20 分片：构造只渲染 [from, to) 顶层块的 success 槽。
+ * null 区间 = 默认全量渲染（null 槽 → 库默认 MarkdownSuccess）。
+ */
+private fun chunkSuccessSlot(
+    blockRange: IntRange,
+): @Composable (State.Success, com.mikepenz.markdown.compose.components.MarkdownComponents, Modifier) -> Unit {
+    val rng = blockRange
+    return { st, comps, mod ->
+        androidx.compose.foundation.layout.Column(mod) {
+            val kids = st.node.children
+            val from = rng.first.coerceIn(0, kids.size)
+            val to = (rng.last + 1).coerceAtMost(kids.size)
+            for (i in from until to) {
+                com.mikepenz.markdown.compose.MarkdownElement(kids[i], comps, st.content)
+            }
+        }
+    }
+}

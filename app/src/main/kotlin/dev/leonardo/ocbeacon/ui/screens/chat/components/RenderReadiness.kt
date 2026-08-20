@@ -89,7 +89,14 @@ class RenderReadinessRegistry {
      * 预解析（Mikepenz 官方 Parse-ahead 模式）：点击跳转瞬间后台解析目标文本。
      * 解析完成后状态为 Parsed——消息组件组合时用 Markdown(state) 直接渲染。
      */
-    fun preParse(msgId: String, text: String, scope: CoroutineScope) {
+    fun preParse(
+        msgId: String,
+        text: String,
+        scope: CoroutineScope,
+        // 2026-08-20 分片：解析完成回调（主线程——launch 上下文）。调用方
+        // （滚动预解析驱动）在此计算巨型 part 的块级分片计划。
+        onParsed: ((State.Success) -> Unit)? = null,
+    ) {
         scope.launch {
             // 2026-08-20：解析移出主线程——库的 parseMarkdownFlow 无 flowOn，
             // 原在收集者上下文（主线程）执行，长文本（16KB+）解析阻塞 UI
@@ -97,7 +104,10 @@ class RenderReadinessRegistry {
             // flowOn(Default) 后仅 update 回主线程（快照写）。
             parseMarkdownFlow(text).flowOn(Dispatchers.Default).collect { st ->
                 when (st) {
-                    is State.Success -> update(msgId, RenderReadiness.Parsed(st))
+                    is State.Success -> {
+                        update(msgId, RenderReadiness.Parsed(st))
+                        onParsed?.invoke(st)
+                    }
                     is State.Error -> update(msgId, RenderReadiness.Failed(st.result))
                     else -> update(msgId, RenderReadiness.Parsing)
                 }
