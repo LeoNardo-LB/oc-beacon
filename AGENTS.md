@@ -141,6 +141,4 @@ SSE → UI 管线：**48ms token 批处理 → 高度补偿 → 渲染**。违�
 
 ## Agent skills
 
-- **Issue tracker**：`backlog.md`（本地登记）+ GitHub Issues（正式跟踪）双轨制，见 [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md)
-- **Triage labels**：五个默认 triage 标签，仅作用于 GitHub Issues，见 [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md)
-- **Domain docs**：单上下文布局（根 `CONTEXT.md` + `docs/adr/`），见 [`docs/agents/domain.md`](docs/agents/domain.md)
+Issue tracker（backlog + GitHub Issues 双轨制）、triage 标签、domain docs 布局三条约定见 [`docs/agents/skills.md`](docs/agents/skills.md)。
