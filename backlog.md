@@ -1779,7 +1779,7 @@
 - **Baseline Profile（`5b284b4c`）**：手工规则圈 chat UI 热路径 + Compose lazy/runtime/text + mikepenz + 协程；APK 含 assets/dexopt/baseline.prof、真机 ProfileInstaller 安装日志确认。收益为官方 ~30% 口径（本 App 实测增量需 macrobenchmark 基建，未建——诚实边界）
 - **PerfMon 观察者效应（`dc57cba0`）**：FrameMetrics 按 VSYNC 去重（b/206956036）+ dropCount 记账入 HUD + PerfHudOverlay 独立悬浮窗（纯 View 直绘、独立帧流零污染；无授权回退同窗口 HUD）
 - **遗留登记**：
-  - [ ] **P3：慢拖 ~18ms 偶发尖刺 A/B 未执行** `perf`——两轮 debug 安装弹窗被系统取消，A/B 中断；该项 release 本就低于感知阈值（p95 7.9ms），价值边际。方案已备：F5 后重测 slow-drag ahead=1 vs 0。工时 ~1h | 难度：低
+  - [x] **P3：慢拖 ~18ms 偶发尖刺 A/B** `perf` ✅ 2026-08-21 完成——**结论：预取窗口 ahead=0 vs 1 无显著差异，假设否证，常量定 0**。三轮真机数据（houji devDebug + gfxinfo framestats，验收测试会话AB 12 次慢拖 ×3700 帧/轮）：ahead=1 → p50/p90/p95 = 7/12/14ms、≥17ms 帧 2.32%；ahead=0 → 7/12/14ms、2.22%（重复轮 2.0%）——差异在轮间噪声（±5%）内，百分位完全一致。与 08-20 PerfMon 初评（anim 相位爆发与预取无关）互证；`PREFETCH_AHEAD_SLOW_DRAG` 已定 0（分片后 edge 预取组合对慢拖帧预算是净负担）。证据 /tmp/ab18/（armA/armB/armB_repeat + 聚合直方图）。**基建坑位**：① devDebug 装包弹窗已由 `scripts/miui-install.sh` 无人值守解决；② 慢拖方向必须手指向下（500→1600）——见 real-device-testing.md E2E 纪律新增条目（曾致 0 帧误判两轮）
   - [ ] **P3：overlay HUD 真机授权走查** `dev-infra`——悬浮窗权限授予 + overlay 显示/dropCount 读数验证（代码已交付 dc57cba0，未真机走查）
 
 ## 2026-08-20 第三轮：开发用性能检测系统 + 残余卡顿闭环 + debug/release 定量对比
@@ -1792,7 +1792,7 @@
 - **遗留登记**：
   - [x] **P3：PerfMon 观察者效应改进** `perf` `dev-infra` ✅ 2026-08-20 第四轮交付（dc57cba0：VSYNC 去重/dropCount 记账/独立悬浮窗 HUD）——悬浮窗授权真机走查待用户
   - [x] **P2：Baseline Profile** `perf` ✅ 2026-08-20 第四轮交付（5b284b4c：APK 内 baseline.prof + 真机 ProfileInstaller 安装日志确认）
-  - [ ] **P3：慢拖残余 ~18ms 偶发尖刺** `perf`——F5 后残余（draw 4-8ms + input 3-5ms），量少（12 轮 10 条）；候选：预取 idle_frame 深挖。工时 ~2h | 难度：中
+  - [ ] **P3：慢拖残余 ~18ms 偶发尖刺** `perf`——F5 后残余（draw 4-8ms + input 3-5ms），量少（12 轮 10 条）。**2026-08-21：候选「预取 idle_frame」已否证**（见第四轮 A/B 条目——ahead=0/1 无差异）；如再深挖方向应为 draw/input 相位本身（release 口径 p95 7.9ms 已低于感知阈值，优先级维持最低）。工时 ~2h | 难度：中
 
 ## 2026-08-20 第二轮滚动卡顿深度调查批次（120Hz 帧预算口径重建）
 
@@ -1829,6 +1829,7 @@
   - **真机测试 runbook（本批次打通，后续复用）**：① 装包**一律用 pm install 静默法**（2026-08-20 实证 3 轮 0.4s 无弹窗）：adb -s e69a99d8 push <apk> /data/local/tmp/t.apk && adb -s e69a99d8 shell pm install -r /data/local/tmp/t.apk && adb -s e69a99d8 shell rm /data/local/tmp/t.apk——MIUI 确认弹窗只挂在 adb install 流程（PackageInstaller UI），shell 直装不经过；降级加 -d。次选：adb install 需 MIUI 开「USB 安装」且屏幕解锁常亮（弹窗手点；svc power stayon usb 保常亮）② 服务器打通用 adb reverse tcp:4199 tcp:4199（设备 127.0.0.1:4199 → 宿主机）③ 一键配置服务器走 debug 构建 intent：am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity --es debug_url http://127.0.0.1:4199 --es debug_username opencode --es debug_password <pwd>（仅 BuildConfig.DEBUG 生效；dev-release 本地无 keystore 回退 debug 签名且非 debuggable 不可降级覆盖）④ 本地 keystore 已失（仅 CI Secrets 存留）——本地构建恒为 debug 签名，与 CI release 包互不覆盖，切换需卸载重装
   - ⚠️ 待用户验收：观感（固定高度后空内容抽屉底部留白是否符合预期）——测试构建已在真机可直接体验
 - [x] **新增 P3：SystemPromptDialog + extractSystemPrompt 疑似死代码（2026-08-20 抽屉统一批次顺带发现）** `refactor`
+  - **2026-08-20 清理完成 ✅**：全库 grep（main+test）确认零调用方后删除 SystemPromptDialog.kt 整文件 + 15 语言 2 个孤儿键（chat_system_prompt_title/empty，646 键一致）；编译 ✅ 全量单测 --rerun ✅ i18n-check PASSED。附带成果：本地 devRelease 首次以新 keystore 签名成功（8fbc136e…，与 keytool 指纹一致）
 
 ## 2026-08-21 GitHub issue #1 遗留调研批次（V1 连接速度）
 
@@ -1837,4 +1838,8 @@
   - **调研结论（完整证据链见 docs/research/issue-1-v1-connect-speed-2026-08-21.md）**：beta.4 的"v2 快"是误判产物——V1 1.18.18 过渡形态 /api/health 返回 {"healthy":true} 被判 V2，随后 preLoadSessions 在 /api/project 的 SPA HTML 上快速失败被整体跳过（6 步串行缩为 3 步；本机回环实测 165ms vs 37ms）。真实根因：① runSseConnectionLoop 把 preLoadSessions（/project + N×/session + N×/session/status）**串行放在 SSE 之前**，"已连接"翻转被整段阻塞；② 每次手动连接都重新双探（V2-first 白跑一次 RTT，已持久化的 apiVersion 不复用）；③ V1 特有 /session/status 每目录一串往返 + Windows /project 冷调用慢（实测首调 214ms vs 热 8ms）
   - 修复方向（按收益）：探测结果复用 + 后台重探（保留 #132 UNKNOWN 语义）→ preLoadSessions 与 SSE 并行（首事件立即翻转已连接，preload 并发补）→ 项目间并行拉取（并发 2-4）。**不建议**复现 beta.4 误判行为（#83 回归）
   - 已排除：SSE 首事件延迟（两版本握手即推 server.connected）、心跳节奏、payload 包装解析、初始消息分页、认证方式——均实测/代码验证无差异
-  - **2026-08-20 清理完成 ✅**：全库 grep（main+test）确认零调用方后删除 SystemPromptDialog.kt 整文件 + 15 语言 2 个孤儿键（chat_system_prompt_title/empty，646 键一致）；编译 ✅ 全量单测 --rerun ✅ i18n-check PASSED。附带成果：本地 devRelease 首次以新 keystore 签名成功（8fbc136e…，与 keytool 指纹一致）
+  - **与 #132 的表面矛盾与调和（2026-08-21 补充，实现前必读）**：#132 规则"探测失败保留原 apiVersion"之所以安全，前提是**现有流程每次连接都重新探测验货**——持久化版本只是兜底，永远被新一轮探测纠正（服务器 V1→V2 升级会在下次连接被发现）。而"探测复用"方向若实现为裸跳过探测，等于删掉验货环节：服务器升级后客户端永久用旧版本路径 → V1 路径打 V2 → SPA HTML → **复发 #132 当初修掉的症状**（JSON 解析错误 + SSE 假死，与 issue #1 原始报错同貌）。三个调和方案：
+    - 方案 A（并行验货）：连接立即用持久化版本发起，探测后台并行；结果不一致则掐断重连。最快但状态机复杂（探测与 SSE 握手竞态、先连后纠的闪烁），为罕见事件（服务器升级）不值
+    - **方案 B（按已知版本排序探测，推荐）**：detect() 先探持久化版本（V1 服务器探 /global/health 一次即中），失败/HTML/非 JSON 才回退现有 V2-first 双探；持久化 UNKNOWN 则维持现状。V1 连接 2 RTT → 1 RTT，V2 维持 1 RTT，零新增等待；探测失败路径自然落入 #132 的 UNKNOWN 保留语义（严格不破坏）。改动最小（仅 ApiVersionDetector.detect 排序 + 传入已知版本）
+    - 方案 C（跳探 + HTML 自愈）：不探测，连接路径上 rejectHtmlResponse 命中 HTML 时触发重探重连。最快但把版本知识泄漏进 SSE/REST 层、错误发现滞后到用户可见的失败连接，不取
+  - **推荐组合（2026-08-21）**：方案 B（探测排序）+ 方向②（SSE 先行、preload 并行补，主要收益所在——实测 preload 串行 ~134ms 占 165ms 总耗时的大头，双探仅 ~19ms）+ 方向③（项目间并发 2-4）。预期：V1 首连感知 ~165ms → ~40ms 量级（SSE 首事件即翻转已连接），且 #83 交叉验证与 #132 UNKNOWN 语义双双完整保留
