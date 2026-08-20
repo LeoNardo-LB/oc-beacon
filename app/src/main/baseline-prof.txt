@@ -1,0 +1,29 @@
+# OC Beacon 手工 Baseline Profile（2026-08-20 第三轮性能批次）
+#
+# 范围策略：聊天 UI 热路径（滚动/重组/文本布局）——三轮滚动调查的实测热点。
+# 官方口径：代码路径执行 ~30% 加速；R8 release 构建生效（debug 被 ART 消费侧跳过）。
+# 验证：构建后 APK 应含 assets/dexopt/baseline.prof（AGP profgen 编译产物），
+# 且首启 logcat 出现 ProfileInstaller 安装日志。
+
+# ===== App 自身：聊天 UI 全热路径 =====
+HSPLdev/leonardo/ocbeacon/ui/screens/chat/**->**(**)**
+Ldev/leonardo/ocbeacon/ui/screens/chat/**
+HSPLdev/leonardo/ocbeacon/ui/components/**->**(**)**
+Ldev/leonardo/ocbeacon/ui/components/**
+HSPLdev/leonardo/ocbeacon/ui/theme/**->**(**)**
+
+# ===== Compose：Lazy 列表 + 重组运行时 + 文本布局（滚动热路径） =====
+HSPLandroidx/compose/foundation/lazy/**->**(**)**
+HSPLandroidx/compose/foundation/lazy/layout/**->**(**)**
+HSPLandroidx/compose/runtime/**->**(**)**
+HSPLandroidx/compose/ui/layout/**->**(**)**
+HSPLandroidx/compose/ui/text/**->**(**)**
+HSPLandroidx/compose/ui/graphics/**->**(**)**
+
+HSPLandroidx/compose/ui/platform/**->**(**)**
+
+# ===== Markdown 渲染器（消息气泡内容） =====
+HSPLcom/mikepenz/markdown/**->**(**)**
+
+# ===== Kotlin 协程调度（SSE 流式/预解析） =====
+HSPLkotlinx/coroutines/**->**(**)**
