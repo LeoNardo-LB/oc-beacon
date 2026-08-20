@@ -139,28 +139,9 @@ private val BACKGROUND_SYNTHETIC_MARKERS = listOf(
 internal fun isBackgroundMoveSynthetic(text: String): Boolean =
     BACKGROUND_SYNTHETIC_MARKERS.any { text.contains(it, ignoreCase = true) }
 
-/**
- * 跳转预渲染注册表（根治方案 2026-08-12）：
- * 消息组件（MessageCardUser）为跳转目标消息创建 MarkdownState 后注册到此表，
- * scrollToDisplayItem 从表里取目标 state 并 await 解析完成（State.Success）——
- * 用"渲染完成信号"精确等待，替代尺寸轮询（内容展示前渲染完）。
- */
-val LocalMarkdownStateRegistry = androidx.compose.runtime.staticCompositionLocalOf<MutableMap<String, MarkdownState>> {
-    mutableMapOf()
-}
-
-/**
- * 2026-08-13 观测：跳转目标气泡（Card）的真实屏幕顶 y——
- * 用户反馈"气泡上边缘距视口顶还有十多个像素"，直接测量定位。
- */
-internal object JumpBubbleObserve {
-    var targetMsgId: String? = null
-    var bubbleTopY = -1f
-    /** 2026-08-13：定位收敛完成标记（Compose state——MessageCardUser 门控显示）：
-     * 收敛完成（位置精确 + 列表尺寸稳定）前目标保持透明——显示即最终状态，
-     * 无"空气泡→突然增高"的视觉突变。 */
-    var settled by androidx.compose.runtime.mutableStateOf(false)
-}
+// 2026-08-21 卫生清理（D 报告 #10/#11-4）：LocalMarkdownStateRegistry（写-only
+// 死注册表——消费者 scrollToDisplayItem 已于 2026-08-13 状态机重构中删除）与
+// JumpBubbleObserve（targetMsgId/bubbleTopY/settled 全部零读）已删除。
 
 
 /**
@@ -526,7 +507,6 @@ fun ChatMessageList(
     val jumpController = remember {
         JumpNavigationController(
             listState,
-            renderReadiness,
             coroutineScope,
             resolveLazyIndex = { msgId ->
                 displayItemsForJump.value.indexOfFirst { it.second.message.id == msgId }
@@ -752,9 +732,7 @@ fun ChatMessageList(
         }
     }
 
-    // 2026-08-13 根治：跳转预渲染注册表——目标消息组件（MessageCardUser）
-    // 注册其 MarkdownState，scrollToDisplayItem await 解析完成信号。
-    val mdRegistry = remember { mutableMapOf<String, MarkdownState>() }
+    // 2026-08-21 卫生清理：mdRegistry（写-only 死注册表，D-10）已删除。
 
 
     // ===== 状态机版跳转（2026-08-13 架构根治——旧 scrollToDisplayItem 已删除）=====
@@ -768,12 +746,6 @@ fun ChatMessageList(
         }
         jumpLockActive = true
         val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
-        // 2026-08-13 架构根治（Mikepenz 官方 Parse-ahead + 状态机）：
-        // 文本必须与渲染归一化一致（normalizeForRender）——否则解析 AST 与
-        // 渲染内容不同（换行差异 → 高度 214 vs 331）。preParse 在状态机内触发。
-        val jumpText = displayItems.getOrNull(displayItemIndex)
-            ?.second?.parts?.filterIsInstance<Part.Text>()
-            ?.firstOrNull { it.text.isNotBlank() }?.text
         // 2026-08-12 修复：目标在 displayItems 但 parts 为空（Room 有消息但
         // parts 未 upsert 到内存——重启后内存只加载最新窗口）→ loadAround 加载。
         val targetHasRenderableContent = displayItemIndex >= 0 &&
@@ -787,7 +759,6 @@ fun ChatMessageList(
             jumpController.jumpTo(
                 msgId,
                 bannerCount + chatEntries.displayEntryStart[displayItemIndex],
-                jumpText?.let { normalizeForRender(it, isUser = true) },
             )
             onQuickNavigateDismiss()
         } else {
@@ -954,9 +925,6 @@ fun ChatMessageList(
                     withFrameNanos { }
                     withFrameNanos { }
                     pendingJumpTarget = null
-                    val text = displayItems[idx].second.parts
-                        .filterIsInstance<Part.Text>()
-                        .firstOrNull { it.text.isNotBlank() }?.text
                     jumpLockActive = true
                     // 2026-08-20 分片适配补漏（渲染错位根因）：本路径是三条跳转
                     // 入口中唯一漏改的——display 粒度 index 直接传给 scrollToItem，
@@ -966,7 +934,6 @@ fun ChatMessageList(
                     jumpController.jumpTo(
                         target,
                         bannerCount + chatEntries.displayEntryStart[idx],
-                        text?.let { normalizeForRender(it, isUser = true) },
                     )
                 }
             }
@@ -998,11 +965,9 @@ fun ChatMessageList(
                 }
             }
 
-            // 2026-08-12 根治：预渲染注册表注入——消息组件（MessageCardUser）
-            // 通过 LocalMarkdownStateRegistry 注册目标的 MarkdownState；
             // 2026-08-13 状态机注入（门控读 LocalJumpController）。
-                        androidx.compose.runtime.CompositionLocalProvider(
-                LocalMarkdownStateRegistry provides mdRegistry,
+            // 2026-08-21 卫生清理：LocalMarkdownStateRegistry 注入已删除（D-10）。
+            androidx.compose.runtime.CompositionLocalProvider(
                 LocalRenderReadiness provides renderReadiness,
                 LocalJumpController provides jumpController,
             ) {

@@ -122,41 +122,11 @@ internal fun MessageCardUser(
         images to others
     }
 
-    // 2026-08-13 架构根治：渲染就绪信号——preParse 已后台解析 → Parsed(state)
-    // 组合时直接用（Markdown(state) 渲染——无 loading/骤变）；布局稳定后
-    // 上报 Ready(finalHeight)（消费方 awaitReady 精确定位）
-    val readinessRegistry = LocalRenderReadiness.current
-    val readiness by readinessRegistry.flow(currentMessage.message.id).collectAsState()
-    val preParsedState = (readiness as? RenderReadiness.Parsed)?.state
-    // #98（M-7）：滚出视口时注销就绪信号条目（终态 StateFlow 含解析产物，
-    // 保留即无界增长；重新组合会以 Pending 重建，语义不变）。
-    androidx.compose.runtime.DisposableEffect(currentMessage.message.id) {
-        onDispose { readinessRegistry.remove(currentMessage.message.id) }
-    }
-
-    // 2026-08-12 根治：跳转预渲染——为第一个可渲染文本 part 创建 MarkdownState
-    // 并注册到 LocalMarkdownStateRegistry（scrollToDisplayItem await 解析完成
-    // 信号用）。state 提升到此处 → 组合即开始解析 → 进入视口时可能已 Success。
-    // 2026-08-13：预解析已成功时不再创建（直接用预解析结果渲染）。
-    val jumpTextPart = if (preParsedState != null) null else renderableOtherParts.filterIsInstance<Part.Text>().firstOrNull()
-    val jumpMdState = jumpTextPart?.let { part ->
-        // #120（D2-07）：与跳转预解析（ChatMessageList normalizeForRender）同归一化——
-        // 原用原始文本创建 MarkdownState → 跳转目标首帧排版突变（换行差异 → 高度不一致）
-        com.mikepenz.markdown.model.rememberMarkdownState(
-            normalizeForRender(part.text, isUser = true),
-            retainState = true
-        )
-    }
-    val mdRegistry = LocalMarkdownStateRegistry.current
-    // #98（M-7）：DisposableEffect onDispose remove——滚出视口/组件销毁时
-    // 注销条目。MarkdownState 持有已解析 AST（内存为原文数倍），旧实现
-    // 只增不减 → 长会话滚动后注册表无界增长。
-    androidx.compose.runtime.DisposableEffect(currentMessage.message.id, jumpMdState) {
-        if (jumpMdState != null) {
-            mdRegistry[currentMessage.message.id] = jumpMdState
-        }
-        onDispose { mdRegistry.remove(currentMessage.message.id) }
-    }
+    // 2026-08-21 卫生清理（D-10/#11-4）：user 消息的 readiness 订阅、
+    // jumpTextPart/jumpMdState（LocalMarkdownStateRegistry 注册链）与 Ready
+    // 上报链全部删除——PartContent isUser 分支纯 Text 渲染（MarkdownState/
+    // preParsedState 均被忽略），且滚动预解析驱动只处理 assistant 消息，
+    // user 条目在注册表中的状态本就无人消费。
 
     // 2026-08-13 架构根治：门控展示从状态机派生（Displayed/Failed 前 alpha=0
     // 透明——渲染/测量/收敛全部在不可见状态完成；状态机终点后恒显示——不受
@@ -168,25 +138,6 @@ internal fun MessageCardUser(
         jumpPhase is JumpPhase.Displayed || jumpPhase is JumpPhase.Failed
     val jumpAlpha = if (jumpReady) 1f else 0f
 
-    // 布局稳定上报 Ready(finalHeight)（仅跳转目标；流式消息不参与——持续变化）。
-    // onSizeChanged 只在尺寸变化时回调——改为"记录最新高度 + 延迟 150ms 确认
-    //（期间无新变化 = 布局稳定）"→ 上报 Ready。
-    val msgIdForReady = currentMessage.message.id
-    var latestH by remember { mutableStateOf(0) }
-    LaunchedEffect(latestH, readiness) {
-        if (isJumpObserveTarget && latestH > 0 &&
-            readiness is RenderReadiness.Parsed &&
-            readiness !is RenderReadiness.Ready
-        ) {
-            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "MCU: 上报Ready准备 msg=${msgIdForReady.take(12)} h=$latestH")
-            delay(150)
-            // 150ms 内无新尺寸变化 → 布局稳定 → 上报 Ready（含最终高度）
-            readinessRegistry.update(msgIdForReady, RenderReadiness.Ready(latestH))
-            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "MCU: 已上报Ready h=$latestH")
-        } else if (BuildConfig.DEBUG && isJumpObserveTarget) {
-            AppLogger.d("ChatPaging", "MCU: 条件未满足 target=${msgIdForReady.take(12)} readiness=${readiness::class.simpleName} latestH=$latestH")
-        }
-    }
 
     MessageBubble(
         alignEnd = true,
@@ -205,14 +156,7 @@ internal fun MessageCardUser(
         },
         timeMs = currentMessage.message.time.created,
         modifier = if (isJumpObserveTarget) {
-            Modifier
-                .onGloballyPositioned { coords ->
-                    JumpBubbleObserve.bubbleTopY = coords.positionInWindow().y
-                }
-                .onSizeChanged { size ->
-                    latestH = size.height
-                }
-                .graphicsLayer { alpha = jumpAlpha }
+            Modifier.graphicsLayer { alpha = jumpAlpha }
         } else {
             Modifier
         },
@@ -280,8 +224,6 @@ internal fun MessageCardUser(
                 PartContent(
                     part = part,
                     textColor = textColor,
-                    markdownStateOverride = if (part.id == jumpTextPart?.id) jumpMdState else null,
-                    preParsedState = if (part.id == jumpTextPart?.id) preParsedState else null,
                     isUser = true,
                     onViewSubSession = null
                 )

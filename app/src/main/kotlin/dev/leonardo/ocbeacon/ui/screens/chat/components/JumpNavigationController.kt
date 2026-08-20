@@ -7,7 +7,6 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -129,7 +128,6 @@ val LocalJumpController = androidx.compose.runtime.staticCompositionLocalOf<Jump
  */
 class JumpNavigationController(
     private val listState: LazyListState,
-    private val readiness: RenderReadinessRegistry,
     private val scope: CoroutineScope,
     /** 2026-08-13：按 msgId 解析最新 lazy index（displayItems 变化后旧 index 失效——
      * SSE 插入新消息会改变目标 index——轮询 item=null 时重定位用）。 */
@@ -174,24 +172,19 @@ class JumpNavigationController(
         get() = _phase.value is JumpPhase.Displayed || _phase.value is JumpPhase.Failed
 
     /** 跳转（快速导航——user 消息目标）。 */
-    fun jumpTo(msgId: String, lazyIndex: Int, preParseText: String?) {
+    fun jumpTo(msgId: String, lazyIndex: Int) {
         cancelPreviousJump() // A-F1/D-1：旧代协程（含稳定窗口）立即失效
         targetKeyPrefix = "u"
         currentTargetMsgId = msgId
         _phase.value = JumpPhase.Preparing(msgId)
         activeJob = scope.launch {
             try {
-            // Preparing：预解析（后台）→ ParsedReady
+            // Preparing → ParsedReady：user 目标不再预解析/等待（2026-08-21
+            // D-10 附带修复）——PartContent isUser 分支纯 Text 渲染（MarkdownState/
+            // preParsedState 均被忽略），原 preParse + 2.5s await 对视觉零贡献
+            //（纯延迟）。assistant 目标（jumpToTask）本就无预解析（滚动预解析
+            // 驱动覆盖窗口内容）。移除后 user 跳转直通 Measuring。
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: Preparing 开始 msg=${msgId.take(12)}")
-            if (preParseText != null) readiness.preParse(msgId, preParseText, scope)
-            val parsed = withTimeoutOrNull(2500) {
-                readiness.flow(msgId).first { it is RenderReadiness.Parsed || it is RenderReadiness.Failed }
-            }
-            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 预解析 ${if (parsed != null) "完成" else "超时"}")
-            if (parsed == null) {
-                _phase.value = jumpTransition(_phase.value, JumpEvent.TimedOut("parsing"))
-                return@launch
-            }
             _phase.value = jumpTransition(_phase.value, JumpEvent.ParsedReady)
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 进入测量 msg=${msgId.take(12)} idx=$lazyIndex")
             // Measuring：一次定位到最终位置（估算高度——目标不再移动，避免回收振荡）
@@ -216,11 +209,6 @@ class JumpNavigationController(
         }
     }
 
-    /** 复位（跳转结束/失败后）。 */
-    fun reset() {
-        currentTargetMsgId = null
-        _phase.value = JumpPhase.Idle
-    }
 
     /**
      * 测量 + 收敛（目标在最终位置——一次定位）。

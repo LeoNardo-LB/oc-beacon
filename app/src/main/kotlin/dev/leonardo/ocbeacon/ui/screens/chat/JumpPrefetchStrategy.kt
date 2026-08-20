@@ -15,13 +15,10 @@ import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
  * 滚动到视口时 apply 即显示（"fully formed UI appears on screen instantly"）
  * → **目标进入视口零渲染过程，物理上无闪烁**。
  *
- * 本策略同时承担两种职责：
- * 1. **滚动预测**（替代默认策略/cacheWindow）：按滚动方向预组合视口边缘
- *    前方一个窗口（[PREFETCH_AHEAD] 项）——保持流式/滚动的预组合收益，
- *    覆盖 fling 距离避免长气泡跳过
- * 2. **跳转目标预组合**（[pendingIndex]）：jumpToMessage 设置目标 index 后，
- *    触发一次伪滚动 → schedulePrefetch(目标) → [onCompleted] 回调拿到
- *    **主轴尺寸**（定位直接用，无需目标进入视口测量）
+ * 2026-08-21 卫生清理（D-9/#11-4）：原「跳转目标预组合」职责（pendingIndex/
+ * onCompleted/maybeScheduleJump——2026-08-13 因预测量尺寸污染 item 布局禁用，
+ * 后由跳转状态机 + 透明门控取代）与零调用的 reset() 一并移除。本策略仅保留
+ * 滚动方向预测预组合（速度自适应窗口）。
  */
 @OptIn(ExperimentalFoundationApi::class)
 class JumpPrefetchStrategy : LazyListPrefetchStrategy {
@@ -69,13 +66,6 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
         const val CALL_GAP_RESET_NS = 200_000_000L
     }
 
-    /** 跳转目标 lazy index（-1 = 无）；jumpToMessage 设置 */
-    var pendingIndex: Int = -1
-
-    /** 目标预组合完成回调（index + 主轴尺寸 px）——scrollToDisplayItem await */
-    var onCompleted: ((index: Int, mainAxisSize: Int) -> Unit)? = null
-
-    private var lastScheduledJump = -1
     private var lastPredicted = -1
 
     /** 滚动速度 EMA（px/s，绝对值） */
@@ -112,7 +102,6 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
                 }
             }
         }
-        maybeScheduleJump(layoutInfo)
     }
 
     /**
@@ -143,29 +132,11 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
     }
 
     override fun LazyListPrefetchScope.onVisibleItemsUpdated(layoutInfo: LazyListLayoutInfo) {
-        maybeScheduleJump(layoutInfo)
+        // 2026-08-21：跳转目标预组合已移除（见类注释）——无操作
     }
 
     override fun NestedPrefetchScope.onNestedPrefetch(firstVisibleItemIndex: Int) {
         // 无嵌套列表——忽略
     }
 
-    private fun LazyListPrefetchScope.maybeScheduleJump(layoutInfo: LazyListLayoutInfo) {
-        // 2026-08-13 禁用：预组合的 premeasure 尺寸会污染 item 布局
-        //（214 vs 最终 331——实测微调 residual=-117 错位）。预组合收益
-        //（内容树预热）< 代价（尺寸污染）。跳转目标由"进入视口自然渲染
-        // + 透明门控"处理——JumpPrefetchStrategy 仅保留滚动方向预测。
-        // 保留 pendingIndex 复位逻辑供调用方（未来修复后重新启用）。
-        @Suppress("UNUSED_EXPRESSION")
-        pendingIndex
-    }
-
-    /** 复位（下次跳转重新调度；速度状态一并清零） */
-    fun reset() {
-        pendingIndex = -1
-        lastScheduledJump = -1
-        onCompleted = null
-        velocityEma = 0f
-        lastOnScrollNanos = 0L
-    }
 }
