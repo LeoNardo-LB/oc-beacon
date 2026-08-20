@@ -190,3 +190,17 @@ SSE → UI 管线为：**48ms token 批处理** → **高度补偿** → **渲�
 - **国际化**：15 种语言直接维护（英文源 `values/` + 14 翻译文件，**无翻译框架**，lokit 已移除）。涉及任何文案改动，按 [`docs/i18n-guide.md`](docs/i18n-guide.md) 工作流执行：改英文源 → agent 直接翻译 14 语言 → 跑 `scripts/i18n-check.ps1`（key 完整性/英文源纯净/占位符一致性，CI 发版自动检查）。
 - **ProGuard**：Release 构建使用 R8 混淆。保留规则：`kotlinx.serialization` 注解类、Ktor 协程内部实现、Mikepenz Markdown 渲染器的状态/模型。
 - **Android SDK**：`compileSdk` / `minSdk` / `targetSdk` 与 Compose BOM 等依赖版本以 `app/build.gradle.kts` 的 `defaultConfig` 与 `dependencies` 块为单一真相源，不在此重复维护。
+
+## Agent skills
+
+### Issue tracker
+
+双轨制：`backlog.md` 本地登记（会话中顺带发现、非阻塞事项）+ GitHub Issues 正式跟踪（`gh` CLI）。见 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+沿用默认五个 triage 标签（needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix），仅作用于 GitHub Issues。见 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+单上下文布局：根目录 `CONTEXT.md` + `docs/adr/`。见 `docs/agents/domain.md`。
