@@ -30,6 +30,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/agents-file-design.md`](docs/agents-file-design.md) | AGENTS.md 维护规范（本文件的设计依据） | 新增/修改 AGENTS.md 规则时 |
 | 🟡 SHOULD | [`backlog.md`](backlog.md) | 待办需求/问题登记（P0-P2 优先级 + Tag + 状态流转） | 录入新条目前（避免重复）、开始新任务了解待办时 |
 | 🟡 SHOULD | [`docs/specs/2026-08-21-error-report-github-design.md`](docs/specs/2026-08-21-error-report-github-design.md) | 错误日志 GitHub 上报设计 spec（device flow 授权/指纹查重/重复评论/脱敏管道） | 实现或修改错误上报、GitHub 集成、Diagnostics 上报入口前（必读） |
+| 🟡 SHOULD | [`docs/specs/2026-08-21-in-session-audio-feedback-design.md`](docs/specs/2026-08-21-in-session-audio-feedback-design.md) | 会话内提示音设计 spec（严格镜像系统通知策略：静音矩阵/错误 streak/挂载点/测试缝） | 实现或修改会话内提示音、通知抑制逻辑、backlog #155 前（必读） |
 | 🟢 MAY | [`docs/architecture-debt.md`](docs/architecture-debt.md) | 已登记的技术债务与后续计划 | 接触相关模块时了解限制 |
 
 ## Build & Run
@@ -184,7 +185,7 @@ SSE → UI 管线为：**48ms token 批处理** → **高度补偿** → **渲�
 - 用户明确说"后面再做 / 以后做"的需求
 - 任务中顺带发现、但与当前任务无关的 bug / 死代码 / 改进点（只登记，不跑题去修）
 
-开始新任务前扫一眼 backlog，避免重复登记或重复实现。格式细节（优先级定义 / Tag 表 / 状态流转）以 `backlog.md` 自身为准。
+开始新任务前扫一眼 backlog，避免重复登记或重复实现。格式细节（优先级定义 / Tag 表 / 状态流转 / spec 存放约定）以 `backlog.md` 自身为准。
 
 ## 其他
 
