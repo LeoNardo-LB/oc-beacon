@@ -525,10 +525,8 @@ fun ChatMessageList(
     // 2026-08-20：loadAround 未命中重试一次（深分页/服务器时序一次加载可能不够，
     // 此前直接 snackbar 误报『此会话中未找到发起任务』——用户快速连跳时必现）
     var pendingJumpRetried by remember { mutableStateOf(false) }
-    // 2026-08-20 D 修复：最近一次跳转终点时刻（B-F2 提交门控用）。
-    // 2026-08-21 D-4 时钟基统一：elapsedRealtime（单调）——写入/比较同基
-    //（见下方解锁 effect 与提交门控；JNC 侧同基）。
-    var lastJumpEndAtMillis by remember { mutableStateOf(0L) }
+    //（跳转终点时刻 lastJumpEndAtMillis 已收编 RenderSupplyCoordinator——
+    // 阶段 2：模块自记终点，跨 effect 时间戳耦合消灭。）
 
     // ===== 2026-08-20 滚动稳定性：滚动预解析驱动（fling 下跳根因修复） =====
     // 真机取证（ScrollDiag RESIZE）：assistant 长回复初次组合仅测得占位高度
@@ -558,7 +556,6 @@ fun ChatMessageList(
                     entries = chatEntriesForPreparse.value,
                     bannerCount = bannerCount,
                     streamingMsgId = streamingMsgIdForPreparse.value,
-                    lastJumpEndAtMillis = lastJumpEndAtMillis,
                 ),
             )
         }
@@ -574,9 +571,8 @@ fun ChatMessageList(
     LaunchedEffect(jumpController) {
         jumpController.phase.collectLatest { ph ->
             if (ph is JumpPhase.Displayed || ph is JumpPhase.Failed) {
-                // 记录终点时刻（B-F2 提交门控：终点 + 2s = 稳定窗口(900ms)+
-                // 解锁延迟(300ms)+余量，全部结束后才允许分片提交）
-                lastJumpEndAtMillis = android.os.SystemClock.elapsedRealtime()
+                //（终点时刻的记录已收编 RenderSupplyCoordinator——阶段 2；
+                // 本 effect 只负责 autoLoad 解锁）
                 delay(300)
                 jumpLockActive = false
                 if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 状态机终点——autoLoad 解锁")

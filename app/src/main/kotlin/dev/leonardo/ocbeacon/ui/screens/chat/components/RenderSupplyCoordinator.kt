@@ -8,6 +8,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 /**
  * 渲染供给协调器（Render Supply）——聊天列表视口前方的渲染资源预备决策的
@@ -49,6 +51,24 @@ internal class RenderSupplyCoordinator(
 
     /** 预解析条目 LRU（#98 防无界增长）。 */
     private val preparseSeenKeys = LinkedHashSet<String>()
+
+    /** 最近一次跳转终点时刻（clock 基，单调）——稳定窗口门控用。
+     * 阶段 2 收编：原为 ChatMessageList 跨 effect 共享变量（写方=解锁
+     * effect、读方=驱动 collect）——现写读同在模块内，耦合消灭。 */
+    private var lastJumpEndAtMillis = 0L
+
+    init {
+        // 自记跳转终点（阶段 2）：相位到终态（Displayed/Failed）即打点。
+        // 与 ChatMessageList 的 autoLoad 解锁 effect 各自独立收集同一
+        // StateFlow——互不影响（collectLatest 语义仅本协程内取消旧块）。
+        parseScope.launch {
+            jumpPhase.collectLatest { ph ->
+                if (ph is JumpPhase.Displayed || ph is JumpPhase.Failed) {
+                    lastJumpEndAtMillis = clock()
+                }
+            }
+        }
+    }
 
     /** 流式结束瞬间记录 turn key（由 Compose 桥以当时快照算出 key 后调用）。 */
     fun noteStreamTurnEnded(turnKey: String) {
@@ -168,7 +188,7 @@ internal class RenderSupplyCoordinator(
         // 2s 内=稳定窗口也挡。
         val jumpActiveOrSettling = phaseNow !is JumpPhase.Idle &&
             phaseNow !is JumpPhase.Displayed && phaseNow !is JumpPhase.Failed ||
-            (world.lastJumpEndAtMillis > 0L && clock() - world.lastJumpEndAtMillis < 2000)
+            (lastJumpEndAtMillis > 0L && clock() - lastJumpEndAtMillis < 2000)
         if (pendingChunkPlans.isNotEmpty() && !jumpActiveOrSettling) {
             // F1：partId → 所属消息 → turn 首 key → 当前 display index
             fun resolveTurnDisplayIndex(partId: String): Int {
@@ -241,5 +261,4 @@ internal class RenderSupplyWorld(
     val entries: ChatEntries,
     val bannerCount: Int,
     val streamingMsgId: String?,
-    val lastJumpEndAtMillis: Long,
 )
