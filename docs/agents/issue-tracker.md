@@ -6,7 +6,7 @@
 
 | 场景 | 去处 | 方式 |
 |------|------|------|
-| 会话中发现的新需求 / 顺带 bug / 非阻塞改进 | **backlog.md** | 按 AGENTS.md「Backlog 纪律」登记（P0-P2 + Tag + checkbox），不现场实现 |
+| 会话中发现的新需求 / 顺带 bug / 非阻塞改进 | **backlog.md** | 按 AGENTS.md「Backlog 纪律」登记卡片（全局编号 + Tag + checkbox + ≤3 行摘要 + 链接；P0-P3），证据写 journal 批次文件，不现场实现 |
 | 需要跨会话跟踪 / 讨论 / 指派的正式工作项，或用户明确要求建 issue | **GitHub Issues** | `gh issue create`（命令速查见下） |
 | Triage 标签管理 | **GitHub Issues** | 标签只作用于 GitHub Issues，见 [triage-labels.md](triage-labels.md) |
 

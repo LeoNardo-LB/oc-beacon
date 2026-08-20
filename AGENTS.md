@@ -4,205 +4,143 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 
 ## 文档索引（先查这里）
 
-> ⚠️ **新增/修改任何规则前，先读 [`docs/agents-file-design.md`](docs/agents-file-design.md)**——它是本 AGENTS.md 的设计规范（基于论文与大厂调研：何时内联、何时外链、行数目标、写作规范）。新规则按该文档决策流程落地。
+> ⚠️ **新增/修改任何规则前，先读 [`docs/agents-file-design.md`](docs/agents-file-design.md)**——它是本 AGENTS.md 的设计规范（何时内联、何时外链、行数目标、写作规范）。新规则按该文档决策流程落地。
 
-**级别说明**（RFC 2119 语义，详见 agents-file-design.md §3.5）：🔴 **MUST** = 该场景下先读再行动，跳过会出错/违规 · 🟡 **SHOULD** = 推荐，跳过需理解后果 · 🟢 **MAY** = 可选背景知识。MUST 数量受控（≤5-7 条），避免"所有规则都重要=都不重要"。
+**级别说明**（RFC 2119 语义，详见 agents-file-design.md §3.5）：🔴 **MUST** = 该场景下先读再行动，跳过会出错/违规 · 🟡 **SHOULD** = 推荐，跳过需理解后果 · 🟢 **MAY** = 可选背景知识。MUST 数量受控（≤5-7 条）。
 
 | 级别 | 文档 | 用途 | Use when |
 |------|------|------|----------|
-| 🔴 MUST | [`docs/release-workflow.md`](docs/release-workflow.md) | 发版唯一权威指南（版本规则/CHANGELOG/脚本用法） | 任何发版、bump、tag、Release 操作前（必读） |
-| 🟡 SHOULD | [`docs/release-notes-template.md`](docs/release-notes-template.md) | GitHub Release 说明模板与写作规则（每次发版按此撰写） | 撰写发版说明、Release Notes 前 |
-| 🔴 MUST | [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md) | ChatScreen.kt 编辑协议（见下方承重约束） | 编辑 ChatScreen.kt 前 |
-| 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4 维验证框架 | 完成开发、声称"完成"前 |
-| 🟡 SHOULD | [`docs/real-device-testing.md`](docs/real-device-testing.md) | 真机测试 runbook：静默装包（`pm install`，无人工确认）、`adb reverse` 服务器连通、debug intent 一键配置、签名备忘 | 任何真机测试/E2E/装包前（2026-08-20 方针：测试一律真机优先） |
-| 🟡 SHOULD | [`docs/qa-methodology.md`](docs/qa-methodology.md) | 质量保证方法论：多维度交叉验证（≥2 独立维度互证）、证据链完整性、操作可复现、并行验证节点委派（subagent 可并行跑验证） | 任何修复/功能声称完成前的验证设计与证据组织（与 verification-requirements 配合） |
-| 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归验证指南：变更分类（快速/完整回归）、12 能力域验证清单、问题处理流程（阻塞→根因修复；非阻塞→登记；补丁三件事） | 涉及已有能力的重构/接口变更/存储或渲染层改动前（必读），按能力域清单执行回归 |
-| 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 对话全生命周期 E2E 期望文档：正向/逆向/极端用例、时间点截图断言、日志/DB 期望、V1/V2 双协议标注、动态/静态/脚本编排 | 对话相关改动/发版前的 E2E 测试设计（与 qa-methodology §4.3 双文档模式配合） |
-| 🟡 SHOULD | [`docs/dialogue-e2e-test-runbook.md`](docs/dialogue-e2e-test-runbook.md) | 对话全生命周期 E2E 实操文档：执行记录、对比期望、问题归属分类（操作/观测/代码） | E2E 执行中实时记录、差异分析与修复跟踪 |
-| 🟡 SHOULD | [`docs/observability-verification-guide.md`](docs/observability-verification-guide.md) | 可观测性验证手册：Logcat 规范、Room 数据库直查（run-as sqlite3）、SSE 事件流、服务器 curl 预测试、智谱截图分析、代码改动标准观测流程 | 任何代码改动验证、声称完成前（与 verification-requirements 维度 3 配合） |
-| 🟡 SHOULD | [`docs/v1-v2-differences.md`](docs/v1-v2-differences.md) | OpenCode V1 (1.18.x) vs V2 (2.x) 功能与 API 差异完整清单（端点/认证/SSE/配置/任务（后台化）），含客户端适配状态 | 涉及 V1/V2 兼容功能开发、版本探测、功能适配前（必读） |
-| 🟡 SHOULD | [`docs/simulator-walkthrough-v1v2.md`](docs/simulator-walkthrough-v1v2.md) | V1/V2 版本探测修复模拟器走查清单（A 探测/B V1 全功能/C V2 回归/D HTML 防御 + 操作路径 + 执行记录） | 版本探测/API 兼容类改动后的模拟器走查前（参考其清单结构） |
-| 🟡 SHOULD | [`docs/opencode-api-reference-v1.md`](docs/opencode-api-reference-v1.md) | OpenCode **V1** Server 完整 API 参考（129 REST/WS 端点 + 89 SSE 事件 + JSON Schema；V2 差异见 v1-v2-differences.md） | 开发新功能、调试接口问题前（注意本档为 V1，V2 端点以实测为准） |
-| 🟡 SHOULD | [`docs/architecture.md`](docs/architecture.md) | 架构分层、目录职责、关键模式、承重架构规则 | 理解/修改跨层结构、SessionStateService、日志、导航 |
-| 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 聊天 UI 事件生命周期：触摸传播、SSE 流式更新、消息状态机、竞态条件 | 修改 ChatScreen 内部机制、排查聊天交互竞态时 |
-| 🟡 SHOULD | [`docs/i18n-guide.md`](docs/i18n-guide.md) | 国际化工作流（15 语言直接维护 + 检查脚本 + CI） | 涉及任何文案：新增/修改/删除 UI 字符串、占位符、plurals 前（必读） |
-| 🟡 SHOULD | [`docs/ui-conventions.md`](docs/ui-conventions.md) | UI 约定：Material 3、Theme Tokens、表格渲染一致性 | 编写/修改 UI 组件、主题、颜色、间距 |
-| 🟡 SHOULD | [`docs/agents-file-design.md`](docs/agents-file-design.md) | AGENTS.md 维护规范（本文件的设计依据） | 新增/修改 AGENTS.md 规则时 |
-| 🟡 SHOULD | [`backlog.md`](backlog.md) | 待办需求/问题登记（P0-P2 优先级 + Tag + 状态流转） | 录入新条目前（避免重复）、开始新任务了解待办时 |
-| 🟡 SHOULD | [`docs/specs/2026-08-21-error-report-github-design.md`](docs/specs/2026-08-21-error-report-github-design.md) | 错误日志 GitHub 上报设计 spec（device flow 授权/指纹查重/重复评论/脱敏管道） | 实现或修改错误上报、GitHub 集成、Diagnostics 上报入口前（必读） |
-| 🟡 SHOULD | [`docs/specs/2026-08-21-in-session-audio-feedback-design.md`](docs/specs/2026-08-21-in-session-audio-feedback-design.md) | 会话内提示音设计 spec（严格镜像系统通知策略：静音矩阵/错误 streak/挂载点/测试缝） | 实现或修改会话内提示音、通知抑制逻辑、backlog #155 前（必读） |
-| 🟢 MAY | [`docs/architecture-debt.md`](docs/architecture-debt.md) | 已登记的技术债务与后续计划 | 接触相关模块时了解限制 |
+| 🔴 MUST | [`docs/release-workflow.md`](docs/release-workflow.md) | 发版唯一权威指南（版本规则/CHANGELOG/脚本/签名体系） | 任何发版、bump、tag、Release 操作前 |
+| 🟡 SHOULD | [`docs/release-notes-template.md`](docs/release-notes-template.md) | GitHub Release 说明模板与写作规则 | 撰写发版说明前 |
+| 🔴 MUST | [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md) | ChatScreen.kt 编辑协议 | 编辑 ChatScreen.kt 前 |
+| 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4+1 维验证框架 | 完成开发、声称"完成"前 |
+| 🟡 SHOULD | [`docs/real-device-testing.md`](docs/real-device-testing.md) | 真机 runbook：pm install 静默装包、adb reverse 连通、debug intent 配置、签名备忘 | 任何真机测试/E2E/装包前（2026-08-20 方针：真机优先） |
+| 🟡 SHOULD | [`docs/qa-methodology.md`](docs/qa-methodology.md) | QA 方法论：交叉验证（≥2 维互证）、证据链、并行验证委派 | 修复/功能完成前的验证设计 |
+| 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归指南：变更分类、12 能力域清单 | 重构/接口变更/存储渲染层改动前 |
+| 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 对话全生命周期 E2E 期望文档 | 对话相关改动/发版前的 E2E 设计 |
+| 🟡 SHOULD | [`docs/dialogue-e2e-test-runbook.md`](docs/dialogue-e2e-test-runbook.md) | 对话 E2E 实操记录与差异分析 | E2E 执行中实时记录 |
+| 🟡 SHOULD | [`docs/observability-verification-guide.md`](docs/observability-verification-guide.md) | Logcat 规范、Room 直查、SSE 事件流、标准观测流程 | 代码改动验证（配合 verification 维度 3） |
+| 🟡 SHOULD | [`docs/v1-v2-differences.md`](docs/v1-v2-differences.md) | V1/V2 功能与 API 差异完整清单 | V1/V2 兼容开发、版本探测、功能适配前 |
+| 🟡 SHOULD | [`docs/simulator-walkthrough-v1v2.md`](docs/simulator-walkthrough-v1v2.md) | 版本探测修复模拟器走查清单 | 探测/兼容类改动后的走查 |
+| 🟡 SHOULD | [`docs/opencode-api-reference-v1.md`](docs/opencode-api-reference-v1.md) | OpenCode **V1** Server API 参考（129 端点 + 89 SSE 事件） | 新功能开发、接口调试前（V2 端点以实测为准） |
+| 🟡 SHOULD | [`docs/architecture.md`](docs/architecture.md) | 架构分层、目录职责、关键模式、承重规则 | 理解/修改跨层结构、SessionStateService、导航前 |
+| 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 触摸传播、SSE 流式更新、消息状态机、竞态 | 修改 ChatScreen 内部机制、排查交互竞态时 |
+| 🟡 SHOULD | [`docs/i18n-guide.md`](docs/i18n-guide.md) | 国际化工作流（15 语言 + 检查脚本 + CI） | 任何文案改动前 |
+| 🟡 SHOULD | [`docs/ui-conventions.md`](docs/ui-conventions.md) | Material 3、Theme Tokens、表格一致性 | 编写/修改 UI 组件前 |
+| 🟡 SHOULD | [`docs/agents-file-design.md`](docs/agents-file-design.md) | AGENTS.md 维护规范（本文件设计依据） | 新增/修改 AGENTS.md 规则时 |
+| 🟡 SHOULD | [`backlog.md`](backlog.md) | **未决工作项卡片清单**（P0-P3 + Tag + 状态流转 + journal/spec 约定） | 录入新条目前（避免重复）、开始新任务了解待办时 |
+| 🟢 MAY | `docs/journal/` | 批次执行记录与验证证据（完结条目归档处，历史查询） | 回溯某批次修复细节/取证/勘误链时 |
+| 🟡 SHOULD | [`docs/specs/2026-08-21-error-report-github-design.md`](docs/specs/2026-08-21-error-report-github-design.md) | 错误日志 GitHub 上报设计 spec | 实现错误上报、GitHub 集成前 |
+| 🟡 SHOULD | [`docs/specs/2026-08-21-in-session-audio-feedback-design.md`](docs/specs/2026-08-21-in-session-audio-feedback-design.md) | 会话内提示音设计 spec | 实现提示音、通知抑制、backlog #155 前 |
+| 🟢 MAY | [`docs/architecture-debt.md`](docs/architecture-debt.md) | 已登记技术债务 | 接触相关模块时了解限制 |
 
 ## Build & Run
 
-**默认只打一个包**：每次构建/发版只需运行**对应 flavor 的单个 assemble 任务**，产出该 flavor 的一个 APK（按 flavor 分目录输出到 `app/build/outputs/apk/<flavor>/<buildType>/`）。多任务命令仅用于需要同时产出多个包的场景。
+**默认只打一个包**：运行对应 flavor 的单个 assemble 任务（输出 `app/build/outputs/apk/<flavor>/<buildType>/`）；多任务命令仅用于确需多包场景。
 
 ```bash
-# 常用：单个任务，产出对应 flavor 的一个 APK
 # Windows: .\gradlew.bat ...
 ./gradlew :app:assembleDevDebug        # 开发调试（dev flavor）
 ./gradlew :app:assembleBetaRelease     # beta 发版
 ./gradlew :app:assembleStableRelease   # 正式发版
-
-# 多任务示例：需要同时产出多个包时才用（如 dev debug + beta release）
-./gradlew :app:assembleDevDebug :app:assembleBetaRelease
-
-# 单元测试（强制重跑，避免 UP-TO-DATE 跳过）
-./gradlew :app:testDevDebugUnitTest --rerun
-
-# Kotlin 编译检查（快速反馈）
-./gradlew :app:compileDevDebugKotlin
+./gradlew :app:testDevDebugUnitTest --rerun   # 单元测试（强制重跑防 UP-TO-DATE）
+./gradlew :app:compileDevDebugKotlin   # 快速编译检查
 ```
 
-**要求 JDK 21** — `build.gradle.kts` 设置了 `jvmToolchain(21)` 和 `JavaVersion.VERSION_21`。本地构建还在 `gradle.properties` 中设置了 `org.gradle.java.home`。
-
-**代理警告**：`gradle.properties` 硬编码了 `127.0.0.1:7897` 的 HTTP 代理。代理不可达时构建会失败。无代理构建时注释掉 4 行 `systemProp.*` 配置。
-
-**Gradle 构建禁止并发（同一 checkout）**：同时跑两个 Gradle 构建（如 test 与 assemble 并行）会竞写 `app/build` 中间目录 → 测试 JVM 读到半写类文件 → 无辜测试报 `NoClassDefFoundError: Hilt_*`（2026-08-14 实证：并发必现、单独跑全绿）。需要多个产物时用**单条多任务命令**（`./gradlew :app:testDevDebugUnitTest :app:assembleDevDebug`）或串行执行。
-
-**Gradle 超时（禁止无超时裸跑）**：
-- 编译检查（`compileDevDebugKotlin`）: 120 秒 · 单元测试: 180 秒 · 完整构建（`assemble*`）: 300 秒 · 依赖解析/首次构建: 600 秒
-
-**Gradle Daemon**：`gradle.properties` 中 `org.gradle.daemon` 默认不设置（Linux/macOS 下 daemon 正常工作）。若在 Windows 上遇到 `BUILD SUCCESSFUL` 后不返回（[gradle/gradle#12560](https://github.com/gradle/gradle/issues/12560)），可在 `gradle.properties` 取消注释 `org.gradle.daemon=false` 规避；此时执行 `./gradlew --stop` 清理（Windows: `.\gradlew --stop`）。
+- **JDK 21**（`jvmToolchain(21)`；本地构建另在 `gradle.properties` 设 `org.gradle.java.home`）
+- **代理警告**：`gradle.properties` 硬编码 `127.0.0.1:7897` HTTP 代理，代理不可达即构建失败；无代理构建时注释 4 行 `systemProp.*`
+- **Gradle 构建禁止并发（同一 checkout）**：并发竞写 `app/build` 中间目录 → 测试 JVM 读半写类文件 → 无辜测试报 `NoClassDefFoundError: Hilt_*`（2026-08-14 实证）。多产物用单条多任务命令或串行
+- **禁止无超时裸跑**：编译 120s · 单元测试 180s · 完整构建 300s · 依赖解析/首次构建 600s
+- Windows 下 `BUILD SUCCESSFUL` 不返回（[gradle#12560](https://github.com/gradle/gradle/issues/12560)）→ `gradle.properties` 取消注释 `org.gradle.daemon=false` + `./gradlew --stop`
 
 ## Product Flavors
 
-三 flavor 体系，三个包可同时安装共存：
-
-| Flavor | applicationId | 应用名 | 用途 |
-|--------|---------------|--------|------|
-| `dev` | `dev.leonardo.ocbeacon.dev` | OC Beacon Dev | 开发预览（worktree 构建） |
-| `beta` | `dev.leonardo.ocbeacon.beta` | OC Beacon Beta | 公开测试版 |
-| `stable` | `dev.leonardo.ocbeacon` | OC Beacon | 正式发布 |
-
-所有 Gradle 任务都必须指定 flavor：`assembleDevRelease`、`assembleBetaRelease`、`assembleStableRelease` 等。
+三 flavor 体系可同时安装共存（`dev`=`dev.leonardo.ocbeacon.dev` / `beta`=`…beta` / `stable`=`dev.leonardo.ocbeacon`）。所有 Gradle 任务必须指定 flavor（`assembleDevRelease`、`assembleBetaRelease` 等）。
 
 ## 架构概览
 
 Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.** 完整目录树与关键模式见 [`docs/architecture.md`](docs/architecture.md)。
 
 承重架构规则（违反会引入回归，详见架构文档）：
-- **SessionStateService 是会话状态与流式活动的单一真相源**（idle/busy/retry + Waiting/Streaming/ToolCalling）。所有 UI 读取 `statusFlow`/`activityFlow`；所有状态写入经过纯函数 FSM（`SessionStateFSM`）。**不要重新引入按 handler 维护的状态**（`SessionStatusManager` 曾被移除）。
-- **新日志代码用 `AppLogger.i/w/e`**（`logging/AppLogger.kt`），不要用 `android.util.Log`（AppLogger 会出现在应用内 Diagnostics 屏幕）。
+- **SessionStateService 是会话状态与流式活动的单一真相源**（idle/busy/retry + Waiting/Streaming/ToolCalling）。所有 UI 读取 `statusFlow`/`activityFlow`；状态写入经过纯函数 FSM（`SessionStateFSM`）。**不要重新引入按 handler 维护的状态**（`SessionStatusManager` 曾被移除）。
+- **新日志代码用 `AppLogger.i/w/e`**（`logging/AppLogger.kt`，会出现在应用内 Diagnostics 屏幕），不要用 `android.util.Log`。
 - **导航参数必须用 `NavUtils.safeDecodeParam()`**，不要裸 `URLDecoder.decode()`（畸形 `%` 序列如密码中的 `%NR` 会崩溃）。
 
 ## 关键约束
 
 ### ChatScreen.kt 编辑协议
-见 [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md)。规则：
-- 禁止跨 agent 并行编辑
-- 每次编辑前必须先 Read
-- 每次编辑后运行 `compileDevDebugKotlin`
-- 每次编译成功后提交
-- 失败时：`git checkout -- <file>`，重新读取，重试
+见 [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md)。**禁止跨 agent 并行编辑**；循环 = 每次 **Read → 编辑 → `compileDevDebugKotlin` → 成功即 commit**；失败时 `git checkout -- <file>` 重新读取重试。
 
 ### 路径处理（跨平台远程路径）
 
-远程文件路径可能使用 `/` 或 `\`，取决于服务器操作系统。**始终使用 `PathUtils`**（`util/PathUtils.kt`）：
+远程文件路径可能是 `/` 或 `\`（取决服务器 OS）。**始终使用 `PathUtils`**（`util/PathUtils.kt`）：
 
 | 操作 | ✅ 使用 | ❌ 不要用 |
 |-----------|--------|---------|
 | 文件名 | `PathUtils.fileName(path)` | `substringAfterLast('/')`, `File(path).name` |
 | 父目录 | `PathUtils.parentDir(path)` | `substringBeforeLast('/')` |
-| 相对路径 | `PathUtils.relativePath(path, prefix)` | 手动 `removePrefix` |
-
-JDK API（`File.name`、`Path.of`）在 Android 上只识别 `/`——来自 Windows 服务器的 `\` 路径会出错。
+| 相对路径 | `PathUtils.relativePath(path, prefix)` | 手工 `removePrefix` |
 
 ### 签名
-- Release keystore 位于 `app/keystore/release.jks`，密码在 `app/keystore/signing.properties` 中
-- `signing.properties` 存在时 → release 构建使用 release keystore；不存在时 → 回退 debug 签名（见 `build.gradle.kts`：`release` 块仅在 `!hasPropertiesFile` 时设 debug 签名——**禁止**无条件覆盖为 debug，否则 release keystore 永不生效）
-- CI 使用 GitHub Secrets（`KEYSTORE_BASE64`、`KEYSTORE_ALIAS`、`KEYSTORE_PASSWORD`）。**Secrets 未配置时 CI 会回退 debug 签名**，且每次构建（全新 runner）生成不同 debug.keystore → 每次发版签名不同 → 用户升级报"已安装签名冲突的应用"。配置方法：`gh secret set KEYSTORE_BASE64 --body "$([Convert]::ToBase64String([IO.File]::ReadAllBytes('app/keystore/release.jks')))"`（alias/password 同理）
-- 发版后必须用 `apksigner verify --print-certs` 验证产物签名为 `CN=OC Beacon, OU=Development, O=LeoNardo-LB, C=CN`（非 `CN=Android Debug`），见 `docs/release-workflow.md` §6
-- **2026-08-06 keystore 更换**：release keystore 已重建（CN=OC Beacon，alias=oc-tether）。**1.2.0 起使用新签名**——1.1.1 及更早版本安装的用户升级 1.2.0 时**必须卸载重装一次**（签名不同，无法覆盖安装）
-- **2026-08-20 keystore 再次更换（旧文件确认丢失）**：旧 release.jks 无任何本地/git 副本，CI Secrets 只写不读。已生成同 DN 新 keystore（alias=oc-beacon，30 年有效；2026-08-20 应用户要求由 oc-tether 改名——keytool changealias 只改条目名，密钥材料与签名兼容性不变）→ 本地 `app/keystore/` 已更新。CI Secrets 首次更新不完整（KEYSTORE_BASE64 与 KEYSTORE_ALIAS 不匹配），v0.3.1-dev.19 首次构建报 `No key with alias found`，2026-08-21 以本地 keystore 重设三个 Secret 后重跑成功并经 apksigner 验证。**v0.3.1-dev.18 是旧签名最后一版，dev.19 起新签名生效**；≤dev.18 的 CI 签名包升级新包需卸载重装一次（0.x 用户仅开发者本人，已接受）
-- **2026-08-06 版本体系重置**：VERSION_NAME 1.2.0 → **0.2.0**、VERSION_CODE 18 → **1**（未正式发版不配 1.x；用户明确接受卸载重装、不追求覆盖安装）。此后从 0.2.0 重新计数（0.2.0→0.3.0→…→1.0.0）
-- **2026-08-07 版本体系再重置**：用户决策清理 GitHub 与本地**全部 1.x Release/Tag**（17 个；0.2.0 从未发布，无用户影响）。VERSION_NAME 0.2.0 → **0.1.0**、VERSION_CODE 保持 **1**，从 0.1.0 重新计数（0.1.0→0.1.1→…→1.0.0）
-- **2026-08-07 首个发版 0.1.0-beta.1**：首个版本号即 0.1.0（beta 预发布 0.1.0-beta.1），**VERSION_CODE=1 保持**（0.x 阶段无已安装用户，不要求覆盖安装兼容；**1.0.0 起严格只增不减**）
-- Debug 签名的 APK 可安装，但无法覆盖 release 签名安装（签名不同）；修复签名体系后，**旧 debug 签名安装的用户需卸载重装一次**
+Release keystore 位于 `app/keystore/`（gitignore，仅本地文件与 CI Secrets 存在）；`signing.properties` 不存在时 release 构建回退 debug 签名——**禁止**无条件覆盖为 debug，否则 release keystore 永不生效。CI Secrets 配置命令、签名编年史、签名覆盖矩阵（本地↔CI 互不覆盖，切换需卸载重装）见 [`docs/release-workflow.md`](docs/release-workflow.md) §9；真机跨签名源切换唯一例外见 [`docs/real-device-testing.md`](docs/real-device-testing.md)。
 
 ### Version Management（发版）
 
-> ⚠️ **发版必读**：任何发版、版本号变更、tag 操作、GitHub Release 操作前，**必须**先读 [`docs/release-workflow.md`](docs/release-workflow.md)（唯一权威指南，含 `./scripts/release.sh` 一键脚本用法）。
+> ⚠️ **发版必读**：任何发版、版本号变更、tag、GitHub Release 操作前，**必须**先读 [`docs/release-workflow.md`](docs/release-workflow.md)（唯一权威指南，含 `./scripts/release.sh` 用法）。
 
 核心红线（细节见 release-workflow.md）：
-- **`version.properties` 是版本号唯一真相源**（`VERSION_CODE` 只增不减——**0.x 阶段豁免**（2026-08-07 用户决策：首个版本 0.1.0-beta.1 保持 code=1，无已安装用户；**1.0.0 起严格只增不减**）；禁止在 build.gradle.kts 硬编码；CI 用 grep 提取，**不要改变文件格式**）
-- **dev flavor 测试构建例外（2026-08-13 用户决策）**：`dev` flavor 的 `versionCode` 用 **Unix 时间戳**（build.gradle.kts 动态计算，见 app/build.gradle.kts `create("dev")`）——每次构建自动递增，`adb install -r` 即可覆盖安装（**保留 App 数据/服务器配置，禁止卸载重装**）；`version.properties` 仅 beta/stable 使用，不受 dev 构建影响。若覆盖安装报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`（签名不匹配），先核对 debug keystore 是否一致，**不要卸载重装**
-- **真机 dev 包跨签名源切换例外（2026-08-17 用户决策）**：真机上的 dev 包若来自 **CI 构建**（CI Secrets 签名），本地 `assembleDevDebug` 产物（本地 debug keystore）无法覆盖安装——此时允许**卸载重装**，代价仅是重新录入服务器配置（用户明确接受）。此为唯一例外：同签名源（本地↔本地）仍禁止卸载重装
-- **严禁在 `version.properties` 修改前执行 `assemble*`**（beta/stable），否则 APK 内嵌版本号与 tag/release 不一致（dev 构建不受此限——其 versionCode 与 version.properties 无关）
-- **每版本只发一个 APK**（命名 `oc-beacon-<VERSION>.apk`）；**不要删除历史 Release 和 Tag**（唯一例外：2026-08-07 用户决策清理全部 1.x 并重置 0.1.0，见 release-workflow §7）
-- **默认发预发布版**：除非用户明确说明"正式发版"或"发 stable"，否则一律 beta/dev（`--prerelease`）
-- `gh` CLI 不走代理，直接用直连（不加 `HTTP_PROXY`）
-- 手动发版步骤（脚本不可用时）：`docs/release-workflow.md` §手动发版流程
+- **`version.properties` 是版本号唯一真相源**（beta/stable；禁止在 build.gradle.kts 硬编码；CI 用 grep 提取，**不要改变文件格式**）。dev flavor 例外：versionCode 用 Unix 时间戳自动递增——`adb install -r` 直接覆盖安装、**禁止卸载重装**（见 release-workflow §2.4）
+- **严禁在 `version.properties` 修改前执行 `assemble*`**（beta/stable）——否则 APK 内嵌版本号与 tag/release 不一致（dev 构建不受此限）
 
 ### 验证与测试
 
-**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整 4+1 维验证框架见 [`docs/verification-requirements.md`](docs/verification-requirements.md)——**UI/UX 时间性现象（闪烁/动画/计时/布局跳动）自动化无法覆盖，必须提供人工验证清单（维度 5）并请用户验证后才能声称完成**。
+**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整 4+1 维框架见 [`docs/verification-requirements.md`](docs/verification-requirements.md)——**UI/UX 时间性现象（闪烁/动画/计时/布局跳动）自动化无法覆盖，必须提供人工验证清单（维度 5）并请用户验证后才能声称完成**。
 
-测试基础设施：
-- 单元测试：JUnit 4 + MockK + Turbine + kotlinx-coroutines-test（版本以 `app/build.gradle.kts` 为准）
-- 插桩测试：`HiltTestRunner` + `createComposeRule()`（位于 `androidTest/`）
-- E2E 流程：`maestro/` 目录下的 Maestro YAML
-- `isReturnDefaultValues = true` — mock 返回默认值而非抛异常，可能掩盖 bug
-- 每个层级要求：编译 ✅ + 单元测试 ✅ + 增强测试 ✅ + Maestro 流程（UI）+ androidTest（UI）
-
-环境：
-- opencode server 端口：4199，用户名 `opencode`，密码：配置文件 `/persistent/home/leo-tkp/.config/opencode/service.json`（`password` 字段，**不是环境变量**）
-- **真机测试优先**（2026-08-20 用户方针）：测试机小米 houji serial `e69a99d8`；装包用 `pm install` 静默法（无弹窗），详见 [`docs/real-device-testing.md`](docs/real-device-testing.md)
-- 模拟器访问宿主机：`10.0.2.2`
-- **模拟器调试应使用 subagent 执行**：UI 交互（tap/input/scroll）、截图、logcat 读取等派给 `task` subagent 处理，避免主会话上下文溢出
+- 测试栈（JUnit4/MockK/Turbine/coroutines-test、HiltTestRunner、Maestro）与版本以 `app/build.gradle.kts`、`androidTest/`、`maestro/` 为准；`isReturnDefaultValues = true` 的 mock 返回默认值，可能掩盖 bug
+- 环境：opencode server 端口 **4199**，用户名 `opencode`，密码在配置文件 `/persistent/home/leo-tkp/.config/opencode/service.json`（`password` 字段，**不是环境变量**）
+- **真机测试优先**（2026-08-20 方针）：小米 houji serial `e69a99d8`，静默装包/服务器连通/debug intent 配置见 [`docs/real-device-testing.md`](docs/real-device-testing.md)
+- 模拟器访问宿主机 `10.0.2.2`；模拟器 UI 调试（tap/截图/logcat）派 subagent 执行，避免主会话上下文溢出
 
 ### SSE 滚动稳定性（铁律）
 
-SSE → UI 管线为：**48ms token 批处理** → **高度补偿** → **渲染**。违反任何一条都会重新引入闪烁、卡顿输出或视口跳底：
+SSE → UI 管线：**48ms token 批处理 → 高度补偿 → 渲染**。违反任何一条都会重新引入闪烁、卡顿输出或视口跳底：
 
-- **`Markdown()` 必须使用 `rememberMarkdownState(content, retainState=true)`** — 无状态 `Markdown(content=...)` 每次重组都重新解析 → 高度振荡 → 闪烁。
+- **`Markdown()` 必须使用 `rememberMarkdownState(content, retainState=true)`** — 无状态 `Markdown(content=...)` 每次重组重新解析 → 高度振荡 → 闪烁。
 - **`scheduleFlush()` 不得取消进行中的定时器** — 每个 token 都取消会在速率 > 20/s 时饿死 flush → 突发式卡顿输出。
 - **`layout{}` 补偿只应用于流式消息**（`if (isStreamingMsg)`）— 应用到所有 assistant 消息会让已完结消息暴露在不稳定测量下。
-- **autoScroll/shouldCompensate 的 `LaunchedEffect` 必须以 `isScrollInProgress` 和 `isAtBottom` 两者作为 key** — `isAtBottom` 是自愈机制：用户通过非拖动方式（fling 惯性、SSE 内容推送）回到底部时重置标志。只以 `isScrollInProgress` 为 key 会让标志卡在陈旧状态 → 每个 SSE token 视口抖动。**不要把 `isAtBottom` 从 key 中移除。**
+- **autoScroll/shouldCompensate 的 `LaunchedEffect` 必须以 `isScrollInProgress` 和 `isAtBottom` 两者作为 key** — `isAtBottom` 是自愈机制（fling/SSE 推送回底时重置标志）。**不要把 `isAtBottom` 从 key 中移除。**
 
-完整回归历史见 `docs/research/sse-scroll-stability-iron-laws.md`。
-
-### Ktor 引擎
-明确使用 **OkHttp engine** 以正确支持 SSE 流式传输。不要切换到其他引擎。
+完整回归历史见 `docs/research/sse-scroll-stability-iron-laws.md`。**Ktor 明确使用 OkHttp engine**（SSE 流式正确性），不要切换其他引擎。
 
 ### UI 约定
-**优先 Material 3 原生组件/样式/配色，禁止引入额外 UI 依赖库（如 Accompanist）**；主题令牌系统（Alpha/Spacing/Shape/Motion/Button/ListItem tokens）、Markdown 表格两端一致性规则见 [`docs/ui-conventions.md`](docs/ui-conventions.md)。
+**优先 Material 3 原生组件/样式/配色，禁止引入额外 UI 依赖库（如 Accompanist）**；主题令牌系统与 Markdown 表格一致性规则见 [`docs/ui-conventions.md`](docs/ui-conventions.md)。
 
 ## 分支与远程仓库
 
 | Remote | URL | 角色 |
 |--------|-----|------|
 | `origin` | `github.com:LeoNardo-LB/oc-beacon` | Fork（有 push 权限，当前默认） |
-| upstream | `github.com:crim50n/oc-remote` | Upstream（所有者: crim50n）— 需要时手动添加 |
+| upstream | `github.com:crim50n/oc-remote` | Upstream（所有者 crim50n）— 需要时手动添加 |
 
-- `master` — 稳定分支，与 upstream 同步
-- 推送：`git push origin master` / `git push origin <tag>`
+`master` 为稳定分支；推送 `git push origin master` / `git push origin <tag>`。
 
 ## Backlog 纪律
 
-遇到以下情况，**立即登记到 [`backlog.md`](backlog.md)**（按文档内格式：优先级 P0-P2 + Tag + checkbox），**不要现场实现**：
+遇到以下情况，**立即登记到 [`backlog.md`](backlog.md)**（卡片格式：全局编号 + Tag + 状态 checkbox + ≤3 行摘要 + 链接），**不要现场实现**：
 - 当前会话忙时，优先级不高 / 非阻塞 / 非基础性的新需求
 - 用户明确说"后面再做 / 以后做"的需求
 - 任务中顺带发现、但与当前任务无关的 bug / 死代码 / 改进点（只登记，不跑题去修）
 
-开始新任务前扫一眼 backlog，避免重复登记或重复实现。格式细节（优先级定义 / Tag 表 / 状态流转 / spec 存放约定）以 `backlog.md` 自身为准。
+开始新任务前扫一眼 backlog 避免重复登记/重复实现。**批次开工用 `./scripts/backlog-new-batch.sh "<批次名>"` 创建 journal 文件**；过程中的取证/验证证据写 journal 不写卡片；条目完结（用户验收）**当场迁入 journal**。格式细节（优先级/Tag/状态流转/spec 与 journal 约定）以 `backlog.md` 首段为准；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
 ## 其他
 
-- **国际化**：15 种语言直接维护（英文源 `values/` + 14 翻译文件，**无翻译框架**，lokit 已移除）。涉及任何文案改动，按 [`docs/i18n-guide.md`](docs/i18n-guide.md) 工作流执行：改英文源 → agent 直接翻译 14 语言 → 跑 `scripts/i18n-check.ps1`（key 完整性/英文源纯净/占位符一致性，CI 发版自动检查）。
-- **ProGuard**：Release 构建使用 R8 混淆。保留规则：`kotlinx.serialization` 注解类、Ktor 协程内部实现、Mikepenz Markdown 渲染器的状态/模型。
-- **Android SDK**：`compileSdk` / `minSdk` / `targetSdk` 与 Compose BOM 等依赖版本以 `app/build.gradle.kts` 的 `defaultConfig` 与 `dependencies` 块为单一真相源，不在此重复维护。
+- **国际化**：15 语言直接维护（英文源 `values/` + 14 翻译，无翻译框架）。任何文案改动按 [`docs/i18n-guide.md`](docs/i18n-guide.md) 工作流：改英文源 → 翻译 14 语言 → 跑检查脚本（CI 发版自动检查）。
+- **ProGuard**：Release 构建用 R8 混淆，保留规则以 `app/proguard-rules.pro` 为准（serialization/Ktor/Mikepenz）。
+- **Android SDK / 依赖版本**：以 `app/build.gradle.kts` 的 `defaultConfig` 与 `dependencies` 为单一真相源，不在此重复维护。
 
 ## Agent skills
 
-### Issue tracker
-
-双轨制：`backlog.md` 本地登记（会话中顺带发现、非阻塞事项）+ GitHub Issues 正式跟踪（`gh` CLI）。见 `docs/agents/issue-tracker.md`。
-
-### Triage labels
-
-沿用默认五个 triage 标签（needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix），仅作用于 GitHub Issues。见 `docs/agents/triage-labels.md`。
-
-### Domain docs
-
-单上下文布局：根目录 `CONTEXT.md` + `docs/adr/`。见 `docs/agents/domain.md`。
+- **Issue tracker**：`backlog.md`（本地登记）+ GitHub Issues（正式跟踪）双轨制，见 [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md)
+- **Triage labels**：五个默认 triage 标签，仅作用于 GitHub Issues，见 [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md)
+- **Domain docs**：单上下文布局（根 `CONTEXT.md` + `docs/adr/`），见 [`docs/agents/domain.md`](docs/agents/domain.md)

@@ -12,7 +12,7 @@
 |------|------|------|
 | `docs/verification-requirements.md` | **验证总纲**——何时声称完成、4+1 维强制框架 | 上位文档，本文档遵守其铁律 |
 | **本文档** | **回归执行指南**——变更后如何系统验证既有能力 | 总纲的实践细则 |
-| `backlog.md` | 问题登记去向 | 非阻塞问题登记处 |
+| `backlog.md` | 未决工作项卡片清单 | 非阻塞问题登记处（详情与证据写 journal 批次文件） |
 | `docs/chatscreen-editing-protocol.md` | ChatScreen 编辑协议 | 涉及 ChatScreen 时叠加遵守 |
 
 **核心原则**：verification-requirements.md 回答"完成前必须做什么"；本文档回答"变更后既有能力如何系统验证"。
@@ -243,7 +243,7 @@ adb shell dumpsys dropbox --print
 - **优先根因修复**：解决源头，不留技术债。AGENTS.md「精准修改」要求外科手术级，不顺手改无关代码。
 - **根因修复牵扯过大时**：允许临时补丁，但必须三件事齐全：
   1. 代码注释 `TODO`/`FIXME` 标注（当时情况 + 为什么临时 + 根因方向）
-  2. `backlog.md` 登记技术债条目（现象 / 临时方案 / 根因分析 / 修复建议 / 当时考虑）
+  2. `backlog.md` 登记技术债卡片（≤3 行摘要 + 链接；根因分析/修复建议/当时考虑等详情写 `docs/journal/` 批次文件）
   3. 后续重构者能从注释 + backlog 理解当时决策（反例见 `docs/research/audit-2026-08-10/D-patch-vs-rootcause-history.md`）
 - **反射 hack 类补丁**（如 #43 Compose internal 反射）：注释必须写明依赖的 Compose 版本与字段名，升级前手动测试。
 
@@ -259,10 +259,11 @@ adb shell dumpsys dropbox --print
 
 ```
 - [<状态>] **#<编号> <标题>** `<tag1>` `<tag2>`
-  - 问题：现象描述
-  - 修复：方案（或"待复现"）
-  - 来源：<证据路径 / 走查编号 RG-XX / 用户反馈>
+  - 摘要：≤3 行（现象 + 处置方向）
+  - → <journal 批次文件 / spec / 证据路径 链接>
 ```
+
+过程中的根因分析、验证证据写 journal 批次文件（`./scripts/backlog-new-batch.sh` 创建），不写卡片；条目完结当场迁入 journal。
 
 状态流转：`[ ]` 进行中 → `[~]` 待验证 → `[x]` 已完成（用户确认后方可勾选）。
 
@@ -329,7 +330,7 @@ adb shell dumpsys dropbox --print
 | `docs/verification-requirements.md` | 上位总纲 | 本文档遵守其铁律与 4+1 维框架，不重复命令细节 |
 | `docs/qa-methodology.md` | 方法论层 | 交叉验证矩阵（≥2 独立维度互证）、证据链完整性、可复现清单模板、并行验证节点委派 |
 | `AGENTS.md` | 项目规则源 | 本文档遵守验证铁律、backlog 纪律、ChatScreen 编辑协议、SSE 铁律 |
-| `backlog.md` | 问题登记去向 | §4 流程的非阻塞问题登记处 |
+| `backlog.md` | 未决工作项卡片清单 | §4 流程的非阻塞问题登记处 |
 | `docs/chatscreen-editing-protocol.md` | ChatScreen 编辑叠加协议 | §3.4 / §3.8 触及 ChatScreen 时叠加 |
 | `docs/research/sse-scroll-stability-iron-laws.md` | SSE 滚动铁律 | §3.4 / §3.8 修改前必读 |
 | `docs/i18n-guide.md` / `docs/release-workflow.md` | §3.11 详情 | 不重复 |
