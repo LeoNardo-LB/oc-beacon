@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -52,6 +52,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SheetTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
@@ -121,6 +122,7 @@ fun QuickNavigateSheet(
     // 2026-08-12 用户要求：快速导航改为抽屉形式（ModalBottomSheet，与后台面板/模型选择一致）
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {},
         shape = ShapeTokens.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -128,11 +130,11 @@ fun QuickNavigateSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // 2026-08-16（用户决策）：抽屉只设上限 75% 屏高——去掉 30% 下限，
-                // 内容少时自然收缩不强制撑高；内容多时截断到 75% 内部滚动。
-                // 与后台面板/模型选择统一。
-                .heightIn(
-                    max = LocalConfiguration.current.screenHeightDp.dp * 0.75f
+                // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
+                // （固定高度，与后台面板/模型选择统一；列表 weight(1f) 内部滚动）。
+                .height(
+                    LocalConfiguration.current.screenHeightDp.dp *
+                        SheetTokens.ChatSheetHeightFraction
                 )
                 .navigationBarsPadding()
         ) {
@@ -189,7 +191,9 @@ fun QuickNavigateSheet(
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 contentPadding = PaddingValues(bottom = SpacingTokens.XXL.dp),
             ) {
                 items(jumpTargets, key = { it.msgId }) { target ->

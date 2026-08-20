@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.dialog
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,10 +20,12 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SheetTokens
 
 /**
  * 从消息部件列表中提取系统提示词文本。
@@ -59,6 +62,11 @@ fun SystemPromptDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
+                .height(
+                    LocalConfiguration.current.screenHeightDp.dp *
+                        SheetTokens.ChatSheetHeightFraction
+                )
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 32.dp)

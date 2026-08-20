@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -44,6 +45,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.ItemTokens
+import dev.leonardo.ocbeacon.ui.theme.SheetTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,9 +79,10 @@ internal fun ModelPickerDialog(
     }
 
     // 2026-08-12 用户要求：模型选择改为抽屉式（与后台面板一致——ModalBottomSheet，
-    // 无拉杆，高度 30%-75% 屏）
+    // 无拉杆）；2026-08-20 高度统一为固定 75% 屏
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {},
         containerColor = params.containerColor,
         shape = params.shape,
@@ -87,9 +90,11 @@ internal fun ModelPickerDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // 2026-08-16（用户决策）：只设上限 75% 屏高（去 30% 下限，内容自然收缩）
-                .heightIn(
-                    max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.75f
+                // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
+                // （固定高度；列表 weight(1f) 在固定高度内滚动）
+                .height(
+                    androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp *
+                        SheetTokens.ChatSheetHeightFraction
                 )
         ) {
             // 2026-08-12 用户要求：抽屉式组件统一标题栏（与快速导航一致）——标题 + 关闭按钮

@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +31,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +56,7 @@ import dev.leonardo.ocbeacon.domain.model.PendingMessage
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SheetTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -65,7 +67,7 @@ private data class DragState(val index: Int, val offset: Float)
 
 /**
  * 堆积消息 / TODO 双 tab 面板（2026-08-20 设计定稿；形态照 TaskSheet：
- * ModalBottomSheet + 限高 75% + 无拉杆）。
+ * ModalBottomSheet + 固定 75% 屏高 + 无拉杆）。
  *
  * - 堆积 tab：每行右对齐 [编辑 · 删除 · 发送]；长按拖拽排序；标题栏
  *   「继续」（队列非空且会话空闲时发队首 1 条）与「清空」（带确认）；
@@ -96,12 +98,17 @@ fun PendingTodoSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         dragHandle = {},
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.75f)
+                // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
+                .height(
+                    LocalConfiguration.current.screenHeightDp.dp *
+                        SheetTokens.ChatSheetHeightFraction
+                )
                 .padding(bottom = 24.dp)
         ) {
             // 标题栏：标题 + 「继续」（空闲且队列非空）+ 「清空」（队列非空）+ 关闭
@@ -157,17 +164,24 @@ fun PendingTodoSheet(
                 }
             }
 
-            if (selectedTab == 0) {
-                StackedList(
-                    queue = queue,
-                    isDraining = isDraining,
-                    onEdit = { editing = it },
-                    onDelete = onDelete,
-                    onSendOne = onSendOne,
-                    onReorder = onReorder,
-                )
-            } else {
-                TodoList(todos = todos)
+            // 固定高度下 tab 内容占满剩余空间：列表在 Box 约束内滚动
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                if (selectedTab == 0) {
+                    StackedList(
+                        queue = queue,
+                        isDraining = isDraining,
+                        onEdit = { editing = it },
+                        onDelete = onDelete,
+                        onSendOne = onSendOne,
+                        onReorder = onReorder,
+                    )
+                } else {
+                    TodoList(todos = todos)
+                }
             }
         }
     }

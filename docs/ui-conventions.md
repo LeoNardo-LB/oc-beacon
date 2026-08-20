@@ -35,6 +35,10 @@
 
 Material 3 `ListItem` 内容 padding 的三种密度级别 — `ContentPaddingSmall` / `ContentPaddingMedium` / `ContentPaddingLarge`。代替 ListItem 内容上的硬编码 `padding`。
 
+### Sheet tokens (SheetTokens.kt)
+
+主对话抽屉（ModalBottomSheet）统一高度 — `SheetTokens.ChatSheetHeightFraction = 0.75f`（2026-08-20 用户决策：主对话内所有抽屉屏占比一致，min = max = 75% 屏高，固定高度——内容少时留白不塌缩，内容多时内部滚动）。标准三件套：抽屉内容根 `Modifier.height(LocalConfiguration.current.screenHeightDp.dp * SheetTokens.ChatSheetHeightFraction)` + 内部列表 `weight(1f)` + `rememberModalBottomSheetState(skipPartiallyExpanded = true)`（避免固定高度先落半展开锚点）。现覆盖 TaskSheet / ModelPickerDialog / QuickNavigateSheet / PendingTodoSheet；新增主对话抽屉必须遵循。
+
 ### 暗色主题
 
 信任 Material3 `darkColorScheme()` 默认值。只在 Theme.kt 中覆盖 6 个品牌差异化 token。

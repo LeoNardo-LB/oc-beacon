@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountTree
@@ -35,6 +37,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -60,6 +63,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatusIcon
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SheetTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
@@ -101,6 +105,8 @@ fun TaskSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        // 2026-08-20 用户决策：抽屉固定 75% 屏高——跳过半展开锚点，开即全高
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         // 2026-08-12 用户要求：不需要拉杆（dragHandle 为空）
         dragHandle = {}
     ) {
@@ -118,11 +124,12 @@ fun TaskSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // 2026-08-16（用户决策）：只留 75% 上限（去 30% 下限，内容自然收缩）。
-                // 排查备注：曾怀疑短 sheet 拖拽手势吞点击——已证伪（模拟器长时间
-                // 运行后输入系统劣化导致的假象，重启后正常；非 App 代码问题）。
-                .heightIn(
-                    max = LocalConfiguration.current.screenHeightDp.dp * 0.75f
+                // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
+                // （固定高度，各抽屉屏占比一致；内容少时留白，多时列表内滚动）。
+                // 取代 2026-08-16「只留 75% 上限、内容自然收缩」方案。
+                .height(
+                    LocalConfiguration.current.screenHeightDp.dp *
+                        SheetTokens.ChatSheetHeightFraction
                 )
                 .padding(bottom = 24.dp)
         ) {
@@ -448,6 +455,11 @@ private fun ShellDetailView(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            // 2026-08-20：与列表视图同高（75% 屏高），切详情高度不跳
+            .height(
+                LocalConfiguration.current.screenHeightDp.dp *
+                    SheetTokens.ChatSheetHeightFraction
+            )
             .padding(horizontal = 16.dp)
             .padding(bottom = 24.dp)
     ) {
@@ -490,7 +502,8 @@ private fun ShellDetailView(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp)
-                .heightIn(max = 360.dp)
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
         )
     }
 }
