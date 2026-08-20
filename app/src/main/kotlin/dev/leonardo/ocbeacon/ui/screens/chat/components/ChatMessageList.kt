@@ -891,12 +891,15 @@ fun ChatMessageList(
                                 if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load backoff wait ${waitMs}ms before retry")
                                 delay(waitMs)
                             }
-                            // 2026-08-21 竞态修复：!jumpLockActive 只在 effect 启动时检查一次——
-                            // 跳转滚动使 nearTop 在旧实例 collect 里发射时（jumpLock 翻转与
-                            // effect 重启之间有重组延迟窗口），闸门已失效 → settle 期间数据变动。
-                            // 触发前复查当前值（跳转结束后 effect 重启会重新评估，不丢正常触发）。
-                            if (jumpLockActive) {
-                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load skipped (jumpLock active at fire time)")
+                            // 2026-08-21 竞态修复（同日根因完备化）：!jumpLockActive 只在
+                            // effect 启动时检查一次——跳转滚动使 nearTop 在旧实例 collect 里
+                            // 发射时（标志翻转与 effect 重启之间有重组延迟窗口——重组帧驱动、
+                            // snapshotFlow 发射提交驱动，二者排序无保证，跳转重载下窗口
+                            // 实测拉宽到 136ms+），启动闸门已失效 → settle 期间数据变动。
+                            // 修复 = 正确的时机 × 正确的源：fire-time 复查 + 直读 phase 真源
+                            //（isJumpInProgress——不依赖 jumpLockActive 手工镜像的 4 处同步点）。
+                            if (jumpController.isJumpInProgress) {
+                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load skipped (jump in progress at fire time)")
                                 return@collect
                             }
                             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load triggered (hasOlder=true)")
@@ -929,11 +932,12 @@ fun ChatMessageList(
                         .distinctUntilChanged()
                         .filter { it }
                         .collect {
-                            // 2026-08-21 竞态修复（真机日志实证：jumpToMessage 置锁后
-                            // +136ms nearBottom 发射仍漏过启动时闸门 → 渐进步进卡
-                            // gap=-343 空转 7 次、蒙版多挂 ~2s）——触发前复查 jumpLock。
-                            if (jumpLockActive) {
-                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load newer skipped (jumpLock active at fire time)")
+                            // 2026-08-21 竞态修复（同日根因完备化，真机日志实证：
+                            // jumpToMessage 置锁后 +136ms nearBottom 发射仍漏过启动时
+                            // 闸门 → 渐进步进卡 gap=-343 空转 7 次、蒙版多挂 ~2s）。
+                            // 修复 = fire-time 复查 + 直读 phase 真源（isJumpInProgress）。
+                            if (jumpController.isJumpInProgress) {
+                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load newer skipped (jump in progress at fire time)")
                                 return@collect
                             }
                             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load newer triggered (nearBottom=true, hasNewer=true)")

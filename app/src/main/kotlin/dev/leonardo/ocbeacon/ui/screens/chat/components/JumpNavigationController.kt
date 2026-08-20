@@ -161,11 +161,23 @@ class JumpNavigationController(
     var currentTargetMsgId: String? = null
         private set
 
-    /** UI 派生：蒙版显示（Preparing/Measuring/Settling）。 */
-    val showMask: Boolean
+    /**
+     * UI 派生：跳转进行中（Preparing/Measuring/Settling）。
+     *
+     * 2026-08-21 根因完备化：自动分页 fire-time 门控改读本属性（phase 真源），
+     * 不再依赖 ChatMessageList.jumpLockActive 手工镜像——镜像 4 处同步点
+     * （3 跳转入口写 true + phase 终点收集器写 false）任一遗漏即竞态 reopen。
+     * 时序安全前提（已核对）：jumpTo/jumpToTask 入口同步置 Preparing
+     * （镜像写点与其之间为纯同步主线程代码，无挂起/分发 interleaved），
+     * 故 fire-time 读 phase 与读镜像同样严密。
+     */
+    val isJumpInProgress: Boolean
         get() = _phase.value is JumpPhase.Preparing ||
             _phase.value is JumpPhase.Measuring ||
             _phase.value is JumpPhase.Settling
+
+    /** UI 派生：蒙版显示（= 跳转进行中）。 */
+    val showMask: Boolean get() = isJumpInProgress
 
     /** UI 派生：目标可显示（Displayed/Failed——settled 取代）。 */
     val gateOpen: Boolean
