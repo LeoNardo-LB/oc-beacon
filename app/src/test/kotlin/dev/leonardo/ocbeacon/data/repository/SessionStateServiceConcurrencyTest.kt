@@ -49,14 +49,16 @@ class SessionStateServiceConcurrencyTest {
 
     private val testScope = TestScope(UnconfinedTestDispatcher())
 
-    private fun newService() = SessionStateService(
+    private fun newService(collab: SessionStateCollaborator = StubCollaborator()) = SessionStateService(
         testScope,
         Provider { mockk<SessionRepository>(relaxed = true) },
+        collab,
     )
 
-    private fun newServiceWith(repo: SessionRepository) = SessionStateService(
+    private fun newServiceWith(repo: SessionRepository, collab: SessionStateCollaborator = StubCollaborator()) = SessionStateService(
         testScope,
         Provider { repo },
+        collab,
     )
 
     @After
@@ -281,9 +283,10 @@ class SessionStateServiceConcurrencyTest {
             // 每次调用返回不同状态：早期调用 = Busy，最后一次 = Idle
             Result.success(mapOf("s1" to if (n < 5) SessionStatus.Busy else SessionStatus.Idle))
         }
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+        val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        collab.resolveDirectoryImpl = { "D:/proj" }
         service.onClientSendParts("s1")
         testScope.runCurrent()
 
@@ -314,9 +317,10 @@ class SessionStateServiceConcurrencyTest {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
 
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+        val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        collab.resolveDirectoryImpl = { "D:/proj" }
         service.onClientSendParts("s1")
         service.onClientSendParts("s2")
         testScope.runCurrent()
@@ -346,9 +350,10 @@ class SessionStateServiceConcurrencyTest {
             Result.success(emptyMap())  // 缺失 → Idle
         }
 
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+        val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        collab.resolveDirectoryImpl = { "D:/proj" }
         service.onClientSendParts("s1")
         testScope.runCurrent()
 

@@ -54,15 +54,17 @@ class SessionStateServiceTest {
 
     private val testScope = TestScope(UnconfinedTestDispatcher())
 
-    private fun newService() = SessionStateService(
+    private fun newService(collab: SessionStateCollaborator = StubCollaborator()) = SessionStateService(
         testScope,
         Provider { mockk<SessionRepository>(relaxed = true) },
+        collab,
     )
 
     /** 构建一个由 [repo] 支撑的服务，以便测试可以 stub `fetchSessionStatuses`。 */
-    private fun newServiceWith(repo: SessionRepository) = SessionStateService(
+    private fun newServiceWith(repo: SessionRepository, collab: SessionStateCollaborator = StubCollaborator()) = SessionStateService(
         testScope,
         Provider { repo },
+        collab,
     )
 
     @After
@@ -81,14 +83,15 @@ class SessionStateServiceTest {
 
     @Test
     fun `SseIdle after Busy triggers forceComplete on messageForceCompleter`() {
-        val forceCompleter = mockk<MessageForceCompleter>(relaxed = true)
-        val service = newService()
-        service.messageForceCompleter = forceCompleter
+        val forceCompleted = mutableListOf<String>()
+        val collab = StubCollaborator()
+        collab.onForceCompleteSession = { forceCompleted.add(it) }
+        val service = newService(collab)
         service.onClientSendParts("s1")
         service.onSseEvent(SseEvent.SessionIdle(sessionId = "s1"), "s1", "server1")
         testScope.runCurrent()
         assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
-        verify { forceCompleter.markIdle("s1") }
+        assertEquals(listOf("s1"), forceCompleted)
     }
 
     @Test
@@ -184,9 +187,10 @@ class SessionStateServiceTest {
     fun `triggerRestValidation absence with fresh SSE keeps status（2026-08-16 新鲜度护栏）`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())  // 缺失
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+                val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        collab.resolveDirectoryImpl = { "D:/proj" }
         service.onClientSendParts("s1")
         service.triggerRestValidation("s1")
         testScope.runCurrent()
@@ -200,9 +204,10 @@ class SessionStateServiceTest {
     fun `triggerRestValidation absence with null directory stays Busy`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+                val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { null }  // 未知目录
+        collab.resolveDirectoryImpl = { null }  // 未知目录
         service.onClientSendParts("s1")
         service.triggerRestValidation("s1")
         testScope.runCurrent()
@@ -219,9 +224,10 @@ class SessionStateServiceTest {
         // 2026-08-14 根因修复：僵尸判定必须主动调用服务器 abort/interrupt
         //（解除服务器僵尸，否则后续发消息仍无回复）——断言 abort 被调用。
         coEvery { fakeRepo.abort(any(), any(), any()) } returns Result.success(Unit)
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+                val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        collab.resolveDirectoryImpl = { "D:/proj" }
         service.onClientSendParts("s1")  // 本地 Busy
         // 反射：把 FSM lastEventAt 改旧（超过 ZOMBIE_BUSY_MS——3 分钟无真实事件）。
         // restValidation 转移已修正为不刷新 lastEventAt（2026-08-14），
@@ -253,11 +259,12 @@ class SessionStateServiceTest {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
         coEvery { fakeRepo.abort(any(), any(), any()) } returns Result.success(Unit)
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+                val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        collab.resolveDirectoryImpl = { "D:/proj" }
         // 模拟该会话有 pending question（EventDispatcher 接线的检查器）
-        service.pendingUserInputChecker = { sessionId -> sessionId == "s1" }
+        collab.hasPendingUserInputImpl = { sessionId -> sessionId == "s1" }
         service.onClientSendParts("s1")
         val field = SessionStateService::class.java.getDeclaredField("_fsmStates")
         field.isAccessible = true
@@ -279,9 +286,10 @@ class SessionStateServiceTest {
     fun `triggerRestValidation Busy with recent events stays Busy`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+                val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { "D:/proj" }
+        collab.resolveDirectoryImpl = { "D:/proj" }
         service.onClientSendParts("s1")
         // lastEventAt 是刚刚（有事件）——不触发僵尸判定
         service.triggerRestValidation("s1")
@@ -296,7 +304,8 @@ class SessionStateServiceTest {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses("svr1", "D:/projA") } returns Result.success(mapOf("s1" to SessionStatus.Busy))
         coEvery { fakeRepo.fetchSessionStatuses("svr1", "D:/projB") } returns Result.success(mapOf("s2" to SessionStatus.Busy))
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+                val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
         val result = runBlocking { service.syncFromRest(listOf(Project(worktree = "D:/projA"), Project(worktree = "D:/projB"))) }
         testScope.runCurrent()
@@ -309,7 +318,8 @@ class SessionStateServiceTest {
     fun `syncFromRest marks absent non-idle session Idle when no incomplete`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+                val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
         service.onClientSendParts("s1")  // 本地为 Busy
         runBlocking { service.syncFromRest(listOf(Project(worktree = "D:/p"))) }
@@ -321,10 +331,11 @@ class SessionStateServiceTest {
     fun `syncFromRest protects absent session with incomplete messages`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
-        val service = newServiceWith(fakeRepo)
+        val collab = StubCollaborator()
+                val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
-        service.directoryResolver = DirectoryResolver { "D:/p" }
-        service.incompleteChecker = IncompleteAssistantChecker { true }
+        collab.resolveDirectoryImpl = { "D:/p" }
+        collab.hasIncompleteAssistantImpl = { true }
         service.onClientSendParts("s1")
         runBlocking { service.syncFromRest(listOf(Project(worktree = "D:/p"))) }
         testScope.runCurrent()
@@ -344,14 +355,13 @@ class SessionStateServiceTest {
         coEvery { repo.listMessages(any(), any(), any(), any()) } returns Result.success(
             MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
         )
-        val service = SessionStateService(testScope, Provider { repo })
+        val collab = StubCollaborator()
+        val service = SessionStateService(testScope, Provider { repo }, collab)
         val strategies = mutableListOf<MergeStrategy>()
-        service.messageRefresher = object : MessageRefresher {
-            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) {
+        collab.refreshMessagesImpl = { sessionId, messages, strategy ->
                 strategies.add(strategy)
-            }
         }
-        service.latestMessageIdProvider = { "msg_anchor_1" }
+        collab.latestMessageIdImpl = { "msg_anchor_1" }
         // 会话归属：SSE 投递记录（onSseEvent 会写 sessionServerOwnership）
         service.onSseEvent(SseEvent.SessionIdle("ses_x"), "ses_backfill", "server-1")
 
@@ -376,12 +386,11 @@ class SessionStateServiceTest {
         coEvery { repo.listMessages(any(), any(), any(), any()) } returns Result.success(
             MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
         )
-        val service = SessionStateService(testScope, Provider { repo })
+        val collab = StubCollaborator()
+        val service = SessionStateService(testScope, Provider { repo }, collab)
         var called = 0
-        service.messageRefresher = object : MessageRefresher {
-            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) { called++ }
-        }
-        service.latestMessageIdProvider = { null }
+        collab.refreshMessagesImpl = { _, _, _ -> called++ }
+        collab.latestMessageIdImpl = { null }
         service.onSseEvent(SseEvent.SessionIdle("ses_x"), "ses_noanchor", "server-1")
 
         service.backfillMissedMessages("ses_noanchor")
@@ -408,14 +417,13 @@ class SessionStateServiceTest {
         coEvery { repo.listMessages(any(), any(), any(), isNull()) } returns Result.success(
             MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
         )
-        val service = SessionStateService(testScope, Provider { repo })
+        val collab = StubCollaborator()
+        val service = SessionStateService(testScope, Provider { repo }, collab)
         val strategies = mutableListOf<MergeStrategy>()
-        service.messageRefresher = object : MessageRefresher {
-            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) {
+        collab.refreshMessagesImpl = { sessionId, messages, strategy ->
                 strategies.add(strategy)
-            }
         }
-        service.latestMessageIdProvider = { "msg_anchor_stale" }
+        collab.latestMessageIdImpl = { "msg_anchor_stale" }
         service.onSseEvent(SseEvent.SessionIdle("ses_x"), "ses_empty", "server-1")
 
         service.backfillMissedMessages("ses_empty")
@@ -436,12 +444,11 @@ class SessionStateServiceTest {
         coEvery { repo.listMessages(any(), any(), any(), any()) } returns Result.success(
             MessagePage(messages = emptyList(), nextCursor = null)
         )
-        val service = SessionStateService(testScope, Provider { repo })
+        val collab = StubCollaborator()
+        val service = SessionStateService(testScope, Provider { repo }, collab)
         var called = 0
-        service.messageRefresher = object : MessageRefresher {
-            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) { called++ }
-        }
-        service.latestMessageIdProvider = { "msg_anchor_stale" }
+        collab.refreshMessagesImpl = { _, _, _ -> called++ }
+        collab.latestMessageIdImpl = { "msg_anchor_stale" }
         service.onSseEvent(SseEvent.SessionIdle("ses_x"), "ses_stoplevel", "server-1")
 
         service.backfillMissedMessages("ses_stoplevel")

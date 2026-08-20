@@ -26,21 +26,11 @@ import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
 
-fun interface DirectoryResolver { fun resolve(sessionId: String): String? }
-fun interface IncompleteAssistantChecker { fun hasIncomplete(sessionId: String): Boolean }
-fun interface MessageForceCompleter { fun markIdle(sessionId: String) }
 /**
  * 2026-08-16 根治（回复不可见）：新增 [strategy] 参数——SSE 断连窗口补漏
  * 用 SSE_PRIORITY（SSE 已累积的流式文本不动，仅补本地缺失）；
  * L3 校验路径传 REST_AUTHORITY（服务器已确认终态，权威覆盖）。
  */
-interface MessageRefresher {
-    fun refreshMessages(
-        sessionId: String,
-        messages: List<MessageWithParts>,
-        strategy: MergeStrategy,
-    )
-}
 
 private const val TAG = "SessionStateService"
 private const val HISTORY_MAX = 20
@@ -74,41 +64,8 @@ internal const val ZOMBIE_BUSY_MS = 3 * 60 * 1000L
 class SessionStateService @Inject constructor(
     @param:ApplicationScope private val appScope: CoroutineScope,
     private val sessionRepoProvider: Provider<SessionRepository>,
+    private val collaborator: SessionStateCollaborator,
 ) : SessionStateRepository {
-    // 构造后注入（打破与 EventDispatcher 的循环依赖）
-    var directoryResolver: DirectoryResolver = DirectoryResolver { null }
-    var incompleteChecker: IncompleteAssistantChecker = IncompleteAssistantChecker { false }
-    var messageForceCompleter: MessageForceCompleter = MessageForceCompleter {}
-    var messageRefresher: MessageRefresher = object : MessageRefresher {
-        override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) {}
-    }
-    /** #55：本地最新消息 id 提供者——L3 校验增量补漏的游标锚点（V2 NEWER 方向），由 EventDispatcher 接线。 */
-    var latestMessageIdProvider: (sessionId: String) -> String? = { null }
-    /** 2026-08-14 走查修复（僵尸误杀防护）：该会话是否有等待用户输入的
-     *  pending question/permission——有时服务器合法"运行中"（等待用户回答），
-     *  此期间无 SSE 事件属正常，僵尸判定不得对其发 interrupt（会杀掉等待中的
-     *  提问/权限对话框）。由 EventDispatcher 接线（questionHandler/permissionHandler）。 */
-    var pendingUserInputChecker: (sessionId: String) -> Boolean = { false }
-
-    /**
-     * 2026-08-15（僵尸误杀修复·二）：该会话有**活跃子会话**（parentID 指向它
-     * 且仍在服务器 running）时，主会话的 running 是合法等待状态（V2 drain
-     * 语义：后台任务/subagent 活跃期间主会话保持 running 但自身无事件流），
-     * 僵尸判定不得 interrupt——实测（2026-08-15）：主会话委派 3 个后台调研
-     * 子代理后等待中，3 分钟无主会话事件 → 被 zombie interrupt 误杀
-     * （用户零操作被打断，logcat 实证 interrupt 打到主会话）。
-     */
-    var activeChildrenChecker: (serverId: String, sessionId: String) -> Boolean = { _, _ -> false }
-
-    /**
-     * 堆积消息推进（2026-08-20 设计定稿）：「自然成功 turn 结束」监听器——
-     * Busy→Idle 且触发事件为 SSE 自然成功信号（V2 execution.succeeded→SseIdle；
-     * V1 session.status(idle)→SseStatus(Idle)）时回调。由 EventDispatcher 接线
-     * （Provider 打破 EventDispatcher→ChatRepository 循环）。手动 abort
-     * （ClientAbort）/错误（SseError）/REST 兜底（RestValidation）不会走到这里；
-     * V1 status/idle 双发的第二发到达时已 Idle（fromCore 非 Busy）天然去重。
-     */
-    var naturalTurnEndListener: (sessionId: String, serverId: String?) -> Unit = { _, _ -> }
 
     @Volatile private var currentServerId: String? = null
 
@@ -163,7 +120,7 @@ class SessionStateService @Inject constructor(
                 AppLogger.w(TAG, "[$sessionId] L2 stale for ${now - state.lastEventAt}ms, triggering REST validation")
                 triggerRestValidation(sessionId)
             }
-            if (state.core is SessionStatus.Idle && incompleteChecker.hasIncomplete(sessionId)) {
+            if (state.core is SessionStatus.Idle && collaborator.hasIncompleteAssistant(sessionId)) {
                 AppLogger.w(TAG, "[$sessionId] L5 inconsistency: Idle but has incomplete messages")
                 triggerRestValidation(sessionId)
             }
@@ -293,11 +250,11 @@ class SessionStateService @Inject constructor(
                 // 本地无锚点消息（清数据/新装后重连）会永久漏补。退化为无 cursor
                 // 拉最新 REST_REFRESH_LIMIT 条（V1/V2 均传 null cursor，与 L3 校验
                 // 路径的兜底同款）。
-                val anchorId = latestMessageIdProvider(sessionId)
+                val anchorId = collaborator.latestMessageId(sessionId)
                 if (anchorId == null) {
                     AppLogger.d(TAG, "[$sessionId] backfill no anchor -> fallback latest")
                 }
-                val directory = directoryResolver.resolve(sessionId)
+                val directory = collaborator.resolveDirectory(sessionId)
                 val isV2 = sessionRepoProvider.get().getApiVersion(sid).isV2
                 val cursor = if (isV2 && anchorId != null) {
                     dev.leonardo.ocbeacon.domain.util.CursorCodec.encodeV2(
@@ -309,7 +266,7 @@ class SessionStateService @Inject constructor(
                     .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = cursor)
                     .onSuccess { page ->
                         if (page.messages.isNotEmpty()) {
-                            messageRefresher.refreshMessages(sessionId, page.messages, MergeStrategy.SSE_PRIORITY)
+                            collaborator.refreshMessages(sessionId, page.messages, MergeStrategy.SSE_PRIORITY)
                             if (BuildConfig.DEBUG) {
                                 AppLogger.d(TAG, "[$sessionId] reconnect backfill: +${page.messages.size} msgs (SSE_PRIORITY)")
                             }
@@ -324,7 +281,7 @@ class SessionStateService @Inject constructor(
                                 .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = null)
                                 .onSuccess { fallbackPage ->
                                     if (fallbackPage.messages.isNotEmpty()) {
-                                        messageRefresher.refreshMessages(sessionId, fallbackPage.messages, MergeStrategy.SSE_PRIORITY)
+                                        collaborator.refreshMessages(sessionId, fallbackPage.messages, MergeStrategy.SSE_PRIORITY)
                                     }
                                     if (BuildConfig.DEBUG) {
                                         AppLogger.d(TAG, "[$sessionId] reconnect backfill fallback: +${fallbackPage.messages.size} msgs (SSE_PRIORITY)")
@@ -450,14 +407,14 @@ class SessionStateService @Inject constructor(
         }
         if (BuildConfig.DEBUG) logTransition(sessionId, from, res, event)
         // 副作用
-        if (res.forceComplete) messageForceCompleter.markIdle(sessionId)
+        if (res.forceComplete) collaborator.forceCompleteSession(sessionId)
         if (res.isSuspicious) triggerRestValidation(sessionId)
         // 堆积消息推进：仅自然成功 turn 结束触发（见 naturalTurnEndListener 注释）
         if (from.core is SessionStatus.Busy &&
             res.newState.core is SessionStatus.Idle &&
             (event is FsmEvent.SseIdle || (event is FsmEvent.SseStatus && event.status is SessionStatus.Idle))
         ) {
-            naturalTurnEndListener(sessionId, sessionServerOwnership[sessionId] ?: currentServerId)
+            collaborator.onNaturalTurnEnd(sessionId, sessionServerOwnership[sessionId] ?: currentServerId)
         }
     }
 
@@ -540,7 +497,7 @@ class SessionStateService @Inject constructor(
         // #110（D2-12）：优先用会话归属服务器（SSE 投递记录）；
         // 无归属（手动刷新等）回退全局 currentServerId。
         val sid = sessionServerOwnership[sessionId] ?: currentServerId ?: return
-        val directory = directoryResolver.resolve(sessionId)
+        val directory = collaborator.resolveDirectory(sessionId)
         // RS-012 修复：对同一会话的并发校验去重。
         // 模式：launch → merge（原子替换，取消前一个）→ invokeOnCompletion（清理）。
         // merge 函数仅取消旧 job 并返回新 job——它不修改
@@ -569,12 +526,12 @@ class SessionStateService @Inject constructor(
                                 // 等待用户输入（此期间无 SSE 事件属正常，非僵尸）——不得 interrupt（会杀掉等待中的
                                 // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
                                 // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查。
-                                val hasPendingUserInput = pendingUserInputChecker(sessionId)
+                                val hasPendingUserInput = collaborator.hasPendingUserInput(sessionId)
                                 // 2026-08-15（僵尸误杀修复·二）：有活跃子会话（后台任务/
                                 // subagent running）时主会话 running 是 V2 drain 合法等待
                                 // 状态——不 interrupt（否则等待后台任务的主会话被误杀，
                                 // 用户零操作被打断）。仅本地转 Idle 跟随显示。
-                                val hasActiveChildren = activeChildrenChecker(sid, sessionId)
+                                val hasActiveChildren = collaborator.hasActiveChildren(sid, sessionId)
                                 if (hasPendingUserInput || hasActiveChildren) {
                                     // pending 用户输入 / 活跃子会话：不 interrupt，也**不强转 Idle**
                                     //（2026-08-18 E2E-G 修复：原"仅本地强制 Idle"与 :150 的 active-running
@@ -638,7 +595,7 @@ class SessionStateService @Inject constructor(
                         // NEWER 方向游标（CursorCodec.encodeV2 direction=previous），
                         // 服务器返回该 id 之后的消息（limit 内）；V1 无 after/cursor
                         // 能力保持 limit=50 拉最新（协议限制，不更差）。
-                        val anchorId = latestMessageIdProvider(sessionId)
+                        val anchorId = collaborator.latestMessageId(sessionId)
                         val isV2 = sessionRepoProvider.get().getApiVersion(sid).isV2
                         val cursor = if (isV2 && anchorId != null) {
                             dev.leonardo.ocbeacon.domain.util.CursorCodec.encodeV2(
@@ -652,7 +609,7 @@ class SessionStateService @Inject constructor(
                             // 2026-08-16（F5）：补漏成功清零重试计数
                             restBackfillRetries.remove(sessionId)
                             if (page.messages.isNotEmpty()) {
-                                messageRefresher.refreshMessages(sessionId, page.messages, MergeStrategy.REST_AUTHORITY)
+                                collaborator.refreshMessages(sessionId, page.messages, MergeStrategy.REST_AUTHORITY)
                             } else if (cursor != null) {
                                 // 2026-08-16 根治（窗口外锚点静默空转）：curl 实证 V2
                                 // cursor 是服务器窗口语义——本地构造的 encodeV2 游标
@@ -666,7 +623,7 @@ class SessionStateService @Inject constructor(
                                     .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = null)
                                     .onSuccess { fallbackPage ->
                                         if (fallbackPage.messages.isNotEmpty()) {
-                                            messageRefresher.refreshMessages(sessionId, fallbackPage.messages, MergeStrategy.REST_AUTHORITY)
+                                            collaborator.refreshMessages(sessionId, fallbackPage.messages, MergeStrategy.REST_AUTHORITY)
                                         }
                                         if (BuildConfig.DEBUG) AppLogger.d(TAG, "[$sessionId] L3 fallback refresh: ${fallbackPage.messages.size} msgs")
                                     }
@@ -758,7 +715,7 @@ class SessionStateService @Inject constructor(
         // 缺失语义：本地非 Idle 但在 REST 中缺失
         for ((sessionId, state) in _fsmStates.value) {
             if (state.core !is SessionStatus.Idle && sessionId !in aggregated) {
-                aggregated[sessionId] = if (incompleteChecker.hasIncomplete(sessionId)) state.core  // 保护（SSE 可能仍在流式传输）
+                aggregated[sessionId] = if (collaborator.hasIncompleteAssistant(sessionId)) state.core  // 保护（SSE 可能仍在流式传输）
                                           else SessionStatus.Idle                                       // 缺失 = idle
             }
         }

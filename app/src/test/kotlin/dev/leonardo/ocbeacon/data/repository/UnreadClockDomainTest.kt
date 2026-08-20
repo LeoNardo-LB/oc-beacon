@@ -72,6 +72,7 @@ class UnreadClockDomainTest {
             sessionStateService = SessionStateService(
                 appScope = stateServiceScope,
                 sessionRepoProvider = Provider { mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true) },
+                collaborator = StubCollaborator(),
             ),
             settingsDataStore = settingsDataStore,
             unreadBadgeService = unreadBadgeService,

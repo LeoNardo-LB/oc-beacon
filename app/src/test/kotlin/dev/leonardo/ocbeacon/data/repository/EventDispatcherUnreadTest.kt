@@ -82,6 +82,7 @@ class EventDispatcherUnreadTest {
         sessionStateService = SessionStateService(
             appScope = stateServiceScope,
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
+            collaborator = StubCollaborator(),
         )
         settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         dispatcher = makeDispatcher()

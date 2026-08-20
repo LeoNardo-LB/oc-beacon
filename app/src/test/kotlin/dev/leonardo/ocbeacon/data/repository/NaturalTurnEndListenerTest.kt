@@ -22,9 +22,10 @@ class NaturalTurnEndListenerTest {
 
     private val testScope = TestScope(UnconfinedTestDispatcher())
 
-    private fun newService(): SessionStateService = SessionStateService(
+    private fun newService(collab: SessionStateCollaborator = StubCollaborator()): SessionStateService = SessionStateService(
         testScope,
         Provider { mockk<SessionRepository>(relaxed = true) },
+        collab,
     )
 
     @After
@@ -34,9 +35,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun busyToIdleViaSseIdleFiresListener() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         service.onClientSendParts("s1") // Idle→Busy
         service.onSseEvent(SseEvent.SessionIdle("s1"), "s1", "srv1")
@@ -46,9 +48,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun busyToIdleViaV1SessionStatusIdleFiresListener() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         service.onClientSendParts("s1")
         service.onSseEvent(SseEvent.SessionStatus("s1", SessionStatus.Idle), "s1", "srv1")
@@ -58,9 +61,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun v1DoubleSendDedupesSecondIdleDoesNotFire() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         service.onClientSendParts("s1")
         // V1 双发：session.status(idle) 先到，deprecated session.idle 后到
@@ -72,9 +76,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun manualClientAbortDoesNotFire() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         service.onClientSendParts("s1")
         service.onClientAbort("s1")
@@ -84,9 +89,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun serverIdleAfterClientAbortDoesNotFire() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         service.onClientSendParts("s1")
         service.onClientAbort("s1")
@@ -98,9 +104,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun errorTurnEndDoesNotFire() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         service.onClientSendParts("s1")
         service.onSseEvent(SseEvent.SessionError("s1", "boom"), "s1", "srv1")
@@ -110,9 +117,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun restValidationFallbackToIdleDoesNotFire() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         service.onClientSendParts("s1")
         // V2 出错 turn：无终态事件，L2/L3 兜底走 RestValidation(Idle)
@@ -123,9 +131,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun idleBaselineSseIdleWithoutBusyDoesNotFire() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         // 未经历过 Busy 的孤儿 idle 事件
         service.onSseEvent(SseEvent.SessionIdle("s1"), "s1", "srv1")
@@ -135,9 +144,10 @@ class NaturalTurnEndListenerTest {
 
     @Test
     fun nextNaturalTurnRestartsPipeline() {
-        val service = newService()
+        val collab = StubCollaborator()
+        val service = newService(collab)
         val fired = mutableListOf<Pair<String, String?>>()
-        service.naturalTurnEndListener = { sid, srv -> fired.add(sid to srv) }
+        collab.onNaturalTurnEnd = { sid, srv -> fired.add(sid to srv) }
 
         service.onClientSendParts("s1")
         service.onSseEvent(SseEvent.SessionIdle("s1"), "s1", "srv1")

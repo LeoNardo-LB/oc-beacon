@@ -42,6 +42,7 @@ class EventDispatcherTest {
         sessionStateService = SessionStateService(
             appScope = stateServiceScope,
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
+            collaborator = StubCollaborator(),
         )
 
         val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)

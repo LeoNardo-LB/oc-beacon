@@ -75,71 +75,8 @@ class EventDispatcher @Inject constructor(
     private val dispatchCounter = java.util.concurrent.atomic.AtomicLong(0L)
 
     init {
-        // SessionStateService 回调——在此接线以打破循环依赖
-        //（EventDispatcher ← SessionStateService 经由 Provider，但回调
-        // 需要 messageHandler，它位于 EventDispatcher 的作用域内）。
-        sessionStateService.incompleteChecker = IncompleteAssistantChecker { sessionId ->
-            hasIncompleteAssistant(sessionId)
-        }
-        sessionStateService.directoryResolver = DirectoryResolver { sessionId ->
-            // 2026-08-16（状态误杀修复）：directory 空串归一化为 null——空串非 null
-            // 会以空 directory header 查询 /active，服务器路由结果未定义 → 活跃
-            // 会话查不到 → 「缺失即 idle」误杀。对齐 EventDispatcher:112 的 ifBlank 防御。
-            sessionHandler.sessions.value.find { it.id == sessionId }?.directory?.ifBlank { null }
-        }
-        sessionStateService.messageForceCompleter = MessageForceCompleter { sessionId ->
-            // markSessionIdle 用客户端 now 标记 UI 流式终止，但不写入红点时间源
-            //（红点判定只用服务器时刻 event.time.completed，见 processEvent 增量块）。
-            messageHandler.markSessionIdle(sessionId)
-            // 落盘兜底：idle 到达时，前序 MessageUpdated(completed) 已更新内存红点时间源，
-            // 此刻触发落盘确保杀进程不丢。旧为 runBlocking 同步写，现委托 UnreadBadgeService 异步写
-            //（seed 恢复兜底，有界丢失窗口：毫秒级）。
-            unreadBadgeService.persistAsync()
-        }
-        // 2026-08-16 根治：透传合并策略——SSE 断连窗口补漏用 SSE_PRIORITY
-        //（不覆盖 SSE 累积流式文本），L3 校验保持 REST_AUTHORITY。
-        sessionStateService.messageRefresher = object : MessageRefresher {
-            override fun refreshMessages(sessionId: String, messages: List<MessageWithParts>, strategy: MergeStrategy) {
-                messageHandler.upsertMessages(sessionId, messages, strategy)
-            }
-        }
-        // #55：L3 校验增量补漏的游标锚点——本地最新消息 id（V2 NEWER 方向增量拉取）
-        sessionStateService.latestMessageIdProvider = { sessionId ->
-            messageHandler.messages.value[sessionId]?.maxByOrNull { it.time.created }?.id
-        }
-        // 2026-08-14 走查修复（僵尸误杀防护）：该会话有等待用户输入的
-        // pending question/permission 时，服务器合法运行中（等待用户回答），
-        // 僵尸判定不得 interrupt（否则 >3 分钟未回答即被误杀）。
-        sessionStateService.pendingUserInputChecker = { sessionId ->
-            questionHandler.questions.value[sessionId]?.isNotEmpty() == true ||
-                permissionHandler.permissions.value[sessionId]?.isNotEmpty() == true
-        }
-        // 2026-08-15（僵尸误杀修复·二）：该会话有活跃子会话（parentID 指向它
-        // 且服务器 running）时不得 interrupt——V2 drain 语义下等待后台任务的
-        // 主会话自身无事件流（子会话事件的 sessionID 不是父会话），3 分钟
-        // 静默会被误判僵尸。用会话缓存的 parentID + 服务器 /active 对照：
-        // triggerRestValidation 已拉过该 directory 的全量状态 map，此处复用
-        // 同一数据源（fetchSessionStatuses）避免双倍请求。
-        sessionStateService.activeChildrenChecker = { serverId, sessionId ->
-            kotlinx.coroutines.runBlocking {
-                // 子会话候选：会话缓存中 parentID 指向本会话的
-                val children = sessionHandler.sessions.value
-                    .filter { it.parentId == sessionId }
-                if (children.isEmpty()) return@runBlocking false
-                // 服务器侧确认任一子会话 running 才算活跃（缓存可能滞后）
-                val directory = children.firstNotNullOfOrNull { it.directory.ifBlank { null } }
-                val statuses = sessionRepoProvider.get()
-                    .fetchSessionStatuses(serverId, directory).getOrNull() ?: return@runBlocking false
-                children.any { statuses[it.id] is dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy }
-            }
-        }
-        // 堆积消息管线（2026-08-20 设计定稿）：eager 构造 + 接线自然成功
-        // turn 结束监听。Pipeline 经 Provider 注入（其内部 SendMessageUseCase
-        // → ChatRepositoryImpl → EventDispatcher 循环由 Provider 延迟解析打破）。
-        val pendingPipeline = pendingMessagePipelineProvider.get()
-        sessionStateService.naturalTurnEndListener = { sessionId, serverId ->
-            pendingPipeline.onNaturalTurnEnd(sessionId, serverId)
-        }
+        // #174：SessionStateService 的 8 个 FSM 回调已收进 SessionStateCollaboratorImpl
+        //（构造注入，漏接=编译错误）；本 init 只保留跨 handler 事件桥接（EventDispatcher 本职）。
         // 2026-08-15（research/11 P1）：session.next.moved → 更新会话缓存
         // directory（对齐官方 TUI 增量更新；无 sessionHandler 依赖倒置问题）
         sessionNextHandler.sessionMovedListener = { sessionId, location, subdirectory ->
