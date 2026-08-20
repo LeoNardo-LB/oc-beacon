@@ -1655,7 +1655,7 @@
 
 
 - [~] **新增 P3：Room 缓存行 tokens 持久化缺口（token 图标修复的残留，2026-08-19 f37f482d 顺带发现）** `data` `storage`
-  - **2026-08-20 修复完成（c71ac4ec，方向 A）**：upsertSsePriority 合并时 CAS 内对比 assistant 行 tokens/cost（null→值 视为变更），变更行经既有 persistSseUpdate→persistQueue 增量落库；节流=变更检测本身（值未变 0 写库；SSE_PRIORITY 仅 REST 快照触发，不在 48ms delta 路径）。新增 4 测试（null→值触发/值未变不重写/无变化行 0 写/流式整行写不增加），全量 1756 绿；真机 E2E 复验进行中（冷启动瞬间图标 + Room payload 直查）
+  - **2026-08-20 修复完成（c71ac4ec，方向 A）**：upsertSsePriority 合并时 CAS 内对比 assistant 行 tokens/cost（null→值 视为变更），变更行经既有 persistSseUpdate→persistQueue 增量落库；节流=变更检测本身（值未变 0 写库；SSE_PRIORITY 仅 REST 快照触发，不在 48ms delta 路径）。新增 4 测试（null→值触发/值未变不重写/无变化行 0 写/流式整行写不增加），全量 1756 绿。**真机 E2E 复验 PASS（2026-08-20，/tmp/tokverify/）**：Room 直查 assistant 行 tokens 落库 44/45（唯一例外为无正文元数据空壳行，tokens:null=0）+ payload 摘录 tokens:{input:130656,...}；落库链路日志完整（seed 107 → L3 REST refresh → reconciled → Room）；冷启 tap+0.65~0.9s 顶栏 context 圆环已在位（双视觉模型 + 像素检测互证）；历经冷启+离线循环后 13:01 终验仍 44/45 稳定；logcat 19.1 万行 FATAL=0
   - 现象：V2MessageMapper 补 tokens 映射后（f37f482d），重进会话 UI 图标恢复（REST→内存→UI 链通），但 Room cached_messages 的 assistant 行 tokens 仍为 null（新产生的消息实测同样）
   - 链路分析：REST refresh 走 upsertSsePriority 只更新内存（_messages/_parts），不触发 Room 重写；Room 写入仅在 SSE persistSseUpdate（handleMessageUpdated/delta flush）窗口——重进后的 REST 数据不落库
   - 影响：冷启动/离线瞬间统计图标短暂缺失（REST 成功后立即恢复）；在线使用全程可见。低优先级
