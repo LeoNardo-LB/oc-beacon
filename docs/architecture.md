@@ -33,7 +33,9 @@ service/         Android 前台服务
 ui/
   theme/              设计令牌系统（详见 docs/ui-conventions.md）
   screens/chat/      ChatScreen（核心聊天 UI）+ 7 个子包
-    components/      聊天 UI 组件
+    components/      聊天 UI 组件 + RenderSupplyCoordinator（渲染供给：视口预解析/
+                     分片时机决策的纯 Kotlin 模块，2026-08-21 从 ChatMessageList
+                     外移；术语见根目录 CONTEXT.md，JVM 单测覆盖）
     dialog/          图片预览、markdown 预览对话框
     input/           消息输入栏
     markdown/        Markdown 渲染

@@ -38,6 +38,33 @@ UseCase 层核查结论：维持 Option B 但冻结——22/25 纯转发（~486 
 - Q7 迁移=B：三段式（外移壳与状态→收编门控→测试），每步编译+commit（ChatScreen 编辑协议同款循环）；真机最小走查=长消息滚动+跳转×2+130K 消息
 - Q8 命名=A：RenderSupplyCoordinator（渲染供给协调器；概念名抗机制老化）；Q9 位置=A：components/（类型伙伴所在）；Q10=A：建 CONTEXT.md（已建，3 术语）；Q11=A：常量随迁 companion、RaceProbe 探针原样随迁（重构当天 logcat 前后 diff 即等价性证据）
 
-## 候选 1 实现记录
+## 候选 1 实现记录（2026-08-21 完成，待用户验收）
 
-（进行中——阶段 1/2/3 证据随做随记）
+### 提交链（三段式，每段独立编译 + commit）
+
+| 阶段 | commit | 内容 |
+|------|--------|------|
+| 1 外移壳与状态 | cb0143f8 | ChatMessageList ~193 行驱动 LaunchedEffect → RenderSupplyCoordinator（纯 Kotlin）；chunkPlans/recentStreamedTurnKeys 只读 StateFlow；pendingChunkPlans 私有；JNC 相位流可注入（默认自建） |
+| 2 收编跳转门控 | 28ccee24 | lastJumpEndAtMillis 跨 effect 共享变量收编为模块私有（init 内 collectLatest 终态打点 + 注入 clock）；RenderSupplyWorld 瘦身 |
+| 3 JVM 测试 | 6f5bb63f | RenderSupplyCoordinatorTest 10 条（真实 registry + 真实 markdown 解析 + 假时钟非零基） |
+
+ChatMessageList 1671 → ~1500 行；五条隐含约束从注释升级为模块不变量。
+
+### 验证证据（2026-08-21 真机 houji e69a99d8）
+
+**自动化（新鲜执行）**：
+- compileDevDebugKotlin ×3 全绿（阶段 1/2/3 各一次）
+- 全量单测 --rerun：**1792 通过 / 0 失败 / 0 跳过**（含新增 10 条：流式禁预解析/供给正控/display 粒度窗口/LRU 联动淘汰/门控-相位/门控-稳定窗口（注入时钟 +2s 边界）/F1 partId 反查/F2 视口内防线/C-R4c 陈旧丢弃（反证 pending 清空）/流式 turn 记录与清理）
+- assembleDevDebug 成功；pm install 静默装包成功；adb reverse + debug intent 一键配置成功（Debug channel activated）
+
+**真机 E2E（租房会话，21 条消息）**：
+- 进会话正常；RaceProbe（--ez debug_race true）全链活：**VIEW window 13+ 次实时输出**（窗口 0..6→6..10 推进），ENTRIES rebuild 正常，ScrollDiag gesture/LEAP 正常（idx 0→10 深滚 offset 13614，无卡死）
+- 快速定位 sheet 正常（8 目标）；**跳转 ×2**（JUMP start 计数 2；Preparing→测量→底部定位全链 ChatPaging 日志）
+- 回底滚动正常；**crash buffer 空**（31 条 AndroidRuntime 全是 uiautomator shell 工具自身启停，uid 2000）
+
+**覆盖缺口（如实标注）**：
+- ⚠️ 真机 CHUNK plan/commit 探针：本服务器 50 会话均无 ≥3000 字符 assistant text part（API 全量扫描证实；历史 130K 数据已清理；测试服务器 LLM 链路不可用——prompt 200 但 4 分钟无输出，deepseek 无凭据），无法在真机端到端触发。该路径由 T5-T9 五条 JVM 单测以**真实 markdown 解析**全链覆盖（plan→pending→双门控→F1/F2→commit/drop-stale）。
+- ⚠️ 130K 消息场景：同上无数据。
+- ⏳ 维度 5（滚动手感/跳转观感）：待用户真机验收。
+
+**测试副作用**：服务器遗留空会话「分片E2E验收」（ses_fdeec5901ffe619NStxfewTCjB，无生成内容），可忽略或删除。

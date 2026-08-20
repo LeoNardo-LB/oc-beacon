@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#176**。
+**编号**：全局递增，不回收。下一编号：**#177**。
 
 **优先级定义**：
 
@@ -46,8 +46,9 @@
 
 > 架构评审批次（2026-08-21，用户定 P0）：六候选 + 顺手清理，证据与设计定案全在 journal。#169 本批次实现，其余排队。
 
-- [ ] **#169 架构评审候选 1：抽出渲染供给协调器 RenderSupplyCoordinator** `refactor` `ui`
-  - ChatMessageList ~190 行视口→预解析+分片 LaunchedEffect 外移为纯 Kotlin 模块（窄接口 + 相位/时钟注入）；五条隐含约束收进 implementation，9 条 JVM 测试钉死历史竞态根因；grilling Q1-Q11 已定案
+- [~] **#169 架构评审候选 1：抽出渲染供给协调器 RenderSupplyCoordinator——已实现，待用户真机验收** `refactor` `ui`
+  - 三段式落地（cb0143f8/28ccee24/6f5bb63f）：~193 行驱动外移纯 Kotlin 模块 + 跳转门控收编 + 10 条 JVM 测试；1792 全量单测通过；真机 E2E 预解析窗口/跳转×2/crash 空
+  - 待用户验收：滚动手感 + 跳转观感（维度 5）；真机分片探针因服务器无 ≥3000 字符数据未触发（单测已全链覆盖，见 journal 覆盖缺口节）
   - → `docs/journal/2026-08-21-arch-review-deepening.md` · `CONTEXT.md`
 
 - [ ] **#170 架构评审候选 2：每服务器连接生命周期 module（teardown 单入口）** `refactor`
