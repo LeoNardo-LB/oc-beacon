@@ -51,7 +51,9 @@ class JumpPrefetchStrategy : LazyListPrefetchStrategy {
         /** 快速拖动窗口 */
         const val PREFETCH_AHEAD_FAST_DRAG = 3
 
-        /** 慢速拖动窗口（120Hz 帧预算下的预算保护） */
+        /** 慢速拖动窗口（A/B 实测 2026-08-20：0 与 1 均不改变 anim 相位爆发
+         * ——爆发源是每轮手势的周期性重组而非预取，见 PerfMon 相位数据；
+         * 取 1 保持与 47edb53c 行为一致，待重组源修复后复评） */
         const val PREFETCH_AHEAD_SLOW_DRAG = 1
 
         /** 判定为 fling 的速度阈值（px/s）——SafeFlingBehavior 限速后典型 5k-30k */

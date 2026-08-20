@@ -45,6 +45,12 @@ internal class ChatPerfMonitor(
     private var lastJankLogNanos = 0L
     private var lastHudUpdateNanos = 0L
 
+    // 稳态采样（2026-08-20）：慢拖场景 60% 帧稳定超预算但达不到 2x jank 门槛，
+    // 这批帧恰是残余卡顿主体——每 2s 输出窗口摘要 + 期间最差帧的相位分解
+    private var lastSteadyLogNanos = 0L
+    private var worstSinceSteadyMs = 0.0
+    private var worstPhases = DoubleArray(7)
+
     data class HudData(
         val fpsEstimate: Int = 0,
         val p50Ms: Double = 0.0,
@@ -84,6 +90,18 @@ internal class ChatPerfMonitor(
         val totalMs = totalNs / 1_000_000.0
         val jank = statsWindow.record(totalMs)
 
+        // 追踪期间最差帧及其相位（稳态采样数据源）
+        if (totalMs > worstSinceSteadyMs) {
+            worstSinceSteadyMs = totalMs
+            worstPhases[0] = metrics.getMetric(FrameMetrics.INPUT_HANDLING_DURATION) / 1e6
+            worstPhases[1] = metrics.getMetric(FrameMetrics.ANIMATION_DURATION) / 1e6
+            worstPhases[2] = metrics.getMetric(FrameMetrics.LAYOUT_MEASURE_DURATION) / 1e6
+            worstPhases[3] = metrics.getMetric(FrameMetrics.DRAW_DURATION) / 1e6
+            worstPhases[4] = metrics.getMetric(FrameMetrics.SYNC_DURATION) / 1e6
+            worstPhases[5] = metrics.getMetric(FrameMetrics.GPU_DURATION) / 1e6
+            worstPhases[6] = metrics.getMetric(FrameMetrics.SWAP_BUFFERS_DURATION) / 1e6
+        }
+
         val now = System.nanoTime()
         if (now - lastHudUpdateNanos > 500_000_000L) {
             lastHudUpdateNanos = now
@@ -103,6 +121,25 @@ internal class ChatPerfMonitor(
         if (jank && totalMs > frameBudgetMs * 2 && now - lastJankLogNanos > 250_000_000L) {
             lastJankLogNanos = now
             logJankBreakdown(metrics, totalMs)
+        }
+
+        // 稳态采样：窗口超预算占比 >25% 时每 2s 一条（解剖"稳定 9ms"之谜）
+        if (now - lastSteadyLogNanos > 2_000_000_000L) {
+            val s = statsWindow.snapshot()
+            if (s.frames >= 30 && s.overBudgetPct > 25.0) {
+                lastSteadyLogNanos = now
+                fun f(v: Double) = String.format("%.1f", v)
+                AppLogger.w(
+                    TAG,
+                    "STEADY p50=" + f(s.p50) + " p95=" + f(s.p95) + " over=" + f(s.overBudgetPct) + "%" +
+                        " worst=" + f(worstSinceSteadyMs) + "ms[" +
+                        "in=" + f(worstPhases[0]) + " anim=" + f(worstPhases[1]) +
+                        " lay=" + f(worstPhases[2]) + " draw=" + f(worstPhases[3]) +
+                        " sync=" + f(worstPhases[4]) + " gpu=" + f(worstPhases[5]) +
+                        " swap=" + f(worstPhases[6]) + "]",
+                )
+            }
+            worstSinceSteadyMs = 0.0
         }
     }
 
