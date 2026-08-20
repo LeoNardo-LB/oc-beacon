@@ -200,3 +200,31 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 
 **Q171-2/3 落定**：用户在收到白话讲解后未再作答，转而下达继续实施的总纲——按其本批次一贯"按推荐"模式落定 **Q2=A（切断消费侧）+ Q3=A（事件对象）**。至此 23/23 全部定案。
 
+（补记：用户随后显式确认 "Q172-1 选A；Q171-2选A；Q171-3选A"——三题从按推荐落定升级为显式定案。）
+
+## #171（候选 3）实现记录（2026-08-21 完成，真机 E2E 全绿）
+
+### 提交链（三段式，每段独立编译 + commit）
+
+| 阶段 | commit | 内容 |
+|------|--------|------|
+| 1 泄漏封死 | a048b1ea + 2231d301 | UnreadEvent sealed（ServerMessageCompleted/RestSnapshot 服务器时刻；SessionErrorOccurred 客户端时刻=签名上的显式例外）+ onEvent 事件入口（旧 3 方法 @Deprecated 转发零破坏）；EventDispatcher 漏斗 recompute 从**载荷参数**提取（不再扫合并缓存）；新 seedCachedMessages 纯缓存入口——ChatRepositoryImpl Room 种子（:101）改走此路，DB 回环（markSessionIdle 客户端戳落盘→回读）结构性封死 |
+| 2 已读侧吸收 | 941f17f8 | SessionReadSignal 删除（33 行）；模块增 justRead/mergedReadTimes(持久∥内存 max 合并)/allReadAt/markSessionRead(读自身水位线，无记录 no-op)/markAllSessionsRead(globalMax #184 语义保持)；持久化走 ApplicationScope（比 VM 活得久——原 NonCancellable+viewModelScope 的语义强化）；判定 isUnread 迁模块 companion（Builder 保留转发）；SessionListViewModel settingDataFlow 4→3 源单源化；ChatViewModel.markSessionRead 26 行→3 行（泄漏入口 3 消灭）；17 文件 +162/−131 |
+| 3 域纯度测试 | a33d0d27 | UnreadClockDomainTest 6 条：seedCachedMessages 不喂水位线（DB 回读污染反例）/upsert 载荷提取/缓存污染不干扰（若实现退化为扫缓存 max 会得 999_999 的回归守卫）/SessionError 客户端时刻例外通道/markSessionRead 无水位线 no-op/判定门控。测试自身 scope 泄漏修复（stateServiceScope.cancel——曾致 ContextTokensTest 同 JVM 时序失败） |
+
+### 验证证据（2026-08-21 真机 houji e69a99d8，pm install + debug intent）
+
+**自动化**：compileDevDebugKotlin 每段绿；全量单测 1808（含 +6 新测试）：**7 次全量 6 绿 1 败**——败者归属 XML 被覆盖未取到且不复现，模式与 #170 记录的 ChatViewModelContextTokensTest·compaction 低频时序 flake 一致（基线时代已存在；本改动后 6/7 绿，如实标注）。Unread 三套既有测试（UnreadBadgeServiceTest/EventDispatcherUnreadTest/EventDispatcherTest）阶段 1 后即零破坏全绿。
+
+**真机 E2E（红点四态 + 双持久化）**：
+1. **红点出现**：56 会话水位线 seed（persist 日志）→ 列表 8 个「有未读消息」徽标（新判定链路 UnreadBadgeService.isUnread → SessionItem.hasUnread）
+2. **消费消除**：进「堆积队列消息发送延迟」→ BACK → 8→7，目标行徽标消失（markSessionRead 读模块水位线 + 内存信号即时）
+3. **冷启动持久化**：force-stop 重启 → 已消费会话保持消除；恢复进入的会话退出后 7→6（ChatViewModel.markSessionRead 新链路二次实证）
+4. **一键已读**：更多菜单「一键已读」→ 6→0（markAllSessionsRead 模块单点）→ force-stop 重启 → **保持 0**（allReadAt 落盘）
+- crash buffer 0 条；UnreadDiag persist 活跃（7 次）；连接幂等真实触发再现（"Already connected … skipping"）
+
+**覆盖缺口（如实标注）**：
+- ⚠️ SessionErrorOccurred 红点（错误产生未读）真机无触发手段（需会话真实报错）——JVM 用例 4 覆盖（断言客户端时刻落入 [before, after] 窗口）
+- ⏳ 维度 5（红点观感/列表滚动无闪烁）：待用户验收
+- 测试 flake 残余：ContextTokensTest 时序脆弱为既有问题（#170 已记录），本批次未修复（非 #171 引入）
+

@@ -51,8 +51,9 @@
   - 真机 E2E 四场景过：连接（幂等真实触发）/断开/重连/飞行模式恢复（SSE 自愈）；待用户验收 UI 状态观感（维度 5）
   - → `docs/journal/2026-08-21-arch-review-deepening.md` · `CONTEXT.md`
 
-- [ ] **#171 架构评审候选 3：未读红点时钟域收进 interface** `refactor` `data`
-  - 三条铁律散 3 层 6 文件 + 静默泄漏路径（markSessionIdle 客户端 now 混入服务器域水位线）——单一 Unread module，interface 喂事件不喂裸时间戳
+- [~] **#171 架构评审候选 3：未读红点时钟域收进 interface——已实现，真机 E2E 全绿，待用户验收** `refactor` `data`
+  - 三段式（a048b1ea/2231d301/941f17f8/a33d0d27）：UnreadEvent 事件化封死客户端时钟域泄漏（漏斗载荷提取 + DB 回环 seedCachedMessages 隔离）；已读侧全吸收（Signal 删除/判定入模块）；1808 单测 + 真机红点四态+双持久化全绿
+  - ⏳ 维度 5（红点观感）待验收；错误红点真机无触发手段（JVM 覆盖）
   - → `docs/journal/2026-08-21-arch-review-deepening.md`
 
 - [ ] **#172 架构评审候选 4：V1/V2 seam 按域翻转（79 决策点 → 7+1）** `refactor`
