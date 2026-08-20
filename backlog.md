@@ -1654,7 +1654,8 @@
 - **全程 FATAL=0、crash buffer 0 字节**；服务器配置 diff=0 复验
 
 
-- [ ] **新增 P3：Room 缓存行 tokens 持久化缺口（token 图标修复的残留，2026-08-19 f37f482d 顺带发现）** `data` `storage`
+- [~] **新增 P3：Room 缓存行 tokens 持久化缺口（token 图标修复的残留，2026-08-19 f37f482d 顺带发现）** `data` `storage`
+  - **2026-08-20 修复完成（c71ac4ec，方向 A）**：upsertSsePriority 合并时 CAS 内对比 assistant 行 tokens/cost（null→值 视为变更），变更行经既有 persistSseUpdate→persistQueue 增量落库；节流=变更检测本身（值未变 0 写库；SSE_PRIORITY 仅 REST 快照触发，不在 48ms delta 路径）。新增 4 测试（null→值触发/值未变不重写/无变化行 0 写/流式整行写不增加），全量 1756 绿；真机 E2E 复验进行中（冷启动瞬间图标 + Room payload 直查）
   - 现象：V2MessageMapper 补 tokens 映射后（f37f482d），重进会话 UI 图标恢复（REST→内存→UI 链通），但 Room cached_messages 的 assistant 行 tokens 仍为 null（新产生的消息实测同样）
   - 链路分析：REST refresh 走 upsertSsePriority 只更新内存（_messages/_parts），不触发 Room 重写；Room 写入仅在 SSE persistSseUpdate（handleMessageUpdated/delta flush）窗口——重进后的 REST 数据不落库
   - 影响：冷启动/离线瞬间统计图标短暂缺失（REST 成功后立即恢复）；在线使用全程可见。低优先级
@@ -1708,6 +1709,15 @@
   - ① busy 气泡菜单：点击置灰项（附件堆积）时 Popup 直接 dismiss（无 ripple 无动作）——与「点外部关闭」语义略异但无害，属 Q11 关闭行为的边缘 case；真机验收时顺带感受，不适再调
   - ② 服务器 /api/session/{id}/message 返回顺序非时间序且固定 50 条页大小——E2E 脚本断言需按 time.created 排序后取最新（测试基建备忘，已写入本批 E2E 任务书经验）
 
+## 2026-08-20 真机滚动稳定性批次（卡顿 + fling 下跳根治）
+
+- [~] **真机滚动两问题：①滑过气泡卡顿 ②fling 下跳（长 agent 回复稳定复现）——已修 f03a89d5** `ui` `perf`
+  - 用户报告（2026-08-20 真机）：上下滑动经过消息气泡（无论类型）卡顿；fling 下跳，长回复基本稳定复现
+  - **取证（ScrollDiag 插桩 + 逐帧视频模板匹配 + gfxinfo）**：根因链 = mikepenz markdown 异步解析 → 长回复初次组合仅测得占位高度（412px）→ 解析完成暴涨（412→16746px，RESIZE logcat 实证）→ LazyColumn 锚点修正 → fling 中视口瞬移 1.4 万 px（=「下跳」）；16k px 布局单帧完成 = 卡顿帧（gfxinfo 93ms 帧实证）。另实证：解析跑在主线程（parseMarkdownFlow 无 flowOn），16KB 文本阻塞 100ms+ 打断拖拽；修复前 fling 90-300ms 即被杀
+  - **修复（f03a89d5，三件套）**：① 滚动预解析驱动——视口 ±8 项 assistant 长文本（≥200 字符）提前后台解析（RenderReadinessRegistry，key=part.id，LRU 32），消费端组合时取 Parsed state 直接渲染（首测即最终高度）；② SafeFlingBehavior 限速 fling——每帧 ≤ 视口高/8（carry 保总距离）；③ preParse flowOn(Default) 移出主线程
+  - **真机验证（对照基线）**：RESIZE 11→0（5 次定向 fling）；fling 存活 90-300ms→自然跑满 2s（位移 6300-6800px 与 v0/friction 物理吻合）；视频逐帧 DISCONT 6 处异常（停稳后 -390px 瞬移/减速中 -458px 暴冲）→0 处异常（仅剩正常起步加速）；janky 1.18% p90=7ms p99=65ms；全量单测绿
+  - ⚠️ 待用户验收：滚动手感（限速档位/预解析距离可调）
+  - **基建**：ScrollDiag 插桩保留（DEBUG-only：位置 LEAP/手势/RESIZE/补偿触发）——后续滚动问题真机取证直接复用
 ## 2026-08-20 主对话抽屉高度统一批次（min = max = 75% 屏高）
 
 - [~] **主对话抽屉屏占比高度统一——最小/最大高度统一为 75%** `ui`
