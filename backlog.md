@@ -1655,7 +1655,7 @@
 
 
 - [~] **新增 P3：Room 缓存行 tokens 持久化缺口（token 图标修复的残留，2026-08-19 f37f482d 顺带发现）** `data` `storage`
-  - **2026-08-20 修复完成（c71ac4ec，方向 A）**：upsertSsePriority 合并时 CAS 内对比 assistant 行 tokens/cost（null→值 视为变更），变更行经既有 persistSseUpdate→persistQueue 增量落库；节流=变更检测本身（值未变 0 写库；SSE_PRIORITY 仅 REST 快照触发，不在 48ms delta 路径）。新增 4 测试（null→值触发/值未变不重写/无变化行 0 写/流式整行写不增加），全量 1756 绿。**真机 E2E 复验 PASS（2026-08-20，/tmp/tokverify/）**：Room 直查 assistant 行 tokens 落库 44/45（唯一例外为无正文元数据空壳行，tokens:null=0）+ payload 摘录 tokens:{input:130656,...}；落库链路日志完整（seed 107 → L3 REST refresh → reconciled → Room）；冷启 tap+0.65~0.9s 顶栏 context 圆环已在位（双视觉模型 + 像素检测互证）；历经冷启+离线循环后 13:01 终验仍 44/45 稳定；logcat 19.1 万行 FATAL=0
+  - **2026-08-20 修复完成（c71ac4ec，方向 A）**：upsertSsePriority 合并时 CAS 内对比 assistant 行 tokens/cost（null→值 视为变更），变更行经既有 persistSseUpdate→persistQueue 增量落库；节流=变更检测本身（值未变 0 写库；SSE_PRIORITY 仅 REST 快照触发，不在 48ms delta 路径）。新增 4 测试（null→值触发/值未变不重写/无变化行 0 写/流式整行写不增加），全量 1756 绿。**真机 E2E 复验 PASS（2026-08-20，/tmp/tokverify/）**：Room 直查 assistant 行 tokens 落库 44/45（唯一例外为无正文元数据空壳行，tokens:null=0）+ payload 摘录 tokens:{input:130656,...}；落库链路日志完整（seed 107 → L3 REST refresh → reconciled → Room）；冷启 tap+0.65~0.9s 顶栏 context 圆环已在位（双视觉模型 + 像素检测互证）；历经冷启+离线循环后 13:01 终验仍 44/45 稳定；logcat 19.1 万行 FATAL=0。附带观察：离线时顶栏圆环隐藏系 contextWindow 依赖 /api/provider 会话级 REST（ChatViewModel.kt:568-571 已声明可接受）——与 tokens 缓存无关；若期望离线也显示圆环需将 contextWindow 纳入本地持久化（见下条 P3）
   - 现象：V2MessageMapper 补 tokens 映射后（f37f482d），重进会话 UI 图标恢复（REST→内存→UI 链通），但 Room cached_messages 的 assistant 行 tokens 仍为 null（新产生的消息实测同样）
   - 链路分析：REST refresh 走 upsertSsePriority 只更新内存（_messages/_parts），不触发 Room 重写；Room 写入仅在 SSE persistSseUpdate（handleMessageUpdated/delta flush）窗口——重进后的 REST 数据不落库
   - 影响：冷启动/离线瞬间统计图标短暂缺失（REST 成功后立即恢复）；在线使用全程可见。低优先级
@@ -1712,6 +1712,10 @@
   - ① busy 气泡菜单：点击置灰项（附件堆积）时 Popup 直接 dismiss（无 ripple 无动作）——与「点外部关闭」语义略异但无害，属 Q11 关闭行为的边缘 case；真机验收时顺带感受，不适再调
   - ② 服务器 /api/session/{id}/message 返回顺序非时间序且固定 50 条页大小——E2E 脚本断言需按 time.created 排序后取最新（测试基建备忘，已写入本批 E2E 任务书经验）
 
+- [ ] **新增 P3：离线时顶栏 context 圆环隐藏（contextWindow 仅存内存、依赖会话级 REST，2026-08-20 tokens E2E 复验顺带发现）** `data` `ui`
+  - 现象：移除网络后进会话，消息正文/统计行从 Room 完整渲染，但顶栏 context 圆环不显示——showContext 要求 contextWindow>0 且 lastContextTokens>0，前者来自 /api/provider 等会话级 REST（离线全败），无本地持久化
+  - 现状定性：ChatViewModel.kt:568-571 注释已声明该隐藏为可接受行为（非缺陷）；仅当用户期望离线可见时才需做——方向：contextWindow 随会话元数据落库
+  - 工时：~2h | 难度：低 | 涉及：ChatViewModel / 会话元数据存储 | 优先级：P3
 ## 2026-08-20 真机滚动稳定性批次（卡顿 + fling 下跳根治）
 
 - [~] **真机滚动两问题：①滑过气泡卡顿 ②fling 下跳（长 agent 回复稳定复现）——已修 f03a89d5** `ui` `perf`
