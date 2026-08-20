@@ -1728,6 +1728,22 @@
   - ⚠️ 待用户验收：真机手感复验（GKD 开/关两种状态）——尤其巨型消息会话的 fling
   - **基建沉淀**：/tmp/perf/*（frameparse.py 逐帧分解、phases.py 相位分解、perfetto trace-config + base64 直装法、drag/fling 场景脚本）+ 子代理报告（fling 根因含库源码核对路径 /tmp/mdn-src、a11y 备选方案评估）
 
+- **a11y 子代理报告附带发现（2026-08-20 登记，只登记不实现）**：
+  - [ ] **P3：AssistantTurnBubble.kt 疑似死代码（全库无调用点）** `refactor`
+    - 子代理语义树调查时确认：MessageCardAssistant.kt 是唯一气泡实现，AssistantTurnBubble 无调用方；清理前需全库 grep 复核（含 test）
+    - 工时：~0.5h | 难度：低 | 涉及：AssistantTurnBubble.kt | 优先级：P3
+  - [ ] **P3：clickableMarkdown 的 CodePath 点击仅 pointerInput——TalkBack 不可达** `a11y`
+    - Markdown 代码块路径的点击处理是纯 pointerInput（无 semantics onClick 动作），TalkBack 用户无法触发；修复方向：补 semantics { onClick } 或 clickable 语义
+    - 工时：~1h | 难度：低 | 涉及：ClickableMarkdown.kt | 优先级：P3
+  - [ ] **P3：CompactionCard combinedClickable 空 onClick——朗读为可点击但无动作** `a11y`
+    - 朗读器宣布可点击，实际点击无动作（空 lambda）；修复方向：给 a11y 动作或改为非交互展示
+    - 工时：~0.5h | 难度：低 | 涉及：CompactionCard | 优先级：P3
+  - [ ] **P2（可选实验，带中止判据）：长文本 Part 级 semantics merge** `perf` `a11y`
+    - 唯一有机制优势的 GKD 税缓解变体：失效 containment（流式只重建单 part 而非整气泡）、标签栏/statsBar 保持独立节点。仅已完成长文本 part、流式 part 不加；交错 A/B 验证——GKD 关 p50 回退 >2ms 或 p95 改善 <15% 即 abort（气泡级 merge 实测仅 ~10% 且有流式隐患，Part 级预期相近）
+    - 工时：~3h | 难度：中 | 涉及：PartContent/MarkdownContent | 优先级：P2
+  - **文档建议（零代码风险）**：FAQ/README 注明 GKD 用户可将本 App 加入排除规则（gkd.li/guide/faq 规则级排除）或使用时暂停服务——直接消除查询侧主成本；随下次文档批次落地
+
+
 ## 2026-08-20 真机滚动稳定性批次（卡顿 + fling 下跳根治）
 
 - [~] **真机滚动两问题：①滑过气泡卡顿 ②fling 下跳（长 agent 回复稳定复现）——已修 f03a89d5** `ui` `perf`
