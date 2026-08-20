@@ -89,6 +89,9 @@ android {
 
     buildTypes {
         debug {
+            // 2026-08-20 实验结论（已回退）：R8 on debug（+去 LeakCanary）实测
+            // S1 p50 9.56ms vs 无 R8 9.18ms——JIT/混淆不是中位帧成本主因，
+            // 真实工作量在每帧 measure+draw（见 /tmp/perf-round2/s1r8.pftrace）
         }
         release {
             isMinifyEnabled = true
@@ -151,6 +154,9 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    // 2026-08-20 第二轮滚动卡顿：Perfetto 重组追踪（debug 直用合法，BOM 免版本）
+    // ——compose:recompose 节点带上可读 scope 名，定位 S1 慢拖 63.5% 重组热点
+    debugImplementation("androidx.compose.runtime:runtime-tracing")
 
     // #106-1 工具链治理：LeakCanary 泄漏检测（仅 debug 变体打包，release 零依赖零开销）
     // WebView/Activity/Fragment 泄漏首捕工具——#93 类问题的持续防线
