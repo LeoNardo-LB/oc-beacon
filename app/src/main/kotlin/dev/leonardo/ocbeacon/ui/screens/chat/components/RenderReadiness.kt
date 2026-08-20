@@ -8,9 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * 渲染就绪信号（架构根治 2026-08-13）。
@@ -27,9 +25,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * - [Ready]：解析完成 + 布局稳定（携带最终高度——消费方直接精确定位）
  * - [Failed]：解析失败
  *
- * 消息组件（渲染层）上报状态；消费方（定位滚动、高亮、未来逻辑）通过
- * [RenderReadinessRegistry.awaitReady] 挂起等待，拿到最终高度后直接执行——
- * 不再轮询、不再补偿。
+ * 2026-08-21 卫生（D-11-4）：渲染层上报链（update/Ready）与 awaitReady 挂起
+ * 等待均无消费者（跳转状态机经 phase 驱动，不读 Ready）——已删除。当前
+ * 唯一生产者 = preParse（滚动预解析驱动）；消费者 = flow()/current()。
  */
 sealed interface RenderReadiness {
     data object Pending : RenderReadiness
@@ -52,10 +50,10 @@ sealed interface RenderReadiness {
  * 渲染就绪注册表——消息级就绪信号的唯一真相源。
  *
  * - [flow]：订阅某消息的就绪信号（组合中 collectAsState 驱动门控展示）
- * - [update]：渲染层上报状态
- * - [preParse]：跳转/预加载时提前后台解析（parseMarkdownFlow 先行——
- *   消息组件组合时直接用已解析 State 渲染，内容即最终状态，无骤变）
- * - [awaitReady]：挂起等待渲染完成（返回 Ready——含最终高度），供定位消费
+ * - [preParse]：预加载时提前后台解析（parseMarkdownFlow 先行——消息组件
+ *   组合时直接用已解析 State 渲染，内容即最终状态，无骤变）
+ * - [remove]：消息组件销毁/LRU 淘汰时注销（#98 防无界增长）
+ *（2026-08-21 卫生：update/awaitReady 无消费者已删——D-11-4）
  */
 class RenderReadinessRegistry {
     // 2026-08-20 滚动卡顿根因修复：快照 Map（mutableStateMapOf）的读依赖是
@@ -69,10 +67,6 @@ class RenderReadinessRegistry {
 
     fun flow(msgId: String): StateFlow<RenderReadiness> =
         flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }
-
-    fun update(msgId: String, readiness: RenderReadiness) {
-        flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }.value = readiness
-    }
 
     /**
      * #98（M-7）：消息组件销毁（滚出视口）时注销条目。终态（Ready/Failed）
@@ -97,29 +91,31 @@ class RenderReadinessRegistry {
         // （滚动预解析驱动）在此计算巨型 part 的块级分片计划。
         onParsed: ((State.Success) -> Unit)? = null,
     ) {
+        // 2026-08-21 卫生（D-7 实例置换/复活泄漏修复）：解析前捕获目标 flow
+        // 实例，回写直接写实例而非经 getOrPut 查表——
+        // ① 中途条目被 remove()（卡片滚出视口/LRU 淘汰）时不复活：复活的
+        //    终态条目无订阅者、不进 preparseSeenKeys → 永不淘汰（泄漏）；
+        // ② 仍持有旧实例的订阅者（collectAsState）能收到完成状态——旧实现
+        //    remove 后重建新实例写入，旧订阅者永远等不到 Parsed → 回退主线程
+        //    同步重解析（巨帧回归）。孤写实例在解析协程结束后无引用即可回收。
+        val target = flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }
         scope.launch {
             // 2026-08-20：解析移出主线程——库的 parseMarkdownFlow 无 flowOn，
             // 原在收集者上下文（主线程）执行，长文本（16KB+）解析阻塞 UI
             // 100ms+，滚动预解析驱动批量触发时打断拖拽/fling（ScrollDiag 实证）。
-            // flowOn(Default) 后仅 update 回主线程（快照写）。
+            // flowOn(Default) 后仅写实例状态（无快照参与）。
             parseMarkdownFlow(text).flowOn(Dispatchers.Default).collect { st ->
                 when (st) {
                     is State.Success -> {
-                        update(msgId, RenderReadiness.Parsed(st))
+                        target.value = RenderReadiness.Parsed(st)
                         onParsed?.invoke(st)
                     }
-                    is State.Error -> update(msgId, RenderReadiness.Failed(st.result))
-                    else -> update(msgId, RenderReadiness.Parsing)
+                    is State.Error -> target.value = RenderReadiness.Failed(st.result)
+                    else -> target.value = RenderReadiness.Parsing
                 }
             }
         }
     }
-
-    /** 等待渲染完成（Ready/Failed），超时返回 null。 */
-    suspend fun awaitReady(msgId: String, timeoutMs: Long = 2500): RenderReadiness.Ready? =
-        withTimeoutOrNull(timeoutMs) {
-            flow(msgId).first { it.isDone }
-        }?.let { it as? RenderReadiness.Ready }
 }
 
 /** 组合中访问注册表（ChatMessageList 提供）。 */

@@ -103,6 +103,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -516,8 +517,10 @@ fun ChatMessageList(
             },
         )
     }
-    val jumpPhase by jumpController.phase.collectAsStateWithLifecycle()
-    val jumpLoading = jumpController.showMask
+    // 2026-08-21 卫生（D-11-2）：jumpPhase 大作用域订阅下沉——原主体直读使
+    // 每次跳转 ≥4 次相位变化都重组整个 ~1500 行 ChatMessageList 主体。现在
+    // 蒙版由 JumpMaskOverlay 小组件自行订阅；解锁 effect 直收 flow；预解析
+    // 提交门控本就直读 phase.value（B-F3）。
 
     // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
     // 消息进入 displayItems → LaunchedEffect 重启 → 状态机跳转
@@ -525,7 +528,9 @@ fun ChatMessageList(
     // 2026-08-20：loadAround 未命中重试一次（深分页/服务器时序一次加载可能不够，
     // 此前直接 snackbar 误报『此会话中未找到发起任务』——用户快速连跳时必现）
     var pendingJumpRetried by remember { mutableStateOf(false) }
-    // 2026-08-20 D 修复：最近一次跳转终点时刻（phase 回 Idle 时间戳，B-F2 提交门控用）
+    // 2026-08-20 D 修复：最近一次跳转终点时刻（B-F2 提交门控用）。
+    // 2026-08-21 D-4 时钟基统一：elapsedRealtime（单调）——写入/比较同基
+    //（见下方解锁 effect 与提交门控；JNC 侧同基）。
     var lastJumpEndAtMillis by remember { mutableStateOf(0L) }
 
     // ===== 2026-08-20 滚动稳定性：滚动预解析驱动（fling 下跳根因修复） =====
@@ -542,7 +547,9 @@ fun ChatMessageList(
     // 分片提交使窗口边缘 turn key 裂变 → LazyColumn remove+insert remeasure 竞态
     // → 单帧 item 叠放错乱（用户报『一条消息浮在另一条上、回复被拦腰斩断』，
     // 低概率瞬态）。升级为：phase 完全回 Idle 后再等 500ms 才允许提交。
-    val jumpPhaseForPreparse = androidx.compose.runtime.rememberUpdatedState(jumpPhase)
+    //（2026-08-21：jumpPhaseForPreparse 死变量已删——B-F3 修正后门控直读
+    // phase.value，此 rememberUpdatedState 无消费者，且其组合期读 jumpPhase
+    // 是全主体重组的最后一处贡献者。）
     val streamingMsgIdForPreparse = androidx.compose.runtime.rememberUpdatedState(streamingMsgId)
     val preparseSeenKeys = remember { LinkedHashSet<String>() }
     LaunchedEffect(listState, bannerCount) {
@@ -672,7 +679,7 @@ fun ChatMessageList(
             val jumpActiveOrSettling = phaseNow !is JumpPhase.Idle &&
                 phaseNow !is JumpPhase.Displayed && phaseNow !is JumpPhase.Failed ||
                 (lastJumpEndAtMillis > 0L &&
-                    System.currentTimeMillis() - lastJumpEndAtMillis < 2000)
+                    android.os.SystemClock.elapsedRealtime() - lastJumpEndAtMillis < 2000)
             if (pendingChunkPlans.isNotEmpty() && !jumpActiveOrSettling) {
                 // F1：partId → 所属消息 → turn 首 key → 当前 display index
                 fun resolveTurnDisplayIndex(partId: String): Int {
@@ -720,15 +727,22 @@ fun ChatMessageList(
     }
 
     // 2026-08-13 架构根治：jumpLock 解锁由状态机终点驱动（Displayed/Failed——
-    // 定位结束才放行 autoLoad；不再靠旧流程末尾手动解锁）
-    LaunchedEffect(jumpPhase) {
-        if (jumpPhase is JumpPhase.Displayed || jumpPhase is JumpPhase.Failed) {
-            // D 修复：记录终点时刻（B-F2 提交门控：终点 + 2s = 稳定窗口(1.5s)+
-            // 解锁延迟(300ms)+余量，全部结束后才允许分片提交）
-            lastJumpEndAtMillis = System.currentTimeMillis()
-            delay(300)
-            jumpLockActive = false
-            if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 状态机终点——autoLoad 解锁")
+    // 定位结束才放行 autoLoad；不再靠旧流程末尾手动解锁）。
+    // 2026-08-21 卫生（D-11-2/D-4）：原 LaunchedEffect(jumpPhase) 以相位为键
+    // ——主体随每次相位变化重组 + effect 重启。改为直收 flow（collectLatest
+    // 语义等价原键重启：新跳转 Preparing 到来时取消未完成的 300ms 解锁延迟）；
+    // 时间戳换 elapsedRealtime（单调基，与 JNC 稳定窗口/重定位节流统一——
+    // D-4 时钟混用修复：原 currentTimeMillis 可被 NTP/手动调时倒退）。
+    LaunchedEffect(jumpController) {
+        jumpController.phase.collectLatest { ph ->
+            if (ph is JumpPhase.Displayed || ph is JumpPhase.Failed) {
+                // 记录终点时刻（B-F2 提交门控：终点 + 2s = 稳定窗口(900ms)+
+                // 解锁延迟(300ms)+余量，全部结束后才允许分片提交）
+                lastJumpEndAtMillis = android.os.SystemClock.elapsedRealtime()
+                delay(300)
+                jumpLockActive = false
+                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 状态机终点——autoLoad 解锁")
+            }
         }
     }
 
@@ -1499,26 +1513,8 @@ fun ChatMessageList(
             // 2026-08-13 跳转定位 loading 蒙版（用户建议——参考进入会话蒙版）：
             // 遮住定位过程的全部视口跳动/透明渲染/收敛修正——完成后直接显示
             // 目标（用户只看到 loading → 目标完整出现，无乱跳）。
-            if (jumpLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
-                        .pointerInput(Unit) { }
-                        .align(Alignment.Center),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        PulsingDotsIndicator()
-                        Spacer(Modifier.height(SpacingTokens.MD.dp))
-                        Text(
-                            text = stringResource(R.string.loading),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM),
-                        )
-                    }
-                }
-            }
+            // 2026-08-21 D-11-2：phase 订阅下沉到小组件——蒙版显隐不再重组主体。
+            JumpMaskOverlay(jumpController = jumpController)
 
             // 快速导航底部弹窗（B-F3：经 Host 包装——derived 读取发生在
             // Host 小作用域，且仅在 show=true 时订阅/重算）
@@ -1624,3 +1620,33 @@ private const val PREPARSE_LRU = 32
 // 的超长段落空行化（splitOversizedParagraphs），巨型单段消息终于可切。
 private const val CHUNK_MIN_CHARS = 3000
 private const val CHUNK_TARGET_CHARS = 2500
+
+/**
+ * 跳转定位 loading 蒙版（2026-08-21 D-11-2 从主体下沉为小组件）：
+ * 自行订阅 phase（Preparing/Measuring/Settling 显示）——蒙版显隐变化
+ * 只重组本组件，不再重组 ChatMessageList ~1500 行主体。
+ */
+@Composable
+private fun JumpMaskOverlay(jumpController: JumpNavigationController) {
+    val phase by jumpController.phase.collectAsStateWithLifecycle()
+    val show = phase is JumpPhase.Preparing || phase is JumpPhase.Measuring || phase is JumpPhase.Settling
+    if (show) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                .pointerInput(Unit) { },
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                PulsingDotsIndicator()
+                Spacer(Modifier.height(SpacingTokens.MD.dp))
+                Text(
+                    text = stringResource(R.string.loading),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM),
+                )
+            }
+        }
+    }
+}
