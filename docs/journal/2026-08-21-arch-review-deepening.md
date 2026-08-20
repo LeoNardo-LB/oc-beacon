@@ -102,3 +102,42 @@ OpenCodeConnectionService 794 → ~740 行；teardown 从双份到单点。
 crash buffer 空。多服务器场景无第二台真实服务器，由 C4 teardown 等价性 + registry 语义测试覆盖（如实标注）。
 
 ⏳ 维度 5（断开/重连/飞行模式恢复的 UI 状态观感）：待用户验收。
+
+## 五候选总设计取证（2026-08-21，#171-#175 批次 grilling 前置）
+
+> 用户指示：五候选一次总设计，然后依次实现。三路并行子代理只读取证 + 主会话逐项复核。
+> #171 取证（红点时钟域三铁律 + markSessionIdle 泄漏链）见前文候选 3 行条目与 grilling Q1-Q8（对话内），关键锚点：UnreadBadgeService.kt 全文 / SessionListStateBuilder.isUnread / ChatViewModel.markSessionRead:306 / EventDispatcher:417-421。
+
+### A. V1/V2 seam 普查（#172）——修正了原候选假设
+
+**结构发现（推翻"79 决策点散布"的表述）**：78 个 API 决策点已收敛在 7 个域门面内部（SessionApiImpl 23 / ProviderApi 13 / MessageApi 12 / FileApi 12 / SystemApi 8 / TerminalApi 6 / ShellApi 4，每方法一行 if(conn.apiVersion.isV2) v2.x() else v1.x() 纯分发）+ SseConnectionManager:323 SSE 分流 1 处 = 79。调用方早已看不见版本。仓库已有按版本分体的 **god-client**：V1ApiClient（72 suspend fun 全域）/ V2ApiClient（84），7 门面经 ApiModule @Binds 注入两者做逐调用分发。
+
+**真病灶 = 门面外 6 处逻辑泄漏 + UI 门控**：
+- SessionStateService:301-302 / 642-643（backfillMissedMessages + triggerRestValidation，同型：getApiVersion→isV2→CursorCodec.encodeV2(NEWER) 游标；经 SessionRepository 走 REST 不绕门面）
+- MessagePaginationUseCase:101（进会话增量 isV2 不传 cursor）/ 201-202（首次翻页 V2 拿服务器 cursor.next）/ 232+236（loadAround V2 双向游标）/ 294-295（isV2Server 公开 helper 把版本查询 API 化扩散给 UI）
+- MessagePaginationDelegate:336-337,349,353（loadAroundFromLocal 调 helper 决定 newerCursor）
+- UI 能力门控：ChatScreen:642/643（isShareSupported/isBackgroundSupported）/ 941（showRunningFilter）/ ServerSettingsViewModel:227/267/351/433（V2 配置只读）/ ChatViewModel:331→112-113（serverApiVersion 透传）/ ServerCard:101（版本徽章，展示性）
+
+**游标差异是行为策略非格式差异**：V2 = 服务器窗口语义（不传 cursor 拉最新 + cursor.next 续页 + 空页兜底，curl 实证注释链 #55/#56/#82/2026-08-16 cursor-400 根治）；V1 = 本地 {id,time} before 锚点。不能机械翻译成 codec。
+
+**版本生命周期**：ApiVersionDetector.detect()（双探 /api/health + /global/health，#150 排序 + #132 UNKNOWN 不降级）→ ServerDataStore.checkHealth 持久化 → 7 处 resolveConnection 逐次重读构造 ServerConnection（方法参数传递非构造注入）。**逐调用分发天然免疫版本竞态**；缓存式 per-server 适配器需 keyed 失效重建（风险 Top1）。SSE 是唯一"连接时选定一次"正确运作的样板（流生命周期=连接生命周期）。
+
+**测试影响**：~22 文件（ApiVersionDetectorTest 32 断言 / V1V2ApiClientTest / MessageApiCursorTest / PaginationFSM+Delegate 25 处版本引用 / SessionStateService 并发等）。
+
+### B. ChatViewModel 假 seam 普查（#173）
+
+**规模**：ChatViewModel 980 行 / 28 构造参数 / 128 公开成员（74 fun + 54 val）；消费面 ≈97 成员/150 调用点（ChatScreen 71 + BottomBar 26 + MessageList 10 + TerminalView 14）。1:1 纯转发 48 方法 + ~33 属性 getter。
+
+**16 个 delegate**（VM 直接构造刻意非 Hilt）：SessionLifecycle(157)/MessageData(662,12 参)↳Pagination(458,10 含 2 sink)↳SendStateStore(24)/ChatSend(171,16)/DraftInput(241)/ModelConfig(388,9)/SessionActions(717,20)/Terminal(136)/SettingsState(60)/ChatStateAggregator(215)/ContextDetail(90)/TaskAggregator(272)/ToolCache(95)/**ScrollPosition(82)——生产死代码（仅定义+自测引用，主会话 grep 复核确认）**/QuestionAnswerStore(@Singleton)。
+
+**Sink 回写 10 处**（密谋区）：Pagination→MessageData loading/errorSink；ChatSend 拿 sendStateStore+errorSink+sendFailureSink+draftDelegate 直引用（VM:798-822）；SessionActions 9 provider 横跨 4 delegate（VM:435-471）；Lifecycle→MessageData 观察/加载回调（VM:140-141）；Terminal↔Lifecycle 双向；Draft 读 ModelConfig 私有值；Aggregator 五方消费；abortSession 跨 4 对象（VM:843-857）/ revertMessage 跨 6 对象（VM:896-932，RS-006/RS-008 竞态修复史）。
+
+**提案 4 簇 + 2 外围**：①SessionContext（被依赖）②ConversationData（含 SSE 生命周期单一入口）③Composer（草稿+发送+堆积队列）④ModelConfig（12 源自反馈环原样）+ 外围 Terminal（已独占消费）/Settings+Tasks；abort/revert 编排留薄 VM。风险：不可拆管道（messageListState 10 源+ChatMessage 实例缓存）、ModelConfig 自反馈、测试爆炸面（6 VM harness 28 参数 + uiState 向后兼容注释 + 5 delegate 测试）。
+
+### C. 顺手清理三件 + 1 新发现（#175）
+
+- **①ChatMessageList 双调用点**（ChatScreen:812/840）：20 公共参数逐字对齐，4 差异全为 isMainSession 投影（isMainSession/showQuickNavigate/onQuickNavigateDismiss/onAgentClick 默认 null）→ 条件内移参数化单调用点，低风险。注意 ChatScreen 编辑协议。
+- **②三壳 handler**：MessagePartHandler(28)/MessageUpdatedHandler(25)/MessageRemovedHandler(24)，serverId 未用，全指向同一 store（MessageEventHandler 已持 5 目标方法）→ 删壳由 MessageEventHandler 实现 SseEventHandler + registry 单 bind。**修正：handle 的 Boolean 返回值生产侧 0 消费（EventDispatcher:364 丢弃）但 5 个测试文件 ~20 处断言消费它作识别契约**——签名保留，非残留。
+- **③SessionFocusHolder 双胞胎**：shouldSuppress/shouldSuppressEvent 方法体逐字节相同（2026-08-16 对齐后成同体）；调用点按文件完全隔离（4 处 OpenCodeConnectionService vs 5 处 AppNotificationManager）→ 删 Event 版 + 9 生产调用改名 + 修正过期测试节标题 + #137 重复注释收敛。
+- **④新发现：ScrollPositionDelegate 生产死代码**（grep 复核：仅定义处引用 + ScrollPositionDelegateTest）→ 删 82 行 + 测试文件。
+
