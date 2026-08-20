@@ -901,11 +901,27 @@ class MessageEventHandler @Inject constructor(
     private fun upsertSsePriority(sessionId: String, incoming: List<MessageWithParts>) {
         // 在 update lambda 外预排序 incoming（避免 CAS 重试时多次排序）
         val incomingSorted = incoming.map { it.info }.sortedBy { it.time.created }
+        // #1657（P3）：tokens/cost 变更检测——SSE_PRIORITY 原本只更新内存热视图，
+        // REST 刷新带回的 tokens/cost 不落 Room（V2 SSE 整 turn 不发 message.updated，
+        // REST 是 tokens 唯一可靠来源）→ cached_messages 的 payload 停留在流式期
+        // 骨架快照（tokens=null）→ 冷启动/离线 seed 后统计图标短暂缺失。
+        // 在 update 内对比「合并前后」的 tokens/cost（消息不在 existing = null→值
+        // 视为变更），变更行于 parts 合并后经 [persistSseUpdate] 增量落盘。
+        // CAS 重试重复 add 同 id 幂等；值未变的重复刷新 0 写库——检测即节流
+        //（SSE_PRIORITY 仅由 REST 快照触发，不在 48ms delta 批处理路径上）。
+        val tokensChangedIds = HashSet<String>()
         _messages.update { current ->
             val existing = current[sessionId] ?: emptyList()
             // O(n+m) 两路归并替代 O((n+m) log(n+m)) 全量排序（见 mergeSortedMessages 前提）
             val merged = mergeSortedMessages(existing, incomingSorted) { sse, inc ->
                 mergeMessageMeta(sse, inc)
+            }
+            val assistantBeforeById = HashMap<String, Message.Assistant>(existing.size)
+            for (m in existing) if (m is Message.Assistant) assistantBeforeById[m.id] = m
+            for (m in merged) {
+                if (m !is Message.Assistant) continue
+                val before = assistantBeforeById[m.id]
+                if (m.tokens != before?.tokens || m.cost != before?.cost) tokensChangedIds.add(m.id)
             }
             current + (sessionId to merged)
         }
@@ -921,6 +937,12 @@ class MessageEventHandler @Inject constructor(
                 }
             }
             current + merged
+        }
+        // #1657：tokens/cost 变更行落盘（payload = 合并后内存快照，含最终 tokens →
+        // 下次冷启动 seed 即带统计）。与 REST_AUTHORITY 落盘同款：复用 persistQueue
+        // 单写 actor，fire-and-forget，写失败静默（内存视图不受影响）。
+        if (tokensChangedIds.isNotEmpty()) {
+            persistSseUpdate(sessionId, tokensChangedIds.toList())
         }
     }
 
