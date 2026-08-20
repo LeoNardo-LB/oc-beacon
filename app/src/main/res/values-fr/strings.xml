@@ -465,8 +465,6 @@
     <string name="chat_webfetch_prompt">Prompt : %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">Contexte : %1$d%%</string>
-    <string name="chat_system_prompt_title">Prompt système</string>
-    <string name="chat_system_prompt_empty">Aucun prompt système configuré pour cette session.</string>
     <string name="chat_queued">EN ATTENTE</string>
     <string name="chat_retry_send">Réessayer</string>
     <string name="chat_title_placeholder">Chat</string>

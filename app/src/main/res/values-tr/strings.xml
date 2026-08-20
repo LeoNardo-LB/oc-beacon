@@ -467,8 +467,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_webfetch_prompt">İstem: %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">Bağlam: %1$d%%</string>
-    <string name="chat_system_prompt_title">Sistem İstemi</string>
-    <string name="chat_system_prompt_empty">Bu oturum için sistem isteği yapılandırılmamış.</string>
     <string name="chat_queued">SIRADA</string>
     <string name="chat_retry_send">Yeniden dene</string>
     <string name="chat_title_placeholder">Chat</string>

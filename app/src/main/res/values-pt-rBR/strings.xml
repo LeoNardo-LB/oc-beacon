@@ -467,8 +467,6 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_webfetch_prompt">Prompt: %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">Contexto: %1$d%%</string>
-    <string name="chat_system_prompt_title">System Prompt</string>
-    <string name="chat_system_prompt_empty">Nenhum system prompt configurado para esta sessão.</string>
     <string name="chat_queued">NA FILA</string>
     <string name="chat_retry_send">Repetir</string>
     <string name="chat_title_placeholder">Chat</string>

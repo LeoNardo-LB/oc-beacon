@@ -467,8 +467,6 @@
     <string name="chat_webfetch_prompt">プロンプト: %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">コンテキスト: %1$d%%</string>
-    <string name="chat_system_prompt_title">システムプロンプト</string>
-    <string name="chat_system_prompt_empty">このセッションにシステムプロンプトは設定されていません。</string>
     <string name="chat_queued">キュー中</string>
     <string name="chat_retry_send">再試行</string>
     <string name="chat_title_placeholder">Chat</string>

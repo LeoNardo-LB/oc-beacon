@@ -481,8 +481,6 @@
     <string name="chat_webfetch_prompt">提示词：%s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">上下文：%1$d%%</string>
-    <string name="chat_system_prompt_title">系统提示词</string>
-    <string name="chat_system_prompt_empty">此会话未配置系统提示词。</string>
     <string name="chat_queued">排队中</string>
     <string name="chat_retry_send">重试</string>
     <string name="chat_title_placeholder">Chat</string>

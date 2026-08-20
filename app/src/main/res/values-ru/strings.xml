@@ -476,8 +476,6 @@
     <string name="chat_webfetch_prompt">Запрос: %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">Контекст: %1$d%%</string>
-    <string name="chat_system_prompt_title">Системный промпт</string>
-    <string name="chat_system_prompt_empty">Системный промпт не настроен для этой сессии.</string>
     <string name="chat_queued">В очереди</string>
     <string name="chat_retry_send">Повторить</string>
     <string name="chat_title_placeholder">Чат</string>
