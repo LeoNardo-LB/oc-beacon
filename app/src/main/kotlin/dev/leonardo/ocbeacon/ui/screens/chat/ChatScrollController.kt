@@ -17,6 +17,7 @@ import androidx.compose.runtime.withFrameNanos
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.util.snapToBottom
 import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.State
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** ChatScrollController 专属日志 TAG。 */
@@ -34,12 +35,16 @@ private const val TAG = "ChatScrollController"
  */
 internal class ChatScrollController(
     val listState: LazyListState,
-    private val isAtBottomProvider: () -> Boolean,
+    val isAtBottomState: State<Boolean>,
     private val autoScrollEnabledState: MutableState<Boolean>,
     private val forceScrollTickState: MutableIntState,
 ) {
-    /** 列表是否锚定在底部（firstVisibleItemIndex==0 且 scrollOffset<100）。 */
-    val isAtBottom: Boolean get() = isAtBottomProvider()
+    /** 列表是否锚定在底部（firstVisibleItemIndex==0 且 scrollOffset<100）。
+     * 2026-08-20 B-F5：改为 State 直传——调用方（ChatScreen 819/847）原先
+     * 在组合作用域读 Boolean getter，每次底部阈值跨越触发整个 ChatScreen
+     * 重组（PerfMon anim 相位 13-33ms 周期爆发的主源）。消费方应把 .value
+     * 读取下沉到 snapshotFlow / 最小组合作用域。 */
+    val isAtBottom: Boolean get() = isAtBottomState.value
 
     /**
      * 自动滚动开关。后端为 [rememberSaveable] 的 [MutableState]，跨配置变更存活。
@@ -89,20 +94,22 @@ internal fun rememberChatScrollController(
                 listState.firstVisibleItemScrollOffset < 100
         }
     }
-    val isAtBottom = isAtBottomState.value
-
-    // 重要：同时以 isScrollInProgress 和 isAtBottom 作为 key。
-    // 以 isAtBottom 作为 key 可以让本效果在用户通过非拖拽方式（fling 惯性、
-    // SSE 内容推送、补偿滚动）回到底部时重新求值 —— 仅用 isScrollInProgress
-    // 会错过这些转换，导致 autoScrollEnabled 停留在陈旧状态。这种双 key 形式
-    // 是经过 beta.360 验证的行为；不要把 isAtBottom 从 key 中移除（参见
-    // docs/research/sse-scroll-stability-iron-laws.md）。
-    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
-        if (listState.isScrollInProgress) {
-            autoScrollEnabled.value = false
-        } else if (isAtBottom) {
-            autoScrollEnabled.value = true
-        }
+    // 重要（铁律等价改写 2026-08-20 B-F5）：原双 key LaunchedEffect 的语义 =
+    // isScrollInProgress / isAtBottom 任一变化都要重估（用户通过非拖拽方式
+    // 回到底部时重置 autoScroll——fling 惯性、SSE 推送、补偿滚动）。
+    // snapshotFlow 双值流保持完全相同的反应性（任一变化即发射、顺序执行
+    // 同一逻辑体），但把 State 读取从组合作用域移进流——本工厂函数原先在
+    // ChatScreen 作用域读 isAtBottomState.value，每次阈值跨越整个 ChatScreen
+    // 重组（PerfMon 实测 anim 相位周期爆发主源）。
+    LaunchedEffect(listState, isAtBottomState) {
+        snapshotFlow { listState.isScrollInProgress to isAtBottomState.value }
+            .collect { (scrolling, atBottom) ->
+                if (scrolling) {
+                    autoScrollEnabled.value = false
+                } else if (atBottom) {
+                    autoScrollEnabled.value = true
+                }
+            }
     }
 
     // 新消息到达 → 同帧位置锚定到底部（index 0），而非"跟随最后一条消息的 key"。
@@ -164,7 +171,7 @@ internal fun rememberChatScrollController(
 
     return ChatScrollController(
         listState = listState,
-        isAtBottomProvider = { isAtBottomState.value },
+        isAtBottomState = isAtBottomState,
         autoScrollEnabledState = autoScrollEnabled,
         forceScrollTickState = forceScrollTick,
     )

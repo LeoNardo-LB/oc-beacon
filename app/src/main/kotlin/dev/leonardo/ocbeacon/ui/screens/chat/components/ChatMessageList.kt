@@ -46,7 +46,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -179,7 +178,7 @@ fun ChatMessageList(
     interaction: InteractionState,
     rawMessages: List<ChatMessage>,
     displayItems: List<Pair<Int, ChatMessage>>,
-    isAtBottom: Boolean,
+    isAtBottomState: androidx.compose.runtime.State<Boolean>,
     isAmoled: Boolean,
     messageSpacing: Dp,
     isMainSession: Boolean,
@@ -309,19 +308,22 @@ fun ChatMessageList(
     val toolCompensateState = remember(streamingMsgId) { CompensateState() }
 
     // 跟踪用户是否已滚离底部。
-    // 重要：同时以 isScrollInProgress 和 isAtBottom 作为 key。
-    // 以 isAtBottom 作为 key 是必需的，这样当用户通过非拖拽方式
-    // （fling 惯性、SSE 内容推送）回到底部时 shouldCompensate 会重置为 false。
-    // 没有它，shouldCompensate 在底部保持 true，每个 SSE token 都会触发
-    // requestScrollToItemNoCancel → 视口抖动。
-    // 这种双 key 形式是 beta.360 验证过的行为；不要把
-    // isAtBottom 从 key 中移除（参见 docs/research/sse-scroll-stability-iron-laws.md）。
-    LaunchedEffect(listState.isScrollInProgress, isAtBottom) {
-        if (listState.isScrollInProgress) {
-            compensateState.shouldCompensate = true
-        } else if (isAtBottom) {
-            compensateState.shouldCompensate = false
-        }
+    // 重要（铁律等价改写 2026-08-20 B-F5）：原双 key LaunchedEffect 语义 =
+    // isScrollInProgress / isAtBottom 任一变化都要重估（用户通过非拖拽方式
+    // 回到底部时 shouldCompensate 重置 false——fling 惯性、SSE 推送；
+    // 否则每个 SSE token 都触发 requestScrollToItemNoCancel → 视口抖动）。
+    // snapshotFlow 双值流保持相同反应性（任一变化即发射、顺序执行同一
+    // 逻辑体），并把 State 读取移出组合作用域——原先参数是 Boolean，
+    // ChatScreen 在主体读值导致每次阈值跨越整个 ChatScreen 重组。
+    LaunchedEffect(listState, isAtBottomState, compensateState) {
+        snapshotFlow { listState.isScrollInProgress to isAtBottomState.value }
+            .collect { (scrolling, atBottom) ->
+                if (scrolling) {
+                    compensateState.shouldCompensate = true
+                } else if (atBottom) {
+                    compensateState.shouldCompensate = false
+                }
+            }
     }
 
     // 快速导航：Room 全量 user 消息列表（抽屉打开时异步查询一次）。
@@ -1406,28 +1408,20 @@ fun ChatMessageList(
                 }
             }
 
-            // 滚动到底部 FAB
-            if (!isAtBottom) {
-                SmallFloatingActionButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            listState.snapToBottom()
-                            compensateState.shouldCompensate = false
-                        }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = SpacingTokens.SM.dp),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ) {
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.chat_scroll_bottom),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+            // 滚动到底部 FAB（B-F5：isAtBottom 读取下沉到本 if 所在的
+            // 小作用域——由 ScrollBottomFab 包装，阈值跨越只重组 FAB 自身）
+            ScrollBottomFab(
+                isAtBottomState = isAtBottomState,
+                onJumpToBottom = {
+                    coroutineScope.launch {
+                        listState.snapToBottom()
+                        compensateState.shouldCompensate = false
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = SpacingTokens.SM.dp),
+            )
 
             // 2026-08-13 跳转定位 loading 蒙版（用户建议——参考进入会话蒙版）：
             // 遮住定位过程的全部视口跳动/透明渲染/收敛修正——完成后直接显示
@@ -1513,6 +1507,33 @@ private fun easeInOutCubic(t: Float): Float =
     if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
 
 // ===== 2026-08-20 滚动预解析驱动参数 =====
+/**
+ * 滚动到底部 FAB 包装（2026-08-20 B-F5）：isAtBottom 的 .value 读取限制在
+ * 本函数小作用域——底部阈值跨越（每轮慢拖手势 1-2 次）只重组本 FAB，
+ * 不再引爆 ChatScreen/ChatMessageList 主体（PerfMon 实测 anim 相位 13-33ms
+ * 周期爆发的主源就是旧的大作用域订阅）。
+ */
+@Composable
+private fun ScrollBottomFab(
+    isAtBottomState: androidx.compose.runtime.State<Boolean>,
+    onJumpToBottom: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (isAtBottomState.value) return // 在底部时不显示
+    SmallFloatingActionButton(
+        onClick = onJumpToBottom,
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Icon(
+            Icons.Default.KeyboardArrowDown,
+            contentDescription = stringResource(R.string.chat_scroll_bottom),
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
 /** 视口前后各预解析的 item 数（覆盖 fling/预组合窗口）。 */
 private const val PREPARSE_AHEAD = 8
 /** 只预解析超过该字符数的文本 part（短文本同步解析成本可忽略）。 */
