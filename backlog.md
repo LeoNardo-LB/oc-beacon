@@ -46,9 +46,10 @@
 
 > 架构评审批次（2026-08-21，用户定 P0）：六候选 + 顺手清理，证据与设计定案全在 journal。#169 已完结（用户验收 2026-08-21，归档 journal），当前推进 #170。
 
-- [ ] **#170 架构评审候选 2：每服务器连接生命周期 module（teardown 单入口）** `refactor`
-  - 连接状态 ≥6 module 分持、teardown 双份、20+ 带日期竞态注释——收敛为 per-server 生命周期 module，Service 退化为纯 FGS adapter
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+- [~] **#170 架构评审候选 2：连接生命周期协调器 ConnectionLifecycleCoordinator——已实现，待用户真机验收** `refactor`
+  - 三段式落地（d3baf95c/b297e47e/d21a45f5）：connect 七步/disconnect 四路单点化，双份 teardown 合一；registry 真相源 + FGS 回调派生；10 条 JVM 测试 + 全量单测过（1 例无关 flaky 已记录）
+  - 真机 E2E 四场景过：连接（幂等真实触发）/断开/重连/飞行模式恢复（SSE 自愈）；待用户验收 UI 状态观感（维度 5）
+  - → `docs/journal/2026-08-21-arch-review-deepening.md` · `CONTEXT.md`
 
 - [ ] **#171 架构评审候选 3：未读红点时钟域收进 interface** `refactor` `data`
   - 三条铁律散 3 层 6 文件 + 静默泄漏路径（markSessionIdle 客户端 now 混入服务器域水位线）——单一 Unread module，interface 喂事件不喂裸时间戳

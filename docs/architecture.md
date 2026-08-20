@@ -25,7 +25,9 @@ data/            Android 相关实现
 logging/         AppLogger — 全局持久化日志（Channel→SQLite, 崩溃捕获, 脱敏）
 
 service/         Android 前台服务
-  OpenCodeConnectionService.kt  服务生命周期 + WakeLock
+  ConnectionLifecycleCoordinator.kt  连接生命周期协调（connect 编排/四路清理
+                 单点/registry 真相源，2026-08-21 #170 从 Service 外移；JVM 单测）
+  OpenCodeConnectionService.kt  FGS adapter（WakeLock/通知/事件路由）
   SseConnectionManager.kt       连接/重连（指数退避）
   AppNotificationManager.kt     通知渠道与事件通知
   SessionNotificationCoordinator.kt  抑制当前活跃会话的通知

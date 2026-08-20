@@ -68,3 +68,37 @@ ChatMessageList 1671 → ~1500 行；五条隐含约束从注释升级为模块�
 - ⏳ 维度 5（滚动手感/跳转观感）：待用户真机验收。
 
 **测试副作用**：服务器遗留空会话「分片E2E验收」（ses_fdeec5901ffe619NStxfewTCjB，无生成内容），可忽略或删除。
+
+## 候选 2（#170）设计定案（grilling Q1-Q8）
+
+- Q0 并行会话=已结束（deep-explore 批次只登记卡片无代码变更，#176-#183 随本批次提交入库）
+- Q1 边界=B：编排+连接状态收进；终端 workspace/通知去重 map 保持深模块被调用（C 的"物理吸收一切"会翻案终端债务决策 + 拆散通知域内部 locality——"彻底"的正确形态是编排集中，不是状态全吞）
+- Q2=A 新建 ConnectionLifecycleCoordinator（service/，@Singleton）；Q3=B FGS/wakeLock/stopSelf 从 activeServerIds 派生（onLifecycleChanged 回调实现同步确定性）；Q4=B 测试集（幂等/四路清理/等价性/回调时序/去重/轮询启停/流即时性/成员资格）；Q5=B 三段式
+- Q6=A 命名 ConnectionLifecycleCoordinator；Q7=A service/ 包；Q8=A Service 公共 API 签名不变（调用方零改动）
+- 边界要点：question 轮询体留宿主（通知域，依赖 Context/NotificationManager），启停经 QuestionPollingFactory 注入；FGS 决策读 registry，通知内容读 Manager 传输状态（两个数据源显式分层）
+
+## 候选 2（#170）实现记录（2026-08-21 完成，待用户验收）
+
+### 提交链（三段式）
+
+| 阶段 | commit | 内容 |
+|------|--------|------|
+| 1 编排外移 | d3baf95c | connect 七步/disconnect 四路/disconnectAll 单实现收进 Coordinator；registry（serverId→config）真相源；双份 teardown 合一；FGS 经 onLifecycleChanged 派生；轮询经工厂注入 |
+| 2 状态收尾 | b297e47e | terminalRegistry 注入移除；disconnectAllVisibleServers 冗余删除 |
+| 3 JVM 测试 | d21a45f5 | ConnectionLifecycleCoordinatorTest 10 条（MockK 驱动三协作深模块） |
+
+OpenCodeConnectionService 794 → ~740 行；teardown 从双份到单点。
+
+### 验证证据（2026-08-21 真机 houji e69a99d8，debug intent + pm install）
+
+**自动化**：compileDevDebugKotlin ×2 全绿；全量单测 --rerun 两次：第一次 1802 中 1 失败（ChatViewModelContextTokensTest·compaction——**flaky**：单独重跑通过、第二次全量通过；与本改动无关的 UI 层 tokens 测试，service 层改动不可能影响其路径，如实记录）；Coordinator 测试 10/10。
+
+**真机 E2E 四场景**：
+1. **连接**：ConnLifecycle "Connecting to server: Host-4199" → WakeLock acquired（回调派生 ✓）→ **幂等真实触发**："Already connected … skipping"（debug intent 与 autoConnect 竞争同服务器，Coordinator 挡住——C1 用例的真机版）→ Network recovered 日志读 registry ✓
+2. **断开**：ConnLifecycle "Disconnecting server eb6517bf" → WakeLock released（onLastServerDisconnected ✓）
+3. **重连**：Connecting → WakeLock acquired 全链
+4. **飞行模式**：enable → 8s → disable → 12s 后 UI "已连接"（connectedServerIds 由 SSE 首事件驱动 = SSE 流真实重建；传输层退避自愈不经过 Coordinator——正确边界）
+
+crash buffer 空。多服务器场景无第二台真实服务器，由 C4 teardown 等价性 + registry 语义测试覆盖（如实标注）。
+
+⏳ 维度 5（断开/重连/飞行模式恢复的 UI 状态观感）：待用户验收。
