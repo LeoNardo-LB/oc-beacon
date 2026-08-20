@@ -81,11 +81,26 @@ class HomeViewModel @Inject constructor(
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            serviceBinder = null
-            sseObserverJob?.cancel()
-            sseObserverJob = null
-            _uiState.update { it.copy(connectedServerIds = emptySet()) }
+            handleServiceConnectionLost()
         }
+
+        /**
+         * 泄漏修复（卫生项）：服务宿主进程死亡时不会回调 onServiceDisconnected
+         *（其仅在正常断开时触发），而是回调 onBindingDied。此前未 override，
+         * 死 binder 残留 → getService() 持续持有已销毁的 Service 实例。
+         * 与 onServiceDisconnected 共用同一清理路径。
+         */
+        override fun onBindingDied(name: ComponentName?) {
+            handleServiceConnectionLost()
+        }
+    }
+
+    /** 服务连接丢失（正常断开或宿主死亡）的统一清理。 */
+    private fun handleServiceConnectionLost() {
+        serviceBinder = null
+        sseObserverJob?.cancel()
+        sseObserverJob = null
+        _uiState.update { it.copy(connectedServerIds = emptySet()) }
     }
 
     init {
@@ -381,5 +396,9 @@ class HomeViewModel @Inject constructor(
             // 服务可能尚未绑定
             AppLogger.w(TAG, "unbindService failed: ${e.message}", e)
         }
+        // 泄漏修复（卫生项）：unbind 不会触发 onServiceDisconnected——
+        // 此处显式置 null，避免 ViewModel 残留死 binder（其 getService()
+        // 返回已销毁的 Service 实例）。
+        serviceBinder = null
     }
 }

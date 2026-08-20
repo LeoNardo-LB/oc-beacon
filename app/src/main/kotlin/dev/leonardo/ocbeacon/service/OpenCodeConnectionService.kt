@@ -262,6 +262,14 @@ class OpenCodeConnectionService : Service() {
      * 投递两份相同的 SSE 事件，导致流式输出翻倍。
      */
     fun connect(server: ServerConfig) {
+        // 泄漏修复（路径 1b）：onStartCommand/autoConnect 经 serviceScope.launch
+        // 挂起（DB 读取）后到达此处；若期间 onDestroy 已执行（serviceScope.cancel
+        // + stopAllConnections），继续执行会用已销毁 Service 的 ::processEvent
+        // 重填单例 map，连接永久滞留。作用域已取消则放弃本次连接。
+        if (!serviceScope.isActive) {
+            AppLogger.w(TAG, "Service scope inactive (destroyed), skipping connect to ${server.displayName}")
+            return
+        }
         if (connectionManager.connections.containsKey(server.id)) {
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "Already connected to server ${server.id}, skipping")
             return

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -216,8 +217,20 @@ class SseConnectionManager @Inject constructor(
             val newJob = startSseConnection(state.config, state.conn, state.onEvent)
             // RS-003 修复：使用 computeIfPresent 进行原子更新——若服务器
             // 在 cancelAndJoin 期间被移除，则不复活它
+            var replaced = false
             connections.computeIfPresent(serverId) { _, current ->
+                replaced = true
                 current.copy(sseJob = newJob)
+            }
+            // 泄漏修复（路径 1a）：cancelAndJoin 挂起期间 Service 可能已 onDestroy
+            // → stopAllConnections() 清空了本 map（scope.cancel 只作用于 Service 的
+            // serviceScope，本单例 scope 不受影响）。若 computeIfPresent 未命中，
+            // newJob 即为无人引用的孤儿——必须立即取消，否则其闭包持有已销毁
+            // Service 的 onEvent（::processEvent）回调，SSE 流永不退出（僵尸协程）。
+            if (!replaced) {
+                AppLogger.w(TAG, "Server $serverId removed during reconnect, cancelling orphaned SSE job")
+                newJob.cancel()
+                return
             }
         } finally {
             reconnectingServers.remove(serverId)
@@ -298,6 +311,12 @@ class SseConnectionManager @Inject constructor(
                         sseClient.connectToGlobalEvents(conn)
                     }
                     sseFlow
+                        // 泄漏修复（路径 1a 兜底）：条目已从 connections 移除
+                        //（stopConnection/stopAllConnections）时在下一次发射处
+                        // 正常完成流 → 落入下方"stream completed"与循环底部
+                        // containsKey break 的既有退出路径。健康连接不受影响：
+                        // 条目在场时谓词恒真，正常退出仍由流完成/错误/取消驱动。
+                        .takeWhile { connections.containsKey(server.id) }
                         .catch { error ->
                             AppLogger.e(TAG, "[${server.displayName}] SSE stream error", error)
                             updateServerConnected(server.id, false)
