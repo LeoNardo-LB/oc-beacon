@@ -12,13 +12,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
@@ -104,6 +107,10 @@ class MainActivity : ComponentActivity() {
     // 终端屏幕使用的可选按键拦截器（例如通过音量键实现的虚拟 CTRL/FN）。
     private var terminalKeyInterceptor: ((KeyEvent) -> Boolean)? = null
 
+    // 2026-08-20 第三轮：开发用性能监测（am start --ez debug_perf true 开启，
+    // 仅 debug 构建；release 恒 null——监测器代码虽打进包但永不 attach，零开销）。
+    private var perfMonitor: dev.leonardo.ocbeacon.debug.ChatPerfMonitor? = null
+
     fun setTerminalKeyInterceptor(interceptor: ((KeyEvent) -> Boolean)?) {
         terminalKeyInterceptor = interceptor
     }
@@ -151,6 +158,19 @@ class MainActivity : ComponentActivity() {
         handleShareIntent(intent)
         // #132 调试通道：外部参数直达（debug 构建专用）
         handleDebugProfileIntent(intent)
+
+        // 2026-08-20 性能监测 HUD（debug_perf extra；仅 debug）
+        if (BuildConfig.DEBUG && intent?.getBooleanExtra("debug_perf", false) == true) {
+            val refresh = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.context.display?.refreshRate ?: 120f
+            } else {
+                @Suppress("DEPRECATION") windowManager.defaultDisplay.refreshRate
+            }
+            perfMonitor = dev.leonardo.ocbeacon.debug.ChatPerfMonitor(refresh).also {
+                it.attach(window)
+                AppLogger.i(TAG, "PerfMon attached: refresh=${refresh}Hz budget=${1000f / refresh}ms")
+            }
+        }
         
         @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
         setContent {
@@ -179,16 +199,28 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NavGraph(
-                        windowSizeClass = windowSizeClass,
-                        deepLinkFlow = _deepLinkFlow,
-                        debugChannelFlow = _debugChannelNavFlow,
-                        sharedImagesFlow = sharedImagesFlow,
-                        settingsRepository = settingsRepository,
-                        serverRepository = serverRepository,
-                        sessionRepository = sessionRepository,
-                        fileRepository = fileRepository
-                    )
+                    // 2026-08-20 性能 HUD：Box 叠加层（debug_perf 开启时才有），
+                    // top-start 半透明两行小字，无 pointer 修饰符不拦截触摸
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        NavGraph(
+                            windowSizeClass = windowSizeClass,
+                            deepLinkFlow = _deepLinkFlow,
+                            debugChannelFlow = _debugChannelNavFlow,
+                            sharedImagesFlow = sharedImagesFlow,
+                            settingsRepository = settingsRepository,
+                            serverRepository = serverRepository,
+                            sessionRepository = sessionRepository,
+                            fileRepository = fileRepository
+                        )
+                        perfMonitor?.let { mon ->
+                            dev.leonardo.ocbeacon.debug.PerfHud(
+                                hud = mon.hud,
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .statusBarsPadding(),
+                            )
+                        }
+                    }
                 }
                 }
             }
