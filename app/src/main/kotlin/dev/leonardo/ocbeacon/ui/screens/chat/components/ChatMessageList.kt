@@ -528,6 +528,9 @@ fun ChatMessageList(
     // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
     // 消息进入 displayItems → LaunchedEffect 重启 → 状态机跳转
     var pendingJumpTarget by remember { mutableStateOf<String?>(null) }
+    // 2026-08-20：loadAround 未命中重试一次（深分页/服务器时序一次加载可能不够，
+    // 此前直接 snackbar 误报『此会话中未找到发起任务』——用户快速连跳时必现）
+    var pendingJumpRetried by remember { mutableStateOf(false) }
 
     // ===== 2026-08-20 滚动稳定性：滚动预解析驱动（fling 下跳根因修复） =====
     // 真机取证（ScrollDiag RESIZE）：assistant 长回复初次组合仅测得占位高度
@@ -698,6 +701,7 @@ fun ChatMessageList(
         } else {
             // 未加载或 parts 为空：触发异步定位加载，等待消息进入 displayItems 后滚动
             pendingJumpTarget = msgId
+            pendingJumpRetried = false
             onQuickNavigateDismiss()
             coroutineScope.launch { viewModel.loadAround(msgId) }
         }
@@ -862,9 +866,14 @@ fun ChatMessageList(
                         .filterIsInstance<Part.Text>()
                         .firstOrNull { it.text.isNotBlank() }?.text
                     jumpLockActive = true
+                    // 2026-08-20 分片适配补漏（渲染错位根因）：本路径是三条跳转
+                    // 入口中唯一漏改的——display 粒度 index 直接传给 scrollToItem，
+                    // 窗口内存在分片 turn（1→N item）时指向错误位置，viewport 落在
+                    // 某个 chunk 中间（用户截图的"不完整气泡/非从头开始的回复"）。
+                    // 与 jumpToMessage 主路径/onLocateTask 对齐：displayEntryStart 映射。
                     jumpController.jumpTo(
                         target,
-                        bannerCount + idx,
+                        bannerCount + chatEntries.displayEntryStart[idx],
                         text?.let { normalizeForRender(it, isUser = true) },
                     )
                 }
@@ -879,13 +888,20 @@ fun ChatMessageList(
             LaunchedEffect(isLoadingAround) {
                 if (!isLoadingAround && pendingJumpTarget != null) {
                     delay(500)
-                    val target = pendingJumpTarget
+                    val target = pendingJumpTarget ?: return@LaunchedEffect
                     val found = displayItems.indexOfFirst { it.second.message.id == target } >= 0
-                    if (!found) {
+                    if (!found && !pendingJumpRetried) {
+                        // 2026-08-20：首次未命中重试一次 loadAround 再判——避免时序误报
+                        pendingJumpRetried = true
+                        coroutineScope.launch { viewModel.loadAround(target) }
+                    } else if (!found) {
                         pendingJumpTarget = null
+                        pendingJumpRetried = false
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_task_not_found))
                         }
+                    } else {
+                        pendingJumpRetried = false
                     }
                 }
             }

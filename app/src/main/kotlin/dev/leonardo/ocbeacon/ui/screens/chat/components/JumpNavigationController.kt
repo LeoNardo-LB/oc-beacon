@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
@@ -56,6 +57,28 @@ internal fun computeDesiredOffset(viewportHeight: Float, itemHeight: Float, cont
 /** 顶边偏差：0 = 贴视口顶；正 = 超出（顶边在视口上方）。 */
 internal fun computeGap(itemOffset: Int, itemSize: Int, viewportHeight: Float, contentPaddingTop: Float): Float =
     itemOffset + itemSize - (viewportHeight - contentPaddingTop)
+
+/**
+ * 2026-08-20 分片适配：查找跳转目标 item（纯函数，单测目标）。
+ *
+ * 根因：状态机两处循环用 `it.key == targetKey(msgId)` 精确匹配——assistant
+ * turn 分片后 key 为 "t_<msgId>#c<i>"，精确匹配必然落空 → item=null →
+ * 300ms 重定位循环空转 → 5s 超时 Failed（任务定位到分片消息必失败）。
+ *
+ * 修复：精确匹配优先（user 目标 / 未分片 turn）；落空时前缀匹配取
+ * **最小 index** 的 chunk——首 chunk 顶边 = 消息顶边（含标签栏），
+ * gap 对齐语义与整消息完全一致。
+ */
+internal fun findJumpTargetItem(
+    visible: List<LazyListItemInfo>,
+    targetKey: String,
+): LazyListItemInfo? {
+    visible.firstOrNull { it.key == targetKey }?.let { return it }
+    val prefix = targetKey + "#c"
+    return visible
+        .filter { it.key is String && (it.key as String).startsWith(prefix) }
+        .minByOrNull { it.index }
+}
 
 /** 状态转移（纯函数——事件驱动）。 */
 internal fun jumpTransition(current: JumpPhase, event: JumpEvent): JumpPhase = when (event) {
@@ -211,7 +234,7 @@ class JumpNavigationController(
                 kotlinx.coroutines.delay(100)
                 listState.scroll {
                     val info = listState.layoutInfo
-                    val item = info.visibleItemsInfo.firstOrNull { it.key == targetKey(msgId) }
+                    val item = findJumpTargetItem(info.visibleItemsInfo, targetKey(msgId))
                     if (item == null) {
                         // 防御：极端布局下目标被推出——节流重定位（底部对齐——
                         // 目标回视口内重新渐进）
@@ -281,7 +304,7 @@ class JumpNavigationController(
             kotlinx.coroutines.delay(150)
             listState.scroll {
                 val info4 = listState.layoutInfo
-                val it4 = info4.visibleItemsInfo.firstOrNull { it.key == targetKey(msgId) }
+                val it4 = findJumpTargetItem(info4.visibleItemsInfo, targetKey(msgId))
                 if (it4 != null) {
                     val vh4 = (info4.viewportEndOffset - info4.viewportStartOffset).toFloat()
                     val pt4 = -info4.viewportStartOffset.toFloat()
