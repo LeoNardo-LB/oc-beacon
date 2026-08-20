@@ -60,9 +60,11 @@ class SseConnectionManagerTest {
      * 守卫必须将其取消，否则其闭包持有已销毁 Service 的 onEvent
      * （::processEvent）回调，SSE 流永不退出（僵尸协程）。
      *
-     * 观测点：真正开始收集 SSE 流的存活协程会递增 [AtomicInteger] 计数
-     *（sseCollectCount / onEventCount）；被守卫取消的 job 在 flow 体首个
-     * ensureActive 处终止，两个计数恒为 0。
+     * 观测点（#150 方向② 后语义更新，2026-08-21）：SSE 先行架构下主循环不再被
+     * preload 阻塞，流会立即开始收集——旧断言"两个计数恒为 0"依赖串行窗口已不成立。
+     * 等价安全性质改为：**stopAllConnections 移除后**，所有 job 必须自愈终止
+     *（takeWhile 在条目缺失处完成流）——观察窗口内收集计数与事件投递计数
+     * 均不再增长（无僵尸持续消费、无死回调投递），connections 保持空。
      */
     @Test
     fun `reconnect cancels orphaned SSE job when server removed during cancelAndJoin`() {
@@ -127,12 +129,86 @@ class SseConnectionManagerTest {
         while (!reconnectDone.get() && System.currentTimeMillis() < deadline) Thread.sleep(20)
         assertTrue("reconnectAll should complete", reconnectDone.get())
 
-        // 5. 若守卫缺失：孤儿 job 会在 preLoad（≤400ms）后开始消费无限 SSE 流。
-        //    留足观察窗口后断言：从未真正收集、从未经死回调投递事件。
+        // 5. 等一切尘埃落定（reconnect 的 job2 可能短暂收集后自愈退出），拍快照。
         Thread.sleep(900)
-        assertEquals("orphaned SSE job must never start collecting the stream", 0, sseCollectCount.get())
-        assertEquals("orphaned SSE job must never deliver events via dead onEvent callback", 0, onEventCount.get())
+        val collectSnapshot = sseCollectCount.get()
+        val eventsSnapshot = onEventCount.get()
+        // 再观察一个窗口：计数必须稳定——若守卫/自愈失效，僵尸 job 会持续
+        // 消费无限流（flow 体每 50ms emit，计数持续变化）。
+        Thread.sleep(900)
+        assertEquals(
+            "no zombie may keep consuming the stream after removal (self-terminate)",
+            collectSnapshot, sseCollectCount.get()
+        )
+        assertEquals(
+            "no events may be delivered via dead onEvent callback after removal",
+            eventsSnapshot, onEventCount.get()
+        )
         assertTrue("connections must stay empty after stopAllConnections", manager.connections.isEmpty())
+    }
+
+    // ============ #150 方向②（2026-08-21）：SSE 先行，不被 preload 阻塞 ============
+
+    /**
+     * 场景（issue #1 遗留"V1 连接慢"主因）：preLoadSessions 阻塞（服务器慢/多项目）时，
+     * 旧行为要等整个预加载跑完才建 SSE → "已连接"翻转被阻塞。并行化后 SSE 首事件
+     * 到达即翻转 connectedServerIds——预加载仍在进行中。
+     *
+     * 观测点：listProjects 挂在 latch 上（模拟 ~500ms 慢预加载）；SSE 流立即发射
+     * server.connected 并保持打开。若实现退回串行：断言点超时（connectedIds 恒空）。
+     */
+    @Test
+    fun `connected flips on first SSE event while preload still in flight`() {
+        val fileApi = mockk<FileApi>()
+        val sseClient = mockk<SseClient>()
+        val settingsRepository = mockk<SettingsDataStore>()
+
+        // 预加载阻塞在 listProjects（受 latch 控制，模拟慢服务器）
+        val preloadEntered = CountDownLatch(1)
+        val preloadRelease = CountDownLatch(1)
+        coEvery { fileApi.listProjects(any()) } coAnswers {
+            preloadEntered.countDown()
+            preloadRelease.await(5, TimeUnit.SECONDS)
+            emptyList()
+        }
+        every { settingsRepository.reconnectMode } returns flowOf("normal")
+
+        // SSE 流立即发射首事件并保持打开（长连接）
+        every { sseClient.connectToGlobalEvents(any()) } returns flow {
+            emit(SseEvent.ServerConnected)
+            while (true) { delay(50) }
+        }
+
+        val manager = SseConnectionManager(
+            sessionApi = mockk(relaxed = true),
+            messageApi = mockk(relaxed = true),
+            fileApi = fileApi,
+            sseClient = sseClient,
+            sseClientV2 = mockk(relaxed = true),
+            eventDispatcher = mockk(relaxed = true),
+            settingsRepository = settingsRepository,
+            networkMonitor = mockk(relaxed = true),
+            sessionStateService = mockk(relaxed = true),
+        )
+
+        manager.startConnection(testServer()) { _, _ -> }
+
+        // 等预加载进入阻塞窗口（证明它确实在跑且未完成）
+        assertTrue("preload should be in flight", preloadEntered.await(5, TimeUnit.SECONDS))
+
+        // 核心断言：预加载仍阻塞时，首个 SSE 事件已把服务器翻转为"已连接"
+        val deadline = System.currentTimeMillis() + 5_000
+        while (!manager.connectedServerIds.value.contains("server-1") && System.currentTimeMillis() < deadline) {
+            Thread.sleep(20)
+        }
+        assertTrue(
+            "connected should flip while preload still in flight (SSE-first)",
+            manager.connectedServerIds.value.contains("server-1")
+        )
+
+        // 清理：释放预加载并断开，防泄漏干扰其他测试
+        preloadRelease.countDown()
+        manager.stopAllConnections()
     }
 
     private fun testServer() = ServerConfig(

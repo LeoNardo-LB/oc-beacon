@@ -45,28 +45,45 @@ class ApiVersionDetector @Inject constructor(
 
     /**
      * 探测指定连接的 API 版本。
-     * 使用无版本的 ServerConnection（默认 V1）发起探测请求。
+     *
+     * #150 方案 B（2026-08-21）：按 [knownVersion]（持久化的上次探测结果）排序探测——
+     * 最可能的版本先探、成功即短路，省掉一次白跑 RTT。**双探语义不变**：先探的失败
+     * 仍会尝试另一个版本（覆盖"服务器 V1→V2 升级"场景——当次连接即纠正，不残留
+     * 旧版本）；两者皆失败照旧返回 UNKNOWN（#132 语义严格保留）。
+     *
+     * 排序策略：
+     * - known=V1 → 先 /global/health（V1 服务器 1 RTT 即中；旧序 V2-first 每次白探 /api/health）
+     * - known=V2 → 先 /api/health（与原顺序一致）
+     * - known=UNKNOWN → 维持原 V2-first 顺序
      */
-    suspend fun detect(url: String, username: String = "opencode", password: String? = null): DetectionResult {
-        // 先尝试 V2：GET /api/health
-        val v2Result = tryV2(url, username, password)
-        if (v2Result != null) {
-            AppLogger.i(TAG, "Detected V2 API at $url (version=${v2Result.serverVersionString})")
-            return v2Result
+    suspend fun detect(
+        url: String,
+        username: String = "opencode",
+        password: String? = null,
+        knownVersion: ApiVersion = ApiVersion.UNKNOWN
+    ): DetectionResult {
+        val probeOrder = when (knownVersion) {
+            ApiVersion.V1 -> listOf(ApiVersion.V1, ApiVersion.V2)
+            ApiVersion.V2 -> listOf(ApiVersion.V2, ApiVersion.V1)
+            ApiVersion.UNKNOWN -> listOf(ApiVersion.V2, ApiVersion.V1)
         }
-
-        // 回退到 V1：GET /global/health
-        val v1Result = tryV1(url, username, password)
-        if (v1Result != null) {
-            AppLogger.i(TAG, "Detected V1 API at $url (version=${v1Result.serverVersionString})")
-            return v1Result
+        for (candidate in probeOrder) {
+            val result = if (candidate == ApiVersion.V2) {
+                tryV2(url, username, password)
+            } else {
+                tryV1(url, username, password)
+            }
+            if (result != null) {
+                AppLogger.i(TAG, "Detected ${result.version} API at $url (version=${result.serverVersionString}, known=$knownVersion)")
+                return result
+            }
         }
 
         // 2026-08-14 修复（#132 联动）：探测彻底失败必须返回 UNKNOWN 而非默认 V1。
         // 旧行为默认 V1 会让 checkHealth 把已知 V2 服务器降级为 V1 → 后续所有
         // V1 路径请求（/project、/global/event）打到 V2 的 SPA fallback → HTML
         // 解析错误 + SSE 假死"正在连接"。UNKNOWN 语义：healthy=false + 保留原版本。
-        AppLogger.w(TAG, "Could not detect API version at $url, returning UNKNOWN")
+        AppLogger.w(TAG, "Could not detect API version at $url (known=$knownVersion), returning UNKNOWN")
         return DetectionResult(ApiVersion.UNKNOWN)
     }
 

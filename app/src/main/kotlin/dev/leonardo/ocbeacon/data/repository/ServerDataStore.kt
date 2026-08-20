@@ -124,8 +124,14 @@ class ServerDataStore @Inject constructor(
      */
     suspend fun checkHealth(server: ServerConfig): Result<ServerHealth> {
         return try {
-            // 优先使用版本检测器探测 API 版本和健康状态
-            val detection = versionDetector.detect(server.url, server.username, server.password)
+            // 优先使用版本检测器探测 API 版本和健康状态。
+            // #150 方案 B（2026-08-21）：传入持久化的 apiVersion 作探测排序提示——
+            // 已知 V1 的服务器先探 /global/health（省一次白跑 /api/health 的 RTT）。
+            // 探测失败仍返回 UNKNOWN（下方保留原版本的 #132 语义不变）。
+            val detection = versionDetector.detect(
+                server.url, server.username, server.password,
+                knownVersion = server.apiVersion
+            )
 
             val health = ServerHealth(
                 healthy = detection.version != dev.leonardo.ocbeacon.domain.model.ApiVersion.UNKNOWN,

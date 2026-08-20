@@ -18,6 +18,8 @@ import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +35,9 @@ private const val RECONNECT_BASE_DELAY_MS = 1_000L
 private const val RECONNECT_MAX_DELAY_MS = 30_000L
 private const val RECONNECT_BACKOFF_FACTOR = 2.0
 private const val COOLDOWN_CHECK_INTERVAL_MS = 30_000L
+
+/** #150 方向③：preLoadSessions 项目间并发拉取 /session 的受控并发上限。 */
+private const val PRELOAD_PROJECT_CONCURRENCY = 4
 
 /**
  * 每服务器的连接状态。
@@ -294,12 +299,23 @@ class SseConnectionManager @Inject constructor(
 
                 AppLogger.i(TAG, "[${server.displayName}] SSE connection attempt #$attempt")
 
-                // 通过 REST API 为所有项目预加载会话
-                preLoadSessions(server, conn)
-
-                // 重连时（非首次连接），恢复断连期间错过的消息
-                if (attempt > 1 || hasConnectedOnce) {
-                    recoverMessages(server, conn)
+                // #150 方向②（2026-08-21）：预加载与 SSE 并行——SSE 首事件到达即翻转
+                // "已连接"，不再被整段预加载阻塞（V1 实测 preload 串行 ~134ms 占首连
+                // ~165ms 的大头，issue #1 遗留"v1 连接慢"的主因）。
+                // 并发安全：EventDispatcher.setSessions 为 CAS 合并语义（SessionEventHandler
+                // 的两个 update 均原子）；REST 与 SSE 并存的数据一致性由 MergeStrategy
+                // 既有优先级设计处理（REST_AUTHORITY 快照 + SSE_PRIORITY 增量）。
+                // 串行化护栏：本轮流结束/异常/取消后在 finally cancelAndJoin——防止与
+                // 下一轮 preload 重叠写 eventDispatcher（对齐 reconnectServer 的
+                // cancelAndJoin 防重叠语义）；取消的是即将被下一轮重跑刷新的中间态，无损失。
+                val attemptNow = attempt
+                val preloadJob = scope.launch {
+                    // 通过 REST API 为所有项目预加载会话
+                    preLoadSessions(server, conn)
+                    // 重连时（非首次连接），恢复断连期间错过的消息
+                    if (attemptNow > 1 || hasConnectedOnce) {
+                        recoverMessages(server, conn)
+                    }
                 }
 
                 try {
@@ -372,6 +388,10 @@ class SseConnectionManager @Inject constructor(
                     } else {
                         tracker.recordTimeout()
                     }
+                } finally {
+                    // 串行化护栏（见上方 #150 方向②注释）：流结束/异常/取消路径统一
+                    // 收束本轮 preload job，再进入退避/重连/退出循环。
+                    preloadJob.cancelAndJoin()
                 }
 
                 // 若此服务器已从 connections 中移除，则停止循环
@@ -392,17 +412,27 @@ class SseConnectionManager @Inject constructor(
                 eventDispatcher.setSessions(server.id, sessions)
                 AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${sessions.size} sessions (no projects)")
             } else {
-                var totalSessions = 0
-                for (project in projects) {
-                    try {
-                        val sessions = sessionApi.listSessions(conn, directory = project.worktree)
-                        eventDispatcher.setSessions(server.id, sessions)
-                        totalSessions += sessions.size
-                    } catch (e: Exception) {
-                        AppLogger.w(TAG, "[${server.displayName}] Failed to pre-load sessions for project ${project.displayName}: ${e.message}")
+                // #150 方向③（2026-08-21）：项目间并发拉取（受控并发 [PRELOAD_PROJECT_CONCURRENCY]）
+                // ——多项目用户首连时 N 次串行 /session 往返改并发。setSessions 为 CAS 合并语义
+                // 并发调用安全；单项目失败不拖垮其余（保留原逐项目 catch）。
+                val totalSessions = java.util.concurrent.atomic.AtomicInteger(0)
+                kotlinx.coroutines.coroutineScope {
+                    val permits = Semaphore(PRELOAD_PROJECT_CONCURRENCY)
+                    for (project in projects) {
+                        launch {
+                            permits.withPermit {
+                                try {
+                                    val sessions = sessionApi.listSessions(conn, directory = project.worktree)
+                                    eventDispatcher.setSessions(server.id, sessions)
+                                    totalSessions.addAndGet(sessions.size)
+                                } catch (e: Exception) {
+                                    AppLogger.w(TAG, "[${server.displayName}] Failed to pre-load sessions for project ${project.displayName}: ${e.message}")
+                                }
+                            }
+                        }
                     }
                 }
-                AppLogger.i(TAG, "[${server.displayName}] Pre-loaded $totalSessions sessions across ${projects.size} projects")
+                AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${totalSessions.get()} sessions across ${projects.size} projects")
             }
             // 通过统一的 FSM 管线从服务器初始化会话状态
             //（跨项目 worktree 聚合 + 缺失=idle + 不完整保护）。
