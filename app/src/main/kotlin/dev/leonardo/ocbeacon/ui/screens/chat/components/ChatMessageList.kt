@@ -1477,5 +1477,10 @@ private const val PREPARSE_LRU = 32
 // ===== 2026-08-20 fling 巨帧根治：超长消息块级分片常量 =====
 // 低于 CHUNK_MIN_CHARS 的 part 不分片（单次组合 ~20 块内可容忍）；
 // 目标每片 ~CHUNK_TARGET_CHARS 字符（130K 消息 ≈ 26 片，单片组合 ~2ms）。
-private const val CHUNK_MIN_CHARS = 8000
-private const val CHUNK_TARGET_CHARS = 5000
+// 2026-08-20 第二轮调优（C 审计：中文消息实测 ~48 字符/内容块——5000 字符
+// 单片 ≈100 内容块+50 EOL ≈150 组合单元，首组合 8-15ms 超 120Hz 帧预算
+// 8.33ms = 长消息内滚动卡顿）：目标降至 2500（≈52 内容块，首组合 ~4-6ms
+// 预算内），门槛 8000→3000 让 3K+ 消息即可分片；配合 normalizeForRender
+// 的超长段落空行化（splitOversizedParagraphs），巨型单段消息终于可切。
+private const val CHUNK_MIN_CHARS = 3000
+private const val CHUNK_TARGET_CHARS = 2500

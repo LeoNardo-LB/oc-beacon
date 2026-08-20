@@ -138,7 +138,97 @@ private fun ensureBlankLineBeforeGfmTables(text: String): String {
  * 实际渲染内容不一致（换行差异 → 高度不同——实测 214 vs 331）。
  */
 internal fun normalizeForRender(raw: String, isUser: Boolean): String =
-    normalizeTaskListMarkers(normalizeMarkdown(raw, isUser))
+    splitOversizedParagraphs(normalizeTaskListMarkers(normalizeMarkdown(raw, isUser)))
+
+// ============ 超长段落空行化（2026-08-20 第二轮滚动卡顿 C-F1） ============
+
+/**
+ * 单个普通段落超过此字符量时，段内单换行升级为空行（每行独立成块）。
+ *
+ * 实测（真机 DB + org.intellij.markdown 0.7.5 JVM 复核）：LLM 的巨型清单
+ * （"1 - one\n2 - two\n…"）不构成 GFM 列表（数字后是空格+短横线，非
+ * "1."/"1)"）→ 整个 11-13 万字符是一个顶层 PARAGRAPH → MarkdownChunking
+ * 只按顶层块边界切 → 对最坏消息完全失效（129K 单段 = 单个 3000 行
+ * StaticLayout，首组合 40-120ms 原样保留——长消息内滚动卡顿根因）。
+ *
+ * 空行化后每行成为独立 PARAGRAPH 块 → 现有分片全链路（预解析 → chunk
+ * plan → LazyItem 区间）自然生效。阈值与 CHUNK_MIN_CHARS 同量级：
+ * 只有真正会被分片的消息才发生视觉变化（段内行距略增），普通消息零影响。
+ *
+ * 保护：围栏代码块 / 表格 / 列表 / 引用 / 缩进续行 / 标题行不参与
+ * （它们的行结构有语义，拆开会破坏渲染）。
+ */
+private const val SPLIT_PARAGRAPH_THRESHOLD_CHARS = 3000
+
+/** 段落行分类：仅"普通文本行"参与空行化（见 [SPLIT_PARAGRAPH_THRESHOLD_CHARS]）。 */
+private fun isPlainParagraphLine(line: String): Boolean {
+    val t = line.trimStart()
+    if (t.isEmpty()) return false
+    if (t.startsWith("|")) return false                      // 表格行
+    if (t.startsWith("#")) return false                      // 标题
+    if (t.startsWith("```") || t.startsWith("~~~")) return false // 围栏代码围栏行
+    if (t.startsWith(">")) return false                      // 引用
+    if (line.startsWith("    ") || line.startsWith("\t")) return false // 缩进代码/列表续行
+    if (t.startsWith("- ") || t.startsWith("* ") || t.startsWith("+ ")) return false // 无序列表
+    if (OrderedListItemRegex.containsMatchIn(t)) return false // 有序列表（1. / 1)）
+    return true
+}
+
+private val OrderedListItemRegex = Regex("^\\d{1,9}[.)]\\s")
+
+/**
+ * 超长段落空行化：连续普通文本行构成一个候选段；总字符 ≥
+ * [SPLIT_PARAGRAPH_THRESHOLD_CHARS] 时段内行间补空行（单换行 → 空行）。
+ * 其余内容原样保留。
+ */
+internal fun splitOversizedParagraphs(text: String): String {
+    if (text.length < SPLIT_PARAGRAPH_THRESHOLD_CHARS) return text
+    val lines = text.split("\n")
+    val out = StringBuilder(text.length + lines.size)
+    var runStart = -1
+    var runChars = 0
+    var inFence = false
+    var i = 0
+    while (i <= lines.size) {
+        val line = if (i < lines.size) lines[i] else ""
+        val isFence = line.trimStart().startsWith("```") || line.trimStart().startsWith("~~~")
+        // 候选段终止条件：空行 / 非普通行 / 围栏边界
+        val plain = !inFence && i < lines.size && !isFence && isPlainParagraphLine(line)
+        if (plain) {
+            if (runStart < 0) {
+                runStart = i
+                runChars = 0
+            }
+            runChars += line.length + 1
+            i++
+            continue
+        }
+        // 冲刷候选段
+        if (runStart >= 0) {
+            val runEnd = i // 不含
+            if (runChars >= SPLIT_PARAGRAPH_THRESHOLD_CHARS && runEnd - runStart >= 2) {
+                for (j in runStart until runEnd) {
+                    out.append(lines[j])
+                    if (j < runEnd - 1) out.append("\n\n") // 行间空行：独立成块
+                }
+            } else {
+                for (j in runStart until runEnd) {
+                    out.append(lines[j])
+                    if (j < runEnd - 1) out.append('\n')
+                }
+            }
+            runStart = -1
+            runChars = 0
+        }
+        if (isFence) inFence = !inFence
+        if (i < lines.size) {
+            out.append(line)
+            if (i < lines.size - 1) out.append('\n')
+        }
+        i++
+    }
+    return out.toString()
+}
 
 @Composable
 internal fun MarkdownContent(
