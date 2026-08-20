@@ -184,3 +184,13 @@ Q1=A 单 interface 8 方法全抽象无默认（漏接=编译错误）；Q2=A �
 
 Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext 被依赖 ②ConversationData 含 SSE 生命周期单一入口 ③Composer ④ModelConfig 自反馈环原样 + 外围 Terminal/Settings+Tasks；abort/revert 编排留薄 VM）；Q3=A uiState 退役 + 重写 6 harness；Q4=A 死代码已并入 #175；Q5=四段串行（Terminal 迁出 → 簇内部成型 → UI 按子组件串行迁移 → 测试重写），ChatScreen 编辑协议每步 compile+commit
 
+### E. #171 泄漏入口完整地图（2026-08-21，阶段 1 实现前置——Q2 答案无关）
+
+**水位线全部输入（4 条）**：① SSE MessageUpdated(completed≠null) 增量 → onMessageCompleted（服务器时刻，干净）② SessionError → onSessionError（客户端 now，故意例外）③ **recomputeMaxCompleted 漏斗（唯一泄漏面）** ④ seedFromStorage（自身持久值，自域）。
+
+**漏斗形状**：EventDispatcher 4 个包装方法（upsertMessages:532 + deprecated set/merge/replace:541-557）内部都调 recomputeMaxCompleted:564，后者扫 messageHandler.messages.value[sessionId]（合并缓存）。生产调用方共 6 处：ChatRepositoryImpl:101（会话进入初始加载）+ 514/519/524/529（REST 刷新路径 ×4，deprecated 变体）+ SseConnectionManager:461（重连 backfill recoverMessages）。
+
+**关键实现细节（Q2=A 的必要非充分条件）**：漏斗包装方法已接收载荷参数 messages（REST 响应原文）——"只消费载荷"改法 = recompute 从 messages 参数取 max 而非扫合并缓存。但**载荷来源异质**：ChatRepositoryImpl:101 离线/缓存路径的载荷来自 Room（MessageCacheRepository:31 → MessageDao），而 markSessionIdle 的客户端 now 戳经 persistSseUpdate **已落盘 DB**——DB 回读载荷同样携带本地戳。故阶段 1 还需 REST-来源门控（仅 REST 响应路径触发 recompute，或 DB 载荷过滤），单纯换数据源不够。这正是"切断消费侧连 DB 回环一起封死"的具体落点。
+
+**旁证（分页本地路径不泄漏）**：MessagePaginationUseCase/MessagePaginationDelegate 的 messageStore.upsertMessages 直写本地 store，不经 EventDispatcher 漏斗、不触发 recompute——水位线只经漏斗 + SSE 增量两路演化，收敛面确认完整。
+
