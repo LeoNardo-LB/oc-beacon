@@ -58,11 +58,6 @@ internal fun AgentModelVariantSelector(
     taskBadgeCount: Int = 0,
     onOpenTaskPanel: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
-    /** 堆积/TODO 面板（2026-08-20 设计定稿）：队列条数（上角标 primary）。 */
-    pendingBadgeCount: Int = 0,
-    /** TODO 未完成数（下角标 tertiary）。 */
-    todoPendingCount: Int = 0,
-    onOpenPendingPanel: () -> Unit = {},
 ) {
     // 不提前返回：配置未就绪（agents 空 / modelLabel 空 / variantNames 空）时，
     // 左侧标签区为空但 Row 高度由右侧附件按钮（32.dp）稳定支撑；
@@ -150,52 +145,7 @@ internal fun AgentModelVariantSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            // 堆积/TODO 面板入口（2026-08-20 设计定稿）——图标常驻可见；
-            // 双角标：上=堆积队列数（primary，「等你行动」），下=TODO 未完成数
-            //（tertiary，与任务面板角标同色系）。各自 count=0 时隐藏。
-            // 实现说明：M3 Badge 组件 + 自定义 Box 锚定（TopEnd/BottomEnd），
-            // 未引入新依赖；下角标向下溢出图标边界 ~6dp 伸进行间隙（空间足够）。
-            Box(contentAlignment = Alignment.Center) {
-                IconButton(
-                    onClick = onOpenPendingPanel,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.FormatListBulleted,
-                        contentDescription = stringResource(R.string.a11y_icon_pending_todo),
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
-                    )
-                }
-                // 上角标（队列数，primary）
-                if (pendingBadgeCount > 0) {
-                    Badge(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = 4.dp, y = (-2).dp)
-                    ) {
-                        Text(
-                            text = pendingBadgeCount.coerceAtMost(99).toString(),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-                // 下角标（TODO 未完成数，tertiary）
-                if (todoPendingCount > 0) {
-                    Badge(
-                        containerColor = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .offset(x = 4.dp, y = 2.dp)
-                    ) {
-                        Text(
-                            text = todoPendingCount.coerceAtMost(99).toString(),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-            }
+            // （堆积/TODO 入口按钮已于 2026-08-22 移除——由主对话流内常驻抽屉取代）
             // 任务入口（BadgedBox + 图标按钮）—— 角标实时显示任务/subagent 总数。
             // 无任务时角标隐藏，仅剩低调图标。
             // 2026-08-20 图标交换（设计定稿）：FormatListBulleted 让给堆积/TODO

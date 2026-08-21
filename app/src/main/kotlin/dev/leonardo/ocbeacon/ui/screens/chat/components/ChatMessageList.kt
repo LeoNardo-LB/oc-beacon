@@ -177,6 +177,8 @@ fun ChatMessageList(
     onForceScrollToBottom: () -> Unit,
     showQuickNavigate: Boolean,
     onQuickNavigateDismiss: () -> Unit,
+    /** 2026-08-22 堆积/TODO 常驻抽屉：底部覆盖物高度（消息 contentPadding 与 FAB 让位补偿）。 */
+    bottomOverlayInset: Dp = 0.dp,
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
     onAgentClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -845,7 +847,8 @@ fun ChatMessageList(
                         start = SpacingTokens.MD.dp,
                         top = SpacingTokens.SM.dp,
                         end = SpacingTokens.MD.dp,
-                        bottom = SpacingTokens.SM.dp
+                        // 常驻抽屉（2026-08-22）：底部补偿覆盖高度，最新消息不被抽屉标题栏遮挡
+                        bottom = SpacingTokens.SM.dp + bottomOverlayInset
                     ),
                     reverseLayout = true,
                     // 2026-08-20 分片：移除 spacedBy（chunk item 间不能有间隙——
@@ -1395,7 +1398,7 @@ fun ChatMessageList(
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = SpacingTokens.SM.dp),
+                    .padding(bottom = SpacingTokens.SM.dp + bottomOverlayInset),
             )
 
             // 2026-08-13 跳转定位 loading 蒙版（用户建议——参考进入会话蒙版）：

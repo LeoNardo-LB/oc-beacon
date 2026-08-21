@@ -96,9 +96,6 @@ internal fun ChatInputBar(
     onBackgroundSession: () -> Unit = {},
     /** 堆积消息（2026-08-20 设计定稿）：busy+有内容时气泡菜单的「堆积」回调；null=不支持。 */
     onEnqueue: (() -> Unit)? = null,
-    pendingBadgeCount: Int = 0,
-    todoPendingCount: Int = 0,
-    onOpenPendingPanel: () -> Unit = {},
 ) {
     // 发送失败时恢复草稿文本
     androidx.compose.runtime.LaunchedEffect(restoredDraft) {
@@ -220,9 +217,6 @@ internal fun ChatInputBar(
                 taskBadgeCount = taskBadgeCount,
                 onOpenTaskPanel = onOpenTaskPanel,
                 onQuickNavigate = onQuickNavigate,
-                pendingBadgeCount = pendingBadgeCount,
-                todoPendingCount = todoPendingCount,
-                onOpenPendingPanel = onOpenPendingPanel,
             )
 
             // 图片附件缩略图

@@ -1,6 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,41 +16,39 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import dev.leonardo.ocbeacon.R
@@ -56,121 +56,213 @@ import dev.leonardo.ocbeacon.domain.model.PendingMessage
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
-import dev.leonardo.ocbeacon.ui.theme.SheetTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
+import kotlinx.coroutines.launch
 
-/** 拖拽重排进行时状态（堆积 tab 长按拖动）。 */
-private data class DragState(val index: Int, val offset: Float)
+// ============ 常驻抽屉锚点（2026-08-22 设计定案：主对话流模块内覆盖式抽屉） ============
+
+/** 抽屉档位索引（收起=仅标题栏 / 半开 30% / 展开 60%）。 */
+internal object PendingDrawerAnchors {
+    const val SNAP_COLLAPSED = 0
+    const val SNAP_MID = 1
+    const val SNAP_FULL = 2
+    val SNAP_COUNT = 3
+
+    /** 收起态高度 = 标题栏高。 */
+    val HEADER_HEIGHT = 48.dp
+
+    /** 各档位占主对话流模块高度的比例（index 0 用 HEADER_HEIGHT，不用比例）。 */
+    val FRACTIONS = floatArrayOf(0f, 0.30f, 0.60f)
+
+    /** 档位像素锚点（headerPx 用固定高度，其余按容器高比例）。 */
+    fun anchorsPx(containerHeightPx: Float, headerPx: Float): FloatArray =
+        FloatArray(SNAP_COUNT) { i ->
+            if (i == SNAP_COLLAPSED) headerPx else containerHeightPx * FRACTIONS[i]
+        }
+}
+
+/** 拖拽释放后吸附到最近锚点（纯函数，单测目标）。 */
+internal fun nearestSnapIndex(currentPx: Float, anchorsPx: FloatArray): Int {
+    var best = 0
+    var bestDist = abs(anchorsPx[0] - currentPx)
+    for (i in 1 until anchorsPx.size) {
+        val d = abs(anchorsPx[i] - currentPx)
+        if (d < bestDist) {
+            best = i; bestDist = d
+        }
+    }
+    return best
+}
+
+/** 抽屉可见性（纯函数，单测目标）：堆积非空，或 TODO 段有数据。 */
+internal fun pendingDrawerVisible(queueSize: Int, todosSize: Int, todoCapable: Boolean): Boolean =
+    queueSize > 0 || (todoCapable && todosSize > 0)
+
+/** 每会话抽屉记忆（内存级——App 存活期内跨会话切换保留，重启回收起）。 */
+internal data class PendingDrawerMemory(
+    val snap: Int = PendingDrawerAnchors.SNAP_COLLAPSED,
+    val segment: Int = 0,
+)
+
+/** 抽屉状态存储（顶层快照状态——任意组合可观察，无需经 ViewModel）。 */
+internal object PendingDrawerMemoryStore {
+    val states = androidx.compose.runtime.mutableStateMapOf<String, PendingDrawerMemory>()
+}
 
 /**
- * 堆积消息 / TODO 双 tab 面板（2026-08-20 设计定稿；形态照 TaskSheet：
- * ModalBottomSheet + 固定 75% 屏高 + 无拉杆）。
+ * 堆积/TODO 主对话抽屉（2026-08-22 设计定案，grilling Q4-Q17）。
  *
- * - 堆积 tab：每行右对齐 [编辑 · 删除 · 发送]；长按拖拽排序；标题栏
- *   「继续」（队列非空且会话空闲时发队首 1 条）与「清空」（带确认）；
- *   推送中锁定全部操作，队首行标记发送中。
- * - TODO tab：只读镜像（SSE todo.updated 实时 + REST hydrate），三态符号
- *   对齐 TUI（✓ completed / • in_progress / ○ 其余；cancelled 删除线）。
- *   无能力服务器（V2 beta）由调用方 showTodoTab=false 整体隐藏。
+ * - 覆盖式：悬浮在消息流模块底部（锚定底边、贴输入组件上沿），不挤压消息布局；
+ *   消息列表 contentPadding 由调用方按 [bottomOverlayInset] 补偿。
+ * - 三档吸附：收起（= 标题栏 48dp）/ 30% / 60%（容器 = 主对话流模块）；
+ *   标题栏整栏竖向拖拽吸附，收起只靠拖（点 segment = 展开到 30%）。
+ * - 标题栏：左 segment 双段（堆积 N / TODO n/m，TODO 无数据整段不显示）；
+ *   右纯图标 ▶继续 + 🗑清空（28dp，TODO 段无操作钮）。
+ * - 双空完全隐藏；键盘弹起自动收起（收键盘不恢复）；流式输出不打扰。
+ * - 堆积行紧凑化 ~44dp（IconButton 28dp + XS 竖向 padding）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PendingTodoSheet(
+internal fun PendingTodoDrawer(
+    sessionId: String,
+    /** 主对话流模块高度（px）——抽屉与 inset 计算的共同容器。 */
+    containerHeightPx: Float,
     queue: List<PendingMessage>,
     todos: List<SseEvent.TodoUpdated.Todo>,
-    showTodoTab: Boolean,
+    showTodoSegment: Boolean,
     isSessionIdle: Boolean,
     isDraining: Boolean,
+    /** 键盘可见（Q8：弹起自动收起，收起后不自动恢复）。 */
+    imeVisible: Boolean,
     onContinue: () -> Unit,
     onClear: () -> Unit,
     onEdit: (id: Long, text: String) -> Unit,
     onDelete: (id: Long) -> Unit,
     onSendOne: (id: Long, text: String) -> Unit,
     onReorder: (orderedIds: List<Long>) -> Unit,
-    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // 双空完全隐藏（Q11）——TODO 段仅在有能力且有数据时计入
+    if (!pendingDrawerVisible(queue.size, todos.size, showTodoSegment)) return
+    if (containerHeightPx <= 0f) return
+    val todoSegmentVisible = showTodoSegment && todos.isNotEmpty()
+
+    val density = LocalDensity.current
+    val headerPx = with(density) { PendingDrawerAnchors.HEADER_HEIGHT.toPx() }
+    val anchors = PendingDrawerAnchors.anchorsPx(containerHeightPx, headerPx)
+
+    val memory = PendingDrawerMemoryStore.states[sessionId] ?: PendingDrawerMemory()
+    val snap = memory.snap.coerceIn(0, PendingDrawerAnchors.SNAP_COUNT - 1)
+    // 队列空时堆积段无内容——自动落 TODO 段（记忆不回写，队列恢复时还原）
+    val segment = if (queue.isEmpty() && todoSegmentVisible) 1 else memory.segment
+    val scope = rememberCoroutineScope()
+
+    fun setMemory(newSnap: Int, newSegment: Int) {
+        PendingDrawerMemoryStore.states[sessionId] = PendingDrawerMemory(newSnap, newSegment)
+    }
+
+    val height = remember { Animatable(anchors[snap]) }
+    // 外部状态变化（键盘收起/点 segment/容器尺寸变化）→ 动画到锚点
+    LaunchedEffect(snap, anchors[0], anchors[1], anchors[2]) {
+        height.animateTo(anchors[snap])
+    }
+    // 键盘弹起 → 自动收起（Q8）
+    LaunchedEffect(imeVisible) {
+        if (imeVisible && PendingDrawerMemoryStore.states[sessionId]?.snap != PendingDrawerAnchors.SNAP_COLLAPSED) {
+            setMemory(PendingDrawerAnchors.SNAP_COLLAPSED, segment)
+        }
+    }
+
     var showClearConfirm by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<PendingMessage?>(null) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = {},
+    fun toggleSegment(target: Int) {
+        // Q15：点 segment = 展开到 30%（若已展开保持档位），再点当前段不收起
+        setMemory(maxOf(snap, PendingDrawerAnchors.SNAP_MID), target)
+    }
+
+    Surface(
+        tonalElevation = 3.dp,
+        shadowElevation = 6.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(with(density) { height.value.toDp() }),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
-                .height(
-                    LocalConfiguration.current.screenHeightDp.dp *
-                        SheetTokens.ChatSheetHeightFraction
-                )
-                .padding(bottom = 24.dp)
-        ) {
-            // 标题栏：标题 + 「继续」（空闲且队列非空）+ 「清空」（队列非空）+ 关闭
+        Column {
+            // ===== 标题栏（收起态唯一可见物；整栏可拖——Q16） =====
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                    .height(PendingDrawerAnchors.HEADER_HEIGHT)
+                    .pointerInput(anchors[0], anchors[1], anchors[2]) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, amount ->
+                                change.consume()
+                                val target = (height.value - amount).coerceIn(anchors[0], anchors[2])
+                                scope.launch { height.snapTo(target) }
+                            },
+                            onDragEnd = {
+                                val nearest = nearestSnapIndex(height.value, anchors)
+                                if (nearest != snap) setMemory(nearest, segment)
+                                else scope.launch { height.animateTo(anchors[nearest]) }
+                            },
+                        )
+                    }
+                    .padding(horizontal = SpacingTokens.MD.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
             ) {
-                Text(
-                    text = stringResource(R.string.pending_sheet_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                if (queue.isNotEmpty() && isSessionIdle && !isDraining) {
-                    TextButton(onClick = onContinue) {
-                        Text(stringResource(R.string.pending_continue))
-                    }
-                }
-                if (queue.isNotEmpty()) {
-                    TextButton(onClick = { showClearConfirm = true }) {
-                        Text(stringResource(R.string.pending_clear))
-                    }
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = stringResource(android.R.string.cancel),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
+                    val segCount = if (todoSegmentVisible) 2 else 1
+                    SegmentedButton(
+                        selected = segment == 0,
+                        onClick = { toggleSegment(0) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = segCount),
+                        label = { Text(stringResource(R.string.pending_tab_stacked, queue.size)) },
                     )
+                    if (todoSegmentVisible) {
+                        val done = todos.count { it.status == "completed" || it.status == "cancelled" }
+                        SegmentedButton(
+                            selected = segment == 1,
+                            onClick = { toggleSegment(1) },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = segCount),
+                            label = { Text(stringResource(R.string.pending_tab_todo, done, todos.size)) },
+                        )
+                    }
+                }
+                // 右侧操作（Q17 纯图标；堆积段才有；队列空则隐藏）
+                if (segment == 0 && queue.isNotEmpty()) {
+                    if (isSessionIdle && !isDraining) {
+                        IconButton(onClick = onContinue, modifier = Modifier.size(28.dp)) {
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = stringResource(R.string.pending_continue),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = { showClearConfirm = true },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.pending_clear),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
+                        )
+                    }
                 }
             }
 
-            val tabCount = if (showTodoTab) 2 else 1
-            if (selectedTab >= tabCount) selectedTab = 0
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = {
-                        Text(stringResource(R.string.pending_tab_stacked, queue.size))
-                    },
-                )
-                if (showTodoTab) {
-                    val done = todos.count { it.status == "completed" || it.status == "cancelled" }
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = {
-                            Text(stringResource(R.string.pending_tab_todo, done, todos.size))
-                        },
-                    )
-                }
-            }
-
-            // 固定高度下 tab 内容占满剩余空间：列表在 Box 约束内滚动
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                if (selectedTab == 0) {
+            // ===== 内容区（收起时零高度不可见；展开时独立滚动——Q14） =====
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                if (segment == 0) {
                     StackedList(
                         queue = queue,
                         isDraining = isDraining,
@@ -186,7 +278,7 @@ fun PendingTodoSheet(
         }
     }
 
-    // 编辑对话框
+    // 编辑对话框（自 PendingTodoSheet 迁移）
     editing?.let { msg ->
         var text by remember(msg.id) { mutableStateOf(msg.text) }
         AlertDialog(
@@ -216,7 +308,7 @@ fun PendingTodoSheet(
         )
     }
 
-    // 清空确认
+    // 清空确认（自 PendingTodoSheet 迁移）
     if (showClearConfirm) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
@@ -239,7 +331,7 @@ fun PendingTodoSheet(
     }
 }
 
-/** 堆积列表：长按拖拽排序 + 每行 [编辑 · 删除 · 发送]；推送中锁定。 */
+/** 堆积列表：长按拖拽排序 + 每行 [编辑 · 删除 · 发送]；推送中锁定（自 PendingTodoSheet 迁移 + 2026-08-22 紧凑化 44dp）。 */
 @Composable
 private fun StackedList(
     queue: List<PendingMessage>,
@@ -253,21 +345,17 @@ private fun StackedList(
         EmptyHint(text = stringResource(R.string.pending_empty))
         return
     }
-    // 渲染源（2026-08-20 E2E 修复：原「本地镜像 + LaunchedEffect 同步」模式在
-    // 删除/编辑后有陈旧窗口——tab 计数已变而列表仍旧值。改为非拖拽时直接渲染
-    // queue（Room 更新即时反映零残留），仅拖拽期间使用本地副本）
+    // 渲染源（2026-08-20 E2E 修复）：非拖拽时直接渲染 queue（Room 即时），仅拖拽期间本地副本
     var dragOrder by remember { mutableStateOf<List<PendingMessage>?>(null) }
     val order = dragOrder ?: queue
     var drag by remember { mutableStateOf<DragState?>(null) }
-    val swapThreshold = with(LocalDensity.current) { 48.dp.toPx() }
+    val swapThreshold = with(LocalDensity.current) { 44.dp.toPx() }
 
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         itemsIndexed(order, key = { _, item -> item.id }) { index, item ->
             val isDragged = drag?.index == index
             val isHeadSending = isDraining && index == 0
-            // 包裹式结构（修复 2026-08-20 初稿 bug：手势 Box 原是 Surface 的
-            // 兄弟节点——0 高度不覆盖行内容，长按拖拽永远不命中）：单一 Box
-            // 同时承载视觉位移（graphicsLayer/zIndex）、拖拽手势与行内容。
+            // 包裹式结构（2026-08-20 修复）：单一 Box 承载视觉位移/拖拽手势/行内容
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -278,7 +366,6 @@ private fun StackedList(
                         if (isDraining) return@pointerInput
                         detectDragGesturesAfterLongPress(
                             onDragStart = {
-                                // 拖拽开始：快照当前渲染列表为本地副本
                                 drag = DragState(index, 0f)
                                 dragOrder = order
                             },
@@ -287,7 +374,6 @@ private fun StackedList(
                                 val d = drag ?: return@detectDragGesturesAfterLongPress
                                 var newOffset = d.offset + amount.y
                                 var newIndex = d.index
-                                // 越过一行高度即与相邻行交换（本地即时反馈）
                                 val current = dragOrder ?: order
                                 while (newOffset > swapThreshold && newIndex < current.size - 1) {
                                     newIndex++
@@ -309,7 +395,6 @@ private fun StackedList(
                             onDragEnd = {
                                 onReorder((dragOrder ?: order).map { it.id })
                                 drag = null
-                                // 提交后清本地副本——Room 重排发射的 queue 接管渲染
                                 dragOrder = null
                             },
                             onDragCancel = {
@@ -320,20 +405,18 @@ private fun StackedList(
                     },
             ) {
                 Surface(
-                    color = if (isDragged) {
-                        MaterialTheme.colorScheme.surfaceContainerHigh
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    },
+                    color = if (isDragged) MaterialTheme.colorScheme.surfaceContainerHigh
+                    else MaterialTheme.colorScheme.surface,
                     shape = ShapeTokens.medium,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                            // 2026-08-22 紧凑化：竖向 SM→XS + 行内按钮 32→28（~44dp）
+                            .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -359,31 +442,31 @@ private fun StackedList(
                                 },
                             )
                         }
-                        IconButton(onClick = { onEdit(item) }, enabled = !isDraining, modifier = Modifier.size(32.dp)) {
+                        IconButton(onClick = { onEdit(item) }, enabled = !isDraining, modifier = Modifier.size(28.dp)) {
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = stringResource(R.string.pending_item_edit),
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
                             )
                         }
-                        IconButton(onClick = { onDelete(item.id) }, enabled = !isDraining, modifier = Modifier.size(32.dp)) {
+                        IconButton(onClick = { onDelete(item.id) }, enabled = !isDraining, modifier = Modifier.size(28.dp)) {
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = stringResource(R.string.pending_item_delete),
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
                             )
                         }
                         IconButton(
                             onClick = { onSendOne(item.id, item.text) },
                             enabled = !isDraining,
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier.size(28.dp),
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.Send,
                                 contentDescription = stringResource(R.string.pending_item_send),
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM),
                             )
                         }
@@ -394,7 +477,7 @@ private fun StackedList(
     }
 }
 
-/** TODO 只读列表：三态符号（✓/•/○），cancelled 删除线。 */
+/** TODO 只读列表：三态符号（✓/•/○），cancelled 删除线（自 PendingTodoSheet 迁移）。 */
 @Composable
 private fun TodoList(todos: List<SseEvent.TodoUpdated.Todo>) {
     if (todos.isEmpty()) {
@@ -406,7 +489,7 @@ private fun TodoList(todos: List<SseEvent.TodoUpdated.Todo>) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp),
+                    .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
             ) {
@@ -446,6 +529,7 @@ private fun TodoList(todos: List<SseEvent.TodoUpdated.Todo>) {
     }
 }
 
+/** 空态提示（自 PendingTodoSheet 迁移）。 */
 @Composable
 private fun EmptyHint(text: String) {
     Box(
@@ -461,3 +545,8 @@ private fun EmptyHint(text: String) {
         )
     }
 }
+
+/** 拖拽重排进行时状态（堆积段长按拖动；自 PendingTodoSheet 迁移）。 */
+private data class DragState(val index: Int, val offset: Float)
+
+// detectDragGesturesAfterLongPress import（StackedList 拖拽重排）

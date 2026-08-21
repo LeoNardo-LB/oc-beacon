@@ -333,7 +333,6 @@ fun ChatScreen(
     var showModelPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showTaskSheet by remember { mutableStateOf(false) }
-    var showPendingSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var isTerminalMode by rememberSaveable { mutableStateOf(startInTerminalMode) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -584,6 +583,24 @@ fun ChatScreen(
         LocalSessionStreaming provides sessionMeta.isStreaming,
     ) {
     var showQuickNavigate by remember { mutableStateOf(false) }
+    // 堆积/TODO 常驻抽屉（2026-08-22 设计定案，grilling Q4-Q17）：数据流与容器高度
+    val pendingQueue by viewModel.pendingQueue.collectAsStateWithLifecycle()
+    val sessionTodos by viewModel.sessionTodos.collectAsStateWithLifecycle()
+    val todoCapable by viewModel.todoCapable.collectAsStateWithLifecycle()
+    val pendingDrainingSet by viewModel.pendingDraining.collectAsStateWithLifecycle()
+    var chatAreaHeightPx by remember { mutableStateOf(0f) }
+    // 抽屉可见性与消息列表底部补偿（档位驱动；容器高度未测得时按收起标题栏算）
+    val drawerVisible = pendingDrawerVisible(pendingQueue.size, sessionTodos.size, todoCapable)
+    val drawerMemory = PendingDrawerMemoryStore.states[viewModel.sessionId]
+        ?: PendingDrawerMemory()
+    val drawerSnap = drawerMemory.snap.coerceIn(0, PendingDrawerAnchors.SNAP_COUNT - 1)
+    val drawerInset = if (!drawerVisible || drawerSnap == PendingDrawerAnchors.SNAP_COLLAPSED) {
+        if (drawerVisible) PendingDrawerAnchors.HEADER_HEIGHT else 0.dp
+    } else {
+        with(LocalDensity.current) {
+            (chatAreaHeightPx * PendingDrawerAnchors.FRACTIONS[drawerSnap]).toDp()
+        }
+    }
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -708,10 +725,6 @@ fun ChatScreen(
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
                 onOpenTaskSheet = { showTaskSheet = true },
-                onOpenPendingSheet = {
-                    viewModel.probeTodoCapability()
-                    showPendingSheet = true
-                },
                 onQuickNavigate = { showQuickNavigate = true },
             )
         },
@@ -721,6 +734,8 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .consumeWindowInsets(padding)
+                // 常驻抽屉（2026-08-22）：容器高度（抽屉锚点比例与 inset 计算的基准）
+                .onSizeChanged { chatAreaHeightPx = it.height.toFloat() }
         ) {
             when {
                 isTerminalMode -> {
@@ -843,9 +858,36 @@ fun ChatScreen(
                         agents = modelConfig.agents,
                         // 子会话无 agent 选择入口（置 null 隐藏）
                         onAgentClick = if (isMainSession) ({ agentName -> viewModel.modelSelection.selectAgent(agentName) }) else null,
+                        bottomOverlayInset = drawerInset,
                         modifier = Modifier.fillMaxSize(),
                     )
                   }
+
+              }
+
+              // 堆积/TODO 常驻抽屉（2026-08-22）：主对话流模块内覆盖式——底部锚定、
+              // 贴输入组件上沿；双空自动隐藏；键盘弹起自动收起；档位/段位按会话记忆
+              //（内存级）。模态 PendingTodoSheet 已退役（入口=常驻标题栏本身）。
+              if (!isTerminalMode && drawerVisible) {
+                  val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+                  PendingTodoDrawer(
+                      sessionId = viewModel.sessionId,
+                      containerHeightPx = chatAreaHeightPx,
+                      queue = pendingQueue,
+                      todos = sessionTodos,
+                      showTodoSegment = todoCapable,
+                      isSessionIdle = sessionMeta.sessionStatus !is SessionStatus.Busy &&
+                          sessionMeta.sessionStatus !is SessionStatus.Retry,
+                      isDraining = pendingDrainingSet.contains(viewModel.sessionId),
+                      imeVisible = imeVisible,
+                      onContinue = viewModel::continuePendingQueue,
+                      onClear = viewModel::clearPendingMessages,
+                      onEdit = { id, text -> viewModel.editPendingMessage(id, text) },
+                      onDelete = { id -> viewModel.deletePendingMessage(id) },
+                      onSendOne = { id, text -> viewModel.sendPendingNow(id, text) },
+                      onReorder = { ids -> viewModel.reorderPendingMessages(ids) },
+                      modifier = Modifier.align(Alignment.BottomCenter),
+                  )
               }
            }
         }
@@ -945,31 +987,8 @@ fun ChatScreen(
         )
     }
 
-    // 堆积/TODO 面板（ModalBottomSheet，2026-08-20 设计定稿）—— 入口在
-    // 输入栏第一行右侧（双角标图标按钮）。TODO tab 按服务器能力门控
-    //（V2 beta 无端点 → 隐藏；SSE 已有数据视为有能力）。
-    if (showPendingSheet) {
-        val pendingQueue by viewModel.pendingQueue.collectAsStateWithLifecycle()
-        val sessionTodos by viewModel.sessionTodos.collectAsStateWithLifecycle()
-        val todoCapable by viewModel.todoCapable.collectAsStateWithLifecycle()
-        val pendingDraining by viewModel.pendingDraining.collectAsStateWithLifecycle()
-        val isSessionIdle = sessionMeta.sessionStatus !is SessionStatus.Busy &&
-            sessionMeta.sessionStatus !is SessionStatus.Retry
-        PendingTodoSheet(
-            queue = pendingQueue,
-            todos = sessionTodos,
-            showTodoTab = todoCapable || sessionTodos.isNotEmpty(),
-            isSessionIdle = isSessionIdle,
-            isDraining = pendingDraining.contains(viewModel.sessionId),
-            onContinue = viewModel::continuePendingQueue,
-            onClear = viewModel::clearPendingMessages,
-            onEdit = { id, text -> viewModel.editPendingMessage(id, text) },
-            onDelete = { id -> viewModel.deletePendingMessage(id) },
-            onSendOne = { id, text -> viewModel.sendPendingNow(id, text) },
-            onReorder = { ids -> viewModel.reorderPendingMessages(ids) },
-            onDismiss = { showPendingSheet = false },
-        )
-    }
+    // （堆积/TODO 模态 sheet 已于 2026-08-22 退役——由主对话流内常驻抽屉
+    //  PendingTodoDrawer 取代，见上方 Scaffold content 内渲染点。）
 
     // FileViewer 浮层 —— 请求时渲染在 ChatScreen 之上。
     fileViewerRequest?.let { params ->
