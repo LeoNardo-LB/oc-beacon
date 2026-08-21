@@ -215,7 +215,8 @@ class SseConnectionManager @Inject constructor(
         }
         try {
             val state = connections[serverId] ?: return
-            AppLogger.i(TAG, "Reconnecting server $serverId after network recovery")
+            // #152：重连路径降级 d——风暴期不再刷 info（审计：每断连 5-8 条灌水）
+            AppLogger.d(TAG, "Reconnecting server $serverId after network recovery")
             timeoutTrackers[serverId]?.reset()
             // RS-001：等待旧协程完全停止后再启动新的
             state.sseJob.cancelAndJoin()
@@ -292,12 +293,12 @@ class SseConnectionManager @Inject constructor(
 
                 // 若处于冷却中，等待并跳过重连尝试
                 if (tracker.isInCooldown()) {
-                    AppLogger.i(TAG, "[${server.displayName}] SSE in cooldown, waiting ${COOLDOWN_CHECK_INTERVAL_MS}ms")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] SSE in cooldown, waiting ${COOLDOWN_CHECK_INTERVAL_MS}ms")
                     delay(COOLDOWN_CHECK_INTERVAL_MS)
                     continue
                 }
 
-                AppLogger.i(TAG, "[${server.displayName}] SSE connection attempt #$attempt")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] SSE connection attempt #$attempt")
 
                 // #150 方向②（2026-08-21）：预加载与 SSE 并行——SSE 首事件到达即翻转
                 // "已连接"，不再被整段预加载阻塞（V1 实测 preload 串行 ~134ms 占首连
@@ -321,7 +322,7 @@ class SseConnectionManager @Inject constructor(
                 try {
                     // V2 连接使用 V2 SSE 客户端，V1 使用原始 V1 客户端
                     val sseFlow = if (conn.apiVersion.isV2) {
-                        AppLogger.i(TAG, "[${server.displayName}] Using V2 SSE client")
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] Using V2 SSE client")
                         sseClientV2.connectToEvents(conn)
                     } else {
                         sseClient.connectToGlobalEvents(conn)
@@ -334,7 +335,8 @@ class SseConnectionManager @Inject constructor(
                         // 条目在场时谓词恒真，正常退出仍由流完成/错误/取消驱动。
                         .takeWhile { connections.containsKey(server.id) }
                         .catch { error ->
-                            AppLogger.e(TAG, "[${server.displayName}] SSE stream error", error)
+                            // #152：流中断是网络常态（非程序错误）——降 w；同一异常由外层 catch 统一终结记录
+                            AppLogger.w(TAG, "[${server.displayName}] SSE stream error", error)
                             updateServerConnected(server.id, false)
                             tracker.recordTimeout()
                             throw error
@@ -379,7 +381,8 @@ class SseConnectionManager @Inject constructor(
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] SSE job cancelled, not reconnecting")
                     throw e
                 } catch (e: Exception) {
-                    AppLogger.e(TAG, "[${server.displayName}] SSE connection failed: ${e.message}")
+                    // #152：连接失败带 throwable（原缺——审计 7 处之一）；e→d 避免与 :337 双记（同一异常两连发）
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] SSE connection failed: ${e.message}", e)
                     updateServerConnected(server.id, false)
                     if (tracker.shouldEnterCooldown()) {
                         val timeouts = tracker.consecutiveTimeouts
@@ -398,7 +401,7 @@ class SseConnectionManager @Inject constructor(
                 if (!connections.containsKey(server.id)) break
 
                 val delayMs = calculateBackoff(attempt)
-                AppLogger.i(TAG, "[${server.displayName}] Reconnecting in ${delayMs}ms (attempt #$attempt)")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] Reconnecting in ${delayMs}ms (attempt #$attempt)")
                 delay(delayMs)
             }
     }
