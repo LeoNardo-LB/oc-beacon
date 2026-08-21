@@ -18,6 +18,10 @@
   - **#153 实现记录（2026-08-21 cfeae170→cfeae270）**：release.yml 增 Upload R8 mapping 步骤（ocbeacon-mapping-<ver>，90 天保留，if-no-files-found: error——若 minify 意外关闭构建会产出 mapping 缺失即 CI 失败，双重守卫）；本地 outputs/mapping/devRelease/mapping.txt 实证 AGP 路径约定。验收：下次发版 tag 的 Actions 页应见 mapping artifact。
 
 
+## 附：Diagnostics 分享崩溃修复（2026-08-21，用户报告当日修复）
+
+用户实测报告：诊断页右上角分享按钮即崩。crash 取证：`IllegalArgumentException: Failed to find configured root that contains /data/.../cache/diagnostics/diagnostics.txt`——FileProvider 的 file_paths.xml 只声明了 `cache-path updates/`（更新检查 APK 用），诊断分享写的 `cache/diagnostics/` 无对应 root。根因修复：补 `cache-path diagnostics/` 声明（非 try-catch 吞异常）。真机复验：分享面板正常弹出（diagnostics.txt + 系统目标列表），crash 0。
+
 ## #151 GitHub 错误上报实现记录（2026-08-21 代码完成，功能待 GitHub App 注册后激活）
 
 ### 提交链（模块化）
