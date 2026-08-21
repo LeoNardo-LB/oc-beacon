@@ -144,6 +144,9 @@
     <string name="pending_item_sending">发送中…</string>
     <string name="todo_empty">暂无 TODO 项</string>
     <string name="chat_copy">复制</string>
+    <string name="terminal_copy">复制</string>
+    <string name="terminal_paste">粘贴</string>
+    <string name="terminal_more">更多…</string>
     <string name="chat_compressing_context">正在压缩上下文：%1$s</string>
     <string name="chat_compressing_context_plain">正在压缩上下文…</string>
     <string name="chat_revert">还原</string>

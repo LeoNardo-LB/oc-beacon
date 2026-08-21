@@ -142,6 +142,9 @@
     <string name="pending_item_sending">Wysyłanie…</string>
     <string name="todo_empty">Brak elementów TODO</string>
     <string name="chat_copy">Kopiuj</string>
+    <string name="terminal_copy">Kopiuj</string>
+    <string name="terminal_paste">Wklej</string>
+    <string name="terminal_more">Więcej…</string>
     <string name="chat_compressing_context">Kompresowanie kontekstu: %1$s</string>
     <string name="chat_compressing_context_plain">Kompresowanie kontekstu…</string>
     <string name="chat_revert">Cofnij</string>

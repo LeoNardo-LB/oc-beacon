@@ -115,6 +115,9 @@
     <string name="todo_empty">No TODO items</string>
     <string name="chat_empty">Start a conversation with OpenCode</string>
     <string name="chat_copy">Copy</string>
+    <string name="terminal_copy">Copy</string>
+    <string name="terminal_paste">Paste</string>
+    <string name="terminal_more">More…</string>
     <!-- #120（D2-10）：压缩中提示（原硬编码英文，绕过 i18n） -->
     <string name="chat_compressing_context">Compressing context: %1$s</string>
     <string name="chat_compressing_context_plain">Compressing context…</string>

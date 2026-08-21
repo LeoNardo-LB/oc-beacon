@@ -28,4 +28,10 @@ public interface TerminalSession {
      * (lazy) or resize the emulator and propagate the new size to the PTY.
      */
     void updateSize(int columns, int rows, int fontWidthPx, int fontLineSpacingPx);
+
+    /** Forward clipboard request to the session client (text selection menu). */
+    void onCopyTextToClipboard(String text);
+
+    /** Forward paste request to the session client (text selection menu). */
+    void onPasteTextFromClipboard();
 }

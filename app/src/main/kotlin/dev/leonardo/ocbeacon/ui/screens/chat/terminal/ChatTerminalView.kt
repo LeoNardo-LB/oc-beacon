@@ -42,7 +42,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ClipEntry
@@ -104,7 +103,8 @@ fun ChatTerminalView(
     var terminalVirtualCtrlDown by remember { mutableStateOf(false) }
     var terminalVirtualFnDown by remember { mutableStateOf(false) }
     var suppressFnTildeUntil by remember { mutableStateOf(0L) }
-    val terminalFocusRequester = remember { FocusRequester() }
+    // #189：Termux View 引用（焦点/软键盘直通——Compose FocusRequester 不穿越 AndroidView）
+    var terminalViewRef by remember { mutableStateOf<com.termux.view.TerminalView?>(null) }
     // D2-L52：使用传入的 snackbarHostState（ChatScreen 已承载 SnackbarHost）——
     // 原函数内 remember 遮蔽参数，传入的 host 成为死参数，终端 snackbar 从不显示。
     val coroutineScope = rememberCoroutineScope()
@@ -205,10 +205,10 @@ fun ChatTerminalView(
         }
     }
 
-    // ── 焦点请求器 ─────────────────────────────────────────
+    // ── 焦点：连接就绪后聚焦终端 View ────────────────────
     LaunchedEffect(isTerminalMode, terminalState) {
         if (isTerminalMode && terminalState == TerminalTabState.Connected) {
-            terminalFocusRequester.requestFocus()
+            terminalViewRef?.requestFocus()
         }
     }
 
@@ -285,8 +285,10 @@ fun ChatTerminalView(
                 if (imeVisible) {
                     keyboardController?.hide()
                 } else {
-                    terminalFocusRequester.requestFocus()
-                    keyboardController?.show()
+                    terminalViewRef?.requestFocus()
+                    terminalViewRef?.context?.getSystemService(
+                        android.view.inputmethod.InputMethodManager::class.java
+                    )?.showSoftInput(terminalViewRef, 0)
                 }
             }
             if (fnResult.output.contains("~")) {
@@ -403,10 +405,10 @@ fun ChatTerminalView(
         }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            SessionTerminalInline(
-                emulator = terminal.terminalEmulator,
-                focusRequester = terminalFocusRequester,
-                onSendInput = ::sendTerminalChunk,
+            TermuxTerminalHost(
+                session = terminal.terminalSession,
+                virtualCtrlDown = { terminalVirtualCtrlDown },
+                virtualFnDown = { terminalVirtualFnDown },
                 onPaste = ::pasteClipboardToTerminal,
                 onResize = { cols, rows ->
                     terminal.resizeTerminal(cols, rows)
@@ -414,6 +416,7 @@ fun ChatTerminalView(
                 fontSizeSp = terminalFontSizeSp,
                 onFontSizeChange = terminal::setTerminalFontSize,
                 contentBottomPadding = overlayHeightDp + imeBottomDp,
+                onViewReady = { tv -> terminalViewRef = tv },
                 modifier = Modifier.fillMaxSize()
             )
 

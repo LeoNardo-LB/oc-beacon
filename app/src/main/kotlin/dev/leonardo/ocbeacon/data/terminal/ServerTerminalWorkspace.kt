@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.connectbot.terminal.TerminalEmulatorFactory
+import com.termux.terminal.TerminalEmulator
 import java.util.UUID
 
 private const val WORKSPACE_TAG = "ServerTerminalWorkspace"
@@ -49,6 +49,7 @@ internal class ServerTerminalWorkspace(
         val id: String,
         var title: String,
         val adapter: PtyToTermlibAdapter,
+        val session: RemoteTerminalSession,
         var fontSizeSp: Float = DEFAULT_TERMINAL_FONT_SIZE_SP,
         var directory: String? = null,
         var ptyId: String? = null,
@@ -87,20 +88,12 @@ internal class ServerTerminalWorkspace(
     private val _activeFontSizeSp = MutableStateFlow(DEFAULT_TERMINAL_FONT_SIZE_SP)
     val activeFontSizeSp: StateFlow<Float> = _activeFontSizeSp
 
-    private val fallbackAdapter: PtyToTermlibAdapter = run {
-        val emu = TerminalEmulatorFactory.create(
-            initialRows = DEFAULT_ROWS,
-            initialCols = DEFAULT_COLS,
-            onKeyboardInput = { /* no-op for fallback */ },
-        )
-        PtyToTermlibAdapter(
-            emulator = emu,
-            scope = scope,
-            writeInput = emu::writeInput,
-            onResize = { rows, cols -> emu.resize(rows, cols) },
-            onClearScreen = { emu.clearScreen() },
-        )
-    }
+    private val fallbackAdapter: PtyToTermlibAdapter =
+        PtyToTermlibAdapter(scope = scope, onPtyOutput = { _, _, _ -> })
+
+    /** fallback 期无真实会话；view attach 前的占位。 */
+    private val fallbackSession: RemoteTerminalSession =
+        RemoteTerminalSession(bridge = fallbackAdapter)
 
     /**
      * 返回活动标签页的 adapter；没有活动标签页时返回 fallback。
@@ -112,9 +105,13 @@ internal class ServerTerminalWorkspace(
         }
     }
 
-    /** 仅供只需 termlib 模拟器的代码使用的便捷访问器。 */
-    fun activeEmulator(): org.connectbot.terminal.TerminalEmulator =
-        activeAdapter().emulator!!
+    /** 当前活动 tab 的远程会话（Termux 桥）；无活动 tab 时为 fallback。 */
+    fun activeSession(): RemoteTerminalSession {
+        val id = _activeTabId.value ?: return fallbackSession
+        return synchronized(lock) {
+            tabs.firstOrNull { it.id == id }?.session ?: fallbackSession
+        }
+    }
 
     fun ensureActiveTab(cwd: String?, directory: String?, onResult: (Boolean) -> Unit = {}) {
         val hasActive = synchronized(lock) { activeTabLocked() != null }
@@ -129,26 +126,21 @@ internal class ServerTerminalWorkspace(
         val tab = synchronized(lock) {
             val index = tabs.size + 1
             val tabId = UUID.randomUUID().toString()
-            // Adapter 创建：onKeyboardInput 回调需要 adapter，
-            // 但 adapter 需要模拟器。通过 holder 变量解决。
-            var adapterRef: PtyToTermlibAdapter? = null
-            val emulator = TerminalEmulatorFactory.create(
-                initialRows = DEFAULT_ROWS,
-                initialCols = DEFAULT_COLS,
-                onKeyboardInput = { bytes -> adapterRef?.dispatchKeyboardOutput(bytes) },
-            )
+            // PTY 桥 + 远程会话（Termux 桥接口实现）
+            var sessionRef: RemoteTerminalSession? = null
             val adapter = PtyToTermlibAdapter(
-                emulator = emulator,
                 scope = scope,
-                writeInput = emulator::writeInput,
-                onResize = { rows, cols -> emulator.resize(rows, cols) },
-                onClearScreen = { emulator.clearScreen() },
+                onPtyOutput = { bytes, offset, count ->
+                    sessionRef?.feedPtyOutput(bytes, offset, count)
+                },
             )
-            adapterRef = adapter
+            val session = RemoteTerminalSession(bridge = adapter)
+            sessionRef = session
             RuntimeTab(
                 id = tabId,
                 title = context.getString(R.string.terminal_tab_title, index),
                 adapter = adapter,
+                session = session,
                 fontSizeSp = defaultFontSizeSp,
                 directory = directory,
             ).also {
@@ -244,10 +236,9 @@ internal class ServerTerminalWorkspace(
 
     fun clearActiveBuffer() {
         val tab = synchronized(lock) { activeTabLocked() } ?: return
-        tab.adapter.clear()
-        if (_activeTabId.value == tab.id) {
-            _activeVersion.value = tab.adapter.version.value
-        }
+        // #189：向 shell 发送 clear（远程回显模型——屏幕内容由服务器重绘）；
+        // 兼容清滚回：本地 emulator reset 后由新输出重建画面。
+        tab.session.write("clear\r")
     }
 
     fun setActiveFontSize(fontSizeSp: Float) {
@@ -285,12 +276,10 @@ internal class ServerTerminalWorkspace(
                 "resizeActive: cols=$cols rows=$rows ptyId=${tab.ptyId} lastSize=${tab.lastSize} state=${tab.state} tabDir=${tab.directory}"
             )
 
-            // termlib 的 resize 参数是 (rows, cols) —— 与旧 API 顺序相反。
-            // 本地模拟器 resize 立即生效，UI 无需等待网络即可响应。
-            tab.adapter.resize(rows = rows, cols = cols)
-            if (_activeTabId.value == tab.id) {
-                _activeVersion.value = tab.adapter.version.value
-            }
+            // #189：Termux 桥的 updateSize(columns, rows, cellW, cellH)。
+            // 本地模拟器 resize 立即生效，UI 无需等待网络即可响应；cell 尺寸
+            // 传 0 时（emulator 已存在路径）resize 仅用 cols/rows。
+            tab.session.updateSize(cols, rows, 0, 0)
 
             // 去重：服务器已确认的相同尺寸不再重复发送。
             if (tab.lastSize == size && tab.state == TerminalTabState.Connected) {

@@ -142,6 +142,9 @@
     <string name="pending_item_sending">전송 중…</string>
     <string name="todo_empty">TODO 항목이 없습니다</string>
     <string name="chat_copy">복사</string>
+    <string name="terminal_copy">복사</string>
+    <string name="terminal_paste">붙여넣기</string>
+    <string name="terminal_more">더 보기…</string>
     <string name="chat_compressing_context">컨텍스트 압축 중: %1$s</string>
     <string name="chat_compressing_context_plain">컨텍스트 압축 중…</string>
     <string name="chat_revert">되돌리기</string>

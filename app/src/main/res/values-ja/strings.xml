@@ -142,6 +142,9 @@
     <string name="pending_item_sending">送信中…</string>
     <string name="todo_empty">TODOアイテムはありません</string>
     <string name="chat_copy">コピー</string>
+    <string name="terminal_copy">コピー</string>
+    <string name="terminal_paste">貼り付け</string>
+    <string name="terminal_more">その他…</string>
     <string name="chat_compressing_context">コンテキストを圧縮中: %1$s</string>
     <string name="chat_compressing_context_plain">コンテキストを圧縮中…</string>
     <string name="chat_revert">元に戻す</string>

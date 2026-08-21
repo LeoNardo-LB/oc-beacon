@@ -79,6 +79,9 @@
     <string name="todo_empty">Tidak ada item TODO</string>
     <string name="chat_empty">Mulai percakapan dengan OpenCode</string>
     <string name="chat_copy">Salin</string>
+    <string name="terminal_copy">Salin</string>
+    <string name="terminal_paste">Tempel</string>
+    <string name="terminal_more">Lainnya…</string>
     <string name="chat_compressing_context">Mengompresi konteks: %1$s</string>
     <string name="chat_compressing_context_plain">Mengompresi konteks…</string>
     <string name="chat_revert">Batalkan perubahan</string>

@@ -185,7 +185,6 @@ dependencies {
     implementation("io.ktor:ktor-client-auth:$ktorVersion")
 
     // ConnectBot 终端 —— 基于 libvterm 的终端模拟器（替代手写 ANSI 解析器）
-    implementation("org.connectbot:termlib:0.1.0")
 
     // Kotlinx 序列化
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")

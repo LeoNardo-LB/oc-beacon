@@ -142,6 +142,9 @@
     <string name="pending_item_sending">Надсилання…</string>
     <string name="todo_empty">Немає елементів TODO</string>
     <string name="chat_copy">Копіювати</string>
+    <string name="terminal_copy">Копіювати</string>
+    <string name="terminal_paste">Вставити</string>
+    <string name="terminal_more">Більше…</string>
     <string name="chat_compressing_context">Стиснення контексту: %1$s</string>
     <string name="chat_compressing_context_plain">Стиснення контексту…</string>
     <string name="chat_revert">Відмінити зміни</string>

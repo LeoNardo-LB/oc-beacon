@@ -11,43 +11,25 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.connectbot.terminal.TerminalEmulator
 
 private const val TAG = "PtyToTermlibAdapter"
 
 /**
- * 将 [PtySocket] 桥接到 termlib 的 [TerminalEmulator]。
+ * 将 [PtySocket]（WebSocket PTY 传输）桥接到终端模拟器后端。
  *
- * 数据流：
- *   socket.readLoop(text)  →  writeInput(utf8Bytes)   （通常为 emulator::writeInput）
- *   emulator.onKeyboardInput(bytes)  →  socket.send(utf8String)
+ * #189 换件后为通用 PTY 桥（历史名保留以减小 diff）：
+ *   PTY 输出:  socket.readLoop(text) → [onPtyOutput](utf8Bytes)（termux emulator::append）
+ *   键盘输入:  sendInput(text) → socket.send（远程回显模型，见 RemoteTerminalSession）
  *
- * 线程安全：[bind]、[dispatchKeyboardOutput]、[sendInput]、[release] 可
- * 从任意线程调用。内部状态变更由 [lock] 保护。
- * 读取协程在所提供的 [scope] 的 dispatcher 上运行（通常为
- * ServerTerminalWorkspace 内的 Dispatchers.IO）。
+ * DECSET 光标键模式跟踪已删除——termux TerminalEmulator/KeyHandler 内部
+ * 完整处理 application cursor key mode。
  *
- * 重入性：按 termlib 契约，回调（onKeyboardInput）不得
- * 回调 emulator 方法。此适配器通过将键盘输出仅路由到
- * socket 发送通道来强制执行此约束。
- *
- * P0-1 修复：此类接受 [writeInput] lambda（以及可选的
- * [onResize] / [onClearScreen]），而非直接接收 [TerminalEmulator]。
- * termlib 的 TerminalEmulator 是密封接口，因此跨模块 fake 无法
- * 实现它。生产环境中传递方法引用（例如 `emulator::writeInput`）；
- * 测试中传递捕获 lambda。保留可选的 [emulator] 字段，以便需要
- * 真实 emulator 的调用点（例如 Terminal composable）能取回它。
- *
- * P0-2 修复：[cursorKeysApplicationMode] 跟踪从 PTY 字节流中解析出的
- * DECSET 模式 1（`ESC [ ? 1 h` / `ESC [ ? 1 l`），然后再转发。
- * 该状态机能跨数据块边界存活。
+ * 线程安全：[bind]、[sendInput]、[release] 可从任意线程调用；内部状态由
+ * [lock] 保护。读取协程运行在 [scope]（ServerTerminalWorkspace 的 IO scope）。
  */
 class PtyToTermlibAdapter(
-    val emulator: TerminalEmulator? = null,
     private val scope: CoroutineScope,
-    private val writeInput: (ByteArray, Int, Int) -> Unit,
-    private val onResize: ((rows: Int, cols: Int) -> Unit)? = null,
-    private val onClearScreen: (() -> Unit)? = null,
+    private val onPtyOutput: (ByteArray, Int, Int) -> Unit,
 ) {
     private val lock = Any()
     private var socket: PtySocket? = null
@@ -77,16 +59,6 @@ class PtyToTermlibAdapter(
     private val _version = MutableStateFlow(0L)
     val version: StateFlow<Long> = _version.asStateFlow()
 
-    // P0-2：DECSET 模式 1（光标键应用模式）跟踪。
-    private val _cursorKeysApplicationMode = MutableStateFlow(false)
-    val cursorKeysApplicationMode: StateFlow<Boolean> = _cursorKeysApplicationMode.asStateFlow()
-
-    // 用于跨数据块解析 `ESC [ ? 1 h` / `ESC [ ? 1 l` 的状态机。
-    private var ckmState: CursorKeyModeParseState = CursorKeyModeParseState.IDLE
-
-    private enum class CursorKeyModeParseState {
-        IDLE, ESC, CSI, QUESTION, ONE,
-    }
 
     /**
      * 绑定新 socket，替换任何先前的绑定。幂等：调用
@@ -107,8 +79,7 @@ class PtyToTermlibAdapter(
             try {
                 socket.readLoop { chunk ->
                     val bytes = chunk.toByteArray(Charsets.UTF_8)
-                    scanForCursorKeyMode(bytes, 0, bytes.size)
-                    writeInput(bytes, 0, bytes.size)
+                    onPtyOutput(bytes, 0, bytes.size)
                     _version.value++
                 }
             } catch (e: Exception) {
@@ -116,19 +87,6 @@ class PtyToTermlibAdapter(
             }
         }
         synchronized(lock) { readerJob = job }
-    }
-
-    /**
-     * 由 emulator 的 onKeyboardInput 回调调用。将字节作为 UTF-8 字符串
-     * 转发到已绑定的 socket。可从任意线程安全调用；
-     * 实际发送在 [scope] 上启动，以避免阻塞 emulator 的回调线程。
-     *
-     * 公开以支持测试——生产环境中它从
-     * TerminalEmulatorFactory.create(onKeyboardInput = ...) 内部调用。
-     */
-    fun dispatchKeyboardOutput(bytes: ByteArray) {
-        // #116（D2-20）：入队发送 actor（串行保序；原 fire-and-forget 并发乱序）
-        sendChannel.trySend(bytes.toString(Charsets.UTF_8))
     }
 
     /**
@@ -140,20 +98,6 @@ class PtyToTermlibAdapter(
         sendChannel.trySend(text)
     }
 
-    /**
-     * 调整 emulator 大小。termlib 先取 rows，再取 cols——与此方法
-     * 期望的顺序一致。若未提供 resize 接收器则为空操作。
-     */
-    fun resize(rows: Int, cols: Int) {
-        if (rows <= 0 || cols <= 0) return
-        onResize?.invoke(rows, cols)
-        _version.value++
-    }
-
-    fun clear() {
-        onClearScreen?.invoke()
-        _version.value++
-    }
 
     /**
      * 测试接缝：像 writeInput 完成那样递增版本计数器。
@@ -203,49 +147,6 @@ class PtyToTermlibAdapter(
             // 其他异常（读取器自身会记录它们）。
             if (e is CancellationException) throw e
             AppLogger.w(TAG, "awaitReader swallowed: ${e.message}", e)
-        }
-    }
-
-    /**
-     * 用于 `ESC [ ? 1 h`（DECSET 1 / application）和
-     * `ESC [ ? 1 l`（DECRST 1 / normal）的最小状态机扫描器。
-     * 状态跨调用持久化，因此跨越数据块边界的转义序列仍能被识别。
-     */
-    private fun scanForCursorKeyMode(bytes: ByteArray, offset: Int, length: Int) {
-        val end = offset + length
-        var i = offset
-        while (i < end) {
-            val b = bytes[i].toInt() and 0xFF
-            ckmState = when (ckmState) {
-                CursorKeyModeParseState.IDLE -> when (b) {
-                    0x1B -> CursorKeyModeParseState.ESC // ESC
-                    else -> CursorKeyModeParseState.IDLE
-                }
-                CursorKeyModeParseState.ESC -> when (b) {
-                    '['.code -> CursorKeyModeParseState.CSI
-                    else -> CursorKeyModeParseState.IDLE
-                }
-                CursorKeyModeParseState.CSI -> when (b) {
-                    '?'.code -> CursorKeyModeParseState.QUESTION
-                    else -> CursorKeyModeParseState.IDLE
-                }
-                CursorKeyModeParseState.QUESTION -> when (b) {
-                    '1'.code -> CursorKeyModeParseState.ONE
-                    else -> CursorKeyModeParseState.IDLE
-                }
-                CursorKeyModeParseState.ONE -> when (b) {
-                    'h'.code -> {
-                        _cursorKeysApplicationMode.value = true
-                        CursorKeyModeParseState.IDLE
-                    }
-                    'l'.code -> {
-                        _cursorKeysApplicationMode.value = false
-                        CursorKeyModeParseState.IDLE
-                    }
-                    else -> CursorKeyModeParseState.IDLE
-                }
-            }
-            i++
         }
     }
 }

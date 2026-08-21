@@ -35,7 +35,7 @@ class PtyToTermlibAdapterTest {
         val received = java.io.ByteArrayOutputStream()
         val adapter = PtyToTermlibAdapter(
             scope = this,
-            writeInput = { data, offset, length -> received.write(data, offset, length) },
+            onPtyOutput = { data, offset, length -> received.write(data, offset, length) },
         )
 
         val socket = FakePtySocket(frames = listOf("hello"))
@@ -51,13 +51,13 @@ class PtyToTermlibAdapterTest {
     fun `keyboard output from the emulator is forwarded to the socket`() = runTest {
         val adapter = PtyToTermlibAdapter(
             scope = this,
-            writeInput = { _, _, _ -> },
+            onPtyOutput = { _, _, _ -> },
         )
         val socket = FakePtySocket(frames = emptyList())
         adapter.bind(socket)
 
         // 以 termlib 的方式驱动键盘回调。
-        adapter.dispatchKeyboardOutput("ls\r\n".toByteArray())
+        adapter.sendInput("ls\r\n")
 
         // 给 dispatchKeyboardOutput 中的 launch{} 一个运行的机会。
         socket.completion.await()
@@ -74,13 +74,13 @@ class PtyToTermlibAdapterTest {
         var writeInputCallCount = 0
         val adapter = PtyToTermlibAdapter(
             scope = this,
-            writeInput = { _, _, _ -> writeInputCallCount++ },
+            onPtyOutput = { _, _, _ -> writeInputCallCount++ },
         )
         val socket = FakePtySocket(frames = emptyList())
         adapter.bind(socket)
 
         val before = writeInputCallCount
-        adapter.dispatchKeyboardOutput("x".toByteArray())
+        adapter.sendInput("x")
         socket.completion.await()
         adapter.release()
 
@@ -95,7 +95,7 @@ class PtyToTermlibAdapterTest {
     fun `version bumps on every writeInput`() = runTest {
         val adapter = PtyToTermlibAdapter(
             scope = this,
-            writeInput = { _, _, _ -> },
+            onPtyOutput = { _, _, _ -> },
         )
 
         adapter.version.test {
@@ -113,7 +113,7 @@ class PtyToTermlibAdapterTest {
     fun `release is idempotent and closes the socket`() = runTest {
         val adapter = PtyToTermlibAdapter(
             scope = this,
-            writeInput = { _, _, _ -> },
+            onPtyOutput = { _, _, _ -> },
         )
         val socket = FakePtySocket(frames = emptyList())
         adapter.bind(socket)
@@ -125,36 +125,6 @@ class PtyToTermlibAdapterTest {
         advanceUntilIdle()
 
         assertTrue(socket.closed)
-    }
-
-    @Test
-    fun `cursorKeysApplicationMode tracks DECSET 1 and DECRST 1`() = runTest {
-        val adapter = PtyToTermlibAdapter(
-            scope = this,
-            writeInput = { _, _, _ -> },
-        )
-        val socket = FakePtySocket(frames = listOf("\u001b[?1h"))
-        adapter.bind(socket)
-        socket.completion.await()
-        assertTrue("DECSET 1 should set application mode", adapter.cursorKeysApplicationMode.value)
-
-        // 通过绑定另一个发射 DECRST 1 的 socket 来重置状态。
-        val socket2 = FakePtySocket(frames = listOf("\u001b[?1l"))
-        adapter.bind(socket2)
-        socket2.completion.await()
-        assertFalse("DECRST 1 should clear application mode", adapter.cursorKeysApplicationMode.value)
-
-        adapter.release()
-    }
-
-    @Test
-    fun `cursorKeysApplicationMode default is false`() = runTest {
-        val adapter = PtyToTermlibAdapter(
-            scope = this,
-            writeInput = { _, _, _ -> },
-        )
-        assertFalse(adapter.cursorKeysApplicationMode.value)
-        adapter.release()
     }
 }
 

@@ -142,6 +142,9 @@
     <string name="pending_item_sending">Enviando…</string>
     <string name="todo_empty">Nenhum item TODO</string>
     <string name="chat_copy">Copiar</string>
+    <string name="terminal_copy">Copiar</string>
+    <string name="terminal_paste">Colar</string>
+    <string name="terminal_more">Mais…</string>
     <string name="chat_compressing_context">Comprimindo contexto: %1$s</string>
     <string name="chat_compressing_context_plain">Comprimindo contexto…</string>
     <string name="chat_revert">Reverter</string>

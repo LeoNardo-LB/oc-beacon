@@ -14,7 +14,8 @@ import kotlinx.coroutines.launch
 import dev.leonardo.ocbeacon.data.terminal.ServerTerminalWorkspace
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
-import org.connectbot.terminal.TerminalEmulator
+import com.termux.terminal.TerminalEmulator
+import dev.leonardo.ocbeacon.data.terminal.RemoteTerminalSession
 
 private const val TERMINAL_DELEGATE_TAG = "TerminalDelegate"
 
@@ -69,8 +70,13 @@ class TerminalDelegate(
     val terminalVersion: StateFlow<Long> = terminalWorkspace.activeVersion
     val terminalState: StateFlow<TerminalTabState> = terminalWorkspace.activeState
     val terminalFontSizeSp: StateFlow<Float> = terminalWorkspace.activeFontSizeSp
-    val terminalEmulator: TerminalEmulator get() = terminalWorkspace.activeEmulator()
-    val terminalCursorKeysAppMode: Boolean get() = terminalWorkspace.activeAdapter().cursorKeysApplicationMode.value
+
+    /** #189：Termux 桥——view attach 与键盘条转义生成使用。 */
+    val terminalSession: RemoteTerminalSession get() = terminalWorkspace.activeSession()
+
+    /** termux emulator 的光标键应用模式（键盘条方向键转义格式选择）。 */
+    val terminalCursorKeysAppMode: Boolean
+        get() = terminalSession.getEmulator()?.isCursorKeysApplicationMode ?: false
 
     fun openTerminalSession(onResult: (Boolean) -> Unit = {}) {
         scope.launch {
