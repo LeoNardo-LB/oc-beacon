@@ -219,6 +219,23 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 - crash buffer 0 条；hasActiveChildren/hasPendingUserInput 僵尸场景（需 3min busy）JVM 覆盖（既有 ConcurrencyTest）
 - ⏳ 维度 5：FSM 状态 UI 观感（busy 计时/流式/提问卡片）待用户验收
 
+## #175（顺手清理 + bonus）实现记录（2026-08-21 完成，真机烟雾全绿）
+
+### 提交链（每件独立 commit）
+
+| 件 | commit | 内容 |
+|----|--------|------|
+| ③ 双胞胎合并 + ④ 死代码 | 65a51723 | shouldSuppressEvent 并入 shouldSuppress（方法体 2026-08-16 对齐后逐字相同；KDoc 双用途折叠 + P1 修复史保留 + #137 微竞态注释收敛一份）；AppNotificationManager 5 调用点改名；重复测试组删除（断言集等价核实）+ 过期节标题修正；ScrollPositionDelegate 死代码删除（82 行 + 测试，生产零引用已 grep 复核） |
+| ② 删三壳 handler | 67d496f3 | MessagePartHandler/MessageUpdatedHandler/MessageRemovedHandler 三壳删除（各 ~25 行纯转发、serverId 未用）；MessageEventHandler 直接实现 SseEventHandler（handle 五分支）；registry 三 bind → 单 bind；Boolean 签名保留（5 测试文件 ~20 处识别契约消费——取证修正的诚实响应）；补识别契约测试 5+1；11 测试文件构造清理 |
+| ① 双调用点合一 | 276f2850 | ChatScreen 812-866 主/子会话双 ChatMessageList 调用点 → 参数化单调用点（4 差异全为 isMainSession 投影内移；20 公共参数逐字对齐取证在案）；ChatScreen 编辑协议（Read→Edit→compile→commit） |
+| bonus：deprecated trio | d757d499 | ChatRepository 接口 + Impl + EventDispatcher 三层 setMessages/mergeMessages/replaceMessages 删除（生产零调用，#171 时记录的债务）——真实现 MessageEventHandler 三方法保留；测试调用点全部迁移 upsertMessages(显式策略) |
+
+### 验证证据（2026-08-21 真机 houji，08:12:39 构建）
+
+- **自动化**：全量单测 **1805/1805 全绿**（-3 = ScrollPositionDelegateTest 随死代码删除；三壳识别契约 +2）；compileDevDebugKotlin 每件绿
+- **真机烟雾**：冷启动事件分发正常（ServerConnected → SessionEventHandler 单 bind 路由）；主会话进入/滚动/渲染正常；**子会话 else 分支端到端**——API 造真实子会话（parentID，ses_fde54839affePjIXAb9J31bOkb）→ 列表出现 → 进入渲染正常 → **快速定位对话框被抑制**（if (isMainSession) ... else false 投影 = 原常量 false 分支行为等价）；crash buffer 0
+- 测试子会话已清理（DELETE 204）；覆盖缺口：无（识别契约/断言等价/参数等价均有静态+运行时双侧证据）
+
 ## #171（候选 3）实现记录（2026-08-21 完成，真机 E2E 全绿）
 
 ### 提交链（三段式，每段独立编译 + commit）

@@ -69,9 +69,9 @@
   - ⏳ 维度 5（FSM 状态 UI 观感）待验收；僵尸场景（3min busy）JVM 覆盖
   - → `docs/journal/2026-08-21-arch-review-deepening.md`
 
-- [ ] **#175 架构评审顺手清理三件（deletion test 全正）** `refactor`
-  - ChatMessageList 双调用点合一（ChatScreen 812-866）· 三个纯转发壳 handler + SseEventHandler 残留 Boolean · SessionFocusHolder 同体双胞胎方法合并
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+- [~] **#175 架构评审顺手清理四件 + bonus——已实现，真机烟雾全绿，待用户验收** `refactor`
+  - 四件全落地（65a51723/67d496f3/276f2850/d757d499）：双调用点合一（子会话 else 分支真机实证）· 删三壳（Boolean 签名保留+契约测试）· 双胞胎合并 · ScrollPositionDelegate 死代码删除；bonus：repo deprecated trio 三层删除
+  - 全量 1805/1805 绿（-3 死代码测试 +2 契约测试）；→ `docs/journal/2026-08-21-arch-review-deepening.md`
 
 ## P1 — 核心功能需求
 
