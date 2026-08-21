@@ -267,6 +267,7 @@
     <string name="tool_write_file">Записати файл</string>
     <string name="tool_edit_file">Редагувати файл</string>
     <string name="tool_terminal">Термінал</string>
+    <string name="menu_pending_todo_drawer">Панель черги та завдань</string>
     <string name="tool_find_files">Знайти файли</string>
     <string name="tool_search_code">Пошук</string>
     <string name="tool_list_directory">Список директорії</string>

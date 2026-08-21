@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Terminal
@@ -69,6 +70,9 @@ fun ChatTopBar(
     onUnshare: () -> Unit,
     onExport: () -> Unit,
     onOpenWorkspace: () -> Unit,
+    /** 2026-08-22 用户需求：堆积/TODO 常驻抽屉显隐（菜单 toggle 项）。 */
+    showPendingTodoDrawer: Boolean = true,
+    onTogglePendingTodoDrawer: () -> Unit = {},
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showContextDialog by remember { mutableStateOf(false) }
@@ -175,6 +179,27 @@ fun ChatTopBar(
                             leadingIcon = {
                                 Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.a11y_icon_terminal))
                             }
+                        )
+                        // 2026-08-22：堆积/TODO 常驻抽屉显隐（用户需求——顶部菜单设置）
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_pending_todo_drawer)) },
+                            onClick = {
+                                showMenu = false
+                                onTogglePendingTodoDrawer()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.PendingActions, contentDescription = null)
+                            },
+                            trailingIcon = if (showPendingTodoDrawer) {
+                                {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            } else null
                         )
                         // 2026-08-22 用户要求：任务转后台与分叉会话对调位置（原第 5 位提前到
                         // 第 3 位），图标与输入组件任务入口统一为 PendingActions

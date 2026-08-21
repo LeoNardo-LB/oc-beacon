@@ -589,18 +589,12 @@ fun ChatScreen(
     val todoCapable by viewModel.todoCapable.collectAsStateWithLifecycle()
     val pendingDrainingSet by viewModel.pendingDraining.collectAsStateWithLifecycle()
     var chatAreaHeightPx by remember { mutableStateOf(0f) }
-    // 抽屉可见性与消息列表底部补偿（档位驱动；容器高度未测得时按收起标题栏算）
-    val drawerVisible = pendingDrawerVisible(pendingQueue.size, sessionTodos.size, todoCapable)
-    val drawerMemory = PendingDrawerMemoryStore.states[viewModel.sessionId]
-        ?: PendingDrawerMemory()
-    val drawerSnap = drawerMemory.snap.coerceIn(0, PendingDrawerAnchors.SNAP_COUNT - 1)
-    val drawerInset = if (!drawerVisible || drawerSnap == PendingDrawerAnchors.SNAP_COLLAPSED) {
-        if (drawerVisible) PendingDrawerAnchors.HEADER_HEIGHT else 0.dp
-    } else {
-        with(LocalDensity.current) {
-            (chatAreaHeightPx * PendingDrawerAnchors.FRACTIONS[drawerSnap]).toDp()
-        }
-    }
+    // 2026-08-22 纯覆盖修正：不再做消息列表 contentPadding/FAB 让位补偿——抽屉
+    // 悬浮盖住消息底部（grilling Q2「覆盖即可」本义）；最新消息被盖住是预期。
+    // 设置门控：顶栏菜单「堆积/TODO 抽屉」开关（AppSettings.showPendingTodoDrawer）。
+    val showPendingTodoDrawer by viewModel.showPendingTodoDrawer.collectAsStateWithLifecycle()
+    val drawerVisible = showPendingTodoDrawer &&
+        pendingDrawerVisible(pendingQueue.size, sessionTodos.size, todoCapable)
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -693,6 +687,8 @@ fun ChatScreen(
                         },
                         onBackgroundSession = { viewModel.backgroundSession() },
                         onOpenWorkspace = onOpenWorkspace,
+                        showPendingTodoDrawer = showPendingTodoDrawer,
+                        onTogglePendingTodoDrawer = { viewModel.togglePendingTodoDrawer(showPendingTodoDrawer) },
                     )
                 }
             }
@@ -858,7 +854,6 @@ fun ChatScreen(
                         agents = modelConfig.agents,
                         // 子会话无 agent 选择入口（置 null 隐藏）
                         onAgentClick = if (isMainSession) ({ agentName -> viewModel.modelSelection.selectAgent(agentName) }) else null,
-                        bottomOverlayInset = drawerInset,
                         modifier = Modifier.fillMaxSize(),
                     )
                   }

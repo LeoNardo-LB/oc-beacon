@@ -50,6 +50,7 @@ class SettingsDataStore @Inject constructor(
         private val COLLAPSE_TOOLS_KEY = booleanPreferencesKey("collapse_tools")
         private val EXPAND_REASONING_KEY = booleanPreferencesKey("expand_reasoning")
         private val SHOW_TURN_DIVIDERS_KEY = booleanPreferencesKey("show_turn_dividers")
+        private val SHOW_PENDING_TODO_DRAWER_KEY = booleanPreferencesKey("show_pending_todo_drawer")
         private val HAPTIC_FEEDBACK_KEY = booleanPreferencesKey("haptic_feedback")
         private val AUTO_ALLOW_PERMISSIONS_KEY = booleanPreferencesKey("auto_allow_permissions")
         private val RECONNECT_MODE_KEY = stringPreferencesKey("reconnect_mode")
@@ -238,6 +239,7 @@ class SettingsDataStore @Inject constructor(
             prefs[COLLAPSE_TOOLS_KEY] = settings.collapseTools
             prefs[EXPAND_REASONING_KEY] = settings.expandReasoning
             prefs[SHOW_TURN_DIVIDERS_KEY] = settings.showTurnDividers
+            prefs[SHOW_PENDING_TODO_DRAWER_KEY] = settings.showPendingTodoDrawer
             prefs[NOTIFICATIONS_KEY] = settings.notificationsEnabled
             prefs[SILENT_NOTIFICATIONS_KEY] = settings.silentNotifications
             prefs[HAPTIC_FEEDBACK_KEY] = settings.hapticFeedback
@@ -405,6 +407,7 @@ class SettingsDataStore @Inject constructor(
             collapseTools = prefs[COLLAPSE_TOOLS_KEY] ?: false,
             expandReasoning = prefs[EXPAND_REASONING_KEY] ?: false,
             showTurnDividers = prefs[SHOW_TURN_DIVIDERS_KEY] ?: true,
+            showPendingTodoDrawer = prefs[SHOW_PENDING_TODO_DRAWER_KEY] ?: true,
             notificationsEnabled = prefs[NOTIFICATIONS_KEY] ?: true,
             silentNotifications = prefs[SILENT_NOTIFICATIONS_KEY] ?: false,
             hapticFeedback = prefs[HAPTIC_FEEDBACK_KEY] ?: true,

@@ -262,6 +262,7 @@
     <string name="tool_write_file">写入文件</string>
     <string name="tool_edit_file">编辑文件</string>
     <string name="tool_terminal">终端</string>
+    <string name="menu_pending_todo_drawer">堆积/TODO 抽屉</string>
     <string name="tool_find_files">查找文件</string>
     <string name="tool_search_code">搜索</string>
     <string name="tool_list_directory">列出目录</string>

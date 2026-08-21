@@ -188,6 +188,7 @@
     <string name="tool_write_file">Tulis file</string>
     <string name="tool_edit_file">Edit file</string>
     <string name="tool_terminal">Terminal</string>
+    <string name="menu_pending_todo_drawer">Laci pesan tertunda &amp; TODO</string>
     <string name="tool_find_files">Temukan file</string>
     <string name="tool_search_code">Cari</string>
     <string name="tool_list_directory">Daftar direktori</string>

@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -495,6 +496,16 @@ class ChatViewModel @Inject constructor(
     val expandReasoning get() = settingsState.expandReasoning
     val showTurnDividers get() = settingsState.showTurnDividers
     val hapticFeedback get() = settingsState.hapticFeedback
+    val showPendingTodoDrawer get() = settingsState.showPendingTodoDrawer
+
+    /** 2026-08-22：堆积/TODO 常驻抽屉显隐（顶栏菜单 toggle）。 */
+    fun togglePendingTodoDrawer(current: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateSettings(
+                settingsRepository.getSettingsFlow().first().copy(showPendingTodoDrawer = !current)
+            )
+        }
+    }
     val keepScreenOn get() = settingsState.keepScreenOn
     val compressImageAttachments get() = settingsState.compressImageAttachments
     val imageAttachmentMaxLongSide get() = settingsState.imageAttachmentMaxLongSide

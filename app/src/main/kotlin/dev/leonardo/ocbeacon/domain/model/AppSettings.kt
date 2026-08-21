@@ -24,6 +24,9 @@ data class AppSettings(
     val collapseTools: Boolean = false,
     val expandReasoning: Boolean = false,
     val showTurnDividers: Boolean = true,
+    /** 2026-08-22（用户需求）：主对话流内堆积/TODO 常驻抽屉显隐（顶栏菜单
+     *  toggle；false=完全不渲染，即便有堆积/TODO 数据）。 */
+    val showPendingTodoDrawer: Boolean = true,
 
     // --- 通知 ---
     val notificationsEnabled: Boolean = true,

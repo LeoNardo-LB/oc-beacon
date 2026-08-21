@@ -267,6 +267,8 @@
     <string name="tool_write_file">Write file</string>
     <string name="tool_edit_file">Edit file</string>
     <string name="tool_terminal">Terminal</string>
+    <!-- 2026-08-22：堆积/TODO 常驻抽屉显隐（顶栏菜单 toggle） -->
+    <string name="menu_pending_todo_drawer">Pending &amp; TODO drawer</string>
     <string name="tool_find_files">Find files</string>
     <string name="tool_search_code">Search</string>
     <string name="tool_list_directory">List directory</string>

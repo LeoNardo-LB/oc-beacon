@@ -259,6 +259,7 @@
     <string name="tool_write_file">ファイルを書く</string>
     <string name="tool_edit_file">ファイルを編集</string>
     <string name="tool_terminal">ターミナル</string>
+    <string name="menu_pending_todo_drawer">積み上げ/TODO ドロワー</string>
     <string name="tool_find_files">ファイル検索</string>
     <string name="tool_search_code">検索</string>
     <string name="tool_list_directory">ディレクトリ一覧</string>

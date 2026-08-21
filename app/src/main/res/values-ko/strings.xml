@@ -259,6 +259,7 @@
     <string name="tool_write_file">파일 쓰기</string>
     <string name="tool_edit_file">파일 편집</string>
     <string name="tool_terminal">터미널</string>
+    <string name="menu_pending_todo_drawer">적재/TODO 드로어</string>
     <string name="tool_find_files">파일 찾기</string>
     <string name="tool_search_code">검색</string>
     <string name="tool_list_directory">디렉터리 목록</string>

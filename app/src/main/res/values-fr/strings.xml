@@ -259,6 +259,7 @@
     <string name="tool_write_file">Écrire un fichier</string>
     <string name="tool_edit_file">Modifier un fichier</string>
     <string name="tool_terminal">Terminal</string>
+    <string name="menu_pending_todo_drawer">Tiroir en attente &amp; TODO</string>
     <string name="tool_find_files">Rechercher des fichiers</string>
     <string name="tool_search_code">Rechercher dans le code</string>
     <string name="tool_list_directory">Lister le répertoire</string>
