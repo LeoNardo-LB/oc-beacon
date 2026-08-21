@@ -101,7 +101,8 @@ class ServerSettingsViewModel @Inject constructor(
     )
     private var serverDisplayName: String = ""
     /** 服务器 API 版本（V2 配置只读——PATCH /api/config 404，见 backlog #85）。init 时从 ServerConfig 读取。 */
-    private var serverApiVersion: dev.leonardo.ocbeacon.domain.model.ApiVersion = dev.leonardo.ocbeacon.domain.model.ApiVersion.V1
+    // #172：配置可写能力位（V2 只读 #85）——版本比较收编进 ServerCapabilities
+    private var configEditable = true
 
     private val _allProviders = MutableStateFlow<List<ProviderCatalog>>(emptyList())
     private val _providerCatalog = MutableStateFlow<List<ProviderCatalog>>(emptyList())
@@ -125,7 +126,7 @@ class ServerSettingsViewModel @Inject constructor(
             val config = serverConfigRepository.getServer(serverId)
             if (config != null) {
                 serverDisplayName = config.displayName
-                serverApiVersion = config.apiVersion
+                configEditable = dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(config.apiVersion).configEditable
                 _uiState.update { it.copy(serverName = serverDisplayName) }
             }
             markInitialLoadDone()
@@ -224,7 +225,7 @@ class ServerSettingsViewModel @Inject constructor(
     fun setProviderEnabled(providerId: String, enabled: Boolean) {
         viewModelScope.launch {
             // V2 配置只读（PATCH /api/config → 404，实测确认）——直接提示并返回
-            if (serverApiVersion == dev.leonardo.ocbeacon.domain.model.ApiVersion.V2) {
+            if (!configEditable) {
                 _uiState.update { it.copy(error = context.getString(R.string.server_settings_update_failed)) }
                 return@launch
             }
@@ -264,7 +265,7 @@ class ServerSettingsViewModel @Inject constructor(
                 // V2 配置只读：跳过 disabledProviders PATCH（/api/config PATCH 404），
                 // 本地状态已乐观更新，Provider 连接本身（PATCH /api/credential）已成功
                 val disabled = _config.value.disabledProviders.toSet() - providerId
-                if (serverApiVersion != dev.leonardo.ocbeacon.domain.model.ApiVersion.V2) {
+                if (configEditable) {
                     providerRepository.updateGlobalConfig(
                         serverId,
                         GlobalConfigPatch(disabledProviders = disabled.toList().sorted())
@@ -348,7 +349,7 @@ class ServerSettingsViewModel @Inject constructor(
                 }
                 val disabled = _config.value.disabledProviders.toSet() - pending.providerId
                 // V2 配置只读：跳过 disabledProviders PATCH（见 setProviderEnabled 注释）
-                if (serverApiVersion != dev.leonardo.ocbeacon.domain.model.ApiVersion.V2) {
+                if (configEditable) {
                     providerRepository.updateGlobalConfig(
                         serverId,
                         GlobalConfigPatch(disabledProviders = disabled.toList().sorted())
@@ -430,7 +431,7 @@ class ServerSettingsViewModel @Inject constructor(
 
     private suspend fun updateConfigPatch(patch: GlobalConfigPatch) {
         // V2 配置只读（PATCH /api/config → 404，实测确认）——见 backlog #85
-        if (serverApiVersion == dev.leonardo.ocbeacon.domain.model.ApiVersion.V2) {
+        if (!configEditable) {
             _uiState.update { it.copy(error = context.getString(R.string.server_settings_config_update_failed)) }
             return
         }

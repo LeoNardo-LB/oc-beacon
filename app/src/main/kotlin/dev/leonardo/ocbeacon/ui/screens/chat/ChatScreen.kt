@@ -287,7 +287,7 @@ fun ChatScreen(
     val contextDetail by viewModel.contextDetailState.collectAsStateWithLifecycle()
     val restoredDraft by viewModel.restoredDraftState.collectAsStateWithLifecycle()
     val draftText by viewModel.draftText.collectAsStateWithLifecycle()
-    val serverApiVersion by viewModel.serverApiVersion.collectAsStateWithLifecycle()
+    val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
     val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsStateWithLifecycle()
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     // 首次组合时从草稿同步一次 inputText。
@@ -639,8 +639,8 @@ fun ChatScreen(
                                 }
                             }
                         },
-                        isShareSupported = serverApiVersion != ApiVersion.V2,
-                        isBackgroundSupported = serverApiVersion != ApiVersion.V1,
+                        isShareSupported = serverCapabilities.shareSupported,
+                        isBackgroundSupported = serverCapabilities.backgroundSessionsSupported,
                         onShare = {
                             viewModel.shareSession { url ->
                                 coroutineScope.launch {
@@ -914,7 +914,7 @@ fun ChatScreen(
             onDismiss = { showTaskSheet = false },
             onOpenSubSession = { sessionId -> onNavigateToChildSession(sessionId) },
             onRemoveShell = { id -> viewModel.removeShell(id) },
-            showRunningFilter = serverApiVersion != ApiVersion.V1,
+            showRunningFilter = serverCapabilities.runningSessionsFilterSupported,
             shellOutputProvider = { shell ->
                 // 1. 事件携带的输出（SSE shell.exited 通常无 output）
                 shell.output

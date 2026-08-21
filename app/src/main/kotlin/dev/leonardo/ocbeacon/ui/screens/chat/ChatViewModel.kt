@@ -109,8 +109,9 @@ class ChatViewModel @Inject constructor(
 
     // 服务器 API 版本（backlog #78：V2 服务器当前无 share 端点 → UI 隐藏
     // Share/Unshare 菜单项；V1 保留。加载完成前为 null（本地 Room 毫秒级）。
-    private val _serverApiVersion = MutableStateFlow<ApiVersion?>(null)
-    val serverApiVersion: StateFlow<ApiVersion?> = _serverApiVersion.asStateFlow()
+    // #172：UI 门控只读能力位（null 版本 = 全开放，与原 permissive 比较语义一致）
+    private val _serverCapabilities = MutableStateFlow(dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(null))
+    val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> = _serverCapabilities.asStateFlow()
 
     // ============ 发送成功/失败信号（2026-08-11 用户要求） ============
     // 悲观发送：输入框在发送期间保留内容，成功才清空（sendSuccessTick 驱动）；
@@ -315,7 +316,7 @@ class ChatViewModel @Inject constructor(
                 serverRepository.getServer(serverId)
             }
             _serverName.value = config?.displayName ?: ""
-            _serverApiVersion.value = config?.apiVersion
+            _serverCapabilities.value = dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(config?.apiVersion)
             val conn = config?.let {
                 ServerConnection.from(it.url, it.username, it.password, it.apiVersion)
             } ?: ServerConnection.from("", "", null)
