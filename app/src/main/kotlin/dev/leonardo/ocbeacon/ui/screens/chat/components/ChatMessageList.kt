@@ -224,9 +224,9 @@ fun ChatMessageList(
     }
 
     // 快速导航双向加载状态（直接从 viewModel 收集，避免侵入 messageListState combine 管道）
-    val isLoadingAround by viewModel.isLoadingAround.collectAsStateWithLifecycle(initialValue = false)
-    val hasNewerMessages by viewModel.hasNewerMessages.collectAsStateWithLifecycle(initialValue = false)
-    val isLoadingNewer by viewModel.isLoadingNewer.collectAsStateWithLifecycle(initialValue = false)
+    val isLoadingAround by viewModel.conversation.paginationDelegate.isLoadingAround.collectAsStateWithLifecycle(initialValue = false)
+    val hasNewerMessages by viewModel.conversation.paginationDelegate.hasNewerMessages.collectAsStateWithLifecycle(initialValue = false)
+    val isLoadingNewer by viewModel.conversation.paginationDelegate.isLoadingNewer.collectAsStateWithLifecycle(initialValue = false)
 
     // 判断当前哪条消息在流式输出 —— 仅基于 completed 时间戳，
     // 而非 sessionMeta.isStreaming。后者是在 668384e3 中加入的，
@@ -318,7 +318,7 @@ fun ChatMessageList(
     LaunchedEffect(showQuickNavigate, currentSessionId) {
         if (showQuickNavigate) {
             jumpTargetsLoading = true
-            jumpTargets = extractJumpTargets(viewModel.loadJumpTargets(), noTextPlaceholder)
+            jumpTargets = extractJumpTargets(viewModel.conversation.loadJumpTargets(), noTextPlaceholder)
             jumpTargetsLoading = false
         }
     }
@@ -614,7 +614,7 @@ fun ChatMessageList(
             pendingJumpTarget = msgId
             pendingJumpRetried = false
             onQuickNavigateDismiss()
-            coroutineScope.launch { viewModel.loadAround(msgId) }
+            coroutineScope.launch { viewModel.conversation.paginationDelegate.loadAround(msgId) }
         }
     }
     // 「定位发起卡片」支持：点击完成通知卡片上的定位按钮 → 查找发起卡片
@@ -720,7 +720,7 @@ fun ChatMessageList(
                         .distinctUntilChanged()
                         .filter { it }
                         .collect {
-                            val waitMs = viewModel.autoLoadWaitMillis()
+                            val waitMs = viewModel.conversation.paginationDelegate.autoLoadWaitMillis()
                             if (waitMs > 0) {
                                 if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load backoff wait ${waitMs}ms before retry")
                                 delay(waitMs)
@@ -737,7 +737,7 @@ fun ChatMessageList(
                                 return@collect
                             }
                             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load triggered (hasOlder=true)")
-                            viewModel.loadOlderMessages()
+                            viewModel.conversation.paginationDelegate.loadOlderMessages()
                         }
                 }
             }
@@ -775,7 +775,7 @@ fun ChatMessageList(
                                 return@collect
                             }
                             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load newer triggered (nearBottom=true, hasNewer=true)")
-                            viewModel.loadNewerMessages()
+                            viewModel.conversation.paginationDelegate.loadNewerMessages()
                         }
                 }
             }
@@ -819,7 +819,7 @@ fun ChatMessageList(
                     if (!found && !pendingJumpRetried) {
                         // 2026-08-20：首次未命中重试一次 loadAround 再判——避免时序误报
                         pendingJumpRetried = true
-                        coroutineScope.launch { viewModel.loadAround(target) }
+                        coroutineScope.launch { viewModel.conversation.paginationDelegate.loadAround(target) }
                     } else if (!found) {
                         pendingJumpTarget = null
                         pendingJumpRetried = false
