@@ -386,6 +386,82 @@ fun DiagnosticsScreen(
             },
         )
     }
+
+    // ---- #151 GitHub 上报对话框（状态机分支渲染） ----
+    when (val rs = reportState) {
+        ReportUiState.Idle -> Unit
+        ReportUiState.NeedsGitHubAppConfig -> AlertDialog(
+            onDismissRequest = viewModel::dismissReport,
+            title = { Text(stringResource(R.string.report_to_github)) },
+            text = { Text(stringResource(R.string.report_needs_config)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissReport) { Text(stringResource(R.string.report_close)) }
+            },
+        )
+        is ReportUiState.Authorizing -> AlertDialog(
+            onDismissRequest = viewModel::cancelAuthorization,
+            title = { Text(stringResource(R.string.report_authorizing)) },
+            text = {
+                Text(stringResource(R.string.report_authorizing_hint, rs.code.verificationUri, rs.code.userCode))
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::cancelAuthorization) { Text(stringResource(R.string.report_cancel)) }
+            },
+        )
+        is ReportUiState.Preview -> AlertDialog(
+            onDismissRequest = viewModel::dismissReport,
+            title = { Text(stringResource(R.string.report_preview_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.report_public_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = rs.body,
+                        onValueChange = viewModel::updatePreviewBody,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 360.dp),
+                        textStyle = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::submitReport) { Text(stringResource(R.string.report_submit)) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissReport) { Text(stringResource(R.string.report_cancel)) }
+            },
+        )
+        ReportUiState.Submitting -> AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.report_to_github)) },
+            text = { CircularProgressIndicator() },
+            confirmButton = {},
+        )
+        is ReportUiState.Done -> AlertDialog(
+            onDismissRequest = viewModel::dismissReport,
+            title = { Text(stringResource(R.string.report_to_github)) },
+            text = { Text(rs.message) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissReport) { Text(stringResource(R.string.report_close)) }
+            },
+        )
+        is ReportUiState.Failed -> AlertDialog(
+            onDismissRequest = viewModel::dismissReport,
+            title = { Text(stringResource(R.string.report_to_github)) },
+            text = { Text(rs.message) },
+            confirmButton = {
+                TextButton(onClick = viewModel::retrySubmit) { Text(stringResource(R.string.report_retry)) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissReport) { Text(stringResource(R.string.report_close)) }
+            },
+        )
+    }
 }
 
 @Composable
