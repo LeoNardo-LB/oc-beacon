@@ -166,9 +166,9 @@
   - F5 后残余（draw 4-8ms + input 3-5ms，12 轮仅 10 条）；「预取 idle_frame」候选已否证；release 口径 p95 7.9ms 已低于感知阈值，再深挖方向为 draw/input 相位本身（~2h）
   - → `docs/journal/2026-08-20-perf-monitoring-round3.md`（提升自该批子条目）
 
-- [ ] **#190 冷态首入巨型 assistant 消息单体组合巨帧（~90ms/条，首滑一帧）** `perf` `ui`
-  - c7ffbfa9 滚动巨帧根治后的已知残余：巨型 assistant 消息首次滑入时 LazyColumn prefetch 在帧间隙主线程单体组合 300+ Markdown 块（framestats vsync→input=84-93ms）；滚出 ±14 窗口后分片计划提交，此后永久分片
-  - F2 视口门控实验已证伪（近距裂变扰动组合缓存：14ms 桶暴涨 126 帧 + 滚离滚回回归）；候选：初始窗口内 turn 会话打开即预提交 / LazyMarkdown 嵌套
+- [~] **#190 冷态首入巨型 assistant 消息单体组合巨帧——已根治（7c74171b 门控冷热区分），待用户手感验收** `perf` `ui`
+  - 三轮定标：±0 门控撞组合缓存池（更差）→ ±6 边距带留 97ms 残留 → 冷热区分（冷 part=从未进视口裂变零成本即提交；热 part ±6 带内保护；视口内拦截）；PREPARSE_AHEAD 20/LRU 48
+  - 真机终验：90-97ms 单体巨帧消除、滚离滚回全清、中速浏览 0.00% janky；残余=极端快滑解析竞态 57-69ms 偶现 3-4 帧（组合期全清，draw 相位 ~20ms GPU 成本）
   - → `docs/journal/2026-08-21-p1-p2-dev-batch.md`（滚动巨帧第二根因章节）
 
 
