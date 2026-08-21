@@ -31,6 +31,7 @@
   - 方向：`val jumpLockActive = jumpController.phase.value is Preparing/Measuring/Settling`（derived state 或直接订阅），删除全部手工写点
   - 工时：~1h | 难度：低 | 涉及：ChatMessageList / JumpNavigationController | 优先级：P3
   - **✅ 收口（2026-08-22）**：锁收进 JumpNavigationController 派生 StateFlow（`jumpLockActive`）——锁定窗口 = markJumpPending 异步窗口 ∪ 进行中（Preparing/Measuring/Settling）∪ 终点后 300ms 缓冲（collectLatest：缓冲期内新跳转取消解锁，等价原解锁 effect 键重启）。B-F2 提交门控此前已直读 phase 真源（无需动）；autoLoad 两 effect 启动门控改读派生锁。ChatMessageList 全部 4 手工写点删除。**附带修掉一个现存 bug**：loadAround 失败路径（两轮未命中清 pendingJumpTarget）旧镜像漏复位 → 目标真不存在时 autoLoad 永久锁死到下次成功跳转——现在 clearPendingJumpLock() 显式解锁（phase 仍 Idle 才生效，与活跃跳转交错为 no-op）。JumpLockDerivationTest 8 例（虚拟时钟验证 300ms 缓冲边界/collectLatest 取消语义/失败解锁回归/交错 no-op）；全量 1880/1880 绿
+  - **真机冒烟（2026-08-22，devRelease dd43ab13 装机）**：①进 AB 会话滚顶 auto-load older 正常放行（可见最早消息 15:00:45 → 滚后加载至 05:21-05:22）——锁默认 false 放行分支；②快速定位 Q36 异步跳转全链：蒙版出现（加载遮罩「正在加载...」= showMask 派生）→ 落点顶部 05:21:54 → 3.5s 内蒙版消失（Displayed→300ms 缓冲解锁）；③跳转后滚动正常（无锁卡死迹象）；④全程 0 FATAL。commit dd43ab13
 
 - **E2E 阶段 2+3 收官记录（2026-08-20，7/7 PASS）**：A 删除后 ≤0.3s 一致更新（be3a0cc5 修复复验；阶段 1 的「残留」定性为单帧捕获时序）｜B 手动停止零误发（红停止图标→Idle，queued message sent=0、角标保留）｜C「继续」手动放行队首 1 条（transcript+DB 双证）｜D 清空确认框→列表空+角标消失｜E TODO tab 在 beta-17639 隐藏（probe 404×2 + curl 404 互证）｜F force-stop 冷启后队列完整、空闲 15s 零 pipeline 事件（重启不自动发）｜G 附件置灰（min 像素 130 vs 27）+点击无入队。审计线：8 enqueued / 仅 C 的 1 sent——误发为零。附带登记：
 - [~] **新增 P3：LeakCanary 报 OpenCodeConnectionService\$LocalBinder 泄漏（E2E 阶段 2 期间 1 个 distinct，2026-08-20 登记）** `leak` `service`
