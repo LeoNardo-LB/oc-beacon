@@ -3,4 +3,8 @@
     <cache-path
         name="updates"
         path="updates/" />
+    <!-- 诊断分享（DiagnosticsScreen.shareAsFile 写 cache/diagnostics/diagnostics.txt） -->
+    <cache-path
+        name="diagnostics"
+        path="diagnostics/" />
 </paths>
