@@ -109,15 +109,6 @@
   - 剩余：真机复验（2026-08-20 真机优先方针）+ 回复 upstream issue #1
   - → `docs/journal/2026-08-21-issue1-v1-speed.md`
 
-- [ ] **#176 busy 气泡「堆积消息」TOCTOU 竞态：turn 在气泡打开期间结束 → 消息入队后永不自动发** `queue` `session`
-  - 弹气泡时 busy、点击「堆积消息」时 turn 已结束 → `enqueuePendingMessage` 无条件入队不重验 FSM 状态；而自动发送唯一触发器 `onNaturalTurnEnd` 在 turn 结束瞬间已 no-op 过（当时队列空）→ 消息滞留至手动「继续」
-  - 修复与 **#177 统一**：状态补偿 drain（FSM Idle + 队列非空 → 发送）为 #177 的超集方案，一并覆盖本条
-  - 代码锚点：`ui/screens/chat/input/SendStopButton.kt:217` · `ui/screens/chat/ChatViewModel.kt:158` · `data/repository/PendingMessagePipeline.kt:54,91`
-
-- [ ] **#177 堆积队列退出会话/切后台后滞留：边沿触发无补偿 → 改状态驱动 drain** `queue` `session`
-  - 三断点（2026-08-21 deep-explore 静态链验证）：①边沿错过即死（#176 同构）；②drain 时 POST 失败 → Idle+队列非空+无未来边沿的不动点（`PendingMessagePipeline.kt:92-95` "等下一次自然结束"假设结构性不成立）；③切后台断连后 L3 恢复的 RestValidation(Idle) 不在 naturalTurnEnd 白名单（`SessionStateService.kt:456-458`）→ 不推进
-  - 已排除：listener 生命周期（应用级单例接线 `EventDispatcher.kt:139-142`，退出会话不丢）与 SSE 存活（FGS+WakeLock 保护）
-  - 用户需求：会话退出后、app 切后台后队列均能自动发送；修复方向：应用级"FSM Idle + 队列非空 → drain"状态补偿（挂入既有 5s reconcile 循环 + enqueue 时查 statusFlow + RestValidation 确认 Idle 亦触发），统一覆盖 #176；手动「继续」入口可补会话列表长按
 
 - [ ] **#178 点发送/拉起 busy 气泡时软键盘被收起——应保持拉起** `ui` `input`
   - 成因两路（2026-08-21 调查）：①气泡 `Popup(focusable=true)`（`SendStopButton.kt:223`）抢窗级焦点 → IME 收起；②发送路径无显式 hide，唯一候选是滚动触发 hide（`ChatScreen.kt:394-402`，发送后 forceScroll 在列表非底部时可能命中）
