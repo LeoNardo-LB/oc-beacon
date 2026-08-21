@@ -294,6 +294,22 @@ class ChatViewModelContextTokensTest {
 
     // === 用例 ===
 
+    /**
+     * #186 根因修复：VM init 的 serverRepository.getServer 跑在真实 Dispatchers.IO，
+     * 其完成时刻相对虚拟时间不确定——下游 collect 链（messageListState → tracker）
+     * 的装配与 advanceUntilIdle 竞态，断言偶发读到中间态。
+     * 本助手在虚拟时间推进与真实时间让出间轮询，直到值收敛或超时（2s）后硬断言。
+     */
+    private fun kotlinx.coroutines.test.TestScope.awaitTrackerValue(expected: Int, actual: () -> Int) {
+        val deadline = System.currentTimeMillis() + 2_000
+        while (System.currentTimeMillis() < deadline) {
+            advanceUntilIdle()
+            if (actual() == expected) return
+            Thread.sleep(10) // 让真实 IO 线程完成并向 Main 测试队列投递
+        }
+        assertEquals(expected, actual())
+    }
+
     @Test
     fun `message snapshot context tokens equals input plus cache read`() = runTest(testDispatcher) {
         createViewModel()
@@ -306,7 +322,7 @@ class ChatViewModelContextTokensTest {
         )))
         advanceUntilIdle()
 
-        assertEquals(6000, tokenStatsTracker.stats.value.lastContextTokens)
+        awaitTrackerValue(6000) { tokenStatsTracker.stats.value.lastContextTokens }
         // 消耗统计字段仍为完整快照（不受口径修正影响）
         assertEquals(1000, tokenStatsTracker.stats.value.totalInputTokens)
         assertEquals(200, tokenStatsTracker.stats.value.totalOutputTokens)
@@ -337,7 +353,7 @@ class ChatViewModelContextTokensTest {
         )
         advanceUntilIdle()
 
-        assertEquals(6000, tokenStatsTracker.stats.value.lastContextTokens)
+        awaitTrackerValue(6000) { tokenStatsTracker.stats.value.lastContextTokens }
     }
 
     @Test
@@ -367,19 +383,18 @@ class ChatViewModelContextTokensTest {
             id = "a1", input = 8000, output = 100, cacheRead = 40000
         )))
         advanceUntilIdle()
-        assertEquals(48000, tokenStatsTracker.stats.value.lastContextTokens)
+        awaitTrackerValue(48000) { tokenStatsTracker.stats.value.lastContextTokens }
 
         // session.compacted 到达（原 maxOf 兜底已删——不得用累计值抬高）
         compactedFlow.value = setOf(testSessionId)
         advanceUntilIdle()
-        assertEquals("压缩事件不得抬高 lastContextTokens（maxOf 兜底已删）",
-            48000, tokenStatsTracker.stats.value.lastContextTokens)
+        awaitTrackerValue(48000) { tokenStatsTracker.stats.value.lastContextTokens }
 
         // 压缩后消息刷新为小快照（摘要消息，时间戳更晚 → lastOrNull 命中）→ 自然回落：500 + 2000 = 2500
         pushMessages(listOf(assistantWithTokens(
             id = "a2", input = 500, output = 50, cacheRead = 2000, created = 5000L
         )))
         advanceUntilIdle()
-        assertEquals(2500, tokenStatsTracker.stats.value.lastContextTokens)
+        awaitTrackerValue(2500) { tokenStatsTracker.stats.value.lastContextTokens }
     }
 }

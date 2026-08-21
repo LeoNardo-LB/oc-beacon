@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#187**。
+**编号**：全局递增，不回收。下一编号：**#189**。
 
 **优先级定义**：
 
@@ -142,6 +142,15 @@
 - [ ] **#183 turn 分割线上下留空减半（用户期望明确）** `ui`
   - 现值：`padding(vertical = compact 3dp : 6dp)`，两处同改：完整气泡 `MessageCardAssistant.kt:248` + 分片 chunk `MessageCardAssistant.kt:558`（RenderItem.TurnDivider 渲染）
   - 改法：normal 6→3dp、compact 3→1.5dp；若减半后视觉仍偏高再查相邻 block spacing 叠加。markdown `---` 线（`MarkdownContent.kt:470`）仅 h1 下且非本条对象
+
+- [ ] **#187 ModelPicker 二级面板：variant 行内 accordion + 默认模型开关重设计（调研+UIUX 已定案，未实现）** `ui` `model-config`
+  - 调研结论（2026-08-21）：variant 随模型列表一并返回（V1 `/provider` variants map · V2 `/api/model` variants 数组 `V2ApiClient.kt:765-799`），domain 层 `ModelCatalog.variantNames` 已就绪，**无需动 API/数据层**；默认模型功能已存在（658abb11：SettingsDataStore 按 serverId 本地存=机器绑定 + 解析链第 3 级），本条仅重做入口可发现性（现状 16dp 星标不可见）
+  - UIUX 定案（用户三选）：①模型行右侧 chevron 行内 accordion 展开；②面板内容 = variant pills（含「默认」档）+「设为默认模型」开关，模型行尾星标降为纯指示（不承担点击）；③移除输入行 variant pill（`AgentModelVariantSelector.kt:147-162`），当前 variant 仅二级面板可见、输入行只显模型名
+  - 改动面：`onSelect` 扩 variant 参数 · `ModelConfigDelegate.selectModel` 适配（:189-232）· i18n；实现时决策点：无 variants 模型 chevron 是否显示（面板仅剩默认开关）
+
+- [ ] **#188 默认模型星标点击"无效"——快照消费链断裂，写入成功但 UI 永不回显 + toggle 自我抵消** `ui` `model-config`
+  - 根因（2026-08-21 定案）：`ModelConfigDelegate.kt:323` `localDefaultModel` 为普通 getter 快照 → `ChatScreen.kt:869` 传参一次性快照 → DataStore 写入后无 Compose 状态观察 → 星标不变实心；用户补点在 toggle 语义（`ChatViewModel.kt:347` 同模型再点=取消）下自我抵消；偶发"成功"=其他状态恰触发重组
+  - 修复：Dialog 的 `defaultModel` 参数改自 `_localDefaultModel` StateFlow `collectAsState`（一处接线级改动）；与 #187 强关联——重做默认模型入口（开关进二级面板）时一并修，星标本就降为纯指示
 
 ## P2 — 优化与锦上添花
 
