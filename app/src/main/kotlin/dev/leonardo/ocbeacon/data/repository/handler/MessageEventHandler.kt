@@ -15,15 +15,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 消息和 part 数据的共享状态存储。
+ * 消息和 part 数据的共享状态存储 + 5 类消息事件的分发 handler。
  *
  * 持有 `_messages`、`_parts` 和 `assistantMessageIds` 状态，这些状态在
  * 消息/part 生命周期中紧密耦合（例如 [handleMessagePartUpdated] 会查询
  * 由 [handleMessageUpdated] 填充的 `assistantMessageIds`；
- * [handleMessageUpdated] 为用户消息播种 `_parts`）。由于这种耦合，
- * 按子事件的分发位于专用 handler
- *（[MessagePartHandler]、[MessageUpdatedHandler]、[MessageRemovedHandler]）中，
- * 它们注入此存储并委托给其 `internal` handler。
+ * [handleMessageUpdated] 为用户消息播种 `_parts`）。原三壳 handler
+ *（MessagePart/MessageUpdated/MessageRemoved，各 ~25 行纯转发且 serverId
+ * 未用）于 #175 删除——本类直接实现 [SseEventHandler]（handle 五分支）。
  *
  * SSE 双写：当 [messageStore] 非 null（生产环境 Hilt 注入）时，SSE 流式更新
  * 会异步落盘到 Room，以便离线/重启后恢复。测试环境传 null 禁用双写。
@@ -31,9 +30,24 @@ import javax.inject.Singleton
 @Singleton
 class MessageEventHandler @Inject constructor(
     private val messageStore: MessageCacheRepository?,
-) {
+) : SseEventHandler {
     /** 测试用无参构造：禁用 SSE 双写。生产环境由 Hilt 注入非空 MessageCacheRepository。 */
     constructor() : this(null)
+
+    /**
+     * 5 类消息事件的识别契约（原三壳的转发逻辑收编，#175）：
+     * MessageUpdated / MessageRemoved / MessagePartUpdated / Delta / PartRemoved。
+     */
+    override fun handle(event: SseEvent, serverId: String): Boolean {
+        return when (event) {
+            is SseEvent.MessageUpdated -> { handleMessageUpdated(event); true }
+            is SseEvent.MessageRemoved -> { handleMessageRemoved(event); true }
+            is SseEvent.MessagePartUpdated -> { handleMessagePartUpdated(event); true }
+            is SseEvent.MessagePartDelta -> { handleMessagePartDelta(event); true }
+            is SseEvent.MessagePartRemoved -> { handleMessagePartRemoved(event); true }
+            else -> false
+        }
+    }
 
     internal companion object {
         const val TAG = "MsgEventHandler"

@@ -102,9 +102,6 @@ class ChatViewModelPermissionTest {
         eventDispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
             messageHandler = messageStore,
-            messagePartHandler = MessagePartHandler(messageStore),
-            messageUpdatedHandler = MessageUpdatedHandler(messageStore),
-            messageRemovedHandler = MessageRemovedHandler(messageStore),
             permissionHandler = PermissionEventHandler(),
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),

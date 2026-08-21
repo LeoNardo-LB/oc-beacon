@@ -3,9 +3,6 @@ package dev.leonardo.ocbeacon.data.repository
 import dev.leonardo.ocbeacon.data.repository.handler.ShellJobsHandler
 import dev.leonardo.ocbeacon.data.repository.handler.MiscEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.MessageEventHandler
-import dev.leonardo.ocbeacon.data.repository.handler.MessagePartHandler
-import dev.leonardo.ocbeacon.data.repository.handler.MessageRemovedHandler
-import dev.leonardo.ocbeacon.data.repository.handler.MessageUpdatedHandler
 import dev.leonardo.ocbeacon.data.repository.handler.PermissionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.QuestionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.SessionEventHandler
@@ -51,9 +48,6 @@ class EventDispatcherUnreadTest {
         return EventDispatcher(
             sessionHandler = SessionEventHandler(),
             messageHandler = messageStore,
-            messagePartHandler = MessagePartHandler(messageStore),
-            messageUpdatedHandler = MessageUpdatedHandler(messageStore),
-            messageRemovedHandler = MessageRemovedHandler(messageStore),
             permissionHandler = PermissionEventHandler(),
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),

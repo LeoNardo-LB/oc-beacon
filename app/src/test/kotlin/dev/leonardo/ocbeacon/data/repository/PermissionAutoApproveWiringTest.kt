@@ -2,9 +2,6 @@ package dev.leonardo.ocbeacon.data.repository
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import dev.leonardo.ocbeacon.data.repository.handler.MessageEventHandler
-import dev.leonardo.ocbeacon.data.repository.handler.MessagePartHandler
-import dev.leonardo.ocbeacon.data.repository.handler.MessageRemovedHandler
-import dev.leonardo.ocbeacon.data.repository.handler.MessageUpdatedHandler
 import dev.leonardo.ocbeacon.data.repository.handler.MiscEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.PermissionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.QuestionEventHandler
@@ -52,9 +49,6 @@ class PermissionAutoApproveWiringTest {
         return EventDispatcher(
             sessionHandler = sessionHandler,
             messageHandler = messageHandler,
-            messagePartHandler = MessagePartHandler(messageHandler),
-            messageUpdatedHandler = MessageUpdatedHandler(messageHandler),
-            messageRemovedHandler = MessageRemovedHandler(messageHandler),
             permissionHandler = PermissionEventHandler(),
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),

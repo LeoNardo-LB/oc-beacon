@@ -37,9 +37,6 @@ private const val TAG = "EventDispatcher"
 class EventDispatcher @Inject constructor(
     private val sessionHandler: SessionEventHandler,
     private val messageHandler: MessageEventHandler,
-    private val messagePartHandler: MessagePartHandler,
-    private val messageUpdatedHandler: MessageUpdatedHandler,
-    private val messageRemovedHandler: MessageRemovedHandler,
     private val permissionHandler: PermissionEventHandler,
     private val questionHandler: QuestionEventHandler,
     private val miscHandler: MiscEventHandler,
@@ -116,19 +113,11 @@ class EventDispatcher @Inject constructor(
             SseEvent.SessionDiff::class, SseEvent.SessionCompacted::class,
             SseEvent.VcsBranchUpdated::class, SseEvent.ProjectUpdated::class
         )
-        // 消息 → 按子事件的 handler。它们共享 MessageEventHandler
-        // 的状态存储（注入），但独立注册，使每种消息事件类型
-        // 都路由到其专注的 handler。
+        // 消息（updated/removed/part×3）→ MessageEventHandler 直接实现 SseEventHandler
+        //（#175：原三壳 handler 全指向同一 store 且 serverId 未用，删壳单 bind）
         bind(
-            messageUpdatedHandler,
-            SseEvent.MessageUpdated::class
-        )
-        bind(
-            messageRemovedHandler,
-            SseEvent.MessageRemoved::class
-        )
-        bind(
-            messagePartHandler,
+            messageHandler,
+            SseEvent.MessageUpdated::class, SseEvent.MessageRemoved::class,
             SseEvent.MessagePartUpdated::class, SseEvent.MessagePartDelta::class,
             SseEvent.MessagePartRemoved::class
         )

@@ -64,12 +64,10 @@ class SessionFocusHolderTest {
         assertEquals(null, holder.activeFocus.value)
     }
 
-
-
     @Test
-    fun `shouldSuppressEvent returns false after focus cleared`() {
+    fun `shouldSuppress returns false after focus cleared`() {
         holder.setActiveFocus("server1", "session1")
         holder.setActiveFocus(null, null)
-        assertFalse(holder.shouldSuppressEvent("server1", "session1"))
+        assertFalse(holder.shouldSuppress("server1", "session1"))
     }
 }

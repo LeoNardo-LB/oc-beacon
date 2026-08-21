@@ -481,6 +481,23 @@ class MessageEventHandlerTest {
         assertEquals("Already-ended part keeps its original end time", 999L, textAfter.time?.end)
     }
 
+    // ============ handle 识别契约（#175：原三壳的转发语义显性化） ============
+
+    @Test
+    fun `handle recognizes the five message event classes`() {
+        assertTrue(handler.handle(SseEvent.MessageUpdated(testUserMessage("m1", "s1")), "svr"))
+        assertTrue(handler.handle(SseEvent.MessageRemoved("s1", "m1"), "svr"))
+        assertTrue(handler.handle(SseEvent.MessagePartUpdated(Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "x")), "svr"))
+        assertTrue(handler.handle(SseEvent.MessagePartDelta(sessionId = "s1", messageId = "m1", partId = "p1", field = "text", delta = "x"), "svr"))
+        assertTrue(handler.handle(SseEvent.MessagePartRemoved("s1", "m1", "p1"), "svr"))
+    }
+
+    @Test
+    fun `handle returns false for non-message events`() {
+        assertFalse(handler.handle(SseEvent.ServerHeartbeat, "svr"))
+        assertFalse(handler.handle(SseEvent.SessionIdle(sessionId = "s1"), "svr"))
+    }
+
     // ============ #87b：REST 空 id 快照与 SSE part 内容级合并 ============
 
     @Test
