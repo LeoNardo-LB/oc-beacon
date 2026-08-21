@@ -538,6 +538,22 @@ class ChatViewModel @Inject constructor(
 
     val uiState: StateFlow<ChatUiState> get() = stateAggregator.uiState
 
+    // ============ 状态簇门面（#173 段 1：UI 消费面按簇收缩的中转站） ============
+    // 段 2 将把 UI 逐子组件迁移到这些簇成员；段 3 收敛后散成员门面按消费残留逐个退役。
+    // 形态：簇 = 职责内聚的 delegate 直引用（内部成型已由既有 delegate 边界保证）。
+
+    /** ①会话上下文簇：身份/目录/懒创建 + 会话元数据聚合。 */
+    internal val sessionContext: SessionLifecycleDelegate get() = sessionLifecycle
+
+    /** ②会话数据簇：消息列表/交互状态/分页跳转 + SSE 生命周期入口。 */
+    internal val conversation: MessageDataDelegate get() = messageData
+
+    /** ③输入簇：草稿/附件/提及搜索 + 发送信号。 */
+    internal val composer: DraftInputDelegate get() = draftDelegate
+
+    /** ④模型配置簇：provider/agent/model/variant 选择状态。 */
+    internal val modelSelection: ModelConfigDelegate get() = modelConfig
+
     init {
         val isNewSession = sessionId.isEmpty()
 
