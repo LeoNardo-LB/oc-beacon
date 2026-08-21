@@ -220,8 +220,9 @@
   - V1ApiClient(72 方法)/V2ApiClient(84) 全域 god-client + 7 门面 78 处 if 分发——#172 grilling Q1 定案：seam 已在门面 interface 正确收敛，拆轴属内部代码组织（22 测试文件重写 + 缓存式适配器版本竞态），显式登记不拆
   - → `docs/journal/2026-08-21-arch-review-deepening.md`
 
-- [ ] **#189 终端组件换件：termlib → Termux terminal-view/emulator（vendored）** `terminal` `ui` `arch`
+- [~] **#189 终端组件换件：termlib → Termux terminal-view/emulator（vendored）** `terminal` `ui` `arch`
   - 用户验收②+明确指令「bug 挺多，最好引入主流的终端组件」。真机取证：vim 插入模式打字被 IME 组合输入拦截（「全部」候选态）、ESC 无响应——termlib 0.1.0 早期版本键盘/IME 处理不成熟且依赖闭源不可修
   - 选型：Termux terminal-view + terminal-emulator（10+ 年亿级验证；仓库 GPLv3 但两模块为 Apache 2.0 明确例外，MIT 兼容）；vendored 源码引入（无 maven artifact）
   - 换件范围：VT 内核 + 渲染/键盘 View 层；PTY WebSocket 传输（ServerTerminalWorkspace）保留，adapter 换实现；KeyboardOverlay 保留
+  - 落地（2026-08-21 真机闭环）：6bb577e0 spec → b76919c7 vendor → 53837c7b 桥接+UI+依赖切换 → 82559a26 六根因修复；vim 试金石过、完整回环实证（journal §验收问题②）；待用户维度5手体验收
   - → `docs/specs/2026-08-21-terminal-component-swap-design.md`

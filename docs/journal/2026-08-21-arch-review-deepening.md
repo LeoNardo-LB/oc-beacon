@@ -318,6 +318,45 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 - 系统通知设置 → 直达 MIUI 通知类别页（悬浮通知/声音/振动/锁屏各开关可见）✓
 - 后台消息横幅（渠道开关已开后）✓
 
+
+## 验收问题② 修复记录：终端换件 termlib → Termux（#189，2026-08-21 闭环）
+
+### 用户指令
+「有关终端，我觉得bug挺多的，最好引入主流的终端组件」——明确要求换件而非修补。
+
+### 提交链（五段）
+
+| commit | 内容 |
+|--------|------|
+| 6bb577e0 | spec + backlog #189：真机取证（vim 插入模式被 IME 拦截/ESC 无响应）、选型对比、许可证核验（termux-app GPLv3 但 terminal-view/emulator 两模块 Apache-2.0 明确例外，MIT 兼容） |
+| b76919c7 | 阶段1 vendor：两模块源码入 `app/src/main/java/com/termux/`（20 文件 7.8k 行），裁掉 TerminalSession/JNI（本地进程模型），TerminalSession 重生为桥接口；R 引用改 app 包；编译绿 |
+| 53837c7b | 阶段2-4：RemoteTerminalSession（PTY↔emulator 桥，远程回显模型）+ TermuxTerminalHost（AndroidView 宿主，音量键虚拟 Ctrl/Fn 经 readControlKey/readFnKey 注入，char-based IME）+ adapter 泛化 + termlib 依赖删除 + i18n 3键×15语言 |
+| 82559a26 | 阶段5 真机集成修复：六根因（下表）+ key(session) + 探针清理 |
+
+### 真机 E2E 逐环取证 → 根因 → 修复（每项先埋点定位再修）
+
+| # | 症状 | 根因 | 修复 |
+|---|------|------|------|
+1 | reader 退出，终端死 | `titleChanged(oldTitle=null)` 平台类型→Kotlin 非空参数 NPE，从 append 内抛出杀死 readLoop | 参数放宽 String?；readLoop 单 chunk runCatching 隔离（坏帧只丢不断流） |
+2 | 提示符不上屏 | emulator 懒创建等 view attach，但 shell banner 先到→`feedPtyOutput` 静默丢帧 | tab 创建时预热 emulator(80x24)，view attach 后 resize |
+3 | 数据进缓冲但无重绘 | 原版 MSG_NEW_INPUT 主线程 handler 语义缺失；emulator 缓冲非线程安全 | feed 统一 post 主线程（append + onTextChanged FIFO） |
+4 | view 从不绘制（纯白） | 无背景自定义 View 在 Compose interop 命中 PFLAG_SKIP_DRAW | factory `setWillNotDraw(false)` |
+5 | 文字透明（只见光标） | Termux renderer 从不画 cell 背景（原版设在 decorView） | view 背景从 emulator 调色板同步（OSC 11 感知），默认黑 |
+6 | 字小如蚁 | `sp × fontScale` 漏乘 density（13px 而非 39px） | `TextUnit.toPx()` 正规换算 |
+7 | 输入进真空 | fallback→真实 tab 切换重建 HostClient 但 factory 不重跑→client.view=null→invalidate 空操作 + 输入错绑 | `key(session)` 包 AndroidView 强制随会话身份重建 |
+
+### 终局验证（清理版构建，真机 houji）
+
+- 提示符渲染：`leo-tkp@leo-tkp-PC:~/Documents/code/mine/oc-beacon$` ✓
+- 完整回环：终端打字 → WebSocket → bash 执行 → 输出渲染（宿主机文件实测创建；echo 回显双行可见）✓
+- **vim 试金石**（原 bug 场景）：打开即渲染（波浪线空行标记 + 状态栏「t3.txt [新] 0,0-1」+ alternate screen）✓
+- JVM 单测 ×2：`RemoteTerminalSessionEmulatorTest`（直接喂 VT 序列断言缓冲文本；精确镜像 warmup→resize→feed 生产序列）
+- 全量单测绿；调试探针全部移除
+
+### 待用户验收（维度 5）
+- 键盘条（Ctrl/Alt/方向键/ESC）实际手感；双指缩放；长按选择复制；多 tab 切换；字号设置联动
+- 注：adb type.sh 打英文路径会吃 `/`（输入法组合伪影，非 app bug——真机手动输入无此问题）
+
 ## #172（候选 4）实现记录（2026-08-21 完成，真机 E2E 全绿）
 
 ### 提交链（三段式）
