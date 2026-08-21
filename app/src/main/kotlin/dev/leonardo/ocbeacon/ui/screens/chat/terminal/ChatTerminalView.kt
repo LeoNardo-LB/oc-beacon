@@ -409,6 +409,12 @@ fun ChatTerminalView(
                 session = terminal.terminalSession,
                 virtualCtrlDown = { terminalVirtualCtrlDown },
                 virtualFnDown = { terminalVirtualFnDown },
+                ctrlLatched = { terminalCtrlLatched },
+                altLatched = { terminalAltLatched },
+                onModifiersConsumed = {
+                    if (terminalCtrlLatched) terminalCtrlLatched = false
+                    if (terminalAltLatched) terminalAltLatched = false
+                },
                 onPaste = ::pasteClipboardToTerminal,
                 onResize = { cols, rows ->
                     terminal.resizeTerminal(cols, rows)

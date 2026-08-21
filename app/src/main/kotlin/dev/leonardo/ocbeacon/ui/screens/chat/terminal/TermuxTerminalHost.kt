@@ -40,6 +40,12 @@ internal fun TermuxTerminalHost(
     session: RemoteTerminalSession,
     virtualCtrlDown: () -> Boolean,
     virtualFnDown: () -> Boolean,
+    /** 键盘条 CTRL 锁存（粘滞到下一个字符键，Termux ExtraKeys 同语义）。 */
+    ctrlLatched: () -> Boolean,
+    /** 键盘条 ALT 锁存。 */
+    altLatched: () -> Boolean,
+    /** 锁存被 Termux 输入路径消费后清除（onCodePoint 时机）。 */
+    onModifiersConsumed: () -> Unit,
     onPaste: () -> Unit,
     onResize: (cols: Int, rows: Int) -> Unit,
     fontSizeSp: Float,
@@ -58,6 +64,9 @@ internal fun TermuxTerminalHost(
             session = session,
             virtualCtrlDown = virtualCtrlDown,
             virtualFnDown = virtualFnDown,
+            ctrlLatched = ctrlLatched,
+            altLatched = altLatched,
+            onModifiersConsumed = onModifiersConsumed,
             onPaste = onPaste,
             onResize = onResize,
             onFontSizeChange = onFontSizeChange,
@@ -119,6 +128,9 @@ private class HostClient(
     private val session: RemoteTerminalSession,
     private val virtualCtrlDown: () -> Boolean,
     private val virtualFnDown: () -> Boolean,
+    private val ctrlLatched: () -> Boolean,
+    private val altLatched: () -> Boolean,
+    private val onModifiersConsumed: () -> Unit,
     private val onPaste: () -> Unit,
     private val onResize: (cols: Int, rows: Int) -> Unit,
     private val onFontSizeChange: (Float) -> Unit,
@@ -170,17 +182,22 @@ private class HostClient(
 
     override fun onLongPress(event: MotionEvent?): Boolean = false
 
-    /** 音量下键 = 虚拟 Ctrl（ChatTerminalView 的按键拦截状态注入 Termux 主路径）。 */
-    override fun readControlKey(): Boolean = virtualCtrlDown()
+    /** 虚拟 Ctrl = 音量下键按住 ∨ 键盘条 CTRL 锁存（粘滞至下一字符）。 */
+    override fun readControlKey(): Boolean = virtualCtrlDown() || ctrlLatched()
 
-    override fun readAltKey(): Boolean = false
+    override fun readAltKey(): Boolean = altLatched()
 
     override fun readShiftKey(): Boolean = false
 
     /** 音量上键 = 虚拟 Fn。 */
     override fun readFnKey(): Boolean = virtualFnDown()
 
-    override fun onCodePoint(codePoint: Int, ctrlDown: Boolean, s: TerminalSession?): Boolean = false
+    override fun onCodePoint(codePoint: Int, ctrlDown: Boolean, s: TerminalSession?): Boolean {
+        // 字符键已带修饰发出（readControlKey/readAltKey 的快照在此刻被消费）——
+        // 清除键盘条粘滞锁存（Termux ExtraKeys 的 sticky 语义：作用一次即灭）。
+        if (ctrlLatched() || altLatched()) onModifiersConsumed()
+        return false
+    }
 
     override fun onEmulatorSet() {
         // 本地 emulator 尺寸已定 → 转发服务器 resize（workspace 防抖链）
