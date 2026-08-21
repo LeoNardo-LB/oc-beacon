@@ -26,6 +26,9 @@ android {
         targetSdk = 36
         versionCode = vCode
         versionName = vName
+        // #151 GitHub App device flow 凭据（维护者注册后填入；空串 = 上报功能禁用态引导）
+        buildConfigField("String", "GITHUB_APP_CLIENT_ID", "\"\"")
+        buildConfigField("String", "GITHUB_APP_CLIENT_SECRET", "\"\"")
 
         testInstrumentationRunner = "dev.leonardo.ocbeacon.HiltTestRunner"
         vectorDrawables {
