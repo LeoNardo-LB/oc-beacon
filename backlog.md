@@ -85,8 +85,8 @@
   - 前置依赖：#152、#153、维护者注册 GitHub App（spec §Further Notes 操作清单）
   - → `docs/specs/2026-08-21-error-report-github-design.md` · `docs/journal/2026-08-21-error-report-github.md`
 
-- [ ] **#152 前置：日志分级修复（SSE 灌水/双日志/丢堆栈，审计 15+ 处）** `sse` `refactor`
-  - 重连风暴灌水（挤出真实错误）、同一失败双日志、per-event INFO 遗漏网、7 处 `e` 缺 throwable 等——不修则 #151 的"最近 20 条错误"全是重连噪音
+- [~] **#152 前置：日志分级修复——已实现（f535e15d/f398b7f3/2a07ad74），真机风暴验证 PASS，待用户验收** `sse` `refactor`
+  - 三组修复：风暴环 i→d 全降 + 双 e 记录消除 + 4 处补 throwable + per-event 门控 + WebView 主帧/子资源分流 + 遗留标签删除；真机实证断连窗口 6D+5I+0E（残留 I 均一次性里程碑）；附带 #186 测试脆弱当场根因修复（两次连续全量绿）
   - → `docs/journal/2026-08-21-error-report-github.md`
 
 - [~] **#153 前置：release CI 留存 R8 mapping.txt artifact——已实现（cfeae270），待下次发版 CI 实跑验证** `refactor`
