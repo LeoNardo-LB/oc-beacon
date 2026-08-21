@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
@@ -48,8 +50,8 @@ internal fun TermuxTerminalHost(
 ) {
     val context = LocalContext.current
     val density = androidx.compose.ui.platform.LocalDensity.current
-    // sp -> px（TextUnit.toPx = value * fontScale）
-    val fontSizePx = (fontSizeSp * density.fontScale).toInt()
+    // sp -> px：Compose 原生换算（value * density * fontScale，等价 View 的 sp×scaledDensity）
+    val fontSizePx = with(density) { fontSizeSp.sp.toPx() }.toInt()
 
     val client = remember(session) {
         HostClient(
@@ -68,12 +70,22 @@ internal fun TermuxTerminalHost(
         onDispose { session.updateClient(null) }
     }
 
+    // session 身份变化（fallback → 真实 tab）时强制重建 view——factory 只在创建时跑一次，
+    // 不重建会永远绑定 fallback 会话（键盘输入进真空、渲染错绑）。
+    key(session) {
     AndroidView(
         modifier = modifier
             .fillMaxSize()
             .padding(bottom = contentBottomPadding),
         factory = { ctx ->
             TerminalView(ctx, null).apply {
+                // 无背景自定义 View 在 Compose interop 下命中 PFLAG_SKIP_DRAW
+                //（willNotDraw 默认 true 且无 background）→ onDraw 被整体跳过。
+                // Termux 原生 XML 路径不触发；AndroidView 路径必须显式关掉。
+                setWillNotDraw(false)
+                // Termux renderer 不画背景（空单元不绘制）——背景由宿主设置。
+                // 原版设在 window decorView；AndroidView 场景设在 view 自身。
+                setBackgroundColor(android.graphics.Color.BLACK)
                 setTerminalViewClient(client)
                 client.view = this
                 attachSession(session)
@@ -83,6 +95,9 @@ internal fun TermuxTerminalHost(
             }
         },
         update = { view ->
+            // remember(session) 重建 client 时 factory 不会重跑——每次重组重绑 view，
+            // 否则新 client 的 view 为 null，onTextChanged 的 invalidate 变空操作。
+            client.view = view
             if (client.lastTextSizePx != fontSizePx) {
                 client.lastTextSizePx = fontSizePx
                 client.syncFontSize(fontSizeSp)
@@ -93,6 +108,7 @@ internal fun TermuxTerminalHost(
             client.view = null
         },
     )
+    } // key(session)
 }
 
 /**
@@ -169,6 +185,7 @@ private class HostClient(
     override fun onEmulatorSet() {
         // 本地 emulator 尺寸已定 → 转发服务器 resize（workspace 防抖链）
         val emu = session.getEmulator() ?: return
+        syncBackground()
         onResize(emu.mColumns, emu.mRows)
     }
 
@@ -193,7 +210,14 @@ private class HostClient(
     override fun onBell(s: TerminalSession) {}
 
     override fun onColorsChanged(s: TerminalSession) {
+        syncBackground()
         view?.invalidate()
+    }
+
+    /** emulator 背景色（OSC 11 可变）到 view 背景（renderer 只画前景文本）。 */
+    private fun syncBackground() {
+        val emu = session.getEmulator() ?: return
+        view?.setBackgroundColor(emu.mColors.mCurrentColors[com.termux.terminal.TextStyle.COLOR_INDEX_BACKGROUND])
     }
 
     override fun onTerminalCursorStateChange(state: Boolean) {

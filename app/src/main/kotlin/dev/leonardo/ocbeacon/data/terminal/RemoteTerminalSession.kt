@@ -1,10 +1,15 @@
 package dev.leonardo.ocbeacon.data.terminal
 
+import android.os.Handler
+import android.os.Looper
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalOutput
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
+import dev.leonardo.ocbeacon.logging.AppLogger
 import java.nio.charset.StandardCharsets
+
+private const val TAG = "RemoteTerminalSession"
 
 /**
  * 远程 PTY 版的 Termux 终端会话（#189 换件）。
@@ -30,6 +35,7 @@ class RemoteTerminalSession(
     transcriptRows: Int = TRANSCRIPT_ROWS_DEFAULT,
 ) : TerminalOutput(), TerminalSession {
 
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val lock = Any()
     @Volatile private var emulatorField: TerminalEmulator? = null
     @Volatile private var clientField: TerminalSessionClient? = null
@@ -111,11 +117,11 @@ class RemoteTerminalSession(
         bridge.sendInput(String(data, offset, count, StandardCharsets.UTF_8))
     }
 
-    override fun titleChanged(oldTitle: String, newTitle: String) {
+    override fun titleChanged(oldTitle: String?, newTitle: String?) {
         clientField?.onTitleChanged(this)
     }
 
-    override fun onCopyTextToClipboard(text: String) {
+    override fun onCopyTextToClipboard(text: String?) {
         clientField?.onCopyTextToClipboard(this, text)
     }
 
@@ -133,10 +139,24 @@ class RemoteTerminalSession(
 
     // ============ PTY 输出喂入（bridge readLoop 调用） ============
 
-    /** PTY 字节流 → VT 解析。任意线程；emulator.append 自带同步。 */
+    /**
+     * PTY 字节流 → VT 解析。任意线程调用；append 与重绘通知统一 post 到主线程
+     * （对齐 Termux 原版模型——读线程只投递 MSG_NEW_INPUT，emulator 变更与
+     * [TerminalSessionClient.onTextChanged] 均在主线程执行；emulator 内部缓冲
+     * 非线程安全，且 View.invalidate 必须主线程）。Handler 队列 FIFO 保序。
+     */
     fun feedPtyOutput(bytes: ByteArray, offset: Int, count: Int) {
+        mainHandler.post { feedPtyOutputOnMain(bytes, count) }
+    }
+
+    /** 主线程执行：append + 重绘通知（对齐 Termux 原版 MSG_NEW_INPUT 语义）。 */
+    internal fun feedPtyOutputOnMain(bytes: ByteArray, count: Int) {
         val emu = emulatorField ?: return
-        emu.append(bytes, count)
+        runCatching { emu.append(bytes, count) }
+            .onFailure { e ->
+                AppLogger.e(TAG, "emulator append failed", e)
+            }
+        clientField?.onTextChanged(this)
     }
 
     companion object {

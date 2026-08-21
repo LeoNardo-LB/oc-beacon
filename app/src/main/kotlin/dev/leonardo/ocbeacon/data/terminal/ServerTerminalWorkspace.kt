@@ -136,6 +136,10 @@ internal class ServerTerminalWorkspace(
             )
             val session = RemoteTerminalSession(bridge = adapter)
             sessionRef = session
+            // 立即预热 emulator：PTY 提示符输出先于 view attach 到达
+            //（懒创建会把首帧输出丢在 emulator==null 上——shell 不会再发，
+            // 终端永远空白）。view attach 后 updateSize 会 resize 到真实尺寸。
+            session.updateSize(DEFAULT_COLS, DEFAULT_ROWS, 0, 0)
             RuntimeTab(
                 id = tabId,
                 title = context.getString(R.string.terminal_tab_title, index),

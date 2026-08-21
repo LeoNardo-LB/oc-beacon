@@ -45,7 +45,10 @@ class PtyToTermlibAdapter(
         if (senderJob?.isActive == true) return
         senderJob = scope.launch {
             for (text in sendChannel) {
-                val target = synchronized(lock) { socket } ?: continue
+                val target = synchronized(lock) { socket } ?: run {
+                    AppLogger.w(TAG, "sendInput dropped: no socket bound (len=" + text.length + ")")
+                    continue
+                }
                 try {
                     target.send(text)
                 } catch (e: Exception) {
@@ -79,7 +82,12 @@ class PtyToTermlibAdapter(
             try {
                 socket.readLoop { chunk ->
                     val bytes = chunk.toByteArray(Charsets.UTF_8)
-                    onPtyOutput(bytes, 0, bytes.size)
+                    // 单 chunk 解析异常不杀 reader（回调链 bug 只丢一帧，不中断流）
+                    runCatching { onPtyOutput(bytes, 0, bytes.size) }
+                        .onFailure { e ->
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            AppLogger.e(TAG, "pty output handler failed (chunk dropped)", e)
+                        }
                     _version.value++
                 }
             } catch (e: Exception) {
