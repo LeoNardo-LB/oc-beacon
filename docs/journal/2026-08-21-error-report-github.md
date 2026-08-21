@@ -18,6 +18,23 @@
   - **#153 实现记录（2026-08-21 cfeae170→cfeae270）**：release.yml 增 Upload R8 mapping 步骤（ocbeacon-mapping-<ver>，90 天保留，if-no-files-found: error——若 minify 意外关闭构建会产出 mapping 缺失即 CI 失败，双重守卫）；本地 outputs/mapping/devRelease/mapping.txt 实证 AGP 路径约定。验收：下次发版 tag 的 Actions 页应见 mapping artifact。
 
 
+## #151 GitHub 错误上报实现记录（2026-08-21 代码完成，功能待 GitHub App 注册后激活）
+
+### 提交链（模块化）
+
+| 模块 | commit | 内容 |
+|------|--------|------|
+| 1-3 数据层 | a68263b5 | GitHubDeviceFlowAuth（device code 请求/轮询 pending-slow_down 语义）+ GitHubTokenStore（SecretCipher AES/GCM v1: 密文 + install-id UUID）+ GitHubApiClient（search-by-fingerprint POST / create issue / comment，401→Unauthorized / 403→RateLimited 映射）+ ErrorReportService（双轨指纹归一化 HEX/N/PATH/STR、查重编排 24h 防刷、machine block、20+3 日志段）；BuildConfig client_id/secret 占位（空串=禁用态） |
+| 测试 | 8a194bfb | 双缝 13 条全绿：服务边界 7（指纹等价性/命中→评论/未命中→建+前缀+label/24h 抑制 exactly=1/限流降级/日志段计数/机器块）+ MockEngine 6（search 命中/零、401/403 映射、create 解析、comment 201） |
+| 4 UI | 241b8507 + bec73103 + 6b623f51 | DiagnosticsViewModel 状态机（授权编排/预览构建复用脱敏管道/提交/401 重授权引导/草稿保留重试）+ 菜单项与六分支对话框 + 11 文案 × 15 语言（i18n-check 656 键一致；tr 撇号 aapt 转义）+ Hilt @ApplicationContext |
+
+### 验证证据
+
+- **自动化**：全量 **1826/1826 绿**（+14 GitHub 测试）；compile 绿；i18n-check PASS
+- **真机（houji）**：Diagnostics → 溢出菜单「举报到 GitHub」→ **NeedsGitHubAppConfig 对话框正确渲染**（「举报功能尚未配置（应用凭据待填入）」）——占位凭据的正确降级态；crash 0
+- **激活前置（维护者操作，spec §Further Notes）**：注册 GitHub App（device flow + 关闭 token 过期 + Issues RW + 安装到目标仓库）→ 填入 BuildConfig 两字段 → 重走真机 E2E（授权 8 位码流/真实建 issue/重复命中评论/预览编辑/失败重试）
+- 中途事故如实记录：i18n 首轮脚本矩阵错位（14 语言文件混入错语值）→ git checkout 全量恢复 + 正确矩阵重写；UI when 块一次插入失败（报错轮 edit 未达）→ 二次插入 + m3 AlertDialog confirmButton 重载约束修复
+
 ## #152 日志分级修复实现记录（2026-08-21 完成，真机验证 PASS）
 
 ### 提交链（三组）

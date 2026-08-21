@@ -80,9 +80,9 @@
   - spec 已定案（grilling Q1–Q12 + F1–F5），实现前必读；模拟器无音频输出，维度 5 必须真机实测
   - → `docs/specs/2026-08-21-in-session-audio-feedback-design.md` · `docs/journal/2026-08-21-in-session-audio-feedback.md`
 
-- [ ] **#151 错误日志 GitHub 上报（手动触发 + 指纹查重 + 重复评论）** `ui` `data`
-  - Diagnostics 屏把 ERROR/FATAL 报到 GitHub issue；已报过的追加环境差异评论；强制预览可编辑；GitHub App device flow 一次授权永久有效
-  - 前置依赖：#152、#153、维护者注册 GitHub App（spec §Further Notes 操作清单）
+- [~] **#151 GitHub 上报——代码全量完成（a68263b5..6b623f51），1826 测试绿，真机禁用态验证过；待维护者注册 GitHub App 填凭据后激活 E2E** `ui` `data`
+  - 四模块：device flow 认证（SecretCipher 加密存储）/ API 客户端（指纹查重/建/评）/ 上报服务（双轨指纹+24h 防刷）/ Diagnostics UI（六分支状态机+15 语言）；双缝测试 13 条
+  - 激活清单：注册 GitHub App → BuildConfig 填 client_id/secret → 真机走授权/建 issue/命中评论 E2E
   - → `docs/specs/2026-08-21-error-report-github-design.md` · `docs/journal/2026-08-21-error-report-github.md`
 
 - [~] **#152 前置：日志分级修复——已实现（f535e15d/f398b7f3/2a07ad74），真机风暴验证 PASS，待用户验收** `sse` `refactor`
