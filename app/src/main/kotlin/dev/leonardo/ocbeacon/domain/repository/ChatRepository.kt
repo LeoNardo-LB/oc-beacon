@@ -257,26 +257,6 @@ interface ChatRepository {
         strategy: MergeStrategy,
     )
 
-    /**
-     * 设置某个会话的消息（来自 REST 加载的全量替换）。
-     * @deprecated 使用 [upsertMessages] + [MergeStrategy.SSE_PRIORITY]。
-     */
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.SSE_PRIORITY)"))
-    fun setMessages(sessionId: String, messages: List<MessageWithParts>)
-
-    /**
-     * 将消息合并到某个会话中（REST 恢复 / 分页加载）。
-     * @deprecated 使用 [upsertMessages] + [MergeStrategy.APPEND_ONLY]。
-     */
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.APPEND_ONLY)"))
-    fun mergeMessages(sessionId: String, messages: List<MessageWithParts>)
-
-    /**
-     * 替换某个会话的全部消息（会话更新刷新）。
-     * @deprecated 使用 [upsertMessages] + [MergeStrategy.REST_AUTHORITY]。
-     */
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)"))
-    fun replaceMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**
      * 清除某个会话的回退状态。

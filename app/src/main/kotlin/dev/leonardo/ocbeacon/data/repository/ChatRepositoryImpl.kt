@@ -516,20 +516,6 @@ class ChatRepositoryImpl @Inject constructor(
         eventDispatcher.upsertMessages(sessionId, messages, strategy)
     }
 
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.SSE_PRIORITY)"))
-    override fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
-        eventDispatcher.setMessages(sessionId, messages)
-    }
-
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.APPEND_ONLY)"))
-    override fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) {
-        eventDispatcher.mergeMessages(sessionId, messages)
-    }
-
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)"))
-    override fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) {
-        eventDispatcher.replaceMessages(sessionId, messages)
-    }
 
     override fun clearRevert(sessionId: String) {
         eventDispatcher.clearRevert(sessionId)

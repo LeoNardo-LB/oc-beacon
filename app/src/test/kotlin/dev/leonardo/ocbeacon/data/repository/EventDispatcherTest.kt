@@ -226,7 +226,7 @@ class EventDispatcherTest {
         val msg = Message.User(id = "m1", sessionId = "s1", time = TimeInfo(1000L))
         val part = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "hi")
 
-        dispatcher.setMessages("s1", listOf(MessageWithParts(msg, listOf(part))))
+        dispatcher.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(part))), MergeStrategy.SSE_PRIORITY)
 
         assertEquals(listOf(msg), dispatcher.messages.value["s1"])
         assertEquals(listOf(part), dispatcher.parts.value["m1"])
@@ -235,10 +235,10 @@ class EventDispatcherTest {
     @Test
     fun `delegated mergeMessages works`() {
         val existing = Message.User(id = "m1", sessionId = "s1", time = TimeInfo(1000L))
-        dispatcher.setMessages("s1", listOf(MessageWithParts(existing, emptyList())))
+        dispatcher.upsertMessages("s1", listOf(MessageWithParts(existing, emptyList())), MergeStrategy.SSE_PRIORITY)
 
         val newMsg = Message.User(id = "m2", sessionId = "s1", time = TimeInfo(2000L))
-        dispatcher.mergeMessages("s1", listOf(MessageWithParts(newMsg, emptyList())))
+        dispatcher.upsertMessages("s1", listOf(MessageWithParts(newMsg, emptyList())), MergeStrategy.APPEND_ONLY)
 
         // 修复（2026-08-10）：APPEND_ONLY（mergeMessages）语义是"合并"——existing 保留 + 补充缺失。
         // 原断言 size=1 固化了"替换"bug（分页加载更早消息会丢掉现有最新消息，用户实证底部消息消失）。

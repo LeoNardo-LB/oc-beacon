@@ -129,18 +129,6 @@ class ChatViewModelStreamingTest {
             }
             every { it.getAllPartsMap() } returns partsFlow
             every { it.getActiveToolProgressForSession(any()) } returns flowOf(emptyList())
-            every { it.setMessages(any(), any()) } answers {
-                val sid = firstArg<String>()
-                val msgs = secondArg<List<dev.leonardo.ocbeacon.domain.model.MessageWithParts>>()
-                messagesFlow.value = msgs.map { m -> m.info }
-                partsFlow.value = partsFlow.value + (sid to msgs.flatMap { m -> m.parts })
-            }
-            every { it.replaceMessages(any(), any()) } answers {
-                val sid = firstArg<String>()
-                val msgs = secondArg<List<dev.leonardo.ocbeacon.domain.model.MessageWithParts>>()
-                messagesFlow.value = msgs.map { m -> m.info }
-                partsFlow.value = partsFlow.value + (sid to msgs.flatMap { m -> m.parts })
-            }
             every { it.upsertMessages(any(), any(), any()) } answers {
                 val sid = firstArg<String>()
                 val msgs = secondArg<List<dev.leonardo.ocbeacon.domain.model.MessageWithParts>>()

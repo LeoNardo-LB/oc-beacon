@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.data.repository.handler.QuestionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.SessionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.SessionNextEventHandler
 import dev.leonardo.ocbeacon.domain.model.Message
+import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
@@ -138,11 +139,11 @@ class EventDispatcherUnreadTest {
         pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
         // REST 整批替换：replaceMessages 以 REST 为真相源合并（保留 SSE 已有消息）→ 重算 max
         val newer = Message.Assistant(id = "m9", sessionId = "s1", time = TimeInfo(created = 1000L, completed = 2000L), parentId = "p0")
-        dispatcher.replaceMessages("s1", listOf(MessageWithParts(info = newer, parts = emptyList())))
+        dispatcher.upsertMessages("s1", listOf(MessageWithParts(info = newer, parts = emptyList())), MergeStrategy.REST_AUTHORITY)
         assertEquals(2000L, dispatcher.lastCompletedReplyTime.first()["s1"])
         // 整批替换后会话无完成消息 → maxCompleted 移除条目（无完成消息）
         val incomplete = Message.Assistant(id = "m10", sessionId = "s2", time = TimeInfo(created = 3000L, completed = null), parentId = "p0")
-        dispatcher.replaceMessages("s2", listOf(MessageWithParts(info = incomplete, parts = emptyList())))
+        dispatcher.upsertMessages("s2", listOf(MessageWithParts(info = incomplete, parts = emptyList())), MergeStrategy.REST_AUTHORITY)
         assertNull(dispatcher.lastCompletedReplyTime.first()["s2"])
     }
 
@@ -167,12 +168,12 @@ class EventDispatcherUnreadTest {
         pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
         assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
         // 模拟 REST 同步拉到流式快照（最后一条 assistant completed=null）
-        dispatcher.replaceMessages("s1", listOf(
+        dispatcher.upsertMessages("s1", listOf(
             MessageWithParts(
                 info = Message.Assistant(id = "m1", sessionId = "s1", time = TimeInfo(created = 100L, completed = null), parentId = "p0"),
                 parts = emptyList()
             )
-        ))
+        ), MergeStrategy.REST_AUTHORITY)
         // 已记录的 500L 必须保留——暂时的 null 快照不能抹掉已知完成时刻
         assertEquals(500L, dispatcher.lastCompletedReplyTime.first()["s1"])
     }

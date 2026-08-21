@@ -240,7 +240,6 @@ class ChatViewModelDeleteTest {
             toolCardResolver = dev.leonardo.ocbeacon.ui.screens.chat.tools.DefaultToolCardResolver(),
             chatRepository = mockk<ChatRepository>(relaxed = true).also { chatRepo ->
                 coEvery { chatRepo.listActiveSessions(any()) } returns kotlin.Result.success(emptyMap())
-                every { chatRepo.replaceMessages(any(), any()) } answers { eventDispatcher.replaceMessages(firstArg(), secondArg()) }
                 every { chatRepo.getParts(any()) } answers { eventDispatcher.parts.map { it[firstArg<String>()] ?: emptyList() } }
                 every { chatRepo.getAllPartsMap() } returns eventDispatcher.parts
                 every { chatRepo.getPermissionsSnapshot() } answers { eventDispatcher.permissions.value }

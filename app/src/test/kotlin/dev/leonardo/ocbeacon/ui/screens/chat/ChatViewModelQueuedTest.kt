@@ -287,9 +287,6 @@ class ChatViewModelQueuedTest {
                 every { chatRepo.getParts(any()) } answers { eventDispatcher.parts.map { it[firstArg<String>()] ?: emptyList() } }
                 every { chatRepo.getAllPartsMap() } returns eventDispatcher.parts
                 every { chatRepo.getActiveToolProgressForSession(any()) } returns flowOf(emptyList())
-                every { chatRepo.setMessages(any(), any()) } answers { eventDispatcher.setMessages(firstArg(), secondArg()) }
-                every { chatRepo.mergeMessages(any(), any()) } answers { eventDispatcher.mergeMessages(firstArg(), secondArg()) }
-                every { chatRepo.replaceMessages(any(), any()) } answers { eventDispatcher.replaceMessages(firstArg(), secondArg()) }
                 every { chatRepo.upsertMessages(any(), any(), any()) } answers { eventDispatcher.upsertMessages(firstArg(), secondArg(), thirdArg()) }
                 every { chatRepo.getPermissionsSnapshot() } answers { eventDispatcher.permissions.value }
                 every { chatRepo.getQuestionsSnapshot() } answers { eventDispatcher.questions.value }
@@ -336,7 +333,7 @@ class ChatViewModelQueuedTest {
         val messageWithParts = messages.map { (msg, parts) ->
             MessageWithParts(info = msg, parts = parts)
         }
-        eventDispatcher.setMessages(testSessionId, messageWithParts)
+        eventDispatcher.upsertMessages(testSessionId, messageWithParts, dev.leonardo.ocbeacon.domain.model.MergeStrategy.SSE_PRIORITY)
     }
 
     /** 将 session 设置到 EventDispatcher 中。 */

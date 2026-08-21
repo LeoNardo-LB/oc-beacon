@@ -221,15 +221,6 @@ class ChatViewModelPermissionTest {
         every { chatRepo.getSessionsSnapshot() } answers {
             eventDispatcher.sessions.value
         }
-        every { chatRepo.setMessages(any(), any()) } answers {
-            eventDispatcher.setMessages(firstArg(), secondArg())
-        }
-        every { chatRepo.mergeMessages(any(), any()) } answers {
-            eventDispatcher.mergeMessages(firstArg(), secondArg())
-        }
-        every { chatRepo.replaceMessages(any(), any()) } answers {
-            eventDispatcher.replaceMessages(firstArg(), secondArg())
-        }
         every { chatRepo.getPermissionsWithChildren(any(), any()) } answers {
             eventDispatcher.getPermissionsWithChildren(firstArg(), secondArg())
         }

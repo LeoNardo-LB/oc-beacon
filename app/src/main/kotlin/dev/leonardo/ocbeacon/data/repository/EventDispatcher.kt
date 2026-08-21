@@ -483,23 +483,6 @@ class EventDispatcher @Inject constructor(
         messageHandler.upsertMessages(sessionId, messages, MergeStrategy.APPEND_ONLY)
     }
 
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
-    fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
-        messageHandler.setMessages(sessionId, messages)
-        recomputeMaxCompleted(sessionId, messages)
-    }
-
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
-    fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) {
-        messageHandler.mergeMessages(sessionId, messages)
-        recomputeMaxCompleted(sessionId, messages)
-    }
-
-    @Deprecated("Use upsertMessages", ReplaceWith("upsertMessages(sessionId, messages, strategy)"))
-    fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) {
-        messageHandler.replaceMessages(sessionId, messages)
-        recomputeMaxCompleted(sessionId, messages)
-    }
 
     /**
      * 从**载荷**提取 maxCompleted 喂红点（#171：不扫合并缓存——本地终结戳/DB 回读
