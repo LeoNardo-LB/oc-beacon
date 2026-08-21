@@ -288,6 +288,27 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 6. 条件项：GitHub App 注册 / V1 服务器（用户操作就绪即接入）
 
 
+
+## #155 会话内提示音实现记录（2026-08-21 完成，真机双分支实证）
+
+提交 `23e38a00`（spec `docs/specs/2026-08-21-in-session-audio-feedback-design.md` 逐条落地）：
+
+| spec 条目 | 落地 |
+|-----------|------|
+| R1 提示音镜像系统通知 | InSessionFeedbackPlayer：策略管线（渠道快照×铃声档×DND×开关→SoundPlan）纯函数化 |
+| R2 事件范围 | turn 完成（输出门控复用）/权限/问题/错误，SSE 4 分支 + REST 问题兜底 |
+| R3 错误 streak | ErrorStreakTracker：连发只响第一声；成功 turn/用户发消息/进会话三重置 |
+| R4 通知侧 streak | showErrorNotification 路径同款门控（行为变更：错误风暴通知收敛为一条——发版说明需提） |
+| R5 零新增设置 | 跟随 notificationsEnabled + silentNotifications + 系统渠道 |
+| Q11 去重隔离 | 独立 map + checkNewAssistantMessage 拆分（compute 纯查询/mark 写入）；回归测试钉死 |
+| Manifest | VIBRATE 权限 |
+
+测试：策略矩阵 12 例（§6 静音矩阵）+ streak 5 例 + 隔离回归 1 例；全量套件绿。
+
+真机 E2E（houji，同一窗口双分支）：聚焦会话（fed8baca）收到 turn 完成 → **零系统通知 + `InSessionFeedback: play type=TURN_COMPLETE channel=opencode_tasks sound=true vibration=true`**；非聚焦会话（fea2d6a6）同窗 → 通知照常投递（id=2129724473 活跃）。镜像语义两端都对。
+
+维度 5 待用户手感：响声音量/震感/静音档（JVM 矩阵已覆盖逻辑分支）。
+
 ## #189 补充验证轮（2026-08-21，用户质量门：先验证再继续）
 
 用户质询「架构优化是否经过实际端到端完整验证」→ 补齐验证轮，**抓到 1 个真回归并修复（7e7f02e7）**：
