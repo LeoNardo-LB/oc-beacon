@@ -62,12 +62,13 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 /**
  * 模型选择抽屉（2026-08-21 #187/#188 重做：variant 行内 accordion 二级面板）。
  *
- * 结构（grilling 定案 ①②③ + Q10）：
- * - 模型行：名称 + Free 标签 + 星标（**纯指示**，不承担点击）+ chevron（行内
- *   accordion 开关，无 variants 模型也统一显示——Q10）+ 选中勾；
+ * 结构（grilling 定案 ①②③ + Q10；2026-08-22 用户复改）：
+ * - 模型行：名称 + 选中勾（右对齐簇最左端）+ Free 标签 + 星标（点击 =
+ *   设置/取消默认模型 toggle）+ chevron（行内 accordion 开关，无 variants
+ *   模型也统一显示——Q10；行尾恒定）；
  *   行点击=快速选中该模型（默认 variant）并关闭；
  * - 二级面板（chevron 展开）：variant pills（含「默认」档；点选=带 variant
- *   选中并关闭）+「默认模型」开关（原星标点击职责收编为开关，toggle 语义）；
+ *   选中并关闭）；
  * - #188：defaultModel 由调用方以响应式状态传入（DataStore 写入后即时回显）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -214,6 +215,16 @@ internal fun ModelPickerDialog(
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f),
                                 )
+                                // 2026-08-22 用户决策：对钩放右对齐簇最左端（名称后）——
+                                // 行尾恒为 chevron，选中态不改变尾图标位置
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = stringResource(R.string.a11y_icon_select_model),
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                                 if (isModelFree(provider.id, model)) {
                                     Text(
                                         text = stringResource(R.string.chat_free_label),
@@ -222,16 +233,20 @@ internal fun ModelPickerDialog(
                                         modifier = Modifier.padding(start = 8.dp),
                                     )
                                 }
-                                // #187 ②：星标降为纯指示（原点击设置职责移入面板开关）
-                                Icon(
-                                    imageVector = if (isDefault) Icons.Filled.Star else Icons.Outlined.Star,
-                                    contentDescription = stringResource(dev.leonardo.ocbeacon.R.string.chat_default_model),
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .padding(end = 2.dp),
-                                    tint = if (isDefault) MaterialTheme.colorScheme.tertiary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
-                                )
+                                // 2026-08-22 用户决策：星标恢复点击=设置/取消默认模型
+                                //（#187 曾收编为面板开关，现按用户要求改回星标 toggle）
+                                IconButton(
+                                    onClick = { onSetDefault(provider.id, model.id) },
+                                    modifier = Modifier.size(28.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = if (isDefault) Icons.Filled.Star else Icons.Outlined.Star,
+                                        contentDescription = stringResource(dev.leonardo.ocbeacon.R.string.chat_default_model),
+                                        modifier = Modifier.size(16.dp),
+                                        tint = if (isDefault) MaterialTheme.colorScheme.tertiary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.FAINT)
+                                    )
+                                }
                                 // #187 ① + Q10：chevron 行内 accordion（无 variants 也显示）
                                 IconButton(
                                     onClick = {
@@ -248,16 +263,8 @@ internal fun ModelPickerDialog(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                     )
                                 }
-                                if (isSelected) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = stringResource(R.string.a11y_icon_select_model),
-                                        modifier = Modifier.size(18.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
                             }
-                            // #187 ②：二级面板——variant pills + 默认模型开关
+                            // #187 ②：二级面板——variant pills
                             AnimatedVisibility(
                                 visible = isExpanded,
                                 enter = fadeIn() + expandVertically(),
@@ -293,24 +300,7 @@ internal fun ModelPickerDialog(
                                             )
                                         }
                                     }
-                                    // 默认模型开关（原星标点击职责；toggle 语义复用 onSetDefault）
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = SpacingTokens.XS.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.chat_default_model),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        Switch(
-                                            checked = isDefault,
-                                            onCheckedChange = { onSetDefault(provider.id, model.id) },
-                                        )
-                                    }
+                                    // 默认模型开关已删（2026-08-22 用户决策：星标点击 toggle）
                                 }
                             }
                         }
