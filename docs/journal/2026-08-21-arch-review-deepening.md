@@ -219,6 +219,19 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 - crash buffer 0 条；hasActiveChildren/hasPendingUserInput 僵尸场景（需 3min busy）JVM 覆盖（既有 ConcurrencyTest）
 - ⏳ 维度 5：FSM 状态 UI 观感（busy 计时/流式/提问卡片）待用户验收
 
+## #173（候选 5）实现记录（进行中——段 0 完成）
+
+### 段 0：Terminal 簇迁出 VM 门面（b511eef5）
+
+- VM 7 getter + 10 转发方法 → 单成员 `val terminal: TerminalDelegate`；onCleared 直调 terminalDelegate.closeTerminalSession()；TerminalDelegate internal→public（terminal/ 子包消费）
+- ChatTerminalView 签名 viewModel → terminal（TerminalDelegate 直收，~18 处成员访问迁移 + 1 处方法引用）；ChatScreen 调用点传 viewModel.terminal
+- 消费独占性预验证：grep 证实 terminal 成员仅 ChatTerminalView 消费（SessionTerminalInline 经参数、Settings 是自身字号域）
+- 验证：compile main+test 绿；全量 1812 第二次全绿（第一次 1 失败 = ContextTokens·compaction 已知时序 flake，单独重跑过——#171/#170 同款记录）
+
+### 待续段（定案 Q5 四段）
+
+1. 簇内部成型（delegate 收编 4 簇，VM 门面临时保留）2. UI 消费面串行迁移（MessageList → BottomBar → ChatScreen，协议每步 compile+commit）3. 测试重写（6 harness + uiState 退役）
+
 ## #172（候选 4）实现记录（2026-08-21 完成，真机 E2E 全绿）
 
 ### 提交链（三段式）
