@@ -114,11 +114,6 @@
   - 遗留条件：GKD 重开且卡顿回归时按根因③结论处置
   - → `docs/journal/2026-08-20-scroll-jank-investigation.md`
 
-- [~] **#163 真机滚动两问题（滑过气泡卡顿 + fling 下跳）——已修 f03a89d5，待验收手感** `ui` `perf`
-  - 三件套：视口预解析驱动 + SafeFlingBehavior 限速 + 解析移出主线程；RESIZE 11→0、fling 自然跑满、逐帧异常 6→0
-  - 待用户验收：滚动手感（限速档位/预解析距离可调）
-  - → `docs/journal/2026-08-20-scroll-stability.md`
-
 - [~] **#164 主对话抽屉高度统一（min = max = 75% 屏高）——待验收观感** `ui`
   - 四抽屉 + SystemPromptDialog 固定 75% 屏高；真机 E2E 像素级全 PASS（顶边逐像素一致、空内容撑满）
   - 待用户验收：空内容抽屉底部留白观感
@@ -165,12 +160,6 @@
 - [ ] **#168 慢拖残余 ~18ms 偶发尖刺——最低优先级** `perf`
   - F5 后残余（draw 4-8ms + input 3-5ms，12 轮仅 10 条）；「预取 idle_frame」候选已否证；release 口径 p95 7.9ms 已低于感知阈值，再深挖方向为 draw/input 相位本身（~2h）
   - → `docs/journal/2026-08-20-perf-monitoring-round3.md`（提升自该批子条目）
-
-- [~] **#190 冷态首入巨型 assistant 消息单体组合巨帧——已根治（7c74171b 门控冷热区分），待用户手感验收** `perf` `ui`
-  - 三轮定标：±0 门控撞组合缓存池（更差）→ ±6 边距带留 97ms 残留 → 冷热区分（冷 part=从未进视口裂变零成本即提交；热 part ±6 带内保护；视口内拦截）；PREPARSE_AHEAD 20/LRU 48
-  - 真机终验：90-97ms 单体巨帧消除、滚离滚回全清、中速浏览 0.00% janky；残余=极端快滑解析竞态 57-69ms 偶现 3-4 帧（组合期全清，draw 相位 ~20ms GPU 成本）
-  - → `docs/journal/2026-08-21-p1-p2-dev-batch.md`（滚动巨帧第二根因章节）
-
 
 - [ ] **#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data`
   - markAllSessionsRead 对不分服务器的水位线 map 取全局 max（SessionListViewModel:423-430）——多服务器时钟不同域时一键已读可能错杀/漏杀红点；#171 grilling Q6 定案：不动存储 schema，登记不动
