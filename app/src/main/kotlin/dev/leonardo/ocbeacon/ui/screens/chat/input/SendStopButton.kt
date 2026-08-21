@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.input
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -213,14 +214,20 @@ internal fun SendStopButton(
             )
         }
 
-        // busy 气泡菜单（锚定按钮上方右对齐；点外部/返回键关闭不做事）
+        // #178：busy 气泡不再抢窗级焦点（focusable=false），软键盘保持拉起；
+        // 代价是返回键不再由 Popup 窗口消化——BackHandler 只关气泡不动键盘。
+        BackHandler(enabled = showBusyMenu && busySpinner) { showBusyMenu = false }
+
+        // busy 气泡菜单（锚定按钮上方右对齐；点外部/BackHandler 关闭不做事）
         if (showBusyMenu && busySpinner) {
             val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
             Popup(
                 alignment = Alignment.TopEnd,
                 offset = IntOffset(0, -(menuHeightPx + gapPx)),
                 onDismissRequest = { showBusyMenu = false },
-                properties = PopupProperties(focusable = true),
+                // #178 根因修复：focusable=true 抢占窗级焦点 → IME 被收起。
+                // 改 false 后键盘保持；返回键语义由上方 BackHandler 接管。
+                properties = PopupProperties(focusable = false),
             ) {
                 Surface(
                     modifier = Modifier

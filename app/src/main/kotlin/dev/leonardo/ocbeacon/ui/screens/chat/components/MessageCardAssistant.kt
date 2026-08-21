@@ -245,7 +245,8 @@ internal fun MessageCardAssistant(
                                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             }
                             HorizontalDivider(
-                                modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
+                                // #183：turn 分割线上下留空减半（用户期望）
+                                modifier = Modifier.padding(vertical = if (compact) 1.5.dp else 3.dp),
                                 color = dividerColor
                             )
                         }
@@ -555,7 +556,8 @@ private fun ChunkAssistantItems(
                     MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 }
                 HorizontalDivider(
-                    modifier = Modifier.padding(vertical = if (compact) 3.dp else 6.dp),
+                    // #183：turn 分割线上下留空减半（与完整气泡处同改）
+                    modifier = Modifier.padding(vertical = if (compact) 1.5.dp else 3.dp),
                     color = dividerColor,
                 )
             }
