@@ -56,9 +56,9 @@
   - ⏳ 维度 5（红点观感）待验收；错误红点真机无触发手段（JVM 覆盖）
   - → `docs/journal/2026-08-21-arch-review-deepening.md`
 
-- [ ] **#172 架构评审候选 4：V1/V2 seam 按域翻转（79 决策点 → 7+1）** `refactor`
-  - 每域一 interface、V1/V2 各一 adapter，版本连接时选定一次；isV2 从 SessionStateService/分页用例收回 adapter 内
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+- [~] **#172 架构评审候选 4：V1/V2 seam 泄漏收编——已实现，真机 V2 E2E 全绿，待用户验收** `refactor`
+  - 取证修正后落地（2a0bb5a6/f8521376/2de6889e）：PaginationCursorPolicy 收编 6 泄漏点（isV2 从 domain/UI 绝迹）+ ServerCapabilities 门控（god-client 显式不拆 #185）；真机实证服务器原生 cursor 续页 + V2 门控位
+  - V1 无真机服务器（JVM 契约覆盖，与 #150 复验一并）；⏳ 维度 5 分页观感待验收
 
 - [ ] **#173 架构评审候选 5：ChatViewModel delegate 按状态簇重组（消灭假 seam）** `refactor` `ui`
   - UI 消费 98 成员 + delegate 间 sink 回写/lambda 互接——按状态簇重组为 3-4 个所有权完整 module；排序在 #169 之后

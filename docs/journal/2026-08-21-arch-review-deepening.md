@@ -219,6 +219,23 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 - crash buffer 0 条；hasActiveChildren/hasPendingUserInput 僵尸场景（需 3min busy）JVM 覆盖（既有 ConcurrencyTest）
 - ⏳ 维度 5：FSM 状态 UI 观感（busy 计时/流式/提问卡片）待用户验收
 
+## #172（候选 4）实现记录（2026-08-21 完成，真机 E2E 全绿）
+
+### 提交链（三段式）
+
+| 阶段 | commit | 内容 |
+|------|--------|------|
+| 1 游标策略 | 2a0bb5a6 | PaginationCursorPolicy（domain）：localAnchorCursor/aroundCursors/newerAnchorCursor/supportsNewerDirection + V1/V2 双实现 + 工厂（版本读取关进模块；与调用方同源 SessionRepository → 测试既有 getApiVersion stub 零改动继续生效）。收编 6 泄漏点：MPU loadMessages:101 / loadOlder 首次翻页 / loadAround（isV2 分支重写为 aroundCursors 能力对）；SSS backfill ×2；Delegate loadAroundFromLocal（能力语义替代 isV2Server+encodeV2 直构）。isV2Server 删除——isV2 从 domain/UI 数据路径绝迹（残留仅：ApiVersion 定义 / 数据层门面与策略工厂消费 / ServerCard 显示徽章） |
+| 2 能力位 | f8521376 | ServerCapabilities（of(apiVersion?)：share/background/runningFilter/configEditable；null=全开放保 permissive 语义）+ ServerConnection.capabilities 派生属性（纯映射每次构造新鲜）。UI 门控迁移：ChatScreen 642/643/917、ChatViewModel Flow 换 capabilities、ServerSettingsViewModel 4 处（var 换 configEditable） |
+| 3 测试 | 2de6889e | PaginationCursorPolicyTest 7 条：V1 锚点编码/空语义、V2 null 窗口语义、V1 单向/V2 双向 around、NEWER 锚点双版本、能力位三态映射 |
+
+### 验证证据（2026-08-21 真机 houji，V2 全流程）
+
+- **自动化**：全量 **1812/1812 全绿**（+7 策略测试）；受影响 5 类 76/76；每段 compile 绿
+- **真机 V2 E2E**：进长会话 → 滚动加载更早（loadOlder NETWORK 24 msgs + 服务器原生 cursor 续页——FSM Network serverCursor base64 解出 order:desc,direction:next，正是 V2 策略不构造本地游标、透传服务器游标路径）→ 快速定位跳转 Q3（loadAround 双向 + 后续 loadOlder 续链）→ **能力门控**：更多菜单 V2 下分享隐藏 + 后台显示 + 压缩（版本无关）显示；crash 0
+- V1 路径：无真机 V1 服务器——JVM 双实现契约测试覆盖（缺口如实标注，与 #150 的 V1 复验一并处理）
+- ⏳ 维度 5：分页滚动/快速定位观感待用户验收
+
 ## #175（顺手清理 + bonus）实现记录（2026-08-21 完成，真机烟雾全绿）
 
 ### 提交链（每件独立 commit）
