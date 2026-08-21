@@ -74,6 +74,16 @@ jobs:
           path: release-apks/*.apk
           retention-days: 90
 
+      # #153：R8 mapping.txt 留存（90 天）——用户上报的混淆堆栈事后可还原；
+      # 与 APK 同批构建产物，release 构建开启 minify（app/build.gradle.kts）
+      - name: Upload R8 mapping (deobfuscation)
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ocbeacon-mapping-${{ steps.version.outputs.name }}
+          path: app/build/outputs/mapping/${{ steps.flavor.outputs.flavor }}Release/mapping.txt
+          retention-days: 90
+          if-no-files-found: error
+
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
