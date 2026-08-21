@@ -89,8 +89,8 @@
   - 重连风暴灌水（挤出真实错误）、同一失败双日志、per-event INFO 遗漏网、7 处 `e` 缺 throwable 等——不修则 #151 的"最近 20 条错误"全是重连噪音
   - → `docs/journal/2026-08-21-error-report-github.md`
 
-- [ ] **#153 前置：release CI 留存 R8 mapping.txt artifact** `refactor`
-  - release.yml 只传 APK，mapping.txt 随 runner 销毁——用户混淆堆栈永久无法还原；加 artifact 上传（90 天保留）
+- [~] **#153 前置：release CI 留存 R8 mapping.txt artifact——已实现（cfeae270），待下次发版 CI 实跑验证** `refactor`
+  - workflow 增 Upload R8 mapping（90 天 + if-no-files-found=error 防 minify 回归）；路径模式经本地 outputs/mapping/<variant>/mapping.txt 实证（devRelease 产物在）
   - → `docs/journal/2026-08-21-error-report-github.md`
 
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`

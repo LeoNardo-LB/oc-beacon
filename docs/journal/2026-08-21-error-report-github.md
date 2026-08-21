@@ -15,6 +15,7 @@
   - 方案：重连级联降级（i→d）+ 去双日志 + per-event 补 DEBUG 门控 + 补 throwable + 子资源门控；完整 file:line 清单见审计报告（会话 2026-08-21）
   - 依赖关系：#151 的"最近 20 条错误"在灌水修复前会被重连噪音填满——本条是其前置
 
+  - **#153 实现记录（2026-08-21 cfeae170→cfeae270）**：release.yml 增 Upload R8 mapping 步骤（ocbeacon-mapping-<ver>，90 天保留，if-no-files-found: error——若 minify 意外关闭构建会产出 mapping 缺失即 CI 失败，双重守卫）；本地 outputs/mapping/devRelease/mapping.txt 实证 AGP 路径约定。验收：下次发版 tag 的 Actions 页应见 mapping artifact。
   - **2026-08-21 架构批次后锚点核对（P1 spec 修订步骤）**：病灶全部仍在、无新增——①双日志：SseConnectionManager catch 块 "SSE stream error"(AppLogger.e 带 throwable) + "SSE connection failed: message"(:384，**无 throwable**——7 处缺 throwable 之一实证) 同一失败两连发；②per-event INFO 遗漏网：SessionEventHandler.handleSessionUpdated:106 SessionUpdated 无条件 AppLogger.i 仍在；③行号漂移：SseConnectionManager ~+2（#170/#160 改动）、OpenCodeConnectionService SSE 路由区 588→533（协调器抽取）；④本批次（#171-#175）对 AppLogger 调用零增删（EventDispatcher 12 处/OpenCodeConnectionService 30 处/SseConnectionManager 25 处密度不变）。审计 file:line 清单按 +2/−55 漂移校正后继续有效。
 
 - [ ] **#153 前置：release CI 留存 R8 mapping.txt artifact** `refactor`
