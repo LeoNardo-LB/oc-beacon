@@ -41,7 +41,7 @@ class DatabaseRecovery @Inject constructor(
             block()
         } catch (e: SQLiteException) {
             if (!isCorruption(e)) throw e
-            AppLogger.e(TAG, "Database corruption detected, recovering: ${e.message}")
+            AppLogger.e(TAG, "Database corruption detected, recovering", e)
             runCatching { context.deleteDatabase(DATABASE_NAME) }
                 .onFailure { del -> AppLogger.e(TAG, "deleteDatabase failed", del) }
             null

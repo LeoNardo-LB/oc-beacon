@@ -124,7 +124,7 @@ class DraftDataStore @Inject constructor(
             }
         },
         fallback = { e ->
-            AppLogger.e(TAG, "Failed to persist drafts: ${e.message}")
+            AppLogger.e(TAG, "Failed to persist drafts", e)
         }
     )
 }

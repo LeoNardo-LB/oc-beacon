@@ -104,7 +104,8 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     private fun handleSessionUpdated(event: SseEvent.SessionUpdated, serverId: String) {
-        AppLogger.i(TAG, "SessionUpdated: id=${event.info.id} title=${event.info.title}")
+        // #152：per-event INFO 补 DEBUG 门控（#40 残留漏网——SessionUpdated 高频触发）
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "SessionUpdated: id=${event.info.id} title=${event.info.title}")
         trackSession(serverId, event.info.id)
         // #134（D2-L54）：locallyClearedReverts.remove 是副作用——原实现位于
         // _sessions.update lambda 内，CAS 重试会重复执行。移出 lambda：

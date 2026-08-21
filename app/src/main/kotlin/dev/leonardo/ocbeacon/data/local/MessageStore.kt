@@ -198,7 +198,7 @@ class MessageStore @Inject constructor(
                         },
                     )
                 }.onFailure { e ->
-                    AppLogger.e(TAG, "[archive] session=$sessionId: skip undecodable msg ${entity.id} (${e.message})")
+                    AppLogger.e(TAG, "[archive] session=$sessionId: skip undecodable msg ${entity.id}", e)
                 }.getOrNull()
             }
             buildArchiveBuckets(sessionId, messages)
