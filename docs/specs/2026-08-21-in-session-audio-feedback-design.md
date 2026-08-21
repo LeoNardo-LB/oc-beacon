@@ -16,7 +16,7 @@
 
 ### 2.1 "处于本会话中不发系统通知"已完整实现 ✅
 
-**核心**：`service/SessionFocusHolder.kt`（@Singleton）维护 `activeFocus`（serverId+sessionId）与 `isAppInForeground` 两个状态。`shouldSuppress` / `shouldSuppressEvent` = **应用在前台 且 焦点精确匹配该会话**。
+**核心**：`service/SessionFocusHolder.kt`（@Singleton）维护 `activeFocus`（serverId+sessionId）与 `isAppInForeground` 两个状态。`shouldSuppress` = **应用在前台 且 焦点精确匹配该会话**。（2026-08-21 #175 修订：原 `shouldSuppressEvent` 双胞胎方法已并入 `shouldSuppress`——两方法体在 2026-08-16 前台条件对齐后逐字相同，合并为一，本设计全程只消费合并后的单方法。）
 
 **状态写入**：
 - 进入聊天页 `ChatScreen.kt:511-514` → `ChatViewModel.onSessionFocused()`（设置焦点 + 取消该会话既有通知 + 重置去重状态）
@@ -27,11 +27,13 @@
 
 | 事件 | 服务层路由 | 管理层发射前 |
 |---|---|---|
-| SessionIdle（turn 完成） | OpenCodeConnectionService.kt:588 | AppNotificationManager.kt:273 |
-| PermissionAsked | :662 | :621 |
-| QuestionAsked | :678 | :635 |
-| SessionError | :696 | :422 |
+| SessionIdle（turn 完成） | OpenCodeConnectionService.kt:533 | AppNotificationManager.kt:273 |
+| PermissionAsked | :569 | :621 |
+| QuestionAsked | :615 | :635 |
+| SessionError | :633 | :422 |
 | REST 兜底问题通知 | — | :373 |
+
+（2026-08-21 #170 修订：服务层行号因连接生命周期协调器抽取而漂移——SSE 路由仍在 Service 内、抑制双层防御结构不变；管理层 5 处抑制点经 #175 合并后统一调用 `shouldSuppress`。）
 
 **语义细节**：仅前台抑制（按 Home 回桌面后通知照发，2026-08-16 修复注释有记录）；仅精确匹配抑制（看会话 A 时会话 B 完成照常通知）；子会话（subagent）永不发完成通知（`isChildSession`）。
 
