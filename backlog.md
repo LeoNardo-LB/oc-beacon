@@ -114,19 +114,6 @@
   - 已排除：messageSpacing=8dp 未变（07-31 至今）；分片中段零装饰、首末段装饰与普通气泡同值；唯一视觉变化= 92e2855c ≥3K 消息段内空行化（气泡**内部**变高，治滚动卡顿所需）
   - #183 分割线减半已落地（8a965166）或已缓解；待用户实测新包观感或给截图精确定位
 
-- [ ] **#180 subagent 卡片进行中无法点击进入子会话（结束后可点）** `session` `ui`
-  - 根因候选：点击导航依赖 metadata 中的 sessionId/jobId（`TaskToolCard.kt:84-98`），V2 服务器疑似仅在 completed 下发 childID（`V2Mappers.kt:326` 注释佐证）[推断] → Running 期间 clickAction=null，点击回落到展开切换而 output 为空 → 无可感知反应；且 `TaskToolCard.kt:101` showNavArrow 显式排除 isRunning（Running 时无导航箭头视觉提示）
-  - 待确认：Running 期间 SSE tool part metadata 实际内容（真机 logcat）；修复方向：补齐 Running 期 childID 解析或从 step 事件流关联
-  - 注：#148（08-16）「无法点击」为模拟器环境劣化已关闭，与本次主对话场景不同
-
-- [ ] **#181 subagent 卡片缺展开/收起按钮（结束后导航态下 chevron 消失）** `ui`
-  - 根因明确：`TaskToolCard.kt:113` `showExpandIcon = !showNavArrow`——卡片结束且有子会话时导航箭头与展开 chevron 互斥，chevron 被隐藏；同时标题行点击被导航覆盖（`ToolCardScaffold.kt:136` `onClick ?: onToggleExpand`）→ 展开入口完全消失，输出内容无法查看
-  - 修复方向：chevron 与导航箭头并存（showExpandIcon 独立于 showNavArrow），与 #180 一并处理
-
-- [ ] **#182 subagent 卡片展开内容截断——三层嫌疑，"之前修复"未动 UI/DB 两条截断链** `ui` `data`
-  - 三层：①UI 硬截断 `output.take(2000)`（`TaskToolCard.kt:179`，"展示一半戛然而止"最直接嫌疑）；②DB 落库 500 字符预览（#79 e7ca830f，设计声明"内存渲染完整"但未覆盖重进会话从 DB 回读场景——回读后最多 500 字符）；③半屏限高 + verticalScroll（`TaskToolCard.kt:167`，可滚动、疑非根因）
-  - git 考古：take(2000) 与 halfScreenHeight 均自旧提交 84476ccd 起未变，未见专门修复 commit [推断：用户记忆中的修复为 #79 落库批次或限高调整]
-  - 修复方向：take(2000) 改为分片渲染或取消 + DB 回读场景需完整 output 与 500 字符预览的取舍重评（与 #79 的 DB 体积目标冲突，需设计）
 
 
 - [ ] **#187 ModelPicker 二级面板：variant 行内 accordion + 默认模型开关重设计（调研+UIUX 已定案，未实现）** `ui` `model-config`
