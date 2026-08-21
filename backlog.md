@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#189**。
+**编号**：全局递增，不回收。下一编号：**#190**。
 
 **优先级定义**：
 
@@ -219,3 +219,9 @@
 - [ ] **#185 V1/V2 god-client 拆解（终局债务，显式不做）** `refactor`
   - V1ApiClient(72 方法)/V2ApiClient(84) 全域 god-client + 7 门面 78 处 if 分发——#172 grilling Q1 定案：seam 已在门面 interface 正确收敛，拆轴属内部代码组织（22 测试文件重写 + 缓存式适配器版本竞态），显式登记不拆
   - → `docs/journal/2026-08-21-arch-review-deepening.md`
+
+- [ ] **#189 终端组件换件：termlib → Termux terminal-view/emulator（vendored）** `terminal` `ui` `arch`
+  - 用户验收②+明确指令「bug 挺多，最好引入主流的终端组件」。真机取证：vim 插入模式打字被 IME 组合输入拦截（「全部」候选态）、ESC 无响应——termlib 0.1.0 早期版本键盘/IME 处理不成熟且依赖闭源不可修
+  - 选型：Termux terminal-view + terminal-emulator（10+ 年亿级验证；仓库 GPLv3 但两模块为 Apache 2.0 明确例外，MIT 兼容）；vendored 源码引入（无 maven artifact）
+  - 换件范围：VT 内核 + 渲染/键盘 View 层；PTY WebSocket 传输（ServerTerminalWorkspace）保留，adapter 换实现；KeyboardOverlay 保留
+  - → `docs/specs/2026-08-21-terminal-component-swap-design.md`
