@@ -331,12 +331,13 @@ internal class MessagePaginationDelegate(
         val olderCursor = oldest?.let {
             PaginationCursor.Network(id = it.info.id, created = it.info.time.created)
         }
-        // newer 游标：V2 自定义 cursor 启用下滑自动加载更新（用户下滑触发 loadNewerMessages，
+        // newer 游标：V2 NEWER 锚点启用下滑自动加载更新（用户下滑触发 loadNewerMessages，
         // 用此 cursor 请求服务器）；V1 无 after/cursor 能力 → null（no-op 防空转）
-        val isV2 = messagePaging.isV2Server(serverId)
-        val newerCursor = if (isV2) {
+        // #172：能力语义经游标策略（版本差异收编）
+        val cursorPolicy = messagePaging.cursorPolicy(serverId)
+        val newerCursor = if (cursorPolicy.supportsNewerDirection) {
             PaginationCursor.Network(
-                serverCursor = CursorCodec.encodeV2(targetId, CursorCodec.V2Direction.NEWER),
+                serverCursor = cursorPolicy.newerAnchorCursor(targetId),
                 id = target.info.id,
                 created = target.info.time.created,
             )
@@ -346,11 +347,11 @@ internal class MessagePaginationDelegate(
                 olderCursor = olderCursor,
                 hasOlderMessages = older.size >= currentMessageLimit,
                 newerCursor = newerCursor,
-                hasNewerMessages = isV2,
+                hasNewerMessages = cursorPolicy.supportsNewerDirection,
             ),
         )
         if (BuildConfig.DEBUG) {
-            AppLogger.d(TAG, "loadAround[local] sid=${sid.take(12)} target=${targetId.take(12)} older=${older.size} newer=${newer.size} hasOlder=${older.size >= currentMessageLimit} hasNewer=$isV2")
+            AppLogger.d(TAG, "loadAround[local] sid=${sid.take(12)} target=${targetId.take(12)} older=${older.size} newer=${newer.size} hasOlder=${older.size >= currentMessageLimit} hasNewer=${cursorPolicy.supportsNewerDirection}")
         }
     }
 

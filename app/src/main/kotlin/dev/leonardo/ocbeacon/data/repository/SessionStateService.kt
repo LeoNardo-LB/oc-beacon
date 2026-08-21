@@ -65,6 +65,8 @@ class SessionStateService @Inject constructor(
     @param:ApplicationScope private val appScope: CoroutineScope,
     private val sessionRepoProvider: Provider<SessionRepository>,
     private val collaborator: SessionStateCollaborator,
+    // #172：断连/L3 补漏的游标构造收编进策略（版本读取关进策略模块）
+    private val cursorPolicyFactory: dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory,
 ) : SessionStateRepository {
 
     @Volatile private var currentServerId: String? = null
@@ -255,13 +257,8 @@ class SessionStateService @Inject constructor(
                     AppLogger.d(TAG, "[$sessionId] backfill no anchor -> fallback latest")
                 }
                 val directory = collaborator.resolveDirectory(sessionId)
-                val isV2 = sessionRepoProvider.get().getApiVersion(sid).isV2
-                val cursor = if (isV2 && anchorId != null) {
-                    dev.leonardo.ocbeacon.domain.util.CursorCodec.encodeV2(
-                        anchorId,
-                        dev.leonardo.ocbeacon.domain.util.CursorCodec.V2Direction.NEWER,
-                    )
-                } else null
+                // #172：NEWER 锚点经游标策略（V1 → null 保持拉最新）
+                val cursor = anchorId?.let { cursorPolicyFactory.forServer(sid).newerAnchorCursor(it) }
                 sessionRepoProvider.get()
                     .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = cursor)
                     .onSuccess { page ->
@@ -596,13 +593,8 @@ class SessionStateService @Inject constructor(
                         // 服务器返回该 id 之后的消息（limit 内）；V1 无 after/cursor
                         // 能力保持 limit=50 拉最新（协议限制，不更差）。
                         val anchorId = collaborator.latestMessageId(sessionId)
-                        val isV2 = sessionRepoProvider.get().getApiVersion(sid).isV2
-                        val cursor = if (isV2 && anchorId != null) {
-                            dev.leonardo.ocbeacon.domain.util.CursorCodec.encodeV2(
-                                anchorId,
-                                dev.leonardo.ocbeacon.domain.util.CursorCodec.V2Direction.NEWER,
-                            )
-                        } else null
+                        // #172：NEWER 锚点经游标策略（V1 → null 保持拉最新）
+                        val cursor = anchorId?.let { cursorPolicyFactory.forServer(sid).newerAnchorCursor(it) }
                         val backfillResult = sessionRepoProvider.get()
                             .listMessages(sid, sessionId, limit = REST_REFRESH_LIMIT, before = cursor)
                         backfillResult.onSuccess { page ->

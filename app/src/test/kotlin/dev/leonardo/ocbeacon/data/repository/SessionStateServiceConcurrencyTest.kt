@@ -7,6 +7,7 @@ import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -53,12 +54,14 @@ class SessionStateServiceConcurrencyTest {
         testScope,
         Provider { mockk<SessionRepository>(relaxed = true) },
         collab,
+        PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
     )
 
     private fun newServiceWith(repo: SessionRepository, collab: SessionStateCollaborator = StubCollaborator()) = SessionStateService(
         testScope,
         Provider { repo },
         collab,
+        PaginationCursorPolicyFactory(Provider { repo }),
     )
 
     @After

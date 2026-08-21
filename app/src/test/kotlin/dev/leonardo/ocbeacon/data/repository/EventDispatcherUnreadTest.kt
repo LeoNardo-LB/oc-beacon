@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -78,6 +79,7 @@ class EventDispatcherUnreadTest {
             appScope = stateServiceScope,
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
             collaborator = StubCollaborator(),
+            cursorPolicyFactory = dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
         )
         settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         dispatcher = makeDispatcher()

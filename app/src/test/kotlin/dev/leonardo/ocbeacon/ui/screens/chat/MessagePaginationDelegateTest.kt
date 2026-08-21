@@ -66,7 +66,7 @@ class MessagePaginationDelegateTest {
     fun `loadOlderMessages uses oldestMessageId as cursor and sets hasOlderMessages by boundary`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) } returns Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.NETWORK))
         }
         val store = mockk<MessageStore> {
@@ -104,7 +104,7 @@ class MessagePaginationDelegateTest {
         // 中部历史 id 在服务器窗口语义下返回空页 → hasOlder=false 误判读尽）。
         // 必须传 networkCursor=null，让 use case 走 null-cursor 首翻拿原生 cursor.next。
         val paging = mockk<MessagePaginationUseCase> {
-            coEvery { isV2Server(any()) } returns true
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V2CursorPolicy
             coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) } returns
                 Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.NETWORK, nextCursor = "native-next"))
         }
@@ -139,7 +139,7 @@ class MessagePaginationDelegateTest {
     fun `loadOlderMessages sets hasOlderMessages false when fewer than limit`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadOlderMessages("srv", "sid-1", 30, any()) } returns Result.success(LoadOlderResult(mkMessages(10), LoadOlderSource.NETWORK))
         }
         val store = mockk<MessageStore> {
@@ -169,7 +169,7 @@ class MessagePaginationDelegateTest {
     fun `loadOlderMessages keeps limit unchanged on exception`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadOlderMessages("srv", "sid-1", 30, any()) } returns Result.failure(RuntimeException("net err"))
         }
         val store = mockk<MessageStore> {
@@ -200,7 +200,7 @@ class MessagePaginationDelegateTest {
     fun `loadOlderMessages archive source only merges memory not store`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) } returns
                 Result.success(LoadOlderResult(mkMessages(10), LoadOlderSource.ARCHIVE))
         }
@@ -234,7 +234,7 @@ class MessagePaginationDelegateTest {
         // 第一次翻页：beforeCreated=null（初始），返回 30 条归档消息（created 0..29），最老 created=0
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) } returns
                 Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.ARCHIVE))
             // 第二次翻页：beforeCreated=0（游标推进为最老消息 created）
@@ -272,7 +272,7 @@ class MessagePaginationDelegateTest {
         // 归档翻页推进游标后，网络来源把游标重置（下次从热表边界重新开始）
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             // 第一次：无游标（null）
             coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) } returns
                 Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.ARCHIVE))
@@ -436,7 +436,7 @@ class MessagePaginationDelegateTest {
     fun `loadMessagesForSession applies settings initialMessageCount and sets hasOlderMessages`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadMessagesForSession("srv", "sid-1", 50) } returns Result.success(mkMessages(50))
         }
         val repo = mockk<ChatRepository>(relaxed = true)
@@ -467,7 +467,7 @@ class MessagePaginationDelegateTest {
     fun `loadMessagesForSession swallows exception without throwing`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadMessagesForSession("srv", "sid-1", 30) } returns Result.failure(RuntimeException("boom"))
         }
         val settings = mockk<SettingsRepository> {
@@ -500,7 +500,7 @@ class MessagePaginationDelegateTest {
         val target = mkMsg("target", 30L)
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadAround("srv", "sid-1", "target", 30) } returns Result.success(
                 LoadAroundResult(
                     target = target,
@@ -540,7 +540,7 @@ class MessagePaginationDelegateTest {
         val older = (0..29).map { mkMsg("o-$it", it.toLong()) }
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadAround("srv", "sid-1", "target", 30) } returns Result.success(
                 LoadAroundResult(
                     target = mkMsg("target", 30L),
@@ -580,7 +580,7 @@ class MessagePaginationDelegateTest {
         val newer = (31..60).map { mkMsg("n-$it", it.toLong()) }
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadAround("srv", "sid-1", "target", 30) } returns Result.success(
                 LoadAroundResult(
                     target = mkMsg("target", 30L),
@@ -667,7 +667,7 @@ class MessagePaginationDelegateTest {
     fun `auto load failure sets backoff wait and does not pause on first failure`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadOlderMessages(any(), any(), any(), any(), any(), any(), any()) } returns
                 Result.failure(RuntimeException("network down"))
         }
@@ -687,7 +687,7 @@ class MessagePaginationDelegateTest {
     fun `auto load pauses after max consecutive failures`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadOlderMessages(any(), any(), any(), any(), any(), any(), any()) } returns
                 Result.failure(RuntimeException("network down"))
         }
@@ -703,7 +703,7 @@ class MessagePaginationDelegateTest {
         // 先连续失败 3 次 → 暂停
         val failPaging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadOlderMessages(any(), any(), any(), any(), any(), any(), any()) } returns
                 Result.failure(RuntimeException("network down"))
         }
@@ -738,7 +738,7 @@ class MessagePaginationDelegateTest {
         val page2 = List(30) { MessageWithParts(Message.User(id = "m-${60 + it}", sessionId = "sid-1", time = TimeInfo(created = (60 + it).toLong())), emptyList()) }
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             // 第一次：before=热表最老 m-0，无网络游标
             coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) } returns
                 Result.success(LoadOlderResult(page1, LoadOlderSource.NETWORK))
@@ -781,7 +781,7 @@ class MessagePaginationDelegateTest {
     fun `v2 network pagination passes server cursor to next page`() = runTest {
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             // 第一次：无 serverCursor（首次翻页）→ 返回带 nextCursor 的结果
             coEvery { loadOlderMessages("srv", "sid-1", 30, "m-0", null, null, null) } returns
                 Result.success(LoadOlderResult(mkMessages(30), LoadOlderSource.NETWORK, nextCursor = "cursor-A"))
@@ -895,7 +895,7 @@ class MessagePaginationDelegateTest {
         val older = (0..29).map { mkMsg("o-$it", it.toLong()) }
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
             coEvery { loadAround("srv", "sid-1", "target", 30) } returns Result.success(
                 LoadAroundResult(
                     target = mkMsg("target", 30L),
@@ -944,7 +944,7 @@ class MessagePaginationDelegateTest {
             coEvery { loadRangeNewer("sid-1", 30, "target") } returns newer
         }
         val paging = mockk<MessagePaginationUseCase>(relaxed = true) {
-            coEvery { isV2Server("srv") } returns true  // V2 → 启用 newer 预加载
+            coEvery { cursorPolicy("srv") } returns dev.leonardo.ocbeacon.domain.usecase.V2CursorPolicy  // V2 → 启用 newer 预加载
         }
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),
@@ -967,8 +967,8 @@ class MessagePaginationDelegateTest {
         assertFalse(delegate.isLoadingAround.value)
         // 走本地分支：不调服务器 loadAround
         coVerify(exactly = 0) { paging.loadAround(any(), any(), any(), any()) }
-        // 调 isV2Server 判断协议能力
-        coVerify(exactly = 1) { paging.isV2Server("srv") }
+        // 调 cursorPolicy 判断协议能力
+        coVerify(exactly = 1) { paging.cursorPolicy("srv") }
     }
 
     @Test
@@ -989,8 +989,8 @@ class MessagePaginationDelegateTest {
         }
         val paging = mockk<MessagePaginationUseCase> {
 
-            coEvery { isV2Server(any()) } returns false  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
-            coEvery { isV2Server("srv") } returns true
+            coEvery { cursorPolicy(any()) } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // 2026-08-12 修复：V2 首次翻页构造 V2 游标——测试 mock 需显式 stub（非 relaxed）
+            coEvery { cursorPolicy("srv") } returns dev.leonardo.ocbeacon.domain.usecase.V2CursorPolicy
             // 第一次 loadNewer（自定义 cursor）→ 返回服务器游标推进
             coEvery {
                 loadNewerMessages("srv", "sid-1", 30, match(isCustomNewerCursor))
@@ -1055,7 +1055,7 @@ class MessagePaginationDelegateTest {
             coEvery { loadRangeNewer("sid-1", 30, "target") } returns emptyList()
         }
         val paging = mockk<MessagePaginationUseCase>(relaxed = true) {
-            coEvery { isV2Server("srv") } returns false  // V1 → 无 after/cursor 能力
+            coEvery { cursorPolicy("srv") } returns dev.leonardo.ocbeacon.domain.usecase.V1CursorPolicy  // V1 → 无 after/cursor 能力
         }
         val delegate = MessagePaginationDelegate(
             manageSessionUseCase = mockk(relaxed = true),

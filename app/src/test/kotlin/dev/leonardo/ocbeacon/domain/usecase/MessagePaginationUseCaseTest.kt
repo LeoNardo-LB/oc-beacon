@@ -23,7 +23,7 @@ class MessagePaginationUseCaseTest {
     private val chatRepository = mockk<ChatRepository>(relaxed = true)
     private val sessionRepository = mockk<SessionRepository>(relaxed = true)
     private val messageStore = mockk<MessageCacheRepository>(relaxed = true)
-    private val useCase = MessagePaginationUseCase(chatRepository, sessionRepository, messageStore)
+    private val useCase = MessagePaginationUseCase(chatRepository, sessionRepository, messageStore, PaginationCursorPolicyFactory(javax.inject.Provider { sessionRepository }))
 
     private fun msg(id: String, created: Long): MessageWithParts = MessageWithParts(
         info = Message.User(id = id, sessionId = "ses_1", time = TimeInfo(created = created)),

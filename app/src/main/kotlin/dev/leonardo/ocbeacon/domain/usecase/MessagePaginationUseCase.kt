@@ -57,7 +57,14 @@ class MessagePaginationUseCase @Inject constructor(
     private val chatRepository: ChatRepository,
     private val sessionRepository: SessionRepository,
     private val messageStore: MessageCacheRepository,
+    // #172：V1/V2 游标差异收编进 PaginationCursorPolicy（与 sessionRepository 同源——
+    // 测试对 getApiVersion 的既有 stub 继续生效）
+    private val cursorPolicyFactory: PaginationCursorPolicyFactory,
 ) {
+
+    /** 游标策略（供 Delegate 消费能力语义——替代原 isV2Server 版本查询）。 */
+    suspend fun cursorPolicy(serverId: String): PaginationCursorPolicy =
+        cursorPolicyFactory.forServer(serverId)
     fun observeMessages(sessionId: String): Flow<List<Message>> =
         chatRepository.getMessagesFlow(sessionId)
 
@@ -98,10 +105,9 @@ class MessagePaginationUseCase @Inject constructor(
             //（仅近期窗口内 id 有效），本地构造锚点根本不可靠。
             // 根治：V2 增量不传 cursor（拉最新 limit 窗口），mergeLocalAndRemote
             // 按 id 去重合并——语义等价（增量=刷新最新窗口）且不依赖锚点有效性。
-            val before = if (hasDamagedMeta || isV2Server(serverId)) null else oldestId?.let { id ->
-                val created = messageStore.messageCreatedAt(id)
-                if (created != null) CursorCodec.encode(id, created) else null
-            }
+            // #172：V1 本地锚点 / V2 null（拉最新窗口）——策略收编
+            val before = if (hasDamagedMeta) null else cursorPolicyFactory.forServer(serverId)
+                .localAnchorCursor(oldestId, oldestId?.let { messageStore.messageCreatedAt(it) })
             if (hasDamagedMeta) {
                 AppLogger.i(TAG, "Session $sessionId has assistant messages without modelId (legacy overwrite damage), doing full refresh to repair")
             }
@@ -198,11 +204,10 @@ class MessagePaginationUseCase @Inject constructor(
         // 分支用服务器原生游标（唯一可靠模式）。
         // V1 保持本地 CursorCodec.encode（before 参数语义，实测有效）。
         return runCatching {
-            val isV2 = isV2Server(serverId)
-            val before = if (isV2) null else beforeId?.let { id ->
-                val msgCreated = messageStore.messageCreatedAt(id)
-                if (msgCreated != null) CursorCodec.encode(id, msgCreated) else null
-            }
+            // #172：V2 首次翻页不传 cursor（服务器原生 nextCursor 进 FSM 后续透传）；
+            // V1 本地锚点——策略收编
+            val before = cursorPolicyFactory.forServer(serverId)
+                .localAnchorCursor(beforeId, beforeId?.let { messageStore.messageCreatedAt(it) })
             val page = sessionRepository.listMessages(serverId, sessionId, limit, before = before)
                 .getOrThrow()
             messageStore.upsertMessages(sessionId, page.messages, persistOldBeyondWindow = true)
@@ -229,14 +234,15 @@ class MessagePaginationUseCase @Inject constructor(
         targetMessageId: String,
         limit: Int,
     ): Result<LoadAroundResult> = runCatching {
-        val isV2 = sessionRepository.getApiVersion(serverId).isV2
-        // 单条目标（cursor 结果不含目标本身）
+        // 单条目标（cursor 结果不含目标本身）——先取 target 以其 created 构造游标对
         val target = sessionRepository.getMessage(serverId, sessionId, targetMessageId).getOrThrow()
+        val aroundCursors = cursorPolicyFactory.forServer(serverId)
+            .aroundCursors(targetMessageId, target.info.time.created)
 
-        if (isV2) {
+        if (aroundCursors.supportsNewer) {
             // V2 双向 cursor：direction="next"=更旧，"previous"=更新
-            val olderCursor = CursorCodec.encodeV2(targetMessageId, CursorCodec.V2Direction.OLDER)
-            val newerCursor = CursorCodec.encodeV2(targetMessageId, CursorCodec.V2Direction.NEWER)
+            val olderCursor = aroundCursors.older
+            val newerCursor = aroundCursors.newer
             val olderPage = sessionRepository.listMessages(serverId, sessionId, limit, before = olderCursor).getOrThrow()
             val newerPage = sessionRepository.listMessages(serverId, sessionId, limit, before = newerCursor).getOrThrow()
             // 合并 upsert（target + older + newer；APPEND_ONLY 路径按 id 去重）
@@ -250,8 +256,8 @@ class MessagePaginationUseCase @Inject constructor(
                 newerPreviousCursor = newerPage.previousCursor,
             )
         } else {
-            // V1 降级：target + before 向旧加载
-            val before = CursorCodec.encode(targetMessageId, target.info.time.created)
+            // V1 降级：target + before 向旧加载（older 游标 = 本地锚点格式）
+            val before = aroundCursors.older
             val olderPage = sessionRepository.listMessages(serverId, sessionId, limit, before = before).getOrThrow()
             val all = listOf(target) + olderPage.messages
             messageStore.upsertMessages(sessionId, all, persistOldBeyondWindow = true)
@@ -284,15 +290,6 @@ class MessagePaginationUseCase @Inject constructor(
         LoadNewerResult(page.messages, page.previousCursor)
     }
 
-    /**
-     * 当前服务器是否为 V2 API（支持双向 cursor 翻页：next=更旧 / previous=更新）。
-     *
-     * 供 Delegate 的本地优先分支（loadAroundFromLocal）判断 newer 方向自定义 cursor
-     * 是否可用：V2 → 构造自定义 cursor 启用下滑自动加载更新；V1 → 保持 newerCursor=null
-     *（V1 协议无 after/cursor 能力，更新方向不可用）。
-     */
-    suspend fun isV2Server(serverId: String): Boolean =
-        sessionRepository.getApiVersion(serverId).isV2
 
     private fun mergeLocalAndRemote(
         local: List<MessageWithParts>,

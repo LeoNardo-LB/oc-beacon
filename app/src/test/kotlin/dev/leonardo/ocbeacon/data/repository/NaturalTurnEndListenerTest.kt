@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.repository
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory
 import io.mockk.mockk
 import javax.inject.Provider
 import kotlinx.coroutines.cancel
@@ -26,6 +27,7 @@ class NaturalTurnEndListenerTest {
         testScope,
         Provider { mockk<SessionRepository>(relaxed = true) },
         collab,
+        PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
     )
 
     @After

@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.repository
 import dev.leonardo.ocbeacon.domain.model.*
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
+import dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -58,6 +59,7 @@ class SessionStateServiceTest {
         testScope,
         Provider { mockk<SessionRepository>(relaxed = true) },
         collab,
+        PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
     )
 
     /** 构建一个由 [repo] 支撑的服务，以便测试可以 stub `fetchSessionStatuses`。 */
@@ -65,6 +67,7 @@ class SessionStateServiceTest {
         testScope,
         Provider { repo },
         collab,
+        PaginationCursorPolicyFactory(Provider { repo }),
     )
 
     @After
@@ -356,7 +359,7 @@ class SessionStateServiceTest {
             MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
         )
         val collab = StubCollaborator()
-        val service = SessionStateService(testScope, Provider { repo }, collab)
+        val service = SessionStateService(testScope, Provider { repo }, collab, PaginationCursorPolicyFactory(Provider { repo }))
         val strategies = mutableListOf<MergeStrategy>()
         collab.refreshMessagesImpl = { sessionId, messages, strategy ->
                 strategies.add(strategy)
@@ -387,7 +390,7 @@ class SessionStateServiceTest {
             MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
         )
         val collab = StubCollaborator()
-        val service = SessionStateService(testScope, Provider { repo }, collab)
+        val service = SessionStateService(testScope, Provider { repo }, collab, PaginationCursorPolicyFactory(Provider { repo }))
         var called = 0
         collab.refreshMessagesImpl = { _, _, _ -> called++ }
         collab.latestMessageIdImpl = { null }
@@ -418,7 +421,7 @@ class SessionStateServiceTest {
             MessagePage(messages = listOf(mockk(relaxed = true)), nextCursor = null)
         )
         val collab = StubCollaborator()
-        val service = SessionStateService(testScope, Provider { repo }, collab)
+        val service = SessionStateService(testScope, Provider { repo }, collab, PaginationCursorPolicyFactory(Provider { repo }))
         val strategies = mutableListOf<MergeStrategy>()
         collab.refreshMessagesImpl = { sessionId, messages, strategy ->
                 strategies.add(strategy)
@@ -445,7 +448,7 @@ class SessionStateServiceTest {
             MessagePage(messages = emptyList(), nextCursor = null)
         )
         val collab = StubCollaborator()
-        val service = SessionStateService(testScope, Provider { repo }, collab)
+        val service = SessionStateService(testScope, Provider { repo }, collab, PaginationCursorPolicyFactory(Provider { repo }))
         var called = 0
         collab.refreshMessagesImpl = { _, _, _ -> called++ }
         collab.latestMessageIdImpl = { "msg_anchor_stale" }
