@@ -96,7 +96,7 @@ private class AnnotateWebView(
     }
 
     override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode {
-        AppLogger.e("ActionModeDebug", "startActionMode type=$type (0=FLOATING,1=PRIMARY)")
+        // #152：遗留诊断标签删除（调试期排障用，e 级噪声无保留价值）
         if (callback == null) return super.startActionMode(null, type)
 
         val wrapped = object : ActionMode.Callback {

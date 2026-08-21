@@ -241,7 +241,13 @@ fun WebViewScreen(
                                 request: WebResourceRequest?,
                                 error: WebResourceError?
                             ) {
-                                AppLogger.e("WebViewScreen", "Error loading ${request?.url}: ${error?.description} (code=${error?.errorCode})")
+                                // #152：主帧错误 w（页面加载失败是用户可感知事件）；
+                                // 子资源错误（图片 404 等）是常态噪音——降 d 不进错误队列
+                                if (request?.isForMainFrame == true) {
+                                    AppLogger.w("WebViewScreen", "Main-frame error: ${request?.url}: ${error?.description} (code=${error?.errorCode})")
+                                } else if (BuildConfig.DEBUG) {
+                                    AppLogger.d("WebViewScreen", "Sub-resource error: ${request?.url} (code=${error?.errorCode})")
+                                }
                                 // 只处理主帧错误
                                 if (request?.isForMainFrame == true) {
                                     isLoading = false
