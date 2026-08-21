@@ -107,58 +107,6 @@ data class ModelConfigState(
     val contextWindow: Int = 0,
 )
 
-data class ChatUiState(
-    val sessionTitle: String = "",
-    val serverName: String = "",
-    val messages: List<ChatMessage> = emptyList(),
-    val messageCount: Int = 0,
-    val revert: Session.Revert? = null,
-    val sessionStatus: SessionStatus = SessionStatus.Idle,
-    val pendingPermissions: List<SseEvent.PermissionAsked> = emptyList(),
-    val pendingQuestions: List<SseEvent.QuestionAsked> = emptyList(),
-    val isLoading: Boolean = true,
-    val error: String? = null,
-    val providers: List<ProviderCatalog> = emptyList(),
-    val hasServerModelCatalog: Boolean = false,
-    val defaultModels: Map<String, String> = emptyMap(),
-    val selectedProviderId: String? = null,
-    val selectedModelId: String? = null,
-    val totalCost: Double = 0.0,
-    /** 会话总量，从所有已加载的 assistant 消息计算（非 session.tokens，后者可能是单次调用的值）。 */
-    val totalInputTokens: Int = 0,
-    val totalOutputTokens: Int = 0,
-    val totalReasoningTokens: Int = 0,
-    val totalCacheReadTokens: Int = 0,
-    val totalCacheWriteTokens: Int = 0,
-    val agents: List<AgentInfo> = emptyList(),
-    val selectedAgent: String = "build",
-    val variantNames: List<String> = emptyList(),
-    val selectedVariant: String? = null,
-    val commands: List<CommandInfo> = emptyList(),
-    /** 服务器上存在尚未加载的更早消息时为 true。 */
-    val hasOlderMessages: Boolean = false,
-    /** "加载更早消息" 请求进行中时为 true。 */
-    val isLoadingOlder: Boolean = false,
-    /** 会话已分享时的分享 URL，否则为 null。 */
-    val shareUrl: String? = null,
-    /** 当前模型的上下文窗口大小（未知时为 0）。 */
-    val contextWindow: Int = 0,
-    /** 最后一条 output > 0 的 assistant 消息的 token 总量（当前上下文使用量）。 */
-    val lastContextTokens: Int = 0,
-    /** 已排队（在 assistant 仍在生成时发送）的用户消息 ID 集合。 */
-    val queuedMessageIds: Set<String> = emptySet(),
-    /** 父会话 ID —— 当本会话是子会话/sub-agent 会话时非空。 */
-    val sessionParentId: String? = null,
-    /** 本会话的 agent 名称（如 "explore"、"general"）。子 agent 会话时填充。 */
-    val sessionAgent: String? = null,
-    /** 已持久化的工具卡片展开/折叠状态，以 Part.Tool.id 或 Part.Patch.id 为键。 */
-    val toolExpandedStates: Map<String, Boolean> = emptyMap(),
-    val currentAgentName: String? = null,
-    val currentModelId: String? = null,
-    /** 发送失败后恢复的草稿。仅在消费前非空一次。 */
-    val restoredDraft: RevertedDraftPayload? = null,
-)
-
 data class RevertedDraftPayload(
     val text: String,
     val attachmentUris: List<String> = emptyList(),
@@ -177,3 +125,4 @@ data class ChatMessage(
     /** synthetic 系统通知（后台任务/subagent 完成注入）。嵌入 assistant turn 气泡内渲染。 */
     val isSynthetic: Boolean get() = (message as? Message.User)?.role == "synthetic"
 }
+

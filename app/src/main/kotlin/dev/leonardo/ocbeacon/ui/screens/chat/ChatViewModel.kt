@@ -536,8 +536,6 @@ class ChatViewModel @Inject constructor(
     )
     val contextDetailState: StateFlow<ContextDetailState> get() = contextDetailDelegate.state
 
-    val uiState: StateFlow<ChatUiState> get() = stateAggregator.uiState
-
     // ============ 状态簇门面（#173 段 1：UI 消费面按簇收缩的中转站） ============
     // 段 2 将把 UI 逐子组件迁移到这些簇成员；段 3 收敛后散成员门面按消费残留逐个退役。
     // 形态：簇 = 职责内聚的 delegate 直引用（内部成型已由既有 delegate 边界保证）。

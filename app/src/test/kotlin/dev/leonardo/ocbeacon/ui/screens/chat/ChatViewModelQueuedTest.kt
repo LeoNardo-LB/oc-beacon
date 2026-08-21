@@ -353,12 +353,13 @@ class ChatViewModelQueuedTest {
     }
 
     /**
-     * 订阅 uiState 以激活 SharingStarted.WhileSubscribed 的上游。
-     * 没有订阅者时，uiState.value 返回初始的 ChatUiState()。
+     * 订阅拆分 StateFlow 以激活 SharingStarted.WhileSubscribed 的上游
+     *（#173 uiState 退役：断言读取的每个拆分流都需活跃订阅）。
      */
     private fun kotlinx.coroutines.test.TestScope.subscribeToState(vm: ChatViewModel): Job {
         return backgroundScope.launch {
-            vm.uiState.collect {         /* 保持订阅存活 */ }
+            launch { vm.conversation.messageListState.collect {         /* 保持订阅存活 */ } }
+            launch { vm.sessionMetaState.collect { } }
         }
     }
 
@@ -372,7 +373,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertTrue(vm.uiState.value.queuedMessageIds.isEmpty())
+        assertTrue(vm.conversation.messageListState.value.queuedMessageIds.isEmpty())
         collectJob.cancel()
     }
 
@@ -389,7 +390,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertTrue(vm.uiState.value.queuedMessageIds.isEmpty())
+        assertTrue(vm.conversation.messageListState.value.queuedMessageIds.isEmpty())
         collectJob.cancel()
     }
 
@@ -407,7 +408,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertEquals(setOf("u2", "u3"), vm.uiState.value.queuedMessageIds)
+        assertEquals(setOf("u2", "u3"), vm.conversation.messageListState.value.queuedMessageIds)
         collectJob.cancel()
     }
 
@@ -425,7 +426,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertEquals(setOf("u3"), vm.uiState.value.queuedMessageIds)
+        assertEquals(setOf("u3"), vm.conversation.messageListState.value.queuedMessageIds)
         collectJob.cancel()
     }
 
@@ -441,7 +442,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertTrue(vm.uiState.value.queuedMessageIds.isEmpty())
+        assertTrue(vm.conversation.messageListState.value.queuedMessageIds.isEmpty())
         collectJob.cancel()
     }
 
@@ -461,7 +462,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertEquals(setOf("u2"), vm.uiState.value.queuedMessageIds)
+        assertEquals(setOf("u2"), vm.conversation.messageListState.value.queuedMessageIds)
         collectJob.cancel()
     }
 
@@ -478,7 +479,7 @@ class ChatViewModelQueuedTest {
         advanceUntilIdle()
 
         // 验证初始 queued 状态
-        assertEquals(setOf("u1"), vm.uiState.value.queuedMessageIds)
+        assertEquals(setOf("u1"), vm.conversation.messageListState.value.queuedMessageIds)
 
         // 模拟状态更新：通过重新 stub 并刷新使 assistant 完成
         // （pushMessages 只更新 V1 EventDispatcher，不更新 V2 _sessionState）
@@ -490,7 +491,7 @@ class ChatViewModelQueuedTest {
         advanceUntilIdle()
 
         // queued 应被清空
-        assertTrue(vm.uiState.value.queuedMessageIds.isEmpty())
+        assertTrue(vm.conversation.messageListState.value.queuedMessageIds.isEmpty())
         collectJob.cancel()
     }
 
@@ -507,7 +508,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertNull(vm.uiState.value.sessionParentId)
+        assertNull(vm.sessionMetaState.value.sessionParentId)
         collectJob.cancel()
     }
 
@@ -520,7 +521,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertEquals("parent-session-1", vm.uiState.value.sessionParentId)
+        assertEquals("parent-session-1", vm.sessionMetaState.value.sessionParentId)
         collectJob.cancel()
     }
 
@@ -656,10 +657,10 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        val state = vm.uiState.value
+        val state = vm.conversation.messageListState.value
 
-        // sessionParentId 正确
-        assertEquals("parent-1", state.sessionParentId)
+        // sessionParentId 正确（来自 sessionMetaState，#173 uiState 退役后拆流断言）
+        assertEquals("parent-1", vm.sessionMetaState.value.sessionParentId)
 
         // queuedMessageIds 正确（u2 在待处理 assistant 之后）
         assertEquals(setOf("u2"), state.queuedMessageIds)
@@ -683,7 +684,7 @@ class ChatViewModelQueuedTest {
         val collectJob = subscribeToState(vm)
         advanceUntilIdle()
 
-        assertEquals(setOf("u1", "u2", "u3"), vm.uiState.value.queuedMessageIds)
+        assertEquals(setOf("u1", "u2", "u3"), vm.conversation.messageListState.value.queuedMessageIds)
         collectJob.cancel()
     }
 }

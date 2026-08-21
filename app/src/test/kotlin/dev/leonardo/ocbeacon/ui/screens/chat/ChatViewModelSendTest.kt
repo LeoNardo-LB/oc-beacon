@@ -192,12 +192,12 @@ class ChatViewModelSendTest {
     }
 
     /**
-     * uiState 由 stateIn 支撑，需要活跃订阅者才能发出更新。
-     * 没有订阅者时，uiState.value 返回初始 ChatUiState()。
+     * restoredDraftState 由 stateIn 支撑，需要活跃订阅者才能发出更新。
+     * 没有订阅者时，value 返回初始值。
      */
     private fun kotlinx.coroutines.test.TestScope.subscribeToState(vm: ChatViewModel): Job {
         return backgroundScope.launch {
-            vm.uiState.collect {         /* 保持订阅存活 */ }
+            vm.composer.restoredDraftState.collect {         /* 保持订阅存活 */ }
         }
     }
 
@@ -244,7 +244,7 @@ class ChatViewModelSendTest {
         assertNotNull(viewModel.sendFailure.value) // AlertDialog 信号
         assertNull(
             "输入框保留语义下不应再设置 restoredDraft",
-            viewModel.uiState.value.restoredDraft
+            viewModel.composer.restoredDraftState.value
         )
         assertFalse(viewModel.interactionState.value.isSending) // finally 复位
         collectJob.cancel()
@@ -286,7 +286,7 @@ class ChatViewModelSendTest {
 
         // 2026-08-11 用户要求：失败 → AlertDialog（sendFailure），输入框保留消息
         assertNotNull("sendFailure 应携带错误信息", viewModel.sendFailure.value)
-        assertNull("输入框保留语义下不应设置 restoredDraft", viewModel.uiState.value.restoredDraft)
+        assertNull("输入框保留语义下不应设置 restoredDraft", viewModel.composer.restoredDraftState.value)
         assertFalse(viewModel.interactionState.value.isSending)
         collectJob.cancel()
         interactionJob.cancel()
@@ -299,7 +299,7 @@ class ChatViewModelSendTest {
         advanceUntilIdle()
 
         // restoredDraft 初始为 null（未发生撤销/还原）
-        assertNull(viewModel.uiState.value.restoredDraft)
+        assertNull(viewModel.composer.restoredDraftState.value)
 
         // 调用 consume 不应崩溃，且保持为 null
         viewModel.consumeRestoredDraft()
@@ -307,7 +307,7 @@ class ChatViewModelSendTest {
 
         assertNull(
             "restoredDraft should remain null after consume when already null",
-            viewModel.uiState.value.restoredDraft
+            viewModel.composer.restoredDraftState.value
         )
         collectJob.cancel()
     }
