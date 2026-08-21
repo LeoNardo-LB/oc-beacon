@@ -474,6 +474,7 @@
     <string name="chat_token_cache_read">缓存读取</string>
     <string name="chat_token_cache_write">缓存写入</string>
     <string name="chat_task_output_summary">输出摘要</string>
+    <string name="chat_task_output_truncated">输出已截断—进入子会话查看完整内容</string>
     <string name="permission_always_confirm_title">始终允许？</string>
     <string name="permission_always_confirm_message">这将自动批准目录“%2$s”的权限“%1$s”。您可以在设置中管理已保存的规则。</string>
     <string name="permission_always_confirm_button">始终确认</string>

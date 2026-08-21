@@ -228,6 +228,26 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * #182（2026-08-21）：TaskToolCard 展开时拉取全量输出。
+     * part 优先（父会话最新窗口按 part id）→ 子会话 transcript 回退，取长者。
+     * 失败返回 null（卡片回退本地预览，不阻塞展开）。
+     */
+    suspend fun fetchFullTaskOutput(partId: String, subSessionId: String?): String? {
+        val sid = sessionLifecycle.sessionId
+        return runCatching {
+            val partOut = sessionRepository.listMessages(serverId, sid, 50, null).getOrNull()
+                ?.messages
+                ?.let { dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskOutputFetch.findToolOutputById(it, partId) }
+            val childOut = subSessionId?.takeIf { it.isNotBlank() }?.let { child ->
+                sessionRepository.listMessages(serverId, child, 50, null).getOrNull()
+                    ?.messages
+                    ?.let { dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskOutputFetch.buildChildTranscript(it) }
+            }
+            dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskOutputFetch.pickLonger(partOut, childOut)
+        }.getOrNull()
+    }
+
 
     // ============ 任务聚合（subagent + shell） ============
     private val taskAggregator = TaskAggregator(

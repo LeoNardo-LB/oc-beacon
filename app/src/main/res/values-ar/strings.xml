@@ -474,6 +474,7 @@
     <string name="chat_token_cache_read">قراءة المخزن المؤقت</string>
     <string name="chat_token_cache_write">كتابة المخزن المؤقت</string>
     <string name="chat_task_output_summary">ملخص المخرجات</string>
+    <string name="chat_task_output_truncated">تم قطع الإخراج — افتح الجلسة الفرعية للنص الكامل</string>
     <string name="permission_always_confirm_title">السماح دائمًا؟</string>
     <string name="permission_always_confirm_message">سيقوم هذا بالموافقة تلقائيًا على الإذن «%1$s» للدليل «%2$s». يمكنك إدارة القواعد المحفوظة في الإعدادات.</string>
     <string name="permission_always_confirm_button">تأكيد دائم</string>

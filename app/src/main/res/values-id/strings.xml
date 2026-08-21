@@ -464,6 +464,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_token_cache_read">Baca cache</string>
     <string name="chat_token_cache_write">Tulis cache</string>
     <string name="chat_task_output_summary">Ringkasan output</string>
+    <string name="chat_task_output_truncated">Output terpotong — buka sub-sesi untuk transkrip lengkap</string>
     <string name="permission_always_confirm_title">Selalu izinkan?</string>
     <string name="permission_always_confirm_message">Ini akan menyetujui otomatis izin “%1$s” untuk direktori “%2$s”. Anda dapat mengelola aturan tersimpan di Pengaturan.</string>
     <string name="permission_always_confirm_button">Selalu konfirmasi</string>

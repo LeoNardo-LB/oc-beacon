@@ -458,6 +458,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_token_cache_read">Lettura cache</string>
     <string name="chat_token_cache_write">Scrittura cache</string>
     <string name="chat_task_output_summary">Riepilogo output</string>
+    <string name="chat_task_output_truncated">Output troncato — apri la sotto-sessione per la trascrizione completa</string>
     <string name="permission_always_confirm_title">Consenti sempre?</string>
     <string name="permission_always_confirm_message">Questo approverà automaticamente il permesso "%1$s" per la directory "%2$s". Puoi gestire le regole salvate in Impostazioni.</string>
     <string name="permission_always_confirm_button">Conferma sempre</string>

@@ -466,6 +466,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_token_cache_read">Odczyt pamięci podręcznej</string>
     <string name="chat_token_cache_write">Zapis pamięci podręcznej</string>
     <string name="chat_task_output_summary">Podsumowanie wyniku</string>
+    <string name="chat_task_output_truncated">Dane ucięte — otwórz podsesję, aby zobaczyć pełny zapis</string>
     <string name="permission_always_confirm_title">Zawsze zezwalaj?</string>
     <string name="permission_always_confirm_message">To automatycznie zatwierdzi uprawnienie „%1$s” dla katalogu „%2$s”. Zapisane reguły możesz zarządzać w Ustawieniach.</string>
     <string name="permission_always_confirm_button">Zatwierdź zawsze</string>

@@ -467,6 +467,7 @@
     <string name="chat_token_cache_read">Чтение кэша</string>
     <string name="chat_token_cache_write">Запись в кэш</string>
     <string name="chat_task_output_summary">Итог вывода</string>
+    <string name="chat_task_output_truncated">Вывод усечён — откройте подсессию для полного протокола</string>
     <string name="permission_always_confirm_title">Всегда разрешать?</string>
     <string name="permission_always_confirm_message">Это будет автоматически одобрять разрешение «%1$s» для каталога «%2$s». Сохранённые правила можно управлять в Настройках.</string>
     <string name="permission_always_confirm_button">Подтвердить</string>

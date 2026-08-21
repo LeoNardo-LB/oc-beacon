@@ -458,6 +458,7 @@
     <string name="chat_token_cache_read">캐시 읽기</string>
     <string name="chat_token_cache_write">캐시 쓰기</string>
     <string name="chat_task_output_summary">출력 요약</string>
+    <string name="chat_task_output_truncated">출력이 잘린되었습니다 — 전체 내용은 서브세션을 여버 확인하세요</string>
     <string name="permission_always_confirm_title">항상 허용하시겠습니까?</string>
     <string name="permission_always_confirm_message">디렉토리 “%2$s”에 대한 권한 “%1$s”을(를) 자동 승인합니다. 저장된 규칙은 설정에서 관리할 수 있습니다.</string>
     <string name="permission_always_confirm_button">항상 승인</string>

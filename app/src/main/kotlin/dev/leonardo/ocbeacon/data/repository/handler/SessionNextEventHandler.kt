@@ -22,7 +22,9 @@ data class ToolProgressInfo(
     val status: String,
     val progress: String? = null,
     val title: String? = null,
-    val output: String = ""
+    val output: String = "",
+    /** #180：tool.progress metadata.sessionID——subagent Running 期子会话推断源。 */
+    val childSessionId: String? = null,
 )
 
 /**
@@ -192,13 +194,19 @@ class SessionNextEventHandler @Inject constructor(
                 ?: event.structured?.get("output")
                     ?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
             val outputDelta = event.content.joinToString("") { it.text }
+            // #180（2026-08-21，宿主机 SSE 抓帧实证）：subagent 的 progress
+            // metadata 携带 {sessionID: 子会话, status: running}——Running 期
+            // 子会话跳转的推断源（tool.called 无此信息，success 才有终态 id）。
+            val childSessionId = event.metadata?.get("sessionID")
+                ?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
             val updated = sessionTools.map { tool ->
                 if (tool.callId == event.callId) {
                     tool.copy(
                         status = "running",
                         progress = event.progress,
                         title = event.title,
-                        output = replacementOutput ?: (tool.output + outputDelta)
+                        output = replacementOutput ?: (tool.output + outputDelta),
+                        childSessionId = childSessionId ?: tool.childSessionId,
                     )
                 } else tool
             }

@@ -193,6 +193,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalSessionDiffs
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalSessionStreaming
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolExpandedStates
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalOnToggleToolExpanded
+import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalTaskOutputFetcher
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolCardResolver
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ImageAttachment
 import dev.leonardo.ocbeacon.ui.screens.chat.util.PreparedAttachment
@@ -573,6 +574,10 @@ fun ChatScreen(
         LocalToolExpandedStates provides messageState.toolExpandedStates,
         LocalOnToggleToolExpanded provides onToggleToolExpandedLambda,
         LocalToolCardResolver provides viewModel.toolCardResolver,
+        // #182：Task 卡片展开时的全量输出拉取（part 优先→子会话回退）
+        LocalTaskOutputFetcher provides { partId, subSessionId ->
+            viewModel.fetchFullTaskOutput(partId, subSessionId)
+        },
         LocalSessionDiffs provides sessionDiffsMap,
         LocalUriHandler provides linkUriHandler,
         LocalOnViewTool provides onViewToolLambda,

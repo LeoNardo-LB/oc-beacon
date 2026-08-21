@@ -176,6 +176,10 @@ internal class MessageDataDelegate(
             @Suppress("UNCHECKED_CAST")
             val progressList = args[9] as? List<ToolProgressInfo>
             val progressOutputs = progressList.orEmpty().associate { it.callId to it.output }
+            // #180：Running 期子会话 id（tool.progress metadata.sessionID）
+            val childSessionIds = progressList.orEmpty().mapNotNull { p ->
+                p.childSessionId?.let { p.callId to it }
+            }.toMap()
 
 
             val session = allSessions.find { it.id == sid }
@@ -228,7 +232,7 @@ internal class MessageDataDelegate(
             }
             val chatMessages = visible.map { msg ->
                 val rawParts = allParts[msg.id] ?: emptyList()
-                val injected = ToolProgressOutputInjector.inject(rawParts, progressOutputs)
+                val injected = ToolProgressOutputInjector.inject(rawParts, progressOutputs, childSessionIds)
                 val cached = chatMessageCache[msg.id]
                 if (cached != null && cached.parts === injected && cached.message === msg) {
                     cached

@@ -225,6 +225,7 @@
     <string name="chat_token_cache_read">Cache read</string>
     <string name="chat_token_cache_write">Cache write</string>
     <string name="chat_task_output_summary">Output summary</string>
+    <string name="chat_task_output_truncated">Output truncated — open the sub-session for the full transcript</string>
     <string name="chat_shell_output_summary">Output</string>
     <string name="shell_status_running">Running</string>
     <string name="shell_status_exit">Exit %1$d</string>

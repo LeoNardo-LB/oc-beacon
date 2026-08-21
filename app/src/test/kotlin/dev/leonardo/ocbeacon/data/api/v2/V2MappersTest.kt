@@ -263,6 +263,26 @@ class V2MappersTest {
     }
 
     @Test
+    fun `toMessageWithParts maps subagent tool metadata childID variant running`() {
+        // #180（2026-08-21 宿主机 SSE 抓帧实证）：subagent Running 期 metadata
+        // 可能以 childID 命名（synthetic 消息同源 {source:"subagent", childID,...}）
+        // ——归一后 Running 态也要能拿到 sessionId/sessionID 双写（卡片跳转依赖）
+        val obj = json.parseToJsonElement("""
+            {"type":"assistant","id":"msg_a7","time":{"created":1000},
+             "agent":"build","model":{"id":"m","providerID":"p"},
+             "content":[{"type":"tool","id":"call_789","name":"subagent",
+               "state":{"status":"running",
+                 "metadata":{"childID":"ses_child_3","status":"running"}}}]}
+        """).jsonObject
+
+        val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
+        val toolPart = result.parts[0] as Part.Tool
+        val running = toolPart.state as dev.leonardo.ocbeacon.domain.model.ToolState.Running
+        assertEquals("ses_child_3", running.metadata?.get("sessionId")?.jsonPrimitive?.content)
+        assertEquals("ses_child_3", running.metadata?.get("sessionID")?.jsonPrimitive?.content)
+    }
+
+    @Test
     fun `toMessageWithParts maps subagent tool metadata sessionId lowercase variant`() {
         // V1 风格 metadata 键名（sessionId 小写）也应兼容
         val obj = json.parseToJsonElement("""

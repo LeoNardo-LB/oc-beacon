@@ -20,6 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -31,8 +36,10 @@ import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskOutputFetch
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.extractToolInput
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.extractToolOutput
+import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalTaskOutputFetcher
 import dev.leonardo.ocbeacon.ui.screens.chat.util.halfScreenHeight
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.toolOutputContainerColor
@@ -85,32 +92,39 @@ internal fun TaskToolCard(
             is ToolState.Completed -> state.metadata?.get("sessionId")
                 ?: state.metadata?.get("sessionID")
                 ?: state.metadata?.get("jobId")  // V2 服务器用 jobId 存子会话 ID（2026-08-11 实测）
+                ?: state.metadata?.get("childID") // #180：synthetic 同源命名（V2Mappers 已归一，直读兜底）
             is ToolState.Running -> state.metadata?.get("sessionId")
                 ?: state.metadata?.get("sessionID")
                 ?: state.metadata?.get("jobId")
+                ?: state.metadata?.get("childID") // #180：Running 期尽早可跳
             else -> null
         }?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
             ?.takeIf { it.isNotBlank() }
 
     // 确定点击行为：有子会话则导航到它，否则切换展开
+    // #180：Running 期只要拿到子会话 id 即可跳转（原实现仅 completed 可点）
     val clickAction: (() -> Unit)? = if (subSessionId != null && onViewSubSession != null) {
         { onViewSubSession(subSessionId) }
     } else null
 
-    // 确定右侧：有子会话则显示导航箭头，否则显示复制 + 展开
-    val showNavArrow = !isRunning && subSessionId != null && onViewSubSession != null
+    // #180：导航箭头不再排除 isRunning（Running 有 id 即显示，尽早进子会话看进度）
+    val showNavArrow = subSessionId != null && onViewSubSession != null
 
     ToolCardScaffold(
         icon = Icons.Default.AccountTree,
         iconTint = MaterialTheme.colorScheme.primary,
         title = "", // 未使用，因为提供了 titleContent
-        copyText = if (showNavArrow) "" else longPressCopyText,
+        // #181：导航态不再牺牲复制按钮（chevron 并存后右侧空间足够）
+        copyText = longPressCopyText,
         isExpanded = isExpanded,
         isRunning = isRunning,
         hasContent = if (showNavArrow) true else hasOutput,
         isAmoled = isAmoled,
         onToggleExpand = onToggleExpand,
-        showExpandIcon = !showNavArrow,
+        // #181 根因修复：原 showExpandIcon = !showNavArrow 导致导航态下
+        // chevron 消失 + 标题行点击被导航覆盖 → 展开入口完全消失。
+        // 改为独立并存：标题行=导航，右侧 chevron IconButton=展开切换。
+        showExpandIcon = true,
         onClick = clickAction,
         // 2026-08-11 用户反馈：subagent 卡片保持原背景（蓝底改动撤销——
         // "蓝色基调不用改"，原设计即为默认背景 + primary 蓝色图标）
@@ -158,6 +172,26 @@ internal fun TaskToolCard(
         ) {
             val halfScreenHeight = halfScreenHeight()
             val scrollState = rememberScrollState()
+
+            // #182（2026-08-21）：展开时实时拉取全量输出（grilling Q13 定案：
+            // part 优先 → 子会话 transcript 回退；DB 留 500 预览不变）。
+            // 本地 output 是 SSE 累积或 DB 500 预览；拉取结果取长者渲染。
+            val fetcher = LocalTaskOutputFetcher.current
+            var fetchedOutput by remember(tool.id) { mutableStateOf<String?>(null) }
+            LaunchedEffect(isExpanded, tool.id) {
+                if (isExpanded && fetcher != null && fetchedOutput == null) {
+                    fetchedOutput = runCatching { fetcher(tool.id, subSessionId) }.getOrNull()
+                }
+            }
+            val renderSource = remember(output, fetchedOutput) {
+                TaskOutputFetch.pickLonger(output, fetchedOutput) ?: output
+            }
+            val truncated = renderSource.length > TaskOutputFetch.MAX_RENDER_CHARS
+            val slices = remember(renderSource) {
+                renderSource.take(TaskOutputFetch.MAX_RENDER_CHARS)
+                    .chunked(TaskOutputFetch.SLICE_CHARS)
+            }
+
         Surface(
             shape = ShapeTokens.extraSmall,
             color = toolOutputContainerColor(),
@@ -175,11 +209,25 @@ internal fun TaskToolCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 SelectionContainer {
-                    MarkdownContent(
-                        markdown = output.take(2000),
-                        textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer,
-                        isUser = false
-                    )
+                    // #182：take(2000) 硬截断移除——分片渲染（单片 4K 字符
+                    // 组合预算内），上限 20K 防巨型输出整棵组合
+                    Column {
+                        slices.forEach { slice ->
+                            MarkdownContent(
+                                markdown = slice,
+                                textColor = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer,
+                                isUser = false
+                            )
+                        }
+                        if (truncated) {
+                            Text(
+                                text = stringResource(R.string.chat_task_output_truncated),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

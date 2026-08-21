@@ -18,21 +18,34 @@ object ToolProgressOutputInjector {
     /**
      * @param parts 当前消息 parts 列表
      * @param progressOutputs callID → 累积的 progress 输出文本
+     * @param childSessionIds callID → tool.progress metadata.sessionID（#180：Running 期子会话推断）
      * @return 注入后的 parts 列表（无匹配时原样返回原引用，保持引用稳定，
      *         供 combine 管道做 ChatMessage 实例复用判断）
      */
     fun inject(
         parts: List<Part>,
-        progressOutputs: Map<String, String>
+        progressOutputs: Map<String, String>,
+        childSessionIds: Map<String, String> = emptyMap(),
     ): List<Part> {
-        if (progressOutputs.isEmpty()) return parts
+        if (progressOutputs.isEmpty() && childSessionIds.isEmpty()) return parts
         var changed = false
         val result = parts.map { part ->
             if (part is Part.Tool && part.state is ToolState.Running) {
                 val output = progressOutputs[part.callId]
-                if (!output.isNullOrEmpty()) {
+                val child = childSessionIds[part.callId]
+                val newOutput = output?.takeIf { it.isNotEmpty() }
+                val newMetadata = child?.let {
+                    val md = (part.state.metadata ?: emptyMap()).toMutableMap()
+                    md["sessionID"] = kotlinx.serialization.json.JsonPrimitive(it)
+                    md["sessionId"] = kotlinx.serialization.json.JsonPrimitive(it)
+                    md.toMap()
+                }
+                if (newOutput != null || newMetadata != null) {
                     changed = true
-                    part.copy(state = part.state.copy(output = output))
+                    part.copy(state = part.state.copy(
+                        output = newOutput ?: part.state.output,
+                        metadata = newMetadata ?: part.state.metadata,
+                    ))
                 } else {
                     part
                 }

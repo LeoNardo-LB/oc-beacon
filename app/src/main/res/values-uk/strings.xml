@@ -466,6 +466,7 @@
     <string name="chat_token_cache_read">Читання кешу</string>
     <string name="chat_token_cache_write">Запис в кеш</string>
     <string name="chat_task_output_summary">Підсумок виводу</string>
+    <string name="chat_task_output_truncated">Вивід обрізано — відкрийте підсесію для повного протоколу</string>
     <string name="permission_always_confirm_title">Завжди дозволяти?</string>
     <string name="permission_always_confirm_message">Це автоматично затвердить дозвіл «%1$s» для каталогу «%2$s». Збережені правила можна керувати в Налаштуваннях.</string>
     <string name="permission_always_confirm_button">Підтвердити</string>
