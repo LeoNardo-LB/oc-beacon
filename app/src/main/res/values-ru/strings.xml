@@ -632,6 +632,16 @@
     <string name="diagnostics_log_level">Уровень журнала</string>
     <string name="diagnostics_search_hint">Поиск в журналах…</string>
     <string name="diagnostics_share">Поделиться</string>
+    <string name="report_to_github">Сообщить в GitHub</string>
+    <string name="report_authorizing">Авторизоваться для отчёта</string>
+    <string name="report_authorizing_hint">Откройте %1$s и введите код: %2$s</string>
+    <string name="report_preview_title">Предпросмотр отчёта (можно редактировать)</string>
+    <string name="report_submit">Отправить отчёт</string>
+    <string name="report_needs_config">Функция отчётов ещё не настроена (учётные данные ожидаются)</string>
+    <string name="report_public_warning">Этот контент будет публично отправлен на GitHub.</string>
+    <string name="report_retry">Повторить</string>
+    <string name="report_cancel">Отмена</string>
+    <string name="report_close">Закрыть</string>
     <string name="diagnostics_title">Диагностика</string>
     <string name="menu_quick_navigate">Быстрая навигация</string>
     <string name="pdf_next_page">Следующая страница</string>

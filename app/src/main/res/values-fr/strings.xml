@@ -621,6 +621,16 @@
     <string name="diagnostics_log_level">Niveau de journal</string>
     <string name="diagnostics_search_hint">Rechercher dans les journaux…</string>
     <string name="diagnostics_share">Partager</string>
+    <string name="report_to_github">Signaler sur GitHub</string>
+    <string name="report_authorizing">Autoriser pour signaler</string>
+    <string name="report_authorizing_hint">Ouvrez %1$s et saisissez le code : %2$s</string>
+    <string name="report_preview_title">Aperçu du rapport (modifiable)</string>
+    <string name="report_submit">Envoyer le rapport</string>
+    <string name="report_needs_config">La fonctionnalité de signalement n\'est pas encore configurée (identifiants en attente)</string>
+    <string name="report_public_warning">Ce contenu sera envoyé publiquement sur GitHub.</string>
+    <string name="report_retry">Réessayer</string>
+    <string name="report_cancel">Annuler</string>
+    <string name="report_close">Fermer</string>
     <string name="diagnostics_title">Diagnostic</string>
     <string name="menu_quick_navigate">Navigation rapide</string>
     <string name="pdf_next_page">Page suivante</string>

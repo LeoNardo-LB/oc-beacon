@@ -631,6 +631,16 @@
     <string name="diagnostics_log_level">Рівень журналу</string>
     <string name="diagnostics_search_hint">Пошук у журналах…</string>
     <string name="diagnostics_share">Поділитися</string>
+    <string name="report_to_github">Повідомити на GitHub</string>
+    <string name="report_authorizing">Авторизуйтеся, щоб повідомити</string>
+    <string name="report_authorizing_hint">Відкрийте %1$s і введіть код: %2$s</string>
+    <string name="report_preview_title">Попередній перегляд звіту (можна редагувати)</string>
+    <string name="report_submit">Надіслати звіт</string>
+    <string name="report_needs_config">Звітування ще не налаштовано (облікові дані очікуються)</string>
+    <string name="report_public_warning">Цей вміст буде публічно надіслано на GitHub.</string>
+    <string name="report_retry">Повторити</string>
+    <string name="report_cancel">Скасувати</string>
+    <string name="report_close">Закрити</string>
     <string name="diagnostics_title">Діагностика</string>
     <string name="menu_quick_navigate">Швидка навігація</string>
     <string name="pdf_next_page">Наступна сторінка</string>

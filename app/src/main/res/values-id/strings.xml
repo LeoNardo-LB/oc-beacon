@@ -629,6 +629,16 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_log_level">Level log</string>
     <string name="diagnostics_search_hint">Cari log…</string>
     <string name="diagnostics_share">Bagikan</string>
+    <string name="report_to_github">Laporkan ke GitHub</string>
+    <string name="report_authorizing">Otorisasi untuk melaporkan</string>
+    <string name="report_authorizing_hint">Buka %1$s dan masukkan kode: %2$s</string>
+    <string name="report_preview_title">Pratinjau laporan (dapat diedit)</string>
+    <string name="report_submit">Kirim laporan</string>
+    <string name="report_needs_config">Pelaporan belum dikonfigurasi (kredensial aplikasi tertunda)</string>
+    <string name="report_public_warning">Konten ini akan dikirim secara publik ke GitHub.</string>
+    <string name="report_retry">Coba lagi</string>
+    <string name="report_cancel">Batal</string>
+    <string name="report_close">Tutup</string>
     <string name="diagnostics_title">Diagnostik</string>
     <string name="menu_quick_navigate">Navigasi cepat</string>
     <string name="pdf_next_page">Halaman berikutnya</string>

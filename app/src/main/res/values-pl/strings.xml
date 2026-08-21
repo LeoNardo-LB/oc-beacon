@@ -631,6 +631,16 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_log_level">Poziom logowania</string>
     <string name="diagnostics_search_hint">Szukaj w logach…</string>
     <string name="diagnostics_share">Udostępnij</string>
+    <string name="report_to_github">Zgłoś na GitHub</string>
+    <string name="report_authorizing">Autoryzuj, aby zgłosić</string>
+    <string name="report_authorizing_hint">Otwórz %1$s i wpisz kod: %2$s</string>
+    <string name="report_preview_title">Podgląd zgłoszenia (edytowalny)</string>
+    <string name="report_submit">Wyślij zgłoszenie</string>
+    <string name="report_needs_config">Zgłaszanie nie jest jeszcze skonfigurowane (dane uwierzytelniające oczekują)</string>
+    <string name="report_public_warning">Ta zawartość zostanie publicznie przesłana na GitHub.</string>
+    <string name="report_retry">Spróbuj ponownie</string>
+    <string name="report_cancel">Anuluj</string>
+    <string name="report_close">Zamknij</string>
     <string name="diagnostics_title">Diagnostyka</string>
     <string name="menu_quick_navigate">Szybka nawigacja</string>
     <string name="pdf_next_page">Następna strona</string>

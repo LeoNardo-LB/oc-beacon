@@ -623,6 +623,16 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_log_level">Protokollebene</string>
     <string name="diagnostics_search_hint">Protokolle durchsuchen…</string>
     <string name="diagnostics_share">Teilen</string>
+    <string name="report_to_github">An GitHub melden</string>
+    <string name="report_authorizing">Zum Melden autorisieren</string>
+    <string name="report_authorizing_hint">Öffne %1$s und gib den Code ein: %2$s</string>
+    <string name="report_preview_title">Berichtvorschau (bearbeitbar)</string>
+    <string name="report_submit">Bericht senden</string>
+    <string name="report_needs_config">Melden ist noch nicht konfiguriert (App-Zugangsdaten ausstehend)</string>
+    <string name="report_public_warning">Dieser Inhalt wird öffentlich auf GitHub übermittelt.</string>
+    <string name="report_retry">Erneut versuchen</string>
+    <string name="report_cancel">Abbrechen</string>
+    <string name="report_close">Schließen</string>
     <string name="diagnostics_title">Diagnose</string>
     <string name="menu_quick_navigate">Schnellnavigation</string>
     <string name="pdf_next_page">Nächste Seite</string>

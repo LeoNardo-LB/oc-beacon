@@ -24,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -42,6 +43,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -113,6 +116,7 @@ fun DiagnosticsScreen(
     var showActionsMenu by remember { mutableStateOf(false) }
     var showClearConfirmation by remember { mutableStateOf(false) }
     var showLevelDialog by remember { mutableStateOf(false) }
+    val reportState by viewModel.reportState.collectAsStateWithLifecycle()
     var expandedEntryKey by remember { mutableStateOf<String?>(null) }
 
     val filteredEntries = remember(entries, selectedLevels, searchQuery) {
@@ -213,6 +217,16 @@ fun DiagnosticsScreen(
                                 onClick = {
                                     showActionsMenu = false
                                     showClearConfirmation = true
+                                },
+                            )
+                            // #151：上报到 GitHub（仅手动触发；预览可编辑）
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.report_to_github)) },
+                                leadingIcon = { Icon(Icons.Default.BugReport, contentDescription = null) },
+                                enabled = entries.isNotEmpty(),
+                                onClick = {
+                                    showActionsMenu = false
+                                    viewModel.startReport()
                                 },
                             )
                         }

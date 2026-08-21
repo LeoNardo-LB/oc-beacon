@@ -627,6 +627,16 @@
     <string name="diagnostics_log_level">日志级别</string>
     <string name="diagnostics_search_hint">搜索日志…</string>
     <string name="diagnostics_share">分享</string>
+    <string name="report_to_github">举报到 GitHub</string>
+    <string name="report_authorizing">授权以举报</string>
+    <string name="report_authorizing_hint">打开 %1$s 并输入代码：%2$s</string>
+    <string name="report_preview_title">举报预览（可编辑）</string>
+    <string name="report_submit">提交举报</string>
+    <string name="report_needs_config">举报功能尚未配置（应用凭据待填入）</string>
+    <string name="report_public_warning">此内容将公开提交到 GitHub。</string>
+    <string name="report_retry">重试</string>
+    <string name="report_cancel">取消</string>
+    <string name="report_close">关闭</string>
     <string name="diagnostics_title">诊断</string>
     <string name="pdf_next_page">下一页</string>
     <string name="pdf_previous_page">上一页</string>

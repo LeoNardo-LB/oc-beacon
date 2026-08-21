@@ -639,6 +639,16 @@
     <string name="diagnostics_log_level">مستوى السجل</string>
     <string name="diagnostics_search_hint">البحث في السجلات…</string>
     <string name="diagnostics_share">مشاركة</string>
+    <string name="report_to_github">الإبلاغ على GitHub</string>
+    <string name="report_authorizing">تفويض للإبلاغ</string>
+    <string name="report_authorizing_hint">افتح %1$s وأدخل الرمز: %2$s</string>
+    <string name="report_preview_title">معاينة التقرير (قابلة للتحرير)</string>
+    <string name="report_submit">إرسال التقرير</string>
+    <string name="report_needs_config">خاصية الإبلاغ لم يتم تكوينها بعد (بيانات الاعتماد معلقة)</string>
+    <string name="report_public_warning">سيتم إرسال هذا المحتوى علنًا إلى GitHub.</string>
+    <string name="report_retry">إعادة المحاولة</string>
+    <string name="report_cancel">إلغاء</string>
+    <string name="report_close">إغلاق</string>
     <string name="diagnostics_title">التشخيص</string>
     <string name="menu_quick_navigate">تنقل سريع</string>
     <string name="pdf_next_page">الصفحة التالية</string>

@@ -623,6 +623,16 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_log_level">Nivel de registro</string>
     <string name="diagnostics_search_hint">Buscar registros…</string>
     <string name="diagnostics_share">Compartir</string>
+    <string name="report_to_github">Informar en GitHub</string>
+    <string name="report_authorizing">Autorizar para informar</string>
+    <string name="report_authorizing_hint">Abre %1$s e introduce el código: %2$s</string>
+    <string name="report_preview_title">Vista previa del informe (editable)</string>
+    <string name="report_submit">Enviar informe</string>
+    <string name="report_needs_config">Los informes aún no están configurados (credenciales pendientes)</string>
+    <string name="report_public_warning">Este contenido se enviará públicamente a GitHub.</string>
+    <string name="report_retry">Reintentar</string>
+    <string name="report_cancel">Cancelar</string>
+    <string name="report_close">Cerrar</string>
     <string name="diagnostics_title">Diagnóstico</string>
     <string name="menu_quick_navigate">Navegación rápida</string>
     <string name="pdf_next_page">Página siguiente</string>

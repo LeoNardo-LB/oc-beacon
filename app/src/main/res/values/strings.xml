@@ -378,6 +378,16 @@
     <string name="diagnostics_empty">No logs yet</string>
     <string name="diagnostics_empty_desc">App runtime logs and crash reports will appear here</string>
     <string name="diagnostics_share">Share</string>
+    <string name="report_to_github">Report to GitHub</string>
+    <string name="report_authorizing">Authorize to report</string>
+    <string name="report_authorizing_hint">Open %1$s and enter code: %2$s</string>
+    <string name="report_preview_title">Report preview (editable)</string>
+    <string name="report_submit">Submit report</string>
+    <string name="report_needs_config">Reporting is not configured yet (app credentials pending)</string>
+    <string name="report_public_warning">This content will be submitted publicly to GitHub.</string>
+    <string name="report_retry">Retry</string>
+    <string name="report_cancel">Cancel</string>
+    <string name="report_close">Close</string>
     <string name="diagnostics_copy">Copy</string>
     <string name="diagnostics_clear">Clear logs</string>
     <string name="diagnostics_clear_confirm_title">Clear diagnostic logs?</string>

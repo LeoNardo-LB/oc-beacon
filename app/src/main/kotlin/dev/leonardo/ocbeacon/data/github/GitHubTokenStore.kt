@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.github
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.leonardo.ocbeacon.data.security.SecretCipher
@@ -27,7 +28,7 @@ private object Keys {
  */
 @Singleton
 class GitHubTokenStore @Inject constructor(
-    private val context: Context,
+    @ApplicationContext private val context: Context,
     private val cipher: SecretCipher,
 ) {
 
