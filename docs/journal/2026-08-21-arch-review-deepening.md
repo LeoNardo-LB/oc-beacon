@@ -289,6 +289,20 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 
 
 
+
+## #173 深化：VM 死转发吸收（2026-08-21 完成）
+
+提交 `e9731b12`。换件后全量审计发现：P0 簇化已把 UI 消费者全部迁到 `viewModel.composer/conversation/...` 簇路径，VM 上 **25 个单行转发成纯死代码**（零生产调用）：
+
+- 草稿簇 ×10（updateDraftText/clearDraft/附件×3/提及搜索×5）
+- 分页簇 ×6（loadMessages/loadOlder/Newer/autoLoadWaitMillis/loadAround/loadJumpTargets + 3 个加载状态流）
+- 模型选择 ×3（selectAgent/cycleVariant/selectModel）
+- 会话操作 ×2（refreshSession/getLastAssistantText）+ fileSearchResults/confirmedFilePaths 流
+
+处置：全部删除；`sessionActions` 暴露为第 5 簇 `sessionOps`（与 sessionContext/conversation/composer/modelSelection 并列）；3 个测试调用点 + 1 个 androidTest 注释迁簇路径。保留 4 个有真实调用的生命周期转发（refreshIfNeeded/syncSessionStatus/startTaskPolling/refreshTaskNow——协调 viewModelScope，正当 VM 面）。
+
+验证：全量单测绿 + 真机冒烟（列表→会话进入→消息渲染/时间戳/徽标正常，0 crash）。VM 公共成员 111 → **93**（判定表预估 ~80 的主体已达成，剩余为 StateFlow 读门面与正当生命周期动作，再删即伤可读性）。
+
 ## #155 会话内提示音实现记录（2026-08-21 完成，真机双分支实证）
 
 提交 `23e38a00`（spec `docs/specs/2026-08-21-in-session-audio-feedback-design.md` 逐条落地）：

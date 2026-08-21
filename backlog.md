@@ -62,6 +62,7 @@
 
 - [~] **#173 架构评审候选 5：ChatViewModel 按状态簇重组——已实现，真机对话全生命周期 E2E 全绿，待用户验收** `refactor` `ui`
   - 四段串行（b511eef5/7c5f9cd9/55b803ba+22a4cff9+007bb527/d4601004）：Terminal 迁出 + 4 簇门面 + UI 三子组件按簇迁移（28 处）+ uiState 退役（生产零消费，ChatUiState 删除）；跨簇编排留薄 VM
+  - 深化（2026-08-21，e9731b12）：25 个零调用死转发删除 + sessionOps 第 5 簇；公共成员 111→93；全量绿 + 真机冒烟
   - 真机实证 FSM 全链（Idle→Busy→Streaming→Idle force-complete）+ composer/conversation 簇路径；⏳ 维度 5 观感待验收
 
 - [~] **#174 架构评审候选 6：SessionStateService 8 回调旋钮 → 1 必需协作者——已实现，真机烟雾全绿，待用户验收** `refactor`
