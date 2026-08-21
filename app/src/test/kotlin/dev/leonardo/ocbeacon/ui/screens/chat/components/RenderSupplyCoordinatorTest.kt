@@ -134,12 +134,11 @@ class RenderSupplyCoordinatorTest {
             5, 7,
             env.world(20, entriesOverride = table) { listOf(textPart("pA$it", plainText(250))) },
         )
-        // 窗口 = display (5-AHEAD)..(5+AHEAD)（2026-08-22 AHEAD 8→14——边界
-        // 从常量推导，不再硬编码）：窗口内最后 assistant 预解析，紧邻窗外
-        // 的下一个不预解析
+        // 窗口 = display (5-AHEAD)..(5+AHEAD)（边界从常量推导，不再硬编码）：
+        // 窗口内最远 assistant（奇数 display 吸附）预解析，紧邻窗外的不预解析
         val ahead = RenderSupplyCoordinator.PREPARSE_AHEAD
-        val lastIn = (5 + ahead) / 2          // 窗口内最远 assistant display（奇数）
-        val firstOut = lastIn + 2             // 紧邻窗外 assistant
+        val lastIn = (5 + ahead) / 2 - ((5 + ahead) / 2 + 1) % 2  // 最大奇数 ≤ 5+ahead
+        val firstOut = lastIn + 2
         awaitParsedBlocking(env, "pA$lastIn")
         assertNeverParsed(env, "pA$firstOut")
     }
@@ -147,12 +146,13 @@ class RenderSupplyCoordinatorTest {
     @Test
     fun `T4_超过LRU上限淘汰最旧条目并联动registry移除`() = runBlocking {
         val env = Env()
-        // 20 assistant × 2 part = 40 keys > PREPARSE_LRU(32) → 淘汰最旧 8 个
+        // pairs 动态推导：keys = 2×pairs > PREPARSE_LRU → 必然淘汰最旧
+        val pairs = RenderSupplyCoordinator.PREPARSE_LRU / 2 + 2
         val parts = { i: Int ->
             listOf(textPart("x$i", plainText(250)), textPart("y$i", plainText(250)))
         }
-        env.coordinator.onViewportChanged(0, 31, env.world(20, partFor = parts))
-        awaitParsedBlocking(env, "y19")
+        env.coordinator.onViewportChanged(0, 31, env.world(pairs, partFor = parts))
+        awaitParsedBlocking(env, "y" + (pairs - 1))
         assertNeverParsed(env, "x0") // 已被淘汰（重新读取为 Pending 且无解析驱动）
     }
 
@@ -206,18 +206,36 @@ class RenderSupplyCoordinatorTest {
     }
 
     @Test
-    fun `T8_重解析后仍在窗口内的计划不提交`() = runBlocking {
-        val env = Env()
+    fun `T8_冷part带内即提交_热part带内拦截出带提交`() = runBlocking {
         val partId = "p5"
         val part = targetPartWorld(20, partId, 5)
-        env.coordinator.onViewportChanged(11, 11, env.world(20, partFor = part)) // a5 @ display 11，窗口 3..19 含 11
-        awaitParsedBlocking(env, partId)
-        delay(100)
-        assertTrue("种入后 pending 不为空但未提交", env.coordinator.chunkPlans.value.isEmpty())
-        env.coordinator.onViewportChanged(16, 16, env.world(20, partFor = part)) // 窗口 8..24 仍含 11 → F2 拦截（2026-08-22 视口门控实验回滚——窗口保守性承重）
-        assertTrue("窗口内不提交（F2）", env.coordinator.chunkPlans.value.isEmpty())
-        env.coordinator.onViewportChanged(33, 33, env.world(20, partFor = part)) // 窗口 25..39 不含 11 → 放行
-        assertTrue("滚出窗口后提交", env.coordinator.chunkPlans.value.containsKey(partId))
+        val m = RenderSupplyCoordinator.FISSION_SAFE_MARGIN
+
+        // 冷分支：从未进视口——解析完成即提交（会话打开时视口上方紧邻巨型
+        // 消息首轮滑入即分片，2026-08-22 第二轮冷态首滑根治）
+        run {
+            val env = Env()
+            // 视口 15：a5(display 11) 在窗口（±20）被解析，在带内（15±6=9..21）
+            // 但从未进视口 → 冷 → 提交（提交评估在解析完成后的下一次视口变化跑）
+            env.coordinator.onViewportChanged(15, 15, env.world(20, partFor = part))
+            awaitParsedBlocking(env, partId)
+            delay(100)
+            env.coordinator.onViewportChanged(15, 15, env.world(20, partFor = part))
+            assertTrue("冷 part 带内即提交（单体从未组合，裂变零成本）", env.coordinator.chunkPlans.value.containsKey(partId))
+        }
+
+        // 热分支：曾进视口——视口内拦截；带内拦截（组合缓存保护）；出带提交
+        run {
+            val env = Env()
+            env.coordinator.onViewportChanged(11, 11, env.world(20, partFor = part)) // a5 进视口 → 热
+            awaitParsedBlocking(env, partId)
+            delay(100)
+            assertTrue("视口内不提交", env.coordinator.chunkPlans.value.isEmpty())
+            env.coordinator.onViewportChanged(11 + m, 11 + m, env.world(20, partFor = part)) // 带内 + 热 → 拦截
+            assertTrue("热 part 带内不提交（缓存池保护）", env.coordinator.chunkPlans.value.isEmpty())
+            env.coordinator.onViewportChanged(11 + m + 2, 11 + m + 2, env.world(20, partFor = part)) // 出带 → 提交
+            assertTrue("出带即提交", env.coordinator.chunkPlans.value.containsKey(partId))
+        }
     }
 
     @Test

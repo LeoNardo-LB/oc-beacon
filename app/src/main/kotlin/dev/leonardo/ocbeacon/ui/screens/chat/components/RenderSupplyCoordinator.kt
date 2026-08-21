@@ -51,6 +51,15 @@ internal class RenderSupplyCoordinator(
     /** 预解析条目 LRU（#98 防无界增长）。 */
     private val preparseSeenKeys = LinkedHashSet<String>()
 
+    /**
+     * 曾进入视口的巨型 part（F2 冷热区分，2026-08-22 冷态首滑根治第二轮）：
+     * 「热」= 曾进视口——单体可能仍在 LazyColumn 组合缓存池，近距裂变 = 弃
+     * 单体重组分片的双倍工作（±0 实验回归根因），需边距带保护；
+     * 「冷」= 从未进视口——单体从未被组合，裂变零成本，解析完成即提交
+     * （会话打开时视口上方 1-6 条的巨型消息正是首轮 97ms 残留源）。
+     */
+    private val everVisiblePartIds = HashSet<String>()
+
     /** 最近一次跳转终点时刻（clock 基，单调）——稳定窗口门控用。
      * 阶段 2 收编：原为 ChatMessageList 跨 effect 共享变量（写方=解锁
      * effect、读方=驱动 collect）——现写读同在模块内，耦合消灭。 */
@@ -114,6 +123,8 @@ internal class RenderSupplyCoordinator(
                         // id 与 part 归属消息可能不一致，不能混入 msgId）
                         val key = part.id
                         window.add(key)
+                        // F2 冷热标记：视口内（含打开会话时）→ 热（曾可见）
+                        if (di in firstDisplay..lastDisplay) everVisiblePartIds.add(key)
                         if (registry.current(key) is RenderReadiness.Pending) {
                             val textForParse = part.text
                             // 2026-08-22：传原文——归一化已移入 preParse 后台链
@@ -171,23 +182,28 @@ internal class RenderSupplyCoordinator(
             _recentStreamedTurnKeys.value =
                 _recentStreamedTurnKeys.value.filterTo(mutableSetOf()) { it in windowKeys }
         }
-        // pending 分片计划提交——仅当所属 turn 离开预解析窗口
-        //（head..tail，±PREPARSE_AHEAD display 粒度）才写入 chunkPlans。
-        // 视口/窗口内保持单 item（key 稳定不裂变）；turn 离开窗口后
-        // 裂变点远离视口（±14 item 缓冲），预取到它时已是分片版。
+        // pending 分片计划提交——仅当所属 turn 离开裂变安全边距
+        //（firstDisplay-FISSION_SAFE_MARGIN..lastDisplay+FISSION_SAFE_MARGIN，
+        // display 粒度）才写入 chunkPlans。
         //
-        // 2026-08-22 实验回滚记录：曾试把 F2 从窗口收紧为真实视口（视口外
-        // 1-14 item 即提交，欲治冷态首滑单体组合 90ms 巨帧）——真机实证更差：
-        // 14ms 帧桶暴涨（126 帧/轮 = 组合缓存被近距裂变持续扰动）+ 原本全清
-        // 的滚离滚回协议出现 27-69ms。窗口保守性是承重的（组合缓存稳定性），
-        // 回滚。冷态首滑单体巨帧属已知残余（每条巨型消息首次滑入一帧，
-        // ~90ms），与 #168 残余尖刺同类登记观察。
+        // 门控带宽度 = 预取与组合缓存的权衡（2026-08-22 两轮真机实验定标）：
+        // - ±0（真实视口）：裂变撞上 LazyColumn 组合缓存（刚离视口 item 仍在
+        //   池中）——弃单体重组分片双倍工作，14ms 桶暴涨 126 帧 + 滚离滚回
+        //   回归 27-69ms。太窄。
+        // - ±14（整个预解析窗口）：用户朝巨型消息滑时它永远在窗口内 → 计划
+        //   永不提交 → 首滑恒单体组合（LazyColumn 预取帧间隙主线程组合 300+
+        //   Markdown 块 = vsync→input 84-93ms 巨帧）。太宽。
+        // - ±6（定标值）：在 LazyColumn 预取/缓存范围（约视口外 1-4 item）之外
+        //   安全裂变，同时配合 PREPARSE_AHEAD=20，用户从 20 远接近时后台解析
+        //   （30-80ms）通常已在 7+ 距离完成并提交——预取（1-4）拿到的已是
+        //   分片版，单体永远不会被组合。残余：极快 fling 在解析完成前跨过
+        //   裂变带（窄概率竞态）。
         //
-        // 竞态根治（2026-08-20 五轮叠放 bug 三处修复——保留全部语义）：
+        // 竞态根治（2026-08-20 五轮叠放 bug 三处修复——语义保留）：
         // F1 锚点重解析：提交时用 partId 反查当前 turn 的 display index
         //   （入队 di 会因 loadAround 重建失效——陈旧即重算，永不失配）。
-        // F2 窗口内防线：重解析后 index 仍在预解析窗口内 → 本轮跳过不提交
-        //   （等真正滚出窗口）——即使 F1 有遗漏也不会视口内裂变。
+        // F2 视口±安全边距内防线：重解析后 index 仍在边距带内 → 本轮跳过
+        //   不提交——视口内及其紧邻（缓存池）绝不裂变。
         // F3 门控：『跳转进行中或稳定窗口内不提交』（终点+2s 内）。
         // 相位直读 StateFlow.value（同步快照）——桥接有 1-2 组合帧滞后，
         // 新跳转启动瞬间门是开的（跳转进行中提交）。
@@ -217,7 +233,17 @@ internal class RenderSupplyCoordinator(
                     staleDropped += partId
                     continue
                 }
-                if (freshDi in head..tail) continue // F2：窗口内防线
+                // F2 冷热区分防线（2026-08-22 第二轮）：
+                // - 视口内：一律拦截（可见区 key 裂变 = 锚跳/闪变，绝不发生）
+                // - 热（曾可见）+ 边距带内：拦截——单体可能在 LazyColumn 组合
+                //   缓存池，近距裂变弃单体重组（±0 实验回归根因）
+                // - 冷（从未可见）：立即提交——单体从未被组合，裂变零成本；
+                //   会话打开时视口上方紧邻的巨型消息首轮滑入即分片
+                val fissionHead = (firstDisplay - FISSION_SAFE_MARGIN).coerceAtLeast(0)
+                val fissionTail = (lastDisplay + FISSION_SAFE_MARGIN).coerceAtMost(items.size - 1)
+                val inViewportNow = freshDi in firstDisplay..lastDisplay
+                val hotNearBand = freshDi in fissionHead..fissionTail && partId in everVisiblePartIds
+                if (inViewportNow || hotNearBand) continue
                 committed[partId] = planAndLegacyDi.first
             }
             if (staleDropped.isNotEmpty()) {
@@ -244,18 +270,25 @@ internal class RenderSupplyCoordinator(
     companion object {
         /**
          * 视口前后各预解析的 item 数（覆盖 fling/预组合窗口）。
-         * 2026-08-22：8→14——真机 framestats 实证冷态快滑竞态窗口：±8 item
-         * ≈ 10 帧（SafeFling 限速下）vs 归一化+解析 30-80ms（Default 线程
-         * 满载时）——miss 即落入库的 rememberMarkdownState 主线程同步解析
-         * 兜底（84ms 巨帧实测）。14 加宽供给余量（LRU 32 仍覆盖 2× 窗口）。
+         * 2026-08-22：8→14→20——配合裂变边距 ±6：解析在距离 20 启动，
+         * 用户接近跨过 20→7（≈13 item ≈ 60-150ms fling）vs 解析 30-80ms，
+         * 绝大多数在裂变带外完成并提交。LRU 同步 32→48 覆盖 2× 窗口。
          */
-        const val PREPARSE_AHEAD = 14
+        const val PREPARSE_AHEAD = 20
 
         /** 只预解析超过该字符数的文本 part（短文本同步解析成本可忽略）。 */
         const val PREPARSE_MIN_CHARS = 200
 
         /** 预解析条目 LRU 上限（Parsed state 持有 AST，防无界增长）。 */
-        const val PREPARSE_LRU = 32
+        const val PREPARSE_LRU = 48
+
+        /**
+         * 裂变安全边距：分片计划提交门控带（视口 ± 此值）。
+         * LazyColumn 预取/组合缓存约视口外 1-4 item——6 在其外（裂变不弃
+         * 已组合单体），又远小于旧 ±14 窗口（首滑不再恒单体）。见 onViewportChanged
+         * 提交段注释的两轮实验定标。
+         */
+        const val FISSION_SAFE_MARGIN = 6
 
         /** 低于该字符数的 part 不分片（单次组合 ~20 块内可容忍）。 */
         const val CHUNK_MIN_CHARS = 3000
