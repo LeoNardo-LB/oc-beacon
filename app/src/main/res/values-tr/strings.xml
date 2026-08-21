@@ -314,6 +314,14 @@
     <string name="settings_keep_screen_on_desc">Sohbet sırasında ekranın kapanmasını engelle</string>
     <string name="settings_silent_notifications">Sessiz bildirimler</string>
     <string name="settings_silent_notifications_desc">Görev bildirimleri için ses ve titreşimi kapat</string>
+    <string name="settings_notif_test">Test bildirimi gönder</string>
+    <string name="settings_notif_test_desc">Banner ve sesi doğrulamak için gerçek bir bildirim gönderir. Hiçbir şey görünmüyorsa cihaz uygulamayı sessize almış olabilir (örn. MIUI varsayılan olarak yüzen bildirimleri kapatır) — aşağıdaki sistem bildirim ayarlarından etkinleştirin.</string>
+    <string name="settings_notif_system">Sistem bildirim ayarları</string>
+    <string name="settings_notif_system_desc">Sistem ayarlarından kanal bazında banner, ses ve titreşimi yönetin</string>
+    <string name="notification_test_title">Bildirim testi</string>
+    <string name="notification_test_body">Bu bildirimi görebiliyorsanız teslimat çalışıyor.</string>
+    <string name="a11y_settings_notif_test">Test bildirimi gönder</string>
+    <string name="a11y_settings_notif_system">Sistem bildirim ayarları</string>
     <string name="dialog_select_reconnect_mode">Yeniden bağlanma modu seç</string>
     <string name="notification_channel_connection_desc">OpenCode sunucusuna kalıcı bağlantı</string>
     <string name="notification_channel_tasks_desc">OpenCode görevleri tamamlandığında bildirimler</string>

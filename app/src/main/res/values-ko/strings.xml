@@ -314,6 +314,14 @@
     <string name="settings_keep_screen_on_desc">채팅 중 화면 꺼짐 방지</string>
     <string name="settings_silent_notifications">무음 알림</string>
     <string name="settings_silent_notifications_desc">작업 알림에 소리 및 진동 없음</string>
+    <string name="settings_notif_test">테스트 알림 보내기</string>
+    <string name="settings_notif_test_desc">실제 알림을 보내 배너와 소리를 확인합니다. 표시되지 않으면 기기가 이 앱을 무음 처리했을 수 있습니다(예: MIUI는 플로팅 알림 기본 비활성화) — 아래 시스템 알림 설정에서 활성화하세요.</string>
+    <string name="settings_notif_system">시스템 알림 설정</string>
+    <string name="settings_notif_system_desc">시스템 설정에서 채널별 배너, 소리, 진동 관리</string>
+    <string name="notification_test_title">알림 테스트</string>
+    <string name="notification_test_body">이 알림이 보이면 알림 전달이 정상입니다.</string>
+    <string name="a11y_settings_notif_test">테스트 알림 보내기</string>
+    <string name="a11y_settings_notif_system">시스템 알림 설정</string>
     <string name="dialog_select_reconnect_mode">재연결 모드 선택</string>
     <string name="notification_channel_connection_desc">OpenCode 서버에 지속 연결</string>
     <string name="notification_channel_tasks_desc">OpenCode 작업 완료 시 알림</string>

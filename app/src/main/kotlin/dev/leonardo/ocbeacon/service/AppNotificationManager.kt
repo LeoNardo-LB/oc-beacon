@@ -222,6 +222,41 @@ class AppNotificationManager @Inject constructor(
         return builder.build()
     }
 
+    /**
+     * 通知自检（验收①2026-08-21 根因收尾）：在任务渠道（IMPORTANCE_HIGH）投递一条真实测试通知。
+     *
+     * 背景：设备厂商（MIUI/HyperOS 等）对旁装载应用的渠道默认关闭「悬浮通知/声音/振动」，
+     * 且该策略在标准 [NotificationChannel] API 中不可见——渠道的 importance/sound/vibration
+     * 在被静默时仍报告正常（本机实证：渠道 importance=4、mSound 有值，但横幅不弹）。
+     * 因此唯一可靠的自检是端到端投递 + 用户感知确认；未看到横幅时引导用户去
+     * 系统通知设置打开对应渠道的悬浮通知。
+     */
+    fun sendSelfTestNotification(context: Context, notificationManager: NotificationManager) {
+        // 幂等建渠道：连接服务未启动（从未添加过服务器）时渠道可能尚不存在
+        createNotificationChannels(notificationManager, context)
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_TASKS_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(R.string.notification_test_title))
+            .setContentText(context.getString(R.string.notification_test_body))
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        // 固定 id：重复自检互相替换，不堆积
+        notificationManager.notify(stableHash("selftest"), notification)
+        AppLogger.i(TAG, "Self-test notification posted on channel " + NOTIFICATION_CHANNEL_TASKS_ID)
+    }
+
     fun updatePersistentNotification(
         context: Context,
         notificationManager: NotificationManager,

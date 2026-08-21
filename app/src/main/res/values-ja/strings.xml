@@ -314,6 +314,14 @@
     <string name="settings_keep_screen_on_desc">チャット中の画面タイムアウト防止</string>
     <string name="settings_silent_notifications">通知をサイレントに</string>
     <string name="settings_silent_notifications_desc">タスク通知の音とバイブを抑制</string>
+    <string name="settings_notif_test">テスト通知を送信</string>
+    <string name="settings_notif_test_desc">実際の通知を送信してバナーとサウンドを確認します。表示されない場合、端末がこのアプリをサイレント化している可能性があります（MIUI はフローティング通知を既定で無効）——下のシステム通知設定から有効化してください。</string>
+    <string name="settings_notif_system">システムの通知設定</string>
+    <string name="settings_notif_system_desc">システム設定でチャネルごとのバナー・サウンド・バイブレーションを管理</string>
+    <string name="notification_test_title">通知テスト</string>
+    <string name="notification_test_body">この通知が見えていれば、通知の配信は正常です。</string>
+    <string name="a11y_settings_notif_test">テスト通知を送信</string>
+    <string name="a11y_settings_notif_system">システムの通知設定</string>
     <string name="dialog_select_reconnect_mode">再接続モード選択</string>
     <string name="notification_channel_connection_desc">OpenCodeサーバーへの持続的接続</string>
     <string name="notification_channel_tasks_desc">OpenCodeタスク完了時の通知</string>

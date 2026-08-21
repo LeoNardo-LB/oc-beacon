@@ -400,6 +400,14 @@
     <string name="settings_terminal_font_size_value">%1$d sp</string>
     <string name="settings_silent_notifications">Silent notifications</string>
     <string name="settings_silent_notifications_desc">Suppress sound and vibration for task notifications</string>
+    <string name="settings_notif_test">Send test notification</string>
+    <string name="settings_notif_test_desc">Posts a real notification to verify banners and sound. If nothing appears, the device may be silencing this app (e.g. MIUI disables floating notifications by default) - enable it in system notification settings below.</string>
+    <string name="settings_notif_system">System notification settings</string>
+    <string name="settings_notif_system_desc">Manage per-channel banner, sound and vibration in system settings</string>
+    <string name="notification_test_title">Notification test</string>
+    <string name="notification_test_body">If you can see this notification, delivery is working.</string>
+    <string name="a11y_settings_notif_test">Send test notification</string>
+    <string name="a11y_settings_notif_system">System notification settings</string>
     <string name="dialog_select_reconnect_mode">Select reconnect mode</string>
 
     <!-- Server Settings -->

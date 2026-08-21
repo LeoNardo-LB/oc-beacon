@@ -322,6 +322,14 @@
     <string name="settings_keep_screen_on_desc">Запобігати вимкненню екрану під час чату</string>
     <string name="settings_silent_notifications">Беззвучні сповіщення</string>
     <string name="settings_silent_notifications_desc">Вимкнути звук і вібрацію для сповіщень про завдання</string>
+    <string name="settings_notif_test">Надіслати тестове сповіщення</string>
+    <string name="settings_notif_test_desc">Надсилає реальне сповіщення для перевірки банера та звуку. Якщо нічого не з’явилося, пристрій може заглушати застосунок (наприклад, MIUI типово вимикає спливаючі сповіщення) — увімкніть у системних налаштуваннях сповіщень нижче.</string>
+    <string name="settings_notif_system">Системні налаштування сповіщень</string>
+    <string name="settings_notif_system_desc">Керуйте банером, звуком і вібрацією за каналами в системних налаштуваннях</string>
+    <string name="notification_test_title">Тестове сповіщення</string>
+    <string name="notification_test_body">Якщо ви бачите це сповіщення, доставка працює.</string>
+    <string name="a11y_settings_notif_test">Надіслати тестове сповіщення</string>
+    <string name="a11y_settings_notif_system">Системні налаштування сповіщень</string>
     <string name="dialog_select_reconnect_mode">Виберіть режим повторного підключення</string>
     <string name="notification_channel_connection_desc">Постійне підключення до сервера OpenCode</string>
     <string name="notification_channel_tasks_desc">Сповіщення, коли завдання OpenCode завершено</string>

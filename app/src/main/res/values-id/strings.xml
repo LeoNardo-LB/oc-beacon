@@ -246,6 +246,14 @@
     <string name="settings_keep_screen_on_desc">Cegah layar mati saat di chat</string>
     <string name="settings_silent_notifications">Notifikasi senyap</string>
     <string name="settings_silent_notifications_desc">Matikan suara dan getar untuk notifikasi tugas</string>
+    <string name="settings_notif_test">Kirim notifikasi uji</string>
+    <string name="settings_notif_test_desc">Mengirim notifikasi nyata untuk memverifikasi banner dan suara. Jika tidak muncul apa pun, perangkat mungkin membisukan aplikasi (mis. MIUI menonaktifkan notifikasi mengambang secara bawaan) — aktifkan di setelan notifikasi sistem di bawah.</string>
+    <string name="settings_notif_system">Setelan notifikasi sistem</string>
+    <string name="settings_notif_system_desc">Kelola banner, suara, dan getaran per saluran di setelan sistem</string>
+    <string name="notification_test_title">Uji notifikasi</string>
+    <string name="notification_test_body">Jika kamu melihat notifikasi ini, pengiriman berfungsi.</string>
+    <string name="a11y_settings_notif_test">Kirim notifikasi uji</string>
+    <string name="a11y_settings_notif_system">Setelan notifikasi sistem</string>
     <string name="dialog_select_reconnect_mode">Pilih mode reconnect</string>
     <!-- Dialogs -->
     <string name="dialog_select_theme">Pilih Tema</string>

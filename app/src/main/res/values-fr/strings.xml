@@ -314,6 +314,14 @@
     <string name="settings_keep_screen_on_desc">Empêcher la mise en veille pendant le chat</string>
     <string name="settings_silent_notifications">Notifications silencieuses</string>
     <string name="settings_silent_notifications_desc">Désactiver le son et la vibration pour les notifications de tâches</string>
+    <string name="settings_notif_test">Envoyer une notification de test</string>
+    <string name="settings_notif_test_desc">Envoie une vraie notification pour vérifier bannières et son. Si rien n\'apparaît, l\'appareil peut mettre l\'application en silence (ex. MIUI désactive les notifications flottantes par défaut) — activez-la dans les paramètres de notification système ci-dessous.</string>
+    <string name="settings_notif_system">Paramètres de notification système</string>
+    <string name="settings_notif_system_desc">Gérer bannière, son et vibration par canal dans les paramètres système</string>
+    <string name="notification_test_title">Test de notification</string>
+    <string name="notification_test_body">Si vous voyez cette notification, la livraison fonctionne.</string>
+    <string name="a11y_settings_notif_test">Envoyer une notification de test</string>
+    <string name="a11y_settings_notif_system">Paramètres de notification système</string>
     <string name="dialog_select_reconnect_mode">Sélectionner le mode de reconnexion</string>
     <string name="notification_channel_connection_desc">Connexion persistante au serveur OpenCode</string>
     <string name="notification_channel_tasks_desc">Notifications lorsque les tâches OpenCode sont terminées</string>

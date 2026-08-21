@@ -322,6 +322,14 @@
     <string name="settings_keep_screen_on_desc">Zapobiegaj wygaszeniu ekranu podczas czatu</string>
     <string name="settings_silent_notifications">Ciche powiadomienia</string>
     <string name="settings_silent_notifications_desc">Wyłącz dźwięk i wibracje dla powiadomień o zadaniach</string>
+    <string name="settings_notif_test">Wyślij powiadomienie testowe</string>
+    <string name="settings_notif_test_desc">Wysyła prawdziwe powiadomienie, aby sprawdzić baner i dźwięk. Jeśli nic się nie pojawi, urządzenie może wyciszać aplikację (np. MIUI domyślnie wyłącza powiadomienia pływające) — włącz je w ustawieniach powiadomień systemu poniżej.</string>
+    <string name="settings_notif_system">Ustawienia powiadomień systemu</string>
+    <string name="settings_notif_system_desc">Zarządzaj banerem, dźwiękiem i wibracjami dla każdego kanału w ustawieniach systemu</string>
+    <string name="notification_test_title">Powiadomienie testowe</string>
+    <string name="notification_test_body">Jeśli widzisz to powiadomienie, dostarczanie działa.</string>
+    <string name="a11y_settings_notif_test">Wyślij powiadomienie testowe</string>
+    <string name="a11y_settings_notif_system">Ustawienia powiadomień systemu</string>
     <string name="dialog_select_reconnect_mode">Wybierz tryb ponownego łączenia</string>
     <string name="notification_channel_connection_desc">Stałe połączenie z serwerem OpenCode</string>
     <string name="notification_channel_tasks_desc">Powiadomienia o ukończeniu zadań OpenCode</string>

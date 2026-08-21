@@ -359,6 +359,14 @@
     <string name="settings_keep_screen_on_desc">Предотвратить отключение экрана во время чата</string>
     <string name="settings_silent_notifications">Бесшумные уведомления</string>
     <string name="settings_silent_notifications_desc">Отключить звук и вибрацию для уведомлений о задачах</string>
+    <string name="settings_notif_test">Отправить тестовое уведомление</string>
+    <string name="settings_notif_test_desc">Отправляет реальное уведомление для проверки баннера и звука. Если ничего не появилось, устройство может заглушать приложение (например, MIUI по умолчанию отключает всплывающие уведомления) — включите в системных настройках уведомлений ниже.</string>
+    <string name="settings_notif_system">Системные настройки уведомлений</string>
+    <string name="settings_notif_system_desc">Управляйте баннером, звуком и вибрацией по каналам в системных настройках</string>
+    <string name="notification_test_title">Тестовое уведомление</string>
+    <string name="notification_test_body">Если вы видите это уведомление, доставка работает.</string>
+    <string name="a11y_settings_notif_test">Отправить тестовое уведомление</string>
+    <string name="a11y_settings_notif_system">Системные настройки уведомлений</string>
     <string name="dialog_select_reconnect_mode">Выберите режим переподключения</string>
     <string name="notification_channel_tasks_silent">Уведомления о задачах (бесшумно)</string>
     <string name="notification_channel_tasks_silent_desc">Бесшумные уведомления при завершении задач OpenCode</string>

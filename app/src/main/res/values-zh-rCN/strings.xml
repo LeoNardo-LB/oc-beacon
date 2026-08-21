@@ -331,6 +331,14 @@
     <string name="settings_keep_screen_on_desc">聊天时防止屏幕超时</string>
     <string name="settings_silent_notifications">静默通知</string>
     <string name="settings_silent_notifications_desc">任务通知不响铃、不震动</string>
+    <string name="settings_notif_test">发送测试通知</string>
+    <string name="settings_notif_test_desc">发送一条真实通知，验证横幅与声音是否正常。若未弹出，可能是设备静默了本应用（如 MIUI 默认关闭悬浮通知）——请到下方系统通知设置中开启。</string>
+    <string name="settings_notif_system">系统通知设置</string>
+    <string name="settings_notif_system_desc">在系统设置中管理各渠道的横幅、声音与振动</string>
+    <string name="notification_test_title">通知测试</string>
+    <string name="notification_test_body">如果你看到这条通知，说明通知通道工作正常。</string>
+    <string name="a11y_settings_notif_test">发送测试通知</string>
+    <string name="a11y_settings_notif_system">系统通知设置</string>
     <string name="dialog_select_reconnect_mode">选择重连模式</string>
     <string name="notification_channel_connection_desc">与 OpenCode 服务器保持连接</string>
     <string name="notification_channel_tasks_desc">OpenCode 任务完成时通知</string>
