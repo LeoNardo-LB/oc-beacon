@@ -24,11 +24,13 @@ internal fun ChatScreenDialogs(
     providers: List<ProviderCatalog>,
     selectedProviderId: String?,
     selectedModelId: String?,
-    onSelectModel: (String, String) -> Unit,
+    onSelectModel: (String, String, String?) -> Unit,
     sessionTitle: String,
     defaultModel: String? = null,
     onSetDefaultModel: (String, String) -> Unit = { _, _ -> },
     onManageModels: () -> Unit = {},
+    /** #187：当前选中 variant（pill 高亮）。 */
+    selectedVariant: String? = null,
     onRename: (String) -> Unit,
 ) {
     // 模型选择对话框
@@ -42,6 +44,7 @@ internal fun ChatScreenDialogs(
             defaultModel = defaultModel,
             onSetDefault = onSetDefaultModel,
             onManageModels = onManageModels,
+            selectedVariant = selectedVariant,
         )
     }
 

@@ -302,7 +302,6 @@ internal fun ChatScreenBottomBar(
                 onAgentSelect = { viewModel.modelSelection.selectAgent(it) },
                 variantNames = modelConfig.variantNames,
                 selectedVariant = modelConfig.selectedVariant,
-                onCycleVariant = { viewModel.modelSelection.cycleVariant() },
                 commands = modelConfig.commands,
                 fileSearchResults = fileSearchResults,
                 confirmedFilePaths = confirmedFilePaths,

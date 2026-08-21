@@ -322,35 +322,24 @@ internal class ModelConfigDelegate(
     /** 当前本地默认模型（"pid|mid|variant" 或 null）。 */
     val localDefaultModel: String? get() = _localDefaultModel.value
 
+    /** #188：响应式默认模型（DataStore 写入后 UI 即时回显——修复快照断裂）。 */
+    val localDefaultModelFlow: kotlinx.coroutines.flow.StateFlow<String?> = _localDefaultModel
+
     // ============ 选择（UI 门面） ============
 
     fun selectAgent(name: String) {
         _selectedAgent.value = name to true
     }
 
-    /**
-     * 循环切换当前模型的可用思考强度 variants。
-     * 循环：none -> first -> second -> ... -> last -> none（默认）。
-     */
-    fun cycleVariant() {
-        val variants = modelConfigState.value.variantNames
-        if (variants.isEmpty()) return
-        val current = _selectedVariant.value
-        if (current == null || current !in variants) {
-            _selectedVariant.value = variants.first()
-        } else {
-            val idx = variants.indexOf(current)
-            _selectedVariant.value = if (idx == variants.lastIndex) null else variants[idx + 1]
-        }
-    }
-
-    fun selectModel(providerId: String, modelId: String) {
+    fun selectModel(providerId: String, modelId: String, variant: String? = null) {
         // 必须在修改 StateFlow 之前设置标志 —— 在 Main.immediate 调度器上，
         // 设置 StateFlow 值会同步触发 combine 重计算，
         // 如果标志尚未设置，会覆盖我们的值。
         isModelExplicitlySelected = true
         _selectedProviderId.value = providerId
         _selectedModelId.value = modelId
+        // #187：二级面板 variant pill 选择——同步思考档位（null=默认档）
+        _selectedVariant.value = variant
         // 记住本会话的选择（内存中，应用重启时清除）
         sessionModelCache[sessionIdFlow.value] = providerId to modelId
     }

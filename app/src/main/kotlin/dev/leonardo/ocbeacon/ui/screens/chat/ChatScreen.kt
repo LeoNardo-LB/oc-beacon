@@ -851,6 +851,10 @@ fun ChatScreen(
         }
 
 
+    // #188：默认模型响应式状态（写入即回显）
+    val localDefaultModel by viewModel.modelSelection.localDefaultModelFlow
+        .collectAsStateWithLifecycle()
+
     // 条件对话框 —— 已抽取到 ChatScreenDialogs
     ChatScreenDialogs(
         showModelPicker = showModelPicker,
@@ -868,10 +872,12 @@ fun ChatScreen(
         providers = modelConfig.providers,
         selectedProviderId = modelConfig.selectedProviderId,
         selectedModelId = modelConfig.selectedModelId,
-        onSelectModel = { providerId, modelId ->
-            viewModel.modelSelection.selectModel(providerId, modelId)
+        onSelectModel = { providerId, modelId, variant ->
+            viewModel.modelSelection.selectModel(providerId, modelId, variant)
         },
-        defaultModel = viewModel.modelSelection.localDefaultModel,
+        // #188：响应式默认模型（原一次性 getter 快照 → DataStore 写入后星标/开关永不回显的根因）
+        defaultModel = localDefaultModel,
+        selectedVariant = modelConfig.selectedVariant,
         onSetDefaultModel = { providerId, modelId ->
             viewModel.toggleDefaultModel(providerId, modelId)
         },

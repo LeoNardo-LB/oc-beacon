@@ -54,7 +54,6 @@ internal fun AgentModelVariantSelector(
     selectedVariant: String?,
     onModelClick: () -> Unit,
     onAgentSelect: (String) -> Unit,
-    onCycleVariant: () -> Unit,
     onAttach: () -> Unit,
     taskBadgeCount: Int = 0,
     onOpenTaskPanel: () -> Unit = {},
@@ -143,23 +142,8 @@ internal fun AgentModelVariantSelector(
                 }
             }
 
-            // Variant 循环按钮（思考强度）—— 第三位
-            if (variantNames.isNotEmpty()) {
-                Text(
-                    text = selectedVariant?.replaceFirstChar { it.uppercase() }
-                        ?: stringResource(R.string.chat_default_variant),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (selectedVariant != null) {
-                        MaterialTheme.colorScheme.tertiary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                    },
-                    modifier = Modifier
-                        .clip(ShapeTokens.smallMedium)
-                        .clickable { onCycleVariant() }
-                        .padding(horizontal = SpacingTokens.XS.dp, vertical = SpacingTokens.XS.dp)
-                )
-            }
+            // #187 ③（2026-08-21）：输入行 variant pill 移除——当前 variant 仅
+            // 模型抽屉二级面板可见/可选；输入行只显模型名
         }
 
         Row(
