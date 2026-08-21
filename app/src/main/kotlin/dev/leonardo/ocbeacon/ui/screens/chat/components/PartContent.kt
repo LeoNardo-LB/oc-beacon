@@ -61,6 +61,8 @@ internal fun PartContent(
     markdownStateOverride: MarkdownState? = null,
     // 2026-08-13 根本方案：跳转目标预解析结果（见 MarkdownContent）
     preParsedState: State? = null,
+    // 2026-08-22 滚动巨帧根治：非流式 fallback 异步解析（见 MarkdownContent）
+    asyncParse: Boolean = false,
 ) {
     when (part) {
         is Part.Text -> {
@@ -89,7 +91,8 @@ internal fun PartContent(
                             isUser = isUser,
                             immediate = !isUser,
                             overrideState = markdownStateOverride,
-                            preParsedState = preParsedState
+                            preParsedState = preParsedState,
+                            asyncParse = asyncParse,
                         )
                     }
                 }

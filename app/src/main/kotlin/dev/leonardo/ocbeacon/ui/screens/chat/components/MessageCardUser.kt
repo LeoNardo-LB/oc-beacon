@@ -3,11 +3,14 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.Undo
@@ -48,6 +51,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.util.resolveUserCommandLabel
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.ChatDensity
+import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
 import dev.leonardo.ocbeacon.ui.theme.QueuedBadgeColor
 import dev.leonardo.ocbeacon.ui.theme.QueuedBadgeTextColor
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
@@ -254,6 +259,161 @@ internal fun MessageCardUser(
     }
 
     // 撤回确认对话框
+    if (showRevertConfirmation && onRevert != null) {
+        ConfirmDialog(
+            title = stringResource(R.string.chat_revert),
+            message = stringResource(R.string.chat_revert_message),
+            confirmLabel = stringResource(R.string.chat_revert),
+            onDismiss = { showRevertConfirmation = false },
+            onConfirm = {
+                showRevertConfirmation = false
+                onRevert()
+            },
+        )
+    }
+}
+
+/**
+ * 长用户消息分片渲染（2026-08-22 滚动巨帧根治，见 splitUserTextChunks）。
+ *
+ * 视觉对齐 ChunkedAssistantMessage 的分段语言：首段带标签栏（时间 + Person
+ * + 「用户」）、末段带统计栏（QUEUED 徽章 + 撤销 + 复制）、中段纯正文；
+ * 圆角取 UserBubbleShape 的非对称值（首段顶角 18/4，末段底角 18）。
+ */
+@Composable
+internal fun ChunkedUserMessage(
+    currentMessage: ChatMessage,
+    chunk: ChatEntry.UserChunk,
+    isQueued: Boolean,
+    onRevert: (() -> Unit)?,
+    onCopyText: (() -> Unit)?,
+    isAmoled: Boolean,
+) {
+    val compact = LocalChatDensity.current == ChatDensity.Compact
+    val backgroundColor = MaterialTheme.colorScheme.primaryContainer
+    val textColor = if (isAmoled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+    val border = if (isAmoled) {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MUTED))
+    } else {
+        null
+    }
+    val hapticView = LocalView.current
+    val hapticOn = LocalHapticFeedbackEnabled.current
+    var showRevertConfirmation by remember { mutableStateOf(false) }
+
+    val horizPad = if (compact) 10.dp else SpacingTokens.LG.dp
+    val vertPad = if (compact) SpacingTokens.SM.dp else 14.dp
+
+    // 分段 shape：首段顶圆角（对齐 UserBubbleShape 非对称）/ 中段直角 / 末段底圆角
+    val shape = when {
+        chunk.isFirst -> RoundedCornerShape(topStart = 18.dp, topEnd = 4.dp)
+        chunk.isLast -> RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp)
+        else -> RoundedCornerShape(0.dp)
+    }
+
+    Surface(
+        color = backgroundColor,
+        shape = shape,
+        border = border,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(
+                start = horizPad, end = horizPad,
+                top = if (chunk.isFirst) vertPad else 0.dp,
+                bottom = if (chunk.isLast) vertPad else 0.dp,
+            ),
+        ) {
+            // ① 标签栏（仅首段）——与 MessageBubble 标签栏视觉一致
+            if (chunk.isFirst) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
+                ) {
+                    Text(
+                        text = remember(currentMessage.message.time.created) {
+                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
+                    Text(
+                        text = stringResource(R.string.chat_label_user),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
+            }
+            // ② 分段正文（所有段）——纯 Text（用户消息不渲染 Markdown，官方 TUI 对齐）
+            SelectionContainer {
+                Text(
+                    text = chunk.plan.segments[chunk.chunkIndex],
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = textColor,
+                )
+            }
+            // ③ 统计栏（仅末段）——QUEUED 徽章 + 撤销 + 复制
+            if (chunk.isLast) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(top = if (compact) SpacingTokens.XS.dp else 10.dp),
+                ) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (isQueued) {
+                        CompactTag(
+                            text = stringResource(R.string.chat_queued),
+                            containerColor = QueuedBadgeColor,
+                            contentColor = QueuedBadgeTextColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 8,
+                        )
+                    }
+                    if (onRevert != null) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Undo,
+                            contentDescription = stringResource(R.string.chat_revert),
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clickable {
+                                    performHaptic(hapticView, hapticOn)
+                                    showRevertConfirmation = true
+                                },
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                        )
+                    }
+                    if (onCopyText != null) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = stringResource(R.string.chat_copy),
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clickable {
+                                    performHaptic(hapticView, hapticOn)
+                                    onCopyText()
+                                },
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // 撤回确认对话框（与 MessageCardUser 同款）
     if (showRevertConfirmation && onRevert != null) {
         ConfirmDialog(
             title = stringResource(R.string.chat_revert),

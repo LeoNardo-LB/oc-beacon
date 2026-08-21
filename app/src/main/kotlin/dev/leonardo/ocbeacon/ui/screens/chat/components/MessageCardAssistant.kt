@@ -297,6 +297,9 @@ internal fun MessageCardAssistant(
                                     onViewSubSession = onViewSubSession,
                                     onOpenFile = onOpenFile,
                                     preParsedState = preParsedAssistantState,
+                                    // 2026-08-22：非流式 fallback 异步解析（流式 turn 走库
+                                    // rememberMarkdownState 增量路径——SSE 铁律不动）
+                                    asyncParse = !isStreaming,
                                     turnAgentName = if (item.group.part is Part.Tool && item.group.part.tool == "task") {
                                         renderableTurn.taskAgentName
                                     } else null,
@@ -591,6 +594,8 @@ private fun ChunkAssistantItems(
                         onViewSubSession = onViewSubSession,
                         onOpenFile = onOpenFile,
                         preParsedState = preParsed,
+                        // 分片 turn 恒非流式（流式 turn 不分片）——fallback 异步解析
+                        asyncParse = true,
                         turnAgentName = if (part is Part.Tool && part.tool == "task") renderableTurn.taskAgentName else null,
                     )
                 }

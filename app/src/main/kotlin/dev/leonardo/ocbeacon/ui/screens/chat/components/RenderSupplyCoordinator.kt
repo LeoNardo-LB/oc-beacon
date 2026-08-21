@@ -4,7 +4,6 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
-import dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -117,9 +116,11 @@ internal class RenderSupplyCoordinator(
                         window.add(key)
                         if (registry.current(key) is RenderReadiness.Pending) {
                             val textForParse = part.text
+                            // 2026-08-22：传原文——归一化已移入 preParse 后台链
+                            //（原在此主线程同步执行，帧间隙 20-30ms 巨帧根因）
                             registry.preParse(
                                 key,
-                                normalizeForRender(textForParse, isUser = false),
+                                textForParse,
                                 parseScope,
                             ) { st ->
                                 // 巨型 part 解析完成即计算块级分片计划（主线程
@@ -173,12 +174,19 @@ internal class RenderSupplyCoordinator(
         // pending 分片计划提交——仅当所属 turn 离开预解析窗口
         //（head..tail，±PREPARSE_AHEAD display 粒度）才写入 chunkPlans。
         // 视口/窗口内保持单 item（key 稳定不裂变）；turn 离开窗口后
-        // 裂变点远离视口（±8 item 缓冲），预取到它时已是分片版。
+        // 裂变点远离视口（±14 item 缓冲），预取到它时已是分片版。
+        //
+        // 2026-08-22 实验回滚记录：曾试把 F2 从窗口收紧为真实视口（视口外
+        // 1-14 item 即提交，欲治冷态首滑单体组合 90ms 巨帧）——真机实证更差：
+        // 14ms 帧桶暴涨（126 帧/轮 = 组合缓存被近距裂变持续扰动）+ 原本全清
+        // 的滚离滚回协议出现 27-69ms。窗口保守性是承重的（组合缓存稳定性），
+        // 回滚。冷态首滑单体巨帧属已知残余（每条巨型消息首次滑入一帧，
+        // ~90ms），与 #168 残余尖刺同类登记观察。
         //
         // 竞态根治（2026-08-20 五轮叠放 bug 三处修复——保留全部语义）：
         // F1 锚点重解析：提交时用 partId 反查当前 turn 的 display index
         //   （入队 di 会因 loadAround 重建失效——陈旧即重算，永不失配）。
-        // F2 视口内防线：重解析后 index 仍在预解析窗口内 → 本轮跳过不提交
+        // F2 窗口内防线：重解析后 index 仍在预解析窗口内 → 本轮跳过不提交
         //   （等真正滚出窗口）——即使 F1 有遗漏也不会视口内裂变。
         // F3 门控：『跳转进行中或稳定窗口内不提交』（终点+2s 内）。
         // 相位直读 StateFlow.value（同步快照）——桥接有 1-2 组合帧滞后，
@@ -234,8 +242,14 @@ internal class RenderSupplyCoordinator(
     }
 
     companion object {
-        /** 视口前后各预解析的 item 数（覆盖 fling/预组合窗口）。 */
-        const val PREPARSE_AHEAD = 8
+        /**
+         * 视口前后各预解析的 item 数（覆盖 fling/预组合窗口）。
+         * 2026-08-22：8→14——真机 framestats 实证冷态快滑竞态窗口：±8 item
+         * ≈ 10 帧（SafeFling 限速下）vs 归一化+解析 30-80ms（Default 线程
+         * 满载时）——miss 即落入库的 rememberMarkdownState 主线程同步解析
+         * 兜底（84ms 巨帧实测）。14 加宽供给余量（LRU 32 仍覆盖 2× 窗口）。
+         */
+        const val PREPARSE_AHEAD = 14
 
         /** 只预解析超过该字符数的文本 part（短文本同步解析成本可忽略）。 */
         const val PREPARSE_MIN_CHARS = 200

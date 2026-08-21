@@ -134,9 +134,14 @@ class RenderSupplyCoordinatorTest {
             5, 7,
             env.world(20, entriesOverride = table) { listOf(textPart("pA$it", plainText(250))) },
         )
-        // 窗口 = display 0..13 → a6(13) 预解析，a7(15) 不预解析
-        awaitParsedBlocking(env, "pA6")
-        assertNeverParsed(env, "pA7")
+        // 窗口 = display (5-AHEAD)..(5+AHEAD)（2026-08-22 AHEAD 8→14——边界
+        // 从常量推导，不再硬编码）：窗口内最后 assistant 预解析，紧邻窗外
+        // 的下一个不预解析
+        val ahead = RenderSupplyCoordinator.PREPARSE_AHEAD
+        val lastIn = (5 + ahead) / 2          // 窗口内最远 assistant display（奇数）
+        val firstOut = lastIn + 2             // 紧邻窗外 assistant
+        awaitParsedBlocking(env, "pA$lastIn")
+        assertNeverParsed(env, "pA$firstOut")
     }
 
     @Test
@@ -209,7 +214,7 @@ class RenderSupplyCoordinatorTest {
         awaitParsedBlocking(env, partId)
         delay(100)
         assertTrue("种入后 pending 不为空但未提交", env.coordinator.chunkPlans.value.isEmpty())
-        env.coordinator.onViewportChanged(16, 16, env.world(20, partFor = part)) // 窗口 8..24 仍含 11 → F2 拦截
+        env.coordinator.onViewportChanged(16, 16, env.world(20, partFor = part)) // 窗口 8..24 仍含 11 → F2 拦截（2026-08-22 视口门控实验回滚——窗口保守性承重）
         assertTrue("窗口内不提交（F2）", env.coordinator.chunkPlans.value.isEmpty())
         env.coordinator.onViewportChanged(33, 33, env.world(20, partFor = part)) // 窗口 25..39 不含 11 → 放行
         assertTrue("滚出窗口后提交", env.coordinator.chunkPlans.value.containsKey(partId))

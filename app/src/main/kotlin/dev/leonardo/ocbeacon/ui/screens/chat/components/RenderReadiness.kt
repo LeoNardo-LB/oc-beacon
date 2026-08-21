@@ -82,10 +82,15 @@ class RenderReadinessRegistry {
     /**
      * 预解析（Mikepenz 官方 Parse-ahead 模式）：点击跳转瞬间后台解析目标文本。
      * 解析完成后状态为 Parsed——消息组件组合时用 Markdown(state) 直接渲染。
+     *
+     * 2026-08-22：归一化（normalizeForRender）一并移入后台——原在调用方
+     * （onViewportChanged → snapshotFlow 收集器，主线程）同步执行全文正则
+     * 与切段，20K 字符 × 窗口内多条 = 帧间隙阻塞主线程 20-30ms（真机
+     * framestats 实证：巨帧 vsync→input=27.8ms 而帧内各相位近 0）。
      */
     fun preParse(
         msgId: String,
-        text: String,
+        rawText: String,
         scope: CoroutineScope,
         // 2026-08-20 分片：解析完成回调（主线程——launch 上下文）。调用方
         // （滚动预解析驱动）在此计算巨型 part 的块级分片计划。
@@ -103,17 +108,23 @@ class RenderReadinessRegistry {
             // 2026-08-20：解析移出主线程——库的 parseMarkdownFlow 无 flowOn，
             // 原在收集者上下文（主线程）执行，长文本（16KB+）解析阻塞 UI
             // 100ms+，滚动预解析驱动批量触发时打断拖拽/fling（ScrollDiag 实证）。
-            // flowOn(Default) 后仅写实例状态（无快照参与）。
-            parseMarkdownFlow(text).flowOn(Dispatchers.Default).collect { st ->
-                when (st) {
-                    is State.Success -> {
-                        target.value = RenderReadiness.Parsed(st)
-                        onParsed?.invoke(st)
-                    }
-                    is State.Error -> target.value = RenderReadiness.Failed(st.result)
-                    else -> target.value = RenderReadiness.Parsing
-                }
+            // 2026-08-22：归一化同链后台化（flow builder 内，Default 线程）。
+            kotlinx.coroutines.flow.flow {
+                emit(dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender(rawText, isUser = false))
             }
+                .flowOn(Dispatchers.Default)
+                .collect { normalized ->
+                    parseMarkdownFlow(normalized).flowOn(Dispatchers.Default).collect { st ->
+                        when (st) {
+                            is State.Success -> {
+                                target.value = RenderReadiness.Parsed(st)
+                                onParsed?.invoke(st)
+                            }
+                            is State.Error -> target.value = RenderReadiness.Failed(st.result)
+                            else -> target.value = RenderReadiness.Parsing
+                        }
+                    }
+                }
         }
     }
 }

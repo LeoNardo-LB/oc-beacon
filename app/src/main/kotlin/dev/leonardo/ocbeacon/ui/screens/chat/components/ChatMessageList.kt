@@ -1009,6 +1009,7 @@ fun ChatMessageList(
                         contentType = { _, entry ->
                             when (entry) {
                                 is ChatEntry.Chunk -> "assistant_chunk"
+                                is ChatEntry.UserChunk -> "user_chunk"
                                 is ChatEntry.Turn ->
                                     if (displayItems[entry.displayIndex].second.isUser) "user" else "assistant"
                             }
@@ -1041,6 +1042,48 @@ fun ChatMessageList(
                                         onViewSubSession = navigateToChildSession,
                                         onOpenFile = onOpenFile,
                                         onLocateTask = onLocateTask,
+                                    )
+                                }
+                            }
+                            is ChatEntry.UserChunk -> {
+                                val (rawIndex, msg) = displayItems[entry.displayIndex]
+                                val chatMessage = msg
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().let { m ->
+                                        if (entry.isLast) m.padding(bottom = messageSpacing) else m
+                                    }
+                                ) {
+                                    ChunkedUserMessage(
+                                        currentMessage = chatMessage,
+                                        chunk = entry,
+                                        isQueued = chatMessage.message.id in messageState.queuedMessageIds,
+                                        onRevert = if (isMainSession) {
+                                            {
+                                                val revertText = chatMessage.parts
+                                                    .filterIsInstance<Part.Text>()
+                                                    .joinToString("\n") { it.text }
+                                                viewModel.revertMessage(chatMessage.message.id, revertText) { ok ->
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.showSnackbar(
+                                                            if (ok) context.getString(R.string.chat_message_reverted) else context.getString(R.string.chat_message_revert_failed)
+                                                        )
+                                                    }
+                                                }
+                                                onForceScrollToBottom()
+                                            }
+                                        } else null,
+                                        onCopyText = {
+                                            val text = chatMessage.parts
+                                                .filterIsInstance<Part.Text>()
+                                                .joinToString("\n") { it.text }
+                                            if (text.isNotBlank()) {
+                                                coroutineScope.launch {
+                                                    clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("copy", text)))
+                                                    snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+                                                }
+                                            }
+                                        },
+                                        isAmoled = isAmoled,
                                     )
                                 }
                             }

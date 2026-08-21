@@ -7,6 +7,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -32,9 +33,15 @@ import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
+import com.mikepenz.markdown.model.parseMarkdownFlow
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.MarkdownState
 import com.mikepenz.markdown.model.State
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOn
 
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -246,14 +253,21 @@ internal fun MarkdownContent(
     // 2026-08-20 fling 巨帧根治：块级分片渲染区间（顶层 AST children 的
     // [from, to) 子列表）——null = 全量（原行为）。仅与 preParsedState 组合使用。
     blockRange: IntRange? = null,
+    // 2026-08-22 滚动巨帧根治：非流式 fallback 的异步解析（见
+    // rememberAsyncMarkdownState）——流式内容必须 false（48ms 批处理 +
+    // conflate 铁律路径，rememberMarkdownState 保留）。
+    asyncParse: Boolean = false,
 ) {
     // 注意：customFontSize 和 immediate 保留是为了调用点兼容性
     //（PartContent / ReasoningBlock 仍传入它们），但有意不使用
     // ——排版/密度现在由 LocalChatDensity 驱动，且 Mikepenz Markdown
     // 同步解析，因此 immediate 标志无效果。
-    val normalizedMarkdown = remember(markdown, isUser) {
-        normalizeForRender(markdown, isUser)
-    }
+    //
+    // 2026-08-22 滚动巨帧根治：归一化从组合路径移除——原 remember{} 在主线程
+    // 对全文跑正则+切段（20K 字符级多条批量 = vsync→input 90ms 巨帧，真机
+    // framestats 实证），且 preParsedState 命中路径纯属浪费（预解析已在后台
+    // 归一化过）。现在仅流式/同步 fallback 路径归一化（流式内容单条增量，
+    // 成本可控）；asyncParse fallback 在后台归一化（parseAsync 内）。
 
     val isAmoled = isAmoledTheme()
     val density = LocalChatDensity.current
@@ -526,10 +540,20 @@ internal fun MarkdownContent(
         return
     }
 
-    val markdownState = overrideState ?: rememberMarkdownState(
-        content = normalizedMarkdown,
-        retainState = true,
-    )
+    // 2026-08-22：非流式长文本 fallback 异步化——库的 rememberMarkdownState
+    // 在主线程同步 parseBlocking（字节码实证 parse$2 内联 parseBlocking，无
+    // flowOn）；预解析 miss 时冷态快滑巨帧 84ms（framestats vsync→input）。
+    // asyncParse=true 时归一化+解析全程 Default 线程，主线程仅收 StateFlow 发射。
+    val markdownState = overrideState ?: if (asyncParse) {
+        rememberAsyncMarkdownState(markdown, isUser)
+    } else {
+        // 流式/同步路径：归一化保留在此分支（流式单条增量成本可控）
+        val normalizedForLib = remember(markdown, isUser) { normalizeForRender(markdown, isUser) }
+        rememberMarkdownState(
+            content = normalizedForLib,
+            retainState = true,
+        )
+    }
 
     Markdown(
         markdownState = markdownState,
@@ -541,6 +565,61 @@ internal fun MarkdownContent(
         imageTransformer = Coil3ImageTransformerImpl,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/**
+ * 非流式 fallback 的异步 MarkdownState（2026-08-22 滚动巨帧根治）。
+ *
+ * 背景：Markdown(markdownState=...) 可组合项仅 state.collectAsState() 渲染，
+ * 从不调用 parse()、也不读 links（0.43.0 字节码核对）——自建实现只需提供
+ * state 流。解析经 parseMarkdownFlow.flowOn(Default) 全程后台，主线程零
+ * 解析成本（对比库 rememberMarkdownState 的主线程 parseBlocking）。
+ *
+ * 仅用于非流式内容（remember(content) 单次解析）：流式增长内容必须走库的
+ * rememberMarkdownState（snapshotFlow+conflate 增量路径——SSE 滚动铁律）。
+ */
+private class AsyncMarkdownStateImpl : MarkdownState {
+    private val _state = MutableStateFlow<State>(State.Loading())
+    override val state: StateFlow<State> = _state.asStateFlow()
+    private val _links = MutableStateFlow<Map<String, String>>(emptyMap())
+    override val links: StateFlow<Map<String, String>> = _links.asStateFlow()
+    private var lastContent: String = ""
+
+    /** 后台归一化+解析并持续回写状态（suspend 到完成；全程 Default 线程）。 */
+    suspend fun parseAsync(content: String, isUser: Boolean) {
+        lastContent = content
+        lastIsUser = isUser
+        kotlinx.coroutines.flow.flow {
+            emit(normalizeForRender(content, isUser))
+        }.flowOn(Dispatchers.Default).collect { normalized ->
+            parseMarkdownFlow(normalized).flowOn(Dispatchers.Default).collect { st ->
+                _state.value = st
+            }
+        }
+    }
+
+    /** 接口必需；Markdown 可组合项不调用（防御实现：后台归一化+解析取终态）。 */
+    override suspend fun parse(): State {
+        kotlinx.coroutines.flow.flow {
+            emit(normalizeForRender(lastContent, lastIsUser))
+        }.flowOn(Dispatchers.Default).collect { normalized ->
+            parseMarkdownFlow(normalized).flowOn(Dispatchers.Default).collect { st ->
+                _state.value = st
+            }
+        }
+        return _state.value
+    }
+
+    private var lastIsUser: Boolean = false
+}
+
+@Composable
+private fun rememberAsyncMarkdownState(content: String, isUser: Boolean): MarkdownState {
+    val impl = remember { AsyncMarkdownStateImpl() }
+    LaunchedEffect(impl, content, isUser) {
+        impl.parseAsync(content, isUser)
+    }
+    return impl
 }
 
 /**
