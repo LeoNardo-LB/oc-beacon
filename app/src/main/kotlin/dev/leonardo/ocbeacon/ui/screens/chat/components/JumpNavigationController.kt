@@ -7,6 +7,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -27,6 +28,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * UI 派生（单一真相源——蒙版/门控不再各自为政）：
  *   - showMask = Preparing || Measuring || Settling
  *   - gateOpen = Displayed || Failed
+ *   - jumpLockActive = 异步定位窗口(markJumpPending) ∪ 进行中 ∪ 终点后 300ms 缓冲
+ *     （#159 收口 2026-08-22：替代 ChatMessageList 手工镜像——原 4 写点任一
+ *     遗漏即竞态，loadAround 失败路径漏复位已实证锁永久卡死）
  */
 sealed interface JumpPhase {
     data object Idle : JumpPhase
@@ -48,6 +52,9 @@ internal sealed interface JumpEvent {
 }
 
 // ============ 纯函数（单测目标——本会话反复出错的计算） ============
+
+/** 终点（Displayed/Failed）后 autoLoad 解锁缓冲（稳定窗口保护）。 */
+internal const val JUMP_UNLOCK_DELAY_MS = 300L
 
 /** 目标底边距视口底部的目标偏移：顶边贴视口顶（含 contentPaddingTop 修正）。 */
 internal fun computeDesiredOffset(viewportHeight: Float, itemHeight: Float, contentPaddingTop: Float): Float =
@@ -146,6 +153,56 @@ class JumpNavigationController(
     private val _phase = phaseFlow
     val phase: StateFlow<JumpPhase> = _phase
 
+    /**
+     * UI 派生：autoLoad 启动门控锁（#159 收口 2026-08-22——替代
+     * ChatMessageList.jumpLockActive 手工镜像）。
+     *
+     * 锁定窗口 = 异步定位窗口（[markJumpPending]——目标未加载、phase 仍
+     * Idle，但 loadAround 期间 nearTop 补载不得启动）∪ 跳转进行中
+     * （Preparing/Measuring/Settling）∪ 终点缓冲（Displayed/Failed 后
+     * [JUMP_UNLOCK_DELAY_MS]——稳定窗口内不放行，语义等价原 ChatMessageList
+     * 解锁 effect 的 delay(300)）。
+     *
+     * 派生实现：phase.collectLatest——非终态置 true；终态保持 true 并延迟
+     * 解锁（缓冲期内新跳转到来则取消延迟、继续锁定，等价原 collectLatest
+     * 键重启语义）。异步窗口由 markJumpPending 同步直写（phase 无发射）。
+     */
+    private val _jumpLock = MutableStateFlow(false)
+    val jumpLockActive: StateFlow<Boolean> = _jumpLock
+
+    init {
+        scope.launch {
+            _phase.collectLatest { ph ->
+                if (ph is JumpPhase.Displayed || ph is JumpPhase.Failed) {
+                    _jumpLock.value = true
+                    kotlinx.coroutines.delay(JUMP_UNLOCK_DELAY_MS)
+                    _jumpLock.value = false
+                    if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 状态机终点——autoLoad 解锁")
+                } else {
+                    _jumpLock.value = ph !is JumpPhase.Idle
+                }
+            }
+        }
+    }
+
+    /**
+     * 异步定位窗口标记（jumpToMessage 目标未加载分支入口）。成功路径由
+     * 后续 jumpTo 置 Preparing 接管（锁继续为 true，无缝）；失败路径调
+     * [clearPendingJumpLock] 解锁。
+     */
+    fun markJumpPending() {
+        _jumpLock.value = true
+    }
+
+    /**
+     * 异步定位失败解锁（loadAround 两轮未命中）。phase 仍 Idle 时生效；
+     * 若失败清理与活跃跳转交错（用户已点另一可跳目标），phase 非Idle——
+     * 锁归进行中的跳转所有，本调用为 no-op。
+     */
+    fun clearPendingJumpLock() {
+        if (_phase.value is JumpPhase.Idle) _jumpLock.value = false
+    }
+
     // ============ 2026-08-20 A-F1/D-1 竞态根治：Job 管理 + 代际令牌 ============
     // 旧实现 jumpTo/jumpToTask 各自 scope.launch 且无取消——快速连跳时旧
     // measureAndSettle（含 Displayed 后 1.5s 稳定窗口的每 150ms scrollBy 修正）
@@ -168,12 +225,11 @@ class JumpNavigationController(
     /**
      * UI 派生：跳转进行中（Preparing/Measuring/Settling）。
      *
-     * 2026-08-21 根因完备化：自动分页 fire-time 门控改读本属性（phase 真源），
-     * 不再依赖 ChatMessageList.jumpLockActive 手工镜像——镜像 4 处同步点
-     * （3 跳转入口写 true + phase 终点收集器写 false）任一遗漏即竞态 reopen。
+     * 2026-08-21 根因完备化：自动分页 fire-time 门控读 phase 真源（本属性）。
      * 时序安全前提（已核对）：jumpTo/jumpToTask 入口同步置 Preparing
-     * （镜像写点与其之间为纯同步主线程代码，无挂起/分发 interleaved），
-     * 故 fire-time 读 phase 与读镜像同样严密。
+     * （与镜像旧写点之间为纯同步主线程代码，无挂起/分发 interleaved）。
+     * 2026-08-22 #159 收口：ChatMessageList 手工镜像已删除，autoLoad 启动
+     * 门控改读 [jumpLockActive]（本类派生——见其文档）。
      */
     val isJumpInProgress: Boolean
         get() = _phase.value is JumpPhase.Preparing ||

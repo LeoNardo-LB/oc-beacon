@@ -153,10 +153,6 @@
   - 若跳转叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可重放定位）
   - → `docs/journal/2026-08-21-race-audit-round6.md`（提升自该批子条目）
 
-- [ ] **#167 overlay HUD 真机授权走查** `dev-infra`
-  - 悬浮窗权限授予 + overlay 显示/dropCount 读数验证（代码已交付 dc57cba0，未真机走查）
-  - → `docs/journal/2026-08-20-quick-jump-round4.md`（提升自该批子条目）
-
 - [ ] **#168 慢拖残余 ~18ms 偶发尖刺——最低优先级** `perf`
   - F5 后残余（draw 4-8ms + input 3-5ms，12 轮仅 10 条）；「预取 idle_frame」候选已否证；release 口径 p95 7.9ms 已低于感知阈值，再深挖方向为 draw/input 相位本身（~2h）
   - → `docs/journal/2026-08-20-perf-monitoring-round3.md`（提升自该批子条目）

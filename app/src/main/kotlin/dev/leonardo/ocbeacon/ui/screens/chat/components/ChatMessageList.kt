@@ -447,11 +447,6 @@ fun ChatMessageList(
         }
     }
 
-    // 2026-08-12 修复：跳转定位锁定——jumpToMessage 期间抑制 autoLoad
-    //（loadOlder 自动补载会插入 older 批 → 目标被推下视口，用户反馈
-    // "目标不在视口顶部"——logcat 实证 positioned 后被 auto-load 推走）。
-    var jumpLockActive by remember { mutableStateOf(false) }
-
 
     // ===== 临时诊断（ScrollDiag，2026-08-20 真机滚动取证，DEBUG-only，行为零变化）=====
     // ① 位置流 LEAP 检测：index/offset 在两次发射间异常跳变（程序化滚动/锚点修正）
@@ -519,6 +514,13 @@ fun ChatMessageList(
     // 蒙版由 JumpMaskOverlay 小组件自行订阅；解锁 effect 直收 flow；预解析
     // 提交门控本就直读 phase.value（B-F3）。
 
+    // 2026-08-12 修复（2026-08-22 #159 收口）：跳转定位锁定——jumpToMessage
+    // 期间抑制 autoLoad（loadOlder 自动补载会插入 older 批 → 目标被推下视口，
+    // logcat 实证 positioned 后被 auto-load 推走）。原手工镜像已删，锁从
+    // 状态机派生（异步窗口 ∪ 进行中 ∪ 终点后 300ms——见 JNC.jumpLockActive；
+    // 收口动机：loadAround 失败路径漏复位镜像 → 目标不存在时 autoLoad 永久锁死）。
+    val jumpLockActive = jumpController.jumpLockActive.collectAsState().value
+
     // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
     // 消息进入 displayItems → LaunchedEffect 重启 → 状态机跳转
     var pendingJumpTarget by remember { mutableStateOf<String?>(null) }
@@ -561,24 +563,10 @@ fun ChatMessageList(
         }
     }
 
-    // 2026-08-13 架构根治：jumpLock 解锁由状态机终点驱动（Displayed/Failed——
-    // 定位结束才放行 autoLoad；不再靠旧流程末尾手动解锁）。
-    // 2026-08-21 卫生（D-11-2/D-4）：原 LaunchedEffect(jumpPhase) 以相位为键
-    // ——主体随每次相位变化重组 + effect 重启。改为直收 flow（collectLatest
-    // 语义等价原键重启：新跳转 Preparing 到来时取消未完成的 300ms 解锁延迟）；
-    // 时间戳换 elapsedRealtime（单调基，与 JNC 稳定窗口/重定位节流统一——
-    // D-4 时钟混用修复：原 currentTimeMillis 可被 NTP/手动调时倒退）。
-    LaunchedEffect(jumpController) {
-        jumpController.phase.collectLatest { ph ->
-            if (ph is JumpPhase.Displayed || ph is JumpPhase.Failed) {
-                //（终点时刻的记录已收编 RenderSupplyCoordinator——阶段 2；
-                // 本 effect 只负责 autoLoad 解锁）
-                delay(300)
-                jumpLockActive = false
-                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 状态机终点——autoLoad 解锁")
-            }
-        }
-    }
+    // （2026-08-13 架构根治 / 2026-08-22 #159 收口）autoLoad 解锁已收编
+    // JumpNavigationController——终点后 300ms 缓冲在控制器内经
+    // phase.collectLatest 派生（jumpLockActive StateFlow），本组件不再
+    // 手工维护镜像写点。
 
     // 2026-08-21 卫生清理：mdRegistry（写-only 死注册表，D-10）已删除。
 
@@ -592,7 +580,6 @@ fun ChatMessageList(
             "JUMP start msg=" + msgId.take(14) + " entries=" + chatEntries.entries.size +
                 " displayN=" + displayItems.size
         }
-        jumpLockActive = true
         val displayItemIndex = displayItems.indexOfFirst { it.second.message.id == msgId }
         // 2026-08-12 修复：目标在 displayItems 但 parts 为空（Room 有消息但
         // parts 未 upsert 到内存——重启后内存只加载最新窗口）→ loadAround 加载。
@@ -611,6 +598,9 @@ fun ChatMessageList(
             onQuickNavigateDismiss()
         } else {
             // 未加载或 parts 为空：触发异步定位加载，等待消息进入 displayItems 后滚动
+            //（#159：异步窗口的 autoLoad 锁定 = 控制器 markJumpPending——
+            // phase 仍 Idle，锁不经相位发射同步直写）
+            jumpController.markJumpPending()
             pendingJumpTarget = msgId
             pendingJumpRetried = false
             onQuickNavigateDismiss()
@@ -636,8 +626,8 @@ fun ChatMessageList(
             val (rawIndex, targetMsg) = displayItems[targetIndex]
             val targetMsgId = targetMsg.message.id
             // 2026-08-13 架构根治：onLocateTask 复用状态机（同一定位流程——一次
-            // 定位 + 蒙版/门控 + 收敛；assistant 目标无预解析，直接测量）
-            jumpLockActive = true
+            // 定位 + 蒙版/门控 + 收敛；assistant 目标无预解析，直接测量）。
+            // #159：autoLoad 锁由控制器从 Preparing 派生（入口同步置相位）
             jumpController.jumpToTask(lazyIndex, targetMsgId)
             highlightedTurnKey = if (targetMsg.isUser) {
                 "u_${targetMsg.message.id}"
@@ -731,7 +721,7 @@ fun ChatMessageList(
                             // snapshotFlow 发射提交驱动，二者排序无保证，跳转重载下窗口
                             // 实测拉宽到 136ms+），启动闸门已失效 → settle 期间数据变动。
                             // 修复 = 正确的时机 × 正确的源：fire-time 复查 + 直读 phase 真源
-                            //（isJumpInProgress——不依赖 jumpLockActive 手工镜像的 4 处同步点）。
+                            //（isJumpInProgress 同步快照——不经派生锁的组合帧滞后）。
                             if (jumpController.isJumpInProgress) {
                                 if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load skipped (jump in progress at fire time)")
                                 return@collect
@@ -792,7 +782,6 @@ fun ChatMessageList(
                     withFrameNanos { }
                     withFrameNanos { }
                     pendingJumpTarget = null
-                    jumpLockActive = true
                     // 2026-08-20 分片适配补漏（渲染错位根因）：本路径是三条跳转
                     // 入口中唯一漏改的——display 粒度 index 直接传给 scrollToItem，
                     // 窗口内存在分片 turn（1→N item）时指向错误位置，viewport 落在
@@ -823,6 +812,9 @@ fun ChatMessageList(
                     } else if (!found) {
                         pendingJumpTarget = null
                         pendingJumpRetried = false
+                        // #159（2026-08-22）：异步定位失败解锁——旧镜像此处漏
+                        // 复位，目标真不存在时 autoLoad 被锁死到下次成功跳转
+                        jumpController.clearPendingJumpLock()
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_task_not_found))
                         }
