@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.CircularProgressIndicator
@@ -176,26 +176,8 @@ fun ChatTopBar(
                                 Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.a11y_icon_terminal))
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.menu_fork_session)) },
-                            onClick = {
-                                showMenu = false
-                                onForkSession()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.CopyAll, contentDescription = stringResource(R.string.a11y_icon_copy_all))
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.menu_compact_session)) },
-                            onClick = {
-                                showMenu = false
-                                onCompactSession()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Compress, contentDescription = stringResource(R.string.a11y_icon_compress))
-                            }
-                        )
+                        // 2026-08-22 用户要求：任务转后台与分叉会话对调位置（原第 5 位提前到
+                        // 第 3 位），图标与输入组件任务入口统一为 PendingActions
                         // 批量转后台（2026-08-13 用户要求：入口在顶部菜单——工具栏
                         // 显示条件苛刻平时找不到；服务器无前台任务时 no-op）
                         // V1 无正式后台系统（实验性端点需 flag）→ 隐藏（backlog #85）
@@ -207,10 +189,30 @@ fun ChatTopBar(
                                     onBackgroundSession()
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.AutoMirrored.Filled.FormatListBulleted, contentDescription = null)
+                                    Icon(Icons.Default.PendingActions, contentDescription = null)
                                 }
                             )
                         }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_compact_session)) },
+                            onClick = {
+                                showMenu = false
+                                onCompactSession()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Compress, contentDescription = stringResource(R.string.a11y_icon_compress))
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_fork_session)) },
+                            onClick = {
+                                showMenu = false
+                                onForkSession()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.CopyAll, contentDescription = stringResource(R.string.a11y_icon_copy_all))
+                            }
+                        )
                         // 根据当前分享状态显示分享或取消分享
                         // （V2 服务器无 share 端点时整组隐藏，见 backlog #78）
                         if (isShareSupported) {
