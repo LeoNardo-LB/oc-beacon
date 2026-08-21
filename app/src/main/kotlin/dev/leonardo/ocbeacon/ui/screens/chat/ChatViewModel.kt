@@ -389,13 +389,9 @@ class ChatViewModel @Inject constructor(
                 ?.also { sessionLifecycle.fillDirectoryFromRetry(it) }
         },
     )
-    val terminalTabs: StateFlow<List<TerminalTabUi>> get() = terminalDelegate.terminalTabs
-    val activeTerminalTabId: StateFlow<String?> get() = terminalDelegate.activeTerminalTabId
-    val terminalVersion: StateFlow<Long> get() = terminalDelegate.terminalVersion
-    val terminalState: StateFlow<TerminalTabState> get() = terminalDelegate.terminalState
-    val terminalFontSizeSp: StateFlow<Float> get() = terminalDelegate.terminalFontSizeSp
-    val terminalEmulator: org.connectbot.terminal.TerminalEmulator get() = terminalDelegate.terminalEmulator
-    val terminalCursorKeysAppMode: Boolean get() = terminalDelegate.terminalCursorKeysAppMode
+    // #173 段 0：终端簇整体迁出 VM 门面——ChatTerminalView 直接收 delegate，
+    // VM 不再逐成员转发（原 7 getter + 10 方法收缩为本单成员）。
+    val terminal: TerminalDelegate get() = terminalDelegate
 
     // ============ 草稿输入 Delegate ============
     private val draftDelegate = DraftInputDelegate(
@@ -763,7 +759,7 @@ class ChatViewModel @Inject constructor(
 
     override fun onCleared() {
         messageData.cancelSseJob()
-        closeTerminalSession()
+        terminalDelegate.closeTerminalSession()
         super.onCleared()
         // 内存泄漏修复（#89）：退出会话时释放该会话在 Singleton handler 中的
         // 消息/part/权限/问题/通知去重数据——各 handler 按 sessionId 持有，
@@ -942,25 +938,6 @@ class ChatViewModel @Inject constructor(
 
     fun runShellCommand(command: String, onResult: (Boolean) -> Unit) =
         sessionActions.runShellCommand(command, onResult)
-
-    // ============ 终端操作（门面 —— TerminalDelegate） ============
-
-    fun openTerminalSession(onResult: (Boolean) -> Unit = {}) =
-        terminalDelegate.openTerminalSession(onResult)
-
-    fun createTerminalTab(onResult: (Boolean) -> Unit = {}) =
-        terminalDelegate.createTerminalTab(onResult)
-
-    fun switchTerminalTab(tabId: String) = terminalDelegate.switchTerminalTab(tabId)
-    fun closeTerminalTab(tabId: String) = terminalDelegate.closeTerminalTab(tabId)
-    fun reconnectTerminalTab(tabId: String, onResult: (Boolean) -> Unit = {}) =
-        terminalDelegate.reconnectTerminalTab(tabId, onResult)
-    fun setTerminalFontSize(fontSizeSp: Float) =
-        terminalDelegate.setTerminalFontSize(fontSizeSp)
-    fun sendTerminalInput(input: String) = terminalDelegate.sendTerminalInput(input)
-    fun clearTerminalBuffer() = terminalDelegate.clearTerminalBuffer()
-    fun resizeTerminal(cols: Int, rows: Int) = terminalDelegate.resizeTerminal(cols, rows)
-    fun closeTerminalSession() = terminalDelegate.closeTerminalSession()
 
     fun getLastAssistantText(): String? = sessionActions.getLastAssistantText()
 

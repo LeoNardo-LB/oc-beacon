@@ -30,7 +30,7 @@ private const val TERMINAL_DELEGATE_TAG = "TerminalDelegate"
  * 底层 [ServerTerminalWorkspace] 本身通过 [ServerTerminalRegistry]
  *（真正的 `@Singleton`）是服务器范围的，因此终端状态仍然完全如前地存活聊天屏幕重建。
  */
-internal class TerminalDelegate(
+class TerminalDelegate(
     terminalRegistry: ServerTerminalRegistry,
     settingsRepository: SettingsRepository,
     serverId: String,

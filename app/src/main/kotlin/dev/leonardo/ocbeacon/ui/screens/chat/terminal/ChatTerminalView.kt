@@ -77,7 +77,7 @@ private val TERMINAL_CONTROL_CHARS_REGEX = Regex("[\u001B\u0080-\u009F]")
  */
 @Composable
 fun ChatTerminalView(
-    viewModel: dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel,
+    terminal: dev.leonardo.ocbeacon.ui.screens.chat.TerminalDelegate,
     isTerminalMode: Boolean,
     onTerminalModeChanged: (Boolean) -> Unit,
     startInTerminalMode: Boolean,
@@ -93,10 +93,10 @@ fun ChatTerminalView(
      */
     onConnectFailed: () -> Unit,
 ) {
-    val terminalState by viewModel.terminalState.collectAsStateWithLifecycle()
-    val terminalTabs by viewModel.terminalTabs.collectAsStateWithLifecycle()
-    val activeTerminalTabId by viewModel.activeTerminalTabId.collectAsStateWithLifecycle()
-    val terminalFontSizeSp by viewModel.terminalFontSizeSp.collectAsStateWithLifecycle()
+    val terminalState by terminal.terminalState.collectAsStateWithLifecycle()
+    val terminalTabs by terminal.terminalTabs.collectAsStateWithLifecycle()
+    val activeTerminalTabId by terminal.activeTerminalTabId.collectAsStateWithLifecycle()
+    val terminalFontSizeSp by terminal.terminalFontSizeSp.collectAsStateWithLifecycle()
 
     // isTerminalMode 已上提——变更通过 onTerminalModeChanged 处理
     var terminalCtrlLatched by rememberSaveable { mutableStateOf(false) }
@@ -134,7 +134,7 @@ fun ChatTerminalView(
 
     LaunchedEffect(isTerminalMode) {
         if (isTerminalMode) {
-            viewModel.openTerminalSession { ok ->
+            terminal.openTerminalSession { ok ->
                 if (!ok) {
                     // snackbar 经 onConnectFailed 在 ChatScreen 的存活 scope 展示
                     //（本视图即将离开组合，本地 scope 会被取消——见参数注释）
@@ -223,7 +223,7 @@ fun ChatTerminalView(
                 .replace("\r\n", "\r")
                 .replace('\n', '\r')
             if (cleaned.isNotEmpty()) {
-                viewModel.sendTerminalInput(cleaned)
+                terminal.sendTerminalInput(cleaned)
             }
         }
     }
@@ -250,7 +250,7 @@ fun ChatTerminalView(
                 val altActive2 = terminalAltLatched
                 val processed = applyTerminalModifiers(input = chunk, ctrl = ctrlActive2, alt = altActive2)
                 if (processed.isEmpty()) return
-                viewModel.sendTerminalInput(processed)
+                terminal.sendTerminalInput(processed)
                 if (terminalCtrlLatched) terminalCtrlLatched = false
                 if (terminalAltLatched) terminalAltLatched = false
                 return
@@ -272,7 +272,7 @@ fun ChatTerminalView(
         }
 
         val processed = if (terminalVirtualFnDown) {
-            val fnResult = applyTermuxFnBindings(chunk, viewModel.terminalCursorKeysAppMode)
+            val fnResult = applyTermuxFnBindings(chunk, terminal.terminalCursorKeysAppMode)
             if (fnResult.showVolumeUi) {
                 val audio = context.getSystemService(AudioManager::class.java)
                 audio?.adjustSuggestedStreamVolume(
@@ -304,7 +304,7 @@ fun ChatTerminalView(
         if (BuildConfig.DEBUG && processed.contains('~')) {
             AppLogger.d("TerminalInput", "SENDING to server: '${processed.map { String.format("%04x", it.code) }}' fnDown=$terminalVirtualFnDown")
         }
-        viewModel.sendTerminalInput(processed)
+        terminal.sendTerminalInput(processed)
         if (terminalCtrlLatched) terminalCtrlLatched = false
         if (terminalAltLatched) terminalAltLatched = false
     }
@@ -352,7 +352,7 @@ fun ChatTerminalView(
                                     selected = tab.id == activeTerminalTabId,
                                     isAmoled = isAmoled,
                                     onReconnect = {
-                                        viewModel.reconnectTerminalTab(tab.id) { ok ->
+                                        terminal.reconnectTerminalTab(tab.id) { ok ->
                                             if (!ok) {
                                                 coroutineScope.launch {
                                                     snackbarHostState.showSnackbar(terminalConnectFailedMsg)
@@ -360,9 +360,9 @@ fun ChatTerminalView(
                                             }
                                         }
                                     },
-                                    onClose = { viewModel.closeTerminalTab(tab.id) },
+                                    onClose = { terminal.closeTerminalTab(tab.id) },
                                     onClick = {
-                                        viewModel.switchTerminalTab(tab.id)
+                                        terminal.switchTerminalTab(tab.id)
                                         coroutineScope.launch { terminalDrawerState.close() }
                                     },
                                 )
@@ -373,7 +373,7 @@ fun ChatTerminalView(
 
                         TerminalDrawerActionsRow(
                             onNewTab = {
-                                viewModel.createTerminalTab { ok ->
+                                terminal.createTerminalTab { ok ->
                                     if (!ok) {
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar(terminalConnectFailedMsg)
@@ -404,15 +404,15 @@ fun ChatTerminalView(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             SessionTerminalInline(
-                emulator = viewModel.terminalEmulator,
+                emulator = terminal.terminalEmulator,
                 focusRequester = terminalFocusRequester,
                 onSendInput = ::sendTerminalChunk,
                 onPaste = ::pasteClipboardToTerminal,
                 onResize = { cols, rows ->
-                    viewModel.resizeTerminal(cols, rows)
+                    terminal.resizeTerminal(cols, rows)
                 },
                 fontSizeSp = terminalFontSizeSp,
-                onFontSizeChange = viewModel::setTerminalFontSize,
+                onFontSizeChange = terminal::setTerminalFontSize,
                 contentBottomPadding = overlayHeightDp + imeBottomDp,
                 modifier = Modifier.fillMaxSize()
             )
@@ -426,13 +426,13 @@ fun ChatTerminalView(
             TerminalKeyboardOverlay(
                 ctrlLatched = terminalCtrlLatched,
                 altLatched = terminalAltLatched,
-                cursorApp = viewModel.terminalCursorKeysAppMode,
+                cursorApp = terminal.terminalCursorKeysAppMode,
                 onToggleDrawer = { coroutineScope.launch { terminalDrawerState.apply { if (isOpen) close() else open() } } },
                 onToggleCtrl = { terminalCtrlLatched = !terminalCtrlLatched },
                 onToggleAlt = { terminalAltLatched = !terminalAltLatched },
                 onSendInput = ::sendTerminalChunk,
-                onCtrlC = { viewModel.sendTerminalInput("\u0003") },
-                onClear = { viewModel.clearTerminalBuffer() },
+                onCtrlC = { terminal.sendTerminalInput("\u0003") },
+                onClear = { terminal.clearTerminalBuffer() },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .zIndex(1f)

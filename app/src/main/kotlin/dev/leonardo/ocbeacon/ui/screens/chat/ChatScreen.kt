@@ -720,7 +720,7 @@ fun ChatScreen(
             when {
                 isTerminalMode -> {
                     ChatTerminalView(
-                        viewModel = viewModel,
+                        terminal = viewModel.terminal,
                         isTerminalMode = isTerminalMode,
                         onTerminalModeChanged = { isTerminalMode = it },
                         startInTerminalMode = startInTerminalMode,
