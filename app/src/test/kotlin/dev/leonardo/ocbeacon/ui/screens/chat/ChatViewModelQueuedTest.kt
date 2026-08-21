@@ -487,7 +487,7 @@ class ChatViewModelQueuedTest {
             createAssistantMessageWithText("a1", completed = 3000L, created = 1500L),
             createUserMessageWithText("u1", created = 2000L),
         )
-        vm.refreshSession()
+        vm.sessionOps.refreshSession()
         advanceUntilIdle()
 
         // queued 应被清空

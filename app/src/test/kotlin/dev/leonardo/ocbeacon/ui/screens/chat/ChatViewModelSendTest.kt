@@ -302,7 +302,7 @@ class ChatViewModelSendTest {
         assertNull(viewModel.composer.restoredDraftState.value)
 
         // 调用 consume 不应崩溃，且保持为 null
-        viewModel.consumeRestoredDraft()
+        viewModel.composer.consumeRestoredDraft()
         advanceUntilIdle()
 
         assertNull(

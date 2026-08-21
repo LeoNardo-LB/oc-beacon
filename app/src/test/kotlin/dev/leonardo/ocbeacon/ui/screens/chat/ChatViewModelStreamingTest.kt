@@ -257,7 +257,7 @@ class ChatViewModelStreamingTest {
         assertTrue("Messages should exist before refresh", beforeRefresh.isNotEmpty())
 
         // 当：调用 refreshSession
-        vm.refreshSession()
+        vm.sessionOps.refreshSession()
         advanceUntilIdle()
 
         // 那么：消息不应被清空（因为 refreshSession 使用 _isRefreshing 而非 _isLoading）
@@ -289,7 +289,7 @@ class ChatViewModelStreamingTest {
 
         // 当：REST 刷新返回空消息（例如服务器延迟）
         coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
-        vm.refreshSession()
+        vm.sessionOps.refreshSession()
         advanceUntilIdle()
 
         // 那么：V1 setMessages 做全量替换 —— 消息被清空

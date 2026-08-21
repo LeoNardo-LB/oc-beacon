@@ -337,9 +337,7 @@ class ChatViewModel @Inject constructor(
         scope = viewModelScope,
     )
     val modelConfigState: StateFlow<ModelConfigState> get() = modelConfig.modelConfigState
-    fun selectAgent(name: String) = modelConfig.selectAgent(name)
-    fun cycleVariant() = modelConfig.cycleVariant()
-    /** 2026-08-16（方案 A·默认模型）：星标切换——设为默认/再点取消。
+            /** 2026-08-16（方案 A·默认模型）：星标切换——设为默认/再点取消。
      *  存 "providerId|modelId"（variants 不参与默认——保持简单）。 */
     fun toggleDefaultModel(providerId: String, modelId: String) {
         viewModelScope.launch {
@@ -352,8 +350,7 @@ class ChatViewModel @Inject constructor(
     /** 2026-08-16（方案 A·默认模型）：本地默认模型（"pid|mid"），供 UI 星标态 */
     val localDefaultModel: String? get() = modelConfig.localDefaultModel
 
-    fun selectModel(providerId: String, modelId: String) = modelConfig.selectModel(providerId, modelId)
-
+    
     // ============ 消息数据 Delegate ============
     private val messageData: MessageDataDelegate = MessageDataDelegate(
         manageSessionUseCase = manageSessionUseCase,
@@ -552,6 +549,9 @@ class ChatViewModel @Inject constructor(
     /** ④模型配置簇：provider/agent/model/variant 选择状态。 */
     internal val modelSelection: ModelConfigDelegate get() = modelConfig
 
+    /** ⑤会话操作簇：REST 刷新/状态同步/中止/权限应答。 */
+    internal val sessionOps: SessionActionsDelegate get() = sessionActions
+
     init {
         val isNewSession = sessionId.isEmpty()
 
@@ -723,54 +723,17 @@ class ChatViewModel @Inject constructor(
     }
     private fun startObservingMessages() = messageData.startObservingMessages()
 
-    fun loadMessages() = messageData.paginationDelegate.loadMessages()
-    fun refreshSession() = sessionActions.refreshSession()
-    fun refreshIfNeeded() = sessionActions.refreshIfNeeded()
+            fun refreshIfNeeded() = sessionActions.refreshIfNeeded()
     fun syncSessionStatus() = sessionActions.syncSessionStatus()
-    fun loadOlderMessages() = messageData.paginationDelegate.loadOlderMessages()
-    /** 自动续载的退避等待毫秒（0 = 无需等待）——UI 触发自动分页前查询。 */
-    fun autoLoadWaitMillis(): Long = messageData.paginationDelegate.autoLoadWaitMillis()
-
+    
     // ============ 快速导航双向加载（门面 —— MessagePaginationDelegate） ============
 
-    /** 快速导航定位加载（前后各 N 条）。suspend —— 调用方在协程中 await。 */
-    suspend fun loadAround(targetMessageId: String) =
-        messageData.paginationDelegate.loadAround(targetMessageId)
-
-    /** 向更新方向加载（定位到中间后下滑触发）。 */
-    fun loadNewerMessages() = messageData.paginationDelegate.loadNewerMessages()
-
-    /** 服务器上是否存在更新方向（newer）的更多消息。 */
-    val hasNewerMessages: kotlinx.coroutines.flow.StateFlow<Boolean> =
-        messageData.paginationDelegate.hasNewerMessages
-
-    /** "定位加载" 请求是否进行中（jumpToMessage 异步加载指示）。 */
-    val isLoadingAround: kotlinx.coroutines.flow.StateFlow<Boolean> =
-        messageData.paginationDelegate.isLoadingAround
-
-    /** "加载更新" 请求是否进行中。 */
-    val isLoadingNewer: kotlinx.coroutines.flow.StateFlow<Boolean> =
-        messageData.paginationDelegate.isLoadingNewer
-
-    /** 快速导航全量列表（Room 热表 role='user'，含 parts）。suspend —— 调用方在协程中 await。 */
-    suspend fun loadJumpTargets(): List<MessageWithParts> = messageData.loadJumpTargets()
 
     // ============ @ 文件提及搜索 + 草稿管理（门面 —— DraftInputDelegate） ============
 
-    val fileSearchResults: StateFlow<List<String>> get() = draftDelegate.fileSearchResults
-
-    fun searchFilesForMention(query: String) = draftDelegate.searchFilesForMention(query)
-    fun confirmFilePath(path: String) = draftDelegate.confirmFilePath(path)
-    fun removeFilePath(path: String) = draftDelegate.removeFilePath(path)
-    fun clearFileSearch() = draftDelegate.clearFileSearch()
-    fun clearConfirmedPaths() = draftDelegate.clearConfirmedPaths()
-
-    fun updateDraftText(text: String) = draftDelegate.updateDraftText(text)
-    fun addDraftAttachment(uri: String) = draftDelegate.addDraftAttachment(uri)
-    fun removeDraftAttachment(index: Int) = draftDelegate.removeDraftAttachment(index)
-    fun clearDraft() = draftDelegate.clearDraft()
-    fun consumeRestoredDraft() = draftDelegate.consumeRestoredDraft()
-
+    
+                    
+                    
     override fun onCleared() {
         messageData.cancelSseJob()
         terminalDelegate.closeTerminalSession()
@@ -953,7 +916,6 @@ class ChatViewModel @Inject constructor(
     fun runShellCommand(command: String, onResult: (Boolean) -> Unit) =
         sessionActions.runShellCommand(command, onResult)
 
-    fun getLastAssistantText(): String? = sessionActions.getLastAssistantText()
-
+    
     companion object
 }
