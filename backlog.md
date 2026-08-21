@@ -60,9 +60,9 @@
   - 取证修正后落地（2a0bb5a6/f8521376/2de6889e）：PaginationCursorPolicy 收编 6 泄漏点（isV2 从 domain/UI 绝迹）+ ServerCapabilities 门控（god-client 显式不拆 #185）；真机实证服务器原生 cursor 续页 + V2 门控位
   - V1 无真机服务器（JVM 契约覆盖，与 #150 复验一并）；⏳ 维度 5 分页观感待验收
 
-- [ ] **#173 架构评审候选 5：ChatViewModel delegate 按状态簇重组（消灭假 seam）** `refactor` `ui`
-  - UI 消费 98 成员 + delegate 间 sink 回写/lambda 互接——按状态簇重组为 3-4 个所有权完整 module；排序在 #169 之后
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+- [~] **#173 架构评审候选 5：ChatViewModel 按状态簇重组——已实现，真机对话全生命周期 E2E 全绿，待用户验收** `refactor` `ui`
+  - 四段串行（b511eef5/7c5f9cd9/55b803ba+22a4cff9+007bb527/d4601004）：Terminal 迁出 + 4 簇门面 + UI 三子组件按簇迁移（28 处）+ uiState 退役（生产零消费，ChatUiState 删除）；跨簇编排留薄 VM
+  - 真机实证 FSM 全链（Idle→Busy→Streaming→Idle force-complete）+ composer/conversation 簇路径；⏳ 维度 5 观感待验收
 
 - [~] **#174 架构评审候选 6：SessionStateService 8 回调旋钮 → 1 必需协作者——已实现，真机烟雾全绿，待用户验收** `refactor`
   - f179ad70+ab2c36c3：SessionStateCollaborator 构造注入（漏接=编译错误），EventDispatcher 接线块迁入 Impl，1808 单测全绿；真机 FSM 完整生命周期经新接线实证（含 force-complete×2）

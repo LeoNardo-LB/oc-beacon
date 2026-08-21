@@ -232,6 +232,24 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 
 1. 簇内部成型（delegate 收编 4 簇，VM 门面临时保留）2. UI 消费面串行迁移（MessageList → BottomBar → ChatScreen，协议每步 compile+commit）3. 测试重写（6 harness + uiState 退役）
 
+## #173（候选 5）实现记录（2026-08-21 完成，真机 E2E 全绿）
+
+### 提交链（四段串行，ChatScreen 协议每步 compile+commit）
+
+| 段 | commit | 内容 |
+|----|--------|------|
+| 0 Terminal 迁出 | b511eef5 | VM 7 getter + 10 转发 → 单成员 terminal；ChatTerminalView 直收 TerminalDelegate（internal→public）；onCleared 直调 |
+| 1 簇门面 | 7c5f9cd9 | VM 增 4 internal 簇成员：sessionContext/conversation/composer/modelSelection（既有 delegate 直引用=簇内部成型已由 delegate 边界保证） |
+| 2 UI 迁移 | 55b803ba + 22a4cff9 + 007bb527 | ChatMessageList 分页 8 处→conversation.paginationDelegate；BottomBar composer 8 + modelSelection 2；ChatScreen 18（三簇；跨簇编排 toggleDefaultModel 留 VM——定案 Q2 abort/revert 编排留薄 VM 同理） |
+| 3 uiState 退役 | d4601004 | 生产零消费实证（grep .uiState 主代码 0 命中）→ 六源组装管道 + ChatUiState data class 删除（RevertedDraftPayload/ChatMessage 独立类型恢复）；Send/Queued 测试订阅迁拆分流（订阅助手双流激活） |
+
+### 验证证据（2026-08-21 真机 houji）
+
+- **自动化**：全量 1812/1812 绿（段 2 后 1 败 + 段 3 后 1 败均为 #186 已登记的 ContextTokens 间歇 flake——三连单类绿 + 重跑全量绿，stash 二分亦证实非本改动回归）；每段 compile 绿
+- **真机对话全生命周期 E2E**：冷启动恢复会话 → 草稿输入（composer 簇渲染）→ 发送（FSM Idle→Busy/Waiting→TextStarted→Busy/Streaming 全链日志）→ 21s 后 SseIdle→Idle [force-complete] → 快速定位跳转（conversation.paginationDelegate 路径，sheet 关闭正常返回聊天）→ crash 0
+- 段间协议遵守：ChatScreen.kt 三次独立 Read→Edit→compile→commit
+- ⏳ 维度 5：对话全流程观感（输入/发送/流式/跳转/草稿恢复）待用户验收
+
 ## #172（候选 4）实现记录（2026-08-21 完成，真机 E2E 全绿）
 
 ### 提交链（三段式）
