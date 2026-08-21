@@ -808,62 +808,38 @@ fun ChatScreen(
 
                     // #137（D2-L65）：此处原重复定义 onViewToolLambda（死代码——
                     // LocalOnViewTool 由外层 516 行的定义提供，本内层定义从未被使用）
-                    if (sessionMeta.sessionParentId == null) {
-                        ChatMessageList(
-                            listState = listState,
-                            messageState = messageState,
-                            sessionMeta = sessionMeta,
-                            interaction = interaction,
-                            rawMessages = rawMessages,
-                            displayItems = displayItems,
-                            isAtBottomState = scrollController.isAtBottomState,
-                            isAmoled = isAmoled,
-                            messageSpacing = messageSpacing,
-                            isMainSession = true,
-                            coroutineScope = coroutineScope,
-                            snackbarHostState = snackbarHostState,
-                            context = context,
-                            clipboard = clipboard,
-                            keyboardController = keyboardController,
-                            viewModel = viewModel,
-                            navigateToChildSession = onNavigateToChildSession,
-                            onOpenFile = handleOpenFile,
-                            onForceScrollToBottom = { scrollController.forceScrollToBottom() },
-                            showQuickNavigate = showQuickNavigate,
-                            onQuickNavigateDismiss = { showQuickNavigate = false },
-                            agents = modelConfig.agents,
-                onAgentClick = { agentName -> viewModel.selectAgent(agentName) },
-
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
-                        ChatMessageList(
-                            listState = listState,
-                            messageState = messageState,
-                            sessionMeta = sessionMeta,
-                            interaction = interaction,
-                            rawMessages = rawMessages,
-                            displayItems = displayItems,
-                            isAtBottomState = scrollController.isAtBottomState,
-                            isAmoled = isAmoled,
-                            messageSpacing = messageSpacing,
-                            isMainSession = false,
-                            coroutineScope = coroutineScope,
-                            snackbarHostState = snackbarHostState,
-                            context = context,
-                            clipboard = clipboard,
-                            keyboardController = keyboardController,
-                            viewModel = viewModel,
-                            navigateToChildSession = onNavigateToChildSession,
-                            onOpenFile = handleOpenFile,
-                            onForceScrollToBottom = { scrollController.forceScrollToBottom() },
-                            showQuickNavigate = false,
-                            onQuickNavigateDismiss = {},
-                            agents = modelConfig.agents,
-
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+                    // #175：原主/子会话双调用点合一——20 个公共参数逐字相同，
+                    // 4 个差异（isMainSession/showQuickNavigate/onQuickNavigateDismiss/onAgentClick）
+                    // 全是同一开关（主/子会话）的投影，条件内移为参数化单调用点。
+                    val isMainSession = sessionMeta.sessionParentId == null
+                    ChatMessageList(
+                        listState = listState,
+                        messageState = messageState,
+                        sessionMeta = sessionMeta,
+                        interaction = interaction,
+                        rawMessages = rawMessages,
+                        displayItems = displayItems,
+                        isAtBottomState = scrollController.isAtBottomState,
+                        isAmoled = isAmoled,
+                        messageSpacing = messageSpacing,
+                        isMainSession = isMainSession,
+                        coroutineScope = coroutineScope,
+                        snackbarHostState = snackbarHostState,
+                        context = context,
+                        clipboard = clipboard,
+                        keyboardController = keyboardController,
+                        viewModel = viewModel,
+                        navigateToChildSession = onNavigateToChildSession,
+                        onOpenFile = handleOpenFile,
+                        onForceScrollToBottom = { scrollController.forceScrollToBottom() },
+                        // 子会话不显示快速定位（show=false 时 onDismiss 不可达，可无条件传）
+                        showQuickNavigate = if (isMainSession) showQuickNavigate else false,
+                        onQuickNavigateDismiss = { showQuickNavigate = false },
+                        agents = modelConfig.agents,
+                        // 子会话无 agent 选择入口（置 null 隐藏）
+                        onAgentClick = if (isMainSession) ({ agentName -> viewModel.selectAgent(agentName) }) else null,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                   }
               }
            }
