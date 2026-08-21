@@ -278,17 +278,17 @@ fun ChatScreen(
     startInTerminalMode: Boolean = false,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
-    val messageState by viewModel.messageListState.collectAsStateWithLifecycle()
+    val messageState by viewModel.conversation.messageListState.collectAsStateWithLifecycle()
     val sessionMeta by viewModel.sessionMetaState.collectAsStateWithLifecycle()
-    val interaction by viewModel.interactionState.collectAsStateWithLifecycle()
+    val interaction by viewModel.conversation.interactionState.collectAsStateWithLifecycle()
     val tokenStats by viewModel.tokenStatsState.collectAsStateWithLifecycle()
     val modelConfig by viewModel.modelConfigState.collectAsStateWithLifecycle()
     val directory by viewModel.directoryState.collectAsStateWithLifecycle()
     val contextDetail by viewModel.contextDetailState.collectAsStateWithLifecycle()
-    val restoredDraft by viewModel.restoredDraftState.collectAsStateWithLifecycle()
-    val draftText by viewModel.draftText.collectAsStateWithLifecycle()
+    val restoredDraft by viewModel.composer.restoredDraftState.collectAsStateWithLifecycle()
+    val draftText by viewModel.composer.draftText.collectAsStateWithLifecycle()
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
-    val draftAttachmentUris by viewModel.draftAttachmentUris.collectAsStateWithLifecycle()
+    val draftAttachmentUris by viewModel.composer.draftAttachmentUris.collectAsStateWithLifecycle()
     var inputText by remember { mutableStateOf(TextFieldValue("")) }
     // 首次组合时从草稿同步一次 inputText。
     // #113（D2-06）：原实现用 remember 布尔标记，在 restoredDraft（DataStore
@@ -303,7 +303,7 @@ fun ChatScreen(
     }
     // 监听应将文本恢复到输入框的 revert 事件
     LaunchedEffect(Unit) {
-        viewModel.revertedDraftEvent.collect { payload ->
+        viewModel.composer.revertedDraftEvent.collect { payload ->
             inputText = TextFieldValue(payload.text, TextRange(payload.text.length))
         }
     }
@@ -405,8 +405,8 @@ fun ChatScreen(
     // 键盘自然地推动内容，无需显式滚动。
 
     // @ 文件提及状态
-    val fileSearchResults by viewModel.fileSearchResults.collectAsStateWithLifecycle()
-    val confirmedFilePaths by viewModel.confirmedFilePaths.collectAsStateWithLifecycle()
+    val fileSearchResults by viewModel.composer.fileSearchResults.collectAsStateWithLifecycle()
+    val confirmedFilePaths by viewModel.composer.confirmedFilePaths.collectAsStateWithLifecycle()
 
     // ChatScreen 中直接使用的设置
     val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
@@ -444,8 +444,8 @@ fun ChatScreen(
         imageWebpQuality = imageAttachmentWebpQuality,
         initialSharedImages = initialSharedImages,
         onSharedImagesConsumed = onSharedImagesConsumed,
-        onAddDraftAttachment = { viewModel.addDraftAttachment(it) },
-        onRemoveDraftAttachment = { viewModel.removeDraftAttachment(it) },
+        onAddDraftAttachment = { viewModel.composer.addDraftAttachment(it) },
+        onRemoveDraftAttachment = { viewModel.composer.removeDraftAttachment(it) },
         onExportSession = { ctx, uri, callback -> viewModel.exportSession(ctx, uri, callback) },
         onShowSnackbar = { msg -> snackbarHostState.showSnackbar(msg) },
     )
@@ -476,9 +476,9 @@ fun ChatScreen(
             // 不匹配时保留输入框（含草稿/附件），用户可再次发送。
             if (inputText.text == viewModel.lastSentTextSnapshotForClear) {
                 inputText = TextFieldValue("")
-                viewModel.clearDraft()
-                viewModel.clearConfirmedPaths()
-                viewModel.clearFileSearch()
+                viewModel.composer.clearDraft()
+                viewModel.composer.clearConfirmedPaths()
+                viewModel.composer.clearFileSearch()
                 attachmentHandler.clearAttachments()
             }
         }
@@ -557,7 +557,7 @@ fun ChatScreen(
         }
     }
     val onToggleToolExpandedLambda = remember(viewModel) {
-        { toolId: String, defaultExpanded: Boolean -> viewModel.toggleToolExpanded(toolId, defaultExpanded) }
+        { toolId: String, defaultExpanded: Boolean -> viewModel.conversation.toggleToolExpanded(toolId, defaultExpanded) }
     }
     val sessionDiffsMap = remember(viewModel.sessionId, sessionDiffs) {
         mapOf(viewModel.sessionId to sessionDiffs)
@@ -745,7 +745,7 @@ fun ChatScreen(
                     ChatErrorState(
                         modifier = Modifier.align(Alignment.Center),
                         error = interaction.error,
-                        onRetry = { viewModel.loadMessages() }
+                        onRetry = { viewModel.conversation.paginationDelegate.loadMessages() }
                     )
                 }
                 // 新增P2（2026-08-19）：空会话仍有待处理权限/提问时不得落入空态分支
@@ -837,7 +837,7 @@ fun ChatScreen(
                         onQuickNavigateDismiss = { showQuickNavigate = false },
                         agents = modelConfig.agents,
                         // 子会话无 agent 选择入口（置 null 隐藏）
-                        onAgentClick = if (isMainSession) ({ agentName -> viewModel.selectAgent(agentName) }) else null,
+                        onAgentClick = if (isMainSession) ({ agentName -> viewModel.modelSelection.selectAgent(agentName) }) else null,
                         modifier = Modifier.fillMaxSize(),
                     )
                   }
@@ -864,9 +864,9 @@ fun ChatScreen(
         selectedProviderId = modelConfig.selectedProviderId,
         selectedModelId = modelConfig.selectedModelId,
         onSelectModel = { providerId, modelId ->
-            viewModel.selectModel(providerId, modelId)
+            viewModel.modelSelection.selectModel(providerId, modelId)
         },
-        defaultModel = viewModel.localDefaultModel,
+        defaultModel = viewModel.modelSelection.localDefaultModel,
         onSetDefaultModel = { providerId, modelId ->
             viewModel.toggleDefaultModel(providerId, modelId)
         },
