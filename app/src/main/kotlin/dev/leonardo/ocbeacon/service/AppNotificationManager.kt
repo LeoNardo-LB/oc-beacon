@@ -270,7 +270,7 @@ class AppNotificationManager @Inject constructor(
                 .setVibrate(longArrayOf(0, 500, 200, 500))
         }
 
-        if (sessionFocusHolder.shouldSuppressEvent(server.id, sessionId)) return
+        if (sessionFocusHolder.shouldSuppress(server.id, sessionId)) return
         notificationManager.notify(notifId, builder.build())
         showServerGroupSummary(context, notificationManager, server)
     }
@@ -370,7 +370,7 @@ class AppNotificationManager @Inject constructor(
             val targetSessionId = if (isChildSession(sessionId)) {
                 sessionById[sessionId]?.parentId ?: sessionId
             } else sessionId
-            if (sessionFocusHolder.shouldSuppressEvent(server.id, targetSessionId)) return@forEach
+            if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@forEach
             questions.forEach { question ->
                 // 与 SSE 路径对齐：文本缺失时回退到本地化字符串，
                 // 同时避免空字符串削弱 shouldNotifyQuestion 的去重键。
@@ -419,7 +419,7 @@ class AppNotificationManager @Inject constructor(
             .setGroup("server_${server.id}")
             .build()
 
-        if (sessionFocusHolder.shouldSuppressEvent(server.id, sessionId)) return
+        if (sessionFocusHolder.shouldSuppress(server.id, sessionId)) return
         notificationManager.notify(notifId, notification)
         showServerGroupSummary(context, notificationManager, server)
     }
@@ -618,7 +618,7 @@ class AppNotificationManager @Inject constructor(
      * 纯查询，不修改状态——真正通知后由 [markPermissionNotified] 记录。
      */
     internal fun shouldNotifyPermission(serverId: String, sessionId: String, permission: String): Boolean {
-        if (sessionFocusHolder.shouldSuppressEvent(serverId, sessionId)) return false
+        if (sessionFocusHolder.shouldSuppress(serverId, sessionId)) return false
         return lastNotifiedPermissionBySession[sessionNotificationKey(serverId, sessionId)] != permission
     }
 
@@ -632,7 +632,7 @@ class AppNotificationManager @Inject constructor(
      * 纯查询，不修改状态——真正通知后由 [markQuestionNotified] 记录。
      */
     internal fun shouldNotifyQuestion(serverId: String, sessionId: String, questionText: String): Boolean {
-        if (sessionFocusHolder.shouldSuppressEvent(serverId, sessionId)) return false
+        if (sessionFocusHolder.shouldSuppress(serverId, sessionId)) return false
         return lastNotifiedQuestionBySession[sessionNotificationKey(serverId, sessionId)] != questionText
     }
 

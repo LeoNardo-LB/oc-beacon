@@ -17,6 +17,8 @@ class SessionFocusHolderTest {
 
     @Test
     fun `shouldSuppress returns false when app is in background`() {
+        // 2026-08-16 语义（通知 P1）：后台不抑制——按 Home 回桌面后用户看不到界面，
+        // 权限/问题/错误通知必须发出（原 shouldSuppressEvent 旧行为会静默吞通知）
         holder.setActiveFocus("server1", "session1")
         holder.setAppInForeground(false)
         assertFalse(holder.shouldSuppress("server1", "session1"))
@@ -62,41 +64,7 @@ class SessionFocusHolderTest {
         assertEquals(null, holder.activeFocus.value)
     }
 
-    // ============ shouldSuppressEvent（事件通知抑制：不要求前台） ============
 
-    @Test
-    fun `shouldSuppressEvent does NOT suppress in background for focused session`() {
-        // 2026-08-16 语义修正（通知 P1）：后台不再抑制——按 Home 键回桌面后
-        // 用户看不到界面，权限/问题/错误通知必须发出（原旧行为会静默吞通知）
-        holder.setAppInForeground(false)
-        holder.setActiveFocus("server1", "session1")
-        assertFalse(holder.shouldSuppressEvent("server1", "session1"))
-    }
-
-    @Test
-    fun `shouldSuppressEvent suppresses in foreground for focused session`() {
-        holder.setAppInForeground(true)
-        holder.setActiveFocus("server1", "session1")
-        assertTrue(holder.shouldSuppressEvent("server1", "session1"))
-    }
-
-    @Test
-    fun `shouldSuppressEvent returns false when no active focus`() {
-        holder.setAppInForeground(true)
-        assertFalse(holder.shouldSuppressEvent("server1", "session1"))
-    }
-
-    @Test
-    fun `shouldSuppressEvent returns false for different session`() {
-        holder.setActiveFocus("server1", "session1")
-        assertFalse(holder.shouldSuppressEvent("server1", "session2"))
-    }
-
-    @Test
-    fun `shouldSuppressEvent returns false for different server`() {
-        holder.setActiveFocus("server1", "session1")
-        assertFalse(holder.shouldSuppressEvent("server2", "session1"))
-    }
 
     @Test
     fun `shouldSuppressEvent returns false after focus cleared`() {
