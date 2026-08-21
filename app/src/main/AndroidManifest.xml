@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- #155：会话内提示音自调 Vibrator（渠道震动由系统代劳不需要；本设计直调需声明） -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- REQUEST_INSTALL_PACKAGES：仅 dev/beta（GitHub 分发）声明，stable（Google Play）由 src/stable/AndroidManifest.xml 移除 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 

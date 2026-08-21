@@ -30,6 +30,7 @@ class CancelSessionNotificationsTest {
             eventDispatcher,
             settingsDataStore,
             SessionFocusHolder(),
+            mockk(relaxed = true),
             CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }

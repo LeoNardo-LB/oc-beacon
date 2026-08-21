@@ -80,6 +80,9 @@ class OpenCodeConnectionService : Service() {
     lateinit var appNotificationManager: AppNotificationManager
 
     @Inject
+    lateinit var feedbackPlayer: InSessionFeedbackPlayer
+
+    @Inject
     lateinit var eventDispatcher: EventDispatcher
 
     @Inject
@@ -144,6 +147,8 @@ class OpenCodeConnectionService : Service() {
 
         systemNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         appNotificationManager.createNotificationChannels(systemNotificationManager, this)
+        // #155：会话内提示音的上下文（Ringtone/Vibrator/渠道快照读取）
+        feedbackPlayer.attach(this)
 
         // ===== 连接生命周期接线（#170：编排收进 Coordinator，本类为 FGS adapter）=====
         // SSE 事件路由（通知/权限域）与 question 轮询体（通知域，依赖 Context）
@@ -531,9 +536,12 @@ class OpenCodeConnectionService : Service() {
         // 此处仅路由到通知逻辑
         when (event) {
             is SseEvent.SessionIdle -> {
-                // 若用户正在主动查看此会话则抑制
-                if (sessionFocusHolder.shouldSuppress(server.id, event.sessionId)) return
-                if (appNotificationManager.isChildSession(event.sessionId)) return
+                // #155：正在查看该会话 → 被抑制的系统通知转为会话内提示音
+                //（策略镜像系统通知：渠道/铃声档/DND/开关，见 InSessionFeedbackPlayer）
+                val inSession = sessionFocusHolder.shouldSuppress(server.id, event.sessionId)
+                if (!inSession && appNotificationManager.isChildSession(event.sessionId)) return
+                // 子会话 turn 完成既不通知也不响（Q3，与通知口径一致）
+                if (inSession && appNotificationManager.isChildSession(event.sessionId)) return
                 serviceScope.launch {
                     if (!settingsDataStore.notificationsEnabled.first()) return@launch
 
@@ -545,7 +553,12 @@ class OpenCodeConnectionService : Service() {
                     var assistantMessageId: String? = null
                     for (attempt in 0 until 3) {
                         delay(250)
-                        assistantMessageId = appNotificationManager.checkNewAssistantMessage(server.id, event.sessionId)
+                        // #155 拆分：提示音路径纯查询（不写通知去重 map，Q11）
+                        assistantMessageId = if (inSession) {
+                            appNotificationManager.computeNewAssistantMessageId(event.sessionId)
+                        } else {
+                            appNotificationManager.checkNewAssistantMessage(server.id, event.sessionId)
+                        }
                         if (assistantMessageId != null) {
                             if (attempt > 0) {
                                 AppLogger.d(TAG, "[${server.displayName}] Response-ready check recovered after ${attempt + 1} attempts (${event.sessionId})")
@@ -560,7 +573,23 @@ class OpenCodeConnectionService : Service() {
                         return@launch
                     }
 
+                    if (inSession) {
+                        // 成功完成的 turn → 重置该会话错误 streak（Q10）+ 播提示音
+                        feedbackPlayer.onTurnCompleted(server.id, event.sessionId)
+                        feedbackPlayer.playIfFocused(
+                            serverId = server.id,
+                            sessionId = event.sessionId,
+                            type = FeedbackType.TURN_COMPLETE,
+                            dedupKey = assistantMessageId!!,
+                            silentNotifications = settingsDataStore.silentNotifications.first(),
+                            notificationsEnabled = true,
+                        )
+                        return@launch
+                    }
+
                     AppLogger.i(TAG, "[${server.displayName}] Session idle -> Response ready for ${event.sessionId}")
+                    // 成功完成的 turn → 重置该会话错误 streak（通知侧同语义，R4）
+                    feedbackPlayer.onTurnCompleted(server.id, event.sessionId)
                     appNotificationManager.showTaskCompleteNotification(
                         this@OpenCodeConnectionService, systemNotificationManager, server, event.sessionId
                     )
@@ -606,7 +635,18 @@ class OpenCodeConnectionService : Service() {
                         event.sessionId
                     }
                     AppLogger.i(TAG, "[${server.displayName}] Permission asked: ${event.permission} (session=${event.sessionId}, target=$targetSessionId)")
-                    if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
+                    if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
+                        // #155：被抑制的权限通知 → 会话内提示音（独立去重，Q11）
+                        feedbackPlayer.playIfFocused(
+                            serverId = server.id,
+                            sessionId = targetSessionId,
+                            type = FeedbackType.PERMISSION,
+                            dedupKey = event.permission,
+                            silentNotifications = settingsDataStore.silentNotifications.first(),
+                            notificationsEnabled = true,
+                        )
+                        return@maybeNotify
+                    }
                     appNotificationManager.showPermissionNotification(
                         this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, event.permission
                     )
@@ -622,7 +662,20 @@ class OpenCodeConnectionService : Service() {
                         event.sessionId
                     }
                     AppLogger.i(TAG, "[${server.displayName}] Question asked for session ${event.sessionId} (target=$targetSessionId)")
-                    if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
+                    if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
+                        // #155：被抑制的问题通知 → 会话内提示音（独立去重，Q11）
+                        val qText = event.questions.firstOrNull()?.question
+                            ?: getString(R.string.notification_has_question, getString(R.string.notification_new_session))
+                        feedbackPlayer.playIfFocused(
+                            serverId = server.id,
+                            sessionId = targetSessionId,
+                            type = FeedbackType.QUESTION,
+                            dedupKey = qText,
+                            silentNotifications = settingsDataStore.silentNotifications.first(),
+                            notificationsEnabled = true,
+                        )
+                        return@maybeNotify
+                    }
                     val questionText = event.questions.firstOrNull()?.question
                         ?: getString(R.string.notification_has_question, getString(R.string.notification_new_session))
                     appNotificationManager.showQuestionNotification(
@@ -640,10 +693,36 @@ class OpenCodeConnectionService : Service() {
                         event.sessionId
                     }
                     AppLogger.i(TAG, "[${server.displayName}] Session error: ${event.error} (session=${event.sessionId}, target=$targetSessionId)")
-                    if (targetSessionId != null && sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@maybeNotify
+                    if (targetSessionId != null && sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
+                        // #155：被抑制的错误通知 → 会话内提示音（streak 门控在内，R3）
+                        feedbackPlayer.playIfFocused(
+                            serverId = server.id,
+                            sessionId = targetSessionId,
+                            type = FeedbackType.ERROR,
+                            dedupKey = event.error,
+                            silentNotifications = settingsDataStore.silentNotifications.first(),
+                            notificationsEnabled = true,
+                        )
+                        return@maybeNotify
+                    }
+                    // R4：通知侧错误 streak——连续错误只弹第一条；重置 = 成功 turn 或用户新消息
+                    if (targetSessionId != null &&
+                        !feedbackPlayer.notificationErrorStreak.onError(server.id, targetSessionId)
+                    ) {
+                        AppLogger.i(TAG, "[${server.displayName}] Error notification suppressed by streak (target=$targetSessionId)")
+                        return@maybeNotify
+                    }
                     appNotificationManager.showErrorNotification(
                         this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, event.error
                     )
+                }
+            }
+            is SseEvent.MessageUpdated -> {
+                // #155（Q10）：用户主动发出新消息 → 重置该会话错误 streak。
+                // 合成消息（synthetic，工具代发）不算用户主动。
+                val info = event.info
+                if (info is dev.leonardo.ocbeacon.domain.model.Message.User && info.role != "synthetic") {
+                    feedbackPlayer.onUserMessage(server.id, info.sessionId)
                 }
             }
             else -> { }

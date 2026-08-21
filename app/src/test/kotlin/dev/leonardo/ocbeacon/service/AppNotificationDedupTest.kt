@@ -30,6 +30,7 @@ class AppNotificationDedupTest {
             eventDispatcher,
             settingsDataStore,
             holder,
+            mockk(relaxed = true),
             CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }

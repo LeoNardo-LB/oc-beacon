@@ -45,6 +45,7 @@ class AppNotificationManager @Inject constructor(
     private val eventDispatcher: EventDispatcher,
     private val settingsRepository: SettingsDataStore,
     private val sessionFocusHolder: SessionFocusHolder,
+    private val feedbackPlayer: InSessionFeedbackPlayer,
     @param:ApplicationScope private val appScope: CoroutineScope,
 ) {
     private val TAG = "AppNotificationMgr"
@@ -405,7 +406,31 @@ class AppNotificationManager @Inject constructor(
             val targetSessionId = if (isChildSession(sessionId)) {
                 sessionById[sessionId]?.parentId ?: sessionId
             } else sessionId
-            if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) return@forEach
+            if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
+                // #155：REST 兜底路径的被抑制问题 → 会话内提示音（独立去重防 SSE/REST 双响）
+                appScope.launch {
+                    val enabled = settingsRepository.notificationsEnabled.first()
+                    if (!enabled) return@launch
+                    val silent = settingsRepository.silentNotifications.first()
+                    questions.forEach { question ->
+                        val text = question.questions.firstOrNull()?.question
+                            ?: question.questions.firstOrNull()?.header
+                            ?: context.getString(
+                                R.string.notification_has_question,
+                                context.getString(R.string.notification_new_session)
+                            )
+                        feedbackPlayer.playIfFocused(
+                            serverId = server.id,
+                            sessionId = targetSessionId,
+                            type = FeedbackType.QUESTION,
+                            dedupKey = text,
+                            silentNotifications = silent,
+                            notificationsEnabled = enabled,
+                        )
+                    }
+                }
+                return@forEach
+            }
             questions.forEach { question ->
                 // 与 SSE 路径对齐：文本缺失时回退到本地化字符串，
                 // 同时避免空字符串削弱 shouldNotifyQuestion 的去重键。
@@ -471,18 +496,17 @@ class AppNotificationManager @Inject constructor(
     }
 
     /**
-     * 检查会话是否有新的可通知 assistant 消息。
-     * 若该消息应触发通知则返回其消息 ID，否则返回 null。
-     * 通过 [lastNotifiedAssistantMessageBySession] 在内部处理去重
-     *（key 含 serverId，避免跨服务器同 sessionId 误判）。
+     * 纯查询：会话是否有带文本输出的最新 assistant 消息（不读写去重状态）。
+     * #155 拆分：提示音路径只读（不污染通知去重 map，Q11），通知路径
+     * 由 [checkNewAssistantMessage] 组合查询+去重写入。
      */
-    fun checkNewAssistantMessage(serverId: String, sessionId: String): String? {
+    fun computeNewAssistantMessageId(sessionId: String): String? {
         val sessionMessages = eventDispatcher.messages.value[sessionId] ?: return null
         val latestAssistant = sessionMessages
             .asReversed()
             .firstOrNull { it is Message.Assistant } as? Message.Assistant ?: return null
 
-        // 错误消息始终通知
+        // 错误消息始终视为有内容
         if (!latestAssistant.error?.message.isNullOrBlank()) return latestAssistant.id
 
         // 检查是否有文本输出
@@ -495,14 +519,25 @@ class AppNotificationManager @Inject constructor(
             }
         }
         if (!hasTextOutput) return null
+        return latestAssistant.id
+    }
 
+    /** 通知路径的去重写入（与 [computeNewAssistantMessageId] 配对）。 */
+    fun markAssistantNotified(serverId: String, sessionId: String, messageId: String) {
+        lastNotifiedAssistantMessageBySession[sessionNotificationKey(serverId, sessionId)] = messageId
+    }
+
+    /**
+     * 检查会话是否有新的可通知 assistant 消息（查询+去重一体，通知路径用）。
+     * 若该消息应触发通知则返回其消息 ID，否则返回 null。
+     */
+    fun checkNewAssistantMessage(serverId: String, sessionId: String): String? {
+        val messageId = computeNewAssistantMessageId(sessionId) ?: return null
         // 去重
         val notifKey = sessionNotificationKey(serverId, sessionId)
-        val previousNotified = lastNotifiedAssistantMessageBySession[notifKey]
-        if (previousNotified == latestAssistant.id) return null
-
-        lastNotifiedAssistantMessageBySession[notifKey] = latestAssistant.id
-        return latestAssistant.id
+        if (lastNotifiedAssistantMessageBySession[notifKey] == messageId) return null
+        markAssistantNotified(serverId, sessionId, messageId)
+        return messageId
     }
 
     /**
@@ -550,6 +585,8 @@ class AppNotificationManager @Inject constructor(
         lastNotifiedPermissionBySession.remove(notifKey)
         lastNotifiedQuestionBySession.remove(notifKey)
         lastNotifiedAssistantMessageBySession.remove(notifKey)
+        // #155：进入会话 → 错误 streak 随去重一并重置（spec §5.3）
+        feedbackPlayer.onSessionEntered(serverId, sessionId)
     }
 
     /**
