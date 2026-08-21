@@ -117,6 +117,7 @@
     <string name="session_rename_title">العنوان</string>
     <string name="session_rename_button">إعادة تسمية</string>
     <string name="session_delete">حذف الجلسة</string>
+    <string name="session_details_continue_queue">إرسال الرسائل المتراكمة (%1$d)</string>
     <string name="session_delete_confirm">حذف "%1$s"؟ لا يمكن التراجع عن ذلك.</string>
     <string name="chat_stop">إيقاف</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->

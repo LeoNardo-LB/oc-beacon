@@ -117,6 +117,7 @@
     <string name="session_rename_title">Titre</string>
     <string name="session_rename_button">Renommer</string>
     <string name="session_delete">Supprimer la session</string>
+    <string name="session_details_continue_queue">Envoyer les messages en attente (%1$d)</string>
     <string name="session_delete_confirm">Supprimer « %1$s » ? Cette action est irréversible.</string>
     <string name="chat_stop">Arrêter</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->

@@ -35,6 +35,7 @@
     <string name="session_rename_title">Заголовок</string>
     <string name="session_rename_button">Переименовать</string>
     <string name="session_delete">Удалить сессию</string>
+    <string name="session_details_continue_queue">Отправить сообщения из очереди (%1$d)</string>
     <string name="session_delete_confirm">Удалить «%1$s»? Это действие нельзя отменить.</string>
     <!-- Chat Screen -->
     <string name="chat_send">Отправить</string>

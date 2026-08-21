@@ -166,6 +166,8 @@ class SessionListShellStateTest {
                 io.mockk.every { allReadAt(any()) } returns kotlinx.coroutines.flow.flowOf(0L)
             },
             chatRepository = chatRepository,
+            pendingMessageRepository = mockk(relaxed = true),
+            pendingMessagePipeline = mockk(relaxed = true),
         )
     }
 }

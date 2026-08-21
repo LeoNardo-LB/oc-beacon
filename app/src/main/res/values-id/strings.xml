@@ -46,6 +46,7 @@
     <string name="session_rename_title">Judul</string>
     <string name="session_rename_button">Ganti Nama</string>
     <string name="session_delete">Hapus Sesi</string>
+    <string name="session_details_continue_queue">Kirim pesan antrean (%1$d)</string>
     <string name="session_delete_confirm">Hapus "%1$s"? Tindakan ini tidak dapat dibatalkan.</string>
     <string name="session_pending_question">Menunggu jawaban</string>
     <string name="session_changes_additions">+%1$d</string>

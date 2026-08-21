@@ -66,4 +66,15 @@ interface PendingMessageDao {
 
     @Query("SELECT * FROM pending_messages WHERE sessionId = :sessionId ORDER BY position ASC, id ASC")
     suspend fun snapshotQueue(sessionId: String): List<PendingMessageEntity>
+
+    /** #176/#177 状态补偿：会话 → 队列计数（列表详情「继续」入口可见性）。 */
+    @Query("SELECT sessionId, COUNT(*) AS cnt FROM pending_messages GROUP BY sessionId")
+    fun observeCounts(): Flow<List<PendingCountRow>>
+
+    /** #176/#177 状态补偿心跳：当前有堆积的会话集合。 */
+    @Query("SELECT DISTINCT sessionId FROM pending_messages")
+    suspend fun sessionIds(): List<String>
 }
+
+/** [PendingMessageDao.observeCounts] 的聚合行。 */
+data class PendingCountRow(val sessionId: String, val cnt: Int)

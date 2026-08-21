@@ -119,6 +119,7 @@
     <string name="session_rename_title">标题</string>
     <string name="session_rename_button">重命名</string>
     <string name="session_delete">删除会话</string>
+    <string name="session_details_continue_queue">发送堆积消息（%1$d）</string>
     <string name="session_delete_confirm">确定要删除“%1$s”？此操作无法撤销。</string>
     <string name="chat_stop">停止</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->

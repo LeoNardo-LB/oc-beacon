@@ -38,4 +38,10 @@ interface PendingMessageRepository {
 
     /** 会话删除时的级联清理（无外键可用，删除路径显式调用）。 */
     suspend fun deleteForSession(sessionId: String)
+
+    /** #176/#177：会话 → 未发条数（列表手动「继续」入口可见性）。 */
+    fun observeCounts(): Flow<Map<String, Int>>
+
+    /** #176/#177：当前有堆积的会话集合（状态补偿心跳扫描）。 */
+    suspend fun sessionIdsWithPending(): List<String>
 }

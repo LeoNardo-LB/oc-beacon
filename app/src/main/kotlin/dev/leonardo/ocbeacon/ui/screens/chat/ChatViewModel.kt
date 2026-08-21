@@ -163,6 +163,9 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             pendingMessageRepository.enqueue(sid, trimmed)
             dev.leonardo.ocbeacon.logging.AppLogger.i("ChatViewModel", "pending message enqueued: " + sid)
+            // #176：入队即时补偿——若 FSM 已 Idle（turn 在入队前结束的 TOCTOU 窗口）
+            // 立即 drain，不等边沿/心跳
+            pendingMessagePipeline.onEnqueued(sid)
         }
     }
 

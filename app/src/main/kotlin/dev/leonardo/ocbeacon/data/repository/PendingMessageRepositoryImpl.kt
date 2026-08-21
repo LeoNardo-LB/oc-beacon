@@ -12,8 +12,9 @@ import kotlinx.coroutines.flow.map
 /**
  * 堆积消息仓库实现（Room 持久化，跨重启保留）。
  *
- * 重启语义（设计定稿 Q4a）：恢复后不主动补发——队列静默等待该会话下一次
- * 自然成功 turn 结束照常推进；空闲会话的唯一主动放行口是面板「继续」按钮。
+ * 重启语义（2026-08-21 #176/#177 起更新）：状态补偿接管——FSM Idle +
+ * 队列非空即自动推进（管线心跳/入队检查/Idle 观察），不再依赖边沿触发；
+ * 手动放行口仍保留（面板「继续」+ 会话列表详情「继续发送堆积消息」）。
  */
 @Singleton
 class PendingMessageRepositoryImpl @Inject constructor(
@@ -52,6 +53,11 @@ class PendingMessageRepositoryImpl @Inject constructor(
         dao.peekHead(sessionId)?.toDomain()
 
     override suspend fun deleteForSession(sessionId: String) = dao.deleteForSession(sessionId)
+
+    override fun observeCounts(): Flow<Map<String, Int>> =
+        dao.observeCounts().map { rows -> rows.associate { it.sessionId to it.cnt } }
+
+    override suspend fun sessionIdsWithPending(): List<String> = dao.sessionIds()
 }
 
 private fun PendingMessageEntity.toDomain() = PendingMessage(

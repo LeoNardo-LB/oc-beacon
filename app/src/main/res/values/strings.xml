@@ -62,6 +62,7 @@
     <string name="session_rename_title">Title</string>
     <string name="session_rename_button">Rename</string>
     <string name="session_delete">Delete Session</string>
+    <string name="session_details_continue_queue">Send queued messages (%1$d)</string>
     <string name="session_delete_confirm">Delete \"%1$s\"? This cannot be undone.</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>

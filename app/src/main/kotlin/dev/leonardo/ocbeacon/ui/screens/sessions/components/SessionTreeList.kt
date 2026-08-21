@@ -14,6 +14,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -55,6 +56,8 @@ internal fun SessionTreeList(
     // #106 lint 清偿：复制提示 hoist（两处 lambda 共用；context 仍供剪贴板）
     val copiedToClipboardMsg = stringResource(R.string.menu_copied_to_clipboard)
     val untitledLabel = stringResource(R.string.session_untitled)
+    // #177：堆积队列计数（详情对话框「继续发送堆积消息」入口）
+    val pendingCounts by viewModel.pendingCounts.collectAsState()
     val listState = rememberLazyListState()
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -137,6 +140,8 @@ internal fun SessionTreeList(
                         onAssignCategory = {
                             onAssignTags(node.id, node.session.tags.map { it.id }.toSet())
                         },
+                        pendingCount = pendingCounts[node.id] ?: 0,
+                        onContinueQueue = { viewModel.continuePendingQueue(node.id) },
                         isFavorite = node.id in favoriteSessionIds,
                         onToggleFavorite = {
                             viewModel.toggleFavorite(node.session.session)

@@ -87,6 +87,9 @@ class EventDispatcher @Inject constructor(
                 UnreadEvent.SessionErrorOccurred(sessionId, System.currentTimeMillis())
             )
         }
+        // #176/#177：堆积消息状态补偿驱动（心跳 + Idle 观察）随首个连接启动
+        //（幂等；此前的边沿触发 naturalTurnEndListener 接线不变）
+        pendingMessagePipelineProvider.get().start()
     }
 
     // ============ 事件处理器注册表（开闭原则）============

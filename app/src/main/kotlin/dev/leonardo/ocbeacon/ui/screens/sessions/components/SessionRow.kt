@@ -81,6 +81,9 @@ internal fun SessionRow(
     onDelete: () -> Unit,
     onCopyId: (String) -> Unit = {},
     onAssignCategory: () -> Unit = {},
+    /** #177：堆积队列条数（>0 时详情对话框显示「继续发送堆积消息」）。 */
+    pendingCount: Int = 0,
+    onContinueQueue: () -> Unit = {},
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -290,6 +293,11 @@ internal fun SessionRow(
                 showDetailsDialog = false
                 onAssignCategory()
             },
+            pendingCount = pendingCount,
+            onContinueQueue = {
+                showDetailsDialog = false
+                onContinueQueue()
+            },
             isAmoled = isAmoled,
         )
     }
@@ -304,6 +312,8 @@ private fun SessionDetailsDialog(
     onDelete: () -> Unit,
     onCopyId: () -> Unit,
     onAssignCategory: () -> Unit,
+    pendingCount: Int,
+    onContinueQueue: () -> Unit,
     @Suppress("UNUSED_PARAMETER") isAmoled: Boolean,
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
@@ -413,6 +423,20 @@ private fun SessionDetailsDialog(
                         border = ButtonTokens.amoledBorder(),
                     ) {
                         Text(stringResource(R.string.assign_category))
+                    }
+                    // #177：堆积队列非空时的手动「继续」入口（状态补偿的显式逃生口）
+                    if (pendingCount > 0) {
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onContinueQueue()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.session_details_continue_queue, pendingCount))
+                        }
                     }
                     // 第三行：删除
                     Button(

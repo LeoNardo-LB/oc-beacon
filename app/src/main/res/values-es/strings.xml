@@ -117,6 +117,7 @@
     <string name="session_rename_title">Título</string>
     <string name="session_rename_button">Renombrar</string>
     <string name="session_delete">Eliminar sesión</string>
+    <string name="session_details_continue_queue">Enviar mensajes en cola (%1$d)</string>
     <string name="session_delete_confirm">¿Eliminar "%1$s"? Esto no se puede deshacer.</string>
     <string name="chat_stop">Detener</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->

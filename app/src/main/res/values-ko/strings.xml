@@ -117,6 +117,7 @@
     <string name="session_rename_title">제목</string>
     <string name="session_rename_button">이름 변경</string>
     <string name="session_delete">세션 삭제</string>
+    <string name="session_details_continue_queue">대기 중인 메시지 보내기(%1$d)</string>
     <string name="session_delete_confirm">"%1$s"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
     <string name="chat_stop">중지</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->

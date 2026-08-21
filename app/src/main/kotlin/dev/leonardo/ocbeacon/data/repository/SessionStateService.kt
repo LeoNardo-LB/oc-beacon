@@ -156,6 +156,13 @@ class SessionStateService @Inject constructor(
 
     override fun setServerId(serverId: String) { currentServerId = serverId }
 
+    // #176/#177：堆积消息状态补偿的只读查询（归属解析 + 待答护栏）
+    override fun serverIdFor(sessionId: String): String? =
+        sessionServerOwnership[sessionId] ?: currentServerId
+
+    override fun hasPendingUserInput(sessionId: String): Boolean =
+        collaborator.hasPendingUserInput(sessionId)
+
     /**
      * [triggerRestValidation] 的公共包装——让外部调用方（例如
      * [SessionActionsDelegate] 的单会话进入/恢复）能为某会话请求权威的
