@@ -87,7 +87,8 @@ class SessionListViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     // #176/#177：堆积队列手动「继续」入口（详情对话框）+ 计数可见性
     private val pendingMessageRepository: PendingMessageRepository,
-    private val pendingMessagePipeline: dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline,
+    // 走查修复（UI→Data 分层）：经 domain 接口触发，不直依赖具体管线
+    private val pendingMessageDrainController: dev.leonardo.ocbeacon.domain.usecase.PendingMessageDrainController,
 ) : ViewModel() {
 
     companion object {
@@ -109,7 +110,7 @@ class SessionListViewModel @Inject constructor(
 
     /** #177：详情对话框手动放行队首（堆积状态补偿的显式逃生口）。 */
     fun continuePendingQueue(sessionId: String) {
-        pendingMessagePipeline.continueFromList(sessionId)
+        pendingMessageDrainController.continueFromList(sessionId)
     }
 
     // ============ 服务器配置异步加载（backlog #38：消除构造期主线程 runBlocking） ============

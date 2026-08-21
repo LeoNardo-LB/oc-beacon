@@ -26,6 +26,7 @@ import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker
 import dev.leonardo.ocbeacon.domain.usecase.*
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskOutputFetch
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import io.ktor.client.HttpClient
@@ -230,21 +231,28 @@ class ChatViewModel @Inject constructor(
 
     /**
      * #182（2026-08-21）：TaskToolCard 展开时拉取全量输出。
-     * part 优先（父会话最新窗口按 part id）→ 子会话 transcript 回退，取长者。
-     * 失败返回 null（卡片回退本地预览，不阻塞展开）。
+     * part 优先（父会话按 cursor 翻页找 part id——老卡片可落在最新窗口外，
+     * 走查修复：50 条窗口只覆盖最新会话，翻页上限 10 页）→ 子会话 transcript
+     * 回退，取长者。失败返回 null（卡片回退本地预览，不阻塞展开）。
      */
     suspend fun fetchFullTaskOutput(partId: String, subSessionId: String?): String? {
         val sid = sessionLifecycle.sessionId
         return runCatching {
-            val partOut = sessionRepository.listMessages(serverId, sid, 50, null).getOrNull()
-                ?.messages
-                ?.let { dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskOutputFetch.findToolOutputById(it, partId) }
-            val childOut = subSessionId?.takeIf { it.isNotBlank() }?.let { child ->
-                sessionRepository.listMessages(serverId, child, 50, null).getOrNull()
-                    ?.messages
-                    ?.let { dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskOutputFetch.buildChildTranscript(it) }
+            var partOut: String? = null
+            var cursor: String? = null
+            var pages = 0
+            while (partOut == null && pages < TASK_FETCH_MAX_PAGES) {
+                val page = sessionRepository.listMessages(serverId, sid, TASK_FETCH_PAGE_LIMIT, cursor).getOrNull() ?: break
+                partOut = TaskOutputFetch.findToolOutputById(page.messages, partId)
+                cursor = page.nextCursor ?: break
+                pages++
             }
-            dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskOutputFetch.pickLonger(partOut, childOut)
+            val childOut = subSessionId?.takeIf { it.isNotBlank() }?.let { child ->
+                sessionRepository.listMessages(serverId, child, TASK_FETCH_PAGE_LIMIT, null).getOrNull()
+                    ?.messages
+                    ?.let { TaskOutputFetch.buildChildTranscript(it) }
+            }
+            TaskOutputFetch.pickLonger(partOut, childOut)
         }.getOrNull()
     }
 
@@ -939,6 +947,10 @@ class ChatViewModel @Inject constructor(
     fun runShellCommand(command: String, onResult: (Boolean) -> Unit) =
         sessionActions.runShellCommand(command, onResult)
 
-    
-    companion object
+
+    companion object {
+        /** #182：Task 卡片全量输出翻页拉取——单页条数与页数上限（老卡片防漏）。 */
+        private const val TASK_FETCH_PAGE_LIMIT = 50
+        private const val TASK_FETCH_MAX_PAGES = 10
+    }
 }

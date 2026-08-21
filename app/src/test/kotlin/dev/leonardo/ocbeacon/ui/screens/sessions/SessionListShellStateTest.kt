@@ -167,7 +167,7 @@ class SessionListShellStateTest {
             },
             chatRepository = chatRepository,
             pendingMessageRepository = mockk(relaxed = true),
-            pendingMessagePipeline = mockk(relaxed = true),
+            pendingMessageDrainController = mockk(relaxed = true),
         )
     }
 }

@@ -57,7 +57,7 @@ class PendingMessagePipeline @Inject constructor(
     // Provider 打破 EventDispatcher → ChatRepositoryImpl → EventDispatcher 循环
     private val sendMessageUseCaseProvider: Provider<SendMessageUseCase>,
     private val sessionStateService: SessionStateService,
-) {
+) : dev.leonardo.ocbeacon.domain.usecase.PendingMessageDrainController {
     /** 正在发送堆积消息的会话集合（UI「发送中」状态源）。 */
     private val _drainingSessions = MutableStateFlow<Set<String>>(emptySet())
     val drainingSessions: StateFlow<Set<String>> = _drainingSessions
@@ -82,12 +82,18 @@ class PendingMessagePipeline @Inject constructor(
                 compensateAll()
             }
         }
-        // T3 Idle 观察
+        // T3 Idle 观察（走查修复：只在**转移**到 Idle 时触发——含首见 Idle，
+        // 覆盖冷启动 L4 syncFromRest 补态场景；原实现对每次发射全量扫描所有会话，
+        // POST 失败时的重试节奏会被无关状态变化事件驱动，偏离 spec 的 5s 心跳语义）
         appScope.launch {
+            var prev: Map<String, SessionStatus> = emptyMap()
             sessionStateService.statusFlow.collect { states ->
-                for (sessionId in states.keys) {
-                    drainIfIdle(sessionId)
+                for ((sessionId, status) in states) {
+                    if (status is SessionStatus.Idle && prev[sessionId] !is SessionStatus.Idle) {
+                        drainIfIdle(sessionId)
+                    }
                 }
+                prev = states
             }
         }
     }
@@ -152,7 +158,7 @@ class PendingMessagePipeline @Inject constructor(
      * 服务器归属经 FSM 解析；无归属（未连接/未知）仅告警跳过。
      * 语义同 [continueNow]——手动放行，不做 Idle 门槛。
      */
-    fun continueFromList(sessionId: String) {
+    override fun continueFromList(sessionId: String) {
         val serverId = sessionStateService.serverIdFor(sessionId)
         if (serverId == null) {
             AppLogger.w(TAG, "manual continue from list without server ownership, skip: " + sessionId)

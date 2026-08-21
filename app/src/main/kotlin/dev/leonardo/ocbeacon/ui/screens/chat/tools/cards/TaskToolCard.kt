@@ -88,18 +88,12 @@ internal fun TaskToolCard(
         ?: agentType?.let { "$it Agent" }
         ?: serverTitle?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.tool_sub_agent)
+    // 走查修复：Completed/Running 两分支 key 级联完全相同——收敛为单一 helper
     val subSessionId = when (val state = tool.state) {
-            is ToolState.Completed -> state.metadata?.get("sessionId")
-                ?: state.metadata?.get("sessionID")
-                ?: state.metadata?.get("jobId")  // V2 服务器用 jobId 存子会话 ID（2026-08-11 实测）
-                ?: state.metadata?.get("childID") // #180：synthetic 同源命名（V2Mappers 已归一，直读兜底）
-            is ToolState.Running -> state.metadata?.get("sessionId")
-                ?: state.metadata?.get("sessionID")
-                ?: state.metadata?.get("jobId")
-                ?: state.metadata?.get("childID") // #180：Running 期尽早可跳
+            is ToolState.Completed -> childSessionIdOf(state.metadata)
+            is ToolState.Running -> childSessionIdOf(state.metadata)
             else -> null
-        }?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
-            ?.takeIf { it.isNotBlank() }
+        }
 
     // 确定点击行为：有子会话则导航到它，否则切换展开
     // #180：Running 期只要拿到子会话 id 即可跳转（原实现仅 completed 可点）
@@ -233,3 +227,14 @@ internal fun TaskToolCard(
         }
     }
 }
+
+/**
+ * 子会话 id 提取（#180/#181 走查收敛）：四种历史命名并读——
+ * sessionId/sessionID（V2Mappers 双写归一）/ jobId（V2 早期实测）/ childID
+ * （synthetic 同源命名，V2Mappers 已归一此处直读兜底）。
+ */
+private fun childSessionIdOf(metadata: Map<String, kotlinx.serialization.json.JsonElement>?): String? =
+    metadata?.let { md ->
+        listOf("sessionId", "sessionID", "jobId", "childID").firstNotNullOfOrNull { md[it] }
+    }?.let { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
+        ?.takeIf { it.isNotBlank() }

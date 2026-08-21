@@ -115,7 +115,7 @@ class SessionListViewModelSearchTest {
             },
             chatRepository = mockk(relaxed = true),
             pendingMessageRepository = mockk(relaxed = true),
-            pendingMessagePipeline = mockk(relaxed = true),
+            pendingMessageDrainController = mockk(relaxed = true),
         )
     }
 }
