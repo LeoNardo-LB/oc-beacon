@@ -146,12 +146,12 @@ internal fun ChatScreenBottomBar(
                     }
 
                     onInputTextChange(normalizedValue)
-                    viewModel.updateDraftText(normalizedValue.text)
+                    viewModel.composer.updateDraftText(normalizedValue.text)
 
                     // reverseLayout=true 锚定底部；输入时无需显式滚动。
 
                     if (isShellMode || shouldAutoShell) {
-                        viewModel.clearFileSearch()
+                        viewModel.composer.clearFileSearch()
                         return@ChatInputBar
                     }
                     // 检测光标前的 @query 以进行文件提及
@@ -160,9 +160,9 @@ internal fun ChatScreenBottomBar(
                     val atMatch = AT_MENTION_REGEX.find(textBefore)
                     if (atMatch != null) {
                         val query = atMatch.groupValues[1]
-                        viewModel.searchFilesForMention(query)
+                        viewModel.composer.searchFilesForMention(query)
                     } else {
-                        viewModel.clearFileSearch()
+                        viewModel.composer.clearFileSearch()
                     }
                 },
                 onSend = {
@@ -207,9 +207,9 @@ internal fun ChatScreenBottomBar(
                             if (isShellMode) {
                                 onInputModeChange(ChatInputMode.NORMAL.name)
                             }
-                            viewModel.clearConfirmedPaths()
-                            viewModel.clearFileSearch()
-                            viewModel.clearDraft()
+                            viewModel.composer.clearConfirmedPaths()
+                            viewModel.composer.clearFileSearch()
+                            viewModel.composer.clearDraft()
                             onForceScroll()
                             return@doSend
                         }
@@ -231,9 +231,9 @@ internal fun ChatScreenBottomBar(
                                 if (isShellMode) {
                                     onInputModeChange(ChatInputMode.NORMAL.name)
                                 }
-                                viewModel.clearConfirmedPaths()
-                                viewModel.clearFileSearch()
-                                viewModel.clearDraft()
+                                viewModel.composer.clearConfirmedPaths()
+                                viewModel.composer.clearFileSearch()
+                                viewModel.composer.clearDraft()
                                 onForceScroll()
                                 return@doSend
                             }
@@ -266,7 +266,7 @@ internal fun ChatScreenBottomBar(
                 onInputModeChange = {
                     onInputModeChange(it.name)
                     if (it == ChatInputMode.SHELL) {
-                        viewModel.clearFileSearch()
+                        viewModel.composer.clearFileSearch()
                     }
                 },
                 isSending = interaction.isSending,
@@ -288,7 +288,7 @@ internal fun ChatScreenBottomBar(
                 onRemoveAttachment = { index ->
                     if (index in attachments.indices) {
                         attachmentHandler.removeAttachment(index)
-                        viewModel.removeDraftAttachment(index)
+                        viewModel.composer.removeDraftAttachment(index)
                     }
                 },
                 onSaveAttachment = { bytes, mime, filename ->
@@ -299,10 +299,10 @@ internal fun ChatScreenBottomBar(
                 onModelClick = { onShowModelPicker() },
                 agents = modelConfig.agents,
                 selectedAgent = modelConfig.selectedAgent,
-                onAgentSelect = { viewModel.selectAgent(it) },
+                onAgentSelect = { viewModel.modelSelection.selectAgent(it) },
                 variantNames = modelConfig.variantNames,
                 selectedVariant = modelConfig.selectedVariant,
-                onCycleVariant = { viewModel.cycleVariant() },
+                onCycleVariant = { viewModel.modelSelection.cycleVariant() },
                 commands = modelConfig.commands,
                 fileSearchResults = fileSearchResults,
                 confirmedFilePaths = confirmedFilePaths,
@@ -322,8 +322,8 @@ internal fun ChatScreenBottomBar(
                             selection = TextRange(newCursor)
                         ))
                     }
-                    viewModel.confirmFilePath(path)
-                    viewModel.clearFileSearch()
+                    viewModel.composer.confirmFilePath(path)
+                    viewModel.composer.clearFileSearch()
                 },
                 onSlashCommand = { cmd ->
                     when (cmd.name) {
@@ -425,11 +425,11 @@ internal fun ChatScreenBottomBar(
                     if (text.isNotBlank()) {
                         viewModel.enqueuePendingMessage(text)
                         onInputTextChange(TextFieldValue(""))
-                        viewModel.updateDraftText("")
+                        viewModel.composer.updateDraftText("")
                     }
                 },
                 restoredDraft = restoredDraft,
-                onConsumeRestoredDraft = { viewModel.consumeRestoredDraft() },
+                onConsumeRestoredDraft = { viewModel.composer.consumeRestoredDraft() },
                 taskBadgeCount = taskUi.badgeCount,
                 onOpenTaskPanel = onOpenTaskSheet,
                 pendingBadgeCount = pendingQueue.size,
