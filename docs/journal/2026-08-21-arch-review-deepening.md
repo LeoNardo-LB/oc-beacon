@@ -252,7 +252,40 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 - **自动化**：全量 1812/1812 绿（段 2 后 1 败 + 段 3 后 1 败均为 #186 已登记的 ContextTokens 间歇 flake——三连单类绿 + 重跑全量绿，stash 二分亦证实非本改动回归）；每段 compile 绿
 - **真机对话全生命周期 E2E**：冷启动恢复会话 → 草稿输入（composer 簇渲染）→ 发送（FSM Idle→Busy/Waiting→TextStarted→Busy/Streaming 全链日志）→ 21s 后 SseIdle→Idle [force-complete] → 快速定位跳转（conversation.paginationDelegate 路径，sheet 关闭正常返回聊天）→ crash 0
 - 段间协议遵守：ChatScreen.kt 三次独立 Read→Edit→compile→commit
-- ⏳ 维度 5：对话全流程观感（输入/发送/流式/跳转/草稿恢复）待用户验收
+- ⏳ 维度 5：对话全流程观感——**用户已验收**（结果见下节「批次末验收结果」：15/17 过，2 问题）
+
+
+## 批次末验收结果 + 遗留判定（2026-08-21 用户验收，压缩前固化）
+
+### 验收结果：17 项中 15 项过，2 项问题（修复后复验）
+
+| 项 | 结果 | 处置 |
+|----|------|------|
+| A #170 连接 3 项 / B #171 红点 4 项 / C #174 FSM 2 项 / D-10 滚动 / D-11 子会话 / E-13..16 分页跳转草稿模型 | ✅ 过 | 六卡待迁移（D-12 见问题①） |
+| ① D-12 后台消息通知未正常弹出 | ❌ 问题 | 修复中（见下）——嫌疑：#175 双胞胎合并/通知链/渠道；也可能是"前台正在看其它会话"的正常抑制或设备通知策略 |
+| ② E-17 终端模式有 bug + 询问能否换现成终端组件 | ❌ 问题+提问 | 终端现状：**自研**（ConnectBot TerminalEmulator 内核 + 自写 Compose 渲染/键盘层，SessionTerminalInline/ChatTerminalView/KeyboardOverlay ~2000 行）。换件评估待做：候选 TermUX termux-terminal-view（emulator 复用）、纯 VT 渲染库、或修现有。注意 PTY 数据源是 OpenCode 服务器 WebSocket（自研渲染只因服务器侧终端）——换件只动渲染层不动传输。倾向：先诊断具体 bug（可能是小修），组件替换是大动作需单独评估 |
+
+### 遗留项根因修复判定（用户要求记录，压缩后续接用）
+
+| 遗留 | 判定 | 行动 |
+|------|------|------|
+| **#173 深化**：VM 128→111 成员，sessionActions 19 转发 + settings 12 转发未吸收 | ✅ **能且推荐**：REST 操作按簇吸收（会话级→sessionContext、刷新→conversation、settings→独立读簇），VM 可达 ~80。2-3 段提交 | 排 #155 后 |
+| **#184 globalMax 跨服务器混合** | ✅ 能但条件性：水位线加 server 维度（schema+迁移+per-server max）——仅多服务器场景有收益 | 默认保持登记 |
+| **#185 god-client 拆解** | ❌ 不该修：seam 已在门面正确收敛，内部 if 是机械代码非病灶；拆=22 测试重写+适配器竞态 | 显式不做（终局债务） |
+| **V1 真机复验**（#172/#150） | ✅ 能：本地跑 OpenCode 1.x 服务器（docker/npm）→真机走查 | 等用户装 V1 服务器 |
+| **#151 激活** | ✅ 能：用户注册 GitHub App（spec §Further Notes ~5min）→填 BuildConfig→真机 E2E | 等用户注册 |
+| UnreadBadgeService 3 个 @Deprecated 转发 | ✅ 微修：测试改调 onEvent 后删，5 分钟 | 并入下段提交 |
+| 多服务器第二真机 | ⚠️ 环境限制：C4 等价性测试已覆盖 | 无法本地解决 |
+| 通知未弹（本次验收①） | 🔄 修复中：先取证 logcat/渠道/抑制三层，再定根因 | 立即 |
+| 终端 bug（本次验收②） | 🔄 先诊断（自研渲染层，ConnectBot 内核）；换件评估并行出报告 | 立即诊断 |
+
+### 待办队列（压缩后续接顺序）
+1. 通知未弹根因修复（验收①）
+2. 终端 bug 诊断 + 换件评估报告（验收②）
+3. #155 提示音（P1 剩余）
+4. #173 深化（VM 簇吸收）
+5. #150 收尾 + 批次 journal 归档 + 六卡迁移（含本次 2 修复项复验）
+6. 条件项：GitHub App 注册 / V1 服务器（用户操作就绪即接入）
 
 ## #172（候选 4）实现记录（2026-08-21 完成，真机 E2E 全绿）
 
