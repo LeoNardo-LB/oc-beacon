@@ -110,13 +110,9 @@
   - → `docs/journal/2026-08-21-issue1-v1-speed.md`
 
 
-- [ ] **#178 点发送/拉起 busy 气泡时软键盘被收起——应保持拉起** `ui` `input`
-  - 成因两路（2026-08-21 调查）：①气泡 `Popup(focusable=true)`（`SendStopButton.kt:223`）抢窗级焦点 → IME 收起；②发送路径无显式 hide，唯一候选是滚动触发 hide（`ChatScreen.kt:394-402`，发送后 forceScroll 在列表非底部时可能命中）
-  - 修复方向：气泡 `focusable=false` 保持键盘，副作用是返回键不再触发 onDismissRequest——需补 BackHandler 关闭；发送路径先深挖 forceScroll→hide 是否真实触发再定改法
-
-- [ ] **#179 消息气泡间距变大（主观）——常量未变，疑分片/空行化副作用，待定位** `ui`
-  - 已排除：`messageSpacing`=8dp 未变（`ChatScreen.kt:763`）、SpacingTokens 未变；两嫌疑（中置信）：①0faa6984（08-20）分片重构把巨型 turn 拆 chunk，首末段各保留标签栏/统计栏+vertPad；②92e2855c（08-20）≥3000 字符段落空行化撑高气泡内部
-  - 下一步需用户提供截图/确认是"气泡与气泡间"还是"气泡内部变高"再精确归因
+- [ ] **#179 消息气泡间距变大（主观）——静态取证完成，等用户截图/会话定位** `ui`
+  - 已排除：messageSpacing=8dp 未变（07-31 至今）；分片中段零装饰、首末段装饰与普通气泡同值；唯一视觉变化= 92e2855c ≥3K 消息段内空行化（气泡**内部**变高，治滚动卡顿所需）
+  - #183 分割线减半已落地（8a965166）或已缓解；待用户实测新包观感或给截图精确定位
 
 - [ ] **#180 subagent 卡片进行中无法点击进入子会话（结束后可点）** `session` `ui`
   - 根因候选：点击导航依赖 metadata 中的 sessionId/jobId（`TaskToolCard.kt:84-98`），V2 服务器疑似仅在 completed 下发 childID（`V2Mappers.kt:326` 注释佐证）[推断] → Running 期间 clickAction=null，点击回落到展开切换而 output 为空 → 无可感知反应；且 `TaskToolCard.kt:101` showNavArrow 显式排除 isRunning（Running 时无导航箭头视觉提示）
@@ -132,9 +128,6 @@
   - git 考古：take(2000) 与 halfScreenHeight 均自旧提交 84476ccd 起未变，未见专门修复 commit [推断：用户记忆中的修复为 #79 落库批次或限高调整]
   - 修复方向：take(2000) 改为分片渲染或取消 + DB 回读场景需完整 output 与 500 字符预览的取舍重评（与 #79 的 DB 体积目标冲突，需设计）
 
-- [ ] **#183 turn 分割线上下留空减半（用户期望明确）** `ui`
-  - 现值：`padding(vertical = compact 3dp : 6dp)`，两处同改：完整气泡 `MessageCardAssistant.kt:248` + 分片 chunk `MessageCardAssistant.kt:558`（RenderItem.TurnDivider 渲染）
-  - 改法：normal 6→3dp、compact 3→1.5dp；若减半后视觉仍偏高再查相邻 block spacing 叠加。markdown `---` 线（`MarkdownContent.kt:470`）仅 h1 下且非本条对象
 
 - [ ] **#187 ModelPicker 二级面板：variant 行内 accordion + 默认模型开关重设计（调研+UIUX 已定案，未实现）** `ui` `model-config`
   - 调研结论（2026-08-21）：variant 随模型列表一并返回（V1 `/provider` variants map · V2 `/api/model` variants 数组 `V2ApiClient.kt:765-799`），domain 层 `ModelCatalog.variantNames` 已就绪，**无需动 API/数据层**；默认模型功能已存在（658abb11：SettingsDataStore 按 serverId 本地存=机器绑定 + 解析链第 3 级），本条仅重做入口可发现性（现状 16dp 星标不可见）
