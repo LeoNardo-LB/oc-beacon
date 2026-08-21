@@ -232,6 +232,10 @@ Q1=A 完整重组（UI 直接消费簇对象）；Q2=4+2 簇（①SessionContext
 
 1. 簇内部成型（delegate 收编 4 簇，VM 门面临时保留）2. UI 消费面串行迁移（MessageList → BottomBar → ChatScreen，协议每步 compile+commit）3. 测试重写（6 harness + uiState 退役）
 
+### 附：#186 时序脆弱测试当场修复（1fefdb70，2026-08-21）
+
+根因：VM init 的 serverRepository.getServer 跑真实 Dispatchers.IO，完成时刻相对 runTest 虚拟时间不确定 → messageListState→tracker collect 链装配与 advanceUntilIdle 竞态（形态漂移 48000/0、2500/48000 与此吻合）。修法：awaitTrackerValue 助手（advanceUntilIdle ∥ Thread.sleep(10) 真实让出轮询，2s 上限后硬断言），5 断言点加固。验证：单类绿 + 连续两次全量 1812 绿。发现于 #170、确诊于 #152 批次（连续两败暴露规律）。
+
 ## #173（候选 5）实现记录（2026-08-21 完成，真机 E2E 全绿）
 
 ### 提交链（四段串行，ChatScreen 协议每步 compile+commit）

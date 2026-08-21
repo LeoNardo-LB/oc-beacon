@@ -211,10 +211,6 @@
   - F5 后残余（draw 4-8ms + input 3-5ms，12 轮仅 10 条）；「预取 idle_frame」候选已否证；release 口径 p95 7.9ms 已低于感知阈值，再深挖方向为 draw/input 相位本身（~2h）
   - → `docs/journal/2026-08-20-perf-monitoring-round3.md`（提升自该批子条目）
 
-- [ ] **#186 ChatViewModelContextTokensTest·compaction 时序脆弱（三批次内 4 次间歇失败）** `test` `flaky`
-  - 形态漂移：48000/0（首断言）或 2500/48000（回落断言）；单类重跑恒绿、全量间歇败——类内 5 用例执行顺序/时间敏感；#170/#171/#173 三批次各记录过
-  - 根因候选：tokenStatsTracker collect 链的 advanceUntilIdle 边界（upsert → stats 更新的竞态窗口）；修法：测试内显式同步（awaitIdle/轮询断言）或 tracker 暴露确定性完成信号
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`（#171/#173 实现记录的"覆盖缺口"两处）
 
 - [ ] **#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data`
   - markAllSessionsRead 对不分服务器的水位线 map 取全局 max（SessionListViewModel:423-430）——多服务器时钟不同域时一键已读可能错杀/漏杀红点；#171 grilling Q6 定案：不动存储 schema，登记不动
