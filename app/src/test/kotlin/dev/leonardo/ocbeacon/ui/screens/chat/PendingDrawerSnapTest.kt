@@ -11,28 +11,34 @@ import org.junit.Test
 class PendingDrawerSnapTest {
 
     @Test
-    fun `anchorsPx 收起=拉手固定高 其余按容器比例`() {
+    fun `anchorsPx offset 锚点 全开0 收起=容器-handle`() {
+        // offset 语义（第四轮重构）：Surface 固定高=80% 容器、底贴容器底；
+        // 档位 = 自全开位置的下移量 = fullPx − 露出高度
         val a = PendingDrawerAnchors.anchorsPx(containerHeightPx = 1000f, handlePx = 44f)
         assertEquals(3, a.size)
-        assertEquals(44f, a[PendingDrawerAnchors.SNAP_COLLAPSED], 0.01f)
-        assertEquals(200f, a[PendingDrawerAnchors.SNAP_MID], 0.01f)
-        assertEquals(800f, a[PendingDrawerAnchors.SNAP_FULL], 0.01f)
+        // 收起：800−44=756（只露 handle）
+        assertEquals(756f, a[PendingDrawerAnchors.SNAP_COLLAPSED], 0.01f)
+        // 半开：800−200=600（露 20% 容器）
+        assertEquals(600f, a[PendingDrawerAnchors.SNAP_MID], 0.01f)
+        // 全开：0（Surface 顶=容器底−80%）
+        assertEquals(0f, a[PendingDrawerAnchors.SNAP_FULL], 0.01f)
     }
 
     @Test
-    fun `nearestSnapIndex 各锚点邻域吸附正确`() {
-        val anchors = floatArrayOf(132f, 300f, 600f)
-        assertEquals(PendingDrawerAnchors.SNAP_COLLAPSED, nearestSnapIndex(132f, anchors))
-        assertEquals(PendingDrawerAnchors.SNAP_MID, nearestSnapIndex(300f, anchors))
-        assertEquals(PendingDrawerAnchors.SNAP_FULL, nearestSnapIndex(600f, anchors))
+    fun `nearestSnapIndex 各锚点邻域吸附正确（offset 递减序）`() {
+        // offset 锚递减（收起 756 > 半开 600 > 全开 0）——nearestSnap 按距离，与序无关
+        val anchors = floatArrayOf(756f, 600f, 0f)
+        assertEquals(PendingDrawerAnchors.SNAP_COLLAPSED, nearestSnapIndex(756f, anchors))
+        assertEquals(PendingDrawerAnchors.SNAP_MID, nearestSnapIndex(600f, anchors))
+        assertEquals(PendingDrawerAnchors.SNAP_FULL, nearestSnapIndex(0f, anchors))
         // 中点偏移：靠近哪档吸哪档
-        assertEquals(PendingDrawerAnchors.SNAP_COLLAPSED, nearestSnapIndex(200f, anchors))
-        assertEquals(PendingDrawerAnchors.SNAP_MID, nearestSnapIndex(240f, anchors))
-        assertEquals(PendingDrawerAnchors.SNAP_MID, nearestSnapIndex(430f, anchors))
-        assertEquals(PendingDrawerAnchors.SNAP_FULL, nearestSnapIndex(470f, anchors))
+        assertEquals(PendingDrawerAnchors.SNAP_COLLAPSED, nearestSnapIndex(700f, anchors))
+        assertEquals(PendingDrawerAnchors.SNAP_MID, nearestSnapIndex(650f, anchors))
+        assertEquals(PendingDrawerAnchors.SNAP_MID, nearestSnapIndex(340f, anchors))
+        assertEquals(PendingDrawerAnchors.SNAP_FULL, nearestSnapIndex(260f, anchors))
         // 拖出上下界（coerceIn 之外的防御值）
-        assertEquals(PendingDrawerAnchors.SNAP_COLLAPSED, nearestSnapIndex(0f, anchors))
-        assertEquals(PendingDrawerAnchors.SNAP_FULL, nearestSnapIndex(1000f, anchors))
+        assertEquals(PendingDrawerAnchors.SNAP_COLLAPSED, nearestSnapIndex(900f, anchors))
+        assertEquals(PendingDrawerAnchors.SNAP_FULL, nearestSnapIndex(-50f, anchors))
     }
 
     @Test

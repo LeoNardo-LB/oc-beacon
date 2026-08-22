@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
@@ -47,9 +48,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -69,6 +69,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 // ============ 常驻抽屉锚点（2026-08-22 设计定案：主对话流模块内覆盖式抽屉） ============
@@ -86,14 +87,24 @@ internal object PendingDrawerAnchors {
     /** 标题栏（segment + 操作钮）行高——展开后位于拉手下方。 */
     val HEADER_HEIGHT = 48.dp
 
-    /** 各档位占主对话流模块高度的比例（index 0 用 HANDLE_HEIGHT，不用比例）。 */
+    /** 各档位露出的高度占主对话流模块比例。 */
     val FRACTIONS = floatArrayOf(0f, 0.20f, 0.80f)
 
-    /** 档位像素锚点（handlePx 用固定高度，其余按容器高比例）。 */
-    fun anchorsPx(containerHeightPx: Float, handlePx: Float): FloatArray =
-        FloatArray(SNAP_COUNT) { i ->
-            if (i == SNAP_COLLAPSED) handlePx else containerHeightPx * FRACTIONS[i]
-        }
+    /**
+     * 档位 offset 锚点（2026-08-22 第四轮重构：高度动画→offset 滑动）。
+     *
+     * Surface 固定高度 = 容器 × [SNAP_FULL] 比例；档位 = 向下滑出的位移
+     * （offset 越大露出越少）：收起只露 handle / 半开露 20% / 全开露 80%。
+     * offset 方案消除高度动画的结构性缺陷：内容恒尺寸不被约束压缩（Q4）、
+     * 不可见部分在屏幕外不进 a11y 树、拖拽只动 offset 无重测量。
+     */
+    fun anchorsPx(containerHeightPx: Float, handlePx: Float): FloatArray {
+        val fullPx = containerHeightPx * FRACTIONS[SNAP_FULL]
+        // offset = Surface（底贴容器底、固定高 fullPx）自全开位置向下移出的量
+        // = fullPx − 各档露出高度。收起露 handle / 半开露 20% 容器 / 全开露 80%。
+        val visible = floatArrayOf(handlePx, containerHeightPx * FRACTIONS[SNAP_MID], fullPx)
+        return FloatArray(SNAP_COUNT) { i -> fullPx - visible[i] }
+    }
 }
 
 /** segment 标签（Q3）：文字 + 数量 Badge 角标（count=0 只显文字——段本身已置灰）。 */
@@ -215,6 +226,8 @@ internal fun PendingTodoDrawer(
         setMemory(maxOf(snap, PendingDrawerAnchors.SNAP_MID), target)
     }
 
+    // Surface 固定高 = 80% 容器（底贴容器底——调用方 BottomCenter 对齐）；
+    // 档位动画只动 offset（下移量）——内容恒尺寸，无约束压缩/重测量（Q4 根治）
     Surface(
         tonalElevation = 3.dp,
         shadowElevation = 6.dp,
@@ -224,20 +237,19 @@ internal fun PendingTodoDrawer(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .height(with(density) { height.value.toDp() }),
+            .height(with(density) { (containerHeightPx * PendingDrawerAnchors.FRACTIONS[PendingDrawerAnchors.SNAP_FULL]).toDp() })
+            .offset { IntOffset(0, height.value.roundToInt()) },
     ) {
-        // 手势挂整列（Q16「整栏可拖」）：列表/segment/按钮各自消费的事件不冒泡，
-        // 拉手与标题栏空白处冒泡到此 → 拖拽高度；收起态（16dp）拉手即把手。
-        // clipToBounds：收起态只露拉手（标题栏/列表裁掉）。
+        // 手势挂整列（Q16）：上拉（amount.y<0）露更多 → offset 减小
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clipToBounds()
                 .pointerInput(anchors[0], anchors[1], anchors[2]) {
                     detectVerticalDragGestures(
-                        onVerticalDrag = { change, amount ->
+                        onVerticalDrag = { change, dragAmount ->
                             change.consume()
-                            val target = (height.value - amount).coerceIn(anchors[0], anchors[2])
+                            // dragAmount: Float（正=手指下移）；下移=露出减少=offset 增大
+                            val target = (height.value + dragAmount).coerceIn(0f, anchors[0])
                             scope.launch { height.snapTo(target) }
                         },
                         onDragEnd = {
@@ -254,10 +266,7 @@ internal fun PendingTodoDrawer(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // requiredHeight（Q4 修复）：收起动画中 Surface 约束压缩到 16dp，
-                    // 普通 height 会被 coerce 压缩导致内容缩小；required 保持原高
-                    // 溢出被 clipToBounds 裁掉（标准抽屉「裁剪不压缩」行为）
-                    .requiredHeight(PendingDrawerAnchors.HANDLE_HEIGHT)
+                    .height(PendingDrawerAnchors.HANDLE_HEIGHT)
                     .pointerInput(snap, segment) {
                         detectTapGestures(
                             onTap = {
@@ -281,11 +290,10 @@ internal fun PendingTodoDrawer(
                 )
             }
             // ===== 标题栏（segment 左 1/2 + 右端操作钮；展开后位于拉手下方） =====
-            // requiredHeight（Q4）：保持 48dp 原高被裁剪，不随收起动画压缩缩小
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .requiredHeight(PendingDrawerAnchors.HEADER_HEIGHT)
+                    .height(PendingDrawerAnchors.HEADER_HEIGHT)
                     .padding(horizontal = SpacingTokens.MD.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
