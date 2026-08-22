@@ -27,8 +27,6 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -109,37 +108,25 @@ internal object PendingDrawerAnchors {
 }
 
 /**
- * segment 标签（2026-08-22 第七轮）：文字 + 右上外飘小角标。
- * BadgedBox 默认把 Badge 叠在 anchor 右上角——文字做 anchor 时整颗盖住字形
- * （第六轮真机问题）。修复：Badge 手动 offset 外飘（右上角只留小半重叠，
- * 经典通知角标形态）。
+ * segment 标签（2026-08-22 第八轮）：GitHub-tab 式行内计数。
+ * 标签 labelSmall + 数字 10sp 弱化色同行底对齐——零悬浮零重叠零背景块。
+ * Badge 系三版（大 pill/盖字/外飘）真机评审均不佳后的最终形态。
  */
 @Composable
 private fun SegLabel(text: String, count: Int) {
-    if (count > 0) {
-        BadgedBox(
-            badge = {
-                Badge(
-                    modifier = Modifier.offset(x = (-2).dp, y = (-6).dp),
-                ) {
-                    Text(
-                        text = count.coerceAtMost(99).toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-            },
-        ) {
-            // 尾部 padding 撑出锚点空白区：Badge（TopEnd）落在字形右侧空白，
-            // 不再叠字形（第六/七轮两版盖字的根治）
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        if (count > 0) {
             Text(
-                text = text,
-                style = MaterialTheme.typography.labelSmall,
+                text = count.coerceAtMost(99).toString(),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                modifier = Modifier.padding(end = 14.dp),
             )
         }
-    } else {
-        Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
 }
 
