@@ -88,8 +88,6 @@ internal fun ChatInputBar(
     onStop: () -> Unit = {},
     restoredDraft: RevertedDraftPayload? = null,
     onConsumeRestoredDraft: () -> Unit = {},
-    taskBadgeCount: Int = 0,
-    onOpenTaskPanel: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
     showTaskToolbar: Boolean = false,
     taskToolbarText: String = "",
@@ -199,7 +197,6 @@ internal fun ChatInputBar(
                 TaskToolbar(
                     text = taskToolbarText,
                     onBackgroundSession = onBackgroundSession,
-                    onOpenTaskPanel = onOpenTaskPanel
                 )
             }
 
@@ -214,8 +211,6 @@ internal fun ChatInputBar(
                 onModelClick = onModelClick,
                 onAgentSelect = onAgentSelect,
                 onAttach = onAttach,
-                taskBadgeCount = taskBadgeCount,
-                onOpenTaskPanel = onOpenTaskPanel,
                 onQuickNavigate = onQuickNavigate,
             )
 

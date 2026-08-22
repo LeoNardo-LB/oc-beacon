@@ -332,7 +332,6 @@ fun ChatScreen(
 
     var showModelPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
-    var showTaskSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var isTerminalMode by rememberSaveable { mutableStateOf(startInTerminalMode) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -583,23 +582,14 @@ fun ChatScreen(
         LocalSessionStreaming provides sessionMeta.isStreaming,
     ) {
     var showQuickNavigate by remember { mutableStateOf(false) }
-    // 堆积/TODO 常驻抽屉（2026-08-22 设计定案，grilling Q4-Q17）：数据流与容器高度
+    // 贴底工具栏 + 四 sheet（2026-08-22 第十轮：任务面板拆解并入）
     val pendingQueue by viewModel.pendingQueue.collectAsStateWithLifecycle()
     val sessionTodos by viewModel.sessionTodos.collectAsStateWithLifecycle()
     val todoCapable by viewModel.todoCapable.collectAsStateWithLifecycle()
     val pendingDrainingSet by viewModel.pendingDraining.collectAsStateWithLifecycle()
-    var chatAreaHeightPx by remember { mutableStateOf(0f) }
-    // 2026-08-22 纯覆盖修正：不再做消息列表 contentPadding/FAB 让位补偿——抽屉
-    // 悬浮盖住消息底部（grilling Q2「覆盖即可」本义）；最新消息被盖住是预期。
-    // 设置门控：顶栏菜单「堆积/TODO 抽屉」开关（AppSettings.showPendingTodoDrawer）。
-    // 第九轮（入口与容器解耦）：工具栏=拉起抽屉的入口（恒一行贴底）；抽屉展开时
-    // 工具栏不渲染（抽屉独占）；双空时两者都不渲染（原滚到底 FAB 恢复独立显示）。
-    val showPendingTodoDrawer by viewModel.showPendingTodoDrawer.collectAsStateWithLifecycle()
-    val drawerVisible = showPendingTodoDrawer &&
-        pendingDrawerVisible(pendingQueue.size, sessionTodos.size, todoCapable)
-    val pendingDrawerSnap = (PendingDrawerMemoryStore.states[viewModel.sessionId]
-        ?: PendingDrawerMemory()).snap.coerceIn(0, PendingDrawerAnchors.SNAP_COUNT - 1)
-    val pendingDrawerExpanded = drawerVisible && pendingDrawerSnap != PendingDrawerAnchors.SNAP_COLLAPSED
+    val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
+    var toolbarSheet by remember { mutableStateOf<ChatToolbarEntry?>(null) }
+    // （第九轮常驻抽屉已于第十轮退役——改为贴底工具栏 + 四个独立 ModalBottomSheet）
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -692,8 +682,6 @@ fun ChatScreen(
                         },
                         onBackgroundSession = { viewModel.backgroundSession() },
                         onOpenWorkspace = onOpenWorkspace,
-                        showPendingTodoDrawer = showPendingTodoDrawer,
-                        onTogglePendingTodoDrawer = { viewModel.togglePendingTodoDrawer(showPendingTodoDrawer) },
                     )
                 }
             }
@@ -725,7 +713,6 @@ fun ChatScreen(
                 onPendingSendActionSet = { pendingSendAction = it },
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
-                onOpenTaskSheet = { showTaskSheet = true },
                 onQuickNavigate = { showQuickNavigate = true },
             )
         },
@@ -735,8 +722,6 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .consumeWindowInsets(padding)
-                // 常驻抽屉（2026-08-22）：容器高度（抽屉锚点比例与 inset 计算的基准）
-                .onSizeChanged { chatAreaHeightPx = it.height.toFloat() }
         ) {
             when {
                 isTerminalMode -> {
@@ -856,8 +841,8 @@ fun ChatScreen(
                         // 子会话不显示快速定位（show=false 时 onDismiss 不可达，可无条件传）
                         showQuickNavigate = if (isMainSession) showQuickNavigate else false,
                         onQuickNavigateDismiss = { showQuickNavigate = false },
-                        // 第九轮：工具栏可见（抽屉未展开）时 FAB 隐藏
-                        hideScrollBottomFab = drawerVisible && !pendingDrawerExpanded,
+                        // 第十轮：⬇ 已并入贴底工具栏，FAB 退役恒隐藏
+                        hideScrollBottomFab = true,
                         agents = modelConfig.agents,
                         // 子会话无 agent 选择入口（置 null 隐藏）
                         onAgentClick = if (isMainSession) ({ agentName -> viewModel.modelSelection.selectAgent(agentName) }) else null,
@@ -870,43 +855,17 @@ fun ChatScreen(
               // 堆积/TODO 常驻抽屉（2026-08-22）：主对话流模块内覆盖式——底部锚定、
               // 贴输入组件上沿；双空自动隐藏；键盘弹起自动收起；档位/段位按会话记忆
               //（内存级）。模态 PendingTodoSheet 已退役（入口=常驻标题栏本身）。
-              // 工具栏入口（第九轮）：抽屉未展开且可见时显示；点段拉起抽屉
-              if (!isTerminalMode && drawerVisible && !pendingDrawerExpanded) {
-                  PendingTodoToolbar(
-                      queue = pendingQueue,
-                      todos = sessionTodos,
-                      showTodoEntry = true,
-                      isSessionIdle = sessionMeta.sessionStatus !is SessionStatus.Busy &&
-                          sessionMeta.sessionStatus !is SessionStatus.Retry,
-                      isDraining = pendingDrainingSet.contains(viewModel.sessionId),
-                      onOpenDrawer = { seg ->
-                          PendingDrawerMemoryStore.states[viewModel.sessionId] =
-                              PendingDrawerMemory(PendingDrawerAnchors.SNAP_MID, seg)
-                      },
+              // 贴底工具栏（第十轮）：五入口恒显示（⬇ 仅不在底时）；
+              // 键盘弹起时被键盘自然盖住（贴消息区底）
+              if (!isTerminalMode) {
+                  ChatBottomToolbar(
+                      showScrollBottom = !scrollController.isAtBottomState.value,
+                      stackedCount = pendingQueue.size,
+                      todoPendingCount = sessionTodos.count { it.status == "pending" || it.status == "in_progress" },
+                      agentRunningCount = taskUi.runningSubagentCount,
+                      shellRunningCount = taskUi.runningShellCount,
                       onScrollToBottom = { scrollController.forceScrollToBottom() },
-                      onContinue = viewModel::continuePendingQueue,
-                      onClear = viewModel::clearPendingMessages,
-                      modifier = Modifier.align(Alignment.BottomCenter),
-                  )
-              }
-              if (!isTerminalMode && drawerVisible && pendingDrawerExpanded) {
-                  val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-                  PendingTodoDrawer(
-                      sessionId = viewModel.sessionId,
-                      containerHeightPx = chatAreaHeightPx,
-                      queue = pendingQueue,
-                      todos = sessionTodos,
-                      showTodoSegment = todoCapable,
-                      isSessionIdle = sessionMeta.sessionStatus !is SessionStatus.Busy &&
-                          sessionMeta.sessionStatus !is SessionStatus.Retry,
-                      isDraining = pendingDrainingSet.contains(viewModel.sessionId),
-                      imeVisible = imeVisible,
-                      onContinue = viewModel::continuePendingQueue,
-                      onClear = viewModel::clearPendingMessages,
-                      onEdit = { id, text -> viewModel.editPendingMessage(id, text) },
-                      onDelete = { id -> viewModel.deletePendingMessage(id) },
-                      onSendOne = { id, text -> viewModel.sendPendingNow(id, text) },
-                      onReorder = { ids -> viewModel.reorderPendingMessages(ids) },
+                      onOpenEntry = { toolbarSheet = it },
                       modifier = Modifier.align(Alignment.BottomCenter),
                   )
               }
@@ -956,60 +915,72 @@ fun ChatScreen(
             }
         },
     )
-    } // CompositionLocalProvider
-    } // ChatSettingsProvider
 
-    // 任务面板（ModalBottomSheet）—— 入口在输入栏第一行右侧（角标按钮）
-    if (showTaskSheet) {
-        val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
-        val shellOutputs = remember { mutableStateMapOf<String, String?>() }
-        // 消息流 tool parts（shell 输出回填数据源——collect 缓存）
-        val allPartsMap by viewModel.chatRepositoryExposed.getAllPartsMap()
-            .collectAsStateWithLifecycle(initialValue = emptyMap())
-        // 2026-08-12 系统性修复：服务器执行完 shell 即删除（/api/shell 空、
-        // /api/shell/{id}/output 404 ShellNotFoundError）——已完成 shell 的输出
-        // 服务器不保留，唯一可靠源是消息流 tool part（assistant 消息 content 的
-        // shell 输出）。provider 优先级：事件输出 → 消息流回填 → REST 拉取。
-        fun findShellOutputInMessages(shell: ShellJob): String? {
-            val parts = allPartsMap[viewModel.sessionId].orEmpty()
-            return parts.asSequence()
-                .filterIsInstance<Part.Tool>()
-                .filter { it.tool == "shell" || it.tool == "bash" }
-                .filter { part ->
-                    val cmd = (part.state as? ToolState.Completed)?.input
-                        ?.get("command")?.jsonPrimitive?.contentOrNull
-                    cmd == shell.command
-                }
-                .mapNotNull { (it.state as? ToolState.Completed)?.output }
-                .lastOrNull()
-        }
-        TaskSheet(
-            state = taskUi,
-            onDismiss = { showTaskSheet = false },
-            onOpenSubSession = { sessionId -> onNavigateToChildSession(sessionId) },
-            onRemoveShell = { id -> viewModel.removeShell(id) },
-            showRunningFilter = serverCapabilities.runningSessionsFilterSupported,
-            shellOutputProvider = { shell ->
-                // 1. 事件携带的输出（SSE shell.exited 通常无 output）
-                shell.output
-                    // 2. 消息流 tool part 回填（服务器不保留已完成 shell 输出）
-                    ?: findShellOutputInMessages(shell)
-                    // 3. 异步 REST 拉取（运行中 shell 仍可读 output 端点）
-                    ?: run {
-                        if (!shellOutputs.containsKey(shell.id)) {
-                            shellOutputs[shell.id] = null // 占位防重入
-                            viewModel.fetchShellOutput(shell.id) { out ->
-                                shellOutputs[shell.id] = out?.output
-                            }
-                        }
-                        shellOutputs[shell.id]
+        // 四 sheet（第十轮：工具栏入口的容器——TaskSheet 拆解为 agent/shell 两 sheet）
+    // shell 输出三级 provider（迁自 TaskSheet：事件输出 → 消息流回填 → REST 拉取）
+    val shellOutputs = remember { mutableStateMapOf<String, String?>() }
+    val allPartsMap by viewModel.chatRepositoryExposed.getAllPartsMap()
+        .collectAsStateWithLifecycle(initialValue = emptyMap())
+    val shellOutputResolver = remember(viewModel.sessionId, allPartsMap) {
+        { shell: ShellJob ->
+            shell.output
+                ?: allPartsMap[viewModel.sessionId].orEmpty().asSequence()
+                    .filterIsInstance<Part.Tool>()
+                    .filter { it.tool == "shell" || it.tool == "bash" }
+                    .filter { part ->
+                        val cmd = (part.state as? ToolState.Completed)?.input
+                            ?.get("command")?.jsonPrimitive?.contentOrNull
+                        cmd == shell.command
                     }
-            }
-        )
+                    .mapNotNull { (it.state as? ToolState.Completed)?.output }
+                    .lastOrNull()
+                ?: run {
+                    if (!shellOutputs.containsKey(shell.id)) {
+                        shellOutputs[shell.id] = null
+                        viewModel.fetchShellOutput(shell.id) { out ->
+                            shellOutputs[shell.id] = out?.output
+                        }
+                    }
+                    shellOutputs[shell.id]
+                }
+        }
+    }
+    toolbarSheet?.let { entry ->
+        when (entry) {
+            ChatToolbarEntry.STACKED -> StackedSheet(
+                queue = pendingQueue,
+                isSessionIdle = sessionMeta.sessionStatus !is SessionStatus.Busy &&
+                    sessionMeta.sessionStatus !is SessionStatus.Retry,
+                isDraining = pendingDrainingSet.contains(viewModel.sessionId),
+                onContinue = viewModel::continuePendingQueue,
+                onClear = viewModel::clearPendingMessages,
+                onEdit = { id, text -> viewModel.editPendingMessage(id, text) },
+                onDelete = { id -> viewModel.deletePendingMessage(id) },
+                onSendOne = { id, text -> viewModel.sendPendingNow(id, text) },
+                onReorder = { ids -> viewModel.reorderPendingMessages(ids) },
+                onDismiss = { toolbarSheet = null },
+            )
+            ChatToolbarEntry.TODO -> TodoSheet(
+                todos = sessionTodos,
+                onDismiss = { toolbarSheet = null },
+            )
+            ChatToolbarEntry.AGENT -> AgentSheet(
+                state = taskUi,
+                onDismiss = { toolbarSheet = null },
+                onOpenSubSession = { sessionId -> onNavigateToChildSession(sessionId) },
+            )
+            ChatToolbarEntry.SHELL -> ShellSheet(
+                state = taskUi,
+                onDismiss = { toolbarSheet = null },
+                onRemoveShell = { id -> viewModel.removeShell(id) },
+                shellOutputProvider = shellOutputResolver,
+            )
+        }
     }
 
-    // （堆积/TODO 模态 sheet 已于 2026-08-22 退役——由主对话流内常驻抽屉
-    //  PendingTodoDrawer 取代，见上方 Scaffold content 内渲染点。）
+
+    } // CompositionLocalProvider
+    } // ChatSettingsProvider
 
     // FileViewer 浮层 —— 请求时渲染在 ChatScreen 之上。
     fileViewerRequest?.let { params ->

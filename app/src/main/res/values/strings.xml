@@ -272,6 +272,9 @@
     <string name="tool_terminal">Terminal</string>
     <!-- 2026-08-22：堆积/TODO 常驻抽屉显隐（顶栏菜单 toggle） -->
     <string name="menu_pending_todo_drawer">Pending &amp; TODO drawer</string>
+    <!-- 2026-08-22 第十轮：贴底工具栏 agent/shell 入口 -->
+    <string name="toolbar_agent">Agents</string>
+    <string name="toolbar_shell">Shells</string>
     <string name="tool_find_files">Find files</string>
     <string name="tool_search_code">Search</string>
     <string name="tool_list_directory">List directory</string>

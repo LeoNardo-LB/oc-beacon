@@ -37,7 +37,6 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 internal fun TaskToolbar(
     text: String,
     onBackgroundSession: () -> Unit,
-    onOpenTaskPanel: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -50,11 +49,11 @@ internal fun TaskToolbar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
     ) {
-        // 左侧：图标 + 状态文本（点击打开任务面板查看详情）
+        // 左侧：图标 + 状态文本（2026-08-22 第十轮：查看详情入口移至贴底工具栏，
+        // 此处仅展示状态）
         Row(
             modifier = Modifier
                 .weight(1f)
-                .clickable(onClick = onOpenTaskPanel)
                 .padding(vertical = SpacingTokens.XS.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)

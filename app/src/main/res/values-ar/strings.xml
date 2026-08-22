@@ -278,6 +278,8 @@
     <string name="tool_edit_file">تعديل ملف</string>
     <string name="tool_terminal">طرفية</string>
     <string name="menu_pending_todo_drawer">درج الرسائل المؤجلة والمهام</string>
+    <string name="toolbar_agent">الوكلاء</string>
+    <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">البحث عن ملفات</string>
     <string name="tool_search_code">بحث</string>
     <string name="tool_list_directory">عرض الدليل</string>

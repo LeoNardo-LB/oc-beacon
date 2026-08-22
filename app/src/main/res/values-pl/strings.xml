@@ -270,6 +270,8 @@
     <string name="tool_edit_file">Edytuj plik</string>
     <string name="tool_terminal">Terminal</string>
     <string name="menu_pending_todo_drawer">Szuflada oczekujących i TODO</string>
+    <string name="toolbar_agent">Agenci</string>
+    <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Znajdź pliki</string>
     <string name="tool_search_code">Szukaj</string>
     <string name="tool_list_directory">Wypisz katalog</string>

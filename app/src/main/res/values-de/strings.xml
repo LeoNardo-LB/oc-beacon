@@ -262,6 +262,8 @@
     <string name="tool_edit_file">Datei bearbeiten</string>
     <string name="tool_terminal">Terminal</string>
     <string name="menu_pending_todo_drawer">Pending- &amp; TODO-Schublade</string>
+    <string name="toolbar_agent">Agenten</string>
+    <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Dateien finden</string>
     <string name="tool_search_code">Suchen</string>
     <string name="tool_list_directory">Verzeichnis auflisten</string>

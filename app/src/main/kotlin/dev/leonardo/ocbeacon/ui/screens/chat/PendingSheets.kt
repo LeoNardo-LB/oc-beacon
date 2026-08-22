@@ -1,0 +1,676 @@
+package dev.leonardo.ocbeacon.ui.screens.chat
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.domain.model.PendingMessage
+import dev.leonardo.ocbeacon.domain.model.ShellJob
+import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.ui.screens.chat.components.AgentTag
+import dev.leonardo.ocbeacon.ui.screens.chat.components.CompactTag
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatus
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatusIcon
+import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
+import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SheetTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.util.DateFormatters
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * 四个独立 sheet（2026-08-22 第十轮：工具栏五入口拆解——用户定案）。
+ *
+ * 形态统一 TaskSheet 同款：ModalBottomSheet + 75% 屏高 + 标题栏（标题+计数+关闭）。
+ * 无 tab 隔离（每个 sheet 单一职责）；无数据可打开看历史（不置灰——用户 Q4）。
+ */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SheetScaffold(
+    title: String,
+    onDismiss: () -> Unit,
+    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        dragHandle = {},
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(
+                    LocalConfiguration.current.screenHeightDp.dp *
+                        SheetTokens.ChatSheetHeightFraction
+                )
+                .padding(bottom = 24.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                actions()
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
+                }
+            }
+            content()
+        }
+    }
+}
+
+/** 堆积 sheet：StackedList 迁自 PendingTodoDrawer + 继续清空标题栏动作。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun StackedSheet(
+    queue: List<PendingMessage>,
+    isSessionIdle: Boolean,
+    isDraining: Boolean,
+    onContinue: () -> Unit,
+    onClear: () -> Unit,
+    onEdit: (id: Long, text: String) -> Unit,
+    onDelete: (id: Long) -> Unit,
+    onSendOne: (id: Long, text: String) -> Unit,
+    onReorder: (orderedIds: List<Long>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var showClearConfirm by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<PendingMessage?>(null) }
+    SheetScaffold(
+        title = stringResource(R.string.pending_sheet_title),
+        onDismiss = onDismiss,
+        actions = {
+            if (queue.isNotEmpty() && isSessionIdle && !isDraining) {
+                TextButton(onClick = onContinue) {
+                    Text(stringResource(R.string.pending_continue))
+                }
+            }
+            if (queue.isNotEmpty()) {
+                TextButton(onClick = { showClearConfirm = true }) {
+                    Text(stringResource(R.string.pending_clear))
+                }
+            }
+        },
+    ) {
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            StackedList(
+                queue = queue,
+                isDraining = isDraining,
+                onEdit = { editing = it },
+                onDelete = onDelete,
+                onSendOne = onSendOne,
+                onReorder = onReorder,
+            )
+        }
+    }
+
+    editing?.let { msg ->
+        var text by remember(msg.id) { mutableStateOf(msg.text) }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text(stringResource(R.string.pending_edit_dialog_title)) },
+            text = {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    minLines = 3,
+                    maxLines = 8,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (text.isNotBlank()) onEdit(msg.id, text)
+                        editing = null
+                    },
+                ) { Text(stringResource(R.string.pending_item_edit)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { editing = null }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text(stringResource(R.string.pending_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.pending_clear_confirm_text, queue.size)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearConfirm = false
+                        onClear()
+                    },
+                ) { Text(stringResource(R.string.pending_clear)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
+}
+
+/** TODO sheet：TodoList 迁自 PendingTodoDrawer（只读三态）。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TodoSheet(
+    todos: List<SseEvent.TodoUpdated.Todo>,
+    onDismiss: () -> Unit,
+) {
+    SheetScaffold(
+        title = stringResource(R.string.pending_tab_todo_plain),
+        onDismiss = onDismiss,
+    ) {
+        Box(Modifier.fillMaxWidth().weight(1f)) { TodoList(todos = todos) }
+    }
+}
+
+// ============ agent / shell sheet（内容迁自 TaskSheet，含历史） ============
+
+/** agent sheet：TaskSheet Subagents tab 内容迁移（含历史）。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AgentSheet(
+    state: TaskUiState,
+    onDismiss: () -> Unit,
+    onOpenSubSession: (String) -> Unit,
+) {
+    SheetScaffold(
+        title = stringResource(R.string.toolbar_agent) + " (" + state.subagents.size + ")",
+        onDismiss = onDismiss,
+    ) {
+        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+            if (state.subagents.isEmpty()) {
+                item { EmptyHint(stringResource(R.string.task_sheet_empty_subagents)) }
+            } else {
+                itemsIndexed(state.subagents, key = { _, it -> it.sessionId }) { index, sub ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                        )
+                    }
+                    val running = sub.isRunning
+                    ListItem(
+                        headlineContent = {
+                            Text(text = sub.title ?: sub.sessionId, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
+                        supportingContent = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                CompactTag(
+                                    text = stringResource(
+                                        if (sub.isForeground) R.string.task_foreground else R.string.task_background
+                                    ),
+                                    containerColor = if (sub.isForeground) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.FAINT)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT)
+                                    },
+                                    contentColor = if (sub.isForeground) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                                sub.agent?.takeIf { it.isNotBlank() }?.let { agent ->
+                                    AgentTag(agent = agent, tagColor = agentColor(agent, emptyList()))
+                                }
+                                sub.startedAt?.let { ms ->
+                                    Text(
+                                        text = DateFormatters.timeOnly().format(Date(ms)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                    )
+                                }
+                                sub.modelId?.takeIf { it.isNotBlank() }?.let { model ->
+                                    CompactTag(
+                                        text = model,
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.FAINT),
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        },
+                        trailingContent = {
+                            Column(horizontalAlignment = Alignment.End) {
+                                TaskStatusIcon(
+                                    status = if (running) TaskStatus.RUNNING else TaskStatus.SUCCESS,
+                                    contentDescription = if (running) null else stringResource(R.string.task_sheet_subagent_completed),
+                                )
+                                val elapsed = if (running) {
+                                    val now by produceState(System.currentTimeMillis()) {
+                                        while (true) {
+                                            kotlinx.coroutines.delay(1_000)
+                                            value = System.currentTimeMillis()
+                                        }
+                                    }
+                                    sub.startedAt?.let { now - it }
+                                } else {
+                                    sub.durationMs
+                                }
+                                elapsed?.let { ms ->
+                                    Text(
+                                        text = formatTaskDuration(ms),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier.clickable { onOpenSubSession(sub.sessionId) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** shell sheet：TaskSheet Shells tab 内容迁移（含历史 + 详情视图）。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ShellSheet(
+    state: TaskUiState,
+    onDismiss: () -> Unit,
+    onRemoveShell: (String) -> Unit,
+    shellOutputProvider: (ShellJob) -> String?,
+) {
+    var selectedShellId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selected = state.shells.firstOrNull { it.id == selectedShellId }
+    if (selected != null) {
+        ShellDetailView(shell = selected, output = shellOutputProvider(selected), onClose = { selectedShellId = null })
+        return
+    }
+    SheetScaffold(
+        title = stringResource(R.string.toolbar_shell) + " (" + state.shells.size + ")",
+        onDismiss = onDismiss,
+    ) {
+        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+            if (state.shells.isEmpty()) {
+                item { EmptyHint(stringResource(R.string.task_sheet_empty_shells)) }
+            } else {
+                itemsIndexed(state.shells, key = { _, it -> it.id }) { index, shell ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                        )
+                    }
+                    val running = shell.isRunning
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = shell.command,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        },
+                        supportingContent = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                shell.cwd.takeIf { it.isNotBlank() }?.let { cwd ->
+                                    Text(
+                                        text = cwd,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                    )
+                                }
+                                shell.startedAt?.let { ms ->
+                                    Text(
+                                        text = DateFormatters.timeOnly().format(Date(ms)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                    )
+                                }
+                            }
+                        },
+                        trailingContent = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                TaskStatusIcon(
+                                    status = when {
+                                        running -> TaskStatus.RUNNING
+                                        shell.exit != null && shell.exit != 0 -> TaskStatus.ERROR
+                                        else -> TaskStatus.SUCCESS
+                                    },
+                                    contentDescription = if (running) null else {
+                                        stringResource(
+                                            if (shell.exit != null && shell.exit != 0) R.string.shell_status_exit else R.string.shell_status_done,
+                                            shell.exit ?: 0,
+                                        )
+                                    },
+                                )
+                                IconButton(onClick = { onRemoveShell(shell.id) }, modifier = Modifier.size(28.dp)) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.shell_kill),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier.clickable { selectedShellId = shell.id },
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ============ 列表内容（迁自 PendingTodoDrawer） ============
+
+/** 堆积列表：长按拖拽排序 + 每行 [编辑 · 删除 · 发送]；推送中锁定。 */
+@Composable
+private fun StackedList(
+    queue: List<PendingMessage>,
+    isDraining: Boolean,
+    onEdit: (PendingMessage) -> Unit,
+    onDelete: (id: Long) -> Unit,
+    onSendOne: (id: Long, text: String) -> Unit,
+    onReorder: (orderedIds: List<Long>) -> Unit,
+) {
+    if (queue.isEmpty()) {
+        EmptyHint(stringResource(R.string.pending_empty))
+        return
+    }
+    var dragOrder by remember { mutableStateOf<List<PendingMessage>?>(null) }
+    val order = dragOrder ?: queue
+    var drag by remember { mutableStateOf<DragState?>(null) }
+    val swapThreshold = with(LocalDensity.current) { 44.dp.toPx() }
+    LazyColumn(modifier = Modifier.fillMaxWidth()) {
+        itemsIndexed(order, key = { _, item -> item.id }) { index, item ->
+            val isDragged = drag?.index == index
+            val isHeadSending = isDraining && index == 0
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer { translationY = if (isDragged) drag?.offset ?: 0f else 0f }
+                    .zIndex(if (isDragged) 1f else 0f)
+                    .animateItem()
+                    .pointerInput(item.id, isDraining, order.size) {
+                        if (isDraining) return@pointerInput
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                drag = DragState(index, 0f)
+                                dragOrder = order
+                            },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                val d = drag ?: return@detectDragGesturesAfterLongPress
+                                var newOffset = d.offset + amount.y
+                                var newIndex = d.index
+                                val current = dragOrder ?: order
+                                while (newOffset > swapThreshold && newIndex < current.size - 1) {
+                                    newIndex++; newOffset -= swapThreshold
+                                }
+                                while (newOffset < -swapThreshold && newIndex > 0) {
+                                    newIndex--; newOffset += swapThreshold
+                                }
+                                newOffset = newOffset.coerceIn(-swapThreshold, swapThreshold)
+                                if (newIndex != d.index) {
+                                    dragOrder = current.toMutableList().apply {
+                                        val moved = removeAt(d.index)
+                                        add(newIndex, moved)
+                                    }
+                                }
+                                drag = DragState(newIndex, newOffset)
+                            },
+                            onDragEnd = {
+                                onReorder((dragOrder ?: order).map { it.id })
+                                drag = null
+                                dragOrder = null
+                            },
+                            onDragCancel = {
+                                drag = null
+                                dragOrder = null
+                            },
+                        )
+                    },
+            ) {
+                Surface(
+                    color = if (isDragged) MaterialTheme.colorScheme.surfaceContainerHigh
+                    else MaterialTheme.colorScheme.surface,
+                    shape = ShapeTokens.medium,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            val timeText = remember(item.createdAt) {
+                                SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(item.createdAt))
+                            }
+                            Text(
+                                text = if (isHeadSending) stringResource(R.string.pending_item_sending) else timeText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isHeadSending) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                            )
+                        }
+                        IconButton(onClick = { onEdit(item) }, enabled = !isDraining, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.pending_item_edit), modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM))
+                        }
+                        IconButton(onClick = { onDelete(item.id) }, enabled = !isDraining, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.pending_item_delete), modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM))
+                        }
+                        IconButton(onClick = { onSendOne(item.id, item.text) }, enabled = !isDraining, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.pending_item_send), modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** TODO 只读列表：三态符号（✓/•/○），cancelled 删除线。 */
+@Composable
+private fun TodoList(todos: List<SseEvent.TodoUpdated.Todo>) {
+    if (todos.isEmpty()) {
+        EmptyHint(stringResource(R.string.todo_empty))
+        return
+    }
+    LazyColumn(modifier = Modifier.fillMaxWidth()) {
+        itemsIndexed(todos, key = { _, it -> it.content + "#" + it.status }) { _, todo ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+            ) {
+                when (todo.status) {
+                    "completed" -> Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED))
+                    "in_progress" -> Icon(Icons.Default.FiberManualRecord, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
+                    else -> Icon(Icons.Default.RadioButtonUnchecked, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED))
+                }
+                Text(
+                    text = todo.content,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = when (todo.status) {
+                        "completed" -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                        "in_progress" -> MaterialTheme.colorScheme.onSurface
+                        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM)
+                    },
+                    textDecoration = if (todo.status == "cancelled") TextDecoration.LineThrough else null,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+/** 空态提示。 */
+@Composable
+private fun EmptyHint(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+        textAlign = TextAlign.Center,
+    )
+}
+
+/** 拖拽重排进行时状态。 */
+private data class DragState(val index: Int, val offset: Float)
+
+/** shell 详情视图（迁自 TaskSheet）。 */
+@Composable
+private fun ShellDetailView(
+    shell: ShellJob,
+    output: String?,
+    onClose: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(
+                LocalConfiguration.current.screenHeightDp.dp *
+                    SheetTokens.ChatSheetHeightFraction
+            )
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 24.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Icon(
+                androidx.compose.material.icons.Icons.Default.Terminal,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = shell.command,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
+            )
+            IconButton(onClick = onClose) {
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.shell_close))
+            }
+        }
+        Text(
+            text = buildString {
+                append(if (shell.isRunning) stringResource(R.string.shell_status_running) else "")
+                shell.exit?.let { append(" · ").append(stringResource(R.string.shell_status_exit, it)) }
+                shell.cwd.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val text = output ?: shell.output ?: ""
+        Text(
+            text = text.ifBlank { stringResource(R.string.shell_no_output) },
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+        )
+    }
+}
+
+/** 任务执行时长格式化（迁自 TaskSheet；<60s 秒 / <1h m:ss / ≥1h h:mm:ss）。 */
+internal fun formatTaskDuration(ms: Long): String {
+    val totalSec = ms / 1000
+    val h = totalSec / 3600
+    val m = (totalSec % 3600) / 60
+    val s = totalSec % 60
+    return when {
+        h > 0 -> String.format(Locale.getDefault(), "%d:%02d:%02d", h, m, s)
+        m > 0 -> String.format(Locale.getDefault(), "%d:%02d", m, s)
+        else -> String.format(Locale.getDefault(), "%ds", s)
+    }
+}

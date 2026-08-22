@@ -262,6 +262,8 @@
     <string name="tool_edit_file">Dosya düzenle</string>
     <string name="tool_terminal">Terminal</string>
     <string name="menu_pending_todo_drawer">Bekleyen ve TODO çekmecesi</string>
+    <string name="toolbar_agent">Ajanlar</string>
+    <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Dosya bul</string>
     <string name="tool_search_code">Ara</string>
     <string name="tool_list_directory">Dizin listele</string>

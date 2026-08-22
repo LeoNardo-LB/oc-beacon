@@ -262,6 +262,8 @@
     <string name="tool_edit_file">ファイルを編集</string>
     <string name="tool_terminal">ターミナル</string>
     <string name="menu_pending_todo_drawer">積み上げ/TODO ドロワー</string>
+    <string name="toolbar_agent">エージェント</string>
+    <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">ファイル検索</string>
     <string name="tool_search_code">検索</string>
     <string name="tool_list_directory">ディレクトリ一覧</string>

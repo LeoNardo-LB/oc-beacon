@@ -77,7 +77,6 @@ internal fun ChatScreenBottomBar(
     onPendingSendActionSet: ((() -> Unit)?) -> Unit,
     coroutineScope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
-    onOpenTaskSheet: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
 ) {
     val view = LocalView.current
@@ -424,8 +423,6 @@ internal fun ChatScreenBottomBar(
                 },
                 restoredDraft = restoredDraft,
                 onConsumeRestoredDraft = { viewModel.composer.consumeRestoredDraft() },
-                taskBadgeCount = taskUi.badgeCount,
-                onOpenTaskPanel = onOpenTaskSheet,
                 onQuickNavigate = onQuickNavigate,
                 showTaskToolbar = taskUi.showTaskToolbar,
                 taskToolbarText = taskToolbarText,

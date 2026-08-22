@@ -55,8 +55,6 @@ internal fun AgentModelVariantSelector(
     onModelClick: () -> Unit,
     onAgentSelect: (String) -> Unit,
     onAttach: () -> Unit,
-    taskBadgeCount: Int = 0,
-    onOpenTaskPanel: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
 ) {
     // 不提前返回：配置未就绪（agents 空 / modelLabel 空 / variantNames 空）时，
@@ -145,35 +143,6 @@ internal fun AgentModelVariantSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            // （堆积/TODO 入口按钮已于 2026-08-22 移除——由主对话流内常驻抽屉取代）
-            // 任务入口（BadgedBox + 图标按钮）—— 角标实时显示任务/subagent 总数。
-            // 无任务时角标隐藏，仅剩低调图标。
-            // 2026-08-20 图标交换（设计定稿）：FormatListBulleted 让给堆积/TODO
-            // 面板，任务面板换 PendingActions（时钟+清单，后台作业语义）。
-            BadgedBox(
-                badge = {
-                    if (taskBadgeCount > 0) {
-                        Badge(containerColor = MaterialTheme.colorScheme.tertiary) {
-                            Text(
-                                text = taskBadgeCount.coerceAtMost(99).toString(),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    }
-                }
-            ) {
-                IconButton(
-                    onClick = onOpenTaskPanel,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.PendingActions,
-                        contentDescription = stringResource(R.string.a11y_icon_tasks),
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
-                    )
-                }
-            }
             // 快速导航入口（2026-08-12 用户要求：移入输入组件——任务入口旁）
             IconButton(
                 onClick = onQuickNavigate,

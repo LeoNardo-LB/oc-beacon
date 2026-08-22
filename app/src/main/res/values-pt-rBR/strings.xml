@@ -262,6 +262,8 @@
     <string name="tool_edit_file">Editar arquivo</string>
     <string name="tool_terminal">Terminal</string>
     <string name="menu_pending_todo_drawer">Gaveta de pendências e TODO</string>
+    <string name="toolbar_agent">Agentes</string>
+    <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Encontrar arquivos</string>
     <string name="tool_search_code">Pesquisar</string>
     <string name="tool_list_directory">Listar diretório</string>
