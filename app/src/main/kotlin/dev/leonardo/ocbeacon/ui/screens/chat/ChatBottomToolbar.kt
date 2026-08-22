@@ -51,8 +51,8 @@ internal fun ChatBottomToolbar(
         actions = {
             if (showScrollBottom) {
                 ToolbarAction(
-                    icon = { tint ->
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.chat_scroll_bottom), modifier = Modifier.size(24.dp), tint = tint)
+                    icon = {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.chat_scroll_bottom), modifier = Modifier.size(24.dp))
                     },
                     count = 0,
                     contentDescription = stringResource(R.string.chat_scroll_bottom),
@@ -60,32 +60,32 @@ internal fun ChatBottomToolbar(
                 )
             }
             ToolbarAction(
-                icon = { tint ->
-                    Icon(Icons.Default.Inbox, contentDescription = null, modifier = Modifier.size(24.dp), tint = tint)
+                icon = {
+                    Icon(Icons.Default.Inbox, contentDescription = stringResource(R.string.pending_tab_stacked_plain), modifier = Modifier.size(24.dp))
                 },
                 count = stackedCount,
                 contentDescription = stringResource(R.string.pending_tab_stacked_plain),
                 onClick = { onOpenEntry(ChatToolbarEntry.STACKED) },
             )
             ToolbarAction(
-                icon = { tint ->
-                    Icon(Icons.Default.Checklist, contentDescription = null, modifier = Modifier.size(24.dp), tint = tint)
+                icon = {
+                    Icon(Icons.Default.Checklist, contentDescription = stringResource(R.string.pending_tab_todo_plain), modifier = Modifier.size(24.dp))
                 },
                 count = todoPendingCount,
                 contentDescription = stringResource(R.string.pending_tab_todo_plain),
                 onClick = { onOpenEntry(ChatToolbarEntry.TODO) },
             )
             ToolbarAction(
-                icon = { tint ->
-                    Icon(Icons.Default.AccountTree, contentDescription = null, modifier = Modifier.size(24.dp), tint = tint)
+                icon = {
+                    Icon(Icons.Default.AccountTree, contentDescription = stringResource(R.string.toolbar_agent), modifier = Modifier.size(24.dp))
                 },
                 count = agentRunningCount,
                 contentDescription = stringResource(R.string.toolbar_agent),
                 onClick = { onOpenEntry(ChatToolbarEntry.AGENT) },
             )
             ToolbarAction(
-                icon = { tint ->
-                    Icon(Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(24.dp), tint = tint)
+                icon = {
+                    Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.toolbar_shell), modifier = Modifier.size(24.dp))
                 },
                 count = shellRunningCount,
                 contentDescription = stringResource(R.string.toolbar_shell),
@@ -97,24 +97,25 @@ internal fun ChatBottomToolbar(
     )
 }
 
-/** 原生工具栏动作：BadgedBox + IconButton（M3 官方角标模式）。 */
+/** 原生工具栏动作：BadgedBox + IconButton（M3 官方角标模式；desc 挂 IconButton——
+ *  角标模式下 a11y 读「堆积消息，3」）。 */
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.ToolbarAction(
-    icon: @Composable (androidx.compose.ui.graphics.Color) -> Unit,
+    icon: @Composable () -> Unit,
     count: Int,
     contentDescription: String,
     onClick: () -> Unit,
 ) {
-    val tint = MaterialTheme.colorScheme.onSurfaceVariant
     if (count > 0) {
         BadgedBox(
             badge = {
                 Badge { Text(text = count.coerceAtMost(99).toString()) }
             },
         ) {
-            IconButton(onClick = onClick) { icon(tint) }
+            IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { icon() }
         }
     } else {
-        IconButton(onClick = onClick) { icon(tint) }
+        IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { icon() }
     }
+    // contentDescription 由 icon 内 Icon 携带（调用处传入）
 }
