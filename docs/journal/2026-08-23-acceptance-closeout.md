@@ -124,12 +124,27 @@
   - 全量 1805/1805 绿（-3 死代码测试 +2 契约测试）；→ \`docs/journal/2026-08-21-arch-review-deepening.md\`
 - ✅ 已验收（批次末清单 D 组：滚动/子会话过；D-12 通知问题①已定性 MIUI 渠道并闭环）。
 
-## 三、V1 真机端到端（#150/#172 补验，子代理执行中）
+## 三、V1 真机端到端（#150/#172 补验，已完成）
 
 - 指令来源：用户「V1 真机校验请你启动V1服务器进行真机端到端测试」
 - 关键约束（已查明）：装机 dev.21 非 debuggable（dumpsys pkgFlags 无 DEBUGGABLE，2026-08-23 实查）→ debug intent 不可用，V1 服务器须 UI 自动化添加；宿主 V2 服务器（4199 / opencode2.exe）不得干扰；**全程只读**（不发消息、不建/删会话）
 - 验证面：版本探测落 V1（#150 排序与 UNKNOWN 不降级）· 会话列表加载 · 长会话滚顶「加载更早」V1 本地 {id,time} 锚点游标（#172）· 快速定位 loadAround（V1 单向）· FATAL 监控
-- 证据 → \`docs/journal/2026-08-23-v1-device-e2e.md\`（子代理直写；完成后本节更新结论）
+- 证据 → `docs/journal/2026-08-23-v1-device-e2e.md`（子代理直写，100 行 8 节）
+
+### 结论（2026-08-23 子代理三轮报告整合）
+
+| 验证面 | 判定 | 要点 |
+|--------|------|------|
+| V1 服务器启动 | ✅ | opencode-ai 1.18.18 隔离 HOME pid 867383@4198；处置上批次遗留孤儿实例 3200018（EADDRINUSE） |
+| 探测落 V1（#150） | ✅ | logcat `Detected V1 API (version=1.18.18, known=V1)`；known=V1 单探即中零白探；/api/health 过渡形态被交叉验证正确拒绝；SSE 先行 96ms（Connected 04.237 → Pre-loaded 04.774） |
+| 会话列表（V1 REST） | ✅ 空态 | Pre-loaded 0 sessions / 1 project；「目录为空」正常渲染 |
+| 加载更早（#172 V1 锚点） | ⬇️ 降级 | 真实库（322 会话/20387 消息）挂 V1 报 `no session table`（V1/V2 存储不兼容二次实锤）+ 只读纪律禁造历史 → JVM 契约测试仍是唯一覆盖 |
+| 快速定位 loadAround | ⬇️ 降级 | 同上（无长会话可跳） |
+| FATAL | ✅ 0 | 前后 crash buffer 均 0 |
+| 收尾清理 | ✅ | UI 删条目（GLM-4V 核验无 4198 残留）/ reverse 清 / 进程杀；V2 服务器全程无恙（实为 LAN 192.168.110.68:4199 直连——任务背景 reverse 说法勘误存档） |
+| LeakCanary 浸泡 | ⏭ skip | 装机为 release 构建，LC 仅 debugImplementation |
+
+判定：**#150 V1 探测复验真机闭环 ✅**；#172 V1 分页维持 JVM 契约覆盖（存储不兼容属上游断代非客户端缺口）。遗留发现 3 条见 V1 journal §八（孤儿实例清理惯例 / known=V1 条目已删后续复验需 UI 重加 / 存储不兼容实锤）。
 
 ## 四、#192 新登记（本批）
 
