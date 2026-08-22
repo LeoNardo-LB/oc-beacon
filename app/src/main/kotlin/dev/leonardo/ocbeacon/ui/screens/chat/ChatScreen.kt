@@ -592,9 +592,14 @@ fun ChatScreen(
     // 2026-08-22 纯覆盖修正：不再做消息列表 contentPadding/FAB 让位补偿——抽屉
     // 悬浮盖住消息底部（grilling Q2「覆盖即可」本义）；最新消息被盖住是预期。
     // 设置门控：顶栏菜单「堆积/TODO 抽屉」开关（AppSettings.showPendingTodoDrawer）。
+    // 第九轮（入口与容器解耦）：工具栏=拉起抽屉的入口（恒一行贴底）；抽屉展开时
+    // 工具栏不渲染（抽屉独占）；双空时两者都不渲染（原滚到底 FAB 恢复独立显示）。
     val showPendingTodoDrawer by viewModel.showPendingTodoDrawer.collectAsStateWithLifecycle()
     val drawerVisible = showPendingTodoDrawer &&
         pendingDrawerVisible(pendingQueue.size, sessionTodos.size, todoCapable)
+    val pendingDrawerSnap = (PendingDrawerMemoryStore.states[viewModel.sessionId]
+        ?: PendingDrawerMemory()).snap.coerceIn(0, PendingDrawerAnchors.SNAP_COUNT - 1)
+    val pendingDrawerExpanded = drawerVisible && pendingDrawerSnap != PendingDrawerAnchors.SNAP_COLLAPSED
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -851,6 +856,8 @@ fun ChatScreen(
                         // 子会话不显示快速定位（show=false 时 onDismiss 不可达，可无条件传）
                         showQuickNavigate = if (isMainSession) showQuickNavigate else false,
                         onQuickNavigateDismiss = { showQuickNavigate = false },
+                        // 第九轮：工具栏可见（抽屉未展开）时 FAB 隐藏
+                        hideScrollBottomFab = drawerVisible && !pendingDrawerExpanded,
                         agents = modelConfig.agents,
                         // 子会话无 agent 选择入口（置 null 隐藏）
                         onAgentClick = if (isMainSession) ({ agentName -> viewModel.modelSelection.selectAgent(agentName) }) else null,
@@ -863,7 +870,26 @@ fun ChatScreen(
               // 堆积/TODO 常驻抽屉（2026-08-22）：主对话流模块内覆盖式——底部锚定、
               // 贴输入组件上沿；双空自动隐藏；键盘弹起自动收起；档位/段位按会话记忆
               //（内存级）。模态 PendingTodoSheet 已退役（入口=常驻标题栏本身）。
-              if (!isTerminalMode && drawerVisible) {
+              // 工具栏入口（第九轮）：抽屉未展开且可见时显示；点段拉起抽屉
+              if (!isTerminalMode && drawerVisible && !pendingDrawerExpanded) {
+                  PendingTodoToolbar(
+                      queue = pendingQueue,
+                      todos = sessionTodos,
+                      showTodoEntry = true,
+                      isSessionIdle = sessionMeta.sessionStatus !is SessionStatus.Busy &&
+                          sessionMeta.sessionStatus !is SessionStatus.Retry,
+                      isDraining = pendingDrainingSet.contains(viewModel.sessionId),
+                      onOpenDrawer = { seg ->
+                          PendingDrawerMemoryStore.states[viewModel.sessionId] =
+                              PendingDrawerMemory(PendingDrawerAnchors.SNAP_MID, seg)
+                      },
+                      onScrollToBottom = { scrollController.forceScrollToBottom() },
+                      onContinue = viewModel::continuePendingQueue,
+                      onClear = viewModel::clearPendingMessages,
+                      modifier = Modifier.align(Alignment.BottomCenter),
+                  )
+              }
+              if (!isTerminalMode && drawerVisible && pendingDrawerExpanded) {
                   val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
                   PendingTodoDrawer(
                       sessionId = viewModel.sessionId,

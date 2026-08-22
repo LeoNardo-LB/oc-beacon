@@ -177,6 +177,8 @@ fun ChatMessageList(
     onForceScrollToBottom: () -> Unit,
     showQuickNavigate: Boolean,
     onQuickNavigateDismiss: () -> Unit,
+    /** 2026-08-22 第九轮：堆积/TODO 工具栏可见时隐藏（⬇已并入工具栏）。 */
+    hideScrollBottomFab: Boolean = false,
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
     onAgentClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -1383,9 +1385,8 @@ fun ChatMessageList(
                 }
             }
 
-            // 滚动到底部 FAB（B-F5：isAtBottom 读取下沉到本 if 所在的
-            // 小作用域——由 ScrollBottomFab 包装，阈值跨越只重组 FAB 自身）
-            ScrollBottomFab(
+            // 滚动到底部 FAB（B-F5）：工具栏可见时隐藏（第九轮 ⬇ 并入工具栏）
+            if (!hideScrollBottomFab) ScrollBottomFab(
                 isAtBottomState = isAtBottomState,
                 onJumpToBottom = {
                     coroutineScope.launch {
