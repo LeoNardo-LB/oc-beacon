@@ -120,7 +120,7 @@ private fun SegLabel(text: String, count: Int) {
         BadgedBox(
             badge = {
                 Badge(
-                    modifier = Modifier.offset(x = 6.dp, y = (-4).dp),
+                    modifier = Modifier.offset(x = (-2).dp, y = (-6).dp),
                 ) {
                     Text(
                         text = count.coerceAtMost(99).toString(),
@@ -129,7 +129,14 @@ private fun SegLabel(text: String, count: Int) {
                 }
             },
         ) {
-            Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            // 尾部 padding 撑出锚点空白区：Badge（TopEnd）落在字形右侧空白，
+            // 不再叠字形（第六/七轮两版盖字的根治）
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                modifier = Modifier.padding(end = 14.dp),
+            )
         }
     } else {
         Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
