@@ -49,6 +49,8 @@ class DiagnosticsViewModel @Inject constructor(
         emptyList(),
     )
 
+    private val TAG = "DiagnosticsReport"
+
     val logLevel: StateFlow<String> = repository.logLevel.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -82,20 +84,26 @@ class DiagnosticsViewModel @Inject constructor(
 
     /** 入口：无 token → device flow；有 token → 直接构建预览。 */
     fun startReport() {
+        AppLogger.i(TAG, "startReport invoked")
         val clientId = dev.leonardo.ocbeacon.BuildConfig.GITHUB_APP_CLIENT_ID
         val clientSecret = dev.leonardo.ocbeacon.BuildConfig.GITHUB_APP_CLIENT_SECRET
         if (clientId.isBlank() || clientSecret.isBlank()) {
+            AppLogger.w(TAG, "startReport: credentials blank -> NeedsGitHubAppConfig")
             _reportState.value = ReportUiState.NeedsGitHubAppConfig
             return
         }
         viewModelScope.launch {
-            if (tokenStore.loadToken() != null) buildPreview()
+            val token = tokenStore.loadToken()
+            AppLogger.i(TAG, "startReport: clientId ok, token=${if (token != null) "present" else "absent"}")
+            if (token != null) buildPreview()
             else beginDeviceFlow(clientId, clientSecret)
         }
     }
 
     private suspend fun beginDeviceFlow(clientId: String, clientSecret: String) {
+        AppLogger.i(TAG, "beginDeviceFlow: requesting device code...")
         deviceFlowAuth.requestDeviceCode(clientId, clientSecret).onSuccess { code ->
+            AppLogger.i(TAG, "beginDeviceFlow: got userCode=${code.userCode}")
             _reportState.value = ReportUiState.Authorizing(code)
             pollToken(clientId, clientSecret, code)
         }.onFailure {

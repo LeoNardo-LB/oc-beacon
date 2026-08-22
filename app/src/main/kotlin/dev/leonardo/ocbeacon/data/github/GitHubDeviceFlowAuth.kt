@@ -52,21 +52,43 @@ sealed class DeviceFlowResult {
  */
 @Singleton
 class GitHubDeviceFlowAuth @Inject constructor(
-    private val client: HttpClient,
     private val json: Json,
     private val tokenStore: GitHubTokenStore,
 ) {
+    /**
+     * GitHub 专用 client（#151 真机实证）：强制 HTTP/1.1——手机直连 github.com 时
+     * h2 协商会被网络中间层干扰（"Required SETTINGS preface not received"），
+     * HTTP/1.1 更稳；不与 LAN opencode 共用 client（那个保持 h2/SSE 长连接语义）。
+     */
+    private val client = HttpClient(io.ktor.client.engine.okhttp.OkHttp) {
+        install(io.ktor.client.plugins.HttpTimeout) {
+            requestTimeoutMillis = 20_000
+            connectTimeoutMillis = 10_000
+            socketTimeoutMillis = 20_000
+        }
+        engine {
+            config {
+                protocols(listOf(okhttp3.Protocol.HTTP_1_1))
+            }
+        }
+    }
 
     suspend fun requestDeviceCode(clientId: String, clientSecret: String): Result<DeviceCodeRequest> = runCatching {
         val resp = client.post(GitHubDeviceEndpoints.DEVICE_CODE_URL) {
             header(HttpHeaders.Accept, "application/json")
+            // 真机实证修复（#151）：必须显式 form 编码——不设时 Ktor 发 text/plain，
+            // GitHub 回错误 JSON（无 user_code），原 `!!` 解析抛 NPE
+            header(HttpHeaders.ContentType, "application/x-www-form-urlencoded")
             setBody("client_id=$clientId&client_secret=$clientSecret&scope=public_repo")
         }
         val obj = json.parseToJsonElement(resp.bodyAsText()).jsonObject
+        // 防御解析：错误响应（如 400/403）带 error 字段，给出可读失败而非 NPE
+        obj["error"]?.jsonPrimitive?.content?.let { error(it) }
         DeviceCodeRequest(
-            userCode = obj["user_code"]!!.jsonPrimitive.content,
-            verificationUri = obj["verification_uri"]!!.jsonPrimitive.content,
-            deviceCode = obj["device_code"]!!.jsonPrimitive.content,
+            userCode = obj["user_code"]?.jsonPrimitive?.content ?: error("missing user_code"),
+            verificationUri = obj["verification_uri"]?.jsonPrimitive?.content
+                ?: "https://github.com/login/device",
+            deviceCode = obj["device_code"]?.jsonPrimitive?.content ?: error("missing device_code"),
             intervalSeconds = obj["interval"]?.jsonPrimitive?.content?.toIntOrNull() ?: 5,
             expiresInSeconds = obj["expires_in"]?.jsonPrimitive?.content?.toIntOrNull() ?: 900,
         )
@@ -83,13 +105,16 @@ class GitHubDeviceFlowAuth @Inject constructor(
     ): Result<DeviceFlowResult> = runCatching {
         val resp = client.post(GitHubDeviceEndpoints.TOKEN_URL) {
             header(HttpHeaders.Accept, "application/json")
+            // 同 requestDeviceCode：显式 form 编码（#151 真机实证修复）
+            header(HttpHeaders.ContentType, "application/x-www-form-urlencoded")
             setBody(
                 "client_id=$clientId&client_secret=$clientSecret&device_code=$deviceCode&grant_type=urn:ietf:params:oauth:grant-type:device_code"
             )
         }
         val obj = json.parseToJsonElement(resp.bodyAsText()).jsonObject
+        val accessToken: String? = obj["access_token"]?.jsonPrimitive?.content
         when {
-            obj.containsKey("access_token") -> DeviceFlowResult.Success(obj["access_token"]!!.jsonPrimitive.content)
+            accessToken != null -> DeviceFlowResult.Success(accessToken)
             else -> when (obj["error"]?.jsonPrimitive?.content) {
                 "authorization_pending", "slow_down" -> DeviceFlowResult.Pending
                 else -> DeviceFlowResult.Failed(obj["error"]?.jsonPrimitive?.content ?: "unknown")
