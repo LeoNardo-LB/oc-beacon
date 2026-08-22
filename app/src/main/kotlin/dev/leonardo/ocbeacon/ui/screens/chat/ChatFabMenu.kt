@@ -69,8 +69,13 @@ internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL }
 /** 边缘拉杆贴靠侧（start/end 随布局方向，物理方向在内部换算）。 */
 internal enum class FabEdge { START, END }
 
-/** #192 手势判定阈值（dp）：隐藏方向水平累计位移超过即触发。 */
-internal val FabSwipeThreshold = 40.dp
+/**
+ * #192 手势判定阈值（dp）：隐藏方向水平累计位移超过即触发。
+ * 真机 E2E 修正（2026-08-23）：原 40dp > 左 FAB 可拖行程（中心距屏缘仅
+ * ~38dp=16dp 边距+22dp 半径）→ 左 FAB 物理不可隐藏。降到 24dp（可用行程
+ * 38dp 的 ~63%，误触与可达性平衡；右 FAB 行程充裕不受影响）。
+ */
+internal val FabSwipeThreshold = 24.dp
 
 /** #192 隐藏滑出距离（dp）：FAB 向屏缘平移量（44dp 自身 + 16dp 边距）。 */
 internal val FabExitDistance = 60.dp
