@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
@@ -26,11 +27,12 @@ import androidx.compose.material3.ToggleFloatingActionButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -40,13 +42,11 @@ import dev.leonardo.ocbeacon.R
 internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL }
 
 /**
- * 主对话右下角 FAB Menu（2026-08-22 第十五轮定案：M3 官方 FloatingActionButtonMenu——
- * m3.material.io FAB menu 形态）。
+ * 主对话右下角 FAB Menu（第十五轮紧凑复改：M3 官方 FloatingActionButtonMenu）。
  *
- * 收起 = 单个小 FAB（40dp，与退役的滚底 SmallFAB 同尺寸规格；角标=四入口总数）；
- * 展开 = 官方交错动画菜单，自上而下 [⬇(在底时置灰) | 📥堆积 | ☑TODO | 🌳智能体 | >_Shell]，
- * 各项角标=运行中/待处理数（0 无角标仍可点看历史）。
- * 展开 dismissal：外点任意处 / 返回键；点入口先收菜单再开对应 sheet。
+ * 配色避开消息流气泡（用户=primaryContainer、智能体=surfaceContainerHigh）——
+ * FAB 与菜单项统一 secondaryContainer 系（消息流未用）；⬇ 在底置灰 surfaceVariant。
+ * 尺寸紧凑档：FAB 32dp/18dp 图标，菜单项 44dp 高/18dp 图标/labelLarge。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,8 +73,8 @@ internal fun ChatFabMenu(
     }
 
     val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
-    val fabContainer = MaterialTheme.colorScheme.surfaceContainerHigh
-    val fabContent = MaterialTheme.colorScheme.onSurface
+    val secContainer = MaterialTheme.colorScheme.secondaryContainer
+    val sec = MaterialTheme.colorScheme.secondary
 
     FloatingActionButtonMenu(
         expanded = expanded,
@@ -83,11 +83,11 @@ internal fun ChatFabMenu(
             ToggleFloatingActionButton(
                 checked = expanded,
                 onCheckedChange = { expanded = it },
-                containerColor = { fabContainer },
-                // 大小适配本应用规格：40dp 小 FAB + 12dp 圆角（官方默认 56dp/16dp）
-                containerSize = ToggleFloatingActionButtonDefaults.containerSize(40.dp, 40.dp),
+                // 展开时色随动 secondaryContainer→secondary（避开两类气泡色）
+                containerColor = { p -> lerp(secContainer, sec, p) },
+                containerSize = ToggleFloatingActionButtonDefaults.containerSize(32.dp, 32.dp),
                 containerCornerRadius =
-                    ToggleFloatingActionButtonDefaults.containerCornerRadius(12.dp, 12.dp),
+                    ToggleFloatingActionButtonDefaults.containerCornerRadius(10.dp, 10.dp),
             ) {
                 val desc = if (checkedProgress >= 0.5f) {
                     stringResource(R.string.chat_fab_menu_close)
@@ -98,7 +98,7 @@ internal fun ChatFabMenu(
                     Icon(
                         if (checkedProgress >= 0.5f) Icons.Default.Close else Icons.Default.Inbox,
                         contentDescription = desc,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
                 if (checkedProgress < 0.5f && totalBadge > 0) {
@@ -119,23 +119,29 @@ internal fun ChatFabMenu(
                     onScrollToBottom()
                 }
             },
-            text = { Text(stringResource(R.string.chat_scroll_bottom)) },
+            text = {
+                Text(
+                    stringResource(R.string.chat_scroll_bottom),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            },
             icon = {
                 Icon(
                     Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(18.dp),
                 )
             },
+            modifier = Modifier.height(44.dp),
             containerColor = if (canScrollToBottom) {
-                MaterialTheme.colorScheme.primaryContainer
+                MaterialTheme.colorScheme.secondaryContainer
             } else {
-                MaterialTheme.colorScheme.surfaceContainerHigh
+                MaterialTheme.colorScheme.surfaceVariant
             },
             contentColor = if (canScrollToBottom) {
-                MaterialTheme.colorScheme.onPrimaryContainer
+                MaterialTheme.colorScheme.onSecondaryContainer
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
             },
         )
         FabMenuEntry(
@@ -165,28 +171,34 @@ internal fun ChatFabMenu(
     }
 }
 
-/** FAB 菜单通用入口项（icon+label 官方排版，角标挂在 icon 上；count=0 无角标）。 */
+/**
+ * FAB 菜单通用入口项（紧凑档：44dp 高/18dp 图标/labelLarge；
+ * secondaryContainer 避开消息气泡色；角标挂 icon，count=0 无角标）。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FloatingActionButtonMenuScope.FabMenuEntry(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     count: Int,
     onClick: () -> Unit,
 ) {
     FloatingActionButtonMenuItem(
         onClick = onClick,
-        text = { Text(label) },
+        text = { Text(label, style = MaterialTheme.typography.labelLarge) },
         icon = {
             if (count > 0) {
                 BadgedBox(
                     badge = { Badge { Text(count.coerceAtMost(99).toString()) } }
                 ) {
-                    Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                    Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
             } else {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
             }
         },
+        modifier = Modifier.height(44.dp),
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
     )
 }
