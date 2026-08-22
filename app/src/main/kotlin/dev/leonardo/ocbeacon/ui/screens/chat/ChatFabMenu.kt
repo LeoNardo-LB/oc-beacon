@@ -267,7 +267,8 @@ internal fun ChatFabMenu(
     SwipeToHideBox(dragSign = +1f, onHide = { if (expanded) expanded = false else onHide() }) {
         FloatingActionButtonMenu(
             expanded = expanded,
-            modifier = Modifier,
+            // #192 修复：align（ParentData）必须透传——重写时丢失导致双 FAB 掉到 Box 左上角
+            modifier = modifier,
             button = {
                 ToggleFloatingActionButton(
                     checked = expanded,
@@ -415,7 +416,8 @@ internal fun ChatScrollBottomFab(
             FloatingActionButton(
                 onClick = onClick,
                 // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
-                modifier = Modifier
+                // #192 修复：透传 modifier（BottomStart align）——原丢失致 FAB 掉到 Box 左上角
+                modifier = modifier
                     .padding(start = 16.dp, bottom = 16.dp)
                     .size(44.dp)
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
