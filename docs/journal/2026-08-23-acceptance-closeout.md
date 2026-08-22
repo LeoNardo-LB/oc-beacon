@@ -148,6 +148,11 @@
 
 补充轮（§十）：UI 表单添加路径补做闭环——保存即探测（known=UNKNOWN 首探落 V1）、连接双轮验证、`input text` 纯 ASCII 在 release 构建可靠；额外正面实证：V1 遇 V2 格式 opencode.jsonc 触发 ConfigInvalidError → 客户端 W 日志跳过该项目零崩溃（异构配置优雅降级）。V1 E2E 全量收口。
 
+### 追加迁移：#159 jumpLockActive 派生化（过期卡核实后迁出）
+
+- 卡片写「剩纯清理」，核实 journal：**2026-08-22 已全量收口**（dd43ab13）——锁收进 JumpNavigationController 派生 StateFlow（异步窗口 ∪ 进行中 ∪ 终点后 300ms 缓冲，collectLatest 新跳转取消解锁）；ChatMessageList 4 手工写点全删；B-F2 提交门控此前已直读 phase 真源；附带修复 loadAround 失败路径永久锁死 bug（clearPendingJumpLock 显式解锁）；JumpLockDerivationTest 8 例 + 全量 1880/1880 绿 + 真机冒烟 4 项（放行/跳转全链/无锁死/0 FATAL）。观感验收已随 2026-08-22 批次清单 E-14（快速定位跳转位置正确）通过。
+- 完整收口记录在 `docs/journal/2026-08-20-queue-todo.md` #159 条（✅ 2026-08-22 收口段）；本批仅补迁移手续。
+
 ## 四、#192 新登记（本批）
 
 - [ ] **#192 双 FAB 会话级滑动隐藏/展示：左（跳到底部）左滑收起→左缘半透明拉杆；右（菜单）右滑收起，展开态先收拢成按钮** `ui`

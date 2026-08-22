@@ -77,10 +77,6 @@
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - → `docs/journal/2026-08-20-queue-todo.md`
 
-- [~] **#159 jumpLockActive 镜像标志应从 JumpNavigationController.phase 派生——核心已修，剩纯清理** `arch` `jump`
-  - fire-time 门控已直读 isJumpInProgress 真源（88774278）；剩启动 key 与 B-F2 提交门控（带 2s 时窗语义需一并设计），删除全部手工写点后收口（~1h）
-  - → `docs/journal/2026-08-20-queue-todo.md`
-
 - [ ] **#161 离线时顶栏 context 圆环隐藏** `data` `ui`
   - contextWindow 仅存内存、依赖会话级 REST；现状代码注释已声明可接受，仅当期望离线可见才做（落库方向，~2h）
   - → `docs/journal/2026-08-20-queue-todo.md`
