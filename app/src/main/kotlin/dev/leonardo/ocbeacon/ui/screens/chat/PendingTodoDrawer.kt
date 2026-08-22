@@ -109,16 +109,24 @@ internal object PendingDrawerAnchors {
 }
 
 /**
- * segment 标签（2026-08-22 第六轮）：文字 + 叠加式小角标。
- * BadgedBox = M3 给图标/按钮配角标的正规组件（Badge 紧贴内容测量，16dp 级，
- * 独立 Badge 的成人版大 pill 是上一轮评审翻车根因）。count=0 不显角标。
+ * segment 标签（2026-08-22 第七轮）：文字 + 右上外飘小角标。
+ * BadgedBox 默认把 Badge 叠在 anchor 右上角——文字做 anchor 时整颗盖住字形
+ * （第六轮真机问题）。修复：Badge 手动 offset 外飘（右上角只留小半重叠，
+ * 经典通知角标形态）。
  */
 @Composable
 private fun SegLabel(text: String, count: Int) {
     if (count > 0) {
         BadgedBox(
             badge = {
-                Badge { Text(text = count.coerceAtMost(99).toString()) }
+                Badge(
+                    modifier = Modifier.offset(x = 6.dp, y = (-4).dp),
+                ) {
+                    Text(
+                        text = count.coerceAtMost(99).toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             },
         ) {
             Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
