@@ -11,12 +11,12 @@ import org.junit.Test
 class PendingDrawerSnapTest {
 
     @Test
-    fun `anchorsPx 收起=标题栏固定高 其余按容器比例`() {
-        val a = PendingDrawerAnchors.anchorsPx(containerHeightPx = 1000f, headerPx = 132f)
+    fun `anchorsPx 收起=拉手固定高 其余按容器比例`() {
+        val a = PendingDrawerAnchors.anchorsPx(containerHeightPx = 1000f, handlePx = 44f)
         assertEquals(3, a.size)
-        assertEquals(132f, a[PendingDrawerAnchors.SNAP_COLLAPSED], 0.01f)
-        assertEquals(300f, a[PendingDrawerAnchors.SNAP_MID], 0.01f)
-        assertEquals(600f, a[PendingDrawerAnchors.SNAP_FULL], 0.01f)
+        assertEquals(44f, a[PendingDrawerAnchors.SNAP_COLLAPSED], 0.01f)
+        assertEquals(200f, a[PendingDrawerAnchors.SNAP_MID], 0.01f)
+        assertEquals(800f, a[PendingDrawerAnchors.SNAP_FULL], 0.01f)
     }
 
     @Test
@@ -55,7 +55,7 @@ class PendingDrawerSnapTest {
     @Test
     fun `档位常量自洽`() {
         assertEquals(3, PendingDrawerAnchors.SNAP_COUNT)
-        assertEquals(0.30f, PendingDrawerAnchors.FRACTIONS[PendingDrawerAnchors.SNAP_MID], 0.0001f)
-        assertEquals(0.60f, PendingDrawerAnchors.FRACTIONS[PendingDrawerAnchors.SNAP_FULL], 0.0001f)
+        assertEquals(0.20f, PendingDrawerAnchors.FRACTIONS[PendingDrawerAnchors.SNAP_MID], 0.0001f)
+        assertEquals(0.80f, PendingDrawerAnchors.FRACTIONS[PendingDrawerAnchors.SNAP_FULL], 0.0001f)
     }
 }

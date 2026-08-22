@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,6 +44,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -65,23 +69,26 @@ import kotlinx.coroutines.launch
 
 // ============ 常驻抽屉锚点（2026-08-22 设计定案：主对话流模块内覆盖式抽屉） ============
 
-/** 抽屉档位索引（收起=仅标题栏 / 半开 30% / 展开 60%）。 */
+/** 抽屉档位索引（收起=仅拉手 / 半开 20% / 展开 80%）。 */
 internal object PendingDrawerAnchors {
     const val SNAP_COLLAPSED = 0
     const val SNAP_MID = 1
     const val SNAP_FULL = 2
     val SNAP_COUNT = 3
 
-    /** 收起态高度 = 标题栏高。 */
+    /** 收起态高度 = 拉手行高（2026-08-22 用户复改：只露拉手，约为旧标题栏 48dp 的 1/3）。 */
+    val HANDLE_HEIGHT = 16.dp
+
+    /** 标题栏（segment + 操作钮）行高——展开后位于拉手下方。 */
     val HEADER_HEIGHT = 48.dp
 
-    /** 各档位占主对话流模块高度的比例（index 0 用 HEADER_HEIGHT，不用比例）。 */
-    val FRACTIONS = floatArrayOf(0f, 0.30f, 0.60f)
+    /** 各档位占主对话流模块高度的比例（index 0 用 HANDLE_HEIGHT，不用比例）。 */
+    val FRACTIONS = floatArrayOf(0f, 0.20f, 0.80f)
 
-    /** 档位像素锚点（headerPx 用固定高度，其余按容器高比例）。 */
-    fun anchorsPx(containerHeightPx: Float, headerPx: Float): FloatArray =
+    /** 档位像素锚点（handlePx 用固定高度，其余按容器高比例）。 */
+    fun anchorsPx(containerHeightPx: Float, handlePx: Float): FloatArray =
         FloatArray(SNAP_COUNT) { i ->
-            if (i == SNAP_COLLAPSED) headerPx else containerHeightPx * FRACTIONS[i]
+            if (i == SNAP_COLLAPSED) handlePx else containerHeightPx * FRACTIONS[i]
         }
 }
 
@@ -118,10 +125,12 @@ internal object PendingDrawerMemoryStore {
  *
  * - 覆盖式：悬浮在消息流模块底部（锚定底边、贴输入组件上沿），不挤压消息布局；
  *   消息列表 contentPadding 由调用方按 [bottomOverlayInset] 补偿。
- * - 三档吸附：收起（= 标题栏 48dp）/ 30% / 60%（容器 = 主对话流模块）；
- *   标题栏整栏竖向拖拽吸附，收起只靠拖（点 segment = 展开到 30%）。
- * - 标题栏：左 segment 双段（堆积 N / TODO n/m，TODO 无数据整段不显示）；
- *   右纯图标 ▶继续 + 🗑清空（28dp，TODO 段无操作钮）。
+ * - 三档吸附：收起（= 仅拉手 16dp，2026-08-22 用户复改）/ 20% / 80%（容器 =
+ *   主对话流模块）；拉手+标题栏空白可拖（整栏语义），收起只靠拖（点 segment =
+ *   展开到 20%）。
+ * - 拉手：Material 抽屉标准小横条（32x4dp 居中）——收起态唯一可见物。
+ * - 标题栏（展开后位于拉手下方）：左 segment 双段占 1/2 宽（堆积 N /
+ *   TODO n/m，无数据整段不显示）；右纯图标 ▶继续 + 🗑清空（TODO 段无操作钮）。
  * - 双空完全隐藏；键盘弹起自动收起（收键盘不恢复）；流式输出不打扰。
  * - 堆积行紧凑化 ~44dp（IconButton 28dp + XS 竖向 padding）。
  */
@@ -152,8 +161,8 @@ internal fun PendingTodoDrawer(
     val todoSegmentVisible = showTodoSegment && todos.isNotEmpty()
 
     val density = LocalDensity.current
-    val headerPx = with(density) { PendingDrawerAnchors.HEADER_HEIGHT.toPx() }
-    val anchors = PendingDrawerAnchors.anchorsPx(containerHeightPx, headerPx)
+    val handlePx = with(density) { PendingDrawerAnchors.HANDLE_HEIGHT.toPx() }
+    val anchors = PendingDrawerAnchors.anchorsPx(containerHeightPx, handlePx)
 
     val memory = PendingDrawerMemoryStore.states[sessionId] ?: PendingDrawerMemory()
     val snap = memory.snap.coerceIn(0, PendingDrawerAnchors.SNAP_COUNT - 1)
@@ -192,31 +201,55 @@ internal fun PendingTodoDrawer(
             .fillMaxWidth()
             .height(with(density) { height.value.toDp() }),
     ) {
-        Column {
-            // ===== 标题栏（收起态唯一可见物；整栏可拖——Q16） =====
+        // 手势挂整列（Q16「整栏可拖」）：列表/segment/按钮各自消费的事件不冒泡，
+        // 拉手与标题栏空白处冒泡到此 → 拖拽高度；收起态（16dp）拉手即把手。
+        // clipToBounds：收起态只露拉手（标题栏/列表裁掉）。
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clipToBounds()
+                .pointerInput(anchors[0], anchors[1], anchors[2]) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, amount ->
+                            change.consume()
+                            val target = (height.value - amount).coerceIn(anchors[0], anchors[2])
+                            scope.launch { height.snapTo(target) }
+                        },
+                        onDragEnd = {
+                            val nearest = nearestSnapIndex(height.value, anchors)
+                            if (nearest != snap) setMemory(nearest, segment)
+                            else scope.launch { height.animateTo(anchors[nearest]) }
+                        },
+                    )
+                },
+        ) {
+            // ===== 拉手（2026-08-22 用户复改：Material 抽屉标准样式小横条；收起态唯一可见物） =====
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(PendingDrawerAnchors.HANDLE_HEIGHT),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 32.dp, height = 4.dp)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                        .background(
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                        )
+                )
+            }
+            // ===== 标题栏（segment 左 1/2 + 右侧操作钮；展开后位于拉手下方） =====
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(PendingDrawerAnchors.HEADER_HEIGHT)
-                    .pointerInput(anchors[0], anchors[1], anchors[2]) {
-                        detectVerticalDragGestures(
-                            onVerticalDrag = { change, amount ->
-                                change.consume()
-                                val target = (height.value - amount).coerceIn(anchors[0], anchors[2])
-                                scope.launch { height.snapTo(target) }
-                            },
-                            onDragEnd = {
-                                val nearest = nearestSnapIndex(height.value, anchors)
-                                if (nearest != snap) setMemory(nearest, segment)
-                                else scope.launch { height.animateTo(anchors[nearest]) }
-                            },
-                        )
-                    }
                     .padding(horizontal = SpacingTokens.MD.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
             ) {
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
+                // 2026-08-22 用户复改：segment 仅占标题栏左 1/2
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth(0.5f)) {
                     val segCount = if (todoSegmentVisible) 2 else 1
                     SegmentedButton(
                         selected = segment == 0,
