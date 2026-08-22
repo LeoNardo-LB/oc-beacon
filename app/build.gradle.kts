@@ -151,7 +151,10 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material3:material3") // BOM 1.4.0
+    // 2026-08-22 第十二轮：M3 Toolbars（m3.material.io/toolbars——HorizontalFloatingToolbar
+    // 官方悬浮胶囊工具栏）需要 1.5.x；显式覆盖到最新 alpha（BOM 未收录）
+    implementation("androidx.compose.material3:material3:1.5.0-alpha26")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3-window-size-class")
     implementation("androidx.compose.material:material-icons-extended")

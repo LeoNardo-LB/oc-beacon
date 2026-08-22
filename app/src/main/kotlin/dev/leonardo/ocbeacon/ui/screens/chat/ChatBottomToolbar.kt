@@ -1,8 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Checklist
@@ -11,7 +11,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,13 +27,14 @@ import dev.leonardo.ocbeacon.R
 internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL }
 
 /**
- * 主对话贴底工具栏（2026-08-22 第十一轮：M3 原生 BottomAppBar——用户定案）。
+ * 主对话悬浮工具栏（2026-08-22 第十二轮：M3 官方 HorizontalFloatingToolbar——
+ * m3.material.io/components/toolbars 用户指定样式）。
  *
- * 官方组件 + 官方角标模式（BadgedBox→IconButton，M3 文档标准写法）：
- * actions = [⬇(在底时藏) | 📥堆积 | ☑TODO | 🌳智能体 | >_Shell]
- * 图标沿用 TaskSheet 原 tab 图标（AccountTree/Terminal），语义连贯。
- * 计数 = 运行中/待处理数（0 不显角标；无数据仍可点看历史）。
+ * 悬浮胶囊容器（自带阴影/圆角/间距令牌）+ 官方角标模式（BadgedBox→IconButton）：
+ * [⬇(在底时藏) | 📥堆积 | ☑TODO | 🌳智能体 | >_Shell]
+ * 计数=运行中/待处理数（0 无角标仍可点看历史）。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChatBottomToolbar(
     showScrollBottom: Boolean,
@@ -44,78 +46,55 @@ internal fun ChatBottomToolbar(
     onOpenEntry: (ChatToolbarEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BottomAppBar(
+    HorizontalFloatingToolbar(
+        expanded = false,
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
-        actions = {
+    ) {
             if (showScrollBottom) {
                 ToolbarAction(
-                    icon = {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.chat_scroll_bottom), modifier = Modifier.size(24.dp))
-                    },
+                    icon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.chat_scroll_bottom), modifier = Modifier.size(24.dp)) },
                     count = 0,
-                    contentDescription = stringResource(R.string.chat_scroll_bottom),
                     onClick = onScrollToBottom,
                 )
+                Spacer(Modifier.width(8.dp))
             }
             ToolbarAction(
-                icon = {
-                    Icon(Icons.Default.Inbox, contentDescription = stringResource(R.string.pending_tab_stacked_plain), modifier = Modifier.size(24.dp))
-                },
+                icon = { Icon(Icons.Default.Inbox, contentDescription = stringResource(R.string.pending_tab_stacked_plain), modifier = Modifier.size(24.dp)) },
                 count = stackedCount,
-                contentDescription = stringResource(R.string.pending_tab_stacked_plain),
                 onClick = { onOpenEntry(ChatToolbarEntry.STACKED) },
             )
             ToolbarAction(
-                icon = {
-                    Icon(Icons.Default.Checklist, contentDescription = stringResource(R.string.pending_tab_todo_plain), modifier = Modifier.size(24.dp))
-                },
+                icon = { Icon(Icons.Default.Checklist, contentDescription = stringResource(R.string.pending_tab_todo_plain), modifier = Modifier.size(24.dp)) },
                 count = todoPendingCount,
-                contentDescription = stringResource(R.string.pending_tab_todo_plain),
                 onClick = { onOpenEntry(ChatToolbarEntry.TODO) },
             )
             ToolbarAction(
-                icon = {
-                    Icon(Icons.Default.AccountTree, contentDescription = stringResource(R.string.toolbar_agent), modifier = Modifier.size(24.dp))
-                },
+                icon = { Icon(Icons.Default.AccountTree, contentDescription = stringResource(R.string.toolbar_agent), modifier = Modifier.size(24.dp)) },
                 count = agentRunningCount,
-                contentDescription = stringResource(R.string.toolbar_agent),
                 onClick = { onOpenEntry(ChatToolbarEntry.AGENT) },
             )
             ToolbarAction(
-                icon = {
-                    Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.toolbar_shell), modifier = Modifier.size(24.dp))
-                },
+                icon = { Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.toolbar_shell), modifier = Modifier.size(24.dp)) },
                 count = shellRunningCount,
-                contentDescription = stringResource(R.string.toolbar_shell),
                 onClick = { onOpenEntry(ChatToolbarEntry.SHELL) },
             )
-            // 右侧弹性空间（BottomAppBar actions 左对齐惯例留白）
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
-        },
-    )
+    }
 }
 
-/** 原生工具栏动作：BadgedBox + IconButton（M3 官方角标模式；desc 挂 IconButton——
- *  角标模式下 a11y 读「堆积消息，3」）。 */
+/** 官方角标模式动作（BadgedBox→IconButton；count=0 无角标）。 */
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.ToolbarAction(
+private fun ToolbarAction(
     icon: @Composable () -> Unit,
     count: Int,
-    contentDescription: String,
     onClick: () -> Unit,
 ) {
     if (count > 0) {
         BadgedBox(
-            badge = {
-                Badge { Text(text = count.coerceAtMost(99).toString()) }
-            },
+            badge = { Badge { Text(text = count.coerceAtMost(99).toString()) } },
         ) {
             IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { icon() }
         }
     } else {
         IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { icon() }
     }
-    // contentDescription 由 icon 内 Icon 携带（调用处传入）
 }
