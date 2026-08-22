@@ -67,7 +67,8 @@
   - 方案 B 定案：REST 确认等待态打标 waitingConfirmedAt → checkStaleness 60s 窗口内跳过 → SSE 真实事件清标；V1/V2 通吃（打标条件无版本分支），日志/请求降 ~92%
   - → `docs/journal/2026-08-23-issue-cleanup-triage.md`
 
-- [ ] **#192 双 FAB 会话级滑动隐藏/展示：左（跳到底部）左滑收起→左缘半透明拉杆；右（菜单）右滑收起，展开态先收拢成按钮** `ui`（实现完成但真机渲染受阻，二分排查中）
+- [~] **#192 双 FAB 会话级滑动隐藏/展示：左（跳到底部）左滑收起→左缘半透明拉杆；右（菜单）右滑收起，展开态先收拢成按钮** `ui`
+  - v2 落地（官方 anchoredDraggable + VerticalDragHandle，用户指令不手搓）：E2E 七场景真机全过（隐藏/恢复/D5 两段式/杀进程复位/0 crash）；维度 5 手感待用户验收
   - 定案（2026-08-23 grilling 七问全结，spec §2 D1–D8）：仅会话内生效（不落盘）/ 主子会话独立记忆 / 手动隐藏优先于自动显隐 / 拉杆点按+拖拽双通道 / 菜单两段式 / 右拉杆保留角标
   - → `docs/specs/2026-08-23-fab-swipe-hide-design.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
 

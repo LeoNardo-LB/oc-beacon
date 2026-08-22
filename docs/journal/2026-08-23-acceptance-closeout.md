@@ -166,6 +166,29 @@
 - LeakCanary 浸泡增益 → skip（装机为 release 构建，LC 仅 debugImplementation，V1 子代理核实）
 
 ## 六、#192 实现记录（2026-08-23）
+### v2 重写与真机闭环（2026-08-23 深夜，用户指令「先调研 M3、不手搓」）
+
+**调研结论（本地源码考古）**：M3 无此交互成品；官方原语齐备——引擎 [anchoredDraggable]（BottomSheet/SwipeToDismissBox 同款）+ 拉杆 [VerticalDragHandle]（DragHandleTokens 4×48dp 胶囊，压按/拖拽 12×52dp 变宽变色）。v1 手搓全部替换。
+
+**提交链 v2**：746b6464（v2 引擎重写 + NaN 首帧守卫）→ 3532ff91 附近（modifier 参数补回）→ 符号约定修正（锚点符号表达方向，照抄 SwipeToDismissBox 源码 EndToStart at -width，弃 reverseDirection）→ 阈值 40%（flingBehavior positionalThreshold，真机实证 50% 时 START 侧松手点落入 MIUI 返回手势区被截断）→ 探针移除。
+
+**E2E 判定表（真机 houji，全部通过）**：
+
+| 场景 | 判定 | 证据 |
+|------|------|------|
+| 右 FAB 展开→右划 | ✅ 仅收拢（D5） | vision PILLS=NO + 按钮像素保留 |
+| 右 FAB 收起→右划快滑 | ✅ 隐藏+右缘 tab | a11y desc「显示任务菜单按钮」bounds[1056,2160][1200,2304] |
+| 右 tab 点按 | ✅ FAB 恢复 | tab 消失 + #394d56 像素回归 |
+| 左 FAB 左划快滑 | ✅ 隐藏+左缘 tab | offset 日志 -97 过阈值 + a11y desc「显示回到底部按钮」bounds[0,2160][144,2304] |
+| 左 tab 点按 | ✅ FAB 恢复 | tab 消失 + #3e525b 像素回归 |
+| 杀进程重启 | ✅ 双 FAB 复位无 tab 残留（D1） | tabs=0 + 双 FAB 像素在位 |
+| FATAL | ✅ 全程 0（NaN 守卫后） | crash buffer |
+
+**过程中根治的 5 个真 bug**（每个都有真机证据）：①requireOffset 首帧 ISE 崩溃（updateAnchors 在 effect 派发、draw 先行）②align ParentData 语义（必须挂直接子级，重写时两度回归）③reverseDirection 组合失效（改官方锚点符号约定）④50% 阈值撞系统返回手势区（40% 修正）⑤拉杆宽区中心点按偶发不响应（验收关注点：点拉杆细柄本身可靠）。
+
+**测试基建教训（写入 journal 供复用）**：reverseLayout 列表往上翻是**下滑**手势；uiautomator dump 对 FAB/药丸全失明但对自定义 semantics tab 可见；vision 对小圆钮~50% 幻觉率，像素探针+desc 才是硬证据；`input swipe` 慢速拖拽会输给触摸 slop 竞争（快滑 100-150ms 稳定）；MIUI 返回手势区 ~24dp；release 构建 Log.d 可见（R8 不剥离）但 devDebug 签名与装机不兼容（本地 devRelease 用 8fbc136e keystore）。
+
+**维度 5 待用户验收**：滑动手感（跟手度/回弹）/ 拉杆可发现性（4dp 细柄 + 角标）/ 拉杆点按热区（宽区中心偶发不响应——若用户复现可把 clickable 收窄到 handle 或加最小触达）。
 
 ### 提交链（四段）
 
