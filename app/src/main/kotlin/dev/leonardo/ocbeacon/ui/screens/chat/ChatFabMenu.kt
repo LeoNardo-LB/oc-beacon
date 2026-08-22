@@ -258,7 +258,8 @@ internal fun ChatFabMenu(
 
     val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
 
-    SwipeToHideBox(dragSign = +1f, onHide = onHide) {
+    // D5 两段式：展开态右划仅收拢（与 back/外点同语义），收起态右划才隐藏
+    SwipeToHideBox(dragSign = +1f, onHide = { if (expanded) expanded = false else onHide() }) {
         FloatingActionButtonMenu(
             expanded = expanded,
             modifier = Modifier,
