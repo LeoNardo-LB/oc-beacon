@@ -24,11 +24,13 @@ import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.FloatingActionButtonMenuScope
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,9 +109,12 @@ internal fun ChatFabMenu(
                     stringResource(R.string.chat_fab_menu_open)
                 }
                 val fabIcon: @Composable () -> Unit = {
+                    // tint 显式统一（第二十一轮）：Toggle 不吃 contentColor 参数，
+                    // 不显式给会落 LocalContentColor（与 ⬇ FAB 图标色不一致）
                     Icon(
                         if (checkedProgress >= 0.5f) Icons.Default.Close else Icons.Default.Inbox,
                         contentDescription = desc,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                 }
                 if (checkedProgress < 0.5f && totalBadge > 0) {
@@ -183,9 +188,14 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
 }
 
 /**
- * 滚动到底部 FAB（M3 原版样式）：标准 FloatingActionButton（16dp 圆角），
- * Secondary 变体（第十九轮，与菜单 FAB 同族）；底部居中；16dp 底距对齐菜单
- * FAB 基线；在底时隐藏。
+ * 滚动到底部 FAB：底部左侧（与右下菜单 FAB 镜像，start 16dp=菜单内部横向 padding），
+ * 与菜单 FAB 完全同规格：44dp/圆角 16dp/secondaryContainer/1dp outline 描边/
+ * 24dp 图标 onSecondaryContainer tint。
+ *
+ * 一致性关键（第二十一轮实测修复）：普通 FloatingActionButton 内部强制
+ * LocalMinimumInteractiveComponentSize(48dp) 最小触达，44dp 会被顶到 48dp——
+ * 与 Toggle FAB（不吃该机制，44dp 原样）差 4dp。此处 provision 0dp 关闭强制
+ * （FloatingActionButtonMenuItem 源码同款手法），双圆严格同径。
  * isAtBottom 的 .value 读取限制在本函数小作用域（B-F5 重组隔离沿袭）。
  */
 @Composable
@@ -195,20 +205,22 @@ internal fun ChatScrollBottomFab(
     modifier: Modifier = Modifier,
 ) {
     if (isAtBottomState.value) return // 在底部时不显示
-    FloatingActionButton(
-        onClick = onClick,
-        // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
-        // 44dp 与菜单 FAB 同档（第二十轮加大）+ 描边（角 16dp=FAB 默认角）
-        modifier = modifier
-            .padding(bottom = 16.dp)
-            .size(44.dp)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    ) {
-        Icon(
-            Icons.Default.KeyboardArrowDown,
-            contentDescription = stringResource(R.string.chat_scroll_bottom),
-        )
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        FloatingActionButton(
+            onClick = onClick,
+            // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
+            modifier = modifier
+                .padding(start = 16.dp, bottom = 16.dp)
+                .size(44.dp)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            Icon(
+                Icons.Default.KeyboardArrowDown,
+                contentDescription = stringResource(R.string.chat_scroll_bottom),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
     }
 }

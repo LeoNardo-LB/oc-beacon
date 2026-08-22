@@ -853,7 +853,7 @@ fun ChatScreen(
               // 堆积/TODO 常驻抽屉（2026-08-22）：主对话流模块内覆盖式——底部锚定、
               // 贴输入组件上沿；双空自动隐藏；键盘弹起自动收起；档位/段位按会话记忆
               //（内存级）。模态 PendingTodoSheet 已退役（入口=常驻标题栏本身）。
-              // ⬇ 滚动到底部（第十七轮拆回独立）：底部居中，与 FAB Menu 同规格；
+              // ⬇ 滚动到底部（第二十一轮移左）：底部左侧与右下菜单 FAB 镜像；
               // 声明在 ChatFabMenu 之前——菜单展开时被外点收起层盖住（点它先收菜单）
               // 右下角 FAB Menu：单 FAB 收纳四入口（角标=总数），展开官方交错菜单
               //（堆积/TODO/智能体/Shell）；键盘弹起时被键盘自然盖住
@@ -864,7 +864,7 @@ fun ChatScreen(
                       // 那是「发送后等新消息增长再滚」的执行器，点 ⬇ 无新消息时
                       // 要等 5s 增长超时才滚（真机日志实锤 grew=-1 后才滚）
                       onClick = { coroutineScope.launch { listState.snapToBottom() } },
-                      modifier = Modifier.align(Alignment.BottomCenter),
+                      modifier = Modifier.align(Alignment.BottomStart),
                   )
                   ChatFabMenu(
                       stackedCount = pendingQueue.size,
