@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#192**。
+**编号**：全局递增，不回收。下一编号：**#193**。
 
 **优先级定义**：
 
@@ -44,56 +44,9 @@
 
 ## P0 — 主流程阻塞
 
-> 架构评审批次（2026-08-21，用户定 P0）：六候选 + 顺手清理，证据与设计定案全在 journal。#169 已完结（用户验收 2026-08-21，归档 journal），当前推进 #170。
-
-- [~] **#170 架构评审候选 2：连接生命周期协调器 ConnectionLifecycleCoordinator——已实现，待用户真机验收** `refactor`
-  - 三段式落地（d3baf95c/b297e47e/d21a45f5）：connect 七步/disconnect 四路单点化，双份 teardown 合一；registry 真相源 + FGS 回调派生；10 条 JVM 测试 + 全量单测过（1 例无关 flaky 已记录）
-  - 真机 E2E 四场景过：连接（幂等真实触发）/断开/重连/飞行模式恢复（SSE 自愈）；待用户验收 UI 状态观感（维度 5）
-  - → `docs/journal/2026-08-21-arch-review-deepening.md` · `CONTEXT.md`
-
-- [~] **#171 架构评审候选 3：未读红点时钟域收进 interface——已实现，真机 E2E 全绿，待用户验收** `refactor` `data`
-  - 三段式（a048b1ea/2231d301/941f17f8/a33d0d27）：UnreadEvent 事件化封死客户端时钟域泄漏（漏斗载荷提取 + DB 回环 seedCachedMessages 隔离）；已读侧全吸收（Signal 删除/判定入模块）；1808 单测 + 真机红点四态+双持久化全绿
-  - ⏳ 维度 5（红点观感）待验收；错误红点真机无触发手段（JVM 覆盖）
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`
-
-- [~] **#172 架构评审候选 4：V1/V2 seam 泄漏收编——已实现，真机 V2 E2E 全绿，待用户验收** `refactor`
-  - 取证修正后落地（2a0bb5a6/f8521376/2de6889e）：PaginationCursorPolicy 收编 6 泄漏点（isV2 从 domain/UI 绝迹）+ ServerCapabilities 门控（god-client 显式不拆 #185）；真机实证服务器原生 cursor 续页 + V2 门控位
-  - V1 无真机服务器（JVM 契约覆盖，与 #150 复验一并）；⏳ 维度 5 分页观感待验收
-
-- [~] **#173 架构评审候选 5：ChatViewModel 按状态簇重组——已实现，真机对话全生命周期 E2E 全绿，待用户验收** `refactor` `ui`
-  - 四段串行（b511eef5/7c5f9cd9/55b803ba+22a4cff9+007bb527/d4601004）：Terminal 迁出 + 4 簇门面 + UI 三子组件按簇迁移（28 处）+ uiState 退役（生产零消费，ChatUiState 删除）；跨簇编排留薄 VM
-  - 深化（2026-08-21，e9731b12）：25 个零调用死转发删除 + sessionOps 第 5 簇；公共成员 111→93；全量绿 + 真机冒烟
-  - 真机实证 FSM 全链（Idle→Busy→Streaming→Idle force-complete）+ composer/conversation 簇路径；⏳ 维度 5 观感待验收
-
-- [~] **#174 架构评审候选 6：SessionStateService 8 回调旋钮 → 1 必需协作者——已实现，真机烟雾全绿，待用户验收** `refactor`
-  - f179ad70+ab2c36c3：SessionStateCollaborator 构造注入（漏接=编译错误），EventDispatcher 接线块迁入 Impl，1808 单测全绿；真机 FSM 完整生命周期经新接线实证（含 force-complete×2）
-  - ⏳ 维度 5（FSM 状态 UI 观感）待验收；僵尸场景（3min busy）JVM 覆盖
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`
-
-- [~] **#175 架构评审顺手清理四件 + bonus——已实现，真机烟雾全绿，待用户验收** `refactor`
-  - 四件全落地（65a51723/67d496f3/276f2850/d757d499）：双调用点合一（子会话 else 分支真机实证）· 删三壳（Boolean 签名保留+契约测试）· 双胞胎合并 · ScrollPositionDelegate 死代码删除；bonus：repo deprecated trio 三层删除
-  - 全量 1805/1805 绿（-3 死代码测试 +2 契约测试）；→ `docs/journal/2026-08-21-arch-review-deepening.md`
+> （空）架构评审批次 2026-08-21–08-23 完结：六候选 + 顺手清理全部通过用户验收（2026-08-22 批次末 17 项 15 过，两问题已闭环：①MIUI 渠道默认关闭非 app bug、②升级为 #189 换件并于 08-23 验收通过）→ `docs/journal/2026-08-21-arch-review-deepening.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
 
 ## P1 — 核心功能需求
-
-- [~] **#155 会话内提示音：被抑制的系统通知转为提示音+震动，严格镜像系统通知策略** `ui` `sse`
-  - 前台会话 turn 结束/权限/问题/错误事件现状零反馈 → 补提示音+震动，策略完全镜像系统通知四层静音矩阵；错误 streak 只响第一声；零新增设置项（含 VIBRATE 权限与通知侧 streak 去重）
-  - spec 已定案（grilling Q1–Q12 + F1–F5），实现前必读；模拟器无音频输出，维度 5 必须真机实测
-  - 落地（2026-08-21，`23e38a00`）：策略管线纯函数 + streak 通知/提示音双侧 + 独立去重 + VIBRATE；测试 18 例全绿；真机双分支实证（聚焦=提示音零通知 / 非聚焦=通知照常）；待用户维度5听感验收
-  - → `docs/specs/2026-08-21-in-session-audio-feedback-design.md` · `docs/journal/2026-08-21-in-session-audio-feedback.md`
-
-- [~] **#151 GitHub 上报——代码全量完成（a68263b5..6b623f51），1826 测试绿，真机禁用态验证过；待维护者注册 GitHub App 填凭据后激活 E2E** `ui` `data`
-  - 四模块：device flow 认证（SecretCipher 加密存储）/ API 客户端（指纹查重/建/评）/ 上报服务（双轨指纹+24h 防刷）/ Diagnostics UI（六分支状态机+15 语言）；双缝测试 13 条
-  - 激活清单：注册 GitHub App → BuildConfig 填 client_id/secret → 真机走授权/建 issue/命中评论 E2E
-  - → `docs/specs/2026-08-21-error-report-github-design.md` · `docs/journal/2026-08-21-error-report-github.md`
-
-- [~] **#152 前置：日志分级修复——已实现（f535e15d/f398b7f3/2a07ad74），真机风暴验证 PASS，待用户验收** `sse` `refactor`
-  - 三组修复：风暴环 i→d 全降 + 双 e 记录消除 + 4 处补 throwable + per-event 门控 + WebView 主帧/子资源分流 + 遗留标签删除；真机实证断连窗口 6D+5I+0E（残留 I 均一次性里程碑）；附带 #186 测试脆弱当场根因修复（两次连续全量绿）
-  - → `docs/journal/2026-08-21-error-report-github.md`
-
-- [~] **#153 前置：release CI 留存 R8 mapping.txt artifact——已实现（cfeae270），待下次发版 CI 实跑验证** `refactor`
-  - workflow 增 Upload R8 mapping（90 天 + if-no-files-found=error 防 minify 回归）；路径模式经本地 outputs/mapping/<variant>/mapping.txt 实证（devRelease 产物在）
-  - → `docs/journal/2026-08-21-error-report-github.md`
 
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
   - spec §Out of Scope 明确后置项；触发条件：#151 落地并稳定后评估
@@ -109,30 +62,16 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#162 真机滚动"还是卡"→ 帧级取证三层根因全修——待用户验收（GKD 重开场景）** `ui` `perf`
-  - 三根因全修：重组风暴（慢拖 janky 41.7%→0.88%）、巨型消息分片（p95 400ms→9ms 级）、GKD 无障碍税（环境因素，App 内无低风险修复）；GKD 关闭场景用户已验收"十分丝滑"
-  - 遗留条件：GKD 重开且卡顿回归时按根因③结论处置
-  - → `docs/journal/2026-08-20-scroll-jank-investigation.md`
-
-- [~] **#164 主对话抽屉高度统一（min = max = 75% 屏高）——待验收观感** `ui`
-  - 四抽屉 + SystemPromptDialog 固定 75% 屏高；真机 E2E 像素级全 PASS（顶边逐像素一致、空内容撑满）
-  - 待用户验收：空内容抽屉底部留白观感
-  - → `docs/journal/2026-08-20-drawer-height-75.md`
-
 - [ ] **#191 L2 stale 等待态无限循环——pending-input 会话 5s 轮询风暴自适应降频** `session` `perf`
   - 根因：等待提问/子会话期服务器恒报 busy + zombie guard 跳过 + RestValidation 不刷 lastEventAt → 5s 循环无终止（V1/V2 同构：V1 二进制 + V2 真机双实证；状态本身正确，错在观测节奏，24 WARN/min + 12 REST/min）
   - 方案 B 定案：REST 确认等待态打标 waitingConfirmedAt → checkStaleness 60s 窗口内跳过 → SSE 真实事件清标；V1/V2 通吃（打标条件无版本分支），日志/请求降 ~92%
   - → `docs/journal/2026-08-23-issue-cleanup-triage.md`
 
+- [ ] **#192 双 FAB 会话级滑动隐藏/展示：左（跳到底部）左滑收起→左缘半透明拉杆；右（菜单）右滑收起，展开态先收拢成按钮** `ui`
+  - 交互细节 grilling 定案中（持久化范围 / 与「滚离底部自动出现」的优先级 / 拉杆恢复手势与形态 / 菜单收拢编排 / 隐藏期角标保留）；定案后补 spec 链接
+  - → `docs/journal/2026-08-23-acceptance-closeout.md`
+
 ## P3 — 观察与低价值改进
-
-- [~] **#156 Room 缓存行 tokens 持久化缺口——已修，待用户验收** `data` `storage`
-  - c71ac4ec：SSE_PRIORITY 合并 CAS 检测 tokens 变更→增量落库；真机 E2E 复验 PASS（44/45 落库，19.1 万行 logcat FATAL=0）
-  - → `docs/journal/2026-08-19-final-regression.md`
-
-- [~] **#157 离线态终端 sessionDirectory=null + 输入框层级缺失——观察①已修待验收** `terminal` `edge-case`
-  - 观察① reloadDirectory 兜底已修（de96758c）；观察②定性为不可达路径关闭（离线冷启停在连接页无法进会话）
-  - → `docs/journal/2026-08-20-scan-round2.md`
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
@@ -142,17 +81,9 @@
   - fire-time 门控已直读 isJumpInProgress 真源（88774278）；剩启动 key 与 B-F2 提交门控（带 2s 时窗语义需一并设计），删除全部手工写点后收口（~1h）
   - → `docs/journal/2026-08-20-queue-todo.md`
 
-- [~] **#160 LeakCanary 报 OpenCodeConnectionService$LocalBinder 泄漏——已修，待用户验收** `leak` `service`
-  - d8331596：孤儿 job 取消 + SSE takeWhile 守卫 + connect 入口守卫 + HomeViewModel 卫生项（红绿验证，全量 1758 绿）；结构性根治（Router 抽取）按需另立项
-  - → `docs/journal/2026-08-20-queue-todo.md`
-
 - [ ] **#161 离线时顶栏 context 圆环隐藏** `data` `ui`
   - contextWindow 仅存内存、依赖会话级 REST；现状代码注释已声明可接受，仅当期望离线可见才做（落库方向，~2h）
   - → `docs/journal/2026-08-20-queue-todo.md`
-
-- [ ] **#165 长文本 Part 级 semantics merge（GKD 税缓解，条件性价值）** `perf` `a11y`
-  - GKD 已长期关闭主收益消失；仅 GKD 用户重开才有价值。A/B 中止线已定：GKD 关 p50 回退 >2ms 或 p95 改善 <15% 即 abort（~3h）
-  - → `docs/journal/2026-08-20-scroll-jank-investigation.md`（提升自该批子条目）
 
 - [ ] **#166 RaceProbe 复现取证待用户执行** `race`
   - 若跳转叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可重放定位）
@@ -169,10 +100,3 @@
 - [ ] **#185 V1/V2 god-client 拆解（终局债务，显式不做）** `refactor`
   - V1ApiClient(72 方法)/V2ApiClient(84) 全域 god-client + 7 门面 78 处 if 分发——#172 grilling Q1 定案：seam 已在门面 interface 正确收敛，拆轴属内部代码组织（22 测试文件重写 + 缓存式适配器版本竞态），显式登记不拆
   - → `docs/journal/2026-08-21-arch-review-deepening.md`
-
-- [~] **#189 终端组件换件：termlib → Termux terminal-view/emulator（vendored）** `terminal` `ui` `arch`
-  - 用户验收②+明确指令「bug 挺多，最好引入主流的终端组件」。真机取证：vim 插入模式打字被 IME 组合输入拦截（「全部」候选态）、ESC 无响应——termlib 0.1.0 早期版本键盘/IME 处理不成熟且依赖闭源不可修
-  - 选型：Termux terminal-view + terminal-emulator（10+ 年亿级验证；仓库 GPLv3 但两模块为 Apache 2.0 明确例外，MIT 兼容）；vendored 源码引入（无 maven artifact）
-  - 换件范围：VT 内核 + 渲染/键盘 View 层；PTY WebSocket 传输（ServerTerminalWorkspace）保留，adapter 换实现；KeyboardOverlay 保留
-  - 落地（2026-08-21 真机闭环）：6bb577e0 spec → b76919c7 vendor → 53837c7b 桥接+UI+依赖切换 → 82559a26 六根因修复；vim 试金石过、完整回环实证（journal §验收问题②）；待用户维度5手体验收
-  - → `docs/specs/2026-08-21-terminal-component-swap-design.md`
