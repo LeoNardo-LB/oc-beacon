@@ -61,6 +61,17 @@ adb -s e69a99d8 shell input tap $(( (x1+x2)/2 )) $(( (y1+y2)/2 ))
 | `INSTALL_FAILED_USER_RESTRICTED` | 弹窗被取消（锁屏或未点）。覆盖安装 → 改用 pm install 静默法；全新安装 → `scripts/miui-install.sh` 自动点穿（见上节），或人工点「安装」 |
 | `INSTALL_FAILED_VERSION_DOWNGRADE` | dev flavor versionCode 是 Unix 时间戳，旧构建装不上去 → `pm install -r -d`（debug 构建可降级；release 构建非 debuggable 不可降级，只能卸载重装） |
 
+### 降级装 CI 产物的正确姿势（2026-08-23 实证：验证 Release 包场景）
+
+想装回**更旧的 CI 包**（如验证某 tag 产物）而设备已是更新的本地构建：`-r -d` 对 release 包无效；`pm uninstall -k`（保数据卸载）后仍记 versionCode 地板（`DELETE_KEEP_DATA` 状态照拦降级，实测）。**唯一通路 = 完整卸载重装**：
+
+```bash
+adb -s e69a99d8 uninstall dev.leonardo.ocbeacon.dev   # 数据清掉（dev 包数据=测试服务器配置，可用 debug intent 秒恢复）
+./scripts/miui-install.sh <CI 包.apk> e69a99d8          # 全新安装必弹 MIUI 确认，脚本自动点穿
+```
+
+保数据变体（仅同签名适用）：`pm uninstall -k` + `miui-install.sh` 装**更新**的包——实测数据/服务器配置全保留。预防：要验证 CI 产物时，**先装 CI 包再做任何本地构建**，避免时间戳被顶高。
+
 ## 服务器连通：adb reverse
 
 真机访问宿主机 opencode server（4199）用端口反向代理（设备侧 `127.0.0.1:4199` → 宿主机 `4199`）：
