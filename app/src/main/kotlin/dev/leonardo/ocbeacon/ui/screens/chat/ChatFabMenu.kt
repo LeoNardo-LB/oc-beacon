@@ -101,6 +101,7 @@ internal val FabTabPullMax = 48.dp
  */
 @Composable
 private fun SwipeHideFabContainer(
+    modifier: Modifier = Modifier,
     dragSign: Float,
     onHidden: () -> Unit,
     content: @Composable () -> Unit,
@@ -122,7 +123,7 @@ private fun SwipeHideFabContainer(
             .collect { if (it == FabSwipeAnchor.Hidden) onHidden() }
     }
     Box(
-        Modifier
+        modifier
             .graphicsLayer {
                 // 首帧守卫：updateAnchors 在 LaunchedEffect 派发，首帧 draw 时 offset
                 // 仍为 NaN——requireOffset() 抛 ISE 崩溃（真机 05:08 FATAL 实证）。NaN 视为 0。
@@ -255,6 +256,7 @@ internal fun ChatFabMenu(
 
     // align 挂本容器（直接子级才吃 ParentData）；D5 在 onHidden 前拦截展开态
     SwipeHideFabContainer(
+        modifier = modifier,
         dragSign = +1f,
         onHidden = { if (expanded) expanded = false else onHide() },
     ) {
@@ -403,7 +405,7 @@ internal fun ChatScrollBottomFab(
     }
     if (isAtBottomState.value) return // 在底部时不显示
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        SwipeHideFabContainer(dragSign = -1f, onHidden = onHide) {
+        SwipeHideFabContainer(modifier = modifier, dragSign = -1f, onHidden = onHide) {
             FloatingActionButton(
                 onClick = onClick,
                 // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
