@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -106,14 +108,24 @@ internal object PendingDrawerAnchors {
     }
 }
 
-/** segment 标签（2026-08-22 第五轮）：文字+数量同行小字——Badge 角标真机评审比文字还大，弃用。 */
+/**
+ * segment 标签（2026-08-22 第六轮）：文字 + 叠加式小角标。
+ * BadgedBox = M3 给图标/按钮配角标的正规组件（Badge 紧贴内容测量，16dp 级，
+ * 独立 Badge 的成人版大 pill 是上一轮评审翻车根因）。count=0 不显角标。
+ */
 @Composable
 private fun SegLabel(text: String, count: Int) {
-    Text(
-        text = if (count > 0) text + " " + count.coerceAtMost(99) else text,
-        style = MaterialTheme.typography.labelSmall,
-        maxLines = 1,
-    )
+    if (count > 0) {
+        BadgedBox(
+            badge = {
+                Badge { Text(text = count.coerceAtMost(99).toString()) }
+            },
+        ) {
+            Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        }
+    } else {
+        Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+    }
 }
 
 /** 拖拽释放后吸附到最近锚点（纯函数，单测目标）。 */
