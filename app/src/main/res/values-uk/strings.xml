@@ -157,6 +157,8 @@
     <string name="chat_attach">Прикріпити</string>
     <string name="chat_remove">Видалити</string>
     <string name="chat_scroll_bottom">Прокрутити донизу</string>
+    <string name="chat_fab_menu_open">Відкрити меню завдань</string>
+    <string name="chat_fab_menu_close">Закрити меню</string>
     <string name="chat_dismiss">Закрити</string>
     <string name="settings_language">Мова</string>
     <string name="settings_language_system">Системна за замовчуванням</string>

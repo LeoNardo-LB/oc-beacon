@@ -132,6 +132,8 @@
     <string name="chat_attach">Attach</string>
     <string name="chat_remove">Remove</string>
     <string name="chat_scroll_bottom">Scroll to bottom</string>
+    <string name="chat_fab_menu_open">Open tasks menu</string>
+    <string name="chat_fab_menu_close">Close menu</string>
     <string name="chat_dismiss">Dismiss</string>
     <string name="chat_fork_failed">Failed to fork session</string>
     <string name="chat_share_url_copied">Share URL copied</string>

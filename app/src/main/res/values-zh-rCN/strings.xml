@@ -159,6 +159,8 @@
     <string name="chat_attach">附件</string>
     <string name="chat_remove">移除</string>
     <string name="chat_scroll_bottom">滚动到底部</string>
+    <string name="chat_fab_menu_open">打开任务菜单</string>
+    <string name="chat_fab_menu_close">收起菜单</string>
     <string name="chat_dismiss">忽略</string>
     <string name="settings_language">语言</string>
     <string name="settings_language_system">系统默认</string>

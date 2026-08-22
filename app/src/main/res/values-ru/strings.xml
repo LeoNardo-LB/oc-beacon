@@ -78,6 +78,8 @@
     <string name="chat_attach">Прикрепить</string>
     <string name="chat_remove">Удалить</string>
     <string name="chat_scroll_bottom">Прокрутить вниз</string>
+    <string name="chat_fab_menu_open">Открыть меню задач</string>
+    <string name="chat_fab_menu_close">Закрыть меню</string>
     <string name="chat_dismiss">Закрыть</string>
     <!-- Permissions -->
     <string name="permission_title">Требуется разрешение</string>

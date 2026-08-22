@@ -157,6 +157,8 @@
     <string name="chat_attach">添付</string>
     <string name="chat_remove">削除</string>
     <string name="chat_scroll_bottom">最下部へスクロール</string>
+    <string name="chat_fab_menu_open">タスクメニューを開く</string>
+    <string name="chat_fab_menu_close">メニューを閉じる</string>
     <string name="chat_dismiss">閉じる</string>
     <string name="settings_language">言語</string>
     <string name="settings_language_system">システムのデフォルト</string>

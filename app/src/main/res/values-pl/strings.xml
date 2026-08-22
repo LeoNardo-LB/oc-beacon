@@ -157,6 +157,8 @@
     <string name="chat_attach">Załącz</string>
     <string name="chat_remove">Usuń</string>
     <string name="chat_scroll_bottom">Przewiń na dół</string>
+    <string name="chat_fab_menu_open">Otwórz menu zadań</string>
+    <string name="chat_fab_menu_close">Zamknij menu</string>
     <string name="chat_dismiss">Zamknij</string>
     <string name="settings_language">Język</string>
     <string name="settings_language_system">Domyślny systemowy</string>

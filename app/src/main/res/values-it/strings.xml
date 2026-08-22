@@ -157,6 +157,8 @@
     <string name="chat_attach">Allega</string>
     <string name="chat_remove">Rimuovi</string>
     <string name="chat_scroll_bottom">Scorri in basso</string>
+    <string name="chat_fab_menu_open">Apri il menu delle attività</string>
+    <string name="chat_fab_menu_close">Chiudi il menu</string>
     <string name="chat_dismiss">Chiudi</string>
     <string name="settings_language">Lingua</string>
     <string name="settings_language_system">Predefinito di sistema</string>

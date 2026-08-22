@@ -157,6 +157,8 @@
     <string name="chat_attach">Anexar</string>
     <string name="chat_remove">Remover</string>
     <string name="chat_scroll_bottom">Rolar para o fim</string>
+    <string name="chat_fab_menu_open">Abrir menu de tarefas</string>
+    <string name="chat_fab_menu_close">Fechar menu</string>
     <string name="chat_dismiss">Dispensar</string>
     <string name="settings_language">Idioma</string>
     <string name="settings_language_system">Padrão do sistema</string>

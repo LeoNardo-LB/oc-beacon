@@ -855,18 +855,18 @@ fun ChatScreen(
               // 堆积/TODO 常驻抽屉（2026-08-22）：主对话流模块内覆盖式——底部锚定、
               // 贴输入组件上沿；双空自动隐藏；键盘弹起自动收起；档位/段位按会话记忆
               //（内存级）。模态 PendingTodoSheet 已退役（入口=常驻标题栏本身）。
-              // 贴底工具栏（第十轮）：五入口恒显示（⬇ 仅不在底时）；
-              // 键盘弹起时被键盘自然盖住（贴消息区底）
+              // 右下角 FAB Menu（第十五轮）：单 FAB 收纳全入口（角标=总数），
+              // 展开官方交错菜单（⬇/堆积/TODO/智能体/Shell）；键盘弹起时被键盘自然盖住
               if (!isTerminalMode) {
-                  ChatBottomToolbar(
-                      showScrollBottom = !scrollController.isAtBottomState.value,
+                  ChatFabMenu(
+                      canScrollToBottom = !scrollController.isAtBottomState.value,
                       stackedCount = pendingQueue.size,
                       todoPendingCount = sessionTodos.count { it.status == "pending" || it.status == "in_progress" },
                       agentRunningCount = taskUi.runningSubagentCount,
                       shellRunningCount = taskUi.runningShellCount,
                       onScrollToBottom = { scrollController.forceScrollToBottom() },
                       onOpenEntry = { toolbarSheet = it },
-                      modifier = Modifier.align(Alignment.BottomCenter),
+                      modifier = Modifier.align(Alignment.BottomEnd),
                   )
               }
            }

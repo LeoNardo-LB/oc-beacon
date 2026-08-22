@@ -94,6 +94,8 @@
     <string name="chat_attach">Lampirkan</string>
     <string name="chat_remove">Hapus</string>
     <string name="chat_scroll_bottom">Gulir ke bawah</string>
+    <string name="chat_fab_menu_open">Buka menu tugas</string>
+    <string name="chat_fab_menu_close">Tutup menu</string>
     <string name="chat_dismiss">Tutup</string>
     <string name="chat_fork_failed">Gagal melakukan fork sesi</string>
     <string name="chat_share_url_copied">URL share disalin</string>

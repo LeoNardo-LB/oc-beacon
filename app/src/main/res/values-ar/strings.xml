@@ -157,6 +157,8 @@
     <string name="chat_attach">إرفاق</string>
     <string name="chat_remove">إزالة</string>
     <string name="chat_scroll_bottom">التمرير إلى الأسفل</string>
+    <string name="chat_fab_menu_open">افتح قائمة المهام</string>
+    <string name="chat_fab_menu_close">إغلاق القائمة</string>
     <string name="chat_dismiss">تجاهل</string>
     <string name="settings_language">اللغة</string>
     <string name="settings_language_system">افتراضي النظام</string>

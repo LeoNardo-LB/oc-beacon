@@ -157,6 +157,8 @@
     <string name="chat_attach">첨부</string>
     <string name="chat_remove">제거</string>
     <string name="chat_scroll_bottom">맨 아래로 이동</string>
+    <string name="chat_fab_menu_open">작업 메뉴 열기</string>
+    <string name="chat_fab_menu_close">메뉴 닫기</string>
     <string name="chat_dismiss">닫기</string>
     <string name="settings_language">언어</string>
     <string name="settings_language_system">시스템 기본값</string>
