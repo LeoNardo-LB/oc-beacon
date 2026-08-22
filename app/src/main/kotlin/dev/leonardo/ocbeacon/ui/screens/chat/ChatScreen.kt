@@ -860,7 +860,10 @@ fun ChatScreen(
               if (!isTerminalMode) {
                   ChatScrollBottomFab(
                       isAtBottomState = scrollController.isAtBottomState,
-                      onClick = { scrollController.forceScrollToBottom() },
+                      // 即时吸附（旧 FAB 同语义）——不走 forceScrollTick 路径：
+                      // 那是「发送后等新消息增长再滚」的执行器，点 ⬇ 无新消息时
+                      // 要等 5s 增长超时才滚（真机日志实锤 grew=-1 后才滚）
+                      onClick = { coroutineScope.launch { listState.snapToBottom() } },
                       modifier = Modifier.align(Alignment.BottomCenter),
                   )
                   ChatFabMenu(
