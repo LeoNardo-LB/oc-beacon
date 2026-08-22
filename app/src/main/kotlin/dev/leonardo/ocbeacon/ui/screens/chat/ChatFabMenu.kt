@@ -86,12 +86,13 @@ internal fun ChatFabMenu(
             ToggleFloatingActionButton(
                 checked = expanded,
                 onCheckedChange = { expanded = it },
-                modifier = Modifier.border(1.dp, outlineCol, RoundedCornerShape(10.dp)),
+                modifier = Modifier.border(1.dp, outlineCol, RoundedCornerShape(11.dp)),
                 // 展开时色随动 secondaryContainer→secondary（避开两类气泡色）
                 containerColor = { p -> lerp(secContainer, sec, p) },
-                containerSize = ToggleFloatingActionButtonDefaults.containerSize(32.dp, 32.dp),
+                // 官方 Toggle 模式：展开变大（收起 36dp → 展开 40dp）
+                containerSize = ToggleFloatingActionButtonDefaults.containerSize(36.dp, 40.dp),
                 containerCornerRadius =
-                    ToggleFloatingActionButtonDefaults.containerCornerRadius(10.dp, 10.dp),
+                    ToggleFloatingActionButtonDefaults.containerCornerRadius(11.dp, 11.dp),
             ) {
                 val desc = if (checkedProgress >= 0.5f) {
                     stringResource(R.string.chat_fab_menu_close)
@@ -102,7 +103,7 @@ internal fun ChatFabMenu(
                     Icon(
                         if (checkedProgress >= 0.5f) Icons.Default.Close else Icons.Default.Inbox,
                         contentDescription = desc,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 if (checkedProgress < 0.5f && totalBadge > 0) {
