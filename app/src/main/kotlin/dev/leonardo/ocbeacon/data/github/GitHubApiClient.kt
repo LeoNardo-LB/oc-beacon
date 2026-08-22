@@ -48,8 +48,8 @@ class GitHubApiClient @Inject constructor(
      */
     suspend fun searchIssueByFingerprint(token: String, fingerprint: String): Result<GitHubIssueHit?> = runCatching {
         val query = "repo:$GITHUB_TARGET_REPO is:issue is:open in:title \"[user-report]\" \"$fingerprint\""
-        val resp = client.post("${'$'}{GitHubDeviceEndpoints.API_BASE}/search/issues") {
-            header(HttpHeaders.Authorization, "Bearer ${'$'}token")
+        val resp = client.post("${GitHubDeviceEndpoints.API_BASE}/search/issues") {
+            header(HttpHeaders.Authorization, "Bearer $token")
             header(HttpHeaders.Accept, "application/vnd.github+json")
             urlBuilder(query)
         }
@@ -68,8 +68,8 @@ class GitHubApiClient @Inject constructor(
     }.recoverCatching { e -> throw e.asGitHubError() }
 
     suspend fun createIssue(token: String, title: String, body: String, labels: List<String>): Result<Int> = runCatching {
-        val resp = client.post("${'$'}{GitHubDeviceEndpoints.API_BASE}/repos/${'$'}GITHUB_TARGET_REPO/issues") {
-            header(HttpHeaders.Authorization, "Bearer ${'$'}token")
+        val resp = client.post("${GitHubDeviceEndpoints.API_BASE}/repos/$GITHUB_TARGET_REPO/issues") {
+            header(HttpHeaders.Authorization, "Bearer $token")
             header(HttpHeaders.Accept, "application/vnd.github+json")
             setBody(json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), buildJsonObject {
                 put("title", title)
@@ -82,8 +82,8 @@ class GitHubApiClient @Inject constructor(
     }.recoverCatching { e -> throw e.asGitHubError() }
 
     suspend fun addComment(token: String, issueNumber: Int, body: String): Result<Unit> = runCatching {
-        val resp = client.post("${'$'}{GitHubDeviceEndpoints.API_BASE}/repos/${'$'}GITHUB_TARGET_REPO/issues/${'$'}issueNumber/comments") {
-            header(HttpHeaders.Authorization, "Bearer ${'$'}token")
+        val resp = client.post("${GitHubDeviceEndpoints.API_BASE}/repos/$GITHUB_TARGET_REPO/issues/$issueNumber/comments") {
+            header(HttpHeaders.Authorization, "Bearer $token")
             header(HttpHeaders.Accept, "application/vnd.github+json")
             setBody(json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), buildJsonObject {
                 put("body", body)
@@ -97,7 +97,7 @@ class GitHubApiClient @Inject constructor(
             status == 401 -> throw GitHubApiError.Unauthorized()
             status == 403 -> throw GitHubApiError.RateLimited(retryAfterSeconds = null)
             status !in 200..299 -> {
-                AppLogger.e(TAG, "GitHub API HTTP $status body=${'$'}{body.take(300)}")
+                AppLogger.e(TAG, "GitHub API HTTP $status body=" + body.take(300))
                 throw GitHubApiError.Http(status, body.take(500))
             }
         }
