@@ -841,8 +841,6 @@ fun ChatScreen(
                         // 子会话不显示快速定位（show=false 时 onDismiss 不可达，可无条件传）
                         showQuickNavigate = if (isMainSession) showQuickNavigate else false,
                         onQuickNavigateDismiss = { showQuickNavigate = false },
-                        // 第十轮：⬇ 已并入贴底工具栏，FAB 退役恒隐藏
-                        hideScrollBottomFab = true,
                         agents = modelConfig.agents,
                         // 子会话无 agent 选择入口（置 null 隐藏）
                         onAgentClick = if (isMainSession) ({ agentName -> viewModel.modelSelection.selectAgent(agentName) }) else null,
@@ -855,16 +853,21 @@ fun ChatScreen(
               // 堆积/TODO 常驻抽屉（2026-08-22）：主对话流模块内覆盖式——底部锚定、
               // 贴输入组件上沿；双空自动隐藏；键盘弹起自动收起；档位/段位按会话记忆
               //（内存级）。模态 PendingTodoSheet 已退役（入口=常驻标题栏本身）。
-              // 右下角 FAB Menu（第十五轮）：单 FAB 收纳全入口（角标=总数），
-              // 展开官方交错菜单（⬇/堆积/TODO/智能体/Shell）；键盘弹起时被键盘自然盖住
+              // ⬇ 滚动到底部（第十七轮拆回独立）：底部居中，与 FAB Menu 同规格；
+              // 声明在 ChatFabMenu 之前——菜单展开时被外点收起层盖住（点它先收菜单）
+              // 右下角 FAB Menu：单 FAB 收纳四入口（角标=总数），展开官方交错菜单
+              //（堆积/TODO/智能体/Shell）；键盘弹起时被键盘自然盖住
               if (!isTerminalMode) {
+                  ChatScrollBottomFab(
+                      isAtBottomState = scrollController.isAtBottomState,
+                      onClick = { scrollController.forceScrollToBottom() },
+                      modifier = Modifier.align(Alignment.BottomCenter),
+                  )
                   ChatFabMenu(
-                      canScrollToBottom = !scrollController.isAtBottomState.value,
                       stackedCount = pendingQueue.size,
                       todoPendingCount = sessionTodos.count { it.status == "pending" || it.status == "in_progress" },
                       agentRunningCount = taskUi.runningSubagentCount,
                       shellRunningCount = taskUi.runningShellCount,
-                      onScrollToBottom = { scrollController.forceScrollToBottom() },
                       onOpenEntry = { toolbarSheet = it },
                       modifier = Modifier.align(Alignment.BottomEnd),
                   )

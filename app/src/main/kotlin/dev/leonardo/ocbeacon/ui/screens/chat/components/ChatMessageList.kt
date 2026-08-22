@@ -26,13 +26,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -177,8 +175,6 @@ fun ChatMessageList(
     onForceScrollToBottom: () -> Unit,
     showQuickNavigate: Boolean,
     onQuickNavigateDismiss: () -> Unit,
-    /** 2026-08-22 第九轮：堆积/TODO 工具栏可见时隐藏（⬇已并入工具栏）。 */
-    hideScrollBottomFab: Boolean = false,
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
     onAgentClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -1385,20 +1381,6 @@ fun ChatMessageList(
                 }
             }
 
-            // 滚动到底部 FAB（B-F5）：工具栏可见时隐藏（第九轮 ⬇ 并入工具栏）
-            if (!hideScrollBottomFab) ScrollBottomFab(
-                isAtBottomState = isAtBottomState,
-                onJumpToBottom = {
-                    coroutineScope.launch {
-                        listState.snapToBottom()
-                        compensateState.shouldCompensate = false
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = SpacingTokens.SM.dp),
-            )
-
             // 2026-08-13 跳转定位 loading 蒙版（用户建议——参考进入会话蒙版）：
             // 遮住定位过程的全部视口跳动/透明渲染/收敛修正——完成后直接显示
             // 目标（用户只看到 loading → 目标完整出现，无乱跳）。
@@ -1463,34 +1445,6 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
  */
 private fun easeInOutCubic(t: Float): Float =
     if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
-
-// ===== 2026-08-20 滚动预解析驱动参数 =====
-/**
- * 滚动到底部 FAB 包装（2026-08-20 B-F5）：isAtBottom 的 .value 读取限制在
- * 本函数小作用域——底部阈值跨越（每轮慢拖手势 1-2 次）只重组本 FAB，
- * 不再引爆 ChatScreen/ChatMessageList 主体（PerfMon 实测 anim 相位 13-33ms
- * 周期爆发的主源就是旧的大作用域订阅）。
- */
-@Composable
-private fun ScrollBottomFab(
-    isAtBottomState: androidx.compose.runtime.State<Boolean>,
-    onJumpToBottom: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (isAtBottomState.value) return // 在底部时不显示
-    SmallFloatingActionButton(
-        onClick = onJumpToBottom,
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-    ) {
-        Icon(
-            Icons.Default.KeyboardArrowDown,
-            contentDescription = stringResource(R.string.chat_scroll_bottom),
-            modifier = Modifier.size(20.dp)
-        )
-    }
-}
 
 // 预解析/分片调参常量已随驱动外移 RenderSupplyCoordinator.companion（候选 1）。
 
