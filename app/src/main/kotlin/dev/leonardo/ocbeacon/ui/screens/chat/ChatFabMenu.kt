@@ -1,7 +1,9 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -81,9 +83,17 @@ internal fun ChatFabMenu(
             ToggleFloatingActionButton(
                 checked = expanded,
                 onCheckedChange = { expanded = it },
-                // 仅尺寸定制（第十八轮复改：用户「跟现在的尺寸相近」）——
-                // morph 动画保持官方默认
-                containerSize = ToggleFloatingActionButtonDefaults.containerSize(36.dp, 40.dp),
+                // 描边（第二十轮，用户要求）：角半径冻结 16dp——形状恒定描边才贴边
+                modifier = Modifier.border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline,
+                    RoundedCornerShape(16.dp),
+                ),
+                // 尺寸（第二十轮：用户「稍微大一些」）44→展开 48dp；
+                // 色彩/尺寸 morph 保留，角 morph 冻结（与描边形状匹配）
+                containerSize = ToggleFloatingActionButtonDefaults.containerSize(44.dp, 48.dp),
+                containerCornerRadius =
+                    ToggleFloatingActionButtonDefaults.containerCornerRadius(16.dp, 16.dp),
                 // Secondary 变体（第十九轮，用户选 B）：官方规格三变体之一——
                 // secondaryContainer→secondary，与用户气泡（primaryContainer 系）区分
                 containerColor = ToggleFloatingActionButtonDefaults.containerColor(
@@ -150,8 +160,10 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
 ) {
     FloatingActionButtonMenuItem(
         onClick = onClick,
-        // 仅高度定制（44dp，官方 56dp）——排版保持默认
-        modifier = Modifier.height(44.dp),
+        // 高度 44dp（官方 56dp）+ stadium 描边（第二十轮，与按钮描边同族）
+        modifier = Modifier
+            .height(44.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)),
         // Secondary 变体（第十九轮）：药丸 secondaryContainer 系，与用户气泡区分
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -186,10 +198,11 @@ internal fun ChatScrollBottomFab(
     FloatingActionButton(
         onClick = onClick,
         // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
-        // 36dp 与菜单 FAB 同档（第十八轮复改）
+        // 44dp 与菜单 FAB 同档（第二十轮加大）+ 描边（角 16dp=FAB 默认角）
         modifier = modifier
             .padding(bottom = 16.dp)
-            .size(36.dp),
+            .size(44.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
     ) {
