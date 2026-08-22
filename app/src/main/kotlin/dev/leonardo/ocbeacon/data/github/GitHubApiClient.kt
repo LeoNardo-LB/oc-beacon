@@ -26,10 +26,10 @@ data class GitHubIssueHit(val number: Int, val title: String, val body: String?)
 
 /** API 三端点错误映射（spec §失败处理：401 重新授权 / 403 限流 / 网络错）。 */
 sealed class GitHubApiError : Exception() {
-    class Unauthorized : GitHubApiError()
-    class RateLimited(val retryAfterSeconds: Long?) : GitHubApiError()
-    class Network(val cause0: Throwable) : GitHubApiError() { override val cause: Throwable get() = cause0 }
-    class Http(val status: Int, val body: String) : GitHubApiError()
+    class Unauthorized : GitHubApiError() { override val message: String get() = "授权已失效（401）" }
+    class RateLimited(val retryAfterSeconds: Long?) : GitHubApiError() { override val message: String get() = "GitHub 限流（403）" }
+    class Network(val cause0: Throwable) : GitHubApiError() { override val cause: Throwable get() = cause0; override val message: String get() = "网络错误：" + (cause0.message ?: cause0::class.simpleName) }
+    class Http(val status: Int, val body: String) : GitHubApiError() { override val message: String get() = "HTTP ${'$'}status：${'$'}{body.take(200)}" }
 }
 
 /**
@@ -96,7 +96,10 @@ class GitHubApiClient @Inject constructor(
         when {
             status == 401 -> throw GitHubApiError.Unauthorized()
             status == 403 -> throw GitHubApiError.RateLimited(retryAfterSeconds = null)
-            status !in 200..299 -> throw GitHubApiError.Http(status, body.take(500))
+            status !in 200..299 -> {
+                AppLogger.e(TAG, "GitHub API HTTP $status body=${'$'}{body.take(300)}")
+                throw GitHubApiError.Http(status, body.take(500))
+            }
         }
     }
 }
