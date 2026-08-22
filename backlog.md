@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#191**。
+**编号**：全局递增，不回收。下一编号：**#192**。
 
 **优先级定义**：
 
@@ -118,6 +118,11 @@
   - 四抽屉 + SystemPromptDialog 固定 75% 屏高；真机 E2E 像素级全 PASS（顶边逐像素一致、空内容撑满）
   - 待用户验收：空内容抽屉底部留白观感
   - → `docs/journal/2026-08-20-drawer-height-75.md`
+
+- [ ] **#191 L2 stale 等待态无限循环——pending-input 会话 5s 轮询风暴自适应降频** `session` `perf`
+  - 根因：等待提问/子会话期服务器恒报 busy + zombie guard 跳过 + RestValidation 不刷 lastEventAt → 5s 循环无终止（V1/V2 同构：V1 二进制 + V2 真机双实证；状态本身正确，错在观测节奏，24 WARN/min + 12 REST/min）
+  - 方案 B 定案：REST 确认等待态打标 waitingConfirmedAt → checkStaleness 60s 窗口内跳过 → SSE 真实事件清标；V1/V2 通吃（打标条件无版本分支），日志/请求降 ~92%
+  - → `docs/journal/2026-08-23-issue-cleanup-triage.md`
 
 ## P3 — 观察与低价值改进
 
