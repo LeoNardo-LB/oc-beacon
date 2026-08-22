@@ -22,6 +22,7 @@ import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.FloatingActionButtonMenuScope
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults
@@ -81,8 +82,14 @@ internal fun ChatFabMenu(
                 checked = expanded,
                 onCheckedChange = { expanded = it },
                 // 仅尺寸定制（第十八轮复改：用户「跟现在的尺寸相近」）——
-                // 色与 morph 动画保持官方默认（primaryContainer→primary）
+                // morph 动画保持官方默认
                 containerSize = ToggleFloatingActionButtonDefaults.containerSize(36.dp, 40.dp),
+                // Secondary 变体（第十九轮，用户选 B）：官方规格三变体之一——
+                // secondaryContainer→secondary，与用户气泡（primaryContainer 系）区分
+                containerColor = ToggleFloatingActionButtonDefaults.containerColor(
+                    initialColor = MaterialTheme.colorScheme.secondaryContainer,
+                    finalColor = MaterialTheme.colorScheme.secondary,
+                ),
             ) {
                 val desc = if (checkedProgress >= 0.5f) {
                     stringResource(R.string.chat_fab_menu_close)
@@ -143,8 +150,11 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
 ) {
     FloatingActionButtonMenuItem(
         onClick = onClick,
-        // 仅高度定制（44dp，官方 56dp）——色/排版保持默认
+        // 仅高度定制（44dp，官方 56dp）——排版保持默认
         modifier = Modifier.height(44.dp),
+        // Secondary 变体（第十九轮）：药丸 secondaryContainer 系，与用户气泡区分
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         text = { Text(label) },
         icon = {
             if (count > 0) {
@@ -161,8 +171,9 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
 }
 
 /**
- * 滚动到底部 FAB（M3 原版样式）：标准 FloatingActionButton（56dp/16dp 圆角/
- * primaryContainer），底部居中；16dp 底距对齐菜单 FAB 基线；在底时隐藏。
+ * 滚动到底部 FAB（M3 原版样式）：标准 FloatingActionButton（16dp 圆角），
+ * Secondary 变体（第十九轮，与菜单 FAB 同族）；底部居中；16dp 底距对齐菜单
+ * FAB 基线；在底时隐藏。
  * isAtBottom 的 .value 读取限制在本函数小作用域（B-F5 重组隔离沿袭）。
  */
 @Composable
@@ -179,6 +190,8 @@ internal fun ChatScrollBottomFab(
         modifier = modifier
             .padding(bottom = 16.dp)
             .size(36.dp),
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
     ) {
         Icon(
             Icons.Default.KeyboardArrowDown,
