@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -224,10 +225,23 @@ internal fun PendingTodoDrawer(
                 },
         ) {
             // ===== 拉手（2026-08-22 用户复改：Material 抽屉标准样式小横条；收起态唯一可见物） =====
+            // 点击=切换收起/半开（E2E 实证：44px 拖拽越过上界即被消息列表滚动接管——
+            // 小拉手拖拽不可靠，点击是标准抽屉交互兜底；拖拽仍保留（展开态区域大））
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(PendingDrawerAnchors.HANDLE_HEIGHT),
+                    .height(PendingDrawerAnchors.HANDLE_HEIGHT)
+                    .pointerInput(snap, segment) {
+                        detectTapGestures(
+                            onTap = {
+                                setMemory(
+                                    if (snap == PendingDrawerAnchors.SNAP_COLLAPSED) PendingDrawerAnchors.SNAP_MID
+                                    else PendingDrawerAnchors.SNAP_COLLAPSED,
+                                    segment,
+                                )
+                            },
+                        )
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
