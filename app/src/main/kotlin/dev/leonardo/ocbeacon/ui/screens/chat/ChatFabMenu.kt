@@ -112,8 +112,10 @@ private fun SwipeHideFabContainer(
     LaunchedEffect(exitPx) {
         state.updateAnchors(
             DraggableAnchors {
+                // 官方符号约定（SwipeToDismissBox 源码）：隐藏方向由锚点符号表达，
+                // 不用 reverseDirection——END 侧 +exitPx（右拖），START 侧 -exitPx（左拖）
                 FabSwipeAnchor.Visible at 0f
-                FabSwipeAnchor.Hidden at exitPx
+                FabSwipeAnchor.Hidden at exitPx * dragSign
             }
         )
     }
@@ -128,11 +130,10 @@ private fun SwipeHideFabContainer(
                 // 首帧守卫：updateAnchors 在 LaunchedEffect 派发，首帧 draw 时 offset
                 // 仍为 NaN——requireOffset() 抛 ISE 崩溃（真机 05:08 FATAL 实证）。NaN 视为 0。
                 val off = state.offset
-                translationX = (if (off.isNaN()) 0f else off) * dragSign
+                translationX = if (off.isNaN()) 0f else off
             }
             .anchoredDraggable(
                 state = state,
-                reverseDirection = dragSign < 0, // start 侧：向左拖产生正 offset
                 orientation = Orientation.Horizontal,
             )
     ) { content() }
@@ -166,8 +167,9 @@ internal fun FabEdgeTab(
     LaunchedEffect(pullMaxPx) {
         state.updateAnchors(
             DraggableAnchors {
+                // 拉出=向屏内：START 缘右拖（+），END 缘左拖（-）——锚点符号表达
                 FabSwipeAnchor.Visible at 0f
-                FabSwipeAnchor.Hidden at pullMaxPx
+                FabSwipeAnchor.Hidden at pullMaxPx * pullSign
             }
         )
     }
@@ -191,11 +193,10 @@ internal fun FabEdgeTab(
             .padding(bottom = 16.dp)
             .graphicsLayer {
                 val off = state.offset
-                translationX = (if (off.isNaN()) 0f else off) * pullSign
+                translationX = if (off.isNaN()) 0f else off
             }
             .anchoredDraggable(
                 state = state,
-                reverseDirection = pullSign < 0,
                 orientation = Orientation.Horizontal,
             )
             .clickable { onRestore() }
