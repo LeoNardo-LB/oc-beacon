@@ -68,8 +68,8 @@
   - → `docs/journal/2026-08-23-issue-cleanup-triage.md`
 
 - [ ] **#192 双 FAB 会话级滑动隐藏/展示：左（跳到底部）左滑收起→左缘半透明拉杆；右（菜单）右滑收起，展开态先收拢成按钮** `ui`
-  - 交互细节 grilling 定案中（持久化范围 / 与「滚离底部自动出现」的优先级 / 拉杆恢复手势与形态 / 菜单收拢编排 / 隐藏期角标保留）；定案后补 spec 链接
-  - → `docs/journal/2026-08-23-acceptance-closeout.md`
+  - 定案（2026-08-23 grilling 七问全结，spec §2 D1–D8）：仅会话内生效（不落盘）/ 主子会话独立记忆 / 手动隐藏优先于自动显隐 / 拉杆点按+拖拽双通道 / 菜单两段式 / 右拉杆保留角标
+  - → `docs/specs/2026-08-23-fab-swipe-hide-design.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
 
 ## P3 — 观察与低价值改进
 
