@@ -4,7 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Checklist
@@ -22,6 +24,7 @@ import androidx.compose.material3.FloatingActionButtonMenuScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.material3.ToggleFloatingActionButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -77,6 +80,9 @@ internal fun ChatFabMenu(
             ToggleFloatingActionButton(
                 checked = expanded,
                 onCheckedChange = { expanded = it },
+                // 仅尺寸定制（第十八轮复改：用户「跟现在的尺寸相近」）——
+                // 色与 morph 动画保持官方默认（primaryContainer→primary）
+                containerSize = ToggleFloatingActionButtonDefaults.containerSize(36.dp, 40.dp),
             ) {
                 val desc = if (checkedProgress >= 0.5f) {
                     stringResource(R.string.chat_fab_menu_close)
@@ -137,6 +143,8 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
 ) {
     FloatingActionButtonMenuItem(
         onClick = onClick,
+        // 仅高度定制（44dp，官方 56dp）——色/排版保持默认
+        modifier = Modifier.height(44.dp),
         text = { Text(label) },
         icon = {
             if (count > 0) {
@@ -167,7 +175,10 @@ internal fun ChatScrollBottomFab(
     FloatingActionButton(
         onClick = onClick,
         // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
-        modifier = modifier.padding(bottom = 16.dp),
+        // 36dp 与菜单 FAB 同档（第十八轮复改）
+        modifier = modifier
+            .padding(bottom = 16.dp)
+            .size(36.dp),
     ) {
         Icon(
             Icons.Default.KeyboardArrowDown,
