@@ -26,9 +26,16 @@ android {
         targetSdk = 36
         versionCode = vCode
         versionName = vName
-        // #151 GitHub App device flow 凭据（维护者注册后填入；空串 = 上报功能禁用态引导）
-        buildConfigField("String", "GITHUB_APP_CLIENT_ID", "\"\"")
-        buildConfigField("String", "GITHUB_APP_CLIENT_SECRET", "\"\"")
+        // #151 GitHub App device flow 凭据：从 local.properties 读取（GITHUB_APP_CLIENT_ID /
+        // GITHUB_APP_CLIENT_SECRET）——凭据不进 git；缺失时空串 = 上报功能禁用态引导
+        val localProps = Properties().apply {
+            val f = rootProject.file("local.properties")
+            if (f.exists()) load(FileInputStream(f))
+        }
+        val githubClientId = localProps.getProperty("GITHUB_APP_CLIENT_ID") ?: ""
+        val githubClientSecret = localProps.getProperty("GITHUB_APP_CLIENT_SECRET") ?: ""
+        buildConfigField("String", "GITHUB_APP_CLIENT_ID", "\"$githubClientId\"")
+        buildConfigField("String", "GITHUB_APP_CLIENT_SECRET", "\"$githubClientSecret\"")
 
         testInstrumentationRunner = "dev.leonardo.ocbeacon.HiltTestRunner"
         vectorDrawables {
