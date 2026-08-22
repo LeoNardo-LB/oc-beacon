@@ -198,6 +198,10 @@ internal fun PendingTodoDrawer(
     Surface(
         tonalElevation = 3.dp,
         shadowElevation = 6.dp,
+        // 2026-08-22 用户复改：底部抽屉标准圆角——顶部两角 16dp、底部直角（贴输入栏）
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(
+            topStart = 16.dp, topEnd = 16.dp, bottomStart = 0.dp, bottomEnd = 0.dp
+        ),
         modifier = modifier
             .fillMaxWidth()
             .height(with(density) { height.value.toDp() }),
