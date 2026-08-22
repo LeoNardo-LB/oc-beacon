@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">Відкладені та TODO</string>
     <string name="pending_tab_stacked">Відкладені %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">Черга</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Продовжити</string>
     <string name="pending_clear">Очистити</string>
     <string name="pending_clear_confirm_title">Очистити відкладені повідомлення?</string>

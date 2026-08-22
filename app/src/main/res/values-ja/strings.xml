@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">保留とTODO</string>
     <string name="pending_tab_stacked">保留 %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">積み上げ</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">続ける</string>
     <string name="pending_clear">クリア</string>
     <string name="pending_clear_confirm_title">保留中のメッセージをクリアしますか？</string>

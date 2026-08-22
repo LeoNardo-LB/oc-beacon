@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">Zurückgestellt &amp; TODO</string>
     <string name="pending_tab_stacked">Zurückgestellt %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">Warteschlange</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Weiter</string>
     <string name="pending_clear">Leeren</string>
     <string name="pending_clear_confirm_title">Zurückgestellte Nachrichten leeren?</string>

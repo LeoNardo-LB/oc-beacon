@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
@@ -91,6 +94,20 @@ internal object PendingDrawerAnchors {
         FloatArray(SNAP_COUNT) { i ->
             if (i == SNAP_COLLAPSED) handlePx else containerHeightPx * FRACTIONS[i]
         }
+}
+
+/** segment 标签（Q3）：文字 + 数量 Badge 角标（count=0 只显文字——段本身已置灰）。 */
+@Composable
+private fun SegLabel(text: String, count: Int) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+    ) {
+        Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        if (count > 0) {
+            Badge { Text(text = count.coerceAtMost(99).toString(), style = MaterialTheme.typography.labelSmall) }
+        }
+    }
 }
 
 /** 拖拽释放后吸附到最近锚点（纯函数，单测目标）。 */
@@ -176,8 +193,11 @@ internal fun PendingTodoDrawer(
     }
 
     val height = remember { Animatable(anchors[snap]) }
-    // 外部状态变化（键盘收起/点 segment/容器尺寸变化）→ 动画到锚点
-    LaunchedEffect(snap, anchors[0], anchors[1], anchors[2]) {
+    // 外部状态变化（键盘收起/点 segment/容器尺寸变化）→ 动画到锚点。
+    // 2026-08-22 bug 修复（Q5「能停在自定义高度」根因）：原 key 含 FloatArray
+    // （引用比较恒不等）→ 每次重组重启 animateTo 与拖拽 snapTo 竞争，释放后
+    // 停在两者对抗的中间位置。key 改稳定标量（anchors 内容由这两值决定）。
+    LaunchedEffect(snap, containerHeightPx) {
         height.animateTo(anchors[snap])
     }
     // 键盘弹起 → 自动收起（Q8）
@@ -234,7 +254,10 @@ internal fun PendingTodoDrawer(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(PendingDrawerAnchors.HANDLE_HEIGHT)
+                    // requiredHeight（Q4 修复）：收起动画中 Surface 约束压缩到 16dp，
+                    // 普通 height 会被 coerce 压缩导致内容缩小；required 保持原高
+                    // 溢出被 clipToBounds 裁掉（标准抽屉「裁剪不压缩」行为）
+                    .requiredHeight(PendingDrawerAnchors.HANDLE_HEIGHT)
                     .pointerInput(snap, segment) {
                         detectTapGestures(
                             onTap = {
@@ -257,35 +280,53 @@ internal fun PendingTodoDrawer(
                         )
                 )
             }
-            // ===== 标题栏（segment 左 1/2 + 右侧操作钮；展开后位于拉手下方） =====
+            // ===== 标题栏（segment 左 1/2 + 右端操作钮；展开后位于拉手下方） =====
+            // requiredHeight（Q4）：保持 48dp 原高被裁剪，不随收起动画压缩缩小
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(PendingDrawerAnchors.HEADER_HEIGHT)
+                    .requiredHeight(PendingDrawerAnchors.HEADER_HEIGHT)
                     .padding(horizontal = SpacingTokens.MD.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
             ) {
-                // 2026-08-22 用户复改：segment 仅占标题栏左 1/2
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth(0.5f)) {
-                    val segCount = if (todoSegmentVisible) 2 else 1
+                // segment 左 1/2 + 紧凑高度（Q1：默认最小高 40dp 撑大标题栏 → 32dp）
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .height(32.dp),
+                ) {
+                    // Q3：双段恒展示——无数据置灰（enabled=false）；角标=数量 Badge
                     SegmentedButton(
                         selected = segment == 0,
                         onClick = { toggleSegment(0) },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = segCount),
-                        label = { Text(stringResource(R.string.pending_tab_stacked, queue.size)) },
+                        enabled = queue.isNotEmpty(),
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        label = {
+                            SegLabel(
+                                text = stringResource(R.string.pending_tab_stacked_plain),
+                                count = queue.size,
+                            )
+                        },
                     )
-                    if (todoSegmentVisible) {
-                        val done = todos.count { it.status == "completed" || it.status == "cancelled" }
+                    if (showTodoSegment) {
+                        val pending = todos.count { it.status == "pending" || it.status == "in_progress" }
                         SegmentedButton(
                             selected = segment == 1,
                             onClick = { toggleSegment(1) },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = segCount),
-                            label = { Text(stringResource(R.string.pending_tab_todo, done, todos.size)) },
+                            enabled = todos.isNotEmpty(),
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            label = {
+                                SegLabel(
+                                    text = stringResource(R.string.pending_tab_todo_plain),
+                                    count = pending,
+                                )
+                            },
                         )
                     }
                 }
-                // 右侧操作（Q17 纯图标；堆积段才有；队列空则隐藏）
+                // Q2：右侧操作钮推到行尾（Spacer 吃掉中间全部余量）
+                Spacer(modifier = Modifier.weight(1f))
                 if (segment == 0 && queue.isNotEmpty()) {
                     if (isSessionIdle && !isDraining) {
                         IconButton(onClick = onContinue, modifier = Modifier.size(28.dp)) {

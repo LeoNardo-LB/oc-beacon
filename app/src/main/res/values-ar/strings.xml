@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">المؤجلة وTODO</string>
     <string name="pending_tab_stacked">المؤجلة %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">المؤجلة</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">متابعة</string>
     <string name="pending_clear">مسح</string>
     <string name="pending_clear_confirm_title">مسح الرسائل المؤجلة؟</string>

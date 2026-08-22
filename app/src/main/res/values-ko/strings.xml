@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">보류 및 TODO</string>
     <string name="pending_tab_stacked">보류 %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">적재</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">계속</string>
     <string name="pending_clear">지우기</string>
     <string name="pending_clear_confirm_title">보류 중인 메시지를 지우시겠습니까?</string>

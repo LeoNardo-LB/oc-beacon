@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">Odłożone i TODO</string>
     <string name="pending_tab_stacked">Odłożone %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">Oczekujące</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Kontynuuj</string>
     <string name="pending_clear">Wyczyść</string>
     <string name="pending_clear_confirm_title">Wyczyścić odłożone wiadomości?</string>

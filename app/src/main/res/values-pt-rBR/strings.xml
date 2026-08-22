@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">Adiadas e TODO</string>
     <string name="pending_tab_stacked">Adiadas %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">Pendências</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continuar</string>
     <string name="pending_clear">Limpar</string>
     <string name="pending_clear_confirm_title">Limpar mensagens adiadas?</string>

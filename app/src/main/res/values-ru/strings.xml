@@ -51,6 +51,8 @@
     <string name="pending_sheet_title">Отложенные и TODO</string>
     <string name="pending_tab_stacked">Отложенные %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">Очередь</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Продолжить</string>
     <string name="pending_clear">Очистить</string>
     <string name="pending_clear_confirm_title">Очистить отложенные сообщения?</string>

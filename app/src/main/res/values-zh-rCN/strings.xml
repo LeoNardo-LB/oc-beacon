@@ -133,6 +133,8 @@
     <string name="pending_sheet_title">堆积与 TODO</string>
     <string name="pending_tab_stacked">堆积 %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">堆积</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">继续</string>
     <string name="pending_clear">清除</string>
     <string name="pending_clear_confirm_title">清除堆积消息？</string>

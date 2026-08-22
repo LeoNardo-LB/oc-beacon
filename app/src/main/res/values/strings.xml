@@ -103,6 +103,9 @@
     <string name="pending_sheet_title">Stacked &amp; TODO</string>
     <string name="pending_tab_stacked">Stacked %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <!-- 2026-08-22 抽屉 segment 常显版（数量进 Badge 角标，不进文案） -->
+    <string name="pending_tab_stacked_plain">Stacked</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continue</string>
     <string name="pending_clear">Clear</string>
     <string name="pending_clear_confirm_title">Clear stacked messages?</string>

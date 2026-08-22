@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">En attente &amp; TODO</string>
     <string name="pending_tab_stacked">En attente %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">En attente</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continuer</string>
     <string name="pending_clear">Effacer</string>
     <string name="pending_clear_confirm_title">Effacer les messages en attente ?</string>

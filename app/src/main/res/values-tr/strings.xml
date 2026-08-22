@@ -131,6 +131,8 @@
     <string name="pending_sheet_title">Bekletilen ve TODO</string>
     <string name="pending_tab_stacked">Bekletilen %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
+    <string name="pending_tab_stacked_plain">Bekleyen</string>
+    <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Devam et</string>
     <string name="pending_clear">Temizle</string>
     <string name="pending_clear_confirm_title">Bekletilen mesajlar temizlensin mi?</string>
