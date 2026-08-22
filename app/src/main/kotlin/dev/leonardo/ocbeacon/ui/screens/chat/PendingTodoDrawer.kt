@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -107,18 +106,14 @@ internal object PendingDrawerAnchors {
     }
 }
 
-/** segment 标签（Q3）：文字 + 数量 Badge 角标（count=0 只显文字——段本身已置灰）。 */
+/** segment 标签（2026-08-22 第五轮）：文字+数量同行小字——Badge 角标真机评审比文字还大，弃用。 */
 @Composable
 private fun SegLabel(text: String, count: Int) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-    ) {
-        Text(text = text, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-        if (count > 0) {
-            Badge { Text(text = count.coerceAtMost(99).toString(), style = MaterialTheme.typography.labelSmall) }
-        }
-    }
+    Text(
+        text = if (count > 0) text + " " + count.coerceAtMost(99) else text,
+        style = MaterialTheme.typography.labelSmall,
+        maxLines = 1,
+    )
 }
 
 /** 拖拽释放后吸附到最近锚点（纯函数，单测目标）。 */
@@ -301,7 +296,7 @@ internal fun PendingTodoDrawer(
                 // segment 左 1/2 + 紧凑高度（Q1：默认最小高 40dp 撑大标题栏 → 32dp）
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier
-                        .fillMaxWidth(0.5f)
+                        .fillMaxWidth(0.34f)
                         .height(32.dp),
                 ) {
                     // Q3：双段恒展示——无数据置灰（enabled=false）；角标=数量 Badge
@@ -309,6 +304,7 @@ internal fun PendingTodoDrawer(
                         selected = segment == 0,
                         onClick = { toggleSegment(0) },
                         enabled = queue.isNotEmpty(),
+                        icon = {}, // 第五轮：无选中图标（高亮已足够）
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                         label = {
                             SegLabel(
@@ -324,6 +320,7 @@ internal fun PendingTodoDrawer(
                         selected = segment == 1,
                         onClick = { toggleSegment(1) },
                         enabled = showTodoSegment && todos.isNotEmpty(),
+                        icon = {}, // 同上
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                         label = {
                             SegLabel(
