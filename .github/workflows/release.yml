@@ -48,6 +48,19 @@ jobs:
       - name: Remove local-only settings
         run: bash scripts/ci-clean-local-settings.sh
 
+      # #151 GitHub App 凭据注入：从 repo secrets 写入 local.properties（gitignored，
+      # 不进 git 历史/产物文件）；secrets 未配置时跳过——构建照常（凭据空=上报禁用态）。
+      # 注意：secret 仍会编译进 APK BuildConfig（公共客户端固有风险，spec 知情接受）。
+      # secret 命名避开 GITHUB_ 前缀（GitHub 保留字，禁止创建）。
+      - name: Write GitHub App credentials to local.properties
+        env:
+          GH_CLIENT_ID: ${{ secrets.APP_GITHUB_CLIENT_ID }}
+          GH_CLIENT_SECRET: ${{ secrets.APP_GITHUB_CLIENT_SECRET }}
+        if: ${{ env.GH_CLIENT_ID != '' && env.GH_CLIENT_SECRET != '' }}
+        run: |
+          printf 'GITHUB_APP_CLIENT_ID=%s\nGITHUB_APP_CLIENT_SECRET=%s\n' "$GH_CLIENT_ID" "$GH_CLIENT_SECRET" >> local.properties
+          echo "credentials injected ($(wc -c < local.properties) bytes)"
+
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
