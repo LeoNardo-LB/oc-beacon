@@ -160,6 +160,8 @@
     <string name="chat_scroll_bottom">滚动到底部</string>
     <string name="chat_fab_menu_open">打开任务菜单</string>
     <string name="chat_fab_menu_close">收起菜单</string>
+    <string name="chat_fab_edge_tab_menu">显示任务菜单按钮</string>
+    <string name="chat_fab_edge_tab_scroll">显示回到底部按钮</string>
     <string name="chat_dismiss">忽略</string>
     <string name="settings_language">语言</string>
     <string name="settings_language_system">系统默认</string>

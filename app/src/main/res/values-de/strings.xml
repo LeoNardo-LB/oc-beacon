@@ -158,6 +158,8 @@
     <string name="chat_scroll_bottom">Zum Ende scrollen</string>
     <string name="chat_fab_menu_open">Aufgabenmenü öffnen</string>
     <string name="chat_fab_menu_close">Menü schließen</string>
+    <string name="chat_fab_edge_tab_menu">Schaltfläche Aufgabenmenü anzeigen</string>
+    <string name="chat_fab_edge_tab_scroll">Schaltfläche Nach-unten-scrollen anzeigen</string>
     <string name="chat_dismiss">Ausblenden</string>
     <string name="settings_language">Sprache</string>
     <string name="settings_language_system">Systemstandard</string>
