@@ -309,21 +309,21 @@ internal fun PendingTodoDrawer(
                             )
                         },
                     )
-                    if (showTodoSegment) {
-                        val pending = todos.count { it.status == "pending" || it.status == "in_progress" }
-                        SegmentedButton(
-                            selected = segment == 1,
-                            onClick = { toggleSegment(1) },
-                            enabled = todos.isNotEmpty(),
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                            label = {
-                                SegLabel(
-                                    text = stringResource(R.string.pending_tab_todo_plain),
-                                    count = pending,
-                                )
-                            },
-                        )
-                    }
+                    // Q3（2026-08-22 第四轮用户复改）：TODO 段也恒展示——
+                    // 无能力（V2 beta 无端点）或无数据均置灰；段常在可感知
+                    val pending = todos.count { it.status == "pending" || it.status == "in_progress" }
+                    SegmentedButton(
+                        selected = segment == 1,
+                        onClick = { toggleSegment(1) },
+                        enabled = showTodoSegment && todos.isNotEmpty(),
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        label = {
+                            SegLabel(
+                                text = stringResource(R.string.pending_tab_todo_plain),
+                                count = pending,
+                            )
+                        },
+                    )
                 }
                 // Q2：右侧操作钮推到行尾（Spacer 吃掉中间全部余量）
                 Spacer(modifier = Modifier.weight(1f))
