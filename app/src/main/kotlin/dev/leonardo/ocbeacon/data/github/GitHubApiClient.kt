@@ -49,9 +49,13 @@ class GitHubApiClient @Inject constructor(
      *
      * 2026-08-23 修复：search/issues 仅支持 GET（原 POST 端点不存在恒 404，
      * 查重形同虚设 → 每次上报都新建 issue）；查询串 URL 编码进 query 参数。
+     * 2026-08-23 修复二：指纹含冒号——GitHub 搜索把 key:value 解析成限定词
+     * （实测 "fp:err" → 0 结果/报错）；冒号换空格的短语实测精确命中。故搜索时
+     * 指纹做冒号→空格归一化，并去掉 in:title 限定（指纹短语足够唯一）。
      */
     suspend fun searchIssueByFingerprint(token: String, fingerprint: String): Result<GitHubIssueHit?> = runCatching {
-        val query = "repo:$GITHUB_TARGET_REPO is:issue is:open in:title \"[user-report]\" \"$fingerprint\""
+        val searchableFp = fingerprint.replace(":", " ").replace(Regex(" +"), " ").trim()
+        val query = "repo:$GITHUB_TARGET_REPO is:issue is:open \"$searchableFp\""
         val encoded = java.net.URLEncoder.encode(query, "UTF-8")
         val resp = client.get("${GitHubDeviceEndpoints.API_BASE}/search/issues?q=$encoded") {
             header(HttpHeaders.Authorization, "Bearer $token")
