@@ -161,6 +161,48 @@
 
 ## 五、机器批次剩余（主会话执行）
 
-- #159 jumpLock 派生化收口（~1h，含 2s 时窗语义设计）
-- V1 E2E 结果整合（完成后更新 §三与 #150/#172 相关表述）
-- LeakCanary 浸泡增益（若设备构建含 LeakCanary；非阻塞）
+- ~~#159 jumpLock 派生化收口~~ → 核实为过期卡：2026-08-22 已全量收口（dd43ab13），本批仅补迁移（4a487567）
+- ~~V1 E2E 结果整合~~ → 已完成（868fcf07 + e7f82aaa）
+- LeakCanary 浸泡增益 → skip（装机为 release 构建，LC 仅 debugImplementation，V1 子代理核实）
+
+## 六、#192 实现记录（2026-08-23）
+
+### 提交链（四段）
+
+| 段 | commit | 内容 |
+|----|--------|------|
+| 1 | c9017052 | ChatFabVisibilityState（D1/D2/D3 语义纯函数 bottomFabSlot/menuFabSlot）+ 拉杆 i18n 2 键 × 15 语言（i18n-check 676 keys 全绿） |
+| 2 | 7e8fabe1 | SwipeToHideBox（水平拖拽跟手渐隐，40dp 阈值/spring 回弹/160ms 滑出；RTL 感知）+ FabEdgeTab（D4 点按+拖拽双通道恢复/D6 实时角标/D7 20×28dp 半透明半圆）+ 双 FAB 增 hidden/onHide/onRestore 默认参数（零破坏） |
+| 2b | a62afc7a | D5 补全：展开态右划仅收拢（复用 collapse 语义）不隐藏 |
+| 3 | 3c24e78e | ChatViewModel.fabVisibility（internal，随 VM 实例=每导航入口一份）+ ChatScreen 双调用点接线（编辑协议遵守：Read→单逻辑编辑→compile→commit） |
+
+### 验证
+
+- 编译：每段 compileDevDebugKotlin 绿
+- JVM：ChatFabVisibilityStateTest 8 例（D3 暂停语义 4 + 恢复回归 1 + 独立 2 + 初始 1）——XML 实证 tests=8 failures=0
+- 全量：testDevDebugUnitTest --rerun **1888/1888 绿**（1880 基线 + 8 新增）
+
+### 真机 E2E 受阻记录（2026-08-23，blocker）
+
+**现象**：#192 任一构建（29624ff2 / d23a87e7 / 减法实验版）装真机后，聊天页两个 FAB **视觉不渲染**（像素区域扫描三区无 secondaryContainer 色块；vision 模型整屏无圆钮）。而装机 dev.21（无 #192 代码）同会话同操作 FAB 正常显示（/tmp/e192-1.png，vision 判定双 FAB 在底部正确位置）。
+
+**已排除**：
+1. graphicsLayer alpha——减法实验（注释 graphicsLayer 仅留 pointerInput）仍不渲染
+2. 位置掉落——点击预期位置 (1070,2550) 无菜单弹出（m1 dump「智能体」命中系消息内容假阳性，与 s2 像素 diff 全等互证）
+3. crash/导航——FATAL=0；每步 dump 门卫确认在聊天页（has-search=0 + 返回 desc）
+4. 阈值/手势逻辑——与静态渲染无关
+
+**嫌疑矩阵**（真机像素证据）：无 align 透传+有 SwipeToHideBox（29624ff2，f1）左 FAB 曾短暂可见；有 align 透传（d23a87e7 s2 / 减法 t1）全无。但 dev.21 原版一直带 align 透传且正常 → 交互项嫌疑：SwipeToHideBox 包装 × align 透传（或 ChatScreen 新传参 hidden/onHide/onRestore 的重组影响）。
+
+**已回滚**：设备已恢复 d23a87e7 干净构建；工作区 HEAD 无实验残留。
+
+**下一步计划**（下轮）：二分法——①恢复 ChatScreen 原调用（不传新参数）+ SwipeToHideBox 直返 content()（dev.21 等价）验证渲染回归；②逐块加回（Box 包装 → graphicsLayer → pointerInput → 新参数 → align 透传）每步装机像素验证，锁定最小破坏集；③修复后重跑完整 E2E 六场景。备用方案：放弃外层包装，改为把隐藏手势直接挂 FloatingActionButtonMenu/ToggleFloatingActionButton 的 modifier（无中间 Box）。
+
+**E2E 导航经验**（复用）：会话列表 dump 的 text 节点 clickable=false（挂父行 long-clickable=true，行高 ~195px）；tap 后 0.6s dump 即见「返回」转场；坐标解析须防屏外节点（曾解析出 y=776713 的 Popup 节点）；uiautomator dump 无 FAB 节点（Compose 语义树暴露缺口，已派调研子代理）。
+
+### 实现要点（对齐 spec）
+
+- 状态归 VM：`internal val fabVisibility`（D1 不落盘，VM 弹出复位；D2 主/子会话各自 VM 实例天然独立）
+- ChatScrollBottomFab 内部顺序：hidden 判定先于 isAtBottom（隐藏期拉杆恒在=恢复入口不丢）
+- SwipeToHideBox 用 detectDragGestures（非 detectHorizontalDragGestures）：水平分量参与判定但垂直滚动链不抢占
+- 拉杆 graphicsLayer 跟手位移上限 FabTabPullMax=48dp，松手过半恢复 + spring 回弹
