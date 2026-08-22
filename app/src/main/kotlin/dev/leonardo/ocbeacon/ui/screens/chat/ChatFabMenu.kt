@@ -125,11 +125,6 @@ private fun SwipeHideFabContainer(
         snapshotFlow { state.currentValue }
             .collect { if (it == FabSwipeAnchor.Hidden) onHidden() }
     }
-    // PROBE: 记录 offset 变化（定位手势是否到达；release Log.d 已实证可见）
-    LaunchedEffect(state, dragSign) {
-        snapshotFlow { state.offset }
-            .collect { android.util.Log.d("FAB192", "dragSign=$dragSign offset=$it") }
-    }
     Box(
         modifier
             .graphicsLayer {
