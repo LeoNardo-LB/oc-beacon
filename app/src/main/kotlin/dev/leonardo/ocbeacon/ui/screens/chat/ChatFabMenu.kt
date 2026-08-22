@@ -1,7 +1,9 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -75,6 +77,7 @@ internal fun ChatFabMenu(
     val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
     val secContainer = MaterialTheme.colorScheme.secondaryContainer
     val sec = MaterialTheme.colorScheme.secondary
+    val outlineCol = MaterialTheme.colorScheme.outline
 
     FloatingActionButtonMenu(
         expanded = expanded,
@@ -83,6 +86,7 @@ internal fun ChatFabMenu(
             ToggleFloatingActionButton(
                 checked = expanded,
                 onCheckedChange = { expanded = it },
+                modifier = Modifier.border(1.dp, outlineCol, RoundedCornerShape(10.dp)),
                 // 展开时色随动 secondaryContainer→secondary（避开两类气泡色）
                 containerColor = { p -> lerp(secContainer, sec, p) },
                 containerSize = ToggleFloatingActionButtonDefaults.containerSize(32.dp, 32.dp),
@@ -132,7 +136,9 @@ internal fun ChatFabMenu(
                     modifier = Modifier.size(18.dp),
                 )
             },
-            modifier = Modifier.height(44.dp),
+            modifier = Modifier
+                .height(44.dp)
+                .border(1.dp, outlineCol, RoundedCornerShape(50)),
             containerColor = if (canScrollToBottom) {
                 MaterialTheme.colorScheme.secondaryContainer
             } else {
@@ -197,7 +203,9 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
                 Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
             }
         },
-        modifier = Modifier.height(44.dp),
+        modifier = Modifier
+            .height(44.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)),
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
     )
