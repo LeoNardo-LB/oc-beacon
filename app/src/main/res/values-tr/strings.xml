@@ -123,25 +123,24 @@
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <string name="chat_busy_menu_send_now">Şimdi gönder</string>
     <string name="chat_busy_menu_send_now_desc">Sunucuda kuyruğa alınır, anında görünür, geri alınamaz</string>
-    <string name="chat_busy_menu_stack">Mesajı beklet</string>
+    <string name="chat_busy_menu_stack">Mesajı kuyruğa ekle</string>
     <string name="chat_busy_menu_stack_desc">Yerel olarak saklanır, bu tur sona erdiğinde otomatik gönderilir</string>
     <string name="chat_busy_menu_stack_no_attachments">Ek içeren mesajlar şimdi gönderilmelidir</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
-    <string name="a11y_icon_pending_todo">Bekletilen mesajlar ve TODO</string>
-    <string name="pending_sheet_title">Bekleyen</string>
-    <string name="pending_tab_stacked">Bekletilen %1$d</string>
+    <string name="pending_sheet_title">Kuyruk</string>
+    <string name="pending_tab_stacked">Kuyrukta %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">Bekleyen</string>
+    <string name="pending_tab_stacked_plain">Kuyruk</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Devam et</string>
     <string name="pending_clear">Temizle</string>
-    <string name="pending_clear_confirm_title">Bekletilen mesajlar temizlensin mi?</string>
-    <string name="pending_clear_confirm_text">%1$d adet bekletilen mesaj kaldırılacak.</string>
-    <string name="pending_edit_dialog_title">Bekletilen mesajı düzenle</string>
+    <string name="pending_clear_confirm_title">Kuyruktaki mesajlar temizlensin mi?</string>
+    <string name="pending_clear_confirm_text">Kuyruktaki %1$d mesaj kaldırılacak.</string>
+    <string name="pending_edit_dialog_title">Kuyruktaki mesajı düzenle</string>
     <string name="pending_item_edit">Düzenle</string>
     <string name="pending_item_delete">Sil</string>
     <string name="pending_item_send">Şimdi gönder</string>
-    <string name="pending_empty">Bekletilen mesaj yok. Ajan yanıt verirken bir mesajı bekletmek için yükleme simgesine dokunun.</string>
+    <string name="pending_empty">Kuyrukta mesaj yok. Ajan yanıt verirken bir mesajı kuyruğa eklemek için yükleme simgesine dokunun.</string>
     <string name="pending_item_sending">Gönderiliyor…</string>
     <string name="todo_empty">TODO öğesi yok</string>
     <string name="chat_copy">Kopyala</string>
@@ -263,7 +262,6 @@
     <string name="tool_write_file">Dosya yaz</string>
     <string name="tool_edit_file">Dosya düzenle</string>
     <string name="tool_terminal">Terminal</string>
-    <string name="menu_pending_todo_drawer">Bekleyen ve TODO çekmecesi</string>
     <string name="toolbar_agent">Ajanlar</string>
     <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Dosya bul</string>

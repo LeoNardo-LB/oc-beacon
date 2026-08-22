@@ -123,25 +123,24 @@
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <string name="chat_busy_menu_send_now">Enviar ahora</string>
     <string name="chat_busy_menu_send_now_desc">Se añade a la cola del servidor, es visible de inmediato y no se puede deshacer</string>
-    <string name="chat_busy_menu_stack">Aplazar mensaje</string>
+    <string name="chat_busy_menu_stack">Poner en cola</string>
     <string name="chat_busy_menu_stack_desc">Se guarda localmente y se envía automáticamente al terminar este turno</string>
     <string name="chat_busy_menu_stack_no_attachments">Los mensajes con adjuntos deben enviarse ahora</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
-    <string name="a11y_icon_pending_todo">Mensajes aplazados y TODO</string>
-    <string name="pending_sheet_title">Pendientes</string>
-    <string name="pending_tab_stacked">Aplazados %1$d</string>
+    <string name="pending_sheet_title">En cola</string>
+    <string name="pending_tab_stacked">En cola %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">Pendientes</string>
+    <string name="pending_tab_stacked_plain">En cola</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continuar</string>
     <string name="pending_clear">Borrar</string>
-    <string name="pending_clear_confirm_title">¿Borrar los mensajes aplazados?</string>
-    <string name="pending_clear_confirm_text">Se eliminarán %1$d mensajes aplazados.</string>
-    <string name="pending_edit_dialog_title">Editar mensaje aplazado</string>
+    <string name="pending_clear_confirm_title">¿Borrar los mensajes en cola?</string>
+    <string name="pending_clear_confirm_text">Se eliminarán %1$d mensajes en cola.</string>
+    <string name="pending_edit_dialog_title">Editar mensaje en cola</string>
     <string name="pending_item_edit">Editar</string>
     <string name="pending_item_delete">Eliminar</string>
     <string name="pending_item_send">Enviar ahora</string>
-    <string name="pending_empty">No hay mensajes aplazados. Mientras el asistente responde, toca el indicador de carga para aplazar un mensaje.</string>
+    <string name="pending_empty">No hay mensajes en cola. Mientras el asistente responde, toca el indicador de carga para poner un mensaje en cola.</string>
     <string name="pending_item_sending">Enviando…</string>
     <string name="todo_empty">No hay elementos TODO</string>
     <string name="chat_copy">Copiar</string>
@@ -263,7 +262,6 @@
     <string name="tool_write_file">Escribiendo archivo</string>
     <string name="tool_edit_file">Editando archivo</string>
     <string name="tool_terminal">Terminal</string>
-    <string name="menu_pending_todo_drawer">Cajón de pendientes y TODO</string>
     <string name="toolbar_agent">Agentes</string>
     <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Buscar archivos</string>

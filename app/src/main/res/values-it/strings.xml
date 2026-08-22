@@ -123,25 +123,24 @@
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <string name="chat_busy_menu_send_now">Invia ora</string>
     <string name="chat_busy_menu_send_now_desc">Accodato sul server, visibile immediatamente, non annullabile</string>
-    <string name="chat_busy_menu_stack">Metti in attesa</string>
+    <string name="chat_busy_menu_stack">Metti in coda</string>
     <string name="chat_busy_menu_stack_desc">Conservato localmente, inviato automaticamente al termine di questo turno</string>
     <string name="chat_busy_menu_stack_no_attachments">I messaggi con allegati devono essere inviati subito</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
-    <string name="a11y_icon_pending_todo">Messaggi in attesa e TODO</string>
-    <string name="pending_sheet_title">In sospeso</string>
-    <string name="pending_tab_stacked">In attesa %1$d</string>
+    <string name="pending_sheet_title">In coda</string>
+    <string name="pending_tab_stacked">In coda %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">In sospeso</string>
+    <string name="pending_tab_stacked_plain">In coda</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continua</string>
     <string name="pending_clear">Cancella</string>
-    <string name="pending_clear_confirm_title">Cancellare i messaggi in attesa?</string>
-    <string name="pending_clear_confirm_text">%1$d messaggi in attesa verranno rimossi.</string>
-    <string name="pending_edit_dialog_title">Modifica messaggio in attesa</string>
+    <string name="pending_clear_confirm_title">Cancellare i messaggi in coda?</string>
+    <string name="pending_clear_confirm_text">%1$d messaggi in coda verranno rimossi.</string>
+    <string name="pending_edit_dialog_title">Modifica messaggio in coda</string>
     <string name="pending_item_edit">Modifica</string>
     <string name="pending_item_delete">Elimina</string>
     <string name="pending_item_send">Invia ora</string>
-    <string name="pending_empty">Nessun messaggio in attesa. Mentre l\'assistente risponde, tocca l\'indicatore di caricamento per mettere un messaggio in attesa.</string>
+    <string name="pending_empty">Nessun messaggio in coda. Mentre l\'assistente risponde, tocca l\'indicatore di caricamento per mettere un messaggio in coda.</string>
     <string name="pending_item_sending">Invio…</string>
     <string name="todo_empty">Nessun elemento TODO</string>
     <string name="chat_copy">Copia</string>
@@ -263,7 +262,6 @@
     <string name="tool_write_file">Scrivi file</string>
     <string name="tool_edit_file">Modifica file</string>
     <string name="tool_terminal">Terminale</string>
-    <string name="menu_pending_todo_drawer">Cassetto in sospeso e TODO</string>
     <string name="toolbar_agent">Agenti</string>
     <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Trova file</string>

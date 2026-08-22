@@ -95,26 +95,25 @@
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <string name="chat_busy_menu_send_now">Send now</string>
     <string name="chat_busy_menu_send_now_desc">Queued on server, visible immediately, cannot be undone</string>
-    <string name="chat_busy_menu_stack">Stack message</string>
+    <string name="chat_busy_menu_stack">Queue message</string>
     <string name="chat_busy_menu_stack_desc">Kept locally, sent automatically when this turn ends</string>
     <string name="chat_busy_menu_stack_no_attachments">Messages with attachments must be sent now</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
-    <string name="a11y_icon_pending_todo">Stacked messages and TODO</string>
-    <string name="pending_sheet_title">Stacked</string>
-    <string name="pending_tab_stacked">Stacked %1$d</string>
+    <string name="pending_sheet_title">Queued</string>
+    <string name="pending_tab_stacked">Queued %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
     <!-- 2026-08-22 抽屉 segment 常显版（数量进 Badge 角标，不进文案） -->
-    <string name="pending_tab_stacked_plain">Stacked</string>
+    <string name="pending_tab_stacked_plain">Queued</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continue</string>
     <string name="pending_clear">Clear</string>
-    <string name="pending_clear_confirm_title">Clear stacked messages?</string>
-    <string name="pending_clear_confirm_text">%1$d stacked messages will be removed.</string>
-    <string name="pending_edit_dialog_title">Edit stacked message</string>
+    <string name="pending_clear_confirm_title">Clear queued messages?</string>
+    <string name="pending_clear_confirm_text">%1$d queued messages will be removed.</string>
+    <string name="pending_edit_dialog_title">Edit queued message</string>
     <string name="pending_item_edit">Edit</string>
     <string name="pending_item_delete">Delete</string>
     <string name="pending_item_send">Send now</string>
-    <string name="pending_empty">No stacked messages. While the agent is replying, tap the spinner to stack a message.</string>
+    <string name="pending_empty">No queued messages. While the agent is replying, tap the spinner to queue a message.</string>
     <string name="pending_item_sending">Sending…</string>
     <string name="todo_empty">No TODO items</string>
     <string name="chat_empty">Start a conversation with OpenCode</string>
@@ -273,7 +272,6 @@
     <string name="tool_edit_file">Edit file</string>
     <string name="tool_terminal">Terminal</string>
     <!-- 2026-08-22：堆积/TODO 常驻抽屉显隐（顶栏菜单 toggle） -->
-    <string name="menu_pending_todo_drawer">Pending &amp; TODO drawer</string>
     <!-- 2026-08-22 第十轮：贴底工具栏 agent/shell 入口 -->
     <string name="toolbar_agent">Agents</string>
     <string name="toolbar_shell">Shells</string>

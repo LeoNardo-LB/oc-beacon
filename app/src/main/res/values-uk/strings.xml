@@ -123,25 +123,24 @@
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <string name="chat_busy_menu_send_now">Надіслати зараз</string>
     <string name="chat_busy_menu_send_now_desc">Ставиться в чергу на сервері, видно одразу, скасувати не можна</string>
-    <string name="chat_busy_menu_stack">Відкласти повідомлення</string>
+    <string name="chat_busy_menu_stack">Поставити повідомлення в чергу</string>
     <string name="chat_busy_menu_stack_desc">Зберігається локально та надсилається автоматично після завершення цього ходу</string>
     <string name="chat_busy_menu_stack_no_attachments">Повідомлення з вкладеннями потрібно надсилати зараз</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
-    <string name="a11y_icon_pending_todo">Відкладені повідомлення та TODO</string>
     <string name="pending_sheet_title">Черга</string>
-    <string name="pending_tab_stacked">Відкладені %1$d</string>
+    <string name="pending_tab_stacked">У черзі %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
     <string name="pending_tab_stacked_plain">Черга</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Продовжити</string>
     <string name="pending_clear">Очистити</string>
-    <string name="pending_clear_confirm_title">Очистити відкладені повідомлення?</string>
-    <string name="pending_clear_confirm_text">%1$d відкладених повідомлень буде видалено.</string>
-    <string name="pending_edit_dialog_title">Редагувати відкладене повідомлення</string>
+    <string name="pending_clear_confirm_title">Очистити чергу повідомлень?</string>
+    <string name="pending_clear_confirm_text">%1$d повідомлень із черги буде видалено.</string>
+    <string name="pending_edit_dialog_title">Редагувати повідомлення в черзі</string>
     <string name="pending_item_edit">Редагувати</string>
     <string name="pending_item_delete">Видалити</string>
     <string name="pending_item_send">Надіслати зараз</string>
-    <string name="pending_empty">Немає відкладених повідомлень. Поки агент відповідає, торкніться індикатора завантаження, щоб відкласти повідомлення.</string>
+    <string name="pending_empty">Немає повідомлень у черзі. Поки агент відповідає, торкніться індикатора завантаження, щоб поставити повідомлення в чергу.</string>
     <string name="pending_item_sending">Надсилання…</string>
     <string name="todo_empty">Немає елементів TODO</string>
     <string name="chat_copy">Копіювати</string>
@@ -271,7 +270,6 @@
     <string name="tool_write_file">Записати файл</string>
     <string name="tool_edit_file">Редагувати файл</string>
     <string name="tool_terminal">Термінал</string>
-    <string name="menu_pending_todo_drawer">Панель черги та завдань</string>
     <string name="toolbar_agent">Агенти</string>
     <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Знайти файли</string>

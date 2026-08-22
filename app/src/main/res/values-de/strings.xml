@@ -123,25 +123,24 @@
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <string name="chat_busy_menu_send_now">Jetzt senden</string>
     <string name="chat_busy_menu_send_now_desc">In der Server-Warteschlange, sofort sichtbar, kann nicht rückgängig gemacht werden</string>
-    <string name="chat_busy_menu_stack">Nachricht zurückstellen</string>
+    <string name="chat_busy_menu_stack">Nachricht einreihen</string>
     <string name="chat_busy_menu_stack_desc">Wird lokal gespeichert und automatisch gesendet, wenn dieser Durchlauf endet</string>
     <string name="chat_busy_menu_stack_no_attachments">Nachrichten mit Anhängen müssen sofort gesendet werden</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
-    <string name="a11y_icon_pending_todo">Zurückgestellte Nachrichten und TODO</string>
     <string name="pending_sheet_title">Warteschlange</string>
-    <string name="pending_tab_stacked">Zurückgestellt %1$d</string>
+    <string name="pending_tab_stacked">In Warteschlange %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
     <string name="pending_tab_stacked_plain">Warteschlange</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Weiter</string>
     <string name="pending_clear">Leeren</string>
-    <string name="pending_clear_confirm_title">Zurückgestellte Nachrichten leeren?</string>
-    <string name="pending_clear_confirm_text">%1$d zurückgestellte Nachrichten werden entfernt.</string>
-    <string name="pending_edit_dialog_title">Zurückgestellte Nachricht bearbeiten</string>
+    <string name="pending_clear_confirm_title">Nachrichten in der Warteschlange leeren?</string>
+    <string name="pending_clear_confirm_text">%1$d Nachrichten aus der Warteschlange werden entfernt.</string>
+    <string name="pending_edit_dialog_title">Nachricht in der Warteschlange bearbeiten</string>
     <string name="pending_item_edit">Bearbeiten</string>
     <string name="pending_item_delete">Löschen</string>
     <string name="pending_item_send">Jetzt senden</string>
-    <string name="pending_empty">Keine zurückgestellten Nachrichten. Während der Assistent antwortet, kannst du auf das Ladesymbol tippen, um eine Nachricht zurückzustellen.</string>
+    <string name="pending_empty">Keine Nachrichten in der Warteschlange. Während der Assistent antwortet, kannst du auf das Ladesymbol tippen, um eine Nachricht einzureihen.</string>
     <string name="pending_item_sending">Wird gesendet…</string>
     <string name="todo_empty">Keine TODO-Elemente</string>
     <string name="chat_copy">Kopieren</string>
@@ -263,7 +262,6 @@
     <string name="tool_write_file">Datei schreiben</string>
     <string name="tool_edit_file">Datei bearbeiten</string>
     <string name="tool_terminal">Terminal</string>
-    <string name="menu_pending_todo_drawer">Pending- &amp; TODO-Schublade</string>
     <string name="toolbar_agent">Agenten</string>
     <string name="toolbar_shell">Shell</string>
     <string name="tool_find_files">Dateien finden</string>
