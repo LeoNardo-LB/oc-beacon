@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.github
 
 import dev.leonardo.ocbeacon.logging.AppLogger
 import io.ktor.client.HttpClient
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -45,22 +46,26 @@ class GitHubApiClient @Inject constructor(
     /**
      * 按指纹精确搜索既有 open issue（限定仓库 + [user-report] 前缀标题）。
      * search 失败/限流由调用方降级新建（spec：不阻塞上报）。
+     *
+     * 2026-08-23 修复：search/issues 仅支持 GET（原 POST 端点不存在恒 404，
+     * 查重形同虚设 → 每次上报都新建 issue）；查询串 URL 编码进 query 参数。
      */
     suspend fun searchIssueByFingerprint(token: String, fingerprint: String): Result<GitHubIssueHit?> = runCatching {
         val query = "repo:$GITHUB_TARGET_REPO is:issue is:open in:title \"[user-report]\" \"$fingerprint\""
-        val resp = client.post("${GitHubDeviceEndpoints.API_BASE}/search/issues") {
+        val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+        val resp = client.get("${GitHubDeviceEndpoints.API_BASE}/search/issues?q=$encoded") {
             header(HttpHeaders.Authorization, "Bearer $token")
             header(HttpHeaders.Accept, "application/vnd.github+json")
-            urlBuilder(query)
         }
         mapErrors(resp.status.value, resp.bodyAsText())
         val obj = json.parseToJsonElement(resp.bodyAsText()).jsonObject
         val items = obj["total_count"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
         if (items == 0) null
         else {
-            val issue = obj["items"]!!.jsonArray[0].jsonObject
+            val itemsArr = obj["items"]?.jsonArray ?: return@runCatching null
+            val issue = itemsArr.getOrNull(0)?.jsonObject ?: return@runCatching null
             GitHubIssueHit(
-                number = issue["number"]!!.jsonPrimitive.content.toInt(),
+                number = issue["number"]?.jsonPrimitive?.content?.toIntOrNull() ?: return@runCatching null,
                 title = issue["title"]?.jsonPrimitive?.content ?: "",
                 body = issue["body"]?.jsonPrimitive?.content,
             )
@@ -102,11 +107,6 @@ class GitHubApiClient @Inject constructor(
             }
         }
     }
-}
-
-private fun io.ktor.client.request.HttpRequestBuilder.urlBuilder(query: String) {
-    // search API 走 POST body（GitHub 2024 起支持，避免 GET URL 编码长度坑）
-    setBody("${'$'}{query}")
 }
 
 internal fun Throwable.asGitHubError(): GitHubApiError = when (this) {
