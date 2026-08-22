@@ -130,7 +130,7 @@
     <string name="chat_busy_menu_stack_no_attachments">带附件的消息请立即发送</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="a11y_icon_pending_todo">堆积消息与 TODO</string>
-    <string name="pending_sheet_title">堆积与 TODO</string>
+    <string name="pending_sheet_title">堆积消息</string>
     <string name="pending_tab_stacked">堆积 %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
     <string name="pending_tab_stacked_plain">堆积</string>

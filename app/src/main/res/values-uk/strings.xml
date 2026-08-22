@@ -128,7 +128,7 @@
     <string name="chat_busy_menu_stack_no_attachments">Повідомлення з вкладеннями потрібно надсилати зараз</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="a11y_icon_pending_todo">Відкладені повідомлення та TODO</string>
-    <string name="pending_sheet_title">Відкладені та TODO</string>
+    <string name="pending_sheet_title">Черга</string>
     <string name="pending_tab_stacked">Відкладені %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
     <string name="pending_tab_stacked_plain">Черга</string>

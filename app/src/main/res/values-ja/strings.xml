@@ -128,7 +128,7 @@
     <string name="chat_busy_menu_stack_no_attachments">添付ファイル付きのメッセージは今すぐ送信する必要があります</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="a11y_icon_pending_todo">保留中のメッセージとTODO</string>
-    <string name="pending_sheet_title">保留とTODO</string>
+    <string name="pending_sheet_title">積み上げ</string>
     <string name="pending_tab_stacked">保留 %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
     <string name="pending_tab_stacked_plain">積み上げ</string>
