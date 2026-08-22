@@ -49,32 +49,35 @@ internal fun ChatBottomToolbar(
     HorizontalFloatingToolbar(
         expanded = false,
         modifier = modifier,
+        // 第十四轮（用户反馈整体仍大）：contentPadding 收紧——官方默认给足留白，
+        // 显式收到 2dp 横向 / 0 纵向，胶囊高度由 28dp 触达撑起
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp, vertical = 0.dp),
     ) {
             if (showScrollBottom) {
                 ToolbarAction(
-                    icon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.chat_scroll_bottom), modifier = Modifier.size(18.dp)) },
+                    icon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.chat_scroll_bottom), modifier = Modifier.size(14.dp)) },
                     count = 0,
                     onClick = onScrollToBottom,
                 )
                 Spacer(Modifier.width(4.dp))
             }
             ToolbarAction(
-                icon = { Icon(Icons.Default.Inbox, contentDescription = stringResource(R.string.pending_tab_stacked_plain), modifier = Modifier.size(18.dp)) },
+                icon = { Icon(Icons.Default.Inbox, contentDescription = stringResource(R.string.pending_tab_stacked_plain), modifier = Modifier.size(14.dp)) },
                 count = stackedCount,
                 onClick = { onOpenEntry(ChatToolbarEntry.STACKED) },
             )
             ToolbarAction(
-                icon = { Icon(Icons.Default.Checklist, contentDescription = stringResource(R.string.pending_tab_todo_plain), modifier = Modifier.size(18.dp)) },
+                icon = { Icon(Icons.Default.Checklist, contentDescription = stringResource(R.string.pending_tab_todo_plain), modifier = Modifier.size(14.dp)) },
                 count = todoPendingCount,
                 onClick = { onOpenEntry(ChatToolbarEntry.TODO) },
             )
             ToolbarAction(
-                icon = { Icon(Icons.Default.AccountTree, contentDescription = stringResource(R.string.toolbar_agent), modifier = Modifier.size(18.dp)) },
+                icon = { Icon(Icons.Default.AccountTree, contentDescription = stringResource(R.string.toolbar_agent), modifier = Modifier.size(14.dp)) },
                 count = agentRunningCount,
                 onClick = { onOpenEntry(ChatToolbarEntry.AGENT) },
             )
             ToolbarAction(
-                icon = { Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.toolbar_shell), modifier = Modifier.size(18.dp)) },
+                icon = { Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.toolbar_shell), modifier = Modifier.size(14.dp)) },
                 count = shellRunningCount,
                 onClick = { onOpenEntry(ChatToolbarEntry.SHELL) },
             )
@@ -96,7 +99,7 @@ private fun ToolbarAction(
         BadgedBox(
             badge = { Badge { Text(text = count.coerceAtMost(99).toString()) } },
         ) {
-            IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) { icon() }
+            IconButton(onClick = onClick, modifier = Modifier.size(28.dp)) { icon() }
         }
     } else {
         IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) { icon() }
