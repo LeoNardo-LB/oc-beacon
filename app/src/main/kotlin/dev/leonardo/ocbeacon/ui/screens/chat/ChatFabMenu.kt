@@ -91,9 +91,16 @@ internal val FabTabPullMax = 48.dp
  *
  * [dragSign]：隐藏方向物理符号——start 侧 FAB 在 LTR 下向左（-1），end 侧向右（+1）；
  * RTL 自动取反（依赖 [LocalLayoutDirection]）。手势修饰符挂 [content] 外层 Box。
+ *
+ * **align 挂载点（渲染 bug 根因修正 2026-08-23）**：align 是 ParentDataModifier，
+ * 只对直接父 Box 生效——必须由本函数的 Box 承接 [modifier]（调用方传入的
+ * BottomStart/BottomEnd），content 内组件用裸 Modifier。曾把 align 透传给
+ * FloatingActionButtonMenu（其父级已换成此处的普通 Box，不解析 align）→
+ * 双 FAB 整体掉到 TopStart（探针实证 Toggle pos=(48,326)）。
  */
 @Composable
 private fun SwipeToHideBox(
+    modifier: Modifier = Modifier,
     dragSign: Float,
     onHide: () -> Unit,
     content: @Composable () -> Unit,
@@ -107,7 +114,7 @@ private fun SwipeToHideBox(
     val exitPx = with(density) { FabExitDistance.toPx() }
     val thresholdPx = with(density) { FabSwipeThreshold.toPx() }
     Box(
-        Modifier
+        modifier
             .graphicsLayer {
                 translationX = exit.value * exitPx * sign
                 alpha = 1f - exit.value
@@ -240,7 +247,6 @@ internal fun ChatFabMenu(
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = expanded) { expanded = false }
-
     if (hidden) {
         FabEdgeTab(
             edge = FabEdge.END,
@@ -264,17 +270,17 @@ internal fun ChatFabMenu(
     val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
 
     // D5 两段式：展开态右划仅收拢（与 back/外点同语义），收起态右划才隐藏
-    SwipeToHideBox(dragSign = +1f, onHide = { if (expanded) expanded = false else onHide() }) {
+    // align 挂 SwipeBox（直接子级才吃 ParentData）；FAB 菜单本体裸 Modifier
+    SwipeToHideBox(modifier = modifier, dragSign = +1f, onHide = { if (expanded) expanded = false else onHide() }) {
         FloatingActionButtonMenu(
             expanded = expanded,
-            // #192 修复：align（ParentData）必须透传——重写时丢失导致双 FAB 掉到 Box 左上角
-            modifier = modifier,
+            modifier = Modifier,
             button = {
                 ToggleFloatingActionButton(
                     checked = expanded,
                     onCheckedChange = { expanded = it },
-                    // 描边（第二十轮，用户要求）：角半径冻结 16dp——形状恒定描边才贴边
-                    modifier = Modifier.border(
+                    modifier = Modifier
+                        .border(
                         1.dp,
                         MaterialTheme.colorScheme.outline,
                         RoundedCornerShape(16.dp),
@@ -412,12 +418,11 @@ internal fun ChatScrollBottomFab(
     }
     if (isAtBottomState.value) return // 在底部时不显示
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        SwipeToHideBox(dragSign = -1f, onHide = onHide) {
+        SwipeToHideBox(modifier = modifier, dragSign = -1f, onHide = onHide) {
             FloatingActionButton(
                 onClick = onClick,
                 // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
-                // #192 修复：透传 modifier（BottomStart align）——原丢失致 FAB 掉到 Box 左上角
-                modifier = modifier
+                modifier = Modifier
                     .padding(start = 16.dp, bottom = 16.dp)
                     .size(44.dp)
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
