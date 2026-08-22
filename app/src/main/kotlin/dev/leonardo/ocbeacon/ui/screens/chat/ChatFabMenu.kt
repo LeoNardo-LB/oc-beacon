@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
@@ -124,6 +125,11 @@ private fun SwipeHideFabContainer(
         snapshotFlow { state.currentValue }
             .collect { if (it == FabSwipeAnchor.Hidden) onHidden() }
     }
+    // PROBE: 记录 offset 变化（定位手势是否到达；release Log.d 已实证可见）
+    LaunchedEffect(state, dragSign) {
+        snapshotFlow { state.offset }
+            .collect { android.util.Log.d("FAB192", "dragSign=$dragSign offset=$it") }
+    }
     Box(
         modifier
             .graphicsLayer {
@@ -135,6 +141,12 @@ private fun SwipeHideFabContainer(
             .anchoredDraggable(
                 state = state,
                 orientation = Orientation.Horizontal,
+                flingBehavior = AnchoredDraggableDefaults.flingBehavior(
+                    state = state,
+                    // 40%（默认 50%）：START 侧松手点离屏缘更远——真机实证 50% 阈值时
+                    // 松手点落入 MIUI 返回手势区被截断（offset 卡在 -92 无 settle）
+                    positionalThreshold = { it * 0.4f },
+                ),
             )
     ) { content() }
 }
