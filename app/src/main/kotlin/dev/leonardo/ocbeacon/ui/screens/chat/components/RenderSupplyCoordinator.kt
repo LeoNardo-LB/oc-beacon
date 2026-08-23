@@ -62,7 +62,7 @@ internal class RenderSupplyCoordinator(
 
     /** 最近一次跳转终点时刻（clock 基，单调）——稳定窗口门控用。
      * 阶段 2 收编：原为 ChatMessageList 跨 effect 共享变量（写方=解锁
-     * effect、读方=驱动 collect）——现写读同在模块内，耦合消灭。 */
+     * effect、读方=视口收集）——现写读同在模块内，耦合消灭。 */
     private var lastJumpEndAtMillis = 0L
 
     init {
@@ -160,7 +160,7 @@ internal class RenderSupplyCoordinator(
         }
         // 有界性（#98 同款防无界增长）：裁剪窗口外条目，LRU 上限。
         // 注：chunkPlans 不随 LRU 淘汰——分片中的 turn 需要稳定计划（视口内
-        // 淘汰会导致 chunk key 消失→回退单 item→巨帧回归）；巨型消息每会话
+        // 淘汰会导致 chunk key 消失→降级回单 item→巨帧回归）；巨型消息每会话
         // 个位数，AST 常驻内存可忽略（130K 字符 ≈ 400KB/条）。
         preparseSeenKeys.removeAll { it !in window }
         preparseSeenKeys.addAll(window)

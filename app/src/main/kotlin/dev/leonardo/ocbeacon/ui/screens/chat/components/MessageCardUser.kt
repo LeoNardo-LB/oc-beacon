@@ -124,7 +124,7 @@ internal fun MessageCardUser(
     // 2026-08-21 卫生清理（D-10/#11-4）：user 消息的 readiness 订阅、
     // jumpTextPart/jumpMdState（LocalMarkdownStateRegistry 注册链）与 Ready
     // 上报链全部删除——PartContent isUser 分支纯 Text 渲染（MarkdownState/
-    // preParsedState 均被忽略），且滚动预解析驱动只处理 assistant 消息，
+    // preParsedState 均被忽略），且渲染供给协调器只预解析 assistant 消息，
     // user 条目在注册表中的状态本就无人消费。
 
     // 2026-08-13 架构根治：门控展示从状态机派生（Displayed/Failed 前 alpha=0
@@ -258,7 +258,7 @@ internal fun MessageCardUser(
         }
     }
 
-    // 撤回确认对话框
+    // 撤销确认对话框
     if (showRevertConfirmation && onRevert != null) {
         ConfirmDialog(
             title = stringResource(R.string.chat_revert),
@@ -413,7 +413,7 @@ internal fun ChunkedUserMessage(
         }
     }
 
-    // 撤回确认对话框（与 MessageCardUser 同款）
+    // 撤销确认对话框（与 MessageCardUser 同款）
     if (showRevertConfirmation && onRevert != null) {
         ConfirmDialog(
             title = stringResource(R.string.chat_revert),
