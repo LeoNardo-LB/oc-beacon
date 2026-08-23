@@ -183,7 +183,7 @@ viewModel.consumePendingReadSessionId()
                                 expanded = showMoreMenu,
                                 onDismissRequest = { showMoreMenu = false },
                             ) {
-                                // 切换查看模式：最近 <-> 文件夹
+                                // 切换查看模式：最近 <-> 目录（视图模式 FOLDER 沿旧枚举名）
                                 DropdownMenuItem(
                                     text = {
                                         Text(stringResource(

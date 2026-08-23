@@ -1261,7 +1261,7 @@ class V2ApiClient @Inject constructor(
             val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
             val decoded = json.decodeFromJsonElement(ServerPaths.serializer(), obj)
             // V2 /api/location 只有 directory 字段（无 home）——directory 语义 = 当前工作目录，
-            // 回退为 home，否则 OpenProjectDialog 的 homeDir 为空（路径栏/新建文件夹受影响）
+            // 降级为 home，否则 OpenProjectDialog 的 homeDir 为空（路径栏/新建目录受影响）
             if (decoded.home.isBlank() && decoded.directory.isNotBlank()) {
                 decoded.copy(home = decoded.directory)
             } else {

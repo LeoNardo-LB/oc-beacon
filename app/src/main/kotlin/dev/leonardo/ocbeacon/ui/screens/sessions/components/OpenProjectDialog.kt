@@ -90,7 +90,7 @@ internal fun OpenProjectDialog(
     var directories by remember { mutableStateOf<List<FileNode>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
-    // #115（D2-L25）：新建文件夹输入 saveable
+    // #115（D2-L25）：新建目录输入 saveable
     var newFolderName by rememberSaveable { mutableStateOf("") }
     var isCreatingFolder by remember { mutableStateOf(false) }
     var createFolderError by remember { mutableStateOf<String?>(null) }
@@ -270,7 +270,7 @@ internal fun OpenProjectDialog(
         }
     }
 
-    // ── 新建文件夹对话框 ─────────────────────────────────────────
+    // ── 新建目录对话框 ─────────────────────────────────────────
     if (showCreateFolderDialog) {
         val createFolderParams = amoledDialogParams()
         BasicAlertDialog(

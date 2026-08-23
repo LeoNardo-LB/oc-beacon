@@ -133,7 +133,7 @@ private fun buildTreeNodesInternal(
             // 按完整目录路径分组：每个会话按自己的目录独立成组。
             // 此前为"项目感知分组"——把目录匹配到服务器 /project 返回的
             // 项目聚合（如服务器全局/根项目名为 global 时，会把不同目录的
-            // 会话聚合到一个 global 文件夹），不符合按文件夹浏览的预期，
+            // 会话聚合到一个 global 目录），不符合按目录浏览的预期，
             // 故改回纯目录分组。
             val groupPath = dir.ifEmpty { "/" }
             // displayName 用目录名（最后一段）而非完整路径，移动端 UI 更友好；

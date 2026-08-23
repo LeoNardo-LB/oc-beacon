@@ -229,11 +229,11 @@ private fun WorkspaceTopBar(
                 )
             }
             // 切换按钮：在 FILE_TREE 与 GIT_CHANGES 面板之间切换。
-            // 非 git 仓库仅显示文件夹图标（无法切换）。
+            // 非 git 仓库仅显示目录图标（无法切换）。
             when (uiState.currentPanel) {
                 WorkspacePanel.FILE_TREE -> {
                     if (uiState.isNonGit) {
-                        // 非 git 仓库 → 静态文件夹图标，无切换
+                        // 非 git 仓库 → 静态目录图标，无切换
                         Icon(
                             Icons.Filled.Folder,
                             contentDescription = stringResource(R.string.a11y_icon_toggle_directory),
@@ -263,7 +263,7 @@ private fun WorkspaceTopBar(
                     }
                 }
                 WorkspacePanel.GIT_CHANGES -> {
-                    // GIT_CHANGES 激活 → 显示文件夹图标以切回 FILE_TREE
+                    // GIT_CHANGES 激活 → 显示目录图标以切回 FILE_TREE
                     IconButton(
                         onClick = { onSwitchPanel(WorkspacePanel.FILE_TREE) },
                         modifier = Modifier.testTag("panel_toggle")
