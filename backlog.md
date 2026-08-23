@@ -66,13 +66,13 @@
 
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
 
-- [ ] **#200 盘点代码事实包（F01-F14）：非注释级缺陷与死代码** `refactor` `sse`
+- [~] **#200 盘点代码事实包（F01-F14）：非注释级缺陷与死代码** `refactor` `sse`（2026-08-23 实现完成：11 项修复 + 2 项留档/核实无需修；编译×3 源集 + 全量单测绿；顺带修 androidTest 存量编译断裂——**待用户人工验收 F06 搜索跟手/F07 FATAL chip**，清单见 journal）
   - PartSerializer 缺 permission/question 分支落 Unknown · executeCommand 死参数（V1/V2 同）· 盘符哨兵双定义 · 搜索防抖 300ms 双层串联 · FATAL 级不可过滤 · 日志 $ 转义 ×2 · 前世包名 fixture · 冗余条件等——详见台账代码事实区
-  - → `.scratch/terminology/conflicts-master.md`（F01-F14）· `docs/journal/2026-08-23-batch.md`
+  - → [`docs/terminology/conflicts-master.md`](docs/terminology/conflicts-master.md) 代码事实区 · [`docs/journal/2026-08-23-code-facts-f01-f14.md`](docs/journal/2026-08-23-code-facts-f01-f14.md)（处置总表/证据/验证清单）
 
 - [ ] **#201 Tier C-1：wire 层 @SerialName 重命名评估（149 字段）** `refactor`
   - 编译器不保护；需先建 V1/V2 wire 兼容矩阵测试；错一个即协议解析失败
-  - → `.scratch/terminology/identifier-rename-assessment.md` Tier C
+  - → [`docs/terminology/identifier-rename-assessment.md`](docs/terminology/identifier-rename-assessment.md) Tier C
 
 - [ ] **#202 Tier C-2：DataStore PreferencesKey 重命名（50 键）** `refactor`
   - 需迁移代码（unread v2 值域迁移为先例）；错失即用户设置全量丢失
