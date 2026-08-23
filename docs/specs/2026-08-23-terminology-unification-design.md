@@ -16,7 +16,7 @@
 ## 范围
 
 **In**：main/test/androidTest 全部 .kt 注释 · docs/ 活跃文档 · AGENTS.md/README/CHANGELOG（含历史段，T6 裁决）· RELEASE_NOTES · maestro flows 文案引用 · strings.xml 15 文件 · 标识符 Tier A+B（评估文件全列）· numbering charter。
-**Out（豁免）**：docs/journal、docs/archive、已废弃 spec（fab spec 4 行修或迁 archive）、docs/learning（个人专区）、历史 commit message、wire 层（@SerialName/端点路径）、Tier C 五项（#195-#199 独立卡）。
+**Out（豁免）**：docs/journal、docs/archive、已废弃 spec（fab spec 4 行修或迁 archive）、docs/learning（个人专区）、历史 commit message、wire 层（@SerialName/端点路径）、Tier C 五项（#201-#205 独立卡，2026-08-23 合并顺移 +5）。
 
 ## 实施票（12 张，声明阻塞边）
 

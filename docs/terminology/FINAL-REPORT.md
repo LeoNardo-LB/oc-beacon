@@ -12,7 +12,7 @@
 | 项目文档勘误 | ✅ | 规则源违逆/OC Remote/过期功能/dialogue-e2e 会话化/编号 charter（V/R/A/P/S/F）/CHANGELOG 历史段 |
 | UI 文案 15 语言 | ✅ | EN 源 22 处 · zh 堆积化 · 671 keys×15 对齐 · turn 单译名 15 语言 · Agent 词根 · ru/uk 分词 · uk fork 误译修复 |
 | 侵入式重命名 Tier A+D3-1 | ✅ | interruptSession 族/renameSession/compact 单入口/removeProviderCredential/tagFilters——1889 单测绿 |
-| Tier B+D3-4 | ✅ | sessionStateRepository 28 文件 · flavor dimension；collapseTools→#196（键值迁移边界） |
+| Tier B+D3-4 | ✅ | sessionStateRepository 28 文件 · flavor dimension；collapseTools→#202（键值迁移边界） |
 | E2E 英文化 | ✅ | tapOn ×7+perf 锁+约定成文（实跑挂 V3 待办） |
 | 写作规范 | ✅ | 五件套（模板规则 9/workflow 润色行/backlog 术语句/journal 三原则/commit 前缀纪律） |
 | master 同步合并 | ✅ | 2588a5ca（18 冲突解+自愈补丁；#191 功能完整救回——waitingConfirmedAt 五点恢复+单测验证） |
@@ -26,7 +26,7 @@
 ## 三、质量与风险
 
 - **行为零变更**（除显式重命名与文案值）：SSE 铁律注释仅改术语措辞
-- **已知移交**：#194（F01-F14 代码事实）· #195-#199（Tier C 五项，collapseTools 并入 #196）· E2E 实跑验证（V3 维度，服务器需预建 "System issue analysis" 会话）
+- **已知移交**：#200（F01-F14 代码事实）· #201-#205（Tier C 五项，collapseTools 并入 #202）（编号 2026-08-23 合并顺移 +5，原 #194-#199）· E2E 实跑验证（V3 维度，服务器需预建 "System issue analysis" 会话）
 - **豁免边界成文**：CONTEXT.md 总则三豁免 + journal 决策链
 
 ## 四、用户验收点

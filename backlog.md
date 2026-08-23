@@ -4,7 +4,9 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#200**。
+**编号**：全局递增，不回收。下一编号：**#206**。
+
+> 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
 **优先级定义**：
 
@@ -67,30 +69,35 @@
 ## P2 — 优化与锦上添花
 
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
-  - → `docs/specs/2026-08-23-fab-swipe-hide-design.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
-- [ ] **#194 盘点代码事实包（F01-F14）：非注释级缺陷与死代码** `refactor` `sse`
+
+- [ ] **#200 盘点代码事实包（F01-F14）：非注释级缺陷与死代码** `refactor` `sse`
   - PartSerializer 缺 permission/question 分支落 Unknown · executeCommand 死参数（V1/V2 同）· 盘符哨兵双定义 · 搜索防抖 300ms 双层串联 · FATAL 级不可过滤 · 日志 $ 转义 ×2 · 前世包名 fixture · 冗余条件等——详见台账代码事实区
   - → `.scratch/terminology/conflicts-master.md`（F01-F14）· `docs/journal/2026-08-23-batch.md`
 
-- [ ] **#195 Tier C-1：wire 层 @SerialName 重命名评估（149 字段）** `refactor`
+- [ ] **#201 Tier C-1：wire 层 @SerialName 重命名评估（149 字段）** `refactor`
   - 编译器不保护；需先建 V1/V2 wire 兼容矩阵测试；错一个即协议解析失败
   - → `.scratch/terminology/identifier-rename-assessment.md` Tier C
 
-- [ ] **#196 Tier C-2：DataStore PreferencesKey 重命名（50 键）** `refactor`
+- [ ] **#202 Tier C-2：DataStore PreferencesKey 重命名（50 键）** `refactor`
   - 需迁移代码（unread v2 值域迁移为先例）；错失即用户设置全量丢失
   - → 同上 Tier C
 
-- [ ] **#197 Tier C-3：Room 实体/列重命名（5 实体）** `refactor`
+- [ ] **#203 Tier C-3：Room 实体/列重命名（5 实体）** `refactor`
   - 遵守 MIGRATION_N 纪律（已有 10 次迁移史）；需逐表 migration test
   - → 同上 Tier C
 
-- [ ] **#198 Tier C-4：i18n key 改名（category 族→tag 等）** `refactor`
+- [ ] **#204 Tier C-4：i18n key 改名（category 族→tag 等）** `refactor`
   - R.string 903 引用点 + maestro 34 flows 锁文案联动；CI i18n 检查可兜底
   - → 同上 Tier C
 
-- [ ] **#199 Tier C-5：intent extra/导航参数改名（22+27 处）** `refactor`
+- [ ] **#205 Tier C-5：intent extra/导航参数改名（22+27 处）** `refactor`
   - debug intent #132 外部已配置依赖 extra 名；零自动化覆盖，需真机验证（houji）
   - → 同上 Tier C
+
+- [ ] **#194 FAB 上滑越界钻顶栏 + 菜单展开溢出顶出容器** `ui`
+  - 根因：滑动上限用整屏高算容器内位移（魔法数 160）→ 拖到顶钻进顶栏；官方 FloatingActionButtonMenu 只会向上展开，按钮高位时 224dp 菜单列出界
+  - 定案（grilling 对齐）：容器实测高度修上限 + 溢出量整体平滑下移（「顶到顶部」语义，保留官方组件零样式改动），双 FAB 共修、位移独立
+  - → `docs/specs/2026-08-23-fab-slide-overflow-design.md`（完整设计 D1–D5 + 验收清单）
 
 ## P3 — 观察与低价值改进
 
