@@ -10,8 +10,7 @@ import java.io.OutputStream
 
 /**
  * 会话管理的 Repository 接口。
- * 与 spec §4.1.1 对齐。
- * 由 Data 层在 Phase 3 实现。
+ * 由 data 层实现。
  */
 interface SessionRepository {
 
@@ -19,7 +18,7 @@ interface SessionRepository {
 
     /**
      * 观察某个服务器连接的会话列表。
-     * Phase 3 实现：委托给按 serverId 过滤的 EventDispatcher.sessions。
+     * 委托给按 serverId 过滤的 EventDispatcher.sessions。
      */
     fun getSessionsFlow(serverId: String): Flow<List<Session>>
 
@@ -119,7 +118,7 @@ interface SessionRepository {
     suspend fun unshareSession(serverId: String, sessionId: String): Result<Unit>
 
     /**
-     * 摘要（压缩）会话以减少上下文。
+     * 压缩会话以减少上下文。
      */
     suspend fun compactSession(serverId: String, sessionId: String, providerId: String, modelId: String): Result<Unit>
 
