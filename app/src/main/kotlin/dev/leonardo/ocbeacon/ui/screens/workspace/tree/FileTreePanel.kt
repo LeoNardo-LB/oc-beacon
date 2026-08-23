@@ -142,7 +142,7 @@ fun FileTreeItem(
             .padding(vertical = SpacingTokens.SM.dp, horizontal = SpacingTokens.MD.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 文件夹/文件图标 — 文件夹使用 FolderOpen/Folder 显示展开状态。
+        // 目录/文件图标 — 目录使用 FolderOpen/Folder 显示展开状态。
         // 加载状态会略微降低图标透明度（没有单独的加载指示器）。
         Icon(
             imageVector = when {

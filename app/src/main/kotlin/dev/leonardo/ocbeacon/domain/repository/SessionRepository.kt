@@ -79,7 +79,7 @@ interface SessionRepository {
     // ============ 会话生命周期 ============
 
     /**
-     * 中止运行中的会话。
+     * 中断运行中的会话。
      */
     suspend fun interrupt(serverId: String, sessionId: String, directory: String?): Result<Unit>
 

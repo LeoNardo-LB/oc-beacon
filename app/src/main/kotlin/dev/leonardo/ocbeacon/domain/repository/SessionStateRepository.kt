@@ -33,7 +33,7 @@ interface SessionStateRepository {
     /** #176/#177：会话归属服务器解析（SSE 投递记录优先，回退当前服务器）。 */
     fun serverIdFor(sessionId: String): String?
 
-    /** #176/#177：会话是否有待答问题/权限（堆积 drain 护栏）。 */
+    /** #176/#177：会话是否有待处理问题/权限（堆积 drain 护栏）。 */
     fun hasPendingUserInput(sessionId: String): Boolean
 
     /** 请求对该会话执行 REST 状态校验。 */

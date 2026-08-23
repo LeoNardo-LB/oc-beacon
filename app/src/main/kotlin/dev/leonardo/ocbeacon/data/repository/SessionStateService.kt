@@ -176,7 +176,7 @@ class SessionStateService @Inject constructor(
 
     override fun setServerId(serverId: String) { currentServerId = serverId }
 
-    // #176/#177：堆积消息状态补偿的只读查询（归属解析 + 待答护栏）
+    // #176/#177：堆积消息状态补偿的只读查询（归属解析 + 待处理护栏）
     override fun serverIdFor(sessionId: String): String? =
         sessionServerOwnership[sessionId] ?: currentServerId
 

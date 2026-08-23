@@ -59,7 +59,7 @@ class PaginationFSMTest {
             ),
         )
         assertEquals(PaginationCursor.Archive(100L), after.cursor)
-        assertTrue("ARCHIVE 来源 always hasOlder=true（归档桶未读尽）", after.hasOlderMessages)
+        assertTrue("ARCHIVE 来源 always hasOlder=true（冷存桶未读尽）", after.hasOlderMessages)
         assertEquals(0, after.autoLoadFailures)
         assertFalse(after.autoLoadPaused)
         assertEquals(0L, after.autoLoadPausedUntil)

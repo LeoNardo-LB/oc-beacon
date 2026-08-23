@@ -50,7 +50,7 @@ internal fun resolvePendingQuestionReplacement(
  * 此 delegate 现为 **组合器**：分页职责委托给 [paginationDelegate]，
  * 发送状态由 [sendStateStore] 承担（仅“发送中”标志——乐观消息体系已整体
  * 移除，见 [SendStateStore]），自身保留 SSE 观察、
- * 消息/零件状态、工具展开、pending 问题/权限加载与共享加载/错误状态。
+ * 消息/内容块状态、工具展开、pending 问题/权限加载与共享加载/错误状态。
  *
  * [messageListState] 和 [interactionState] 是此 delegate 拥有的两个大型
  * `combine` 管道，以 [sessionIdFlow] 为 key。它们从 ChatViewModel 整体

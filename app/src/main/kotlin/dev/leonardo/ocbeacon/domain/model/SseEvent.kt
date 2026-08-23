@@ -92,7 +92,7 @@ sealed class SseEvent {
         val metadata: Map<String, String>? = null,
         val always: Boolean = false,
         val tool: ToolRef? = null,
-        /** 瞬态：sub-agent 来源标签（例如 "scout subagent"），不参与序列化。 */
+        /** 瞬态：子智能体来源标签（例如 "scout subagent" 服务器原串），不参与序列化。 */
         @kotlinx.serialization.Transient
         val sourceSessionTitle: String? = null
     ) : SseEvent()
@@ -110,7 +110,7 @@ sealed class SseEvent {
         val sessionId: String,
         val questions: List<Question>,
         val tool: ToolRef? = null,
-        /** 瞬态：sub-agent 来源标签，不参与序列化。 */
+        /** 瞬态：子智能体来源标签，不参与序列化。 */
         @kotlinx.serialization.Transient
         val sourceSessionTitle: String? = null
     ) : SseEvent() {

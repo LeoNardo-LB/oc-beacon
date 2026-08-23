@@ -37,7 +37,7 @@ private const val TAG = "PendingMsgPipeline"
  *   T3 [start] 收集 statusFlow——任意来源（自然结束/L3/L4/force-complete）
  *   落 Idle 即检查。
  * - 护栏：Busy/无状态跳过（未知≠Idle，由 L4 补态后 T3 接手）；
- *   待答问题/权限跳过；服务器归属未知跳过。
+ *   待处理问题/权限跳过；服务器归属未知跳过。
  *
  * 发送语义：
  * - peek → POST → 成功才 delete（at-least-once：POST 成功但 delete 失败的
@@ -114,7 +114,7 @@ class PendingMessagePipeline @Inject constructor(
 
     /**
      * 状态补偿统一入口：FSM Idle + 队列非空 → drain。
-     * Busy/无状态/待答/归属未知一律跳过（in-flight 去重在 launchDrain 内）。
+     * Busy/无状态/待处理/归属未知一律跳过（in-flight 去重在 launchDrain 内）。
      */
     private fun drainIfIdle(sessionId: String) {
         val status = sessionStateRepository.statusFlow.value[sessionId]

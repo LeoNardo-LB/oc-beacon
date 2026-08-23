@@ -223,7 +223,7 @@ internal fun ServerCard(
                         }
                     }
                     // 连接中可取消：长时间连接（弱网/服务器启动慢）时
-                    // 允许用户中止，避免只能等待超时。
+                    // 允许用户取消，避免只能等待超时。
                     if (isConnecting) {
                         Button(
                             onClick = onDisconnect,

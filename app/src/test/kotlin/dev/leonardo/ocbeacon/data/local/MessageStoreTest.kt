@@ -193,7 +193,7 @@ class MessageStoreTest {
 
     @Test
     fun loadArchivedRange_decodesAndReturnsMessages() = runTest {
-        // 预编码：构造一个真实归档桶（复用 buildArchiveBuckets 产生的 payload 格式）
+        // 预编码：构造一个真实冷存桶（复用 buildArchiveBuckets 产生的 payload 格式）
         val msgs = listOf(
             ArchivedMessageDto(msg("msg_1", 100).info, msg("msg_1", 100).parts),
             ArchivedMessageDto(msg("msg_2", 200).info, msg("msg_2", 200).parts),

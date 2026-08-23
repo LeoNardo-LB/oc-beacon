@@ -219,7 +219,7 @@ class PendingMessagePipelineTest {
 
     @Test
     fun pendingUserInputSkipsCompensation() {
-        // 护栏：问题/权限待答时不 drain（防把待答状态当可推进）
+        // 护栏：问题/权限待处理时不 drain（防把待处理状态当可推进）
         val pipeline = newPipeline()
         statusFlow.value = mapOf("s1" to SessionStatus.Idle)
         every { stateService.hasPendingUserInput("s1") } returns true
