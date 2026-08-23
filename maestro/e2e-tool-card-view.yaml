@@ -26,7 +26,7 @@ appId: dev.leonardo.ocbeacon.dev
     timeout: 10000
     optional: true
 - tapOn: "D:/Develop/code/app/oc-beacon"
-- tapOn: "系统问题分析与修复方案"
+- tapOn: "System issue analysis"
 - extendedWaitUntil:
     visible: "More options"
     timeout: 15000
