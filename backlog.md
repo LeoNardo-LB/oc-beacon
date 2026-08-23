@@ -78,9 +78,9 @@
   - 术语表已裁 archive_buckets/pending message 为规范名本体（C07 裁决保留现名）；列名审计 21/21 无冲突；待用户验收零改名裁决
   - → 同上 Tier C · docs/journal/2026-08-24-tier-c-contract-renames.md
 
-- [ ] **#204 Tier C-4：i18n key 改名（category 族→tag 等）** `refactor`
-  - R.string 903 引用点 + maestro 34 flows 锁文案联动；CI i18n 检查可兜底
-  - → 同上 Tier C
+- [~] **#204 Tier C-4：i18n key 改名——category 族→tag + chat_aborted→chat_interrupted** `refactor`
+  - ×15 语言 4 改 4 删 + 8 语言译文同步中断措辞；getIdentifier 0 处全程编译器保护；i18n-check 671×14 全过；三源集+单测绿（待真机渲染）
+  - → docs/journal/2026-08-24-tier-c-contract-renames.md
 
 - [~] **#205 Tier C-5：intent extra/导航参数——裁决零改名** `refactor`
   - 导航参数 8 常量全 camelCase 已合规；extra 三类分治（系统标准/内部单源常量/#132 外部契约保护）；无术语裁决命中
