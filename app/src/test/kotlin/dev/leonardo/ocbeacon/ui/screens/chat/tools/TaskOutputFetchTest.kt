@@ -14,7 +14,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * #182：Task 卡片全量输出拉取纯函数（part 优先 → 子会话 transcript 回退）。
+ * #182：Task 卡片全量输出拉取纯函数（part 优先 → 子智能体会话 transcript 降级）。
  */
 class TaskOutputFetchTest {
 

@@ -9,7 +9,7 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 /**
- * #180（2026-08-21）：Running 期子会话 id 注入契约——
+ * #180（2026-08-21）：Running 期子智能体会话 id 注入契约——
  * tool.progress metadata.sessionID → Part.Tool(Running).metadata.sessionId/sessionID，
  * TaskToolCard 据此在 Running 期显示导航并跳转。
  */
