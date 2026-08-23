@@ -43,7 +43,8 @@ private val EVENT_META_KEYS = setOf("id", "created", "type", "durable", "locatio
 /**
  * V2 SSE 客户端——解析 OpenCode V2 的 Server-Sent Events 格式。
  *
- * V2 SSE 使用标准 SSE 帧格式（区别于 V1）：
+ * V2 SSE 线格式：实测以 data: 单行 JSON 为主（{id,type,data}），标准 event:+data: 帧
+ * 为兼容路径（区别于 V1）：
  * ```
  * event: message.updated
  * data: {"info":{"id":"msg_...","role":"assistant",...}}
@@ -55,7 +56,8 @@ private val EVENT_META_KEYS = setOf("id", "created", "type", "durable", "locatio
  * `data: {"type":"message.updated","properties":{"info":{...}}}`
  *
  * 本类复用 V1 的事件解析器（SseEventParser）——事件类型和属性结构相同，
- * 仅 SSE 帧的线格式不同。V2 从 `event:` 行获取事件类型，从 `data:` 行获取属性。
+ * 仅 SSE 帧的线格式不同。标准帧从 `event:` 行获取事件类型；单行 JSON 路径
+ * 从 data 信封的 `type` 字段获取。
  */
 @Singleton
 class SseClientV2 @Inject constructor(

@@ -531,30 +531,26 @@ class SessionStateService @Inject constructor(
                                 // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
                                 // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查。
                                 val hasPendingUserInput = collaborator.hasPendingUserInput(sessionId)
-                                // 2026-08-15（僵尸误杀修复·二）：有活跃子会话（后台任务/
+                                // 2026-08-15（僵尸误杀修复·二）：有活跃子智能体会话（后台任务/
                                 // subagent running）时主会话 running 是 V2 drain 合法等待
                                 // 状态——不 interrupt（否则等待后台任务的主会话被误杀，
                                 // 用户零操作被打断）。仅本地转 Idle 跟随显示。
                                 val hasActiveChildren = collaborator.hasActiveChildren(sid, sessionId)
                                 if (hasPendingUserInput || hasActiveChildren) {
-                                    // pending 用户输入 / 活跃子会话：不 interrupt，也**不强转 Idle**
+                                    // pending 用户输入 / 活跃子智能体会话：不 interrupt，也**不强转 Idle**
                                     //（2026-08-18 E2E-G 修复：原"仅本地强制 Idle"与 :150 的 active-running
                                     // 校验形成 Busy↔Idle 每 10s 抖动循环——服务器仍 running 是真实状态
                                     // （等待用户输入），FSM 应保持 Busy 跟随；用户提交答案/后台完成后
                                     // 事件流恢复自然转 Idle。抖动还会与 BACK pop 的 fade 过渡竞态致全屏空白）
                                     AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms; ${if (hasActiveChildren) "active background children" else "pending user input"} -> skip zombie interrupt, keep Busy (waiting)")
                                 } else {
-                                    // 2026-08-14 根因修复（转圈/无回复）：仅本地强制 Idle 只是“装样子”——
-                                    // 服务器 runner 仍处于僵尸 running（/active 持续返回 running），用户再发消息
-                                    // POST /prompt 虽 200+admitted，但僵尸 runner 永不消费 inbox → 无执行事件 →
-                                    // 消息永远无回复 + UI 转圈。实测（V2 next-17403）：POST interrupt 返回 204 且
-                                    // /active 中该会话从 running 消失 = 服务器僵尸被解除。interrupt 幂等安全（idle
-                                    // 会话调用无副作用；V1 abortSession / V2 interruptSession 已按 apiVersion 分流）。
+                                    // 僵尸显示修复（服务器中断调用已停用，对齐官方语义）：服务器 runner
+                                    // 长时间无事件时仅本地转 Idle 修复显示，不发起任何服务器 interrupt/abort 调用。
                                     AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
                                     interruptZombieRunner(sid, sessionId, directory)
                                 }
-                                // 仅僵尸路径强制本地 Idle（服务器已被 interrupt 解除）；
-                                // pending/子会话路径保持 FSM 跟随服务器（Busy）——见上方注释
+                                // 仅僵尸路径强制本地 Idle（僵尸显示修复；服务器中断调用已停用）；
+                                // pending/子智能体会话路径保持 FSM 跟随服务器（Busy）——见上方注释
                                 if (!hasPendingUserInput && !hasActiveChildren) {
                                     onRestValidation(sessionId, SessionStatus.Idle)
                                 }
@@ -665,19 +661,13 @@ class SessionStateService @Inject constructor(
     }
 
     /**
-     * 解除服务器端僵尸 runner（2026-08-14 根因修复）。
+     * 僵尸解除已停用——仅本地显示修复（2026-08-14 引入，2026-08-15 对齐官方语义后停用服务器调用）。
      *
      * 触发条件：L3 REST 校验确认服务器说 Busy，但 App 侧超过 [ZOMBIE_BUSY_MS]
      * 无任何 SSE 事件——服务器 runner 卡死但 /active 仍返回 running。
      *
-     * 动作：调用服务器 interrupt/abort（按 apiVersion 分流：V2
-     * POST /api/session/{id}/interrupt，V1 POST /session/{id}/abort）。
-     * 幂等安全：对 idle 会话调用无副作用；服务器恢复执行时 execution.started
-     * 事件会重新置 Busy（FSM 自然跟随）。
-     *
-     * 注意：interrupt 是 fire-and-forget——僵尸解除后服务器可能发
-     * session.status/idle 事件，FSM 会自然同步；本方法不等待结果。
-     * 失败仅告警不阻断（本地 Idle 兜底仍会执行）。
+     * 动作：僵尸解除已停用（对齐官方语义）——本函数仅打 DEBUG 日志做本地显示修复，
+     * 不发起任何服务器调用。
      */
     private fun interruptZombieRunner(serverId: String, sessionId: String, directory: String?) {
         // 2026-08-15（对齐官方调研结论，research/05 文档）：官方客户端（TUI/Web）
