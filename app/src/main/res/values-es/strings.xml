@@ -645,6 +645,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="report_authorizing">Autorizar para informar</string>
     <string name="report_authorizing_hint">Abre %1$s e introduce el código: %2$s</string>
     <string name="report_preview_title">Vista previa del informe (editable)</string>
+    <string name="report_issue_title_label">Título del issue</string>
     <string name="report_submit">Enviar informe</string>
     <string name="report_needs_config">Los informes aún no están configurados (credenciales pendientes)</string>
     <string name="report_public_warning">Este contenido se enviará públicamente a GitHub.</string>

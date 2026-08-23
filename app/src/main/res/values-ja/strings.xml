@@ -645,6 +645,7 @@
     <string name="report_authorizing">報告するために認証</string>
     <string name="report_authorizing_hint">%1$s を開いてコードを入力: %2$s</string>
     <string name="report_preview_title">報告プレビュー（編集可）</string>
+    <string name="report_issue_title_label">Issue タイトル</string>
     <string name="report_submit">報告を送信</string>
     <string name="report_needs_config">報告機能は未設定です（アプリ資格情報保留中）</string>
     <string name="report_public_warning">このコンテンツは GitHub に公開送信されます。</string>

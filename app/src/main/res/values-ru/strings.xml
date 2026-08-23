@@ -654,6 +654,7 @@
     <string name="report_authorizing">Авторизоваться для отчёта</string>
     <string name="report_authorizing_hint">Откройте %1$s и введите код: %2$s</string>
     <string name="report_preview_title">Предпросмотр отчёта (можно редактировать)</string>
+    <string name="report_issue_title_label">Заголовок задачи</string>
     <string name="report_submit">Отправить отчёт</string>
     <string name="report_needs_config">Функция отчётов ещё не настроена (учётные данные ожидаются)</string>
     <string name="report_public_warning">Этот контент будет публично отправлен на GitHub.</string>

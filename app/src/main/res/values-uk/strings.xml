@@ -653,6 +653,7 @@
     <string name="report_authorizing">Авторизуйтеся, щоб повідомити</string>
     <string name="report_authorizing_hint">Відкрийте %1$s і введіть код: %2$s</string>
     <string name="report_preview_title">Попередній перегляд звіту (можна редагувати)</string>
+    <string name="report_issue_title_label">Заголовок проблеми</string>
     <string name="report_submit">Надіслати звіт</string>
     <string name="report_needs_config">Звітування ще не налаштовано (облікові дані очікуються)</string>
     <string name="report_public_warning">Цей вміст буде публічно надіслано на GitHub.</string>

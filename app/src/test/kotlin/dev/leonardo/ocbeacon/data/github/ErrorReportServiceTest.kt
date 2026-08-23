@@ -46,6 +46,19 @@ class ErrorReportServiceTest {
         assertTrue(fp.endsWith(":IllegalStateException"))
     }
 
+    @Test
+    fun `issue title derives from category and message single-line capped`() {
+        // 常规：category 前缀 + 折叠后的 message
+        val t1 = service.issueTitleForError("SseClient", "stream closed\nunexpectedly   (code=1006)")
+        assertEquals("SseClient: stream closed unexpectedly (code=1006)", t1)
+        // 超长截断：总长 <= 100 且以省略号结尾
+        val long = service.issueTitleForError("C", "x".repeat(300))
+        assertEquals(100, long.length)
+        assertTrue(long.endsWith("…"))
+        // message 为空/仅空白：退化为 category 本身，不产生悬空冒号
+        assertEquals("SoloCat", service.issueTitleForError("SoloCat", "  "))
+    }
+
     // ---- 查重编排 ----
 
     @Test

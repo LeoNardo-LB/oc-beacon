@@ -54,6 +54,19 @@ class ErrorReportService @Inject constructor(
     fun fingerprintForCrash(exceptionClassName: String): String =
         "fp:crash:" + BuildConfig.VERSION_NAME + ":" + exceptionClassName
 
+    /**
+     * issue 标题（spec §报告内容格式：`[user-report] <错误摘要>`——摘要即本函数产物）。
+     * 从与指纹同源的错误条目派生：`category: message`，压成单行、限长 [MAX_TITLE_LEN]，
+     * 截断加省略号。message 在日志写入时已经过脱敏管道（DiagnosticLogRepository.sanitizeEntry），
+     * 此处不再重复脱敏，只做形状规整（换行/多空白折叠、限长）。
+     */
+    fun issueTitleForError(category: String, message: String): String {
+        val flat = message.replace(Regex("[\\s]+"), " ").trim()
+        val summary = if (flat.isBlank() || flat == category) category else "$category: $flat"
+        return if (summary.length <= MAX_TITLE_LEN) summary
+        else summary.take(MAX_TITLE_LEN - 1) + "…"
+    }
+
     /** 归一化：数字→N、十六进制 id→HEX、路径→PATH、quoted 字符串→STR。 */
     internal fun normalize(message: String): String = message
         .replace(Regex("\\b[0-9a-f]{8,}\\b"), "HEX")
@@ -145,5 +158,6 @@ class ErrorReportService @Inject constructor(
 
     companion object {
         internal val ERROR_LEVELS = setOf("ERROR", "FATAL", "E", "F")
+        private const val MAX_TITLE_LEN = 100
     }
 }

@@ -653,6 +653,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="report_authorizing">Autoryzuj, aby zgłosić</string>
     <string name="report_authorizing_hint">Otwórz %1$s i wpisz kod: %2$s</string>
     <string name="report_preview_title">Podgląd zgłoszenia (edytowalny)</string>
+    <string name="report_issue_title_label">Tytuł zgłoszenia</string>
     <string name="report_submit">Wyślij zgłoszenie</string>
     <string name="report_needs_config">Zgłaszanie nie jest jeszcze skonfigurowane (dane uwierzytelniające oczekują)</string>
     <string name="report_public_warning">Ta zawartość zostanie publicznie przesłana na GitHub.</string>
