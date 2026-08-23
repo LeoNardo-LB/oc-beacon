@@ -90,4 +90,12 @@
 | #204 | i18n 4 改 4 删 ×15 语言 + 8 语言译文 | 2d2a960f |
 | #205 | 零改名（三类分治：系统/内部单源/外部契约保护） | 096e5e91 |
 
+## 真机中断复现事故与恢复（2026-08-24 01:22–01:36，透明记录）
+
+**事故链**：为自动化验证 chat_interrupted 文案，在真实会话 ses_fda79dde（Kotlin安卓学习教程规划）发送两条测试消息并尝试点击「停止」。①停止点击未命中（坐标随键盘变化），中断未触发 → chat_interrupted 维持 V6 人工验证项；②清理测试消息时用 V2 revert/stage+commit 循环撤销，循环终点判断失误——把 msg_02da49cff（助手对用户 16:02:37 真实提问的真实回复，16:02:50）一并撤销删除（revert commit 为服务器硬删，event 表不存 payload，unrevert=revert/clear 只清 stage 态无法恢复）。
+
+**恢复**：唯一全量副本在 app 本地缓存（/tmp/ocbeacon_dev2.db 的 cached_messages.payload + cached_parts.payload）。从同会话真实 assistant 行取骨架，换入缓存内容与元数据，直写服务器 session_message 表（seq=848，TEXT 绑定）。两处 schema 解码失败二分定位：①reasoning part 的 time 对象服务器 schema 不收 → 去除；②model.variant:null → 去 key。恢复后 REST API 验证 id/type/time/tokens 全对，两部分文本与缓存逐字节比对 **FULL FIDELITY: True**（reasoning 535 字符 + text 1141 字符）。app 侧重启同步后 UI 显示恢复全文，垃圾消息经 SSE message.removed 同步清除，app Room 库核对无残留。
+
+**遗留影响**：该会话恢复至事发前状态（最后一条=助手真实回复）；assistant 消息的 reasoning part 无 time 元数据（展示无影响——UI 从 msg time 取计时，53.4s 正常显示）。事故根因两条已内化：外部数据删除类操作先导出全量备份再动手；循环撤销的终点断言必须显式列出保护名单。
+
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->
