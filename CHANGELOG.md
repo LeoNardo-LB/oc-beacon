@@ -80,10 +80,10 @@
 - SettingsListRow 标题单行省略（titleMaxLines 参数，恢复原视觉行为）
 - 收藏迁移成功后删除 legacy key（防止取消收藏后复活）
 - 暗色表格边界增强（outline 网格线）+ 补齐行分隔线 + 主题切换文字过曝修复（remember 键含颜色）
-- 回退 mergeMessageMeta REST completed 合并（保留 SSE 兜底），仅保留 CommandExecuted 精确标记
+- 撤销（revert）mergeMessageMeta REST completed 合并（保留 SSE 兜底），仅保留 CommandExecuted 精确标记
 - REST 快照不再终结 SSE 流式状态 + CommandExecuted 按 messageId 精确标记
 - turnGroups/streamingMsgId 直接以 rawMessages 为 key，修复 stale 引用冻结流式输出
-- 暗色模式下回合分割线与输入框分隔线改用 outline 提升可见度
+- 暗色模式下轮次分割线与输入框分隔线改用 outline 提升可见度
 ## [1.1.1] - 2026-08-06
 
 ### Fixed
