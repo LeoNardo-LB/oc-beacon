@@ -84,4 +84,29 @@ A 0.3.1-beta / B 0.3.1 / C dev.23 / D beta 重发→0.3.2-beta / E 正式后 dev
 - #191：实现+单测+真机验证全过，**待用户验收**（backlog [~]）
 - issue 标题派生：实现+单测过；E2E 需 GitHub App 凭据（用户侧注册后可验）
 - GitHub issue 隐藏调研：报告归档 `docs/research/2026-08-23-github-issue-hiding.md`，
-  推荐 P1 专用子仓库方案——**待用户决策**（需建 oc-beacon-reports 仓库 + GitHub App 安装）
+  推荐 P1 专用子仓库方案——**用户定规：否决，报告留主库**（见 §八）
+
+## 八、发版后追加：标题区分度 + GitHub App 注册向导
+
+用户两条指令：① 搞定 GitHub App 凭据注册（解锁 issue 标题改进的完整 E2E）；② issue 不隐藏、
+留主库，但**标题必须有区分度**（不同错误一眼可分辨）。
+
+### 标题区分度实现
+
+`issueTitleForError(category, message, fingerprint)` 三手段：
+- category 作类目前缀（`SseClient: ...`）
+- 超长 message **中段截断**（头 56 + … + 尾 24——异常类在头、细节常在尾，纯头部截断抹掉区分信息）
+- 尾缀指纹 SHA-256 前 4 字节签名 `(#xxxxxxxx)`：**不同错误标题必不同（硬保证）**；同错误重复上报
+  标题一致（与查重归并语义对齐）；签名同时是正文机器块指纹的关联线索
+
+测试：ErrorReportServiceTest 9→12 例全绿（前缀+签名 / 中段截断 / 空退化 / 异指纹必异签名）。
+向导预览界面复用同一 title（只读行），用户提交前即可看到最终标题。
+
+### GitHub App 注册向导（scripts/setup-github-report-app.sh）
+
+/wizard 技能生成，六阶段：注册 App（Device Flow + Issues RW + token 不过期）→ 捕获 Client ID →
+生成捕获 Client Secret → 安装到仓库 → **device flow 端点自动验证**（curl POST /login/device/code
+检查 device_code 字段）→ 重建+真机验证指引。凭据落点：local.properties（本地构建，键名与
+app/build.gradle.kts 一致）+ gh secret APP_GITHUB_CLIENT_ID/SECRET（CI，release.yml 已接线）。
+
+**待办（#193）**：用户跑向导 → 真机 E2E（授权 → 预览见签名标题 → 建 issue → 重复上报归并评论）。

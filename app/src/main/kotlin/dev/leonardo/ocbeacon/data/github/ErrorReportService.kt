@@ -56,16 +56,29 @@ class ErrorReportService @Inject constructor(
 
     /**
      * issue 标题（spec §报告内容格式：`[user-report] <错误摘要>`——摘要即本函数产物）。
-     * 从与指纹同源的错误条目派生：`category: message`，压成单行、限长 [MAX_TITLE_LEN]，
-     * 截断加省略号。message 在日志写入时已经过脱敏管道（DiagnosticLogRepository.sanitizeEntry），
-     * 此处不再重复脱敏，只做形状规整（换行/多空白折叠、限长）。
+     * 2026-08-23 用户定规（标题区分度）：不同错误在 issue 列表必须一眼可分辨——
+     * 三个手段：① category 作类目前缀；② 超长 message **中段截断**（保头尾——异常类在头、
+     * 细节常在尾，纯头部截断会抹掉区分信息）；③ 尾缀指纹 8 位十六进制签名 `(#xxxxxxxx)`——
+     * 指纹不同签名必不同（SHA-256），彻底杜绝不同错误共享同标题；同指纹（同一错误重复上报）
+     * 签名相同，与查重归并语义一致。message 在日志写入时已经过脱敏管道
+     *（DiagnosticLogRepository.sanitizeEntry），此处不再重复脱敏，只做形状规整。
      */
-    fun issueTitleForError(category: String, message: String): String {
+    fun issueTitleForError(category: String, message: String, fingerprint: String): String {
         val flat = message.replace(Regex("[\\s]+"), " ").trim()
-        val summary = if (flat.isBlank() || flat == category) category else "$category: $flat"
-        return if (summary.length <= MAX_TITLE_LEN) summary
-        else summary.take(MAX_TITLE_LEN - 1) + "…"
+        val core = if (flat.isBlank() || flat == category) category
+        else {
+            val body = if (flat.length <= MAX_MSG_LEN) flat
+            else flat.take(MSG_HEAD_LEN) + "…" + flat.takeLast(MSG_TAIL_LEN)
+            "$category: $body"
+        }
+        return "$core (#${titleSignature(fingerprint)})"
     }
+
+    /** 指纹→8 位十六进制签名（SHA-256 前 4 字节）：标题唯一性保证 + 与正文机器块的关联线索。 */
+    internal fun titleSignature(fingerprint: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(fingerprint.toByteArray(Charsets.UTF_8))
+            .take(4).joinToString("") { "%02x".format(it) }
 
     /** 归一化：数字→N、十六进制 id→HEX、路径→PATH、quoted 字符串→STR。 */
     internal fun normalize(message: String): String = message
@@ -158,6 +171,10 @@ class ErrorReportService @Inject constructor(
 
     companion object {
         internal val ERROR_LEVELS = setOf("ERROR", "FATAL", "E", "F")
-        private const val MAX_TITLE_LEN = 100
+
+        /** 标题 message 段长度预算（2026-08-23 区分度定规）：中段截断保头尾。 */
+        private const val MAX_MSG_LEN = 84
+        private const val MSG_HEAD_LEN = 56
+        private const val MSG_TAIL_LEN = 24
     }
 }

@@ -150,7 +150,7 @@ class DiagnosticsViewModel @Inject constructor(
         }
         val latest = errorEntries.last()
         val fingerprint = reportService.fingerprintForError(latest.category, latest.message)
-        val issueTitle = reportService.issueTitleForError(latest.category, latest.message)
+        val issueTitle = reportService.issueTitleForError(latest.category, latest.message, fingerprint)
         val env = ReportEnvironment(
             deviceModel = android.os.Build.MODEL,
             androidVersion = android.os.Build.VERSION.RELEASE ?: "?",
