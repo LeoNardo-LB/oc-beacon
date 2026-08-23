@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlin.math.roundToInt
 
 /** 工具栏入口 id（沿用第十轮四入口独立 sheet 语义）。 */
@@ -64,6 +65,19 @@ internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL }
 
 /** 贴边滑动顶边距（#194 D1：上限 = 容器高 − 按钮高 − 此边距）。 */
 internal val FabSlideTopMargin: Dp = 8.dp
+
+/**
+ * #194 D2 菜单内容几何（全静态，tap 瞬时可算，无 stagger/锚点竞态——M3 折叠态
+ * 不放置 item 内容，坐标锚点在首次展开前不可用，故弃实测改常量推导）：
+ * - item 高 44dp（本项目定值，见 FabMenuEntry）；
+ * - item 间距 = M3 `FabMenuItemSpacingVertical` = `ListItemBetweenSpace` token = 4dp；
+ * - 列底 padding = `FabMenuPaddingBottom` token = 8dp（CloseButtonBetweenSpace）。
+ * 数值以 M3 1.5.0-alpha26 源码为准（真机 E4d 实测 shift=588px 与此推导精确吻合）。
+ */
+private val FabMenuItemHeight: Dp = 44.dp
+private val FabMenuItemSpacingVertical: Dp = 4.dp
+private val FabMenuPaddingBottomToken: Dp = 8.dp
+private const val FabMenuItemCount = 4
 
 /**
  * #194 D1 展开溢出量计算（纯函数，单测覆盖）——全稳定量版（无 stagger 竞态）。
@@ -110,21 +124,6 @@ internal class FabEdgeSlideState {
     var collapsedNodeHeightPx by mutableFloatStateOf(0f)
         private set
 
-    /** 首 item 顶 / 末 item 底（root 坐标）——两者差 = 菜单内容高（stagger 不变量）。 */
-    var firstItemTopInRoot by mutableFloatStateOf(Float.MAX_VALUE)
-        private set
-
-    var lastItemBottomInRoot by mutableFloatStateOf(Float.MIN_VALUE)
-        private set
-
-    /** 菜单内容高（item0 顶 ↔ 末 item 底；两锚点齐备前为 0）。 */
-    val menuSpanPx: Float
-        get() = if (firstItemTopInRoot == Float.MAX_VALUE || lastItemBottomInRoot == Float.MIN_VALUE) {
-            0f
-        } else {
-            (lastItemBottomInRoot - firstItemTopInRoot).coerceAtLeast(0f)
-        }
-
     /** 容器尺寸变化（键盘/分屏）时对存量位移重新收界（D1：防陈值越界）。 */
     fun coerceOffset(maxUpPx: Float) {
         if (maxUpPx >= 0f) offsetY = offsetY.coerceIn(-maxUpPx, 0f)
@@ -137,14 +136,6 @@ internal class FabEdgeSlideState {
 
     internal fun updateCollapsedNodeHeight(px: Float) {
         if (px > 0f) collapsedNodeHeightPx = px
-    }
-
-    internal fun updateFirstItemTopInRoot(px: Float) {
-        firstItemTopInRoot = px
-    }
-
-    internal fun updateLastItemBottomInRoot(px: Float) {
-        lastItemBottomInRoot = px
     }
 
     companion object
@@ -173,7 +164,6 @@ internal fun rememberFabEdgeSlideState(): FabEdgeSlideState =
  */
 private fun Modifier.fabEdgeVerticalSlide(
     state: FabEdgeSlideState,
-    menuCollapsed: () -> Boolean = { true },
     extraShift: () -> Float = { 0f },
     onDragStart: () -> Unit = {},
 ): Modifier = composed {
@@ -186,10 +176,17 @@ private fun Modifier.fabEdgeVerticalSlide(
                 state.updateContainerHeight(containerH)
             }
             val placeable = measurable.measure(constraints)
-            // 折叠态节点高 = 稳定量（展开态随 stagger 动画增长，不可作锚点）
-            if (menuCollapsed()) state.updateCollapsedNodeHeight(placeable.height.toFloat())
-            val maxUp = containerH - placeable.height - marginPx
-            state.coerceOffset(maxUp) // D1：键盘/分屏等容器变化后收界（有界写入，收敛）
+            // 折叠态节点高 = **观测最小值**：展开/stagger 只会更大；收起动画收缩途中的
+            // 瞬态高度不可作基准（否则 layout 收界把 offsetY 永久钳上去——E4e 二次实证）。
+            // menuCollapsed 参数仅保留语义提示，基准计算不再依赖瞬时尺寸。
+            if (state.collapsedNodeHeightPx == 0f ||
+                placeable.height.toFloat() < state.collapsedNodeHeightPx
+            ) {
+                state.updateCollapsedNodeHeight(placeable.height.toFloat())
+            }
+            // D1 收界基准 = 稳定折叠高（键盘/分屏容器变化时收界；展开期间不误钳停放位）
+            val maxUp = containerH - state.collapsedNodeHeightPx - marginPx
+            state.coerceOffset(maxUp)
             layout(placeable.width, placeable.height) {
                 placeable.placeRelative(0, (state.offsetY + extraShift()).roundToInt())
             }
@@ -199,8 +196,10 @@ private fun Modifier.fabEdgeVerticalSlide(
                 onDragStart = { onDragStart() },
                 onVerticalDrag = { change, dragAmount ->
                     change.consume()
+                    // 上限基准 = 折叠态节点高（D4 合并后节点仍在收起动画中，尺寸未回落）
                     val maxUp = state.containerHeightPx.let { ch ->
-                        if (ch > 0f) ch - this.size.height - marginPx else 0f
+                        val basis = state.collapsedNodeHeightPx
+                        if (ch > 0f && basis > 0f) ch - basis - marginPx else 0f
                     }
                     state.offsetY = (state.offsetY + dragAmount).coerceIn(-maxUp, 0f)
                 },
@@ -238,31 +237,47 @@ internal fun ChatFabMenu(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val slideState = rememberFabEdgeSlideState()
 
-    // D2：展开溢出下移分量（临时态）——NaN 目标 = 空闲（无待执行动画）
+    // D2：展开溢出下移分量（临时态，不持久化）
     var expandShift by remember { mutableFloatStateOf(0f) }
-    var shiftTarget by remember { mutableFloatStateOf(Float.NaN) }
     val density = LocalDensity.current
     val marginPx = with(density) { FabSlideTopMargin.toPx() }
-    // FabMenuPaddingBottom token（M3 1.5.0-alpha26 = 8.dp）：完全展开高 = 折叠高 +
-    // menuSpan + 此值（items 列底 padding）——全稳定量，tap 瞬时可算（Q3）
-    val menuPadPx = with(density) { 8.dp.toPx() }
+    // 全静态菜单几何（Q3：tap 瞬时可算，无竞态）：span = N×44dp + (N−1)×4dp
+    val menuSpanPx = with(density) {
+        (FabMenuItemHeight * FabMenuItemCount +
+            FabMenuItemSpacingVertical * (FabMenuItemCount - 1)).toPx()
+    }
+    val menuPadPx = with(density) { FabMenuPaddingBottomToken.toPx() }
 
     BackHandler(enabled = expanded) { expanded = false }
 
-    // D3 收起：items 消退的同时 expandShift 平滑回 0（offsetY 停放位保持不动）
+    // D3 动画编排（单一效应，键 = expanded：false→true 展开 / true→false 收起，
+    // 再展开必然重触发——不存在同值目标不重启的问题）。
+    // 展开：tap 瞬间算好目标，items 交错浮现的同时整体下滑就位（同时进行）；
+    // 收起：items 消退的同时 expandShift 平滑回 0（offsetY 停放位保持不动）。
     LaunchedEffect(expanded) {
-        if (!expanded && expandShift != 0f) {
-            animate(expandShift, 0f, animationSpec = tween(ExpandShiftAnimMs)) { v, _ ->
-                expandShift = v
+        if (expanded) {
+            val target = computeFabExpandShiftPx(
+                collapsedPx = slideState.collapsedNodeHeightPx,
+                menuSpanPx = menuSpanPx,
+                containerPx = slideState.containerHeightPx,
+                offsetYPx = slideState.offsetY,
+                menuPadPx = menuPadPx,
+                topMarginPx = marginPx,
+            )
+            AppLogger.d(
+                "ChatFabMenu",
+                "[fab-shift] expand: collapsed=${slideState.collapsedNodeHeightPx.toInt()} " +
+                    "span=${menuSpanPx.toInt()} H=${slideState.containerHeightPx.toInt()} " +
+                    "offsetY=${slideState.offsetY.toInt()} -> shift=${target.toInt()}",
+            )
+            if (target > 0f) {
+                animate(expandShift, target, animationSpec = tween(ExpandShiftAnimMs)) { v, _ ->
+                    expandShift = v
+                }
             }
-        }
-    }
-
-    // D3 展开：items 交错浮现的同时整体下滑就位（首帧实测后启动，同时进行）
-    LaunchedEffect(shiftTarget) {
-        val target = shiftTarget
-        if (!target.isNaN() && target != expandShift) {
-            animate(expandShift, target, animationSpec = tween(ExpandShiftAnimMs)) { v, _ ->
+        } else if (expandShift != 0f) {
+            AppLogger.d("ChatFabMenu", "[fab-shift] collapse: ${expandShift.toInt()} -> 0")
+            animate(expandShift, 0f, animationSpec = tween(ExpandShiftAnimMs)) { v, _ ->
                 expandShift = v
             }
         }
@@ -283,40 +298,27 @@ internal fun ChatFabMenu(
         expanded = expanded,
         modifier = modifier.fabEdgeVerticalSlide(
             state = slideState,
-            menuCollapsed = { !expanded },
             extraShift = { expandShift },
             onDragStart = {
                 if (expanded) {
                     // D4：展开中拖动 → 收起，当前 shift 瞬时并入 offsetY（位置连续、
-                    // 不双计），此后拖动直接跟手；取消待执行的展开动画
+                    // 不双计），此后拖动直接跟手；effect 重启时 expandShift 已为 0，
+                    // 收起动画自然成为无操作（无双计）
+                    AppLogger.d(
+                        "ChatFabMenu",
+                        "[fab-shift] drag-merge: offsetY=${slideState.offsetY.toInt()} " +
+                            "+ shift=${expandShift.toInt()}",
+                    )
                     expanded = false
                     slideState.offsetY += expandShift
                     expandShift = 0f
-                    shiftTarget = Float.NaN
                 }
             },
         ),
         button = {
             ToggleFloatingActionButton(
                 checked = expanded,
-                onCheckedChange = {
-                    if (it) {
-                        // Q3：tap 瞬间一次性计算（全稳定量：折叠高/menuSpan/容器高/停放位移
-                        // 均与 stagger 入场动画无关，无竞态）
-                        val target = computeFabExpandShiftPx(
-                            collapsedPx = slideState.collapsedNodeHeightPx,
-                            menuSpanPx = slideState.menuSpanPx,
-                            containerPx = slideState.containerHeightPx,
-                            offsetYPx = slideState.offsetY,
-                            menuPadPx = menuPadPx,
-                            topMarginPx = marginPx,
-                        )
-                        shiftTarget = if (target > 0f) target else Float.NaN
-                        expanded = true
-                    } else {
-                        expanded = false
-                    }
-                },
+                onCheckedChange = { expanded = it }, // shift 计算在 LaunchedEffect(expanded) 内（Q3 瞬时稳定量）
                 // 描边（第二十轮，用户要求）：角半径冻结 16dp——形状恒定描边才贴边
                 modifier = Modifier.border(
                     1.dp,
@@ -364,10 +366,6 @@ internal fun ChatFabMenu(
             label = stringResource(R.string.pending_tab_stacked_plain),
             count = stackedCount,
             onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.STACKED) },
-            // D2 溢出锚点：首 item 顶缘（stagger 不变量——items 相对位置入场动画中不变）
-            modifier = Modifier.onGloballyPositioned { coords ->
-                slideState.updateFirstItemTopInRoot(coords.boundsInRoot().top)
-            },
         )
         FabMenuEntry(
             icon = Icons.Default.Checklist,
@@ -386,10 +384,6 @@ internal fun ChatFabMenu(
             label = stringResource(R.string.toolbar_shell),
             count = shellRunningCount,
             onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.SHELL) },
-            // D2 溢出锚点：末 item 底缘（与首 item 顶缘差 = 菜单内容高）
-            modifier = Modifier.onGloballyPositioned { coords ->
-                slideState.updateLastItemBottomInRoot(coords.boundsInRoot().bottom)
-            },
         )
     }
 }
