@@ -56,7 +56,7 @@ class MessageEventHandler @Inject constructor(
          * #95（H-4 泄漏）：单会话消息热视图内存上限——与 Room 侧
          * MessageStore.SESSION_MESSAGE_LIMIT（1000）对齐。超出后保留最新 N 条，
          * 被裁剪消息的 parts / assistantMessageIds 同步清理（更早历史由
-         * 归档桶 + loadAround 按需分页加载，不依赖热视图）。
+         * 冷存桶 + loadAround 按需分页加载，不依赖热视图）。
          */
         internal const val MEMORY_SESSION_MESSAGE_LIMIT = 1000
     }
@@ -888,7 +888,7 @@ class MessageEventHandler @Inject constructor(
      * #95（H-4 泄漏）：热视图按会话保留最新 [MEMORY_SESSION_MESSAGE_LIMIT] 条
      *（与 Room SESSION_MESSAGE_LIMIT 对齐）。写入路径已按 time.created 升序——
      * 超限时裁掉最旧一段；被裁消息的 parts / assistantMessageIds 同步清理。
-     * 未超限时 O(1)（仅 size 检查）。更早历史由归档桶 + loadAround 按需加载。
+     * 未超限时 O(1)（仅 size 检查）。更早历史由冷存桶 + loadAround 按需加载。
      */
     private fun applyMessageCap(sessionId: String) {
         var droppedIds: Set<String> = emptySet()

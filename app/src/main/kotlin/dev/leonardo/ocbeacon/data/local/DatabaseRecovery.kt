@@ -19,7 +19,7 @@ private const val TAG = "DatabaseRecovery"
  * **不**对其他 SQLite 异常触发删库——磁盘满（SQLiteFullException）、锁竞争
  * （SQLiteDatabaseLockedException）、约束冲突（SQLiteConstraintException）、磁盘 IO
  * （SQLiteDiskIOException）等可恢复或可重试的异常应原样抛出交由调用方处理，否则会
- * 误删全库造成灾难性数据丢失（缓存消息 + 归档桶 + 日志全部清空）。
+ * 误删全库造成灾难性数据丢失（缓存消息 + 冷存桶 + 日志全部清空）。
  *
  * 与旧 SQLiteOpenHelper 版 withDatabaseRecovery 语义等价，但无需重建实例
  * （Room 内部管理连接生命周期）。

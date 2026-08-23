@@ -141,7 +141,7 @@ class V2EventParser(private val json: Json) : SseEventParser {
             val sid = sessionIdOrNull(props) ?: return null
             return SseEvent.SessionCompacted(sessionId = sid)
         }
-        // 2026-08-19：压缩摘要流式增量——映射 CompactionDelta（handler 无状态
+        // 2026-08-19：压缩文本流式增量——映射 CompactionDelta（handler 无状态
         // 变更已跟踪；消灭 Unhandled 日志噪音，保持事件可观察 + 心跳计数）。
         // 字段契约（beta-17639 E2E 实测）：增量文本在 "text"（V1 域事件用 "delta"）。
         if (eventType == "session.compaction.delta") {

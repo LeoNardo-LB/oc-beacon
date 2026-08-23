@@ -9,8 +9,8 @@ package dev.leonardo.ocbeacon.domain.model
  * 语义（与重构前逐条对齐）：
  * - [HotStart]：无游标 —— 从热表最老边界开始。进入会话时重置、
  *   网络读尽后回落（use case 内部回落到热表最老）。
- * - [Archive]：归档时间游标 —— 继续读更早的归档桶。归档读取不落热表
- *   → 热表最老不变；若始终用热表最老作 before 会读到同一批归档桶（死循环）。
+ * - [Archive]：归档时间游标 —— 继续读更早的冷存桶。归档读取不落热表
+ *   → 热表最老不变；若始终用热表最老作 before 会读到同一批冷存桶（死循环）。
  *   此游标持久化"已显示到哪"，使下次翻页能继续读更早的归档。
  * - [Network]：网络分页游标（ID + created）—— 归档已读尽后直接走网络。
  *   需要 ID：use case 的网络 before 编码 = CursorCodec.encode(id, created)，

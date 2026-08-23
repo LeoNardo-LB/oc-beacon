@@ -17,7 +17,7 @@ sealed class SessionActivity {
         val callId: String?
     ) : SessionActivity()
 
-    /** 上下文压缩进行中；保存先前的 activity 以便 CompactionEnded 时恢复 */
+    /** 压缩进行中；保存先前的 activity 以便 CompactionEnded 时恢复 */
     data class Compacting(val savedActivity: SessionActivity?) : SessionActivity()
 }
 

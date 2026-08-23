@@ -72,7 +72,7 @@ object V2SseMapper {
                 ?: props["input"]?.jsonObject?.get("data")?.jsonObject
                     ?.get("text")?.jsonPrimitive?.contentOrNull
             // 2026-08-15 修复（subagent/后台完成通知误渲染成 user 气泡）：
-            // inbox 不只装用户输入——subagent/后台任务完成通知等 synthetic
+            // inbox 不只装用户输入——subagent/后台轮次完成通知等 synthetic
             // 消息同样经 inbox.enqueued 投递（实测 item.type="synthetic"，
             // body 为 <subagent ...>子代理全部输出</subagent>，可达数 KB）。
             // 原实现无条件按 Message.User（role 默认 "user"）播种 → 通知被

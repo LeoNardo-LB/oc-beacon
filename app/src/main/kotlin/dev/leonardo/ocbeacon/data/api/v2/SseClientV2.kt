@@ -83,7 +83,7 @@ class SseClientV2 @Inject constructor(
     // synthetic 实时通知（2026-08-12）：服务器 synthetic 注入经
     // session.input.admitted（带完整 input）→ session.input.promoted（带 inputID）
     // 两阶段广播。admitted 时缓存 input，promoted 时消费——TUI 前端即靠此机制
-    // 实时显示后台任务完成通知（与 task 工具注入一致）。SSE 事件单线程顺序
+    // 实时显示后台轮次完成通知（与 task 工具注入一致）。SSE 事件单线程顺序
     // 消费（同一 flow），HashMap 无需并发保护。
     // #98（M-1，叠加 D2-02 多服务器竞态）：HashMap → ConcurrentHashMap（多服务器
     // 各自 flow 并发访问同一单例字段）+ 有界（admitted 后断连/丢 promoted 的

@@ -12,6 +12,6 @@ data class ToolProgressInfo(
     val progress: String? = null,
     val title: String? = null,
     val output: String = "",
-    /** #180（2026-08-21）：tool.progress metadata.sessionID——subagent Running 期子会话推断源。 */
+    /** #180（2026-08-21）：tool.progress metadata.sessionID——subagent Running 期子智能体会话推断源。 */
     val childSessionId: String? = null,
 )

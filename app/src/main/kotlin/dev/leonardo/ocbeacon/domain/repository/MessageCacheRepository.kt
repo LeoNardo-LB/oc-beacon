@@ -62,7 +62,7 @@ interface MessageCacheRepository {
     suspend fun replaceSessionMessages(sessionId: String, messages: List<MessageWithParts>)
 
     /**
-     * 归档读取：查 session 在 [beforeCreated] 之前的归档桶（bucketEnd < beforeCreated），
+     * 归档读取：查 session 在 [beforeCreated] 之前的冷存桶（bucketEnd < beforeCreated），
      * 跨桶解压拼接直到凑满 [limit] 条；读到的桶 touch(lastAccessedAt)。无归档返回 emptyList。
      */
     suspend fun loadArchivedRange(sessionId: String, limit: Int, beforeCreated: Long): List<MessageWithParts>

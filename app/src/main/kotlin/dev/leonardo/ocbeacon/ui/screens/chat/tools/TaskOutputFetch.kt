@@ -8,7 +8,7 @@ import dev.leonardo.ocbeacon.domain.model.Part
  * #182（2026-08-21）：Task 工具卡片全量输出拉取的纯函数助手。
  *
  * 策略（grilling Q13 定案）：part 优先（父会话 REST 重拉按 part id 取服务器
- * 全量 output）→ part 截断/缺失时子会话 transcript 回退；两路取长者。
+ * 全量 output）→ part 截断/缺失时子智能体会话 transcript 回退；两路取长者。
  * DB 仍存 500 字符预览（#79 体积目标不变），仅展开时按需拉取。
  */
 object TaskOutputFetch {
@@ -33,7 +33,7 @@ object TaskOutputFetch {
     }
 
     /**
-     * 子会话 transcript 回退：text part 按消息序拼接（role 前缀区分）。
+     * 子智能体会话 transcript 回退：text part 按消息序拼接（role 前缀区分）。
      * 空会话/无文本返回 null。截断到 [MAX_RENDER_CHARS]。
      */
     fun buildChildTranscript(messages: List<MessageWithParts>): String? {

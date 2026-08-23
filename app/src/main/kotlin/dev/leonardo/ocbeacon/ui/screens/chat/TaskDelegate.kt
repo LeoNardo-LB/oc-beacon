@@ -29,14 +29,14 @@ data class SubagentSummary(
     val agent: String?,
     val title: String?,
     val isRunning: Boolean,
-    /** 前台（阻塞主会话）标记：子代理运行中 + 主会话 busy——2026-08-13
+    /** 前台（阻塞主会话）标记：子智能体运行中 + 主会话 busy——2026-08-13
      *  任务面板改造（区分前台/后台执行；转后台后主会话 idle → false） */
     val isForeground: Boolean = false,
     /** 描述（从 tool part input 提取，可能为 null） */
     val description: String? = null,
-    /** 开始时间（子会话创建时间，2026-08-12 面板第二行展示） */
+    /** 开始时间（子智能体会话创建时间，2026-08-12 面板第二行展示） */
     val startedAt: Long? = null,
-    /** 子会话模型 id（2026-08-12 面板第二行展示） */
+    /** 子智能体会话模型 id（2026-08-12 面板第二行展示） */
     val modelId: String? = null,
     /** 2026-08-16（#145）：执行时长 ms（完成态 updated-created 近似；运行中 null=UI 走时） */
     val durationMs: Long? = null,
@@ -63,7 +63,7 @@ data class TaskUiState(
 
 /**
  * 任务聚合器——遵循"单一真相源"：不维护独立状态，从现有数据源实时派生：
- * - 子会话：SessionRepository.getSessionsFlow 过滤 parentId（TUI session.family 语义）
+ * - 子智能体会话：SessionRepository.getSessionsFlow 过滤 parentId（TUI session.family 语义）
  * - 前台 subagent：消息流 tool part（tool=="task"/"subagent" && Running && !background）
  *   （TUI foregroundTasks 语义）
  * - shell：ShellJobsStore（SSE 事件 + REST 快照）
@@ -81,7 +81,7 @@ class TaskAggregator(
 ) {
     /** 前台活跃会话 ID（V2 /api/session/active 轮询）——运行中会话的权威来源。
      *  V2 不广播 session.status SSE 事件（V1 才有），FSM 的 statusFlow 无法
-     *  覆盖子会话；实测子会话 running 只能通过 active 轮询感知。
+     *  覆盖子智能体会话；实测子智能体会话 running 只能通过 active 轮询感知。
      *  轮询循环由 [startPolling] 显式启动（ChatScreen 组合时调用，
      *  避免 ViewModel 测试在 runTest 虚拟时间下无限循环 OOM）。 */
     private val activeSessionIds = MutableStateFlow<Set<String>>(emptySet())
@@ -149,7 +149,7 @@ class TaskAggregator(
         sessionIdFlow,
         // 2026-08-16 根治（任务面板 R1——进行中任务不显示）：activeSessionIds
         // 原先在 lambda 内读取但不在 combine 源中——V2 下 FSM 错过
-        // execution.started（断线/冷启动）时子会话无 Busy，active 轮询拿到
+        // execution.started（断线/冷启动）时子智能体会话无 Busy，active 轮询拿到
         // 正确结果也**不触发重算**，进行中任务永不出现在「运行中」视图。
         // 补为第 5 源后轮询结果直接驱动派生（combine 五参类型安全重载）。
         activeSessionIds,
@@ -173,11 +173,11 @@ class TaskAggregator(
             }
             // 2026-08-12 修复（历史 subagent 恒空）：V2 服务器主会话消息流中
             // 不存在 task/subagent tool part（实测翻 1000 条消息 0 个——
-            // V2 派发子代理走 session.create，无工具调用记录）→ 原
+            // V2 派发子智能体走 session.create，无工具调用记录）→ 原
             // isExplicitlyBackground 过滤恒 false → subagents 恒空。
-            // 子会话（parentId==currentSessionId）本身就是后台任务，直接展示。
+            // 子智能体会话（parentId==currentSessionId）本身就是后台任务，直接展示。
             val childRunning = child.id in runningIds || child.id in activeIds
-            // 2026-08-13：前台/后台标记——子代理运行中 + 主会话 busy（阻塞中）
+            // 2026-08-13：前台/后台标记——子智能体运行中 + 主会话 busy（阻塞中）
             // = 前台；转后台后主会话恢复（idle）→ 后台
             val mainBusy = currentSessionId in runningIds || currentSessionId in activeIds
             SubagentSummary(
@@ -194,7 +194,7 @@ class TaskAggregator(
                 // 2026-08-16（#145 执行时长）🟠 服务器契约限制：V2 部署版
                 // session.time.updated 创建后不随活动更新（实测 diff 6-13ms 恒定）、
                 // V2 主会话无 task/subagent tool part（无 part.time.completed）、
-                // 子会话消息默认未加载——完成态执行时长**无数据源**，仅当
+                // 子智能体会话消息默认未加载——完成态执行时长**无数据源**，仅当
                 // updated-created > 5s（真实活动过的罕见场景）才显示。
                 // 运行中返回 null——UI 走时 now-created（核心场景：后台任务
                 // 跑着回来看跑了多久）。upstream 候选见 backlog #146。
@@ -207,10 +207,10 @@ class TaskAggregator(
     /** 前台 subagent 计数——TUI foregroundTasks 语义：
      *  主会话 busy（正在等待）+ 消息流中存在 running 的 task/subagent tool part
      *  且**非 background 派发**（2026-08-12 修复：task 工具 background=true 的
-     *  子会话是后台任务，不算前台——修复前 background 任务也被计入 → 转后台
+     *  子智能体会话是后台任务，不算前台——修复前 background 任务也被计入 → 转后台
      *  工具栏误显示"有前台任务"，用户反馈"代理还是前台的，没转后台"）。
      *  V2 转后台后主会话立即恢复（idle/继续工作），前台归零；
-     *  子会话本身继续 running（计入角标 runningSubagentCount）。 */
+     *  子智能体会话本身继续 running（计入角标 runningSubagentCount）。 */
     private fun foregroundCount(
         currentSessionId: String,
         runningIds: Set<String>,

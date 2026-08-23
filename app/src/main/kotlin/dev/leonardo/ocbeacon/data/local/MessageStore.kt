@@ -464,7 +464,7 @@ class MessageStore @Inject constructor(
             } ?: false
         }
 
-    /** 解压单个归档桶 → MessageWithParts 列表（created 升序）。 */
+    /** 解压单个冷存桶 → MessageWithParts 列表（created 升序）。 */
     private fun decodeBucket(bucket: ArchiveBucketEntity): List<MessageWithParts> {
         val bytes = ZstdCodec.decompress(bucket.payload, bucket.uncompressedSize)
         val dtos = json.decodeFromString<List<ArchivedMessageDto>>(bytes.decodeToString())
