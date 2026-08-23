@@ -21,7 +21,7 @@ interface SessionStateRepository {
     /** 每台服务器的会话状态（idle/busy/retry）。 */
     val statusFlow: StateFlow<Map<String, SessionStatus>>
 
-    /** 每台服务器的流式活动（Waiting/Streaming/ToolCalling）。 */
+    /** 每台服务器的流式活动（Waiting/Streaming/ToolCalling/Compacting）。 */
     val activityFlow: StateFlow<Map<String, SessionActivity?>>
 
     /** 每台服务器的 FSM 转移历史。 */
