@@ -43,7 +43,7 @@
     <string name="sessions_create_folder_name_placeholder">my-project</string>
     <string name="sessions_create_folder_invalid_name">Enter a valid directory name</string>
     <string name="sessions_create_folder_create">Create</string>
-    <string name="sessions_create_folder_failed">Failed to create folder</string>
+    <string name="sessions_create_folder_failed">Failed to create directory</string>
     <string name="sessions_create_folder_success">Created: %1$s</string>
     <string name="sessions_new_dialog_title">New session</string>
     <string name="sessions_open_other_project">Open other project…</string>
@@ -581,7 +581,7 @@
 Size: %2$s -&gt; %3$s
 Tokens: ~%4$d -&gt; ~%5$d</string>
 
-    <!-- Chat sub-agent features -->
+    <!-- Chat subagent features -->
     <string name="chat_queued">QUEUED</string>
     <string name="chat_retry_send">Retry</string>
     <string name="chat_title_placeholder">Chat</string>
@@ -699,7 +699,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="workspace_error_load_failed">Failed to load</string>
 
     <!-- Session List view mode toggle -->
-    <string name="sessions_view_folders">Folders</string>
+    <string name="sessions_view_folders">Directories</string>
     <string name="sessions_view_recent">Recent</string>
     <string name="sessions_clear_search">Clear search</string>
 
