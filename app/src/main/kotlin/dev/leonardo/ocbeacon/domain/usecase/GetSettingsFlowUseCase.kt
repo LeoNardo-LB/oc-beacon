@@ -7,7 +7,7 @@ import javax.inject.Inject
 
 /**
  * Use Case：观察应用设置。
- * 供 Phase 4 SettingsViewModel 使用。
+ * 供 SettingsViewModel 使用。
  */
 class GetSettingsFlowUseCase @Inject constructor(
     private val settingsRepository: SettingsRepository
