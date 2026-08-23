@@ -74,9 +74,9 @@
   - 需迁移代码（unread v2 值域迁移为先例）；错失即用户设置全量丢失
   - → 同上 Tier C
 
-- [ ] **#203 Tier C-3：Room 实体/列重命名（5 实体）** `refactor`
-  - 遵守 MIGRATION_N 纪律（已有 10 次迁移史）；需逐表 migration test
-  - → 同上 Tier C
+- [~] **#203 Tier C-3：Room 实体/列重命名（5 实体）——裁决零改名** `refactor`
+  - 术语表已裁 archive_buckets/pending message 为规范名本体（C07 裁决保留现名）；列名审计 21/21 无冲突；待用户验收零改名裁决
+  - → 同上 Tier C · docs/journal/2026-08-24-tier-c-contract-renames.md
 
 - [ ] **#204 Tier C-4：i18n key 改名（category 族→tag 等）** `refactor`
   - R.string 903 引用点 + maestro 34 flows 锁文案联动；CI i18n 检查可兜底
