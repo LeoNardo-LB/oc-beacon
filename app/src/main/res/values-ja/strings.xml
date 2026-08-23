@@ -23,7 +23,7 @@
     <string name="session_status_retry">再試行中（%1$d）</string>
     <!-- Chat Screen -->
     <string name="chat_send">送信</string>
-    <string name="chat_empty">OpenCodeと会話を始める</string>
+    <string name="chat_empty">OpenCodeでセッションを開始</string>
     <!-- Permissions -->
     <string name="permission_title">権限が必要です</string>
     <string name="permission_allow_once">1回のみ</string>
@@ -48,7 +48,7 @@
     <string name="settings_notifications">通知</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">OpenCode接続</string>
-    <string name="notification_channel_tasks">タスク通知</string>
+    <string name="notification_channel_tasks">ターン通知</string>
     <string name="notification_connected">%1$sに接続しました</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">送信に失敗しました</string>
@@ -201,19 +201,19 @@
     <string name="chat_status_searching">コードベース検索中</string>
     <string name="chat_status_fetching_url">URL取得中</string>
     <string name="chat_status_running_subagent">サブエージェント実行中</string>
-    <string name="chat_task_completed">タスク完了</string>
+    <string name="chat_task_completed">ターン完了</string>
     <string name="chat_task_failed">タスク失敗</string>
-    <string name="chat_system_notification">Sub-agent 完了</string>
+    <string name="chat_system_notification">合成: サブエージェント完了</string>
     <string name="task_sheet_subagent_completed">完了</string>
     <string name="chat_label_user">ユーザー</string>
     <string name="chat_label_agent">エージェント</string>
-    <string name="chat_background_agent_completed">Agent 完了</string>
-    <string name="chat_background_agent_failed">Agent 失敗</string>
+    <string name="chat_background_agent_completed">エージェント完了</string>
+    <string name="chat_background_agent_failed">エージェント失敗</string>
     <string name="chat_background_shell_completed">Shell 完了</string>
     <string name="chat_background_shell_failed">Shell 失敗</string>
     <string name="chat_label_tasks">タスク</string>
-    <string name="chat_subagent_completed_notification">Sub-agent 完了</string>
-    <string name="chat_subagent_failed_notification">Sub-agent 失敗</string>
+    <string name="chat_subagent_completed_notification">サブエージェント完了</string>
+    <string name="chat_subagent_failed_notification">サブエージェント失敗</string>
     <string name="chat_status_updating_tasks">タスク更新中</string>
     <string name="chat_status_thinking">思考中</string>
     <string name="chat_tool_running_command">コマンド実行中…</string>
@@ -296,7 +296,7 @@
     <string name="menu_share_session">セッションを共有</string>
     <string name="settings_dynamic_color">ダイナミックカラー</string>
     <string name="settings_dynamic_color_desc">壁紙から色を取得（Material You）</string>
-    <string name="settings_notifications_desc">エージェントがタスク完了時に通知</string>
+    <string name="settings_notifications_desc">ターン完了時に通知</string>
     <string name="settings_initial_messages">初期メッセージの読み込み数</string>
     <string name="settings_confirm_send">送信前に確認</string>
     <string name="settings_confirm_send_desc">メッセージ送信前に確認ダイアログを表示</string>
@@ -322,7 +322,7 @@
     <string name="settings_keep_screen_on">画面を常にオン</string>
     <string name="settings_keep_screen_on_desc">チャット中の画面タイムアウト防止</string>
     <string name="settings_silent_notifications">通知をサイレントに</string>
-    <string name="settings_silent_notifications_desc">タスク通知の音とバイブを抑制</string>
+    <string name="settings_silent_notifications_desc">ターン通知の音とバイブを抑制</string>
     <string name="settings_notif_test">テスト通知を送信</string>
     <string name="settings_notif_test_desc">実際の通知を送信してバナーとサウンドを確認します。表示されない場合、端末がこのアプリをサイレント化している可能性があります（MIUI はフローティング通知を既定で無効）——下のシステム通知設定から有効化してください。</string>
     <string name="settings_notif_system">システムの通知設定</string>
@@ -333,9 +333,9 @@
     <string name="a11y_settings_notif_system">システムの通知設定</string>
     <string name="dialog_select_reconnect_mode">再接続モード選択</string>
     <string name="notification_channel_connection_desc">OpenCodeサーバーへの持続的接続</string>
-    <string name="notification_channel_tasks_desc">OpenCodeタスク完了時の通知</string>
-    <string name="notification_channel_tasks_silent">タスク通知（サイレント）</string>
-    <string name="notification_channel_tasks_silent_desc">OpenCodeタスク完了時のサイレント通知</string>
+    <string name="notification_channel_tasks_desc">ターン完了時の通知</string>
+    <string name="notification_channel_tasks_silent">ターン通知（サイレント）</string>
+    <string name="notification_channel_tasks_silent_desc">ターン完了時のサイレント通知</string>
     <string name="notification_channel_permissions">権限リクエスト</string>
     <string name="notification_channel_permissions_desc">OpenCodeが権限を必要とする際の通知</string>
     <string name="notification_connecting">%1$sに接続中…</string>
@@ -406,11 +406,11 @@
     <string name="disconnect">切断</string>
     <string name="server_settings_models">モデル</string>
     <string name="server_settings_models_desc">モデルの表示とデフォルト設定</string>
-    <string name="sessions_create_folder">フォルダーを作成</string>
-    <string name="sessions_create_folder_title">フォルダーを作成</string>
-    <string name="sessions_create_folder_name_label">フォルダー名</string>
+    <string name="sessions_create_folder">ディレクトリを作成</string>
+    <string name="sessions_create_folder_title">ディレクトリを作成</string>
+    <string name="sessions_create_folder_name_label">ディレクトリ名</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">有効なフォルダー名を入力してください</string>
+    <string name="sessions_create_folder_invalid_name">有効なディレクトリ名を入力してください</string>
     <string name="sessions_create_folder_create">作成</string>
     <string name="sessions_create_folder_failed">フォルダーの作成に失敗しました</string>
     <string name="sessions_create_folder_success">作成日時: %1$s</string>
@@ -519,7 +519,7 @@
     <string name="a11y_icon_warning">警告</string>
     <string name="a11y_icon_navigate_forward">進む</string>
     <string name="a11y_locate_task">元のタスクを特定</string>
-    <string name="chat_locate_task_not_found">この会話で元のタスクが見つかりません</string>
+    <string name="chat_locate_task_not_found">このセッションで元のタスクが見つかりません</string>
     <string name="a11y_icon_add">追加</string>
     <string name="a11y_icon_share">共有</string>
     <string name="a11y_icon_unlink">リンク解除</string>
