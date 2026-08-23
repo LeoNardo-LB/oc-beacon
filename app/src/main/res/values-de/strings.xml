@@ -201,7 +201,7 @@
     <string name="chat_status_searching">Codebasis wird durchsucht</string>
     <string name="chat_status_fetching_url">URL wird abgerufen</string>
     <string name="chat_status_running_subagent">Subagent wird ausgeführt</string>
-    <string name="chat_task_completed">Runde abgeschlossen</string>
+    <string name="chat_task_completed">Turn abgeschlossen</string>
     <string name="chat_task_failed">Aufgabe fehlgeschlagen</string>
     <string name="chat_system_notification">Synthetisch: Subagent abgeschlossen</string>
     <string name="task_sheet_subagent_completed">Abgeschlossen</string>
@@ -694,11 +694,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_done">Fertig</string>
     <string name="shell_status_failed">Fehlgeschlagen</string>
     <string name="task_toolbar_action">Aufgabe in den Hintergrund verschieben</string>
-    <string name="task_toolbar_subagents">%1$d Sub-Agent(en) im Vordergrund aktiv</string>
+    <string name="task_toolbar_subagents">%1$d Subagent(en) im Vordergrund aktiv</string>
     <string name="a11y_icon_tasks">Aufgabenaktivitäten</string>
-    <string name="task_sheet_subagents_tab">Sub-Agenten</string>
+    <string name="task_sheet_subagents_tab">Subagenten</string>
     <string name="task_sheet_shells_tab">Shells</string>
-    <string name="task_sheet_empty_subagents">Keine laufenden Sub-Agenten</string>
+    <string name="task_sheet_empty_subagents">Keine laufenden Subagenten</string>
     <string name="task_sheet_empty_shells">Keine Shell-Befehle</string>
     <string name="task_sheet_title">Aufgaben</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->
