@@ -1,4 +1,4 @@
-# 对话全生命周期 E2E 实操文档（Dialogue E2E Runbook）
+# 会话全生命周期 E2E 实操文档（Dialogue E2E Runbook）
 
 > 本文档记录**实际执行**结果，与期望文档 `docs/dialogue-e2e-test-plan.md` 逐条对比。
 > 每轮执行后：记录操作时间线 → 实际观察 → 对比期望 → 判定（PASS/FAIL/受限）→ 分析问题归属。

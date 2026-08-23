@@ -17,8 +17,8 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/real-device-testing.md`](docs/real-device-testing.md) | 真机 runbook：pm install 静默装包、adb reverse 连通、debug intent 配置、签名备忘 | 任何真机测试/E2E/装包前（2026-08-20 方针：真机优先） |
 | 🟡 SHOULD | [`docs/qa-methodology.md`](docs/qa-methodology.md) | QA 方法论：交叉验证（≥2 维互证）、证据链、并行验证委派 | 修复/功能完成前的验证设计 |
 | 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归指南：变更分类、12 能力域清单 | 重构/接口变更/存储渲染层改动前 |
-| 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 对话全生命周期 E2E 期望文档 | 对话相关改动/发版前的 E2E 设计 |
-| 🟡 SHOULD | [`docs/dialogue-e2e-test-runbook.md`](docs/dialogue-e2e-test-runbook.md) | 对话 E2E 实操记录与差异分析 | E2E 执行中实时记录 |
+| 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 会话全生命周期 E2E 期望文档 | 会话相关改动/发版前的 E2E 设计 |
+| 🟡 SHOULD | [`docs/dialogue-e2e-test-runbook.md`](docs/dialogue-e2e-test-runbook.md) | 会话 E2E 实操记录与差异分析 | E2E 执行中实时记录 |
 | 🟡 SHOULD | [`docs/observability-verification-guide.md`](docs/observability-verification-guide.md) | Logcat 规范、Room 直查、SSE 事件流、标准观测流程 | 代码改动验证（配合 verification 维度 3） |
 | 🟡 SHOULD | [`docs/v1-v2-differences.md`](docs/v1-v2-differences.md) | V1/V2 功能与 API 差异完整清单 | V1/V2 兼容开发、版本探测、功能适配前 |
 | 🟡 SHOULD | [`docs/simulator-walkthrough-v1v2.md`](docs/simulator-walkthrough-v1v2.md) | 版本探测修复模拟器走查清单 | 探测/兼容类改动后的走查 |
