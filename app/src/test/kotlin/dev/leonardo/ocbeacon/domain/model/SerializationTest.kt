@@ -356,6 +356,56 @@ class SerializationTest {
     }
 
     @Test
+    fun `Part Permission deserializes via type field`() {
+        val jsonStr = """{
+            "id": "part_perm",
+            "sessionID": "sess_1",
+            "messageID": "msg_1",
+            "type": "permission",
+            "message": "Allow file write?"
+        }"""
+        val part = json.decodeFromString(Part.serializer(), jsonStr)
+        assertTrue(part is Part.Permission)
+        assertEquals("Allow file write?", (part as Part.Permission).message)
+    }
+
+    @Test
+    fun `Part Question deserializes via type field`() {
+        val jsonStr = """{
+            "id": "part_q",
+            "sessionID": "sess_1",
+            "messageID": "msg_1",
+            "type": "question",
+            "question": "Continue?"
+        }"""
+        val part = json.decodeFromString(Part.serializer(), jsonStr)
+        assertTrue(part is Part.Question)
+        assertEquals("Continue?", (part as Part.Question).question)
+    }
+
+    @Test
+    fun `Part cached payload round-trip infers Permission and Question without type field`() {
+        // 缓存回环路径：类序列化器不写 type 判别字段，回读全靠顶层字段推断
+        //（#200 F01：原推断缺 message/question 键 → 降级 Unknown）
+        val permission = Part.Permission(
+            id = "p_perm", sessionId = "s1", messageId = "m1", message = "Allow?"
+        )
+        val question = Part.Question(
+            id = "p_q", sessionId = "s1", messageId = "m1", question = "Go on?"
+        )
+        val permRound = json.decodeFromString(
+            Part.serializer(), json.encodeToString(Part.serializer(), permission)
+        )
+        val questRound = json.decodeFromString(
+            Part.serializer(), json.encodeToString(Part.serializer(), question)
+        )
+        assertTrue(permRound is Part.Permission)
+        assertEquals("Allow?", (permRound as Part.Permission).message)
+        assertTrue(questRound is Part.Question)
+        assertEquals("Go on?", (questRound as Part.Question).question)
+    }
+
+    @Test
     fun `Part Tool deserializes with ToolState`() {
         val jsonStr = """{
             "id": "part_tool",

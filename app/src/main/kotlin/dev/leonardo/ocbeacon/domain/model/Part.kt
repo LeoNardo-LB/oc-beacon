@@ -29,6 +29,9 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
             "retry" -> Part.Retry.serializer()
             "abort" -> Part.Abort.serializer()
             "agent" -> Part.Agent.serializer()
+            // #200 F01：补齐与 typeName() 对称的分发（原缺分支落 Unknown）
+            "permission" -> Part.Permission.serializer()
+            "question" -> Part.Question.serializer()
             "session-turn" -> Part.SessionTurn.serializer()
             // 2026-08-12 修复：旧数据/SSE 播种的 parts 无 "type" 字段
             //（Part.Text(text="") 序列化省略默认值 → payload 无 type 无 text）
@@ -41,6 +44,10 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
                 obj.containsKey("shell") -> Part.Shell.serializer()
                 obj.containsKey("subtask") -> Part.Subtask.serializer()
                 obj.containsKey("patch") -> Part.Patch.serializer()
+                // #200 F01：缓存回环推断补 Permission/Question（原落 Unknown；
+                // "message"/"question" 为两类独有顶层字段，无他类冲突）
+                obj.containsKey("message") -> Part.Permission.serializer()
+                obj.containsKey("question") -> Part.Question.serializer()
                 else -> Part.Unknown.serializer()
             }
         }

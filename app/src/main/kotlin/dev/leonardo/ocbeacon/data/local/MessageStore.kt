@@ -490,7 +490,8 @@ class MessageStore @Inject constructor(
 
     /**
      * Part 子类 → type 字符串。与 [dev.leonardo.ocbeacon.domain.model.PartSerializer]
-     * 的分发键一致（Permission/Question 在序列化器中未映射，此处补全以穷尽 sealed）。
+     * 的分发键一致（#200 F01 后双向对称；缓存回读 payload 无 type 字段，
+     * 序列化器经顶层字段推断路径解码——见 PartSerializer 兜底分支）。
      */
     private fun Part.typeName(): String = when (this) {
         is Part.Text -> "text"
