@@ -702,11 +702,11 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_done">Gotowe</string>
     <string name="shell_status_failed">Nieudane</string>
     <string name="task_toolbar_action">Przenieś zadanie do tła</string>
-    <string name="task_toolbar_subagents">%1$d sub-agent(ów) działa na pierwszym planie</string>
+    <string name="task_toolbar_subagents">%1$d subagent(ów) działa na pierwszym planie</string>
     <string name="a11y_icon_tasks">Działania zadań</string>
     <string name="task_sheet_subagents_tab">Sub-agenci</string>
     <string name="task_sheet_shells_tab">Powłoki</string>
-    <string name="task_sheet_empty_subagents">Brak uruchomionych sub-agentów</string>
+    <string name="task_sheet_empty_subagents">Brak uruchomionych subagentów</string>
     <string name="task_sheet_empty_shells">Brak poleceń powłoki</string>
     <string name="task_sheet_title">Zadania</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->
