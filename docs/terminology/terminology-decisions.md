@@ -1,4 +1,11 @@
-# 术语统一批次 · 裁决日志（全部四轮 + 深调研终局轮）
+# 术语统一批次 · 裁决日志（全部四轮 + 深调研终局轮 + i18n 追加轮）
+
+## 第五轮（i18n 追加，2026-08-23，KT10b 实施中）
+
+- **拉丁语系 Assistant→Agent 词根**：de=Agent · es/it/pt-rBR=Agente · fr=Agent（chat_label_agent；role_assistant 豁免不变）
+- **ru/uk thinking 撞词**：显式分词——ru thinking=Думает/reasoning=Размышление；uk 同理分词
+- **turn 单译名统一**：de=Turn（借词）· ru=Ход · uk=Хід · tr=Tur · pt-rBR=Turno
+
 
 ## 第四轮（终局拷问，2026-08-23，A 类 4 路深调研后）
 
