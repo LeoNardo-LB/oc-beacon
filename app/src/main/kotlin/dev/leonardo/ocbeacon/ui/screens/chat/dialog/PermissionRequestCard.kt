@@ -110,7 +110,7 @@ internal fun PermissionCard(
                     )
                 }
             }
-            // 子 agent 来源标签（当权限请求来自子会话时显示）
+            // 子智能体来源标签（当权限请求来自子智能体会话时显示）
             if (permission.sourceSessionTitle != null) {
                 Text(
                     text = permission.sourceSessionTitle,

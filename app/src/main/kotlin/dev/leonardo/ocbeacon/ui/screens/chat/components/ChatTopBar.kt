@@ -101,7 +101,7 @@ fun ChatTopBar(
             }
         },
         actions = {
-            // 上下文进度指示器 —— 父会话和子会话都显示
+            // 上下文进度指示器 —— 父会话和子智能体会话都显示
             val showContext = contextWindow > 0 && lastContextTokens > 0
             if (showContext) {
                 val percentage = Math.round(lastContextTokens.toDouble() / contextWindow * 100).toInt()
@@ -132,7 +132,7 @@ fun ChatTopBar(
                 }
             }
 
-            // 上下文详情对话框 —— 父会话和子会话都显示
+            // 上下文详情对话框 —— 父会话和子智能体会话都显示
             if (showContextDialog) {
                 ContextDetailDialog(
                     state = contextDetail,

@@ -36,7 +36,7 @@ import java.util.Date
 /**
  * 统一消息气泡容器（2026-08-12 用户要求：标签栏/正文栏/统计栏样式强一致）。
  *
- * 三种角色（用户 / 智能体 / 后台消息）共用同一外层结构，仅通过参数区分：
+ * 三种角色（用户 / 智能体 / 合成通知）共用同一外层结构，仅通过参数区分：
  * - [alignEnd]：user 右对齐（true）；assistant/synthetic 左对齐（false）
  * - [containerColor] / [border]：底色与边框（synthetic = 透明 + 边框类型）
  * - [shape]：圆角（user 用聊天气泡非对称圆角；其他用 medium）
@@ -53,7 +53,7 @@ internal fun MessageBubble(
     shape: Shape = ShapeTokens.medium,
     border: BorderStroke? = null,
     labelLeading: (@Composable () -> Unit)? = null,
-    /** label 之后的附加内容（如状态文案 + 状态图标——后台通知用）。 */
+    /** label 之后的附加内容（如状态文案 + 状态图标——合成通知用）。 */
     labelSuffix: (@Composable () -> Unit)? = null,
     labelTrailing: (@Composable RowScope.() -> Unit)? = null,
     statsBar: (@Composable RowScope.() -> Unit)? = null,
