@@ -27,7 +27,8 @@
 ### 2.1 格式
 
 ```
-MAJOR.MINOR.PATCH[-LABEL.NUMBER]
+MAJOR.MINOR.PATCH[-beta]           # beta：每线单发，无序号
+MAJOR.MINOR.PATCH[-dev.NUMBER]     # dev：线内迭代，有序号
 ```
 
 | 字段 | 含义 | 递进条件 |
@@ -35,8 +36,8 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 | MAJOR | 大版本 | 不兼容的架构变更、完整重写、品牌重塑 |
 | MINOR | 功能版本 | 新功能、新屏幕、新 API 对接（向下兼容） |
 | PATCH | 修复版本 | Bug 修复、性能优化、UI 调整（向下兼容） |
-| LABEL | 预发布标签 | `beta`（公开测试）或 `dev`（开发预览） |
-| NUMBER | 预发布序号 | 同一版本的第 N 次预发布，从 1 开始 |
+| `-beta` | 公开测试位 | 每条版本线**只有一个** beta（2026-08-23 用户定规） |
+| `-dev.N` | 开发预览序号 | 同一版本线的第 N 次开发迭代，从 1 开始 |
 
 ### 2.2 版本号与 commit 类型的对应（脚本自动推导）
 
@@ -47,16 +48,17 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 | `BREAKING CHANGE` / `feat!:` | MAJOR |
 | `docs:` / `chore:` / `test:` / `style:` | 不递进（不触发发版） |
 
-### 2.3 版本号示例
+### 2.3 版本号示例（版本线模型：dev 迭代 → beta → 正式）
 
 ```
-0.1.0              ← 当前基线 / 首个版本（2026-08-07 清理全部 1.x 发版后重新计数）
-0.1.0-beta.1        ← 0.1.0 的第一个 beta 预发布（本次发版）
-0.1.0               ← 0.1.0 正式版
-0.1.1-beta.1        ← 0.1.1 的第一个 beta 测试版
-0.2.0-beta.1        ← 0.2.0 新功能 beta
-0.2.0               ← 0.2.0 正式版
-0.9.0               ← 1.0.0 前最后一个功能版本
+0.3.1-dev.1         ← 0.3.1 线第 1 次开发迭代
+0.3.1-dev.2         ← 0.3.1 线第 2 次开发迭代（线内只涨序号）
+0.3.1-dev.23        ← ……
+0.3.1-beta          ← 0.3.1 线的 beta（每线一个，无序号）
+0.3.1               ← 0.3.1 正式版（线内晋升）
+0.3.2-dev.1         ← 正式版后再开发 → 开新线（fix 类增量 +0.0.1）
+0.3.2-beta          ← 0.3.2 线的 beta
+0.4.0-dev.1         ← 新特性累积 → 开新线 +0.1.0
 1.0.0               ← 首次正式发版（唯一允许 1.x 的时机）
 ```
 
@@ -119,19 +121,25 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 |------|------|
 | `flavor` | `beta`（默认）/ `stable` / `dev` |
 | `--dry-run` | 只打印将要执行的步骤，不修改任何文件、不推送 |
-| `--force-bump` | 跳过 commit 分析，强制指定递进类型 |
+| `--force-bump` | 强制开新版本线并指定递进类型（正常流程开新线由脚本自动判断） |
 
-### 3.3 版本号推导规则（脚本内部）
+### 3.3 版本号推导规则（版本线模型，2026-08-23 重构）
 
-- **beta / dev（预发布）**：
-  - 若上一个 tag 是**同主版本的预发布**（如 `v1.0.3-beta.1` → `v1.0.3-beta.2`），序号 +1。
-  - 否则基于 **最后一个正式版 tag** 按 commit 推导 bump 后追加 `-beta.1`。
-- **stable（正式版）**：
-  - 基于**最后一个正式版 tag** 按 commit 推导 bump，去掉预发布标签。
-- **示例**：
-  - 现状 `v1.0.3`，新增 `fix:` → `beta` 发版 = `1.0.4-beta.1`；`stable` 发版 = `1.0.4`。
-  - 现状 `v1.0.4-beta.1`，再发 `beta` = `1.0.4-beta.2`；发 `stable` = `1.0.4`。
-- **首次发版（无历史 tag）注意**：脚本在无 tag 时 fallback minor bump（0.1.0 → 0.2.0-beta.1），会跳过首个版本号。首个版本应手动设置 `VERSION_NAME=0.1.0-beta.1`（版本修正 commit）后打 tag，后续恢复脚本流程（脚本对同版本预发布序号 +1 逻辑正确：0.1.0-beta.1 → 0.1.0-beta.2）。
+**核心模型**：同一 `X.Y.Z` 版本线依次走 **dev → beta → 正式**，通道切换**不 bump** 版本号；
+新特性/修复累积后**开新线**（feat→+0.1.0，fix→+0.0.1，BREAKING→+1.0.0）。
+
+| 发版动作 | 条件 | 结果 |
+|---|---|---|
+| `dev` 线内迭代 | 本线正式版 `v{BASE}` 不存在 | `X.Y.Z-dev.N+1`（N 取已发布 tag 最大值） |
+| `beta` 线内首发 | `v{BASE}` 与 `v{BASE}-beta` 都不存在 | `X.Y.Z-beta`（无序号） |
+| `stable` 线内晋升 | `v{BASE}` 不存在 | `X.Y.Z` |
+| **开新线**（任意通道） | 本通道 tag 已存在（beta 重发 / 正式后再发）或 `--force-bump` | bump 后 `X.Y'.Z'[-dev.1 / -beta]` |
+
+- **开新线的 bump 基准**：本线正式版 tag；无则本线 beta tag（beta 重发只看 beta 之后的增量）；再无退最后正式版。
+- **防回退护栏**：`version.properties` 落后于已发布正式版时，以正式版为当前线基准——绝不产出更小的版本号。
+- **完整示例**：`0.3.1-dev.22` → `beta` = `0.3.1-beta` → `stable` = `0.3.1` → 再 `dev` = `0.3.2-dev.1`（fix 类增量）；
+  `0.3.1-beta` 发过再 `beta`（含 `fix:` 增量）= `0.3.2-beta`。
+- **首次发版（无历史 tag）注意**：脚本在无 tag 时 fallback minor bump。首个版本应手动设置 `VERSION_NAME` 后打 tag，后续恢复脚本流程。
 
 ---
 
@@ -188,7 +196,7 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 | 项 | 规则 |
 |----|------|
 | 生成时机 | `release.sh <flavor>` 发版时自动生成 `RELEASE_NOTES.md` 草稿（根目录固定名，每版本覆盖） |
-| 范围 | **last tag → HEAD**——对比本版本与上个版本的区别（beta.2 只列 beta.1 之后的新变化） |
+| 范围 | **本通道 last tag → HEAD**（dev 看 dev、beta 看 beta；通道晋升时覆盖自上个对外边界以来的全部变化） |
 | 润色 | 脚本 commit 前等待确认，发布者按模板润色：填版本摘要、条目改用户视角、删内部噪音（见模板写作规则） |
 | 发布 | CI 用 `--notes-file RELEASE_NOTES.md` 创建 Release；文件缺失时回退 `--generate-notes` |
 | 留档 | GitHub Release 页面即留档；`RELEASE_NOTES.md` 在发版 commit 中按 tag 版本化 |

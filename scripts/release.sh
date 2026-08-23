@@ -7,7 +7,10 @@
 #
 #   flavor:      beta（默认）| stable | dev
 #   --dry-run:   只打印将执行的步骤，不修改任何文件、不推送
-#   --force-bump: 跳过 commit 分析，强制指定递进类型
+#   --force-bump: 强制开新版本线并指定递进类型（正常流程开新线由脚本自动判断）
+#
+# 版本线模型：同一 X.Y.Z 走完 dev → beta → 正式（通道切换不 bump）；
+# 当前线发布过正式版后，下一次发版自动开新线（feat→+0.1.0 / fix→+0.0.1）。
 #
 # 功能:
 #   1. 检查 git 工作树干净
@@ -79,6 +82,23 @@ version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n1)" != "$1"; }
 # 获取最后一个正式版 tag（不含预发布标签，如 v1.0.3），无则返回空
 last_stable_tag() {
   git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true
+}
+
+# 查询某版本线（base+label）已发布的最大预发布序号；无则输出空
+# 例：base=0.3.1 label=dev，存在 v0.3.1-dev.22 → 输出 22
+last_prerelease_num() {
+  local base="$1" label="$2"
+  git tag --list "v${base}-${label}.*" | sed -E "s/^v${base//./\\.}-${label}\.//" | sort -n | tail -n1
+}
+
+# 最近一个「非当前版本线」的 tag（任何通道，含正式版）——通道切换发版的变更基准。
+# 例：当前线 0.3.1 → 跳过全部 v0.3.1*，返回 v0.3.0-beta.3（上一个对外边界）。
+last_external_tag() {
+  local base="$1" t tb
+  while read -r t; do
+    tb="${t#v}"; tb="${tb%%-*}"
+    if [ "$tb" != "$base" ]; then echo "$t"; return; fi
+  done < <(git tag --sort=-v:refname)
 }
 
 # 从 commit 信息推导 bump 类型
@@ -242,32 +262,18 @@ CUR_VERSION_NAME="$(grep '^VERSION_NAME=' "$VERSION_FILE" | cut -d'=' -f2)"
 log "当前版本: $CUR_VERSION_NAME (code=$CUR_VERSION_CODE)"
 
 LAST_STABLE="$(last_stable_tag)"
-# 分析基准 tag：优先当前 VERSION_NAME 对应的 tag（如 v1.0.3-beta.1 存在则用它），否则用最后一个正式版
-CUR_TAG="${TAG_PREFIX}${CUR_VERSION_NAME}"
-if git rev-parse "$CUR_TAG" >/dev/null 2>&1; then
-  LAST_ANY="$CUR_TAG"
-else
-  LAST_ANY="$LAST_STABLE"
-fi
 log "最后一个正式版 tag: ${LAST_STABLE:-<无>}"
-log "分析基准 tag: ${LAST_ANY:-<无>}"
 
-# 决定 bump 类型
-if [ -n "$FORCE_BUMP" ]; then
-  BUMP="$FORCE_BUMP"
-  log "强制 bump: $BUMP"
-else
-  if [ -n "$LAST_ANY" ]; then
-    BUMP="$(derive_bump "$LAST_ANY")"
-  else
-    BUMP="minor"
-  fi
-  log "commit 推导 bump: $BUMP"
-fi
-
-# 计算新版本
+# ---------------------------------------------------------------------------
+# 版本线模型（2026-08-23 重构，用户定规）：
+#   同一 X.Y.Z 依次走 dev → beta → 正式（stable），通道切换不 bump 版本号；
+#   新特性/修复累积后开新线：dev 线上迭代（dev.N 递增）→ 满意后 beta → 正式。
+#   开新线的唯一时机：当前线已发布过正式版（v{BASE} tag 存在），或显式 --force-bump。
+#   新线版本号 = 当前线 base 按 commit 类型递进（feat→MINOR，fix→PATCH，BREAKING→MAJOR）。
+# ---------------------------------------------------------------------------
 read -r C_MAJOR C_MINOR C_PATCH C_LABEL <<< "$(parse_version "$CUR_VERSION_NAME")"
 C_LABEL="${C_LABEL:-}"
+CUR_BASE="$C_MAJOR.$C_MINOR.$C_PATCH"
 
 # 预发布标签名
 case "$FLAVOR" in
@@ -276,25 +282,71 @@ case "$FLAVOR" in
   stable) LABEL="" ;;
 esac
 
-NEW_VERSION_NAME=""
-if [ "$FLAVOR" = "stable" ]; then
-  # 正式版：当前就是正式版则 bump；当前是预发布则去掉标签
-  if [ -z "$C_LABEL" ]; then
-    NEW_VERSION_NAME="$(apply_bump "$C_MAJOR" "$C_MINOR" "$C_PATCH" "$BUMP")"
-  else
-    NEW_VERSION_NAME="$C_MAJOR.$C_MINOR.$C_PATCH"
-  fi
-else
-  # 预发布：若当前是同一版本的预发布 → 序号+1；否则基于当前正式部分 bump 后加 -label.1
-  if [ -n "$C_LABEL" ] && [ "${C_LABEL%%.*}" = "$LABEL" ]; then
-    # 同标签预发布 → 序号+1（如 beta.1 → beta.2）
-    local_num="${C_LABEL##*.}"
-    NEW_VERSION_NAME="$C_MAJOR.$C_MINOR.$C_PATCH-$LABEL.$((local_num+1))"
-  else
-    new_base="$(apply_bump "$C_MAJOR" "$C_MINOR" "$C_PATCH" "$BUMP")"
-    NEW_VERSION_NAME="$new_base-$LABEL.1"
-  fi
+# 防回退护栏：version.properties 落后于已发布正式版时（历史遗留/手工误改），
+# 以最后正式版为当前线起点——绝不产出比已发布正式版更小的版本号。
+STABLE_BASE="${LAST_STABLE#v}"; STABLE_BASE="${STABLE_BASE%%-*}"
+if [ -n "$STABLE_BASE" ] && version_gt "$STABLE_BASE" "$CUR_BASE"; then
+  warn "version.properties ($CUR_VERSION_NAME) 落后于最后正式版 ($STABLE_BASE)，以 $STABLE_BASE 为当前线基准"
+  CUR_BASE="$STABLE_BASE"
+  read -r C_MAJOR C_MINOR C_PATCH C_LABEL <<< "$(parse_version "$CUR_BASE-")"
 fi
+
+# 通道闭合检测（该 base 在目标通道已发过 → 不能重发同名 tag，必须开新线）：
+#   stable 通道：v{BASE} 存在即闭合
+#   beta 通道：v{BASE}-beta 或 v{BASE} 任一存在即闭合（beta 每线单发、无序号）
+#   dev 通道：仅 v{BASE}（正式版）存在时闭合——dev.N 序号天然去重
+CHANNEL_CLOSED=false
+if git rev-parse -q --verify "${TAG_PREFIX}${CUR_BASE}" >/dev/null 2>&1; then
+  CHANNEL_CLOSED=true   # 正式版已发——所有通道闭合
+elif [ "$FLAVOR" = "beta" ] && git rev-parse -q --verify "${TAG_PREFIX}${CUR_BASE}-beta" >/dev/null 2>&1; then
+  CHANNEL_CLOSED=true   # 本线 beta 已发过
+fi
+
+if [ -n "$FORCE_BUMP" ]; then
+  OPEN_NEW_LINE=true
+elif $CHANNEL_CLOSED; then
+  OPEN_NEW_LINE=true
+else
+  OPEN_NEW_LINE=false
+fi
+
+if $OPEN_NEW_LINE; then
+  # 开新线：bump 基准 = 当前线的正式版 tag；无则本线 beta tag（beta 重发场景：
+  # 0.3.1-beta → 修复 → beta → 0.3.2-beta，bump 只看 beta 之后的增量）；再无退最后正式版
+  DERIVE_TAG="${TAG_PREFIX}${CUR_BASE}"
+  if ! git rev-parse -q --verify "$DERIVE_TAG" >/dev/null 2>&1; then
+    DERIVE_TAG="${TAG_PREFIX}${CUR_BASE}-beta"
+  fi
+  if ! git rev-parse -q --verify "$DERIVE_TAG" >/dev/null 2>&1; then
+    DERIVE_TAG="$LAST_STABLE"
+  fi
+  if [ -n "$FORCE_BUMP" ]; then
+    BUMP="$FORCE_BUMP"
+    log "强制 bump: $BUMP（开新版本线）"
+  elif [ -n "$DERIVE_TAG" ]; then
+    BUMP="$(derive_bump "$DERIVE_TAG")"
+    log "commit 推导 bump: $BUMP（基准 $DERIVE_TAG，开新版本线）"
+  else
+    BUMP="minor"
+    log "无任何正式版 tag，默认 minor（开新版本线）"
+  fi
+  NEW_BASE="$(apply_bump "$C_MAJOR" "$C_MINOR" "$C_PATCH" "$BUMP")"
+  log "版本线: $CUR_BASE -> $NEW_BASE（$FLAVOR）"
+else
+  NEW_BASE="$CUR_BASE"
+  log "版本线: 继续 $NEW_BASE（未发布过正式版，通道切换/dev 迭代不 bump）"
+fi
+
+case "$FLAVOR" in
+  stable) NEW_VERSION_NAME="$NEW_BASE" ;;
+  beta)   NEW_VERSION_NAME="$NEW_BASE-beta" ;;   # 每线单发、无序号（2026-08-23 用户定规）
+  dev)
+    # 线内序号以已发布 tag 为准（properties 可能滞后于 tag）
+    NUM="$(last_prerelease_num "$NEW_BASE" dev)"
+    if [ -z "$NUM" ]; then NUM=0; fi
+    NEW_VERSION_NAME="$NEW_BASE-dev.$((NUM+1))"
+    ;;
+esac
 
 NEW_VERSION_CODE=$((CUR_VERSION_CODE + 1))
 NEW_TAG="${TAG_PREFIX}${NEW_VERSION_NAME}"
@@ -364,11 +416,22 @@ else
   log "预发布版不更新 CHANGELOG.md（正式版统一汇总）"
 fi
 
-# 3.3 Release Notes 草稿（所有 flavor，范围 last tag -> HEAD）
-NOTES_SINCE="$LAST_ANY"
+# 3.3 Release Notes 草稿（所有 flavor）
+# 范围 = 本通道上一个已发布 tag（beta 看 beta、dev 看 dev、stable 看正式版）——
+# 版本线模型下通道晋升（dev→beta）的 notes 应覆盖自上个对外 beta 以来的全部变更；
+# 无本通道 tag 时退到最后正式版，再无则根提交。
+case "$FLAVOR" in
+  stable) NOTES_SINCE="$LAST_STABLE" ;;
+  beta) NOTES_SINCE="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-beta$' | head -n1 || true)" ;;
+  dev)  NOTES_SINCE="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9]+$' | head -n1 || true)" ;;
+esac
+if [ -z "$NOTES_SINCE" ]; then
+  NOTES_SINCE="$LAST_STABLE"
+fi
 if [ -z "$NOTES_SINCE" ]; then
   NOTES_SINCE="$(git rev-list --max-parents=0 HEAD | head -n1)"
 fi
+log "notes 基准 tag: $NOTES_SINCE"
 NOTES="$(gen_release_notes "$NOTES_SINCE" "$NEW_VERSION_NAME")"
 if $DRY_RUN; then
   log "[dry-run] RELEASE_NOTES.md 草稿："

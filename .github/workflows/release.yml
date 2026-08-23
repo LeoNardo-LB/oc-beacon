@@ -27,8 +27,8 @@ jobs:
 
       # 从 tag 或手动输入推导 flavor：
       #   v1.0.3         -> stable（无后缀）
-      #   v1.0.4-beta.1  -> beta
-      #   v1.0.4-dev.1   -> dev
+      #   v1.0.4-beta    -> beta（每线单发、无序号）
+      #   v1.0.4-dev.1   -> dev（线内迭代有序号）
       - name: Determine flavor from tag
         id: flavor
         run: bash scripts/ci-determine-flavor.sh "${{ github.event.inputs.flavor }}" "${{ github.ref }}" "$GITHUB_OUTPUT"

@@ -9,8 +9,8 @@
 #
 # 推导规则:
 #   v1.0.3         -> stable（无后缀）
-#   v1.0.4-beta.1  -> beta
-#   v1.0.4-dev.1   -> dev
+#   v1.0.4-beta    -> beta（每线单发、无序号）
+#   v1.0.4-dev.1   -> dev（线内迭代有序号）
 #   非 tag 触发     -> beta（默认）
 # =============================================================================
 set -euo pipefail
@@ -23,10 +23,10 @@ if [ -n "$FLAVOR_INPUT" ]; then
   FLAVOR="$FLAVOR_INPUT"
 elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
   TAG="${GITHUB_REF#refs/tags/}"
-  if [[ "$TAG" == *"-beta."* ]]; then
-    FLAVOR="beta"
-  elif [[ "$TAG" == *"-dev."* ]]; then
+  if [[ "$TAG" == *"-dev."* ]]; then
     FLAVOR="dev"
+  elif [[ "$TAG" == *"-beta"* ]]; then
+    FLAVOR="beta"
   else
     FLAVOR="stable"
   fi
