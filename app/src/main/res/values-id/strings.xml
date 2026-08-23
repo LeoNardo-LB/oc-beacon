@@ -60,7 +60,7 @@
     <string name="chat_busy_menu_send_now">Kirim sekarang</string>
     <string name="chat_busy_menu_send_now_desc">Masuk antrean di server, langsung terlihat, dan tidak dapat dibatalkan</string>
     <string name="chat_busy_menu_stack">Antrekan pesan</string>
-    <string name="chat_busy_menu_stack_desc">Disimpan secara lokal, dikirim otomatis saat giliran ini berakhir</string>
+    <string name="chat_busy_menu_stack_desc">Disimpan secara lokal, dikirim otomatis saat turn ini berakhir</string>
     <string name="chat_busy_menu_stack_no_attachments">Pesan dengan lampiran harus dikirim sekarang</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Antrean</string>
@@ -133,7 +133,7 @@
     <string name="chat_status_searching">Mencari basis kode</string>
     <string name="chat_status_fetching_url">Mengambil URL</string>
     <string name="chat_status_running_subagent">Menjalankan subagen</string>
-    <string name="chat_task_completed">Giliran selesai</string>
+    <string name="chat_task_completed">Turn selesai</string>
     <string name="chat_task_failed">Tugas gagal</string>
     <string name="chat_system_notification">Sintetis: subagen selesai</string>
     <string name="task_sheet_subagent_completed">Selesai</string>
@@ -228,7 +228,7 @@
     <string name="settings_notifications">Notifikasi</string>
     <string name="settings_dynamic_color">Warna dinamis</string>
     <string name="settings_dynamic_color_desc">Gunakan warna dari wallpaper (Material You)</string>
-    <string name="settings_notifications_desc">Notifikasi saat giliran selesai</string>
+    <string name="settings_notifications_desc">Notifikasi saat turn selesai</string>
     <string name="settings_initial_messages">Pesan awal untuk dimuat</string>
     <string name="settings_confirm_send">Konfirmasi sebelum mengirim</string>
     <string name="settings_confirm_send_desc">Tampilkan dialog konfirmasi sebelum mengirim pesan</string>
@@ -254,7 +254,7 @@
     <string name="settings_keep_screen_on">Jaga layar tetap menyala</string>
     <string name="settings_keep_screen_on_desc">Cegah layar mati saat di chat</string>
     <string name="settings_silent_notifications">Notifikasi senyap</string>
-    <string name="settings_silent_notifications_desc">Matikan suara dan getar untuk notifikasi giliran</string>
+    <string name="settings_silent_notifications_desc">Matikan suara dan getar untuk notifikasi turn</string>
     <string name="settings_notif_test">Kirim notifikasi uji</string>
     <string name="settings_notif_test_desc">Mengirim notifikasi nyata untuk memverifikasi banner dan suara. Jika tidak muncul apa pun, perangkat mungkin membisukan aplikasi (mis. MIUI menonaktifkan notifikasi mengambang secara bawaan) — aktifkan di setelan notifikasi sistem di bawah.</string>
     <string name="settings_notif_system">Setelan notifikasi sistem</string>
@@ -270,10 +270,10 @@
     <!-- Notifications -->
     <string name="notification_channel_connection">Koneksi OpenCode</string>
     <string name="notification_channel_connection_desc">Koneksi persisten ke server OpenCode</string>
-    <string name="notification_channel_tasks">Notifikasi Giliran</string>
-    <string name="notification_channel_tasks_desc">Notifikasi saat giliran selesai</string>
-    <string name="notification_channel_tasks_silent">Notifikasi Giliran (Senyap)</string>
-    <string name="notification_channel_tasks_silent_desc">Notifikasi senyap saat giliran selesai</string>
+    <string name="notification_channel_tasks">Notifikasi Turn</string>
+    <string name="notification_channel_tasks_desc">Notifikasi saat turn selesai</string>
+    <string name="notification_channel_tasks_silent">Notifikasi Turn (Senyap)</string>
+    <string name="notification_channel_tasks_silent_desc">Notifikasi senyap saat turn selesai</string>
     <string name="notification_channel_permissions">Permintaan Izin</string>
     <string name="notification_channel_permissions_desc">Notifikasi saat OpenCode membutuhkan izin</string>
     <string name="notification_connected">Tersambung ke %1$s</string>
@@ -602,8 +602,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_chat_font">Font obrolan</string>
     <string name="settings_chat_font_normal">Normal</string>
     <string name="settings_chat_font_compact">Ringkas</string>
-    <string name="settings_turn_dividers">Pembagi giliran</string>
-    <string name="settings_turn_dividers_desc">Tampilkan pembatas antara pesan dalam giliran yang sama</string>
+    <string name="settings_turn_dividers">Pembagi turn</string>
+    <string name="settings_turn_dividers_desc">Tampilkan pembatas antara pesan dalam turn yang sama</string>
     <string name="viewer_loading_progress">Memuat: %1$d / %2$d baris</string>
     <string name="viewer_large_file_warning">Berkas besar (%1$d baris) — kinerja mungkin terpengaruh</string>
     <string name="workspace_search_hint">Ketik untuk mencari berkas</string>
