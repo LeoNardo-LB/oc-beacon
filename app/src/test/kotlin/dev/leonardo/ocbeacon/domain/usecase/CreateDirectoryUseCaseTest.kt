@@ -42,7 +42,7 @@ class CreateDirectoryUseCaseTest {
         assertEquals("/parent/newdir", result.getOrThrow())
         // R6: 临时会话必须在成功路径上被删除
         coVerify { sessionRepository.deleteSession(serverId, tempSession.id) }
-        // 成功路径不应调用 executeCommand 回退
+        // 成功路径不应调用 executeCommand 降级
         coVerify(exactly = 0) { manageTerminalUseCase.executeCommand(any(), any(), any(), any(), any()) }
     }
 

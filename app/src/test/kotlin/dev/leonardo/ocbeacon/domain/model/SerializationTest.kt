@@ -744,7 +744,7 @@ class SerializationTest {
     fun `Project displayName logic`() {
         assertEquals("explicit", Project(name = "explicit", worktree = "/a/b").displayName)
         assertEquals("b", Project(name = null, worktree = "/a/b").displayName)
-        // id.take(8) 回退逻辑：需要非空 id
+        // id.take(8) 降级逻辑：需要非空 id
         assertEquals("12345678", Project(id = "1234567890", name = null, worktree = "").displayName)
     }
 
