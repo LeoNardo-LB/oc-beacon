@@ -5,7 +5,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
@@ -21,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
@@ -50,59 +48,54 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import kotlin.math.abs
-import kotlinx.coroutines.launch
 
 /** 工具栏入口 id（沿用第十轮四入口独立 sheet 语义）。 */
 internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL }
 
-/** 边缘拉杆贴靠侧。 */
-internal enum class FabEdge { START, END }
-
 /** #192 锚点值（Foundation 官方 AnchoredDraggable 引擎驱动）。 */
-internal enum class FabSwipeAnchor { Visible, Hidden }
+internal enum class FabSwipeAnchor { Visible, Peeking }
 
 /**
- * v4 重写定案（2026-08-23，用户观感反馈「动画衔接不自然 + 拉杆应贴屏边」）：
- * - **单一连续动画**：跟手平移 → 松手 spring 继续同方向平移到完全出屏（锚点=实测
- *   容器宽度，官方 AnchoredDraggableLayoutDependentAnchorsSample 同款
- *   onSizeChanged 动态锚点）+ 按位移比例渐隐——一个动画系统从头管到尾，无
- *   「平移→snap→缩放」的属性切换（v3 衔接断裂根因）；
- * - **贴边拉杆**：自绘 5dp 宽半透明胶囊贴 x=0/屏宽（v3 用官方 VerticalDragHandle，
- *   其内部 48dp 最小触达宽使胶囊悬在触达区中央，视觉像「留在 FAB 原位」）；
- *   命中区独立（26x60dp 边缘对齐），点按/拖拽恢复；
- * - 官方 animateFloatingActionButton（v3）移除——它语义是滚动联动的 scale 显隐，
- *   与手势驱动的连续平移不匹配；
- * - 引擎/spring/threshold 仍全官方：anchoredDraggable + flingBehavior
- *   （positionalThreshold 40% 避 MIUI 返回手势区）。
+ * v5 定案（2026-08-23，用户：「不是拉杆，而是贴边露出原图标 ~1/4 + 透明度变高」）：
+ * - **Peek 模式**：隐藏 = FAB 本体滑至贴边锚点（留 [FabPeekVisible] 12dp ≈ 44dp 按钮
+ *   的 1/4）+ alpha 降至 [FabPeekAlpha] 0.35 驻留——同一组件同一动画系统，无切换
+ *   无拉杆（v2-v4 的独立拉杆/FabEdgeTab 全部移除）；
+ * - **恢复双通道**：点 peek 出的角（tap 拦截层）即滑回；或向屏内拖（引擎锚点
+ *   0↔peek，松手按阈值吸附）；
+ * - **连续动画**：跟手平移 → 松手 spring 同方向到位（NoBouncy/MediumLow），
+ *   透明度随位移比例插值——全程一套属性，无衔接断裂；
+ * - D3：手动隐藏期「滚离底部自动出现」暂停（peek 驻留恒在）；
+ * - D5：菜单展开期容器拖拽禁用，右划由外点收起层消费（只收菜单不滑走）。
  */
 
+/** #192 peek 驻留时贴边露出的宽度（dp）≈ 44dp 按钮的 1/4。 */
+internal val FabPeekVisible = 12.dp
+
+/** #192 peek 驻留透明度。 */
+internal const val FabPeekAlpha = 0.35f
+
 /**
- * #192 v4：FAB 滑动隐藏容器（单一连续平移动画）。
+ * #192 v5：FAB 滑动隐藏容器（Peek 模式）。
  *
  * [dragSign] 隐藏方向物理符号（end 侧 +1 向右 / start 侧 -1 向左；RTL 由调用方换算）。
- * [dragEnabled] false 时手势禁用（D5：菜单展开期右划走 scrim 收起，不隐藏不位移）。
+ * [hidden] 状态驱动锚点目标（true→Peeking / false→Visible，spring 过渡）。
  *
- * 动画链：入场（appear 0→1：从屏缘滑入 + 渐显）→ 拖拽（offset 1:1 跟手 + 按比例渐隐）
- * → 松手过阈值（spring 平移至 ±width 完全出屏，alpha 到 0）→ settle → [onHidden]。
+ * 锚点（官方 AnchoredDraggableLayoutDependentAnchorsSample 模式，onSizeChanged
+ * 动态更新）：Visible=0f ↔ Peeking=±(width−peek)，符号表达方向（官方
+ * SwipeToDismissBox 约定）。
  *
  * align 挂载点（教训保持）：align 是 ParentDataModifier 只对直接父 Box 生效——
  * [modifier]（含 BottomStart/BottomEnd）挂本容器（ChatScreen Box 直接子级）。
@@ -111,32 +104,50 @@ internal enum class FabSwipeAnchor { Visible, Hidden }
 private fun SwipeHideFabContainer(
     modifier: Modifier = Modifier,
     dragSign: Float,
-    onHidden: () -> Unit,
+    hidden: Boolean,
+    onHide: () -> Unit,
+    onRestore: () -> Unit,
     dragEnabled: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    val density = LocalDensity.current
+    val peekPx = with(density) { FabPeekVisible.toPx() }
     val state = remember { AnchoredDraggableState(FabSwipeAnchor.Visible) }
     var widthPx by remember { mutableStateOf(Float.NaN) }
+    // 进场：从屏缘滑入 + 渐显（组合首次进入/从 peek 恢复时由锚点动画负责，进场只管入场）
     val appear = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, tween(240)) }
-    // 官方模式：锚点依赖尺寸 → onSizeChanged 里 updateAnchors（同帧就绪）
-    LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) { appear.animateTo(1f, tween(220)) }
+    // 官方模式：锚点依赖实测尺寸 → onSizeChanged 更新（同帧就绪）
+    LaunchedEffect(peekPx) {
         snapshotFlow { widthPx }.collect { w ->
             if (!w.isNaN()) {
                 state.updateAnchors(
                     DraggableAnchors {
-                        // 官方符号约定（SwipeToDismissBox）：方向由锚点符号表达
                         FabSwipeAnchor.Visible at 0f
-                        FabSwipeAnchor.Hidden at w * dragSign
+                        FabSwipeAnchor.Peeking at (w - peekPx) * dragSign
                     }
                 )
             }
         }
     }
-    // settle 完成（引擎保证 currentValue 只在 settle 后翻转）→ 通知上层切拉杆
+    // 状态驱动：hidden 翻转 → spring 滑到对应锚点（手势 settle 与状态动画同一引擎）
+    LaunchedEffect(hidden, widthPx) {
+        if (!widthPx.isNaN()) {
+            state.animateTo(
+                if (hidden) FabSwipeAnchor.Peeking else FabSwipeAnchor.Visible,
+                spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+            )
+        }
+    }
+    // 手势 settle 到 Peeking → 通知上层置 hidden（与 LaunchedEffect 目标一致，幂等）
     LaunchedEffect(state) {
         snapshotFlow { state.currentValue }
-            .collect { if (it == FabSwipeAnchor.Hidden) onHidden() }
+            .collect { if (it == FabSwipeAnchor.Peeking) onHide() }
+    }
+    // settle 回 Visible → 通知上层复位（拖拽恢复通道）
+    LaunchedEffect(state) {
+        snapshotFlow { state.currentValue }
+            .collect { if (it == FabSwipeAnchor.Visible) onRestore() }
     }
     Box(
         modifier
@@ -145,12 +156,12 @@ private fun SwipeHideFabContainer(
                 // 首帧守卫：NaN（updateAnchors 未派发）视为 0（真机 FATAL 实证过）
                 val off = state.offset
                 val drag = if (off.isNaN()) 0f else off
-                // 入场：从屏缘方向滑入（appear 0→1）
-                val enter = (1f - appear.value) * 96f * dragSign
-                translationX = drag + enter
-                // 渐隐随出屏比例（入场渐显 × 拖拽渐隐）
                 val width = if (widthPx.isNaN()) 1f else widthPx
-                alpha = appear.value * (1f - (abs(drag) / width).coerceIn(0f, 1f))
+                val peekTarget = (width - peekPx).coerceAtLeast(1f)
+                translationX = drag + (1f - appear.value) * peekTarget * dragSign
+                // 透明度：进场渐显 × 随出屏比例衰减至 peek 驻留值
+                val progress = (abs(drag) / peekTarget).coerceIn(0f, 1f)
+                alpha = appear.value * (1f - (1f - FabPeekAlpha) * progress)
             }
             .anchoredDraggable(
                 state = state,
@@ -161,111 +172,21 @@ private fun SwipeHideFabContainer(
                     // 40%（默认 50%）：START 侧松手点离屏缘更远——50% 阈值时松手点
                     // 落入 MIUI 返回手势区被截断（真机实证）
                     positionalThreshold = { it * 0.4f },
-                    // v4：spring 接管松手后的平移（替代默认 tween 的匀速生硬感）
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessMediumLow,
                     ),
                 ),
             )
-    ) { content() }
-}
-
-/**
- * #192 v4：贴边拉杆（自绘胶囊贴屏缘 + 独立命中区）。
- *
- * 视觉：5x42dp 半透明 secondaryContainer 胶囊贴 x=0（START）/ 屏宽（END），
- * 底部 18dp（拇指区）。命中区 26x60dp 边缘对齐（不透明不拦截列表滚动——仅水平拖拽
- * 消费）。D4 双通道：点按即恢复；向屏内拖（跟手），过半松手自动恢复+回弹。
- * 入场：从屏缘滑出渐显（与 FAB 出屏动画衔接）。D6：badge>0 叠小角标（内侧）。
- */
-@Composable
-internal fun FabEdgeTab(
-    edge: FabEdge,
-    badge: Int?,
-    contentDescription: String,
-    onRestore: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    // 向屏内拖出方向：START 缘右拖（+1），END 缘左拖（-1）；RTL 取反
-    val pullSign = when (edge) {
-        FabEdge.START -> if (rtl) -1f else 1f
-        FabEdge.END -> if (rtl) 1f else -1f
-    }
-    val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
-    val pullMaxPx = with(density) { 40.dp.toPx() }
-    val state = remember { AnchoredDraggableState(FabSwipeAnchor.Visible) }
-    val appear = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, tween(200)) }
-    LaunchedEffect(pullMaxPx) {
-        state.updateAnchors(
-            DraggableAnchors {
-                FabSwipeAnchor.Visible at 0f
-                FabSwipeAnchor.Hidden at pullMaxPx * pullSign
-            }
-        )
-    }
-    // 拉过半松手 → 恢复 FAB；本组件随即离树，但仍显式回弹（防同帧残留）
-    LaunchedEffect(state) {
-        snapshotFlow { state.currentValue }
-            .collect {
-                if (it == FabSwipeAnchor.Hidden) {
-                    onRestore()
-                    scope.launch { state.animateTo(FabSwipeAnchor.Visible) }
-                }
-            }
-    }
-    Box(
-        modifier
-            .padding(bottom = 18.dp)
-            .graphicsLayer {
-                val off = state.offset
-                val pull = if (off.isNaN()) 0f else off
-                // 入场从屏外滑入：appear 0→1，起点向屏外偏移
-                translationX = pull + (1f - appear.value) * -pullSign * 72f
-                alpha = appear.value
-            }
-            .anchoredDraggable(
-                state = state,
-                orientation = Orientation.Horizontal,
-                flingBehavior = AnchoredDraggableDefaults.flingBehavior(
-                    state = state,
-                    positionalThreshold = { it * 0.5f },
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMedium,
-                    ),
-                ),
-            )
-            .clickable { onRestore() }
-            .semantics { this.contentDescription = contentDescription }
-            .size(width = 26.dp, height = 60.dp)
     ) {
-        // 贴边胶囊：START 靠 x=0 / END 靠屏宽（命中区边缘对齐，胶囊视觉贴屏缘）
-        Box(
-            Modifier
-                .align(if (edge == FabEdge.START) Alignment.CenterStart else Alignment.CenterEnd)
-                .size(width = 5.dp, height = 42.dp)
-                .background(
-                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
-                    RoundedCornerShape(percent = 50),
-                )
-                .border(
-                    1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                    RoundedCornerShape(percent = 50),
-                )
-        )
-        if (badge != null && badge > 0) {
-            Badge(
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-                modifier = Modifier
-                    .align(if (edge == FabEdge.START) Alignment.TopEnd else Alignment.TopStart)
-                    .padding(top = 2.dp),
-            ) { Text(badge.coerceAtMost(99).toString()) }
+        content()
+        // Peek 驻留时的 tap 拦截层：吃掉点击 → 恢复（不透传给 FAB 的 onClick）
+        if (state.currentValue == FabSwipeAnchor.Peeking) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .clickable { onRestore() }
+            )
         }
     }
 }
@@ -278,8 +199,8 @@ internal fun FabEdgeTab(
  * 56dp primaryContainer 药丸菜单项（titleMedium/24dp 图标）。
  * 唯一保留的定制：角标计数（Badge，功能性）。
  *
- * #192 v4：[hidden]/[onHide]/[onRestore] 会话级滑动隐藏（单一连续平移动画）。
- * D5 两段式：展开期拖拽禁用，右划由外点收起层检测（水平累计 >40dp 收拢菜单）。
+ * #192 v5：[hidden]/[onHide]/[onRestore] Peek 模式（贴边 1/4 + 半透明驻留）。
+ * D5 两段式：展开期容器拖拽禁用，右划由外点收起层消费（仅收拢菜单）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -297,19 +218,8 @@ internal fun ChatFabMenu(
     var expanded by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = expanded) { expanded = false }
 
-    if (hidden) {
-        FabEdgeTab(
-            edge = FabEdge.END,
-            badge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount,
-            contentDescription = stringResource(R.string.chat_fab_edge_tab_menu),
-            onRestore = onRestore,
-            modifier = modifier,
-        )
-        return
-    }
-
     // 外点收起层（仅展开时存在；无视觉、整屏拦截，画在菜单之下）。
-    // D5：水平拖拽累计超 ~40dp 也收拢（展开期右划=收起，不隐藏不位移）
+    // D5：水平拖拽累计超 ~27dp 也收拢（展开期右划=收起，不隐藏不位移）
     if (expanded) {
         Box(
             Modifier
@@ -333,11 +243,12 @@ internal fun ChatFabMenu(
 
     val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
 
-    // align 挂本容器（直接子级才吃 ParentData）；展开期拖拽禁用（D5）
     SwipeHideFabContainer(
         modifier = modifier,
         dragSign = +1f,
-        onHidden = onHide,
+        hidden = hidden,
+        onHide = onHide,
+        onRestore = onRestore,
         dragEnabled = !expanded,
     ) {
         FloatingActionButtonMenu(
@@ -461,8 +372,8 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
  * （FloatingActionButtonMenuItem 源码同款手法），双圆严格同径。
  * isAtBottom 的 .value 读取限制在本函数小作用域（B-F5 重组隔离沿袭）。
  *
- * #192 v4：[hidden]/[onHide]/[onRestore]（单一连续平移动画）。
- * D3：手动隐藏优先——hidden 期间不因滚离底部自动出现（拉杆恒在）。
+ * #192 v5 Peek 模式 + D3：手动隐藏优先——hidden 期间 peek 驻留恒在（不因回底
+ * 消失）；仅未隐藏时保留「在底部自动隐藏」原语义。
  */
 @Composable
 internal fun ChatScrollBottomFab(
@@ -473,19 +384,16 @@ internal fun ChatScrollBottomFab(
     onHide: () -> Unit = {},
     onRestore: () -> Unit = {},
 ) {
-    if (hidden) {
-        FabEdgeTab(
-            edge = FabEdge.START,
-            badge = null,
-            contentDescription = stringResource(R.string.chat_fab_edge_tab_scroll),
-            onRestore = onRestore,
-            modifier = modifier,
-        )
-        return
-    }
-    if (isAtBottomState.value) return // 在底部时不显示
+    // D3：未手动隐藏时保留原「在底部不显示」；隐藏（peek）期间恒驻留
+    if (!hidden && isAtBottomState.value) return
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        SwipeHideFabContainer(modifier = modifier, dragSign = -1f, onHidden = onHide) {
+        SwipeHideFabContainer(
+            modifier = modifier,
+            dragSign = -1f,
+            hidden = hidden,
+            onHide = onHide,
+            onRestore = onRestore,
+        ) {
             FloatingActionButton(
                 onClick = onClick,
                 // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线

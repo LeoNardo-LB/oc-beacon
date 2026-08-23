@@ -158,8 +158,6 @@
     <string name="chat_scroll_bottom">Прокрутити донизу</string>
     <string name="chat_fab_menu_open">Відкрити меню завдань</string>
     <string name="chat_fab_menu_close">Закрити меню</string>
-    <string name="chat_fab_edge_tab_menu">Показати кнопку меню завдань</string>
-    <string name="chat_fab_edge_tab_scroll">Показати кнопку прокрутки вниз</string>
     <string name="chat_dismiss">Закрити</string>
     <string name="settings_language">Мова</string>
     <string name="settings_language_system">Системна за замовчуванням</string>

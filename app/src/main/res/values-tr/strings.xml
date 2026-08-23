@@ -158,8 +158,6 @@
     <string name="chat_scroll_bottom">En alta kaydır</string>
     <string name="chat_fab_menu_open">Görev menüsünü aç</string>
     <string name="chat_fab_menu_close">Menüyü kapat</string>
-    <string name="chat_fab_edge_tab_menu">Görevler menüsü düğmesini göster</string>
-    <string name="chat_fab_edge_tab_scroll">En alta kaydırma düğmesini göster</string>
     <string name="chat_dismiss">Kapat</string>
     <string name="settings_language">Dil</string>
     <string name="settings_language_system">Sistem varsayılanı</string>

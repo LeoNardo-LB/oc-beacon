@@ -158,8 +158,6 @@
     <string name="chat_scroll_bottom">Scorri in basso</string>
     <string name="chat_fab_menu_open">Apri il menu delle attività</string>
     <string name="chat_fab_menu_close">Chiudi il menu</string>
-    <string name="chat_fab_edge_tab_menu">Mostra pulsante menu attività</string>
-    <string name="chat_fab_edge_tab_scroll">Mostra pulsante scorri in fondo</string>
     <string name="chat_dismiss">Chiudi</string>
     <string name="settings_language">Lingua</string>
     <string name="settings_language_system">Predefinito di sistema</string>

@@ -158,8 +158,6 @@
     <string name="chat_scroll_bottom">Desplazar al final</string>
     <string name="chat_fab_menu_open">Abrir el menú de tareas</string>
     <string name="chat_fab_menu_close">Cerrar el menú</string>
-    <string name="chat_fab_edge_tab_menu">Mostrar botón del menú de tareas</string>
-    <string name="chat_fab_edge_tab_scroll">Mostrar botón de ir al final</string>
     <string name="chat_dismiss">Descartar</string>
     <string name="settings_language">Idioma</string>
     <string name="settings_language_system">Predeterminado del sistema</string>

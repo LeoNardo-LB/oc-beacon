@@ -158,8 +158,6 @@
     <string name="chat_scroll_bottom">Aller en bas</string>
     <string name="chat_fab_menu_open">Ouvrir le menu des tâches</string>
     <string name="chat_fab_menu_close">Fermer le menu</string>
-    <string name="chat_fab_edge_tab_menu">Afficher le bouton du menu des tâches</string>
-    <string name="chat_fab_edge_tab_scroll">Afficher le bouton défilement bas</string>
     <string name="chat_dismiss">Ignorer</string>
     <string name="settings_language">Langue</string>
     <string name="settings_language_system">Par défaut du système</string>

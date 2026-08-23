@@ -9,6 +9,8 @@ import androidx.compose.runtime.setValue
  *
  * 归属：每 ChatViewModel（= 每导航入口）一份——主/子会话独立记忆（D2）；
  * 纯内存不落盘：离开会话随 VM 弹出复位、进程重启复位（D1）。
+ *
+ * v5：隐藏语义 = Peek 驻留（FAB 贴边露 ~1/4 + 半透明），无独立拉杆组件。
  */
 internal class ChatFabVisibilityState {
 
@@ -35,18 +37,11 @@ internal class ChatFabVisibilityState {
     }
 
     companion object {
-        /** 左 FAB（跳到底部）应渲染的槽位——D3：手动隐藏优先于「滚离底部自动出现」。 */
-        fun bottomFabSlot(hidden: Boolean, isAtBottom: Boolean): FabSlot = when {
-            hidden -> FabSlot.EDGE_TAB
-            isAtBottom -> FabSlot.NONE
-            else -> FabSlot.FAB
-        }
-
-        /** 右 FAB（菜单）应渲染的槽位（无 isAtBottom 参与）。 */
-        fun menuFabSlot(hidden: Boolean): FabSlot =
-            if (hidden) FabSlot.EDGE_TAB else FabSlot.FAB
+        /**
+         * D3：左 FAB（跳到底部）是否组合——手动隐藏（peek 驻留）优先，
+         * 隐藏期不因「回到底部」消失；未隐藏时保留原在底部自动隐藏语义。
+         */
+        fun bottomFabComposed(hidden: Boolean, isAtBottom: Boolean): Boolean =
+            hidden || !isAtBottom
     }
 }
-
-/** FAB 区域渲染槽位：FAB 本体 / 边缘拉杆 / 空（在底部自动隐藏）。 */
-internal enum class FabSlot { FAB, EDGE_TAB, NONE }
