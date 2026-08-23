@@ -55,14 +55,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import kotlin.math.abs
+import kotlinx.coroutines.flow.drop
 
 /** 工具栏入口 id（沿用第十轮四入口独立 sheet 语义）。 */
 internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL }
@@ -72,32 +72,36 @@ internal enum class FabSwipeAnchor { Visible, Peeking }
 
 /**
  * v5 定案（2026-08-23，用户：「不是拉杆，而是贴边露出原图标 ~1/4 + 透明度变高」）：
- * - **Peek 模式**：隐藏 = FAB 本体滑至贴边锚点（留 [FabPeekVisible] 12dp ≈ 44dp 按钮
- *   的 1/4）+ alpha 降至 [FabPeekAlpha] 0.35 驻留——同一组件同一动画系统，无切换
- *   无拉杆（v2-v4 的独立拉杆/FabEdgeTab 全部移除）；
+ * - **Peek 模式**：隐藏 = FAB 本体滑至贴边锚点（留 [FabPeekVisible] 12dp ≈ 按钮的
+ *   1/4）+ alpha 降至 [FabPeekAlpha] 0.35 驻留——同一组件同一动画系统，无切换
+ *   无拉杆（v2–v4 的独立拉杆/FabEdgeTab 已全部移除）；
  * - **恢复双通道**：点 peek 出的角（tap 拦截层）即滑回；或向屏内拖（引擎锚点
  *   0↔peek，松手按阈值吸附）；
  * - **连续动画**：跟手平移 → 松手 spring 同方向到位（NoBouncy/MediumLow），
  *   透明度随位移比例插值——全程一套属性，无衔接断裂；
+ * - v5c：dock 距离只用稳定量（容器宽 onSizeChanged + 布局常量 buttonEdgeInset），
+ *   不再上报按钮坐标——按钮被进场/morph 动画每帧污染（76 条日志实证振荡），
+ *   且以 dockPx 为 key 的 animateTo 每帧重启会抢占 drag mutex（滑不动根因）；
+ * - 尺寸（用户 2026-08-23）：Toggle 48/52dp、左 FAB 48dp（菜单项保持 44dp）；
  * - D3：手动隐藏期「滚离底部自动出现」暂停（peek 驻留恒在）；
  * - D5：菜单展开期容器拖拽禁用，右划由外点收起层消费（只收菜单不滑走）。
  */
 
-/** #192 peek 驻留时贴边露出的宽度（dp）≈ 44dp 按钮的 1/4。 */
+/** #192 peek 驻留时贴边露出的宽度（dp）≈ 48dp 按钮的 1/4。 */
 internal val FabPeekVisible = 12.dp
 
 /** #192 peek 驻留透明度。 */
 internal const val FabPeekAlpha = 0.35f
 
 /**
- * #192 v5：FAB 滑动隐藏容器（Peek 模式）。
+ * #192 v5c：FAB 滑动隐藏容器（Peek 模式，稳定 dock 模型）。
  *
- * [dragSign] 隐藏方向物理符号（end 侧 +1 向右 / start 侧 -1 向左；RTL 由调用方换算）。
+ * [dragSign] 隐藏方向物理符号（end 侧 +1 向右 / start 侧 -1 向左）。
  * [hidden] 状态驱动锚点目标（true→Peeking / false→Visible，spring 过渡）。
+ * [buttonEdgeInset] 按钮贴 dock 侧边缘距容器 dock 侧边缘的距离（菜单 FAB 内部
+ * padding 16dp；左 FAB 按钮右缘即容器右缘 = 0dp）。
  *
- * 锚点（官方 AnchoredDraggableLayoutDependentAnchorsSample 模式，onSizeChanged
- * 动态更新）：Visible=0f ↔ Peeking=±(width−peek)，符号表达方向（官方
- * SwipeToDismissBox 约定）。
+ * dock = (W − inset − peek) × dragSign：恰留 peek 的按钮本体贴屏缘。
  *
  * align 挂载点（教训保持）：align 是 ParentDataModifier 只对直接父 Box 生效——
  * [modifier]（含 BottomStart/BottomEnd）挂本容器（ChatScreen Box 直接子级）。
@@ -110,31 +114,23 @@ private fun SwipeHideFabContainer(
     onHide: () -> Unit,
     onRestore: () -> Unit,
     dragEnabled: Boolean = true,
-    content: @Composable (reportButtonBounds: Modifier) -> Unit,
+    buttonEdgeInset: Dp = 16.dp,
+    content: @Composable () -> Unit,
 ) {
-    val density = LocalDensity.current
-    val peekPx = with(density) { FabPeekVisible.toPx() }
+    val peekPx = with(LocalDensity.current) { FabPeekVisible.toPx() }
+    val insetPx = with(LocalDensity.current) { buttonEdgeInset.toPx() }
     val state = remember { AnchoredDraggableState(FabSwipeAnchor.Visible) }
-    // 几何实测（v5b：dock 距离必须按按钮在容器内的真实边界算——容器含内边距，
-    // 用 width−peek 会让可见部分全是 padding，右 FAB 隐成全背景真机实证）
     var widthPx by remember { mutableStateOf(Float.NaN) }
-    var containerLeftPx by remember { mutableStateOf(Float.NaN) }
-    var buttonLeftPx by remember { mutableStateOf(Float.NaN) }
-    var buttonWidthPx by remember { mutableStateOf(Float.NaN) }
-    // dock 位移（有符号）：恰留 peekPx 的按钮本体在容器 dock 侧内
-    //   +1（右贴）：按钮左缘落到 W−peek：D=(W−peek)−(btnLeft−cntLeft)
-    //   −1（左贴）：按钮右缘落到 peek：  D=peek−((btnLeft−cntLeft)+btnW)
-    val dockPx = remember(dragSign) { mutableStateOf(Float.NaN) }
+    var dockPx by remember { mutableStateOf(Float.NaN) }
     // 进场：从 dock 侧滑入 + 渐显
     val appear = remember { Animatable(0f) }
     LaunchedEffect(Unit) { appear.animateTo(1f, tween(220)) }
-    LaunchedEffect(Unit) {
-        snapshotFlow { Triple(widthPx, buttonLeftPx, buttonWidthPx) }.collect { (w, bl, bw) ->
-            if (!w.isNaN() && !bl.isNaN() && !bw.isNaN() && !containerLeftPx.isNaN()) {
-                val internal = bl - containerLeftPx
-                val d = if (dragSign > 0) (w - peekPx) - internal else peekPx - (internal + bw)
-                if (!d.isNaN() && abs(d) > 1f) {
-                    dockPx.value = d
+    LaunchedEffect(peekPx, insetPx) {
+        snapshotFlow { widthPx }.collect { w ->
+            if (!w.isNaN()) {
+                val d = (w - insetPx - peekPx) * dragSign
+                if (abs(d - dockPx) > 0.5f) {
+                    dockPx = d
                     state.updateAnchors(
                         DraggableAnchors {
                             FabSwipeAnchor.Visible at 0f
@@ -145,38 +141,35 @@ private fun SwipeHideFabContainer(
             }
         }
     }
-    // 状态驱动：hidden 翻转 → spring 滑到对应锚点（手势 settle 与状态动画同一引擎）
-    LaunchedEffect(hidden, dockPx.value) {
-        if (!dockPx.value.isNaN()) {
+    // 状态驱动：仅 hidden 翻转时 spring 到目标锚点（key 绝不含 dockPx——防 mutex 抢占）
+    LaunchedEffect(hidden) {
+        if (!dockPx.isNaN()) {
             state.animateTo(
                 if (hidden) FabSwipeAnchor.Peeking else FabSwipeAnchor.Visible,
                 spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
             )
         }
     }
-    // 手势 settle 到 Peeking → 通知上层置 hidden（与 LaunchedEffect 目标一致，幂等）
+    // 手势 settle 到 Peeking → 通知上层置 hidden（幂等）；drop(1) 防初始 emit
     LaunchedEffect(state) {
         snapshotFlow { state.currentValue }
+            .drop(1)
             .collect { if (it == FabSwipeAnchor.Peeking) onHide() }
     }
     // settle 回 Visible → 通知上层复位（拖拽恢复通道）
     LaunchedEffect(state) {
         snapshotFlow { state.currentValue }
+            .drop(1)
             .collect { if (it == FabSwipeAnchor.Visible) onRestore() }
-    }
-    // 按钮几何上报修饰符（调用方挂到 FAB 本体上，报告其在本容器内的边界）
-    val reportButtonBounds = Modifier.onGloballyPositioned { coords ->
-        buttonLeftPx = coords.positionInRoot().x
-        buttonWidthPx = coords.size.width.toFloat()
     }
     Box(
         modifier
             .onSizeChanged { widthPx = it.width.toFloat() }
-            .onGloballyPositioned { containerLeftPx = it.positionInRoot().x }
             .graphicsLayer {
+                // 首帧守卫：NaN（updateAnchors 未派发）视为 0（真机 FATAL 实证过）
                 val off = state.offset
                 val drag = if (off.isNaN()) 0f else off
-                val dock = if (dockPx.value.isNaN()) 1f else dockPx.value
+                val dock = if (dockPx.isNaN()) 1f else dockPx
                 translationX = drag + (1f - appear.value) * dock
                 // 透明度：进场渐显 × 随位移比例衰减至 peek 驻留值
                 val progress = (abs(drag) / abs(dock)).coerceIn(0f, 1f)
@@ -198,7 +191,7 @@ private fun SwipeHideFabContainer(
                 ),
             )
     ) {
-        content(reportButtonBounds)
+        content()
         // Peek 驻留时的 tap 拦截层：吃掉点击 → 恢复（不透传给 FAB 的 onClick）
         if (state.currentValue == FabSwipeAnchor.Peeking) {
             Box(
@@ -218,7 +211,7 @@ private fun SwipeHideFabContainer(
  * 56dp primaryContainer 药丸菜单项（titleMedium/24dp 图标）。
  * 唯一保留的定制：角标计数（Badge，功能性）。
  *
- * #192 v5：[hidden]/[onHide]/[onRestore] Peek 模式（贴边 1/4 + 半透明驻留）。
+ * #192 v5c：[hidden]/[onHide]/[onRestore] Peek 模式（贴边 1/4 + 半透明驻留）。
  * D5 两段式：展开期容器拖拽禁用，右划由外点收起层消费（仅收拢菜单）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -269,7 +262,7 @@ internal fun ChatFabMenu(
         onHide = onHide,
         onRestore = onRestore,
         dragEnabled = !expanded,
-    ) { reportButtonBounds ->
+    ) {
         FloatingActionButtonMenu(
             expanded = expanded,
             modifier = Modifier,
@@ -277,16 +270,15 @@ internal fun ChatFabMenu(
                 ToggleFloatingActionButton(
                     checked = expanded,
                     onCheckedChange = { expanded = it },
-                    // 描边（第二十轮，用户要求）：角半径冻结 16dp——形状恒定描边才贴边；
-                    // #192 report=按钮几何上报（容器据此算 dock 距离）
-                    modifier = reportButtonBounds.border(
+                    // 描边（第二十轮，用户要求）：角半径冻结 16dp——形状恒定描边才贴边
+                    modifier = Modifier.border(
                         1.dp,
                         MaterialTheme.colorScheme.outline,
                         RoundedCornerShape(16.dp),
                     ),
-                    // 尺寸（第二十轮：用户「稍微大一些」）44→展开 48dp；
+                    // 尺寸（2026-08-23 用户「按钮再大一些，item 不变」）：48→展开 52dp；
                     // 色彩/尺寸 morph 保留，角 morph 冻结（与描边形状匹配）
-                    containerSize = ToggleFloatingActionButtonDefaults.containerSize(44.dp, 48.dp),
+                    containerSize = ToggleFloatingActionButtonDefaults.containerSize(48.dp, 52.dp),
                     containerCornerRadius =
                         ToggleFloatingActionButtonDefaults.containerCornerRadius(16.dp, 16.dp),
                     // Secondary 变体（第十九轮，用户选 B）：官方规格三变体之一——
@@ -359,7 +351,7 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
 ) {
     FloatingActionButtonMenuItem(
         onClick = onClick,
-        // 高度 44dp（官方 56dp）+ stadium 描边（第二十轮，与按钮描边同族）
+        // 高度 44dp（官方 56dp，用户 2026-08-23 指示 item 保持现状）+ stadium 描边（第二十轮）
         modifier = Modifier
             .height(44.dp)
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)),
@@ -383,16 +375,15 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
 
 /**
  * 滚动到底部 FAB：底部左侧（与右下菜单 FAB 镜像，start 16dp=菜单内部横向 padding），
- * 与菜单 FAB 完全同规格：44dp/圆角 16dp/secondaryContainer/1dp outline 描边/
- * 24dp 图标 onSecondaryContainer tint。
+ * 与菜单 FAB 同规格：48dp/圆角 16dp/secondaryContainer/1dp outline 描边/
+ * 24dp 图标 onSecondaryContainer tint（2026-08-23 用户「按钮再大一些」44→48dp）。
  *
  * 一致性关键（第二十一轮实测修复）：普通 FloatingActionButton 内部强制
- * LocalMinimumInteractiveComponentSize(48dp) 最小触达，44dp 会被顶到 48dp——
- * 与 Toggle FAB（不吃该机制，44dp 原样）差 4dp。此处 provision 0dp 关闭强制
- * （FloatingActionButtonMenuItem 源码同款手法），双圆严格同径。
+ * LocalMinimumInteractiveComponentSize(48dp) 最小触达——provision 0dp 关闭强制
+ * （FloatingActionButtonMenuItem 源码同款手法），双圆严格同径（Toggle 48dp 不吃该机制）。
  * isAtBottom 的 .value 读取限制在本函数小作用域（B-F5 重组隔离沿袭）。
  *
- * #192 v5 Peek 模式 + D3：手动隐藏优先——hidden 期间 peek 驻留恒在（不因回底
+ * #192 v5c Peek 模式 + D3：手动隐藏优先——hidden 期间 peek 驻留恒在（不因回底
  * 消失）；仅未隐藏时保留「在底部自动隐藏」原语义。
  */
 @Composable
@@ -413,14 +404,15 @@ internal fun ChatScrollBottomFab(
             hidden = hidden,
             onHide = onHide,
             onRestore = onRestore,
-        ) { reportButtonBounds ->
+            // 左 FAB 按钮右缘即容器右缘（无 end padding）→ dock 侧 inset = 0
+            buttonEdgeInset = 0.dp,
+        ) {
             FloatingActionButton(
                 onClick = onClick,
-                // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线；
-                // #192 reportButtonBounds=按钮几何上报（容器据此算 dock 距离）
-                modifier = reportButtonBounds
+                // 16dp 底距 = 菜单内部按钮下距，双 FAB 同基线
+                modifier = Modifier
                     .padding(start = 16.dp, bottom = 16.dp)
-                    .size(44.dp)
+                    .size(48.dp)
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
