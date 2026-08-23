@@ -93,7 +93,7 @@ internal fun ImageThumbnailRow(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // 解码失败时的回退占位符
+                // 解码失败时的降级占位符
                 Box(
                     modifier = Modifier
                         .size(80.dp)

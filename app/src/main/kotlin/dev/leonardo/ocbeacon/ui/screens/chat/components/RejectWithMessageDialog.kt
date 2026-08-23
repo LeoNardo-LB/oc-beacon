@@ -16,7 +16,7 @@ import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 
 /**
- * Dialog to provide a rejection reason when denying a sub-agent permission.
+ * Dialog to provide a rejection reason when denying a subagent permission.
  */
 @Composable
 internal fun RejectWithMessageDialog(
