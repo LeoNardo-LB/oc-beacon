@@ -150,7 +150,7 @@ class ChatMessageRenderingTest : BaseChatTest() {
      *
      * anAssistantMessage(error = "...") 创建 ErrorInfo(name = "TestError")。
      * formatAssistantErrorMessage 返回 "TestError"（当 data 为 null 时
-     * 回退到 name）。错误显示在 assistant 卡片底部。
+     * 降级到 name）。错误显示在 assistant 卡片底部。
      *
      * 包含一个 text part 以便消息能通过 messageListState 中
      * 的 assistant-with-parts 过滤器。

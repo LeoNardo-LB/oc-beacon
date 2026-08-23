@@ -251,7 +251,7 @@ class ChatInteractionTest : BaseChatTest() {
     }
 
     /**
-     * 测试 6：会话忙碌时，中止/停止按钮会调用 abort API。
+     * 测试 6：会话忙碌时，中断/停止按钮会调用 abort API。
      *
      * 当 isBusy && 文本为空时，发送按钮转换为停止按钮。
      * isBusy 派生自 sessionMeta.sessionStatus（Busy 或 Retry）。

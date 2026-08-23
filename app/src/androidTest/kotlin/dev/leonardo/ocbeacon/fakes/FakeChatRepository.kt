@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
 
 /**
- * Fake ChatRepository，包含 46 个方法。
+ * Fake ChatRepository，包含 49 个 override。
  *
  * 模式：
  * - Flow 方法返回公共的 MutableStateFlow 字段（测试设置 .value）

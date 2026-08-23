@@ -22,7 +22,7 @@ import org.junit.Test
  *
  * 验证 `docs/research/sse-scroll-stability-iron-laws.md` 中描述的
  * ChatMessageList 行为：
- * - 高度补偿只跟踪流式消息
+ * - 高度补偿只跟踪流式 turn
  * - shouldCompensate 在用户回到底部时重置
  * - 已完成消息不会触发补偿
  *
@@ -86,9 +86,9 @@ class ChatScrollStabilityTest : BaseChatTest() {
     // ============ 测试用例 ============
 
     /**
-     * 测试 1：流式消息增长时，视口保持在底部。
+     * 测试 1：流式 turn增长时，视口保持在底部。
      *
-     * 当流式消息变长（token 到达）且用户位于底部时，视口应当跟随 ——
+     * 当流式 turn变长（token 到达）且用户位于底部时，视口应当跟随 ——
      * 新内容必须可见。
      */
     @Test
@@ -151,7 +151,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
         // 验证一条较早的消息现已可见（确认我们滚动成功）
         composeRule.onNodeWithText("Question number 0", substring = true).assertIsDisplayed()
 
-        // 增长流式消息（模拟 token 到达）
+        // 增长流式 turn（模拟 token 到达）
         growText(streamingId, longText("TOKEN_GROWTH"))
         composeRule.waitForIdle()
 
@@ -207,7 +207,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
     /**
      * 测试 4：streamingMsgId 跟踪最后一条未完成的 assistant 消息。
      *
-     * 当存在两条 assistant 消息（第一条已完成、第二条流式）时，流式消息
+     * 当存在两条 assistant 消息（第一条已完成、第二条流式）时，流式 turn
      * 应当正确渲染。单条消息卡片上没有可视的流式指示器 —— 流式状态仅
      * 控制内部的 `layout{}` 高度补偿修饰符。
      *
@@ -330,7 +330,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
     /**
      * 测试 7：已完成消息的高度变化不触发补偿。
      *
-     * `layout{}` 补偿修饰符仅应用于流式消息（`isStreamingMsg == true`）。
+     * `layout{}` 补偿修饰符仅应用于流式 turn（`isStreamingMsg == true`）。
      * 增长一条已完成消息的内容不应导致视口偏移。
      *
      * 方法：从底部滚离，增长一条已完成消息，然后验证视口位置未变
@@ -363,7 +363,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
             )
         }
 
-        // 底部的流式消息
+        // 底部的流式 turn
         entries.add(userWithText("Latest question", "u-last"))
         entries.add(
             anAssistantMessage(streaming = true, id = streamingId, sessionId = TEST_SESSION) {
@@ -382,7 +382,7 @@ class ChatScrollStabilityTest : BaseChatTest() {
         // 验证我们已滚动到能看到较早内容
         composeRule.onNodeWithText("Filler answer 0", substring = true).assertIsDisplayed()
 
-        // 仅增长已完成消息（不增长流式消息）
+        // 仅增长已完成消息（不增长流式 turn）
         growText(completedId, "Short cat answer. " + longText("COMPLETED_GROWTH", repeat = 20))
         composeRule.waitForIdle()
 
