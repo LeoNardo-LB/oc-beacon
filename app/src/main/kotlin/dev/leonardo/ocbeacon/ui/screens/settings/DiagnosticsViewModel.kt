@@ -206,7 +206,7 @@ class DiagnosticsViewModel @Inject constructor(
         }
     }
 
-    /** 失败重试（spec：草稿保留 + 一键重试）。 */
+    /** 失败重试（spec：草稿总是重建（提交后覆盖）+ 一键重试）。 */
     fun retrySubmit() {
         val cur = _reportState.value
         if (cur !is ReportUiState.Failed) return

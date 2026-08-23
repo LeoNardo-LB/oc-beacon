@@ -19,7 +19,7 @@ import dev.leonardo.ocbeacon.data.api.terminal.TerminalApiImpl
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 
 /**
- * 6 个领域 API 接口的 Hilt 绑定。
+ * 7 个领域 API 接口的 Hilt 绑定。
  *
  * 每个 `*ApiImpl` 都是 `@Singleton` + `@Inject constructor`，因此此处的绑定是
  * 无作用域别名——作用域由实现类持有，与 [DomainModule] 保持一致。

@@ -541,7 +541,7 @@ class AppNotificationManager @Inject constructor(
     }
 
     /**
-     * 提取最新的 N 条用户消息（非合成）用于 MessagingStyle 显示。
+     * 提取最新的 N 条用户消息（非合成）用于通知正文预览（InboxStyle/纯文本）。
      * 消息按从旧到新排序。
      */
     fun findLatestUserMessages(sessionId: String, limit: Int): List<UserMessagePreview> {
