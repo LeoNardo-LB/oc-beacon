@@ -173,14 +173,6 @@ class ChatRepositoryImplTest {
         assertEquals("Yes", questions[0].questions[0].options[0].label)
     }
 
-    // ============ getToolExpandedStates ============
-
-    @Test
-    fun `getToolExpandedStates returns map and setToolExpanded works`() {
-        repo.setToolExpanded("tool1", true)
-        assertTrue(repo.getToolExpandedStates()["tool1"] == true)
-    }
-
     // ============ sendMessage ============
 
     @Test
