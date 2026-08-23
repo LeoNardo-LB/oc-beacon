@@ -47,7 +47,7 @@ val LocalSessionDiffs = compositionLocalOf<Map<String, List<FileDiff>>> { emptyM
 /**
  * #182（2026-08-21）：Task 工具卡片展开时的全量输出拉取器。
  * 策略（grilling Q13 定案）：part 优先（重拉父会话消息按 part id 取服务器
- * 全量 output）→ part 截断/缺失时回退子会话 transcript。DB 仍存 500 字符
+ * 全量 output）→ part 截断/缺失时降级子智能体会话 transcript。DB 仍存 500 字符
  * 预览（#79 体积目标不变）。返回 null = 两路均未取到（卡片用本地预览）。
  */
 val LocalTaskOutputFetcher = compositionLocalOf<(suspend (partId: String, subSessionId: String?) -> String?)?> { null }

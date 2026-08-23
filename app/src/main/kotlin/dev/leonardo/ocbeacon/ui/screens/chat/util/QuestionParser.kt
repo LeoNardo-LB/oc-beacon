@@ -117,7 +117,7 @@ internal object QuestionParser {
             }
         }
 
-        // 回退：输入无问题时从输出解析
+        // 降级：输入无问题时从输出解析
         if (items.isEmpty()) {
             val qSection = output.substringAfter("questions:", "").trim()
             val jsonPart = qSection.substringBefore("\nUser has answered").substringBefore("\nAsked").trim()
@@ -154,7 +154,7 @@ internal object QuestionParser {
                 items[idx] = items[idx].copy(answers = answers)
             }
         }
-        // 回退：若无 "q"="a" 对，尝试最后一个 = 号之后的纯答案
+        // 降级：若无 "q"="a" 对，尝试最后一个 = 号之后的纯答案
         if (answerPairs.isEmpty() && items.isNotEmpty()) {
             val afterEquals = answerSection.substringAfter("=", "").trim().trim('"')
             val fallbackAnswers = afterEquals.split(",").map { it.trim() }.filter { it.isNotBlank() }

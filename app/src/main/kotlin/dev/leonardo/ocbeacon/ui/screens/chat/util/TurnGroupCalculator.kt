@@ -8,7 +8,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
  * 一个 "turn" 是两条用户消息（或列表开头/结尾）之间的
  * 连续 assistant 消息序列。
  *
- * **synthetic 独立规则（2026-08-12 用户决策）**：synthetic 系统通知
+ * **synthetic 独立规则（2026-08-12 用户决策）**：synthetic 合成通知
  * （后台任务/subagent 完成注入）是**独立消息**，渲染为独立气泡
  * （与 user 消息同构）——不并入 assistant turn。
  *
