@@ -29,11 +29,11 @@ private const val TAG = "SessionLifecycleDelegate"
  *
  * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的
  * 运行时上下文（SavedStateHandle 路由参数、ViewModel 的协程
- * 作用域和消息加载/观察的跨集群回调），Hilt 无法提供这些。
+ * 作用域和消息加载/观察的跨状态簇回调），Hilt 无法提供这些。
  * ChatViewModel 直接构造它并将每个成员作为门面重新暴露，
  * 因此 UI 文件无需改动。
  *
- * 跨集群副作用（加载消息、启动 SSE 观察）作为回调注入，
+ * 跨状态簇副作用（加载消息、启动 SSE 观察）作为回调注入，
  * 使 [ensureSession] 的 mutex 仍包裹完整的
  * 临界区，保留原始的单次执行语义。
  */
@@ -96,7 +96,7 @@ internal class SessionLifecycleDelegate(
 
     /**
      * 通过 V1 API 加载会话信息，然后通过注入的回调触发
-     * 跨集群消息加载和 SSE 观察。
+     * 跨状态簇消息加载和 SSE 观察。
      *
      * 仅对已有会话（非空 [sessionId]）安全调用。
      */
@@ -118,11 +118,11 @@ internal class SessionLifecycleDelegate(
             }
         }
 
-        // 2. 跨集群：通过 V1 API 加载消息（currentMessageLimit + listMessages）
+        // 2. 跨状态簇：通过 V1 API 加载消息（currentMessageLimit + listMessages）
         runCatching { onMessagesNeedLoading() }
             .onFailure { if (it !is CancellationException) AppLogger.e(TAG, "Failed to load messages", it) }
 
-        // 3. 跨集群：开始观察 chatRepository flow（由 SSE EventDispatcher 驱动）
+        // 3. 跨状态簇：开始观察 chatRepository flow（由 SSE EventDispatcher 驱动）
         runCatching { onStartObservingMessages() }
             .onFailure { AppLogger.e(TAG, "Failed to start observing messages", it) }
     }
