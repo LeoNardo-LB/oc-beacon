@@ -82,7 +82,7 @@ import java.io.File
 import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
 
-private val LEVELS = listOf("ERROR", "WARN", "INFO", "DEBUG")
+private val LEVELS = listOf("FATAL", "ERROR", "WARN", "INFO", "DEBUG")
 
 /**
  * 日志条目的内容派生稳定键（L-11）——队列头淘汰/过滤变化时存留条目 key 保持稳定，
