@@ -65,7 +65,7 @@
 - [~] **#191 L2 stale 等待态无限循环——pending-input 会话 5s 轮询风暴自适应降频** `session` `perf`
   - 根因：等待提问/子会话期服务器恒报 busy + zombie guard 跳过 + RestValidation 不刷 lastEventAt → 5s 循环无终止（V1/V2 同构：V1 二进制 + V2 真机双实证；状态本身正确，错在观测节奏，24 WARN/min + 12 REST/min）
   - 方案 B 已实现（5693ddb6）：REST 确认等待态打标 waitingConfirmedAt → checkStaleness 60s 窗口内跳过 → SSE 真实事件/非 Busy 复核清标；单测 24/24 绿（新增 5 例）
-  - **待真机验证**：挂机等待态会话 3min+，logcat 计数 L2/zombie-skip WARN ≤2 条/min（修复前 24）
+  - **真机验证通过**（08-23）：等待态会话挂机 5.5min，WARN 24/min → ~1.6/min、REST ~0.9 次/min（降幅 ≈93%），zombie 误杀防护/Busy 保持语义不变
   - → `docs/journal/2026-08-23-issue-cleanup-triage.md` · `docs/journal/2026-08-23-beta-readiness-review.md`
 
 

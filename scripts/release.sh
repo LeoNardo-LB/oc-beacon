@@ -422,7 +422,7 @@ fi
 # 无本通道 tag 时退到最后正式版，再无则根提交。
 case "$FLAVOR" in
   stable) NOTES_SINCE="$LAST_STABLE" ;;
-  beta) NOTES_SINCE="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-beta$' | head -n1 || true)" ;;
+  beta) NOTES_SINCE="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-beta(\.[0-9]+)?$' | head -n1 || true)" ;;
   dev)  NOTES_SINCE="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9]+$' | head -n1 || true)" ;;
 esac
 if [ -z "$NOTES_SINCE" ]; then

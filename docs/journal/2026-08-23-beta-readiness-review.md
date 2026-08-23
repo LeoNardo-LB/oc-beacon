@@ -38,9 +38,20 @@
 FSM 语义/zombie 禁用/E2E-G 决策/RestValidation 不刷 lastEventAt 全部不动。
 单测：SessionStateServiceTest 19→24 例全绿（打标 pending/children、非等待清标、SSE 清标、非 Busy 清标）。
 
-### 真机验证（进行中）
+### 真机验证（通过，2026-08-23 17:09–17:15，houji devRelease 5693ddb6 自建包）
 
-（待补：挂机等待态会话 logcat 计数）
+构造：V2 服务器 curl 建「#191验证-等待态」会话 + prompt 指示 agent 用 question 工具提问（tool question status=running、
+/active 恒 running）→ 冷启动 App 挂机 5.5min 采集 `logcat -s SessionStateService`。
+
+| 指标 | 修复前（journal 取证） | 修复后实测 |
+|---|---|---|
+| L2 stale WARN | 12 条/min | 6 条 / 5.5min（首触发 15s + 每 65s 一次 re-confirm） |
+| zombie-skip WARN | 12 条/min | 3 条 / 5.5min（仅 quietMs>3min 后的 re-confirm 轮触发） |
+| REST 校验 | 12 次/min | ~0.9 次/min |
+| 降幅 | — | **≈93%**（设计估算 ~92%） |
+
+细节核验：`(waiting re-confirm)` 后缀按设计出现；zombie 误杀防护与 Busy 保持语义不变；答题后事件流恢复
+由 SSE 清标路径覆盖（单测）。测试会话已 interrupt 释放。
 
 ## 四、beta 发版评估
 
@@ -48,5 +59,15 @@ FSM 语义/zombie 禁用/E2E-G 决策/RestValidation 不刷 lastEventAt 全部�
 - 内容事实：自上个公开 beta（v0.3.0-beta.3）以来 **99 feat / 837 commits**（Termux 终端栈、
   ModelPicker 重做、堆积队列管线、会话内音效、GitHub 错误上报、FAB v6 等）——按 §2.2 feat→MINOR
   应为 `0.4.0-beta.1`。**待用户拍板**（--force-bump=minor）。
+
+## 五、版本线模型重构（913fa11f，用户定规）
+
+用户模型：同一 X.Y.Z 走完 dev → beta → 正式；beta 每线单发无序号（`X.Y.Z-beta`），dev 线内迭代 `dev.N`；
+通道切换永不 bump；新线按内容递进（feat→+0.1.0 / fix→+0.0.1）。
+
+落地：`release.sh` 重写版本计算块（通道闭合检测 + 开新线推导基准 + 防回退护栏）；
+`ci-determine-flavor.sh/.ps1` 适配无序号 beta 后缀（原 `*-beta.*` 匹配会漏判成 stable）；
+`release-workflow.md` §2.1/2.3/3.3/4.5 同步。七场景克隆回归全绿：
+A 0.3.1-beta / B 0.3.1 / C dev.23 / D beta 重发→0.3.2-beta / E 正式后 dev→0.3.2-dev.1 / F beta→stable 线内晋升 / G force minor。
 
 （发版执行记录待补）
