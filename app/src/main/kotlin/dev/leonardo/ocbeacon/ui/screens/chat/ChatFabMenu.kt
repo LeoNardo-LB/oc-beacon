@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonMenu
@@ -72,9 +73,6 @@ internal enum class FabEdge { START, END }
 /** #192 v2 锚点值（Foundation 官方 AnchoredDraggable 引擎驱动）。 */
 internal enum class FabSwipeAnchor { Visible, Hidden }
 
-/** #192 隐藏滑出距离（dp）：FAB 向屏缘平移量（44dp 自身 + 16dp 边距）。 */
-internal val FabExitDistance = 60.dp
-
 /** #192 拉杆可拖出的最大跟手位移（dp）。 */
 internal val FabTabPullMax = 48.dp
 
@@ -108,13 +106,15 @@ private fun SwipeHideFabContainer(
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
-    val exitPx = with(density) { FabExitDistance.toPx() }
+    // v3（2026-08-23 用户观感反馈「生硬/悬空」）：拖拽只负责手势判定（跟手 + 过阈值），
+    // 收尾动画交官方 Modifier.animateFloatingActionButton（MotionScheme Fast Spatial
+    // spring 向屏缘缩放 + Fast Effects 渐隐）——settle 到 Hidden 立即切 visible=false，
+    // 无固定 60dp 平移距离，不存在「滑一半悬空」。恢复反向播放同款官方动画。
+    val exitPx = with(density) { 72.dp.toPx() } // 判定行程（非动画终点）
     val state = remember { AnchoredDraggableState(FabSwipeAnchor.Visible) }
     LaunchedEffect(exitPx) {
         state.updateAnchors(
             DraggableAnchors {
-                // 官方符号约定（SwipeToDismissBox 源码）：隐藏方向由锚点符号表达，
-                // 不用 reverseDirection——END 侧 +exitPx（右拖），START 侧 -exitPx（左拖）
                 FabSwipeAnchor.Visible at 0f
                 FabSwipeAnchor.Hidden at exitPx * dragSign
             }
@@ -129,9 +129,10 @@ private fun SwipeHideFabContainer(
         modifier
             .graphicsLayer {
                 // 首帧守卫：updateAnchors 在 LaunchedEffect 派发，首帧 draw 时 offset
-                // 仍为 NaN——requireOffset() 抛 ISE 崩溃（真机 05:08 FATAL 实证）。NaN 视为 0。
+                // 仍为 NaN——requireOffset() 抛 ISE 崩溃（真机 FATAL 实证）。NaN 视为 0。
+                // 拖拽期跟手位移（阻尼 0.6：位移小于手指，官方 dismiss 手感惯例）。
                 val off = state.offset
-                translationX = if (off.isNaN()) 0f else off
+                translationX = if (off.isNaN()) 0f else off * 0.6f
             }
             .anchoredDraggable(
                 state = state,
@@ -251,6 +252,7 @@ internal fun ChatFabMenu(
         return
     }
 
+
     // 外点收起层（仅展开时存在；无视觉、整屏拦截，画在菜单之下）
     if (expanded) {
         Box(
@@ -262,9 +264,10 @@ internal fun ChatFabMenu(
 
     val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
 
-    // align 挂本容器（直接子级才吃 ParentData）；D5 在 onHidden 前拦截展开态
+    // v3 官方动画包裹（align 仍挂最外层直接子级）：hidden 翻转时向屏缘缩放收放
+    Box(modifier) {
+        Box(Modifier.animateFloatingActionButton(visible = !hidden, alignment = Alignment.BottomEnd)) {
     SwipeHideFabContainer(
-        modifier = modifier,
         dragSign = +1f,
         onHidden = { if (expanded) expanded = false else onHide() },
     ) {
@@ -343,6 +346,8 @@ internal fun ChatFabMenu(
             )
         }
     }
+    }
+    }
 }
 
 /** FAB 菜单入口项（M3 全默认：56dp primaryContainer 药丸/titleMedium/24dp 图标；角标挂 icon）。 */
@@ -413,7 +418,9 @@ internal fun ChatScrollBottomFab(
     }
     if (isAtBottomState.value) return // 在底部时不显示
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        SwipeHideFabContainer(modifier = modifier, dragSign = -1f, onHidden = onHide) {
+        Box(modifier) {
+            Box(Modifier.animateFloatingActionButton(visible = !hidden, alignment = Alignment.BottomStart)) {
+        SwipeHideFabContainer(modifier = Modifier, dragSign = -1f, onHidden = onHide) {
             FloatingActionButton(
                 onClick = onClick,
                 // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
@@ -430,6 +437,8 @@ internal fun ChatScrollBottomFab(
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }
+        }
+        }
         }
     }
 }
