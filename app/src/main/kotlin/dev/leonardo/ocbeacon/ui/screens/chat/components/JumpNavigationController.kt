@@ -23,7 +23,12 @@ import kotlinx.coroutines.withTimeoutOrNull
  *
  * 状态机（决策可单测）：
  *   Idle → Preparing(蒙版: 预解析+估算定位) → Measuring(透明: 测量+列表同步)
- *        → Settling(收敛修正) → Displayed(显示+稳定窗口 1.5s) / Failed(超时)
+ *        → Settling(收敛修正) → Displayed(显示+稳定窗口 900ms) / Failed(超时)
+ *
+ * 三窗口勿混淆（2026-08-20 C-R2/D-4 起）：①本滚动稳定窗口=900ms（Displayed 后
+ * gap 静默修正，见 measureAndSettle 尾部 while 循环）；②jumpLock 解锁缓冲=
+ * [JUMP_UNLOCK_DELAY_MS]=300ms；③渲染供给层分片冻结=跳转终点后 2s
+ * （RenderSupplyCoordinator F3 门控——「终点+2s 内不提交」）。
  *
  * UI 派生（单一真相源——蒙版/门控不再各自为政）：
  *   - showMask = Preparing || Measuring || Settling
