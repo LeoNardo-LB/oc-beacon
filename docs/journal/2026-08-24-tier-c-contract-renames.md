@@ -68,4 +68,26 @@
 4. 与 #201/#203 同构结论：Tier C 的真实价值在审计取证与安全网（wire 矩阵/迁移测试/契约锁），而非机械改名。
 - 处置：卡片转 [~] 待验证（验收内容=零改名裁决）。
 
+## 真机验证轮（houji e69a99d8，devDebug 1787505357 覆盖升级装）
+
+升级路径：1787501485（#200 末期构建）→ 1787505357（Tier C 构建），pm install -r 保留全量数据。
+
+- **启动/迁移**：升级首启无崩溃；DataStore 键检（preferences_pb grep）——session_drafts/session_last_reply_time/session_read_times_*/unread_state_v2_migrated 全部完好；collapse_tools 与 auto_expand_tools 均不存在 = 设备从未显式设置（默认值），迁移走 no-op 路径（单测 7/7 覆盖值携带路径）。
+- **Room 数据无损（#203 旁证）**：会话列表 13+ 会话、消息流/推理块（思考完毕 · 2.2s）/智能体（Build）/工具输出（ok ✅）全部正常渲染。
+- **#204 文案**：标签管理 →「新增标签」对话框完整——标题「新增标签」、输入框「标签名称」（tag_name）、颜色/图标/确定；零「分类」字样残留。
+- **#202 开关写路径**：设置 → 聊天显示 →「工具结果自动展开」开关切换两次后 preferences_pb 检键——**auto_expand_tools ×1、collapse_tools ×0**：写入只落新键，旧键零复活。
+- **#205 导航**：会话列表 → 会话详情跳转正常（sessionId/directory 参数链工作）。
+- 遗留人工项：中断提示文案（chat_interrupted）需一次真实 V2 会话中断才可见——归入用户验收清单。
+
+## 交付物汇总（待用户验收）
+
+| 卡 | 裁决/交付 | commit |
+|---|---|---|
+| 前置 | 渠道 ID/app_language 单源 + 契约锁 | 5a7a23f1 |
+| #201 | 零改名 + WireCompatMatrixTest 9 测试 | 574fe194 |
+| #202 | collapse_tools→auto_expand_tools 迁移（TDD 7 测试 + 23 处改名） | 850a037a |
+| #203 | 零改名（术语表已裁现名为规范名本体） | 6b19e76c |
+| #204 | i18n 4 改 4 删 ×15 语言 + 8 语言译文 | 2d2a960f |
+| #205 | 零改名（三类分治：系统/内部单源/外部契约保护） | 096e5e91 |
+
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->
