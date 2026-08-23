@@ -60,6 +60,12 @@ private const val STATE_RETENTION_MS = 24 * 60 * 60 * 1000L
  *  强制转 Idle 恢复列表状态。真实执行中即使模型思考也会有 reasoning delta。 */
 internal const val ZOMBIE_BUSY_MS = 3 * 60 * 1000L
 
+/** #191（方案 B·等待确认自适应降频）：REST 已确认等待态（pending 输入/活跃子会话）的
+ * L2 抑制窗口。窗口内 checkStaleness 跳过该会话的 L2 重触发——等待态观测节奏从 5s 风暴
+ * 降为 60s 复核一次（日志/REST 各降 ~92%）；窗口过后 L2 复触 → REST 复核 → 重新打标。
+ * 代价：SSE 死亡 + 用户在他端答题的最坏发现延迟 = 本窗口（状态本身不受影响）。 */
+internal const val WAITING_CONFIRM_WINDOW_MS = 60_000L
+
 @Singleton
 class SessionStateService @Inject constructor(
     @param:ApplicationScope private val appScope: CoroutineScope,
@@ -90,6 +96,13 @@ class SessionStateService @Inject constructor(
      */
     private val activeValidations = ConcurrentHashMap<String, Job>()
 
+    /**
+     * #191（方案 B）：REST 确认 Busy + (pending 输入 | 活跃子会话) 的合法等待态打标
+     * （sessionId → 确认时刻）。窗口内 checkStaleness 跳过 L2 重触发；任何真实 SSE
+     * 事件（onSseEvent 映射非空）或非 Busy 复核结果即清标。internal 供单测 seed/断言。
+     */
+    internal val waitingConfirmedAt = ConcurrentHashMap<String, Long>()
+
     /** 2026-08-16（状态对账）：正向自愈连续采样计数（active 含但 FSM 非 Busy）。 */
     private val activePositiveStreak = ConcurrentHashMap<String, Int>()
 
@@ -119,8 +132,14 @@ class SessionStateService @Inject constructor(
         val expired = mutableListOf<String>()
         _fsmStates.value.forEach { (sessionId, state) ->
             if (state.core is SessionStatus.Busy && now - state.lastEventAt > STALENESS_THRESHOLD_MS) {
-                AppLogger.w(TAG, "[$sessionId] L2 stale for ${now - state.lastEventAt}ms, triggering REST validation")
-                triggerRestValidation(sessionId)
+                // #191（方案 B）：60s 窗口内已 REST 确认的等待态（pending 输入/子会话）跳过
+                // L2 重触发——抑制 5s 级 WARN+REST 风暴；窗口过后照常复核（保持发现能力）。
+                val confirmedAt = waitingConfirmedAt[sessionId]
+                if (confirmedAt == null || now - confirmedAt >= WAITING_CONFIRM_WINDOW_MS) {
+                    AppLogger.w(TAG, "[$sessionId] L2 stale for ${now - state.lastEventAt}ms" +
+                        if (confirmedAt != null) " (waiting re-confirm)" else "")
+                    triggerRestValidation(sessionId)
+                }
             }
             if (state.core is SessionStatus.Idle && collaborator.hasIncompleteAssistant(sessionId)) {
                 AppLogger.w(TAG, "[$sessionId] L5 inconsistency: Idle but has incomplete messages")
@@ -137,6 +156,7 @@ class SessionStateService @Inject constructor(
             AppLogger.i(TAG, "Sweeping ${expired.size} stale session state(s): $expired")
             _fsmStates.update { it - expired.toSet() }
             _histories.update { it - expired.toSet() }
+            expired.forEach(waitingConfirmedAt::remove) // #191：防打标 map 无界增长
         }
     }
 
@@ -323,13 +343,18 @@ class SessionStateService @Inject constructor(
         applyTransition(sessionId, FsmEvent.ClientSendParts)
     }
     override fun onClientAbort(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientAbort)
-    override fun onRestValidation(sessionId: String, status: SessionStatus) =
+    override fun onRestValidation(sessionId: String, status: SessionStatus) {
+        // #191：非 Busy 复核结果 = 等待已结束（答题完成/子会话结束）→ 清等待标
+        if (status !is SessionStatus.Busy) waitingConfirmedAt.remove(sessionId)
         applyTransition(sessionId, FsmEvent.RestValidation(status))
+    }
 
     fun onSseEvent(event: SseEvent, sessionId: String, serverId: String) {
         // #110（D2-12）：记录事件投递来源——REST 校验的服务器归属。
         sessionServerOwnership[sessionId] = serverId
         val fsmEvent = mapSseEventToFsm(event) ?: return
+        // #191：会话苏醒（delta/idle/status 等任何映射事件）→ 等待确认标作废
+        waitingConfirmedAt.remove(sessionId)
         applyTransition(sessionId, fsmEvent)
     }
 
@@ -522,20 +547,28 @@ class SessionStateService @Inject constructor(
                         // 3 分钟完全无事件 = 僵尸；服务器恢复执行时 execution.started
                         // 事件会重新置 Busy）。
                         if (serverStatus is SessionStatus.Busy) {
+                            // 2026-08-14 走查修复（误杀防护）：pending question/permission 时服务器在合法
+                            // 等待用户输入（此期间无 SSE 事件属正常，非僵尸）——不得 interrupt（会杀掉等待中的
+                            // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
+                            // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查。
+                            val hasPendingUserInput = collaborator.hasPendingUserInput(sessionId)
+                            // 2026-08-15（僵尸误杀修复·二）：有活跃子智能体会话（后台任务/
+                            // subagent running）时主会话 running 是 V2 drain 合法等待
+                            // 状态——不 interrupt（否则等待后台任务的主会话被误杀，
+                            // 用户零操作被打断）。仅本地转 Idle 跟随显示。
+                            val hasActiveChildren = collaborator.hasActiveChildren(sid, sessionId)
+                            // #191（方案 B）：服务器 Busy + (pending 输入 | 活跃子会话) = 合法等待态
+                            // → 打标抑制 checkStaleness 的 L2 重触发（60s 窗口，风暴降 ~92%）；
+                            // 否则清标（新出现的非等待 Busy 恢复 5s 级 L2 节奏）。两版本同构无分支。
+                            if (hasPendingUserInput || hasActiveChildren) {
+                                waitingConfirmedAt[sessionId] = System.currentTimeMillis()
+                            } else {
+                                waitingConfirmedAt.remove(sessionId)
+                            }
                             // 僵尸判定：FSM lastEventAt 由真实事件更新（restValidation 不刷新——见 SessionStateFSM.restValidation 修正注释）
                             val lastEventAt = _fsmStates.value[sessionId]?.lastEventAt ?: 0L
                             val quietMs = System.currentTimeMillis() - lastEventAt
                             if (quietMs > ZOMBIE_BUSY_MS) {
-                                // 2026-08-14 走查修复（误杀防护）：pending question/permission 时服务器在合法
-                                // 等待用户输入（此期间无 SSE 事件属正常，非僵尸）——不得 interrupt（会杀掉等待中的
-                                // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
-                                // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查。
-                                val hasPendingUserInput = collaborator.hasPendingUserInput(sessionId)
-                                // 2026-08-15（僵尸误杀修复·二）：有活跃子智能体会话（后台任务/
-                                // subagent running）时主会话 running 是 V2 drain 合法等待
-                                // 状态——不 interrupt（否则等待后台任务的主会话被误杀，
-                                // 用户零操作被打断）。仅本地转 Idle 跟随显示。
-                                val hasActiveChildren = collaborator.hasActiveChildren(sid, sessionId)
                                 if (hasPendingUserInput || hasActiveChildren) {
                                     // pending 用户输入 / 活跃子智能体会话：不 interrupt，也**不强转 Idle**
                                     //（2026-08-18 E2E-G 修复：原"仅本地强制 Idle"与 :150 的 active-running
