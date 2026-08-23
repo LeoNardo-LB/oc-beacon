@@ -155,7 +155,7 @@ class SseClient @Inject constructor(
         SessionNextEventParser(json)
     )
 
-    /** session.next 解析器的公共访问器（供测试使用）。 */
+    /** session.next 解析器的公共访问器（供测试与 parseSessionNextEvent 公共 API 消费）。 */
     val sessionNextParser: SessionNextEventParser get() = parsers.filterIsInstance<SessionNextEventParser>().firstOrNull()
         ?: throw IllegalStateException("SessionNextEventParser not found in parser list")
 
@@ -284,8 +284,7 @@ class SseClient @Inject constructor(
     }
 
     /**
-     * 为向后兼容保留的公共 API（供测试使用）。
-     * 委托给 [SessionNextEventParser]。
+     * 为向后兼容保留的公共 API（供测试使用），委托给 [sessionNextParser]。
      */
     fun parseSessionNextEvent(type: String, props: JsonObject): SessionNextEvent {
         return sessionNextParser.parseSessionNextEvent(type, props)
