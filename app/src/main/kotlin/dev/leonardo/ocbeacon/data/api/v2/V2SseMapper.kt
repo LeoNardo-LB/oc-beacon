@@ -28,7 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * part 定位键：
  * - text/reasoning：`"${assistantMessageID}_ord_${ordinal}"`（v2 无 partID，ordinal 即定位键）
- * - tool：`call_id`（v2 tool part 的稳定 id）
+ * - tool：`call_id`（事件 payload 字段实为 `id`，语义即 call_id——对齐官方 event.ts 措辞）
  *
  * execution.started/succeeded 不在此映射（由 V2EventParser 处理为 FSM Busy/Idle）；
  * 消息 completed 由 REST 兜底（mergeMessages 时覆盖）。

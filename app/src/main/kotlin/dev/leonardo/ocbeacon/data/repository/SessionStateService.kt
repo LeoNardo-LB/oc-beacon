@@ -670,14 +670,10 @@ class SessionStateService @Inject constructor(
      * 触发条件：L3 REST 校验确认服务器说 Busy，但 App 侧超过 [ZOMBIE_BUSY_MS]
      * 无任何 SSE 事件——服务器 runner 卡死但 /active 仍返回 running。
      *
-     * 动作：调用服务器 interrupt/abort（按 apiVersion 分流：V2
-     * POST /api/session/{id}/interrupt，V1 POST /session/{id}/abort）。
-     * 幂等安全：对 idle 会话调用无副作用；服务器恢复执行时 execution.started
-     * 事件会重新置 Busy（FSM 自然跟随）。
-     *
-     * 注意：interrupt 是 fire-and-forget——僵尸解除后服务器可能发
-     * session.status/idle 事件，FSM 会自然同步；本方法不等待结果。
-     * 失败仅告警不阻断（本地 Idle 兜底仍会执行）。
+     * 动作（2026-08-15 起停用服务器调用，见函数体注释）：仅打 DEBUG 日志——
+     * 自动 interrupt 已实证误杀后台子智能体，官方语义为无限期等待、只修本地显示。
+     * （历史行为存档：曾按 apiVersion 分流调用 V2 POST /api/session/{id}/interrupt、
+     * V1 POST /session/{id}/abort；如恢复须以用户手动入口为前提，见下方行内注释。）
      */
     private fun interruptZombieRunner(serverId: String, sessionId: String, directory: String?) {
         // 2026-08-15（对齐官方调研结论，research/05 文档）：官方客户端（TUI/Web）

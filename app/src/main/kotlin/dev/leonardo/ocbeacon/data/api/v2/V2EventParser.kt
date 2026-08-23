@@ -25,8 +25,9 @@ private const val TAG = "SseClientV2"
  * - shell.created/exited/deleted —— shell 生命周期
  * - session.usage.updated —— token 用量
  *
- * 这些事件当前不映射到具体 UI 行为（V2 会话信息通过 REST/SSE 的
- * message 级事件驱动渲染），但必须被解析为占位事件：
+ * 其中部分事件已映射具体行为（execution.started/succeeded→FSM Busy/Idle、
+ * shell.*→ShellJob 生命周期、compaction.*→压缩状态、usage.updated→用量、
+ * tool.progress→工具进度），其余为保活占位事件：
  * 1. 让 SseClientV2 能计数并重置心跳（数据流即存活证据）
  * 2. 让下游观察到会话有活动（而不是静默丢弃）
  *

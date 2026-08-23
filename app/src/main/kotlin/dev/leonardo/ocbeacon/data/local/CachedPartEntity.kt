@@ -25,7 +25,7 @@ data class CachedPartEntity(
     @PrimaryKey val id: String,          // part id
     val messageId: String,               // FK → cached_messages.id
     val sessionId: String,
-    val type: String,                    // text / tool / code 等
+    val type: String,                    // text/reasoning/tool/shell/step-start/step-finish/file/snapshot/patch/subtask/compaction/retry/abort/agent/permission/question/session-turn/unknown（见 MessageStore.typeName；'code' 为历史残留已删）
     val text: String?,                   // 文本内容（流式更新热点）
     val payload: String?,                // 完整 Part JSON（保留扩展字段）
 )

@@ -3,7 +3,7 @@ package dev.leonardo.ocbeacon.data.terminal
 /**
  * 单个终端标签页 PTY 连接的生命周期状态。
  *
- * 状态转移（由 [dev.leonardo.ocbeacon.ui.screens.chat.ServerTerminalWorkspace] 驱动）：
+ * 状态转移（由 [dev.leonardo.ocbeacon.data.terminal.ServerTerminalWorkspace] 驱动）：
  * ```
  * Starting ──createPty+socket──► Connected
  *   │                               │
