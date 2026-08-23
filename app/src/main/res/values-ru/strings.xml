@@ -241,7 +241,7 @@
     <string name="chat_subagent_completed_notification">Субагент завершён</string>
     <string name="chat_subagent_failed_notification">Сбой субагента</string>
     <string name="chat_status_updating_tasks">Обновление задач</string>
-    <string name="chat_status_thinking">Мысли</string>
+    <string name="chat_status_thinking">Думает</string>
     <string name="chat_tool_running_command">Выполнение команды…</string>
     <string name="chat_hint_ask">Задать вопрос…</string>
     <string name="chat_hint_fix">Исправить ошибку в…</string>
@@ -487,7 +487,7 @@
     <string name="settings_no_auto_approve_rules">Нет сохранённых правил автоодобрения</string>
     <string name="settings_delete_rule">Удалить правило</string>
     <string name="settings_expand_reasoning">Авторазворачивать размышление</string>
-    <string name="settings_expand_reasoning_desc">Показывать мысли по умолчанию; нажмите на заголовок для переключения</string>
+    <string name="settings_expand_reasoning_desc">Показывать размышления по умолчанию; нажмите на заголовок для переключения</string>
     <string name="chat_meta_tokens">%d токенов</string>
     <string name="chat_glob_match_count">%d совпадений</string>
     <string name="tool_web_fetch">WebFetch</string>
@@ -577,7 +577,7 @@
     <string name="connection_error_title">Сервер недоступен</string>
     <string name="connection_error_retrying_in">Повторная попытка через %1$d с…</string>
     <string name="connection_error_switch_server">Переключиться на другой сервер</string>
-    <string name="chat_thinking_in_progress">Мысли… %1$s</string>
+    <string name="chat_thinking_in_progress">Думает… %1$s</string>
     <string name="mcp_servers_title">Серверы MCP</string>
     <string name="mcp_no_servers">Серверы MCP не настроены</string>
     <string name="chat_context_composition">Состав контекста (оценка)</string>
@@ -605,8 +605,8 @@
     <string name="settings_chat_font">Шрифт чата</string>
     <string name="settings_chat_font_normal">Обычный</string>
     <string name="settings_chat_font_compact">Компактный</string>
-    <string name="settings_turn_dividers">Разделители реплик</string>
-    <string name="settings_turn_dividers_desc">Показывать разделители между сообщениями в одной реплике</string>
+    <string name="settings_turn_dividers">Разделители хода</string>
+    <string name="settings_turn_dividers_desc">Показывать разделители между сообщениями в одном ходе</string>
     <string name="viewer_loading_progress">Загрузка: %1$d / %2$d строк</string>
     <string name="viewer_large_file_warning">Большой файл (%1$d строк) — производительность может снизиться</string>
     <string name="workspace_search_hint">Введите текст для поиска файлов</string>

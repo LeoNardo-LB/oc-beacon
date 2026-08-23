@@ -486,7 +486,7 @@
     <string name="settings_no_auto_approve_rules">Немає збережених правил автозатвердження</string>
     <string name="settings_delete_rule">Видалити правило</string>
     <string name="settings_expand_reasoning">Автоматично розгортати міркування</string>
-    <string name="settings_expand_reasoning_desc">Показувати процес розміркування за замовчуванням; натисніть заголовок для перемикання</string>
+    <string name="settings_expand_reasoning_desc">Показувати міркування за замовчуванням; натисніть заголовок для перемикання</string>
     <string name="chat_meta_tokens">%d токенів</string>
     <string name="chat_glob_match_count">%d збігів</string>
     <string name="tool_web_fetch">WebFetch</string>
@@ -604,8 +604,8 @@
     <string name="settings_chat_font">Шрифт чату</string>
     <string name="settings_chat_font_normal">Звичайний</string>
     <string name="settings_chat_font_compact">Компактний</string>
-    <string name="settings_turn_dividers">Роздільники</string>
-    <string name="settings_turn_dividers_desc">Показувати роздільники між повідомленнями в одному турі</string>
+    <string name="settings_turn_dividers">Роздільники ходів</string>
+    <string name="settings_turn_dividers_desc">Показувати роздільники між повідомленнями в одному ході</string>
     <string name="viewer_loading_progress">Завантаження: %1$d / %2$d рядків</string>
     <string name="viewer_large_file_warning">Великий файл (%1$d рядків) — продуктивність може знизитися</string>
     <string name="workspace_search_hint">Введіть текст для пошуку файлів</string>
