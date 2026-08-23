@@ -300,7 +300,7 @@ private fun TagEditDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.category_name)) },
+                    label = { Text(stringResource(R.string.tag_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

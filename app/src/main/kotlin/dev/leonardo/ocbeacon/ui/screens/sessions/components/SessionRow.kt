@@ -422,7 +422,7 @@ private fun SessionDetailsDialog(
                         colors = ButtonTokens.filledColors(),
                         border = ButtonTokens.amoledBorder(),
                     ) {
-                        Text(stringResource(R.string.assign_category))
+                        Text(stringResource(R.string.assign_tag))
                     }
                     // #177：堆积队列非空时的手动「继续」入口（状态补偿的显式逃生口）
                     if (pendingCount > 0) {

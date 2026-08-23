@@ -99,7 +99,7 @@ fun TagPickerDialog(
                     .padding(20.dp)
                     .heightIn(max = 560.dp),
             ) {
-                Text(text = stringResource(R.string.category), style = MaterialTheme.typography.titleMedium)
+                Text(text = stringResource(R.string.add_tag), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(12.dp))
 
                 // 标签列表区：weight 填充中间空白 + minHeight
@@ -154,7 +154,7 @@ fun TagPickerDialog(
                 OutlinedTextField(
                     value = newCategoryName,
                     onValueChange = { newCategoryName = it },
-                    label = { Text(stringResource(R.string.category_name)) },
+                    label = { Text(stringResource(R.string.tag_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

@@ -314,7 +314,7 @@ internal fun PartContent(
         }
         is Part.Abort -> {
             Text(
-                text = stringResource(R.string.chat_aborted, part.reason),
+                text = stringResource(R.string.chat_interrupted, part.reason),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error
             )
