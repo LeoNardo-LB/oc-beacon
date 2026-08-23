@@ -67,9 +67,7 @@
   - 方案 B 定案：REST 确认等待态打标 waitingConfirmedAt → checkStaleness 60s 窗口内跳过 → SSE 真实事件清标；V1/V2 通吃（打标条件无版本分支），日志/请求降 ~92%
   - → `docs/journal/2026-08-23-issue-cleanup-triage.md`
 
-- [~] **#192 双 FAB 贴边上下滑动（v6 改向：隐藏方案整体废弃）+ 按钮加大** `ui`
-  - v6 落地（de6afd41）：隐藏/Peek/拉杆全链清理；`fabEdgeVerticalSlide`——offset 布局位移（命中区同步）、rememberSaveable 会话内保持、clamp [-(屏高−160dp), 0]、tap 不受影响；按钮 48/52dp（item 不变 44dp）；真机验证拖动/驻留/新位点击全过、1880 全绿；维度 5 手感待用户验收
-  - 历史：v1–v5 隐藏方案五轮迭代后用户改向（2026-08-23「不做隐藏了，贴边上下滑动，做简单点」）；spec 已标废弃
+
   - → `docs/specs/2026-08-23-fab-swipe-hide-design.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
 
 ## P3 — 观察与低价值改进
