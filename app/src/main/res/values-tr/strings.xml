@@ -23,7 +23,7 @@
     <string name="session_status_retry">Yeniden deneniyor (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Gönder</string>
-    <string name="chat_empty">OpenCode ile bir sohbet başlat</string>
+    <string name="chat_empty">OpenCode ile bir oturum başlat</string>
     <!-- Permissions -->
     <string name="permission_title">İzin Gerekli</string>
     <string name="permission_allow_once">Bir kez</string>
@@ -48,7 +48,7 @@
     <string name="settings_notifications">Bildirimler</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">OpenCode Bağlantısı</string>
-    <string name="notification_channel_tasks">Görev Bildirimleri</string>
+    <string name="notification_channel_tasks">Tur Bildirimleri</string>
     <string name="notification_connected">%1$s\'e bağlandı</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">Gönderilemedi</string>
@@ -200,10 +200,10 @@
     <string name="chat_status_running_commands">Komutlar çalıştırılıyor</string>
     <string name="chat_status_searching">Codebase\'de aranıyor</string>
     <string name="chat_status_fetching_url">URL alınıyor</string>
-    <string name="chat_status_running_subagent">Alt agent çalıştırılıyor</string>
-    <string name="chat_task_completed">Görev tamamlandı</string>
+    <string name="chat_status_running_subagent">Alt ajan çalıştırılıyor</string>
+    <string name="chat_task_completed">Tur tamamlandı</string>
     <string name="chat_task_failed">Görev başarısız</string>
-    <string name="chat_system_notification">Alt ajan tamamlandı</string>
+    <string name="chat_system_notification">Sentetik: alt ajan tamamlandı</string>
     <string name="task_sheet_subagent_completed">Tamamlandı</string>
     <string name="chat_label_user">Kullanıcı</string>
     <string name="chat_label_agent">Ajan</string>
@@ -268,7 +268,7 @@
     <string name="tool_search_code">Ara</string>
     <string name="tool_list_directory">Dizin listele</string>
     <string name="tool_fetch_url">URL al</string>
-    <string name="tool_sub_agent">Alt agent</string>
+    <string name="tool_sub_agent">Alt ajan</string>
     <string name="tool_apply_patch">Yama uygula</string>
     <string name="tool_shell">Shell</string>
     <string name="tool_read">Oku</string>
@@ -296,7 +296,7 @@
     <string name="menu_share_session">Oturumu paylaş</string>
     <string name="settings_dynamic_color">Dinamik renkler</string>
     <string name="settings_dynamic_color_desc">Duvar kağıdından renk kullan (Material You)</string>
-    <string name="settings_notifications_desc">Agent görev tamamladığında bildir</string>
+    <string name="settings_notifications_desc">Bir tur tamamlandığında bildir</string>
     <string name="settings_initial_messages">Yüklenecek ilk mesajlar</string>
     <string name="settings_confirm_send">Göndermeden önce onayla</string>
     <string name="settings_confirm_send_desc">Mesaj göndermeden önce onay penceresi göster</string>
@@ -322,7 +322,7 @@
     <string name="settings_keep_screen_on">Ekranı açık tut</string>
     <string name="settings_keep_screen_on_desc">Sohbet sırasında ekranın kapanmasını engelle</string>
     <string name="settings_silent_notifications">Sessiz bildirimler</string>
-    <string name="settings_silent_notifications_desc">Görev bildirimleri için ses ve titreşimi kapat</string>
+    <string name="settings_silent_notifications_desc">Tur bildirimleri için ses ve titreşimi kapat</string>
     <string name="settings_notif_test">Test bildirimi gönder</string>
     <string name="settings_notif_test_desc">Banner ve sesi doğrulamak için gerçek bir bildirim gönderir. Hiçbir şey görünmüyorsa cihaz uygulamayı sessize almış olabilir (örn. MIUI varsayılan olarak yüzen bildirimleri kapatır) — aşağıdaki sistem bildirim ayarlarından etkinleştirin.</string>
     <string name="settings_notif_system">Sistem bildirim ayarları</string>
@@ -333,9 +333,9 @@
     <string name="a11y_settings_notif_system">Sistem bildirim ayarları</string>
     <string name="dialog_select_reconnect_mode">Yeniden bağlanma modu seç</string>
     <string name="notification_channel_connection_desc">OpenCode sunucusuna kalıcı bağlantı</string>
-    <string name="notification_channel_tasks_desc">OpenCode görevleri tamamlandığında bildirimler</string>
-    <string name="notification_channel_tasks_silent">Görev Bildirimleri (Sessiz)</string>
-    <string name="notification_channel_tasks_silent_desc">OpenCode görevleri tamamlandığında sessiz bildirimler</string>
+    <string name="notification_channel_tasks_desc">Bir tur tamamlandığında bildirimler</string>
+    <string name="notification_channel_tasks_silent">Tur Bildirimleri (Sessiz)</string>
+    <string name="notification_channel_tasks_silent_desc">Bir tur tamamlandığında sessiz bildirimler</string>
     <string name="notification_channel_permissions">İzin İstekleri</string>
     <string name="notification_channel_permissions_desc">OpenCode izin istediğinde bildirimler</string>
     <string name="notification_connecting">%1$s\'e bağlanıyor…</string>
@@ -406,11 +406,11 @@
     <string name="disconnect">Bağlantıyı kes</string>
     <string name="server_settings_models">Modeller</string>
     <string name="server_settings_models_desc">Model görünürlüğü ve varsayılanlar</string>
-    <string name="sessions_create_folder">Klasör oluştur</string>
-    <string name="sessions_create_folder_title">Klasör oluştur</string>
-    <string name="sessions_create_folder_name_label">Klasör adı</string>
+    <string name="sessions_create_folder">Dizin oluştur</string>
+    <string name="sessions_create_folder_title">Dizin oluştur</string>
+    <string name="sessions_create_folder_name_label">Dizin adı</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">Geçerli bir klasör adı girin</string>
+    <string name="sessions_create_folder_invalid_name">Geçerli bir dizin adı girin</string>
     <string name="sessions_create_folder_create">Oluştur</string>
     <string name="sessions_create_folder_failed">Klasör oluşturulamadı</string>
     <string name="sessions_create_folder_success">Oluşturuldu: %1$s</string>
@@ -519,7 +519,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_warning">Uyarı</string>
     <string name="a11y_icon_navigate_forward">İleri git</string>
     <string name="a11y_locate_task">Orijinal görevi bul</string>
-    <string name="chat_locate_task_not_found">Bu konuşmada orijinal görev bulunamadı</string>
+    <string name="chat_locate_task_not_found">Bu oturumda orijinal görev bulunamadı</string>
     <string name="a11y_icon_add">Ekle</string>
     <string name="a11y_icon_share">Paylaş</string>
     <string name="a11y_icon_unlink">Bağlantıyı kaldır</string>
@@ -571,12 +571,12 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_thinking_in_progress">Düşünüyor… %1$s</string>
     <string name="mcp_servers_title">MCP Sunucuları</string>
     <string name="mcp_no_servers">Yapılandırılmış MCP sunucusu yok</string>
-    <string name="chat_context_composition">Bağlam oluşumu（tahmini）</string>
-    <string name="chat_context_other_note">Geri kalan（sistem vb. dahil）</string>
+    <string name="chat_context_composition">Bağlam oluşumu (tahmini)</string>
+    <string name="chat_context_other_note">Geri kalan (sistem vb. dahil)</string>
     <string name="chat_role_user">Kullanıcı</string>
     <string name="chat_role_assistant">Asistan</string>
     <string name="chat_role_tool">Araç çağrısı</string>
-    <string name="chat_context_msg_summary">Mesaj %1$d（Kullanıcı %2$d · Asistan %3$d）</string>
+    <string name="chat_context_msg_summary">Mesaj %1$d (Kullanıcı %2$d · Asistan %3$d)</string>
     <string name="chat_context_cache_hit">Önbellek isabeti %1$d%%</string>
     <string name="chat_context_timestamps">Oluştur %1$s · Etkinlik %2$s</string>
     <string name="viewer_binary_not_supported">Binary dosya, önizleme desteklenmiyor</string>
@@ -694,11 +694,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_done">Tamamlandı</string>
     <string name="shell_status_failed">Başarısız</string>
     <string name="task_toolbar_action">Görevi arka plana taşı</string>
-    <string name="task_toolbar_subagents">Ön planda %1$d alt agent çalışıyor</string>
+    <string name="task_toolbar_subagents">Ön planda %1$d alt ajan çalışıyor</string>
     <string name="a11y_icon_tasks">Görev etkinlikleri</string>
-    <string name="task_sheet_subagents_tab">Alt agentlar</string>
+    <string name="task_sheet_subagents_tab">Alt ajanlar</string>
     <string name="task_sheet_shells_tab">Shell</string>
-    <string name="task_sheet_empty_subagents">Çalışan alt-ajan yok</string>
+    <string name="task_sheet_empty_subagents">Çalışan alt ajan yok</string>
     <string name="task_sheet_empty_shells">Shell komutu yok</string>
     <string name="task_sheet_title">Görevler</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->
