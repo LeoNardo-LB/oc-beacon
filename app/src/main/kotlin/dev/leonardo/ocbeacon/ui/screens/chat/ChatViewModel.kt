@@ -145,11 +145,6 @@ class ChatViewModel @Inject constructor(
     )
     val sessionId: String get() = sessionLifecycle.sessionId
 
-    // ============ #192 双 FAB 会话级隐藏状态 ============
-    // 纯内存（D1 不落盘，VM 弹出/进程重启复位）；每导航入口一份 VM 实例
-    //（D2 主/子会话独立记忆）。spec 2026-08-23-fab-swipe-hide-design §3.1
-    internal val fabVisibility = ChatFabVisibilityState()
-
     // ============ 堆积消息（turn 结束后待发送，2026-08-20 设计定稿） ============
     /** 当前会话的堆积队列（面板列表 + 角标计数数据源）。 */
     @kotlinx.coroutines.ExperimentalCoroutinesApi

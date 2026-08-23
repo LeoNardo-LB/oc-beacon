@@ -865,10 +865,6 @@ fun ChatScreen(
                       // 要等 5s 增长超时才滚（真机日志实锤 grew=-1 后才滚）
                       onClick = { coroutineScope.launch { listState.snapToBottom() } },
                       modifier = Modifier.align(Alignment.BottomStart),
-                      // #192：会话级滑动隐藏（D3 手动隐藏优先于滚离底部自动出现）
-                      hidden = viewModel.fabVisibility.bottomFabHidden,
-                      onHide = viewModel.fabVisibility::hideBottomFab,
-                      onRestore = viewModel.fabVisibility::showBottomFab,
                   )
                   ChatFabMenu(
                       stackedCount = pendingQueue.size,
@@ -877,10 +873,6 @@ fun ChatScreen(
                       shellRunningCount = taskUi.runningShellCount,
                       onOpenEntry = { toolbarSheet = it },
                       modifier = Modifier.align(Alignment.BottomEnd),
-                      // #192：收起态右划隐藏成右缘拉杆（D6 角标=四入口总数实时）
-                      hidden = viewModel.fabVisibility.menuFabHidden,
-                      onHide = viewModel.fabVisibility::hideMenuFab,
-                      onRestore = viewModel.fabVisibility::showMenuFab,
                   )
               }
            }
