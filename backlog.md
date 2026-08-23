@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#206**。
+**编号**：全局递增，不回收。下一编号：**#207**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -85,6 +85,10 @@
 - [~] **#205 Tier C-5：intent extra/导航参数——裁决零改名** `refactor`
   - 导航参数 8 常量全 camelCase 已合规；extra 三类分治（系统标准/内部单源常量/#132 外部契约保护）；无术语裁决命中
   - → docs/journal/2026-08-24-tier-c-contract-renames.md
+
+- [ ] **#206 V2 中断消息无中断标记渲染（error.type=aborted 未映射）** `ui` `sse`
+  - 服务器中断表示为 finish:error+error.type:"aborted"（无 abort part，历史 0 个）；V2Mappers 不合成 Part.Abort → 中断的助手消息只剩 reasoning、无任何「已中断」提示
+  - → docs/journal/2026-08-24-tier-c-contract-renames.md（Tier C 一次性会话探针发现）
 
 ## P3 — 观察与低价值改进
 

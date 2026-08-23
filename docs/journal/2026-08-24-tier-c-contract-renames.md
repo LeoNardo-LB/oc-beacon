@@ -98,4 +98,17 @@
 
 **遗留影响**：该会话恢复至事发前状态（最后一条=助手真实回复）；assistant 消息的 reasoning part 无 time 元数据（展示无影响——UI 从 msg time 取计时，53.4s 正常显示）。事故根因两条已内化：外部数据删除类操作先导出全量备份再动手；循环撤销的终点断言必须显式列出保护名单。
 
+## chat_interrupted 可达性终局取证（round 2，一次性会话探针，2026-08-24 01:44–01:50）
+
+方法改进：API 全程驱动的一次性会话（ses_fd04cca54ffe，探针后 DELETE 204 确认清零，零真实数据接触）。过程顺带实证 prompt 双契约：部署版对 `{prompt:{text}}` 报 400 Missing key text → 平铺 `{text}` 200（与 V2ApiClient 注释的降级设计一致）。
+
+**结论：chat_interrupted 渲染路径在当前部署不可达（休眠代码），字符串改名安全性由编译锁+奇偶保证**：
+1. 1.2s 早期中断实测：服务器把中断表示为 assistant 消息 `finish:"error" + error:{type:"aborted", message:"Step interrupted"}`，content 仅剩 reasoning；
+2. 服务器全历史 `"type":"abort"` part 计数 = **0**（session_message 全表扫描）；
+3. app 侧 `Part.Abort(` 构造点 = **0**（仅 PartSerializer 分发分支与 PartContent 渲染分支存在）；V2Mappers.toMessageWithParts 对 error/aborted 字段无映射。
+
+→ 三证合一：当前 V2 部署上中断不产生 abort part，Part.Abort→R.string.chat_interrupted 路径休眠。验收清单该项改为「安全-by-construction」（编译可解析+15 语言奇偶+消费点唯一且休眠）。真机实弹验证受服务器能力限制不可行——非 app 侧缺口。
+
+**顺带发现（已登记 #206）**：中断的助手消息在 app 内无任何中断标记（只剩 reasoning part）——error.type=aborted 未映射。按纪律只登记不现场实现。
+
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->
