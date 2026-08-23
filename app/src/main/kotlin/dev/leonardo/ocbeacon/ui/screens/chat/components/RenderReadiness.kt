@@ -37,7 +37,8 @@ sealed interface RenderReadiness {
     /** 解析完成（可用 [state] 直接渲染——内容即最终状态，无 loading） */
     data class Parsed(val state: State) : RenderReadiness
 
-    /** 渲染完成（解析 + 布局稳定）——[finalHeight] 为最终布局高度 */
+    /** 死状态（无生产者——D-11-4 删除渲染层上报链）。原义：渲染完成（解析 +
+     *  布局稳定），[finalHeight] 为最终布局高度。[isDone] 同样无消费者。 */
     data class Ready(val finalHeight: Int) : RenderReadiness
 
     data class Failed(val error: Throwable) : RenderReadiness

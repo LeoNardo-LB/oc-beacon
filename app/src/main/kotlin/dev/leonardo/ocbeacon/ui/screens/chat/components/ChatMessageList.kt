@@ -1223,7 +1223,7 @@ fun ChatMessageList(
                                     @OptIn(ExperimentalFoundationApi::class)
                                     // 2026-08-15：压缩分割线升级为可展开卡片
                                     //（CompactionCard：分割线收起态 + 无边框轻量
-                                    // 卡片展开态（内含压缩摘要全文）——与合成通知
+                                    // 卡片展开态（内含压缩后的摘要全文）——与合成通知
                                     // 卡片一致的视觉语言）；长按仍触发撤销确认。
                                     // 2026-08-20 a11y P3：空 onClick 的 combinedClickable
                                     // 会被 TalkBack 朗读为可点击但无动作——改为纯

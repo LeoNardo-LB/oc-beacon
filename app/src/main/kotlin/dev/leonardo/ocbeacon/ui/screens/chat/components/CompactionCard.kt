@@ -39,7 +39,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * 压缩完成卡片（2026-08-15）：
  * - 收起态：居中分割线 + 「上下文已压缩」+ 展开箭头（轻量，不占视觉重量）
  * - 展开态：分割线下方展示无边框轻量卡片（透明背景 + 细边框，与
- *   SyntheticNotificationCard 一致的视觉语言）内含摘要全文（Markdown 源文本
+ *   SyntheticNotificationCard 一致的视觉语言）内含压缩后的摘要全文（Markdown 源文本
  *   等宽呈现，保持服务器原始格式）+ 收起箭头
  *
  * 数据源：V2 REST compaction 消息的 text（Part.Compaction.summary）。
