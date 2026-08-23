@@ -44,7 +44,7 @@ tags:
     optional: true
 
 # Tap on a session
-- tapOn: "系统问题分析与修复方案"
+- tapOn: "System issue analysis"
 
 - extendedWaitUntil:
     visible: "Ask a question"

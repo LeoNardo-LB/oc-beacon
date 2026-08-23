@@ -136,13 +136,13 @@
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">继续</string>
     <string name="pending_clear">清除</string>
-    <string name="pending_clear_confirm_title">清除排队消息？</string>
-    <string name="pending_clear_confirm_text">将移除 %1$d 条排队消息。</string>
-    <string name="pending_edit_dialog_title">编辑排队消息</string>
+    <string name="pending_clear_confirm_title">清除堆积消息？</string>
+    <string name="pending_clear_confirm_text">将移除 %1$d 条堆积消息。</string>
+    <string name="pending_edit_dialog_title">编辑堆积消息</string>
     <string name="pending_item_edit">编辑</string>
     <string name="pending_item_delete">删除</string>
     <string name="pending_item_send">立即发送</string>
-    <string name="pending_empty">暂无排队消息。智能体回复期间，点按加载图标即可排队消息。</string>
+    <string name="pending_empty">暂无堆积消息。智能体回复期间，点按加载图标即可暂存消息。</string>
     <string name="pending_item_sending">发送中…</string>
     <string name="todo_empty">暂无 TODO 项</string>
     <string name="chat_copy">复制</string>
