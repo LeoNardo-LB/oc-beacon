@@ -218,7 +218,7 @@ step "点 Generate a new client secret"
 step "生成后立即点 Copy 复制（离开页面后前缀被掩码）"
 ask_secret GITHUB_APP_CLIENT_SECRET "粘贴 Client Secret："
 write_env GITHUB_APP_CLIENT_SECRET "$GITHUB_APP_CLIENT_SECRET"
-set_secret APP_GITHUB_APP_CLIENT_SECRET "$GITHUB_APP_CLIENT_SECRET"
+set_secret APP_GITHUB_CLIENT_SECRET "$GITHUB_APP_CLIENT_SECRET"
 
 # ── Stage 4: 安装到仓库 ──────────────────────────────────────────────────
 stage "安装 App 到仓库"

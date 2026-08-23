@@ -72,8 +72,8 @@
   - → `docs/specs/2026-08-23-fab-swipe-hide-design.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
 
 - [~] **#193 GitHub App 凭据注册 + 错误上报真机 E2E** `ui`
-  - 向导已就绪：`./scripts/setup-github-report-app.sh`（六阶段：注册→凭据→local.properties+CI secrets→安装→端点自检→验证指引）；标题区分度已实现（签名后缀）待 E2E 确认
-  - 验收清单：跑向导 → 真机授权（8 位码）→ 预览见 `(#xxxxxxxx)` 签名标题 → 建 issue → 重复上报归并评论 → 关闭测试 issue
+  - 向导已就绪且用户已跑完；E2E 全过（issue #5：签名标题/needs-triage/机器块/脱敏/24h 防刷，已关闭留档）——**待用户最终验收**
+  - 验收清单：GitHub 上看 #5 标题与评论即可（管道证据齐）
   - → `docs/journal/2026-08-23-beta-readiness-review.md` §八 · `docs/specs/2026-08-21-error-report-github-design.md`（决策更新）
 
 ## P3 — 观察与低价值改进

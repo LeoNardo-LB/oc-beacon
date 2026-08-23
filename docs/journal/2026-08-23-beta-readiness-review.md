@@ -110,3 +110,18 @@ A 0.3.1-beta / B 0.3.1 / C dev.23 / D beta 重发→0.3.2-beta / E 正式后 dev
 app/build.gradle.kts 一致）+ gh secret APP_GITHUB_CLIENT_ID/SECRET（CI，release.yml 已接线）。
 
 **待办（#193）**：用户跑向导 → 真机 E2E（授权 → 预览见签名标题 → 建 issue → 重复上报归并评论）。
+### E2E 执行记录（2026-08-23 18:10–18:25，houji，devRelease 95085b27 自建包）
+
+前置：用户完成向导六阶段（App 注册 + 凭据落 local.properties + 安装）；修正向导 secret 名笔误
+（APP_GITHUB_APP_CLIENT_SECRET → APP_GITHUB_CLIENT_SECRET，CI secrets 已同步纠正并删错名）。
+设备 token 为 08-22 首轮 #151 E2E 授权存留（Keystore 加密跨重装存活）→ 上报直达预览态。
+
+| 验证点 | 结果 |
+|---|---|
+| 预览标题 | `Uncaught exception: …'java.l… a null object reference (#f6ecd670)`——中段截断保头尾 + 8 位签名 ✓ |
+| 提交 → issue | [#5](https://github.com/LeoNardo-LB/oc-beacon/issues/5) 创建：`[user-report]` 前缀 + 签名标题 + needs-triage + 机器块（指纹/install_id/环境）+ ▸ 标记日志段 + `[IP]` 脱敏 ✓ |
+| 24h 防刷 | 同指纹重报 → `已上报过同一错误，本次静默跳过`，无新 issue 无评论 ✓ |
+| 收尾 | #5 已关闭（not planned + 说明评论：NPE 为晨间一次性瞬时竞态） |
+
+走查副产品：确认 debug 通道（#132）`BuildConfig.DEBUG` 门控——devRelease 不吃 debug intent
+（无副作用；真机 runbook 已有记载，非缺陷）。
