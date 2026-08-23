@@ -1,6 +1,6 @@
 # v2-abort-marker（2026-08-24）
 
-> 状态：待验证（自动化+真机 E2E 全绿，等待用户验收）
+> 状态：已完结（用户验收通过 2026-08-24：历史会话中断标记正常显示）
 > 关联：#206（backlog P2）· 前序发现：docs/journal/2026-08-24-tier-c-contract-renames.md（Tier C 探针）
 > 来源：Tier C 一次性会话探针顺带发现 → 用户指令开工（2026-08-24「先检查 #207，如果没问题就解决 #206」）
 
@@ -54,4 +54,8 @@ V1 不受影响（V1 原生有 abort part，走 PartSerializer 正常分发）�
 
 ## 完结迁移
 
-（用户验收后从 backlog.md 迁入）
+- [x] **#206 V2 中断消息无中断标记渲染（error.type=aborted 未映射）** `ui` `sse`
+  - 服务器中断表示为 finish:error+error.type:"aborted"（无 abort part，历史 0 个）；V2Mappers 不合成 Part.Abort → 中断的助手消息只剩 reasoning、无任何「已中断」提示
+  - → docs/journal/2026-08-24-tier-c-contract-renames.md（Tier C 一次性会话探针发现）
+
+**验收记录**（2026-08-24）：用户真机验收通过——「历史会话中已中断正常显示」。验收时顺带报告新问题（思考计时器滚动归零）→ 登记 #207。

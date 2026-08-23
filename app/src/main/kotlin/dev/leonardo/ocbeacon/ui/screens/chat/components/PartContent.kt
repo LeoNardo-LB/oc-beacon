@@ -26,6 +26,7 @@ import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import androidx.compose.foundation.text.selection.SelectionContainer
+import dev.leonardo.ocbeacon.ui.screens.chat.isReasoningStreaming
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCallCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ViewToolRequest
@@ -101,20 +102,23 @@ internal fun PartContent(
         is Part.Reasoning -> {
             if (part.text.isNotBlank()) {
                 // Reasoning 在 Waiting 阶段流式输出（TextStarted 之前）。
-                // 2026-08-16 修复（重进后计时停住）：原判定只看 part.time?.end——
-                // 退出重进后从 Room/REST 恢复的 part 是完结快照（end!=null），
-                // 即使服务器仍在跑（reasoning 继续输出），计时也会冻结。
-                // 三态合成：part 未结束 ∨（会话流式 ∧ 本 part 是流式焦点——
-                // reasoning 无 end 且属于未完成消息）→ 继续计时。
+                // 2026-08-16 修复（重进后计时停住）+ #207（历史残留卡永续 tick /
+                // 滑动归零）：三态合成见 isReasoningStreaming——未结束 ∧（有锚 ∨
+                // 会话流式）才计时；time=null 的历史残留（野生实例：事故恢复消息）
+                // 在 idle 会话下静态显示，不再以组合期时钟为锚反复归零。
                 val sessionStreaming = LocalSessionStreaming.current
                 val partEnded = part.time?.end != null
-                val isLastPartOfStreamingMsg = sessionStreaming && !partEnded
-                val isStreaming = !partEnded || isLastPartOfStreamingMsg
-                // start 降级链：part.time.start（>0）→ 0（ReasoningBlock 内部
-                // 降级到组合时刻——重进场景即"从进入时刻续计"，正确语义：
-                // 服务器侧真实起点不可知（V2 reasoning.started 无服务器时间戳，
-                // 本地时刻在退出时丢失），续计优于冻结）。
+                // start 降级链：part.time.start（>0）→ null（ReasoningBlock 内部
+                // 降级到 rememberSaveable 首组合时刻——重进场景即"从进入时刻续计"，
+                // 正确语义：服务器侧真实起点不可知（V2 reasoning.started 无服务器
+                // 时间戳，本地时刻在退出时丢失），续计优于冻结；saveable 保证
+                // 滑出视口销毁后滑回不重置）。
                 val startTimeMs = part.time?.start?.takeIf { it > 0 }
+                val isStreaming = isReasoningStreaming(
+                    partEnded = partEnded,
+                    sessionStreaming = sessionStreaming,
+                    hasValidAnchor = startTimeMs != null,
+                )
                 val reasoningDuration = part.time?.let { t ->
                     t.end?.let { end -> end - t.start }
                 }

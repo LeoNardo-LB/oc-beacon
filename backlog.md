@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#207**。
+**编号**：全局递增，不回收。下一编号：**#209**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -68,9 +68,13 @@
 >
 > （空）Tier C 五卡 #201–#205 已完结（2026-08-24 用户授权代验收官：实改 #204/#202 + 零改名裁决 #201/#203/#205，自动化全绿+真机证据链）→ `docs/journal/2026-08-24-tier-c-contract-renames.md`
 
-- [~] **#206 V2 中断消息无中断标记渲染（error.type=aborted 未映射）** `ui` `sse`
-  - 服务器中断表示为 finish:error+error.type:"aborted"（无 abort part，历史 0 个）；V2Mappers 不合成 Part.Abort → 中断的助手消息只剩 reasoning、无任何「已中断」提示
-  - → docs/journal/2026-08-24-tier-c-contract-renames.md（Tier C 一次性会话探针发现）
+- [~] **#207 思考中卡片计时随滚动反复归零（最后一条消息）** `ui` `sse`
+  - 上下滑动列表时，「思考中 · Xs」计时器从 0 重新开始（用户真机验收 #206 时报告）；根因实证：reasoning part time=null（野生实例=事故恢复消息）时锚点回退组合期时钟，LazyColumn 销毁重建即归零；修复=isReasoningStreaming 三态判定+rememberSaveable 锚点，待真机验收
+  - → docs/journal/2026-08-24-thinking-timer-scroll.md
+
+- [ ] **#208 冷启动重进会话 Room 历史不进热视图（seed/分页缺口）** `ui` `data`
+  - force-stop 后重进 130 条消息会话只显示最近 3 条增量；Room 既有消息/parts（含事故恢复消息 reasoning part）不渲染、上滑不触发补加载；温进程（未杀）正常——#207 取证时两度撞上（事故卡、假 id 探针均不渲染）
+  - → docs/journal/2026-08-24-thinking-timer-scroll.md（#207 顺带发现）
 
 ## P3 — 观察与低价值改进
 

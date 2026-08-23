@@ -27,6 +27,24 @@ internal fun isBubbleRenderablePart(part: Part): Boolean {
 }
 
 /**
+ * #207：思考卡计时器是否应持续走动的判定（三态合成）。
+ *
+ * - partEnded（time.end 存在）→ 永不计时（历史完结态）。
+ * - 未结束且有锚（time.start > 0——SSE started / REST in-flight 快照 created）→ 计时。
+ * - 未结束且无锚：仅会话流式中计时（活体重进错过 started 的续计语义，2026-08-16）；
+ *   会话 idle（历史残留 time=null——野生实例：事故恢复消息 reasoning part）→ 静态不计时。
+ *
+ * 原判定 `!partEnded || (sessionStreaming && !partEnded)` 对 time=null 恒真 →
+ * 永续 tick，且计时锚点回退到组合期时钟（ReasoningBlock fallback）→
+ * LazyColumn 滑出销毁、滑回重建即归零（用户报告：上下滑动计时反复从 0 开始）。
+ */
+internal fun isReasoningStreaming(
+    partEnded: Boolean,
+    sessionStreaming: Boolean,
+    hasValidAnchor: Boolean,
+): Boolean = !partEnded && (hasValidAnchor || sessionStreaming)
+
+/**
  * 过滤 Parts 列表，仅包含可渲染的，
  * 保留服务器返回的原始顺序。
  *

@@ -265,4 +265,34 @@ class PartRenderLogicTest {
         tool = toolName,
         state = ToolState.Running()
     )
+
+    // === #207 isReasoningStreaming —— 思考卡计时三态判定 ===
+
+    @Test
+    fun `reasoning streams when part open with valid anchor`() {
+        // 活体正常：end 无 start 有
+        assertTrue(isReasoningStreaming(partEnded = false, sessionStreaming = true, hasValidAnchor = true))
+        assertTrue(isReasoningStreaming(partEnded = false, sessionStreaming = false, hasValidAnchor = true))
+    }
+
+    @Test
+    fun `reasoning does not stream when part ended`() {
+        assertFalse(isReasoningStreaming(partEnded = true, sessionStreaming = true, hasValidAnchor = true))
+        assertFalse(isReasoningStreaming(partEnded = true, sessionStreaming = false, hasValidAnchor = true))
+    }
+
+    @Test
+    fun `defective timeless part in idle session does not stream`() {
+        // #207 野生实例：time=null（无 start 无 end）+ 会话 idle → 不计时。
+        // 原判定 !partEnded 恒真 → 永续 tick，且锚点回退组合期时钟 →
+        // LazyColumn 销毁重建即归零（用户报告：上下滑动反复从 0 开始）
+        assertFalse(isReasoningStreaming(partEnded = false, sessionStreaming = false, hasValidAnchor = false))
+    }
+
+    @Test
+    fun `timeless part in streaming session still streams`() {
+        // 活体重进错过 started（REST 快照也无 time）——服务器仍在跑，
+        // 计时继续（2026-08-16 三态合成语义保留）
+        assertTrue(isReasoningStreaming(partEnded = false, sessionStreaming = true, hasValidAnchor = false))
+    }
 }

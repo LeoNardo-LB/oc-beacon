@@ -39,7 +39,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -63,7 +65,12 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     val expanded = isExpanded
 
     // 流式推理的实时计时器
-    val fallbackStart = remember { System.currentTimeMillis() }
+    // #207：fallback 锚点 remember → rememberSaveable。time=null 的残留 part 无
+    // 数据锚，原实现每次滑出视口销毁后重组合都取新时钟 → 计时反复归零；
+    // saveable 经 LazyColumn item key 保留，同屏内滑回不重置（值语义：自
+    // 首次组合续计——配合 isReasoningStreaming 的 idle 静态化，此路径仅活体
+    // 重进错过 started 时触达）。
+    val fallbackStart = rememberSaveable { mutableStateOf(System.currentTimeMillis()) }.value
     val effectiveStart = startTimeMs ?: fallbackStart
     val elapsedMs = remember { mutableLongStateOf(0L) }
     LaunchedEffect(isStreaming, effectiveStart) {
@@ -87,8 +94,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     // #135（D2-L45）：脉冲动画仅"思考中"运行——已完成/折叠的思考卡片
     // 原实现 rememberInfiniteTransition 无条件 60fps 渲染帧（动画值虽未被
     // drawBehind 使用，仍持续驱动重组）；isComplete 时用静态 alpha。
+    // #207：非流式（含 idle 会话下 time=null 残留卡）同样用静态 alpha——
+    // 不再对停表卡片播放"正在思考"脉冲误导。
     val isComplete = durationMs != null && !isStreaming
-    val pulseAlpha: Float = if (isComplete) {
+    val pulseAlpha: Float = if (isComplete || !isStreaming) {
         0.4f
     } else {
         val infiniteTransition = rememberInfiniteTransition(label = "thinkingPulse")
