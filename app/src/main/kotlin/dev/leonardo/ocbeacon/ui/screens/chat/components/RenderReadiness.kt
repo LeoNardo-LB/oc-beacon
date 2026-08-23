@@ -49,9 +49,9 @@ sealed interface RenderReadiness {
 }
 
 /**
- * 渲染就绪注册表——part 级就绪信号的唯一真相源。形参名 msgId 沿旧名，
- * 实键 = part.id（渲染供给协调器以 part.id 读写：多消息 turn 下代表消息
- * id 与 part 归属消息可能不一致，不能用消息 id 做键）。
+ * 渲染就绪注册表——part 级就绪信号的唯一真相源。键 = part.id
+ *（渲染供给协调器以 part.id 读写：多消息 turn 下代表消息 id 与 part
+ * 归属消息可能不一致，不能用消息 id 做键；#200 F14 形参更名对齐）。
  *
  * - [flow]：订阅某 part 的就绪信号（组合中 collectAsState 驱动门控展示）
  * - [preParse]：预加载时提前后台解析（parseMarkdownFlow 先行——消息组件
@@ -69,20 +69,19 @@ class RenderReadinessRegistry {
     // 状态变化只重组订阅该条目的单个 scope。
     private val flows = java.util.concurrent.ConcurrentHashMap<String, MutableStateFlow<RenderReadiness>>()
 
-    fun flow(msgId: String): StateFlow<RenderReadiness> =
-        flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }
+    fun flow(partId: String): StateFlow<RenderReadiness> =
+        flows.getOrPut(partId) { MutableStateFlow(RenderReadiness.Pending) }
 
     /**
      * #98（M-7）：消息组件销毁（滚出视口）时注销条目。终态（Parsed/Failed）
      * 的 StateFlow 含解析产物；Pending/Parsing 占空条目——滚出视口后跳转
      * 定位不再需要旧条目（重新组合会重建），保留即无界增长。
      */
-    // 形参 msgId 沿旧名——实键为 part.id（见类 KDoc）。
-    fun remove(msgId: String) {
-        flows.remove(msgId)
+    fun remove(partId: String) {
+        flows.remove(partId)
     }
 
-    fun current(msgId: String): RenderReadiness = flow(msgId).value
+    fun current(partId: String): RenderReadiness = flow(partId).value
 
     /**
      * 预解析（Mikepenz 官方 Parse-ahead 模式）：点击跳转瞬间后台解析目标文本。
@@ -94,7 +93,7 @@ class RenderReadinessRegistry {
      * framestats 实证：巨帧 vsync→input=27.8ms 而帧内各相位近 0）。
      */
     fun preParse(
-        msgId: String,
+        partId: String,
         rawText: String,
         scope: CoroutineScope,
         // 2026-08-20 分片：解析完成回调（主线程——launch 上下文）。调用方
@@ -108,7 +107,7 @@ class RenderReadinessRegistry {
         // ② 仍持有旧实例的订阅者（collectAsState）能收到完成状态——旧实现
         //    remove 后重建新实例写入，旧订阅者永远等不到 Parsed → 降级主线程
         //    同步重解析（巨帧回归）。孤写实例在解析协程结束后无引用即可回收。
-        val target = flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }
+        val target = flows.getOrPut(partId) { MutableStateFlow(RenderReadiness.Pending) }
         scope.launch {
             // 2026-08-20：解析移出主线程——库的 parseMarkdownFlow 无 flowOn，
             // 原在收集者上下文（主线程）执行，长文本（16KB+）解析阻塞 UI
