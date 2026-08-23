@@ -114,7 +114,7 @@ internal fun computeFabExpandShiftPx(
 @Stable
 internal class FabEdgeSlideState {
     /** 纵向位移（负 = 上移；0 = 底部原位）。rememberSaveable 持久化（Saver 只存此项）。 */
-    var offsetY by mutableFloatStateOf(0f)
+    var offsetYPx by mutableFloatStateOf(0f)
 
     /** 容器实测高（layout 约束 maxHeight，#194 D1——取代旧整屏高 − 160dp 魔法数）。 */
     var containerHeightPx by mutableFloatStateOf(0f)
@@ -126,7 +126,7 @@ internal class FabEdgeSlideState {
 
     /** 容器尺寸变化（键盘/分屏）时对存量位移重新收界（D1：防陈值越界）。 */
     fun coerceOffset(maxUpPx: Float) {
-        if (maxUpPx >= 0f) offsetY = offsetY.coerceIn(-maxUpPx, 0f)
+        if (maxUpPx >= 0f) offsetYPx = offsetYPx.coerceIn(-maxUpPx, 0f)
     }
 
     /** 几何锚点写入（layout/onGloballyPositioned 实测回调，同模块内可写）。 */
@@ -141,10 +141,10 @@ internal class FabEdgeSlideState {
     companion object
 }
 
-/** 位移持久化 Saver（只存 offsetY；几何锚点为瞬态，不参与保存）。 */
+/** 位移持久化 Saver（只存 offsetYPx；几何锚点为瞬态，不参与保存）。 */
 private val FabEdgeSlideSaver = Saver<FabEdgeSlideState, Float>(
-    save = { it.offsetY },
-    restore = { FabEdgeSlideState().apply { offsetY = it } },
+    save = { it.offsetYPx },
+    restore = { FabEdgeSlideState().apply { offsetYPx = it } },
 )
 
 @Composable
@@ -177,7 +177,7 @@ private fun Modifier.fabEdgeVerticalSlide(
             }
             val placeable = measurable.measure(constraints)
             // 折叠态节点高 = **观测最小值**：展开/stagger 只会更大；收起动画收缩途中的
-            // 瞬态高度不可作基准（否则 layout 收界把 offsetY 永久钳上去——E4e 二次实证）。
+            // 瞬态高度不可作基准（否则 layout 收界把 offsetYPx 永久钳上去——E4e 二次实证）。
             // menuCollapsed 参数仅保留语义提示，基准计算不再依赖瞬时尺寸。
             if (state.collapsedNodeHeightPx == 0f ||
                 placeable.height.toFloat() < state.collapsedNodeHeightPx
@@ -188,7 +188,7 @@ private fun Modifier.fabEdgeVerticalSlide(
             val maxUp = containerH - state.collapsedNodeHeightPx - marginPx
             state.coerceOffset(maxUp)
             layout(placeable.width, placeable.height) {
-                placeable.placeRelative(0, (state.offsetY + extraShift()).roundToInt())
+                placeable.placeRelative(0, (state.offsetYPx + extraShift()).roundToInt())
             }
         }
         .pointerInput(state) {
@@ -201,7 +201,7 @@ private fun Modifier.fabEdgeVerticalSlide(
                         val basis = state.collapsedNodeHeightPx
                         if (ch > 0f && basis > 0f) ch - basis - marginPx else 0f
                     }
-                    state.offsetY = (state.offsetY + dragAmount).coerceIn(-maxUp, 0f)
+                    state.offsetYPx = (state.offsetYPx + dragAmount).coerceIn(-maxUp, 0f)
                 },
             )
         }
@@ -222,7 +222,7 @@ private const val ExpandShiftAnimMs = 300
  * #192 v6：贴边上下滑动（fabEdgeVerticalSlide，位移作用于整个菜单）。
  * #194 D2–D4：高位展开时菜单溢出量整体平滑下移（expandShift 临时态，不持久化）——
  * 只在点击展开那一瞬间实测计算一次；收起动画回 0；展开中拖动则先收起并把
- * shift 瞬时并入 offsetY（位置连续、不双计）。
+ * shift 瞬时并入 offsetYPx（位置连续、不双计）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -253,14 +253,14 @@ internal fun ChatFabMenu(
     // D3 动画编排（单一效应，键 = expanded：false→true 展开 / true→false 收起，
     // 再展开必然重触发——不存在同值目标不重启的问题）。
     // 展开：tap 瞬间算好目标，items 交错浮现的同时整体下滑就位（同时进行）；
-    // 收起：items 消退的同时 expandShift 平滑回 0（offsetY 停放位保持不动）。
+    // 收起：items 消退的同时 expandShift 平滑回 0（offsetYPx 停放位保持不动）。
     LaunchedEffect(expanded) {
         if (expanded) {
             val target = computeFabExpandShiftPx(
                 collapsedPx = slideState.collapsedNodeHeightPx,
                 menuSpanPx = menuSpanPx,
                 containerPx = slideState.containerHeightPx,
-                offsetYPx = slideState.offsetY,
+                offsetYPx = slideState.offsetYPx,
                 menuPadPx = menuPadPx,
                 topMarginPx = marginPx,
             )
@@ -268,7 +268,7 @@ internal fun ChatFabMenu(
                 "ChatFabMenu",
                 "[fab-shift] expand: collapsed=${slideState.collapsedNodeHeightPx.toInt()} " +
                     "span=${menuSpanPx.toInt()} H=${slideState.containerHeightPx.toInt()} " +
-                    "offsetY=${slideState.offsetY.toInt()} -> shift=${target.toInt()}",
+                    "offsetYPx=${slideState.offsetYPx.toInt()} -> shift=${target.toInt()}",
             )
             if (target > 0f) {
                 animate(expandShift, target, animationSpec = tween(ExpandShiftAnimMs)) { v, _ ->
@@ -301,16 +301,16 @@ internal fun ChatFabMenu(
             extraShift = { expandShift },
             onDragStart = {
                 if (expanded) {
-                    // D4：展开中拖动 → 收起，当前 shift 瞬时并入 offsetY（位置连续、
+                    // D4：展开中拖动 → 收起，当前 shift 瞬时并入 offsetYPx（位置连续、
                     // 不双计），此后拖动直接跟手；effect 重启时 expandShift 已为 0，
                     // 收起动画自然成为无操作（无双计）
                     AppLogger.d(
                         "ChatFabMenu",
-                        "[fab-shift] drag-merge: offsetY=${slideState.offsetY.toInt()} " +
+                        "[fab-shift] drag-merge: offsetYPx=${slideState.offsetYPx.toInt()} " +
                             "+ shift=${expandShift.toInt()}",
                     )
                     expanded = false
-                    slideState.offsetY += expandShift
+                    slideState.offsetYPx += expandShift
                     expandShift = 0f
                 }
             },
