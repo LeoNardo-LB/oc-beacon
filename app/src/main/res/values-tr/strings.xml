@@ -596,8 +596,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_chat_font">Sohbet yazı tipi</string>
     <string name="settings_chat_font_normal">Normal</string>
     <string name="settings_chat_font_compact">Kompakt</string>
-    <string name="settings_turn_dividers">Sıra ayırıcıları</string>
-    <string name="settings_turn_dividers_desc">Aynı sıradaki mesajlar arasında ayırıcıları göster</string>
+    <string name="settings_turn_dividers">Tur ayırıcıları</string>
+    <string name="settings_turn_dividers_desc">Aynı turdaki mesajlar arasında ayırıcıları göster</string>
     <string name="viewer_loading_progress">Yükleniyor: %1$d / %2$d satır</string>
     <string name="viewer_large_file_warning">Büyük dosya (%1$d satır) — performans etkilenebilir</string>
     <string name="workspace_search_hint">Dosya aramak için yazın</string>

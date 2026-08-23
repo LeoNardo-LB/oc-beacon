@@ -48,7 +48,7 @@
     <string name="settings_notifications">Benachrichtigungen</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">OpenCode Verbindung</string>
-    <string name="notification_channel_tasks">Runden-Benachrichtigungen</string>
+    <string name="notification_channel_tasks">Turn-Benachrichtigungen</string>
     <string name="notification_connected">Verbunden mit %1$s</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">Senden fehlgeschlagen</string>
@@ -124,7 +124,7 @@
     <string name="chat_busy_menu_send_now">Jetzt senden</string>
     <string name="chat_busy_menu_send_now_desc">In der Server-Warteschlange, sofort sichtbar, kann nicht rückgängig gemacht werden</string>
     <string name="chat_busy_menu_stack">Nachricht einreihen</string>
-    <string name="chat_busy_menu_stack_desc">Wird lokal gespeichert und automatisch gesendet, wenn diese Runde endet</string>
+    <string name="chat_busy_menu_stack_desc">Wird lokal gespeichert und automatisch gesendet, wenn dieser Turn endet</string>
     <string name="chat_busy_menu_stack_no_attachments">Nachrichten mit Anhängen müssen sofort gesendet werden</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Warteschlange</string>
@@ -296,7 +296,7 @@
     <string name="menu_share_session">Sitzung teilen</string>
     <string name="settings_dynamic_color">Dynamische Farben</string>
     <string name="settings_dynamic_color_desc">Farben vom Hintergrundbild verwenden (Material You)</string>
-    <string name="settings_notifications_desc">Benachrichtigen, wenn eine Runde abgeschlossen wird</string>
+    <string name="settings_notifications_desc">Benachrichtigen, wenn ein Turn abgeschlossen wird</string>
     <string name="settings_initial_messages">Zu ladende Anfangsnachrichten</string>
     <string name="settings_confirm_send">Vor dem Senden bestätigen</string>
     <string name="settings_confirm_send_desc">Bestätigungsdialog vor dem Senden einer Nachricht anzeigen</string>
@@ -322,7 +322,7 @@
     <string name="settings_keep_screen_on">Bildschirm anlassen</string>
     <string name="settings_keep_screen_on_desc">Bildschirmabschaltung im Chat verhindern</string>
     <string name="settings_silent_notifications">Stille Benachrichtigungen</string>
-    <string name="settings_silent_notifications_desc">Ton und Vibration für Runden-Benachrichtigungen unterdrücken</string>
+    <string name="settings_silent_notifications_desc">Ton und Vibration für Turn-Benachrichtigungen unterdrücken</string>
     <string name="settings_notif_test">Testbenachrichtigung senden</string>
     <string name="settings_notif_test_desc">Sendet eine echte Benachrichtigung, um Banner und Ton zu prüfen. Erscheint nichts, schaltet das Gerät die App möglicherweise stumm (z. B. MIUI deaktiviert Floating-Benachrichtigungen standardmäßig) — unten in den Systembenachrichtigungen aktivieren.</string>
     <string name="settings_notif_system">Systembenachrichtigungen</string>
@@ -333,9 +333,9 @@
     <string name="a11y_settings_notif_system">Systembenachrichtigungen</string>
     <string name="dialog_select_reconnect_mode">Reconnect-Modus auswählen</string>
     <string name="notification_channel_connection_desc">Persistente Verbindung zum OpenCode-Server</string>
-    <string name="notification_channel_tasks_desc">Benachrichtigungen bei Abschluss einer Runde</string>
-    <string name="notification_channel_tasks_silent">Runden-Benachrichtigungen (Stumm)</string>
-    <string name="notification_channel_tasks_silent_desc">Stille Benachrichtigungen bei Abschluss einer Runde</string>
+    <string name="notification_channel_tasks_desc">Benachrichtigungen bei Abschluss eines Turns</string>
+    <string name="notification_channel_tasks_silent">Turn-Benachrichtigungen (Stumm)</string>
+    <string name="notification_channel_tasks_silent_desc">Stille Benachrichtigungen bei Abschluss eines Turns</string>
     <string name="notification_channel_permissions">Berechtigungsanfragen</string>
     <string name="notification_channel_permissions_desc">Benachrichtigungen, wenn OpenCode Berechtigungen benötigt</string>
     <string name="notification_connecting">Verbinde mit %1$s…</string>
@@ -596,8 +596,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_chat_font">Chat-Schriftart</string>
     <string name="settings_chat_font_normal">Normal</string>
     <string name="settings_chat_font_compact">Kompakt</string>
-    <string name="settings_turn_dividers">Runden-Trennlinien</string>
-    <string name="settings_turn_dividers_desc">Trennlinien zwischen Nachrichten derselben Runde anzeigen</string>
+    <string name="settings_turn_dividers">Turn-Trennlinien</string>
+    <string name="settings_turn_dividers_desc">Trennlinien zwischen Nachrichten desselben Turns anzeigen</string>
     <string name="viewer_loading_progress">Laden: %1$d / %2$d Zeilen</string>
     <string name="viewer_large_file_warning">Große Datei (%1$d Zeilen) — die Leistung kann beeinträchtigt sein</string>
     <string name="workspace_search_hint">Tippen, um Dateien zu suchen</string>
