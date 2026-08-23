@@ -248,7 +248,7 @@ class SessionStateServiceTest {
         assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
         // 2026-08-15（对齐官方调研结论 research/05）：官方客户端无任何自动
         // interrupt（全部用户显式触发）——自动 zombie interrupt 已实证误杀
-        //（主会话等待后台子代理被打断）。收紧为"仅显示修复"：**断言 abort
+        //（主会话等待后台子智能体被打断）。收紧为"仅显示修复"：**断言 abort
         // 不被调用**；本地 Idle 兜底仍然生效（上方断言）。
         coVerify(exactly = 0) { fakeRepo.abort(any(), any(), any()) }
     }
