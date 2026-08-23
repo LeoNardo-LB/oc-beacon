@@ -189,6 +189,16 @@
 **测试基建教训（写入 journal 供复用）**：reverseLayout 列表往上翻是**下滑**手势；uiautomator dump 对 FAB/药丸全失明但对自定义 semantics tab 可见；vision 对小圆钮~50% 幻觉率，像素探针+desc 才是硬证据；`input swipe` 慢速拖拽会输给触摸 slop 竞争（快滑 100-150ms 稳定）；MIUI 返回手势区 ~24dp；release 构建 Log.d 可见（R8 不剥离）但 devDebug 签名与装机不兼容（本地 devRelease 用 8fbc136e keystore）。
 
 **维度 5 待用户验收**：滑动手感（跟手度/回弹）/ 拉杆可发现性（4dp 细柄 + 角标）/ 拉杆点按热区（宽区中心偶发不响应——若用户复现可把 clickable 收窄到 handle 或加最小触达）。
+### v6 改向收口（2026-08-23，用户指令「不做隐藏了，按钮贴边上下滑动，做简单点」）
+
+- **全量清理**：SwipeHideFabContainer/FabSwipeAnchor/FabEdgeTab/ChatFabVisibilityState（类+测试）/ChatScreen+VM 接线/隐藏 i18n 键——残留扫描零命中；基线取自 #192 前原版（ed3ebb1e）
+- **新实现** `Modifier.fabEdgeVerticalSlide()`：offset 布局位移（非 graphicsLayer——命中区同步移动，点击语义在 lifted 位置实证有效）；rememberSaveable 每导航入口保持；clamp [-(屏高−160dp), 0]；detectVerticalDragGestures 过 slop 才消费（tap 不受影响）
+- **尺寸**（用户同轮要求）：Toggle 48→52dp、左 FAB 44→48dp、菜单 item 保持 44dp
+- **真机验证**：拖动 300px 后 FAB 驻留新位（像素实证 y=1938 图标色 #d0e6f2）、新位点击菜单正常弹出、0 crash（一次进入会话的瞬时 NPE 未复现，判定为竞态噪音——若再现再取证）；全量 1880/1880 绿（−8 状态类测试随删除）
+
+### v1–v5 隐藏方案复盘（为什么废弃）
+
+五轮迭代（手搓→官方引擎→官方动画→连续动画→几何修正）每轮真机暴露新问题（align 语义、mutex 抢占、NaN 陷阱、dock 振荡、peek 几何），核心复杂度来自「隐藏态需要第二组件/第二锚点系统接续」——与「贴边微调位置」这一真实需求不匹配。用户改向后 30 行的 v6 一次通过。教训：**交互需求先问清「藏到哪、剩多少、怎么回来」，凡需要状态接续的隐藏方案都是复杂度放大器**。
 ### v3 官方动画接入（2026-08-23，用户观感反馈「动画生硬/吸附悬空」）
 
 **调研（本地 alpha26 源码直查）**：`Modifier.animateFloatingActionButton(visible, alignment)` 就在本仓 M3 1.5.0-alpha26（FloatingActionButton.kt:1121，稳定 API）——官方 FAB 显隐动画：MotionScheme **Fast Spatial spring 向对齐方向缩放** + **Fast Effects spring 渐隐**，alpha=0 时零占位。这正是「收进边缘」的官方语义，替代自调动画。
