@@ -74,9 +74,9 @@ object V2SseMapper {
             // 2026-08-15 修复（subagent/后台完成通知误渲染成 user 气泡）：
             // inbox 不只装用户输入——subagent/后台轮次完成通知等 synthetic
             // 消息同样经 inbox.enqueued 投递（实测 item.type="synthetic"，
-            // body 为 <subagent ...>子代理全部输出</subagent>，可达数 KB）。
+            // body 为 <subagent ...>子智能体全部输出</subagent>，可达数 KB）。
             // 原实现无条件按 Message.User（role 默认 "user"）播种 → 通知被
-            // 渲染成 user 气泡，子代理（assistant）的输出全文进了用户气泡。
+            // 渲染成 user 气泡，子智能体（assistant）的输出全文进了用户气泡。
             // 修复：读取 item.type，非 "user" 类型设置对应 role——下游
             // ChatMessageList 按 role=="synthetic" 走 SyntheticNotificationCard
             // （#67 通知卡片：状态标签 + 任务描述 + 可展开 output）。

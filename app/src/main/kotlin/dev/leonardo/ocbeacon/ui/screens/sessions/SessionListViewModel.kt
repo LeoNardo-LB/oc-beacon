@@ -372,7 +372,7 @@ class SessionListViewModel @Inject constructor(
         )
     }
 
-    // 内容册（最终）
+    // 内容簇（状态簇·列表渲染）（最终）
     // #100（M-11）：上游 distinctUntilChanged + 搜索防抖已大幅降低全量重建频率；
     // buildContentState 保持收集线程（移 flowOn(Default) 会在测试/组合期引入
     // Dispatchers.Main 访问竞态——2026-08-15 实测 SessionListShellStateTest 失败）
@@ -382,7 +382,7 @@ class SessionListViewModel @Inject constructor(
         buildContentState(data, ui, serverId, draftRepository)
     }.stateIn(viewModelScope, WhileSubscribed5s, SessionListContentState())
 
-    // 外壳册（独立）
+    // 外壳簇（状态簇·框架）（独立）
     val shellState: StateFlow<SessionListShellState> = combine(
         _isLoading, _isRefreshing, _error, serverName,
     ) { isLoading, isRefreshing, error, sname ->

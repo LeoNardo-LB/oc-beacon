@@ -1313,7 +1313,7 @@ http://{host}:{port}
 
 ### GET `/session/{sessionID}/children`
 
-**用途**：获取从指定会话 fork 出来的所有子会话。
+**用途**：获取从指定会话 fork 出来的所有子智能体会话（旧称子会话）。
 
 **Path 参数**：`sessionID`  
 **Query 参数**：`WorkspaceRoutingQuery`（公共参数）  

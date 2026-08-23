@@ -23,7 +23,7 @@
     <string name="session_status_retry">إعادة المحاولة (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">إرسال</string>
-    <string name="chat_empty">ابدأ محادثة مع OpenCode</string>
+    <string name="chat_empty">ابدأ جلسة مع OpenCode</string>
     <!-- Permissions -->
     <string name="permission_title">مطلوب إذن</string>
     <string name="permission_allow_once">مرة واحدة</string>
@@ -48,7 +48,7 @@
     <string name="settings_notifications">الإشعارات</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">اتصال OpenCode</string>
-    <string name="notification_channel_tasks">إشعارات المهام</string>
+    <string name="notification_channel_tasks">إشعارات الأدوار</string>
     <string name="notification_connected">متصل بـ %1$s</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">فشل الإرسال</string>
@@ -212,17 +212,17 @@
     <string name="chat_status_running_commands">تشغيل الأوامر</string>
     <string name="chat_status_searching">بحث في قاعدة الكود</string>
     <string name="chat_status_fetching_url">جلب الرابط</string>
-    <string name="chat_status_running_subagent">تشغيل وكيل فرعي</string>
-    <string name="chat_task_completed">اكتملت المهمة</string>
+    <string name="chat_status_running_subagent">يعمل وكيل فرعي</string>
+    <string name="chat_task_completed">اكتمل الدور</string>
     <string name="chat_task_failed">فشلت المهمة</string>
-    <string name="chat_system_notification">اكتمل الوكيل الفرعي</string>
+    <string name="chat_system_notification">إشعار اصطناعي: اكتمل الوكيل الفرعي</string>
     <string name="task_sheet_subagent_completed">مكتمل</string>
     <string name="chat_label_user">المستخدم</string>
     <string name="chat_label_agent">الوكيل</string>
     <string name="chat_background_agent_completed">اكتمل الوكيل</string>
     <string name="chat_background_agent_failed">فشل الوكيل</string>
-    <string name="chat_background_shell_completed">اكتمل Shell</string>
-    <string name="chat_background_shell_failed">فشل Shell</string>
+    <string name="chat_background_shell_completed">اكتمل شل</string>
+    <string name="chat_background_shell_failed">فشل شل</string>
     <string name="chat_label_tasks">المهام</string>
     <string name="chat_subagent_completed_notification">اكتمل الوكيل الفرعي</string>
     <string name="chat_subagent_failed_notification">فشل الوكيل الفرعي</string>
@@ -279,7 +279,7 @@
     <string name="tool_edit_file">تعديل ملف</string>
     <string name="tool_terminal">طرفية</string>
     <string name="toolbar_agent">الوكلاء</string>
-    <string name="toolbar_shell">Shell</string>
+    <string name="toolbar_shell">شل</string>
     <string name="tool_find_files">البحث عن ملفات</string>
     <string name="tool_search_code">بحث</string>
     <string name="tool_list_directory">عرض الدليل</string>
@@ -312,7 +312,7 @@
     <string name="menu_share_session">مشاركة الجلسة</string>
     <string name="settings_dynamic_color">ألوان ديناميكية</string>
     <string name="settings_dynamic_color_desc">استخدام الألوان من خلفية الشاشة (Material You)</string>
-    <string name="settings_notifications_desc">إشعار عند إكمال الوكيل مهمة</string>
+    <string name="settings_notifications_desc">إشعار عند اكتمال الدور</string>
     <string name="settings_initial_messages">عدد الرسائل الأولية للتحميل</string>
     <string name="settings_confirm_send">تأكيد قبل الإرسال</string>
     <string name="settings_confirm_send_desc">عرض مربع تأكيد قبل إرسال الرسالة</string>
@@ -338,7 +338,7 @@
     <string name="settings_keep_screen_on">إبقاء الشاشة مفعلة</string>
     <string name="settings_keep_screen_on_desc">منع إطفاء الشاشة أثناء الدردشة</string>
     <string name="settings_silent_notifications">إشعارات صامتة</string>
-    <string name="settings_silent_notifications_desc">إيقاف الصوت والاهتزاز لإشعارات المهام</string>
+    <string name="settings_silent_notifications_desc">إيقاف الصوت والاهتزاز لإشعارات الأدوار</string>
     <string name="settings_notif_test">إرسال إشعار اختباري</string>
     <string name="settings_notif_test_desc">يرسل إشعارًا حقيقيًا للتحقق من الشعار والصوت. إذا لم يظهر شيء، فقد يكون الجهاز كاتمًا للتطبيق (مثلًا MIUI يعطّل الإشعارات العائمة افتراضيًا) — فعّلها من إعدادات إشعارات النظام أدناه.</string>
     <string name="settings_notif_system">إعدادات إشعارات النظام</string>
@@ -349,9 +349,9 @@
     <string name="a11y_settings_notif_system">إعدادات إشعارات النظام</string>
     <string name="dialog_select_reconnect_mode">اختيار وضع إعادة الاتصال</string>
     <string name="notification_channel_connection_desc">اتصال دائم بخادم OpenCode</string>
-    <string name="notification_channel_tasks_desc">إشعارات عند اكتمال مهام OpenCode</string>
-    <string name="notification_channel_tasks_silent">إشعارات المهام (صامتة)</string>
-    <string name="notification_channel_tasks_silent_desc">إشعارات صامتة عند اكتمال مهام OpenCode</string>
+    <string name="notification_channel_tasks_desc">إشعارات عند اكتمال الدور</string>
+    <string name="notification_channel_tasks_silent">إشعارات الأدوار (صامتة)</string>
+    <string name="notification_channel_tasks_silent_desc">إشعارات صامتة عند اكتمال الدور</string>
     <string name="notification_channel_permissions">طلبات الإذن</string>
     <string name="notification_channel_permissions_desc">إشعارات عند طلب OpenCode أذونات</string>
     <string name="notification_connecting">جاري الاتصال بـ %1$s…</string>
@@ -394,11 +394,11 @@
     <string name="server_auto_connect_desc">الاتصال تلقائيًا عند بدء التطبيق</string>
     <string name="settings_terminal_font_size">حجم خط الطرفية الافتراضي</string>
     <string name="settings_terminal_font_size_value">%1$d sp</string>
-    <string name="cmd_shell_mode">التبديل إلى وضع الشِل</string>
-    <string name="chat_shell_placeholder">أدخل أمر shell...</string>
-    <string name="chat_shell_failed">فشل تشغيل أمر الشِل</string>
-    <string name="chat_shell_empty">يرجى إدخال أمر شِل أولاً</string>
-    <string name="chat_shell_attachments_unsupported">وضع الشِل لا يدعم المرفقات</string>
+    <string name="cmd_shell_mode">التبديل إلى وضع الشل</string>
+    <string name="chat_shell_placeholder">أدخل أمر شل...</string>
+    <string name="chat_shell_failed">فشل تشغيل أمر الشل</string>
+    <string name="chat_shell_empty">يرجى إدخال أمر شل أولاً</string>
+    <string name="chat_shell_attachments_unsupported">وضع الشل لا يدعم المرفقات</string>
     <string name="chat_terminal_connect_failed">فشل فتح الطرفية</string>
     <string name="server_settings_providers">المزودون</string>
     <string name="server_settings_providers_desc">تفعيل أو تعطيل المزودين لهذا الخادم</string>
@@ -450,8 +450,8 @@
 الحجم: %2$s -&gt; %3$s
 الرموز: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_compress_images_max_side_keep_original">احتفظ بالدقة الأصلية</string>
-    <string name="chat_send_shell">إرسال أمر شِل</string>
-    <string name="chat_shell_mode_hold_send_hint">وضع الشِل نشط. اضغط مع الاستمرار على إرسال للعودة.</string>
+    <string name="chat_send_shell">إرسال أمر شل</string>
+    <string name="chat_shell_mode_hold_send_hint">وضع الشل نشط. اضغط مع الاستمرار على إرسال للعودة.</string>
     <string name="menu_review_changes">مراجعة التغييرات</string>
     <string name="session_path">مسار</string>
     <string name="session_count">الجلسات</string>
@@ -535,7 +535,7 @@
     <string name="a11y_icon_warning">تحذير</string>
     <string name="a11y_icon_navigate_forward">التقدم للأمام</string>
     <string name="a11y_locate_task">تحديد موقع المهمة الأصلية</string>
-    <string name="chat_locate_task_not_found">لم يتم العثور على المهمة الأصلية في هذه المحادثة</string>
+    <string name="chat_locate_task_not_found">لم يتم العثور على المهمة الأصلية في هذه الجلسة</string>
     <string name="a11y_icon_add">إضافة</string>
     <string name="a11y_icon_share">مشاركة</string>
     <string name="a11y_icon_unlink">إزالة الربط</string>
@@ -713,15 +713,15 @@
     <string name="task_toolbar_subagents">%1$d وكيل فرعي نشط في المقدمة</string>
     <string name="a11y_icon_tasks">أنشطة المهام</string>
     <string name="task_sheet_subagents_tab">الوكلاء الفرعيون</string>
-    <string name="task_sheet_shells_tab">Shells</string>
+    <string name="task_sheet_shells_tab">شل</string>
     <string name="task_sheet_empty_subagents">لا توجد وكلاء فرعيون قيد التشغيل</string>
-    <string name="task_sheet_empty_shells">لا توجد أوامر طرفية</string>
+    <string name="task_sheet_empty_shells">لا توجد أوامر شل</string>
     <string name="task_sheet_title">المهام</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->
-    <string name="task_foreground">أمامي</string>
-    <string name="task_background">خلفية</string>
+    <string name="task_foreground">المقدمة</string>
+    <string name="task_background">الخلفية</string>
     <string name="task_sheet_history_tab">السجل</string>
-    <string name="shell_kill">إزالة الطرفية</string>
+    <string name="shell_kill">إزالة شل</string>
     <string name="shell_close">إغلاق</string>
     <string name="shell_no_output">لا يوجد إخراج بعد</string>
 </resources>

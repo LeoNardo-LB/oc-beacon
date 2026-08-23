@@ -57,7 +57,7 @@ $adb install -r app/build/outputs/apk/dev/debug/app-dev-debug.apk
 | TC | 覆盖点 | 关键断言 | 验证手段 |
 |----|--------|---------|---------|
 | TC1 | 连接状态持久通知 + 点击导航 | 通知文本 = "Connected to xxx"（非 Connecting）；点击进入会话列表 | `adb shell dumpsys notification --noredact` + UI 交互 |
-| TC2 | 会话按目录分组 | 分组节点为目录；无 "global" 聚合文件夹 | ui-query dump 列表结构 |
+| TC2 | 会话按目录分组 | 分组节点为目录；无 "global" 聚合目录 | ui-query dump 列表结构 |
 | TC3 | 通知总开关 | 开关切换正常、设置页无崩溃 | UI 交互 |
 | TC4 | 多语言字符串 | 中/英切换无硬编码残留 | 语言切换 + 截图 |
 | TC5 | 崩溃回归 | 冷/热启动无 FATAL | `adb logcat -b crash` + 启动验证 |
@@ -79,9 +79,9 @@ $adb shell dumpsys notification --noredact | grep -E "Connected|Connecting|openc
 - 回归信号：文本停留在 "Connecting…" 超过连接建立后数秒 = 状态未刷新 bug
 
 ### 7.2 会话分组（TC2）
-- 文件夹视图分组标题为目录 basename（如 `oc-beacon`、`workspace`）
+- 目录视图（视图模式 FOLDER 沿旧枚举名）分组标题为目录 basename（如 `oc-beacon`、`workspace`）
 - 分组键为完整目录路径（不同目录不合并）
-- **禁止出现 "global" 聚合文件夹**（服务器 /project 的全局项目名）
+- **禁止出现 "global" 聚合目录**（服务器 /project 的全局项目名）
 
 ### 7.3 通知点击导航（TC1 子项）
 - 点击持久通知 → 进入服务器**会话列表**（顶栏显示服务器地址）

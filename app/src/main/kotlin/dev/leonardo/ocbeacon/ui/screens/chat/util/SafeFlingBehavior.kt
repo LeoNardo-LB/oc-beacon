@@ -25,7 +25,7 @@ import kotlin.math.exp
  * 历史：e651daf1 首次引入切块 fling（修 fling 跳过长消息）；cd1ae6ee
  * v1 迭代移除（当时以 cacheWindow 对称窗口替代）；2026-08-13 起窗口被
  * JumpPrefetchStrategy 取代后高速段保护缺失——本文件以视口自适应限速
- * 回归，并与预解析驱动配合（当年两者未同时存在）。
+ * 回归，并与渲染供给协调器配合（当年两者未同时存在）。
  */
 @Composable
 internal fun rememberSafeFlingBehavior(listState: LazyListState): FlingBehavior {

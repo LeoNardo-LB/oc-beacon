@@ -472,7 +472,7 @@ class V2ApiClient @Inject constructor(
             AppLogger.d(TAG, "[prompt] POST /api/session/$sessionId/prompt textLen=${text.length} agent=$agent directory=$directory")
         }
         // 新契约（主干）：prompt 包裹；agent 独立字段（switchAgent 语义近似——
-        // 旧契约的 agents 数组是 @子代理附件语义，不承载当前 agent 选择）
+        // 旧契约的 agents 数组是 @子智能体附件语义，不承载当前 agent 选择）
         val modernBody = kotlinx.serialization.json.buildJsonObject {
             put("prompt", kotlinx.serialization.json.buildJsonObject {
                 put("text", kotlinx.serialization.json.JsonPrimitive(text))

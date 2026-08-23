@@ -713,7 +713,7 @@ class SessionStateService @Inject constructor(
         // **不存在任何自动 interrupt**——所有 interrupt 由用户显式动作触发
         //（Esc 三连击/停止按钮/undo 前置）。官方对"running 但无事件"的态度是
         // 无限期等待、只修本地显示。我们的自动 zombie interrupt 已实证误杀
-        //（主会话等待后台子代理被打断——用户零操作）。
+        //（主会话等待后台子智能体被打断——用户零操作）。
         // 收紧：默认只修显示（本地转 Idle，不调服务器 interrupt）。
         // 自动 interrupt 关闭；未来如需恢复，须以用户手动入口（会话详情
         // "强制解除卡死"）+ 长工具静默防护 + V1 禁用（V1 abort 级联取消

@@ -398,7 +398,7 @@ class SseClientV2 @Inject constructor(
                             sessionId = sessionId,
                             role = inputType, // "synthetic"（兼容其他非 user 类型）
                             time = TimeInfo(created = System.currentTimeMillis()),
-                            // 2026-08-12：映射 metadata.agent（子代理类型）→ agent 字段
+                            // 2026-08-12：映射 metadata.agent（子智能体类型）→ agent 字段
                             agent = dataObj?.get("metadata")?.jsonObject
                                 ?.get("agent")?.jsonPrimitive?.contentOrNull,
                             summary = Message.User.UserSummary(

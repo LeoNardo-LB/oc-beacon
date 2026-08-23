@@ -111,7 +111,7 @@ class QuestionEventHandler @Inject constructor() : SseEventHandler {
 
     /**
      * 获取某会话的所有待处理问题，包括来自子智能体会话的问题。
-     * 这使父会话 UI 能显示子代理的问题请求。
+     * 这使父会话 UI 能显示子智能体的问题请求。
      * 子智能体会话问题用 [SseEvent.QuestionAsked.sourceSessionTitle] 标注。
      */
     fun getQuestionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.QuestionAsked> {

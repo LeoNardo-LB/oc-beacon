@@ -321,7 +321,7 @@ object V2MessageMapper {
             }
             "synthetic" -> {
                 val text = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
-                // 2026-08-12：映射 metadata.agent（"Explore"/"general" 等子代理类型）
+                // 2026-08-12：映射 metadata.agent（"Explore"/"general" 等子智能体类型）
                 // → Message.User.agent，供 SyntheticNotificationCard 展示具体类型。
                 // 服务器 payload：metadata = {source:"subagent", childID, agent:"Explore", state:"completed"}
                 val agent = obj["metadata"]?.jsonObject

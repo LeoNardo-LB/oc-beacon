@@ -95,7 +95,7 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
 
     /**
      * 获取某会话的所有待处理权限，包括来自子智能体会话的权限。
-     * 这使父会话 UI 能显示子代理的权限请求。
+     * 这使父会话 UI 能显示子智能体的权限请求。
      * 子智能体会话权限用 [SseEvent.PermissionAsked.sourceSessionTitle] 标注。
      */
     fun getPermissionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.PermissionAsked> {

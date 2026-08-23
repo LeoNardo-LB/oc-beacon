@@ -35,7 +35,7 @@ sealed class RenderItem {
     data class TurnDivider(val msgId: String) : RenderItem()
     @Immutable
     data class GroupedParts(val group: PartGroup) : RenderItem()
-    /** synthetic 系统通知卡片（后台任务完成，2026-08-11 嵌入气泡内渲染）。 */
+    /** 合成通知卡片（后台轮次完成；2026-08-12 起独立成泡渲染，不再嵌入气泡）。 */
     @Immutable
     data class SyntheticNotice(val msgId: String, val message: ChatMessage) : RenderItem()
 }

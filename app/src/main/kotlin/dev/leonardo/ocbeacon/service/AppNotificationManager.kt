@@ -487,7 +487,7 @@ class AppNotificationManager @Inject constructor(
     // ============ 通知去重 / 会话辅助方法 ============
 
     /**
-     * 检查会话是否为子/子代理会话（已设置 parentID）。
+     * 检查会话是否为子/子智能体会话（已设置 parentID）。
      * 子智能体会话不应触发面向用户的通知。
      */
     fun isChildSession(sessionId: String): Boolean {

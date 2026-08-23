@@ -46,7 +46,7 @@ data class SessionListUiInputs(
     val categoryFilterIds: Set<String>,
 )
 
-// 内容册：列表渲染相关
+// 内容簇（状态簇·列表渲染）：列表渲染相关
 data class SessionListContentState(
     val treeNodes: List<TreeNode> = emptyList(),
     val sessions: List<Session> = emptyList(),
@@ -57,7 +57,7 @@ data class SessionListContentState(
     val prefillDirectory: String? = null,
 )
 
-// 外壳册：顶栏/框架相关（本任务定义，Task 2 使用）
+// 外壳簇（状态簇·框架）：顶栏/框架相关（本任务定义，Task 2 使用）
 data class SessionListShellState(
     val serverName: String = "",
     val isLoading: Boolean = false,
