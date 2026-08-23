@@ -1,7 +1,7 @@
 # 发版工作流（Release Workflow）
 
 > **本文档是发版工作的唯一权威指南。** 任何发版、版本号变更、tag 操作、GitHub Release 操作之前**必须先读本文档**。
-> 最后更新：2026-08-05
+> 最后更新：2026-08-24
 
 ---
 
@@ -77,6 +77,39 @@ MAJOR.MINOR.PATCH[-dev.NUMBER]     # dev：线内迭代，有序号
 - `app/build.gradle.kts` 从 `version.properties` 读取 — 禁止在 build.gradle.kts 中硬编码版本号。
 - CI 通过 grep `version.properties` 提取版本 — **不要改变文件格式**。
 - **dev flavor 例外（2026-08-13 用户决策）**：`dev` 的 `versionCode` 用 **Unix 时间戳**（`app/build.gradle.kts`：`(System.currentTimeMillis() / 1000L).toInt()`——秒级 ~17.8 亿 < Int.MAX 21.4 亿，单调递增，不回拨时钟即可）→ 每次构建自动递增，`adb install -r` 直接覆盖安装（**保留 App 数据/服务器配置，禁止卸载重装**）。`version.properties` 仅 beta/stable 使用，不受 dev 构建影响。覆盖安装报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 时先核对签名源（处置见 [`docs/real-device-testing.md`](real-device-testing.md)）。
+
+### 2.5 三级递进规则（强制）
+
+> **2026-08-24 用户定规**：版本号递进**必须**依次走过 **开发版 → 测试版 → 正式版** 三级，不得跳级、不得倒退。
+
+**三级语义**：
+
+| 级别 | 后缀形态 | 语义 | 性质 |
+|------|---------|------|------|
+| 开发版 | `X.Y.Z-dev.N`（N 从 1 递增） | 版本线内开发迭代 | 预览版本（预发布） |
+| 测试版 | `X.Y.Z-beta`（每线单发、无序号，§2.1） | 公开测试位 | 预览版本（预发布） |
+| 正式版 | `X.Y.Z`（无后缀） | 对外正式发布 | 正式版本 |
+
+- 开发版与测试版均为**预览版本**：不更新 CHANGELOG（§4.1），GitHub Release 标记 prerelease。
+- 同一版本线 `X.Y.Z` 内通道切换**不 bump** 版本号（§3.3）；每条线**必须**完整走完 dev → beta 后才允许发正式版。以 tag 为准校验：
+  - `v{BASE}-beta` 存在 → 之前必须已有至少一个 `v{BASE}-dev.N`；
+  - `v{BASE}` 正式 tag 存在 → 同线 `v{BASE}-beta` 与 `v{BASE}-dev.N` 必须都已存在。
+- **开新线起点**：正式版发布后的下一次发版 = 上个正式版 + 增量（feat→+0.1.0 / fix→+0.0.1，§2.2），新线从 `-dev.1` 重新走三级。
+
+**示例**（上个正式版 `1.0.1`，修复类增量 `+0.0.1`）：
+
+```
+1.0.1（上个正式版）+ 0.0.1
+  → 1.0.2-dev.1 → 1.0.2-dev.2 → … → 1.0.2-dev.n   # 开发版：线内迭代
+  → 1.0.2-beta                                      # 测试版：公开测试（每线一个）
+  → 1.0.2                                           # 正式版：线内晋升
+```
+
+> 若为新特性，增量按 §2.2 为 MINOR：`1.0.1 → 1.1.0-dev.1 → 1.1.0-beta → 1.1.0`。
+
+**校验工具**：`./scripts/version.sh validate`（校验 version.properties 形态 + tag 递进链，非 0 退出码 = 违规，可挂 CI）；`./scripts/version.sh next [版本号]` 纯计算下一合法版本（不落盘）。
+
+**生效边界**：自 **0.3.1** 版本线起强制（0.3.1 是首条按三级推进的线：dev.1–dev.22 → beta，正式版待发）。更早版本线（0.1.0 / 0.1.1 / 0.2.0 / 0.3.0，含未走三级直发正式版的 0.1.1、0.2.0）为规则确立前的历史存量，不溯及——按 §7 红线历史 Tag 不删，校验脚本自动豁免。
 
 ---
 
