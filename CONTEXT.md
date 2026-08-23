@@ -121,8 +121,8 @@ _Avoid_: 跳转锁、滚动锚定锁
 _Avoid_: 「全都能从 VM 拿」、内容册/外壳册、集群
 
 **自动展开工具结果（autoExpand 工具卡片）**:
-设置键 collapseTools（历史名，语义反转：false=默认折叠）消费端取反为 autoExpand；Phase 2 改名对齐语义方向。
-_Avoid_: 「默认折叠」表述与 UI「自动展开」并存的歧义
+设置键 autoExpandTools（2026-08-24 #202 改名自 collapse_tools；取证值语义从未反转——true=展开，键名搬家迁移无取反）。标识符链 autoExpandTools/LocalAutoExpandTools。
+_Avoid_: 「默认折叠」表述与 UI「自动展开」并存的歧义、旧键名 collapse_tools
 
 ## 时间与未读
 
