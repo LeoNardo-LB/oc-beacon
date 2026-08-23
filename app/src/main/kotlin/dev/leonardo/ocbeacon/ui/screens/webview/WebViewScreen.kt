@@ -29,8 +29,8 @@ import kotlinx.coroutines.flow.SharedFlow
 /**
  * WebView 屏幕 — 加载远程 OpenCode Web UI
  *
- * 用 OpenCode 服务器提供的全功能 Web UI 替代所有原生 Chat/Session 屏幕，
- * 同时 Android 前台服务在后台保持 SSE 连接活跃。
+ * 旧版 WebView 回退路径（useNativeUi=true 硬编码，原生 UI 为现役）：
+ * 加载 OpenCode 服务器提供的 Web UI，同时 Android 前台服务在后台保持 SSE 连接活跃。
  *
  * 特性：
  * - 下拉刷新手势触发页面重载

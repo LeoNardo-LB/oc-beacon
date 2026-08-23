@@ -56,7 +56,7 @@ private const val FGS_TIMEOUT_RESTART_DELAY_MS = 2_000L
  * - 同时维护到一个或多个服务器的持久 SSE 连接
  * - 将连接生命周期委托给 [SseConnectionManager]
  * - 将通知管理委托给 [AppNotificationManager]
- * - 显示任务完成和权限请求的通知
+ * - 显示轮次完成/待处理权限/问题/会话错误四类通知
  * - 在任一服务器已连接时持有一个 partial WakeLock
  *
  * 连接会保持活跃，直到用户显式断开每个服务器
@@ -378,8 +378,8 @@ class OpenCodeConnectionService : Service() {
      * 集合，对新增问题触发通知。SSE 推 QuestionAsked 时也走相同通知路径，
      * 由 [AppNotificationManager.shouldNotifyQuestion] 二次去重，故不会重复。
      *
-     * 协程在 [connect] 时启动；当服务器断连（[connectionManager.isConnected]
-     * 返回 false）或 [disconnect] 取消 [pollingJobs] 时停止。
+     * 协程在 [connect] 时启动；随用户连接意图停止（[disconnect] 取消
+     * [pollingJobs]）；不检查 isConnected（2026-08-18 修复）。
      *
      * 通知总开关：与 SSE 路径（[maybeNotify]）对齐——仅在
      * `settingsDataStore.notificationsEnabled` 为 true 时才投递通知；
