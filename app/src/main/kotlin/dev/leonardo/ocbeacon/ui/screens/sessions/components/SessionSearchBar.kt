@@ -19,8 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -31,14 +29,12 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.components.amoledOutlinedTextFieldColors
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * 会话列表搜索栏 + 分类过滤 chips。
  *
- * 内部管理搜索输入的 debounce（300ms）和状态。
+ * 搜索输入直发（逐键上报）；防抖由 SessionListViewModel 单层 300ms 负责
+ *（#200 F06：原 UI 300ms + VM 300ms 双层串联 ≈600ms）。
  */
 @Composable
 internal fun SessionSearchBar(
@@ -51,18 +47,12 @@ internal fun SessionSearchBar(
     onClearSearch: () -> Unit,
 ) {
     var searchInput by rememberSaveable { mutableStateOf("") }
-    val searchJob = remember { mutableStateOf<Job?>(null) }
-    val scope = rememberCoroutineScope()
 
     OutlinedTextField(
         value = searchInput,
         onValueChange = { newQuery ->
             searchInput = newQuery
-            searchJob.value?.cancel()
-            searchJob.value = scope.launch {
-                delay(300)
-                onSearch(newQuery)
-            }
+            onSearch(newQuery)
         },
         modifier = Modifier
             .fillMaxWidth()
