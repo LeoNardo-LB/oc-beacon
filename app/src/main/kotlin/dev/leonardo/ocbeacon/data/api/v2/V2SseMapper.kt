@@ -122,11 +122,6 @@ object V2SseMapper {
                 )
                 return null
             }
-            // TEMP-PROBE（agent 跳变排查，验证后移除）：记录每条 step.started 的
-            // agent 归属——用户复现"徽标跳 deep-explore"时抓此日志定位注入源。
-            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                dev.leonardo.ocbeacon.logging.AppLogger.d("V2SseMapper", "[step.started] sid=${sessionId.take(16)} msg=${messageId.take(14)} agent=${props["agent"]?.jsonPrimitive?.contentOrNull}")
-            }
             SseEvent.MessageUpdated(
                 Message.Assistant(
                     id = messageId,
