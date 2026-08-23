@@ -56,7 +56,7 @@ tags:
 - takeScreenshot: e2e_chat_sessions_in_project
 
 # Tap on the second session (the first may be "Working", others are idle)
-- tapOn: "系统问题分析与修复方案"
+- tapOn: "System issue analysis"
 
 # Wait for chat screen — input hint rotates among "Ask a question", "Help me with", etc.
 - extendedWaitUntil:

@@ -23,7 +23,7 @@
     <string name="session_status_retry">Повтор спроби (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Надіслати</string>
-    <string name="chat_empty">Почніть розмову з OpenCode</string>
+    <string name="chat_empty">Почніть сесію з OpenCode</string>
     <!-- Permissions -->
     <string name="permission_title">Потрібен дозвіл</string>
     <string name="permission_allow_once">Одного разу</string>
@@ -48,7 +48,7 @@
     <string name="settings_notifications">Сповіщення</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">Підключення до OpenCode</string>
-    <string name="notification_channel_tasks">Сповіщення про завдання</string>
+    <string name="notification_channel_tasks">Сповіщення про хід</string>
     <string name="notification_connected">Підключено до %1$s</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">Не вдалося надіслати</string>
@@ -166,7 +166,7 @@
     <string name="back">Назад</string>
     <string name="more_options">Більше опцій</string>
     <string name="open">Відкрити</string>
-    <string name="chat_fork_failed">Не вдалося розділити сесію</string>
+    <string name="chat_fork_failed">Не вдалося форкнути сесію</string>
     <string name="chat_share_url_copied">URL для спільного доступу скопійовано</string>
     <string name="chat_share_failed">Не вдалося поділитися сесією</string>
     <string name="chat_copied_clipboard">Скопійовано в буфер обміну</string>
@@ -206,10 +206,10 @@
     <string name="chat_status_running_commands">Виконуються команди</string>
     <string name="chat_status_searching">Пошук у кодовій базі</string>
     <string name="chat_status_fetching_url">Отримання URL</string>
-    <string name="chat_status_running_subagent">Запуск під-агента</string>
-    <string name="chat_task_completed">Завдання виконано</string>
+    <string name="chat_status_running_subagent">Виконується субагент</string>
+    <string name="chat_task_completed">Хід завершено</string>
     <string name="chat_task_failed">Завдання не виконано</string>
-    <string name="chat_system_notification">Суб-агент завершено</string>
+    <string name="chat_system_notification">Синтетичне сповіщення: субагент завершено</string>
     <string name="task_sheet_subagent_completed">Завершено</string>
     <string name="chat_label_user">Користувач</string>
     <string name="chat_label_agent">Агент</string>
@@ -218,8 +218,8 @@
     <string name="chat_background_shell_completed">Shell завершено</string>
     <string name="chat_background_shell_failed">Shell не виконано</string>
     <string name="chat_label_tasks">Завдання</string>
-    <string name="chat_subagent_completed_notification">Суб-агент завершено</string>
-    <string name="chat_subagent_failed_notification">Суб-агент не виконано</string>
+    <string name="chat_subagent_completed_notification">Субагент завершено</string>
+    <string name="chat_subagent_failed_notification">Збій субагента</string>
     <string name="chat_status_updating_tasks">Оновлення завдань</string>
     <string name="chat_status_thinking">Думає</string>
     <string name="chat_tool_running_command">Виконання команди…</string>
@@ -276,7 +276,7 @@
     <string name="tool_search_code">Пошук</string>
     <string name="tool_list_directory">Список директорії</string>
     <string name="tool_fetch_url">Отримати URL</string>
-    <string name="tool_sub_agent">Під-агент</string>
+    <string name="tool_sub_agent">Субагент</string>
     <string name="tool_apply_patch">Застосувати патч</string>
     <string name="tool_shell">Shell</string>
     <string name="tool_read">Читати</string>
@@ -285,8 +285,8 @@
     <string name="share_connect_first">Спочатку підключіть сервер, потім діліться зображеннями</string>
     <string name="chat_session_compacted">Сесію стиснуто</string>
     <string name="chat_session_compact_failed">Не вдалося стиснути сесію</string>
-    <string name="chat_session_unshared">Сесію розділено</string>
-    <string name="chat_session_unshare_failed">Не вдалося розділити</string>
+    <string name="chat_session_unshared">Спільний доступ скасовано</string>
+    <string name="chat_session_unshare_failed">Не вдалося скасувати спільний доступ</string>
     <string name="chat_message_undone">Повідомлення скасовано</string>
     <string name="chat_message_undo_failed">Не вдалося скасувати</string>
     <string name="chat_message_redone">Повідомлення повернуто</string>
@@ -299,12 +299,12 @@
     <string name="chat_session_renamed">Сесію перейменовано</string>
     <string name="chat_session_rename_failed">Не вдалося перейменувати</string>
     <string name="chat_menu_open_workspace">Переглянути робочий простір</string>
-    <string name="menu_fork_session">Розділити сесію</string>
+    <string name="menu_fork_session">Форкнути сесію</string>
     <string name="menu_compact_session">Стиснути сесію</string>
     <string name="menu_share_session">Поділитися сесією</string>
     <string name="settings_dynamic_color">Динамічні кольори</string>
     <string name="settings_dynamic_color_desc">Використовувати кольори з шпалери (Material You)</string>
-    <string name="settings_notifications_desc">Сповіщати, коли агент завершує завдання</string>
+    <string name="settings_notifications_desc">Сповіщати, коли хід завершено</string>
     <string name="settings_initial_messages">Початкові повідомлення для завантаження</string>
     <string name="settings_confirm_send">Підтвердження перед надсиланням</string>
     <string name="settings_confirm_send_desc">Показувати діалог підтвердження перед надсиланням повідомлення</string>
@@ -330,7 +330,7 @@
     <string name="settings_keep_screen_on">Тримати екран увімкненим</string>
     <string name="settings_keep_screen_on_desc">Запобігати вимкненню екрану під час чату</string>
     <string name="settings_silent_notifications">Беззвучні сповіщення</string>
-    <string name="settings_silent_notifications_desc">Вимкнути звук і вібрацію для сповіщень про завдання</string>
+    <string name="settings_silent_notifications_desc">Вимкнути звук і вібрацію для сповіщень про хід</string>
     <string name="settings_notif_test">Надіслати тестове сповіщення</string>
     <string name="settings_notif_test_desc">Надсилає реальне сповіщення для перевірки банера та звуку. Якщо нічого не з’явилося, пристрій може заглушати застосунок (наприклад, MIUI типово вимикає спливаючі сповіщення) — увімкніть у системних налаштуваннях сповіщень нижче.</string>
     <string name="settings_notif_system">Системні налаштування сповіщень</string>
@@ -341,9 +341,9 @@
     <string name="a11y_settings_notif_system">Системні налаштування сповіщень</string>
     <string name="dialog_select_reconnect_mode">Виберіть режим повторного підключення</string>
     <string name="notification_channel_connection_desc">Постійне підключення до сервера OpenCode</string>
-    <string name="notification_channel_tasks_desc">Сповіщення, коли завдання OpenCode завершено</string>
-    <string name="notification_channel_tasks_silent">Сповіщення про завдання (беззвучні)</string>
-    <string name="notification_channel_tasks_silent_desc">Беззвучні сповіщення, коли завдання OpenCode завершено</string>
+    <string name="notification_channel_tasks_desc">Сповіщення, коли хід завершено</string>
+    <string name="notification_channel_tasks_silent">Сповіщення про хід (беззвучні)</string>
+    <string name="notification_channel_tasks_silent_desc">Беззвучні сповіщення, коли хід завершено</string>
     <string name="notification_channel_permissions">Запити дозволів</string>
     <string name="notification_channel_permissions_desc">Сповіщення, коли OpenCode потребує дозволів</string>
     <string name="notification_connecting">Підключення до %1$s…</string>
@@ -414,11 +414,11 @@
     <string name="disconnect">Відключити</string>
     <string name="server_settings_models">Моделі</string>
     <string name="server_settings_models_desc">Видимість моделей та типові налаштування</string>
-    <string name="sessions_create_folder">Створити папку</string>
-    <string name="sessions_create_folder_title">Створити папку</string>
-    <string name="sessions_create_folder_name_label">Назва папки</string>
+    <string name="sessions_create_folder">Створити каталог</string>
+    <string name="sessions_create_folder_title">Створити каталог</string>
+    <string name="sessions_create_folder_name_label">Назва каталогу</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">Введіть коректну назву папки</string>
+    <string name="sessions_create_folder_invalid_name">Введіть коректну назву каталогу</string>
     <string name="sessions_create_folder_create">Створити</string>
     <string name="sessions_create_folder_failed">Не вдалося створити папку</string>
     <string name="sessions_create_folder_success">Створено: %1$s</string>
@@ -467,7 +467,7 @@
     <string name="chat_token_usage_total">%,d токенів</string>
     <string name="chat_token_input">Ввід</string>
     <string name="chat_token_output">Вивід</string>
-    <string name="chat_token_reasoning">Розумовіння</string>
+    <string name="chat_token_reasoning">Міркування</string>
     <string name="chat_token_cache_read">Читання кешу</string>
     <string name="chat_token_cache_write">Запис в кеш</string>
     <string name="chat_task_output_summary">Підсумок виводу</string>
@@ -485,8 +485,8 @@
     <string name="settings_auto_allow_permissions_desc">Автоматично відповідає \'Завжди дозволяти\'. Правила зберігаються постійно — лише з надійними серверами.</string>
     <string name="settings_no_auto_approve_rules">Немає збережених правил автозатвердження</string>
     <string name="settings_delete_rule">Видалити правило</string>
-    <string name="settings_expand_reasoning">Авторозгортань розумовіння</string>
-    <string name="settings_expand_reasoning_desc">Показувати процес розміркування за замовчуванням; натисніть заголовок для перемикання</string>
+    <string name="settings_expand_reasoning">Автоматично розгортати міркування</string>
+    <string name="settings_expand_reasoning_desc">Показувати міркування за замовчуванням; натисніть заголовок для перемикання</string>
     <string name="chat_meta_tokens">%d токенів</string>
     <string name="chat_glob_match_count">%d збігів</string>
     <string name="tool_web_fetch">WebFetch</string>
@@ -504,7 +504,7 @@
     <string name="a11y_settings_dynamic_color">Динамічні кольори</string>
     <string name="a11y_settings_amoled_dark">AMOLED темний режим</string>
     <string name="a11y_settings_auto_expand_tools">Авторозгортань інструменти</string>
-    <string name="a11y_settings_expand_reasoning">Розгортаня розумовіння</string>
+    <string name="a11y_settings_expand_reasoning">Розгортати міркування</string>
     <string name="a11y_settings_initial_messages">Початкові повідомлення</string>
     <string name="a11y_settings_confirm_send">Підтвердження перед надсиланням</string>
     <string name="a11y_settings_haptic_feedback">Гаптичний відгук</string>
@@ -527,7 +527,7 @@
     <string name="a11y_icon_warning">Попередження</string>
     <string name="a11y_icon_navigate_forward">Переміститися вперед</string>
     <string name="a11y_locate_task">Знайти початкове завдання</string>
-    <string name="chat_locate_task_not_found">Початкове завдання не знайдено в цій розмові</string>
+    <string name="chat_locate_task_not_found">Початкове завдання не знайдено в цій сесії</string>
     <string name="a11y_icon_add">Додати</string>
     <string name="a11y_icon_share">Поділитися</string>
     <string name="a11y_icon_unlink">Відм’язати</string>
@@ -604,8 +604,8 @@
     <string name="settings_chat_font">Шрифт чату</string>
     <string name="settings_chat_font_normal">Звичайний</string>
     <string name="settings_chat_font_compact">Компактний</string>
-    <string name="settings_turn_dividers">Роздільники</string>
-    <string name="settings_turn_dividers_desc">Показувати роздільники між повідомленнями в одному турі</string>
+    <string name="settings_turn_dividers">Роздільники ходів</string>
+    <string name="settings_turn_dividers_desc">Показувати роздільники між повідомленнями в одному ході</string>
     <string name="viewer_loading_progress">Завантаження: %1$d / %2$d рядків</string>
     <string name="viewer_large_file_warning">Великий файл (%1$d рядків) — продуктивність може знизитися</string>
     <string name="workspace_search_hint">Введіть текст для пошуку файлів</string>
@@ -702,11 +702,11 @@
     <string name="shell_status_done">Готово</string>
     <string name="shell_status_failed">Не виконано</string>
     <string name="task_toolbar_action">Перемістити завдання у фон</string>
-    <string name="task_toolbar_subagents">%1$d суб-агент(ів) на передньому плані</string>
+    <string name="task_toolbar_subagents">%1$d субагент(ів) на передньому плані</string>
     <string name="a11y_icon_tasks">Дії завдань</string>
-    <string name="task_sheet_subagents_tab">Суб-агенти</string>
+    <string name="task_sheet_subagents_tab">Субагенти</string>
     <string name="task_sheet_shells_tab">Shell</string>
-    <string name="task_sheet_empty_subagents">Немає запущених суб-агентів</string>
+    <string name="task_sheet_empty_subagents">Немає запущених субагентів</string>
     <string name="task_sheet_empty_shells">Немає команд shell</string>
     <string name="task_sheet_title">Завдання</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->

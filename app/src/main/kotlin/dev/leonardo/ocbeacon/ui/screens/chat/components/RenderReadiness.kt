@@ -16,18 +16,19 @@ import kotlinx.coroutines.launch
  * 消息内容（Markdown）异步渲染，完成时间不确定——这是"渲染骤变 / 定位偏移 /
  * 视口跳动"等问题的共同根源。本信号层把"渲染完成"建模为显式状态机：
  *
- *   Pending → Parsing → Parsed → Ready(最终高度) / Failed
+ *   Pending → Parsing → Parsed(成功终态) / Failed（Ready 为死状态，见下）
  *
  * 状态语义：
  * - [Pending]：未开始
  * - [Parsing]：解析中（后台 parseMarkdownFlow 或组件 rememberMarkdownState）
- * - [Parsed]：解析完成（可用 Markdown(state) 直接渲染——内容即最终状态）
- * - [Ready]：解析完成 + 布局稳定（携带最终高度——消费方直接精确定位）
+ * - [Parsed]：解析完成（可用 Markdown(state) 直接渲染——内容即最终状态，成功终态）
+ * - [Ready]：死状态——渲染层上报链（update/Ready）已随 D-11-4 删除，无生产者；
+ *   保留仅因 sealed 分支引用（isDone 判定含它，实际不可达）
  * - [Failed]：解析失败
  *
  * 2026-08-21 卫生（D-11-4）：渲染层上报链（update/Ready）与 awaitReady 挂起
  * 等待均无消费者（跳转状态机经 phase 驱动，不读 Ready）——已删除。当前
- * 唯一生产者 = preParse（滚动预解析驱动）；消费者 = flow()/current()。
+ * 唯一生产者 = preParse（调用方：渲染供给协调器）；消费者 = flow()/current()。
  */
 sealed interface RenderReadiness {
     data object Pending : RenderReadiness
@@ -36,20 +37,23 @@ sealed interface RenderReadiness {
     /** 解析完成（可用 [state] 直接渲染——内容即最终状态，无 loading） */
     data class Parsed(val state: State) : RenderReadiness
 
-    /** 渲染完成（解析 + 布局稳定）——[finalHeight] 为最终布局高度 */
+    /** 死状态（无生产者——D-11-4 删除渲染层上报链）。原义：渲染完成（解析 +
+     *  布局稳定），[finalHeight] 为最终布局高度。[isDone] 同样无消费者。 */
     data class Ready(val finalHeight: Int) : RenderReadiness
 
     data class Failed(val error: Throwable) : RenderReadiness
 
-    /** 终止态（awaitReady 等待此状态） */
+    /** 终止判定（awaitReady 挂起等待已随 D-11-4 删除——实际仅 Failed 可达真；Ready 无生产者） */
     val isDone: Boolean
         get() = this is Ready || this is Failed
 }
 
 /**
- * 渲染就绪注册表——消息级就绪信号的唯一真相源。
+ * 渲染就绪注册表——part 级就绪信号的唯一真相源。形参名 msgId 沿旧名，
+ * 实键 = part.id（渲染供给协调器以 part.id 读写：多消息 turn 下代表消息
+ * id 与 part 归属消息可能不一致，不能用消息 id 做键）。
  *
- * - [flow]：订阅某消息的就绪信号（组合中 collectAsState 驱动门控展示）
+ * - [flow]：订阅某 part 的就绪信号（组合中 collectAsState 驱动门控展示）
  * - [preParse]：预加载时提前后台解析（parseMarkdownFlow 先行——消息组件
  *   组合时直接用已解析 State 渲染，内容即最终状态，无骤变）
  * - [remove]：消息组件销毁/LRU 淘汰时注销（#98 防无界增长）
@@ -69,10 +73,11 @@ class RenderReadinessRegistry {
         flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }
 
     /**
-     * #98（M-7）：消息组件销毁（滚出视口）时注销条目。终态（Ready/Failed）
+     * #98（M-7）：消息组件销毁（滚出视口）时注销条目。终态（Parsed/Failed）
      * 的 StateFlow 含解析产物；Pending/Parsing 占空条目——滚出视口后跳转
      * 定位不再需要旧条目（重新组合会重建），保留即无界增长。
      */
+    // 形参 msgId 沿旧名——实键为 part.id（见类 KDoc）。
     fun remove(msgId: String) {
         flows.remove(msgId)
     }
@@ -93,7 +98,7 @@ class RenderReadinessRegistry {
         rawText: String,
         scope: CoroutineScope,
         // 2026-08-20 分片：解析完成回调（主线程——launch 上下文）。调用方
-        // （滚动预解析驱动）在此计算巨型 part 的块级分片计划。
+        // （渲染供给协调器）在此计算巨型 part 的块级分片计划。
         onParsed: ((State.Success) -> Unit)? = null,
     ) {
         // 2026-08-21 卫生（D-7 实例置换/复活泄漏修复）：解析前捕获目标 flow
@@ -101,13 +106,13 @@ class RenderReadinessRegistry {
         // ① 中途条目被 remove()（卡片滚出视口/LRU 淘汰）时不复活：复活的
         //    终态条目无订阅者、不进 preparseSeenKeys → 永不淘汰（泄漏）；
         // ② 仍持有旧实例的订阅者（collectAsState）能收到完成状态——旧实现
-        //    remove 后重建新实例写入，旧订阅者永远等不到 Parsed → 回退主线程
+        //    remove 后重建新实例写入，旧订阅者永远等不到 Parsed → 降级主线程
         //    同步重解析（巨帧回归）。孤写实例在解析协程结束后无引用即可回收。
         val target = flows.getOrPut(msgId) { MutableStateFlow(RenderReadiness.Pending) }
         scope.launch {
             // 2026-08-20：解析移出主线程——库的 parseMarkdownFlow 无 flowOn，
             // 原在收集者上下文（主线程）执行，长文本（16KB+）解析阻塞 UI
-            // 100ms+，滚动预解析驱动批量触发时打断拖拽/fling（ScrollDiag 实证）。
+            // 100ms+，渲染供给协调器批量触发预解析时打断拖拽/fling（ScrollDiag 实证）。
             // 2026-08-22：归一化同链后台化（flow builder 内，Default 线程）。
             kotlinx.coroutines.flow.flow {
                 emit(dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender(rawText, isUser = false))

@@ -16,7 +16,7 @@
 | **Logcat 日志** | App 运行日志（AppLogger/Log） | `adb logcat -d -v time --pid=<pid>` | 一切逻辑分支验证 |
 | **App 内 Diagnostics** | AppLogger 聚合（应用内日志屏） | App → 设置 → Diagnostics | 无 adb 环境时看日志 |
 | **Room 数据库** | 本地落库（ocbeacon.db） | `adb shell run-as ... sqlite3`（见 §2） | 存储层、消息落盘、会话状态 |
-| **SSE 事件流** | 服务器推送事件 | logcat 过滤 `SseClient` / `V2 event` | 流式消息、后台任务完成、会话状态变更 |
+| **SSE 事件流** | 服务器推送事件 | logcat 过滤 `SseClient` / `V2 event` | 流式 turn、后台轮次完成、会话状态变更 |
 | **网络请求** | App ↔ 服务器 HTTP 流量 | 服务器日志 / curl 复测 / OkHttp 日志 | API 端点行为、错误响应 |
 | **服务器端观测** | opencode server 行为 | `curl` 直测 + serve 日志 + 数据库 | 区分"客户端 bug"与"服务器行为" |
 | **UI 截图** | 界面状态 | `adb exec-out screencap -p` + 智谱 `analyze_image` | UI 验证（见 §4） |

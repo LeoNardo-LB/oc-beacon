@@ -33,7 +33,7 @@ tags:
     visible: "sessions active"
     timeout: 15000
     optional: true
-- tapOn: "系统问题分析与修复方案"
+- tapOn: "System issue analysis"
 - extendedWaitUntil:
     visible: "More options"
     timeout: 20000

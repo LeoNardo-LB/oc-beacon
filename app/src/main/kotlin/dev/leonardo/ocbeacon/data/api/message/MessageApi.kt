@@ -62,7 +62,7 @@ interface MessageApi {
      */
     suspend fun replyToPermission(
         conn: ServerConnection,
-        /** 2026-08-17：V2 新契约需要——权限所属会话（子会话权限传子会话 id）。 */
+        /** 2026-08-17：V2 新契约需要——权限所属会话（子智能体会话权限传子智能体会话 id）。 */
         sessionId: String,
         requestId: String,
         reply: String, // "once"、"always" 或 "reject"

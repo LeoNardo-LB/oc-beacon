@@ -67,7 +67,7 @@ import javax.inject.Inject
 class SessionListViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val sessionRepository: SessionRepository,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     private val listSessionsUseCase: ListSessionsUseCase,
     private val listProjectsUseCase: ListProjectsUseCase,
     private val getServerPathsUseCase: GetServerPathsUseCase,
@@ -203,8 +203,8 @@ class SessionListViewModel @Inject constructor(
     }
 
     /** 选中的分类过滤 id 集合，空 = "全部"。多选后按 AND 过滤。 */
-    private val _categoryFilters = MutableStateFlow<Set<String>>(emptySet())
-    val categoryFilters: StateFlow<Set<String>> = _categoryFilters.asStateFlow()
+    private val _tagFilters = MutableStateFlow<Set<String>>(emptySet())
+    val tagFilters: StateFlow<Set<String>> = _tagFilters.asStateFlow()
 
     /** 仅显示收藏会话（本服务器内置标签筛选）。 */
     private val _favoritesOnly = MutableStateFlow(false)
@@ -262,7 +262,7 @@ class SessionListViewModel @Inject constructor(
     private val sessionDataFlow = combine(
         combine(
             sessionRepository.getSessionsFlow(serverId).distinctUntilChanged(),
-            sessionStateService.statusFlow,
+            sessionStateRepository.statusFlow,
             sessionRepository.getServerSessionsFlow().distinctUntilChanged(),
             sessionRepository.getLastUserMessageTimeFlow().distinctUntilChanged(),
             sessionRepository.getLastCompletedReplyTimeFlow().distinctUntilChanged(),
@@ -285,7 +285,7 @@ class SessionListViewModel @Inject constructor(
 
     // 分组2：设置数据（3 源——已读合并读收进红点模块单源，#171）
     private data class SettingDataPart(
-        val categoryAssignments: Map<String, List<String>>,
+        val tagAssignments: Map<String, List<String>>,
         val sessionTags: List<Tag>,
         val readTimes: Map<String, Long>,
     )
@@ -320,7 +320,7 @@ class SessionListViewModel @Inject constructor(
             statuses = sessionData.statuses,
             serverSessionMap = sessionData.serverSessionMap,
             lastUserMessageTime = sessionData.lastUserMessageTime,
-            categoryAssignments = settingData.categoryAssignments,
+            tagAssignments = settingData.tagAssignments,
             sessionTags = settingData.sessionTags,
             favoritesOnly = miscData.favoritesOnly,
             lastReplyTime = sessionData.lastReplyTime,
@@ -356,7 +356,7 @@ class SessionListViewModel @Inject constructor(
         },
         combine(
             // #100（M-11）：搜索输入防抖 300ms——逐键过滤改为停顿后过滤（纯客户端过滤）
-            _searchQuery.debounce(SEARCH_DEBOUNCE_MS), _viewMode, _categoryFilters,
+            _searchQuery.debounce(SEARCH_DEBOUNCE_MS), _viewMode, _tagFilters,
         ) { searchQuery, viewMode, categoryFilterIds ->
             UiGroup2Part(searchQuery, viewMode, categoryFilterIds)
         },
@@ -372,7 +372,7 @@ class SessionListViewModel @Inject constructor(
         )
     }
 
-    // 内容册（最终）
+    // 内容簇（状态簇·列表渲染）（最终）
     // #100（M-11）：上游 distinctUntilChanged + 搜索防抖已大幅降低全量重建频率；
     // buildContentState 保持收集线程（移 flowOn(Default) 会在测试/组合期引入
     // Dispatchers.Main 访问竞态——2026-08-15 实测 SessionListShellStateTest 失败）
@@ -382,7 +382,7 @@ class SessionListViewModel @Inject constructor(
         buildContentState(data, ui, serverId, draftRepository)
     }.stateIn(viewModelScope, WhileSubscribed5s, SessionListContentState())
 
-    // 外壳册（独立）
+    // 外壳簇（状态簇·框架）（独立）
     val shellState: StateFlow<SessionListShellState> = combine(
         _isLoading, _isRefreshing, _error, serverName,
     ) { isLoading, isRefreshing, error, sname ->
@@ -413,14 +413,14 @@ class SessionListViewModel @Inject constructor(
 
     /** 切换分类过滤选中态（多选，AND 语义；全部取消后回到"全部"状态）。 */
     fun toggleCategoryFilter(categoryId: String) {
-        _categoryFilters.update { current ->
+        _tagFilters.update { current ->
             if (categoryId in current) current - categoryId else current + categoryId
         }
     }
 
     /** 清空分类过滤（回到"全部"）。 */
     fun clearCategoryFilters() {
-        _categoryFilters.value = emptySet()
+        _tagFilters.value = emptySet()
     }
 
     /**
@@ -598,8 +598,8 @@ class SessionListViewModel @Inject constructor(
         }
         // 通过统一的 FSM 管线从服务器同步会话状态
         //（跨项目 worktree 聚合 + 缺失即 idle + 不完整保护）。
-        sessionStateService.setServerId(serverId)
-        sessionStateService.syncFromRest(_projects.value)
+        sessionStateRepository.setServerId(serverId)
+        sessionStateRepository.syncFromRest(_projects.value)
         null
     } catch (e: Exception) {
         if (e is CancellationException) throw e

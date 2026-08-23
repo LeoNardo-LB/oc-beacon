@@ -28,7 +28,7 @@ class SessionListPendingQuestionTest {
         statuses = mapOf("s1" to SessionStatus.Idle, "s2" to SessionStatus.Idle),
         serverSessionMap = mapOf("server_1" to setOf("s1", "s2")),
         lastUserMessageTime = mapOf("s1" to 1L, "s2" to 2L),
-        categoryAssignments = emptyMap(),
+        tagAssignments = emptyMap(),
         sessionTags = emptyList(),
         favoritesOnly = false,
         lastReplyTime = emptyMap(),

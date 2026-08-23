@@ -4,7 +4,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import kotlinx.coroutines.delay
 
 /**
- * 动画自动滚动到底部。用于发送后的跟随。
+ * 【死代码——全仓零引用，保留待清理（KT1a 台账标注）】
+ * 动画自动滚动到底部。原用于发送后的跟随；该职责现由
+ * ChatScrollController/forceScrollTick 路径承担，本函数无调用点。
+ * 同文件 [snapToBottom] 仍在使用（FAB 即时吸附）。
  *
  * 使用 reverseLayout=true 时，"底部" = 第 0 项。
  * 最多重试 48ms（3×16ms）以应对复杂 Markdown 布局的延迟。

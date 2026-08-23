@@ -127,7 +127,7 @@ class ChatScrollControllerTest {
     @Test
     fun `execute skips retry when position converges after compensation`() = runTest {
         val gate = FakeGate(initialCount = 10, initialIndex = 2)
-        // 滚后位置暂未收敛（模拟流式消息高度补偿），随后收敛
+        // 滚后位置暂未收敛（模拟流式 turn 高度补偿），随后收敛
         gate.applyScroll = {
             gate.index = 0
             gate.offset = 250

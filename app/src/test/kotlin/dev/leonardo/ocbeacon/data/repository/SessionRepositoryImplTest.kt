@@ -38,7 +38,7 @@ class SessionRepositoryImplTest {
         val questionHandler = QuestionEventHandler()
         val miscHandler = MiscEventHandler()
 
-        val sessionStateService = mockk<SessionStateService>(relaxed = true)
+        val sessionStateRepository = mockk<SessionStateService>(relaxed = true)
         val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
@@ -47,7 +47,7 @@ class SessionRepositoryImplTest {
             questionHandler = questionHandler,
             miscHandler = miscHandler,
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
@@ -62,7 +62,7 @@ class SessionRepositoryImplTest {
             pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
             pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
-        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
+        every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo, mockk(relaxed = true))
     }
 

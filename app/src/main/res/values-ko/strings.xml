@@ -23,7 +23,7 @@
     <string name="session_status_retry">재시도 중 (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">보내기</string>
-    <string name="chat_empty">OpenCode와 대화를 시작하세요</string>
+    <string name="chat_empty">OpenCode로 세션을 시작하세요</string>
     <!-- Permissions -->
     <string name="permission_title">권한 필요</string>
     <string name="permission_allow_once">한 번</string>
@@ -48,7 +48,7 @@
     <string name="settings_notifications">알림</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">OpenCode 연결</string>
-    <string name="notification_channel_tasks">작업 알림</string>
+    <string name="notification_channel_tasks">턴 알림</string>
     <string name="notification_connected">%1$s에 연결됨</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">전송 실패</string>
@@ -200,20 +200,20 @@
     <string name="chat_status_running_commands">명령 실행 중</string>
     <string name="chat_status_searching">코드베이스 검색 중</string>
     <string name="chat_status_fetching_url">URL 가져오는 중</string>
-    <string name="chat_status_running_subagent">서브 에이전트 실행 중</string>
-    <string name="chat_task_completed">작업 완료</string>
+    <string name="chat_status_running_subagent">서브에이전트 실행 중</string>
+    <string name="chat_task_completed">턴 완료</string>
     <string name="chat_task_failed">작업 실패</string>
-    <string name="chat_system_notification">Sub-agent 완료</string>
+    <string name="chat_system_notification">합성: 서브에이전트 완료</string>
     <string name="task_sheet_subagent_completed">완료</string>
     <string name="chat_label_user">사용자</string>
     <string name="chat_label_agent">에이전트</string>
-    <string name="chat_background_agent_completed">Agent 완료</string>
-    <string name="chat_background_agent_failed">Agent 실패</string>
+    <string name="chat_background_agent_completed">에이전트 완료</string>
+    <string name="chat_background_agent_failed">에이전트 실패</string>
     <string name="chat_background_shell_completed">Shell 완료</string>
     <string name="chat_background_shell_failed">Shell 실패</string>
     <string name="chat_label_tasks">작업</string>
-    <string name="chat_subagent_completed_notification">Sub-agent 완료</string>
-    <string name="chat_subagent_failed_notification">Sub-agent 실패</string>
+    <string name="chat_subagent_completed_notification">서브에이전트 완료</string>
+    <string name="chat_subagent_failed_notification">서브에이전트 실패</string>
     <string name="chat_status_updating_tasks">작업 업데이트 중</string>
     <string name="chat_status_thinking">생각 중</string>
     <string name="chat_tool_running_command">명령 실행 중…</string>
@@ -268,7 +268,7 @@
     <string name="tool_search_code">검색</string>
     <string name="tool_list_directory">디렉터리 목록</string>
     <string name="tool_fetch_url">URL 가져오기</string>
-    <string name="tool_sub_agent">서브 에이전트</string>
+    <string name="tool_sub_agent">서브에이전트</string>
     <string name="tool_apply_patch">패치 적용</string>
     <string name="tool_shell">셸</string>
     <string name="tool_read">읽기</string>
@@ -296,7 +296,7 @@
     <string name="menu_share_session">세션 공유</string>
     <string name="settings_dynamic_color">동적 색상</string>
     <string name="settings_dynamic_color_desc">배경화면에서 색상 사용 (Material You)</string>
-    <string name="settings_notifications_desc">에이전트가 작업 완료 시 알림</string>
+    <string name="settings_notifications_desc">턴 완료 시 알림</string>
     <string name="settings_initial_messages">초기 메시지 로드 개수</string>
     <string name="settings_confirm_send">보내기 전 확인</string>
     <string name="settings_confirm_send_desc">메시지 보내기 전에 확인 대화상자 표시</string>
@@ -322,7 +322,7 @@
     <string name="settings_keep_screen_on">화면 항상 켜기</string>
     <string name="settings_keep_screen_on_desc">채팅 중 화면 꺼짐 방지</string>
     <string name="settings_silent_notifications">무음 알림</string>
-    <string name="settings_silent_notifications_desc">작업 알림에 소리 및 진동 없음</string>
+    <string name="settings_silent_notifications_desc">턴 알림에 소리 및 진동 없음</string>
     <string name="settings_notif_test">테스트 알림 보내기</string>
     <string name="settings_notif_test_desc">실제 알림을 보내 배너와 소리를 확인합니다. 표시되지 않으면 기기가 이 앱을 무음 처리했을 수 있습니다(예: MIUI는 플로팅 알림 기본 비활성화) — 아래 시스템 알림 설정에서 활성화하세요.</string>
     <string name="settings_notif_system">시스템 알림 설정</string>
@@ -333,9 +333,9 @@
     <string name="a11y_settings_notif_system">시스템 알림 설정</string>
     <string name="dialog_select_reconnect_mode">재연결 모드 선택</string>
     <string name="notification_channel_connection_desc">OpenCode 서버에 지속 연결</string>
-    <string name="notification_channel_tasks_desc">OpenCode 작업 완료 시 알림</string>
-    <string name="notification_channel_tasks_silent">작업 알림 (무음)</string>
-    <string name="notification_channel_tasks_silent_desc">OpenCode 작업 완료 시 무음 알림</string>
+    <string name="notification_channel_tasks_desc">턴 완료 시 알림</string>
+    <string name="notification_channel_tasks_silent">턴 알림 (무음)</string>
+    <string name="notification_channel_tasks_silent_desc">턴 완료 시 무음 알림</string>
     <string name="notification_channel_permissions">권한 요청</string>
     <string name="notification_channel_permissions_desc">OpenCode가 권한 필요 시 알림</string>
     <string name="notification_connecting">%1$s에 연결 중…</string>
@@ -406,11 +406,11 @@
     <string name="disconnect">연결 해제</string>
     <string name="server_settings_models">모델</string>
     <string name="server_settings_models_desc">모델 표시 및 기본값</string>
-    <string name="sessions_create_folder">폴더 만들기</string>
-    <string name="sessions_create_folder_title">폴더 만들기</string>
-    <string name="sessions_create_folder_name_label">폴더 이름</string>
+    <string name="sessions_create_folder">디렉터리 만들기</string>
+    <string name="sessions_create_folder_title">디렉터리 만들기</string>
+    <string name="sessions_create_folder_name_label">디렉터리 이름</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">유효한 폴더 이름을 입력하세요</string>
+    <string name="sessions_create_folder_invalid_name">유효한 디렉터리 이름을 입력하세요</string>
     <string name="sessions_create_folder_create">생성</string>
     <string name="sessions_create_folder_failed">폴더 생성에 실패했습니다</string>
     <string name="sessions_create_folder_success">생성됨: %1$s</string>
@@ -456,14 +456,14 @@
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (파일 %3$d개)</string>
     <string name="chat_thinking_complete">%1$s 간 생각 완료</string>
-    <string name="chat_token_usage_total">%,d 토킰</string>
+    <string name="chat_token_usage_total">%,d 토큰</string>
     <string name="chat_token_input">입력</string>
     <string name="chat_token_output">출력</string>
     <string name="chat_token_reasoning">추론</string>
     <string name="chat_token_cache_read">캐시 읽기</string>
     <string name="chat_token_cache_write">캐시 쓰기</string>
     <string name="chat_task_output_summary">출력 요약</string>
-    <string name="chat_task_output_truncated">출력이 잘린되었습니다 — 전체 내용은 서브세션을 여버 확인하세요</string>
+    <string name="chat_task_output_truncated">출력이 잘렸습니다 — 전체 내용은 서브세션을 열어 확인하세요</string>
     <string name="permission_always_confirm_title">항상 허용하시겠습니까?</string>
     <string name="permission_always_confirm_message">디렉토리 “%2$s”에 대한 권한 “%1$s”을(를) 자동 승인합니다. 저장된 규칙은 설정에서 관리할 수 있습니다.</string>
     <string name="permission_always_confirm_button">항상 승인</string>
@@ -479,7 +479,7 @@
     <string name="settings_delete_rule">규칙 삭제</string>
     <string name="settings_expand_reasoning">추론 자동 확장</string>
     <string name="settings_expand_reasoning_desc">기본적으로 생각 과정 표시; 헤더를 탭하여 전환</string>
-    <string name="chat_meta_tokens">토킰 %d개</string>
+    <string name="chat_meta_tokens">토큰 %d개</string>
     <string name="chat_glob_match_count">일치 %d개</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">프롬프트: %s</string>
@@ -519,7 +519,7 @@
     <string name="a11y_icon_warning">경고</string>
     <string name="a11y_icon_navigate_forward">앞으로 이동</string>
     <string name="a11y_locate_task">원래 작업 찾기</string>
-    <string name="chat_locate_task_not_found">이 대화에서 원래 작업을 찾을 수 없습니다</string>
+    <string name="chat_locate_task_not_found">이 세션에서 원래 작업을 찾을 수 없습니다</string>
     <string name="a11y_icon_add">추가</string>
     <string name="a11y_icon_share">공유</string>
     <string name="a11y_icon_unlink">연결 해제</string>
@@ -571,12 +571,12 @@
     <string name="chat_thinking_in_progress">생각 중… %1$s</string>
     <string name="mcp_servers_title">MCP 서버</string>
     <string name="mcp_no_servers">구성된 MCP 서버가 없습니다</string>
-    <string name="chat_context_composition">컨텍스트 구성（추정）</string>
-    <string name="chat_context_other_note">나머지（시스템 등 포함）</string>
+    <string name="chat_context_composition">컨텍스트 구성 (추정)</string>
+    <string name="chat_context_other_note">나머지 (시스템 등 포함)</string>
     <string name="chat_role_user">사용자</string>
     <string name="chat_role_assistant">어시스턴트</string>
     <string name="chat_role_tool">도구 호출</string>
-    <string name="chat_context_msg_summary">메시지 %1$d（사용자 %2$d · 어시스턴트 %3$d）</string>
+    <string name="chat_context_msg_summary">메시지 %1$d (사용자 %2$d · 어시스턴트 %3$d)</string>
     <string name="chat_context_cache_hit">캐시 적중 %1$d%%</string>
     <string name="chat_context_timestamps">생성 %1$s · 활동 %2$s</string>
     <string name="viewer_binary_not_supported">바이너리 파일, 미리보기 미지원</string>
@@ -694,11 +694,11 @@
     <string name="shell_status_done">완료</string>
     <string name="shell_status_failed">실패</string>
     <string name="task_toolbar_action">작업을 백그라운드로 이동</string>
-    <string name="task_toolbar_subagents">포그라운드에서 실행 중인 서브 에이전트 %1$d개</string>
+    <string name="task_toolbar_subagents">포그라운드에서 실행 중인 서브에이전트 %1$d개</string>
     <string name="a11y_icon_tasks">작업 활동</string>
-    <string name="task_sheet_subagents_tab">서브 에이전트</string>
+    <string name="task_sheet_subagents_tab">서브에이전트</string>
     <string name="task_sheet_shells_tab">셸</string>
-    <string name="task_sheet_empty_subagents">실행 중인 서브 에이전트 없음</string>
+    <string name="task_sheet_empty_subagents">실행 중인 서브에이전트 없음</string>
     <string name="task_sheet_empty_shells">셸 명령 없음</string>
     <string name="task_sheet_title">작업</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->

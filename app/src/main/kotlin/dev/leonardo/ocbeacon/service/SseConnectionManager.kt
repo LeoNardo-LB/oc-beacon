@@ -67,7 +67,7 @@ class SseConnectionManager @Inject constructor(
     private val eventDispatcher: EventDispatcher,
     private val settingsRepository: SettingsDataStore,
     private val networkMonitor: NetworkMonitor,
-    private val sessionStateService: SessionStateService,
+    private val sessionStateRepository: SessionStateService,
 ) {
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, exception ->
@@ -410,7 +410,7 @@ class SseConnectionManager @Inject constructor(
         try {
             val projects = fileApi.listProjects(conn)
             if (projects.isEmpty()) {
-                // 回退：加载不带 directory 头的会话（仅服务器 CWD）
+                // 降级：加载不带 directory 头的会话（仅服务器 CWD）
                 val sessions = sessionApi.listSessions(conn)
                 eventDispatcher.setSessions(server.id, sessions)
                 AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${sessions.size} sessions (no projects)")
@@ -439,8 +439,8 @@ class SseConnectionManager @Inject constructor(
             }
             // 通过统一的 FSM 管线从服务器初始化会话状态
             //（跨项目 worktree 聚合 + 缺失=idle + 不完整保护）。
-            sessionStateService.setServerId(server.id)
-            sessionStateService.syncFromRest(projects)
+            sessionStateRepository.setServerId(server.id)
+            sessionStateRepository.syncFromRest(projects)
         } catch (e: Exception) {
             AppLogger.w(TAG, "[${server.displayName}] Failed to pre-load sessions: ${e.message}")
         }
@@ -476,8 +476,8 @@ class SseConnectionManager @Inject constructor(
         // 因此阶段 2 的失败不应传播并中断重连循环。
         try {
             val projects = fileApi.listProjects(conn)
-            sessionStateService.setServerId(server.id)
-            sessionStateService.syncFromRest(projects)
+            sessionStateRepository.setServerId(server.id)
+            sessionStateRepository.syncFromRest(projects)
         } catch (e: Exception) {
             AppLogger.w(TAG, "[${server.displayName}] Failed to sync session statuses during recovery: ${e.message}")
         }

@@ -101,7 +101,7 @@ var showMoreMenu by remember { mutableStateOf(false) }
 
     val sessionTags by viewModel.sessionTags.collectAsStateWithLifecycle()
     val sessionTagAssignments by viewModel.sessionTagAssignments.collectAsStateWithLifecycle()
-    val categoryFilters by viewModel.categoryFilters.collectAsStateWithLifecycle()
+    val tagFilters by viewModel.tagFilters.collectAsStateWithLifecycle()
     val favoriteSessionIds by viewModel.favoriteSessionIds.collectAsStateWithLifecycle()
     val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
 
@@ -183,7 +183,7 @@ viewModel.consumePendingReadSessionId()
                                 expanded = showMoreMenu,
                                 onDismissRequest = { showMoreMenu = false },
                             ) {
-                                // 切换查看模式：最近 <-> 文件夹
+                                // 切换查看模式：最近 <-> 目录（视图模式 FOLDER 沿旧枚举名）
                                 DropdownMenuItem(
                                     text = {
                                         Text(stringResource(
@@ -285,7 +285,7 @@ viewModel.consumePendingReadSessionId()
                             SessionSearchBar(
                                 isAmoled = isAmoled,
                                 categories = sessionTags,
-                                categoryFilter = categoryFilters,
+                                categoryFilter = tagFilters,
                                 onCategoryToggle = { viewModel.toggleCategoryFilter(it) },
                                 onClearFilters = { viewModel.clearCategoryFilters() },
                                 onSearch = { query ->

@@ -405,8 +405,8 @@ fun NavGraph(
                     navController.navigate(ServerModelFilterNav.createRoute(params.server.serverId))
                 },
                 onNavigateToChildSession = { childSessionId ->
-                    // 防重复：已在目标子会话时不重复导航（#137 场景）。
-                    // 注意：这里不能用 launchSingleTop——chat 主/子会话共享同一
+                    // 防重复：已在目标子智能体会话时不重复导航（#137 场景）。
+                    // 注意：这里不能用 launchSingleTop——chat 主会话/子智能体会话共享同一
                     // route pattern（同一 composable 节点），singleTop 按
                     // destination 实例匹配会触发 onLaunchSingleTop 栈调整，
                     // 把栈中已有的主对话 entry 移除，导致返回键跳过主对话直达

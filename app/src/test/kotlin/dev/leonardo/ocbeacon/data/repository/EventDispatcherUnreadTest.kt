@@ -42,7 +42,7 @@ class EventDispatcherUnreadTest {
 
     private lateinit var dispatcher: EventDispatcher
     private lateinit var stateServiceScope: TestScope
-    private lateinit var sessionStateService: SessionStateService
+    private lateinit var sessionStateRepository: SessionStateService
     private lateinit var settingsDataStore: SettingsDataStore
 
     private fun makeDispatcher(): EventDispatcher {
@@ -55,7 +55,7 @@ class EventDispatcherUnreadTest {
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(
                 settingsDataStore,
@@ -75,7 +75,7 @@ class EventDispatcherUnreadTest {
     @Before
     fun setup() {
         stateServiceScope = TestScope(UnconfinedTestDispatcher())
-        sessionStateService = SessionStateService(
+        sessionStateRepository = SessionStateService(
             appScope = stateServiceScope,
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
             collaborator = StubCollaborator(),

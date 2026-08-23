@@ -124,9 +124,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 转后台 synthetic 系统提示的服务器已知模板变体（命中 → 分割线渲染）。
+ * 「转后台」合成通知的服务器已知模板变体（命中 → 分割线渲染）。
  * #136（D2-L55）：原先单个硬编码模板——服务器改文案即静默失效；
- * 现改为变体列表，任一命中即视为转后台提示。
+ * 现改为变体列表，任一命中即视为转后台合成通知。
  * 服务器再次改文案导致特性失效时，在此追加新变体（并在 backlog 登记）。
  */
 private val BACKGROUND_SYNTHETIC_MARKERS = listOf(
@@ -135,8 +135,8 @@ private val BACKGROUND_SYNTHETIC_MARKERS = listOf(
     "active blocking work was moved to the background",
 )
 
-/** 判断 synthetic 消息文本是否为服务器"转后台"系统提示（供分割线渲染分支与单测使用）。
- * 大小写不敏感——服务器模板可能调整大小写/时态，任一变体命中即视为转后台提示。 */
+/** 判断 synthetic 消息文本是否为服务器「转后台」合成通知（供分割线渲染分支与单测使用）。
+ * 大小写不敏感——服务器模板可能调整大小写/时态，任一变体命中即视为转后台合成通知。 */
 internal fun isBackgroundMoveSynthetic(text: String): Boolean =
     BACKGROUND_SYNTHETIC_MARKERS.any { text.contains(it, ignoreCase = true) }
 
@@ -146,10 +146,11 @@ internal fun isBackgroundMoveSynthetic(text: String): Boolean =
 
 
 /**
- * 主会话和子会话消息列表共用的 composable。
+ * 主会话和子智能体会话消息列表共用的 composable。
  *
- * 结构：PullToRefreshBox > LazyColumn（待处理问题/权限、revert 横幅、
- * 消息项）+ 滚动到底部 FAB + 流式消息卡片。
+ * 结构：LazyColumn（待处理问题/权限、revert 横幅、消息项；自动分页加载，
+ * 无下拉刷新）+ 跳转蒙版 + 快速导航抽屉。流式 turn 卡片即列表末项
+ * （流式判定沿 isStreamingMsg 旧名）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,7 +189,7 @@ fun ChatMessageList(
     // turnGroups 缓存（v6）：消息 id 序列未变时复用上次 Map，消除流式期间
     // 每 48ms 全量重建（~2000 entry/轮）的分配压力（GC 卡顿根因之一）。
     // 安全前提：renderableTurns 的 miss 分支（流式/新消息）用最新 msg 引用替换
-    // turn 内同 id 的旧引用 —— 流式消息永不冻结（历史回归 37d9a6ac 的教训）。
+    // turn 内同 id 的旧引用 —— 流式 turn 永不冻结（历史回归 37d9a6ac 的教训）。
     // 此处仅按结构（id 序列）缓存；内容（parts）变化不重建 Map —— 同 id 的
     // 旧引用由 miss 分支修正；另一读取点（isStreamingMsg 判断）只比较 id，
     // 不受旧引用影响。
@@ -284,7 +285,7 @@ fun ChatMessageList(
         result
     }
 
-    // 以 streamingMsgId 作为 key，流式消息变化（新消息
+    // 以 streamingMsgId 作为 key，流式 turn 变化（新消息
     // 或完成）时状态重置。这比 heightMap + 会话级清除更简单、更正确。
     val compensateState = remember(streamingMsgId) { CompensateState() }
     val toolCompensateState = remember(streamingMsgId) { CompensateState() }
@@ -489,8 +490,8 @@ fun ChatMessageList(
     // 2026-08-20 A-F3/D-2 竞态修复：resolveLazyIndex 原 remember{} 无 key 捕获
     // 首次组合的 displayItems/chatEntries/bannerCount——重定位用首帧快照反查
     // index，loadAround 重建+分片裂变后永远偏移 → 落点进中段 chunk（圆角变
-    // 直角+无标签行+正文中间露出=用户截图观感）。与 preparse driver 同款
-    // rememberUpdatedState 三件套，闭包内取 .value 永远读最新。
+    // 直角+无标签行+正文中间露出=用户截图观感）。与渲染供给（preparse）桥
+    // 同款 rememberUpdatedState 三件套，闭包内取 .value 永远读最新。
     val displayItemsForJump = androidx.compose.runtime.rememberUpdatedState(displayItems)
     val chatEntriesForJump = androidx.compose.runtime.rememberUpdatedState(chatEntries)
     val bannerCountForJump = androidx.compose.runtime.rememberUpdatedState(bannerCount)
@@ -519,7 +520,7 @@ fun ChatMessageList(
     // 收口动机：loadAround 失败路径漏复位镜像 → 目标不存在时 autoLoad 永久锁死）。
     val jumpLockActive = jumpController.jumpLockActive.collectAsState().value
 
-    // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
+    // 快速导航异步跳转：jumpToMessage 目标未加载时设此值，loadAround 完成后
     // 消息进入 displayItems → LaunchedEffect 重启 → 状态机跳转
     var pendingJumpTarget by remember { mutableStateOf<String?>(null) }
     // 2026-08-20：loadAround 未命中重试一次（深分页/服务器时序一次加载可能不够，
@@ -528,7 +529,7 @@ fun ChatMessageList(
     //（跳转终点时刻 lastJumpEndAtMillis 已收编 RenderSupplyCoordinator——
     // 阶段 2：模块自记终点，跨 effect 时间戳耦合消灭。）
 
-    // ===== 2026-08-20 滚动稳定性：滚动预解析驱动（fling 下跳根因修复） =====
+    // ===== 2026-08-20 滚动稳定性：渲染供给·滚动预解析（fling 下跳根因修复） =====
     // 真机取证（ScrollDiag RESIZE）：assistant 长回复初次组合仅测得占位高度
     // （412px），markdown 异步解析完成后暴涨（412→16746px）→ LazyColumn 锚点
     // 修正 → fling 中视口瞬移 1.4 万 px（用户报"下跳"，长回复稳定复现）。
@@ -595,7 +596,7 @@ fun ChatMessageList(
             )
             onQuickNavigateDismiss()
         } else {
-            // 未加载或 parts 为空：触发异步定位加载，等待消息进入 displayItems 后滚动
+            // 未加载或 parts 为空：触发异步跳转加载，等待消息进入 displayItems 后滚动
             //（#159：异步窗口的 autoLoad 锁定 = 控制器 markJumpPending——
             // phase 仍 Idle，锁不经相位发射同步直写）
             jumpController.markJumpPending()
@@ -605,7 +606,7 @@ fun ChatMessageList(
             coroutineScope.launch { viewModel.conversation.paginationDelegate.loadAround(msgId) }
         }
     }
-    // 「定位发起卡片」支持：点击完成通知卡片上的定位按钮 → 查找发起卡片
+    // 「定位发起卡片」支持：点击轮次完成合成通知卡片上的定位按钮 → 查找发起卡片
     //（task/subagent 工具的 metadata.sessionId/jobId）→ 滚动 + 3 秒高亮。
     val onLocateTask: (String) -> Unit = { targetSessionId ->
         val targetIndex = displayItems.indexOfFirst { (rawIndex, m) ->
@@ -768,7 +769,7 @@ fun ChatMessageList(
                 }
             }
 
-            // 快速导航异步定位：jumpToMessage 目标未加载时设此值，loadAround 完成后
+            // 快速导航异步跳转：jumpToMessage 目标未加载时设此值，loadAround 完成后
             // 消息进入 displayItems → 此 LaunchedEffect 重启（displayItems 是 key）→
             // 状态机跳转（2026-08-13 架构根治——旧 scrollToDisplayItem 已删除）。
             LaunchedEffect(pendingJumpTarget, displayItems) {
@@ -810,7 +811,7 @@ fun ChatMessageList(
                     } else if (!found) {
                         pendingJumpTarget = null
                         pendingJumpRetried = false
-                        // #159（2026-08-22）：异步定位失败解锁——旧镜像此处漏
+                        // #159（2026-08-22）：异步跳转失败解锁——旧镜像此处漏
                         // 复位，目标真不存在时 autoLoad 被锁死到下次成功跳转
                         jumpController.clearPendingJumpLock()
                         coroutineScope.launch {
@@ -831,7 +832,7 @@ fun ChatMessageList(
                 LazyColumn(
                     state = listState,
                     // 2026-08-20 滚动稳定性：限速 fling——每帧 ≤ 视口高/8，
-                    // 高速段不再冲入未组合区（与滚动预解析驱动配合，见上方）
+                    // 高速段不再冲入未组合区（与渲染供给协调器配合，见上方）
                     flingBehavior = rememberSafeFlingBehavior(listState),
                     modifier = Modifier.fillMaxSize()
                         // #149：唯一 testTag——ChatScreen 树中有 2 个 scrollable 节点
@@ -1152,7 +1153,8 @@ fun ChatMessageList(
                         when {
                             msg.isAssistant -> {
                                 // isTurnLast：下一条"非 synthetic"消息不是 assistant 才算 turn 尾。
-                                // synthetic 通知嵌入 turn 内（2026-08-11），不阻挡统计栏。
+                                // synthetic 为独立气泡（2026-08-12 起不并入 assistant turn），
+                                // 判定跳过它——不阻挡统计栏。
                                 // 2026-08-20：O(1) 查表（见上方
                                 // nextRealIsAssistantByMsgId），原 subList 线性扫描
                                 // 为 O(N²) 复合放大器。null = 无后继（turn 尾）。
@@ -1221,12 +1223,12 @@ fun ChatMessageList(
                                     @OptIn(ExperimentalFoundationApi::class)
                                     // 2026-08-15：压缩分割线升级为可展开卡片
                                     //（CompactionCard：分割线收起态 + 无边框轻量
-                                    // 卡片摘要展开态——与 synthetic 通知卡片一致
-                                    // 的视觉语言）；长按仍触发回退确认。
+                                    // 卡片展开态（内含压缩后的摘要全文）——与合成通知
+                                    // 卡片一致的视觉语言）；长按仍触发撤销确认。
                                     // 2026-08-20 a11y P3：空 onClick 的 combinedClickable
                                     // 会被 TalkBack 朗读为可点击但无动作——改为纯
                                     // pointerInput 长按 + semantics 自定义无障碍动作
-                                    //（长按=回退确认，标签复用已翻译的 chat_revert）。
+                                    //（长按=撤销确认，标签复用已翻译的 chat_revert）。
                                     val revertActionLabel = stringResource(R.string.chat_revert)
                                     Column(modifier = Modifier
                                         .pointerInput(Unit) {
@@ -1252,10 +1254,10 @@ fun ChatMessageList(
                                     return@itemsIndexed
                                 }
 
-                                // 2026-08-13：转后台 synthetic 系统提示（服务器固定模板
+                                // 2026-08-13：「转后台」合成通知（服务器固定模板
                                 // "User requested that active blocking work be moved to the
                                 // background"）→ 分割线渲染（类似压缩分割线——简短提示
-                                //「已移至后台」，丢弃服务器英文系统提示文本）
+                                //「已移至后台」，丢弃服务器英文原文）
                                 val isSyntheticMsg = chatMessage.message is Message.User &&
                                     (chatMessage.message as Message.User).role == "synthetic"
                                 if (isSyntheticMsg) {
@@ -1293,7 +1295,7 @@ fun ChatMessageList(
                                     role = if (chatMessage.message is Message.User &&
                                         (chatMessage.message as Message.User).role == "synthetic"
                                     ) {
-                                        // #67：synthetic 系统通知（后台任务/subagent 完成注入）用独立样式
+                                        // #67：合成通知（后台任务/subagent 完成注入的 synthetic 消息）用独立样式
                                         MessageCardRole.SYNTHETIC
                                     } else {
                                         MessageCardRole.USER
@@ -1355,7 +1357,7 @@ fun ChatMessageList(
                 } // LazyColumn 结束（CompositionLocalProvider 内）
             } // CompositionLocalProvider 结束
 
-            // 定位加载指示器：jumpToMessage 目标未加载时双向加载期间显示（覆盖层）
+            // 跳转加载指示器：jumpToMessage 目标未加载时双向加载期间显示（覆盖层）
             if (isLoadingAround) {
                 Surface(
                     shape = ShapeTokens.medium,
@@ -1420,12 +1422,12 @@ fun ChatMessageList(
 
 
 /**
- * 提取 task/subagent 工具卡片的子会话 ID（metadata.sessionId / sessionID / jobId）。
+ * 提取 task/subagent 工具卡片的子智能体会话 ID（metadata.sessionId / sessionID / jobId）。
  * - V1 task 工具：metadata.sessionId
- * - V2 subagent 工具：服务器返回 metadata.jobId（= 子会话 ID，task.ts:
+ * - V2 subagent 工具：服务器返回 metadata.jobId（= 子智能体会话 ID，task.ts:
  *   `metadata: {..., jobId: nextSession.id}`）——2026-08-11 实测发现
- *   键不匹配导致子会话跳转/定位失效
- * - synthetic 完成通知的 <task id> 与之匹配，用于「定位发起卡片」按钮。
+ *   键不匹配导致子智能体会话跳转/定位失效
+ * - 轮次完成合成通知的 <task id> 与之匹配，用于「定位发起卡片」按钮。
  */
 internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
     val metadata = when (val state = tool.state) {
@@ -1446,7 +1448,7 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
 private fun easeInOutCubic(t: Float): Float =
     if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
 
-// 预解析/分片调参常量已随驱动外移 RenderSupplyCoordinator.companion（候选 1）。
+// 预解析/分片调参常量已随渲染供给协调器外移 RenderSupplyCoordinator.companion（候选 1）。
 
 /**
  * 跳转定位 loading 蒙版（2026-08-21 D-11-2 从主体下沉为小组件）：

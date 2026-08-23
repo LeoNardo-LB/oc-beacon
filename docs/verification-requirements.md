@@ -1,6 +1,6 @@
 # 验证要求文档 (Verification Requirements)
 
-> 本文档定义了 OC Remote 项目每个开发阶段完成前**必须**执行的验证流程。
+> 本文档定义了 OC Beacon 项目每个开发阶段完成前**必须**执行的验证流程。
 > 所有 agent（主 agent 和 subagent）在声称任务完成前必须遵守。
 
 ---
@@ -32,7 +32,7 @@ BEFORE claiming any status:
 
 每个 Layer 完成后，必须通过以下四个维度的验证：
 
-### 维度 1: 代码层面验证 (Code-Level Verification)
+### V1 代码层面验证（旧称维度 1）(Code-Level Verification)
 
 | 检查项 | 命令 | 超时 | 通过标准 |
 |--------|------|------|----------|
@@ -47,7 +47,7 @@ BEFORE claiming any status:
 - 全量构建在**重大里程碑**（Layer 1/3/5 完成后）执行
 - 禁止用上次运行结果替代——必须在**当前消息中**执行命令
 
-### 维度 2: 自动化框架 + 模拟器截图验证 (E2E Screenshot Verification)
+### V2 自动化框架 + 模拟器截图验证（旧称维度 2）(E2E Screenshot Verification)
 
 使用 **Maestro** CLI 进行自动化 UI 验证。
 
@@ -71,7 +71,7 @@ maestro test maestro/l{n}-{feature}.yaml
 
 **约束：** 无模拟器时至少生成 flow 文件，标注待验证。
 
-### 维度 2b: 模拟器实机调用 + 截屏走查（铁律）
+### V3 模拟器实机调用 + 截屏走查（铁律；旧称维度 2b）
 
 > **本维度是整个验证体系中最重要的环节。没有通过本维度的验证，任何 Layer 的完成声明无效。**
 
@@ -113,7 +113,7 @@ maestro test maestro/l{n}-{feature}.yaml
 - Maestro flow 需要外部依赖（如服务器）：通过 `extendedWaitUntil` 超时或条件分支优雅降级，**禁止使用 `manual` 标记**
 - androidTest 因环境问题失败：记录失败原因，作为 known issue 跟踪
 
-### 维度 2c: E2E 测试分档（冒烟 / 全面+回归）
+### V4 E2E 测试分档（冒烟 / 全面+回归；旧称维度 2c）
 
 > 2026-08-06 新增：解决"端到端测试阶段耗时过长"问题。E2E 分两档执行，
 > 替代"每个 Layer 全部 flow 必跑"的一刀切要求。flow 清单与命令见
@@ -153,7 +153,7 @@ maestro test maestro/l{n}-{feature}.yaml
 - 正式发版（stable）前必跑
 - 大版本 / 跨层重构收尾
 
-### 维度 3: 代码分支日志输出验证 (Log Branch Verification)
+### V5 代码分支日志输出验证（旧称维度 3）(Log Branch Verification)
 
 通过 instrumented test 验证关键代码路径的日志输出。
 
@@ -171,7 +171,7 @@ maestro test maestro/l{n}-{feature}.yaml
 - instrumented test 中验证 `Log.isLoggable()` 或使用 `LogcatRule` 读取日志
 - 无模拟器时标注待验证
 
-### 维度 5: 用户人工验证 (User-in-the-Loop Verification)
+### V6 用户人工验证（旧称维度 5）(User-in-the-Loop Verification)
 
 > 2026-08-08 新增：解决"UI/UX 时间性现象自动化难以覆盖"问题。
 > 截图是静态快照、断言是布尔判定——**闪烁、计时重置、动画过渡、布局跳动、蒙版揭盖**
@@ -203,7 +203,7 @@ maestro test maestro/l{n}-{feature}.yaml
 - 人工验证：覆盖自动化无法表达的时间性/主观体验
 - 人工反馈"看着不对" → 进入修复循环，不因"自动化都过了"而搁置
 
-### 维度 4: 完整测试框架验证 (Comprehensive Test Framework)
+### V4a 完整测试框架验证（旧称维度 4；全面档归 V4 体系）(Comprehensive Test Framework)
 
 #### 4a. 单元测试 (Unit Tests)
 
@@ -313,4 +313,4 @@ Task 开始
 
 ---
 
-*本文档是 OC Remote 项目的强制验证标准。违反本标准的完成声明等同于虚假声明。*
+*本文档是 OC Beacon 项目的强制验证标准。违反本标准的完成声明等同于虚假声明。*

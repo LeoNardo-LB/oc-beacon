@@ -30,7 +30,7 @@ class SessionGroupingTest {
             Project(id = "nested", worktree = "/repo/apps/mobile", name = "Mobile"),
         )
         // 会话位于嵌套 worktree 下但不携带 projectId —— 必须
-        // 回退到最长匹配前缀。
+        // 降级到最长匹配前缀。
         val item = item("session", "/repo/apps/mobile/src")
 
         val group = buildProjectSessionGroups(listOf(item), projects, null).single()

@@ -95,13 +95,13 @@ internal fun TaskToolCard(
             else -> null
         }
 
-    // 确定点击行为：有子会话则导航到它，否则切换展开
-    // #180：Running 期只要拿到子会话 id 即可跳转（原实现仅 completed 可点）
+    // 确定点击行为：有子智能体会话则导航到它，否则切换展开
+    // #180：Running 期只要拿到子智能体会话 id 即可跳转（原实现仅 completed 可点）
     val clickAction: (() -> Unit)? = if (subSessionId != null && onViewSubSession != null) {
         { onViewSubSession(subSessionId) }
     } else null
 
-    // #180：导航箭头不再排除 isRunning（Running 有 id 即显示，尽早进子会话看进度）
+    // #180：导航箭头不再排除 isRunning（Running 有 id 即显示，尽早进子智能体会话看进度）
     val showNavArrow = subSessionId != null && onViewSubSession != null
 
     ToolCardScaffold(
@@ -168,7 +168,7 @@ internal fun TaskToolCard(
             val scrollState = rememberScrollState()
 
             // #182（2026-08-21）：展开时实时拉取全量输出（grilling Q13 定案：
-            // part 优先 → 子会话 transcript 回退；DB 留 500 预览不变）。
+            // part 优先 → 子智能体会话 transcript 回退；DB 留 500 预览不变）。
             // 本地 output 是 SSE 累积或 DB 500 预览；拉取结果取长者渲染。
             val fetcher = LocalTaskOutputFetcher.current
             var fetchedOutput by remember(tool.id) { mutableStateOf<String?>(null) }
@@ -229,7 +229,7 @@ internal fun TaskToolCard(
 }
 
 /**
- * 子会话 id 提取（#180/#181 走查收敛）：四种历史命名并读——
+ * 子智能体会话 id 提取（#180/#181 走查收敛）：四种历史命名并读——
  * sessionId/sessionID（V2Mappers 双写归一）/ jobId（V2 早期实测）/ childID
  * （synthetic 同源命名，V2Mappers 已归一此处直读兜底）。
  */

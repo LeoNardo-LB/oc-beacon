@@ -60,11 +60,11 @@ android {
         buildTypes.getByName("release").signingConfig = signingConfigs.getByName("release")
     }
 
-    flavorDimensions += "channel"
+    flavorDimensions += "flavor"
 
     productFlavors {
         create("dev") {
-            dimension = "channel"
+            dimension = "flavor"
             applicationIdSuffix = ".dev"
             manifestPlaceholders["appLabel"] = "OC Beacon Dev"
             // GitHub 分发渠道保留应用内自更新
@@ -76,14 +76,14 @@ android {
             versionCode = (System.currentTimeMillis() / 1000L).toInt()
         }
         create("beta") {
-            dimension = "channel"
+            dimension = "flavor"
             applicationIdSuffix = ".beta"
             manifestPlaceholders["appLabel"] = "OC Beacon Beta"
             // GitHub 分发渠道保留应用内自更新
             buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "true")
         }
         create("stable") {
-            dimension = "channel"
+            dimension = "flavor"
             manifestPlaceholders["appLabel"] = "@string/app_name"
             // Google Play 渠道：政策禁止 REQUEST_INSTALL_PACKAGES 自更新，禁用
             buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "false")

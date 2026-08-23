@@ -20,7 +20,7 @@ internal fun isUnread(
 ): Boolean = UnreadBadgeService.isUnread(sessionId, maxCompleted, readTimes, allReadAt, status)
 
 /**
- * 内容册构建纯函数——从 [SessionListDataInputs] + [SessionListUiInputs] 构建列表渲染状态。
+ * 内容簇（状态簇·列表渲染）构建纯函数——从 [SessionListDataInputs] + [SessionListUiInputs] 构建列表渲染状态。
  * 逻辑：过滤/搜索/分类/收藏/树构建/未读。
  * 外壳字段（isLoading/isRefreshing/error/serverName）不再进入此函数。
  *
@@ -66,13 +66,13 @@ internal suspend fun buildContentState(
         searchedSessions
     } else {
         searchedSessions.filter { session ->
-            val sessionTags = data.categoryAssignments[session.id].orEmpty()
+            val sessionTags = data.tagAssignments[session.id].orEmpty()
             ui.categoryFilterIds.all { it in sessionTags }
         }
     }
 
     val favoritesFilteredSessions = if (data.favoritesOnly) {
-        val favoriteIds = data.categoryAssignments
+        val favoriteIds = data.tagAssignments
             .filterValues { dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID in it }
             .keys
         categoryFilteredSessions.filter { it.id in favoriteIds }
@@ -85,7 +85,7 @@ internal suspend fun buildContentState(
 
     val tagsById = data.sessionTags.associateBy { it.id }
     val resolvedTags: Map<String, List<Tag>> = buildMap {
-        data.categoryAssignments.forEach { (sessionId, tagIds) ->
+        data.tagAssignments.forEach { (sessionId, tagIds) ->
             put(sessionId, tagIds.mapNotNull { tagsById[it] })
         }
     }

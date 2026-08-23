@@ -126,7 +126,7 @@ class ServerRepositoryImpl @Inject constructor(
         providerId: String
     ): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        api.removeProviderAuth(conn, providerId)
+        api.removeProviderCredential(conn, providerId)
     }
 
     // ── Provider 连接状态与全局配置 ──
@@ -179,12 +179,12 @@ class ServerRepositoryImpl @Inject constructor(
         api.completeProviderOauth(conn, providerId, methodIndex, code)
     }
 
-    override suspend fun removeProviderAuth(
+    override suspend fun removeProviderCredential(
         serverId: String,
         providerId: String
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        api.removeProviderAuth(conn, providerId)
+        api.removeProviderCredential(conn, providerId)
     }
 
     override suspend fun disposeGlobal(serverId: String): Result<Boolean> = runCatchingCancellable {

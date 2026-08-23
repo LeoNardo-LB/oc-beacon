@@ -23,7 +23,7 @@
     <string name="session_status_retry">Nouvelle tentative (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Envoyer</string>
-    <string name="chat_empty">Démarrer une conversation avec OpenCode</string>
+    <string name="chat_empty">Démarrer une session avec OpenCode</string>
     <!-- Permissions -->
     <string name="permission_title">Autorisation requise</string>
     <string name="permission_allow_once">Une fois</string>
@@ -48,7 +48,7 @@
     <string name="settings_notifications">Notifications</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">Connexion à OpenCode</string>
-    <string name="notification_channel_tasks">Tâche terminée</string>
+    <string name="notification_channel_tasks">Notifications de tour</string>
     <string name="notification_connected">Connecté à %1$s</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">Échec de l\'envoi</string>
@@ -200,20 +200,20 @@
     <string name="chat_status_running_commands">Exécution des commandes</string>
     <string name="chat_status_searching">Recherche dans la base de code</string>
     <string name="chat_status_fetching_url">Récupération de l’URL</string>
-    <string name="chat_status_running_subagent">Exécution du sous-agent</string>
-    <string name="chat_task_completed">Tâche terminée</string>
+    <string name="chat_status_running_subagent">Exécution du subagent</string>
+    <string name="chat_task_completed">Tour terminé</string>
     <string name="chat_task_failed">Tâche échouée</string>
-    <string name="chat_system_notification">Sous-agent terminé</string>
+    <string name="chat_system_notification">Synthétique : subagent terminé</string>
     <string name="task_sheet_subagent_completed">Terminé</string>
     <string name="chat_label_user">Utilisateur</string>
-    <string name="chat_label_agent">Assistant</string>
+    <string name="chat_label_agent">Agent</string>
     <string name="chat_background_agent_completed">Agent terminé</string>
     <string name="chat_background_agent_failed">Agent en échec</string>
     <string name="chat_background_shell_completed">Shell terminé</string>
     <string name="chat_background_shell_failed">Shell en échec</string>
     <string name="chat_label_tasks">Tâches</string>
-    <string name="chat_subagent_completed_notification">Sous-agent terminé</string>
-    <string name="chat_subagent_failed_notification">Sous-agent en échec</string>
+    <string name="chat_subagent_completed_notification">Subagent terminé</string>
+    <string name="chat_subagent_failed_notification">Subagent en échec</string>
     <string name="chat_status_updating_tasks">Mise à jour des tâches</string>
     <string name="chat_status_thinking">Réflexion</string>
     <string name="chat_tool_running_command">Exécution de la commande…</string>
@@ -268,7 +268,7 @@
     <string name="tool_search_code">Rechercher dans le code</string>
     <string name="tool_list_directory">Lister le répertoire</string>
     <string name="tool_fetch_url">Récupérer une URL</string>
-    <string name="tool_sub_agent">Sous-agent</string>
+    <string name="tool_sub_agent">Subagent</string>
     <string name="tool_apply_patch">Appliquer un patch</string>
     <string name="tool_shell">Shell</string>
     <string name="tool_read">Lire</string>
@@ -296,7 +296,7 @@
     <string name="menu_share_session">Partager la session</string>
     <string name="settings_dynamic_color">Couleurs dynamiques</string>
     <string name="settings_dynamic_color_desc">Utiliser les couleurs du fond d’écran (Material You)</string>
-    <string name="settings_notifications_desc">Notifier lorsque l’agent termine une tâche</string>
+    <string name="settings_notifications_desc">Notifier lorsqu’un tour se termine</string>
     <string name="settings_initial_messages">Messages initiaux à charger</string>
     <string name="settings_confirm_send">Confirmer avant d’envoyer</string>
     <string name="settings_confirm_send_desc">Afficher une boîte de confirmation avant d’envoyer un message</string>
@@ -322,7 +322,7 @@
     <string name="settings_keep_screen_on">Garder l’écran allumé</string>
     <string name="settings_keep_screen_on_desc">Empêcher la mise en veille pendant le chat</string>
     <string name="settings_silent_notifications">Notifications silencieuses</string>
-    <string name="settings_silent_notifications_desc">Désactiver le son et la vibration pour les notifications de tâches</string>
+    <string name="settings_silent_notifications_desc">Désactiver le son et la vibration pour les notifications de tour</string>
     <string name="settings_notif_test">Envoyer une notification de test</string>
     <string name="settings_notif_test_desc">Envoie une vraie notification pour vérifier bannières et son. Si rien n\'apparaît, l\'appareil peut mettre l\'application en silence (ex. MIUI désactive les notifications flottantes par défaut) — activez-la dans les paramètres de notification système ci-dessous.</string>
     <string name="settings_notif_system">Paramètres de notification système</string>
@@ -333,9 +333,9 @@
     <string name="a11y_settings_notif_system">Paramètres de notification système</string>
     <string name="dialog_select_reconnect_mode">Sélectionner le mode de reconnexion</string>
     <string name="notification_channel_connection_desc">Connexion persistante au serveur OpenCode</string>
-    <string name="notification_channel_tasks_desc">Notifications lorsque les tâches OpenCode sont terminées</string>
-    <string name="notification_channel_tasks_silent">Notifications de tâches (silencieuses)</string>
-    <string name="notification_channel_tasks_silent_desc">Notifications silencieuses lorsque les tâches OpenCode sont terminées</string>
+    <string name="notification_channel_tasks_desc">Notifications lorsqu’un tour se termine</string>
+    <string name="notification_channel_tasks_silent">Notifications de tour (silencieuses)</string>
+    <string name="notification_channel_tasks_silent_desc">Notifications silencieuses lorsqu’un tour se termine</string>
     <string name="notification_channel_permissions">Demandes d’autorisations</string>
     <string name="notification_channel_permissions_desc">Notifications lorsque OpenCode nécessite des autorisations</string>
     <string name="notification_connecting">Connexion à %1$s…</string>
@@ -406,11 +406,11 @@
     <string name="disconnect">Déconnecter</string>
     <string name="server_settings_models">Modèles</string>
     <string name="server_settings_models_desc">Visibilité et paramètres par défaut des modèles</string>
-    <string name="sessions_create_folder">Créer un dossier</string>
-    <string name="sessions_create_folder_title">Créer un dossier</string>
-    <string name="sessions_create_folder_name_label">Nom du dossier</string>
+    <string name="sessions_create_folder">Créer un répertoire</string>
+    <string name="sessions_create_folder_title">Créer un répertoire</string>
+    <string name="sessions_create_folder_name_label">Nom du répertoire</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">Entrez un nom de dossier valide</string>
+    <string name="sessions_create_folder_invalid_name">Entrez un nom de répertoire valide</string>
     <string name="sessions_create_folder_create">Créer</string>
     <string name="sessions_create_folder_failed">Échec de la création du dossier</string>
     <string name="sessions_create_folder_success">Créé : %1$s</string>
@@ -517,7 +517,7 @@
     <string name="a11y_icon_warning">Avertissement</string>
     <string name="a11y_icon_navigate_forward">Naviguer en avant</string>
     <string name="a11y_locate_task">Localiser la tâche d\'origine</string>
-    <string name="chat_locate_task_not_found">Tâche d\'origine introuvable dans cette conversation</string>
+    <string name="chat_locate_task_not_found">Tâche d\'origine introuvable dans cette session</string>
     <string name="a11y_icon_add">Ajouter</string>
     <string name="a11y_icon_share">Partager</string>
     <string name="a11y_icon_unlink">Dissocier</string>
@@ -625,7 +625,7 @@
     <string name="annotation_context_annotate">Annoter</string>
 
     <!-- Missing translations (added) -->
-    <string name="a11y_settings_recent_directory_count">Dossiers récents</string>
+    <string name="a11y_settings_recent_directory_count">Répertoires récents</string>
     <string name="chat_link_file_not_found">Fichier introuvable</string>
     <string name="chat_step_progress">Étape %1$d</string>
     <string name="diagnostics_clear">Effacer les journaux</string>
@@ -664,9 +664,9 @@
     <string name="session_retry_attempt">Tentative %1$d sur %2$d</string>
     <string name="settings_diagnostics">Diagnostic</string>
     <string name="settings_diagnostics_desc">Voir les journaux et rapports de plantage</string>
-    <string name="settings_recent_directory_count">Dossiers récents dans une nouvelle session</string>
-    <string name="settings_recent_directory_count_desc">Nombre de dossiers récents dans la boîte de dialogue de nouvelle session (5–50)</string>
-    <string name="settings_recent_directory_count_value">%1$d dossiers</string>
+    <string name="settings_recent_directory_count">Répertoires récents dans une nouvelle session</string>
+    <string name="settings_recent_directory_count_desc">Nombre de répertoires récents dans la boîte de dialogue de nouvelle session (5–50)</string>
+    <string name="settings_recent_directory_count_value">%1$d répertoires</string>
     <string name="terminal_tab_title">Onglet %1$d</string>
     <string name="tool_search_path">chemin : %1$s</string>
     <string name="tool_search_pattern">motif : %1$s</string>
@@ -692,11 +692,11 @@
     <string name="shell_status_done">Terminé</string>
     <string name="shell_status_failed">Échec</string>
     <string name="task_toolbar_action">Déplacer la tâche en arrière-plan</string>
-    <string name="task_toolbar_subagents">%1$d sous-agent(s) en cours au premier plan</string>
+    <string name="task_toolbar_subagents">%1$d subagent(s) en cours au premier plan</string>
     <string name="a11y_icon_tasks">Activités de tâche</string>
-    <string name="task_sheet_subagents_tab">Sous-agents</string>
+    <string name="task_sheet_subagents_tab">Subagents</string>
     <string name="task_sheet_shells_tab">Shells</string>
-    <string name="task_sheet_empty_subagents">Aucun sous-agent en cours</string>
+    <string name="task_sheet_empty_subagents">Aucun subagent en cours</string>
     <string name="task_sheet_empty_shells">Aucune commande shell</string>
     <string name="task_sheet_title">Tâches</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->

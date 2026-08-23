@@ -31,8 +31,8 @@ import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import dev.leonardo.ocbeacon.util.DateFormatters
 
 /**
- * 上下文压缩进行中气泡——2026-08-16（用户设计）：单独的透明但带轮廓的
- * 气泡，复用标准消息容器（MessageBubble，与后台通知卡片同构：Transparent
+ * 压缩进行中气泡——2026-08-16（用户设计）：单独的透明但带轮廓的
+ * 气泡，复用标准消息容器（MessageBubble，与合成通知卡片同构：Transparent
  * + 1dp outline 轮廓）；标题栏 = 时间 + 「正在压缩上下文」+ 呼吸 Compress
  * 图标（labelSuffix 状态槽）；内容栏 = 进度条。
  *

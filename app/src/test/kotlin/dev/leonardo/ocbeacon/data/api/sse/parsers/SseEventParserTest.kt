@@ -669,7 +669,7 @@ class SseEventParserTest {
     @Test
     fun `SessionEventParser parse session_created falls back to props when info missing`() {
         val parser = SessionEventParser(json)
-        // 当 "info" 缺失时，解析器回退为直接将 `props` 用作会话对象
+        // 当 "info" 缺失时，解析器降级为直接将 `props` 用作会话对象
         val props = parseJsonObject(
             """{
                 "id": "sess_fallback",
@@ -686,7 +686,7 @@ class SseEventParserTest {
 
     /** 2026-08-17：真实抓帧行政格式——model 为对象 {id, providerID, variant}。
      *  修复前 `?.jsonPrimitive` 读 model 抛 IllegalArgumentException →
-     *  parse() catch 吞掉整条事件 → 子会话永不注册（任务面板 Running 恒空）。 */
+     *  parse() catch 吞掉整条事件 → 子智能体会话永不注册（任务面板 Running 恒空）。 */
     @Test
     fun `SessionEventParser parse v2 flat session_created with model object`() {
         val parser = SessionEventParser(json)

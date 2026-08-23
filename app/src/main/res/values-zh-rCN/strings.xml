@@ -23,7 +23,7 @@
     <string name="session_status_retry">重试中（%1$d）</string>
     <!-- Chat Screen -->
     <string name="chat_send">发送</string>
-    <string name="chat_empty">与 OpenCode 开始对话</string>
+    <string name="chat_empty">与 OpenCode 开始会话</string>
     <!-- Permissions -->
     <string name="permission_title">需要权限</string>
     <string name="permission_allow_once">仅一次</string>
@@ -50,7 +50,7 @@
     <string name="settings_notifications">通知</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">OpenCode 连接</string>
-    <string name="notification_channel_tasks">任务通知</string>
+    <string name="notification_channel_tasks">轮次通知</string>
     <string name="notification_connected">已连接到 %1$s</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">发送失败</string>
@@ -82,7 +82,7 @@
     <string name="draft">草稿</string>
     <string name="assign_category">添加标签</string>
     <string name="tag_management_title">标签管理</string>
-    <string name="new_tag">新增 Tag</string>
+    <string name="new_tag">新增标签</string>
     <string name="edit_tag">编辑标签</string>
     <string name="edit">编辑</string>
     <string name="remove_tag">移除标签</string>
@@ -119,30 +119,30 @@
     <string name="session_rename_title">标题</string>
     <string name="session_rename_button">重命名</string>
     <string name="session_delete">删除会话</string>
-    <string name="session_details_continue_queue">发送排队消息（%1$d）</string>
+    <string name="session_details_continue_queue">发送堆积消息（%1$d）</string>
     <string name="session_delete_confirm">确定要删除“%1$s”？此操作无法撤销。</string>
     <string name="chat_stop">停止</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <string name="chat_busy_menu_send_now">立即发送</string>
     <string name="chat_busy_menu_send_now_desc">已在服务器排队，立即可见，无法撤销</string>
-    <string name="chat_busy_menu_stack">排队消息</string>
+    <string name="chat_busy_menu_stack">堆积消息</string>
     <string name="chat_busy_menu_stack_desc">暂存本地，本轮结束后自动发送</string>
     <string name="chat_busy_menu_stack_no_attachments">带附件的消息请立即发送</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
-    <string name="pending_sheet_title">排队消息</string>
-    <string name="pending_tab_stacked">排队 %1$d</string>
+    <string name="pending_sheet_title">堆积消息</string>
+    <string name="pending_tab_stacked">堆积 %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">排队</string>
+    <string name="pending_tab_stacked_plain">堆积</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">继续</string>
     <string name="pending_clear">清除</string>
-    <string name="pending_clear_confirm_title">清除排队消息？</string>
-    <string name="pending_clear_confirm_text">将移除 %1$d 条排队消息。</string>
-    <string name="pending_edit_dialog_title">编辑排队消息</string>
+    <string name="pending_clear_confirm_title">清除堆积消息？</string>
+    <string name="pending_clear_confirm_text">将移除 %1$d 条堆积消息。</string>
+    <string name="pending_edit_dialog_title">编辑堆积消息</string>
     <string name="pending_item_edit">编辑</string>
     <string name="pending_item_delete">删除</string>
     <string name="pending_item_send">立即发送</string>
-    <string name="pending_empty">暂无排队消息。智能体回复期间，点按加载图标即可排队消息。</string>
+    <string name="pending_empty">暂无堆积消息。智能体回复期间，点按加载图标即可暂存消息。</string>
     <string name="pending_item_sending">发送中…</string>
     <string name="todo_empty">暂无 TODO 项</string>
     <string name="chat_copy">复制</string>
@@ -202,20 +202,20 @@
     <string name="chat_status_running_commands">正在运行命令</string>
     <string name="chat_status_searching">正在搜索代码库</string>
     <string name="chat_status_fetching_url">正在获取 URL</string>
-    <string name="chat_status_running_subagent">正在运行子代理</string>
-    <string name="chat_task_completed">任务已完成</string>
+    <string name="chat_status_running_subagent">正在运行子智能体</string>
+    <string name="chat_task_completed">轮次完成</string>
     <string name="chat_task_failed">任务失败</string>
-    <string name="chat_system_notification">Sub-agent 完成通知</string>
+    <string name="chat_system_notification">合成通知：子智能体已完成</string>
     <string name="task_sheet_subagent_completed">已完成</string>
     <string name="chat_label_user">用户</string>
     <string name="chat_label_agent">智能体</string>
-    <string name="chat_background_agent_completed">Agent 完成</string>
-    <string name="chat_background_agent_failed">Agent 失败</string>
+    <string name="chat_background_agent_completed">智能体完成</string>
+    <string name="chat_background_agent_failed">智能体失败</string>
     <string name="chat_background_shell_completed">Shell 完成</string>
     <string name="chat_background_shell_failed">Shell 失败</string>
     <string name="chat_label_tasks">任务</string>
-    <string name="chat_subagent_completed_notification">Sub-agent 完成通知</string>
-    <string name="chat_subagent_failed_notification">Sub-agent 失败通知</string>
+    <string name="chat_subagent_completed_notification">子智能体已完成通知</string>
+    <string name="chat_subagent_failed_notification">子智能体已失败通知</string>
     <string name="chat_status_updating_tasks">正在更新任务</string>
     <string name="chat_status_thinking">思考中</string>
     <string name="chat_thinking_complete">思考完毕 · %1$s</string>
@@ -271,7 +271,7 @@
     <string name="tool_search_code">搜索</string>
     <string name="tool_list_directory">列出目录</string>
     <string name="tool_fetch_url">获取 URL</string>
-    <string name="tool_sub_agent">子代理</string>
+    <string name="tool_sub_agent">子智能体</string>
     <string name="tool_apply_patch">应用补丁</string>
     <string name="tool_shell">Shell</string>
     <string name="tool_read">读取</string>
@@ -309,7 +309,7 @@
     <string name="settings_chat_font">对话字体</string>
     <string name="settings_chat_font_normal">正常</string>
     <string name="settings_chat_font_compact">小</string>
-    <string name="settings_notifications_desc">代理完成任务时通知</string>
+    <string name="settings_notifications_desc">轮次完成时通知</string>
     <string name="settings_initial_messages">加载的初始消息数</string>
     <string name="settings_confirm_send">发送前确认</string>
     <string name="settings_confirm_send_desc">发送消息前显示确认对话框</string>
@@ -328,8 +328,8 @@
     <string name="settings_auto_expand_tools_desc">默认展开工具卡片而非收起</string>
     <string name="settings_expand_reasoning">自动展开推理内容</string>
     <string name="settings_expand_reasoning_desc">默认展开思考过程；关闭后点击标题手动展开</string>
-    <string name="settings_turn_dividers">回合分割线</string>
-    <string name="settings_turn_dividers_desc">在同一回合的消息之间显示分割线</string>
+    <string name="settings_turn_dividers">轮次分割线</string>
+    <string name="settings_turn_dividers_desc">在同一轮次的消息之间显示分割线</string>
     <string name="settings_haptic_feedback">触觉反馈</string>
     <string name="settings_haptic_feedback_desc">发送和还原操作时震动</string>
     <string name="settings_reconnect_mode">重连模式</string>
@@ -339,7 +339,7 @@
     <string name="settings_keep_screen_on">保持屏幕常亮</string>
     <string name="settings_keep_screen_on_desc">聊天时防止屏幕超时</string>
     <string name="settings_silent_notifications">静默通知</string>
-    <string name="settings_silent_notifications_desc">任务通知不响铃、不震动</string>
+    <string name="settings_silent_notifications_desc">轮次通知不响铃、不震动</string>
     <string name="settings_notif_test">发送测试通知</string>
     <string name="settings_notif_test_desc">发送一条真实通知，验证横幅与声音是否正常。若未弹出，可能是设备静默了本应用（如 MIUI 默认关闭悬浮通知）——请到下方系统通知设置中开启。</string>
     <string name="settings_notif_system">系统通知设置</string>
@@ -350,9 +350,9 @@
     <string name="a11y_settings_notif_system">系统通知设置</string>
     <string name="dialog_select_reconnect_mode">选择重连模式</string>
     <string name="notification_channel_connection_desc">与 OpenCode 服务器保持连接</string>
-    <string name="notification_channel_tasks_desc">OpenCode 任务完成时通知</string>
-    <string name="notification_channel_tasks_silent">任务通知（静默）</string>
-    <string name="notification_channel_tasks_silent_desc">OpenCode 任务完成时静默通知</string>
+    <string name="notification_channel_tasks_desc">轮次完成时通知</string>
+    <string name="notification_channel_tasks_silent">轮次通知（静默）</string>
+    <string name="notification_channel_tasks_silent_desc">轮次完成时静默通知</string>
     <string name="notification_channel_permissions">权限请求</string>
     <string name="notification_channel_permissions_desc">OpenCode 需要权限时通知</string>
     <string name="notification_connecting">正在连接 %1$s…</string>
@@ -423,11 +423,11 @@
     <string name="disconnect">断开连接</string>
     <string name="server_settings_models">模型</string>
     <string name="server_settings_models_desc">模型可见性与默认设置</string>
-    <string name="sessions_create_folder">新建文件夹</string>
-    <string name="sessions_create_folder_title">新建文件夹</string>
-    <string name="sessions_create_folder_name_label">文件夹名称</string>
+    <string name="sessions_create_folder">新建目录</string>
+    <string name="sessions_create_folder_title">新建目录</string>
+    <string name="sessions_create_folder_name_label">目录名称</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">请输入有效的文件夹名称</string>
+    <string name="sessions_create_folder_invalid_name">请输入有效的目录名称</string>
     <string name="sessions_create_folder_create">创建</string>
     <string name="sessions_create_folder_failed">创建文件夹失败</string>
     <string name="sessions_create_folder_success">已创建：%1$s</string>
@@ -472,7 +472,7 @@
     <string name="session_details_updated">更新时间</string>
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d（%3$d 个文件）</string>
-    <string name="chat_token_usage_total">%,d 个 token</string>
+    <string name="chat_token_usage_total">%,d 个令牌</string>
     <string name="chat_token_input">输入</string>
     <string name="chat_token_output">输出</string>
     <string name="chat_token_reasoning">推理</string>
@@ -493,7 +493,7 @@
     <string name="settings_auto_allow_permissions_desc">对每个权限请求自动应答「始终允许」。规则会持久保存——仅对可信服务器开启。</string>
     <string name="settings_no_auto_approve_rules">没有已保存的自动批准规则</string>
     <string name="settings_delete_rule">删除规则</string>
-    <string name="chat_meta_tokens">%d 个 token</string>
+    <string name="chat_meta_tokens">%d 个令牌</string>
     <string name="chat_glob_match_count">%d 个匹配</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">提示词：%s</string>
@@ -697,11 +697,11 @@
     <string name="shell_status_done">完成</string>
     <string name="shell_status_failed">失败</string>
     <string name="task_toolbar_action">任务转后台</string>
-    <string name="task_toolbar_subagents">%1$d 个子代理正在前台运行</string>
+    <string name="task_toolbar_subagents">%1$d 个子智能体正在前台运行</string>
     <string name="a11y_icon_tasks">任务活动</string>
-    <string name="task_sheet_subagents_tab">子代理</string>
+    <string name="task_sheet_subagents_tab">子智能体</string>
     <string name="task_sheet_shells_tab">Shell</string>
-    <string name="task_sheet_empty_subagents">没有运行中的子代理</string>
+    <string name="task_sheet_empty_subagents">没有运行中的子智能体</string>
     <string name="task_sheet_empty_shells">没有 Shell 命令</string>
     <string name="task_sheet_title">任务</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->

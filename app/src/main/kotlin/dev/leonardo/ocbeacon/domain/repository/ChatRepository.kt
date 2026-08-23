@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * 聊天操作的 Repository 接口。
- * 由 data 层实现。
+ * 实现归属：由 data 层实现（domain 层仅声明契约）。
  */
 interface ChatRepository {
 
@@ -30,7 +30,7 @@ interface ChatRepository {
 
     /**
      * 观察某个会话的消息列表（含 parts）。
-     * 委托给 EventDispatcher.messages，并映射为领域 Message。
+     * 实现：委托给 EventDispatcher.messages，并映射为领域 Message（data 层装配）。
      */
     fun getMessagesFlow(sessionId: String): Flow<List<Message>>
 
@@ -111,12 +111,12 @@ interface ChatRepository {
     ): Result<Unit>
 
     /**
-     * 从指定 messageId 开始撤销（undo）消息。
+     * 从指定 messageId 开始撤销（revert）消息。
      */
     suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit>
 
     /**
-     * 在会话中取消撤销（redo）最近一次被撤销的消息。
+     * 在会话中取消撤销（unrevert/redo）最近一次被撤销的消息。
      */
     suspend fun unrevertSession(serverId: String, sessionId: String): Result<Unit>
 

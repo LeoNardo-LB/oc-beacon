@@ -11,7 +11,7 @@ import kotlinx.serialization.json.put
 
 /**
  * extractToolSubagentSessionId（synthetic 完成通知「定位发起卡片」的匹配键）测试。
- * 与 TaskToolCard 的子会话跳转解析一致：Completed/Running 的 metadata.sessionId。
+ * 与 TaskToolCard 的子智能体会话跳转解析一致：Completed/Running 的 metadata.sessionId。
  */
 class ExtractToolSubagentSessionIdTest {
 
@@ -42,7 +42,7 @@ class ExtractToolSubagentSessionIdTest {
 
     @Test
     fun `completed with jobId extracted (V2 server key)`() {
-        // V2 服务器 metadata 用 jobId 存子会话 ID（task.ts: jobId = nextSession.id）
+        // V2 服务器 metadata 用 jobId 存子智能体会话 ID（task.ts: jobId = nextSession.id）
         val meta = buildJsonObject { put("jobId", "ses_child_job") }
         assertEquals("ses_child_job", extractToolSubagentSessionId(toolWithMetadata(meta)))
     }

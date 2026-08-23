@@ -39,7 +39,7 @@ object DatabaseModule {
     @Provides
     fun providePendingMessageDao(database: OcBeaconDatabase): PendingMessageDao = database.pendingMessageDao()
 
-    /** 时钟源（归档桶时间戳用）。生产用系统时钟；测试经 MessageStore 构造参数注入固定值。 */
+    /** 时钟源（冷存桶时间戳用）。生产用系统时钟；测试经 MessageStore 构造参数注入固定值。 */
     @Provides
     @Singleton
     fun provideClock(): () -> Long = System::currentTimeMillis

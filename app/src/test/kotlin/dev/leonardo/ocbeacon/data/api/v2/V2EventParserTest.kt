@@ -146,7 +146,7 @@ class V2EventParserTest {
 
     @Test
     fun `compaction delta maps to CompactionDelta with text field`() {
-        // 2026-08-19：压缩摘要流式增量（此前落入 Unknown——Unhandled 日志噪音）。
+        // 2026-08-19：压缩流式增量（此前落入 Unknown——Unhandled 日志噪音）。
         // beta-17639 E2E 实测：增量文本在 "text" 字段（V1 域事件用 "delta"）。
         val event = parser.parse(
             "session.compaction.delta",

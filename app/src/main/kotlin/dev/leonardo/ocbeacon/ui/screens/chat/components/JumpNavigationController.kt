@@ -23,12 +23,17 @@ import kotlinx.coroutines.withTimeoutOrNull
  *
  * 状态机（决策可单测）：
  *   Idle → Preparing(蒙版: 预解析+估算定位) → Measuring(透明: 测量+列表同步)
- *        → Settling(收敛修正) → Displayed(显示+稳定窗口 1.5s) / Failed(超时)
+ *        → Settling(收敛修正) → Displayed(显示+稳定窗口 900ms) / Failed(超时)
+ *
+ * 三窗口勿混淆（2026-08-20 C-R2/D-4 起）：①本滚动稳定窗口=900ms（Displayed 后
+ * gap 静默修正，见 measureAndSettle 尾部 while 循环）；②jumpLock 解锁缓冲=
+ * [JUMP_UNLOCK_DELAY_MS]=300ms；③渲染供给层分片冻结=跳转终点后 2s
+ * （RenderSupplyCoordinator F3 门控——「终点+2s 内不提交」）。
  *
  * UI 派生（单一真相源——蒙版/门控不再各自为政）：
  *   - showMask = Preparing || Measuring || Settling
  *   - gateOpen = Displayed || Failed
- *   - jumpLockActive = 异步定位窗口(markJumpPending) ∪ 进行中 ∪ 终点后 300ms 缓冲
+ *   - jumpLockActive = 异步跳转窗口(markJumpPending) ∪ 进行中 ∪ 终点后 300ms 缓冲
  *     （#159 收口 2026-08-22：替代 ChatMessageList 手工镜像——原 4 写点任一
  *     遗漏即竞态，loadAround 失败路径漏复位已实证锁永久卡死）
  */
@@ -157,7 +162,7 @@ class JumpNavigationController(
      * UI 派生：autoLoad 启动门控锁（#159 收口 2026-08-22——替代
      * ChatMessageList.jumpLockActive 手工镜像）。
      *
-     * 锁定窗口 = 异步定位窗口（[markJumpPending]——目标未加载、phase 仍
+     * 锁定窗口 = 异步跳转窗口（[markJumpPending]——目标未加载、phase 仍
      * Idle，但 loadAround 期间 nearTop 补载不得启动）∪ 跳转进行中
      * （Preparing/Measuring/Settling）∪ 终点缓冲（Displayed/Failed 后
      * [JUMP_UNLOCK_DELAY_MS]——稳定窗口内不放行，语义等价原 ChatMessageList
@@ -186,7 +191,7 @@ class JumpNavigationController(
     }
 
     /**
-     * 异步定位窗口标记（jumpToMessage 目标未加载分支入口）。成功路径由
+     * 异步跳转窗口标记（jumpToMessage 目标未加载分支入口）。成功路径由
      * 后续 jumpTo 置 Preparing 接管（锁继续为 true，无缝）；失败路径调
      * [clearPendingJumpLock] 解锁。
      */
@@ -195,7 +200,7 @@ class JumpNavigationController(
     }
 
     /**
-     * 异步定位失败解锁（loadAround 两轮未命中）。phase 仍 Idle 时生效；
+     * 异步跳转失败解锁（loadAround 两轮未命中）。phase 仍 Idle 时生效；
      * 若失败清理与活跃跳转交错（用户已点另一可跳目标），phase 非Idle——
      * 锁归进行中的跳转所有，本调用为 no-op。
      */
@@ -254,8 +259,8 @@ class JumpNavigationController(
             // Preparing → ParsedReady：user 目标不再预解析/等待（2026-08-21
             // D-10 附带修复）——PartContent isUser 分支纯 Text 渲染（MarkdownState/
             // preParsedState 均被忽略），原 preParse + 2.5s await 对视觉零贡献
-            //（纯延迟）。assistant 目标（jumpToTask）本就无预解析（滚动预解析
-            // 驱动覆盖窗口内容）。移除后 user 跳转直通 Measuring。
+            //（纯延迟）。assistant 目标（jumpToTask）本就无预解析（渲染供给
+            // 协调器覆盖窗口内容）。移除后 user 跳转直通 Measuring。
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: Preparing 开始 msg=${msgId.take(12)}")
             _phase.value = jumpTransition(_phase.value, JumpEvent.ParsedReady)
             if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "jump: 进入测量 msg=${msgId.take(12)} idx=$lazyIndex")

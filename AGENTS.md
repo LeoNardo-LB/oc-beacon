@@ -17,8 +17,8 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/real-device-testing.md`](docs/real-device-testing.md) | 真机 runbook：pm install 静默装包、adb reverse 连通、debug intent 配置、签名备忘 | 任何真机测试/E2E/装包前（2026-08-20 方针：真机优先） |
 | 🟡 SHOULD | [`docs/qa-methodology.md`](docs/qa-methodology.md) | QA 方法论：交叉验证（≥2 维互证）、证据链、并行验证委派 | 修复/功能完成前的验证设计 |
 | 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归指南：变更分类、12 能力域清单 | 重构/接口变更/存储渲染层改动前 |
-| 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 对话全生命周期 E2E 期望文档 | 对话相关改动/发版前的 E2E 设计 |
-| 🟡 SHOULD | [`docs/dialogue-e2e-test-runbook.md`](docs/dialogue-e2e-test-runbook.md) | 对话 E2E 实操记录与差异分析 | E2E 执行中实时记录 |
+| 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 会话全生命周期 E2E 期望文档 | 会话相关改动/发版前的 E2E 设计 |
+| 🟡 SHOULD | [`docs/dialogue-e2e-test-runbook.md`](docs/dialogue-e2e-test-runbook.md) | 会话 E2E 实操记录与差异分析 | E2E 执行中实时记录 |
 | 🟡 SHOULD | [`docs/observability-verification-guide.md`](docs/observability-verification-guide.md) | Logcat 规范、Room 直查、SSE 事件流、标准观测流程 | 代码改动验证（配合 verification 维度 3） |
 | 🟡 SHOULD | [`docs/v1-v2-differences.md`](docs/v1-v2-differences.md) | V1/V2 功能与 API 差异完整清单 | V1/V2 兼容开发、版本探测、功能适配前 |
 | 🟡 SHOULD | [`docs/simulator-walkthrough-v1v2.md`](docs/simulator-walkthrough-v1v2.md) | 版本探测修复模拟器走查清单 | 探测/兼容类改动后的走查 |
@@ -95,7 +95,7 @@ Release keystore 位于 `app/keystore/`（gitignore，仅本地文件与 CI Secr
 
 ### 验证与测试
 
-**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整 4+1 维框架见 [`docs/verification-requirements.md`](docs/verification-requirements.md)——**UI/UX 时间性现象（闪烁/动画/计时/布局跳动）自动化无法覆盖，必须提供人工验证清单（维度 5）并请用户验证后才能声称完成**。
+**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整验证框架（V1-V6，旧称 4+1 维；编号见 [numbering-charter](docs/numbering-charter.md)）见 [`docs/verification-requirements.md`](docs/verification-requirements.md)——**UI/UX 时间性现象（闪烁/动画/计时/布局跳动）自动化无法覆盖，必须提供人工验证清单（V6 用户人工验证）并请用户验证后才能声称完成**。
 
 - 测试栈（JUnit4/MockK/Turbine/coroutines-test、HiltTestRunner、Maestro）与版本以 `app/build.gradle.kts`、`androidTest/`、`maestro/` 为准；`isReturnDefaultValues = true` 的 mock 返回默认值，可能掩盖 bug
 - 环境：opencode server 端口 **4199**，用户名 `opencode`，密码在配置文件 `/persistent/home/leo-tkp/.config/opencode/service.json`（`password` 字段，**不是环境变量**）
@@ -108,7 +108,7 @@ SSE → UI 管线：**48ms token 批处理 → 高度补偿 → 渲染**。违�
 
 - **`Markdown()` 必须使用 `rememberMarkdownState(content, retainState=true)`** — 无状态 `Markdown(content=...)` 每次重组重新解析 → 高度振荡 → 闪烁。
 - **`scheduleFlush()` 不得取消进行中的定时器** — 每个 token 都取消会在速率 > 20/s 时饿死 flush → 突发式卡顿输出。
-- **`layout{}` 补偿只应用于流式消息**（`if (isStreamingMsg)`）— 应用到所有 assistant 消息会让已完结消息暴露在不稳定测量下。
+- **`layout{}` 补偿只应用于流式 turn**（`if (isStreamingMsg)`，沿旧标识符名）— 应用到所有 assistant 消息会让已完结消息暴露在不稳定测量下。
 - **autoScroll/shouldCompensate 的 `LaunchedEffect` 必须以 `isScrollInProgress` 和 `isAtBottom` 两者作为 key** — `isAtBottom` 是自愈机制（fling/SSE 推送回底时重置标志）。**不要把 `isAtBottom` 从 key 中移除。**
 
 完整回归历史见 `docs/research/sse-scroll-stability-iron-laws.md`。**Ktor 明确使用 OkHttp engine**（SSE 流式正确性），不要切换其他引擎。
@@ -124,6 +124,11 @@ SSE → UI 管线：**48ms token 批处理 → 高度补偿 → 渲染**。违�
 | upstream | `github.com:crim50n/oc-remote` | Upstream（所有者 crim50n）— 需要时手动添加 |
 
 `master` 为稳定分支；推送 `git push origin master` / `git push origin <tag>`。
+
+### Commit 纪律
+
+- **type 前缀强制**（用户可见变更必须）：`feat:` / `fix:`（release.sh 的 CHANGELOG 分类映射依赖此前缀；无前缀 commit 会被发版脚本丢弃）
+- **术语**：subject 用词遵循 [CONTEXT.md](CONTEXT.md)；「回退」禁表 revert（用「撤销」）——动词速查：中断（interrupt）/ 压缩（compact）/ 撤销（revert）/ 重命名（rename）/ 轮次完成（turn completed）
 
 ## Backlog 纪律
 

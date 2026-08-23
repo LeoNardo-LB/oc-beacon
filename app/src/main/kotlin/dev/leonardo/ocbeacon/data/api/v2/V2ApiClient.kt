@@ -231,7 +231,7 @@ class V2ApiClient @Inject constructor(
             val root = parseRoot(response.bodyAsText())
             // V2 /api/session/active 返回 Map：{data: {sessionID: {type: "running"}}}
             // （2026-08-11 实测；不是 List——原 unwrapList 解析恒为空，
-            // 导致 L3/L4 REST 校验永远不知道子会话 running，后台 subagent 无法标记运行中）
+            // 导致 L3/L4 REST 校验永远不知道子智能体会话 running，后台 subagent 无法标记运行中）
             val data = root["data"]?.jsonObject
                 ?: return@runCatching emptyMap()
             data.mapNotNull { (sessionId, value) ->
@@ -472,7 +472,7 @@ class V2ApiClient @Inject constructor(
             AppLogger.d(TAG, "[prompt] POST /api/session/$sessionId/prompt textLen=${text.length} agent=$agent directory=$directory")
         }
         // 新契约（主干）：prompt 包裹；agent 独立字段（switchAgent 语义近似——
-        // 旧契约的 agents 数组是 @子代理附件语义，不承载当前 agent 选择）
+        // 旧契约的 agents 数组是 @子智能体附件语义，不承载当前 agent 选择）
         val modernBody = kotlinx.serialization.json.buildJsonObject {
             put("prompt", kotlinx.serialization.json.buildJsonObject {
                 put("text", kotlinx.serialization.json.JsonPrimitive(text))
@@ -851,7 +851,7 @@ class V2ApiClient @Inject constructor(
     ): Boolean {
         // 2026-08-17 根治（权限卡每次进入重弹）：真实契约为
         // POST /api/session/{权限所属会话}/permission/{id}/reply + {"reply":"once"|"always"|"reject"}
-        //（真机 E2E 实测 204；权限挂在子会话时 sessionId 必须用子会话 id，父会话 404）。
+        //（真机 E2E 实测 204；权限挂在子智能体会话时 sessionId 必须用子智能体会话 id，父会话 404）。
         // 原路径 /api/permission/{id}/reply + {"effect":...} 在部署版 404 →
         // reply 从未到达服务器 → 服务器 pending 永不清 → 每次进入会话重弹。
         val bodyObj = kotlinx.serialization.json.buildJsonObject {
@@ -1012,7 +1012,7 @@ class V2ApiClient @Inject constructor(
         return getSession(conn, sessionId) // V2 无对应端点，返回原 session（no-op）
     }
 
-    suspend fun summarizeSession(
+    suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
@@ -1261,7 +1261,7 @@ class V2ApiClient @Inject constructor(
             val obj = V2ResponseWrapper.flexibleObject(bodyText, json)
             val decoded = json.decodeFromJsonElement(ServerPaths.serializer(), obj)
             // V2 /api/location 只有 directory 字段（无 home）——directory 语义 = 当前工作目录，
-            // 回退为 home，否则 OpenProjectDialog 的 homeDir 为空（路径栏/新建文件夹受影响）
+            // 降级为 home，否则 OpenProjectDialog 的 homeDir 为空（路径栏/新建目录受影响）
             if (decoded.home.isBlank() && decoded.directory.isNotBlank()) {
                 decoded.copy(home = decoded.directory)
             } else {
@@ -1345,14 +1345,14 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean {
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderAuth: DELETE ${conn.baseUrl}/api/credential/$providerId")
+    suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean {
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderCredential: DELETE ${conn.baseUrl}/api/credential/$providerId")
         val response = httpClient.delete("${conn.baseUrl}/api/credential/$providerId") {
             auth(conn)
         }
         if (BuildConfig.DEBUG) {
             val body = response.bodyAsText()
-            AppLogger.d(TAG, "removeProviderAuth: status=${response.status}, body=$body")
+            AppLogger.d(TAG, "removeProviderCredential: status=${response.status}, body=$body")
         }
         return response.status.isSuccess()
     }

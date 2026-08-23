@@ -251,7 +251,7 @@ class ChatInteractionTest : BaseChatTest() {
     }
 
     /**
-     * 测试 6：会话忙碌时，中止/停止按钮会调用 abort API。
+     * 测试 6：会话忙碌时，中断/停止按钮会调用 interrupt API。
      *
      * 当 isBusy && 文本为空时，发送按钮转换为停止按钮。
      * isBusy 派生自 sessionMeta.sessionStatus（Busy 或 Retry）。
@@ -260,7 +260,7 @@ class ChatInteractionTest : BaseChatTest() {
      * 将 sessionId="" 的 FSM 转移到 Busy —— 该实例与 ViewModel 读取的是同一实例。
      */
     @Test
-    fun abortSession_callsAbortApi() {
+    fun interruptSession_callsInterruptApi() {
         // 注入一条流式 assistant 消息，使会话看起来处于活跃状态
         val streamingMsg = anAssistantMessage(streaming = true, id = "a-stream") {
             text("Generating...")
@@ -288,12 +288,12 @@ class ChatInteractionTest : BaseChatTest() {
         composeRule.onNodeWithContentDescription("Stop").performClick()
         composeRule.waitForIdle()
 
-        // abortSession() → sessionRepository.abort(serverId, sessionId, directory)
+        // interruptSession() → sessionRepository.interrupt(serverId, sessionId, directory)
         // 测试中 sessionId 为 ""（来自 sessionIdFlow）。
         composeRule.waitUntil(timeoutMillis = 10_000) {
-            fakeSession.abortCalls.isNotEmpty()
+            fakeSession.interruptCalls.isNotEmpty()
         }
-        assert(fakeSession.abortCalls.isNotEmpty()) {
+        assert(fakeSession.interruptCalls.isNotEmpty()) {
             "Abort should have been called"
         }
     }

@@ -66,7 +66,7 @@ import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
 
 /**
- * 后台任务完成通知卡片（#67 synthetic 消息）。
+ * 轮次完成合成通知卡片（#67 synthetic 消息——后台 task/subagent 完成注入）。
  *
  * opencode 服务器在后台 task/subagent 完成时向主会话注入 synthetic 消息
  * （type="synthetic" + 顶层 text；客户端实时经 session.input.promoted 接收，
@@ -77,11 +77,11 @@ import java.util.Date
  * 渲染（2026-08-12 用户决策：独立气泡方案 A）：
  * - synthetic 是**独立消息**，独立气泡渲染（不再嵌入 assistant turn）
  * - 气泡结构与 assistant 同构：左对齐 + surfaceVariant 底 + ShapeTokens.medium 圆角
- * - **区别点**：顶部"系统通知"标签行（状态图标 绿✓/红✗/蓝ℹ + primary 标签色）
- * - 内容：标题行（Sub-agent · 任务描述）+ 状态行（Task completed/failed · 结果摘要）
- * - 右侧操作：展开输出 / 定位发起卡片 / 跳转子会话
+ * - **区别点**：顶部标签行（状态图标 绿✓/红✗/蓝ℹ + primary 标签色）
+ * - 内容：标题行（Subagent · 任务描述）+ 状态行（Task completed/failed · 结果摘要）
+ * - 右侧操作：展开输出 / 定位发起卡片 / 跳转子智能体会话
  * - 页脚：时间（HH:mm，同 assistant 页脚格式）
- * - 解析失败 fallback：Info 图标 + 全文（无状态行/跳转/展开）
+ * - 解析失败降级：Info 图标 + 全文（无状态行/跳转/展开）
  */
 @Composable
 internal fun SyntheticNotificationCard(
@@ -97,7 +97,7 @@ internal fun SyntheticNotificationCard(
         ?: (currentMessage.message as? Message.User)?.summary?.body
         ?: return
 
-    // 子代理类型（2026-08-12 用户要求：展示具体类型 general/explore 等）
+    // 子智能体类型（2026-08-12 用户要求：展示具体类型 general/explore 等）
     val agentType = (currentMessage.message as? Message.User)?.agent
         ?.takeIf { it.isNotBlank() }
 
@@ -117,7 +117,7 @@ internal fun SyntheticNotificationCard(
         isError -> AgentError
         else -> AgentSuccess
     }
-    // 「定位发起卡片」按钮（2026-08-11 用户要求）：有子会话 id 即显示，
+    // 「定位发起卡片」按钮（2026-08-11 用户要求）：有子智能体会话 id 即显示，
     // 点击后由 ChatMessageList 在消息流中查找发起卡片（TaskToolCard 的
     // metadata.sessionId）并滚动+高亮；找不到时提示。
     val canLocate = sessionId != null && onLocateTask != null
@@ -160,7 +160,7 @@ internal fun SyntheticNotificationCard(
         ),
         shape = ShapeTokens.medium,
         label = labelText,
-        // 2026-08-16（标题栏规范·类型图标）：后台通知=Notifications
+        // 2026-08-16（标题栏规范·类型图标）：合成通知=Notifications
         //（labelSuffix 的状态图标 ✓/✗ 保持不变——类型与状态分离）
         labelLeading = {
             androidx.compose.material3.Icon(
@@ -189,7 +189,7 @@ internal fun SyntheticNotificationCard(
             }
         },
     ) {
-        // 第 2 行（2026-08-12 用户要求）：子代理类型 + 标题 + [展开][定位][跳转]
+        // 第 2 行（2026-08-12 用户要求）：子智能体类型 + 标题 + [展开][定位][跳转]
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -243,7 +243,7 @@ internal fun SyntheticNotificationCard(
                     // 2026-08-12 用户要求：展开按钮与跳转按钮位置对调——
                     // 顺序 [跳转][定位][展开]（跳转最左、展开最右）
                     if (hasNavArrow) {
-                        // 跳转：进入 subagent 子会话（shell 类通知无子会话 id → 无箭头）
+                        // 跳转：进入 subagent 子智能体会话（shell 类通知无子智能体会话 id → 无箭头）
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = stringResource(R.string.a11y_icon_navigate_forward),

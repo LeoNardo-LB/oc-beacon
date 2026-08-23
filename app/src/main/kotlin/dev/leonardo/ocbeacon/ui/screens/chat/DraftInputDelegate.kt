@@ -197,8 +197,8 @@ internal class DraftInputDelegate(
     }
 
     /**
-     * 从磁盘加载持久化草稿并应用 D 集群字段（文本/附件/文件路径）。
-     * 返回完整 [Draft]，使 ChatViewModel 可以应用 agent/variant（跨集群）。
+     * 从磁盘加载持久化草稿并应用 D 状态簇字段（文本/附件/文件路径）。
+     * 返回完整 [Draft]，使 ChatViewModel 可以应用 agent/variant（跨状态簇）。
      *
      * **竞态保护**（backlog #38）：异步恢复与用户输入之间的时序——
      * 若恢复到达时用户已手动输入文本/添加附件，保留用户输入，不覆盖。
@@ -236,6 +236,8 @@ internal class DraftInputDelegate(
     }
 
     companion object {
-        /** 草稿防抖保存间隔：停止输入 500ms 后持久化。 */
+        // （孤儿注释清理 KT1a）原 DRAFT_DEBOUNCE_MS 草稿防抖保存间隔常量已随
+        // #54（2026-08-11）移除 500ms 防抖 Job、改为直写 DataStore 而删除——
+        // 详见 updateDraftText KDoc。
     }
 }

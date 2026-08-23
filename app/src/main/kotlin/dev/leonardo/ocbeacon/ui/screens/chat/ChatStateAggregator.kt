@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.stateIn
 internal class ChatStateAggregator(
     sessionIdFlow: StateFlow<String>,
     private val sessionRepository: SessionRepository,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     tokenStatsTracker: TokenStatsTracker,
     messageListState: StateFlow<MessageListState>,
     interactionState: StateFlow<InteractionState>,
@@ -56,10 +56,10 @@ internal class ChatStateAggregator(
     val sessionMetaState: StateFlow<SessionMetaState> = combine(
         sessionIdFlow,
         sessionRepository.getSessionsFlow(serverId),
-        sessionStateService.statusFlow,
+        sessionStateRepository.statusFlow,
         sessionRepository.getCurrentAgentFlow(serverId),
         sessionRepository.getCurrentModelFlow(serverId),
-        sessionStateService.activityFlow,
+        sessionStateRepository.activityFlow,
         serverName,
     ) { args ->
         val sid = args[0] as String

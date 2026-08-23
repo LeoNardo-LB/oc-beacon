@@ -23,7 +23,7 @@
     <string name="session_status_retry">Tentando novamente (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Enviar</string>
-    <string name="chat_empty">Inicie uma conversa com OpenCode</string>
+    <string name="chat_empty">Inicie uma sessão com OpenCode</string>
     <!-- Permissions -->
     <string name="permission_title">Permissão necessária</string>
     <string name="permission_allow_once">Uma vez</string>
@@ -48,7 +48,7 @@
     <string name="settings_notifications">Notificações</string>
     <!-- Notifications -->
     <string name="notification_channel_connection">Conexão OpenCode</string>
-    <string name="notification_channel_tasks">Notificações de tarefas</string>
+    <string name="notification_channel_tasks">Notificações de turnos</string>
     <string name="notification_connected">Conectado a %1$s</string>
     <!-- Errors -->
     <string name="chat_send_failed_title">Falha no envio</string>
@@ -124,7 +124,7 @@
     <string name="chat_busy_menu_send_now">Enviar agora</string>
     <string name="chat_busy_menu_send_now_desc">Enfileirado no servidor, visível de imediato, não pode ser desfeito</string>
     <string name="chat_busy_menu_stack">Colocar mensagem na fila</string>
-    <string name="chat_busy_menu_stack_desc">Mantida localmente, enviada automaticamente quando esta rodada terminar</string>
+    <string name="chat_busy_menu_stack_desc">Mantida localmente, enviada automaticamente quando este turno terminar</string>
     <string name="chat_busy_menu_stack_no_attachments">Mensagens com anexos devem ser enviadas agora</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Fila</string>
@@ -201,19 +201,19 @@
     <string name="chat_status_searching">Pesquisando base de código</string>
     <string name="chat_status_fetching_url">Buscando URL</string>
     <string name="chat_status_running_subagent">Executando subagente</string>
-    <string name="chat_task_completed">Tarefa concluída</string>
+    <string name="chat_task_completed">Turno concluído</string>
     <string name="chat_task_failed">Tarefa falhou</string>
-    <string name="chat_system_notification">Sub-agente concluído</string>
+    <string name="chat_system_notification">Sintético: subagente concluído</string>
     <string name="task_sheet_subagent_completed">Concluído</string>
     <string name="chat_label_user">Usuário</string>
-    <string name="chat_label_agent">Assistente</string>
+    <string name="chat_label_agent">Agente</string>
     <string name="chat_background_agent_completed">Agente concluído</string>
     <string name="chat_background_agent_failed">Agente falhou</string>
     <string name="chat_background_shell_completed">Shell concluído</string>
     <string name="chat_background_shell_failed">Shell falhou</string>
     <string name="chat_label_tasks">Tarefas</string>
-    <string name="chat_subagent_completed_notification">Sub-agente concluído</string>
-    <string name="chat_subagent_failed_notification">Sub-agente falhou</string>
+    <string name="chat_subagent_completed_notification">Subagente concluído</string>
+    <string name="chat_subagent_failed_notification">Subagente falhou</string>
     <string name="chat_status_updating_tasks">Atualizando tarefas</string>
     <string name="chat_status_thinking">Pensando</string>
     <string name="chat_tool_running_command">Executando comando…</string>
@@ -296,7 +296,7 @@
     <string name="menu_share_session">Compartilhar sessão</string>
     <string name="settings_dynamic_color">Cores dinâmicas</string>
     <string name="settings_dynamic_color_desc">Usar cores do papel de parede (Material You)</string>
-    <string name="settings_notifications_desc">Notificar quando o agente concluir uma tarefa</string>
+    <string name="settings_notifications_desc">Notificar quando um turno for concluído</string>
     <string name="settings_initial_messages">Mensagens iniciais para carregar</string>
     <string name="settings_confirm_send">Confirmar antes de enviar</string>
     <string name="settings_confirm_send_desc">Mostrar diálogo de confirmação antes de enviar uma mensagem</string>
@@ -322,7 +322,7 @@
     <string name="settings_keep_screen_on">Manter tela ligada</string>
     <string name="settings_keep_screen_on_desc">Evitar desligamento da tela durante o chat</string>
     <string name="settings_silent_notifications">Notificações silenciosas</string>
-    <string name="settings_silent_notifications_desc">Silenciar som e vibração para notificações de tarefas</string>
+    <string name="settings_silent_notifications_desc">Silenciar som e vibração para notificações de turnos</string>
     <string name="settings_notif_test">Enviar notificação de teste</string>
     <string name="settings_notif_test_desc">Envia uma notificação real para verificar banner e som. Se nada aparecer, o dispositivo pode estar silenciando o app (ex.: MIUI desativa notificações flutuantes por padrão) — ative nas configurações de notificação do sistema abaixo.</string>
     <string name="settings_notif_system">Configurações de notificação do sistema</string>
@@ -333,9 +333,9 @@
     <string name="a11y_settings_notif_system">Configurações de notificação do sistema</string>
     <string name="dialog_select_reconnect_mode">Selecionar modo de reconexão</string>
     <string name="notification_channel_connection_desc">Conexão persistente com o servidor OpenCode</string>
-    <string name="notification_channel_tasks_desc">Notificações quando tarefas do OpenCode forem concluídas</string>
-    <string name="notification_channel_tasks_silent">Notificações de tarefas (Silenciosas)</string>
-    <string name="notification_channel_tasks_silent_desc">Notificações silenciosas quando tarefas do OpenCode forem concluídas</string>
+    <string name="notification_channel_tasks_desc">Notificações quando um turno for concluído</string>
+    <string name="notification_channel_tasks_silent">Notificações de turnos (Silenciosas)</string>
+    <string name="notification_channel_tasks_silent_desc">Notificações silenciosas quando um turno for concluído</string>
     <string name="notification_channel_permissions">Solicitações de permissão</string>
     <string name="notification_channel_permissions_desc">Notificações quando o OpenCode precisar de permissões</string>
     <string name="notification_connecting">Conectando a %1$s…</string>
@@ -406,11 +406,11 @@
     <string name="disconnect">Desconectar</string>
     <string name="server_settings_models">Modelos</string>
     <string name="server_settings_models_desc">Visibilidade e padrões dos modelos</string>
-    <string name="sessions_create_folder">Criar pasta</string>
-    <string name="sessions_create_folder_title">Criar pasta</string>
-    <string name="sessions_create_folder_name_label">Nome da pasta</string>
+    <string name="sessions_create_folder">Criar diretório</string>
+    <string name="sessions_create_folder_title">Criar diretório</string>
+    <string name="sessions_create_folder_name_label">Nome do diretório</string>
     <string name="sessions_create_folder_name_placeholder">meu-projeto</string>
-    <string name="sessions_create_folder_invalid_name">Digite um nome de pasta válido</string>
+    <string name="sessions_create_folder_invalid_name">Digite um nome de diretório válido</string>
     <string name="sessions_create_folder_create">Criar</string>
     <string name="sessions_create_folder_failed">Falha ao criar a pasta</string>
     <string name="sessions_create_folder_success">Criado: %1$s</string>
@@ -438,9 +438,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_shell_mode_hold_send_hint">Modo shell ativo. Mantenha Enviar pressionado para voltar.</string>
     <string name="menu_review_changes">Revisar alterações</string>
     <string name="session_path">Caminho</string>
-    <string name="session_count">Sessoes</string>
+    <string name="session_count">Sessões</string>
     <string name="session_copy_path">Copiar caminho</string>
-    <string name="sessions_create_session">Criar sessao</string>
+    <string name="sessions_create_session">Criar sessão</string>
     <string name="session_directory_details">Detalhes do diretório</string>
     <string name="session_session_details">Detalhes da sessão</string>
     <string name="session_details_name">Nome</string>
@@ -519,7 +519,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_warning">Aviso</string>
     <string name="a11y_icon_navigate_forward">Navegar adiante</string>
     <string name="a11y_locate_task">Localizar tarefa original</string>
-    <string name="chat_locate_task_not_found">Tarefa original não encontrada nesta conversa</string>
+    <string name="chat_locate_task_not_found">Tarefa original não encontrada nesta sessão</string>
     <string name="a11y_icon_add">Adicionar</string>
     <string name="a11y_icon_share">Compartilhar</string>
     <string name="a11y_icon_unlink">Desvincular</string>
@@ -698,7 +698,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_tasks">Atividades de tarefa</string>
     <string name="task_sheet_subagents_tab">Subagentes</string>
     <string name="task_sheet_shells_tab">Shells</string>
-    <string name="task_sheet_empty_subagents">Nenhum sub-agente em execução</string>
+    <string name="task_sheet_empty_subagents">Nenhum subagente em execução</string>
     <string name="task_sheet_empty_shells">Nenhum comando shell</string>
     <string name="task_sheet_title">Tarefas</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->

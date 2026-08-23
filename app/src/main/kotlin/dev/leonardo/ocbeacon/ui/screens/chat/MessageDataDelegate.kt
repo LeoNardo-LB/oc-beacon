@@ -48,7 +48,8 @@ internal fun resolvePendingQuestionReplacement(
  * 状态（此前内联在 [ChatViewModel] 中）。
  *
  * 此 delegate 现为 **组合器**：分页职责委托给 [paginationDelegate]，
- * 乐观消息职责委托给 [optimisticStore]，自身保留 SSE 观察、
+ * 发送状态由 [sendStateStore] 承担（仅“发送中”标志——乐观消息体系已整体
+ * 移除，见 [SendStateStore]），自身保留 SSE 观察、
  * 消息/零件状态、工具展开、pending 问题/权限加载与共享加载/错误状态。
  *
  * [messageListState] 和 [interactionState] 是此 delegate 拥有的两个大型
@@ -56,7 +57,7 @@ internal fun resolvePendingQuestionReplacement(
  * 迁移而来，不可拆分。
  *
  * **SSE 观察器管理**通过 [cancelSseJob] / [startObservingMessages] 暴露，
- * 因为 [ChatViewModel.abortSession] / [revertMessage] 需要暂停和重启
+ * 因为 [ChatViewModel.interruptSession] / [revertMessage] 需要暂停和重启
  * SSE 观察器，同时将其余协调逻辑保留在 ViewModel 中。
  *
  * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的运行时
@@ -72,7 +73,7 @@ internal class MessageDataDelegate(
     private val chatRepository: ChatRepository,
     private val messagePaging: MessagePaginationUseCase,
     private val messageStore: MessageStore,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     private val sessionRepository: SessionRepository,
     private val settingsRepository: SettingsRepository,
     private val serverId: String,
@@ -128,7 +129,7 @@ internal class MessageDataDelegate(
     /**
      * 过滤后消息列表的快照 —— 供 [ChatViewModel] 的 init 块消费，
      * 以馈送 [dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker]
-     *（token 聚合是 token 集群的关注点，因此 tracker 未注入此处）。
+     *（token 聚合是 token 状态簇的关注点，因此 tracker 未注入此处）。
      */
     val messagesList: StateFlow<List<Message>> = _messagesList
 
@@ -148,7 +149,7 @@ internal class MessageDataDelegate(
             paginationDelegate.isLoadingOlder,
             paginationDelegate.autoLoadPaused,
             _toolExpandedStates,
-            sessionStateService.statusFlow,
+            sessionStateRepository.statusFlow,
             chatRepository.getActiveToolProgressForSession(sid),
         ) { args ->
          try {
@@ -176,7 +177,7 @@ internal class MessageDataDelegate(
             @Suppress("UNCHECKED_CAST")
             val progressList = args[9] as? List<ToolProgressInfo>
             val progressOutputs = progressList.orEmpty().associate { it.callId to it.output }
-            // #180：Running 期子会话 id（tool.progress metadata.sessionID）
+            // #180：Running 期子智能体会话 id（tool.progress metadata.sessionID）
             val childSessionIds = progressList.orEmpty().mapNotNull { p ->
                 p.childSessionId?.let { p.callId to it }
             }.toMap()
@@ -195,7 +196,7 @@ internal class MessageDataDelegate(
                 if (revertState != null) {
                     // OpenCode 模式：通过消息 ID 字符串比较过滤。
                     // 消息 ID 是 ULID（单调递增），因此
-                    // id <= revertId 正确地包含 revert 点及之前的所有消息。
+                    // id < revertId 保留 revert 点之前的所有消息（不含 revert 点本身）。
                     sessionMessages.filter { it.id < revertState.messageId }
                 } else {
                     sessionMessages
@@ -325,7 +326,7 @@ internal class MessageDataDelegate(
      * 观察消息快照 —— 由 [messageListState] 投影（#44：消除独立的
      * `getMessagesFlow + getParts` 双订阅 combine，每个 SSE 事件只扫描一次）。
      *
-     * 生命周期（cancel/restart）保留：abortSession / revertMessage 需要暂停
+     * 生命周期（cancel/restart）保留：interruptSession / revertMessage 需要暂停
      * 快照更新（RS-006/RS-008 历史竞态修复），与 UI 主列表（messageListState）
      * 的持续更新解耦。
      */
@@ -503,7 +504,7 @@ internal class MessageDataDelegate(
      * 处理服务器重启场景：重启后，所有会话在内存中都是空闲的，
      * 但数据库保留了 finished_at = NULL 的中断消息。
      * 不得在轮询期间调用 —— 仅在显式用户操作
-     *（进入会话、中止）时调用，以避免破坏过早空闲保护。
+     *（进入会话、中断）时调用，以避免破坏过早空闲保护。
      *
      * 2026-08-11 修复：改为触发 [SessionStateRepository.requestValidation]
      *（REST 校验）而非直接 onRestValidation(Idle)——FSM 的 restValidation
@@ -519,7 +520,7 @@ internal class MessageDataDelegate(
         val hasIncomplete = messages.any { it is Message.Assistant && it.time.completed == null }
         if (hasIncomplete) {
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "Fixing incomplete messages for session $sid (REST validation)")
-            sessionStateService.requestValidation(sid)
+            sessionStateRepository.requestValidation(sid)
         }
     }
 
@@ -535,7 +536,7 @@ internal class MessageDataDelegate(
             val allQuestions = managePermissionUseCase.listPendingQuestions(serverId, directory = directory)
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "loadPendingQuestions: ${allQuestions.size} total pending (directory=$directory), filtering for session $sid")
 
-            // 包含子会话的问题
+            // 包含子智能体会话的问题
             val childSessionIds = chatRepository.getSessionsSnapshot()
                 .filter { it.parentId == sid }
                 .map { it.id }
@@ -596,7 +597,7 @@ internal class MessageDataDelegate(
             val allPermissions = managePermissionUseCase.listPendingPermissions(serverId, directory = directory)
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "loadPendingPermissions: ${allPermissions.size} total pending (directory=$directory), filtering for session $sid")
 
-            // 包含子会话的权限
+            // 包含子智能体会话的权限
             val childSessionIds = chatRepository.getSessionsSnapshot()
                 .filter { it.parentId == sid }
                 .map { it.id }
@@ -621,7 +622,7 @@ internal class MessageDataDelegate(
                 }
             if (sessionPermissions.isNotEmpty()) {
                 // 按目标 sessionId 分组权限以匹配 SSE 存储模式
-                // SSE 将子会话权限存储在 childSessionId 下，REST 应做同样处理
+                // SSE 将子智能体会话权限存储在 childSessionId 下，REST 应做同样处理
                 val permissionsByTarget = sessionPermissions.groupBy { it.sessionId }
                 for ((targetSessionId, perms) in permissionsByTarget) {
                     val existingSsePerms = chatRepository.getPermissionsSnapshot()[targetSessionId] ?: emptyList()

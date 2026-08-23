@@ -63,7 +63,7 @@
     <string name="pending_empty">Нет сообщений в очереди. Пока агент отвечает, коснитесь значка загрузки, чтобы поставить сообщение в очередь.</string>
     <string name="pending_item_sending">Отправка…</string>
     <string name="todo_empty">Нет элементов TODO</string>
-    <string name="chat_empty">Начать разговор с OpenCode</string>
+    <string name="chat_empty">Начать сессию с OpenCode</string>
     <string name="chat_copy">Копировать</string>
     <string name="terminal_copy">Копировать</string>
     <string name="terminal_paste">Вставить</string>
@@ -110,8 +110,8 @@
     <!-- Notifications -->
     <string name="notification_channel_connection">Подключение к OpenCode</string>
     <string name="notification_channel_connection_desc">Постоянное подключение к серверу OpenCode</string>
-    <string name="notification_channel_tasks">Уведомления о задачах</string>
-    <string name="notification_channel_tasks_desc">Уведомления о завершении задач OpenCode</string>
+    <string name="notification_channel_tasks">Уведомления о ходе</string>
+    <string name="notification_channel_tasks_desc">Уведомления при завершении хода</string>
     <string name="notification_channel_permissions">Запросы разрешений</string>
     <string name="notification_channel_permissions_desc">Уведомления, когда OpenCode требует разрешения</string>
     <string name="notification_connected">Подключено к %1$s</string>
@@ -226,10 +226,10 @@
     <string name="chat_status_running_commands">Выполняются команды</string>
     <string name="chat_status_searching">Поиск по коду</string>
     <string name="chat_status_fetching_url">Получение URL</string>
-    <string name="chat_status_running_subagent">Запуск под-агента</string>
-    <string name="chat_task_completed">Задача выполнена</string>
+    <string name="chat_status_running_subagent">Выполняется субагент</string>
+    <string name="chat_task_completed">Ход завершён</string>
     <string name="chat_task_failed">Задача не выполнена</string>
-    <string name="chat_system_notification">Суб-агент завершён</string>
+    <string name="chat_system_notification">Синтетическое уведомление: субагент завершён</string>
     <string name="task_sheet_subagent_completed">Завершено</string>
     <string name="chat_label_user">Пользователь</string>
     <string name="chat_label_agent">Агент</string>
@@ -238,10 +238,10 @@
     <string name="chat_background_shell_completed">Shell завершён</string>
     <string name="chat_background_shell_failed">Shell не выполнен</string>
     <string name="chat_label_tasks">Задачи</string>
-    <string name="chat_subagent_completed_notification">Суб-агент завершён</string>
-    <string name="chat_subagent_failed_notification">Суб-агент не выполнен</string>
+    <string name="chat_subagent_completed_notification">Субагент завершён</string>
+    <string name="chat_subagent_failed_notification">Сбой субагента</string>
     <string name="chat_status_updating_tasks">Обновление задач</string>
-    <string name="chat_status_thinking">Обработка</string>
+    <string name="chat_status_thinking">Думает</string>
     <string name="chat_tool_running_command">Выполнение команды…</string>
     <string name="chat_hint_ask">Задать вопрос…</string>
     <string name="chat_hint_fix">Исправить ошибку в…</string>
@@ -302,7 +302,7 @@
     <string name="tool_search_code">Поиск</string>
     <string name="tool_list_directory">Список каталога</string>
     <string name="tool_fetch_url">Получить URL</string>
-    <string name="tool_sub_agent">Под-агент</string>
+    <string name="tool_sub_agent">Субагент</string>
     <string name="tool_apply_patch">Применить патч</string>
     <string name="tool_shell">Shell</string>
     <string name="tool_read">Чтение</string>
@@ -341,7 +341,7 @@
     <string name="chat_session_export_failed">Не удалось экспортировать сессию</string>
     <string name="settings_dynamic_color">Динамические цвета</string>
     <string name="settings_dynamic_color_desc">Использовать цвета из обоев (Material You)</string>
-    <string name="settings_notifications_desc">Уведомлять при завершении задачи агентом</string>
+    <string name="settings_notifications_desc">Уведомлять при завершении хода</string>
     <string name="settings_initial_messages">Начальные сообщения для загрузки</string>
     <string name="settings_confirm_send">Подтверждение перед отправкой</string>
     <string name="settings_confirm_send_desc">Показывать диалог подтверждения перед отправкой сообщения</string>
@@ -367,7 +367,7 @@
     <string name="settings_keep_screen_on">Не выключать экран</string>
     <string name="settings_keep_screen_on_desc">Предотвратить отключение экрана во время чата</string>
     <string name="settings_silent_notifications">Бесшумные уведомления</string>
-    <string name="settings_silent_notifications_desc">Отключить звук и вибрацию для уведомлений о задачах</string>
+    <string name="settings_silent_notifications_desc">Отключить звук и вибрацию для уведомлений о ходе</string>
     <string name="settings_notif_test">Отправить тестовое уведомление</string>
     <string name="settings_notif_test_desc">Отправляет реальное уведомление для проверки баннера и звука. Если ничего не появилось, устройство может заглушать приложение (например, MIUI по умолчанию отключает всплывающие уведомления) — включите в системных настройках уведомлений ниже.</string>
     <string name="settings_notif_system">Системные настройки уведомлений</string>
@@ -377,8 +377,8 @@
     <string name="a11y_settings_notif_test">Отправить тестовое уведомление</string>
     <string name="a11y_settings_notif_system">Системные настройки уведомлений</string>
     <string name="dialog_select_reconnect_mode">Выберите режим переподключения</string>
-    <string name="notification_channel_tasks_silent">Уведомления о задачах (бесшумно)</string>
-    <string name="notification_channel_tasks_silent_desc">Бесшумные уведомления при завершении задач OpenCode</string>
+    <string name="notification_channel_tasks_silent">Уведомления о ходе (бесшумные)</string>
+    <string name="notification_channel_tasks_silent_desc">Бесшумные уведомления при завершении хода</string>
     <string name="about_title">О приложении</string>
     <string name="about_version">Версия %s</string>
     <string name="about_description">Android-клиент для серверов OpenCode</string>
@@ -420,11 +420,11 @@
     <string name="server_auto_connect_desc">Автоматически подключаться при запуске приложения</string>
     <string name="settings_terminal_font_size">Размер шрифта терминала по умолчанию</string>
     <string name="settings_terminal_font_size_value">%1$d sp</string>
-    <string name="sessions_create_folder">Создать папку</string>
-    <string name="sessions_create_folder_title">Создать папку</string>
-    <string name="sessions_create_folder_name_label">Имя папки</string>
+    <string name="sessions_create_folder">Создать каталог</string>
+    <string name="sessions_create_folder_title">Создать каталог</string>
+    <string name="sessions_create_folder_name_label">Имя каталога</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">Введите корректное имя папки</string>
+    <string name="sessions_create_folder_invalid_name">Введите корректное имя каталога</string>
     <string name="sessions_create_folder_create">Создать</string>
     <string name="sessions_create_folder_failed">Не удалось создать папку</string>
     <string name="sessions_create_folder_success">Создано: %1$s</string>
@@ -464,7 +464,7 @@
     <string name="session_details_updated">Обновлена</string>
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (%3$d файлов)</string>
-    <string name="chat_thinking_complete">Размышлял %1$s</string>
+    <string name="chat_thinking_complete">Думал %1$s</string>
     <string name="chat_token_usage_total">%,d токенов</string>
     <string name="chat_token_input">Вход</string>
     <string name="chat_token_output">Выход</string>
@@ -487,7 +487,7 @@
     <string name="settings_no_auto_approve_rules">Нет сохранённых правил автоодобрения</string>
     <string name="settings_delete_rule">Удалить правило</string>
     <string name="settings_expand_reasoning">Авторазворачивать размышление</string>
-    <string name="settings_expand_reasoning_desc">Показывать процесс размышления по умолчанию; нажмите на заголовок для переключения</string>
+    <string name="settings_expand_reasoning_desc">Показывать размышления по умолчанию; нажмите на заголовок для переключения</string>
     <string name="chat_meta_tokens">%d токенов</string>
     <string name="chat_glob_match_count">%d совпадений</string>
     <string name="tool_web_fetch">WebFetch</string>
@@ -528,7 +528,7 @@
     <string name="a11y_icon_warning">Предупреждение</string>
     <string name="a11y_icon_navigate_forward">Перейти вперёд</string>
     <string name="a11y_locate_task">Найти исходную задачу</string>
-    <string name="chat_locate_task_not_found">Исходная задача не найдена в этом разговоре</string>
+    <string name="chat_locate_task_not_found">Исходная задача не найдена в этой сессии</string>
     <string name="a11y_icon_add">Добавить</string>
     <string name="a11y_icon_share">Поделиться</string>
     <string name="a11y_icon_unlink">Отвязать</string>
@@ -577,7 +577,7 @@
     <string name="connection_error_title">Сервер недоступен</string>
     <string name="connection_error_retrying_in">Повторная попытка через %1$d с…</string>
     <string name="connection_error_switch_server">Переключиться на другой сервер</string>
-    <string name="chat_thinking_in_progress">Размышление… %1$s</string>
+    <string name="chat_thinking_in_progress">Думает… %1$s</string>
     <string name="mcp_servers_title">Серверы MCP</string>
     <string name="mcp_no_servers">Серверы MCP не настроены</string>
     <string name="chat_context_composition">Состав контекста (оценка)</string>
@@ -605,8 +605,8 @@
     <string name="settings_chat_font">Шрифт чата</string>
     <string name="settings_chat_font_normal">Обычный</string>
     <string name="settings_chat_font_compact">Компактный</string>
-    <string name="settings_turn_dividers">Разделители реплик</string>
-    <string name="settings_turn_dividers_desc">Показывать разделители между сообщениями в одной реплике</string>
+    <string name="settings_turn_dividers">Разделители хода</string>
+    <string name="settings_turn_dividers_desc">Показывать разделители между сообщениями в одном ходе</string>
     <string name="viewer_loading_progress">Загрузка: %1$d / %2$d строк</string>
     <string name="viewer_large_file_warning">Большой файл (%1$d строк) — производительность может снизиться</string>
     <string name="workspace_search_hint">Введите текст для поиска файлов</string>
@@ -703,11 +703,11 @@
     <string name="shell_status_done">Готово</string>
     <string name="shell_status_failed">Не выполнено</string>
     <string name="task_toolbar_action">Переместить задачу в фоновый режим</string>
-    <string name="task_toolbar_subagents">%1$d суб-агент(ов) на переднем плане</string>
+    <string name="task_toolbar_subagents">%1$d субагент(ов) на переднем плане</string>
     <string name="a11y_icon_tasks">Действия задач</string>
-    <string name="task_sheet_subagents_tab">Суб-агенты</string>
+    <string name="task_sheet_subagents_tab">Субагенты</string>
     <string name="task_sheet_shells_tab">Shell</string>
-    <string name="task_sheet_empty_subagents">Нет запущенных суб-агентов</string>
+    <string name="task_sheet_empty_subagents">Нет запущенных субагентов</string>
     <string name="task_sheet_empty_shells">Нет команд shell</string>
     <string name="task_sheet_title">Задачи</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->

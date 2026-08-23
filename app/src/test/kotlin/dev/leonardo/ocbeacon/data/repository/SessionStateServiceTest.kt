@@ -226,7 +226,7 @@ class SessionStateServiceTest {
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
         // 2026-08-14 根因修复：僵尸判定必须主动调用服务器 abort/interrupt
         //（解除服务器僵尸，否则后续发消息仍无回复）——断言 abort 被调用。
-        coEvery { fakeRepo.abort(any(), any(), any()) } returns Result.success(Unit)
+        coEvery { fakeRepo.interrupt(any(), any(), any()) } returns Result.success(Unit)
         val collab = StubCollaborator()
                 val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
@@ -248,9 +248,9 @@ class SessionStateServiceTest {
         assertEquals(SessionStatus.Idle, service.statusFlow.value["s1"])
         // 2026-08-15（对齐官方调研结论 research/05）：官方客户端无任何自动
         // interrupt（全部用户显式触发）——自动 zombie interrupt 已实证误杀
-        //（主会话等待后台子代理被打断）。收紧为"仅显示修复"：**断言 abort
+        //（主会话等待后台子智能体被打断）。收紧为"仅显示修复"：**断言 abort
         // 不被调用**；本地 Idle 兜底仍然生效（上方断言）。
-        coVerify(exactly = 0) { fakeRepo.abort(any(), any(), any()) }
+        coVerify(exactly = 0) { fakeRepo.interrupt(any(), any(), any()) }
     }
 
     @Test
@@ -261,7 +261,7 @@ class SessionStateServiceTest {
         // 是真实状态（等待输入），FSM 保持 Busy 跟随，消除 Busy↔Idle 10s 抖动循环。
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.success(mapOf("s1" to SessionStatus.Busy))
-        coEvery { fakeRepo.abort(any(), any(), any()) } returns Result.success(Unit)
+        coEvery { fakeRepo.interrupt(any(), any(), any()) } returns Result.success(Unit)
         val collab = StubCollaborator()
                 val service = newServiceWith(fakeRepo, collab)
         service.setServerId("svr1")
@@ -282,7 +282,7 @@ class SessionStateServiceTest {
         // 状态；原强转 Idle 会与 active-running 校验抖动，且与 BACK fade 过渡竞态致空白屏）
         assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])
         // 关键断言：不得 interrupt（等待用户输入的会话不是僵尸）
-        coVerify(exactly = 0) { fakeRepo.abort(any(), any(), any()) }
+        coVerify(exactly = 0) { fakeRepo.interrupt(any(), any(), any()) }
     }
 
     @Test

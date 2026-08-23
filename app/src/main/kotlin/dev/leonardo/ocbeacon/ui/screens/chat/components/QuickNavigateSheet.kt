@@ -90,7 +90,7 @@ fun QuickNavigateSheet(
     // 2026-08-12 修复迭代：
     // 1. key 加 jumpTargets.size——jumpTargets 异步加载，打开瞬间为空。
     // 2. currentMsgId 匹配不到时降级：先按 anchorTimestampMs（当前可见区域时间锚点）
-    //    定位到时间最近的问题；无锚点才回退列表最新项——主会话最新消息常为
+    //    定位到时间最近的问题；无锚点才降级到列表最新项——主会话最新消息常为
     //    长 assistant 回复/空壳（无文本 user 不在列表），currentMsgId=null 时
     //    应定位到"当前位置附近"而非最新（用户反馈"没有定位到当前所在位置"）。
     // 3. 2026-08-12 再修复：key **不含** currentMsgId/anchorTimestampMs——

@@ -75,7 +75,7 @@ class MessagePaginationUseCaseTest {
 
         val result = useCase.loadMessagesForSession("srv", "ses_1", 50)
 
-        // 网络失败 → 回退本地缓存（缓存优先理念：有缓存不显示空）
+        // 网络失败 → 降级本地缓存（缓存优先理念：有缓存不显示空）
         assertTrue(result.isSuccess)
         assertEquals(2, result.getOrThrow().size)
         coVerify(exactly = 0) { messageStore.upsertMessages(any(), any(), any()) }

@@ -12,7 +12,7 @@ import java.lang.reflect.Modifier
  * 所有 setter 函数存在且签名正确。
  *
  * 使用 Java 反射（java.lang.reflect）以避免 kotlin-reflect 依赖。
- * 这些测试确保重构期间公共 API 表面不会回退。
+ * 这些测试确保重构期间公共 API 表面不会倒退。
  */
 class SettingsDataStoreTest {
 

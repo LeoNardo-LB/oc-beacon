@@ -34,7 +34,7 @@ class UnreadBadgeServiceTest {
     @Test
     fun onMessageCompleted_keepsMax() {
         service.onMessageCompleted("ses_1", 100)
-        service.onMessageCompleted("ses_1", 50)   // 更小 → 不回退
+        service.onMessageCompleted("ses_1", 50)   // 更小 → 不倒退
         service.onMessageCompleted("ses_1", 200)
 
         assertEquals(200L, service.lastCompletedReplyTime.value["ses_1"])

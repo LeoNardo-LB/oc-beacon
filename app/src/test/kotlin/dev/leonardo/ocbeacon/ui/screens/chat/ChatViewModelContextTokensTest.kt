@@ -74,7 +74,7 @@ class ChatViewModelContextTokensTest {
     private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
     private val tokenStatsTracker = TokenStatsTracker()
-    private val sessionStateService: SessionStateService = mockk(relaxed = true)
+    private val sessionStateRepository: SessionStateService = mockk(relaxed = true)
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
@@ -105,7 +105,7 @@ class ChatViewModelContextTokensTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
@@ -120,8 +120,8 @@ class ChatViewModelContextTokensTest {
             pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
             pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
-        every { sessionStateService.statusFlow } returns testStatusFlow
-        every { sessionStateService.activityFlow } returns MutableStateFlow(emptyMap())
+        every { sessionStateRepository.statusFlow } returns testStatusFlow
+        every { sessionStateRepository.activityFlow } returns MutableStateFlow(emptyMap())
 
         mockkStatic(Log::class)
         every { Log.d(any(), any()) } returns 0
@@ -265,7 +265,7 @@ class ChatViewModelContextTokensTest {
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk<HttpClient>(relaxed = true),
 
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
@@ -390,7 +390,7 @@ class ChatViewModelContextTokensTest {
         advanceUntilIdle()
         awaitTrackerValue(48000) { tokenStatsTracker.stats.value.lastContextTokens }
 
-        // 压缩后消息刷新为小快照（摘要消息，时间戳更晚 → lastOrNull 命中）→ 自然回落：500 + 2000 = 2500
+        // 压缩后消息刷新为小快照（压缩消息，时间戳更晚 → lastOrNull 命中）→ 自然回落：500 + 2000 = 2500
         pushMessages(listOf(assistantWithTokens(
             id = "a2", input = 500, output = 50, cacheRead = 2000, created = 5000L
         )))

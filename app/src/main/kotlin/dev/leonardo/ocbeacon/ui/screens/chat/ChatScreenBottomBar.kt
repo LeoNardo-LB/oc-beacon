@@ -411,7 +411,7 @@ internal fun ChatScreenBottomBar(
                         }
                     }
                 },
-                onStop = { viewModel.abortSession() },
+                onStop = { viewModel.interruptSession() },
                 // 堆积消息（2026-08-20 设计定稿）：busy 气泡「堆积」——入队并清空输入框
                 onEnqueue = {
                     val text = inputText.text

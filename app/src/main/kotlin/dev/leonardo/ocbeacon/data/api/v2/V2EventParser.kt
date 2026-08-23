@@ -25,8 +25,9 @@ private const val TAG = "SseClientV2"
  * - shell.created/exited/deleted —— shell 生命周期
  * - session.usage.updated —— token 用量
  *
- * 部分事件已映射（execution/shell/compaction/usage/tool.progress→FSM 与状态），
- * 其余保活占位：
+ * 其中部分事件已映射具体行为（execution.started/succeeded→FSM Busy/Idle、
+ * shell.*→ShellJob 生命周期、compaction.*→压缩状态、usage.updated→用量、
+ * tool.progress→工具进度），其余为保活占位事件：
  * 1. 让 SseClientV2 能计数并重置心跳（数据流即存活证据）
  * 2. 让下游观察到会话有活动（而不是静默丢弃）
  *
@@ -140,7 +141,7 @@ class V2EventParser(private val json: Json) : SseEventParser {
             val sid = sessionIdOrNull(props) ?: return null
             return SseEvent.SessionCompacted(sessionId = sid)
         }
-        // 2026-08-19：压缩流式增量——映射 CompactionDelta（handler 无状态
+        // 2026-08-19：压缩文本流式增量——映射 CompactionDelta（handler 无状态
         // 变更已跟踪；消灭 Unhandled 日志噪音，保持事件可观察 + 心跳计数）。
         // 字段契约（beta-17639 E2E 实测）：增量文本在 "text"（V1 域事件用 "delta"）。
         if (eventType == "session.compaction.delta") {

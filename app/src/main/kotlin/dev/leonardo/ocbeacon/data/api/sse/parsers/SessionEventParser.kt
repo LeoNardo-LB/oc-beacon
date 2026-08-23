@@ -116,7 +116,7 @@ class SessionEventParser(private val json: Json) : SseEventParser {
      * - V2 格式：扁平字段 `{sessionID, parentID, title, agent, model, location, version}`
      *   ——没有 info 包装、没有 id/time，需手动映射（2026-08-11 实测：V2 服务器
      *   广播的 session.created 就是扁平格式，原解码抛 MissingFieldException，
-     *   导致子会话无法注册 → 后台 subagent 列表为空）。
+     *   导致子智能体会话无法注册 → 后台 subagent 列表为空）。
      */
     private fun decodeSessionCompat(obj: JsonObject): Session {
         // 尝试 V1 完整 Session（id + time 存在）
@@ -141,7 +141,7 @@ class SessionEventParser(private val json: Json) : SseEventParser {
             // `{"id":"...","providerID":"...","variant":"..."}`（实测抓帧），
             // 原按 `?.jsonPrimitive` 字符串读取遇 JsonObject 抛
             // IllegalArgumentException → parse() 的 catch 吞掉整条事件 →
-            // session.created 被静默丢弃 → 子会话永不进 sessions flow →
+            // session.created 被静默丢弃 → 子智能体会话永不进 sessions flow →
             // 任务面板进行中任务恒空（只有回列表页 REST 刷新才出现）。
             model = parseSessionModelCompat(obj["model"])
         )

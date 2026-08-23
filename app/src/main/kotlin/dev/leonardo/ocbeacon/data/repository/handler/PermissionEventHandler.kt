@@ -94,20 +94,20 @@ class PermissionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     /**
-     * 获取某会话的所有待处理权限，包括来自子会话的权限。
-     * 这使父会话 UI 能显示子代理的权限请求。
-     * 子会话权限用 [SseEvent.PermissionAsked.sourceSessionTitle] 标注。
+     * 获取某会话的所有待处理权限，包括来自子智能体会话的权限。
+     * 这使父会话 UI 能显示子智能体的权限请求。
+     * 子智能体会话权限用 [SseEvent.PermissionAsked.sourceSessionTitle] 标注。
      */
     fun getPermissionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.PermissionAsked> {
         val currentPerms = _permissions.value[sessionId] ?: emptyList()
 
-        // 查找子会话（parentId == sessionId 的会话）
+        // 查找子智能体会话（parentId == sessionId 的会话）
         val childSessionIds = sessions
             .filter { it.parentId == sessionId }
             .map { it.id }
             .toSet()
 
-        // 聚合所有子会话的权限，并用来源标题标注
+        // 聚合所有子智能体会话的权限，并用来源标题标注
         val childPerms = _permissions.value
             .filterKeys { it in childSessionIds }
             .entries

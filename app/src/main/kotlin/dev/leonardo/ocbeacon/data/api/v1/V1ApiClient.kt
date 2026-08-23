@@ -126,7 +126,7 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun updateSession(conn: ServerConnection, sessionId: String, title: String): Session {
+    suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
         return httpClient.patch("${conn.baseUrl}/session/$sessionId") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -146,7 +146,7 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun abortSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean {
+    suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/abort") {
             auth(conn)
             directoryHeader(directory)
@@ -172,7 +172,7 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun summarizeSession(
+    suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
@@ -609,14 +609,14 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean {
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderAuth: DELETE ${conn.baseUrl}/auth/$providerId")
+    suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean {
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderCredential: DELETE ${conn.baseUrl}/auth/$providerId")
         val response = httpClient.delete("${conn.baseUrl}/auth/$providerId") {
             auth(conn)
         }
         if (BuildConfig.DEBUG) {
             val body = response.bodyAsText()
-            AppLogger.d(TAG, "removeProviderAuth: status=${response.status}, body=$body")
+            AppLogger.d(TAG, "removeProviderCredential: status=${response.status}, body=$body")
         }
         return response.status.isSuccess()
     }

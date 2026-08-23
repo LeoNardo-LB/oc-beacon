@@ -81,8 +81,8 @@ class V2SseMapperTest {
 
     @Test
     fun `inbox enqueued with synthetic type seeds synthetic role not user`() {
-        // 2026-08-15 修复：subagent/后台任务完成通知同样经 inbox.enqueued 投递
-        // （实测 item.type="synthetic"，body 含 <subagent ...>子代理输出全文，
+        // 2026-08-15 修复：subagent/后台轮次完成通知同样经 inbox.enqueued 投递
+        // （实测 item.type="synthetic"，body 含 <subagent ...>子智能体输出全文，
         // 可达数 KB）。修复前播种 role 默认 "user" → 通知渲染成 user 气泡
         // （用户看到"多出大段用户回复"/"assistant 内容进 user 气泡"）。
         // 修复后 role="synthetic" → SyntheticNotificationCard 通知卡片。
@@ -234,7 +234,7 @@ class V2SseMapperTest {
         assertTrue(part.state is ToolState.Completed)
         val completed = part.state as ToolState.Completed
         assertEquals("done", completed.output)
-        // 双写 sessionId/sessionID（subagent 子会话跳转兼容）
+        // 双写 sessionId/sessionID（subagent 子智能体会话跳转兼容）
         assertEquals(
             "ses_child_1",
             completed.metadata?.get("sessionId")?.jsonPrimitive?.contentOrNull

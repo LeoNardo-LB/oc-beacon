@@ -28,8 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * part 定位键：
  * - text/reasoning：`"${assistantMessageID}_ord_${ordinal}"`（v2 无 partID，ordinal 即定位键）
- * - tool：`call_id`（v2 tool part 的稳定 id；事件 payload 字段为 id，语义即
- *   call_id——对齐官方 event.ts 措辞）
+ * - tool：`call_id`（事件 payload 字段实为 `id`，语义即 call_id——对齐官方 event.ts 措辞）
  *
  * execution.started/succeeded 不在此映射（由 V2EventParser 处理为 FSM Busy/Idle）；
  * 消息 completed 由 REST 兜底（mergeMessages 时覆盖）。
@@ -73,11 +72,11 @@ object V2SseMapper {
                 ?: props["input"]?.jsonObject?.get("data")?.jsonObject
                     ?.get("text")?.jsonPrimitive?.contentOrNull
             // 2026-08-15 修复（subagent/后台完成通知误渲染成 user 气泡）：
-            // inbox 不只装用户输入——subagent/后台任务完成通知等 synthetic
+            // inbox 不只装用户输入——subagent/后台轮次完成通知等 synthetic
             // 消息同样经 inbox.enqueued 投递（实测 item.type="synthetic"，
-            // body 为 <subagent ...>子代理全部输出</subagent>，可达数 KB）。
+            // body 为 <subagent ...>子智能体全部输出</subagent>，可达数 KB）。
             // 原实现无条件按 Message.User（role 默认 "user"）播种 → 通知被
-            // 渲染成 user 气泡，子代理（assistant）的输出全文进了用户气泡。
+            // 渲染成 user 气泡，子智能体（assistant）的输出全文进了用户气泡。
             // 修复：读取 item.type，非 "user" 类型设置对应 role——下游
             // ChatMessageList 按 role=="synthetic" 走 SyntheticNotificationCard
             // （#67 通知卡片：状态标签 + 任务描述 + 可展开 output）。
@@ -338,7 +337,7 @@ object V2SseMapper {
                 ?.mapNotNull { it.jsonObject["text"]?.jsonPrimitive?.contentOrNull }
                 ?.joinToString("\n") ?: ""
             val metadata = props["metadata"]?.jsonObject?.let { m ->
-                // 双写 sessionId/sessionID（subagent/子智能体会话跳转兼容）
+                // 双写 sessionId/sessionID（subagent 子智能体会话跳转兼容）
                 val mapped = m.mapValues { (_, v) -> v }.toMutableMap()
                 val sid = m["sessionID"] ?: m["sessionId"]
                 if (sid != null) {

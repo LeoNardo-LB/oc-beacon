@@ -37,7 +37,7 @@ internal class ChatSendDelegate(
     private val manageSessionUseCase: ManageSessionUseCase,
     private val chatRepository: ChatRepository,
     private val sessionRepository: SessionRepository,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     private val sendStateStore: SendStateStore,
     private val scope: CoroutineScope,
     private val serverId: String,
@@ -134,7 +134,7 @@ internal class ChatSendDelegate(
                 // 悲观消息：POST 受理后不显示任何占位，等待服务器 SSE
                 // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
                 // 发送期间 UI 由 isSending 驱动发送按钮转圈（SendStopButton）；
-                // 失败 → 草稿回退输入框 + AlertDialog（sendFailureSink）。
+                // 失败 → 草稿退回输入框 + AlertDialog（sendFailureSink）。
                 sendMessageUseCase.sendPrompt(
                     serverId = serverId,
                     sessionId = currentSessionId,
@@ -150,7 +150,7 @@ internal class ChatSendDelegate(
                 // 上传中；消息实际到达服务器（POST 2xx）后才显示输入栏"会话
                 // 进行中"。原实现乐观置 Busy → 两个指示同时出现。服务器的
                 // execution.started 事件随后到达会自然保持/跟随 Busy。
-                sessionStateService.onClientSendParts(currentSessionId)
+                sessionStateRepository.onClientSendParts(currentSessionId)
                 refreshSessionTitleDelayed(currentSessionId)
                 // 发送成功：通知 UI 清空输入框（失败时不通知——消息保留在输入框）。
                 // 携带已发送文本快照，供 UI 判断输入框是否已被用户改写。

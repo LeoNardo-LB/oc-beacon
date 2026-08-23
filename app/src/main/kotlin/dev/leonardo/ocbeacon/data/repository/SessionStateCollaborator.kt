@@ -95,7 +95,7 @@ class SessionStateCollaboratorImpl @Inject constructor(
             permissionHandler.permissions.value[sessionId]?.isNotEmpty() == true
 
     override fun hasActiveChildren(serverId: String, sessionId: String): Boolean =
-        // 2026-08-15（僵尸误杀修复·二）：活跃子会话（parentID 指向它且服务器 running）
+        // 2026-08-15（僵尸误杀修复·二）：活跃子智能体会话（parentID 指向它且服务器 running）
         // 存在时不得 interrupt——V2 drain 语义下等待后台任务的主会话自身无事件流。
         // 用会话缓存 parentID + 服务器 /active 对照（复用 fetchSessionStatuses 免双倍请求）。
         kotlinx.coroutines.runBlocking {

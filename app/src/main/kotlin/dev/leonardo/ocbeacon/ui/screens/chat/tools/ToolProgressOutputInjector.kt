@@ -18,7 +18,7 @@ object ToolProgressOutputInjector {
     /**
      * @param parts 当前消息 parts 列表
      * @param progressOutputs callID → 累积的 progress 输出文本
-     * @param childSessionIds callID → tool.progress metadata.sessionID（#180：Running 期子会话推断）
+     * @param childSessionIds callID → tool.progress metadata.sessionID（#180：Running 期子智能体会话推断）
      * @return 注入后的 parts 列表（无匹配时原样返回原引用，保持引用稳定，
      *         供 combine 管道做 ChatMessage 实例复用判断）
      */

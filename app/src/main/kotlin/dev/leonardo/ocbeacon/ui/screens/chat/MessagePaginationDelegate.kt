@@ -117,9 +117,9 @@ internal class MessagePaginationDelegate(
 
     /**
      * 通过 V1 API 为当前会话加载消息。
-     * 从 [SessionLifecycleDelegate.loadSession] 回调（跨集群
-     * 回调），使 C 集群 delegate 拥有完整的加载编排，
-     * 而此处保留 MessageData 集群关注点（分页限制 +
+     * 从 [SessionLifecycleDelegate.loadSession] 回调（跨状态簇
+     * 回调），使 C 状态簇 delegate 拥有完整的加载编排，
+     * 而此处保留 MessageData 状态簇关注点（分页限制 +
      * list/set）。
      */
     suspend fun loadMessagesForSession() {

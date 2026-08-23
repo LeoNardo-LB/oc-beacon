@@ -37,13 +37,13 @@
     <string name="sessions_title">Sessions</string>
     <string name="search_sessions">Search sessions…</string>
     <string name="sessions_new">New Session</string>
-    <string name="sessions_create_folder">Create folder</string>
-    <string name="sessions_create_folder_title">Create folder</string>
-    <string name="sessions_create_folder_name_label">Folder name</string>
+    <string name="sessions_create_folder">Create directory</string>
+    <string name="sessions_create_folder_title">Create directory</string>
+    <string name="sessions_create_folder_name_label">Directory name</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">Enter a valid folder name</string>
+    <string name="sessions_create_folder_invalid_name">Enter a valid directory name</string>
     <string name="sessions_create_folder_create">Create</string>
-    <string name="sessions_create_folder_failed">Failed to create folder</string>
+    <string name="sessions_create_folder_failed">Failed to create directory</string>
     <string name="sessions_create_folder_success">Created: %1$s</string>
     <string name="sessions_new_dialog_title">New session</string>
     <string name="sessions_open_other_project">Open other project…</string>
@@ -116,7 +116,7 @@
     <string name="pending_empty">No queued messages. While the agent is replying, tap the spinner to queue a message.</string>
     <string name="pending_item_sending">Sending…</string>
     <string name="todo_empty">No TODO items</string>
-    <string name="chat_empty">Start a conversation with OpenCode</string>
+    <string name="chat_empty">Start a session with OpenCode</string>
     <string name="chat_copy">Copy</string>
     <string name="terminal_copy">Copy</string>
     <string name="terminal_paste">Paste</string>
@@ -170,20 +170,20 @@
     <string name="chat_status_running_commands">Running commands</string>
     <string name="chat_status_searching">Searching codebase</string>
     <string name="chat_status_fetching_url">Fetching URL</string>
-    <string name="chat_status_running_subagent">Running sub-agent</string>
-    <string name="chat_task_completed">Task completed</string>
+    <string name="chat_status_running_subagent">Running subagent</string>
+    <string name="chat_task_completed">Turn completed</string>
     <string name="chat_task_failed">Task failed</string>
-    <string name="chat_system_notification">Sub-agent completed</string>
+    <string name="chat_system_notification">Synthetic: subagent completed</string>
     <string name="task_sheet_subagent_completed">Completed</string>
     <string name="chat_label_user">User</string>
-    <string name="chat_label_agent">Assistant</string>
+    <string name="chat_label_agent">Agent</string>
     <string name="chat_background_agent_completed">Agent completed</string>
     <string name="chat_background_agent_failed">Agent failed</string>
     <string name="chat_background_shell_completed">Shell completed</string>
     <string name="chat_background_shell_failed">Shell failed</string>
     <string name="chat_label_tasks">Tasks</string>
-    <string name="chat_subagent_completed_notification">Sub-agent completed</string>
-    <string name="chat_subagent_failed_notification">Sub-agent failed</string>
+    <string name="chat_subagent_completed_notification">Subagent completed</string>
+    <string name="chat_subagent_failed_notification">Subagent failed</string>
     <string name="chat_status_updating_tasks">Updating tasks</string>
     <string name="chat_status_thinking">Thinking</string>
     <string name="chat_thinking_complete">Thought for %1$s</string>
@@ -279,7 +279,7 @@
     <string name="tool_search_code">Search</string>
     <string name="tool_list_directory">List directory</string>
     <string name="tool_fetch_url">Fetch URL</string>
-    <string name="tool_sub_agent">Sub-agent</string>
+    <string name="tool_sub_agent">Subagent</string>
     <string name="tool_apply_patch">Apply patch</string>
     <string name="tool_shell">Shell</string>
     <string name="tool_read">Read</string>
@@ -344,7 +344,7 @@
     <string name="settings_chat_font">Chat font</string>
     <string name="settings_chat_font_normal">Normal</string>
     <string name="settings_chat_font_compact">Compact</string>
-    <string name="settings_notifications_desc">Notify when agent completes a task</string>
+    <string name="settings_notifications_desc">Notify when a turn completes</string>
 
     <string name="settings_initial_messages">Initial messages to load</string>
     <string name="settings_recent_directory_count">Recent directories in new session</string>
@@ -413,7 +413,7 @@
     <string name="settings_terminal_font_size">Terminal default font size</string>
     <string name="settings_terminal_font_size_value">%1$d sp</string>
     <string name="settings_silent_notifications">Silent notifications</string>
-    <string name="settings_silent_notifications_desc">Suppress sound and vibration for task notifications</string>
+    <string name="settings_silent_notifications_desc">Suppress sound and vibration for turn notifications</string>
     <string name="settings_notif_test">Send test notification</string>
     <string name="settings_notif_test_desc">Posts a real notification to verify banners and sound. If nothing appears, the device may be silencing this app (e.g. MIUI disables floating notifications by default) - enable it in system notification settings below.</string>
     <string name="settings_notif_system">System notification settings</string>
@@ -467,10 +467,10 @@
     <!-- Notifications -->
     <string name="notification_channel_connection">OpenCode Connection</string>
     <string name="notification_channel_connection_desc">Persistent connection to OpenCode server</string>
-    <string name="notification_channel_tasks">Task Notifications</string>
-    <string name="notification_channel_tasks_desc">Notifications when OpenCode tasks are completed</string>
-    <string name="notification_channel_tasks_silent">Task Notifications (Silent)</string>
-    <string name="notification_channel_tasks_silent_desc">Silent notifications when OpenCode tasks are completed</string>
+    <string name="notification_channel_tasks">Turn Notifications</string>
+    <string name="notification_channel_tasks_desc">Notifications when a turn completes</string>
+    <string name="notification_channel_tasks_silent">Turn Notifications (Silent)</string>
+    <string name="notification_channel_tasks_silent_desc">Silent notifications when a turn completes</string>
     <string name="notification_channel_permissions">Permission Requests</string>
     <string name="notification_channel_permissions_desc">Notifications when OpenCode needs permissions</string>
     <string name="notification_channel_questions">Question Requests</string>
@@ -581,7 +581,7 @@
 Size: %2$s -&gt; %3$s
 Tokens: ~%4$d -&gt; ~%5$d</string>
 
-    <!-- Chat sub-agent features -->
+    <!-- Chat subagent features -->
     <string name="chat_queued">QUEUED</string>
     <string name="chat_retry_send">Retry</string>
     <string name="chat_title_placeholder">Chat</string>
@@ -654,7 +654,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_warning">Warning</string>
     <string name="a11y_icon_navigate_forward">Navigate forward</string>
     <string name="a11y_locate_task">Locate originating task</string>
-    <string name="chat_locate_task_not_found">Originating task not found in this conversation</string>
+    <string name="chat_locate_task_not_found">Originating task not found in this session</string>
     <string name="a11y_icon_add">Add</string>
     <string name="a11y_icon_share">Share</string>
     <string name="a11y_icon_unlink">Unlink</string>
@@ -699,7 +699,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="workspace_error_load_failed">Failed to load</string>
 
     <!-- Session List view mode toggle -->
-    <string name="sessions_view_folders">Folders</string>
+    <string name="sessions_view_folders">Directories</string>
     <string name="sessions_view_recent">Recent</string>
     <string name="sessions_clear_search">Clear search</string>
 

@@ -60,7 +60,7 @@ private const val STATE_RETENTION_MS = 24 * 60 * 60 * 1000L
  *  强制转 Idle 恢复列表状态。真实执行中即使模型思考也会有 reasoning delta。 */
 internal const val ZOMBIE_BUSY_MS = 3 * 60 * 1000L
 
-/** #191（方案 B·等待确认自适应降频）：REST 已确认等待态（pending 输入/活跃子会话）的
+/** #191（方案 B·等待确认自适应降频）：REST 已确认等待态（待处理输入/活跃子智能体会话）的
  * L2 抑制窗口。窗口内 checkStaleness 跳过该会话的 L2 重触发——等待态观测节奏从 5s 风暴
  * 降为 60s 复核一次（日志/REST 各降 ~92%）；窗口过后 L2 复触 → REST 复核 → 重新打标。
  * 代价：SSE 死亡 + 用户在他端答题的最坏发现延迟 = 本窗口（状态本身不受影响）。 */
@@ -97,7 +97,7 @@ class SessionStateService @Inject constructor(
     private val activeValidations = ConcurrentHashMap<String, Job>()
 
     /**
-     * #191（方案 B）：REST 确认 Busy + (pending 输入 | 活跃子会话) 的合法等待态打标
+     * #191（方案 B）：REST 确认 Busy + (待处理输入 | 活跃子智能体会话) 的合法等待态打标
      * （sessionId → 确认时刻）。窗口内 checkStaleness 跳过 L2 重触发；任何真实 SSE
      * 事件（onSseEvent 映射非空）或非 Busy 复核结果即清标。internal 供单测 seed/断言。
      */
@@ -132,7 +132,7 @@ class SessionStateService @Inject constructor(
         val expired = mutableListOf<String>()
         _fsmStates.value.forEach { (sessionId, state) ->
             if (state.core is SessionStatus.Busy && now - state.lastEventAt > STALENESS_THRESHOLD_MS) {
-                // #191（方案 B）：60s 窗口内已 REST 确认的等待态（pending 输入/子会话）跳过
+                // #191（方案 B）：60s 窗口内已 REST 确认的等待态（待处理输入/子智能体会话）跳过
                 // L2 重触发——抑制 5s 级 WARN+REST 风暴；窗口过后照常复核（保持发现能力）。
                 val confirmedAt = waitingConfirmedAt[sessionId]
                 if (confirmedAt == null || now - confirmedAt >= WAITING_CONFIRM_WINDOW_MS) {
@@ -344,7 +344,7 @@ class SessionStateService @Inject constructor(
     }
     override fun onClientAbort(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientAbort)
     override fun onRestValidation(sessionId: String, status: SessionStatus) {
-        // #191：非 Busy 复核结果 = 等待已结束（答题完成/子会话结束）→ 清等待标
+        // #191：非 Busy 复核结果 = 等待已结束（答题完成/子智能体会话结束）→ 清等待标
         if (status !is SessionStatus.Busy) waitingConfirmedAt.remove(sessionId)
         applyTransition(sessionId, FsmEvent.RestValidation(status))
     }
@@ -547,19 +547,11 @@ class SessionStateService @Inject constructor(
                         // 3 分钟完全无事件 = 僵尸；服务器恢复执行时 execution.started
                         // 事件会重新置 Busy）。
                         if (serverStatus is SessionStatus.Busy) {
-                            // 2026-08-14 走查修复（误杀防护）：pending question/permission 时服务器在合法
-                            // 等待用户输入（此期间无 SSE 事件属正常，非僵尸）——不得 interrupt（会杀掉等待中的
-                            // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
-                            // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查。
-                            val hasPendingUserInput = collaborator.hasPendingUserInput(sessionId)
-                            // 2026-08-15（僵尸误杀修复·二）：有活跃子智能体会话（后台任务/
-                            // subagent running）时主会话 running 是 V2 drain 合法等待
-                            // 状态——不 interrupt（否则等待后台任务的主会话被误杀，
-                            // 用户零操作被打断）。仅本地转 Idle 跟随显示。
-                            val hasActiveChildren = collaborator.hasActiveChildren(sid, sessionId)
-                            // #191（方案 B）：服务器 Busy + (pending 输入 | 活跃子会话) = 合法等待态
+                            // #191（方案 B）：服务器 Busy + (待处理输入 | 活跃子智能体会话) = 合法等待态
                             // → 打标抑制 checkStaleness 的 L2 重触发（60s 窗口，风暴降 ~92%）；
-                            // 否则清标（新出现的非等待 Busy 恢复 5s 级 L2 节奏）。两版本同构无分支。
+                            // 否则清标（新出现的非等待 Busy 恢复 5s 纯净 L2 节奏）。两版本同构无分支。
+                            val hasPendingUserInput = collaborator.hasPendingUserInput(sessionId)
+                            val hasActiveChildren = collaborator.hasActiveChildren(sid, sessionId)
                             if (hasPendingUserInput || hasActiveChildren) {
                                 waitingConfirmedAt[sessionId] = System.currentTimeMillis()
                             } else {
@@ -569,6 +561,14 @@ class SessionStateService @Inject constructor(
                             val lastEventAt = _fsmStates.value[sessionId]?.lastEventAt ?: 0L
                             val quietMs = System.currentTimeMillis() - lastEventAt
                             if (quietMs > ZOMBIE_BUSY_MS) {
+                                // 2026-08-14 走查修复（误杀防护）：pending question/permission 时服务器在合法
+                                // 等待用户输入（此期间无 SSE 事件属正常，非僵尸）——不得 interrupt（会杀掉等待中的
+                                // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
+                                // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查（值取自外层 #191 打标处声明）。
+                                // 2026-08-15（僵尸误杀修复·二）：有活跃子智能体会话（后台任务/
+                                // subagent running）时主会话 running 是 V2 drain 合法等待
+                                // 状态——不 interrupt（否则等待后台任务的主会话被误杀，
+                                // 用户零操作被打断）。仅本地转 Idle 跟随显示。
                                 if (hasPendingUserInput || hasActiveChildren) {
                                     // pending 用户输入 / 活跃子智能体会话：不 interrupt，也**不强转 Idle**
                                     //（2026-08-18 E2E-G 修复：原"仅本地强制 Idle"与 :150 的 active-running
@@ -577,12 +577,16 @@ class SessionStateService @Inject constructor(
                                     // 事件流恢复自然转 Idle。抖动还会与 BACK pop 的 fade 过渡竞态致全屏空白）
                                     AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms; ${if (hasActiveChildren) "active background children" else "pending user input"} -> skip zombie interrupt, keep Busy (waiting)")
                                 } else {
-                                    // 僵尸显示修复（服务器中断调用已停用，对齐官方语义）：服务器 runner
-                                    // 长时间无事件时仅本地转 Idle 修复显示，不发起任何服务器 interrupt/abort 调用。
+                                    // 2026-08-14 根因修复（转圈/无回复）：仅本地强制 Idle 只是“装样子”——
+                                    // 服务器 runner 仍处于僵尸 running（/active 持续返回 running），用户再发消息
+                                    // POST /prompt 虽 200+admitted，但僵尸 runner 永不消费 inbox → 无执行事件 →
+                                    // 消息永远无回复 + UI 转圈。实测（V2 next-17403）：POST interrupt 返回 204 且
+                                    // /active 中该会话从 running 消失 = 服务器僵尸被解除。interrupt 幂等安全（idle
+                                    // 会话调用无副作用；V1 interruptSession / V2 interruptSession 已按 apiVersion 分流）。
                                     AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
                                     interruptZombieRunner(sid, sessionId, directory)
                                 }
-                                // 仅僵尸路径强制本地 Idle（僵尸显示修复；服务器中断调用已停用）；
+                                // 仅僵尸路径强制本地 Idle（僵尸解除的服务器调用已停用，本地显示修复）；
                                 // pending/子智能体会话路径保持 FSM 跟随服务器（Busy）——见上方注释
                                 if (!hasPendingUserInput && !hasActiveChildren) {
                                     onRestValidation(sessionId, SessionStatus.Idle)
@@ -694,20 +698,22 @@ class SessionStateService @Inject constructor(
     }
 
     /**
-     * 僵尸解除已停用——仅本地显示修复（2026-08-14 引入，2026-08-15 对齐官方语义后停用服务器调用）。
+     * 解除服务器端僵尸 runner（2026-08-14 根因修复）。
      *
      * 触发条件：L3 REST 校验确认服务器说 Busy，但 App 侧超过 [ZOMBIE_BUSY_MS]
      * 无任何 SSE 事件——服务器 runner 卡死但 /active 仍返回 running。
      *
-     * 动作：僵尸解除已停用（对齐官方语义）——本函数仅打 DEBUG 日志做本地显示修复，
-     * 不发起任何服务器调用。
+     * 动作（2026-08-15 起停用服务器调用，见函数体注释）：仅打 DEBUG 日志——
+     * 自动 interrupt 已实证误杀后台子智能体，官方语义为无限期等待、只修本地显示。
+     * （历史行为存档：曾按 apiVersion 分流调用 V2 POST /api/session/{id}/interrupt、
+     * V1 POST /session/{id}/abort；如恢复须以用户手动入口为前提，见下方行内注释。）
      */
     private fun interruptZombieRunner(serverId: String, sessionId: String, directory: String?) {
         // 2026-08-15（对齐官方调研结论，research/05 文档）：官方客户端（TUI/Web）
         // **不存在任何自动 interrupt**——所有 interrupt 由用户显式动作触发
         //（Esc 三连击/停止按钮/undo 前置）。官方对"running 但无事件"的态度是
         // 无限期等待、只修本地显示。我们的自动 zombie interrupt 已实证误杀
-        //（主会话等待后台子代理被打断——用户零操作）。
+        //（主会话等待后台子智能体被打断——用户零操作）。
         // 收紧：默认只修显示（本地转 Idle，不调服务器 interrupt）。
         // 自动 interrupt 关闭；未来如需恢复，须以用户手动入口（会话详情
         // "强制解除卡死"）+ 长工具静默防护 + V1 禁用（V1 abort 级联取消

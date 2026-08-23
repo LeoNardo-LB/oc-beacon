@@ -4,7 +4,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 object Migrations {
-    /** v1 → v2：新增归档桶表（热表三表不动）。 */
+    /** v1 → v2：新增冷存桶表（热表三表不动）。 */
     val MIGRATION_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL(

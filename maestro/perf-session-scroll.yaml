@@ -7,7 +7,7 @@ appId: ${APP_ID}
 ---
 # 1. 导航到会话列表（page 0）
 - tapOn:
-    text: "会话"
+    text: "Sessions"
     optional: true
 # 2. 等待列表出现
 - assertVisible: "搜索会话"

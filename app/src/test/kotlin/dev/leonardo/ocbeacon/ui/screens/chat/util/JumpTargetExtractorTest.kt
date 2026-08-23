@@ -88,7 +88,7 @@ class JumpTargetExtractorTest {
 
     @Test
     fun `uses summary body as preview fallback`() {
-        // 无 Part.Text 但有 summary.body（Room payload 的 User 消息摘要）→ 回退
+        // 无 Part.Text 但有 summary.body（Room payload 的 User 消息摘要）→ 降级
         val withSummary = MessageWithParts(
             info = Message.User(
                 id = "u1",

@@ -56,7 +56,7 @@ import androidx.lifecycle.SavedStateHandle
 /**
  * 针对 4 个功能的综合测试：
  * A. QUEUED 徽章 —— queuedMessageIds 计算
- * B. 子会话标识 —— sessionParentId
+ * B. 子智能体会话标识 —— sessionParentId
  * C. 从 tool metadata 中提取 subSessionId 的逻辑
  * D. Part.Agent 的 source 提取逻辑
  * E. 结合多个功能的集成场景
@@ -83,7 +83,7 @@ class ChatViewModelQueuedTest {
     private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
     private val tokenStatsTracker = TokenStatsTracker()
-    private val sessionStateService: SessionStateService = mockk(relaxed = true)
+    private val sessionStateRepository: SessionStateService = mockk(relaxed = true)
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
@@ -115,7 +115,7 @@ class ChatViewModelQueuedTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
@@ -130,8 +130,8 @@ class ChatViewModelQueuedTest {
             pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
             pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
-        every { sessionStateService.statusFlow } returns testStatusFlow
-        every { sessionStateService.activityFlow } returns MutableStateFlow(emptyMap())
+        every { sessionStateRepository.statusFlow } returns testStatusFlow
+        every { sessionStateRepository.activityFlow } returns MutableStateFlow(emptyMap())
 
         mockkStatic(Log::class)
         every { Log.d(any(), any()) } returns 0
@@ -307,7 +307,7 @@ class ChatViewModelQueuedTest {
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
 
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
@@ -496,7 +496,7 @@ class ChatViewModelQueuedTest {
     }
 
     // ==========================================
-    // B. 子会话标识 —— sessionParentId
+    // B. 子智能体会话标识 —— sessionParentId
     // ==========================================
 
     @Test
@@ -634,7 +634,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedAndParentId_workTogether_inSubSession() = runTest {
-        // 子会话场景：会话有 parentId、待处理 assistant + 排队消息
+        // 子智能体会话场景：会话有 parentId、待处理 assistant + 堆积消息
         val session = createTestSession(parentId = "parent-1")
         coEvery { manageSessionUseCase.getSession(any(), any()) } returns session
         setSession(session)

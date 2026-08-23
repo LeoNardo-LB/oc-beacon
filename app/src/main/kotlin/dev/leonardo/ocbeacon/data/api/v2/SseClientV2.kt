@@ -43,21 +43,18 @@ private val EVENT_META_KEYS = setOf("id", "created", "type", "durable", "locatio
 /**
  * V2 SSE 客户端——解析 OpenCode V2 的 Server-Sent Events 格式。
  *
- * V2 SSE 线格式：实测以 data: 单行 JSON 为主（{id,type,data}），标准 event:+data: 帧
- * 为兼容路径（区别于 V1）：
+ * V2 SSE 线格式（实测以 data: 单行 JSON 为主）：事件打包在 `data:` 行的
+ * JSON 中（{id, created, type, durable, location, event, ...平铺字段}）；
+ * 标准 `event:+data:` 帧为兼容路径（curl 实测两种皆可能出现，主路径为单行 JSON）。
  * ```
- * event: message.updated
- * data: {"info":{"id":"msg_...","role":"assistant",...}}
- * id: evt_xxx
- *
+ * data: {"id":"evt_...","type":"message.updated","info":{"id":"msg_...","role":"assistant",...}}
  * ```
  *
- * V1 SSE 则将所有信息打包在 `data:` 行的 JSON 中：
+ * V1 SSE 同为 `data:` 行 JSON，但结构为 {type, properties} 包裹：
  * `data: {"type":"message.updated","properties":{"info":{...}}}`
  *
  * 本类复用 V1 的事件解析器（SseEventParser）——事件类型和属性结构相同，
- * 仅 SSE 帧的线格式不同。标准帧从 `event:` 行获取事件类型；单行 JSON 路径
- * 从 data 信封的 `type` 字段获取。
+ * 仅线格式与信封元字段（[EVENT_META_KEYS]）不同。
  */
 @Singleton
 class SseClientV2 @Inject constructor(
@@ -86,7 +83,7 @@ class SseClientV2 @Inject constructor(
     // synthetic 实时通知（2026-08-12）：服务器 synthetic 注入经
     // session.input.admitted（带完整 input）→ session.input.promoted（带 inputID）
     // 两阶段广播。admitted 时缓存 input，promoted 时消费——TUI 前端即靠此机制
-    // 实时显示后台任务完成通知（与 task 工具注入一致）。SSE 事件单线程顺序
+    // 实时显示后台轮次完成通知（与 task 工具注入一致）。SSE 事件单线程顺序
     // 消费（同一 flow），HashMap 无需并发保护。
     // #98（M-1，叠加 D2-02 多服务器竞态）：HashMap → ConcurrentHashMap（多服务器
     // 各自 flow 并发访问同一单例字段）+ 有界（admitted 后断连/丢 promoted 的
@@ -401,7 +398,7 @@ class SseClientV2 @Inject constructor(
                             sessionId = sessionId,
                             role = inputType, // "synthetic"（兼容其他非 user 类型）
                             time = TimeInfo(created = System.currentTimeMillis()),
-                            // 2026-08-12：映射 metadata.agent（子代理类型）→ agent 字段
+                            // 2026-08-12：映射 metadata.agent（子智能体类型）→ agent 字段
                             agent = dataObj?.get("metadata")?.jsonObject
                                 ?.get("agent")?.jsonPrimitive?.contentOrNull,
                             summary = Message.User.UserSummary(

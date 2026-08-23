@@ -59,7 +59,7 @@ class ChatViewModelStreamingTest {
     private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
     private val tokenStatsTracker = TokenStatsTracker()
-    private val sessionStateService: SessionStateService = mockk(relaxed = true)
+    private val sessionStateRepository: SessionStateService = mockk(relaxed = true)
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
@@ -147,7 +147,7 @@ class ChatViewModelStreamingTest {
             every { it.getCurrentModelFlow(any()) } returns flowOf(emptyMap())
             coEvery { it.fetchSessionStatuses(any(), any()) } returns Result.success(emptyMap())
         }
-        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
+        every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
     }
 
     @After
@@ -214,7 +214,7 @@ class ChatViewModelStreamingTest {
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
 
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),

@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * 应用设置的领域层接口。
- * 由 data 层实现。
+ * 实现归属：由 data 层实现（domain 层仅声明契约）。
  */
 interface SettingsRepository {
 

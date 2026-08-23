@@ -78,7 +78,7 @@ class ChatViewModel @Inject constructor(
     private val messageStore: dev.leonardo.ocbeacon.data.local.MessageStore,
     private val tokenStatsTracker: TokenStatsTracker,
     private val httpClient: HttpClient,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     private val sessionFocusHolder: dev.leonardo.ocbeacon.service.SessionFocusHolder,
     private val appNotificationManager: dev.leonardo.ocbeacon.service.AppNotificationManager,
     private val toolSnapshotCache: dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache,
@@ -233,8 +233,8 @@ class ChatViewModel @Inject constructor(
     /**
      * #182（2026-08-21）：TaskToolCard 展开时拉取全量输出。
      * part 优先（父会话按 cursor 翻页找 part id——老卡片可落在最新窗口外，
-     * 走查修复：50 条窗口只覆盖最新会话，翻页上限 10 页）→ 子会话 transcript
-     * 回退，取长者。失败返回 null（卡片回退本地预览，不阻塞展开）。
+     * 走查修复：50 条窗口只覆盖最新会话，翻页上限 10 页）→ 降级子智能体会话
+     * transcript，取长者。失败返回 null（卡片降级本地预览，不阻塞展开）。
      */
     suspend fun fetchFullTaskOutput(partId: String, subSessionId: String?): String? {
         val sid = sessionLifecycle.sessionId
@@ -267,7 +267,7 @@ class ChatViewModel @Inject constructor(
         sessionIdFlow = sessionLifecycle.sessionIdFlow,
         scope = viewModelScope,
         // 2026-08-16（R3 僵尸自愈）：active 轮询发现 FSM 与服务器分歧时触发 L3 校验
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
     )
 
     /** 启动任务轮询（ChatScreen 组合时调用；幂等）。 */
@@ -340,7 +340,7 @@ class ChatViewModel @Inject constructor(
     }
 
     init {
-        sessionStateService.setServerId(serverId)
+        sessionStateRepository.setServerId(serverId)
         // backlog #38: 异步加载服务器配置（Room 毫秒级，但避免主线程 runBlocking 阻塞）。
         // 加载完成后：更新 serverName StateFlow + 回填终端 workspace 连接。
         viewModelScope.launch {
@@ -390,7 +390,7 @@ class ChatViewModel @Inject constructor(
         chatRepository = chatRepository,
         messagePaging = messagePaging,
         messageStore = messageStore,
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
         sessionRepository = sessionRepository,
         settingsRepository = settingsRepository,
         serverId = serverId,
@@ -453,7 +453,7 @@ class ChatViewModel @Inject constructor(
         manageTerminalUseCase = manageTerminalUseCase,
         sessionRepository = sessionRepository,
         chatRepository = chatRepository,
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
         serverId = serverId,
         scope = viewModelScope,
         sessionIdProvider = { sessionLifecycle.sessionId },
@@ -521,17 +521,18 @@ class ChatViewModel @Inject constructor(
         messageData.isToolExpanded(toolId, autoExpand)
 
     // ============ 滚动状态 ============
-    // 使用 cache window 策略（窗口式预组合）替代默认的单 item 异步预取：
-    // 默认 LazyListPrefetchStrategy 每次只预取 1 个 item，fling 快速滚动（向下滑/看更旧）
-    // 时预取跟不上 → item 进入视口才现场组合（重型 Markdown 耗时）→ 整个气泡被跳过。
-    // v5 迭代（日志证实）：拖拽摩擦时同一 item 反复销毁重建（behind 太小）+ fling
-    // 2026-08-13 终极解法：跳转预组合策略——视口外预组合跳转目标（组合+测量
-    // 不显示），滚动到视口时即静态显示（零渲染过程）；同时承担滚动方向预测
-    // 预组合（替代原 cacheWindow 大窗口——二者构造不可兼得）。
+    // 历史：默认 LazyListPrefetchStrategy 每次只预取 1 个 item，fling 快速滚动
+    // （向下滑/看更旧）时预取跟不上 → item 进入视口才现场组合（重型 Markdown
+    // 耗时）→ 整个气泡被跳过；v5 迭代（日志证实）：拖拽摩擦时同一 item 反复
+    // 销毁重建（behind 太小）+ fling。
+    // 2026-08-13 曾以 cacheWindow 窗口式预组合 + 跳转目标预组合（视口外组合+测量、
+    // 滚动到视口即静态显示）解决；2026-08-21 跳转目标预组合已移除（预测量尺寸
+    // 污染 item 布局，由跳转状态机 + 透明门控取代，见 [JumpPrefetchStrategy]）。
+    // 现仅保留滚动方向预测预组合（速度自适应窗口）。
     @OptIn(ExperimentalFoundationApi::class)
     val jumpPrefetch = JumpPrefetchStrategy()
 
-    // 2026-08-13：LazyListState 改用 prefetchStrategy（跳转预组合 + 滚动预测），
+    // 2026-08-13：LazyListState 改用 prefetchStrategy（现为滚动方向预测预组合），
     // 原 cacheWindow（ahead/behind 1.5 屏）由 JumpPrefetchStrategy 的滚动方向
     // 预测替代——流式/滚动预组合收益保持。
     @OptIn(ExperimentalFoundationApi::class)
@@ -549,7 +550,7 @@ class ChatViewModel @Inject constructor(
     private val stateAggregator = ChatStateAggregator(
         sessionIdFlow = sessionLifecycle.sessionIdFlow,
         sessionRepository = sessionRepository,
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
         tokenStatsTracker = tokenStatsTracker,
         messageListState = messageListState,
         interactionState = interactionState,
@@ -591,7 +592,7 @@ class ChatViewModel @Inject constructor(
     /** ④模型配置簇：provider/agent/model/variant 选择状态。 */
     internal val modelSelection: ModelConfigDelegate get() = modelConfig
 
-    /** ⑤会话操作簇：REST 刷新/状态同步/中止/权限应答。 */
+    /** ⑤会话操作簇：REST 刷新/状态同步/中断/权限应答。 */
     internal val sessionOps: SessionActionsDelegate get() = sessionActions
 
     init {
@@ -804,7 +805,7 @@ class ChatViewModel @Inject constructor(
         manageSessionUseCase = manageSessionUseCase,
         chatRepository = chatRepository,
         sessionRepository = sessionRepository,
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
         sendStateStore = messageData.sendStateStore,
         scope = viewModelScope,
         serverId = serverId,
@@ -839,17 +840,17 @@ class ChatViewModel @Inject constructor(
         sessionActions.savePermissionRule(event, directory)
 
     /**
-     * 中止当前会话 —— 协调器。
+     * 中断当前会话 —— 协调器。
      * 将 REST abort + markIdle 委托给 [sessionActions]，然后处理
      * SSE job 的取消/重启（B↔C↔G 编排）。
      */
-    fun abortSession() {
+    fun interruptSession() {
         // RS-006 修复：在更新 FSM 之前取消 SSE job。
         messageData.cancelSseJob()
-        sessionStateService.onClientAbort(sessionId)
+        sessionStateRepository.onClientAbort(sessionId)
         viewModelScope.launch {
             try {
-                sessionActions.abortSession()
+                sessionActions.interruptSession()
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
                 runCatching { messageData.startObservingMessages() }
             } catch (e: Exception) {
@@ -899,7 +900,7 @@ class ChatViewModel @Inject constructor(
     fun revertMessage(messageId: String, revertedText: String? = null, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                val currentStatus = sessionStateService.statusFlow.value[sessionId]
+                val currentStatus = sessionStateRepository.statusFlow.value[sessionId]
                 val wasBusy = currentStatus is SessionStatus.Busy || currentStatus is SessionStatus.Retry
 
                 // RS-008 修复：在取消 SSE job 之前设置 revert 过滤器。
@@ -907,9 +908,9 @@ class ChatViewModel @Inject constructor(
 
                 if (wasBusy) {
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "Revert：暂停 busy 会话 $sessionId")
-                    sessionStateService.onClientAbort(sessionId)
+                    sessionStateRepository.onClientAbort(sessionId)
                     messageData.cancelSseJob()
-                    runCatching { sessionRepository.abort(serverId, sessionId, sessionLifecycle.sessionDirectory) }
+                    runCatching { sessionRepository.interrupt(serverId, sessionId, sessionLifecycle.sessionDirectory) }
                 }
 
                 undoRedoUseCase.revertSession(serverId, sessionId, messageId)

@@ -206,7 +206,7 @@ sealed class Part {
         @SerialName("sessionID") override val sessionId: String,
         @SerialName("messageID") override val messageId: String,
         val auto: Boolean = false,
-        /** 2026-08-15：压缩摘要全文（V2 REST compaction 消息的 text）——
+        /** 2026-08-15：压缩后的全文（V2 REST compaction 消息的 text）——
          *  分割线卡片可展开查看（此前仅标记无内容）。 */
         val summary: String? = null
     ) : Part()

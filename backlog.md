@@ -2,9 +2,11 @@
 
 本文档是唯一的**未决工作项清单**：只保留尚未完结的需求与问题卡片。条目完结（用户验收 `[x]`）后**当场迁出**——记录连同证据移入 `docs/journal/` 对应批次文件，本文件不保留完结记录；历史查询走 journal 与 git。
 
-**卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
+**卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#195**。
+**编号**：全局递增，不回收。下一编号：**#206**。
+
+> 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
 **优先级定义**：
 
@@ -38,7 +40,7 @@
 
 **Spec**：满足「有非显然取舍需留档」或「跨会话实现需完整上下文」其一 → 在 `docs/specs/` 写 `YYYY-MM-DD-<名称>-design.md`（spec 是权威，卡片只留摘要+链接）；实现并用户验收后移入 `docs/archive/specs/`，同步更新 spec 头部状态行与卡片引用路径。**归档 spec 定期清理零外部引用者**（git history 永久可找回）。简单需求不写 spec。
 
-**Journal**：每个工作批次一个 `docs/journal/YYYY-MM-DD-<英文kebab名>.md`，**开工时创建**，过程中取证/验证证据直接写入 journal（卡片全程保持 ≤3 行）；完结条目当场迁入，原文保留不压缩不删改。可复用的蒸馏结论提炼进 `docs/research/`，journal 只记执行与证据。
+**Journal**：每个工作批次一个 `docs/journal/YYYY-MM-DD-<英文kebab名>.md`，**开工时创建**，过程中取证/验证证据直接写入 journal（卡片全程保持 ≤3 行）；完结条目当场迁入，原文保留不压缩不删改。可复用的蒸馏结论提炼进 `docs/research/`，journal 只记执行与证据。**新 journal 术语三原则**：①叙述段用 CONTEXT.md 规范名；②证据引用豁免（logcat 行、SSE 事件名、i18n key、标识符原样保留）；③规范名首现带英文原词，编号遵循 [numbering-charter](docs/numbering-charter.md)。
 
 ---
 
@@ -60,12 +62,39 @@
 
 
 
+- [ ] **#193 术语统一批次：CONTEXT.md 46 词条落地（注释/文档/UI 文案/标识符 Tier A+B）** `terminology` `docs` `refactor`（实现+九项终验+双轴 review 已完成 2026-08-23，见 [FINAL-REPORT](docs/terminology/FINAL-REPORT.md)——待用户验收后迁 journal）
+  - 四轮裁决闭合（API V2 权威源+每术语必有中文）；spec 权威：注释中文化对齐术语表（990 文件台账驱动）+ 失实注释修订 + i18n 全同步（EN 源显示词+14 语言+补缺 288 key）+ Tier A+B 标识符重命名（interruptSession/renameSession/compact 单入口/collapseTools 反转等）+ E2E 英文化 + flavor 统一 + 编号 charter
+  - → spec（撰写中）· [ADR-0001](docs/adr/0001-terminology-authority.md) · `docs/journal/2026-08-23-batch.md`
 
 ## P2 — 优化与锦上添花
 
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
 
-- [ ] **#194 FAB 上滑越界钻顶栏 + 菜单展开溢出顶出容器** `ui`
+- [ ] **#200 盘点代码事实包（F01-F14）：非注释级缺陷与死代码** `refactor` `sse`
+  - PartSerializer 缺 permission/question 分支落 Unknown · executeCommand 死参数（V1/V2 同）· 盘符哨兵双定义 · 搜索防抖 300ms 双层串联 · FATAL 级不可过滤 · 日志 $ 转义 ×2 · 前世包名 fixture · 冗余条件等——详见台账代码事实区
+  - → `.scratch/terminology/conflicts-master.md`（F01-F14）· `docs/journal/2026-08-23-batch.md`
+
+- [ ] **#201 Tier C-1：wire 层 @SerialName 重命名评估（149 字段）** `refactor`
+  - 编译器不保护；需先建 V1/V2 wire 兼容矩阵测试；错一个即协议解析失败
+  - → `.scratch/terminology/identifier-rename-assessment.md` Tier C
+
+- [ ] **#202 Tier C-2：DataStore PreferencesKey 重命名（50 键）** `refactor`
+  - 需迁移代码（unread v2 值域迁移为先例）；错失即用户设置全量丢失
+  - → 同上 Tier C
+
+- [ ] **#203 Tier C-3：Room 实体/列重命名（5 实体）** `refactor`
+  - 遵守 MIGRATION_N 纪律（已有 10 次迁移史）；需逐表 migration test
+  - → 同上 Tier C
+
+- [ ] **#204 Tier C-4：i18n key 改名（category 族→tag 等）** `refactor`
+  - R.string 903 引用点 + maestro 34 flows 锁文案联动；CI i18n 检查可兜底
+  - → 同上 Tier C
+
+- [ ] **#205 Tier C-5：intent extra/导航参数改名（22+27 处）** `refactor`
+  - debug intent #132 外部已配置依赖 extra 名；零自动化覆盖，需真机验证（houji）
+  - → 同上 Tier C
+
+- [~] **#194 FAB 上滑越界钻顶栏 + 菜单展开溢出顶出容器** `ui`（实现+真机 E2E 全绿 2026-08-23，剩 2 项时间性人工验收：高位展开平滑度/键盘态）
   - 根因：滑动上限用整屏高算容器内位移（魔法数 160）→ 拖到顶钻进顶栏；官方 FloatingActionButtonMenu 只会向上展开，按钮高位时 224dp 菜单列出界
   - 定案（grilling 对齐）：容器实测高度修上限 + 溢出量整体平滑下移（「顶到顶部」语义，保留官方组件零样式改动），双 FAB 共修、位移独立
   - → `docs/specs/2026-08-23-fab-slide-overflow-design.md`（完整设计 D1–D5 + 验收清单）

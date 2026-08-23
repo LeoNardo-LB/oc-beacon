@@ -13,7 +13,7 @@ import org.junit.Test
  *   <summary>Background task completed: <描述></summary>
  *   <task_result|task_error>…输出…</task_result|task_error>
  *   </task>
- * 客户端解析出 sessionId（子会话跳转引用）、state（完成/失败色彩）、
+ * 客户端解析出 sessionId（子智能体会话跳转引用）、state（完成/失败色彩）、
  * summary（标题描述）、output（展开内容）。
  */
 class SyntheticTaskParserTest {

@@ -65,7 +65,7 @@ class UnreadClockDomainTest {
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
-            sessionStateService = SessionStateService(
+            sessionStateRepository = SessionStateService(
                 appScope = stateServiceScope,
                 sessionRepoProvider = Provider { mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true) },
                 collaborator = StubCollaborator(),

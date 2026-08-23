@@ -110,7 +110,7 @@ class FakeServerRepository @Inject constructor() :
         code: String?
     ): Result<Boolean> = Result.success(true)
 
-    override suspend fun removeProviderAuth(
+    override suspend fun removeProviderCredential(
         serverId: String,
         providerId: String
     ): Result<Boolean> = Result.success(true)

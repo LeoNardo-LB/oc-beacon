@@ -104,7 +104,7 @@ class SseConnectionManagerTest {
             eventDispatcher = mockk(relaxed = true),
             settingsRepository = settingsRepository,
             networkMonitor = mockk(relaxed = true),
-            sessionStateService = mockk(relaxed = true),
+            sessionStateRepository = mockk(relaxed = true),
         )
 
         val onEventCount = AtomicInteger(0)
@@ -188,7 +188,7 @@ class SseConnectionManagerTest {
             eventDispatcher = mockk(relaxed = true),
             settingsRepository = settingsRepository,
             networkMonitor = mockk(relaxed = true),
-            sessionStateService = mockk(relaxed = true),
+            sessionStateRepository = mockk(relaxed = true),
         )
 
         manager.startConnection(testServer()) { _, _ -> }

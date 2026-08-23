@@ -12,7 +12,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 data class JumpTarget(
     val label: String,        // "Q1"、"Q2" ...
     val timestampMs: Long,    // message.time.created（epoch 毫秒）
-    val preview: String,      // 第一个 Part.Text 内容，或回退 summary.body
+    val preview: String,      // 第一个 Part.Text 内容，或降级为 summary.body
     val msgId: String         // message.id，用于跳转查找与当前高亮匹配
 )
 

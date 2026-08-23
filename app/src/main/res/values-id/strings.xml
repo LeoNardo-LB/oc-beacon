@@ -60,7 +60,7 @@
     <string name="chat_busy_menu_send_now">Kirim sekarang</string>
     <string name="chat_busy_menu_send_now_desc">Masuk antrean di server, langsung terlihat, dan tidak dapat dibatalkan</string>
     <string name="chat_busy_menu_stack">Antrekan pesan</string>
-    <string name="chat_busy_menu_stack_desc">Disimpan secara lokal, dikirim otomatis saat giliran ini berakhir</string>
+    <string name="chat_busy_menu_stack_desc">Disimpan secara lokal, dikirim otomatis saat turn ini berakhir</string>
     <string name="chat_busy_menu_stack_no_attachments">Pesan dengan lampiran harus dikirim sekarang</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Antrean</string>
@@ -79,7 +79,7 @@
     <string name="pending_empty">Belum ada pesan antrean. Saat agen sedang membalas, ketuk ikon pemuatan untuk mengantrekan pesan.</string>
     <string name="pending_item_sending">Mengirim…</string>
     <string name="todo_empty">Tidak ada item TODO</string>
-    <string name="chat_empty">Mulai percakapan dengan OpenCode</string>
+    <string name="chat_empty">Mulai sesi dengan OpenCode</string>
     <string name="chat_copy">Salin</string>
     <string name="terminal_copy">Salin</string>
     <string name="terminal_paste">Tempel</string>
@@ -132,10 +132,10 @@
     <string name="chat_status_running_commands">Menjalankan perintah</string>
     <string name="chat_status_searching">Mencari basis kode</string>
     <string name="chat_status_fetching_url">Mengambil URL</string>
-    <string name="chat_status_running_subagent">Menjalankan sub-agent</string>
-    <string name="chat_task_completed">Tugas selesai</string>
+    <string name="chat_status_running_subagent">Menjalankan subagen</string>
+    <string name="chat_task_completed">Turn selesai</string>
     <string name="chat_task_failed">Tugas gagal</string>
-    <string name="chat_system_notification">Sub-agent selesai</string>
+    <string name="chat_system_notification">Sintetis: subagen selesai</string>
     <string name="task_sheet_subagent_completed">Selesai</string>
     <string name="chat_label_user">Pengguna</string>
     <string name="chat_label_agent">Agen</string>
@@ -144,8 +144,8 @@
     <string name="chat_background_shell_completed">Shell selesai</string>
     <string name="chat_background_shell_failed">Shell gagal</string>
     <string name="chat_label_tasks">Tugas</string>
-    <string name="chat_subagent_completed_notification">Sub-agent selesai</string>
-    <string name="chat_subagent_failed_notification">Sub-agent gagal</string>
+    <string name="chat_subagent_completed_notification">Subagen selesai</string>
+    <string name="chat_subagent_failed_notification">Subagen gagal</string>
     <string name="chat_status_updating_tasks">Memperbarui tugas</string>
     <string name="chat_status_thinking">Berpikir</string>
     <string name="chat_tool_running_command">Menjalankan perintah…</string>
@@ -197,7 +197,7 @@
     <string name="tool_search_code">Cari</string>
     <string name="tool_list_directory">Daftar direktori</string>
     <string name="tool_fetch_url">Ambil URL</string>
-    <string name="tool_sub_agent">Sub-agent</string>
+    <string name="tool_sub_agent">Subagen</string>
     <string name="tool_apply_patch">Terapkan patch</string>
     <string name="tool_shell">Shell</string>
     <string name="tool_read">Baca</string>
@@ -228,7 +228,7 @@
     <string name="settings_notifications">Notifikasi</string>
     <string name="settings_dynamic_color">Warna dinamis</string>
     <string name="settings_dynamic_color_desc">Gunakan warna dari wallpaper (Material You)</string>
-    <string name="settings_notifications_desc">Notifikasi saat agent menyelesaikan tugas</string>
+    <string name="settings_notifications_desc">Notifikasi saat turn selesai</string>
     <string name="settings_initial_messages">Pesan awal untuk dimuat</string>
     <string name="settings_confirm_send">Konfirmasi sebelum mengirim</string>
     <string name="settings_confirm_send_desc">Tampilkan dialog konfirmasi sebelum mengirim pesan</string>
@@ -254,7 +254,7 @@
     <string name="settings_keep_screen_on">Jaga layar tetap menyala</string>
     <string name="settings_keep_screen_on_desc">Cegah layar mati saat di chat</string>
     <string name="settings_silent_notifications">Notifikasi senyap</string>
-    <string name="settings_silent_notifications_desc">Matikan suara dan getar untuk notifikasi tugas</string>
+    <string name="settings_silent_notifications_desc">Matikan suara dan getar untuk notifikasi turn</string>
     <string name="settings_notif_test">Kirim notifikasi uji</string>
     <string name="settings_notif_test_desc">Mengirim notifikasi nyata untuk memverifikasi banner dan suara. Jika tidak muncul apa pun, perangkat mungkin membisukan aplikasi (mis. MIUI menonaktifkan notifikasi mengambang secara bawaan) — aktifkan di setelan notifikasi sistem di bawah.</string>
     <string name="settings_notif_system">Setelan notifikasi sistem</string>
@@ -270,10 +270,10 @@
     <!-- Notifications -->
     <string name="notification_channel_connection">Koneksi OpenCode</string>
     <string name="notification_channel_connection_desc">Koneksi persisten ke server OpenCode</string>
-    <string name="notification_channel_tasks">Notifikasi Tugas</string>
-    <string name="notification_channel_tasks_desc">Notifikasi saat tugas OpenCode selesai</string>
-    <string name="notification_channel_tasks_silent">Notifikasi Tugas (Senyap)</string>
-    <string name="notification_channel_tasks_silent_desc">Notifikasi senyap saat tugas OpenCode selesai</string>
+    <string name="notification_channel_tasks">Notifikasi Turn</string>
+    <string name="notification_channel_tasks_desc">Notifikasi saat turn selesai</string>
+    <string name="notification_channel_tasks_silent">Notifikasi Turn (Senyap)</string>
+    <string name="notification_channel_tasks_silent_desc">Notifikasi senyap saat turn selesai</string>
     <string name="notification_channel_permissions">Permintaan Izin</string>
     <string name="notification_channel_permissions_desc">Notifikasi saat OpenCode membutuhkan izin</string>
     <string name="notification_connected">Tersambung ke %1$s</string>
@@ -412,11 +412,11 @@
     <string name="disconnect">Putuskan</string>
     <string name="server_settings_models">Model</string>
     <string name="server_settings_models_desc">Visibilitas dan default model</string>
-    <string name="sessions_create_folder">Buat folder</string>
-    <string name="sessions_create_folder_title">Buat folder</string>
-    <string name="sessions_create_folder_name_label">Nama folder</string>
+    <string name="sessions_create_folder">Buat direktori</string>
+    <string name="sessions_create_folder_title">Buat direktori</string>
+    <string name="sessions_create_folder_name_label">Nama direktori</string>
     <string name="sessions_create_folder_name_placeholder">my-project</string>
-    <string name="sessions_create_folder_invalid_name">Masukkan nama folder yang valid</string>
+    <string name="sessions_create_folder_invalid_name">Masukkan nama direktori yang valid</string>
     <string name="sessions_create_folder_create">Buat</string>
     <string name="sessions_create_folder_failed">Gagal membuat folder</string>
     <string name="sessions_create_folder_success">Dibuat: %1$s</string>
@@ -525,7 +525,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_warning">Peringatan</string>
     <string name="a11y_icon_navigate_forward">Navigasi maju</string>
     <string name="a11y_locate_task">Lokasikan tugas asal</string>
-    <string name="chat_locate_task_not_found">Tugas asal tidak ditemukan di percakapan ini</string>
+    <string name="chat_locate_task_not_found">Tugas asal tidak ditemukan di sesi ini</string>
     <string name="a11y_icon_add">Tambah</string>
     <string name="a11y_icon_share">Bagikan</string>
     <string name="a11y_icon_unlink">Lepas tautan</string>
@@ -602,8 +602,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_chat_font">Font obrolan</string>
     <string name="settings_chat_font_normal">Normal</string>
     <string name="settings_chat_font_compact">Ringkas</string>
-    <string name="settings_turn_dividers">Pembagi giliran</string>
-    <string name="settings_turn_dividers_desc">Tampilkan pembatas antara pesan dalam giliran yang sama</string>
+    <string name="settings_turn_dividers">Pembagi turn</string>
+    <string name="settings_turn_dividers_desc">Tampilkan pembatas antara pesan dalam turn yang sama</string>
     <string name="viewer_loading_progress">Memuat: %1$d / %2$d baris</string>
     <string name="viewer_large_file_warning">Berkas besar (%1$d baris) — kinerja mungkin terpengaruh</string>
     <string name="workspace_search_hint">Ketik untuk mencari berkas</string>
@@ -700,11 +700,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_done">Selesai</string>
     <string name="shell_status_failed">Gagal</string>
     <string name="task_toolbar_action">Pindahkan tugas ke latar belakang</string>
-    <string name="task_toolbar_subagents">%1$d sub-agent berjalan di latar depan</string>
+    <string name="task_toolbar_subagents">%1$d subagen berjalan di latar depan</string>
     <string name="a11y_icon_tasks">Aktivitas tugas</string>
-    <string name="task_sheet_subagents_tab">Sub-agent</string>
+    <string name="task_sheet_subagents_tab">Subagen</string>
     <string name="task_sheet_shells_tab">Shell</string>
-    <string name="task_sheet_empty_subagents">Tidak ada sub-agent yang berjalan</string>
+    <string name="task_sheet_empty_subagents">Tidak ada subagen yang berjalan</string>
     <string name="task_sheet_empty_shells">Tidak ada perintah shell</string>
     <string name="task_sheet_title">Tugas</string>
     <!-- 2026-08-13：任务面板前台/后台标记 -->

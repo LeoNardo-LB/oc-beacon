@@ -69,7 +69,7 @@ class QuestionEventHandler @Inject constructor() : SseEventHandler {
     /**
      * 用 REST /question 轮询数据合并补全（2026-08-14 修复：V1 SSE 的
      * question.asked 事件可能不含 tool 字段 → QuestionAsked.tool 为 null →
-     * 提问卡片无法嵌入触发消息气泡（回退独立卡片）。REST 响应含
+     * 提问卡片无法嵌入触发消息气泡（降级为独立卡片）。REST 响应含
      * tool.messageID，轮询时按 id 合并补全。
      * 语义：REST 有而 SSE 无的条目 → 添加；SSE 已有但 tool 为空且 REST 带 tool
      * → 补全 tool；其余保留 SSE 数据（含 sourceSessionTitle 等瞬态字段）。
@@ -110,20 +110,20 @@ class QuestionEventHandler @Inject constructor() : SseEventHandler {
     }
 
     /**
-     * 获取某会话的所有待处理问题，包括来自子会话的问题。
-     * 这使父会话 UI 能显示子代理的问题请求。
-     * 子会话问题用 [SseEvent.QuestionAsked.sourceSessionTitle] 标注。
+     * 获取某会话的所有待处理问题，包括来自子智能体会话的问题。
+     * 这使父会话 UI 能显示子智能体的问题请求。
+     * 子智能体会话问题用 [SseEvent.QuestionAsked.sourceSessionTitle] 标注。
      */
     fun getQuestionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.QuestionAsked> {
         val currentQuestions = _questions.value[sessionId] ?: emptyList()
 
-        // 查找子会话（parentId == sessionId 的会话）
+        // 查找子智能体会话（parentId == sessionId 的会话）
         val childSessionIds = sessions
             .filter { it.parentId == sessionId }
             .map { it.id }
             .toSet()
 
-        // 聚合所有子会话的问题，并用来源标题标注
+        // 聚合所有子智能体会话的问题，并用来源标题标注
         val childQuestions = _questions.value
             .filterKeys { it in childSessionIds }
             .entries

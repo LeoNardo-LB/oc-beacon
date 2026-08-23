@@ -110,8 +110,8 @@ internal fun PartContent(
                 val partEnded = part.time?.end != null
                 val isLastPartOfStreamingMsg = sessionStreaming && !partEnded
                 val isStreaming = !partEnded || isLastPartOfStreamingMsg
-                // start 回退链：part.time.start（>0）→ 0（ReasoningBlock 内部
-                // fallback 到组合时刻——重进场景即"从进入时刻续计"，正确语义：
+                // start 降级链：part.time.start（>0）→ 0（ReasoningBlock 内部
+                // 降级到组合时刻——重进场景即"从进入时刻续计"，正确语义：
                 // 服务器侧真实起点不可知（V2 reasoning.started 无服务器时间戳，
                 // 本地时刻在退出时丢失），续计优于冻结）。
                 val startTimeMs = part.time?.start?.takeIf { it > 0 }
@@ -262,7 +262,7 @@ internal fun PartContent(
                 if (resolved != null) {
                     resolved()
                 } else {
-                    // 回退到通用 ToolCallCard
+                    // 降级到通用 ToolCallCard
                     ToolCallCard(
                         tool = part,
                         isExpanded = expanded,

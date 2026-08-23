@@ -440,7 +440,7 @@ class MessageEventHandlerTest {
         assertTrue((handler.parts.value["m1"]!![0] as Part.Tool).state is ToolState.Running)
     }
 
-    // ============ markSessionIdle（REST 回退：强制完成流式输出）============
+    // ============ markSessionIdle（REST 降级：强制完成流式输出）============
 
     @Test
     fun `markSessionIdle sets time_end on incomplete Text and Reasoning parts`() {

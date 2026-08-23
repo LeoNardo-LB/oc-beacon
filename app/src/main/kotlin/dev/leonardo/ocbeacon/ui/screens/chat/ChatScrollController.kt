@@ -24,7 +24,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 private const val TAG = "ChatScrollController"
 
 /**
- * 滚动状态集群 —— 从 ChatScreen 抽取。
+ * 滚动状态簇 —— 从 ChatScreen 抽取。
  *
  * 封装 autoScroll / forceScroll / isAtBottom 三组滚动状态及其 LaunchedEffect，
  * 由 [rememberChatScrollController] 创建并通过本类暴露给 ChatScreen。
