@@ -189,6 +189,15 @@
 **测试基建教训（写入 journal 供复用）**：reverseLayout 列表往上翻是**下滑**手势；uiautomator dump 对 FAB/药丸全失明但对自定义 semantics tab 可见；vision 对小圆钮~50% 幻觉率，像素探针+desc 才是硬证据；`input swipe` 慢速拖拽会输给触摸 slop 竞争（快滑 100-150ms 稳定）；MIUI 返回手势区 ~24dp；release 构建 Log.d 可见（R8 不剥离）但 devDebug 签名与装机不兼容（本地 devRelease 用 8fbc136e keystore）。
 
 **维度 5 待用户验收**：滑动手感（跟手度/回弹）/ 拉杆可发现性（4dp 细柄 + 角标）/ 拉杆点按热区（宽区中心偶发不响应——若用户复现可把 clickable 收窄到 handle 或加最小触达）。
+### v3 官方动画接入（2026-08-23，用户观感反馈「动画生硬/吸附悬空」）
+
+**调研（本地 alpha26 源码直查）**：`Modifier.animateFloatingActionButton(visible, alignment)` 就在本仓 M3 1.5.0-alpha26（FloatingActionButton.kt:1121，稳定 API）——官方 FAB 显隐动画：MotionScheme **Fast Spatial spring 向对齐方向缩放** + **Fast Effects spring 渐隐**，alpha=0 时零占位。这正是「收进边缘」的官方语义，替代自调动画。
+
+**悬空根因**：v2 的隐藏锚点是固定 60dp 平移，但菜单容器实测 76dp 宽（探针 size=228px@3.0 density）→ settle 后仍露 16dp。
+
+**v3 架构（手势与动画分工）**：anchoredDraggable 只负责**手势判定**（跟手 0.6 阻尼 + 40% 阈值 + settle）；settle→onHide() 翻转 hidden → 官方修饰符**接手收尾动画**（缩放到边缘消失，无固定距离、无悬空）；恢复反向播放。两 FAB 外层各包一层 `Box(Modifier.animateFloatingActionButton(...))`，align 仍挂最外直接子级。
+
+**真机验证（v3 全过）**：右 FAB 快滑→tab 接替同位（像素 #40484c tab 容器 vs 背景 #0f1417）→ tap 恢复 ✓；左 FAB 同循环 ✓；菜单正常开合 ✓；0 crash。手感质感由 MotionScheme 官方 spring 承担。
 
 ### 提交链（四段）
 
