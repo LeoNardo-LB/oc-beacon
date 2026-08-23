@@ -56,7 +56,7 @@ import androidx.lifecycle.SavedStateHandle
 /**
  * 针对 4 个功能的综合测试：
  * A. QUEUED 徽章 —— queuedMessageIds 计算
- * B. 子会话标识 —— sessionParentId
+ * B. 子智能体会话标识 —— sessionParentId
  * C. 从 tool metadata 中提取 subSessionId 的逻辑
  * D. Part.Agent 的 source 提取逻辑
  * E. 结合多个功能的集成场景
@@ -496,7 +496,7 @@ class ChatViewModelQueuedTest {
     }
 
     // ==========================================
-    // B. 子会话标识 —— sessionParentId
+    // B. 子智能体会话标识 —— sessionParentId
     // ==========================================
 
     @Test
@@ -634,7 +634,7 @@ class ChatViewModelQueuedTest {
 
     @Test
     fun queuedAndParentId_workTogether_inSubSession() = runTest {
-        // 子会话场景：会话有 parentId、待处理 assistant + 排队消息
+        // 子智能体会话场景：会话有 parentId、待处理 assistant + 堆积消息
         val session = createTestSession(parentId = "parent-1")
         coEvery { manageSessionUseCase.getSession(any(), any()) } returns session
         setSession(session)

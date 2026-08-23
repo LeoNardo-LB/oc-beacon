@@ -390,7 +390,7 @@ class ChatViewModelContextTokensTest {
         advanceUntilIdle()
         awaitTrackerValue(48000) { tokenStatsTracker.stats.value.lastContextTokens }
 
-        // 压缩后消息刷新为小快照（摘要消息，时间戳更晚 → lastOrNull 命中）→ 自然回落：500 + 2000 = 2500
+        // 压缩后消息刷新为小快照（压缩消息，时间戳更晚 → lastOrNull 命中）→ 自然回落：500 + 2000 = 2500
         pushMessages(listOf(assistantWithTokens(
             id = "a2", input = 500, output = 50, cacheRead = 2000, created = 5000L
         )))
