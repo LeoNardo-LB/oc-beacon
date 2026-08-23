@@ -1092,7 +1092,12 @@ class V2ApiClient @Inject constructor(
         variant: String? = null,
         parts: List<Map<String, String>>? = null
     ): Boolean {
+        // #200 F03：可选字段非空才进请求体（2026-08-23 实测 V2 beta-17963 接受同字段族）
         val body = mutableMapOf<String, Any>("command" to command, "arguments" to arguments)
+        agent?.let { body["agent"] = it }
+        model?.let { body["model"] = it }
+        variant?.let { body["variant"] = it }
+        parts?.let { body["parts"] = it }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/command") {
             auth(conn)
             directoryHeader(directory)

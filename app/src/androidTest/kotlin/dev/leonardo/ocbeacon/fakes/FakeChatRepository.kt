@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
 
 /**
- * Fake ChatRepository，包含 49 个 override。
+ * Fake ChatRepository，包含 47 个 override（#200 F02 移除工具展开 UI 状态两方法）。
  *
  * 模式：
  * - Flow 方法返回公共的 MutableStateFlow 字段（测试设置 .value）
@@ -53,7 +53,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     // 同步变更的内部后备存储
     private val messagesStore = mutableMapOf<String, MutableList<MessageWithParts>>()
-    private val toolExpandedStates = mutableMapOf<String, Boolean>()
     private val permissionsStore = mutableMapOf<String, MutableList<SseEvent.PermissionAsked>>()
     private val questionsStore = mutableMapOf<String, MutableList<SseEvent.QuestionAsked>>()
     private val revertStore = mutableMapOf<String, String>()
@@ -186,7 +185,11 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         sessionId: String,
         command: String,
         arguments: String,
-        directory: String?
+        directory: String?,
+        agent: String?,
+        model: String?,
+        variant: String?,
+        parts: List<Map<String, String>>?
     ): Result<Boolean> {
         executeCommandCalls.add(mapOf(
             "serverId" to serverId,
@@ -228,14 +231,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     override suspend fun removeShell(serverId: String, shellId: String, directory: String?): Result<Boolean> =
         Result.success(true)
-
-    // ============ UI 状态 ============
-
-    override fun getToolExpandedStates(): Map<String, Boolean> = toolExpandedStates.toMap()
-
-    override fun setToolExpanded(toolId: String, expanded: Boolean) {
-        toolExpandedStates[toolId] = expanded
-    }
 
     // ============ 权限自动批准 ============
 

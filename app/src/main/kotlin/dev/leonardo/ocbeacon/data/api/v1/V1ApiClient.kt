@@ -230,7 +230,12 @@ class V1ApiClient @Inject constructor(
         variant: String? = null,
         parts: List<Map<String, String>>? = null
     ): Boolean {
+        // #200 F03：可选字段非空才进请求体（V1 契约 CommandPayload；空值省略与原行为一致）
         val body = mutableMapOf<String, Any>("command" to command, "arguments" to arguments)
+        agent?.let { body["agent"] = it }
+        model?.let { body["model"] = it }
+        variant?.let { body["variant"] = it }
+        parts?.let { body["parts"] = it }
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/command") {
             auth(conn)
             directoryHeader(directory)

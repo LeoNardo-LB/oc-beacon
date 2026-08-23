@@ -167,13 +167,19 @@ interface ChatRepository {
 
     /**
      * 在会话中执行服务端命令。
+     * 可选 agent/model/variant/parts 按 V1 契约进请求体（model 为
+     * "providerID/modelID" 字符串格式，与 prompt 的对象格式不同）。
      */
     suspend fun executeCommand(
         serverId: String,
         sessionId: String,
         command: String,
         arguments: String = "",
-        directory: String? = null
+        directory: String? = null,
+        agent: String? = null,
+        model: String? = null,
+        variant: String? = null,
+        parts: List<Map<String, String>>? = null
     ): Result<Boolean>
 
     /**
@@ -221,19 +227,6 @@ interface ChatRepository {
      * 终止并删除后台 shell（V2）。
      */
     suspend fun removeShell(serverId: String, shellId: String, directory: String? = null): Result<Boolean>
-
-    // ============ UI 状态 ============
-
-    /**
-     * 获取当前会话工具展开状态的只读映射。
-     * 供 UI 跟踪哪些工具卡片处于展开状态。
-     */
-    fun getToolExpandedStates(): Map<String, Boolean>
-
-    /**
-     * 设置某个工具卡片的展开状态。
-     */
-    fun setToolExpanded(toolId: String, expanded: Boolean)
 
     // ============ 权限自动批准 ============
 

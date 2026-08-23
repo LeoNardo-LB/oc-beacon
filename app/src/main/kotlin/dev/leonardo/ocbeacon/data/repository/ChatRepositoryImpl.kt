@@ -67,14 +67,6 @@ class ChatRepositoryImpl @Inject constructor(
     private val messageStore: MessageCacheRepository,
 ) : ChatRepository {
 
-    /** #90：工具展开状态记忆——LRU 有界（原只增不减无上限；toolId 随工具调用增长长期无界）。
-     *  访问序 LinkedHashMap 淘汰最久未访问条目；synchronized 保持并发安全（原 CHM 语义）。 */
-    private val toolExpandedStates = object : LinkedHashMap<String, Boolean>(32, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>): Boolean =
-            size > TOOL_EXPANDED_CACHE_MAX
-    }
-    private val toolExpandedLock = Any()
-
     // ============ 状态观察 ============
 
     override fun getMessagesFlow(sessionId: String): Flow<List<Message>> = flow {
@@ -314,10 +306,14 @@ class ChatRepositoryImpl @Inject constructor(
         sessionId: String,
         command: String,
         arguments: String,
-        directory: String?
+        directory: String?,
+        agent: String?,
+        model: String?,
+        variant: String?,
+        parts: List<Map<String, String>>?
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.executeCommand(conn, sessionId, command, arguments, directory)
+        sessionApi.executeCommand(conn, sessionId, command, arguments, directory, agent, model, variant, parts)
     }
 
     override suspend fun runShellCommand(
@@ -374,21 +370,9 @@ class ChatRepositoryImpl @Inject constructor(
         shellApi.removeShell(conn, shellId, directory)
     }
 
-    override fun getToolExpandedStates(): Map<String, Boolean> = synchronized(toolExpandedLock) {
-        HashMap(toolExpandedStates)
-    }
-
-    override fun setToolExpanded(toolId: String, expanded: Boolean) {
-        synchronized(toolExpandedLock) {
-            toolExpandedStates[toolId] = expanded
-        }
-    }
-
     // ============ 私有辅助方法 ============
 
     private companion object {
-        /** #90：工具展开状态记忆上限（LRU）。 */
-        const val TOOL_EXPANDED_CACHE_MAX = 1000
     }
 
     private suspend fun resolveConnection(serverId: String): ServerConnection {
