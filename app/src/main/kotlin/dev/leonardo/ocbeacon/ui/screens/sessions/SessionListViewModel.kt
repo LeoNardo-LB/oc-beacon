@@ -67,7 +67,7 @@ import javax.inject.Inject
 class SessionListViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val sessionRepository: SessionRepository,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     private val listSessionsUseCase: ListSessionsUseCase,
     private val listProjectsUseCase: ListProjectsUseCase,
     private val getServerPathsUseCase: GetServerPathsUseCase,
@@ -262,7 +262,7 @@ class SessionListViewModel @Inject constructor(
     private val sessionDataFlow = combine(
         combine(
             sessionRepository.getSessionsFlow(serverId).distinctUntilChanged(),
-            sessionStateService.statusFlow,
+            sessionStateRepository.statusFlow,
             sessionRepository.getServerSessionsFlow().distinctUntilChanged(),
             sessionRepository.getLastUserMessageTimeFlow().distinctUntilChanged(),
             sessionRepository.getLastCompletedReplyTimeFlow().distinctUntilChanged(),
@@ -598,8 +598,8 @@ class SessionListViewModel @Inject constructor(
         }
         // 通过统一的 FSM 管线从服务器同步会话状态
         //（跨项目 worktree 聚合 + 缺失即 idle + 不完整保护）。
-        sessionStateService.setServerId(serverId)
-        sessionStateService.syncFromRest(_projects.value)
+        sessionStateRepository.setServerId(serverId)
+        sessionStateRepository.syncFromRest(_projects.value)
         null
     } catch (e: Exception) {
         if (e is CancellationException) throw e

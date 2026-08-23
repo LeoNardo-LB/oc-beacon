@@ -42,7 +42,7 @@ class EventDispatcher @Inject constructor(
     private val miscHandler: MiscEventHandler,
     private val sessionNextHandler: SessionNextEventHandler,
     private val shellJobsHandler: ShellJobsHandler,
-    private val sessionStateService: SessionStateService,
+    private val sessionStateRepository: SessionStateService,
     private val settingsDataStore: SettingsDataStore,
     private val unreadBadgeService: UnreadBadgeService,
     private val ownershipRegistry: StreamingOwnershipRegistry,
@@ -162,7 +162,7 @@ class EventDispatcher @Inject constructor(
     val serverSessions: StateFlow<Map<String, Set<String>>> get() = sessionHandler.serverSessions
     val sessions: StateFlow<List<Session>> get() = sessionHandler.sessions
     /** [SessionStateService.statusFlow] 的门面——会话状态的单一真相源。 */
-    val sessionStatuses: StateFlow<Map<String, SessionStatus>> get() = sessionStateService.statusFlow
+    val sessionStatuses: StateFlow<Map<String, SessionStatus>> get() = sessionStateRepository.statusFlow
 
     /** 会话 TODO（2026-08-20 面板数据源）：SSE todo.updated 实时 + REST hydrate。 */
     val sessionTodos: StateFlow<Map<String, List<SseEvent.TodoUpdated.Todo>>> get() = miscHandler.todos
@@ -232,7 +232,7 @@ class EventDispatcher @Inject constructor(
      * 在连接恢复处调用。
      */
     fun backfillActiveForServer(serverId: String) {
-        sessionStateService.backfillActiveForServer(serverId)
+        sessionStateRepository.backfillActiveForServer(serverId)
     }
 
     /**
@@ -317,7 +317,7 @@ class EventDispatcher @Inject constructor(
             questionHandler.clearForSession(deletedSessionId)
             miscHandler.clearForSession(deletedSessionId)
             sessionNextHandler.clearForSession(deletedSessionId)
-            sessionStateService.clearSession(deletedSessionId)
+            sessionStateRepository.clearSession(deletedSessionId)
             // 堆积消息级联删除（2026-08-20）：会话没了，队列无意义
             kotlinx.coroutines.runBlocking {
                 runCatching { pendingMessageRepository.deleteForSession(deletedSessionId) }
@@ -382,7 +382,7 @@ class EventDispatcher @Inject constructor(
             // #110（D2-12）：serverId 一并传入——SessionStateService 记录
             // session→server 归属，REST 校验打到正确服务器（原全局
             // currentServerId 单值被后连接服务器覆盖 → L3 误判）。
-            sessionStateService.onSseEvent(event, fsmSessionId, serverId)
+            sessionStateRepository.onSseEvent(event, fsmSessionId, serverId)
         }
     }
 
@@ -540,7 +540,7 @@ class EventDispatcher @Inject constructor(
         questionHandler.clearAll()
         miscHandler.clearAll()
         sessionNextHandler.clearAll()
-        sessionStateService.clearAll()
+        sessionStateRepository.clearAll()
         ownershipRegistry.clearAll()
     }
 
@@ -558,7 +558,7 @@ class EventDispatcher @Inject constructor(
         // 2026-08-14：不清理 permissionHandler/questionHandler——pending
         // permission/question 是服务器状态，退出会话后应保留（列表 Asking 状态
         // 不闪烁）；回答/拒绝由 SSE 事件清理，SessionDeleted/断连时级联清理。
-        // 2026-08-14 再修复：不清理 sessionStateService FSM 状态——busy/streaming
+        // 2026-08-14 再修复：不清理 sessionStateRepository FSM 状态——busy/streaming
         // 同样是服务器状态镜像（execution.started→busy，SSE 事件持续更新）。
         // 退出时清除 → 列表状态先消失再恢复（闪烁）；内存由 24h staleness
         // 自动清扫兜底（STATE_RETENTION_MS，非 Busy 会话超时移除）。

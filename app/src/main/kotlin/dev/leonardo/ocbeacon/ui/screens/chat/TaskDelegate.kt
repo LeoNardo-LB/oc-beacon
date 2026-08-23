@@ -77,7 +77,7 @@ class TaskAggregator(
     scope: CoroutineScope,
     /** 2026-08-16（R3 僵尸自愈）：active 轮询发现 FSM 与服务器状态分歧时触发
      *  L3 校验。可空——测试/旧调用方不传时跳过否定校验（仅派生展示）。 */
-    private val sessionStateService: dev.leonardo.ocbeacon.domain.repository.SessionStateRepository? = null,
+    private val sessionStateRepository: dev.leonardo.ocbeacon.domain.repository.SessionStateRepository? = null,
 ) {
     /** 前台活跃会话 ID（V2 /api/session/active 轮询）——运行中会话的权威来源。
      *  V2 不广播 session.status SSE 事件（V1 才有），FSM 的 statusFlow 无法
@@ -128,7 +128,7 @@ class TaskAggregator(
         // - 正向：active 含但 FSM 非 Busy（连续 2 轮确认）→ L3 恢复 Busy
         // - 反向：FSM Busy 但 active 缺失**且**事件陈旧（≥15s）→ L3 僵尸自愈
         // - 空集直接返回（V1 active 恒空——无信息，防 L3 风暴与 activity 重置）
-        sessionStateService?.reconcileWithActiveSessions(active)
+        sessionStateRepository?.reconcileWithActiveSessions(active)
     }
 
     private var pollingStarted = false

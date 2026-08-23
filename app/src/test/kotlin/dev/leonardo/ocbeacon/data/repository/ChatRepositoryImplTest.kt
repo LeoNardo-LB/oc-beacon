@@ -56,7 +56,7 @@ class ChatRepositoryImplTest {
         questionHandler = QuestionEventHandler()
         val miscHandler = MiscEventHandler()
 
-        val sessionStateService = mockk<SessionStateService>(relaxed = true)
+        val sessionStateRepository = mockk<SessionStateService>(relaxed = true)
         val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
@@ -66,7 +66,7 @@ class ChatRepositoryImplTest {
             miscHandler = miscHandler,
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
@@ -80,7 +80,7 @@ class ChatRepositoryImplTest {
             pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
             pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
-        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
+        every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore)
     }
 

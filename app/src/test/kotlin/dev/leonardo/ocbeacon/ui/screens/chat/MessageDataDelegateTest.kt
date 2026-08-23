@@ -98,7 +98,7 @@ class MessageDataDelegateTest {
         val sessionRepository = mockk<SessionRepository>(relaxed = true).also {
             every { it.getSessionsFlow(any()) } returns flowOf(listOf(testSession()))
         }
-        val sessionStateService = mockk<SessionStateRepository>(relaxed = true).also {
+        val sessionStateRepository = mockk<SessionStateRepository>(relaxed = true).also {
             every { it.statusFlow } returns statusFlow
         }
         return MessageDataDelegate(
@@ -107,7 +107,7 @@ class MessageDataDelegateTest {
             chatRepository = chatRepository,
             messagePaging = messagePaging,
             messageStore = mockk<MessageStore>(relaxed = true),
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             sessionRepository = sessionRepository,
             settingsRepository = mockk(relaxed = true),
             serverId = "srv",

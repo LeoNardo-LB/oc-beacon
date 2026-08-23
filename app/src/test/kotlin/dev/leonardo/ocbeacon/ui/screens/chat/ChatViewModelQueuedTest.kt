@@ -83,7 +83,7 @@ class ChatViewModelQueuedTest {
     private val undoRedoUseCase: UndoRedoUseCase = mockk(relaxed = true)
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
     private val tokenStatsTracker = TokenStatsTracker()
-    private val sessionStateService: SessionStateService = mockk(relaxed = true)
+    private val sessionStateRepository: SessionStateService = mockk(relaxed = true)
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
@@ -115,7 +115,7 @@ class ChatViewModelQueuedTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
@@ -130,8 +130,8 @@ class ChatViewModelQueuedTest {
             pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
             pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
-        every { sessionStateService.statusFlow } returns testStatusFlow
-        every { sessionStateService.activityFlow } returns MutableStateFlow(emptyMap())
+        every { sessionStateRepository.statusFlow } returns testStatusFlow
+        every { sessionStateRepository.activityFlow } returns MutableStateFlow(emptyMap())
 
         mockkStatic(Log::class)
         every { Log.d(any(), any()) } returns 0
@@ -307,7 +307,7 @@ class ChatViewModelQueuedTest {
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
 
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),

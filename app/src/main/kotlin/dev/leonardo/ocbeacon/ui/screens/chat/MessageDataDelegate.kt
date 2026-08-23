@@ -73,7 +73,7 @@ internal class MessageDataDelegate(
     private val chatRepository: ChatRepository,
     private val messagePaging: MessagePaginationUseCase,
     private val messageStore: MessageStore,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     private val sessionRepository: SessionRepository,
     private val settingsRepository: SettingsRepository,
     private val serverId: String,
@@ -149,7 +149,7 @@ internal class MessageDataDelegate(
             paginationDelegate.isLoadingOlder,
             paginationDelegate.autoLoadPaused,
             _toolExpandedStates,
-            sessionStateService.statusFlow,
+            sessionStateRepository.statusFlow,
             chatRepository.getActiveToolProgressForSession(sid),
         ) { args ->
          try {
@@ -520,7 +520,7 @@ internal class MessageDataDelegate(
         val hasIncomplete = messages.any { it is Message.Assistant && it.time.completed == null }
         if (hasIncomplete) {
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "Fixing incomplete messages for session $sid (REST validation)")
-            sessionStateService.requestValidation(sid)
+            sessionStateRepository.requestValidation(sid)
         }
     }
 

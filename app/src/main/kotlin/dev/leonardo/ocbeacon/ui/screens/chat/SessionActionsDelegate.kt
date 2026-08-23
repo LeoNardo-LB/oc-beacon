@@ -52,7 +52,7 @@ internal class SessionActionsDelegate(
     private val manageTerminalUseCase: ManageTerminalUseCase,
     private val sessionRepository: SessionRepository,
     private val chatRepository: ChatRepository,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     private val serverId: String,
     private val scope: CoroutineScope,
     private val sessionIdProvider: () -> String,
@@ -115,7 +115,7 @@ internal class SessionActionsDelegate(
         scope.launch {
             if (sessionId.isNotBlank()) {
                 awaitSessionLoaded()
-                sessionStateService.requestValidation(sessionId)
+                sessionStateRepository.requestValidation(sessionId)
             }
         }
     }
@@ -132,12 +132,12 @@ internal class SessionActionsDelegate(
         refreshMessages()
         if (sessionId.isNotBlank()) {
             awaitSessionLoaded()
-            sessionStateService.requestValidation(sessionId)
+            sessionStateRepository.requestValidation(sessionId)
             // 2026-08-16 根治（回复不可见）：ON_RESUME 无条件 cursor 增量补漏
             //（SSE_PRIORITY）——覆盖 L3 在服务器仍 Busy 时跳过刷新的缺口：
             // 后台冻结断连窗口丢失的回复事件，在服务器 running（含 V2 僵尸
             // drain）期间此前无任何补漏触发点，回复不可见直到用户退出重进。
-            sessionStateService.backfillMissedMessages(sessionId)
+            sessionStateRepository.backfillMissedMessages(sessionId)
         }
         loadPendingQuestions()
         loadPendingPermissions()
@@ -613,7 +613,7 @@ internal class SessionActionsDelegate(
     suspend fun interruptSession() {
         sessionRepository.interrupt(serverId, sessionId, sessionDirectoryProvider())
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
-        sessionStateService.onClientAbort(sessionId)
+        sessionStateRepository.onClientAbort(sessionId)
     }
 
     // ============ 命令 ============

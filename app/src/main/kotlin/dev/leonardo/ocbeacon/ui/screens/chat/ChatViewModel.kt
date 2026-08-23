@@ -78,7 +78,7 @@ class ChatViewModel @Inject constructor(
     private val messageStore: dev.leonardo.ocbeacon.data.local.MessageStore,
     private val tokenStatsTracker: TokenStatsTracker,
     private val httpClient: HttpClient,
-    private val sessionStateService: SessionStateRepository,
+    private val sessionStateRepository: SessionStateRepository,
     private val sessionFocusHolder: dev.leonardo.ocbeacon.service.SessionFocusHolder,
     private val appNotificationManager: dev.leonardo.ocbeacon.service.AppNotificationManager,
     private val toolSnapshotCache: dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache,
@@ -267,7 +267,7 @@ class ChatViewModel @Inject constructor(
         sessionIdFlow = sessionLifecycle.sessionIdFlow,
         scope = viewModelScope,
         // 2026-08-16（R3 僵尸自愈）：active 轮询发现 FSM 与服务器分歧时触发 L3 校验
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
     )
 
     /** 启动任务轮询（ChatScreen 组合时调用；幂等）。 */
@@ -340,7 +340,7 @@ class ChatViewModel @Inject constructor(
     }
 
     init {
-        sessionStateService.setServerId(serverId)
+        sessionStateRepository.setServerId(serverId)
         // backlog #38: 异步加载服务器配置（Room 毫秒级，但避免主线程 runBlocking 阻塞）。
         // 加载完成后：更新 serverName StateFlow + 回填终端 workspace 连接。
         viewModelScope.launch {
@@ -390,7 +390,7 @@ class ChatViewModel @Inject constructor(
         chatRepository = chatRepository,
         messagePaging = messagePaging,
         messageStore = messageStore,
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
         sessionRepository = sessionRepository,
         settingsRepository = settingsRepository,
         serverId = serverId,
@@ -453,7 +453,7 @@ class ChatViewModel @Inject constructor(
         manageTerminalUseCase = manageTerminalUseCase,
         sessionRepository = sessionRepository,
         chatRepository = chatRepository,
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
         serverId = serverId,
         scope = viewModelScope,
         sessionIdProvider = { sessionLifecycle.sessionId },
@@ -550,7 +550,7 @@ class ChatViewModel @Inject constructor(
     private val stateAggregator = ChatStateAggregator(
         sessionIdFlow = sessionLifecycle.sessionIdFlow,
         sessionRepository = sessionRepository,
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
         tokenStatsTracker = tokenStatsTracker,
         messageListState = messageListState,
         interactionState = interactionState,
@@ -805,7 +805,7 @@ class ChatViewModel @Inject constructor(
         manageSessionUseCase = manageSessionUseCase,
         chatRepository = chatRepository,
         sessionRepository = sessionRepository,
-        sessionStateService = sessionStateService,
+        sessionStateRepository = sessionStateRepository,
         sendStateStore = messageData.sendStateStore,
         scope = viewModelScope,
         serverId = serverId,
@@ -847,7 +847,7 @@ class ChatViewModel @Inject constructor(
     fun interruptSession() {
         // RS-006 修复：在更新 FSM 之前取消 SSE job。
         messageData.cancelSseJob()
-        sessionStateService.onClientAbort(sessionId)
+        sessionStateRepository.onClientAbort(sessionId)
         viewModelScope.launch {
             try {
                 sessionActions.interruptSession()
@@ -900,7 +900,7 @@ class ChatViewModel @Inject constructor(
     fun revertMessage(messageId: String, revertedText: String? = null, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                val currentStatus = sessionStateService.statusFlow.value[sessionId]
+                val currentStatus = sessionStateRepository.statusFlow.value[sessionId]
                 val wasBusy = currentStatus is SessionStatus.Busy || currentStatus is SessionStatus.Retry
 
                 // RS-008 修复：在取消 SSE job 之前设置 revert 过滤器。
@@ -908,7 +908,7 @@ class ChatViewModel @Inject constructor(
 
                 if (wasBusy) {
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "Revert：暂停 busy 会话 $sessionId")
-                    sessionStateService.onClientAbort(sessionId)
+                    sessionStateRepository.onClientAbort(sessionId)
                     messageData.cancelSseJob()
                     runCatching { sessionRepository.interrupt(serverId, sessionId, sessionLifecycle.sessionDirectory) }
                 }

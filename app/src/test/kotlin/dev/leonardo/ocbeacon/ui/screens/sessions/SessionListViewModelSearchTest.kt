@@ -34,7 +34,7 @@ import org.junit.Test
 class SessionListViewModelSearchTest {
 
     private val sessionRepository: SessionRepository = mockk(relaxed = true)
-    private val sessionStateService: SessionStateRepository = mockk(relaxed = true)
+    private val sessionStateRepository: SessionStateRepository = mockk(relaxed = true)
     private val listSessionsUseCase: ListSessionsUseCase = mockk()
     private val listProjectsUseCase: ListProjectsUseCase = mockk()
     private val getServerPathsUseCase: GetServerPathsUseCase = mockk()
@@ -55,7 +55,7 @@ class SessionListViewModelSearchTest {
         every { sessionRepository.getSessionsFlow(any()) } returns emptyFlow()
         every { sessionRepository.getServerSessionsFlow() } returns emptyFlow()
         every { sessionRepository.getLastUserMessageTimeFlow() } returns emptyFlow()
-        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap<String, SessionStatus>())
+        every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap<String, SessionStatus>())
     }
 
     @After
@@ -93,7 +93,7 @@ class SessionListViewModelSearchTest {
         return SessionListViewModel(
             savedStateHandle = savedStateHandle,
             sessionRepository = sessionRepository,
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             listSessionsUseCase = listSessionsUseCase,
             listProjectsUseCase = listProjectsUseCase,
             getServerPathsUseCase = getServerPathsUseCase,

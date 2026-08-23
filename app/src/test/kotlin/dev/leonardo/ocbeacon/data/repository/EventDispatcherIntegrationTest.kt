@@ -34,13 +34,13 @@ class EventDispatcherIntegrationTest {
     // 为何失效，参见 SessionStateServiceTest 的 fixture 注释）。每个测试使用全新的 scope，
     // 以免 init 中的 staleness-guard 协程在测试间泄漏。
     private lateinit var stateServiceScope: TestScope
-    private lateinit var sessionStateService: SessionStateService
+    private lateinit var sessionStateRepository: SessionStateService
 
     @Before
     fun setup() {
         stateServiceScope = TestScope(UnconfinedTestDispatcher())
         val messageStore = MessageEventHandler()
-        sessionStateService = SessionStateService(
+        sessionStateRepository = SessionStateService(
             appScope = stateServiceScope,
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
             collaborator = StubCollaborator(),
@@ -55,7 +55,7 @@ class EventDispatcherIntegrationTest {
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
             unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
@@ -855,6 +855,6 @@ class EventDispatcherIntegrationTest {
     fun `SSE SessionStatus dual-writes to SessionStateService`() = runTest {
         dispatcher.processEvent(SseEvent.SessionStatus(sessionId = "s1", status = SessionStatus.Busy), "svr1")
         stateServiceScope.runCurrent()
-        assertEquals(SessionStatus.Busy, sessionStateService.statusFlow.value["s1"])
+        assertEquals(SessionStatus.Busy, sessionStateRepository.statusFlow.value["s1"])
     }
 }

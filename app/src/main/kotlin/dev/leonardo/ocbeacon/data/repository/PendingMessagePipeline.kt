@@ -56,7 +56,7 @@ class PendingMessagePipeline @Inject constructor(
     private val pendingMessageRepository: PendingMessageRepository,
     // Provider 打破 EventDispatcher → ChatRepositoryImpl → EventDispatcher 循环
     private val sendMessageUseCaseProvider: Provider<SendMessageUseCase>,
-    private val sessionStateService: SessionStateService,
+    private val sessionStateRepository: SessionStateService,
 ) : dev.leonardo.ocbeacon.domain.usecase.PendingMessageDrainController {
     /** 正在发送堆积消息的会话集合（UI「发送中」状态源）。 */
     private val _drainingSessions = MutableStateFlow<Set<String>>(emptySet())
@@ -87,7 +87,7 @@ class PendingMessagePipeline @Inject constructor(
         // POST 失败时的重试节奏会被无关状态变化事件驱动，偏离 spec 的 5s 心跳语义）
         appScope.launch {
             var prev: Map<String, SessionStatus> = emptyMap()
-            sessionStateService.statusFlow.collect { states ->
+            sessionStateRepository.statusFlow.collect { states ->
                 for ((sessionId, status) in states) {
                     if (status is SessionStatus.Idle && prev[sessionId] !is SessionStatus.Idle) {
                         drainIfIdle(sessionId)
@@ -117,18 +117,18 @@ class PendingMessagePipeline @Inject constructor(
      * Busy/无状态/待答/归属未知一律跳过（in-flight 去重在 launchDrain 内）。
      */
     private fun drainIfIdle(sessionId: String) {
-        val status = sessionStateService.statusFlow.value[sessionId]
+        val status = sessionStateRepository.statusFlow.value[sessionId]
         if (status !is SessionStatus.Idle) {
             if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                 AppLogger.d(TAG, "compensation skip (not Idle: " + (status?.let { it::class.simpleName } ?: "no-state") + "): " + sessionId)
             }
             return
         }
-        if (sessionStateService.hasPendingUserInput(sessionId)) {
+        if (sessionStateRepository.hasPendingUserInput(sessionId)) {
             AppLogger.d(TAG, "compensation skip (pending user input): " + sessionId)
             return
         }
-        val serverId = sessionStateService.serverIdFor(sessionId)
+        val serverId = sessionStateRepository.serverIdFor(sessionId)
         if (serverId == null) {
             AppLogger.d(TAG, "compensation skip (no server ownership): " + sessionId)
             return
@@ -159,7 +159,7 @@ class PendingMessagePipeline @Inject constructor(
      * 语义同 [continueNow]——手动放行，不做 Idle 门槛。
      */
     override fun continueFromList(sessionId: String) {
-        val serverId = sessionStateService.serverIdFor(sessionId)
+        val serverId = sessionStateRepository.serverIdFor(sessionId)
         if (serverId == null) {
             AppLogger.w(TAG, "manual continue from list without server ownership, skip: " + sessionId)
             return
@@ -216,7 +216,7 @@ class PendingMessagePipeline @Inject constructor(
                 variant = null,
                 directory = null,
             )
-            sessionStateService.onClientSendParts(sessionId)
+            sessionStateRepository.onClientSendParts(sessionId)
             AppLogger.i(TAG, "queued message sent: " + sessionId + " (" + text.length + " chars)")
             true
         } catch (e: CancellationException) {

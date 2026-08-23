@@ -59,7 +59,7 @@ class ChatViewModelSendTest {
     private val messagePaging: MessagePaginationUseCase = mockk(relaxed = true)
     private val chatRepository: ChatRepository = mockk(relaxed = true)
     private val tokenStatsTracker = TokenStatsTracker()
-    private val sessionStateService: SessionStateService = mockk(relaxed = true)
+    private val sessionStateRepository: SessionStateService = mockk(relaxed = true)
     private val sessionFocusHolder = mockk<SessionFocusHolder>(relaxed = true)
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
@@ -145,7 +145,7 @@ class ChatViewModelSendTest {
             "serverId"   to "test-server",
             "sessionId"  to "test-session"
         ))
-        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap())
+        every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         return ChatViewModel(
             savedStateHandle = savedState,
             sendMessageUseCase = sendMessageUseCase,
@@ -172,7 +172,7 @@ class ChatViewModelSendTest {
             tokenStatsTracker = tokenStatsTracker,
             httpClient = mockk(relaxed = true),
 
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),

@@ -44,7 +44,7 @@ import org.junit.Test
 class SessionListShellStateTest {
 
     private val sessionRepository: SessionRepository = mockk(relaxed = true)
-    private val sessionStateService: SessionStateRepository = mockk(relaxed = true)
+    private val sessionStateRepository: SessionStateRepository = mockk(relaxed = true)
     private val listSessionsUseCase: ListSessionsUseCase = mockk()
     private val listProjectsUseCase: ListProjectsUseCase = mockk()
     private val getServerPathsUseCase: GetServerPathsUseCase = mockk()
@@ -70,7 +70,7 @@ class SessionListShellStateTest {
         every { sessionRepository.getServerSessionsFlow() } returns MutableStateFlow(emptyMap<String, Set<String>>())
         every { sessionRepository.getLastUserMessageTimeFlow() } returns MutableStateFlow(emptyMap<String, Long>())
         every { sessionRepository.getLastCompletedReplyTimeFlow() } returns MutableStateFlow(emptyMap<String, Long>())
-        every { sessionStateService.statusFlow } returns MutableStateFlow(emptyMap<String, SessionStatus>())
+        every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap<String, SessionStatus>())
         every { chatRepository.getAllQuestionsFlow() } returns MutableStateFlow(emptyMap<String, List<SseEvent.QuestionAsked>>())
         every { settingsRepository.sessionTagAssignments(any()) } returns MutableStateFlow(emptyMap<String, List<String>>())
         every { settingsRepository.sessionTags(any()) } returns MutableStateFlow(emptyList<Tag>())
@@ -145,7 +145,7 @@ class SessionListShellStateTest {
         return SessionListViewModel(
             savedStateHandle = savedStateHandle,
             sessionRepository = sessionRepository,
-            sessionStateService = sessionStateService,
+            sessionStateRepository = sessionStateRepository,
             listSessionsUseCase = listSessionsUseCase,
             listProjectsUseCase = listProjectsUseCase,
             getServerPathsUseCase = getServerPathsUseCase,
