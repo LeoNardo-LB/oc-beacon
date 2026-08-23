@@ -60,7 +60,7 @@
 
 
 
-- [ ] **#193 术语统一批次：CONTEXT.md 46 词条落地（注释/文档/UI 文案/标识符 Tier A+B）** `terminology` `docs` `refactor`
+- [ ] **#193 术语统一批次：CONTEXT.md 46 词条落地（注释/文档/UI 文案/标识符 Tier A+B）** `terminology` `docs` `refactor`（实现+九项终验+双轴 review 已完成 2026-08-23，见 [FINAL-REPORT](docs/terminology/FINAL-REPORT.md)——待用户验收后迁 journal）
   - 四轮裁决闭合（API V2 权威源+每术语必有中文）；spec 权威：注释中文化对齐术语表（990 文件台账驱动）+ 失实注释修订 + i18n 全同步（EN 源显示词+14 语言+补缺 288 key）+ Tier A+B 标识符重命名（interruptSession/renameSession/compact 单入口/collapseTools 反转等）+ E2E 英文化 + flavor 统一 + 编号 charter
   - → spec（撰写中）· [ADR-0001](docs/adr/0001-terminology-authority.md) · `docs/journal/2026-08-23-batch.md`
 
