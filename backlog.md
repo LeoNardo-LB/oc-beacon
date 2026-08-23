@@ -66,9 +66,9 @@
 
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
 
-- [ ] **#201 Tier C-1：wire 层 @SerialName 重命名评估（149 字段）** `refactor`
-  - 编译器不保护；需先建 V1/V2 wire 兼容矩阵测试；错一个即协议解析失败
-  - → [`docs/terminology/identifier-rename-assessment.md`](docs/terminology/identifier-rename-assessment.md) Tier C
+- [~] **#201 Tier C-1：wire 层 @SerialName——裁决零改名 + 交付 wire 兼容矩阵** `refactor`
+  - 149 属性名全部已符规范形态（API 原词 camelCase）；改名集为空；WireCompatMatrixTest 9 测试锁全 wire 名（大写 ID 族+snake_case 族+多态回环）
+  - → docs/journal/2026-08-24-tier-c-contract-renames.md
 
 - [ ] **#202 Tier C-2：DataStore PreferencesKey 重命名（50 键）** `refactor`
   - 需迁移代码（unread v2 值域迁移为先例）；错失即用户设置全量丢失

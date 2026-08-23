@@ -29,4 +29,18 @@
 5. 迁移史实证：Migrations.kt 实有 MIGRATION_1_2/2_3/3_4 共 3 对象（评估文档「10 次迁移史」为高估）——零改名则无需新增迁移/迁移测试。
 - 处置：卡片转 [~] 待验证（验收内容=用户认可零改名裁决与证据链）；无代码变更。
 
+## #201 Tier C-1：@SerialName 属性名——裁决**零改名** + 交付 wire 兼容矩阵（待用户验收）
+
+1. **属性名审计（149 个）**：全部符合 CONTEXT.md 总则规范形态——有注解者 API 原词 camelCase（projectId/messageId/callId/shellId…），无注解者属性名=wire 名且本身即 API 原词（text/snapshot/reason…）。定向冲突词干扫描（abort/summarize/category/favorite/folder）在 wire 层仅命中 Part.Abort——API part 类型枚举镜像（与 Retry/Compaction 同款，wire 值豁免），不改。
+2. **改名集为空**：评估文档预判的「属性名改名」在术语权威（CONTEXT.md 总则：域内标识符 camelCase）下无可改目标——现状即目标形态。
+3. **真实交付物 = wire 兼容矩阵**（评估文档明言的保障缺口「无 wire 兼容自动化测试矩阵」）：WireCompatMatrixTest 9 测试——
+   - Session 族 8 个嵌套类 wire 名清单锁定（含 projectID/parentID/workspaceID/messageID/partID/providerID）
+   - Part 全 18 子类 wire 名清单锁定（sessionID/messageID/callID/shellID 全大写族）
+   - SessionNextEvent ID 词汇域锁（正锁 6 个大写形态 + 反锁 6 个 camelCase 漂移形态不得混入）
+   - snake_case 族 5 类锁定（disabled_providers/small_model/default_agent/line_number/absolute_offset/default_branch/tag_name/html_url）
+   - Part 多态回环（9 type 分发到运行时类型 + ID 键 decode→encode 保真）+ F01 缓存推断分支 + /find 真实形状解码
+   - 取证修正 2 处测试假设：type 是输入侧判别字段（输出不含）；ToolState.state 是 status 判别的多态对象非字符串——均为既有设计，非缺陷
+4. 验证：compileDevDebugUnitTestKotlin 绿；WireCompatMatrixTest 9/9；全量 testDevDebugUnitTest --rerun 绿（54s）。
+- 处置：卡片转 [~] 待验证（验收内容=零改名裁决 + 矩阵测试作为长期契约锁）。此后任何人改 wire 名（@SerialName 值或无注解属性名）先红这里。
+
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->
