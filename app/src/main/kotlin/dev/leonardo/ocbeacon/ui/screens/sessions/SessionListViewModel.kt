@@ -92,8 +92,6 @@ class SessionListViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        /** 表示 Windows 盘符选择器根的虚拟路径。 */
-        const val WINDOWS_DRIVES_ROOT = ":///drives"
         /** #100（M-11）：搜索输入防抖间隔。 */
         const val SEARCH_DEBOUNCE_MS = 300L
         /** ChatScreen 在用户发送消息时写入的 SavedStateHandle key；
