@@ -1,6 +1,6 @@
 # Tier C-4（#204）：i18n key 改名 — category 族→tag + abort→interrupt
 
-> 状态：实施中（2026-08-24 开工）。对应 backlog #204 / 冲突 C28（tag/category 分裂全链）+ C 词表 interrupt 定名。
+> 状态：已实施完结（2026-08-24 用户授权代验收官；迁移证据与真机验证见 docs/journal/2026-08-24-tier-c-contract-renames.md）。对应 backlog #204 / 冲突 C28（tag/category 分裂全链）+ C 词表 interrupt 定名。
 > 前置事实（2026-08-24 实测）：全仓 `getIdentifier` 动态资源查找 **0 处** → key 改名 100% 编译器保护（R.string 引用点改漏即编译失败），风险等级从评估文档的「运行时资源缺失崩溃」降为「编译期捕获」。maestro 34 flows 不锁涉改文案（grep 实证零 "Aborted"/"Category" 断言）。
 
 ## 改名映射（C28 定案：key 与文案统一到 tag）

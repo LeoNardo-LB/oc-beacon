@@ -1,7 +1,7 @@
 # tier-c-contract-renames（2026-08-24）
 
-> 状态：进行中
-> 关联：docs/specs/2026-08-24-tier-c4-i18n-key-renames-design.md（#204）· backlog #201–#205
+> 状态：已完结（2026-08-24，用户授权代验收官——认可已推送证据链，主观数值余项授权代验）
+> 关联：docs/archive/specs/2026-08-24-tier-c4-i18n-key-renames-design.md（#204，已归档）· backlog #201–#205（已迁移本文件）
 > 来源：用户指令「把 Tier C 五卡覆盖做了吧」+「技术联动点同时改掉不留技术债」（2026-08-24）
 
 ## 前置：技术联动点收口（commit 5a7a23f1）
@@ -10,7 +10,7 @@
 2. **app_language 键单源**：SettingsDataStore 引入 APP_LANGUAGE_KEY_NAME 常量，DataStore 主存键（LANGUAGE_KEY）与 locale_prefs SP 镜像键（getString×2/putString×3）全部引用之；字面量 "app_language" 全仓仅剩定义点 1 处（grep 实证）。为 #202 键改名扫清双写失联风险。
 - 验证：compileDevDebugKotlin + compileDevDebugUnitTestKotlin 绿（46s）；testDevDebugUnitTest --rerun 全绿（1m1s，含新契约锁 2/2）。
 
-## #204 Tier C-4：i18n key 改名（commit 2d2a960f，spec 见关联）
+## #204 Tier C-4：i18n key 改名（commit 2d2a960f，spec 已归档 archive/specs/）
 
 - **前置降险实证**：全仓 getIdentifier 动态资源查找 0 处 → key 改名 100% 编译器保护；maestro 34 flows 零锁涉改文案（grep "Aborted"/"Category" 仅命中 1 条注释）。
 - 改名 ×15 语言：category→add_tag / assign_category→assign_tag / category_name→tag_name / chat_aborted→chat_interrupted；删 4 死键（no/new/set/no_favorites_in_category，全源集 0 引用）；8 语言译文值同步中断措辞（en Interrupted / zh 已中止→已中断 / de Unterbrochen / es Interrumpido / fr Interrompu / pt-rBR Interrompido / id Dihentikan / tr Yarıda kesildi）；it/ru/uk/pl/ja/ko/ar 已是中断语义不动。
@@ -110,5 +110,26 @@
 → 三证合一：当前 V2 部署上中断不产生 abort part，Part.Abort→R.string.chat_interrupted 路径休眠。验收清单该项改为「安全-by-construction」（编译可解析+15 语言奇偶+消费点唯一且休眠）。真机实弹验证受服务器能力限制不可行——非 app 侧缺口。
 
 **顺带发现（已登记 #206）**：中断的助手消息在 app 内无任何中断标记（只剩 reasoning part）——error.type=aborted 未映射。按纪律只登记不现场实现。
+
+## 完结迁移（2026-08-24，用户授权代验收官）
+
+五卡原文迁移存档（backlog 移出时的最后状态）：
+
+- [x] **#201 Tier C-1：wire 层 @SerialName——裁决零改名 + 交付 wire 兼容矩阵** `refactor`
+  - 149 属性名全部已符规范形态（API 原词 camelCase）；改名集为空；WireCompatMatrixTest 9 测试锁全 wire 名（大写 ID 族+snake_case 族+多态回环）
+
+- [x] **#202 Tier C-2：DataStore 键改名——collapse_tools→auto_expand_tools（TDD 红绿）** `refactor`
+  - 50 键审计仅 1 键命中术语裁决；取证值语义从未反转（纯键名搬家零取反）；迁移幂等+读回退，7/7 迁移测试+197 套件全绿
+
+- [x] **#203 Tier C-3：Room 实体/列重命名（5 实体）——裁决零改名** `refactor`
+  - 术语表已裁 archive_buckets/pending message 为规范名本体（C07 裁决保留现名）；列名审计 21/21 无冲突
+
+- [x] **#204 Tier C-4：i18n key 改名——category 族→tag + chat_aborted→chat_interrupted** `refactor`
+  - ×15 语言 4 改 4 删 + 8 语言译文同步中断措辞；getIdentifier 0 处全程编译器保护；i18n-check 671×14 全过；三源集+单测绿
+
+- [x] **#205 Tier C-5：intent extra/导航参数——裁决零改名** `refactor`
+  - 导航参数 8 常量全 camelCase 已合规；extra 三类分治（系统标准/内部单源常量/#132 外部契约保护）；无术语裁决命中
+
+未迁移：#206（执行中顺带发现的新观察卡，与 Tier C 完结无关，留在 backlog P2）。
 
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->

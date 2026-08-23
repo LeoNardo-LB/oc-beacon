@@ -65,26 +65,8 @@
 ## P2 — 优化与锦上添花
 
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
-
-- [~] **#201 Tier C-1：wire 层 @SerialName——裁决零改名 + 交付 wire 兼容矩阵** `refactor`
-  - 149 属性名全部已符规范形态（API 原词 camelCase）；改名集为空；WireCompatMatrixTest 9 测试锁全 wire 名（大写 ID 族+snake_case 族+多态回环）
-  - → docs/journal/2026-08-24-tier-c-contract-renames.md
-
-- [~] **#202 Tier C-2：DataStore 键改名——collapse_tools→auto_expand_tools（TDD 红绿）** `refactor`
-  - 50 键审计仅 1 键命中术语裁决；取证值语义从未反转（纯键名搬家零取反）；迁移幂等+读回退，7/7 迁移测试+197 套件全绿
-  - → docs/journal/2026-08-24-tier-c-contract-renames.md
-
-- [~] **#203 Tier C-3：Room 实体/列重命名（5 实体）——裁决零改名** `refactor`
-  - 术语表已裁 archive_buckets/pending message 为规范名本体（C07 裁决保留现名）；列名审计 21/21 无冲突；待用户验收零改名裁决
-  - → 同上 Tier C · docs/journal/2026-08-24-tier-c-contract-renames.md
-
-- [~] **#204 Tier C-4：i18n key 改名——category 族→tag + chat_aborted→chat_interrupted** `refactor`
-  - ×15 语言 4 改 4 删 + 8 语言译文同步中断措辞；getIdentifier 0 处全程编译器保护；i18n-check 671×14 全过；三源集+单测绿（待真机渲染）
-  - → docs/journal/2026-08-24-tier-c-contract-renames.md
-
-- [~] **#205 Tier C-5：intent extra/导航参数——裁决零改名** `refactor`
-  - 导航参数 8 常量全 camelCase 已合规；extra 三类分治（系统标准/内部单源常量/#132 外部契约保护）；无术语裁决命中
-  - → docs/journal/2026-08-24-tier-c-contract-renames.md
+>
+> （空）Tier C 五卡 #201–#205 已完结（2026-08-24 用户授权代验收官：实改 #204/#202 + 零改名裁决 #201/#203/#205，自动化全绿+真机证据链）→ `docs/journal/2026-08-24-tier-c-contract-renames.md`
 
 - [ ] **#206 V2 中断消息无中断标记渲染（error.type=aborted 未映射）** `ui` `sse`
   - 服务器中断表示为 finish:error+error.type:"aborted"（无 abort part，历史 0 个）；V2Mappers 不合成 Part.Abort → 中断的助手消息只剩 reasoning、无任何「已中断」提示
