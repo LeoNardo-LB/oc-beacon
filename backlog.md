@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
 
-**编号**：全局递增，不回收。下一编号：**#193**。
+**编号**：全局递增，不回收。下一编号：**#200**。
 
 **优先级定义**：
 
@@ -59,16 +59,42 @@
 
 
 
+- [ ] **#193 术语统一批次：CONTEXT.md 46 词条落地（注释/文档/UI 文案/标识符 Tier A+B）** `terminology` `docs` `refactor`
+  - 四轮裁决闭合（API V2 权威源+每术语必有中文）；spec 权威：注释中文化对齐术语表（990 文件台账驱动）+ 失实注释修订 + i18n 全同步（EN 源显示词+14 语言+补缺 288 key）+ Tier A+B 标识符重命名（interruptSession/renameSession/compact 单入口/collapseTools 反转等）+ E2E 英文化 + flavor 统一 + 编号 charter
+  - → spec（撰写中）· [ADR-0001](docs/adr/0001-terminology-authority.md) · `docs/journal/2026-08-23-batch.md`
 
 ## P2 — 优化与锦上添花
 
 - [ ] **#191 L2 stale 等待态无限循环——pending-input 会话 5s 轮询风暴自适应降频** `session` `perf`
-  - 根因：等待提问/子会话期服务器恒报 busy + zombie guard 跳过 + RestValidation 不刷 lastEventAt → 5s 循环无终止（V1/V2 同构：V1 二进制 + V2 真机双实证；状态本身正确，错在观测节奏，24 WARN/min + 12 REST/min）
+  - 根因：等待提问/子智能体会话期服务器恒报 busy + zombie guard 跳过 + RestValidation 不刷 lastEventAt → 5s 循环无终止（V1/V2 同构：V1 二进制 + V2 真机双实证；状态本身正确，错在观测节奏，24 WARN/min + 12 REST/min）
   - 方案 B 定案：REST 确认等待态打标 waitingConfirmedAt → checkStaleness 60s 窗口内跳过 → SSE 真实事件清标；V1/V2 通吃（打标条件无版本分支），日志/请求降 ~92%
   - → `docs/journal/2026-08-23-issue-cleanup-triage.md`
 
 
   - → `docs/specs/2026-08-23-fab-swipe-hide-design.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
+- [ ] **#194 盘点代码事实包（F01-F14）：非注释级缺陷与死代码** `refactor` `sse`
+  - PartSerializer 缺 permission/question 分支落 Unknown · executeCommand 死参数（V1/V2 同）· 盘符哨兵双定义 · 搜索防抖 300ms 双层串联 · FATAL 级不可过滤 · 日志 $ 转义 ×2 · 前世包名 fixture · 冗余条件等——详见台账代码事实区
+  - → `.scratch/terminology/conflicts-master.md`（F01-F14）· `docs/journal/2026-08-23-batch.md`
+
+- [ ] **#195 Tier C-1：wire 层 @SerialName 重命名评估（149 字段）** `refactor`
+  - 编译器不保护；需先建 V1/V2 wire 兼容矩阵测试；错一个即协议解析失败
+  - → `.scratch/terminology/identifier-rename-assessment.md` Tier C
+
+- [ ] **#196 Tier C-2：DataStore PreferencesKey 重命名（50 键）** `refactor`
+  - 需迁移代码（unread v2 值域迁移为先例）；错失即用户设置全量丢失
+  - → 同上 Tier C
+
+- [ ] **#197 Tier C-3：Room 实体/列重命名（5 实体）** `refactor`
+  - 遵守 MIGRATION_N 纪律（已有 10 次迁移史）；需逐表 migration test
+  - → 同上 Tier C
+
+- [ ] **#198 Tier C-4：i18n key 改名（category 族→tag 等）** `refactor`
+  - R.string 903 引用点 + maestro 34 flows 锁文案联动；CI i18n 检查可兜底
+  - → 同上 Tier C
+
+- [ ] **#199 Tier C-5：intent extra/导航参数改名（22+27 处）** `refactor`
+  - debug intent #132 外部已配置依赖 extra 名；零自动化覆盖，需真机验证（houji）
+  - → 同上 Tier C
 
 ## P3 — 观察与低价值改进
 
