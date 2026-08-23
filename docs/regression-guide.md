@@ -47,7 +47,7 @@
 | 维度 | 内容 | 何时必须 | 通过标准 | 引用 |
 |------|------|----------|----------|------|
 | **D0 编译+静态** | `compileDevDebugKotlin` + 全量单测 + `compileDevDebugAndroidTestKotlin` + `scripts/i18n-check.ps1` | 所有变更 | BUILD SUCCESSFUL / 0 failures / i18n 0 error | verification §维度 1 |
-| **D1 单测分层** | 先受影响模块 `--tests`，再全量 `--rerun`（防 UP-TO-DATE 跳过） | 所有变更 | 0 failures | verification §维度 1、§4a |
+| **R1 单测分层**（旧称 D1） | 先受影响模块 `--tests`，再全量 `--rerun`（防 UP-TO-DATE 跳过） | 所有变更 | 0 failures | verification §V1、§V4a |
 | **D2 模拟器功能走查** | 按本文档 §3 能力域清单执行相关项 | UI/状态/存储/连接任一变更 | §3 表格"预期结果"全部通过 | verification §维度 2b |
 | **D3 性能可观测** | gfxinfo 帧率/janky、logcat 日志量、GC、内存、冷启动 | 性能优化 / 渲染变更 / 完整回归 | **修复前基线对比**：不得退化 | verification §维度 3、§2.1 |
 | **D4 用户人工验收** | 时间性现象（动画/闪烁/滚动稳定性/布局跳动） | UI 变更触及时间性现象 | 用户反馈记录 | verification §维度 5 |
@@ -305,7 +305,7 @@ adb shell dumpsys dropbox --print
 
 ## 6. 快速回归 vs 完整回归
 
-| 场景 | D0 | D1 | D2 | D3 | D4 | 能力域 |
+| 场景 | R0（旧 D0） | R1（旧 D1） | R2（旧 D2） | R3（旧 D3） | R4（旧 D4） | 能力域 |
 |------|----|----|----|----|----|--------|
 | **免回归**（纯 docs/i18n） | i18n-check | — | — | — | — | — |
 | **快速回归**（单文件小修，如 #37） | ✅ | 受影响模块 `--tests` | 受影响能力域 ★ 必测点 | — | 触及时间性时 | 1-2 域 ★ |

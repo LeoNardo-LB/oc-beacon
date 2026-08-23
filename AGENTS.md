@@ -95,7 +95,7 @@ Release keystore 位于 `app/keystore/`（gitignore，仅本地文件与 CI Secr
 
 ### 验证与测试
 
-**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整 4+1 维框架见 [`docs/verification-requirements.md`](docs/verification-requirements.md)——**UI/UX 时间性现象（闪烁/动画/计时/布局跳动）自动化无法覆盖，必须提供人工验证清单（维度 5）并请用户验证后才能声称完成**。
+**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整验证框架（V1-V6，旧称 4+1 维；编号见 [numbering-charter](docs/numbering-charter.md)）见 [`docs/verification-requirements.md`](docs/verification-requirements.md)——**UI/UX 时间性现象（闪烁/动画/计时/布局跳动）自动化无法覆盖，必须提供人工验证清单（V6 用户人工验证）并请用户验证后才能声称完成**。
 
 - 测试栈（JUnit4/MockK/Turbine/coroutines-test、HiltTestRunner、Maestro）与版本以 `app/build.gradle.kts`、`androidTest/`、`maestro/` 为准；`isReturnDefaultValues = true` 的 mock 返回默认值，可能掩盖 bug
 - 环境：opencode server 端口 **4199**，用户名 `opencode`，密码在配置文件 `/persistent/home/leo-tkp/.config/opencode/service.json`（`password` 字段，**不是环境变量**）
