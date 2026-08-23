@@ -66,27 +66,30 @@ internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL }
 internal val FabSlideTopMargin: Dp = 8.dp
 
 /**
- * #194 D1 展开溢出量计算（纯函数，单测覆盖）。
+ * #194 D1 展开溢出量计算（纯函数，单测覆盖）——全稳定量版（无 stagger 竞态）。
  *
- * 几何推导（root 坐标系，容器顶 = nodeBottom − 容器高 − offsetY 反推）：
- * `overflow = nodeBottomInRoot − firstItemTopInRoot − containerHeightPx − offsetYPx`
- * = items 顶缘越过容器顶的量（≤0 = 无溢出）。
- * - `nodeBottomInRoot − firstItemTopInRoot` = 菜单整体（按钮区+items+内边距）纵向占位；
- * - 该占位与 expandShift 无关（nodeBottom/firstItemTop 同随平移，差值稳定），
- *   展开/收起动画中途实测亦成立；offsetY 传**停放位移**（不含 expandShift）。
+ * 几何（M3 FloatingActionButtonMenu 源码证实）：菜单节点 bottom 对齐容器底，
+ * button 钉在节点底 −16dp，items 从节点顶下排。完全展开高
+ * `expandedPx = collapsedPx + menuSpanPx + menuPadPx`：
+ * - collapsedPx = 节点折叠态实测高（button 区）；
+ * - menuSpanPx = item0 顶 ↔ 末 item 底的 **root 坐标差**——items 相对位置在 stagger
+ *   入场动画中不变（M3 布局无条件按最终 y 序放置），任意时刻实测同值，tap 瞬时可算；
+ * - menuPadPx = FabMenuPaddingBottom token（8dp）。
  *
+ * items 顶缘越过容器顶的量 `= expandedPx − containerPx − offsetYPx`（≤0 = 无溢出）。
  * 溢出时整体下移「溢出量 + 顶边距」（「顶到顶部」语义，spec 2026-08-23 D2/Q10）；
- * 空间恰好够（溢出 ≤ 0）时返回 0——items 自然达顶，与溢出路径在临界点几何一致，
- * 无模式跳变。
+ * 空间恰好够时返回 0——items 自然达顶，与溢出路径在临界点几何一致，无模式跳变。
  */
 internal fun computeFabExpandShiftPx(
-    nodeBottomInRoot: Float,
-    firstItemTopInRoot: Float,
-    containerHeightPx: Float,
+    collapsedPx: Float,
+    menuSpanPx: Float,
+    containerPx: Float,
     offsetYPx: Float,
+    menuPadPx: Float,
     topMarginPx: Float,
 ): Float {
-    val overflow = nodeBottomInRoot - firstItemTopInRoot - containerHeightPx - offsetYPx
+    val expandedPx = collapsedPx + menuSpanPx + menuPadPx
+    val overflow = expandedPx - containerPx - offsetYPx
     return if (overflow > 0f) overflow + topMarginPx else 0f
 }
 
@@ -103,9 +106,24 @@ internal class FabEdgeSlideState {
     var containerHeightPx by mutableFloatStateOf(0f)
         private set
 
-    /** 滑动节点（含内边距）在 root 坐标系的底缘——展开溢出计算的锚点。 */
-    var nodeBottomInRoot by mutableFloatStateOf(0f)
+    /** 节点折叠态实测高（layout 时写入；展开溢出计算用，稳定量）。 */
+    var collapsedNodeHeightPx by mutableFloatStateOf(0f)
         private set
+
+    /** 首 item 顶 / 末 item 底（root 坐标）——两者差 = 菜单内容高（stagger 不变量）。 */
+    var firstItemTopInRoot by mutableFloatStateOf(Float.MAX_VALUE)
+        private set
+
+    var lastItemBottomInRoot by mutableFloatStateOf(Float.MIN_VALUE)
+        private set
+
+    /** 菜单内容高（item0 顶 ↔ 末 item 底；两锚点齐备前为 0）。 */
+    val menuSpanPx: Float
+        get() = if (firstItemTopInRoot == Float.MAX_VALUE || lastItemBottomInRoot == Float.MIN_VALUE) {
+            0f
+        } else {
+            (lastItemBottomInRoot - firstItemTopInRoot).coerceAtLeast(0f)
+        }
 
     /** 容器尺寸变化（键盘/分屏）时对存量位移重新收界（D1：防陈值越界）。 */
     fun coerceOffset(maxUpPx: Float) {
@@ -117,8 +135,16 @@ internal class FabEdgeSlideState {
         if (px > 0f) containerHeightPx = px
     }
 
-    internal fun updateNodeBottomInRoot(px: Float) {
-        nodeBottomInRoot = px
+    internal fun updateCollapsedNodeHeight(px: Float) {
+        if (px > 0f) collapsedNodeHeightPx = px
+    }
+
+    internal fun updateFirstItemTopInRoot(px: Float) {
+        firstItemTopInRoot = px
+    }
+
+    internal fun updateLastItemBottomInRoot(px: Float) {
+        lastItemBottomInRoot = px
     }
 
     companion object
@@ -147,21 +173,21 @@ internal fun rememberFabEdgeSlideState(): FabEdgeSlideState =
  */
 private fun Modifier.fabEdgeVerticalSlide(
     state: FabEdgeSlideState,
+    menuCollapsed: () -> Boolean = { true },
     extraShift: () -> Float = { 0f },
     onDragStart: () -> Unit = {},
 ): Modifier = composed {
     val density = LocalDensity.current
     val marginPx = with(density) { FabSlideTopMargin.toPx() }
     this
-        .onGloballyPositioned { coords ->
-            state.updateNodeBottomInRoot(coords.boundsInRoot().bottom)
-        }
         .layout { measurable, constraints ->
             val containerH = constraints.maxHeight.toFloat()
             if (containerH > 0f && containerH != state.containerHeightPx) {
                 state.updateContainerHeight(containerH)
             }
             val placeable = measurable.measure(constraints)
+            // 折叠态节点高 = 稳定量（展开态随 stagger 动画增长，不可作锚点）
+            if (menuCollapsed()) state.updateCollapsedNodeHeight(placeable.height.toFloat())
             val maxUp = containerH - placeable.height - marginPx
             state.coerceOffset(maxUp) // D1：键盘/分屏等容器变化后收界（有界写入，收敛）
             layout(placeable.width, placeable.height) {
@@ -215,10 +241,11 @@ internal fun ChatFabMenu(
     // D2：展开溢出下移分量（临时态）——NaN 目标 = 空闲（无待执行动画）
     var expandShift by remember { mutableFloatStateOf(0f) }
     var shiftTarget by remember { mutableFloatStateOf(Float.NaN) }
-    // Q3：只在点击展开那一瞬间计算一次（首项首次定位实测，防动画中途重复触发）
-    var pendingShiftMeasure by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val marginPx = with(density) { FabSlideTopMargin.toPx() }
+    // FabMenuPaddingBottom token（M3 1.5.0-alpha26 = 8.dp）：完全展开高 = 折叠高 +
+    // menuSpan + 此值（items 列底 padding）——全稳定量，tap 瞬时可算（Q3）
+    val menuPadPx = with(density) { 8.dp.toPx() }
 
     BackHandler(enabled = expanded) { expanded = false }
 
@@ -256,6 +283,7 @@ internal fun ChatFabMenu(
         expanded = expanded,
         modifier = modifier.fabEdgeVerticalSlide(
             state = slideState,
+            menuCollapsed = { !expanded },
             extraShift = { expandShift },
             onDragStart = {
                 if (expanded) {
@@ -273,7 +301,17 @@ internal fun ChatFabMenu(
                 checked = expanded,
                 onCheckedChange = {
                     if (it) {
-                        pendingShiftMeasure = true // 展开瞬间：待首项实测计算溢出量
+                        // Q3：tap 瞬间一次性计算（全稳定量：折叠高/menuSpan/容器高/停放位移
+                        // 均与 stagger 入场动画无关，无竞态）
+                        val target = computeFabExpandShiftPx(
+                            collapsedPx = slideState.collapsedNodeHeightPx,
+                            menuSpanPx = slideState.menuSpanPx,
+                            containerPx = slideState.containerHeightPx,
+                            offsetYPx = slideState.offsetY,
+                            menuPadPx = menuPadPx,
+                            topMarginPx = marginPx,
+                        )
+                        shiftTarget = if (target > 0f) target else Float.NaN
                         expanded = true
                     } else {
                         expanded = false
@@ -326,19 +364,9 @@ internal fun ChatFabMenu(
             label = stringResource(R.string.pending_tab_stacked_plain),
             count = stackedCount,
             onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.STACKED) },
-            // D2 溢出锚点：首项顶缘实测（只在展开瞬间消费一次）
+            // D2 溢出锚点：首 item 顶缘（stagger 不变量——items 相对位置入场动画中不变）
             modifier = Modifier.onGloballyPositioned { coords ->
-                if (pendingShiftMeasure) {
-                    pendingShiftMeasure = false
-                    val target = computeFabExpandShiftPx(
-                        nodeBottomInRoot = slideState.nodeBottomInRoot,
-                        firstItemTopInRoot = coords.boundsInRoot().top,
-                        containerHeightPx = slideState.containerHeightPx,
-                        offsetYPx = slideState.offsetY, // 停放位移（实测坐标不含 expandShift 差值）
-                        topMarginPx = marginPx,
-                    )
-                    if (target > 0f) shiftTarget = target
-                }
+                slideState.updateFirstItemTopInRoot(coords.boundsInRoot().top)
             },
         )
         FabMenuEntry(
@@ -358,6 +386,10 @@ internal fun ChatFabMenu(
             label = stringResource(R.string.toolbar_shell),
             count = shellRunningCount,
             onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.SHELL) },
+            // D2 溢出锚点：末 item 底缘（与首 item 顶缘差 = 菜单内容高）
+            modifier = Modifier.onGloballyPositioned { coords ->
+                slideState.updateLastItemBottomInRoot(coords.boundsInRoot().bottom)
+            },
         )
     }
 }
