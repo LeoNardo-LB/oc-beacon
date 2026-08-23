@@ -30,6 +30,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🟡 SHOULD | [`docs/agents-file-design.md`](docs/agents-file-design.md) | AGENTS.md 维护规范（本文件设计依据） | 新增/修改 AGENTS.md 规则时 |
 | 🟡 SHOULD | [`backlog.md`](backlog.md) | **未决工作项卡片清单**（P0-P3 + Tag + 状态流转 + journal/spec 约定） | 录入新条目前（避免重复）、开始新任务了解待办时 |
 | 🟢 MAY | `docs/journal/` | 批次执行记录与验证证据（完结条目归档处，历史查询） | 回溯某批次修复细节/取证/勘误链时 |
+| 🟢 MAY | [`docs/learning/AGENTS.md`](docs/learning/AGENTS.md) | **个人学习专区**（Kotlin/Android 教程，无业务语义，不承接功能性文档） | 在 docs/learning 下工作、或需确认某文档是否属于业务文档时 |
 | 🟡 SHOULD | [`docs/specs/2026-08-21-error-report-github-design.md`](docs/specs/2026-08-21-error-report-github-design.md) | 错误日志 GitHub 上报设计 spec | 实现错误上报、GitHub 集成前 |
 | 🟡 SHOULD | [`docs/specs/2026-08-21-in-session-audio-feedback-design.md`](docs/specs/2026-08-21-in-session-audio-feedback-design.md) | 会话内提示音设计 spec | 实现提示音、通知抑制、backlog #155 前 |
 | 🟢 MAY | [`docs/architecture-debt.md`](docs/architecture-debt.md) | 已登记技术债务 | 接触相关模块时了解限制 |

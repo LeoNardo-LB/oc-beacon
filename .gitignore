@@ -1,4 +1,4 @@
-﻿# Gradle
+# Gradle
 .gradle/
 build/
 /local.properties
@@ -38,6 +38,9 @@ vcs.xml
 
 # OS
 .DS_Store
+
+# Obsidian editor workspace（个人学习专区实时状态，不入库）
+docs/learning/.obsidian/
 
 # AI tool artifacts
 .superpowers/
