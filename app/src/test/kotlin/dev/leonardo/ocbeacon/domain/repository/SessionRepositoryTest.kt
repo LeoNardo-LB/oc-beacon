@@ -6,9 +6,9 @@ import org.junit.Test
 class SessionRepositoryTest {
 
     @Test
-    fun `interface defines abort, rename, fork, exportSession, getSessionStatusesFlow`() {
+    fun `interface defines interrupt, rename, fork, exportSession, getSessionStatusesFlow`() {
         val methods = SessionRepository::class.java.declaredMethods.map { it.name }
-        assertTrue("abort missing", methods.any { it.startsWith("abort") })
+        assertTrue("interrupt missing", methods.any { it.startsWith("interrupt") })
         assertTrue("rename missing", methods.any { it.startsWith("rename") })
         assertTrue("fork missing", methods.any { it.startsWith("fork") })
         assertTrue("exportSessionToStream missing", methods.any { it.startsWith("exportSessionToStream") })
