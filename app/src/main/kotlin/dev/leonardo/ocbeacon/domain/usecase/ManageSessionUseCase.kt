@@ -6,7 +6,7 @@ import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import javax.inject.Inject
 
 /**
- * Use Case：管理会话生命周期（加载、刷新、创建、分叉、重命名）。
+ * Use Case：管理会话生命周期（加载、刷新、创建、分叉、重命名、中断、删除消息/内容块、归档/取消归档、导入）。
  * 委托给 SessionRepository。
  */
 class ManageSessionUseCase @Inject constructor(

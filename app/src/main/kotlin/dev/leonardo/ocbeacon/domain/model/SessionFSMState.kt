@@ -24,7 +24,7 @@ sealed class SessionActivity {
 /**
  * 单个会话的完整 FSM 状态。
  *
- * @param core 第 1 层状态 —— 镜像服务器的 SessionStatus（Idle/Busy/Retry）
+ * @param core 第 1 层状态 —— 镜像服务器状态 + 客户端合成 Asking（列表层；Idle/Busy/Retry）
  * @param activity 第 2 层 activity 详情（仅当 core 为 Busy 时非空）
  * @param lastEventAt 最近一次收到 SSE 事件的时间戳（用于 L2 陈旧检测）
  * @param lastCoreTransitionAt 最近一次 Core 状态变更的时间戳

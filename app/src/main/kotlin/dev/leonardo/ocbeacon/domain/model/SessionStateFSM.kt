@@ -4,7 +4,7 @@ package dev.leonardo.ocbeacon.domain.model
  * 会话状态的纯函数有限状态机。
  *
  * 两层架构：
- * - 第 1 层（Core）：Idle / Busy / Retry —— 镜像服务器的 SessionStatus
+ * - 第 1 层（Core）：Idle / Busy / Retry —— 镜像服务器状态 + 客户端合成 Asking（列表层）
  * - 第 2 层（Activity）：Waiting / Streaming / ToolCalling / Compacting —— 派生详情
  *
  * 无状态性：此对象不持有任何可变状态。所有状态都保存在

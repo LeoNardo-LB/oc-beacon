@@ -22,8 +22,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * 聊天操作的 Repository 接口。
- * 与 spec §4.1.1 对齐。
- * 由 Data 层在 Phase 3 实现。
+ * 实现归属：由 data 层实现（domain 层仅声明契约）。
  */
 interface ChatRepository {
 
@@ -31,7 +30,7 @@ interface ChatRepository {
 
     /**
      * 观察某个会话的消息列表（含 parts）。
-     * Phase 3 实现：委托给 EventDispatcher.messages，并映射为领域 Message。
+     * 实现：委托给 EventDispatcher.messages，并映射为领域 Message（data 层装配）。
      */
     fun getMessagesFlow(sessionId: String): Flow<List<Message>>
 

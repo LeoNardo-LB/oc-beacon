@@ -3,7 +3,7 @@ package dev.leonardo.ocbeacon.domain.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
-// 注：保留 JsonElement 导入以保持向后兼容；V2 metadata 使用 Map<String, String>
+// 注：JsonElement 已无类型引用（metadata 均为 Map<String, String>）——import 未使用，待清理（#194）
 
 /**
  * SSE 事件 —— 来自 Server-Sent Events 流的事件。

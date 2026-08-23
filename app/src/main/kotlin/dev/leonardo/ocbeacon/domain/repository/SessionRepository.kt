@@ -10,8 +10,7 @@ import java.io.OutputStream
 
 /**
  * 会话管理的 Repository 接口。
- * 与 spec §4.1.1 对齐。
- * 由 Data 层在 Phase 3 实现。
+ * 实现归属：由 data 层实现（domain 层仅声明契约）。
  */
 interface SessionRepository {
 
@@ -19,7 +18,7 @@ interface SessionRepository {
 
     /**
      * 观察某个服务器连接的会话列表。
-     * Phase 3 实现：委托给按 serverId 过滤的 EventDispatcher.sessions。
+     * 实现：委托给按 serverId 过滤的 EventDispatcher.sessions（data 层装配）。
      */
     fun getSessionsFlow(serverId: String): Flow<List<Session>>
 
