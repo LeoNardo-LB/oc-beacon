@@ -46,7 +46,7 @@ interface SessionApi {
         fields: Map<String, Any>
     ): Session
 
-    suspend fun abortSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean
+    suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean
 
     suspend fun getSessionDiff(conn: ServerConnection, sessionId: String): List<FileDiff>
 
@@ -150,9 +150,9 @@ class SessionApiImpl @Inject constructor(
         if (conn.apiVersion.isV2) v2.updateSessionFields(conn, sessionId, fields)
         else v1.updateSessionFields(conn, sessionId, fields)
 
-    override suspend fun abortSession(conn: ServerConnection, sessionId: String, directory: String?): Boolean =
+    override suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String?): Boolean =
         if (conn.apiVersion.isV2) v2.interruptSession(conn, sessionId, directory)
-        else v1.abortSession(conn, sessionId, directory)
+        else v1.interruptSession(conn, sessionId, directory)
 
     override suspend fun getSessionDiff(conn: ServerConnection, sessionId: String): List<FileDiff> =
         if (conn.apiVersion.isV2) v2.getSessionDiff(conn, sessionId) else v1.getSessionDiff(conn, sessionId)

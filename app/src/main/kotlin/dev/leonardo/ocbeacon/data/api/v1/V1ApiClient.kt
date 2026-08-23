@@ -146,7 +146,7 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun abortSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean {
+    suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/abort") {
             auth(conn)
             directoryHeader(directory)

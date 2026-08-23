@@ -844,13 +844,13 @@ class ChatViewModel @Inject constructor(
      * 将 REST abort + markIdle 委托给 [sessionActions]，然后处理
      * SSE job 的取消/重启（B↔C↔G 编排）。
      */
-    fun abortSession() {
+    fun interruptSession() {
         // RS-006 修复：在更新 FSM 之前取消 SSE job。
         messageData.cancelSseJob()
         sessionStateService.onClientAbort(sessionId)
         viewModelScope.launch {
             try {
-                sessionActions.abortSession()
+                sessionActions.interruptSession()
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
                 runCatching { messageData.startObservingMessages() }
             } catch (e: Exception) {
@@ -910,7 +910,7 @@ class ChatViewModel @Inject constructor(
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "Revert：暂停 busy 会话 $sessionId")
                     sessionStateService.onClientAbort(sessionId)
                     messageData.cancelSseJob()
-                    runCatching { sessionRepository.abort(serverId, sessionId, sessionLifecycle.sessionDirectory) }
+                    runCatching { sessionRepository.interrupt(serverId, sessionId, sessionLifecycle.sessionDirectory) }
                 }
 
                 undoRedoUseCase.revertSession(serverId, sessionId, messageId)

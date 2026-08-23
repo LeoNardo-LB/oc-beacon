@@ -88,7 +88,7 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
     var listMessagesResult: Result<MessagePage> = Result.success(MessagePage(emptyList(), null))
     var fetchStatusesResult: Result<Map<String, SessionStatus>> = Result.success(emptyMap())
 
-    val abortCalls = mutableListOf<Pair<String, String>>()
+    val interruptCalls = mutableListOf<Pair<String, String>>()
     val renameCalls = mutableListOf<Triple<String, String, String>>()
     val createdSessions = mutableListOf<Pair<String, CreateSessionOpts>>()
 
@@ -122,8 +122,8 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
 
     // ============ 会话生命周期 ============
 
-    override suspend fun abort(serverId: String, sessionId: String, directory: String?): Result<Unit> {
-        abortCalls.add(serverId to sessionId)
+    override suspend fun interrupt(serverId: String, sessionId: String, directory: String?): Result<Unit> {
+        interruptCalls.add(serverId to sessionId)
         return abortResult
     }
 

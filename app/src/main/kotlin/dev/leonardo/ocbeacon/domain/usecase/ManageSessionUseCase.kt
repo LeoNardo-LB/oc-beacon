@@ -30,8 +30,8 @@ class ManageSessionUseCase @Inject constructor(
         sessionRepository.rename(serverId, sessionId, title).getOrThrow()
     }
 
-    suspend fun abortSession(serverId: String, sessionId: String, directory: String?) {
-        sessionRepository.abort(serverId, sessionId, directory).getOrThrow()
+    suspend fun interruptSession(serverId: String, sessionId: String, directory: String?) {
+        sessionRepository.interrupt(serverId, sessionId, directory).getOrThrow()
     }
 
     suspend fun deleteMessage(serverId: String, sessionId: String, messageId: String): Boolean =

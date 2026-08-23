@@ -549,7 +549,7 @@ class SessionStateService @Inject constructor(
                                     // POST /prompt 虽 200+admitted，但僵尸 runner 永不消费 inbox → 无执行事件 →
                                     // 消息永远无回复 + UI 转圈。实测（V2 next-17403）：POST interrupt 返回 204 且
                                     // /active 中该会话从 running 消失 = 服务器僵尸被解除。interrupt 幂等安全（idle
-                                    // 会话调用无副作用；V1 abortSession / V2 interruptSession 已按 apiVersion 分流）。
+                                    // 会话调用无副作用；V1 interruptSession / V2 interruptSession 已按 apiVersion 分流）。
                                     AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
                                     interruptZombieRunner(sid, sessionId, directory)
                                 }

@@ -81,7 +81,7 @@ interface SessionRepository {
     /**
      * 中止运行中的会话。
      */
-    suspend fun abort(serverId: String, sessionId: String, directory: String?): Result<Unit>
+    suspend fun interrupt(serverId: String, sessionId: String, directory: String?): Result<Unit>
 
     /**
      * 重命名会话。

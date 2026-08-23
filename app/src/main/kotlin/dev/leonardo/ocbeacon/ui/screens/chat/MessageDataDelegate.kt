@@ -57,7 +57,7 @@ internal fun resolvePendingQuestionReplacement(
  * 迁移而来，不可拆分。
  *
  * **SSE 观察器管理**通过 [cancelSseJob] / [startObservingMessages] 暴露，
- * 因为 [ChatViewModel.abortSession] / [revertMessage] 需要暂停和重启
+ * 因为 [ChatViewModel.interruptSession] / [revertMessage] 需要暂停和重启
  * SSE 观察器，同时将其余协调逻辑保留在 ViewModel 中。
  *
  * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的运行时
@@ -326,7 +326,7 @@ internal class MessageDataDelegate(
      * 观察消息快照 —— 由 [messageListState] 投影（#44：消除独立的
      * `getMessagesFlow + getParts` 双订阅 combine，每个 SSE 事件只扫描一次）。
      *
-     * 生命周期（cancel/restart）保留：abortSession / revertMessage 需要暂停
+     * 生命周期（cancel/restart）保留：interruptSession / revertMessage 需要暂停
      * 快照更新（RS-006/RS-008 历史竞态修复），与 UI 主列表（messageListState）
      * 的持续更新解耦。
      */

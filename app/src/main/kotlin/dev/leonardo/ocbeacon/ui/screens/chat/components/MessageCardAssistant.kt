@@ -109,7 +109,7 @@ internal fun MessageCardAssistant(
     // 优先取后台预解析结果（Parsed state → Markdown(state) 直接渲染，首测即
     // 最终高度）。根因（ScrollDiag 取证）：异步解析使初次组合仅测得占位高度
     // （412px），解析完成后长回复暴涨（+16334px）→ LazyColumn 锚点修正 →
-    // fling 中视口瞬移。驱动端见 ChatMessageList 滚动预解析 driver。
+    // fling 中视口瞬移。驱动端为渲染供给协调器（RenderSupplyCoordinator）。
     val readinessRegistry = LocalRenderReadiness.current
     // turn 级流式判定：turn 内任一消息仍在流式即视为流式（多消息 turn 的
     // 代表消息是 oldest 可能已完成，仅看自身会漏判 → 统计栏延迟出现）。
@@ -252,7 +252,9 @@ internal fun MessageCardAssistant(
                         }
                     }
                     is RenderItem.SyntheticNotice -> {
-                        // synthetic 系统通知卡片（后台任务完成）——嵌入气泡内渲染
+                        // 合成通知卡片（轮次完成）。「嵌入气泡」为 2026-08-11 旧方案：
+                        // 现合成通知独立成泡（turn 分组不并入 assistant turn，见
+                        // computeTurnGroups），本渲染项已无生产者——防御保留。
                         key(item.msgId) {
                             SyntheticNotificationCard(
                                 currentMessage = item.message,
@@ -297,7 +299,7 @@ internal fun MessageCardAssistant(
                                     onViewSubSession = onViewSubSession,
                                     onOpenFile = onOpenFile,
                                     preParsedState = preParsedAssistantState,
-                                    // 2026-08-22：非流式 fallback 异步解析（流式 turn 走库
+                                    // 2026-08-22：非流式降级异步解析（流式 turn 走库
                                     // rememberMarkdownState 增量路径——SSE 铁律不动）
                                     asyncParse = !isStreaming,
                                     turnAgentName = if (item.group.part is Part.Tool && item.group.part.tool == "task") {
@@ -594,7 +596,7 @@ private fun ChunkAssistantItems(
                         onViewSubSession = onViewSubSession,
                         onOpenFile = onOpenFile,
                         preParsedState = preParsed,
-                        // 分片 turn 恒非流式（流式 turn 不分片）——fallback 异步解析
+                        // 分片 turn 恒非流式（流式 turn 不分片）——降级异步解析
                         asyncParse = true,
                         turnAgentName = if (part is Part.Tool && part.tool == "task") renderableTurn.taskAgentName else null,
                     )

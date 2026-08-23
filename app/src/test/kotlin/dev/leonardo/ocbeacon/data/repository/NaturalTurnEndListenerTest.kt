@@ -98,7 +98,7 @@ class NaturalTurnEndListenerTest {
 
         service.onClientSendParts("s1")
         service.onClientAbort("s1")
-        // 服务器随后补发的 idle（abortSession 先 cancelSseJob，但兜底场景仍可能到达）
+        // 服务器随后补发的 idle（interruptSession 先 cancelSseJob，但兜底场景仍可能到达）
         service.onSseEvent(SseEvent.SessionIdle("s1"), "s1", "srv1")
 
         assertTrue(fired.isEmpty())
