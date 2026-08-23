@@ -129,7 +129,8 @@ private fun SwipeHideFabContainer(
         snapshotFlow { widthPx }.collect { w ->
             if (!w.isNaN()) {
                 val d = (w - insetPx - peekPx) * dragSign
-                if (abs(d - dockPx) > 0.5f) {
+                // 守卫必须显式放行首次赋值：dockPx 初始 NaN，NaN 参与比较恒 false
+                if (dockPx.isNaN() || abs(d - dockPx) > 0.5f) {
                     dockPx = d
                     state.updateAnchors(
                         DraggableAnchors {
