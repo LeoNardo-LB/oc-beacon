@@ -32,11 +32,11 @@ private const val TAG = "SessionActionsDelegate"
  * 这些方法不持有私有 [kotlinx.coroutines.flow.StateFlow] —— 它们通过注入的
  * provider/回调读取其他 delegate 的状态，并委托给 UseCase/Repository。
  * 跨 delegate 协调器（[ChatViewModel.sendParts]、[ChatViewModel.revertMessage]、
- * [ChatViewModel.abortSession]）留在 [ChatViewModel] 中，因为它们写入多个
+ * [ChatViewModel.interruptSession]）留在 [ChatViewModel] 中，因为它们写入多个
  * delegate 的私有状态并编排复杂流程（发送 → 观察 → 错误 →
  * 恢复草稿，暂停 → revert → 重连 SSE）。
  *
- * [abortSession] 的 REST 部分（abort + markIdle）在此处；[ChatViewModel] 调用它
+ * [interruptSession] 的 REST 部分（abort + markIdle）在此处；[ChatViewModel] 调用它
  * 然后处理 SSE job 的取消/重启。
  *
  * 注意：刻意不用 `@Singleton`/`@Inject`。它持有每个 ChatViewModel 的运行时
@@ -158,8 +158,8 @@ internal class SessionActionsDelegate(
             try {
                 val success = managePermissionUseCase.replyToPermission(
                     serverId = serverId,
-                    // 2026-08-17：V2 reply 路由需要权限所属会话（子会话权限必须
-                    // 传子会话 id，父会话 404）。缺省回退当前会话（V1 与同会话场景）。
+                    // 2026-08-17：V2 reply 路由需要权限所属会话（子智能体会话权限必须
+                    // 传子智能体会话 id，父会话 404）。缺省降级为当前会话（V1 与同会话场景）。
                     sessionId = sessionId ?: sessionIdProvider(),
                     requestId = requestId,
                     reply = reply,
@@ -353,7 +353,7 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** 压缩（摘要）当前会话。 */
+    /** 压缩当前会话。 */
     fun compactSession(onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -368,7 +368,7 @@ internal class SessionActionsDelegate(
                 // 2026-08-16（压缩气泡·V2 适配）：本地置「压缩进行中」——V1 服务器
                 // 随后发 compaction.started 三件套（幂等覆盖）；V2 只有单个
                 // session.compacted 完成事件，本地置态是进行中气泡唯一驱动。
-                // HTTP 挂起期间（服务器跑 LLM 摘要可达数十秒）界面不再静止。
+                // HTTP 挂起期间（服务器跑 LLM 压缩可达数十秒）界面不再静止。
                 compactionNotifier(sessionId, true, "")
                 try {
                     shareExportUseCase.compactSession(serverId, sessionId, providerId, modelId)
@@ -461,7 +461,7 @@ internal class SessionActionsDelegate(
 
     /** 撤销会话中最后一条用户消息，将其文本恢复到输入框。
      *  2026-08-15（research/10 P0）：消息列表为升序（MessageDataDelegate:187），
-     *  原 `firstOrNull{it.isUser}` 取到**最旧** user 消息——undo 直接回退到
+     *  原 `firstOrNull{it.isUser}` 取到**最旧** user 消息——undo 一直撤销到
      *  会话开头。官方语义（TUI index.tsx:621/Web :341）：最后一条可见 user。
      *  改 lastOrNull；连续 undo 语义（revert 存在时取边界前一条）由服务器
      *  staged revert 天然支持（每次 revert 推进边界）。 */
@@ -608,10 +608,10 @@ internal class SessionActionsDelegate(
     /**
      * Abort REST 调用 —— 在服务器上取消会话并通过
      * FSM（ClientAbort → Idle + forceComplete 消息）标记为 idle。
-     * SSE job 的取消/重启由 [ChatViewModel.abortSession] 协调器处理。
+     * SSE job 的取消/重启由 [ChatViewModel.interruptSession] 协调器处理。
      */
-    suspend fun abortSession() {
-        sessionRepository.abort(serverId, sessionId, sessionDirectoryProvider())
+    suspend fun interruptSession() {
+        sessionRepository.interrupt(serverId, sessionId, sessionDirectoryProvider())
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
         sessionStateService.onClientAbort(sessionId)
     }

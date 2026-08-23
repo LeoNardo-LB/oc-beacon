@@ -134,7 +134,7 @@ internal class ChatSendDelegate(
                 // 悲观消息：POST 受理后不显示任何占位，等待服务器 SSE
                 // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
                 // 发送期间 UI 由 isSending 驱动发送按钮转圈（SendStopButton）；
-                // 失败 → 草稿回退输入框 + AlertDialog（sendFailureSink）。
+                // 失败 → 草稿退回输入框 + AlertDialog（sendFailureSink）。
                 sendMessageUseCase.sendPrompt(
                     serverId = serverId,
                     sessionId = currentSessionId,
