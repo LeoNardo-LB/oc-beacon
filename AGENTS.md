@@ -108,7 +108,7 @@ SSE → UI 管线：**48ms token 批处理 → 高度补偿 → 渲染**。违�
 
 - **`Markdown()` 必须使用 `rememberMarkdownState(content, retainState=true)`** — 无状态 `Markdown(content=...)` 每次重组重新解析 → 高度振荡 → 闪烁。
 - **`scheduleFlush()` 不得取消进行中的定时器** — 每个 token 都取消会在速率 > 20/s 时饿死 flush → 突发式卡顿输出。
-- **`layout{}` 补偿只应用于流式消息**（`if (isStreamingMsg)`）— 应用到所有 assistant 消息会让已完结消息暴露在不稳定测量下。
+- **`layout{}` 补偿只应用于流式 turn**（`if (isStreamingMsg)`，沿旧标识符名）— 应用到所有 assistant 消息会让已完结消息暴露在不稳定测量下。
 - **autoScroll/shouldCompensate 的 `LaunchedEffect` 必须以 `isScrollInProgress` 和 `isAtBottom` 两者作为 key** — `isAtBottom` 是自愈机制（fling/SSE 推送回底时重置标志）。**不要把 `isAtBottom` 从 key 中移除。**
 
 完整回归历史见 `docs/research/sse-scroll-stability-iron-laws.md`。**Ktor 明确使用 OkHttp engine**（SSE 流式正确性），不要切换其他引擎。
