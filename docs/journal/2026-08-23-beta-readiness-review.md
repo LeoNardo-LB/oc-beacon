@@ -1,7 +1,7 @@
 # beta-readiness-review（2026-08-23）
 
-> 状态：进行中
-> 关联：#191（实现+真机验证）· #151 后续（issue 标题派生）· beta 发版评估
+> 状态：已完结（v0.3.1-beta 已发版，CI success）
+> 关联：#191（实现+真机验证，待用户验收）· #151 后续（issue 标题派生）· beta 发版 · 版本线模型重构
 > 来源：用户指令「全面系统性检查（代码质量/功能/遗留项/backlog）+ beta 发版评估与执行」
 
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->
@@ -55,10 +55,10 @@ FSM 语义/zombie 禁用/E2E-G 决策/RestValidation 不刷 lastEventAt 全部�
 
 ## 四、beta 发版评估
 
-- 脚本机械推导：`0.3.2-beta.1`（仅分析 v0.3.1-dev.22..HEAD 两个 fix → patch）。
-- 内容事实：自上个公开 beta（v0.3.0-beta.3）以来 **99 feat / 837 commits**（Termux 终端栈、
-  ModelPicker 重做、堆积队列管线、会话内音效、GitHub 错误上报、FAB v6 等）——按 §2.2 feat→MINOR
-  应为 `0.4.0-beta.1`。**待用户拍板**（--force-bump=minor）。
+- 脚本机械推导：`0.3.2-beta.1`（旧逻辑通道切换即 bump——本次重构废除的根因）。
+- 内容事实：自上个公开 beta（v0.3.0-beta.9）以来大量 feat/fix（Termux 终端栈、ModelPicker 重做、堆积队列管线、
+  会话内音效、GitHub 错误上报、FAB v6 等）。
+- **用户拍板：0.3.1 的 beta 即可**（线内晋升语义，与重构后的版本线模型一致）。
 
 ## 五、版本线模型重构（913fa11f，用户定规）
 
@@ -70,4 +70,18 @@ FSM 语义/zombie 禁用/E2E-G 决策/RestValidation 不刷 lastEventAt 全部�
 `release-workflow.md` §2.1/2.3/3.3/4.5 同步。七场景克隆回归全绿：
 A 0.3.1-beta / B 0.3.1 / C dev.23 / D beta 重发→0.3.2-beta / E 正式后 dev→0.3.2-dev.1 / F beta→stable 线内晋升 / G force minor。
 
-（发版执行记录待补）
+## 六、发版执行
+
+- 版本定版：`0.3.1-beta`（code=37，tag v0.3.1-beta，线内晋升无 bump）
+- notes 基准 v0.3.0-beta.9（上个公开 beta），按模板人工润色（8 条 Added / 2 Changed / 4 Fixed，用户视角）
+- commit 02f3bc30 + tag 推送成功
+
+**CI 结果：success（run 32630556103）。Release `v0.3.1-beta`（prerelease）上线，
+资产 oc-beacon-0.3.1-beta.apk（7.5MB）。**
+
+## 七、收尾状态
+
+- #191：实现+单测+真机验证全过，**待用户验收**（backlog [~]）
+- issue 标题派生：实现+单测过；E2E 需 GitHub App 凭据（用户侧注册后可验）
+- GitHub issue 隐藏调研：报告归档 `docs/research/2026-08-23-github-issue-hiding.md`，
+  推荐 P1 专用子仓库方案——**待用户决策**（需建 oc-beacon-reports 仓库 + GitHub App 安装）
