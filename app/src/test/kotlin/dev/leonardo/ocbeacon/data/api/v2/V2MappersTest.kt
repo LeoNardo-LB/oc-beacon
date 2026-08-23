@@ -351,4 +351,76 @@ class V2MappersTest {
         val obj = V2ResponseWrapper.flexibleObject("""[1,2,3]""", json)
         assertTrue(obj.isEmpty())
     }
+
+    // ============ #206 V2 中断标记合成（finish=error + error.type=aborted） ============
+
+    /** 服务器中断唯一表示（Tier C 探针实测，2026-08-24）：无 abort part，全历史 0 个。 */
+    private fun interruptedAssistantJson(finish: String? = "\"error\"", errorBlock: String? =
+        "{\"type\":\"aborted\",\"message\":\"Step interrupted\"}"): String = """
+        {"type":"assistant","id":"msg_abort_1","sessionID":"ses_1",
+         "time":{"created":1000},
+         "finish":$finish,"error":$errorBlock,
+         "content":[{"type":"reasoning","text":"thinking..."}]}
+    """
+
+    @Test
+    fun `aborted assistant message synthesizes Part-Abort marker`() {
+        val obj = json.parseToJsonElement(interruptedAssistantJson()).jsonObject
+        val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        val abort = result.parts.filterIsInstance<Part.Abort>()
+        assertEquals(1, abort.size)
+        assertEquals("msg_abort_1_abort", abort[0].id)
+        assertEquals("ses_1", abort[0].sessionId)
+        assertEquals("msg_abort_1", abort[0].messageId)
+        assertEquals("Step interrupted", abort[0].reason)
+        // 合成标记位于 parts 尾部（reasoning 之后）——时间顺序语义
+        assertTrue(result.parts.last() is Part.Abort)
+    }
+
+    @Test
+    fun `aborted assistant message with empty content still gets marker`() {
+        // 1.2s 早期中断实测形态：content 仅剩 reasoning；极端情况 content 空
+        val raw = """
+            {"type":"assistant","id":"msg_abort_2","sessionID":"ses_1",
+             "time":{"created":1000},
+             "finish":"error","error":{"type":"aborted","message":"Step interrupted"},
+             "content":[]}
+        """
+        val obj = json.parseToJsonElement(raw).jsonObject
+        val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        assertEquals(1, result.parts.size)
+        assertTrue(result.parts[0] is Part.Abort)
+    }
+
+    @Test
+    fun `normally completed assistant message has no abort marker`() {
+        val obj = json.parseToJsonElement(
+            interruptedAssistantJson(finish = "\"stop\"", errorBlock = "null")
+        ).jsonObject
+        val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        assertTrue(result.parts.filterIsInstance<Part.Abort>().isEmpty())
+    }
+
+    @Test
+    fun `non-aborted error does not synthesize abort marker`() {
+        // finish=error 但 type!=aborted（如 provider 错误）不冒充中断——
+        // 错误展示走 Message.Assistant.error 独立通道，不属 #206 范围
+        val obj = json.parseToJsonElement(
+            interruptedAssistantJson(errorBlock = "{\"type\":\"rate_limit\",\"message\":\"too fast\"}")
+        ).jsonObject
+        val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        assertTrue(result.parts.filterIsInstance<Part.Abort>().isEmpty())
+    }
+
+    @Test
+    fun `aborted marker id is stable for refetch dedup`() {
+        // 稳定 id：REST 重取走 mergePartsList 按 id 去重——两次映射同 id 不双显
+        val obj = json.parseToJsonElement(interruptedAssistantJson()).jsonObject
+        val a = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        val b = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        assertEquals(
+            a.parts.filterIsInstance<Part.Abort>().map { it.id },
+            b.parts.filterIsInstance<Part.Abort>().map { it.id }
+        )
+    }
 }

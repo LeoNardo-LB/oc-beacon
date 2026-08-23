@@ -304,7 +304,29 @@ object V2MessageMapper {
                     mapContentToPart(contentObj, contentType, sessionId, id, ordinal)
                 }
 
-                MessageWithParts(info = message, parts = parts)
+                // #206（2026-08-24）：V2 服务器把中断表示为 finish:"error" +
+                // error:{type:"aborted", message:...}（无 abort part——Tier C
+                // 探针全历史 0 个）。合成 Part.Abort 点亮 chat_interrupted 渲染
+                // 路径；此前中断的助手消息只剩 reasoning、无任何中断提示。
+                // 稳定 id "${id}_abort"：REST 重取走 mergePartsList 按 id 去重，
+                // 幂等不双显。不写 Message.Assistant.error——避免 turn 级
+                // errorText 通道双显（单一中断标记原则）。
+                val finish = obj["finish"]?.jsonPrimitive?.contentOrNull
+                // as? 而非 ?.jsonObject：服务器可空字段 "error":null 是 JsonNull，
+                // 后者扩展在 JsonNull 上抛 IllegalStateException（反例测试实证）
+                val errorObj = obj["error"] as? JsonObject
+                val abortPart = if (finish == "error" &&
+                    errorObj?.get("type")?.jsonPrimitive?.contentOrNull == "aborted"
+                ) {
+                    listOf(Part.Abort(
+                        id = "${id}_abort",
+                        sessionId = sessionId,
+                        messageId = id,
+                        reason = errorObj["message"]?.jsonPrimitive?.contentOrNull ?: ""
+                    ))
+                } else emptyList()
+
+                MessageWithParts(info = message, parts = parts + abortPart)
             }
             "system" -> {
                 val text = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""

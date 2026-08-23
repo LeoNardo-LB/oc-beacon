@@ -68,7 +68,7 @@
 >
 > （空）Tier C 五卡 #201–#205 已完结（2026-08-24 用户授权代验收官：实改 #204/#202 + 零改名裁决 #201/#203/#205，自动化全绿+真机证据链）→ `docs/journal/2026-08-24-tier-c-contract-renames.md`
 
-- [ ] **#206 V2 中断消息无中断标记渲染（error.type=aborted 未映射）** `ui` `sse`
+- [~] **#206 V2 中断消息无中断标记渲染（error.type=aborted 未映射）** `ui` `sse`
   - 服务器中断表示为 finish:error+error.type:"aborted"（无 abort part，历史 0 个）；V2Mappers 不合成 Part.Abort → 中断的助手消息只剩 reasoning、无任何「已中断」提示
   - → docs/journal/2026-08-24-tier-c-contract-renames.md（Tier C 一次性会话探针发现）
 
