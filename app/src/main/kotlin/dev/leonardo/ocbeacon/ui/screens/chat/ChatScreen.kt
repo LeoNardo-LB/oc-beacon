@@ -248,7 +248,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 聊天屏幕 —— 会话视图，使用原生 markdown 渲染。
- * 通过 mikepenz markdown 渲染器展示流式文本消息。
+ * 通过 mikepenz markdown 渲染器展示流式文本 turn。
  */
 
 private const val TAG_SCROLL = "ChatScroll"
@@ -519,7 +519,7 @@ fun ChatScreen(
         }
     }
 
-    // 进入会话时同步会话状态（REST 回退，用于弥补遗漏的 SSE 事件）
+    // 进入会话时同步会话状态（REST 降级兜底，用于弥补遗漏的 SSE 事件）
     LaunchedEffect(viewModel.sessionId) {
         if (viewModel.sessionId.isNotBlank()) {
             viewModel.syncSessionStatus()
@@ -572,7 +572,7 @@ fun ChatScreen(
         LocalToolExpandedStates provides messageState.toolExpandedStates,
         LocalOnToggleToolExpanded provides onToggleToolExpandedLambda,
         LocalToolCardResolver provides viewModel.toolCardResolver,
-        // #182：Task 卡片展开时的全量输出拉取（part 优先→子会话回退）
+        // #182：Task 卡片展开时的全量输出拉取（part 优先→降级子智能体会话 transcript）
         LocalTaskOutputFetcher provides { partId, subSessionId ->
             viewModel.fetchFullTaskOutput(partId, subSessionId)
         },
@@ -778,9 +778,9 @@ fun ChatScreen(
                         //（反转后的第一条 = 原始顺序中的最新 = 拥有最新回复文本的那条）。
                         // 之前的代码检查 nextMsg，保留了最旧的 assistant 消息
                         //（通常为空或仅有 reasoning），从而对用户隐藏了实际回复文本。
-                        // synthetic 系统通知（2026-08-11）：紧邻 assistant 时并入
-                        // turn 气泡内渲染（isAdjacentToAssistant），不独立成行；
-                        // 孤立 synthetic 保持独立条目。
+                        // synthetic 合成通知：2026-08-11 首版曾紧邻 assistant 时
+                        // 并入 turn 气泡渲染（isAdjacentToAssistant）；2026-08-12 用户
+                        // 决策改为独立气泡（见下方 mapIndexedNotNull 内注释），并入方案已废弃。
                         // 2026-08-12：无文本的 synthetic 空壳（服务器历史遗留，text
                         // 为空）完全过滤——SyntheticNotificationCard 提取不到 text 会
                         // return 空，保留在 displayItems 会形成空行（"返回后消息流
@@ -813,10 +813,10 @@ fun ChatScreen(
                         }
 
                     // #137（D2-L65）：此处原重复定义 onViewToolLambda（死代码——
-                    // LocalOnViewTool 由外层 516 行的定义提供，本内层定义从未被使用）
-                    // #175：原主/子会话双调用点合一——20 个公共参数逐字相同，
+                    // LocalOnViewTool 由外层的定义提供，本内层定义从未被使用）
+                    // #175：原主/子智能体会话双调用点合一——20 个公共参数逐字相同，
                     // 4 个差异（isMainSession/showQuickNavigate/onQuickNavigateDismiss/onAgentClick）
-                    // 全是同一开关（主/子会话）的投影，条件内移为参数化单调用点。
+                    // 全是同一开关（主/子智能体会话）的投影，条件内移为参数化单调用点。
                     val isMainSession = sessionMeta.sessionParentId == null
                     ChatMessageList(
                         listState = listState,
@@ -838,11 +838,11 @@ fun ChatScreen(
                         navigateToChildSession = onNavigateToChildSession,
                         onOpenFile = handleOpenFile,
                         onForceScrollToBottom = { scrollController.forceScrollToBottom() },
-                        // 子会话不显示快速定位（show=false 时 onDismiss 不可达，可无条件传）
+                        // 子智能体会话不显示快速定位（show=false 时 onDismiss 不可达，可无条件传）
                         showQuickNavigate = if (isMainSession) showQuickNavigate else false,
                         onQuickNavigateDismiss = { showQuickNavigate = false },
                         agents = modelConfig.agents,
-                        // 子会话无 agent 选择入口（置 null 隐藏）
+                        // 子智能体会话无 agent 选择入口（置 null 隐藏）
                         onAgentClick = if (isMainSession) ({ agentName -> viewModel.modelSelection.selectAgent(agentName) }) else null,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -850,9 +850,10 @@ fun ChatScreen(
 
               }
 
-              // 堆积/TODO 常驻抽屉（2026-08-22）：主对话流模块内覆盖式——底部锚定、
-              // 贴输入组件上沿；双空自动隐藏；键盘弹起自动收起；档位/段位按会话记忆
-              //（内存级）。模态 PendingTodoSheet 已退役（入口=常驻标题栏本身）。
+              // （2026-08-22 引入的堆积/TODO 常驻抽屉已于第十轮退役——现由右下
+              // ChatFabMenu 四入口 + ModalBottomSheet（StackedSheet/TodoSheet/
+              // AgentSheet/ShellSheet，见下方 toolbarSheet 分发）承接；更早的模态
+              // PendingTodoSheet 亦已退役。）
               // ⬇ 滚动到底部（第二十一轮移左）：底部左侧与右下菜单 FAB 镜像；
               // 声明在 ChatFabMenu 之前——菜单展开时被外点收起层盖住（点它先收菜单）
               // 右下角 FAB Menu：单 FAB 收纳四入口（角标=总数），展开官方交错菜单
