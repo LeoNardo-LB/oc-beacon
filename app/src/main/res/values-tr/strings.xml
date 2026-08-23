@@ -440,7 +440,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="session_path">Yol</string>
     <string name="session_count">Oturumlar</string>
     <string name="session_copy_path">Yolu kopyala</string>
-    <string name="sessions_create_session">Oturum olustur</string>
+    <string name="sessions_create_session">Oturum oluştur</string>
     <string name="session_directory_details">Dizin detayları</string>
     <string name="session_session_details">Oturum detayları</string>
     <string name="session_details_name">Ad</string>
