@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
- * AMOLED 模式下使用的标准边框：1dp outlineVariant，65% 不透明度。
+ * AMOLED 模式下使用的标准边框：1dp outlineVariant，不透明度 [AlphaTokens].MEDIUM = 0.70。
  */
 internal val AmoledDefaultBorder: BorderStroke
     @Composable get() = BorderStroke(

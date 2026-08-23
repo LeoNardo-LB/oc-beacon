@@ -462,4 +462,68 @@ class SessionStateServiceTest {
         coVerify(exactly = 2) { repo.listMessages(any(), "ses_stoplevel", any(), any()) }
     }
 
+    // ---- #191 方案 B：等待确认自适应降频（打标/清标语义；风暴抑制的端到端节奏走真机验证） ----
+
+    @Test
+    fun `rest busy with pending input marks waiting confirmation`() {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { repo.fetchSessionStatuses(any(), any()) } returns
+            Result.success(mapOf("s1" to SessionStatus.Busy))
+        val collab = StubCollaborator().apply { hasPendingUserInputImpl = { it == "s1" } }
+        val service = newServiceWith(repo, collab)
+        service.setServerId("server1")
+        service.onClientSendParts("s1") // Busy
+        testScope.runCurrent()
+        service.triggerRestValidation("s1")
+        testScope.runCurrent()
+        assertTrue(service.waitingConfirmedAt.containsKey("s1"))
+    }
+
+    @Test
+    fun `rest busy with active children also marks`() {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { repo.fetchSessionStatuses(any(), any()) } returns
+            Result.success(mapOf("s1" to SessionStatus.Busy))
+        val collab = StubCollaborator().apply { hasActiveChildrenImpl = { _, _ -> true } }
+        val service = newServiceWith(repo, collab)
+        service.setServerId("server1")
+        service.onClientSendParts("s1")
+        testScope.runCurrent()
+        service.triggerRestValidation("s1")
+        testScope.runCurrent()
+        assertTrue(service.waitingConfirmedAt.containsKey("s1"))
+    }
+
+    @Test
+    fun `rest busy without waiting clears mark`() {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { repo.fetchSessionStatuses(any(), any()) } returns
+            Result.success(mapOf("s1" to SessionStatus.Busy))
+        val collab = StubCollaborator() // pending=false, children=false
+        val service = newServiceWith(repo, collab)
+        service.setServerId("server1")
+        service.onClientSendParts("s1")
+        testScope.runCurrent()
+        service.waitingConfirmedAt["s1"] = System.currentTimeMillis() - 5_000
+        service.triggerRestValidation("s1")
+        testScope.runCurrent()
+        assertFalse(service.waitingConfirmedAt.containsKey("s1"))
+    }
+
+    @Test
+    fun `real sse event clears waiting mark`() {
+        val service = newService()
+        service.waitingConfirmedAt["s1"] = System.currentTimeMillis()
+        service.onSseEvent(SseEvent.SessionIdle(sessionId = "s1"), "s1", "server1")
+        assertFalse(service.waitingConfirmedAt.containsKey("s1"))
+    }
+
+    @Test
+    fun `non busy rest validation result clears waiting mark`() {
+        val service = newService()
+        service.waitingConfirmedAt["s1"] = System.currentTimeMillis()
+        service.onRestValidation("s1", SessionStatus.Idle)
+        assertFalse(service.waitingConfirmedAt.containsKey("s1"))
+    }
+
 }

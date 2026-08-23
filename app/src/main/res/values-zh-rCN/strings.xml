@@ -649,6 +649,7 @@
     <string name="report_authorizing">授权以上报</string>
     <string name="report_authorizing_hint">打开 %1$s 并输入代码：%2$s</string>
     <string name="report_preview_title">上报预览（可编辑）</string>
+    <string name="report_issue_title_label">Issue 标题</string>
     <string name="report_submit">提交上报</string>
     <string name="report_needs_config">上报功能尚未配置（应用凭据待填入）</string>
     <string name="report_public_warning">此内容将公开提交到 GitHub。</string>

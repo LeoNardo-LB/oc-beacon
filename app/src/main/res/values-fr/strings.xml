@@ -643,6 +643,7 @@
     <string name="report_authorizing">Autoriser pour signaler</string>
     <string name="report_authorizing_hint">Ouvrez %1$s et saisissez le code : %2$s</string>
     <string name="report_preview_title">Aperçu du rapport (modifiable)</string>
+    <string name="report_issue_title_label">Titre du ticket</string>
     <string name="report_submit">Envoyer le rapport</string>
     <string name="report_needs_config">La fonctionnalité de signalement n\'est pas encore configurée (identifiants en attente)</string>
     <string name="report_public_warning">Ce contenu sera envoyé publiquement sur GitHub.</string>

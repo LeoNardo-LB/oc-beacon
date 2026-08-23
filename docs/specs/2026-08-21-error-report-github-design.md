@@ -114,6 +114,16 @@
 
 **人工验证**（按 verification-requirements 维度 5）：真机 E2E——授权流、真实建 issue、重复触发命中评论、预览编辑、失败重试；在目标仓库用专用测试 issue 验证后清理。
 
+## 决策更新（2026-08-23，用户定规）
+
+1. **标题区分度**：`<错误摘要>` 实现为 `category: message`（message 折叠单行、**中段截断**保头 56 + 尾 24）
+   + **指纹 8 位十六进制签名后缀 `(#xxxxxxxx)`**（SHA-256 前 4 字节）——不同错误标题必不同（硬保证），
+   同一错误重复上报标题一致（与查重归并对齐）。见 `ErrorReportService.issueTitleForError`。
+2. **不做 issue 隐藏**：调研（`docs/research/2026-08-23-github-issue-hiding.md`）确认 GitHub 无原生
+   per-issue 隐藏；子仓库/创建即关闭等方案均否决——报告留在主仓库，靠标题区分度保证列表可扫读。
+3. **凭据注册**：提供 `scripts/setup-github-report-app.sh` 向导（注册 App → 捕获 ID/Secret → 写
+   local.properties + CI secrets → 安装到仓库 → device flow 端点自检 → 真机验证指引）。
+
 ## Out of Scope
 
 - 崩溃后自动提示上报 / 后台自动上报（backlog）

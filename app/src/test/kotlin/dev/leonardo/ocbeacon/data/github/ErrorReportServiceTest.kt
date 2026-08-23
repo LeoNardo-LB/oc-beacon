@@ -5,6 +5,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -44,6 +45,41 @@ class ErrorReportServiceTest {
         val fp = service.fingerprintForCrash("IllegalStateException")
         assertTrue(fp.startsWith("fp:crash:"))
         assertTrue(fp.endsWith(":IllegalStateException"))
+    }
+
+    @Test
+    fun `issue title has category prefix flattened message and signature`() {
+        // 常规：category 前缀 + 折叠后的 message + 8 位签名后缀
+        val t1 = service.issueTitleForError("SseClient", "stream closed\nunexpectedly   (code=1006)", "fp:err:Sse:a")
+        assertEquals("SseClient: stream closed unexpectedly (code=1006) (#" + service.titleSignature("fp:err:Sse:a") + ")", t1)
+    }
+
+    @Test
+    fun `long message middle-truncated keeping head and tail`() {
+        // 中段截断：头 56 + … + 尾 24 都在，签名仍在末尾（2026-08-23 区分度定规）
+        val msg = "A".repeat(60) + "MIDDLE" + "B".repeat(40)
+        val t = service.issueTitleForError("C", msg, "fp:err:C:x")
+        assertTrue(t.startsWith("C: " + "A".repeat(56) + "…"))
+        assertTrue(t.contains("B".repeat(24)))
+        assertTrue(t.endsWith(" (#" + service.titleSignature("fp:err:C:x") + ")"))
+    }
+
+    @Test
+    fun `blank message degrades to category without dangling colon`() {
+        val t = service.issueTitleForError("SoloCat", "  ", "fp:err:SoloCat:n")
+        assertEquals("SoloCat (#" + service.titleSignature("fp:err:SoloCat:n") + ")", t)
+    }
+
+    @Test
+    fun `different fingerprints yield distinct signatures - titles never collide`() {
+        // 标题区分度硬保证：不同错误（指纹不同）→ 签名不同 → 标题必不同
+        val a = service.issueTitleForError("Same", "identical text", "fp:err:X:1")
+        val b = service.issueTitleForError("Same", "identical text", "fp:err:X:2")
+        assertNotEquals(a, b)
+        // 同指纹（同一错误重复上报）→ 签名一致，与查重归并语义对齐
+        val c = service.issueTitleForError("Same", "identical text but different noise", "fp:err:X:1")
+        assertTrue(a.endsWith("(#" + service.titleSignature("fp:err:X:1") + ")"))
+        assertTrue(c.endsWith("(#" + service.titleSignature("fp:err:X:1") + ")"))
     }
 
     // ---- 查重编排 ----

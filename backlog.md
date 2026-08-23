@@ -49,8 +49,9 @@
 ## P1 — 核心功能需求
 
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
-  - spec §Out of Scope 明确后置项；触发条件：#151 落地并稳定后评估
-  - → `docs/journal/2026-08-21-error-report-github.md`
+  - 2026-08-23 评估（#151 两轮 E2E 全绿触发）：用户定规**两半均继续缓**——崩溃提示基建已齐（recordCrash→FATAL 持久化）只差启动提示 UI；gist 需 App 加 Gists 权限+重新授权，正文 20+3 上下文实证够分诊
+  - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
+  - → `docs/journal/2026-08-21-error-report-github.md` · `docs/journal/2026-08-23-beta-readiness-review.md`
 
 - [ ] **#146 OpenCode 官方问题清单（issue/PR 候选）** `upstream`
   - ①V2 不发 compaction.started（引擎没接线）②SSE 重连无事件回溯 ③cursor V1 格式返回 400 ④fork handleRaw bug ⑤工具输出截断语义——上游核查完成（repo 已迁 anomalyco/opencode），逐项行动方案已定
@@ -65,12 +66,7 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#191 L2 stale 等待态无限循环——pending-input 会话 5s 轮询风暴自适应降频** `session` `perf`
-  - 根因：等待提问/子智能体会话期服务器恒报 busy + zombie guard 跳过 + RestValidation 不刷 lastEventAt → 5s 循环无终止（V1/V2 同构：V1 二进制 + V2 真机双实证；状态本身正确，错在观测节奏，24 WARN/min + 12 REST/min）
-  - 方案 B 定案：REST 确认等待态打标 waitingConfirmedAt → checkStaleness 60s 窗口内跳过 → SSE 真实事件清标；V1/V2 通吃（打标条件无版本分支），日志/请求降 ~92%
-  - → `docs/journal/2026-08-23-issue-cleanup-triage.md`
-
-
+> （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
   - → `docs/specs/2026-08-23-fab-swipe-hide-design.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
 - [ ] **#194 盘点代码事实包（F01-F14）：非注释级缺陷与死代码** `refactor` `sse`
   - PartSerializer 缺 permission/question 分支落 Unknown · executeCommand 死参数（V1/V2 同）· 盘符哨兵双定义 · 搜索防抖 300ms 双层串联 · FATAL 级不可过滤 · 日志 $ 转义 ×2 · 前世包名 fixture · 冗余条件等——详见台账代码事实区

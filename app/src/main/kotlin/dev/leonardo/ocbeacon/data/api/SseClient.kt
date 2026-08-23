@@ -284,8 +284,7 @@ class SseClient @Inject constructor(
     }
 
     /**
-     * 为向后兼容保留的公共 API（供测试使用）。
-     * 委托给 [SessionNextEventParser]。
+     * 为向后兼容保留的公共 API（供测试使用），委托给 [sessionNextParser]。
      */
     fun parseSessionNextEvent(type: String, props: JsonObject): SessionNextEvent {
         return sessionNextParser.parseSessionNextEvent(type, props)

@@ -395,6 +395,7 @@
     <string name="report_authorizing">Authorize to report</string>
     <string name="report_authorizing_hint">Open %1$s and enter code: %2$s</string>
     <string name="report_preview_title">Report preview (editable)</string>
+    <string name="report_issue_title_label">Issue title</string>
     <string name="report_submit">Submit report</string>
     <string name="report_needs_config">Reporting is not configured yet (app credentials pending)</string>
     <string name="report_public_warning">This content will be submitted publicly to GitHub.</string>

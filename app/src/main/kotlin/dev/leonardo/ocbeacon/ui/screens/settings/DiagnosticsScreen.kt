@@ -419,6 +419,14 @@ fun DiagnosticsScreen(
                         color = MaterialTheme.colorScheme.error,
                     )
                     Spacer(Modifier.height(8.dp))
+                    // 将要创建的 issue 标题（与指纹同源派生，只读展示）
+                    Text(
+                        stringResource(R.string.report_issue_title_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(rs.title, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = rs.body,
                         onValueChange = viewModel::updatePreviewBody,

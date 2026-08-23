@@ -645,6 +645,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="report_authorizing">Bildirmek için yetkilendir</string>
     <string name="report_authorizing_hint">%1$s adresini açın ve kodu girin: %2$s</string>
     <string name="report_preview_title">Rapor önizlemesi (düzenlenebilir)</string>
+    <string name="report_issue_title_label">Issue başlığı</string>
     <string name="report_submit">Raporu gönder</string>
     <string name="report_needs_config">Bildirme henüz yapılandırılmadı (uygulama kimlik bilgileri bekliyor)</string>
     <string name="report_public_warning">Bu içerik GitHub\'a herkese açık olarak gönderilecek.</string>

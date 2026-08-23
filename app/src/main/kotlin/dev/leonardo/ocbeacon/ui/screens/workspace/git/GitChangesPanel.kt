@@ -38,7 +38,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * [GitChangeItem]，以 [HorizontalDivider] 分隔。
  *
  * Phase 1 范围：仅列表 + 计数。点击查看 diff 已通过 [onOpenDiff] 接通，
- * 但 diff 查看器本身将在后续阶段实现。
+ * DiffView 承接差异渲染。
  */
 @Composable
 fun GitChangesPanel(

@@ -16,8 +16,8 @@
 .NOTES
     推导规则:
       v1.0.3         -> stable（无后缀）
-      v1.0.4-beta.1  -> beta
-      v1.0.4-dev.1   -> dev
+      v1.0.4-beta    -> beta（每线单发、无序号）
+      v1.0.4-dev.1   -> dev（线内迭代有序号）
       非 tag 触发     -> beta（默认）
     前提: CWD 为仓库根目录。
 #>
@@ -37,10 +37,10 @@ if ($FlavorInput) {
     $flavor = $FlavorInput
 } elseif ($GithubRef -like 'refs/tags/*') {
     $tag = $GithubRef -replace '^refs/tags/', ''
-    if ($tag -like '*-beta.*') {
-        $flavor = 'beta'
-    } elseif ($tag -like '*-dev.*') {
+    if ($tag -like '*-dev.*') {
         $flavor = 'dev'
+    } elseif ($tag -like '*-beta*') {
+        $flavor = 'beta'
     } else {
         $flavor = 'stable'
     }

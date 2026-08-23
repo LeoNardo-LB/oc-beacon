@@ -29,7 +29,7 @@ sealed class ReportUiState {
     object Idle : ReportUiState()
     object NeedsGitHubAppConfig : ReportUiState()
     data class Authorizing(val code: DeviceCodeRequest) : ReportUiState()
-    data class Preview(val body: String, val fingerprint: String) : ReportUiState()
+    data class Preview(val title: String, val body: String, val fingerprint: String) : ReportUiState()
     object Submitting : ReportUiState()
     data class Done(val message: String) : ReportUiState()
     data class Failed(val message: String, val retryableBody: String?, val needsAuth: Boolean) : ReportUiState()
@@ -150,6 +150,7 @@ class DiagnosticsViewModel @Inject constructor(
         }
         val latest = errorEntries.last()
         val fingerprint = reportService.fingerprintForError(latest.category, latest.message)
+        val issueTitle = reportService.issueTitleForError(latest.category, latest.message, fingerprint)
         val env = ReportEnvironment(
             deviceModel = android.os.Build.MODEL,
             androidVersion = android.os.Build.VERSION.RELEASE ?: "?",
@@ -166,7 +167,7 @@ class DiagnosticsViewModel @Inject constructor(
         val body = reportService.machineBlock(fingerprint, env, installId) +
             "\n## 错误日志（最近 ERROR/FATAL + 上下文）\n\n```\n" + logSection + "\n```\n" +
             "\n---\n_由 OC Beacon 用户通过 Diagnostics 屏手动上报；内容已经过脱敏管道。_"
-        _reportState.value = ReportUiState.Preview(body, fingerprint)
+        _reportState.value = ReportUiState.Preview(issueTitle, body, fingerprint)
     }
 
     /** 预览可编辑：编辑结果回传。 */
@@ -182,7 +183,7 @@ class DiagnosticsViewModel @Inject constructor(
         viewModelScope.launch {
             reportService.report(
                 fingerprint = cur.fingerprint,
-                issueTitle = "错误上报",
+                issueTitle = cur.title,
                 issueBody = cur.body,
                 commentBody = cur.body,
             ).onSuccess { outcome ->
@@ -206,13 +207,13 @@ class DiagnosticsViewModel @Inject constructor(
         }
     }
 
-    /** 失败重试（spec：草稿保留 + 一键重试）。 */
+    /** 失败重试（spec：草稿总是重建（提交后覆盖）+ 一键重试）。 */
     fun retrySubmit() {
         val cur = _reportState.value
         if (cur !is ReportUiState.Failed) return
         if (cur.needsAuth) { startReport(); return }
         cur.retryableBody?.let { body ->
-            _reportState.value = ReportUiState.Preview(body, "")
+            _reportState.value = ReportUiState.Preview("", body, "")
             // fingerprint 丢失的边界：needsAuth=false 的重试走原文重建不可行——重新开始
             startReport()
         } ?: startReport()

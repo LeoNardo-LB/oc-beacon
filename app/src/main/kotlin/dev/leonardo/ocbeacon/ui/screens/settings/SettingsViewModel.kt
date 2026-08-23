@@ -184,7 +184,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * #113（D2-26）：设置写串行化——原实现读 settings.value 快照后全量写回，
      * 快速连切多个开关时两次写基于过期快照 → 后写覆盖先写的字段（丢修改）。
-     * 修复：单消费者 channel 队列，每次写基于上一次写的结果（写链），
+     * 修复：Mutex + pendingSettings 快照，每次写基于上一次写的结果（写链），
      * 与 DataStore 原子 edit 配合，多字段并发更新不丢。
      */
     private val settingsWriteMutex = Mutex()
