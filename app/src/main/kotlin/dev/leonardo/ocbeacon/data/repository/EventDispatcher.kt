@@ -192,6 +192,8 @@ class EventDispatcher @Inject constructor(
             // runCatching 容错：迁移失败（含 mock 环境）不阻塞 init 持久化路径（spec §3.1）
             val migrationRan = runCatching { settingsDataStore.runUnreadStateV2Migration() }.isSuccess
             AppLogger.d("UnreadDiag", "[migration] executed=$migrationRan")
+            // #202：collapse_tools→auto_expand_tools 键名搬家迁移（值无取反；unread 同款纪律）
+            runCatching { settingsDataStore.runAutoExpandToolsKeyMigration() }
             // seed 合并 + 落盘由 UnreadBadgeService 负责；幂等（max 合并，详见其类注释）。
             // kill 进程后 seed 不丢——落盘由 service 内 persistNow（suspend，本协程内同步完成）。
             runCatching { unreadBadgeService.seedFromStorage() }

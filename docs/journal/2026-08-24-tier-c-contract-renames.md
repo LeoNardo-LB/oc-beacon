@@ -43,4 +43,16 @@
 4. 验证：compileDevDebugUnitTestKotlin 绿；WireCompatMatrixTest 9/9；全量 testDevDebugUnitTest --rerun 绿（54s）。
 - 处置：卡片转 [~] 待验证（验收内容=零改名裁决 + 矩阵测试作为长期契约锁）。此后任何人改 wire 名（@SerialName 值或无注解属性名）先红这里。
 
+## #202 Tier C-2：DataStore 键改名——collapse_tools→auto_expand_tools（TDD 红绿）
+
+1. **50 键全量审计**：逐键对 CONTEXT.md 过滤——术语裁决命中的仅 collapse_tools 一个（词条 123–125 行明令 Phase 2 改名）；其余 49 键（app_theme/session_tags_*/read_times/…）本身即属性名 snake_case 镜像、无任何词条冲突，改名零收益纯风险，**不动**。
+2. **重大降险取证（推翻评估期「最高危：改名同时取反逻辑」预判）**：存储值语义**从未反转**——ChatDisplaySection 开关文案自始为 "Auto-expand tool results"（settings_auto_expand_tools）且 checked=collapseTools 原值绑定、PartContent 消费侧直接命名 val autoExpand 使用。名实不符只在**键名/字段名层**，值方向与 UI 一致。故本卡为**纯键名搬家迁移，零逻辑取反**。
+3. **TDD 红绿**：RED——AutoExpandToolsMigrationTest 7 测试先写（引用不存在 API，编译失败取证）；GREEN——
+   - SettingsDataStore：AUTO_EXPAND_TOOLS_KEY + LEGACY_COLLAPSE_TOOLS_KEY；读取双键回退（迁移完成前旧用户不闪默认值）；runAutoExpandToolsKeyMigration() 幂等搬家+删旧键；写入只落新键
+   - 改名链 23 处：AppSettings.collapseTools→autoExpandTools、SettingsDataStore 流/Setter、SettingsViewModel、ChatDisplaySection、ChatViewModel、SettingsStateDelegate、ChatScreen、LocalCollapseTools→LocalAutoExpandTools（含 PartContent 5 消费点）、EventDispatcher init 挂迁移触发（unread v2 同款纪律 runCatching）、6 个 ChatViewModel 测试 + TestSettingsBuilder（androidTest）
+   - 附带修复：SettingsRepositoryTest 反射契约两清单同步（getCollapseTools→getAutoExpandTools / setCollapseTools→setAutoExpandTools）
+4. 验证：7/7 迁移测试（值无取反/幂等/空库 no-op/写新键/读回退全覆盖）；三源集编译绿；全量 testDevDebugUnitTest --rerun 197 套件 0 失败（1m13s）。
+5. 用户数据影响：老用户 collapse_tools=true（展开）→ 迁移后 auto_expand_tools=true，行为不变；新装默认 false 不变。
+- 遗留到真机轮：设置开关切换 + 工具卡片默认展开行为 + 升级安装（覆盖装保留旧键数据触发迁移）。
+
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->

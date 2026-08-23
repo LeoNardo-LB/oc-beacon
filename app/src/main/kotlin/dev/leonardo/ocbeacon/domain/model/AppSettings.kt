@@ -21,7 +21,8 @@ data class AppSettings(
     val recentDirectoryCount: Int = 20,
     val confirmBeforeSend: Boolean = false,
     val compactMessages: Boolean = false,
-    val collapseTools: Boolean = false,
+    /** 工具卡片默认自动展开（#202 改名自 collapseTools；值语义不变：true=展开）。 */
+    val autoExpandTools: Boolean = false,
     val expandReasoning: Boolean = false,
     val showTurnDividers: Boolean = true,
     /** 2026-08-22（用户需求）：主对话流内堆积/TODO 常驻抽屉显隐（顶栏菜单

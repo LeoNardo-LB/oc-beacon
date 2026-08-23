@@ -492,7 +492,7 @@ class ChatViewModel @Inject constructor(
     val chatDensity get() = settingsState.chatDensity
     val confirmBeforeSend get() = settingsState.confirmBeforeSend
     val compactMessages get() = settingsState.compactMessages
-    val collapseTools get() = settingsState.collapseTools
+    val autoExpandTools get() = settingsState.autoExpandTools
     val expandReasoning get() = settingsState.expandReasoning
     val showTurnDividers get() = settingsState.showTurnDividers
     val hapticFeedback get() = settingsState.hapticFeedback

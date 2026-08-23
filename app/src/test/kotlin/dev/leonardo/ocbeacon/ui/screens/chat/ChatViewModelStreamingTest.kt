@@ -97,7 +97,7 @@ class ChatViewModelStreamingTest {
                 chatFontSize = "medium",
                 confirmBeforeSend = false,
                 compactMessages = false,
-                collapseTools = false,
+                autoExpandTools = false,
                 expandReasoning = false,
                 hapticFeedback = true,
                 keepScreenOn = false,

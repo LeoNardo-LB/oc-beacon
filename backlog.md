@@ -70,9 +70,9 @@
   - 149 属性名全部已符规范形态（API 原词 camelCase）；改名集为空；WireCompatMatrixTest 9 测试锁全 wire 名（大写 ID 族+snake_case 族+多态回环）
   - → docs/journal/2026-08-24-tier-c-contract-renames.md
 
-- [ ] **#202 Tier C-2：DataStore PreferencesKey 重命名（50 键）** `refactor`
-  - 需迁移代码（unread v2 值域迁移为先例）；错失即用户设置全量丢失
-  - → 同上 Tier C
+- [~] **#202 Tier C-2：DataStore 键改名——collapse_tools→auto_expand_tools（TDD 红绿）** `refactor`
+  - 50 键审计仅 1 键命中术语裁决；取证值语义从未反转（纯键名搬家零取反）；迁移幂等+读回退，7/7 迁移测试+197 套件全绿
+  - → docs/journal/2026-08-24-tier-c-contract-renames.md
 
 - [~] **#203 Tier C-3：Room 实体/列重命名（5 实体）——裁决零改名** `refactor`
   - 术语表已裁 archive_buckets/pending message 为规范名本体（C07 裁决保留现名）；列名审计 21/21 无冲突；待用户验收零改名裁决

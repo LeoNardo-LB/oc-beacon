@@ -47,7 +47,14 @@ class SettingsDataStore @Inject constructor(
         private val CONFIRM_BEFORE_SEND_KEY = booleanPreferencesKey("confirm_before_send")
         private val AMOLED_DARK_KEY = booleanPreferencesKey("amoled_dark")
         private val COMPACT_MESSAGES_KEY = booleanPreferencesKey("compact_messages")
-        private val COLLAPSE_TOOLS_KEY = booleanPreferencesKey("collapse_tools")
+        /**
+         * 自动展开工具结果（#202 / CONTEXT.md 词条「自动展开工具结果」Phase 2 改名）：
+         * true=默认展开。历史键 collapse_tools 是名实不符遗留——**值语义从未反转**
+         * （UI 开关文案自始为 Auto-expand，checked 原值绑定），故迁移为纯键名搬家、
+         * 值原样保留。读取带回退（迁移完成前旧用户不闪回默认值），迁移后旧键删除。
+         */
+        private val AUTO_EXPAND_TOOLS_KEY = booleanPreferencesKey("auto_expand_tools")
+        private val LEGACY_COLLAPSE_TOOLS_KEY = booleanPreferencesKey("collapse_tools")
         private val EXPAND_REASONING_KEY = booleanPreferencesKey("expand_reasoning")
         private val SHOW_TURN_DIVIDERS_KEY = booleanPreferencesKey("show_turn_dividers")
         private val SHOW_PENDING_TODO_DRAWER_KEY = booleanPreferencesKey("show_pending_todo_drawer")
@@ -243,7 +250,7 @@ class SettingsDataStore @Inject constructor(
             prefs[RECENT_DIRECTORY_COUNT_KEY] = settings.recentDirectoryCount
             prefs[CONFIRM_BEFORE_SEND_KEY] = settings.confirmBeforeSend
             prefs[COMPACT_MESSAGES_KEY] = settings.compactMessages
-            prefs[COLLAPSE_TOOLS_KEY] = settings.collapseTools
+            prefs[AUTO_EXPAND_TOOLS_KEY] = settings.autoExpandTools
             prefs[EXPAND_REASONING_KEY] = settings.expandReasoning
             prefs[SHOW_TURN_DIVIDERS_KEY] = settings.showTurnDividers
             prefs[SHOW_PENDING_TODO_DRAWER_KEY] = settings.showPendingTodoDrawer
@@ -275,9 +282,27 @@ class SettingsDataStore @Inject constructor(
     val compactMessages: Flow<Boolean> = prefFlow(COMPACT_MESSAGES_KEY, false)
     suspend fun setCompactMessages(enabled: Boolean) = setPref(COMPACT_MESSAGES_KEY, enabled)
 
-    /** 工具卡片是否默认折叠。默认：false。 */
-    val collapseTools: Flow<Boolean> = prefFlow(COLLAPSE_TOOLS_KEY, false)
-    suspend fun setCollapseTools(enabled: Boolean) = setPref(COLLAPSE_TOOLS_KEY, enabled)
+    /** 工具卡片是否默认自动展开（#202 改名自 collapseTools，语义即存储值方向：true=展开）。
+     *  读取回退旧键——迁移（[runAutoExpandToolsKeyMigration]）完成前的读取窗口不失值。 */
+    val autoExpandTools: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[AUTO_EXPAND_TOOLS_KEY] ?: preferences[LEGACY_COLLAPSE_TOOLS_KEY] ?: false
+    }
+
+    suspend fun setAutoExpandTools(enabled: Boolean) = setPref(AUTO_EXPAND_TOOLS_KEY, enabled)
+
+    /**
+     * #202 一次性迁移：collapse_tools → auto_expand_tools 键名搬家（值原样，**无取反**）。
+     * 幂等：新键已存在则只清旧键。由 EventDispatcher init 触发（unread v2 迁移同款纪律）。
+     */
+    suspend fun runAutoExpandToolsKeyMigration() {
+        dataStore.edit { prefs ->
+            val legacy = prefs[LEGACY_COLLAPSE_TOOLS_KEY]
+            if (legacy != null && prefs[AUTO_EXPAND_TOOLS_KEY] == null) {
+                prefs[AUTO_EXPAND_TOOLS_KEY] = legacy
+            }
+            prefs.remove(LEGACY_COLLAPSE_TOOLS_KEY)
+        }
+    }
 
     /** 推理块是否默认展开。默认：false（折叠）。 */
     val expandReasoning: Flow<Boolean> = prefFlow(EXPAND_REASONING_KEY, false)
@@ -411,7 +436,7 @@ class SettingsDataStore @Inject constructor(
             recentDirectoryCount = (prefs[RECENT_DIRECTORY_COUNT_KEY] ?: 20).coerceIn(5, 50),
             confirmBeforeSend = prefs[CONFIRM_BEFORE_SEND_KEY] ?: false,
             compactMessages = prefs[COMPACT_MESSAGES_KEY] ?: false,
-            collapseTools = prefs[COLLAPSE_TOOLS_KEY] ?: false,
+            autoExpandTools = prefs[AUTO_EXPAND_TOOLS_KEY] ?: prefs[LEGACY_COLLAPSE_TOOLS_KEY] ?: false,
             expandReasoning = prefs[EXPAND_REASONING_KEY] ?: false,
             showTurnDividers = prefs[SHOW_TURN_DIVIDERS_KEY] ?: true,
             showPendingTodoDrawer = prefs[SHOW_PENDING_TODO_DRAWER_KEY] ?: true,

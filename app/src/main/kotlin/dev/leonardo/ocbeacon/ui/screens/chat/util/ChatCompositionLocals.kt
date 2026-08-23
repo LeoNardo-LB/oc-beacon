@@ -8,8 +8,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
 
 // ============ 通过 CompositionLocal 传递的聊天设置 ============
 
-/** 工具卡片是否默认折叠。 */
-val LocalCollapseTools = compositionLocalOf { false }
+/** 工具卡片是否默认自动展开（#202 改名自 LocalCollapseTools；true=展开，与存储值同向）。 */
+val LocalAutoExpandTools = compositionLocalOf { false }
 
 /** reasoning 块是否默认展开。 */
 val LocalExpandReasoning = compositionLocalOf { false }

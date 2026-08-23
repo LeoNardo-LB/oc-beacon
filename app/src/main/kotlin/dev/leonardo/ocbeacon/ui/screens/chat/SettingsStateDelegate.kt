@@ -33,7 +33,7 @@ internal class SettingsStateDelegate(
     val compactMessages = settingsRepository.getSettingsFlow().map { it.compactMessages }.stateIn(
         scope, WhileSubscribed5s, false
     )
-    val collapseTools = settingsRepository.getSettingsFlow().map { it.collapseTools }.stateIn(
+    val autoExpandTools = settingsRepository.getSettingsFlow().map { it.autoExpandTools }.stateIn(
         scope, WhileSubscribed5s, false
     )
     val expandReasoning = settingsRepository.getSettingsFlow().map { it.expandReasoning }.stateIn(

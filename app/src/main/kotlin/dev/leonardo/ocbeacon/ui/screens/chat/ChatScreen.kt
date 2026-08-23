@@ -184,7 +184,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.screens.chat.util.codeHorizontalScroll
 import dev.leonardo.ocbeacon.ui.theme.ChatDensity
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
-import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalCollapseTools
+import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalAutoExpandTools
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalExpandReasoning
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalShowTurnDividers
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
@@ -1012,7 +1012,7 @@ private fun ChatSettingsProvider(
     content: @Composable () -> Unit,
 ) {
     val chatDensity by viewModel.chatDensity.collectAsStateWithLifecycle()
-    val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
+    val autoExpandTools by viewModel.autoExpandTools.collectAsStateWithLifecycle()
     val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
     val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
 
@@ -1023,7 +1023,7 @@ private fun ChatSettingsProvider(
 
     CompositionLocalProvider(
         LocalChatDensity provides density,
-        LocalCollapseTools provides collapseTools,
+        LocalAutoExpandTools provides autoExpandTools,
         LocalExpandReasoning provides expandReasoning,
         LocalShowTurnDividers provides showTurnDividers,
     ) {

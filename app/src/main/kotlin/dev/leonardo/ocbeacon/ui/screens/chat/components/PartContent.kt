@@ -33,7 +33,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.PatchCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.ShellCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.TodoListCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.ToolCardScaffold
-import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalCollapseTools
+import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalAutoExpandTools
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalExpandReasoning
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalOnToggleToolExpanded
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalOnViewTool
@@ -156,7 +156,7 @@ internal fun PartContent(
                         QuestionParser.parseQuestionFromToolData(part.id, toolInput, toolOutput)
                     }
                     if (parsed.any { it.options.isNotEmpty() }) {
-                        val autoExpand = LocalCollapseTools.current
+                        val autoExpand = LocalAutoExpandTools.current
                         ToolCardScaffold(
                             icon = Icons.AutoMirrored.Filled.HelpOutline,
                             iconTint = MaterialTheme.colorScheme.primary,
@@ -188,7 +188,7 @@ internal fun PartContent(
                             QuestionParser.parseQuestionFromToolData(part.id, errorState.input, "")
                         }
                         if (parsed.any { it.options.isNotEmpty() }) {
-                            val autoExpand = LocalCollapseTools.current
+                            val autoExpand = LocalAutoExpandTools.current
                             ToolCardScaffold(
                                 icon = Icons.AutoMirrored.Filled.HelpOutline,
                                 iconTint = MaterialTheme.colorScheme.primary,
@@ -217,7 +217,7 @@ internal fun PartContent(
                     val parsed = remember(part.id) {
                         QuestionParser.parseQuestionFromToolData(part.id, toolInput, toolOutput)
                     }
-                    val autoExpand = LocalCollapseTools.current
+                    val autoExpand = LocalAutoExpandTools.current
                     ToolCardScaffold(
                         icon = Icons.AutoMirrored.Filled.HelpOutline,
                         iconTint = MaterialTheme.colorScheme.primary,
@@ -233,7 +233,7 @@ internal fun PartContent(
                     }
                 } else {
                 // 使用解析器注册表
-                val autoExpand = LocalCollapseTools.current
+                val autoExpand = LocalAutoExpandTools.current
                 val expanded = toolExpandedStates[part.id] ?: autoExpand
                 val toggleExpand = { onToggleToolExpanded(part.id, autoExpand) }
 
@@ -289,7 +289,7 @@ internal fun PartContent(
             // Token/费用信息聚合在 assistant 消息底部展示
         }
         is Part.Patch -> {
-            val autoExpand = LocalCollapseTools.current
+            val autoExpand = LocalAutoExpandTools.current
             val toolExpandedStates = LocalToolExpandedStates.current
             val onToggleToolExpanded = LocalOnToggleToolExpanded.current
             PatchCard(

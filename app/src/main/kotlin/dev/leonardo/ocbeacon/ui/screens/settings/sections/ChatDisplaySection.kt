@@ -31,7 +31,7 @@ fun ChatDisplaySection(
     onShowChatDensityPicker: () -> Unit,
 ) {
     val chatDensity by viewModel.chatDensity.collectAsStateWithLifecycle()
-    val collapseTools by viewModel.collapseTools.collectAsStateWithLifecycle()
+    val autoExpandTools by viewModel.autoExpandTools.collectAsStateWithLifecycle()
     val expandReasoning by viewModel.expandReasoning.collectAsStateWithLifecycle()
     val showTurnDividers by viewModel.showTurnDividers.collectAsStateWithLifecycle()
     val switchColors = SwitchDefaults.colors()
@@ -62,12 +62,12 @@ fun ChatDisplaySection(
         },
         trailingContent = {
             Switch(
-                checked = collapseTools,
-                onCheckedChange = { viewModel.setCollapseTools(it) },
+                checked = autoExpandTools,
+                onCheckedChange = { viewModel.setAutoExpandTools(it) },
                 colors = switchColors
             )
         },
-        modifier = Modifier.clickable { viewModel.setCollapseTools(!collapseTools) }.padding(ListItemTokens.ContentPaddingMedium)
+        modifier = Modifier.clickable { viewModel.setAutoExpandTools(!autoExpandTools) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
     // 默认展开推理过程

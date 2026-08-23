@@ -50,7 +50,7 @@ class SettingsViewModel @Inject constructor(
     val autoAllowPermissions = settings.map { it.autoAllowPermissions }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val amoledDark = settings.map { it.amoledDark }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val compactMessages = settings.map { it.compactMessages }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val collapseTools = settings.map { it.collapseTools }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val autoExpandTools = settings.map { it.autoExpandTools }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val expandReasoning = settings.map { it.expandReasoning }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val hapticFeedback = settings.map { it.hapticFeedback }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val reconnectMode = settings.map { it.reconnectMode }.stateIn(viewModelScope, SharingStarted.Eagerly, "normal")
@@ -125,8 +125,8 @@ class SettingsViewModel @Inject constructor(
         updateSetting { it.copy(compactMessages = enabled) }
     }
 
-    fun setCollapseTools(enabled: Boolean) {
-        updateSetting { it.copy(collapseTools = enabled) }
+    fun setAutoExpandTools(enabled: Boolean) {
+        updateSetting { it.copy(autoExpandTools = enabled) }
     }
 
     fun setExpandReasoning(enabled: Boolean) {
