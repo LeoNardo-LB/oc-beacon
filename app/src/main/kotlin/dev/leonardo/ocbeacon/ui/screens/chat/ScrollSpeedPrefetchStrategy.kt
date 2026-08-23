@@ -7,7 +7,8 @@ import androidx.compose.foundation.lazy.LazyListPrefetchStrategy
 import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
 
 /**
- * 跳转预组合策略（终极解法 2026-08-13）。
+ * 滚动速度自适应预组合策略（2026-08-13 引入；原名 JumpPrefetchStrategy，
+ * 2026-08-21 跳转职责移除后 #200 F13 更名以名实对齐）。
  *
  * 原理：LazyListPrefetchStrategy 是 Compose 官方的"视口外预组合"机制——
  * schedulePrefetch(index) 在帧空闲期对指定 item 执行 precomposition +
@@ -21,7 +22,7 @@ import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
  * 滚动方向预测预组合（速度自适应窗口）。
  */
 @OptIn(ExperimentalFoundationApi::class)
-class JumpPrefetchStrategy : LazyListPrefetchStrategy {
+class ScrollSpeedPrefetchStrategy : LazyListPrefetchStrategy {
 
     /**
      * 滚动方向预组合——速度自适应窗口（2026-08-20 第二轮滚动卡顿修复）。

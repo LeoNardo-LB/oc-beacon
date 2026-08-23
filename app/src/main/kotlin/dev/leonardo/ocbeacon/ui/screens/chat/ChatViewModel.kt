@@ -527,19 +527,19 @@ class ChatViewModel @Inject constructor(
     // 销毁重建（behind 太小）+ fling。
     // 2026-08-13 曾以 cacheWindow 窗口式预组合 + 跳转目标预组合（视口外组合+测量、
     // 滚动到视口即静态显示）解决；2026-08-21 跳转目标预组合已移除（预测量尺寸
-    // 污染 item 布局，由跳转状态机 + 透明门控取代，见 [JumpPrefetchStrategy]）。
+    // 污染 item 布局，由跳转状态机 + 透明门控取代，见 [ScrollSpeedPrefetchStrategy]）。
     // 现仅保留滚动方向预测预组合（速度自适应窗口）。
     @OptIn(ExperimentalFoundationApi::class)
-    val jumpPrefetch = JumpPrefetchStrategy()
+    val scrollSpeedPrefetch = ScrollSpeedPrefetchStrategy()
 
     // 2026-08-13：LazyListState 改用 prefetchStrategy（现为滚动方向预测预组合），
-    // 原 cacheWindow（ahead/behind 1.5 屏）由 JumpPrefetchStrategy 的滚动方向
+    // 原 cacheWindow（ahead/behind 1.5 屏）由 ScrollSpeedPrefetchStrategy 的滚动方向
     // 预测替代——流式/滚动预组合收益保持。
     @OptIn(ExperimentalFoundationApi::class)
     val listState = androidx.compose.foundation.lazy.LazyListState(
         firstVisibleItemIndex = 0,
         firstVisibleItemScrollOffset = 0,
-        prefetchStrategy = jumpPrefetch,
+        prefetchStrategy = scrollSpeedPrefetch,
     )
 
     val restoredDraftState: StateFlow<RevertedDraftPayload?> get() = draftDelegate.restoredDraftState

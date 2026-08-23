@@ -19,12 +19,12 @@ import kotlin.math.exp
  *
  * 方案：接管 fling 动画——每帧位移限制在视口高 1/8 以内（carry 保留
  * 总距离，手感与原生一致），保证视口穿越未组合区域耗时 ≥ 8 帧，
- * 让滚动预解析（RenderReadinessRegistry 驱动）+ 预组合（JumpPrefetch
+ * 让滚动预解析（RenderReadinessRegistry 驱动）+ 预组合（ScrollSpeedPrefetch
  * 策略）有机会在 item 进入视口前完成——高度正确，无锚点修正。
  *
  * 历史：e651daf1 首次引入切块 fling（修 fling 跳过长消息）；cd1ae6ee
  * v1 迭代移除（当时以 cacheWindow 对称窗口替代）；2026-08-13 起窗口被
- * JumpPrefetchStrategy 取代后高速段保护缺失——本文件以视口自适应限速
+ * ScrollSpeedPrefetchStrategy 取代后高速段保护缺失——本文件以视口自适应限速
  * 回归，并与渲染供给协调器配合（当年两者未同时存在）。
  */
 @Composable
