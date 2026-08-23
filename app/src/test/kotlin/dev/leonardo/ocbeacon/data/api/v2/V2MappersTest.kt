@@ -232,7 +232,7 @@ class V2MappersTest {
 
     @Test
     fun `toMessageWithParts maps subagent tool with metadata sessionID`() {
-        // V2 subagent 工具实际结构（REST 实测）：metadata.sessionID 是子会话 ID
+        // V2 subagent 工具实际结构（REST 实测）：metadata.sessionID 是子智能体会话 ID
         val obj = json.parseToJsonElement("""
             {"type":"assistant","id":"msg_a5","time":{"created":1000},
              "agent":"build","model":{"id":"m","providerID":"p"},
@@ -249,7 +249,7 @@ class V2MappersTest {
         assertTrue(toolPart.state is dev.leonardo.ocbeacon.domain.model.ToolState.Completed)
         val completed = toolPart.state as dev.leonardo.ocbeacon.domain.model.ToolState.Completed
 
-        // 关键断言 1：metadata 必须包含子会话 ID（TaskToolCard 跳转依赖）
+        // 关键断言 1：metadata 必须包含子智能体会话 ID（TaskToolCard 跳转依赖）
         assertNotNull(completed.metadata)
         assertEquals("ses_child_1", completed.metadata?.get("sessionId")?.jsonPrimitive?.content)
         // 双写兼容（V2 大写 / V1 小写）

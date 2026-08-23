@@ -128,7 +128,7 @@ class ApiVersionDetectorTest {
         }
         val detector = buildDetector(engine)
         val result = detector.detect("http://localhost:4096", knownVersion = ApiVersion.V1)
-        // 升级场景：V1 探测失败（HTML 防御拒绝）→ 回退 V2 探测 → 当次纠正
+        // 升级场景：V1 探测失败（HTML 防御拒绝）→ 降级 V2 探测 → 当次纠正
         assertEquals(ApiVersion.V2, result.version)
         assertEquals(listOf("/global/health", "/api/health"), requestOrder)
     }
@@ -191,7 +191,7 @@ class ApiVersionDetectorTest {
         }
         val detector = buildDetector(engine)
         val result = detector.detect("http://localhost:4096")
-        // V2 healthy=false → V2 探测失败 → 回退 V1
+        // V2 healthy=false → V2 探测失败 → 降级 V1
         assertEquals(ApiVersion.V1, result.version)
     }
 
@@ -200,7 +200,7 @@ class ApiVersionDetectorTest {
         // 回归测试：opencode 1.18.18 过渡形态同时暴露 /api/health 与 /global/health，
         // /api/health 返回 {"healthy":true,"version":"1.18.18"}。
         // 旧逻辑只看 healthy → 误判 V2 → V2ApiClient 请求不存在的 /api/* 路径 → HTML 崩溃。
-        // 新逻辑：版本交叉验证 version=1.18.18 → 不是 2.x → 回退 V1。
+        // 新逻辑：版本交叉验证 version=1.18.18 → 不是 2.x → 降级 V1。
         val engine = MockEngine { request ->
             when (request.url.encodedPath) {
                 "/api/health" -> respond(
@@ -225,7 +225,7 @@ class ApiVersionDetectorTest {
     @Test
     fun `api health without version field → fallback to V1`() = runTest {
         // 实测形态：opencode 1.18.18 的 /api/health 只返回 {"healthy":true}（无 version）。
-        // 无版本信息 → 不能判定为 V2 → 回退 V1。
+        // 无版本信息 → 不能判定为 V2 → 降级 V1。
         val engine = MockEngine { request ->
             when (request.url.encodedPath) {
                 "/api/health" -> respond(
@@ -249,7 +249,7 @@ class ApiVersionDetectorTest {
     @Test
     fun `api health returns HTML page → not V2, fallback to V1`() = runTest {
         // 防御：SPA fallback 返回 text/html 页面（如 <!doctype html>）。
-        // content-type 非 JSON → V2 探测失败 → 回退 V1。
+        // content-type 非 JSON → V2 探测失败 → 降级 V1。
         val html = "<!doctype html><html><body>opencode web ui</body></html>"
         val engine = MockEngine { request ->
             when (request.url.encodedPath) {
@@ -273,7 +273,7 @@ class ApiVersionDetectorTest {
 
     @Test
     fun `api health returns 200 JSON but body is not parseable → fallback to V1`() = runTest {
-        // 防御：即使 content-type 是 JSON，body 解析失败也不崩溃 → 回退 V1。
+        // 防御：即使 content-type 是 JSON，body 解析失败也不崩溃 → 降级 V1。
         val engine = MockEngine { request ->
             when (request.url.encodedPath) {
                 "/api/health" -> respond(
