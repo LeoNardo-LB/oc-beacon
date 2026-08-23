@@ -1,6 +1,6 @@
 # 术语统一批次设计（#193）
 
-> 状态：**已定案待实施** · 关联：[ADR-0001](../adr/0001-terminology-authority.md) · [CONTEXT.md](../../CONTEXT.md)（46 词条，权威）· journal：`docs/journal/2026-08-23-batch.md`
+> 状态：**已实施完结**（2026-08-23 用户验收通过；spec 归档）· 关联：[ADR-0001](../../adr/0001-terminology-authority.md) · [CONTEXT.md](../../../CONTEXT.md)（46 词条，权威）· journal：`docs/journal/2026-08-23-batch.md`
 > 来源：用户需求「全项目统一术语 + 据实修注释」；990 文件盘点 → 四轮裁决（G/M/D3/T+P）→ A 类深调研 4 路 → B 类同步再分析。
 
 ## 目标
