@@ -111,12 +111,12 @@ interface ChatRepository {
     ): Result<Unit>
 
     /**
-     * 从指定 messageId 开始回退（undo）消息。
+     * 从指定 messageId 开始撤销（revert）消息。
      */
     suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit>
 
     /**
-     * 在会话中取消回退（redo）最近一次被回退的消息。
+     * 在会话中取消撤销（unrevert/redo）最近一次被撤销的消息。
      */
     suspend fun unrevertSession(serverId: String, sessionId: String): Result<Unit>
 
@@ -258,13 +258,13 @@ interface ChatRepository {
 
 
     /**
-     * 清除某个会话的回退状态。
-     * 在用户回退后发送新消息时调用——服务器会消费回退，
+     * 清除某个会话的撤销状态。
+     * 在用户撤销后发送新消息时调用——服务器会消费撤销，
      * 但可能不会通过 SSE 通知客户端。
      */
     fun clearRevert(sessionId: String)
 
-    /** 在 REST 回退之后立即设置本地回退状态（防止旧消息闪现）。 */
+    /** 在 REST 撤销之后立即设置本地撤销状态（防止旧消息闪现）。 */
     fun setRevert(sessionId: String, messageId: String)
 
     /**
@@ -288,12 +288,12 @@ interface ChatRepository {
     fun setQuestions(sessionId: String, questions: List<SseEvent.QuestionAsked>)
 
     /**
-     * 聚合某个会话及其子会话的权限。
+     * 聚合某个会话及其子智能体会话的权限。
      */
     fun getPermissionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.PermissionAsked>
 
     /**
-     * 聚合某个会话及其子会话的问题。
+     * 聚合某个会话及其子智能体会话的问题。
      */
     fun getQuestionsWithChildren(sessionId: String, sessions: List<Session>): List<SseEvent.QuestionAsked>
 
@@ -313,7 +313,7 @@ interface ChatRepository {
 
     /**
      * 读取当前的会话列表快照。
-     * 供 REST 合并逻辑使用——查找子会话和标题。
+     * 供 REST 合并逻辑使用——查找子智能体会话和标题。
      */
     fun getSessionsSnapshot(): List<Session>
 

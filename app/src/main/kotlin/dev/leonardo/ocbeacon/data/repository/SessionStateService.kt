@@ -553,7 +553,7 @@ class SessionStateService @Inject constructor(
                                     AppLogger.w(TAG, "[$sessionId] server says Busy but no SSE events for ${quietMs}ms -> zombie runner, forcing Idle")
                                     interruptZombieRunner(sid, sessionId, directory)
                                 }
-                                // 仅僵尸路径强制本地 Idle（服务器已被 interrupt 解除）；
+                                // 仅僵尸路径强制本地 Idle（僵尸解除的服务器调用已停用，本地显示修复）；
                                 // pending/子智能体会话路径保持 FSM 跟随服务器（Busy）——见上方注释
                                 if (!hasPendingUserInput && !hasActiveChildren) {
                                     onRestValidation(sessionId, SessionStatus.Idle)
