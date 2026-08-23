@@ -1,3 +1,4 @@
+// ⚠️ 死代码：全仓无调用点（2026-08-23 核实），候选清理见 backlog #194
 package dev.leonardo.ocbeacon.ui.screens.sessions.util
 
 import dev.leonardo.ocbeacon.domain.model.Project
