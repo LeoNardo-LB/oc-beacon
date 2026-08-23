@@ -338,7 +338,7 @@ class MainActivity : ComponentActivity() {
                     // 分享 intent 授予的临时权限仍然有效。
                 }
             }
-            AppLogger.i(TAG, "Received \${uris.size} shared image(s)")
+            AppLogger.i(TAG, "Received ${uris.size} shared image(s)")
             _sharedImagesFlow.tryEmit(uris)
         }
     }

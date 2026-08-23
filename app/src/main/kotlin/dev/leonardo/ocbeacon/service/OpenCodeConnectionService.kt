@@ -458,7 +458,7 @@ class OpenCodeConnectionService : Service() {
             runCatching {
                 result += managePermissionUseCase.listPendingQuestions(server.id, directory = dir)
             }.onFailure {
-                AppLogger.w(TAG, "[${'$'}{server.displayName}] question polling (dir=${'$'}dir) failed: ${'$'}{it.message}")
+                AppLogger.w(TAG, "[${server.displayName}] question polling (dir=$dir) failed: ${it.message}")
             }
         }
         return result.distinctBy { it.id }
