@@ -49,6 +49,10 @@ class FakeSessionStateRepository @Inject constructor() : SessionStateRepository 
         // 2026-08-16：接口新增（active 轮询双向对账）——Fake 空实现
     }
 
+    override fun serverIdFor(sessionId: String): String? = null
+
+    override fun hasPendingUserInput(sessionId: String): Boolean = false
+
     override fun onClientSendParts(sessionId: String) = applyTransition(sessionId, FsmEvent.ClientSendParts)
 
     /** SSE 重连补拉——Fake 无内容可补，空实现。 */

@@ -215,4 +215,9 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
         cursor: String?,
         limit: Int
     ): List<Session> = emptyList()
+
+    override suspend fun getSessionTodos(
+        serverId: String,
+        sessionId: String
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.SseEvent.TodoUpdated.Todo>> = Result.success(emptyList())
 }

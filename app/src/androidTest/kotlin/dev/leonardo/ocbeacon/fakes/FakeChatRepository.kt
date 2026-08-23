@@ -260,18 +260,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         }
     }
 
-    override fun setMessages(sessionId: String, messages: List<MessageWithParts>) {
-        messagesStore[sessionId] = messages.toMutableList()
-    }
-
-    override fun mergeMessages(sessionId: String, messages: List<MessageWithParts>) {
-        messagesStore.getOrPut(sessionId) { mutableListOf() }.addAll(messages)
-    }
-
-    override fun replaceMessages(sessionId: String, messages: List<MessageWithParts>) {
-        messagesStore[sessionId] = messages.toMutableList()
-    }
-
     override fun clearRevert(sessionId: String) {
         revertStore.remove(sessionId)
     }
