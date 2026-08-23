@@ -37,7 +37,7 @@ class GitChangesPanelTest {
                 onOpenDiff = {}
             )
         }
-        composeTestRule.onNodeWithText("app/src/main/kotlin/dev/minios/ocremote/data/api/OpenCodeApi.kt")
+        composeTestRule.onNodeWithText("app/src/main/kotlin/dev/leonardo/ocbeacon/data/api/OpenCodeApi.kt")
             .assertIsDisplayed()
         composeTestRule.onNodeWithText("app/build.gradle.kts").assertIsDisplayed()
         composeTestRule.onNodeWithText("README.md").assertIsDisplayed()
@@ -89,7 +89,7 @@ class GitChangesPanelTest {
 
     private fun sampleChanges(): List<VcsChange> = listOf(
         VcsChange(
-            file = "app/src/main/kotlin/dev/minios/ocremote/data/api/OpenCodeApi.kt",
+            file = "app/src/main/kotlin/dev/leonardo/ocbeacon/data/api/OpenCodeApi.kt",
             additions = 45,
             deletions = 2,
             status = VcsStatus.MODIFIED

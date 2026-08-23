@@ -37,7 +37,7 @@ class DiffViewTest {
                     mode = FileViewerMode.DIFF,
                     isLoading = false,
                     diff = VcsFileDiff(
-                        file = "app/src/main/kotlin/dev/minios/ocremote/data/api/OpenCodeApi.kt",
+                        file = "app/src/main/kotlin/dev/leonardo/ocbeacon/data/api/OpenCodeApi.kt",
                         patch = SAMPLE_PATCH,
                         additions = 4,
                         deletions = 1,
