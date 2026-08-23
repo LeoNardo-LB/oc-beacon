@@ -55,4 +55,17 @@
 5. 用户数据影响：老用户 collapse_tools=true（展开）→ 迁移后 auto_expand_tools=true，行为不变；新装默认 false 不变。
 - 遗留到真机轮：设置开关切换 + 工具卡片默认展开行为 + 升级安装（覆盖装保留旧键数据触发迁移）。
 
+## #205 Tier C-5：intent extra / 导航参数——裁决**零改名**（待用户验收）
+
+评估期预判「22+27 处需改名」经逐名审计不成立：
+
+1. **导航参数（27 处）全部合规**：sessionId/serverId/directory/openTerminal/initialPath 等 8 个 PARAM_ 常量全部 camelCase——正是 CONTEXT.md 总则规范形态（域内标识符 camelCase），且各路由文件常量单源。改名集为空。
+2. **intent extra（22 处）分三类**：
+   - **系统标准**（Intent.EXTRA_STREAM ×4）：平台契约，豁免
+   - **app 内部契约**（EXTRA_SERVER_ID="server_id"/EXTRA_SESSION_PATH="session_path"/EXTRA_SESSION_ID="sessionId" + server_id ×4 + crash_occurred/crash_message/crash_exception）：双方（AppNotificationManager↔MainActivity↔Service）**全部引用 OpenCodeConnectionService companion 单源常量**——无漂移风险；值无术语冲突。风格混杂（snake/camel 并存）是历史事实但 sessionId 与导航参数同名复用（deep link 透传），强行统一反破坏复用
+   - **外部配置契约**（debug_url/debug_name/debug_username/debug_password/debug_race/debug_perf）：**#132 用户的 am start 脚本依赖 + real-device-testing.md:91 文档化**——评估文档自己标注的保护对象，不动
+3. 术语层：CONTEXT.md 无任何词条命中 extra 名或导航参数名——无裁决目标即无改名依据。
+4. 与 #201/#203 同构结论：Tier C 的真实价值在审计取证与安全网（wire 矩阵/迁移测试/契约锁），而非机械改名。
+- 处置：卡片转 [~] 待验证（验收内容=零改名裁决）。
+
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->

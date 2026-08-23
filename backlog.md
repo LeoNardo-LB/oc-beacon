@@ -82,9 +82,9 @@
   - R.string 903 引用点 + maestro 34 flows 锁文案联动；CI i18n 检查可兜底
   - → 同上 Tier C
 
-- [ ] **#205 Tier C-5：intent extra/导航参数改名（22+27 处）** `refactor`
-  - debug intent #132 外部已配置依赖 extra 名；零自动化覆盖，需真机验证（houji）
-  - → 同上 Tier C
+- [~] **#205 Tier C-5：intent extra/导航参数——裁决零改名** `refactor`
+  - 导航参数 8 常量全 camelCase 已合规；extra 三类分治（系统标准/内部单源常量/#132 外部契约保护）；无术语裁决命中
+  - → docs/journal/2026-08-24-tier-c-contract-renames.md
 
 ## P3 — 观察与低价值改进
 
