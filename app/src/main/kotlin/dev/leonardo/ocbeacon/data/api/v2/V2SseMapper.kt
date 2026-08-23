@@ -337,7 +337,7 @@ object V2SseMapper {
                 ?.mapNotNull { it.jsonObject["text"]?.jsonPrimitive?.contentOrNull }
                 ?.joinToString("\n") ?: ""
             val metadata = props["metadata"]?.jsonObject?.let { m ->
-                // 双写 sessionId/sessionID（subagent 子会话跳转兼容）
+                // 双写 sessionId/sessionID（subagent 子智能体会话跳转兼容）
                 val mapped = m.mapValues { (_, v) -> v }.toMutableMap()
                 val sid = m["sessionID"] ?: m["sessionId"]
                 if (sid != null) {

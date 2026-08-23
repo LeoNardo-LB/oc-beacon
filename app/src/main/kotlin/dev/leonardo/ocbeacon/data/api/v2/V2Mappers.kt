@@ -431,9 +431,9 @@ object V2MessageMapper {
                 val status = stateObj?.get("status")?.jsonPrimitive?.contentOrNull ?: "completed"
 
                 // 完整映射 V2 tool state → V1 ToolState
-                // 关键：metadata 可能包含 subagent 子会话 ID（metadata.sessionID），
+                // 关键：metadata 可能包含 subagent 子智能体会话 ID（metadata.sessionID），
                 // input 包含工具参数（如 subagent 的 description/prompt），
-                // content 是工具输出——TaskToolCard 依赖这些实现子会话跳转。
+                // content 是工具输出——TaskToolCard 依赖这些实现子智能体会话跳转。
                 val inputMap = stateObj?.get("input")?.jsonObject?.let { obj2 ->
                     obj2.mapValues { (_, v) -> v }
                 } ?: emptyMap()
@@ -445,11 +445,11 @@ object V2MessageMapper {
                     } else obj2
                     val mapped = inner.mapValues { (_, v) -> v }.toMutableMap()
                     // V2 用 metadata.sessionID（大写），V1 TaskToolCard 读取 sessionId（小写）
-                    // 双写兼容，让子会话跳转在两种格式下都可用
+                    // 双写兼容，让子智能体会话跳转在两种格式下都可用
                     // #180（2026-08-21）：synthetic 消息 metadata 实测用 childID 命名
                     // （{source:"subagent", childID, agent, state}）——tool part 的
                     // Running 态同源；childID 一并归一到 sessionId/sessionID 双写，
-                    // Running 期子会话跳转不再漏读
+                    // Running 期子智能体会话跳转不再漏读
                     val sessionIdUpper = inner["sessionID"] ?: inner["sessionId"] ?: inner["childID"]
                     if (sessionIdUpper != null) {
                         mapped["sessionId"] = sessionIdUpper

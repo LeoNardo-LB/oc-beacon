@@ -429,8 +429,8 @@ class MessageEventHandler @Inject constructor(
 
     /**
      * 从缓存中移除 id >= [revertMessageId] 的消息。
-     * 由 [EventDispatcher.clearRevert] 调用，防止已回退的消息
-     * 在回退过滤器清除时短暂重现。
+     * 由 [EventDispatcher.clearRevert] 调用，防止已撤销的消息
+     * 在撤销过滤器清除时短暂重现。
      */
     fun pruneRevertedMessages(sessionId: String, revertMessageId: String) {
         val removedIds = _messages.value[sessionId]
@@ -521,7 +521,7 @@ class MessageEventHandler @Inject constructor(
     private fun mergePart(existing: Part, incoming: Part): Part {
         return when {
             existing is Part.Text && incoming is Part.Text -> {
-                // #109：时间取回退链——ended 事件 start=0（未知）时用 started
+                // #109：时间取兜底链——ended 事件 start=0（未知）时用 started
                 // 记录的本地时刻，REST 真实时间戳（>0）优先。
                 val time = Part.Text.Time(
                     start = incoming.time?.start?.takeIf { it > 0 }
@@ -535,7 +535,7 @@ class MessageEventHandler @Inject constructor(
                 // 文本，必须**直接覆盖**。原"更长文本胜出"启发式在 REST 快照
                 // 与 SSE 累积前缀不一致时选错基线 → 中段内容重复（用户实测
                 // "最后一句话被随机重复"）。
-                // 判定 ended：incoming 是 text.ended 映射（时间回退链后
+                // 判定 ended：incoming 是 text.ended 映射（时间兜底链后
                 // end != null 且非空文本全量）——ended 映射处显式标记：
                 // incoming.text 含完整文本且 end!=0。保守策略：
                 // incoming 带 end 时间戳（ended/REST 语义）→ 覆盖；
@@ -569,10 +569,10 @@ class MessageEventHandler @Inject constructor(
                 if (incomingInput.isEmpty() && existingInput.isNotEmpty()) {
                     merged = merged.withStateInput(existingInput)
                 }
-                // Tool part：SSE 中间状态（Running）可能缺少 metadata（如 subagent 子会话 ID），
+                // Tool part：SSE 中间状态（Running）可能缺少 metadata（如 subagent 子智能体会话 ID），
                 // 但 REST 快照/早期 SSE 已完成状态包含完整 metadata。
                 // 若 incoming 缺少 metadata 而 existing 有，保留 existing 的 metadata，
-                // 避免 subagent 卡片失去子会话跳转能力（backlog: subagent 卡片不可点击）。
+                // 避免 subagent 卡片失去子智能体会话跳转能力（backlog: subagent 卡片不可点击）。
                 val incomingMetadata = merged.stateMetadata()
                 val existingMetadata = existing.stateMetadata()
                 if (incomingMetadata.isNullOrEmpty() && !existingMetadata.isNullOrEmpty()) {
@@ -626,7 +626,7 @@ class MessageEventHandler @Inject constructor(
 
     private fun mergePartsList(existingParts: List<Part>, incomingParts: List<Part>): List<Part> {
         // 2026-08-12 根因修复（流式内容消失）：
-        // 1. incoming 为空（REST 流式消息 content 未提交 / SSE 部分更新）时
+        // 1. incoming 为空（REST 流式 turn content 未提交 / SSE 部分更新）时
         //    保留 existing——原实现返回 [] 清空 SSE 累积文本。
         // 2. 保留 incoming 中不存在的已有 parts：REST text part id="" 与 SSE
         //    派生 id="msg_ord_N" 契约不一致（V2Mappers.kt:294 vs V2SseMapper
@@ -1092,7 +1092,7 @@ class MessageEventHandler @Inject constructor(
 
     /**
      * 将会话中所有未完成的 assistant 消息标记为已完成。
-     * 在 REST 回退检测到服务器已空闲但 UI 仍显示流式时调用。
+     * 在 REST 兜底检测到服务器已空闲但 UI 仍显示流式时调用。
      *
      * @param messageId 非空时仅标记该消息（command.executed 事件是消息级的，
      *   用 messageId 精确终结，避免误杀同一会话中仍在流式的其他消息）；

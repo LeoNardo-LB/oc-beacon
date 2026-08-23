@@ -364,7 +364,7 @@ class AppNotificationManager @Inject constructor(
         // P3（2026-08-19）：正文优先问题文本本身——短且直接（"What is your
         // favorite animal?"）；此前优先最后一条用户消息，正文是触发 prompt
         // 全文（"Use the question tool to ask me: ..."）信息密度低。问题文本
-        // 缺失时回退用户消息（REST 兜底路径可能无 question 文本）。
+        // 缺失时改用用户消息（REST 兜底路径可能无 question 文本）。
         val contentText = questionText.ifBlank {
             findLatestUserMessages(sessionId, 1).firstOrNull()?.text
                 ?: context.getString(R.string.notification_new_message)
@@ -432,7 +432,7 @@ class AppNotificationManager @Inject constructor(
                 return@forEach
             }
             questions.forEach { question ->
-                // 与 SSE 路径对齐：文本缺失时回退到本地化字符串，
+                // 与 SSE 路径对齐：文本缺失时改用本地化字符串，
                 // 同时避免空字符串削弱 shouldNotifyQuestion 的去重键。
                 val text = question.questions.firstOrNull()?.question
                     ?: question.questions.firstOrNull()?.header
@@ -488,7 +488,7 @@ class AppNotificationManager @Inject constructor(
 
     /**
      * 检查会话是否为子/子代理会话（已设置 parentID）。
-     * 子会话不应触发面向用户的通知。
+     * 子智能体会话不应触发面向用户的通知。
      */
     fun isChildSession(sessionId: String): Boolean {
         val session = sessionById[sessionId]

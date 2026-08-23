@@ -410,7 +410,7 @@ class SseConnectionManager @Inject constructor(
         try {
             val projects = fileApi.listProjects(conn)
             if (projects.isEmpty()) {
-                // 回退：加载不带 directory 头的会话（仅服务器 CWD）
+                // 降级：加载不带 directory 头的会话（仅服务器 CWD）
                 val sessions = sessionApi.listSessions(conn)
                 eventDispatcher.setSessions(server.id, sessions)
                 AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${sessions.size} sessions (no projects)")

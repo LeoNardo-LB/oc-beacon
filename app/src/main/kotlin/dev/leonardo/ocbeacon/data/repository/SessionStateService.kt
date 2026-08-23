@@ -531,13 +531,13 @@ class SessionStateService @Inject constructor(
                                 // 提问/权限对话框，用户 >3 分钟未回答即被误杀）。QuestionAsked/PermissionAsked
                                 // 事件不映射 FSM（mapSseEventToFsm 返回 null）→ lastEventAt 不更新，故必须显式检查。
                                 val hasPendingUserInput = collaborator.hasPendingUserInput(sessionId)
-                                // 2026-08-15（僵尸误杀修复·二）：有活跃子会话（后台任务/
+                                // 2026-08-15（僵尸误杀修复·二）：有活跃子智能体会话（后台任务/
                                 // subagent running）时主会话 running 是 V2 drain 合法等待
                                 // 状态——不 interrupt（否则等待后台任务的主会话被误杀，
                                 // 用户零操作被打断）。仅本地转 Idle 跟随显示。
                                 val hasActiveChildren = collaborator.hasActiveChildren(sid, sessionId)
                                 if (hasPendingUserInput || hasActiveChildren) {
-                                    // pending 用户输入 / 活跃子会话：不 interrupt，也**不强转 Idle**
+                                    // pending 用户输入 / 活跃子智能体会话：不 interrupt，也**不强转 Idle**
                                     //（2026-08-18 E2E-G 修复：原"仅本地强制 Idle"与 :150 的 active-running
                                     // 校验形成 Busy↔Idle 每 10s 抖动循环——服务器仍 running 是真实状态
                                     // （等待用户输入），FSM 应保持 Busy 跟随；用户提交答案/后台完成后
@@ -554,7 +554,7 @@ class SessionStateService @Inject constructor(
                                     interruptZombieRunner(sid, sessionId, directory)
                                 }
                                 // 仅僵尸路径强制本地 Idle（服务器已被 interrupt 解除）；
-                                // pending/子会话路径保持 FSM 跟随服务器（Busy）——见上方注释
+                                // pending/子智能体会话路径保持 FSM 跟随服务器（Busy）——见上方注释
                                 if (!hasPendingUserInput && !hasActiveChildren) {
                                     onRestValidation(sessionId, SessionStatus.Idle)
                                 }

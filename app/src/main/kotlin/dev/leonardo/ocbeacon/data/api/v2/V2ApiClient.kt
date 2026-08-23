@@ -231,7 +231,7 @@ class V2ApiClient @Inject constructor(
             val root = parseRoot(response.bodyAsText())
             // V2 /api/session/active 返回 Map：{data: {sessionID: {type: "running"}}}
             // （2026-08-11 实测；不是 List——原 unwrapList 解析恒为空，
-            // 导致 L3/L4 REST 校验永远不知道子会话 running，后台 subagent 无法标记运行中）
+            // 导致 L3/L4 REST 校验永远不知道子智能体会话 running，后台 subagent 无法标记运行中）
             val data = root["data"]?.jsonObject
                 ?: return@runCatching emptyMap()
             data.mapNotNull { (sessionId, value) ->
@@ -851,7 +851,7 @@ class V2ApiClient @Inject constructor(
     ): Boolean {
         // 2026-08-17 根治（权限卡每次进入重弹）：真实契约为
         // POST /api/session/{权限所属会话}/permission/{id}/reply + {"reply":"once"|"always"|"reject"}
-        //（真机 E2E 实测 204；权限挂在子会话时 sessionId 必须用子会话 id，父会话 404）。
+        //（真机 E2E 实测 204；权限挂在子智能体会话时 sessionId 必须用子智能体会话 id，父会话 404）。
         // 原路径 /api/permission/{id}/reply + {"effect":...} 在部署版 404 →
         // reply 从未到达服务器 → 服务器 pending 永不清 → 每次进入会话重弹。
         val bodyObj = kotlinx.serialization.json.buildJsonObject {

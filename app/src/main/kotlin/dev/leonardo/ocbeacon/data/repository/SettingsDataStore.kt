@@ -296,7 +296,7 @@ class SettingsDataStore @Inject constructor(
 
     // ============ 通知 / 数据 ============
 
-    /** 是否启用任务完成通知。默认：true。 */
+    /** 是否启用轮次完成通知。默认：true。 */
     val notificationsEnabled: Flow<Boolean> = prefFlow(NOTIFICATIONS_KEY, true)
     suspend fun setNotificationsEnabled(enabled: Boolean) = setPref(NOTIFICATIONS_KEY, enabled)
 
@@ -428,7 +428,7 @@ class SettingsDataStore @Inject constructor(
         dataStore.data.map { prefs -> prefs[allReadKey(serverId)] ?: 0L }
 
     /** 一键已读：记录全局已读位置（已知会话最后完成消息的 completed，服务器时刻），消除所有小红点。
-     * maxOf 单调保护：全量重同步旧数据/服务器时钟异常导致 globalMax 变小时不回退 allReadAt。 */
+     * maxOf 单调保护：全量重同步旧数据/服务器时钟异常导致 globalMax 变小时不倒退 allReadAt。 */
     suspend fun markAllSessionsRead(serverId: String, globalMax: Long) {
         dataStore.edit { prefs ->
             prefs[allReadKey(serverId)] = maxOf(prefs[allReadKey(serverId)] ?: 0L, globalMax)
@@ -444,7 +444,7 @@ class SettingsDataStore @Inject constructor(
         }
 
     /** 将会话标记为已读（记录最后消费的完成消息 completed，服务器时刻）。
-     * maxOf 单调保护：双 VM 乱序写入时已读位置不回退。 */
+     * maxOf 单调保护：双 VM 乱序写入时已读位置不倒退。 */
     suspend fun markSessionRead(serverId: String, sessionId: String, completedTs: Long) {
         dataStore.edit { prefs ->
             val current = prefs[readTimesKey(serverId)]?.let {

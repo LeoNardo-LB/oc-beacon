@@ -56,7 +56,7 @@ private const val FGS_TIMEOUT_RESTART_DELAY_MS = 2_000L
  * - 同时维护到一个或多个服务器的持久 SSE 连接
  * - 将连接生命周期委托给 [SseConnectionManager]
  * - 将通知管理委托给 [AppNotificationManager]
- * - 显示任务完成和权限请求的通知
+ * - 显示轮次完成和待处理权限请求的通知
  * - 在任一服务器已连接时持有一个 partial WakeLock
  *
  * 连接会保持活跃，直到用户显式断开每个服务器
@@ -414,7 +414,7 @@ class OpenCodeConnectionService : Service() {
                         .groupBy { it.sessionId }
                     // 2026-08-14 修复：REST 数据合并进 QuestionEventHandler——
                     // V1 SSE 的 question.asked 可能不含 tool.messageID（导致提问卡片
-                    // 无法嵌入触发消息气泡，回退独立卡片）；REST 响应含 tool，
+                    // 无法嵌入触发消息气泡，降级为独立卡片）；REST 响应含 tool，
                     // 轮询合并补全，使 pendingQuestions 可关联到消息。
                     grouped.forEach { (sid, qs) ->
                         runCatching { eventDispatcher.mergeQuestionsFromREST(sid, qs) }
@@ -540,7 +540,7 @@ class OpenCodeConnectionService : Service() {
                 //（策略镜像系统通知：渠道/铃声档/DND/开关，见 InSessionFeedbackPlayer）
                 val inSession = sessionFocusHolder.shouldSuppress(server.id, event.sessionId)
                 if (!inSession && appNotificationManager.isChildSession(event.sessionId)) return
-                // 子会话 turn 完成既不通知也不响（Q3，与通知口径一致）
+                // 子智能体会话 turn 完成既不通知也不响（Q3，与通知口径一致）
                 if (inSession && appNotificationManager.isChildSession(event.sessionId)) return
                 serviceScope.launch {
                     if (!settingsDataStore.notificationsEnabled.first()) return@launch

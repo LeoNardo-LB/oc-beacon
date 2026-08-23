@@ -449,8 +449,8 @@ class EventDispatcher @Inject constructor(
         sessionHandler.setSessions(serverId, sessions)
 
     fun clearRevert(sessionId: String) {
-        // 在清除过滤器之前从缓存中修剪已回退的消息。
-        // 否则过滤器解除后，已回退的消息会短暂重现，
+        // 在清除过滤器之前从缓存中修剪已撤销的消息。
+        // 否则过滤器解除后，已撤销的消息会短暂重现，
         // 然后服务器的 message.removed SSE 才追上——可见的闪烁。
         val revert = sessionHandler.sessions.value
             .find { it.id == sessionId }?.revert
@@ -523,13 +523,13 @@ class EventDispatcher @Inject constructor(
         sessionNextHandler.clearGap(sessionId)
     }
 
-    // ============ 子会话聚合 ============
+    // ============ 子智能体会话聚合 ============
 
-    /** 聚合某会话及其子会话的权限。 */
+    /** 聚合某会话及其子智能体会话的权限。 */
     fun getPermissionsWithChildren(sessionId: String, sessions: List<Session>) =
         permissionHandler.getPermissionsWithChildren(sessionId, sessions)
 
-    /** 聚合某会话及其子会话的问题。 */
+    /** 聚合某会话及其子智能体会话的问题。 */
     fun getQuestionsWithChildren(sessionId: String, sessions: List<Session>) =
         questionHandler.getQuestionsWithChildren(sessionId, sessions)
 
