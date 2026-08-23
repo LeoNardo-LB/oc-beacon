@@ -189,7 +189,7 @@ MAJOR.MINOR.PATCH[-LABEL.NUMBER]
 |----|------|
 | 生成时机 | `release.sh <flavor>` 发版时自动生成 `RELEASE_NOTES.md` 草稿（根目录固定名，每版本覆盖） |
 | 范围 | **last tag → HEAD**——对比本版本与上个版本的区别（beta.2 只列 beta.1 之后的新变化） |
-| 润色 | 脚本 commit 前等待确认，发布者按模板润色：填版本摘要、条目改用户视角、删内部噪音（见模板写作规则） |
+| 润色 | 脚本 commit 前等待确认，发布者按模板润色：填版本摘要、条目改用户视角、删内部噪音（见模板写作规则）；**含术语核对**——脚本草稿直通 commit 原文，_Avoid_ 词在此拦截（速查见模板规则 9） |
 | 发布 | CI 用 `--notes-file RELEASE_NOTES.md` 创建 Release；文件缺失时回退 `--generate-notes` |
 | 留档 | GitHub Release 页面即留档；`RELEASE_NOTES.md` 在发版 commit 中按 tag 版本化 |
 

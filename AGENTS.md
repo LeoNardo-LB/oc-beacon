@@ -125,6 +125,11 @@ SSE → UI 管线：**48ms token 批处理 → 高度补偿 → 渲染**。违�
 
 `master` 为稳定分支；推送 `git push origin master` / `git push origin <tag>`。
 
+### Commit 纪律
+
+- **type 前缀强制**（用户可见变更必须）：`feat:` / `fix:`（release.sh 的 CHANGELOG 分类映射依赖此前缀；无前缀 commit 会被发版脚本丢弃）
+- **术语**：subject 用词遵循 [CONTEXT.md](CONTEXT.md)；「回退」禁表 revert（用「撤销」）——动词速查：中断（interrupt）/ 压缩（compact）/ 撤销（revert）/ 重命名（rename）/ 轮次完成（turn completed）
+
 ## Backlog 纪律
 
 遇到以下情况，**立即登记到 [`backlog.md`](backlog.md)**（卡片格式：全局编号 + Tag + 状态 checkbox + ≤3 行摘要 + 链接），**不要现场实现**：
