@@ -203,8 +203,8 @@ class SessionListViewModel @Inject constructor(
     }
 
     /** 选中的分类过滤 id 集合，空 = "全部"。多选后按 AND 过滤。 */
-    private val _categoryFilters = MutableStateFlow<Set<String>>(emptySet())
-    val categoryFilters: StateFlow<Set<String>> = _categoryFilters.asStateFlow()
+    private val _tagFilters = MutableStateFlow<Set<String>>(emptySet())
+    val tagFilters: StateFlow<Set<String>> = _tagFilters.asStateFlow()
 
     /** 仅显示收藏会话（本服务器内置标签筛选）。 */
     private val _favoritesOnly = MutableStateFlow(false)
@@ -285,7 +285,7 @@ class SessionListViewModel @Inject constructor(
 
     // 分组2：设置数据（3 源——已读合并读收进红点模块单源，#171）
     private data class SettingDataPart(
-        val categoryAssignments: Map<String, List<String>>,
+        val tagAssignments: Map<String, List<String>>,
         val sessionTags: List<Tag>,
         val readTimes: Map<String, Long>,
     )
@@ -320,7 +320,7 @@ class SessionListViewModel @Inject constructor(
             statuses = sessionData.statuses,
             serverSessionMap = sessionData.serverSessionMap,
             lastUserMessageTime = sessionData.lastUserMessageTime,
-            categoryAssignments = settingData.categoryAssignments,
+            tagAssignments = settingData.tagAssignments,
             sessionTags = settingData.sessionTags,
             favoritesOnly = miscData.favoritesOnly,
             lastReplyTime = sessionData.lastReplyTime,
@@ -356,7 +356,7 @@ class SessionListViewModel @Inject constructor(
         },
         combine(
             // #100（M-11）：搜索输入防抖 300ms——逐键过滤改为停顿后过滤（纯客户端过滤）
-            _searchQuery.debounce(SEARCH_DEBOUNCE_MS), _viewMode, _categoryFilters,
+            _searchQuery.debounce(SEARCH_DEBOUNCE_MS), _viewMode, _tagFilters,
         ) { searchQuery, viewMode, categoryFilterIds ->
             UiGroup2Part(searchQuery, viewMode, categoryFilterIds)
         },
@@ -413,14 +413,14 @@ class SessionListViewModel @Inject constructor(
 
     /** 切换分类过滤选中态（多选，AND 语义；全部取消后回到"全部"状态）。 */
     fun toggleCategoryFilter(categoryId: String) {
-        _categoryFilters.update { current ->
+        _tagFilters.update { current ->
             if (categoryId in current) current - categoryId else current + categoryId
         }
     }
 
     /** 清空分类过滤（回到"全部"）。 */
     fun clearCategoryFilters() {
-        _categoryFilters.value = emptySet()
+        _tagFilters.value = emptySet()
     }
 
     /**

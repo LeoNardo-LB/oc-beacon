@@ -196,7 +196,7 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun rename(serverId: String, sessionId: String, title: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.updateSession(conn, sessionId, title)
+        sessionApi.renameSession(conn, sessionId, title)
     }
 
     override suspend fun fork(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
@@ -235,7 +235,7 @@ class SessionRepositoryImpl @Inject constructor(
         modelId: String
     ): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.summarizeSession(conn, sessionId, providerId, modelId)
+        sessionApi.compactSession(conn, sessionId, providerId, modelId)
     }
 
     override suspend fun exportSessionToStream(

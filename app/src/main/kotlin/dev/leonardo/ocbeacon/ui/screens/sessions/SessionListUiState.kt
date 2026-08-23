@@ -24,7 +24,7 @@ data class SessionListDataInputs(
     val statuses: Map<String, SessionStatus>,
     val serverSessionMap: Map<String, Set<String>>,
     val lastUserMessageTime: Map<String, Long>,
-    val categoryAssignments: Map<String, List<String>>,
+    val tagAssignments: Map<String, List<String>>,
     val sessionTags: List<Tag>,
     val favoritesOnly: Boolean,
     val lastReplyTime: Map<String, Long>,

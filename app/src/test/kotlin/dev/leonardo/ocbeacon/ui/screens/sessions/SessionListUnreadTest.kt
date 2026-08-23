@@ -133,7 +133,7 @@ class SessionListUnreadTest {
             statuses = emptyMap(),
             serverSessionMap = mapOf(serverId to sessions.map { it.id }.toSet()),
             lastUserMessageTime = emptyMap(),
-            categoryAssignments = emptyMap(),
+            tagAssignments = emptyMap(),
             sessionTags = emptyList(),
             favoritesOnly = false,
             lastReplyTime = mapOf(sessions[0].id to 5000L),
@@ -169,7 +169,7 @@ class SessionListUnreadTest {
     private suspend fun buildFilterState(
         sessions: List<Session>,
         serverSessionMap: Map<String, Set<String>> = mapOf(testServerId to sessions.map { it.id }.toSet()),
-        categoryAssignments: Map<String, List<String>> = emptyMap(),
+        tagAssignments: Map<String, List<String>> = emptyMap(),
         favoritesOnly: Boolean = false,
         baseDirectory: String? = null,
         searchQuery: String? = null,
@@ -186,7 +186,7 @@ class SessionListUnreadTest {
             statuses = emptyMap(),
             serverSessionMap = serverSessionMap,
             lastUserMessageTime = emptyMap(),
-            categoryAssignments = categoryAssignments,
+            tagAssignments = tagAssignments,
             sessionTags = emptyList(),
             favoritesOnly = favoritesOnly,
             lastReplyTime = emptyMap(),
@@ -210,7 +210,7 @@ class SessionListUnreadTest {
         // 会话未分配 FAVORITE_TAG_ID → favoritesOnly=true 时被剔除
         val state = buildFilterState(
             sessions = listOf(testSession("s1")),
-            categoryAssignments = emptyMap(),
+            tagAssignments = emptyMap(),
             favoritesOnly = true,
         )
         assertTrue(state.treeNodes.isEmpty())
@@ -221,7 +221,7 @@ class SessionListUnreadTest {
         // 会话分配 FAVORITE_TAG_ID → favoritesOnly=true 时保留
         val state = buildFilterState(
             sessions = listOf(testSession("s1")),
-            categoryAssignments = mapOf("s1" to listOf(FAVORITE_TAG_ID)),
+            tagAssignments = mapOf("s1" to listOf(FAVORITE_TAG_ID)),
             favoritesOnly = true,
         )
         assertEquals(1, state.treeNodes.size)
@@ -237,13 +237,13 @@ class SessionListUnreadTest {
         val assignments = mapOf("s1" to listOf("t1"), "s2" to listOf("t2"))
         val stateAnd = buildFilterState(
             sessions = sessions,
-            categoryAssignments = assignments,
+            tagAssignments = assignments,
             categoryFilterIds = setOf("t1", "t2"),
         )
         assertTrue(stateAnd.treeNodes.isEmpty())
         val stateT1 = buildFilterState(
             sessions = sessions,
-            categoryAssignments = assignments,
+            tagAssignments = assignments,
             categoryFilterIds = setOf("t1"),
         )
         assertEquals(1, stateT1.treeNodes.size)

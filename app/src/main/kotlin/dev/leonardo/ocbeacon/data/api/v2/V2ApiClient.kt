@@ -1012,7 +1012,7 @@ class V2ApiClient @Inject constructor(
         return getSession(conn, sessionId) // V2 无对应端点，返回原 session（no-op）
     }
 
-    suspend fun summarizeSession(
+    suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
@@ -1345,14 +1345,14 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean {
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderAuth: DELETE ${conn.baseUrl}/api/credential/$providerId")
+    suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean {
+        if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderCredential: DELETE ${conn.baseUrl}/api/credential/$providerId")
         val response = httpClient.delete("${conn.baseUrl}/api/credential/$providerId") {
             auth(conn)
         }
         if (BuildConfig.DEBUG) {
             val body = response.bodyAsText()
-            AppLogger.d(TAG, "removeProviderAuth: status=${response.status}, body=$body")
+            AppLogger.d(TAG, "removeProviderCredential: status=${response.status}, body=$body")
         }
         return response.status.isSuccess()
     }

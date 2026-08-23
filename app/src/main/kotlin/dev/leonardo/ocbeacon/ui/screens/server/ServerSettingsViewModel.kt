@@ -383,7 +383,7 @@ class ServerSettingsViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, error = null) }
             try {
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "disconnectProvider: calling DELETE /auth/$providerId")
-                val removed = providerRepository.removeProviderAuth(serverId, providerId).getOrThrow()
+                val removed = providerRepository.removeProviderCredential(serverId, providerId).getOrThrow()
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "disconnectProvider: removed=$removed")
                 if (!removed) {
                     _uiState.update { it.copy(isSaving = false, error = context.getString(R.string.server_settings_provider_disconnect_failed)) }

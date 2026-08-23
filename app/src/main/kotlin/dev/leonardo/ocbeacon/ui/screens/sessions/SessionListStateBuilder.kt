@@ -66,13 +66,13 @@ internal suspend fun buildContentState(
         searchedSessions
     } else {
         searchedSessions.filter { session ->
-            val sessionTags = data.categoryAssignments[session.id].orEmpty()
+            val sessionTags = data.tagAssignments[session.id].orEmpty()
             ui.categoryFilterIds.all { it in sessionTags }
         }
     }
 
     val favoritesFilteredSessions = if (data.favoritesOnly) {
-        val favoriteIds = data.categoryAssignments
+        val favoriteIds = data.tagAssignments
             .filterValues { dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID in it }
             .keys
         categoryFilteredSessions.filter { it.id in favoriteIds }
@@ -85,7 +85,7 @@ internal suspend fun buildContentState(
 
     val tagsById = data.sessionTags.associateBy { it.id }
     val resolvedTags: Map<String, List<Tag>> = buildMap {
-        data.categoryAssignments.forEach { (sessionId, tagIds) ->
+        data.tagAssignments.forEach { (sessionId, tagIds) ->
             put(sessionId, tagIds.mapNotNull { tagsById[it] })
         }
     }

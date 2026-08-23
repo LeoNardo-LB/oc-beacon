@@ -63,7 +63,7 @@ interface ProviderRepository {
      * 移除 provider 已存储的认证（DELETE /auth/{providerId}）。
      * 返回是否成功。
      */
-    suspend fun removeProviderAuth(serverId: String, providerId: String): Result<Boolean>
+    suspend fun removeProviderCredential(serverId: String, providerId: String): Result<Boolean>
 
     /**
      * 销毁全局实例并强制刷新 provider/认证状态（POST /global/dispose）。

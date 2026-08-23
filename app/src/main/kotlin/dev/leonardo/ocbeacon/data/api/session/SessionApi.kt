@@ -34,7 +34,7 @@ interface SessionApi {
 
     suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean
 
-    suspend fun updateSession(conn: ServerConnection, sessionId: String, title: String): Session
+    suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session
 
     /**
      * 用任意字段更新会话（用于归档等）。
@@ -54,7 +54,7 @@ interface SessionApi {
 
     suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session
 
-    suspend fun summarizeSession(
+    suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
@@ -139,8 +139,8 @@ class SessionApiImpl @Inject constructor(
     override suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean =
         if (conn.apiVersion.isV2) v2.deleteSession(conn, sessionId) else v1.deleteSession(conn, sessionId)
 
-    override suspend fun updateSession(conn: ServerConnection, sessionId: String, title: String): Session =
-        if (conn.apiVersion.isV2) v2.renameSession(conn, sessionId, title) else v1.updateSession(conn, sessionId, title)
+    override suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session =
+        if (conn.apiVersion.isV2) v2.renameSession(conn, sessionId, title) else v1.renameSession(conn, sessionId, title)
 
     override suspend fun updateSessionFields(
         conn: ServerConnection,
@@ -163,14 +163,14 @@ class SessionApiImpl @Inject constructor(
     override suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session =
         if (conn.apiVersion.isV2) v2.unshareSession(conn, sessionId) else v1.unshareSession(conn, sessionId)
 
-    override suspend fun summarizeSession(
+    override suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
         modelId: String
     ): Boolean =
-        if (conn.apiVersion.isV2) v2.summarizeSession(conn, sessionId, providerId, modelId)
-        else v1.summarizeSession(conn, sessionId, providerId, modelId)
+        if (conn.apiVersion.isV2) v2.compactSession(conn, sessionId, providerId, modelId)
+        else v1.compactSession(conn, sessionId, providerId, modelId)
 
     override suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session =
         if (conn.apiVersion.isV2) v2.revertSession(conn, sessionId, messageId)

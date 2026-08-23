@@ -58,7 +58,7 @@ interface ProviderApi {
      * 移除提供商已存储的认证。
      * DELETE /auth/{providerID}
      */
-    suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean
+    suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean
 
     /**
      * 获取当前服务器配置。
@@ -133,8 +133,8 @@ class ProviderApiImpl @Inject constructor(
         if (conn.apiVersion.isV2) v2.setProviderApiKey(conn, providerId, apiKey)
         else v1.setProviderApiKey(conn, providerId, apiKey)
 
-    override suspend fun removeProviderAuth(conn: ServerConnection, providerId: String): Boolean =
-        if (conn.apiVersion.isV2) v2.removeProviderAuth(conn, providerId) else v1.removeProviderAuth(conn, providerId)
+    override suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean =
+        if (conn.apiVersion.isV2) v2.removeProviderCredential(conn, providerId) else v1.removeProviderCredential(conn, providerId)
 
     override suspend fun getConfig(conn: ServerConnection): ServerConfigResponse =
         if (conn.apiVersion.isV2) v2.getConfig(conn) else v1.getConfig(conn)
