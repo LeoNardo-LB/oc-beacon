@@ -35,7 +35,7 @@ class SettingsDataStore @Inject constructor(
     @param:dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
 ) {
     companion object {
-        private val LANGUAGE_KEY = stringPreferencesKey("app_language")
+        private val LANGUAGE_KEY = stringPreferencesKey(APP_LANGUAGE_KEY_NAME)
         private val THEME_KEY = stringPreferencesKey("app_theme")
         private val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
         private val FONT_SIZE_KEY = stringPreferencesKey("chat_font_size")
@@ -63,7 +63,14 @@ class SettingsDataStore @Inject constructor(
 
         /** 用于在 attachBaseContext 中同步读取 locale 的 SharedPreferences 名称。 */
         private const val LOCALE_PREFS = "locale_prefs"
-        private const val LOCALE_PREFS_KEY = "app_language"
+
+        /**
+         * app_language 键名单一真相源（2026-08-24 收口）：DataStore 主存键与
+         * locale_prefs SP 镜像键共用同一字面量（#136 双写设计——镜像仅供
+         * attachBaseContext 同步读，真相源仍是 DataStore）。改键名必须两处同改，
+         * 引用本常量后双写点天然同步。
+         */
+        private const val APP_LANGUAGE_KEY_NAME = "app_language"
 
         private const val SERVER_MODEL_HIDDEN_PREFIX = "server_model_hidden_"
         private const val SERVER_DEFAULT_MODEL_PREFIX = "server_default_model_"
@@ -81,7 +88,7 @@ class SettingsDataStore @Inject constructor(
         /** 同步读取已存储的语言——可在 Hilt 初始化前安全调用。 */
         fun getStoredLanguage(context: Context): String {
             return context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
-                .getString(LOCALE_PREFS_KEY, "") ?: ""
+                .getString(APP_LANGUAGE_KEY_NAME, "") ?: ""
         }
 
         /** #136（D2-L56）收敛决策：镜像与真相源不一致时返回应以 DataStore 为准的值；一致返回 null（无需回写）。 */
@@ -151,7 +158,7 @@ class SettingsDataStore @Inject constructor(
         setPref(LANGUAGE_KEY, languageCode)
         context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putString(LOCALE_PREFS_KEY, languageCode)
+            .putString(APP_LANGUAGE_KEY_NAME, languageCode)
             .apply()
     }
 
@@ -163,12 +170,12 @@ class SettingsDataStore @Inject constructor(
     suspend fun reconcileLanguageMirror() {
         val stored = dataStore.data.first()[LANGUAGE_KEY] ?: ""
         val mirror = context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
-            .getString(LOCALE_PREFS_KEY, "") ?: ""
+            .getString(APP_LANGUAGE_KEY_NAME, "") ?: ""
         resolveLanguageMirror(stored, mirror)?.let { corrected ->
             AppLogger.d("SettingsDataStore", "Language mirror mismatch: prefs=" + mirror + ", datastore=" + stored + " -> restoring mirror")
             context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
                 .edit()
-                .putString(LOCALE_PREFS_KEY, corrected)
+                .putString(APP_LANGUAGE_KEY_NAME, corrected)
                 .apply()
         }
     }
@@ -254,7 +261,7 @@ class SettingsDataStore @Inject constructor(
         // 语言镜像（#136 D2-L56 同源机制）：真相源已写，镜像同步
         context.getSharedPreferences(LOCALE_PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putString(LOCALE_PREFS_KEY, settings.appLanguage)
+            .putString(APP_LANGUAGE_KEY_NAME, settings.appLanguage)
             .apply()
     }
 

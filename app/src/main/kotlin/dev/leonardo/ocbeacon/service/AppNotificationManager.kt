@@ -30,11 +30,12 @@ data class UserMessagePreview(
     val timestamp: Long
 )
 
-private const val NOTIFICATION_CHANNEL_ID = "opencode_connection"
-private const val NOTIFICATION_CHANNEL_TASKS_ID = "opencode_tasks"
-private const val NOTIFICATION_CHANNEL_TASKS_SILENT_ID = "opencode_tasks_silent"
-private const val NOTIFICATION_CHANNEL_PERMISSIONS_ID = "opencode_permissions"
-private const val NOTIFICATION_CHANNEL_QUESTIONS_ID = "opencode_questions"
+// 渠道 ID 单一真相源见 NotificationChannels（2026-08-24 收口；系统侧持久契约，不改值）
+private const val NOTIFICATION_CHANNEL_ID = NotificationChannels.CONNECTION
+private const val NOTIFICATION_CHANNEL_TASKS_ID = NotificationChannels.TASKS
+private const val NOTIFICATION_CHANNEL_TASKS_SILENT_ID = NotificationChannels.TASKS_SILENT
+private const val NOTIFICATION_CHANNEL_PERMISSIONS_ID = NotificationChannels.PERMISSIONS
+private const val NOTIFICATION_CHANNEL_QUESTIONS_ID = NotificationChannels.QUESTIONS
 
 /**
  * 管理连接服务的所有通知逻辑。

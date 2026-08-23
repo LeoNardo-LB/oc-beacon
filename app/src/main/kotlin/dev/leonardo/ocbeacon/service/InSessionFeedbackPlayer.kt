@@ -235,12 +235,12 @@ class InSessionFeedbackPlayer @Inject constructor(
     private class CHANNELS
 
     companion object {
-        // 与 AppNotificationManager 渠道常量一致（那边是 private，此处镜像声明；
-        // 渠道 id 是持久契约，双向漂移由单测钉死）
-        const val CHANNEL_TASKS = "opencode_tasks"
-        const val CHANNEL_TASKS_SILENT = "opencode_tasks_silent"
-        const val CHANNEL_PERMISSIONS = "opencode_permissions"
-        const val CHANNEL_QUESTIONS = "opencode_questions"
+        // 渠道 ID 单一真相源见 NotificationChannels（2026-08-24 收口：
+        // 原双处镜像声明无任何保护，注释声称的钉死单测并不存在）
+        const val CHANNEL_TASKS = NotificationChannels.TASKS
+        const val CHANNEL_TASKS_SILENT = NotificationChannels.TASKS_SILENT
+        const val CHANNEL_PERMISSIONS = NotificationChannels.PERMISSIONS
+        const val CHANNEL_QUESTIONS = NotificationChannels.QUESTIONS
     }
 }
 
