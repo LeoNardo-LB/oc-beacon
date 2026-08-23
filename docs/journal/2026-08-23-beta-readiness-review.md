@@ -125,3 +125,13 @@ app/build.gradle.kts 一致）+ gh secret APP_GITHUB_CLIENT_ID/SECRET（CI，rel
 
 走查副产品：确认 debug 通道（#132）`BuildConfig.DEBUG` 门控——devRelease 不吃 debug intent
 （无副作用；真机 runbook 已有记载，非缺陷）。
+## 九、验收关闭与 #154 评估（2026-08-23 晚）
+
+- **#191 用户验收通过关闭**：关闭前独立复核——`SessionStateServiceTest --rerun` 全量真跑 24/24 绿
+  （0 失败 0 跳过）；卡片迁出，证据链：实现 5693ddb6 → 单测 → 真机降幅表（§三）→ 验收。
+- **#193 用户验收通过关闭**（前节）：issue #5 已 closed（NOT_PLANNED），仓库 0 open issue。
+- **#154 触发条件评估**：#151 两轮 E2E 全绿 → 触发「落地并稳定后评估」。评估结论（用户定规）：
+  两半（崩溃自动提示 / secret gist 附件）**均继续缓**——复评时机 = beta 线上产出真实报告后；
+  届时优先崩溃提示半边（基建已齐：`OpenCodeApp` uncaught handler → `recordCrash` → FATAL 持久化，
+  增量仅启动提示 UI）；gist 半边需 GitHub App 加 Gists 权限 + 设备重新授权，且正文 20+3 上下文
+  在 #5 实证中已够分诊。后台静默上报维持不做（隐私红线）。
