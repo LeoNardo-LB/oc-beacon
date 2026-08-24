@@ -1,0 +1,209 @@
+# p3-quad-research（2026-08-24）
+
+> 状态：调研完结（四卡报告全回收、处置建议表已出，待用户裁决 #184 做/维持与 #168 搭车项）
+> 来源：用户指令「开始调研 161 185 184 168，委派 subagent 去调研，详尽调研」
+> 方式：4 个独立 subagent 并行深调（每卡一 agent），主会话交叉汇总；调研期间仓库零改动（只读）
+
+## 调研范围与委派
+
+| 卡片 | 主旨 | subagent | 关键核对点 |
+|------|------|----------|------------|
+| #161 | 离线顶栏 context 圆环隐藏 | 已委派 | showContext 判定链现状；落库方案与新鲜度权衡；~2h 复估 |
+| #168 | 慢拖残余 ~18ms 偶发尖刺 | 已委派 | 测量口径考古；draw/input 相位静态分析；只读复测（禁装包）；debug 伪影裁决 |
+| #184 | 未读水位线 globalMax 跨服务器混合 | 已委派 | ⚠️ #171 后 markAllSessionsRead 已迁 UnreadBadgeService 且持久化已 per-server——病灶是否仍在需重查 |
+| #185 | V1/V2 god-client 拆解（显式不做） | 已委派 | 72/84 方法数与 78 决策点全量复测漂移；重开条件清单 |
+
+## 主会话先期事实（委派前锚定）
+
+- 设备 e69a99d8 在线；dev flavor 已装含 #206/#207 修复（用户待验收 #207）→ #168 复测硬约束：禁 install/uninstall（perf-session-scroll.sh 会构建+装包，禁用）、禁发消息/建删会话。
+- #184 现状锚点：`UnreadBadgeService.kt:188-195` `globalMax = _lastCompletedReplyTime.value.values.maxOrNull()`；`SettingsDataStore.kt:463-466` `allReadKey(serverId)` per-server 持久化 + maxOf 单调保护——卡片所述「SessionListViewModel:423-430」已过时，存储层已带 server 维度。
+- #185 现状锚点：门面 7 个（journal 行 113：SessionApiImpl 23 / ProviderApi 13 / MessageApi 12 / FileApi 12 / SystemApi 8 / TerminalApi 6 / 第 7 个待 agent 补全）。
+
+## 调研结果
+
+（待 4 个 subagent 报告回收后填写）
+
+## #161
+
+> subagent 报告全文已回收（2026-08-24）；结论：**维持登记，现在不做**。
+
+### 主张核对（全部成立，无证伪点）
+
+| 主张 | 现状 | 证据 |
+|------|------|------|
+| showContext 要求 contextWindow>0 且 lastContextTokens>0 | ✅ 判定在 Composable（非 ChatViewModel） | ChatTopBar.kt:105-107 |
+| contextWindow 依赖服务器级 provider catalog REST，离线全败 | ✅ **比登记更彻底**：生产代码从不写 tracker.contextWindow（全库仅 2 处 tokenStatsTracker.update：ChatViewModel.kt:619/698，均不含该字段）→ 唯一生产分母来源是 catalog 查表；_allProviders 是实例级 StateFlow（每 ChatViewModel 重建、初始空），仅 loadProviders() REST 成功才填充（进会话必调 ChatViewModel.kt:755）。REST：V1 GET /config/providers（V1ApiClient:543-547）/ V2 GET /api/provider + /api/model（V2ApiClient:728-745）→ ServerRepositoryImpl.loadProviderCatalog（:89-111，contextWindow = model.limit?.context ?: 0 @:102）→ ModelConfigDelegate.loadProviders（:246-260） | ModelConfigDelegate.kt:58/90/218-222/246-260 |
+| 无本地持久化 | ✅ Room 仅 5 表（cached_messages/cached_parts/logs/archive_buckets/pending_messages）无会话元数据表；DataStore 无 contextWindow 键 | OcBeaconDatabase.kt:10-19 |
+| 「568-571 注释声明可接受」 | ✅ 注释漂移至 608-612，逐字未变（git d4601004 证实登记时点 565-569） | ChatViewModel.kt:608-612 |
+| 消息/统计行离线完好 | ✅ cached_messages.payload 存完整 Message JSON（含 tokens），冷启动 seed :77-96 | CachedMessageEntity.kt:8-27；ChatRepositoryImpl.kt:72-96 |
+
+补充机制事实（卡片未展开）：**离线时分子可用、唯分母缺失**——lastContextTokens 走 Room 消息流（ChatViewModel.kt:676-712 快照 collect，:690-692 input+cache.read），非 SSE/REST 直连。
+
+### 工作量复估：3.5-4.5h（卡片 ~2h 低估约一倍）
+
+推荐方案 A（DataStore per-server map，成熟先例 sessionReadTimes）8 步明细：SettingsRepository +2 方法 15min / SettingsDataStore 键+读写 25min / Impl 委托 5min / **ModelConfigDelegate 14 源扩展（combine 加 persisted map 为源——:102-103 注释明示缺位会重蹈任务面板 R1 覆辙；链尾 ?: persisted[sid] ?: 0；contextWindow>0 时 fire-and-forget 去重写入）40-60min** / 单测 60-90min / i18n **零改动**（圆环纯数字）/ 编译+全量单测 20min / 真机离线红绿（在线落库→杀 server→force-stop 冷启→圆环+详情弹窗→恢复在线验证优先级）45-60min。ChatViewModel/ChatScreen/ChatTopBar 零改动。
+
+方案 B（Room session_meta 表 v4→v5 + Migration）不推荐：4.5-5.5h 无额外收益。
+
+### 新鲜度权衡（关键结论）
+
+- 分子不陈旧：离线时 Room 实时计算=离线时刻真实值。
+- 分母基本不陈旧：contextWindow 是模型常数，离线不可能换模型；唯一陈旧窗口=在线换模型写点竞态漏写，下次在线自愈。
+- 「离线显示 40% 实际 90%」基本不成立——反而现状「消息全可见但圆环消失」才是语义不一致（此为若做时的论证依据，非现在做的理由）。
+
+### 处置（建议，待用户裁决）
+
+**维持登记**。理由：条件卡（仅当用户期望离线可见才做）当前无诉求信号；收益边界小；实际成本约卡片 2 倍。
+
+**顺带发现（只登记不现场修）**：TokenStatsTracker.TokenStats.contextWindow（TokenStatsTracker.kt:18）是生产死字段——全库无写点恒 0，仅测试写入；ChatStateAggregator.kt:124 映射进 TokenStatsState.contextWindow 但 ChatScreen 消费的是 modelConfig.contextWindow（ChatScreen.kt:624）。若做本卡可顺手清理；否则可另立微小清理卡。
+
+## #168
+
+> subagent 报告全文已回收（2026-08-24）；结论：**维持挂起，不现在花 2h；把 release 侧 5 分钟抽查搭到下一次例行 devRelease 真机验收，据其结果直接闭卡或升级**。真机只读复测已完成（两轮，硬约束全守：零装包、零消息、零会话变更）。
+
+### 测量口径考古
+
+- 四通道分工：dumpsys gfxinfo framestats（120 帧环形缓冲逐帧全相位）/ Perfetto atrace（slice 级归因）/ **PerfMon 应用内**（Window.addOnFrameMetricsAvailableListener，ChatPerfMonitor.kt:109-115 七相位分解；JANK=total>2×预算(16.7ms)+250ms 限频 :133-138）/ A/B gfxinfo（idle_frame 假设检验，已否证 ahead=0 定案 ScrollSpeedPrefetchStrategy.kt:52-55）。
+- 卡片数值口径：「~18ms」=PerfMon JANK 门槛 2×8.33ms 的 17-20ms 档事件；「draw 4-8ms + input 3-5ms，12 轮 10 条」=JANK 事件相位分解（a6156cdf commit msg）；**250ms 限频 → 真实 ≥17ms 帧远多于 10 条**（gfxinfo 同期 ≥17ms 占比 2.2-2.3%，~80 帧/3700）。
+- PerfMon 是 BuildConfig.DEBUG 门控（MainActivity.kt:174），release 侧数值只能来自 gfxinfo——「release p95 7.9ms」是 gfxinfo 口径，**release 侧 ≥17ms 帧率从未实测过**（「release 无感知」是推断）。
+- 系统 janky% 不可信（本机 SF 宽松预算 13.7ms 三层）；GKD 关闭前提三期一致。
+
+### 相位机制静态分析
+
+- **input 3-5ms 主源**：拖动跨 item 边界时下一个 chunk 的同步组合+测量发生在 LazyListState.scrollBy 调用栈内 → 计入 INPUT 桶（机制性，release 同在但被 R8/AOT 压缩）。
+- **draw 4-8ms 主源**：Compose 推迟 measureAndLayout（AndroidComposeView.dispatchDraw，research §1.3）→ 「draw 桶」实为「新 chunk 测量+布局+display list 首录」合桶——**直接证据：复测 gfxinfo layout 桶 p99 仅 0.2ms 而 draw p50 1.9ms**。overdraw 非主因（GPU p50 2ms 很低）；PerfHud 观察者效应可忽略（Run A/B 差 0.3ms）。
+- **debug 税 47% 已实证**（p95 15→7.9 等）；devDebug ~18ms 按税折算 release ≈10-12ms（超预算但 <2×，不构成 JANK 级感知）。
+
+### 复测结果（Kotlin 130 条长会话，swipe 600 500→600 1600 800 ×12 交替，对齐 runbook 铁律）
+
+| 指标（8.33ms 口径） | Run A 无 PerfMon（982 帧） | Run B PerfMon+HUD（964 帧） |
+|---|---|---|
+| p50/p90/p95/p99 | 9.4/14.5/19.6/32.9 | 9.7/14.9/19.0/34.9 |
+| ≥17ms | **6.52%（64 帧）** | **6.85%** |
+| input p50/p99 | 1.83/6.32 | 1.80/6.16 |
+| draw p50/p99/max | 1.91/5.83/12.75 | 1.88/6.33/16.47 |
+| PerfMon JANK | — | **22 条/12 拖**（卡片时代 10 条同口径） |
+
+双通道互证一致（差异 ≤0.5ms 噪声级）。**三个新发现（修正卡片前提）**：
+1. **anim 桶主导最差帧**（≥8ms anim 帧 26 个，最差 41-51ms；PerfMon JANK 里 anim=20-51 反复出现）——F5 消掉的是 ChatScreen 全屏重组，**per-chunk 重组仍在**且当前是最大单相 → 卡片「残余只剩 draw/input」前提过时，深挖优先级应改 ①anim chunk 重组 ②迟启动帧。
+2. **迟启动帧类仍存**：18-19 帧 unknown-delay 20-50ms 而帧内各相位≈0（08-22 c7ffbfa9 归一化后台化修掉一类后仍有别的帧外阻塞源：注入节奏/binder/GC/Room 候选）。
+3. **尖刺率强会话相关**：本会话（教程型，代码块+表格多）≥17ms 6.5-6.9%，约为 AB 会话期 2.2% 的 **3 倍**——「偶发、量少」的描述依赖会话内容，单会话数据不可外推。
+
+### 深挖方案（若未来做，~2h，前提修正后）
+
+Step1 Perfetto 相位标注 trace 30min（设备内置 perfetto 零装包，debuggable Compose trace section 可见；≥17ms 帧逐个归到 slice）→ Step2 同法测 AB 会话消内容混杂 30min → **Step3 release 口径尖刺率抽查 30min（唯一能直接裁决「debug 伪影」的证据；需装 devRelease=用户授权项，或搭下次例行 devRelease 验收顺带跑）**：release ≥17ms <1% 且 p99<16ms 即证伪闭卡；率 ≥1% 或感知复报 → 升级 P2（归因起点现成）→ Step4（可选）chunk 首组录 A/B：lambda 版 graphicsLayer + 慢拖档预组合 0→1 重评。不建议 Layout Inspector（开销大无相位归因）与 ChatPerfMonitor 加打点（缺 slice 级非桶级）。
+
+### 处置（建议，待用户裁决）
+
+维持 P3 挂起；release 抽查搭车下次例行 devRelease 验收（成本≈0），据结果二选一闭卡/升级。**不满足现在直接证伪闭卡**（anim 主导+迟启动帧+会话相关性三发现使「debug-only 伪影」仍是推断非实测）；也不构成升级（用户日常跑 release/beta，感知侧无证据）。
+
+原始数据已归档：/persistent/home/leo-tkp/perf-evidence/r168-20260824/（runA/runB framestats + perfmon.log，1.1MB）。
+
+## #184
+
+> subagent 报告全文已回收（2026-08-24）；结论：**病灶仍在（两个纯内存/值域缺陷）+ 场景可达 → 不可证伪；修复在 #171 后已变便宜（~1h）→ 建议「便宜修复值得现在做」，待用户裁决**。
+
+### 背景事实纠正（先于结论）
+
+- 主会话委派时判断「#171 后持久化已 per-server，存储 schema 已变」——**部分误判**：①per-server **已读**持久化（allReadKey/readTimesKey）2026-08-09 commit 50b2af95 就有，非 #171 引入；②#171（a048b1ea/941f17f8，2026-08-21 落地）做的是读写收编单点+事件类型化，未动 SettingsDataStore；③水位线持久化至今仍是**全局单键** LAST_REPLY_TIME_KEY（SettingsDataStore.kt:492-507）——#171 Q6「不动存储 schema」前提仍成立。
+- 卡片锚点过时：markAllSessionsRead 已从 SessionListViewModel:423-430 迁至 **UnreadBadgeService.kt:188-197**（SessionListViewModel:428-431 只剩一行转发）。
+
+### 病灶定位（比卡片更精确：两个缺陷，都在写入侧）
+
+_lastCompletedReplyTime = Map<sessionId, Long>（key 无服务器前缀，value=服务器域 completed 毫秒戳，唯一例外 SessionError=客户端 now）。多服务器条目**会共存且不可逆**（同时连接各写各的；曾用过的第二台服务器条目持久化在全局键，每次重启 seed 全量载回；唯一删减是 removeSession；clearForServer/clearAll 均不触本服务）。
+
+判定链读取侧已隔离（mergedReadTimes/allReadAt 均 per-server，展示只显示本服务器会话）——**污染只经 markAllSessionsRead 的写入进来，两处**：
+
+1. **错杀（内存广播溢出）**：globalMax = values.maxOrNull() 取全 map 最大值（:189）→ _justRead 广播写入**本服务器全部会话 + 别服务器会话的已读位**（:190-192；mergedReadTimes 合并全局 _justRead → 溢出可见）。进程存续期错杀别服务器红点，重启复活（持久侧未被写）→ 不一致。
+2. **漏杀（allReadAt 值域污染）**：别服务器域大值写进本服务器 allReadAt（:194 + SettingsDataStore.kt:464-468），maxOf 单调保护使污染值不可回退——本服务器后续完成消息需域戳超过污染值才亮红点，形成「未来窗口漏报」。
+
+### 双场景数字推演（A 快 5min / B 慢 5min，map={a1→10:03, b1→09:57}）
+
+- **停在 B 点一键已读**：globalMax=10:03（来自 A 的条目）→ a1 被错杀（切回 A 红点灭，重启复活）+ B 侧 allReadAt=10:03 → **真实 10:08 前约 8 分钟 B 新完成消息红点全吞**（B 域时钟到 10:03 前）。
+- **停在 A 点一键已读（B 有未读）**：错杀对称（b1 广播错杀）；A 侧 allReadAt=10:03=A 域正确值 → 无持久污染。
+- 规律：**错杀方向永远对称**（map 混有别服务器条目即触发）；**持久化污染只在「快钟条目混入慢钟 allReadAt」时发生**。「点了没反应」型漏杀数学上不可达（globalMax ≥ 本服务器全部条目）。
+
+### 场景可达性：多服务器同时连接是明确设计功能
+
+ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConfiguredServers 连接**所有** autoConnect=true 服务器（OpenCodeConnectionService.kt:352-357）；activeServerIds 是 Set（ConnectionLifecycleCoordinator.kt:76-77）；EventDispatcher 专为多服务器 SSE 并发做会话所有权去重（:226-228）。**触发条件 = ≥2 台服务器 ever 使用 + 时钟偏差 + 点击一键已读**（不要求同时使用；NTP 同步 <1s 不可感知，自建/裸机分钟级可见）。
+
+### 修复成本（#171 结构性红利：单点后改动极小）
+
+**方案 1（推荐）：调用方作用域化 globalMax——零 schema 零迁移，0.5-1.5h**
+- UnreadBadgeService.kt:188-197 签名加 sessionIds: Set<String>，globalMax 改 filterKeys 后取 max，_justRead 只遍历过滤后键集（~5 行）
+- SessionListViewModel.kt:428-431 传参（serverSessionMap 已在 dataFlow 手里 :319；照 :180-181 Eagerly stateIn 模式缓存本服务器 sessionIds 快照，~5 行）
+- SessionListUnreadTest 补双服务器互不污染用例（30-45min）
+- 同时消灭两个缺陷；#171 收编单点正是「便宜」的来源（否则要改 EventDispatcher/SessionListViewModel/SettingsRepository 三处）
+
+方案 2（水位线存储加 server 维度）不推荐：历史条目无法归属服务器（serverSessions 不持久化），schema+归属重建，正是 arch-review journal:273 估的贵价。
+
+**附带发现**：SessionErrorOccurred 客户端 now（EventDispatcher.kt:84-89）也进 globalMax——设备时钟是第三个时钟域，单服务器用户也可能被 allReadAt 污染（程度=设备与服务器偏差）。方案 1 的 filterKeys 顺带把它限制在本服务器会话集内；同服务器内错误戳语义是 research/11 P1 故意例外，不动。
+
+### 处置（建议，待用户裁决）
+
+**便宜修复值得现在做（方案 1，~1h）**；若维持登记则更新卡片描述（锚点迁移 + 机制改写为两缺陷表述）。**不建议证伪闭卡**。
+
+## #185
+
+> subagent 报告全文已回收（2026-08-24）；结论：**维持显式不做**（登记数字全部零漂移复现，决策前提经 3 天 267 commits 考验反而更扎实）。
+
+### 数字复测对照（登记 2026-08-21 @fc251f41 → HEAD 715ee119）
+
+| 指标 | 登记 | 实测 | 漂移 |
+|---|---|---|---|
+| V1ApiClient 方法 | 72 | 72 | 0 |
+| V2ApiClient 方法 | 84 | 84 宽松 / 82 严格公开（1 private+1 局部函数） | 0 |
+| 7 门面分发 if | 78（SessionApi 23/Provider 13/Message 12/File 12/System 8/Terminal 6/**Shell 4**） | 78 逐门面完全一致 | 0 |
+| SSE 第 79 点 | SseConnectionManager:323 | :324（纯改名提交致行号+1，逻辑零变更） | 内容 0 |
+| main 全域 conn.apiVersion.isV2 | 79 | 79（与门面+SSE 精确互证） | 0 |
+
+方法集换血 4 组（净 0）：abortSession→interruptSession、summarizeSession 并入 compactSession、updateSession→renameSession、removeProviderAuth→removeProviderCredential——全为术语/单入口统一，非功能增长。#206 V2 abort 合成（f73621c1）落在 V2Mappers，未触碰 god-client、未新增分发点。
+
+**「22 测试文件」核实**：直接引用 V1/V2ApiClient 的测试仅 **5** 个（1 个纯注释）；构造门面 Impl 2 个；宽松文本引用 10/199（登记日同口径 9/184）。「~22」是 #172 方案 B（seam 翻转）的**行为影响面估算**非文本可复现口径；其最大成分（PaginationDelegate 25 处版本引用）已被 #172 收编坍缩为 1 处注释。**纯拆轴今天真实重写面 ≈ 4-5 文件**——数字口径澄清但不改变决策方向（成本论据比登记时更弱，即更没必要拆）。
+
+### 架构现状证据
+
+- 版本决策点全量：79（门面+SSE）+ PaginationCursorPolicy:91 工厂读点（#172 设计内唯一收编点）+ ServerCard:101 展示徽章（豁免）。**UI/Domain 数据路径 isV2 绝迹**（ServerCapabilities 能力位替代；isV2Server 已删）。
+- 门面消费面：ApiModule @Binds×7 + 8 个 repository 文件，conn 逐调用参数传入——seam 唯一。
+- 9 文件 3 天仅 12 commits（全改名），非热点。
+- god-client 内部：V1 6 域段；V2 14 段含 4 个 supplementary 追加段（局部性退化，纯组织问题）；V1∩V2 同名 70/72=97% 镜像；V2 独有公开方法 12 个全部 08-19 前引入。
+- 78 处中 76 单行纯分发，仅 MessageApi:191/215 为 block（#130 form 语义映射=真行为适配点）。
+
+### 风险还原（缓存式适配器版本竞态）
+
+当前逐调用 resolveConnection 重读版本 → 决策与 URL 用同一快照，无第二真相源。缓存适配器捕获版本后遇服务器升级/探测翻转即复现 #132 已实证事故形态（降级→SPA fallback HTML 崩溃+SSE 假死，且藏内存更难查），修复需 keyed 失效重建=新竞态面。SSE 是唯一「连接时选定一次」的正当例外。未来若拆：**轴 B partial interface（类实现域接口，门面注窄接口，重写 4-5 文件）< 轴 A 拆文件 < 轴 C 缓存适配器（否决形态）**。
+
+### 重开条件清单（建议追加进 #185 卡片 3-5 行作触发器）
+
+1. V2ApiClient 突破 ~100 方法/2200 行（V2 增长再启动：差异清单 4 项「评估中」能力 ≥2 立项）
+2. V3 出现（两轴变三轴）
+3. V1 EOL（届时是删不是拆——V1 真机 E2E 08-23 刚复验通过）
+4. upstream #146 PR 批量改端点形状（预计走 mapper/policy 层，不直接触发）
+5. supplementary 段增殖致多 agent 编辑冲突现实化
+6. 测试基建改 Hilt 注入后轴 B 成本趋零
+
+### 处置（建议，待用户裁决）
+
+**维持显式不做**。可选小活（不违反定案）：V2 supplementary 段回填主段；把重开条件清单 3-5 行追加进 #185 卡片。
+
+## 汇总结论与处置建议
+
+### 四卡处置建议表（2026-08-24，待用户裁决）
+
+| 卡片 | 调研判定 | 建议 | 若做的成本 |
+|------|----------|------|------------|
+| #161 context 圆环离线隐藏 | 机制主张全成立且比登记更彻底（tracker.contextWindow 生产死字段）；无用户诉求信号 | **维持登记** | 3.5-4.5h（DataStore per-server map 方案草图已备，零 i18n） |
+| #168 慢拖残余尖刺 | 复测三新发现：anim 桶主导最差帧（per-chunk 重组仍在）、迟启动帧类仍存、尖刺率强会话相关（6.5%≈基线 3 倍）；release 侧尖刺率从未实测 | **维持挂起**；release 5 分钟抽查搭下次例行 devRelease 真机验收，<1% 即证伪闭卡、≥1% 升 P2 | 深挖 ~2h（Perfetto slice 归因 + release 抽查，前提方向已修正为 anim/迟启动） |
+| #184 水位线跨服务器 | 病灶仍在但收窄为两纯内存缺陷（_justRead 广播溢出错杀 + allReadAt 值域污染漏杀）；场景可达不可证伪；#171 收编单点后修复大幅变便宜 | **便宜修复值得现在做**（方案 1 filterKeys 作用域化，零 schema 零迁移）——唯一建议动代码的卡片 | ~1h（UnreadBadgeService + SessionListViewModel 各 ~5 行 + 双服务器互不污染单测） |
+| #185 god-client 拆解 | 数字零漂移复现（72/84/78，267 commits 考验）；「22 测试文件」口径澄清为 seam 翻转影响面估算，纯拆轴真实重写面 ≈4-5 文件 | **维持显式不做**；6 项重开触发器已录 | 若重开选轴 B partial interface（4-5 文件），非现在 |
+
+### 顺带发现登记
+
+- **#209（新登记）**：TokenStatsTracker.TokenStats.contextWindow 生产死字段——全库无写点恒 0（仅测试写入），ChatStateAggregator.kt:124 映射死链；若做 #161 可顺手清理，否则独立微小清理卡。
+- #184 附带发现（SessionError 客户端 now 第三时钟域污染 globalMax）由方案 1 顺带缓解，不另立卡。
+
+### 用户裁决点
+
+1. **#184**：现在做 ~1h 修复（方案 1），还是维持登记？（两缺陷实测可达：曾配置过第二台服务器即永久满足前置条件）
+2. **#168**：是否同意「release 抽查搭下次 devRelease 例行验收」的处置？
+3. **#161 / #185**：维持登记/显式不做，是否认可？（卡片描述已按调研事实更新，状态未动）

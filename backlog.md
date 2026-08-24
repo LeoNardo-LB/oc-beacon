@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#209**。
+**编号**：全局递增，不回收。下一编号：**#210**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -81,21 +81,25 @@
   - → `docs/journal/2026-08-20-queue-todo.md`
 
 - [ ] **#161 离线时顶栏 context 圆环隐藏** `data` `ui`
-  - contextWindow 仅存内存、依赖会话级 REST；现状代码注释已声明可接受，仅当期望离线可见才做（落库方向，~2h）
-  - → `docs/journal/2026-08-20-queue-todo.md`
+  - 2026-08-24 复核：机制主张全部成立且更彻底（tracker.contextWindow 生产死字段，唯一分母来源=provider catalog 查表）；工时复估 3.5-4.5h（DataStore 方案草图已备）；维持登记，有离线可见诉求再做
+  - → `docs/journal/2026-08-20-queue-todo.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#161
 
 - [ ] **#166 RaceProbe 复现取证待用户执行** `race`
   - 若跳转叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可重放定位）
   - → `docs/journal/2026-08-21-race-audit-round6.md`（提升自该批子条目）
 
-- [ ] **#168 慢拖残余 ~18ms 偶发尖刺——最低优先级** `perf`
-  - F5 后残余（draw 4-8ms + input 3-5ms，12 轮仅 10 条）；「预取 idle_frame」候选已否证；release 口径 p95 7.9ms 已低于感知阈值，再深挖方向为 draw/input 相位本身（~2h）
-  - → `docs/journal/2026-08-20-perf-monitoring-round3.md`（提升自该批子条目）
+- [ ] **#168 慢拖残余尖刺——release 抽查裁决后闭卡或升级** `perf`
+  - 2026-08-24 复测：最差帧实为 anim 桶主导（per-chunk 重组仍在）+ 尖刺率强会话相关（教程会话 ≥17ms 6.5%≈基线 3 倍）；release 侧尖刺率从未实测——搭下次 devRelease 验收跑 5 分钟抽查，<1% 即证伪闭卡、≥1% 升 P2
+  - → `docs/journal/2026-08-20-perf-monitoring-round3.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#168（提升自 perf-round3 子条目）
 
 - [ ] **#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data`
-  - markAllSessionsRead 对不分服务器的水位线 map 取全局 max（SessionListViewModel:423-430）——多服务器时钟不同域时一键已读可能错杀/漏杀红点；#171 grilling Q6 定案：不动存储 schema，登记不动
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+  - 2026-08-24 复核：病灶仍在但收窄为两缺陷（_justRead 广播溢出错杀 + allReadAt 值域污染漏杀；锚点已迁 UnreadBadgeService.kt:188-197）；场景可达不可证伪；#171 后修复变便宜（filterKeys 作用域化 ~1h 零 schema）——待裁决做或维持
+  - → `docs/journal/2026-08-21-arch-review-deepening.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#184
 
 - [ ] **#185 V1/V2 god-client 拆解（终局债务，显式不做）** `refactor`
-  - V1ApiClient(72 方法)/V2ApiClient(84) 全域 god-client + 7 门面 78 处 if 分发——#172 grilling Q1 定案：seam 已在门面 interface 正确收敛，拆轴属内部代码组织（22 测试文件重写 + 缓存式适配器版本竞态），显式登记不拆
-  - → `docs/journal/2026-08-21-arch-review-deepening.md`
+  - #172 Q1 定案不拆（seam 已在门面 interface 收敛 + 缓存式适配器竞态）；2026-08-24 复审零漂移（72/84/78）且「22 测试文件」系 seam 翻转影响面估算（纯拆轴重写面≈4-5 文件）——维持不做；6 项重开触发器见 quad-research §#185
+  - → `docs/journal/2026-08-21-arch-review-deepening.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#185
+
+- [ ] **#209 TokenStatsTracker.contextWindow 生产死字段清理** `refactor`
+  - 2026-08-24 #161 调研顺带发现：该字段全库无生产写点恒 0（仅测试写入），ChatStateAggregator.kt:124 映射死链（ChatScreen 实际消费 modelConfig.contextWindow）；若做 #161 可顺手清理，独立做属微小清理卡
+  - → `docs/journal/2026-08-24-p3-quad-research.md` §#161
