@@ -247,6 +247,12 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 - 修正后相位口径与 subagent 逐位对齐（input p50 1.83/p99 6.32、anim p99 20.55、draw p50 1.91 全部精确一致）；total 口径二选一实证：**FrameCompleted−IntendedVsync**（A）vs FrameCompleted−FrameStartTime（B）——A 精确复现基线（982 帧/p50 9.4/p90 14.5/p95 19.6/≥15ms 8.78%/≥17ms 6.53%·64 帧），B 系统性偏低（≥17ms 4.39%）→ 固化 A
 - 解锁脚本 `/tmp/r168rel/unlocked-run.sh` 同步两修正：①输入法改 input text（type.sh 仅 a-z0-9,.，URL 的 :/ 与密码符号会被静默丢弃；禁令场景=手势返回流伪影，表单填充无返回手势，release 无 debug intent 替代——偏差特此披露）②脚本其余段语法校验通过
 
+### #168 解锁自动执行武装（2026-08-24 Round 3）
+
+- 解锁探测升级为自动执行 watcher：解锁事件本身触发 unlocked-run.sh（装 devRelease→配置→12 慢拖测量→parse.py 裁决→恢复 devDebug），EXIT trap 保证任何失败路径都装回 devDebug + debug intent 恢复配置
+- 测量产物落 `/tmp/r168rel/RESULT.txt` + `/persistent/home/leo-tkp/perf-evidence/r168rel/`（parse.py/unlocked-run.sh 已持久化防重启丢失）；watcher 窗口 12h
+- 脚本 SYNTAX_OK；三层防呆：锁屏中止（恢复 devDebug）、会话未找到中止（截图取证+恢复）、INSTALL 失败中止（恢复）
+
 ### #168 执行记录（2026-08-24，待解锁窗口）
 
 - devRelease APK 已构建（assembleDevRelease 3m33s，R8 minify）；解析脚本 `/tmp/r168rel/parse.py` 就绪（120Hz 8.33ms 预算，framestats 24 列，IntendedVsync 去重）
