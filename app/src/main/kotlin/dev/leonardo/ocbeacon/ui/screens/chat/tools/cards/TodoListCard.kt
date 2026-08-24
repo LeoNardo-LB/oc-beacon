@@ -38,6 +38,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import dev.leonardo.ocbeacon.ui.components.AmoledSurface
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
@@ -91,11 +92,13 @@ internal fun TodoListCard(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
 
-    // #215 批1：容器统一——圆角 small(8dp) → smallMedium(6dp) 对齐 scaffold 家族
-    Surface(
+    // #215 批3：容器统一收尾——手写 Surface+border 模式（批1 已对齐圆角）收敛到
+    // AmoledSurface（surface + tonal 1dp + smallMedium 6dp，AMOLED 纯黑+边框），与全家同源
+    AmoledSurface(
+        isAmoledDark = isAmoled,
+        normalColor = MaterialTheme.colorScheme.surface,
+        normalTonalElevation = 1.dp,
         shape = ShapeTokens.smallMedium,
-        color = MaterialTheme.colorScheme.surface,
-        border = if (isAmoled) AmoledDefaultBorder else null,        tonalElevation = if (isAmoled) 0.dp else 1.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(8.dp)) {

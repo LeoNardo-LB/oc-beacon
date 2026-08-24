@@ -1,6 +1,6 @@
 # card-unification（2026-08-24 · #215 卡片体系统一执行批次）
 
-> 状态：进行中（批1/批2 完成，待用户验收；批3 未启动）
+> 状态：三批完成，待用户统一验收（2026-08-24）
 > 关联：#215（backlog）· spec `docs/specs/2026-08-24-card-unification-design.md` · M3 调研 `docs/research/2026-08-24-m3-card-container-fit.md`
 > 来源：用户规划诉求（卡片行为统一 + 容器共存性重审 + M3 适配调研）；历史裁决推翻获用户授权（2026-08-18 容器并存残留态，spec §2 证据链）
 
@@ -37,6 +37,27 @@
 - 演示取证实录：进度卡（ToolProgressCard）瞬态性太强（sleep 6 工具 2 帧轮询窗口难截），留用户日常使用中自然观察——容器已批1 统一，无行为变化
 
 **披露**：演示会话 `ses_fcba2837affe`（"演示：工具进度卡"）创建于服务器、验证后已删（204）；两次 REST prompt 触发真实工具执行（echo demo-ok / sleep 6），无真实会话污染。
+
+## 批3：自绘卡收编 + EmbeddedCardContainer 退役（2026-08-24）
+
+**改动**（5 文件 + 1 删除）：
+
+1. `ReasoningBlock.kt`（批3a）：标题行本体 clickable=展开/收起（含触觉），28dp chevron IconButton 删除——**推翻 2026-08-16「职责分离」规范**（用户授权，注释勘误留档）；复制维持内容区 SelectionContainer
+2. `SyntheticNotificationCard.kt`（批3b）：第 2 行标题区 clickable(enabled=hasOutput)=展开/收起，展开钮删除；**跳转/定位语义按钮保留**（C2 契约：本体=展开，跳转走按钮）
+3. `FileCard.kt`（批3d）：EmbeddedCardContainer → AmoledSurface 统一语言；**EmbeddedCardContainer.kt 组件删除**（唯一剩余用户迁移完毕，08-18 三修残留态终结；活跃/历史提问卡此前已自发迁 scaffold 语言）
+4. `TodoListCard.kt`（批3e）：手写 Surface+border 模式 → AmoledSurface（与全家同源）
+5. CompactionCard 收起态分割线 chip 维持现状（spec §4 例外裁决：流分隔符非信息卡，无代码改动）
+
+**验证证据**：
+
+- 编译绿 + 单测全套件绿 + 插桩全量 **OK (135 tests)**
+- 真机活体（受控会话 ses_fcb71841cffe，REST 触发 reasoning+shell turn，验证后已删 204）：
+  - **Expand/Collapse a11y 节点全网清零**（会话含 Reasoning+Shell+代码块，0 个展开按钮）
+  - **ReasoningBlock 冷态单击本体即展开**（像素 diff 全屏变化，一次命中）
+  - 通知卡静态确认：toggle 仅标题行 1 处，跳转/定位按钮保留
+- 用户报告「真机一直闪退」核查：logcat 零 FATAL、进程健康——实为插桩全量（135 类连续拉起/杀 Activity）+ LeakCanary 误入 + 冷启动验证的正常自动化现象，已向用户解释并获知会（后续长批次照常执行，不逐一预告）
+
+**遗留**：视觉三主题截图对比（spec §7 验收项）留用户统一验收时一并做或豁免（机械门已全绿）。
 
 ## 发版插叙（同日）
 

@@ -27,11 +27,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -135,21 +132,25 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 2026-08-16（卡片职责分离规范）：卡片本体不可点击——
-                    // 展开/收缩与复制由右侧专门按钮承担，避免大区域误触与
-                    // 点击落空不可预期（与 CompactionCard/SyntheticNotificationCard
-                    // 统一）。
+                    // #215 批3（推翻 2026-08-16 卡片职责分离规范，用户授权）：
+                    // 标题行本体点击=展开/收起唯一入口（与 scaffold 家族统一），
+                    // 右侧 chevron 按钮移除；复制维持内容区 SelectionContainer 选中。
                     // 2026-08-16（用户反馈）：折叠态行高与其他卡片单行一致——
                     // 垂直 padding 8dp → 4dp（对齐 ToolCardScaffold 的
                     // Column padding(4.dp)），总高 ~36dp 与工具卡折叠态等高。
                     .padding(start = 12.dp, end = 10.dp, top = 4.dp, bottom = 4.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { performHaptic(hapticView, hapticOn); onToggleExpand() },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f),
+                    ) {
                         // 动画脉冲圆点（仅在思考时显示）
                         Box(
                             modifier = Modifier
@@ -178,25 +179,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                             )
                         }
                     }
-
-                    // 2026-08-16（用户反馈调整）：复制改为**部分复制**——
-                    // 内容区 SelectionContainer 选中文本复制（与 ReadToolCard
-                    // 等工具卡一致），移除整卡全量 CopyButton。
-                    // 展开职责由专门按钮承担（原整卡 clickable 移除）。
-                    IconButton(
-                        onClick = { performHaptic(hapticView, hapticOn); onToggleExpand() },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (expanded)
-                                stringResource(R.string.chat_collapse)
-                            else
-                                stringResource(R.string.chat_expand),
-                            modifier = Modifier.size(18.dp),
-                            tint = textColor.copy(alpha = AlphaTokens.FAINT)
-                        )
-                    }
+                    // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
 
                 // 可展开内容

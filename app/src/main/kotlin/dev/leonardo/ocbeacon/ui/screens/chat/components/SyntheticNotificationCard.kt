@@ -25,8 +25,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -189,10 +187,15 @@ internal fun SyntheticNotificationCard(
             }
         },
     ) {
-        // 第 2 行（2026-08-12 用户要求）：子智能体类型 + 标题 + [展开][定位][跳转]
+        // 第 2 行（2026-08-12 用户要求）：子智能体类型 + 标题 + [定位][跳转]
+                // #215 批3：标题行本体点击=展开/收起（有输出时；推翻 08-16 职责分离
+                // 规范，与 scaffold 家族统一契约），右侧展开钮移除，跳转/定位钮保留
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = hasOutput) { expanded = !expanded }
                 ) {
                     if (info == null) {
                         // fallback：直接显示原文（无任务格式）
@@ -268,19 +271,7 @@ internal fun SyntheticNotificationCard(
                             )
                         }
                     }
-                    if (hasOutput) {
-                        IconButton(
-                            onClick = { expanded = !expanded },
-                            modifier = Modifier.size(22.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = stringResource(R.string.chat_expand),
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
-                            )
-                        }
-                    }
+                    // #215 批3：展开钮移除——本体点击已承担展开/收起
                 }
 
                 // 展开输出（2026-08-12：tween 动画——spring 默认有回弹 overshoot，

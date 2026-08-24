@@ -21,7 +21,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Part
-import dev.leonardo.ocbeacon.ui.components.EmbeddedCardContainer
+import dev.leonardo.ocbeacon.ui.components.AmoledSurface
+import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
@@ -33,12 +34,16 @@ internal fun FileCard(file: Part.File) {
 
 @Composable
 internal fun FileCardFallback(file: Part.File) {
-    // 2026-08-18：容器样式抽至共享 EmbeddedCardContainer（本组件即该容器
-    // 语言的出处，提问卡等内嵌卡片随之统一）；视觉零变化
+    // #215 批3：容器统一——EmbeddedCardContainer（surfaceContainerLow + 1dp 边框
+    // + medium 12dp）退役，迁 AmoledSurface 统一语言（surface + tonal 1dp +
+    // smallMedium 6dp，AMOLED 纯黑+边框），与 scaffold 家族/提问卡同容器
     val contentColor = MaterialTheme.colorScheme.onSurface
 
-    EmbeddedCardContainer(
-        contentColor = contentColor,
+    AmoledSurface(
+        isAmoledDark = isAmoledTheme(),
+        normalColor = MaterialTheme.colorScheme.surface,
+        normalTonalElevation = 1.dp,
+        shape = ShapeTokens.smallMedium,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
