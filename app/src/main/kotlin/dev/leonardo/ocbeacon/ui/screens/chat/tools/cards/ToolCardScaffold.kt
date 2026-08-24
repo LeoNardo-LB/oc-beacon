@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,12 +69,11 @@ val LocalCopyFeedback = androidx.compose.runtime.staticCompositionLocalOf<(() ->
  * @param isRunning 工具当前是否在运行（显示脉冲圆点）
  * @param hasContent 是否有内容要显示（控制右侧可见性与动画）
  * @param isAmoled AMOLED 主题标志
- * @param onToggleExpand 标题行被点击时的回调（默认展开切换）
- * @param onClick 标题行点击的可选覆盖。为 null 时使用 onToggleExpand。
+ * @param onToggleExpand 标题行被点击时的回调（展开切换）。#215 批2：本体点击是
+ *   唯一展开入口（chevron 冗余按钮移除）；无内容（hasContent=false）时标题行不可点
  * @param rightSideExtras 标题行右侧的额外 composable（如 DiffChangesInline）
  * @param titleContent 可选的自定义标题内容。为 null 时使用简单的图标 + 文本行。
  * @param expandedContent 展开时显示的内容
- * @param showExpandIcon 是否显示展开/折叠 chevron 图标。默认 true。
  * @param containerColor 卡片背景色（非 AMOLED）。默认 surface。
  *   AMOLED 下仍为纯黑 + 边框。用于任务类卡片的状态底色语义
  *  （发起=蓝 / 完成=绿 / 失败=红，2026-08-11 用户要求）。
@@ -93,11 +90,9 @@ internal fun ToolCardScaffold(
     isAmoled: Boolean,
     onToggleExpand: () -> Unit,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
     rightSideExtras: @Composable (RowScope.() -> Unit)? = null,
     trailingExtras: @Composable (RowScope.() -> Unit)? = null,
     titleContent: (@Composable RowScope.() -> Unit)? = null,
-    showExpandIcon: Boolean = true,
     containerColor: Color = MaterialTheme.colorScheme.surface,
     expandedContent: @Composable () -> Unit,
 ) {
@@ -125,15 +120,16 @@ internal fun ToolCardScaffold(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 左侧：图标 + 标题（点击展开/折叠）
+                // 左侧：图标 + 标题（点击展开/折叠——#215 批2：本体点击=唯一展开入口，
+                // 无内容时禁点避免死点击）
                 if (titleContent != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .weight(1f)
-                            .clickable {
+                            .clickable(enabled = hasContent) {
                                 performHaptic(hapticView, hapticOn)
-                                (onClick ?: onToggleExpand)()
+                                onToggleExpand()
                             }
                     ) {
                         titleContent(this)
@@ -144,9 +140,9 @@ internal fun ToolCardScaffold(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .weight(1f)
-                            .clickable {
+                            .clickable(enabled = hasContent) {
                                 performHaptic(hapticView, hapticOn)
-                                (onClick ?: onToggleExpand)()
+                                onToggleExpand()
                             }
                     ) {
                         Icon(
@@ -210,22 +206,9 @@ internal fun ToolCardScaffold(
                                 )
                             }
                         }
-                        // 4. 展开/折叠图标（最右侧）
-                        // 2026-08-12 bug 修复：原为纯 Icon（无 onClick）——点击无反应
-                        // 且误触相邻复制按钮（用户反馈"点展开变复制"）——改为 IconButton
-                        if (showExpandIcon) {
-                            IconButton(
-                                onClick = onToggleExpand,
-                                modifier = Modifier.size(22.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    contentDescription = stringResource(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                                )
-                            }
-                        }
+                        // #215 批2：展开/折叠 chevron 冗余按钮移除——本体点击已承担
+                        // 展开/收起（历史：2026-08-12 纯 Icon 无 onClick bug 曾改为
+                        // IconButton；统一交互契约后该入口整体不再需要）
                     }
                 }
             }

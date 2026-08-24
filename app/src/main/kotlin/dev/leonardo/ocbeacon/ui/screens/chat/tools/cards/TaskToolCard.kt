@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -95,14 +96,12 @@ internal fun TaskToolCard(
             else -> null
         }
 
-    // 确定点击行为：有子智能体会话则导航到它，否则切换展开
-    // #180：Running 期只要拿到子智能体会话 id 即可跳转（原实现仅 completed 可点）
-    val clickAction: (() -> Unit)? = if (subSessionId != null && onViewSubSession != null) {
-        { onViewSubSession(subSessionId) }
-    } else null
-
-    // #180：导航箭头不再排除 isRunning（Running 有 id 即显示，尽早进子智能体会话看进度）
-    val showNavArrow = subSessionId != null && onViewSubSession != null
+    // #215 批2：交互契约统一——本体点击=展开/收起（默认 onToggleExpand，不再被
+    // 导航覆盖）；跳转收编为右侧独立箭头按钮（#180 语义保留：Running 期拿到
+    // 子智能体会话 id 即可跳转，尽早进子智能体会话看进度）
+    val viewSub = onViewSubSession
+    val navTarget: String? = subSessionId?.takeIf { viewSub != null }
+    val showNavArrow = navTarget != null
 
     ToolCardScaffold(
         icon = Icons.Default.AccountTree,
@@ -115,20 +114,23 @@ internal fun TaskToolCard(
         hasContent = if (showNavArrow) true else hasOutput,
         isAmoled = isAmoled,
         onToggleExpand = onToggleExpand,
-        // #181 根因修复：原 showExpandIcon = !showNavArrow 导致导航态下
-        // chevron 消失 + 标题行点击被导航覆盖 → 展开入口完全消失。
-        // 改为独立并存：标题行=导航，右侧 chevron IconButton=展开切换。
-        showExpandIcon = true,
-        onClick = clickAction,
+        // #181 演进注记：原「标题行=导航 + chevron=展开」并存方案随 #215 批2
+        // 契约统一收束——标题行回归=展开，导航职责全部交给右侧箭头按钮
         // 2026-08-11 用户反馈：subagent 卡片保持原背景（蓝底改动撤销——
         // "蓝色基调不用改"，原设计即为默认背景 + primary 蓝色图标）
-        rightSideExtras = if (showNavArrow) {
-            { Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+        rightSideExtras = if (showNavArrow && navTarget != null && viewSub != null) {
+            {
+                IconButton(
+                    onClick = { viewSub.invoke(navTarget) },
+                    modifier = Modifier.size(22.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         } else null,
         titleContent = {

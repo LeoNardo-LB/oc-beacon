@@ -282,8 +282,10 @@ internal fun PartContent(
             val onToggleToolExpanded = LocalOnToggleToolExpanded.current
             ShellCard(
                 shell = part,
+                // #215 批2 修复首击陷阱：初值 ?: false 与 toggle 默认参必须一致
+                //（原默认参 true：首击 null→!true=false 视觉无变化，需双击才展开）
                 isExpanded = toolExpandedStates[part.id] ?: false,
-                onToggleExpand = { onToggleToolExpanded(part.id, true) }
+                onToggleExpand = { onToggleToolExpanded(part.id, false) }
             )
         }
         is Part.StepStart -> {
