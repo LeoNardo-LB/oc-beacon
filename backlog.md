@@ -67,6 +67,7 @@
 - [~] **#219 V2 压缩失败静默：无 snackbar + 失败消息伪装成功分割线 + messageId 字段名错** `sse` `ui` `compaction`
   - 用户二报「分割线一闪而过，重进才见压缩内容」定音：06:26 那次压缩实为 provider 故障失败（compaction.failed 715ms）——①失败完全静默（HTTP 秒回受理，失败只从 SSE 到达，V1 的 HTTP 失败回调在 V2 永不触发）②失败压缩消息渲染成成功「已压缩」分割线（V2Mappers 无失败标记）③started 读 messageID 但实测字段是 inputID（对位恒空）④失败零刷新（失败分割线要重进才出现）
   - 修复：CompactionEnded+error 字段→失败广播流→snackbar（带服务器原因）；Part.Compaction+failed→失败分割线（「压缩会话失败」错误色）；inputID 勘误；失败即时刷新；wire 契约同步；真机验证失败/成功分割线同屏正确标注
+  - 修复二（三报「进行中分割线消失」）：inputID 勘误后骨架消息（inbox.enqueued 即插入、无 part）误抑制尾部分割线——消息流按 role+对位认领（排队期不认领防误导）；真机 34s 真实压缩帧验证 COMPRESSING 全程可见 + 原位切完成态
   - → `docs/journal/2026-08-25-session-list-wipe.md` §#219
 
 - [~] **#218 session.deleted SSE 后会话列表全空（Empty directory）** `sse` `sessions`

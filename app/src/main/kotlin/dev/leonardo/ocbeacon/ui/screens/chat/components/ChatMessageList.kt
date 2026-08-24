@@ -1225,7 +1225,25 @@ fun ChatMessageList(
                             msg.isUser -> {
                                 val chatMessage = msg
 
-                                val isCompactionTrigger = chatMessage.parts.any { it is Part.Compaction }
+                                // #217：进行中态按 messageId 对位——仅当前压缩对应的
+                                // 消息渲染进行中分割线（历史分割线不受新压缩影响）；同 item
+                                // 原位切换保证 Q13 展开/流式文本连续（messageId 来自 started
+                                // 事件 inputID，与 compaction 消息 id 同源）。
+                                val compactionActiveState = currentCompaction
+                                    ?.takeIf { it.isActive && it.messageId == chatMessage.message.id }
+
+                                // #219 修复二（进行中分割线消失）：inbox.enqueued 在压缩
+                                // 发起瞬间即插入 role=compaction 骨架消息（无 Part.Compaction
+                                // ——那要等完成后的 REST 刷新）。此前仅按 parts 判定 → 骨架期
+                                // 消息流内不渲染分割线；#219 勘误 inputID 后尾部分割线的去重
+                                // 条件（messageId 已在列表）又被骨架满足 → 进行中态两边都不
+                                // 显示，直到完成才蹦出。按 role+对位认领：started 到达后骨架
+                                // 即渲染进行中分割线，完成后同 item 原位切完成态（Q13 本意）。
+                                // 注意 steer 排队期（skeleton 已入列但 started 未到）不认领——
+                                // compactionState 未置，认领会渲染成静止「已压缩」误导。
+                                val isCompactionTrigger = chatMessage.parts.any { it is Part.Compaction } ||
+                                    ((chatMessage.message as? Message.User)?.role == "compaction" &&
+                                        compactionActiveState != null)
 
                                 if (isCompactionTrigger) {
                                     var showRevertDialog by remember { mutableStateOf(false) }
@@ -1274,13 +1292,6 @@ fun ChatMessageList(
                                             )
                                         }
                                     ) {
-                                        // #217：进行中态按 messageId 对位——仅当前
-                                    // 压缩对应的消息渲染进行中分割线（历史分割线
-                                    // 不受新压缩影响）；同 item 原位切换保证 Q13
-                                    // 展开/流式文本连续（messageId 来自 started
-                                    // 事件 inputID，与 compaction 消息 id 同源）。
-                                    val compactionActiveState = currentCompaction
-                                        ?.takeIf { it.isActive && it.messageId == chatMessage.message.id }
                                     CompactionCard(
                                             state = compactionActiveState,
                                             summary = chatMessage.parts

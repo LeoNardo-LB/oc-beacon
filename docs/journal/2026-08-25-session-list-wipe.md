@@ -53,3 +53,13 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 
 - 单测：failed 广播（error 非空 emit / 空不 emit）×2 + wire 契约 + 全量 1933 绿
 - 真机：provider 恢复后成功链路回归（进行中分割线→snackbar→新分割线会话内直接出现，无需重进）；失败记录（06:26:47）与成功记录（06:36:41）同屏——Failed to compact session（红）与 Context compacted 各自正确标注
+
+### 修复二（同日三报：进行中分割线完全消失）
+
+用户报告「点击压缩后看不到分割线，突然跳出已压缩 alert，然后出现分割线」。定因：#219 勘误 inputID 后 messageId 有真实值，与 inbox.enqueued 在压缩发起瞬间即插入的 role=compaction 骨架消息（无 Part.Compaction）交互——尾部分割线去重条件（messageId 已在列表）被骨架满足而抑制；消息流内又因骨架无 part 不认领 → 进行中态两边都不显示。
+
+修复：消息流按 role+对位认领——role=compaction 且 compactionActiveState（messageId 对位）非空，或已有 Part.Compaction。骨架期（started 到达后）即渲染进行中分割线，完成后同 item 原位切完成态（Q13 本意）；steer 排队期（骨架已入列但 started 未到，compactionState 未置）不认领——避免渲染成静止「已压缩」误导。
+
+排查副产物（重要认知）：①compact 是 steer 语义——排队等当前流式 turn 结束才执行，排队期无任何 compaction.* 事件（此前的「服务器僵尸」误判实为排队）；②「Nothing to compact yet」失败为即时 started+failed 对（毫秒级）。
+
+验证（真机 fx3 帧 序列，压缩真实执行 34s：07:10:49 started → 07:11:23 ended）：fx3-1~8 COMPRESSING 全程可见（进行中分割线在骨架消息位置）→ fx3-9 Session compacted snackbar → fx3-10 完成分割线原位出现（n_compacted 1→2），全程无需重进。此前失败路径（Nothing to compact）也已验证：失败 snackbar + 失败分割线即时出现。
