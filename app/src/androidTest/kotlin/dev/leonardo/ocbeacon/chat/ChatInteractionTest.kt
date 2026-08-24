@@ -211,17 +211,31 @@ class ChatInteractionTest : BaseChatTest() {
                 default = mapOf("ctx-provider" to "ctx-model")
             )
         )
+        // #209（2026-08-24）：tokenStats.contextWindow 死字段已删（生产无写点），
+        // 解析链只走真实 catalog 路径——fake 会话挂上 model 让 catalog 分支命中。
+        fakeSession.sessionsState.value = listOf(
+            dev.leonardo.ocbeacon.domain.model.Session(
+                id = TEST_SESSION,
+                title = "Test",
+                directory = "/test/project",
+                time = dev.leonardo.ocbeacon.domain.model.Session.Time(
+                    created = System.currentTimeMillis(),
+                    updated = System.currentTimeMillis()
+                ),
+                model = dev.leonardo.ocbeacon.domain.model.Session.SessionModel(
+                    id = "ctx-model",
+                    providerId = "ctx-provider",
+                ),
+            )
+        )
 
         renderChatScreen()
         composeRule.waitForIdle()
 
         // 在 ViewModel init 之后设置 token 统计（init 会调用 tokenStatsTracker.reset()）
-        // percentage = round(64000 / 128000 * 100) = 50
-        // 2026-08-18 更新（#149）：0cb68851 口径修正删除了 currentModel 兜底，
-        // fake 会话无 model → catalog 分支查不到——改由 tokenStats.contextWindow
-        // 直接提供分母（解析链优先分支，tokenStats.contextWindow > 0 即命中）
+        // percentage = round(64000 / 128000 * 100) = 50（分母来自 catalog 查表）
         tokenStatsTracker.update {
-            copy(lastContextTokens = 64000, contextWindow = 128000)
+            copy(lastContextTokens = 64000)
         }
 
         // 等待上下文指示器渲染（需要 providers 已加载 + token 统计已设置）

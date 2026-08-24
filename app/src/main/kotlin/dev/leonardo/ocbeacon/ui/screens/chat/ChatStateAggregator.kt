@@ -121,7 +121,6 @@ internal class ChatStateAggregator(
             totalReasoningTokens = stats.totalReasoningTokens,
             totalCacheReadTokens = stats.totalCacheReadTokens,
             totalCacheWriteTokens = stats.totalCacheWriteTokens,
-            contextWindow = stats.contextWindow,
             lastContextTokens = stats.lastContextTokens,
         )
     }.stateIn(

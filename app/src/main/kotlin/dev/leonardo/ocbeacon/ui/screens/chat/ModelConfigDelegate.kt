@@ -215,11 +215,12 @@ internal class ModelConfigDelegate(
             // 其 limit.context 可能远小于实际窗口（分母错小数倍 → 显示超
             // 100%）。查不到时置 0——UI（ChatTopBar/ContextDetailDialog）对
             // contextWindow<=0 的处理是隐藏指示器，不崩溃。
-            val contextWindow = tokenStats.contextWindow.let { cw ->
-                if (cw > 0) cw else session?.model?.let { sm ->
-                    providers.find { it.id == sm.providerId }?.models?.get(sm.id)?.contextWindow
-                } ?: 0
-            }
+            // #209（2026-08-24）：删除 tokenStats.contextWindow 优先分支——
+            // 生产代码从不写该字段（全库 2 处 update 均不含它），恒 0 的死分支；
+            // 唯一写点是插桩测试注入捷径，已改为走真实 catalog 路径。
+            val contextWindow = session?.model?.let { sm ->
+                providers.find { it.id == sm.providerId }?.models?.get(sm.id)?.contextWindow
+            } ?: 0
 
             ModelConfigState(
                 providers = providers,

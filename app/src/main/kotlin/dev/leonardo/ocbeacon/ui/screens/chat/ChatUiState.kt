@@ -82,7 +82,6 @@ data class TokenStatsState(
     val totalReasoningTokens: Int = 0,
     val totalCacheReadTokens: Int = 0,
     val totalCacheWriteTokens: Int = 0,
-    val contextWindow: Int = 0,
     val lastContextTokens: Int = 0,
 )
 
