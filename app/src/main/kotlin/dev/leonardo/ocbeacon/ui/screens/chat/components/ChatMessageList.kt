@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -40,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.MutableLongState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -47,6 +49,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -292,20 +295,23 @@ fun ChatMessageList(
     val compensateState = remember(streamingMsgId) { CompensateState() }
     val toolCompensateState = remember(streamingMsgId) { CompensateState() }
 
-    // #215 验收反馈·一（方案三·简）：工具卡 toggle 展开/收起的一次性锚定修正标志。
+    // #215 验收反馈·一（方案三·简）：工具卡 toggle 展开/收起的锚定修正时间窗。
     // 定因（journal §验收反馈·一 矩阵）：倒序 LazyColumn 对 item 内部高度变化零锚定
     // 修正——(first, off) 全程 freeze，被点卡随内容 ∓delta 漂移（统一批次前即存在，
     // 非本轮回归）。修法两半：① 卡片高度动画 snap 化（ToolCardScaffold/ReasoningBlock/
-    // SyntheticNotificationCard）→ 一次原子布局变化；② 此标志 + 非流式 item 的
-    // [toggleAnchorCorrection] 在首次 delta≠0 测量时做一次 requestScrollToItemNoCancel
-    //（off+delta，同 SSE 流式补偿通道与公式）→ 被点卡钉回原屏位。
+    // SyntheticNotificationCard）→ 一次原子布局变化；② toggle 后开一个短时间窗，
+    // 窗口内非流式 item 的 [toggleAnchorCorrection] 对每次 delta≠0 测量做一次
+    // requestScrollToItemNoCancel（off+delta，同 SSE 流式补偿通道与公式）→ 被
+    // 点卡钉回原屏位。时间窗而非一次性标志：收起方向的修正会把锚点折算进更新的
+    // item，可能触发其 markdown 异步解析落定（实测 +128px）——窗口把这类联动
+    // 重排一并钉住（snap 化后窗口内只有离散的少量 delta，无逐帧拉锯）。
     // 流式分支（isStreamingMsg 铁律补偿）不受影响。
-    val toggleAnchorPending = remember { mutableStateOf(false) }
+    val toggleAnchorUntil = remember { mutableLongStateOf(0L) }
     LaunchedEffect(viewModel) {
         var prevToggleStates: Map<String, Boolean>? = null
         viewModel.toolExpandedStates.collect { states ->
             if (prevToggleStates != null && prevToggleStates != states) {
-                toggleAnchorPending.value = true
+                toggleAnchorUntil.longValue = SystemClock.elapsedRealtime() + TOGGLE_ANCHOR_WINDOW_MS
             }
             prevToggleStates = states
         }
@@ -1039,7 +1045,7 @@ fun ChatMessageList(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .toggleAnchorCorrection(listState, toggleAnchorPending, toggleItemHeight)
+                                        .toggleAnchorCorrection(listState, toggleAnchorUntil, toggleItemHeight)
                                         .let { m ->
                                             if (entry.isLast) m.padding(bottom = messageSpacing) else m
                                         }
@@ -1143,11 +1149,11 @@ fun ChatMessageList(
                                     }
                                 }
                         } else {
-                            // #215：非流式 item 的 toggle 高度基线（snap 后仅一帧 delta≠0）
+                            // #215：非流式 item 的 toggle 高度基线
                             val toggleItemHeight = remember { mutableIntStateOf(0) }
                             Modifier
                                 .fillMaxWidth()
-                                .toggleAnchorCorrection(listState, toggleAnchorPending, toggleItemHeight)
+                                .toggleAnchorCorrection(listState, toggleAnchorUntil, toggleItemHeight)
                         }
                         // #215 验收反馈·一（方案一回滚存档）：曾试「非流式 item 双向
                         // delta≠0 锚定补偿 offset±delta」——真机实测位移放大（展开 69→160、
@@ -1487,18 +1493,19 @@ private fun easeInOutCubic(t: Float): Float =
     if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
 
 /**
- * #215 验收反馈·一（方案三·简）：非流式 item 的 toggle 一次性锚定修正测量点。
+ * #215 验收反馈·一（方案三·简）：非流式 item 的 toggle 锚定修正测量点。
  *
  * 常驻挂载（Turn/Chunk）：窗口外零请求、仅刷新高度基线（保证 toggle 瞬间
- * 基线新鲜）；toggle 后首次 delta≠0 测量时，用当前锚点 + 高度差做一次
- * [LazyListReflection.requestScrollToItemNoCancel]（SSE 流式补偿同通道同公式
- * ——off 深入 delta 对消内容生长，被点卡钉在原屏位），随即清除待处理标志。
- * 展开/收起两方向对称（delta 正负统一为 off+delta；跨 item/负 off 由
- * LazyListState 测量原生折算）。snap 化的高度动画保证只有这一次 delta≠0。
+ * 基线新鲜）；toggle 修正时间窗内的每次 delta≠0 测量，用当前锚点 + 高度差
+ * 做一次 [LazyListReflection.requestScrollToItemNoCancel]（SSE 流式补偿同
+ * 通道同公式——off 深入 delta 对消内容生长，视口钉住），覆盖 toggle 自身的
+ * 原子 resize 与锚点折算引发的 markdown 落定等联动重排。展开/收起两方向
+ * 对称（delta 正负统一为 off+delta；跨 item/负 off 由 LazyListState 测量
+ * 原生折算）。snap 化的高度动画保证窗口内只有离散少量 delta，无逐帧拉锯。
  */
 private fun Modifier.toggleAnchorCorrection(
     listState: LazyListState,
-    pending: MutableState<Boolean>,
+    anchorUntil: MutableLongState,
     itemHeight: MutableIntState,
 ): Modifier = layout { measurable, constraints ->
     val placeable = measurable.measure(
@@ -1507,8 +1514,7 @@ private fun Modifier.toggleAnchorCorrection(
     val h = placeable.height
     val base = itemHeight.intValue
     itemHeight.intValue = h
-    if (pending.value && base > 0 && h != base) {
-        pending.value = false
+    if (SystemClock.elapsedRealtime() < anchorUntil.longValue && base > 0 && h != base) {
         if (BuildConfig.DEBUG) {
             AppLogger.w(
                 "ScrollDiag",
@@ -1526,6 +1532,9 @@ private fun Modifier.toggleAnchorCorrection(
         placeable.placeRelative(0, 0)
     }
 }
+
+/** #215：toggle 锚定修正时间窗（覆盖 snap resize + markdown 落定联动）。 */
+private const val TOGGLE_ANCHOR_WINDOW_MS = 800L
 
 // 预解析/分片调参常量已随渲染供给协调器外移 RenderSupplyCoordinator.companion（候选 1）。
 
