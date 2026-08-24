@@ -64,6 +64,23 @@ class SessionEventHandlerTest {
     }
 
     @Test
+    fun `SessionDeleted keeps other sessions in serverSessions map (#218)`() = runTest {
+        // 2026-08-25 修复回归：原 values.removeAll { it.contains(sessionId) } 会把
+        // 整台服务器的会话 id 集合整体移除（谓词作用于 Set 元素而非集合内元素）→
+        // 任一 session.deleted SSE 后会话列表全空（用户报告：退回列表 Empty directory；
+        // 真机复现：删除任一会话即触发）。修复后仅移除该 id，其余保留。
+        handler.setSessions("server1", listOf(testSession("s1"), testSession("s2"), testSession("s3")))
+
+        handler.handle(SseEvent.SessionDeleted(testSession("s2")), "server1")
+
+        val remaining = handler.serverSessions.value["server1"] ?: emptySet()
+        assertTrue("删除 s2 后 s1 必须仍在 serverSessions（否则列表全空）", "s1" in remaining)
+        assertTrue("删除 s2 后 s3 必须仍在 serverSessions", "s3" in remaining)
+        assertFalse("被删的 s2 不得残留", "s2" in remaining)
+        assertEquals("sessions 列表只移除被删项", 2, handler.sessions.value.size)
+    }
+
+    @Test
     fun `SessionDeleted clears lastUserMessageTime and sessionDiffs (#96)`() = runTest {
         handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
         handler.recordUserMessage("s1", 1234L)

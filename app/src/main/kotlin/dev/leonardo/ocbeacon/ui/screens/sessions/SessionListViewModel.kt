@@ -534,6 +534,7 @@ class SessionListViewModel @Inject constructor(
     fun loadSessions() {
         viewModelScope.launch {
             _isLoading.value = true
+            try {
             _error.value = null
             resetPagination()
             val failure = fetchAllSessions()
@@ -557,7 +558,9 @@ class SessionListViewModel @Inject constructor(
                     }
                     _expandedPaths.value = dirs
                 }
+            } finally {
                 _isLoading.value = false
+            }
         }
     }
 

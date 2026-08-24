@@ -141,10 +141,15 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         // 2026-08-16（F6 泄漏清理）：_serverSessions（会话归属服务器映射）同步
         // 清理——原实现只清 _sessions/_sessionDiffs，删除的会话 id 永驻映射
         //（无害但随时间无限增长）。
+        // 2026-08-25 修复（列表全空 bug·用户报告）：原 values.removeAll
+        // { it.contains(sessionId) } 谓词作用于 Set 元素本身——只要服务器集合
+        // 包含被删会话，**整台服务器的会话 id 集合被整体移除**（非仅删一个）→
+        // 列表过滤 id in serverSessionIds 全空 → 任何 session.deleted SSE 后
+        // 会话列表变 Empty directory（实测复现：删除任一会话即触发）。
+        // 正确语义：从每个集合中移除该 id；顺手清理空集合（F6 防泄漏意图保留）。
         _serverSessions.update { map ->
-            val mutable = map.toMutableMap()
-            mutable.values.removeAll { it.contains(sessionId) }
-            mutable.mapValues { (_, v) -> v }.toMap()
+            map.mapValues { (_, v) -> v - sessionId }
+                .filterValues { it.isNotEmpty() }
         }
         // #96（L-2 泄漏补漏）：服务器确认删除的会话，per-session 缓存
         // 必须同步清理——原实现漏清 _lastUserMessageTime 与

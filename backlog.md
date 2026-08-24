@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#218**。
+**编号**：全局递增，不回收。下一编号：**#219**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -63,6 +63,10 @@
 
 
 ## P2 — 优化与锦上添花
+
+- [~] **#218 session.deleted SSE 后会话列表全空（Empty directory）** `sse` `sessions`
+  - 根因（2026-08-25 真机复现+代码定音）：SessionEventHandler.handleSessionDeleted 的 F6 泄漏清理 `values.removeAll { it.contains(sessionId) }` 谓词作用于 Set 元素本身——删除任一会话即把整台服务器的会话 id 集合整体移除 → 列表过滤 `id in serverSessionIds` 全空；任意删除（app 内删除/E2E 清理/他端删除）即触发；修复=mapValues 移除单 id + 清空集（F6 意图保留）；顺手修 loadSessions 协程取消时 _isLoading 卡 true（refreshSessions 永久被挡）；真机双场景验证通过
+  - → `docs/journal/2026-08-25-session-list-wipe.md`
 
 - [~] **#217 压缩 UI 统一：分割线包揽一切（V1/V2）** `sse` `ui` `compaction`
   - 2026-08-24 服务器探针+真机复现双定音：①V2 compact HTTP 16ms 即回（steer 异步），finally compactionNotifier(false) 秒杀 banner（59ms）后被 SSE started 复活——感知「一闪就没」；②【更强】ChatViewModel compactedSessions 累积 Set 判变：同会话第二次压缩集合不变→不刷新不通知→全程零 UI 重进才见分割线（round 3 实测）；③snackbar 4s 遮挡新入列分割线（corr 0.999997 纯遮挡）
