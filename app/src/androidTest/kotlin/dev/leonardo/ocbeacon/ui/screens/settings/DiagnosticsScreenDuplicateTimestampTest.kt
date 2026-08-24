@@ -22,7 +22,13 @@ import javax.inject.Inject
  * 复现场景：崩溃报告中 `Key "1785566688405" was already used` ——
  * 该 key 正是日志条目的 timestamp（13 位 epoch 毫秒）。旧代码
  * `items(filteredEntries, key = { it.timestamp })` 在同毫秒两条日志
- * 时抛 IllegalArgumentException。修复后 key 追加列表 index 保证唯一。
+ * 时抛 IllegalArgumentException。修复后 key 由内容派生（timestamp +
+ * category + message hash，L-11）保证唯一。
+ *
+ * #214：sharedTimestamp 必须取当前时刻，不能硬编码崩溃报告里的历史
+ * timestamp（2026-08-01T06:44:48Z）——LogStore.insert 的 retention
+ * prune 会删除 21 天前的 ERROR 条目，设备时钟越过 2026-08-22 边界后
+ * 两条条目插入即被清掉（实测 db=0/flow=0），UI 呈空态、断言失败。
  */
 @HiltAndroidTest
 class DiagnosticsScreenDuplicateTimestampTest {
@@ -51,7 +57,9 @@ class DiagnosticsScreenDuplicateTimestampTest {
     fun duplicate_timestamp_entries_render_without_crash() {
         // 直接注入两条相同 timestamp 的日志，绕过 AppLogger 的单调化，
         // 模拟修复前已写入数据库的重复数据（或极端竞态场景）。
-        val sharedTimestamp = 1_785_566_688_405L // 崩溃报告中的 key
+        // timestamp 取当前时刻并共享同一值：既保留「同毫秒重复」语义，
+        // 又落在 retention 窗口内（见类注释 #214 时间炸弹教训）。
+        val sharedTimestamp = System.currentTimeMillis()
         runBlocking {
             repository.recordBatch(
                 listOf(

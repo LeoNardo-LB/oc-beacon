@@ -404,3 +404,16 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 
 - 修复（主会话执行）：断言 "Start a conversation with OpenCode" → "Start a session with OpenCode"（对齐 chat_empty EN 源 08-23 4ed11ed5 现值），注释同步勘误
 - 验证：同上批次 `OK (9 tests)`；#212/#213 均为「代码先行、测试未跟」的机械勘误，无生产影响
+
+## #214 修复执行：DiagnosticsScreenDuplicateTimestampTest 硬编码 timestamp 时间炸弹（2026-08-24 晚批次）
+
+**定因链（假设→实验→排除，e69a99d8 真机）**
+
+- 登记时候选三选一：①真实 DiagnosticLogRepository（FakeDomainModule 未替换）Room 流异步发射晚于 waitForIdle ②条目过滤/去重路径丢弃条目 ③注入方式本身问题。读生产链路（DiagnosticLogRepository→LogStore→LogDao）发现第四嫌疑：`LogStore.insert` 内联 `prune(now)` → `deleteErrorBefore(now-21d)`，而测试硬编码 ts=1_785_566_688_405（崩溃报告 key，2026-08-01T06:44:48Z）+level=ERROR——设备时钟 2026-08-24 已越过 21d 边界（2026-08-22T06:44:48Z），**插入即被 retention 清除**
+- 时间线佐证时间炸弹而非回归：测试 08-04 创建（f26c3923，ts 当时 3 天龄，绿）→ 08-16 #147 批次过（6c41d0a2，15 天龄，绿）→ 08-24 #211 全量首败（23 天龄）
+- 最小实验（临时实验版测试，注入后直查双源：logStore.latest vs repository.entries）：hist ts → **db=0 flow=0**（落库即空，插入被 prune 吞）vs fresh ts → **db=2 flow=2** 且原两条断言全过 OK(1 test)——同一实验同时排除①（fresh 数据流/UI 即刻可见，waitForIdle 足够；repository.entries 本就是 StateFlow 非 Room flow）与②（无过滤丢条目，丢失发生在 DB retention 层，by design）
+- 次要嫌疑排除：recordBatch 的 refreshThrottled 1s 节流——插桩进程 HiltTestApplication 不走 App.initialize → AppLogger 未 initialize，无第三方 recordBatch 抢占刷新窗口；实验中 hist flow=0 与 db=0 一致亦证 refresh 本身正常执行
+
+**修复**：仅 `DiagnosticsScreenDuplicateTimestampTest.kt`——sharedTimestamp 改取 `System.currentTimeMillis()`（两条共享同一值，保留「同毫秒重复 key」回归语义且永在 retention 窗口内）；类 KDoc 补 #214 注记并勘误过时的「index 拼接 key」描述（现行 L-11 为内容派生 key）。**零生产改动**：retention 语义正确且有 LogStoreTest/LogDaoTest 锚定；诊断屏插桩测的正是真实 Room 存储，保留真实 DiagnosticLogRepository、不补 Fake（候选①的「未替换」本就是有意设计）
+
+**验证（真机 e69a99d8，插桩）**：本类 `OK (1 test)` 1.358s；全量 am instrument `OK (135 tests)` 115.3s——**#212/#213 修复后首次全绿**（08-18 末次全绿以来的完整回归基线恢复），无新失败

@@ -81,10 +81,10 @@
 >
 > （空）#210 已修复转待验证（2026-08-24 jdb 取栈定音三根因：①MIUI「后台弹出界面」权限随卸载重置→DeviceGuard 拦 HiltEntryActivity 启动致 startActivitySync 永久等待=挂死本体，非代码回归；②测试 Activity 无语言覆盖，系统 locale 回 zh-CN 后英文断言漂移；③#209 test3 seed id 错。修=授权脚本化+attachBaseContext en-US+seed 一行。ChatInteractionTest 全类 6 过 + 单测 1923 绿；#209 插桩补跑同步完成）→ `docs/journal/2026-08-24-p3-quad-research.md` §#210 修复执行
 
-- [ ] **#214 DiagnosticsScreenDuplicateTimestampTest 断言失败待定因（非 locale）** `data` `ui`
-  - #211 基线暴露：注入两条同毫秒 ERROR 日志后 onNodeWithText("first duplicate entry") assertIsDisplayed 失败（无崩溃）；宿主 HiltEntryActivity 已 en-US 排除语言因素
-  - 候选：真实 DiagnosticLogRepository（未被 Fake 替换）Room 流异步发射晚于 waitForIdle / 条目过滤路径；需定因后修
-  - → `docs/journal/2026-08-24-p3-quad-research.md` §#211 修复执行（非 locale 残留）
+- [~] **#214 DiagnosticsScreenDuplicateTimestampTest 断言失败——硬编码 timestamp 越 21 天 retention 边界（时间炸弹，非回归）** `data` `ui`
+  - 根因：测试硬编码崩溃报告 key（ts=2026-08-01）+ERROR，LogStore.insert 内联 prune 的 deleteErrorBefore(now-21d) 在设备时钟过 2026-08-22 后插入即清除；实验 hist db=0/flow=0 vs fresh db=2/flow=2 排除流/UI 链路
+  - 修复：仅测试——sharedTimestamp 改取 System.currentTimeMillis()（保留同毫秒重复语义）；retention by design 有 LogStoreTest/LogDaoTest 锚定，零生产改动
+  - 证据：真机本类 OK(1) 1.358s + 全量 am instrument **OK(135)** 115.3s（#212/#213 后首次全绿）→ `docs/journal/2026-08-24-p3-quad-research.md` §#214 修复执行
 
 ## P3 — 观察与低价值改进
 
