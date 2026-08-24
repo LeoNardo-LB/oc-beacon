@@ -386,3 +386,21 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 1. MigrationTest.migrate1To2：builder 只挂 MIGRATION_1_2/2_3 而 DB 已 v4（MIGRATION_3_4 08-20 eefe0942 落地）→ "migration from 1 to 4 was required but not found" IllegalStateException（MigrationTest.kt:111）→ #212
 2. ChatMessageRenderingTest.empty_session：断言 "Start a conversation with OpenCode"，chat_empty EN 源 08-23 4ed11ed5（KT10a conversation→session）已改 "Start a session with OpenCode"——en-US 下也必败的失实断言 → #213
 3. DiagnosticsScreenDuplicateTimestampTest.duplicate_timestamp：注入两条同毫秒 ERROR 日志后 "first duplicate entry" assertIsDisplayed 失败（无崩溃；宿主 HiltEntryActivity 已 en-US 排除语言）；DiagnosticLogRepository 为真实 Room 实现（FakeDomainModule 未替换），候选=Room 流发射晚于 waitForIdle / 条目过滤路径，待定因 → #214
+
+## 完结迁移·二批（2026-08-24 用户裁决「没问题标记 ok 然后清理」）
+
+**#211 androidTest createComposeRule 族测试依赖系统 locale=英文** `refactor` —— 已完结验收
+
+- 修复（commit 9b44f84f，subagent 执行）：`HiltComponentActivity.attachBaseContext` 强制 en-US（镜像 #210 HiltEntryActivity 修法/生产 applyAppLanguage 模式）——单点覆盖其余 19 组件/屏幕测试类 + ComposeTestRule 接口；零生产代码、零 i18n 改动。否决 TestRule/基类方案（改面大）与写生产语言偏好（污染 DataStore）
+- 验收证据（主会话补全量复验，e69a99d8 真机 zh-CN 不变）：**全量 am instrument 135 测 3 败**（116.6s）——locale 族 27 败全灭、无挂死、未在其他类暴露新 locale 依赖；剩余 3 败即 #212/#213/#214（全非 locale）。同事 14 类 72 测复验 + 本次 135 全量双证据闭环
+- 技术注记：am instrument 多类过滤必须 `-e class a,b,c` 逗号单值（重复 -e class 标志被 bundle 覆盖只剩最后一个）
+
+**#212 MigrationTest 缺 MIGRATION_3_4——DB v4 落地时测试未跟** `refactor` —— 已完结验收
+
+- 修复（主会话执行）：MigrationTest.kt builder addMigrations 补挂 `Migrations.MIGRATION_3_4`，与生产 DatabaseModule 对齐（v1 库打开要求完整 1→4 路径）；归档表 DDL 断言逻辑不变
+- 验证（真机）：MigrationTest + ChatMessageRenderingTest 两类 `OK (9 tests)` 8.786s
+
+**#213 ChatMessageRenderingTest 空态断言文案失实——KT10a 术语批改 EN 源未跟测试** `refactor` —— 已完结验收
+
+- 修复（主会话执行）：断言 "Start a conversation with OpenCode" → "Start a session with OpenCode"（对齐 chat_empty EN 源 08-23 4ed11ed5 现值），注释同步勘误
+- 验证：同上批次 `OK (9 tests)`；#212/#213 均为「代码先行、测试未跟」的机械勘误，无生产影响

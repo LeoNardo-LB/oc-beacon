@@ -190,7 +190,8 @@ class ChatMessageRenderingTest : BaseChatTest() {
     /**
      * 测试 8：空会话（无消息）渲染时不崩溃，显示 ChatEmptyState 占位符。
      *
-     * ChatEmptyState 显示 R.string.chat_empty = "Start a conversation with OpenCode"。
+     * ChatEmptyState 显示 R.string.chat_empty = "Start a session with OpenCode"
+     * （#213：08-23 KT10a 术语批 conversation→session 改了 EN 源，断言同步勘误）。
      */
     @Test
     fun empty_session_shows_placeholder_or_empty_state() {
@@ -198,6 +199,6 @@ class ChatMessageRenderingTest : BaseChatTest() {
         renderChatScreen()
 
         // 当消息为空且未在加载时，ChatEmptyState 显示此文本
-        composeRule.onNodeWithText("Start a conversation with OpenCode").assertIsDisplayed()
+        composeRule.onNodeWithText("Start a session with OpenCode").assertIsDisplayed()
     }
 }

@@ -76,20 +76,6 @@
 >
 > （空）#210 已修复转待验证（2026-08-24 jdb 取栈定音三根因：①MIUI「后台弹出界面」权限随卸载重置→DeviceGuard 拦 HiltEntryActivity 启动致 startActivitySync 永久等待=挂死本体，非代码回归；②测试 Activity 无语言覆盖，系统 locale 回 zh-CN 后英文断言漂移；③#209 test3 seed id 错。修=授权脚本化+attachBaseContext en-US+seed 一行。ChatInteractionTest 全类 6 过 + 单测 1923 绿；#209 插桩补跑同步完成）→ `docs/journal/2026-08-24-p3-quad-research.md` §#210 修复执行
 
-- [~] **#211 androidTest createComposeRule 族测试依赖系统 locale=英文** `refactor`
-  - 已修复待验证：HiltComponentActivity.attachBaseContext 强制 en-US（镜像 #210 HiltEntryActivity 修法，覆盖其余 19 类 + ComposeTestRule，零生产代码）；无持久状态无需恢复
-  - 验证：zh-CN 真机基线 135 测 30 败（27 locale + 3 非 locale→#212/#213/#214）→ 修后 14 类 72 测仅剩同 3 非 locale 败；ChatInteractionTest 回归 6/6 绿
-  - → `docs/journal/2026-08-24-p3-quad-research.md` §#211 修复执行
-
-- [ ] **#212 MigrationTest 缺 MIGRATION_3_4——DB v4 落地时测试未跟** `refactor`
-  - #211 基线暴露（非 locale）：MigrationTest.kt:109 builder 只挂 MIGRATION_1_2/2_3，DB 已 v4（08-20 eefe0942 堆积消息表）→ 打开 v1 库要求 1→4 路径 → IllegalStateException
-  - 修复面极小：addMigrations 补 MIGRATION_3_4 一处（归档表 DDL 断言逻辑不变）
-  - → `docs/journal/2026-08-24-p3-quad-research.md` §#211 修复执行（非 locale 残留）
-
-- [ ] **#213 ChatMessageRenderingTest 空态断言文案失实——KT10a 术语批改 EN 源未跟测试** `refactor`
-  - #211 基线暴露（非 locale）：测试断言 "Start a conversation with OpenCode"，chat_empty 资源 08-23 4ed11ed5（conversation→session）已改 "Start a session with OpenCode"——en-US 下也必败
-  - → `docs/journal/2026-08-24-p3-quad-research.md` §#211 修复执行（非 locale 残留）
-
 - [ ] **#214 DiagnosticsScreenDuplicateTimestampTest 断言失败待定因（非 locale）** `data` `ui`
   - #211 基线暴露：注入两条同毫秒 ERROR 日志后 onNodeWithText("first duplicate entry") assertIsDisplayed 失败（无崩溃）；宿主 HiltEntryActivity 已 en-US 排除语言因素
   - 候选：真实 DiagnosticLogRepository（未被 Fake 替换）Room 流异步发射晚于 waitForIdle / 条目过滤路径；需定因后修

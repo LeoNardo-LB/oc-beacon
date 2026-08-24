@@ -106,7 +106,10 @@ class MigrationTest {
 
         // ---- 3. 以 v2 builder + MIGRATION_1_2 重开 → Room 检测 1→2 并执行迁移 ----
         val migrated = Room.databaseBuilder(context, OcBeaconDatabase::class.java, DB_NAME)
-            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
+            // #212：DB 已 v4（08-20 堆积消息表），补挂 MIGRATION_3_4 与生产
+            // DatabaseModule 对齐——v1 库打开要求完整 1→4 路径，缺 3_4 即
+            // IllegalStateException（#211 全量基线暴露，测试未跟 DB 演进）
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4)
             .build()
         val migratedDb = migrated.openHelper.readableDatabase  // 触发打开（即迁移）
 
