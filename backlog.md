@@ -64,9 +64,8 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#215 聊天流卡片体系统一：容器语言 + 交互契约** `ui` `refactor`
-  - 三批完成（bcc435f1/998e32dc/6dedc566）；**用户验收发现遗留**：展开/收起滚动方向不对称（展开 69px vs 收起 319px 实锤；倒序+跨屏超大 item 内高度突变 LazyColumn 被动锚定跳变，现有补偿仅流式 delta>0 不覆盖）→ 修复中
-  - 修复方向：layout 补偿扩展到 toggle 触发的高度变化（正负双向锚定 firstVisible）
+- [~] **#215 聊天流卡片体系统一：容器语言 + 交互契约** `ui` `refactor`
+  - 三批完成（bcc435f1/998e32dc/6dedc566）+ 验收遗留修复完成（a4eedab6）：展开/收起两方向视口稳定（矩阵 6 格全 dy=0，动画保留；定因=倒序 LazyColumn 对 item 内高度变化零锚定修正·存量机制·非批次引入；修法=toggle 修正窗 + scrollToBeConsumed 逐帧注入，request-position 通道被测量回写丢弃的定因存档 journal）→ 待用户 V6 手感验收
   - → `docs/specs/2026-08-24-card-unification-design.md` · `docs/journal/2026-08-24-card-unification.md` §验收反馈·一
 
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三

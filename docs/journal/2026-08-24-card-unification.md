@@ -85,6 +85,39 @@
 - 结论：倒序 LazyColumn 的锚定语义与该补偿公式方向相反——toggle 场景卡在视口内（锚点之后），LazyColumn 默认锚定本应稳定（但实测有 69/319 的被动跳变，见上），叠加 offset+delta 补偿变成双重滚动
 - 正确修法需实验矩阵：卡位于视口上/中/下带 × 展开/收起 × 补偿方向（+delta/-delta/不补）× firstVisibleItem 是否为变化 item——9 格实验锁定每格正确行为后再实现；适合委派专项深挖
 
+**修复尝试·方案二/三 + 终版（2026-08-25 修复完成，用户裁决保留动画）**
+
+**定因（实验矩阵 + 预统一对照，推翻方案一的结论）**：
+
+- 矩阵（uiautomator dump 卡 icon 前后 y + ScrollDiag 锚点轨迹，脚本 /tmp/matrix.sh 思路）：演示会话 bash 卡（单次 toggle delta=±1344px），卡位于视口 U/M/L 三带 × 展开/收起——**无补偿基线全部大漂移**：展开 -1344~-1380px 或冲出视口，收起 +1344px 或冲出视口
+- 决定性对照：checkout 统一批次**之前**的构建（66c4b4e5）重跑矩阵——L 展开同样 -1344px、收起同样冲出视口。**两方向跳变是存量机制，非卡片统一批次引入**（批1/2/3 diff 核查：容器/交互/chevron 改动，未触碰动画与滚动力学）
+- 规律锁定（锚点轨迹逐帧日志）：倒序 LazyColumn 对 item **内部**高度变化**零锚定修正**——(firstVisibleItemIndex, offset) 在整个 AnimatedVisibility 动画期间 freeze（锚 item 视觉底边被动钉住），被点卡随内容 ∓delta 漂移。用户报告的 69/-319 只是部分值（卡的屏幕位置决定锚 item 与被动钉住的相对关系，具体数值随位置变化，机制同一）
+- 方案一的「方向相反」结论是误判：其放大根因是**共享 lastHeight 把测量渐变当 toggle 增量重复补偿**（实现伪影），非公式方向错误
+
+**通道定因（为什么 SSE 流式补偿公式在 toggle 动画下失效——v1/v2 存档）**：
+
+- v1（逐帧 requestScrollToItemNoCancel(first, off+frameDelta)）：逐帧请求被测量回写（applyMeasureResult→updateFromMeasureResult）中途丢弃——RESIZE/COMP 日志错位实证：请求 (1,140)/(2,79) 落空，锚点停在 (0,5086) 直到动画结束才跳 (2,912)——动画全程漂移+终态跳变
+- v2（绝对位置+跨 item 重定基）：同样被回写拒绝（锚 item 的 off 存在 ~140px 不可用上界，越过即拒）
+- 结论：**request-position 通道与动画期间的测量回写存在结构性竞争**；SSE 流式能用的前提是 shouldCompensate 门控（用户已滚离底部，回写与请求不撞车）
+
+**方案三·snap 试验（用户叫停复杂补丁后的极简路线）**：三卡高度动画 snap() + 一次性/短窗 position 修正——6 格全 dy=0，但高度动画没了（手感变化）
+
+**终版（用户裁决：恢复动画）——动画 + scrollToBeConsumed 注入通道**：
+
+- 实现（3 文件 + 2 文件）：① `ToolCardScaffold/ReasoningBlock/SyntheticNotificationCard` 恢复默认高度动画（淡入淡出本就保留）；② `ScrollCompensation.kt` 新增反射助手 `requestScrollShift`（写 `LazyListState.scrollToBeConsumed` 私有字段 + poke `measurementScopeInvalidator`，反射失败静默降级）；③ `ChatMessageList.kt` toggle 翻转开 1200ms 修正窗（`toolExpandedStates` collect），非流式 Turn/Chunk item 常驻挂 `toggleAnchorCorrection` layout——窗口内每次 delta≠0 测量注入等量下移，与被动上推逐帧对消
+- 为什么这条通道行：`scrollToBeConsumed` 是用户真实滚动（scrollBy/fling）的必经路径——测量开始时**无条件消费**，消费结果随测量回写，不存在「请求被回写丢弃」竞争；跨 item 折算（负 off/超 item 高度）由测量标准流程原生处理。逐帧注入 frame-delta，总和精确等于总 delta
+- 铁律合规：流式分支（isStreamingMsg 的 layout 补偿 + shouldCompensate 门控）零触碰——toggle 修正只挂在 else 分支与 Chunk（分片不含流式 turn）；窗口仅在 toolExpandedStates 翻转时开启
+
+**验证证据**：
+
+- 矩阵 6 格（U/M/L × 展开/收起，终态卡 icon 位移）：**全部 dy=0**（原版基线：展开 -1344~-1380/收起 +1344 或冲出视口）；两方向完全对称
+- 动画过程逐帧（screenrecord 12fps 帧相关法）：最大单帧位移 68px（一帧消费滞后，下一帧自愈）——对比原版动画期间 -1344px 单向流动
+- 插桩全量（e69a99d8）：**OK (135 tests)**；单测 `testDevDebugUnitTest --rerun` 绿
+- SSE 流式回归（自建「滚动回归」会话 ses_fca9e0948ffe，REST `/api/session/{id}/prompt` 平铺契约触发 bash 工具，验证后已删 204）：流式进行中 4 采样点全程贴底（FAB 隐藏）、终态完整回复可见+统计栏贴底缘、COMP-MSG 零触发（贴底路径由 msgCount 锚定负责，补偿通道闲置=正常）、toggle 窗口零污染；演示会话「卡片演示场」保留
+- commits：a4eedab6（动画+注入终版）及其前置 349fabf1/2615483c（snap 路线存档）
+
+**遗留**：V6 人工验收（用户真机手感——动画保留版）；矩阵未覆盖 ReasoningBlock/通知卡的独立格（同通道同机制，批内已 snap→恢复一致处理）
+
 ## 发版插叙（同日）
 
 v0.3.2-dev.1 发版（用户裁决 0.3.2 dev 线）：`release.sh dev --force-bump=patch`（脚本默认推导 dev.23 续 0.3.1 线，force 开新线符合「beta 已发、dev 转 0.3.2 迭代」语义）；RELEASE_NOTES 按模板润色（用户视角 5 Added/4 Changed/8 Fixed）；CI success，资产 oc-beacon-0.3.2-dev.1.apk（7.5MB）上线。发版与批1 无冲突（脚本本地仅 bump+tag+push，构建在 CI）。
