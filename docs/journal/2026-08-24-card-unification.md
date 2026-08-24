@@ -132,6 +132,31 @@
 
 **定论**：视口漂移是倒序 LazyColumn 对 item 内高度变化的存量机制（统一批次前同样存在，矩阵数据存档 §验收反馈·一）；修复尝试三方案（offset 补偿/修正窗/注入通道）均被用户否决——接受原生行为，保持代码零补偿。若未来 Compose 版本改进倒序锚定，此问题自然消解。
 
+## #216 V2 SSE 实时链路 subagent Running 期无子智能体会话箭头（2026-08-25 修复完成）
+
+**用户报告**：主对话流中进行中的子代理没有箭头可进入查看。
+
+**诊断（三路径对照，V1/V2 处理方式确实不同）**：
+
+| 路径 | Running 期子会话 id | 箭头 |
+|------|-------------------|------|
+| V1（message.part.updated 全量快照，MessageEventParser 双层 metadata 展平+双写） | 有 | ✅ |
+| V2 REST 快照（重进会话，V2Mappers:487 Running 带 metadata） | 有 | ✅ |
+| **V2 SSE 实时**（session.tool.called/input.ended 建 Running 不带 metadata，V2SseMapper:315-330） | **无** | ❌（本卡根因） |
+
+信息其实到手了：.next 的 session.tool.progress 携带 metadata.sessionID（V2EventParser:201），但 SessionNextEventHandler 只喂 activeToolProgress 进度流（底部工具进度卡），未回写消息流 Part.Tool——TaskToolCard 箭头读的恰是后者。故箭头只在 tool.success 终态（带 metadata）或重进会话（REST 快照）后出现，与用户观察吻合。
+
+**修复**（EventDispatcher 跨 handler 模式，同 SessionDeleted 级联先例）：
+
+- `EventDispatcher.processEvent`：SessionNext 的 ToolProgress 携带 sessionID 时调 `messageHandler.patchToolChildSession`
+- `MessageEventHandler.patchToolChildSession`（新）：幂等跨写——仅 Running 态且 metadata 缺失时补 sessionId/sessionID 双写（childSessionIdOf 归一约定）；Completed/Error 终态不动；Room 不双写（重进会话 REST 快照自然补齐，冷数据无缺口）
+
+**验证（真机 e69a99d8）**：
+
+- REST 触发 subagent 委派（演示会话）→ UI 轮询第 6 帧出现 Navigate forward 箭头（subagent 运行中）；logcat `[#216] patched childSession into Running tool part callId=call_adec5d6` ×2
+- 点击箭头直达运行中子智能体会话（"General-fast Agent · 读取 card-demo.txt 并汇报" Thought for 1.3s）——Running 期跳转 #180 语义完整落地
+- 单测全套件绿 + 插桩全量 OK (135 tests)
+
 ## 发版插叙（同日）
 
 v0.3.2-dev.1 发版（用户裁决 0.3.2 dev 线）：`release.sh dev --force-bump=patch`（脚本默认推导 dev.23 续 0.3.1 线，force 开新线符合「beta 已发、dev 转 0.3.2 迭代」语义）；RELEASE_NOTES 按模板润色（用户视角 5 Added/4 Changed/8 Fixed）；CI success，资产 oc-beacon-0.3.2-dev.1.apk（7.5MB）上线。发版与批1 无冲突（脚本本地仅 bump+tag+push，构建在 CI）。

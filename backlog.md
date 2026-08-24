@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#216**。
+**编号**：全局递增，不回收。下一编号：**#217**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -87,6 +87,11 @@
 > （空）#214 已完结验收（2026-08-24 定因=测试时间炸弹：硬编码崩溃报告 ts 越 LogStore 21 天 ERROR retention 边界被内联 prune 插入即清除（hist db=0 vs fresh db=2 实验定音），非生产回归；sharedTimestamp 改取系统时钟零生产改动；真机本类 OK(1) + **全量 OK(135) 08-18 以来首次全绿**）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移·三批
 
 ## P3 — 观察与低价值改进
+
+- [~] **#216 V2 SSE 实时链路 subagent Running 期无子智能体会话箭头** `sse` `session` `ui`
+  - 已修：EventDispatcher 跨 handler 回写——.next tool.progress 的 sessionID 幂等跨写进消息流 Running 态 Part.Tool（sessionId/sessionID 双写，终态不动）；V1 快照/V2 REST/V2 SSE 三路径对齐
+  - 真机实证：subagent 运行中箭头出现 + 点击直达子智能体会话；单测绿 + 插桩 135 绿；待用户日常使用验收（进行中委派时点箭头进子会话）
+  - → `docs/journal/2026-08-24-card-unification.md` §#216
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）

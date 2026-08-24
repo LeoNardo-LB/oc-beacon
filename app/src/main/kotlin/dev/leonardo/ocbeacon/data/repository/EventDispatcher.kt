@@ -309,6 +309,21 @@ class EventDispatcher @Inject constructor(
             maybeAutoApprovePermission(event, serverId)
         }
 
+        // 跨 handler：#216——.next 的 tool.progress 携带 subagent 子智能体会话
+        // ID（metadata.sessionID）但只喂了进度流（SessionNextEventHandler），SSE
+        // 实时链路的 part 事件链（session.tool.called 等）不带 metadata → 主对话
+        // 流 TaskToolCard Running 期无跳转箭头。此处把 id 跨写进消息流 Part.Tool
+        //（幂等，只补缺失），V1 快照 / V2 REST 快照 / V2 SSE 三路径行为对齐。
+        if (event is SseEvent.SessionNext && event.event is SessionNextEvent.ToolProgress) {
+            val tp = event.event
+            val childSid = tp.metadata?.get("sessionID")
+                ?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.content
+                ?.takeIf { it.isNotBlank() }
+            if (childSid != null) {
+                messageHandler.patchToolChildSession(tp.sessionId, tp.callId, childSid)
+            }
+        }
+
         // 跨 handler：SessionDeleted 级联清理其他 handler
         if (event is SseEvent.SessionDeleted) {
             val deletedSessionId = event.info.id

@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.*
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -457,6 +458,50 @@ class MessageEventHandler @Inject constructor(
         }
         _parts.update { it - event.messageId }
         assistantMessageIds.remove(event.messageId)
+    }
+
+    /**
+     * #216：把 subagent 子智能体会话 ID 跨写进消息流的 Part.Tool（Running 态）。
+     *
+     * 根因：V2 SSE 实时链路 session.tool.called/input.ended 建 Running 态不带
+     * metadata（V2SseMapper:315-330），子会话 ID 只在 .next 的 tool.progress
+     * metadata 里（只喂了 activeToolProgress 进度流）——主对话流 TaskToolCard
+     * 的「进行中跳转箭头」因此缺失，直到 tool.success 终态才出现。
+     * 由 EventDispatcher 跨 handler 调用（同 SessionDeleted 级联模式）。
+     *
+     * 语义：仅补 Running 态且 metadata 缺失该 id 的 part（幂等）；
+     * sessionId/sessionID 双写（childSessionIdOf 归一约定）；Completed/Error
+     * 终态自带 metadata 不动。Room 双写不在此路径——重进会话时 REST 快照
+     * （V2Mappers:487 Running 带全 metadata）自然补齐，冷数据无缺口。
+     */
+    internal fun patchToolChildSession(sessionId: String, callId: String, childSessionId: String) {
+        if (childSessionId.isBlank()) return
+        _parts.update { current ->
+            var mutated = false
+            val next = current.mapValues { (_, parts) ->
+                parts.map { part ->
+                    if (part is Part.Tool && part.callId == callId && part.sessionId == sessionId) {
+                        when (val st = part.state) {
+                            is ToolState.Running -> {
+                                val md = st.metadata ?: emptyMap()
+                                val has = md["sessionID"]?.let { (it as? JsonPrimitive)?.content } != null ||
+                                    md["sessionId"]?.let { (it as? JsonPrimitive)?.content } != null
+                                if (!has) {
+                                    mutated = true
+                                    val sid = JsonPrimitive(childSessionId)
+                                    part.copy(state = st.copy(metadata = md + mapOf("sessionId" to sid, "sessionID" to sid)))
+                                } else part
+                            }
+                            else -> part // Completed/Error 终态自带 metadata；Pending 无 metadata 槽
+                        }
+                    } else part
+                }
+            }
+            if (mutated && BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "[#216] patched childSession into Running tool part callId=" + callId.take(12))
+            }
+            next
+        }
     }
 
     internal fun handleMessagePartUpdated(event: SseEvent.MessagePartUpdated) {
