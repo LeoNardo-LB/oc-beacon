@@ -1,6 +1,6 @@
 # p3-quad-research（2026-08-24）
 
-> 状态：调研完结（四卡报告全回收、处置建议表已出，待用户裁决 #184 做/维持与 #168 搭车项）
+> 状态：执行近完结（#161 闭卡 / #184 修复待验证 / #185 闭卡 / #209 修复待验证（#210 阻塞插桩补跑）/ #210 登记 P2 / #168 唯一剩余——设备解锁窗口执行 5 分钟协议）
 > 来源：用户指令「开始调研 161 185 184 168，委派 subagent 去调研，详尽调研」
 > 方式：4 个独立 subagent 并行深调（每卡一 agent），主会话交叉汇总；调研期间仓库零改动（只读）
 
@@ -236,7 +236,12 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 - 时间线：androidTest 最后成功产物 08-18 21:29；源集 08-18 起编译破损掩盖至今 → 回归窗口 08-19..08-24（ChatScreen 大改期：F5 滚动、堆积管线心跳 #176/#177、思考计时 #207 等）未二分
 - 设备偶发干扰记录：11:35 测试运行中被 com.miui.home UninstallController 桌面卸载 dev 包（用户否认本人操作；11:29 另有一次 UTP 清理卸载）→ dev 本地数据被清（服务器配置/已读/收藏/标签；服务器数据无损），已用 debug intent 恢复配置路径验证、表单弹层正常
 
-## 汇总结论与处置建议
+### #168 执行记录（2026-08-24，待解锁窗口）
+
+- devRelease APK 已构建（assembleDevRelease 3m33s，R8 minify）；解析脚本 `/tmp/r168rel/parse.py` 就绪（120Hz 8.33ms 预算，framestats 24 列，IntendedVsync 去重）
+- **阻塞**：设备 PIN 锁——用户离开期间锁屏，MIUI 锁屏下任何 pm install 拒绝（USER_RESTRICTED）；且跨签名切换（devDebug→devRelease 需卸载重装，release keystore ≠ debug 签名）已执行卸载一步，设备当前无 dev 包
+- **解锁窗口协议（~5 分钟）**：①唤醒+解锁（wm dismiss-keyguard 可过）②miui-install.sh 装 devRelease ③服务器配置：无 debug intent（BuildConfig.DEBUG=false）→ 首页「添加服务器」表单 + type.sh 输 URL/密码（脚本已验证纯 keyevent 可用）④进 Kotlin 会话 12 次交替慢拖 + 每 2 拖 framestats 快照 ⑤parse.py 汇总 ⑥≥17ms<1% 且 p99<16ms → 证伪闭卡；≥1% → 升 P2 ⑦pm uninstall + miui-install devDebug + debug intent 恢复配置（password 于 /tmp/ocbpw.txt，重启即失需重读 service.json）
+- 裁决规则（用户已定）：真机测试后评估是否升 P2
 
 ### 四卡处置建议表（2026-08-24，待用户裁决）
 
