@@ -57,6 +57,14 @@
 
 **顺带发现（只登记不现场修）**：TokenStatsTracker.TokenStats.contextWindow（TokenStatsTracker.kt:18）是生产死字段——全库无写点恒 0，仅测试写入；ChatStateAggregator.kt:124 映射进 TokenStatsState.contextWindow 但 ChatScreen 消费的是 modelConfig.contextWindow（ChatScreen.kt:624）。若做本卡可顺手清理；否则可另立微小清理卡。
 
+### 闭卡（2026-08-24 用户裁决）
+
+> 用户裁决：「应该不是什么问题，不用修复了，直接关闭」——机制主张经调研全部成立（非证伪），但用户判定该离线隐藏为可接受行为，条件卡条件（期望离线可见）不成立，不修复，闭卡迁移。
+
+- [x] **#161 离线时顶栏 context 圆环隐藏** `data` `ui` ——**已闭卡（用户裁决可接受，不修复）**
+  - 机制结论（调研确认）：showContext 双条件判定（ChatTopBar.kt:105-107）；contextWindow 唯一生产来源=provider catalog 查表（tracker.contextWindow 生产死字段→已登记 #209 独立清理）；Room 无会话元数据表；代码注释（ChatViewModel.kt:608-612）立场即「可接受」——与用户裁决一致
+  - 若未来需要离线可见：DataStore per-server map 方案草图与新鲜度权衡见本节上文（3.5-4.5h 估）
+
 ## #168
 
 > subagent 报告全文已回收（2026-08-24）；结论：**维持挂起，不现在花 2h；把 release 侧 5 分钟抽查搭到下一次例行 devRelease 真机验收，据其结果直接闭卡或升级**。真机只读复测已完成（两轮，硬约束全守：零装包、零消息、零会话变更）。

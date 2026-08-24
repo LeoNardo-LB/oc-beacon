@@ -67,12 +67,12 @@
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
 >
 > （空）Tier C 五卡 #201–#205 已完结（2026-08-24 用户授权代验收官：实改 #204/#202 + 零改名裁决 #201/#203/#205，自动化全绿+真机证据链）→ `docs/journal/2026-08-24-tier-c-contract-renames.md`
-
-- [~] **#207 思考中卡片计时随滚动反复归零（最后一条消息）** `ui` `sse`
-  - 上下滑动列表时，「思考中 · Xs」计时器从 0 重新开始（用户真机验收 #206 时报告）；根因实证：reasoning part time=null（野生实例=事故恢复消息）时锚点回退组合期时钟，LazyColumn 销毁重建即归零；修复=isReasoningStreaming 三态判定+rememberSaveable 锚点，待真机验收
-  - → docs/journal/2026-08-24-thinking-timer-scroll.md
-
+>
+> （空）#207 已完结验收（2026-08-24 用户验收通过：三态判定 + rememberSaveable 锚点；单测 1917 绿 + 真机活体单调不归零 + 野生实例静态化）→ `docs/journal/2026-08-24-thinking-timer-scroll.md` §完结迁移
+>
 > （空）#208 已证伪闭卡（2026-08-24 同日勘误：登记时滑动方向搞反致三项主张全部误判——正确方向复测 130 条历史全程可翻、loadOlder 补载正常、假 id 不渲染是服务器权威 upsert 正确行为）→ `docs/journal/2026-08-24-thinking-timer-scroll.md` §#208 证伪闭卡
+>
+> （空）#161 已闭卡（2026-08-24 用户裁决离线隐藏为可接受行为，不修复；调研确认机制主张全部成立，方案草图留存 journal 备查）→ `docs/journal/2026-08-24-p3-quad-research.md` §#161
 
 ## P3 — 观察与低价值改进
 
