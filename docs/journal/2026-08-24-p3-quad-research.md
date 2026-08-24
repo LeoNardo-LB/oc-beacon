@@ -340,3 +340,5 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 - 单测全套件：见下节验证记录
 
 **遗留登记**：#211（androidTest createComposeRule 族 locale 依赖）；MIUI 权限随卸载重置已写入 docs/real-device-testing.md「插桩测试」节
+
+**补记（复验环境坑）**：修复提交后的最终复验一轮被设备自动锁屏打断——logcat 为 `MIUILOG- Permission Denied Activity KeyguardLocked`（与根因①同栈不同触发条件：**任何**锁屏状态下插桩 Activity 启动一律被拒，权限已授予也不例外）。解锁后 force-stop 冷启动复验 OK (6 tests) Time 8.534。结论文档化于 real-device-testing.md §插桩测试；运行长插桩批次须保持设备解锁亮屏（`svc power stayon usb` 在 USB 供电下保持亮屏，但锁屏策略独立——需关闭自动锁屏或人工注意）。
