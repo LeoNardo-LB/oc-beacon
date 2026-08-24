@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#210**。
+**编号**：全局递增，不回收。下一编号：**#211**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -74,32 +74,28 @@
 >
 > （空）#161 已闭卡（2026-08-24 用户裁决离线隐藏为可接受行为，不修复；调研确认机制主张全部成立，方案草图留存 journal 备查）→ `docs/journal/2026-08-24-p3-quad-research.md` §#161
 
+- [ ] **#210 ChatScreen 渲染类插桩测试 waitForIdle 挂死（androidTest 基建）** `sse` `refactor`
+  - 存量问题浮出：androidTest 源集 08-18 起编译破损（FakeDomainModule 缺 PendingMessageRepository 绑定，今日 caea2b30 补上），期间 ChatScreen 变更从未被插桩覆盖；编译修复后 ChatInteractionTest 全类与单测均挂死（renderChatScreen 后 waitForIdle，进程 0% CPU 安静挂，非动画饿死）——回归窗口 08-19..08-24 未二分；堆栈提取受阻（debuggerd 需 root、SIGQUIT 不落 dropbox），需 Android Studio 取主线程栈
+  - → `docs/journal/2026-08-24-p3-quad-research.md` §#210
+
 ## P3 — 观察与低价值改进
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - → `docs/journal/2026-08-20-queue-todo.md`
 
-- [ ] **#161 离线时顶栏 context 圆环隐藏** `data` `ui`
-  - 2026-08-24 复核：机制主张全部成立且更彻底（tracker.contextWindow 生产死字段，唯一分母来源=provider catalog 查表）；工时复估 3.5-4.5h（DataStore 方案草图已备）；维持登记，有离线可见诉求再做
-  - → `docs/journal/2026-08-20-queue-todo.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#161
-
 - [ ] **#166 RaceProbe 复现取证待用户执行** `race`
   - 若跳转叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可重放定位）
   - → `docs/journal/2026-08-21-race-audit-round6.md`（提升自该批子条目）
 
 - [ ] **#168 慢拖残余尖刺——release 抽查裁决后闭卡或升级** `perf`
-  - 2026-08-24 复测：最差帧实为 anim 桶主导（per-chunk 重组仍在）+ 尖刺率强会话相关（教程会话 ≥17ms 6.5%≈基线 3 倍）；release 侧尖刺率从未实测——搭下次 devRelease 验收跑 5 分钟抽查，<1% 即证伪闭卡、≥1% 升 P2
+  - 2026-08-24 复测：最差帧实为 anim 桶主导（per-chunk 重组仍在）+ 尖刺率强会话相关（教程会话 ≥17ms 6.5%≈基线 3 倍）；用户裁决：真机测试后评估是否升 P2——devRelease APK 已构建、解析脚本与 12 拖协议就绪，被设备 PIN 锁阻塞（解锁窗口 5 分钟可完成）；<1% 即证伪闭卡、≥1% 升 P2；测毕恢复 devDebug
   - → `docs/journal/2026-08-20-perf-monitoring-round3.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#168（提升自 perf-round3 子条目）
 
-- [ ] **#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data`
-  - 2026-08-24 复核：病灶仍在但收窄为两缺陷（_justRead 广播溢出错杀 + allReadAt 值域污染漏杀；锚点已迁 UnreadBadgeService.kt:188-197）；场景可达不可证伪；#171 后修复变便宜（filterKeys 作用域化 ~1h 零 schema）——待裁决做或维持
+- [~] **#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data`
+  - 已修（7bd04c11，2026-08-24 用户裁决修复）：markAllSessionsRead 作用域化本服务器会话集（filterKeys 隔离跨服务器时钟：错杀广播溢出 + allReadAt 值域污染双修复，SessionError 第三时钟域顺带收编）；单测 +3、全套件 1919 绿；待用户日常使用验收（单服务器场景无行为变化）
   - → `docs/journal/2026-08-21-arch-review-deepening.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#184
 
-- [ ] **#185 V1/V2 god-client 拆解（终局债务，显式不做）** `refactor`
-  - #172 Q1 定案不拆（seam 已在门面 interface 收敛 + 缓存式适配器竞态）；2026-08-24 复审零漂移（72/84/78）且「22 测试文件」系 seam 翻转影响面估算（纯拆轴重写面≈4-5 文件）——维持不做；6 项重开触发器见 quad-research §#185
-  - → `docs/journal/2026-08-21-arch-review-deepening.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#185
-
-- [ ] **#209 TokenStatsTracker.contextWindow 生产死字段清理** `refactor`
-  - 2026-08-24 #161 调研顺带发现：该字段全库无生产写点恒 0（仅测试写入），ChatStateAggregator.kt:124 映射死链（ChatScreen 实际消费 modelConfig.contextWindow）；若做 #161 可顺手清理，独立做属微小清理卡
+- [~] **#209 TokenStatsTracker.contextWindow 生产死字段清理** `refactor`
+  - 已修（caea2b30，2026-08-24）：删字段 + 删 ModelConfigDelegate 恒假优先分支 + 聚合映射死链；androidTest test3 改走真实 catalog 路径 + FakeDomainModule 补存量缺位 PendingMessageRepository 绑定 + delegate 级单测 ×4（套件 1923 绿）；插桩设备验证被 #210 阻塞，待其修复后补跑；待用户日常使用验收（在线 context 圆环正常显示）
   - → `docs/journal/2026-08-24-p3-quad-research.md` §#161

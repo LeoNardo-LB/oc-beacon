@@ -194,6 +194,48 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 
 **维持显式不做**。可选小活（不违反定案）：V2 supplementary 段回填主段；把重开条件清单 3-5 行追加进 #185 卡片。
 
+### 闭卡（2026-08-24 用户规则裁决：「做了后对后续维护与开发是否更有利？如果是的话则做」）
+
+按用户规则做利弊评估（今日实测指标：V1 942 行 / V2 1778 行均低于 ~2200 触发线；domain/ui 层 god-client 引用 **0 处**——seam 无泄漏；测试直引 5 文件）：
+
+| 维度 | 不拆（现状） | 拆解（轴 B partial interface） |
+|------|--------------|--------------------------------|
+| 新增端点（最高频维护动作） | 3 处改动同层：V1 方法 + V2 方法 + 门面 1 分支 | 4 处跨文件：domain 窄接口 + V1 impl + V2 impl + 门面接线 |
+| 认知/导航 | 域分段清晰（V1 6 段/V2 14 段），IDE 直达 | 跨文件跳转增多 |
+| 测试 | 0 | 重写 4-5 文件 |
+| 运行时 | 无差异 | 无差异（轴 C 缓存适配器有 #132 实证竞态形态，否决） |
+| 收益 | — | 仅文件变小（当前未达触发线） |
+
+**结论：不满足「更有利」条件——日常开发成本反而上升（3 处→4 处），无泄漏要堵、无运行时收益。按用户规则：不做。**
+
+- [x] **#185 V1/V2 god-client 拆解（终局债务，显式不做）** `refactor` ——**已闭卡（用户规则评估：不更有利 → 不做）**
+  - #172 定案维持；零漂移复审 + 6 项重开触发器见本节上文；可选微活（supplementary 段回填）评估为纯 churn 无收益，谢绝
+
+## 执行记录（2026-08-24 用户裁决后）
+
+### #184 修复（commit 7bd04c11）
+
+- `UnreadBadgeService.markAllSessionsRead(serverId, sessionIds)`：签名加 `sessionIds: Set<String>`，`globalMax = filterKeys { it in sessionIds }.values.maxOrNull()`，广播只遍历过滤后键集——错杀（广播溢出）与漏杀（allReadAt 值域污染）双修复；SessionError 客户端 now 第三时钟域顺带被限制在本集内
+- `SessionListViewModel`：新增 `serverSessionIds`（getServerSessionsFlow map 本服务器集，Eagerly stateIn——一键已读为事件驱动调用需随时可用）传参
+- 单测 +3：模块级「scopes max and broadcast to server session set」（双服务器 a1=10_000/b1=4_000，停在 B 一键已读 → 广播仅 b1=4_000、持久化收到 4_000 拒绝 10_000）+「no-op on empty set or empty watermark」；链路级「scoped broadcast keeps other-server session unread」（mergedReadTimes + isUnread 断言 a1 仍未读）
+- 定向测试类全绿；全套件 1919 绿（见 #209 节）
+
+### #209 修复（commit caea2b30）
+
+- 删 `TokenStatsTracker.TokenStats.contextWindow` 字段 + `ModelConfigDelegate` 恒假优先分支（解析链只剩 session.model → catalog 查表 → ?: 0）+ `TokenStatsState.contextWindow` 与 `ChatStateAggregator:124` 映射死链（ModelConfigState.contextWindow 保留——那是真实消费路径 ChatScreen.kt:624）
+- androidTest test3 改造：fake 会话挂 `model=SessionModel("ctx-model","ctx-provider")` 走真实 catalog 路径（原用 tracker 死字段注入捷径）
+- **存量发现①**：FakeDomainModule 缺 `bindPendingMessageRepository`（主图 08-18 后新增）→ androidTest 源集自 08-18 起编译破损从未被发现——补绑真实 Impl（Room DAO/clock 由未替换的 DataModule 提供）
+- delegate 级单测 ×4（`ModelConfigContextWindowTest`：catalog 命中 128000 / 无 model 0 / catalog 查不到 0 / 仅分子不伪造分母）；全套件 --rerun 1919+4=1923 绿
+- **存量发现②→#210**：编译修复后设备插桩挂死（详见 #210 节）——#209 的插桩级验证被阻塞，以 delegate 单测 + 编译 + 全量单测代偿，待 #210 修复后补跑 test3
+
+### #210 登记：ChatScreen 渲染类插桩 waitForIdle 挂死（存量）
+
+- 现象：ChatInteractionTest 全类运行（11:39 起，run started 7 tests）卡在 interruptSession_callsInterruptApi 无进展；单跑 contextUsageBar test（12:02 起）同样无进展——两者均在 renderChatScreen 后 waitForIdle 阶段
+- 形态：进程活着、CPU 0.0%、24 线程 sleeping——安静型挂死，非动画饿死（PerfHud 已排除：需 debug_perf extra，测试未传）
+- 取证受阻：debuggerd -j 需 root（HyperOS 无 root）；kill -3 SIGQUIT 痕迹不落 dropbox（仅 08-21 旧 ANR）——需 Android Studio 连进程取主线程栈
+- 时间线：androidTest 最后成功产物 08-18 21:29；源集 08-18 起编译破损掩盖至今 → 回归窗口 08-19..08-24（ChatScreen 大改期：F5 滚动、堆积管线心跳 #176/#177、思考计时 #207 等）未二分
+- 设备偶发干扰记录：11:35 测试运行中被 com.miui.home UninstallController 桌面卸载 dev 包（用户否认本人操作；11:29 另有一次 UTP 清理卸载）→ dev 本地数据被清（服务器配置/已读/收藏/标签；服务器数据无损），已用 debug intent 恢复配置路径验证、表单弹层正常
+
 ## 汇总结论与处置建议
 
 ### 四卡处置建议表（2026-08-24，待用户裁决）
