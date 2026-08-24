@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
@@ -65,6 +66,39 @@ class UnreadBadgeServiceTest {
         service.removeSession("ses_1")
 
         assertEquals(null, service.lastCompletedReplyTime.value["ses_1"])
+    }
+
+    // ---- #184：markAllSessionsRead 作用域化（跨服务器时钟不混合）----
+
+    @Test
+    fun `markAllSessionsRead scopes max and broadcast to server session set`() = runTest {
+        // 双服务器水位线共存：A（快钟）10_000 / B（慢钟）4_000
+        service.onMessageCompleted("a1", 10_000L)
+        service.onMessageCompleted("b1", 4_000L)
+
+        // 停在 B 列表一键已读：只作用域 B 的会话集
+        service.markAllSessionsRead("srvB", setOf("b1"))
+
+        // 广播不溢出到 a1；b1 已读位 = B 域内 max（不是全局 10_000）
+        assertEquals(mapOf("b1" to 4_000L), service.justRead.value)
+        // 持久化收到本服务器域内值（allReadAt 不被 A 快钟污染）
+        coVerify(exactly = 1) { settingsDataStore.markAllSessionsRead("srvB", 4_000L) }
+        coVerify(exactly = 0) { settingsDataStore.markAllSessionsRead(any(), 10_000L) }
+    }
+
+    @Test
+    fun `markAllSessionsRead no-op on empty session set or empty watermark`() = runTest {
+        service.onMessageCompleted("a1", 10_000L)
+
+        // 空会话集：不广播、不持久化（防止全局跨服务器 max 写入）
+        service.markAllSessionsRead("srvB", emptySet())
+        assertEquals(emptyMap<String, Long>(), service.justRead.value)
+        coVerify(exactly = 0) { settingsDataStore.markAllSessionsRead(any(), any()) }
+
+        // 集内无水位线记录：同样 no-op
+        service.markAllSessionsRead("srvB", setOf("no_watermark"))
+        assertEquals(emptyMap<String, Long>(), service.justRead.value)
+        coVerify(exactly = 0) { settingsDataStore.markAllSessionsRead(any(), any()) }
     }
 
     @Test

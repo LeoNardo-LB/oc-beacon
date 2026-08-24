@@ -84,6 +84,25 @@ class SessionListUnreadTest {
         assertTrue(isUnread("s2", mapOf("s2" to 8000L), merged, status = SessionStatus.Idle))
     }
 
+    /** #184：一键已读作用域化——别服务器会话不被广播已读（进程期错杀修复）。 */
+    @Test
+    fun `markAllSessionsRead scoped broadcast keeps other-server session unread`() = runTest {
+        val service = unreadServiceWith(persisted = emptyMap())
+        // 双服务器水位线共存：A（快钟）a1=10_000 / B（慢钟）b1=4_000
+        service.onEvent(UnreadEvent.ServerMessageCompleted("a1", 10_000L))
+        service.onEvent(UnreadEvent.ServerMessageCompleted("b1", 4_000L))
+
+        // 停在 B 列表一键已读（B 的会话集只含 b1）
+        service.markAllSessionsRead("srvB", setOf("b1"))
+
+        val merged = service.mergedReadTimes("srvB").first()
+        assertEquals(mapOf("b1" to 4_000L), merged) // 广播键集不溢出 a1
+        // a1 不因 B 的一键已读而被判已读（修复前：_justRead 溢出 → a1 红点错杀至重启）
+        assertTrue(isUnread("a1", mapOf("a1" to 8_000L), merged, status = SessionStatus.Idle))
+        // b1 域内已读位压住自己的水位线
+        assertFalse(isUnread("b1", mapOf("b1" to 4_000L), merged, status = SessionStatus.Idle))
+    }
+
     @Test
     fun `mark all read suppresses all sessions`() {
         // allReadAt 覆盖所有旧回复

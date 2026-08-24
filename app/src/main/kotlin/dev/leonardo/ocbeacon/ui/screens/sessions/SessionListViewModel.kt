@@ -180,6 +180,12 @@ class SessionListViewModel @Inject constructor(
     private val lastCompletedReplyTime = sessionRepository.getLastCompletedReplyTimeFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
+    /** #184：本服务器会话 id 快照（Eagerly：一键已读为事件驱动调用，
+     * 可能在无 UI 订阅时触发，快照必须随时可用——同上者理由）。 */
+    private val serverSessionIds = sessionRepository.getServerSessionsFlow()
+        .map { it[serverId].orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
     /** 点击会话进入时记录——返回列表时立即标记已读（消除 popBackStack 1 帧红点）。 */
     fun onSessionOpened(sessionId: String) {
         _pendingReadSessionId.value = sessionId
@@ -422,12 +428,13 @@ class SessionListViewModel @Inject constructor(
     }
 
     /**
-     * 一键已读：记录全局已读位置（已知会话最后完成消息的最大 completed，服务器时刻），
-     * 消除所有红点；此后新完成的回复才重新红点。
+     * 一键已读：记录本服务器已读位置（本服务器会话集内最后完成消息的最大 completed，
+     * 服务器时刻），消除所有红点；此后新完成的回复才重新红点。
+     * #184：作用域化到本服务器会话集——别服务器条目（可能时钟不同域）不再混入。
      */
     fun markAllSessionsRead() {
-        // #171：水位线全局 max + 内存广播 + 持久化收进红点模块单点
-        unreadBadgeService.markAllSessionsRead(serverId)
+        // #171：水位线 max + 内存广播 + 持久化收进红点模块单点；#184：作用域本服务器会话集
+        unreadBadgeService.markAllSessionsRead(serverId, serverSessionIds.value)
     }
 
     /** 替换指定会话上的用户标签集（保留内置收藏标签）。 */

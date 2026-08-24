@@ -182,12 +182,15 @@ class UnreadBadgeService @Inject constructor(
     }
 
     /**
-     * 一键已读：全局 max（#184：跨服务器时钟混合为已登记债务，语义保持不变）广播
-     * 内存信号 + 持久化。无任何水位线记录时 no-op。
+     * 一键已读：作用域化到 [sessionIds]（本服务器会话集）后取水位线 max（#184 修复：
+     * 原全局 max 会把别服务器（快钟）条目写进本服务器 allReadAt 造成未来窗口漏杀，
+     * 且 _justRead 广播溢出到别服务器会话造成进程期错杀；SessionError 客户端 now
+     * 第三时钟域顺带被限制在本集内）。空集或集内无水位线记录时 no-op。
      */
-    fun markAllSessionsRead(serverId: String) {
-        val globalMax = _lastCompletedReplyTime.value.values.maxOrNull() ?: return
-        _lastCompletedReplyTime.value.keys.forEach { sid ->
+    fun markAllSessionsRead(serverId: String, sessionIds: Set<String>) {
+        val scoped = _lastCompletedReplyTime.value.filterKeys { it in sessionIds }
+        val globalMax = scoped.values.maxOrNull() ?: return
+        scoped.keys.forEach { sid ->
             _justRead.update { it + (sid to globalMax) }
         }
         scope.launch {
