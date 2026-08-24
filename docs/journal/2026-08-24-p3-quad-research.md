@@ -417,3 +417,12 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 **修复**：仅 `DiagnosticsScreenDuplicateTimestampTest.kt`——sharedTimestamp 改取 `System.currentTimeMillis()`（两条共享同一值，保留「同毫秒重复 key」回归语义且永在 retention 窗口内）；类 KDoc 补 #214 注记并勘误过时的「index 拼接 key」描述（现行 L-11 为内容派生 key）。**零生产改动**：retention 语义正确且有 LogStoreTest/LogDaoTest 锚定；诊断屏插桩测的正是真实 Room 存储，保留真实 DiagnosticLogRepository、不补 Fake（候选①的「未替换」本就是有意设计）
 
 **验证（真机 e69a99d8，插桩）**：本类 `OK (1 test)` 1.358s；全量 am instrument `OK (135 tests)` 115.3s——**#212/#213 修复后首次全绿**（08-18 末次全绿以来的完整回归基线恢复），无新失败
+
+## 完结迁移·三批（2026-08-24 主会话代验收，依据 #212/#213 同性质先例：零生产改动的测试修复、机械判据全量绿已达成）
+
+**#214 DiagnosticsScreenDuplicateTimestampTest 断言失败——硬编码 timestamp 越 21 天 retention 边界（时间炸弹，非回归）** `data` `ui` —— 已完结验收
+
+- 根因（subagent 定因链）：测试硬编码崩溃报告 key（ts=1_785_566_688_405=2026-08-01）+ERROR，`LogStore.insert` 内联 `prune → deleteErrorBefore(now-21d)` 在设备时钟过 2026-08-22 边界后**插入即删除** → UI 空态断言失败。时间线佐证：08-04 创建（3 天龄绿）→ 08-16 过（15 天龄绿）→ 08-24 首败（23 天龄）——典型时间炸弹，非生产回归
+- 定因实验（真机最小实验版测试，注入后直查双源）：hist ts → db=0 flow=0（落库即空）；fresh ts → db=2 flow=2 且原断言全过——同时排除「Room 流发射晚于 waitForIdle」（repository.entries 为手动刷新 StateFlow 非 Room flow，机制上不成立）与条目过滤路径
+- 修复（commit 26dbf550，零生产代码）：sharedTimestamp 改取 System.currentTimeMillis()（两条共享同值，保留同毫秒重复 key 回归语义且永在 retention 窗口内）；KDoc 勘误过时描述。取舍：保留真实 Room 的 DiagnosticLogRepository 不补 Fake（诊断屏测的正是真实存储链路，未替换为有意设计）；retention by design 有 LogStoreTest/LogDaoTest 锚定
+- 验证：真机本类 OK(1) 1.358s + 全量 am instrument **OK(135) 115.3s——#212/#213 修复后首次全绿**，08-18 以来完整回归基线恢复（#215 批2 的前置条件达成）

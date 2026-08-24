@@ -81,10 +81,11 @@
 >
 > （空）#210 已修复转待验证（2026-08-24 jdb 取栈定音三根因：①MIUI「后台弹出界面」权限随卸载重置→DeviceGuard 拦 HiltEntryActivity 启动致 startActivitySync 永久等待=挂死本体，非代码回归；②测试 Activity 无语言覆盖，系统 locale 回 zh-CN 后英文断言漂移；③#209 test3 seed id 错。修=授权脚本化+attachBaseContext en-US+seed 一行。ChatInteractionTest 全类 6 过 + 单测 1923 绿；#209 插桩补跑同步完成）→ `docs/journal/2026-08-24-p3-quad-research.md` §#210 修复执行
 
-- [~] **#214 DiagnosticsScreenDuplicateTimestampTest 断言失败——硬编码 timestamp 越 21 天 retention 边界（时间炸弹，非回归）** `data` `ui`
-  - 根因：测试硬编码崩溃报告 key（ts=2026-08-01）+ERROR，LogStore.insert 内联 prune 的 deleteErrorBefore(now-21d) 在设备时钟过 2026-08-22 后插入即清除；实验 hist db=0/flow=0 vs fresh db=2/flow=2 排除流/UI 链路
-  - 修复：仅测试——sharedTimestamp 改取 System.currentTimeMillis()（保留同毫秒重复语义）；retention by design 有 LogStoreTest/LogDaoTest 锚定，零生产改动
-  - 证据：真机本类 OK(1) 1.358s + 全量 am instrument **OK(135)** 115.3s（#212/#213 后首次全绿）→ `docs/journal/2026-08-24-p3-quad-research.md` §#214 修复执行
+> （空）#211 已完结验收（2026-08-24 用户裁决清理：HiltComponentActivity.attachBaseContext 强制 en-US 单点覆盖 19 类，零生产代码；主会话全量复验 135 测 3 败、locale 族 27 败全灭无挂死，与同事 14 类复验双证据闭环；残留三例分立 #212/#213/#214）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移·二批
+>
+> （空）#212 #213 已完结验收（2026-08-24 主会话修复+真机 OK 9 tests：MigrationTest 补挂 MIGRATION_3_4 对齐 DB v4 / 空态断言对齐 KT10a session 术语——均为「代码先行测试未跟」机械勘误）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移·二批
+>
+> （空）#214 已完结验收（2026-08-24 定因=测试时间炸弹：硬编码崩溃报告 ts 越 LogStore 21 天 ERROR retention 边界被内联 prune 插入即清除（hist db=0 vs fresh db=2 实验定音），非生产回归；sharedTimestamp 改取系统时钟零生产改动；真机本类 OK(1) + **全量 OK(135) 08-18 以来首次全绿**）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移·三批
 
 ## P3 — 观察与低价值改进
 
