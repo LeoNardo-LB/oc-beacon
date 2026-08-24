@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -182,11 +183,11 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
 
-                // 可展开内容
+                // 可展开内容（#215 验收反馈·一：高度 snap——见 ToolCardScaffold 同款注释）
                 AnimatedVisibility(
                     visible = expanded,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
+                    enter = fadeIn() + expandVertically(animationSpec = snap()),
+                    exit = fadeOut() + shrinkVertically(animationSpec = snap())
                 ) {
                     Column {
                         Spacer(modifier = Modifier.height(6.dp))

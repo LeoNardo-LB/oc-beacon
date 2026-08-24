@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -274,12 +275,13 @@ internal fun SyntheticNotificationCard(
                     // #215 批3：展开钮移除——本体点击已承担展开/收起
                 }
 
-                // 展开输出（2026-08-12：tween 动画——spring 默认有回弹 overshoot，
-                // 收起收尾会"跳一下"；tween 无回弹平滑收尾）
+                // 展开输出（2026-08-12 注释存档：曾用 tween——spring 回弹问题；
+                // #215 验收反馈·一：高度维度改 snap 瞬时——逐帧高度动画引发倒序
+                // LazyColumn 锚定拉锯（见 ToolCardScaffold 同款注释），淡入淡出保留）
                 AnimatedVisibility(
                     visible = hasOutput && expanded,
-                    enter = fadeIn(animationSpec = tween(150)) + expandVertically(animationSpec = tween(150)),
-                    exit = fadeOut(animationSpec = tween(150)) + shrinkVertically(animationSpec = tween(150))
+                    enter = fadeIn(animationSpec = tween(150)) + expandVertically(animationSpec = snap()),
+                    exit = fadeOut(animationSpec = tween(150)) + shrinkVertically(animationSpec = snap())
                 ) {
                     val halfScreenHeight = halfScreenHeight()
                     val scrollState = rememberScrollState()
