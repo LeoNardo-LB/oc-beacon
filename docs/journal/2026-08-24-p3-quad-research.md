@@ -357,3 +357,32 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 - 用户验收通过（2026-08-24「209 ok」），验收口径：日常使用在线 context 圆环正常显示
 - 修复内容（commit caea2b30）：删 `TokenStats.contextWindow` 死字段（全库无写点恒 0）+ 删 `ModelConfigDelegate` 恒假 tracker 优先分支 + 删聚合映射死链（`ModelConfigState.contextWindow` 保留——真实消费方）；contextWindow = session.model→catalog 查表 ?: 0；FakeDomainModule 补存量缺位 PendingMessageRepository 绑定
 - 验证：delegate 级单测 ×4（catalog 命中 128000 / 无 model 0 / unknown 0 / 仅分子不伪造分母），全套件 1923 绿；插桩设备验证经 #210 根因③勘误（test3 seed id=""）后真机 OK——catalog 真实路径 128000 分母 + 64000 分子 → "50" 渲染（#209 的插桩级验证缺口就此补上）
+
+## #211 修复执行：androidTest locale 解耦（2026-08-24 晚批次）
+
+**基线取证（系统 locale=zh-CN 保持不动，e69a99d8 真机）**
+
+- 环境：persist.sys.locale=zh-CN；assembleDevDebug + assembleDevDebugAndroidTest（1m40s）→ 双 APK adb install -r（零卸载，MIUI 权限/用户数据无损）；runner pm list instrumentation 确认 dev.leonardo.ocbeacon.dev.test/dev.leonardo.ocbeacon.HiltTestRunner
+- 全量 am instrument -w（stay-on 亮屏解锁，输出 /tmp/211-baseline.txt）：**Tests run: 135, Failures: 30**，无挂死（#210 的 MIUI 后台弹出界面权限授权生效）
+- 失败分类：**27/30 为 locale 族**（10 类，全部宿主 HiltComponentActivity：CompactionBannerTest/Branch ×7、ConnectionErrorScreenTest ×2、MessageMetaInfoTest/Branch ×5、SessionRetryCardTest ×1、StepProgressIndicatorTest/Branch ×8、TokenUsageCardBranchTest ×3、SessionListScreenTest ×1）——英文断言（"Compressing context…" / "Retry" / "Step 1" / "Input" / "Archived"…）在 zh-CN 渲染下 not displayed；**3/30 非 locale 残留**（见下）
+- ChatInteractionTest 基线保持绿（#210 修复无回归）✅
+
+**方案取舍**
+
+- 入口面盘点（grep createAndroidComposeRule/ActivityScenario 全量）：测试 Activity 仅两个宿主——HiltEntryActivity（chat.* 族 + Diagnostics + ChatSmoke，#210 已 en-US）与 HiltComponentActivity（其余 19 类直接引用 + ComposeTestRule 接口）；无裸 createComposeRule/ActivityScenarioRule 漏网
+- 选型：**HiltComponentActivity.attachBaseContext 强制 en-US**（与 HiltEntryActivity 完全同构，镜像生产 LocaleUtils.applyAppLanguage 模式）——单点覆盖全部剩余入口，i18n 资源零改动，零生产代码；否决共享 TestRule/基类方案（需逐类加 @Rule 或改 19 处基类，纯增改面）；否决写生产 in-app 语言偏好（污染 DataStore 持久状态，需恢复逻辑）
+- 恢复/清理：无持久状态（locale 仅包在 Activity base context + Locale.setDefault 进程级，插桩进程用毕即销毁），无需 teardown；androidTest 内 CJK 字面量仅 AgentSheetClickTest 测试数据（非资源断言），en-US 锁定无破坏
+
+**改动文件**：仅 app/src/androidTest/kotlin/dev/leonardo/ocbeacon/HiltComponentActivity.kt（attachBaseContext + import + KDoc #211 注记）
+
+**验证证据（zh-CN 真机不变）**
+
+- 重建 assembleDevDebugAndroidTest（42s）+ install -r → 重跑基线 13 个失败类 + ChatInteractionTest（回归）共 14 类：**Tests run: 72, Failures: 3**——27 个 locale 族失败全灭；剩余 3 个与基线完全同款非 locale 残留（#212/#213/#214，不在本卡范围）；ChatInteractionTest 6/6 绿（......）
+- 复跑技术注记：am instrument 多类过滤须 -e class a,b,c 逗号单值——重复 -e class 标志 bundle 覆盖只剩最后一个（首跑只执行了 ChatInteractionTest 6 测，已纠正重跑）
+- :app:compileDevDebugKotlin BUILD SUCCESSFUL（26s，androidTest-only 改动无生产编译影响）
+
+**非 locale 残留三例（新登记 #212/#213/#214，均 08-18 末次全绿后窗口内的存量回归，不属本卡）**
+
+1. MigrationTest.migrate1To2：builder 只挂 MIGRATION_1_2/2_3 而 DB 已 v4（MIGRATION_3_4 08-20 eefe0942 落地）→ "migration from 1 to 4 was required but not found" IllegalStateException（MigrationTest.kt:111）→ #212
+2. ChatMessageRenderingTest.empty_session：断言 "Start a conversation with OpenCode"，chat_empty EN 源 08-23 4ed11ed5（KT10a conversation→session）已改 "Start a session with OpenCode"——en-US 下也必败的失实断言 → #213
+3. DiagnosticsScreenDuplicateTimestampTest.duplicate_timestamp：注入两条同毫秒 ERROR 日志后 "first duplicate entry" assertIsDisplayed 失败（无崩溃；宿主 HiltEntryActivity 已 en-US 排除语言）；DiagnosticLogRepository 为真实 Room 实现（FakeDomainModule 未替换），候选=Room 流发射晚于 waitForIdle / 条目过滤路径，待定因 → #214
