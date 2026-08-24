@@ -92,7 +92,8 @@ class WireCompatMatrixTest {
             names(Part.Subtask.serializer()),
         )
         assertEquals(listOf("providerID", "modelID"), names(Part.Subtask.Model.serializer()))
-        assertEquals(listOf("id", "sessionID", "messageID", "auto", "summary"), names(Part.Compaction.serializer()))
+        // #219（2026-08-25）：+failed——失败压缩消息标记（失败分割线渲染）。
+        assertEquals(listOf("id", "sessionID", "messageID", "auto", "summary", "failed"), names(Part.Compaction.serializer()))
         assertEquals(listOf("id", "sessionID", "messageID", "attempt", "error", "time"), names(Part.Retry.serializer()))
         assertEquals(listOf("id", "sessionID", "messageID", "name", "source"), names(Part.Agent.serializer()))
         assertEquals(listOf("id", "sessionID", "messageID", "message"), names(Part.Permission.serializer()))

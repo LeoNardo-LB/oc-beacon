@@ -2,6 +2,9 @@ package dev.leonardo.ocbeacon.data.repository.handler
 
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import org.junit.Assert.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 
@@ -93,6 +96,46 @@ class CompactionDividerTest {
             SessionNextEvent.CompactionDelta(sessionId = "s1", messageId = "m1", delta = "")
         )
         assertNull(handler.compactionState.value["s1"])
+    }
+
+    // ============ 失败广播（#219）============
+
+    @Test
+    fun `failed compaction broadcasts error and clears state (#219)`() = runTest {
+        handler.handleSessionNextEvent(
+            SessionNextEvent.CompactionStarted(sessionId = "s1", messageId = "m1", reason = "manual")
+        )
+        var failure: Pair<String, String>? = null
+        val job = launch {
+            handler.compactionFailures.collect { failure = it }
+        }
+        runCurrent()
+        handler.handleSessionNextEvent(
+            SessionNextEvent.CompactionEnded(sessionId = "s1", messageId = "m1", error = "provider unavailable")
+        )
+        runCurrent()
+        job.cancel()
+        // 状态清理 + 失败广播（sessionId to error）
+        assertNull(handler.compactionState.value["s1"])
+        assertEquals("s1" to "provider unavailable", failure)
+    }
+
+    @Test
+    fun `successful ended emits no failure broadcast (#219)`() = runTest {
+        handler.handleSessionNextEvent(
+            SessionNextEvent.CompactionStarted(sessionId = "s1", messageId = "m1")
+        )
+        var failure: Pair<String, String>? = null
+        val job = launch {
+            handler.compactionFailures.collect { failure = it }
+        }
+        runCurrent()
+        handler.handleSessionNextEvent(
+            SessionNextEvent.CompactionEnded(sessionId = "s1", messageId = "m1")
+        )
+        runCurrent()
+        job.cancel()
+        assertNull(failure)
     }
 
     // ============ 压缩计数（R3 修复）============

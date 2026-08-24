@@ -5,8 +5,11 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
@@ -91,6 +94,10 @@ class SessionNextEventHandler @Inject constructor(
     private val _compactionState = MutableStateFlow<Map<String, CompactionStateInfo>>(emptyMap())
     val compactionState: StateFlow<Map<String, CompactionStateInfo>> = _compactionState.asStateFlow()
 
+    /** #219：压缩失败广播（sessionId to 服务器 error.message）——UI snackbar 数据源。 */
+    private val _compactionFailures = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 4)
+    val compactionFailures: SharedFlow<Pair<String, String>> = _compactionFailures.asSharedFlow()
+
     private val _shellState = MutableStateFlow<Map<String, ShellStateInfo>>(emptyMap())
     val shellState: StateFlow<Map<String, ShellStateInfo>> = _shellState.asStateFlow()
 
@@ -151,7 +158,7 @@ class SessionNextEventHandler @Inject constructor(
 
             is SessionNextEvent.CompactionStarted -> handleCompactionStarted(event)
             is SessionNextEvent.CompactionDelta -> handleCompactionDelta(event)
-            is SessionNextEvent.CompactionEnded -> handleCompactionEnded(event.sessionId)
+            is SessionNextEvent.CompactionEnded -> handleCompactionEnded(event)
 
             is SessionNextEvent.Prompted -> { /* 信息性 */ }
             is SessionNextEvent.Retried -> {
@@ -288,8 +295,13 @@ class SessionNextEventHandler @Inject constructor(
         }
     }
 
-    private fun handleCompactionEnded(sessionId: String) {
-        _compactionState.update { it - sessionId }
+    private fun handleCompactionEnded(event: SessionNextEvent.CompactionEnded) {
+        // #219（2026-08-25）：失败事件（error 非空）先广播——V2 HTTP 秒回受理，
+        // 压缩失败只从 SSE session.compaction.failed 到达，此前静默结束。
+        if (event.error.isNotBlank()) {
+            _compactionFailures.tryEmit(event.sessionId to event.error)
+        }
+        _compactionState.update { it - event.sessionId }
     }
 
     /**
@@ -301,7 +313,7 @@ class SessionNextEventHandler @Inject constructor(
      * 分发模型下，跨 handler 逻辑显式写在 dispatcher）。
      */
     fun endCompaction(sessionId: String) {
-        handleCompactionEnded(sessionId)
+        handleCompactionEnded(SessionNextEvent.CompactionEnded(sessionId = sessionId, messageId = ""))
     }
 
     fun trackSequence(sessionId: String, seq: Long) {

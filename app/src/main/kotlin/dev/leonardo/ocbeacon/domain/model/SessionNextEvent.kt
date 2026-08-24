@@ -281,7 +281,9 @@ sealed class SessionNextEvent {
     @Serializable
     data class CompactionEnded(
         @SerialName("sessionID") override val sessionId: String,
-        @SerialName("messageID") val messageId: String
+        @SerialName("messageID") val messageId: String,
+        /** #219（2026-08-25）：非空 = 压缩失败（session.compaction.failed 的 error.message）。 */
+        val error: String = ""
     ) : SessionNextEvent()
 
     // ============ 其他 ============

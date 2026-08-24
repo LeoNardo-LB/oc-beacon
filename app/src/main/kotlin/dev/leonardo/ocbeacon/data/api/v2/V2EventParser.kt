@@ -108,7 +108,10 @@ class V2EventParser(private val json: Json) : SseEventParser {
             return SseEvent.SessionNext(
                 dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionStarted(
                     sessionId = sid,
-                    messageId = props["messageID"]?.jsonPrimitive?.contentOrNull ?: "",
+                    // #219 勘误：实测 payload 字段是 inputID（compaction 消息 id），
+                    // 非 messageID——此前恒空，消息流内对位（Q13 连续性）失效。
+                    messageId = props["inputID"]?.jsonPrimitive?.contentOrNull
+                        ?: props["messageID"]?.jsonPrimitive?.contentOrNull ?: "",
                     reason = props["reason"]?.jsonPrimitive?.contentOrNull ?: "",
                 )
             )
@@ -125,6 +128,9 @@ class V2EventParser(private val json: Json) : SseEventParser {
                 dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionEnded(
                     sessionId = sid,
                     messageId = props["messageID"]?.jsonPrimitive?.contentOrNull ?: "",
+                    // #219：失败原因带给 UI（此前被丢弃——V2 HTTP 秒回受理，失败只从
+                    // SSE 到达；静默结束 = 用户只见分割线闪一下，无从得知失败）。
+                    error = props["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull ?: "Compaction failed"
                 )
             )
         }

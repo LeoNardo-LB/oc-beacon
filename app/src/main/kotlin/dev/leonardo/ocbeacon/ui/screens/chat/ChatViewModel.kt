@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -440,6 +441,21 @@ class ChatViewModel @Inject constructor(
      *  确切时刻）触发的完成通知——ChatScreen collect 显示 snackbar。 */
     private val _compactionDoneEvent = kotlinx.coroutines.flow.MutableSharedFlow<Boolean>(extraBufferCapacity = 4)
     val compactionDoneEvent: SharedFlow<Boolean> = _compactionDoneEvent
+
+    /** #219（2026-08-25）：压缩失败事件（当前会话）——SSE compaction.failed 驱动，
+     * V2 HTTP 秒回受理后失败只从 SSE 到达，此前静默（用户只见分割线闪一下）。 */
+    val compactionFailedEvent: kotlinx.coroutines.flow.Flow<String> =
+        eventDispatcher.compactionFailures.mapNotNull { (sid, err) ->
+            if (sid == sessionId) err else null
+        }
+
+    init {
+        // #219：失败即时刷新——失败压缩消息（failed 分割线）立即入列，
+        // 与成功路径一致（此前失败零刷新，失败记录要重进会话才出现）。
+        viewModelScope.launch {
+            compactionFailedEvent.collect { messageData.refreshMessages() }
+        }
+    }
 
     val draftAttachmentUris: StateFlow<List<String>> get() = draftDelegate.draftAttachmentUris
     val confirmedFilePaths: StateFlow<Set<String>> get() = draftDelegate.confirmedFilePaths

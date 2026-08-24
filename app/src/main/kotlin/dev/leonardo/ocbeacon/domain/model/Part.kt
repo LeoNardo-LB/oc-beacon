@@ -215,7 +215,10 @@ sealed class Part {
         val auto: Boolean = false,
         /** 2026-08-15：压缩后的全文（V2 REST compaction 消息的 text）——
          *  分割线卡片可展开查看（此前仅标记无内容）。 */
-        val summary: String? = null
+        val summary: String? = null,
+        /** #219（2026-08-25）：status=failed 的压缩消息——渲染为失败分割线
+         *  （「压缩会话失败」标签 + 错误色），而非误导性的成功「已压缩」。 */
+        val failed: Boolean = false
     ) : Part()
 
     @Serializable

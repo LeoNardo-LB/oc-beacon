@@ -368,6 +368,17 @@ fun ChatScreen(
         }
     }
 
+    // #219（2026-08-25）：V2 压缩失败 snackbar——HTTP 秒回受理，失败只从 SSE
+    // session.compaction.failed 到达，此前静默结束（分割线闪一下即消失，用户
+    // 无从得知失败；V1 的 HTTP 失败回调在 V2 永不触发）。
+    val compactFailedMsg = stringResource(R.string.chat_session_compact_failed)
+    LaunchedEffect(Unit) {
+        viewModel.compactionFailedEvent.collect { serverErr ->
+            val detail = if (serverErr.isNotBlank()) ": " + serverErr.take(80) else ""
+            snackbarHostState.showSnackbar(compactFailedMsg + detail)
+        }
+    }
+
     // 首次进入 ChatScreen 时预热 WebView V8 引擎，避免第一次打开文件变慢。
     // 每个进程只执行一次；一次性 WebView 会自动销毁。
     // 延迟 500ms 让初始组合与首个滚动帧稳定下来。

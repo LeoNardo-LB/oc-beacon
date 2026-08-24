@@ -1285,7 +1285,10 @@ fun ChatMessageList(
                                             state = compactionActiveState,
                                             summary = chatMessage.parts
                                                 .filterIsInstance<Part.Compaction>()
-                                                .firstOrNull()?.summary
+                                                .firstOrNull()?.summary,
+                                            failed = chatMessage.parts
+                                                .filterIsInstance<Part.Compaction>()
+                                                .firstOrNull()?.failed ?: false
                                         )
                                     }
                                     return@itemsIndexed

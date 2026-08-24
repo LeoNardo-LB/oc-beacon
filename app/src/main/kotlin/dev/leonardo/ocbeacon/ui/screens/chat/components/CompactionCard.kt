@@ -58,6 +58,8 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 internal fun CompactionCard(
     state: CompactionStateInfo? = null,
     summary: String? = null,
+    /** #219：失败压缩消息——失败标签（chat_session_compact_failed）+ 错误色。 */
+    failed: Boolean = false,
 ) {
     val isActive = state != null && state.isActive
     var expanded by remember { mutableStateOf(false) }
@@ -81,7 +83,8 @@ internal fun CompactionCard(
             CompletedDividerRow(
                 expanded = expanded,
                 canExpand = canExpand,
-                onToggle = onToggle
+                onToggle = onToggle,
+                failed = failed
             )
         }
 
@@ -149,13 +152,18 @@ private fun ActiveDividerRow(
     }
 }
 
-/** 完成态：静分割线 + 中央标签（既有形态；Q7/Q11 只改展开区——去边框竖线式）。 */
+/** 完成态：静分割线 + 中央标签（既有形态；Q7/Q11 只改展开区——去边框竖线式）。
+ *  #219：failed=true 时标签为「压缩会话失败」+ 错误色（失败压缩消息不再伪装成功）。 */
 @Composable
 private fun CompletedDividerRow(
     expanded: Boolean,
     canExpand: Boolean,
     onToggle: () -> Unit,
+    failed: Boolean = false,
 ) {
+    val labelRes = if (failed) R.string.chat_session_compact_failed else R.string.chat_summarized
+    val labelColor = if (failed) MaterialTheme.colorScheme.error
+        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -174,9 +182,9 @@ private fun CompletedDividerRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.chat_summarized),
+                text = stringResource(labelRes),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                color = labelColor,
             )
             if (canExpand) {
                 Spacer(modifier = Modifier.width(SpacingTokens.XS.dp))

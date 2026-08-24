@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#219**。
+**编号**：全局递增，不回收。下一编号：**#220**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -63,6 +63,11 @@
 
 
 ## P2 — 优化与锦上添花
+
+- [~] **#219 V2 压缩失败静默：无 snackbar + 失败消息伪装成功分割线 + messageId 字段名错** `sse` `ui` `compaction`
+  - 用户二报「分割线一闪而过，重进才见压缩内容」定音：06:26 那次压缩实为 provider 故障失败（compaction.failed 715ms）——①失败完全静默（HTTP 秒回受理，失败只从 SSE 到达，V1 的 HTTP 失败回调在 V2 永不触发）②失败压缩消息渲染成成功「已压缩」分割线（V2Mappers 无失败标记）③started 读 messageID 但实测字段是 inputID（对位恒空）④失败零刷新（失败分割线要重进才出现）
+  - 修复：CompactionEnded+error 字段→失败广播流→snackbar（带服务器原因）；Part.Compaction+failed→失败分割线（「压缩会话失败」错误色）；inputID 勘误；失败即时刷新；wire 契约同步；真机验证失败/成功分割线同屏正确标注
+  - → `docs/journal/2026-08-25-session-list-wipe.md` §#219
 
 - [~] **#218 session.deleted SSE 后会话列表全空（Empty directory）** `sse` `sessions`
   - 根因（2026-08-25 真机复现+代码定音）：SessionEventHandler.handleSessionDeleted 的 F6 泄漏清理 `values.removeAll { it.contains(sessionId) }` 谓词作用于 Set 元素本身——删除任一会话即把整台服务器的会话 id 集合整体移除 → 列表过滤 `id in serverSessionIds` 全空；任意删除（app 内删除/E2E 清理/他端删除）即触发；修复=mapValues 移除单 id + 清空集（F6 意图保留）；顺手修 loadSessions 协程取消时 _isLoading 卡 true（refreshSessions 永久被挡）；真机双场景验证通过

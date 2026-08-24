@@ -394,7 +394,10 @@ object V2MessageMapper {
                             id = "${id}_compaction",
                             sessionId = sessionId,
                             messageId = id,
-                            summary = text
+                            summary = text,
+                            // #219：失败压缩消息标记——失败分割线（错误标签+错误色），
+                            // 此前渲染为成功「已压缩」分割线（展开才见错误文本，误导）。
+                            failed = isCompactionFailed
                         ))
                     text.isNotEmpty() -> listOf(Part.Text(id = "", sessionId = sessionId, messageId = id, text = text))
                     else -> emptyList()
