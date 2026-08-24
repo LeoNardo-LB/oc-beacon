@@ -72,9 +72,7 @@
   - 上下滑动列表时，「思考中 · Xs」计时器从 0 重新开始（用户真机验收 #206 时报告）；根因实证：reasoning part time=null（野生实例=事故恢复消息）时锚点回退组合期时钟，LazyColumn 销毁重建即归零；修复=isReasoningStreaming 三态判定+rememberSaveable 锚点，待真机验收
   - → docs/journal/2026-08-24-thinking-timer-scroll.md
 
-- [ ] **#208 冷启动重进会话 Room 历史不进热视图（seed/分页缺口）** `ui` `data`
-  - force-stop 后重进 130 条消息会话只显示最近 3 条增量；Room 既有消息/parts（含事故恢复消息 reasoning part）不渲染、上滑不触发补加载；温进程（未杀）正常——#207 取证时两度撞上（事故卡、假 id 探针均不渲染）
-  - → docs/journal/2026-08-24-thinking-timer-scroll.md（#207 顺带发现）
+> （空）#208 已证伪闭卡（2026-08-24 同日勘误：登记时滑动方向搞反致三项主张全部误判——正确方向复测 130 条历史全程可翻、loadOlder 补载正常、假 id 不渲染是服务器权威 upsert 正确行为）→ `docs/journal/2026-08-24-thinking-timer-scroll.md` §#208 证伪闭卡
 
 ## P3 — 观察与低价值改进
 
