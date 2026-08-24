@@ -1,6 +1,6 @@
 # p3-quad-research（2026-08-24）
 
-> 状态：执行近完结（#161 闭卡 / #184 修复待验证 / #185 闭卡 / #209 修复待验证（#210 阻塞插桩补跑）/ #210 登记 P2 / #168 唯一剩余——设备解锁窗口执行 5 分钟协议）
+> 状态：执行完结（#161 闭卡 / #168 release 实测证伪闭卡 / #184 修复待验证 / #185 闭卡 / #209 修复待验证（#210 阻塞插桩补跑）/ #210 登记 P2）
 > 来源：用户指令「开始调研 161 185 184 168，委派 subagent 去调研，详尽调研」
 > 方式：4 个独立 subagent 并行深调（每卡一 agent），主会话交叉汇总；调研期间仓库零改动（只读）
 
@@ -253,7 +253,30 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 - 测量产物落 `/tmp/r168rel/RESULT.txt` + `/persistent/home/leo-tkp/perf-evidence/r168rel/`（parse.py/unlocked-run.sh 已持久化防重启丢失）；watcher 窗口 12h
 - 脚本 SYNTAX_OK；三层防呆：锁屏中止（恢复 devDebug）、会话未找到中止（截图取证+恢复）、INSTALL 失败中止（恢复）
 
-### #168 执行记录（2026-08-24，待解锁窗口）
+### #168 release 实测与闭卡裁决（2026-08-24 15:48-16:0x，用户在场配合）
+
+**表单自动化三轮踩坑全记录**（release 无 debug intent，配置必须表单）：
+1. ESC（keyevent 111）收键盘会把对话框一起关掉 → 去掉 ESC
+2. 软键盘盖住保存按钮（tap 落键盘上）→ 单次 BACK 只收键盘再点保存
+3. input text 的 URL 反斜杠转义在单引号内成字面量 → 不转义直接传
+4. EditText 定位：label TextView 不可点；实际 4 框（0=名称空 1=URL 2=用户名预填 3=密码）——regex 需抓完整 node（text 与 bounds 同在 node 属性里）
+
+**执行链**：devRelease 安装（miui-install 自动点穿）→ 表单分步填（URL/密码 8 位掩码逐步 dump 验证）→ 保存 → 连接 → 通知「始终允许」→ 服务器页点「会话」标签 → Kotlin安卓学习教程规划（130 条）→ reset gfxinfo → 12 次交替慢拖（600,500↔1600，800ms）→ 6 快照。
+
+**裁决数据（720 帧，8.33ms@120Hz 口径，与 devDebug 基线同解析器）：**
+
+| 指标 | devDebug 基线 | devRelease 实测 | 裁决线 | 判定 |
+|---|---|---|---|---|
+| ≥17ms 率 | 6.53% | 0.00%（0/720） | <1% | 通过 |
+| p99 | 34.3ms | 8.5ms | <16ms | 通过 |
+| p95 | 19.6ms | 8.0ms | — | — |
+| p50 | 9.4ms | 6.0ms | — | debug 税复证（约 47%） |
+| anim p99 | 20.6ms | 0.82ms | — | chunk 重组在 R8 下消失 |
+| draw p99 | 5.83ms | 1.03ms | — | — |
+
+**裁决：#168 证伪闭卡**（devDebug 尖刺系 debug 构建税放大，release 口径零 jank、p99 低于预算——用户日常 release/beta 完全无感知；「偶发 ~18ms 尖刺」在 release 不存在）。原始数据归档 /persistent/home/leo-tkp/perf-evidence/r168-release-20260824/（6 快照+RESULT）。测毕 devDebug 已恢复 + debug intent 配置还原（会话列表实证）。
+
+### #168 执行记录（历史：解锁窗口前）
 
 - devRelease APK 已构建（assembleDevRelease 3m33s，R8 minify）；解析脚本 `/tmp/r168rel/parse.py` 就绪（120Hz 8.33ms 预算，framestats 24 列，IntendedVsync 去重）
 - **阻塞**：设备 PIN 锁——用户离开期间锁屏，MIUI 锁屏下任何 pm install 拒绝（USER_RESTRICTED）；且跨签名切换（devDebug→devRelease 需卸载重装，release keystore ≠ debug 签名）已执行卸载一步，设备当前无 dev 包

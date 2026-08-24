@@ -88,9 +88,7 @@
   - 若跳转叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可重放定位）
   - → `docs/journal/2026-08-21-race-audit-round6.md`（提升自该批子条目）
 
-- [ ] **#168 慢拖残余尖刺——release 抽查裁决后闭卡或升级** `perf`
-  - 2026-08-24 复测：最差帧实为 anim 桶主导（per-chunk 重组仍在）+ 尖刺率强会话相关（教程会话 ≥17ms 6.5%≈基线 3 倍）；用户裁决：真机测试后评估是否升 P2——devRelease APK 已构建、解析脚本与 12 拖协议就绪，被设备 PIN 锁阻塞（解锁窗口 5 分钟可完成）；<1% 即证伪闭卡、≥1% 升 P2；测毕恢复 devDebug
-  - → `docs/journal/2026-08-20-perf-monitoring-round3.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#168（提升自 perf-round3 子条目）
+> （空）#168 已证伪闭卡（2026-08-24 devRelease 真机实测：720 帧 ≥17ms 率 0.00%、p99 8.5ms 低于 8.33 预算——devDebug 尖刺系 47% debug 构建税放大，release 无感知；原始数据归档 perf-evidence/r168-release-20260824）→ `docs/journal/2026-08-24-p3-quad-research.md` §#168
 
 - [~] **#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data`
   - 已修（7bd04c11，2026-08-24 用户裁决修复）：markAllSessionsRead 作用域化本服务器会话集（filterKeys 隔离跨服务器时钟：错杀广播溢出 + allReadAt 值域污染双修复，SessionError 第三时钟域顺带收编）；单测 +3、全套件 1919 绿；待用户日常使用验收（单服务器场景无行为变化）
