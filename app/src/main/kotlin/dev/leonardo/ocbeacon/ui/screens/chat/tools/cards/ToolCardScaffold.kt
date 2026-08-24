@@ -2,7 +2,6 @@ package dev.leonardo.ocbeacon.ui.screens.chat.tools.cards
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -215,15 +214,13 @@ internal fun ToolCardScaffold(
             }
 
             // 展开的内容
-            // #215 验收反馈·一：高度维度 snap（瞬时）——AnimatedVisibility 逐帧高度动画
-            // 会把一次展开/收起放大成 ~30 帧的 LazyColumn 锚定拉锯（倒序布局对 item 内
-            // 高度变化零修正，被点卡随内容 ±delta 漂移；journal §验收反馈·一定因矩阵）。
-            // 高度一次到位 + 透明度保留淡入淡出；视口稳定由 ChatMessageList 的 toggle
-            // 一次性锚定修正保证（同 SSE 流式补偿通道）。
+            // #215 验收反馈·一：动画保留（默认 spring 高度 + 淡入淡出）。逐帧高度变化
+            // 引发的视口漂移由 ChatMessageList 的 toggle 锚定修正时间窗逐帧对消
+            //（scrollToBeConsumed 注入通道，见 toggleAnchorCorrection）。
             AnimatedVisibility(
                 visible = expanded && hasContent,
-                enter = fadeIn() + expandVertically(animationSpec = snap()),
-                exit = fadeOut() + shrinkVertically(animationSpec = snap())
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
             ) {
                 expandedContent()
             }

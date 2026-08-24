@@ -46,6 +46,14 @@ internal object LazyListReflection {
     private val invalidatorField: java.lang.reflect.Field? =
         lookupField("androidx.compose.foundation.lazy.LazyListState", "measurementScopeInvalidator")
 
+    // #215 验收反馈·一：scrollToBeConsumed（internal var Float）——滚动消费通道。
+    // 用户真实滚动（scrollBy/fling）的必经路径：测量开始时无条件消费
+    //（currentFirstItemScrollOffset -= scrollDelta），跨 item 折算与边界钳制由
+    // 测量标准流程原生处理，消费结果随测量回写——不存在「请求被回写丢弃」的竞争
+    //（toggle 动画期间逐帧修正为什么必须走这条通道的定因，见 journal §验收反馈·一）。
+    private val scrollToBeConsumedField: java.lang.reflect.Field? =
+        lookupField("androidx.compose.foundation.lazy.LazyListState", "scrollToBeConsumed")
+
     private fun lookupField(className: String, name: String): java.lang.reflect.Field? = try {
         Class.forName(className).getDeclaredField(name).apply { isAccessible = true }
     } catch (t: Throwable) {
@@ -91,5 +99,27 @@ internal object LazyListReflection {
         }
         // 降级：官方 API。语义差异 = 通过 scroll{} 互斥锁取消 fling，可接受。
         state.requestScrollToItem(index, scrollOffset)
+    }
+
+    /**
+     * #215 验收反馈·一：向滚动消费通道注入位移（不经过 scroll{} 互斥锁，不取消 fling）。
+     *
+     * @param shiftDownPx 正值 = 视口内容整体下移该像素数（reverseLayout 下等效向后滚动）。
+     * 下一次测量必然消费该值并回写结果；注入同时 poke measurementScopeInvalidator
+     * 促使当帧重测消费（最迟下一动画帧，滞后 ≤ 单帧增量）。
+     * 反射不可用时静默降级（toggle 补偿失效 = 修复前行为，不崩溃）。
+     */
+    fun requestScrollShift(state: LazyListState, shiftDownPx: Float) {
+        val f = scrollToBeConsumedField ?: return
+        try {
+            val cur = f.getFloat(state)
+            f.setFloat(state, cur - shiftDownPx)
+            invalidatorField?.get(state)?.let {
+                @Suppress("UNCHECKED_CAST")
+                (it as MutableState<Unit>).value = Unit
+            }
+        } catch (t: Throwable) {
+            AppLogger.w("LazyListReflection", "requestScrollShift failed: ${t.message}")
+        }
     }
 }

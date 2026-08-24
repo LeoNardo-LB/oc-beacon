@@ -1493,15 +1493,21 @@ private fun easeInOutCubic(t: Float): Float =
     if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
 
 /**
- * #215 验收反馈·一（方案三·简）：非流式 item 的 toggle 锚定修正测量点。
+ * #215 验收反馈·一（方案三）：非流式 item 的 toggle 锚定修正测量点（逐帧对消）。
  *
  * 常驻挂载（Turn/Chunk）：窗口外零请求、仅刷新高度基线（保证 toggle 瞬间
- * 基线新鲜）；toggle 修正时间窗内的每次 delta≠0 测量，用当前锚点 + 高度差
- * 做一次 [LazyListReflection.requestScrollToItemNoCancel]（SSE 流式补偿同
- * 通道同公式——off 深入 delta 对消内容生长，视口钉住），覆盖 toggle 自身的
- * 原子 resize 与锚点折算引发的 markdown 落定等联动重排。展开/收起两方向
- * 对称（delta 正负统一为 off+delta；跨 item/负 off 由 LazyListState 测量
- * 原生折算）。snap 化的高度动画保证窗口内只有离散少量 delta，无逐帧拉锯。
+ * 基线新鲜）；toggle 修正时间窗内的每次 delta≠0 测量（高度动画逐帧增量、
+ * 锚点折算引发的 markdown 落定等联动重排），把高度增量经
+ * [LazyListReflection.requestScrollShift] 注入 scrollToBeConsumed 消费通道：
+ * 内容生长 delta 即注入等量下移，与被动上推逐帧对消，被点卡钉在原屏位。
+ *
+ * 为什么不走 request-position 通道（requestScrollToItemNoCancel，v1/v2 实测
+ * 存档）：动画期间的逐帧锚点请求被测量回写（updateFromMeasureResult）中途
+ * 丢弃——请求落空、动画全程漂移、终态才跳回。scrollToBeConsumed 是用户真实
+ * 滚动的必经通道，测量无条件消费、跨 item 折算原生处理，无回写竞争。
+ *
+ * 铁律红线：流式 item（isStreamingMsg）走原补偿分支，不挂本修饰符；
+ * 窗口外零注入，SSE 流式补偿不受影响。
  */
 private fun Modifier.toggleAnchorCorrection(
     listState: LazyListState,
@@ -1522,19 +1528,17 @@ private fun Modifier.toggleAnchorCorrection(
                     " off=" + listState.firstVisibleItemScrollOffset
             )
         }
-        LazyListReflection.requestScrollToItemNoCancel(
-            listState,
-            listState.firstVisibleItemIndex,
-            listState.firstVisibleItemScrollOffset + (h - base),
-        )
+        // 展开（delta>0）内容需下移 delta；收起（delta<0）需上移 |delta| ——统一为
+        // 注入 delta（正=下移）。下一次测量消费，被动上推与注入下移逐帧对消。
+        LazyListReflection.requestScrollShift(listState, (h - base).toFloat())
     }
     layout(placeable.width, h) {
         placeable.placeRelative(0, 0)
     }
 }
 
-/** #215：toggle 锚定修正时间窗（覆盖 snap resize + markdown 落定联动）。 */
-private const val TOGGLE_ANCHOR_WINDOW_MS = 800L
+/** #215：toggle 锚定修正时间窗（覆盖高度动画 spring ~500ms + markdown 落定联动）。 */
+private const val TOGGLE_ANCHOR_WINDOW_MS = 1200L
 
 // 预解析/分片调参常量已随渲染供给协调器外移 RenderSupplyCoordinator.companion（候选 1）。
 
