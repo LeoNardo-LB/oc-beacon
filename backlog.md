@@ -64,10 +64,10 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#215 聊天流卡片体系统一：容器语言 + 交互契约** `ui` `refactor`
-  - 三批完成（bcc435f1/998e32dc/6dedc566）：批1 ToolProgress/TokenUsage/TodoList 容器统一；批2 全家去冗余 chevron（本体点击=展开唯一入口+无内容禁点）+ TaskToolCard 跳转收编右侧箭头钮 + ShellCard 首击陷阱顺带修复；批3 ReasoningBlock/合成通知本体点击（跳转/定位钮保留）+ FileCard 迁移 + EmbeddedCardContainer 退役
-  - 验证：每批插桩 135 全绿（共 4 轮）+ 单测绿 + Expand 按钮全网清零 + 冷态单击展开实证；**待用户统一验收**（日常使用卡片交互 + 视觉三主题）
-  - → `docs/specs/2026-08-24-card-unification-design.md` · `docs/journal/2026-08-24-card-unification.md`
+- [ ] **#215 聊天流卡片体系统一：容器语言 + 交互契约** `ui` `refactor`
+  - 三批完成（bcc435f1/998e32dc/6dedc566）；**用户验收发现遗留**：展开/收起滚动方向不对称（展开 69px vs 收起 319px 实锤；倒序+跨屏超大 item 内高度突变 LazyColumn 被动锚定跳变，现有补偿仅流式 delta>0 不覆盖）→ 修复中
+  - 修复方向：layout 补偿扩展到 toggle 触发的高度变化（正负双向锚定 firstVisible）
+  - → `docs/specs/2026-08-24-card-unification-design.md` · `docs/journal/2026-08-24-card-unification.md` §验收反馈·一
 
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
 >
