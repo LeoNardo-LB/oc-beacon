@@ -478,7 +478,8 @@ class ChatRepositoryImpl @Inject constructor(
     )
 
     private fun DataCompactionStateInfo.toDomain() = CompactionStateInfo(
-        isActive = isActive, reason = reason
+        isActive = isActive, reason = reason,
+        deltaText = deltaText, messageId = messageId
     )
 
     private fun PromptPart.toData() = DataPromptPart(

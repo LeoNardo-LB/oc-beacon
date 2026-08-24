@@ -467,12 +467,15 @@ class ChatViewModel @Inject constructor(
         loadPendingQuestions = { messageData.loadPendingQuestions() },
         loadPendingPermissions = { messageData.loadPendingPermissions() },
         restoreRevertedDraft = { draftDelegate.restoreRevertedDraft(it) },
-        // 2026-08-16（压缩气泡·V2 适配）：压缩状态注入 EventDispatcher ——
-        // compactSession 发起前置 CompactionStarted（V2 无服务器 started 事件，
-        // 进行中气泡唯一驱动），结束时 CompactionEnded（幂等）。
-        compactionNotifier = { sid, started, reason ->
+        // 2026-08-24（#217 分割线包揽）：压缩能力位 + V1 本地态注入。
+        // V2 事件驱动（started/delta/ended），HTTP 返回不杀进行中分割线；
+        // V1 HTTP 挂起期间本地置态驱动同一分割线（单一数据源 compactionState）。
+        compactionAsyncProvider = {
+            _serverCapabilities.value.compactionAsync
+        },
+        compactionLocalState = { sid, started ->
             val next = if (started) {
-                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionStarted(sid, messageId = "", reason = reason)
+                dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionStarted(sid, messageId = "", reason = "")
             } else {
                 dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionEnded(sid, messageId = "")
             }
@@ -638,10 +641,15 @@ class ChatViewModel @Inject constructor(
         //（此前仅记日志——用户点击压缩后界面无任何反馈的成因之二）
         viewModelScope.launch {
             try {
-                var lastCompacted = eventDispatcher.compactedSessions.value
-                eventDispatcher.compactedSessions.collect { compacted ->
-                    if (sessionId in compacted && compacted != lastCompacted) {
-                        lastCompacted = compacted
+                // 2026-08-24（#217 R3 修复）：原累积 Set 判变（compacted != last）
+                // 在同会话第二次压缩时集合不变 → collect 不发射 → 刷新/通知
+                // 双双跳过 → 全程零 UI（真机 round 3 实证）。源头已改
+                // per-session 压缩计数 Map（SessionEventHandler），这里按计数判变。
+                var seenCount = eventDispatcher.compactedSessions.value[sessionId] ?: 0L
+                eventDispatcher.compactedSessions.collect { counts ->
+                    val count = counts[sessionId] ?: 0L
+                    if (count > seenCount) {
+                        seenCount = count
                         messageData.refreshMessages()
                         // 2026-08-16（压缩完成后才通知·用户需求）：SSE
                         // session.compacted 事件 = 压缩**完毕**的确切时刻——

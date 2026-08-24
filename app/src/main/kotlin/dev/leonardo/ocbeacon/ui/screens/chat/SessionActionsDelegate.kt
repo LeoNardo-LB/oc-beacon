@@ -66,12 +66,14 @@ internal class SessionActionsDelegate(
     private val loadPendingQuestions: suspend () -> Unit,
     private val loadPendingPermissions: suspend () -> Unit,
     private val restoreRevertedDraft: (RevertedDraftPayload) -> Unit,
-    /** 2026-08-16（压缩气泡·V2 适配）：压缩状态注入回调——发起前注入
-     *  CompactionStarted（V2 服务器只发单个 session.compacted 完成事件，
-     *  无 V1 的 started 三件套 → 进行中气泡在 V2 永不显示的根因），
-     *  HTTP 返回/失败注入 CompactionEnded（幂等，SSE compacted 事件
-     *  到达时同样 Ended）。由 ChatViewModel 转发到 EventDispatcher。 */
-    private val compactionNotifier: (sessionId: String, started: Boolean, reason: String) -> Unit = { _, _, _ -> },
+    /** 2026-08-24（#217 分割线包揽）：压缩异步能力位——true(V2)=HTTP 立即返回，
+     *  进行中/终态全由 SSE compaction.* 驱动；false(V1/未知)=HTTP 同步挂起至
+     *  完成，返回即终态（进行中态需本地置起、返回时终结）。 */
+    private val compactionAsyncProvider: () -> Boolean,
+    /** #217：V1 本地压缩态注入（ChatViewModel 接 EventDispatcher →
+     *  SessionNextEventHandler.compactionState 单一数据源）；V2 永不调用。 */
+    private val compactionLocalState: (sessionId: String, started: Boolean) -> Unit = { _, _ -> },
+
 ) {
     private val sessionId: String get() = sessionIdProvider()
 
@@ -353,7 +355,15 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** 压缩当前会话。 */
+    /**
+     * 压缩当前会话（2026-08-24 #217 分割线包揽重构）。
+     *
+     * - V2（compactionAsync=true）：HTTP 立即返回（steer 异步）。进行中态由 SSE
+     *   compaction.started 置起、delta 流式累积、ended/failed 终结——本地不再
+     *   注入任何压缩状态（旧 finally 秒杀 banner 的 59ms 闪现根因）。
+     * - V1（compactionAsync=false）：HTTP 同步挂起至压缩完成、SSE 无 started——
+     *   本地置起进行中态，返回/异常即终结（行为等价旧链路，但只驱动分割线）。
+     */
     fun compactSession(onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
@@ -365,18 +375,19 @@ internal class SessionActionsDelegate(
                     onResult(false)
                     return@launch
                 }
-                // 2026-08-16（压缩气泡·V2 适配）：本地置「压缩进行中」——V1 服务器
-                // 随后发 compaction.started 三件套（幂等覆盖）；V2 只有单个
-                // session.compacted 完成事件，本地置态是进行中气泡唯一驱动。
-                // HTTP 挂起期间（服务器跑 LLM 压缩可达数十秒）界面不再静止。
-                compactionNotifier(sessionId, true, "")
+                val isAsync = compactionAsyncProvider()
+                if (!isAsync) {
+                    compactionLocalState(sessionId, true)
+                }
                 try {
                     shareExportUseCase.compactSession(serverId, sessionId, providerId, modelId)
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "Compacted session $sessionId")
                     onResult(true)
                 } finally {
-                    // 成功/失败都结束进行中态（成功时 SSE compacted 也会 Ended——幂等）
-                    compactionNotifier(sessionId, false, "")
+                    // V1：HTTP 返回即终态。V2 正常路径由 SSE ended 终结，不本地杀。
+                    if (!isAsync) {
+                        compactionLocalState(sessionId, false)
+                    }
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e

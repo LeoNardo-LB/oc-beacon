@@ -210,7 +210,7 @@ class EventDispatcher @Inject constructor(
     /** 2026-08-15：按 sessionId 的实时 token 用量（V2 session.usage.updated）。 */
     val sessionUsage: StateFlow<Map<String, dev.leonardo.ocbeacon.domain.model.SessionNextEvent.UsageUpdated>> get() = sessionNextHandler.sessionUsage
     /** 2026-08-15：已压缩会话集合（SessionCompacted 事件）——UI 监听刷新消息列表。 */
-    val compactedSessions: StateFlow<Set<String>> get() = sessionHandler.compactedSessions
+    val compactedSessions: StateFlow<Map<String, Long>> get() = sessionHandler.compactedSessions
     val shellState: StateFlow<Map<String, ShellStateInfo>> get() = sessionNextHandler.shellState
     val retryState: StateFlow<Map<String, Int>> get() = sessionNextHandler.retryState
     val gapDetected: StateFlow<Set<String>> get() = sessionNextHandler.gapDetected

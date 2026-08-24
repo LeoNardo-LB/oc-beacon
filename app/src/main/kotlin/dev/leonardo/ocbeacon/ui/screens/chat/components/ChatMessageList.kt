@@ -221,7 +221,8 @@ fun ChatMessageList(
         StepProgressInfo(step = it.step, agent = it.agent, model = it.model)
     }
     val currentCompaction = compactionState?.let { 
-        CompactionStateInfo(isActive = it.isActive, reason = it.reason)
+        CompactionStateInfo(isActive = it.isActive, reason = it.reason,
+            deltaText = it.deltaText, messageId = it.messageId)
     }
 
     // 快速导航双向加载状态（直接从 viewModel 收集，避免侵入 messageListState combine 管道）
@@ -364,6 +365,12 @@ fun ChatMessageList(
         }
         if (prevReal != null) m[prevReal.message.id] = null  // 会话最后一条：无后继 = turn 尾
         m
+    }
+
+    // #217：当前渲染列表的消息 id 集——尾部进行中压缩分割线的去重判据
+    //（压缩消息已在列表中时，由消息流内同 item 分割线承担，尾部不再出线）。
+    val displayItemMessageIds = remember(displayItems) {
+        displayItems.map { it.second.message.id }.toSet()
     }
 
     // LazyColumn 中 itemsIndexed 之前渲染的非消息项数量。
@@ -882,11 +889,19 @@ fun ChatMessageList(
                         }
                     }
 
-                    // Compaction 横幅
-                    if (currentCompaction != null && currentCompaction.isActive) {
+                    // #217 分割线包揽（2026-08-24）：压缩进行中 = 进行中分割线
+                    //（进度线即分割线 + 可展开流式摘要）——CompactionBanner 已删除。
+                    // 插在消息流尾部（最新消息之后），完成态由消息流内 compaction
+                    // 消息的 CompactionCard 承担（同一组件两态）。
+                    // 尾部兜底分割线：仅当进行中压缩对应的消息还不在渲染列表
+                    //（V2 进行期消息未刷新入列 / V1 无 messageId）——消息已对位
+                    // 时由消息流内同一 item 承担（避免双分割线）。
+                    val tailCompaction = currentCompaction
+                        ?.takeIf { it.isActive && it.messageId !in displayItemMessageIds }
+                    if (tailCompaction != null) {
                         item(key = "compaction_banner") {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            CompactionBanner(state = currentCompaction)
+                                CompactionCard(state = tailCompaction)
                             }
                         }
                     }
@@ -1259,7 +1274,15 @@ fun ChatMessageList(
                                             )
                                         }
                                     ) {
-                                        CompactionCard(
+                                        // #217：进行中态按 messageId 对位——仅当前
+                                    // 压缩对应的消息渲染进行中分割线（历史分割线
+                                    // 不受新压缩影响）；同 item 原位切换保证 Q13
+                                    // 展开/流式文本连续（messageId 来自 started
+                                    // 事件 inputID，与 compaction 消息 id 同源）。
+                                    val compactionActiveState = currentCompaction
+                                        ?.takeIf { it.isActive && it.messageId == chatMessage.message.id }
+                                    CompactionCard(
+                                            state = compactionActiveState,
                                             summary = chatMessage.parts
                                                 .filterIsInstance<Part.Compaction>()
                                                 .firstOrNull()?.summary

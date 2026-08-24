@@ -91,7 +91,7 @@ class ChatViewModelContextTokensTest {
     // VM 侧 eventDispatcher mock 的可控 flow（2026-08-17 后 sessionUsage 不再被消费）
     private val vmEventDispatcher: EventDispatcher = mockk(relaxed = true)
     private val usageFlow = MutableStateFlow<Map<String, SessionNextEvent.UsageUpdated>>(emptyMap())
-    private val compactedFlow = MutableStateFlow<Set<String>>(emptySet())
+    private val compactedFlow = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     @Before
     fun setup() {
@@ -386,7 +386,7 @@ class ChatViewModelContextTokensTest {
         awaitTrackerValue(48000) { tokenStatsTracker.stats.value.lastContextTokens }
 
         // session.compacted 到达（原 maxOf 兜底已删——不得用累计值抬高）
-        compactedFlow.value = setOf(testSessionId)
+        compactedFlow.value = mapOf(testSessionId to 1L)
         advanceUntilIdle()
         awaitTrackerValue(48000) { tokenStatsTracker.stats.value.lastContextTokens }
 

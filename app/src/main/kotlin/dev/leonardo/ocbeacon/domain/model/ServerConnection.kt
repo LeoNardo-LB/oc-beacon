@@ -15,6 +15,13 @@ data class ServerCapabilities(
     val runningSessionsFilterSupported: Boolean,
     /** 全局配置可写（V2 /api/config 只读，PATCH 404——backlog #85）。 */
     val configEditable: Boolean,
+    /**
+     * 压缩异步化（#217 分割线包揽）：V2 compact HTTP 立即返回（steer 异步），
+     * 进行中/终态由 SSE compaction.started/delta/ended 驱动；V1 summarize HTTP
+     * 同步挂起至完成、SSE 只有单个 compacted 完成事件——HTTP 返回即终态。
+     * null 版本（未知/未加载）按 V1 语义（保守：HTTP 返回即终态）。
+     */
+    val compactionAsync: Boolean,
 ) {
     companion object {
         fun of(apiVersion: ApiVersion?): ServerCapabilities = when (apiVersion) {
@@ -23,12 +30,14 @@ data class ServerCapabilities(
                 backgroundSessionsSupported = true,
                 runningSessionsFilterSupported = true,
                 configEditable = false,
+                compactionAsync = true,
             )
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
                 backgroundSessionsSupported = apiVersion == null,
                 runningSessionsFilterSupported = apiVersion == null,
                 configEditable = true,
+                compactionAsync = false,
             )
         }
     }

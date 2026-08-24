@@ -41,7 +41,11 @@ data class StepProgressInfo(
  */
 data class CompactionStateInfo(
     val isActive: Boolean,
-    val reason: String = ""
+    val reason: String = "",
+    /** 2026-08-24（#217 分割线包揽）：压缩摘要流式累积文本（session.compaction.delta 逐段拼接）；空 = 尚无输出。 */
+    val deltaText: String = "",
+    /** 服务器 compaction 消息 id（started 事件 inputID 同源）——预留终态对位，空 = 未知。 */
+    val messageId: String = ""
 )
 
 /**
@@ -146,7 +150,7 @@ class SessionNextEventHandler @Inject constructor(
             is SessionNextEvent.ShellEnded -> handleShellEnded(event.sessionId)
 
             is SessionNextEvent.CompactionStarted -> handleCompactionStarted(event)
-            is SessionNextEvent.CompactionDelta -> { /* delta 已跟踪 */ }
+            is SessionNextEvent.CompactionDelta -> handleCompactionDelta(event)
             is SessionNextEvent.CompactionEnded -> handleCompactionEnded(event.sessionId)
 
             is SessionNextEvent.Prompted -> { /* 信息性 */ }
@@ -258,10 +262,30 @@ class SessionNextEventHandler @Inject constructor(
     }
 
     private fun handleCompactionStarted(event: SessionNextEvent.CompactionStarted) {
+        // 2026-08-24（#217）：messageId 记录（started.inputID 即 compaction 消息 id）；
+        // deltaText 清零——同会话二次压缩重新累积。
         _compactionState.update { it + (event.sessionId to CompactionStateInfo(
             isActive = true,
-            reason = event.reason
+            reason = event.reason,
+            deltaText = "",
+            messageId = event.messageId
         )) }
+    }
+
+    /**
+     * 2026-08-24（#217 分割线包揽）：压缩摘要流式累积——session.compaction.delta
+     * 的 text 逐段拼接进进行中状态，驱动「进行中分割线」展开区的实时摘要。
+     * 未 started 先到 delta（事件乱序防御）时置 isActive=true 兜底。
+     */
+    private fun handleCompactionDelta(event: SessionNextEvent.CompactionDelta) {
+        if (event.delta.isEmpty()) return
+        _compactionState.update { current ->
+            val existing = current[event.sessionId]
+            val base = existing ?: CompactionStateInfo(isActive = true, reason = "")
+            current + (event.sessionId to base.copy(
+                deltaText = base.deltaText + event.delta
+            ))
+        }
     }
 
     private fun handleCompactionEnded(sessionId: String) {

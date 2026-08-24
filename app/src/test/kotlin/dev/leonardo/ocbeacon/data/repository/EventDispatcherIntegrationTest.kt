@@ -283,8 +283,8 @@ class EventDispatcherIntegrationTest {
 
         assertFalse("SessionCompacted 应终结压缩横幅",
             dispatcher.compactionState.value.containsKey("s1"))
-        assertTrue("SessionCompacted 应进入 compactedSessions",
-            dispatcher.compactedSessions.value.contains("s1"))
+        assertTrue("SessionCompacted 应计入 compactedSessions 计数",
+            (dispatcher.compactedSessions.value["s1"] ?: 0L) >= 1L)
     }
 
     // ============ 场景 4：Agent/Model 切换链路 ============

@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#217**。
+**编号**：全局递增，不回收。下一编号：**#218**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -63,6 +63,12 @@
 
 
 ## P2 — 优化与锦上添花
+
+- [~] **#217 压缩 UI 统一：分割线包揽一切（V1/V2）** `sse` `ui` `compaction`
+  - 2026-08-24 服务器探针+真机复现双定音：①V2 compact HTTP 16ms 即回（steer 异步），finally compactionNotifier(false) 秒杀 banner（59ms）后被 SSE started 复活——感知「一闪就没」；②【更强】ChatViewModel compactedSessions 累积 Set 判变：同会话第二次压缩集合不变→不刷新不通知→全程零 UI 重进才见分割线（round 3 实测）；③snackbar 4s 遮挡新入列分割线（corr 0.999997 纯遮挡）
+  - 设计裁决（用户 2026-08-24）：分割线包揽一切——进行中=进度线即分割线+实时流式摘要（delta 接入）；完成=去边框+左竖线+Markdown（Q11-B）；展开不记忆（Q10）切换连续（Q13）；失败=线消失+snackbar（Q12）；CompactionBanner 删除；V1/V2 双支持（V1 HTTP 挂起即终态，V2 事件驱动）
+  - 已实现+真机 E2E（三轮压缩含 R3 双连发修复实证 + 完成态 Markdown 展开验收）；单测 1931 绿；V1 真机验证留待环境；待用户日常使用验收
+  - → `docs/journal/2026-08-24-compaction-divider-unification.md`
 
 - [~] **#215 聊天流卡片体系统一：容器语言 + 交互契约** `ui` `refactor`
   - 三批完成（bcc435f1/998e32dc/6dedc566）+ 验收遗留修复完成（a4eedab6）：展开/收起两方向视口稳定（矩阵 6 格全 dy=0，动画保留；定因=倒序 LazyColumn 对 item 内高度变化零锚定修正·存量机制·非批次引入；修法=toggle 修正窗 + scrollToBeConsumed 逐帧注入，request-position 通道被测量回写丢弃的定因存档 journal）→ 待用户 V6 手感验收

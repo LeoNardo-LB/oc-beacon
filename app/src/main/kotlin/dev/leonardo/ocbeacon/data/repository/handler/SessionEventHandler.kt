@@ -33,8 +33,11 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     private val _sessions = MutableStateFlow<List<Session>>(emptyList())
 
     /** 2026-08-15：已压缩会话 id 集合（SessionCompacted 事件累积）——UI 监听触发刷新。 */
-    private val _compactedSessions = MutableStateFlow<Set<String>>(emptySet())
-    val compactedSessions: kotlinx.coroutines.flow.StateFlow<Set<String>> = _compactedSessions.asStateFlow()
+    /** #217 R3 修复（2026-08-24）：Set → per-session 压缩计数。原 Set 判变在同会话
+     * 第二次压缩时不发射 → ChatViewModel 刷新/通知双双跳过（真机 round 3 实证
+     * 全程零 UI）。计数单调递增，每次 SessionCompacted 都触发下游。 */
+    private val _compactedSessions = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val compactedSessions: kotlinx.coroutines.flow.StateFlow<Map<String, Long>> = _compactedSessions.asStateFlow()
     val sessions: StateFlow<List<Session>> = _sessions.asStateFlow()
 
     private val _sessionDiffs = MutableStateFlow<Map<String, List<FileDiff>>>(emptyMap())
@@ -75,7 +78,9 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
                 // 2026-08-15：通知 UI 刷新——压缩后服务器把历史替换为 compaction
                 // 消息 + 摘要，不刷新的话压缩卡片要重进会话才显示（用户实测
                 // "点击压缩无任何反馈"成因之一）。
-                _compactedSessions.value = _compactedSessions.value + event.sessionId
+                _compactedSessions.update {
+                    it + (event.sessionId to ((it[event.sessionId] ?: 0L) + 1L))
+                }
                 true
             }
             is SseEvent.VcsBranchUpdated -> { _vcsBranch.value = event.branch; true }

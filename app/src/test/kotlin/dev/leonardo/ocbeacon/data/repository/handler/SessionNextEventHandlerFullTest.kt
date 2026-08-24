@@ -480,11 +480,16 @@ class SessionNextEventHandlerFullTest {
     }
 
     @Test
-    fun compactionDelta_noStateChange() {
+    fun compactionDelta_accumulatesText() {
+        // #217 分割线包揽（2026-08-24 语义变更）：delta 现在累积进进行中状态
+        //（驱动进行中分割线的流式摘要展开区）；乱序 delta（未 started）兜底置 active。
         handler.handleSessionNextEvent(
             SessionNextEvent.CompactionDelta(sessionId = "s1", messageId = "m1", delta = "compacting...")
         )
-        assertNull(handler.compactionState.value["s1"])
+        val state = handler.compactionState.value["s1"]
+        assertNotNull(state)
+        assertTrue(state!!.isActive)
+        assertEquals("compacting...", state.deltaText)
     }
 
     // ============ Shell 状态 ============
