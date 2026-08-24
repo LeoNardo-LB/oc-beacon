@@ -91,8 +91,9 @@ internal fun TodoListCard(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
 
+    // #215 批1：容器统一——圆角 small(8dp) → smallMedium(6dp) 对齐 scaffold 家族
     Surface(
-        shape = ShapeTokens.small,
+        shape = ShapeTokens.smallMedium,
         color = MaterialTheme.colorScheme.surface,
         border = if (isAmoled) AmoledDefaultBorder else null,        tonalElevation = if (isAmoled) 0.dp else 1.dp,
         modifier = Modifier.fillMaxWidth()

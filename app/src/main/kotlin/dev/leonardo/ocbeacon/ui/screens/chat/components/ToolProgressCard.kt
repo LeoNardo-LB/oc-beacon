@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -32,8 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
+import dev.leonardo.ocbeacon.ui.components.AmoledSurface
+import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
+import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 
 /**
  * 展示实时工具执行进度的卡片。
@@ -44,12 +45,14 @@ fun ToolProgressCard(
     toolInfo: ToolProgressInfo,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT)
-        ),
-        shape = MaterialTheme.shapes.small
+    // #215 批1：容器统一——M3 Card(surfaceVariant 淡底 + shapes.small) →
+    // AmoledSurface 统一语言（surface + tonal 1dp + smallMedium 6dp，AMOLED 纯黑+边框）
+    AmoledSurface(
+        isAmoledDark = isAmoledTheme(),
+        normalColor = MaterialTheme.colorScheme.surface,
+        normalTonalElevation = 1.dp,
+        shape = ShapeTokens.smallMedium,
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier

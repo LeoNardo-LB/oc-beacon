@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.components.AmoledSurface
+import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 
@@ -32,9 +33,13 @@ fun TokenUsageCard(
     totalCost: Double,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = ShapeTokens.small,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    // #215 批1：容器统一——裸 Surface(surfaceContainerLow + small 8dp) →
+    // AmoledSurface 统一语言（surface + tonal 1dp + smallMedium 6dp，AMOLED 纯黑+边框）
+    AmoledSurface(
+        isAmoledDark = isAmoledTheme(),
+        normalColor = MaterialTheme.colorScheme.surface,
+        normalTonalElevation = 1.dp,
+        shape = ShapeTokens.smallMedium,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
