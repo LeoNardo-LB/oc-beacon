@@ -63,3 +63,18 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 排查副产物（重要认知）：①compact 是 steer 语义——排队等当前流式 turn 结束才执行，排队期无任何 compaction.* 事件（此前的「服务器僵尸」误判实为排队）；②「Nothing to compact yet」失败为即时 started+failed 对（毫秒级）。
 
 验证（真机 fx3 帧 序列，压缩真实执行 34s：07:10:49 started → 07:11:23 ended）：fx3-1~8 COMPRESSING 全程可见（进行中分割线在骨架消息位置）→ fx3-9 Session compacted snackbar → fx3-10 完成分割线原位出现（n_compacted 1→2），全程无需重进。此前失败路径（Nothing to compact）也已验证：失败 snackbar + 失败分割线即时出现。
+
+## #220 进行中态视觉打磨：标签骑线 + 两段线即进度动画（2026-08-25 四报）
+
+用户反馈「正在压缩的状态在分割线上方多了一块区域专门显示，难看；就不能显示在分割线上、分割线带进度动画吗」。定因：#217 的 ActiveDividerRow 实现为「标签行在上 + 全宽进度线在下」（外加双层纵向 padding + 表面色遮罩底），与完成态（线—标签—线骑线单行）不同构——进行中态多占一整块空间，视觉突兀。
+
+修复（CompactionCard.kt 单文件）：ActiveDividerRow 改为与 CompletedDividerRow 完全同构——左右两段 weight(1f) 2dp indeterminate LinearProgressIndicator，track=outlineVariant FAINT（与完成态分割线同色，即分割线本体），color=tertiary MEDIUM（扫动段=进度动画，M3 原生动画零自定义 spec）；标签居中骑线、无遮罩底、无额外块。进行中→完成切换仅「线由动转静 + 标签换文案」，行位零位移（Q13 强化）。
+
+验证（真机 fw 帧序列，glm-5.2 模型真实压缩）：
+- 结构：进行中标签 bounds [352,2237][848,2280] 与完成态标签 [409,2237][736,2280] 同一 y 带、同单行结构——无额外块（uiautomator）
+- 全程可见：dump03（~4s）→ dump10（~12s）持续 Compressing context: manual，dump20（~24s）Session compacted snackbar，dump30 完成态原位出现
+- 扫动动画像素级实证：左段线（x48-340）三色分离——背景 [247,250,253] / 静线 track [228,233,236] / 扫动段 [138,139,161]，扫动 run 位置逐帧移动（帧06: 75-147 → 帧09: 202-315 → 帧12: 110-256），完成帧扫动像素归零（纯静线）
+- 回归：本轮先后两次失败压缩（provider 故障 + Nothing to compact yet）失败 snackbar 带原因 + 红色失败分割线均即时正确（#219 路径无损）；单测 CompactionDividerTest 绿 + compileDevDebugKotlin 绿
+
+过程勘误（测试方法）：①shell awk 解析 bounds 字段拆分 bug 导致 tap 坐标算错——此前「进错会话」即此因，改用 python xml 解析；②多行 composer 中 keyevent 66 = 换行而非发送，/compact 斜杠命令注入失败改走 More options → Compact session 菜单；③uiautomator dump 失败时静默返回旧文件，必须先 rm 再 dump；④本会话 session 模型 opencode-go（Console Go 上游故障）导致压缩必败，POST /api/session/{id}/model（body {model:{id,providerID}}）切 zai-coding-plan/glm-5.2 后恢复。
+

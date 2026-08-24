@@ -28,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
@@ -41,8 +40,10 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * 压缩分割线（2026-08-24 #217「分割线包揽一切」统一重构）。
  *
  * 一个元素两种状态：
- * - 进行中（[state] 非空且 isActive）：分割线位置是全宽 indeterminate 进度线
- *   （M3 原生动画），中央「正在压缩上下文…」标签可展开——展开区实时渲染
+ * - 进行中（[state] 非空且 isActive）：与完成态同构的骑线分割线——左右两
+ *   段 2dp indeterminate LinearProgressIndicator 即分割线本体（track 为完成态
+ *   同款 FAINT 静色线，tertiary 扫动段为进度动画，#220 用户裁决：不另占块），
+ *   中央「正在压缩上下文…」标签可展开——展开区实时渲染
  *   deltaText 流式摘要（session.compaction.delta 逐段累积，逐字生长）。
  *   V2 由 SSE started/delta/ended 驱动；V1 由本地置态驱动（HTTP 挂起期间），
  *   无摘要则不可展开。
@@ -95,8 +96,11 @@ internal fun CompactionCard(
 }
 
 /**
- * 进行中态：进度线即分割线（Q8-A 用户裁决）——全宽 2dp indeterminate 进度线
- * 横贯，文字标签居中（表面色遮罩垫底保证进度线穿过时可读），可展开时带箭头。
+ * 进行中态（#220 用户裁决：标签骑线，不另占块）：与 [CompletedDividerRow]
+ * 完全同构——线—标签—线。两段线各为 2dp indeterminate LinearProgressIndicator：
+ * track 用完成态同款 FAINT 静色（分割线本体），tertiary 半透明扫动段即进度
+ * 动画（M3 原生动画，零自定义 spec）。进行中→完成切换仅线由动转静、标签换
+ * 文案，行高与位置零位移（Q13 连续性强化）。
  */
 @Composable
 private fun ActiveDividerRow(
@@ -110,22 +114,30 @@ private fun ActiveDividerRow(
     } else {
         stringResource(R.string.chat_compressing_context_plain)
     }
-    Column(modifier = Modifier.padding(vertical = SpacingTokens.XS.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = SpacingTokens.XS.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LinearProgressIndicator(
+            modifier = Modifier
+                .weight(1f)
+                .height(2.dp),
+            color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.MEDIUM),
+            trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
+        )
         Row(
             modifier = Modifier
-                .fillMaxWidth()
                 .let { m -> if (canExpand) m.clickable(onClick = onToggle) else m }
-                .padding(vertical = SpacingTokens.XS.dp),
-            horizontalArrangement = Arrangement.Center,
+                .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = SpacingTokens.MD.dp)
             )
             if (canExpand) {
                 Spacer(modifier = Modifier.width(SpacingTokens.XS.dp))
@@ -135,19 +147,17 @@ private fun ActiveDividerRow(
                         stringResource(R.string.chat_collapse)
                     else
                         stringResource(R.string.chat_expand),
-                    modifier = Modifier
-                        .size(14.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                 )
             }
         }
         LinearProgressIndicator(
             modifier = Modifier
-                .fillMaxWidth()
+                .weight(1f)
                 .height(2.dp),
             color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.MEDIUM),
-            trackColor = Color.Transparent,
+            trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
         )
     }
 }
