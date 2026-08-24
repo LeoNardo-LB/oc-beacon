@@ -64,10 +64,10 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#215 聊天流卡片体系统一：容器语言 + 交互契约** `ui` `refactor`
-  - 现状 4 套容器语言漂移 + 点击行为三态（本体展开/本体跳转/仅按钮）；用户授权推翻 08-18「两套并存」残留态；M3 调研定容器层维持 AmoledSurface（Card 无 tonalElevation，ListItem 过重）
-  - 方向：本体点击=展开/收起唯一入口 + 容器参数单一真相源 + 右侧钮/动画/触觉统一；分三批（试点→行为→收编），#214 修复先行（批2 动断言面需全量绿基线）
-  - → `docs/specs/2026-08-24-card-unification-design.md` · `docs/research/2026-08-24-m3-card-container-fit.md`
+- [~] **#215 聊天流卡片体系统一：容器语言 + 交互契约** `ui` `refactor`
+  - 三批完成（bcc435f1/998e32dc/6dedc566）：批1 ToolProgress/TokenUsage/TodoList 容器统一；批2 全家去冗余 chevron（本体点击=展开唯一入口+无内容禁点）+ TaskToolCard 跳转收编右侧箭头钮 + ShellCard 首击陷阱顺带修复；批3 ReasoningBlock/合成通知本体点击（跳转/定位钮保留）+ FileCard 迁移 + EmbeddedCardContainer 退役
+  - 验证：每批插桩 135 全绿（共 4 轮）+ 单测绿 + Expand 按钮全网清零 + 冷态单击展开实证；**待用户统一验收**（日常使用卡片交互 + 视觉三主题）
+  - → `docs/specs/2026-08-24-card-unification-design.md` · `docs/journal/2026-08-24-card-unification.md`
 
 > （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
 >
