@@ -78,6 +78,13 @@
 
 **状态**：待修复（#215 卡转回 [ ]）。演示会话保留作修复验证场。
 
+**修复尝试·方案一（双向 delta 补偿）——实测更糟，已回滚（2026-08-25）**
+
+- 实现：非流式 turn item 挂 layout 补偿，delta≠0 时 requestScrollToItemNoCancel(first, offset+delta)（镜像 SSE 流式补偿公式，双向放开）
+- 真机实测（同演示会话同卡）：展开位移 69→**160px**、收起 319→**862px**——放大 2-3 倍
+- 结论：倒序 LazyColumn 的锚定语义与该补偿公式方向相反——toggle 场景卡在视口内（锚点之后），LazyColumn 默认锚定本应稳定（但实测有 69/319 的被动跳变，见上），叠加 offset+delta 补偿变成双重滚动
+- 正确修法需实验矩阵：卡位于视口上/中/下带 × 展开/收起 × 补偿方向（+delta/-delta/不补）× firstVisibleItem 是否为变化 item——9 格实验锁定每格正确行为后再实现；适合委派专项深挖
+
 ## 发版插叙（同日）
 
 v0.3.2-dev.1 发版（用户裁决 0.3.2 dev 线）：`release.sh dev --force-bump=patch`（脚本默认推导 dev.23 续 0.3.1 线，force 开新线符合「beta 已发、dev 转 0.3.2 迭代」语义）；RELEASE_NOTES 按模板润色（用户视角 5 Added/4 Changed/8 Fixed）；CI success，资产 oc-beacon-0.3.2-dev.1.apk（7.5MB）上线。发版与批1 无冲突（脚本本地仅 bump+tag+push，构建在 CI）。

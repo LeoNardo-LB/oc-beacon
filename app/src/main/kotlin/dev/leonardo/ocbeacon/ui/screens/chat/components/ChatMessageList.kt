@@ -1116,6 +1116,11 @@ fun ChatMessageList(
                                     }
                                 }
                         } else Modifier.fillMaxWidth()
+                        // #215 验收反馈·一（方案一回滚存档）：曾试「非流式 item 双向
+                        // delta≠0 锚定补偿 offset±delta」——真机实测位移放大（展开 69→160、
+                        // 收起 319→862px）：倒序 LazyColumn 锚定语义与「锚点之上生长」补偿
+                        // 公式方向相反，过度补偿。已回滚；正确修法需实验矩阵锁定
+                        //（卡位于视口上/中/下 × 展开/收起 × 补偿正负），见 journal §验收反馈·一
                         // 定位发起卡片后的短暂高亮（3 秒后自动清除）
                         val isHighlighted = itemKey == highlightedTurnKey
                         // 临时诊断（ScrollDiag，DEBUG-only）：item 初次测量后的高度变化
