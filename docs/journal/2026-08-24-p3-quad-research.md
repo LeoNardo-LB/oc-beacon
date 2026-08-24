@@ -236,6 +236,11 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 - 时间线：androidTest 最后成功产物 08-18 21:29；源集 08-18 起编译破损掩盖至今 → 回归窗口 08-19..08-24（ChatScreen 大改期：F5 滚动、堆积管线心跳 #176/#177、思考计时 #207 等）未二分
 - 设备偶发干扰记录：11:35 测试运行中被 com.miui.home UninstallController 桌面卸载 dev 包（用户否认本人操作；11:29 另有一次 UTP 清理卸载）→ dev 本地数据被清（服务器配置/已读/收藏/标签；服务器数据无损），已用 debug intent 恢复配置路径验证、表单弹层正常
 
+### 残留测试会话清理（2026-08-24，等待解锁窗口期间完成）
+
+- `ses_fd01e1c9affe7ysrOnU6lH5sTa`（黎曼假设背景与证明——#208 取证期 Riemann 中断轮次残留）与 `ses_fd0274870ffemZ7FfBoBgGZum2`（伽罗瓦理论五次方程不可解性——E2E throwaway，此前记录称已删但服务器实测仍在）：双双 DELETE 204，直接 GET 404 确认，会话列表 id 消失 ✅
+- 测试会话污染披露（真实会话，不删除，向用户报告）：`ses_fdeec5901ffe`（分片E2E 验收）被测试追加 Galois/Dedekind/Lebesgue 轮次；`ses_fd02eb5a7ffe`（两车相遇）被测试追加 cubic/spectral 定理轮次——均为 #208 取证期间为复现中断/历史场景向真实会话发的测试消息
+
 ### #168 执行记录（2026-08-24，待解锁窗口）
 
 - devRelease APK 已构建（assembleDevRelease 3m33s，R8 minify）；解析脚本 `/tmp/r168rel/parse.py` 就绪（120Hz 8.33ms 预算，framestats 24 列，IntendedVsync 去重）
