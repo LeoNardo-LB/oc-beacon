@@ -241,6 +241,12 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 - `ses_fd01e1c9affe7ysrOnU6lH5sTa`（黎曼假设背景与证明——#208 取证期 Riemann 中断轮次残留）与 `ses_fd0274870ffemZ7FfBoBgGZum2`（伽罗瓦理论五次方程不可解性——E2E throwaway，此前记录称已删但服务器实测仍在）：双双 DELETE 204，直接 GET 404 确认，会话列表 id 消失 ✅
 - 测试会话污染披露（真实会话，不删除，向用户报告）：`ses_fdeec5901ffe`（分片E2E 验收）被测试追加 Galois/Dedekind/Lebesgue 轮次；`ses_fd02eb5a7ffe`（两车相遇）被测试追加 cubic/spectral 定理轮次——均为 #208 取证期间为复现中断/历史场景向真实会话发的测试消息
 
+### #168 解析器列映射校准（2026-08-24，等待解锁期间完成——裁决可信性前提）
+
+- 本机 framestats 为 HyperOS 24 列扩展格式且首行为表头（实测 runA/snap1：0=Flags…17=FrameCompleted…），初版解析器按旧 16 列取列全错（6 帧 + 66e6ms 荒谬值）
+- 修正后相位口径与 subagent 逐位对齐（input p50 1.83/p99 6.32、anim p99 20.55、draw p50 1.91 全部精确一致）；total 口径二选一实证：**FrameCompleted−IntendedVsync**（A）vs FrameCompleted−FrameStartTime（B）——A 精确复现基线（982 帧/p50 9.4/p90 14.5/p95 19.6/≥15ms 8.78%/≥17ms 6.53%·64 帧），B 系统性偏低（≥17ms 4.39%）→ 固化 A
+- 解锁脚本 `/tmp/r168rel/unlocked-run.sh` 同步两修正：①输入法改 input text（type.sh 仅 a-z0-9,.，URL 的 :/ 与密码符号会被静默丢弃；禁令场景=手势返回流伪影，表单填充无返回手势，release 无 debug intent 替代——偏差特此披露）②脚本其余段语法校验通过
+
 ### #168 执行记录（2026-08-24，待解锁窗口）
 
 - devRelease APK 已构建（assembleDevRelease 3m33s，R8 minify）；解析脚本 `/tmp/r168rel/parse.py` 就绪（120Hz 8.33ms 预算，framestats 24 列，IntendedVsync 去重）
