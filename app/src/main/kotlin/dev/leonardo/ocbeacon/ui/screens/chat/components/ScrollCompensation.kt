@@ -101,25 +101,6 @@ internal object LazyListReflection {
         state.requestScrollToItem(index, scrollOffset)
     }
 
-    /**
-     * #215 验收反馈·一：向滚动消费通道注入位移（不经过 scroll{} 互斥锁，不取消 fling）。
-     *
-     * @param shiftDownPx 正值 = 视口内容整体下移该像素数（reverseLayout 下等效向后滚动）。
-     * 下一次测量必然消费该值并回写结果；注入同时 poke measurementScopeInvalidator
-     * 促使当帧重测消费（最迟下一动画帧，滞后 ≤ 单帧增量）。
-     * 反射不可用时静默降级（toggle 补偿失效 = 修复前行为，不崩溃）。
-     */
-    fun requestScrollShift(state: LazyListState, shiftDownPx: Float) {
-        val f = scrollToBeConsumedField ?: return
-        try {
-            val cur = f.getFloat(state)
-            f.setFloat(state, cur - shiftDownPx)
-            invalidatorField?.get(state)?.let {
-                @Suppress("UNCHECKED_CAST")
-                (it as MutableState<Unit>).value = Unit
-            }
-        } catch (t: Throwable) {
-            AppLogger.w("LazyListReflection", "requestScrollShift failed: ${t.message}")
-        }
-    }
+    // #215 验收反馈·一（终版裁决）：requestScrollShift 已随方案三整体撤销，
+    // 实现存档 git history（a4eedab6）供未来复用。
 }

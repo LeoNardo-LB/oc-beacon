@@ -274,13 +274,9 @@ internal fun SyntheticNotificationCard(
                     // #215 批3：展开钮移除——本体点击已承担展开/收起
                 }
 
-                // 展开输出（2026-08-12 注释存档：曾用 tween——spring 回弹问题，
-                // 现高度动画恢复默认；#215 验收反馈·一：视口稳定见 toggleAnchorCorrection）
-                AnimatedVisibility(
-                    visible = hasOutput && expanded,
-                    enter = fadeIn(animationSpec = tween(150)) + expandVertically(),
-                    exit = fadeOut(animationSpec = tween(150)) + shrinkVertically()
-                ) {
+                // 展开输出（动画全部默认：spring 高度 + 淡入淡出——#215 用户裁决
+                // 撤全部补偿与 spec 覆盖，交 LazyColumn 原生锚定）
+                AnimatedVisibility(visible = hasOutput && expanded) {
                     val halfScreenHeight = halfScreenHeight()
                     val scrollState = rememberScrollState()
                     Surface(

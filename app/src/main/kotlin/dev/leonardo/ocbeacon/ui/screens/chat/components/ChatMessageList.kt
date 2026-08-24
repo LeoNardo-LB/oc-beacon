@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import android.content.Context
-import android.os.SystemClock
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -41,7 +40,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
-import androidx.compose.runtime.MutableLongState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -49,7 +47,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -295,27 +292,12 @@ fun ChatMessageList(
     val compensateState = remember(streamingMsgId) { CompensateState() }
     val toolCompensateState = remember(streamingMsgId) { CompensateState() }
 
-    // #215 验收反馈·一（方案三·简）：工具卡 toggle 展开/收起的锚定修正时间窗。
-    // 定因（journal §验收反馈·一 矩阵）：倒序 LazyColumn 对 item 内部高度变化零锚定
-    // 修正——(first, off) 全程 freeze，被点卡随内容 ∓delta 漂移（统一批次前即存在，
-    // 非本轮回归）。修法两半：① 卡片高度动画 snap 化（ToolCardScaffold/ReasoningBlock/
-    // SyntheticNotificationCard）→ 一次原子布局变化；② toggle 后开一个短时间窗，
-    // 窗口内非流式 item 的 [toggleAnchorCorrection] 对每次 delta≠0 测量做一次
-    // requestScrollToItemNoCancel（off+delta，同 SSE 流式补偿通道与公式）→ 被
-    // 点卡钉回原屏位。时间窗而非一次性标志：收起方向的修正会把锚点折算进更新的
-    // item，可能触发其 markdown 异步解析落定（实测 +128px）——窗口把这类联动
-    // 重排一并钉住（snap 化后窗口内只有离散的少量 delta，无逐帧拉锯）。
+    // #215 验收反馈·一（终版裁决 2026-08-25 用户定规）：toggle 锚定修正逻辑
+    // 全部撤销——修正窗/toggleAnchorCorrection/注入通道一并不用；卡片动画
+    // 回 M3/Compose 默认（spring 高度 + 淡入淡出，无任何 spec 覆盖）；展开/
+    // 收起引发的视口位移交 LazyColumn 原生锚定行为（倒序列表对该场景的漂移
+    // 为存量机制，定因与矩阵数据存档 journal §验收反馈·一）。
     // 流式分支（isStreamingMsg 铁律补偿）不受影响。
-    val toggleAnchorUntil = remember { mutableLongStateOf(0L) }
-    LaunchedEffect(viewModel) {
-        var prevToggleStates: Map<String, Boolean>? = null
-        viewModel.toolExpandedStates.collect { states ->
-            if (prevToggleStates != null && prevToggleStates != states) {
-                toggleAnchorUntil.longValue = SystemClock.elapsedRealtime() + TOGGLE_ANCHOR_WINDOW_MS
-            }
-            prevToggleStates = states
-        }
-    }
 
     // 跟踪用户是否已滚离底部。
     // 重要（铁律等价改写 2026-08-20 B-F5）：原双 key LaunchedEffect 语义 =
@@ -1039,13 +1021,9 @@ fun ChatMessageList(
                                 val (rawIndex, msg) = displayItems[entry.displayIndex]
                                 val nextRealIsAssistant = nextRealIsAssistantByMsgId[msg.message.id]
                                 val isTurnLast = nextRealIsAssistant != true
-                                // #215：分片 turn 同样挂 toggle 锚定修正（分片不含流式
-                                // turn；实际重排的 chunk 产生 delta≠0，其余空转）
-                                val toggleItemHeight = remember { mutableIntStateOf(0) }
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .toggleAnchorCorrection(listState, toggleAnchorUntil, toggleItemHeight)
                                         .let { m ->
                                             if (entry.isLast) m.padding(bottom = messageSpacing) else m
                                         }
@@ -1148,18 +1126,10 @@ fun ChatMessageList(
                                         placeable.placeRelative(0, 0)
                                     }
                                 }
-                        } else {
-                            // #215：非流式 item 的 toggle 高度基线
-                            val toggleItemHeight = remember { mutableIntStateOf(0) }
-                            Modifier
-                                .fillMaxWidth()
-                                .toggleAnchorCorrection(listState, toggleAnchorUntil, toggleItemHeight)
-                        }
-                        // #215 验收反馈·一（方案一回滚存档）：曾试「非流式 item 双向
-                        // delta≠0 锚定补偿 offset±delta」——真机实测位移放大（展开 69→160、
-                        // 收起 319→862px）：倒序 LazyColumn 锚定语义与「锚点之上生长」补偿
-                        // 公式方向相反，过度补偿。已回滚；正确修法需实验矩阵锁定
-                        //（卡位于视口上/中/下 × 展开/收起 × 补偿正负），见 journal §验收反馈·一
+                        } else Modifier.fillMaxWidth()
+                        // #215 验收反馈·一（终版裁决）：方案一（offset±delta 补偿）与方案三
+                        //（修正窗+注入通道）均已撤销——用户定规不用任何补偿逻辑，动画回
+                        // M3 默认；定因矩阵与通道数据存档 journal §验收反馈·一
                         // 定位发起卡片后的短暂高亮（3 秒后自动清除）
                         val isHighlighted = itemKey == highlightedTurnKey
                         // 临时诊断（ScrollDiag，DEBUG-only）：item 初次测量后的高度变化
@@ -1492,53 +1462,10 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
 private fun easeInOutCubic(t: Float): Float =
     if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
 
-/**
- * #215 验收反馈·一（方案三）：非流式 item 的 toggle 锚定修正测量点（逐帧对消）。
- *
- * 常驻挂载（Turn/Chunk）：窗口外零请求、仅刷新高度基线（保证 toggle 瞬间
- * 基线新鲜）；toggle 修正时间窗内的每次 delta≠0 测量（高度动画逐帧增量、
- * 锚点折算引发的 markdown 落定等联动重排），把高度增量经
- * [LazyListReflection.requestScrollShift] 注入 scrollToBeConsumed 消费通道：
- * 内容生长 delta 即注入等量下移，与被动上推逐帧对消，被点卡钉在原屏位。
- *
- * 为什么不走 request-position 通道（requestScrollToItemNoCancel，v1/v2 实测
- * 存档）：动画期间的逐帧锚点请求被测量回写（updateFromMeasureResult）中途
- * 丢弃——请求落空、动画全程漂移、终态才跳回。scrollToBeConsumed 是用户真实
- * 滚动的必经通道，测量无条件消费、跨 item 折算原生处理，无回写竞争。
- *
- * 铁律红线：流式 item（isStreamingMsg）走原补偿分支，不挂本修饰符；
- * 窗口外零注入，SSE 流式补偿不受影响。
- */
-private fun Modifier.toggleAnchorCorrection(
-    listState: LazyListState,
-    anchorUntil: MutableLongState,
-    itemHeight: MutableIntState,
-): Modifier = layout { measurable, constraints ->
-    val placeable = measurable.measure(
-        constraints.copy(maxHeight = Constraints.Infinity)
-    )
-    val h = placeable.height
-    val base = itemHeight.intValue
-    itemHeight.intValue = h
-    if (SystemClock.elapsedRealtime() < anchorUntil.longValue && base > 0 && h != base) {
-        if (BuildConfig.DEBUG) {
-            AppLogger.w(
-                "ScrollDiag",
-                "TOGGLE-ANCHOR d=" + (h - base) + " first=" + listState.firstVisibleItemIndex +
-                    " off=" + listState.firstVisibleItemScrollOffset
-            )
-        }
-        // 展开（delta>0）内容需下移 delta；收起（delta<0）需上移 |delta| ——统一为
-        // 注入 delta（正=下移）。下一次测量消费，被动上推与注入下移逐帧对消。
-        LazyListReflection.requestScrollShift(listState, (h - base).toFloat())
-    }
-    layout(placeable.width, h) {
-        placeable.placeRelative(0, 0)
-    }
-}
-
-/** #215：toggle 锚定修正时间窗（覆盖高度动画 spring ~500ms + markdown 落定联动）。 */
-private const val TOGGLE_ANCHOR_WINDOW_MS = 1200L
+// #215 验收反馈·一（终版裁决 2026-08-25）：toggleAnchorCorrection 修饰符与
+// TOGGLE_ANCHOR_WINDOW_MS 已随方案三整体撤销（用户定规不用补偿逻辑，动画回
+// M3 默认）；定因矩阵、request-position 通道竞争实测、scrollToBeConsumed
+// 注入通道设计存档 journal §验收反馈·一 供未来复用。
 
 // 预解析/分片调参常量已随渲染供给协调器外移 RenderSupplyCoordinator.companion（候选 1）。
 

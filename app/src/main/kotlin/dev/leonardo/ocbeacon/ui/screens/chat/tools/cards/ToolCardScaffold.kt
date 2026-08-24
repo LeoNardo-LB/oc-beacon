@@ -213,15 +213,9 @@ internal fun ToolCardScaffold(
                 }
             }
 
-            // 展开的内容
-            // #215 验收反馈·一：动画保留（默认 spring 高度 + 淡入淡出）。逐帧高度变化
-            // 引发的视口漂移由 ChatMessageList 的 toggle 锚定修正时间窗逐帧对消
-            //（scrollToBeConsumed 注入通道，见 toggleAnchorCorrection）。
-            AnimatedVisibility(
-                visible = expanded && hasContent,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
+            // 展开的内容（动画默认：spring 高度 + 淡入淡出——#215 用户裁决撤全部
+            // 补偿逻辑与 spec 覆盖，视口行为交 LazyColumn 原生锚定）
+            AnimatedVisibility(visible = expanded && hasContent) {
                 expandedContent()
             }
         }

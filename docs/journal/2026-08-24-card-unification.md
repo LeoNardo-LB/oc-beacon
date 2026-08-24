@@ -118,6 +118,20 @@
 
 **遗留**：V6 人工验收（用户真机手感——动画保留版）；矩阵未覆盖 ReasoningBlock/通知卡的独立格（同通道同机制，批内已 snap→恢复一致处理）
 
+## 验收反馈·一·终版裁决：撤销全部补偿，动画回 M3 默认（2026-08-25）
+
+**用户裁决（原话）**：「动画还是不对，不要有补偿逻辑！直接用M3属性的动画就行！不要自定义动画！」
+
+**撤销内容**（方案三整体退役，实现存档 git history a4eedab6 供未来复用）：
+
+- `ChatMessageList.kt`：toggle 修正时间窗（TOGGLE_ANCHOR_WINDOW_MS）+ toggleAnchorCorrection 修饰符（Turn/Chunk 两处挂载）+ 相关 import，全部删除
+- `ScrollCompensation.kt`：requestScrollShift（scrollToBeConsumed 反射注入通道）删除
+- 三卡动画 spec 全部清空回 Compose 默认：`ToolCardScaffold`/`ReasoningBlock` 的显式 fadeIn+expandVertically 参数 → 无参 AnimatedVisibility；`SyntheticNotificationCard` 的 tween(150) 覆盖（2026-08-12 存量）一并清除
+
+**验证**：编译绿 + 插桩 135 全绿 + 真机实测确认行为（展开 dy=143 / 收起 dy=846——即倒序 LazyColumn 原生锚定行为，无任何补偿干预；动画手感为 Compose 默认 spring）。
+
+**定论**：视口漂移是倒序 LazyColumn 对 item 内高度变化的存量机制（统一批次前同样存在，矩阵数据存档 §验收反馈·一）；修复尝试三方案（offset 补偿/修正窗/注入通道）均被用户否决——接受原生行为，保持代码零补偿。若未来 Compose 版本改进倒序锚定，此问题自然消解。
+
 ## 发版插叙（同日）
 
 v0.3.2-dev.1 发版（用户裁决 0.3.2 dev 线）：`release.sh dev --force-bump=patch`（脚本默认推导 dev.23 续 0.3.1 线，force 开新线符合「beta 已发、dev 转 0.3.2 迭代」语义）；RELEASE_NOTES 按模板润色（用户视角 5 Added/4 Changed/8 Fixed）；CI success，资产 oc-beacon-0.3.2-dev.1.apk（7.5MB）上线。发版与批1 无冲突（脚本本地仅 bump+tag+push，构建在 CI）。

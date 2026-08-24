@@ -182,12 +182,8 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
 
-                // 可展开内容（#215 验收反馈·一：动画保留——视口稳定见 toggleAnchorCorrection）
-                AnimatedVisibility(
-                    visible = expanded,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
+                // 可展开内容（动画默认——#215 用户裁决撤全部补偿与 spec 覆盖）
+                AnimatedVisibility(visible = expanded) {
                     Column {
                         Spacer(modifier = Modifier.height(6.dp))
                         // 2026-08-16（用户反馈调整）：高度上限从半屏收紧为固定值——
