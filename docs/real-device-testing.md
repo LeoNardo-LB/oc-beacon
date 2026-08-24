@@ -113,4 +113,10 @@ adb -s e69a99d8 shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeaco
 - **聊天页滚动方向**（2026-08-21 教训，曾致 0 帧误判两轮）：进入会话默认停在底部（最新消息）；**手指向下滑（如 `input swipe 600 500 600 1600`）才是看更旧消息**；`1600→500` 是向“最新以下”滑——无内容、列表不滚、gfxinfo 记 0 帧。滚动测量前先用「滑动前后 dump 可见时间戳 diff」或帧数 sanity（>100）确认真的滚了
 - 每轮测试前后 `logcat -c` / `-d` 存档，grep FATAL/AndroidRuntime 计数
 
+## 插桩测试（am instrument）特有前置（2026-08-24 #210 实证）
+
+1. **「后台弹出界面」权限——卸载重装后必查**：MIUI DeviceGuard 在应用无前台窗口时拦截后台 Activity 启动（logcat 标志 `MIUILOG- Permission Denied Activity` + `Abort background activity starts`，START result code=102）。`am instrument` 起新进程后首个测试 Activity（如 HiltEntryActivity）即被拦，`startActivitySync` 对 aborted launch 无超时 → **插桩测试静默挂死**（0% CPU 全线程 sleeping，无任何异常输出）。该权限随包卸载重置——跨签名切换/降级装 CI 包的卸载重装流程之后必须重新授予：`./scripts/miui-grant-bal.sh dev.leonardo.ocbeacon.dev`（需解锁亮屏；adb 无法绕过：HyperOS 无 `bg_activity_start` appop、无 `pm set-app-locales`）。快速自检：`adb shell dumpsys window | grep mCurrentFocus` 看测试 Activity 是否起来。
+2. **挂死取证（无 root）**：debug 构建进程 debuggable → JDWP 可用——`adb jdwp` 找 pid → `adb forward tcp:8700 jdwp:<pid>` → `jdb -attach localhost:8700`（openjdk@21 自带）。`thread <id>` 可能报无效线程，用 `suspend` + `where all` 取全栈（会冻结进程，测毕 `resume`）。
+3. **测试语言与设备系统语言解耦（chat.* 族已修）**：HiltEntryActivity 强制 en-US（#210）——英文资源断言（"Stop" 等）不再随系统语言漂移；其余 createComposeRule 族测试类仍依赖系统 locale=英文（#211）。
+
 > **元素定位/判定/手势的完整方法**（dump 失明区、像素探针、vision 纪律、slop/返回手势区坑、签名速查）见 [`docs/android-ui-probing-guide.md`](android-ui-probing-guide.md)（2026-08-23 #192 E2E 实战定稿）。

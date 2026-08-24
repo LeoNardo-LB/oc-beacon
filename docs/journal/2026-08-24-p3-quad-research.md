@@ -1,6 +1,6 @@
 # p3-quad-research（2026-08-24）
 
-> 状态：执行完结（#161 闭卡 / #168 release 实测证伪闭卡 / #184 修复待验证 / #185 闭卡 / #209 修复待验证（#210 阻塞插桩补跑）/ #210 登记 P2）
+> 状态：执行完结（#161 闭卡 / #168 release 实测证伪闭卡 / #184 修复待验证 / #185 闭卡 / #209 修复待验证（插桩补跑已于 #210 修复后完成）/ #210 已修复转待验证——见文末「#210 修复执行」节）
 > 来源：用户指令「开始调研 161 185 184 168，委派 subagent 去调研，详尽调研」
 > 方式：4 个独立 subagent 并行深调（每卡一 agent），主会话交叉汇总；调研期间仓库零改动（只读）
 
@@ -302,3 +302,41 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 1. **#184**：现在做 ~1h 修复（方案 1），还是维持登记？（两缺陷实测可达：曾配置过第二台服务器即永久满足前置条件）
 2. **#168**：是否同意「release 抽查搭下次 devRelease 例行验收」的处置？
 3. **#161 / #185**：维持登记/显式不做，是否认可？（卡片描述已按调研事实更新，状态未动）
+
+
+### #210 修复执行：根因三连（环境×2 + 测试勘误×1）——插桩全绿（2026-08-24 下午批次）
+
+**取证路径（jdb 活体取栈，无 root 可行）**：debug 构建进程 debuggable → JDWP 可用——`adb jdwp` 找 pid → `adb forward tcp:8700 jdwp:<pid>` → `jdb -attach localhost:8700`（linuxbrew openjdk@21 自带）。jdb 交互注意：`thread <id>` 在本进程报无效，用 `suspend` + `where all` 一次取全线程栈（会冻结进程，测毕 resume）。
+
+**根因①（挂死本体）：MIUI DeviceGuard 拦截插桩 Activity 启动，startActivitySync 永久等待**
+
+- jdb 全线程栈：main 线程空闲 nativePollOnce；**instrumentation 线程挂在 `Instrumentation.startActivitySync`（Instrumentation.java:633 Object.wait）← ActivityScenarioRule.before() ← AndroidComposeTestRule**——测试体（renderChatScreen/waitForIdle）从未执行，「挂点在 waitForIdle」的先验假设不成立
+- 系统侧铁证（logcat 15:58:40.088-094）：`checkDeviceGuardStartActivityPermission: request is null` → `MIUILOG- Permission Denied Activity: cmp=…/HiltEntryActivity` → `Abort background activity starts from 10445` → `START u0 … HiltEntryActivity … result code=102`（START_ABORTED）；startActivitySync 对 aborted launch 无超时 → 永久 Object.wait = 安静挂死（0% CPU 全 sleeping 完全吻合）
+- 触发链：am instrument 杀旧进程起新进程（无前台窗口）→ 首个 Activity 启动被 MIUI 判为后台启动 → 「后台弹出界面」权限未授予即拦。**权限随 08-24 #168 解锁窗口的 dev 包卸载重置**（journal 上文 283 行：pm uninstall + miui-install devDebug 跨签名切换）——非代码回归，08-19..08-24 窗口二分假设证伪
+- adb 绕过全不可行：`appops set … android:bg_activity_start` 报 Unknown operation（HyperOS 无此 op）；无 localeConfig + `pm set-app-locales` 命令不存在——唯一通路是设置 UI 授权
+- 修复（环境）：应用设置 → 权限管理 → 其他权限 → 后台弹出界面 → 始终允许（uiautomator 自动化完成；固化为 `scripts/miui-grant-bal.sh`，卸载重装后必跑）
+
+**根因②（4/6 ComposeTimeoutException）：HiltEntryActivity 无语言覆盖，断言随系统 locale 漂移**
+
+- 授权后首跑：interruptSession 挂死变失败——「No compose hierarchies」→ 再跑稳定为 waitUntil("Stop") 10s 超时；全类 4 失败（Stop/Permission Required/Awaiting your reply/contextUsageBar）
+- 中途截屏 OCR：ChatScreen 渲染正常（"Chat"/"Generating…"/输入提示「提问…」中英混排）——输入提示是 zh 资源 → **HiltEntryActivity（测试 Activity）locale 完全跟随系统**
+- 史实佐证：08-19 journal 44 行「系统 locale=en-US 下界面仍中文（镜像生效强证据）」——08-18 21:29 最后全绿时系统 locale=en-US，英文断言恰好成立；其后系统切回 zh-CN（androidTest 同期编译破损未跑）→ 今日修复编译后集中暴露
+- 修复（代码，androidTest 源集零生产影响）：`HiltEntryActivity.attachBaseContext` 包装 en-US 配置（镜像生产 `LocaleUtils.applyAppLanguage` 模式），断言与设备语言解耦
+- 顺带发现→**#211**：其余 androidTest 类（createComposeRule 族）同样依赖系统 locale=英文，未在本批修——见 backlog
+
+**根因③（contextUsageBar 残留失败）：#209 test3 重写的 seed 错误（设备首跑勘误）**
+
+- locale 修复后 interruptSession 通过，contextUsageBar 仍超时——该测试 #209 重写后首次上设备（此前被 #210 阻塞）
+- 根因：`ModelConfigDelegate.kt:211` contextWindow 解析 = `allSessions.find { it.id == sid }`，sid 来自 sessionIdFlow（无导航参数 → ""），测试 seed 的会话 id=TEST_SESSION("test-session") → find 必空 → contextWindow=0 → ChatTopBar.kt:105 `showContext=false` → "50" 永不渲染
+- 修复（一行）：seed 会话 id 改 ""（KDoc 注明勘误链）——catalog 路径（FakeServerRepository.catalogResult → SelectModelUseCase.loadProviders → combine 源 _providers）设备实证命中，128000 分母 + 64000 分子 → "50" 显示
+
+**修复内容**：①环境授予（脚本化）②`HiltEntryActivity.kt:29-35` attachBaseContext en-US③`ChatInteractionTest.kt:216-224` seed id=""
+
+**验证证据（e69a99d8 真机，am instrument 单方法/全类）**：
+
+- 两挂死测试单跑：`OK (2 tests)` Time: 2.77（interruptSession_callsInterruptApi + contextUsageBar_shows_whenTokenStatsAvailable）
+- 全类：`OK (6 tests)` Time: 8.126（6 pass + 1 @Ignore pagination，合计 7）
+- **#209 插桩补跑完成**：test3（catalog 真实路径）设备通过——#209 的插桩级验证缺口就此补上（此前以 delegate 单测×4 代偿）
+- 单测全套件：见下节验证记录
+
+**遗留登记**：#211（androidTest createComposeRule 族 locale 依赖）；MIUI 权限随卸载重置已写入 docs/real-device-testing.md「插桩测试」节

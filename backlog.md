@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#211**。
+**编号**：全局递增，不回收。下一编号：**#212**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -73,10 +73,13 @@
 > （空）#208 已证伪闭卡（2026-08-24 同日勘误：登记时滑动方向搞反致三项主张全部误判——正确方向复测 130 条历史全程可翻、loadOlder 补载正常、假 id 不渲染是服务器权威 upsert 正确行为）→ `docs/journal/2026-08-24-thinking-timer-scroll.md` §#208 证伪闭卡
 >
 > （空）#161 已闭卡（2026-08-24 用户裁决离线隐藏为可接受行为，不修复；调研确认机制主张全部成立，方案草图留存 journal 备查）→ `docs/journal/2026-08-24-p3-quad-research.md` §#161
+>
+> （空）#210 已修复转待验证（2026-08-24 jdb 取栈定音三根因：①MIUI「后台弹出界面」权限随卸载重置→DeviceGuard 拦 HiltEntryActivity 启动致 startActivitySync 永久等待=挂死本体，非代码回归；②测试 Activity 无语言覆盖，系统 locale 回 zh-CN 后英文断言漂移；③#209 test3 seed id 错。修=授权脚本化+attachBaseContext en-US+seed 一行。ChatInteractionTest 全类 6 过 + 单测 1923 绿；#209 插桩补跑同步完成）→ `docs/journal/2026-08-24-p3-quad-research.md` §#210 修复执行
 
-- [ ] **#210 ChatScreen 渲染类插桩测试 waitForIdle 挂死（androidTest 基建）** `sse` `refactor`
-  - 存量问题浮出：androidTest 源集 08-18 起编译破损（FakeDomainModule 缺 PendingMessageRepository 绑定，今日 caea2b30 补上），期间 ChatScreen 变更从未被插桩覆盖；编译修复后 ChatInteractionTest 全类与单测均挂死（renderChatScreen 后 waitForIdle，进程 0% CPU 安静挂，非动画饿死）——回归窗口 08-19..08-24 未二分；堆栈提取受阻（debuggerd 需 root、SIGQUIT 不落 dropbox），需 Android Studio 取主线程栈
-  - → `docs/journal/2026-08-24-p3-quad-research.md` §#210
+- [ ] **#211 androidTest createComposeRule 族测试依赖系统 locale=英文** `refactor`
+  - #210 勘误发现：约 20 个组件/屏幕测试类断言英文资源串（"Stop" 族仅 HiltEntryActivity 已强制 en-US），系统语言非英文时将整类 ComposeTimeout——与设备语言耦合
+  - 方向：测试规则统一注入 en-US（EspressoLocaleRule 或 ApplicationLocale 配置）+ 恢复；跑全 androidTest 一次定基线
+  - → `docs/journal/2026-08-24-p3-quad-research.md` §#210 修复执行（根因②）
 
 ## P3 — 观察与低价值改进
 
@@ -95,5 +98,5 @@
   - → `docs/journal/2026-08-21-arch-review-deepening.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#184
 
 - [~] **#209 TokenStatsTracker.contextWindow 生产死字段清理** `refactor`
-  - 已修（caea2b30，2026-08-24）：删字段 + 删 ModelConfigDelegate 恒假优先分支 + 聚合映射死链；androidTest test3 改走真实 catalog 路径 + FakeDomainModule 补存量缺位 PendingMessageRepository 绑定 + delegate 级单测 ×4（套件 1923 绿）；插桩设备验证被 #210 阻塞，待其修复后补跑；待用户日常使用验收（在线 context 圆环正常显示）
-  - → `docs/journal/2026-08-24-p3-quad-research.md` §#161
+  - 已修（caea2b30，2026-08-24）：删字段 + 删 ModelConfigDelegate 恒假优先分支 + 聚合映射死链；androidTest test3 改走真实 catalog 路径 + FakeDomainModule 补存量缺位 PendingMessageRepository 绑定 + delegate 级单测 ×4（套件 1923 绿）；**插桩设备验证已补跑完成**（2026-08-24 #210 修复后：test3 seed id 勘误一行，catalog 真实路径真机 OK）；待用户日常使用验收（在线 context 圆环正常显示）
+  - → `docs/journal/2026-08-24-p3-quad-research.md` §#161 · §#210 修复执行（根因③）

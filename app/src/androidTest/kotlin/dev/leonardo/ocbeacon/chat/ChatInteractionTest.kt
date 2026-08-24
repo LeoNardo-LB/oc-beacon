@@ -213,9 +213,13 @@ class ChatInteractionTest : BaseChatTest() {
         )
         // #209（2026-08-24）：tokenStats.contextWindow 死字段已删（生产无写点），
         // 解析链只走真实 catalog 路径——fake 会话挂上 model 让 catalog 分支命中。
+        // #210（2026-08-24 设备首跑勘误）：id 必须为 ""——ModelConfigDelegate 的
+        // contextWindow 解析是 allSessions.find { it.id == sid }，sid 来自
+        // sessionIdFlow（无导航参数时为 ""），seed TEST_SESSION 会被查不到
+        // → contextWindow=0 → 指示器隐藏 → "50" 永不出现。
         fakeSession.sessionsState.value = listOf(
             dev.leonardo.ocbeacon.domain.model.Session(
-                id = TEST_SESSION,
+                id = "",
                 title = "Test",
                 directory = "/test/project",
                 time = dev.leonardo.ocbeacon.domain.model.Session.Time(
