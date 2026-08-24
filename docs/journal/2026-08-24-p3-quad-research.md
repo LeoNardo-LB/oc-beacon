@@ -342,3 +342,18 @@ ServerDataStore 存任意份配置（含 autoConnect 开关）；autoConnectConf
 **遗留登记**：#211（androidTest createComposeRule 族 locale 依赖）；MIUI 权限随卸载重置已写入 docs/real-device-testing.md「插桩测试」节
 
 **补记（复验环境坑）**：修复提交后的最终复验一轮被设备自动锁屏打断——logcat 为 `MIUILOG- Permission Denied Activity KeyguardLocked`（与根因①同栈不同触发条件：**任何**锁屏状态下插桩 Activity 启动一律被拒，权限已授予也不例外）。解锁后 force-stop 冷启动复验 OK (6 tests) Time 8.534。结论文档化于 real-device-testing.md §插桩测试；运行长插桩批次须保持设备解锁亮屏（`svc power stayon usb` 在 USB 供电下保持亮屏，但锁屏策略独立——需关闭自动锁屏或人工注意）。
+
+## 完结迁移（2026-08-24 用户验收）
+
+**#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data` —— 已完结验收
+
+- 用户验收通过（2026-08-24「184 ok」），验收口径：四步回归清单（造未读→一键已读全灭→强杀重启不复活→新消息红点重现）+ 日常使用，单服务器场景无行为变化（触发场景为双服务器时钟偏差，用户环境不可达，验收为回归性质）
+- 修复内容（commit 7bd04c11）：`UnreadBadgeService.markAllSessionsRead(serverId, sessionIds: Set<String>)` 作用域化——`_lastCompletedReplyTime` filterKeys 限定本服务器会话集，作用域内取 max + 作用域化广播；`SessionListViewModel` 新增 `serverSessionIds`（Eagerly stateIn，源自 getServerSessionsFlow）传入
+- 双缺陷同修：错杀广播溢出（allReadAt 判定混入他服务器更晚 reply）+ allReadAt 值域污染（水位线被跨服务器时间抬高致漏杀）；SessionError 客户端 now 第三时钟域顺带收编
+- 验证：单测 +3（作用域 max/广播、空集 no-op、跨服务器未读保留），全套件 1919 绿；#210 修复后插桩链路恢复无回归
+
+**#209 TokenStatsTracker.contextWindow 生产死字段清理** `refactor` —— 已完结验收
+
+- 用户验收通过（2026-08-24「209 ok」），验收口径：日常使用在线 context 圆环正常显示
+- 修复内容（commit caea2b30）：删 `TokenStats.contextWindow` 死字段（全库无写点恒 0）+ 删 `ModelConfigDelegate` 恒假 tracker 优先分支 + 删聚合映射死链（`ModelConfigState.contextWindow` 保留——真实消费方）；contextWindow = session.model→catalog 查表 ?: 0；FakeDomainModule 补存量缺位 PendingMessageRepository 绑定
+- 验证：delegate 级单测 ×4（catalog 命中 128000 / 无 model 0 / unknown 0 / 仅分子不伪造分母），全套件 1923 绿；插桩设备验证经 #210 根因③勘误（test3 seed id=""）后真机 OK——catalog 真实路径 128000 分母 + 64000 分子 → "50" 渲染（#209 的插桩级验证缺口就此补上）

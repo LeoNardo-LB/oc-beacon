@@ -93,10 +93,6 @@
 
 > （空）#168 已证伪闭卡（2026-08-24 devRelease 真机实测：720 帧 ≥17ms 率 0.00%、p99 8.5ms 低于 8.33 预算——devDebug 尖刺系 47% debug 构建税放大，release 无感知；原始数据归档 perf-evidence/r168-release-20260824）→ `docs/journal/2026-08-24-p3-quad-research.md` §#168
 
-- [~] **#184 未读水位线 globalMax 跨服务器混合——多服务器时钟偏差场景** `data`
-  - 已修（7bd04c11，2026-08-24 用户裁决修复）：markAllSessionsRead 作用域化本服务器会话集（filterKeys 隔离跨服务器时钟：错杀广播溢出 + allReadAt 值域污染双修复，SessionError 第三时钟域顺带收编）；单测 +3、全套件 1919 绿；待用户日常使用验收（单服务器场景无行为变化）
-  - → `docs/journal/2026-08-21-arch-review-deepening.md` · `docs/journal/2026-08-24-p3-quad-research.md` §#184
-
-- [~] **#209 TokenStatsTracker.contextWindow 生产死字段清理** `refactor`
-  - 已修（caea2b30，2026-08-24）：删字段 + 删 ModelConfigDelegate 恒假优先分支 + 聚合映射死链；androidTest test3 改走真实 catalog 路径 + FakeDomainModule 补存量缺位 PendingMessageRepository 绑定 + delegate 级单测 ×4（套件 1923 绿）；**插桩设备验证已补跑完成**（2026-08-24 #210 修复后：test3 seed id 勘误一行，catalog 真实路径真机 OK）；待用户日常使用验收（在线 context 圆环正常显示）
-  - → `docs/journal/2026-08-24-p3-quad-research.md` §#161 · §#210 修复执行（根因③）
+> （空）#184 已完结验收（2026-08-24 用户验收通过：四步回归确认——造未读→一键已读全灭→强杀重启不复活→新消息红点重现；修复 7bd04c11 作用域化 markAllSessionsRead，单服务器无行为变化）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移
+>
+> （空）#209 已完结验收（2026-08-24 用户验收通过：日常使用 context 圆环正常显示；修复 caea2b30 删死字段+恒假分支，单测 1923 绿 + test3 真机插桩 OK）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移
