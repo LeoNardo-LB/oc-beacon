@@ -3,6 +3,8 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 /**
@@ -12,6 +14,116 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 internal class CompensateState {
     var lastHeight: Int = 0
     var shouldCompensate: Boolean = false
+}
+
+/**
+ * #222 修二强化（真·渲染前，2026-08-25 用户定音）：延迟揭示状态机。
+ *
+ * 旧模式（request-position / scrollToBeConsumed 直注）的残余缺陷：注入发生在
+ * 「增长已测出的那一遍」测量中途，靠下一遍消费——补救遍若未落在同帧（帧预算
+ * 紧张 / markdown 迟到解析的巨跳变），一帧未补偿画面被绘制 → 用户感知
+ * 「渲染后补偿」跳变。
+ *
+ * 延迟揭示把时序改成**构造性渲染前**：
+ * - 增长遍（pass k）：不向 LazyList 上报新高度（report 保持已消费基准），
+ *   增量预注入 scrollToBeConsumed（pass k+1 遍首无条件消费，无回写竞争）；
+ *   未上报的高度被 clipToBounds 裁掉——未补偿的几何**永不被放置**。
+ * - 揭示遍（pass k+1，poke 加速到同帧）：遍首已消费增量（锚点位移先就位），
+ *   本遍上报「基准+已消费增量」——揭示与锚点位移几何严格对齐。
+ * - 连续增长链式：每遍揭示上一遍的增量、递延本遍的——最新一行文本至多
+ *   晚一遍出现（同帧则零延迟），位置永不跳。
+ *
+ * 高度来源仍是精确测量（非预测），只是把「测量→注入→揭示」排序为
+ * **消费先于揭示**——这满足「渲染前计算」的最强语义：任何被绘制的状态
+ * 都已带着等量锚点位移。
+ */
+internal class DeferredRevealCompensator {
+    /** 已向 LazyList 上报且其对应注入已被遍首消费的基准高度。 */
+    var reportedHeight: Int = 0
+        private set
+
+    /** 已注入 scrollToBeConsumed、等待下一遍消费的累计增量。 */
+    var injectedPending: Int = 0
+        private set
+
+    /** 单次测量决策：上报高度 / 需注入增量 / 是否 poke 加速揭示。 */
+    data class Decision(
+        val reportHeight: Int,
+        val injectDelta: Int,
+        val poke: Boolean,
+    )
+
+    /**
+     * 每遍测量调用。前件：调用即一遍——本次遍首已消费掉上次调用注入的
+     * [injectedPending]（scrollToBeConsumed 遍首无条件消费，LazyListMeasure
+     * 标准流程），故「[reportedHeight] + [injectedPending]」是与当前锚点
+     * 位移几何一致的揭示高度。
+     */
+    /** 归零（item 消失/条件关闭时）：基准与欠账清空（遗留消费由边界钳制兜底）。 */
+    fun reset() {
+        reportedHeight = 0
+        injectedPending = 0
+    }
+    fun onMeasure(realHeight: Int, shouldCompensate: Boolean): Decision {
+        // 冷启动：首测直接全量上报（无补偿语境，锚定几何自洽）
+        if (reportedHeight <= 0) {
+            reportedHeight = realHeight
+            return Decision(realHeight, 0, false)
+        }
+        val revealHeight = reportedHeight + injectedPending
+        val extra = realHeight - revealHeight
+        if (!shouldCompensate) {
+            // 贴底/用户回底：补偿语境消失，全量揭示清欠（消费钳制由 LazyList
+            // 边界处理兜底——index==0 时 offset 负值被钳 0，无害）
+            reportedHeight = realHeight
+            injectedPending = 0
+            return Decision(realHeight, 0, false)
+        }
+        return if (extra > 0) {
+            // 有新增长：注入 extra（下一遍遍首消费）、本遍只揭示已消费部分，
+            // 未消费的 extra 保持裁剪——未补偿状态永不被放置（渲染前保证）
+            injectedPending += extra
+            Decision(revealHeight, extra, true)
+        } else {
+            // 无新增长（或收缩）：完全揭示，重置基准
+            reportedHeight = realHeight
+            injectedPending = 0
+            Decision(realHeight, 0, false)
+        }
+    }
+}
+
+/**
+ * [DeferredRevealCompensator] 的 layout 包装：无界测量取真实高度 → 状态机决策
+ * → 上报决策高度（延迟分支裁剪未消费增量）。必须与 clipToBounds 同链使用
+ * （clip 在本 layout 外层，裁剪矩形=上报高度）。
+ */
+internal fun Modifier.deferredRevealCompensation(
+    listState: LazyListState,
+    compensator: DeferredRevealCompensator,
+    shouldCompensate: () -> Boolean,
+    logTag: String,
+): Modifier = this.layout { measurable, constraints ->
+    val placeable = measurable.measure(
+        constraints.copy(maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
+    )
+    val realHeight = placeable.height
+    val decision = compensator.onMeasure(realHeight, shouldCompensate())
+    if (decision.injectDelta > 0) {
+        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+            AppLogger.w(
+                "ScrollDiag",
+                logTag + " defer realH=" + realHeight +
+                    " report=" + decision.reportHeight +
+                    " inject=" + decision.injectDelta +
+                    " pend=" + compensator.injectedPending
+            )
+        }
+        LazyListReflection.requestScrollShift(listState, decision.injectDelta.toFloat())
+    }
+    layout(placeable.width, decision.reportHeight) {
+        placeable.placeRelative(0, 0)
+    }
 }
 
 // --- 反射：绕过官方 requestScrollToItem 的 scroll{} 互斥锁取消机制 ---

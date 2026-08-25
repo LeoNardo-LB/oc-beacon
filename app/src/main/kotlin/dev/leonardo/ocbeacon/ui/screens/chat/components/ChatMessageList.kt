@@ -293,14 +293,17 @@ fun ChatMessageList(
     // 以 streamingMsgId 作为 key，流式 turn 变化（新消息
     // 或完成）时状态重置。这比 heightMap + 会话级清除更简单、更正确。
     val compensateState = remember(streamingMsgId) { CompensateState() }
-    val toolCompensateState = remember(streamingMsgId) { CompensateState() }
+    // #222 修二强化：延迟揭示补偿器（真·渲染前）——消息流/工具/压缩三路共用
+    // shouldCompensate 门控（在底意图），各自独立基准。
+    val msgReveal = remember(streamingMsgId) { DeferredRevealCompensator() }
+    val toolReveal = remember(streamingMsgId) { DeferredRevealCompensator() }
     // #221：压缩展开区流式补偿——进行中压缩展开后 delta 增长与普通流式消息同
     // 待遇（tool_progress 同款：独立 lastHeight + 共享 shouldCompensate 在底意图
     // + layout{} 注入）。key=进行中压缩 messageId：压缩结束置 null 时重置，下一
     // 轮首测不注入（lastHeight>0 守卫防冷启动跳变）。
-    val compactionExpandState = remember(
+    val compactionReveal = remember(
         currentCompaction?.takeIf { it.isActive }?.messageId
-    ) { CompensateState() }
+    ) { DeferredRevealCompensator() }
 
     // #215 验收反馈·一（终版裁决 2026-08-25 用户定规）：toggle 锚定修正逻辑
     // 全部撤销——修正窗/toggleAnchorCorrection/注入通道一并不用；卡片动画
@@ -948,35 +951,18 @@ fun ChatMessageList(
                     if (tailCompaction != null) {
                         item(key = "compaction_banner") {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                // #221：展开后 delta 流式增长走 tool_progress 同款
-                                // 铁律补偿（尾部兜底路径；消息流对位路径同款见下）。
+                                // #221/#222：展开区流式增长——延迟揭示真·渲染前
+                                // 补偿（尾部兜底路径；消息流对位路径同款见下）。
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .layout { measurable, constraints ->
-                                            val placeable = measurable.measure(
-                                                constraints.copy(maxHeight = Constraints.Infinity)
-                                            )
-                                            val realHeight = placeable.height
-                                            val delta = realHeight - compactionExpandState.lastHeight
-                                            if (compensateState.shouldCompensate &&
-                                                compactionExpandState.lastHeight > 0 && delta > 0
-                                            ) {
-                                                if (BuildConfig.DEBUG) {
-                                                    AppLogger.w(
-                                                        "ScrollDiag",
-                                                        "COMP-CMP(tail) fire delta=" + delta +
-                                                            " lastH=" + compactionExpandState.lastHeight +
-                                                            " realH=" + realHeight
-                                                    )
-                                                }
-                                                LazyListReflection.requestScrollShift(listState, delta.toFloat())
-                                            }
-                                            compactionExpandState.lastHeight = realHeight
-                                            layout(placeable.width, realHeight) {
-                                                placeable.placeRelative(0, 0)
-                                            }
-                                        }
+                                        .clipToBounds()
+                                        .deferredRevealCompensation(
+                                            listState = listState,
+                                            compensator = compactionReveal,
+                                            shouldCompensate = { compensateState.shouldCompensate },
+                                            logTag = "COMP-CMP(tail)",
+                                        )
                                 ) {
                                     CompactionCard(state = tailCompaction)
                                 }
@@ -1001,28 +987,13 @@ fun ChatMessageList(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .layout { measurable, constraints ->
-                                        val placeable = measurable.measure(
-                                            constraints.copy(maxHeight = Constraints.Infinity)
-                                        )
-                                        val realHeight = placeable.height
-                                        val delta = realHeight - toolCompensateState.lastHeight
-                                        if (compensateState.shouldCompensate && toolCompensateState.lastHeight > 0 && delta > 0) {
-                                            if (BuildConfig.DEBUG) {
-                                                AppLogger.w(
-                                                    "ScrollDiag",
-                                                    "COMP-TOOL fire delta=" + delta + " lastH=" + toolCompensateState.lastHeight +
-                                                        " realH=" + realHeight + " idx=" + listState.firstVisibleItemIndex +
-                                                        " off=" + listState.firstVisibleItemScrollOffset
-                                                )
-                                            }
-                                            LazyListReflection.requestScrollShift(listState, delta.toFloat())
-                                        }
-                                        toolCompensateState.lastHeight = realHeight
-                                        layout(placeable.width, realHeight) {
-                                            placeable.placeRelative(0, 0)
-                                        }
-                                    }
+                                    .clipToBounds()
+                                    .deferredRevealCompensation(
+                                        listState = listState,
+                                        compensator = toolReveal,
+                                        shouldCompensate = { compensateState.shouldCompensate },
+                                        logTag = "COMP-TOOL",
+                                    )
                             ) {
                                 activeTools.forEach { toolInfo ->
                                     ToolProgressCard(toolInfo = toolInfo)
@@ -1032,7 +1003,7 @@ fun ChatMessageList(
                         }
                     } else {
                         // 无活跃工具时重置
-                        toolCompensateState.lastHeight = 0
+                        toolReveal.reset()
                     }
 
                     // 步骤进度指示器
@@ -1188,29 +1159,13 @@ fun ChatMessageList(
                         val itemModifier = if (isStreamingMsg) {
                             Modifier
                                 .fillMaxWidth()
-                                .layout { measurable, constraints ->
-                                    val placeable = measurable.measure(
-                                        constraints.copy(maxHeight = Constraints.Infinity)
-                                    )
-                                    val realHeight = placeable.height
-                                    val delta = realHeight - compensateState.lastHeight
-                                    if (compensateState.shouldCompensate && compensateState.lastHeight > 0 && delta > 0) {
-                                        if (BuildConfig.DEBUG) {
-                                            AppLogger.w(
-                                                "ScrollDiag",
-                                                "COMP-MSG fire delta=" + delta + " lastH=" + compensateState.lastHeight +
-                                                    " realH=" + realHeight + " idx=" + listState.firstVisibleItemIndex +
-                                                    " off=" + listState.firstVisibleItemScrollOffset
-                                            )
-                                        }
-                                        LazyListReflection.requestScrollShift(listState, delta.toFloat())
-                                    }
-                                    compensateState.lastHeight = realHeight
-
-                                    layout(placeable.width, realHeight) {
-                                        placeable.placeRelative(0, 0)
-                                    }
-                                }
+                                .clipToBounds()
+                                .deferredRevealCompensation(
+                                    listState = listState,
+                                    compensator = msgReveal,
+                                    shouldCompensate = { compensateState.shouldCompensate },
+                                    logTag = "COMP-MSG",
+                                )
                         } else Modifier.fillMaxWidth()
                         // #215 验收反馈·一（终版裁决）：方案一（offset±delta 补偿）与方案三
                         //（修正窗+注入通道）均已撤销——用户定规不用任何补偿逻辑，动画回
@@ -1359,35 +1314,18 @@ fun ChatMessageList(
                                     // pointerInput 长按 + semantics 自定义无障碍动作
                                     //（长按=撤销确认，标签复用已翻译的 chat_revert）。
                                     val revertActionLabel = stringResource(R.string.chat_revert)
-                                    // #221：进行中压缩的展开流式增长补偿（tool_progress
-                                    // 同款；非进行中高度恒定，layout{} 直通零成本）。
+                                    // #221/#222：进行中压缩的展开流式增长——延迟
+                                    // 揭示真·渲染前补偿（非进行中高度恒定，直通零成本）。
                                     val compactionGrowModifier = if (compactionActiveState != null) {
                                         Modifier
                                             .fillMaxWidth()
-                                            .layout { measurable, constraints ->
-                                                val placeable = measurable.measure(
-                                                    constraints.copy(maxHeight = Constraints.Infinity)
-                                                )
-                                                val realHeight = placeable.height
-                                                val delta = realHeight - compactionExpandState.lastHeight
-                                                if (compensateState.shouldCompensate &&
-                                                    compactionExpandState.lastHeight > 0 && delta > 0
-                                                ) {
-                                                    if (BuildConfig.DEBUG) {
-                                                        AppLogger.w(
-                                                            "ScrollDiag",
-                                                            "COMP-CMP(msg) fire delta=" + delta +
-                                                                " lastH=" + compactionExpandState.lastHeight +
-                                                                " realH=" + realHeight
-                                                        )
-                                                    }
-                                                    LazyListReflection.requestScrollShift(listState, delta.toFloat())
-                                                }
-                                                compactionExpandState.lastHeight = realHeight
-                                                layout(placeable.width, realHeight) {
-                                                    placeable.placeRelative(0, 0)
-                                                }
-                                            }
+                                            .clipToBounds()
+                                            .deferredRevealCompensation(
+                                                listState = listState,
+                                                compensator = compactionReveal,
+                                                shouldCompensate = { compensateState.shouldCompensate },
+                                                logTag = "COMP-CMP(msg)",
+                                            )
                                     } else Modifier
                                     Column(modifier = compactionGrowModifier
                                         .pointerInput(Unit) {

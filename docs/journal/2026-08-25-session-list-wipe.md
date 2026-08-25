@@ -128,5 +128,13 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 1. **通道**：任意会话流式长回复期间滚离底部 1/3 屏停住——视口应纹丝不动（修复前：缓慢上爬）。
 2. **reveal**：贴底状态发起会触发工具的提问（如「用 bash 执行 sleep 5」）——工具聚合卡应立即可见（修复前：不可见+⬇FAB 闪现）；V1 服务器同理验压缩进行中分割线。
 
+### 修二再强化：延迟揭示（真·渲染前，用户六报定音）
+
+用户挑战：「修二的修法是渲染前计算吗？」——**诚实回答：不是严格的渲染前**。requestScrollShift 直注模式仍是「增长已测出的那一遍测量中途注入、下一遍遍首消费」：补救遍多数落同帧（画前生效），但无构造性保证——帧预算紧张或 markdown 迟到解析巨跳（实测 376→51129px 单帧）时，一帧未补偿画面被绘制 → 用户感知「渲染后补偿」跳变。
+
+**延迟揭示（DeferredRevealCompensator，ScrollCompensation.kt）**：把时序改成构造性渲染前——增长遍不向 LazyList 上报新高度（未上报增量被 clipToBounds 裁掉，未补偿几何永不被放置），增量预注入 scrollToBeConsumed；下一遍（poke 加速到同帧）遍首消费先行、再上报「基准+已消费增量」——揭示与锚点位移几何严格对齐。连续增长链式：每遍揭示上一遍增量、递延本遍——最新文本至多晚一遍出现，位置永不跳。高度来源仍是精确测量（非预测），只是把「测量→注入→揭示」排序为消费先于揭示。
+
+四个 COMP 点全部迁移到 `Modifier.deferredRevealCompensation`（COMP-MSG/COMP-TOOL/COMP-CMP(tail)/COMP-CMP(msg)），独立补偿器实例（msgReveal/toolReveal/compactionReveal，remember 键与旧 lastHeight 状态一致），log 标签沿用（defer 语义）。单测 7 例（冷启动/单增两步/连续链式/回底清欠/收缩/复位/稳态 no-op）+ 全量绿；已部署真机。活体验证仍被 provider 全静默阻断（当日 15:05 起持续），V6 清单不变。
+
 
 
