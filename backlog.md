@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#237**。
+**编号**：全局递增，不回收。下一编号：**#238**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -65,10 +65,9 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#233 架构走查卫生项：死测试/僵尸设置链/接口绕过清理** `cleanup` `ui` `data`
-  - 死 androidTest ×2（CompactionBanner 符号 #217 已删仍编译失败级腐烂）；僵尸设置链 showPendingTodoDrawer 四层零消费（AppSettings→DataStore→Delegate→VM）+ easeInOutCubic 死码
-  - UI 直注 MessageStore 具体类 ×3 绕过 MessageCacheRepository（ChatViewModel:79 等）+ service 直注 SettingsDataStore ×4；Room migration/SecretCipher 零测试为风险登记非清理项
-  - → 2026-08-26 架构走查（/tmp/architecture-review-20260826-042731.html，主候选待用户裁决后另行立项）
+- [~] **#233 架构走查卫生项：死测试/僵尸设置链/接口绕过清理** `cleanup` `ui` `data`
+  - 已落地（4b48c67b）：死 androidTest ×2 删除；僵尸链 showPendingTodoDrawer 四层拆除；easeInOutCubic 死码；UI 三处 MessageStore 注入接口化（限额常量上提接口 companion）；service ×4 随 C5 一并改线（a4cb9f7e）
+  - 待验收：应用启动/设置页各开关正常即可（纯删除，行为零变化预期）→ 2026-08-26 架构走查
 
 - [~] **#234 架构战役一：part 管线深化——MessageMergeEngine 抽取 + 注册策略收编** `refactor` `data`
   - 三批落地（e4c7367e/2b2be2cc/986c65c5）：MessageEventHandler 1329→857 行壳/代数分层；空 part 不变量收编引擎单一权威（含 appendOnly 封洞）；PartIdContract 派生 id 契约双侧委托；1975 测×3 批全绿
@@ -81,6 +80,11 @@
 - [~] **#236 架构走查 C9：通知路由策略外移 SessionNotificationCoordinator + AppNotificationManager 签名理顺** `refactor` `session` `sse`
   - 两 Phase（6a25d762/122c2b07）：processEvent ~200 行 when 分发外移纯 Kotlin 协调器（NotificationActionPort 注入，Service 829→591 行）；(context,nm) 双参 + playIfFocused 参数束收编；2049 测全绿（+29 路由矩阵新测，走查零覆盖缺口补齐）
   - 待 V6 真机人工清单（后台轮次完成通知/轮次完成提示音/权限请求通知与自动允许/错误连发只弹首条）→ `docs/journal/2026-08-26-c9.md`
+
+- [~] **#237 架构走查自主批次：C4+C10/C5/C7+C8/C1 试点（用户离开期间执行）** `refactor` `ui` `data` `api`
+  - C4+C10（057a0689..00adae0d）：CompactionDividerPolicy/Slot + AutoLoadPolicy 纯函数化，CML 1864→1669；C5（a4cb9f7e）：UnreadStateStore+SessionTagStore 各归其位；C7+C8（78a3f24c/81c2d662）：EventDispatcher 607→538/12 依赖 + ApiErrorTranslator 复活 taxonomy；C1 试点（ee04624c/8a0cc375/726350ca）：Session+Message 两域 35 处 if 分发归零 + per-call OkHttpClient 性能 bug 修复
+  - 终局 2065 测全绿 ×3 轮验证 + devDebug 真机冷启动/会话列表/进会话滚动冒烟零崩溃；待 V6 人工：压缩分割线形态、分页加载、后台通知族（并入 #236 清单）、V1 服务器回归
+  - 剩余：C1 其余 5 域（File/Provider/System/Terminal/Shell，43 处 if）后续按同模式分批
 
 ## P3 — 观察与低价值改进
 
