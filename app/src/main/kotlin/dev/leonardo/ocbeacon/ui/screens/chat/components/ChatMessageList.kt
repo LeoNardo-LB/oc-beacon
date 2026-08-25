@@ -1493,8 +1493,8 @@ fun ChatMessageList(
                                             androidx.compose.foundation.layout.Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .verticalScroll(sysScroll)
                                                     .heightIn(max = 300.dp)
+                                                    .verticalScroll(sysScroll)
                                             ) {
                                                 Text(
                                                     text = sysText,
