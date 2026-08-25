@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
+import dev.leonardo.ocbeacon.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlin.math.abs
 import kotlin.math.exp
 
@@ -27,6 +29,8 @@ import kotlin.math.exp
  * ScrollSpeedPrefetchStrategy 取代后高速段保护缺失——本文件以视口自适应限速
  * 回归，并与渲染供给协调器配合（当年两者未同时存在）。
  */
+private const val TAG = "SafeFling"
+
 @Composable
 internal fun rememberSafeFlingBehavior(listState: LazyListState): FlingBehavior {
     return remember(listState) {
@@ -53,7 +57,23 @@ internal fun rememberSafeFlingBehavior(listState: LazyListState): FlingBehavior 
                     val rawDelta = velocity * dt + carry
                     val delta = rawDelta.coerceIn(-maxPerFrame, maxPerFrame)
                     carry = rawDelta - delta
-                    val consumed = scrollBy(delta)
+                    // 2026-08-26 崩溃防御（真机 houji FATAL：entered drag with
+                    // non-zero pending scroll）：foundation 1.12.0-beta01（material3
+                    // 1.5.0-alpha26 传递强制升级）的 ScrollingLogic 在「本 fling 的
+                    // scrollBy 尚有未消费残量 + 新拖拽/自动滚动进入」窗口触发
+                    // LazyListState 内部断言。残量属框架侧契约违规，但我们逐帧手动
+                    // scrollBy 的自定义 fling 是唯一非标准入口——中止 fling（而非
+                    // 崩溃）是完全可接受的降级：滚动立即停住，触摸继续正常。
+                    // CancellationException 必须放行（触摸打断 fling 的正常路径）。
+                    val consumed = try {
+                        scrollBy(delta)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: IllegalStateException) {
+                        AppLogger.w(TAG, "fling aborted by scroll contract violation: " + e.message +
+                            " (velocity=" + velocity.toInt() + "px/s carry=" + carry.toInt() + "px)")
+                        return velocity
+                    }
                     if (abs(consumed) < 0.5f) return velocity
                     velocity *= exp(-friction * dt)
                 }
