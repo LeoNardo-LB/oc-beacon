@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import android.content.Context
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,7 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Info
@@ -37,18 +35,14 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableIntState
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,19 +52,13 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.ScrollScope
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.Clipboard
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
@@ -92,7 +80,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.util.rememberSafeFlingBehavior
-import dev.leonardo.ocbeacon.ui.screens.chat.util.snapToBottom
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
@@ -101,7 +88,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets
 import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentAnchorTimestamp
 import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentQuestionMsgId
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -119,9 +105,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.flow.MutableStateFlow
 import dev.leonardo.ocbeacon.util.MessageFingerprints
-import dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.LocalCopyFeedback
-import com.mikepenz.markdown.model.MarkdownState
 import com.mikepenz.markdown.model.State
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -392,11 +376,10 @@ fun ChatMessageList(
         CompactionDividerPolicy.v1SummaryMessageId(displayItems) != null
     }
 
-    // #227：压缩分割线展开表（messageId → expanded）。LazyColumn 视口外 item
-    // 会被丢弃——item 内 remember 的 expanded 随之清零，滚回即自动收起（用户
-    // 2026-08-26 反馈）。提升到屏幕级：滚出视口不丢；离开会话（本组合销毁）
-    // 即清，Q10「展开态不跨会话记忆」仍成立。尾部兜底线 V1 无 messageId 用
-    // 固定键；V2 用真实 messageId——尾部→消息流对位交接同键无缝（Q13 强化）。
+    // #227：压缩分割线展开表（messageId → expanded，屏幕级生命周期）——
+    // LazyColumn 视口外 item 被丢弃，item 内 remember 的 expanded 随之清零
+    // （滚回即收起）；提升到屏幕级后滚出视口不丢、离开会话即清（Q10 仍成立）。
+    // 键语义（V1 尾部固定键/V2 真实 id 同键交接）见 CompactionDividerPolicy。
     val compactionExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
     // C4：压缩分割线撤销统一回调（V1 摘要线/触发线共用——撤销到目标 id 并提示）
@@ -763,17 +746,12 @@ fun ChatMessageList(
         ) {
             var showAlwaysDialog by remember { mutableStateOf<SseEvent.PermissionAsked?>(null) }
 
-            // 自动分页（older 方向）：用户距顶部 8 项以内时触发加载。
-            // 取代 PullToRefreshBox —— 无缝，无需手动手势。
-            // C10：触发决策（阈值/方向/退避/跳转互斥）全部在 AutoLoadPolicy（纯函数，
-            // JVM 可测——2026-08-10 isScrollInProgress 依赖移除、08-12 reverseLayout
-            // 索引方向、08-21 ×2 fire-time 竞态四次历史修复语义存档于该文件）。
-            //
-            // 关键：LaunchedEffect 必须以 messageState 字段为 key。没有这些 key，
-            // snapshotFlow 会捕获初始 messageState（其中 hasOlderMessages=false），
-            // loadMessagesForSession() 将 hasOlderMessages 置 true 时永远看不到更新
-            // ——这是进入会话后分页静默失败的根源。加载完成 isLoadingOlder 翻转
-            // → effect 重启 → 若仍距顶近则自动续载（08-10 语义）。
+            // 自动分页（older 方向）：距顶部 8 项以内触发加载（取代 PullToRefreshBox）。
+            // C10：触发决策（阈值/reverseLayout 方向/退避/跳转互斥）全部在
+            // AutoLoadPolicy——2026-08-10/08-12/08-21×2 四次历史修复语义存档于该文件；
+            // 本桥只做 snapshotFlow → policy → delegate.load。
+            // 关键：effect 必须以 messageState 字段为 key——否则捕获初始
+            // hasOlderMessages=false，进入会话后分页静默失败（详见 policy 注释）。
             LaunchedEffect(
                 messageState.hasOlderMessages,
                 messageState.isLoadingOlder,
@@ -963,10 +941,8 @@ fun ChatMessageList(
                         }
                     }
 
-                    // #217 分割线包揽（2026-08-24）：压缩进行中 = 进行中分割线
-                    //（进度线即分割线 + 可展开流式摘要）——CompactionBanner 已删除。
-                    // 插在消息流尾部（最新消息之后），完成态由消息流内 compaction
-                    // 消息的 CompactionCard 承担（同一组件两态）。
+                    // #217 分割线包揽（2026-08-24）：压缩进行中 = 进行中分割线，插在
+                    // 消息流尾部；完成态由消息流内 compaction 消息的 CompactionCard 承担。
                     // 尾部兜底认领（去重/让位判定）在 CompactionDividerPolicy.tailSpec（C4）。
                     val tailCompaction = CompactionDividerPolicy.tailSpec(
                         currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
