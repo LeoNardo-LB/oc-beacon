@@ -57,7 +57,6 @@ class ChatRepositoryImplTest {
         val miscHandler = MiscEventHandler()
 
         val sessionStateRepository = mockk<SessionStateService>(relaxed = true)
-        val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         val unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
@@ -68,19 +67,12 @@ class ChatRepositoryImplTest {
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateRepository = sessionStateRepository,
-            settingsDataStore = settingsDataStore,
-            unreadStateStore = unreadStateStore,
             unreadBadgeService = UnreadBadgeService(unreadStateStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
-            sessionRepoProvider = object : javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository> {
-                override fun get() = io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true)
-            },
             // #122 接线新增：自动批准（relaxed mock——既有用例不受影响）
             permissionAutoApprover = permissionAutoApprover,
-            chatRepoProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.ChatRepository>(relaxed = true) },
             // 堆积消息管线（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
             pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
-            pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore)

@@ -43,7 +43,6 @@ class EventDispatcherUnreadTest {
     private lateinit var dispatcher: EventDispatcher
     private lateinit var stateServiceScope: TestScope
     private lateinit var sessionStateRepository: SessionStateService
-    private lateinit var settingsDataStore: SettingsDataStore
     private lateinit var unreadStateStore: UnreadStateStore
 
     private fun makeDispatcher(): EventDispatcher {
@@ -57,20 +56,15 @@ class EventDispatcherUnreadTest {
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateRepository = sessionStateRepository,
-            settingsDataStore = settingsDataStore,
-            unreadStateStore = unreadStateStore,
             unreadBadgeService = UnreadBadgeService(
                 unreadStateStore,
                 CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
             ),
             ownershipRegistry = StreamingOwnershipRegistry(),
-            sessionRepoProvider = Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true) },
             // #122 接线新增：自动批准（relaxed mock——shouldAutoApprove 恒 false，既有用例不受影响）
             permissionAutoApprover = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover>(relaxed = true),
-            chatRepoProvider = Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.ChatRepository>(relaxed = true) },
             // 堆积消息管线（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
             pendingMessagePipelineProvider = Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
-            pendingMessageRepository = io.mockk.mockk(relaxed = true),
         )
     }
 
@@ -83,7 +77,6 @@ class EventDispatcherUnreadTest {
             collaborator = StubCollaborator(),
             cursorPolicyFactory = dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
         )
-        settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
         dispatcher = makeDispatcher()
     }
@@ -102,12 +95,8 @@ class EventDispatcherUnreadTest {
         )
     }
 
-    @Test
-    fun `init triggers v2 migration once`() = runTest {
-        // runUnreadStateV2Migration 为 UnreadStateStore 成员方法（C5 自 SettingsDataStore 迁出），可被 mock 拦截记录。
-        // EventDispatcher init 在 Dispatchers.IO 异步触发迁移；coVerify(timeout) 等待独立 scope 执行完。
-        coVerify(timeout = 5000) { unreadStateStore.runUnreadStateV2Migration() }
-    }
+    // 注：init 触发迁移/seed 的两个用例已随 C7 编排迁移 UnreadBadgeServiceTest
+    //（bootstrap 现由 OpenCodeApp 启动调用，EventDispatcher 不再持有持久化 init）。
 
     @Test
     fun `assistant message with completed updates maxCompleted with server timestamp`() = runTest {
@@ -150,21 +139,6 @@ class EventDispatcherUnreadTest {
         val incomplete = Message.Assistant(id = "m10", sessionId = "s2", time = TimeInfo(created = 3000L, completed = null), parentId = "p0")
         dispatcher.upsertMessages("s2", listOf(MessageWithParts(info = incomplete, parts = emptyList())), MergeStrategy.REST_AUTHORITY)
         assertNull(dispatcher.lastCompletedReplyTime.first()["s2"])
-    }
-
-    @Test
-    fun `seed restores lastCompletedReplyTime on init`() = runTest {
-        // 构造前 stub：lastCompletedReplyTimes 返回既有 seed map（模拟重启后 DataStore 既有值）。
-        // lastCompletedReplyTimes 为 UnreadStateStore 成员方法，对 relaxed mock 直接 every stub 即可。
-        every { unreadStateStore.lastCompletedReplyTimes() } returns flowOf(mapOf("seedSes" to 7777L))
-        val seeded = makeDispatcher()
-        // init 的迁移 + seed 读取在 Dispatchers.IO 异步执行，轮询等待合并完成
-        val deadline = System.currentTimeMillis() + 5000
-        while (System.currentTimeMillis() < deadline &&
-            seeded.lastCompletedReplyTime.value["seedSes"] != 7777L) {
-            Thread.sleep(20)
-        }
-        assertEquals(7777L, seeded.lastCompletedReplyTime.value["seedSes"])
     }
 
     @Test

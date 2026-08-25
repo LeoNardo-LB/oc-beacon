@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -113,6 +114,45 @@ class UnreadBadgeServiceTest {
 
         assertEquals(700L, service.lastCompletedReplyTime.value["ses_1"])  // seed 更大 → 覆盖
         assertEquals(100L, service.lastCompletedReplyTime.value["ses_2"])  // 新增
+    }
+
+    // ---- C7：bootstrap 启动编排（原 EventDispatcher init，迁自 EventDispatcherUnreadTest）----
+
+    @Test
+    fun `bootstrap runs v2 migration before seed`() = runTest {
+        // 顺序铁律：迁移必须先于 seed（清空旧客户端 now 域值后再读 seed）。
+        // 捕获调用顺序列表验证两个调用都发生且迁移在前。
+        val calls = mutableListOf<String>()
+        coEvery { unreadStateStore.runUnreadStateV2Migration() } answers { calls.add("migration"); Unit }
+        every { unreadStateStore.lastCompletedReplyTimes() } answers
+            { calls.add("seed-read"); flowOf(emptyMap()) }
+
+        service.bootstrap()
+
+        assertEquals(listOf("migration", "seed-read"), calls)
+    }
+
+    @Test
+    fun `bootstrap migration failure does not block seed`() = runTest {
+        // runCatching 容错（spec §3.1）：迁移失败（含 mock 环境）不阻塞 seed 路径
+        coEvery { unreadStateStore.runUnreadStateV2Migration() } throws RuntimeException("boom")
+        every { unreadStateStore.lastCompletedReplyTimes() } returns
+            flowOf(mapOf("seedSes" to 7777L))
+
+        service.bootstrap()
+
+        assertEquals(7777L, service.lastCompletedReplyTime.value["seedSes"])
+    }
+
+    @Test
+    fun `bootstrap seed restores lastCompletedReplyTime`() = runTest {
+        // 模拟重启后 DataStore 既有值 → bootstrap 合并进内存水位线
+        every { unreadStateStore.lastCompletedReplyTimes() } returns
+            flowOf(mapOf("seedSes" to 7777L))
+
+        service.bootstrap()
+
+        assertEquals(7777L, service.lastCompletedReplyTime.value["seedSes"])
     }
 
     private fun assistant(id: String, completed: Long?): Message =

@@ -43,9 +43,15 @@ class PermissionAutoApproveWiringTest {
         val dataStore = PreferenceDataStoreFactory.create(
             scope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
         ) { tmpFile }
-        val approver = PermissionAutoApprover(dataStore)
+        // C7：自动批准编排（目录解析 + respondPermission）迁入 PermissionAutoApprover——
+        // 真 sessionHandler + 真 chatRepo provider 驱动完整链路；scope 用真 IO（生产语义）
+        val approver = PermissionAutoApprover(
+            dataStore = dataStore,
+            appScope = CoroutineScope(kotlinx.coroutines.Dispatchers.IO + SupervisorJob()),
+            sessionHandler = sessionHandler,
+            chatRepoProvider = Provider { chatRepo },
+        )
         kotlinx.coroutines.runBlocking { rules.forEach { approver.addRule(it) } }
-        val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
         val unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
         return EventDispatcher(
             sessionHandler = sessionHandler,
@@ -56,16 +62,11 @@ class PermissionAutoApproveWiringTest {
             sessionNextHandler = SessionNextEventHandler(TokenStatsTracker()),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateRepository = mockk(relaxed = true),
-            settingsDataStore = settingsDataStore,
-            unreadStateStore = unreadStateStore,
             unreadBadgeService = UnreadBadgeService(unreadStateStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
-            sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
             permissionAutoApprover = approver,
-            chatRepoProvider = Provider { chatRepo },
             // 堆积消息管线（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
             pendingMessagePipelineProvider = Provider { mockk<PendingMessagePipeline>(relaxed = true) },
-            pendingMessageRepository = mockk(relaxed = true),
         )
     }
 
@@ -94,8 +95,8 @@ class PermissionAutoApproveWiringTest {
         dispatcher.processEvent(asked, "srv")
         advanceUntilIdle()
 
-        // autoApproveScope 用真 Dispatchers.IO（生产语义）——虚拟时钟等不到，
-        // coVerify timeout 真实等待异步回复落地
+        // approver appScope 用真 Dispatchers.IO（生产语义，C7 前的 autoApproveScope
+        // 同款）——虚拟时钟等不到，coVerify timeout 真实等待异步回复落地
         coVerify(timeout = 5_000L, exactly = 1) {
             chatRepo.respondPermission("srv", "ses-1", "perm-1", "once", "/home/proj")
         }

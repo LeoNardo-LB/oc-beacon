@@ -46,14 +46,12 @@ class UnreadClockDomainTest {
 
     private lateinit var dispatcher: EventDispatcher
     private lateinit var unreadBadgeService: UnreadBadgeService
-    private lateinit var settingsDataStore: SettingsDataStore
     private lateinit var unreadStateStore: UnreadStateStore
     private lateinit var scope: CoroutineScope
     private lateinit var stateServiceScope: TestScope
 
     @Before
     fun setup() {
-        settingsDataStore = mockk(relaxed = true)
         unreadStateStore = mockk(relaxed = true)
         scope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())
         stateServiceScope = TestScope(UnconfinedTestDispatcher())
@@ -73,15 +71,10 @@ class UnreadClockDomainTest {
                 collaborator = StubCollaborator(),
             cursorPolicyFactory = dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
             ),
-            settingsDataStore = settingsDataStore,
-            unreadStateStore = unreadStateStore,
             unreadBadgeService = unreadBadgeService,
             ownershipRegistry = StreamingOwnershipRegistry(),
-            sessionRepoProvider = Provider { mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true) },
             permissionAutoApprover = mockk(relaxed = true),
-            chatRepoProvider = Provider { mockk<dev.leonardo.ocbeacon.domain.repository.ChatRepository>(relaxed = true) },
             pendingMessagePipelineProvider = Provider { mockk<PendingMessagePipeline>(relaxed = true) },
-            pendingMessageRepository = mockk(relaxed = true),
         )
     }
 

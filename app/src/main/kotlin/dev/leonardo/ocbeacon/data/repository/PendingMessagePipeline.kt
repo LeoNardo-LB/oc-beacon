@@ -150,6 +150,24 @@ class PendingMessagePipeline @Inject constructor(
         launchDrain(sessionId, serverId)
     }
 
+    /**
+     * SessionDeleted 级联清理（C7 自 EventDispatcher 迁入）：会话没了，队列无意义。
+     * 原实现 runBlocking 同步等待 Room 删除（阻塞 SSE 分发协程）；现走自有
+     * appScope 异步删除，失败仅日志（残留行下次会话级联/清理兜底，无一致性风险——
+     * observeQueue 按 sessionId 作用域，孤儿行不进任何活跃视图）。
+     */
+    fun onSessionDeleted(sessionId: String) {
+        appScope.launch {
+            try {
+                pendingMessageRepository.deleteForSession(sessionId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "cascade deleteForSession failed: " + e.message)
+            }
+        }
+    }
+
     /** 面板「继续」按钮：空闲会话手动放行队首 1 条。 */
     fun continueNow(sessionId: String, serverId: String) = launchDrain(sessionId, serverId)
 

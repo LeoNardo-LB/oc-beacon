@@ -14,10 +14,6 @@ import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,6 +28,12 @@ private const val TAG = "EventDispatcher"
  * 暴露从各 handler 聚合的只读 StateFlow。
  * 处理横切关注点（例如 SessionDeleted 级联清理、
  * CommandExecuted 会话状态重置）。
+ *
+ * C7 瘦身（2026-08-26 架构走查）：unread 迁移/seed 编排迁
+ * [UnreadBadgeService.bootstrap]（OpenCodeApp 启动调用）；自动批准编排迁
+ * [PermissionAutoApprover.maybeAutoApprove]；堆积消息管线 start 迁
+ * OpenCodeConnectionService；SessionDeleted 队列级联改异步（原 runBlocking）。
+ * 本类只保留注册表路由、所有权去重与跨 handler 协调。
  */
 @Singleton
 class EventDispatcher @Inject constructor(
@@ -43,31 +45,17 @@ class EventDispatcher @Inject constructor(
     private val sessionNextHandler: SessionNextEventHandler,
     private val shellJobsHandler: ShellJobsHandler,
     private val sessionStateRepository: SessionStateService,
-    private val settingsDataStore: SettingsDataStore,
-    // C5 拆分：未读红点持久化自 SettingsDataStore 迁出（同 DataStore 同键名）
-    private val unreadStateStore: UnreadStateStore,
     private val unreadBadgeService: UnreadBadgeService,
     private val ownershipRegistry: StreamingOwnershipRegistry,
-    private val sessionRepoProvider: javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository>,
-    // #122（2026-08-18 接线）：PermissionAutoApprover 此前全库零调用——用户在设置页
-    // 保存的自动批准规则从未生效（功能失效）。接线进 PermissionAsked 分发路径。
+    // #122（2026-08-18 接线）+ C7（2026-08-26）：自动批准的完整编排（规则匹配 +
+    // respondPermission + 专属协程）收进 PermissionAutoApprover.maybeAutoApprove——
+    // 本类只在 PermissionAsked 分发点异步触发，不再持有 chatRepoProvider/scope。
     private val permissionAutoApprover: PermissionAutoApprover,
-    private val chatRepoProvider: javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.ChatRepository>,
-    // 堆积消息管线（2026-08-20）：Provider 打破 EventDispatcher→ChatRepository 循环；
-    // init 中 eager 构造 + 接线 naturalTurnEndListener
+    // 堆积消息管线（2026-08-20）：Provider 打破 EventDispatcher→ChatRepository 循环。
+    // C7（2026-08-26）：start() 迁 OpenCodeConnectionService 启动；本类仅保留
+    // SessionDeleted 级联队列清理入口（onSessionDeleted，替代原 runBlocking 同步删除）。
     private val pendingMessagePipelineProvider: javax.inject.Provider<PendingMessagePipeline>,
-    private val pendingMessageRepository: dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository,
 ) {
-    /**
-     * 一次性 unread v2 迁移 scope：App 启动时清空旧域已读标记（readTimes/allReadAt/
-     * 孤儿 lastReplyTime），值域从客户端 now 变为服务器 completed，旧值不可比。幂等
-     * （boolean 标记）。独立 scope，不阻塞事件处理（与已删 replyTimePersistScope 同模式）。
-     */
-    private val unreadMigrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    /** #122：自动批准协程 scope（IO；失败仅日志，不影响事件分发主路径）。 */
-    private val autoApproveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     /** debug 级分发日志的 delta 节流计数器（仅 DEBUG 构建使用）。
      *  2026-08-14 走查修复：多服务器 SSE 协程并发调用 processEvent →
      *  改原子计数（原 var 非原子，仅日志节流不准，无功能影响）。 */
@@ -89,9 +77,6 @@ class EventDispatcher @Inject constructor(
                 UnreadEvent.SessionErrorOccurred(sessionId, System.currentTimeMillis())
             )
         }
-        // #176/#177：堆积消息状态补偿驱动（心跳 + Idle 观察）随首个连接启动
-        //（幂等；此前的边沿触发 naturalTurnEndListener 接线不变）
-        pendingMessagePipelineProvider.get().start()
     }
 
     // ============ 事件处理器注册表（开闭原则）============
@@ -187,22 +172,6 @@ class EventDispatcher @Inject constructor(
      *  红点判定的唯一时间源——委托 [UnreadBadgeService]（抽出前的 _lastCompletedReplyTime）。 */
     val lastCompletedReplyTime: StateFlow<Map<String, Long>> get() = unreadBadgeService.lastCompletedReplyTime
 
-    init {
-        // 持久化 init：迁移必须先于 seed（清空旧客户端 now 域值后再读 seed）。
-        // 顺序保证：迁移在先 → seedFromStorage 读到的是服务器域值或空。
-        unreadMigrationScope.launch {
-            // runCatching 容错：迁移失败（含 mock 环境）不阻塞 init 持久化路径（spec §3.1）
-            val migrationRan = runCatching { unreadStateStore.runUnreadStateV2Migration() }.isSuccess
-            AppLogger.d("UnreadDiag", "[migration] executed=$migrationRan")
-            // #202：collapse_tools→auto_expand_tools 键名搬家迁移（值无取反；unread 同款纪律）
-            runCatching { settingsDataStore.runAutoExpandToolsKeyMigration() }
-            // seed 合并 + 落盘由 UnreadBadgeService 负责；幂等（max 合并，详见其类注释）。
-            // kill 进程后 seed 不丢——落盘由 service 内 persistNow（suspend，本协程内同步完成）。
-            runCatching { unreadBadgeService.seedFromStorage() }
-                .onFailure { e -> AppLogger.e("UnreadDiag", "[seed] failed", e) }
-        }
-    }
-
     // Session Next 状态
     val currentAgent: StateFlow<Map<String, String>> get() = sessionNextHandler.currentAgent
     val currentModel: StateFlow<Map<String, Pair<String, String>>> get() = sessionNextHandler.currentModel
@@ -241,35 +210,6 @@ class EventDispatcher @Inject constructor(
         sessionStateRepository.backfillActiveForServer(serverId)
     }
 
-    /**
-     * #122（2026-08-18）：PermissionAsked 自动批准钩子。
-     *
-     * 规则匹配（AutoApproveRule.matches：toolName/sessionId/directoryPattern）
-     * → 异步 respondPermission("once")。目录取该会话的 Session.directory
-     * （sessionHandler 内存态；查不到时传空串，directoryPattern="*" 的规则
-     * 仍可匹配）。失败仅 WARN 日志——自动批准是尽力而为的增强，不阻塞
-     * 事件主路径（用户仍可手动回复）。
-     */
-    private fun maybeAutoApprovePermission(event: SseEvent.PermissionAsked, serverId: String) {
-        autoApproveScope.launch {
-            try {
-                val sessionDirectory = sessionHandler.sessions.value
-                    .firstOrNull { it.id == event.sessionId }?.directory ?: ""
-                if (!permissionAutoApprover.shouldAutoApprove(event, sessionDirectory)) return@launch
-                AppLogger.i(TAG, "[auto-approve] rule matched: permission=" + event.permission + " sid=" + event.sessionId.take(12) + " dir=" + sessionDirectory + " — replying once")
-                val ok = chatRepoProvider.get()
-                    .respondPermission(serverId, event.sessionId, event.id, "once", sessionDirectory.takeIf { it.isNotBlank() })
-                    .getOrDefault(false)
-                if (!ok) {
-                    AppLogger.w(TAG, "[auto-approve] respondPermission returned false (request may have expired): id=" + event.id)
-                }
-            } catch (t: Throwable) {
-                if (t is kotlinx.coroutines.CancellationException) throw t
-                AppLogger.w(TAG, "[auto-approve] failed: " + t.message)
-            }
-        }
-    }
-
     fun processEvent(event: SseEvent, serverId: String) {
         // 所有权检查：当两条 SSE 连接投递相同事件
         //（同一后端，不同配置）时，防止重复事件处理。
@@ -305,12 +245,12 @@ class EventDispatcher @Inject constructor(
         }
         forwardToSessionStateService(event, serverId)
 
-        // #122（2026-08-18 接线）：PermissionAsked 自动批准——匹配用户保存的
-        // AutoApproveRule 时异步回复（规则列表为空 = shouldAutoApprove 恒 false，
-        // 天然关闭；不阻塞事件分发主路径）。成功后 PermissionReplied 事件回流
-        // 自然清卡片（handler 幂等去重已防重复）。
+        // #122（2026-08-18 接线）+ C7（2026-08-26）：PermissionAsked 自动批准——
+        // 编排（规则匹配 + respondPermission）整体委托 PermissionAutoApprover
+        // .maybeAutoApprove（规则列表为空 = 恒不匹配，天然关闭；不阻塞事件分发
+        // 主路径）。成功后 PermissionReplied 事件回流自然清卡片（handler 幂等去重已防重复）。
         if (event is SseEvent.PermissionAsked) {
-            maybeAutoApprovePermission(event, serverId)
+            permissionAutoApprover.maybeAutoApprove(event, serverId)
         }
 
         // 跨 handler：#216——.next 的 tool.progress 携带 subagent 子智能体会话
@@ -339,10 +279,10 @@ class EventDispatcher @Inject constructor(
             miscHandler.clearForSession(deletedSessionId)
             sessionNextHandler.clearForSession(deletedSessionId)
             sessionStateRepository.clearSession(deletedSessionId)
-            // 堆积消息级联删除（2026-08-20）：会话没了，队列无意义
-            kotlinx.coroutines.runBlocking {
-                runCatching { pendingMessageRepository.deleteForSession(deletedSessionId) }
-            }
+            // 堆积消息级联删除（2026-08-20）：会话没了，队列无意义。
+            // C7（2026-08-26）：原 runBlocking 同步删除改异步——管线自有 appScope
+            // launch（失败仅日志），SSE 分发协程不再被 Room 写阻塞。
+            pendingMessagePipelineProvider.get().onSessionDeleted(deletedSessionId)
         }
 
         // 跨 handler：SessionCompacted（V2 session.compaction.ended 映射 /
@@ -379,17 +319,6 @@ class EventDispatcher @Inject constructor(
         if (event is SseEvent.MessageUpdated && event.info is Message.User) {
             sessionHandler.recordUserMessage(event.info.sessionId, event.info.time.created)
         }
-    }
-
-    /**
-     * 检查会话是否有仍在流式输出的 assistant 消息（time.completed == null）。
-     * 供 REST 同步逻辑和 L5 交叉校验器使用。
-     */
-    private fun hasIncompleteAssistant(sessionId: String): Boolean {
-        return messageHandler.messages.value[sessionId]
-            .orEmpty()
-            .filterIsInstance<Message.Assistant>()
-            .any { it.time.completed == null }
     }
 
     // ============ FSM 转发 ============

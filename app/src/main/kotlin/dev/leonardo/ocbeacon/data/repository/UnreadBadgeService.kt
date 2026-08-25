@@ -219,8 +219,22 @@ class UnreadBadgeService @Inject constructor(
     }
 
     /**
+     * 启动编排（C7 从 EventDispatcher init 迁入，OpenCodeApp 启动处调用）：
+     * unread v2 迁移 → seed。顺序铁律在本方法内结构性保证——迁移先于 seed
+     * （清空旧客户端 now 域值后再读 seed，seedFromStorage 读到的才是服务器域值或空）。
+     * 迁移失败（含 mock 环境）不阻塞 seed（runCatchingCancellable 容错，spec §3.1）。
+     */
+    suspend fun bootstrap() {
+        // 原 EventDispatcher unreadMigrationScope 协程体原样迁入（日志 tag 保持 UnreadDiag）
+        val migrationRan = runCatchingCancellable { unreadStateStore.runUnreadStateV2Migration() }.isSuccess
+        AppLogger.d("UnreadDiag", "[migration] executed=$migrationRan")
+        runCatchingCancellable { seedFromStorage() }
+            .onFailure { e -> AppLogger.e("UnreadDiag", "[seed] failed", e) }
+    }
+
+    /**
      * 启动种子化：DataStore 读 seed（服务器域值）→ max 合并进内存 → 落盘合并结果。
-     * 幂等；迁移（runUnreadStateV2Migration）必须先于本方法执行（EventDispatcher init 顺序保证）。
+     * 幂等；迁移（runUnreadStateV2Migration）必须先于本方法执行（[bootstrap] 顺序保证）。
      */
     suspend fun seedFromStorage() {
         val seed = runCatchingCancellable { unreadStateStore.lastCompletedReplyTimes().first() }

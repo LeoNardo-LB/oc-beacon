@@ -106,6 +106,11 @@ class OpenCodeConnectionService : Service() {
     @Inject
     lateinit var fileRepository: dev.leonardo.ocbeacon.domain.repository.FileRepository
 
+    // C7（2026-08-26）：堆积消息状态补偿驱动改由 service 层（连接生命周期属主）启动；
+    // 原在 EventDispatcher init（幂等 start，时序等价——service 本就注入 dispatcher）。
+    @Inject
+    lateinit var pendingMessagePipeline: dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline
+
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, exception ->
@@ -144,6 +149,10 @@ class OpenCodeConnectionService : Service() {
     override fun onCreate() {
         super.onCreate()
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "Service created")
+
+        // C7：#176/#177 堆积消息状态补偿驱动（T1 心跳 + T3 Idle 观察）随服务启动
+        //（幂等；原 EventDispatcher init 启动点迁此，边沿触发 naturalTurnEndListener 接线不变）
+        pendingMessagePipeline.start()
 
         systemNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         appNotificationManager.createNotificationChannels(systemNotificationManager, this)

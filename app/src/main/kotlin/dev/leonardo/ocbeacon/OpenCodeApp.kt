@@ -17,6 +17,7 @@ import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
 import kotlin.concurrent.thread
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.service.SessionFocusHolder
@@ -120,6 +121,24 @@ class OpenCodeApp : Application() {
                 EntryPointAccessors.fromApplication(this@OpenCodeApp, SettingsEntryPoint::class.java)
                     .settingsDataStore().reconcileLanguageMirror()
             }.onFailure { AppLogger.e(TAG, "Language mirror reconciliation failed", it) }
+        }
+
+        // ---- C7（2026-08-26）：unread 持久化启动编排（原 EventDispatcher init 迁入）----
+        // 迁移先于 seed 的顺序铁律由 UnreadBadgeService.bootstrap 内部结构性保证；
+        // 较原时机（EventDispatcher 首次注入）提前到 App 启动——seed 合并语义（max）
+        // 使提前读取只会减小空窗，无竞态。
+        appScope.launch {
+            runCatching {
+                EntryPointAccessors.fromApplication(this@OpenCodeApp, UnreadBootstrapEntryPoint::class.java)
+                    .unreadBadgeService().bootstrap()
+            }.onFailure { AppLogger.e(TAG, "Unread bootstrap failed", it) }
+            // #202：collapse_tools→auto_expand_tools 键名搬家迁移（值无取反；unread
+            // 同款纪律）——原随 EventDispatcher unread 迁移顺带执行，与 unread seed
+            // 无数据依赖（独立键空间），保持紧随其后启动。
+            runCatching {
+                EntryPointAccessors.fromApplication(this@OpenCodeApp, SettingsEntryPoint::class.java)
+                    .settingsDataStore().runAutoExpandToolsKeyMigration()
+            }
         }
 
         // ---- #228（炸弹清扫）：全库删除 SSE started 残留的空 Text/Reasoning part ----
@@ -300,6 +319,13 @@ interface DiagnosticLogEntryPoint {
 interface SettingsEntryPoint {
     /** #136（D2-L56）：语言镜像启动校验入口。 */
     fun settingsDataStore(): SettingsDataStore
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface UnreadBootstrapEntryPoint {
+    /** C7：unread 迁移 + seed 启动编排入口（原 EventDispatcher init）。 */
+    fun unreadBadgeService(): UnreadBadgeService
 }
 
 @EntryPoint
