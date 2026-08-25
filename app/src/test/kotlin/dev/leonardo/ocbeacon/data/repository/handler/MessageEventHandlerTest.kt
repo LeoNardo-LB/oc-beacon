@@ -265,6 +265,41 @@ class MessageEventHandlerTest {
     }
 
     @Test
+    fun `223 empty ord started parts do not proliferate when same-kind empty exists`() {
+        // 服务器怪癖链路：started ordinal 递增 × N，delta 恒进 ordinal 0
+        val first = Part.Reasoning(id = "m1_reasoning_ord_0", sessionId = "s1", messageId = "m1")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(first))
+        for (ord in 1..50) {
+            handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(
+                Part.Reasoning(id = "m1_reasoning_ord_$ord", sessionId = "s1", messageId = "m1")
+            ))
+        }
+        // 增殖被抑制：仅首个空 part 存活
+        assertEquals(1, handler.parts.value["m1"]!!.size)
+        assertEquals("m1_reasoning_ord_0", handler.parts.value["m1"]!![0].id)
+    }
+
+    @Test
+    fun `223 non-empty ord part still added beyond empty`() {
+        val empty = Part.Text(id = "m1_text_ord_0", sessionId = "s1", messageId = "m1")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(empty))
+        // ended 全文（非空）——必须正常新增不被折叠
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(
+            Part.Text(id = "m1_text_ord_1", sessionId = "s1", messageId = "m1", text = "完整内容")
+        ))
+        assertEquals(2, handler.parts.value["m1"]!!.size)
+    }
+
+    @Test
+    fun `223 custom-id empty parts are not collapsed`() {
+        val p1 = Part.Text(id = "p1", sessionId = "s1", messageId = "m1")
+        val p2 = Part.Text(id = "p2", sessionId = "s1", messageId = "m1")
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(p1))
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(p2))
+        assertEquals(2, handler.parts.value["m1"]!!.size)
+    }
+
+    @Test
     fun `handles MessagePartRemoved`() {
         val part1 = Part.Text(id = "p1", sessionId = "s1", messageId = "m1")
         val part2 = Part.Text(id = "p2", sessionId = "s1", messageId = "m1")

@@ -537,6 +537,20 @@ class MessageEventHandler @Inject constructor(
                 if (contentMatchIdx >= 0) {
                     val old = messageParts[contentMatchIdx]
                     messageParts[contentMatchIdx] = mergePart(old, event.part)
+                } else if (isNewPartId(partId) && isEmptyStreamPart(event.part) &&
+                    messageParts.any {
+                        sameStreamKind(it, event.part) && isEmptyStreamPart(it) && isNewPartId(it.id)
+                    }
+                ) {
+                    // #223（空 part 增殖源头，2026-08-25 真机定音）：部分服务器
+                    // 链路对每个 reasoning 块发 started（ordinal 递增）而 delta
+                    // 恒进 ordinal 0——空 started part 无限增殖（实测单消息
+                    // 4488 part/4487 空，DB 持续 INSERT）。仅对派生契约 id
+                    //（`_text_ord_N`/`_reasoning_ord_N`）且同 kind 已有空 part
+                    // 时丢弃新空 started：零信息损失（空对空），后续若有 delta
+                    // 到达新 ordinal，delta 路径 idx<0 兜底重建。自定义 id 的
+                    // 两个空 part（如 p1/p2）可能 legitimately 不同——不折叠。
+                    // 带 ended 的非空覆盖不经过此分支（text 非空）。
                 } else {
                     // 新 part 到达——对所有消息类型保持文本不变。
                     // 旧代码会剥离 assistant 消息的文本（假设 SSE delta 会重新累积它）。
@@ -685,7 +699,15 @@ class MessageEventHandler @Inject constructor(
             if (existing != null) mergePart(existing, incoming) else incoming
         }
         val incomingIds = incomingParts.mapTo(HashSet()) { it.id }
-        val preserved = existingParts.filter { it.id !in incomingIds }
+        // #223（空 part 炸弹，2026-08-25 真机 jdb + Room 双证）：SSE 的
+        // reasoning/text.started 每事件建一个空 part（ordinal 递增），REST
+        // 权威刷新不携带它们 → 此处被无限保留——实测一条消息累积 110 个空
+        // reasoning part，进会话即 merge/dedup 风暴打挂主线程。服务器侧
+        // 无此数据（同会话 REST 无 >10 part 消息）= 纯客户端残留。修复：
+        // preserved 过滤掉**空文本**的 Text/Reasoning 残留——空 part 零信息；
+        // 正在累积的 part 文本非空不受影响；被误删后到达的 delta 有 idx<0
+        // 重建兜底（handleMessagePartDelta）。工具 part（payload）不动。
+        val preserved = existingParts.filter { it.id !in incomingIds && !isEmptyStreamPart(it) }
         return dedupOverlappingTextParts(merged + preserved)
     }
 
@@ -709,12 +731,19 @@ class MessageEventHandler @Inject constructor(
                     else -> false
                 }
                 if (!sameKind) continue
+                // #223（主线程冻结修复，2026-08-25 真机 jdb 定音）：id 契约判断
+                // 前置——两条新版契约 id 的 part 视为真不同，跳过昂贵的全文
+                // 前缀比较（startsWith/== 在流式巨文上是 O(全文)，SSE 每 delta
+                // 批次都跑 → O(N²)×O(len) 主线程饱和 → 进会话永久转圈）。
+                // 语义不变：原条件 overlaps && (一侧非新版 id) 的否定即
+                // 双侧均新版 id → 跳过，仅省去 overlaps 计算。
+                if (isNewPartId(r.id) && isNewPartId(p.id)) continue
                 val rt = (r as? Part.Text)?.text ?: (r as? Part.Reasoning)?.text ?: continue
                 val pt = (p as? Part.Text)?.text ?: (p as? Part.Reasoning)?.text ?: continue
                 val overlaps = rt == pt ||
                     (rt.length <= pt.length && pt.startsWith(rt)) ||
                     (pt.length <= rt.length && rt.startsWith(pt))
-                if (overlaps && (isNewPartId(r.id).not() || isNewPartId(p.id).not())) {
+                if (overlaps) {
                     result[i] = if (pt.length > rt.length || (pt.length == rt.length && p.id.isNotBlank())) p else r
                     continue@outer
                 }
@@ -722,6 +751,20 @@ class MessageEventHandler @Inject constructor(
             result.add(p)
         }
         return result
+    }
+
+    /** #223：SSE 残留的空 Text/Reasoning part（started 后从未收到 delta）。 */
+    private fun isEmptyStreamPart(part: Part): Boolean = when (part) {
+        is Part.Text -> part.text.isBlank()
+        is Part.Reasoning -> part.text.isBlank()
+        else -> false
+    }
+
+    /** #223：同为流式文本类（Text/Reasoning 同 kind）。 */
+    private fun sameStreamKind(a: Part, b: Part): Boolean = when {
+        a is Part.Text && b is Part.Text -> true
+        a is Part.Reasoning && b is Part.Reasoning -> true
+        else -> false
     }
 
     /** #109 新版派生 id 契约：`<msg>_text_ord_N` / `<msg>_reasoning_ord_N`。 */

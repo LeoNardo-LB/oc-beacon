@@ -140,5 +140,31 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 
 四个 COMP 点全部迁移到 `Modifier.deferredRevealCompensation`（COMP-MSG/COMP-TOOL/COMP-CMP(tail)/COMP-CMP(msg)），独立补偿器实例（msgReveal/toolReveal/compactionReveal，remember 键与旧 lastHeight 状态一致），log 标签沿用（defer 语义）。单测 7 例（冷启动/单增两步/连续链式/回底清欠/收缩/复位/稳态 no-op）+ 全量绿；已部署真机。活体验证仍被 provider 全静默阻断（当日 15:05 起持续），V6 清单不变。
 
+## #223 SSE 空 part 增殖 → 进会话主线程冻结（2026-08-25，真机 E2E 意外捕获）
+
+### 发现与定因
+
+#222 延迟揭示的活体验证被一个数据层 bug 挡住：进含流式历史的会话永久转圈（8 分钟+无内容）。取证链：①MIUIScout 报 APP_SCOUT_HANG（主线程 5s+）；②jdb 挂起取栈（runbook §插桩前置 #2 方法）——主线程停在 mergePartsList→dedupOverlappingTextParts→isNewPartId；③Room 直查（run-as cat 拉库）——单消息 4488 part / 4487 空，id 全为 _reasoning_ord_0..N 递增；④服务器 REST 同会话无 >10 part 消息 = 纯客户端残留；⑤raw SSE 抓包定音服务器怪癖——每 reasoning 块发 started（ordinal 递增、空文本）而 delta 恒 ordinal 0。
+
+根因链：空 started part 无限增殖（内存 add + 落盘 INSERT OR REPLACE 不删行）→ REST 权威刷新时 preserved 无限保留 → 每批 upsert 对 N 个 part 跑 O(N²) dedup（含全文前缀比较）→ 主线程饱和。
+
+### 修复（三层，MessageEventHandler.kt）
+
+1. dedup 的 isNewPartId 前置——双侧新版契约 id 直接跳过（原顺序先算昂贵全文比较再查 id，纯浪费）
+2. mergePartsList preserved 过滤空 Text/Reasoning 残留（服务器不回带它们 = 无价值；delta 后到有 idx<0 重建兜底）
+3. handleMessagePartUpdated 增殖源头掐断：派生契约 id 的空 started 且同 kind 已有空 part → 丢弃。首版对任意空 part 折叠被既有测试（p1/p2 两空 part 合法共存）打回——收紧为仅 _ord_ 契约 id 生效
+
+### 验证
+
+- 冻结会话（验收测试会话AB，111 part 炸弹）：5.4s 进入出内容（修复前 8min+ 转圈）
+- 增殖停止：修复后新轮次 assistant 消息 1 part / 0 空（修复前同链路百级空 part）
+- 回归测试 ×3（增殖抑制/非空 ended 正常新增/自定义 id 不折叠）+ handler 全套 + 全量 1933+ 绿
+- 遗留：DB 存量炸弹行（4488/139/111）不自删（merge 层已滤=inert）；升级 Room schema 清理可后续做
+
+### 过程勘误
+
+①REST parts 只在轮次完成后落盘——流式期探活必须看 SSE 事件流或 app logcat，此前两轮「provider 死了」误判实为探针方法错；②服务器「Session not found」偶发（列表有、直查无）——换会话绕过；③uiautomator dump 在大消息渲染期失明（空树），用 vision 截图裁决；④装包后应用回桌面——一律 ./scripts/debug-entry.sh 标准入口重进。
+
+
 
 
