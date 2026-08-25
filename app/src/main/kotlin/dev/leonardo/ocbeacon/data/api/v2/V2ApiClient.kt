@@ -11,6 +11,7 @@ import dev.leonardo.ocbeacon.data.api.directoryHeader
 import dev.leonardo.ocbeacon.data.api.logApiError
 import dev.leonardo.ocbeacon.data.api.toApiError
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
+import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import dev.leonardo.ocbeacon.data.dto.request.PromptPart
@@ -98,11 +99,14 @@ private const val TAG = "V2Api"
  * - Session abort → interrupt
  * - Session patch title → rename (POST /api/session/{id}/rename)
  * - 健康检查：GET /api/health（无 /global 前缀）
+ *
+ * C1-2（2026-08-26 架构走查，Q2-a）：直接实现 [SessionApi]——
+ * SessionApiImpl 退化为单点 pick + 逐方法委托，本类承担 V2 侧真实适配。
  */
 @Singleton
 class V2ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) {
+) : SessionApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -126,12 +130,12 @@ class V2ApiClient @Inject constructor(
 
     // ============ Session ============
 
-    suspend fun listSessions(
+    override suspend fun listSessions(
         conn: ServerConnection,
-        directory: String? = null,
-        search: String? = null,
-        cursor: String? = null,
-        limit: Int = 50
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int
     ): List<Session> {
         val response = httpClient.get("${conn.baseUrl}/api/session") {
             auth(conn)
@@ -145,7 +149,7 @@ class V2ApiClient @Inject constructor(
         return items.map { V2SessionMapper.toSession(it) }
     }
 
-    suspend fun getSession(conn: ServerConnection, sessionId: String): Session {
+    override suspend fun getSession(conn: ServerConnection, sessionId: String): Session {
         val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId") {
             auth(conn)
         }
@@ -154,17 +158,17 @@ class V2ApiClient @Inject constructor(
         return V2SessionMapper.toSession(data)
     }
 
-    suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String {
+    override suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/api/session/$sessionId") {
             auth(conn)
         }.bodyAsText()
     }
 
-    suspend fun createSession(
+    override suspend fun createSession(
         conn: ServerConnection,
-        title: String? = null,
-        parentId: String? = null,
-        directory: String? = null
+        title: String?,
+        parentId: String?,
+        directory: String?
     ): Session {
         // 使用 JsonObject 构造避免 kotlinx 序列化的混合类型推断问题
         val bodyObj = buildMap<String, kotlinx.serialization.json.JsonElement> {
@@ -187,7 +191,7 @@ class V2ApiClient @Inject constructor(
         return V2SessionMapper.toSession(data)
     }
 
-    suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean {
+    override suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean {
         // 2026-08-15 勘误：DELETE /api/session/:id 实测**支持**（真实会话 204 +
         // 列表确认删除；此前用不存在 id 探测得 404 被误判为端点不存在）。
         // 直接走标准 V2 路径。
@@ -197,7 +201,7 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
+    override suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/rename") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -209,7 +213,7 @@ class V2ApiClient @Inject constructor(
     }
 
     /** V2 用 interrupt 替代 V1 的 abort */
-    suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean {
+    override suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String?): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/interrupt") {
             auth(conn)
             directoryHeader(directory)
@@ -221,9 +225,9 @@ class V2ApiClient @Inject constructor(
      * V2 会话状态查询。
      * V2 没有直接的 /session/status 端点，用 /api/session/active 获取活跃会话。
      */
-    suspend fun fetchSessionStatus(
+    override suspend fun fetchSessionStatus(
         conn: ServerConnection,
-        directory: String? = null
+        directory: String?
     ): Result<Map<String, RestSessionStatusInfo>> {
         return runCatching {
             val response = httpClient.get("${conn.baseUrl}/api/session/active") {
@@ -254,13 +258,11 @@ class V2ApiClient @Inject constructor(
      * 出现在结果中的是前台活跃会话，absent 的为后台/空闲。
      * 可用于前后台状态判定。
      */
-    suspend fun activeSessions(
-        conn: ServerConnection,
-        directory: String? = null
+    override suspend fun activeSessions(
+        conn: ServerConnection
     ): Map<String, ActiveSessionInfo> {
         val response = httpClient.get("${conn.baseUrl}/api/session/active") {
             auth(conn)
-            directoryHeader(directory)
         }
         val root = parseRoot(response.bodyAsText())
         val data = root["data"]?.jsonObject
@@ -277,7 +279,7 @@ class V2ApiClient @Inject constructor(
      * 将当前会话所有前台可后台化工具（subagent）批量转为后台，
      * 主会话立即恢复交互。无前台可后台化工具时是 no-op。
      */
-    suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean {
+    override suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/background") {
             auth(conn)
         }
@@ -994,7 +996,7 @@ class V2ApiClient @Inject constructor(
 
     // ============ Session (supplementary) ============
 
-    suspend fun updateSessionFields(
+    override suspend fun updateSessionFields(
         conn: ServerConnection,
         sessionId: String,
         fields: Map<String, Any>
@@ -1004,19 +1006,19 @@ class V2ApiClient @Inject constructor(
         else getSession(conn, sessionId)
     }
 
-    suspend fun getSessionDiff(conn: ServerConnection, sessionId: String): List<FileDiff> {
+    override suspend fun getSessionDiff(conn: ServerConnection, sessionId: String): List<FileDiff> {
         return emptyList() // V2 无 session diff 端点
     }
 
-    suspend fun shareSession(conn: ServerConnection, sessionId: String): Session {
+    override suspend fun shareSession(conn: ServerConnection, sessionId: String): Session {
         return getSession(conn, sessionId) // V2 无对应端点，返回原 session（no-op）
     }
 
-    suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session {
+    override suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session {
         return getSession(conn, sessionId) // V2 无对应端点，返回原 session（no-op）
     }
 
-    suspend fun compactSession(
+    override suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
@@ -1030,7 +1032,7 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session {
+    override suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session {
         // 2026-08-16 修复（撤回的消息复活，对齐官方 research/10 差异3）：
         // 官方 Web/TUI 撤回**只 stage 不 commit**——commit 由下一条消息隐式
         // 触发（core/revert.ts:113-121 committed 事件后 projector 才真正删除
@@ -1047,14 +1049,14 @@ class V2ApiClient @Inject constructor(
         return getSession(conn, sessionId)
     }
 
-    suspend fun unrevertSession(conn: ServerConnection, sessionId: String): Session {
+    override suspend fun unrevertSession(conn: ServerConnection, sessionId: String): Session {
         httpClient.post("${conn.baseUrl}/api/session/$sessionId/revert/clear") {
             auth(conn)
         }
         return getSession(conn, sessionId)
     }
 
-    suspend fun forkSession(conn: ServerConnection, sessionId: String, messageId: String?): Session {
+    override suspend fun forkSession(conn: ServerConnection, sessionId: String, messageId: String?): Session {
         val bodyObj = kotlinx.serialization.json.buildJsonObject {
             messageId?.let { put("messageID", kotlinx.serialization.json.JsonPrimitive(it)) }
         }
@@ -1074,7 +1076,7 @@ class V2ApiClient @Inject constructor(
         return V2SessionMapper.toSession(V2ResponseWrapper.flexibleObject(bodyText, json))
     }
 
-    suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
+    override suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
         val bodyText = httpClient.post("${conn.baseUrl}/api/session/import") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -1085,16 +1087,16 @@ class V2ApiClient @Inject constructor(
         return V2SessionMapper.toSession(V2ResponseWrapper.flexibleObject(bodyText, json))
     }
 
-    suspend fun executeCommand(
+    override suspend fun executeCommand(
         conn: ServerConnection,
         sessionId: String,
         command: String,
-        arguments: String = "",
-        directory: String? = null,
-        agent: String? = null,
-        model: String? = null,
-        variant: String? = null,
-        parts: List<Map<String, String>>? = null
+        arguments: String,
+        directory: String?,
+        agent: String?,
+        model: String?,
+        variant: String?,
+        parts: List<Map<String, String>>?
     ): Boolean {
         // #200 F03：可选字段非空才进请求体（2026-08-23 实测 V2 beta-17963 接受同字段族）
         val body = mutableMapOf<String, Any>("command" to command, "arguments" to arguments)
@@ -1111,7 +1113,7 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> {
+    override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> {
         return runCatching { listSessions(conn, cursor = null, limit = 50).filter { it.parentId == sessionId } }
             .getOrElse { emptyList() }
     }
@@ -1126,7 +1128,7 @@ class V2ApiClient @Inject constructor(
      */
     private val todoEndpointAbsent = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
-    suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
+    override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
         // V2 dev 分支重新实现了 todo（/api/session/{id}/todo，事件 todo.updated），
         // beta-17639 无此路由（实测 404）。探测语义：404 = 服务器不支持。
         if (todoEndpointAbsent.contains(conn.baseUrl)) throw TodoEndpointMissingException()
@@ -1140,7 +1142,7 @@ class V2ApiClient @Inject constructor(
         return resp.body()
     }
 
-    suspend fun listSessionStatus(conn: ServerConnection, directory: String? = null): Map<String, SessionStatusInfo> {
+    override suspend fun listSessionStatus(conn: ServerConnection, directory: String?): Map<String, SessionStatusInfo> {
         return emptyMap()
     }
 

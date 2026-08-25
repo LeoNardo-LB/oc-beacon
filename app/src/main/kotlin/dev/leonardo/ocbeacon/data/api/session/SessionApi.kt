@@ -109,11 +109,20 @@ interface SessionApi {
     ): Result<Map<String, RestSessionStatusInfo>>
 }
 
+/**
+ * C1-2（2026-08-26 架构走查，Q2-a）：分发层收缩为单点路由 + 逐方法单行委托。
+ * [V1ApiClient]/[V2ApiClient] 已直接实现 [SessionApi]（含 V1 的
+ * backgroundSession=false / activeSessions=emptyMap 降级），本类不再逐方法
+ * if (conn.apiVersion.isV2) 分发。
+ */
 @Singleton
 class SessionApiImpl @Inject constructor(
     private val v1: V1ApiClient,
     private val v2: V2ApiClient
 ) : SessionApi {
+
+    private fun pick(conn: ServerConnection): SessionApi =
+        if (conn.apiVersion.isV2) v2 else v1
 
     override suspend fun listSessions(
         conn: ServerConnection,
@@ -121,74 +130,63 @@ class SessionApiImpl @Inject constructor(
         search: String?,
         cursor: String?,
         limit: Int
-    ): List<Session> =
-        if (conn.apiVersion.isV2) v2.listSessions(conn, directory, search, cursor, limit)
-        else v1.listSessions(conn, directory, search, cursor, limit)
+    ): List<Session> = pick(conn).listSessions(conn, directory, search, cursor, limit)
 
     override suspend fun getSession(conn: ServerConnection, sessionId: String): Session =
-        if (conn.apiVersion.isV2) v2.getSession(conn, sessionId) else v1.getSession(conn, sessionId)
+        pick(conn).getSession(conn, sessionId)
 
     override suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String =
-        if (conn.apiVersion.isV2) v2.getSessionRaw(conn, sessionId) else v1.getSessionRaw(conn, sessionId)
+        pick(conn).getSessionRaw(conn, sessionId)
 
     override suspend fun createSession(
         conn: ServerConnection,
         title: String?,
         parentId: String?,
         directory: String?
-    ): Session =
-        if (conn.apiVersion.isV2) v2.createSession(conn, title, parentId, directory)
-        else v1.createSession(conn, title, parentId, directory)
+    ): Session = pick(conn).createSession(conn, title, parentId, directory)
 
     override suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean =
-        if (conn.apiVersion.isV2) v2.deleteSession(conn, sessionId) else v1.deleteSession(conn, sessionId)
+        pick(conn).deleteSession(conn, sessionId)
 
     override suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session =
-        if (conn.apiVersion.isV2) v2.renameSession(conn, sessionId, title) else v1.renameSession(conn, sessionId, title)
+        pick(conn).renameSession(conn, sessionId, title)
 
     override suspend fun updateSessionFields(
         conn: ServerConnection,
         sessionId: String,
         fields: Map<String, Any>
-    ): Session =
-        if (conn.apiVersion.isV2) v2.updateSessionFields(conn, sessionId, fields)
-        else v1.updateSessionFields(conn, sessionId, fields)
+    ): Session = pick(conn).updateSessionFields(conn, sessionId, fields)
 
     override suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String?): Boolean =
-        if (conn.apiVersion.isV2) v2.interruptSession(conn, sessionId, directory)
-        else v1.interruptSession(conn, sessionId, directory)
+        pick(conn).interruptSession(conn, sessionId, directory)
 
     override suspend fun getSessionDiff(conn: ServerConnection, sessionId: String): List<FileDiff> =
-        if (conn.apiVersion.isV2) v2.getSessionDiff(conn, sessionId) else v1.getSessionDiff(conn, sessionId)
+        pick(conn).getSessionDiff(conn, sessionId)
 
     override suspend fun shareSession(conn: ServerConnection, sessionId: String): Session =
-        if (conn.apiVersion.isV2) v2.shareSession(conn, sessionId) else v1.shareSession(conn, sessionId)
+        pick(conn).shareSession(conn, sessionId)
 
     override suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session =
-        if (conn.apiVersion.isV2) v2.unshareSession(conn, sessionId) else v1.unshareSession(conn, sessionId)
+        pick(conn).unshareSession(conn, sessionId)
 
     override suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
         modelId: String
-    ): Boolean =
-        if (conn.apiVersion.isV2) v2.compactSession(conn, sessionId, providerId, modelId)
-        else v1.compactSession(conn, sessionId, providerId, modelId)
+    ): Boolean = pick(conn).compactSession(conn, sessionId, providerId, modelId)
 
     override suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session =
-        if (conn.apiVersion.isV2) v2.revertSession(conn, sessionId, messageId)
-        else v1.revertSession(conn, sessionId, messageId)
+        pick(conn).revertSession(conn, sessionId, messageId)
 
     override suspend fun unrevertSession(conn: ServerConnection, sessionId: String): Session =
-        if (conn.apiVersion.isV2) v2.unrevertSession(conn, sessionId) else v1.unrevertSession(conn, sessionId)
+        pick(conn).unrevertSession(conn, sessionId)
 
     override suspend fun forkSession(conn: ServerConnection, sessionId: String, messageId: String?): Session =
-        if (conn.apiVersion.isV2) v2.forkSession(conn, sessionId, messageId)
-        else v1.forkSession(conn, sessionId, messageId)
+        pick(conn).forkSession(conn, sessionId, messageId)
 
     override suspend fun importSession(conn: ServerConnection, shareUrl: String): Session =
-        if (conn.apiVersion.isV2) v2.importSession(conn, shareUrl) else v1.importSession(conn, shareUrl)
+        pick(conn).importSession(conn, shareUrl)
 
     override suspend fun executeCommand(
         conn: ServerConnection,
@@ -200,19 +198,16 @@ class SessionApiImpl @Inject constructor(
         model: String?,
         variant: String?,
         parts: List<Map<String, String>>?
-    ): Boolean =
-        if (conn.apiVersion.isV2) v2.executeCommand(conn, sessionId, command, arguments, directory, agent, model, variant, parts)
-        else v1.executeCommand(conn, sessionId, command, arguments, directory, agent, model, variant, parts)
+    ): Boolean = pick(conn).executeCommand(conn, sessionId, command, arguments, directory, agent, model, variant, parts)
 
     override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> =
-        if (conn.apiVersion.isV2) v2.listSessionChildren(conn, sessionId)
-        else v1.listSessionChildren(conn, sessionId)
+        pick(conn).listSessionChildren(conn, sessionId)
 
     override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> =
-        if (conn.apiVersion.isV2) v2.getSessionTodos(conn, sessionId) else v1.getSessionTodos(conn, sessionId)
+        pick(conn).getSessionTodos(conn, sessionId)
 
     override suspend fun listSessionStatus(conn: ServerConnection, directory: String?): Map<String, SessionStatusInfo> =
-        if (conn.apiVersion.isV2) v2.listSessionStatus(conn, directory) else v1.listSessionStatus(conn, directory)
+        pick(conn).listSessionStatus(conn, directory)
 
     /**
      * C8（2026-08-26）：错误分类学接线——V1/V2 实现返回的 Result 失败值在分发层
@@ -224,8 +219,7 @@ class SessionApiImpl @Inject constructor(
         conn: ServerConnection,
         directory: String?
     ): Result<Map<String, RestSessionStatusInfo>> {
-        val result = if (conn.apiVersion.isV2) v2.fetchSessionStatus(conn, directory)
-        else v1.fetchSessionStatus(conn, directory)
+        val result = pick(conn).fetchSessionStatus(conn, directory)
         return result.recoverCatching { e ->
             val apiError = e.asApiError()
             logApiError(TAG, apiError, "fetchSessionStatus v2=${conn.apiVersion.isV2} dir=$directory", e)
@@ -234,8 +228,8 @@ class SessionApiImpl @Inject constructor(
     }
 
     override suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean =
-        if (conn.apiVersion.isV2) v2.backgroundSession(conn, sessionId) else false
+        pick(conn).backgroundSession(conn, sessionId)
 
     override suspend fun activeSessions(conn: ServerConnection): Map<String, ActiveSessionInfo> =
-        if (conn.apiVersion.isV2) v2.activeSessions(conn) else emptyMap()
+        pick(conn).activeSessions(conn)
 }

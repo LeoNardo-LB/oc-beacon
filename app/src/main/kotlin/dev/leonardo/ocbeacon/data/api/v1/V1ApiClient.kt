@@ -10,9 +10,11 @@ import dev.leonardo.ocbeacon.data.api.directoryHeader
 import dev.leonardo.ocbeacon.data.api.logApiError
 import dev.leonardo.ocbeacon.data.api.toApiError
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
+import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
 import dev.leonardo.ocbeacon.data.dto.response.*
+import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -53,8 +55,11 @@ private const val TAG = "V1Api"
 /**
  * V1 API 统一实现——封装所有 OpenCode V1 REST 端点调用。
  *
- * 与 [dev.leonardo.ocbeacon.data.api.v2.V2ApiClient] 对称，供各领域 `*ApiImpl`
- * 作为纯分发层委托。
+ * 与 [dev.leonardo.ocbeacon.data.api.v2.V2ApiClient] 对称。
+ *
+ * C1-2（2026-08-26 架构走查，Q2-a）：直接实现 [SessionApi]——
+ * SessionApiImpl 退化为单点 pick + 逐方法委托，本类承担 V1 侧真实适配
+ *（含 backgroundSession/activeSessions 的 V1 降级）。
  *
  * V1 关键特征：
  * - URL 无 /api 前缀
@@ -64,18 +69,18 @@ private const val TAG = "V1Api"
 @Singleton
 class V1ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) {
+) : SessionApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
     // ============ Session ============
 
-    suspend fun listSessions(
+    override suspend fun listSessions(
         conn: ServerConnection,
-        directory: String? = null,
-        search: String? = null,
-        cursor: String? = null,
-        limit: Int = 50
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int
     ): List<Session> {
         // D2-22（#121，2026-08-19）：V1 接入 HTML 防御——版本误判（V2 服务器
         // + V1 路径）时 SPA fallback 返回 HTML（HTTP 200），无防御时
@@ -92,23 +97,23 @@ class V1ApiClient @Inject constructor(
         return json.decodeFromString(ListSerializer(Session.serializer()), bodyText)
     }
 
-    suspend fun getSession(conn: ServerConnection, sessionId: String): Session {
+    override suspend fun getSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.get("${conn.baseUrl}/session/$sessionId") {
             auth(conn)
         }.body()
     }
 
-    suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String {
+    override suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/session/$sessionId") {
             auth(conn)
         }.bodyAsText()
     }
 
-    suspend fun createSession(
+    override suspend fun createSession(
         conn: ServerConnection,
-        title: String? = null,
-        parentId: String? = null,
-        directory: String? = null
+        title: String?,
+        parentId: String?,
+        directory: String?
     ): Session {
         val body = buildMap<String, String> {
             title?.let { put("title", it) }
@@ -122,14 +127,14 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean {
+    override suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/session/$sessionId") {
             auth(conn)
         }
         return response.status.isSuccess()
     }
 
-    suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
+    override suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
         return httpClient.patch("${conn.baseUrl}/session/$sessionId") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -137,7 +142,7 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun updateSessionFields(
+    override suspend fun updateSessionFields(
         conn: ServerConnection,
         sessionId: String,
         fields: Map<String, Any>
@@ -149,7 +154,7 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String? = null): Boolean {
+    override suspend fun interruptSession(conn: ServerConnection, sessionId: String, directory: String?): Boolean {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/abort") {
             auth(conn)
             directoryHeader(directory)
@@ -157,25 +162,25 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun getSessionDiff(conn: ServerConnection, sessionId: String): List<FileDiff> {
+    override suspend fun getSessionDiff(conn: ServerConnection, sessionId: String): List<FileDiff> {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/diff") {
             auth(conn)
         }.body()
     }
 
-    suspend fun shareSession(conn: ServerConnection, sessionId: String): Session {
+    override suspend fun shareSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.post("${conn.baseUrl}/session/$sessionId/share") {
             auth(conn)
         }.body()
     }
 
-    suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session {
+    override suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.delete("${conn.baseUrl}/session/$sessionId/share") {
             auth(conn)
         }.body()
     }
 
-    suspend fun compactSession(
+    override suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
@@ -189,7 +194,7 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session {
+    override suspend fun revertSession(conn: ServerConnection, sessionId: String, messageId: String): Session {
         return httpClient.post("${conn.baseUrl}/session/$sessionId/revert") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -197,13 +202,13 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun unrevertSession(conn: ServerConnection, sessionId: String): Session {
+    override suspend fun unrevertSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.post("${conn.baseUrl}/session/$sessionId/unrevert") {
             auth(conn)
         }.body()
     }
 
-    suspend fun forkSession(conn: ServerConnection, sessionId: String, messageId: String?): Session {
+    override suspend fun forkSession(conn: ServerConnection, sessionId: String, messageId: String?): Session {
         val body = buildMap<String, String> {
             messageId?.let { put("messageID", it) }
         }
@@ -214,7 +219,7 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
+    override suspend fun importSession(conn: ServerConnection, shareUrl: String): Session {
         return httpClient.post("${conn.baseUrl}/session/import") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -222,16 +227,16 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun executeCommand(
+    override suspend fun executeCommand(
         conn: ServerConnection,
         sessionId: String,
         command: String,
-        arguments: String = "",
-        directory: String? = null,
-        agent: String? = null,
-        model: String? = null,
-        variant: String? = null,
-        parts: List<Map<String, String>>? = null
+        arguments: String,
+        directory: String?,
+        agent: String?,
+        model: String?,
+        variant: String?,
+        parts: List<Map<String, String>>?
     ): Boolean {
         // #200 F03：可选字段非空才进请求体（V1 契约 CommandPayload；空值省略与原行为一致）
         val body = mutableMapOf<String, Any>("command" to command, "arguments" to arguments)
@@ -248,28 +253,28 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> {
+    override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/children") {
             auth(conn)
         }.body()
     }
 
-    suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
+    override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/todo") {
             auth(conn)
         }.body()
     }
 
-    suspend fun listSessionStatus(conn: ServerConnection, directory: String? = null): Map<String, SessionStatusInfo> {
+    override suspend fun listSessionStatus(conn: ServerConnection, directory: String?): Map<String, SessionStatusInfo> {
         return httpClient.get("${conn.baseUrl}/session/status") {
             auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
-    suspend fun fetchSessionStatus(
+    override suspend fun fetchSessionStatus(
         conn: ServerConnection,
-        directory: String? = null
+        directory: String?
     ): Result<Map<String, RestSessionStatusInfo>> {
         return runCatching {
             val response: Map<String, JsonObject> =
@@ -287,6 +292,12 @@ class V1ApiClient @Inject constructor(
             }
         }
     }
+
+    /** V1 不支持后台化（原 SessionApiImpl 降级逻辑下沉，C1-2）——恒 false。 */
+    override suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean = false
+
+    /** V1 无活跃会话端点（原 SessionApiImpl 降级逻辑下沉，C1-2）——恒空。 */
+    override suspend fun activeSessions(conn: ServerConnection): Map<String, ActiveSessionInfo> = emptyMap()
 
     // ============ Message ============
 
