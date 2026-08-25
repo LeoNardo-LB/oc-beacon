@@ -9,6 +9,7 @@ import dev.leonardo.ocbeacon.data.api.apiCall
 import dev.leonardo.ocbeacon.data.api.directoryHeader
 import dev.leonardo.ocbeacon.data.api.logApiError
 import dev.leonardo.ocbeacon.data.api.toApiError
+import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.dto.common.*
@@ -23,6 +24,7 @@ import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerHealth
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.logging.AppLogger
 import io.ktor.client.call.body
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -57,9 +59,11 @@ private const val TAG = "V1Api"
  *
  * 与 [dev.leonardo.ocbeacon.data.api.v2.V2ApiClient] 对称。
  *
- * C1-2（2026-08-26 架构走查，Q2-a）：直接实现 [SessionApi]——
- * SessionApiImpl 退化为单点 pick + 逐方法委托，本类承担 V1 侧真实适配
- *（含 backgroundSession/activeSessions 的 V1 降级）。
+ * C1-2/C1-3（2026-08-26 架构走查，Q2-a）：直接实现 [SessionApi] 与
+ * [MessageApi]——域 Impl 退化为单点 pick + 逐方法委托，本类承担 V1 侧
+ * 真实适配（含 backgroundSession/activeSessions 的 V1 降级；V1 契约里
+ * replyToPermission/replyToQuestion/rejectQuestion 的会话定位参数仅满足
+ * 域接口签名，V1 路径不使用）。
  *
  * V1 关键特征：
  * - URL 无 /api 前缀
@@ -69,7 +73,7 @@ private const val TAG = "V1Api"
 @Singleton
 class V1ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi {
+) : SessionApi, MessageApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -301,11 +305,11 @@ class V1ApiClient @Inject constructor(
 
     // ============ Message ============
 
-    suspend fun listMessages(
+    override suspend fun listMessages(
         conn: ServerConnection,
         sessionId: String,
-        limit: Int? = null,
-        before: String? = null
+        limit: Int?,
+        before: String?
     ): MessagePage = apiCall(TAG, "listMessages session=$sessionId") {
         val response = httpClient.get("${conn.baseUrl}/session/$sessionId/message") {
             auth(conn)
@@ -336,7 +340,7 @@ class V1ApiClient @Inject constructor(
         MessagePage(messages = sanitized, nextCursor = nextCursor)
     }
 
-    suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {
+    override suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/message") {
             auth(conn)
         }.bodyAsText()
@@ -346,22 +350,22 @@ class V1ApiClient @Inject constructor(
      * 将会话导出 JSON 直接流式写入 OutputStream——共享实现（C1-1），
      * 主体见 [dev.leonardo.ocbeacon.data.api.exportSessionToStream]。
      */
-    suspend fun exportSessionToStream(
+    override suspend fun exportSessionToStream(
         conn: ServerConnection,
         sessionId: String,
         outputStream: java.io.OutputStream,
-        onProgress: (Long) -> Unit = {}
+        onProgress: (Long) -> Unit
     ) = dev.leonardo.ocbeacon.data.api.exportSessionToStream(
         httpClient, conn, sessionId, outputStream, onProgress
     )
 
-    suspend fun getMessage(conn: ServerConnection, sessionId: String, messageId: String): MessageWithParts {
+    override suspend fun getMessage(conn: ServerConnection, sessionId: String, messageId: String): MessageWithParts {
         return httpClient.get("${conn.baseUrl}/session/$sessionId/message/$messageId") {
             auth(conn)
         }.body()
     }
 
-    suspend fun promptAsync(
+    override suspend fun promptAsync(
         conn: ServerConnection,
         sessionId: String,
         parts: List<PromptPart>,
@@ -388,26 +392,28 @@ class V1ApiClient @Inject constructor(
         return null
     }
 
-    suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {
+    override suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/session/$sessionId/message/$messageId") {
             auth(conn)
         }
         return response.status.isSuccess()
     }
 
-    suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {
+    override suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/session/$sessionId/message/$messageId/part/$partIndex") {
             auth(conn)
         }
         return response.status.isSuccess()
     }
 
-    suspend fun replyToPermission(
+    /** V1 契约为无会话前缀路径 POST /permission/{id}/reply——[sessionId] 仅满足域接口签名（C1-3），V1 忽略。 */
+    override suspend fun replyToPermission(
         conn: ServerConnection,
+        sessionId: String,
         requestId: String,
         reply: String,
-        message: String? = null,
-        directory: String? = null
+        message: String?,
+        directory: String?
     ): Boolean {
         val body = buildMap<String, String> {
             put("reply", reply)
@@ -422,18 +428,20 @@ class V1ApiClient @Inject constructor(
         return result.status.isSuccess()
     }
 
-    suspend fun listPendingPermissions(conn: ServerConnection, directory: String? = null): List<PermissionRequest> {
+    override suspend fun listPendingPermissions(conn: ServerConnection, directory: String?): List<PermissionRequest> {
         return httpClient.get("${conn.baseUrl}/permission") {
             auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
-    suspend fun replyToQuestion(
+    /** V1 路径 POST /question/{id}/reply 不需要会话定位——[question] 仅满足域接口签名（C1-3），V1 忽略。 */
+    override suspend fun replyToQuestion(
         conn: ServerConnection,
         requestId: String,
         answers: List<List<String>>,
-        directory: String? = null
+        directory: String?,
+        question: SseEvent.QuestionAsked?
     ): Boolean {
         val url = "${conn.baseUrl}/question/$requestId/reply"
         val bodyJson = json.encodeToString(QuestionReplyBody.serializer(), QuestionReplyBody(answers = answers))
@@ -448,10 +456,12 @@ class V1ApiClient @Inject constructor(
         return result.status.isSuccess()
     }
 
-    suspend fun rejectQuestion(
+    /** V1 路径 POST /question/{id}/reject 不需要会话定位——[sessionId] 仅满足域接口签名（C1-3），V1 忽略。 */
+    override suspend fun rejectQuestion(
         conn: ServerConnection,
         requestId: String,
-        directory: String? = null
+        directory: String?,
+        sessionId: String?
     ): Boolean {
         val url = "${conn.baseUrl}/question/$requestId/reject"
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "rejectQuestion: POST $url, directory=$directory")
@@ -463,7 +473,7 @@ class V1ApiClient @Inject constructor(
         return result.status.isSuccess()
     }
 
-    suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest> {
+    override suspend fun listPendingQuestions(conn: ServerConnection, directory: String?): List<QuestionRequest> {
         return httpClient.get("${conn.baseUrl}/question") {
             auth(conn)
             directoryHeader(directory)

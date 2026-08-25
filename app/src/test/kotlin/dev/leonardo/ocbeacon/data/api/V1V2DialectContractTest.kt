@@ -1,14 +1,27 @@
 package dev.leonardo.ocbeacon.data.api
 
+import dev.leonardo.ocbeacon.data.api.message.MessageApiImpl
 import dev.leonardo.ocbeacon.data.api.session.SessionApiImpl
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
+import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.SseEvent
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import io.ktor.serialization.kotlinx.json.json
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -103,5 +116,154 @@ class V1V2DialectContractTest {
         coVerify(exactly = 1) { v2.fetchSessionStatus(connV2, null) }
         coVerify(exactly = 0) { v1.fetchSessionStatus(connV2, any()) }
         coVerify(exactly = 0) { v2.fetchSessionStatus(connV1, any()) }
+    }
+
+    // ---------- Message ----------
+
+    @Test
+    fun `message - V2 conn routes listMessages to v2 with before passthrough`() = runTest {
+        val api = MessageApiImpl(v1, v2)
+        coEvery { v2.listMessages(connV2, "ses_1", 50, "cur_1") } returns
+            MessagePage(messages = emptyList(), nextCursor = null)
+
+        api.listMessages(connV2, "ses_1", limit = 50, before = "cur_1")
+
+        coVerify(exactly = 1) { v2.listMessages(connV2, "ses_1", 50, "cur_1") }
+        coVerify(exactly = 0) { v1.listMessages(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `message - V1 conn routes listMessages to v1 with before passthrough`() = runTest {
+        val api = MessageApiImpl(v1, v2)
+        coEvery { v1.listMessages(connV1, "ses_1", 50, "cur_1") } returns
+            MessagePage(messages = emptyList(), nextCursor = null)
+
+        api.listMessages(connV1, "ses_1", limit = 50, before = "cur_1")
+
+        coVerify(exactly = 1) { v1.listMessages(connV1, "ses_1", 50, "cur_1") }
+        coVerify(exactly = 0) { v2.listMessages(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `message - replyToQuestion routes by conn with question passthrough`() = runTest {
+        val api = MessageApiImpl(v1, v2)
+        val q = questionFixture()
+        val answers = listOf(listOf("Yes"))
+        coEvery { v2.replyToQuestion(connV2, "frm_1", answers, null, q) } returns true
+        coEvery { v1.replyToQuestion(connV1, "frm_1", answers, null, q) } returns true
+
+        assertTrue(api.replyToQuestion(connV2, "frm_1", answers, null, q))
+        assertTrue(api.replyToQuestion(connV1, "frm_1", answers, null, q))
+
+        coVerify(exactly = 1) { v2.replyToQuestion(connV2, "frm_1", answers, null, q) }
+        coVerify(exactly = 1) { v1.replyToQuestion(connV1, "frm_1", answers, null, q) }
+        coVerify(exactly = 0) { v1.replyToQuestion(connV2, any(), any(), any(), any()) }
+        coVerify(exactly = 0) { v2.replyToQuestion(connV1, any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `message - rejectQuestion routes by conn with sessionId passthrough`() = runTest {
+        val api = MessageApiImpl(v1, v2)
+        coEvery { v2.rejectQuestion(connV2, "frm_1", null, "ses_1") } returns true
+        coEvery { v1.rejectQuestion(connV1, "frm_1", null, null) } returns true
+
+        assertTrue(api.rejectQuestion(connV2, "frm_1", sessionId = "ses_1"))
+        assertTrue(api.rejectQuestion(connV1, "frm_1"))
+
+        coVerify(exactly = 1) { v2.rejectQuestion(connV2, "frm_1", null, "ses_1") }
+        coVerify(exactly = 1) { v1.rejectQuestion(connV1, "frm_1", null, null) }
+        coVerify(exactly = 0) { v1.rejectQuestion(connV2, any(), any(), any()) }
+        coVerify(exactly = 0) { v2.rejectQuestion(connV1, any(), any(), any()) }
+    }
+
+    @Test
+    fun `message - V1 conn routes replyToPermission with sessionId`() = runTest {
+        val api = MessageApiImpl(v1, v2)
+        coEvery { v1.replyToPermission(connV1, "ses_1", "req_1", "once", null, null) } returns true
+
+        assertTrue(api.replyToPermission(connV1, "ses_1", "req_1", "once"))
+
+        coVerify(exactly = 1) { v1.replyToPermission(connV1, "ses_1", "req_1", "once", null, null) }
+        coVerify(exactly = 0) { v2.replyToPermission(any(), any(), any(), any(), any(), any()) }
+    }
+
+    // ---------- 下沉适配的真实 client 守护（C1-3 字节等价） ----------
+
+    private fun realV2(engine: MockEngine): V2ApiClient {
+        val json = Json { ignoreUnknownKeys = true }
+        val client = HttpClient(engine) {
+            install(ContentNegotiation) { json(json) }
+        }
+        return V2ApiClient(ApiClient(client, json))
+    }
+
+    private fun questionFixture() = SseEvent.QuestionAsked(
+        id = "frm_1",
+        sessionId = "ses_sub",
+        questions = listOf(
+            SseEvent.QuestionAsked.Question(
+                header = "Confirm",
+                question = "Proceed?",
+                options = listOf(SseEvent.QuestionAsked.Option(label = "Yes", description = "")),
+                key = "q0"
+            )
+        )
+    )
+
+    @Test
+    fun `v2 client listMessages translates before into server cursor param`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/session/ses_1/message", request.url.encodedPath)
+            assertEquals("abc", request.url.parameters["cursor"])
+            respond(
+                """{"data":[],"cursor":{"previous":null,"next":null}}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json"))
+            )
+        }
+
+        val page = realV2(engine).listMessages(connV2, "ses_1", limit = 50, before = "abc")
+
+        assertTrue(page.messages.isEmpty())
+    }
+
+    @Test
+    fun `v2 client replyToQuestion posts question-v2 reply with form id and session from question`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/session/ses_sub/question/frm_1/reply", request.url.encodedPath)
+            respond(
+                "{}",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json"))
+            )
+        }
+
+        val ok = realV2(engine).replyToQuestion(connV2, "frm_1", listOf(listOf("Yes")), null, questionFixture())
+
+        assertTrue(ok)
+    }
+
+    @Test
+    fun `v2 client replyToQuestion with null question returns false without http`() = runTest {
+        val engine = MockEngine { _ -> throw AssertionError("question=null must not hit http") }
+
+        assertFalse(realV2(engine).replyToQuestion(connV2, "frm_1", listOf(listOf("Yes")), null, null))
+    }
+
+    @Test
+    fun `v2 client rejectQuestion with null sessionId returns false without http`() = runTest {
+        val engine = MockEngine { _ -> throw AssertionError("sessionId=null must not hit http") }
+
+        assertFalse(realV2(engine).rejectQuestion(connV2, "frm_1", null, null))
+    }
+
+    @Test
+    fun `v2 client rejectQuestion posts question-v2 reject when sessionId present`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/session/ses_1/question/frm_1/reject", request.url.encodedPath)
+            respond("{}", HttpStatusCode.OK)
+        }
+
+        assertTrue(realV2(engine).rejectQuestion(connV2, "frm_1", null, "ses_1"))
     }
 }

@@ -10,6 +10,7 @@ import dev.leonardo.ocbeacon.data.api.apiCall
 import dev.leonardo.ocbeacon.data.api.directoryHeader
 import dev.leonardo.ocbeacon.data.api.logApiError
 import dev.leonardo.ocbeacon.data.api.toApiError
+import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
@@ -51,6 +52,7 @@ import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerHealth
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ShellOutput
@@ -100,13 +102,15 @@ private const val TAG = "V2Api"
  * - Session patch title → rename (POST /api/session/{id}/rename)
  * - 健康检查：GET /api/health（无 /global 前缀）
  *
- * C1-2（2026-08-26 架构走查，Q2-a）：直接实现 [SessionApi]——
- * SessionApiImpl 退化为单点 pick + 逐方法委托，本类承担 V2 侧真实适配。
+ * C1-2/C1-3（2026-08-26 架构走查，Q2-a）：直接实现 [SessionApi] 与
+ * [MessageApi]——域 Impl 退化为单点 pick + 逐方法委托，本类承担 V2 侧
+ * 真实适配（listMessages 的 cursor=before 翻译、replyToQuestion 的
+ * V2FormMapper 答案构造、rejectQuestion 的 sessionId 回退）。
  */
 @Singleton
 class V2ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi {
+) : SessionApi, MessageApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -386,12 +390,16 @@ class V2ApiClient @Inject constructor(
 
     // ============ Message ============
 
-    suspend fun listMessages(
+    /**
+     * C1-3：域接口 MessageApi 以 before 命名翻页游标——此处完成 cursor=before
+     * 翻译（原 MessageApiImpl 内联）：V2 服务器翻页参数名是 cursor。
+     */
+    override suspend fun listMessages(
         conn: ServerConnection,
         sessionId: String,
-        limit: Int? = null,
-        cursor: String? = null
-    ): MessagePage = apiCall(TAG, "listMessages session=$sessionId cursor=${cursor?.take(48)}") {
+        limit: Int?,
+        before: String?
+    ): MessagePage = apiCall(TAG, "listMessages session=$sessionId cursor=${before?.take(48)}") {
         val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId/message") {
             auth(conn)
             limit?.let { parameter("limit", it) }
@@ -400,7 +408,8 @@ class V2ApiClient @Inject constructor(
             // {"id","order","direction"}）——本地 CursorCodec 的 {"id","time"} 格式不兼容。
             // 2026-08-12 双向分页：cursor 也可由调用方构造（loadAround/loadNewer），
             // direction="next"=更旧、"previous"=更新，服务器据此返回对应方向数据。
-            cursor?.let { parameter("cursor", it) }
+            // C1-3：域接口参数名 before（见方法 KDoc）——此处译回服务器参数名 cursor。
+            before?.let { parameter("cursor", it) }
         }
         // 防御（#87）：非 2xx（404 会话不存在/5xx）返回空页，避免解析错误体。
         // 2026-08-16（cursor 400 排障）：400 升 Error 级并带 cursor 前缀——
@@ -409,7 +418,7 @@ class V2ApiClient @Inject constructor(
         // C8（2026-08-26）：非 2xx 升级为 ApiError 分类学日志（401/403/404/429/5xx
         // 精确分类 + isTransient），空页返回语义不变。
         if (!response.status.isSuccess()) {
-            logApiError(TAG, response.toApiError(), "listMessages status=${response.status.value} session=$sessionId cursor=${cursor?.take(48)}")
+            logApiError(TAG, response.toApiError(), "listMessages status=${response.status.value} session=$sessionId cursor=${before?.take(48)}")
             return@apiCall MessagePage(messages = emptyList(), nextCursor = null, previousCursor = null)
         }
         val root = parseRoot(response.bodyAsText())
@@ -424,13 +433,13 @@ class V2ApiClient @Inject constructor(
         )
     }
 
-    suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {
+    override suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {
         return httpClient.get("${conn.baseUrl}/api/session/$sessionId/message") {
             auth(conn)
         }.bodyAsText()
     }
 
-    suspend fun getMessage(conn: ServerConnection, sessionId: String, messageId: String): MessageWithParts {
+    override suspend fun getMessage(conn: ServerConnection, sessionId: String, messageId: String): MessageWithParts {
         val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId/message/$messageId") {
             auth(conn)
         }
@@ -658,7 +667,7 @@ class V2ApiClient @Inject constructor(
         }.getOrDefault(agent)
     }
 
-    suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {
+    override suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/api/session/$sessionId/message/$messageId") {
             auth(conn)
         }
@@ -847,13 +856,13 @@ class V2ApiClient @Inject constructor(
 
     // ============ Permission / Question (V2 paths) ============
 
-    suspend fun replyToPermission(
+    override suspend fun replyToPermission(
         conn: ServerConnection,
         sessionId: String,
         requestId: String,
         reply: String,
-        message: String? = null,
-        directory: String? = null
+        message: String?,
+        directory: String?
     ): Boolean {
         // 2026-08-17 根治（权限卡每次进入重弹）：真实契约为
         // POST /api/session/{权限所属会话}/permission/{id}/reply + {"reply":"once"|"always"|"reject"}
@@ -992,6 +1001,45 @@ class V2ApiClient @Inject constructor(
             directoryHeader(directory)
         }
         return response.status.isSuccess()
+    }
+
+    /**
+     * C1-3（原 MessageApiImpl 内联适配下沉，行为逐字节等价）：
+     * #130：V2 form reply——需要 sessionId + key/value 映射。
+     * question 为 null（无法定位）时返回 false，调用方走 fallback 移除卡片。
+     */
+    override suspend fun replyToQuestion(
+        conn: ServerConnection,
+        requestId: String,
+        answers: List<List<String>>,
+        directory: String?,
+        question: SseEvent.QuestionAsked?
+    ): Boolean {
+        val q = question ?: return false
+        return replyToForm(
+            conn,
+            sessionId = q.sessionId,
+            formId = requestId,
+            keyedAnswers = V2FormMapper.buildJsonAnswerMap(answers, q.questions),
+            // 2026-08-17：question.v2 主路径用原始 label 按序数组（未答题补 [] 占位、
+            // 自定义输入原文保留）——官方契约 answers 是 label 数组，不经 key/value 转换。
+            orderedAnswers = V2FormMapper.buildOrderedLabelAnswers(answers, q.questions.size),
+            directory = directory
+        )
+    }
+
+    /**
+     * C1-3（原 MessageApiImpl 内联适配下沉，行为逐字节等价）：
+     * #130：V2 form cancel——需要 sessionID（路径参数）；sessionId 缺失返回 false。
+     */
+    override suspend fun rejectQuestion(
+        conn: ServerConnection,
+        requestId: String,
+        directory: String?,
+        sessionId: String?
+    ): Boolean {
+        val sid = sessionId ?: return false
+        return rejectForm(conn, sid, requestId, directory)
     }
 
     // ============ Session (supplementary) ============
@@ -1149,16 +1197,16 @@ class V2ApiClient @Inject constructor(
     // ============ Message (supplementary) ============
 
     /** 会话导出流式写入——共享实现（C1-1），主体见 [dev.leonardo.ocbeacon.data.api.exportSessionToStream]。 */
-    suspend fun exportSessionToStream(
+    override suspend fun exportSessionToStream(
         conn: ServerConnection,
         sessionId: String,
         outputStream: java.io.OutputStream,
-        onProgress: (Long) -> Unit = {}
+        onProgress: (Long) -> Unit
     ) = dev.leonardo.ocbeacon.data.api.exportSessionToStream(
         httpClient, conn, sessionId, outputStream, onProgress
     )
 
-    suspend fun promptAsync(
+    override suspend fun promptAsync(
         conn: ServerConnection,
         sessionId: String,
         parts: List<PromptPart>,
@@ -1195,11 +1243,11 @@ class V2ApiClient @Inject constructor(
         return prompt(conn, sessionId, text, directory, agent, files)
     }
 
-    suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {
+    override suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {
         return false // V2 无此端点
     }
 
-    suspend fun listPendingPermissions(conn: ServerConnection, directory: String? = null): List<PermissionRequest> {
+    override suspend fun listPendingPermissions(conn: ServerConnection, directory: String?): List<PermissionRequest> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/permission/request") {
             auth(conn)
             directoryHeader(directory)
@@ -1215,7 +1263,7 @@ class V2ApiClient @Inject constructor(
      * 2026-08-14 实测恒返回空）。kind=question 的表单映射为 QuestionRequest DTO，
      * 供轮询兜底/通知复用；其他 kind 的表单忽略。
      */
-    suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest> {
+    override suspend fun listPendingQuestions(conn: ServerConnection, directory: String?): List<QuestionRequest> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/form/request") {
             auth(conn)
             directoryHeader(directory)
