@@ -41,9 +41,20 @@ interface MessageDao {
      * #228（炸弹清扫）：SSE 残留的空 Text/Reasoning part 一次性删除。
      * #223 时代只堵住了增殖源头与 merge 入口（existing 侧）；Room 里已落盘的
      * 历史炸弹行（实测最大单消息 4488 个空 reasoning part）会随会话种子回灌
-     * 热视图。空文本 = 零信息（delta 到达有 idx<0 重建兜底），全库删除安全。
+     * 热视图。空文本 = 零信息（delta 到达有 idx<0 重建兜底），删除安全。
+     *
+     * #230 勘误（2026-08-26 深夜追凶）：落库映射 text=(p as? Part.Text)?.text ——
+     * **Reasoning 行的 text 列恒 NULL（内容在 payload JSON，#79 截断设计）**。
+     * 初版谓词 `text IS NULL` 把全部健康 reasoning 行误判为空 → 每次开机误删
+     * 全部 reasoning 缓存（服务器可重拉、未被察觉，但行为错误）。修正：
+     * - delta 路径的空行：text = ''（INSERT 以 delta 为初值）；
+     * - 快照路径的空 reasoning：text IS NULL 且 payload 内 text 字段为空串。
      */
-    @Query("DELETE FROM cached_parts WHERE type IN ('reasoning', 'text') AND (text IS NULL OR text = '')")
+    @Query(
+        "DELETE FROM cached_parts WHERE type IN ('reasoning', 'text') AND (" +
+            "text = '' OR (type = 'reasoning' AND text IS NULL AND payload LIKE '%\"text\":\"\"%')" +
+            ")"
+    )
     suspend fun deleteEmptyStreamParts(): Int
 
     /** 分页读：最新 limit 条（无游标）。 */

@@ -13,6 +13,7 @@ import dev.leonardo.ocbeacon.data.dto.response.*
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
+import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerHealth
@@ -306,8 +307,18 @@ class V1ApiClient @Inject constructor(
             return MessagePage(messages = emptyList(), nextCursor = null)
         }
         val messages = response.body<List<MessageWithParts>>()
+        // #230（对称防御，与 V2Mappers 同规则）：V1 服务器 parts 同样可能携带
+        // SSE started 残留的空 text/reasoning——REST 快照零信息项在源头丢弃
+        //（进会话 prefetch 会原样写 Room，绕过 merge 侧过滤；空 part 进 turn
+        // 渐进测量还会引发 item 初测后大幅增长=渲染重叠）。REST 不收 delta 无副作用。
+        val sanitized = messages.map { m ->
+            m.copy(parts = m.parts.filter { p ->
+                !((p is Part.Text && p.text.isBlank()) ||
+                    (p is Part.Reasoning && p.text.isBlank()))
+            })
+        }
         val nextCursor = response.headers["X-Next-Cursor"]
-        return MessagePage(messages = messages, nextCursor = nextCursor)
+        return MessagePage(messages = sanitized, nextCursor = nextCursor)
     }
 
     suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {

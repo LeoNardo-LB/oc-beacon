@@ -50,6 +50,12 @@ class MessageStore @Inject constructor(
         deltas: List<PartDelta>,
     ) = withContext(Dispatchers.IO) {
         if (deltas.isEmpty() || messages.isEmpty()) return@withContext
+        // #230（残余通道封堵）：SSE started 的 part 注册可能以 null/blank delta
+        // 进批 → INSERT 出 text=NULL 的零信息行（实测每助手消息一条
+        // `<msg>_reasoning_ord_0` NULL 行，启动清扫再删、开 会话再写的循环）。
+        // 过滤后行等到首个非空 delta 才由 UPSERT INSERT 建立——语义不变。
+        val realDeltas = deltas.filter { it.delta.isNotBlank() }
+        if (realDeltas.isEmpty()) return@withContext
         runCatchingCancellable {
             databaseRecovery.withCorruptionRecovery {
                 // 骨架消息 upsert（幂等 REPLACE；保证 part 的 FK 依赖存在）
@@ -62,7 +68,7 @@ class MessageStore @Inject constructor(
                         payload = json.encodeToString(m.info),
                     )
                 })
-                deltas.forEach { d ->
+                realDeltas.forEach { d ->
                     dao.appendPartText(
                         partId = d.partId,
                         messageId = d.messageId,

@@ -274,20 +274,21 @@ class MessageEventHandlerTest {
                 Part.Reasoning(id = "m1_reasoning_ord_$ord", sessionId = "s1", messageId = "m1")
             ))
         }
-        // 增殖被抑制：仅首个空 part 存活
-        assertEquals(1, handler.parts.value["m1"]!!.size)
-        assertEquals("m1_reasoning_ord_0", handler.parts.value["m1"]!![0].id)
+        // #230 语义升级：增殖抑制从严——空 started 一律不注册（旧 #223 保留
+        // 首个空 part；现零注册，delta 到达经 idx<0 兜底重建且按 id 契约判型）
+        assertEquals(0, handler.parts.value["m1"]?.size ?: 0)
     }
 
     @Test
     fun `223 non-empty ord part still added beyond empty`() {
         val empty = Part.Text(id = "m1_text_ord_0", sessionId = "s1", messageId = "m1")
         handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(empty))
-        // ended 全文（非空）——必须正常新增不被折叠
+        // ended 全文（非空）——必须正常新增不被折叠（#230：空 ord_0 不注册）
         handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(
             Part.Text(id = "m1_text_ord_1", sessionId = "s1", messageId = "m1", text = "完整内容")
         ))
-        assertEquals(2, handler.parts.value["m1"]!!.size)
+        assertEquals(1, handler.parts.value["m1"]!!.size)
+        assertEquals("完整内容", (handler.parts.value["m1"]!![0] as Part.Text).text)
     }
 
     @Test

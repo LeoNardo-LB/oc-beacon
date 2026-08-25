@@ -301,6 +301,19 @@ object V2MessageMapper {
                         "reasoning" -> reasoningOrdinal++
                         else -> null
                     }
+                    // #230（#228/#229 后续根因补完，2026-08-26 用户报「消息叠在一起」
+                    // + RESIZE 376→1290 实证）：V2 服务器 content 本身携带 SSE started
+                    // 残留的空 text/reasoning item（实测单消息 210 个空 reasoning）——
+                    // 此前全量物化成 part → 进会话 prefetch replaceSessionMessages 原样
+                    // 写 Room（绕过 #228 的 merge 侧过滤）→ Room 再污染 + turn 渲染
+                    // 数百 part 渐进测量（item 初测后 +914px）→ 增长期文本压在邻居上
+                    // = 「叠在一起」。REST 快照零信息项在此源头丢弃：ordinal 照常
+                    // 计数（id 契约与 SSE 派生规则对齐不破坏——非空 item 的 id 不变，
+                    // Room merge 幂等）；REST 不接收 delta，丢弃无副作用。
+                    if (contentType == "text" || contentType == "reasoning") {
+                        val snapshotText = contentObj["text"]?.jsonPrimitive?.contentOrNull ?: ""
+                        if (snapshotText.isBlank()) return@mapNotNull null
+                    }
                     mapContentToPart(contentObj, contentType, sessionId, id, ordinal)
                 }
 

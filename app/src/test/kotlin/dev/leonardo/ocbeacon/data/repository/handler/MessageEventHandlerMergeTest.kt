@@ -166,6 +166,29 @@ class MessageEventHandlerMergeTest {
         assertEquals("Hello World Extended", (result[0] as Part.Text).text)
     }
 
+    // ============ #230 回归：空 started 不注册内存，delta 到达重建 ============
+
+    @Test
+    fun `part updated with empty derived-id stream part does not register`() {
+        val emptyStarted = Part.Reasoning(
+            id = "msg-e_reasoning_ord_0", sessionId = "s1", messageId = "msg-e", text = ""
+        )
+        handler.handleMessagePartUpdated(SseEvent.MessagePartUpdated(emptyStarted))
+        // 零信息 part 不注册
+        val parts = handler.parts.value["msg-e"]
+        assertTrue(parts == null || parts.none { it.id == "msg-e_reasoning_ord_0" })
+
+        // 首个非空 delta 到达 → idx<0 兜底重建（part 出现且带内容）
+        handler.handleMessagePartDelta(SseEvent.MessagePartDelta(
+            sessionId = "s1", messageId = "msg-e", partId = "msg-e_reasoning_ord_0",
+            field = "text", delta = "Real reasoning"
+        ))
+        handler.forceFlushDeltas()
+        val after = handler.parts.value["msg-e"].orEmpty()
+        val registered = after.filterIsInstance<Part.Reasoning>().firstOrNull { it.id == "msg-e_reasoning_ord_0" }
+        assertEquals("Real reasoning", registered?.text)
+    }
+
     // ============ 测试 2：setMessages 保留 SSE 未完成消息的元数据 ============
 
     @Test

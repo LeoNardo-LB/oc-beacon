@@ -189,12 +189,23 @@ class MessageEventHandler @Inject constructor(
                     }
                     messageParts[idx] = newPart
                 } else {
-                    messageParts.add(Part.Text(
-                        id = entry.partId,
-                        sessionId = entry.sessionId,
-                        messageId = entry.messageId,
-                        text = entry.delta
-                    ))
+                    // #230：按缓冲时判定的 kind 重建（此前硬编码 Part.Text——
+                    // reasoning delta 丢失注册后以正文形态复活，kind 错乱）。
+                    if (entry.type == "reasoning") {
+                        messageParts.add(Part.Reasoning(
+                            id = entry.partId,
+                            sessionId = entry.sessionId,
+                            messageId = entry.messageId,
+                            text = entry.delta
+                        ))
+                    } else {
+                        messageParts.add(Part.Text(
+                            id = entry.partId,
+                            sessionId = entry.sessionId,
+                            messageId = entry.messageId,
+                            text = entry.delta
+                        ))
+                    }
                 }
                 updated[entry.messageId] = messageParts
             }
@@ -565,6 +576,14 @@ class MessageEventHandler @Inject constructor(
                     // 到达新 ordinal，delta 路径 idx<0 兜底重建。自定义 id 的
                     // 两个空 part（如 p1/p2）可能 legitimately 不同——不折叠。
                     // 带 ended 的非空覆盖不经过此分支（text 非空）。
+                } else if (isNewPartId(partId) && isEmptyStreamPart(event.part)) {
+                    // #230（#228/#229 残余通道封堵，2026-08-26）：#223 只在
+                    // 同 kind 已有空 part 时丢弃新空 started——**首个**空 started
+                    // 仍会注册进内存 → persistSseUpdate 快照落 Room（text=NULL
+                    // 行，实测每助手消息一条 `<msg>_reasoning_ord_0`）→ 开会话
+                    // 再写、启动清扫再删的死循环。零信息 part 一律不注册：
+                    // 后续 delta 到达时 handleMessagePartDelta 的 idx<0 兜底
+                    // 重建（#223 已验证的机制），首个非空 delta/updated 再入列。
                 } else {
                     // 新 part 到达——对所有消息类型保持文本不变。
                     // 旧代码会剥离 assistant 消息的文本（假设 SSE delta 会重新累积它）。
@@ -978,9 +997,15 @@ class MessageEventHandler @Inject constructor(
         ensureAssistantSkeleton(event.sessionId, event.messageId)
         // 缓冲 delta 以批量 flush（48ms 窗口）——将重组频率
         // 从逐 token 降至约 20 次/秒，消除布局抖动。
-        val partType = when (_parts.value[event.messageId]
-            ?.firstOrNull { it.id == event.partId }) {
-            is Part.Reasoning -> "reasoning"
+        // #230：part 未注册时（空 started 被 #230 丢弃/事件丢失）此前默认
+        // "text"——reasoning delta 会以正文 kind 重建（渲染进正文块+dedup
+        // 分桶错乱）。按派生 id 契约判型：`_reasoning_ord_` → reasoning。
+        val existingPart = _parts.value[event.messageId]
+            ?.firstOrNull { it.id == event.partId }
+        val partType = when {
+            existingPart is Part.Reasoning -> "reasoning"
+            existingPart != null -> "text"
+            event.partId.contains("_reasoning_ord_") -> "reasoning"
             else -> "text"
         }
         synchronized(pendingLock) {

@@ -241,6 +241,38 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 - 三轮加载循环（入口种子×2 + modelConfig 解析×1）为次生放大（用户卡死后重试），主因消除后不再触发停顿；未单独改动加载编排。
 
 
+## #230 消息重叠（叠在一起）根因根治：REST 源头滤空 + 全通道封堵 + 两处自查误判勘误（2026-08-26 深夜，用户报「先于本次优化存在」）
+
+用户：「这个会话中很多消息似乎叠在了一起……是本次优化前就出现的问题，请系统性分析根因并根治」。
+
+### 证据链（系统性）
+
+- 慢滚全程录屏帧抽查（10 帧×双向）+ 冷启动进会话高帧率捕获：当前构建未复现重叠。
+- **ScrollDiag RESIZE**：`t_msg_038cd8c4f001 h 376→1290 (+914px)` 确定性复现——item 初次测量后大幅增长=渐进测量实锤；邻居按旧高度排布的增长窗口=重叠的物理机制。
+- **Room 直查**：该消息 210 reasoning part（209 空）——**服务器 content 本身携带 SSE started 残留**（#223「服务器无此数据」结论对该会话不成立）。
+- **机制定音**：turn 渲染 211 part（209 垃圾）渐进组合/异步测量 → +914px 增长 → 增长窗口内文本压邻居=「叠在一起」。次生：prefetch replaceSessionMessages 把服务器全量原样写 Room，绕过 #228 的 merge 侧过滤 → 每次开会在 Room 重植 4872 行（清扫打不赢的仗）。
+
+### 修复（五通道全闭）
+
+1. **V2Mappers 源头滤空**（真根因层）：content item 空 text/reasoning 在 REST 映射时丢弃——ordinal 照常计数保 id 契约与 SSE 派生对齐（非空 part id 不变，Room merge 幂等）；REST 不收 delta，丢弃零副作用。
+2. **V1ApiClient 对称防御**：listMessages 解码后滤空 Text/Reasoning。
+3. **注册点封堵**（MessageEventHandler.handleMessagePartUpdated）：派生契约 id 的空 started 一律不注册（#223 原语义「同 kind 已有空才丢」升级为零注册）。
+4. **重建判型修复**（连带真 bug，测试逮出）：delta idx<0 重建此前硬编码 Part.Text——reasoning delta 丢失注册后以正文 kind 复活（渲染进正文块+dedup 分桶错乱）。两处修正（缓冲时按 id 契约判型 + flush 按型重建）。
+5. **flush 零信息守卫**：appendPartTexts 过滤 blank delta（防 text 空串行）。
+
+### 自查误判勘误（诚实记录）
+
+- **误判一（诊断 SQL）**：`text IS NULL` 当空判据——但落库映射 `text=(p as? Part.Text)?.text` 使 **Reasoning 行 text 列恒 NULL（内容住 payload，#79 截断设计）**→ 把 61 条健康行误读为「顽固残留」，追了一圈幻影。
+- **误判二（#228 清扫谓词）**：`DELETE … OR text IS NULL` 每次开机**误删全部 reasoning 缓存**（服务器可重拉掩盖了错误）。修正谓词：`text='' OR (reasoning AND text IS NULL AND payload 空文本)。
+- 方法教训：跨进程拉 WAL 三件套分段拷贝可能不一致；读数必须 db/wal 同源重放，且对「恒真谓词」先做 schema 对账。
+
+### 验证（终态）
+
+- true_empties（text='' 垃圾）= **0** 且跨重启保持 0；payload 空 reasoning = 0；健康 reasoning 61 条保留；本次开机清扫 0 删（无垃圾可删，也不再误删）。
+- 单测：+2 例（mapper 源头滤空保 ordinal / 空 started 不注册+delta 按型重建）；#223 两例断言升级到零注册语义；全量 **1956 绿**。
+- 慢滚+快速 fling 录屏帧抽查无重叠；MIUIScout 0 停顿。
+- 残留观察：单次 `RESIZE +914px`（t_msg_038cd8c4 turn，每进会话一次）——parts 已净（1 reasoning+1 text），为 reasoning 展开/Markdown 异步首测的正常渐进布局，量级一次到位非重叠源；待用户日常观感裁决，若扰人另立卡片。
+
 ### 根因补完（#229，2026-08-26 01:5x，用户质询「修复的是根因吗」）
 
 诚实盘点 #228 的因果树完成度：①炸弹存量（清扫）✓根治 ②回灌通道（对称滤空）✓根治 ③主线程执行（mergeDispatcher）=缓解非根治 ④**dedup 算法 O(N²) 残留**=未根治——#223 的前置跳过只省了 overlaps 文本比较，pair 枚举本身仍二次方（两条新版契约 id 各一次 contains，N=4488 时 2000 万次迭代照样秒级，MIUIScout 栈里 contains 即热点帧）⑤#223 创建封堵未做过正向验证。

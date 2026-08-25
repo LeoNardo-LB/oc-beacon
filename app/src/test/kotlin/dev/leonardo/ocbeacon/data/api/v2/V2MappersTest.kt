@@ -160,6 +160,36 @@ class V2MappersTest {
 
     // #226：zhipu 构建的 compaction 消息 summary 为嵌套对象 {body}——
     // 此前 jsonPrimitive 强转抛异常被吞 → parts 整体丢失。
+    // #230：服务器 content 携带 SSE started 残留的空 text/reasoning item
+    //（实测单消息 210 个空 reasoning）——REST 映射在源头丢弃，ordinal 照常
+    // 计数保 id 契约与 SSE 派生对齐。
+    @Test
+    fun `toMessageWithParts drops empty text and reasoning content items preserving ordinals`() {
+        val obj = json.parseToJsonElement("""
+            {"type":"assistant","id":"msg_e1","time":{"created":1000,"completed":2000},
+             "content":[
+               {"type":"reasoning","text":""},
+               {"type":"reasoning","text":""},
+               {"type":"text","text":""},
+               {"type":"text","text":"Real answer"},
+               {"type":"reasoning","text":"Thought process"}
+             ]}
+        """).jsonObject
+
+        val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
+        val texts = result.parts.filterIsInstance<Part.Text>()
+        val reasons = result.parts.filterIsInstance<Part.Reasoning>()
+        // 三个空 item 全部丢弃，只剩非空
+        assertEquals(1, texts.size)
+        assertEquals(1, reasons.size)
+        assertEquals("Real answer", texts[0].text)
+        assertEquals("Thought process", reasons[0].text)
+        // ordinal 按服务器 content 出现序计数（空 item 占位）：real text 是
+        // 第 2 个 text（ord=1）、thought 是第 3 个 reasoning（ord=2）
+        assertEquals(V2SseMapper.derivePartId("msg_e1", "text", 1), texts[0].id)
+        assertEquals(V2SseMapper.derivePartId("msg_e1", "reasoning", 2), reasons[0].id)
+    }
+
     @Test
     fun `toMessageWithParts maps compaction message with nested summary body`() {
         val obj = json.parseToJsonElement("""
