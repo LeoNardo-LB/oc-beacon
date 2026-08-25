@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -1826,12 +1825,6 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
         ?.takeIf { it.isNotBlank() }
 }
 
-/**
- * 标准 easeInOutCubic 缓动（缓-快-缓）——跳转滚动动画（2026-08-13 恢复：
- * 去动画后视口瞬间跳动产生"闪"感——平滑滚动 + 透明门控组合根治）。
- */
-private fun easeInOutCubic(t: Float): Float =
-    if (t < 0.5f) 4f * t * t * t else 1f - ((-2f * t + 2f) * (-2f * t + 2f) * (-2f * t + 2f)) / 2f
 
 // #215 验收反馈·一（终版裁决 2026-08-25）：toggleAnchorCorrection 修饰符与
 // TOGGLE_ANCHOR_WINDOW_MS 已随方案三整体撤销（用户定规不用补偿逻辑，动画回

@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#235**。
+**编号**：全局递增，不回收。下一编号：**#236**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -73,6 +73,10 @@
 - [~] **#234 架构战役一：part 管线深化——MessageMergeEngine 抽取 + 注册策略收编** `refactor` `data`
   - 三批落地（e4c7367e/2b2be2cc/986c65c5）：MessageEventHandler 1329→857 行壳/代数分层；空 part 不变量收编引擎单一权威（含 appendOnly 封洞）；PartIdContract 派生 id 契约双侧委托；1975 测×3 批全绿
   - 待 V6 真机人工清单（V2 流式：无闪烁/无重复文本/压缩分割线正常）；spec：`docs/specs/2026-08-26-part-pipeline-deepening.md`（候选 1 ServerDialect 决策已预录待排期）
+
+- [ ] **#235 foundation 1.12.0-beta01 传递强制跟踪——稳定版发布后解除** `deps`
+  - material3 1.5.0-alpha26（FAB 菜单钉版）传递强制 foundation 1.11.2→1.12.0-beta01（beta）；已致 d7a8ac06 崩溃（ScrollingLogic 契约违规窗口，已优雅中止防御）
+  - 触发条件：material3 稳定版含 FloatingActionButtonMenu 或 foundation 1.12.0 稳定发布 → 解除 alpha 钉版/加 resolutionStrategy 收敛
 
 ## P3 — 观察与低价值改进
 

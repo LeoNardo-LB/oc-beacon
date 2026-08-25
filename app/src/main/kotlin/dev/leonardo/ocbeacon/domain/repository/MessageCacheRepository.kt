@@ -13,6 +13,11 @@ import kotlinx.coroutines.flow.Flow
  * 遵循 Clean Architecture 的依赖方向（UI → Domain ← Data）。
  */
 interface MessageCacheRepository {
+
+    companion object {
+        /** 热表每会话消息上限（#233：限额契约随接口暴露，UI 不再依赖 data.local.MessageStore 常量）。 */
+        const val SESSION_MESSAGE_LIMIT: Int = 1000
+    }
     /**
      * #97（H-6）：SSE delta 增量落盘——流式期间按 part 追加文本（O(delta) 写），
      * 替代原每 48ms 批全量 JSON 编码 + 整行重写（写放大）。

@@ -1,7 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.BuildConfig
-import dev.leonardo.ocbeacon.data.local.MessageStore
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.PaginationCursor
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
@@ -44,7 +44,7 @@ private const val TAG = "MessagePaginationDelegate"
 internal class MessagePaginationDelegate(
     private val manageSessionUseCase: ManageSessionUseCase,
     private val messagePaging: MessagePaginationUseCase,
-    private val messageStore: MessageStore,
+    private val messageStore: MessageCacheRepository,
     private val chatRepository: ChatRepository,
     private val settingsRepository: SettingsRepository,
     private val serverId: String,

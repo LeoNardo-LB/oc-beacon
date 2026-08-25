@@ -541,7 +541,7 @@ class MessageStore @Inject constructor(
 
     companion object {
         private const val TAG = "MessageStore"
-        const val SESSION_MESSAGE_LIMIT = 1000
+        const val SESSION_MESSAGE_LIMIT = MessageCacheRepository.SESSION_MESSAGE_LIMIT
         const val ARCHIVE_BUCKET_WINDOW_MS = 86_400_000L          // 1 天
         const val ARCHIVE_BUCKET_MAX_BYTES = 512 * 1024           // 512KB（调研约束）
         const val ARCHIVE_BUCKET_MAX_MESSAGES = 200

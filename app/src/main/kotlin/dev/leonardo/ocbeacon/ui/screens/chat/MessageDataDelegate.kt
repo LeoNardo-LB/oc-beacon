@@ -3,7 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
-import dev.leonardo.ocbeacon.data.local.MessageStore
+import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -72,7 +72,7 @@ internal class MessageDataDelegate(
     private val managePermissionUseCase: ManagePermissionUseCase,
     private val chatRepository: ChatRepository,
     private val messagePaging: MessagePaginationUseCase,
-    private val messageStore: MessageStore,
+    private val messageStore: MessageCacheRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val sessionRepository: SessionRepository,
     private val settingsRepository: SettingsRepository,
@@ -364,7 +364,7 @@ internal class MessageDataDelegate(
     }
 
     /**
-     * 快速导航全量列表：从 Room 热表加载 role='user' 的最近 [MessageStore.SESSION_MESSAGE_LIMIT]
+     * 快速导航全量列表：从 Room 热表加载 role='user' 的最近 [MessageCacheRepository.SESSION_MESSAGE_LIMIT]
      * 条消息（含 parts）。覆盖内存窗口外的更早历史——内存热视图（rawMessages）仅含
      * 已加载窗口（~30 条），Room 热表含 ≤1000 条全量 user 消息。
      *
@@ -383,7 +383,7 @@ internal class MessageDataDelegate(
         // 防裁剪的旧设计）→ 只查 Room 的导航永远缺失这部分。合并后不依赖任何
         // 时序（预取完成与否、翻页落库策略），结构性保证 导航 ⊇ 主对话流所见。
         // 内存 user 消息的 parts 从 _parts 取（与主对话流同源）。
-        val roomMsgs = messageStore.userMessages(sid, MessageStore.SESSION_MESSAGE_LIMIT)
+        val roomMsgs = messageStore.userMessages(sid, MessageCacheRepository.SESSION_MESSAGE_LIMIT)
         val memUsers = _rawMessagesList.value
             .filterIsInstance<Message.User>()
             .filter { it.role != "synthetic" }

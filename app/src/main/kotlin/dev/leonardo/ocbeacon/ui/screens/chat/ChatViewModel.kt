@@ -76,7 +76,7 @@ class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val sessionRepository: SessionRepository,
     private val messagePaging: MessagePaginationUseCase,
-    private val messageStore: dev.leonardo.ocbeacon.data.local.MessageStore,
+    private val messageStore: dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository,
     private val tokenStatsTracker: TokenStatsTracker,
     private val httpClient: HttpClient,
     private val sessionStateRepository: SessionStateRepository,
@@ -515,16 +515,6 @@ class ChatViewModel @Inject constructor(
     val expandReasoning get() = settingsState.expandReasoning
     val showTurnDividers get() = settingsState.showTurnDividers
     val hapticFeedback get() = settingsState.hapticFeedback
-    val showPendingTodoDrawer get() = settingsState.showPendingTodoDrawer
-
-    /** 2026-08-22：堆积/TODO 常驻抽屉显隐（顶栏菜单 toggle）。 */
-    fun togglePendingTodoDrawer(current: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.updateSettings(
-                settingsRepository.getSettingsFlow().first().copy(showPendingTodoDrawer = !current)
-            )
-        }
-    }
     val keepScreenOn get() = settingsState.keepScreenOn
     val compressImageAttachments get() = settingsState.compressImageAttachments
     val imageAttachmentMaxLongSide get() = settingsState.imageAttachmentMaxLongSide

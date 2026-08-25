@@ -45,9 +45,6 @@ internal class SettingsStateDelegate(
     val hapticFeedback = settingsRepository.getSettingsFlow().map { it.hapticFeedback }.stateIn(
         scope, WhileSubscribed5s, true
     )
-    val showPendingTodoDrawer = settingsRepository.getSettingsFlow().map { it.showPendingTodoDrawer }.stateIn(
-        scope, WhileSubscribed5s, true
-    )
     val keepScreenOn = settingsRepository.getSettingsFlow().map { it.keepScreenOn }.stateIn(
         scope, WhileSubscribed5s, false
     )
