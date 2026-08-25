@@ -46,8 +46,6 @@
 
 ## P0 — 主流程阻塞
 
-> （空）架构评审批次 2026-08-21–08-23 完结：六候选 + 顺手清理全部通过用户验收（2026-08-22 批次末 17 项 15 过，两问题已闭环：①MIUI 渠道默认关闭非 app bug、②升级为 #189 换件并于 08-23 验收通过）→ `docs/journal/2026-08-21-arch-review-deepening.md` · `docs/journal/2026-08-23-acceptance-closeout.md`
-
 ## P1 — 核心功能需求
 
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
@@ -62,26 +60,6 @@
 
 ## P2 — 优化与锦上添花
 
-> （空）2026-08-26 真机 E2E 批量验收完结 17 卡（#215、#217–#232，用户授权「能验收的尽量验收」）：逐卡证据树——卡片录屏/压缩双端活流/滚离视口像素哈希冻结/失败 snackbar 帧捕获/Room 参数化审计/fling 全分辨率复核——见 journal §2026-08-26；#232 含勘误三（展开崩溃当场修复 `4aa796e8`）与原假证据声明 → `docs/journal/2026-08-25-session-list-wipe.md` §2026-08-26 真机 E2E 批量验收
-
-> （空）#191 已完结验收（实现 5693ddb6 + 单测 24/24 独立复跑 + 真机降幅 ≈93% + 用户关闭 2026-08-23）→ `docs/journal/2026-08-23-beta-readiness-review.md` §三
->
-> （空）Tier C 五卡 #201–#205 已完结（2026-08-24 用户授权代验收官：实改 #204/#202 + 零改名裁决 #201/#203/#205，自动化全绿+真机证据链）→ `docs/journal/2026-08-24-tier-c-contract-renames.md`
->
-> （空）#207 已完结验收（2026-08-24 用户验收通过：三态判定 + rememberSaveable 锚点；单测 1917 绿 + 真机活体单调不归零 + 野生实例静态化）→ `docs/journal/2026-08-24-thinking-timer-scroll.md` §完结迁移
->
-> （空）#208 已证伪闭卡（2026-08-24 同日勘误：登记时滑动方向搞反致三项主张全部误判——正确方向复测 130 条历史全程可翻、loadOlder 补载正常、假 id 不渲染是服务器权威 upsert 正确行为）→ `docs/journal/2026-08-24-thinking-timer-scroll.md` §#208 证伪闭卡
->
-> （空）#161 已闭卡（2026-08-24 用户裁决离线隐藏为可接受行为，不修复；调研确认机制主张全部成立，方案草图留存 journal 备查）→ `docs/journal/2026-08-24-p3-quad-research.md` §#161
->
-> （空）#210 已修复转待验证（2026-08-24 jdb 取栈定音三根因：①MIUI「后台弹出界面」权限随卸载重置→DeviceGuard 拦 HiltEntryActivity 启动致 startActivitySync 永久等待=挂死本体，非代码回归；②测试 Activity 无语言覆盖，系统 locale 回 zh-CN 后英文断言漂移；③#209 test3 seed id 错。修=授权脚本化+attachBaseContext en-US+seed 一行。ChatInteractionTest 全类 6 过 + 单测 1923 绿；#209 插桩补跑同步完成）→ `docs/journal/2026-08-24-p3-quad-research.md` §#210 修复执行
-
-> （空）#211 已完结验收（2026-08-24 用户裁决清理：HiltComponentActivity.attachBaseContext 强制 en-US 单点覆盖 19 类，零生产代码；主会话全量复验 135 测 3 败、locale 族 27 败全灭无挂死，与同事 14 类复验双证据闭环；残留三例分立 #212/#213/#214）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移·二批
->
-> （空）#212 #213 已完结验收（2026-08-24 主会话修复+真机 OK 9 tests：MigrationTest 补挂 MIGRATION_3_4 对齐 DB v4 / 空态断言对齐 KT10a session 术语——均为「代码先行测试未跟」机械勘误）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移·二批
->
-> （空）#214 已完结验收（2026-08-24 定因=测试时间炸弹：硬编码崩溃报告 ts 越 LogStore 21 天 ERROR retention 边界被内联 prune 插入即清除（hist db=0 vs fresh db=2 实验定音），非生产回归；sharedTimestamp 改取系统时钟零生产改动；真机本类 OK(1) + **全量 OK(135) 08-18 以来首次全绿**）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移·三批
-
 ## P3 — 观察与低价值改进
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
@@ -92,10 +70,3 @@
   - 若跳转叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可重放定位）
   - → `docs/journal/2026-08-21-race-audit-round6.md`（提升自该批子条目）
 
-> （空）#216 已完结验收（2026-08-26 批量验收：既有真机实证 subagent 箭头出现+直达子会话 + 本轮卡片演示场 task 卡静态确认）→ `docs/journal/2026-08-25-session-list-wipe.md` §2026-08-26 真机 E2E 批量验收
->
-> （空）#168 已证伪闭卡（2026-08-24 devRelease 真机实测：720 帧 ≥17ms 率 0.00%、p99 8.5ms 低于 8.33 预算——devDebug 尖刺系 47% debug 构建税放大，release 无感知；原始数据归档 perf-evidence/r168-release-20260824）→ `docs/journal/2026-08-24-p3-quad-research.md` §#168
-
-> （空）#184 已完结验收（2026-08-24 用户验收通过：四步回归确认——造未读→一键已读全灭→强杀重启不复活→新消息红点重现；修复 7bd04c11 作用域化 markAllSessionsRead，单服务器无行为变化）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移
->
-> （空）#209 已完结验收（2026-08-24 用户验收通过：日常使用 context 圆环正常显示；修复 caea2b30 删死字段+恒假分支，单测 1923 绿 + test3 真机插桩 OK）→ `docs/journal/2026-08-24-p3-quad-research.md` §完结迁移
