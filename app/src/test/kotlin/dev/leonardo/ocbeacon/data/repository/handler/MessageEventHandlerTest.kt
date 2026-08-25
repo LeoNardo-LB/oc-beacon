@@ -341,10 +341,10 @@ class MessageEventHandlerTest {
         val msg2 = testUserMessage("m2", "s1")
         val part1 = Part.Text(id = "p1", sessionId = "s1", messageId = "m1")
 
-        handler.setMessages("s1", listOf(
+        handler.upsertMessages("s1", listOf(
             MessageWithParts(info = msg1, parts = listOf(part1)),
             MessageWithParts(info = msg2, parts = emptyList())
-        ))
+        ), MergeStrategy.SSE_PRIORITY)
 
         assertEquals(2, handler.messages.value["s1"]!!.size)
         assertEquals(listOf(part1), handler.parts.value["m1"])
@@ -357,7 +357,7 @@ class MessageEventHandlerTest {
 
         val msg = testUserMessage("m1", "s1")
         val stalePart = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "from REST")
-        handler.mergeMessages("s1", listOf(MessageWithParts(msg, listOf(stalePart))))
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(stalePart))), MergeStrategy.APPEND_ONLY)
 
         assertEquals("from SSE", (handler.parts.value["m1"]!![0] as Part.Text).text)
     }
@@ -411,7 +411,7 @@ class MessageEventHandlerTest {
         // REST 返回更短的文本
         val msg = testUserMessage("m1", "s1")
         val restPart = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "Hello")
-        handler.setMessages("s1", listOf(MessageWithParts(msg, listOf(restPart))))
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(restPart))), MergeStrategy.SSE_PRIORITY)
 
         assertEquals("Hello World from SSE", (handler.parts.value["m1"]!![0] as Part.Text).text)
     }
@@ -425,7 +425,7 @@ class MessageEventHandlerTest {
         // REST 返回更短的文本
         val msg = testUserMessage("m1", "s1")
         val restPart = Part.Text(id = "p1", sessionId = "s1", messageId = "m1", text = "Hello")
-        handler.replaceMessages("s1", listOf(MessageWithParts(msg, listOf(restPart))))
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(restPart))), MergeStrategy.REST_AUTHORITY)
 
         assertEquals("Hello World from SSE", (handler.parts.value["m1"]!![0] as Part.Text).text)
     }
@@ -489,7 +489,7 @@ class MessageEventHandlerTest {
             id = "p2", sessionId = "s1", messageId = "m1", text = "thinking",
             time = Part.Reasoning.Time(start = 100L, end = null)
         )
-        handler.setMessages("s1", listOf(MessageWithParts(info = msg, parts = listOf(textPart, reasoningPart))))
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = msg, parts = listOf(textPart, reasoningPart))), MergeStrategy.SSE_PRIORITY)
 
         handler.markSessionIdle("s1")
 
@@ -509,7 +509,7 @@ class MessageEventHandlerTest {
             id = "p1", sessionId = "s1", messageId = "m1", text = "done",
             time = Part.Text.Time(start = 100L, end = 999L)
         )
-        handler.setMessages("s1", listOf(MessageWithParts(info = msg, parts = listOf(endedText))))
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = msg, parts = listOf(endedText))), MergeStrategy.SSE_PRIORITY)
 
         handler.markSessionIdle("s1")
 

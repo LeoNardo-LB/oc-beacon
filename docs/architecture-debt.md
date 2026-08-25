@@ -50,6 +50,8 @@ Updated: 2026-08-07（密码导航重构后同步）
 
 > 2026-08-07 已瘦身出表：ChatViewModel（~1100→493，#8/#15 拆分）、SessionListScreen（~700→367）、SettingsDataStore（~690→223）、NavGraph（~570→420）、MessageDataDelegate（#15 拆为 PaginationDelegate + OptimisticMessageStore）。
 
+> **2026-08-26 #234 战役**：MessageEventHandler 1329→857 行——~450 行合并代数迁 `data/mapper/MessageMergeEngine.kt`（纯函数直测），注册决策树收编为 `resolvePartRegistration`（sealed 决策），派生 id 契约单一权威 `domain/model/PartIdContract.kt`（V2SseMapper 生产侧/引擎消费侧双侧委托）。**空 part 防御分布更新**：不变量权威 = 引擎（mergePartsList 双侧滤空 + 注册决策 + sanitized appendOnly 封洞，含直测）；REST 侧过滤（V1ApiClient/V2Mappers）降级为纵深防御保留；MessageDao SQL LIKE 清扫保留为一次性历史迁移。
+
 ## 4. 测试缺口（高优先）
 
 | 模块 | 风险 |

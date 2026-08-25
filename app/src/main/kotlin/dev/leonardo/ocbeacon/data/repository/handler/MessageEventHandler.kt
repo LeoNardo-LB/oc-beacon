@@ -755,30 +755,6 @@ class MessageEventHandler @Inject constructor(
     }
 
     // ============ 批量操作 ============
-
-    /** SSE_PRIORITY 策略的薄委托。语义见 [upsertMessages]。 */
-    @Deprecated("Use upsertMessages(sessionId, newMessages, MergeStrategy.SSE_PRIORITY)", ReplaceWith("upsertMessages(sessionId, newMessages, MergeStrategy.SSE_PRIORITY)"))
-    fun setMessages(sessionId: String, newMessages: List<MessageWithParts>) =
-        upsertMessages(sessionId, newMessages, MergeStrategy.SSE_PRIORITY)
-
-    /** APPEND_ONLY 策略的薄委托。语义见 [upsertMessages]。 */
-    @Deprecated("Use upsertMessages(sessionId, newMessages, MergeStrategy.APPEND_ONLY)", ReplaceWith("upsertMessages(sessionId, newMessages, MergeStrategy.APPEND_ONLY)"))
-    fun mergeMessages(sessionId: String, newMessages: List<MessageWithParts>) =
-        upsertMessages(sessionId, newMessages, MergeStrategy.APPEND_ONLY)
-
-    /**
-     * REST_AUTHORITY 策略的薄委托。语义见 [upsertMessages]。
-     *
-     * 用 REST 数据替换会话的所有消息和 part。
-     * 将 REST 视为真相源，覆盖任何现有本地数据。用于 SSE 重连恢复。
-     *
-     * 仅 SSE 才有的消息（不在 REST 响应中）会被保留，以处理
-     * REST 快照与新 SSE 连接建立之间的时间窗口。
-     */
-    @Deprecated("Use upsertMessages(sessionId, newMessages, MergeStrategy.REST_AUTHORITY)", ReplaceWith("upsertMessages(sessionId, newMessages, MergeStrategy.REST_AUTHORITY)"))
-    fun replaceMessages(sessionId: String, newMessages: List<MessageWithParts>) =
-        upsertMessages(sessionId, newMessages, MergeStrategy.REST_AUTHORITY)
-
     fun clearForSession(sessionId: String) {
         val messageIds = _messages.value[sessionId]?.map { it.id }?.toSet() ?: emptySet()
         _messages.update { it - sessionId }

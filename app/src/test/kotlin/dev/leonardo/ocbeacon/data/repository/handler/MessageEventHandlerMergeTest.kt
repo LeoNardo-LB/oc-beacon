@@ -54,7 +54,7 @@ class MessageEventHandlerMergeTest {
         // REST：setMessages 携带空文本（服务器快照尚未跟上）
         val restMsg = msg.copy()
         val restPart = Part.Text(id = "p1", sessionId = "s1", messageId = "msg-1", text = "")
-        handler.setMessages("s1", listOf(MessageWithParts(restMsg, listOf(restPart))))
+        handler.upsertMessages("s1", listOf(MessageWithParts(restMsg, listOf(restPart))), MergeStrategy.SSE_PRIORITY)
 
         // mergePartsList 应保留更长的文本
         val mergedPart = handler.parts.value["msg-1"]!![0] as Part.Text
@@ -72,9 +72,9 @@ class MessageEventHandlerMergeTest {
             time = TimeInfo(created = 1000L, completed = 2000L)
         )
         // 热视图现有：干净的 1 条 text
-        handler.setMessages("s1", listOf(MessageWithParts(msg, listOf(
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(
             Part.Text(id = "t0", sessionId = "s1", messageId = "msg-bomb", text = "Hello World")
-        ))))
+        ))), MergeStrategy.SSE_PRIORITY)
 
         // incoming：Room 炸弹回灌——1 条 text + 4488 个空 reasoning part（#223 契约 id）
         val bombParts = listOf(
@@ -105,11 +105,11 @@ class MessageEventHandlerMergeTest {
             time = TimeInfo(created = 1000L, completed = 2000L)
         )
         // existing：3 个空 reasoning（SSE started 残留形态）
-        handler.setMessages("s1", listOf(MessageWithParts(msg, listOf(
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(
             Part.Reasoning(id = "msg-purge_reasoning_ord_0", sessionId = "s1", messageId = "msg-purge", text = ""),
             Part.Reasoning(id = "msg-purge_reasoning_ord_1", sessionId = "s1", messageId = "msg-purge", text = ""),
             Part.Reasoning(id = "msg-purge_reasoning_ord_2", sessionId = "s1", messageId = "msg-purge", text = "")
-        ))))
+        ))), MergeStrategy.SSE_PRIORITY)
 
         // incoming：同一消息，parts 全空（Room 快照本身只剩炸弹的形态）
         handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(
@@ -153,9 +153,9 @@ class MessageEventHandlerMergeTest {
             time = TimeInfo(created = 1000L, completed = 2000L)
         )
         // existing：legacy id（空派生）的短文本
-        handler.setMessages("s1", listOf(MessageWithParts(msg, listOf(
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(
             Part.Text(id = "msg-mix_p0", sessionId = "s1", messageId = "msg-mix", text = "Hello")
-        ))))
+        ))), MergeStrategy.SSE_PRIORITY)
         // incoming：新版契约 id 的更长文本（前缀包含 legacy 文本）
         handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(
             Part.Text(id = "msg-mix_text_ord_0", sessionId = "s1", messageId = "msg-mix", text = "Hello World Extended")
@@ -209,7 +209,7 @@ class MessageEventHandlerMergeTest {
             parentId = "parent-1",
             time = TimeInfo(created = 1000L, completed = 2000L)
         )
-        handler.setMessages("s1", listOf(MessageWithParts(restMsg, emptyList())))
+        handler.upsertMessages("s1", listOf(MessageWithParts(restMsg, emptyList())), MergeStrategy.SSE_PRIORITY)
 
         // mergeMessageMeta 应将 REST 中的完成时间合并进 SSE 版本
         val merged = handler.messages.value["s1"]!![0] as Message.Assistant
@@ -247,7 +247,7 @@ class MessageEventHandlerMergeTest {
         handler.forceFlushDeltas()
 
         // REST：只有 msg-1（msg-2 仍在流式输出，尚未进入 REST 快照）
-        handler.setMessages("s1", listOf(MessageWithParts(msg1, listOf(part1))))
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg1, listOf(part1))), MergeStrategy.SSE_PRIORITY)
 
         // msg-2 应仍在 messages 中
         val messages = handler.messages.value["s1"]!!

@@ -89,7 +89,7 @@ class ChatRepositoryImplTest {
     @Test
     fun `getMessagesFlow returns messages from dispatcher`() = runTest {
         val msg = Message.User(id = "m1", sessionId = "s1", time = TimeInfo(1000L))
-        messageHandler.setMessages("s1", listOf(MessageWithParts(msg, emptyList())))
+        messageHandler.upsertMessages("s1", listOf(MessageWithParts(msg, emptyList())), MergeStrategy.SSE_PRIORITY)
 
         val messages = repo.getMessagesFlow("s1").first()
         assertEquals(1, messages.size)

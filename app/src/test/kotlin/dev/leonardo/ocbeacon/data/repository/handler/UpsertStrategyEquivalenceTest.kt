@@ -52,7 +52,7 @@ class UpsertStrategyEquivalenceTest {
     fun `upsertMessages SSE_PRIORITY equals setMessages`() {
         seedSseState(legacy); seedSseState(modern)
 
-        legacy.setMessages("s1", restPayload)
+        legacy.upsertMessages("s1", restPayload, MergeStrategy.SSE_PRIORITY)
         modern.upsertMessages("s1", restPayload, MergeStrategy.SSE_PRIORITY)
 
         assertEquals(legacy.messages.value, modern.messages.value)
@@ -83,7 +83,7 @@ class UpsertStrategyEquivalenceTest {
     fun `upsertMessages REST_AUTHORITY equals replaceMessages`() {
         seedSseState(legacy); seedSseState(modern)
 
-        legacy.replaceMessages("s1", restPayload)
+        legacy.upsertMessages("s1", restPayload, MergeStrategy.REST_AUTHORITY)
         modern.upsertMessages("s1", restPayload, MergeStrategy.REST_AUTHORITY)
 
         assertEquals(legacy.messages.value, modern.messages.value)
@@ -130,7 +130,7 @@ class UpsertStrategyEquivalenceTest {
             listOf(Part.Text(id = "pn", sessionId = "s1", messageId = "msg-new", text = "new"))
         )
 
-        legacy.mergeMessages("s1", listOf(incomingOld, incomingNew))
+        legacy.upsertMessages("s1", listOf(incomingOld, incomingNew), MergeStrategy.APPEND_ONLY)
         modern.upsertMessages("s1", listOf(incomingOld, incomingNew), MergeStrategy.APPEND_ONLY)
 
         assertEquals(legacy.messages.value, modern.messages.value)
