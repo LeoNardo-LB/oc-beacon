@@ -13,6 +13,20 @@
 
 所有命令带 `-s e69a99d8`；**严禁误触 `emulator-5554`**（若模拟器同时在线）。
 
+## 标准测试入口（第一优先级）：debug intent 直达会话列表
+
+**所有真机测试会话从这里开始**（2026-08-25 用户定规：debug 进入会话列表的方法优先级提一级）。一条命令得到确定起点：已连接服务器 + 停在会话列表，免手工导航：
+
+```bash
+./scripts/debug-entry.sh [serial] [包名]     # 默认 e69a99d8 + dev 包
+```
+
+脚本做三件事：`adb reverse tcp:4199`（幂等）→ force-stop 冷启 → 校验 logcat 出现 `Debug channel activated` + `NavGraph: Debug channel → SessionList`（失败即非零退出）。密码从 `/persistent/home/leo-tkp/.config/opencode/service.json` 读取（`OCBEACEN_SERVICE_JSON` 可覆盖）。
+
+**为什么禁止手工导航**（2026-08-25 #222 E2E 实证连续踩坑）：Settings → Sessions → 行点击链坐标易错（awk 解析 bounds 曾算错中心点进错会话）；BACK 键易把应用退到桌面；`uiautomator dump` 失败时静默返回旧文件误导判断。手工导航只留作 debug intent 不可用时（非 debug 构建）的后备。
+
+手工等价命令（脚本本质）见下文「一键配置服务器：debug intent」节。
+
 ## 一次性准备（已配置，换机才需重做）
 
 1. 开发者选项已开启、USB 调试已授权
@@ -111,6 +125,7 @@ adb -s e69a99d8 shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeaco
 - MIUI 首启权限弹窗不一定出现，dump 检查后点「允许」即可
 - 截图取证：`adb -s e69a99d8 exec-out screencap -p > x.png`（exec-out 避免换行污染）
 - **聊天页滚动方向**（2026-08-21 教训，曾致 0 帧误判两轮）：进入会话默认停在底部（最新消息）；**手指向下滑（如 `input swipe 600 500 600 1600`）才是看更旧消息**；`1600→500` 是向“最新以下”滑——无内容、列表不滚、gfxinfo 记 0 帧。滚动测量前先用「滑动前后 dump 可见时间戳 diff」或帧数 sanity（>100）确认真的滚了
+- **测试入口纪律**（2026-08-25 定规）：每轮真机测试开始一律 `./scripts/debug-entry.sh` 直达会话列表（见「标准测试入口」节）；force-stop/重启 adb/重装后**先跑脚本再继续**（reverse 会被清空）。禁止从 Settings 页手工点进会话列表
 - 每轮测试前后 `logcat -c` / `-d` 存档，grep FATAL/AndroidRuntime 计数
 
 ## 插桩测试（am instrument）特有前置（2026-08-24 #210 实证）

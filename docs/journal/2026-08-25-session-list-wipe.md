@@ -128,6 +128,10 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 1. **通道**：任意会话流式长回复期间滚离底部 1/3 屏停住——视口应纹丝不动（修复前：缓慢上爬）。
 2. **reveal**：贴底状态发起会触发工具的提问（如「用 bash 执行 sleep 5」）——工具聚合卡应立即可见（修复前：不可见+⬇FAB 闪现）；V1 服务器同理验压缩进行中分割线。
 
+
+### 测试入口定规（2026-08-25 用户指令「debug 进入会话列表优先级提一级」）
+
+落实三件：①`scripts/debug-entry.sh`——reverse + force-stop 冷启 + logcat 校验（Debug channel activated / NavGraph → SessionList），失败非零退出（实测 OK 路径 1 命令 5s 到列表；坏配置路径 exit=1）；②runbook 新增「标准测试入口（第一优先级）」节置顶 + E2E 纪律条款（force-stop/重装/adb 重启后先跑脚本再继续；禁止 Settings 手工点进列表——坐标错/BACK 退桌面/dump 陈旧三坑均有当日实证）；③AGENTS.md 真机 bullet 内联入口规则（承重规则内联原则，agents-file-design §3）。
 ### 修二再强化：延迟揭示（真·渲染前，用户六报定音）
 
 用户挑战：「修二的修法是渲染前计算吗？」——**诚实回答：不是严格的渲染前**。requestScrollShift 直注模式仍是「增长已测出的那一遍测量中途注入、下一遍遍首消费」：补救遍多数落同帧（画前生效），但无构造性保证——帧预算紧张或 markdown 迟到解析巨跳（实测 376→51129px 单帧）时，一帧未补偿画面被绘制 → 用户感知「渲染后补偿」跳变。

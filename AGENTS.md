@@ -99,7 +99,7 @@ Release keystore 位于 `app/keystore/`（gitignore，仅本地文件与 CI Secr
 
 - 测试栈（JUnit4/MockK/Turbine/coroutines-test、HiltTestRunner、Maestro）与版本以 `app/build.gradle.kts`、`androidTest/`、`maestro/` 为准；`isReturnDefaultValues = true` 的 mock 返回默认值，可能掩盖 bug
 - 环境：opencode server 端口 **4199**，用户名 `opencode`，密码在配置文件 `/persistent/home/leo-tkp/.config/opencode/service.json`（`password` 字段，**不是环境变量**）
-- **真机测试优先**（2026-08-20 方针）：小米 houji serial `e69a99d8`，静默装包/服务器连通/debug intent 配置见 [`docs/real-device-testing.md`](docs/real-device-testing.md)
+- **真机测试优先**（2026-08-20 方针）：小米 houji serial `e69a99d8`，静默装包/服务器连通/debug intent 配置见 [`docs/real-device-testing.md`](docs/real-device-testing.md)。**测试入口一律 `./scripts/debug-entry.sh`**（debug intent 直达会话列表，2026-08-25 定规）——禁止从 Settings 页手工点进会话列表（坐标易错/BACK 退桌面/dump 陈旧三坑）
 - 模拟器访问宿主机 `10.0.2.2`；模拟器 UI 调试（tap/截图/logcat）派 subagent 执行，避免主会话上下文溢出
 
 ### SSE 滚动稳定性（铁律）
