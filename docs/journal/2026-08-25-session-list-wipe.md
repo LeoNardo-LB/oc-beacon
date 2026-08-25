@@ -178,6 +178,41 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 
 至此 #217 遗留的「V1 真机验证留待环境」欠账清偿；#222 验收清单第 2 条（V1 压缩进行中分割线贴底可见）实证通过。
 
+## #226 压缩分割线形态大乱：V1 三元素重叠/气泡流式/完成塌缩 + V2 嵌套 summary 兼容（2026-08-25，用户三报）
+
+用户反馈：「太乱了！总是闪现，动作很不连贯与流畅！」+「之前不是说了吗？压缩的输出不要在气泡中，现在怎么又在气泡中了」。卡片方向（#226 前置指令「统一使用卡片」）被用户当场撤回，回归分割线形态。
+
+### 诊断（diagnosing-bugs 纪律：反馈回路先行）
+
+回路构成：真机录屏（screenrecord 8Mbps）→ ffmpeg 32×32 灰度帧差序列（显著变更聚类定位事件时刻）→ 关键帧视觉裁决（vision）＋ uiautomator 语义树（盲区时用 raw XML 定位 clickable bounds）＋ Room 直查（run-as 拉库）＋ SSE/REST 服务端形态对照。V2 触发配方：REST 平铺契约注入对话轮（{"text":...} → /api/session/:id/prompt）+ {providerID,modelID} → /compact；zhipu 间歇停摆用 interrupt+重发恢复。
+
+**V1 根因（三元素同屏 + 气泡 + 完成塌缩）**：
+1. V1 契约（实测 REST）：compact 触发消息 = user + part type=compaction（无文本）；摘要 = 后随 assistant(agent=compaction) 流式消息。本地置态（ChatViewModel L494）CompactionStarted(sid, messageId=空串)——空串永不命中消息流对位判据 → 触发消息被 parts.any{Compaction} 认领渲染成**静止「已压缩」线**（进行中误导为完成态）；
+2. 归一化器完结守卫放行未完结 assistant(agent=compaction) → **摘要以普通气泡流式**（违反 #217 裁决）；
+3. 空串 messageId 走尾部兜底 → **尾部活跃线**全程在场；
+4. 完成瞬间：气泡折叠为 Part.Compaction 后走 msg.isAssistant 分支 → MessageCard → **PartContent 跳过 Compaction（L336）→ 空 turn**；尾部线消失。大高度塌缩 + 双元素消失 = 「闪现/不连贯」。（#224 E2E 声称「展开摘要正常」与代码路径矛盾——当时验证不可靠，本次 Room+分支双重实证推翻。）
+
+**V2 根因（zhipu 构建）**：压缩刚完结瞬间 REST 返回 summary:{body:""} 嵌套对象 → V2Mappers obj[summary].jsonPrimitive 强转抛 IllegalArgumentException 被外层吞 → **parts 整体丢失**（DB 实证 compaction 消息零 parts）；稳定后 REST 变扁平字符串 summary（1511 字符实测）。副作用：完成线展开内容只靠 latchedText 活体，重进会话即丢。
+
+### 修复（commit ff2b78be，「一条压缩 = 一条分割线」）
+
+- **ChatMessageList assistant 分支认领**：agent==compaction → 未完结 = 伪活跃态（deltaText=text parts 拼接）骑线进度 + 可展开流式；完结 = 完成态 + 摘要可达。同 item 原位切换保留 Q13 连续性。COMP-CMP 仅在无 COMP-MSG 外层（isStreamingMsg 假）时自包——防双重注入。撤销长按边界取紧邻前触发消息 id（V1 语义：撤到压缩点之前），找不到退自身。
+- **V1 触发消息隐藏**：role==user + Compaction part summary 空白 → 不渲染（item 退化一段 messageSpacing 间隙）。
+- **尾部兜底让位**：新增 v1CompactionSummaryInList（displayItems 含 assistant(agent=compaction)）→ tailCompaction/bannerCount/revealBannerCount 三处同步让位，V2 恒 false 零影响。
+- **V2Mappers 双读**：(obj[summary] as? JsonObject)?.get(body) 优先、基元回退。
+
+### 验证
+
+- 编译绿；全量单测 **1948 绿**；V2MappersTest +2 例（嵌套 body/基元回退）= 32/32。
+- **V2 真机**（flick-repro-A 会话）：完成分割线渲染 + a11y Expand 在场 + 服务器摘要可达（嵌套→扁平两形态皆读出）。
+- **V1 真机生命周期**（新会话 REST 注入 Opus 对话轮 + App 菜单触发压缩，录屏 44s 帧差分析）：进行中 = **单条 Compressing context… 活跃线 + chevron，无气泡**（帧差稀疏=无文本墙生长旁证）；完成 = 单条 Context compacted + 可展开；展开 = 摘要要点全文；**重进会话后**（REST 全量→归一化折叠→assistant 分支认领）分割线仍渲染且摘要可达——V1 摘要持久性成立（服务器消息为源，不依赖 latchedText）。
+- 测试残留清理：V2 flick-repro-A/compact-probe（服务器自动改名）与 V1 Opus 会话已 DELETE。
+
+### 遗留（登记不修）
+
+- V2 展开期首个 delta 到达时 chevron 弹入引起标签行重排（帧差 536 实测）——次要，待用户主诉再议。
+- 老长会话（45K 字消息）初始锚点空白段 + uiautomator 盲区——既有行为，与本卡无关。
+
 ## #224 V1/V2 压缩形态统一（2026-08-25，用户指令）
 
 用户问「能否将 V1、V2 的形态做成一致」。差异根因在服务器语义：V1 compact 产物 = 常规 assistant(agent=compaction) 消息（摘要 text part + step 噪声，渲染为普通气泡）；V2 = 独立 compaction 消息 → Part.Compaction → 分割线。客户端归一化即可统一。

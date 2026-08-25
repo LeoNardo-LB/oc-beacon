@@ -64,7 +64,7 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#226 压缩分割线形态大乱：V1 三元素重叠/气泡流式/完成塌缩 + V2 摘要不落盘** `ui` `compaction` `v1` `v2`
+- [~] **#226 压缩分割线形态大乱：V1 三元素重叠/气泡流式/完成塌缩 + V2 摘要不落盘** `ui` `compaction` `v1` `v2`
   - 用户三报「太乱了！总是闪现，动作很不连贯」+「压缩的输出怎么又在气泡中」；真机取证（录屏帧差 + Room 直查 + SSE 日志）定音：V1 进行中=触发消息错渲染静止「已压缩」线 + 摘要以 assistant 气泡流式（归一化器完结守卫放行）+ 尾部活跃线（messageId 空串认领失败）三元素同屏；完成瞬间气泡塌缩为空 turn（PartContent 跳过 Compaction）+尾部线消失=剧烈闪跳；摘要完成后 UI 不可达。V2（zhipu 构建）摘要从不落盘（REST summary.body=""、DB parts 空）→ 重进会话后完成线摘要丢失，V2Mappers 对 summary 对象解析有异常风险
   - 修复方向：「一条压缩=一条分割线」——assistant(agent=compaction) 在 UI 层认领为分割线（未完结=活跃态流式/完结=完成态摘要），触发消息隐藏，尾部线在摘要消息入列后让位；V2Mappers 兼容 summary.body
   - → `docs/journal/2026-08-25-session-list-wipe.md` §#226
