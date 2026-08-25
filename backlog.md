@@ -70,6 +70,10 @@
   - UI 直注 MessageStore 具体类 ×3 绕过 MessageCacheRepository（ChatViewModel:79 等）+ service 直注 SettingsDataStore ×4；Room migration/SecretCipher 零测试为风险登记非清理项
   - → 2026-08-26 架构走查（/tmp/architecture-review-20260826-042731.html，主候选待用户裁决后另行立项）
 
+- [ ] **#234 架构战役一：part 管线深化——MessageMergeEngine 抽取 + StreamingPartRegistry** `refactor` `data`
+  - MessageEventHandler（1329 行）壳/代数分层：~450 行合并代数纯函数化直测；空 part 不变量 9 处散布防御收编单一 owner，终结 #223/#228/#229/#230 bug 族（含 2 个性能 bug）
+  - spec 已定案：`docs/specs/2026-08-26-part-pipeline-deepening.md`（候选 1 ServerDialect 决策已预录待排期，见 2026-08-26 走查）
+
 ## P3 — 观察与低价值改进
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
