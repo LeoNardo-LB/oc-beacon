@@ -1139,6 +1139,9 @@ fun ChatMessageList(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        // #231：分片 item 同样补 clip（异步增长重排窗口
+                                        // 的越界绘制防御，见 Turn 分支注释）
+                                        .clipToBounds()
                                         .let { m ->
                                             if (entry.isLast) m.padding(bottom = messageSpacing) else m
                                         }
@@ -1211,6 +1214,13 @@ fun ChatMessageList(
                         val itemKey = if (msg.isUser) "u_${msg.message.id}"
                             else "t_${turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id}"
                         val isStreamingMsg = (turnGroups[rawIndex] ?: listOf(msg)).any { it.message.id == streamingMsgId }
+                        // #231（2026-08-26 用户再报「还是叠在一起」）：非流式 item 此前
+                        // 无 clip——异步内容增长（reasoning 展开/Markdown 迟到解析/
+                        // 分片裂变）重排窗口内，越界绘制会压到相邻 item 上（用户
+                        // 截图实证：灰色思考文本压进代码块容器）。clipToBounds 把
+                        // 任何越界绘制转为「暂时裁掉」（内容在界内时零视觉差异），
+                        // 跨 item 叠加从构造上不可能再发生。流式 item 原本就有
+                        // clip（COMP-MSG 链），此处补齐非流式分支。
                         val itemModifier = if (isStreamingMsg) {
                             Modifier
                                 .fillMaxWidth()
@@ -1221,7 +1231,7 @@ fun ChatMessageList(
                                     shouldCompensate = { compensateState.shouldCompensate },
                                     logTag = "COMP-MSG",
                                 )
-                        } else Modifier.fillMaxWidth()
+                        } else Modifier.fillMaxWidth().clipToBounds()
                         // #215 验收反馈·一（终版裁决）：方案一（offset±delta 补偿）与方案三
                         //（修正窗+注入通道）均已撤销——用户定规不用任何补偿逻辑，动画回
                         // M3 默认；定因矩阵与通道数据存档 journal §验收反馈·一
