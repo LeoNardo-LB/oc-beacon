@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#233**。
+**编号**：全局递增，不回收。下一编号：**#235**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -53,12 +53,22 @@
   - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
   - → `docs/journal/2026-08-21-error-report-github.md` · `docs/journal/2026-08-23-beta-readiness-review.md`
 
+- [ ] **#234 对话流事件卡片统一：task/shell 完成 + system 通知严格同构 EventCard** `ui` `sse`
+  - 14 问拷问闭环（2026-08-26）：族一三种 SSE 事件元素统一为严格同构卡片（时间+图标+i18n 标签+可选描述行槽位/展开=正文 300dp+动作区两段式/只失败破色/箭头常驻/无动画/存量全走新卡）；#67 task 卡形态翻案与 #232 system 单行通知退役均在本卡声明
+  - 两批实施同一卡：①EventCard 建立+system 迁入 ②task/shell 迁入+旧卡退役；每批真机验收后进下一批
+  - → `docs/specs/2026-08-26-event-card-unification-design.md`
+
 - [ ] **#146 OpenCode 官方问题清单（issue/PR 候选）** `upstream`
   - ①V2 不发 compaction.started（引擎没接线）②SSE 重连无事件回溯 ③cursor V1 格式返回 400 ④fork handleRaw bug ⑤工具输出截断语义——上游核查完成（repo 已迁 anomalyco/opencode），逐项行动方案已定
   - 提 PR 前提（用户定规）：本地定位官方源码 → 修复 → 完整测试（含 E2E+交叉验证）→ 人工测试 → 才可提交
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#233 架构走查卫生项：死测试/僵尸设置链/接口绕过清理** `cleanup` `ui` `data`
+  - 死 androidTest ×2（CompactionBanner 符号 #217 已删仍编译失败级腐烂）；僵尸设置链 showPendingTodoDrawer 四层零消费（AppSettings→DataStore→Delegate→VM）+ easeInOutCubic 死码
+  - UI 直注 MessageStore 具体类 ×3 绕过 MessageCacheRepository（ChatViewModel:79 等）+ service 直注 SettingsDataStore ×4；Room migration/SecretCipher 零测试为风险登记非清理项
+  - → 2026-08-26 架构走查（/tmp/architecture-review-20260826-042731.html，主候选待用户裁决后另行立项）
 
 ## P3 — 观察与低价值改进
 
