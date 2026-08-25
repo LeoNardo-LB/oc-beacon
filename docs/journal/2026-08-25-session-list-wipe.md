@@ -428,3 +428,45 @@ ChatMessageList isUser 分支前置特判：`role == "system"` → 折叠单行�
 
 
 
+
+## 2026-08-26 真机 E2E 批量验收（#215–#232 全量 18 卡，用户授权「能验收的尽量验收」）
+
+用户指令：真机端到端测试中 #215–#232 能验收的尽量验收。本轮在真机 houji（V2 @4199 真实服务器 + V1 @4198 本地服务器）完成全量 E2E，**18 卡全部验收通过并迁出 backlog**。构建基线：HEAD `46ecab7f` 重建 devDebug（versionCode 1787685218）。
+
+### #232 勘误三（本轮 E2E 抓到的新 bug，当场修复 + 复验）
+
+- **崩溃**：点击 system 通知首行展开 → `IllegalStateException: Vertically scrollable component was measured with an infinity maximum height constraints`（LazyColumn item 无限主轴约束直穿 verticalScroll）。
+- **根因**：展开区修饰符顺序错误——`fillMaxWidth().verticalScroll(sysScroll).heightIn(max=300.dp)` 中 heightIn 在 verticalScroll **之内**，滚动节点收到无限 max。修正为 `heightIn(max=300.dp)` 在外（`4aa796e8`，单测全量绿）。
+- **勘误声明**：本 journal 原「展开态：点击后为有界滚动块 ✓」为**假证据**——当时 dump 失明致点击未命中展开，截图被误读。E2E 复验（崩溃修复后）：展开=有界滚动块（schema 内容 y≈300-680，下方消息正常推开）、收起正常、零 FATAL。教训重申：**点击类验证必须 dump→tap→dump 三段式确认状态真的翻转**。
+- **W1 疣（记录不阻塞）**：倒序列表 item 向上生长——展开瞬间通知行被推出视口上方（语义树实证行节点消失），需上滑找回才能收起。后续如用户在意可做展开时 requestScrollToItem 锚定（涉及滚动铁律区，需单独立卡）。
+
+### 逐卡证据（全部真机实拍/实侧，非推断）
+
+| 卡 | 证据 | 结论 |
+|----|------|------|
+| #215 | reasoning 卡展开/收起全程录屏（e2e215.mp4）：带区像素差分出现动画后单调收敛、无瞬移、无重叠、零崩溃；上方区域位移=倒序列表原生锚定——**用户终版裁决（2026-08-25）已明示接受原生行为**，修正逻辑当轮即撤销 | ✓ |
+| #216 | 既有真机实证（subagent Running 期箭头出现+点击直达子会话，EventDispatcher 跨 handler 回写）+ 本轮卡片演示场 task 卡渲染/会话链接 UI 静态确认 | ✓ |
+| #217 | V2+V1 双端活压缩：进行中=骑线进度分割线（V2 "Compressing context: manual" 2.7-14.4s 全程可见；V1 2.7-23.4s）→ 完成=Context compacted 线 → 点击展开 Markdown 摘要；分割线包揽一切无第二形态 | ✓ |
+| #218 | 服务器侧 DELETE /api/session/{id}（204）→ 应用列表 6s 内移除该行、其余会话完好、无空态（F6 修复行为）| ✓ |
+| #219 | **失败链现场捕获**（e2ecomp2.mp4 d_010 帧）：二次压缩遭服务器 compaction.unavailable "Nothing to compact yet" → snackbar「Failed to compact session: Nothing to compact yet」（带服务器原因）+ 持久失败分割线（错误色标签，与成功线并存不伪装）| ✓ |
+| #220 | 活帧 OCR：标签骑于左右两段线之间（线—标签—线）；代码级确认 ActiveDividerRow=两段 2dp indeterminate LinearProgressIndicator（track=FAINT 静线本体、tertiary 扫动=进度动画）与完成态同构 | ✓ |
+| #221 | 展开区等高竖线（V1/V2 摘要展开实拍）+ 流式补偿共用 #225 补偿器（见下）；完成不收起在 #227 温/冷双路径验证中一并成立 | ✓ |
+| #222 | **滚离视口冻结满分**：二次压缩流式期滚离后 6s×6 帧视口带（y300-1400）像素哈希 **完全一致**（UNIQUE:1）；贴底分割线进行中全程立即可见（V1+V2）| ✓ |
+| #223 | Room 全库参数化审计：空 text part=0、空 reasoning（谓词臂）=0、健康 reasoning 106、单消息最坏 7 part | ✓ |
+| #224 | V1 活压缩渲染为分割线（非摘要气泡）：全流仅分割线一个压缩面，完成线可展开摘要（"Delivered five-section answer on OS proc…" 等结构化内容）| ✓ |
+| #225 | 压缩流式期分割线带（y1150-1600）帧差：出现动画后全程 <0.5（零跳动）；叠加既有 0 跳/96 帧+168 补偿事件取证 | ✓ |
+| #226 | V1：单分割线（无三元素重叠、无气泡流式、无尾部线复制）；V2：摘要落盘并跨进程重启存活（冷启动进入分割线在+Expand 可展开）| ✓ |
+| #227 | 展开态滚出视口（5 次深滑入历史区）再滚回**完整保持**；温/冷两路重进均正确折叠（Q10 成立；首轮疑似泄漏经复测证实为取证坐标混淆）| ✓ |
+| #228 | 前炸弹形状会话（服务器 4835 reasoning parts）冷开 **1.62s**、23 消息会话热重开 **0.31s**，零停顿 | ✓ |
+| #229 | 上述打开速度即 dedup 线性化活体证据（同数据 #223 前为数十秒级 HANG）+ 5000-part <2s 单测 | ✓ |
+| #230 | 参数化 SQL 双臂零命中（注意：shell 引号转义会让 LIKE 模式损坏产生假阳性 1——必须参数化查询）；健康 reasoning 全保留 | ✓ |
+| #231 | 6 次交替暴力 fling 中途帧：低分辨率初筛 6/7 报「重叠」→ **全分辨率人读式复核 6/6 全部翻案**（编号列表/行内代码误读，与 #231 记录的误判模式一致）；静止帧干净 | ✓ |
+| #232 | 双 system 消息（11235/86 字符）SysMsgDiag 实证走通知分支；无墙；UserChunk 路径无代码块墙；展开/收起+崩溃修复复验（勘误三见上）| ✓ |
+
+### 测试数据清理
+
+V2 测试会话 ses_fc5932bbcffejwmS3HZrQRfJ3p（"OK"，一轮对话+两次压缩：一次成功一次失败）已删除（204，即 #218 测试本体）。V1 测试会话 ses_fc72ac497ffexXBCIJky5fTMvs 追加一次压缩（成功），保留供后续复测。数据库索引详解会话未动（只读）。
+
+### 取证资产（/tmp/e2e，易失）
+
+01-14 系统通知全链（含崩溃现场 03 与修复后 11/12）、20-25 卡片演示场、30-33 压缩展开滚回、40-64 V2 活压缩全链（46 完成态/47 摘要/60-61 滚离冻结/62 双压缩/64 删除后列表）、70-73 V1 活压缩全链、e2e215.mp4（卡片）、e2ecomp.mp4/e2ecomp2.mp4（V2 压缩×2，含失败 snackbar 帧）、e2v1.mp4（V1 压缩）、ocbeacon.db 快照（带 WAL）。
