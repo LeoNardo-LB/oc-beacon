@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.api.v2
 
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.PartIdContract
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
@@ -39,12 +40,11 @@ object V2SseMapper {
 
     /**
      * partId 派生规则：text/reasoning part 的稳定 id（含 type——#109 id 碰撞修复）。
-     * 服务器 ordinal 按类型独立计数（同消息 reasoning[0] 与 text[0] 并存），
-     * id 不含 type 会碰撞 → text.started 按 id 命中 Reasoning part 并替换（内容丢失）。
-     * @param kind "text" 或 "reasoning"（与服务器 SSE 事件域对应）
+     * #234 战役二起委托 [PartIdContract]——派生/判定/kind 推断的生产消费单一
+     * 权威（本函数保留为生产侧便捷入口，既有调用方/测试签名不变）。
      */
     fun derivePartId(assistantMessageId: String, kind: String, ordinal: Long): String =
-        "${assistantMessageId}_${kind}_ord_${ordinal}"
+        PartIdContract.derive(assistantMessageId, kind, ordinal)
 
     /**
      * 尝试将 V2 事件映射为领域 SseEvent。不识别的事件返回 null（由下游 parser 处理）。

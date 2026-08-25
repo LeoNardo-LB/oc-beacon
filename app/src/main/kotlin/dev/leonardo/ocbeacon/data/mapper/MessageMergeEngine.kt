@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.mapper
 
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.PartIdContract
 import dev.leonardo.ocbeacon.domain.model.ToolState
 
 /**
@@ -202,7 +203,7 @@ internal object MessageMergeEngine {
         val result = mutableListOf<Part>()
         val isNewCache = HashMap<String, Boolean>(parts.size * 2)
         fun isNew(id: String): Boolean =
-            isNewCache.getOrPut(id) { id.contains("_text_ord_") || id.contains("_reasoning_ord_") }
+            isNewCache.getOrPut(id) { PartIdContract.isDerived(id) }
         // 同类扫描桶：全量索引 + legacy-id 子集索引（按 kind 分桶，非文本 part 不入桶）
         val textAll = mutableListOf<Int>()
         val textLegacy = mutableListOf<Int>()
@@ -263,9 +264,77 @@ internal object MessageMergeEngine {
         else -> false
     }
 
-    /** #109 新版派生 id 契约：`<msg>_text_ord_N` / `<msg>_reasoning_ord_N`。 */
-    fun isNewPartId(id: String): Boolean =
-        id.contains("_text_ord_") || id.contains("_reasoning_ord_")
+    /** #109 派生 id 契约判定——#234 战役二起委托 [PartIdContract]（生产/消费单一权威）。 */
+    fun isDerivedOrdinalId(id: String): Boolean = PartIdContract.isDerived(id)
+
+    /** 零信息 part 过滤器（#228 语义）——appendOnly 等直通路径的封洞入口。 */
+    fun sanitized(parts: List<Part>): List<Part> = parts.filter { !isEmptyStreamPart(it) }
+
+    // ============ 注册决策（#234 战役二自 handler 收编）============
+
+    /** 新 part 到达已注册列表时的处置决策（策略本体在引擎，消费方只按分支执行）。 */
+    sealed interface PartRegistration {
+        /** id 命中已注册 part：与该位合并（mergePart）。 */
+        data class MergeAt(val index: Int) : PartRegistration
+
+        /** #87b 空 id Text 按内容匹配（相等/前缀）合并。 */
+        data class MergeByContent(val index: Int) : PartRegistration
+
+        /** #223：派生契约 id 的同 kind 空 started 重复——丢弃（空对空零信息损失）。 */
+        object DropZeroInfoDuplicate : PartRegistration
+
+        /** #230：派生契约 id 的首个空 started——不注册（delta idx<0 兜底重建）。 */
+        object DropZeroInfo : PartRegistration
+
+        /** 新 part 入列（文本保持不变——delta 丢失时文本不剥除）。 */
+        data class Add(val part: Part) : PartRegistration
+    }
+
+    /**
+     * part 注册策略（原 handleMessagePartUpdated 决策树，#87b/#223/#230 语义原样收编）。
+     *
+     * 决策顺序：
+     * 1. id 命中 → [PartRegistration.MergeAt]
+     * 2. 防御（#87b）：part ID 契约差异——REST 快照的 text part id 为空串 vs SSE 的
+     *    id 为 prt_xxx。按 id 找不到时直接新增会出现同消息两条文本 part → 文本
+     *    重复渲染（压测实测重复文本）。对空 id 的 Text part 按内容匹配（相等/前缀）
+     *    合并而非新增。
+     * 3. #223（空 part 增殖源头，2026-08-25 真机定音）：部分服务器链路对每个
+     *    reasoning 块发 started（ordinal 递增）而 delta 恒进 ordinal 0——空
+     *    started part 无限增殖（实测单消息 4488 part/4487 空，DB 持续 INSERT）。
+     *    仅对派生契约 id 且同 kind 已有空 part 时丢弃新空 started：零信息损失
+     *    （空对空），后续若有 delta 到达新 ordinal，delta 路径 idx<0 兜底重建。
+     *    自定义 id 的两个空 part（如 p1/p2）可能 legitimately 不同——不折叠。
+     *    带 ended 的非空覆盖不经过此分支（text 非空）。
+     * 4. #230（#228/#229 残余通道封堵，2026-08-26）：#223 只在同 kind 已有空
+     *    part 时丢弃——首个空 started 仍会注册进内存 → persistSseUpdate 快照
+     *    落 Room（text=NULL 行）→ 开会话再写、启动清扫再删的死循环。零信息
+     *    part 一律不注册：后续 delta 到达时 idx<0 兜底重建，首个非空 delta/
+     *    updated 再入列。
+     * 5. 其余 → [PartRegistration.Add]（文本保持不变：delta 被错过时文本将
+     *    永久丢失；endsWith 去重 + mergePart 更长文本胜出一起处理潜在重叠）。
+     */
+    fun resolvePartRegistration(existingParts: List<Part>, incoming: Part): PartRegistration {
+        val idx = existingParts.indexOfFirst { it.id == incoming.id }
+        if (idx >= 0) return PartRegistration.MergeAt(idx)
+        if (incoming.id.isBlank() && incoming is Part.Text) {
+            val contentMatchIdx = existingParts.indexOfFirst { existing ->
+                existing is Part.Text &&
+                    (existing.text == incoming.text ||
+                        existing.text.startsWith(incoming.text) ||
+                        incoming.text.startsWith(existing.text))
+            }
+            if (contentMatchIdx >= 0) return PartRegistration.MergeByContent(contentMatchIdx)
+        }
+        return when {
+            isDerivedOrdinalId(incoming.id) && isEmptyStreamPart(incoming) &&
+                existingParts.any {
+                    sameStreamKind(it, incoming) && isEmptyStreamPart(it) && isDerivedOrdinalId(it.id)
+                } -> PartRegistration.DropZeroInfoDuplicate
+            isDerivedOrdinalId(incoming.id) && isEmptyStreamPart(incoming) -> PartRegistration.DropZeroInfo
+            else -> PartRegistration.Add(incoming)
+        }
+    }
 
     // ============ 消息合并 ============
 
@@ -507,8 +576,7 @@ internal object MessageMergeEngine {
         return when {
             existingPart is Part.Reasoning -> "reasoning"
             existingPart != null -> "text"
-            partId.contains("_reasoning_ord_") -> "reasoning"
-            else -> "text"
+            else -> PartIdContract.kindOf(partId)
         }
     }
 }

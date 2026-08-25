@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.mapper
 
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.data.mapper.MessageMergeEngine.PartRegistration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -132,13 +133,57 @@ class MessageMergeEngineTest {
 
     @Test
     fun `predicates classify parts per id contract`() {
-        assertTrue(MessageMergeEngine.isNewPartId("m1_text_ord_3"))
-        assertTrue(MessageMergeEngine.isNewPartId("m1_reasoning_ord_0"))
-        assertFalse(MessageMergeEngine.isNewPartId(""))
-        assertFalse(MessageMergeEngine.isNewPartId("p1"))
+        assertTrue(MessageMergeEngine.isDerivedOrdinalId("m1_text_ord_3"))
+        assertTrue(MessageMergeEngine.isDerivedOrdinalId("m1_reasoning_ord_0"))
+        assertFalse(MessageMergeEngine.isDerivedOrdinalId(""))
+        assertFalse(MessageMergeEngine.isDerivedOrdinalId("p1"))
         assertTrue(MessageMergeEngine.isEmptyStreamPart(text("x")))
         assertFalse(MessageMergeEngine.isEmptyStreamPart(text("x", text = "有字")))
         assertTrue(MessageMergeEngine.sameStreamKind(text("a"), text("b")))
         assertFalse(MessageMergeEngine.sameStreamKind(text("a"), reasoning("b")))
+    }
+
+    // ============ resolvePartRegistration（#234 战役二）============
+
+    @Test
+    fun `registration merges by id when present`() {
+        val parts = listOf(text("p1", text = "短"))
+        val d = MessageMergeEngine.resolvePartRegistration(parts, text("p1", text = "更长文本"))
+        assertEquals(PartRegistration.MergeAt(0), d)
+    }
+
+    @Test
+    fun `registration merges blank-id text by content - #87b`() {
+        val parts = listOf(text("sse_1", text = "Got it."))
+        val d = MessageMergeEngine.resolvePartRegistration(parts, text("", text = "Got it."))
+        assertEquals(PartRegistration.MergeByContent(0), d)
+    }
+
+    @Test
+    fun `registration drops derived same-kind empty started duplicate - #223`() {
+        val parts = listOf(reasoning("m1_reasoning_ord_0"))
+        val d = MessageMergeEngine.resolvePartRegistration(parts, reasoning("m1_reasoning_ord_1"))
+        assertEquals(PartRegistration.DropZeroInfoDuplicate, d)
+    }
+
+    @Test
+    fun `registration drops first derived empty started - #230`() {
+        val d = MessageMergeEngine.resolvePartRegistration(emptyList(), reasoning("m1_reasoning_ord_0"))
+        assertEquals(PartRegistration.DropZeroInfo, d)
+    }
+
+    @Test
+    fun `registration keeps custom-id empty parts - #223 exception`() {
+        // 自定义 id 的两个空 part 可能 legitimately 不同——不折叠、不丢弃
+        val parts = listOf(reasoning("p1"))
+        val d = MessageMergeEngine.resolvePartRegistration(parts, reasoning("p2"))
+        assertTrue(d is PartRegistration.Add)
+        assertEquals("p2", (d as PartRegistration.Add).part.id)
+    }
+
+    @Test
+    fun `sanitized strips zero-info parts for direct-write paths`() {
+        val out = MessageMergeEngine.sanitized(listOf(reasoning("r1"), text("t1", text = "有字")))
+        assertEquals(listOf("t1"), out.map { it.id })
     }
 }

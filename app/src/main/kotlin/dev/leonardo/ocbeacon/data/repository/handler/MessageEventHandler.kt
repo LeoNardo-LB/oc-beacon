@@ -514,63 +514,21 @@ class MessageEventHandler @Inject constructor(
         // _messages 无宿主 → UI 按 _messages 渲染 → 回复整体不可见）。
         ensureAssistantSkeleton(event.part.sessionId, event.part.messageId)
         val messageId = event.part.messageId
-        val partId = event.part.id
         _parts.update { current ->
             val messageParts = current[messageId]?.toMutableList() ?: mutableListOf()
-            val idx = messageParts.indexOfFirst { it.id == partId }
-            if (idx >= 0) {
-                val old = messageParts[idx]
-                val merged = MessageMergeEngine.mergePart(old, event.part)
-                messageParts[idx] = merged
-            } else {
-                // 防御（#87b）：part ID 契约差异——REST 快照的 text part id="" vs
-                // SSE 的 id="prt_xxx"。按 id 找不到时会新增第二条 part → 同消息
-                // 两条文本 part → UI 文本重复渲染（压测实测 "Got it. ... Got it. ..."）。
-                // 对空 id 的 Text part 按内容匹配（相等/前缀）合并而非新增。
-                val contentMatchIdx = if (partId.isBlank() && event.part is Part.Text) {
-                    messageParts.indexOfFirst { existing ->
-                        existing is Part.Text &&
-                            (existing.text == event.part.text ||
-                                existing.text.startsWith(event.part.text) ||
-                                event.part.text.startsWith(existing.text))
-                    }
-                } else {
-                    -1
-                }
-                if (contentMatchIdx >= 0) {
-                    val old = messageParts[contentMatchIdx]
-                    messageParts[contentMatchIdx] = MessageMergeEngine.mergePart(old, event.part)
-                } else if (MessageMergeEngine.isNewPartId(partId) && MessageMergeEngine.isEmptyStreamPart(event.part) &&
-                    messageParts.any {
-                        MessageMergeEngine.sameStreamKind(it, event.part) && MessageMergeEngine.isEmptyStreamPart(it) && MessageMergeEngine.isNewPartId(it.id)
-                    }
-                ) {
-                    // #223（空 part 增殖源头，2026-08-25 真机定音）：部分服务器
-                    // 链路对每个 reasoning 块发 started（ordinal 递增）而 delta
-                    // 恒进 ordinal 0——空 started part 无限增殖（实测单消息
-                    // 4488 part/4487 空，DB 持续 INSERT）。仅对派生契约 id
-                    //（`_text_ord_N`/`_reasoning_ord_N`）且同 kind 已有空 part
-                    // 时丢弃新空 started：零信息损失（空对空），后续若有 delta
-                    // 到达新 ordinal，delta 路径 idx<0 兜底重建。自定义 id 的
-                    // 两个空 part（如 p1/p2）可能 legitimately 不同——不折叠。
-                    // 带 ended 的非空覆盖不经过此分支（text 非空）。
-                } else if (MessageMergeEngine.isNewPartId(partId) && MessageMergeEngine.isEmptyStreamPart(event.part)) {
-                    // #230（#228/#229 残余通道封堵，2026-08-26）：#223 只在
-                    // 同 kind 已有空 part 时丢弃新空 started——**首个**空 started
-                    // 仍会注册进内存 → persistSseUpdate 快照落 Room（text=NULL
-                    // 行，实测每助手消息一条 `<msg>_reasoning_ord_0`）→ 开会话
-                    // 再写、启动清扫再删的死循环。零信息 part 一律不注册：
-                    // 后续 delta 到达时 handleMessagePartDelta 的 idx<0 兜底
-                    // 重建（#223 已验证的机制），首个非空 delta/updated 再入列。
-                } else {
-                    // 新 part 到达——对所有消息类型保持文本不变。
-                    // 旧代码会剥离 assistant 消息的文本（假设 SSE delta 会重新累积它）。
-                    // 但若 delta 被错过（SSE 重连、网络中断），文本将永久丢失——
-                    // 用户会看到空气泡，直到手动刷新。
-                    // delta flush 的 endsWith() 去重 + mergePart 的"更长文本胜出"
-                    // 一起处理潜在重叠且不丢数据。
-                    messageParts.add(event.part)
-                }
+            // #234 战役二：注册决策树收编 MessageMergeEngine.resolvePartRegistration
+            //（#87b 内容匹配 / #223 同 kind 空 started 丢弃 / #230 首个空不注册 /
+            //  Add 保文本——四分支语义与注释见引擎侧 KDoc）。
+            when (val decision = MessageMergeEngine.resolvePartRegistration(messageParts, event.part)) {
+                is MessageMergeEngine.PartRegistration.MergeAt ->
+                    messageParts[decision.index] =
+                        MessageMergeEngine.mergePart(messageParts[decision.index], event.part)
+                is MessageMergeEngine.PartRegistration.MergeByContent ->
+                    messageParts[decision.index] =
+                        MessageMergeEngine.mergePart(messageParts[decision.index], event.part)
+                MessageMergeEngine.PartRegistration.DropZeroInfoDuplicate,
+                MessageMergeEngine.PartRegistration.DropZeroInfo -> Unit  // 零信息 part 不注册
+                is MessageMergeEngine.PartRegistration.Add -> messageParts.add(decision.part)
             }
             current + (messageId to messageParts)
         }
@@ -776,7 +734,9 @@ class MessageEventHandler @Inject constructor(
             val existingKeys = currentParts.keys
             val newParts = incoming
                 .filter { it.info.id !in existingKeys }
-                .associate { it.info.id to it.parts }
+                // #234 战役二封洞：appendOnly 直通路径同样滤零信息 part
+                //（此前仅靠上游 REST mapper 过滤兜底——不变量对本路径结构性缺防）。
+                .associate { it.info.id to MessageMergeEngine.sanitized(it.parts) }
             currentParts + newParts
         }
         incoming.forEach { if (it.info is Message.Assistant) assistantMessageIds.add(it.info.id) }
