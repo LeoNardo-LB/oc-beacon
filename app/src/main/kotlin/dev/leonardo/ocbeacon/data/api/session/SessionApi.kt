@@ -1,6 +1,8 @@
 package dev.leonardo.ocbeacon.data.api.session
 
 import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
+import dev.leonardo.ocbeacon.data.api.asApiError
+import dev.leonardo.ocbeacon.data.api.logApiError
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.data.dto.response.*
@@ -10,6 +12,8 @@ import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.Session
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "SessionApi"
 
 interface SessionApi {
     suspend fun listSessions(
@@ -210,11 +214,24 @@ class SessionApiImpl @Inject constructor(
     override suspend fun listSessionStatus(conn: ServerConnection, directory: String?): Map<String, SessionStatusInfo> =
         if (conn.apiVersion.isV2) v2.listSessionStatus(conn, directory) else v1.listSessionStatus(conn, directory)
 
+    /**
+     * C8（2026-08-26）：错误分类学接线——V1/V2 实现返回的 Result 失败值在分发层
+     * 统一翻译为 ApiError taxonomy（recoverCatching { throw e.asApiError() }，
+     * GitHub asGitHubError 同款边缘翻译）+ 分类日志。成功语义与 Result 返回类型不变
+     *（消费方 getOrNull/getOrDefault 不受影响；onFailure 可按 isTransient 分支）。
+     */
     override suspend fun fetchSessionStatus(
         conn: ServerConnection,
         directory: String?
-    ): Result<Map<String, RestSessionStatusInfo>> =
-        if (conn.apiVersion.isV2) v2.fetchSessionStatus(conn, directory) else v1.fetchSessionStatus(conn, directory)
+    ): Result<Map<String, RestSessionStatusInfo>> {
+        val result = if (conn.apiVersion.isV2) v2.fetchSessionStatus(conn, directory)
+        else v1.fetchSessionStatus(conn, directory)
+        return result.recoverCatching { e ->
+            val apiError = e.asApiError()
+            logApiError(TAG, apiError, "fetchSessionStatus v2=${conn.apiVersion.isV2} dir=$directory", e)
+            throw apiError
+        }
+    }
 
     override suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean =
         if (conn.apiVersion.isV2) v2.backgroundSession(conn, sessionId) else false

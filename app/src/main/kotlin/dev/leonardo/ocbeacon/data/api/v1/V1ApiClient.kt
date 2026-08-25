@@ -5,7 +5,10 @@ import dev.leonardo.ocbeacon.data.api.auth
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
+import dev.leonardo.ocbeacon.data.api.apiCall
 import dev.leonardo.ocbeacon.data.api.directoryHeader
+import dev.leonardo.ocbeacon.data.api.logApiError
+import dev.leonardo.ocbeacon.data.api.toApiError
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
@@ -293,7 +296,7 @@ class V1ApiClient @Inject constructor(
         sessionId: String,
         limit: Int? = null,
         before: String? = null
-    ): MessagePage {
+    ): MessagePage = apiCall(TAG, "listMessages session=$sessionId") {
         val response = httpClient.get("${conn.baseUrl}/session/$sessionId/message") {
             auth(conn)
             limit?.let { parameter("limit", it) }
@@ -302,9 +305,11 @@ class V1ApiClient @Inject constructor(
         // 防御（#87）：会话已删除/不存在（404）或服务器错误时返回空页——
         // 旧代码直接 body<List>() 会把 404 JSON 错误体（对象）按数组解析 →
         // JsonConvertException 刷日志（压测实测 302 次/25 分钟，5 秒周期 L2 stale 轮询）。
+        // C8（2026-08-26）：非 2xx 升级为 ApiError 分类学日志（401/403/404/429/5xx
+        // 精确分类 + isTransient），空页返回语义不变。
         if (!response.status.isSuccess()) {
-            AppLogger.w(TAG, "listMessages failed: status=${response.status} session=$sessionId")
-            return MessagePage(messages = emptyList(), nextCursor = null)
+            logApiError(TAG, response.toApiError(), "listMessages status=${response.status.value} session=$sessionId")
+            return@apiCall MessagePage(messages = emptyList(), nextCursor = null)
         }
         val messages = response.body<List<MessageWithParts>>()
         // #230（对称防御，与 V2Mappers 同规则）：V1 服务器 parts 同样可能携带
@@ -318,7 +323,7 @@ class V1ApiClient @Inject constructor(
             })
         }
         val nextCursor = response.headers["X-Next-Cursor"]
-        return MessagePage(messages = sanitized, nextCursor = nextCursor)
+        MessagePage(messages = sanitized, nextCursor = nextCursor)
     }
 
     suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {

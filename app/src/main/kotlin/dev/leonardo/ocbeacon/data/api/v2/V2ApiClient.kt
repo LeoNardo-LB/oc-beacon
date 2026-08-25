@@ -6,7 +6,10 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.api.NonJsonResponseException
 import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
+import dev.leonardo.ocbeacon.data.api.apiCall
 import dev.leonardo.ocbeacon.data.api.directoryHeader
+import dev.leonardo.ocbeacon.data.api.logApiError
+import dev.leonardo.ocbeacon.data.api.toApiError
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
@@ -387,7 +390,7 @@ class V2ApiClient @Inject constructor(
         sessionId: String,
         limit: Int? = null,
         cursor: String? = null
-    ): MessagePage {
+    ): MessagePage = apiCall(TAG, "listMessages session=$sessionId cursor=${cursor?.take(48)}") {
         val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId/message") {
             auth(conn)
             limit?.let { parameter("limit", it) }
@@ -402,16 +405,18 @@ class V2ApiClient @Inject constructor(
         // 2026-08-16（cursor 400 排障）：400 升 Error 级并带 cursor 前缀——
         // cursor 参数收到 V1 格式 {id,time}（缺 order/direction）或窗口外 id
         // 时服务器 400/空页，此前 warning+空页吞错导致排障盲区（本轮误诊源头）。
+        // C8（2026-08-26）：非 2xx 升级为 ApiError 分类学日志（401/403/404/429/5xx
+        // 精确分类 + isTransient），空页返回语义不变。
         if (!response.status.isSuccess()) {
-            AppLogger.e(TAG, "listMessages failed: status=${response.status} session=$sessionId cursor=${cursor?.take(48)}")
-            return MessagePage(messages = emptyList(), nextCursor = null, previousCursor = null)
+            logApiError(TAG, response.toApiError(), "listMessages status=${response.status.value} session=$sessionId cursor=${cursor?.take(48)}")
+            return@apiCall MessagePage(messages = emptyList(), nextCursor = null, previousCursor = null)
         }
         val root = parseRoot(response.bodyAsText())
         // 双向游标：nextCursor（cursor.next）= 更旧方向；previousCursor（cursor.previous）= 更新方向。
         // 原 unwrapList 只提取 next，丢弃 previous —— 双向分页需保留两者。
         val unwrapped = V2ResponseWrapper.unwrapListFull(root)
         val messages = unwrapped.items.mapNotNull { V2MessageMapper.toMessageWithParts(it, sessionId) }
-        return MessagePage(
+        MessagePage(
             messages = messages,
             nextCursor = unwrapped.nextCursor,
             previousCursor = unwrapped.previousCursor,

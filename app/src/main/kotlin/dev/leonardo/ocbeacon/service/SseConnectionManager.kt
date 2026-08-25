@@ -505,6 +505,12 @@ class SseConnectionManager @Inject constructor(
         }
     }
 
+    // C8（2026-08-26）衔接点注记：本函数的指数退避数学与 data/api/RetryPolicy
+    // .calculateDelay 同构（base * factor^(attempt-1)，上限截断），但 SSE 重连对
+    // 所有失败**无条件重试**（无 isTransient 门槛——连接级恢复语义），而
+    // retryWithPolicy 仅对瞬时错误（isTransientException：IOException/超时/
+    // ApiError.isTransient）重试。语义部分重合、策略不同，不强改统一；
+    // 未来若统一，此处应改为组合 RetryPolicy 配置 + ApiError.isTransient 分类。
     private suspend fun calculateBackoff(attempt: Int): Long {
         val maxDelay = when (settingsRepository.reconnectMode().first()) {
             "aggressive" -> 5_000L
