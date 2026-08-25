@@ -1,12 +1,15 @@
 package dev.leonardo.ocbeacon.domain.repository
 
 import dev.leonardo.ocbeacon.domain.model.AppSettings
-import dev.leonardo.ocbeacon.domain.model.Tag
 import kotlinx.coroutines.flow.Flow
 
 /**
  * 应用设置的领域层接口。
  * 实现归属：由 data 层实现（domain 层仅声明契约）。
+ *
+ * C5 存储归属拆分（2026-08-26）：会话标签方法移至 [SessionTagRepository]；
+ * 未读已读方法随 UnreadStateStore 落在 data 层内部（消费方 UnreadBadgeService/
+ * EventDispatcher 均 data/service 内部，无 UI 直连，不设透传接口）。
  */
 interface SettingsRepository {
 
@@ -39,54 +42,17 @@ interface SettingsRepository {
     /** 设置/清除默认模型（value=null 清除）。 */
     suspend fun setDefaultModel(serverId: String, value: String?)
 
-    // ============ 会话标签 ============
+    // ============ service 层单键读取（C5：service 直注具体类改经本接口，缺的方法补齐） ============
 
-    /** 该服务器的用户标签集（不含内置收藏标签）。 */
-    fun sessionTags(serverId: String): Flow<List<Tag>>
+    /** 是否启用轮次完成通知。默认：true。（OpenCodeConnectionService / AppNotificationManager） */
+    fun notificationsEnabled(): Flow<Boolean>
 
-    /** 按服务器划分的 sessionId → tagIds 分配（含内置收藏标签）。 */
-    fun sessionTagAssignments(serverId: String): Flow<Map<String, List<String>>>
+    /** 通知是否静默（无声音/振动）。默认：false。（同上 + 提示音策略镜像） */
+    fun silentNotifications(): Flow<Boolean>
 
-    /** 新增或替换一个用户标签。 */
-    suspend fun addSessionTag(serverId: String, tag: Tag)
+    /** 是否自动批准权限请求。默认：false。（OpenCodeConnectionService） */
+    fun autoAllowPermissions(): Flow<Boolean>
 
-    /** 更新一个已存在的用户标签（按 id 替换）。 */
-    suspend fun updateSessionTag(serverId: String, tag: Tag)
-
-    /** 按 id 移除一个标签，并原子清理所有会话上该标签的分配。 */
-    suspend fun removeSessionTag(serverId: String, tagId: String)
-
-    /** 替换指定会话上的用户标签集（保留内置收藏标签）。 */
-    suspend fun setSessionTags(serverId: String, sessionId: String, tagIds: Set<String>)
-
-    /** 移除指定会话上的某个标签分配（不删除标签本身）。 */
-    suspend fun removeSessionTagAssignment(serverId: String, sessionId: String, tagId: String)
-
-    // ============ 会话收藏（基于内置收藏标签派生） ============
-
-    /** 某台服务器上被收藏的会话 id（从统一分配 map 派生，纯读取）。 */
-    fun favoriteSessionIds(serverId: String): Flow<Set<String>>
-
-    /** #137（D2-L59）：旧 favorite_sessions_* stringSet → 统一分配 map 的一次性迁移（显式触发）。 */
-    suspend fun migrateLegacyFavoritesIfNeeded(serverId: String)
-
-    /** 切换指定 (serverId, sessionId) 对的收藏状态。 */
-    suspend fun toggleFavorite(serverId: String, sessionId: String)
-
-    // ============ 会话已读（未读提示） ============
-
-    /** 该服务器各会话的最后已读时间（sessionId → 最后消费的完成消息 completed）。 */
-    fun sessionReadTimes(serverId: String): Flow<Map<String, Long>>
-
-    /** 该服务器的"一键已读"时间戳（服务器 completed）：此前的所有回复都算已读。 */
-    fun allReadAt(serverId: String): Flow<Long>
-
-    /** 一键已读：记录全局已读位置（已知会话最后完成消息的 completed，服务器时刻），消除所有小红点。 */
-    suspend fun markAllSessionsRead(serverId: String, globalMax: Long)
-
-    /** 将会话标记为已读（记录最后消费的完成消息 completed，服务器时刻）。 */
-    suspend fun markSessionRead(serverId: String, sessionId: String, completedTs: Long)
-
-    /** 一次性迁移：清空已读标记（readTimes/allReadAt）——值域从客户端 now 变为服务器 completed，旧值不可比。幂等。 */
-    suspend fun runUnreadStateV2Migration()
+    /** 重连模式："aggressive"/"normal"/"conservative"。默认："normal"。（SseConnectionManager） */
+    fun reconnectMode(): Flow<String>
 }

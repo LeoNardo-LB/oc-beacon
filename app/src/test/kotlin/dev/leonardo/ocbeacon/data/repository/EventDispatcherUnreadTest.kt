@@ -44,6 +44,7 @@ class EventDispatcherUnreadTest {
     private lateinit var stateServiceScope: TestScope
     private lateinit var sessionStateRepository: SessionStateService
     private lateinit var settingsDataStore: SettingsDataStore
+    private lateinit var unreadStateStore: UnreadStateStore
 
     private fun makeDispatcher(): EventDispatcher {
         val messageStore = MessageEventHandler()
@@ -57,8 +58,9 @@ class EventDispatcherUnreadTest {
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
+            unreadStateStore = unreadStateStore,
             unreadBadgeService = UnreadBadgeService(
-                settingsDataStore,
+                unreadStateStore,
                 CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
             ),
             ownershipRegistry = StreamingOwnershipRegistry(),
@@ -82,6 +84,7 @@ class EventDispatcherUnreadTest {
             cursorPolicyFactory = dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
         )
         settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+        unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
         dispatcher = makeDispatcher()
     }
 
@@ -101,9 +104,9 @@ class EventDispatcherUnreadTest {
 
     @Test
     fun `init triggers v2 migration once`() = runTest {
-        // runUnreadStateV2Migration 现为 SettingsDataStore 成员方法（合并自扩展文件），可被 mock 拦截记录。
+        // runUnreadStateV2Migration 为 UnreadStateStore 成员方法（C5 自 SettingsDataStore 迁出），可被 mock 拦截记录。
         // EventDispatcher init 在 Dispatchers.IO 异步触发迁移；coVerify(timeout) 等待独立 scope 执行完。
-        coVerify(timeout = 5000) { settingsDataStore.runUnreadStateV2Migration() }
+        coVerify(timeout = 5000) { unreadStateStore.runUnreadStateV2Migration() }
     }
 
     @Test
@@ -152,8 +155,8 @@ class EventDispatcherUnreadTest {
     @Test
     fun `seed restores lastCompletedReplyTime on init`() = runTest {
         // 构造前 stub：lastCompletedReplyTimes 返回既有 seed map（模拟重启后 DataStore 既有值）。
-        // lastCompletedReplyTimes 现为成员方法（合并自扩展文件），对 relaxed mock 直接 every stub 即可。
-        every { settingsDataStore.lastCompletedReplyTimes() } returns flowOf(mapOf("seedSes" to 7777L))
+        // lastCompletedReplyTimes 为 UnreadStateStore 成员方法，对 relaxed mock 直接 every stub 即可。
+        every { unreadStateStore.lastCompletedReplyTimes() } returns flowOf(mapOf("seedSes" to 7777L))
         val seeded = makeDispatcher()
         // init 的迁移 + seed 读取在 Dispatchers.IO 异步执行，轮询等待合并完成
         val deadline = System.currentTimeMillis() + 5000
@@ -186,7 +189,7 @@ class EventDispatcherUnreadTest {
         // processEvent → UnreadBadgeService.persist 同步调用本方法；coVerify 无需等待即可断言
         //（同步语义由代码结构保证——非异步 collect）。
         pushAssistantMessage("m1", "s1", created = 100L, completed = 500L)
-        coVerify { settingsDataStore.saveLastCompletedReplyTimes(any()) }
+        coVerify { unreadStateStore.saveLastCompletedReplyTimes(any()) }
     }
 
     @Test

@@ -2,7 +2,7 @@ package dev.leonardo.ocbeacon.service
 
 import android.app.NotificationManager
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.model.Session
 import io.mockk.every
 import io.mockk.mockk
@@ -18,7 +18,7 @@ class CancelSessionNotificationsTest {
 
     private lateinit var manager: AppNotificationManager
     private val eventDispatcher: EventDispatcher = mockk()
-    private val settingsDataStore: SettingsDataStore = mockk()
+    private val settingsRepository: SettingsRepository = mockk()
     private val notificationManager: NotificationManager = mockk(relaxed = true)
 
     @Before
@@ -28,7 +28,7 @@ class CancelSessionNotificationsTest {
         every { eventDispatcher.sessions } returns MutableStateFlow<List<Session>>(emptyList())
         manager = AppNotificationManager(
             eventDispatcher,
-            settingsDataStore,
+            settingsRepository,
             SessionFocusHolder(),
             mockk(relaxed = true),
             CoroutineScope(SupervisorJob() + Dispatchers.Default),

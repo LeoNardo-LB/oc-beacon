@@ -12,6 +12,7 @@ import dev.leonardo.ocbeacon.data.repository.ServerRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.McpRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SessionRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SettingsRepositoryImpl
+import dev.leonardo.ocbeacon.data.repository.SessionTagRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.data.repository.PendingMessageRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.VcsRepositoryImpl
@@ -28,6 +29,7 @@ import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionTagRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.VcsRepository
 
@@ -58,6 +60,10 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    // C5 存储归属拆分：会话标签自 SettingsRepository 独立成接口
+    @Binds
+    abstract fun bindSessionTagRepository(impl: SessionTagRepositoryImpl): SessionTagRepository
 
     @Binds
     abstract fun bindSessionStateRepository(impl: SessionStateService): SessionStateRepository

@@ -17,6 +17,7 @@ import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionTagRepository
 import dev.leonardo.ocbeacon.domain.repository.VcsRepository
 import dev.leonardo.ocbeacon.fakes.FakeAgentRepository
 import dev.leonardo.ocbeacon.fakes.FakeChatRepository
@@ -26,6 +27,7 @@ import dev.leonardo.ocbeacon.fakes.FakeMcpRepository
 import dev.leonardo.ocbeacon.fakes.FakeServerRepository
 import dev.leonardo.ocbeacon.fakes.FakeSessionRepository
 import dev.leonardo.ocbeacon.fakes.FakeSessionStateRepository
+import dev.leonardo.ocbeacon.fakes.FakeSessionTagRepository
 import dev.leonardo.ocbeacon.fakes.FakeSettingsRepository
 import dev.leonardo.ocbeacon.fakes.FakeVcsRepository
 import javax.inject.Singleton
@@ -48,6 +50,9 @@ abstract class FakeDomainModule {
     @Binds @Singleton abstract fun bindSessionRepository(impl: FakeSessionRepository): SessionRepository
 
     @Binds @Singleton abstract fun bindSettingsRepository(impl: FakeSettingsRepository): SettingsRepository
+
+    // C5 存储归属拆分：会话标签接口自 SettingsRepository 独立，测试图同步
+    @Binds @Singleton abstract fun bindSessionTagRepository(impl: FakeSessionTagRepository): SessionTagRepository
     @Binds @Singleton abstract fun bindSessionStateRepository(impl: FakeSessionStateRepository): SessionStateRepository
     @Binds @Singleton abstract fun bindAgentRepository(impl: FakeAgentRepository): AgentRepository
     @Binds @Singleton abstract fun bindDraftRepository(impl: FakeDraftRepository): DraftRepository

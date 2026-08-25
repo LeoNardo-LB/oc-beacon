@@ -40,6 +40,7 @@ class SessionRepositoryImplTest {
 
         val sessionStateRepository = mockk<SessionStateService>(relaxed = true)
         val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+        val unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
             messageHandler = messageHandler,
@@ -49,7 +50,8 @@ class SessionRepositoryImplTest {
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            unreadStateStore = unreadStateStore,
+            unreadBadgeService = UnreadBadgeService(unreadStateStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             ownershipRegistry = StreamingOwnershipRegistry(),
             sessionRepoProvider = object : javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository> {

@@ -7,7 +7,7 @@ import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
-import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionTagRepository
 import dev.leonardo.ocbeacon.domain.usecase.CreateDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetServerPathsUseCase
@@ -107,7 +107,7 @@ class SessionListViewModelSearchTest {
             mcpRepository = mockk(relaxed = true),
             scrollSignal = SessionScrollSignal(),
             getSettingsFlowUseCase = mockk(relaxed = true),
-            settingsRepository = mockk(relaxed = true),
+            sessionTagRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService> {
                 io.mockk.every { mergedReadTimes(any()) } returns kotlinx.coroutines.flow.flowOf(emptyMap<String, Long>())

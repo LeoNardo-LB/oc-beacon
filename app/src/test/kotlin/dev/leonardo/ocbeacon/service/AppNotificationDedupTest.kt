@@ -1,7 +1,7 @@
 package dev.leonardo.ocbeacon.service
 
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.model.Session
 import io.mockk.every
 import io.mockk.mockk
@@ -23,12 +23,12 @@ class AppNotificationDedupTest {
 
     private lateinit var manager: AppNotificationManager
     private lateinit var eventDispatcher: EventDispatcher
-    private lateinit var settingsDataStore: SettingsDataStore
+    private lateinit var settingsRepository: SettingsRepository
 
     private fun buildManager(holder: SessionFocusHolder = SessionFocusHolder()): AppNotificationManager {
         return AppNotificationManager(
             eventDispatcher,
-            settingsDataStore,
+            settingsRepository,
             holder,
             mockk(relaxed = true),
             CoroutineScope(SupervisorJob() + Dispatchers.Default),
@@ -38,7 +38,7 @@ class AppNotificationDedupTest {
     @Before
     fun setup() {
         eventDispatcher = mockk()
-        settingsDataStore = mockk()
+        settingsRepository = mockk()
         every { eventDispatcher.messages } returns MutableStateFlow(emptyMap())
         every { eventDispatcher.parts } returns MutableStateFlow(emptyMap())
         every { eventDispatcher.sessions } returns MutableStateFlow<List<Session>>(emptyList())

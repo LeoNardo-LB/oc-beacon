@@ -1,12 +1,9 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
-import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -15,7 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 纯内存 DataStore——避免 Windows 文件系统 rename 限制（与 SettingsDataStoreTagsTest 相同模式）。 */
+/** 纯内存 DataStore——避免 Windows 文件系统 rename 限制（与 SessionTagStoreTest 相同模式）。 */
 private class InMemoryReadTimesStore : DataStore<Preferences> {
     private val state = MutableStateFlow<Preferences>(emptyPreferences())
     override val data: Flow<Preferences> = state
@@ -26,10 +23,10 @@ private class InMemoryReadTimesStore : DataStore<Preferences> {
     }
 }
 
-class SettingsDataStoreReadTimesTest {
+/** C5 存储归属拆分：随 UnreadStateStore 自 SettingsDataStoreReadTimesTest 迁移，断言不变（行为零变化）。 */
+class UnreadStateStoreTest {
 
-    private fun newStore(): SettingsDataStore =
-        SettingsDataStore(InMemoryReadTimesStore(), mockk<Context>(relaxed = true))
+    private fun newStore(): UnreadStateStore = UnreadStateStore(InMemoryReadTimesStore())
 
     @Test
     fun `markSessionRead then read back`() = runTest {
@@ -95,10 +92,12 @@ class SettingsDataStoreReadTimesTest {
 
     @Test
     fun `favorite tag unrelated to read times`() = runTest {
-        // 确保未读功能不依赖/不干扰标签体系
-        val store = newStore()
-        store.markSessionRead("svr1", "ses1", 5000L)
-        val tags = store.sessionTags("svr1").first()
+        // 确保未读功能不依赖/不干扰标签体系（C5 拆分后两 store 共享同一 DataStore 实例）
+        val ds = InMemoryReadTimesStore()
+        val unreadStore = UnreadStateStore(ds)
+        val tagStore = SessionTagStore(ds)
+        unreadStore.markSessionRead("svr1", "ses1", 5000L)
+        val tags = tagStore.sessionTags("svr1").first()
         assertTrue(tags.none { it.id == FAVORITE_TAG_ID })
     }
 

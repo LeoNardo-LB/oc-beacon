@@ -96,6 +96,7 @@ class ChatViewModelDeleteTest {
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
+            unreadStateStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadStateStore>(relaxed = true),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             ownershipRegistry = StreamingOwnershipRegistry(),

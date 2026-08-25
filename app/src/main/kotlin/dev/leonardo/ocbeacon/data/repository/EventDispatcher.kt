@@ -44,6 +44,8 @@ class EventDispatcher @Inject constructor(
     private val shellJobsHandler: ShellJobsHandler,
     private val sessionStateRepository: SessionStateService,
     private val settingsDataStore: SettingsDataStore,
+    // C5 拆分：未读红点持久化自 SettingsDataStore 迁出（同 DataStore 同键名）
+    private val unreadStateStore: UnreadStateStore,
     private val unreadBadgeService: UnreadBadgeService,
     private val ownershipRegistry: StreamingOwnershipRegistry,
     private val sessionRepoProvider: javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository>,
@@ -190,7 +192,7 @@ class EventDispatcher @Inject constructor(
         // 顺序保证：迁移在先 → seedFromStorage 读到的是服务器域值或空。
         unreadMigrationScope.launch {
             // runCatching 容错：迁移失败（含 mock 环境）不阻塞 init 持久化路径（spec §3.1）
-            val migrationRan = runCatching { settingsDataStore.runUnreadStateV2Migration() }.isSuccess
+            val migrationRan = runCatching { unreadStateStore.runUnreadStateV2Migration() }.isSuccess
             AppLogger.d("UnreadDiag", "[migration] executed=$migrationRan")
             // #202：collapse_tools→auto_expand_tools 键名搬家迁移（值无取反；unread 同款纪律）
             runCatching { settingsDataStore.runAutoExpandToolsKeyMigration() }

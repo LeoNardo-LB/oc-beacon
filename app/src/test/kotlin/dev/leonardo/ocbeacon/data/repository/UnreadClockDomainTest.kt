@@ -47,15 +47,17 @@ class UnreadClockDomainTest {
     private lateinit var dispatcher: EventDispatcher
     private lateinit var unreadBadgeService: UnreadBadgeService
     private lateinit var settingsDataStore: SettingsDataStore
+    private lateinit var unreadStateStore: UnreadStateStore
     private lateinit var scope: CoroutineScope
     private lateinit var stateServiceScope: TestScope
 
     @Before
     fun setup() {
         settingsDataStore = mockk(relaxed = true)
+        unreadStateStore = mockk(relaxed = true)
         scope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())
         stateServiceScope = TestScope(UnconfinedTestDispatcher())
-        unreadBadgeService = UnreadBadgeService(settingsDataStore, scope)
+        unreadBadgeService = UnreadBadgeService(unreadStateStore, scope)
         val messageStore = MessageEventHandler()
         dispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
@@ -72,6 +74,7 @@ class UnreadClockDomainTest {
             cursorPolicyFactory = dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
             ),
             settingsDataStore = settingsDataStore,
+            unreadStateStore = unreadStateStore,
             unreadBadgeService = unreadBadgeService,
             ownershipRegistry = StreamingOwnershipRegistry(),
             sessionRepoProvider = Provider { mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true) },
@@ -134,7 +137,7 @@ class UnreadClockDomainTest {
         // 秒退/消息未加载：无水位线记录 → 不写内存信号、不落盘（之后红点合理）
         unreadBadgeService.markSessionRead("svr1", "s1")
         assertTrue(unreadBadgeService.justRead.value.isEmpty())
-        coVerify(exactly = 0) { settingsDataStore.markSessionRead(any(), any(), any()) }
+        coVerify(exactly = 0) { unreadStateStore.markSessionRead(any(), any(), any()) }
     }
 
     @Test

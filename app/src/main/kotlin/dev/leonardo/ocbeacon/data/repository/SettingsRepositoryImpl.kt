@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.domain.model.AppSettings
-import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -13,8 +12,8 @@ import dev.leonardo.ocbeacon.util.runCatchingCancellable
  * 包装现有的基于 DataStore 的设置 repository，
  * 委托给其原子的 [dev.leonardo.ocbeacon.data.repository.SettingsDataStore.appSettingsFlow]。
  *
- * 阶段 3：已编译但尚未接入 UseCase。阶段 4 将把
- * SettingsViewModel 的直接调用迁移为通过此 repository。
+ * C5 存储归属拆分（2026-08-26）：会话标签委托移至 SessionTagRepositoryImpl；
+ * 未读已读方法随 UnreadStateStore 落在 data 层内部（消费方直注 store）。
  */
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
@@ -34,53 +33,15 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setDefaultModel(serverId: String, value: String?) =
         dataRepo.setDefaultModel(serverId, value)
 
-    // ============ 会话标签 ============
+    // ============ service 层单键读取（C5：service 直注具体类改经本接口） ============
 
-    override fun sessionTags(serverId: String): Flow<List<Tag>> = dataRepo.sessionTags(serverId)
+    override fun notificationsEnabled(): Flow<Boolean> = dataRepo.notificationsEnabled
 
-    override fun sessionTagAssignments(serverId: String): Flow<Map<String, List<String>>> =
-        dataRepo.sessionTagAssignments(serverId)
+    override fun silentNotifications(): Flow<Boolean> = dataRepo.silentNotifications
 
-    override suspend fun addSessionTag(serverId: String, tag: Tag) = dataRepo.addSessionTag(serverId, tag)
+    override fun autoAllowPermissions(): Flow<Boolean> = dataRepo.autoAllowPermissions
 
-    override suspend fun updateSessionTag(serverId: String, tag: Tag) = dataRepo.updateSessionTag(serverId, tag)
-
-    override suspend fun removeSessionTag(serverId: String, tagId: String) = dataRepo.removeSessionTag(serverId, tagId)
-
-    override suspend fun setSessionTags(serverId: String, sessionId: String, tagIds: Set<String>) =
-        dataRepo.setSessionTags(serverId, sessionId, tagIds)
-
-    override suspend fun removeSessionTagAssignment(serverId: String, sessionId: String, tagId: String) =
-        dataRepo.removeSessionTagAssignment(serverId, sessionId, tagId)
-
-    // ============ 会话收藏（基于内置收藏标签派生） ============
-
-    override fun favoriteSessionIds(serverId: String): Flow<Set<String>> =
-        dataRepo.favoriteSessionIds(serverId)
-
-    override suspend fun toggleFavorite(serverId: String, sessionId: String) =
-        dataRepo.toggleFavorite(serverId, sessionId)
-
-    // #137（D2-L59）：收藏迁移显式化（原藏在 favoriteSessionIds flow map 内的隐蔽副作用）
-    override suspend fun migrateLegacyFavoritesIfNeeded(serverId: String) =
-        dataRepo.migrateLegacyFavoritesIfNeeded(serverId)
-
-    // ============ 会话已读（未读提示） ============
-
-    override fun sessionReadTimes(serverId: String): Flow<Map<String, Long>> =
-        dataRepo.sessionReadTimes(serverId)
-
-    override fun allReadAt(serverId: String): Flow<Long> =
-        dataRepo.allReadAt(serverId)
-
-    override suspend fun markAllSessionsRead(serverId: String, globalMax: Long) =
-        dataRepo.markAllSessionsRead(serverId, globalMax)
-
-    override suspend fun markSessionRead(serverId: String, sessionId: String, completedTs: Long) =
-        dataRepo.markSessionRead(serverId, sessionId, completedTs)
-
-    override suspend fun runUnreadStateV2Migration() =
-        dataRepo.runUnreadStateV2Migration()
+    override fun reconnectMode(): Flow<String> = dataRepo.reconnectMode
 
     override suspend fun updateSettings(settings: AppSettings): Result<Unit> = runCatchingCancellable {
         // #134（D2-L57）：单次 DataStore edit 原子落盘（原 21 次独立 edit——

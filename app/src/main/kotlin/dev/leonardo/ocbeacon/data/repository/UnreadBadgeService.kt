@@ -69,7 +69,7 @@ sealed class UnreadEvent {
  */
 @Singleton
 class UnreadBadgeService @Inject constructor(
-    private val settingsDataStore: SettingsDataStore,
+    private val unreadStateStore: UnreadStateStore,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val _lastCompletedReplyTime = MutableStateFlow<Map<String, Long>>(emptyMap())
@@ -86,7 +86,7 @@ class UnreadBadgeService @Inject constructor(
         persistChannelConsumer = scope.launch {
             for (msg in persistChannel) {
                 val snapshot = _lastCompletedReplyTime.value
-                runCatchingCancellable { settingsDataStore.saveLastCompletedReplyTimes(snapshot) }
+                runCatchingCancellable { unreadStateStore.saveLastCompletedReplyTimes(snapshot) }
                     .onFailure { e -> AppLogger.e(TAG, "persist failed (seed will recover on next start)", e) }
             }
         }
@@ -154,7 +154,7 @@ class UnreadBadgeService @Inject constructor(
     /** 合并读：持久 readTimes ∥ 内存 justRead，每会话取 max（吸收原 mergeReadTimes）。 */
     fun mergedReadTimes(serverId: String): Flow<Map<String, Long>> =
         combine(
-            settingsDataStore.sessionReadTimes(serverId).catch { emit(emptyMap()) },
+            unreadStateStore.sessionReadTimes(serverId).catch { emit(emptyMap()) },
             justRead,
         ) { persisted, inMemory ->
             (persisted.keys + inMemory.keys).associateWith {
@@ -163,7 +163,7 @@ class UnreadBadgeService @Inject constructor(
         }.distinctUntilChanged()
 
     /** 该服务器的一键已读位置（透传持久层）。 */
-    fun allReadAt(serverId: String): Flow<Long> = settingsDataStore.allReadAt(serverId)
+    fun allReadAt(serverId: String): Flow<Long> = unreadStateStore.allReadAt(serverId)
 
     /**
      * 标记会话已读（退出会话/列表消费路径）：已读位置 = **模块自身水位线**（服务器域），
@@ -176,7 +176,7 @@ class UnreadBadgeService @Inject constructor(
         val ts = _lastCompletedReplyTime.value[sessionId] ?: return
         _justRead.update { it + (sessionId to ts) }
         scope.launch {
-            runCatchingCancellable { settingsDataStore.markSessionRead(serverId, sessionId, ts) }
+            runCatchingCancellable { unreadStateStore.markSessionRead(serverId, sessionId, ts) }
                 .onFailure { e -> AppLogger.e(TAG, "markSessionRead persist failed", e) }
         }
     }
@@ -194,7 +194,7 @@ class UnreadBadgeService @Inject constructor(
             _justRead.update { it + (sid to globalMax) }
         }
         scope.launch {
-            runCatchingCancellable { settingsDataStore.markAllSessionsRead(serverId, globalMax) }
+            runCatchingCancellable { unreadStateStore.markAllSessionsRead(serverId, globalMax) }
                 .onFailure { e -> AppLogger.e(TAG, "markAllSessionsRead persist failed", e) }
         }
     }
@@ -223,7 +223,7 @@ class UnreadBadgeService @Inject constructor(
      * 幂等；迁移（runUnreadStateV2Migration）必须先于本方法执行（EventDispatcher init 顺序保证）。
      */
     suspend fun seedFromStorage() {
-        val seed = runCatchingCancellable { settingsDataStore.lastCompletedReplyTimes().first() }
+        val seed = runCatchingCancellable { unreadStateStore.lastCompletedReplyTimes().first() }
             .getOrDefault(emptyMap())
         AppLogger.d(TAG, "[seed] loaded ${seed.size} entries: ${seed.entries.take(3)}")
         _lastCompletedReplyTime.update { current ->
@@ -253,7 +253,7 @@ class UnreadBadgeService @Inject constructor(
     }
 
     private suspend fun persistNow() {
-        runCatchingCancellable { settingsDataStore.saveLastCompletedReplyTimes(_lastCompletedReplyTime.value) }
+        runCatchingCancellable { unreadStateStore.saveLastCompletedReplyTimes(_lastCompletedReplyTime.value) }
             .onFailure { e -> AppLogger.e(TAG, "seed persist failed", e) }
     }
 }

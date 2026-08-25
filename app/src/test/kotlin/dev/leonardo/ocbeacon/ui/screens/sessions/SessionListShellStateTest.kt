@@ -12,7 +12,7 @@ import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
-import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionTagRepository
 import dev.leonardo.ocbeacon.domain.usecase.CreateDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetServerPathsUseCase
@@ -54,7 +54,7 @@ class SessionListShellStateTest {
     private val fileRepository: FileRepository = mockk()
     private val manageSessionUseCase: ManageSessionUseCase = mockk()
     private val deleteSessionUseCase: DeleteSessionUseCase = mockk()
-    private val settingsRepository: SettingsRepository = mockk(relaxed = true)
+    private val sessionTagRepository: SessionTagRepository = mockk(relaxed = true)
     private val chatRepository: ChatRepository = mockk(relaxed = true)
 
     @Before
@@ -72,10 +72,10 @@ class SessionListShellStateTest {
         every { sessionRepository.getLastCompletedReplyTimeFlow() } returns MutableStateFlow(emptyMap<String, Long>())
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap<String, SessionStatus>())
         every { chatRepository.getAllQuestionsFlow() } returns MutableStateFlow(emptyMap<String, List<SseEvent.QuestionAsked>>())
-        every { settingsRepository.sessionTagAssignments(any()) } returns MutableStateFlow(emptyMap<String, List<String>>())
-        every { settingsRepository.sessionTags(any()) } returns MutableStateFlow(emptyList<Tag>())
-        every { settingsRepository.sessionReadTimes(any()) } returns MutableStateFlow(emptyMap<String, Long>())
-        every { settingsRepository.allReadAt(any()) } returns MutableStateFlow(0L)
+        // C5 拆分：标签流经 SessionTagRepository；未读流（sessionReadTimes/allReadAt）
+        // 由下方 unreadBadgeService mock 提供（mergedReadTimes/allReadAt stub）
+        every { sessionTagRepository.sessionTagAssignments(any()) } returns MutableStateFlow(emptyMap<String, List<String>>())
+        every { sessionTagRepository.sessionTags(any()) } returns MutableStateFlow(emptyList<Tag>())
         // loadSessions/refreshSessions 走成功路径，不写 _error（保持 shellState 初始 error=null）
         coEvery { listProjectsUseCase(any()) } returns Result.success(emptyList())
         coEvery { listSessionsUseCase(any(), any(), any(), any(), any()) } returns emptyList()
@@ -159,7 +159,7 @@ class SessionListShellStateTest {
             mcpRepository = mockk(relaxed = true),
             scrollSignal = SessionScrollSignal(),
             getSettingsFlowUseCase = mockk(relaxed = true),
-            settingsRepository = settingsRepository,
+            sessionTagRepository = sessionTagRepository,
             serverRepository = mockk(relaxed = true),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService> {
                 io.mockk.every { mergedReadTimes(any()) } returns kotlinx.coroutines.flow.flowOf(emptyMap<String, Long>())

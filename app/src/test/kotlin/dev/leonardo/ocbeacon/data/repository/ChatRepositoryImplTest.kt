@@ -58,6 +58,7 @@ class ChatRepositoryImplTest {
 
         val sessionStateRepository = mockk<SessionStateService>(relaxed = true)
         val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+        val unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
         eventDispatcher = EventDispatcher(
             sessionHandler = sessionHandler,
             messageHandler = messageHandler,
@@ -68,7 +69,8 @@ class ChatRepositoryImplTest {
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            unreadStateStore = unreadStateStore,
+            unreadBadgeService = UnreadBadgeService(unreadStateStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
             sessionRepoProvider = object : javax.inject.Provider<dev.leonardo.ocbeacon.domain.repository.SessionRepository> {
                 override fun get() = io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true)

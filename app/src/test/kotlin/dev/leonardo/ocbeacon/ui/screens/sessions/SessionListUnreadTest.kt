@@ -1,7 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
+import dev.leonardo.ocbeacon.data.repository.UnreadStateStore
 import dev.leonardo.ocbeacon.data.repository.UnreadEvent
 import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
 import dev.leonardo.ocbeacon.domain.model.Session
@@ -54,7 +54,7 @@ class SessionListUnreadTest {
 
     /** 模块真实链路：水位线事件 → markSessionRead（读水位线）→ 合并读（内存信号压过旧持久值）。 */
     private fun unreadServiceWith(persisted: Map<String, Long>): UnreadBadgeService {
-        val ds = mockk<SettingsDataStore> {
+        val ds = mockk<UnreadStateStore> {
             every { sessionReadTimes(any()) } returns flowOf(persisted)
             io.mockk.coEvery { markSessionRead(any(), any(), any()) } returns Unit
             io.mockk.coEvery { markAllSessionsRead(any(), any()) } returns Unit

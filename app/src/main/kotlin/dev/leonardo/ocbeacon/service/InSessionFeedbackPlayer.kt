@@ -9,7 +9,7 @@ import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.VibrationEffect
 import android.os.Vibrator
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -137,7 +137,7 @@ interface FeedbackPlayerShell {
 @Singleton
 class InSessionFeedbackPlayer @Inject constructor(
     private val sessionFocusHolder: SessionFocusHolder,
-    private val settingsRepository: SettingsDataStore,
+    private val settingsRepository: SettingsRepository,
     @param:dev.leonardo.ocbeacon.di.ApplicationScope private val appScope: CoroutineScope,
 ) {
     private val errorStreak = ErrorStreakTracker()

@@ -21,16 +21,16 @@ import org.junit.Test
  * - 只有 removeSession 移除；seed 合并取 max
  * - 判定只用服务器 completed
  *
- * 注：lastCompletedReplyTimes 已是 SettingsDataStore 成员方法，relaxed mock 直接 every stub。
+ * 注：lastCompletedReplyTimes 是 UnreadStateStore 成员方法，relaxed mock 直接 every stub。
  * saveLastCompletedReplyTimes 在 UnconfinedTestDispatcher scope 下经 relaxed mock
  * 链式调用静默返回，不需 stub。
  */
 class UnreadBadgeServiceTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
-    private val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+    private val unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
     private val scope = CoroutineScope(testDispatcher + SupervisorJob())
-    private val service = UnreadBadgeService(settingsDataStore, scope)
+    private val service = UnreadBadgeService(unreadStateStore, scope)
 
     @Test
     fun onMessageCompleted_keepsMax() {
@@ -82,8 +82,8 @@ class UnreadBadgeServiceTest {
         // 广播不溢出到 a1；b1 已读位 = B 域内 max（不是全局 10_000）
         assertEquals(mapOf("b1" to 4_000L), service.justRead.value)
         // 持久化收到本服务器域内值（allReadAt 不被 A 快钟污染）
-        coVerify(exactly = 1) { settingsDataStore.markAllSessionsRead("srvB", 4_000L) }
-        coVerify(exactly = 0) { settingsDataStore.markAllSessionsRead(any(), 10_000L) }
+        coVerify(exactly = 1) { unreadStateStore.markAllSessionsRead("srvB", 4_000L) }
+        coVerify(exactly = 0) { unreadStateStore.markAllSessionsRead(any(), 10_000L) }
     }
 
     @Test
@@ -93,18 +93,18 @@ class UnreadBadgeServiceTest {
         // 空会话集：不广播、不持久化（防止全局跨服务器 max 写入）
         service.markAllSessionsRead("srvB", emptySet())
         assertEquals(emptyMap<String, Long>(), service.justRead.value)
-        coVerify(exactly = 0) { settingsDataStore.markAllSessionsRead(any(), any()) }
+        coVerify(exactly = 0) { unreadStateStore.markAllSessionsRead(any(), any()) }
 
         // 集内无水位线记录：同样 no-op
         service.markAllSessionsRead("srvB", setOf("no_watermark"))
         assertEquals(emptyMap<String, Long>(), service.justRead.value)
-        coVerify(exactly = 0) { settingsDataStore.markAllSessionsRead(any(), any()) }
+        coVerify(exactly = 0) { unreadStateStore.markAllSessionsRead(any(), any()) }
     }
 
     @Test
     fun seedFromStorage_mergesMax() = runTest {
-        // lastCompletedReplyTimes 是 SettingsDataStore 成员方法，relaxed mock 直接 every stub
-        every { settingsDataStore.lastCompletedReplyTimes() } returns
+        // lastCompletedReplyTimes 是 UnreadStateStore 成员方法，relaxed mock 直接 every stub
+        every { unreadStateStore.lastCompletedReplyTimes() } returns
             flowOf(mapOf("ses_1" to 700L, "ses_2" to 100L))
 
         service.onMessageCompleted("ses_1", 500)  // 内存已有较小值

@@ -27,7 +27,7 @@ import dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
-import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionTagRepository
 import dev.leonardo.ocbeacon.domain.usecase.CreateDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetServerPathsUseCase
@@ -81,7 +81,8 @@ class SessionListViewModel @Inject constructor(
     private val mcpRepository: McpRepository,
     private val scrollSignal: SessionScrollSignal,
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
-    private val settingsRepository: SettingsRepository,
+    // C5 拆分：标签/收藏方法自 SettingsRepository 独立成 SessionTagRepository
+    private val sessionTagRepository: SessionTagRepository,
     private val serverRepository: ServerRepository,
     private val unreadBadgeService: dev.leonardo.ocbeacon.data.repository.UnreadBadgeService,
     private val chatRepository: ChatRepository,
@@ -128,7 +129,7 @@ class SessionListViewModel @Inject constructor(
         // #137（D2-L59）：旧收藏数据一次性迁移（原藏在 favoriteSessionIds flow map 内的
         // 隐蔽写库副作用——flow 发射时写 DataStore；迁移显式化后此处触发）
         viewModelScope.launch {
-            settingsRepository.migrateLegacyFavoritesIfNeeded(serverId)
+            sessionTagRepository.migrateLegacyFavoritesIfNeeded(serverId)
         }
         // backlog #38: 异步加载服务器配置，加载完成后设置 MCP 连接
         viewModelScope.launch {
@@ -220,16 +221,16 @@ class SessionListViewModel @Inject constructor(
     }
 
     /** 全局标签列表（按服务器划分），用于选择器 / 过滤 chip。 */
-    val sessionTags: StateFlow<List<Tag>> = settingsRepository.sessionTags(serverId)
+    val sessionTags: StateFlow<List<Tag>> = sessionTagRepository.sessionTags(serverId)
         .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     /** 按服务器划分的 sessionId → tagIds 分配（含内置收藏标签），供设置页标签管理逐会话解除使用。 */
     val sessionTagAssignments: StateFlow<Map<String, List<String>>> =
-        settingsRepository.sessionTagAssignments(serverId)
+        sessionTagRepository.sessionTagAssignments(serverId)
             .stateIn(viewModelScope, WhileSubscribed5s, emptyMap())
 
     /** 当前服务器的已收藏会话 id（驱动 SessionRow 中的星标切换）。 */
-    val favoriteSessionIds: StateFlow<Set<String>> = settingsRepository.favoriteSessionIds(serverId)
+    val favoriteSessionIds: StateFlow<Set<String>> = sessionTagRepository.favoriteSessionIds(serverId)
         .stateIn(viewModelScope, WhileSubscribed5s, emptySet())
 
     // ============ MCP 状态 ============
@@ -295,7 +296,7 @@ class SessionListViewModel @Inject constructor(
     )
 
     private val settingDataFlow = combine(
-        settingsRepository.sessionTagAssignments(serverId).distinctUntilChanged(),
+        sessionTagRepository.sessionTagAssignments(serverId).distinctUntilChanged(),
         sessionTags,
         unreadBadgeService.mergedReadTimes(serverId),
     ) { assignments, tags, readTimes ->
@@ -439,19 +440,19 @@ class SessionListViewModel @Inject constructor(
 
     /** 替换指定会话上的用户标签集（保留内置收藏标签）。 */
     fun assignTags(sessionId: String, tagIds: Set<String>) {
-        viewModelScope.launch { settingsRepository.setSessionTags(serverId, sessionId, tagIds) }
+        viewModelScope.launch { sessionTagRepository.setSessionTags(serverId, sessionId, tagIds) }
     }
 
     /** 切换当前服务器上某会话的收藏状态（基于内置收藏标签）。 */
     fun toggleFavorite(session: Session) {
         viewModelScope.launch {
-            settingsRepository.toggleFavorite(serverId, session.id)
+            sessionTagRepository.toggleFavorite(serverId, session.id)
         }
     }
 
     /** 移除某会话在当前服务器上的某个标签分配（不删除标签本身）。 */
     fun removeSessionTagAssignment(sessionId: String, tagId: String) {
-        viewModelScope.launch { settingsRepository.removeSessionTagAssignment(serverId, sessionId, tagId) }
+        viewModelScope.launch { sessionTagRepository.removeSessionTagAssignment(serverId, sessionId, tagId) }
     }
 
     /**
@@ -461,7 +462,7 @@ class SessionListViewModel @Inject constructor(
      */
     fun addSessionTag(name: String, color: String, icon: String, id: String): String {
         viewModelScope.launch {
-            settingsRepository.addSessionTag(
+            sessionTagRepository.addSessionTag(
                 serverId,
                 Tag(
                     id = id,
@@ -477,12 +478,12 @@ class SessionListViewModel @Inject constructor(
 
     /** 更新一个已存在的用户标签（按 id 替换）。 */
     fun updateSessionTag(tag: Tag) {
-        viewModelScope.launch { settingsRepository.updateSessionTag(serverId, tag) }
+        viewModelScope.launch { sessionTagRepository.updateSessionTag(serverId, tag) }
     }
 
     /** 按 id 删除一个用户标签（并原子清理所有分配）。 */
     fun removeSessionTag(tagId: String) {
-        viewModelScope.launch { settingsRepository.removeSessionTag(serverId, tagId) }
+        viewModelScope.launch { sessionTagRepository.removeSessionTag(serverId, tagId) }
     }
 
     // ============ 树形展开/收起 ============

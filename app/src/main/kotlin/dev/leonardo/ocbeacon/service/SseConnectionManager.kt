@@ -15,7 +15,7 @@ import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Semaphore
@@ -65,7 +65,7 @@ class SseConnectionManager @Inject constructor(
     private val sseClient: SseClient,
     private val sseClientV2: dev.leonardo.ocbeacon.data.api.v2.SseClientV2,
     private val eventDispatcher: EventDispatcher,
-    private val settingsRepository: SettingsDataStore,
+    private val settingsRepository: SettingsRepository,
     private val networkMonitor: NetworkMonitor,
     private val sessionStateRepository: SessionStateService,
 ) {
@@ -506,7 +506,7 @@ class SseConnectionManager @Inject constructor(
     }
 
     private suspend fun calculateBackoff(attempt: Int): Long {
-        val maxDelay = when (settingsRepository.reconnectMode.first()) {
+        val maxDelay = when (settingsRepository.reconnectMode().first()) {
             "aggressive" -> 5_000L
             "conservative" -> 60_000L
             else -> RECONNECT_MAX_DELAY_MS // normal：30s

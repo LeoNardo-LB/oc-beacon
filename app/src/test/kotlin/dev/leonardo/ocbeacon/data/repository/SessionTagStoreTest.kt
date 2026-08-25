@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -8,7 +7,6 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dev.leonardo.ocbeacon.domain.model.FAVORITE_TAG_ID
 import dev.leonardo.ocbeacon.domain.model.Tag
-import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -35,10 +33,12 @@ private class InMemoryPreferencesDataStore : DataStore<Preferences> {
     }
 }
 
-class SettingsDataStoreTagsTest {
+/** C5 存储归属拆分：随 SessionTagStore 自 SettingsDataStoreTagsTest 迁移，断言不变（行为零变化）。 */
+class SessionTagStoreTest {
 
-    private fun newStore(): SettingsDataStore =
-        SettingsDataStore(InMemoryPreferencesDataStore(), mockk<Context>(relaxed = true))
+    private val ds = InMemoryPreferencesDataStore()
+
+    private fun newStore(): SessionTagStore = SessionTagStore(ds)
 
     @Test
     fun `tag serialization round trip`() {
@@ -91,7 +91,7 @@ class SettingsDataStoreTagsTest {
         val store = newStore()
         // 模拟旧 favorite_sessions_<serverId> stringSet 数据（SettingsDataStoreFavorites 历史格式）
         val legacyKey = stringSetPreferencesKey("favorite_sessions_srv")
-        store.dataStore.edit { it[legacyKey] = setOf("legacy-a", "legacy-b") }
+        ds.edit { it[legacyKey] = setOf("legacy-a", "legacy-b") }
         // #137（D2-L59）：迁移显式触发（原藏在 flow map 内，已移出）
         store.migrateLegacyFavoritesIfNeeded("srv")
         val firstRead = store.favoriteSessionIds("srv").first()
@@ -106,13 +106,13 @@ class SettingsDataStoreTagsTest {
     fun `favoriteSessionIds migrate then unfavorite all does not resurrect`() = runTest {
         val store = newStore()
         val legacyKey = stringSetPreferencesKey("favorite_sessions_srv")
-        store.dataStore.edit { it[legacyKey] = setOf("legacy-a", "legacy-b") }
+        ds.edit { it[legacyKey] = setOf("legacy-a", "legacy-b") }
         // #137（D2-L59）：迁移显式触发（原藏在 flow map 内，已移出）
         store.migrateLegacyFavoritesIfNeeded("srv")
         val firstRead = store.favoriteSessionIds("srv").first()
         assertEquals(setOf("legacy-a", "legacy-b"), firstRead)
         // 迁移成功后 legacy key 必须已被删除（否则后续取消全部收藏会让迁移条件再次满足）
-        val legacyAfterMigrate = store.dataStore.data.first()[legacyKey]
+        val legacyAfterMigrate = ds.data.first()[legacyKey]
         assertTrue("legacy key should be removed after migration", legacyAfterMigrate == null)
         // 取消全部收藏
         store.toggleFavorite("srv", "legacy-a")

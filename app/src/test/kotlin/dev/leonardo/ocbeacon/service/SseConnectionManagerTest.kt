@@ -8,7 +8,7 @@ import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.v2.SseClientV2
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import io.mockk.coEvery
@@ -70,7 +70,7 @@ class SseConnectionManagerTest {
     fun `reconnect cancels orphaned SSE job when server removed during cancelAndJoin`() {
         val fileApi = mockk<FileApi>()
         val sseClient = mockk<SseClient>()
-        val settingsRepository = mockk<SettingsDataStore>()
+        val settingsRepository = mockk<SettingsRepository>()
 
         // job1 进入 preLoad 后在 NonCancellable 窗口内抵抗取消，
         // 制造出 reconnectServer.cancelAndJoin 的挂起窗口
@@ -93,7 +93,7 @@ class SseConnectionManagerTest {
                 delay(50)
             }
         }
-        every { settingsRepository.reconnectMode } returns flowOf("normal")
+        every { settingsRepository.reconnectMode() } returns flowOf("normal")
 
         val manager = SseConnectionManager(
             sessionApi = mockk(relaxed = true),
@@ -161,7 +161,7 @@ class SseConnectionManagerTest {
     fun `connected flips on first SSE event while preload still in flight`() {
         val fileApi = mockk<FileApi>()
         val sseClient = mockk<SseClient>()
-        val settingsRepository = mockk<SettingsDataStore>()
+        val settingsRepository = mockk<SettingsRepository>()
 
         // 预加载阻塞在 listProjects（受 latch 控制，模拟慢服务器）
         val preloadEntered = CountDownLatch(1)
@@ -171,7 +171,7 @@ class SseConnectionManagerTest {
             preloadRelease.await(5, TimeUnit.SECONDS)
             emptyList()
         }
-        every { settingsRepository.reconnectMode } returns flowOf("normal")
+        every { settingsRepository.reconnectMode() } returns flowOf("normal")
 
         // SSE 流立即发射首事件并保持打开（长连接）
         every { sseClient.connectToGlobalEvents(any()) } returns flow {

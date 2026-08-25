@@ -15,7 +15,7 @@ import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -44,7 +44,7 @@ private const val NOTIFICATION_CHANNEL_QUESTIONS_ID = NotificationChannels.QUEST
 @Singleton
 class AppNotificationManager @Inject constructor(
     private val eventDispatcher: EventDispatcher,
-    private val settingsRepository: SettingsDataStore,
+    private val settingsRepository: SettingsRepository,
     private val sessionFocusHolder: SessionFocusHolder,
     private val feedbackPlayer: InSessionFeedbackPlayer,
     @param:ApplicationScope private val appScope: CoroutineScope,
@@ -289,7 +289,7 @@ class AppNotificationManager @Inject constructor(
             ?: context.getString(R.string.notification_new_message)
 
         val pendingIntent = createSessionPendingIntent(context, server, sessionId, sessionId.hashCode())
-        val silent = settingsRepository.silentNotifications.first()
+        val silent = settingsRepository.silentNotifications().first()
         val channelId = if (silent) NOTIFICATION_CHANNEL_TASKS_SILENT_ID else NOTIFICATION_CHANNEL_TASKS_ID
         val notifId = eventNotificationId(server.id, sessionId, 0)
 
@@ -410,9 +410,9 @@ class AppNotificationManager @Inject constructor(
             if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
                 // #155：REST 兜底路径的被抑制问题 → 会话内提示音（独立去重防 SSE/REST 双响）
                 appScope.launch {
-                    val enabled = settingsRepository.notificationsEnabled.first()
+                    val enabled = settingsRepository.notificationsEnabled().first()
                     if (!enabled) return@launch
-                    val silent = settingsRepository.silentNotifications.first()
+                    val silent = settingsRepository.silentNotifications().first()
                     questions.forEach { question ->
                         val text = question.questions.firstOrNull()?.question
                             ?: question.questions.firstOrNull()?.header

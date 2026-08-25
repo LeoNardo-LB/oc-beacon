@@ -1,7 +1,7 @@
 package dev.leonardo.ocbeacon.service
 
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.TimeInfo

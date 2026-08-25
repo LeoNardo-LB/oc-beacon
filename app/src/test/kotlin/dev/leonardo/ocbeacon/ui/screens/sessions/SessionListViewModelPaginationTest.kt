@@ -7,7 +7,7 @@ import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
-import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.SessionTagRepository
 import dev.leonardo.ocbeacon.domain.usecase.CreateDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.DeleteSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetServerPathsUseCase
@@ -111,7 +111,7 @@ class SessionListViewModelPaginationTest {
                 io.mockk.every { allReadAt(any()) } returns kotlinx.coroutines.flow.flowOf(0L)
             },
             getSettingsFlowUseCase = mockk(relaxed = true),
-            settingsRepository = mockk(relaxed = true),
+            sessionTagRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),
             chatRepository = mockk(relaxed = true),
             pendingMessageRepository = mockk(relaxed = true),

@@ -47,6 +47,7 @@ class EventDispatcherIntegrationTest {
             cursorPolicyFactory = dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory(Provider { mockk<SessionRepository>(relaxed = true) }),
         )
         val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+        val unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
         dispatcher = EventDispatcher(
             sessionHandler = SessionEventHandler(),
             messageHandler = messageStore,
@@ -57,7 +58,8 @@ class EventDispatcherIntegrationTest {
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateRepository = sessionStateRepository,
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            unreadStateStore = unreadStateStore,
+            unreadBadgeService = UnreadBadgeService(unreadStateStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
             sessionRepoProvider = Provider { io.mockk.mockk<dev.leonardo.ocbeacon.domain.repository.SessionRepository>(relaxed = true) },
             // #122 接线新增：自动批准（relaxed mock——shouldAutoApprove 恒 false，既有用例不受影响）

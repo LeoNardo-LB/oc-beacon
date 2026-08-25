@@ -46,6 +46,7 @@ class PermissionAutoApproveWiringTest {
         val approver = PermissionAutoApprover(dataStore)
         kotlinx.coroutines.runBlocking { rules.forEach { approver.addRule(it) } }
         val settingsDataStore = mockk<SettingsDataStore>(relaxed = true)
+        val unreadStateStore = mockk<UnreadStateStore>(relaxed = true)
         return EventDispatcher(
             sessionHandler = sessionHandler,
             messageHandler = messageHandler,
@@ -56,7 +57,8 @@ class PermissionAutoApproveWiringTest {
             shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
             sessionStateRepository = mockk(relaxed = true),
             settingsDataStore = settingsDataStore,
-            unreadBadgeService = UnreadBadgeService(settingsDataStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
+            unreadStateStore = unreadStateStore,
+            unreadBadgeService = UnreadBadgeService(unreadStateStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),
             sessionRepoProvider = Provider { mockk<SessionRepository>(relaxed = true) },
             permissionAutoApprover = approver,

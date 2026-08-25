@@ -18,12 +18,11 @@ import dev.leonardo.ocbeacon.data.api.NetworkMonitor
 import dev.leonardo.ocbeacon.data.api.NetworkState
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.ServerDataStore
-import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
-import dev.leonardo.ocbeacon.domain.repository.SettingsRepository as DomainSettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManagePermissionUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -85,8 +84,9 @@ class OpenCodeConnectionService : Service() {
     @Inject
     lateinit var eventDispatcher: EventDispatcher
 
+    // C5：service 层直注 SettingsDataStore 具体类改经 domain SettingsRepository
     @Inject
-    lateinit var settingsDataStore: SettingsDataStore
+    lateinit var settingsRepository: SettingsRepository
 
     @Inject
     lateinit var serverDataStore: ServerDataStore
@@ -382,7 +382,7 @@ class OpenCodeConnectionService : Service() {
      * 返回 false）或 [disconnect] 取消 [pollingJobs] 时停止。
      *
      * 通知总开关：与 SSE 路径（[maybeNotify]）对齐——仅在
-     * `settingsDataStore.notificationsEnabled` 为 true 时才投递通知；
+     * `settingsRepository.notificationsEnabled()` 为 true 时才投递通知；
      * `previousKnown` 在开关外更新，避免重新启用时一次性补发积压通知。
      */
     private fun startQuestionPolling(server: ServerConfig): Job {
@@ -422,7 +422,7 @@ class OpenCodeConnectionService : Service() {
                     }
                     // 通知总开关与 SSE 路径保持一致（maybeNotify）；
                     // previousKnown 始终更新以避免重新启用后通知洪流。
-                    if (settingsDataStore.notificationsEnabled.first()) {
+                    if (settingsRepository.notificationsEnabled().first()) {
                         appNotificationManager.notifyPendingQuestionsFromREST(
                             this@OpenCodeConnectionService,
                             systemNotificationManager,
@@ -521,7 +521,7 @@ class OpenCodeConnectionService : Service() {
      */
     private fun maybeNotify(server: ServerConfig, action: suspend () -> Unit) {
         serviceScope.launch {
-            if (!settingsDataStore.notificationsEnabled.first()) return@launch
+            if (!settingsRepository.notificationsEnabled().first()) return@launch
             action()
         }
     }
@@ -543,7 +543,7 @@ class OpenCodeConnectionService : Service() {
                 // 子智能体会话 turn 完成既不通知也不响（Q3，与通知口径一致）
                 if (inSession && appNotificationManager.isChildSession(event.sessionId)) return
                 serviceScope.launch {
-                    if (!settingsDataStore.notificationsEnabled.first()) return@launch
+                    if (!settingsRepository.notificationsEnabled().first()) return@launch
 
                     // 给 reducer 片刻时间接收后续的 message/part 事件。
                     // D2-L30（#112，2026-08-19）：原固定单次 250ms 在慢设备/
@@ -581,7 +581,7 @@ class OpenCodeConnectionService : Service() {
                             sessionId = event.sessionId,
                             type = FeedbackType.TURN_COMPLETE,
                             dedupKey = assistantMessageId!!,
-                            silentNotifications = settingsDataStore.silentNotifications.first(),
+                            silentNotifications = settingsRepository.silentNotifications().first(),
                             notificationsEnabled = true,
                         )
                         return@launch
@@ -603,7 +603,7 @@ class OpenCodeConnectionService : Service() {
                     //（与下方 notificationsEnabled.first() 同模式）。应答失败
                     // 不中断：落回原通知路径由用户手动处理。
                     if (event.id.isNotBlank() &&
-                        runCatching { settingsDataStore.autoAllowPermissions.first() }.getOrDefault(false)
+                        runCatching { settingsRepository.autoAllowPermissions().first() }.getOrDefault(false)
                     ) {
                         // 会话 directory（V2 reply 路由 header 用）——从事件
                         // 派发器的会话表查；空串归 null（服务器默认项目）。
@@ -642,7 +642,7 @@ class OpenCodeConnectionService : Service() {
                             sessionId = targetSessionId,
                             type = FeedbackType.PERMISSION,
                             dedupKey = event.permission,
-                            silentNotifications = settingsDataStore.silentNotifications.first(),
+                            silentNotifications = settingsRepository.silentNotifications().first(),
                             notificationsEnabled = true,
                         )
                         return@maybeNotify
@@ -671,7 +671,7 @@ class OpenCodeConnectionService : Service() {
                             sessionId = targetSessionId,
                             type = FeedbackType.QUESTION,
                             dedupKey = qText,
-                            silentNotifications = settingsDataStore.silentNotifications.first(),
+                            silentNotifications = settingsRepository.silentNotifications().first(),
                             notificationsEnabled = true,
                         )
                         return@maybeNotify
@@ -700,7 +700,7 @@ class OpenCodeConnectionService : Service() {
                             sessionId = targetSessionId,
                             type = FeedbackType.ERROR,
                             dedupKey = event.error,
-                            silentNotifications = settingsDataStore.silentNotifications.first(),
+                            silentNotifications = settingsRepository.silentNotifications().first(),
                             notificationsEnabled = true,
                         )
                         return@maybeNotify
