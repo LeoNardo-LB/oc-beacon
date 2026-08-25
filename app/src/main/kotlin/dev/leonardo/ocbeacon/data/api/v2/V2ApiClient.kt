@@ -72,7 +72,6 @@ import io.ktor.http.contentType
 import io.ktor.http.encodeURLParameter
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -1147,53 +1146,15 @@ class V2ApiClient @Inject constructor(
 
     // ============ Message (supplementary) ============
 
+    /** 会话导出流式写入——共享实现（C1-1），主体见 [dev.leonardo.ocbeacon.data.api.exportSessionToStream]。 */
     suspend fun exportSessionToStream(
         conn: ServerConnection,
         sessionId: String,
         outputStream: java.io.OutputStream,
         onProgress: (Long) -> Unit = {}
-    ) {
-        var bytesWritten = 0L
-        val sessionPath = "/api/session/$sessionId"
-        val messagePath = "/api/session/$sessionId/message"
-        val sessionJson = httpClient.get("${conn.baseUrl}$sessionPath") {
-            auth(conn)
-        }.bodyAsText()
-        val header = """{"info":$sessionJson,"messages":"""
-        outputStream.write(header.toByteArray())
-        bytesWritten += header.toByteArray().size
-        outputStream.flush()
-        onProgress(bytesWritten)
-
-        val okClient = okhttp3.OkHttpClient.Builder()
-            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
-        val request = okhttp3.Request.Builder()
-            .url("${conn.baseUrl}$messagePath")
-            .apply { conn.authHeader?.let { addHeader("Authorization", it) } }
-            .build()
-
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            okClient.newCall(request).execute().use { response ->
-                val body = response.body
-                val source = body.source()
-                val buffer = ByteArray(8192)
-                while (true) {
-                    val read = source.read(buffer)
-                    if (read == -1) break
-                    outputStream.write(buffer, 0, read)
-                    bytesWritten += read
-                    onProgress(bytesWritten)
-                }
-            }
-        }
-
-        outputStream.write("}".toByteArray())
-        bytesWritten += 1
-        outputStream.flush()
-        onProgress(bytesWritten)
-    }
+    ) = dev.leonardo.ocbeacon.data.api.exportSessionToStream(
+        httpClient, conn, sessionId, outputStream, onProgress
+    )
 
     suspend fun promptAsync(
         conn: ServerConnection,
@@ -1636,60 +1597,11 @@ class V2ApiClient @Inject constructor(
             throw java.io.IOException("createPty failed: ${response.status}: $body")
         }
 
-        val info = parsePtyInfoFromCreateResponse(body, title, cwd)
+        val info = dev.leonardo.ocbeacon.data.api.parsePtyInfoFromCreateResponse(json, body, title, cwd)
         if (BuildConfig.DEBUG) {
             AppLogger.d(TAG, "createPty: response status=${response.status} ptyId=${info.id}")
         }
         return info
-    }
-
-    private fun parsePtyInfoFromCreateResponse(body: String, title: String?, cwd: String?): PtyInfo {
-        val trimmed = body.trim()
-
-        runCatching { return json.decodeFromString(PtyInfo.serializer(), trimmed) }
-
-        val id = extractPtyIdFromResponse(trimmed)
-            ?: throw java.io.IOException("createPty: could not parse PTY id from response: $trimmed")
-
-        return PtyInfo(
-            id = id,
-            title = title ?: "Tab",
-            command = "/bin/sh",
-            args = emptyList(),
-            cwd = cwd ?: "/",
-            status = "running",
-            pid = 0,
-        )
-    }
-
-    private fun extractPtyIdFromResponse(responseBody: String): String? {
-        val plain = responseBody.removeSurrounding("\"").trim()
-        if (plain.startsWith("pty_")) return plain
-
-        return runCatching {
-            val root = json.parseToJsonElement(responseBody)
-            findPtyId(root)
-        }.getOrNull()
-    }
-
-    private fun findPtyId(element: JsonElement): String? {
-        val obj = element as? JsonObject ?: return null
-
-        obj["id"]?.jsonPrimitive?.contentOrNull?.let {
-            if (it.startsWith("pty_")) return it
-        }
-
-        obj["pty"]?.let { nested ->
-            findPtyId(nested)?.let { return it }
-        }
-        obj["data"]?.let { nested ->
-            findPtyId(nested)?.let { return it }
-        }
-        obj["result"]?.let { nested ->
-            findPtyId(nested)?.let { return it }
-        }
-
-        return null
     }
 
     suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean {
