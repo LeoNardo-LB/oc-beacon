@@ -165,6 +165,20 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 
 ①REST parts 只在轮次完成后落盘——流式期探活必须看 SSE 事件流或 app logcat，此前两轮「provider 死了」误判实为探针方法错；②服务器「Session not found」偶发（列表有、直查无）——换会话绕过；③uiautomator dump 在大消息渲染期失明（空树），用 vision 截图裁决；④装包后应用回桌面——一律 ./scripts/debug-entry.sh 标准入口重进。
 
+## V1 压缩路径真机 E2E（2026-08-25，用户授权自建 V1 服务器）
+
+环境：本机 opencode 1.18.18 隔离实例 @4198（XDG 隔离 + zhipu-coding 自定义 provider，key 从 V2 凭据库 credential 表提取；auth.json 必须放 data 目录——放 config 目录 401 无 Authorization，实测）。App 经 debug intent 冷启接入（V1-4198，版本探测正确）。配方已固化 runbook「V1 测试服务器快速搭建」。
+
+验证结果（v1c 帧序列，glm-5.3 压缩 4.5K 上下文 5.9s）：
+- **#222 reveal（V1 核心缺口）✅**：贴底触发 Compact 后 dump02（~1.4s）即见 `Compressing context…` 分割线在视口底部 [405,2237][794,2280]——调研 §2.4 预测的「贴底 P<A 插入不可见」已被 reveal 修复消除
+- **#220 骑线形态 ✅**：vision 确认标签居中骑线单行结构
+- **扫动动画 ✅（像素级）**：分割线带扫动段位置逐帧移动（帧02: 48-108+252-339 → 帧04: 48-94），完成后扫动像素归零
+- **完成链路 ✅**：dump05 `Session compacted` snackbar + 服务器落盘摘要（assistant agent=compaction，1593 字符）
+- **V1 语义差异（记录非缺陷）**：V1 compact 产物是常规 assistant 消息（无 Part.Compaction）→ app 渲染为普通气泡（Next Move/Relevant Files 正文可见），与 V2 完成分割线形态不同——服务器语义使然
+
+至此 #217 遗留的「V1 真机验证留待环境」欠账清偿；#222 验收清单第 2 条（V1 压缩进行中分割线贴底可见）实证通过。
+
+
 
 
 

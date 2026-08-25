@@ -81,7 +81,7 @@
   - 修一（reveal）：revealBannerCount（retry/tool/step/压缩尾部分割线四类）+ autoScroll 门控 + requestScrollToItem(0) 显式锚底（msgCount 同款）；isAtBottom 门控会自我闭锁故弃用
   - 修二（通道）：§6.1 活体诊断定音 request-position 通道间歇丢注入（off 轨迹 785→933→933→1093，~30% 丢失→阅读历史缓慢上爬，#215 动画定因同源）；requestScrollShift 复活 scrollToBeConsumed 遍首无条件消费通道（a4eedab6 封存实现+dy=0 矩阵背书），四个 COMP 注入点全切换
   - 修二再强化（延迟揭示，用户六报「不是渲染前」定音）：DeferredRevealCompensator——增长遍不上报新高度（clip 裁掉未补偿几何，永不被放置）+增量预注入、下一遍遍首消费先行再揭示；连续增长链式逐遍递延。构造性渲染前（消费先于揭示），非预测高度。单测 7 例+全量绿；活体验证仍被 provider 阻断转 V6
-  - 验证：诊断证据链完整（活体+源码+历史）；修复后活体 E2E 被服务器 provider 全静默阻断（15:05 起 opencode-go/zai/deepseek 新 prompt 零产出），转 V6 验收——①流式期滚离底部 1/3 屏视口应纹丝不动；②贴底触发工具调用聚合卡应立即可见
+  - 验证：诊断证据链完整（活体+源码+历史）；V1 侧已实证（2026-08-25 自建 V1 服务器：贴底触发压缩进行中分割线立即可见=reveal 生效 + 扫动动画像素级确认 + 完成链路 snackbar）；V2 侧转 V6 验收——①流式期滚离底部 1/3 屏视口应纹丝不动；②贴底触发工具调用聚合卡应立即可见
   - → `docs/journal/2026-08-25-session-list-wipe.md` §#222
 
 - [~] **#220 压缩进行中态视觉：标签骑线 + 两段线即进度动画（#217 打磨）** `ui` `compaction`

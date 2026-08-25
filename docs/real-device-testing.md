@@ -126,6 +126,26 @@ adb -s e69a99d8 shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeaco
 - 截图取证：`adb -s e69a99d8 exec-out screencap -p > x.png`（exec-out 避免换行污染）
 - **聊天页滚动方向**（2026-08-21 教训，曾致 0 帧误判两轮）：进入会话默认停在底部（最新消息）；**手指向下滑（如 `input swipe 600 500 600 1600`）才是看更旧消息**；`1600→500` 是向“最新以下”滑——无内容、列表不滚、gfxinfo 记 0 帧。滚动测量前先用「滑动前后 dump 可见时间戳 diff」或帧数 sanity（>100）确认真的滚了
 - **测试入口纪律**（2026-08-25 定规）：每轮真机测试开始一律 `./scripts/debug-entry.sh` 直达会话列表（见「标准测试入口」节）；force-stop/重启 adb/重装后**先跑脚本再继续**（reverse 会被清空）。禁止从 Settings 页手工点进会话列表
+
+## V1 测试服务器快速搭建（2026-08-25 实战定稿）
+
+本机 `opencode` 二进制即 1.18.18（V1）；与 V2 服务（@opencode-ai/cli）共存互不干扰。隔离启动配方：
+
+```bash
+# 1. 隔离环境（不隔离会撞现有 DB 报 Database is not empty）
+mkdir -p /tmp/v1srv/{data/opencode,config/opencode,home}
+# 2. 自定义 provider（opencode.json 放 config 目录）；auth.json 放 **data** 目录
+#    （V1 的 Global.Path.data）——放 config 目录不生效（401 无 Authorization 实测）
+#    key 可从 V2 凭据库提取：sqlite3 <v2db> "SELECT value FROM credential WHERE integration_id='zhipuai-coding-plan'"
+# 3. 启动（nohup setsid 防会话中断连带被杀——裸 setsid+& 曾被杀，实测）
+nohup setsid env XDG_DATA_HOME=/tmp/v1srv/data XDG_CONFIG_HOME=/tmp/v1srv/config HOME=/tmp/v1srv/home \
+  OPENCODE_SERVER_PASSWORD=<密码> opencode serve --hostname 127.0.0.1 --port 4198 \
+  > /tmp/v1srv/serve.log 2>&1 < /dev/null & disown
+# 4. adb -s e69a99d8 reverse tcp:4198 tcp:4198
+# 5. App 接入：force-stop 后 debug intent（debug-entry.sh 改 URL/名字等价；warm start 不解析 intent，必须冷启）
+```
+
+V1 契约要点（实测）：prompt 走 `POST /session/{id}/prompt_async`，body **扁平** `{"parts":[{"type":"text","text":...}]}`（无 data 包装、必带 parts）；compact 产物 = `assistant(agent=compaction)` 常规消息（无 Part.Compaction），app 端渲染为普通气泡——与 V2 的分割线形态是**服务器语义差异**非客户端缺陷。
 - 每轮测试前后 `logcat -c` / `-d` 存档，grep FATAL/AndroidRuntime 计数
 
 ## 插桩测试（am instrument）特有前置（2026-08-24 #210 实证）
