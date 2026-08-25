@@ -78,3 +78,25 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 
 过程勘误（测试方法）：①shell awk 解析 bounds 字段拆分 bug 导致 tap 坐标算错——此前「进错会话」即此因，改用 python xml 解析；②多行 composer 中 keyevent 66 = 换行而非发送，/compact 斜杠命令注入失败改走 More options → Compact session 菜单；③uiautomator dump 失败时静默返回旧文件，必须先 rm 再 dump；④本会话 session 模型 opencode-go（Console Go 上游故障）导致压缩必败，POST /api/session/{id}/model（body {model:{id,providerID}}）切 zai-coding-plan/glm-5.2 后恢复。
 
+## #221 压缩展开区三连改 + 高度预算调研（2026-08-25）
+
+用户三点反馈：①展开区流式生长要「跟正常对话一样」的 SSE 视口补偿——**硬约束（两轮强调）：必须测量期反射注入（layout{} + requestScrollToItemNoCancel 渲染前提前计算），禁止渲染后反应式补偿**；②展开状态下压缩完成不自动收起；③左侧竖线固定 240dp 错误——必须与内容等高（左右取舍征询用户后代理裁决：仅左侧，引用式语义）。
+
+实现：
+- **①补偿**：ChatMessageList 压缩 item（消息流对位 + 尾部兜底两路径）接入 tool_progress 同款模式——compactionExpandState（独立 lastHeight，key=进行中压缩 messageId）+ 共享 shouldCompensate（在底意图）+ layout{} 无界测量同遍注入，log 标签 COMP-CMP(msg)/(tail)。与 COMP-MSG 完全同通道同语义。
+- **②不收起**：双层锁存——CompactionCard 内 latchedText（liveText 空窗期兜底，canExpand 不闪断→AnimatedVisibility 不折叠）；ChatMessageList 内 lastCompactionMsgId（ended 清态→REST 刷新空窗期认领条件不翻假，Card 不离开组合、remember 不丢）。
+- **③等高竖线**：ExpandContent 重写——Box + matchParentSize 叠加层 drawBehind 画 2dp 全高竖线（不参与测量，绘制阶段跟随内容高度，流式零延迟）；弃固定 240dp 与 IntrinsicSize。
+
+真机验证（compact-probe，glm-5.2）：
+- ①COMP-CMP 实弹：logcat 数十条注入记录（delta 3-27px/帧，08:35:34 窗口），展开动画+流式生长期的测量期注入全程工作；与 COMP-MSG 同款 log 格式即同款通道
+- ③等高：vision 对真实帧确认竖线贯穿摘要全文首尾行
+- ②机制实现+部分实证：三轮抓「完成瞬间不收起」工件均遇服务器变数（Nothing to compact 即拒 ×1、steer 队列卡死 ×1【interrupt 204 清除】、interrupt 后瞬完成 ×1）——完成瞬间箭头工件未捕获，机制链条（锁存→组合存续→展开保持）已代码级论证，转 V6 用户日常验收
+- 回归：失败路径（provider 故障+Nothing to compact）snackbar 带原因+红色失败分割线即时正确 ×4 轮；全量单测绿
+
+过程勘误：①脚本检测被历史分割线污染（'Context compacted' 计数法修正）；②reverseLayout 滚动方向直觉反直觉（finger down=更旧）；③opencode 日志进程与 4199 端口服务不同实例（cron 抢端口失败堆积），日志取证不可靠应以 API 为准；④会话 updated>idle 字段顺序假象误判「未稳定」。
+
+### 高度预算调研结论（subagent 委派，docs/research/2026-08-25-card-height-precompute-feasibility.md）
+
+**预计算路径判定：不值得做**。三类「出现」场景：流式 turn 内卡片弹入已被 COMP-MSG 单遍 delta 模型精确覆盖（高度在注入决策同一测量遍内已知，无时间差可弥合）；新 item 插入在 reverseLayout key 锚定下不产生可补偿位移（foundation 1.11.2 源码级取证）；toggle 已被用户终版裁决排除。SubcomposeLayout 预测量/静态预算表/lookahead 均无消费者且有反向注入风险。**两个新发现待办**：①反射通道回写竞争开放问题（动工任何补偿扩展前先做 §6.1 通道存活验证）；②贴底时尾部横幅类 item 不可见（V1 进行中分割线/retry/tool_progress——可见性缺口非补偿缺口，解法是 reveal 滚动）——已登记 #222。
+
+

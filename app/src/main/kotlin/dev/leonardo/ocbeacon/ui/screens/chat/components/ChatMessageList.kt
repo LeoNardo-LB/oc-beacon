@@ -292,6 +292,13 @@ fun ChatMessageList(
     // 或完成）时状态重置。这比 heightMap + 会话级清除更简单、更正确。
     val compensateState = remember(streamingMsgId) { CompensateState() }
     val toolCompensateState = remember(streamingMsgId) { CompensateState() }
+    // #221：压缩展开区流式补偿——进行中压缩展开后 delta 增长与普通流式消息同
+    // 待遇（tool_progress 同款：独立 lastHeight + 共享 shouldCompensate 在底意图
+    // + layout{} 注入）。key=进行中压缩 messageId：压缩结束置 null 时重置，下一
+    // 轮首测不注入（lastHeight>0 守卫防冷启动跳变）。
+    val compactionExpandState = remember(
+        currentCompaction?.takeIf { it.isActive }?.messageId
+    ) { CompensateState() }
 
     // #215 验收反馈·一（终版裁决 2026-08-25 用户定规）：toggle 锚定修正逻辑
     // 全部撤销——修正窗/toggleAnchorCorrection/注入通道一并不用；卡片动画
@@ -901,7 +908,42 @@ fun ChatMessageList(
                     if (tailCompaction != null) {
                         item(key = "compaction_banner") {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                CompactionCard(state = tailCompaction)
+                                // #221：展开后 delta 流式增长走 tool_progress 同款
+                                // 铁律补偿（尾部兜底路径；消息流对位路径同款见下）。
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .layout { measurable, constraints ->
+                                            val placeable = measurable.measure(
+                                                constraints.copy(maxHeight = Constraints.Infinity)
+                                            )
+                                            val realHeight = placeable.height
+                                            val delta = realHeight - compactionExpandState.lastHeight
+                                            if (compensateState.shouldCompensate &&
+                                                compactionExpandState.lastHeight > 0 && delta > 0
+                                            ) {
+                                                if (BuildConfig.DEBUG) {
+                                                    AppLogger.w(
+                                                        "ScrollDiag",
+                                                        "COMP-CMP(tail) fire delta=" + delta +
+                                                            " lastH=" + compactionExpandState.lastHeight +
+                                                            " realH=" + realHeight
+                                                    )
+                                                }
+                                                LazyListReflection.requestScrollToItemNoCancel(
+                                                    listState,
+                                                    listState.firstVisibleItemIndex,
+                                                    listState.firstVisibleItemScrollOffset + delta
+                                                )
+                                            }
+                                            compactionExpandState.lastHeight = realHeight
+                                            layout(placeable.width, realHeight) {
+                                                placeable.placeRelative(0, 0)
+                                            }
+                                        }
+                                ) {
+                                    CompactionCard(state = tailCompaction)
+                                }
                             }
                         }
                     }
@@ -1232,6 +1274,17 @@ fun ChatMessageList(
                                 val compactionActiveState = currentCompaction
                                     ?.takeIf { it.isActive && it.messageId == chatMessage.message.id }
 
+                                // #221（展开跨完成保持）：ended 清态 → REST 刷新带入
+                                // Part.Compaction 前存在空窗——此时 role=compaction 且无
+                                // part，认领条件若翻假，CompactionCard 会离开组合（内部
+                                // remember 含 expanded/latchedText 全部丢失）→ REST 回来
+                                // 重新组合即收起。锁存最近一次进行中对位到的 messageId：
+                                // 同 item 组合存续，空窗期靠 Card 内 latchedText 维持展开。
+                                var lastCompactionMsgId by remember { mutableStateOf<String?>(null) }
+                                if (compactionActiveState != null) {
+                                    lastCompactionMsgId = chatMessage.message.id
+                                }
+
                                 // #219 修复二（进行中分割线消失）：inbox.enqueued 在压缩
                                 // 发起瞬间即插入 role=compaction 骨架消息（无 Part.Compaction
                                 // ——那要等完成后的 REST 刷新）。此前仅按 parts 判定 → 骨架期
@@ -1243,7 +1296,8 @@ fun ChatMessageList(
                                 // compactionState 未置，认领会渲染成静止「已压缩」误导。
                                 val isCompactionTrigger = chatMessage.parts.any { it is Part.Compaction } ||
                                     ((chatMessage.message as? Message.User)?.role == "compaction" &&
-                                        compactionActiveState != null)
+                                        (compactionActiveState != null ||
+                                            chatMessage.message.id == lastCompactionMsgId))
 
                                 if (isCompactionTrigger) {
                                     var showRevertDialog by remember { mutableStateOf(false) }
@@ -1277,7 +1331,41 @@ fun ChatMessageList(
                                     // pointerInput 长按 + semantics 自定义无障碍动作
                                     //（长按=撤销确认，标签复用已翻译的 chat_revert）。
                                     val revertActionLabel = stringResource(R.string.chat_revert)
-                                    Column(modifier = Modifier
+                                    // #221：进行中压缩的展开流式增长补偿（tool_progress
+                                    // 同款；非进行中高度恒定，layout{} 直通零成本）。
+                                    val compactionGrowModifier = if (compactionActiveState != null) {
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .layout { measurable, constraints ->
+                                                val placeable = measurable.measure(
+                                                    constraints.copy(maxHeight = Constraints.Infinity)
+                                                )
+                                                val realHeight = placeable.height
+                                                val delta = realHeight - compactionExpandState.lastHeight
+                                                if (compensateState.shouldCompensate &&
+                                                    compactionExpandState.lastHeight > 0 && delta > 0
+                                                ) {
+                                                    if (BuildConfig.DEBUG) {
+                                                        AppLogger.w(
+                                                            "ScrollDiag",
+                                                            "COMP-CMP(msg) fire delta=" + delta +
+                                                                " lastH=" + compactionExpandState.lastHeight +
+                                                                " realH=" + realHeight
+                                                        )
+                                                    }
+                                                    LazyListReflection.requestScrollToItemNoCancel(
+                                                        listState,
+                                                        listState.firstVisibleItemIndex,
+                                                        listState.firstVisibleItemScrollOffset + delta
+                                                    )
+                                                }
+                                                compactionExpandState.lastHeight = realHeight
+                                                layout(placeable.width, realHeight) {
+                                                    placeable.placeRelative(0, 0)
+                                                }
+                                            }
+                                    } else Modifier
+                                    Column(modifier = compactionGrowModifier
                                         .pointerInput(Unit) {
                                             detectTapGestures(
                                                 onLongPress = { showRevertDialog = true }

@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
@@ -65,10 +67,16 @@ internal fun CompactionCard(
     val isActive = state != null && state.isActive
     var expanded by remember { mutableStateOf(false) }
     val activeState = if (state != null && state.isActive) state else null
-    val expandableText = when {
+    val liveText = when {
         activeState != null -> activeState.deltaText.takeIf { it.isNotBlank() }
         else -> summary?.takeIf { it.isNotBlank() }
     }
+    // #221：文本锁存——完成瞬间（ended 清态 → REST 刷新带入 summary 前的空窗）
+    // 与失败（无 summary、delta 残留）都不收回展开：latchedText 记住最近一次
+    // 非空文本，canExpand 不闪断 → AnimatedVisibility 不折叠，展开态跨完成保持。
+    var latchedText by remember { mutableStateOf<String?>(null) }
+    if (liveText != null) latchedText = liveText
+    val expandableText = liveText ?: latchedText
     val canExpand = expandableText != null
     val onToggle: () -> Unit = { if (canExpand) expanded = !expanded }
 
@@ -217,35 +225,49 @@ private fun CompletedDividerRow(
 }
 
 /**
- * 展开区（Q11-B 用户裁决）：无边框引用式——左侧 2dp 细竖线 + Markdown 渲染，
- * 与消息内容同宽（无旧版 Surface 边框/圆角/水平内缩）。进行中态文本随
- * delta 流逐字生长（MarkdownContent 流式增量路径，48ms 批处理铁律）。
+ * 展开区（Q11-B 用户裁决；#221 高度修正）：无边框引用式——左侧 2dp 细竖线与
+ * Markdown 内容**等高**（matchParentSize 叠加层绘制，弃固定 240dp；流式期间
+ * 随 delta 增长实时变高）。左右取舍（#221 用户征询后代理裁决）：仅左侧——
+ * 引用式语义（blockquote 惯例，与 Q11-B 设计语言一致）；双侧线无上下横线
+ * 会读成「未闭合的框」，右线贴 Markdown 参差右缘徒增噪声。
  */
 @Composable
 private fun ExpandContent(text: String, active: Boolean) {
-    Row(
+    val lineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM)
+    val lineWidth = 2.dp
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = SpacingTokens.XS.dp)
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = lineWidth + SpacingTokens.MD.dp)
+        ) {
+            androidx.compose.foundation.text.selection.SelectionContainer {
+                MarkdownContent(
+                    markdown = text,
+                    textColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = if (active) AlphaTokens.MUTED else AlphaTokens.MEDIUM
+                    ),
+                    isUser = false,
+                    customFontSize = "small"
+                )
+            }
+        }
+        // 内容高度叠加层：matchParentSize 不参与测量（Box 高度由内容行决定），
+        // 绘制阶段在左侧画 2dp 全高竖线——内容多高线就多高，流式增长零延迟跟随。
         Box(
             modifier = Modifier
-                .width(2.dp)
-                .height(240.dp)
-                .background(
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM)
-                )
+                .matchParentSize()
+                .drawBehind {
+                    drawRect(
+                        color = lineColor,
+                        topLeft = Offset.Zero,
+                        size = Size(lineWidth.toPx(), size.height)
+                    )
+                }
         )
-        Spacer(modifier = Modifier.width(SpacingTokens.MD.dp))
-        androidx.compose.foundation.text.selection.SelectionContainer {
-            MarkdownContent(
-                markdown = text,
-                textColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                    alpha = if (active) AlphaTokens.MUTED else AlphaTokens.MEDIUM
-                ),
-                isUser = false,
-                customFontSize = "small"
-            )
-        }
     }
 }
