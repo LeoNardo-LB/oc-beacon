@@ -293,6 +293,20 @@ class MessageEventHandler @Inject constructor(
         }
         if (event.info is Message.Assistant) {
             assistantMessageIds.add(event.info.id)
+            // #224：V1 压缩消息 SSE 实时路径——完结的 assistant(agent=compaction)
+            // 折叠为 Part.Compaction 分割线（REST 路径归一化在 EventDispatcher
+            // .upsertMessages；此处覆盖 message.updated 直达的单条流）。
+            val normalized = dev.leonardo.ocbeacon.data.mapper.CompactionNormalizer.normalize(
+                MessageWithParts(
+                    info = event.info,
+                    parts = _parts.value[event.info.id].orEmpty(),
+                )
+            )
+            if (normalized.parts != _parts.value[event.info.id].orEmpty()) {
+                _parts.update { current ->
+                    current + (event.info.id to normalized.parts)
+                }
+            }
         }
         // 若尚无 part，则从摘要文本为用户消息播种 part。
         val info = event.info

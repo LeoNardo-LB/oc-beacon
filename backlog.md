@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#224**。
+**编号**：全局递增，不回收。下一编号：**#225**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -69,6 +69,12 @@
   - 修复：CompactionCard 文本锁存（latchedText 兜底 ended→REST 刷新空窗与失败残留，canExpand 不闪断→AnimatedVisibility 不折叠）；ExpandContent 改 matchParentSize 叠加层画 2dp 竖线（内容多高线多高，流式实时跟随；弃 IntrinsicSize 赌注）；ChatMessageList 压缩 item 接入 tool_progress 同款补偿（compactionExpandState 独立 lastHeight + 共享 shouldCompensate + layout{} 注入 COMP-CMP）
   - 调研结论（subagent，2026-08-25）：卡片/分割线高度预先获取**不值得做**——弹入已被 COMP-MSG 单遍 delta 覆盖（无时间差可弥合）、插入在 key 锚定下零位移（foundation 1.11.2 源码取证）、toggle 已被终版裁决排除 → `docs/research/2026-08-25-card-height-precompute-feasibility.md`
   - → `docs/journal/2026-08-25-session-list-wipe.md` §#221
+
+- [~] **#224 V1/V2 压缩形态统一：V1 压缩消息归一化为分割线** `compaction` `v1`
+  - 用户指令「能否将 V1、V2 的形态做成一致」；V1 compact 产物是常规 assistant(agent=compaction) 消息（摘要裸泡渲染），V2 是 Part.Compaction 分割线
+  - 修复：CompactionNormalizer（data/mapper 纯函数）——完结的 assistant(agent=compaction) 且 text 非空 → parts 折叠为单个 Part.Compaction（summary=全文、failed=error 存在）；接入 EventDispatcher.upsertMessages（REST/恢复）+ MessageEventHandler.handleMessageUpdated（SSE 实时）双路径；完结守卫防流式半文过早固化
+  - 验证：单测 5 例（折叠/失败/未完结直通/非压缩直通/空文本直通）+ 全量绿；V1 真机 E2E：压缩完成渲染 Context compacted 分割线（气泡消失）+ 点击展开摘要全文正常
+  - → `docs/journal/2026-08-25-session-list-wipe.md` §#224
 
 - [~] **#223 SSE 空 part 增殖 → 进会话主线程冻结（数据层）** `sse` `data` `perf`
   - 真机 E2E 发现：进含流式历史的会话永久转圈（8min+）；jdb 定音主线程栈 = mergePartsList→dedup→isNewPartId；Room 直查定音单消息 4488 part（4487 空，`_reasoning_ord_N` 递增）——服务器 REST 无此数据 = 纯客户端残留

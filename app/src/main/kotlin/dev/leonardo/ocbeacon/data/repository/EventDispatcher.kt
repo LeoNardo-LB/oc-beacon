@@ -492,8 +492,12 @@ class EventDispatcher @Inject constructor(
         messages: List<MessageWithParts>,
         strategy: MergeStrategy,
     ) {
-        messageHandler.upsertMessages(sessionId, messages, strategy)
-        recomputeMaxCompleted(sessionId, messages)
+        // #224：V1 压缩消息归一化（assistant(agent=compaction)→Part.Compaction
+        // 分割线形态，与 V2 一致）；V2 载荷不满足条件，零操作直通。
+        val normalized = dev.leonardo.ocbeacon.data.mapper.CompactionNormalizer
+            .normalizeAll(messages)
+        messageHandler.upsertMessages(sessionId, normalized, strategy)
+        recomputeMaxCompleted(sessionId, normalized)
     }
 
     /**

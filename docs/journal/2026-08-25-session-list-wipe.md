@@ -178,6 +178,17 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 
 至此 #217 遗留的「V1 真机验证留待环境」欠账清偿；#222 验收清单第 2 条（V1 压缩进行中分割线贴底可见）实证通过。
 
+## #224 V1/V2 压缩形态统一（2026-08-25，用户指令）
+
+用户问「能否将 V1、V2 的形态做成一致」。差异根因在服务器语义：V1 compact 产物 = 常规 assistant(agent=compaction) 消息（摘要 text part + step 噪声，渲染为普通气泡）；V2 = 独立 compaction 消息 → Part.Compaction → 分割线。客户端归一化即可统一。
+
+实现（CompactionNormalizer，data/mapper 纯函数）：完结的 assistant(agent=compaction)（completed 非空或 error 存在）且 text 摘要非空 → 整条 parts 折叠为单个 Part.Compaction（summary=全部 text part 拼接、failed=error 存在）。识别条件仅 V1 线形可满足（V2 assistant 不带 agent=compaction），对 V2 零操作直通。完结守卫：V1 SSE 先发 info 后发 text delta，未完结即折叠会把流式半文固化为完成态——与 V2 deltaText 流式语义冲突，故未完结保持原样。
+
+接入双路径：EventDispatcher.upsertMessages（REST/恢复/刷新，normalizeAll）+ MessageEventHandler.handleMessageUpdated（SSE 单条实时，含 parts 重写）。
+
+验证：单测 5 例（成功折叠/失败映射/未完结直通/非压缩直通/空文本直通）+ 全量绿；V1 真机 E2E（7970 字符上下文压缩）：完成态渲染 `Context compacted` 分割线（原气泡消失）+ 点击分割线展开摘要全文正常（协程章节内容正确）。V1/V2 压缩形态至此完全一致：进行中骑线进度分割线 → 完成分割线 + 可展开摘要。
+
+
 
 
 
