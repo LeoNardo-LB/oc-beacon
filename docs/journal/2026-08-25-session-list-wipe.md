@@ -161,6 +161,17 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 - 回归测试 ×3（增殖抑制/非空 ended 正常新增/自定义 id 不折叠）+ handler 全套 + 全量 1933+ 绿
 - 遗留：DB 存量炸弹行（4488/139/111）不自删（merge 层已滤=inert）；升级 Room schema 清理可后续做
 
+### 根因完备性验证（用户质询「是否根因修复」，2026-08-26）
+
+服务器全库 50 会话角色普查（REST 全量）：assistant 416 条（max 101030）/ **system 35 条（max 11235）**/ synthetic 28 条（max 10060）/ user 155 条（max 3085）/ compaction 7 / agent-switched 30 / model-switched 30（后两者 max_text_len=0）。
+
+逐角色渲染契约核对（非对话角色的完整清单）：
+- system → #232 单行通知（Turn + UserChunk 双路径封死，SysMsgDiag 实证）✓
+- synthetic → SYNTHETIC 通知卡（滚动上限）+ 转后台变体分割线；`userChunkPlanFor` L117 **既有排除**（非本次遗漏）✓
+- compaction → 分割线（#217/#226）✓；agent-switched/model-switched → 空文本（0 字符，全库实测）无墙风险 ✓；shell/skill → 本服务器不存在（理论角色）
+
+结论：症状根因（system 无渲染契约）已根治；同类泛化类（「每个非对话角色都需定义渲染契约」）经数据验证为完备——无第三个未知路径。残留：①分片排除的落点不对称（system 在调用点、synthetic 在 userChunkPlanFor 内——功能等价的卫生问题，非 bug）②11KB 原文仍随每次 prefetch 重下载存储（数据冗余，无害）③服务器插入工具目录系上游行为，不属本客户端修复范围。
+
 ### 过程勘误
 
 ①REST parts 只在轮次完成后落盘——流式期探活必须看 SSE 事件流或 app logcat，此前两轮「provider 死了」误判实为探针方法错；②服务器「Session not found」偶发（列表有、直查无）——换会话绕过；③uiautomator dump 在大消息渲染期失明（空树），用 vision 截图裁决；④装包后应用回桌面——一律 ./scripts/debug-entry.sh 标准入口重进。
