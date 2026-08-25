@@ -422,12 +422,17 @@ fun ChatMessageList(
     }
 
     // LazyColumn 中 itemsIndexed 之前渲染的非消息项数量。
-    // 必须与下面的条件 `item { ... }` 块保持一致（见横幅渲染）。
+    // C4-C：压缩项由 CompactionDividerPolicy.bannerTerms 派生（与尾部兜底 item
+    // 认领同源，消除独立手算双写）；其余 6 项（revert/retry/tool/step/question/
+    // perm）仍必须与下面的条件 `item { ... }` 块保持一致（见横幅渲染）。
+    val compactionBanners = remember(
+        currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
+    ) {
+        CompactionDividerPolicy.bannerTerms(currentCompaction, displayItemMessageIds, v1CompactionSummaryInList)
+    }
     val bannerCount = remember(
         sessionMeta.revert,
-        currentCompaction,
-        displayItemMessageIds,
-        v1CompactionSummaryInList,
+        compactionBanners,
         sessionMeta.sessionStatus,
         activeTools,
         currentStep,
@@ -435,8 +440,7 @@ fun ChatMessageList(
         interaction.pendingPermissions,
     ) {
         (if (sessionMeta.revert != null) 1 else 0) +
-        (if (currentCompaction != null && currentCompaction.isActive &&
-            (currentCompaction.messageId in displayItemMessageIds || v1CompactionSummaryInList)) 1 else 0) +
+        (if (compactionBanners.streamClaimed) 1 else 0) +
         (if (sessionMeta.sessionStatus is SessionStatus.Retry) 1 else 0) +
         (if (activeTools.isNotEmpty()) 1 else 0) +
         (if (currentStep != null) 1 else 0) +
@@ -458,16 +462,12 @@ fun ChatMessageList(
         sessionMeta.sessionStatus,
         activeTools,
         currentStep,
-        currentCompaction,
-        displayItemMessageIds,
-        v1CompactionSummaryInList,
+        compactionBanners,
     ) {
         (if (sessionMeta.sessionStatus is SessionStatus.Retry) 1 else 0) +
             (if (activeTools.isNotEmpty()) 1 else 0) +
             (if (currentStep != null) 1 else 0) +
-            (if (currentCompaction?.isActive == true &&
-                currentCompaction.messageId !in displayItemMessageIds &&
-                !v1CompactionSummaryInList) 1 else 0)
+            (if (compactionBanners.tailFallback) 1 else 0)
     }
     LaunchedEffect(revealBannerCount) {
         if (revealBannerCount > 0 && autoScrollState.value) {
