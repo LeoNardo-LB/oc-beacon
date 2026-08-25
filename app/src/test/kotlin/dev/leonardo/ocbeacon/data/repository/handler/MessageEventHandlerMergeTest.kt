@@ -121,6 +121,51 @@ class MessageEventHandlerMergeTest {
         assertTrue(result.isEmpty())
     }
 
+    // ============ #229 回归 3（算法根治守时）：数千非空新版契约 part 线性通过 ============
+
+    @Test
+    fun `upsertMessages handles thousands of nonempty new-contract parts in linear time`() {
+        val msg = Message.Assistant(
+            id = "msg-lin",
+            sessionId = "s1",
+            parentId = "p",
+            time = TimeInfo(created = 1000L, completed = 2000L)
+        )
+        // 5000 条互不相同、非空、全部新版契约 id 的 text part（O(N²) 时 ≈2500 万 pair）
+        val manyParts = (0 until 5000).map { i ->
+            Part.Text(id = "msg-lin_text_ord_$i", sessionId = "s1", messageId = "msg-lin", text = "内容块 #$i 各不相同")
+        }
+        val start = System.currentTimeMillis()
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, manyParts)), MergeStrategy.SSE_PRIORITY)
+        val elapsed = System.currentTimeMillis() - start
+        assertEquals(5000, handler.parts.value["msg-lin"]!!.size)
+        assertTrue("merge took ${elapsed}ms (quadratic regression?)", elapsed < 2000)
+    }
+
+    // ============ #229 回归 4（语义保持）：legacy id × 新版契约重叠仍合并 ============
+
+    @Test
+    fun `upsertMessages still merges legacy and new-contract overlapping parts`() {
+        val msg = Message.Assistant(
+            id = "msg-mix",
+            sessionId = "s1",
+            parentId = "p",
+            time = TimeInfo(created = 1000L, completed = 2000L)
+        )
+        // existing：legacy id（空派生）的短文本
+        handler.setMessages("s1", listOf(MessageWithParts(msg, listOf(
+            Part.Text(id = "msg-mix_p0", sessionId = "s1", messageId = "msg-mix", text = "Hello")
+        ))))
+        // incoming：新版契约 id 的更长文本（前缀包含 legacy 文本）
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(
+            Part.Text(id = "msg-mix_text_ord_0", sessionId = "s1", messageId = "msg-mix", text = "Hello World Extended")
+        ))), MergeStrategy.SSE_PRIORITY)
+
+        val result = handler.parts.value["msg-mix"]!!
+        assertEquals(1, result.size)
+        assertEquals("Hello World Extended", (result[0] as Part.Text).text)
+    }
+
     // ============ 测试 2：setMessages 保留 SSE 未完成消息的元数据 ============
 
     @Test

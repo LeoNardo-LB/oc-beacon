@@ -744,37 +744,63 @@ class MessageEventHandler @Inject constructor(
      * （相等/前缀）去重：至少一侧 id 非新版契约时才合并（两条新版 id 不同的
      * part 视为真不同），保留文本更长、等长优先非空 id 的一条。
      * 与 handleMessagePartUpdated 的 #87b 空内容匹配防御同一权衡。
+     *
+     * #229（#228 根因补完，2026-08-26 用户质询「修复的是根因吗」）：#223 的
+     * 前置跳过只省了 overlaps 文本比较，**pair 枚举本身仍是 O(N²)**——两条
+     * 新版契约 id 各做一次 contains 短串扫描，N=4488 时 2000 万次迭代照样
+     * 烧秒级（#228 MIUIScout 栈定音，contains 即热点帧）。结构性根治：
+     * ① isNewPartId 结果按 id 记忆化（每 id 至多 2 次扫描）；② 维护同类
+     * 「legacy-id 子集」桶——新版契约 p 只可能与 legacy-id 同类 part 重叠，
+     * 只扫 legacy 桶（炸弹全为新版契约 → 桶空 → 每元素 O(1)）；legacy p
+     * 仍扫全桶（语义不变）。复杂度 O(N + M×N)，M=legacy 条数（迁移期遗留，
+     * 现实 ≤2/消息）。胜者替换时同步桶成员（替换罕见，含 O(桶) 查删可接受）。
      */
     private fun dedupOverlappingTextParts(parts: List<Part>): List<Part> {
         if (parts.size < 2) return parts
         val result = mutableListOf<Part>()
+        val isNewCache = HashMap<String, Boolean>(parts.size * 2)
+        fun isNew(id: String): Boolean =
+            isNewCache.getOrPut(id) { id.contains("_text_ord_") || id.contains("_reasoning_ord_") }
+        // 同类扫描桶：全量索引 + legacy-id 子集索引（按 kind 分桶，非文本 part 不入桶）
+        val textAll = mutableListOf<Int>()
+        val textLegacy = mutableListOf<Int>()
+        val reasonAll = mutableListOf<Int>()
+        val reasonLegacy = mutableListOf<Int>()
         outer@ for (p in parts) {
-            for (i in result.indices) {
-                val r = result[i]
-                val sameKind = when {
-                    r is Part.Text && p is Part.Text -> true
-                    r is Part.Reasoning && p is Part.Reasoning -> true
-                    else -> false
+            val (all, legacy) = when (p) {
+                is Part.Text -> textAll to textLegacy
+                is Part.Reasoning -> reasonAll to reasonLegacy
+                else -> {
+                    result.add(p)
+                    continue@outer
                 }
-                if (!sameKind) continue
-                // #223（主线程冻结修复，2026-08-25 真机 jdb 定音）：id 契约判断
-                // 前置——两条新版契约 id 的 part 视为真不同，跳过昂贵的全文
-                // 前缀比较（startsWith/== 在流式巨文上是 O(全文)，SSE 每 delta
-                // 批次都跑 → O(N²)×O(len) 主线程饱和 → 进会话永久转圈）。
-                // 语义不变：原条件 overlaps && (一侧非新版 id) 的否定即
-                // 双侧均新版 id → 跳过，仅省去 overlaps 计算。
-                if (isNewPartId(r.id) && isNewPartId(p.id)) continue
+            }
+            val pIsNew = isNew(p.id)
+            // #229：新版契约 id 只需与 legacy-id 同类 part 比对（与 #223 前置
+            // 跳过语义等价：双侧新版 → 无候选 → 直接入列）
+            val scan = if (pIsNew) legacy else all
+            for (i in scan) {
+                val r = result[i]
                 val rt = (r as? Part.Text)?.text ?: (r as? Part.Reasoning)?.text ?: continue
                 val pt = (p as? Part.Text)?.text ?: (p as? Part.Reasoning)?.text ?: continue
                 val overlaps = rt == pt ||
                     (rt.length <= pt.length && pt.startsWith(rt)) ||
                     (pt.length <= rt.length && rt.startsWith(pt))
                 if (overlaps) {
-                    result[i] = if (pt.length > rt.length || (pt.length == rt.length && p.id.isNotBlank())) p else r
+                    val winner = if (pt.length > rt.length || (pt.length == rt.length && p.id.isNotBlank())) p else r
+                    result[i] = winner
+                    // 桶成员同步：索引 i 保持在 all 桶；legacy 桶按胜者契约属性增删
+                    val winnerIsNew = isNew(winner.id)
+                    val inLegacy = legacy.contains(i)
+                    if (winnerIsNew && inLegacy) legacy.remove(i)
+                    else if (!winnerIsNew && !inLegacy) legacy.add(i)
                     continue@outer
                 }
             }
             result.add(p)
+            val idx = result.size - 1
+            all.add(idx)
+            if (!pIsNew) legacy.add(idx)
         }
         return result
     }
