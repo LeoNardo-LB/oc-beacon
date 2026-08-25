@@ -13,14 +13,12 @@ import android.os.Looper
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import dev.leonardo.ocbeacon.BuildConfig
-import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.api.NetworkMonitor
 import dev.leonardo.ocbeacon.data.api.NetworkState
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.ServerDataStore
 import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
-import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManagePermissionUseCase
@@ -51,11 +49,11 @@ private const val FGS_TIMEOUT_RESTART_DELAY_MS = 2_000L
 /**
  * 用于维护到多个服务器的 OpenCode SSE 连接的前台服务。
  *
- * 本服务：
+ * 本服务（#170/#111 后为 FGS adapter）：
  * - 同时维护到一个或多个服务器的持久 SSE 连接
- * - 将连接生命周期委托给 [SseConnectionManager]
- * - 将通知管理委托给 [AppNotificationManager]
- * - 显示轮次完成和待处理权限请求的通知
+ * - 将连接生命周期委托给 [ConnectionLifecycleCoordinator]（#170）
+ * - 将 SSE 事件通知路由委托给 [SessionNotificationCoordinator]（C9）
+ * - 托管 question 轮询引擎（REST 兜底，依赖 Context）
  * - 在任一服务器已连接时持有一个 partial WakeLock
  *
  * 连接会保持活跃，直到用户显式断开每个服务器
@@ -74,6 +72,11 @@ class OpenCodeConnectionService : Service() {
 
     @Inject
     lateinit var lifecycleCoordinator: ConnectionLifecycleCoordinator
+
+    // C9（2026-08-26）：SSE 事件 → 通知路由策略外移（when 分发/提示音抑制/
+    // 子会话冒泡/streak 门控/收敛等待），本类收缩为 FGS adapter + 轮询引擎宿主
+    @Inject
+    lateinit var notificationCoordinator: SessionNotificationCoordinator
 
     @Inject
     lateinit var appNotificationManager: AppNotificationManager
@@ -160,9 +163,12 @@ class OpenCodeConnectionService : Service() {
         feedbackPlayer.attach(this)
 
         // ===== 连接生命周期接线（#170：编排收进 Coordinator，本类为 FGS adapter）=====
-        // SSE 事件路由（通知/权限域）与 question 轮询体（通知域，依赖 Context）
-        // 留宿主；启停决策在 Coordinator。
-        lifecycleCoordinator.onEvent = ::processEvent
+        // SSE 事件路由策略（C9）收进 SessionNotificationCoordinator——本类只提供
+        // 协程上下文（serviceScope + 其异常兜底）；question 轮询体（通知域，
+        // 依赖 Context）留宿主；启停决策在 Coordinator。
+        lifecycleCoordinator.onEvent = { server, event ->
+            serviceScope.launch { notificationCoordinator.processEvent(server, event) }
+        }
         lifecycleCoordinator.questionPollingFactory =
             ConnectionLifecycleCoordinator.QuestionPollingFactory { server ->
                 startQuestionPolling(server)
@@ -495,248 +501,9 @@ class OpenCodeConnectionService : Service() {
         return dirs
     }
 
-    /**
-     * 将 [QuestionState] 转换为 [SseEvent.QuestionAsked] 以复用通知路径。
-     * key 合成 fallback（2026-08-18 E2E-B 真根因修复）：REST GET /question 响应
-     * 无 key 字段（同 question.v2.asked SSE payload），q.key=null 直传会导致
-     * replyToForm fallback 的 keyedAnswers 全跳过 → answer={} → 服务器
-     * "未作答"。与 V2FormMapper.parseQuestionV2 同规则合成 q$index。
-     */
-    private fun QuestionState.toQuestionAsked(): SseEvent.QuestionAsked =
-        SseEvent.QuestionAsked(
-            id = id,
-            sessionId = sessionId,
-            questions = questions.mapIndexed { index, q ->
-                SseEvent.QuestionAsked.Question(
-                    header = q.header,
-                    question = q.question,
-                    multiple = q.multiple,
-                    custom = q.custom,
-                    options = q.options.map { o ->
-                        SseEvent.QuestionAsked.Option(label = o.label, description = o.description, value = o.value)
-                    },
-                    key = q.key ?: "q$index"
-                )
-            },
-            tool = tool
-        )
-
-    // ============ 事件处理（仅通知路由）============
-
-    /**
-     * 在总开关开启时才执行通知动作。
-     * 修复：此前 [SseEvent.PermissionAsked] / [SseEvent.QuestionAsked] / [SseEvent.SessionError]
-     * 不检查 notificationsEnabled，用户关闭通知后权限/问题/错误仍会弹出。
-     */
-    private fun maybeNotify(server: ServerConfig, action: suspend () -> Unit) {
-        serviceScope.launch {
-            if (!settingsRepository.notificationsEnabled().first()) return@launch
-            action()
-        }
-    }
-
-    private fun processEvent(server: ServerConfig, event: SseEvent) {
-        // SSE 双日志治理（backlog #39）：移除每事件通用日志——SseClient 连接
-        // 生命周期日志（打开/关闭/心跳/错误/eventCount 汇总）已提供 SSE 可观测性，
-        // 关键业务事件（SessionIdle/PermissionAsked/QuestionAsked）在下方各分支
-        // 有专门日志。每事件打印 ~50-90 条/s 会造成 logcat I/O + GC 压力。
-
-        // EventDispatcher.processEvent 已由 SseConnectionManager 调用
-        // 此处仅路由到通知逻辑
-        when (event) {
-            is SseEvent.SessionIdle -> {
-                // #155：正在查看该会话 → 被抑制的系统通知转为会话内提示音
-                //（策略镜像系统通知：渠道/铃声档/DND/开关，见 InSessionFeedbackPlayer）
-                val inSession = sessionFocusHolder.shouldSuppress(server.id, event.sessionId)
-                if (!inSession && appNotificationManager.isChildSession(event.sessionId)) return
-                // 子智能体会话 turn 完成既不通知也不响（Q3，与通知口径一致）
-                if (inSession && appNotificationManager.isChildSession(event.sessionId)) return
-                serviceScope.launch {
-                    if (!settingsRepository.notificationsEnabled().first()) return@launch
-
-                    // 给 reducer 片刻时间接收后续的 message/part 事件。
-                    // D2-L30（#112，2026-08-19）：原固定单次 250ms 在慢设备/
-                    // 长末段输出下 reducer 可能仍未收敛 → 完成通知静默丢失。
-                    // 改为最多 3 次检查（每次间隔 250ms），首次命中即通知；
-                    // 无输出会话最坏多等 750ms（后台协程，成本可忽略）。
-                    var assistantMessageId: String? = null
-                    for (attempt in 0 until 3) {
-                        delay(250)
-                        // #155 拆分：提示音路径纯查询（不写通知去重 map，Q11）
-                        assistantMessageId = if (inSession) {
-                            appNotificationManager.computeNewAssistantMessageId(event.sessionId)
-                        } else {
-                            appNotificationManager.checkNewAssistantMessage(server.id, event.sessionId)
-                        }
-                        if (assistantMessageId != null) {
-                            if (attempt > 0) {
-                                AppLogger.d(TAG, "[${server.displayName}] Response-ready check recovered after ${attempt + 1} attempts (${event.sessionId})")
-                            }
-                            break
-                        }
-                    }
-                    if (assistantMessageId == null) {
-                        if (BuildConfig.DEBUG) {
-                            AppLogger.d(TAG, "[${server.displayName}] Skip response-ready: no assistant text output (${event.sessionId})")
-                        }
-                        return@launch
-                    }
-
-                    if (inSession) {
-                        // 成功完成的 turn → 重置该会话错误 streak（Q10）+ 播提示音
-                        feedbackPlayer.onTurnCompleted(server.id, event.sessionId)
-                        feedbackPlayer.playIfFocused(
-                            serverId = server.id,
-                            sessionId = event.sessionId,
-                            type = FeedbackType.TURN_COMPLETE,
-                            dedupKey = assistantMessageId!!,
-                            silentNotifications = settingsRepository.silentNotifications().first(),
-                            notificationsEnabled = true,
-                        )
-                        return@launch
-                    }
-
-                    AppLogger.i(TAG, "[${server.displayName}] Session idle -> Response ready for ${event.sessionId}")
-                    // 成功完成的 turn → 重置该会话错误 streak（通知侧同语义，R4）
-                    feedbackPlayer.onTurnCompleted(server.id, event.sessionId)
-                    appNotificationManager.showTaskCompleteNotification(
-                        this@OpenCodeConnectionService, systemNotificationManager, server, event.sessionId
-                    )
-                }
-            }
-            is SseEvent.PermissionAsked -> {
-                maybeNotify(server) {
-                    // 2026-08-16（用户需求·自动允许开关）：开关开启时自动应答
-                    // always（服务器落持久规则，同类请求不再询问）并跳过通知。
-                    // maybeNotify 的 action 为 suspend lambda——可挂起读开关
-                    //（与下方 notificationsEnabled.first() 同模式）。应答失败
-                    // 不中断：落回原通知路径由用户手动处理。
-                    if (event.id.isNotBlank() &&
-                        runCatching { settingsRepository.autoAllowPermissions().first() }.getOrDefault(false)
-                    ) {
-                        // 会话 directory（V2 reply 路由 header 用）——从事件
-                        // 派发器的会话表查；空串归 null（服务器默认项目）。
-                        val sessionDirectory = eventDispatcher.sessions.value
-                            .find { it.id == event.sessionId }?.directory
-                            ?.takeIf { it.isNotBlank() }
-                        val replied = runCatching {
-                            managePermissionUseCase.replyToPermission(
-                                serverId = server.id,
-                                sessionId = event.sessionId,
-                                requestId = event.id,
-                                reply = "always",
-                                directory = sessionDirectory,
-                            )
-                        }.onFailure { e ->
-                            if (e is kotlinx.coroutines.CancellationException) throw e
-                            AppLogger.e(TAG, "[${server.displayName}] Auto-allow failed for ${event.permission} (id=${event.id}): ${e.message}", e)
-                        }.isSuccess
-                        if (replied) {
-                            AppLogger.i(TAG, "[${server.displayName}] Auto-allowed permission ${event.permission} (id=${event.id}, session=${event.sessionId})")
-                            return@maybeNotify
-                        }
-                    }
-                    val targetSessionId = if (appNotificationManager.isChildSession(event.sessionId)) {
-                        // 子 session 权限冒泡到父 session 通知
-                        val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
-                        session?.parentId ?: event.sessionId
-                    } else {
-                        event.sessionId
-                    }
-                    AppLogger.i(TAG, "[${server.displayName}] Permission asked: ${event.permission} (session=${event.sessionId}, target=$targetSessionId)")
-                    if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
-                        // #155：被抑制的权限通知 → 会话内提示音（独立去重，Q11）
-                        feedbackPlayer.playIfFocused(
-                            serverId = server.id,
-                            sessionId = targetSessionId,
-                            type = FeedbackType.PERMISSION,
-                            dedupKey = event.permission,
-                            silentNotifications = settingsRepository.silentNotifications().first(),
-                            notificationsEnabled = true,
-                        )
-                        return@maybeNotify
-                    }
-                    appNotificationManager.showPermissionNotification(
-                        this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, event.permission
-                    )
-                }
-            }
-            is SseEvent.QuestionAsked -> {
-                maybeNotify(server) {
-                    val targetSessionId = if (appNotificationManager.isChildSession(event.sessionId)) {
-                        // 子 session 问题冒泡到父 session 通知
-                        val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
-                        session?.parentId ?: event.sessionId
-                    } else {
-                        event.sessionId
-                    }
-                    AppLogger.i(TAG, "[${server.displayName}] Question asked for session ${event.sessionId} (target=$targetSessionId)")
-                    if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
-                        // #155：被抑制的问题通知 → 会话内提示音（独立去重，Q11）
-                        val qText = event.questions.firstOrNull()?.question
-                            ?: getString(R.string.notification_has_question, getString(R.string.notification_new_session))
-                        feedbackPlayer.playIfFocused(
-                            serverId = server.id,
-                            sessionId = targetSessionId,
-                            type = FeedbackType.QUESTION,
-                            dedupKey = qText,
-                            silentNotifications = settingsRepository.silentNotifications().first(),
-                            notificationsEnabled = true,
-                        )
-                        return@maybeNotify
-                    }
-                    val questionText = event.questions.firstOrNull()?.question
-                        ?: getString(R.string.notification_has_question, getString(R.string.notification_new_session))
-                    appNotificationManager.showQuestionNotification(
-                        this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, questionText
-                    )
-                }
-            }
-            is SseEvent.SessionError -> {
-                maybeNotify(server) {
-                    val targetSessionId = if (event.sessionId != null && appNotificationManager.isChildSession(event.sessionId)) {
-                        // 子 session 错误冒泡到父 session 通知
-                        val session = eventDispatcher.sessions.value.find { it.id == event.sessionId }
-                        session?.parentId ?: event.sessionId
-                    } else {
-                        event.sessionId
-                    }
-                    AppLogger.i(TAG, "[${server.displayName}] Session error: ${event.error} (session=${event.sessionId}, target=$targetSessionId)")
-                    if (targetSessionId != null && sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
-                        // #155：被抑制的错误通知 → 会话内提示音（streak 门控在内，R3）
-                        feedbackPlayer.playIfFocused(
-                            serverId = server.id,
-                            sessionId = targetSessionId,
-                            type = FeedbackType.ERROR,
-                            dedupKey = event.error,
-                            silentNotifications = settingsRepository.silentNotifications().first(),
-                            notificationsEnabled = true,
-                        )
-                        return@maybeNotify
-                    }
-                    // R4：通知侧错误 streak——连续错误只弹第一条；重置 = 成功 turn 或用户新消息
-                    if (targetSessionId != null &&
-                        !feedbackPlayer.notificationErrorStreak.onError(server.id, targetSessionId)
-                    ) {
-                        AppLogger.i(TAG, "[${server.displayName}] Error notification suppressed by streak (target=$targetSessionId)")
-                        return@maybeNotify
-                    }
-                    appNotificationManager.showErrorNotification(
-                        this@OpenCodeConnectionService, systemNotificationManager, server, targetSessionId, event.error
-                    )
-                }
-            }
-            is SseEvent.MessageUpdated -> {
-                // #155（Q10）：用户主动发出新消息 → 重置该会话错误 streak。
-                // 合成消息（synthetic，工具代发）不算用户主动。
-                val info = event.info
-                if (info is dev.leonardo.ocbeacon.domain.model.Message.User && info.role != "synthetic") {
-                    feedbackPlayer.onUserMessage(server.id, info.sessionId)
-                }
-            }
-            else -> { }
-        }
-    }
+    // QuestionState → SseEvent.QuestionAsked 转换器（C9）随通知路由策略迁至
+    // SessionNotificationCoordinator.kt（top-level internal，本包可见）——
+    // 轮询路径继续经 toQuestionAsked() 复用 SSE 通知路由。
 
     // ============ 连接状态通知观察者 ============
 
