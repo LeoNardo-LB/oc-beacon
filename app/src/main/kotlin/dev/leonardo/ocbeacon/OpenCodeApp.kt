@@ -122,6 +122,22 @@ class OpenCodeApp : Application() {
             }.onFailure { AppLogger.e(TAG, "Language mirror reconciliation failed", it) }
         }
 
+        // ---- #228（炸弹清扫）：全库删除 SSE started 残留的空 Text/Reasoning part ----
+        // #223 时代的 Room 历史炸弹行（实测单消息 4488 个空 reasoning part）随会话
+        // 种子回灌热视图 → dedup O(N²) 主线程 HANG（用户报「点会话加载很久+页面乱」）。
+        // 增殖源头已在 merge 入口双向堵住；此处一次性清扫存量，幂等（后续运行为 0 删）。
+        appScope.launch {
+            runCatching {
+                val deleted = EntryPointAccessors.fromApplication(
+                    this@OpenCodeApp,
+                    MessageCacheEntryPoint::class.java,
+                ).messageCacheRepository().sweepEmptyStreamParts()
+                if (deleted > 0) {
+                    AppLogger.i("App", "#228 swept $deleted empty stream parts (SSE started residue)")
+                }
+            }.onFailure { AppLogger.e(TAG, "Empty stream part sweep failed", it) }
+        }
+
         // ---- 全局未捕获异常处理器 ----
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -284,6 +300,13 @@ interface DiagnosticLogEntryPoint {
 interface SettingsEntryPoint {
     /** #136（D2-L56）：语言镜像启动校验入口。 */
     fun settingsDataStore(): SettingsDataStore
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface MessageCacheEntryPoint {
+    /** #228（炸弹清扫）：空 Text/Reasoning part 存量清扫入口。 */
+    fun messageCacheRepository(): dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 }
 
 @EntryPoint

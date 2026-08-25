@@ -336,6 +336,8 @@ class MessagePaginationDelegateTest {
             sessionIdProvider = { "sid-1" },
             loadingSink = { loading.add(it) },
             errorSink = { errors.add(it) },
+            // #228：merge 下沉 dispatcher 注入测试调度器（默认 Default 会逃离 runTest）
+            mergeDispatcher = kotlinx.coroutines.test.UnconfinedTestDispatcher(),
         )
 
         delegate.loadMessages()

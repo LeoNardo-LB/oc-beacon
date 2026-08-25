@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.repository.handler
 
 import dev.leonardo.ocbeacon.domain.model.*
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import org.junit.Assert.assertTrue
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -58,6 +59,66 @@ class MessageEventHandlerMergeTest {
         // mergePartsList 应保留更长的文本
         val mergedPart = handler.parts.value["msg-1"]!![0] as Part.Text
         assertEquals("Hello World", mergedPart.text)
+    }
+
+    // ============ #228 回归 1：incoming 携带炸弹（数千空 reasoning part）被入口滤除 ============
+
+    @Test
+    fun `upsertMessages sanitizes incoming empty stream parts bomb`() {
+        val msg = Message.Assistant(
+            id = "msg-bomb",
+            sessionId = "s1",
+            parentId = "p",
+            time = TimeInfo(created = 1000L, completed = 2000L)
+        )
+        // 热视图现有：干净的 1 条 text
+        handler.setMessages("s1", listOf(MessageWithParts(msg, listOf(
+            Part.Text(id = "t0", sessionId = "s1", messageId = "msg-bomb", text = "Hello World")
+        ))))
+
+        // incoming：Room 炸弹回灌——1 条 text + 4488 个空 reasoning part（#223 契约 id）
+        val bombParts = listOf(
+            Part.Text(id = "t0", sessionId = "s1", messageId = "msg-bomb", text = "Hello World")
+        ) + (0 until 4488).map { i ->
+            Part.Reasoning(id = "msg-bomb_reasoning_ord_$i", sessionId = "s1", messageId = "msg-bomb", text = "")
+        }
+        val start = System.currentTimeMillis()
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, bombParts)), MergeStrategy.SSE_PRIORITY)
+        val elapsed = System.currentTimeMillis() - start
+
+        val result = handler.parts.value["msg-bomb"]!!
+        // 炸弹全部滤除：只剩 1 条非空 text
+        assertEquals(1, result.size)
+        assertEquals("Hello World", (result[0] as Part.Text).text)
+        // 守时：4488 part 线性过滤应远低于 1s（回归时 O(N²) 主线程数秒）
+        assertTrue("merge took ${elapsed}ms", elapsed < 1000)
+    }
+
+    // ============ #228 回归 2：incoming 全空时 existing 侧炸弹也被清扫 ============
+
+    @Test
+    fun `upsertMessages all-empty incoming purges existing empty stream parts`() {
+        val msg = Message.Assistant(
+            id = "msg-purge",
+            sessionId = "s1",
+            parentId = "p",
+            time = TimeInfo(created = 1000L, completed = 2000L)
+        )
+        // existing：3 个空 reasoning（SSE started 残留形态）
+        handler.setMessages("s1", listOf(MessageWithParts(msg, listOf(
+            Part.Reasoning(id = "msg-purge_reasoning_ord_0", sessionId = "s1", messageId = "msg-purge", text = ""),
+            Part.Reasoning(id = "msg-purge_reasoning_ord_1", sessionId = "s1", messageId = "msg-purge", text = ""),
+            Part.Reasoning(id = "msg-purge_reasoning_ord_2", sessionId = "s1", messageId = "msg-purge", text = "")
+        ))))
+
+        // incoming：同一消息，parts 全空（Room 快照本身只剩炸弹的形态）
+        handler.upsertMessages("s1", listOf(MessageWithParts(msg, listOf(
+            Part.Reasoning(id = "msg-purge_reasoning_ord_0", sessionId = "s1", messageId = "msg-purge", text = "")
+        ))), MergeStrategy.SSE_PRIORITY)
+
+        val result = handler.parts.value["msg-purge"]!!
+        assertTrue(result.all { !((it is Part.Text && it.text.isBlank()) || (it is Part.Reasoning && it.text.isBlank())) })
+        assertTrue(result.isEmpty())
     }
 
     // ============ 测试 2：setMessages 保留 SSE 未完成消息的元数据 ============

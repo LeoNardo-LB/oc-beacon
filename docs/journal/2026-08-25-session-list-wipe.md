@@ -214,6 +214,32 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 - 老长会话（45K 字消息）初始锚点空白段 + uiautomator 盲区——既有行为，与本卡无关。
 
 
+## #228 V2 会话加载巨慢 + 页面乱：Room 空 part 炸弹回灌 merge 主线程 HANG（2026-08-26，用户报）
+
+用户：「我在 V2 点击当前这个会话的时候会加载很久，然后加载出来的页面也很乱」。
+
+### 诊断（系统性，三层证据闭环）
+
+- **现象取证**：MIUIScout 主线程 APP_SCOUT_WARNING/HANG（2.5s/5s）完整栈：`String.contains → isNewPartId → dedupOverlappingTextParts → mergePartsList → upsertSsePriority → upsertMessages ← MessagePaginationDelegate.loadMessagesForSession(L132/L155)`——merge 全程跑在主线程。
+- **数据取证**（Room 直查）：该会话一条 assistant 消息挂 **4488 个空 reasoning part**（另两条 139/211），全库空 Text/Reasoning part 共 **5714** 个——正是 #223 当时登记为「inert 不自动删」的 legacy 炸弹行，**并非 inert**。
+- **机制定音**：#223 的空 part 过滤只作用 existing 侧（preserved）；Room 炸弹行作为 incoming 二次种子回灌热视图时长驱直入 `dedupOverlappingTextParts` 的 O(N²) 双层循环（每对两次 isNewPartId 短串扫描）→ 2000 万+迭代 × 数轮加载 = 主线程数十秒 HANG。「乱」= 炸弹 part 涌入 UI + 加载多轮互相打断的次生现象。
+
+### 修复（三层防御，commit 见 git log）
+
+1. **入口对称过滤**（MessageEventHandler.mergePartsList）：incoming 侧同样滤空 Text/Reasoning（sanitized 全空时对 existing 也滤空再返回——该路径原本直通让炸弹永生）；热视图炸弹随每次 merge 逐步清除。
+2. **合并下沉后台线程**（MessagePaginationDelegate）：两处 `upsertMessages` 包 `withContext(mergeDispatcher)`（默认 Default，可注入测试调度器）；StateFlow CAS 写线程安全，同步等待保持调用方顺序语义。
+3. **存量一次性清扫**（启动时）：`MessageDao.deleteEmptyStreamParts()`（DELETE 空 text/reasoning）+ `MessageStore.sweepEmptyStreamParts()` + OpenCodeApp onCreate appScope 触发（幂等，后续运行为 0 删）。
+
+### 验证
+
+- 单测：+2 回归（4488-part 炸弹 incoming 滤除 + 全空 incoming 清扫 existing；后者含 <1s 守时断言）；MessagePaginationDelegateTest 注入 UnconfinedTestDispatcher；全量 **1952 绿**。
+- 真机：启动日志 `#228 swept 5714 empty stream parts`（与修复前 DB 计数分毫不差）；复打开原慢会话——**MIUIScout 停顿 0 次**（原 6+ 次）；REST 响应→merge 完成 **1ms**（原 ~30s）；页面 vision 裁决 CLEAN（用户泡+助手泡+分割线，无重叠/乱码/空白转圈）。
+
+### 备注
+
+- #226 journal 遗留的「DB legacy bomb rows 可选清理任务」即本卡层 3，已一并完成。
+- 三轮加载循环（入口种子×2 + modelConfig 解析×1）为次生放大（用户卡死后重试），主因消除后不再触发停顿；未单独改动加载编排。
+
 ## #227 压缩分割线展开态滚出视口即丢（2026-08-26，用户反馈）
 
 用户问：「为啥压缩内容展开之后，一拉到其他地方，就会让展开的内容自动合上？」

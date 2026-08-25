@@ -77,6 +77,16 @@ class MessageStore @Inject constructor(
         }
     }
 
+    /** #228（炸弹清扫）：全库删除空 Text/Reasoning part——Room 历史炸弹行（#223 残留）
+     *  随会话种子回灌热视图打挂 merge；空文本零信息，删除安全。 */
+    override suspend fun sweepEmptyStreamParts(): Int = withContext(Dispatchers.IO) {
+        runCatchingCancellable {
+            databaseRecovery.withCorruptionRecovery { dao.deleteEmptyStreamParts() } ?: 0
+        }.onFailure { e ->
+            AppLogger.e(TAG, "sweepEmptyStreamParts failed", e)
+        }.getOrDefault(0)
+    }
+
     /** #97（H-6）：ended 覆盖最终文本（防增量与 REST 快照漂移）。 */
     override suspend fun updatePartText(
         sessionId: String,

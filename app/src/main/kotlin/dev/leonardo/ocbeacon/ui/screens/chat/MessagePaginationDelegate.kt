@@ -52,6 +52,8 @@ internal class MessagePaginationDelegate(
     private val sessionIdProvider: () -> String,
     private val loadingSink: (Boolean) -> Unit,
     private val errorSink: (String?) -> Unit,
+    /** #228：merge/dedup CPU 密集计算的下沉线程（可注入测试调度器）。 */
+    private val mergeDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
 ) {
     // ============ 分页状态（#56：9 个散落可变成员 → 3 个） ============
 
@@ -129,7 +131,11 @@ internal class MessagePaginationDelegate(
         try {
             val messages = messagePaging.loadMessagesForSession(serverId, sid, currentMessageLimit)
                 .getOrThrow()
-            chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
+            // #228：merge/dedup 是 CPU 密集计算（MIUIScout 实测主线程 5s HANG）——
+            // 迁到 mergeDispatcher，StateFlow CAS 写线程安全，同步等待保持调用方顺序语义。
+            kotlinx.coroutines.withContext(mergeDispatcher) {
+                chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
+            }
             // 会话重新加载 → 归档/网络游标重置（use case 内部回落到热表最老）
             applyTransition(PaginationFSM.Event.SessionReloaded(messages.size >= currentMessageLimit))
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "V1 loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit, hasOlder=${paginationState.value.hasOlderMessages})")
@@ -152,7 +158,9 @@ internal class MessagePaginationDelegate(
             errorSink(null)
             try {
                 val messages = manageSessionUseCase.listMessages(serverId, sid, limit = currentMessageLimit)
-                chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
+                kotlinx.coroutines.withContext(mergeDispatcher) {
+                    chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
+                }
 
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(TAG, "Loaded ${messages.size} messages for session $sid (limit=$currentMessageLimit)")

@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#228**。
+**编号**：全局递增，不回收。下一编号：**#229**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -63,6 +63,11 @@
 
 
 ## P2 — 优化与锦上添花
+
+- [~] **#228 V2 会话加载巨慢 + 页面乱：Room 空 part 炸弹回灌 merge 主线程 HANG** `data` `perf` `v2`
+  - 用户报（2026-08-26）「点会话加载很久+页面乱」；MIUIScout 5s HANG 栈 + Room 直查定音：#223 残留炸弹行（单消息 4488 空 reasoning part，全库 5714）作为 incoming 回灌热视图 → dedup O(N²) 主线程跑数十秒（#223 过滤只作用 existing 侧）
+  - 修复三层：merge 入口对称滤空（incoming+existing）+ 合并下沉 mergeDispatcher（可注入）+ 启动一次性清扫（实测 swept 5714 与计数分毫不差）；复打开原会话停顿 0 次、merge 1ms、页面 CLEAN
+  - → `docs/journal/2026-08-25-session-list-wipe.md` §#228
 
 - [~] **#227 压缩分割线展开态滚出视口即丢——拉走再回自动收起** `ui` `compaction`
   - 用户反馈（2026-08-26）：「压缩内容展开之后，一拉到其他地方就会自动合上」；根因=expanded 用 item 内 remember 存储，LazyColumn 视口外 item 被丢弃时状态清零

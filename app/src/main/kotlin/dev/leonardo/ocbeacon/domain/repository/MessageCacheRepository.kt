@@ -28,6 +28,9 @@ interface MessageCacheRepository {
 
     /** 按 partId 更新完整文本（ended 时覆盖最终文本，防增量与快照漂移）。 */
     suspend fun updatePartText(sessionId: String, partId: String, text: String)
+
+    /** #228（炸弹清扫）：全库删除空 Text/Reasoning part（SSE started 残留），返回删除数。 */
+    suspend fun sweepEmptyStreamParts(): Int
     suspend fun upsertMessages(
         sessionId: String,
         messages: List<MessageWithParts>,

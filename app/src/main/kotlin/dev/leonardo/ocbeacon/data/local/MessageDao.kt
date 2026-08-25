@@ -37,6 +37,15 @@ interface MessageDao {
     @Query("UPDATE cached_parts SET text = :text WHERE id = :partId")
     suspend fun updatePartText(partId: String, text: String)
 
+    /**
+     * #228（炸弹清扫）：SSE 残留的空 Text/Reasoning part 一次性删除。
+     * #223 时代只堵住了增殖源头与 merge 入口（existing 侧）；Room 里已落盘的
+     * 历史炸弹行（实测最大单消息 4488 个空 reasoning part）会随会话种子回灌
+     * 热视图。空文本 = 零信息（delta 到达有 idx<0 重建兜底），全库删除安全。
+     */
+    @Query("DELETE FROM cached_parts WHERE type IN ('reasoning', 'text') AND (text IS NULL OR text = '')")
+    suspend fun deleteEmptyStreamParts(): Int
+
     /** 分页读：最新 limit 条（无游标）。 */
     @Query(
         "SELECT * FROM cached_messages WHERE sessionId = :sessionId " +

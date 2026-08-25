@@ -707,12 +707,24 @@ class MessageEventHandler @Inject constructor(
         //    顺序：incoming（REST 权威）在前，SSE 独有追加在后；完成后 REST
         //    全量返回 → preserved 为空 → 顺序完全按 REST。
         if (incomingParts.isEmpty()) return existingParts
+        // #228（2026-08-26 用户报「点会话加载很久+页面乱」真机 MIUIScout 5s HANG 栈定音）：
+        // #223 的空 part 过滤只作用 existing 侧（preserved）——incoming 侧携带空 part 时
+        //（Room 炸弹行二次种子：实测一条消息 4488 个空 reasoning part 从 Room 回灌热视图）
+        // 它们长驱直入 dedupOverlappingTextParts 的 O(N²) 双层循环（每对两次 isNewPartId
+        // 短串扫描）→ 2000 万+迭代在主线程跑数秒。对称补全：incoming 侧同样滤空——
+        // 空 Text/Reasoning 零信息（started 后从未收到 delta；delta 有 idx<0 重建兜底），
+        // 且热视图里的炸弹在每次 merge 后被逐步清除。sanitized 全空（整批都是空 part）
+        // 时对 existing 也做一次滤空再返回——该路径原本直通 existing，炸弹永生。
+        val sanitizedIncoming = incomingParts.filter { !isEmptyStreamPart(it) }
+        if (sanitizedIncoming.isEmpty()) {
+            return existingParts.filter { !isEmptyStreamPart(it) }
+        }
         val existingById = existingParts.associateBy { it.id }
-        val merged = incomingParts.map { incoming ->
+        val merged = sanitizedIncoming.map { incoming ->
             val existing = existingById[incoming.id]
             if (existing != null) mergePart(existing, incoming) else incoming
         }
-        val incomingIds = incomingParts.mapTo(HashSet()) { it.id }
+        val incomingIds = sanitizedIncoming.mapTo(HashSet()) { it.id }
         // #223（空 part 炸弹，2026-08-25 真机 jdb + Room 双证）：SSE 的
         // reasoning/text.started 每事件建一个空 part（ordinal 递增），REST
         // 权威刷新不携带它们 → 此处被无限保留——实测一条消息累积 110 个空

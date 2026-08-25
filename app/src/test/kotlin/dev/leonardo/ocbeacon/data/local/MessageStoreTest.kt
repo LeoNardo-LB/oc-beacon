@@ -359,6 +359,7 @@ class MessageStoreTest {
             override fun observeMessages(sessionId: String) = kotlinx.coroutines.flow.flowOf(emptyList<CachedMessageEntity>())
             override suspend fun appendPartText(partId: String, messageId: String, sessionId: String, type: String, delta: String) {}
             override suspend fun updatePartText(partId: String, text: String) {}
+            override suspend fun deleteEmptyStreamParts(): Int = 0
             override suspend fun oldestMessageId(sessionId: String): String? = null
             override suspend fun messageCreatedAt(messageId: String): Long? = null
             override suspend fun countForSession(sessionId: String): Int = entities.size
