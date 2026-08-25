@@ -266,6 +266,31 @@ ChatMessageList isUser 分支前置特判：`role == "system"` → 折叠单行�
 1. 「语义树无交集」不能证伪视觉问题——Compose 语义只覆盖导出节点，布局混乱/内容混排类问题它天然看不见。
 2. 视觉模型判定必须全分辨率人读式复核，低分辨率批量初筛的 OVERLAP 判定两次把追凶带偏。
 3. 用户说「还是这样」时，第一动作是截图看**当前实况**，而不是复跑上一轮的验证矩阵。
+## #232 勘误二（同夜续）：system 消息绕道用户长文分片——UserChunk 路径拦截缺失（SysMsgDiag 定音）
+
+用户四报「没有解决，最底端 agent 回复还是叠在一起」，并要求「截图查看！多打日志」。
+
+### 按要求加日志后的定音过程
+
+1. 在 #232 分支与 Turn 分支头部加 SysMsgDiag/ItemDiag 日志 → 复现时 **SysMsgDiag 不触发**——system 消息根本没走 Turn 分支！
+2. 全分辨率裁剪确认屏幕上是**深蓝底等宽代码块**（Markdown fenced code 样式）——#232 的折叠通知是纯文本行，不可能产生此样式 → 存在第三条渲染路径。
+3. 路径定音：11235 字符的 system 消息（Message.User role=system）满足「用户长文」条件 → `buildChatEntries` 的 `userChunkPlanFor` 把它切成 **ChatEntry.UserChunk** 分片条目 → `ChunkedUserMessage` 逐分片按用户 Markdown 渲染（工具目录里的 fenced schema = 深蓝代码块）→ 一面包文本墙。#232 的拦截只写在 `ChatEntry.Turn` 分支，UserChunk 路径完全绕过。
+
+（用户看到「最底端 agent 回复叠在一起」= 该墙与其后用户消息/agent 回复在视觉上无边界混排。）
+
+### 修复
+
+`MarkdownChunking.buildChatEntries`：用户长文分片判定追加 `role != "system"` 门——system 消息不再进 UserChunk，回落 ChatEntry.Turn → #232 通知拦截生效。
+
+### 验证（日志 + 实拍双证）
+
+- SysMsgDiag：`system branch RENDER id=4sqe4MbR textLen=11235` + `id=p6hCqirN textLen=86`——两条 system 消息均走通知分支 ✓
+- 截图裁决：深蓝代码块墙消失，两条紧凑单行通知（图标+截断+chevron），对话读作 通知行+中文用户泡+中文 agent 回复，边界清晰 ✓
+- 全量单测 1956 绿。
+
+### 过程勘误
+
+上一轮验证时点开展开态未收回，给用户造成了「没修好」的观感——验证收尾必须还原现场。诊断日志（SysMsgDiag/ItemDiag，DEBUG-only）保留供后续取证。
 ## #231 「还是叠在一起」二审：全分辨率勘误 + 跨 item 越界构造性防御（2026-08-26 凌晨）
 
 用户再报「现在还是会叠在一起」。系统性重审：

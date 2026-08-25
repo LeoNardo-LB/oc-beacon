@@ -66,7 +66,7 @@
 
 - [~] **#232 「叠在一起」三审定音：system 消息 11KB 工具目录墙折叠为一行通知** `ui` `v2`
   - 用户令「截图查看！多打日志」——实况截图+全分辨率逐带裁剪+Room/服务器双源对照定音：zhipu 构建的 system 消息（11235 字符「Code Mode tool catalog」全量工具 schema）被当普通消息渲染成 1340px 无气泡英文墙插在中文对话中间=「叠在一起」观感真身（前两轮语义树交集判据天然看不见此类问题）
-  - 修复：isUser 分支前置特判 role==system → 折叠单行通知（Info 图标+首句截断+chevron，转后台通知同语言）+ 点击展开滚动全文（300dp 上限，#227 同款屏幕级展开表）
+  - 修复：isUser 分支前置特判 role==system → 折叠单行通知（Info 图标+首句截断+chevron，转后台通知同语言）+ 点击展开滚动全文（300dp 上限，#227 同款屏幕级展开表）；勘误二（用户四报+SysMsgDiag 定音）：system 长消息被用户长文分片切成 UserChunk 绕过拦截逐分片渲染成代码块墙——buildChatEntries 追加 role!=system 门，两条 system 消息均实证走通知分支
   - 验证：真机实拍折叠/展开两态 ✓ + 1956 单测绿；教训三条入 journal（语义树不能证伪视觉问题/视觉判定须全分辨率复核/用户再报先看实况）
   - → `docs/journal/2026-08-25-session-list-wipe.md` §#232
 

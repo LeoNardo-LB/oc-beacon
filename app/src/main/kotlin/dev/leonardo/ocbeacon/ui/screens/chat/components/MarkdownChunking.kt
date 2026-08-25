@@ -221,8 +221,14 @@ internal fun buildChatEntries(
             }
         } else null
         // 用户长消息纯文本分片（无 AST/无预解析依赖——切段为纯函数，首建即
-        // 稳定 key，无 assistant 那种「解析后裂变」窗口，无需延迟提交门控）
-        val userPlan = if (plan == null && msg.isUser) userChunkPlanFor(msg) else null
+        // 稳定 key，无 assistant 那种「解析后裂变」窗口，无需延迟提交门控）。
+        // #232 勘误二（SysMsgDiag 定音）：system 角色的 User 消息（zhipu 工具
+        // 目录 11KB）必须排除——此前被用户长文分片切成 UserChunk 条目，绕过
+        // Turn 分支的 #232 系统通知拦截，逐分片按用户 Markdown 渲染（含代码
+        // 块样式）= 又一面包文本墙。排除后走 ChatEntry.Turn → 拦截生效。
+        val userPlan = if (plan == null && msg.isUser &&
+            (msg.message as? dev.leonardo.ocbeacon.domain.model.Message.User)?.role != "system"
+        ) userChunkPlanFor(msg) else null
         if (plan != null) {
             val count = plan.ranges.size
             for (c in 0 until count) {

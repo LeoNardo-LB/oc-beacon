@@ -1282,6 +1282,12 @@ fun ChatMessageList(
                         ) {
                         when {
                             msg.isAssistant -> {
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    dev.leonardo.ocbeacon.logging.AppLogger.d(
+                                        "ItemDiag",
+                                        "Turn item key=" + itemKey.take(18) + " role=assistant grp=" + (turnGroups[rawIndex]?.size ?: 1)
+                                    )
+                                }
                                 // #226：V1 摘要消息认领——assistant(agent=compaction) 一律
                                 // 渲染分割线，与 V2 同构（「一条压缩 = 一条分割线」）：
                                 // - 未完结（归一化器完结守卫放行、parts 为流式 text）→
@@ -1435,6 +1441,13 @@ fun ChatMessageList(
                                 // 折叠为一行系统通知（图标 + 首句截断 + 展开箭头），
                                 // 点击展开可滚动全文（300dp 上限）。
                                 if ((chatMessage.message as? Message.User)?.role == "system") {
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        dev.leonardo.ocbeacon.logging.AppLogger.w(
+                                            "SysMsgDiag",
+                                            "#232 system branch RENDER id=" + chatMessage.message.id.takeLast(8) +
+                                                " textLen=" + chatMessage.parts.filterIsInstance<Part.Text>().sumOf { it.text.length }
+                                        )
+                                    }
                                     val sysText = chatMessage.parts
                                         .filterIsInstance<Part.Text>()
                                         .joinToString("\n") { it.text }.trim()
