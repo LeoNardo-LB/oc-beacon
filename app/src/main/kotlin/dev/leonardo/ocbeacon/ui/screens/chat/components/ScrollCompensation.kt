@@ -3,6 +3,8 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import dev.leonardo.ocbeacon.logging.AppLogger
@@ -38,6 +40,17 @@ internal class CompensateState {
  * 都已带着等量锚点位移。
  */
 internal class DeferredRevealCompensator {
+    /** 配对版本号（#225 修复）：注入时自增；layout 块读它建立快照订阅——
+     *  注入使**本节点**测量失效，消费遍（scrollToBeConsumed 遍首消费的那遍）
+     *  必然重新测量本节点 → 揭示与消费严格同遍配对。
+     *
+     *  修复背景（2026-08-25 真机像素取证）：注入只 poke 列表测量作用域时，
+     *  消费遍会**复用本节点的缓存测量**（内容未变、约束未变 → Compose 跳过
+     *  重测）——消费位移生效而揭示未更新 → 内容下跳一个注入单位（实测帧序
+     *  +66px 恰等于单次 inject），下次内容刷新再揭示回弹 → 来回跳动。 */
+    var version by androidx.compose.runtime.mutableStateOf(0)
+        private set
+
     /** 已向 LazyList 上报且其对应注入已被遍首消费的基准高度。 */
     var reportedHeight: Int = 0
         private set
@@ -81,8 +94,10 @@ internal class DeferredRevealCompensator {
         }
         return if (extra > 0) {
             // 有新增长：注入 extra（下一遍遍首消费）、本遍只揭示已消费部分，
-            // 未消费的 extra 保持裁剪——未补偿状态永不被放置（渲染前保证）
+            // 未消费的 extra 保持裁剪——未补偿状态永不被放置（渲染前保证）。
+            // version++ 使本节点在消费遍被强制重测（配对关键，见 version 注释）。
             injectedPending += extra
+            version++
             Decision(revealHeight, extra, true)
         } else {
             // 无新增长（或收缩）：完全揭示，重置基准
@@ -104,6 +119,10 @@ internal fun Modifier.deferredRevealCompensation(
     shouldCompensate: () -> Boolean,
     logTag: String,
 ): Modifier = this.layout { measurable, constraints ->
+    // 订阅版本号：建立「注入 → 本节点失效 → 消费遍重测本节点」的配对闭环。
+    // 读取必须在 measure 块内（快照订阅作用于布局节点）。require 消费读取结果，
+    // 防编译器消除。
+    require(compensator.version >= 0)
     val placeable = measurable.measure(
         constraints.copy(maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
     )
