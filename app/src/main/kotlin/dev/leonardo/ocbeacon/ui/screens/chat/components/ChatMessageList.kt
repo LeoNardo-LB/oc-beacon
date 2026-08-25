@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.heightIn
@@ -755,27 +756,17 @@ fun ChatMessageList(
         ) {
             var showAlwaysDialog by remember { mutableStateOf<SseEvent.PermissionAsked?>(null) }
 
-            // 自动分页：用户距顶部 8 项以内时触发加载。
+            // 自动分页（older 方向）：用户距顶部 8 项以内时触发加载。
             // 取代 PullToRefreshBox —— 无缝，无需手动手势。
+            // C10：触发决策（阈值/方向/退避/跳转互斥）全部在 AutoLoadPolicy（纯函数，
+            // JVM 可测——2026-08-10 isScrollInProgress 依赖移除、08-12 reverseLayout
+            // 索引方向、08-21 ×2 fire-time 竞态四次历史修复语义存档于该文件）。
             //
-            // 关键：remember 必须以 messageState 为 key。没有这个 key，
-            // derivedStateOf 会捕获初始 messageState（其中 hasOlderMessages=false）
-            // 并且当 loadMessagesForSession() 将 hasOlderMessages 设为 true 时
-            // 永远看不到更新。这是进入会话后分页静默失败的根源。
-            //
-            // reverseLayout=true 下：索引 0 = 视觉底部（最新消息），
-            // firstVisibleItemIndex = 视觉顶部（最旧可见消息）。
-            // "距顶部" = total - firstVisibleItemIndex。不可用 lastOrNull()
-            //（那是最新消息，恒等于底部 → 进入会话即无限翻页拉网络）。
-            //
-            // 2026-08-10 修复：不再依赖 isScrollInProgress——用户滑到顶"停住"
-            // 时 isScrollInProgress=false 导致不触发（"看似滑到顶但有更多内容"）。
-            // 改用 LaunchedEffect(hasOlderMessages, isLoadingOlder, autoLoadPaused) + snapshotFlow：
-            // 距顶 <=8 即触发（无论是否滚动中）；加载完成 isLoadingOlder 翻转
-            // → LaunchedEffect 重启 → 重新监听布局 → 若仍距顶近则自动续载。
-            // 进入会话不触发：firstVisible=0（视觉底部），total-firstVisible 大。
-            // 防风暴：autoLoadPaused（连续失败 3 次）→ 停止自动续载；collect 触发前
-            // 查询 delegate 的退避等待（autoLoadWaitMillis）——失败后按 500ms 指数退避重试。
+            // 关键：LaunchedEffect 必须以 messageState 字段为 key。没有这些 key，
+            // snapshotFlow 会捕获初始 messageState（其中 hasOlderMessages=false），
+            // loadMessagesForSession() 将 hasOlderMessages 置 true 时永远看不到更新
+            // ——这是进入会话后分页静默失败的根源。加载完成 isLoadingOlder 翻转
+            // → effect 重启 → 若仍距顶近则自动续载（08-10 语义）。
             LaunchedEffect(
                 messageState.hasOlderMessages,
                 messageState.isLoadingOlder,
@@ -788,47 +779,34 @@ fun ChatMessageList(
                         "auto-load effect restart: hasOlder=${messageState.hasOlderMessages} isLoading=${messageState.isLoadingOlder} paused=${messageState.autoLoadPaused}"
                     )
                 }
-                if (messageState.hasOlderMessages && !messageState.isLoadingOlder && !messageState.autoLoadPaused && !jumpLockActive) {
+                val paging = AutoLoadPagingState(
+                    hasMore = messageState.hasOlderMessages,
+                    isLoading = messageState.isLoadingOlder,
+                    paused = messageState.autoLoadPaused,
+                )
+                if (AutoLoadPolicy.startGate(paging, jumpLockActive)) {
                     snapshotFlow { listState.layoutInfo }
-                        .map { layoutInfo ->
-                            // 2026-08-12 修复：视觉顶部 = 可见项中 index 最大
-                            //（reverseLayout：最旧在最上、index 最大）——原实现用
-                            // visibleItemsInfo.firstOrNull()（index 最小 = 视觉底部），
-                            // 用户滑到顶部时底部项 index 仍远离 total → nearTop 永不
-                            // 满足 → 更旧消息永远加载不了（用户反馈"滚动不上去了"，
-                            // 视口卡在 11:44——该处已是已加载最旧但 loadOlder 未触发）。
-                            val topVisible = layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
-                            val total = layoutInfo.totalItemsCount
-                            val nearTop = total - topVisible <= 8
-                            // 内容不足一屏（最后可见项未填满视口）时也触发。
-                            // 主会话初始加载经 displayItems 过滤后可能仅剩 13 条——不足一屏时
-                            // 用户无法滚动（firstVisible 恒 0），永达不到 nearTop → 历史加载
-                            // 静默失效（用户反馈"向上滑动加载历史消息也没有"）。
-                            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
-                            val contentDoesNotFillViewport = lastVisible == null ||
-                                lastVisible.offset + lastVisible.size < layoutInfo.viewportEndOffset
-                            if (BuildConfig.DEBUG && total > 0 && (nearTop || contentDoesNotFillViewport)) {
-                                // 低频诊断：触发条件附近打印（滚动高频段不刷屏）
-                                AppLogger.d("ChatPaging", "auto-load probe: topVisible=$topVisible total=$total nearTop=$nearTop fillsViewport=${!contentDoesNotFillViewport}")
+                        .map { info ->
+                            val snap = info.toAutoLoadSnapshot()
+                            // 低频诊断：触发条件附近打印（滚动高频段不刷屏）
+                            if (BuildConfig.DEBUG) {
+                                AutoLoadPolicy.olderProbeReason(snap)?.let { AppLogger.d("ChatPaging", it) }
                             }
-                            nearTop || contentDoesNotFillViewport
+                            AutoLoadPolicy.olderThresholdMet(snap)
                         }
                         .distinctUntilChanged()
                         .filter { it }
                         .collect {
-                            val waitMs = viewModel.conversation.paginationDelegate.autoLoadWaitMillis()
-                            if (waitMs > 0) {
-                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load backoff wait ${waitMs}ms before retry")
-                                delay(waitMs)
+                            // 桥：policy 退避 → policy fire-time 复查 → delegate.load
+                            val trigger = AutoLoadPolicy.trigger(
+                                viewModel.conversation.paginationDelegate.autoLoadWaitMillis(),
+                            )
+                            if (trigger.backoffMillis > 0) {
+                                if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load backoff wait ${trigger.backoffMillis}ms before retry")
+                                delay(trigger.backoffMillis)
                             }
-                            // 2026-08-21 竞态修复（同日根因完备化）：!jumpLockActive 只在
-                            // effect 启动时检查一次——跳转滚动使 nearTop 在旧实例 collect 里
-                            // 发射时（标志翻转与 effect 重启之间有重组延迟窗口——重组帧驱动、
-                            // snapshotFlow 发射提交驱动，二者排序无保证，跳转重载下窗口
-                            // 实测拉宽到 136ms+），启动闸门已失效 → settle 期间数据变动。
-                            // 修复 = 正确的时机 × 正确的源：fire-time 复查 + 直读 phase 真源
-                            //（isJumpInProgress 同步快照——不经派生锁的组合帧滞后）。
-                            if (jumpController.isJumpInProgress) {
+                            // 08-21 ×2：fire-time 复查 + 直读 phase 真源（isJumpInProgress）
+                            if (!AutoLoadPolicy.fireAllowed(jumpController.isJumpInProgress)) {
                                 if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load skipped (jump in progress at fire time)")
                                 return@collect
                             }
@@ -838,35 +816,33 @@ fun ChatMessageList(
                 }
             }
 
-            // 自动分页（更新方向）：用户距视觉底部 8 项以内时触发加载更新消息。
+            // 自动分页（newer 方向）：用户距视觉底部 8 项以内时触发加载更新消息。
             // 仅在 loadAround 定位后激活（hasNewerMessages=true）；正常会话状态
-            //（已在最新）hasNewerMessages=false，永不触发。
-            //
-            // reverseLayout=true：firstVisible（visibleItemsInfo 最低索引）接近 0
-            // = 视觉底部（更新方向）。与 older 的 `total - firstVisible <= 8`（视觉顶部）
-            // 对称。无更多更新数据时服务器返回不足一页 → FSM 置 hasNewer=false → 停止。
+            //（已在最新）hasNewerMessages=false，永不触发。方向语义（与 older 的
+            // 视觉顶部阈值对称）存档 AutoLoadPolicy（C10）。
             LaunchedEffect(
                 hasNewerMessages,
                 isLoadingNewer,
                 jumpLockActive,
             ) {
-                if (hasNewerMessages && !isLoadingNewer && !jumpLockActive) {
+                val paging = AutoLoadPagingState(
+                    hasMore = hasNewerMessages,
+                    isLoading = isLoadingNewer,
+                )
+                if (AutoLoadPolicy.startGate(paging, jumpLockActive)) {
                     snapshotFlow { listState.layoutInfo }
-                        .map { layoutInfo ->
-                            val firstVisible = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
-                            if (BuildConfig.DEBUG && firstVisible <= 12) {
-                                AppLogger.d("ChatPaging", "nearBottom probe: firstVisible=$firstVisible")
+                        .map { info ->
+                            val snap = info.toAutoLoadSnapshot()
+                            if (BuildConfig.DEBUG) {
+                                AutoLoadPolicy.newerProbeReason(snap)?.let { AppLogger.d("ChatPaging", it) }
                             }
-                            firstVisible <= 8
+                            AutoLoadPolicy.newerThresholdMet(snap)
                         }
                         .distinctUntilChanged()
                         .filter { it }
                         .collect {
-                            // 2026-08-21 竞态修复（同日根因完备化，真机日志实证：
-                            // jumpToMessage 置锁后 +136ms nearBottom 发射仍漏过启动时
-                            // 闸门 → 渐进步进卡 gap=-343 空转 7 次、蒙版多挂 ~2s）。
-                            // 修复 = fire-time 复查 + 直读 phase 真源（isJumpInProgress）。
-                            if (jumpController.isJumpInProgress) {
+                            // 桥：policy fire-time 复查（08-21 ×2，newer 无退避）→ delegate.load
+                            if (!AutoLoadPolicy.fireAllowed(jumpController.isJumpInProgress)) {
                                 if (BuildConfig.DEBUG) AppLogger.d("ChatPaging", "auto-load newer skipped (jump in progress at fire time)")
                                 return@collect
                             }
@@ -1726,6 +1702,14 @@ fun ChatMessageList(
 }
 
 
+
+// C10 桥：LazyListLayoutInfo → AutoLoadLayoutSnapshot（决策输入的纯数据快照）
+private fun LazyListLayoutInfo.toAutoLoadSnapshot(): AutoLoadLayoutSnapshot =
+    AutoLoadLayoutSnapshot(
+        totalItemsCount = totalItemsCount,
+        visibleItems = visibleItemsInfo.map { VisibleItemSnapshot(it.index, it.offset, it.size) },
+        viewportEndOffset = viewportEndOffset,
+    )
 
 /**
  * 提取 task/subagent 工具卡片的子智能体会话 ID（metadata.sessionId / sessionID / jobId）。
