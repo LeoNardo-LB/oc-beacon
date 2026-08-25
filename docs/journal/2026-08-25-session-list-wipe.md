@@ -99,4 +99,34 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 
 **预计算路径判定：不值得做**。三类「出现」场景：流式 turn 内卡片弹入已被 COMP-MSG 单遍 delta 模型精确覆盖（高度在注入决策同一测量遍内已知，无时间差可弥合）；新 item 插入在 reverseLayout key 锚定下不产生可补偿位移（foundation 1.11.2 源码级取证）；toggle 已被用户终版裁决排除。SubcomposeLayout 预测量/静态预算表/lookahead 均无消费者且有反向注入风险。**两个新发现待办**：①反射通道回写竞争开放问题（动工任何补偿扩展前先做 §6.1 通道存活验证）；②贴底时尾部横幅类 item 不可见（V1 进行中分割线/retry/tool_progress——可见性缺口非补偿缺口，解法是 reveal 滚动）——已登记 #222。
 
+## #222 双修：贴底横幅 reveal + 补偿通道回写竞争根治（2026-08-25）
+
+用户指令「两个问题也修了吧」——调研副产物的两个发现：#222 贴底尾部横幅不可见、§6.1 反射通道回写竞争开放问题。
+
+### 修一：贴底横幅 reveal（可见性缺口）
+
+定因（调研 §2.4 源码级）：reverseLayout key 锚定下，贴底时横幅区新 item 插入点在锚之下（P<A）→ 零位移且不被组合 → 不可见；锚 index 抬高还使 isAtBottom 翻 false（⬇ FAB 闪现）。受影响且无自有 reveal 路径的四类：retry（无 error）、tool_progress 聚合卡、step indicator、压缩尾部兜底分割线（V1 唯一路径）。
+
+实现：ChatMessageList 新增 revealBannerCount（四类计数）+ LaunchedEffect 驱动 `requestScrollToItem(0)`——msgCount effect 同款显式锚底语义（fling 等待+重校验防竞态），门控用 autoScroll（在底意图）而非 isAtBottom（后者被插入本身翻假会自我闭锁）。ChatScrollController 暴露 `autoScrollState: State<Boolean>` 传入。revert/question/perm 不计——各有 msgCount/pendingCount 路径。reveal 是显式滚动决策，非补偿，与硬约束无涉。
+
+### 修二：补偿通道回写竞争根治（scrollToBeConsumed 通道复活）
+
+真机活体诊断（14:50 分布式长文流式 + 滚离 1/3 屏）：COMP-MSG 67 次实弹，off 轨迹 785→933→**933**→1093→1163——fire2 注入（933+72=1005）被回写吃掉回到 933，其余存活。**间歇性注入丢失（~30%）→ 阅读历史期视口缓慢上爬**。与 #215 journal 动画场景定因（请求被 updateFromMeasureResult 中途丢弃）同源——静态分析+活体证据双确认。
+
+源码定音（foundation 1.11.2，/tmp/compose-src）：LazyListMeasure.kt:423 把本遍**起始** off 原样回写；中途注入的 request-position 若 poke 再测遍先起跑则存活、否则覆盖丢弃——竞争窗口结构性存在。scrollToBeConsumed 通道（LazyListMeasure.kt:142 遍首**无条件消费**）无此竞争。
+
+实现：`LazyListReflection.requestScrollShift(state, shiftDownPx)` 复活（a4eedab6 封存实现：scrollToBeConsumed 累减 + poke；降级回 request-position 通道）；**四个 COMP 注入点全部切换**（COMP-MSG / COMP-TOOL / COMP-CMP(tail) / COMP-CMP(msg)）。语义等价（生长 delta → 消费时 off += delta）、时序更优（遍首消费先于放置=更严格的渲染前注入，符合用户硬约束）。
+
+### 验证状态（诚实记录）
+
+- 通道诊断证据链完整（活体 off 轨迹 + 源码 + #215 历史三方互证）；修复本身有 #215 时代同通道 dy=0 六格矩阵的历史验证背书。
+- **修复后活体 E2E 被服务器阻断**：当日 15:05 起三家 provider（opencode-go/zai/deepseek）对新 prompt 全部静默挂起（prompt 受理+assistant 壳创建后零 delta，多会话多轮次重试含 interrupt 清队），仅存量轮次慢速完成。#222 reveal 与新通道流式稳定性活体验证均转 **V6 用户日常验收**。
+- 全量单测绿；compileDevDebugKotlin 绿；最新构建已装真机。
+
+### 验收清单（V6，服务器恢复后）
+
+1. **通道**：任意会话流式长回复期间滚离底部 1/3 屏停住——视口应纹丝不动（修复前：缓慢上爬）。
+2. **reveal**：贴底状态发起会触发工具的提问（如「用 bash 执行 sleep 5」）——工具聚合卡应立即可见（修复前：不可见+⬇FAB 闪现）；V1 服务器同理验压缩进行中分割线。
+
+
 

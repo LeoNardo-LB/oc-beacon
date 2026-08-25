@@ -46,6 +46,12 @@ internal class ChatScrollController(
      * 读取下沉到 snapshotFlow / 最小组合作用域。 */
     val isAtBottom: Boolean get() = isAtBottomState.value
 
+    /** autoScroll 的快照可观察形态（#222：尾部横幅 reveal 门控读取点——
+     * ChatMessageList 的 reveal effect 需订阅「在底意图」，而非 isAtBottom
+     * （横幅插入本身会把锚 index 抬高使 isAtBottom 翻 false，用它门控会
+     * 自我闭锁）。读取底层 MutableState，快照可观察。 */
+    val autoScrollState: State<Boolean> get() = autoScrollEnabledState
+
     /**
      * 自动滚动开关。后端为 [rememberSaveable] 的 [MutableState]，跨配置变更存活。
      * 修改会真实作用于底层状态（不会因 controller 实例每次重组新建而丢失）。

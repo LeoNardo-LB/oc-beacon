@@ -837,6 +837,7 @@ fun ChatScreen(
                         rawMessages = rawMessages,
                         displayItems = displayItems,
                         isAtBottomState = scrollController.isAtBottomState,
+                        autoScrollState = scrollController.autoScrollState,
                         isAmoled = isAmoled,
                         messageSpacing = messageSpacing,
                         isMainSession = isMainSession,

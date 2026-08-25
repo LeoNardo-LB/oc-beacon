@@ -103,4 +103,46 @@ internal object LazyListReflection {
 
     // #215 验收反馈·一（终版裁决）：requestScrollShift 已随方案三整体撤销，
     // 实现存档 git history（a4eedab6）供未来复用。
+
+    /**
+     * #222 伴随定案（2026-08-25 通道回写竞争修复）：流式高度补偿注入改走
+     * scrollToBeConsumed 消费通道（a4eedab6 封存实现复活）。
+     *
+     * 定因链：request-position 通道（requestPositionAndForgetLastKnownKey + poke）
+     * 在测量**中途**注入，而 LazyListMeasure.kt:423 把本遍**起始** off 原样写回
+     * （updateFromMeasureResult）——poke 引发的再测遍若先于回写起跑则注入存活，
+     * 否则被覆盖丢弃。真机实测（2026-08-25 分布式长文流式 + 滚离底部）：off 轨迹
+     * 785→933→933→1093→1163，fire2 注入（933+72）被吃——间歇性丢失使阅读历史
+     * 期视口缓慢上爬。#215 journal 早已实证动画场景同竞争（请求落空、终态跳回）。
+     *
+     * scrollToBeConsumed 是用户真实滚动（scrollBy/fling）的必经通道：测量开始时
+     * **无条件消费**（currentFirstItemScrollOffset -= scrollDelta，LazyListMeasure.kt:142），
+     * 消费结果随回写生效——结构性无竞争。注入语义：内容生长 delta 即等量下移
+     * （cur - shiftDownPx → 消费时 off += delta），与 request-position 注入等价。
+     *
+     * 仍是测量期（渲染前）反射注入——遍首消费先于放置，符合用户硬约束。
+     * 反射字段不可用时降级回 request-position 通道（有竞争但功能等价）。
+     */
+    fun requestScrollShift(state: LazyListState, shiftDownPx: Float) {
+        val f = scrollToBeConsumedField
+        if (f != null) {
+            try {
+                val cur = f.getFloat(state)
+                f.setFloat(state, cur - shiftDownPx)
+                invalidatorField?.get(state)?.let {
+                    @Suppress("UNCHECKED_CAST")
+                    (it as MutableState<Unit>).value = Unit
+                }
+                return
+            } catch (t: Throwable) {
+                AppLogger.w("LazyListReflection", "requestScrollShift failed, fallback: ${t.message}")
+            }
+        }
+        // 降级：request-position 通道（存在回写竞争，但保证注入发生）
+        requestScrollToItemNoCancel(
+            state,
+            state.firstVisibleItemIndex,
+            state.firstVisibleItemScrollOffset + shiftDownPx.toInt()
+        )
+    }
 }

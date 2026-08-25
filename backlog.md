@@ -70,10 +70,11 @@
   - 调研结论（subagent，2026-08-25）：卡片/分割线高度预先获取**不值得做**——弹入已被 COMP-MSG 单遍 delta 覆盖（无时间差可弥合）、插入在 key 锚定下零位移（foundation 1.11.2 源码取证）、toggle 已被终版裁决排除 → `docs/research/2026-08-25-card-height-precompute-feasibility.md`
   - → `docs/journal/2026-08-25-session-list-wipe.md` §#221
 
-- [ ] **#222 贴底时尾部横幅类 item 不可见（V1 进行中压缩分割线/retry/tool_progress）** `ui` `compaction`
-  - 高度预算调研副产物（非补偿问题）：key 锚定使插在锚下的新横幅落在视口底缘之下不被组合——贴底发起压缩（V1 无骨架消息，尾部兜底是唯一路径）时进行中分割线整个不可见，直到内容增长推出视口；isAtBottom 翻 false 还会使 ⬇ FAB 闪现
-  - 解法方向：reveal 滚动（bannerCount 驱动锚底，同 msgCount 款），非高度补偿；动工前先做反射通道存活验证（调研文档 §6.1）
-  - → `docs/research/2026-08-25-card-height-precompute-feasibility.md` §2.4
+- [~] **#222 贴底横幅不可见 + 补偿通道回写竞争（双修）** `ui` `compaction` `sse`
+  - 修一（reveal）：revealBannerCount（retry/tool/step/压缩尾部分割线四类）+ autoScroll 门控 + requestScrollToItem(0) 显式锚底（msgCount 同款）；isAtBottom 门控会自我闭锁故弃用
+  - 修二（通道）：§6.1 活体诊断定音 request-position 通道间歇丢注入（off 轨迹 785→933→933→1093，~30% 丢失→阅读历史缓慢上爬，#215 动画定因同源）；requestScrollShift 复活 scrollToBeConsumed 遍首无条件消费通道（a4eedab6 封存实现+dy=0 矩阵背书），四个 COMP 注入点全切换
+  - 验证：诊断证据链完整（活体+源码+历史）；修复后活体 E2E 被服务器 provider 全静默阻断（15:05 起 opencode-go/zai/deepseek 新 prompt 零产出），转 V6 验收——①流式期滚离底部 1/3 屏视口应纹丝不动；②贴底触发工具调用聚合卡应立即可见
+  - → `docs/journal/2026-08-25-session-list-wipe.md` §#222
 
 - [~] **#220 压缩进行中态视觉：标签骑线 + 两段线即进度动画（#217 打磨）** `ui` `compaction`
   - 用户反馈（2026-08-25）：「进行中态在分割线上方多出一块区域专门显示，难看；就不能显示在分割线上、分割线带进度动画吗」——#217 实现是标签行在上+全宽进度线在下，与完成态（线—标签—线骑线结构）不同构，多占一整块纵向空间

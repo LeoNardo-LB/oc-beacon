@@ -164,6 +164,8 @@ fun ChatMessageList(
     rawMessages: List<ChatMessage>,
     displayItems: List<Pair<Int, ChatMessage>>,
     isAtBottomState: androidx.compose.runtime.State<Boolean>,
+    /** #222：在底意图（autoScroll）快照——尾部横幅 reveal 门控。 */
+    autoScrollState: androidx.compose.runtime.State<Boolean>,
     isAmoled: Boolean,
     messageSpacing: Dp,
     isMainSession: Boolean,
@@ -398,6 +400,44 @@ fun ChatMessageList(
         (if (currentStep != null) 1 else 0) +
         (if (unembeddedQuestions.isNotEmpty()) 1 else 0) +
         (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0)
+    }
+
+    // #222（贴底尾部横幅 reveal）：调研定音（docs/research/2026-08-25-card-height-
+    // precompute-feasibility.md §2.4）——reverseLayout key 锚定下，贴底时横幅区
+    // 新 item 插入点在锚之下（P<A）→ 零位移且不被组合 → **不可见**；锚 index
+    // 被抬高还使 isAtBottom 翻 false（⬇ FAB 闪现）。受影响且无自有 reveal 路径
+    // 的四类：retry（无 error 伴随）、tool_progress 聚合卡、step indicator、
+    // 压缩尾部兜底分割线（V1 唯一路径/V2 fallback）。revert/question/perm 不计
+    // ——各有 msgCount/pendingCount 路径，重复触发无意义。
+    // 修复 = reveal 而非补偿：bannerCount 驱动显式锚底（msgCount effect 同款
+    // requestScrollToItem(0) 语义——显式滚动决策，零反射零测量注入）。门控用
+    // autoScroll（在底意图）而非 isAtBottom——后者被插入本身翻假会自我闭锁。
+    val revealBannerCount = remember(
+        sessionMeta.sessionStatus,
+        activeTools,
+        currentStep,
+        currentCompaction,
+        displayItemMessageIds,
+    ) {
+        (if (sessionMeta.sessionStatus is SessionStatus.Retry) 1 else 0) +
+            (if (activeTools.isNotEmpty()) 1 else 0) +
+            (if (currentStep != null) 1 else 0) +
+            (if (currentCompaction?.isActive == true &&
+                currentCompaction.messageId !in displayItemMessageIds) 1 else 0)
+    }
+    LaunchedEffect(revealBannerCount) {
+        if (revealBannerCount > 0 && autoScrollState.value) {
+            // fling 等待 + 重校验（msgCount effect 同款防「快照后用户开始拖动」竞态）
+            if (listState.isScrollInProgress) {
+                kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                    androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }
+                        .first { !it }
+                }
+            }
+            if (autoScrollState.value) {
+                listState.requestScrollToItem(0)
+            }
+        }
     }
 
     // ===== 2026-08-20 fling 巨帧根治：超长消息块级分片 =====
@@ -930,11 +970,7 @@ fun ChatMessageList(
                                                             " realH=" + realHeight
                                                     )
                                                 }
-                                                LazyListReflection.requestScrollToItemNoCancel(
-                                                    listState,
-                                                    listState.firstVisibleItemIndex,
-                                                    listState.firstVisibleItemScrollOffset + delta
-                                                )
+                                                LazyListReflection.requestScrollShift(listState, delta.toFloat())
                                             }
                                             compactionExpandState.lastHeight = realHeight
                                             layout(placeable.width, realHeight) {
@@ -980,11 +1016,7 @@ fun ChatMessageList(
                                                         " off=" + listState.firstVisibleItemScrollOffset
                                                 )
                                             }
-                                            LazyListReflection.requestScrollToItemNoCancel(
-                                                listState,
-                                                listState.firstVisibleItemIndex,
-                                                listState.firstVisibleItemScrollOffset + delta
-                                            )
+                                            LazyListReflection.requestScrollShift(listState, delta.toFloat())
                                         }
                                         toolCompensateState.lastHeight = realHeight
                                         layout(placeable.width, realHeight) {
@@ -1171,11 +1203,7 @@ fun ChatMessageList(
                                                     " off=" + listState.firstVisibleItemScrollOffset
                                             )
                                         }
-                                        LazyListReflection.requestScrollToItemNoCancel(
-                                            listState,
-                                            listState.firstVisibleItemIndex,
-                                            listState.firstVisibleItemScrollOffset + delta
-                                        )
+                                        LazyListReflection.requestScrollShift(listState, delta.toFloat())
                                     }
                                     compensateState.lastHeight = realHeight
 
@@ -1353,11 +1381,7 @@ fun ChatMessageList(
                                                                 " realH=" + realHeight
                                                         )
                                                     }
-                                                    LazyListReflection.requestScrollToItemNoCancel(
-                                                        listState,
-                                                        listState.firstVisibleItemIndex,
-                                                        listState.firstVisibleItemScrollOffset + delta
-                                                    )
+                                                    LazyListReflection.requestScrollShift(listState, delta.toFloat())
                                                 }
                                                 compactionExpandState.lastHeight = realHeight
                                                 layout(placeable.width, realHeight) {
