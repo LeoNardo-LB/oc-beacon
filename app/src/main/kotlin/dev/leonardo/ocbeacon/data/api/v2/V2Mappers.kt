@@ -373,6 +373,12 @@ object V2MessageMapper {
                         ?: "Compaction failed"
                 } else {
                     obj["text"]?.jsonPrimitive?.contentOrNull
+                        // #226：zhipu 构建的 compaction 消息 summary 为嵌套对象
+                        // {body: "..."}（实测 2026-08-25 REST payload）——此前按
+                        // jsonPrimitive 强转会抛 IllegalArgumentException 被 outer
+                        // catch 吞掉 → parts 整体丢失。先对象后基元双读。
+                        ?: (obj["summary"] as? JsonObject)
+                            ?.get("body")?.jsonPrimitive?.contentOrNull
                         ?: obj["summary"]?.jsonPrimitive?.contentOrNull
                         ?: ""
                 }

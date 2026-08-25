@@ -158,6 +158,37 @@ class V2MappersTest {
         assertTrue(toolPart.state is dev.leonardo.ocbeacon.domain.model.ToolState.Completed)
     }
 
+    // #226：zhipu 构建的 compaction 消息 summary 为嵌套对象 {body}——
+    // 此前 jsonPrimitive 强转抛异常被吞 → parts 整体丢失。
+    @Test
+    fun `toMessageWithParts maps compaction message with nested summary body`() {
+        val obj = json.parseToJsonElement("""
+            {"type":"compaction","id":"msg_c1","time":{"created":1000},
+             "summary":{"body":"Summary of the conversation so far"}}
+        """).jsonObject
+
+        val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
+        assertEquals("msg_c1", result.info.id)
+        assertTrue(result.info is Message.User)
+        assertEquals("compaction", (result.info as Message.User).role)
+        assertEquals(1, result.parts.size)
+        val compactionPart = result.parts[0] as Part.Compaction
+        assertEquals("Summary of the conversation so far", compactionPart.summary)
+        assertFalse(compactionPart.failed)
+    }
+
+    @Test
+    fun `toMessageWithParts maps compaction message with primitive summary fallback`() {
+        val obj = json.parseToJsonElement("""
+            {"type":"compaction","id":"msg_c2","time":{"created":1000},
+             "summary":"Legacy flat summary"}
+        """).jsonObject
+
+        val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
+        val compactionPart = result.parts[0] as Part.Compaction
+        assertEquals("Legacy flat summary", compactionPart.summary)
+    }
+
     @Test
     fun `toMessageWithParts maps system message`() {
         val obj = json.parseToJsonElement("""
