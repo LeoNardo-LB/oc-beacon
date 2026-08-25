@@ -2,11 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,7 +81,6 @@ import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
-import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
@@ -403,6 +398,18 @@ fun ChatMessageList(
     // 即清，Q10「展开态不跨会话记忆」仍成立。尾部兜底线 V1 无 messageId 用
     // 固定键；V2 用真实 messageId——尾部→消息流对位交接同键无缝（Q13 强化）。
     val compactionExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+
+    // C4：压缩分割线撤销统一回调（V1 摘要线/触发线共用——撤销到目标 id 并提示）
+    val revertCompaction: (String) -> Unit = { target ->
+        viewModel.revertMessage(target) { ok ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    if (ok) context.getString(R.string.chat_messages_restored)
+                    else context.getString(R.string.chat_message_redo_failed)
+                )
+            }
+        }
+    }
 
     // #232：system 消息（实测 zhipu 构建「Code Mode tool catalog」11KB 工具目录
     // 全量 schema）展开表——此前按普通消息渲染成 1340px 纯文本墙插在对话中间
@@ -967,9 +974,9 @@ fun ChatMessageList(
                     if (tailCompaction != null) {
                         item(key = "compaction_banner") {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                // #221/#222：展开区流式增长——延迟揭示真·渲染前
-                                // 补偿（尾部兜底路径；消息流对位路径同款见下）。
-                                Box(
+                                // #221/#222：展开区流式增长——延迟揭示真·渲染前补偿
+                                // （尾部兜底路径，挂载点原位）；#227 展开键语义在 spec。
+                                CompactionDividerSlot(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clipToBounds()
@@ -978,16 +985,13 @@ fun ChatMessageList(
                                             compensator = compactionReveal,
                                             shouldCompensate = { compensateState.shouldCompensate },
                                             logTag = "COMP-CMP(tail)",
-                                        )
-                                ) {
-                                    // #227：展开态入表（expansionKey：V2=真实 messageId，
-                                    // V1 空串→固定键；尾部→消息流同键交接）
-                                    CompactionCard(
-                                        state = tailCompaction.state,
-                                        expanded = compactionExpandedStates[tailCompaction.expansionKey] ?: false,
-                                        onExpandedChange = { compactionExpandedStates[tailCompaction.expansionKey] = it },
-                                    )
-                                }
+                                        ),
+                                    expansionKey = tailCompaction.expansionKey,
+                                    state = tailCompaction.state,
+                                    summary = null,
+                                    failed = false,
+                                    expandedStates = compactionExpandedStates,
+                                )
                             }
                         }
                     }
@@ -1245,41 +1249,14 @@ fun ChatMessageList(
                                     )
                                 }
                                 // #226：V1 摘要消息认领——判定/装配在
-                                // CompactionDividerPolicy.v1SummarySpec（C4，历史注释
-                                // 存档随逻辑迁移）；同 item 原位切换保留 Q13 连续性
-                                //（latchedText 跨完成保持）。此处按 spec 分发渲染。
+                                // CompactionDividerPolicy.v1SummarySpec（C4，历史注释存档
+                                // 随逻辑迁移）；渲染分发到 CompactionDividerSlot。同 item
+                                // 原位切换保留 Q13 连续性（latchedText 跨完成保持）。
                                 val v1Spec = CompactionDividerPolicy.v1SummarySpec(msg)
                                 if (v1Spec != null) {
-                                    var showRevertDialog by remember { mutableStateOf(false) }
-                                    if (showRevertDialog) {
-                                        ConfirmDialog(
-                                            title = stringResource(R.string.chat_revert_title),
-                                            message = stringResource(R.string.chat_revert_message),
-                                            confirmLabel = stringResource(R.string.chat_revert),
-                                            onDismiss = { showRevertDialog = false },
-                                            onConfirm = {
-                                                showRevertDialog = false
-                                                // 撤销边界（V1 语义：撤到压缩点之前恢复
-                                                // 被压前文）判定在
-                                                // CompactionDividerPolicy.v1RevertBoundary。
-                                                val revertTarget = CompactionDividerPolicy.v1RevertBoundary(
-                                                    displayItems, displayItemIndex, msg.message.id,
-                                                )
-                                                viewModel.revertMessage(revertTarget) { ok ->
-                                                    coroutineScope.launch {
-                                                        snackbarHostState.showSnackbar(
-                                                            if (ok) context.getString(R.string.chat_messages_restored)
-                                                            else context.getString(R.string.chat_message_redo_failed)
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                        )
-                                    }
-                                    val revertActionLabel = stringResource(R.string.chat_revert)
                                     // 流式补偿：streamingMsgId 命中时外层 itemModifier 已包
-                                    // COMP-MSG（L isStreamingMsg 判定），此处仅在其缺席时
-                                    // 自包 COMP-CMP——避免双重注入。
+                                    // COMP-MSG（isStreamingMsg 判定），此处仅在其缺席时自包
+                                    // COMP-CMP——避免双重注入（挂载点原位）。
                                     val v1GrowModifier = if (v1Spec.active && !isStreamingMsg) {
                                         Modifier
                                             .fillMaxWidth()
@@ -1291,30 +1268,19 @@ fun ChatMessageList(
                                                 logTag = "COMP-CMP(v1)",
                                             )
                                     } else Modifier
-                                    Column(
-                                        modifier = v1GrowModifier
-                                            .pointerInput(Unit) {
-                                                detectTapGestures(
-                                                    onLongPress = { showRevertDialog = true }
-                                                )
-                                            }
-                                            .semantics {
-                                                customActions = listOf(
-                                                    CustomAccessibilityAction(
-                                                        label = revertActionLabel,
-                                                        action = { showRevertDialog = true; true }
-                                                    )
-                                                )
-                                            }
-                                    ) {
-                                        CompactionCard(
-                                            expanded = compactionExpandedStates[v1Spec.expansionKey] ?: false,
-                                            onExpandedChange = { compactionExpandedStates[v1Spec.expansionKey] = it },
-                                            state = v1Spec.activeState,
-                                            summary = v1Spec.summary,
-                                            failed = v1Spec.failed,
-                                        )
-                                    }
+                                    CompactionDividerSlot(
+                                        modifier = v1GrowModifier,
+                                        expansionKey = v1Spec.expansionKey,
+                                        state = v1Spec.activeState,
+                                        summary = v1Spec.summary,
+                                        failed = v1Spec.failed,
+                                        expandedStates = compactionExpandedStates,
+                                        // 撤销边界（V1 语义：撤到压缩点之前）判定在 policy
+                                        revertTargetId = CompactionDividerPolicy.v1RevertBoundary(
+                                            displayItems, displayItemIndex, msg.message.id,
+                                        ),
+                                        onRevert = revertCompaction,
+                                    )
                                     return@itemsIndexed
                                 }
                                 // isTurnLast：下一条"非 synthetic"消息不是 assistant 才算 turn 尾。
@@ -1460,74 +1426,31 @@ fun ChatMessageList(
                                         return@itemsIndexed
                                     }
                                     is CompactionDividerSpec.Trigger -> {
-                                        var showRevertDialog by remember { mutableStateOf(false) }
-
-                                    if (showRevertDialog) {
-                                        ConfirmDialog(
-                                            title = stringResource(R.string.chat_revert_title),
-                                            message = stringResource(R.string.chat_revert_message),
-                                            confirmLabel = stringResource(R.string.chat_revert),
-                                            onDismiss = { showRevertDialog = false },
-                                            onConfirm = {
-                                                showRevertDialog = false
-                                                viewModel.revertMessage(chatMessage.message.id) { ok ->
-                                                    coroutineScope.launch {
-                                                        snackbarHostState.showSnackbar(
-                                                            if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                        )
-                                    }
-
-                                    @OptIn(ExperimentalFoundationApi::class)
-                                    // 2026-08-15：压缩分割线升级为可展开卡片
-                                    //（CompactionCard：分割线收起态 + 无边框轻量
-                                    // 卡片展开态（内含压缩后的摘要全文）——与合成通知
-                                    // 卡片一致的视觉语言）；长按仍触发撤销确认。
-                                    // 2026-08-20 a11y P3：空 onClick 的 combinedClickable
-                                    // 会被 TalkBack 朗读为可点击但无动作——改为纯
-                                    // pointerInput 长按 + semantics 自定义无障碍动作
-                                    //（长按=撤销确认，标签复用已翻译的 chat_revert）。
-                                    val revertActionLabel = stringResource(R.string.chat_revert)
-                                    // #221/#222：进行中压缩的展开流式增长——延迟
-                                    // 揭示真·渲染前补偿（非进行中高度恒定，直通零成本）。
-                                    val compactionGrowModifier = if (compactionClaim.activeState != null) {
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clipToBounds()
-                                            .deferredRevealCompensation(
-                                                listState = listState,
-                                                compensator = compactionReveal,
-                                                shouldCompensate = { compensateState.shouldCompensate },
-                                                logTag = "COMP-CMP(msg)",
-                                            )
-                                    } else Modifier
-                                    Column(modifier = compactionGrowModifier
-                                        .pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onLongPress = { showRevertDialog = true }
-                                            )
-                                        }
-                                        .semantics {
-                                            customActions = listOf(
-                                                CustomAccessibilityAction(
-                                                    label = revertActionLabel,
-                                                    action = { showRevertDialog = true; true }
+                                        // #221/#222：进行中压缩的展开流式增长——延迟揭示
+                                        // 真·渲染前补偿（非进行中高度恒定，直通零成本；
+                                        // 挂载点原位）。卡片/撤销交互在 CompactionDividerSlot。
+                                        val compactionGrowModifier = if (compactionClaim.activeState != null) {
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .clipToBounds()
+                                                .deferredRevealCompensation(
+                                                    listState = listState,
+                                                    compensator = compactionReveal,
+                                                    shouldCompensate = { compensateState.shouldCompensate },
+                                                    logTag = "COMP-CMP(msg)",
                                                 )
-                                            )
-                                        }
-                                    ) {
-                                    CompactionCard(
-                                            expanded = compactionExpandedStates[compactionClaim.expansionKey] ?: false,
-                                            onExpandedChange = { compactionExpandedStates[compactionClaim.expansionKey] = it },
+                                        } else Modifier
+                                        CompactionDividerSlot(
+                                            modifier = compactionGrowModifier,
+                                            expansionKey = compactionClaim.expansionKey,
                                             state = compactionClaim.activeState,
                                             summary = compactionClaim.summary,
-                                            failed = compactionClaim.failed
+                                            failed = compactionClaim.failed,
+                                            expandedStates = compactionExpandedStates,
+                                            revertTargetId = chatMessage.message.id,
+                                            onRevert = revertCompaction,
                                         )
-                                    }
-                                    return@itemsIndexed
+                                        return@itemsIndexed
                                     }
                                     CompactionDividerSpec.NotCompaction -> {
                                         // 非压缩认领——正常消息渲染路径（下方）。
