@@ -22,10 +22,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -405,6 +411,11 @@ fun ChatMessageList(
     // 即清，Q10「展开态不跨会话记忆」仍成立。尾部兜底线 V1 无 messageId 用
     // 固定键；V2 用真实 messageId——尾部→消息流对位交接同键无缝（Q13 强化）。
     val compactionExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+
+    // #232：system 消息（实测 zhipu 构建「Code Mode tool catalog」11KB 工具目录
+    // 全量 schema）展开表——此前按普通消息渲染成 1340px 纯文本墙插在对话中间
+    //（用户「消息叠在一起/页面乱」观感来源）。屏幕级生命周期，同 #227 模式。
+    val systemNoticeExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
     // #227：V1 尾部→消息流展开态交接桥——尾部线（固定键）让位给摘要消息（真实
     // id 键）时把展开态搬过去，随后清源键。「完成不收起」（#221 裁决）在 V1
@@ -1414,6 +1425,75 @@ fun ChatMessageList(
                             }
                             msg.isUser -> {
                                 val chatMessage = msg
+
+
+                                // #232（2026-08-26 用户三报「消息叠在一起」取证定音）：
+                                // system 角色消息（zhipu 构建的「Code Mode tool catalog
+                                // has changed」通知，实测 11235 字符工具目录全量 schema）
+                                // 此前按普通用户消息渲染——1340px 无气泡纯文本墙插在
+                                // 中文对话中间，视觉上即「多条消息叠在一起/页面乱」。
+                                // 折叠为一行系统通知（图标 + 首句截断 + 展开箭头），
+                                // 点击展开可滚动全文（300dp 上限）。
+                                if ((chatMessage.message as? Message.User)?.role == "system") {
+                                    val sysText = chatMessage.parts
+                                        .filterIsInstance<Part.Text>()
+                                        .joinToString("\n") { it.text }.trim()
+                                    val sysKey = chatMessage.message.id
+                                    val sysExpanded = systemNoticeExpandedStates[sysKey] ?: false
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = messageSpacing)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { systemNoticeExpandedStates[sysKey] = !sysExpanded }
+                                                .padding(vertical = SpacingTokens.XS.dp),
+                                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Info,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                                            )
+                                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(SpacingTokens.XS.dp))
+                                            Text(
+                                                text = sysText.lineSequence().firstOrNull { it.isNotBlank() }?.take(60)
+                                                    ?: "system",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Icon(
+                                                imageVector = if (sysExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                                            )
+                                        }
+                                        androidx.compose.animation.AnimatedVisibility(visible = sysExpanded) {
+                                            val sysScroll = androidx.compose.foundation.rememberScrollState()
+                                            androidx.compose.foundation.layout.Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .verticalScroll(sysScroll)
+                                                    .heightIn(max = 300.dp)
+                                            ) {
+                                                Text(
+                                                    text = sysText,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    return@itemsIndexed
+                                }
+
 
                                 // #217：进行中态按 messageId 对位——仅当前压缩对应的
                                 // 消息渲染进行中分割线（历史分割线不受新压缩影响）；同 item

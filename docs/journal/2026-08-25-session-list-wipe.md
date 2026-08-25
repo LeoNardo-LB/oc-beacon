@@ -241,6 +241,31 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 - 三轮加载循环（入口种子×2 + modelConfig 解析×1）为次生放大（用户卡死后重试），主因消除后不再触发停顿；未单独改动加载编排。
 
 
+## #232 「叠在一起」三审定音：system 消息 11KB 工具目录墙折叠为一行通知（2026-08-26，用户令「截图查看！多打日志」）
+
+用户批评正确：我前两轮（#230/#231）依赖「语义树 bounds 交集=0」判定无重叠——但语义树只报告**应许位置**，且低分辨率视觉判定反复误读，两轮都没找到用户看到的真东西。本轮以当前实况截图 + 全分辨率逐带裁剪 + Room/服务器双源对照重审，真凶落网：
+
+### 根因（三审定音）
+
+**`system` 角色消息被当普通消息全量渲染**。本会话有一条 zhipu 构建的 system 消息（4sqe4MbR，11235 字符）——内容是「The Code Mode tool catalog has changed」+ **全量工具目录 schema**（Context7 query 说明、各工具签名、JSDoc 注释……）。V2Mappers 把 system 映射为 `Message.User(role="system")` + Part.Text，UI 无任何特判 → **1340px 无气泡英文等宽文本墙**直接插在中文对话中间。用户看到的「很多消息叠在一起」= 这面墙与正常对话消息视觉混排（无容器、无边界、语言跳变），并非 z 序叠加。
+
+证据链：屏幕英文墙 ↔ 服务器该 assistant turn 无任何英文/tool part ↔ Room 定位到 system 消息 text=11235 字符；内容逐字匹配（tools.context7['resolve-library-id']…）。
+
+### 修复（#232）
+
+ChatMessageList isUser 分支前置特判：`role == "system"` → 折叠单行通知（Info 图标 + 首句 60 字截断 + 展开 chevron，labelSmall/muted——与转后台通知同视觉语言）；点击展开为可滚动全文（verticalScroll + heightIn(300dp)，AnimatedVisibility 无参默认）。展开态屏幕级表（systemNoticeExpandedStates，#227 同模式）。
+
+### 验证（真机实拍，非推断）
+
+- 折叠态：截图裁决——巨型 schema 墙消失，顶部为一行通知（图标+截断文本+chevron）✓
+- 展开态：点击后为有界滚动块（~300dp）✓
+- 全量单测 1956 绿；其余消息渲染不受影响（助手 turn/用户气泡/分割线原样）。
+
+### 教训（写给下轮自己）
+
+1. 「语义树无交集」不能证伪视觉问题——Compose 语义只覆盖导出节点，布局混乱/内容混排类问题它天然看不见。
+2. 视觉模型判定必须全分辨率人读式复核，低分辨率批量初筛的 OVERLAP 判定两次把追凶带偏。
+3. 用户说「还是这样」时，第一动作是截图看**当前实况**，而不是复跑上一轮的验证矩阵。
 ## #231 「还是叠在一起」二审：全分辨率勘误 + 跨 item 越界构造性防御（2026-08-26 凌晨）
 
 用户再报「现在还是会叠在一起」。系统性重审：
