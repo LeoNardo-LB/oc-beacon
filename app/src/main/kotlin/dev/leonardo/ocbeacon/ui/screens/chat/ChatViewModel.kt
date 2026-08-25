@@ -317,8 +317,9 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun onSessionFocused(notificationManager: android.app.NotificationManager) {
-        appNotificationManager.cancelSessionNotifications(notificationManager, serverId, sessionId)
+    fun onSessionFocused() {
+        // C9-B：NotificationManager 所有权收归 AppNotificationManager 构造
+        appNotificationManager.cancelSessionNotifications(serverId, sessionId)
         sessionFocusHolder.setActiveFocus(serverId, sessionId)
     }
 

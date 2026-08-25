@@ -3,8 +3,6 @@ package dev.leonardo.ocbeacon.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import android.content.Context
-import android.app.NotificationManager
 import dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover
 import dev.leonardo.ocbeacon.service.AppNotificationManager
 import dev.leonardo.ocbeacon.domain.model.AppSettings
@@ -159,10 +157,9 @@ class SettingsViewModel @Inject constructor(
      * 通知自检（验收①根因收尾）：端到端投递一条真实测试通知，
      * 由用户确认横幅/声音感知。见 [AppNotificationManager.sendSelfTestNotification]。
      */
-    fun sendTestNotification(context: Context) {
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        appNotificationManager.sendSelfTestNotification(context, notificationManager)
+    fun sendTestNotification() {
+        // C9-B：Context/NotificationManager 所有权收归 AppNotificationManager 构造
+        appNotificationManager.sendSelfTestNotification()
     }
 
     fun setCompressImageAttachments(enabled: Boolean) {

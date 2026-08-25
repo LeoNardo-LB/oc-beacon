@@ -179,16 +179,19 @@ class InSessionFeedbackPlayer @Inject constructor(
      *
      * [dedupKey]：事件内容键（turn=messageId / permission=权限串 / question=问题文本 /
      * error=错误文本）——镜像通知侧去重语义但物理隔离，防 SSE 重放双响。
+     *
+     * C9-B（2026-08-26）：通知开关/静音读取内聚本类（构造已注入 SettingsRepository，
+     * 原先三处调用方各自 .first() 传参——参数束收编）。suspend 化与读取内聚同步：
+     * 全部调用点本就在协程内。
      */
-    fun playIfFocused(
+    suspend fun playIfFocused(
         serverId: String,
         sessionId: String,
         type: FeedbackType,
         dedupKey: String,
-        silentNotifications: Boolean,
-        notificationsEnabled: Boolean,
     ) {
-        if (!notificationsEnabled) return
+        if (!settingsRepository.notificationsEnabled().first()) return
+        val silentNotifications = settingsRepository.silentNotifications().first()
         if (type == FeedbackType.ERROR && !errorStreak.onError(serverId, sessionId)) return
 
         // Q11 独立去重：同事件重放只响一次；不触碰通知侧 map

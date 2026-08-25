@@ -85,8 +85,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
-import android.app.NotificationManager
-import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -519,8 +517,7 @@ fun ChatScreen(
     // onSessionFocused/onSessionUnfocused 通过 SessionFocusHolder 设置焦点，
     // AppNotificationManager 据此抑制当前正在查看的会话的事件通知。
     LaunchedEffect(viewModel.sessionId) {
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        viewModel.onSessionFocused(notificationManager)
+        viewModel.onSessionFocused()
     }
     DisposableEffect(viewModel.sessionId) {
         onDispose {

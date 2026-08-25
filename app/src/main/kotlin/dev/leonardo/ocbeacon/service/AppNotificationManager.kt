@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -48,8 +49,16 @@ class AppNotificationManager @Inject constructor(
     private val sessionFocusHolder: SessionFocusHolder,
     private val feedbackPlayer: InSessionFeedbackPlayer,
     @param:ApplicationScope private val appScope: CoroutineScope,
+    // C9-B（2026-08-26）：(context, notificationManager) 双参收编为构造持有——
+    // NotificationManager 所有权从调用方（Service/VM）收归本类；Context 经
+    // Hilt @ApplicationContext 注入（applicationContext 与原 Service this 语义等价）
+    @ApplicationContext private val appContext: Context,
 ) {
     private val TAG = "AppNotificationMgr"
+
+    private val systemNotificationManager: NotificationManager by lazy {
+        appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    }
 
     /**
      * 会话按 id 的索引缓存（N13 优化）。
@@ -79,23 +88,23 @@ class AppNotificationManager @Inject constructor(
 
     // ============ 通知渠道 ============
 
-    fun createNotificationChannels(notificationManager: NotificationManager, context: Context) {
+    fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val connectionChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                context.getString(R.string.notification_channel_connection),
+                appContext.getString(R.string.notification_channel_connection),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = context.getString(R.string.notification_channel_connection_desc)
+                description = appContext.getString(R.string.notification_channel_connection_desc)
                 setShowBadge(false)
             }
 
             val tasksChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_TASKS_ID,
-                context.getString(R.string.notification_channel_tasks),
+                appContext.getString(R.string.notification_channel_tasks),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = context.getString(R.string.notification_channel_tasks_desc)
+                description = appContext.getString(R.string.notification_channel_tasks_desc)
                 setShowBadge(true)
                 enableVibration(true)
                 enableLights(true)
@@ -103,10 +112,10 @@ class AppNotificationManager @Inject constructor(
 
             val tasksSilentChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_TASKS_SILENT_ID,
-                context.getString(R.string.notification_channel_tasks_silent),
+                appContext.getString(R.string.notification_channel_tasks_silent),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = context.getString(R.string.notification_channel_tasks_silent_desc)
+                description = appContext.getString(R.string.notification_channel_tasks_silent_desc)
                 setShowBadge(true)
                 enableVibration(false)
                 enableLights(false)
@@ -115,10 +124,10 @@ class AppNotificationManager @Inject constructor(
 
             val permissionsChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_PERMISSIONS_ID,
-                context.getString(R.string.notification_channel_permissions),
+                appContext.getString(R.string.notification_channel_permissions),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = context.getString(R.string.notification_channel_permissions_desc)
+                description = appContext.getString(R.string.notification_channel_permissions_desc)
                 setShowBadge(true)
                 enableVibration(true)
                 enableLights(true)
@@ -126,27 +135,26 @@ class AppNotificationManager @Inject constructor(
 
             val questionsChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_QUESTIONS_ID,
-                context.getString(R.string.notification_channel_questions),
+                appContext.getString(R.string.notification_channel_questions),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = context.getString(R.string.notification_channel_questions_desc)
+                description = appContext.getString(R.string.notification_channel_questions_desc)
                 setShowBadge(true)
                 enableVibration(true)
                 enableLights(true)
             }
 
-            notificationManager.createNotificationChannel(connectionChannel)
-            notificationManager.createNotificationChannel(tasksChannel)
-            notificationManager.createNotificationChannel(tasksSilentChannel)
-            notificationManager.createNotificationChannel(permissionsChannel)
-            notificationManager.createNotificationChannel(questionsChannel)
+            systemNotificationManager.createNotificationChannel(connectionChannel)
+            systemNotificationManager.createNotificationChannel(tasksChannel)
+            systemNotificationManager.createNotificationChannel(tasksSilentChannel)
+            systemNotificationManager.createNotificationChannel(permissionsChannel)
+            systemNotificationManager.createNotificationChannel(questionsChannel)
         }
     }
 
     // ============ 持久通知（InboxStyle，多服务器）============
 
     fun createPersistentNotification(
-        context: Context,
         connections: Map<String, ServerConnectionState>
     ): Notification {
         val visibleConnections = connections.values
@@ -157,44 +165,44 @@ class AppNotificationManager @Inject constructor(
         // MainActivity 的深链处理（无 sessionId → NavGraph 导航到会话列表）。
         val tapIntent = if (visibleConnections.isNotEmpty()) {
             val server = visibleConnections.first().config
-            Intent(context, MainActivity::class.java).apply {
+            Intent(appContext, MainActivity::class.java).apply {
                 action = OpenCodeConnectionService.ACTION_OPEN_SESSION
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                 putExtra(OpenCodeConnectionService.EXTRA_SERVER_ID, server.id)
             }
         } else {
-            Intent(context, MainActivity::class.java).apply {
+            Intent(appContext, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
         }
         val tapPendingIntent = PendingIntent.getActivity(
-            context, 0, tapIntent,
+            appContext, 0, tapIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         // Disconnect All 操作
-        val disconnectAllIntent = Intent(context, OpenCodeConnectionService::class.java).apply {
+        val disconnectAllIntent = Intent(appContext, OpenCodeConnectionService::class.java).apply {
             action = OpenCodeConnectionService.ACTION_DISCONNECT_ALL
         }
         val disconnectAllPendingIntent = PendingIntent.getService(
-            context, 1, disconnectAllIntent,
+            appContext, 1, disconnectAllIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         val connectedCount = visibleConnections.count { it.isConnected }
 
         val title = if (serverCount == 0) {
-            context.getString(R.string.app_name)
+            appContext.getString(R.string.app_name)
         } else if (serverCount == 1) {
             val server = visibleConnections.first()
-            if (server.isConnected) context.getString(R.string.notification_connected, server.config.displayName)
-            else context.getString(R.string.notification_connecting, server.config.displayName)
+            if (server.isConnected) appContext.getString(R.string.notification_connected, server.config.displayName)
+            else appContext.getString(R.string.notification_connecting, server.config.displayName)
         } else {
-            context.getString(R.string.notification_connected_count, connectedCount, serverCount)
+            appContext.getString(R.string.notification_connected_count, connectedCount, serverCount)
         }
 
-        val builder = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle(context.getString(R.string.app_name))
+        val builder = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle(appContext.getString(R.string.app_name))
             .setContentText(title)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(tapPendingIntent)
@@ -204,7 +212,7 @@ class AppNotificationManager @Inject constructor(
         if (serverCount > 0) {
             builder.addAction(
                 R.mipmap.ic_launcher,
-                context.getString(R.string.notification_disconnect_all),
+                appContext.getString(R.string.notification_disconnect_all),
                 disconnectAllPendingIntent
             )
         }
@@ -212,10 +220,10 @@ class AppNotificationManager @Inject constructor(
         // 多服务器时使用 InboxStyle
         if (serverCount > 1) {
             val inboxStyle = NotificationCompat.InboxStyle()
-                .setBigContentTitle(context.getString(R.string.notification_inbox_title, connectedCount, serverCount))
+                .setBigContentTitle(appContext.getString(R.string.notification_inbox_title, connectedCount, serverCount))
             for (state in visibleConnections) {
-                val status = if (state.isConnected) context.getString(R.string.notification_status_connected)
-                else context.getString(R.string.notification_status_connecting)
+                val status = if (state.isConnected) appContext.getString(R.string.notification_status_connected)
+                else appContext.getString(R.string.notification_status_connecting)
                 inboxStyle.addLine("${state.config.displayName}: $status")
             }
             builder.setStyle(inboxStyle)
@@ -233,67 +241,63 @@ class AppNotificationManager @Inject constructor(
      * 因此唯一可靠的自检是端到端投递 + 用户感知确认；未看到横幅时引导用户去
      * 系统通知设置打开对应渠道的悬浮通知。
      */
-    fun sendSelfTestNotification(context: Context, notificationManager: NotificationManager) {
+    fun sendSelfTestNotification() {
         // 幂等建渠道：连接服务未启动（从未添加过服务器）时渠道可能尚不存在
-        createNotificationChannels(notificationManager, context)
+        createNotificationChannels()
 
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = Intent(appContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
-            context, 0, intent,
+            appContext, 0, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_TASKS_ID)
+        val notification = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_TASKS_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.notification_test_title))
-            .setContentText(context.getString(R.string.notification_test_body))
+            .setContentTitle(appContext.getString(R.string.notification_test_title))
+            .setContentText(appContext.getString(R.string.notification_test_body))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
         // 固定 id：重复自检互相替换，不堆积
-        notificationManager.notify(stableHash("selftest"), notification)
+        systemNotificationManager.notify(stableHash("selftest"), notification)
         AppLogger.i(TAG, "Self-test notification posted on channel " + NOTIFICATION_CHANNEL_TASKS_ID)
     }
 
     fun updatePersistentNotification(
-        context: Context,
-        notificationManager: NotificationManager,
         connections: Map<String, ServerConnectionState>
     ) {
-        val notification = createPersistentNotification(context, connections)
-        notificationManager.notify(PERSISTENT_NOTIFICATION_ID, notification)
+        val notification = createPersistentNotification(connections)
+        systemNotificationManager.notify(PERSISTENT_NOTIFICATION_ID, notification)
     }
 
     // ============ 事件通知（按服务器分组）============
 
     suspend fun showTaskCompleteNotification(
-        context: Context,
-        notificationManager: NotificationManager,
         server: ServerConfig,
         sessionId: String
     ) {
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
-            ?: context.getString(R.string.notification_new_session)
+            ?: appContext.getString(R.string.notification_new_session)
 
-        val typeLabel = context.getString(R.string.notification_tag_ready)
+        val typeLabel = appContext.getString(R.string.notification_tag_ready)
         val title = "$typeLabel · $displayName"
 
         // 以最新的用户消息作为内容文本（单行，截断处理）
         val userMessages = findLatestUserMessages(sessionId, 1)
         val contentText = userMessages.firstOrNull()?.text
-            ?: context.getString(R.string.notification_new_message)
+            ?: appContext.getString(R.string.notification_new_message)
 
-        val pendingIntent = createSessionPendingIntent(context, server, sessionId, sessionId.hashCode())
+        val pendingIntent = createSessionPendingIntent(server, sessionId, sessionId.hashCode())
         val silent = settingsRepository.silentNotifications().first()
         val channelId = if (silent) NOTIFICATION_CHANNEL_TASKS_SILENT_ID else NOTIFICATION_CHANNEL_TASKS_ID
         val notifId = eventNotificationId(server.id, sessionId, 0)
 
-        val builder = NotificationCompat.Builder(context, channelId)
+        val builder = NotificationCompat.Builder(appContext, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(contentText)
@@ -308,13 +312,11 @@ class AppNotificationManager @Inject constructor(
         }
 
         if (sessionFocusHolder.shouldSuppress(server.id, sessionId)) return
-        notificationManager.notify(notifId, builder.build())
-        showServerGroupSummary(context, notificationManager, server)
+        systemNotificationManager.notify(notifId, builder.build())
+        showServerGroupSummary(server)
     }
 
     fun showPermissionNotification(
-        context: Context,
-        notificationManager: NotificationManager,
         server: ServerConfig,
         sessionId: String,
         permission: String
@@ -324,15 +326,15 @@ class AppNotificationManager @Inject constructor(
 
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
-            ?: context.getString(R.string.notification_new_session)
-        val title = "${context.getString(R.string.notification_tag_permission)} · $displayName"
+            ?: appContext.getString(R.string.notification_new_session)
+        val title = "${appContext.getString(R.string.notification_tag_permission)} · $displayName"
         val contentText = findLatestUserMessages(sessionId, 1).firstOrNull()?.text
-            ?: permission.ifBlank { context.getString(R.string.notification_new_message) }
+            ?: permission.ifBlank { appContext.getString(R.string.notification_new_message) }
 
         val notifId = eventNotificationId(server.id, sessionId, 1000)
-        val pendingIntent = createSessionPendingIntent(context, server, sessionId, notifId)
+        val pendingIntent = createSessionPendingIntent(server, sessionId, notifId)
 
-        val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_PERMISSIONS_ID)
+        val notification = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_PERMISSIONS_ID)
             .setContentTitle(title)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_notification)
@@ -345,13 +347,11 @@ class AppNotificationManager @Inject constructor(
             .build()
 
         markPermissionNotified(server.id, sessionId, permission)
-        notificationManager.notify(notifId, notification)
-        showServerGroupSummary(context, notificationManager, server)
+        systemNotificationManager.notify(notifId, notification)
+        showServerGroupSummary(server)
     }
 
     fun showQuestionNotification(
-        context: Context,
-        notificationManager: NotificationManager,
         server: ServerConfig,
         sessionId: String,
         questionText: String
@@ -360,21 +360,21 @@ class AppNotificationManager @Inject constructor(
         if (!shouldNotifyQuestion(server.id, sessionId, questionText)) return
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
-            ?: context.getString(R.string.notification_new_session)
-        val title = "${context.getString(R.string.notification_tag_question)} · $displayName"
+            ?: appContext.getString(R.string.notification_new_session)
+        val title = "${appContext.getString(R.string.notification_tag_question)} · $displayName"
         // P3（2026-08-19）：正文优先问题文本本身——短且直接（"What is your
         // favorite animal?"）；此前优先最后一条用户消息，正文是触发 prompt
         // 全文（"Use the question tool to ask me: ..."）信息密度低。问题文本
         // 缺失时改用用户消息（REST 兜底路径可能无 question 文本）。
         val contentText = questionText.ifBlank {
             findLatestUserMessages(sessionId, 1).firstOrNull()?.text
-                ?: context.getString(R.string.notification_new_message)
+                ?: appContext.getString(R.string.notification_new_message)
         }
 
         val notifId = eventNotificationId(server.id, sessionId, 2000)
-        val pendingIntent = createSessionPendingIntent(context, server, sessionId, notifId)
+        val pendingIntent = createSessionPendingIntent(server, sessionId, notifId)
 
-        val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_QUESTIONS_ID)
+        val notification = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_QUESTIONS_ID)
             .setContentTitle(title)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_notification)
@@ -387,8 +387,8 @@ class AppNotificationManager @Inject constructor(
             .build()
 
         markQuestionNotified(server.id, sessionId, questionText)
-        notificationManager.notify(notifId, notification)
-        showServerGroupSummary(context, notificationManager, server)
+        systemNotificationManager.notify(notifId, notification)
+        showServerGroupSummary(server)
     }
 
     /**
@@ -396,8 +396,6 @@ class AppNotificationManager @Inject constructor(
      * 对每个会话：仅通知新增问题（diff）；去重/抑制复用既有逻辑。
      */
     fun notifyPendingQuestionsFromREST(
-        context: Context,
-        notificationManager: NotificationManager,
         server: ServerConfig,
         questionsBySession: Map<String, List<SseEvent.QuestionAsked>>,
         previousKnown: Map<String, Set<String>>
@@ -409,24 +407,20 @@ class AppNotificationManager @Inject constructor(
             } else sessionId
             if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
                 // #155：REST 兜底路径的被抑制问题 → 会话内提示音（独立去重防 SSE/REST 双响）
+                //（C9-B：通知开关/静音读取内聚 playIfFocused，此处不再预读传参）
                 appScope.launch {
-                    val enabled = settingsRepository.notificationsEnabled().first()
-                    if (!enabled) return@launch
-                    val silent = settingsRepository.silentNotifications().first()
                     questions.forEach { question ->
                         val text = question.questions.firstOrNull()?.question
                             ?: question.questions.firstOrNull()?.header
-                            ?: context.getString(
+                            ?: appContext.getString(
                                 R.string.notification_has_question,
-                                context.getString(R.string.notification_new_session)
+                                appContext.getString(R.string.notification_new_session)
                             )
                         feedbackPlayer.playIfFocused(
                             serverId = server.id,
                             sessionId = targetSessionId,
                             type = FeedbackType.QUESTION,
                             dedupKey = text,
-                            silentNotifications = silent,
-                            notificationsEnabled = enabled,
                         )
                     }
                 }
@@ -437,18 +431,16 @@ class AppNotificationManager @Inject constructor(
                 // 同时避免空字符串削弱 shouldNotifyQuestion 的去重键。
                 val text = question.questions.firstOrNull()?.question
                     ?: question.questions.firstOrNull()?.header
-                    ?: context.getString(
+                    ?: appContext.getString(
                         R.string.notification_has_question,
-                        context.getString(R.string.notification_new_session)
+                        appContext.getString(R.string.notification_new_session)
                     )
-                showQuestionNotification(context, notificationManager, server, targetSessionId, text)
+                showQuestionNotification(server, targetSessionId, text)
             }
         }
     }
 
     fun showErrorNotification(
-        context: Context,
-        notificationManager: NotificationManager,
         server: ServerConfig,
         sessionId: String?,
         error: String
@@ -456,20 +448,20 @@ class AppNotificationManager @Inject constructor(
         if (sessionId == null) return
         val (sessionTitle, _) = getSessionInfo(sessionId)
         val displayName = sessionTitle?.takeIf { it.isNotBlank() }
-            ?: context.getString(R.string.notification_new_session)
-        val title = "${context.getString(R.string.notification_tag_error)} · $displayName"
+            ?: appContext.getString(R.string.notification_new_session)
+        val title = "${appContext.getString(R.string.notification_tag_error)} · $displayName"
         // 错误内容：JSON/数组错误包不可读但不应完全丢弃，保留前 200 字符
         val safeError = error.trim().let { raw ->
             if (raw.startsWith("{") || raw.startsWith("[")) raw.take(200)
             else raw
         }
         val contentText = (sessionId.let { findLatestUserMessages(it, 1).firstOrNull()?.text })
-            ?: safeError.ifBlank { context.getString(R.string.notification_new_message) }
+            ?: safeError.ifBlank { appContext.getString(R.string.notification_new_message) }
 
         val notifId = eventNotificationId(server.id, sessionId, 3000)
-        val pendingIntent = createSessionPendingIntent(context, server, sessionId, notifId)
+        val pendingIntent = createSessionPendingIntent(server, sessionId, notifId)
 
-        val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_TASKS_ID)
+        val notification = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_TASKS_ID)
             .setContentTitle(title)
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_notification)
@@ -481,8 +473,8 @@ class AppNotificationManager @Inject constructor(
             .build()
 
         if (sessionFocusHolder.shouldSuppress(server.id, sessionId)) return
-        notificationManager.notify(notifId, notification)
-        showServerGroupSummary(context, notificationManager, server)
+        systemNotificationManager.notify(notifId, notification)
+        showServerGroupSummary(server)
     }
 
     // ============ 通知去重 / 会话辅助方法 ============
@@ -574,12 +566,11 @@ class AppNotificationManager @Inject constructor(
      * 不会取消服务器分组摘要（其他会话可能仍有通知）。
      */
     fun cancelSessionNotifications(
-        notificationManager: NotificationManager,
         serverId: String,
         sessionId: String
     ) {
         for (offset in intArrayOf(0, 1000, 2000, 3000)) {
-            notificationManager.cancel(eventNotificationId(serverId, sessionId, offset))
+            systemNotificationManager.cancel(eventNotificationId(serverId, sessionId, offset))
         }
         // 重置去重状态，以便下一轮 permission/question/assistant 消息能再次通知
         val notifKey = sessionNotificationKey(serverId, sessionId)
@@ -615,33 +606,30 @@ class AppNotificationManager @Inject constructor(
     // ============ 私有辅助方法 ============
 
     private fun showServerGroupSummary(
-        context: Context,
-        notificationManager: NotificationManager,
         server: ServerConfig
     ) {
         // 使用独立命名空间（"summary" 前缀），避免与事件通知 ID 空间碰撞
         val summaryId = stableHash("summary", server.id)
-        val summary = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_TASKS_SILENT_ID)
+        val summary = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_TASKS_SILENT_ID)
             .setContentTitle(server.displayName)
-            .setContentText(context.getString(R.string.notification_group_summary))
+            .setContentText(appContext.getString(R.string.notification_group_summary))
             .setSmallIcon(R.drawable.ic_notification)
             .setGroup("server_${server.id}")
             .setGroupSummary(true)
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(summaryId, summary)
+        systemNotificationManager.notify(summaryId, summary)
     }
 
     private fun createSessionPendingIntent(
-        context: Context,
         server: ServerConfig,
         sessionId: String?,
         requestCode: Int
     ): PendingIntent {
         val sessionPath = sessionId?.let { buildSessionPath(it) }
 
-        val intent = Intent(context, MainActivity::class.java).apply {
+        val intent = Intent(appContext, MainActivity::class.java).apply {
             action = OpenCodeConnectionService.ACTION_OPEN_SESSION
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(OpenCodeConnectionService.EXTRA_SERVER_ID, server.id)
@@ -650,7 +638,7 @@ class AppNotificationManager @Inject constructor(
         }
 
         return PendingIntent.getActivity(
-            context, requestCode, intent,
+            appContext, requestCode, intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
     }

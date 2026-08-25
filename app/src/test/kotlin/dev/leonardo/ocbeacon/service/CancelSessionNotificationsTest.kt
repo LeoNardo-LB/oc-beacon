@@ -20,6 +20,13 @@ class CancelSessionNotificationsTest {
     private val eventDispatcher: EventDispatcher = mockk()
     private val settingsRepository: SettingsRepository = mockk()
     private val notificationManager: NotificationManager = mockk(relaxed = true)
+    private val appContext: android.content.Context = mockk()
+
+    init {
+        io.mockk.every {
+            appContext.getSystemService(android.content.Context.NOTIFICATION_SERVICE)
+        } returns notificationManager
+    }
 
     @Before
     fun setup() {
@@ -32,12 +39,13 @@ class CancelSessionNotificationsTest {
             SessionFocusHolder(),
             mockk(relaxed = true),
             CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            appContext,
         )
     }
 
     @Test
     fun `cancels all 4 type offsets for the session`() {
-        manager.cancelSessionNotifications(notificationManager, "server1", "session1")
+        manager.cancelSessionNotifications("server1", "session1")
 
         val baseId = stableHash("server1", "session1")
         verify(exactly = 1) { notificationManager.cancel(baseId + 0) }
@@ -48,7 +56,7 @@ class CancelSessionNotificationsTest {
 
     @Test
     fun `does not cancel group summary`() {
-        manager.cancelSessionNotifications(notificationManager, "server1", "session1")
+        manager.cancelSessionNotifications("server1", "session1")
 
         val summaryId = stableHash("summary", "server1")
         verify(exactly = 0) { notificationManager.cancel(summaryId) }

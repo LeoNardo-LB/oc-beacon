@@ -43,14 +43,12 @@ class SessionNotificationCoordinatorTest {
 
     private val sessionsFlow = MutableStateFlow<List<Session>>(emptyList())
     private val notificationsEnabledFlow = MutableStateFlow(true)
-    private val silentNotificationsFlow = MutableStateFlow(false)
     private val autoAllowFlow = MutableStateFlow(false)
 
     @Before
     fun setup() {
         every { eventDispatcher.sessions } returns sessionsFlow
         every { settingsRepository.notificationsEnabled() } returns notificationsEnabledFlow
-        every { settingsRepository.silentNotifications() } returns silentNotificationsFlow
         every { settingsRepository.autoAllowPermissions() } returns autoAllowFlow
         coordinator = SessionNotificationCoordinator(
             actions = port,
@@ -428,8 +426,6 @@ class SessionNotificationCoordinatorTest {
             sessionId: String,
             type: FeedbackType,
             dedupKey: String,
-            silentNotifications: Boolean,
-            notificationsEnabled: Boolean,
         ) {
             calls += "sound:$type:$sessionId:$dedupKey"
         }

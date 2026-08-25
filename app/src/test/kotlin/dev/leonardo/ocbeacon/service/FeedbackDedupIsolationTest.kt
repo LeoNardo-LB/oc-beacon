@@ -47,6 +47,7 @@ class FeedbackDedupIsolationTest {
             sessionFocusHolder = SessionFocusHolder(),
             feedbackPlayer = mockk(relaxed = true),
             appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            appContext = mockk<android.content.Context>(relaxed = true),
         )
     }
 

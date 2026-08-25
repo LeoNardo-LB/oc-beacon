@@ -34,6 +34,7 @@ class FindUserMessagesTest {
             SessionFocusHolder(),
             mockk(relaxed = true),
             CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            mockk<android.content.Context>(relaxed = true),
         )
     }
 

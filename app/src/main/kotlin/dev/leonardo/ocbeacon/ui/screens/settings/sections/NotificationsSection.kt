@@ -78,7 +78,7 @@ fun NotificationsSection(viewModel: SettingsViewModel) {
         leadingContent = {
             Icon(Icons.Default.NotificationsActive, contentDescription = stringResource(R.string.a11y_settings_notif_test))
         },
-        modifier = Modifier.clickable { viewModel.sendTestNotification(context.applicationContext) }
+        modifier = Modifier.clickable { viewModel.sendTestNotification() }
             .padding(ListItemTokens.ContentPaddingMedium)
     )
 

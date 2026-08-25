@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.service
 
-import android.app.NotificationManager
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.BuildConfig
@@ -50,14 +49,13 @@ interface NotificationActionPort {
     /** 错误系统通知（sessionId 为 null 时实现侧不投递，与原行为一致）。 */
     suspend fun showSessionError(server: ServerConfig, sessionId: String?, error: String)
 
-    /** #155：被抑制的系统通知转会话内提示音（类型+去重键；策略镜像见 InSessionFeedbackPlayer）。 */
+    /** #155：被抑制的系统通知转会话内提示音（类型+去重键；策略镜像见
+     * InSessionFeedbackPlayer——C9-B 后通知开关/静音由播放器自读）。 */
     suspend fun playInSessionSound(
         serverId: String,
         sessionId: String,
         type: FeedbackType,
         dedupKey: String,
-        silentNotifications: Boolean,
-        notificationsEnabled: Boolean,
     )
 
     /** 成功完成轮次 → 重置该会话错误 streak（Q10/R4）。 */
@@ -173,8 +171,6 @@ class SessionNotificationCoordinator @Inject constructor(
                 sessionId = event.sessionId,
                 type = FeedbackType.TURN_COMPLETE,
                 dedupKey = assistantMessageId!!,
-                silentNotifications = settingsRepository.silentNotifications().first(),
-                notificationsEnabled = true,
             )
             return
         }
@@ -200,8 +196,6 @@ class SessionNotificationCoordinator @Inject constructor(
                 sessionId = targetSessionId,
                 type = FeedbackType.PERMISSION,
                 dedupKey = event.permission,
-                silentNotifications = settingsRepository.silentNotifications().first(),
-                notificationsEnabled = true,
             )
             return
         }
@@ -220,8 +214,6 @@ class SessionNotificationCoordinator @Inject constructor(
                 sessionId = targetSessionId,
                 type = FeedbackType.QUESTION,
                 dedupKey = qText,
-                silentNotifications = settingsRepository.silentNotifications().first(),
-                notificationsEnabled = true,
             )
             return
         }
@@ -240,8 +232,6 @@ class SessionNotificationCoordinator @Inject constructor(
                 sessionId = targetSessionId,
                 type = FeedbackType.ERROR,
                 dedupKey = event.error,
-                silentNotifications = settingsRepository.silentNotifications().first(),
-                notificationsEnabled = true,
             )
             return
         }
@@ -330,7 +320,8 @@ abstract class NotificationActionPortModule {
 /**
  * 生产端口实现（Android 侧）：转发 [AppNotificationManager] /
  * [InSessionFeedbackPlayer]。Context 经 Hilt @ApplicationContext 注入
- * （通知构建用 applicationContext 与原 Service this 语义等价）。
+ * （仅兜底文案 getString；C9-B 后通知构建的 Context/NotificationManager
+ * 所有权在 AppNotificationManager 构造）。
  */
 @Singleton
 class ServiceNotificationActionPort @Inject constructor(
@@ -339,23 +330,20 @@ class ServiceNotificationActionPort @Inject constructor(
     @ApplicationContext private val appContext: Context,
 ) : NotificationActionPort {
 
-    private val systemNotificationManager: NotificationManager
-        get() = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
     override suspend fun showTurnComplete(server: ServerConfig, sessionId: String) {
-        appNotificationManager.showTaskCompleteNotification(appContext, systemNotificationManager, server, sessionId)
+        appNotificationManager.showTaskCompleteNotification(server, sessionId)
     }
 
     override suspend fun showPermissionAsked(server: ServerConfig, sessionId: String, permission: String) {
-        appNotificationManager.showPermissionNotification(appContext, systemNotificationManager, server, sessionId, permission)
+        appNotificationManager.showPermissionNotification(server, sessionId, permission)
     }
 
     override suspend fun showQuestionAsked(server: ServerConfig, sessionId: String, questionText: String) {
-        appNotificationManager.showQuestionNotification(appContext, systemNotificationManager, server, sessionId, questionText)
+        appNotificationManager.showQuestionNotification(server, sessionId, questionText)
     }
 
     override suspend fun showSessionError(server: ServerConfig, sessionId: String?, error: String) {
-        appNotificationManager.showErrorNotification(appContext, systemNotificationManager, server, sessionId, error)
+        appNotificationManager.showErrorNotification(server, sessionId, error)
     }
 
     override suspend fun playInSessionSound(
@@ -363,16 +351,12 @@ class ServiceNotificationActionPort @Inject constructor(
         sessionId: String,
         type: FeedbackType,
         dedupKey: String,
-        silentNotifications: Boolean,
-        notificationsEnabled: Boolean,
     ) {
         feedbackPlayer.playIfFocused(
             serverId = serverId,
             sessionId = sessionId,
             type = type,
             dedupKey = dedupKey,
-            silentNotifications = silentNotifications,
-            notificationsEnabled = notificationsEnabled,
         )
     }
 

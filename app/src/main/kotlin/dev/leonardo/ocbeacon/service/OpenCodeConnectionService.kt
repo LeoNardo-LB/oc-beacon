@@ -2,7 +2,6 @@ package dev.leonardo.ocbeacon.service
 
 import dev.leonardo.ocbeacon.logging.AppLogger
 
-import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -135,7 +134,6 @@ class OpenCodeConnectionService : Service() {
     /** 每个服务器的 REST 轮询协程。disconnect 时取消，防止重连后重复轮询。 */
     private val pollingJobs = mutableMapOf<String, Job>()
 
-    private lateinit var systemNotificationManager: NotificationManager
     private var foregroundStarted: Boolean = false
 
     /** 已实际连接（SSE 流活跃）的服务器 ID 的可观察集合。 */
@@ -157,8 +155,7 @@ class OpenCodeConnectionService : Service() {
         //（幂等；原 EventDispatcher init 启动点迁此，边沿触发 naturalTurnEndListener 接线不变）
         pendingMessagePipeline.start()
 
-        systemNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        appNotificationManager.createNotificationChannels(systemNotificationManager, this)
+        appNotificationManager.createNotificationChannels()
         // #155：会话内提示音的上下文（Ringtone/Vibrator/渠道快照读取）
         feedbackPlayer.attach(this)
 
@@ -380,7 +377,7 @@ class OpenCodeConnectionService : Service() {
         // 通知内容读传输真实状态（连接中/已连接显示）——数据源是 Manager；
         // FGS 启停决策才用 Coordinator 的生命周期 registry（#170 边界）。
         val notification = appNotificationManager.createPersistentNotification(
-            this, connectionManager.connections
+            connectionManager.connections
         )
         startForeground(AppNotificationManager.PERSISTENT_NOTIFICATION_ID, notification)
         foregroundStarted = true
@@ -439,8 +436,6 @@ class OpenCodeConnectionService : Service() {
                     // previousKnown 始终更新以避免重新启用后通知洪流。
                     if (settingsRepository.notificationsEnabled().first()) {
                         appNotificationManager.notifyPendingQuestionsFromREST(
-                            this@OpenCodeConnectionService,
-                            systemNotificationManager,
                             server,
                             grouped,
                             previousKnown
@@ -581,7 +576,7 @@ class OpenCodeConnectionService : Service() {
 
     private fun updatePersistentNotification() {
         appNotificationManager.updatePersistentNotification(
-            this, systemNotificationManager, connectionManager.connections
+            connectionManager.connections
         )
     }
 
