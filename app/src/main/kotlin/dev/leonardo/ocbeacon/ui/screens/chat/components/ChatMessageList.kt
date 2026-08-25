@@ -131,6 +131,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * 现改为变体列表，任一命中即视为转后台合成通知。
  * 服务器再次改文案导致特性失效时，在此追加新变体（并在 backlog 登记）。
  */
+/** #227：压缩尾部兜底分割线的展开表键——V1 本地置态 messageId 为空串，无真实 id 可用。 */
+private const val COMPACTION_TAIL_EXPANSION_KEY = "compaction_banner_tail"
+
 private val BACKGROUND_SYNTHETIC_MARKERS = listOf(
     "User requested that active blocking work be moved to the background",
     "active blocking work be moved to the background",
@@ -393,6 +396,31 @@ fun ChatMessageList(
         displayItems.any { entry ->
             val m = entry.second.message
             m is Message.Assistant && m.agent == "compaction"
+        }
+    }
+
+    // #227：压缩分割线展开表（messageId → expanded）。LazyColumn 视口外 item
+    // 会被丢弃——item 内 remember 的 expanded 随之清零，滚回即自动收起（用户
+    // 2026-08-26 反馈）。提升到屏幕级：滚出视口不丢；离开会话（本组合销毁）
+    // 即清，Q10「展开态不跨会话记忆」仍成立。尾部兜底线 V1 无 messageId 用
+    // 固定键；V2 用真实 messageId——尾部→消息流对位交接同键无缝（Q13 强化）。
+    val compactionExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+
+    // #227：V1 尾部→消息流展开态交接桥——尾部线（固定键）让位给摘要消息（真实
+    // id 键）时把展开态搬过去，随后清源键。「完成不收起」（#221 裁决）在 V1
+    // 交接路径同样成立；无展开记录时零操作。
+    androidx.compose.runtime.LaunchedEffect(v1CompactionSummaryInList) {
+        if (v1CompactionSummaryInList) {
+            val tailExpansion = compactionExpandedStates[COMPACTION_TAIL_EXPANSION_KEY]
+            if (tailExpansion != null) {
+                displayItems
+                    .firstOrNull { entry ->
+                        val m = entry.second.message
+                        m is Message.Assistant && m.agent == "compaction"
+                    }
+                    ?.let { compactionExpandedStates[it.second.message.id] = tailExpansion }
+                compactionExpandedStates.remove(COMPACTION_TAIL_EXPANSION_KEY)
+            }
         }
     }
 
@@ -984,7 +1012,14 @@ fun ChatMessageList(
                                             logTag = "COMP-CMP(tail)",
                                         )
                                 ) {
-                                    CompactionCard(state = tailCompaction)
+                                    // #227：展开态入表（V2=真实 messageId，尾部→消息流同键交接）
+                                    val tailKey = tailCompaction.messageId
+                                        .ifBlank { COMPACTION_TAIL_EXPANSION_KEY }
+                                    CompactionCard(
+                                        state = tailCompaction,
+                                        expanded = compactionExpandedStates[tailKey] ?: false,
+                                        onExpandedChange = { compactionExpandedStates[tailKey] = it },
+                                    )
                                 }
                             }
                         }
@@ -1306,6 +1341,8 @@ fun ChatMessageList(
                                             }
                                     ) {
                                         CompactionCard(
+                                            expanded = compactionExpandedStates[msg.message.id] ?: false,
+                                            onExpandedChange = { compactionExpandedStates[msg.message.id] = it },
                                             state = if (v1Active) {
                                                 val liveSummary = msg.parts
                                                     .filterIsInstance<Part.Text>()
@@ -1485,6 +1522,8 @@ fun ChatMessageList(
                                         }
                                     ) {
                                     CompactionCard(
+                                            expanded = compactionExpandedStates[chatMessage.message.id] ?: false,
+                                            onExpandedChange = { compactionExpandedStates[chatMessage.message.id] = it },
                                             state = compactionActiveState,
                                             summary = chatMessage.parts
                                                 .filterIsInstance<Part.Compaction>()

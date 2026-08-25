@@ -56,6 +56,11 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * 状态切换（进行中到完成）由外部重组驱动：同一分割线原位切换，展开态保持
  * （Q13 连续性），流式文本无缝衔接最终全文。展开态不跨会话记忆（Q10）。
  * 动画裁决（#215 沿袭）：AnimatedVisibility 无参默认，零自定义 spec。
+ *
+ * #227（2026-08-26 用户反馈「拉到别处展开内容自动合上」）：展开态提升到调用方——
+ * LazyColumn 视口外 item 会被丢弃，item 内 remember 随之清零，滚回即默认收起。
+ * 由 ChatMessageList 按 messageId 维护展开表（屏幕级生命周期）：滚出视口不丢、
+ * 离开会话即清（Q10 仍成立）。本组件退化为受控组件。
  */
 @Composable
 internal fun CompactionCard(
@@ -63,9 +68,11 @@ internal fun CompactionCard(
     summary: String? = null,
     /** #219：失败压缩消息——失败标签（chat_session_compact_failed）+ 错误色。 */
     failed: Boolean = false,
+    /** #227：受控展开态（提升到 ChatMessageList 的 messageId 键表）。 */
+    expanded: Boolean = false,
+    onExpandedChange: (Boolean) -> Unit = {},
 ) {
     val isActive = state != null && state.isActive
-    var expanded by remember { mutableStateOf(false) }
     val activeState = if (state != null && state.isActive) state else null
     val liveText = when {
         activeState != null -> activeState.deltaText.takeIf { it.isNotBlank() }
@@ -78,7 +85,7 @@ internal fun CompactionCard(
     if (liveText != null) latchedText = liveText
     val expandableText = liveText ?: latchedText
     val canExpand = expandableText != null
-    val onToggle: () -> Unit = { if (canExpand) expanded = !expanded }
+    val onToggle: () -> Unit = { if (canExpand) onExpandedChange(!expanded) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         if (activeState != null) {

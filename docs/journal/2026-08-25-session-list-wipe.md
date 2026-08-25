@@ -214,6 +214,25 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 - 老长会话（45K 字消息）初始锚点空白段 + uiautomator 盲区——既有行为，与本卡无关。
 
 
+## #227 压缩分割线展开态滚出视口即丢（2026-08-26，用户反馈）
+
+用户问：「为啥压缩内容展开之后，一拉到其他地方，就会让展开的内容自动合上？」
+
+根因一行定位：CompactionCard 的 `expanded` 是 item 内 `remember`——LazyColumn 视口外 item 会被整个丢弃（组合销毁、remember 清零），滚回视口即全新组合、默认收起。这不是事件，是 Compose Lazy 容器的生命周期语义。
+
+### 修复（受控组件 + 屏幕级展开表）
+
+- CompactionCard 签名加 `expanded: Boolean` / `onExpandedChange`（受控化，内部 onToggle 保留 canExpand 守卫与 latchedText 逻辑）。
+- ChatMessageList 新增 `compactionExpandedStates: mutableStateMapOf<String, Boolean>()`（屏幕级 remember）——滚出视口不丢；离开会话（本组合销毁）即清，Q10「展开态不跨会话记忆」仍成立（刻意不用 rememberSaveable：那会跨导航/进程恢复，语义过头）。
+- 三个渲染站点接线：尾部兜底（V2=真实 messageId，与消息流对位线同键——尾部→消息流交接零丢失；V1 空串用固定键 COMPACTION_TAIL_EXPANSION_KEY）、V1 摘要认领分支（msg.message.id）、消息流对位分支（chatMessage.message.id）。
+- V1 交接桥（LaunchedEffect(v1CompactionSummaryInList)）：尾部线让位给摘要消息时把展开态搬到真实 id 键再清源键——「完成不收起」（#221 裁决）在 V1 交接路径同样成立。
+
+### 验证（真机 Greeting 会话，V1 通道）
+
+- 展开分割线（要点文本入屏）→ 连划 8 屏滚远（视口外）→ 滚回：**摘要仍展开**（「用户尚未提出任何具体任务…」要点原样在屏），分割线在树 ✓
+- 再点一次 → 正常收起（toggle 双向都通）✓
+- 全量单测 1950 绿
+
 ### 热修（2026-08-26 00:05 用户即报：V1 用户气泡全消失）
 
 初版触发消息隐藏条件踩 Kotlin 空安全惯用陷阱：`firstOrNull()?.summary.isNullOrBlank()` 在**没有** Compaction part 的普通用户消息上求值 = `null.isNullOrBlank()` = **true** → 全部用户消息（V1/V2 通杀）被误判为 V1 压缩触发消息而隐藏。用户在 V1 通道当场发现「看不到用户发送的气泡」，截图 + 语义树实证（助手气泡在、分割线在、唯用户气泡消失）。
