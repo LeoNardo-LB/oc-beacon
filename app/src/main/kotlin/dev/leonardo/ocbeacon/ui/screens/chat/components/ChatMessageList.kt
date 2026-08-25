@@ -1402,10 +1402,18 @@ fun ChatMessageList(
                                 // 活跃线三元素同屏（且进行中误导为完成态）。压缩的视觉呈现
                                 // 由摘要消息（见 assistant 分支）与尾部兜底线全权承担。
                                 // 撤销入口同步移至摘要消息的分割线（长按）。
+                                // 热修（2026-08-26 用户即报）：初版条件
+                                // `firstOrNull()?.summary.isNullOrBlank()` 在**无** Compaction
+                                // part 的普通用户消息上求值 = null.isNullOrBlank() = true
+                                // → 全部用户气泡被隐藏（Kotlin 空安全惯用陷阱）。必须
+                                // 显式要求 part 存在且 summary 为空才算触发消息。
+                                val v1TriggerCompactionPart = chatMessage.parts
+                                    .filterIsInstance<Part.Compaction>()
+                                    .firstOrNull()
                                 val isV1CompactionTriggerMsg =
                                     (chatMessage.message as? Message.User)?.role == "user" &&
-                                        chatMessage.parts.filterIsInstance<Part.Compaction>()
-                                            .firstOrNull()?.summary.isNullOrBlank()
+                                        v1TriggerCompactionPart != null &&
+                                        v1TriggerCompactionPart.summary.isNullOrBlank()
                                 if (isV1CompactionTriggerMsg) {
                                     // 零内容标记消息：不渲染（item 退化为一段 messageSpacing
                                     // 间隙，与消息间距同量级，无可感知残留）。

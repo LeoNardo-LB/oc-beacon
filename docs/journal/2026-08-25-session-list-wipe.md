@@ -213,6 +213,12 @@ SessionEventHandler.handleSessionDeleted（2026-08-16 F6 泄漏清理引入）�
 - V2 展开期首个 delta 到达时 chevron 弹入引起标签行重排（帧差 536 实测）——次要，待用户主诉再议。
 - 老长会话（45K 字消息）初始锚点空白段 + uiautomator 盲区——既有行为，与本卡无关。
 
+
+### 热修（2026-08-26 00:05 用户即报：V1 用户气泡全消失）
+
+初版触发消息隐藏条件踩 Kotlin 空安全惯用陷阱：`firstOrNull()?.summary.isNullOrBlank()` 在**没有** Compaction part 的普通用户消息上求值 = `null.isNullOrBlank()` = **true** → 全部用户消息（V1/V2 通杀）被误判为 V1 压缩触发消息而隐藏。用户在 V1 通道当场发现「看不到用户发送的气泡」，截图 + 语义树实证（助手气泡在、分割线在、唯用户气泡消失）。
+
+修复：显式要求 part 存在——`v1TriggerCompactionPart != null && v1TriggerCompactionPart.summary.isNullOrBlank()`。真机复验：Greeting 会话用户消息（「嗯嗯嗯」/「你好 👋」）恢复渲染，「Context compacted」分割线原位不受影响；全量单测 1950 绿（+2 为 mapper 回归例）。教训：Compose 渲染分支无单测 seam，E2E 验证清单必须显式包含「用户气泡在场」基线项（本次生命周期录屏只盯了压缩元素，漏了全局基线）。
 ## #224 V1/V2 压缩形态统一（2026-08-25，用户指令）
 
 用户问「能否将 V1、V2 的形态做成一致」。差异根因在服务器语义：V1 compact 产物 = 常规 assistant(agent=compaction) 消息（摘要 text part + step 噪声，渲染为普通气泡）；V2 = 独立 compaction 消息 → Part.Compaction → 分割线。客户端归一化即可统一。
