@@ -136,8 +136,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * 现改为变体列表，任一命中即视为转后台合成通知。
  * 服务器再次改文案导致特性失效时，在此追加新变体（并在 backlog 登记）。
  */
-/** #227：压缩尾部兜底分割线的展开表键——V1 本地置态 messageId 为空串，无真实 id 可用。 */
-private const val COMPACTION_TAIL_EXPANSION_KEY = "compaction_banner_tail"
+// #227：压缩尾部兜底分割线的展开表键随认领策略外移
+// CompactionDividerPolicy.TAIL_EXPANSION_KEY（C4）。
 
 private val BACKGROUND_SYNTHETIC_MARKERS = listOf(
     "User requested that active blocking work be moved to the background",
@@ -387,21 +387,13 @@ fun ChatMessageList(
         m
     }
 
-    // #217：当前渲染列表的消息 id 集——尾部进行中压缩分割线的去重判据
-    //（压缩消息已在列表中时，由消息流内同 item 分割线承担，尾部不再出线）。
+    // #217/#226：尾部兜底去重判据（消息 id 集 + V1 摘要消息入列判定）——
+    // 纯逻辑在 CompactionDividerPolicy（C4），此处只做 remember 缓存。
     val displayItemMessageIds = remember(displayItems) {
-        displayItems.map { it.second.message.id }.toSet()
+        CompactionDividerPolicy.displayItemMessageIds(displayItems)
     }
-
-    // #226：V1 摘要消息（assistant(agent=compaction)）已在列表——进行中压缩由
-    // 消息流内该 item 的活跃分割线承担，尾部兜底线让位（V1 本地置态 messageId
-    // 为空串永不命中对位判据，此前尾部线全程在场 → 与摘要线/气泡三元素同屏）。
-    // V2 消息不带 agent=compaction，恒 false 零影响。
     val v1CompactionSummaryInList = remember(displayItems) {
-        displayItems.any { entry ->
-            val m = entry.second.message
-            m is Message.Assistant && m.agent == "compaction"
-        }
+        CompactionDividerPolicy.v1SummaryMessageId(displayItems) != null
     }
 
     // #227：压缩分割线展开表（messageId → expanded）。LazyColumn 视口外 item
@@ -416,21 +408,16 @@ fun ChatMessageList(
     //（用户「消息叠在一起/页面乱」观感来源）。屏幕级生命周期，同 #227 模式。
     val systemNoticeExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
-    // #227：V1 尾部→消息流展开态交接桥——尾部线（固定键）让位给摘要消息（真实
-    // id 键）时把展开态搬过去，随后清源键。「完成不收起」（#221 裁决）在 V1
-    // 交接路径同样成立；无展开记录时零操作。
+    // #227：V1 尾部→消息流展开态交接桥——搬移决策在
+    // CompactionDividerPolicy.v1TailHandoverPlan（C4），写表留在本 effect；
+    // 无展开记录时零操作。
     androidx.compose.runtime.LaunchedEffect(v1CompactionSummaryInList) {
         if (v1CompactionSummaryInList) {
-            val tailExpansion = compactionExpandedStates[COMPACTION_TAIL_EXPANSION_KEY]
-            if (tailExpansion != null) {
-                displayItems
-                    .firstOrNull { entry ->
-                        val m = entry.second.message
-                        m is Message.Assistant && m.agent == "compaction"
-                    }
-                    ?.let { compactionExpandedStates[it.second.message.id] = tailExpansion }
-                compactionExpandedStates.remove(COMPACTION_TAIL_EXPANSION_KEY)
-            }
+            CompactionDividerPolicy.v1TailHandoverPlan(displayItems, compactionExpandedStates)
+                ?.let { plan ->
+                    compactionExpandedStates[plan.targetKey] = plan.expanded
+                    compactionExpandedStates.remove(CompactionDividerPolicy.TAIL_EXPANSION_KEY)
+                }
         }
     }
 
@@ -997,15 +984,10 @@ fun ChatMessageList(
                     //（进度线即分割线 + 可展开流式摘要）——CompactionBanner 已删除。
                     // 插在消息流尾部（最新消息之后），完成态由消息流内 compaction
                     // 消息的 CompactionCard 承担（同一组件两态）。
-                    // 尾部兜底分割线：仅当进行中压缩对应的消息还不在渲染列表
-                    //（V2 进行期消息未刷新入列 / V1 无 messageId）——消息已对位
-                    // 时由消息流内同一 item 承担（避免双分割线）。
-                    val tailCompaction = currentCompaction
-                        ?.takeIf {
-                            it.isActive && it.messageId !in displayItemMessageIds &&
-                                // #226：V1 摘要消息入列后由消息流内活跃线承担
-                                !v1CompactionSummaryInList
-                        }
+                    // 尾部兜底认领（去重/让位判定）在 CompactionDividerPolicy.tailSpec（C4）。
+                    val tailCompaction = CompactionDividerPolicy.tailSpec(
+                        currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
+                    )
                     if (tailCompaction != null) {
                         item(key = "compaction_banner") {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
@@ -1022,13 +1004,12 @@ fun ChatMessageList(
                                             logTag = "COMP-CMP(tail)",
                                         )
                                 ) {
-                                    // #227：展开态入表（V2=真实 messageId，尾部→消息流同键交接）
-                                    val tailKey = tailCompaction.messageId
-                                        .ifBlank { COMPACTION_TAIL_EXPANSION_KEY }
+                                    // #227：展开态入表（expansionKey：V2=真实 messageId，
+                                    // V1 空串→固定键；尾部→消息流同键交接）
                                     CompactionCard(
-                                        state = tailCompaction,
-                                        expanded = compactionExpandedStates[tailKey] ?: false,
-                                        onExpandedChange = { compactionExpandedStates[tailKey] = it },
+                                        state = tailCompaction.state,
+                                        expanded = compactionExpandedStates[tailCompaction.expansionKey] ?: false,
+                                        onExpandedChange = { compactionExpandedStates[tailCompaction.expansionKey] = it },
                                     )
                                 }
                             }
@@ -1287,23 +1268,12 @@ fun ChatMessageList(
                                         "Turn item key=" + itemKey.take(18) + " role=assistant grp=" + (turnGroups[rawIndex]?.size ?: 1)
                                     )
                                 }
-                                // #226：V1 摘要消息认领——assistant(agent=compaction) 一律
-                                // 渲染分割线，与 V2 同构（「一条压缩 = 一条分割线」）：
-                                // - 未完结（归一化器完结守卫放行、parts 为流式 text）→
-                                //   伪活跃态分割线：骑线进度 + 可展开流式摘要——取代
-                                //   此前的普通气泡流式（用户裁决 #217：压缩输出不得在
-                                //   气泡中；气泡→完成态分割线的形态突变即「闪现」主源）。
-                                // - 已完结（CompactionNormalizer 折叠为单个 Part.Compaction）
-                                //   → 完成态分割线 + 摘要可达——修复此前 PartContent 跳过
-                                //   Compaction 导致的空 turn（摘要渲染为空、不可达）。
-                                // 同 item 原位切换保留 Q13 连续性（latchedText 跨完成保持）。
-                                val asstInfo = msg.message as? Message.Assistant
-                                if (asstInfo != null && asstInfo.agent == "compaction") {
-                                    val compPart = msg.parts
-                                        .filterIsInstance<Part.Compaction>()
-                                        .firstOrNull()
-                                    val v1Active = compPart == null &&
-                                        asstInfo.time.completed == null && asstInfo.error == null
+                                // #226：V1 摘要消息认领——判定/装配在
+                                // CompactionDividerPolicy.v1SummarySpec（C4，历史注释
+                                // 存档随逻辑迁移）；同 item 原位切换保留 Q13 连续性
+                                //（latchedText 跨完成保持）。此处按 spec 分发渲染。
+                                val v1Spec = CompactionDividerPolicy.v1SummarySpec(msg)
+                                if (v1Spec != null) {
                                     var showRevertDialog by remember { mutableStateOf(false) }
                                     if (showRevertDialog) {
                                         ConfirmDialog(
@@ -1313,17 +1283,12 @@ fun ChatMessageList(
                                             onDismiss = { showRevertDialog = false },
                                             onConfirm = {
                                                 showRevertDialog = false
-                                                // 撤销边界取压缩触发消息（V1 语义：撤到压缩
-                                                // 点之前恢复被压前文；摘要消息 id 会留下
-                                                // 触发残骸）——即列表中紧邻其前、带
-                                                // Compaction part 的 user 消息；找不到退自身。
-                                                val revertTarget =
-                                                    displayItems.getOrNull(displayItemIndex - 1)
-                                                        ?.second
-                                                        ?.takeIf { prev ->
-                                                            prev.message is Message.User &&
-                                                                prev.parts.any { it is Part.Compaction }
-                                                        }?.message?.id ?: msg.message.id
+                                                // 撤销边界（V1 语义：撤到压缩点之前恢复
+                                                // 被压前文）判定在
+                                                // CompactionDividerPolicy.v1RevertBoundary。
+                                                val revertTarget = CompactionDividerPolicy.v1RevertBoundary(
+                                                    displayItems, displayItemIndex, msg.message.id,
+                                                )
                                                 viewModel.revertMessage(revertTarget) { ok ->
                                                     coroutineScope.launch {
                                                         snackbarHostState.showSnackbar(
@@ -1339,7 +1304,7 @@ fun ChatMessageList(
                                     // 流式补偿：streamingMsgId 命中时外层 itemModifier 已包
                                     // COMP-MSG（L isStreamingMsg 判定），此处仅在其缺席时
                                     // 自包 COMP-CMP——避免双重注入。
-                                    val v1GrowModifier = if (v1Active && !isStreamingMsg) {
+                                    val v1GrowModifier = if (v1Spec.active && !isStreamingMsg) {
                                         Modifier
                                             .fillMaxWidth()
                                             .clipToBounds()
@@ -1367,22 +1332,11 @@ fun ChatMessageList(
                                             }
                                     ) {
                                         CompactionCard(
-                                            expanded = compactionExpandedStates[msg.message.id] ?: false,
-                                            onExpandedChange = { compactionExpandedStates[msg.message.id] = it },
-                                            state = if (v1Active) {
-                                                val liveSummary = msg.parts
-                                                    .filterIsInstance<Part.Text>()
-                                                    .joinToString("\n\n") { it.text }
-                                                    .trim()
-                                                dev.leonardo.ocbeacon.domain.model.CompactionStateInfo(
-                                                    isActive = true,
-                                                    reason = "",
-                                                    deltaText = liveSummary,
-                                                    messageId = msg.message.id,
-                                                )
-                                            } else null,
-                                            summary = compPart?.summary,
-                                            failed = compPart?.failed ?: (asstInfo.error != null),
+                                            expanded = compactionExpandedStates[v1Spec.expansionKey] ?: false,
+                                            onExpandedChange = { compactionExpandedStates[v1Spec.expansionKey] = it },
+                                            state = v1Spec.activeState,
+                                            summary = v1Spec.summary,
+                                            failed = v1Spec.failed,
                                         )
                                     }
                                     return@itemsIndexed
@@ -1507,64 +1461,30 @@ fun ChatMessageList(
                                 }
 
 
-                                // #217：进行中态按 messageId 对位——仅当前压缩对应的
-                                // 消息渲染进行中分割线（历史分割线不受新压缩影响）；同 item
-                                // 原位切换保证 Q13 展开/流式文本连续（messageId 来自 started
-                                // 事件 inputID，与 compaction 消息 id 同源）。
-                                val compactionActiveState = currentCompaction
-                                    ?.takeIf { it.isActive && it.messageId == chatMessage.message.id }
-
+                                // #217/#219/#221/#226：压缩触发认领（对位/锁存/隐藏/
+                                // 分割线判定）——纯逻辑在 CompactionDividerPolicy（C4，
+                                // 历史修复语义注释随逻辑迁移存档）。
+                                val compactionActiveState = CompactionDividerPolicy.activeCompactionFor(
+                                    currentCompaction, chatMessage.message.id,
+                                )
                                 // #221（展开跨完成保持）：ended 清态 → REST 刷新带入
-                                // Part.Compaction 前存在空窗——此时 role=compaction 且无
-                                // part，认领条件若翻假，CompactionCard 会离开组合（内部
-                                // remember 含 expanded/latchedText 全部丢失）→ REST 回来
-                                // 重新组合即收起。锁存最近一次进行中对位到的 messageId：
-                                // 同 item 组合存续，空窗期靠 Card 内 latchedText 维持展开。
+                                // Part.Compaction 前存在空窗——锁存最近一次进行中对位到的
+                                // messageId（item 级 Compose 状态留在此处）：同 item 组合
+                                // 存续，空窗期认领不翻假，靠 Card 内 latchedText 维持展开。
                                 var lastCompactionMsgId by remember { mutableStateOf<String?>(null) }
                                 if (compactionActiveState != null) {
                                     lastCompactionMsgId = chatMessage.message.id
                                 }
-
-                                // #219 修复二（进行中分割线消失）：inbox.enqueued 在压缩
-                                // 发起瞬间即插入 role=compaction 骨架消息（无 Part.Compaction
-                                // ——那要等完成后的 REST 刷新）。此前仅按 parts 判定 → 骨架期
-                                // 消息流内不渲染分割线；#219 勘误 inputID 后尾部分割线的去重
-                                // 条件（messageId 已在列表）又被骨架满足 → 进行中态两边都不
-                                // 显示，直到完成才蹦出。按 role+对位认领：started 到达后骨架
-                                // 即渲染进行中分割线，完成后同 item 原位切完成态（Q13 本意）。
-                                // 注意 steer 排队期（skeleton 已入列但 started 未到）不认领——
-                                // compactionState 未置，认领会渲染成静止「已压缩」误导。
-                                //
-                                // #226：V1 触发消息（role=user + Compaction part、无摘要——
-                                // V1 契约里摘要住在后随 assistant(agent=compaction) 消息）
-                                // 不再渲染分割线：此前它以静止「已压缩」形态与摘要线/尾部
-                                // 活跃线三元素同屏（且进行中误导为完成态）。压缩的视觉呈现
-                                // 由摘要消息（见 assistant 分支）与尾部兜底线全权承担。
-                                // 撤销入口同步移至摘要消息的分割线（长按）。
-                                // 热修（2026-08-26 用户即报）：初版条件
-                                // `firstOrNull()?.summary.isNullOrBlank()` 在**无** Compaction
-                                // part 的普通用户消息上求值 = null.isNullOrBlank() = true
-                                // → 全部用户气泡被隐藏（Kotlin 空安全惯用陷阱）。必须
-                                // 显式要求 part 存在且 summary 为空才算触发消息。
-                                val v1TriggerCompactionPart = chatMessage.parts
-                                    .filterIsInstance<Part.Compaction>()
-                                    .firstOrNull()
-                                val isV1CompactionTriggerMsg =
-                                    (chatMessage.message as? Message.User)?.role == "user" &&
-                                        v1TriggerCompactionPart != null &&
-                                        v1TriggerCompactionPart.summary.isNullOrBlank()
-                                if (isV1CompactionTriggerMsg) {
-                                    // 零内容标记消息：不渲染（item 退化为一段 messageSpacing
-                                    // 间隙，与消息间距同量级，无可感知残留）。
-                                    return@itemsIndexed
-                                }
-                                val isCompactionTrigger = chatMessage.parts.any { it is Part.Compaction } ||
-                                    ((chatMessage.message as? Message.User)?.role == "compaction" &&
-                                        (compactionActiveState != null ||
-                                            chatMessage.message.id == lastCompactionMsgId))
-
-                                if (isCompactionTrigger) {
-                                    var showRevertDialog by remember { mutableStateOf(false) }
+                                when (val compactionClaim = CompactionDividerPolicy.userTriggerClaim(
+                                    chatMessage, compactionActiveState, lastCompactionMsgId,
+                                )) {
+                                    CompactionDividerSpec.V1TriggerHidden -> {
+                                        // 零内容标记消息：不渲染（item 退化为一段 messageSpacing
+                                        // 间隙，与消息间距同量级，无可感知残留）。
+                                        return@itemsIndexed
+                                    }
+                                    is CompactionDividerSpec.Trigger -> {
+                                        var showRevertDialog by remember { mutableStateOf(false) }
 
                                     if (showRevertDialog) {
                                         ConfirmDialog(
@@ -1597,7 +1517,7 @@ fun ChatMessageList(
                                     val revertActionLabel = stringResource(R.string.chat_revert)
                                     // #221/#222：进行中压缩的展开流式增长——延迟
                                     // 揭示真·渲染前补偿（非进行中高度恒定，直通零成本）。
-                                    val compactionGrowModifier = if (compactionActiveState != null) {
+                                    val compactionGrowModifier = if (compactionClaim.activeState != null) {
                                         Modifier
                                             .fillMaxWidth()
                                             .clipToBounds()
@@ -1624,18 +1544,20 @@ fun ChatMessageList(
                                         }
                                     ) {
                                     CompactionCard(
-                                            expanded = compactionExpandedStates[chatMessage.message.id] ?: false,
-                                            onExpandedChange = { compactionExpandedStates[chatMessage.message.id] = it },
-                                            state = compactionActiveState,
-                                            summary = chatMessage.parts
-                                                .filterIsInstance<Part.Compaction>()
-                                                .firstOrNull()?.summary,
-                                            failed = chatMessage.parts
-                                                .filterIsInstance<Part.Compaction>()
-                                                .firstOrNull()?.failed ?: false
+                                            expanded = compactionExpandedStates[compactionClaim.expansionKey] ?: false,
+                                            onExpandedChange = { compactionExpandedStates[compactionClaim.expansionKey] = it },
+                                            state = compactionClaim.activeState,
+                                            summary = compactionClaim.summary,
+                                            failed = compactionClaim.failed
                                         )
                                     }
                                     return@itemsIndexed
+                                    }
+                                    CompactionDividerSpec.NotCompaction -> {
+                                        // 非压缩认领——正常消息渲染路径（下方）。
+                                    }
+                                    // Tail/V1Summary 不出自 userTriggerClaim（穷举防御）。
+                                    else -> { }
                                 }
 
                                 // 2026-08-13：「转后台」合成通知（服务器固定模板
