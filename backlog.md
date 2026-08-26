@@ -65,9 +65,10 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#235 foundation 1.12.0-beta01 传递强制跟踪——稳定版发布后解除** `deps`
-  - material3 1.5.0-alpha26（FAB 菜单钉版）传递强制 foundation 1.11.2→1.12.0-beta01（beta）；已致 d7a8ac06 崩溃（ScrollingLogic 契约违规窗口，已优雅中止防御）
-  - 触发条件：material3 稳定版含 FloatingActionButtonMenu 或 foundation 1.12.0 稳定发布 → 解除 alpha 钉版/加 resolutionStrategy 收敛
+- [ ] **#235 Compose 稳定矩阵维持——beta 全家稳定后解除** `deps`
+  - 2026-08-27 完整定因（0775582d）：material3 1.5.0-alpha26 经原子组约束拉 **整组** Compose（runtime/ui/ui-text/animation）到 1.12.0-beta01——08-20 丝滑基线自此未运行过；alpha26 的 Surface/FAB 还调 ui 1.12 独有 graphicsLayer 签名（LayerOutsets），与稳定 ui 二进制冲突（滚动 FAB 重组即 NoSuchMethodError）
+  - 现状：material3 回 BOM 1.4.0 + eachDependency 四组（ui/runtime/foundation/animation）对齐 1.11.2；FAB 菜单已稳定 API 复刻（ChatFabMenu.kt，morph 动画简化）
+  - 解除条件：material3 稳定版收录 FloatingActionButtonMenu/ToggleFloatingActionButton **且** compose 1.12 全家稳定发布 → 先解除 eachDependency 试跑真机（重点：流式滚动手感 + FAB 全功能），通过后删收敛块
 
 - [ ] **#238 C1 ServerDialect 剩余 5 域收编（File/Provider/System/Terminal/Shell）** `refactor` `api`
   - 按试点同模式（8a0cc375/726350ca）：各域 V1/V2ApiClient 实现域接口、Impl 收缩单点 pick、真实适配下沉；共 43 处逐方法 if 待消除
