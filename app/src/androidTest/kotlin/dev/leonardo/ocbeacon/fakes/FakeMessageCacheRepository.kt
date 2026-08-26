@@ -69,4 +69,7 @@ class FakeMessageCacheRepository @Inject constructor() : MessageCacheRepository 
         emptyList()
 
     override suspend fun hasArchivedMessages(sessionId: String, beforeCreated: Long): Boolean = false
+
+    // #223/#230 空 part 清扫（接口 2026-08-26 扩展）：内存 Fake 无空 part 累积，零动作
+    override suspend fun sweepEmptyStreamParts(): Int = 0
 }

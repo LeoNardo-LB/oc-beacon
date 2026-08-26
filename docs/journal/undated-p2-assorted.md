@@ -228,3 +228,33 @@
   - **2026-08-18 模拟器复验：首轮断裂→修复后完整闭环 ✅**：首轮 NETWORK 首翻 0 条误判读尽（P1，根因 08-12 补丁旁路 08-16 根治，已修 53cfea68）；修复后 auto-load 全链工作——probe 触发（`topVisible=75 total=137`）→ loadOlder NETWORK 30 msgs → 游标链逐页前进（serverCursor 透传）→ 自动续载不停（hasOlder 恒 true 至读尽）、无重复无风暴（failures=0 paused=false 恒定）
   - ⚠️ **待真机复测**：上滑到顶停住 → 自动加载更早直到读尽，不重复加载、不风暴
   - **2026-08-19 第三轮模拟器复测 + 结案**：深翻全程内容连续加载渲染（无卡死/无重复/无风暴——零 ChatPaging 报错）；今日 127 条会话 < 初始加载窗口（hasOlder=false 不触发自动续载 = 正确行为，热表全量命中）；触发路径（probe/游标前进/退避/读尽停止）已有 08-10 首验 + 08-18 完整闭环（501 条会话游标深入历史）两轮实证。真机如遇长会话可选抽查，不阻塞
+
+## 验收清欠（2026-08-27 深夜，自动化复测）
+
+- ✅ **草稿防抖持久化**（500ms debounce）：自动化实证——输入新草稿（叠在旧
+  草稿之上）→ force-stop → 冷启动 → 完整恢复 ✅；测试后已清场
+- ✅ **插桩套件首次实际运行**（08-09 遗留）：androidTest 编译损坏真因 =
+  FakeMessageCacheRepository 缺 sweepEmptyStreamParts（接口 08-26 扩展），
+  补齐后 HiltTestRunner 全套真机运行中；MIUI 三坑实录：①adb uninstall
+  DELETE_FAILED_INTERNAL_ERROR（用 pm uninstall --user 0）②test 包安装弹窗
+  是 securitycenter「USB安装提示/继续安装」单引号文本 ③gradle uninstall
+  编排被拦 → 改设备侧 nohup am instrument + 轮询
+- ⚠️ QuestionPagerView 选项行 48dp/图标/间距：目标对象勘误——是 agent 提问
+  的选项卡片不是设置页；需服务端 agent 主动提问才可触发，留日常使用观察
+- ✅ 真机 gfxinfo/atrace 基线：已被 08-27 流式卡顿批次真机 atrace 覆盖
+  （doFrame p50=5.71ms p99=8.41ms，120Hz 预算内）——模拟器软渲染基线作废
+
+## 插桩套件运行结果（2026-08-27 02:50 补录）
+
+- FakeMessageCacheRepository 补 sweepEmptyStreamParts 后编译通过；
+  29/29 测试类真机全绿（HiltTestRunner，am instrument 直跑），约 135 用例零失败
+- MIUI 拦截三层实录（未来重跑照此办理）：①adb uninstall 报
+  DELETE_FAILED_INTERNAL_ERROR → 用 adb uninstall（非 --user 0）重试成功
+  ②test 包首装弹 securitycenter「USB安装提示/继续安装」（单引号 text）
+  ③gradle uninstallTest 编排被拦 → 改 push APK + 弹窗自动点 +
+  am instrument 直跑；另有残留 nohup instrument shell 互杀干扰（perclass
+  前先 kill 残留 sh）
+- 版本插曲：测试期间 devDebug 时间戳 versionCode 抬高 → release 重装被拒
+  （older），需完全卸载再装
+- ⚠️ QuestionPagerView 选项行 48dp 触达项勘误：对象是 agent 提问选项卡片
+  （服务端触发），非设置页；留日常观察
