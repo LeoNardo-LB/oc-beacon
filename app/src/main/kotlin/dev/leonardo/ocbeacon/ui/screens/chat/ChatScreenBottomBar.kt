@@ -94,7 +94,6 @@ internal fun ChatScreenBottomBar(
     val shellFailedMsg = stringResource(R.string.chat_shell_failed)
     val cmdExecutedTpl = stringResource(R.string.chat_command_executed)
     val cmdFailedTpl = stringResource(R.string.chat_command_failed)
-    val sessionCompactedMsg = stringResource(R.string.chat_session_compacted)
     val sessionCompactFailedMsg = stringResource(R.string.chat_session_compact_failed)
     val forkFailedMsg = stringResource(R.string.chat_fork_failed)
     val shareUrlCopiedMsg = stringResource(R.string.chat_share_url_copied)
@@ -326,10 +325,12 @@ internal fun ChatScreenBottomBar(
                         "compact" -> {
                             onForceScroll()
                             viewModel.compactSession { ok ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        if (ok) sessionCompactedMsg else sessionCompactFailedMsg
-                                    )
+                                // 2026-08-26（用户裁决）：成功不弹 snackbar——分割线
+                                // 本身即完成反馈；失败保留提示（静默失败不可接受）。
+                                if (!ok) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(sessionCompactFailedMsg)
+                                    }
                                 }
                             }
                         }

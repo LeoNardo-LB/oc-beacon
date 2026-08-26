@@ -57,22 +57,33 @@ internal fun rememberSafeFlingBehavior(listState: LazyListState): FlingBehavior 
                     val rawDelta = velocity * dt + carry
                     val delta = rawDelta.coerceIn(-maxPerFrame, maxPerFrame)
                     carry = rawDelta - delta
-                    // 2026-08-26 崩溃防御（真机 houji FATAL：entered drag with
-                    // non-zero pending scroll）：foundation 1.12.0-beta01（material3
-                    // 1.5.0-alpha26 传递强制升级）的 ScrollingLogic 在「本 fling 的
-                    // scrollBy 尚有未消费残量 + 新拖拽/自动滚动进入」窗口触发
-                    // LazyListState 内部断言。残量属框架侧契约违规，但我们逐帧手动
-                    // scrollBy 的自定义 fling 是唯一非标准入口——中止 fling（而非
-                    // 崩溃）是完全可接受的降级：滚动立即停住，触摸继续正常。
+                    // 2026-08-26 崩溃防御 v2（真机取证：流式期间补偿/自动滚动
+                    // 让 scrollToBeConsumed 残量成为常态——v1 的静默中止会把
+                    // fling 直接掐死，用户失去惯性「松手卡在原地」）：契约违规
+                    // 时等待一帧让测量通道消费残量后重试，惯性穿过瞬态违规；
+                    // 连续 retries 超限才降级中止（保底防 FATAL）。
                     // CancellationException 必须放行（触摸打断 fling 的正常路径）。
-                    val consumed = try {
-                        scrollBy(delta)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: IllegalStateException) {
-                        AppLogger.w(TAG, "fling aborted by scroll contract violation: " + e.message +
-                            " (velocity=" + velocity.toInt() + "px/s carry=" + carry.toInt() + "px)")
-                        return velocity
+                    var consumed: Float
+                    var retries = 0
+                    while (true) {
+                        consumed = try {
+                            scrollBy(delta)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: IllegalStateException) {
+                            if (++retries > 3) {
+                                AppLogger.w(TAG, "fling aborted: " + e.message +
+                                    " (velocity=" + velocity.toInt() + "px/s retries=" + retries + ")")
+                                return velocity
+                            }
+                            // 等一帧：残量由下一次 measure/applyMeasureResult 消费
+                            withFrameNanos { it }
+                            continue
+                        }
+                        break
+                    }
+                    if (retries in 1..3) {
+                        AppLogger.d(TAG, "fling survived scroll contract violation after " + retries + " frame(s)")
                     }
                     if (abs(consumed) < 0.5f) return velocity
                     velocity *= exp(-friction * dt)
