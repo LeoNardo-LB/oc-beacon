@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#242**。
+**编号**：全局递增，不回收。下一编号：**#244**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -75,6 +75,11 @@
   - 按试点同模式（8a0cc375/726350ca）：各域 V1/V2ApiClient 实现域接口、Impl 收缩单点 pick、真实适配下沉；共 43 处逐方法 if 待消除
   - 决策与先例见 2026-08-26 架构走查（候选 1）+ Session/Message 试点
 
+- [ ] **#242 会话导航缺 4xx 防御：伪会话 id 触发 GET /message 400 后渲染空 Chat 页** `crash` `session` `sse`
+  - #234 二轮取证实锤（3/3 复现）：点击 shell 卡热区以 jobID=call_… 伪会话导航 → listMessages 返回 ClientError(400) → 进入消息区全空的「Chat」页 + 列表顶部现「无标题会话」，用户感知「点一下消息全没了」；触发源箭头已随二轮收窄消除，但任意失效子会话 id（如子会话被删）仍可复现同类空页
+  - 修复向：listMessages 4xx → 提示 snackbar 并返回会话列表（不入空 Chat）；导航前会话 id 形态校验兜底
+  - → `docs/journal/2026-08-27-event-card-unification.md` §取证
+
 - [ ] **#240 synthetic 解析属性错配：sessionID=/command=/call_ id 三处——旧格式消息跳转与描述行缺失** `data` `session`
   - #234 真机走查实证：旧 <subagent> 格式服务器用 `sessionID=` 而解析器只认 `id=` → 子会话跳转箭头与定位钮全缺（#216 入口在该类消息丢失）；<shell> 用 `command=` 而读的是 `description=` → 命令预览不显示；shell 卡 id 属性实为工具调用 id（call_…）非会话 id，箭头指向悬空
   - 修复向：parseSyntheticTask 补属性别名兼容 + call_ id 识别拦截箭头渲染；属存量行为非 #234 回归
@@ -89,4 +94,9 @@
 - [ ] **#241 视口顶部事件卡展开时标签行被推出视口（W1 类残留）——维持观察** `ui`
   - #234 真机走查（e234-04 截图，journal/assets 本地留存）：列表顶格的卡展开时 LazyColumn 锚定保正文可见但标签行滚出视口顶部；非阻塞，中间位置卡无此现象；候选方向：反向锚定保标签行（需权衡展开瞬间跳动）
   - → `docs/journal/2026-08-27-event-card-unification.md` §E2E
+
+- [ ] **#243 同色巨型日志气泡连续堆叠易读作「消息重叠」——观察/产品向** `ui` `data`
+  - #234 二轮取证证伪渲染层重叠（像素级检查零越界），「重叠」观感实为相邻同色 teal 大气泡内容大量重复（同一报错一屏 3 次，25KB 级多个连排）快读致混淆；另 turn-notify 回显整段终端日志加剧体量
+  - 候选方向（需产品决策）：连续同类 tool 输出折叠聚合/摘要行；重复内容去重提示；气泡色彩分层。先维持观察
+  - → `docs/journal/2026-08-27-event-card-unification.md` §取证
 
