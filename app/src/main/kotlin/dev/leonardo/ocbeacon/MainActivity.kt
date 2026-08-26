@@ -356,7 +356,10 @@ class MainActivity : ComponentActivity() {
      * 行为：幂等保存服务器 → 版本探测 → 连接 → 直达该服务器会话列表。
      */
     private fun handleDebugProfileIntent(intent: Intent?) {
-        if (!BuildConfig.DEBUG) return
+        // 2026-08-27：dev flavor 全构建类型放开（devRelease 手感验证标准入口——
+        // 此前仅 debug 构建可入，全新 release 安装无法配置服务器）；
+        // beta/stable 仍禁用调试通道。
+        if (!BuildConfig.DEBUG && BuildConfig.FLAVOR != "dev") return
         val url = intent?.getStringExtra("debug_url") ?: return
         val profile = DebugProfile(
             id = "ext-" + url.hashCode().toString(16),
