@@ -73,7 +73,8 @@ adb -s e69a99d8 shell input tap $(( (x1+x2)/2 )) $(( (y1+y2)/2 ))
 | 报错 | 含义 / 处置 |
 |---|---|
 | `INSTALL_FAILED_USER_RESTRICTED` | 弹窗被取消（锁屏或未点）。覆盖安装 → 改用 pm install 静默法；全新安装 → `scripts/miui-install.sh` 自动点穿（见上节），或人工点「安装」 |
-| `INSTALL_FAILED_VERSION_DOWNGRADE` | dev flavor versionCode 是 Unix 时间戳，旧构建装不上去 → `pm install -r -d`（debug 构建可降级；release 构建非 debuggable 不可降级，只能卸载重装） |
+| `INSTALL_FAILED_VERSION_DOWNGRADE` | dev flavor versionCode 是 Unix 时间戳，旧构建装不上去 → `pm install -r -d`（debug 构建可降级；release 构建非 debuggable 不可降级，只能卸载重装）。**2026-08-27 插桩测试插曲：跑过 `connectedDevDebugAndroidTest` 后设备是 devDebug 更高时间戳，随后装 devRelease 报 "older than current"——`pm uninstall --user 0` 会静默残留（`pm list packages` 仍列出），必须 `adb uninstall` 重试到清零再装** |
+| 插桩测试装 test 包被拦 | `connectedDevDebugAndroidTest` 的卸载/安装编排会被 MIUI 拦（"failed to uninstall test APK"）。绕行：`adb uninstall` 清两包 → 手动装主包 + test 包（`app-dev-debug-androidTest.apk`，用 `miui-install.sh` 点穿）→ `adb shell am instrument -w <pkg>.test/dev.leonardo.ocbeacon.HiltTestRunner` 直跑（runner 名以 `pm list instrumentation` 为准，不是 AndroidJUnitRunner） |
 
 ### 降级装 CI 产物的正确姿势（2026-08-23 实证：验证 Release 包场景）
 
