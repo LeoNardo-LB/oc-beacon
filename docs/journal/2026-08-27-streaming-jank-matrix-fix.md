@@ -48,3 +48,14 @@
 - 修复：deferredRevealCompensation 注入点同步 `!isScrollInProgress`（measure 块内快照读零滞后）；滚动中走全揭示分支（贴底路径同款，基准清零）
 - 等价 A/B：同型 1800 词请求 + 同脚本 10 fling → survived 24→0、aborted 0
 - 计数坑：adbd ShellService 把命令文本 echo 进 logcat 自匹配——必须 grep -v adbd
+
+## 追加勘误（#239 竞态修复二审，e7b23f99）
+
+- 744967f4 首版把滚动中的补偿引到**全揭示**分支是错的：该分支语义是贴底看
+  最新（揭示即顶起），不是「暂时抑制」——揭示无配对注入 = 几何不中性，
+  用户实测「fling 中随流输出被往上推」回归。
+- 正确形态 = **滚动保持（holdReveal）**：滚动中不注入也不全揭示，增长裁剪
+  不可见（视口零位移）；静止后配对恢复。恢复及时性靠 measure 块内读
+  isScrollInProgress 的快照订阅（下降沿自动复测）。
+- 新增 6 个 hold 回归单测；A/B 复测 survived/aborted=0 保持；视觉验收待用户。
+- 教训：补偿系统的「揭示」与「注入」必须成对——任何新分支先过这个不变量。
