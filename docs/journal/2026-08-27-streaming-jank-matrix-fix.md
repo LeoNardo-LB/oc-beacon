@@ -41,3 +41,10 @@
 - atrace 解析坑：`E|pid` 结束行不带 section 名——深度计数配对，勿按名字匹配
 - 帧分析必须先做间隔直方图定刷新率（8.3=120Hz/16.7=60Hz/33=skip-1），再看 doFrame 时长分位——直接看分位会重蹈 gfxinfo 误读
 - MIUI 全新安装拦截（INSTALL_FAILED_USER_RESTRICTED）：pm install 也被拦，需弹窗自动点「继续安装」（/tmp/miui-install.py 模式）
+## 追加（同日深夜）：#239 嫌疑②补偿/fling 竞态根治（744967f4）
+
+- 用户追问后即刻调研（原「专项批次」判断过保守——修复窗口仅一个 AND 条件）
+- 根因：scrollToBeConsumed 反射写依赖 poke 同帧再测消费，预算紧张时残量跨帧→下一帧动画阶段 fling scrollBy 先于测量→ISE→v2 等帧=零位移顿挫
+- 修复：deferredRevealCompensation 注入点同步 `!isScrollInProgress`（measure 块内快照读零滞后）；滚动中走全揭示分支（贴底路径同款，基准清零）
+- 等价 A/B：同型 1800 词请求 + 同脚本 10 fling → survived 24→0、aborted 0
+- 计数坑：adbd ShellService 把命令文本 echo 进 logcat 自匹配——必须 grep -v adbd
