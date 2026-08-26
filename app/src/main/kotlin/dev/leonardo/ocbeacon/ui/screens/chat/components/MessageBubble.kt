@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -57,6 +58,8 @@ internal fun MessageBubble(
     labelSuffix: (@Composable () -> Unit)? = null,
     labelTrailing: (@Composable RowScope.() -> Unit)? = null,
     statsBar: (@Composable RowScope.() -> Unit)? = null,
+    /** 卡片级点击（#234 事件卡展开/收起用）；null 时不可点（用户/智能体气泡不受影响）。 */
+    onCardClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -75,10 +78,12 @@ internal fun MessageBubble(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(
-                    horizontal = if (compact) 10.dp else SpacingTokens.LG.dp,
-                    vertical = if (compact) SpacingTokens.SM.dp else 14.dp
-                ),
+                modifier = Modifier
+                    .clickable(enabled = onCardClick != null) { onCardClick?.invoke() }
+                    .padding(
+                        horizontal = if (compact) 10.dp else SpacingTokens.LG.dp,
+                        vertical = if (compact) SpacingTokens.SM.dp else 14.dp
+                    ),
                 verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
             ) {
                 // ① 标签栏（统一）：[时间] [前导图标?] [类型标签] [Spacer] [右侧操作]
