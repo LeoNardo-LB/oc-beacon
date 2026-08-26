@@ -84,6 +84,44 @@ hello
         assertEquals("shell", info?.source)
     }
 
+    // ---- #240 属性别名回归（2026-08-27 真机实证：旧格式 sessionID= / shell command=）----
+
+    @Test
+    fun `parses subagent with sessionID attribute alias`() {
+        // 真机走查实锤：服务器旧格式属性名为 sessionID（大写 ID），
+        // 旧正则只认 id= → sessionId=null → 跳转箭头/定位钮全缺
+        val text = """<subagent sessionID="ses_oldfmt" state="completed" description="别名任务">
+结果正文
+</subagent>"""
+        val info = parseSyntheticTask(text)
+        assertEquals("ses_oldfmt", info?.sessionId)
+        assertEquals("completed", info?.state)
+        assertEquals("别名任务", info?.summary)
+        assertEquals("结果正文", info?.output)
+    }
+
+    @Test
+    fun `parses shell with command attribute as summary alias`() {
+        // 真机走查实锤：shell 卡描述属性实际是 command=（实际命令行），
+        // 旧正则只认 description= → 命令预览不显示
+        val text = """<shell id="call_eaaee" state="completed" command="npm run build">
+build ok
+</shell>"""
+        val info = parseSyntheticTask(text)
+        assertEquals("call_eaaee", info?.sessionId)
+        assertEquals("npm run build", info?.summary)
+        assertEquals("build ok", info?.output)
+        assertEquals("shell", info?.source)
+    }
+
+    @Test
+    fun `does not misfire on attr names ending with id`() {
+        // 防误配回归：xxxId= 的尾部子串 id= 不应被提取
+        val text = """<subagent subagentId="wrong_value" id="ses_right" state="completed" description="x">y</subagent>"""
+        val info = parseSyntheticTask(text)
+        assertEquals("ses_right", info?.sessionId)
+    }
+
     @Test
     fun `returns null for non task text`() {
         assertNull(parseSyntheticTask("普通文本没有结构化标记"))

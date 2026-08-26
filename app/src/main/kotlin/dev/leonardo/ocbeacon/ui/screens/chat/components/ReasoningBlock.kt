@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -191,10 +192,12 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         // 内容短、实际远达不到半屏上限），视觉上显著高于其他卡片。
                         // 240.dp 与多数工具卡片展开态的实际视觉高度一致。
                         val reasoningScrollState = rememberScrollState()
+                        // clipToBounds：同 #234 二轮防御——滚动容器默认不裁剪溢出绘制
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 240.dp)
+                                .clipToBounds()
                                 .verticalScroll(reasoningScrollState)
                         ) {
                             // 2026-08-16（部分复制）：SelectionContainer 包裹内容——

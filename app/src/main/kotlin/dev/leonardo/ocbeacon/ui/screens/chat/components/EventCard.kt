@@ -23,8 +23,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -75,9 +79,12 @@ internal fun EventCard(
     description: String? = null,
     bodyContent: (@Composable () -> Unit)? = null,
     actions: (@Composable () -> Unit)? = null,
-    /** 跳转子会话目标 id（存在即显示常驻箭头——#216 入口守恒）。 */
+    /** 跳转子会话目标 id（存在即显示常驻箭头——#216 入口守恒；调用方决定哪类事件给箭头）。 */
     navTargetId: String? = null,
     onNavClick: ((String) -> Unit)? = null,
+    /** 展开正文字号缩放系数（LocalDensity 密度缩放实现——同缩字号与间距）。
+     *  默认 1f 不缩；长 Markdown 报告场景传 ~0.85f 小一档（V6 反馈定档）。 */
+    bodyFontScale: Float = 1f,
 ) {
     val expanded = expandedStates[eventKey] ?: false
     val hasBody = bodyContent != null
@@ -110,6 +117,9 @@ internal fun EventCard(
             )
         },
         timeMs = timeMs,
+        // V6 反馈：标题行右贴边——chevron 不再悬在 16dp 内容缩进处；
+        // 8dp 保持与圆角描边的呼吸空间（左侧时间戳同步左移，两侧对称收窄）
+        labelRowHorizontalPadding = 8.dp,
         onCardClick = if (hasBody) ({ expandedStates[eventKey] = !expanded }) else null,
         labelTrailing = {
             // 跳转箭头（Q4 常驻折叠+展开两态；点击不冒泡到整卡 toggle）
@@ -151,14 +161,26 @@ internal fun EventCard(
         if (hasBody && expanded) {
             val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             HorizontalDivider(color = dividerColor)
-            // #232 勘误三教训：heightIn 必须在 verticalScroll 之外（反序即崩）
+            // #232 勘误三教训：heightIn 必须在 verticalScroll 之外（反序即崩）。
+            // clipToBounds：Compose 滚动容器默认不裁剪溢出绘制——不加会压住相邻
+            // 消息（真机 V6 反馈「回复重叠」的头号嫌疑；#231 同类坑先例）。
+            val density = LocalDensity.current
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 300.dp)
+                    .clipToBounds()
                     .verticalScroll(rememberScrollState()),
             ) {
-                SelectionContainer { bodyContent!!() }
+                SelectionContainer {
+                    if (bodyFontScale != 1f) {
+                        CompositionLocalProvider(
+                            LocalDensity provides Density(density.density * bodyFontScale, density.fontScale)
+                        ) { bodyContent!!() }
+                    } else {
+                        bodyContent!!()
+                    }
+                }
             }
             if (actions != null) {
                 HorizontalDivider(color = dividerColor)

@@ -43,9 +43,10 @@ import java.util.Date
  * - synthetic 文本解析（[parseSyntheticTask]，解析层零改动——§6 守恒项）
  * - 参数表映射（标签/图标/描述行/展开正文/跳转/动作，spec §2 task/shell 列）
  *
- * 兼容性守恒：解析失败降级（Info 图标 + generic 标签 + 原文作描述行）、
- * agent 输出截断 2000 字符 / shell 全量、跳转箭头仅在子会话 id 存在时显示
- * （#216 入口守恒）、「定位发起卡片」进展开区动作位。
+ * 兼容性守恒与演进：解析失败降级（Info 图标 + generic 标签 + 原文作描述行）、
+ * 展开正文全量渲染（V6 反馈「展示不完全」后取消 agent 2000 截断）、
+ * 跳转箭头仅子智能体卡显示（V6 用户裁决 2026-08-27；shell/其他不给箭头）、
+ * 属性别名兼容 id|sessionID 与 description|command（#240）、「定位发起卡片」进展开区动作位。
  */
 @Composable
 internal fun SyntheticNotificationCard(
@@ -63,8 +64,11 @@ internal fun SyntheticNotificationCard(
     val info = remember(text) { parseSyntheticTask(text) }
     val isFailed = info?.state == "error"
     val output = info?.output?.takeIf { it.isNotBlank() }
-    // 跳转子会话（#216）：仅当目标 id 与入口回调都存在时显示常驻箭头
+    // 跳转子会话（#216 + V6 用户裁决 2026-08-27）：只有子智能体/任务卡给常驻箭头——
+    // shell 与其他事件不需要跳转；且 id 为工具调用前缀（call_）时不可当会话 id 跳转
     val navTargetId = info?.sessionId
+        ?.takeIf { info.source == "agent" }
+        ?.takeIf { !it.startsWith("call_") }
         ?.takeIf { it.isNotBlank() && onViewSubSession != null }
 
     // Q8 来源图标（shell=Terminal / 其余=CheckCircle）；失败态图标由 EventCard 覆盖
@@ -106,11 +110,13 @@ internal fun SyntheticNotificationCard(
         expandedStates = eventExpandedStates,
         navTargetId = navTargetId,
         onNavClick = { id -> onViewSubSession?.invoke(id) },
+        bodyFontScale = 0.85f,
         bodyContent = output?.let { out ->
-            // 展开正文：shell 全量；agent 截断 2000（历史行为守恒）
+            // 展开正文全量渲染（V6 反馈「展示不完全」——原 agent 截断 2000 取消，
+            // shell 本就全量；300dp 滚动区承载长度）。字号小一档（bodyFontScale）。
             @Composable {
                 MarkdownContent(
-                    markdown = if (info?.source == "shell") out else out.take(2000),
+                    markdown = out,
                     textColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     isUser = false,
                 )
@@ -153,9 +159,11 @@ private val BACKGROUND_TASK_PREFIX_REGEX = Regex(
     RegexOption.IGNORE_CASE
 )
 private val TASK_TAG_REGEX = Regex("""<(?:task|subagent|shell)\b[^>]*>""")
-private val TASK_ID_ATTR_REGEX = Regex("""id="([^"]*)"""")
-private val TASK_STATE_ATTR_REGEX = Regex("""state="([^"]*)"""")
-private val TASK_DESCRIPTION_ATTR_REGEX = Regex("""description="([^"]*)"""")
+// #240 属性别名兼容（2026-08-27 真机实证）：旧格式 subagent 用 sessionID=、
+// shell 用 command= 作描述。(?:\s|^) 前缀防 attrName 尾部子串误配（如 xxxId=）。
+private val TASK_ID_ATTR_REGEX = Regex("""(?:\s|^)(?:id|sessionID)="([^"]*)"""")
+private val TASK_STATE_ATTR_REGEX = Regex("""(?:\s|^)state="([^"]*)"""")
+private val TASK_DESCRIPTION_ATTR_REGEX = Regex("""(?:\s|^)(?:description|command)="([^"]*)"""")
 private val TASK_SUMMARY_REGEX = Regex("""<summary>(.*?)</summary>""", RegexOption.DOT_MATCHES_ALL)
 private val TASK_RESULT_TAG_REGEX = Regex("""<task_result>(.*?)</task_result>""", RegexOption.DOT_MATCHES_ALL)
 private val TASK_ERROR_TAG_REGEX = Regex("""<task_error>(.*?)</task_error>""", RegexOption.DOT_MATCHES_ALL)

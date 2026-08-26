@@ -60,6 +60,9 @@ internal fun MessageBubble(
     statsBar: (@Composable RowScope.() -> Unit)? = null,
     /** 卡片级点击（#234 事件卡展开/收起用）；null 时不可点（用户/智能体气泡不受影响）。 */
     onCardClick: (() -> Unit)? = null,
+    /** 标签行水平内边距（#234 V6 反馈：事件卡标题行右贴边）；null=沿用内容内边距
+     *  （用户/智能体气泡默认路径，渲染几何不变）。 */
+    labelRowHorizontalPadding: androidx.compose.ui.unit.Dp? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -80,12 +83,12 @@ internal fun MessageBubble(
             Column(
                 modifier = Modifier
                     .clickable(enabled = onCardClick != null) { onCardClick?.invoke() }
-                    .padding(
-                        horizontal = if (compact) 10.dp else SpacingTokens.LG.dp,
-                        vertical = if (compact) SpacingTokens.SM.dp else 14.dp
-                    ),
+                    .padding(vertical = if (compact) SpacingTokens.SM.dp else 14.dp),
                 verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
             ) {
+                // 水平缩进下沉到节级（原为 Column 级整段 padding）——渲染几何等价；
+                // 拆开的目的是让标签行可独立收窄内边距（标题行贴边，#234 V6 反馈）。
+                val contentHPad = if (compact) 10.dp else SpacingTokens.LG.dp
                 // ① 标签栏（统一）：[时间] [前导图标?] [类型标签] [Spacer] [右侧操作]
                 // 2026-08-16（标题栏规范）：条件时间戳——当天 HH:mm:ss，
                 // 非当天 yyyy-MM-dd HH:mm:ss（DateFormatters.messageTimestamp）
@@ -93,6 +96,8 @@ internal fun MessageBubble(
                     DateFormatters.messageTimestamp(timeMs)
                 }
                 Row(
+                    modifier = Modifier
+                        .padding(horizontal = labelRowHorizontalPadding ?: contentHPad),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -115,14 +120,20 @@ internal fun MessageBubble(
                     labelTrailing?.invoke(this)
                 }
 
-                // ② 正文栏
-                content()
+                // ② 正文栏（水平缩进在节级；内层 spacedBy 复刻原 Column 级间距）
+                Column(
+                    modifier = Modifier.padding(horizontal = contentHPad),
+                    verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
+                ) {
+                    content()
+                }
 
                 // ③ 统计栏（可选）
                 if (statsBar != null) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .padding(horizontal = contentHPad)
                             .padding(top = if (compact) SpacingTokens.XS.dp else SpacingTokens.SM.dp),
                         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                         verticalAlignment = Alignment.CenterVertically

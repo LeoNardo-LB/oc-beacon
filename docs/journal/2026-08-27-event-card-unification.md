@@ -38,6 +38,19 @@
 - **自动化验证**：compileDevDebugKotlin 绿 · testDevDebugUnitTest --rerun BUILD SUCCESSFUL（1m04s，含 SyntheticTaskParserTest/ParseSyntheticTaskTest）· assembleDevDebug 出包成功（app-dev-debug.apk 03:31）
 - **commit 策略说明**：Q16 用户拍板「两批连做合并验收」——批一迁入与批二改造在同文件（ChatMessageList）交织，无法机械化拆分为两个纯净 commit；实施为连续推进、验证分步全绿，最终单 commit 落地（journal 分段记录批次边界）
 
+## 二轮：V6 首轮用户反馈修复（2026-08-27）
+
+用户验收首轮后 4 条反馈 + 走查发现，全部当轮修复（spec §7 追加裁决 Q17–Q19）：
+
+1. **箭头收窄（Q17 用户定规）**：「子智能体完成才有跳转箭头；shell 与其他的不需要」——navTargetId 收窄为 `source=="agent"`；同时 `call_` 前缀拦截（工具调用 id 非会话 id，#240 悬空跳转防御）。shell/system 卡不再显示箭头
+2. **展示不完全（Q18）**：取消 agent 输出 2000 字符截断——展开正文全量渲染（shell 本就全量），300dp 滚动区承载长度
+3. **Markdown 字号大（Q19）**：EventCard 新增 bodyFontScale 参数（LocalDensity 密度级缩放——字号与间距同缩），task/shell 正文传 0.85f 小一档；system 的 schema 正文维持原字号（等宽 schema 文本缩档反而伤对齐）
+4. **偶发重叠**：主嫌疑=展开滚动区越界绘制（Compose 滚动容器默认不裁剪溢出内容；「偶发+位置不定」与视口停靠相位吻合——与既有调研指向一致）。clipToBounds 三处落防：① EventCard 展开区 ② ToolCardRenderer 共享输出容器（**全部工具卡共用**——把防御面推广到同款写法全家族）③ ReasoningBlock 思考块。用户确认「之前的调研似乎也是指向事件展开处」
+5. **标题行不贴边**：用户观察到 chevron 距卡右缘 ~20dp——根因=标签行继承气泡内容的 16dp 水平缩进。MessageBubble 重构：整段 Column padding 下沉为节级（渲染几何等价拆分），新增 labelRowHorizontalPadding 参数（null=默认路径几何不变）；事件卡设 8dp 左右对称贴边（保留与圆角描边的呼吸空间不顶死）
+6. **#240 解析别名（顺带修复）**：TASK_ID_ATTR_REGEX 兼容 `id|sessionID`、描述正则兼容 `description|command`（`(?:\s|^)` 前缀防 xxxId= 尾部子串误配）；旧格式卡恢复箭头+命令预览。**红绿双证**：git stash 主修复后新用例 2 失败（sessionID/command 两例红）→ stash pop 后 11 用例全绿
+
+验证：compileDevDebugKotlin 绿 · testDevDebugUnitTest --rerun BUILD SUCCESSFUL · assembleDevDebug 出包（04:53）· androidTest 编译绿。
+
 ## 真机 E2E 走查（2026-08-27，houji e69a99d8，subagent 执行）
 
 > 装包链：assembleDevDebug（03:31 出包）→ `install -r` 报 INSTALL_FAILED_UPDATE_INCOMPATIBLE（设备上是 CI 签名包）→ 按 release-workflow §9 矩阵「本地 debug ↔ CI release 互不覆盖」+ 2026-08-17 唯一例外授权：`adb uninstall` → `./scripts/miui-install.sh` 弹窗自动点穿（第 1 轮命中「继续安装」@346,2435）→ `./scripts/debug-entry.sh` 秒重录服务器配置。

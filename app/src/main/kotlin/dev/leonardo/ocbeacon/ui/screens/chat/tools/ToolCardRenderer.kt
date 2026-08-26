@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -162,10 +163,13 @@ internal fun ToolCallCard(
     ) {
         val halfScreenHeight = halfScreenHeight()
         val toolCardScrollState = rememberScrollState()
+        // clipToBounds：滚动容器默认不裁剪溢出绘制（#234 二轮同步防御——
+        // 与 EventCard 同款机制；Expanded 输出越界会压住相邻消息）
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = halfScreenHeight)
+                .clipToBounds()
                 .verticalScroll(toolCardScrollState)
         ) {
             SelectionContainer {
