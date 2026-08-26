@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#240**。
+**编号**：全局递增，不回收。下一编号：**#242**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -53,9 +53,10 @@
   - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
   - → `docs/journal/2026-08-21-error-report-github.md` · `docs/journal/2026-08-23-beta-readiness-review.md`
 
-- [ ] **#234 对话流事件卡片统一：task/shell 完成 + system 通知严格同构 EventCard** `ui` `sse`
-  - 14 问拷问闭环（2026-08-26）：族一三种 SSE 事件元素统一为严格同构卡片（时间+图标+i18n 标签+可选描述行槽位/展开=正文 300dp+动作区两段式/只失败破色/箭头常驻/无动画/存量全走新卡）；#67 task 卡形态翻案与 #232 system 单行通知退役均在本卡声明
-  - 已开工（2026-08-27）：#233 验收落定、spec 复核完成；用户裁决——描述行「描述数据实际存在即激活」（task=任务描述/shell=命令预览/system 无此数据不激活）、两批连做合并一次真机验收
+- [~] **#234 对话流事件卡片统一：task/shell 完成 + system 通知严格同构 EventCard** `ui` `sse`
+  - 14 问拷问闭环（2026-08-26）：族一三种 SSE 事件元素统一为严格同构卡片；#67 task 卡形态翻案与 #232 system 单行通知退役均在本卡声明。实施期用户裁决——描述行按「数据实际存在即激活」（Q15）
+  - **待验证（2026-08-27）**：V1 全绿 + 真机走查三场景实证新形态（system 完整达标 / shell 达标 / subagent 达标但跳转箭头缺→#240）；失败态未活体取证（历史无 error 数据）；V6 用户人工清单已出待验收
+  - → `docs/specs/2026-08-26-event-card-unification-design.md` · `docs/journal/2026-08-27-event-card-unification.md`
   - → `docs/specs/2026-08-26-event-card-unification-design.md`
 
 - [ ] **#146 OpenCode 官方问题清单（issue/PR 候选）** `upstream`
@@ -74,9 +75,18 @@
   - 按试点同模式（8a0cc375/726350ca）：各域 V1/V2ApiClient 实现域接口、Impl 收缩单点 pick、真实适配下沉；共 43 处逐方法 if 待消除
   - 决策与先例见 2026-08-26 架构走查（候选 1）+ Session/Message 试点
 
+- [ ] **#240 synthetic 解析属性错配：sessionID=/command=/call_ id 三处——旧格式消息跳转与描述行缺失** `data` `session`
+  - #234 真机走查实证：旧 <subagent> 格式服务器用 `sessionID=` 而解析器只认 `id=` → 子会话跳转箭头与定位钮全缺（#216 入口在该类消息丢失）；<shell> 用 `command=` 而读的是 `description=` → 命令预览不显示；shell 卡 id 属性实为工具调用 id（call_…）非会话 id，箭头指向悬空
+  - 修复向：parseSyntheticTask 补属性别名兼容 + call_ id 识别拦截箭头渲染；属存量行为非 #234 回归
+  - → `docs/journal/2026-08-27-event-card-unification.md` §解析层发现
+
 ## P3 — 观察与低价值改进
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - → `docs/journal/2026-08-20-queue-todo.md`
+
+- [ ] **#241 视口顶部事件卡展开时标签行被推出视口（W1 类残留）——维持观察** `ui`
+  - #234 真机走查（e234-04 截图，journal/assets 本地留存）：列表顶格的卡展开时 LazyColumn 锚定保正文可见但标签行滚出视口顶部；非阻塞，中间位置卡无此现象；候选方向：反向锚定保标签行（需权衡展开瞬间跳动）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §E2E
 
