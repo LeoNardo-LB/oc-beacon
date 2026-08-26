@@ -77,11 +77,29 @@ internal class DeferredRevealCompensator {
         reportedHeight = 0
         injectedPending = 0
     }
-    fun onMeasure(realHeight: Int, shouldCompensate: Boolean): Decision {
+    fun onMeasure(
+        realHeight: Int,
+        shouldCompensate: Boolean,
+        holdReveal: Boolean = false,
+    ): Decision {
         // 冷启动：首测直接全量上报（无补偿语境，锚定几何自洽）
         if (reportedHeight <= 0) {
             reportedHeight = realHeight
             return Decision(realHeight, 0, false)
+        }
+        // 滚动保持（2026-08-27 #239 竞态修复当日二审纠偏）：滚动中**既不注入也
+        // 不全揭示**——注入会让 scrollToBeConsumed 残量撞上 fling/drag 的
+        // scrollBy（契约违规→防御等帧=顿挫，受控基线 24 次/10 fling）；全揭示
+        // 则增长无配对注入 = 内容被顶起（「fling 中随流输出上推」回归实证）。
+        // 第三条路：配对揭示上一遍已消费的注入（若有），本遍真实增长交由
+        // clipToBounds 裁剪保持不可见——视口零位移。滚动静止后（调用方在
+        // measure 块内读 isScrollInProgress 的订阅沿下降沿自动触发复测）累计
+        // 增长走常规「注入→揭示」配对恢复。
+        if (holdReveal) {
+            val pairedReveal = reportedHeight + injectedPending
+            reportedHeight = pairedReveal
+            injectedPending = 0
+            return Decision(pairedReveal, 0, false)
         }
         val revealHeight = reportedHeight + injectedPending
         val extra = realHeight - revealHeight
@@ -127,19 +145,21 @@ internal fun Modifier.deferredRevealCompensation(
         constraints.copy(maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
     )
     val realHeight = placeable.height
-    // 2026-08-27 fling 竞态根治（#239）：注入走 scrollToBeConsumed 反射写，消费
-    // 依赖 poke 拉起的同帧再测遍——帧预算紧张时 poke 落空，残量跨帧存活到下一帧
-    // 动画阶段，fling 的 scrollBy 先于测量执行 → 契约违规 → v2 防御等一帧 =
-    // 零位移顿挫（受控基线：流式中 10 次 fling = 24 次 survived，devDebug 12 次/
-    // 会话——预算越紧越频繁，与窗口机理吻合）。
-    // 滚动进行中注入本无可补偿价值：高速 fling 中几 px 漂移不可感知，补偿的
-    // 语义对象是**静止阅读**（#222 视口上爬根治）；贴底路径（shouldCompensate=
-    // false）从来就是全揭示且视觉正常。此处**同步**检查（快照读，零滞后——
-    // snapshotFlow 驱动的标志位有 1-2 帧组合滞后，关不掉这个窗口），滚动中走
-    // 既有全揭示分支（基准清零无欠账），滚动静止后下一次增长恢复注入。
+    // 2026-08-27 #239 竞态修复（当日二审纠偏——首版滚动中走全揭示分支是错的：
+    // 揭示增长无配对注入 = 内容被 SSE 增长顶起，用户实测「fling 中随流输出
+    // 上推」）。正确形态 = 滚动保持（holdReveal）：滚动中既不注入（scrollToBe
+    // Consumed 反射写的残量会撞 fling scrollBy → 契约违规 → v2 防御等帧 = 零
+    // 位移顿挫，受控基线 24 次/10 fling）也不全揭示——增长裁剪保持不可见，
+    // 视口零位移。
+    // 此处**同步**读 isScrollInProgress（快照零滞后——snapshotFlow 驱动的标志
+    // 位有 1-2 帧组合滞后）；measure 块内的读取同时建立订阅：滚动结束下降沿
+    // 自动失效本节点测量 → 复测一遍立即恢复配对（否则 newest 文本在服务器
+    // 14s 爆发间隙里会被裁剪最长一整个间隙）。
+    val scrolling = listState.isScrollInProgress
     val decision = compensator.onMeasure(
         realHeight,
-        shouldCompensate() && !listState.isScrollInProgress,
+        shouldCompensate = shouldCompensate(),
+        holdReveal = scrolling,
     )
     if (decision.injectDelta > 0) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {

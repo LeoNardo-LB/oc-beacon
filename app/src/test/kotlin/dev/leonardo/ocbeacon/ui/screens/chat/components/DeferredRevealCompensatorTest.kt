@@ -106,4 +106,84 @@ class DeferredRevealCompensatorTest {
         assertEquals(0, d1.injectDelta)
         assertFalse(d1.poke)
     }
+
+    // ============ #239 二审：滚动保持（holdReveal）============
+    // 场景：SSE 流式中用户 fling——滚动中增长必须「冻结」（不上报、不注入、
+    // 不全揭示），静止后配对恢复。首版错走全揭示分支 = 增长无配对注入，
+    // 内容被顶起（「fling 中随流输出上推」回归）。
+
+    @Test
+    fun `hold freezes growth - no report jump no injection`() {
+        val c = DeferredRevealCompensator()
+        c.onMeasure(1000, true)
+        // 滚动中内容长到 1200：上报保持 1000、零注入（增长裁剪不可见）
+        val d = c.onMeasure(1200, true, holdReveal = true)
+        assertEquals(1000, d.reportHeight)
+        assertEquals(0, d.injectDelta)
+        assertFalse(d.poke)
+        // 连续 hold 多遍：基准纹丝不动
+        c.onMeasure(1350, true, holdReveal = true)
+        val d2 = c.onMeasure(1500, true, holdReveal = true)
+        assertEquals(1000, d2.reportHeight)
+        assertEquals(0, d2.injectDelta)
+    }
+
+    @Test
+    fun `hold reveals paired pending from pass before scroll started`() {
+        val c = DeferredRevealCompensator()
+        c.onMeasure(1000, true)
+        c.onMeasure(1100, true) // 滚动开始前已注入 100（pending）
+        // 滚动开始的第一遍：遍首已消费该 100 → 配对揭示 1100，但新增长(→1300)冻结
+        val d = c.onMeasure(1300, true, holdReveal = true)
+        assertEquals(1100, d.reportHeight)
+        assertEquals(0, d.injectDelta)
+        assertEquals(1100, c.reportedHeight)
+        assertEquals(0, c.injectedPending)
+        // 后续 hold 遍：冻结在 1100
+        val d2 = c.onMeasure(1400, true, holdReveal = true)
+        assertEquals(1100, d2.reportHeight)
+    }
+
+    @Test
+    fun `after scroll ends accumulated growth resumes via inject-reveal pair`() {
+        val c = DeferredRevealCompensator()
+        c.onMeasure(1000, true)
+        // 滚动中累计增长 1000→1600，全部冻结
+        c.onMeasure(1300, true, holdReveal = true)
+        c.onMeasure(1600, true, holdReveal = true)
+        // 滚动结束：恢复遍——注入累计 600（1600−冻结基准1000），上报保持 1000
+        //（配对语义：消费先于揭示）
+        val resume = c.onMeasure(1600, true, holdReveal = false)
+        assertEquals(1000, resume.reportHeight)
+        assertEquals(600, resume.injectDelta)
+        assertTrue(resume.poke)
+        // 揭示遍：配对完成，基准对齐真实高度
+        val reveal = c.onMeasure(1600, true, holdReveal = false)
+        assertEquals(1600, reveal.reportHeight)
+        assertEquals(0, reveal.injectDelta)
+        assertEquals(0, c.injectedPending)
+    }
+
+    @Test
+    fun `hold at bottom settles with full reveal - no pairing residue`() {
+        // 贴底态下滚动结束（isScrollInProgress 下降沿）：shouldCompensate=false
+        // 走全揭示清欠——冻结的增量一次性呈现（贴底看最新的正确行为）
+        val c = DeferredRevealCompensator()
+        c.onMeasure(1000, true)
+        c.onMeasure(1400, true, holdReveal = true)
+        val settle = c.onMeasure(1400, false, holdReveal = false)
+        assertEquals(1400, settle.reportHeight)
+        assertEquals(0, settle.injectDelta)
+        assertEquals(0, c.injectedPending)
+    }
+
+    @Test
+    fun `hold takes precedence regardless of shouldCompensate flag`() {
+        // hold 分支在 shouldCompensate 判定之前返回——两条旗标组合下行为一致
+        val c = DeferredRevealCompensator()
+        c.onMeasure(1000, true)
+        val dFalse = c.onMeasure(1300, false, holdReveal = true)
+        assertEquals(1000, dFalse.reportHeight)
+        assertEquals(0, dFalse.injectDelta)
+    }
 }
