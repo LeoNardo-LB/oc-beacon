@@ -13,3 +13,15 @@
   - [ ] **P3：RaceProbe 复现取证待用户执行** `race`——若叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可直接重放：JUMP entries 数 vs VIEW keys 错位即定位）
   - [x] **P3：A-F4 反射 requestPositionAndForgetLastKnownKey** `refactor` ✅ 2026-08-21（fe784374）——跳转路径两处换官方挂起 scrollToItem（互斥锁内重定位改为块外标记+块外执行）；反射 LazyListReflection 仅留 SSE 高度补偿两处调用点
   - [x] **P3：卫生群**（D 报告 #7-11）✅ 2026-08-21（ae0d079c + 07507ae7）——① mdRegistry/JumpBubbleObserve/Ready 上报链/JPS pendingIndex·onCompleted·reset/JNC reset 全删（零读者实证）；② user 跳转预解析直通 Measuring（PartContent isUser 纯 Text 渲染，预解析纯延迟——附带性能修复）；③ RenderReadiness D-7 实例置换修复（解析前捕获 flow 实例直写，remove 后不复活、旧订阅者收得到完成态）+ update/awaitReady 死 API 移除；④ jumpPhase 订阅下沉 JumpMaskOverlay 小组件（蒙版显隐不再重组 1500 行主体）+ 时钟基统一 elapsedRealtime（门控/解锁/重定位节流/稳定窗口同基）
+
+## #166 结案（2026-08-27，自动化复现实验）
+
+- **结论：不可复现（50 连测零命中）——判定已随本轮修复消除**
+- 方法：真机 `--ez debug_race true` 冷启动 → 多轮问答会话 → 自动化脚本
+  「打开快速定位→跳A→跳B→立即急滚×8」×2 批共 50 轮；每轮 dump a11y 树
+  健康检查（text≥4 节点为健康，退化判据=只剩遮罩/空文本节点）+ 全程
+  RaceProbe 时序采集（logcat -s RaceProbe，两批共数百行 JUMP/ENTRIES/CHUNK/VIEW）
+- 统计：修复前发生率 ~8%（12 中 1），50 连空在原发生率下概率仅 ~1.5% ——
+  支持「第六轮 7 项根因修复后已消除」判定
+- 兜底：若日常使用再现叠放，取证流程不变（--ez debug_race true 复现 →
+  logcat -d -s RaceProbe 导出 → 按时序重放定位）；本段即操作手册

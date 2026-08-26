@@ -80,7 +80,3 @@
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - → `docs/journal/2026-08-20-queue-todo.md`
 
-- [ ] **#166 RaceProbe 复现取证待用户执行** `race`
-  - 若跳转叠放仍出现：`am start --ez debug_race true` 后复现，`adb logcat -d -s RaceProbe` 导出（时序可重放定位）
-  - → `docs/journal/2026-08-21-race-audit-round6.md`（提升自该批子条目）
-
