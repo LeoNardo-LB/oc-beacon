@@ -131,7 +131,12 @@ internal fun normalizeMarkdown(raw: String, isUser: Boolean): String {
  *
  * 模式：非表格行 \n |表头| \n |---| → 非表格行 \n\n |表头| \n |---|
  */
-private fun ensureBlankLineBeforeGfmTables(text: String): String {
+internal fun ensureBlankLineBeforeGfmTables(text: String): String {
+    // 2026-08-26 流式卡顿根因修复（simpleperf 实证 ICU RegexMatcher 占主线程
+    // CPU 8.35% 全进程第一）：该正则对全文扫描，流式期间每 48ms 全量重跑。
+    // 模式必然含 '|'（组 2/3 的表格行）——无 '|' 的文本（essay/纯段落常态）
+    // 不可能命中，native contains 扫描短路，正则零成本。
+    if (!text.contains('|')) return text
     // 匹配：不以 | 结尾的行，后跟表格表头行（以 | 开头），
     // 再跟分隔行（仅含 -、:、空格和 | 的 |）。
     return text.replace(TABLE_AFTER_TEXT_REGEX) { m ->
@@ -177,11 +182,24 @@ private fun isPlainParagraphLine(line: String): Boolean {
     if (t.startsWith(">")) return false                      // 引用
     if (line.startsWith("    ") || line.startsWith("\t")) return false // 缩进代码/列表续行
     if (t.startsWith("- ") || t.startsWith("* ") || t.startsWith("+ ")) return false // 无序列表
-    if (OrderedListItemRegex.containsMatchIn(t)) return false // 有序列表（1. / 1)）
+    if (isOrderedListItem(t)) return false // 有序列表（1. / 1)）——手写检查（2026-08-26 流式卡顿：免每行 ICU 正则）
     return true
 }
 
-private val OrderedListItemRegex = Regex("^\\d{1,9}[.)]\\s")
+internal val OrderedListItemRegex = Regex("^\\d{1,9}[.)]\\s")
+
+/** [OrderedListItemRegex] 的无正则等价（splitOversizedParagraphs 每行调用，流式热路径）。 */
+private fun isOrderedListItem(t: String): Boolean {
+    var i = 0
+    var digits = 0
+    while (i < t.length && t[i] in '0'..'9') { i++; digits++ }
+    if (digits == 0 || digits > 9) return false
+    if (i >= t.length) return false
+    val c = t[i]
+    if (c != '.' && c != ')') return false
+    val next = t.getOrNull(i + 1) ?: return false
+    return next == ' ' || next == '\t' || next == '\u000B' || next == '' || next == '\r'
+}
 
 /**
  * 超长段落空行化：连续普通文本行构成一个候选段；总字符 ≥

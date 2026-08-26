@@ -8,6 +8,13 @@ package dev.leonardo.ocbeacon.ui.screens.chat.markdown
  * CommonMark 围栏跟踪语义。
  */
 internal fun normalizeTaskListMarkers(markdown: String): String {
+    // 2026-08-26 流式卡顿根因修复：任务标记替换仅在行含 ☐/☑/✅ 时产生输出
+    // 变化，fence 跟踪也只为保护标记替换而存在——全文无三字符则输出恒等于
+    // 输入，两正则/行全免（native indexOf 扫描，essay 常态零正则）。
+    if (markdown.indexOf(BALLOT_BOX) < 0 &&
+        markdown.indexOf('\u2611') < 0 &&
+        markdown.indexOf('\u2705') < 0
+    ) return markdown
     var fenceMarker: Char? = null
     var minimumFenceLength = 0
     return markdown.split('\n').joinToString("\n") { line ->
