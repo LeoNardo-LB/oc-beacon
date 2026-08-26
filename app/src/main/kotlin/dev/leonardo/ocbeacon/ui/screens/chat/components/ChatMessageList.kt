@@ -397,7 +397,9 @@ fun ChatMessageList(
     // #232：system 消息（实测 zhipu 构建「Code Mode tool catalog」11KB 工具目录
     // 全量 schema）展开表——此前按普通消息渲染成 1340px 纯文本墙插在对话中间
     //（用户「消息叠在一起/页面乱」观感来源）。屏幕级生命周期，同 #227 模式。
-    val systemNoticeExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    // #234 事件卡统一展开表（#227 模式：屏幕级 remember——滚出视口不丢、离会话即清）；
+    // 原名 systemNoticeExpandedStates（#232）随批一扩展为三事件卡共用
+    val eventCardExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
     // #227：V1 尾部→消息流展开态交接桥——搬移决策在
     // CompactionDividerPolicy.v1TailHandoverPlan（C4），写表留在本 effect；
@@ -1109,6 +1111,7 @@ fun ChatMessageList(
                                         onViewSubSession = navigateToChildSession,
                                         onOpenFile = onOpenFile,
                                         onLocateTask = onLocateTask,
+                                        eventExpandedStates = eventCardExpandedStates,
                                     )
                                 }
                             }
@@ -1298,6 +1301,7 @@ fun ChatMessageList(
                                         onForceScrollToBottom()
                                     },
                                     questionAnswersCache = viewModel.questionAnswerStore,
+                                    eventExpandedStates = eventCardExpandedStates,
                                 )
                             }
                             msg.isUser -> {
@@ -1315,66 +1319,30 @@ fun ChatMessageList(
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         dev.leonardo.ocbeacon.logging.AppLogger.w(
                                             "SysMsgDiag",
-                                            "#232 system branch RENDER id=" + chatMessage.message.id.takeLast(8) +
+                                            "#234 event-card branch RENDER id=" + chatMessage.message.id.takeLast(8) +
                                                 " textLen=" + chatMessage.parts.filterIsInstance<Part.Text>().sumOf { it.text.length }
                                         )
                                     }
+                                    // #232（2026-08-26 用户三报「消息叠在一起」取证定音）→
+                                    // #234 批一：单行通知退役，迁入统一事件卡 EventCard
+                                    // （spec §1–§2；标签=工具目录已变更，body=schema 全文 300dp 滚动）。
                                     val sysText = chatMessage.parts
                                         .filterIsInstance<Part.Text>()
                                         .joinToString("\n") { it.text }.trim()
-                                    val sysKey = chatMessage.message.id
-                                    val sysExpanded = systemNoticeExpandedStates[sysKey] ?: false
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(bottom = messageSpacing)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { systemNoticeExpandedStates[sysKey] = !sysExpanded }
-                                                .padding(vertical = SpacingTokens.XS.dp),
-                                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Outlined.Info,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(14.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                                            )
-                                            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(SpacingTokens.XS.dp))
+                                    EventCard(
+                                        eventKey = chatMessage.message.id,
+                                        timeMs = chatMessage.message.time.created,
+                                        label = stringResource(R.string.chat_event_tool_catalog_changed),
+                                        leadingIcon = Icons.Outlined.Info,
+                                        expandedStates = eventCardExpandedStates,
+                                        bodyContent = {
                                             Text(
-                                                text = sysText.lineSequence().firstOrNull { it.isNotBlank() }?.take(60)
-                                                    ?: "system",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                                                maxLines = 1,
-                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f)
+                                                text = sysText,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                                             )
-                                            Icon(
-                                                imageVector = if (sysExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(14.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                                            )
-                                        }
-                                        androidx.compose.animation.AnimatedVisibility(visible = sysExpanded) {
-                                            val sysScroll = androidx.compose.foundation.rememberScrollState()
-                                            androidx.compose.foundation.layout.Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .heightIn(max = 300.dp)
-                                                    .verticalScroll(sysScroll)
-                                            ) {
-                                                Text(
-                                                    text = sysText,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                                                )
-                                            }
-                                        }
-                                    }
+                                        },
+                                    )
                                     return@itemsIndexed
                                 }
 
@@ -1510,7 +1478,8 @@ fun ChatMessageList(
                                             }
                                         }
                                     },
-                                    isAmoled = isAmoled
+                                    isAmoled = isAmoled,
+                                    eventExpandedStates = eventCardExpandedStates
                                 )
                             }
                         }

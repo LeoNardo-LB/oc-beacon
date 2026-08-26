@@ -1,90 +1,56 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
-import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
-import dev.leonardo.ocbeacon.ui.screens.chat.util.halfScreenHeight
-import dev.leonardo.ocbeacon.ui.screens.chat.util.toolOutputContainerColor
-import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
-import dev.leonardo.ocbeacon.ui.theme.AgentError
-import dev.leonardo.ocbeacon.ui.theme.AgentInfo
-import dev.leonardo.ocbeacon.ui.theme.AgentSuccess
-import dev.leonardo.ocbeacon.ui.theme.CodeTypography
-import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
-import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
 
 /**
- * 轮次完成合成通知卡片（#67 synthetic 消息——后台 task/subagent 完成注入）。
+ * 轮次完成合成通知卡片（#67 synthetic 消息——后台 task/subagent/shell 完成注入）。
  *
  * opencode 服务器在后台 task/subagent 完成时向主会话注入 synthetic 消息
  * （type="synthetic" + 顶层 text；客户端实时经 session.input.promoted 接收，
  * 2026-08-12 与 TUI 机制对齐），text 为结构化格式：
  *   <task id="ses_xxx" state="completed|error"><summary>…</summary><task_result>…</task_result></task>
  *   <subagent id="ses_xxx" state="completed" description="…">结果</subagent>
+ *   <shell id="…" state="…" description="…">输出</shell>
  *
- * 渲染（2026-08-12 用户决策：独立气泡方案 A）：
- * - synthetic 是**独立消息**，独立气泡渲染（不再嵌入 assistant turn）
- * - 气泡结构与 assistant 同构：左对齐 + surfaceVariant 底 + ShapeTokens.medium 圆角
- * - **区别点**：顶部标签行（状态图标 绿✓/红✗/蓝ℹ + primary 标签色）
- * - 内容：标题行（Subagent · 任务描述）+ 状态行（Task completed/failed · 结果摘要）
- * - 右侧操作：展开输出 / 定位发起卡片 / 跳转子智能体会话
- * - 页脚：时间（HH:mm，同 assistant 页脚格式）
- * - 解析失败降级：Info 图标 + 全文（无状态行/跳转/展开）
+ * **#234（2026-08-27）形态翻案声明**：本组件自 2026-08-12「独立气泡方案 A」
+ * （#67 自有标签行/标题行/按钮行）迁移为统一事件卡 EventCard 的薄适配器——
+ * 三种 SSE 事件元素共用严格同构模子（spec
+ * docs/specs/2026-08-26-event-card-unification-design.md §1–§2），本组件只负责：
+ * - synthetic 文本解析（[parseSyntheticTask]，解析层零改动——§6 守恒项）
+ * - 参数表映射（标签/图标/描述行/展开正文/跳转/动作，spec §2 task/shell 列）
+ *
+ * 兼容性守恒：解析失败降级（Info 图标 + generic 标签 + 原文作描述行）、
+ * agent 输出截断 2000 字符 / shell 全量、跳转箭头仅在子会话 id 存在时显示
+ * （#216 入口守恒）、「定位发起卡片」进展开区动作位。
  */
 @Composable
 internal fun SyntheticNotificationCard(
     currentMessage: ChatMessage,
-    isAmoled: Boolean = false,
+    eventExpandedStates: MutableMap<String, Boolean>,
     onViewSubSession: ((String) -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
 ) {
@@ -92,221 +58,94 @@ internal fun SyntheticNotificationCard(
         .filterIsInstance<Part.Text>()
         .firstOrNull { it.text.isNotBlank() }
         ?.text
-        ?: (currentMessage.message as? Message.User)?.summary?.body
         ?: return
 
-    // 子智能体类型（2026-08-12 用户要求：展示具体类型 general/explore 等）
-    val agentType = (currentMessage.message as? Message.User)?.agent
-        ?.takeIf { it.isNotBlank() }
-
     val info = remember(text) { parseSyntheticTask(text) }
-    val isError = info?.state == "error"
+    val isFailed = info?.state == "error"
     val output = info?.output?.takeIf { it.isNotBlank() }
-    val sessionId = info?.sessionId
+    // 跳转子会话（#216）：仅当目标 id 与入口回调都存在时显示常驻箭头
+    val navTargetId = info?.sessionId
         ?.takeIf { it.isNotBlank() && onViewSubSession != null }
 
-    val icon = when {
-        info == null -> Icons.Outlined.Info
-        isError -> Icons.Outlined.ErrorOutline
-        else -> Icons.Filled.CheckCircle
-    }
-    val iconTint = when {
-        info == null -> MaterialTheme.colorScheme.primary
-        isError -> AgentError
-        else -> AgentSuccess
-    }
-    // 「定位发起卡片」按钮（2026-08-11 用户要求）：有子智能体会话 id 即显示，
-    // 点击后由 ChatMessageList 在消息流中查找发起卡片（TaskToolCard 的
-    // metadata.sessionId）并滚动+高亮；找不到时提示。
-    val canLocate = sessionId != null && onLocateTask != null
+    // Q8 来源图标（shell=Terminal / 其余=CheckCircle）；失败态图标由 EventCard 覆盖
+    val sourceIcon = if (info?.source == "shell") Icons.Filled.Terminal else Icons.Filled.CheckCircle
+    val unknownIcon = Icons.Outlined.Info
 
-    // 标签行（2026-08-12 用户要求组合）：时间 + "Tasks" + "Agent/Shell Completed" + 成功/失败图标
-    val labelText = stringResource(R.string.chat_label_tasks)
-    val statusLabel = when {
-        info == null -> null
-        isError -> stringResource(
-            if (info.source == "shell") R.string.chat_background_shell_failed
-            else R.string.chat_background_agent_failed
+    // Q7 i18n 标签（chat_event_* 新家族）
+    val label = when {
+        info == null -> stringResource(R.string.chat_event_generic)
+        isFailed -> stringResource(
+            if (info.source == "shell") R.string.chat_event_shell_failed
+            else R.string.chat_event_task_failed
         )
         else -> stringResource(
-            if (info.source == "shell") R.string.chat_background_shell_completed
-            else R.string.chat_background_agent_completed
+            if (info.source == "shell") R.string.chat_event_shell_completed
+            else R.string.chat_event_task_completed
         )
     }
 
-    // 标题行：任务描述（summary 去 "Background task completed/failed: " 前缀）
-    val taskTitle = info?.summary?.let(::extractTaskDescription) ?: text
-
-    var expanded by remember { mutableStateOf(false) }
-    val hasNavArrow = sessionId != null
-    val hasOutput = output != null
-
-    // 标签行时间（同 user/assistant 标签行格式，左对齐最左边）
-    val timeText = remember(currentMessage.message.time.created) {
-        DateFormatters.timeOnly().format(Date(currentMessage.message.time.created))
+    // Q15 描述行：描述数据实际存在才激活——task=任务描述（identity 信息）、
+    // shell=命令预览（description 属性）、解析失败降级=原始全文截断
+    val description = remember(text) {
+        if (info == null) {
+            text
+        } else {
+            extractTaskDescription(info.summary).ifBlank { null }
+        }
     }
 
-    // 统一容器（MessageBubble）：标签栏 = 时间 + "Background" + "Agent/Shell Completed" + 状态图标
-    // 操作按钮（展开/定位/跳转）统一放第 2 行（2026-08-12 用户要求）
-    MessageBubble(
-        alignEnd = false,
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        border = BorderStroke(
-            1.dp,
-            if (isError) AgentError.copy(alpha = AlphaTokens.MEDIUM)
-            else MaterialTheme.colorScheme.outline.copy(alpha = AlphaTokens.MEDIUM)
-        ),
-        shape = ShapeTokens.medium,
-        label = labelText,
-        // 2026-08-16（标题栏规范·类型图标）：合成通知=Notifications
-        //（labelSuffix 的状态图标 ✓/✗ 保持不变——类型与状态分离）
-        labelLeading = {
-            androidx.compose.material3.Icon(
-                imageVector = androidx.compose.material.icons.Icons.Filled.Notifications,
-                contentDescription = null,
-                modifier = Modifier.size(13.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-            )
-        },
-        timeMs = currentMessage.message.time.created,
-        labelSuffix = {
-            // 状态文案 + 成功/失败图标（2026-08-12 用户要求组合）
-            if (statusLabel != null) {
-                Text(
-                    text = statusLabel,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = if (isError) AgentError else AgentSuccess,
-                    maxLines = 1
-                )
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = iconTint
-                )
-            }
-        },
-    ) {
-        // 第 2 行（2026-08-12 用户要求）：子智能体类型 + 标题 + [定位][跳转]
-                // #215 批3：标题行本体点击=展开/收起（有输出时；推翻 08-16 职责分离
-                // 规范，与 scaffold 家族统一契约），右侧展开钮移除，跳转/定位钮保留
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = hasOutput) { expanded = !expanded }
-                ) {
-                    if (info == null) {
-                        // fallback：直接显示原文（无任务格式）
-                        Text(
-                            text = text,
-                            style = CodeTypography,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    } else {
-                        // 2026-08-12 用户要求：区分 agent/shell 通知——图标 + 类型文字
-                        // agent（subagent/task）= AccountTree；shell = Terminal
-                        Icon(
-                            imageVector = if (info.source == "shell") {
-                                Icons.Default.Terminal
-                            } else {
-                                Icons.Default.AccountTree
-                            },
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = if (info.source == "shell") {
-                                stringResource(R.string.tool_terminal)
-                            } else {
-                                agentType?.replaceFirstChar { it.uppercase() }
-                                    ?: stringResource(R.string.tool_sub_agent)
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            maxLines = 1
-                        )
-                        if (taskTitle != text) {
-                            Text(
-                                text = "· $taskTitle",
-                                style = CodeTypography,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                    // 2026-08-12 用户要求：展开按钮与跳转按钮位置对调——
-                    // 顺序 [跳转][定位][展开]（跳转最左、展开最右）
-                    if (hasNavArrow) {
-                        // 跳转：进入 subagent 子智能体会话（shell 类通知无子智能体会话 id → 无箭头）
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = stringResource(R.string.a11y_icon_navigate_forward),
-                            modifier = Modifier
-                                .size(22.dp)
-                                .clickable { onViewSubSession?.invoke(sessionId) }
-                                .padding(3.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    if (canLocate) {
-                        // 「定位发起卡片」：滚动到发起该任务的 TaskToolCard 位置
-                        IconButton(
-                            onClick = { onLocateTask?.invoke(sessionId) },
-                            modifier = Modifier.size(22.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = stringResource(R.string.a11y_locate_task),
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
-                            )
-                        }
-                    }
-                    // #215 批3：展开钮移除——本体点击已承担展开/收起
-                }
+    val timeMs = currentMessage.message.time.created
 
-                // 展开输出（动画全部默认：spring 高度 + 淡入淡出——#215 用户裁决
-                // 撤全部补偿与 spec 覆盖，交 LazyColumn 原生锚定）
-                AnimatedVisibility(visible = hasOutput && expanded) {
-                    val halfScreenHeight = halfScreenHeight()
-                    val scrollState = rememberScrollState()
-                    Surface(
-                        shape = ShapeTokens.extraSmall,
-                        color = toolOutputContainerColor(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 3.dp)
-                            .heightIn(max = halfScreenHeight)
-                            .verticalScroll(scrollState)
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            // 2026-08-12 用户要求：去掉 "Output summary" 文案——直接输出内容；
-                            // agent 通知展示总结（截断足够）；shell 通知展示全部内容（不截断）
-                            SelectionContainer {
-                                MarkdownContent(
-                                    markdown = if (info?.source == "shell") {
-                                        output ?: ""
-                                    } else {
-                                        output?.take(2000) ?: ""
-                                    },
-                                    textColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    isUser = false
-                                )
-                            }
-                        }
-                    }
+    EventCard(
+        eventKey = currentMessage.message.id,
+        timeMs = timeMs,
+        label = label,
+        leadingIcon = if (info == null) unknownIcon else sourceIcon,
+        failed = isFailed,
+        description = description,
+        expandedStates = eventExpandedStates,
+        navTargetId = navTargetId,
+        onNavClick = { id -> onViewSubSession?.invoke(id) },
+        bodyContent = output?.let { out ->
+            // 展开正文：shell 全量；agent 截断 2000（历史行为守恒）
+            @Composable {
+                MarkdownContent(
+                    markdown = if (info?.source == "shell") out else out.take(2000),
+                    textColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    isUser = false,
+                )
+            }
+        },
+        actions = if (navTargetId != null && onLocateTask != null) {
+            // Q4：「定位发起卡片」在展开区动作位（折叠态无此钮——spec §2）
+            @Composable {
+                TextButton(
+                    onClick = { navTargetId?.let(onLocateTask) },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    ),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.LocationOn,
+                        contentDescription = stringResource(R.string.a11y_locate_task),
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.chat_event_locate_task),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
                 }
             }
+        } else null,
+    )
 }
+
+// ---------------------------------------------------------------------------
+// synthetic 文本解析（纯函数，#234 迁移零改动——"解析层零改动"守恒项；
+// 单测 SyntheticTaskParserTest / ParseSyntheticTaskTest 同包直引下列符号）
+// ---------------------------------------------------------------------------
 
 // #106-4：synthetic 解析正则——顶层预编译（原每条通知渲染现场编译）
 private val BACKGROUND_TASK_PREFIX_REGEX = Regex(
@@ -334,7 +173,7 @@ internal data class SyntheticTaskInfo(
     val state: String?,
     val summary: String?,
     val output: String?,
-    /** 通知来源类型（2026-08-12）："agent"（subagent/task 注入）/ "shell"（未来）/ null 未知 */
+    /** 通知来源类型（2026-08-12）："agent"（subagent/task 注入）/ "shell" / null 未知 */
     val source: String? = null,
 )
 
@@ -350,7 +189,7 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
     val isSubagentTag = taskTag.startsWith("<subagent")
     // 2026-08-12 修复：<shell> 标签同 <subagent>——正文在标签之间（非 task_result 包裹）
     val isBodyTag = isSubagentTag || taskTag.startsWith("<shell")
-    // 来源类型（2026-08-12）：agent = subagent/task 注入；shell = shell 通知（未来）
+    // 来源类型（2026-08-12）：agent = subagent/task 注入；shell = shell 通知
     val source = when {
         isSubagentTag || taskTag.startsWith("<task") -> "agent"
         taskTag.startsWith("<shell") -> "shell"

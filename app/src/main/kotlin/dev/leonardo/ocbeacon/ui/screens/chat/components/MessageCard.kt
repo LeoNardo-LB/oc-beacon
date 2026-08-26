@@ -34,6 +34,9 @@ internal fun MessageCard(
     onQuestionReject: ((String) -> Unit)? = null,
     /** E2E-C 终版：应用级答案存储透传（QuestionAnswerStore 单例） */
     questionAnswersCache: dev.leonardo.ocbeacon.ui.screens.chat.QuestionAnswerStore? = null,
+    /** #234：事件卡统一展开表（屏幕级，#227 模式）——synthetic 卡与 assistant
+     *  turn 内防御性 RenderItem.SyntheticNotice 渲染共用同一记忆。 */
+    eventExpandedStates: MutableMap<String, Boolean>,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -45,9 +48,9 @@ internal fun MessageCard(
         )
         MessageCardRole.SYNTHETIC -> SyntheticNotificationCard(
             currentMessage = currentMessage,
-            isAmoled = isAmoled,
             onViewSubSession = onViewSubSession,
             onLocateTask = onLocateTask,
+            eventExpandedStates = eventExpandedStates,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(
             renderableTurn = renderableTurn ?: error("renderableTurn is required for ASSISTANT role"),
@@ -65,6 +68,7 @@ internal fun MessageCard(
             onQuestionSubmit = onQuestionSubmit,
             onQuestionReject = onQuestionReject,
             questionAnswersCache = questionAnswersCache,
+            eventExpandedStates = eventExpandedStates,
         )
     }
 }

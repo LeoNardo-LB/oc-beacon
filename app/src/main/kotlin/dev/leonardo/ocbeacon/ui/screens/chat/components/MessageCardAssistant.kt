@@ -91,6 +91,8 @@ internal fun MessageCardAssistant(
     onQuestionReject: ((String) -> Unit)? = null,
     /** E2E-C 终版：应用级答案存储透传（QuestionAnswerStore 单例） */
     questionAnswersCache: dev.leonardo.ocbeacon.ui.screens.chat.QuestionAnswerStore? = null,
+    /** #234：事件卡统一展开表——本函数仅在防御性 SyntheticNotice 分支使用。 */
+    eventExpandedStates: MutableMap<String, Boolean>,
 ) {
     // D2-L22：原 if(isAmoled) 两分支相同（死条件）——直接取 onSurface
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -258,9 +260,9 @@ internal fun MessageCardAssistant(
                         key(item.msgId) {
                             SyntheticNotificationCard(
                                 currentMessage = item.message,
-                                isAmoled = isAmoled,
                                 onViewSubSession = onViewSubSession,
                                 onLocateTask = onLocateTask,
+                                eventExpandedStates = eventExpandedStates,
                             )
                         }
                     }
@@ -409,6 +411,8 @@ internal fun ChunkedAssistantMessage(
     onViewSubSession: ((String) -> Unit)?,
     onOpenFile: ((String) -> Unit)?,
     onLocateTask: ((String) -> Unit)?,
+    /** #234：事件卡统一展开表。 */
+    eventExpandedStates: MutableMap<String, Boolean>,
 ) {
     if (renderableTurn.isEmpty) return
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -480,6 +484,7 @@ internal fun ChunkedAssistantMessage(
                     onViewSubSession = onViewSubSession,
                     onOpenFile = onOpenFile,
                     onLocateTask = onLocateTask,
+                    eventExpandedStates = eventExpandedStates,
                     renderableTurn = renderableTurn,
                     compact = compact,
                     readinessRegistry = readinessRegistry,
@@ -505,6 +510,7 @@ internal fun ChunkedAssistantMessage(
                         onViewSubSession = onViewSubSession,
                         onOpenFile = onOpenFile,
                         onLocateTask = onLocateTask,
+                        eventExpandedStates = eventExpandedStates,
                         renderableTurn = renderableTurn,
                         compact = compact,
                         readinessRegistry = readinessRegistry,
@@ -547,6 +553,8 @@ private fun ChunkAssistantItems(
     onViewSubSession: ((String) -> Unit)?,
     onOpenFile: ((String) -> Unit)?,
     onLocateTask: ((String) -> Unit)?,
+    /** #234：事件卡统一展开表。 */
+    eventExpandedStates: MutableMap<String, Boolean>,
     renderableTurn: RenderableTurn,
     compact: Boolean,
     readinessRegistry: RenderReadinessRegistry,
@@ -569,9 +577,9 @@ private fun ChunkAssistantItems(
             is RenderItem.SyntheticNotice -> key(item.msgId) {
                 SyntheticNotificationCard(
                     currentMessage = item.message,
-                    isAmoled = isAmoled,
                     onViewSubSession = onViewSubSession,
                     onLocateTask = onLocateTask,
+                    eventExpandedStates = eventExpandedStates,
                 )
             }
             is RenderItem.GroupedParts -> when (item.group) {
