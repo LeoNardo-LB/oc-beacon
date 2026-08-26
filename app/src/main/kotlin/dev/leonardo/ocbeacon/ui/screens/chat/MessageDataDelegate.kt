@@ -357,7 +357,10 @@ internal class MessageDataDelegate(
             chatRepository.upsertMessages(sid, messages, MergeStrategy.SSE_PRIORITY)
         } catch (e: Throwable) {
             if (e is CancellationException) throw e
+            // #242 同源修复：错误转交互层 error（消息区空时 ChatErrorState 兜底），
+            // 不再纯日志吞掉
             AppLogger.e(TAG, "Failed to refresh messages", e)
+            reportError(e.message ?: "Failed to refresh messages")
         } finally {
             _isRefreshing.value = false
         }

@@ -142,7 +142,11 @@ internal class MessagePaginationDelegate(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            // #242：入口加载失败必须上抛到 UI 层（interaction.error）——
+            // 吞掉会让用户停在消息区全空的「Chat」页（伪会话 id 取证实证
+            // 的症状形态）；重复到达的错误以最近一次为准。
             AppLogger.e(TAG, "Failed to load messages", e)
+            errorSink(e.message ?: "Failed to load messages")
         }
     }
 

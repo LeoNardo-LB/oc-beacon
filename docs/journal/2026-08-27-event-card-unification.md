@@ -93,6 +93,16 @@
 - shell 卡 `id="call_eaaee…"` 为工具调用 id——即便补别名兼容也不能当子会话 id 用于跳转，需 call_ 前缀识别拦截
 - 三处均为存量解析行为（旧卡时代已存在），非 #234 引入回归；修复落点 parseSyntheticTask 单点（含正则常量），单测可先行
 
+## #242 防御落地（同会话顺带修复，backlog 卡即刻销账）
+
+取证实锤当日即修（用户指示「过程中发现的问题一起修复」）。三层防御：
+
+1. **导航源头拦截**（NavGraph.onNavigateToChildSession）：非 `ses_` 前缀的 id 直接 W 级日志拦截、不入导航栈——`call_…` jobID 形态在第一道门即被拒。修法注记：非尾随具名 lambda 内 `return@label` 有标签解析歧义，用 if/else 结构等价表达
+2. **入口加载失败上抛**（MessagePaginationDelegate.loadMessagesForSession）：原 catch 仅日志吞掉 → 补 errorSink 上抛；interaction.error + 消息区空 = ChatErrorState 兜底页（自动退避重试），不再渲染无提示空 Chat
+3. **刷新失败同源处理**（MessageDataDelegate.refreshMessages）：reportError() 转交互层
+
+**Seam 说明**：两层均在导航/UI 状态管道——无可直测的纯函数 seam，验证以编译+全量单测回归+真机交互复验（V1 项含伪导航请求 grep 断言）承担。
+
 ## 自动化验证矩阵（V1 四维 + i18n + androidTest 编译）
 
 ```

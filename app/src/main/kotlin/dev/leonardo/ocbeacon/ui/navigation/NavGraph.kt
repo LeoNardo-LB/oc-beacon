@@ -405,22 +405,34 @@ fun NavGraph(
                     navController.navigate(ServerModelFilterNav.createRoute(params.server.serverId))
                 },
                 onNavigateToChildSession = { childSessionId ->
-                    // 防重复：已在目标子智能体会话时不重复导航（#137 场景）。
-                    // 注意：这里不能用 launchSingleTop——chat 主会话/子智能体会话共享同一
-                    // route pattern（同一 composable 节点），singleTop 按
-                    // destination 实例匹配会触发 onLaunchSingleTop 栈调整，
-                    // 把栈中已有的主对话 entry 移除，导致返回键跳过主对话直达
-                    // 会话列表（navigation 2.9.8 模拟器实测，DIAG 日志证实）。
-                    val currentSessionId = navController.currentBackStackEntry
-                        ?.arguments?.getString(ChatNav.PARAM_SESSION_ID)
-                    if (currentSessionId == childSessionId) {
-                        AppLogger.d(TAG, "Skip duplicate child-session navigation: $childSessionId")
-                    } else {
-                        val route = ChatNav.createRoute(
-                            serverId = params.server.serverId,
-                            sessionId = childSessionId
+                    // #242 防御（2026-08-27 二轮取证实锤）：shell 卡曾以 jobID
+                    // （call_… 工具调用 id）当会话 id 导航 → GET /message 返回 400 →
+                    // 渲染消息区全空的 Chat 页 + 会话列表被空 title 会话污染。
+                    // 源头拦截：非 ses_ 形态的 id 不入导航栈；其余失效会话 id 的
+                    // 兜底由 SessionLifecycleDelegate 加载失败路径承接（另行处理）。
+                    if (!childSessionId.startsWith("ses_")) {
+                        AppLogger.w(
+                            TAG,
+                            "#242 blocked child-session navigation with non-session id: " + childSessionId.take(16)
                         )
-                        navController.navigate(route)
+                    } else {
+                        // 防重复：已在目标子智能体会话时不重复导航（#137 场景）。
+                        // 注意：这里不能用 launchSingleTop——chat 主会话/子智能体会话共享同一
+                        // route pattern（同一 composable 节点），singleTop 按
+                        // destination 实例匹配会触发 onLaunchSingleTop 栈调整，
+                        // 把栈中已有的主对话 entry 移除，导致返回键跳过主对话直达
+                        // 会话列表（navigation 2.9.8 模拟器实测，DIAG 日志证实）。
+                        val currentSessionId = navController.currentBackStackEntry
+                            ?.arguments?.getString(ChatNav.PARAM_SESSION_ID)
+                        if (currentSessionId == childSessionId) {
+                            AppLogger.d(TAG, "Skip duplicate child-session navigation: $childSessionId")
+                        } else {
+                            val route = ChatNav.createRoute(
+                                serverId = params.server.serverId,
+                                sessionId = childSessionId
+                            )
+                            navController.navigate(route)
+                        }
                     }
                 },
                 onOpenWorkspace = {
