@@ -259,6 +259,12 @@ tasks.withType<Test>().configureEach {
 configurations.all {
     resolutionStrategy {
         force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")
+        // 2026-08-26：material3 1.5.0-alpha26 传递强制 foundation 1.12.0-beta01——
+        // beta 的 ScrollingLogic 契约违规（scrollToBeConsumed 残量窗口）与逐帧
+        // scrollBy 的自定义限速 fling 不兼容（崩溃 d7a8ac06 + 惯性丢失 903e2612
+        // 均源于此）。强制回稳定版 1.11.2（08-20 fling 引入时的实际运行版本，
+        // 实证顺畅）。material3 alpha26 API 若缺 1.12 符号将在此后编译/真机暴露。
+        force("androidx.compose.foundation:foundation:1.11.2")
     }
 }
 
