@@ -127,7 +127,20 @@ internal fun Modifier.deferredRevealCompensation(
         constraints.copy(maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
     )
     val realHeight = placeable.height
-    val decision = compensator.onMeasure(realHeight, shouldCompensate())
+    // 2026-08-27 fling 竞态根治（#239）：注入走 scrollToBeConsumed 反射写，消费
+    // 依赖 poke 拉起的同帧再测遍——帧预算紧张时 poke 落空，残量跨帧存活到下一帧
+    // 动画阶段，fling 的 scrollBy 先于测量执行 → 契约违规 → v2 防御等一帧 =
+    // 零位移顿挫（受控基线：流式中 10 次 fling = 24 次 survived，devDebug 12 次/
+    // 会话——预算越紧越频繁，与窗口机理吻合）。
+    // 滚动进行中注入本无可补偿价值：高速 fling 中几 px 漂移不可感知，补偿的
+    // 语义对象是**静止阅读**（#222 视口上爬根治）；贴底路径（shouldCompensate=
+    // false）从来就是全揭示且视觉正常。此处**同步**检查（快照读，零滞后——
+    // snapshotFlow 驱动的标志位有 1-2 帧组合滞后，关不掉这个窗口），滚动中走
+    // 既有全揭示分支（基准清零无欠账），滚动静止后下一次增长恢复注入。
+    val decision = compensator.onMeasure(
+        realHeight,
+        shouldCompensate() && !listState.isScrollInProgress,
+    )
     if (decision.injectDelta > 0) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.w(
