@@ -1,13 +1,22 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,17 +30,12 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonMenu
-import androidx.compose.material3.FloatingActionButtonMenuItem
-import androidx.compose.material3.FloatingActionButtonMenuScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleFloatingActionButton
-import androidx.compose.material3.ToggleFloatingActionButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -224,7 +229,6 @@ private const val ExpandShiftAnimMs = 300
  * 只在点击展开那一瞬间实测计算一次；收起动画回 0；展开中拖动则先收起并把
  * shift 瞬时并入 offsetYPx（位置连续、不双计）。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChatFabMenu(
     stackedCount: Int,
@@ -294,8 +298,11 @@ internal fun ChatFabMenu(
 
     val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
 
-    FloatingActionButtonMenu(
-        expanded = expanded,
+    // 2026-08-27 稳定 API 复刻（material3 1.4.0）：官方 FloatingActionButtonMenu/
+    // ToggleFloatingActionButton 是 1.5.0-alpha 专属 API（按 ui 1.12-beta 编译，
+    // 与稳定 ui 组二进制冲突）——布局几何（items 上排/button 钉底/44dp 药丸/
+    // 8dp 列底距）与 #194 溢出计算精确对齐原实现，morph 动画简化为整列展开。
+    Box(
         modifier = modifier.fabEdgeVerticalSlide(
             state = slideState,
             extraShift = { expandShift },
@@ -315,43 +322,79 @@ internal fun ChatFabMenu(
                 }
             },
         ),
-        button = {
-            ToggleFloatingActionButton(
-                checked = expanded,
-                onCheckedChange = { expanded = it }, // shift 计算在 LaunchedEffect(expanded) 内（Q3 瞬时稳定量）
-                // 描边（第二十轮，用户要求）：角半径冻结 16dp——形状恒定描边才贴边
-                modifier = Modifier.border(
-                    1.dp,
-                    MaterialTheme.colorScheme.outline,
-                    RoundedCornerShape(16.dp),
-                ),
-                // 尺寸（2026-08-23 用户「稍微再大一些」）48→展开 52dp；
-                // 色彩/尺寸 morph 保留，角 morph 冻结（与描边形状匹配）
-                containerSize = ToggleFloatingActionButtonDefaults.containerSize(48.dp, 52.dp),
-                containerCornerRadius =
-                    ToggleFloatingActionButtonDefaults.containerCornerRadius(16.dp, 16.dp),
-                // Secondary 变体（第十九轮，用户选 B）：官方规格三变体之一——
-                // secondaryContainer→secondary，与用户气泡（primaryContainer 系）区分
-                containerColor = ToggleFloatingActionButtonDefaults.containerColor(
-                    initialColor = MaterialTheme.colorScheme.secondaryContainer,
-                    finalColor = MaterialTheme.colorScheme.secondary,
-                ),
+    ) {
+        Column(
+            modifier = Modifier.align(Alignment.BottomEnd),
+            horizontalAlignment = Alignment.End,
+        ) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(animationSpec = tween(ExpandShiftAnimMs)) + fadeIn(),
+                exit = shrinkVertically(animationSpec = tween(ExpandShiftAnimMs)) + fadeOut(),
             ) {
-                val desc = if (checkedProgress >= 0.5f) {
+                Column(horizontalAlignment = Alignment.End) {
+                    FabMenuEntry(
+                        icon = Icons.Default.Inbox,
+                        label = stringResource(R.string.pending_tab_stacked_plain),
+                        count = stackedCount,
+                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.STACKED) },
+                    )
+                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
+                    FabMenuEntry(
+                        icon = Icons.Default.Checklist,
+                        label = stringResource(R.string.pending_tab_todo_plain),
+                        count = todoPendingCount,
+                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.TODO) },
+                    )
+                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
+                    FabMenuEntry(
+                        icon = Icons.Default.AccountTree,
+                        label = stringResource(R.string.toolbar_agent),
+                        count = agentRunningCount,
+                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.AGENT) },
+                    )
+                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
+                    FabMenuEntry(
+                        icon = Icons.Default.Terminal,
+                        label = stringResource(R.string.toolbar_shell),
+                        count = shellRunningCount,
+                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.SHELL) },
+                    )
+                    // 列底距（FabMenuPaddingBottom token，与 #194 D2 溢出计算的
+                    // menuPadPx 同源）：items 与 button 的间距
+                    Spacer(Modifier.height(FabMenuPaddingBottomToken))
+                }
+            }
+            FloatingActionButton(
+                onClick = { expanded = !expanded }, // shift 计算在 LaunchedEffect(expanded) 内（Q3 瞬时稳定量）
+                // 描边（第二十轮，用户要求）：角半径冻结 16dp——形状恒定描边才贴边
+                modifier = Modifier
+                    .size(48.dp)
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline,
+                        RoundedCornerShape(16.dp),
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                // Secondary 变体（第十九轮，用户选 B）：secondaryContainer 系，
+                // 与用户气泡（primaryContainer 系）区分；展开态不 morph（稳定
+                // API 无 checked 色彩过渡，图标切换承担状态表达）
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ) {
+                val desc = if (expanded) {
                     stringResource(R.string.chat_fab_menu_close)
                 } else {
                     stringResource(R.string.chat_fab_menu_open)
                 }
                 val fabIcon: @Composable () -> Unit = {
-                    // tint 显式统一（第二十一轮）：Toggle 不吃 contentColor 参数，
-                    // 不显式给会落 LocalContentColor（与 ⬇ FAB 图标色不一致）
                     Icon(
-                        if (checkedProgress >= 0.5f) Icons.Default.Close else Icons.Default.Inbox,
+                        if (expanded) Icons.Default.Close else Icons.Default.Inbox,
                         contentDescription = desc,
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                 }
-                if (checkedProgress < 0.5f && totalBadge > 0) {
+                if (!expanded && totalBadge > 0) {
                     BadgedBox(
                         badge = { Badge { Text(totalBadge.coerceAtMost(99).toString()) } }
                     ) { fabIcon() }
@@ -359,56 +402,37 @@ internal fun ChatFabMenu(
                     fabIcon()
                 }
             }
-        },
-    ) {
-        FabMenuEntry(
-            icon = Icons.Default.Inbox,
-            label = stringResource(R.string.pending_tab_stacked_plain),
-            count = stackedCount,
-            onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.STACKED) },
-        )
-        FabMenuEntry(
-            icon = Icons.Default.Checklist,
-            label = stringResource(R.string.pending_tab_todo_plain),
-            count = todoPendingCount,
-            onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.TODO) },
-        )
-        FabMenuEntry(
-            icon = Icons.Default.AccountTree,
-            label = stringResource(R.string.toolbar_agent),
-            count = agentRunningCount,
-            onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.AGENT) },
-        )
-        FabMenuEntry(
-            icon = Icons.Default.Terminal,
-            label = stringResource(R.string.toolbar_shell),
-            count = shellRunningCount,
-            onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.SHELL) },
-        )
+        }
     }
 }
 
 /** FAB 菜单入口项（M3 全默认：56dp primaryContainer 药丸/titleMedium/24dp 图标；角标挂 icon）。 */
-@OptIn(ExperimentalMaterial3Api::class)
+/** FAB 菜单入口项（稳定 API 复刻：44dp 药丸 Surface + stadium 描边 + 角标挂 icon；
+ *  几何与 #194 D2 的 FabMenuItemHeight 常量严格一致）。 */
 @Composable
-private fun FloatingActionButtonMenuScope.FabMenuEntry(
+private fun FabMenuEntry(
     icon: ImageVector,
     label: String,
     count: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FloatingActionButtonMenuItem(
+    Surface(
         onClick = onClick,
         // 高度 44dp（官方 56dp，2026-08-23 用户指示 item 保持现状）+ stadium 描边（第二十轮）
         modifier = modifier
             .height(44.dp)
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(50)),
+        shape = RoundedCornerShape(50),
         // Secondary 变体（第十九轮）：药丸 secondaryContainer 系，与用户气泡区分
-        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        text = { Text(label) },
-        icon = {
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             if (count > 0) {
                 BadgedBox(
                     badge = { Badge { Text(count.coerceAtMost(99).toString()) } }
@@ -418,8 +442,9 @@ private fun FloatingActionButtonMenuScope.FabMenuEntry(
             } else {
                 Icon(icon, contentDescription = null)
             }
-        },
-    )
+            Text(label)
+        }
+    }
 }
 
 /**

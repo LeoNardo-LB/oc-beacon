@@ -158,10 +158,11 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.material3:material3") // BOM 1.4.0
-    // 2026-08-22 第十二轮：M3 Toolbars（m3.material.io/toolbars——HorizontalFloatingToolbar
-    // 官方悬浮胶囊工具栏）需要 1.5.x；显式覆盖到最新 alpha（BOM 未收录）
-    implementation("androidx.compose.material3:material3:1.5.0-alpha26")
+    // 2026-08-27 回退 BOM 稳定版 1.4.0：1.5.0-alpha26 按 ui 1.12-beta 编译，
+    // 其 Surface/FAB 调用 ui 1.12 才有的 graphicsLayer 新签名（带 LayerOutsets）——
+    // 与下方稳定组强制（ui/foundation 1.11.2）二进制冲突，滚动到底 FAB 重组即
+    // NoSuchMethodError 崩溃（真机实证）。FAB 菜单改稳定 API 自绘（ChatFabMenu.kt）。
+    implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3-window-size-class")
     implementation("androidx.compose.material:material-icons-extended")
@@ -259,12 +260,28 @@ tasks.withType<Test>().configureEach {
 configurations.all {
     resolutionStrategy {
         force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")
-        // 2026-08-26：material3 1.5.0-alpha26 传递强制 foundation 1.12.0-beta01——
-        // beta 的 ScrollingLogic 契约违规（scrollToBeConsumed 残量窗口）与逐帧
-        // scrollBy 的自定义限速 fling 不兼容（崩溃 d7a8ac06 + 惯性丢失 903e2612
-        // 均源于此）。强制回稳定版 1.11.2（08-20 fling 引入时的实际运行版本，
-        // 实证顺畅）。material3 alpha26 API 若缺 1.12 符号将在此后编译/真机暴露。
-        force("androidx.compose.foundation:foundation:1.11.2")
+        // 2026-08-26（晚）残余卡顿收口：material3 1.5.0-alpha26 经原子组约束
+        // （"ui is in atomic group androidx.compose.ui"）把整个 Compose 家族——
+        // runtime/ui/ui-text/animation 等——全部拉到 1.12.0-beta01。
+        // 三个历史矩阵：08-20 丝滑基线 = 全家稳定 1.11.x（BOM 2026.05.01）；
+        // 08-22 起全 beta（FATAL 契约违规 + 卡顿）；ac12cf93 仅强回 foundation
+        // = 「foundation 1.11.2 + 其余 1.12-beta」从未存在过的混搭（卡顿仍在，
+        // 且 ui-text 文本测量引擎——SSE 流式重排热路径——仍跑 beta）。
+        // 修复：ui/runtime/foundation/animation 四组全部对齐 1.11.2，完整恢复
+        // 丝滑时代的一致矩阵。material3 本体保留 alpha26（HorizontalFloatingToolbar
+        // 唯一来源），其对稳定组的二进制兼容由编译 + 真机 E2E 验证把关。
+        eachDependency {
+            val g = requested.group
+            val isComposeCore = (
+                g == "androidx.compose.ui" || g.startsWith("androidx.compose.ui.") ||
+                    g == "androidx.compose.runtime" || g.startsWith("androidx.compose.runtime.") ||
+                    g == "androidx.compose.foundation" || g.startsWith("androidx.compose.foundation.") ||
+                    g == "androidx.compose.animation" || g.startsWith("androidx.compose.animation.")
+                )
+            if (isComposeCore) {
+                useVersion("1.11.2")
+            }
+        }
     }
 }
 
