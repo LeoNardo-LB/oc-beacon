@@ -120,6 +120,10 @@ internal fun EventCard(
         // V6 反馈：标题行右贴边——chevron 不再悬在 16dp 内容缩进处；
         // 8dp 保持与圆角描边的呼吸空间（左侧时间戳同步左移，两侧对称收窄）
         labelRowHorizontalPadding = 8.dp,
+        // F1/V4 复验实证：仅收窄 padding 右缘未生效——根因是双权重均分
+        // （label fill=false 与 Spacer 瓜分弹性，trailing 随标题长度浮动）。
+        // labelFillRemaining 让 label 独吃弹性，箭头/chevron 恒贴右缘。
+        labelFillRemaining = true,
         onCardClick = if (hasBody) ({ expandedStates[eventKey] = !expanded }) else null,
         labelTrailing = {
             // 跳转箭头（Q4 常驻折叠+展开两态；点击不冒泡到整卡 toggle）

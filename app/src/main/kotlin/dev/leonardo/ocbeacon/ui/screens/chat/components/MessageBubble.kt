@@ -63,6 +63,11 @@ internal fun MessageBubble(
     /** 标签行水平内边距（#234 V6 反馈：事件卡标题行右贴边）；null=沿用内容内边距
      *  （用户/智能体气泡默认路径，渲染几何不变）。 */
     labelRowHorizontalPadding: androidx.compose.ui.unit.Dp? = null,
+    /** 标签行右端贴齐模式（#234 二轮 V6 实证）：true 时 label 以 weight(fill)
+     *  吃满全部行内弹性（超长省略），trailing 图标组恒贴行右缘。false=历史几何
+     *  （label fill=false 与 Spacer 均分弹性——trailing 随标签长度浮动）。
+     *  仅事件卡启用；suffix 槽位在 flush 模式下紧邻 trailing 排布。 */
+    labelFillRemaining: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -107,16 +112,31 @@ internal fun MessageBubble(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                     )
                     labelLeading?.invoke()
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
+                    if (labelFillRemaining) {
+                        // flush 模式：label 独占弹性（fill 吃满，长文本省略）——
+                        // 其后所有元素被推到行右缘（V4/F1 修复：消除双权重均分浮动）
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
                     labelSuffix?.invoke()
-                    Spacer(modifier = Modifier.weight(1f))
+                    if (!labelFillRemaining) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                     labelTrailing?.invoke(this)
                 }
 
