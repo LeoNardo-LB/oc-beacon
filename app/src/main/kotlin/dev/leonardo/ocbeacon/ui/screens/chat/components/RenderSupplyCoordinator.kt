@@ -44,6 +44,17 @@ internal class RenderSupplyCoordinator(
     /** 待提交分片计划（partId → plan + 入队时 display index[仅取证]）——私有。 */
     private val pendingChunkPlans = LinkedHashMap<String, Pair<MdChunkPlan, Int>>()
 
+    /** 已提交计划的解析基准长度（partId → 解析时文本长度）——陈旧检测基准。
+     *  #246 五轮反馈根治：部分文本快照一旦被解析，旧逻辑永不重析/永换 plan，
+     *  分片即永久丢头（冷启动首屏只剩尾部段——现场截图+dump 实证）。 */
+    private val committedPlanBaseLens = HashMap<String, Int>()
+
+    /** 各 part 连续 skip-commit 计数（防锁死突破计数器，#246 同源）。 */
+    private val pendingSkipCounts = HashMap<String, Int>()
+
+    /** 最近一次见到该 part 时的文本长度（含未提交者）——长度变化检测基准。 */
+    private val lastSeenTextLens = HashMap<String, Int>()
+
     /** 流式刚结束的 turn key（延迟分片——滚出窗口后释放）。 */
     private val _recentStreamedTurnKeys = MutableStateFlow<Set<String>>(emptySet())
     val recentStreamedTurnKeys: StateFlow<Set<String>> = _recentStreamedTurnKeys
@@ -125,7 +136,15 @@ internal class RenderSupplyCoordinator(
                         window.add(key)
                         // F2 冷热标记：视口内（含打开会话时）→ 热（曾可见）
                         if (di in firstDisplay..lastDisplay) everVisiblePartIds.add(key)
-                        if (registry.current(key) is RenderReadiness.Pending) {
+                        val needsReparse = run {
+                            val seen = lastSeenTextLens[key]
+                            // #246：长度增长（SSE 补全/REST 刷新落库）→ 强制重析。
+                            // 首见（seen==null）保持原 Pending 守卫语义。
+                            val grew = seen != null && part.text.length > seen
+                            lastSeenTextLens[key] = maxOf(seen ?: 0, part.text.length)
+                            grew
+                        }
+                        if (registry.current(key) is RenderReadiness.Pending || needsReparse) {
                             val textForParse = part.text
                             // 2026-08-22：传原文——归一化已移入 preParse 后台链
                             //（原在此主线程同步执行，帧间隙 20-30ms 巨帧根因）
@@ -147,6 +166,22 @@ internal class RenderSupplyCoordinator(
                                                         " blocks=" + st.node.children.size +
                                                         " chunks=" + plan.ranges.size
                                                 )
+                                            }
+                                            // #246 陈旧自愈：同一 part 文本变长后重新解析
+                                            // 出的更新计划，若该 part 已有旧 plan 在案，直接
+                                            // 覆盖提交（不等视口门控）——旧 plan 按部分快照
+                                            // 切片会永久丢头（冷启动截断实证）。
+                                            val prev = committedPlanBaseLens[key]
+                                            if (prev != null && textForParse.length > prev) {
+                                                _chunkPlans.value = _chunkPlans.value + (key to plan)
+                                                committedPlanBaseLens[key] = textForParse.length
+                                                pendingChunkPlans.remove(key)
+                                                AppLogger.w(
+                                                    "ScrollDiag",
+                                                    "CHUNK refreshed(stale AST) part=" + key.take(14) +
+                                                        " oldLen=" + prev + " newLen=" + textForParse.length
+                                                )
+                                                return@let
                                             }
                                             // 入 pending 队列，视口外才提交
                                             pendingChunkPlans[key] = plan to di
@@ -243,7 +278,24 @@ internal class RenderSupplyCoordinator(
                 val fissionTail = (lastDisplay + FISSION_SAFE_MARGIN).coerceAtMost(items.size - 1)
                 val inViewportNow = freshDi in firstDisplay..lastDisplay
                 val hotNearBand = freshDi in fissionHead..fissionTail && partId in everVisiblePartIds
-                if (inViewportNow || hotNearBand) continue
+                if (inViewportNow || hotNearBand) {
+                    // #246 防锁死：同一计划连续 skip 达阈值即强制提交——视口门控的
+                    // 本意是防裂变闪变，但不该允许「计划永久滞留 pending」。
+                    // 阈值取 3：连续三轮视口巡检仍被跳过，视为门控条件失真
+                    // （如 idx 漂移/everVisible 误标），放行并留痕。
+                    val skips = (pendingSkipCounts[partId] ?: 0) + 1
+                    if (skips < 3) {
+                        pendingSkipCounts[partId] = skips
+                        continue
+                    }
+                    pendingSkipCounts.remove(partId)
+                    dev.leonardo.ocbeacon.debug.RaceProbe.probe {
+                        "CHUNK force-commit after $skips skips part=" + partId.take(12)
+                    }
+                    committed[partId] = planAndLegacyDi.first
+                    continue
+                }
+                pendingSkipCounts.remove(partId)
                 committed[partId] = planAndLegacyDi.first
             }
             if (staleDropped.isNotEmpty()) {
@@ -257,6 +309,12 @@ internal class RenderSupplyCoordinator(
                     "CHUNK commit n=" + committed.size + " legacyDi=" +
                         pendingChunkPlans.entries.joinToString(",", "[", "]") { (k, v) -> k.take(12) + "@" + v.second } +
                         " window=" + head + ".." + tail
+                }
+                // #246：记录解析基准长度（源文本近似长 = 末块 endOffset，零拼接）。
+                committed.forEach { (k, plan) ->
+                    val kids = plan.state.node.children
+                    val approxLen = if (kids.isEmpty()) 0 else kids.last().endOffset
+                    committedPlanBaseLens[k] = maxOf(committedPlanBaseLens[k] ?: 0, approxLen)
                 }
                 _chunkPlans.value = _chunkPlans.value + committed
                 committed.keys.forEach { pendingChunkPlans.remove(it) }

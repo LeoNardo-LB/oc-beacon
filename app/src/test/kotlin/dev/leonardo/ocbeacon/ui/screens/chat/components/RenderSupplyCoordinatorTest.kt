@@ -265,6 +265,68 @@ class RenderSupplyCoordinatorTest {
         env.coordinator.onViewportChanged(0, 0, env.world(20) { listOf(textPart("z$it", plainText(250))) })
         assertEquals(emptySet<String>(), env.coordinator.recentStreamedTurnKeys.value)
     }
+
+    // ---- #246 五轮反馈根治：分片计划陈旧自愈 + 防锁死 ----
+
+    @Test
+    fun `T11_文本增长后重析并覆盖已提交的陈旧plan`() = runBlocking {
+        val partId = "p_stale"
+        val part = targetPartWorld(20, partId, 5)
+        val env = Env()
+
+        // 第一阶段：短版文本（冷、带外）→ 提交 plan（基准长度记为短版）
+        env.coordinator.onViewportChanged(15, 15, env.world(20, partFor = part))
+        awaitParsedBlocking(env, partId)
+        delay(100)
+        env.coordinator.onViewportChanged(15, 15, env.world(20, partFor = part))
+        assertTrue(env.coordinator.chunkPlans.value.containsKey(partId))
+        val staleBlocks = env.coordinator.chunkPlans.value.getValue(partId).state.node.children.size
+
+        // 第二阶段：同一 part 文本变长（SSE 补全/REST 刷新落库的同构场景）——
+        // 窗口巡检必须强制重析并用更长的新 plan 覆盖旧值（不视门控）。
+        val grownPart = { i: Int ->
+            if (i == 5) listOf(textPart(partId, chunkableText() + chunkableText() + "\\n\\n## 尾部新增节\\n\\n收尾内容。"))
+            else listOf(textPart("f$i", plainText(250)))
+        }
+        // 视口挪远（确保出带），让重析后的 plan 走 pending→commit 常规路径之外也有覆盖保障
+        env.coordinator.onViewportChanged(0, 0, env.world(20, partFor = grownPart))
+        awaitParsedBlocking(env, partId)
+        delay(150)
+        env.coordinator.onViewportChanged(0, 0, env.world(20, partFor = grownPart))
+        delay(100)
+
+        val refreshed = env.coordinator.chunkPlans.value.getValue(partId)
+        val newBlocks = refreshed.state.node.children.size
+        assertTrue(
+            "文本增长后 plan 必须被刷新覆盖（stale=$staleBlocks blocks vs new=$newBlocks）",
+            newBlocks > staleBlocks,
+        )
+    }
+
+    @Test
+    fun `T12_视口内pending连续skip三次后强制提交防锁死`() = runBlocking {
+        val partId = "p_lock"
+        val part = targetPartWorld(20, partId, 5)
+        val env = Env()
+
+        // 解析完成并让 turn 处于带外提交一次以外的状态：先在视口内种 pending
+        env.coordinator.onViewportChanged(11, 11, env.world(20, partFor = part)) // 热
+        awaitParsedBlocking(env, partId)
+        delay(100)
+        assertTrue(env.coordinator.chunkPlans.value.isEmpty())
+
+        // 连续停在带内（m=6 → 11+6=17）两轮：仍拦截
+        env.coordinator.onViewportChanged(17, 17, env.world(20, partFor = part))
+        env.coordinator.onViewportChanged(17, 17, env.world(20, partFor = part))
+        assertTrue("前两次 skip 不应提交", env.coordinator.chunkPlans.value.isEmpty())
+
+        // 第三轮同位置：突破防锁死阈值，强制提交
+        env.coordinator.onViewportChanged(17, 17, env.world(20, partFor = part))
+        assertTrue(
+            "连续 skip 3 次后应强制提交（消灭永久滞留）",
+            env.coordinator.chunkPlans.value.containsKey(partId),
+        )
+    }
 }
 
 // ============ 文件级 fixtures ============

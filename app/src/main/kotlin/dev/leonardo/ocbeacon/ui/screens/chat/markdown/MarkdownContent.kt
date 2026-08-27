@@ -271,6 +271,10 @@ internal fun MarkdownContent(
     // 2026-08-20 fling 巨帧根治：块级分片渲染区间（顶层 AST children 的
     // [from, to) 子列表）——null = 全量（原行为）。仅与 preParsedState 组合使用。
     blockRange: IntRange? = null,
+    // #246 时序排序：与 blockRange 对应的每片首块文本锚点（MarkdownChunking
+    // 计划期记录）。非空时 chunkSuccessSlot 在当前 AST 中按锚点重定位区间起点，
+    // 索引漂移自愈 + 片间顺序由锚点在 AST 中的出现序保证（确定性排序）。
+    blockAnchor: String? = null,
     // 2026-08-22 滚动巨帧根治：非流式 fallback 的异步解析（见
     // rememberAsyncMarkdownState）——流式内容必须 false（48ms 批处理 +
     // conflate 铁律路径，rememberMarkdownState 保留）。
@@ -541,7 +545,7 @@ internal fun MarkdownContent(
                 animations = animations,
                 imageTransformer = Coil3ImageTransformerImpl,
                 modifier = Modifier.fillMaxWidth(),
-                success = chunkSuccessSlot(blockRange),
+                success = chunkSuccessSlot(blockRange, blockAnchor),
             )
         } else {
             Markdown(
@@ -643,16 +647,38 @@ private fun rememberAsyncMarkdownState(content: String, isUser: Boolean): Markdo
 /**
  * 2026-08-20 分片：构造只渲染 [from, to) 顶层块的 success 槽。
  * null 区间 = 默认全量渲染（null 槽 → 库默认 MarkdownSuccess）。
+ *
+ * #246 时序排序（2026-08-27）：提供 [anchor] 时，先在当前 AST 顶层块中
+ * 扫描锚点签名重定位区间起点（索引漂移自愈），再按 AST 固有顺序渲染到
+ * 计划终点——保证多片拼接与源文块顺序一致；找不到锚点 → 回退纯索引。
  */
 private fun chunkSuccessSlot(
     blockRange: IntRange,
+    anchor: String? = null,
 ): @Composable (State.Success, com.mikepenz.markdown.compose.components.MarkdownComponents, Modifier) -> Unit {
     val rng = blockRange
     return { st, comps, mod ->
         androidx.compose.foundation.layout.Column(mod) {
             val kids = st.node.children
-            val from = rng.first.coerceIn(0, kids.size)
+            var from = rng.first.coerceIn(0, kids.size)
             val to = (rng.last + 1).coerceAtMost(kids.size)
+            if (!anchor.isNullOrEmpty() && kids.isNotEmpty()) {
+                // 锚点重定位：在当前 AST 中找首块签名最贴近的块（前缀匹配，
+                // 归一空白差异容忍）。只在计划索引附近 ±窗口扫描保持 O(1) 性质。
+                val norm = anchor.replace(Regex("\\s+"), " ")
+                val searchFrom = (rng.first - 4).coerceAtLeast(0)
+                val searchTo = (rng.first + 5).coerceAtMost(kids.size)
+                var hit = -1
+                for (i in searchFrom until searchTo) {
+                    val startOff = kids[i].startOffset.coerceIn(0, st.content.length)
+                    val endOff = minOf(startOff + anchor.length + 8, st.content.length)
+                    val candidate = st.content.substring(startOff, endOff).replace(Regex("\\s+"), " ").trim()
+                    if (norm.isNotEmpty() && (candidate.contains(norm.take(20)) || norm.contains(candidate))) {
+                        hit = i; break
+                    }
+                }
+                if (hit >= 0) from = hit
+            }
             for (i in from until to) {
                 com.mikepenz.markdown.compose.MarkdownElement(kids[i], comps, st.content)
             }

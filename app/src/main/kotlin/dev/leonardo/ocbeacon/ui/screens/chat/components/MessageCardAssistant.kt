@@ -498,6 +498,8 @@ internal fun ChunkedAssistantMessage(
                     isUser = false,
                     preParsedState = chunk.plan.state,
                     blockRange = range,
+                    // #246 时序排序：锚点重定位（详见 MarkdownChunking.rangeAnchors）
+                    blockAnchor = chunk.plan.rangeAnchors.getOrNull(chunk.chunkIndex),
                 )
             }
             // ④ 末段：巨型 part 之后的 renderItems + 统计栏 + error

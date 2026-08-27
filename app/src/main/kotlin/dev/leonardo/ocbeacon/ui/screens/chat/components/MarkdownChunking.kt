@@ -29,6 +29,10 @@ data class MdChunkPlan(
     val ranges: List<IntRange>,
     /** 计划对应的解析产物（渲染 chunk 直接用，无需再查注册表）。 */
     val state: State.Success,
+    /** #246：每片首块的文本签名（内容前缀）——渲染期在当前 AST 中按签名
+     *  重定位区间起点，消除「计划索引 vs 实际 AST 错位」类的头片丢失。
+     *  与 [ranges] 一一对应；空串 = 无法取签名时退回纯索引模式。 */
+    val rangeAnchors: List<String> = emptyList(),
 )
 
 /**
@@ -53,7 +57,23 @@ fun computeChunkPlan(partId: String, state: State.Success, minChars: Int, target
         }
     }
     if (start < children.size) ranges += start until children.size
-    return if (ranges.size <= 1) null else MdChunkPlan(partId, ranges, state)
+    // #246：为每片记录首块签名——用该块在 content 中的起始文本切片（≤24 字符，
+    // 空白归一）作为渲染期锚点：chunkSuccessSlot 在实际 AST 中按签名扫描重定位，
+    // 杜绝「计划索引 vs 实际 AST」错位造成的头片丢失（时序排序由锚点顺序保证）。
+    val content = state.content
+    fun blockAnchor(idx: Int): String {
+        val b = children.getOrNull(idx) ?: return ""
+        val s = (b.startOffset).coerceIn(0, content.length)
+        val e = minOf(s + 48, content.length)
+        // 跳过前导空白后取非空前缀（32 字符）——纯空白切片无法做锚点
+        // 跳过前导空白；若整个窗口都是空白（块起始在两块间隙），向后扫描至非空白
+        var scan = s
+        while (scan < content.length && content[scan].isWhitespace()) scan++
+        val te = minOf(scan + 32, content.length)
+        return if (scan < content.length) content.substring(scan, te) else ""
+    }
+    val anchors = ranges.map { r -> blockAnchor(r.first) }
+    return if (ranges.size <= 1) null else MdChunkPlan(partId, ranges, state, anchors)
 }
 
 // ============ 用户长消息纯文本分片（2026-08-22 滚动巨帧根治） ============
