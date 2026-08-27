@@ -69,21 +69,25 @@
 - [ ] **#238 C1 ServerDialect 剩余 5 域收编（File/Provider/System/Terminal/Shell）** `refactor` `api`
   - 按试点同模式（8a0cc375/726350ca）：各域 V1/V2ApiClient 实现域接口、Impl 收缩单点 pick、真实适配下沉；共 43 处逐方法 if 待消除
   - 决策与先例见 2026-08-26 架构走查（候选 1）+ Session/Message 试点
+  - 2026-08-27 复核：43 处精确成立（File12/Provider13/System8/Terminal6/Shell4，逐 file:line 清单见 docs/research/2026-08-27-backlog-recheck-158-238-243-245.md）；Shell 域收编需先定 V1 常量降级位（同 Session 域 backgroundSession 模式）；建议顺序 System/Terminal→File/Provider→Shell
 
 ## P3 — 观察与低价值改进
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
-  - → `docs/journal/2026-08-20-queue-todo.md`
+  - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修
+  - → `docs/journal/2026-08-20-queue-todo.md` · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
 - [ ] **#243 同色巨型日志气泡连续堆叠易读作「消息重叠」——观察/产品向** `ui` `data`
   - #234 二轮取证证伪渲染层重叠（像素级检查零越界），「重叠」观感实为相邻同色 teal 大气泡内容大量重复（同一报错一屏 3 次，25KB 级多个连排）快读致混淆；另 turn-notify 回显整段终端日志加剧体量
   - 候选方向（需产品决策）：连续同类 tool 输出折叠聚合/摘要行；重复内容去重提示；气泡色彩分层。先维持观察
   - 八轮补五澄清：与 #246 分段逆序（已修）、#232 文本墙（已修）区分；溢出绘制防御扫漏 DiffHelpers/QuestionPartContent 两处已补 clipToBounds
+  - 八轮复核（research，8 屏 bbox 0 相交维持证伪）：现象已转化为「同色紧凑卡连排+表头重复」（tool 输出默认折叠后 25KB 巨泡未再现；单屏 6 连排、表头 6/6 相同）；三候选中折叠聚合已部分落地、去重提示最适用、色彩分层紧迫性下降
   - → `docs/journal/2026-08-27-event-card-unification.md` §取证
 
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`
   - 手势阶梯实验（e234g-REPORT）+ 六轮两次现场同帧复现：数屏长单项区域下滑帧字节级静止（方向不对称、moveCount 完整送达）；四轮 T2 一度判全档失效后更正为测量假象嫌疑——维持「嫌疑+未确证」；#246 自愈装机后仍观察一次，疑独立机制
   - 2026-08-27 八轮巨帧取证（PtrDiag 探针链）：冷启动进场窗口拖动全灭；平台把 2.5s 拖动合并成 2-3 巨帧（travel 完整）送达、列表认领却零消耗（consumed=0）；锚点战争/闩锁/输入缺失三族排除；v1 连接器形态机制性空转（勘误入档）、v2 Initial 隧道分块无效——下一步=守卫内打点看 dispatchRawDelta 返回值定界 app/框架
-  - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯 · §八轮/#245
+  - 八轮复核（research，6 冷启动全「冻」）：**判词修正**——自动化样本全部是「贴底 + 朝更新方向拖」= 范围尽头语义（本不该滚，无回弹反馈加剧死感），离底同手势即恢复（1399-1421px 全通）——即边缘语义而非 #245 本体；自动化未能复现「历史区中段死帧」；下一步=真人现场复现时记录列表位置（是否贴底）+ 录屏，再决定是否需要守卫内打点
+  - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯 · §八轮/#245 · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
