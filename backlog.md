@@ -74,6 +74,12 @@
 
 ## P3 — 观察与低价值改进
 
+- [~] **#241 视口顶部事件卡展开时标签行被推出视口——渲染前逐帧配对 + 动画收放（最终形态， reopened+completed）** `ui`
+  - 机制（2026-08-28 二次裁决）：ExpandReveal.kt 链式逐帧配对 + ToolCardScaffold/ReasoningBlock/EventCard 三面恢复 AnimatedVisibility——瞬时收起的 Δ 单帧跳变物理上不可消除，动画逐帧收回+每帧渲染前配对是唯一无跳方案（去动画裁决被取代；其残留真因 everMeasured/零高短路/AV 内侧挂位均已修）
+  - 真机实证：agent 卡收起 30+ 帧弹簧衰减逐帧配对（-27/-25/-80/-14…，real 348→128 平滑收回）、无单帧大跳、终态零漂移；TaskToolCard/SNC EventCard 双表面复测零漂移；防御性 SyntheticNotice 两处补线全覆盖
+  - 待 V6：真手指手感最终确认（自动化已测终态+逐帧日志，瞬态观感由用户定夺）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补一～补十一
+
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修

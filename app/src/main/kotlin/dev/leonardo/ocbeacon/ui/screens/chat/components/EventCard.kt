@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -179,7 +180,10 @@ internal fun EventCard(
         }
 
         // 展开态两段式（Q11）：分隔线 → 正文(300dp 上限内滚) → 分隔线 → 动作区
-        if (hasBody && expanded) {
+        // 2026-08-28 二次裁决：恢复展开/收起动画（AV 包裹整段）——瞬时收起的
+        // Δ 单帧跳变不可接受；渲染前补偿（EV-REVEAL）在根 modifier 逐帧配对，
+        // 动画逐帧增量同样被配对，收起平滑且零漂移。Q12 无动画裁决被取代。
+        AnimatedVisibility(visible = hasBody && expanded) {
             val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             HorizontalDivider(color = dividerColor)
             // #232 勘误三教训：heightIn 必须在 verticalScroll 之外（反序即崩）。

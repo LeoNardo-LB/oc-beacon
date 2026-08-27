@@ -233,10 +233,11 @@ internal fun ToolCardScaffold(
                 }
             }
 
-            // 展开的内容（2026-08-27 用户裁决：去掉收起/展开动画——动画是补偿
-            // 边界残留的源头；直通渲染，#241 渲染前补偿两遍精确配对同事件卡。
-            // #215「动画默认」旧裁决被本条取代）
-            if (expanded && hasContent) {
+            // 展开的内容（2026-08-28 二次裁决：恢复动画——瞬时收起的大 Δ 单帧
+            // 上跳不可接受；根因修复（everMeasured/零高短路）后，逐帧配对已被
+            // 真机证明精确（展开动画每帧 +1/+2px 全配对），收起动画逐帧配对
+            // 同机制。外侧补偿器在本类根部（TC-REVEAL））
+            AnimatedVisibility(visible = expanded && hasContent) {
                 expandedContent()
             }
         }
