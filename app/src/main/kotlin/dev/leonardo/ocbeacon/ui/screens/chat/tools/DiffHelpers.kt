@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import dev.leonardo.ocbeacon.ui.screens.chat.components.rememberScrollIsland
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -104,6 +106,8 @@ internal fun SimpleDiffView(before: String, after: String) {
         }
 
         // 带行号的 diff 行
+        // #244：滚动状态外提（原内联在修饰符链，供边界岛连接器绑定）
+        val diffScrollState = rememberScrollState()
         AmoledSurface(
             isAmoledDark = isAmoled,
             shape = ShapeTokens.extraSmall,
@@ -111,7 +115,8 @@ internal fun SimpleDiffView(before: String, after: String) {
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = halfScreenHeight())
-                .verticalScroll(rememberScrollState())
+                .nestedScroll(rememberScrollIsland(diffScrollState))
+                .verticalScroll(diffScrollState)
         ) {
             var lineNumber = 0
             Column(

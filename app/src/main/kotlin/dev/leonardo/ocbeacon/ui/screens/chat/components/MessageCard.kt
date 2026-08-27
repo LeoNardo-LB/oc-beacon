@@ -37,6 +37,8 @@ internal fun MessageCard(
     /** #234：事件卡统一展开表（屏幕级，#227 模式）——synthetic 卡与 assistant
      *  turn 内防御性 RenderItem.SyntheticNotice 渲染共用同一记忆。 */
     eventExpandedStates: MutableMap<String, Boolean>,
+    /** #241 标签行保护：synthetic 事件卡展开增量回调透传。 */
+    onEventExpandGrow: ((Int) -> Unit)? = null,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -51,6 +53,7 @@ internal fun MessageCard(
             onViewSubSession = onViewSubSession,
             onLocateTask = onLocateTask,
             eventExpandedStates = eventExpandedStates,
+            onExpandGrow = onEventExpandGrow,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(
             renderableTurn = renderableTurn ?: error("renderableTurn is required for ASSISTANT role"),

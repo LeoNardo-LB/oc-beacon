@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -288,10 +289,12 @@ internal fun QuestionPagerView(
 
     if (questions.size <= 1) {
         questions.firstOrNull()?.let { q ->
+            val singlePageScroll = rememberScrollState()
             Column(
                 modifier = Modifier
                     .heightIn(max = maxPageHeight)
-                    .verticalScroll(rememberScrollState()),
+                    .nestedScroll(rememberScrollIsland(singlePageScroll))
+                    .verticalScroll(singlePageScroll),
                 verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
             ) {
                 if (showMetaRow) QuestionTypeLabel(isMultiple = q.multiple)
@@ -359,12 +362,15 @@ internal fun QuestionPagerView(
                 pageSpacing = 8.dp,
             ) { page ->
                 val pageOffset = ((state.currentPage - page) + state.currentPageOffsetFraction).absoluteValue
+                // #244：滚动状态随页外提一行（边界岛连接器需显式 state 绑定）
+                val pageScroll = rememberScrollState()
                 Box(modifier = Modifier
                     // 2026-08-18 E2E-E：页限高 + 页内滚动（滚动状态随页 composition——
                     // beyondViewportPageCount 销毁远页时滚动位置重置，可接受：
                     // 翻回时从顶部重看，选项草稿已由 customDrafts 提升#126 保护）
                     .heightIn(max = maxPageHeight)
-                    .verticalScroll(rememberScrollState())
+                    .nestedScroll(rememberScrollIsland(pageScroll))
+                    .verticalScroll(pageScroll)
                     .graphicsLayer {
                         alpha = (1f - pageOffset * 0.3f).coerceIn(0.7f, 1f)
                         scaleX = 1f - pageOffset * 0.04f

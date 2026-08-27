@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -52,7 +53,11 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
@@ -909,6 +914,11 @@ fun ChatMessageList(
                         //（消息列表 + 底部输入栏），androidTest 的 hasScrollAction()
                         // 匹配多节点导致 touch 注入失败
                         .testTag("chat-message-list")
+                        // #245 巨帧分块守卫（v2 Initial 隧道趟）：平台输入合并产生的
+                        // 巨型单帧增量切片直派滚动（探针实证：冷启动进场后 2.5s 拖动
+                        // 被合并成 2 帧 ~1700px，列表 scrollable 认领却零消耗——
+                        // 机制勘误与实现见 ScrollIsland.kt §巨帧分块）
+                        .megaDeltaScrollGuard(listState)
                         .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
                     contentPadding = PaddingValues(
                         start = SpacingTokens.MD.dp,
@@ -1348,6 +1358,14 @@ fun ChatMessageList(
                                         eventKey = chatMessage.message.id,
                                         timeMs = chatMessage.message.time.created,
                                         label = stringResource(R.string.chat_event_tool_catalog_changed),
+                                        // #241 标签行保护：reverseLayout 锚定下展开增量 Δpx 把卡头推出
+                                        // 视口顶——向 forward(+Δpx) 等量微滚让标签行回落入视口。
+                                        // 方向推演见 journal §#241；手感复核随 V6。
+                                        onExpandGrow = { growPx ->
+                                            coroutineScope.launch {
+                                                listState.animateScrollBy(growPx.toFloat())
+                                            }
+                                        },
                                         leadingIcon = Icons.Outlined.Info,
                                         expandedStates = eventCardExpandedStates,
                                         bodyContent = {
@@ -1494,7 +1512,13 @@ fun ChatMessageList(
                                         }
                                     },
                                     isAmoled = isAmoled,
-                                    eventExpandedStates = eventCardExpandedStates
+                                    eventExpandedStates = eventCardExpandedStates,
+                                    // #241 标签行保护（shell/subagent/system 合成卡族）：同上方向推演。
+                                    onEventExpandGrow = { growPx ->
+                                        coroutineScope.launch {
+                                            listState.animateScrollBy(growPx.toFloat())
+                                        }
+                                    }
                                 )
                             }
                         }

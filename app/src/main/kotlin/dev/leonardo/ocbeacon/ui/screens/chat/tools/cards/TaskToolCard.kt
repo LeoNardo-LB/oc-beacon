@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import dev.leonardo.ocbeacon.ui.screens.chat.components.rememberScrollIsland
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -195,6 +197,7 @@ internal fun TaskToolCard(
                 .fillMaxWidth()
                 .padding(top = 3.dp)
                 .heightIn(max = halfScreenHeight)
+                .nestedScroll(rememberScrollIsland(scrollState))
                 .verticalScroll(scrollState)
         ) {
             Column(modifier = Modifier.padding(8.dp)) {

@@ -54,6 +54,8 @@ internal fun SyntheticNotificationCard(
     eventExpandedStates: MutableMap<String, Boolean>,
     onViewSubSession: ((String) -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
+    /** #241 标签行保护透传（见 EventCard.onExpandGrow）。 */
+    onExpandGrow: ((Int) -> Unit)? = null,
 ) {
     val text = currentMessage.parts
         .filterIsInstance<Part.Text>()
@@ -62,8 +64,21 @@ internal fun SyntheticNotificationCard(
         ?: return
 
     val info = remember(text) { parseSyntheticTask(text) }
-    val isFailed = info?.state == "error"
+    // 失败态派生（2026-08-27 展示会话取证）：opencode 服务器对后台 shell **一律**
+    // 发 state="completed"（连 exit 7 也是——原始 XML 实证），失败信号只落在
+    // 正文尾部的「Command exited with code N.»。为让 Q5 严重度编码真正可达，
+    // shell 卡在此从正文派生失败（非零退出码）；上游状态语义缺陷另行登记。
     val output = info?.output?.takeIf { it.isNotBlank() }
+    val shellExitFailure = info?.source == "shell" &&
+        output?.contains(Regex("Command exited with code [1-9]\\d*")) == true
+    val isFailed = info?.state == "error" || shellExitFailure
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        dev.leonardo.ocbeacon.logging.AppLogger.w(
+            "SynthDiag",
+            "source=" + (info?.source ?: "null") + " state=" + (info?.state ?: "null") +
+                " outLen=" + (output?.length ?: -1) + " exitFail=" + shellExitFailure
+        )
+    }
     // 跳转子会话（#216 + V6 用户裁决 2026-08-27）：只有子智能体/任务卡给常驻箭头——
     // shell 与其他事件不需要跳转；且 id 为工具调用前缀（call_）时不可当会话 id 跳转
     val navTargetId = info?.sessionId
@@ -111,6 +126,7 @@ internal fun SyntheticNotificationCard(
         navTargetId = navTargetId,
         onNavClick = { id -> onViewSubSession?.invoke(id) },
         bodyFontScale = 0.85f,
+        onExpandGrow = onExpandGrow,
         bodyContent = output?.let { out ->
             // 展开正文全量渲染（V6 反馈「展示不完全」——原 agent 截断 2000 取消，
             // shell 本就全量；300dp 滚动区承载长度）。字号小一档（bodyFontScale）。

@@ -24,6 +24,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -31,6 +36,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,9 +92,19 @@ internal fun EventCard(
     /** 展开正文字号缩放系数（LocalDensity 密度缩放实现——同缩字号与间距）。
      *  默认 1f 不缩；长 Markdown 报告场景传 ~0.85f 小一档（V6 反馈定档）。 */
     bodyFontScale: Float = 1f,
+    /** #241 标签行保护：卡片因展开增高的净增量（px）。只在折叠→展开后的首个
+     *  稳定尺寸帧触发一次；初组合即展开不触发。调用方据此把被列表锚定推出
+     *  视口顶的标签行等量回滚进视口（reverseLayout 下向 forward 微滚，见
+     *  ChatMessageList 接线处注释）。 */
+    onExpandGrow: ((Int) -> Unit)? = null,
 ) {
     val expanded = expandedStates[eventKey] ?: false
     val hasBody = bodyContent != null
+
+    // #241 增量测量状态：baselineHeight 只在折叠态帧刷新；growReported 保证
+    // 单次展开只上报一次（collapse 重置）。baselineHeight==0 防初组合误报。
+    var baselineHeight by remember { mutableIntStateOf(0) }
+    var growReported by remember { mutableStateOf(false) }
 
     // Q5 严重度编码：失败破色只作用图标与描边，其余保持中性
     val labelIcon = if (failed) Icons.Outlined.ErrorOutline else leadingIcon
@@ -147,7 +164,18 @@ internal fun EventCard(
                 )
             }
         },
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { size ->
+            if (!expanded) {
+                baselineHeight = size.height
+                growReported = false
+            } else if (!growReported) {
+                val delta = size.height - baselineHeight
+                if (baselineHeight > 0 && delta > 0) {
+                    growReported = true
+                    onExpandGrow?.invoke(delta)
+                }
+            }
+        },
     ) {
         // 描述行（Q15 可选槽位）：数据在才显示，一行截断；有正文时点它也能 toggle
         if (description != null) {
@@ -169,12 +197,16 @@ internal fun EventCard(
             // clipToBounds：Compose 滚动容器默认不裁剪溢出绘制——不加会压住相邻
             // 消息（真机 V6 反馈「回复重叠」的头号嫌疑；#231 同类坑先例）。
             val density = LocalDensity.current
+            // #244 边界岛：300dp 滚动窗到边后吞噬剩余位移/fling，不再穿透外层
+            // LazyColumn 把整卡甩走（modifier 序不变：island 在 verticalScroll 外侧）。
+            val bodyScrollState = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 300.dp)
+                    .nestedScroll(rememberScrollIsland(bodyScrollState))
                     .clipToBounds()
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(bodyScrollState),
             ) {
                 SelectionContainer {
                     if (bodyFontScale != 1f) {
