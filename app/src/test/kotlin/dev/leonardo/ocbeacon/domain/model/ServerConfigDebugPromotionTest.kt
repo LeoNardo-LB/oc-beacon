@@ -65,4 +65,34 @@ class ServerConfigDebugPromotionTest {
     fun `empty list passes through`() {
         assertTrue(ServerConfig.applyDebugBackendPromotion(emptyList(), "x").isEmpty())
     }
+
+    // ============ computeDemotedAutoConnectIds（#253：过渡暴露断连） ============
+
+    /** 回归 #253：被降级 id = 原自连且提升后失去自连者（目标不在列）。 */
+    @Test
+    fun `demoted ids computed for marked stale backend`() {
+        val servers = listOf(
+            server("stale", autoConnect = true, debug = true),
+            server("new"),
+        )
+        assertEquals(listOf("stale"), ServerConfig.computeDemotedAutoConnectIds(servers, targetId = "new"))
+    }
+
+    @Test
+    fun `manual pinned entry never counted as demoted`() {
+        val servers = listOf(
+            server("manual", autoConnect = true, debug = false),
+            server("dbg"),
+        )
+        assertTrue(ServerConfig.computeDemotedAutoConnectIds(servers, targetId = "dbg").isEmpty())
+    }
+
+    @Test
+    fun `target and non-connected entries not in demoted list`() {
+        val servers = listOf(
+            server("prev", autoConnect = true, debug = true),
+            server("idle", debug = true),
+        )
+        assertEquals(emptyList<String>(), ServerConfig.computeDemotedAutoConnectIds(servers, targetId = "prev"))
+    }
 }

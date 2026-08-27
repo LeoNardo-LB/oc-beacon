@@ -59,7 +59,7 @@ class ServerRepositoryImpl @Inject constructor(
 
     override suspend fun getServer(id: String): ServerConfig? = dataRepo.getServer(id)
 
-    override suspend fun promoteDebugBackend(targetId: String): Result<Unit> = runCatchingCancellable {
+    override suspend fun promoteDebugBackend(targetId: String): Result<List<String>> = runCatchingCancellable {
         dataRepo.promoteDebugBackend(targetId)
     }
 

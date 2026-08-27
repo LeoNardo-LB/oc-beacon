@@ -90,7 +90,8 @@
   - 八轮复核（research，6 冷启动全「冻」）：**判词修正**——自动化样本全部是「贴底 + 朝更新方向拖」= 范围尽头语义（本不该滚，无回弹反馈加剧死感），离底同手势即恢复（1399-1421px 全通）——即边缘语义而非 #245 本体；自动化未能复现「历史区中段死帧」；下一步=真人现场复现时记录列表位置（是否贴底）+ 录屏，再决定是否需要守卫内打点
   - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯 · §八轮/#245 · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
-- [ ] **#253 #251 边界收尾——切换后首帧过渡暴露 + legacy 未再激活条目（观察）** `session`
+- [ ] **#253 #251 边界收尾——切换后首帧过渡暴露 + legacy 未再激活条目（已修复，待验收）** `session`
   - #251 验收记录的两条非缺陷边界：①图标冷启 FGS sweep 先于 debug 协程 promote → 切换后首次启动仍连一次陈旧后端（单会话自限）；②legacy 无标记条目只有再激活才打标，永不激活者需手动 toggle 或一次性迁移
-  - 本机已收敛（两后端均已打标，DataStore 直读验证）；如再现陈旧后端自连，候选：promote 后对被降级且仍连接的后端 disconnect / sweep 延后至 debug 处理完成后
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十二轮
+  - 修复（2026-08-28）：`computeDemotedAutoConnectIds` 纯函数 + `promoteDebugBackend` 返回被降级 id + MainActivity 对被降级后端补发 ACTION_DISCONNECT（服务已有通道）——过渡暴露同启动周期关闭；单测 +3，全量单测通过
+  - 真机 E2E：双向切换——降级后端同秒 `Disconnect requested` + 轮询停摆（4199 断连后 20s 零新增）/ 4200 流量 24→24 零增长 + 4199 存活 ✓
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十四轮——**用户验收后迁 journal**（legacy 永不激活条目仍需手动 toggle，见 §十二轮）

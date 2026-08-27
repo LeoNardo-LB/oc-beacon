@@ -112,11 +112,13 @@ class ServerDataStore @Inject constructor(
      * 2026-08-28（#251 根因修复）：调试后端提升——目标条目置自连 + 打调试标记，
      * 其余被标记且自连的条目降级（调试后端至多自连最近激活的一个）。
      * 纯逻辑见 [ServerConfig.applyDebugBackendPromotion]；此处只负责持久化。
+     * @return 被降级自连的服务器 id（#253：供调用方对仍连接者发起断连）。
      */
-    suspend fun promoteDebugBackend(targetId: String) {
+    suspend fun promoteDebugBackend(targetId: String): List<String> {
         val current = servers.firstOrNull() ?: emptyList()
         val updated = ServerConfig.applyDebugBackendPromotion(current, targetId)
         if (updated != current) saveServers(updated)
+        return ServerConfig.computeDemotedAutoConnectIds(current, targetId)
     }
     
     /**

@@ -415,7 +415,10 @@ class MainActivity : ComponentActivity() {
                 // 标记，其余被标记的调试条目降级。旧实现两分支都无条件 autoConnect=true
                 // → 一次性测试后端永久加入开机自连集合，服务冷启全量连接（SSE +
                 // GET /question 轮询挂满历史后端，真机实证 Auto-connecting 2 server(s)）。
-                serverRepository.promoteDebugBackend(serverId)
+                // #253：捕获被降级 id——图标冷启的 FGS sweep 先于本协程运行，被降级
+                // 后端可能已被 sweep 连上；连接意图发出后对其补发断连，关闭首帧过渡暴露。
+                val demotedIds = serverRepository.promoteDebugBackend(serverId)
+                    .getOrDefault(emptyList())
                 // 版本探测（#132 联动）：激活前校验并修正 apiVersion——
                 // 探测失败返回 UNKNOWN 时 checkHealth 保留原值，不会把 V2 降级 V1。
                 // 不依赖结果（探测失败仍尝试连接，由服务/SSE 层兜底）。
@@ -430,6 +433,19 @@ class MainActivity : ComponentActivity() {
                     ContextCompat.startForegroundService(this@MainActivity, serviceIntent)
                 } catch (e: Exception) {
                     AppLogger.w(TAG, "Debug channel: FGS start failed (will auto-connect next launch): " + e.message)
+                }
+                // #253：对被降级且可能仍连接的后端补发断连（服务此刻已在前台，
+                // ACTION_DISCONNECT 分支 START_NOT_STICKY 即处理即返回）。
+                demotedIds.forEach { demotedId ->
+                    val disconnectIntent = Intent(this@MainActivity, OpenCodeConnectionService::class.java).apply {
+                        action = OpenCodeConnectionService.ACTION_DISCONNECT
+                        putExtra("server_id", demotedId)
+                    }
+                    try {
+                        startService(disconnectIntent)
+                    } catch (e: Exception) {
+                        AppLogger.w(TAG, "Debug channel: disconnect demoted $demotedId failed: " + e.message)
+                    }
                 }
                 AppLogger.i(TAG, "Debug channel activated: " + profile.id + " -> server " + serverId)
                 _debugChannelNavFlow.tryEmit(serverId)

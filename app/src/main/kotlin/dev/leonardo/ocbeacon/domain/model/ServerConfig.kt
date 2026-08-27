@@ -69,6 +69,21 @@ data class ServerConfig(
         }
 
         /**
+         * 2026-08-28（#253）：计算本次提升中被降级自连的服务器 id——供调用方
+         * 对仍处于连接状态的后端发起断连（关闭切换后首帧过渡暴露：sweep 先于
+         * promote 连上的陈旧后端，在同一启动周期内被摘除）。
+         */
+        fun computeDemotedAutoConnectIds(
+            servers: List<ServerConfig>,
+            targetId: String
+        ): List<String> {
+            val updated = applyDebugBackendPromotion(servers, targetId).associateBy { it.id }
+            return servers
+                .filter { it.autoConnect && updated[it.id]?.autoConnect == false }
+                .map { it.id }
+        }
+
+        /**
          * 判断两组 (url, username) 是否指向同一 OpenCode 后端。
          *
          * 归一化：协议 + host 小写、端口显式化（默认端口补全）、路径去尾斜杠。
