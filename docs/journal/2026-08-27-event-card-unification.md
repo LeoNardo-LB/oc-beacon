@@ -237,3 +237,54 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 > 已知边界（验收时预期内现象，勿判失败）：subagent 卡暂无跳转箭头与定位钮（#240）；shell 卡无命令预览描述行（#240）；顶部卡展开时标签行可能滚出视口（#241 观察项）；失败态红样式历史无数据无法目验。
 
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->
+## #246 分片逆序发射定音与三连修复（2026-08-27 17:28–18:14，用户验收通过）
+
+### 定性（第七轮收口：从「嫌疑」到「实锤」）
+
+用户现场截图（17:28）+ uiautomator 坐标（userQ 485..781 → 174px 间隙 → 「5. 索引下推」955）+ ScrollDiag 算术链三重定音：
+- `idx=8 off=6770` + c1 h=8131 → 视口首可见项=c1 顶部 1361px（与截图 y955..2352 的第 5 节块吻合）
+- `LEAP idx 8->7 off 80->7100` 的 7100≈c0 h=7106 → **idx7=c0 位于 idx8=c1 下方（屏幕上尾片在头片上面）**
+- displayItems 为最新在前（reverseLayout 索引 0 在屏幕底），`buildChatEntries` 却按文档正序（c0→c1）发射 → 头片被当「更新」排到尾片下方。数据/组合/放置全正常（PLACE c0 h=7106 / c1 h=8131），纯发射序错误。用户「markdown 拼接时序排序」猜想即此。
+
+### 三个根因与修复（b3cbde4b + 82490698）
+
+1. **分片逆序发射**：`buildChatEntries` 改逆文档序（尾片先入列）+ `displayEntryStart` 钉回头片 c0（跳转落点=turn 首 chunk 语义不变，三处消费方核对：JNC.resolveLazyIndex / jumpToMessage / onLocateTask）。
+2. **切割点空白块**：`computeChunkPlan` 边界后推进至下一有效块（start=i+1 可落纯空白块，JVM repro 块 22=' ' → 该片渲染高度≈0）；ChunkReproTest 由此转绿（此前一直红——更正前次「全绿」误报）。连带锚点候选封顶块自身 endOffset + 非空守卫（实证 c1 from=22 沾光命中空白块 → 修后 from=23 精准落「## 5. 索引下推」）。
+3. **H1 空文本**：mikepenz 0.43.0 `buildMarkdownAnnotatedString` walker 无 ATX_CONTENT 分支（源码 AnnotatedStringKtx.kt 核对，只处理 PARAGRAPH/TEXT/EMPH/LINK 等）→ 应用 heading1 定制复用之产出空串，H1 退化「只剩分隔线」。修复：heading1 直取节点 ATX_CONTENT 子节点转义文本（对齐库默认 MarkdownHeader 的 MarkdownText contentChildType=ATX_CONTENT），保留分隔线与点击注册。
+
+### 验收反馈·二：事件卡下方双倍间距（82490698）
+
+用户现场指出通知卡下方间隔偏大。dump 精确测量：卡下 48px=其他卡片 2 倍。根因：系统通知分支处于通用 item 包装器（ChatMessageList L1216 padding(bottom=messageSpacing)）之内，`return@itemsIndexed` 只退内容 lambda 不影响包装器；早前「零间隙修复」误判机制在此重复加显式底距。撤销之。修后三段间距 24/24/24 归一（真机 dump：气泡→卡 1081-1057=24、卡→气泡 1261-1237=24、气泡→气泡 1650-1626=24）。
+
+### 验证证据
+
+- ChunkEntryOrderTest（新增，红→绿）：assistant/user chunk 均逆序发射 + displayEntryStart 钉头片；UserChunkTest/ChunkPlanAnchorTest 契约随新序更新；全量 :app:testDevDebugUnitTest 绿
+- 真机 slot 探针（DEBUG ChunkDiag）：c0 `from=0 to=22 first=[# 数据库索引完整知识体系详解]`、c1 `from=23 first=[## 5. 索引下推]`
+- 真机截图：用户气泡 → 智能体标签 → 思考完毕 → H1 大标题 → 1. B+树结构与磁盘页 → 正文（/tmp/v6.png）
+- 用户验收：2026-08-27 「246 ok了」
+
+## #246 分片逆序发射定音与三连修复（2026-08-27 17:28–18:14，用户验收通过）
+
+### 定性（第七轮收口：从「嫌疑」到「实锤」）
+
+用户现场截图（17:28）+ uiautomator 坐标（userQ 485..781 → 174px 间隙 → 「5. 索引下推」955）+ ScrollDiag 算术链三重定音：
+- idx=8 off=6770 + c1 h=8131 → 视口首可见项=c1 顶部 1361px（与截图 y955..2352 的第 5 节块吻合）
+- LEAP idx 8->7 off 80->7100 的 7100≈c0 h=7106 → idx7=c0 位于 idx8=c1 下方（屏幕上尾片在头片上面）
+- displayItems 为最新在前（reverseLayout 索引 0 在屏幕底），buildChatEntries 却按文档正序（c0→c1）发射 → 头片被当「更新」排到尾片下方。数据/组合/放置全正常（PLACE c0 h=7106 / c1 h=8131），纯发射序错误。用户「markdown 拼接时序排序」猜想即此。
+
+### 三个根因与修复（b3cbde4b）
+
+1. 分片逆序发射：buildChatEntries 改逆文档序（尾片先入列）+ displayEntryStart 钉回头片 c0（跳转落点=turn 首 chunk 语义不变；三处消费方核对：JNC.resolveLazyIndex / jumpToMessage / onLocateTask）。
+2. 切割点空白块：computeChunkPlan 边界后推进至下一有效块（start=i+1 可落纯空白块，JVM repro 块 22=' ' → 该片渲染高度≈0）；ChunkReproTest 由此转绿（此前一直红——更正前次「全绿」误报）。连带锚点候选封顶块自身 endOffset + 非空守卫（实证 c1 from=22 沾光命中空白块 → 修后 from=23 精准落「## 5. 索引下推」）。
+3. H1 空文本：mikepenz 0.43.0 buildMarkdownAnnotatedString walker 无 ATX_CONTENT 分支（源码 AnnotatedStringKtx.kt 核对，只处理 PARAGRAPH/TEXT/EMPH/LINK 等）→ 应用 heading1 定制复用之产出空串，H1 退化「只剩分隔线」。修复：heading1 直取节点 ATX_CONTENT 子节点转义文本（对齐库默认 MarkdownHeader 的 MarkdownText contentChildType=ATX_CONTENT），保留分隔线与点击注册。
+
+### 验收反馈·二：事件卡下方双倍间距（82490698）
+
+用户现场指出通知卡下方间隔偏大。dump 精确测量：卡下 48px=其他卡片 2 倍。根因：系统通知分支处于通用 item 包装器（ChatMessageList L1216 padding(bottom=messageSpacing)）之内，return@itemsIndexed 只退内容 lambda 不影响包装器；早前「零间隙修复」误判机制在此重复加显式底距。撤销之。修后三段间距 24/24/24 归一（真机 dump：气泡→卡 1081-1057=24、卡→气泡 1261-1237=24、气泡→气泡 1650-1626=24）。
+
+### 验证证据
+
+- ChunkEntryOrderTest（新增，红→绿）：assistant/user chunk 均逆序发射 + displayEntryStart 钉头片；UserChunkTest/ChunkPlanAnchorTest 契约随新序更新；全量 :app:testDevDebugUnitTest 绿
+- 真机 slot 探针（DEBUG ChunkDiag）：c0 from=0 to=22 first=[# 数据库索引完整知识体系详解]、c1 from=23 first=[## 5. 索引下推]
+- 真机截图：用户气泡 → 智能体标签 → 思考完毕 → H1 大标题 → 1. B+树结构与磁盘页 → 正文
+- 用户验收：2026-08-27 「246 ok了」

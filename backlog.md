@@ -77,12 +77,12 @@
 
 - [~] **#242 会话导航缺 4xx 防御：伪会话 id 触发 GET /message 400 后渲染空 Chat 页** `crash` `session` `sse`
   - #234 二轮取证实锤（3/3 复现）：点击 shell 卡热区以 jobID=call_… 伪会话导航 → listMessages 返回 ClientError(400) → 消息区全空「Chat」页 + 列表被「无标题会话」污染；**当日修复（03c7fc29）**：①非 ses_ 前缀 id 导航源头拦截 ②入口加载失败上抛 errorSink→ChatErrorState（自动退避重试页）③refresh 同源处理
-  - 待验证：真机复验含伪导航 grep 断言与失效会话 id 场景
+  - 验收方式：T3 自动化已绿（0×call_ 导航 / 0×400 / 合法子会话导航正常）+ 2026-08-27 #240 跳转实测（箭头→真实子会话无空页）；shell 卡按 Q17 裁决无箭头=入口已移除，人工仅需一眼确认
   - → `docs/journal/2026-08-27-event-card-unification.md` §#242 防御落地
 
-- [ ] **#240 synthetic 解析属性错配：sessionID=/command=/call_ id 三处——旧格式消息跳转与描述行缺失** `data` `session`
+- [~] **#240 synthetic 解析属性错配：sessionID=/command=/call_ id 三处——旧格式消息跳转与描述行缺失** `data` `session`
   - #234 真机走查实证：旧 <subagent> 格式服务器用 `sessionID=` 而解析器只认 `id=` → 子会话跳转箭头与定位钮全缺（#216 入口在该类消息丢失）；<shell> 用 `command=` 而读的是 `description=` → 命令预览不显示；shell 卡 id 属性实为工具调用 id（call_…）非会话 id，箭头指向悬空
-  - 修复向：parseSyntheticTask 补属性别名兼容 + call_ id 识别拦截箭头渲染；属存量行为非 #234 回归
+  - 修复已落地（TDD 红→绿 11 通过）；2026-08-27 真机复验（杭州公积金会话旧格式数据）：描述行显示 + 跳转箭头存在 + 箭头落入真实子会话（非 call_ 伪会话）——Agent 真机代验，用户口头委托
   - → `docs/journal/2026-08-27-event-card-unification.md` §解析层发现
 
 ## P3 — 观察与低价值改进
@@ -105,11 +105,6 @@
   - 候选：嵌套滚动连接器的边界 consumed 处理（到底后不外传速度）；或维持现状（Android 惯例）。需手感裁决后定
   - → `docs/journal/2026-08-27-event-card-unification.md` §复验
 
-
-- [~] **#246 分片逆序发射——长回复「直接从第 5 节开始」+ H1 标题空文本** `ui` `sse`
-  - 真机截图+ScrollDiag 算术链定音三根因：① 分片按文档正序发射进「最新在前」列表 → 屏幕上尾片（5–8 节）排到头片（1–4 节）上方，头片被埋会话更低处；② 切割点可落在纯空白块 → 该片渲染高度≈0；③ 库 annotatedString walker 无 ATX_CONTENT 分支，heading1 定制复用之 → H1 空文本只剩分隔线
-  - 修复：① 逆文档序发射（尾片先入列）+ displayEntryStart 钉回头片（跳转落点语义不变）；② 切割点推进至下一有效块 + 锚点候选封顶块尾；③ heading1 直取 ATX_CONTENT 转义文本（对齐库 MarkdownHeader）
-  - 证据：ChunkEntryOrderTest 红→绿 + 全量单测绿 + 真机 slot 探针 + 真机截图（气泡→标签→思考完毕→H1→1. B+树）→ `docs/journal/2026-08-27-event-card-unification.md`
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`
   - 手势阶梯实验（e234g-REPORT）+ 六轮两次现场同帧复现：数屏长单项区域下滑帧字节级静止（方向不对称、moveCount 完整送达）；四轮 T2 一度判全档失效后更正为测量假象嫌疑——维持「嫌疑+未确证」；#246 自愈装机后仍观察一次，疑独立机制
