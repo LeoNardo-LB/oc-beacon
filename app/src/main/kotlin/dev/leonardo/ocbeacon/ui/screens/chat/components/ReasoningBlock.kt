@@ -183,29 +183,24 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
 
-                // 可展开内容（动画默认——#215 用户裁决撤全部补偿与 spec 覆盖；
-                // #241 渲染前补偿 2026-08-27 用户指令扩展到思考块：逐帧链式配对，
-                // 动画保留，只有视窗位移被渲染前配对）
-                AnimatedVisibility(
-                    visible = expanded,
-                    // #241 渲染前补偿：挂在 **AV 节点外侧**（AV 的 spring 尺寸动画
-                    // 每帧上报插值高度，外侧逐帧配对才不脱同步；挂内侧会把全量
-                    // 首帧测量错配成巨额注入——首测即翻车的教训见 journal）
+                // 可展开内容（2026-08-27 用户裁决：去掉收起/展开动画——动画是
+                // 补偿边界残留的源头；#241 渲染前补偿挂常驻 Box，内容条件直通，
+                // 两遍精确配对同事件卡。#215「动画默认」旧裁决被本条取代）
+                val revealListState = LocalChatListState.current
+                val expandReveal = remember { ExpandRevealCompensator() }
+                Box(
                     modifier = Modifier.then(
-                        run {
-                            val revealListState = LocalChatListState.current
-                            if (revealListState != null) {
-                                val expandReveal = remember { ExpandRevealCompensator() }
-                                Modifier
-                                    .clipToBounds()
-                                    .expandRevealCompensation(revealListState, expandReveal, "RB-REVEAL")
-                            } else {
-                                Modifier
-                            }
+                        if (revealListState != null) {
+                            Modifier
+                                .clipToBounds()
+                                .expandRevealCompensation(revealListState, expandReveal, "RB-REVEAL")
+                        } else {
+                            Modifier
                         }
-                    ),
+                    )
                 ) {
-                    Column {
+                    if (expanded) {
+                        Column {
                         Spacer(modifier = Modifier.height(6.dp))
                         // 2026-08-16（用户反馈调整）：高度上限从半屏收紧为固定值——
                         // 思考内容是长 Markdown，半屏上限下总是顶满（其他工具卡片
@@ -232,6 +227,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                                 )
                             }
                         }
+                    }
                     }
                 }
             }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -134,7 +135,21 @@ internal fun CollapsibleQuestionPart(question: String) {
                     tint = contentColor.copy(alpha = AlphaTokens.FAINT)
                 )
             }
-            AnimatedVisibility(visible = expanded) {
+            // #241 渲染前补偿（2026-08-27 用户裁决去动画）：常驻 Box 两遍精确配对
+            val revealListState = LocalChatListState.current
+            val expandReveal = remember { ExpandRevealCompensator() }
+            Box(
+                modifier = Modifier.then(
+                    if (revealListState != null) {
+                        Modifier
+                            .clipToBounds()
+                            .expandRevealCompensation(revealListState, expandReveal, "QPC-REVEAL")
+                    } else {
+                        Modifier
+                    }
+                )
+            ) {
+                if (expanded) {
                 Column(modifier = Modifier.padding(start = 20.dp, top = 4.dp, end = 4.dp, bottom = 4.dp)) {
                     Text(
                         text = parsed.displayText,
@@ -177,6 +192,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                             color = contentColor.copy(alpha = AlphaTokens.MUTED)
                         )
                     }
+                }
                 }
             }
         }

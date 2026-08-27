@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.tools.cards
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clipToBounds
+import dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandRevealCompensator
+import dev.leonardo.ocbeacon.ui.screens.chat.components.LocalChatListState
+import dev.leonardo.ocbeacon.ui.screens.chat.components.expandRevealCompensation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -147,14 +152,28 @@ internal fun TodoListCard(
                 }
             }
 
-            // Todo items
-            AnimatedVisibility(visible = expanded) {
-                Column(
-                    modifier = Modifier.padding(top = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    for (todo in todos) {
-                        TodoItemRow(todo = todo)
+            // Todo items（#241 渲染前补偿：去动画 + 常驻 Box 两遍精确配对）
+            val revealListState = LocalChatListState.current
+            val expandReveal = remember { ExpandRevealCompensator() }
+            Box(
+                modifier = Modifier.then(
+                    if (revealListState != null) {
+                        Modifier
+                            .clipToBounds()
+                            .expandRevealCompensation(revealListState, expandReveal, "TODO-REVEAL")
+                    } else {
+                        Modifier
+                    }
+                )
+            ) {
+                if (expanded) {
+                    Column(
+                        modifier = Modifier.padding(top = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        for (todo in todos) {
+                            TodoItemRow(todo = todo)
+                        }
                     }
                 }
             }

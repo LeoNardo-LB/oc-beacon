@@ -42,6 +42,11 @@ internal class ExpandRevealCompensator {
     /** 已注入、待下一遍消费后揭示的增量（可负=收缩上移）。 */
     private var pendingReveal = 0
 
+    /** 是否已测过（区分「条目首次进入视口」与「就地展开」：前者直接全量上报，
+     *  后者从 0 基准起全程配对——首帧部分测量（如 Markdown 异步占位）也要
+     *  配对，否则首个增量漏注入 = 净漂移，2026-08-27 思考块 -18px 实证）。 */
+    private var everMeasured = false
+
     /**
      * 每遍测量调用。返回 (本遍上报高度, 注入下移量)。
      *
@@ -52,8 +57,12 @@ internal class ExpandRevealCompensator {
      * 视窗上移，位移全部发生在渲染前（用户硬约束 2026-08-27）。
      */
     fun onMeasure(realHeight: Int): Pair<Int, Int> {
-        // 冷启动：首测全量上报
-        if (reportedBase <= 0) {
+        // 条目首次进入视口（此前从未测过）：直接全量上报，绝不注入——
+        // 否则新出现的展开卡会先隐身一帧再跳入。real==0（收起态）**不短路**：
+        // 走通用配对（持有旧高 + 注入 -旧高），否则收起裸跟随 = 下坠回归
+        // （2026-08-27 思考块 +369 复现实证）。
+        if (!everMeasured) {
+            everMeasured = true
             reportedBase = realHeight
             return realHeight to 0
         }

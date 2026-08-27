@@ -233,9 +233,10 @@ internal fun ToolCardScaffold(
                 }
             }
 
-            // 展开的内容（动画默认：spring 高度 + 淡入淡出——#215 用户裁决撤全部
-            // 补偿逻辑与 spec 覆盖，视口行为交 LazyColumn 原生锚定）
-            AnimatedVisibility(visible = expanded && hasContent) {
+            // 展开的内容（2026-08-27 用户裁决：去掉收起/展开动画——动画是补偿
+            // 边界残留的源头；直通渲染，#241 渲染前补偿两遍精确配对同事件卡。
+            // #215「动画默认」旧裁决被本条取代）
+            if (expanded && hasContent) {
                 expandedContent()
             }
         }
