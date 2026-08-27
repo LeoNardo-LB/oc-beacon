@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#249**。
+**编号**：全局递增，不回收。下一编号：**#251**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -66,6 +66,17 @@
   - 现状：material3 回 BOM 1.4.0 + eachDependency 四组（ui/runtime/foundation/animation）对齐 1.11.2；FAB 菜单已稳定 API 复刻（ChatFabMenu.kt，morph 动画简化）
   - 解除条件：material3 稳定版收录 FloatingActionButtonMenu/ToggleFloatingActionButton **且** compose 1.12 全家稳定发布 → 先解除 eachDependency 试跑真机（重点：流式滚动手感 + FAB 全功能），通过后删收敛块
 
+- [ ] **#249 V2 legacy find 信封漂移——`/api/fs/find` 返回 `{path,type}` 对象、客户端仅认 id → V2 @ 弹窗恒空（已修复，待验收）** `api` `data`
+  - 双栈 E2E（2026-08-28）定因：opencode2 beta-18414 服务器侧 find 完全健康（curl query=md 命中 log.md 等），但信封对象无 id 字段，V2ApiClient.findFiles 的 mapNotNull 全弃 → V2 @ 弹窗任意目录恒空；git 取证预存缺陷（603f987f 未触 V2 文件，解析块上次触碰 = C1-6 仅签名）
+  - 修复：解析链补 path 字段回退（id 优先不变）；V2ApiClientTest 补 3 用例（path 信封/id 优先/裸字符串）类内 40/40 绿
+  - 真机 E2E（houji）：V2 home `@bash` → 10 项 ✓；docs 项目 `@wiki` → 11 项目录+文件混排含中文路径 ✓
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十轮 · `docs/v1-v2-differences.md` §V2 同源注记——**用户验收后迁 journal**
+
+- [ ] **#250 V2 新会话首发 shell 竞态——`/api/session//shell` 空 session id →「Shell 命令运行失败」** `session` `ui`
+  - 双栈 E2E 顺带发现（2026-08-28）：+ 新建会话后立即 `!pwd`，SessionActionsDelegate 以空 id 发 POST（logcat 实证 `/api/session//shell`）→ 失败 Snackbar；同会话第二条 `$ pwd` 即完成（/home/leo-tkp 2.5s）——V2 shell 链路本身健康，纯新建竞态；V1 未复现（测试会话均预先存在）
+  - 候选：shell 发送路径等待 ensureSession 就位（或空 id 时挂起重试）；另观察 V2 会话期间出现一条 `127.0.0.1:4200/question` 请求（疑保存服务器轮询残留，待查）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十轮
+
 ## P3 — 观察与低价值改进
 
 - [ ] **#248 V1 1.18.18 兼容缺口——find 大目录静默空（@ 弹窗回退修复，待验收）** `api` `data`
@@ -73,6 +84,7 @@
   - **修复**：V1ApiClient.findFiles 空结果回退 `/file?path=` 单层列表 + `findFilesFallbackFilter` 客户端过滤（纯函数 7 用例单测全绿）
   - 真机 E2E（houji，2026-08-28）：home 会话 @ 弹窗回退列表 ✓ + `@bash` 过滤命中 .bashrc 等 ✓ + home 会话 shell 完成 ✓ + v1proj 会话 @ 回归 4 项含 sub/ ✓
   - 第 4 发现（记录不改码）：会话目录恰为 `~/.config/opencode` 时 V1 1.18 解析 V2 格式 opencode.jsonc → ConfigInvalidError 轮询报错（客户端已降级，根因服务器侧）
+  - 双栈复确认（2026-08-28 02:00–02:20）：V1 四场景复跑全绿（@ 回退/@bash 过滤/!echo/v1proj 回归）；V2 回归另证 @ 弹窗空为**独立预存缺陷** → 拆出 #249 与本卡解耦
   - 详见 `docs/v1-v2-differences.md` §V1 1.18.18 过渡形态实测补遗 · `docs/journal/2026-08-27-event-card-unification.md` §九轮——**用户验收后迁 journal**
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`

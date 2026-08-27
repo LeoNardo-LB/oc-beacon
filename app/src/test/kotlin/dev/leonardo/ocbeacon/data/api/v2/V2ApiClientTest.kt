@@ -696,4 +696,49 @@ class V2ApiClientTest {
         api.readFile(v2Conn, "src/My File.kt", null)
         assertTrue("slash structure kept: $capturedPath", capturedPath.endsWith("/api/fs/read/src/My%20File.kt"))
     }
+
+    // ============ findFiles（#249：legacy 信封漂移回归） ============
+
+    /** 回归 #249：opencode2 legacy /api/fs/find 信封为 {path,type} 对象
+     *  （无 id 字段）——仅认 id 时 mapNotNull 全弃 → @ 弹窗恒空。
+     *  真机 curl 实证 beta-18414：query=md 返回 log.md/index.md 等。 */
+    @Test
+    fun `findFiles maps legacy path-type envelope objects`() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("/api/fs/find", request.url.encodedPath)
+            assertEquals("md", request.url.parameters["query"])
+            val body = "{\"location\":{\"directory\":\"/home/x\",\"project\":{\"id\":\"p\",\"directory\":\"/home/x\",\"canonical\":\"/home/x\"}},\"data\":[{\"path\":\"log.md\",\"type\":\"file\"},{\"path\":\"wiki/筹码/补偿金额计算.md\",\"type\":\"file\"}]}"
+            respond(body, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val results = api.findFiles(v2Conn, "md", null, "/home/x", 15, null)
+        assertEquals(listOf("log.md", "wiki/筹码/补偿金额计算.md"), results)
+    }
+
+    /** id 字段存在时优先（旧信封形态语义不回退）。 */
+    @Test
+    fun `findFiles prefers id over path when both present`() = runTest {
+        val engine = MockEngine { _ ->
+            val body = "{\"data\":[{\"id\":\"aaa\",\"path\":\"bbb\",\"type\":\"file\"}]}"
+            respond(body, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val results = api.findFiles(v2Conn, "", null, null, null, null)
+        assertEquals(listOf("aaa"), results)
+    }
+
+    /** 裸字符串数组形态（最老信封）继续可用。 */
+    @Test
+    fun `findFiles accepts bare string data array`() = runTest {
+        val engine = MockEngine { _ ->
+            val body = "{\"data\":[\"x.txt\",\"y/z.md\"]}"
+            respond(body, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val results = api.findFiles(v2Conn, "z", null, null, null, null)
+        assertEquals(listOf("x.txt", "y/z.md"), results)
+    }
 }

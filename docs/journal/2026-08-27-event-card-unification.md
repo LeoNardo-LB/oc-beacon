@@ -514,3 +514,45 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - backlog #248：改写为勘误后单点修复卡（`[ ]` 待用户验收后迁 journal）；backlog-check 通过。
 - `docs/v1-v2-differences.md` 新增 §「V1 1.18.18 过渡形态实测补遗」：5 端点行为矩阵 + 冒烟误报勘误 + 旧版 `/api/fs/*` 共存警告（`/api/fs/find` 是另一套更残缺实现——data 为 `{path,type}` 信封且对实际存在文件仍返回空，**客户端勿用**）。
 - 环境备注：V1 服务器 4200 保持运行；E2E 截图 `/tmp/e2e_*.png`。
+
+## 十轮：#248 双栈（V1/V2）端到端确认——V1 复确认全绿 + V2 回归揪出 #249 预存缺陷（2026-08-28 02:00–02:20）
+
+> 用户指令：「#248 你能否从端到端测试确认呢？V1、V2都需要测试与回归」。
+
+### 环境预检
+
+- 装机核验：dev 包 versionName 0.3.2-dev.2，lastUpdateTime 2026-08-28 01:46 = 昨夜含 #248 修复的静默安装，无需重装。
+- 双服务器：4200 V1（opencode 1.18.18，`/global/health` JSON ✓）；4199 V2 = 用户日常实例 **opencode2 v0.0.0-beta-18414**（`/global/health` 返回 Web UI HTML——V2 无该 JSON 端点，方言差异记录在案；`/session` 等未知 GET 同样回落 SPA）。
+- adb reverse tcp:4199/tcp:4200 均在位。
+
+### V1 复确认（debug intent → Host-4200-V1，四场景重跑）
+
+| # | 场景 | 结果 |
+|---|------|------|
+| A | home 会话 `@` | ✅ 回退列表渲染（.agentmemory/.android/… 字母序） |
+| A2 | home 会话 `@bash` | ✅ `.bash_history/.bash_logout/.bashrc` 三项 |
+| C | home 会话 `!echo` | ✅ `$ echo` 完成卡（big-pickle 761ms，02:09:27 轮次） |
+| B | v1proj 会话 `@` | ✅ 4 项含 `sub/inner.txt`（嵌套路径 = find 原路生效、回退未触发的形态学证据） |
+
+操作坑备忘：KEYCODE_DEL 逐字清除会连带删掉 `@` 前缀（残留裸 `bash` 不触发弹窗）——应整段清空后一次性 `input text '@bash'`。
+
+### V2 回归 → #249 发现与修复
+
+- **现象**：V2 下 home（showcase234）与 docs 项目（杭州公积金仲裁资料清单）两会话 `@`/`@bash` 弹窗全空。
+- **curl 对照**：V2 `/api/fs/find` 服务器侧完全健康——`query=bash`（home）返回 tmp/opencode/*/bash.ts 等；`query=md`（docs）返回 log.md/index.md/wiki/筹码/补偿金额计算.md 等；`dirs=true` 不过滤目录（目录带尾 `/` 混排）。**但信封对象为 `{path,type}`，无 id 字段**。
+- **定因**：`V2ApiClient.findFiles` 解析仅认 `data[].id`（`mapNotNull` 中 JsonObject 无 id 即弃）→ **V2 @ 弹窗恒空**。git 取证预存性：603f987f 未触 V2 文件；该解析块上次触碰 = C1-6 收编（45ef7584，仅 `override` 签名）→ 信封漂移早于本批，**非 #248 引入**。
+- **修复（#249）**：解析链补 path 字段回退（`(element as? JsonObject)?.get("path")`，id 优先语义不变；路径为相对目录头的相对路径，与 opencode Web @ 插入形态一致）；`V2ApiClientTest` 补 3 用例（path 信封/id 优先/裸字符串数组）→ 类内 40/40 绿；compileDevDebugKotlin + assembleDevDebug 通过，pm install 静默装机 Success。
+- **V2 E2E 复跑**：home `@bash` → 10 项 ✓（logcat 证请求链 query=b→空→bash 防抖正常）；docs `@wiki` → 11 项 `wiki/` 目录 + 中文路径文件混排 ✓。
+- 操作坑备忘：输入草稿跨 force-stop 持久化（DraftInputDelegate），残留 `@bash` 与新输入叠成 `@bash@bash` 污染 searchText（首测假阴性）；整段清空后单次输入即中。
+
+### V2 shell → #250 新发现（登记不现场修）
+
+- `+` 新建会话（项目选 leo-tkp）后立即 `!pwd`：Snackbar「Shell 命令运行失败」，logcat 铁证 `REQUEST: http://127.0.0.1:4199/api/session//shell`——**session id 为空**（发送时新会话尚未就位）。
+- 同会话重发：`$ pwd` → 完成 `/home/leo-tkp`（glm-5.3-flash 2.5s）✓——V2 shell 链路本身健康，纯新建会话竞态。V1 侧未复现（测试会话均预先存在）。→ 登记 **#250**。
+- 顺带观察：应用进程内出现一条 `http://127.0.0.1:4200/question` 请求（V2 会话期间）——疑保存服务器轮询残留，与本案无关，#250 卡外另记待查。
+
+### 卡片与文档
+
+- backlog：#248 补双栈复确认行；新增 **#249**（V2 find 信封解析，已修复待验收）与 **#250**（新会话首发 shell 空 id 竞态）；下一编号 #251；backlog-check 通过。
+- `docs/v1-v2-differences.md`：文件系统行补 V2 信封漂移事实；§补遗加 V2 同源注记（V1 1.18 旧路由 `{path,type}` 信封与 V2 一脉相承，差异只在 V2 find 引擎健康）。
+- 环境备注：V2 服务器（4199）为用户日常实例，未做写操作污染（仅新增一个「Chat」测试会话于 /home/leo-tkp）；V1 4200 保持运行；截图 `/tmp/e2e_v2_*.png`。

@@ -1472,6 +1472,12 @@ class V2ApiClient @Inject constructor(
             dataField is JsonArray -> dataField.mapNotNull { element ->
                 (element as? JsonPrimitive)?.contentOrNull
                     ?: element.jsonObject["id"]?.jsonPrimitive?.contentOrNull
+                    // 2026-08-28（#249 真机 E2E 取证）：opencode2 legacy /api/fs/find
+                    // 信封漂移为 {"data":[{"path":"log.md","type":"file"},…]}——对象无
+                    // id 字段，仅认 id 时 mapNotNull 全弃 → @ 弹窗恒空（curl 实证 V2
+                    // 服务器实返回丰富结果：query=md 命中 log.md/index.md 等）。path 为
+                    // 回退真相源（相对目录头的相对路径，与 opencode Web @ 插入形态一致）。
+                    ?: (element as? JsonObject)?.get("path")?.jsonPrimitive?.contentOrNull
             }
             else -> emptyList()
         }

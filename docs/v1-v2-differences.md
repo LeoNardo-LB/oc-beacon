@@ -30,7 +30,7 @@ V1（1.18.x，npm `opencode-ai`）与 V2（2.x beta，npm `@opencode-ai/cli`）�
 | Form 系统 | 无 | `GET/POST /api/session/{id}/form` + reply/state | **已适配（#130）**：question 工具的 form（kind=question）映射为 QuestionAsked 复用提问卡片；回复走 `POST /api/session/{id}/form/{formID}/reply`，取消走 `.../cancel`；轮询兜底走 `GET /api/form/request`。其他 kind 的 form 暂忽略 | ✅ 2026-08-14 |
 | Inbox/Steering | 无 | `/api/session/{id}/inbox` + steer + queue | V2 新增能力 | 评估中 |
 | Shell | `POST /session/{id}/shell`（会话级） | 会话级 + **独立** `/api/shell` + `/api/shell/{id}/output` | 双客户端分流 | ✅ 已适配 |
-| 文件系统 | `GET /file`, `/file/content`, `/find`, `/find/file`, `/find/symbol` | `GET /api/fs/read/*`, `/api/fs/list`, `/api/fs/find` | 双客户端分流；V1 1.18 `/find/file` 大目录静默空 → 客户端单层列表回退 | ✅ 已适配（#248 补回退） |
+| 文件系统 | `GET /file`, `/file/content`, `/find`, `/find/file`, `/find/symbol` | `GET /api/fs/read/*`, `/api/fs/list`, `/api/fs/find` | 双客户端分流；V1 1.18 `/find/file` 大目录静默空 → 客户端单层列表回退；V2 `/api/fs/find` 信封漂移为 `{path,type}` 对象（无 id）→ 解析补 path 回退 | ✅ 已适配（#248 补回退 + #249 补解析） |
 | VCS | `GET /vcs`, `/vcs/status`, `/vcs/diff` + `/path` | `GET /api/vcs*` + `GET /api/location` | 双客户端分流 | ✅ 已适配 |
 | Session 状态 | `GET /session/status` | 无直接等价（`/api/session/active` + SSE 替代） | V2 用 activeSessions | ✅ 已适配 |
 | 压缩 summarize | `POST /session/{id}/summarize` | `POST /api/session/{id}/compact` | 双客户端分流 | ✅ 已适配 |
@@ -93,6 +93,8 @@ V1（1.18.x，npm `opencode-ai`）与 V2（2.x beta，npm `@opencode-ai/cli`）�
 | `x-opencode-directory` 头 | URL 编码的绝对路径，新路由正确解码生效（实测 home 头列出 home）；**directory 恰为配置目录**（如 `~/.config/opencode`）时，V1 1.18 会解析其中的 opencode.jsonc——**V2 格式 `mcp.timeout` 直接 ConfigInvalidError**（所有带该头的端点） | 现行 `directoryHeader` 保持；会话不要建在配置目录内（`hasActiveChildren` 轮询已优雅降级，仅 logcat 噪音） |
 
 > ⚠️ 冒烟误报勘误：2026-08-28 #238 冒烟记录的「①/find 要求 pattern（应用发 query）→ @ 弹窗空 ②/file?path= 500 ③shell 执行失败」三症状，经本轮逐项复现：①实为 V1 find 大目录静默空（冒烟会话目录=home 触发，非参数名错位）；②仅在项目外绝对路径/bogus 目录头出现（正常流不触发）；③现构建不复现（真机通过）。#248 由「兼容缺口清单」收敛为单点修复：find 空结果回退。
+>
+> 📌 V2 同源注记（#249，2026-08-28 双栈 E2E）：V2（opencode2 beta-18414 实测）`/api/fs/find` 信封即 `{path,type}` 对象——V1 1.18 旧路由的残缺信封与 V2 一脉相承；差异仅在 find 引擎健康度（V2 有结果、V1 1.18 大目录静默空）。`V2ApiClient.findFiles` 原仅认 `data[].id` → V2 @ 弹窗恒空（**预存缺陷**，git 取证 603f987f 未触 V2 文件），已补 `path` 字段回退（id 优先不变）。另实测 V2 `dirs=true` **不过滤目录**（目录带尾 `/` 与文件混排返回）；V2 无 `/global/health` JSON 端点（未知 GET 回落 Web UI SPA），探活勿依赖该路径。
 
 ## 参考资料
 
