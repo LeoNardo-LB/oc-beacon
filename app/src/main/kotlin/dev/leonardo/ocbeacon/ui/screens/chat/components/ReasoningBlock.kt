@@ -199,7 +199,11 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         }
                     )
                 ) {
-                    androidx.compose.animation.AnimatedVisibility(visible = expanded) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = expanded,
+                        enter = ExpandEnterTransition,
+                        exit = ExpandExitTransition,
+                    ) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))
                         // 2026-08-16（用户反馈调整）：高度上限从半屏收紧为固定值——

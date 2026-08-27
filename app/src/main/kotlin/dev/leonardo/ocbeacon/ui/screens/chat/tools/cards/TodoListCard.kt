@@ -152,7 +152,8 @@ internal fun TodoListCard(
                 }
             }
 
-            // Todo items（#241 渲染前补偿：去动画 + 常驻 Box 两遍精确配对）
+            // Todo items（#241/#243 渲染前补偿：2026-08-28 统一裁决全表面动画，
+            // 逐帧渲染前配对）
             val revealListState = LocalChatListState.current
             val expandReveal = remember { ExpandRevealCompensator() }
             Box(
@@ -166,7 +167,11 @@ internal fun TodoListCard(
                     }
                 )
             ) {
-                if (expanded) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = expanded,
+                    enter = dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandEnterTransition,
+                    exit = dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandExitTransition,
+                ) {
                     Column(
                         modifier = Modifier.padding(top = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)

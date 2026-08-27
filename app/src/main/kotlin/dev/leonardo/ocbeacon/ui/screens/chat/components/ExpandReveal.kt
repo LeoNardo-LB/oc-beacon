@@ -1,6 +1,13 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
@@ -8,6 +15,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import dev.leonardo.ocbeacon.logging.AppLogger
+
+/**
+ * #241 统一展开/收起过渡（2026-08-28 用户裁决：全部从上到下）——
+ * 顶部锚定、高度向下生长/向上收回 + 淡入淡出。所有展开收起面共用，
+ * 禁止单面自定义方向（防斜向/左上右下等不一致观感）。
+ */
+val ExpandEnterTransition: EnterTransition =
+    fadeIn() + expandVertically(expandFrom = Alignment.Top)
+
+val ExpandExitTransition: ExitTransition =
+    fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
 
 /** 会话 LazyListState 下传通道（#241 渲染前补偿用）：ChatMessageList 在列表
  *  内容处 provide，展开型组件就地 consume——避免穿 3-5 层签名的模板代码。 */

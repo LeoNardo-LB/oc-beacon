@@ -75,7 +75,7 @@
 ## P3 — 观察与低价值改进
 
 - [~] **#241 视口顶部事件卡展开时标签行被推出视口——渲染前逐帧配对 + 动画收放（最终形态， reopened+completed）** `ui`
-  - 机制（2026-08-28 二次裁决）：ExpandReveal.kt 链式逐帧配对 + ToolCardScaffold/ReasoningBlock/EventCard 三面恢复 AnimatedVisibility——瞬时收起的 Δ 单帧跳变物理上不可消除，动画逐帧收回+每帧渲染前配对是唯一无跳方案（去动画裁决被取代；其残留真因 everMeasured/零高短路/AV 内侧挂位均已修）
+  - 机制（2026-08-28 二次裁决）：ExpandReveal.kt 链式逐帧配对 + 六面 AnimatedVisibility 统一过渡（全部从上到下：fadeIn+expandVertically(Top) / fadeOut+shrinkVertically(Top)，共享常量 ExpandEnter/ExitTransition；含压缩卡一致性统一）——瞬时收起的 Δ 单帧跳变物理上不可消除，动画逐帧收回+每帧渲染前配对是唯一无跳方案（去动画裁决被取代；其残留真因 everMeasured/零高短路/AV 内侧挂位均已修）
   - 真机实证：agent 卡收起 30+ 帧弹簧衰减逐帧配对（-27/-25/-80/-14…，real 348→128 平滑收回）、无单帧大跳、终态零漂移；TaskToolCard/SNC EventCard 双表面复测零漂移；防御性 SyntheticNotice 两处补线全覆盖
   - 待 V6：真手指手感最终确认（自动化已测终态+逐帧日志，瞬态观感由用户定夺）
   - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补一～补十一

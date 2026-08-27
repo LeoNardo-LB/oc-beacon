@@ -237,7 +237,11 @@ internal fun ToolCardScaffold(
             // 上跳不可接受；根因修复（everMeasured/零高短路）后，逐帧配对已被
             // 真机证明精确（展开动画每帧 +1/+2px 全配对），收起动画逐帧配对
             // 同机制。外侧补偿器在本类根部（TC-REVEAL））
-            AnimatedVisibility(visible = expanded && hasContent) {
+            AnimatedVisibility(
+                visible = expanded && hasContent,
+                enter = dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandEnterTransition,
+                exit = dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandExitTransition,
+            ) {
                 expandedContent()
             }
         }

@@ -135,7 +135,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                     tint = contentColor.copy(alpha = AlphaTokens.FAINT)
                 )
             }
-            // #241 渲染前补偿（2026-08-27 用户裁决去动画）：常驻 Box 两遍精确配对
+            // #241/#243 渲染前补偿（2026-08-28 统一裁决：所有展开收起面一律动画，逐帧渲染前配对）：常驻 Box 链式逐帧配对
             val revealListState = LocalChatListState.current
             val expandReveal = remember { ExpandRevealCompensator() }
             Box(
@@ -149,7 +149,11 @@ internal fun CollapsibleQuestionPart(question: String) {
                     }
                 )
             ) {
-                if (expanded) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = expanded,
+                    enter = ExpandEnterTransition,
+                    exit = ExpandExitTransition,
+                ) {
                 Column(modifier = Modifier.padding(start = 20.dp, top = 4.dp, end = 4.dp, bottom = 4.dp)) {
                     Text(
                         text = parsed.displayText,

@@ -104,7 +104,11 @@ internal fun CompactionCard(
             )
         }
 
-        AnimatedVisibility(visible = expanded && canExpand) {
+        AnimatedVisibility(
+        visible = expanded && canExpand,
+        enter = ExpandEnterTransition,
+        exit = ExpandExitTransition,
+    ) {
             ExpandContent(text = expandableText ?: "", active = activeState != null)
         }
     }

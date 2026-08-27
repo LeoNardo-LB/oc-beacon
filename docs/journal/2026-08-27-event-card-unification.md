@@ -449,3 +449,9 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 - 真机验证（agent 卡收起，注入门修复后装包）：收起日志 **30+ 帧逐帧配对**（-27/-25/-80/-14/-12… 弹簧衰减，real 348→128 平滑收回，每帧 report=上一帧 real），无任何单帧大跳；展开/收起终态 A==B==C 零漂移。
 - 判词修正链收口：#241 的「渲染前补偿」语义最终形态 = **逐帧渲染前配对的动画收放**（Q12 无动画裁决被 2026-08-28 二次裁决取代）。
 - 环境附注：uiautomator 陈旧注册（already registered）会让 dump 持续返回缓存树 + tap 全吞，重启设备清场；此类仪器噪声已污染过 #158/#245 的自动化采样，后续真机断言前必须先验证 dump 新鲜度（尺寸指纹法）。
+
+### 八轮补十二：展开/收起方向统一——全部从上到下（2026-08-28 00:55）
+
+- 用户裁决：展开内容一律**从上到下**（此前思考块呈左上→右下斜向 = AV 默认 expandIn 方向不一致）。
+- 实现：ExpandReveal.kt 增共享过渡常量 ExpandEnterTransition（fadeIn + expandVertically(Top)）/ ExpandExitTransition（fadeOut + shrinkVertically(Top)），六处 AV 统一引用：ToolCardScaffold（工具卡家族）/ ReasoningBlock / EventCard / QuestionPartContent / TodoListCard / **CompactionCard**（一致性检查发现同为展开面，一并统一）。
+- 回归：思考块循环 C==A 零漂移；收起链逐帧配对至 real=0（零高帧也被配对，无短路回归）。Glob/WebSearch 内层 AV 为 expandedContent 内层初现（不重复动画）不动。
