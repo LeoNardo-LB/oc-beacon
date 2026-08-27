@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#251**。
+**编号**：全局递增，不回收。下一编号：**#252**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -76,7 +76,13 @@
   - 发现（2026-08-28 双栈 E2E）：+ 新建会话后立即 `!pwd`，SessionActionsDelegate 以空 id 发 POST → 失败 Snackbar；同会话第二条即正常——ensureSession 只挂在普通消息/斜杠命令路径，shell 直读未就位 id
   - 修复：runShellCommand 发送前 `ensureSession()`（对齐 executeCommand 同款，幂等 mutex 双检，方言无关）；连带 `V2EventParser` session.shell.ended 的 output 对象形态容错（原 jsonPrimitive 炸 → 整事件丢弃）；SessionActionsDelegateShellTest 3 用例 + V2EventParserTest 1 用例，全量单测通过
   - 真机 E2E：V2 新会话首发 `!pwd` 真实 id ✓ + ShellJobEnded 正常派发 ✓ 无失败 Snackbar；V1 新会话首发 `!echo` `$ echo` 完成卡 70ms ✓。注：V2 会话级 shell = 后台体系不产聊天消息（方言事实记入 v1-v2-differences Shell 行）
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十一轮——**用户验收后迁 journal**（另：V2 会话期出现 `127.0.0.1:4200/question` 请求，疑保存服务器轮询残留，待查）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十一轮——**用户验收后迁 journal**（另：`4200/question` 之谜已另立 #251 根因修复）
+
+- [ ] **#251 调试通道 autoConnect 泄漏——一次性测试后端永久加入开机自连集合（4200/question 之谜，已修复，待验收）** `session`
+  - 定因（2026-08-28）：debug 激活无条件给条目写 autoConnect=true → 服务冷启 `autoConnectConfiguredServers()` 全量连接全部历史调试后端（真机实证 Auto-connecting 2 server(s)）——SSE + GET /question 轮询 + 状态轮询挂满陈旧后端，mergeQuestionsFromREST 还跨服务器污染事件流
+  - 修复：`ServerConfig.fromDebugChannel` 标记 + `applyDebugBackendPromotion` 纯函数（不变量：**最近激活的调试后端至多一个自连**；手动 pin 为用户管理位永不受影响）+ DataStore/Repository/MainActivity 全链贯通；`ServerConfigDebugPromotionTest` 6 用例，全量单测通过
+  - 真机 E2E：切换轮换后冷启 **Auto-connecting 1 server(s)** + 40s 窗口 4200 流量 0 条 + 4199 轮询正常；legacy 无标记条目经一轮 promote 自愈（零手工清库）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十二轮——**用户验收后迁 journal**
 
 ## P3 — 观察与低价值改进
 

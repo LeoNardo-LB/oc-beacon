@@ -587,3 +587,36 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 
 - backlog #250 改写为已修复待验收卡；`v1-v2-differences.md` Shell 行补 V2 后台 shell 语义 + 解析容错注记。
 - 环境备注：用户日常 V2 服务器累计 2 个测试会话（无标题会话/Chat，均 /home/leo-tkp）、V1 服务器 1 个（New session 18:33）——可随手删。
+
+## 十二轮：#251 根因修复——4200/question 之谜 = 调试通道 autoConnect 泄漏（2026-08-28 02:40–02:55）
+
+> 用户指令：「继续修这个（4200/question 轮询残留线索），注意要根因修复与验证」。
+
+### 定因（logcat + 代码链双证）
+
+- 现象回放：App 连着 4199（V2 日常）却周期性 `GET http://127.0.0.1:4200/question`（V1 测试服务器）。
+- 请求方定位：`OpenCodeConnectionService.startQuestionPolling`——问题通知 REST 兜底轮询（30s），由 `connect(server)` 启动。
+- **根因**：`MainActivity.activateDebugProfile` 两个分支都无条件给条目写 `autoConnect = true` → **每个用过的调试 URL 永久加入开机自连集合**。服务冷启 `autoConnectConfiguredServers()` 全量连接全部 flagged 条目（真机实证 `Auto-connecting 2 server(s)`）——SSE、`GET /question` 轮询、状态轮询全部挂上陈旧后端；`mergeQuestionsFromREST` 还把跨服务器数据合并进 eventDispatcher。4200 只是本例，**任何一次性调试后端都会永久泄漏**。
+
+### 修复（不变量：最近激活的调试后端至多一个自连）
+
+- `ServerConfig.fromDebugChannel` 标记（@Serializable 默认 false，旧 JSON 向后兼容）：区分「系统管理位」（调试条目的 autoConnect）与「用户管理位」（手动 pin）。
+- 纯函数 `ServerConfig.applyDebugBackendPromotion(servers, targetId)`：目标置自连 + 打标记；其余**被标记**且自连的降级；手动条目永不受调试激活影响。
+- `ServerDataStore.promoteDebugBackend`（持久化）→ `ServerConfigRepository`/`ServerRepositoryImpl`（接口+实现）→ `MainActivity.activateDebugProfile` 统一调用（两处硬编码 `autoConnect = true` 撤除）。
+- 单测 `ServerConfigDebugPromotionTest` 6 用例（提升打标/降级陈旧/手动 pin 不动/幂等/切换降级/空列表）全绿；全量单测通过。
+- 手动编辑路径（HomeViewModel.saveServer）用 `copy(...)` 天然保留标记；手动新建默认无标记 = 用户管理位。
+
+### 真机 E2E（houji，含 legacy 自愈验证）
+
+| # | 步骤 | 结果 |
+|---|------|------|
+| A | 4200 调试意图启动（过渡帧） | `Auto-connecting 2 server(s)`——符合预期：4199 旧条目未标记，本轮 sweep 先于 promote |
+| B | debug-entry 4199（promote 降级已标记的 4200） | sweep 仍 2（本轮 sweep 亦先于 promote，余波为旧标志） |
+| C | 再冷启 4199 | ✅ **`Auto-connecting 1 server(s)`**；40s 观察窗 **4200 流量 0 条**（修复前同期持续 /question + 状态轮询）；4199 轮询 138 条正常 |
+
+- **legacy 自愈**：旧条目无标记不会首轮被动降级，但每激活一次即被打标——一轮 promote 循环后收敛为单自连，**零手工清库**。
+- 时序备忘：图标冷启的 FGS sweep 先于 debug 通道协程的 promote——切换后的第一帧仍按旧标志连接一次，第二帧起不变量生效。
+
+### 卡片与文档
+
+- backlog 新增 **#251**（已修复待验收）；#250 卡尾注「4200/question 待查」改为已另立 #251；下一编号 #252；backlog-check 通过。

@@ -393,8 +393,9 @@ class MainActivity : ComponentActivity() {
                             name = profile.label,
                             url = profile.url.trimEnd('/'),
                             username = profile.username,
-                            password = profile.password.ifEmpty { existing.password },
-                            autoConnect = true
+                            password = profile.password.ifEmpty { existing.password }
+                            // autoConnect 不在此处写——统一由下方 promoteDebugBackend
+                            // 作为系统管理位维护（#251）。
                         )
                     )
                 } else {
@@ -406,10 +407,15 @@ class MainActivity : ComponentActivity() {
                             username = profile.username,
                             password = profile.password,
                             name = profile.label,
-                            autoConnect = true,
+                            // autoConnect 由下方 promoteDebugBackend 统一写（#251）。
                         )
                     )
                 }
+                // 2026-08-28（#251 根因修复）：调试后端提升——目标条目置自连 + 打调试
+                // 标记，其余被标记的调试条目降级。旧实现两分支都无条件 autoConnect=true
+                // → 一次性测试后端永久加入开机自连集合，服务冷启全量连接（SSE +
+                // GET /question 轮询挂满历史后端，真机实证 Auto-connecting 2 server(s)）。
+                serverRepository.promoteDebugBackend(serverId)
                 // 版本探测（#132 联动）：激活前校验并修正 apiVersion——
                 // 探测失败返回 UNKNOWN 时 checkHealth 保留原值，不会把 V2 降级 V1。
                 // 不依赖结果（探测失败仍尝试连接，由服务/SSE 层兜底）。
