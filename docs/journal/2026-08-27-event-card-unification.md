@@ -419,3 +419,17 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 
 - megaDeltaScrollGuard 的巨帧分块路径加 DEBUG 探针 FreezeDiag：记录每个巨帧的 dy、dispatched 与 consumed/dy 比值——比值≈1 = 列表健康接受直派（冻结另有原因）；≈0 = dispatchRawDelta 被框架拒绝（定界 app/框架的最后一跳）。正常帧不触发（阈值 300px）。
 - 已装包。下次现场（真手指）再遇死帧时：确认列表位置（贴底/中段）+ 抓 logcat -s FreezeDiag 即可闭案。
+
+### 八轮补九：#243 去重落地 + 真机 E2E 全自动验证（2026-08-28 00:00）
+
+- 实现（用户裁决「显示 ×N 即可，无需展开原文」）：syntheticDedupKey（仅 shell 卡；键=source|state|描述|输出，易变 call_ id 不参与）+ dedupeConsecutiveSynthetics（纯函数，连续同键首张保留计数，其余抑制）+ ChatScreen displayItems 构建处接线 + SNC 标签 ×N 后缀。范围=合成事件卡；回合内 tool 卡连排与压缩卡不在本期。
+- 单测：SyntheticDedupTest 6/6（连续×3 折叠、隔断不折叠、异命令不折叠、subagent 永不折叠、不可解析不折叠、键剔除易变 id）。
+- **真机 E2E（全自动，零人工）**：
+  1. 服务器 API 注入确定性 fixture：单轮连发 3 条完全相同的后台命令（sleep 1 && echo e2e-dedup-marker）；
+  2. API 轮询确认 3 张同键合成卡**连续**到达；
+  3. 应用端 dump 断言：仅 1 张保留卡、标签「**后台命令完成 ×3**」、无其余重复描述行；
+  4. 保留卡 tap 展开→正文可见（命中 8 处）→再 tap 收起；
+  5. 回归：历史非连续同内容卡（18:51 sleep 卡）保持完整渲染未误折叠。
+  - 截图：docs/journal/assets/recheck-243-dedup-x3.png
+- 环境插曲（重要教训）：uiautomator 陈旧注册（UiAutomationService already registered）会让 dump 返回**陈旧树**、tap 全吞——本轮 E2E 一度全假阴。清法：杀残留 uiautomator 进程/重连。历史 #158 的 a11y「退化」观察亦经此通道采样，机制疑点+1。
+- 待 V6：×N 视觉观感（标签行宽度）+ 去重边界（用户若想看第 N 次原文，可临时关闭去重：目前无开关，如需再加）。

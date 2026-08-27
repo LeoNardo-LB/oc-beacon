@@ -155,6 +155,8 @@ fun ChatMessageList(
     interaction: InteractionState,
     rawMessages: List<ChatMessage>,
     displayItems: List<Pair<Int, ChatMessage>>,
+    /** #243 连续同内容 shell 卡去重：保留消息 id → 被抑制重复数（首张显示 ×N+1）。 */
+    syntheticDupCounts: Map<String, Int> = emptyMap(),
     isAtBottomState: androidx.compose.runtime.State<Boolean>,
     /** #222：在底意图（autoScroll）快照——尾部横幅 reveal 门控。 */
     autoScrollState: androidx.compose.runtime.State<Boolean>,
@@ -1511,7 +1513,9 @@ fun ChatMessageList(
                                     isAmoled = isAmoled,
                                     eventExpandedStates = eventCardExpandedStates,
                                     // #241 标签行保护（shell/subagent/system 合成卡族）：同上渲染前补偿。
-                                    eventRevealListState = listState
+                                    eventRevealListState = listState,
+                                    // #243 连续同内容去重：本卡为保留首张时显示 ×N
+                                    eventDupCount = syntheticDupCounts[chatMessage.message.id] ?: 0
                                 )
                             }
                         }

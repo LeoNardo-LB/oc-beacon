@@ -225,6 +225,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCardRole
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatEmptyState
+import dev.leonardo.ocbeacon.ui.screens.chat.components.dedupeConsecutiveSynthetics
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
@@ -793,7 +794,9 @@ fun ChatScreen(
                         // 为空）完全过滤——SyntheticNotificationCard 提取不到 text 会
                         // return 空，保留在 displayItems 会形成空行（"返回后消息流
                         // 乱了"的现象之一）。
-                        val displayItems = remember(rawMessages) {
+                        // #243 连续同内容 shell 卡去重（首张 + ×N，其余抑制渲染）
+                        val displayItemsPair = remember(rawMessages) {
+                            dedupeConsecutiveSynthetics(
                             rawMessages.mapIndexedNotNull { index, msg ->
                                 when {
                                     msg.isUser && !msg.isSynthetic -> index to msg
@@ -818,7 +821,10 @@ fun ChatScreen(
                                     else -> null
                                 }
                             }
+                            )
                         }
+                        val displayItems = displayItemsPair.first
+                        val syntheticDupCounts = displayItemsPair.second
 
                     // #137（D2-L65）：此处原重复定义 onViewToolLambda（死代码——
                     // LocalOnViewTool 由外层的定义提供，本内层定义从未被使用）
@@ -833,6 +839,7 @@ fun ChatScreen(
                         interaction = interaction,
                         rawMessages = rawMessages,
                         displayItems = displayItems,
+                        syntheticDupCounts = syntheticDupCounts,
                         isAtBottomState = scrollController.isAtBottomState,
                         autoScrollState = scrollController.autoScrollState,
                         isAmoled = isAmoled,

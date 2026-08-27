@@ -40,6 +40,8 @@ internal fun MessageCard(
     eventExpandedStates: MutableMap<String, Boolean>,
     /** #241 标签行保护：synthetic 事件卡渲染前补偿透传（LazyListState）。 */
     eventRevealListState: LazyListState? = null,
+    /** #243 连续同内容去重：本卡代表的被抑制重复数（0=无）。 */
+    eventDupCount: Int = 0,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -55,6 +57,7 @@ internal fun MessageCard(
             onLocateTask = onLocateTask,
             eventExpandedStates = eventExpandedStates,
             expandRevealListState = eventRevealListState,
+            dupCount = eventDupCount,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(
             renderableTurn = renderableTurn ?: error("renderableTurn is required for ASSISTANT role"),

@@ -57,6 +57,8 @@ internal fun SyntheticNotificationCard(
     onLocateTask: ((String) -> Unit)? = null,
     /** #241 标签行保护透传（渲染前补偿，见 EventCard.expandRevealListState）。 */
     expandRevealListState: LazyListState? = null,
+    /** #243 连续同内容去重：本卡代表的被抑制重复数（0=无重复）。标签行显示 ×(N+1)。 */
+    dupCount: Int = 0,
 ) {
     val text = currentMessage.parts
         .filterIsInstance<Part.Text>()
@@ -92,7 +94,7 @@ internal fun SyntheticNotificationCard(
     val unknownIcon = Icons.Outlined.Info
 
     // Q7 i18n 标签（chat_event_* 新家族）
-    val label = when {
+    val labelBase = when {
         info == null -> stringResource(R.string.chat_event_generic)
         isFailed -> stringResource(
             if (info.source == "shell") R.string.chat_event_shell_failed
@@ -103,6 +105,9 @@ internal fun SyntheticNotificationCard(
             else R.string.chat_event_task_completed
         )
     }
+
+    // #243 连续同内容去重：×N 后缀（N=含本卡的总出现次数）；重复卡不渲染
+    val label = if (dupCount > 0) "$labelBase ×${dupCount + 1}" else labelBase
 
     // Q15 描述行：描述数据实际存在才激活——task=任务描述（identity 信息）、
     // shell=命令预览（description 属性）、解析失败降级=原始全文截断
@@ -243,4 +248,50 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
         outputRegex.find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
     }
     return SyntheticTaskInfo(sessionId, state, summary, output, source)
+}
+
+// ---------------------------------------------------------------------------
+// #243 连续同内容去重（2026-08-27 用户裁决：完全相同内容不重复渲染，首张 + ×N）
+// ---------------------------------------------------------------------------
+
+/**
+ * 去重键：仅 shell 合成卡参与（task/subagent 卡携带子会话跳转载荷，永不折叠）。
+ * 键 = source|state|描述|输出——call_ 工具调用 id 等易变字段不参与，
+ * 因此「同一命令跑 N 次」产生的 N 张卡同键。
+ */
+internal fun syntheticDedupKey(text: String): String? {
+    val info = parseSyntheticTask(text) ?: return null
+    if (info.source != "shell") return null
+    return listOf(info.source, info.state ?: "", info.summary ?: "", info.output ?: "")
+        .joinToString("\u0001")
+}
+
+/**
+ * 连续同键 shell 卡去重（纯函数，JVM 可测）：首张保留并计数，后续抑制。
+ * 返回 (过滤后列表, 保留消息 id → 被抑制数)。只折叠连续同键——被其他消息
+ * 隔开的同内容卡不算重复。
+ */
+internal fun <F> dedupeConsecutiveSynthetics(
+    items: List<Pair<F, ChatMessage>>,
+): Pair<List<Pair<F, ChatMessage>>, Map<String, Int>> {
+    val suppressed = HashSet<String>()
+    val counts = LinkedHashMap<String, Int>()
+    var lastKey: String? = null
+    var lastKeptId: String? = null
+    for ((first, msg) in items) {
+        val key = if (msg.isSynthetic) {
+            val text = msg.parts.filterIsInstance<Part.Text>().firstOrNull { it.text.isNotBlank() }?.text
+            text?.let(::syntheticDedupKey)
+        } else {
+            null
+        }
+        if (key != null && key == lastKey && lastKeptId != null) {
+            suppressed.add(msg.message.id)
+            counts[lastKeptId] = (counts[lastKeptId] ?: 0) + 1
+        } else {
+            lastKey = key
+            lastKeptId = msg.message.id
+        }
+    }
+    return items.filter { it.second.message.id !in suppressed } to counts
 }

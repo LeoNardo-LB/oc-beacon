@@ -79,12 +79,11 @@
   - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修
   - → `docs/journal/2026-08-20-queue-todo.md` · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
-- [ ] **#243 同色巨型日志气泡连续堆叠易读作「消息重叠」——观察/产品向** `ui` `data`
-  - #234 二轮取证证伪渲染层重叠（像素级检查零越界），「重叠」观感实为相邻同色 teal 大气泡内容大量重复（同一报错一屏 3 次，25KB 级多个连排）快读致混淆；另 turn-notify 回显整段终端日志加剧体量
-  - 候选方向（需产品决策）：连续同类 tool 输出折叠聚合/摘要行；重复内容去重提示；气泡色彩分层。先维持观察
-  - 八轮补五澄清：与 #246 分段逆序（已修）、#232 文本墙（已修）区分；溢出绘制防御扫漏 DiffHelpers/QuestionPartContent 两处已补 clipToBounds
-  - 八轮复核（research，8 屏 bbox 0 相交维持证伪）：现象已转化为「同色紧凑卡连排+表头重复」（tool 输出默认折叠后 25KB 巨泡未再现；单屏 6 连排、表头 6/6 相同）；三候选中折叠聚合已部分落地、去重提示最适用、色彩分层紧迫性下降
-  - → `docs/journal/2026-08-27-event-card-unification.md` §取证
+- [~] **#243 同色巨型日志气泡连续堆叠易读作「消息重叠」——合成卡去重已落地（×N）** `ui` `data`
+  - #234 二轮取证证伪渲染层重叠（像素级零越界）；八轮复核维持证伪，现象转化为「同色紧凑卡连排+表头重复」
+  - 去重已落地（2026-08-27 用户裁决「完全相同内容显示 ×N 即可」）：syntheticDedupKey（仅 shell 卡，易变 id 不参与）+ 连续同键首张保留 ×N、其余抑制；SyntheticDedupTest 6/6；真机 E2E 全自动通过（服务器注入 3 连同命令 → 1 卡「后台命令完成 ×3」+ 保留卡可展开，历史非连续卡不误折叠）
+  - 待 V6：×N 标签观感。回合内 tool 卡连排为另一表面未去重（如需另立卡）；溢出防御扫漏 DiffHelpers/QuestionPartContent 已补 clipToBounds
+  - → `docs/journal/2026-08-27-event-card-unification.md` §取证 · §八轮补九 · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`
