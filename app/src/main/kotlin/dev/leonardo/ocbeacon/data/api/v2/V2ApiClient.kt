@@ -15,6 +15,7 @@ import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.file.FileApi
+import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
@@ -113,7 +114,7 @@ private const val TAG = "V2Api"
 @Singleton
 class V2ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi {
+) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi, ProviderApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -743,7 +744,7 @@ class V2ApiClient @Inject constructor(
 
     // ============ Provider / Config ============
 
-    suspend fun getProviders(conn: ServerConnection): dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse {
+    override suspend fun getProviders(conn: ServerConnection): dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse {
         // V2 provider + model 分两个端点：
         // 1. GET /api/provider → provider 列表（不含模型）
         // 2. GET /api/model → 模型列表（每个模型带 providerID）
@@ -1314,7 +1315,7 @@ class V2ApiClient @Inject constructor(
 
     // ============ Provider / Config (supplementary) ============
 
-    suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse {
+    override suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse {
         val providers = getProviders(conn)
         return ProviderCatalogResponse(
             all = providers.providers,
@@ -1323,11 +1324,11 @@ class V2ApiClient @Inject constructor(
         )
     }
 
-    suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>> {
+    override suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>> {
         return emptyMap()
     }
 
-    suspend fun authorizeProviderOauth(
+    override suspend fun authorizeProviderOauth(
         conn: ServerConnection,
         providerId: String,
         methodIndex: Int
@@ -1335,11 +1336,11 @@ class V2ApiClient @Inject constructor(
         return null
     }
 
-    suspend fun completeProviderOauth(
+    override suspend fun completeProviderOauth(
         conn: ServerConnection,
         providerId: String,
         methodIndex: Int,
-        code: String? = null
+        code: String?
     ): Boolean {
         val body = if (code != null) mapOf("method" to methodIndex, "code" to code)
         else mapOf("method" to methodIndex)
@@ -1356,7 +1357,7 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean {
+    override suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean {
         // 2026-08-19（#84 契约实测）：beta-17595 的 PATCH /api/credential 要求
         // label 必填——缺省时 400 "Missing key at [label]"（provider API key 连接
         // 在此部署版完全不可用）。补 "oc-beacon" 标识来源，便于用户在服务器侧
@@ -1369,7 +1370,7 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean {
+    override suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean {
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderCredential: DELETE ${conn.baseUrl}/api/credential/$providerId")
         val response = httpClient.delete("${conn.baseUrl}/api/credential/$providerId") {
             auth(conn)
@@ -1381,21 +1382,21 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun getConfig(conn: ServerConnection): ServerConfigResponse {
+    override suspend fun getConfig(conn: ServerConnection): ServerConfigResponse {
         val bodyText = httpClient.get("${conn.baseUrl}/api/config") {
             auth(conn)
         }.bodyAsText()
         return parseConfigBody(bodyText)
     }
 
-    suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
+    override suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
         val bodyText = httpClient.get("${conn.baseUrl}/api/config") {
             auth(conn)
         }.bodyAsText()
         return parseConfigBody(bodyText)
     }
 
-    suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
+    override suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
         val bodyText = httpClient.patch("${conn.baseUrl}/api/config") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -1404,7 +1405,7 @@ class V2ApiClient @Inject constructor(
         return parseConfigBody(bodyText)
     }
 
-    suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
+    override suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
         val bodyText = httpClient.patch("${conn.baseUrl}/api/config") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -1432,14 +1433,14 @@ class V2ApiClient @Inject constructor(
         } ?: ServerConfigResponse()
     }
 
-    suspend fun disposeGlobal(conn: ServerConnection): Boolean {
+    override suspend fun disposeGlobal(conn: ServerConnection): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/service/stop") {
             auth(conn)
         }
         return response.status.isSuccess()
     }
 
-    suspend fun disposeInstance(conn: ServerConnection): Boolean {
+    override suspend fun disposeInstance(conn: ServerConnection): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/service/stop") {
             auth(conn)
         }

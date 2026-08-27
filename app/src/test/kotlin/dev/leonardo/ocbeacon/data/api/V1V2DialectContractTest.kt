@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api
 
 import dev.leonardo.ocbeacon.data.api.file.FileApiImpl
+import dev.leonardo.ocbeacon.data.api.provider.ProviderApiImpl
 import dev.leonardo.ocbeacon.data.api.message.MessageApiImpl
 import dev.leonardo.ocbeacon.data.api.system.SystemApiImpl
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApiImpl
@@ -261,6 +262,54 @@ class V1V2DialectContractTest {
 
         coVerify(exactly = 1) { v2.getVcsDiff(connV2, "all", 3, null) }
         coVerify(exactly = 0) { v1.getVcsDiff(any(), any(), any(), any()) }
+    }
+
+    // ---------- Provider ----------
+
+    @Test
+    fun `provider - V2 conn routes getProviders to v2 only`() = runTest {
+        val api = ProviderApiImpl(v1, v2)
+        coEvery { v2.getProviders(connV2) } returns mockk()
+
+        api.getProviders(connV2)
+
+        coVerify(exactly = 1) { v2.getProviders(connV2) }
+        coVerify(exactly = 0) { v1.getProviders(any()) }
+    }
+
+    @Test
+    fun `provider - V1 conn routes getProviders to v1 only`() = runTest {
+        val api = ProviderApiImpl(v1, v2)
+        coEvery { v1.getProviders(connV1) } returns mockk()
+
+        api.getProviders(connV1)
+
+        coVerify(exactly = 1) { v1.getProviders(connV1) }
+        coVerify(exactly = 0) { v2.getProviders(any()) }
+    }
+
+    @Test
+    fun `provider - completeProviderOauth applies interface default through pick`() = runTest {
+        val api = ProviderApiImpl(v1, v2)
+        coEvery { v2.completeProviderOauth(connV2, "prov_1", 0, null) } returns true
+
+        assertTrue(api.completeProviderOauth(connV2, "prov_1", 0))
+
+        coVerify(exactly = 1) { v2.completeProviderOauth(connV2, "prov_1", 0, null) }
+        coVerify(exactly = 0) { v1.completeProviderOauth(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `provider - disposeGlobal routes by conn`() = runTest {
+        val api = ProviderApiImpl(v1, v2)
+        coEvery { v1.disposeGlobal(connV1) } returns true
+        coEvery { v2.disposeGlobal(connV2) } returns true
+
+        api.disposeGlobal(connV1)
+        api.disposeGlobal(connV2)
+
+        coVerify(exactly = 1) { v1.disposeGlobal(connV1) }
+        coVerify(exactly = 1) { v2.disposeGlobal(connV2) }
     }
 
     // ---------- Message ----------

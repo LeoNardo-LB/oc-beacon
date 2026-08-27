@@ -97,60 +97,62 @@ interface ProviderApi {
     suspend fun disposeInstance(conn: ServerConnection): Boolean
 }
 
+/**
+ * C1-7（2026-08-27，#238 五域收编）：分发层收缩为单点路由 + 逐方法单行委托。
+ * [V1ApiClient]/[V2ApiClient] 已直接实现 [ProviderApi]。
+ */
 @Singleton
 class ProviderApiImpl @Inject constructor(
     private val v1: V1ApiClient,
     private val v2: V2ApiClient
 ) : ProviderApi {
 
+    private fun pick(conn: ServerConnection): ProviderApi =
+        if (conn.apiVersion.isV2) v2 else v1
+
     override suspend fun getProviders(conn: ServerConnection): ProvidersResponse =
-        if (conn.apiVersion.isV2) v2.getProviders(conn) else v1.getProviders(conn)
+        pick(conn).getProviders(conn)
 
     override suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse =
-        if (conn.apiVersion.isV2) v2.listProviderCatalog(conn) else v1.listProviderCatalog(conn)
+        pick(conn).listProviderCatalog(conn)
 
     override suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>> =
-        if (conn.apiVersion.isV2) v2.getProviderAuthMethods(conn) else v1.getProviderAuthMethods(conn)
+        pick(conn).getProviderAuthMethods(conn)
 
     override suspend fun authorizeProviderOauth(
         conn: ServerConnection,
         providerId: String,
         methodIndex: Int
-    ): ProviderOauthAuthorization? =
-        if (conn.apiVersion.isV2) v2.authorizeProviderOauth(conn, providerId, methodIndex)
-        else v1.authorizeProviderOauth(conn, providerId, methodIndex)
+    ): ProviderOauthAuthorization? = pick(conn).authorizeProviderOauth(conn, providerId, methodIndex)
 
     override suspend fun completeProviderOauth(
         conn: ServerConnection,
         providerId: String,
         methodIndex: Int,
         code: String?
-    ): Boolean =
-        if (conn.apiVersion.isV2) v2.completeProviderOauth(conn, providerId, methodIndex, code)
-        else v1.completeProviderOauth(conn, providerId, methodIndex, code)
+    ): Boolean = pick(conn).completeProviderOauth(conn, providerId, methodIndex, code)
 
     override suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean =
-        if (conn.apiVersion.isV2) v2.setProviderApiKey(conn, providerId, apiKey)
-        else v1.setProviderApiKey(conn, providerId, apiKey)
+        pick(conn).setProviderApiKey(conn, providerId, apiKey)
 
     override suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean =
-        if (conn.apiVersion.isV2) v2.removeProviderCredential(conn, providerId) else v1.removeProviderCredential(conn, providerId)
+        pick(conn).removeProviderCredential(conn, providerId)
 
     override suspend fun getConfig(conn: ServerConnection): ServerConfigResponse =
-        if (conn.apiVersion.isV2) v2.getConfig(conn) else v1.getConfig(conn)
+        pick(conn).getConfig(conn)
 
     override suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse =
-        if (conn.apiVersion.isV2) v2.getGlobalConfig(conn) else v1.getGlobalConfig(conn)
+        pick(conn).getGlobalConfig(conn)
 
     override suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse =
-        if (conn.apiVersion.isV2) v2.updateConfig(conn, patch) else v1.updateConfig(conn, patch)
+        pick(conn).updateConfig(conn, patch)
 
     override suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse =
-        if (conn.apiVersion.isV2) v2.updateGlobalConfig(conn, patch) else v1.updateGlobalConfig(conn, patch)
+        pick(conn).updateGlobalConfig(conn, patch)
 
     override suspend fun disposeGlobal(conn: ServerConnection): Boolean =
-        if (conn.apiVersion.isV2) v2.disposeGlobal(conn) else v1.disposeGlobal(conn)
+        pick(conn).disposeGlobal(conn)
 
     override suspend fun disposeInstance(conn: ServerConnection): Boolean =
-        if (conn.apiVersion.isV2) v2.disposeInstance(conn) else v1.disposeInstance(conn)
+        pick(conn).disposeInstance(conn)
 }

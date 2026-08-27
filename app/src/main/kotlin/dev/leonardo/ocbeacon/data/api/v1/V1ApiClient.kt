@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.file.FileApi
+import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
@@ -76,7 +77,7 @@ private const val TAG = "V1Api"
 @Singleton
 class V1ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi {
+) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi, ProviderApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -536,25 +537,25 @@ class V1ApiClient @Inject constructor(
 
     // ============ Provider / Config ============
 
-    suspend fun getProviders(conn: ServerConnection): ProvidersResponse {
+    override suspend fun getProviders(conn: ServerConnection): ProvidersResponse {
         return httpClient.get("${conn.baseUrl}/config/providers") {
             auth(conn)
         }.body()
     }
 
-    suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse {
+    override suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse {
         return httpClient.get("${conn.baseUrl}/provider") {
             auth(conn)
         }.body()
     }
 
-    suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>> {
+    override suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>> {
         return httpClient.get("${conn.baseUrl}/provider/auth") {
             auth(conn)
         }.body()
     }
 
-    suspend fun authorizeProviderOauth(
+    override suspend fun authorizeProviderOauth(
         conn: ServerConnection,
         providerId: String,
         methodIndex: Int
@@ -580,11 +581,11 @@ class V1ApiClient @Inject constructor(
         }
     }
 
-    suspend fun completeProviderOauth(
+    override suspend fun completeProviderOauth(
         conn: ServerConnection,
         providerId: String,
         methodIndex: Int,
-        code: String? = null
+        code: String?
     ): Boolean {
         val body = if (code != null) mapOf("method" to methodIndex, "code" to code)
         else mapOf("method" to methodIndex)
@@ -601,7 +602,7 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean {
+    override suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean {
         val response = httpClient.put("${conn.baseUrl}/auth/$providerId") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -610,7 +611,7 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean {
+    override suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean {
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "removeProviderCredential: DELETE ${conn.baseUrl}/auth/$providerId")
         val response = httpClient.delete("${conn.baseUrl}/auth/$providerId") {
             auth(conn)
@@ -622,19 +623,19 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun getConfig(conn: ServerConnection): ServerConfigResponse {
+    override suspend fun getConfig(conn: ServerConnection): ServerConfigResponse {
         return httpClient.get("${conn.baseUrl}/config") {
             auth(conn)
         }.body()
     }
 
-    suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
+    override suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse {
         return httpClient.get("${conn.baseUrl}/global/config") {
             auth(conn)
         }.body()
     }
 
-    suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
+    override suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
         return httpClient.patch("${conn.baseUrl}/config") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -642,7 +643,7 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
+    override suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse {
         return httpClient.patch("${conn.baseUrl}/global/config") {
             auth(conn)
             contentType(ContentType.Application.Json)
@@ -650,14 +651,14 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun disposeGlobal(conn: ServerConnection): Boolean {
+    override suspend fun disposeGlobal(conn: ServerConnection): Boolean {
         val response = httpClient.post("${conn.baseUrl}/global/dispose") {
             auth(conn)
         }
         return response.status.isSuccess()
     }
 
-    suspend fun disposeInstance(conn: ServerConnection): Boolean {
+    override suspend fun disposeInstance(conn: ServerConnection): Boolean {
         val response = httpClient.post("${conn.baseUrl}/instance/dispose") {
             auth(conn)
         }
