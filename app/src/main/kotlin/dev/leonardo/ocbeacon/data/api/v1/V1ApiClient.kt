@@ -60,6 +60,19 @@ import javax.inject.Singleton
 private const val TAG = "V1Api"
 
 /**
+ * #248：/find/file 空结果回退的纯过滤函数（可单测）。
+ *
+ * 语义对齐 V1 服务端 /find/file 的字面匹配（ripgrep FileSystem.find）：
+ * 大小写不敏感子串；空 query 返回全量（单层列表≈「最近文件」降级）；
+ * [limit] 与服务端 limit 参数同义（app 侧 @ 弹窗 15 / workspace 搜索 50）。
+ */
+internal fun findFilesFallbackFilter(paths: List<String>, query: String, limit: Int?): List<String> {
+    val q = query.trim()
+    val matched = if (q.isEmpty()) paths else paths.filter { it.contains(q, ignoreCase = true) }
+    return limit?.let { matched.take(it) } ?: matched
+}
+
+/**
  * V1 API 统一实现——封装所有 OpenCode V1 REST 端点调用。
  *
  * 与 [dev.leonardo.ocbeacon.data.api.v2.V2ApiClient] 对称。
@@ -704,7 +717,7 @@ class V1ApiClient @Inject constructor(
         limit: Int?,
         dirs: String?
     ): List<String> {
-        return httpClient.get("${conn.baseUrl}/find/file") {
+        val results: List<String> = httpClient.get("${conn.baseUrl}/find/file") {
             auth(conn)
             directoryHeader(directory)
             parameter("query", query)
@@ -712,6 +725,21 @@ class V1ApiClient @Inject constructor(
             limit?.let { parameter("limit", it) }
             dirs?.let { parameter("dirs", it) }
         }.body()
+        if (results.isNotEmpty()) return results
+        // #248（2026-08-28）：V1 1.18 过渡形态的 /find/file（fff+ripgrep 双引擎）
+        // 在大目录（如 $HOME，数千条目）上静默返回空数组——小目录正常、home 空
+        // （curl 实证：query=bash/service 均 []，Desktop 正常）。客户端回退：
+        // /file?path= 单层列表（实测 home 79 条/5.6ms）+ 客户端过滤，@ 弹窗在
+        // home 会话至少能匹配顶层条目。列表失败（bogus directory 头 → 500
+        // defect）不抛——维持 find 语义返回空。
+        return runCatching {
+            val nodes: List<FileNodeDto> = httpClient.get("${conn.baseUrl}/file") {
+                auth(conn)
+                directoryHeader(directory)
+                parameter("path", "")
+            }.body()
+            findFilesFallbackFilter(nodes.map { it.path }, query, limit)
+        }.getOrDefault(emptyList())
     }
 
     override suspend fun readFile(conn: ServerConnection, path: String, directory: String?): FileContentDto {

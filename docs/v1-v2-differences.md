@@ -30,7 +30,7 @@ V1（1.18.x，npm `opencode-ai`）与 V2（2.x beta，npm `@opencode-ai/cli`）�
 | Form 系统 | 无 | `GET/POST /api/session/{id}/form` + reply/state | **已适配（#130）**：question 工具的 form（kind=question）映射为 QuestionAsked 复用提问卡片；回复走 `POST /api/session/{id}/form/{formID}/reply`，取消走 `.../cancel`；轮询兜底走 `GET /api/form/request`。其他 kind 的 form 暂忽略 | ✅ 2026-08-14 |
 | Inbox/Steering | 无 | `/api/session/{id}/inbox` + steer + queue | V2 新增能力 | 评估中 |
 | Shell | `POST /session/{id}/shell`（会话级） | 会话级 + **独立** `/api/shell` + `/api/shell/{id}/output` | 双客户端分流 | ✅ 已适配 |
-| 文件系统 | `GET /file`, `/file/content`, `/find`, `/find/file`, `/find/symbol` | `GET /api/fs/read/*`, `/api/fs/list`, `/api/fs/find` | 双客户端分流 | ✅ 已适配 |
+| 文件系统 | `GET /file`, `/file/content`, `/find`, `/find/file`, `/find/symbol` | `GET /api/fs/read/*`, `/api/fs/list`, `/api/fs/find` | 双客户端分流；V1 1.18 `/find/file` 大目录静默空 → 客户端单层列表回退 | ✅ 已适配（#248 补回退） |
 | VCS | `GET /vcs`, `/vcs/status`, `/vcs/diff` + `/path` | `GET /api/vcs*` + `GET /api/location` | 双客户端分流 | ✅ 已适配 |
 | Session 状态 | `GET /session/status` | 无直接等价（`/api/session/active` + SSE 替代） | V2 用 activeSessions | ✅ 已适配 |
 | 压缩 summarize | `POST /session/{id}/summarize` | `POST /api/session/{id}/compact` | 双客户端分流 | ✅ 已适配 |
@@ -79,6 +79,20 @@ V1（1.18.x，npm `opencode-ai`）与 V2（2.x beta，npm `@opencode-ai/cli`）�
 | `--service` | 无 | 有（后台守护进程模式） |
 | 未知路径 | **SPA fallback 返回 HTML**（实测确认，本 bug 根源） | [未确认] |
 | `--hostname` | 默认 127.0.0.1，支持 `::` | [推断] 相同 |
+
+## V1 1.18.18 过渡形态实测补遗（#248，2026-08-28 活体取证）
+
+对隔离运行的 1.18.18（端口 4200）curl 实测 + 真机 E2E 的端点级结论：
+
+| 端点 | 行为 | 客户端处置 |
+|------|------|-----------|
+| `GET /find/file` | 小/中目录正常（字面匹配）；**大目录（如 `$HOME`）静默返回 `[]`**——fff 引擎（frecency）冷库空 + ripgrep fallback 对巨目录失效（`query=bash`、`service` 均 `[]`，Desktop 正常） | **客户端回退（#248）**：空结果时改取 `GET /file?path=`（单层列表，实测 home 79 条/5.6ms）+ `findFilesFallbackFilter` 客户端过滤 |
+| `GET /file` | 仅接受项目内路径；**项目外绝对路径 / 不存在的 directory 头 → 500 UnknownError**（defect，非 400/404）；目录条目 `path` 字段带尾斜杠（`.agentmemory/`），尾斜杠回传可正常解析 | `listDirectory`/`probeDirectory` 失败已有降级（空列表/false），无需改动 |
+| `POST /session/{id}/shell` | `agent`+`command` 必填（`agent=build` 即可）；**真机 E2E 通过**（echo 卡片「完成」渲染正常）；home 目录会话同样 200 | 无需改动 |
+| 旧版 `/api/fs/*` 路由 | **同端口共存但语义不同**：`/api/fs/find` 收 `query`（收 `pattern` 反而 400）且 data 为 `{path,type}` 对象信封；对默认项目内实际存在的 `alpha` 仍返回 `[]`——旧路由是另一套（更残缺的）实现 | **不要用**：V1 客户端一律走新路由 `/find` 族 |
+| `x-opencode-directory` 头 | URL 编码的绝对路径，新路由正确解码生效（实测 home 头列出 home）；**directory 恰为配置目录**（如 `~/.config/opencode`）时，V1 1.18 会解析其中的 opencode.jsonc——**V2 格式 `mcp.timeout` 直接 ConfigInvalidError**（所有带该头的端点） | 现行 `directoryHeader` 保持；会话不要建在配置目录内（`hasActiveChildren` 轮询已优雅降级，仅 logcat 噪音） |
+
+> ⚠️ 冒烟误报勘误：2026-08-28 #238 冒烟记录的「①/find 要求 pattern（应用发 query）→ @ 弹窗空 ②/file?path= 500 ③shell 执行失败」三症状，经本轮逐项复现：①实为 V1 find 大目录静默空（冒烟会话目录=home 触发，非参数名错位）；②仅在项目外绝对路径/bogus 目录头出现（正常流不触发）；③现构建不复现（真机通过）。#248 由「兼容缺口清单」收敛为单点修复：find 空结果回退。
 
 ## 参考资料
 

@@ -475,3 +475,42 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
   - Shell：V1 常量降级语义符合预期（无后台 shell 概念）
 - **判词**：五域收编路由在活体 V1 服务器全通；发现的三处端点级差异均为**存量 V1 兼容缺口**（V1ApiClient 请求形态 vs 1.18 过渡形态），与收编无关 → 登记 **#248**。#238 收卡。
 - 环境备注：V1 服务器保持运行（port 4200，日志 /tmp/v1server.log，数据 /tmp/v1xdg）；应用已切回 Host-4200-V1 会话列表，日常使用请用 debug-entry（Host-4199）。
+
+## 九轮：#248 三症状定因勘误 + find 大目录回退修复 + 真机 E2E（2026-08-28 01:00–02:00）
+
+> 用户指令：「顺带发现的问题也进行修复，然后进行真机端到端测试确保修复有效」。对象 = #248（收卡三登记的三处 V1 1.18.18 端点差异）。
+
+### 定因：三症状全部勘误，公共根因一个
+
+curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述：
+
+1. **「/find 要求 pattern（应用发 query）→ @ 弹窗空」——勘误**：app 根本不往 `/find` 发 query（searchText 无 UI 调用方）；@ 弹窗走 `/find/file?query=`，参数名正确。真实机制：**V1 1.18 的 `/find/file` 在大目录上静默返回 `[]`**——冒烟会话目录 = `/home/leo-tkp`（app 建会话默认 home），home 上 `query=bash`/`service`（可见文件 wsdd.service 存在）均 `[]`，而 Desktop/小目录正常 → fff 引擎（frecency）XDG 隔离后冷库空 + ripgrep fallback 对巨目录失效。**非参数名错位**。
+2. **「/file?path= 服务器 500」——窄化**：`/file?path=`（空路径/probeDirectory 形态）**200 正常**；500 仅在 ①项目外绝对路径（`path=/home/leo-tkp` 而项目是 /tmp/v1proj → 路径逃逸 Effect.die）②bogus directory 头（不存在的目录）。正常 UI 流不触发，`listDirectory`/`probeDirectory` 已有降级（空列表/false）。
+3. **「runShellCommand 执行失败」——不复现**：curl（`{"agent":"build","command":"echo hi"}`）与真机 `!echo` 均成功（卡片「完成」渲染正常）；home 目录会话同样 200。冒烟失败判定为暂态（疑当时未选 provider/模型，后模型选择器已验通）。
+
+### 顺带发现（第 4 项，记录不改码）
+
+- logcat 持续 3s 一次 `fetchSessionStatus` ClientError：`hasActiveChildren`（SessionStateCollaborator:105-107）把**子会话 directory** 传给 `/session/status`；冒烟时有测试会话建在 `~/.config/opencode`，V1 1.18 对带该 directory 头的请求会解析目录内 opencode.jsonc——**V2 格式 `mcp.timeout: {startup,catalog}` 直接 ConfigInvalidError**。根因 = V1 1.18 与 V2 格式配置不共存（服务器侧）；客户端 `.getOrNull()` 已优雅降级。处置：文档化（v1-v2-differences §补遗第 4 行）+ 卡片注明「会话勿建在配置目录」。
+
+### 修复：findFiles 空结果回退（唯一真实用户可见缺口）
+
+- `V1ApiClient.findFiles`：`/find/file` 返回空时回退 `GET /file?path=`（单层列表；home 实测 79 条/5.6ms，含隐藏文件）+ `findFilesFallbackFilter`（纯函数：大小写不敏感子串、空 query 全量≈「最近文件」降级、limit 截断）。
+- 回退失败（bogus 头 → 500）`runCatching` 吞掉维持 find 空语义；find 有结果时早退不触发回退（成本 = 仅 miss 时一次 5ms 请求）。
+- `V1FindFallbackTest` 7 用例（过滤/空 query/limit 截断/截断在过滤后）全绿；`:app:testDevDebugUnitTest --rerun` 全量通过；compileDevDebugKotlin 通过。
+
+### 真机 E2E（houji e69a99d8，dev 包 pm install 静默装，debug intent → Host-4200-V1）
+
+| # | 场景 | 期望 | 结果 |
+|---|------|------|------|
+| A | home 会话（冒烟同款）@ 弹窗 | 修复前死空 → 回退列表 | ✅ `.agentmemory//.android//…` 顶层条目渲染（e2e_home_at.png） |
+| A2 | home 会话 `@bash` | 客户端过滤命中 | ✅ `.bash_history/.bash_logout/.bashrc`（e2e_home_bash.png） |
+| C | home 会话 `!echo` | shell 完成卡 | ✅ `$ echo` + 完成 + Build/big-pickle/62ms（e2e_home_shell.png）——冒烟确切场景通过 |
+| B | v1proj 会话 @ 弹窗回归 | find 路径不回退、结果含子目录 | ✅ `/`+AGENTS.md+CONTEXT.md+`sub/inner.txt`（e2e_proj_at2.png，sub 项证明 find 原路生效） |
+
+- logcat 复核：E2E 期间零 FATAL/零 File search failed；仅第 4 项既知 ConfigInvalidError 轮询（该会话树含配置目录子会话残留）。
+
+### 卡片与文档
+
+- backlog #248：改写为勘误后单点修复卡（`[ ]` 待用户验收后迁 journal）；backlog-check 通过。
+- `docs/v1-v2-differences.md` 新增 §「V1 1.18.18 过渡形态实测补遗」：5 端点行为矩阵 + 冒烟误报勘误 + 旧版 `/api/fs/*` 共存警告（`/api/fs/find` 是另一套更残缺实现——data 为 `{path,type}` 信封且对实际存在文件仍返回空，**客户端勿用**）。
+- 环境备注：V1 服务器 4200 保持运行；E2E 截图 `/tmp/e2e_*.png`。

@@ -68,10 +68,12 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#248 V1 1.18.18 过渡形态兼容缺口清单（find 参数/file 500/shell 失败）** `api` `data`
-  - V1 冒烟（2026-08-28，opencode 1.18.18 @4200）：探测/会话/命令面板/目录/模型选择器全通；但 ①/find 要求 pattern 参数（应用发 query）→ @ 文件弹窗空 ②/file?path= 服务器 500 ③/session/{id}/shell 执行失败——均为**存量** V1ApiClient 与 1.18 过渡形态的端点差异，非 #238 收编回归
-  - 候选：findFiles 双参数兼容（query+pattern）；file/shell 端点对照 V1 API 参考文档逐个核对；或明确「V1 支持 = ≤1.0 legacy」并文档化 1.18 为未知形态
-  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补十三
+- [ ] **#248 V1 1.18.18 兼容缺口——find 大目录静默空（@ 弹窗回退修复，待验收）** `api` `data`
+  - 原三症状（冒烟 2026-08-28）经逐项活体复现勘误：①@ 弹窗空 = V1 `/find/file` **大目录（home）静默返回 []**（fff 冷库 + ripgrep fallback 失效；冒烟会话目录=home 触发，非参数名错位）；②`/file?path=` 500 仅项目外绝对路径/bogus 目录头（正常流不触发，现有降级足够）；③shell 现构建真机通过（不复现）
+  - **修复**：V1ApiClient.findFiles 空结果回退 `/file?path=` 单层列表 + `findFilesFallbackFilter` 客户端过滤（纯函数 7 用例单测全绿）
+  - 真机 E2E（houji，2026-08-28）：home 会话 @ 弹窗回退列表 ✓ + `@bash` 过滤命中 .bashrc 等 ✓ + home 会话 shell 完成 ✓ + v1proj 会话 @ 回归 4 项含 sub/ ✓
+  - 第 4 发现（记录不改码）：会话目录恰为 `~/.config/opencode` 时 V1 1.18 解析 V2 格式 opencode.jsonc → ConfigInvalidError 轮询报错（客户端已降级，根因服务器侧）
+  - 详见 `docs/v1-v2-differences.md` §V1 1.18.18 过渡形态实测补遗 · `docs/journal/2026-08-27-event-card-unification.md` §九轮——**用户验收后迁 journal**
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
