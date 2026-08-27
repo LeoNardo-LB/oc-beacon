@@ -66,9 +66,10 @@
   - 现状：material3 回 BOM 1.4.0 + eachDependency 四组（ui/runtime/foundation/animation）对齐 1.11.2；FAB 菜单已稳定 API 复刻（ChatFabMenu.kt，morph 动画简化）
   - 解除条件：material3 稳定版收录 FloatingActionButtonMenu/ToggleFloatingActionButton **且** compose 1.12 全家稳定发布 → 先解除 eachDependency 试跑真机（重点：流式滚动手感 + FAB 全功能），通过后删收敛块
 
-- [ ] **#238 C1 ServerDialect 剩余 5 域收编（File/Provider/System/Terminal/Shell）** `refactor` `api`
-  - 按试点同模式（8a0cc375/726350ca）：各域 V1/V2ApiClient 实现域接口、Impl 收缩单点 pick、真实适配下沉；共 43 处逐方法 if 待消除
-  - 决策与先例见 2026-08-26 架构走查（候选 1）+ Session/Message 试点
+- [~] **#238 C1 ServerDialect 剩余 5 域收编（File/Provider/System/Terminal/Shell）——五域全部完成** `refactor` `api`
+  - C1-4～C1-8（2026-08-27）：五域 43 处逐方法 if 全部清零，替换为每域单点 pick；V1/V2ApiClient 实现全部 7 个域接口；Shell V1 常量降级下沉 V1ApiClient；契约测试新增 17 用例
+  - 验证：每域编译+契约测试绿；全量单测 + assembleDevDebug 绿；5 域目录 isV2 残留=每文件恰 1 处（pick 本体）。待 V6：V1/V2 服务器各做一轮日常操作冒烟（连接/消息/文件/终端/shell）
+  - 决策与先例见 2026-08-26 架构走查（候选 1）+ Session/Message 试点 · 逐域清单见 docs/research/2026-08-27-backlog-recheck-158-238-243-245.md
   - 2026-08-27 复核：43 处精确成立（File12/Provider13/System8/Terminal6/Shell4，逐 file:line 清单见 docs/research/2026-08-27-backlog-recheck-158-238-243-245.md）；Shell 域收编需先定 V1 常量降级位（同 Session 域 backgroundSession 模式）；建议顺序 System/Terminal→File/Provider→Shell
 
 ## P3 — 观察与低价值改进

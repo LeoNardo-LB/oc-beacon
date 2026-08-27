@@ -405,3 +405,12 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 - **#243**：8 屏 bbox 检测 0 字形相交维持证伪；现象转化为「同色紧凑卡连排+表头重复」（tool 输出默认折叠后 25KB 巨泡未再现）；折叠聚合已部分落地，去重提示最适用。
 - **#245 判词修正（重要）**：子代理 6/6「冻结」样本全部为「贴底 + 朝更新方向拖」——该方向在范围尽头本就不产生滚动（标准边缘语义，无回弹视觉反馈加剧死感）；离底后同手势 1399-1421px 全通、回底即「冻」三点互证。即：自动化复现的是**边缘语义**，#245 本体（用户报告的「历史区中段下滑死帧」）本轮未被自动化复现。主会话同期数据互证：贴底 finger-down（朝历史方向）拖动多次正常滚动（idx 0→2→6→9）。后续：真人现场再遇死帧时记录列表位置与方向 + 录屏，定位是否独立机制。
 - **#158**：箭头跳转=会话切换路由不经蒙版；15/15 未复现但采样功效不足；后续探测改走「快速定位」抽屉（真蒙版路径）。
+
+### 八轮补七：#238 五域收编完成（C1-4～C1-8，2026-08-27 21:40–22:10）
+
+- 五域逐方法 `if (apiVersion.isV2)` 43 处全部清零，替换为每域单点 `pick(conn)` 路由 + 逐方法单行委托；V1ApiClient/V2ApiClient 现直接实现全部 7 个域接口（Session/Message 试点 + 本批 System/Terminal/File/Provider/Shell）。
+- 逐域 commit：C1-4 System（8 if→pick，4 测试）→ C1-5 Terminal（6→pick，3 测试）→ C1-6 File（12→pick，4 测试）→ C1-7 Provider（13→pick，4 测试）→ C1-8 Shell（4→pick，2 测试；**V1 常量降级下沉至 V1ApiClient**——emptyList/null/null/false，同 Session 域 backgroundSession 先例）。
+- 契约测试新增 17 用例（V1V2DialectContractTest），每域覆盖 V1/V2 双向路由 + 默认参数穿透（getVcsDiff context=3、completeProviderOauth code=null 经 pick 后仍正确）。
+- 每域默认参数值从客户端 override 中移除（接口持有默认值）——客户端方法只被域 Impl 与契约测试调用，无外部默认值依赖（grep 核实）。
+- 终验：5 域目录 isV2 残留 = 每文件恰 1 处（pick 本体；System 的第 2 处为 KDoc 注释文字）；全量 testDevDebugUnitTest + assembleDevDebug 绿。
+- 裁程注：AppModule 的 @Binds 接口绑定使 V1/V2 客户端实现接口不产生 Hilt 歧义（试点已趟平）。
