@@ -1,8 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,9 +14,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -35,106 +36,104 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 
 /**
- * #252（2026-08-28 用户裁决：方案 b）——V2 会话级 shell 的聊天内轻提示条。
+ * #252（2026-08-28 用户裁决：方案 b + TUI 语义修正）——V2 会话级 shell 的
+ * **对话流内嵌卡**：命令与输出长在消息流里（贴最新消息下方，随列表滚动），
+ * 与 opencode TUI 的 `!cmd` 行为一致；非浮层。
  *
  * 背景：V2 会话级 shell = 后台 shell 体系（shell.created/exited → ShellJobsStore），
- * **不产生聊天消息**（与 V1 产消息渲染轮次卡不同）——用户 `!cmd` 后聊天区原本
- * 无任何反馈。本条带展示最近一条 job（命令 + 运行中/退出码 + 输出），
- * 点击展开输出；上箭头进入既有 ShellSheet（全量历史）。
- *
- * 放置在消息列表之外（输入栏上方浮层）——刻意不进 LazyColumn：
- * #222 定音 pre-itemsIndexed 新 item 贴底时不可见且翻 isAtBottom（铁律区）。
- * 零新增翻译字符串：状态用图标 + 技术记号（exit N）表达。
+ * 不产生聊天消息（与 V1 产消息渲染轮次卡不同）。数据源 ShellJobsStore（SSE 实时 +
+ * REST 运行中快照），输出经三级 provider（事件输出 → 消息流回填 → REST 拉取）。
+ * 时序旧 → 新；最新一条默认展开输出，历史行点击展开。
  */
 @Composable
-fun ShellJobsStrip(
+fun ShellJobsTranscriptCard(
     jobs: List<ShellJob>,
     outputProvider: (ShellJob) -> String?,
-    onOpenAll: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     if (jobs.isEmpty()) return
-    val latest = jobs.maxByOrNull { it.startedAt ?: 0L } ?: return
-    var expanded by remember(latest.id) { mutableStateOf(false) }
+    val ordered = remember(jobs) { jobs.sortedBy { it.startedAt ?: 0L } }
+    val latestId = ordered.lastOrNull()?.id
+    var expandedIds by remember { mutableStateOf(setOf<String>()) }
     Surface(
-        modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
-        tonalElevation = 2.dp,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-        ),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
     ) {
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Default.Terminal,
-                    contentDescription = null,
-                    modifier = Modifier.size(15.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "$ " + latest.command,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontFamily = FontFamily.Monospace,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                Spacer(Modifier.width(8.dp))
-                ShellJobStatusIcon(latest)
-                if (jobs.size > 1) {
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = "+" + (jobs.size - 1),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+            ordered.forEachIndexed { index, job ->
+                if (index > 0) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 3.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
                     )
                 }
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    Icons.Default.KeyboardArrowUp,
-                    contentDescription = null,
+                val open = expandedIds.contains(job.id) || job.id == latestId
+                Row(
                     modifier = Modifier
-                        .size(16.dp)
-                        .clickable { onOpenAll() },
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (expanded) {
-                val out = outputProvider(latest)
-                when {
-                    latest.isRunning -> Row(
-                        modifier = Modifier.padding(top = 4.dp, start = 21.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(10.dp), strokeWidth = 1.5.dp)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "…",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        .fillMaxWidth()
+                        .clickable {
+                            expandedIds = if (open && job.id == latestId) {
+                                expandedIds - job.id
+                            } else {
+                                expandedIds + job.id
+                            }
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Terminal,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "$ " + job.command,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    ShellJobStatusIcon(job)
+                    if (job.id != latestId) {
+                        Icon(
+                            if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    out != null && out.isNotBlank() -> Text(
-                        text = out.takeLast(1500),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 6,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .padding(top = 4.dp, start = 21.dp)
-                            .heightIn(max = 120.dp),
-                    )
-                    else -> {}
+                }
+                if (open) {
+                    val out = outputProvider(job)
+                    when {
+                        job.isRunning -> Row(
+                            modifier = Modifier.padding(start = 20.dp, top = 2.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(10.dp), strokeWidth = 1.5.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "…",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        out != null && out.isNotBlank() -> Text(
+                            text = out.takeLast(1500),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .padding(start = 20.dp, top = 2.dp, bottom = 4.dp)
+                                .heightIn(max = 140.dp),
+                        )
+                        else -> {}
+                    }
                 }
             }
         }

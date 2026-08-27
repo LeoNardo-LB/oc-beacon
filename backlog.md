@@ -85,11 +85,11 @@
   - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修
   - → `docs/journal/2026-08-20-queue-todo.md` · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
-- [ ] **#252 V2 `!cmd` 聊天内可见反馈——会话级 shell 为后台体系不产聊天卡（已修复，待验收）** `ui` `api`
+- [ ] **#252 V2 `!cmd` 对话流内可见反馈——shell 卡内嵌消息流（TUI 语义，已修复，待验收）** `ui` `api`
   - #250 验收时判定为非缺陷的开放设计点：V2 会话级 shell = 后台 shell 体系（shell.created/exited → ShellJobsStore），**不产聊天消息** → 用户 `!cmd` 后聊天区无任何反馈（V1 渲染轮次卡，两方言 UX 不对称）
-  - 修复（2026-08-28 用户裁决方案 b）：`ShellJobsStrip` 轻提示条（输入栏上方列表外浮层——刻意避开 #222 铁律区）——最新 job 命令 + 状态图标（spinner/✓/✗ + exit N）+ 展开输出（复用三级 provider 触发 REST 拉取）+ `+N` 计数 + 上箭头进 ShellSheet；零新增翻译字符串
-  - 真机 E2E：条带浮层出现 ✓ 失败态 ✗ exit 127 ✓ 展开渲染 `/api/shell/{id}/output` 真实输出 ✓（logcat 证 REST 拉取）+ `+2` 计数 ✓
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮——**用户验收后迁 journal**
+  - 修复（2026-08-28 用户裁决方案 b + TUI 语义修正）：`ShellJobsTranscriptCard` 内嵌消息列表（贴最新消息下方，bannerCount/reveal 接入 #222 体系 + 内容变化贴底重锚）——命令与输出长在对话流里；时序旧→新，最新默认展开输出（三级 provider），历史行点击展开；零新增翻译字符串
+  - 真机 E2E：卡片长在对话流 ✓ + `✗ exit 127` 失败态 ✓ + REST 输出渲染卡内 ✓（成功态同构已演示）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮/§十七轮——**用户验收后迁 journal**
 
 - [ ] **#254 RenderSupplyCoordinatorTest.T12 负载敏感偶发——skip 早期提交竞态（测试基建）** `refactor`
   - 现象（2026-08-28 两轮全量复现）：T12「前两次 skip 不应提交」满载挂、隔离运行恒绿（12/12）；与本轮改动代码零交集（协调器未 import 被改文件）

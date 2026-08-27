@@ -232,7 +232,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.chat.components.RevertBanner
-import dev.leonardo.ocbeacon.ui.screens.chat.components.ShellJobsStrip
 import dev.leonardo.ocbeacon.ui.screens.chat.terminal.ChatTerminalView
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.RenameSessionDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.SendConfirmDialog
@@ -890,6 +889,9 @@ fun ChatScreen(
                         agents = modelConfig.agents,
                         // 子智能体会话无 agent 选择入口（置 null 隐藏）
                         onAgentClick = if (isMainSession) ({ agentName -> viewModel.modelSelection.selectAgent(agentName) }) else null,
+                        // #252：V2 会话级 shell 对话流内嵌卡（TUI 语义）
+                        sessionShellJobs = taskUi.shells,
+                        shellOutputProvider = shellOutputResolver,
                         modifier = Modifier.fillMaxSize(),
                     )
                   }
@@ -921,17 +923,6 @@ fun ChatScreen(
                       onOpenEntry = { toolbarSheet = it },
                       modifier = Modifier.align(Alignment.BottomEnd),
                   )
-                  // #252：V2 会话级 shell 的聊天内轻提示条（列表外浮层，避开 #222 铁律区）
-                  if (taskUi.shells.isNotEmpty()) {
-                      ShellJobsStrip(
-                          jobs = taskUi.shells,
-                          outputProvider = shellOutputResolver,
-                          onOpenAll = { toolbarSheet = ChatToolbarEntry.SHELL },
-                          modifier = Modifier
-                              .align(Alignment.BottomCenter)
-                              .padding(start = 96.dp, end = 96.dp, bottom = 10.dp),
-                      )
-                  }
               }
            }
         }

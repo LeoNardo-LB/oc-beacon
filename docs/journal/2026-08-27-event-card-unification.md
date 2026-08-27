@@ -738,3 +738,20 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 ### 测试基建（顺带登记）
 
 - 全量单测连续两轮挂 `RenderSupplyCoordinatorTest.T12`（前两次 skip 不应提交）——隔离运行恒绿。定因：T12 用 runBlocking + 真实时钟 delay，协调器 2s 稳定窗口（T6）在满载并行下被 dispatch 延迟吹爆。**代码级与本轮改动零交集**（协调器未 import 任何被改文件）→ 登记 **#254**（测试基建：注入假时钟解负载敏感）。
+
+## 十七轮：#252 落地形态修正——浮层改对话流内嵌卡（TUI 语义，用户反馈）（2026-08-28 04:20–05:05）
+
+> 用户反馈：「指令应该跟 opencode 的 TUI 一样出现在主对话流，现在是单独的一个窗口和莫名其妙的界面」——浮层形态否决。
+
+### 修正
+
+- `ShellJobsStrip`（浮层）→ `ShellJobsTranscriptCard`（**对话流内嵌卡**）：挂进 ChatMessageList 的 LazyColumn（先声明 = 视觉最底，贴最新消息下方），全宽卡片随列表滚动——命令与输出长在消息流里，与 opencode TUI 的 `!cmd` 行为一致。
+- 接入 #222 banner 体系：`bannerCount` 与 `revealBannerCount` 各 +1（shell 卡存在时），复用既有贴底 reveal；另加 shell 卡内容变化（job 出现/状态/输出到达）贴底重锚 effect（卡片长高方向朝视口顶，不重锚看不到新输出）。
+- ChatScreen 撤浮层调用与 import；`shellOutputResolver` 保持前移位（三级 provider 传参给列表）。
+- 卡形态：会话内 job 按时序旧→新排列，最新一条默认展开输出（TUI 行为），历史行点击展开/收起；状态图标 spinner/✓/✗ + exit N。
+- 全量单测 2142/0 ✓；assemble + 静默装机 ✓。
+
+### 真机 E2E
+
+- `!echo-inflow`（V2 Dedup 指令测试会话）：卡片**长在对话流里**（最新消息下方、与气泡同宽全宽卡），`$ echo-inflow` + ✗ exit 127 + REST 拉取的输出直接渲染卡内（acc_flow_card.png）——不再有独立浮窗。
+- 成功态形态同构（02:32 `$ pwd · 完成 · /home/leo-tkp` 已演示输出渲染）。

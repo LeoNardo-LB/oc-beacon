@@ -176,6 +176,10 @@ fun ChatMessageList(
     onQuickNavigateDismiss: () -> Unit,
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
     onAgentClick: ((String) -> Unit)? = null,
+    /** #252：当前会话的后台 shell 任务（对话流内嵌卡，TUI 语义）。 */
+    sessionShellJobs: List<dev.leonardo.ocbeacon.domain.model.ShellJob> = emptyList(),
+    /** #252：shell 输出三级 provider（事件输出 → 消息流回填 → REST 拉取）。 */
+    shellOutputProvider: (dev.leonardo.ocbeacon.domain.model.ShellJob) -> String? = { null },
     modifier: Modifier = Modifier,
 ) {
     // #137（D2-L50）：工具卡片复制反馈统一 Snackbar 通道（ToolCardScaffold 原用 Toast）
@@ -437,6 +441,7 @@ fun ChatMessageList(
         currentStep,
         unembeddedQuestions,
         interaction.pendingPermissions,
+        sessionShellJobs,
     ) {
         (if (sessionMeta.revert != null) 1 else 0) +
         (if (compactionBanners.streamClaimed) 1 else 0) +
@@ -444,7 +449,9 @@ fun ChatMessageList(
         (if (activeTools.isNotEmpty()) 1 else 0) +
         (if (currentStep != null) 1 else 0) +
         (if (unembeddedQuestions.isNotEmpty()) 1 else 0) +
-        (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0)
+        (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0) +
+        // #252：shell 对话流内嵌卡（条件与下方 item 块一致）
+        (if (sessionShellJobs.isNotEmpty()) 1 else 0)
     }
 
     // #222（贴底尾部横幅 reveal）：调研定音（docs/research/2026-08-25-card-height-
@@ -462,15 +469,33 @@ fun ChatMessageList(
         activeTools,
         currentStep,
         compactionBanners,
+        sessionShellJobs,
     ) {
         (if (sessionMeta.sessionStatus is SessionStatus.Retry) 1 else 0) +
             (if (activeTools.isNotEmpty()) 1 else 0) +
             (if (currentStep != null) 1 else 0) +
-            (if (compactionBanners.tailFallback) 1 else 0)
+            (if (compactionBanners.tailFallback) 1 else 0) +
+            // #252：shell 卡出现时贴底 reveal（同 #222 语义）
+            (if (sessionShellJobs.isNotEmpty()) 1 else 0)
     }
     LaunchedEffect(revealBannerCount) {
         if (revealBannerCount > 0 && autoScrollState.value) {
             // fling 等待 + 重校验（msgCount effect 同款防「快照后用户开始拖动」竞态）
+            if (listState.isScrollInProgress) {
+                kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                    androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }
+                        .first { !it }
+                }
+            }
+            if (autoScrollState.value) {
+                listState.requestScrollToItem(0)
+            }
+        }
+    }
+    // #252：shell 卡内容变化（job 出现/状态/输出到达）时贴底重锚——卡片长高
+    // 方向朝视口顶（reverseLayout item0 起点钉在底），不重锚会看不到新输出。
+    LaunchedEffect(sessionShellJobs) {
+        if (sessionShellJobs.isNotEmpty() && autoScrollState.value) {
             if (listState.isScrollInProgress) {
                 kotlinx.coroutines.withTimeoutOrNull(2_000) {
                     androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }
@@ -937,6 +962,19 @@ fun ChatMessageList(
                     // reverseLayout=true：先声明的项渲染在底部。
                     // 视觉顺序（上→下）：最旧消息 → 最新消息 → revert → pending。
                     // 声明顺序自下而上：pending（底部）→ 消息（顶部）。
+
+                    // #252：V2 会话级 shell 的对话流内嵌卡（TUI 语义——命令与输出
+                    // 长在消息流里，贴输入栏）。先声明 = 视觉最底（reverseLayout）。
+                    if (sessionShellJobs.isNotEmpty()) {
+                        item(key = "shell_jobs") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                ShellJobsTranscriptCard(
+                                    jobs = sessionShellJobs,
+                                    outputProvider = shellOutputProvider,
+                                )
+                            }
+                        }
+                    }
 
                     // Revert 横幅
                     if (sessionMeta.revert != null) {
