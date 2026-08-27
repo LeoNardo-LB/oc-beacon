@@ -307,6 +307,7 @@ internal fun QuestionPagerView(
             Column(
                 modifier = Modifier
                     .heightIn(max = maxPageHeight)
+                    .clipToBounds()
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
             ) {
@@ -380,6 +381,7 @@ internal fun QuestionPagerView(
                     // beyondViewportPageCount 销毁远页时滚动位置重置，可接受：
                     // 翻回时从顶部重看，选项草稿已由 customDrafts 提升#126 保护）
                     .heightIn(max = maxPageHeight)
+                    .clipToBounds()
                     .verticalScroll(rememberScrollState())
                     .graphicsLayer {
                         alpha = (1f - pageOffset * 0.3f).coerceIn(0.7f, 1f)
