@@ -1,12 +1,14 @@
 package dev.leonardo.ocbeacon.data.api
 
 import dev.leonardo.ocbeacon.data.api.message.MessageApiImpl
+import dev.leonardo.ocbeacon.data.api.system.SystemApiImpl
 import dev.leonardo.ocbeacon.data.api.session.SessionApiImpl
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerHealth
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -116,6 +118,58 @@ class V1V2DialectContractTest {
         coVerify(exactly = 1) { v2.fetchSessionStatus(connV2, null) }
         coVerify(exactly = 0) { v1.fetchSessionStatus(connV2, any()) }
         coVerify(exactly = 0) { v2.fetchSessionStatus(connV1, any()) }
+    }
+
+    // ---------- System ----------
+
+    @Test
+    fun `system - V2 conn routes getHealth to v2 only`() = runTest {
+        val api = SystemApiImpl(v1, v2)
+        coEvery { v2.getHealth(connV2) } returns ServerHealth(healthy = true, version = "v2")
+
+        assertEquals("v2", api.getHealth(connV2).version)
+
+        coVerify(exactly = 1) { v2.getHealth(connV2) }
+        coVerify(exactly = 0) { v1.getHealth(any()) }
+    }
+
+    @Test
+    fun `system - V1 conn routes getHealth to v1 only`() = runTest {
+        val api = SystemApiImpl(v1, v2)
+        coEvery { v1.getHealth(connV1) } returns ServerHealth(healthy = true, version = "v1")
+
+        assertEquals("v1", api.getHealth(connV1).version)
+
+        coVerify(exactly = 1) { v1.getHealth(connV1) }
+        coVerify(exactly = 0) { v2.getHealth(any()) }
+    }
+
+    @Test
+    fun `system - listSkills passes directory through by conn`() = runTest {
+        val api = SystemApiImpl(v1, v2)
+        coEvery { v2.listSkills(connV2, "/home") } returns emptyList()
+        coEvery { v1.listSkills(connV1, "/home") } returns emptyList()
+
+        api.listSkills(connV2, "/home")
+        api.listSkills(connV1, "/home")
+
+        coVerify(exactly = 1) { v2.listSkills(connV2, "/home") }
+        coVerify(exactly = 1) { v1.listSkills(connV1, "/home") }
+        coVerify(exactly = 0) { v1.listSkills(connV2, any()) }
+        coVerify(exactly = 0) { v2.listSkills(connV1, any()) }
+    }
+
+    @Test
+    fun `system - mcp status routes by conn`() = runTest {
+        val api = SystemApiImpl(v1, v2)
+        coEvery { v1.getMcpStatus(connV1) } returns emptyMap()
+        coEvery { v2.getMcpStatus(connV2) } returns emptyMap()
+
+        api.getMcpStatus(connV1)
+        api.getMcpStatus(connV2)
+
+        coVerify(exactly = 1) { v1.getMcpStatus(connV1) }
+        coVerify(exactly = 1) { v2.getMcpStatus(connV2) }
     }
 
     // ---------- Message ----------

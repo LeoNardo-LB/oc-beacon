@@ -13,6 +13,7 @@ import dev.leonardo.ocbeacon.data.api.toApiError
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
+import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import dev.leonardo.ocbeacon.data.dto.request.PromptPart
@@ -110,7 +111,7 @@ private const val TAG = "V2Api"
 @Singleton
 class V2ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi {
+) : SessionApi, MessageApi, SystemApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -121,7 +122,7 @@ class V2ApiClient @Inject constructor(
 
     // ============ Health ============
 
-    suspend fun getHealth(conn: ServerConnection): ServerHealth {
+    override suspend fun getHealth(conn: ServerConnection): ServerHealth {
         val response = httpClient.get("${conn.baseUrl}/api/health") {
             auth(conn)
         }
@@ -676,7 +677,7 @@ class V2ApiClient @Inject constructor(
 
     // ============ System / Agents / Commands / Skills ============
 
-    suspend fun listAgents(conn: ServerConnection): List<AgentInfo> {
+    override suspend fun listAgents(conn: ServerConnection): List<AgentInfo> {
         val response = httpClient.get("${conn.baseUrl}/api/agent") {
             auth(conn)
         }
@@ -693,7 +694,7 @@ class V2ApiClient @Inject constructor(
         }
     }
 
-    suspend fun listCommands(conn: ServerConnection): List<CommandInfo> {
+    override suspend fun listCommands(conn: ServerConnection): List<CommandInfo> {
         val response = httpClient.get("${conn.baseUrl}/api/command") {
             auth(conn)
         }
@@ -708,7 +709,7 @@ class V2ApiClient @Inject constructor(
         }
     }
 
-    suspend fun listSkills(conn: ServerConnection, directory: String? = null): List<SkillInfo> {
+    override suspend fun listSkills(conn: ServerConnection, directory: String?): List<SkillInfo> {
         val response = httpClient.get("${conn.baseUrl}/api/skill") {
             auth(conn)
             directoryHeader(directory)
@@ -724,14 +725,14 @@ class V2ApiClient @Inject constructor(
         }
     }
 
-    suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean {
+    override suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/mcp/$name/connect") {
             auth(conn)
         }
         return response.status.isSuccess()
     }
 
-    suspend fun disconnectMcpServer(conn: ServerConnection, name: String): Boolean {
+    override suspend fun disconnectMcpServer(conn: ServerConnection, name: String): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/mcp/$name/disconnect") {
             auth(conn)
         }
@@ -1274,7 +1275,7 @@ class V2ApiClient @Inject constructor(
 
     // ============ System (supplementary) ============
 
-    suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
+    override suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
         return runCatching {
             val bodyText = httpClient.get("${conn.baseUrl}/api/location") {
                 auth(conn)
@@ -1291,7 +1292,7 @@ class V2ApiClient @Inject constructor(
         }.getOrElse { ServerPaths() }
     }
 
-    suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> {
+    override suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> {
         val bodyText = httpClient.get("${conn.baseUrl}/api/mcp") {
             auth(conn)
         }.bodyAsText()

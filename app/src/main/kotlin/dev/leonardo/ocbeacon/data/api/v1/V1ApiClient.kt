@@ -12,6 +12,7 @@ import dev.leonardo.ocbeacon.data.api.toApiError
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
+import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
 import dev.leonardo.ocbeacon.data.dto.response.*
@@ -73,7 +74,7 @@ private const val TAG = "V1Api"
 @Singleton
 class V1ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi {
+) : SessionApi, MessageApi, SystemApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -482,50 +483,50 @@ class V1ApiClient @Inject constructor(
 
     // ============ System ============
 
-    suspend fun getHealth(conn: ServerConnection): ServerHealth {
+    override suspend fun getHealth(conn: ServerConnection): ServerHealth {
         return httpClient.get("${conn.baseUrl}/global/health") {
             auth(conn)
         }.body()
     }
 
-    suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
+    override suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
         return httpClient.get("${conn.baseUrl}/path") {
             auth(conn)
         }.body()
     }
 
-    suspend fun listAgents(conn: ServerConnection): List<AgentInfo> {
+    override suspend fun listAgents(conn: ServerConnection): List<AgentInfo> {
         return httpClient.get("${conn.baseUrl}/agent") {
             auth(conn)
         }.body()
     }
 
-    suspend fun listCommands(conn: ServerConnection): List<CommandInfo> {
+    override suspend fun listCommands(conn: ServerConnection): List<CommandInfo> {
         return httpClient.get("${conn.baseUrl}/command") {
             auth(conn)
         }.body()
     }
 
-    suspend fun listSkills(conn: ServerConnection, directory: String? = null): List<SkillInfo> {
+    override suspend fun listSkills(conn: ServerConnection, directory: String?): List<SkillInfo> {
         return httpClient.get("${conn.baseUrl}/skill") {
             auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
-    suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> {
+    override suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> {
         return httpClient.get("${conn.baseUrl}/mcp") {
             auth(conn)
         }.body()
     }
 
-    suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean {
+    override suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean {
         return httpClient.post("${conn.baseUrl}/mcp/$name/connect") {
             auth(conn)
         }.body()
     }
 
-    suspend fun disconnectMcpServer(conn: ServerConnection, name: String): Boolean {
+    override suspend fun disconnectMcpServer(conn: ServerConnection, name: String): Boolean {
         return httpClient.post("${conn.baseUrl}/mcp/$name/disconnect") {
             auth(conn)
         }.body()
