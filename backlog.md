@@ -72,10 +72,11 @@
   - 真机 E2E（houji）：V2 home `@bash` → 10 项 ✓；docs 项目 `@wiki` → 11 项目录+文件混排含中文路径 ✓
   - → `docs/journal/2026-08-27-event-card-unification.md` §十轮 · `docs/v1-v2-differences.md` §V2 同源注记——**用户验收后迁 journal**
 
-- [ ] **#250 V2 新会话首发 shell 竞态——`/api/session//shell` 空 session id →「Shell 命令运行失败」** `session` `ui`
-  - 双栈 E2E 顺带发现（2026-08-28）：+ 新建会话后立即 `!pwd`，SessionActionsDelegate 以空 id 发 POST（logcat 实证 `/api/session//shell`）→ 失败 Snackbar；同会话第二条 `$ pwd` 即完成（/home/leo-tkp 2.5s）——V2 shell 链路本身健康，纯新建竞态；V1 未复现（测试会话均预先存在）
-  - 候选：shell 发送路径等待 ensureSession 就位（或空 id 时挂起重试）；另观察 V2 会话期间出现一条 `127.0.0.1:4200/question` 请求（疑保存服务器轮询残留，待查）
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十轮
+- [ ] **#250 V2 新会话首发 shell 竞态——`/api/session//shell` 空 session id（已修复，待验收）** `session` `ui`
+  - 发现（2026-08-28 双栈 E2E）：+ 新建会话后立即 `!pwd`，SessionActionsDelegate 以空 id 发 POST → 失败 Snackbar；同会话第二条即正常——ensureSession 只挂在普通消息/斜杠命令路径，shell 直读未就位 id
+  - 修复：runShellCommand 发送前 `ensureSession()`（对齐 executeCommand 同款，幂等 mutex 双检，方言无关）；连带 `V2EventParser` session.shell.ended 的 output 对象形态容错（原 jsonPrimitive 炸 → 整事件丢弃）；SessionActionsDelegateShellTest 3 用例 + V2EventParserTest 1 用例，全量单测通过
+  - 真机 E2E：V2 新会话首发 `!pwd` 真实 id ✓ + ShellJobEnded 正常派发 ✓ 无失败 Snackbar；V1 新会话首发 `!echo` `$ echo` 完成卡 70ms ✓。注：V2 会话级 shell = 后台体系不产聊天消息（方言事实记入 v1-v2-differences Shell 行）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十一轮——**用户验收后迁 journal**（另：V2 会话期出现 `127.0.0.1:4200/question` 请求，疑保存服务器轮询残留，待查）
 
 ## P3 — 观察与低价值改进
 

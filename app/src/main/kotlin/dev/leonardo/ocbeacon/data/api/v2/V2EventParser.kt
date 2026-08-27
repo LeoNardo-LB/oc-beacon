@@ -7,6 +7,7 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
@@ -95,7 +96,11 @@ class V2EventParser(private val json: Json) : SseEventParser {
                         sessionId = sessionIdOrNull(props)
                     )
                 }
-                val output = props["output"]?.jsonPrimitive?.contentOrNull
+                // 2026-08-28（#250 真机 E2E 取证）：session.shell.ended 的 output 可为
+                // 对象（输出文件引用）而非字符串——jsonPrimitive 直接抛 IllegalArgumentException
+                // → 整事件 parse error 丢弃（ShellJobsHandler 收不到终态）。容错：
+                // 仅字符串形态取值，对象/缺失形态维持 null。
+                val output = (props["output"] as? JsonPrimitive)?.contentOrNull
                 return SseEvent.ShellJobEnded(info = info, output = output)
             }
         }

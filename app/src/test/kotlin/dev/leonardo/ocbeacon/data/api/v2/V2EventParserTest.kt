@@ -73,6 +73,22 @@ class V2EventParserTest {
         assertEquals("exited", ended.info.status)
     }
 
+    /** 回归 #250 E2E：session.shell.ended 的 output 为对象（文件引用）时
+     *  不得炸 parse error（jsonPrimitive 对 JsonObject 抛 IllegalArgumentException
+     *  → 整事件被丢弃）。容错后应正常映射 ShellJobEnded。 */
+    @Test
+    fun `session shell ended with object output parses safely`() {
+        val event = parser.parse(
+            "session.shell.ended",
+            props("""{"sessionID":"ses_1","shell":{"id":"sh_3","status":"exited","command":"pwd","cwd":"/home","shell":"/bin/bash","file":"/home/.out"},"output":{"path":"/home/.out","size":8}}""")
+        )
+        assertNotNull(event)
+        assertTrue("应为 ShellJobEnded，实际 ${event!!::class.simpleName}", event is SseEvent.ShellJobEnded)
+        val ended = event as SseEvent.ShellJobEnded
+        assertEquals("sh_3", ended.info.id)
+        assertEquals("exited", ended.info.status)
+    }
+
     @Test
     fun `session shell started maps to ShellJobStarted`() {
         // 新命名事件（兼容路径）：{shell: Shell.Info}

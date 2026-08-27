@@ -683,6 +683,12 @@ internal class SessionActionsDelegate(
         }
         scope.launch {
             try {
+                // 2026-08-28（#250 真机 E2E 取证）：新会话首发 shell 时 sessionId 尚未
+                // 就位——ensureSession 此前只挂在普通消息（ChatSendDelegate）与斜杠命令
+                // （executeCommand）路径上，shell 直读当前值 → POST /api/session//shell
+                // 空 id 404 →「Shell 命令运行失败」。对齐 executeCommand（:636）同款模式：
+                // 先 ensureSession（幂等 + mutex 双检，已有会话瞬时返回）。
+                val currentSessionId = ensureSession()
                 val modelCfg = modelConfigProvider()
                 val model = if (modelCfg.selectedProviderId != null && modelCfg.selectedModelId != null) {
                     ModelSelection(
@@ -692,13 +698,13 @@ internal class SessionActionsDelegate(
                 } else null
                 val ok = manageTerminalUseCase.runShellCommand(
                     serverId = serverId,
-                    sessionId = sessionId,
+                    sessionId = currentSessionId,
                     command = trimmed,
                     agent = modelCfg.selectedAgent,
                     model = model,
                     directory = sessionDirectoryProvider()
                 )
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Executed shell command in session $sessionId: $ok")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Executed shell command in session $currentSessionId: $ok")
                 onResult(ok)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e

@@ -29,7 +29,7 @@ V1（1.18.x，npm `opencode-ai`）与 V2（2.x beta，npm `@opencode-ai/cli`）�
 | **Todo** | `GET /session/{id}/todo` | **移除**（form/question 替代） | **V2 下隐藏 Todo 入口** | ⏳ #85 |
 | Form 系统 | 无 | `GET/POST /api/session/{id}/form` + reply/state | **已适配（#130）**：question 工具的 form（kind=question）映射为 QuestionAsked 复用提问卡片；回复走 `POST /api/session/{id}/form/{formID}/reply`，取消走 `.../cancel`；轮询兜底走 `GET /api/form/request`。其他 kind 的 form 暂忽略 | ✅ 2026-08-14 |
 | Inbox/Steering | 无 | `/api/session/{id}/inbox` + steer + queue | V2 新增能力 | 评估中 |
-| Shell | `POST /session/{id}/shell`（会话级） | 会话级 + **独立** `/api/shell` + `/api/shell/{id}/output` | 双客户端分流 | ✅ 已适配 |
+| Shell | `POST /session/{id}/shell`（会话级，**产生聊天消息** → 渲染轮次卡） | 会话级 + **独立** `/api/shell` + `/api/shell/{id}/output`；会话级 = **后台 shell 体系**（shell.created/exited SSE → ShellJobsHandler，**不产生聊天消息**） | 双客户端分流；`session.shell.ended` 的 `output` 可为对象 → 解析容错 | ✅ 已适配（#250 补发送前 ensureSession + 解析容错） |
 | 文件系统 | `GET /file`, `/file/content`, `/find`, `/find/file`, `/find/symbol` | `GET /api/fs/read/*`, `/api/fs/list`, `/api/fs/find` | 双客户端分流；V1 1.18 `/find/file` 大目录静默空 → 客户端单层列表回退；V2 `/api/fs/find` 信封漂移为 `{path,type}` 对象（无 id）→ 解析补 path 回退 | ✅ 已适配（#248 补回退 + #249 补解析） |
 | VCS | `GET /vcs`, `/vcs/status`, `/vcs/diff` + `/path` | `GET /api/vcs*` + `GET /api/location` | 双客户端分流 | ✅ 已适配 |
 | Session 状态 | `GET /session/status` | 无直接等价（`/api/session/active` + SSE 替代） | V2 用 activeSessions | ✅ 已适配 |

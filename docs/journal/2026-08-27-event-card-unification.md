@@ -556,3 +556,34 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - backlog：#248 补双栈复确认行；新增 **#249**（V2 find 信封解析，已修复待验收）与 **#250**（新会话首发 shell 空 id 竞态）；下一编号 #251；backlog-check 通过。
 - `docs/v1-v2-differences.md`：文件系统行补 V2 信封漂移事实；§补遗加 V2 同源注记（V1 1.18 旧路由 `{path,type}` 信封与 V2 一脉相承，差异只在 V2 find 引擎健康）。
 - 环境备注：V2 服务器（4199）为用户日常实例，未做写操作污染（仅新增一个「Chat」测试会话于 /home/leo-tkp）；V1 4200 保持运行；截图 `/tmp/e2e_v2_*.png`。
+
+## 十一轮：#250 修复——shell 发送路径补 ensureSession + 连带 session.shell.ended 解析容错（2026-08-28 02:20–02:35）
+
+> 用户指令：「250 也修复吧！」。
+
+### 定因
+
+- logcat 铁证 `/api/session//shell` 空 id + 代码链定位：`ensureSession()` 此前只挂在普通消息（ChatSendDelegate:119）与斜杠命令（SessionActionsDelegate.executeCommand:636）路径上，**唯独 shell 路径（runShellCommand:695）直读当前 sessionId**——新会话未就位时为空串 → POST 空 id 404 →「Shell 命令运行失败」Snackbar。
+
+### 修复
+
+- `SessionActionsDelegate.runShellCommand`：发送前 `val currentSessionId = ensureSession()`（对齐 executeCommand 同款模式；ensureSession 幂等 + mutex 双检，已有会话瞬时返回）；日志同步改用就位 id。
+- 连带发现（同 E2E 链路）：`V2EventParser.kt:98` 对 `session.shell.ended` 的 `output` 字段直接 `.jsonPrimitive`——**该字段可为对象（输出文件引用）** → IllegalArgumentException → 整事件 parse error 丢弃（ShellJobsHandler 收不到终态）。容错为 `(props["output"] as? JsonPrimitive)?.contentOrNull`。
+- 单测：新增 `SessionActionsDelegateShellTest` 3 用例（新会话空 id → 以 ensureSession 就位 id 发送 / 既有会话幂等 / 空白命令零网络拒绝）+ `V2EventParserTest` 1 用例（object output 安全解析）；全量单测复跑通过。
+
+### 真机 E2E（原场景复现）
+
+| # | 场景 | 结果 |
+|---|------|------|
+| 1 | V2 + 新建会话（leo-tkp）→ 首发 `!pwd` | ✅ `REQUEST /api/session/ses_fbb811ae…/shell` 真实 id；`ShellJobEnded → ShellJobsHandler` 正常派发（parse error 消失）；`Executed …: true`；无失败 Snackbar |
+| 2 | V1 + 新建会话（v1proj）→ 首发 `!echo` | ✅ `/session/ses_fbb8042e…/shell` 真实 id；`$ echo` 完成卡渲染（big-pickle 70ms）——**修复方言无关** |
+
+### V2 方言事实（记录，不在 #250 范围）
+
+- V2 会话级 shell = **后台 shell 体系**（shell.created/shell.exited + session.shell.* 事件，全部路由 ShellJobsHandler），**不产生聊天消息事件** → 聊天列表不渲染卡片；V1 会话级 shell 产消息 → 渲染轮次卡。两方言 UX 语义本就不同，产品级「V2 是否需要 !cmd 的聊天内可见反馈」另行裁决。
+- 顺带观察：V2 会话期间出现一条 `http://127.0.0.1:4200/question` 请求（连的是 V1 测试服务器）——疑保存服务器条目轮询残留，#250 卡外待查。
+
+### 卡片与文档
+
+- backlog #250 改写为已修复待验收卡；`v1-v2-differences.md` Shell 行补 V2 后台 shell 语义 + 解析容错注记。
+- 环境备注：用户日常 V2 服务器累计 2 个测试会话（无标题会话/Chat，均 /home/leo-tkp）、V1 服务器 1 个（New session 18:33）——可随手删。
