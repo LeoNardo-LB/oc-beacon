@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#246**。
+**编号**：全局递增，不回收。下一编号：**#247**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -105,8 +105,13 @@
   - 候选：嵌套滚动连接器的边界 consumed 处理（到底后不外传速度）；或维持现状（Android 惯例）。需手感裁决后定
   - → `docs/journal/2026-08-27-event-card-unification.md` §复验
 
+
+- [~] **#246 分片逆序发射——长回复「直接从第 5 节开始」+ H1 标题空文本** `ui` `sse`
+  - 真机截图+ScrollDiag 算术链定音三根因：① 分片按文档正序发射进「最新在前」列表 → 屏幕上尾片（5–8 节）排到头片（1–4 节）上方，头片被埋会话更低处；② 切割点可落在纯空白块 → 该片渲染高度≈0；③ 库 annotatedString walker 无 ATX_CONTENT 分支，heading1 定制复用之 → H1 空文本只剩分隔线
+  - 修复：① 逆文档序发射（尾片先入列）+ displayEntryStart 钉回头片（跳转落点语义不变）；② 切割点推进至下一有效块 + 锚点候选封顶块尾；③ heading1 直取 ATX_CONTENT 转义文本（对齐库 MarkdownHeader）
+  - 证据：ChunkEntryOrderTest 红→绿 + 全量单测绿 + 真机 slot 探针 + 真机截图（气泡→标签→思考完毕→H1→1. B+树）→ `docs/journal/2026-08-27-event-card-unification.md`
+
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`
   - 手势阶梯实验（e234g-REPORT）+ 六轮两次现场同帧复现：数屏长单项区域下滑帧字节级静止（方向不对称、moveCount 完整送达）；四轮 T2 一度判全档失效后更正为测量假象嫌疑——维持「嫌疑+未确证」；#246 自愈装机后仍观察一次，疑独立机制
   - 待办：独立诊断定位钳制源（isAtBottom/autoScroll/延迟揭示族，AGENTS.md SSE 滚动铁律域）；真人影响面走 V6 人工项；与 #234 改动无直接关联
   - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯
-

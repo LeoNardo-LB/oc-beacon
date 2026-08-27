@@ -64,12 +64,14 @@ class UserChunkTest {
         val entries = build(listOf(user))
         val chunks = entries.entries.filterIsInstance<ChatEntry.UserChunk>()
         assertTrue("应发射 UserChunk, got ${entries.entries}", chunks.isNotEmpty())
-        assertEquals("u_m0#c0", chunks.first().key)
-        assertEquals("u_m0#c" + (chunks.size - 1), chunks.last().key)
-        assertTrue(chunks.first().isFirst)
-        assertTrue(chunks.last().isLast)
-        // 双向索引：display 0 → 首段 entry 序号 0
-        assertEquals(0, entries.displayEntryStart[0])
+        // #246（2026-08-27）：逆文档序发射（尾片先入列）——displayItems 最新
+        // 在前，正序发射会把 head 排到 tail 下方（屏幕上第 5-8 节跑到上面）。
+        assertEquals("u_m0#c" + (chunks.size - 1), chunks.first().key)
+        assertEquals("u_m0#c0", chunks.last().key)
+        assertTrue(chunks.first().isLast)
+        assertTrue(chunks.last().isFirst)
+        // 双向索引：displayEntryStart 仍钉在头片 c0（反转后 = 最末发射）
+        assertEquals(chunks.size - 1, entries.displayEntryStart[0])
         chunks.forEach { assertEquals(0, it.displayIndex) }
         // 不再有整 turn 条目
         assertTrue(entries.entries.none { it is ChatEntry.Turn })

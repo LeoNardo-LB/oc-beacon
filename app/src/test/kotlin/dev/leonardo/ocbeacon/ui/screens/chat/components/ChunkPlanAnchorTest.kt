@@ -24,7 +24,10 @@ class ChunkPlanAnchorTest {
             repeat(6) { i -> append("## 第" + (i + 1) + "节\n\n第" + (i + 1) + "节的内容段落，足够长以累积字符预算。\n\n") }
         }
         val st = parse(text)
-        val plan = computeChunkPlan("p_t", st, minChars = 100, targetChars = 150)!!
+        // #246（2026-08-27）：切割点跳空白后，此小文档只在末有效块处触发一次
+        // 边界且余量全为空白 → 正确拒绝分片（旧代码会产出纯空白尾片）。
+        // 预算调小使 6 节文档可切出 ≥2 片有效区间。
+        val plan = computeChunkPlan("p_t", st, minChars = 100, targetChars = 70)!!
         assertEquals(plan.ranges.size, plan.rangeAnchors.size)
         val kids = st.node.children
         plan.ranges.forEachIndexed { idx, r ->

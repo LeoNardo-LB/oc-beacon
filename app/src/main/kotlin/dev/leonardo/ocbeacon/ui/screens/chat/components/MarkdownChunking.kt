@@ -51,6 +51,7 @@ fun computeChunkPlan(partId: String, state: State.Success, minChars: Int, target
         Triple(index, n, s1 > s0 && state.content.substring(s0, s1).any { it.isLetterOrDigit() })
     }.filter { it.third }
     if (significant.isEmpty()) return null
+    val significantIdx = HashSet(significant.map { it.first })
     // 字符量不足以分片（minChars 门槛由调用方判定，这里防御性复查）
     val total = significant.last().second.endOffset - significant.first().second.startOffset
     if (total < minChars) return null
@@ -61,7 +62,11 @@ fun computeChunkPlan(partId: String, state: State.Success, minChars: Int, target
         acc += n.endOffset - n.startOffset
         if (acc >= targetChars && i < children.size - 1) {
             ranges += start..i
+            // #246 补全（2026-08-27）：切割点不得落在纯空白块上——原修复只
+            // 把空白块剔出字符核算，start=i+1 仍会以空白块开头（JVM repro
+            // 实证 ranges 0..21,22..41 且块 22=' '）→ 该片渲染高度≈0。
             start = i + 1
+            while (start < children.size && start !in significantIdx) start++
             acc = 0
         }
     }
@@ -256,7 +261,11 @@ internal fun buildChatEntries(
         ) userChunkPlanFor(msg) else null
         if (plan != null) {
             val count = plan.ranges.size
-            for (c in 0 until count) {
+            // #246 定音（2026-08-27 真机截图+ScrollDiag 算术链）：displayItems
+            // 最新在前（reverseLayout 索引 0 在屏幕底部），chunk 必须逆文档序
+            // 发射（尾片先入列）。原正序发射把 head 当「更新」排到 tail 下方
+            // ——屏幕上第 5-8 节跑到第 1-4 节上面，用户从底部上滚先见尾片。
+            for (c in count - 1 downTo 0) {
                 entries += ChatEntry.Chunk(
                     displayIndex = displayIdx,
                     key = turnKey + "#c" + c,
@@ -265,9 +274,13 @@ internal fun buildChatEntries(
                     chunkCount = count,
                 )
             }
+            // 跳转落点语义不变（「turn 首 chunk」= 含标签栏的头片 c0）；
+            // 反转后头片最末发射，displayEntryStart 显式钉回。
+            displayEntryStart[displayIdx] = entries.size - 1
         } else if (userPlan != null) {
             val count = userPlan.segments.size
-            for (c in 0 until count) {
+            // 同上：逆文档序发射（#246）
+            for (c in count - 1 downTo 0) {
                 entries += ChatEntry.UserChunk(
                     displayIndex = displayIdx,
                     key = turnKey + "#c" + c,
@@ -276,6 +289,7 @@ internal fun buildChatEntries(
                     chunkCount = count,
                 )
             }
+            displayEntryStart[displayIdx] = entries.size - 1
         } else {
             entries += ChatEntry.Turn(displayIdx, turnKey)
         }

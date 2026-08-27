@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.LinkInteractionListener
@@ -34,6 +35,8 @@ import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.parseMarkdownFlow
+import org.intellij.markdown.MarkdownTokenTypes
+import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.MarkdownState
 import com.mikepenz.markdown.model.State
@@ -491,10 +494,20 @@ internal fun MarkdownContent(
                         linkColor = linkColor,
                     )
                 }
+                // #246 修复（2026-08-27）：库的 buildMarkdownAnnotatedString walker
+                // 无 ATX_CONTENT 分支（源码 AnnotatedStringKtx 只处理 PARAGRAPH/
+                // TEXT/EMPH/LINK 等）——标题节点产出空串，H1 退化成「只剩分隔
+                // 线」。标题文本直接取节点 ATX_CONTENT 子节点转义文本（与库默认
+                // MarkdownHeader 的 MarkdownText(contentChildType=ATX_CONTENT) 一致）。
+                val h1Text = remember(model.content, model.node) {
+                    val atx = model.node.children.firstOrNull { it.type == MarkdownTokenTypes.ATX_CONTENT }
+                    val raw = (atx ?: model.node).getUnescapedTextInNode(model.content).toString()
+                    raw.trim().trimStart('#').trim()
+                }
                 var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                 Column {
                     MarkdownBasicText(
-                        text = result.annotatedString,
+                        text = if (result.annotatedString.isNotBlank()) result.annotatedString else AnnotatedString(h1Text),
                         style = typography.h1,
                         onTextLayout = { layoutResult = it },
                         modifier = Modifier.clickableMarkdown(
@@ -671,13 +684,31 @@ private fun chunkSuccessSlot(
                 var hit = -1
                 for (i in searchFrom until searchTo) {
                     val startOff = kids[i].startOffset.coerceIn(0, st.content.length)
-                    val endOff = minOf(startOff + anchor.length + 8, st.content.length)
+                    // #246：候选封顶在块自身 endOffset——越界切片会把下一块文字
+                    // 算进候选，空白块也能「沾光」命中（实证 c1 from=22）。
+                    val endOff = minOf(
+                        startOff + anchor.length + 8,
+                        kids[i].endOffset.coerceIn(0, st.content.length),
+                        st.content.length,
+                    )
                     val candidate = st.content.substring(startOff, endOff).replace(Regex("\\s+"), " ").trim()
-                    if (norm.isNotEmpty() && (candidate.contains(norm.take(20)) || norm.contains(candidate))) {
+                    // #246：候选必须非空——空白块的空串会被 norm.contains("") 恒真截胡，
+                    // 锚点重定位落进空白块（实证 c1 from=22 = 空白块，白渲染一个 0 高元素）。
+                    if (norm.isNotEmpty() && candidate.isNotEmpty() && (candidate.contains(norm.take(20)) || norm.contains(candidate))) {
                         hit = i; break
                     }
                 }
                 if (hit >= 0) from = hit
+            }
+            // #246 插桩：成功槽实际渲染窗（DEBUG-only，行为零变化）
+            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                val firstSig = kids.getOrNull(from)?.let { n ->
+                    val s0 = n.startOffset.coerceIn(0, st.content.length)
+                    val e0 = minOf(n.endOffset, s0 + 24).coerceIn(0, st.content.length)
+                    if (e0 > s0) st.content.substring(s0, e0).replace("\n", " ") else "?"
+                }
+                android.util.Log.w("ChunkDiag", "slot key-range=" + rng.first + ".." + rng.last +
+                    " from=" + from + " to=" + to + " first=[" + firstSig + "]")
             }
             for (i in from until to) {
                 com.mikepenz.markdown.compose.MarkdownElement(kids[i], comps, st.content)
