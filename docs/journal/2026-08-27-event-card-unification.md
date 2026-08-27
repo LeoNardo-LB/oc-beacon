@@ -433,3 +433,11 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
   - 截图：docs/journal/assets/recheck-243-dedup-x3.png
 - 环境插曲（重要教训）：uiautomator 陈旧注册（UiAutomationService already registered）会让 dump 返回**陈旧树**、tap 全吞——本轮 E2E 一度全假阴。清法：杀残留 uiautomator 进程/重连。历史 #158 的 a11y「退化」观察亦经此通道采样，机制疑点+1。
 - 待 V6：×N 视觉观感（标签行宽度）+ 去重边界（用户若想看第 N 次原文，可临时关闭去重：目前无开关，如需再加）。
+
+### 八轮补十：agent 卡收起上推复测——双表面精确零漂移 + 防御路径补线（2026-08-28 00:25–00:40）
+
+- 用户报告「agent 卡收起仍将内容往上推」。设备复测（重启清场后， pos.py 逐行对比）：
+  - **TaskToolCard 面**（TC-REVEAL）：展开三段配对 +112/+36/+938（Markdown 结果渐进布局），收起单发 -1086，**A==B 上方行==C 全等零漂移**；
+  - **SNC EventCard 面**（EV-REVEAL，shell 完成卡同路径）：展开 +63/+121、收起 -184，上方行与卡头全程钉死，零漂移。
+- 当前构建（bd6831fa+）两 agent 卡面均未复现上推。差距解释候选：①用户观察早于对称收起修复（2dfffa6e）装机；②一帧空隙闪烁感知；③未接线面。③已消除：MessageCardAssistant 两处防御性 SyntheticNotice（无生产者保留路径）补线 expandRevealListState（经 LocalChatListState，免穿参）——至此 SNC 全部调用点补偿全覆盖。
+- 环境教训强化：uiautomator 陈旧注册（UiAutomationService already registered）会让 dump 持续返回**陈旧缓存树**且 tap 全吞——本轮复测一度全被它污染；设备重启彻底清场后复测数据才可信。#158 的历史 a11y 观察同经此通道，仪器噪声嫌疑进一步上升。

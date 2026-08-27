@@ -263,6 +263,8 @@ internal fun MessageCardAssistant(
                                 onViewSubSession = onViewSubSession,
                                 onLocateTask = onLocateTask,
                                 eventExpandedStates = eventExpandedStates,
+                                // #241 渲染前补偿：防御路径同样接线（经 LocalChatListState）
+                                expandRevealListState = LocalChatListState.current,
                             )
                         }
                     }
@@ -592,6 +594,8 @@ private fun ChunkAssistantItems(
                     onViewSubSession = onViewSubSession,
                     onLocateTask = onLocateTask,
                     eventExpandedStates = eventExpandedStates,
+                    // #241 渲染前补偿：防御路径同样接线（经 LocalChatListState）
+                    expandRevealListState = LocalChatListState.current,
                 )
             }
             is RenderItem.GroupedParts -> when (item.group) {
