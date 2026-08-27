@@ -34,15 +34,21 @@ internal class ExpandRevealCompensator {
     /** 已上报且视窗位移已配对的基准高度。 */
     private var reportedBase = 0
 
-    /** 已注入、待下一遍消费后揭示的增量。 */
+    /** 已注入、待下一遍消费后揭示的增量（可负=收缩上移）。 */
     private var pendingReveal = 0
 
     /**
      * 每遍测量调用。返回 (本遍上报高度, 注入下移量)。
+     *
+     * 展开与收起**对称补偿**（2026-08-27 用户现场反馈：仅补偿展开时，收起
+     * 裸跟随会让视窗内容整体下坠 Δ——reverseLayout 锚定下收缩从顶部缩）：
+     * - 增长遍：裁剪增量 + 注入 +Δ（视窗下移），下一遍对齐揭示；
+     * - 收缩遍：保持旧高一帧（正文已出组合，旧高框内下部一帧空隙，无位移）
+     *   + 注入 -Δ（视窗上移），下一遍对齐揭示——视窗内容回到展开前原位。
      */
     fun onMeasure(realHeight: Int): Pair<Int, Int> {
         // 揭示遍：上一遍注入已在遍首消费，直接全量揭示并对齐基准
-        if (pendingReveal > 0) {
+        if (pendingReveal != 0) {
             pendingReveal = 0
             reportedBase = realHeight
             return realHeight to 0
@@ -52,14 +58,12 @@ internal class ExpandRevealCompensator {
             reportedBase = realHeight
             return realHeight to 0
         }
-        val extra = realHeight - reportedBase
-        return if (extra > 0) {
-            // 增长遍（tap 展开）：裁剪增量 + 注入等量下移，下一遍揭示
-            pendingReveal = extra
+        val delta = realHeight - reportedBase
+        return if (delta != 0) {
+            pendingReveal = delta
             version++
-            reportedBase to extra
+            reportedBase to delta
         } else {
-            // 收缩（收起/字体等收缩）：直接跟随，无需补偿
             reportedBase = realHeight
             realHeight to 0
         }
@@ -82,7 +86,7 @@ internal fun Modifier.expandRevealCompensation(
     )
     val realHeight = placeable.height
     val (reportHeight, injectDelta) = compensator.onMeasure(realHeight)
-    if (injectDelta > 0) {
+    if (injectDelta != 0) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.w(
                 "ExpandReveal",
