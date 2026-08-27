@@ -1329,9 +1329,15 @@ fun ChatMessageList(
                                     val sysText = chatMessage.parts
                                         .filterIsInstance<Part.Text>()
                                         .joinToString("\n") { it.text }.trim()
+                                    // #234 V6 三轮反馈（2026-08-27 现场截图+dump 实证）：
+                                    // 本分支 return@itemsIndexed 早退，未走通用路径的
+                                    // messageSpacing 底距——卡与上一条消息零间隙贴合，
+                                    // 观感即「叠在一起/消息没结束」（dump: 文本底 y1347=卡顶）。
+                                    // 显式补齐与其他消息一致的 8dp 底距。
                                     EventCard(
                                         eventKey = chatMessage.message.id,
                                         timeMs = chatMessage.message.time.created,
+                                        modifier = Modifier.padding(bottom = messageSpacing),
                                         label = stringResource(R.string.chat_event_tool_catalog_changed),
                                         leadingIcon = Icons.Outlined.Info,
                                         expandedStates = eventCardExpandedStates,
