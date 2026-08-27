@@ -87,7 +87,7 @@
 
 - [ ] **#252 V2 `!cmd` 对话流内可见反馈——shell 卡内嵌消息流（TUI 语义，已修复，待验收）** `ui` `api`
   - #250 验收时判定为非缺陷的开放设计点：V2 会话级 shell = 后台 shell 体系（shell.created/exited → ShellJobsStore），**不产聊天消息** → 用户 `!cmd` 后聊天区无任何反馈（V1 渲染轮次卡，两方言 UX 不对称）
-  - 修复（2026-08-28 用户裁决方案 b + TUI 语义修正 + 视觉统一）：`ShellJobsTranscriptCard` 内嵌消息列表（贴最新消息下方，bannerCount/reveal 接入 #222 体系 + 内容变化贴底重锚）——每个 job 渲染一张 `ShellCard`（ToolCardScaffold 同款视觉，与 $ echo 卡协调由构造保证）；时序旧→新，最新默认展开输出（三级 provider），历史行点击展开；零新增翻译字符串
+  - 修复（2026-08-28 用户裁决方案 b + TUI 语义修正 + 零特殊样式终版）：ShellJob 映射为标准 `Part.Tool(bash)` 经 `PartContent` 渲染——与 agent 命令卡**完全相同渲染路径**（像素级同源：`$ cmd` 标题 + `完成 · 输出摘要` + 折叠交互），内嵌消息列表贴最新消息下方（bannerCount/reveal 接入 #222 体系 + 内容变化贴底重锚）；全量单测 2142/0
   - 真机 E2E：卡片长在对话流 ✓ + `✗ exit 127` 失败态 ✓ + REST 输出渲染卡内 ✓（成功态同构已演示）
   - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮/§十七轮——**用户验收后迁 journal**
 

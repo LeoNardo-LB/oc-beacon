@@ -963,15 +963,41 @@ fun ChatMessageList(
                     // 视觉顺序（上→下）：最旧消息 → 最新消息 → revert → pending。
                     // 声明顺序自下而上：pending（底部）→ 消息（顶部）。
 
-                    // #252：V2 会话级 shell 的对话流内嵌卡（TUI 语义——命令与输出
-                    // 长在消息流里，贴输入栏）。先声明 = 视觉最底（reverseLayout）。
+                    // #252：V2 会话级 shell 的对话流内嵌反馈（TUI 语义）。零特殊样式——
+                    // ShellJob 映射为标准 bash Part.Tool，经 PartContent 走与 agent
+                    // 命令卡完全相同的渲染路径（像素级同源）。先声明 = 视觉最底。
                     if (sessionShellJobs.isNotEmpty()) {
                         item(key = "shell_jobs") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                ShellJobsTranscriptCard(
-                                    jobs = sessionShellJobs,
-                                    outputProvider = shellOutputProvider,
-                                )
+                            Column(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                sessionShellJobs.forEach { job ->
+                                    val commandInput = mapOf(
+                                        "command" to kotlinx.serialization.json.JsonPrimitive(job.command),
+                                    )
+                                    val toolPart = Part.Tool(
+                                        id = "shell_job_" + job.id,
+                                        tool = "bash",
+                                        state = if (job.isRunning) {
+                                            ToolState.Running(
+                                                input = commandInput,
+                                                title = "$ " + job.command,
+                                            )
+                                        } else {
+                                            ToolState.Completed(
+                                                input = commandInput,
+                                                title = "$ " + job.command,
+                                                output = job.output ?: shellOutputProvider(job) ?: "",
+                                            )
+                                        },
+                                    )
+                                    PartContent(
+                                        part = toolPart,
+                                        textColor = MaterialTheme.colorScheme.onSurface,
+                                        isUser = false,
+                                        onOpenFile = onOpenFile,
+                                        asyncParse = true,
+                                    )
+                                    Spacer(Modifier.height(messageSpacing))
+                                }
                             }
                         }
                     }

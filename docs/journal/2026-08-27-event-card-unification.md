@@ -754,6 +754,11 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 ### 真机 E2E
 
 - `!echo-inflow`（V2 Dedup 指令测试会话）：卡片**长在对话流里**（最新消息下方、与气泡同宽全宽卡），`$ echo-inflow` + ✗ exit 127 + REST 拉取的输出直接渲染卡内（acc_flow_card.png）——不再有独立浮窗。
+
+### 十七轮再补：视觉路径二次修正（用户二次反馈「不要单独设计卡片样式」）
+
+- ShellCard 方案仍被判「单独设计」→ 终版：**零渲染代码**——ShellJob 映射为标准 `Part.Tool(tool="bash", state=Running/Completed(input={command}, title="$ cmd", output=…))`，经 `PartContent` 走与 agent 命令卡**完全相同的渲染路径**（像素级同源：`$ cmd` 标题 + `完成 · 输出摘要` 状态行 + 折叠/展开交互全套）。
+- ShellJobsTranscriptCard 自绘卡删除；真机截图 acc_tool_card.png（`$ echo-inflow` + `完成 · …未找到命令`，与 agent 卡同构实证）。
 - 成功态形态同构（02:32 `$ pwd · 完成 · /home/leo-tkp` 已演示输出渲染）。
 
 ### 十七轮补：视觉统一（用户反馈「跟其他卡不协调」）
