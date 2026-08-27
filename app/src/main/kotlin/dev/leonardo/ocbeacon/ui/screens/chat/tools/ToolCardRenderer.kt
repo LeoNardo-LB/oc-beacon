@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import dev.leonardo.ocbeacon.ui.screens.chat.components.rememberScrollIsland
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -171,7 +169,6 @@ internal fun ToolCallCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = halfScreenHeight)
-                .nestedScroll(rememberScrollIsland(toolCardScrollState))
                 .clipToBounds()
                 .verticalScroll(toolCardScrollState)
         ) {

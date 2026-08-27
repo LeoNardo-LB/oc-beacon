@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import dev.leonardo.ocbeacon.ui.screens.chat.components.rememberListIsland
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -96,12 +93,9 @@ internal fun GlobToolCard(
                     border = if (isAmoled) AmoledDefaultBorder else null,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    val filesListState = rememberLazyListState()
                     LazyColumn(
-                        state = filesListState,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .nestedScroll(rememberListIsland(filesListState))
                             .heightIn(max = 200.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(1.dp)

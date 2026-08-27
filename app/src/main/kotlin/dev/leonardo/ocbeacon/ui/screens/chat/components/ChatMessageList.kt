@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -1358,14 +1357,10 @@ fun ChatMessageList(
                                         eventKey = chatMessage.message.id,
                                         timeMs = chatMessage.message.time.created,
                                         label = stringResource(R.string.chat_event_tool_catalog_changed),
-                                        // #241 标签行保护：reverseLayout 锚定下展开增量 Δpx 把卡头推出
-                                        // 视口顶——向 forward(+Δpx) 等量微滚让标签行回落入视口。
-                                        // 方向推演见 journal §#241；手感复核随 V6。
-                                        onExpandGrow = { growPx ->
-                                            coroutineScope.launch {
-                                                listState.animateScrollBy(growPx.toFloat())
-                                            }
-                                        },
+                                        // #241 标签行保护（渲染前补偿）：展开遍裁剪增量 + 遍首
+                                        // 注入视窗下移、下一遍对齐揭示——无可见滚动动画（见
+                                        // ExpandReveal.kt；用户硬约束「渲染前移动视窗」）。
+                                        expandRevealListState = listState,
                                         leadingIcon = Icons.Outlined.Info,
                                         expandedStates = eventCardExpandedStates,
                                         bodyContent = {
@@ -1513,12 +1508,8 @@ fun ChatMessageList(
                                     },
                                     isAmoled = isAmoled,
                                     eventExpandedStates = eventCardExpandedStates,
-                                    // #241 标签行保护（shell/subagent/system 合成卡族）：同上方向推演。
-                                    onEventExpandGrow = { growPx ->
-                                        coroutineScope.launch {
-                                            listState.animateScrollBy(growPx.toFloat())
-                                        }
-                                    }
+                                    // #241 标签行保护（shell/subagent/system 合成卡族）：同上渲染前补偿。
+                                    eventRevealListState = listState
                                 )
                             }
                         }

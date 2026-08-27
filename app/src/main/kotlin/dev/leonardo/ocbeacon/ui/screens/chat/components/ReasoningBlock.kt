@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
@@ -198,7 +197,6 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 240.dp)
-                                .nestedScroll(rememberScrollIsland(reasoningScrollState))
                                 .clipToBounds()
                                 .verticalScroll(reasoningScrollState)
                         ) {

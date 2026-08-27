@@ -13,6 +13,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -54,8 +55,8 @@ internal fun SyntheticNotificationCard(
     eventExpandedStates: MutableMap<String, Boolean>,
     onViewSubSession: ((String) -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
-    /** #241 标签行保护透传（见 EventCard.onExpandGrow）。 */
-    onExpandGrow: ((Int) -> Unit)? = null,
+    /** #241 标签行保护透传（渲染前补偿，见 EventCard.expandRevealListState）。 */
+    expandRevealListState: LazyListState? = null,
 ) {
     val text = currentMessage.parts
         .filterIsInstance<Part.Text>()
@@ -126,7 +127,7 @@ internal fun SyntheticNotificationCard(
         navTargetId = navTargetId,
         onNavClick = { id -> onViewSubSession?.invoke(id) },
         bodyFontScale = 0.85f,
-        onExpandGrow = onExpandGrow,
+        expandRevealListState = expandRevealListState,
         bodyContent = output?.let { out ->
             // 展开正文全量渲染（V6 反馈「展示不完全」——原 agent 截断 2000 取消，
             // shell 本就全量；300dp 滚动区承载长度）。字号小一档（bodyFontScale）。

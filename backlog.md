@@ -83,19 +83,14 @@
   - → `docs/journal/2026-08-20-queue-todo.md`
 
 - [~] **#241 视口顶部事件卡展开时标签行被推出视口——增量回调 + forward 微滚已落地** `ui`
-  - 机制：EventCard 增 onExpandGrow(Δpx)（折叠态基线记录，展开后首稳定帧上报一次）；ChatMessageList 两处接线 listState.animateScrollBy(+Δ)——reverseLayout 下向 forward 微滚让标签行回落；展开高度上限 300dp（Q11）本就存在无需另改
-  - 待验证（V6）：任意会话滚到某事件卡顶格→展开→标签行应保持可见；手感（微滚幅度/方向）若反直觉回报即可，常数一行可翻
-  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮/#241
+  - 机制（渲染前补偿，用户硬约束 2026-08-27）：ExpandReveal.kt 一次性延迟揭示——增长遍裁剪增量 + LazyListReflection 反射注入视窗下移、下一遍对齐揭示，全程无可见滚动动画（事后 animateScrollBy 方案已按裁决撤销）
+  - 真机实证：EV-REVEAL 两段配对注入（63/121px），展开前后标签行 y=406 纹丝不动、正文下方展开零跳变；待 V6 最劣场景（视口顶格截断卡）手感复核
+  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补一
 
 - [ ] **#243 同色巨型日志气泡连续堆叠易读作「消息重叠」——观察/产品向** `ui` `data`
   - #234 二轮取证证伪渲染层重叠（像素级检查零越界），「重叠」观感实为相邻同色 teal 大气泡内容大量重复（同一报错一屏 3 次，25KB 级多个连排）快读致混淆；另 turn-notify 回显整段终端日志加剧体量
   - 候选方向（需产品决策）：连续同类 tool 输出折叠聚合/摘要行；重复内容去重提示；气泡色彩分层。先维持观察
   - → `docs/journal/2026-08-27-event-card-unification.md` §取证
-
-- [~] **#244 卡内滚动区到边后 fling 穿透外层列表——嵌套滚动岛已落地（14 站点）** `ui`
-  - 机制：ScrollIsland.kt 边界岛连接器（onPreScroll/onPreFling：到边且同向→全量吞噬；中段/短内容透明），挂靠内嵌 scrollable 外侧；站点=EventCard/ReasoningBlock/ToolCardRenderer/七工具卡/DiffHelpers/QuestionPartContent×2/WebSearch/Glob 内嵌列表（survey 全量盘点）
-  - 单测 ScrollIslandConsumeTest 7/7；待验证（V6）：展开任一长内容卡→滚到底继续甩→整卡不应被甩走；手感裁决（边界封死 vs 惯例穿透）若嫌粘手可加阈值放宽
-  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮/#244
 
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`

@@ -335,3 +335,19 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 ### 验证矩阵增量
 
 - :app:testDevDebugUnitTest 全绿（新增 ScrollIslandConsumeTest 7 用例）；assembleDevDebug 通过；i18n 无字符串改动（失败标签串 chat_event_shell_failed 既有）。
+
+### 八轮补一：#244 撤销（用户手感裁决）+ #241 改渲染前补偿（2026-08-27 20:00–20:20）
+
+#### #244 撤销
+
+- 用户裁决：**「向上顶就向上顶了，不用修复」**——维持 Android 标准 nested scroll 穿透行为（卡片候选方向之「维持现状」项即为裁决结果）。
+- 执行：14 站点边界岛全部拆除（EventCard/ReasoningBlock/ToolCardRenderer/七工具卡/DiffHelpers 还原内联滚动状态/QuestionPartContent×2/WebSearch/Glob 还原无 state LazyColumn）；ScrollIslandConsumeTest 随纯函数一并移除；ScrollIsland.kt 收缩为仅存 #245 megaDeltaScrollGuard（文件名保留）。全量单测绿、装包复验正常。
+
+#### #241 渲染前补偿（ExpandReveal）
+
+- 用户约束原话：向上顶可作为正常行为，**除非**能像反射方法那样在渲染前将视窗往下移，而非渲染后补偿（并点破当时 animateScrollBy 方案正是渲染后模式——判断正确）。
+- 实现：ExpandReveal.kt 一次性延迟揭示（#222 家族同语义）：增长遍上报基线高度（增量被 clipToBounds 裁掉，未补偿几何永不放置）+ LazyListReflection.requestScrollShift(+Δ) 注入 scrollToBeConsumed；下一遍遍首消费视窗下移 Δ，同遍全量揭示——配对闭环，全程无可见滚动动画。接入 EventCard 根（expandRevealListState 参数），替换原 onExpandGrow/animateScrollBy 全链（SNC/MessageCard 参数改为 LazyListState 透传）。
+- 真机实证（演示会话 sleep 卡，展开两段式 Markdown 布局）：
+  - `EV-REVEAL real=262 report=199 inject=63` → `real=383 report=262 inject=121`（两次增长遍各自配对补偿）
+  - 前后 dump：标签行「后台命令完成」y=406..445 **展开前后纹丝不动**，正文在标签下展开（下方内容 +140px 平移），截图 /tmp/reveal_ok.png——标签行保持可见 + 零跳变。
+- 待 V6：W1 原始最劣场景（视口顶格截断卡）手感复核；注入方向如反直觉翻转 ExpandReveal.kt 一处符号即可。
