@@ -629,3 +629,48 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **V2 插入链路（#249）**：docs 项目 `@wiki` 弹窗 11 项（目录 + 中文路径混排）→ 点 `wiki/Home.md` → 输入框出现 `@wiki/Home.m`（mention 插入成功；尾字符为验证性 DEL 削减，链路正常；截图 acc_v2_inserted.png）。
 - 操作坑备忘（再现 + 定性）：会话草稿跨 force-stop 持久化 + 会话列表按最近活跃重排 → 旧会话残留 `@`/`@bash` 与新输入叠层（shelltest `@@@bash`）。v1proj 无 bash 文件 → 弹窗空 = **正确行为**（无匹配即无弹窗），非回归。
 - 验收判定：四卡缺陷级标准均为功能行为，机器断言（截图 + logcat 请求级证据 + DataStore 直读 + 单测）已闭环；不触动画/时序类 UI → V6 人工项收敛为可选目检 + #250 V2 反馈形态产品决策（非缺陷、不阻塞验收）。
+
+## 收卡四（2026-08-28 03:05，用户验收「好 那开始吧」——#248/#249/#250/#251 按真机 E2E 卷宗零交互验收）
+
+> 验收方式：真机 E2E 卷宗（§九轮～§十三轮）机器断言闭环——功能行为以截图 + 请求级 logcat + DataStore 直读 + 单测断言，用户免交互验收。以下四卡原文迁入（原文保留）。
+
+### #248 原文
+
+- [ ] **#248 V1 1.18.18 兼容缺口——find 大目录静默空（@ 弹窗回退修复，待验收）** `api` `data`
+  - 原三症状（冒烟 2026-08-28）经逐项活体复现勘误：①@ 弹窗空 = V1 `/find/file` **大目录（home）静默返回 []**（fff 冷库 + ripgrep fallback 失效；冒烟会话目录=home 触发，非参数名错位）；②`/file?path=` 500 仅项目外绝对路径/bogus 目录头（正常流不触发，现有降级足够）；③shell 现构建真机通过（不复现）
+  - **修复**：V1ApiClient.findFiles 空结果回退 `/file?path=` 单层列表 + `findFilesFallbackFilter` 客户端过滤（纯函数 7 用例单测全绿）
+  - 真机 E2E（houji，2026-08-28）：home 会话 @ 弹窗回退列表 ✓ + `@bash` 过滤命中 .bashrc 等 ✓ + home 会话 shell 完成 ✓ + v1proj 会话 @ 回归 4 项含 sub/ ✓
+  - 第 4 发现（记录不改码）：会话目录恰为 `~/.config/opencode` 时 V1 1.18 解析 V2 格式 opencode.jsonc → ConfigInvalidError 轮询报错（客户端已降级，根因服务器侧）
+  - 双栈复确认（2026-08-28 02:00–02:20）：V1 四场景复跑全绿（@ 回退/@bash 过滤/!echo/v1proj 回归）；V2 回归另证 @ 弹窗空为**独立预存缺陷** → 拆出 #249 与本卡解耦
+  - 详见 `docs/v1-v2-differences.md` §V1 1.18.18 过渡形态实测补遗 · `docs/journal/2026-08-27-event-card-unification.md` §九轮——**用户验收后迁 journal**
+
+### #249 原文
+
+- [ ] **#249 V2 legacy find 信封漂移——`/api/fs/find` 返回 `{path,type}` 对象、客户端仅认 id → V2 @ 弹窗恒空（已修复，待验收）** `api` `data`
+  - 双栈 E2E（2026-08-28）定因：opencode2 beta-18414 服务器侧 find 完全健康（curl query=md 命中 log.md 等），但信封对象无 id 字段，V2ApiClient.findFiles 的 mapNotNull 全弃 → V2 @ 弹窗任意目录恒空；git 取证预存缺陷（603f987f 未触 V2 文件，解析块上次触碰 = C1-6 仅签名）
+  - 修复：解析链补 path 字段回退（id 优先不变）；V2ApiClientTest 补 3 用例（path 信封/id 优先/裸字符串）类内 40/40 绿
+  - 真机 E2E（houji）：V2 home `@bash` → 10 项 ✓；docs 项目 `@wiki` → 11 项目录+文件混排含中文路径 ✓
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十轮 · `docs/v1-v2-differences.md` §V2 同源注记——**用户验收后迁 journal**
+
+### #250 原文
+
+- [ ] **#250 V2 新会话首发 shell 竞态——`/api/session//shell` 空 session id（已修复，待验收）** `session` `ui`
+  - 发现（2026-08-28 双栈 E2E）：+ 新建会话后立即 `!pwd`，SessionActionsDelegate 以空 id 发 POST → 失败 Snackbar；同会话第二条即正常——ensureSession 只挂在普通消息/斜杠命令路径，shell 直读未就位 id
+  - 修复：runShellCommand 发送前 `ensureSession()`（对齐 executeCommand 同款，幂等 mutex 双检，方言无关）；连带 `V2EventParser` session.shell.ended 的 output 对象形态容错（原 jsonPrimitive 炸 → 整事件丢弃）；SessionActionsDelegateShellTest 3 用例 + V2EventParserTest 1 用例，全量单测通过
+  - 真机 E2E：V2 新会话首发 `!pwd` 真实 id ✓ + ShellJobEnded 正常派发 ✓ 无失败 Snackbar；V1 新会话首发 `!echo` `$ echo` 完成卡 70ms ✓。注：V2 会话级 shell = 后台体系不产聊天消息（方言事实记入 v1-v2-differences Shell 行）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十一轮——**用户验收后迁 journal**（另：`4200/question` 之谜已另立 #251 根因修复）
+
+### #251 原文
+
+- [ ] **#251 调试通道 autoConnect 泄漏——一次性测试后端永久加入开机自连集合（4200/question 之谜，已修复，待验收）** `session`
+  - 定因（2026-08-28）：debug 激活无条件给条目写 autoConnect=true → 服务冷启 `autoConnectConfiguredServers()` 全量连接全部历史调试后端（真机实证 Auto-connecting 2 server(s)）——SSE + GET /question 轮询 + 状态轮询挂满陈旧后端，mergeQuestionsFromREST 还跨服务器污染事件流
+  - 修复：`ServerConfig.fromDebugChannel` 标记 + `applyDebugBackendPromotion` 纯函数（不变量：**最近激活的调试后端至多一个自连**；手动 pin 为用户管理位永不受影响）+ DataStore/Repository/MainActivity 全链贯通；`ServerConfigDebugPromotionTest` 6 用例，全量单测通过
+  - 真机 E2E：切换轮换后冷启 **Auto-connecting 1 server(s)** + 40s 窗口 4200 流量 0 条 + 4199 轮询正常；legacy 无标记条目经一轮 promote 自愈（零手工清库）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十二轮——**用户验收后迁 journal**
+
+### 收卡摘要与在册更新
+
+- **#248**（603f987f）· **#249**（f536b94d）· **#250**（71c5c945）· **#251**（4b7a0bc2）——机制与证据分别见 §九/十/十一/十二/十三轮。
+- **遗留产品决策**：V2 会话级 shell 为后台体系不产聊天卡，`!cmd` 聊天内可见反馈待裁决 → 另立 **#252**（不属缺陷）。
+- **#251 已记录边界收尾**：切换后首帧过渡暴露（单会话自限）+ legacy 未再激活条目不自愈 → 另立 **#253**（P3 观察）。
+- 在册：P1 #146/#154；P2 #235/#252；P3 #158/#247/#245/#253。下一编号 #254。

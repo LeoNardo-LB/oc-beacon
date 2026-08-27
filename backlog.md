@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#252**。
+**编号**：全局递增，不回收。下一编号：**#254**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -66,33 +66,12 @@
   - 现状：material3 回 BOM 1.4.0 + eachDependency 四组（ui/runtime/foundation/animation）对齐 1.11.2；FAB 菜单已稳定 API 复刻（ChatFabMenu.kt，morph 动画简化）
   - 解除条件：material3 稳定版收录 FloatingActionButtonMenu/ToggleFloatingActionButton **且** compose 1.12 全家稳定发布 → 先解除 eachDependency 试跑真机（重点：流式滚动手感 + FAB 全功能），通过后删收敛块
 
-- [ ] **#249 V2 legacy find 信封漂移——`/api/fs/find` 返回 `{path,type}` 对象、客户端仅认 id → V2 @ 弹窗恒空（已修复，待验收）** `api` `data`
-  - 双栈 E2E（2026-08-28）定因：opencode2 beta-18414 服务器侧 find 完全健康（curl query=md 命中 log.md 等），但信封对象无 id 字段，V2ApiClient.findFiles 的 mapNotNull 全弃 → V2 @ 弹窗任意目录恒空；git 取证预存缺陷（603f987f 未触 V2 文件，解析块上次触碰 = C1-6 仅签名）
-  - 修复：解析链补 path 字段回退（id 优先不变）；V2ApiClientTest 补 3 用例（path 信封/id 优先/裸字符串）类内 40/40 绿
-  - 真机 E2E（houji）：V2 home `@bash` → 10 项 ✓；docs 项目 `@wiki` → 11 项目录+文件混排含中文路径 ✓
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十轮 · `docs/v1-v2-differences.md` §V2 同源注记——**用户验收后迁 journal**
-
-- [ ] **#250 V2 新会话首发 shell 竞态——`/api/session//shell` 空 session id（已修复，待验收）** `session` `ui`
-  - 发现（2026-08-28 双栈 E2E）：+ 新建会话后立即 `!pwd`，SessionActionsDelegate 以空 id 发 POST → 失败 Snackbar；同会话第二条即正常——ensureSession 只挂在普通消息/斜杠命令路径，shell 直读未就位 id
-  - 修复：runShellCommand 发送前 `ensureSession()`（对齐 executeCommand 同款，幂等 mutex 双检，方言无关）；连带 `V2EventParser` session.shell.ended 的 output 对象形态容错（原 jsonPrimitive 炸 → 整事件丢弃）；SessionActionsDelegateShellTest 3 用例 + V2EventParserTest 1 用例，全量单测通过
-  - 真机 E2E：V2 新会话首发 `!pwd` 真实 id ✓ + ShellJobEnded 正常派发 ✓ 无失败 Snackbar；V1 新会话首发 `!echo` `$ echo` 完成卡 70ms ✓。注：V2 会话级 shell = 后台体系不产聊天消息（方言事实记入 v1-v2-differences Shell 行）
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十一轮——**用户验收后迁 journal**（另：`4200/question` 之谜已另立 #251 根因修复）
-
-- [ ] **#251 调试通道 autoConnect 泄漏——一次性测试后端永久加入开机自连集合（4200/question 之谜，已修复，待验收）** `session`
-  - 定因（2026-08-28）：debug 激活无条件给条目写 autoConnect=true → 服务冷启 `autoConnectConfiguredServers()` 全量连接全部历史调试后端（真机实证 Auto-connecting 2 server(s)）——SSE + GET /question 轮询 + 状态轮询挂满陈旧后端，mergeQuestionsFromREST 还跨服务器污染事件流
-  - 修复：`ServerConfig.fromDebugChannel` 标记 + `applyDebugBackendPromotion` 纯函数（不变量：**最近激活的调试后端至多一个自连**；手动 pin 为用户管理位永不受影响）+ DataStore/Repository/MainActivity 全链贯通；`ServerConfigDebugPromotionTest` 6 用例，全量单测通过
-  - 真机 E2E：切换轮换后冷启 **Auto-connecting 1 server(s)** + 40s 窗口 4200 流量 0 条 + 4199 轮询正常；legacy 无标记条目经一轮 promote 自愈（零手工清库）
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十二轮——**用户验收后迁 journal**
+- [ ] **#252 V2 `!cmd` 聊天内可见反馈——会话级 shell 为后台体系不产聊天卡（产品决策）** `ui` `api`
+  - #250 验收时判定为非缺陷的开放设计点：V2 会话级 shell = 后台 shell 体系（shell.created/exited → ShellJobsHandler），**不产聊天消息** → 用户 `!cmd` 后聊天区无任何反馈（V1 渲染轮次卡，两方言 UX 不对称）
+  - 候选：a) V2 下 `!cmd` 改走消息路径由 agent 执行渲染工具卡；b) ShellJobsHandler 状态接聊天内轻提示；c) 维持现状（方言文档化）——需产品裁决后实施
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十一轮/§十二轮 · `docs/v1-v2-differences.md` Shell 行
 
 ## P3 — 观察与低价值改进
-
-- [ ] **#248 V1 1.18.18 兼容缺口——find 大目录静默空（@ 弹窗回退修复，待验收）** `api` `data`
-  - 原三症状（冒烟 2026-08-28）经逐项活体复现勘误：①@ 弹窗空 = V1 `/find/file` **大目录（home）静默返回 []**（fff 冷库 + ripgrep fallback 失效；冒烟会话目录=home 触发，非参数名错位）；②`/file?path=` 500 仅项目外绝对路径/bogus 目录头（正常流不触发，现有降级足够）；③shell 现构建真机通过（不复现）
-  - **修复**：V1ApiClient.findFiles 空结果回退 `/file?path=` 单层列表 + `findFilesFallbackFilter` 客户端过滤（纯函数 7 用例单测全绿）
-  - 真机 E2E（houji，2026-08-28）：home 会话 @ 弹窗回退列表 ✓ + `@bash` 过滤命中 .bashrc 等 ✓ + home 会话 shell 完成 ✓ + v1proj 会话 @ 回归 4 项含 sub/ ✓
-  - 第 4 发现（记录不改码）：会话目录恰为 `~/.config/opencode` 时 V1 1.18 解析 V2 格式 opencode.jsonc → ConfigInvalidError 轮询报错（客户端已降级，根因服务器侧）
-  - 双栈复确认（2026-08-28 02:00–02:20）：V1 四场景复跑全绿（@ 回退/@bash 过滤/!echo/v1proj 回归）；V2 回归另证 @ 弹窗空为**独立预存缺陷** → 拆出 #249 与本卡解耦
-  - 详见 `docs/v1-v2-differences.md` §V1 1.18.18 过渡形态实测补遗 · `docs/journal/2026-08-27-event-card-unification.md` §九轮——**用户验收后迁 journal**
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
@@ -110,3 +89,8 @@
   - 2026-08-27 八轮巨帧取证（PtrDiag 探针链）：冷启动进场窗口拖动全灭；平台把 2.5s 拖动合并成 2-3 巨帧（travel 完整）送达、列表认领却零消耗（consumed=0）；锚点战争/闩锁/输入缺失三族排除；v1 连接器形态机制性空转（勘误入档）、v2 Initial 隧道分块无效——下一步=守卫内打点看 dispatchRawDelta 返回值定界 app/框架
   - 八轮复核（research，6 冷启动全「冻」）：**判词修正**——自动化样本全部是「贴底 + 朝更新方向拖」= 范围尽头语义（本不该滚，无回弹反馈加剧死感），离底同手势即恢复（1399-1421px 全通）——即边缘语义而非 #245 本体；自动化未能复现「历史区中段死帧」；下一步=真人现场复现时记录列表位置（是否贴底）+ 录屏，再决定是否需要守卫内打点
   - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯 · §八轮/#245 · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
+
+- [ ] **#253 #251 边界收尾——切换后首帧过渡暴露 + legacy 未再激活条目（观察）** `session`
+  - #251 验收记录的两条非缺陷边界：①图标冷启 FGS sweep 先于 debug 协程 promote → 切换后首次启动仍连一次陈旧后端（单会话自限）；②legacy 无标记条目只有再激活才打标，永不激活者需手动 toggle 或一次性迁移
+  - 本机已收敛（两后端均已打标，DataStore 直读验证）；如再现陈旧后端自连，候选：promote 后对被降级且仍连接的后端 disconnect / sweep 延后至 debug 处理完成后
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十二轮
