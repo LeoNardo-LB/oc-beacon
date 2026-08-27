@@ -53,11 +53,18 @@ interface FileApi {
     suspend fun getCurrentProject(conn: ServerConnection): Project
 }
 
+/**
+ * C1-6（2026-08-27，#238 五域收编）：分发层收缩为单点路由 + 逐方法单行委托。
+ * [V1ApiClient]/[V2ApiClient] 已直接实现 [FileApi]。
+ */
 @Singleton
 class FileApiImpl @Inject constructor(
     private val v1: V1ApiClient,
     private val v2: V2ApiClient
 ) : FileApi {
+
+    private fun pick(conn: ServerConnection): FileApi =
+        if (conn.apiVersion.isV2) v2 else v1
 
     override suspend fun findFiles(
         conn: ServerConnection,
@@ -66,42 +73,38 @@ class FileApiImpl @Inject constructor(
         directory: String?,
         limit: Int?,
         dirs: String?
-    ): List<String> =
-        if (conn.apiVersion.isV2) v2.findFiles(conn, query, type, directory, limit, dirs)
-        else v1.findFiles(conn, query, type, directory, limit, dirs)
+    ): List<String> = pick(conn).findFiles(conn, query, type, directory, limit, dirs)
 
     override suspend fun readFile(conn: ServerConnection, path: String, directory: String?): FileContentDto =
-        if (conn.apiVersion.isV2) v2.readFile(conn, path, directory) else v1.readFile(conn, path, directory)
+        pick(conn).readFile(conn, path, directory)
 
     override suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> =
-        if (conn.apiVersion.isV2) v2.searchText(conn, pattern) else v1.searchText(conn, pattern)
+        pick(conn).searchText(conn, pattern)
 
     override suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean =
-        if (conn.apiVersion.isV2) v2.probeDirectory(conn, directory) else v1.probeDirectory(conn, directory)
+        pick(conn).probeDirectory(conn, directory)
 
     override suspend fun listDirectory(conn: ServerConnection, path: String, directory: String?): List<FileNodeDto> =
-        if (conn.apiVersion.isV2) v2.listDirectory(conn, path, directory)
-        else v1.listDirectory(conn, path, directory)
+        pick(conn).listDirectory(conn, path, directory)
 
     override suspend fun findSymbols(conn: ServerConnection, query: String, directory: String?): List<SymbolInfo> =
-        if (conn.apiVersion.isV2) v2.findSymbols(conn, query, directory) else v1.findSymbols(conn, query, directory)
+        pick(conn).findSymbols(conn, query, directory)
 
     override suspend fun getFileStatus(conn: ServerConnection, directory: String?): List<FileStatusInfo> =
-        if (conn.apiVersion.isV2) v2.getFileStatus(conn, directory) else v1.getFileStatus(conn, directory)
+        pick(conn).getFileStatus(conn, directory)
 
     override suspend fun getVcs(conn: ServerConnection, directory: String?): VcsBranchDto =
-        if (conn.apiVersion.isV2) v2.getVcs(conn, directory) else v1.getVcs(conn, directory)
+        pick(conn).getVcs(conn, directory)
 
     override suspend fun getVcsStatus(conn: ServerConnection, directory: String?): List<VcsChangeDto> =
-        if (conn.apiVersion.isV2) v2.getVcsStatus(conn, directory) else v1.getVcsStatus(conn, directory)
+        pick(conn).getVcsStatus(conn, directory)
 
     override suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int, directory: String?): List<FileDiffDto> =
-        if (conn.apiVersion.isV2) v2.getVcsDiff(conn, mode, context, directory)
-        else v1.getVcsDiff(conn, mode, context, directory)
+        pick(conn).getVcsDiff(conn, mode, context, directory)
 
     override suspend fun listProjects(conn: ServerConnection): List<Project> =
-        if (conn.apiVersion.isV2) v2.listProjects(conn) else v1.listProjects(conn)
+        pick(conn).listProjects(conn)
 
     override suspend fun getCurrentProject(conn: ServerConnection): Project =
-        if (conn.apiVersion.isV2) v2.getCurrentProject(conn) else v1.getCurrentProject(conn)
+        pick(conn).getCurrentProject(conn)
 }

@@ -13,6 +13,7 @@ import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
+import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
@@ -75,7 +76,7 @@ private const val TAG = "V1Api"
 @Singleton
 class V1ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi, SystemApi, TerminalApi {
+) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -665,13 +666,13 @@ class V1ApiClient @Inject constructor(
 
     // ============ File / VCS ============
 
-    suspend fun findFiles(
+    override suspend fun findFiles(
         conn: ServerConnection,
         query: String,
-        type: String? = null,
-        directory: String? = null,
-        limit: Int? = null,
-        dirs: String? = null
+        type: String?,
+        directory: String?,
+        limit: Int?,
+        dirs: String?
     ): List<String> {
         return httpClient.get("${conn.baseUrl}/find/file") {
             auth(conn)
@@ -683,7 +684,7 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun readFile(conn: ServerConnection, path: String, directory: String? = null): FileContentDto {
+    override suspend fun readFile(conn: ServerConnection, path: String, directory: String?): FileContentDto {
         return httpClient.get("${conn.baseUrl}/file/content") {
             auth(conn)
             directoryHeader(directory)
@@ -691,14 +692,14 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> {
+    override suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> {
         return httpClient.get("${conn.baseUrl}/find") {
             auth(conn)
             parameter("pattern", pattern)
         }.body()
     }
 
-    suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean {
+    override suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean {
         val response = httpClient.get("${conn.baseUrl}/file") {
             auth(conn)
             directoryHeader(directory)
@@ -707,7 +708,7 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun listDirectory(conn: ServerConnection, path: String, directory: String? = null): List<FileNodeDto> {
+    override suspend fun listDirectory(conn: ServerConnection, path: String, directory: String?): List<FileNodeDto> {
         val response = httpClient.get("${conn.baseUrl}/file") {
             auth(conn)
             directoryHeader(directory)
@@ -719,7 +720,7 @@ class V1ApiClient @Inject constructor(
         return response.body()
     }
 
-    suspend fun findSymbols(conn: ServerConnection, query: String, directory: String? = null): List<SymbolInfo> {
+    override suspend fun findSymbols(conn: ServerConnection, query: String, directory: String?): List<SymbolInfo> {
         return httpClient.get("${conn.baseUrl}/find/symbol") {
             auth(conn)
             directoryHeader(directory)
@@ -727,28 +728,28 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun getFileStatus(conn: ServerConnection, directory: String? = null): List<FileStatusInfo> {
+    override suspend fun getFileStatus(conn: ServerConnection, directory: String?): List<FileStatusInfo> {
         return httpClient.get("${conn.baseUrl}/file/status") {
             auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
-    suspend fun getVcs(conn: ServerConnection, directory: String? = null): VcsBranchDto {
+    override suspend fun getVcs(conn: ServerConnection, directory: String?): VcsBranchDto {
         return httpClient.get("${conn.baseUrl}/vcs") {
             auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
-    suspend fun getVcsStatus(conn: ServerConnection, directory: String? = null): List<VcsChangeDto> {
+    override suspend fun getVcsStatus(conn: ServerConnection, directory: String?): List<VcsChangeDto> {
         return httpClient.get("${conn.baseUrl}/vcs/status") {
             auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
-    suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int = 3, directory: String? = null): List<FileDiffDto> {
+    override suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int, directory: String?): List<FileDiffDto> {
         return httpClient.get("${conn.baseUrl}/vcs/diff") {
             auth(conn)
             directoryHeader(directory)
@@ -757,13 +758,13 @@ class V1ApiClient @Inject constructor(
         }.body()
     }
 
-    suspend fun listProjects(conn: ServerConnection): List<Project> {
+    override suspend fun listProjects(conn: ServerConnection): List<Project> {
         return httpClient.get("${conn.baseUrl}/project") {
             auth(conn)
         }.body()
     }
 
-    suspend fun getCurrentProject(conn: ServerConnection): Project {
+    override suspend fun getCurrentProject(conn: ServerConnection): Project {
         return httpClient.get("${conn.baseUrl}/project/current") {
             auth(conn)
         }.body()

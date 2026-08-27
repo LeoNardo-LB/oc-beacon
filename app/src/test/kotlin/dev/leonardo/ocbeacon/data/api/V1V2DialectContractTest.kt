@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.api
 
+import dev.leonardo.ocbeacon.data.api.file.FileApiImpl
 import dev.leonardo.ocbeacon.data.api.message.MessageApiImpl
 import dev.leonardo.ocbeacon.data.api.system.SystemApiImpl
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApiImpl
@@ -210,6 +211,56 @@ class V1V2DialectContractTest {
         coVerify(exactly = 1) { v1.listPtyShells(connV1, "/home") }
         coVerify(exactly = 0) { v1.listPtyShells(connV2, any()) }
         coVerify(exactly = 0) { v2.listPtyShells(connV1, any()) }
+    }
+
+    // ---------- File ----------
+
+    @Test
+    fun `file - V2 conn routes probeDirectory to v2 only`() = runTest {
+        val api = FileApiImpl(v1, v2)
+        coEvery { v2.probeDirectory(connV2, "/home") } returns true
+
+        assertTrue(api.probeDirectory(connV2, "/home"))
+
+        coVerify(exactly = 1) { v2.probeDirectory(connV2, "/home") }
+        coVerify(exactly = 0) { v1.probeDirectory(any(), any()) }
+    }
+
+    @Test
+    fun `file - V1 conn routes probeDirectory to v1 only`() = runTest {
+        val api = FileApiImpl(v1, v2)
+        coEvery { v1.probeDirectory(connV1, "/home") } returns false
+
+        assertFalse(api.probeDirectory(connV1, "/home"))
+
+        coVerify(exactly = 1) { v1.probeDirectory(connV1, "/home") }
+        coVerify(exactly = 0) { v2.probeDirectory(any(), any()) }
+    }
+
+    @Test
+    fun `file - searchText routes by conn`() = runTest {
+        val api = FileApiImpl(v1, v2)
+        coEvery { v1.searchText(connV1, "kw") } returns emptyList()
+        coEvery { v2.searchText(connV2, "kw") } returns emptyList()
+
+        api.searchText(connV1, "kw")
+        api.searchText(connV2, "kw")
+
+        coVerify(exactly = 1) { v1.searchText(connV1, "kw") }
+        coVerify(exactly = 1) { v2.searchText(connV2, "kw") }
+        coVerify(exactly = 0) { v1.searchText(connV2, any()) }
+        coVerify(exactly = 0) { v2.searchText(connV1, any()) }
+    }
+
+    @Test
+    fun `file - getVcsDiff applies interface defaults through pick`() = runTest {
+        val api = FileApiImpl(v1, v2)
+        coEvery { v2.getVcsDiff(connV2, "all", 3, null) } returns emptyList()
+
+        api.getVcsDiff(connV2, "all")
+
+        coVerify(exactly = 1) { v2.getVcsDiff(connV2, "all", 3, null) }
+        coVerify(exactly = 0) { v1.getVcsDiff(any(), any(), any(), any()) }
     }
 
     // ---------- Message ----------
