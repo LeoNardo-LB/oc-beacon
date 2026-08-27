@@ -44,10 +44,21 @@ fun Modifier.megaDeltaScrollGuard(state: LazyListState): Modifier =
                 lastY = y
                 if (kotlin.math.abs(dy) > MEGA_DELTA_THRESHOLD_PX) {
                     var remaining = dy
+                    var dispatched = 0f
                     while (kotlin.math.abs(remaining) > 0.5f) {
                         val slice = remaining.coerceIn(-CHUNK_PX, CHUNK_PX)
-                        state.dispatchRawDelta(slice)
+                        dispatched += state.dispatchRawDelta(slice)
                         remaining -= slice
+                    }
+                    // #245 定界探针（DEBUG-only）：consumed/dy 比值直接判定列表是否
+                    // 接受直派滚动——比值≈1 说明列表健康（冻结另有原因），≈0 说明
+                    // dispatchRawDelta 被框架层拒绝（定界 app/框架的最后一跳）。
+                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && kotlin.math.abs(dy) > 1f) {
+                        dev.leonardo.ocbeacon.logging.AppLogger.w(
+                            "FreezeDiag",
+                            "megaFrame dy=" + dy.toInt() + " dispatched=" + dispatched.toInt() +
+                                " ratio=" + (kotlin.math.abs(dispatched) / kotlin.math.abs(dy))
+                        )
                     }
                     change.consume()
                 }

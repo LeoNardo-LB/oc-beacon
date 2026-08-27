@@ -414,3 +414,8 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 - 每域默认参数值从客户端 override 中移除（接口持有默认值）——客户端方法只被域 Impl 与契约测试调用，无外部默认值依赖（grep 核实）。
 - 终验：5 域目录 isV2 残留 = 每文件恰 1 处（pick 本体；System 的第 2 处为 KDoc 注释文字）；全量 testDevDebugUnitTest + assembleDevDebug 绿。
 - 裁程注：AppModule 的 @Binds 接口绑定使 V1/V2 客户端实现接口不产生 Hilt 歧义（试点已趟平）。
+
+### 八轮补八：#245 定界探针装包（2026-08-27 22:15）
+
+- megaDeltaScrollGuard 的巨帧分块路径加 DEBUG 探针 FreezeDiag：记录每个巨帧的 dy、dispatched 与 consumed/dy 比值——比值≈1 = 列表健康接受直派（冻结另有原因）；≈0 = dispatchRawDelta 被框架拒绝（定界 app/框架的最后一跳）。正常帧不触发（阈值 300px）。
+- 已装包。下次现场（真手指）再遇死帧时：确认列表位置（贴底/中段）+ 抓 logcat -s FreezeDiag 即可闭案。
