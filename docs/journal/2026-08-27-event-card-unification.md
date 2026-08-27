@@ -755,3 +755,8 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 
 - `!echo-inflow`（V2 Dedup 指令测试会话）：卡片**长在对话流里**（最新消息下方、与气泡同宽全宽卡），`$ echo-inflow` + ✗ exit 127 + REST 拉取的输出直接渲染卡内（acc_flow_card.png）——不再有独立浮窗。
 - 成功态形态同构（02:32 `$ pwd · 完成 · /home/leo-tkp` 已演示输出渲染）。
+
+### 十七轮补：视觉统一（用户反馈「跟其他卡不协调」）
+
+- 自绘卡片废弃 → 每个 job 直接渲染一张 **`ShellCard`**（既有 V2 shell part 卡，ToolCardScaffold 体系）：等宽命令行 + 「退出码 N · 输出摘要」状态行 + 「输出」容器，与消息流内 `$ echo` 卡同款视觉语言——**协调性由构造保证**（ShellJob → Part.Shell 薄映射，output 经三级 provider 回填）。
+- 时序旧 → 新纵排（4dp 间距），最新默认展开，历史行点击切换；真机截图 acc_shellcard2.png（卡片与对话流视觉统一实证）。
