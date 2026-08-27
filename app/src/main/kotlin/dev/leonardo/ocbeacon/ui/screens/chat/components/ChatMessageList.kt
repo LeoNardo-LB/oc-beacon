@@ -1094,6 +1094,16 @@ fun ChatMessageList(
                                         .let { m ->
                                             if (entry.isLast) m.padding(bottom = messageSpacing) else m
                                         }
+                                        .onSizeChanged { size ->
+                                            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
+                                                entry.key.startsWith("t_msg_0383e79ba")
+                                            ) {
+                                                android.util.Log.w(
+                                                    "ChunkDiag",
+                                                    "PLACE key=" + entry.key + " h=" + size.height + " w=" + size.width
+                                                )
+                                            }
+                                        }
                                 ) {
                                     ChunkedAssistantMessage(
                                         renderableTurn = renderableTurns[displayItemIndex] ?: return@itemsIndexed,

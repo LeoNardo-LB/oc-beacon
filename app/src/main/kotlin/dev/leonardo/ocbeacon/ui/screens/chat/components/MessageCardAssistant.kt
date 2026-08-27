@@ -492,6 +492,16 @@ internal fun ChunkedAssistantMessage(
             }
             // ③ Markdown 分片主体（所有段都有）
             SelectionContainer {
+                // #246 插桩：chunk 组合期事实——定位头片丢失的准确环节
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    android.util.Log.w(
+                        "ChunkDiag",
+                        "compose key=" + chunk.key + " idx=" + chunk.chunkIndex + "/" + chunk.chunkCount +
+                            " range=" + range.first + ".." + range.last +
+                            " anchor=" + (chunk.plan.rangeAnchors.getOrNull(chunk.chunkIndex)?.take(16) ?: "null") +
+                            " kids=" + try { chunk.plan.state.node.children.size } catch (e: Exception) { -1 }
+                    )
+                }
                 dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent(
                     markdown = "",
                     textColor = textColor,
