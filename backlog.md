@@ -53,12 +53,6 @@
   - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
   - → `docs/journal/2026-08-21-error-report-github.md` · `docs/journal/2026-08-23-beta-readiness-review.md`
 
-- [~] **#234 对话流事件卡片统一：task/shell 完成 + system 通知严格同构 EventCard** `ui` `sse`
-  - 14 问拷问闭环（2026-08-26）：族一三种 SSE 事件元素统一为严格同构卡片；#67 task 卡形态翻案与 #232 system 单行通知退役均在本卡声明。实施期用户裁决——描述行按「数据实际存在即激活」（Q15）
-  - **待验证（2026-08-27）**：V1 全绿 + 真机走查三场景实证新形态（system/shell/subagent 全达标）；八轮补遗——①失败态语义缺陷定因：服务器对后台 shell 恒发 state="completed"，失败只在正文「Command exited with code N」→ 客户端正文派生 isFailed（红描边/失败标签/错误图标首次活体可达）②验收演示会话三卡全数活体（成功/失败/子智能体箭头同屏截图），V6 清单待用户执行
-  - → `docs/specs/2026-08-26-event-card-unification-design.md` · `docs/journal/2026-08-27-event-card-unification.md`
-  - → `docs/specs/2026-08-26-event-card-unification-design.md`
-
 - [ ] **#146 OpenCode 官方问题清单（issue/PR 候选）** `upstream`
   - ①V2 不发 compaction.started（引擎没接线）②SSE 重连无事件回溯 ③cursor V1 格式返回 400 ④fork handleRaw bug ⑤工具输出截断语义——上游核查完成（repo 已迁 anomalyco/opencode），逐项行动方案已定
   - ⑥候选（2026-08-27 八轮实证）：V2 后台 shell 状态恒 completed（exit 7 亦然），失败信号仅正文文本——上游语义退化，客户端已防御性派生
@@ -81,11 +75,6 @@
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - → `docs/journal/2026-08-20-queue-todo.md`
-
-- [~] **#241 视口顶部事件卡展开时标签行被推出视口——渲染前补偿已推广至思考块+工具卡家族** `ui`
-  - 机制（渲染前补偿，用户硬约束 2026-08-27）：ExpandReveal.kt 链式逐帧配对（瞬变两遍/动画逐帧）——裁剪增量 + LazyListReflection 反射注入视窗位移、对齐揭示，全程无可见滚动动画（事后 animateScrollBy 方案已按裁决撤销）
-  - 真机实证：思考块全循环零偏移 A(405/475/707/803…)→B(+18/+351)→C(-369) 全等；去动画裁决后工具卡家族/思考块/问题卡/Todo 卡同机制生效（everMeasured 冷启动区分 + 零高不短路两缺陷修复入档）；待 V6 手感覆盖任一工具卡
-  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补一
 
 - [ ] **#243 同色巨型日志气泡连续堆叠易读作「消息重叠」——观察/产品向** `ui` `data`
   - #234 二轮取证证伪渲染层重叠（像素级检查零越界），「重叠」观感实为相邻同色 teal 大气泡内容大量重复（同一报错一屏 3 次，25KB 级多个连排）快读致混淆；另 turn-notify 回显整段终端日志加剧体量
