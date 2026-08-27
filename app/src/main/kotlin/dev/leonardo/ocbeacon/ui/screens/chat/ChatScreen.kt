@@ -232,6 +232,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.chat.components.RevertBanner
+import dev.leonardo.ocbeacon.ui.screens.chat.components.ShellJobsStrip
 import dev.leonardo.ocbeacon.ui.screens.chat.terminal.ChatTerminalView
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.RenameSessionDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.SendConfirmDialog
@@ -599,6 +600,35 @@ fun ChatScreen(
     val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
     var toolbarSheet by remember { mutableStateOf<ChatToolbarEntry?>(null) }
     // （第九轮常驻抽屉已于第十轮退役——改为贴底工具栏 + 四个独立 ModalBottomSheet）
+    // #252：shell 输出三级 provider（迁自 TaskSheet：事件输出 → 消息流回填 → REST 拉取）——
+    // 前移到 Scaffold 之前供输入栏上方 ShellJobsStrip 复用。
+    val shellOutputs = remember { mutableStateMapOf<String, String?>() }
+    val allPartsMap by viewModel.chatRepositoryExposed.getAllPartsMap()
+        .collectAsStateWithLifecycle(initialValue = emptyMap())
+    val shellOutputResolver = remember(viewModel.sessionId, allPartsMap) {
+        { shell: ShellJob ->
+            shell.output
+                ?: allPartsMap[viewModel.sessionId].orEmpty().asSequence()
+                    .filterIsInstance<Part.Tool>()
+                    .filter { it.tool == "shell" || it.tool == "bash" }
+                    .filter { part ->
+                        val cmd = (part.state as? ToolState.Completed)?.input
+                            ?.get("command")?.jsonPrimitive?.contentOrNull
+                        cmd == shell.command
+                    }
+                    .mapNotNull { (it.state as? ToolState.Completed)?.output }
+                    .lastOrNull()
+                ?: run {
+                    if (!shellOutputs.containsKey(shell.id)) {
+                        shellOutputs[shell.id] = null
+                        viewModel.fetchShellOutput(shell.id) { out ->
+                            shellOutputs[shell.id] = out?.output
+                        }
+                    }
+                    shellOutputs[shell.id]
+                }
+        }
+    }
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -891,6 +921,17 @@ fun ChatScreen(
                       onOpenEntry = { toolbarSheet = it },
                       modifier = Modifier.align(Alignment.BottomEnd),
                   )
+                  // #252：V2 会话级 shell 的聊天内轻提示条（列表外浮层，避开 #222 铁律区）
+                  if (taskUi.shells.isNotEmpty()) {
+                      ShellJobsStrip(
+                          jobs = taskUi.shells,
+                          outputProvider = shellOutputResolver,
+                          onOpenAll = { toolbarSheet = ChatToolbarEntry.SHELL },
+                          modifier = Modifier
+                              .align(Alignment.BottomCenter)
+                              .padding(start = 96.dp, end = 96.dp, bottom = 10.dp),
+                      )
+                  }
               }
            }
         }
@@ -940,34 +981,7 @@ fun ChatScreen(
     )
 
         // 四 sheet（第十轮：工具栏入口的容器——TaskSheet 拆解为 agent/shell 两 sheet）
-    // shell 输出三级 provider（迁自 TaskSheet：事件输出 → 消息流回填 → REST 拉取）
-    val shellOutputs = remember { mutableStateMapOf<String, String?>() }
-    val allPartsMap by viewModel.chatRepositoryExposed.getAllPartsMap()
-        .collectAsStateWithLifecycle(initialValue = emptyMap())
-    val shellOutputResolver = remember(viewModel.sessionId, allPartsMap) {
-        { shell: ShellJob ->
-            shell.output
-                ?: allPartsMap[viewModel.sessionId].orEmpty().asSequence()
-                    .filterIsInstance<Part.Tool>()
-                    .filter { it.tool == "shell" || it.tool == "bash" }
-                    .filter { part ->
-                        val cmd = (part.state as? ToolState.Completed)?.input
-                            ?.get("command")?.jsonPrimitive?.contentOrNull
-                        cmd == shell.command
-                    }
-                    .mapNotNull { (it.state as? ToolState.Completed)?.output }
-                    .lastOrNull()
-                ?: run {
-                    if (!shellOutputs.containsKey(shell.id)) {
-                        shellOutputs[shell.id] = null
-                        viewModel.fetchShellOutput(shell.id) { out ->
-                            shellOutputs[shell.id] = out?.output
-                        }
-                    }
-                    shellOutputs[shell.id]
-                }
-        }
-    }
+    // （shell 输出三级 provider 已前移至 Scaffold 之前——#252 ShellJobsStrip 共用）
     toolbarSheet?.let { entry ->
         when (entry) {
             ChatToolbarEntry.STACKED -> StackedSheet(

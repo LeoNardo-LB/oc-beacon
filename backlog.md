@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#254**。
+**编号**：全局递增，不回收。下一编号：**#255**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -66,10 +66,11 @@
   - 现状：material3 回 BOM 1.4.0 + eachDependency 四组（ui/runtime/foundation/animation）对齐 1.11.2；FAB 菜单已稳定 API 复刻（ChatFabMenu.kt，morph 动画简化）
   - 解除条件：material3 稳定版收录 FloatingActionButtonMenu/ToggleFloatingActionButton **且** compose 1.12 全家稳定发布 → 先解除 eachDependency 试跑真机（重点：流式滚动手感 + FAB 全功能），通过后删收敛块
 
-- [ ] **#252 V2 `!cmd` 聊天内可见反馈——会话级 shell 为后台体系不产聊天卡（产品决策）** `ui` `api`
-  - #250 验收时判定为非缺陷的开放设计点：V2 会话级 shell = 后台 shell 体系（shell.created/exited → ShellJobsHandler），**不产聊天消息** → 用户 `!cmd` 后聊天区无任何反馈（V1 渲染轮次卡，两方言 UX 不对称）
-  - 候选：a) V2 下 `!cmd` 改走消息路径由 agent 执行渲染工具卡；b) ShellJobsHandler 状态接聊天内轻提示；c) 维持现状（方言文档化）——需产品裁决后实施
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十一轮/§十二轮 · `docs/v1-v2-differences.md` Shell 行
+- [ ] **#247 回合内 tool 卡连续同内容去重（#243 另一表面）——首张 + ×N 折叠落地（已修复，待验收）** `ui`
+  - #243 去重已覆盖合成事件卡（×N）；回合**内部**的 tool 卡为另一渲染面（RenderableTurn 层）——2026-08-28 用户裁决「首张 + ×N」（同 #243 交互）后实施
+  - 修复：`RenderItem.RepeatingTool` 渲染项 + `toolDedupKey`（工具名 + 命令/标题，易变字段与状态不入键；context/过滤工具排除）+ `collapseConsecutiveToolCards` 纯函数（跨消息折叠、卡间分隔线随折叠消失），主路径与分片路径双分支渲染 ×N 徽标；`RenderableTurnCollapseTest` 7 用例
+  - 真机 E2E（V1 big-pickle）：诱导三次独立 bash 调用 → 单张 `$ echo dedup-check · 完成` 卡 + `×3` 徽标 ✓
+  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补九 · §十五轮——**用户验收后迁 journal**
 
 ## P3 — 观察与低价值改进
 
@@ -78,10 +79,17 @@
   - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修
   - → `docs/journal/2026-08-20-queue-todo.md` · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
-- [ ] **#247 回合内 tool 卡连续同内容去重（#243 另一表面）** `ui`
-  - #243 去重已覆盖合成事件卡（×N）；回合**内部**的 tool 卡（如连续 3 张同命令 $sleep 卡）为另一渲染面（RenderableTurn/PartContent 层），现象相同未去重
-  - 候选：同键折叠为首张 + ×N；需产品决策确认交互后实施
-  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补九
+- [ ] **#252 V2 `!cmd` 聊天内可见反馈——会话级 shell 为后台体系不产聊天卡（已修复，待验收）** `ui` `api`
+  - #250 验收时判定为非缺陷的开放设计点：V2 会话级 shell = 后台 shell 体系（shell.created/exited → ShellJobsStore），**不产聊天消息** → 用户 `!cmd` 后聊天区无任何反馈（V1 渲染轮次卡，两方言 UX 不对称）
+  - 修复（2026-08-28 用户裁决方案 b）：`ShellJobsStrip` 轻提示条（输入栏上方列表外浮层——刻意避开 #222 铁律区）——最新 job 命令 + 状态图标（spinner/✓/✗ + exit N）+ 展开输出（复用三级 provider 触发 REST 拉取）+ `+N` 计数 + 上箭头进 ShellSheet；零新增翻译字符串
+  - 真机 E2E：条带浮层出现 ✓ 失败态 ✗ exit 127 ✓ 展开渲染 `/api/shell/{id}/output` 真实输出 ✓（logcat 证 REST 拉取）+ `+2` 计数 ✓
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮——**用户验收后迁 journal**
+
+- [ ] **#254 RenderSupplyCoordinatorTest.T12 负载敏感偶发——满载并行下稳定窗口被 dispatch 延迟吹爆（测试基建）** `refactor`
+  - 现象（2026-08-28 两轮全量复现）：T12「前两次 skip 不应提交」满载挂、隔离运行恒绿（12/12）；与本轮改动代码零交集（协调器未 import 被改文件）
+  - 定因：T12 用 runBlocking + 真实时钟 delay，协调器 2s 稳定窗口（T6 语义）在满载并行下被协程 dispatch 延迟吹爆——window 过期后第二次 skip 合法提交
+  - 候选：注入假时钟/虚拟调度器替代真实 delay；或协调器窗口语义参数化——实施前先确认偶发率（连续观察全量轮次）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮
 
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`

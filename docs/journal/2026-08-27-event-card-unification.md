@@ -695,3 +695,25 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **效果**：首帧过渡暴露（sweep 先于 promote 连上的陈旧后端）在同一启动周期内被摘除——不再存活到进程结束。
 - 边界保留：legacy 无标记条目仍不会被自动降级/断连（手动 toggle 或再激活收敛，§十二轮）。
 - 状态：backlog #253 改为已修复待验收；#247/#252 选项待用户回复。
+
+## 十五轮：#247 + #252 修复——回合内 tool 卡折叠（×N）+ V2 shell 聊天内轻提示条（2026-08-28 03:20–03:45）
+
+> 用户裁决（上轮提问的回复）：#247 确认「首张 + ×N」；#252 选「b) ShellJobs 轻卡片」。
+
+### #247 回合内连续同键 tool 卡折叠
+
+- `RenderItem.RepeatingTool(part, count)` 新渲染项；`toolDedupKey`（工具名 + 命令/标题，callId/id 等易变字段不参与，状态不入键防流式反复拆叠；context 工具与过滤工具排除）+ `collapseConsecutiveToolCards` 纯函数（跨消息折叠：卡间 turn 分隔线随折叠一并消失）——挂在 `computeRenderableTurn` 出口。
+- 渲染：MessageCardAssistant 主路径 + 分片路径（ChunkAssistantItems）双分支——首张经 PartContent 正常渲染 + 右上角 ×N 徽标（secondaryContainer 底）。
+- 单测 `RenderableTurnCollapseTest` 7 用例（三连同键折叠/异命令不折/context 排除/不同命令断 run/单卡不包/分隔线保留/易变字段忽略）。
+- **真机 E2E（V1 测试服务器，big-pickle）**：诱导模型三次独立 bash 调用（两次纠偏：①模型把命令当二进制名；②模型用 && 合并成一次调用——各自澄清后命中）→ **单张 `$ echo dedup-check · 完成` 卡 + 右上 `×3` 徽标**（acc_247_round3.png），文本回复确认三次独立调用。
+
+### #252 V2 shell 聊天内轻提示条（方案 b）
+
+- `ShellJobsStrip` 新组件（消息列表**外**浮层，输入栏上方——刻意避开 LazyColumn：#222 定音 pre-itemsIndexed 新 item 贴底不可见且翻 isAtBottom，铁律区零接触）。零新增翻译字符串：状态用图标（spinner/✓/✗）+ 技术记号（exit N）表达。
+- ChatScreen 接线：`shellOutputResolver`（三级 provider）前移至 Scaffold 之前共用于 ShellSheet 与条带；条带显示最新 job（命令 + 状态 + 输出展开）+ `+N` 历史计数 + 上箭头进既有 ShellSheet。
+- **真机 E2E（V2 日常服务器，Dedup 指令测试会话）**：`!echo-v252` → 条带浮层出现（acc_252_done.png）✗ exit 127（失败态红图标 + 退出码）；tap 展开 → 输出区渲染 `/api/shell/sh_044bb3b8…/output` 真实输出（logcat 证 REST 拉取，acc_252_expanded.png）；`+2` 历史计数 ✓。
+- 边际发现（既有行为，记录不改码）：shell 模式触发**时序敏感**——新会话首发 `!cmd` 走 shell 路径，后续消息 `!cmd`（含分段注入）回落普通消息路径（agent 工具卡渲染）；与 #250 修复无冲突。另观察 `!cmd` 带空格（`!echo dedup-ok`）走消息路径。
+
+### 测试基建（顺带登记）
+
+- 全量单测连续两轮挂 `RenderSupplyCoordinatorTest.T12`（前两次 skip 不应提交）——隔离运行恒绿。定因：T12 用 runBlocking + 真实时钟 delay，协调器 2s 稳定窗口（T6）在满载并行下被 dispatch 延迟吹爆。**代码级与本轮改动零交集**（协调器未 import 任何被改文件）→ 登记 **#254**（测试基建：注入假时钟解负载敏感）。

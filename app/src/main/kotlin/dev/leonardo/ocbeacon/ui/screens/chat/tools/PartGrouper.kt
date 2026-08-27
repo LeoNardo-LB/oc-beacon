@@ -2,7 +2,8 @@ package dev.leonardo.ocbeacon.ui.screens.chat.tools
 
 import dev.leonardo.ocbeacon.domain.model.Part
 
-private val CONTEXT_TOOLS = setOf("read", "glob", "grep")
+// #247：改为 internal——RenderableTurn 的回合内 tool 卡折叠需要同一排除集合
+internal val CONTEXT_TOOLS = setOf("read", "glob", "grep")
 
 sealed class PartGroup {
     data class Context(val parts: List<Part.Tool>) : PartGroup()

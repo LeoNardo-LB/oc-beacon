@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -251,6 +252,40 @@ internal fun MessageCardAssistant(
                                 modifier = Modifier.padding(vertical = if (compact) 1.5.dp else 3.dp),
                                 color = dividerColor
                             )
+                        }
+                    }
+                    is RenderItem.RepeatingTool -> {
+                        // #247（2026-08-28 用户裁决）：回合内连续同键 tool 卡折叠——
+                        // 首张正常渲染 + ×N 徽标（与 #243 合成卡去重同款交互）。
+                        key(item.part.id) {
+                            Box {
+                                PartContent(
+                                    part = item.part,
+                                    textColor = textColor,
+                                    isUser = false,
+                                    onViewSubSession = onViewSubSession,
+                                    onOpenFile = onOpenFile,
+                                    preParsedState = null,
+                                    asyncParse = !isStreaming,
+                                    turnAgentName = if (item.part.tool == "task") {
+                                        renderableTurn.taskAgentName
+                                    } else null,
+                                )
+                                Surface(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(top = 5.dp, end = 7.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
+                                ) {
+                                    Text(
+                                        text = "×" + item.count,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                     is RenderItem.SyntheticNotice -> {
@@ -597,6 +632,37 @@ private fun ChunkAssistantItems(
                     // #241 渲染前补偿：防御路径同样接线（经 LocalChatListState）
                     expandRevealListState = LocalChatListState.current,
                 )
+            }
+            is RenderItem.RepeatingTool -> {
+                // #247：分片路径同款折叠渲染（分片 turn 恒非流式）
+                key(item.part.id) {
+                    Box {
+                        PartContent(
+                            part = item.part,
+                            textColor = textColor,
+                            isUser = false,
+                            onViewSubSession = onViewSubSession,
+                            onOpenFile = onOpenFile,
+                            preParsedState = null,
+                            asyncParse = true,
+                            turnAgentName = if (item.part.tool == "task") renderableTurn.taskAgentName else null,
+                        )
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 5.dp, end = 7.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
+                        ) {
+                            Text(
+                                text = "×" + item.count,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                            )
+                        }
+                    }
+                }
             }
             is RenderItem.GroupedParts -> when (item.group) {
                 is PartGroup.Context -> key(item.group.parts.first().id) {

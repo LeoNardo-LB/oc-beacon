@@ -1,10 +1,13 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.tools
 
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.filterRenderableParts
 
 import androidx.compose.runtime.Immutable
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * 一个显示项（一个 assistant turn 气泡）的预计算渲染数据。
@@ -38,12 +41,99 @@ sealed class RenderItem {
     /** 合成通知卡片（后台轮次完成；2026-08-12 起独立成泡渲染，不再嵌入气泡）。 */
     @Immutable
     data class SyntheticNotice(val msgId: String, val message: ChatMessage) : RenderItem()
+
+    /**
+     * #247（2026-08-28 用户裁决）：回合内连续同键 tool 卡折叠渲染项——
+     * 首张 + ×N 徽标（与 #243 合成卡去重同款交互）。[part] 为保留的首张。
+     */
+    @Immutable
+    data class RepeatingTool(val part: Part.Tool, val count: Int) : RenderItem()
 }
 
 /**
  * 单次遍历计算一个显示项的全部渲染数据。
  * 在 `remember` 块中调用 —— 仅当消息变化时运行，而非组合期间。
  */
+// ---------------------------------------------------------------------------
+// #247 回合内连续同键 tool 卡去重（2026-08-28 用户裁决：首张 + ×N，同 #243 先例）
+// ---------------------------------------------------------------------------
+
+private val NON_DEDUP_TOOLS = setOf("todoread", "todowrite", "question")
+
+private fun ToolState.displayTitle(): String? = when (this) {
+    is ToolState.Running -> title
+    is ToolState.Completed -> title
+    else -> null
+}
+
+private fun ToolState.inputMap(): Map<String, kotlinx.serialization.json.JsonElement> = when (this) {
+    is ToolState.Pending -> input
+    is ToolState.Running -> input
+    is ToolState.Completed -> input
+    is ToolState.Error -> input
+}
+
+/**
+ * #247 去重键：工具名 + 命令/标题——callId/id 等易变字段不参与，
+ * 因此「同一命令跑 N 次」产生的 N 张卡同键。状态不入键（流式中渐进
+ * 完成不反复拆叠）；context 工具（read/glob/grep 已有独立折叠面）与
+ * 过滤/特殊渲染工具不参与。
+ */
+internal fun toolDedupKey(part: Part.Tool): String? {
+    val name = part.tool.lowercase()
+    if (name in CONTEXT_TOOLS || name in NON_DEDUP_TOOLS) return null
+    val command = part.state.inputMap()["command"]?.jsonPrimitive?.contentOrNull
+    return listOf(name, command ?: part.state.displayTitle() ?: "").joinToString("\u0001")
+}
+
+private fun RenderItem.singleTool(): Part.Tool? =
+    (this as? RenderItem.GroupedParts)?.group?.let { g -> g as? PartGroup.Single }?.part as? Part.Tool
+
+/**
+ * 折叠回合内连续同键 tool 卡：首张保留为 [RenderItem.RepeatingTool]（×N），
+ * 其余抑制；卡间 turn 分隔线随折叠一并消失（它们分隔的是被抑制的卡）。
+ * 纯函数，JVM 可测。
+ */
+internal fun collapseConsecutiveToolCards(items: List<RenderItem>): List<RenderItem> {
+    val out = mutableListOf<RenderItem>()
+    var i = 0
+    while (i < items.size) {
+        val item = items[i]
+        val tool = item.singleTool()
+        val key = tool?.let(::toolDedupKey)
+        if (tool == null || key == null) {
+            out.add(item)
+            i++
+            continue
+        }
+        var j = i + 1
+        var count = 1
+        val pending = mutableListOf<RenderItem>()
+        while (j < items.size) {
+            val nxt = items[j]
+            if (nxt is RenderItem.TurnDivider) {
+                pending.add(nxt)
+                j++
+                continue
+            }
+            val nxtTool = nxt.singleTool()
+            if (nxtTool != null && toolDedupKey(nxtTool) == key) {
+                count++
+                j++
+                pending.clear()
+            } else break
+        }
+        if (count > 1) {
+            out.add(RenderItem.RepeatingTool(tool, count))
+        } else {
+            out.add(item)
+            out.addAll(pending)
+        }
+        i = j
+    }
+    return out
+}
+
 fun computeRenderableTurn(
     turnMessages: List<ChatMessage>?,
     currentMessage: ChatMessage,
@@ -132,7 +222,8 @@ fun computeRenderableTurn(
         .takeIf { it.isNotBlank() }
 
     return RenderableTurn(
-        renderItems = renderItems,
+        // #247：回合内连续同键 tool 卡折叠（首张 + ×N）
+        renderItems = collapseConsecutiveToolCards(renderItems),
         isEmpty = renderItems.isEmpty() && errorText == null,
         errorText = errorText,
         agentName = agentName,
