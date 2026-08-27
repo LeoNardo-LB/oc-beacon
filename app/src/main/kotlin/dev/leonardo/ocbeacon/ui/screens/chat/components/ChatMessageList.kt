@@ -22,8 +22,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -80,6 +83,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel
 import dev.leonardo.ocbeacon.ui.screens.chat.InteractionState
 import dev.leonardo.ocbeacon.ui.screens.chat.MessageListState
 import dev.leonardo.ocbeacon.ui.screens.chat.SessionMetaState
+import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
@@ -963,40 +967,50 @@ fun ChatMessageList(
                     // 视觉顺序（上→下）：最旧消息 → 最新消息 → revert → pending。
                     // 声明顺序自下而上：pending（底部）→ 消息（顶部）。
 
-                    // #252：V2 会话级 shell 的对话流内嵌反馈（TUI 语义）。零特殊样式——
-                    // ShellJob 映射为标准 bash Part.Tool，经 PartContent 走与 agent
-                    // 命令卡完全相同的渲染路径（像素级同源）。先声明 = 视觉最底。
+                    // #252 终版（用户裁决「类似通知那种」）：每个 shell job 一张通知卡
+                    // （EventCard 本体——Shell 完成/失败的既有通知形态，label/图标/i18n
+                    // 全现成）；description = 命令行，body = 输出 Markdown。间距与其他
+                    // 气泡一致（messageSpacing）。展开态记忆 + #241 reveal 保护齐全。
                     if (sessionShellJobs.isNotEmpty()) {
                         item(key = "shell_jobs") {
-                            Column(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                sessionShellJobs.forEach { job ->
-                                    val commandInput = mapOf(
-                                        "command" to kotlinx.serialization.json.JsonPrimitive(job.command),
-                                    )
-                                    val toolPart = Part.Tool(
-                                        id = "shell_job_" + job.id,
-                                        tool = "bash",
-                                        state = if (job.isRunning) {
-                                            ToolState.Running(
-                                                input = commandInput,
-                                                title = "$ " + job.command,
-                                            )
-                                        } else {
-                                            ToolState.Completed(
-                                                input = commandInput,
-                                                title = "$ " + job.command,
-                                                output = job.output ?: shellOutputProvider(job) ?: "",
-                                            )
-                                        },
-                                    )
-                                    PartContent(
-                                        part = toolPart,
-                                        textColor = MaterialTheme.colorScheme.onSurface,
-                                        isUser = false,
-                                        onOpenFile = onOpenFile,
-                                        asyncParse = true,
-                                    )
-                                    Spacer(Modifier.height(messageSpacing))
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                val shellExpandStates = remember { mutableStateMapOf<String, Boolean>() }
+                                val orderedShells = sessionShellJobs.sortedBy { it.startedAt ?: 0L }
+                                Column {
+                                    orderedShells.forEachIndexed { index, job ->
+                                        if (index > 0) Spacer(Modifier.height(6.dp))
+                                        val failed = !job.isRunning && (job.exit ?: 0) != 0
+                                        EventCard(
+                                            eventKey = "shell_" + job.id,
+                                            timeMs = job.startedAt ?: System.currentTimeMillis(),
+                                            label = stringResource(
+                                                if (failed) R.string.chat_event_shell_failed
+                                                else R.string.chat_event_shell_completed,
+                                            ),
+                                            leadingIcon = Icons.Filled.Terminal,
+                                            failed = failed,
+                                            description = "$ " + job.command,
+                                            expandedStates = shellExpandStates,
+                                            bodyFontScale = 0.85f,
+                                            expandRevealListState = listState,
+                                            bodyContent = {
+                                                val out = job.output ?: shellOutputProvider(job) ?: ""
+                                                if (job.isRunning) {
+                                                    Text(
+                                                        text = "…",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                } else if (out.isNotBlank()) {
+                                                    MarkdownContent(
+                                                        markdown = out,
+                                                        textColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        isUser = false,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }

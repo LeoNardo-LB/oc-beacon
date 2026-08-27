@@ -765,3 +765,10 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 
 - 自绘卡片废弃 → 每个 job 直接渲染一张 **`ShellCard`**（既有 V2 shell part 卡，ToolCardScaffold 体系）：等宽命令行 + 「退出码 N · 输出摘要」状态行 + 「输出」容器，与消息流内 `$ echo` 卡同款视觉语言——**协调性由构造保证**（ShellJob → Part.Shell 薄映射，output 经三级 provider 回填）。
 - 时序旧 → 新纵排（4dp 间距），最新默认展开，历史行点击切换；真机截图 acc_shellcard2.png（卡片与对话流视觉统一实证）。
+
+### 十七轮终版：用户再否决自绘（ShellCard 仍是「单独的卡片样式」）→ **EventCard 通知卡本体**
+
+- 用户澄清：「类似通知那种」= 通知卡本体，零新样式 → 每个 job 渲染一张 **`EventCard`**（Shell 完成/失败的既有通知形态）：label = chat_event_shell_completed/failed（i18n 现成）、leadingIcon = Terminal、failed 红描边、description = `$ 命令`、bodyContent = 输出 Markdown（三级 provider 回填）；多 job 纵排 6dp 间距；expandedStates 局部记忆 + expandRevealListState（#241 保护）。
+- 放置仍在消息列表内（先声明 = 视觉最底）、间距 messageSpacing 与其他气泡一致。
+- 真机 E2E（acc_event_final2.png）：`!echo-inflow` → 通知卡「06:07:41 ⚠ 后台命令失败 + $ echo-inflow」失败态红描边（无效命令名 127）；对话流位置与间距正常。成功态（✓ Shell 已完成 + 输出）同构。
+- 迭代史：浮层 → 裸 ShellCard → 气泡包 ShellCard → **EventCard 通知卡**（终版，零新样式由构造保证）。
