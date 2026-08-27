@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.api
 
 import dev.leonardo.ocbeacon.data.api.message.MessageApiImpl
 import dev.leonardo.ocbeacon.data.api.system.SystemApiImpl
+import dev.leonardo.ocbeacon.data.api.terminal.TerminalApiImpl
 import dev.leonardo.ocbeacon.data.api.session.SessionApiImpl
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
@@ -170,6 +171,45 @@ class V1V2DialectContractTest {
 
         coVerify(exactly = 1) { v1.getMcpStatus(connV1) }
         coVerify(exactly = 1) { v2.getMcpStatus(connV2) }
+    }
+
+    // ---------- Terminal ----------
+
+    @Test
+    fun `terminal - V2 conn routes updatePtySize to v2 only`() = runTest {
+        val api = TerminalApiImpl(v1, v2)
+        coEvery { v2.updatePtySize(connV2, "pty_1", 80, 24, null) } returns true
+
+        assertTrue(api.updatePtySize(connV2, "pty_1", 80, 24))
+
+        coVerify(exactly = 1) { v2.updatePtySize(connV2, "pty_1", 80, 24, null) }
+        coVerify(exactly = 0) { v1.updatePtySize(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `terminal - V1 conn routes runShellCommand to v1 only`() = runTest {
+        val api = TerminalApiImpl(v1, v2)
+        coEvery { v1.runShellCommand(connV1, "ses_1", "ls", "build", null, null) } returns true
+
+        assertTrue(api.runShellCommand(connV1, "ses_1", "ls", "build"))
+
+        coVerify(exactly = 1) { v1.runShellCommand(connV1, "ses_1", "ls", "build", null, null) }
+        coVerify(exactly = 0) { v2.runShellCommand(any(), any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `terminal - listPtyShells passes directory by conn`() = runTest {
+        val api = TerminalApiImpl(v1, v2)
+        coEvery { v2.listPtyShells(connV2, "/home") } returns emptyList()
+        coEvery { v1.listPtyShells(connV1, "/home") } returns emptyList()
+
+        api.listPtyShells(connV2, "/home")
+        api.listPtyShells(connV1, "/home")
+
+        coVerify(exactly = 1) { v2.listPtyShells(connV2, "/home") }
+        coVerify(exactly = 1) { v1.listPtyShells(connV1, "/home") }
+        coVerify(exactly = 0) { v1.listPtyShells(connV2, any()) }
+        coVerify(exactly = 0) { v2.listPtyShells(connV1, any()) }
     }
 
     // ---------- Message ----------

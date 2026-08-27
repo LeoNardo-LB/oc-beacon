@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
+import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import dev.leonardo.ocbeacon.data.dto.request.PromptPart
@@ -111,7 +112,7 @@ private const val TAG = "V2Api"
 @Singleton
 class V2ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi, SystemApi {
+) : SessionApi, MessageApi, SystemApi, TerminalApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -1625,11 +1626,11 @@ class V2ApiClient @Inject constructor(
 
     // ============ Terminal / Pty ============
 
-    suspend fun createPty(
+    override suspend fun createPty(
         conn: ServerConnection,
-        title: String? = null,
-        cwd: String? = null,
-        directory: String? = null
+        title: String?,
+        cwd: String?,
+        directory: String?
     ): PtyInfo {
         if (BuildConfig.DEBUG) {
             AppLogger.d(TAG, "createPty: POST ${conn.baseUrl}/api/pty title=$title cwd=$cwd directory=$directory")
@@ -1655,19 +1656,19 @@ class V2ApiClient @Inject constructor(
         return info
     }
 
-    suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean {
+    override suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/api/pty/$ptyId") {
             auth(conn)
         }
         return response.status.isSuccess()
     }
 
-    suspend fun updatePtySize(
+    override suspend fun updatePtySize(
         conn: ServerConnection,
         ptyId: String,
         cols: Int,
         rows: Int,
-        directory: String? = null
+        directory: String?
     ): Boolean {
         val body = PtyUpdateRequest(size = PtySize(rows = rows, cols = cols))
         if (BuildConfig.DEBUG) {
@@ -1687,11 +1688,11 @@ class V2ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun openPtySocket(
+    override suspend fun openPtySocket(
         conn: ServerConnection,
         ptyId: String,
-        cursor: Int = -1,
-        directory: String? = null
+        cursor: Int,
+        directory: String?
     ): PtySocket {
         val wsBase = when {
             conn.baseUrl.startsWith("https://") -> conn.baseUrl.replaceFirst("https://", "wss://")
@@ -1707,7 +1708,7 @@ class V2ApiClient @Inject constructor(
         return PtySocket(session)
     }
 
-    suspend fun listPtyShells(conn: ServerConnection, directory: String? = null): List<ShellInfo> {
+    override suspend fun listPtyShells(conn: ServerConnection, directory: String?): List<ShellInfo> {
         // 实测（2026-08-11）：/api/pty/shells 是错误路径（路由把 shells 当 ptyID）；
         // 正确端点是 /api/pty（location 作用域 PTY 列表）。
         return runCatching {
@@ -1721,13 +1722,13 @@ class V2ApiClient @Inject constructor(
         }.getOrElse { emptyList() }
     }
 
-    suspend fun runShellCommand(
+    override suspend fun runShellCommand(
         conn: ServerConnection,
         sessionId: String,
         command: String,
         agent: String,
-        model: ModelSelection? = null,
-        directory: String? = null
+        model: ModelSelection?,
+        directory: String?
     ): Boolean {
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/shell") {
             auth(conn)

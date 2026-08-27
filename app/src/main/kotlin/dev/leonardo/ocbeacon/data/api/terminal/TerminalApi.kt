@@ -50,23 +50,28 @@ interface TerminalApi {
     ): Boolean
 }
 
+/**
+ * C1-5（2026-08-27，#238 五域收编）：分发层收缩为单点路由 + 逐方法单行委托。
+ * [V1ApiClient]/[V2ApiClient] 已直接实现 [TerminalApi]。
+ */
 @Singleton
 class TerminalApiImpl @Inject constructor(
     private val v1: V1ApiClient,
     private val v2: V2ApiClient
 ) : TerminalApi {
 
+    private fun pick(conn: ServerConnection): TerminalApi =
+        if (conn.apiVersion.isV2) v2 else v1
+
     override suspend fun createPty(
         conn: ServerConnection,
         title: String?,
         cwd: String?,
         directory: String?
-    ): PtyInfo =
-        if (conn.apiVersion.isV2) v2.createPty(conn, title, cwd, directory)
-        else v1.createPty(conn, title, cwd, directory)
+    ): PtyInfo = pick(conn).createPty(conn, title, cwd, directory)
 
     override suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean =
-        if (conn.apiVersion.isV2) v2.removePty(conn, ptyId) else v1.removePty(conn, ptyId)
+        pick(conn).removePty(conn, ptyId)
 
     override suspend fun updatePtySize(
         conn: ServerConnection,
@@ -74,21 +79,17 @@ class TerminalApiImpl @Inject constructor(
         cols: Int,
         rows: Int,
         directory: String?
-    ): Boolean =
-        if (conn.apiVersion.isV2) v2.updatePtySize(conn, ptyId, cols, rows, directory)
-        else v1.updatePtySize(conn, ptyId, cols, rows, directory)
+    ): Boolean = pick(conn).updatePtySize(conn, ptyId, cols, rows, directory)
 
     override suspend fun openPtySocket(
         conn: ServerConnection,
         ptyId: String,
         cursor: Int,
         directory: String?
-    ): PtySocket =
-        if (conn.apiVersion.isV2) v2.openPtySocket(conn, ptyId, cursor, directory)
-        else v1.openPtySocket(conn, ptyId, cursor, directory)
+    ): PtySocket = pick(conn).openPtySocket(conn, ptyId, cursor, directory)
 
     override suspend fun listPtyShells(conn: ServerConnection, directory: String?): List<ShellInfo> =
-        if (conn.apiVersion.isV2) v2.listPtyShells(conn, directory) else v1.listPtyShells(conn, directory)
+        pick(conn).listPtyShells(conn, directory)
 
     override suspend fun runShellCommand(
         conn: ServerConnection,
@@ -97,7 +98,5 @@ class TerminalApiImpl @Inject constructor(
         agent: String,
         model: ModelSelection?,
         directory: String?
-    ): Boolean =
-        if (conn.apiVersion.isV2) v2.runShellCommand(conn, sessionId, command, agent, model, directory)
-        else v1.runShellCommand(conn, sessionId, command, agent, model, directory)
+    ): Boolean = pick(conn).runShellCommand(conn, sessionId, command, agent, model, directory)
 }

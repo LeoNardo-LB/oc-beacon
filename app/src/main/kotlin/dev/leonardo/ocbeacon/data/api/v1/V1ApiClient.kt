@@ -13,6 +13,7 @@ import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.message.PromptAdmission
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
+import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
 import dev.leonardo.ocbeacon.data.dto.response.*
@@ -74,7 +75,7 @@ private const val TAG = "V1Api"
 @Singleton
 class V1ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi, SystemApi {
+) : SessionApi, MessageApi, SystemApi, TerminalApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -770,11 +771,11 @@ class V1ApiClient @Inject constructor(
 
     // ============ Terminal / Pty ============
 
-    suspend fun createPty(
+    override suspend fun createPty(
         conn: ServerConnection,
-        title: String? = null,
-        cwd: String? = null,
-        directory: String? = null
+        title: String?,
+        cwd: String?,
+        directory: String?
     ): PtyInfo {
         if (BuildConfig.DEBUG) {
             AppLogger.d(TAG, "createPty: POST ${conn.baseUrl}/pty title=$title cwd=$cwd directory=$directory")
@@ -800,19 +801,19 @@ class V1ApiClient @Inject constructor(
         return info
     }
 
-    suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean {
+    override suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/pty/$ptyId") {
             auth(conn)
         }
         return response.status.isSuccess()
     }
 
-    suspend fun updatePtySize(
+    override suspend fun updatePtySize(
         conn: ServerConnection,
         ptyId: String,
         cols: Int,
         rows: Int,
-        directory: String? = null
+        directory: String?
     ): Boolean {
         val body = PtyUpdateRequest(size = PtySize(rows = rows, cols = cols))
         if (BuildConfig.DEBUG) {
@@ -832,11 +833,11 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    suspend fun openPtySocket(
+    override suspend fun openPtySocket(
         conn: ServerConnection,
         ptyId: String,
-        cursor: Int = -1,
-        directory: String? = null
+        cursor: Int,
+        directory: String?
     ): PtySocket {
         val wsBase = when {
             conn.baseUrl.startsWith("https://") -> conn.baseUrl.replaceFirst("https://", "wss://")
@@ -852,20 +853,20 @@ class V1ApiClient @Inject constructor(
         return PtySocket(session)
     }
 
-    suspend fun listPtyShells(conn: ServerConnection, directory: String? = null): List<ShellInfo> {
+    override suspend fun listPtyShells(conn: ServerConnection, directory: String?): List<ShellInfo> {
         return httpClient.get("${conn.baseUrl}/pty/shells") {
             auth(conn)
             directoryHeader(directory)
         }.body()
     }
 
-    suspend fun runShellCommand(
+    override suspend fun runShellCommand(
         conn: ServerConnection,
         sessionId: String,
         command: String,
         agent: String,
-        model: ModelSelection? = null,
-        directory: String? = null
+        model: ModelSelection?,
+        directory: String?
     ): Boolean {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/shell") {
             auth(conn)
