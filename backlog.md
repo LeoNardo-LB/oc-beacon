@@ -4,7 +4,13 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#255**。
+**编号**：全局递增，不回收。下一编号：**#256**。
+
+- [ ] **#255 shell 模式触发健壮化——前导空白 + 全角「！」容许（开发过程发现，已修复，待验收）** `ui`
+  - #252/#253 E2E 过程实证：「空格 + !cmd」（E2E 驱动误触空格键）整体回落普通消息（uiautomator 直读字段前导 0x20）；中文 IME 环境「!」偶发落全角「！」（条带 exit 127 实证）——真人同样可触
+  - 修复：ChatScreenBottomBar 检测与发送兜底双路径 trimStart + 半角/全角「!」「！」双形态接受（drop(1) 对两者均剥单字符）；全量单测 2142/0
+  - E2E：前导空白流（原失败流）修复后走 shell ✓；全角路径 adb input 不支持非 ASCII 注入不可驱动（仅真人 IME 可触发），代码级正确性评审覆盖
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十六轮——**用户验收后迁 journal**
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -85,10 +91,10 @@
   - 真机 E2E：条带浮层出现 ✓ 失败态 ✗ exit 127 ✓ 展开渲染 `/api/shell/{id}/output` 真实输出 ✓（logcat 证 REST 拉取）+ `+2` 计数 ✓
   - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮——**用户验收后迁 journal**
 
-- [ ] **#254 RenderSupplyCoordinatorTest.T12 负载敏感偶发——满载并行下稳定窗口被 dispatch 延迟吹爆（测试基建）** `refactor`
+- [ ] **#254 RenderSupplyCoordinatorTest.T12 负载敏感偶发——skip 早期提交竞态（测试基建）** `refactor`
   - 现象（2026-08-28 两轮全量复现）：T12「前两次 skip 不应提交」满载挂、隔离运行恒绿（12/12）；与本轮改动代码零交集（协调器未 import 被改文件）
-  - 定因：T12 用 runBlocking + 真实时钟 delay，协调器 2s 稳定窗口（T6 语义）在满载并行下被协程 dispatch 延迟吹爆——window 过期后第二次 skip 合法提交
-  - 候选：注入假时钟/虚拟调度器替代真实 delay；或协调器窗口语义参数化——实施前先确认偶发率（连续观察全量轮次）
+  - 锐化诊断：Env 假时钟已注入（冻结 now）→ 稳定窗口门控非机制；早提交路径 = skip1 时 `inViewportNow || hotNearBand` 均假——锁定 `everVisiblePartIds` 标记/异步 pending 管线的负载竞态假设，需深挖 pending 入队与视口标记的先后序
+  - 候选：视口标记同步性审计 / pending 入队-消费序单测化；实施前先确认偶发率（连续观察全量轮次）
   - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮
 
 

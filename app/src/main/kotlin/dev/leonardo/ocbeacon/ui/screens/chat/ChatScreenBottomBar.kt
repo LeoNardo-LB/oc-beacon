@@ -122,13 +122,19 @@ internal fun ChatScreenBottomBar(
                 textFieldValue = inputText,
                 onTextFieldValueChange = { newValue ->
                     val wasEmpty = inputText.text.isEmpty()
-                    val shouldAutoShell = !isShellMode && newValue.text.startsWith("!")
+                    // #253 后续加固（2026-08-28）：前导空白不挡 shell 触发——真机 E2E
+                    // 实证「空格 + !cmd」整体回落普通消息（uiautomator 直读字段文本
+                    // 前导 0x20）。trimStart 后再检测/剥离。#252 E2E 补充：中文 IME 环境
+                    // 下「!」会偶发落成全角「！」（真机条带 exit 127 实证），检测同时
+                    // 接受两种形态（drop(1) 对两者均剥单字符）。
+                    val trimmed = newValue.text.trimStart()
+                    val shouldAutoShell = !isShellMode &&
+                        (trimmed.startsWith("!") || trimmed.startsWith("！"))
                     val normalizedValue = if (shouldAutoShell) {
-                        val stripped = newValue.text.drop(1).trimStart()
-                        val newCursor = (newValue.selection.start - 1).coerceAtLeast(0)
+                        val stripped = trimmed.drop(1).trimStart()
                         TextFieldValue(
                             text = stripped,
-                            selection = TextRange(newCursor.coerceAtMost(stripped.length))
+                            selection = TextRange(stripped.length)
                         )
                     } else {
                         newValue
@@ -171,9 +177,13 @@ internal fun ChatScreenBottomBar(
                             }
                         }
                         val rawText = inputText.text
+                        // #253 后续加固：发送侧兜底同样容许前导空白与全角「！」
+                        // （与检测侧同语义）。
+                        val trimmedRaw = rawText.trimStart()
                         val shellCommand = when {
-                            isShellMode -> rawText.trim()
-                            rawText.startsWith("!") -> rawText.drop(1).trimStart()
+                            isShellMode -> trimmedRaw
+                            trimmedRaw.startsWith("!") || trimmedRaw.startsWith("！") ->
+                                trimmedRaw.drop(1).trimStart()
                             else -> null
                         }
                         if (shellCommand != null) {
