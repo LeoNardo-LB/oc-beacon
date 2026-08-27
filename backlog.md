@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#248**。
+**编号**：全局递增，不回收。下一编号：**#249**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -66,13 +66,12 @@
   - 现状：material3 回 BOM 1.4.0 + eachDependency 四组（ui/runtime/foundation/animation）对齐 1.11.2；FAB 菜单已稳定 API 复刻（ChatFabMenu.kt，morph 动画简化）
   - 解除条件：material3 稳定版收录 FloatingActionButtonMenu/ToggleFloatingActionButton **且** compose 1.12 全家稳定发布 → 先解除 eachDependency 试跑真机（重点：流式滚动手感 + FAB 全功能），通过后删收敛块
 
-- [~] **#238 C1 ServerDialect 剩余 5 域收编（File/Provider/System/Terminal/Shell）——五域全部完成** `refactor` `api`
-  - C1-4～C1-8（2026-08-27）：五域 43 处逐方法 if 全部清零，替换为每域单点 pick；V1/V2ApiClient 实现全部 7 个域接口；Shell V1 常量降级下沉 V1ApiClient；契约测试新增 17 用例
-  - 验证：每域编译+契约测试绿；全量单测 + assembleDevDebug 绿；5 域目录 isV2 残留=每文件恰 1 处（pick 本体）。待 V6：V1/V2 服务器各做一轮日常操作冒烟（连接/消息/文件/终端/shell）
-  - 决策与先例见 2026-08-26 架构走查（候选 1）+ Session/Message 试点 · 逐域清单见 docs/research/2026-08-27-backlog-recheck-158-238-243-245.md
-  - 2026-08-27 复核：43 处精确成立（File12/Provider13/System8/Terminal6/Shell4，逐 file:line 清单见 docs/research/2026-08-27-backlog-recheck-158-238-243-245.md）；Shell 域收编需先定 V1 常量降级位（同 Session 域 backgroundSession 模式）；建议顺序 System/Terminal→File/Provider→Shell
-
 ## P3 — 观察与低价值改进
+
+- [ ] **#248 V1 1.18.18 过渡形态兼容缺口清单（find 参数/file 500/shell 失败）** `api` `data`
+  - V1 冒烟（2026-08-28，opencode 1.18.18 @4200）：探测/会话/命令面板/目录/模型选择器全通；但 ①/find 要求 pattern 参数（应用发 query）→ @ 文件弹窗空 ②/file?path= 服务器 500 ③/session/{id}/shell 执行失败——均为**存量** V1ApiClient 与 1.18 过渡形态的端点差异，非 #238 收编回归
+  - 候选：findFiles 双参数兼容（query+pattern）；file/shell 端点对照 V1 API 参考文档逐个核对；或明确「V1 支持 = ≤1.0 legacy」并文档化 1.18 为未知形态
+  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补十三
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）

@@ -461,3 +461,17 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 - **#241 收卡**：统一方向（从上到下）+ 动画收放 + 逐帧渲染前配对最终形态，用户真机确认无问题。机制全记录见 §八轮补一～补十二。
 - **#243 收卡**：合成卡去重（首张 + ×N）落地，单测 6/6 + 真机 E2E 全自动通过，用户确认。另立 **#247**（回合内 tool 卡连排去重——另一表面，待产品确认交互后实施）。
 - 本批（#234 家族 + #238/#240/#241/#242/#243/#246）至此全部闭环；在册：#146/#154（挂起）、#235/#238 待验/#247（新）、#158/#245（观察/待现场数据）。
+
+### 收卡三：#238 收官——V1 活体冒烟通过（2026-08-28 01:15）
+
+- **V1 服务器**：opencode 1.18.18（`opencode serve --port 4200`，XDG_DATA_HOME 隔离数据目录；判定特征 = /api/health 无 pid → 探测器判 V1 ✓）。
+- **冒烟矩阵**（应用 debug intent 直连 Host-4200-V1，logcat 实证 `Detected V1 API … known=V1`）：
+  - 探测：V2-first 探针失败（无 pid）→ V1 探针 1 RTT 即中 ✓
+  - Session：createSession ✓（「New session - 2026-08-27T17:15:1…」）/ listSessions ✓（空目录）
+  - System：listCommands ✓（斜杠面板 /new /compact /fork /shell… 全部来自 V1 GET /command）/ getServerPaths ✓（目录切换器列出 home）/ getHealth ✓（探测期）
+  - Provider/System：模型选择器 **Big Pickle** ✓（getProviders/getConfig 经 pick 路由）
+  - FileApi：findFiles 请求到达 V1 但参数缺口（→#248 存量）
+  - Terminal：runShellCommand 请求到达 V1 但执行失败（→#248 存量）
+  - Shell：V1 常量降级语义符合预期（无后台 shell 概念）
+- **判词**：五域收编路由在活体 V1 服务器全通；发现的三处端点级差异均为**存量 V1 兼容缺口**（V1ApiClient 请求形态 vs 1.18 过渡形态），与收编无关 → 登记 **#248**。#238 收卡。
+- 环境备注：V1 服务器保持运行（port 4200，日志 /tmp/v1server.log，数据 /tmp/v1xdg）；应用已切回 Host-4200-V1 会话列表，日常使用请用 debug-entry（Host-4199）。
