@@ -42,35 +42,40 @@ data class MdChunkPlan(
 fun computeChunkPlan(partId: String, state: State.Success, minChars: Int, targetChars: Int): MdChunkPlan? {
     val children = state.node.children
     if (children.isEmpty()) return null
+    // #246 六轮根治：剔除纯空白块（归一化后 AST 中存在空白节点——以它开头的
+    // chunk 渲染高度≈0，配合 LazyColumn 放置逻辑表现为整片消失。JVM repro
+    // 实证：chunk1 首块=' '，c0 高度塌陷被挤出视口）。charLen 只计非空白块。
+    val significant = children.mapIndexed { index, n ->
+        val s0 = n.startOffset.coerceIn(0, state.content.length)
+        val s1 = n.endOffset.coerceIn(0, state.content.length)
+        Triple(index, n, s1 > s0 && state.content.substring(s0, s1).any { it.isLetterOrDigit() })
+    }.filter { it.third }
+    if (significant.isEmpty()) return null
     // 字符量不足以分片（minChars 门槛由调用方判定，这里防御性复查）
-    val total = children.last().endOffset - children.first().startOffset
+    val total = significant.last().second.endOffset - significant.first().second.startOffset
     if (total < minChars) return null
     val ranges = mutableListOf<IntRange>()
-    var start = 0
+    var start = significant.first().first
     var acc = 0
-    for (i in children.indices) {
-        acc += children[i].endOffset - children[i].startOffset
+    for ((i, n, _) in significant) {
+        acc += n.endOffset - n.startOffset
         if (acc >= targetChars && i < children.size - 1) {
-            ranges += start until i + 1
+            ranges += start..i
             start = i + 1
             acc = 0
         }
     }
-    if (start < children.size) ranges += start until children.size
-    // #246：为每片记录首块签名——用该块在 content 中的起始文本切片（≤24 字符，
-    // 空白归一）作为渲染期锚点：chunkSuccessSlot 在实际 AST 中按签名扫描重定位，
-    // 杜绝「计划索引 vs 实际 AST」错位造成的头片丢失（时序排序由锚点顺序保证）。
+    if (start <= children.size - 1) ranges += start until children.size
+    // #246：为每片记录首块签名——用该块在 content 中的起始文本切片（≤32 字符，
+    // 跳过前导空白）作为渲染期锚点：chunkSuccessSlot 在实际 AST 中按签名扫描
+    // 重定位，杜绝「计划索引 vs 实际 AST」错位造成的头片丢失。
     val content = state.content
     fun blockAnchor(idx: Int): String {
         val b = children.getOrNull(idx) ?: return ""
-        val s = (b.startOffset).coerceIn(0, content.length)
-        val e = minOf(s + 48, content.length)
-        // 跳过前导空白后取非空前缀（32 字符）——纯空白切片无法做锚点
-        // 跳过前导空白；若整个窗口都是空白（块起始在两块间隙），向后扫描至非空白
-        var scan = s
-        while (scan < content.length && content[scan].isWhitespace()) scan++
-        val te = minOf(scan + 32, content.length)
-        return if (scan < content.length) content.substring(scan, te) else ""
+        var s = (b.startOffset).coerceIn(0, content.length)
+        while (s < content.length && content[s].isWhitespace()) s++
+        val e = minOf(s + 32, content.length)
+        return if (s < content.length) content.substring(s, e) else ""
     }
     val anchors = ranges.map { r -> blockAnchor(r.first) }
     return if (ranges.size <= 1) null else MdChunkPlan(partId, ranges, state, anchors)
