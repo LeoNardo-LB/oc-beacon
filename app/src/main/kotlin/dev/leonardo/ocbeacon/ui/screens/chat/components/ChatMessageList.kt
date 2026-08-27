@@ -902,6 +902,8 @@ fun ChatMessageList(
             androidx.compose.runtime.CompositionLocalProvider(
                 LocalRenderReadiness provides renderReadiness,
                 LocalJumpController provides jumpController,
+                // #241 渲染前补偿：列表状态下传（展开型组件就地消费，免层层穿参）
+                LocalChatListState provides listState,
             ) {
                 LazyColumn(
                     state = listState,

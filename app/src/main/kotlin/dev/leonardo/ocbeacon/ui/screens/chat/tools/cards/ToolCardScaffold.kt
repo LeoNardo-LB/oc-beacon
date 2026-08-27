@@ -26,6 +26,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clipToBounds
+import dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandRevealCompensator
+import dev.leonardo.ocbeacon.ui.screens.chat.components.LocalChatListState
+import dev.leonardo.ocbeacon.ui.screens.chat.components.expandRevealCompensation
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,12 +111,27 @@ internal fun ToolCardScaffold(
     val copyFeedback = LocalCopyFeedback.current
     val copiedMessage = stringResource(R.string.chat_copied_clipboard)
 
+        // #241 渲染前补偿（2026-08-27 用户指令扩展到其他展开面；#215 当时的
+        // 「交原生锚定」被本次指令取代）：全卡包裹链式配对——AnimatedVisibility
+        // spring 高度的逐帧增量都被裁剪+反射注入配对，展开/收起视窗零漂移。
+        val revealListState = LocalChatListState.current
+        val expandReveal = remember { ExpandRevealCompensator() }
     AmoledSurface(
         isAmoledDark = isAmoled,
         normalColor = containerColor,
         shape = ShapeTokens.smallMedium,
         normalTonalElevation = 1.dp,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .then(
+                if (revealListState != null) {
+                    Modifier
+                        .clipToBounds()
+                        .expandRevealCompensation(revealListState, expandReveal, "TC-REVEAL")
+                } else {
+                    Modifier
+                }
+            )
+            .fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(4.dp)) {
             // 标题行

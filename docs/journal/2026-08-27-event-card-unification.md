@@ -361,3 +361,14 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
   - B 展开 后：406 / 476 / 988（+184，配对注入 +63/+121）
   - C 收起 后：**406 / 476 / 804——与 A 完全一致（零偏移）**
   - 日志第三发 `real=199 report=383 inject=-184`：收缩遍保持旧高一帧 + 反射注入 -184，下一遍遍首消费后才揭示——渲染前语义贯穿展开/收起两侧，全程无滚动动画。
+
+### 八轮补三：渲染前补偿推广到工具卡家族与思考块（2026-08-27 21:00–21:15）
+
+- 用户指令：其他卡片展开/收起是否也能做成零漂移。执行两项推广：
+  1. **ToolCardScaffold 单点挂载**（卡片根 AmoledSurface 链）——一次覆盖全部工具卡家族（Shell/Bash/Read/Write/Edit/Task/Search/WebFetch/Glob/WebSearch/ToolCallCard 降级/ContextGroup/Patch/ApplyPatch，18 处使用）；
+  2. **ReasoningBlock（思考块）** 挂 AnimatedVisibility 节点外侧。
+  - 列表状态经新 CompositionLocal `LocalChatListState` 下传（ChatMessageList 既有 provider 处 provide，免 3-5 层穿参）。
+- 补偿器泛化**链式逐帧配对**：每遍 report=基准+待揭示、新增量继续注入递延——tap 瞬变（两遍配对）与 AnimatedVisibility spring 动画（逐帧 1-2px）同一机制。
+- **挂位教训**：思考块首测把 modifier 挂 AV 内侧——AV 自身尺寸动画插在中间，首帧全量测量（369）对上报（18）错配成 351 巨额注入、视窗狂跳；挪到 **AV 节点外侧**后日志变逐帧 +1/+2px 配对（21:05:49 八连发），收起侧 5→4→3→2→1 逐帧 -1 全部配对。
+- 诚实注记：动画面存在 **~53px 一次性质展开边界残留**（A→B 净漂移，收起后保持，不随循环放大；瞬变面 EventCard 仍为精确零）。疑与 expandIn 起止帧的测量口径差有关，待后续专修；#215「工具卡交原生锚定」旧裁决被本次用户指令取代（动画保留，仅视窗位移被渲染前配对）。
+- CompactionCard 未动：其展开补偿已有专用机制（COMP-CMP deferredReveal 接线）且 #215 有独立裁决，不在本轮范围。

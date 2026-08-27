@@ -2,11 +2,16 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import dev.leonardo.ocbeacon.logging.AppLogger
+
+/** 会话 LazyListState 下传通道（#241 渲染前补偿用）：ChatMessageList 在列表
+ *  内容处 provide，展开型组件就地 consume——避免穿 3-5 层签名的模板代码。 */
+val LocalChatListState = compositionLocalOf<LazyListState?> { null }
 
 /**
  * #241 展开增量渲染前补偿（一次性延迟揭示，#222 延迟揭示家族同语义）。
@@ -40,30 +45,26 @@ internal class ExpandRevealCompensator {
     /**
      * 每遍测量调用。返回 (本遍上报高度, 注入下移量)。
      *
-     * 展开与收起**对称补偿**（2026-08-27 用户现场反馈：仅补偿展开时，收起
-     * 裸跟随会让视窗内容整体下坠 Δ——reverseLayout 锚定下收缩从顶部缩）：
-     * - 增长遍：裁剪增量 + 注入 +Δ（视窗下移），下一遍对齐揭示；
-     * - 收缩遍：保持旧高一帧（正文已出组合，旧高框内下部一帧空隙，无位移）
-     *   + 注入 -Δ（视窗上移），下一遍对齐揭示——视窗内容回到展开前原位。
+     * **链式逐帧配对**（泛化版）：每遍把「上一遍注入（已在遍首消费）」对齐
+     * 揭示（report = 基准+待揭示），本遍新增长/收缩增量继续注入递延——
+     * 单帧瞬变（tap 即时展开，两遍配对）与多帧动画（AnimatedVisibility
+     * spring 高度、逐帧小增量）同一机制通吃；展开 +Δ 视窗下移、收起 -Δ
+     * 视窗上移，位移全部发生在渲染前（用户硬约束 2026-08-27）。
      */
     fun onMeasure(realHeight: Int): Pair<Int, Int> {
-        // 揭示遍：上一遍注入已在遍首消费，直接全量揭示并对齐基准
-        if (pendingReveal != 0) {
-            pendingReveal = 0
-            reportedBase = realHeight
-            return realHeight to 0
-        }
         // 冷启动：首测全量上报
         if (reportedBase <= 0) {
             reportedBase = realHeight
             return realHeight to 0
         }
-        val delta = realHeight - reportedBase
-        return if (delta != 0) {
-            pendingReveal = delta
+        val revealHeight = reportedBase + pendingReveal
+        val extra = realHeight - revealHeight
+        return if (extra != 0) {
+            pendingReveal += extra
             version++
-            reportedBase to delta
+            revealHeight to extra
         } else {
+            pendingReveal = 0
             reportedBase = realHeight
             realHeight to 0
         }
