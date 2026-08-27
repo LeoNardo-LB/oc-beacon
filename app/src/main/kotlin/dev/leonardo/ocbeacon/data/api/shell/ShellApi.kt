@@ -14,7 +14,8 @@ import javax.inject.Singleton
  * V2 `POST /api/shell` 启动的非交互后台命令：
  * - stdout/stderr 合并捕获到文件，可分页读取
  * - 生命周期：running → exited（exit code）或 remove 终止
- * - V1 无此概念（V1 的 shell 是交互式 pty / bash 工具 part）——所有方法 V1 返回空/不支持。
+ * - V1 无此概念——常量降级（emptyList/null/null/false）已下沉至
+ *   [V1ApiClient] 的 ShellApi 实现（C1-8，2026-08-27 #238 五域收编）。
  */
 interface ShellApi {
     suspend fun listShells(conn: ServerConnection, directory: String? = null): List<ShellJob>
@@ -38,11 +39,14 @@ class ShellApiImpl @Inject constructor(
     private val v2: V2ApiClient
 ) : ShellApi {
 
+    private fun pick(conn: ServerConnection): ShellApi =
+        if (conn.apiVersion.isV2) v2 else v1
+
     override suspend fun listShells(conn: ServerConnection, directory: String?): List<ShellJob> =
-        if (conn.apiVersion.isV2) v2.listShells(conn, directory) else emptyList()
+        pick(conn).listShells(conn, directory)
 
     override suspend fun getShell(conn: ServerConnection, shellId: String, directory: String?): ShellJob? =
-        if (conn.apiVersion.isV2) v2.getShell(conn, shellId, directory) else null
+        pick(conn).getShell(conn, shellId, directory)
 
     override suspend fun getShellOutput(
         conn: ServerConnection,
@@ -50,9 +54,8 @@ class ShellApiImpl @Inject constructor(
         cursor: Long?,
         limit: Int?,
         directory: String?
-    ): ShellOutput? =
-        if (conn.apiVersion.isV2) v2.getShellOutput(conn, shellId, cursor, limit, directory) else null
+    ): ShellOutput? = pick(conn).getShellOutput(conn, shellId, cursor, limit, directory)
 
     override suspend fun removeShell(conn: ServerConnection, shellId: String, directory: String?): Boolean =
-        if (conn.apiVersion.isV2) v2.removeShell(conn, shellId, directory) else false
+        pick(conn).removeShell(conn, shellId, directory)
 }

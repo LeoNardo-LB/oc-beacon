@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
+import dev.leonardo.ocbeacon.data.api.shell.ShellApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
@@ -114,7 +115,7 @@ private const val TAG = "V2Api"
 @Singleton
 class V2ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi, ProviderApi {
+) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi, ProviderApi, ShellApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -298,9 +299,9 @@ class V2ApiClient @Inject constructor(
      * 列出运行中的后台 shell 命令（GET /api/shell）。
      * 已退出的命令不包含在列表中。
      */
-    suspend fun listShells(
+    override suspend fun listShells(
         conn: ServerConnection,
-        directory: String? = null
+        directory: String?
     ): List<ShellJob> {
         val response = httpClient.get("${conn.baseUrl}/api/shell") {
             auth(conn)
@@ -312,10 +313,10 @@ class V2ApiClient @Inject constructor(
     /**
      * 获取单个后台 shell（GET /api/shell/:id），含状态与退出码。
      */
-    suspend fun getShell(
+    override suspend fun getShell(
         conn: ServerConnection,
         shellId: String,
-        directory: String? = null
+        directory: String?
     ): ShellJob? {
         val response = httpClient.get("${conn.baseUrl}/api/shell/$shellId") {
             auth(conn)
@@ -331,12 +332,12 @@ class V2ApiClient @Inject constructor(
      * 分页读取后台 shell 输出（GET /api/shell/:id/output）。
      * 按字节游标读取捕获的 stdout/stderr 合并输出。
      */
-    suspend fun getShellOutput(
+    override suspend fun getShellOutput(
         conn: ServerConnection,
         shellId: String,
-        cursor: Long? = null,
-        limit: Int? = null,
-        directory: String? = null
+        cursor: Long?,
+        limit: Int?,
+        directory: String?
     ): ShellOutput? {
         val response = httpClient.get("${conn.baseUrl}/api/shell/$shellId/output") {
             auth(conn)
@@ -358,10 +359,10 @@ class V2ApiClient @Inject constructor(
     /**
      * 终止并删除后台 shell（DELETE /api/shell/:id）。
      */
-    suspend fun removeShell(
+    override suspend fun removeShell(
         conn: ServerConnection,
         shellId: String,
-        directory: String? = null
+        directory: String?
     ): Boolean {
         val response = httpClient.delete("${conn.baseUrl}/api/shell/$shellId") {
             auth(conn)

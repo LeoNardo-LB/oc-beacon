@@ -15,6 +15,7 @@ import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
+import dev.leonardo.ocbeacon.data.api.shell.ShellApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
@@ -77,7 +78,7 @@ private const val TAG = "V1Api"
 @Singleton
 class V1ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi, ProviderApi {
+) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi, ProviderApi, ShellApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 
@@ -533,6 +534,34 @@ class V1ApiClient @Inject constructor(
         return httpClient.post("${conn.baseUrl}/mcp/$name/disconnect") {
             auth(conn)
         }.body()
+    }
+
+    // ============ Shell（V1 无此概念，C1-8 常量降级——原 ShellApiImpl 分支下沉） ============
+
+    override suspend fun listShells(conn: ServerConnection, directory: String?): List<dev.leonardo.ocbeacon.domain.model.ShellJob> {
+        AppLogger.d(TAG, "listShells: V1 无后台 shell 概念，恒空")
+        return emptyList()
+    }
+
+    override suspend fun getShell(conn: ServerConnection, shellId: String, directory: String?): dev.leonardo.ocbeacon.domain.model.ShellJob? {
+        AppLogger.d(TAG, "getShell: V1 无后台 shell 概念，恒 null")
+        return null
+    }
+
+    override suspend fun getShellOutput(
+        conn: ServerConnection,
+        shellId: String,
+        cursor: Long?,
+        limit: Int?,
+        directory: String?
+    ): dev.leonardo.ocbeacon.domain.model.ShellOutput? {
+        AppLogger.d(TAG, "getShellOutput: V1 无后台 shell 概念，恒 null")
+        return null
+    }
+
+    override suspend fun removeShell(conn: ServerConnection, shellId: String, directory: String?): Boolean {
+        AppLogger.d(TAG, "removeShell: V1 无后台 shell 概念，恒 false")
+        return false
     }
 
     // ============ Provider / Config ============

@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.api
 
 import dev.leonardo.ocbeacon.data.api.file.FileApiImpl
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApiImpl
+import dev.leonardo.ocbeacon.data.api.shell.ShellApiImpl
 import dev.leonardo.ocbeacon.data.api.message.MessageApiImpl
 import dev.leonardo.ocbeacon.data.api.system.SystemApiImpl
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApiImpl
@@ -310,6 +311,30 @@ class V1V2DialectContractTest {
 
         coVerify(exactly = 1) { v1.disposeGlobal(connV1) }
         coVerify(exactly = 1) { v2.disposeGlobal(connV2) }
+    }
+
+    // ---------- Shell ----------
+
+    @Test
+    fun `shell - V1 conn degrades listShells inside v1 client`() = runTest {
+        val api = ShellApiImpl(v1, v2)
+        coEvery { v1.listShells(connV1, null) } returns emptyList()
+
+        assertTrue(api.listShells(connV1).isEmpty())
+
+        coVerify(exactly = 1) { v1.listShells(connV1, null) }
+        coVerify(exactly = 0) { v2.listShells(any(), any()) }
+    }
+
+    @Test
+    fun `shell - V2 conn routes removeShell to v2 only`() = runTest {
+        val api = ShellApiImpl(v1, v2)
+        coEvery { v2.removeShell(connV2, "sh_1", null) } returns true
+
+        assertTrue(api.removeShell(connV2, "sh_1"))
+
+        coVerify(exactly = 1) { v2.removeShell(connV2, "sh_1", null) }
+        coVerify(exactly = 0) { v1.removeShell(any(), any()) }
     }
 
     // ---------- Message ----------
