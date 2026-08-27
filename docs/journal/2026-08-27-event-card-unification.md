@@ -455,3 +455,9 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 - 用户裁决：展开内容一律**从上到下**（此前思考块呈左上→右下斜向 = AV 默认 expandIn 方向不一致）。
 - 实现：ExpandReveal.kt 增共享过渡常量 ExpandEnterTransition（fadeIn + expandVertically(Top)）/ ExpandExitTransition（fadeOut + shrinkVertically(Top)），六处 AV 统一引用：ToolCardScaffold（工具卡家族）/ ReasoningBlock / EventCard / QuestionPartContent / TodoListCard / **CompactionCard**（一致性检查发现同为展开面，一并统一）。
 - 回归：思考块循环 C==A 零漂移；收起链逐帧配对至 real=0（零高帧也被配对，无短路回归）。Glob/WebSearch 内层 AV 为 expandedContent 内层初现（不重复动画）不动。
+
+## 收卡二（2026-08-28 00:58，用户验收「好 没啥问题，请你进行后续作业吧」）
+
+- **#241 收卡**：统一方向（从上到下）+ 动画收放 + 逐帧渲染前配对最终形态，用户真机确认无问题。机制全记录见 §八轮补一～补十二。
+- **#243 收卡**：合成卡去重（首张 + ×N）落地，单测 6/6 + 真机 E2E 全自动通过，用户确认。另立 **#247**（回合内 tool 卡连排去重——另一表面，待产品确认交互后实施）。
+- 本批（#234 家族 + #238/#240/#241/#242/#243/#246）至此全部闭环；在册：#146/#154（挂起）、#235/#238 待验/#247（新）、#158/#245（观察/待现场数据）。

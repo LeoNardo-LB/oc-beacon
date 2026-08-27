@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#247**。
+**编号**：全局递增，不回收。下一编号：**#248**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -74,22 +74,15 @@
 
 ## P3 — 观察与低价值改进
 
-- [~] **#241 视口顶部事件卡展开时标签行被推出视口——渲染前逐帧配对 + 动画收放（最终形态， reopened+completed）** `ui`
-  - 机制（2026-08-28 二次裁决）：ExpandReveal.kt 链式逐帧配对 + 六面 AnimatedVisibility 统一过渡（全部从上到下：fadeIn+expandVertically(Top) / fadeOut+shrinkVertically(Top)，共享常量 ExpandEnter/ExitTransition；含压缩卡一致性统一）——瞬时收起的 Δ 单帧跳变物理上不可消除，动画逐帧收回+每帧渲染前配对是唯一无跳方案（去动画裁决被取代；其残留真因 everMeasured/零高短路/AV 内侧挂位均已修）
-  - 真机实证：agent 卡收起 30+ 帧弹簧衰减逐帧配对（-27/-25/-80/-14…，real 348→128 平滑收回）、无单帧大跳、终态零漂移；TaskToolCard/SNC EventCard 双表面复测零漂移；防御性 SyntheticNotice 两处补线全覆盖
-  - 待 V6：真手指手感最终确认（自动化已测终态+逐帧日志，瞬态观感由用户定夺）
-  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补一～补十一
-
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修
   - → `docs/journal/2026-08-20-queue-todo.md` · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
-- [~] **#243 同色巨型日志气泡连续堆叠易读作「消息重叠」——合成卡去重已落地（×N）** `ui` `data`
-  - #234 二轮取证证伪渲染层重叠（像素级零越界）；八轮复核维持证伪，现象转化为「同色紧凑卡连排+表头重复」
-  - 去重已落地（2026-08-27 用户裁决「完全相同内容显示 ×N 即可」）：syntheticDedupKey（仅 shell 卡，易变 id 不参与）+ 连续同键首张保留 ×N、其余抑制；SyntheticDedupTest 6/6；真机 E2E 全自动通过（服务器注入 3 连同命令 → 1 卡「后台命令完成 ×3」+ 保留卡可展开，历史非连续卡不误折叠）
-  - 待 V6：×N 标签观感。回合内 tool 卡连排为另一表面未去重（如需另立卡）；溢出防御扫漏 DiffHelpers/QuestionPartContent 已补 clipToBounds
-  - → `docs/journal/2026-08-27-event-card-unification.md` §取证 · §八轮补九 · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
+- [ ] **#247 回合内 tool 卡连续同内容去重（#243 另一表面）** `ui`
+  - #243 去重已覆盖合成事件卡（×N）；回合**内部**的 tool 卡（如连续 3 张同命令 $sleep 卡）为另一渲染面（RenderableTurn/PartContent 层），现象相同未去重
+  - 候选：同键折叠为首张 + ×N；需产品决策确认交互后实施
+  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮补九
 
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`
