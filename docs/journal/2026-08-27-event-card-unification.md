@@ -288,3 +288,50 @@ shell 卡四点点击矩阵（标题行×2 + chevron×2 含旧热区映射位）
 - 真机 slot 探针（DEBUG ChunkDiag）：c0 from=0 to=22 first=[# 数据库索引完整知识体系详解]、c1 from=23 first=[## 5. 索引下推]
 - 真机截图：用户气泡 → 智能体标签 → 思考完毕 → H1 大标题 → 1. B+树结构与磁盘页 → 正文
 - 用户验收：2026-08-27 「246 ok了」
+
+## 八轮：展示会话三卡活体 + shell 失败态派生 + #244/#241/#245 三线（2026-08-27 19:00–20:00）
+
+### 展示会话（#234 验收演示）三条演示全数活体
+
+- 会话「#234 事件卡片验收演示」（ses_fbd45a2bdffe2NDkcJaX1y0cRt）；余额恢复后三轮 prompt 重发全 200：
+  - p2「sleep 4 && echo 后台任务完成」→「后台命令完成」卡（中性描边，描述行=命令预览 ✓）
+  - p3「exit 7」→ 见下节失败态
+  - p1 task 子智能体 →「General-fast Agent / 统计md文件数量」卡 + 向前导航箭头 + 结果正文 10617 个 .md ✓（现场截图帧 /tmp/shot_fail.png）
+- 首轮冷进场四分钟拖动全灭的插曲 → #245 取证（见下）。
+
+### shell 失败态服务器语义缺陷 + 客户端派生（新发现，当日修复）
+
+- **原始 XML 实证**：opencode V2 对后台 shell **一律** state="completed"，exit 7 亦然；失败信号仅在正文尾部「Command exited with code 7.」。历史「失败态未活体取证（历史无 error 数据）」由此定因——不是没有失败，是服务器永不发 error。
+- 客户端修复（SyntheticNotificationCard.kt，呈现层小修、解析层守恒 §6）：shellExitFailure = source=="shell" 且输出匹配 /Command exited with code [1-9]\d*/，并入 isFailed。装包复验：失败卡红描边 + ErrorOutline 图标 +「后台命令失败」标签 + 描述行 exit 7，与成功卡同屏对比达标（Q5 严重度编码首次活体可达）。
+- 上游候选（#146 家族补一行）：V2 后台 shell 状态语义退化，建议 upstream issue。
+
+### #244 卡内滚动区到边穿透——嵌套滚动岛落地（14 站点 + JVM 7 用例）
+
+- 机制：ScrollIsland.kt 边界岛连接器（onPreScroll/onPreFling，边界吞噬判定纯函数 scrollIslandConsumeY：顶边压/底边推全量吃，中段与短内容透明）。挂靠位=内嵌 scrollable 的**外侧**（同链 nestedScroll 先于 verticalScroll / 包裹内层 LazyColumn）。
+- 站点（survey 子代理全量盘点，聊天树零既有 nestedScroll）：EventCard 300dp 展开区、ReasoningBlock 240dp、ToolCardRenderer、Shell/Write/Read/Edit/Bash/Task/Search/WebFetch 七卡、DiffHelpers（滚动状态外提）、QuestionPartContent 单页+Pager 页、WebSearch/Glob 内嵌 LazyColumn（rememberListIsland + 显式 LazyListState）。排除：PendingSheets/Dialog/输入浮层（列表项之外）。
+- 单测 ScrollIslandConsumeTest 7/7 绿（含短内容透明边界回归——首版判定函数在该分支漏吃，测试抓出后修复）。
+- 真机交互验证被 #245 输入异常窗口阻塞（展开抽屉/翻页不稳定），转 V6 清单（见 backlog 卡）。
+
+### #241 视口顶卡展开标签行保护——增量回调 + forward 微滚
+
+- EventCard 增 onExpandGrow(deltaPx)：折叠态基线高度常驻记录，false→true 后首个稳定尺寸帧上报一次（初组合即展开不触发）。
+- 接线两处（system 直挂卡 + MessageCard→SyntheticNotificationCard 透传）：listState.animateScrollBy(+Δ)——reverseLayout 下向 forward 等量微滚让被锚定推出视口顶的标签行回落（方向推演：forward=数据序前进=视口内容下移=顶外内容回落）。手感定标随 V6。
+- 三段式展开高度上限本就 300dp（Q11），无需再改。
+
+### #245 拖动冻结——巨帧取证当日最大进展（未结案）
+
+- 可靠复现形态：**冷启动进场后**，拖动（任意方向、任意速率、含 fast fling）列表纹丝不动；轻点/键盘 PAGE_UP/程序化路径正常；jog 或首次成功拖后自愈；会话列表页同样被吞（app 级，非列表级）。
+- 探针链三轮（PtrDiag 根级 + 列表外层，DEBUG 临时，已摘除）：
+  1. 2.5s 注入拖动（~150 move）→ Compose 根只收 **2-3 帧、travel=1700px 完整**——平台把拖动**合并成巨型帧**；
+  2. 列表外层 consumed=0——无任何层消费；isScrollInProgress=true——scrollable 认领却零位移；
+  3. 排除族：锚点战争（零 LEAP）、shouldComp 闩锁（释放正常）、输入缺失（travel 在）。
+- 修复尝试：v1 NestedScrollConnection onPreScroll 分块——**机制勘误**：祖先连接只承接更深层滚动器的流，列表自身拖动不经过（真机 3/3 无效）；v2 Initial 隧道趟 pointerInput + ≤100px 切片 dispatchRawDelta——真机 3/3 仍冻结（巨帧分块不是拒绝原因，指向更深：疑似 LazyList 滚动管线对合并帧时间戳/速度的处理）。v2 守卫保留（病态阈值路径，健康帧零触碰），效果存疑已如实注记。
+- 结论：#245 维持 [ ]，根因假设收敛为「框架层对合并巨帧的滚动处理缺陷」，下一步=守卫内打点确认 dispatchRawDelta 是否被调用及返回值（一跳即可定界 app/框架）。
+
+### #243 答复（无代码动作）
+
+- 未曾修过：二轮取证已证伪渲染层重叠（像素级零越界），「重叠」观感=同色 teal 大气泡内容大量重复（同一报错一屏 3 次）+ turn-notify 回显整段终端日志的体量堆积。维持观察/产品决策项（折叠聚合/去重提示/色彩分层三候选待裁决）。
+
+### 验证矩阵增量
+
+- :app:testDevDebugUnitTest 全绿（新增 ScrollIslandConsumeTest 7 用例）；assembleDevDebug 通过；i18n 无字符串改动（失败标签串 chat_event_shell_failed 既有）。

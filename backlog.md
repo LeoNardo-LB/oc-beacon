@@ -55,12 +55,13 @@
 
 - [~] **#234 对话流事件卡片统一：task/shell 完成 + system 通知严格同构 EventCard** `ui` `sse`
   - 14 问拷问闭环（2026-08-26）：族一三种 SSE 事件元素统一为严格同构卡片；#67 task 卡形态翻案与 #232 system 单行通知退役均在本卡声明。实施期用户裁决——描述行按「数据实际存在即激活」（Q15）
-  - **待验证（2026-08-27）**：V1 全绿 + 真机走查三场景实证新形态（system 完整达标 / shell 达标 / subagent 达标但跳转箭头缺→#240）；失败态未活体取证（历史无 error 数据）；V6 用户人工清单已出待验收
+  - **待验证（2026-08-27）**：V1 全绿 + 真机走查三场景实证新形态（system/shell/subagent 全达标）；八轮补遗——①失败态语义缺陷定因：服务器对后台 shell 恒发 state="completed"，失败只在正文「Command exited with code N」→ 客户端正文派生 isFailed（红描边/失败标签/错误图标首次活体可达）②验收演示会话三卡全数活体（成功/失败/子智能体箭头同屏截图），V6 清单待用户执行
   - → `docs/specs/2026-08-26-event-card-unification-design.md` · `docs/journal/2026-08-27-event-card-unification.md`
   - → `docs/specs/2026-08-26-event-card-unification-design.md`
 
 - [ ] **#146 OpenCode 官方问题清单（issue/PR 候选）** `upstream`
   - ①V2 不发 compaction.started（引擎没接线）②SSE 重连无事件回溯 ③cursor V1 格式返回 400 ④fork handleRaw bug ⑤工具输出截断语义——上游核查完成（repo 已迁 anomalyco/opencode），逐项行动方案已定
+  - ⑥候选（2026-08-27 八轮实证）：V2 后台 shell 状态恒 completed（exit 7 亦然），失败信号仅正文文本——上游语义退化，客户端已防御性派生
   - 提 PR 前提（用户定规）：本地定位官方源码 → 修复 → 完整测试（含 E2E+交叉验证）→ 人工测试 → 才可提交
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
@@ -75,38 +76,29 @@
   - 按试点同模式（8a0cc375/726350ca）：各域 V1/V2ApiClient 实现域接口、Impl 收缩单点 pick、真实适配下沉；共 43 处逐方法 if 待消除
   - 决策与先例见 2026-08-26 架构走查（候选 1）+ Session/Message 试点
 
-- [~] **#242 会话导航缺 4xx 防御：伪会话 id 触发 GET /message 400 后渲染空 Chat 页** `crash` `session` `sse`
-  - #234 二轮取证实锤（3/3 复现）：点击 shell 卡热区以 jobID=call_… 伪会话导航 → listMessages 返回 ClientError(400) → 消息区全空「Chat」页 + 列表被「无标题会话」污染；**当日修复（03c7fc29）**：①非 ses_ 前缀 id 导航源头拦截 ②入口加载失败上抛 errorSink→ChatErrorState（自动退避重试页）③refresh 同源处理
-  - 验收方式：T3 自动化已绿（0×call_ 导航 / 0×400 / 合法子会话导航正常）+ 2026-08-27 #240 跳转实测（箭头→真实子会话无空页）；shell 卡按 Q17 裁决无箭头=入口已移除，人工仅需一眼确认
-  - → `docs/journal/2026-08-27-event-card-unification.md` §#242 防御落地
-
-- [~] **#240 synthetic 解析属性错配：sessionID=/command=/call_ id 三处——旧格式消息跳转与描述行缺失** `data` `session`
-  - #234 真机走查实证：旧 <subagent> 格式服务器用 `sessionID=` 而解析器只认 `id=` → 子会话跳转箭头与定位钮全缺（#216 入口在该类消息丢失）；<shell> 用 `command=` 而读的是 `description=` → 命令预览不显示；shell 卡 id 属性实为工具调用 id（call_…）非会话 id，箭头指向悬空
-  - 修复已落地（TDD 红→绿 11 通过）；2026-08-27 真机复验（杭州公积金会话旧格式数据）：描述行显示 + 跳转箭头存在 + 箭头落入真实子会话（非 call_ 伪会话）——Agent 真机代验，用户口头委托
-  - → `docs/journal/2026-08-27-event-card-unification.md` §解析层发现
-
 ## P3 — 观察与低价值改进
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - → `docs/journal/2026-08-20-queue-todo.md`
 
-- [ ] **#241 视口顶部事件卡展开时标签行被推出视口（W1 类残留）——维持观察** `ui`
-  - #234 真机走查（e234-04 截图，journal/assets 本地留存）：列表顶格的卡展开时 LazyColumn 锚定保正文可见但标签行滚出视口顶部；非阻塞，中间位置卡无此现象；候选方向：反向锚定保标签行（需权衡展开瞬间跳动）
-  - → `docs/journal/2026-08-27-event-card-unification.md` §E2E
+- [~] **#241 视口顶部事件卡展开时标签行被推出视口——增量回调 + forward 微滚已落地** `ui`
+  - 机制：EventCard 增 onExpandGrow(Δpx)（折叠态基线记录，展开后首稳定帧上报一次）；ChatMessageList 两处接线 listState.animateScrollBy(+Δ)——reverseLayout 下向 forward 微滚让标签行回落；展开高度上限 300dp（Q11）本就存在无需另改
+  - 待验证（V6）：任意会话滚到某事件卡顶格→展开→标签行应保持可见；手感（微滚幅度/方向）若反直觉回报即可，常数一行可翻
+  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮/#241
 
 - [ ] **#243 同色巨型日志气泡连续堆叠易读作「消息重叠」——观察/产品向** `ui` `data`
   - #234 二轮取证证伪渲染层重叠（像素级检查零越界），「重叠」观感实为相邻同色 teal 大气泡内容大量重复（同一报错一屏 3 次，25KB 级多个连排）快读致混淆；另 turn-notify 回显整段终端日志加剧体量
   - 候选方向（需产品决策）：连续同类 tool 输出折叠聚合/摘要行；重复内容去重提示；气泡色彩分层。先维持观察
   - → `docs/journal/2026-08-27-event-card-unification.md` §取证
 
-- [ ] **#244 卡内滚动区到边后 fling 穿透外层列表——嵌套滚动手感裁决** `ui`
-  - #234 复验实证（F2）：事件卡 300dp 展开区滚到底后继续 fling 会带动外层 LazyColumn 把整卡滚走（标准 nested scroll 但体感差，多轮取证因此反复丢定位）；思考块/工具卡输出区同理
-  - 候选：嵌套滚动连接器的边界 consumed 处理（到底后不外传速度）；或维持现状（Android 惯例）。需手感裁决后定
-  - → `docs/journal/2026-08-27-event-card-unification.md` §复验
+- [~] **#244 卡内滚动区到边后 fling 穿透外层列表——嵌套滚动岛已落地（14 站点）** `ui`
+  - 机制：ScrollIsland.kt 边界岛连接器（onPreScroll/onPreFling：到边且同向→全量吞噬；中段/短内容透明），挂靠内嵌 scrollable 外侧；站点=EventCard/ReasoningBlock/ToolCardRenderer/七工具卡/DiffHelpers/QuestionPartContent×2/WebSearch/Glob 内嵌列表（survey 全量盘点）
+  - 单测 ScrollIslandConsumeTest 7/7；待验证（V6）：展开任一长内容卡→滚到底继续甩→整卡不应被甩走；手感裁决（边界封死 vs 惯例穿透）若嫌粘手可加阈值放宽
+  - → `docs/journal/2026-08-27-event-card-unification.md` §八轮/#244
 
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`
   - 手势阶梯实验（e234g-REPORT）+ 六轮两次现场同帧复现：数屏长单项区域下滑帧字节级静止（方向不对称、moveCount 完整送达）；四轮 T2 一度判全档失效后更正为测量假象嫌疑——维持「嫌疑+未确证」；#246 自愈装机后仍观察一次，疑独立机制
-  - 待办：独立诊断定位钳制源（isAtBottom/autoScroll/延迟揭示族，AGENTS.md SSE 滚动铁律域）；真人影响面走 V6 人工项；与 #234 改动无直接关联
-  - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯
+  - 2026-08-27 八轮巨帧取证（PtrDiag 探针链）：冷启动进场窗口拖动全灭；平台把 2.5s 拖动合并成 2-3 巨帧（travel 完整）送达、列表认领却零消耗（consumed=0）；锚点战争/闩锁/输入缺失三族排除；v1 连接器形态机制性空转（勘误入档）、v2 Initial 隧道分块无效——下一步=守卫内打点看 dispatchRawDelta 返回值定界 app/框架
+  - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯 · §八轮/#245
