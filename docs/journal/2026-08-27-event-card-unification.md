@@ -856,3 +856,13 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **崩溃**（真机必现）：IllegalStateException entered drag with non-zero pending scroll——用户拖动/fling 的 dispatchRawDelta 撞上 LazyListState.scrollToBeConsumed 非零残留。注入源 = ExpandReveal 补偿的 LazyListReflection.requestScrollShift（直接反射写 scrollToBeConsumed，子 item 测量期注入，残留窗口 = 帧间）。**shell 卡默认展开（1f9a88dc）让注入频率大增**（每张展开卡逐帧注入）→ 用户拖动撞残留概率大增 → 必现崩溃。#241 反射注入通道与用户输入路径的竞态为**存量架构缺陷**，被本轮放大暴露。
 - **回退**（a3fdb12c）：revert 3eceb2c6（收敛锚定）+ 1f9a88dc（跳变修复+默认展开）——回到 80e4235a 稳定态（FAB 差一段与收起跳变回归为已知问题，但不崩溃）。全量单测绿、装机验证。
 - **后续方向**（待裁决后另行实施）：①拆除 EventCard/ReasoningBlock/QuestionPartContent/TodoListCard/ToolCardScaffold 等全部 expandRevealCompensation 注入（崩溃源清除），展开视窗行为回归自然锚定；②展开视窗保持改用安全通道（展开后 scrollToItem(index, offset) 官方 API 精确对齐，无 pending scroll 残留）；③流式家族 deferredRevealCompensation（ScrollCompensation.kt）同通道竞态风险独立评估。见 #256 关联。
+
+## 二十五轮：换道手术——渲染前补偿统一运输层（用户裁决「渲染前计算的根因修复模式」，2026-08-28 22:00–22:35）
+
+- **裁决**（grilling 会话收敛，7 项）：约束不动摇（渲染前补偿）、不拆除、换道根因修复、两族同批迁、用户发起 shell 卡默认展开（agent 工具卡收起）、收起形态与 FAB 同批验证、真机验收+人工校验。
+- **承重事实**（foundation-android 1.11.2 sources 逐行核销 + 独立 subagent 调研互证）：断言唯一入口 onScroll（LazyListState.kt:500，容差 0.5f）只查 scrollToBeConsumed；官方 requestScrollToItem 自 1.7.0 即稳定 API（非 Experimental），实现=requestPositionAndForgetLastKnownKey+invalidateScope，全程不触碰 scrollToBeConsumed、measure 遍首消费、drag 无断言；#222 回写竞争根源是「测量中途注入被遍末 updateFromMeasureResult 覆盖」——帧界注入时上一遍已完全结束，无覆盖窗口。升级无效（master 断言仍在）。
+- **commit 6078029f**：新增 PreRenderShiftChannel（measure 内入队 → MonotonicFrameClock 帧界排空 → requestScrollToItemNoCancel 注入；isScrollInProgress 守卫+负 offset 钳 0+三级降级阶梯）；两族补偿（expand 5 处+流式 5 处）统一切换；LazyListReflection 删除 requestScrollShift/scrollToBeConsumedField（**崩溃源物理消失**）；ExpandRevealCompensator 补装 #239 holdReveal 同款滚动守卫；ChatMessageList 挂帧界排空泵；状态机配对语义单测锁死 11 例（含 holdReveal 分支，测试先抓到 2 处期望错——状态机本身正确）。全量 2160 例绿。
+- **commit 2a270536**：EventCard defaultExpanded 形参 + shell 分支默认 true（本地乐观合成卡同经此分支一致展开）。
+- **真机门 A**：疲劳压测 36/36 轮（294 组手势、展开/收起动画×拖动/fling 混沌）148 次注入 145 次排空 **0 FATAL**；A2 默认展开卡×fling 穿越 12/12 轮 0 FATAL。SSE off-轨迹（5000 词 2m33s 长文流式）：链式配对逐帧咬合（RB-REVEAL inject=1 → drain off+1 → RESIZE d=1），阅读期 off 冻结，滚停后一次 400px 欠账注入-应用-揭示端到端配对（idx12/off154→554，measure 归一化至 idx14/off108 属官方文档语义）——无 #222 爬移。
+- **FAB「差一段」未复现**：FAB 一击真底（idx2/off3040→0/0），4s 内无延迟测量推离回弹（#256 勘误的 +55/+194/+466 推离在新通道下被配对吸收）——根因级改善实证。期间 LEAP idx 40→0 系测试者自身 FAB 点击（日志 rawX=120 rawY=2096 实证），非异常。
+- **遗留**：收起视觉形态、默认展开浏览体验属 V6 人工验收项（清单已交用户）；流式家族残余竞态窗口（通道②无断言，最坏一帧位置校正）已随换道消除，无需 backlog。
