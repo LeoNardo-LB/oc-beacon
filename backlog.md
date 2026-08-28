@@ -6,10 +6,10 @@
 
 **编号**：全局递增，不回收。下一编号：**#258**。
 
-- [ ] **#257 历史 shell 卡输出体空白——跨进程输出续读链缺失（V6 二轮顺带发现）** `ui` `data`
-  - 现象（2026-08-29 真机）：重启后的历史卡（fabrepro/fabfix/convfix 等 5 张）命令行在、输出体空白——ShellJobsStore 内存态清空后 provider 三级链（store→parts 回填→REST /api/shell/:id/output）未兜住
-  - 嫌疑：Room 落库时 output 未持久化（早期映射）或分页窗口外 parts 缺 output 字段；早于换道手术存在，非本轮回归
-  - 修复方向：落库时持久化 output 全文 / 卡片组合时按 shellID REST 续读；→ `docs/journal/2026-08-27-event-card-unification.md` §二十六轮
+- [ ] **#257 历史 shell 卡输出体空白 / 半截卡——markdown 状态流 Loading 首帧（根因已定，修复待验收）** `ui`
+  - 现象（2026-08-29 真机）：历史卡输出体空白；另一形态=卡被裁半（fabfix 卡停在 232px held 高度，底边消失）
+  - 根因（字节码+Room 直查双实证）：Mikepenz MarkdownStateImpl 状态流初值 State.Loading → 每个新组合实例首帧渲染空内容（卡 232px），下一拍出全高（405px）→ EV-REVEAL 每轮 fling 23 次「裁剪+注入+揭示」循环，任一揭示遍丢失即永久裁半。Room output 持久化完好（sqlite 直查排除原嫌疑）
+  - 修复：shell 输出脱离 markdown 管线，ShellOutputBlock verbatim 直渲染首测即终高；→ `docs/journal/2026-08-27-event-card-unification.md` §二十七轮——**用户验收后迁 journal**
 
 - [ ] **#255 shell 模式触发健壮化——前导空白 + 全角「！」容许（开发过程发现，已修复，待验收）** `ui`
   - #252/#253 E2E 过程实证：「空格 + !cmd」（E2E 驱动误触空格键）整体回落普通消息（uiautomator 直读字段前导 0x20）；中文 IME 环境「!」偶发落全角「！」（条带 exit 127 实证）——真人同样可触

@@ -83,7 +83,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel
 import dev.leonardo.ocbeacon.ui.screens.chat.InteractionState
 import dev.leonardo.ocbeacon.ui.screens.chat.MessageListState
 import dev.leonardo.ocbeacon.ui.screens.chat.SessionMetaState
-import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
@@ -1415,17 +1414,18 @@ fun ChatMessageList(
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     )
                                                 } else if (out.isNotBlank()) {
-                                                    // #252 V6 反馈：shell 输出按围栏代码块渲染——
-                                                    // 裸文本走 markdown 会把单换行折叠成空格
-                                                    // （3 行输出显示成 1 行 = 「有内容但高度不对」），
-                                                    // 且输出中 #/*/` 等字符会被误当 markdown 解释。
-                                                    // 代码块保留换行 + 字面渲染（对齐 TUI/web
-                                                    // 端 verbatim 形态）；4 反引号容忍输出内含 ```。
-                                                    MarkdownContent(
-                                                        markdown = "````\n" + out + "\n````",
-                                                        textColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                        isUser = false,
-                                                    )
+                                                    // #252 V6 反馈：shell 输出按代码块渲染——裸文本走
+                                                    // markdown 会把单换行折叠成空格（3 行显示成 1 行），
+                                                    // 且 #/*/` 等字符会被误当 markdown 解释。
+                                                    // #252 V6 三轮「半截卡」根因修复（2026-08-29）：
+                                                    // 不再经 MarkdownContent——库的 markdown 状态流
+                                                    // 初值 State.Loading 使每个新组合实例首帧渲染空
+                                                    // 内容（卡 232px），下一拍才出全高（405px），每张
+                                                    // 历史卡每次组合都触发一轮 EV-REVEAL「裁剪+注入+
+                                                    // 揭示」（真机一轮 fling 23 次实证）；任一揭示遍
+                                                    // 丢失即永久停在 held 矮高度被裁半。ShellOutputBlock
+                                                    // verbatim 直渲染首测即终高，闪烁窗口从构造上消灭。
+                                                    ShellOutputBlock(output = out)
                                                 }
                                             },
                                         )

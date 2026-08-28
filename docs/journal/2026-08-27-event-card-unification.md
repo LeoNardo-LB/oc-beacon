@@ -873,3 +873,15 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **commit 7f1777be**：expand 家族拆除滚动裁剪；PreRenderShiftChannel 注入代计数（入队/落地）+ shiftSettled 门，drain 移除滚动闸门（降级/钳 0 路径照常落地代计数，宁推挤不卡裁剪）；两族状态机统一竞态门（注入未落地保持基准裁剪）；流式家族 holdReveal 不动（#239 定案，V6 症状 4 无回归）。单测 hold 用例改写为竞态门用例，全量绿。
 - **真机实证**：fling 进行中（gesture=true）shell 卡迟到解析 +55 → 注入 → 排空（off 6131→6186）→ 同遍揭示（RESIZE 232→287）全链滚动内完成；FAB 一击真底（idx0/off1956→0）3 秒无回弹；0 FATAL。测试插曲：fling 方向反了（在底部向上推=往尽头）误判「列表冻结」，方向修正后一切正常。
 - **遗留 V6 二轮**：收起视觉形态、发送时乐观卡→真卡交换的抖动感知（P1-b 让位机制范畴，与补偿无关）、整体浏览体验主观评价。
+
+## 二十七轮：V6 三轮「半截卡」根因修复——shell 输出脱离 markdown 管线（2026-08-29 02:10–03:00）
+
+- **现象**（用户截图 + 截屏/uiautomator 双取证）：fabfix 卡只显示到输出块顶部 20px 细条即被截断——左右描边与底边凭空消失、下卡上贴。几何归因：输出块 HorizontalScrollView bounds [84,1250][1116,**1270**]（正常卡 131px，如 fabrepro [84,821][1116,952]）→ item 被放置在 ~232px held 高度，clipToBounds 在 reportHeight 处裁剪（描边属子层内容故随之消失）= ExpandReveal 补偿器停在旧基准且**揭示遍永不到来**。
+- **根因链（字节码+Room 直查双实证）**：
+  - 排除数据缺位：服务器 `/message` 与 **Room cached_parts 直查（run-as cat + sqlite）** output 全在（`"fabfix\n"`）——#257 原嫌疑「Room 未持久化 output / provider 链未兜住」不成立；
+  - 排除注入失败：全程 0 条 `drain inject failed` / `LazyListReflection`；
+  - 定音：**Mikepenz MarkdownStateImpl 构造函数字节码 `new State$Loading`**——状态流初值 Loading，每个新组合实例首帧渲染空内容（卡=232px），解析完成在下一拍才重组出全高（405/412px）。旧注释「同步 parseBlocking」只排除后台线程，不保证首帧终高。shell 卡默认展开使 Loading 帧落在补偿器首次测量上（base=232）→ 数据拍重组 → 增长遍（report=232, inject=+173）→ **真机一轮 fling 23 次 EV-REVEAL**（idx 35/36/39/47/48；real=405/412 两族高度=一行/两行输出）——每次都是「裁剪+帧界注入+揭示」窗口，任一揭示遍丢失（滚动 disposal 竞态/插队/注入异常）即永久裁半。修复前日志已证循环本身在工作（drain off 6167→6340→6617 精确配对），缺的是「永不进入窗口」。
+- **修复（root cause：首测即终高）**：新增 `ShellOutputBlock`（components/）——verbatim 直渲染（等宽 CodeTypography+ChatDensity 字号、surfaceContainer 底/AMOLED highest、ShapeTokens.small、horizontalScroll 长行、去尾随空行），**不经 markdown 解析 = 无 Loading 帧 = 无增长循环**；ChatMessageList shell 分支替换 `MarkdownContent("````\n"+out+"\n````")`（4 反引号转义 hack 一并退役），#241 补偿语义零接触。
+- **真机验证（fix-*.png + final-logcat）**：冷启→进会话→4 轮 fling 扫全历史 **EV-REVEAL=0 / PreRenderShift=0 / inject failed=0**（修复前 23 次/轮）；滚回 fabfix 区：五卡（pwd/fabrepro/fabfix/convfix/convfix2/gateA）输出块 bounds 全 79px 等高完整、圆角底边与卡间距正常。
+- **测试**：全量单测绿（--rerun）；状态机 11 例不动（补偿语义未改——本修复消灭的是触发源不是补偿行为）。
+- **关联**：#257 改判根因（空白体=同一 Loading 首帧的早年形态），卡片已更新；「完整消除半截卡」待用户 V6 复验。
