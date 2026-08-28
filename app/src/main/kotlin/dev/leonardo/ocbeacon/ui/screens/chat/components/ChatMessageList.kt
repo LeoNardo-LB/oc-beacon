@@ -1380,9 +1380,6 @@ fun ChatMessageList(
                                             failed = failed,
                                             description = "$ " + shellPart.command,
                                             expandedStates = eventCardExpandedStates,
-                                            // #252：shell 卡默认展开（TUI 语义——!cmd 输出直接
-                                            // 可见）；用户手动收起后由 expandedStates 记忆接管。
-                                            defaultExpanded = true,
                                             bodyFontScale = 0.85f,
                                             expandRevealListState = listState,
                                             bodyContent = {

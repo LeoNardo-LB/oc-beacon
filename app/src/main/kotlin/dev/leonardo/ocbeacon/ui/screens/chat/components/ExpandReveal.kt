@@ -2,7 +2,6 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,20 +20,12 @@ import dev.leonardo.ocbeacon.logging.AppLogger
  * #241 统一展开/收起过渡（2026-08-28 用户裁决：全部从上到下）——
  * 顶部锚定、高度向下生长/向上收回 + 淡入淡出。所有展开收起面共用，
  * 禁止单面自定义方向（防斜向/左上右下等不一致观感）。
- *
- * #256 勘误（2026-08-28 真机 logcat 取证）：spring 版在动画尾端被
- * 截断——收起序列最后帧单帧 -31px 残差硬切（前 30 帧均为 -1~-8 平滑
- * 小步，EV-REVEAL real=199 report=230 inject=-31 实证），即用户反馈的
- * 「收起动画完毕后跳一下」。spring 的可见结束阈值导致残余高度一帧丢
- * 失。改 tween：确定性时长精确跑到目标值（0），动画帧与稳态无残差。
  */
 val ExpandEnterTransition: EnterTransition =
-    fadeIn(animationSpec = tween(180)) +
-        expandVertically(animationSpec = tween(180), expandFrom = Alignment.Top)
+    fadeIn() + expandVertically(expandFrom = Alignment.Top)
 
 val ExpandExitTransition: ExitTransition =
-    fadeOut(animationSpec = tween(150)) +
-        shrinkVertically(animationSpec = tween(150), shrinkTowards = Alignment.Top)
+    fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
 
 /** 会话 LazyListState 下传通道（#241 渲染前补偿用）：ChatMessageList 在列表
  *  内容处 provide，展开型组件就地 consume——避免穿 3-5 层签名的模板代码。 */
@@ -95,20 +86,6 @@ internal class ExpandRevealCompensator {
         }
         val revealHeight = reportedBase + pendingReveal
         val extra = realHeight - revealHeight
-        // #256 勘误（2026-08-28 真机 logcat 完整帧序列取证）：收缩方向（extra<0，
-        // 收起动画）**不再走 1 帧延迟配对**——延迟机制在动画结束帧产生
-        // 「report>内容」的底部空白帧（EV-REVEAL real=199 report=229 inject=-30
-        // 实证）+ 下一帧闭合位移 = 用户反馈的「收起完毕跳一下」。收缩在
-        // reverseLayout 钉底锚定下本就自然平滑（底边钉住、上方内容逐帧涌下
-        // 填补），直接同步上报 real + 零注入，交由列表自然锚定。基线同步收缩
-        // （后续展开从新基准起配对）。增长方向（extra>0，展开）保持延迟配对
-        //（#241 展开顶出保护不变）。
-        if (extra < 0) {
-            pendingReveal = 0
-            reportedBase = realHeight
-            version++
-            return realHeight to 0
-        }
         return if (extra != 0) {
             pendingReveal += extra
             version++

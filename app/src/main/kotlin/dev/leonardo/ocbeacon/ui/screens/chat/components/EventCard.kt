@@ -88,16 +88,12 @@ internal fun EventCard(
     /** 展开正文字号缩放系数（LocalDensity 密度缩放实现——同缩字号与间距）。
      *  默认 1f 不缩；长 Markdown 报告场景传 ~0.85f 小一档（V6 反馈定档）。 */
     bodyFontScale: Float = 1f,
-    /** 无展开记忆时的初始状态（#252 时间线化：shell 卡传 true = 默认展开，
-     *  对齐 opencode TUI 的「!cmd 输出直接可见」语义；用户手动收起后由
-     *  [expandedStates] 记忆接管）。默认 false = 收起（system 通知等保持原状）。 */
-    defaultExpanded: Boolean = false,
     /** #241 标签行保护（渲染前补偿）：传入会话 LazyListState 即启用一次性
      *  展开揭示（ExpandReveal）——增长遍裁剪 + 反射注入视窗下移、下一遍对齐
      *  揭示，全程无可见滚动动画；null = 不补偿。 */
     expandRevealListState: LazyListState? = null,
 ) {
-    val expanded = expandedStates[eventKey] ?: defaultExpanded
+    val expanded = expandedStates[eventKey] ?: false
     val hasBody = bodyContent != null
 
     // #241 渲染前补偿：展开增量裁剪 + 遍首注入视窗下移、下一遍对齐揭示
