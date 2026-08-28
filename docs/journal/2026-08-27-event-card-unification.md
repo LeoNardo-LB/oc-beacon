@@ -832,3 +832,10 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - force-stop 重启：卡保留（Room 承载，跨进程持久化达成——此前「进程死卡消失」限制解除）✓
 - agent 回复佐证上下文注入时序：「echo tlline → echo tlline → msgaftershell，先后关系保持完整」✓
 - **subagent 源码交叉印证（anomalyco/opencode beta 分支 fafcea42——权威仓库，npm 包 repository 字段指向；初稿误标 sst/opencode，经核实两仓库互为同步镜像、同一提交，行号引用有效）**：完整调用链行号级证据入库 `docs/research/2026-08-28-v2-shell-message-storage.md`（克隆留存 /home/leo-tkp/oc-src-tmp）。要点补充：①事件+投影同一事务落库可重放，消息 id=msg_<started事件id> 幂等；②**POST 是同步的**（204 在命令退出后才返回，timeout:0）；③**v2 SSE 无 message.updated（v1 专属）**——官方客户端模式为 started 本地 append / ended 就地更新，本实现的「store 观察→重拉窗口」功能等价（E2E 已验证），增量 append 是后续可选优化；④TUI ShellMessage 与 Solid 客户端均为消息流一等行，与我们时间线化形态一致。
+
+## 二十轮：双方言 shell 接口系统性源码调研（用户要求「V1、V2 的接口都进行调研」，2026-08-28 14:30–15:10）
+
+- **V2**（anomalyco/opencode beta=fafcea42 权威版）：报告整体重写 docs/research/2026-08-28-v2-shell-message-storage.md——行号零漂移；两处结论修正（REST 读取=Session.messages 非 history.ts；truncated 恒 false，溢出由 cursor<size 表达）；新增 killed 合成路径/消息 id 双重幂等/LLM 注入行号（to-llm-message.ts:262-270）。
+- **V1**（anomalyco tag v1.18.18=31406ccc + 本地 1.18.18 二进制 + 4200 服务器实测三层互证）：docs/research/opencode-v1-shell-interface.md（189 行）——POST /session/{id}/shell 同步阻塞无超时、忙时 409 不排队；消息对 user(synthetic)+assistant(tool:'bash' part，无 exit code)；SQLite 投影存储（勘误旧「JSON 文件」误读）；SSE 9 步序列（part.updated 输出全量替换）；TUI 与 agent bash 同形态统一渲染。
+- 三方证据（本机二进制提取 + 两路独立 subagent 调研）全部一致；oc-beacon 时间线化实现与官方三端形态对齐。
+- 防御项登记 **#256**（V2 schema 漂移双形态容错 shellID/callID + output 对象/字符串；V1 同步阻塞/409 重试/partID 全量替换/abort 取消核对点）。

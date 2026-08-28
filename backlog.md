@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#256**。
+**编号**：全局递增，不回收。下一编号：**#257**。
 
 - [ ] **#255 shell 模式触发健壮化——前导空白 + 全角「！」容许（开发过程发现，已修复，待验收）** `ui`
   - #252/#253 E2E 过程实证：「空格 + !cmd」（E2E 驱动误触空格键）整体回落普通消息（uiautomator 直读字段前导 0x20）；中文 IME 环境「!」偶发落全角「！」（条带 exit 127 实证）——真人同样可触
@@ -99,6 +99,13 @@
   - 锐化诊断：Env 假时钟已注入（冻结 now）→ 稳定窗口门控非机制；早提交路径 = skip1 时 `inViewportNow || hotNearBand` 均假——锁定 `everVisiblePartIds` 标记/异步 pending 管线的负载竞态假设，需深挖 pending 入队与视口标记的先后序
   - 候选：视口标记同步性审计 / pending 入队-消费序单测化；实施前先确认偶发率（连续观察全量轮次）
   - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮
+
+- [ ] **#256 shell 消息 schema 漂移防御 + 双方言接口加固（源码调研产出）** `api` `防御`
+  - 双方言调研（2026-08-28，三方源码证据）：anomalyco/opencode beta（V2）与 v1.18.18 tag（V1）全行号报告见 docs/research/{2026-08-28-v2-shell-message-storage,opencode-v1-shell-interface}.md
+  - **V2 漂移警告**：beta-18414 之后一天 dev HEAD 已移除 session shell 端点、schema 改 `{callID, command, output:string}`（无 shellID/status/exit）——Part.Shell 映射需双形态容错（shellID/callID、output 对象/字符串），服务器升级前落地
+  - V1 加固核对点：POST /session/{id}/shell 同步长阻塞（无超时，客户端需 fire-and-forget + 事件驱动 UI）、409 SessionBusy 忙重试（不排队）、partID 维度全量替换式流渲染（48ms 管线兼容）、abort 端点做取消
+  - V2 加固核对点：truncated 恒 false 勿依赖（大输出用 cursor<size + /api/shell/:id/output 续读）；悬挂 running 行用 GET /api/shell/{shellID} 404 降级；消息主键 msg_<event.id> 幂等合并（SSE/REST 双源）
+  - → `docs/journal/2026-08-27-event-card-unification.md` §二十轮
 
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`
