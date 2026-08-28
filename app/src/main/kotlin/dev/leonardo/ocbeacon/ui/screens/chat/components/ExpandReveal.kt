@@ -76,10 +76,12 @@ internal class ExpandRevealCompensator {
      * spring 高度、逐帧小增量）同一机制通吃；展开 +Δ 视窗下移、收起 -Δ
      * 视窗上移，位移全部发生在渲染前（用户硬约束 2026-08-27）。
      *
-     * @param scrolling 列表滚动中（调用方在 measure 块内同步读
-     *   isScrollInProgress，快照零滞后且建立订阅——停滚下降沿自动复测）。
+     * @param shiftApplied 运输层无未落地注入（PreRenderShiftChannel.shiftSettled）。
+     *   同帧重测竞态门：注入入队后若被同帧插队重测（如拖动 forceRemeasure），
+     *   此前会误判「增量已应用」提前揭示——揭示先于位移 = 跳变；门关闭时
+     *   保持基准裁剪，揭示严格等位移落地。
      */
-    fun onMeasure(realHeight: Int, scrolling: Boolean): Pair<Int, Int> {
+    fun onMeasure(realHeight: Int, shiftApplied: Boolean): Pair<Int, Int> {
         // 条目首次进入视口（此前从未测过）：直接全量上报，绝不注入——
         // 否则新出现的展开卡会先隐身一帧再跳入。real==0（收起态）**不短路**：
         // 走通用配对（持有旧高 + 注入 -旧高），否则收起裸跟随 = 下坠回归
@@ -89,23 +91,16 @@ internal class ExpandRevealCompensator {
             reportedBase = realHeight
             return realHeight to 0
         }
-        // #258 滚动守卫（#239 holdReveal 同款，expand 家族补装）：滚动中既不
-        // 入队也不揭示——真实高度与已配对揭示之差交 clipToBounds 裁剪，视口
-        // 零位移；停滚下降沿经 isScrollInProgress 订阅自动复测，走常规配对
-        // 恢复。滚动中 tap 展开是默认展开卡片进入视口（everMeasured 分支已
-        // 放行）之外唯一的高频注入场景，此前正是 crash 放大器之一。
-        if (scrolling) {
-            val paired = reportedBase + pendingReveal
-            reportedBase = paired
-            pendingReveal = 0
-            return paired to 0
-        }
         val revealHeight = reportedBase + pendingReveal
         val extra = realHeight - revealHeight
         return if (extra != 0) {
             pendingReveal += extra
             version++
             revealHeight to extra
+        } else if (pendingReveal != 0 && !shiftApplied) {
+            // 竞态门：上一遍增量已入队但位移未落地（同帧重测插队）——
+            // 保持基准裁剪，不揭示不重入队，杜绝「揭示先于位移」。
+            reportedBase to 0
         } else {
             pendingReveal = 0
             reportedBase = realHeight
@@ -129,10 +124,13 @@ internal fun Modifier.expandRevealCompensation(
         constraints.copy(maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
     )
     val realHeight = placeable.height
-    // measure 块内同步读 isScrollInProgress（快照零滞后；读取同时建立订阅：
-    // 停滚下降沿自动失效本节点测量 → 复测恢复配对，同流式家族 #239 机制）。
-    val scrolling = listState.isScrollInProgress
-    val (reportHeight, injectDelta) = compensator.onMeasure(realHeight, scrolling)
+    // #258 门 A 反馈修复：滚动中照常配对揭示（不再 holdReveal 裁剪）——通道②
+    // 对 drag 无断言，旧通道「滚动中注入=崩溃放大器」前提已消失；默认展开卡的
+    // 真实高度（markdown 异步解析）在滚动中即时配对到位，不再「滑完才展开」。
+    val (reportHeight, injectDelta) = compensator.onMeasure(
+        realHeight,
+        shiftApplied = PreRenderShiftChannel.shiftSettled(listState),
+    )
     if (injectDelta != 0) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.w(

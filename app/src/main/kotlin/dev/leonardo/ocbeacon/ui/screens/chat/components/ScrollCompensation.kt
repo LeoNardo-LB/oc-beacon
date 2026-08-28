@@ -82,6 +82,7 @@ internal class DeferredRevealCompensator {
         realHeight: Int,
         shouldCompensate: Boolean,
         holdReveal: Boolean = false,
+        shiftApplied: Boolean = true,
     ): Decision {
         // 冷启动：首测直接全量上报（无补偿语境，锚定几何自洽）
         if (reportedHeight <= 0) {
@@ -101,6 +102,11 @@ internal class DeferredRevealCompensator {
             reportedHeight = pairedReveal
             injectedPending = 0
             return Decision(pairedReveal, 0, false)
+        }
+        // #258 竞态门：增量已入队但位移未落地（同帧重测插队，如拖动
+        // forceRemeasure）——保持基准裁剪，杜绝「揭示先于位移」跳变。
+        if (injectedPending != 0 && !shiftApplied) {
+            return Decision(reportedHeight, 0, false)
         }
         val revealHeight = reportedHeight + injectedPending
         val extra = realHeight - revealHeight
@@ -161,6 +167,7 @@ internal fun Modifier.deferredRevealCompensation(
         realHeight,
         shouldCompensate = shouldCompensate(),
         holdReveal = scrolling,
+        shiftApplied = PreRenderShiftChannel.shiftSettled(listState),
     )
     if (decision.injectDelta > 0) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
