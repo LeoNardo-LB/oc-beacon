@@ -21,6 +21,14 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
  * children 拆开渲染不破坏跨块引用链接（库源码 model/MarkdownState.kt:221）。
  */
 
+/**
+ * V2 服务器合成信封消息的 role 集合（#252 勘误二）：这类消息只承载状态语义
+ * （后台 shell 登记 / agent 切换 / 模型切换），零 parts、无用户可见内容。
+ * 客户端的可见反馈由专门通道承担（shell → ShellJobsStore 通知卡）；按原样
+ * 渲染只会产生 48dp 空气泡（Message.User 回退样式），累积即「消息间鸿沟」。
+ */
+internal val SYNTHETIC_ENVELOPE_ROLES = setOf("shell", "agent-switched", "model-switched")
+
 /** 分片计划：目标 text part 的 AST 顶层块按字符预算切成的区间列表。 */
 data class MdChunkPlan(
     /** 目标 text part id（与 RenderReadinessRegistry 键一致）。 */
@@ -233,6 +241,20 @@ internal fun buildChatEntries(
     for (displayIdx in displayItems.indices) {
         displayEntryStart[displayIdx] = entries.size
         val (rawIndex, msg) = displayItems[displayIdx]
+        // #252 真机勘误二（2026-08-28，UI dump + Room 实证定音）：V2 服务器为每次
+        // !cmd 创建 role='shell' 零 parts 信封消息——MessageSerializer 按 role 分发时
+        // 'shell' 落入 else 回退分支反序列化为 Message.User（不是 Assistant！），原
+        // (message as? Message.Assistant)?.role == "shell" 判定永不命中，空气泡
+        //（48dp/条）照常渲染，15 条占位累积 = 消息与通知卡之间的半屏鸿沟
+        //（真机 UI dump 实证：gap 区 12 个 48dp 空气泡、8dp 步进）。
+        // 修复：按 Message.role 字符串精确过滤（role 是 abstract val，与反序列化
+        // 类型无关）。agent-switched/model-switched 同为服务器合成零内容信封
+        //（Room 实证 0 parts、同走 User 回退），一并过滤。
+        // 真用户消息 role="user" 不受影响；流式 turn 必有 reasoning/text part
+        // 渐入（非零 parts），不在本判定范围。
+        if (msg.message.role in SYNTHETIC_ENVELOPE_ROLES) {
+            continue
+        }
         val turnKey = if (msg.isUser) {
             "u_" + msg.message.id
         } else {
