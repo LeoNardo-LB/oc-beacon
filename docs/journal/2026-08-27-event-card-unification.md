@@ -849,3 +849,10 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **P3**：truncated/输出缺失时 body 优先 provider 续读（REST /api/shell/:id/output 全量）；悬挂 running 行（store 无 job）按 failed 呈现（复用文案零新增 i18n）；取消能力核实已存在（ShellSheet 详情 IconButton → removeShell → DELETE /api/shell/:id；V1 abort 端点既有）。
 - 测试：SyntheticEnvelopeFilterTest 乐观行让位两场景 + WireCompatMatrixTest wire 契约更新 + 11 处测试构造补 messageHandler 参数。全量绿。
 - 真机 E2E（ol_*.png）：POST 后 1.5s 乐观卡已在时间线位置；REST 真消息替换后无双卡。
+
+
+## 二十四轮勘误二：跳变/默认展开改动回退（崩溃，2026-08-28 21:30）
+
+- **崩溃**（真机必现）：IllegalStateException entered drag with non-zero pending scroll——用户拖动/fling 的 dispatchRawDelta 撞上 LazyListState.scrollToBeConsumed 非零残留。注入源 = ExpandReveal 补偿的 LazyListReflection.requestScrollShift（直接反射写 scrollToBeConsumed，子 item 测量期注入，残留窗口 = 帧间）。**shell 卡默认展开（1f9a88dc）让注入频率大增**（每张展开卡逐帧注入）→ 用户拖动撞残留概率大增 → 必现崩溃。#241 反射注入通道与用户输入路径的竞态为**存量架构缺陷**，被本轮放大暴露。
+- **回退**（a3fdb12c）：revert 3eceb2c6（收敛锚定）+ 1f9a88dc（跳变修复+默认展开）——回到 80e4235a 稳定态（FAB 差一段与收起跳变回归为已知问题，但不崩溃）。全量单测绿、装机验证。
+- **后续方向**（待裁决后另行实施）：①拆除 EventCard/ReasoningBlock/QuestionPartContent/TodoListCard/ToolCardScaffold 等全部 expandRevealCompensation 注入（崩溃源清除），展开视窗行为回归自然锚定；②展开视窗保持改用安全通道（展开后 scrollToItem(index, offset) 官方 API 精确对齐，无 pending scroll 残留）；③流式家族 deferredRevealCompensation（ScrollCompensation.kt）同通道竞态风险独立评估。见 #256 关联。
