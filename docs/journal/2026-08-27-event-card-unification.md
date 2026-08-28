@@ -803,3 +803,31 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **像素考古三连坑**：① 采样列穿正文文本区把文字笔画当 border；② 浅色主题下气泡 border/气泡内底色与会话背景亮度差 <3%，颜色不可分——**几何归因最终靠语义树容器 bounds，不是像素**；③ uiautomator dump 曾只剩根节点（Compose 渲染中），重试即可。
 - **输入注入**：adb `input text` 对 `!` 的转义不稳定（同命令两次结果不同），软键盘 keyevent SHIFT+1 映射 `[`——**服务器端 REST 直发**（`POST /api/session/{id}/shell`）是 shell 触发的可靠 E2E 通道。
 - 顺带发现：GET `/api/session/{id}/message` 返回 shell 条目含完整 command/status/exit/output——**V2 有已结束 shell 历史 API**（推翻「无历史 API」旧判断），跨进程恢复通知卡可行（未实施）。
+
+## 十九轮：#252 时间线化——shell 卡作为主对话内容按消息时间序渲染（2026-08-28 14:00–14:15）
+
+> 用户两问：①「我发了一条消息，shell 卡片为啥没有被顶上去？」②「opencode 中这种指令执行是否是对话数据的一部分？分配 subagent 拉源码看！」
+
+### 官方语义源码定音（用户实际运行的 beta-18414 二进制，Bun bundle 内嵌 JS 明文直接提取）
+
+- `"session.shell.started": (l) => e.appendMessage(Le.Shell.make({type:"shell", shellID, command, status, time}))` —— shell 执行**通过 appendMessage 进会话消息历史**（与 synthetic/skill/assistant 同通道）。
+- `"session.shell.ended" → e.updateShell(...)` 更新同一条消息的 status/exit/output/time.completed。
+- TUI 消息流渲染分支：`if(t==="shell") return {icon:"#", title:"Shell command", lines:["$ <命令>"]}`。
+- **LLM 上下文注入**：`case"shell": return [Et.make({role:"user", content:"The following shell command was executed by the user: Command: … Output: …"})]` —— shell 命令+输出作为对话上下文喂给 agent（opencode `!cmd` 的核心语义）。
+- 包仓库 repository 字段：github.com/anomalyco/opencode（V2 源码仓库；本地 npm 全局包 @opencode-ai/cli@0.0.0-beta-18414 即用户服务器本体）。
+
+### 客户端对齐实现（83ab0ae5）
+
+- V2Mappers：`type='shell'` 条目 → `Part.Shell` 载荷（shellID/command/status/exit/output）入库——此前只读 text/summary，载荷全丢成空壳。
+- buildChatEntries：带载荷 shell 消息**按时间线发射**；零载荷空壳（SSE 窗口/历史）仍跳过。
+- ChatMessageList：Turn isUser 分支 role='shell' 特判渲染 EventCard（数据 Part.Shell，输出三级兜底 REST→store）；**钉底横幅退役**（item/bannerCount/reveal 项/贴底重锚 effect 移除）。
+- ChatViewModel：runShellCommand 成功后延迟刷新消息列表（UI 发送路径）+ 观察 ShellJobsStore 变化去抖 800ms 刷新（覆盖服务器端/TUI 直发的实时性）。
+- 测试：V2MappersTest 载荷映射 ×2 + SyntheticEnvelopeFilterTest 时间线发射用例。
+
+### 真机 E2E（tl_*.png 全链）
+
+- 重进会话：历史 shell 信封 REST 刷新后按时间线渲染（13:18 失败红卡 + 13:32 成功卡插在 13:50 消息上方）✓
+- 服务器端 POST shell：store 观察触发刷新，14:07:47 卡实时出现 ✓（补测发现 UI-only 刷新覆盖不了外部创建——观察器修复）
+- 发普通消息「msgaftershell」：**卡被顶上去**，新消息+agent 回复在其下方（时间序正确）✓
+- force-stop 重启：卡保留（Room 承载，跨进程持久化达成——此前「进程死卡消失」限制解除）✓
+- agent 回复佐证上下文注入时序：「echo tlline → echo tlline → msgaftershell，先后关系保持完整」✓

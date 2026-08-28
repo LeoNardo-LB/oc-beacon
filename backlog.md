@@ -91,6 +91,7 @@
   - 真机 E2E：卡片长在对话流 ✓ + `✗ exit 127` 失败态 ✓ + REST 输出渲染卡内 ✓（成功态同构已演示）
   - **勘误二（2026-08-28 用户报「间隔仍有大」→ UI dump + Room 实证定音）**：V2 为每次 `!cmd` 创建 role='shell' 零 parts 信封消息，MessageSerializer 按 role 分发时 'shell' 落入 else 回退为 Message.User——原 `(as? Assistant)` 判定永不命中，空气泡（48dp/条）照常渲染，15 条占位累积 = 半屏鸿沟（dump 实证 gap 区 12 个空气泡、8dp 步进）。修复：按 `Message.role` 字符串过滤 `SYNTHETIC_ENVELOPE_ROLES`（shell/agent-switched/model-switched 一并过滤）。真机复测语义树 bounds：气泡容器底 y2081 → 通知卡容器顶 y2105，**gap = 24px = 8dp = messageSpacing 精确达标**（acc_final_8dp.png）；`SyntheticEnvelopeFilterTest` 3 用例锁回退行为 + 过滤零发射
   - 顺带发现：GET `/api/session/{id}/message` 返回 shell 条目带完整 command/status/exit/output——**V2 存在已结束 shell 的历史 API**（早前「无历史 API」判断有误）；如需跨进程恢复通知卡可评估另立卡
+  - **时间线化（2026-08-28 用户两问「卡片为啥没被顶上去 / opencode 中指令执行是否对话数据的一部分」→ beta-18414 二进制源码证据定音）**：官方语义 = shell 执行 appendMessage 进会话消息历史（type:'shell' 一等公民，TUI 消息流渲染，输出注入 agent 上下文）。客户端对齐：Part.Shell 载荷入库 + 消息时间线渲染 EventCard + 钉底横幅退役 + store 观察去抖刷新。真机全链 E2E：顶上去 ✓ / 实时出现 ✓ / 跨进程持久化 ✓（「进程死卡消失」限制解除）；→ §十九轮
   - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮/§十七轮/§十八轮——**用户验收后迁 journal**
 
 - [ ] **#254 RenderSupplyCoordinatorTest.T12 负载敏感偶发——skip 早期提交竞态（测试基建）** `refactor`
