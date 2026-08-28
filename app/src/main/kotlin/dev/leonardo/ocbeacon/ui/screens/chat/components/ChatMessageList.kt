@@ -1143,7 +1143,7 @@ fun ChatMessageList(
                                         }
                                 ) {
                                     ChunkedAssistantMessage(
-                                        renderableTurn = renderableTurns[displayItemIndex] ?: return@itemsIndexed,
+                                        renderableTurn = renderableTurns[displayItemIndex] ?: return@Box,
                                         currentMessage = msg,
                                         chunk = entry,
                                         isAmoled = isAmoled,
@@ -1307,7 +1307,7 @@ fun ChatMessageList(
                                         ),
                                         onRevert = revertCompaction,
                                     )
-                                    return@itemsIndexed
+                                    return@Box
                                 }
                                 // isTurnLast：下一条"非 synthetic"消息不是 assistant 才算 turn 尾。
                                 // synthetic 为独立气泡（2026-08-12 起不并入 assistant turn），
@@ -1429,9 +1429,9 @@ fun ChatMessageList(
                                                 }
                                             },
                                         )
-                                        return@itemsIndexed
+                                        return@Box
                                     }
-                                    return@itemsIndexed
+                                    return@Box
                                 }
                                 if ((chatMessage.message as? Message.User)?.role == "system") {
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
@@ -1449,7 +1449,7 @@ fun ChatMessageList(
                                         .joinToString("\n") { it.text }.trim()
                                     // #246 验收反馈（2026-08-27 二次现场 dump 实证）：卡下方
                                     // 间距 48px=其他卡片的 2 倍——本分支处于通用 item 包装器
-                                    // （L1216 padding(bottom=messageSpacing)）之内，return@itemsIndexed
+                                    // （L1216 padding(bottom=messageSpacing)）之内，return@Box
                                     // 只退内容 lambda 不影响包装器；早前零间隙修复在此重复加了
                                     // 显式底距 → 叠加双倍。撤销显式底距，通用间距已覆盖。
                                     EventCard(
@@ -1470,7 +1470,7 @@ fun ChatMessageList(
                                             )
                                         },
                                     )
-                                    return@itemsIndexed
+                                    return@Box
                                 }
 
 
@@ -1494,7 +1494,7 @@ fun ChatMessageList(
                                     CompactionDividerSpec.V1TriggerHidden -> {
                                         // 零内容标记消息：不渲染（item 退化为一段 messageSpacing
                                         // 间隙，与消息间距同量级，无可感知残留）。
-                                        return@itemsIndexed
+                                        return@Box
                                     }
                                     is CompactionDividerSpec.Trigger -> {
                                         // #221/#222：进行中压缩的展开流式增长——延迟揭示
@@ -1521,7 +1521,7 @@ fun ChatMessageList(
                                             revertTargetId = chatMessage.message.id,
                                             onRevert = revertCompaction,
                                         )
-                                        return@itemsIndexed
+                                        return@Box
                                     }
                                     CompactionDividerSpec.NotCompaction -> {
                                         // 非压缩认领——正常消息渲染路径（下方）。
@@ -1563,7 +1563,7 @@ fun ChatMessageList(
                                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                                             )
                                         }
-                                        return@itemsIndexed
+                                        return@Box
                                     }
                                 }
 

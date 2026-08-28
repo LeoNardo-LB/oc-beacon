@@ -885,3 +885,12 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **真机验证（fix-*.png + final-logcat）**：冷启→进会话→4 轮 fling 扫全历史 **EV-REVEAL=0 / PreRenderShift=0 / inject failed=0**（修复前 23 次/轮）；滚回 fabfix 区：五卡（pwd/fabrepro/fabfix/convfix/convfix2/gateA）输出块 bounds 全 79px 等高完整、圆角底边与卡间距正常。
 - **测试**：全量单测绿（--rerun）；状态机 11 例不动（补偿语义未改——本修复消灭的是触发源不是补偿行为）。
 - **关联**：#257 改判根因（空白体=同一 Loading 首帧的早年形态），卡片已更新；「完整消除半截卡」待用户 V6 复验。
+
+## 二十八轮：V6 复验反馈处置——滚动崩溃加固 + FAB 基线漂移修复（2026-08-29 03:00–04:00）
+
+- **用户复验结果**：半截卡消失 ✓、输出形态 ✓；但「反复滚动直接崩溃」×1，且发现 FAB 左右不齐。
+- **崩溃取证**（crash buffer 完整栈）：`ArrayIndexOutOfBoundsException length=320 index=-2` @ `IntStack.peek2` ← `GapComposer.end/endToMarker` ← ChatMessageList itemsIndexed 内容 lambda ← **`PrefetchHandleProvider.performPausableComposition`（LazyColumn prefetch 的 pausable 预组合）**。非补偿通道（全程 0 条 PreRenderShift/注入失败）。
+- **定性**：Compose 框架已知崩溃家族——同签名即 K-9/Thunderbird Android 11.0 滚动崩溃（issuetracker 331365999「Returning from Column crashes」，官方修复=依赖升级+组件重构）。触发面 = **pausable 预组合 × item 内容早期 return 形态**：本文件 items 内容有 9 处 `return@itemsIndexed`，其中 8 处位于通用包装 Box 的 content lambda 内（跨 lambda 边界返回），1 处（L1146）在嵌套 content lambda 的参数表达式里 `?: return`——后者与 331365999 形态完全一致。复现困难（164 组混沌手势 0 复现；概率性时序）。
+- **加固（commit 本轮）**：9 处 `return@itemsIndexed` → **`return@Box`**——Box 非 inline、label 绑定最近邻 content lambda，局部返回不出跨 lambda 边界，组结构自洽；渲染语义逐点等价（Box 内后续内容不再组合）。补偿/状态机/行为零变化。升级 BOM 路线否决：`eachDependency` 钉死 1.11.2 是 08-22「1.12-beta FATAL 契约违规+卡顿」回退的产物（0775582d），升级属独立高危任务。**若复发，升级路径**：①BOM→2026.08.00（foundation/runtime 1.12.0，三个月修复含 slot-table 家族）；②ScrollSpeedPrefetchStrategy 换 no-op scheduler（确定移除崩溃机制，代价预组合平滑性）。
+- **FAB 基线漂移（非本轮回归，08-27 复刻遗留）**：实测 ⬇ FAB 图标中心 y=2232 vs 菜单 FAB y=2280（差 48px=16dp 整）。根因=ChatFabMenu「稳定 API 复刻」把按钮钉底（内部底距移除），而 ⬇ 的 `padding(bottom=16dp)` 仍按已不存在的 `FabMenuButtonPaddingBottom` 校准（de6afd41 pivot 后 token 消失）。修复：ChatScreen 菜单 FAB 补 `padding(bottom = 16.dp)`。**装机实测：双 FAB bounds y 区间完全一致 [2160..2304]、图标中心同 y=2232。** 另注：双 FAB 的贴边垂直拖动（#192/#194）为「松手停原位+rememberSaveable 持久」设计——滚动中误拖会停在新位置，拖回即可；冷启（非进程恢复）复位。
+- **验证**：编译+全量单测绿；装机后混沌 20 轮（60+ 手势含卡片点击）0 FATAL、EV-REVEAL=0；FAB 基线 dump 对账一致。

@@ -921,7 +921,10 @@ fun ChatScreen(
                       agentRunningCount = taskUi.runningSubagentCount,
                       shellRunningCount = taskUi.runningShellCount,
                       onOpenEntry = { toolbarSheet = it },
-                      modifier = Modifier.align(Alignment.BottomEnd),
+                      // 2026-08-29 基线对齐：菜单 08-27 稳定 API 复刻把按钮钉底（内部
+                      // 底距移除）后，与 ⬇ FAB 的 padding(bottom=16dp) 失配 16dp——
+                      // 实测图标中心差 48px。此处补对称底距恢复「双 FAB 同基线」。
+                      modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp),
                   )
               }
            }
