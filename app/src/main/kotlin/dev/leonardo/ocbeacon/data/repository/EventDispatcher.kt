@@ -278,6 +278,7 @@ class EventDispatcher @Inject constructor(
             questionHandler.clearForSession(deletedSessionId)
             miscHandler.clearForSession(deletedSessionId)
             sessionNextHandler.clearForSession(deletedSessionId)
+            shellJobsHandler.clearForSession(deletedSessionId)
             sessionStateRepository.clearSession(deletedSessionId)
             // 堆积消息级联删除（2026-08-20）：会话没了，队列无意义。
             // C7（2026-08-26）：原 runBlocking 同步删除改异步——管线自有 appScope
@@ -519,7 +520,10 @@ class EventDispatcher @Inject constructor(
         miscHandler.clearForSession(sessionId)
         sessionNextHandler.clearForSession(sessionId)
         ownershipRegistry.release(sessionId)
-        shellJobsHandler.clearForSession(sessionId)
+        // 2026-08-28（#252 真机反馈）：不清理 shellJobsHandler——后台 shell 任务是
+        // 用户可见的对话流反馈（通知卡），退出会话即清会让卡片蒸发（真机实证：
+        // 离开再回来卡没了）。与 permission/question 同类：退出会话后应保留；
+        // 会话真删除（SessionDeleted 级联）时才清理。
     }
 
     fun clearForServer(serverId: String) {
