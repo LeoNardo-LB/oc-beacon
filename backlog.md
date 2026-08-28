@@ -100,7 +100,7 @@
   - 候选：视口标记同步性审计 / pending 入队-消费序单测化；实施前先确认偶发率（连续观察全量轮次）
   - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮
 
-- [ ] **#256 shell 消息 schema 漂移防御 + 双方言接口加固（源码调研产出）** `api` `防御`
+- [x] **#256 shell 消息 schema 漂移防御 + 双方言接口加固（源码调研产出）** `api` `防御`
   - 双方言调研（2026-08-28，三方源码证据）：anomalyco/opencode beta（V2）与 v1.18.18 tag（V1）全行号报告见 docs/research/{2026-08-28-v2-shell-message-storage,opencode-v1-shell-interface}.md
   - **V2 漂移警告**：beta-18414 之后一天 dev HEAD 已移除 session shell 端点、schema 改 `{callID, command, output:string}`（无 shellID/status/exit）——Part.Shell 映射需双形态容错（shellID/callID、output 对象/字符串），服务器升级前落地
   - V1 加固核对点：POST /session/{id}/shell 同步长阻塞（无超时，客户端需 fire-and-forget + 事件驱动 UI）、409 SessionBusy 忙重试（不排队）、partID 维度全量替换式流渲染（48ms 管线兼容）、abort 端点做取消
