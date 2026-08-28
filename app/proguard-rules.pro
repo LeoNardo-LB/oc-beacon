@@ -53,3 +53,19 @@
 
 # zstd-jni: JNI 链接依赖类名，禁止混淆/重命名（luben/zstd-jni README）
 -keep class com.github.luben.zstd.** { *; }
+
+# 331365999 家族加固（2026-08-29）：pausable prefetch 预组合在含非局部 return
+# 的 item 内容上崩溃（IntStack.peek2 AIOOBE）。OpenCodeApp.onCreate 已置
+# isPausableCompositionInPrefetchEnabled=false；R8 侧固化该值，防止优化器
+# 基于默认 true 折叠分支（flag 文档模板同款）。
+-assumevalues class androidx.compose.foundation.ComposeFoundationFlags {
+    public static boolean isPausableCompositionInPrefetchEnabled return false
+}
+
+# 331365999 hardening (2026-08-29): pausable prefetch precomposition crashes
+# on item content with non-local returns (IntStack.peek2 AIOOBE).
+# OpenCodeApp.onCreate sets isPausableCompositionInPrefetchEnabled=false;
+# R8-side assumevalues pins it (flag doc template).
+-assumevalues class androidx.compose.foundation.ComposeFoundationFlags {
+    public static boolean isPausableCompositionInPrefetchEnabled return false
+}

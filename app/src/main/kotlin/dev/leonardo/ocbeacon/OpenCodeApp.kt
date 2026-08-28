@@ -81,6 +81,21 @@ class OpenCodeApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // ---- 331365999 家族机制级根因修复（2026-08-29，见 journal 二十八轮）----
+        // foundation 1.11.x 的 prefetch pausable 预组合在含非局部 return 的
+        // item 内容上崩溃（IntStack.peek2 AIOOBE，真机 2026-08-29 FATAL 实证）。
+        // 该 flag 官方在 1.10.6 因「stability concerns」默认关闭（I73960），
+        // 1.11.0 起静默重开——本行回到官方止血位：置 false 后 prefetch 的
+        // execute 走 performFullComposition 旧路径（预组合保留、pausable 机制
+        // 整体绕开，崩溃栈不可达）。必须早于任何 Compose 内容加载。
+        // R8 侧 -assumevalues 固化见 proguard-rules.pro。
+        @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+        androidx.compose.foundation.ComposeFoundationFlags.isPausableCompositionInPrefetchEnabled = false
+        AppLogger.i(
+            "App",
+            "ComposeFoundationFlags.isPausableCompositionInPrefetchEnabled=false (331365999 hardening)"
+        )
+
         DebugLogger.init(this)
 
         // ---- #106-2 工具链治理：StrictMode（仅 debug 构建启用）----

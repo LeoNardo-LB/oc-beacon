@@ -5,8 +5,6 @@ import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListPrefetchScope
 import androidx.compose.foundation.lazy.LazyListPrefetchStrategy
 import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
-import androidx.compose.foundation.lazy.layout.PrefetchScheduler
-import androidx.compose.foundation.lazy.layout.PrefetchRequest
 
 /**
  * 滚动速度自适应预组合策略（2026-08-13 引入；原名 JumpPrefetchStrategy，
@@ -42,7 +40,11 @@ class ScrollSpeedPrefetchStrategy : LazyListPrefetchStrategy {
      * 真机 A/B 若不可接受，恢复路径 = 删除本 override 即回原策略。
      * 恢复条件：Compose 升级跨过 pausable prefetch 缺陷修复版本。
      */
-    override val prefetchScheduler: PrefetchScheduler = NoPrefetchScheduler
+    // 2026-08-29 机制级根因修复：prefetchScheduler 不再覆写（默认
+    // AndroidPrefetchScheduler），pausable 预组合经 OpenCodeApp.onCreate 的
+    // ComposeFoundationFlags.isPausableCompositionInPrefetchEnabled=false
+    // 关闭——prefetch 完整保留但走 performFullComposition 旧路径
+    //（崩溃栈不可达，issuetracker 331365999 家族，见 journal 二十八轮）。
 
     /**
      * 滚动方向预组合——速度自适应窗口（2026-08-20 第二轮滚动卡顿修复）。
@@ -158,11 +160,6 @@ class ScrollSpeedPrefetchStrategy : LazyListPrefetchStrategy {
 
     override fun NestedPrefetchScope.onNestedPrefetch(firstVisibleItemIndex: Int) {
         // 无嵌套列表——忽略
-    }
-
-    private object NoPrefetchScheduler : PrefetchScheduler {
-        /** 丢弃全部预组合请求（含嵌套预组合）——见 [getPrefetchScheduler] 注。 */
-        override fun schedulePrefetch(request: PrefetchRequest) = Unit
     }
 
 }

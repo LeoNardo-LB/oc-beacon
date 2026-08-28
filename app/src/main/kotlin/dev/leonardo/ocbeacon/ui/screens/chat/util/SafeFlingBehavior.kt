@@ -69,6 +69,13 @@ internal fun rememberSafeFlingBehavior(listState: LazyListState): FlingBehavior 
                         consumed = try {
                             scrollBy(delta)
                         } catch (e: CancellationException) {
+                            // [DEBUG-flng] 触摸打断 fling——记录打断时内速（>2000px/s 被掐=异常）
+                            AppLogger.d(
+                                TAG,
+                                "[DEBUG-flng] fling CANCELLED by touch: velocity=" + velocity.toInt() +
+                                    " idx=" + listState.firstVisibleItemIndex +
+                                    " off=" + listState.firstVisibleItemScrollOffset
+                            )
                             throw e
                         } catch (e: IllegalStateException) {
                             if (++retries > 3) {
@@ -85,9 +92,25 @@ internal fun rememberSafeFlingBehavior(listState: LazyListState): FlingBehavior 
                     if (retries in 1..3) {
                         AppLogger.d(TAG, "fling survived scroll contract violation after " + retries + " frame(s)")
                     }
-                    if (abs(consumed) < 0.5f) return velocity
+                    if (abs(consumed) < 0.5f) {
+                        // [DEBUG-flng] 停住取证：mid-fling 零消费帧即终止——记录终速与位置
+                        AppLogger.w(
+                            TAG,
+                            "[DEBUG-flng] fling STOPPED zero-consume: velocity=" + velocity.toInt() +
+                                "px/s carry=" + carry.toInt() + " idx=" + listState.firstVisibleItemIndex +
+                                " off=" + listState.firstVisibleItemScrollOffset
+                        )
+                        return velocity
+                    }
                     velocity *= exp(-friction * dt)
                 }
+                // [DEBUG-flng] 自然衰减出口带内速（判定「提前停住」的基准）
+                AppLogger.d(
+                    TAG,
+                    "[DEBUG-flng] fling decayed out: velocity=" + velocity.toInt() +
+                        " idx=" + listState.firstVisibleItemIndex +
+                        " off=" + listState.firstVisibleItemScrollOffset
+                )
                 return velocity
             }
         }
