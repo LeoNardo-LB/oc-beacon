@@ -849,3 +849,10 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **P3**：truncated/输出缺失时 body 优先 provider 续读（REST /api/shell/:id/output 全量）；悬挂 running 行（store 无 job）按 failed 呈现（复用文案零新增 i18n）；取消能力核实已存在（ShellSheet 详情 IconButton → removeShell → DELETE /api/shell/:id；V1 abort 端点既有）。
 - 测试：SyntheticEnvelopeFilterTest 乐观行让位两场景 + WireCompatMatrixTest wire 契约更新 + 11 处测试构造补 messageHandler 参数。全量绿。
 - 真机 E2E（ol_*.png）：POST 后 1.5s 乐观卡已在时间线位置；REST 真消息替换后无双卡。
+
+
+## 二十三轮：shell 卡展开体验优化（用户反馈两点，2026-08-28 19:40–20:10）
+
+- **①收起跳变根治**：真机 logcat 完整帧序列取证——收缩动画尾端帧 EV-REVEAL real=199 report=229 inject=-30（前 30 帧均 -1~-17 平滑小步）：补偿的「1 帧延迟配对」在动画结束帧产生底部空白帧 + 下一帧闭合位移 = 跳变。修复双管齐下：a) 动画 spring→tween（180/150ms，确定性时长精确到目标值）；b) ExpandRevealCompensator 收缩方向（extra<0）改**同步上报 + 零注入**——收缩在 reverseLayout 钉底锚定下本就自然平滑（底边钉住、上方逐帧涌下），交由列表自然锚定；增长方向保持延迟配对（#241 展开顶出保护不变）。录屏逐帧 diff 复验：收起 3 帧平滑递减（4030/4041/4159→0）无滞后残差帧。
+- **②默认展开**：EventCard 加 defaultExpanded 参数（expandedStates 无记忆时的初始态；用户手动收起后记忆接管）——shell 时间线卡传 true（TUI 语义「!cmd 输出直接可见」），system 通知等保持收起。真机复验：重装后 shell 卡直接展开态呈现。
+- 回归：时间线顶上去语义、间距、乐观插入均不回归（上一轮 E2E 语义未动）。
