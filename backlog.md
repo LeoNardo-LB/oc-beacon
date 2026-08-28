@@ -4,7 +4,12 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#257**。
+**编号**：全局递增，不回收。下一编号：**#258**。
+
+- [ ] **#257 历史 shell 卡输出体空白——跨进程输出续读链缺失（V6 二轮顺带发现）** `ui` `data`
+  - 现象（2026-08-29 真机）：重启后的历史卡（fabrepro/fabfix/convfix 等 5 张）命令行在、输出体空白——ShellJobsStore 内存态清空后 provider 三级链（store→parts 回填→REST /api/shell/:id/output）未兜住
+  - 嫌疑：Room 落库时 output 未持久化（早期映射）或分页窗口外 parts 缺 output 字段；早于换道手术存在，非本轮回归
+  - 修复方向：落库时持久化 output 全文 / 卡片组合时按 shellID REST 续读；→ `docs/journal/2026-08-27-event-card-unification.md` §二十六轮
 
 - [ ] **#255 shell 模式触发健壮化——前导空白 + 全角「！」容许（开发过程发现，已修复，待验收）** `ui`
   - #252/#253 E2E 过程实证：「空格 + !cmd」（E2E 驱动误触空格键）整体回落普通消息（uiautomator 直读字段前导 0x20）；中文 IME 环境「!」偶发落全角「！」（条带 exit 127 实证）——真人同样可触
