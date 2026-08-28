@@ -862,3 +862,10 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **真机 ScrollDiag 取证**：snapToBottom 能瞬间到达 idx=0/off=0 真底部——随后视口附近 item 的**延迟测量集中爆发**把视口推离：shell 卡正文异步测量 +55（dispIdx=0）、长 Markdown 异步解析 +194（dispIdx=3）/+466（dispIdx=7）。原 snapToBottom 的 while(canScrollBackward) 3 次强推兜底**在到达底部时条件即 false，一次都没执行**（逻辑死区）。
 - **修复**：snapToBottom/smoothScrollToBottom 改为到底后 3×120ms 周期性强推钉底（repeat+delay+scrollBy(-10000)）——已在底时负向无空间 = no-op 零副作用；RESIZE 爆发窗口（实测 30-70ms）被强推拉回。
 - **真机复现验证**：POST 新 shell → 大幅上滑 → 点 FAB → 最新卡完整钉底 + FAB 消失（isAtBottom=true）——修复前停在倒数第二卡露标题、FAB 残留（fabfix_after.png vs fab_repro_after.png）。
+
+
+### 二十四轮勘误（同日）：周期强推版被「收敛锚定」取代
+
+- 周期强推（3×120ms 固定窗口）是猜时间窗的补丁：测量爆发超窗即失效。改为**收敛锚定**语义：显式跳底 = 钉住意图——逐帧采样视口内容高度签名，变化即重锚定到底（scrollToItem(0)），连续 4 帧稳定（在底 + 签名不变）判定收敛退出；绝对帧数上限兜底。事件驱动、无固定窗口、收敛即停。
+- 初版收敛实现两处缺陷修正：①退出条件仅看签名稳定 → 会在被推离的错误位置稳定退出（实测 idx=2 off=227 / idx=7 off=164），修正为「在底 + 签名稳定」双条件；②isScrollInProgress 提前 return 误伤（scrollToItem 程序化请求瞬态置位）→ 移除。
+- 真机复验：上滑惯性中点 FAB（scrollToItem 被 fling 互斥延迟，惯性结束自动生效）→ 钉底后 RESIZE 爆发（+194/+55×4）被锚定循环拉回钉住，终态 idx=0 稳定、FAB 消失（convfix_final.png）。
