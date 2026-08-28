@@ -89,7 +89,9 @@
   - #250 验收时判定为非缺陷的开放设计点：V2 会话级 shell = 后台 shell 体系（shell.created/exited → ShellJobsStore），**不产聊天消息** → 用户 `!cmd` 后聊天区无任何反馈（V1 渲染轮次卡，两方言 UX 不对称）
   - 修复（2026-08-28 用户裁决终版「类似通知那种」）：每个 job 渲染一张 **`EventCard` 通知卡本体**（Shell 完成/失败既有形态：label/图标/红描边/i18n 全现成，description=`$ 命令`，body=输出 Markdown 三级 provider），内嵌消息列表贴最新消息下方（bannerCount/reveal 接入 #222 体系 + 内容变化贴底重锚）；迭代史浮层→ShellCard→气泡包卡→EventCard；全量单测 2142/0
   - 真机 E2E：卡片长在对话流 ✓ + `✗ exit 127` 失败态 ✓ + REST 输出渲染卡内 ✓（成功态同构已演示）
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮/§十七轮——**用户验收后迁 journal**
+  - **勘误二（2026-08-28 用户报「间隔仍有大」→ UI dump + Room 实证定音）**：V2 为每次 `!cmd` 创建 role='shell' 零 parts 信封消息，MessageSerializer 按 role 分发时 'shell' 落入 else 回退为 Message.User——原 `(as? Assistant)` 判定永不命中，空气泡（48dp/条）照常渲染，15 条占位累积 = 半屏鸿沟（dump 实证 gap 区 12 个空气泡、8dp 步进）。修复：按 `Message.role` 字符串过滤 `SYNTHETIC_ENVELOPE_ROLES`（shell/agent-switched/model-switched 一并过滤）。真机复测语义树 bounds：气泡容器底 y2081 → 通知卡容器顶 y2105，**gap = 24px = 8dp = messageSpacing 精确达标**（acc_final_8dp.png）；`SyntheticEnvelopeFilterTest` 3 用例锁回退行为 + 过滤零发射
+  - 顺带发现：GET `/api/session/{id}/message` 返回 shell 条目带完整 command/status/exit/output——**V2 存在已结束 shell 的历史 API**（早前「无历史 API」判断有误）；如需跨进程恢复通知卡可评估另立卡
+  - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮/§十七轮/§十八轮——**用户验收后迁 journal**
 
 - [ ] **#254 RenderSupplyCoordinatorTest.T12 负载敏感偶发——skip 早期提交竞态（测试基建）** `refactor`
   - 现象（2026-08-28 两轮全量复现）：T12「前两次 skip 不应提交」满载挂、隔离运行恒绿（12/12）；与本轮改动代码零交集（协调器未 import 被改文件）

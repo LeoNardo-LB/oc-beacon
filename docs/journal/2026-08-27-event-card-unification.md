@@ -772,3 +772,34 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - 放置仍在消息列表内（先声明 = 视觉最底）、间距 messageSpacing 与其他气泡一致。
 - 真机 E2E（acc_event_final2.png）：`!echo-inflow` → 通知卡「06:07:41 ⚠ 后台命令失败 + $ echo-inflow」失败态红描边（无效命令名 127）；对话流位置与间距正常。成功态（✓ Shell 已完成 + 输出）同构。
 - 迭代史：浮层 → 裸 ShellCard → 气泡包 ShellCard → **EventCard 通知卡**（终版，零新样式由构造保证）。
+
+## 十八轮：#252 鸿沟根治——shell 信封消息 Message.User 回退致空气泡累积（用户报「间隔仍有大」，2026-08-28 13:20–13:50）
+
+> 用户反馈：通知卡与上一条消息间隔仍大（「卡片需要作为主对话消息的一部分」），要求间隔与正常消息一致（8dp）。
+
+### 根因定音（UI dump + Room 交叉实证）
+
+- 真机 uiautomator dump：气泡与通知卡之间 gap 区（~350px）存在 **12 个 48dp 高、8dp 步进的空气泡**——即 role='shell' 占位消息照常渲染，此前「已过滤」判断有误。
+- Room `cached_messages`：Dedup 指令测试会话 34 条消息中 **role='shell' 15 条（全部 0 parts）**，另有 agent-switched ×3、model-switched ×1 同为零内容。
+- 定罪：`MessageSerializer.selectDeserializer` 的 when 按 role 分发，`'shell'` 落入 **else → Message.User 回退**——过滤条件 `(message as? Message.Assistant)?.role == "shell"` **永不命中**（类型判断错误，非逻辑遗漏）。
+
+### 修复（8388070f）
+
+- `MarkdownChunking.buildChatEntries`：改按 `Message.role` 字符串过滤 `SYNTHETIC_ENVELOPE_ROLES = {shell, agent-switched, model-switched}`（role 是 abstract val，与反序列化类型无关）；真 user/assistant 不受影响，流式 turn（非零 parts 渐入）不在判定范围。
+- 配套 `SyntheticEnvelopeFilterTest` ×3：回退行为锁定（shell JSON → Message.User 且 role 保留）+ 信封零发射 + 真消息照常。
+
+### 同批（e9a8f722，#253）
+
+- `EventDispatcher.releaseSessionData` 不再清 `shellJobsHandler`（退出会话卡片蒸发根治）；`SessionDeleted` 级联补 `shellJobsHandler.clearForSession`。
+
+### 验证（真机，density 3.0）
+
+- 全量单测绿（含新 3 用例）；assemble + 静默装机 ✓。
+- 服务器端 `POST /api/session/{id}/shell`（Basic auth）创建 `echo gapcheck` → SSE → 通知卡「后台命令完成 · $ echo gapcheck」✓。
+- 语义树 bounds 终测：气泡容器 `[36,326][1164,2081]` → 通知卡容器 `[36,2105][1164,2304]`，**gap = 24px = 8dp = messageSpacing 精确达标**（acc_final_8dp.png）。
+
+### 方法论教训
+
+- **像素考古三连坑**：① 采样列穿正文文本区把文字笔画当 border；② 浅色主题下气泡 border/气泡内底色与会话背景亮度差 <3%，颜色不可分——**几何归因最终靠语义树容器 bounds，不是像素**；③ uiautomator dump 曾只剩根节点（Compose 渲染中），重试即可。
+- **输入注入**：adb `input text` 对 `!` 的转义不稳定（同命令两次结果不同），软键盘 keyevent SHIFT+1 映射 `[`——**服务器端 REST 直发**（`POST /api/session/{id}/shell`）是 shell 触发的可靠 E2E 通道。
+- 顺带发现：GET `/api/session/{id}/message` 返回 shell 条目含完整 command/status/exit/output——**V2 有已结束 shell 历史 API**（推翻「无历史 API」旧判断），跨进程恢复通知卡可行（未实施）。
