@@ -475,7 +475,10 @@ internal fun ChatScrollBottomFab(
             // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
             modifier = modifier
                 .fabEdgeVerticalSlide(state = slideState)
-                .padding(start = 16.dp, bottom = 16.dp)
+                // 2026-08-29 用户裁决「双 FAB 均贴边无边距」：去 start=16dp——该值
+                // 镜像的菜单按钮内部横距已随 08-27 稳定 API 复刻（按钮钉底贴边）
+                // 消失，保留即左右不对称（左 16dp/右 0，真机截图实证）。
+                .padding(bottom = 16.dp)
                 .size(48.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
             containerColor = MaterialTheme.colorScheme.secondaryContainer,

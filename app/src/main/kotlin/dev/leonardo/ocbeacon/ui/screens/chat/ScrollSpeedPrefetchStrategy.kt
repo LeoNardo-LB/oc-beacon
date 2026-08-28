@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListPrefetchScope
 import androidx.compose.foundation.lazy.LazyListPrefetchStrategy
 import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
+import androidx.compose.foundation.lazy.layout.PrefetchScheduler
+import androidx.compose.foundation.lazy.layout.PrefetchRequest
 
 /**
  * 滚动速度自适应预组合策略（2026-08-13 引入；原名 JumpPrefetchStrategy，
@@ -23,6 +25,24 @@ import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
  */
 @OptIn(ExperimentalFoundationApi::class)
 class ScrollSpeedPrefetchStrategy : LazyListPrefetchStrategy {
+
+    /**
+     * 机制级根因修复（2026-08-29，用户「反复滚动 FATAL」）：调度器 no-op——
+     * 预组合请求整体丢弃，pausable 预组合物理上不再发生。
+     *
+     * 崩溃栈（crash buffer 完整取证）：ArrayIndexOutOfBoundsException(-2) @
+     * IntStack.peek2 ← GapComposer.end ← performPausableComposition ←
+     * AndroidPrefetchScheduler——即框架 prefetch 的 pausable 预组合内部缺陷
+     * （issuetracker 331365999 家族，K-9/Thunderbird 11.0 同签名滚动崩溃）。
+     * item 内容侧危险形态已清（return@Box 加固），本 override 使崩溃栈
+     * **不可达**：无调度 → 无预组合 → 无 pausable 恢复。
+     *
+     * 代价：放弃滚动方向预组合的平滑收益（本策略 onScroll 的分档窗口随之
+     * 停用）——重 chunk 进视口改为即时组合，理论上 fling 段有顿挫风险，
+     * 真机 A/B 若不可接受，恢复路径 = 删除本 override 即回原策略。
+     * 恢复条件：Compose 升级跨过 pausable prefetch 缺陷修复版本。
+     */
+    override val prefetchScheduler: PrefetchScheduler = NoPrefetchScheduler
 
     /**
      * 滚动方向预组合——速度自适应窗口（2026-08-20 第二轮滚动卡顿修复）。
@@ -138,6 +158,11 @@ class ScrollSpeedPrefetchStrategy : LazyListPrefetchStrategy {
 
     override fun NestedPrefetchScope.onNestedPrefetch(firstVisibleItemIndex: Int) {
         // 无嵌套列表——忽略
+    }
+
+    private object NoPrefetchScheduler : PrefetchScheduler {
+        /** 丢弃全部预组合请求（含嵌套预组合）——见 [getPrefetchScheduler] 注。 */
+        override fun schedulePrefetch(request: PrefetchRequest) = Unit
     }
 
 }
