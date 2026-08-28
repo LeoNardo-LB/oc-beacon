@@ -1142,6 +1142,8 @@ fun ChatMessageList(
                                             }
                                         }
                                 ) {
+                                    // [perf-flng] #258 组合成本取证（DEBUG-only）
+                                    val chunkT0 = android.os.SystemClock.elapsedRealtimeNanos()
                                     ChunkedAssistantMessage(
                                         renderableTurn = renderableTurns[displayItemIndex] ?: return@Box,
                                         currentMessage = msg,
@@ -1160,6 +1162,13 @@ fun ChatMessageList(
                                         onLocateTask = onLocateTask,
                                         eventExpandedStates = eventCardExpandedStates,
                                     )
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        dev.leonardo.ocbeacon.logging.AppLogger.d(
+                                            "perf-flng",
+                                            "chunk compose " + (android.os.SystemClock.elapsedRealtimeNanos() - chunkT0) / 1e6 +
+                                                "ms key=" + entry.key.takeLast(12)
+                                        )
+                                    }
                                 }
                             }
                             is ChatEntry.UserChunk -> {
@@ -1379,8 +1388,11 @@ fun ChatMessageList(
                                         val hanging = shellPart.status == "running" && storeJob == null
                                         val failed = hanging ||
                                             (shellPart.status != "running" && (shellPart.exit ?: 0) != 0)
+                                        val evKey = "shell_" + shellPart.shellId.ifEmpty { chatMessage.message.id }
+                                        // [perf-flng] #258 组合成本取证（DEBUG-only）
+                                        val cardT0 = android.os.SystemClock.elapsedRealtimeNanos()
                                         EventCard(
-                                            eventKey = "shell_" + shellPart.shellId.ifEmpty { chatMessage.message.id },
+                                            eventKey = evKey,
                                             timeMs = chatMessage.message.time.created,
                                             label = stringResource(
                                                 if (failed) R.string.chat_event_shell_failed
@@ -1429,6 +1441,13 @@ fun ChatMessageList(
                                                 }
                                             },
                                         )
+                                        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                            dev.leonardo.ocbeacon.logging.AppLogger.d(
+                                                "perf-flng",
+                                                "card compose " + (android.os.SystemClock.elapsedRealtimeNanos() - cardT0) / 1e6 +
+                                                    "ms key=" + evKey.takeLast(16)
+                                            )
+                                        }
                                         return@Box
                                     }
                                     return@Box

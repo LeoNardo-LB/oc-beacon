@@ -98,6 +98,14 @@ class OpenCodeApp : Application() {
 
         DebugLogger.init(this)
 
+        // [perf/compose-tracing] #258：DEBUG 构建的组合追踪由 runtime-tracing 的
+        // ComposeTracingInitializer（androidx.startup）自动初始化——systrace/perfetto
+        // 中可见 Compose:recomposition 等段，用于定位 fling 组合热点。release 不打包。
+        // 若需要显式开关：androidx.compose.runtime.tracing.Tracing.enable()。
+        if (BuildConfig.DEBUG) {
+            AppLogger.i("App", "Compose composition tracing available (debug, initializer)")
+        }
+
         // ---- #106-2 工具链治理：StrictMode（仅 debug 构建启用）----
         // 自动捕获主线程 IO（#102 M-2 / #103 M-5 类）与未关闭资源/Activity 泄漏，
         // 违规仅记录 logcat（tag=StrictMode），不启用 death penalty 防误杀开发构建。

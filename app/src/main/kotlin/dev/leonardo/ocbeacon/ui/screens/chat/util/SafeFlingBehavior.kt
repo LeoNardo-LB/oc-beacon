@@ -36,6 +36,21 @@ internal fun rememberSafeFlingBehavior(listState: LazyListState): FlingBehavior 
     return remember(listState) {
         object : FlingBehavior {
             override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
+                // [DEBUG-flng] 入口/出口完整配对（cancellation 在 withFrameNanos 处
+                // 发生时不经任何 catch——finally 保证每次 fling 必有出口记录）
+                AppLogger.d(TAG, "[DEBUG-flng] performFling enter v=" + initialVelocity.toInt() + "px/s")
+                try {
+                    return performFlingInner(initialVelocity)
+                } finally {
+                    AppLogger.d(
+                        TAG,
+                        "[DEBUG-flng] performFling exit: idx=" + listState.firstVisibleItemIndex +
+                            " off=" + listState.firstVisibleItemScrollOffset
+                    )
+                }
+            }
+
+            private suspend fun ScrollScope.performFlingInner(initialVelocity: Float): Float {
                 val absVel = abs(initialVelocity)
                 if (absVel < 1f) return initialVelocity
                 var velocity = initialVelocity
