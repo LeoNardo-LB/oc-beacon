@@ -831,4 +831,4 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - 发普通消息「msgaftershell」：**卡被顶上去**，新消息+agent 回复在其下方（时间序正确）✓
 - force-stop 重启：卡保留（Room 承载，跨进程持久化达成——此前「进程死卡消失」限制解除）✓
 - agent 回复佐证上下文注入时序：「echo tlline → echo tlline → msgaftershell，先后关系保持完整」✓
-- **subagent 源码交叉印证（sst/opencode beta 分支 fafcea42，与服务器 beta-18414 精确匹配）**：完整调用链行号级证据入库 `docs/research/2026-08-28-v2-shell-message-storage.md`（克隆留存 /home/leo-tkp/oc-src-tmp）。要点补充：①事件+投影同一事务落库可重放，消息 id=msg_<started事件id> 幂等；②**POST 是同步的**（204 在命令退出后才返回，timeout:0）；③**v2 SSE 无 message.updated（v1 专属）**——官方客户端模式为 started 本地 append / ended 就地更新，本实现的「store 观察→重拉窗口」功能等价（E2E 已验证），增量 append 是后续可选优化；④TUI ShellMessage 与 Solid 客户端均为消息流一等行，与我们时间线化形态一致。
+- **subagent 源码交叉印证（anomalyco/opencode beta 分支 fafcea42——权威仓库，npm 包 repository 字段指向；初稿误标 sst/opencode，经核实两仓库互为同步镜像、同一提交，行号引用有效）**：完整调用链行号级证据入库 `docs/research/2026-08-28-v2-shell-message-storage.md`（克隆留存 /home/leo-tkp/oc-src-tmp）。要点补充：①事件+投影同一事务落库可重放，消息 id=msg_<started事件id> 幂等；②**POST 是同步的**（204 在命令退出后才返回，timeout:0）；③**v2 SSE 无 message.updated（v1 专属）**——官方客户端模式为 started 本地 append / ended 就地更新，本实现的「store 观察→重拉窗口」功能等价（E2E 已验证），增量 append 是后续可选优化；④TUI ShellMessage 与 Solid 客户端均为消息流一等行，与我们时间线化形态一致。

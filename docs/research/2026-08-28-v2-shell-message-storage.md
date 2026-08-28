@@ -2,7 +2,8 @@
 
 - 日期：2026-08-28
 - 结论：**是。** `type:'shell'` 条目是服务器在执行 shell 时通过**持久事件投影**主动写入 session 消息存储（SQLite `session_message` 表）的一等公民消息，与 user/assistant/compaction 等同表同管道，**不是 API 临时拼凑**。
-- 证据基线：源码浅克隆 `github.com/sst/opencode`，**`beta` 分支**（tip `fafcea42`，2026-08-27）。npm `@opencode-ai/cli` 的 dist-tag `beta = 0.0.0-beta-18414` 与被测服务器版本一致；该分支即 v2 服务端代码（默认分支 `dev` 仍是 v1，2.0 分支是 4 月的旧探索，均无此实现）。
+- 证据基线：源码浅克隆 **`github.com/anomalyco/opencode`**（npm `@opencode-ai/cli` 包 repository 字段指向的权威仓库——即被测服务器本体的源码），**`beta` 分支**（tip `fafcea42`，2026-08-27）。npm dist-tag `beta = 0.0.0-beta-18414` 与被测服务器版本一致；该分支即 v2 服务端代码（默认分支 `dev` 仍是 v1，2.0 分支是 4 月的旧探索，均无此实现）。
+- 勘误（2026-08-28）：本报告初稿出处误标为 `sst/opencode` beta 分支——经核实两仓库互为同步镜像（同分支同 commit hash，anomalyco/opencode beta = fafcea42 与 sst/opencode beta 同一提交），**全部行号级引用对 anomalyco/opencode 同样有效**；出处归属按包 repository 字段修正为 anomalyco/opencode。
 
 ## 1. 消息条目由谁写入（Q1）
 
