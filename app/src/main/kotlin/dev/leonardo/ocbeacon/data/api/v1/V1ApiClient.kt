@@ -927,18 +927,42 @@ class V1ApiClient @Inject constructor(
         model: ModelSelection?,
         directory: String?
     ): Boolean {
-        val response = httpClient.post("${conn.baseUrl}/session/$sessionId/shell") {
-            auth(conn)
-            directoryHeader(directory)
-            contentType(ContentType.Application.Json)
-            setBody(
-                ShellRequest(
-                    agent = agent,
-                    model = model,
-                    command = command
+        // #256（V1 调研报告适配）：V1 端点为**同步语义**——HTTP 阻塞到命令退出才
+        // 返回，且服务端无超时。客户端加防御：
+        // 1. withTimeout 10 分钟上限（防极长命令永久悬挂 onResult；超时放弃等待，
+        //    命令本身大概率仍在服务器跑——SSE 消息流会继续呈现执行过程）；
+        // 2. 409 SessionBusyError（会话忙时不排队）退避重试 3 次（1s/2s/4s）。
+        var attempt = 0
+        while (true) {
+            try {
+                val response = kotlinx.coroutines.withTimeout(600_000L) {
+                    httpClient.post("${conn.baseUrl}/session/$sessionId/shell") {
+                        auth(conn)
+                        directoryHeader(directory)
+                        contentType(ContentType.Application.Json)
+                        setBody(
+                            ShellRequest(
+                                agent = agent,
+                                model = model,
+                                command = command
+                            )
+                        )
+                    }
+                }
+                // 409 SessionBusyError（会话忙，V1 不排队）退避重试 3 次
+                if (response.status.value == 409 && attempt < 3) {
+                    attempt++
+                    kotlinx.coroutines.delay(1000L * attempt)
+                    continue
+                }
+                return response.status.isSuccess()
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                // 超时：命令可能仍在服务器执行（SSE 会继续呈现），不误报失败
+                dev.leonardo.ocbeacon.logging.AppLogger.w(
+                    "V1ApiClient", "shell command wait timed out (10min) — command may still be running"
                 )
-            )
+                return true
+            }
         }
-        return response.status.isSuccess()
     }
 }

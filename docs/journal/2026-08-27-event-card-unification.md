@@ -839,3 +839,13 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
 - **V1**（anomalyco tag v1.18.18=31406ccc + 本地 1.18.18 二进制 + 4200 服务器实测三层互证）：docs/research/opencode-v1-shell-interface.md（189 行）——POST /session/{id}/shell 同步阻塞无超时、忙时 409 不排队；消息对 user(synthetic)+assistant(tool:'bash' part，无 exit code)；SQLite 投影存储（勘误旧「JSON 文件」误读）；SSE 9 步序列（part.updated 输出全量替换）；TUI 与 agent bash 同形态统一渲染。
 - 三方证据（本机二进制提取 + 两路独立 subagent 调研）全部一致；oc-beacon 时间线化实现与官方三端形态对齐。
 - 防御项登记 **#256**（V2 schema 漂移双形态容错 shellID/callID + output 对象/字符串；V1 同步阻塞/409 重试/partID 全量替换/abort 取消核对点）。
+
+
+## 二十一轮：双方言加固全套落地（#256 P1/P2/P3，2026-08-28 18:55–19:05）
+
+- **P1-a V2 双形态容错**：V2Mappers shell 分支兼容上游 dev 漂移 schema（shellID→callID 回退、output 对象/字符串双形态、status 缺失按 time.completed 推断）；Part.Shell 新增 truncated 字段（wire 契约锁定列表同步更新）。
+- **P1-b SSE 本地投影**：ShellJobsHandler 在 ShellJobStarted 时乐观插入 local 合成消息（msg_local_shell_<shellId>，内存 SSE_PRIORITY 不落 Room）——通知卡即时出现在时间线位置；ShellJobEnded 同 id 更新终态；buildChatEntries 真消息（同 shellId 非 local 前缀）入库后 local 行让位，杜绝双卡。
+- **P2 V1 加固**：runShellCommand 加 10 分钟 withTimeout（防极长命令永久悬挂 onResult，超时静默不误报——命令可能仍在跑）+ 409 SessionBusy 退避重试 3 次（1s/2s/4s）。
+- **P3**：truncated/输出缺失时 body 优先 provider 续读（REST /api/shell/:id/output 全量）；悬挂 running 行（store 无 job）按 failed 呈现（复用文案零新增 i18n）；取消能力核实已存在（ShellSheet 详情 IconButton → removeShell → DELETE /api/shell/:id；V1 abort 端点既有）。
+- 测试：SyntheticEnvelopeFilterTest 乐观行让位两场景 + WireCompatMatrixTest wire 契约更新 + 11 处测试构造补 messageHandler 参数。全量绿。
+- 真机 E2E（ol_*.png）：POST 后 1.5s 乐观卡已在时间线位置；REST 真消息替换后无双卡。

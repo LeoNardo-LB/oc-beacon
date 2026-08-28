@@ -107,7 +107,7 @@ class ChatViewModelPermissionTest {
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             sessionStateRepository = sessionStateRepository,
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
-            shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
+            shellJobsHandler = ShellJobsHandler(ShellJobsStore(), messageStore),
             ownershipRegistry = StreamingOwnershipRegistry(),
             // #122 接线新增：自动批准（relaxed mock——既有用例不受影响）
             permissionAutoApprover = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover>(relaxed = true),

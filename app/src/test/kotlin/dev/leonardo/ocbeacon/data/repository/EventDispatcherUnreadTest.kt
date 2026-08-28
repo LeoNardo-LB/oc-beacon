@@ -54,7 +54,7 @@ class EventDispatcherUnreadTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
-            shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
+            shellJobsHandler = ShellJobsHandler(ShellJobsStore(), messageStore),
             sessionStateRepository = sessionStateRepository,
             unreadBadgeService = UnreadBadgeService(
                 unreadStateStore,

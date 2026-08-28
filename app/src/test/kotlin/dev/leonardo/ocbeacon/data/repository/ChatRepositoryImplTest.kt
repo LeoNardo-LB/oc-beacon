@@ -65,7 +65,7 @@ class ChatRepositoryImplTest {
             questionHandler = questionHandler,
             miscHandler = miscHandler,
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
-            shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
+            shellJobsHandler = ShellJobsHandler(ShellJobsStore(), messageHandler),
             sessionStateRepository = sessionStateRepository,
             unreadBadgeService = UnreadBadgeService(unreadStateStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),

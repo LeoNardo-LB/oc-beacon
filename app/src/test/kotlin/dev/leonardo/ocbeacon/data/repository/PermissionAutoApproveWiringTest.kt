@@ -60,7 +60,7 @@ class PermissionAutoApproveWiringTest {
             questionHandler = QuestionEventHandler(),
             miscHandler = MiscEventHandler(),
             sessionNextHandler = SessionNextEventHandler(TokenStatsTracker()),
-            shellJobsHandler = ShellJobsHandler(ShellJobsStore()),
+            shellJobsHandler = ShellJobsHandler(ShellJobsStore(), messageHandler),
             sessionStateRepository = mockk(relaxed = true),
             unreadBadgeService = UnreadBadgeService(unreadStateStore, CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())),
             ownershipRegistry = StreamingOwnershipRegistry(),

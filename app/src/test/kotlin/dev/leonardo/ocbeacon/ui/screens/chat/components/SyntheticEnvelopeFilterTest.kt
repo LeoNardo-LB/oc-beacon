@@ -129,4 +129,37 @@ class SyntheticEnvelopeFilterTest {
         )
         assertEquals(listOf("t_m_a", "u_m_u"), chat.entries.map { it.key })
     }
+
+    @Test
+    fun `local optimistic shell row yields to real message with same shellId`() {
+        // #252 P1-b：ShellJobsHandler 乐观插入的 local 合成行（msg_local_shell_* 前缀）
+        // 在 REST 真消息（同 shellId、非 local 前缀）入库后让位，避免双卡。
+        fun shellMsg(id: String, shellId: String) = ChatMessage(
+            message = Message.User(id = id, sessionId = "s1", role = "shell", time = TimeInfo(10)),
+            parts = listOf(Part.Shell(
+                id = id + "_shell", sessionId = "s1", messageId = id,
+                shellId = shellId, command = "echo x", status = "running",
+            )),
+        )
+        val local = shellMsg("msg_local_shell_sh_9", "sh_9")
+        val real = shellMsg("msg_real_1", "sh_9")
+        val newerUser = ChatMessage(
+            message = Message.User(id = "m_u9", sessionId = "s1", time = TimeInfo(30)),
+            parts = listOf(Part.Text(id = "m_u9_p", sessionId = "s1", messageId = "m_u9", text = "after")),
+        )
+        // 场景 1：local + 真消息并存 → local 让位，仅真消息发射
+        val chat1 = buildChatEntries(
+            displayItems = listOf(0 to newerUser, 1 to real, 2 to local),
+            turnGroups = emptyMap(), streamingMsgId = null,
+            chunkPlans = emptyMap(), recentStreamedTurnKeys = emptySet(),
+        )
+        assertEquals(listOf("u_m_u9", "u_msg_real_1"), chat1.entries.map { it.key })
+        // 场景 2：仅 local（REST 未刷新窗口）→ local 正常发射（即时反馈不丢）
+        val chat2 = buildChatEntries(
+            displayItems = listOf(0 to newerUser, 1 to local),
+            turnGroups = emptyMap(), streamingMsgId = null,
+            chunkPlans = emptyMap(), recentStreamedTurnKeys = emptySet(),
+        )
+        assertEquals(listOf("u_m_u9", "u_msg_local_shell_sh_9"), chat2.entries.map { it.key })
+    }
 }

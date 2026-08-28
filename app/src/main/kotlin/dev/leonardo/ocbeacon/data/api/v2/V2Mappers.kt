@@ -416,16 +416,32 @@ object V2MessageMapper {
                     // 现映射为 Part.Shell 载荷入库：消息流按时间线渲染通知卡
                     //（新消息自动顶上去）+ 跨进程持久化顺带解决（Room 承载）。
                     type == "shell" -> {
-                        val outputObj = obj["output"] as? JsonObject
+                        // #256 双形态容错：beta-18414 之后 dev HEAD 已改 schema
+                        //（shellID→callID、output 对象→字符串、status/exit 移除）。
+                        // 上游服务器升级后本映射继续工作：
+                        // - shellId：shellID 缺失时回退 callID
+                        // - output：对象形态取 .output 字段，字符串形态直接用
+                        // - status：缺失时按 time.completed 推断（exited/running）
+                        val outputEl = obj["output"]
+                        val outputObj = outputEl as? JsonObject
+                        val outputStr = when {
+                            outputObj != null -> outputObj["output"]?.jsonPrimitive?.contentOrNull
+                            outputEl is JsonPrimitive -> outputEl.contentOrNull
+                            else -> null
+                        }
+                        val statusInferred = obj["status"]?.jsonPrimitive?.contentOrNull
+                            ?: if (obj["time"]?.jsonObject?.get("completed") != null) "exited" else "running"
                         listOf(Part.Shell(
                             id = "${id}_shell",
                             sessionId = sessionId,
                             messageId = id,
-                            shellId = obj["shellID"]?.jsonPrimitive?.contentOrNull ?: "",
+                            shellId = obj["shellID"]?.jsonPrimitive?.contentOrNull
+                                ?: obj["callID"]?.jsonPrimitive?.contentOrNull ?: "",
                             command = obj["command"]?.jsonPrimitive?.contentOrNull ?: "",
-                            status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                            status = statusInferred,
                             exit = obj["exit"]?.jsonPrimitive?.contentOrNull?.toIntOrNull(),
-                            output = outputObj?.get("output")?.jsonPrimitive?.contentOrNull,
+                            output = outputStr,
+                            truncated = outputObj?.get("truncated")?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: false,
                         ))
                     }
                     type == "compaction" && text.isNotEmpty() ->

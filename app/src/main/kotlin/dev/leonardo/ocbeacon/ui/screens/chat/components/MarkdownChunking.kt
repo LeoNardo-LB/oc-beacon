@@ -238,6 +238,15 @@ internal fun buildChatEntries(
 ): ChatEntries {
     val entries = mutableListOf<ChatEntry>()
     val displayEntryStart = IntArray(displayItems.size)
+    // #252 时间线化：REST 真消息的 shellId 索引——local 乐观合成行（msg_local_shell_*
+    // 前缀，ShellJobsHandler 插入）在真消息入库后让位，避免双卡。
+    val realShellIds = HashSet<String>()
+    for ((_, m) in displayItems) {
+        if (m.message.id.startsWith("msg_local_")) continue
+        if (m.message.role == "shell") {
+            m.parts.firstOrNull { it is Part.Shell }?.let { realShellIds.add((it as Part.Shell).shellId) }
+        }
+    }
     for (displayIdx in displayItems.indices) {
         displayEntryStart[displayIdx] = entries.size
         val (rawIndex, msg) = displayItems[displayIdx]
@@ -256,6 +265,14 @@ internal fun buildChatEntries(
                 msg.parts.any { it is dev.leonardo.ocbeacon.domain.model.Part.Shell }
             if (!hasShellPayload) {
                 continue
+            }
+            // local 乐观合成行：同 shellId 的 REST 真消息已在列表 → 让位
+            if (msg.message.id.startsWith("msg_local_shell_")) {
+                val localShellId = msg.parts.firstOrNull { it is dev.leonardo.ocbeacon.domain.model.Part.Shell }
+                    ?.let { (it as dev.leonardo.ocbeacon.domain.model.Part.Shell).shellId }
+                if (localShellId != null && localShellId in realShellIds) {
+                    continue
+                }
             }
         }
         val turnKey = if (msg.isUser) {

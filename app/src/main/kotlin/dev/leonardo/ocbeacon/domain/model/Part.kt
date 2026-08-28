@@ -115,11 +115,14 @@ sealed class Part {
         override val id: String,
         @SerialName("sessionID") override val sessionId: String = "",
         @SerialName("messageID") override val messageId: String = "",
+        /** V2 beta 形态 = shellID；上游 dev 漂移形态 = callID（#256 双形态容错）。 */
         @SerialName("shellID") val shellId: String = "",
         val command: String = "",
         val status: String = "",
         val exit: Int? = null,
         val output: String? = null,
+        /** 捕获截断标记（beta-18414 实测恒 false，1MiB 上限；true 时输出需经 REST 续读）。 */
+        val truncated: Boolean = false,
         val time: Time? = null,
         val metadata: Map<String, JsonElement>? = null
     ) : Part() {

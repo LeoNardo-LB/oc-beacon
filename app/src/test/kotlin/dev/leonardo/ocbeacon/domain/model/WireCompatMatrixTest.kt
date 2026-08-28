@@ -73,7 +73,7 @@ class WireCompatMatrixTest {
             names(Part.Tool.serializer()),
         )
         assertEquals(
-            listOf("id", "sessionID", "messageID", "shellID", "command", "status", "exit", "output", "time", "metadata"),
+            listOf("id", "sessionID", "messageID", "shellID", "command", "status", "exit", "output", "truncated", "time", "metadata"),
             names(Part.Shell.serializer()),
         )
         assertEquals(listOf("id", "sessionID", "messageID", "snapshot"), names(Part.StepStart.serializer()))

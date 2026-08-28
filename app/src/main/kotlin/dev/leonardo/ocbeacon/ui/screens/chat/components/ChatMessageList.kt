@@ -1361,9 +1361,14 @@ fun ChatMessageList(
                                 if ((chatMessage.message as? Message.User)?.role == "shell") {
                                     val shellPart = chatMessage.parts.filterIsInstance<Part.Shell>().firstOrNull()
                                     if (shellPart != null) {
-                                        val failed = shellPart.status != "running" && (shellPart.exit ?: 0) != 0
                                         // 输出三级兜底：REST 快照 → ShellJobsStore（SSE ended 实时输出）
                                         val storeJob = sessionShellJobs.firstOrNull { it.id == shellPart.shellId }
+                                        // #256 P3-6 悬挂降级：part 停留 running 但 store 无此 job
+                                        //（服务器重启/淘汰/store 清空）→ 不可能再有终态事件 →
+                                        // 按 failed 呈现（复用现有文案，零新增 i18n）。
+                                        val hanging = shellPart.status == "running" && storeJob == null
+                                        val failed = hanging ||
+                                            (shellPart.status != "running" && (shellPart.exit ?: 0) != 0)
                                         EventCard(
                                             eventKey = "shell_" + shellPart.shellId.ifEmpty { chatMessage.message.id },
                                             timeMs = chatMessage.message.time.created,
@@ -1378,10 +1383,17 @@ fun ChatMessageList(
                                             bodyFontScale = 0.85f,
                                             expandRevealListState = listState,
                                             bodyContent = {
-                                                val out = shellPart.output
-                                                    ?: storeJob?.let(shellOutputProvider)
-                                                    ?: ""
-                                                if (shellPart.status == "running") {
+                                                // #256 P3-5：truncated（1MiB 捕获上限）或输出缺失时
+                                                // 优先走 provider（三级：store → parts 回填 → REST
+                                                // /api/shell/:id/output 全量续读）；未截断直接用内嵌
+                                                // 输出（避免无谓网络请求）。
+                                                val out = when {
+                                                    shellPart.truncated || shellPart.output.isNullOrBlank() ->
+                                                        storeJob?.let(shellOutputProvider)
+                                                            ?: shellPart.output ?: ""
+                                                    else -> shellPart.output
+                                                }
+                                                if (shellPart.status == "running" && !hanging) {
                                                     Text(
                                                         text = "…",
                                                         style = MaterialTheme.typography.labelSmall,
