@@ -1415,8 +1415,14 @@ fun ChatMessageList(
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     )
                                                 } else if (out.isNotBlank()) {
+                                                    // #252 V6 反馈：shell 输出按围栏代码块渲染——
+                                                    // 裸文本走 markdown 会把单换行折叠成空格
+                                                    // （3 行输出显示成 1 行 = 「有内容但高度不对」），
+                                                    // 且输出中 #/*/` 等字符会被误当 markdown 解释。
+                                                    // 代码块保留换行 + 字面渲染（对齐 TUI/web
+                                                    // 端 verbatim 形态）；4 反引号容忍输出内含 ```。
                                                     MarkdownContent(
-                                                        markdown = out,
+                                                        markdown = "````\n" + out + "\n````",
                                                         textColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                                         isUser = false,
                                                     )
