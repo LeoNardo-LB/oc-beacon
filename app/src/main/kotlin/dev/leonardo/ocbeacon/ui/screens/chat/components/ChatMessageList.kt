@@ -1393,6 +1393,10 @@ fun ChatMessageList(
                                             expandedStates = eventCardExpandedStates,
                                             bodyFontScale = 0.85f,
                                             expandRevealListState = listState,
+                                            // #252 终审：用户发起的 shell 卡默认展开
+                                            // （agent bash 走 ToolCallCard 不受影响；
+                                            // 本地乐观合成卡同经本分支，一致默认展开）
+                                            defaultExpanded = true,
                                             bodyContent = {
                                                 // #256 P3-5：truncated（1MiB 捕获上限）或输出缺失时
                                                 // 优先走 provider（三级：store → parts 回填 → REST

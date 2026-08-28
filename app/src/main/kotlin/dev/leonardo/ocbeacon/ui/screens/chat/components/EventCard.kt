@@ -89,11 +89,14 @@ internal fun EventCard(
      *  默认 1f 不缩；长 Markdown 报告场景传 ~0.85f 小一档（V6 反馈定档）。 */
     bodyFontScale: Float = 1f,
     /** #241 标签行保护（渲染前补偿）：传入会话 LazyListState 即启用一次性
-     *  展开揭示（ExpandReveal）——增长遍裁剪 + 反射注入视窗下移、下一遍对齐
-     *  揭示，全程无可见滚动动画；null = 不补偿。 */
+     *  展开揭示（ExpandReveal）——增长遍裁剪 + PreRenderShiftChannel 帧界注入
+     *  视窗下移、下一遍对齐揭示，全程无可见滚动动画；null = 不补偿。 */
     expandRevealListState: LazyListState? = null,
+    /** 无记忆时的初始展开态（#252 终审：用户发起的 shell 卡默认展开，
+     *  agent 工具卡等其余事件卡保持收起）。显式 toggle 后以记忆为准。 */
+    defaultExpanded: Boolean = false,
 ) {
-    val expanded = expandedStates[eventKey] ?: false
+    val expanded = expandedStates[eventKey] ?: defaultExpanded
     val hasBody = bodyContent != null
 
     // #241 渲染前补偿：展开增量裁剪 + 遍首注入视窗下移、下一遍对齐揭示
