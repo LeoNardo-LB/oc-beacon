@@ -445,7 +445,6 @@ fun ChatMessageList(
         currentStep,
         unembeddedQuestions,
         interaction.pendingPermissions,
-        sessionShellJobs,
     ) {
         (if (sessionMeta.revert != null) 1 else 0) +
         (if (compactionBanners.streamClaimed) 1 else 0) +
@@ -453,9 +452,7 @@ fun ChatMessageList(
         (if (activeTools.isNotEmpty()) 1 else 0) +
         (if (currentStep != null) 1 else 0) +
         (if (unembeddedQuestions.isNotEmpty()) 1 else 0) +
-        (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0) +
-        // #252：shell 对话流内嵌卡（条件与下方 item 块一致）
-        (if (sessionShellJobs.isNotEmpty()) 1 else 0)
+        (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0)
     }
 
     // #222（贴底尾部横幅 reveal）：调研定音（docs/research/2026-08-25-card-height-
@@ -473,14 +470,11 @@ fun ChatMessageList(
         activeTools,
         currentStep,
         compactionBanners,
-        sessionShellJobs,
     ) {
         (if (sessionMeta.sessionStatus is SessionStatus.Retry) 1 else 0) +
             (if (activeTools.isNotEmpty()) 1 else 0) +
             (if (currentStep != null) 1 else 0) +
-            (if (compactionBanners.tailFallback) 1 else 0) +
-            // #252：shell 卡出现时贴底 reveal（同 #222 语义）
-            (if (sessionShellJobs.isNotEmpty()) 1 else 0)
+            (if (compactionBanners.tailFallback) 1 else 0)
     }
     LaunchedEffect(revealBannerCount) {
         if (revealBannerCount > 0 && autoScrollState.value) {
@@ -496,21 +490,8 @@ fun ChatMessageList(
             }
         }
     }
-    // #252：shell 卡内容变化（job 出现/状态/输出到达）时贴底重锚——卡片长高
-    // 方向朝视口顶（reverseLayout item0 起点钉在底），不重锚会看不到新输出。
-    LaunchedEffect(sessionShellJobs) {
-        if (sessionShellJobs.isNotEmpty() && autoScrollState.value) {
-            if (listState.isScrollInProgress) {
-                kotlinx.coroutines.withTimeoutOrNull(2_000) {
-                    androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }
-                        .first { !it }
-                }
-            }
-            if (autoScrollState.value) {
-                listState.requestScrollToItem(0)
-            }
-        }
-    }
+    // #252 时间线化：钉底横幅期的 shell 贴底重锚 effect 退役——消息流形态下
+    // shell 卡 = 普通消息 item，贴底跟随走通用新消息机制。
 
     // ===== 2026-08-20 fling 巨帧根治：超长消息块级分片 =====
     // ===== 2026-08-21 架构评审候选 1：渲染供给协调器（Render Supply）=====
@@ -967,54 +948,9 @@ fun ChatMessageList(
                     // 视觉顺序（上→下）：最旧消息 → 最新消息 → revert → pending。
                     // 声明顺序自下而上：pending（底部）→ 消息（顶部）。
 
-                    // #252 终版（用户裁决「类似通知那种」）：每个 shell job 一张通知卡
-                    // （EventCard 本体——Shell 完成/失败的既有通知形态，label/图标/i18n
-                    // 全现成）；description = 命令行，body = 输出 Markdown。间距与其他
-                    // 气泡一致（messageSpacing）。展开态记忆 + #241 reveal 保护齐全。
-                    if (sessionShellJobs.isNotEmpty()) {
-                        item(key = "shell_jobs") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                val shellExpandStates = remember { mutableStateMapOf<String, Boolean>() }
-                                val orderedShells = sessionShellJobs.sortedBy { it.startedAt ?: 0L }
-                                Column {
-                                    orderedShells.forEachIndexed { index, job ->
-                                        if (index > 0) Spacer(Modifier.height(6.dp))
-                                        val failed = !job.isRunning && (job.exit ?: 0) != 0
-                                        EventCard(
-                                            eventKey = "shell_" + job.id,
-                                            timeMs = job.startedAt ?: System.currentTimeMillis(),
-                                            label = stringResource(
-                                                if (failed) R.string.chat_event_shell_failed
-                                                else R.string.chat_event_shell_completed,
-                                            ),
-                                            leadingIcon = Icons.Filled.Terminal,
-                                            failed = failed,
-                                            description = "$ " + job.command,
-                                            expandedStates = shellExpandStates,
-                                            bodyFontScale = 0.85f,
-                                            expandRevealListState = listState,
-                                            bodyContent = {
-                                                val out = job.output ?: shellOutputProvider(job) ?: ""
-                                                if (job.isRunning) {
-                                                    Text(
-                                                        text = "…",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    )
-                                                } else if (out.isNotBlank()) {
-                                                    MarkdownContent(
-                                                        markdown = out,
-                                                        textColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                        isUser = false,
-                                                    )
-                                                }
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // #252 时间线化（2026-08-28）：钉底 shell 横幅退役——shell 通知卡
+                    // 改由消息流按时间线渲染（ChatEntry.Turn 的 role='shell' 特判，
+                    // 数据源 Part.Shell 载荷），新消息自动顶上去（主对话流语义）。
 
                     // Revert 横幅
                     if (sessionMeta.revert != null) {
@@ -1416,6 +1352,54 @@ fun ChatMessageList(
                                 // 中文对话中间，视觉上即「多条消息叠在一起/页面乱」。
                                 // 折叠为一行系统通知（图标 + 首句截断 + 展开箭头），
                                 // 点击展开可滚动全文（300dp 上限）。
+                                // #252 时间线化（2026-08-28 用户定音「shell 命令是主对话
+                                // 内容的一部分」）：role='shell' 且带 Part.Shell 载荷的消息
+                                // 在其时间线位置渲染通知卡（EventCard 本体）——新消息发出
+                                // 后卡片作为历史被自然顶上去，与普通消息同机制；数据自
+                                // Room（REST 完整载荷），跨进程持久化顺带解决。
+                                // 无载荷空壳已在 buildChatEntries 层跳过（不产生 item）。
+                                if ((chatMessage.message as? Message.User)?.role == "shell") {
+                                    val shellPart = chatMessage.parts.filterIsInstance<Part.Shell>().firstOrNull()
+                                    if (shellPart != null) {
+                                        val failed = shellPart.status != "running" && (shellPart.exit ?: 0) != 0
+                                        // 输出三级兜底：REST 快照 → ShellJobsStore（SSE ended 实时输出）
+                                        val storeJob = sessionShellJobs.firstOrNull { it.id == shellPart.shellId }
+                                        EventCard(
+                                            eventKey = "shell_" + shellPart.shellId.ifEmpty { chatMessage.message.id },
+                                            timeMs = chatMessage.message.time.created,
+                                            label = stringResource(
+                                                if (failed) R.string.chat_event_shell_failed
+                                                else R.string.chat_event_shell_completed,
+                                            ),
+                                            leadingIcon = Icons.Filled.Terminal,
+                                            failed = failed,
+                                            description = "$ " + shellPart.command,
+                                            expandedStates = eventCardExpandedStates,
+                                            bodyFontScale = 0.85f,
+                                            expandRevealListState = listState,
+                                            bodyContent = {
+                                                val out = shellPart.output
+                                                    ?: storeJob?.let(shellOutputProvider)
+                                                    ?: ""
+                                                if (shellPart.status == "running") {
+                                                    Text(
+                                                        text = "…",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                } else if (out.isNotBlank()) {
+                                                    MarkdownContent(
+                                                        markdown = out,
+                                                        textColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        isUser = false,
+                                                    )
+                                                }
+                                            },
+                                        )
+                                        return@itemsIndexed
+                                    }
+                                    return@itemsIndexed
+                                }
                                 if ((chatMessage.message as? Message.User)?.role == "system") {
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         dev.leonardo.ocbeacon.logging.AppLogger.w(

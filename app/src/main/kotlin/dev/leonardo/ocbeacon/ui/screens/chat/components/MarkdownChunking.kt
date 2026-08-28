@@ -245,15 +245,18 @@ internal fun buildChatEntries(
         // !cmd 创建 role='shell' 零 parts 信封消息——MessageSerializer 按 role 分发时
         // 'shell' 落入 else 回退分支反序列化为 Message.User（不是 Assistant！），原
         // (message as? Message.Assistant)?.role == "shell" 判定永不命中，空气泡
-        //（48dp/条）照常渲染，15 条占位累积 = 消息与通知卡之间的半屏鸿沟
-        //（真机 UI dump 实证：gap 区 12 个 48dp 空气泡、8dp 步进）。
-        // 修复：按 Message.role 字符串精确过滤（role 是 abstract val，与反序列化
-        // 类型无关）。agent-switched/model-switched 同为服务器合成零内容信封
-        //（Room 实证 0 parts、同走 User 回退），一并过滤。
-        // 真用户消息 role="user" 不受影响；流式 turn 必有 reasoning/text part
-        // 渐入（非零 parts），不在本判定范围。
+        //（48dp/条）照常渲染，15 条占位累积 = 消息与通知卡之间的半屏鸿沟。
+        // #252 时间线化（2026-08-28 用户定音「shell 命令是主对话内容的一部分」）：
+        // 带 Part.Shell 载荷的 shell 消息（V2Mappers 映射 REST 完整载荷）**按消息
+        // 时间线发射**——渲染层在其时间位置出通知卡，新消息自然顶上去；零载荷
+        // 空壳（SSE 实时窗口未刷新 / 历史数据）仍跳过（无内容可渲染）。
+        // agent-switched/model-switched 同为服务器合成零内容信封，无条件跳过。
         if (msg.message.role in SYNTHETIC_ENVELOPE_ROLES) {
-            continue
+            val hasShellPayload = msg.message.role == "shell" &&
+                msg.parts.any { it is dev.leonardo.ocbeacon.domain.model.Part.Shell }
+            if (!hasShellPayload) {
+                continue
+            }
         }
         val turnKey = if (msg.isUser) {
             "u_" + msg.message.id

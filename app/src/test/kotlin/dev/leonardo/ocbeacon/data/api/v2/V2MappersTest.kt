@@ -248,6 +248,45 @@ class V2MappersTest {
     }
 
     @Test
+    fun `toMessageWithParts maps shell message with full payload`() {
+        // #252 时间线化：type='shell' 条目（REST 实测形态）必须映射为带 Part.Shell
+        // 载荷的消息——此前只读 text/summary 字段 → command/status/exit/output 全部
+        // 丢弃 → 空壳信封（渲染层只能钉底横幅，不随时间线滚动、跨进程即失）。
+        val obj = json.parseToJsonElement("""
+            {"type":"shell","id":"msg_sh1","time":{"created":1787894297522,"completed":1787894297530},
+             "shellID":"sh_046cdf3ab001bMzQ7R2hMK2HZy","command":"echo-inflow",
+             "status":"exited","exit":127,
+             "output":{"output":"/bin/bash: 行 1: echo-inflow: 未找到命令\n","cursor":47,"size":47,"truncated":false}}
+        """).jsonObject
+
+        val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
+        assertEquals("msg_sh1", result.info.id)
+        assertEquals("shell", (result.info as Message.User).role)
+        assertEquals(1, result.parts.size)
+        val shell = result.parts[0] as Part.Shell
+        assertEquals("sh_046cdf3ab001bMzQ7R2hMK2HZy", shell.shellId)
+        assertEquals("echo-inflow", shell.command)
+        assertEquals("exited", shell.status)
+        assertEquals(127, shell.exit)
+        assertEquals("/bin/bash: 行 1: echo-inflow: 未找到命令\n", shell.output)
+        assertEquals("msg_sh1", shell.messageId)
+    }
+
+    @Test
+    fun `toMessageWithParts maps running shell message without exit`() {
+        val obj = json.parseToJsonElement("""
+            {"type":"shell","id":"msg_sh2","time":{"created":1000},
+             "shellID":"sh_2","command":"sleep 5","status":"running"}
+        """).jsonObject
+
+        val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")!!
+        val shell = result.parts[0] as Part.Shell
+        assertEquals("running", shell.status)
+        assertNull(shell.exit)
+        assertNull(shell.output)
+    }
+
+    @Test
     fun `toMessageWithParts returns null for missing id`() {
         val obj = json.parseToJsonElement("""{"type":"user"}""").jsonObject
         val result = V2MessageMapper.toMessageWithParts(obj, "sess_1")

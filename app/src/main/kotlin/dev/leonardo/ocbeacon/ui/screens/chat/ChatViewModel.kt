@@ -356,6 +356,32 @@ class ChatViewModel @Inject constructor(
             } ?: ServerConnection.from("", "", null)
             terminalRegistry.updateConn(serverId, conn)
         }
+        // #252 时间线化：shell 任务创建/结束（任意来源——客户端 UI 发送、服务器端
+        // 直发、TUI）→ SSE 更新 ShellJobsStore。shell 的消息条目（type='shell'，
+        // 含 command/status/exit/output 载荷）在服务器消息历史中，客户端需重拉
+        // 消息列表才能拿到 → 观察 store 变化去抖刷新（当前会话的 job 集合签名
+        // 变化才触发；首次发射跳过）。
+        viewModelScope.launch {
+            var lastSig: String? = null
+            var refreshJob: kotlinx.coroutines.Job? = null
+            shellJobsStore.jobsBySession.collect { all ->
+                val jobs = all[sessionId].orEmpty()
+                val sig = jobs.joinToString("|") { it.id + ":" + it.status }
+                if (lastSig != null && sig != lastSig) {
+                    refreshJob?.cancel()
+                    refreshJob = viewModelScope.launch {
+                        kotlinx.coroutines.delay(800)  // 等服务器 appendMessage/updateShell 落库
+                        try {
+                            messageData.paginationDelegate.loadMessages()
+                        } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            AppLogger.w("ChatShell", "shell-driven message refresh failed: " + e.message)
+                        }
+                    }
+                }
+                lastSig = sig
+            }
+        }
     }
 
     // ============ 模型配置 Delegate ============
@@ -972,7 +998,24 @@ class ChatViewModel @Inject constructor(
         sessionActions.executeCommand(command, arguments, onResult)
 
     fun runShellCommand(command: String, onResult: (Boolean) -> Unit) =
-        sessionActions.runShellCommand(command, onResult)
+        sessionActions.runShellCommand(command) { ok ->
+            // #252 时间线化：POST 成功后服务器已创建带完整载荷（command/status/
+            // exit/output）的 type='shell' 消息条目——延迟片刻重拉当前窗口让信封
+            //（V2Mappers 映射为 Part.Shell）进入消息流，通知卡在其时间线位置出现。
+            // ended 的输出更新走渲染层 ShellJobsStore 兜底（shellOutputProvider）。
+            if (ok) {
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(800)
+                    try {
+                        messageData.paginationDelegate.loadMessages()
+                    } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        AppLogger.w("ChatShell", "post-shell message refresh failed: " + e.message)
+                    }
+                }
+            }
+            onResult(ok)
+        }
 
 
     companion object {

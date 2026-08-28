@@ -52,7 +52,7 @@ class SyntheticEnvelopeFilterTest {
             parts = listOf(Part.Text(id = id + "_p", sessionId = "s1", messageId = id, text = "正文")),
         )
 
-        // 最新在前：[shell 信封, assistant-switched 信封, 真 user 消息]
+        // 最新在前：[shell 信封(零载荷), assistant-switched 信封, model-switched 信封, 真 user 消息]
         val displayItems = listOf(
             0 to envelope("m_shell", "shell"),
             1 to envelope("m_asw", "agent-switched"),
@@ -66,13 +66,48 @@ class SyntheticEnvelopeFilterTest {
             chunkPlans = emptyMap(),
             recentStreamedTurnKeys = emptySet(),
         )
-        // 仅真 user 消息发射 1 个 entry；三条信封零发射（空气泡根治）
+        // 仅真 user 消息发射 1 个 entry；零载荷信封不发射（无内容可渲染）
         assertEquals(listOf("u_m_u1"), chat.entries.map { it.key })
         // 索引一致性：跳过消息的 displayEntryStart 保持单调（不崩溃、不串位）
         assertEquals(0, chat.displayEntryStart[0])
         assertEquals(0, chat.displayEntryStart[1])
         assertEquals(0, chat.displayEntryStart[2])
         assertEquals(0, chat.displayEntryStart[3])
+    }
+
+    @Test
+    fun `shell envelope with shell part payload is emitted on timeline`() {
+        // #252 时间线化：带 Part.Shell 载荷的 shell 消息（V2Mappers 映射 REST 完整
+        // 载荷）按消息时间线发射——渲染层在其位置出通知卡，新消息顶上去。
+        val shellMsg = ChatMessage(
+            message = Message.User(id = "m_sh", sessionId = "s1", role = "shell", time = TimeInfo(10)),
+            parts = listOf(Part.Shell(
+                id = "m_sh_shell",
+                sessionId = "s1",
+                messageId = "m_sh",
+                shellId = "sh_1",
+                command = "echo gapcheck",
+                status = "exited",
+                exit = 0,
+                output = "gapcheck",
+            )),
+        )
+        val newerUser = ChatMessage(
+            message = Message.User(id = "m_u2", sessionId = "s1", time = TimeInfo(20)),
+            parts = listOf(Part.Text(id = "m_u2_p", sessionId = "s1", messageId = "m_u2", text = "后续消息")),
+        )
+        // 最新在前：新消息 index 0，shell 消息 index 1（更早）
+        val displayItems = listOf(0 to newerUser, 1 to shellMsg)
+        val chat = buildChatEntries(
+            displayItems = displayItems,
+            turnGroups = emptyMap(),
+            streamingMsgId = null,
+            chunkPlans = emptyMap(),
+            recentStreamedTurnKeys = emptySet(),
+        )
+        // 两条都发射：shell 卡在时间线位置（entry 序 1），新消息在其后（视觉更下方）
+        assertEquals(listOf("u_m_u2", "u_m_sh"), chat.entries.map { it.key })
+        assertEquals(1, chat.displayEntryStart[1])
     }
 
     @Test

@@ -408,6 +408,26 @@ object V2MessageMapper {
                 // 卡片一致的视觉语言）；此前生成 Part.Text → 永不匹配 →
                 // 用户点击压缩后界面无任何反馈。
                 val parts = when {
+                    // #252 时间线化（2026-08-28 用户定音「shell 命令是主对话内容」）：
+                    // V2 服务器把 shell job 作为 type='shell' 消息条目放进会话消息
+                    // 历史（REST 实测载荷含 shellID/command/status/exit/output）——
+                    // 此前这里只读 text/summary 字段 → 载荷全部丢弃 → 空壳信封
+                    //（渲染层只能靠 ShellJobsStore 钉底横幅，不随时间线滚动）。
+                    // 现映射为 Part.Shell 载荷入库：消息流按时间线渲染通知卡
+                    //（新消息自动顶上去）+ 跨进程持久化顺带解决（Room 承载）。
+                    type == "shell" -> {
+                        val outputObj = obj["output"] as? JsonObject
+                        listOf(Part.Shell(
+                            id = "${id}_shell",
+                            sessionId = sessionId,
+                            messageId = id,
+                            shellId = obj["shellID"]?.jsonPrimitive?.contentOrNull ?: "",
+                            command = obj["command"]?.jsonPrimitive?.contentOrNull ?: "",
+                            status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "",
+                            exit = obj["exit"]?.jsonPrimitive?.contentOrNull?.toIntOrNull(),
+                            output = outputObj?.get("output")?.jsonPrimitive?.contentOrNull,
+                        ))
+                    }
                     type == "compaction" && text.isNotEmpty() ->
                         listOf(Part.Compaction(
                             id = "${id}_compaction",
