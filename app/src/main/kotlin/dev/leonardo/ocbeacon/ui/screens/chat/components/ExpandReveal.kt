@@ -41,9 +41,11 @@ val LocalChatListState = compositionLocalOf<LazyListState?> { null }
  * 机制（与 DeferredRevealCompensator 同构，单发简化版）：
  * - 增长遍（tap 展开后首遍测量）：真实高度 = 基线+Δ → 本遍只上报基线（多余
  *   部分被外层 clipToBounds 裁掉，未补偿几何**永不被放置**），同时经
- *   LazyListReflection.requestScrollShift(+Δ) 注入 scrollToBeConsumed——
- *   「内容生长 delta 即等量下移」：视窗在下一遍**遍首**消费时下移 Δ；
- * - 揭示遍：遍首注入已消费（锚点位移先就位），本遍全量上报真实高度——
+ *   PreRenderShiftChannel.enqueue(+Δ) 入帧界队列——「内容生长 delta 即等量
+ *   下移」：帧边界排空注入 request-position 待定位，视窗在下一帧**measure
+ *   遍首**应用时下移 Δ（#258 换道：不再反射直写 scrollToBeConsumed，
+ *   drag 竞态崩溃根因拆除，视觉时序逐帧不变）；
+ * - 揭示遍：遍首待定位置已应用（锚点位移先就位），本遍全量上报真实高度——
  *   揭示与视窗位移严格同遍配对。全程无可见滚动动画。
  *
  * 用法（EventCard 根）：`Modifier.clipToBounds().expandRevealCompensation(...)`
@@ -73,8 +75,11 @@ internal class ExpandRevealCompensator {
      * 单帧瞬变（tap 即时展开，两遍配对）与多帧动画（AnimatedVisibility
      * spring 高度、逐帧小增量）同一机制通吃；展开 +Δ 视窗下移、收起 -Δ
      * 视窗上移，位移全部发生在渲染前（用户硬约束 2026-08-27）。
+     *
+     * @param scrolling 列表滚动中（调用方在 measure 块内同步读
+     *   isScrollInProgress，快照零滞后且建立订阅——停滚下降沿自动复测）。
      */
-    fun onMeasure(realHeight: Int): Pair<Int, Int> {
+    fun onMeasure(realHeight: Int, scrolling: Boolean): Pair<Int, Int> {
         // 条目首次进入视口（此前从未测过）：直接全量上报，绝不注入——
         // 否则新出现的展开卡会先隐身一帧再跳入。real==0（收起态）**不短路**：
         // 走通用配对（持有旧高 + 注入 -旧高），否则收起裸跟随 = 下坠回归
@@ -83,6 +88,17 @@ internal class ExpandRevealCompensator {
             everMeasured = true
             reportedBase = realHeight
             return realHeight to 0
+        }
+        // #258 滚动守卫（#239 holdReveal 同款，expand 家族补装）：滚动中既不
+        // 入队也不揭示——真实高度与已配对揭示之差交 clipToBounds 裁剪，视口
+        // 零位移；停滚下降沿经 isScrollInProgress 订阅自动复测，走常规配对
+        // 恢复。滚动中 tap 展开是默认展开卡片进入视口（everMeasured 分支已
+        // 放行）之外唯一的高频注入场景，此前正是 crash 放大器之一。
+        if (scrolling) {
+            val paired = reportedBase + pendingReveal
+            reportedBase = paired
+            pendingReveal = 0
+            return paired to 0
         }
         val revealHeight = reportedBase + pendingReveal
         val extra = realHeight - revealHeight
@@ -113,7 +129,10 @@ internal fun Modifier.expandRevealCompensation(
         constraints.copy(maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
     )
     val realHeight = placeable.height
-    val (reportHeight, injectDelta) = compensator.onMeasure(realHeight)
+    // measure 块内同步读 isScrollInProgress（快照零滞后；读取同时建立订阅：
+    // 停滚下降沿自动失效本节点测量 → 复测恢复配对，同流式家族 #239 机制）。
+    val scrolling = listState.isScrollInProgress
+    val (reportHeight, injectDelta) = compensator.onMeasure(realHeight, scrolling)
     if (injectDelta != 0) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.w(
@@ -122,7 +141,9 @@ internal fun Modifier.expandRevealCompensation(
                     " inject=" + injectDelta
             )
         }
-        LazyListReflection.requestScrollShift(listState, injectDelta.toFloat())
+        // #258 换道：帧界排队（下一帧 measure 遍首经 request-position 通道应用），
+        // 不再反射直写 scrollToBeConsumed——drag 竞态崩溃根因拆除。
+        PreRenderShiftChannel.enqueue(listState, injectDelta.toFloat())
     }
     layout(placeable.width, reportHeight) {
         placeable.placeRelative(0, 0)

@@ -26,11 +26,12 @@ internal class CompensateState {
  * 紧张 / markdown 迟到解析的巨跳变），一帧未补偿画面被绘制 → 用户感知
  * 「渲染后补偿」跳变。
  *
- * 延迟揭示把时序改成**构造性渲染前**：
+ * 延迟揭示把时序改成**构造性渲染前**（#258 换道后注入走 PreRenderShiftChannel：
+ * 帧界排队 → 下一帧 measure 遍首经 request-position 通道应用，机制详见该类头）：
  * - 增长遍（pass k）：不向 LazyList 上报新高度（report 保持已消费基准），
- *   增量预注入 scrollToBeConsumed（pass k+1 遍首无条件消费，无回写竞争）；
+ *   增量入帧界队列（下一帧 measure 遍首应用）；
  *   未上报的高度被 clipToBounds 裁掉——未补偿的几何**永不被放置**。
- * - 揭示遍（pass k+1，poke 加速到同帧）：遍首已消费增量（锚点位移先就位），
+ * - 揭示遍（pass k+1，poke 加速到同帧）：遍首已应用增量（锚点位移先就位），
  *   本遍上报「基准+已消费增量」——揭示与锚点位移几何严格对齐。
  * - 连续增长链式：每遍揭示上一遍的增量、递延本遍的——最新一行文本至多
  *   晚一遍出现（同帧则零延迟），位置永不跳。
@@ -55,7 +56,7 @@ internal class DeferredRevealCompensator {
     var reportedHeight: Int = 0
         private set
 
-    /** 已注入 scrollToBeConsumed、等待下一遍消费的累计增量。 */
+    /** 已入帧界队列、等待下一帧 measure 遍首应用的累计增量。 */
     var injectedPending: Int = 0
         private set
 
@@ -67,10 +68,10 @@ internal class DeferredRevealCompensator {
     )
 
     /**
-     * 每遍测量调用。前件：调用即一遍——本次遍首已消费掉上次调用注入的
-     * [injectedPending]（scrollToBeConsumed 遍首无条件消费，LazyListMeasure
-     * 标准流程），故「[reportedHeight] + [injectedPending]」是与当前锚点
-     * 位移几何一致的揭示高度。
+     * 每遍测量调用。前件：调用即一遍——本次遍首已应用掉上次调用入队的
+     * [injectedPending]（request-position 待定位在 measure 遍首应用，
+     * LazyListMeasure 标准流程），故「[reportedHeight] + [injectedPending]」
+     * 是与当前锚点位移几何一致的揭示高度。
      */
     /** 归零（item 消失/条件关闭时）：基准与欠账清空（遗留消费由边界钳制兜底）。 */
     fun reset() {
@@ -171,7 +172,10 @@ internal fun Modifier.deferredRevealCompensation(
                     " pend=" + compensator.injectedPending
             )
         }
-        LazyListReflection.requestScrollShift(listState, decision.injectDelta.toFloat())
+        // #258 换道：帧界排队（下一帧 measure 遍首经 request-position 通道应用），
+        // 不再反射直写 scrollToBeConsumed——drag 竞态崩溃根因拆除（机制见
+        // PreRenderShiftChannel；配对语义不变：本遍只上报已消费基准，下一遍全量揭示）。
+        PreRenderShiftChannel.enqueue(listState, decision.injectDelta.toFloat())
     }
     layout(placeable.width, decision.reportHeight) {
         placeable.placeRelative(0, 0)
@@ -210,13 +214,10 @@ internal object LazyListReflection {
     private val invalidatorField: java.lang.reflect.Field? =
         lookupField("androidx.compose.foundation.lazy.LazyListState", "measurementScopeInvalidator")
 
-    // #215 验收反馈·一：scrollToBeConsumed（internal var Float）——滚动消费通道。
-    // 用户真实滚动（scrollBy/fling）的必经路径：测量开始时无条件消费
-    //（currentFirstItemScrollOffset -= scrollDelta），跨 item 折算与边界钳制由
-    // 测量标准流程原生处理，消费结果随测量回写——不存在「请求被回写丢弃」的竞争
-    //（toggle 动画期间逐帧修正为什么必须走这条通道的定因，见 journal §验收反馈·一）。
-    private val scrollToBeConsumedField: java.lang.reflect.Field? =
-        lookupField("androidx.compose.foundation.lazy.LazyListState", "scrollToBeConsumed")
+    // #258 换道手术（2026-08-29）：scrollToBeConsumed 反射直写已整体删除——
+    // 用户 drag 起手经 onScroll（LazyListState.kt:492）对该残量有
+    // checkPrecondition 断言，直写与用户输入根本竞态（真机 FATAL 实证）。
+    // 渲染前补偿改走 PreRenderShiftChannel（帧界排空 + request-position 通道）。
 
     private fun lookupField(className: String, name: String): java.lang.reflect.Field? = try {
         Class.forName(className).getDeclaredField(name).apply { isAccessible = true }
@@ -265,48 +266,10 @@ internal object LazyListReflection {
         state.requestScrollToItem(index, scrollOffset)
     }
 
-    // #215 验收反馈·一（终版裁决）：requestScrollShift 已随方案三整体撤销，
-    // 实现存档 git history（a4eedab6）供未来复用。
-
-    /**
-     * #222 伴随定案（2026-08-25 通道回写竞争修复）：流式高度补偿注入改走
-     * scrollToBeConsumed 消费通道（a4eedab6 封存实现复活）。
-     *
-     * 定因链：request-position 通道（requestPositionAndForgetLastKnownKey + poke）
-     * 在测量**中途**注入，而 LazyListMeasure.kt:423 把本遍**起始** off 原样写回
-     * （updateFromMeasureResult）——poke 引发的再测遍若先于回写起跑则注入存活，
-     * 否则被覆盖丢弃。真机实测（2026-08-25 分布式长文流式 + 滚离底部）：off 轨迹
-     * 785→933→933→1093→1163，fire2 注入（933+72）被吃——间歇性丢失使阅读历史
-     * 期视口缓慢上爬。#215 journal 早已实证动画场景同竞争（请求落空、终态跳回）。
-     *
-     * scrollToBeConsumed 是用户真实滚动（scrollBy/fling）的必经通道：测量开始时
-     * **无条件消费**（currentFirstItemScrollOffset -= scrollDelta，LazyListMeasure.kt:142），
-     * 消费结果随回写生效——结构性无竞争。注入语义：内容生长 delta 即等量下移
-     * （cur - shiftDownPx → 消费时 off += delta），与 request-position 注入等价。
-     *
-     * 仍是测量期（渲染前）反射注入——遍首消费先于放置，符合用户硬约束。
-     * 反射字段不可用时降级回 request-position 通道（有竞争但功能等价）。
-     */
-    fun requestScrollShift(state: LazyListState, shiftDownPx: Float) {
-        val f = scrollToBeConsumedField
-        if (f != null) {
-            try {
-                val cur = f.getFloat(state)
-                f.setFloat(state, cur - shiftDownPx)
-                invalidatorField?.get(state)?.let {
-                    @Suppress("UNCHECKED_CAST")
-                    (it as MutableState<Unit>).value = Unit
-                }
-                return
-            } catch (t: Throwable) {
-                AppLogger.w("LazyListReflection", "requestScrollShift failed, fallback: ${t.message}")
-            }
-        }
-        // 降级：request-position 通道（存在回写竞争，但保证注入发生）
-        requestScrollToItemNoCancel(
-            state,
-            state.firstVisibleItemIndex,
-            state.firstVisibleItemScrollOffset + shiftDownPx.toInt()
-        )
-    }
+    // #258 换道手术（2026-08-29）：requestScrollShift（scrollToBeConsumed 直写）
+    // 已整体删除，实现存档 git history。它承载的「渲染前注入」职责由
+    // PreRenderShiftChannel 承接：帧界排空 → requestScrollToItemNoCancel。
+    // 当年 #222 定因链（测量中途注入被 updateFromMeasureResult 回写覆盖）
+    // 在新通道不成立：帧界注入时上一遍已完全结束，无中途覆盖窗口——
+    // request-position 通道由此成为无崩溃且无回写竞争的最终形态。
 }

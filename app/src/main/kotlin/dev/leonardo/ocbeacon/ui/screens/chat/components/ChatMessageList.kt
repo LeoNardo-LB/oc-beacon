@@ -909,6 +909,17 @@ fun ChatMessageList(
                 }
             }
 
+            // #258 换道手术：渲染前补偿统一通道的帧界排空泵。MonotonicFrameClock
+            // 回调相（Choreographer 动画相）早于当帧 measure 遍历——排空注入的
+            // 待定位置在本帧 measure 遍首应用：注入与应用严格隔帧配对，与旧
+            // scrollToBeConsumed 通道视觉时序逐帧一致（机制见 PreRenderShiftChannel）。
+            LaunchedEffect(listState) {
+                while (true) {
+                    withFrameNanos { }
+                    PreRenderShiftChannel.drain(listState)
+                }
+            }
+
             // 2026-08-13 状态机注入（门控读 LocalJumpController）。
             // 2026-08-21 卫生清理：LocalMarkdownStateRegistry 注入已删除（D-10）。
             androidx.compose.runtime.CompositionLocalProvider(
