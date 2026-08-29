@@ -29,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.graphics.Color
@@ -376,6 +377,22 @@ internal fun MessageCardAssistant(
                                 // 放宽为 Reasoning 或 Tool（question/permission 工具调用）都渲染。
                                 // 2026-08-17（多卡片修复）：锚定 questionAnchorPartId——
                                 // 只在锚 part 后渲染一张（原条件会按 part 数量重复渲染）。
+                                // 2026-08-30 统一收起语义：槽位挂 expandRevealCompensation
+                                // （RB/TC/EV 同款）——mid-list 收起提问卡走 dispatchRawDelta
+                                // 「下方收上来」，与其他展开面一致；贴底走 drop-at-bottom 透传。
+                                val qcListState = LocalChatListState.current
+                                val qcCompensator = remember { ExpandRevealCompensator() }
+                                androidx.compose.foundation.layout.Box(
+                                    modifier = Modifier.then(
+                                        if (qcListState != null) {
+                                            Modifier
+                                                .clipToBounds()
+                                                .expandRevealCompensation(qcListState, qcCompensator, "QC-REVEAL")
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                                ) {
                                 androidx.compose.animation.AnimatedVisibility(
                                     visible = qEntered && pendingQuestion != null &&
                                         item.group.part.id == effectiveAnchorId,
@@ -397,6 +414,7 @@ internal fun MessageCardAssistant(
                                             answersStore = questionAnswersCache,
                                         )
                                     }
+                                }
                                 }
                             }
                         }
