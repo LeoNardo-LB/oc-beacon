@@ -90,27 +90,13 @@ internal object PreRenderShiftChannel {
             return
         }
         val baseOffset = state.firstVisibleItemScrollOffset
-        val rawTarget = (baseOffset + total).toInt()
-        // 2026-08-30 用户「往下跳」根修（05:12:53 真机轨迹定罪）：mid-list 收起
-        // 思考卡（-410px）时收起注入沿贴底方向推视窗——用户视口在 idx=0 off=304
-        // （底部余量仅 304px），注入撞底：off 被推到 0 后剩余增量被 clamp 丢弃，
-        // 视口净位移 304px = 整屏下坠。修复 = 撞底注入直接放弃（宁局部收拢，
-        // 不整屏穿越——LazyColumn 自然锚定让被收起卡上方内容局部上收，无穿越）。
-        if (rawTarget < 0) {
-            acc[0] = 0f
-            g[1] = g[0]
-            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                AppLogger.w(
-                    "PreRenderShift",
-                    "drop-neg-target total=" + total.toInt() + " off=" + baseOffset +
-                        " (would cross bottom; giving up to avoid viewport jump)"
-                )
-            }
-            return
-        }
-        val targetOffset = rawTarget
-        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && targetOffset != rawTarget) {
-            AppLogger.w("PreRenderShift", "clamp: target=" + rawTarget + " -> 0")
+        val targetOffset = (baseOffset + total).toInt().coerceAtLeast(0)
+        // 2026-08-30 收起语义定音（用户裁决「下面的内容收上来」）：撞底时钳 0
+        // 注入（视窗推到贴底为止）——下方内容尽可能多地收上来，剩余位移由上方
+        // 内容随 AV 动画逐帧平滑承担（物理守恒：内容 -Δ 必有承担者）。放弃注入
+        // （上一版 drop-neg-target）会退化为「上方整体下压」，已按裁决撤销。
+        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && targetOffset != (baseOffset + total).toInt()) {
+            AppLogger.w("PreRenderShift", "clamp: target=" + (baseOffset + total).toInt() + " -> 0")
         }
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.d(

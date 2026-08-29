@@ -80,10 +80,6 @@ internal class ExpandRevealCompensator {
      *  配对，否则首个增量漏注入 = 净漂移，2026-08-27 思考块 -18px 实证）。 */
     private var everMeasured = false
 
-    /** 收起撞底熔断（2026-08-30「往下跳」根修）：余量不足的收起整段透传，
-     *  realHeight 重新增长（再次展开/内容生长）时解除回配对路径。 */
-    private var collapseFused = false
-
     /**
      * 每遍测量调用。返回 (本遍上报高度, 注入下移量)。
      *
@@ -98,7 +94,7 @@ internal class ExpandRevealCompensator {
      *   此前会误判「增量已应用」提前揭示——揭示先于位移 = 跳变；门关闭时
      *   保持基准裁剪，揭示严格等位移落地。
      */
-    fun onMeasure(realHeight: Int, shiftApplied: Boolean, anchoredAtBottom: Boolean = false, collapseRoomPx: Int = Int.MAX_VALUE): Pair<Int, Int> {
+    fun onMeasure(realHeight: Int, shiftApplied: Boolean, anchoredAtBottom: Boolean = false): Pair<Int, Int> {
         // 条目首次进入视口（此前从未测过）：直接全量上报，绝不注入——
         // 否则新出现的展开卡会先隐身一帧再跳入。real==0（收起态）**不短路**：
         // 走通用配对（持有旧高 + 注入 -旧高），否则收起裸跟随 = 下坠回归
@@ -117,27 +113,12 @@ internal class ExpandRevealCompensator {
             reportedBase = realHeight
             return realHeight to 0
         }
-        // 2026-08-30 mid-list 收起撞底熔断（「往下跳」终修，05:12:53 轨迹定罪）：
-        // 收起注入沿贴底方向推视窗，注入总量 > 视口底部余量（off + 下方可见
-        // item）时必撞底——视窗被推到 off=0 后剩余增量 clamp 丢弃 = 视口净坠
-        // 304px。收起动画首帧评估余量，不足则整段熔断透传（LazyColumn 原生
-        // 锚定 = 被收起卡上方内容逐帧局部收拢、下方不动，连续平滑无视窗穿越）。
-        // 展开仍走注入（上方固定、向下生长揭示 = 用户裁决的「向下展开」）。
-        // collapseRoomPx 默认 MAX（单测契约路径不熔断，原逐帧配对语义保留）。
-        if (collapseFused) {
-            if (realHeight > reportedBase) {
-                collapseFused = false
-            } else {
-                pendingReveal = 0
-                reportedBase = realHeight
-                return realHeight to 0
-            }
-        } else if (realHeight < reportedBase && collapseRoomPx < reportedBase) {
-            collapseFused = true
-            pendingReveal = 0
-            reportedBase = realHeight
-            return realHeight to 0
-        }
+        // 2026-08-30 收起语义定音（用户裁决「下面的内容收上来，而不是整体
+        // 收下去」）：收起注入 = 视窗沿贴底方向推 Δ（把下方内容收上来、上方
+        // 内容固定、header 不动）——原生锚定的「上方整体下压」被本注入推翻。
+        // 撞底（余量不足）时由 drain 钳到贴底，下方尽可能多地收上来，剩余由
+        // 上方平滑承担（AV 逐帧，物理守恒无法归零）。
+
         val revealHeight = reportedBase + pendingReveal
         val extra = realHeight - revealHeight
         return if (extra != 0) {
@@ -183,18 +164,10 @@ internal fun Modifier.expandRevealCompensation(
     // 真实高度（markdown 异步解析）在滚动中即时配对到位，不再「滑完才展开」。
     val anchoredAtBottom = listState.firstVisibleItemIndex == 0 &&
         listState.firstVisibleItemScrollOffset < 100
-    // 2026-08-30 视口下方余量（reverseLayout）：firstVisible 被裁部分 + 下方
-    // 可见 item 高度和。完全滚出的 item 不在 visibleItemsInfo → 低估 → 提前
-    // 熔断（宁透传不穿越——保守方向安全）。
-    var collapseRoomPx = listState.firstVisibleItemScrollOffset
-    for (item in listState.layoutInfo.visibleItemsInfo) {
-        if (item.index < listState.firstVisibleItemIndex) collapseRoomPx += item.size
-    }
     val (reportHeight, injectDelta) = compensator.onMeasure(
         realHeight,
         shiftApplied = PreRenderShiftChannel.shiftSettled(listState),
         anchoredAtBottom = anchoredAtBottom,
-        collapseRoomPx = collapseRoomPx,
     )
     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
         AppLogger.d(
