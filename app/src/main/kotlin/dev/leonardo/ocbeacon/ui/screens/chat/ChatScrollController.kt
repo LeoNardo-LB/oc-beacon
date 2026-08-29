@@ -110,6 +110,14 @@ internal fun rememberChatScrollController(
     LaunchedEffect(listState, isAtBottomState) {
         snapshotFlow { listState.isScrollInProgress to isAtBottomState.value }
             .collect { (scrolling, atBottom) ->
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    AppLogger.d(
+                        "ChatScrollController",
+                        "[DEBUG-drift] atBot=" + atBottom + " scrolling=" + scrolling +
+                            " idx=" + listState.firstVisibleItemIndex +
+                            " off=" + listState.firstVisibleItemScrollOffset
+                    )
+                }
                 if (scrolling) {
                     autoScrollEnabled.value = false
                 } else if (atBottom) {
@@ -142,23 +150,25 @@ internal fun rememberChatScrollController(
                 listState.requestScrollToItem(0)
                 // 2026-08-30 下跳回归根修：requestScrollToItem 是一次性锚定——
                 // 打开时默认展开的卡（shell/事件卡）+ RB/TC/Markdown 异步内容
-                // 在随后数百 ms 继续长高，把 item0 渐渐顶离贴底（实测 drift
-                // 190-444px，atBot 翻 false、FAB 浮现）。此后对该卡的收起/展开
-                // 走 mid-list 注入路径，产生可见下坠。短窗守卫：窗内任何漂移
-                // （且用户未在滚动、autoScroll 仍开）即重新锚定；用户滚动立即
-                // 让位（铁律：用户阅读位置优先权不变）。
-                withTimeoutOrNull(1_500) {
-                    snapshotFlow {
-                        Triple(
-                            listState.isScrollInProgress,
-                            autoScrollEnabled.value,
-                            listState.firstVisibleItemIndex == 0 &&
-                                listState.firstVisibleItemScrollOffset < 100,
-                        )
-                    }.collect { (scrolling, autoOn, atBottom) ->
-                        if (!scrolling && autoOn && !atBottom) {
-                            listState.requestScrollToItem(0)
-                        }
+                // 在打开后持续长高（实测 600ms-数秒不等），把 item0 渐渐顶离
+                // 贴底（实测漂移 190-444px，atBot 翻 false、FAB 浮现）。此后
+                // 对底部卡的收起/展开不再走贴底透传，而是 mid-list 注入路径
+                // （实测单次 toggle 注入 ±444px 视口位移）——可见下坠，且首次
+                // toggle 注入链会顺手把列表重锚回贴底（「第一次跳、后面不跳」
+                // 的成因）。守卫 = autoScroll 语义的补全：用户未取消跟随
+                // （未滚动）期间，任何离底漂移都重新锚定；用户滚动立即让位
+                // （铁律：用户阅读位置优先权不变）。跟随模式存活多久，守卫
+                // 就跟多久——无窗口。
+                snapshotFlow {
+                    Triple(
+                        listState.isScrollInProgress,
+                        autoScrollEnabled.value,
+                        listState.firstVisibleItemIndex == 0 &&
+                            listState.firstVisibleItemScrollOffset < 100,
+                    )
+                }.collect { (scrolling, autoOn, atBottom) ->
+                    if (!scrolling && autoOn && !atBottom) {
+                        listState.requestScrollToItem(0)
                     }
                 }
             }
@@ -191,7 +201,10 @@ internal fun rememberChatScrollController(
                 }
             }
             if (autoScrollEnabled.value) {
-                listState.snapToBottom()
+                // 2026-08-30 问题卡方向修复：snapToBottom 的瞬跳把整个对话
+                // 一把推上去（用户观感「向上展开」）；animateScrollToItem 平滑
+                // 下滑揭示，问题卡随视口自头部下方逐帧展开 = 向下展开。
+                listState.animateScrollToItem(0)
             }
         }
     }

@@ -209,20 +209,18 @@ internal fun EventCard(
             // 恢复正确堆叠：线 → 正文 → 线 → 动作区 各占一行。
             Column(modifier = Modifier.fillMaxWidth()) {
             // 分隔线统一设计（2026-08-30）：水平已随 MessageBubble 内容栏内缩
-            // 16dp（勿再加 padding——双层内缩会让线比正文更缩 16dp，2026-08-30
-            // 真机像素实测教训）；上线（描述行→正文）与下线（正文→动作区）各自
-            // 呼吸——上线不加上边距（与描述行的 10dp 节奏由外层 spacedBy 承担），
-            // 线→正文 = bodyTopGap；下线（有动作区才有）上下各 8dp。
+            // 16dp（勿再加 padding——双层内缩会让线比正文更缩 16dp，真机像素
+            // 实测教训）；线→正文 = bodyTopGap；下线（有动作区才有）上下各 8dp。
+            // ★ 分隔线必须位于 body 滚动 Column 内部（见下方「硬地板」注释）。
             val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            if (bodyTopDivider) {
-                HorizontalDivider(
-                    color = dividerColor,
-                    modifier = Modifier.padding(bottom = bodyTopGap),
-                )
-            }
             // #232 勘误三教训：heightIn 必须在 verticalScroll 之外（反序即崩）。
             // clipToBounds：Compose 滚动容器默认不裁剪溢出绘制——不加会压住相邻
             // 消息（真机 V6 反馈「回复重叠」的头号嫌疑；#231 同类坑先例）。
+            // ★ 硬地板教训（2026-08-30 逐帧 trace）：分隔线若作为本 Column 的
+            // 兄弟级（AV 收缩约束的直接子级），其固定尺寸（1dp+30dp gap）成为
+            // 收缩地板——AV 高度 < 33px 后 wrapper 无法再缩，退出完成时 33px
+            // 单帧砸掉 = 收起末帧 -30 下跳（展开首帧 +30 同理）。置于滚动
+            // Column 内部后由滚动容器吸收任意约束，全程平滑。
             val density = LocalDensity.current
             Column(
                 modifier = Modifier
@@ -231,6 +229,14 @@ internal fun EventCard(
                     .clipToBounds()
                     .verticalScroll(rememberScrollState()),
             ) {
+                if (bodyTopDivider) {
+                    HorizontalDivider(
+                        color = dividerColor,
+                        modifier = Modifier
+                            .padding(bottom = bodyTopGap)
+                            .fillMaxWidth(),
+                    )
+                }
                 SelectionContainer {
                     if (bodyFontScale != 1f) {
                         CompositionLocalProvider(

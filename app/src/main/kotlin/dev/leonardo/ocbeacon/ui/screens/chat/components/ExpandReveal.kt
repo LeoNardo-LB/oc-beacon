@@ -2,6 +2,8 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,10 +24,21 @@ import dev.leonardo.ocbeacon.logging.AppLogger
  * 禁止单面自定义方向（防斜向/左上右下等不一致观感）。
  */
 val ExpandEnterTransition: EnterTransition =
-    fadeIn() + expandVertically(expandFrom = Alignment.Top)
+    fadeIn(animationSpec = tween(200)) + expandVertically(
+        expandFrom = Alignment.Top,
+        // 2026-08-30 下跳定音：spring 默认 spec 首帧/末帧各有一次 ~30px 突跳
+        // （真机逐帧 trace 实测）。根因是分隔线固定尺寸在收缩容器里的布局
+        // 硬地板（已根修：分隔线移入 body 滚动 Column 内部，滚动容器吸收
+        // 任意约束）——地板消除后 M3 标准 FastOutSlowIn 缓动尾部平滑，
+        // 200ms 时长 120Hz/60Hz 帧数整除。
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+    )
 
 val ExpandExitTransition: ExitTransition =
-    fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
+    fadeOut(animationSpec = tween(200)) + shrinkVertically(
+        shrinkTowards = Alignment.Top,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+    )
 
 /** 会话 LazyListState 下传通道（#241 渲染前补偿用）：ChatMessageList 在列表
  *  内容处 provide，展开型组件就地 consume——避免穿 3-5 层签名的模板代码。 */

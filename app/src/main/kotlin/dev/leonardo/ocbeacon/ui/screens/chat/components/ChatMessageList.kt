@@ -520,6 +520,17 @@ fun ChatMessageList(
         }
         buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys)
     }
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        androidx.compose.runtime.LaunchedEffect(displayItems) {
+            val tail = displayItems.lastOrNull()?.second?.message
+            dev.leonardo.ocbeacon.logging.AppLogger.d(
+                "ChatScrollController",
+                "[DEBUG-drift] items n=" + displayItems.size +
+                    " tail=" + (tail?.id?.takeLast(8) ?: "null") +
+                    " tailType=" + (tail?.let { it::class.simpleName } ?: "null")
+            )
+        }
+    }
     val chatEntriesForPreparse = androidx.compose.runtime.rememberUpdatedState(chatEntries)
     // 流式结束瞬间记录 turn key（延迟分片——防视口内 key 裂变闪跳；
     // 由协调器的窗口清理负责释放）。
