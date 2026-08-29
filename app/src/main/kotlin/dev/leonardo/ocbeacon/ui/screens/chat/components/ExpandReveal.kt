@@ -98,9 +98,16 @@ internal class ExpandRevealCompensator {
             version++
             revealHeight to extra
         } else if (pendingReveal != 0 && !shiftApplied) {
-            // 竞态门：上一遍增量已入队但位移未落地（同帧重测插队）——
-            // 保持基准裁剪，不揭示不重入队，杜绝「揭示先于位移」。
-            reportedBase to 0
+            // 竞态门：上一遍增量已入队但位移未落地（同帧重测插队）。
+            // 展开侧（pending>0）：保持基准裁剪，杜绝「揭示先于位移」跳变
+            // （2026-08-27 思考块裁决，不动）。
+            // 收起侧（pending<0）：**禁止钳回 base**——本分支 extra==0 即
+            // revealHeight==realHeight，上报真实尺寸几何恒正确；若钳 base，
+            // 动画末帧恰落本分支时之后再无失效源，item 永久冻结在展开高度
+            // = 收起后整块空白（2026-08-29 用户报告，[DEBUG-evcol] 迹线
+            // hold report=1129 pending=-881 实证）。提前 ≤1 帧揭示收缩是
+            // 有界瞬态，冻结是无界缺陷。
+            if (pendingReveal < 0) revealHeight to 0 else reportedBase to 0
         } else {
             pendingReveal = 0
             reportedBase = realHeight
