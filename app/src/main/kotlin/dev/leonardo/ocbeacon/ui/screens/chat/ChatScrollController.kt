@@ -168,6 +168,13 @@ internal fun rememberChatScrollController(
                     )
                 }.collect { (scrolling, autoOn, atBottom) ->
                     if (!scrolling && autoOn && !atBottom) {
+                        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                            AppLogger.w(
+                                TAG,
+                                "[DEBUG-drift] GUARD reanchor idx=" + listState.firstVisibleItemIndex +
+                                    " off=" + listState.firstVisibleItemScrollOffset
+                            )
+                        }
                         listState.requestScrollToItem(0)
                     }
                 }
@@ -201,6 +208,14 @@ internal fun rememberChatScrollController(
                 }
             }
             if (autoScrollEnabled.value) {
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    AppLogger.w(
+                        TAG,
+                        "[DEBUG-drift] PENDING animate pendingCount=" + pendingCount +
+                            " fromIdx=" + listState.firstVisibleItemIndex +
+                            " fromOff=" + listState.firstVisibleItemScrollOffset
+                    )
+                }
                 // 2026-08-30 问题卡方向修复：snapToBottom 的瞬跳把整个对话
                 // 一把推上去（用户观感「向上展开」）；animateScrollToItem 平滑
                 // 下滑揭示，问题卡随视口自头部下方逐帧展开 = 向下展开。

@@ -313,6 +313,15 @@ internal class MessageDataDelegate(
     // ============ 工具展开 ============
 
     fun toggleToolExpanded(toolId: String, defaultExpanded: Boolean = false) {
+        if (BuildConfig.DEBUG) {
+            val nv = !( _toolExpandedStates.value[toolId] ?: defaultExpanded)
+            AppLogger.w(
+                "RB-EXP",
+                "[DEBUG-rbexp] toggle id=" + toolId.takeLast(8) + " -> " + nv +
+                    " from=" + Thread.currentThread().stackTrace
+                        .drop(1).take(6).joinToString("<-") { it.methodName }
+            )
+        }
         _toolExpandedStates.update { it + (toolId to !(it[toolId] ?: defaultExpanded)) }
     }
 

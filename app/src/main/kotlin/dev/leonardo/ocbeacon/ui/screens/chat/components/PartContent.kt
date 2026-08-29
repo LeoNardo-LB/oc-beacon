@@ -125,9 +125,18 @@ internal fun PartContent(
                 val toolExpandedStates = LocalToolExpandedStates.current
                 val onToggleToolExpanded = LocalOnToggleToolExpanded.current
                 val expandReasoningDefault = LocalExpandReasoning.current
+                val rbExpanded = toolExpandedStates[part.id] ?: expandReasoningDefault
+                androidx.compose.runtime.LaunchedEffect(part.id, rbExpanded) {
+                    dev.leonardo.ocbeacon.logging.AppLogger.w(
+                        "RB-EXP",
+                        "[DEBUG-rbexp] RB id=" + part.id.takeLast(8) + " expanded=" + rbExpanded +
+                            " mapHit=" + (toolExpandedStates[part.id] != null) +
+                            " default=" + expandReasoningDefault
+                    )
+                }
                 ReasoningBlock(
                     text = part.text,
-                    isExpanded = toolExpandedStates[part.id] ?: expandReasoningDefault,
+                    isExpanded = rbExpanded,
                     onToggleExpand = { onToggleToolExpanded(part.id, expandReasoningDefault) },
                     durationMs = reasoningDuration,
                     isStreaming = isStreaming,

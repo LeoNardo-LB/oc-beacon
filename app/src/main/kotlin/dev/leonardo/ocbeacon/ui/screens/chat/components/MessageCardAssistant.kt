@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -146,6 +147,26 @@ internal fun MessageCardAssistant(
                 ?: singles.lastOrNull { it is Part.Reasoning || it is Part.Tool }?.id
         }
     }
+
+    // 2026-08-30 提问卡跳变根修：提交/忽略后 pendingQuestion 立即移除 →
+    // QuestionCard 被直接移出组合（-954px 两帧塌陷，ScrollDiag RESIZE 实证
+    // 1300→1096→346），SSE part 完成回写后再 +120px 出现 Asked 卡——两个
+    // 无动画突变即用户报告的「提问卡片往下跳」。修复 = 槽位动画化：
+    // ① 锚点记忆——pendingQuestion 消失后保留最后一次锚 part id，exit 动画
+    //   期间 QuestionCard 仍在锚位置组合；
+    // ② 实例记忆——AV exit 期间 content 以最后一次非空 question 渲染。
+    // 到达方向（null→非 null）走同一 AV 的 expandVertically enter =
+    // 「向下展开」（用户 2026-08-30 裁决方向），到达时 +346px 一帧突变同治。
+    var retainedAnchorId by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    if (questionAnchorPartId != null) retainedAnchorId = questionAnchorPartId
+    val effectiveAnchorId = questionAnchorPartId ?: retainedAnchorId
+    var lastQuestion by remember { androidx.compose.runtime.mutableStateOf<SseEvent.QuestionAsked?>(null) }
+    if (pendingQuestion != null) lastQuestion = pendingQuestion
+    // 到达首帧动画开关：AV 首次组合即 visible=true 时不播 enter（新消息 item
+    // 首帧就带问题卡 → RESIZE 0→346 一帧到位）。延迟一帧置 true 强制走
+    // expandVertically enter。rememberSaveable：滑出视口重组不重播。
+    var qEntered by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    LaunchedEffect(Unit) { qEntered = true }
 
     // 统一统计栏 —— 消息气泡页脚（流式/完成是同一事物的两种状态，2026-08-07 合并）。
     // 流式：显示实时耗时（ticker 每秒刷新）；完成：显示固定时长 + 复制按钮。
@@ -355,19 +376,27 @@ internal fun MessageCardAssistant(
                                 // 放宽为 Reasoning 或 Tool（question/permission 工具调用）都渲染。
                                 // 2026-08-17（多卡片修复）：锚定 questionAnchorPartId——
                                 // 只在锚 part 后渲染一张（原条件会按 part 数量重复渲染）。
-                                if (pendingQuestion != null &&
-                                    item.group.part.id == questionAnchorPartId
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = qEntered && pendingQuestion != null &&
+                                        item.group.part.id == effectiveAnchorId,
+                                    enter = ExpandEnterTransition,
+                                    exit = ExpandExitTransition,
                                 ) {
-                                    QuestionCard(
-                                        question = pendingQuestion,
-                                        onSubmit = { answers ->
-                                            onQuestionSubmit?.invoke(pendingQuestion.id, answers)
-                                        },
-                                        onReject = {
-                                            onQuestionReject?.invoke(pendingQuestion.id)
-                                        },
-                                        answersStore = questionAnswersCache,
-                                    )
+                                    val avQuestion = pendingQuestion ?: lastQuestion
+                                    if (avQuestion != null &&
+                                        item.group.part.id == effectiveAnchorId
+                                    ) {
+                                        QuestionCard(
+                                            question = avQuestion,
+                                            onSubmit = { answers ->
+                                                onQuestionSubmit?.invoke(avQuestion.id, answers)
+                                            },
+                                            onReject = {
+                                                onQuestionReject?.invoke(avQuestion.id)
+                                            },
+                                            answersStore = questionAnswersCache,
+                                        )
+                                    }
                                 }
                             }
                         }

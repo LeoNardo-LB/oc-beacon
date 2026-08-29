@@ -1074,13 +1074,12 @@ fun ChatMessageList(
                             QuestionCard(
                                 question = question,
                                 positionLabel = if (unembeddedQuestions.size > 1) "1/${unembeddedQuestions.size}" else null,
+                                // 2026-08-30 同嵌入路径：提交/忽略不强制拉底
                                 onSubmit = { answers ->
                                     viewModel.replyToQuestion(question.id, answers)
-                                    onForceScrollToBottom()
                                 },
                                 onReject = {
                                     viewModel.rejectQuestion(question.id)
-                                    onForceScrollToBottom()
                                 },
                                 answersStore = viewModel.questionAnswerStore,
                             )
@@ -1359,13 +1358,15 @@ fun ChatMessageList(
                                     },
                                     onLocateTask = onLocateTask,
                                     pendingQuestion = embeddedQ,
+                                    // 2026-08-30 提问卡下跳根修：提交/忽略不再强制拉底——
+                                    // mid-list 回答问题被 requestScrollToItem(0) 瞬跳拉底
+                                    // 是「提问卡片往下跳」的第二来源。贴底场景 drift guard
+                                    // 天然维持贴底；mid-list 场景尊重用户阅读位置。
                                     onQuestionSubmit = { qId, answers ->
                                         viewModel.replyToQuestion(qId, answers)
-                                        onForceScrollToBottom()
                                     },
                                     onQuestionReject = { qId ->
                                         viewModel.rejectQuestion(qId)
-                                        onForceScrollToBottom()
                                     },
                                     questionAnswersCache = viewModel.questionAnswerStore,
                                     eventExpandedStates = eventCardExpandedStates,
