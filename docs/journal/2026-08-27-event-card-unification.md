@@ -903,3 +903,26 @@ curl 逐项复现（opencode 1.18.18 @4200）推翻冒烟记录的字面描述�
   - **验证（flag 方案装机）**：flag 日志确认生效；fast fling 12 记 + 双向混沌 16 组 **0 FATAL**；scrolling 截图正常；插桩清理：逐帧轨迹 LaunchedEffect 移除（Diagnostics 刷屏风险），SafeFling 出口分类日志保留（低量高值现场取证）。
   - **遗留（backlog 登记）**：fast fling 下重 item 组合帧（p99 113ms @60ms 甩）为组合成本上限问题——后续方向=compose tracing（Tracing.enable）定位组合热点 → chunk 组合瘦身；prefetch 各窗口配置均无法在 fling 期达到 <16ms（预组合与渲染同线程争抢）。
 - **发版收官（用户裁决「当前代码发布为 0.3.0 正式版」）**：0.3.0 stable 此前从未存在（0.3.0 线止步 beta.9）→ 线内晋升合法。脚本自动推导落 0.3.2（properties 所在线）不合用户意图 → 走 §5 手动流程：version.properties 40/0.3.0 → RELEASE_NOTES（模板润色）→ CHANGELOG [0.3.0]（v0.2.0→HEAD 全跨度汇总）→ tag v0.3.0 → CI。**首次 CI 失败**：R8 -assumevalues 漏分号（proguard:63）→ 本地 assembleStableRelease 验证修复 → 重推 tag。**§6 全过**：Release v0.3.0 非 prerelease + Latest 标记、恰 1 个 APK（oc-beacon-0.3.0.apk 7.4MB）、versionCode=40/versionName=0.3.0、签名 CN=OC Beacon（release keystore 非 debug）、CHANGELOG 已更新、30 个历史 Release 全部保留未删。用户「清理 >0.3.0 版本」诉求按 §7 红线否决（禁止删除历史 Release/Tag），以 Latest 置顶替代。
+
+
+## 二十九轮：0.3.0 验收轮——验收五项 + 发送后两段式跳底/闪烍双层根因修复（2026-08-29/30）
+
+**验收通过（卡已迁出 backlog）**：
+
+- **#257** shell 卡半截卡/空白（ShellOutputBlock verbatim）——用户验收 OK。
+- **#255** shell 触发健壮化（前导空格 + 全角！）——用户验收 OK。
+- **#247** 回合内同键 tool 卡折叠——用户实测可用。E2E 发现：glm 单调用风格 + shell 卡交错使「回合内连续」在自然行为下不易达成（单元缝隙已锁）。
+- **#253** 切换首帧过渡——E2E 六次切换均 ~0.55s 内完整渲染；0.5s 内淡入+加载点用户接受。
+- **#259** debug 签名钉死——差分验证（无 XDG 构建指纹仍 8f7a）+ 覆盖安装 Success；用户实测 OK。
+
+**#252 效果问题（用户报告「发送后两段式跳底+闪烍」）→ 双层根因修复：**
+
+- 层 1（a0638921）：PreRenderShiftChannel.drain 锚定在底（idx=0 且 off<120）时放弃视口位移——消除「推离底部 79px」。
+- 层 2（cccaa7f8）：ExpandReveal 锚定在底时透传真实高度——消除 hold/揭示循环造成的整卡高度抖动（H=332→290→253→332）。
+- 关联提交：e717a28c（仪表）/b91872fa（拆除）；用户复核好转。
+
+**其他**：
+
+- 分割线去除（44d9dc04，bodyTopDivider）；样式统一讨论未完。
+- 0.3.0 stable 真机验收通过（versionCode=40，会话/流式/连接全通）。
+- 新登记 #260（form/request 轮询风暴）。
