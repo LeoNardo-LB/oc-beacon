@@ -36,6 +36,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -58,7 +59,8 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
  *   AgentError + ErrorOutline 图标替换类型图标。
  * - **展开态**（Q11 两段式）：分隔线 → 正文区（Markdown，heightIn(max=300dp)
  *   内部 verticalScroll——**修饰符顺序铁律：heightIn 在 verticalScroll 之外**，
- *   #232 勘误三教训）→ 分隔线 → 动作区按钮行（有则显示）。
+ *   #232 勘误三教训）→ 分隔线 → 动作区按钮行（有则显示）。分隔线统一设计
+ *   （2026-08-30）：内缩对齐正文栅格 + 呼吸间距（见 [bodyTopGap]）。
  * - **展开态记忆**（§4/#227 模式）：调用方持有屏幕级 messageId→expanded 表传入，
  *   滚出视口不丢、离会话即清；本组件只读写 [eventKey] 单键。
  * - **无动画**（Q12）：不做弹入/展开动画，交 LazyColumn 列表锚定稳定。
@@ -96,10 +98,14 @@ internal fun EventCard(
      *  agent 工具卡等其余事件卡保持收起）。显式 toggle 后以记忆为准。 */
     defaultExpanded: Boolean = false,
     /** 展开态描述行→正文之间的分隔线（Q11 两段式上边）开关。默认 true 保留
-     *  原设计（Markdown 裸文本正文需要分隔）；正文自带背景的卡型传 false——
-     *  shell 卡正文 ShellOutputBlock 代码块已有 surfaceContainer 圆角背景，
-     *  叠加分割线构成双重分隔，视觉突兀（2026-08-29 用户反馈去除）。 */
+     *  原设计（Markdown 裸文本正文需要分隔）。分隔线水平随内容栏内缩 16dp、
+     *  线→正文默认 8dp 呼吸（2026-08-30 统一设计，见 bodyTopGap）。 */
     bodyTopDivider: Boolean = true,
+    /** 上分隔线→正文首元素的呼吸间距。裸文本/Markdown 用默认 8dp；
+     *  正文以自带背景的面块开头（shell 卡 ShellOutputBlock 的
+     *  surfaceContainer 圆角块）传 10dp——面块与线贴边即 2026-08-29
+     *  「双重分隔」突兀感的根源，恢复线必须留出脱开距离。 */
+    bodyTopGap: Dp = 8.dp,
 ) {
     val expanded = expandedStates[eventKey] ?: defaultExpanded
     val hasBody = bodyContent != null
@@ -196,9 +202,23 @@ internal fun EventCard(
             enter = ExpandEnterTransition,
             exit = ExpandExitTransition,
         ) {
+            // ★ AnimatedVisibility 内容是 Box 叠放语义（非 Column）——多子级全部
+            // 原点重叠：分割线被正文整体盖住（透明 Markdown 时从字底透出、
+            // ShellOutputBlock 不透明后彻底消失）——这就是分割线「时隐时现/
+            // 不协调」的结构性根因（2026-08-30 像素取证实锤）。显式 Column
+            // 恢复正确堆叠：线 → 正文 → 线 → 动作区 各占一行。
+            Column(modifier = Modifier.fillMaxWidth()) {
+            // 分隔线统一设计（2026-08-30）：水平已随 MessageBubble 内容栏内缩
+            // 16dp（勿再加 padding——双层内缩会让线比正文更缩 16dp，2026-08-30
+            // 真机像素实测教训）；上线（描述行→正文）与下线（正文→动作区）各自
+            // 呼吸——上线不加上边距（与描述行的 10dp 节奏由外层 spacedBy 承担），
+            // 线→正文 = bodyTopGap；下线（有动作区才有）上下各 8dp。
             val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             if (bodyTopDivider) {
-                HorizontalDivider(color = dividerColor)
+                HorizontalDivider(
+                    color = dividerColor,
+                    modifier = Modifier.padding(bottom = bodyTopGap),
+                )
             }
             // #232 勘误三教训：heightIn 必须在 verticalScroll 之外（反序即崩）。
             // clipToBounds：Compose 滚动容器默认不裁剪溢出绘制——不加会压住相邻
@@ -222,7 +242,10 @@ internal fun EventCard(
                 }
             }
             if (actions != null) {
-                HorizontalDivider(color = dividerColor)
+                HorizontalDivider(
+                    color = dividerColor,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End,
@@ -231,6 +254,7 @@ internal fun EventCard(
                     actions()
                 }
             }
+            } // ★ 显式 Column 收尾（见上「Box 叠放语义」注释）
         }
     }
 }
