@@ -131,11 +131,16 @@ internal class ExpandRevealCompensator {
         // 锚定在底时任何 hold/揭示循环都表现为整卡高度抖动——底部锚定下
         // 自然延伸即正确，补偿层直接透传真实高度（无注入、无保持、无循环）。
         // mid-list（off 被顶大 ≥100）不走此路径，补偿语义原样保留。
-        if (anchoredAtBottom) {
+        if (anchoredAtBottom && realHeight <= reportedBase) {
+            // 贴底收起/稳定：透传（上方内容承担位移——视口已贴列表尾，下方无
+            // 收拢余量，dispatchRawDelta 消费 0，注入与透传等价）。
             pendingReveal = 0
             reportedBase = realHeight
             return realHeight to 0
         }
+        // 贴底展开（realHeight > reportedBase）不再透传：走配对注入 → drain
+        // pre-shift 视窗预移（用户 2026-08-30 裁决「贴底展开不要把内容往上
+        // 顶」= 上方内容固定、卡片向下生长揭示；视口脱离贴底，收起自然回归）。
         // 2026-08-30 收起语义定音（用户裁决「下面的内容收上来，而不是整体
         // 收下去」）：收起注入 = 视窗沿贴底方向推 Δ（把下方内容收上来、上方
         // 内容固定、header 不动）——原生锚定的「上方整体下压」被本注入推翻。
