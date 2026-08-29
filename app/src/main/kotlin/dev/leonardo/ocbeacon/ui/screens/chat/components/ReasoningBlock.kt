@@ -201,8 +201,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 ) {
                     androidx.compose.animation.AnimatedVisibility(
                         visible = expanded,
-                        enter = ExpandEnterTransition,
-                        exit = ExpandExitTransition,
+                        // 2026-08-30 文本主导卡去 fade（用户观察「展开没动画」）：
+                        // 纯几何生长，文字清晰逐行揭示。spec 见 ExpandReveal.kt。
+                        enter = ExpandEnterNoFadeTransition,
+                        exit = ExpandExitNoFadeTransition,
                     ) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))

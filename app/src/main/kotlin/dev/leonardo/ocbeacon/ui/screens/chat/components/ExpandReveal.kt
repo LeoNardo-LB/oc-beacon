@@ -40,6 +40,23 @@ val ExpandExitTransition: ExitTransition =
         animationSpec = tween(200, easing = FastOutSlowInEasing),
     )
 
+// 2026-08-30 文本主导卡的无 fade 变体（用户观察「思考卡展开没有动画」）：
+// 纯文本 + 浅色无边界容器上，fadeIn 的透明度渐变掩盖了几何生长（10x 动画
+// 帧序实证：文字半透明渐显被感知为「直接出现」）。去 fade 后文字清晰随
+// 卡片生长逐行揭示，几何动画明确。结构化块卡（按钮/代码块/表格）保留
+// 原 spec（块边缘给出几何线索，fade 不掩盖）。
+val ExpandEnterNoFadeTransition: EnterTransition =
+    expandVertically(
+        expandFrom = Alignment.Top,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+    )
+
+val ExpandExitNoFadeTransition: ExitTransition =
+    shrinkVertically(
+        shrinkTowards = Alignment.Top,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+    )
+
 /** 会话 LazyListState 下传通道（#241 渲染前补偿用）：ChatMessageList 在列表
  *  内容处 provide，展开型组件就地 consume——避免穿 3-5 层签名的模板代码。 */
 val LocalChatListState = compositionLocalOf<LazyListState?> { null }
