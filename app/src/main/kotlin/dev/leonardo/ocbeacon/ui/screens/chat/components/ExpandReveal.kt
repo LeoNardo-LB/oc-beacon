@@ -81,13 +81,22 @@ internal class ExpandRevealCompensator {
      *   此前会误判「增量已应用」提前揭示——揭示先于位移 = 跳变；门关闭时
      *   保持基准裁剪，揭示严格等位移落地。
      */
-    fun onMeasure(realHeight: Int, shiftApplied: Boolean): Pair<Int, Int> {
+    fun onMeasure(realHeight: Int, shiftApplied: Boolean, anchoredAtBottom: Boolean = false): Pair<Int, Int> {
         // 条目首次进入视口（此前从未测过）：直接全量上报，绝不注入——
         // 否则新出现的展开卡会先隐身一帧再跳入。real==0（收起态）**不短路**：
         // 走通用配对（持有旧高 + 注入 -旧高），否则收起裸跟随 = 下坠回归
         // （2026-08-27 思考块 +369 复现实证）。
         if (!everMeasured) {
             everMeasured = true
+            reportedBase = realHeight
+            return realHeight to 0
+        }
+        // #sendgap 第二层（2026-08-29 整卡闪烁实证，H=332→290→253→332）：
+        // 锚定在底时任何 hold/揭示循环都表现为整卡高度抖动——底部锚定下
+        // 自然延伸即正确，补偿层直接透传真实高度（无注入、无保持、无循环）。
+        // mid-list（off 被顶大 ≥100）不走此路径，补偿语义原样保留。
+        if (anchoredAtBottom) {
+            pendingReveal = 0
             reportedBase = realHeight
             return realHeight to 0
         }
@@ -134,9 +143,12 @@ internal fun Modifier.expandRevealCompensation(
     // #258 门 A 反馈修复：滚动中照常配对揭示（不再 holdReveal 裁剪）——通道②
     // 对 drag 无断言，旧通道「滚动中注入=崩溃放大器」前提已消失；默认展开卡的
     // 真实高度（markdown 异步解析）在滚动中即时配对到位，不再「滑完才展开」。
+    val anchoredAtBottom = listState.firstVisibleItemIndex == 0 &&
+        listState.firstVisibleItemScrollOffset < 100
     val (reportHeight, injectDelta) = compensator.onMeasure(
         realHeight,
         shiftApplied = PreRenderShiftChannel.shiftSettled(listState),
+        anchoredAtBottom = anchoredAtBottom,
     )
     if (injectDelta != 0) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
