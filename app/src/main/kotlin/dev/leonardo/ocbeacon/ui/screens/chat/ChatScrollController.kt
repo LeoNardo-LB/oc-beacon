@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -155,43 +154,6 @@ internal fun rememberChatScrollController(
             // 现改为经 [ForceScrollExecutor] 订阅 LazyListState.layoutInfo
             // （derived state，随组合/布局更新重新求值）等待真实增长。
             ForceScrollExecutor(gate = LazyListStateGate(listState)).execute()
-        }
-    }
-
-    // [DEBUG-sendgap] 2026-08-29 发送后两段式跳底+闪烁取证（0.5s 内完成，修后拆除）：
-    // 高度变化 / 视口跳变 / atBottom 翻转 / IME 高度 / item 数变化，统一毫秒时间线。
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val imeInsets = androidx.compose.foundation.layout.WindowInsets.ime
-    LaunchedEffect(listState) {
-        val t0 = System.currentTimeMillis()
-        var lastTotal = -1; var lastOff = -1; var lastIdx = -1
-        var lastH = -1; var lastAtB: Boolean? = null; var lastIme = -1
-        snapshotFlow {
-            val info = listState.layoutInfo
-            val bottom = info.visibleItemsInfo.firstOrNull { it.index == 0 }
-            listOf(
-                info.totalItemsCount,
-                listState.firstVisibleItemIndex,
-                listState.firstVisibleItemScrollOffset,
-                bottom?.size ?: -1,
-                if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 100) 1 else 0,
-                imeInsets.getBottom(density),
-            )
-        }.collect { v ->
-            val total = v[0]; val idx = v[1]; val off = v[2]; val h = v[3]
-            val atB = v[4] == 1; val ime = v[5]
-            val parts = mutableListOf<String>()
-            if (total != lastTotal) { parts.add("count=" + total); lastTotal = total }
-            if (h != lastH && lastH >= 0 && kotlin.math.abs(h - lastH) >= 20) parts.add("H=" + lastH + "->" + h)
-            if (idx != lastIdx || kotlin.math.abs(off - lastOff) >= 100) parts.add("jump=idx" + idx + "/off" + off + " (d=" + (off - lastOff) + ")")
-            if (atB != lastAtB && lastAtB != null) parts.add("atB=" + atB)
-            if (kotlin.math.abs(ime - lastIme) >= 20) { parts.add("ime=" + ime); lastIme = ime }
-            lastOff = off; lastIdx = idx; lastH = h; lastAtB = atB
-            if (parts.isNotEmpty()) {
-                dev.leonardo.ocbeacon.logging.AppLogger.d(
-                    TAG, "[DEBUG-sendgap] t=+" + (System.currentTimeMillis() - t0) + "ms " + parts.joinToString(" ")
-                )
-            }
         }
     }
 
