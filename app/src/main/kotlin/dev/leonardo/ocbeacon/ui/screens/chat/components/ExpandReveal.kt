@@ -113,6 +113,16 @@ internal class ExpandRevealCompensator {
             reportedBase = realHeight
             return realHeight to 0
         }
+        // 2026-08-30 mid-list 收起透传（「往下跳」终修）：收起注入沿贴底方向
+        // 推视窗，余量不足即撞底（05:12:53 实证 off 117 被推到 0 后 clamp，
+        // 视口净坠 304px）。收起改走 LazyColumn 原生锚定 = 被收起卡上方内容
+        // 逐帧局部收拢、下方纹丝不动——连续平滑，无视窗穿越。展开仍走注入
+        // （保持上方固定、向下生长揭示 = 用户裁决的「向下展开」）。
+        if (realHeight <= reportedBase) {
+            pendingReveal = 0
+            reportedBase = realHeight
+            return realHeight to 0
+        }
         val revealHeight = reportedBase + pendingReveal
         val extra = realHeight - revealHeight
         return if (extra != 0) {

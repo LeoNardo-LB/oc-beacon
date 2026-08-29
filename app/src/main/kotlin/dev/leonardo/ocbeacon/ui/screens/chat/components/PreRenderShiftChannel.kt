@@ -90,9 +90,27 @@ internal object PreRenderShiftChannel {
             return
         }
         val baseOffset = state.firstVisibleItemScrollOffset
-        val targetOffset = (baseOffset + total).toInt().coerceAtLeast(0)
-        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && targetOffset != (baseOffset + total).toInt()) {
-            AppLogger.w("PreRenderShift", "clamp: target=" + (baseOffset + total).toInt() + " -> 0")
+        val rawTarget = (baseOffset + total).toInt()
+        // 2026-08-30 用户「往下跳」根修（05:12:53 真机轨迹定罪）：mid-list 收起
+        // 思考卡（-410px）时收起注入沿贴底方向推视窗——用户视口在 idx=0 off=304
+        // （底部余量仅 304px），注入撞底：off 被推到 0 后剩余增量被 clamp 丢弃，
+        // 视口净位移 304px = 整屏下坠。修复 = 撞底注入直接放弃（宁局部收拢，
+        // 不整屏穿越——LazyColumn 自然锚定让被收起卡上方内容局部上收，无穿越）。
+        if (rawTarget < 0) {
+            acc[0] = 0f
+            g[1] = g[0]
+            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                AppLogger.w(
+                    "PreRenderShift",
+                    "drop-neg-target total=" + total.toInt() + " off=" + baseOffset +
+                        " (would cross bottom; giving up to avoid viewport jump)"
+                )
+            }
+            return
+        }
+        val targetOffset = rawTarget
+        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && targetOffset != rawTarget) {
+            AppLogger.w("PreRenderShift", "clamp: target=" + rawTarget + " -> 0")
         }
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.d(
