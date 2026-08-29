@@ -114,6 +114,7 @@ internal fun rememberChatScrollController(
                     AppLogger.d(
                         "ChatScrollController",
                         "[DEBUG-drift] atBot=" + atBottom + " scrolling=" + scrolling +
+                            " autoOn=" + autoScrollEnabled.value +
                             " idx=" + listState.firstVisibleItemIndex +
                             " off=" + listState.firstVisibleItemScrollOffset
                     )
@@ -130,6 +131,14 @@ internal fun rememberChatScrollController(
     // requestScrollToItem 非挂起：在 effect（apply 后、layout 前）同步注册请求，
     // 下一帧布局直接按位置定位 —— 无"旧 key 锚定偏移一帧 → 再拉回"的闪烁循环。
     LaunchedEffect(messageCount) {
+        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+            AppLogger.w(
+                TAG,
+                "[DEBUG-drift] MSGEFFECT fire n=$messageCount autoOn=" + autoScrollEnabled.value +
+                    " scrollIp=" + listState.isScrollInProgress +
+                    " idx=" + listState.firstVisibleItemIndex
+            )
+        }
         if (messageCount > 0 && autoScrollEnabled.value) {
             // [probe] msgCount effect n=$messageCount autoScroll=${autoScrollEnabled.value} scrollInProgress=${listState.isScrollInProgress}
             // 2026-08-16 根治：死代码根因。原实现 `!listState.isScrollInProgress`
@@ -147,6 +156,13 @@ internal fun rememberChatScrollController(
             // 用户正翻看的历史位置强拉回底部。等待结束后**重新校验**：用户
             // 拖动已置 autoScroll=false 则放弃锚定（尊重用户的阅读位置）。
             if (autoScrollEnabled.value) {
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    AppLogger.w(
+                        TAG,
+                        "[DEBUG-drift] MSGEFFECT anchor n=$messageCount off=" +
+                            listState.firstVisibleItemScrollOffset
+                    )
+                }
                 listState.requestScrollToItem(0)
                 // 2026-08-30 下跳回归根修：requestScrollToItem 是一次性锚定——
                 // 打开时默认展开的卡（shell/事件卡）+ RB/TC/Markdown 异步内容

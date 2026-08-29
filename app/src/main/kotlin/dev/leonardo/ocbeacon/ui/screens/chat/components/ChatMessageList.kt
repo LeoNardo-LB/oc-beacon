@@ -476,6 +476,13 @@ fun ChatMessageList(
             (if (compactionBanners.tailFallback) 1 else 0)
     }
     LaunchedEffect(revealBannerCount) {
+        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && revealBannerCount > 0) {
+            dev.leonardo.ocbeacon.logging.AppLogger.w(
+                "ChatScrollController",
+                "[DEBUG-drift] BANNER fire count=$revealBannerCount autoOn=" + autoScrollState.value +
+                    " idx=" + listState.firstVisibleItemIndex
+            )
+        }
         if (revealBannerCount > 0 && autoScrollState.value) {
             // fling 等待 + 重校验（msgCount effect 同款防「快照后用户开始拖动」竞态）
             if (listState.isScrollInProgress) {
