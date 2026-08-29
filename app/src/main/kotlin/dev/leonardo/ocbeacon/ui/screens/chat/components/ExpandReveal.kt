@@ -80,6 +80,12 @@ internal class ExpandRevealCompensator {
      *  配对，否则首个增量漏注入 = 净漂移，2026-08-27 思考块 -18px 实证）。 */
     private var everMeasured = false
 
+    /** 收起方向视窗分担比例（2026-08-30 用户裁决「下方收上来」的观感软化）：
+     *  余量充足 = 1f（下方全收、上方静止）；余量不足 = 余量/收起总量（<1），
+     *  下方与上方**全程按比例同步**收拢/下压——消除「撞底后上方突然接管」
+     *  的切换点（用户报告的「有几率往下移动一小段」）。展开方向不缩放。 */
+    private var collapseScale = 1f
+
     /**
      * 每遍测量调用。返回 (本遍上报高度, 注入下移量)。
      *
@@ -94,7 +100,7 @@ internal class ExpandRevealCompensator {
      *   此前会误判「增量已应用」提前揭示——揭示先于位移 = 跳变；门关闭时
      *   保持基准裁剪，揭示严格等位移落地。
      */
-    fun onMeasure(realHeight: Int, shiftApplied: Boolean, anchoredAtBottom: Boolean = false): Pair<Int, Int> {
+    fun onMeasure(realHeight: Int, shiftApplied: Boolean, anchoredAtBottom: Boolean = false, collapseRoomPx: Int = Int.MAX_VALUE): Pair<Int, Int> {
         // 条目首次进入视口（此前从未测过）：直接全量上报，绝不注入——
         // 否则新出现的展开卡会先隐身一帧再跳入。real==0（收起态）**不短路**：
         // 走通用配对（持有旧高 + 注入 -旧高），否则收起裸跟随 = 下坠回归
@@ -121,10 +127,20 @@ internal class ExpandRevealCompensator {
 
         val revealHeight = reportedBase + pendingReveal
         val extra = realHeight - revealHeight
+        // 收起开始帧（首现收缩）按余量定分担比例：下方最多收 collapseRoomPx，
+        // 剩余由上方按 (1-scale) 全程同步下压——无撞底切换点，观感为上下向
+        // 中间柔和收拢。余量充足时 scale=1（下方全收、上方静止）。展开/稳定
+        // 帧重置为 1f。
+        if (realHeight < reportedBase && pendingReveal == 0) {
+            collapseScale = (collapseRoomPx.toFloat() / reportedBase).coerceIn(0f, 1f)
+        } else if (realHeight >= reportedBase) {
+            collapseScale = 1f
+        }
         return if (extra != 0) {
-            pendingReveal += extra
+            val injected = if (extra < 0) (extra * collapseScale).toInt() else extra
+            pendingReveal += injected
             version++
-            revealHeight to extra
+            revealHeight to injected
         } else if (pendingReveal != 0 && !shiftApplied) {
             // 竞态门：上一遍增量已入队但位移未落地（同帧重测插队）。
             // 展开侧（pending>0）：保持基准裁剪，杜绝「揭示先于位移」跳变

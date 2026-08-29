@@ -89,33 +89,34 @@ internal object PreRenderShiftChannel {
             }
             return
         }
-        val baseOffset = state.firstVisibleItemScrollOffset
-        val targetOffset = (baseOffset + total).toInt().coerceAtLeast(0)
-        // 2026-08-30 收起语义定音（用户裁决「下面的内容收上来」）：撞底时钳 0
-        // 注入（视窗推到贴底为止）——下方内容尽可能多地收上来，剩余位移由上方
-        // 内容随 AV 动画逐帧平滑承担（物理守恒：内容 -Δ 必有承担者）。放弃注入
-        // （上一版 drop-neg-target）会退化为「上方整体下压」，已按裁决撤销。
-        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && targetOffset != (baseOffset + total).toInt()) {
-            AppLogger.w("PreRenderShift", "clamp: target=" + (baseOffset + total).toInt() + " -> 0")
-        }
+        // 2026-08-30 收起语义定音（用户裁决「下面的内容收上来」）+ 通道跨 item
+        // 根修：原 request-position 通道只能调 firstVisible 的 offset（0..item 高），
+        // 收起量 > 该范围时「假撞底」（06:40:35 实证：下方物理余量 1466px 却在
+        // off=466 撞底，多余 272px 被钳）——视窗推到贴底为止、剩余由上方承担。
+        // 改用官方 dispatchRawDelta（ScrollableState 编程滚动入口，同步消费、
+        // 天然跨 item 边界、无 scrollToBeConsumed 残量），收起量在物理余量内
+        // 全部由视窗承担 = 下方内容完整收上来。
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.d(
                 "PreRenderShift",
                 "drain total=" + total.toInt() + " idx=" + state.firstVisibleItemIndex +
-                    " off=" + baseOffset + " -> " + targetOffset
+                    " off=" + state.firstVisibleItemScrollOffset
             )
         }
         try {
-            LazyListReflection.requestScrollToItemNoCancel(
-                state,
-                state.firstVisibleItemIndex,
-                targetOffset,
-            )
+            val consumed = state.dispatchRawDelta(total)
+            val residual = total - consumed
+            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && kotlin.math.abs(residual) > 0.5f) {
+                AppLogger.w(
+                    "PreRenderShift",
+                    "residual=" + residual.toInt() + " (list edge reached; above-content absorbs)"
+                )
+            }
         } catch (t: Throwable) {
             // 降级终点：放弃本帧增量（推挤一帧），绝不崩溃。
             AppLogger.w("PreRenderShift", "drain inject failed: " + t.message)
         } finally {
-            // 代计数落地（成功/钳 0/放弃一律算「已解决」）：揭示恢复，宁推挤不卡裁剪。
+            // 代计数落地（成功/边界残量/放弃一律算「已解决」）：揭示恢复，宁推挤不卡裁剪。
             g[1] = g[0]
         }
     }
