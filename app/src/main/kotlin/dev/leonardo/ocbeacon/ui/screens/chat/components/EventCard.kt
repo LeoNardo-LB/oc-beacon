@@ -95,6 +95,11 @@ internal fun EventCard(
     /** 无记忆时的初始展开态（#252 终审：用户发起的 shell 卡默认展开，
      *  agent 工具卡等其余事件卡保持收起）。显式 toggle 后以记忆为准。 */
     defaultExpanded: Boolean = false,
+    /** 展开态描述行→正文之间的分隔线（Q11 两段式上边）开关。默认 true 保留
+     *  原设计（Markdown 裸文本正文需要分隔）；正文自带背景的卡型传 false——
+     *  shell 卡正文 ShellOutputBlock 代码块已有 surfaceContainer 圆角背景，
+     *  叠加分割线构成双重分隔，视觉突兀（2026-08-29 用户反馈去除）。 */
+    bodyTopDivider: Boolean = true,
 ) {
     val expanded = expandedStates[eventKey] ?: defaultExpanded
     val hasBody = bodyContent != null
@@ -192,7 +197,9 @@ internal fun EventCard(
             exit = ExpandExitTransition,
         ) {
             val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            HorizontalDivider(color = dividerColor)
+            if (bodyTopDivider) {
+                HorizontalDivider(color = dividerColor)
+            }
             // #232 勘误三教训：heightIn 必须在 verticalScroll 之外（反序即崩）。
             // clipToBounds：Compose 滚动容器默认不裁剪溢出绘制——不加会压住相邻
             // 消息（真机 V6 反馈「回复重叠」的头号嫌疑；#231 同类坑先例）。

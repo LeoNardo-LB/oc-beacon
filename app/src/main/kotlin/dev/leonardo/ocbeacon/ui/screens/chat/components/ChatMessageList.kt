@@ -1408,6 +1408,10 @@ fun ChatMessageList(
                                             // （agent bash 走 ToolCallCard 不受影响；
                                             // 本地乐观合成卡同经本分支，一致默认展开）
                                             defaultExpanded = true,
+                                            // 2026-08-29 用户反馈：命令行与输出代码块之间
+                                            // 的分割线与代码块自带背景构成双重分隔——去除
+                                            // （仅本卡型；其余事件卡维持 Q11 两段式分隔线）
+                                            bodyTopDivider = false,
                                             bodyContent = {
                                                 // #256 P3-5：truncated（1MiB 捕获上限）或输出缺失时
                                                 // 优先走 provider（三级：store → parts 回填 → REST
