@@ -1,11 +1,14 @@
 # OC Beacon — 需求与问题总览
 本文档是唯一的**未决工作项清单**：只保留尚未完结的需求与问题卡片。条目完结（用户验收 `[x]`）后**当场迁出**——记录连同证据移入 `docs/journal/` 对应批次文件，本文件不保留完结记录；历史查询走 journal 与 git。
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
-**编号**：全局递增，不回收。下一编号：**#261**。
-- [ ] **#260 /api/form/request 15-20ms 密集轮询——状态同步风暴与组合撞击待查** `infra` `ui`
-  - 现象（2026-08-29 取证）：OpenCodeConnectionService 对 GET /api/form/request 的轮询在闪烍窗口密度达 15-20ms/次（4 分钟 166 次），与底部 item 高度抖动窗口重合
-  - 疑点：轮询循环由状态变化驱动（变化→拉取→再变化）；响应 dispatch 是否反馈修改驱动源待查
-  - 证据：/tmp/rel030/verify2.txt（已归档前拷至 journal）
+**编号**：全局递增，不回收。下一编号：**#262**。
+- [~] **#260 /api/form/request 15-20ms 密集轮询——节拍式 location fan-out，已分层降频** `infra` `ui`
+  - 根因（2026-08-30 journal 取证）：每 30s 轮全扫「默认 location + 全部项目目录」，项目数无界增长（实证 10 projects → 9 请求/30s，轮内中位 16ms）；非状态驱动、非多协程
+  - 修复（02a6ea55）：QuestionPollPlanner 分层——默认 location 每轮必查，目录 fan-out 5min 一次，round0 保持全扫；稳态 9/30s → 约 1.9/30s
+  - 验证：单测 4 绿 + 全量 2168（唯一失败为 #261 环境性）；实机 logcat 分层断言见 journal
+- [ ] **#261 ChunkReproTest 依赖 /tmp/giant.md 环境夹具——缺夹具即红** `test` `refactor`
+  - 现象（2026-08-30 全量单测）：ChunkReproTest.repro FileNotFoundException——/tmp/giant.md 为一次性调试夹具，未入库未生成
+  - 方向：夹具入库（src/test/resources）或测试内自造内容；避免无辜全量单测报红
 
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
