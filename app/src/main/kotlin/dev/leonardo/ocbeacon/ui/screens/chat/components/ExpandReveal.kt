@@ -125,7 +125,11 @@ internal class ExpandRevealCompensator {
         if (!everMeasured) {
             everMeasured = true
             reportedBase = realHeight
-            return realHeight to 0
+            // 2026-08-30 贴底首测等量预移（用户裁决「贴底展开不要往上顶」）：
+            // 全量上报 + 等量注入 → drain pre-shift 预移视窗 = 上方内容固定、
+            // 内容随卡片立即可见（非贴底 inject=0 保持原「首测全量上报」）。
+            val firstInject = if (anchoredAtBottom) realHeight else 0
+            return realHeight to firstInject
         }
         // #sendgap 第二层（2026-08-29 整卡闪烁实证，H=332→290→253→332）：
         // 锚定在底时任何 hold/揭示循环都表现为整卡高度抖动——底部锚定下

@@ -77,28 +77,18 @@ internal object PreRenderShiftChannel {
         val total = acc[0]
         if (total == 0f) return
         acc[0] = 0f
-        // #sendgap（2026-08-29 发送后距底 79px 实证）：锚定在底（idx=0 且 off
-        // <120）时放弃视口位移——reverseLayout 底部锚定让底部 item 的生长自然
-        // 向上延伸（off 保持 0），注入反而把最新内容推出底部=「两段式跳底」。
-        // mid-list 生长此时已把 off 顶大（>120），不会误入本分支，补偿照常。
-        // 代计数照常落地（揭示恢复），仅放弃位移本身。
-        if (state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset < 120) {
-            g[1] = g[0]
-            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                AppLogger.d("PreRenderShift", "drop-at-bottom total=" + total.toInt())
-            }
-            return
-        }
-        val baseOffset = state.firstVisibleItemScrollOffset
-        val atBottomZone = state.firstVisibleItemIndex == 0 && baseOffset < 120
-        // 2026-08-30 用户裁决「贴底展开不要把内容往上顶」：贴底时视口底边钉在
-        // 列表尾，布局 +Δ 被「贴底跟随」吞掉 = 上方内容整体上推（原生几何）。
-        // 改为 request-position 预移视窗 off+Δ（渲染前）——布局增量被预移吸收
-        // = 上方内容固定、卡片向下生长揭示。代价：视口脱离贴底 Δ（FAB 出现），
-        // 收起时视窗自然回归贴底（对称）。#sendgap「两段式跳底」场景（发送后
-        // 贴底流式生长）不走此分支——发送跟随由 msgCount/force 通道负责，本
-        // 通道仅由用户 tap 展开触发。
+        val atBottomZone = state.firstVisibleItemIndex == 0 &&
+            state.firstVisibleItemScrollOffset < 120
+        // ── 分支 1（2026-08-30 用户裁决「贴底展开不要把内容往上顶」）──
+        // 贴底展开：视口底边钉在列表尾，布局 +Δ 被「贴底跟随」吞掉 = 上方
+        // 内容整体上推（原生几何）。改为 request-position 预移视窗 off+Δ
+        // （渲染前）——布局增量被预移吸收 = 上方内容固定、卡片向下生长揭示。
+        // 代价：视口脱离贴底 Δ（跳底按钮出现），收起时视窗自然回归贴底
+        // （对称）。#sendgap「两段式跳底」场景（发送后贴底流式生长）不走
+        // 本通道——发送跟随由 msgCount/force 通道负责，本通道仅由用户 tap
+        // 展开触发。
         if (atBottomZone && total > 0) {
+            val baseOffset = state.firstVisibleItemScrollOffset
             val target = baseOffset + total.toInt()
             try {
                 LazyListReflection.requestScrollToItemNoCancel(
@@ -120,18 +110,28 @@ internal object PreRenderShiftChannel {
             }
             return
         }
-        // 2026-08-30 收起语义定音（用户裁决「下面的内容收上来」）+ 通道跨 item
-        // 根修：原 request-position 通道只能调 firstVisible 的 offset（0..item 高），
-        // 收起量 > 该范围时「假撞底」（06:40:35 实证：下方物理余量 1466px 却在
-        // off=466 撞底，多余 272px 被钳）——视窗推到贴底为止、剩余由上方承担。
-        // 改用官方 dispatchRawDelta（ScrollableState 编程滚动入口，同步消费、
-        // 天然跨 item 边界、无 scrollToBeConsumed 残量），收起量在物理余量内
-        // 全部由视窗承担 = 下方内容完整收上来。
+        // ── 分支 2（贴底收起：#sendgap 语义保留）──
+        // 视窗已在贴底，收起方向的视窗位移无处可去（dispatchRawDelta 消费 0），
+        // 放弃 = 位移由上方内容承担（物理守恒；列表尾不露空白）。
+        if (atBottomZone && total < 0) {
+            g[1] = g[0]
+            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                AppLogger.d("PreRenderShift", "drop-at-bottom collapse total=" + total.toInt())
+            }
+            return
+        }
+        // ── 分支 3（mid-list：dispatchRawDelta 跨 item 消费）──
+        // 2026-08-30 根修：原 request-position 通道只能调 firstVisible 的
+        // offset（0..item 高），收起量 > 该范围时「假撞底」（06:40:35 实证：
+        // 下方物理余量 1466px 却在 off=466 撞底，272px 被钳）。改用官方
+        // dispatchRawDelta（ScrollableState 编程滚动入口）：同步消费、天然跨
+        // item 边界、无 scrollToBeConsumed 残量——收起量在物理余量内全部由
+        // 视窗承担 = 下方内容完整收上来（用户裁决「下面的内容收上来」）。
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.d(
                 "PreRenderShift",
                 "drain total=" + total.toInt() + " idx=" + state.firstVisibleItemIndex +
-                    " off=" + baseOffset
+                    " off=" + state.firstVisibleItemScrollOffset
             )
         }
         try {

@@ -37,12 +37,25 @@ class ExpandRevealCompensatorTest {
     }
 
     @Test
-    fun `锚定在底时透传真实高度不抖动（发送后整卡闪烁回归）`() {
+    fun `锚定在底展开走配对注入（贴底不往上顶 2026-08-30 裁决）`() {
         val c = compensator()
-        assertEquals(332 to 0, c.onMeasure(332, shiftApplied = true, anchoredAtBottom = true))
+        // 贴底展开不再透传（旧契约撤销）：配对注入经 drain pre-shift 预移视窗
+        // = 上方内容固定、向下生长揭示（视口脱离贴底由通道负责）。
+        // 首测贴底：全量上报 + 等量预移（首帧即可见且上方固定，无隐身帧）
+        assertEquals(332 to 332, c.onMeasure(332, shiftApplied = true, anchoredAtBottom = true))
+        assertEquals(332 to 79, c.onMeasure(411, shiftApplied = true, anchoredAtBottom = true))
+        // 竞态门：展开侧保持基准裁剪（揭示先于位移防跳变，2026-08-27 裁决不回归；
+        // 基准 = 首测上报高 332，故 hold report=332）
+        assertEquals(332 to 0, c.onMeasure(411, shiftApplied = false, anchoredAtBottom = true))
         assertEquals(411 to 0, c.onMeasure(411, shiftApplied = true, anchoredAtBottom = true))
-        assertEquals(411 to 0, c.onMeasure(411, shiftApplied = false, anchoredAtBottom = true))
-        assertEquals(411 to 0, c.onMeasure(411, shiftApplied = true, anchoredAtBottom = true))
+    }
+
+    @Test
+    fun `锚定在底收起仍透传（上方承担位移，列表尾不露空白）`() {
+        val c = compensator()
+        assertEquals(332 to 332, c.onMeasure(332, shiftApplied = true, anchoredAtBottom = true))
+        assertEquals(200 to 0, c.onMeasure(200, shiftApplied = true, anchoredAtBottom = true))
+        assertEquals(150 to 0, c.onMeasure(150, shiftApplied = false, anchoredAtBottom = true))
     }
 
     @Test
