@@ -150,6 +150,13 @@ internal fun Modifier.expandRevealCompensation(
         shiftApplied = PreRenderShiftChannel.shiftSettled(listState),
         anchoredAtBottom = anchoredAtBottom,
     )
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        AppLogger.d(
+            "ExpandReveal",
+            logTag + " trace real=" + realHeight + " report=" + reportHeight +
+                " inject=" + injectDelta + " atBot=" + anchoredAtBottom
+        )
+    }
     if (injectDelta != 0) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.w(

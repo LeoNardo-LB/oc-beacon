@@ -175,7 +175,7 @@ internal fun EventCard(
             if (expandRevealListState != null && hasBody) {
                 Modifier
                     .clipToBounds()
-                    .expandRevealCompensation(expandRevealListState, expandReveal, "EV-REVEAL")
+                    .expandRevealCompensation(expandRevealListState, expandReveal, "EV:" + eventKey.takeLast(10))
             } else {
                 Modifier
             }

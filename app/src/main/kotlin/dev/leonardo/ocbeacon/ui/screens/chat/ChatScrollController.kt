@@ -140,6 +140,27 @@ internal fun rememberChatScrollController(
             // 拖动已置 autoScroll=false 则放弃锚定（尊重用户的阅读位置）。
             if (autoScrollEnabled.value) {
                 listState.requestScrollToItem(0)
+                // 2026-08-30 下跳回归根修：requestScrollToItem 是一次性锚定——
+                // 打开时默认展开的卡（shell/事件卡）+ RB/TC/Markdown 异步内容
+                // 在随后数百 ms 继续长高，把 item0 渐渐顶离贴底（实测 drift
+                // 190-444px，atBot 翻 false、FAB 浮现）。此后对该卡的收起/展开
+                // 走 mid-list 注入路径，产生可见下坠。短窗守卫：窗内任何漂移
+                // （且用户未在滚动、autoScroll 仍开）即重新锚定；用户滚动立即
+                // 让位（铁律：用户阅读位置优先权不变）。
+                withTimeoutOrNull(1_500) {
+                    snapshotFlow {
+                        Triple(
+                            listState.isScrollInProgress,
+                            autoScrollEnabled.value,
+                            listState.firstVisibleItemIndex == 0 &&
+                                listState.firstVisibleItemScrollOffset < 100,
+                        )
+                    }.collect { (scrolling, autoOn, atBottom) ->
+                        if (!scrolling && autoOn && !atBottom) {
+                            listState.requestScrollToItem(0)
+                        }
+                    }
+                }
             }
         }
     }
