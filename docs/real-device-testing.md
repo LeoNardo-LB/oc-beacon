@@ -118,6 +118,7 @@ adb -s e69a99d8 shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeaco
 - **2026-08-20 keystore 更换（用户决策）**：旧 release.jks 确认丢失（git 历史从未提交、本机全盘无副本、CI Secrets 只写不读），已生成**新 keystore**（同 DN：CN=OC Beacon, OU=Development, O=LeoNardo-LB, C=CN；alias=oc-beacon（2026-08-20 由 oc-tether 改名，密钥材料不变）；有效期 30 年）→ 本地 `app/keystore/`（gitignore 保护，不入库）+ CI Secrets 三件套已同步更新（2026-08-20T03:09Z）。
 - **切换时序**：v0.3.1-dev.18 为旧签名最后一版；**下一起 CI 构建起新签名生效**——已装 CI 签名包（≤dev.18）升级新包时需卸载重装一次（0.x 阶段用户仅开发者本人，代价已接受）
 - **keystore 备份指引**：`app/keystore/release.jks` + `signing.properties` 建议私有备份一份（密码管理器/私有网盘）；再丢一次同样只能换 keystore + 全员卸载重装
+- **2026-08-29 #259 debug 签名身份钉死**：`app/keystore/debug.jks` **入库**（指纹 8F:7A:EC:81…，密码公开惯例 "android"，非机密）——debug 构建不再随环境解析漂移（`$XDG_CONFIG_HOME/.android` 8f7a vs `~/.android` 3fdd 两把并存曾致同日构建身份互斥、覆盖安装 INSTALL_FAILED_UPDATE_INCOMPATIBLE）。本地/CI/任意终端 dev 构建同指纹；CI devDebug 首次改用库内身份，历史 CI 签名包升级需卸载重装一次
 
 ## E2E 操作纪律（真机差异点）
 

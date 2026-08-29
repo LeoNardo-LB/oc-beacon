@@ -27,7 +27,9 @@ out/
 # Keystore files
 *.jks
 *.keystore
-app/keystore/
+app/keystore/*
+# 例外：debug keystore 入库钉死签名身份（#259，非机密，密码公开惯例）
+!app/keystore/debug.jks
 
 # Log files
 *.log

@@ -60,6 +60,25 @@ android {
         buildTypes.getByName("release").signingConfig = signingConfigs.getByName("release")
     }
 
+    // #259 debug 签名身份钉死：debug keystore 入库（非机密——密码为公开惯例
+    // "android"，与 AGP 自动生成物无异；release.jks 仍 gitignore + CI Secrets）。
+    // 2026-08-29 实证：XDG_CONFIG_HOME 有无使 AGP 解析到两把不同 debug 钥匙
+    // （~/.config/.android 8f7a vs ~/.android 3fdd），同一项目跨构建上下文
+    // 签名身份漂移，覆盖安装互斥 INSTALL_FAILED_UPDATE_INCOMPATIBLE。
+    // app/keystore/debug.jks = XDG 正典副本（8f7a，现机在装身份，零重装）。
+    val pinnedDebugKeystore = file("keystore/debug.jks")
+    if (pinnedDebugKeystore.exists()) {
+        signingConfigs {
+            create("pinnedDebug") {
+                storeFile = pinnedDebugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+        buildTypes.getByName("debug").signingConfig = signingConfigs.getByName("pinnedDebug")
+    }
+
     flavorDimensions += "flavor"
 
     productFlavors {
@@ -109,7 +128,11 @@ android {
             // 仅在不存在时回退 debug 签名。此前无条件覆盖为 debug 导致
             // release keystore 永不生效、CI 每次构建 debug 签名不同 → 用户升级签名冲突。
             if (!hasPropertiesFile) {
-                signingConfig = signingConfigs.getByName("debug")
+                // #259：无 properties 时同样优先钉死身份（若 keystore 在库），
+                // 消除「CI 每次构建 debug 签名不同」的源头
+                signingConfig = signingConfigs.getByName(
+                    if (pinnedDebugKeystore.exists()) "pinnedDebug" else "debug"
+                )
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

@@ -10,6 +10,7 @@
   - 现象（2026-08-29 装包取证）：上午构建（10:43）与下午构建（21:44）的 devDebug APK 均为 CN=Android Debug 但 SHA-256 不同（3fdd…/8f7a…），后者覆盖前者报 INSTALL_FAILED_UPDATE_INCOMPATIBLE；~/.android/debug.keystore 单份且 mtime 未变（8月13）
   - 影响：跨该时间点的覆盖安装必败，需卸载重装（dev 数据丢失，debug-entry 可重配）；stable/release 签名走 oc-beacon keystore 不受影响
   - 方向：怀疑 Gradle daemon 存活期跨环境变化（JAVA/HOME 解析差异）；复现时抓 daemon 环境 + signingReport 比对；构建脚本可加指纹打印报警
+  - **已修复（2026-08-29，待验收）**：机制定音 = XDG_CONFIG_HOME 有无使 AGP 解析两把不同 debug 钥匙（并非 daemon/时间漂移）。`app/keystore/debug.jks` 入库钉死（=XDG 正典 8f7a，现机在装身份）+ `pinnedDebug` signingConfig（debug 与 release 无 properties 回退均走钉死）。差分验证：`env -u XDG_CONFIG_HOME` 构建指纹仍 8f7a；覆盖安装 Success。验收后迁 journal
 
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
