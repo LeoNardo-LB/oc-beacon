@@ -40,8 +40,24 @@ private const val WAKELOCK_HOLD_MS = 10 * 60 * 1000L
 private const val WAKELOCK_RENEW_EARLY_MS = 30_000L
 private const val QUESTION_POLL_INTERVAL_MS = 30_000L
 
-/** question 轮询的项目列表缓存轮数（10 轮 = 5 分钟刷新一次 /api/project）。 */
-private const val PROJECT_LIST_CACHE_ROUNDS = 10
+/**
+ * #260（2026-08-30）：question 轮询分层节拍——项目目录 fan-out 的轮周期。
+ *
+ * 实证（logcat /tmp/rel030/verify2.txt，pollstorm.py）：此前每轮都做
+ * 「默认 location + 全部项目目录」全扫，项目数随服务器历史增长
+ * （10 projects → 9 请求/30s），轮内顺序请求间隔 7-2813ms（中位 16ms）
+ * 即用户看到的「15-20ms 密集轮询风暴」。分层后：默认 location（headerless，
+ * 服务器默认 location，SSE 新 form 落点最高频处）每轮必查；
+ * 项目目录 fan-out 每 [FANOUT_ROUNDS] 轮一次（10 轮 × 30s = 5min），
+ * 稳态请求量 9/30s → ~1.9/30s。轮询生命周期铁律不变（2026-08-18：
+ * 只跟随用户连接意图，永不因连接状态自停）。
+ */
+internal object QuestionPollPlanner {
+    const val FANOUT_ROUNDS = 10
+
+    /** 本轮是否执行项目目录 fan-out。round 0 恒 true——冷启动纯 REST 路径首轮即扫全部 location（2026-08-08 E2E-C 不变量）。 */
+    fun isFanOutRound(round: Int): Boolean = round % FANOUT_ROUNDS == 0
+}
 /** #111：dataSync FGS 6h 时限后重启延迟（等待旧实例 stopSelf 销毁完成）。 */
 private const val FGS_TIMEOUT_RESTART_DELAY_MS = 2_000L
 
@@ -386,7 +402,9 @@ class OpenCodeConnectionService : Service() {
     // ============ 问题通知 REST 兜底 ============
 
     /**
-     * 每隔 [QUESTION_POLL_INTERVAL_MS] 轮询 `GET /question`，对比上次已知问题 id
+     * 每隔 [QUESTION_POLL_INTERVAL_MS] 轮询 `GET /api/form/request`（#260 分层节拍：
+     * 默认 location 每轮；项目目录 fan-out 按 [QuestionPollPlanner] 降频），
+     * 对比上次已知问题 id
      * 集合，对新增问题触发通知。SSE 推 QuestionAsked 时也走相同通知路径，
      * 由 [AppNotificationManager.shouldNotifyQuestion] 二次去重，故不会重复。
      *
@@ -404,6 +422,7 @@ class OpenCodeConnectionService : Service() {
         pollingJobs[server.id]?.cancel()
         val job = serviceScope.launch {
             var previousKnown = emptyMap<String, Set<String>>()
+            var round = 0
             while (isActive) {
                 // 2026-08-18 修复（question 轮询永久死亡，两轮迭代）：
                 // 原版 `if (!isConnected) break` 在 SSE 握手窗口/40s 心跳超时
@@ -412,15 +431,20 @@ class OpenCodeConnectionService : Service() {
                 // 等待重连仍不够——SSE 冷却/长断连时兜底随之失效，违背设计初衷
                 //（兜底就是为 SSE 不可达场景而生）。轮询生命周期只跟随用户
                 // 连接意图：disconnect() 显式取消 pollingJobs 即停，这里不再
-                // 检查 isConnected（REST 每 30s 一次成本可忽略，失败有 catch）。
+                // 检查 isConnected。#260 分层：默认 location 每轮必查，
+                // 项目目录 fan-out 按 QuestionPollPlanner 节拍降频。
                 try {
                     // 2026-08-18 修复（location 覆盖缺口）：V2 form/request 按
-                    // x-opencode-directory 头分 location 返回——不带头只返回
-                    // global location 的 form，项目目录（如 ~/code/oc-beacon）
-                    // 的 pending form 永远查不到（实测：Favorite Season form 在
-                    // oc-beacon location，轮询 0 发现）。遍历 global + 全部项目
-                    // 目录；project 列表缓存 PROJECT_LIST_CACHE_ROUNDS 轮刷新。
-                    val pending = pollPendingQuestionsAllLocations(server)
+                    // x-opencode-directory 头分 location 返回（单 location 严格
+                    // 过滤，OpenAPI spec "Retrieve pending forms for a location"，
+                    // 2026-08-30 真机矩阵实测）。headerless = 服务器默认 location。
+                    // 项目目录 fan-out 不能省（2026-08-08 实测：Favorite Season
+                    // form 在 oc-beacon location，headerless 查不到）——
+                    // 但可按 QuestionPollPlanner 节拍分层降频（#260）。
+                    val pending = pollPendingQuestionsAllLocations(
+                        server,
+                        fanOut = QuestionPollPlanner.isFanOutRound(round)
+                    )
                     val grouped = pending
                         .map { it.toQuestionAsked() }
                         .groupBy { it.sessionId }
@@ -445,6 +469,7 @@ class OpenCodeConnectionService : Service() {
                 } catch (e: Exception) {
                     AppLogger.w(TAG, "[${server.displayName}] question polling failed: ${e.message}")
                 }
+                round++
                 delay(QUESTION_POLL_INTERVAL_MS)
             }
         }
@@ -452,38 +477,37 @@ class OpenCodeConnectionService : Service() {
         return job
     }
 
-    /** project 列表缓存（轮询轮数计）——避免每 30s 拉一次 /api/project。 */
-    private var polledProjectDirectories: List<String>? = null
-    private var polledProjectRounds: Int = 0
-
     /**
-     * 遍历 global（directory=null）+ 全部项目目录查询 pending questions，
+     * 默认 location（directory=null，headerless = 服务器默认 location）每轮必查；
+     * [fanOut]=true 时追加全部项目目录（[QuestionPollPlanner] 节拍）。
      * 按 form id 去重（同一 form 理论上只属一个 location，防御性去重）。
      */
-    private suspend fun pollPendingQuestionsAllLocations(server: ServerConfig): List<dev.leonardo.ocbeacon.domain.model.QuestionState> {
+    private suspend fun pollPendingQuestionsAllLocations(
+        server: ServerConfig,
+        fanOut: Boolean
+    ): List<dev.leonardo.ocbeacon.domain.model.QuestionState> {
         val result = mutableListOf<dev.leonardo.ocbeacon.domain.model.QuestionState>()
         result += managePermissionUseCase.listPendingQuestions(server.id, directory = null)
-        val dirs = refreshPolledProjectDirectories(server)
-        for (dir in dirs) {
-            runCatching {
-                result += managePermissionUseCase.listPendingQuestions(server.id, directory = dir)
-            }.onFailure {
-                AppLogger.w(TAG, "[${server.displayName}] question polling (dir=$dir) failed: ${it.message}")
+        if (fanOut) {
+            for (dir in fetchPolledProjectDirectories(server)) {
+                runCatching {
+                    result += managePermissionUseCase.listPendingQuestions(server.id, directory = dir)
+                }.onFailure {
+                    AppLogger.w(TAG, "[${server.displayName}] question polling (dir=$dir) failed: ${it.message}")
+                }
             }
         }
         return result.distinctBy { it.id }
     }
 
-    /** 项目目录列表（带轮数缓存，每 [PROJECT_LIST_CACHE_ROUNDS] 轮刷新一次）。 */
-    private suspend fun refreshPolledProjectDirectories(server: ServerConfig): List<String> {
-        if (polledProjectDirectories != null && polledProjectRounds > 0) {
-            polledProjectRounds--
-            return polledProjectDirectories.orEmpty()
-        }
-        val dirs = runCatching {
+    /**
+     * 项目目录列表（仅在 fan-out 轮调用，~5min 一次，无需再缓存）。
+     * beta-17595 实测 /api/project 只返回 canonical（无 worktree/directory）；
+     * 老版本返回 directory。两者都取，canonical 兜底。
+     */
+    private suspend fun fetchPolledProjectDirectories(server: ServerConfig): List<String> {
+        return runCatching {
             fileRepository.listProjects(server.id).getOrDefault(emptyList())
-                // beta-17595 实测 /api/project 只返回 canonical（无 worktree/directory）；
-                // 老版本返回 directory。两者都取，canonical 兜底。
                 .mapNotNull { p ->
                     p.directory?.takeIf { it.isNotBlank() }
                         ?: p.canonical?.takeIf { it.isNotBlank() }
@@ -491,9 +515,6 @@ class OpenCodeConnectionService : Service() {
                 .filter { it != "/" } // global project 的 canonical=/ 对应 directory=null 已查
                 .distinct()
         }.getOrDefault(emptyList())
-        polledProjectDirectories = dirs
-        polledProjectRounds = PROJECT_LIST_CACHE_ROUNDS
-        return dirs
     }
 
     // QuestionState → SseEvent.QuestionAsked 转换器（C9）随通知路由策略迁至
