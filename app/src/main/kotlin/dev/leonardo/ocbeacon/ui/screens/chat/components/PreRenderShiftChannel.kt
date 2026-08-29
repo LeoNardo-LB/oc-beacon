@@ -77,6 +77,18 @@ internal object PreRenderShiftChannel {
         val total = acc[0]
         if (total == 0f) return
         acc[0] = 0f
+        // #sendgap（2026-08-29 发送后距底 79px 实证）：锚定在底（idx=0 且 off
+        // <120）时放弃视口位移——reverseLayout 底部锚定让底部 item 的生长自然
+        // 向上延伸（off 保持 0），注入反而把最新内容推出底部=「两段式跳底」。
+        // mid-list 生长此时已把 off 顶大（>120），不会误入本分支，补偿照常。
+        // 代计数照常落地（揭示恢复），仅放弃位移本身。
+        if (state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset < 120) {
+            g[1] = g[0]
+            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                AppLogger.d("PreRenderShift", "drop-at-bottom total=" + total.toInt())
+            }
+            return
+        }
         val baseOffset = state.firstVisibleItemScrollOffset
         val targetOffset = (baseOffset + total).toInt().coerceAtLeast(0)
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && targetOffset != (baseOffset + total).toInt()) {
