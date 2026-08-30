@@ -4,7 +4,11 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#264**。
+**编号**：全局递增，不回收。下一编号：**#265**。
+
+- [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
+  - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
+  - 方向：确认无传递测试依赖后移除；见 docs/journal/2026-08-30-deps-upgrade-2026-08.md §顺带发现
 
 - [~] **#260 /api/form/request 15-20ms 密集轮询——节拍式 location fan-out，已分层降频** `infra` `ui`
   - 根因（2026-08-30 journal 取证）：每 30s 轮全扫「默认 location + 全部项目目录」，项目数无界增长（实证 10 projects → 9 请求/30s，轮内中位 16ms）；非状态驱动、非多协程
