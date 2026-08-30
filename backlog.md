@@ -4,7 +4,11 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#266**。
+**编号**：全局递增，不回收。下一编号：**#267**。
+
+- [ ] **#266 part 身份双轨统一——流式派生 id 与完结权威 id 的漂移面收敛** `refactor` `sse`
+  - 背景（2026-08-30 #265 E2E 实证）：完结 text.ended 全量替换用服务端 partId，流式 delta 为本地派生 id——漂移致 applyDelta 走兜底新建（尾句 ×2，已由两层守卫拦截，见 #265）
+  - 方向：权威替换时按内容回填派生 id（或全链路统一服务端 id）；顺带补 reasoning registered append 的 endsWith 去重；评估 contains 守卫的理论误伤面 → docs/journal/2026-08-30-streaming-md-pilot.md §五轮
 
 - [~] **#265 流式 turn 渲染试点 StreamingMarkdownState——P0 已接线，待真机 A/B 验收** `sse` `ui`
   - 实现（a3ad01c6）：开关（dev 开/beta+stable 关）+ 前缀差分 append 包装（修正 spec 伪代码重建缺陷：非前缀→prev 置空重建）+ MarkdownContent 三分支；P0-b 缓存审计过验零修正（解析器源码实证：尾部节点每 append 新实例=键必然失效，稳定块实例永复用）；装机烟测无 FATAL；2159 单测基线一致
