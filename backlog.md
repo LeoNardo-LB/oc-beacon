@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#267**。
+**编号**：全局递增，不回收。下一编号：**#269**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -48,6 +48,11 @@
 
 ## P1 — 核心功能需求
 
+- [ ] **#267 服务器断连可感知：Chat/会话列表常驻条幅 + 写操作快速失败报错** `sse` `ui`
+  - 现状：连接真相源已有（SseConnectionManager.connectedServerIds + 自动重连 + REST 补漏），仅 Home 圆点消费；Chat/会话列表断连零感知，写操作失败悬挂 20s+
+  - 方案（2026-08-30 用户裁决：简单做）：零 UI 禁用——两界面常驻细条幅（恢复自动消失）+ REST 失败回灌一期 + mutation 快速失败报「服务器已断开」；per-serverId 键控；草稿保留；workspace 面板二期
+  - → `docs/specs/2026-08-30-server-disconnect-gating-design.md`
+
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
   - 2026-08-23 评估（#151 两轮 E2E 全绿触发）：用户定规**两半均继续缓**——崩溃提示基建已齐（recordCrash→FATAL 持久化）只差启动提示 UI；gist 需 App 加 Gists 权限+重新授权，正文 20+3 上下文实证够分诊
   - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
@@ -60,6 +65,11 @@
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#268 适配 DSH（DeepSeek Harness）：原生接入调研（全功能差距分析）** `infra`
+  - 用户裁决（2026-08-30）：原生接入（非 WebView）；ServerConfig 增服务器类型 opencodeV1/opencodeV2/dsh（暂定），底层各自实现、对上层透明；**不分期**——先对 oc-beacon 既有功能全面盘点，再对照 DSH 接口面出系统性差距分析
+  - 安全控制：DSH 特权 RPC 钉死 loopback（LAN 403），客户端无解，出路=非特权子集或宿主机 DSH 插件；crypto.randomUUID 系浏览器侧问题，原生接入不涉及
+  - → `docs/research/2026-08-30-dsh-integration-feasibility.md`（调研产出，生成中）· 背景：/tmp/dsh-handoff-crypto-polyfill-20260830.md
 
 - [~] **#265 流式 turn 渲染试点 StreamingMarkdownState——P0 已接线，待真机 A/B 验收** `sse` `ui`
   - 实现（a3ad01c6）：开关（dev 开/beta+stable 关）+ 前缀差分 append 包装（修正 spec 伪代码重建缺陷：非前缀→prev 置空重建）+ MarkdownContent 三分支；P0-b 缓存审计过验零修正（解析器源码实证：尾部节点每 append 新实例=键必然失效，稳定块实例永复用）；装机烟测无 FATAL；2159 单测基线一致
