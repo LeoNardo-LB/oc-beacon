@@ -27,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -81,6 +82,42 @@ internal class MessageDataDelegate(
     private val sessionDirectoryProvider: () -> String?,
     private val scope: CoroutineScope,
 ) {
+    init {
+        // #263 round3：轮次完结后的服务器权威时长对账。V2 生命周期事件
+        //（started/ended）不带服务器时间戳——流式期思考计时为本地钟代理值；
+        // content 的权威 {created, completed} 只在 REST 快照里。观测到
+        // Busy/Retry → Idle 的自然轮次结束转换后，延迟一次 REST_AUTHORITY
+        // 对账，完结显示收敛到服务器时长（REST 拉取经既有 #266 竞态守卫）。
+        scope.launch {
+            var lastSid: String? = null
+            var lastSeenStatus: SessionStatus? = null
+            var reconcileJob: Job? = null
+            combine(sessionIdFlow, sessionStateRepository.statusFlow) { sid, statuses ->
+                sid to statuses[sid]
+            }.collect { (sid, status) ->
+                val sidChanged = sid != lastSid
+                val prev = if (sidChanged) null else lastSeenStatus
+                lastSid = sid
+                lastSeenStatus = status
+                val naturalTurnEnd = !sidChanged &&
+                    (prev is SessionStatus.Busy || prev is SessionStatus.Retry) &&
+                    status is SessionStatus.Idle
+                if (naturalTurnEnd && reconcileJob?.isActive != true) {
+                    reconcileJob = scope.launch {
+                        // 延迟窗口：让 48ms 批缓冲 flush 与 UI 稳定，再拉权威值
+                        delay(1_500L)
+                        runCatching { reconcileFromRest(sid) }
+                            .onFailure {
+                                if (BuildConfig.DEBUG) {
+                                    AppLogger.d(TAG, "reconcileFromRest failed: " + it.message)
+                                }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
     // ============ 加载与错误状态（共享 —— 分页/乐观通过 sink 回写） ============
     private val _isLoading = MutableStateFlow(true)
     private val _isRefreshing = MutableStateFlow(false)  // 后台刷新 —— 无 UI 清空
@@ -509,6 +546,16 @@ internal class MessageDataDelegate(
             if (page.messages.isEmpty()) break
         }
         return all.distinctBy { it.info.id }
+    }
+
+    /**
+     * #263 round3：REST_AUTHORITY 对账——以服务器 content 的 {created, completed}
+     * 覆盖本地合成时间，思考完结时长（及一切时元数据）收敛到服务器权威值。
+     * 合并优先级由 mergePart 决定：incoming 服务器 start>0 直接胜出。
+     */
+    internal suspend fun reconcileFromRest(sid: String) {
+        val all = fetchAllMessages(sid)
+        chatRepository.upsertMessages(sid, all, MergeStrategy.REST_AUTHORITY)
     }
 
     /**

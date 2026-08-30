@@ -76,8 +76,8 @@
   - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
   - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
 
-- [~] **#263 思考卡时长——天文 ms 与完结 0ms 双症已修，待真机验收** `ui` `data`
-  - round1（天文 ms）：start=0 哨兵守卫（PartContent reasoningDurationMs 纯函数，显示走既有 startTimeMs 降级链）；round2（用户报「结束后变 0ms」）：markSessionIdle 回填伪造 start=end=partEnd 根因消除（未知=0 哨兵不再伪造）+ ReasoningBlock 冻结实测兜底（resolveReasoningDisplayDuration）
+- [~] **#263 思考卡时长——天文 ms/完结 0ms/权威收敛三症已修，待真机验收** `ui` `data`
+  - round1（天文 ms）：start=0 哨兵守卫（PartContent reasoningDurationMs 纯函数，显示走既有 startTimeMs 降级链）；round2（用户报「结束后变 0ms」）：markSessionIdle 回填伪造 start=end=partEnd 根因消除（未知=0 哨兵不再伪造）+ ReasoningBlock 冻结实测兜底（resolveReasoningDisplayDuration）；round3（用户报 live 1.2s vs 重进 1.5s）：轮次完结后 REST_AUTHORITY 对账，时长收敛服务器权威值（content {created, completed}）
   - 待验证：用户真机确认已完成思考卡时长正常 → `docs/journal/2026-08-30-backlog-triage-closure.md`
 
 ## P3 — 观察与低价值改进

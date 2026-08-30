@@ -47,6 +47,16 @@
 - 证据：全量单测 --rerun BUILD SUCCESSFUL，2182 用例 0 失败（2177+5），1m07s
 - 待验证：真机看思考卡——思考中计时 → 结束显示合理时长（不再 0ms）
 
+## 六轮 · #263 round3：完结时长收敛到服务器权威值（2026-08-30 晚）
+
+用户验收 round2 时报不一致：live 本地计时冻结 1.2s，退出重进变 1.5s。裁决：「需要最后以 SSE 返回的为准」。
+
+- 定性（服务器探针实证）：reasoning content 权威 `{created, completed}`，E2E 会话最新 turn = **1510ms（1.5s）**——重进显示的就是服务器值（mapV2PartTime 解析 created/completed），已是权威。V2 生命周期事件（started/ended）**不带服务器时间戳**（V2SseMapper L190 注释自认 started 用本地钟），流式期计时只能是本地钟代理——live 凭 SSE 事件拿不到权威值
+- 缺口：轮次完结后无 REST 收敛点（fixIncompleteMessagesIfIdle 仅进会话时跑、只做状态校验不拉内容）→ live 停在本地代理值直到重进
+- 修复：MessageDataDelegate 观测 Busy/Retry → Idle 自然轮次结束转换 → 延迟 1.5s 一次性 `reconcileFromRest`（fetchAllMessages + upsertMessages REST_AUTHORITY）——mergePart 优先 incoming 服务器 start>0，思考完结时长（及一切时元数据）live 收敛到服务器值；延迟窗口避开 48ms flush，REST-vs-delta 竞态由 #266 守卫既有覆盖
+- 证据：编译 ✅；全量单测见 §三轮后补记——2182 用例 0 失败
+- 待验证：真机——turn 完结后数秒内思考卡时长从本地值收敛服务器值（1.2s → 1.5s），此后重进一致
+
 ## 遗留（本批次不做）
 
 - #252：只差用户一句话正式验收（handoff：E2E 三项 ✓ + 修复后用户已评「好转」）
