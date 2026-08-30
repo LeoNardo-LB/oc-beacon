@@ -86,6 +86,8 @@ internal fun SessionRow(
     onContinueQueue: () -> Unit = {},
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
+    /** #276 能力位门控：DSH 无 session.delete——详情对话框删除按钮隐藏。 */
+    deleteSupported: Boolean = true,
     modifier: Modifier = Modifier,
     showDirectory: Boolean = false,
     // #271：同步状态（长按菜单同步详情区——唯一展示面，2026-08-30 四轮定稿）
@@ -302,6 +304,7 @@ internal fun SessionRow(
                 showDetailsDialog = false
                 onContinueQueue()
             },
+            deleteSupported = deleteSupported,
             syncState = syncState,
             onRequestSync = onRequestSync,
             onCancelSync = onCancelSync,
@@ -321,6 +324,7 @@ private fun SessionDetailsDialog(
     onAssignCategory: () -> Unit,
     pendingCount: Int,
     onContinueQueue: () -> Unit,
+    deleteSupported: Boolean,
     // #271：同步详情区（唯一展示面）
     syncState: dev.leonardo.ocbeacon.data.local.SessionSyncEntity?,
     onRequestSync: () -> Unit,
@@ -524,17 +528,19 @@ private fun SessionDetailsDialog(
                             Text(stringResource(R.string.session_details_continue_queue, pendingCount))
                         }
                     }
-                    // 第三行：删除
-                    Button(
-                        onClick = {
-                            onDismiss()
-                            onDelete()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonTokens.dangerColors(),
-                        border = ButtonTokens.amoledBorder(),
-                    ) {
-                        Text(stringResource(R.string.session_delete))
+                    // 第三行：删除（#276 能力位门控：DSH 无 session.delete——隐藏）
+                    if (deleteSupported) {
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onDelete()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonTokens.dangerColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.session_delete))
+                        }
                     }
                 }
             }

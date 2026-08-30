@@ -106,7 +106,10 @@ fun FileTreePanel(
                             isExpanded = treeNode.node.path in uiState.expandedDirs,
                             isLoading = treeNode.node.path in uiState.loadingDirs,
                             onOpenFile = onOpenFile,
-                            onToggleExpand = onToggleExpand
+                            onToggleExpand = onToggleExpand,
+                            // #276 能力位门控：DSH 无文件内容读取——目录树保留，
+                            // 文件行点击禁用（不可打开查看器）。
+                            fileReadSupported = uiState.fileReadSupported
                         )
                     }
                 }
@@ -118,7 +121,7 @@ fun FileTreePanel(
 /**
  * 文件树中的单行。
  * - 目录以其路径调用 [onToggleExpand]，并显示展开/折叠箭头。
- * - 文件以其路径调用 [onOpenFile]。
+ * - 文件以其路径调用 [onOpenFile]；[fileReadSupported]=false（DSH）时禁用点击。
  * - 当 [isLoading] 为 true（正在拉取子目录）时，一个小型加载指示器替代箭头。
  */
 @Composable
@@ -128,13 +131,17 @@ fun FileTreeItem(
     isExpanded: Boolean,
     isLoading: Boolean,
     onOpenFile: (String) -> Unit,
-    onToggleExpand: (String) -> Unit
+    onToggleExpand: (String) -> Unit,
+    fileReadSupported: Boolean = true
 ) {
     val isDirectory = treeNode.node.isDirectory()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
+            .clickable(
+                // #276：DSH 无文件内容读取——目录仍可展开，文件点击禁用
+                enabled = isDirectory || fileReadSupported
+            ) {
                 if (isDirectory) onToggleExpand(treeNode.node.path)
                 else onOpenFile(treeNode.node.path)
             }
@@ -144,6 +151,8 @@ fun FileTreeItem(
     ) {
         // 目录/文件图标 — 目录使用 FolderOpen/Folder 显示展开状态。
         // 加载状态会略微降低图标透明度（没有单独的加载指示器）。
+        // #276：文件打开禁用（DSH）时同样降透明度提示不可交互。
+        val fileOpenDisabled = !isDirectory && !fileReadSupported
         Icon(
             imageVector = when {
                 isDirectory && isExpanded -> Icons.Filled.FolderOpen
@@ -153,14 +162,20 @@ fun FileTreeItem(
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
                 // #137（D2-L49）：裸 alpha 0.4f → AlphaTokens（数值最接近 FAINT 0.35）
-                alpha = if (isLoading) AlphaTokens.FAINT else 1f
+                alpha = when {
+                    isLoading -> AlphaTokens.FAINT
+                    fileOpenDisabled -> AlphaTokens.MUTED
+                    else -> 1f
+                }
             )
         )
         Spacer(Modifier.width(SpacingTokens.SM.dp))
         Text(
             text = treeNode.node.name,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface.copy(
+                alpha = if (fileOpenDisabled) AlphaTokens.MUTED else 1f
+            )
         )
     }
 }

@@ -142,8 +142,8 @@ class SseConnectionManager @Inject constructor(
         server: ServerConfig,
         onEvent: (ServerConfig, SseEvent) -> Unit
     ): Job {
-        // #276：serverType 沿传（DSH 三分路由 + 传输分支依据）
-        val conn = ServerConnection.from(server.url, server.username, server.password, server.apiVersion, server.serverType)
+        // #276：from(config) 单点（serverType 沿传——DSH 三分路由 + 传输分支依据）
+        val conn = ServerConnection.from(server)
         val previous = connections[server.id]
         val job: Job = if (previous != null && previous.sseJob.isActive) {
             // RS-004 修复：针对重复调用的自我保护。若已存在连接，在启动新连接前

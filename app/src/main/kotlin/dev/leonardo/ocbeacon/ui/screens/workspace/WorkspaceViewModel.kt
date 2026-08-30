@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.FileNode
 import dev.leonardo.ocbeacon.domain.model.VcsChange
 import dev.leonardo.ocbeacon.domain.model.isDirectory
+import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.usecase.FindFilesUseCase
 import dev.leonardo.ocbeacon.domain.usecase.GetVcsStatusUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ListDirectoryUseCase
@@ -31,7 +32,9 @@ class WorkspaceViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val listDirectory: ListDirectoryUseCase,
     private val getVcsStatus: GetVcsStatusUseCase,
-    private val findFiles: FindFilesUseCase
+    private val findFiles: FindFilesUseCase,
+    /** #276：能力位来源（serverType 维度——DSH 下 vcs/文件搜索/文件读全 false）。 */
+    private val serverConfigRepository: ServerConfigRepository
 ) : ViewModel() {
 
     private val serverId = savedStateHandle.get<String>(ServerRouteParams.PARAM_SERVER_ID).orEmpty()
@@ -66,7 +69,26 @@ class WorkspaceViewModel @Inject constructor(
             _uiState.update { it.copy(rootError = R.string.workspace_error_server_config_missing, rootLoading = false) }
         } else {
             loadDirectory("")
-            prefetchGitCount()
+            // #276：能力位先行——配置加载后才决定是否发起 git 预取（DSH 无 vcs 域，
+            // 白跑一次 RPC 还会把空 git 面板暴露成可切换入口）。
+            viewModelScope.launch {
+                val config = serverConfigRepository.getServer(serverId)
+                val caps = config?.let {
+                    dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(it.serverType, it.apiVersion)
+                }
+                if (caps != null) {
+                    _uiState.update {
+                        it.copy(
+                            vcsSupported = caps.vcsSupported,
+                            fileSearchSupported = caps.fileSearchSupported,
+                            fileReadSupported = caps.fileReadSupported,
+                        )
+                    }
+                }
+                if (caps?.vcsSupported != false) {
+                    prefetchGitCount()
+                }
+            }
         }
     }
 
@@ -149,6 +171,8 @@ class WorkspaceViewModel @Inject constructor(
 
     fun loadGitChanges() {
         if (serverId.isBlank()) return
+        // #276 能力位门控：DSH 无 vcs 域（UI 入口已隐藏，此处兜底防程序化切换）
+        if (!_uiState.value.vcsSupported) return
         // #134（D2-L33）：取消在跑的 prefetch——完整加载与其结果互斥，避免双发 VCS status
         gitLoadJob?.cancel()
         _uiState.update { it.copy(gitLoading = true, gitError = null, isNonGit = false) }

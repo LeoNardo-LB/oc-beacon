@@ -123,6 +123,13 @@ class SessionListViewModel @Inject constructor(
     private val _serverName = MutableStateFlow("")
     val serverName: StateFlow<String> = _serverName.asStateFlow()
 
+    /** #276：服务器能力位（serverType 维度投影；配置加载完成前 permissive 全开放）。 */
+    private val _serverCapabilities = MutableStateFlow(
+        dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(null)
+    )
+    val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> =
+        _serverCapabilities.asStateFlow()
+
     private val directoryManager = DirectoryManager(
         serverId = serverId,
         getServerPathsUseCase = getServerPathsUseCase,
@@ -144,13 +151,16 @@ class SessionListViewModel @Inject constructor(
                 serverRepository.getServer(serverId)
             }
             _serverName.value = config?.displayName ?: ""
+            // #276：from(config) 单点——serverType 沿传（原手拼参数漏带该维度）
             val conn = config?.let {
-                ServerConnection.from(it.url, it.username, it.password, it.apiVersion)
+                ServerConnection.from(it)
             } ?: ServerConnection.from("", "", null)
             // #110（D2-24）：本 VM 缓存 conn 供 MCP 调用（显式传入，
             // 避免共享单例可变 connection 被其他服务器 VM 覆盖）。
             _mcpConn = conn
             mcpRepository.setConnection(conn)
+            // #276：能力位投影（DSH 删除动作等 UI 门控依据）
+            _serverCapabilities.value = conn.capabilities
         }
     }
 

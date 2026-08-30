@@ -62,6 +62,8 @@ internal fun SessionTreeList(
     val untitledLabel = stringResource(R.string.session_untitled)
     // #177：堆积队列计数（详情对话框「继续发送堆积消息」入口）
     val pendingCounts by viewModel.pendingCounts.collectAsState()
+    // #276：能力位（DSH 无 session.delete——详情对话框删除动作隐藏）
+    val serverCapabilities by viewModel.serverCapabilities.collectAsState()
     val listState = rememberLazyListState()
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -150,6 +152,7 @@ internal fun SessionTreeList(
                         onToggleFavorite = {
                             viewModel.toggleFavorite(node.session.session)
                         },
+                        deleteSupported = serverCapabilities.sessionDeleteSupported,
                         syncState = syncStates[node.id],
                         onRequestSync = { onRequestSync(node.id) },
                         onCancelSync = { onCancelSync(node.id) },

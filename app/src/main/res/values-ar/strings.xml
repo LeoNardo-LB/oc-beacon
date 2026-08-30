@@ -108,6 +108,10 @@
     <string name="server_name">اسم الخادم</string>
     <string name="server_name_hint">خادم OpenCode الخاص بي</string>
     <string name="server_url_example">مثال: http://192.168.0.10:4199 أو https://my-server:443</string>
+    <string name="server_type_opencode">OpenCode</string>
+    <string name="server_type_dsh">DSH</string>
+    <string name="server_type_dsh_hint">لا يلزم اسم مستخدم أو كلمة مرور. لاتصال USB شغّل أولاً adb reverse tcp:3080 tcp:3080</string>
+    <string name="server_url_example_dsh">مثال: http://127.0.0.1:3080 عبر USB (adb reverse tcp:3080 tcp:3080)</string>
     <string name="server_add">إضافة خادم</string>
     <string name="session_rename">إعادة تسمية الجلسة</string>
     <string name="session_rename_title">العنوان</string>

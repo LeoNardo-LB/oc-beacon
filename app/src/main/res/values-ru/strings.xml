@@ -18,6 +18,10 @@
     <string name="server_url">URL сервера</string>
     <string name="server_url_hint">http://192.168.1.100:4199</string>
     <string name="server_url_example">например: http://192.168.0.10:4199 или https://my-server:443</string>
+    <string name="server_type_opencode">OpenCode</string>
+    <string name="server_type_dsh">DSH</string>
+    <string name="server_type_dsh_hint">Имя пользователя и пароль не нужны. Для USB сначала выполните adb reverse tcp:3080 tcp:3080</string>
+    <string name="server_url_example_dsh">напр., http://127.0.0.1:3080 через USB (adb reverse tcp:3080 tcp:3080)</string>
     <string name="server_username">Имя пользователя</string>
     <string name="server_username_hint">opencode</string>
     <string name="server_password">Пароль</string>

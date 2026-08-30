@@ -352,10 +352,12 @@ class ChatViewModel @Inject constructor(
                 serverRepository.getServer(serverId)
             }
             _serverName.value = config?.displayName ?: ""
-            _serverCapabilities.value = dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(config?.apiVersion)
+            // #276：from(config) 单点 + 能力位改由 conn 派生——serverType 维度
+            // （DSH 六个新能力位：斜杠命令面板等门控）不再漏带。
             val conn = config?.let {
-                ServerConnection.from(it.url, it.username, it.password, it.apiVersion)
+                ServerConnection.from(it)
             } ?: ServerConnection.from("", "", null)
+            _serverCapabilities.value = conn.capabilities
             terminalRegistry.updateConn(serverId, conn)
         }
         // #252 时间线化：shell 任务创建/结束（任意来源——客户端 UI 发送、服务器端

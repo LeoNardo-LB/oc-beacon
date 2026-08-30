@@ -126,7 +126,8 @@ class ServerSettingsViewModel @Inject constructor(
             val config = serverConfigRepository.getServer(serverId)
             if (config != null) {
                 serverDisplayName = config.displayName
-                configEditable = dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(config.apiVersion).configEditable
+                // #276：能力位带 serverType 维度（DSH settings 特权面不开放 UI）
+                configEditable = dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(config.serverType, config.apiVersion).configEditable
                 _uiState.update { it.copy(serverName = serverDisplayName) }
             }
             markInitialLoadDone()

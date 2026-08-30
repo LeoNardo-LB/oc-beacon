@@ -79,6 +79,8 @@ internal fun ChatInputBar(
     variantNames: List<String> = emptyList(),
     selectedVariant: String? = null,
     commands: List<CommandInfo> = emptyList(),
+    /** #276 能力位门控：false（DSH）时斜杠命令建议面板不出现。 */
+    slashCommandsSupported: Boolean = true,
     fileSearchResults: List<String> = emptyList(),
     confirmedFilePaths: Set<String> = emptySet(),
     onFileSelected: (String) -> Unit = {},
@@ -135,8 +137,8 @@ internal fun ChatInputBar(
         clientCmds + serverSlash
     }
 
-    // 斜杠命令建议
-    val showSlashSuggestions = !isShellMode && text.startsWith("/") && !text.contains(" ")
+    // 斜杠命令建议（#276：DSH 无 command 域——能力位关停整块面板）
+    val showSlashSuggestions = slashCommandsSupported && !isShellMode && text.startsWith("/") && !text.contains(" ")
     val slashQuery = if (showSlashSuggestions) text.removePrefix("/").lowercase() else ""
     val filteredCommands = if (showSlashSuggestions) {
         allCommands.filter { cmd ->

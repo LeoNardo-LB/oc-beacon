@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
@@ -82,7 +83,7 @@ private fun deriveServerNameFromUrl(normalizedUrl: String): String {
 internal fun ServerDialog(
     server: ServerConfig?,
     onDismiss: () -> Unit,
-    onSave: (name: String, url: String, username: String, password: String, autoConnect: Boolean) -> Unit
+    onSave: (name: String, url: String, username: String, password: String, autoConnect: Boolean, serverType: ServerType) -> Unit
 ) {
     // #115（D2-L25）：服务器名输入 saveable
     var name by rememberSaveable { mutableStateOf(server?.name ?: "") }
@@ -90,6 +91,9 @@ internal fun ServerDialog(
     var username by remember { mutableStateOf(server?.username ?: "opencode") }
     var password by remember { mutableStateOf(server?.password ?: "") }
     var autoConnect by remember { mutableStateOf(server?.autoConnect ?: false) }
+    // #276：服务器类型（enum 是 Serializable，rememberSaveable 原生支持）
+    var serverType by rememberSaveable { mutableStateOf(server?.serverType ?: ServerType.OpenCode) }
+    val isDsh = serverType == ServerType.Dsh
 
     var urlError by remember { mutableStateOf<String?>(null) }
 
@@ -131,6 +135,34 @@ internal fun ServerDialog(
                         style = MaterialTheme.typography.headlineSmall
                     )
 
+                    // #276：服务器类型选择（M3 SegmentedButton 单选；DSH 无鉴权——
+                    // 选中后隐藏用户名/密码并切换 URL 提示）
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            SegmentedButton(
+                                selected = !isDsh,
+                                onClick = { serverType = ServerType.OpenCode },
+                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                            ) {
+                                Text(stringResource(R.string.server_type_opencode))
+                            }
+                            SegmentedButton(
+                                selected = isDsh,
+                                onClick = { serverType = ServerType.Dsh },
+                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                            ) {
+                                Text(stringResource(R.string.server_type_dsh))
+                            }
+                        }
+                        if (isDsh) {
+                            Text(
+                                text = stringResource(R.string.server_type_dsh_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
@@ -153,31 +185,42 @@ internal fun ServerDialog(
                         supportingText = if (currentUrlError != null) {
                             { Text(currentUrlError) }
                         } else {
-                            { Text(stringResource(R.string.server_url_example)) }
+                            {
+                                Text(
+                                    stringResource(
+                                        // #276：DSH 提示走 adb reverse 127.0.0.1:3080 用法
+                                        if (isDsh) R.string.server_url_example_dsh
+                                        else R.string.server_url_example
+                                    )
+                                )
+                            }
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text(stringResource(R.string.server_username)) },
-                        placeholder = { Text(stringResource(R.string.server_username_hint)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // #276：DSH 无鉴权（§2.1）——用户名/密码字段隐藏
+                    if (!isDsh) {
+                        OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it },
+                            label = { Text(stringResource(R.string.server_username)) },
+                            placeholder = { Text(stringResource(R.string.server_username_hint)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text(stringResource(R.string.server_password)) },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text(stringResource(R.string.server_password)) },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
                     Surface(
                         shape = ShapeTokens.medium,
@@ -232,9 +275,11 @@ internal fun ServerDialog(
                                 onSave(
                                     finalName,
                                     normalizedUrl,
-                                    username.ifBlank { "opencode" },
-                                    password,
-                                    autoConnect
+                                    // DSH 无鉴权：字段已隐藏，恒定占位值（DSH 传输层忽略 auth）
+                                    if (isDsh) "opencode" else username.ifBlank { "opencode" },
+                                    if (isDsh) "" else password,
+                                    autoConnect,
+                                    serverType
                                 )
                             }
                         },

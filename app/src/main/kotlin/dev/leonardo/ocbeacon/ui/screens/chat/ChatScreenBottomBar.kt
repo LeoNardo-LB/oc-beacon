@@ -85,6 +85,9 @@ internal fun ChatScreenBottomBar(
     val taskToolbarText = if (taskUi.foregroundSubagentCount > 0) {
         stringResource(R.string.task_toolbar_subagents, taskUi.foregroundSubagentCount)
     } else ""
+    // #276 能力位门控：DSH 无 command 执行端点——斜杠命令面板与 /cmd 发送拦截均停用
+    val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
+    val slashCommandsSupported = serverCapabilities.commandsSupported
 
     // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist 到
     // 组合层 stringResource（lambda 内不可调用 @Composable）；带参格式串 hoist
@@ -217,7 +220,9 @@ internal fun ChatScreenBottomBar(
                             return@doSend
                         }
                         // 检测斜杠命令（例如 /skillname arguments）
-                        if (rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
+                        // #276 能力位门控：DSH 无 command 域——"/xxx" 按普通消息发送
+                        if (slashCommandsSupported &&
+                            rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
                             val parts = rawText.trim().split(WHITESPACE_SPLIT_REGEX, 2)
                             val commandName = parts[0].removePrefix("/")
                             val commandArgs = parts.getOrElse(1) { "" }
@@ -306,6 +311,7 @@ internal fun ChatScreenBottomBar(
                 variantNames = modelConfig.variantNames,
                 selectedVariant = modelConfig.selectedVariant,
                 commands = modelConfig.commands,
+                slashCommandsSupported = slashCommandsSupported,
                 fileSearchResults = fileSearchResults,
                 confirmedFilePaths = confirmedFilePaths,
                 onFileSelected = { path ->

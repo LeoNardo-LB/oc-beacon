@@ -89,25 +89,41 @@ internal fun ServerCard(
                         }
                         // API 版本徽章（V1/V2 均显示——2026-08-13 #86：V1 也显示版本号，
                         // 与 V2 一致；UNKNOWN 回退显示 v1 与默认行为一致）
-                        Surface(
-                            shape = MaterialTheme.shapes.small,
-                            color = when (server.apiVersion) {
-                                dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
-                                    MaterialTheme.colorScheme.primaryContainer
-                                else -> MaterialTheme.colorScheme.surfaceVariant
+                        // #276：DSH 服务器以轻量 "DSH" 标识替代 API 版本徽章
+                        // （DSH 不参与 V1/V2 探测，"API v1" 会误导）。
+                        if (server.serverType == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.tertiaryContainer
+                            ) {
+                                Text(
+                                    text = "DSH",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
-                        ) {
-                            Text(
-                                text = "API v${if (server.apiVersion.isV2) "2" else "1"}" +
-                                    (server.serverVersion?.let { " · $it" } ?: ""),
-                                style = MaterialTheme.typography.labelSmall,
+                        } else {
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
                                 color = when (server.apiVersion) {
                                     dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            ) {
+                                Text(
+                                    text = "API v${if (server.apiVersion.isV2) "2" else "1"}" +
+                                        (server.serverVersion?.let { " · $it" } ?: ""),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = when (server.apiVersion) {
+                                        dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
                     }
                 }

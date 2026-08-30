@@ -11,8 +11,22 @@ import org.junit.Test
  * DSH 分支：现有五个能力位全置 false（share/todo 面缺失、background/active
  * 域缺失、settings 特权面 UI 不开放、compaction 域缺失）。旧签名
  * of(apiVersion) 必须保持原 V1/V2 语义不变（既有调用方兼容）。
+ *
+ * #276 UI 卡（2026-08-31）：六新位（terminal/fileRead/sessionDelete/vcs/
+ * fileSearch/commands）——DSH 全 false（§2.6 终局确认），OpenCode V1/V2/UNKNOWN
+ * 全 true（两代端点均存在）。
  */
 class ServerCapabilitiesDshTest {
+
+    /** #276 UI 卡新增六位（缺口清单补位）。 */
+    private val newBits: List<kotlin.reflect.KProperty1<ServerCapabilities, Boolean>> = listOf(
+        ServerCapabilities::terminalSupported,
+        ServerCapabilities::fileReadSupported,
+        ServerCapabilities::sessionDeleteSupported,
+        ServerCapabilities::vcsSupported,
+        ServerCapabilities::fileSearchSupported,
+        ServerCapabilities::commandsSupported,
+    )
 
     @Test
     fun `dsh matrix is all false regardless of apiVersion`() {
@@ -23,7 +37,21 @@ class ServerCapabilitiesDshTest {
             assertFalse("runningSessionsFilterSupported v=$version", caps.runningSessionsFilterSupported)
             assertFalse("configEditable v=$version", caps.configEditable)
             assertFalse("compactionAsync v=$version", caps.compactionAsync)
+            for (bit in newBits) {
+                assertFalse("${bit.name} v=$version", bit.get(caps))
+            }
         }
+    }
+
+    @Test
+    fun `dsh new ui-gating bits are all false`() {
+        val caps = ServerCapabilities.of(ServerType.Dsh, ApiVersion.V1)
+        assertFalse(caps.terminalSupported)
+        assertFalse(caps.fileReadSupported)
+        assertFalse(caps.sessionDeleteSupported)
+        assertFalse(caps.vcsSupported)
+        assertFalse(caps.fileSearchSupported)
+        assertFalse(caps.commandsSupported)
     }
 
     @Test
@@ -34,6 +62,7 @@ class ServerCapabilitiesDshTest {
         assertFalse(caps.runningSessionsFilterSupported)
         assertTrue(caps.configEditable)
         assertFalse(caps.compactionAsync)
+        newBits.forEach { assertTrue(it.name, it.get(caps)) }
     }
 
     @Test
@@ -44,6 +73,7 @@ class ServerCapabilitiesDshTest {
         assertTrue(caps.runningSessionsFilterSupported)
         assertFalse(caps.configEditable)
         assertTrue(caps.compactionAsync)
+        newBits.forEach { assertTrue(it.name, it.get(caps)) }
     }
 
     @Test
@@ -54,6 +84,7 @@ class ServerCapabilitiesDshTest {
         assertTrue(caps.runningSessionsFilterSupported)
         assertTrue(caps.configEditable)
         assertFalse(caps.compactionAsync)
+        newBits.forEach { assertTrue(it.name, it.get(caps)) }
     }
 
     @Test

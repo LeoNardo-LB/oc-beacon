@@ -166,6 +166,8 @@ fun WorkspaceScreen(
                     onToggleExpand = onToggleExpand,
                     modifier = Modifier.padding(padding)
                 )
+                // #276：DSH（vcsSupported=false）不会切到 GIT_CHANGES——
+                // WorkspaceTopBar 的切换入口已隐藏，switchPanel 的加载也有兜底。
                 WorkspacePanel.GIT_CHANGES -> GitChangesPanel(
                     uiState = uiState,
                     onRefresh = onRefreshGit,
@@ -218,22 +220,26 @@ private fun WorkspaceTopBar(
         },
         actions = {
             // Phase 2：🔍 搜索按钮（规范 §6.1 顺序：[🔍][📁/🔀]）
-            IconButton(
-                onClick = onSearch,
-                modifier = Modifier.testTag("workspace_search_button")
-            ) {
-                Icon(
-                    Icons.Filled.Search,
-                    contentDescription = stringResource(R.string.a11y_icon_search),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            // #276 能力位门控：DSH 无文件搜索域——入口隐藏。
+            if (uiState.fileSearchSupported) {
+                IconButton(
+                    onClick = onSearch,
+                    modifier = Modifier.testTag("workspace_search_button")
+                ) {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = stringResource(R.string.a11y_icon_search),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             // 切换按钮：在 FILE_TREE 与 GIT_CHANGES 面板之间切换。
-            // 非 git 仓库仅显示目录图标（无法切换）。
+            // 非 git 仓库仅显示目录图标（无法切换）；#276：DSH（vcsSupported=false）
+            // 同样只显示静态目录图标（无 vcs 域）。
             when (uiState.currentPanel) {
                 WorkspacePanel.FILE_TREE -> {
-                    if (uiState.isNonGit) {
-                        // 非 git 仓库 → 静态目录图标，无切换
+                    if (uiState.isNonGit || !uiState.vcsSupported) {
+                        // 非 git 仓库 / 无 vcs 能力 → 静态目录图标，无切换
                         Icon(
                             Icons.Filled.Folder,
                             contentDescription = stringResource(R.string.a11y_icon_toggle_directory),

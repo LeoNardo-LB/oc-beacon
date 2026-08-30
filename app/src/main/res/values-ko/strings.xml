@@ -108,6 +108,10 @@
     <string name="server_name">서버 이름</string>
     <string name="server_name_hint">My OpenCode Server</string>
     <string name="server_url_example">예: http://192.168.0.10:4199 또는 https://my-server:443</string>
+    <string name="server_type_opencode">OpenCode</string>
+    <string name="server_type_dsh">DSH</string>
+    <string name="server_type_dsh_hint">사용자 이름과 비밀번호가 필요 없습니다. USB 연결 시 먼저 adb reverse tcp:3080 tcp:3080을 실행하세요</string>
+    <string name="server_url_example_dsh">예: http://127.0.0.1:3080 (USB는 adb reverse tcp:3080 tcp:3080 경유)</string>
     <string name="server_add">서버 추가</string>
     <string name="session_rename">세션 이름 변경</string>
     <string name="session_rename_title">제목</string>

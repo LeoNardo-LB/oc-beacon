@@ -108,6 +108,10 @@
     <string name="server_name">サーバー名</string>
     <string name="server_name_hint">My OpenCode Server</string>
     <string name="server_url_example">例: http://192.168.0.10:4199 または https://my-server:443</string>
+    <string name="server_type_opencode">OpenCode</string>
+    <string name="server_type_dsh">DSH</string>
+    <string name="server_type_dsh_hint">ユーザー名とパスワードは不要です。USB 接続では先に adb reverse tcp:3080 tcp:3080 を実行してください</string>
+    <string name="server_url_example_dsh">例: http://127.0.0.1:3080（USB は adb reverse tcp:3080 tcp:3080 経由）</string>
     <string name="server_add">サーバー追加</string>
     <string name="session_rename">セッション名変更</string>
     <string name="session_rename_title">タイトル</string>

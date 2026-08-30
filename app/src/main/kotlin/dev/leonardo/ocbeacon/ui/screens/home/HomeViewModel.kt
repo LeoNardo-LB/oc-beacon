@@ -245,7 +245,9 @@ class HomeViewModel @Inject constructor(
         url: String,
         username: String,
         password: String,
-        autoConnect: Boolean
+        autoConnect: Boolean,
+        /** #276：服务器类型沿传（DSH 三分路由 + 探测跳过依据）。 */
+        serverType: dev.leonardo.ocbeacon.domain.model.ServerType = dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode
     ) {
         viewModelScope.launch {
             val editingServer = _uiState.value.editingServer
@@ -256,7 +258,8 @@ class HomeViewModel @Inject constructor(
                     url = url,
                     username = username,
                     password = password,
-                    autoConnect = autoConnect
+                    autoConnect = autoConnect,
+                    serverType = serverType
                 )
                 serverRepository.updateServer(updatedServer)
             } else {
@@ -268,6 +271,7 @@ class HomeViewModel @Inject constructor(
                         password = password,
                         name = name,
                         autoConnect = autoConnect,
+                        serverType = serverType,
                     )
                 )
             }

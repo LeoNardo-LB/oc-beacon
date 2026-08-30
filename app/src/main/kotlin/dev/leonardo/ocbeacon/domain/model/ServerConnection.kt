@@ -10,8 +10,12 @@ import java.util.Base64
  * #276 步骤②（设计 §2.2）：扩为 of(serverType, apiVersion)——DSH 分支现有五个
  * 能力位全置 false（share/todo 面缺失、background/active 域缺失、settings 特权
  * 面 UI 不开放、compaction 域缺失）；UI 入口按能力位隐藏，不写服务器类型特判。
- * 能力位缺口（无对应位、待 UI 卡扩）：PTY/终端、文件内容读取、会话删除、
- * vcs/git、文件搜索——本期不为此扩 UI 判断。
+ *
+ * #276 UI 卡（2026-08-31 缺口清单补位）：新增六位覆盖原「无对应位」入口——
+ * terminal/fileRead/sessionDelete/vcs/fileSearch/commands。OpenCode V1/V2/UNKNOWN
+ * 全 true（两代端点均存在，null 版本 permissive 语义与原五位一致）；DSH 全 false
+ * （§2.6 终局确认：PTY/shell 域缺失、文件内容读无方法、无 session.delete、
+ * vcs 无对应、find 无对应、command 执行无对应）。
  */
 data class ServerCapabilities(
     /** 会话分享（V2 无 share 端点；DSH 无 share 域）。 */
@@ -30,6 +34,18 @@ data class ServerCapabilities(
      * DSH：compaction 事件族存在但无 HTTP 端点 → false。
      */
     val compactionAsync: Boolean,
+    /** 终端 PTY 入口（DSH 无 PTY 域，§2.6 终局确认；OpenCode V1/V2 均有 /pty）。 */
+    val terminalSupported: Boolean,
+    /** 文件内容查看（DSH 无读取方法——host.openPath 是宿主侧特权打开；目录树另算：host.listDirectory 存在）。 */
+    val fileReadSupported: Boolean,
+    /** 会话删除（DSH 52 方法面无 session.delete——存档≠删除）。 */
+    val sessionDeleteSupported: Boolean,
+    /** Git/vcs 面板（DSH 无 vcs 方法）。 */
+    val vcsSupported: Boolean,
+    /** 文件搜索（DSH 无 find 对应方法）。 */
+    val fileSearchSupported: Boolean,
+    /** 斜杠命令面板（DSH 无 command 执行端点；listCommands 已空列表降级）。 */
+    val commandsSupported: Boolean,
 ) {
     companion object {
         /**
@@ -44,6 +60,12 @@ data class ServerCapabilities(
                     runningSessionsFilterSupported = false,
                     configEditable = false,
                     compactionAsync = false,
+                    terminalSupported = false,
+                    fileReadSupported = false,
+                    sessionDeleteSupported = false,
+                    vcsSupported = false,
+                    fileSearchSupported = false,
+                    commandsSupported = false,
                 )
                 ServerType.OpenCode -> ofOpenCode(apiVersion)
             }
@@ -58,6 +80,12 @@ data class ServerCapabilities(
                 runningSessionsFilterSupported = true,
                 configEditable = false,
                 compactionAsync = true,
+                terminalSupported = true,
+                fileReadSupported = true,
+                sessionDeleteSupported = true,
+                vcsSupported = true,
+                fileSearchSupported = true,
+                commandsSupported = true,
             )
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
@@ -65,6 +93,12 @@ data class ServerCapabilities(
                 runningSessionsFilterSupported = apiVersion == null,
                 configEditable = true,
                 compactionAsync = false,
+                terminalSupported = true,
+                fileReadSupported = true,
+                sessionDeleteSupported = true,
+                vcsSupported = true,
+                fileSearchSupported = true,
+                commandsSupported = true,
             )
         }
     }

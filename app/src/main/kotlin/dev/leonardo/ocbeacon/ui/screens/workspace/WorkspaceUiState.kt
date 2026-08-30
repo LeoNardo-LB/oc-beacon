@@ -33,7 +33,12 @@ data class WorkspaceUiState(
     val fileSearchResults: List<String> = emptyList(),
     val searchLoading: Boolean = false,
     val searchError: Int? = null,
-    val hasSearched: Boolean = false
+    val hasSearched: Boolean = false,
+    // #276 能力位门控（DSH 全 false）：vcs 面板切换 / 文件搜索入口 / 文件内容打开。
+    // 目录树保留（host.listDirectory 存在）。默认 true（配置加载前 permissive）。
+    val vcsSupported: Boolean = true,
+    val fileSearchSupported: Boolean = true,
+    val fileReadSupported: Boolean = true
 )
 
 data class DirectoryLoadResult(

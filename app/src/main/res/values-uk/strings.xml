@@ -108,6 +108,10 @@
     <string name="server_name">Назва сервера</string>
     <string name="server_name_hint">Мій сервер OpenCode</string>
     <string name="server_url_example">наприклад, http://192.168.0.10:4199 або https://my-server:443</string>
+    <string name="server_type_opencode">OpenCode</string>
+    <string name="server_type_dsh">DSH</string>
+    <string name="server_type_dsh_hint">Ім'я користувача та пароль не потрібні. Для USB спочатку виконайте adb reverse tcp:3080 tcp:3080</string>
+    <string name="server_url_example_dsh">напр., http://127.0.0.1:3080 через USB (adb reverse tcp:3080 tcp:3080)</string>
     <string name="server_add">Додати сервер</string>
     <string name="session_rename">Перейменувати сесію</string>
     <string name="session_rename_title">Заголовок</string>

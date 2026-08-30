@@ -108,6 +108,10 @@
     <string name="server_name">Nazwa serwera</string>
     <string name="server_name_hint">Mój serwer OpenCode</string>
     <string name="server_url_example">np. http://192.168.0.10:4199 lub https://my-server:443</string>
+    <string name="server_type_opencode">OpenCode</string>
+    <string name="server_type_dsh">DSH</string>
+    <string name="server_type_dsh_hint">Nazwa użytkownika i hasło nie są potrzebne. Dla USB najpierw wykonaj adb reverse tcp:3080 tcp:3080</string>
+    <string name="server_url_example_dsh">np. http://127.0.0.1:3080 przez USB (adb reverse tcp:3080 tcp:3080)</string>
     <string name="server_add">Dodaj serwer</string>
     <string name="session_rename">Zmień nazwę sesji</string>
     <string name="session_rename_title">Tytuł</string>
