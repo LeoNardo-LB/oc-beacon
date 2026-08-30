@@ -66,6 +66,9 @@ fun ChatTopBar(
     isBackgroundSupported: Boolean = true,
     /** 服务器支持 share 端点时显示 Share/Unshare 菜单项（V2 当前无 share 端点，见 backlog #78）。 */
     isShareSupported: Boolean = true,
+    /** 服务器支持 PTY 终端时显示 Terminal 菜单项（DSH 无 terminal/pty 域——
+     *  2026-08-31 全量按钮走查前置修复：此前 DSH 下入口可见但点击报错，数据层兜底不佳）。 */
+    isTerminalSupported: Boolean = true,
     onShare: () -> Unit,
     onUnshare: () -> Unit,
     onExport: () -> Unit,
@@ -167,16 +170,18 @@ fun ChatTopBar(
                             },
                             modifier = Modifier.testTag("menu_open_workspace")
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.tool_terminal)) },
-                            onClick = {
-                                showMenu = false
-                                onTerminalMode()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.a11y_icon_terminal))
-                            }
-                        )
+                        if (isTerminalSupported) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tool_terminal)) },
+                                onClick = {
+                                    showMenu = false
+                                    onTerminalMode()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.a11y_icon_terminal))
+                                }
+                            )
+                        }
                         // 2026-08-22 用户要求：任务转后台与分叉会话对调位置（原第 5 位提前到
                         // 第 3 位），图标与输入组件任务入口统一为 PendingActions
                         // 批量转后台（2026-08-13 用户要求：入口在顶部菜单——工具栏
