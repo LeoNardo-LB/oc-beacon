@@ -8,6 +8,14 @@
 
 ## 批次执行记录
 
+### 2026-08-31（三）：#276 核心接线（commit 2a9e76ef，39 文件 +2391/-90，新增 47 测试，全量 2326/0 ×2+主会话复验 1m04s 绿）
+
+- **ServerType 零迁移**：@Serializable enum + ServerConfig/ServerConnection 默认 OpenCode + ServerConnection.from(config) data 层单点（四 repo resolveConnection 换用）+ DataStore 透传。
+- **能力位**：of(serverType, apiVersion) DSH 五位全 false；缺口清单（PTY/文件读/删除/vcs/文件搜索/命令——无对应位）留 UI 卡。
+- **DshApiClient 七域**：DshSessionMapper（list 字段映射，created 置 0）；历史适配=session.history→Folder.fold→**DshMessageAssembler**（建壳/挂载/拆壳）→MessagePage（nextCursor=页内最小 seq）；respond 三方法→/api/respond；Unsupported/常量降级对齐 V1 先例。
+- **编排**：挂点 SseConnectionManager DSH 分支（复用 preLoadSessions 基线）；DshConnectionOrchestrator 帧→Channel 串行→mapper→processEvent；subscribed 400ms 静默窗成批→Reconciler→向旧翻页回填（InitialFetch 只取尾页对齐 prefetch 语义；500 页护栏；refusedRebuild 推水位防风暴）；Vanished→SessionDeleted。SessionUpdated 防御=合并缓存（零 RPC）。onFrame rpcId 三参扩展+metadata["rpcId"] 逃生口。每服务器独立 WS 引擎，水位跨重连存活。
+- **E2E 待定音六项**（均已留逃生口）：approval respond 键、reconciler off-by-one/beforeSeq 含排他、history 响应键名（entries/events 双读）、create/rename 回显、prompt part 形态、respond outcome 词汇。
+
 ### 2026-08-31（二）：#275 事件层（commit c783abfd，7 文件 +1670 行）
 
 - **DshEventMapper**（28 测试）：mapFrame→{Sse/Subscribed/Ignored}；mapSessionEvent 历史与实况同路径；Tier1 全映射 + ~35 高频伴生型具名忽略 + 未知→UNKNOWN_UNIGNORABLE；畸形降级不抛。

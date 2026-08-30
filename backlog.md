@@ -72,7 +72,7 @@
   - 设计定稿 → `docs/specs/2026-08-31-dsh-integration-design.md`（信封/传输/帧词汇/普查/七域映射/九组件 TDD 顺序/E2E 计划）；探针详版 /tmp/dsh-probes/（会话期证据）
   - 实现拆卡：#274 基础层 → #275 事件层 → #276 接入层（顺序执行，TDD 先测后码）
 
-- [ ] **#276 DSH 接入层：ServerType 三分路由 + ServerCapabilities(DSH) + 各域 *ApiImpl 三分化 + 服务器表单 UI** `infra` `ui`
+- [~] **#276 DSH 接入层：核心接线完（2a9e76ef，47 测试）——余 UI 表单/能力位门控/E2E** `infra` `ui`
   - ServerConfig 增 serverType（零迁移）；pick() 三分；DSH 能力位矩阵（PTY/shell/git/mcp/share/todo/文件内容读/删除全 false→UI 自动隐藏）；session.search 部署可关→本地降级；时间戳单位双态防御
   - 真机 E2E：adb reverse + 添加 DSH 服务器→列表（fold）→发消息→流式→中断→重连对账（设计文档 §6）
 
