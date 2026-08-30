@@ -227,7 +227,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     // Markdown 渲染（mikepenz/multiplatform-markdown-renderer）
-    val markdownRendererVersion = "0.43.0"
+    val markdownRendererVersion = "0.45.0"
     implementation("com.mikepenz:multiplatform-markdown-renderer:$markdownRendererVersion")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:$markdownRendererVersion")
     implementation("com.mikepenz:multiplatform-markdown-renderer-coil3:$markdownRendererVersion")
@@ -253,8 +253,8 @@ dependencies {
     testImplementation("com.github.luben:zstd-jni:1.5.7-16")
 
     // 用于图片加载的 Coil
-    implementation("io.coil-kt.coil3:coil-compose:3.4.0")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
+    implementation("io.coil-kt.coil3:coil-compose:3.6.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.0")
 
     // 测试
     testImplementation("junit:junit:4.13.2")
