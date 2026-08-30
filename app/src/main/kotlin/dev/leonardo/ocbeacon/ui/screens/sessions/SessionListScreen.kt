@@ -57,6 +57,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.ContentSearchFilterChips
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.DeleteSessionDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.NewSessionQuickDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.OpenProjectDialog
@@ -114,6 +115,9 @@ var showMoreMenu by remember { mutableStateOf(false) }
     val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
     // #272：BM25 内容命中（FTS5 本地检索）——搜索词非空时聚合展示
     val contentHits by viewModel.contentHits.collectAsStateWithLifecycle()
+    // #272/Q6c：内容检索过滤（角色 + 时间范围，chip 单选）
+    val searchRole by viewModel.searchRole.collectAsStateWithLifecycle()
+    val searchTimeRange by viewModel.searchTimeRange.collectAsStateWithLifecycle()
     // #271：drain 同步状态（长按菜单详情区数据源）
     val syncStates by viewModel.syncStates.collectAsStateWithLifecycle()
 
@@ -310,8 +314,11 @@ viewModel.consumePendingReadSessionId()
                                 },
                             )
 
-                            // #272：内容命中聚合区（FTS5 BM25 本地检索，纯本地）
-                            if (!content.searchQuery.isNullOrBlank() && contentHits.isNotEmpty()) {
+                            // #272：内容命中聚合区（FTS5 BM25 本地检索，纯本地）。
+                            // Q6c：过滤激活（角色/时间任一非空）时即使 0 命中也保留本区——
+                            // 否则过滤后无结果会把过滤 chips 一并藏掉，用户无法切回「全部」。
+                            val searchFiltersActive = searchRole != null || searchTimeRange != null
+                            if (!content.searchQuery.isNullOrBlank() && (contentHits.isNotEmpty() || searchFiltersActive)) {
                                 val titles = content.sessions.associate { it.id to (it.title ?: it.id) }
                                 val groups = contentHits.groupBy { it.sessionId }
                                     .map { (sid, hits) -> Triple(sid, hits.size, hits.first().snippet) }
@@ -329,6 +336,21 @@ viewModel.consumePendingReadSessionId()
                                         color = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.padding(vertical = 4.dp),
                                     )
+                                    // #272/Q6c：角色 + 时间过滤 chips（切换即重查）
+                                    ContentSearchFilterChips(
+                                        role = searchRole,
+                                        timeRange = searchTimeRange,
+                                        onRoleChange = { viewModel.setSearchRole(it) },
+                                        onTimeRangeChange = { viewModel.setSearchTimeRange(it) },
+                                    )
+                                    if (contentHits.isEmpty()) {
+                                        Text(
+                                            text = stringResource(R.string.search_content_no_hits),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(vertical = 4.dp),
+                                        )
+                                    }
                                     groups.forEach { (sid, count, snippet) ->
                                         Row(
                                             modifier = Modifier

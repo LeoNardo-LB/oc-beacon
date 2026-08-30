@@ -731,4 +731,10 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_hits">Coincidencias de mensajes</string>
     <string name="search_content_coverage_hint">Historial completo no sincronizado para esta sesión</string>
     <string name="search_content_hit_count">%1$d mensajes</string>
-</resources>
+    <string name="search_filter_role_all">Todos los roles</string>
+    <string name="search_filter_role_user">Usuario</string>
+    <string name="search_filter_role_assistant">IA</string>
+    <string name="search_filter_time_all">Todo el tiempo</string>
+    <string name="search_filter_time_7d">Últimos 7 días</string>
+    <string name="search_filter_time_30d">Últimos 30 días</string>
+    <string name="search_content_no_hits">Sin coincidencias en mensajes</string></resources>

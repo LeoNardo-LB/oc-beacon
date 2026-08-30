@@ -731,4 +731,10 @@
     <string name="search_content_hits">메시지 일치 항목</string>
     <string name="search_content_coverage_hint">이 세션의 전체 기록이 동기화되지 않았습니다</string>
     <string name="search_content_hit_count">메시지 %1$d개</string>
-</resources>
+    <string name="search_filter_role_all">모든 역할</string>
+    <string name="search_filter_role_user">사용자</string>
+    <string name="search_filter_role_assistant">AI</string>
+    <string name="search_filter_time_all">전체 기간</string>
+    <string name="search_filter_time_7d">최근 7일</string>
+    <string name="search_filter_time_30d">최근 30일</string>
+    <string name="search_content_no_hits">일치하는 메시지 없음</string></resources>

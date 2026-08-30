@@ -739,4 +739,10 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_hits">Dopasowania wiadomości</string>
     <string name="search_content_coverage_hint">Pełna historia tej sesji nie została zsynchronizowana</string>
     <string name="search_content_hit_count">%1$d wiadomości</string>
-</resources>
+    <string name="search_filter_role_all">Wszystkie role</string>
+    <string name="search_filter_role_user">Użytkownik</string>
+    <string name="search_filter_role_assistant">AI</string>
+    <string name="search_filter_time_all">Cały czas</string>
+    <string name="search_filter_time_7d">Ostatnie 7 dni</string>
+    <string name="search_filter_time_30d">Ostatnie 30 dni</string>
+    <string name="search_content_no_hits">Brak pasujących wiadomości</string></resources>

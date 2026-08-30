@@ -730,7 +730,13 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_hits">Message matches</string>
     <string name="search_content_coverage_hint">Full history not synced for this session</string>
     <string name="search_content_hit_count">%1$d messages</string>
-
+    <string name="search_filter_role_all">All roles</string>
+    <string name="search_filter_role_user">User</string>
+    <string name="search_filter_role_assistant">AI</string>
+    <string name="search_filter_time_all">All time</string>
+    <string name="search_filter_time_7d">Last 7 days</string>
+    <string name="search_filter_time_30d">Last 30 days</string>
+    <string name="search_content_no_hits">No message matches</string>
     <!-- Terminal tabs -->
     <string name="terminal_new_tab">New</string>
     <string name="terminal_keyboard">Keyboard</string>

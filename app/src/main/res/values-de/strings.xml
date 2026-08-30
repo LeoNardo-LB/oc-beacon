@@ -731,4 +731,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_hits">Nachrichten-Treffer</string>
     <string name="search_content_coverage_hint">Vollständiger Verlauf für diese Sitzung nicht synchronisiert</string>
     <string name="search_content_hit_count">%1$d Nachrichten</string>
-</resources>
+    <string name="search_filter_role_all">Alle Rollen</string>
+    <string name="search_filter_role_user">Benutzer</string>
+    <string name="search_filter_role_assistant">KI</string>
+    <string name="search_filter_time_all">Gesamte Zeit</string>
+    <string name="search_filter_time_7d">Letzte 7 Tage</string>
+    <string name="search_filter_time_30d">Letzte 30 Tage</string>
+    <string name="search_content_no_hits">Keine übereinstimmenden Nachrichten</string></resources>

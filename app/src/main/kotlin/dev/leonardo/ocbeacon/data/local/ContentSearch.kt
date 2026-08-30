@@ -25,6 +25,17 @@ data class ContentSearchFilter(
     val limit: Int = 50,
 )
 
+/**
+ * #272/Q6c：过滤取值 token（UI 过滤 chip ↔ 过滤条件共享的稳定词表）。
+ * role 值与消息表 role 字段一致（user/assistant）；时间档为 UI 约定档位。
+ */
+object ContentSearchFilterValues {
+    const val ROLE_USER = "user"
+    const val ROLE_ASSISTANT = "assistant"
+    const val TIME_RANGE_7D = "7d"
+    const val TIME_RANGE_30D = "30d"
+}
+
 /** FTS5 DDL（unicode61 单字分词——中文短词零依赖方案；版本号留重建路径）。 */
 object MessageFtsSchema {
     const val TABLE = "message_fts"

@@ -100,6 +100,8 @@ class SessionListViewModel @Inject constructor(
     companion object {
         /** #100（M-11）：搜索输入防抖间隔。 */
         const val SEARCH_DEBOUNCE_MS = 300L
+        /** #272/Q6c：内容检索时间档换算基数。 */
+        private val DAY_MS = 24L * 60 * 60 * 1000
         /** ChatScreen 在用户发送消息时写入的 SavedStateHandle key；
          * 此 ViewModel 在返回时消费它以将列表滚动回顶部。 */
         const val KEY_SCROLL_TO_TOP = "session_list_scroll_to_top"
@@ -527,6 +529,60 @@ class SessionListViewModel @Inject constructor(
     val contentHits: StateFlow<List<dev.leonardo.ocbeacon.data.local.ContentSearchHit>> = _contentHits.asStateFlow()
     private var contentSearchJob: kotlinx.coroutines.Job? = null
 
+    // #272/Q6c：内容检索过滤（角色 + 时间范围；null = 不过滤）。chip 单选语义。
+    private val _searchRole = MutableStateFlow<String?>(null)
+    val searchRole: StateFlow<String?> = _searchRole.asStateFlow()
+
+    private val _searchTimeRange = MutableStateFlow<String?>(null)
+    val searchTimeRange: StateFlow<String?> = _searchTimeRange.asStateFlow()
+
+    fun setSearchRole(role: String?) {
+        if (_searchRole.value == role) return
+        _searchRole.value = role
+        // 过滤变化即时重查（无防抖——切换 chip 期望立即反馈命中集变化）
+        retriggerContentSearch()
+    }
+
+    fun setSearchTimeRange(range: String?) {
+        if (_searchTimeRange.value == range) return
+        _searchTimeRange.value = range
+        retriggerContentSearch()
+    }
+
+    private fun retriggerContentSearch() {
+        val query = _searchQuery.value
+        if (query.isNullOrBlank()) return
+        contentSearchJob?.cancel()
+        contentSearchJob = viewModelScope.launch {
+            _contentHits.value = runContentSearch(query)
+        }
+    }
+
+    private suspend fun runContentSearch(query: String): List<dev.leonardo.ocbeacon.data.local.ContentSearchHit> =
+        runCatching {
+            messageFtsIndex.search(query, buildContentSearchFilter())
+        }.onFailure { e ->
+            // #272：检索失败静默会导致「内容命中区消失」难排查——失败必须可见
+            android.util.Log.w("SessionListVM", "content search failed: " + e.message)
+        }.getOrDefault(emptyList())
+
+    /** 组装内容检索过滤条件（角色/时间取当前 chip 状态）。 */
+    private fun buildContentSearchFilter(): dev.leonardo.ocbeacon.data.local.ContentSearchFilter {
+        val now = System.currentTimeMillis()
+        val timeFrom = when (_searchTimeRange.value) {
+            dev.leonardo.ocbeacon.data.local.ContentSearchFilterValues.TIME_RANGE_7D -> now - 7L * DAY_MS
+            dev.leonardo.ocbeacon.data.local.ContentSearchFilterValues.TIME_RANGE_30D -> now - 30L * DAY_MS
+            else -> null
+        }
+        return dev.leonardo.ocbeacon.data.local.ContentSearchFilter(
+            sessionId = null,
+            role = _searchRole.value,
+            timeFrom = timeFrom,
+            timeTo = null,
+            limit = 100,
+        )
+    }
+
     fun setSearchQuery(query: String) {
         _searchQuery.value = query.ifBlank { null }
         contentSearchJob?.cancel()
@@ -536,12 +592,7 @@ class SessionListViewModel @Inject constructor(
         }
         contentSearchJob = viewModelScope.launch {
             delay(SEARCH_DEBOUNCE_MS)
-            _contentHits.value = runCatching {
-                messageFtsIndex.search(query, dev.leonardo.ocbeacon.data.local.ContentSearchFilter(limit = 100))
-            }.onFailure { e ->
-                // #272：检索失败静默会导致「内容命中区消失」难排查——失败必须可见
-                android.util.Log.w("SessionListVM", "content search failed: " + e.message)
-            }.getOrDefault(emptyList())
+            _contentHits.value = runContentSearch(query)
         }
     }
 
@@ -549,6 +600,7 @@ class SessionListViewModel @Inject constructor(
         _searchQuery.value = null
         contentSearchJob?.cancel()
         _contentHits.value = emptyList()
+        // 过滤条件保留（下次搜索沿用上次角色/时间偏好；chip 态在结果区可见可改）
     }
 
     // ============ 分页属性（只读） ============

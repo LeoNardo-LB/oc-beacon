@@ -747,4 +747,10 @@
     <string name="search_content_hits">مطابقات الرسائل</string>
     <string name="search_content_coverage_hint">لم تتم مزامنة السجل الكامل لهذه الجلسة</string>
     <string name="search_content_hit_count">%1$d من الرسائل</string>
-</resources>
+    <string name="search_filter_role_all">كل الأدوار</string>
+    <string name="search_filter_role_user">المستخدم</string>
+    <string name="search_filter_role_assistant">الذكاء الاصطناعي</string>
+    <string name="search_filter_time_all">كل الفترات</string>
+    <string name="search_filter_time_7d">آخر 7 أيام</string>
+    <string name="search_filter_time_30d">آخر 30 يومًا</string>
+    <string name="search_content_no_hits">لا توجد رسائل مطابقة</string></resources>

@@ -731,4 +731,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_hits">Corrispondenze nei messaggi</string>
     <string name="search_content_coverage_hint">Cronologia completa non sincronizzata per questa sessione</string>
     <string name="search_content_hit_count">%1$d messaggi</string>
-</resources>
+    <string name="search_filter_role_all">Tutti i ruoli</string>
+    <string name="search_filter_role_user">Utente</string>
+    <string name="search_filter_role_assistant">IA</string>
+    <string name="search_filter_time_all">Tutto il periodo</string>
+    <string name="search_filter_time_7d">Ultimi 7 giorni</string>
+    <string name="search_filter_time_30d">Ultimi 30 giorni</string>
+    <string name="search_content_no_hits">Nessun messaggio corrispondente</string></resources>

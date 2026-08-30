@@ -729,4 +729,10 @@
     <string name="search_content_hits">Correspondances de messages</string>
     <string name="search_content_coverage_hint">Historique complet non synchronisé pour cette session</string>
     <string name="search_content_hit_count">%1$d messages</string>
-</resources>
+    <string name="search_filter_role_all">Tous les rôles</string>
+    <string name="search_filter_role_user">Utilisateur</string>
+    <string name="search_filter_role_assistant">IA</string>
+    <string name="search_filter_time_all">Toute la période</string>
+    <string name="search_filter_time_7d">7 derniers jours</string>
+    <string name="search_filter_time_30d">30 derniers jours</string>
+    <string name="search_content_no_hits">Aucun message correspondant</string></resources>

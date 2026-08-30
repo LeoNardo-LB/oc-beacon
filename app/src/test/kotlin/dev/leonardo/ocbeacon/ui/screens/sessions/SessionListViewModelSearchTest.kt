@@ -17,16 +17,26 @@ import dev.leonardo.ocbeacon.domain.usecase.ListSessionsUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ProbeDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.SearchDirectoriesUseCase
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
+import io.mockk.slot
 import io.mockk.unmockkAll
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -84,7 +94,91 @@ class SessionListViewModelSearchTest {
         assertEquals(null, vm.searchQuery)
     }
 
-    private fun createViewModel(): SessionListViewModel {
+    // ============ #272/Q6c：内容检索过滤（角色 + 时间范围） ============
+
+    @Test
+    fun `search filters are initially null`() {
+        val vm = createViewModel()
+        assertEquals(null, vm.searchRole.value)
+        assertEquals(null, vm.searchTimeRange.value)
+    }
+
+    @Test
+    fun `setSearchRole updates role state`() {
+        val vm = createViewModel()
+        vm.setSearchRole("user")
+        assertEquals("user", vm.searchRole.value)
+        vm.setSearchRole(null)
+        assertEquals(null, vm.searchRole.value)
+    }
+
+    @Test
+    fun `setSearchTimeRange updates time range state`() {
+        val vm = createViewModel()
+        vm.setSearchTimeRange("7d")
+        assertEquals("7d", vm.searchTimeRange.value)
+        vm.setSearchTimeRange("30d")
+        assertEquals("30d", vm.searchTimeRange.value)
+    }
+
+    @Test
+    fun `setSearchRole with active query requeries with role filter`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val fts = mockk<dev.leonardo.ocbeacon.data.local.MessageFtsIndex>(relaxed = true)
+            val filterSlot = slot<dev.leonardo.ocbeacon.data.local.ContentSearchFilter>()
+            coEvery { fts.search(any(), capture(filterSlot)) } returns emptyList()
+            val vm = createViewModel(fts)
+            vm.setSearchQuery("kw")
+            testScheduler.advanceUntilIdle()
+            vm.setSearchRole("user")
+            testScheduler.advanceUntilIdle()
+            // 防抖首轮 + 过滤变化立即重查 = 至少 2 次
+            coVerify(atLeast = 2) { fts.search("kw", any()) }
+            assertEquals("user", filterSlot.captured.role)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `setSearchTimeRange computes timeFrom window`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val fts = mockk<dev.leonardo.ocbeacon.data.local.MessageFtsIndex>(relaxed = true)
+            val filterSlot = slot<dev.leonardo.ocbeacon.data.local.ContentSearchFilter>()
+            coEvery { fts.search(any(), capture(filterSlot)) } returns emptyList()
+            val vm = createViewModel(fts)
+            vm.setSearchQuery("kw")
+            testScheduler.advanceUntilIdle()
+            vm.setSearchTimeRange("30d")
+            testScheduler.advanceUntilIdle()
+            val from = filterSlot.captured.timeFrom
+            val expected = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+            assertNotNull(from)
+            assertTrue("timeFrom within 30d window", from != null && Math.abs(from - expected) < 60_000)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `setSearchRole without query does not search`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val fts = mockk<dev.leonardo.ocbeacon.data.local.MessageFtsIndex>(relaxed = true)
+            val vm = createViewModel(fts)
+            vm.setSearchRole("assistant")
+            testScheduler.advanceUntilIdle()
+            coVerify(exactly = 0) { fts.search(any(), any()) }
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    private fun createViewModel(
+        ftsIndex: dev.leonardo.ocbeacon.data.local.MessageFtsIndex = mockk(relaxed = true),
+    ): SessionListViewModel {
         val savedStateHandle = androidx.lifecycle.SavedStateHandle(
             mapOf(
                 "serverId" to "srv1"
@@ -116,6 +210,8 @@ class SessionListViewModelSearchTest {
             chatRepository = mockk(relaxed = true),
             pendingMessageRepository = mockk(relaxed = true),
             pendingMessageDrainController = mockk(relaxed = true),
+            messageFtsIndex = ftsIndex,
+            historySyncManager = mockk(relaxed = true),
         )
     }
 }

@@ -739,4 +739,10 @@
     <string name="search_content_hits">Збіги в повідомленнях</string>
     <string name="search_content_coverage_hint">Повна історія не синхронізована для цієї сесії</string>
     <string name="search_content_hit_count">Повідомлень: %1$d</string>
-</resources>
+    <string name="search_filter_role_all">Усі ролі</string>
+    <string name="search_filter_role_user">Користувач</string>
+    <string name="search_filter_role_assistant">ШІ</string>
+    <string name="search_filter_time_all">Весь час</string>
+    <string name="search_filter_time_7d">Останні 7 днів</string>
+    <string name="search_filter_time_30d">Останні 30 днів</string>
+    <string name="search_content_no_hits">Немає збігів у повідомленнях</string></resources>

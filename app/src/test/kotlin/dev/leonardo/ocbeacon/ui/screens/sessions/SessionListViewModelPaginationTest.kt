@@ -116,6 +116,8 @@ class SessionListViewModelPaginationTest {
             chatRepository = mockk(relaxed = true),
             pendingMessageRepository = mockk(relaxed = true),
             pendingMessageDrainController = mockk(relaxed = true),
+            messageFtsIndex = mockk(relaxed = true),
+            historySyncManager = mockk(relaxed = true),
         )
     }
 }

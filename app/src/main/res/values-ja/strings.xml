@@ -731,4 +731,10 @@
     <string name="search_content_hits">メッセージの一致</string>
     <string name="search_content_coverage_hint">このセッションの全履歴は未同期です</string>
     <string name="search_content_hit_count">%1$d 件のメッセージ</string>
-</resources>
+    <string name="search_filter_role_all">すべてのロール</string>
+    <string name="search_filter_role_user">ユーザー</string>
+    <string name="search_filter_role_assistant">AI</string>
+    <string name="search_filter_time_all">全期間</string>
+    <string name="search_filter_time_7d">過去7日間</string>
+    <string name="search_filter_time_30d">過去30日間</string>
+    <string name="search_content_no_hits">一致するメッセージなし</string></resources>

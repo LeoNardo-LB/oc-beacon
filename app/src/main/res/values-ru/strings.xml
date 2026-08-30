@@ -740,4 +740,10 @@
     <string name="search_content_hits">Совпадения в сообщениях</string>
     <string name="search_content_coverage_hint">Полная история не синхронизирована для этой сессии</string>
     <string name="search_content_hit_count">%1$d сообщений</string>
-</resources>
+    <string name="search_filter_role_all">Все роли</string>
+    <string name="search_filter_role_user">Пользователь</string>
+    <string name="search_filter_role_assistant">ИИ</string>
+    <string name="search_filter_time_all">Всё время</string>
+    <string name="search_filter_time_7d">Последние 7 дней</string>
+    <string name="search_filter_time_30d">Последние 30 дней</string>
+    <string name="search_content_no_hits">Нет совпадений в сообщениях</string></resources>
