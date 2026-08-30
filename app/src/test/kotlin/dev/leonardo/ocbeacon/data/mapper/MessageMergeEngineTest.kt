@@ -58,6 +58,38 @@ class MessageMergeEngineTest {
         assertEquals("思考", (out[0] as Part.Reasoning).text)
     }
 
+    @Test
+    fun `applyDelta drops stale delta already contained in existing text part - #265`() {
+        // #265 E2E 竞态：完结全量替换（partId 换代）后，批缓冲滞留的尾 delta
+        // 才 flush——内容已在权威文本里，新建 part 会导致结尾句渲染两遍
+        val existing = text("m1_text_ord_1", text = "# 标题\n\n正文……a reminder that the most powerful forces never stop.")
+        val out = MessageMergeEngine.applyDelta(
+            listOf(existing), "m1_text_ord_9", "s1", "m1", "text",
+            "reminder that the most powerful forces never stop."
+        )
+        assertEquals(1, out.size)
+        assertEquals("m1_text_ord_1", out[0].id)
+    }
+
+    @Test
+    fun `applyDelta drops stale reasoning delta already contained - #265`() {
+        val existing = reasoning("m1_reasoning_ord_0", text = "思考过程尾部")
+        val out = MessageMergeEngine.applyDelta(
+            listOf(existing), "m1_reasoning_ord_9", "s1", "m1", "reasoning", "过程尾部"
+        )
+        assertEquals(1, out.size)
+        assertEquals("思考过程尾部", (out[0] as Part.Reasoning).text)
+    }
+
+    @Test
+    fun `applyDelta still rebuilds unregistered when delta not contained - #223 preserved`() {
+        // #223 语义保留：内容从未到达（不在任何既有 part 中）→ 照常重建
+        val existing = listOf(text("m1_text_ord_1", text = "存量正文"))
+        val out = MessageMergeEngine.applyDelta(existing, "m1_text_ord_9", "s1", "m1", "text", "全新的增量内容")
+        assertEquals(2, out.size)
+        assertEquals("全新的增量内容", (out[1] as Part.Text).text)
+    }
+
     // ============ inferDeltaKind ============
 
     @Test

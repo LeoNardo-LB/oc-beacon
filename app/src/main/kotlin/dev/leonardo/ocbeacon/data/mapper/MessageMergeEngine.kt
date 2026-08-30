@@ -547,6 +547,21 @@ internal object MessageMergeEngine {
             }
             messageParts[idx] = newPart
         } else {
+            // #265 E2E 竞态守卫：完结全量替换（authoritative part 重建，partId
+            // 换代为服务端序）之后，批缓冲中滞留的过期 delta 才 flush——其内容
+            // 已包含在既有同 kind part 的全文里。若仍按 #223 兜底新建 part，
+            // 会被渲染两遍（真机 E2E 实证：尾 delta 116 字在完结替换后 flush
+            // → 结尾句 ×2）。判定：同 kind 既有 part 全文已包含该 delta →
+            // 丢弃（视为已合并）；#223 真重建场景（内容从未到达，delta 不在
+            // 任何既有 part 中）不受影响。
+            val sameKindText = parts.joinToString("") {
+                when {
+                    it is Part.Text && kind != "reasoning" -> it.text
+                    it is Part.Reasoning && kind == "reasoning" -> it.text
+                    else -> ""
+                }
+            }
+            if (delta.isNotEmpty() && sameKindText.contains(delta)) return parts
             if (kind == "reasoning") {
                 messageParts.add(Part.Reasoning(
                     id = partId,

@@ -89,7 +89,7 @@ android {
             // GitHub 分发渠道保留应用内自更新
             buildConfigField("boolean", "ENABLE_AUTO_UPDATE", "true")
             // #265 流式 Markdown 增量解析试点：dev 先行 A/B（回退=置 false 一行）
-            buildConfigField("boolean", "STREAMING_MD_PILOT", "true")
+            buildConfigField("boolean", "STREAMING_MD_PILOT", "false")
             // 2026-08-13 用户决策：dev 测试构建 versionCode 用 Unix 时间戳——
             // 每次构建自动递增，adb install -r 可覆盖安装（保留 App 数据/服务器配置，
             // 禁止卸载重装）；正式版本号（version.properties）仅 beta/stable 使用。
