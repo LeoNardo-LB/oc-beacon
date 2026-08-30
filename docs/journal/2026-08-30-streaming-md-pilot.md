@@ -47,6 +47,19 @@
 - 修复（d964e1a9）：applyDelta else 分支增设**过期 delta 守卫**——同 kind 既有 part 全文已包含该 delta → 丢弃；#223 真重建场景（内容从未到达）不受影响。单测 3 新增（text 丢弃/reasoning 丢弃/#223 保留），全量 2162 唯一红仍 #261
 - 真机复测：新提示词（deserts 文档）流式 25 append（stable 单调、tail=1）、完结渲染尾句 "stars hang closer than anywhere else on Earth." **×1 与服务器原始逐字一致**、0 FATAL
 
+## 五轮 · 根因收口（commit 68b6072c + d964e1a9）
+
+E2E-1 的尾句 ×2 经静态回溯定位到数据层双应用：完结权威替换（`text.ended` 全量值 + 服务端 partId，经 `handleMessagePartUpdated` → `resolvePartRegistration` Add 分支追加）与 48ms 批缓冲滞留 delta 的 flush 存在竞态窗口——替换换代后滞留 delta 走 `applyDelta` idx<0 兜底新建重复 part（DB 的 116 字 text 行 + 1 字 reasoning 行即落盘证据）。
+
+两层修复：
+1. **d964e1a9（applyDelta 守卫）**：idx<0 兜底前判「delta ⊆ 既有同 kind part 全文」→ 丢弃；#223 真重建语义保留（单测 3 例锁定）
+2. **68b6072c（根因收口）**：
+   - `resolvePartRegistration` 增设**前缀相容合并**分支——text.ended 换代 part 与既有派生 id part 文本前缀相容时 MergeAt（dedupOverlappingTextParts 的「重叠保长」语义前移到注册时刻），换代双 part 不再产生
+   - `flushPendingDeltas` **源头过滤**：partId 未注册且 delta ⊆ 同 message 同 kind 既有全文 → 丢弃，内存与 `appendPartTexts` 落盘同时对齐（修复前守卫只护内存、Room 仍落脏行的旁路）
+   - handler 时序回归测试：delta → 权威替换 → 滞留 flush → 断言单 part 尾句 ×1
+
+**复测**（E2E-A，11:59）：deserts 文档流式 22 append（stable 单调/tail=1）、渲染尾句 "answers to the moon" ×1 与服务器原始（1788 字符）逐字一致、0 FATAL。
+
 ## V6 用户 A/B 验证清单（P1，交付）
 
 对照方式：dev flavor 开关即 A/B——如需对照旧路径，把 dev 的 STREAMING_MD_PILOT 置 false 重装一版即可。
