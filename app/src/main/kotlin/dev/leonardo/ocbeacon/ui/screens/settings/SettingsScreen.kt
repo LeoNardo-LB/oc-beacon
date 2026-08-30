@@ -20,10 +20,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,9 +34,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.screens.settings.components.ClearArchiveConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.ImageCompressionMaxSideDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.ImageCompressionQualityDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.LanguagePickerDialog
@@ -49,6 +54,7 @@ import dev.leonardo.ocbeacon.ui.screens.settings.sections.ChatBehaviorSection
 import dev.leonardo.ocbeacon.ui.screens.settings.sections.ChatDisplaySection
 import dev.leonardo.ocbeacon.ui.screens.settings.sections.GeneralSection
 import dev.leonardo.ocbeacon.ui.screens.settings.sections.NotificationsSection
+import dev.leonardo.ocbeacon.ui.screens.settings.sections.StorageSection
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
@@ -81,8 +87,19 @@ fun SettingsScreen(
     var showTerminalFontSizeDialog by remember { mutableStateOf(false) }
     var showImageMaxSideDialog by remember { mutableStateOf(false) }
     var showImageQualityDialog by remember { mutableStateOf(false) }
+    var showStorageClearDialog by remember { mutableStateOf(false) }
+
+    // #271 存储清理完成 → snackbar 提示（事件时点取文案，随语言切换刷新）
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.archiveCleared.collect {
+            snackbarHostState.showSnackbar(context.getString(R.string.settings_storage_cleared))
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
@@ -137,6 +154,12 @@ fun SettingsScreen(
                 onShowImageQualityDialog = { showImageQualityDialog = true },
                 onShowTerminalFontSizeDialog = { showTerminalFontSizeDialog = true },
                 onShowRecentDirectoryCountDialog = { showRecentDirectoryCountDialog = true },
+            )
+
+            // ======== 存储占用（#271） ========
+            StorageSection(
+                viewModel = viewModel,
+                onShowClearConfirmDialog = { showStorageClearDialog = true },
             )
 
             // ======== Advanced ========
@@ -277,6 +300,17 @@ fun SettingsScreen(
                     showImageQualityDialog = false
                 },
                 onDismiss = { showImageQualityDialog = false }
+            )
+        }
+
+        // #271 清理冷存桶二次确认 → clearAll → snackbar + 刷新统计
+        if (showStorageClearDialog) {
+            ClearArchiveConfirmDialog(
+                onConfirm = {
+                    viewModel.clearArchiveBuckets()
+                    showStorageClearDialog = false
+                },
+                onDismiss = { showStorageClearDialog = false },
             )
         }
         }

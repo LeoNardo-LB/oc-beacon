@@ -105,23 +105,5 @@ class ToolOutputTruncatorTest {
         assertTrue("bool kept", result.contains(":true"))
     }
 
-    // ============ #79 P1：Reasoning text 截断 ============
-
-    @Test
-    fun `P1 reasoning long text truncated other fields intact`() {
-        val longThought = "t".repeat(4000)
-        val payload = ("{" + dq + "id" + dq + ":" + dq + "r1" + dq + "," + dq + "type" + dq + ":" + dq + "reasoning" + dq + "," + dq + "text" + dq + ":" + dq + longThought + dq +
-                "," + dq + "time" + dq + ":{" + dq + "start" + dq + ":1," + dq + "end" + dq + ":2}}")
-        val result = ToolOutputTruncator.truncateReasoningIfNeeded(payload)
-        assertTrue(result.contains("t".repeat(500)))
-        assertTrue(result.contains("[truncated, full output on server]"))
-        assertTrue("time intact", result.contains("\"start\":1".replace(dq, dq)) || result.contains("start"))
-        assertTrue(result.length < 1000)
-    }
-
-    @Test
-    fun `P1 reasoning short text passthrough`() {
-        val payload = ("{" + dq + "id" + dq + ":" + dq + "r2" + dq + "," + dq + "type" + dq + ":" + dq + "reasoning" + dq + "," + dq + "text" + dq + ":" + dq + "short thought" + dq + "}")
-        assertEquals(payload, ToolOutputTruncator.truncateReasoningIfNeeded(payload))
-    }
+// #271（2026-08-30 用户裁决）：reasoning 落库截断取消（全量保留）——相关截断用例随 truncateReasoningIfNeeded 一并移除
 }

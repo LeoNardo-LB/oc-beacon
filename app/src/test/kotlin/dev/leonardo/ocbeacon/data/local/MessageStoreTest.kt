@@ -367,6 +367,7 @@ class MessageStoreTest {
             override suspend fun pruneToLimit(sessionId: String, limit: Int): Int = 0
             override suspend fun clearSession(sessionId: String) = Unit
             override suspend fun upsertMessages(entities: List<CachedMessageEntity>) = Unit
+            override suspend fun insertMessagesIfAbsent(entities: List<CachedMessageEntity>) = Unit
             override suspend fun upsertParts(entities: List<CachedPartEntity>) = Unit
         }
         val realStore = MessageStore(realDao, archiveDao, json, databaseRecovery, database, clock = { 1_000_000L })

@@ -42,6 +42,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -90,6 +91,8 @@ class SessionListViewModel @Inject constructor(
     private val pendingMessageRepository: PendingMessageRepository,
     // 走查修复（UI→Data 分层）：经 domain 接口触发，不直依赖具体管线
     private val pendingMessageDrainController: dev.leonardo.ocbeacon.domain.usecase.PendingMessageDrainController,
+    // #272：BM25 内容检索（FTS5 索引，纯本地）
+    private val messageFtsIndex: dev.leonardo.ocbeacon.data.local.MessageFtsIndex,
 ) : ViewModel() {
 
     companion object {
@@ -509,12 +512,30 @@ class SessionListViewModel @Inject constructor(
 
     val searchQuery: String? get() = _searchQuery.value
 
+    // #272：内容命中（FTS5 BM25，纯本地）——与标题命中并行检索，聚合展示
+    private val _contentHits = MutableStateFlow<List<dev.leonardo.ocbeacon.data.local.ContentSearchHit>>(emptyList())
+    val contentHits: StateFlow<List<dev.leonardo.ocbeacon.data.local.ContentSearchHit>> = _contentHits.asStateFlow()
+    private var contentSearchJob: kotlinx.coroutines.Job? = null
+
     fun setSearchQuery(query: String) {
         _searchQuery.value = query.ifBlank { null }
+        contentSearchJob?.cancel()
+        if (query.isBlank()) {
+            _contentHits.value = emptyList()
+            return
+        }
+        contentSearchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            _contentHits.value = runCatching {
+                messageFtsIndex.search(query, dev.leonardo.ocbeacon.data.local.ContentSearchFilter(limit = 100))
+            }.getOrDefault(emptyList())
+        }
     }
 
     fun clearSearchQuery() {
         _searchQuery.value = null
+        contentSearchJob?.cancel()
+        _contentHits.value = emptyList()
     }
 
     // ============ 分页属性（只读） ============

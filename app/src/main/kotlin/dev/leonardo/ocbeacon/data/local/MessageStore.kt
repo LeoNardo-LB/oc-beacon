@@ -25,7 +25,7 @@ import javax.inject.Singleton
  * 默认不落库（persistOldBeyondWindow=false），避免"写了又被裁"循环。
  *
  * 归档：超 [SESSION_MESSAGE_LIMIT] 时，prune 删除前先整桶 zstd 归档到 archive_buckets
- * （时间窗口 + 200 条/512KB 分桶），桶级 [ARCHIVE_BUCKET_LIMIT] TLRU 保护。
+ * （时间窗口 + 200 条/512KB 分桶）。#271：桶无上限（全量保留），无自动淘汰。
  * 归档入库与热表裁剪在同一 [withTransaction] 内完成（原子，防崩溃后热表/归档并存→重复归档）。
  */
 @Singleton
@@ -37,6 +37,9 @@ class MessageStore @Inject constructor(
     private val database: OcBeaconDatabase,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : MessageCacheRepository {
+
+    /** #272：FTS5 内容索引（运行时探测可用性；API<30 自动降级 LIKE）。 */
+    private val fts = MessageFtsIndex(database, databaseRecovery)
 
     /**
      * #97（H-6）：SSE delta 增量落盘——按 part 追加文本（O(delta) 写），
@@ -161,15 +164,31 @@ class MessageStore @Inject constructor(
                                 // 500 字符预览；内存渲染不受影响（消息在内存时完整），
                                 // 服务器保留全量可重拉。非 tool part 原样。
                                 payload = when (p) {
-                                    // #79 P0+P1：tool（output/input/metadata）与
-                                    // reasoning（text）落库截断——内存渲染不受影响，
-                                    // 服务器保留全量可重拉（权衡已获用户接受）
+                                    // #79：tool（output/input/metadata）落库截 500 字符预览
+                                    // ——DB 体积大头（97% 实测），全量服务器可重拉。
+                                    // #271（2026-08-30 用户裁决）：reasoning 截断取消——
+                                    // 全量保留，重进思考卡内容完整；text part 本就不截。
                                     is Part.Tool -> ToolOutputTruncator.truncateIfNeeded(json.encodeToString(p))
-                                    is Part.Reasoning -> ToolOutputTruncator.truncateReasoningIfNeeded(json.encodeToString(p))
                                     else -> json.encodeToString(p)
                                 },
                             )
                         }
+                    },
+                )
+                // #272：FTS5 增量索引——text part 正文全量可搜（prune 不删 FTS 行，冷数据保持可搜）
+                fts.indexTextParts(
+                    sessionId,
+                    toPersist.flatMap { m ->
+                        m.parts.mapIndexed { index, p ->
+                            (p as? Part.Text)?.let { t ->
+                                IndexedTextPart(
+                                    partId = p.id.ifEmpty { "${m.info.id}_p$index" },
+                                    messageId = m.info.id,
+                                    role = m.info.role,
+                                    text = t.text,
+                                )
+                            }
+                        }.filterNotNull()
                     },
                 )
                 // ---- 归档编排（prune 前）：count → 查 overflow 最老 → 归档+裁剪原子化 ----
@@ -236,7 +255,8 @@ class MessageStore @Inject constructor(
         }
 
         if (buckets.isNotEmpty()) {
-            enforceArchiveLimit(sessionId)
+            // #271（2026-08-30 用户裁决）：冷存桶 LRU 淘汰移除——全量保留，
+            // 桶无上限；占用统计+手动清理由设置页承担（防失控兜底）。
             if (BuildConfig.DEBUG) {
                 AppLogger.d(TAG, "[archive] session=$sessionId: archived ${buckets.sumOf { it.messageCount }} msgs → ${buckets.size} buckets; pruned $pruned")
             }
@@ -286,17 +306,6 @@ class MessageStore @Inject constructor(
             createdAt = now,
             lastAccessedAt = now,
         )
-
-    /** 保护上限：每会话超 [ARCHIVE_BUCKET_LIMIT] 桶时删最久未访问。 */
-    private suspend fun enforceArchiveLimit(sessionId: String) {
-        val current = archiveDao.count(sessionId)
-        if (current <= ARCHIVE_BUCKET_LIMIT) return
-        val excess = current - ARCHIVE_BUCKET_LIMIT
-        archiveDao.leastAccessed(sessionId, excess).forEach { archiveDao.delete(it.id) }
-        if (BuildConfig.DEBUG) {
-            AppLogger.d(TAG, "[archive] session=$sessionId: evicted $excess least-accessed buckets (limit=$ARCHIVE_BUCKET_LIMIT)")
-        }
-    }
 
     /** Room Flow：本地库变化 → 自动发新值。损坏时无法包 suspend 恢复（保持现状，写路径已恢复）。 */
     override fun observeMessages(sessionId: String): Flow<List<MessageWithParts>> =
@@ -377,6 +386,8 @@ class MessageStore @Inject constructor(
                 database.withTransaction {
                     dao.clearSession(sessionId)
                     archiveDao.clearSession(sessionId)
+                    // #272：FTS 行级联清除（会话删除=本地全清）
+                    fts.clearSession(sessionId)
                 }
             }
         }
@@ -427,6 +438,22 @@ class MessageStore @Inject constructor(
                         payload = json.encodeToString(p),
                     )
                 }
+            },
+        )
+        // #272：REST_AUTHORITY 全量替换路径同样维护 FTS 索引
+        fts.indexTextParts(
+            sessionId,
+            messages.flatMap { m ->
+                m.parts.mapIndexed { index, p ->
+                    (p as? Part.Text)?.let { t ->
+                        IndexedTextPart(
+                            partId = p.id.ifEmpty { "${m.info.id}_p$index" },
+                            messageId = m.info.id,
+                            role = m.info.role,
+                            text = t.text,
+                        )
+                    }
+                }.filterNotNull()
             },
         )
     }
@@ -548,6 +575,5 @@ class MessageStore @Inject constructor(
         const val ARCHIVE_BUCKET_WINDOW_MS = 86_400_000L          // 1 天
         const val ARCHIVE_BUCKET_MAX_BYTES = 512 * 1024           // 512KB（调研约束）
         const val ARCHIVE_BUCKET_MAX_MESSAGES = 200
-        const val ARCHIVE_BUCKET_LIMIT = 200                      // 每会话桶保护上限 ≈ 20 万条历史
     }
 }

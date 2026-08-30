@@ -88,6 +88,10 @@ internal fun SessionRow(
     onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier,
     showDirectory: Boolean = false,
+    // #271：同步状态（长按菜单同步详情区——唯一展示面，2026-08-30 四轮定稿）
+    syncState: dev.leonardo.ocbeacon.data.local.SessionSyncEntity? = null,
+    onRequestSync: () -> Unit = {},
+    onCancelSync: () -> Unit = {},
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
     val addColor = DiffAdded
@@ -298,6 +302,9 @@ internal fun SessionRow(
                 showDetailsDialog = false
                 onContinueQueue()
             },
+            syncState = syncState,
+            onRequestSync = onRequestSync,
+            onCancelSync = onCancelSync,
             isAmoled = isAmoled,
         )
     }
@@ -314,6 +321,10 @@ private fun SessionDetailsDialog(
     onAssignCategory: () -> Unit,
     pendingCount: Int,
     onContinueQueue: () -> Unit,
+    // #271：同步详情区（唯一展示面）
+    syncState: dev.leonardo.ocbeacon.data.local.SessionSyncEntity?,
+    onRequestSync: () -> Unit,
+    onCancelSync: () -> Unit,
     @Suppress("UNUSED_PARAMETER") isAmoled: Boolean,
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
@@ -379,6 +390,81 @@ private fun SessionDetailsDialog(
                                 stringResource(R.string.session_details_diff),
                                 stringResource(R.string.session_details_diff_summary, summary.additions, summary.deletions, summary.files)
                             )
+                        }
+                    }
+                }
+                // #271：同步详情区——状态（未同步/同步中/已同步/失败·原因）+
+                // lastSyncAt + 已入库提示 + 「同步全部历史」/「取消同步」按钮。
+                // drain 静默后台运行，完成无提示（spec §2.5 四轮定稿）。
+                Spacer(Modifier.height(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
+                    Text(
+                        text = stringResource(R.string.session_sync_section),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    val state = syncState?.state
+                    val statusColor = when (state) {
+                        dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING -> MaterialTheme.colorScheme.primary
+                        dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED -> DiffAdded
+                        dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    DetailRow(
+                        stringResource(R.string.session_details_status),
+                        stringResource(
+                            when (state) {
+                                dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING -> R.string.session_sync_state_syncing
+                                dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED -> R.string.session_sync_state_synced
+                                dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED -> R.string.session_sync_state_failed
+                                else -> R.string.session_sync_state_none
+                            }
+                        ),
+                    )
+                    Text(
+                        text = run {
+                            if (state == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED && !syncState?.errorMessage.isNullOrBlank()) {
+                                stringResource(R.string.session_sync_failed_reason, syncState?.errorMessage.orEmpty())
+                            } else {
+                                stringResource(
+                                    if (state == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED) {
+                                        R.string.session_sync_hint_synced
+                                    } else {
+                                        R.string.session_sync_hint_partial
+                                    }
+                                )
+                            }
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                    )
+                    val lastSyncAt = syncState?.lastSyncAt
+                    if (state == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED && lastSyncAt != null) {
+                        Text(
+                            text = stringResource(R.string.session_sync_last_at, dateFormat.format(Date(lastSyncAt))),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                        )
+                    }
+                    if (state == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING) {
+                        // 同步中 → 显示「取消同步」（可打断 drain，状态回未同步）
+                        Button(
+                            onClick = onCancelSync,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.session_sync_cancel))
+                        }
+                    } else {
+                        // 已同步 → 禁用（drain 已全量，重复触发无意义）；其余状态可手动触发
+                        Button(
+                            onClick = onRequestSync,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = state != dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED,
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.session_sync_action))
                         }
                     }
                 }

@@ -2,9 +2,13 @@ package dev.leonardo.ocbeacon.ui.screens.sessions
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerSnapDistance
@@ -47,6 +51,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.DeleteSessionDialog
@@ -104,6 +112,8 @@ var showMoreMenu by remember { mutableStateOf(false) }
     val tagFilters by viewModel.tagFilters.collectAsStateWithLifecycle()
     val favoriteSessionIds by viewModel.favoriteSessionIds.collectAsStateWithLifecycle()
     val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
+    // #272：BM25 内容命中（FTS5 本地检索）——搜索词非空时聚合展示
+    val contentHits by viewModel.contentHits.collectAsStateWithLifecycle()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
@@ -297,6 +307,56 @@ viewModel.consumePendingReadSessionId()
                                     viewModel.loadSessions()
                                 },
                             )
+
+                            // #272：内容命中聚合区（FTS5 BM25 本地检索，纯本地）
+                            if (!content.searchQuery.isNullOrBlank() && contentHits.isNotEmpty()) {
+                                val titles = content.sessions.associate { it.id to (it.title ?: it.id) }
+                                val groups = contentHits.groupBy { it.sessionId }
+                                    .map { (sid, hits) -> Triple(sid, hits.size, hits.first().snippet) }
+                                    .sortedByDescending { it.second }
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 240.dp)
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(bottom = SpacingTokens.SM.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.search_content_hits),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                    )
+                                    groups.forEach { (sid, count, snippet) ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { onNavigateToChat(sid, false) }
+                                                .padding(vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = titles[sid] ?: ("…" + sid.takeLast(10)),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    maxLines = 1,
+                                                )
+                                                Text(
+                                                    text = snippet,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 2,
+                                                )
+                                            }
+                                            Text(
+                                                text = stringResource(R.string.search_content_hit_count, count),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
 
                             when {
                                 shell.isLoading && content.treeNodes.isEmpty() && content.searchQuery.isNullOrBlank() -> {

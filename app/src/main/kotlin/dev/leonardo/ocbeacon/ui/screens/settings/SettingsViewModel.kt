@@ -3,6 +3,8 @@ package dev.leonardo.ocbeacon.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.leonardo.ocbeacon.data.local.ArchiveBucketDao
+import dev.leonardo.ocbeacon.data.local.ArchiveStats
 import dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover
 import dev.leonardo.ocbeacon.service.AppNotificationManager
 import dev.leonardo.ocbeacon.domain.model.AppSettings
@@ -11,9 +13,12 @@ import dev.leonardo.ocbeacon.domain.usecase.GetSettingsFlowUseCase
 import dev.leonardo.ocbeacon.domain.usecase.UpdateSettingsUseCase
 import dev.leonardo.ocbeacon.ui.WhileSubscribed5s
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -28,7 +33,8 @@ class SettingsViewModel @Inject constructor(
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     private val updateSettingsUseCase: UpdateSettingsUseCase,
     private val autoApprover: PermissionAutoApprover,
-    private val appNotificationManager: AppNotificationManager
+    private val appNotificationManager: AppNotificationManager,
+    private val archiveBucketDao: ArchiveBucketDao,
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = getSettingsFlowUseCase()
@@ -70,6 +76,27 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             autoApprover.removeRule(rule)
             _rulesRefreshTrigger.value += 1
+        }
+    }
+
+    // --- #271 存储占用（冷存桶统计 + 手动清理） ---
+
+    /** 触发器模式（同 autoApproveRules）：订阅即查；清理后 +1 触发重查。 */
+    private val _storageRefreshTrigger = MutableStateFlow(0)
+    val archiveStats: StateFlow<ArchiveStats?> = _storageRefreshTrigger
+        .map { archiveBucketDao.globalStats() }
+        .stateIn(viewModelScope, WhileSubscribed5s, null)
+
+    /** 一次性「已清理」事件（UI 收到后弹 snackbar settings_storage_cleared）。 */
+    private val _archiveCleared = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val archiveCleared: SharedFlow<Unit> = _archiveCleared.asSharedFlow()
+
+    /** #271 手动清理：清空全部冷存桶 → 刷新统计 → 广播「已清理」。 */
+    fun clearArchiveBuckets() {
+        viewModelScope.launch {
+            archiveBucketDao.clearAll()
+            _storageRefreshTrigger.value += 1
+            _archiveCleared.tryEmit(Unit)
         }
     }
 

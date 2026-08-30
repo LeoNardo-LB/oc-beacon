@@ -55,6 +55,8 @@ class EventDispatcher @Inject constructor(
     // C7（2026-08-26）：start() 迁 OpenCodeConnectionService 启动；本类仅保留
     // SessionDeleted 级联队列清理入口（onSessionDeleted，替代原 runBlocking 同步删除）。
     private val pendingMessagePipelineProvider: javax.inject.Provider<PendingMessagePipeline>,
+    // #271：Provider 打破 HistorySyncManager→SessionRepository→EventDispatcher 环
+    private val historySyncManagerProvider: javax.inject.Provider<HistorySyncManager>,
 ) {
     /** debug 级分发日志的 delta 节流计数器（仅 DEBUG 构建使用）。
      *  2026-08-14 走查修复：多服务器 SSE 协程并发调用 processEvent →
@@ -284,6 +286,8 @@ class EventDispatcher @Inject constructor(
             // C7（2026-08-26）：原 runBlocking 同步删除改异步——管线自有 appScope
             // launch（失败仅日志），SSE 分发协程不再被 Room 写阻塞。
             pendingMessagePipelineProvider.get().onSessionDeleted(deletedSessionId)
+            // #271：同步状态行 + 本地缓存（热表/冷存/FTS）级联清理
+            historySyncManagerProvider.get().onSessionDeleted(deletedSessionId)
         }
 
         // 跨 handler：SessionCompacted（V2 session.compaction.ended 映射 /

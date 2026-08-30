@@ -89,6 +89,8 @@ class ChatViewModel @Inject constructor(
     // 堆积消息（2026-08-20 设计定稿）：本地暂存队列 + 推进管线
     private val pendingMessageRepository: dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository,
     private val pendingMessagePipeline: dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline,
+    // #271：首开自动 drain 全量历史（HistorySyncManager 唯一所有者；已 synced / 进行中时 no-op）
+    private val historySyncManager: dev.leonardo.ocbeacon.data.repository.HistorySyncManager,
 ) : ViewModel() {
 
     // ============ 工具快照缓存（已提取到 ToolCacheDelegate） ============
@@ -780,6 +782,10 @@ class ChatViewModel @Inject constructor(
         if (!isNewSession) {
             viewModelScope.launch {
                 try { sessionLifecycle.loadSession() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadSession failed", e) }
+                // #271：loadSession 完成后首开自动 drain 全量历史（后台静默分页拉取，
+                // 状态机 none/syncing/synced/failed 由 HistorySyncManager 持有；
+                // 失败不阻塞聊天——drain 为后台增强）。
+                try { historySyncManager.requestSync(serverId, sessionId) } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "requestSync failed", e) }
                 try { messageData.paginationDelegate.loadMessages() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadMessages failed", e) }
                 // 修复历史 completed==null（SSE 完成事件丢失/服务器重启场景）：
                 // 触发 REST 校验 → 服务器确认 idle 时 markSessionIdle（内存+落盘），

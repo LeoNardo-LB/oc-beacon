@@ -48,15 +48,15 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#272 BM25 对话内容检索：Room+FTS5（unicode61+内建 bm25），改造会话列表搜索框统一入口** `data` `ui`
-  - 语义（2026-08-30 用户裁决）：纯本地持久化数据检索；索引=user/assistant 正文（reasoning/工具输出不入）；两级=全局+当前会话；bm25 排序+会话/角色/时间过滤全上
-  - 交互：改造既有会话列表搜索框——标题命中与内容命中分类聚合展示；内容命中点击→跳会话+定位高亮；FTS5 unicode61 起步（版本号留重建路径）
-  - → `docs/specs/2026-08-30-full-retention-bm25-search-design.md` · 依赖 #271 全量保留（drain 供数）
+- [~] **#272 BM25 对话内容检索：FTS5+bm25 已实现（搜索框统一入口分类聚合），待验收** `data` `ui`
+  - 已实现：MessageFtsIndex（FTS5 unicode61 运行时建表，API<30 LIKE 降级）+ MessageStore 三写路径增量索引（prune 不删 FTS 行=冷数据可搜，删会话级联清）+ bm25/snippet + 会话/角色/时间过滤；搜索框统一入口：标题命中+内容命中分类聚合（会话分组+片段），点击跳转会话
+  - 验证：全量 2184 用例 0 红 · i18n-check 绿（698 keys×14）· 装机 Success · V3 实机走查进行中
+  - → `docs/specs/2026-08-30-full-retention-bm25-search-design.md` · `docs/journal/2026-08-30-full-retention-bm25.md`
 
-- [ ] **#271 本地全量保留策略：移除冷存桶 LRU 淘汰/取消 reasoning 截断/首开 drain 全量历史** `data`
-  - 现状：热窗口 1000 条（不丢，溢出 zstd 归档）+ 冷存桶 200 桶 LRU 删除（唯一自动丢点）+ reasoning/工具输出落库截 500 字符 + 历史 lazy 懒加载
-  - 方案（2026-08-30 用户裁决）：移除桶自动淘汰（占用统计+手动清理兜底）；reasoning 取消截断；工具输出维持 500 预览（服务器重拉兜底）；首开自动后台 drain 全量历史；同步状态唯一展示面=长按菜单（详情/手动同步/取消），行内零展示
-  - → `docs/specs/2026-08-30-full-retention-bm25-search-design.md`
+- [~] **#271 本地全量保留策略：冷存桶无上限/reasoning 全量/首开 drain——待验收** `data`
+  - 已实现：冷存桶 LRU 淘汰移除（设置页 Storage 区：桶数/条数/大小统计+清空全部冷存桶）；reasoning 落库截断取消；工具输出维持 500 预览；HistorySyncManager（首开自动 drain+长按手动+取消+删会话级联，session_sync_state v5）；同步状态唯一展示面=长按菜单
+  - 验证：全量 2184 用例 0 红（HistorySyncManager 4 例）· i18n-check 绿（698 keys×14）· 装机 Success
+  - → `docs/specs/2026-08-30-full-retention-bm25-search-design.md` · `docs/journal/2026-08-30-full-retention-bm25.md`
 
 - [ ] **#267 服务器断连可感知：Chat/会话列表常驻条幅 + 写操作快速失败报错** `sse` `ui`
   - 现状：连接真相源已有（SseConnectionManager.connectedServerIds + 自动重连 + REST 补漏），仅 Home 圆点消费；Chat/会话列表断连零感知，写操作失败悬挂 20s+

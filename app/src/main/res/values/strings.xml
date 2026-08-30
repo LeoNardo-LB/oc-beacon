@@ -87,6 +87,19 @@
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (%3$d files)</string>
 
+    <!-- #271：会话历史同步（drain）状态——唯一展示面=长按菜单（2026-08-30 四轮定稿） -->
+    <string name="session_sync_section">History Sync</string>
+    <string name="session_sync_state_none">Not synced</string>
+    <string name="session_sync_state_syncing">Syncing…</string>
+    <string name="session_sync_state_synced">Synced</string>
+    <string name="session_sync_state_failed">Sync failed</string>
+    <string name="session_sync_failed_reason">Reason: %1$s</string>
+    <string name="session_sync_last_at">Last synced: %1$s</string>
+    <string name="session_sync_action">Sync full history</string>
+    <string name="session_sync_cancel">Cancel sync</string>
+    <string name="session_sync_hint_synced">Full history is stored on this device</string>
+    <string name="session_sync_hint_partial">Only recent messages are stored on this device</string>
+
     <!-- Chat Screen -->
     <string name="chat_send">Send</string>
     <string name="chat_send_shell">Send shell command</string>
@@ -388,6 +401,20 @@
     <string name="settings_compress_images_quality_value">%1$d%%</string>
     <string name="settings_diagnostics">Diagnostics</string>
     <string name="settings_diagnostics_desc">View app logs and crash reports</string>
+
+    <!-- #271：存储占用统计 + 手动清理（全量保留兜底） -->
+    <string name="settings_storage_section">Storage</string>
+    <string name="settings_storage_archive_title">Cold archive buckets</string>
+    <string name="settings_storage_archive_desc">Full-history buckets beyond the recent-message window</string>
+    <string name="settings_storage_stat_buckets">Buckets: %1$d</string>
+    <string name="settings_storage_stat_messages">Messages: %1$d</string>
+    <string name="settings_storage_stat_bytes">Size: %1$s</string>
+    <string name="settings_storage_empty">Nothing archived yet</string>
+    <string name="settings_storage_clear">Clear all archive buckets</string>
+    <string name="settings_storage_clear_confirm_title">Clear archive?</string>
+    <string name="settings_storage_clear_confirm_text">All cold archive buckets will be permanently deleted. Recently cached messages are not affected. This cannot be undone.</string>
+    <string name="settings_storage_clear_confirm">Clear</string>
+    <string name="settings_storage_cleared">Archive cleared</string>
     <string name="diagnostics_title">Diagnostics</string>
     <string name="diagnostics_empty">No logs yet</string>
     <string name="diagnostics_empty_desc">App runtime logs and crash reports will appear here</string>
@@ -699,6 +726,10 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="sessions_view_folders">Directories</string>
     <string name="sessions_view_recent">Recent</string>
     <string name="sessions_clear_search">Clear search</string>
+    <!-- #272：内容检索聚合（FTS5/BM25 本地检索） -->
+    <string name="search_content_hits">Message matches</string>
+    <string name="search_content_coverage_hint">Full history not synced for this session</string>
+    <string name="search_content_hit_count">%1$d messages</string>
 
     <!-- Terminal tabs -->
     <string name="terminal_new_tab">New</string>

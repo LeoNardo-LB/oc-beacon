@@ -44,23 +44,6 @@ object ToolOutputTruncator {
         }
     }
 
-    /**
-     * #79 P1：Reasoning part 落库截断——思考全文占 DB 显著空间
-     *（实测单条最大 45KB）。只改写顶层 text 字段，其余原样。
-     */
-    fun truncateReasoningIfNeeded(payload: String, previewLimit: Int = DEFAULT_PREVIEW_LIMIT): String {
-        return try {
-            val root = json.parseToJsonElement(payload).jsonObject
-            val textEl = root["text"] ?: return payload
-            val text = textEl.jsonPrimitive.content
-            if (text.length <= previewLimit) return payload
-            val truncated = text.take(previewLimit) + TRUNCATION_SUFFIX
-            JsonObject(root.toMap() + ("text" to JsonPrimitive(truncated))).toString()
-        } catch (t: Throwable) {
-            payload
-        }
-    }
-
     /** state 对象级截断：output（字符串）+ input/metadata（递归原语）。 */
     internal fun truncateState(stateObj: JsonObject, previewLimit: Int): JsonObject {
         var changed = false

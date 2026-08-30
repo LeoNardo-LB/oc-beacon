@@ -51,6 +51,10 @@ internal fun SessionTreeList(
     onRename: (sessionId: String, currentTitle: String) -> Unit,
     onDelete: (sessionId: String, title: String) -> Unit,
     onAssignTags: (sessionId: String, currentTagIds: Set<String>) -> Unit,
+    // #271：同步状态透传（长按菜单同步详情区）
+    syncStates: Map<String, dev.leonardo.ocbeacon.data.local.SessionSyncEntity> = emptyMap(),
+    onRequestSync: (String) -> Unit = {},
+    onCancelSync: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     // #106 lint 清偿：复制提示 hoist（两处 lambda 共用；context 仍供剪贴板）
@@ -146,6 +150,9 @@ internal fun SessionTreeList(
                         onToggleFavorite = {
                             viewModel.toggleFavorite(node.session.session)
                         },
+                        syncState = syncStates[node.id],
+                        onRequestSync = { onRequestSync(node.id) },
+                        onCancelSync = { onCancelSync(node.id) },
                     )
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(

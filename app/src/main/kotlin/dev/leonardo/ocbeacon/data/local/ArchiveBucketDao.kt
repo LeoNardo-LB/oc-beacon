@@ -5,6 +5,13 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
+/** 冷存桶全库聚合统计（设置页「存储占用」区）。 */
+data class ArchiveStats(
+    val bucketCount: Long,
+    val messageCount: Long,
+    val bytes: Long,
+)
+
 @Dao
 interface ArchiveBucketDao {
 
@@ -27,9 +34,16 @@ interface ArchiveBucketDao {
     @Query("SELECT COUNT(*) FROM archive_buckets WHERE sessionId = :sessionId")
     suspend fun count(sessionId: String): Int
 
-    /** 保护上限淘汰候选：最久未访问 [limit] 桶（升序；id ASC 兜底，稳定排序避免同时间戳抖动）。 */
-    @Query("SELECT * FROM archive_buckets WHERE sessionId = :sessionId ORDER BY lastAccessedAt ASC, id ASC LIMIT :limit")
-    suspend fun leastAccessed(sessionId: String, limit: Int): List<ArchiveBucketEntity>
+    /** #271 设置页统计：全库桶数/消息条数/压缩字节（全部会话合计）。 */
+    @Query(
+        "SELECT COUNT(*) AS bucketCount, COALESCE(SUM(messageCount), 0) AS messageCount, " +
+            "COALESCE(SUM(length(payload)), 0) AS bytes FROM archive_buckets"
+    )
+    suspend fun globalStats(): ArchiveStats?
+
+    /** #271 手动清理兜底：清空全部冷存桶（设置页「清理」按钮）。 */
+    @Query("DELETE FROM archive_buckets")
+    suspend fun clearAll()
 
     @Query("DELETE FROM archive_buckets WHERE sessionId = :sessionId")
     suspend fun clearSession(sessionId: String)

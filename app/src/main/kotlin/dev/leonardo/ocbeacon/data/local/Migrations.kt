@@ -55,4 +55,18 @@ object Migrations {
             )
         }
     }
+
+    /** v4 → v5（#271，2026-08-30，全量保留）：会话历史同步状态表。 */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `session_sync_state` (" +
+                    "`sessionId` TEXT NOT NULL, " +
+                    "`state` TEXT NOT NULL, " +
+                    "`lastSyncAt` INTEGER, " +
+                    "`errorMessage` TEXT, " +
+                    "PRIMARY KEY(`sessionId`))",
+            )
+        }
+    }
 }
