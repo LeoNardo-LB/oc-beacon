@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.api.provider
 
+import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.data.dto.request.*
@@ -104,11 +105,15 @@ interface ProviderApi {
 @Singleton
 class ProviderApiImpl @Inject constructor(
     private val v1: V1ApiClient,
-    private val v2: V2ApiClient
+    private val v2: V2ApiClient,
+    private val dsh: DshApiClient,
 ) : ProviderApi {
 
-    private fun pick(conn: ServerConnection): ProviderApi =
-        if (conn.apiVersion.isV2) v2 else v1
+    /** #276 三分：serverType==Dsh 优先（apiVersion 不参与 DSH 路由，设计 §2.1）。 */
+    private fun pick(conn: ServerConnection): ProviderApi = when (conn.serverType) {
+        dev.leonardo.ocbeacon.domain.model.ServerType.Dsh -> dsh
+        else -> if (conn.apiVersion.isV2) v2 else v1
+    }
 
     override suspend fun getProviders(conn: ServerConnection): ProvidersResponse =
         pick(conn).getProviders(conn)

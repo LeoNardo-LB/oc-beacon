@@ -70,15 +70,22 @@ internal fun aggregateDshWsState(states: List<DshWsConnectionState>): DshWsConne
 /**
  * 帧处理器：单帧文本 → 解码 → 回调。
  *
+ * #276 接线注意①（#275 flagged）：回调透传真封 [rpcId]——approval/question
+ * requested 帧的 rpcId 是 /api/respond 回程路由键（§1.6-6 pending 注册表）；
+ * 纯推送帧 rpcId 每帧新铸，消费方可忽略。
+ *
  * @return true=好帧已转发；false=畸形/违约帧已丢弃（AppLogger.w，不抛不崩）。
  */
-internal fun handleDshWsFrame(text: String, onFrame: (method: String, payload: JsonObject) -> Unit): Boolean {
+internal fun handleDshWsFrame(
+    text: String,
+    onFrame: (method: String, payload: JsonObject, rpcId: String) -> Unit,
+): Boolean {
     val envelope = DshEnvelope.decode(text) as? DshEnvelope.ServerRequest
     if (envelope == null) {
         AppLogger.w(TAG, "丢弃无法解码的 WS 帧: " + text.take(120))
         return false
     }
-    onFrame(envelope.method, envelope.payload)
+    onFrame(envelope.method, envelope.payload, envelope.rpcId)
     return true
 }
 
@@ -141,9 +148,10 @@ open class DshWsEventEngine(
     private var generationId = 0
 
     /**
-     * 启动双流（幂等：先 stop 旧代）。[onFrame] 在 OkHttp 读线程回调。
+     * 启动双流（幂等：先 stop 旧代）。[onFrame] 在 OkHttp 读线程回调——
+     * 参数含信封 rpcId（#276 接线注意①：requested 帧的回程路由键）。
      */
-    fun start(baseUrl: String, onFrame: (method: String, payload: JsonObject) -> Unit) {
+    fun start(baseUrl: String, onFrame: (method: String, payload: JsonObject, rpcId: String) -> Unit) {
         synchronized(this) {
             stopLocked()
             generationId++
@@ -177,7 +185,7 @@ open class DshWsEventEngine(
         stream: DshWsStreamKind,
         url: String,
         state: MutableStateFlow<DshWsConnectionState>,
-        onFrame: (method: String, payload: JsonObject) -> Unit,
+        onFrame: (method: String, payload: JsonObject, rpcId: String) -> Unit,
     ) {
         val attempts = AtomicInteger(0)
         while (true) {

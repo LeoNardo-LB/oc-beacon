@@ -32,6 +32,20 @@ class ApiVersionDetectorTest {
         return ApiVersionDetector(ApiClient(httpClient, json))
     }
 
+    // #276 步骤⑥：DSH 条目跳过 health 双探（apiVersion 保持 V1 缺省，不参与路由）
+    @Test
+    fun `dsh serverType skips health probes entirely`() = runTest {
+        val engine = MockEngine { _ -> throw AssertionError("DSH 探测必须零 HTTP 请求") }
+        val result = buildDetector(engine).detect(
+            "http://127.0.0.1:3080",
+            knownVersion = ApiVersion.UNKNOWN,
+            serverType = dev.leonardo.ocbeacon.domain.model.ServerType.Dsh,
+        )
+        assertEquals(ApiVersion.V1, result.version)
+        assertNull(result.serverVersionString)
+        assertEquals(0, engine.requestHistory.size)
+    }
+
     @Test
     fun `detects V2 when api health responds`() = runTest {
         val engine = MockEngine { request ->

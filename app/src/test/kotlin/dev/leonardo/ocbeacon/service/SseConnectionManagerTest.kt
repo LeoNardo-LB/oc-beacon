@@ -105,6 +105,10 @@ class SseConnectionManagerTest {
             settingsRepository = settingsRepository,
             networkMonitor = mockk(relaxed = true),
             sessionStateRepository = mockk(relaxed = true),
+            // #276：DSH 分支依赖（本测试仅走 SSE 路径——relaxed mock 不触发）
+            dshConnectionOrchestrator = mockk(relaxed = true),
+            dshFrameSourceFactory = mockk(relaxed = true),
+            dshRpcClient = mockk(relaxed = true),
         )
 
         val onEventCount = AtomicInteger(0)
@@ -189,6 +193,10 @@ class SseConnectionManagerTest {
             settingsRepository = settingsRepository,
             networkMonitor = mockk(relaxed = true),
             sessionStateRepository = mockk(relaxed = true),
+            // #276：DSH 分支依赖（本测试仅走 SSE 路径——relaxed mock 不触发）
+            dshConnectionOrchestrator = mockk(relaxed = true),
+            dshFrameSourceFactory = mockk(relaxed = true),
+            dshRpcClient = mockk(relaxed = true),
         )
 
         manager.startConnection(testServer()) { _, _ -> }

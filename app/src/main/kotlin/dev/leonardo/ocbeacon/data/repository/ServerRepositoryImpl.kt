@@ -45,6 +45,7 @@ class ServerRepositoryImpl @Inject constructor(
             password = config.password,
             name = config.name,
             autoConnect = config.autoConnect,
+            serverType = config.serverType, // #276：服务器类型沿传（UI 表单下一卡接入）
             id = config.id
         )
     }
@@ -201,6 +202,7 @@ class ServerRepositoryImpl @Inject constructor(
     override suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = dataRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
-        return ServerConnection.from(config.url, config.username, config.password, config.apiVersion)
+        // #276：from(config) 单点沿传 serverType（DSH 三分路由依据）
+        return ServerConnection.from(config)
     }
 }

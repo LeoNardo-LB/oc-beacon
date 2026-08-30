@@ -127,7 +127,12 @@ class DshEventMapperTest {
                 id = "appr-fixture-1",
                 sessionId = "fixture-0001",
                 permission = "bash",
-                metadata = mapOf("callId" to "call_fixture_2", "reason" to "escalate sandbox for fixture"),
+                // #276 接线注意①：信封 rpcId 入 metadata（/api/respond 回程路由键）
+                metadata = mapOf(
+                    "callId" to "call_fixture_2",
+                    "reason" to "escalate sandbox for fixture",
+                    "rpcId" to "11111111-0000-0000-0000-000000000004",
+                ),
             ),
             asked,
         )

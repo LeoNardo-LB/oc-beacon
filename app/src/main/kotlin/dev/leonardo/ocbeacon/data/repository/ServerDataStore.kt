@@ -66,6 +66,8 @@ class ServerDataStore @Inject constructor(
         password: String? = null,
         name: String? = null,
         autoConnect: Boolean = false,
+        /** #276：服务器类型沿传（DSH 条目三分路由 + 探测跳过依据；缺省 OpenCode）。 */
+        serverType: dev.leonardo.ocbeacon.domain.model.ServerType = dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode,
         /** 2026-08-17 根治（debug 激活 not found）：尊重调用方指定的 id——
          *  原实现无条件 UUID.randomUUID()，调用方（MainActivity debug 激活）
          *  持有的 id 与落盘 id 不一致 → 后续 resolveConnection 全部
@@ -80,7 +82,8 @@ class ServerDataStore @Inject constructor(
             name = name,
             autoConnect = autoConnect,
             lastConnected = null,
-            isHealthy = false
+            isHealthy = false,
+            serverType = serverType,
         )
         
         val currentServers = servers.firstOrNull() ?: emptyList()
@@ -143,7 +146,8 @@ class ServerDataStore @Inject constructor(
             // 探测失败仍返回 UNKNOWN（下方保留原版本的 #132 语义不变）。
             val detection = versionDetector.detect(
                 server.url, server.username, server.password,
-                knownVersion = server.apiVersion
+                knownVersion = server.apiVersion,
+                serverType = server.serverType, // #276：DSH 跳过 health 双探
             )
 
             val health = ServerHealth(

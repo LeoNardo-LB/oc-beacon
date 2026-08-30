@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.api.file
 
+import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.data.dto.response.*
@@ -60,11 +61,15 @@ interface FileApi {
 @Singleton
 class FileApiImpl @Inject constructor(
     private val v1: V1ApiClient,
-    private val v2: V2ApiClient
+    private val v2: V2ApiClient,
+    private val dsh: DshApiClient,
 ) : FileApi {
 
-    private fun pick(conn: ServerConnection): FileApi =
-        if (conn.apiVersion.isV2) v2 else v1
+    /** #276 三分：serverType==Dsh 优先（apiVersion 不参与 DSH 路由，设计 §2.1）。 */
+    private fun pick(conn: ServerConnection): FileApi = when (conn.serverType) {
+        dev.leonardo.ocbeacon.domain.model.ServerType.Dsh -> dsh
+        else -> if (conn.apiVersion.isV2) v2 else v1
+    }
 
     override suspend fun findFiles(
         conn: ServerConnection,

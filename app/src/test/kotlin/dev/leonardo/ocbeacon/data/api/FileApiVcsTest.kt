@@ -31,7 +31,10 @@ class FileApiVcsTest {
         val apiClient = ApiClient(httpClient, json)
         val v1 = dev.leonardo.ocbeacon.data.api.v1.V1ApiClient(apiClient)
         val v2 = dev.leonardo.ocbeacon.data.api.v2.V2ApiClient(apiClient)
-        return FileApiImpl(v1, v2)
+        val dsh = dev.leonardo.ocbeacon.data.api.dsh.DshApiClient(
+            dev.leonardo.ocbeacon.data.api.dsh.DshRpcClient(apiClient),
+        )
+        return FileApiImpl(v1, v2, dsh)
     }
 
     private val conn = ServerConnection.from(

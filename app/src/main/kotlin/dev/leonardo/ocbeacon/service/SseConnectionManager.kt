@@ -3,12 +3,18 @@ package dev.leonardo.ocbeacon.service
 import java.util.concurrent.ConcurrentHashMap
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.NetworkMonitor
+import dev.leonardo.ocbeacon.data.api.SseClient
+import dev.leonardo.ocbeacon.data.api.SseReadTimeoutTracker
+import dev.leonardo.ocbeacon.data.api.dsh.DshConnectionOrchestrator
+import dev.leonardo.ocbeacon.data.api.dsh.DshFrameSourceFactory
+import dev.leonardo.ocbeacon.data.api.dsh.DshRpcClient
+import dev.leonardo.ocbeacon.data.api.dsh.DshRpcHistorySource
+import dev.leonardo.ocbeacon.data.api.dsh.DshSessionSeqTracker
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.data.api.SseClient
-import dev.leonardo.ocbeacon.data.api.SseReadTimeoutTracker
+import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.domain.model.Project
@@ -68,6 +74,10 @@ class SseConnectionManager @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val networkMonitor: NetworkMonitor,
     private val sessionStateRepository: SessionStateService,
+    // #276 步骤⑤：DSH 分支——双 WS 纯下行 + 对账编排（设计 §1.6/§2.3）
+    private val dshConnectionOrchestrator: DshConnectionOrchestrator,
+    private val dshFrameSourceFactory: DshFrameSourceFactory,
+    private val dshRpcClient: DshRpcClient,
 ) {
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, exception ->
@@ -86,6 +96,13 @@ class SseConnectionManager @Inject constructor(
 
     /** 每服务器的超时跟踪器，用于 SSE 读取超时冷却逻辑。 */
     private val timeoutTrackers = ConcurrentHashMap<String, SseReadTimeoutTracker>()
+
+    /**
+     * #276：每服务器 DSH 已应用 seq 水位表——连接生命周期内跨重连存活
+     * （engine 自重连后 subscribed 基线重推，reconciler 据此算缺口）；
+     * stopConnection 清理（下次连接全量 InitialFetch）。
+     */
+    private val dshSeqTrackers = ConcurrentHashMap<String, DshSessionSeqTracker>()
 
     init {
         // 2026-08-15（research/06 P0）：接线 durable.seq gap 检测——服务器每事件
@@ -125,7 +142,8 @@ class SseConnectionManager @Inject constructor(
         server: ServerConfig,
         onEvent: (ServerConfig, SseEvent) -> Unit
     ): Job {
-        val conn = ServerConnection.from(server.url, server.username, server.password, server.apiVersion)
+        // #276：serverType 沿传（DSH 三分路由 + 传输分支依据）
+        val conn = ServerConnection.from(server.url, server.username, server.password, server.apiVersion, server.serverType)
         val previous = connections[server.id]
         val job: Job = if (previous != null && previous.sseJob.isActive) {
             // RS-004 修复：针对重复调用的自我保护。若已存在连接，在启动新连接前
@@ -157,6 +175,7 @@ class SseConnectionManager @Inject constructor(
         val state = connections.remove(serverId) ?: return
         state.sseJob.cancel()
         timeoutTrackers.remove(serverId)
+        dshSeqTrackers.remove(serverId) // #276：水位表随连接销毁（重连=全量 InitialFetch）
         _connectedServerIds.update { it - serverId }
         _connectingServerIds.update { it - serverId }
         eventDispatcher.clearForServer(serverId)
@@ -173,6 +192,7 @@ class SseConnectionManager @Inject constructor(
         }
         connections.clear()
         timeoutTrackers.clear()
+        dshSeqTrackers.clear()
         // RS-002 修复：使用 .update{} 而非直接赋值以参与 CAS，
         // 防止已取消但仍运行的 SSE 协程的 updateServerConnected
         // 调用复活已被清除的 server ID。
@@ -261,6 +281,34 @@ class SseConnectionManager @Inject constructor(
         return connections[serverId]?.conn
     }
 
+    // ============ DSH 事件循环（#276 步骤⑤） ============
+
+    /**
+     * DSH 双 WS 事件循环：帧源（每服务器独立引擎）→ DshEventMapper →
+     * EventDispatcher.processEvent + 通知路由；subscribed 基线 → reconciler 对账。
+     * [onConnected] 接收聚合连接状态（双流 Connected 才 Connected，取最差）。
+     * 挂起直到取消——engine 自重连，重连后服务端重推 subscribed 基线触发增量对账。
+     */
+    private suspend fun runDshEventLoop(
+        server: ServerConfig,
+        conn: ServerConnection,
+        onEvent: (ServerConfig, SseEvent) -> Unit,
+        onConnected: (Boolean) -> Unit,
+    ) {
+        val tracker = dshSeqTrackers.getOrPut(server.id) { DshSessionSeqTracker() }
+        dshConnectionOrchestrator.run(
+            baseUrl = conn.baseUrl,
+            frameSource = dshFrameSourceFactory.create(),
+            historySource = DshRpcHistorySource(dshRpcClient, conn),
+            tracker = tracker,
+            dispatch = { event -> eventDispatcher.processEvent(event, server.id) },
+            onEvent = { event -> onEvent(server, event) },
+            // #275 flagged ②：SessionUpdated 整替换防御——最小 Session 与 handler 缓存合并
+            sessionLookup = { sid -> eventDispatcher.sessions.value.firstOrNull { it.id == sid } },
+            onConnected = onConnected,
+        )
+    }
+
     // ============ 带自动重连的 SSE 连接 ============
 
     private fun startSseConnection(
@@ -309,6 +357,33 @@ class SseConnectionManager @Inject constructor(
                 // 串行化护栏：本轮流结束/异常/取消后在 finally cancelAndJoin——防止与
                 // 下一轮 preload 重叠写 eventDispatcher（对齐 reconnectServer 的
                 // cancelAndJoin 防重叠语义）；取消的是即将被下一轮重跑刷新的中间态，无损失。
+                // #276 步骤⑤：DSH 分支——不走 SSE（§1.6-1：events GET 拦 426，只能 WS）。
+                // 预加载（session.list 基线）与 SSE 路径共用；断连补漏不走
+                // recoverMessages（REST 全量重拉）而走 DSH reconciler（subscribed
+                // 基线 → seq 缺口 → session.history 精确回填，§1.6-5）。
+                if (conn.serverType == ServerType.Dsh) {
+                    val preloadJob = scope.launch { preLoadSessions(server, conn) }
+                    try {
+                        runDshEventLoop(server, conn, onEvent) { connected ->
+                            if (connected) {
+                                attempt = 0
+                                hasConnectedOnce = true
+                            }
+                            updateServerConnected(server.id, connected)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // 引擎内部自重连（500ms×2ⁿ cap 10s）；此处仅兜底未预期异常
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "DSH event loop ended for " + server.displayName + ": " + e.message, e)
+                        updateServerConnected(server.id, false)
+                    } finally {
+                        preloadJob.cancelAndJoin()
+                    }
+                    if (!connections.containsKey(server.id)) break
+                    delay(calculateBackoff(attempt))
+                    continue
+                }
                 val attemptNow = attempt
                 val preloadJob = scope.launch {
                     // 通过 REST API 为所有项目预加载会话

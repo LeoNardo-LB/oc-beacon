@@ -54,14 +54,17 @@ class DshWsEventClientTest {
     // ============ 帧处理器（纯逻辑） ============
 
     @Test
-    fun `frame handler forwards decoded server request method and payload`() {
+    fun `frame handler forwards decoded server request method payload and rpcId`() {
         val golden = """{"type":"server-request","rpcId":"f-1","method":"session/subscribed","payload":{"type":"session/subscribed","sessionId":"fixture-0001","lastSeq":15}}"""
         var method: String? = null
         var payload: kotlinx.serialization.json.JsonObject? = null
-        val handled = handleDshWsFrame(golden) { m, p -> method = m; payload = p }
+        var rpcId: String? = null
+        // #276 接线注意①：rpcId 透传（question 回程路由依赖）
+        val handled = handleDshWsFrame(golden) { m, p, r -> method = m; payload = p; rpcId = r }
         assertTrue(handled)
         assertEquals("session/subscribed", method)
         assertEquals(15L, payload!!["lastSeq"]!!.jsonPrimitive.long)
+        assertEquals("f-1", rpcId)
     }
 
     @Test
@@ -74,7 +77,7 @@ class DshWsEventClientTest {
         )
         frames.forEach { text ->
             var called = false
-            val handled = handleDshWsFrame(text) { _, _ -> called = true }
+            val handled = handleDshWsFrame(text) { _, _, _ -> called = true }
             assertFalse("畸形帧必须被丢弃: " + text, handled)
             assertFalse(called)
         }
@@ -118,7 +121,7 @@ class DshWsEventClientTest {
     fun `start opens both mux and host websockets with ws scheme`() = runTest {
         val opener = RecordingOpener()
         val engine = DshWsEventEngine(scope = backgroundScope, backoff = DshBackoff(random = { 0.0 }), opener = opener)
-        engine.start("http://127.0.0.1:3080") { _, _ -> }
+        engine.start("http://127.0.0.1:3080") { _, _, _ -> }
         runCurrent()
         assertEquals(
             listOf("/api/events.mux@127.0.0.1:3080", "/api/events.host@127.0.0.1:3080"),
@@ -131,7 +134,7 @@ class DshWsEventClientTest {
     fun `state connects when both open and degrades to worst on failure`() = runTest {
         val opener = RecordingOpener()
         val engine = DshWsEventEngine(scope = backgroundScope, backoff = DshBackoff(random = { 0.0 }), opener = opener)
-        engine.start("http://127.0.0.1:3080") { _, _ -> }
+        engine.start("http://127.0.0.1:3080") { _, _, _ -> }
         runCurrent()
         assertEquals(DshWsConnectionState.Connecting, engine.connectionState.value)
 
@@ -155,7 +158,7 @@ class DshWsEventClientTest {
         val opener = RecordingOpener()
         val received = mutableListOf<Pair<String, Long>>()
         val engine = DshWsEventEngine(scope = backgroundScope, backoff = DshBackoff(random = { 0.0 }), opener = opener)
-        engine.start("http://127.0.0.1:3080") { method, payload ->
+        engine.start("http://127.0.0.1:3080") { method, payload, _ ->
             received += method to payload["lastSeq"]!!.jsonPrimitive.long
         }
         runCurrent()
@@ -170,7 +173,7 @@ class DshWsEventClientTest {
     fun `failed stream reconnects same endpoint after backoff delay`() = runTest {
         val opener = RecordingOpener()
         val engine = DshWsEventEngine(scope = backgroundScope, backoff = DshBackoff(random = { 0.0 }), opener = opener)
-        engine.start("http://127.0.0.1:3080") { _, _ -> }
+        engine.start("http://127.0.0.1:3080") { _, _, _ -> }
         runCurrent()
         assertEquals(2, opener.urls.size)
 
@@ -193,7 +196,7 @@ class DshWsEventClientTest {
     fun `stop cancels reconnection and is idempotent`() = runTest {
         val opener = RecordingOpener()
         val engine = DshWsEventEngine(scope = backgroundScope, backoff = DshBackoff(random = { 0.0 }), opener = opener)
-        engine.start("http://127.0.0.1:3080") { _, _ -> }
+        engine.start("http://127.0.0.1:3080") { _, _, _ -> }
         runCurrent()
         opener.listeners[0].onFailure(mockk(), RuntimeException("eof"), null)
         runCurrent()
@@ -211,9 +214,9 @@ class DshWsEventClientTest {
     fun `repeated start stops previous generation first`() = runTest {
         val opener = RecordingOpener()
         val engine = DshWsEventEngine(scope = backgroundScope, backoff = DshBackoff(random = { 0.0 }), opener = opener)
-        engine.start("http://127.0.0.1:3080") { _, _ -> }
+        engine.start("http://127.0.0.1:3080") { _, _, _ -> }
         runCurrent()
-        engine.start("http://127.0.0.1:3080") { _, _ -> } // 先 stop 旧代 → 无残留重连
+        engine.start("http://127.0.0.1:3080") { _, _, _ -> } // 先 stop 旧代 → 无残留重连
         runCurrent()
         advanceTimeBy(30_000)
         runCurrent()

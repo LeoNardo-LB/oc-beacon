@@ -19,6 +19,13 @@ data class ServerConfig(
     val apiVersion: ApiVersion = ApiVersion.V1,
     /** 服务器报告的 OpenCode 版本号（如 "2.0.1"），用于 UI 展示 */
     val serverVersion: String? = null,
+    /**
+     * 服务器类型维度（#276 步骤①；设计 §2.1）：DSH 条目走 DshApiClient 三分路由，
+     * ApiVersion 探测跳过（保持 V1 缺省不参与路由）。@Serializable 全默认值 →
+     * DataStore 旧 JSON（无该字段）零迁移反序列化为 OpenCode（测试见
+     * ServerTypeSerializationTest）。
+     */
+    val serverType: ServerType = ServerType.OpenCode,
     /** 2026-08-28（#251 根因修复）：该条目由调试通道创建/激活。autoConnect 对
      *  调试条目是**系统管理位**（「最近激活的调试后端至多一个自连」），对手动
      *  条目是用户管理位——调试激活只降级被标记条目，手动 pin 永不受影响。 */

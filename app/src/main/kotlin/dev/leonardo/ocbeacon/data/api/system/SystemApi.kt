@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.api.system
 
+import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.data.dto.response.*
@@ -51,11 +52,15 @@ interface SystemApi {
 @Singleton
 class SystemApiImpl @Inject constructor(
     private val v1: V1ApiClient,
-    private val v2: V2ApiClient
+    private val v2: V2ApiClient,
+    private val dsh: DshApiClient,
 ) : SystemApi {
 
-    private fun pick(conn: ServerConnection): SystemApi =
-        if (conn.apiVersion.isV2) v2 else v1
+    /** #276 三分：serverType==Dsh 优先（apiVersion 不参与 DSH 路由，设计 §2.1）。 */
+    private fun pick(conn: ServerConnection): SystemApi = when (conn.serverType) {
+        dev.leonardo.ocbeacon.domain.model.ServerType.Dsh -> dsh
+        else -> if (conn.apiVersion.isV2) v2 else v1
+    }
 
     override suspend fun getHealth(conn: ServerConnection): ServerHealth =
         pick(conn).getHealth(conn)

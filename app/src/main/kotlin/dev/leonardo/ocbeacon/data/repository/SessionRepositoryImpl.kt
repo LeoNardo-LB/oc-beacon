@@ -318,7 +318,8 @@ class SessionRepositoryImpl @Inject constructor(
     private suspend fun resolveConnection(serverId: String): ServerConnection {
         val config = serverRepo.getServer(serverId)
             ?: throw IllegalStateException("Server config not found: $serverId")
-        return ServerConnection.from(config.url, config.username, config.password, config.apiVersion)
+        // #276：from(config) 单点沿传 serverType（DSH 三分路由依据）
+        return ServerConnection.from(config)
     }
 
     // ============ 当前 Agent/Model（SSE session.next）============

@@ -104,9 +104,14 @@ object DshEventMapper {
                         // DSH 审批对象是「执行某工具」：permission 装载 toolName，
                         // callId/reason 进 metadata（PermissionAsked 无专属槽位）
                         permission = payload.str("toolName") ?: "tool",
+                        // #276 接线注意①：信封 rpcId 一并入 metadata——/api/respond
+                        // 回程路由键（§1.6-6 pending 注册表）；requested/resolved 帧
+                        // 载荷只带 approvalId（成对解析键），回程键若与 approvalId
+                        // 不同（E2E 定音），reply 路径经 metadata["rpcId"] 取真键。
                         metadata = buildMap {
                             payload.str("callId")?.let { put("callId", it) }
                             payload.str("reason")?.let { put("reason", it) }
+                            rpcId?.let { put("rpcId", it) }
                         }.takeIf { it.isNotEmpty() },
                     )
                 )
