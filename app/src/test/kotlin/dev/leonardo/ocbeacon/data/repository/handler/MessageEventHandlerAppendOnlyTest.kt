@@ -4,8 +4,10 @@ import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -28,5 +30,31 @@ class MessageEventHandlerAppendOnlyTest {
         handler.upsertMessages("s1", listOf(MessageWithParts(msg, parts)), MergeStrategy.APPEND_ONLY)
         val registered = handler.parts.value["a1"].orEmpty()
         assertEquals(listOf("a1_text_ord_0"), registered.map { it.id })
+    }
+
+    @Test
+    fun `stale buffered delta after terminal replace does not duplicate tail - #265`() {
+        val handler = MessageEventHandler()
+        // 1) 流式 delta → 派生 id part 建立
+        handler.handleMessagePartDelta(SseEvent.MessagePartDelta("s1", "m1", "m1_text_ord_0", "text", "正文开头"))
+        handler.forceFlushDeltas()
+        assertEquals("正文开头", (handler.parts.value["m1"]!!.single() as Part.Text).text)
+        // 2) 完结权威替换：text.ended 全量值 + partId 换代（isTerminal 覆盖）
+        handler.handleMessagePartUpdated(
+            SseEvent.MessagePartUpdated(
+                Part.Text(
+                    id = "prt_srv_1", sessionId = "s1", messageId = "m1",
+                    text = "正文开头。结尾句。", time = Part.Text.Time(start = 1, end = 2),
+                )
+            )
+        )
+        // 3) 滞留尾 delta flush：内容已并入权威文本 → 源头守卫丢弃
+        handler.handleMessagePartDelta(SseEvent.MessagePartDelta("s1", "m1", "m1_text_ord_0", "text", "结尾句。"))
+        handler.forceFlushDeltas()
+        val texts = handler.parts.value["m1"]!!.filterIsInstance<Part.Text>()
+        assertEquals(1, texts.size)
+        val t = texts[0].text
+        assertEquals(1, t.split("结尾句。").size - 1)
+        assertTrue(t.endsWith("结尾句。"))
     }
 }

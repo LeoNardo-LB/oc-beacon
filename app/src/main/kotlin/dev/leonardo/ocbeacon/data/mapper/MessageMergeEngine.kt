@@ -326,6 +326,22 @@ internal object MessageMergeEngine {
             }
             if (contentMatchIdx >= 0) return PartRegistration.MergeByContent(contentMatchIdx)
         }
+        // #265 E2E 竞态收口：完结权威替换（text.ended 全量值 + 服务端 partId）
+        // 与流式派生 id 存在换代漂移——同 kind 重叠文本 part 是同一逻辑 part 的
+        // 两个版本，不得作为新 part 追加（真机 E2E 实证：滞留尾 delta 走 idx<0
+        // 兜底新建 → 结尾句渲染两遍）。判定：非空 Text incoming 与任一既有同
+        // kind part 文本前缀相容（一方以另一方开头）→ MergeAt 到既有位置，
+        // 由 mergePart 的 isTerminal 覆盖语义接手。dedupOverlappingTextParts
+        // 的「重叠保长」语义在此前移到注册时刻。
+        if (incoming is Part.Text && incoming.text.isNotEmpty()) {
+            val overlapIdx = existingParts.indexOfFirst { existing ->
+                existing is Part.Text && existing.text.isNotEmpty() && (
+                    incoming.text.startsWith(existing.text) ||
+                        existing.text.startsWith(incoming.text)
+                    )
+            }
+            if (overlapIdx >= 0) return PartRegistration.MergeAt(overlapIdx)
+        }
         return when {
             isDerivedOrdinalId(incoming.id) && isEmptyStreamPart(incoming) &&
                 existingParts.any {

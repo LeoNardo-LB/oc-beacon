@@ -162,12 +162,35 @@ class MessageEventHandler @Inject constructor(
             batch = pendingDeltas.toList()
             pendingDeltas.clear()
         }
+        // #265 E2E 竞态守卫（源头版）：完结权威替换（text.ended 全量值 +
+        // partId 换代）之后才 flush 的滞留 delta，其内容已并入权威文本——
+        // 不过滤则 applyDelta 走 idx<0 兜底新建重复 part（真机 E2E 实证：
+        // 结尾句 ×2），appendPartTexts 亦落脏行。判定：partId 未注册且
+        // delta ⊆ 同 message 同 kind 既有全文 → 丢弃（含空 delta）。
+        // applyDelta 内同款守卫保留为纵深防御。
+        fun isStaleDelta(d: PendingDelta): Boolean {
+            val messageParts = _parts.value[d.messageId].orEmpty()
+            if (messageParts.any { it.id == d.partId }) return false
+            if (d.delta.isEmpty()) return true
+            val merged = messageParts.filter {
+                if (d.type == "reasoning") it is Part.Reasoning else it is Part.Text
+            }.joinToString("") { p ->
+                when (p) {
+                    is Part.Text -> p.text
+                    is Part.Reasoning -> p.text
+                    else -> ""
+                }
+            }
+            return merged.contains(d.delta)
+        }
+        val effective = batch.filterNot { isStaleDelta(it) }
+        if (effective.isEmpty()) return
         if (BuildConfig.DEBUG) {
             // debug 级流式 flush 日志（节流：每 100 批打一次）——用于确认
             // delta 正在落库（"无回复/输出中断"排查的关键节点）。
             deltaFlushCounter++
             if (deltaFlushCounter % 100 == 1) {
-                AppLogger.d(TAG, "[flush] deltas=${batch.size} (batch #${deltaFlushCounter}, first=${batch.first().messageId.take(12)})")
+                AppLogger.d(TAG, "[flush] deltas=${effective.size} (batch #${deltaFlushCounter}, first=${effective.first().messageId.take(12)})")
             }
         }
 
@@ -175,7 +198,7 @@ class MessageEventHandler @Inject constructor(
             // #97（M-15）：原实现批内每 delta 都整份 Map 拷贝（updated + (...)）——
             // O(N×M)。改为一次 toMutableMap，批内按 messageId 聚合就地更新。
             val updated = current.toMutableMap()
-            for (entry in batch) {
+            for (entry in effective) {
                 // #234：每条目变换 = MessageMergeEngine.applyDelta 纯函数
                 //（endsWith 去重 + idx<0 按 kind 重建，#223/#230 语义原样迁出）。
                 updated[entry.messageId] = MessageMergeEngine.applyDelta(
@@ -194,7 +217,7 @@ class MessageEventHandler @Inject constructor(
         //（O(delta) 写，替代原整条消息 JSON 编码 + 全行重写）。
         // 按 (sessionId, messageId) 聚合 partId→文本（同 part 多次 delta 合并）。
         val store = messageStore ?: return
-        val byMessage = batch.groupBy { it.sessionId to it.messageId }
+        val byMessage = effective.groupBy { it.sessionId to it.messageId }
         for ((key, deltas) in byMessage) {
             val (sessionId, messageId) = key
             // 骨架消息：内存最新元数据（增量 upsert 保证 part FK 存在）
