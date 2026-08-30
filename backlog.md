@@ -1,7 +1,7 @@
 # OC Beacon — 需求与问题总览
 本文档是唯一的**未决工作项清单**：只保留尚未完结的需求与问题卡片。条目完结（用户验收 `[x]`）后**当场迁出**——记录连同证据移入 `docs/journal/` 对应批次文件，本文件不保留完结记录；历史查询走 journal 与 git。
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
-**编号**：全局递增，不回收。下一编号：**#263**。
+**编号**：全局递增，不回收。下一编号：**#264**。
 - [ ] **#262 展开面「渲染前计算」架构改造——布局层恒定+绘制层揭示，根除帧间补偿残余跳动** `ui` `perf`
   - 背景（2026-08-30 用户裁决）：现补偿体系（PreRenderShiftChannel 帧界排空）视窗移动比内容高度变化晚一帧（帧界排空的固有错位），贴底/mid-list 展开仍有可感知跳动；用户要求「渲染前进行计算，计算完毕之后再渲染」
   - 方向：tap 时一次性测得展开终态高度（finalH）→ 视窗一次预移 Δ → 布局层恒为终态（item 高不随动画变化）→ 视觉揭示改为绘制层 clip 动画（纯 draw 无布局影响）；AnimatedVisibility 的高度动画从布局层退役
@@ -62,6 +62,11 @@
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
+- [ ] **#263 思考卡时长异常「29800753m 45s」——计时锚点 0 哨兵未防** `ui` `data`
+  - 现象（2026-08-30 用户报）：已完成思考卡显示巨长时长；29800753m≈1.788e9s≈当下 Unix 秒 → effectiveStart≈0，`startTimeMs ?: fallbackStart` 对 **0 哨兵**不回退（0 非 null），疑似上游 part time 缺失/解析落 0；次候选 #207 rememberSaveable 锚点跨场景陈旧
+  - 方向：调用方将 0/负值按缺失处理回落 fallback；fallback 锚点加合理性界后才采信
+  - → `ReasoningBlock.kt:60-86`
+
 - [ ] **#235 Compose 稳定矩阵维持——beta 全家稳定后解除** `deps`
   - 2026-08-27 完整定因（0775582d）：material3 1.5.0-alpha26 经原子组约束拉 **整组** Compose（runtime/ui/ui-text/animation）到 1.12.0-beta01——08-20 丝滑基线自此未运行过；alpha26 的 Surface/FAB 还调 ui 1.12 独有 graphicsLayer 签名（LayerOutsets），与稳定 ui 二进制冲突（滚动 FAB 重组即 NoSuchMethodError）
   - 现状：material3 回 BOM 1.4.0 + eachDependency 四组（ui/runtime/foundation/animation）对齐 1.11.2；FAB 菜单已稳定 API 复刻（ChatFabMenu.kt，morph 动画简化）
