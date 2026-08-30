@@ -575,6 +575,26 @@ internal fun MarkdownContent(
         return
     }
 
+    // #265 P0-a 试点分支（spec §4）：开关开启、非用户消息、无外部覆写态且
+    // 非 asyncParse 时，流式渲染走 StreamingMarkdownState 前缀差分 append。
+    // 归一化让位（冲突①裁决）：流中 append 原始 delta，完结由上方 preParsedState
+    // 分支的既有归一化+分片路径接管，跳变由高度补偿吸收（V6 验证项）。
+    // 回退 = flavor 的 STREAMING_MD_PILOT 置 false。
+    if (overrideState == null && !asyncParse && StreamingMarkdownPilot.enabled && !isUser) {
+        val pilotState = rememberPilotStreamingMarkdownState(markdown)
+        Markdown(
+            streamingMarkdownState = pilotState,
+            colors = colors,
+            typography = typography,
+            components = components,
+            padding = padding,
+            animations = animations,
+            imageTransformer = Coil3ImageTransformerImpl,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        return
+    }
+
     // 2026-08-22：非流式长文本 fallback 异步化——库的 rememberMarkdownState
     // 在主线程同步 parseBlocking（字节码实证 parse$2 内联 parseBlocking，无
     // flowOn）；预解析 miss 时冷态快滑巨帧 84ms（framestats vsync→input）。
