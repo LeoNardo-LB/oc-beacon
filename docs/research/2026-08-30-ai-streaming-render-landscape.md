@@ -252,6 +252,15 @@ YouTrack 检索 `project:KTOR SSE OkHttp`（时间戳已换算）：
 
 ---
 
+## 补充（2026-08-30 同日，P1 试点设计的代码级细化）
+
+> 成文后复核了 `MarkdownContent.kt` / `MarkdownChunking.kt` 实际代码，P1 试点的真实范围比初稿更窄——存在两个必须先回答的设计冲突：
+
+1. **追溯式归一化 vs append-only（硬冲突）**：我们的 `splitOversizedParagraphs`（3000 字符阈值，2026-08-20 C-F1）与 `TABLE_AFTER_TEXT_REGEX`（表格前补空行）都是**事后改写已流出前缀**的归一化；而 `append()` 只能追加、不能改写已 append 的前缀。段落流式中途越过 3000 字符阈值时，纯 append 路径无法补空行化 → 129K 单段 worst case 在流中途回潮。试点需设计「越界时 reset+rebuild 状态」或「流中不切片、完结时一次归一化重建」。
+2. **blockRange LazyItem 切片与单状态渲染（范围问题）**：fling 巨帧修复依赖把顶层块区间切成 LazyItem（`blockRange`/`blockAnchor` #246）；`StreamingMarkdownState` 是单 `Markdown()` 单文档渲染，README 未提供区间切片 API。试点需核实其状态对象是否暴露解析树以供我们继续做 chunk plan，否则只适用于中短消息的流式阶段。
+
+**修正后的 P1 范围**：仅替换流式阶段的「增量解析状态」（`snapshotFlow+conflate` 路径 → 库状态）；`normalizeForRender`、`blockRange`/`blockAnchor` 切片、非流式 `rememberAsyncMarkdownState` fallback 全部保留。验收新增：超长段落（>3000 字符）流中滚动性能对照。
+
 ## 附录 A · 数据采集记录（2026-08-30）
 
 - GitHub API（repos/search/releases/issues）：mikepenz/multiplatform-markdown-renderer ⭐1053 pushed 2026-08-28；ktorio/ktor ⭐14504 pushed 2026-08-29；Taewan-P/gpt_mobile ⭐1210 pushed 2026-08-27；AAswordman/Operit ⭐7378 pushed 2026-08-28；skydoves/chatgpt-android ⭐3869 pushed 2026-01-03；GetStream/gemini-android ⭐387 pushed 2026-07-09；mhss1/MyBrain ⭐2197 pushed 2026-08-20；GetStream/stream-chat-android-ai ⭐25 pushed 2026-08-18；GetStream/stream-chat-android ⭐1661 pushed 2026-08-28；halilibo/compose-richtext → 404；noties/Markwon pushed 2024-04-17。

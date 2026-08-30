@@ -8,7 +8,7 @@
 
 - [ ] **#265 流式 turn 渲染试点 StreamingMarkdownState——mikepenz 0.42+ 官方增量解析 API** `sse` `ui`
   - 背景（2026-08-30 调研 §Q2）：官方 API 与自研 MarkdownChunking 同思路（append-only，只重解析不稳定尾部），0.45.0 classpath AAR 类级实证已在；README §Streaming 为官方姿势
-  - 方案：流式 turn 切 rememberStreamingMarkdownState()+append()（历史消息不动），A/B 对照防闪烁铁律与高度补偿交互 → docs/research/2026-08-30-ai-streaming-render-landscape.md
+  - 方案：先核两处管线耦合（追溯归一化 splitOversizedParagraphs/TABLE_AFTER_TEXT_REGEX vs append-only 硬冲突；blockRange 切片需状态对象可暴露解析树），通过后流式 turn 切 rememberStreamingMarkdownState()+append()（历史消息/归一化/切片不动），A/B 对照铁律+高度补偿+超长段落流中滚动 → docs/research/2026-08-30-ai-streaming-render-landscape.md §补充
 
 - [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
   - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
