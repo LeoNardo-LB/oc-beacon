@@ -66,10 +66,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#270 返回动画回退：navigation 2.10 + targetSdk36 预测性返回接管转场——已 opt-out 恢复 fade，待验收** `ui`
-  - 用户报：依赖升级后返回 = 整页缩小+生硬消失，替代 NavGraph 自定义 fade（L228-231）。根因：targetSdk 36 默认开启 predictive back + 批次1 navigation 2.9.8→2.10.0 支持其驱动 pop 转场
-  - 修复：manifest 显式 `enableOnBackInvokedCallback="false"` 恢复 fade；后续如要拥抱预测性返回（seekable 自定义转场）另立卡
-  - → `docs/journal/2026-08-30-backlog-triage-closure.md` §八轮
 
 - [ ] **#269 DSH 接入实现：探针测试先行（P-1..P-4）+ 按差距矩阵拆需求** `infra`
   - 前置调研已完成（#268 关单 → `docs/research/2026-08-30-dsh-integration-feasibility.md`）：接入可行；JSON-RPC 信封+双 WS；历史 fold 48 种 SessionEvent 为最大成本项

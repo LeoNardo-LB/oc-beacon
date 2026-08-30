@@ -1,6 +1,6 @@
 # backlog-triage-closure（2026-08-30）
 
-> 状态：进行中——#261/#263/#252 已关单；#270（返回动画回退）已修待验收
+> 状态：已完成（#264/#235/#252/#261/#263/#270 全部关单迁出；#269 立卡待开工）
 > 关联：/tmp/handoff-backlog-triage-20260830.md（上一会话对账 handoff，工作区外）· `docs/journal/2026-08-30-deps-upgrade-2026-08.md` §对账关闭（#235/#264 迁入地）· `docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md`（#268 关单轮）
 > 来源：用户指令「看看这个 handoff，能关闭的就先关闭，以免债务越积越多」
 
@@ -66,7 +66,7 @@
 - 用户报：依赖升级后返回动画 = 整页缩小 + 生硬消失，替代 app 自定义 fade（NavGraph L228-231 popExitTransition）
 - 根因：批次1 把 navigation-compose 2.9.8 → **2.10.0**（支持 predictive back 驱动 pop 转场）+ targetSdk 36 下 predictive back 默认开启（manifest 未显式声明 flag）→ 系统接管返回转场，自定义 fade 被整页缩小动画替换、收尾生硬
 - 修复：AndroidManifest 显式 `android:enableOnBackInvokedCallback="false"`——恢复自定义 fade。后续若要拥抱预测性返回（seekable 自定义转场随手势进度），另立卡
-- 证据：构建+装机（本批次）；待用户验收 fade 恢复
+- 证据：构建+装机（本批次）；**用户验收通过（2026-08-30「ok」）**——fade 恢复，卡片迁出。拥抱预测性返回的正式实现（seekable 自定义转场）未来如需另立卡
 
 ## 遗留（本批次不做）
 
