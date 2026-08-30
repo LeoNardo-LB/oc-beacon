@@ -32,6 +32,21 @@
 - assembleDevDebug ✅（44s）· e69a99d8 `adb install -r` Success ✅ · debug-entry：ext-71e988cc → server 617b2c29 激活，直达 SessionList ✅ · logcat 400 行 FATAL/AndroidRuntime 扫描**零命中** ✅
 - 注：MDPilot 增长曲线日志需真实流式 turn 触发——由用户 A/B 会话顺带产出（清单第 1 项）
 
+## 四轮 · 端到端实测（2026-08-30 11:02-11:35，uiautomator+logcat+服务器 API 三方取证）
+
+**驱动方式**：真机 UI 驱动（type.sh 打字/坐标点按/截图）+ logcat MDPilot 曲线 + gfxinfo 帧统计 + `/api/session` 服务器原始文本对照 + Room DB 拉库取证。
+
+### E2E-1（pilot 开）：增长曲线 ✅ + 发现真 bug
+
+- 25 次 append，4.3s 流完 2811 字符；**stable 单调 3→6→9→12、tail 恒 1**——spec 实施期待验证问题 1 的答案：解析器稳定块按块毕业、不稳定尾恒为当前开放块
+- **发现结尾句渲染 ×2**（服务器原始仅 ×1）：三方归因（截图/DB 拉库/服务器 API）锁定重复发生在 app 数据层——完结全量替换（partId 换代为服务端序）之后，48ms 批缓冲滞留的尾 delta（116 字）才 flush，`MessageMergeEngine.applyDelta` 走 idx<0 兜底**新建 part**→ 尾句 ×2（DB 的 116 字 text 行 + 1 字 reasoning 行即其落盘证据）
+- A/B 判定：legacy 关闭版同场景渲染尾句 ×1——**排除试点引入，但当时样本各 1**；后续以代码定性（applyDelta else 分支无内容守卫，与渲染路径无关，理论两条路径均暴露，属时序运气）
+
+### E2E-2（修复后 pilot 开）：验证通过 ✅
+
+- 修复（d964e1a9）：applyDelta else 分支增设**过期 delta 守卫**——同 kind 既有 part 全文已包含该 delta → 丢弃；#223 真重建场景（内容从未到达）不受影响。单测 3 新增（text 丢弃/reasoning 丢弃/#223 保留），全量 2162 唯一红仍 #261
+- 真机复测：新提示词（deserts 文档）流式 25 append（stable 单调、tail=1）、完结渲染尾句 "stars hang closer than anywhere else on Earth." **×1 与服务器原始逐字一致**、0 FATAL
+
 ## V6 用户 A/B 验证清单（P1，交付）
 
 对照方式：dev flavor 开关即 A/B——如需对照旧路径，把 dev 的 STREAMING_MD_PILOT 置 false 重装一版即可。
