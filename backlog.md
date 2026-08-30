@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#269**。
+**编号**：全局递增，不回收。下一编号：**#270**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -66,33 +66,25 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#268 适配 DSH（DeepSeek Harness）：原生接入调研（全功能差距分析）** `infra`
-  - 用户裁决（2026-08-30）：原生接入（非 WebView）；ServerConfig 增服务器类型 opencodeV1/opencodeV2/dsh（暂定），底层各自实现、对上层透明；**不分期**——先对 oc-beacon 既有功能全面盘点，再对照 DSH 接口面出系统性差距分析
-  - 安全控制：DSH 特权 RPC 钉死 loopback（LAN 403），客户端无解，出路=非特权子集或宿主机 DSH 插件；crypto.randomUUID 系浏览器侧问题，原生接入不涉及
-  - → `docs/research/2026-08-30-dsh-integration-feasibility.md`（调研产出，生成中）· 背景：/tmp/dsh-handoff-crypto-polyfill-20260830.md
+- [ ] **#269 DSH 接入实现：探针测试先行（P-1..P-4）+ 按差距矩阵拆需求** `infra`
+  - 前置调研已完成（#268 关单 → `docs/research/2026-08-30-dsh-integration-feasibility.md`）：接入可行；JSON-RPC 信封+双 WS；历史 fold 48 种 SessionEvent 为最大成本项
+  - 第一步探针：P-1 adb reverse 下栅栏 2/4 行为（特权面是否天然可用）· P-2 WS 重连/keepalive · P-3 trustedHosts 配置键 · P-4 session.history fold 试样
+  - 探针结论出来后按差距矩阵拆实现需求卡；服务器类型抽象（opencodeV1/opencodeV2/dsh）结构级先行
 
-- [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
-  - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
-  - 方向：确认无传递测试依赖后移除；见 docs/journal/2026-08-30-deps-upgrade-2026-08.md §顺带发现
-
-- [ ] **#261 ChunkReproTest 依赖 /tmp/giant.md 环境夹具——缺夹具即红** `test` `refactor`
-  - 现象（2026-08-30 全量单测）：ChunkReproTest.repro FileNotFoundException——/tmp/giant.md 为一次性调试夹具，未入库未生成
-  - 方向：夹具入库（src/test/resources）或测试内自造内容；避免无辜全量单测报红
+- [~] **#261 ChunkReproTest 环境夹具——已改测试内自造巨文档，待验收** `test` `refactor`
+  - 修复（2026-08-30）：测试内自造 ~90KB 结构化文档（含「索引下推」标记节），移除 /tmp/giant.md 外部依赖，新增「分块计划非空」断言；全量单测 --rerun 0 红
+  - 待验证：用户对「全量单测不再无辜报红」一句话验收
+  - → `docs/journal/2026-08-30-backlog-triage-closure.md`
 
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
   - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
   - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
 
-- [ ] **#263 思考卡时长异常「29800753m 45s」——计时锚点 0 哨兵未防** `ui` `data`
-  - 现象（2026-08-30 用户报）：已完成思考卡显示巨长时长；29800753m≈1.788e9s≈当下 Unix 秒 → effectiveStart≈0，`startTimeMs ?: fallbackStart` 对 **0 哨兵**不回退（0 非 null），疑似上游 part time 缺失/解析落 0；次候选 #207 rememberSaveable 锚点跨场景陈旧
-  - 方向：调用方将 0/负值按缺失处理回落 fallback；fallback 锚点加合理性界后才采信
-  - → `ReasoningBlock.kt:60-86`
-
-- [ ] **#235 Compose 稳定矩阵维持——beta 全家稳定后解除** `deps`
-  - 2026-08-27 完整定因（0775582d）：material3 1.5.0-alpha26 经原子组约束拉 **整组** Compose（runtime/ui/ui-text/animation）到 1.12.0-beta01——08-20 丝滑基线自此未运行过；alpha26 的 Surface/FAB 还调 ui 1.12 独有 graphicsLayer 签名（LayerOutsets），与稳定 ui 二进制冲突（滚动 FAB 重组即 NoSuchMethodError）
-  - 现状：material3 回 BOM 1.4.0 + eachDependency 四组（ui/runtime/foundation/animation）对齐 1.11.2；FAB 菜单已稳定 API 复刻（ChatFabMenu.kt，morph 动画简化）
-  - 解除条件：material3 稳定版收录 FloatingActionButtonMenu/ToggleFloatingActionButton **且** compose 1.12 全家稳定发布 → 先解除 eachDependency 试跑真机（重点：流式滚动手感 + FAB 全功能），通过后删收敛块
+- [~] **#263 思考卡时长异常「29800753m 45s」——start=0 哨兵已守卫，待验收** `ui` `data`
+  - 真实根因勘误（triage 定位）：守卫点不在 ReasoningBlock.kt（其对 null 回退正确）而在 PartContent.kt L122-124 `end - t.start` 未防 start=0 哨兵 → 差值≈当下 Unix 毫秒
+  - 修复（2026-08-30）：提取纯函数 reasoningDurationMs（start<=0 → null，显示走既有 startTimeMs 降级链）+ ReasoningDurationTest 4 例锁定；全量单测 --rerun 0 红
+  - 待验证：用户真机确认已完成思考卡时长正常 → `docs/journal/2026-08-30-backlog-triage-closure.md`
 
 ## P3 — 观察与低价值改进
 
