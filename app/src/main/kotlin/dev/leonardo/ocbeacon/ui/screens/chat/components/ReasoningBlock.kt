@@ -187,6 +187,8 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 // AnimatedVisibility 出厂默认动画——spring + fade + 默认揭幕方向）
                 androidx.compose.animation.AnimatedVisibility(
                     visible = expanded,
+                    enter = CardExpandEnterTransition,
+                    exit = CardExpandExitTransition,
                 ) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))

@@ -379,6 +379,8 @@ internal fun MessageCardAssistant(
                                 androidx.compose.animation.AnimatedVisibility(
                                     visible = qEntered && pendingQuestion != null &&
                                         item.group.part.id == effectiveAnchorId,
+                                    enter = CardExpandEnterTransition,
+                                    exit = CardExpandExitTransition,
                                 ) {
                                     val avQuestion = pendingQuestion ?: lastQuestion
                                     if (avQuestion != null &&

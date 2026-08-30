@@ -27,6 +27,8 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandEnterTransition
+import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandExitTransition
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -214,9 +216,11 @@ internal fun ToolCardScaffold(
                 }
             }
 
-            // 展开的内容（2026-08-30 用户裁决：撤销展开补偿，回归 AV 出厂默认）
+            // 展开的内容（2026-08-30 用户裁决：统一顶边垂直揭幕，见 CardExpandTransitions.kt）
             AnimatedVisibility(
                 visible = expanded && hasContent,
+                enter = CardExpandEnterTransition,
+                exit = CardExpandExitTransition,
             ) {
                 expandedContent()
             }

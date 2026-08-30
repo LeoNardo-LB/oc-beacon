@@ -30,3 +30,10 @@
 - **验证**：compileDevDebugKotlin 绿；components 156 测试 155 绿（唯一红 = ChunkReproTest #261 环境夹具，既有登记）；assembleDevDebug + 真机 install -r 成功；debug-entry 冷启 SessionList 干净（无 FATAL、ExpandReveal/EV-REVEAL log 痕迹清零）。
 - **回归接受项（用户终态确认）**：mid-list 展开标签行被顶起、贴底展开上方内容上推、spring 从容时长（~0.5s）+ fade + 默认揭幕方向——均为原生语义。
 - **backlog #262 处置**：方向整体放弃，卡片迁出（本 journal 即归档处）。
+
+## 三轮（2026-08-30）：统一顶边垂直揭幕
+
+- **用户观察**：裸默认下思考卡读作「从左到右」、Read/Edit 工具卡读作「从上到下」。
+- **源码级定因**（animation 1.11.2 EnterExitTransition.kt:1248-1286）：AV 出厂默认 = spring(IntSize) 同分数驱动宽高 + **BottomEnd 锚点**（内容对角滑入 + 右下角揭幕）+ fade；感知方向由内容宽高比决定——RB 体 240dp 上限（宽扁）→ 水平主导；工具卡 halfScreenHeight 上限（长条）→ 垂直主导。无 reflow（单次全约束测量）、无 lookahead 路径。
+- **裁决（用户「可以 统一一下吧」）**：fadeIn() + expandVertically(expandFrom = Top) / shrinkVertically(shrinkTowards = Top) + fadeOut()——spring/淡入淡出保持出厂值，仅锚点钉顶边纯垂直；共享定义 components/CardExpandTransitions.kt（调参只改一处），八处调用接线：ToolCardScaffold（12 工具卡）、ReasoningBlock、EventCard、CompactionCard、QuestionPartContent、MessageCardAssistant(QC)、TodoListCard、GlobToolCard(内层)。
+- **验证**：编译绿；components 156 测试 155 绿（唯一红 = #261 环境夹具）；assemble + 真机 install -r + 冷启干净。
