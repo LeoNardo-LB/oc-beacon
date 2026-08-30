@@ -177,13 +177,13 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
 
     // Compose
-    val composeBom = platform("androidx.compose:compose-bom:2026.05.01")
+    val composeBom = platform("androidx.compose:compose-bom:2026.08.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     // 2026-08-27 回退 BOM 稳定版 1.4.0：1.5.0-alpha26 按 ui 1.12-beta 编译，
     // 其 Surface/FAB 调用 ui 1.12 才有的 graphicsLayer 新签名（带 LayerOutsets）——
-    // 与下方稳定组强制（ui/foundation 1.11.2）二进制冲突，滚动到底 FAB 重组即
+    // 与当时的稳定组强制（ui/foundation 1.11.2，2026-08-30 已随 BOM 2026.08.00 撤销）二进制冲突，滚动到底 FAB 重组即
     // NoSuchMethodError 崩溃（真机实证）。FAB 菜单改稳定 API 自绘（ChatFabMenu.kt）。
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
@@ -278,32 +278,12 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = 1
 }
 
-// 2026-08-30 撤销 kotlin-metadata-jvm 2.4.0 force：编译器已升 Kotlin 2.4.10，
-// 元数据自然解析到 2.4.10，保留旧 force 反而会把 Hilt 的元数据读取降级回 2.4.0。
-configurations.all {
-    resolutionStrategy {
-        // 2026-08-26（晚）残余卡顿收口：material3 1.5.0-alpha26 经原子组约束
-        // （"ui is in atomic group androidx.compose.ui"）把整个 Compose 家族——
-        // runtime/ui/ui-text/animation 等——全部拉到 1.12.0-beta01。
-        // 三个历史矩阵：08-20 丝滑基线 = 全家稳定 1.11.x（BOM 2026.05.01）；
-        // 08-22 起全 beta（FATAL 契约违规 + 卡顿）；ac12cf93 仅强回 foundation
-        // = 「foundation 1.11.2 + 其余 1.12-beta」从未存在过的混搭（卡顿仍在，
-        // 且 ui-text 文本测量引擎——SSE 流式重排热路径——仍跑 beta）。
-        // 修复：ui/runtime/foundation/animation 四组全部对齐 1.11.2，完整恢复
-        // 丝滑时代的一致矩阵。material3 本体保留 alpha26（HorizontalFloatingToolbar
-        // 唯一来源），其对稳定组的二进制兼容由编译 + 真机 E2E 验证把关。
-        eachDependency {
-            val g = requested.group
-            val isComposeCore = (
-                g == "androidx.compose.ui" || g.startsWith("androidx.compose.ui.") ||
-                    g == "androidx.compose.runtime" || g.startsWith("androidx.compose.runtime.") ||
-                    g == "androidx.compose.foundation" || g.startsWith("androidx.compose.foundation.") ||
-                    g == "androidx.compose.animation" || g.startsWith("androidx.compose.animation.")
-                )
-            if (isComposeCore) {
-                useVersion("1.11.2")
-            }
-        }
-    }
-}
+// 依赖解析强制策略史（现无任何 force，留档决策链）：
+// - kotlin-metadata-jvm 2.4.0 force（Hilt 读 Mikepenz 0.43.0 的 Kotlin 2.4 字节码）：
+//   2026-08-30 随 Kotlin 2.4.10 升级撤销，元数据自然解析 2.4.10。
+// - Compose core 1.11.2 force：2026-08-26 卡顿收口引入（material3 1.5.0-alpha26
+//   曾把原子组全家拉到 1.12.0-beta01——FATAL 契约违规 + 滚动卡顿，详见
+//   docs/journal/2026-08-26 滚动卡顿收口批次）。2026-08-30 随 BOM 2026.08.00
+//   （core 全家 1.12.0 稳定、material3 仍 1.4.0）撤销，矩阵一致性由 BOM 单源保证，
+//   丝滑基线回归以真机 fling 矩阵 + 用户 V6 验证把关。
 
