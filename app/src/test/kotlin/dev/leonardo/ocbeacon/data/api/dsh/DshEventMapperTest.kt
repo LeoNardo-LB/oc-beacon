@@ -431,6 +431,34 @@ class DshEventMapperTest {
         ) // DSH 无优先级字段 → "medium"（V1 MiscEventParser 同默认）
     }
 
+    /**
+     * #276 后端接口补全：compaction/end → SessionCompacted（压缩完成信号——
+     * SessionEventHandler.compactedSessions 计数 → ChatViewModel 刷新 + 完成
+     * snackbar 依赖此事件；对位 V2 session.compaction.ended 的映射先例）。
+     */
+    @Test
+    fun `compaction end maps to SessionCompacted`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("compaction/end", """{"turn":3,"summarySeq":42}"""),
+        )
+        assertEquals(
+            listOf(DshMappedEvent.Sse(SseEvent.SessionCompacted(sessionId = "s9"))),
+            mapped,
+        )
+    }
+
+    /** 实况帧路径（fixture 黄金样本）：session/event 包 compaction/end 同映射。 */
+    @Test
+    fun `compaction end frame maps to SessionCompacted`() {
+        val m = mappedFrames("dsh/mux-frames-extra.jsonl")[12] // 黄金样本行 13
+        assertEquals("session/event", m.method)
+        assertEquals(
+            listOf(DshMappedEvent.Sse(SseEvent.SessionCompacted(sessionId = "fixture-0001"))),
+            m.mapped,
+        )
+    }
+
     @Test
     fun `session title maps to SessionUpdated with title`() {
         val mapped = DshEventMapper.mapSessionEvent(
@@ -449,7 +477,6 @@ class DshEventMapperTest {
     fun `tier2 catalog types are ignored with named reasons`() {
         val cases = mapOf(
             "compaction/start" to DshIgnoreReason.COMPACTION,
-            "compaction/end" to DshIgnoreReason.COMPACTION,
             "compaction/summary" to DshIgnoreReason.COMPACTION,
             "compaction/prune" to DshIgnoreReason.COMPACTION,
             "goal/change" to DshIgnoreReason.GOAL_CHANGE,

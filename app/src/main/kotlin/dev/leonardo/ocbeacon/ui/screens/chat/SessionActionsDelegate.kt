@@ -73,6 +73,9 @@ internal class SessionActionsDelegate(
     /** #217：V1 本地压缩态注入（ChatViewModel 接 EventDispatcher →
      *  SessionNextEventHandler.compactionState 单一数据源）；V2 永不调用。 */
     private val compactionLocalState: (sessionId: String, started: Boolean) -> Unit = { _, _ -> },
+    /** #276 后端接口补全：shell 命令域能力位——false（DSH）时 [runShellCommand]
+     *  直接短路失败（不发请求——DshApiClient 该域抛 UnsupportedServerCapability）。 */
+    private val shellCommandSupportedProvider: () -> Boolean = { true },
 
 ) {
     private val sessionId: String get() = sessionIdProvider()
@@ -678,6 +681,14 @@ internal class SessionActionsDelegate(
     fun runShellCommand(command: String, onResult: (Boolean) -> Unit) {
         val trimmed = command.trim()
         if (trimmed.isBlank()) {
+            onResult(false)
+            return
+        }
+        // #276 能力位短路：DSH 无 shell 域（DshApiClient 抛 UnsupportedServer
+        // Capability）——UI 入口已按 shellCommandSupported 隐藏，此处兜底残留
+        // 路径（如切换服务器后 isShellMode 态残留）：不发请求直接失败。
+        if (!shellCommandSupportedProvider()) {
+            AppLogger.w(TAG, "runShellCommand skipped: shell command not supported by server")
             onResult(false)
             return
         }

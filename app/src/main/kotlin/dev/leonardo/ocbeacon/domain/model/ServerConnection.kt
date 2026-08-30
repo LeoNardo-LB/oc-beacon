@@ -7,15 +7,21 @@ import java.util.Base64
  * 不读版本。null 版本（未知/未加载）→ 全能力开放（与原 `version != X` 比较的
  * permissive 语义一致）。
  *
- * #276 步骤②（设计 §2.2）：扩为 of(serverType, apiVersion)——DSH 分支现有五个
+ * #276 步骤②（设计 §2.2）：扩为 of(serverType, apiVersion)——DSH 分支五个初始
  * 能力位全置 false（share/todo 面缺失、background/active 域缺失、settings 特权
- * 面 UI 不开放、compaction 域缺失）；UI 入口按能力位隐藏，不写服务器类型特判。
+ * 面 UI 不开放）；UI 入口按能力位隐藏，不写服务器类型特判。compactionAsync 例外
+ * （#276 接口补全后为 true，见字段注释）。
  *
  * #276 UI 卡（2026-08-31 缺口清单补位）：新增六位覆盖原「无对应位」入口——
  * terminal/fileRead/sessionDelete/vcs/fileSearch/commands。OpenCode V1/V2/UNKNOWN
  * 全 true（两代端点均存在，null 版本 permissive 语义与原五位一致）；DSH 全 false
  * （§2.6 终局确认：PTY/shell 域缺失、文件内容读无方法、无 session.delete、
  * vcs 无对应、find 无对应、command 执行无对应）。
+ *
+ * #276 后端接口补全（2026-08-31 第二批）：三位（revert/messageDelete/shell
+ * Command）——DSH 52 方法面终局无 revert/unrevert（撤销/重做链路整体缺失）、
+ * 无消息删除、无 shell 命令域 → 全 false；OpenCode V1/V2 均有对应端点 → 全 true。
+ * UI 撤销/重做/消息长按撤销入口与 shell 命令栏按位隐藏。
  */
 data class ServerCapabilities(
     /** 会话分享（V2 无 share 端点；DSH 无 share 域）。 */
@@ -31,7 +37,9 @@ data class ServerCapabilities(
      * 进行中/终态由 SSE compaction.started/delta/ended 驱动；V1 summarize HTTP
      * 同步挂起至完成、SSE 只有单个 compacted 完成事件——HTTP 返回即终态。
      * null 版本（未知/未加载）按 V1 语义（保守：HTTP 返回即终态）。
-     * DSH：compaction 事件族存在但无 HTTP 端点 → false。
+     * DSH（#276 接口补全修订）：compact 走 /compact 命令通道——HTTP 受理即回，
+     * 完成由 compaction/end → SessionCompacted 事件通告 = 异步语义 true
+     *（旧 false 按 V1 路径本地置态又秒杀，59ms 分割线闪现 bug 同款）。
      */
     val compactionAsync: Boolean,
     /** 终端 PTY 入口（DSH 无 PTY 域，§2.6 终局确认；OpenCode V1/V2 均有 /pty）。 */
@@ -46,6 +54,12 @@ data class ServerCapabilities(
     val fileSearchSupported: Boolean,
     /** 斜杠命令面板（DSH 无 command 执行端点；listCommands 已空列表降级）。 */
     val commandsSupported: Boolean,
+    /** 撤销/重做（revert/unrevert；DSH 52 方法面无对应——撤回入口按位隐藏）。 */
+    val revertSupported: Boolean,
+    /** 消息删除（DELETE message 端点；DSH 无对应——当前无 UI 入口，防御位）。 */
+    val messageDeleteSupported: Boolean,
+    /** shell 命令（session.shell 域；DSH 无对应——shell 命令栏与 ！ 前缀通道按位隐藏）。 */
+    val shellCommandSupported: Boolean,
 ) {
     companion object {
         /**
@@ -59,13 +73,16 @@ data class ServerCapabilities(
                     backgroundSessionsSupported = false,
                     runningSessionsFilterSupported = false,
                     configEditable = false,
-                    compactionAsync = false,
+                    compactionAsync = true,
                     terminalSupported = false,
                     fileReadSupported = false,
                     sessionDeleteSupported = false,
                     vcsSupported = false,
                     fileSearchSupported = false,
                     commandsSupported = false,
+                    revertSupported = false,
+                    messageDeleteSupported = false,
+                    shellCommandSupported = false,
                 )
                 ServerType.OpenCode -> ofOpenCode(apiVersion)
             }
@@ -86,6 +103,9 @@ data class ServerCapabilities(
                 vcsSupported = true,
                 fileSearchSupported = true,
                 commandsSupported = true,
+                revertSupported = true,
+                messageDeleteSupported = true,
+                shellCommandSupported = true,
             )
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
@@ -99,6 +119,9 @@ data class ServerCapabilities(
                 vcsSupported = true,
                 fileSearchSupported = true,
                 commandsSupported = true,
+                revertSupported = true,
+                messageDeleteSupported = true,
+                shellCommandSupported = true,
             )
         }
     }

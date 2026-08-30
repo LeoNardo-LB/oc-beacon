@@ -520,6 +520,10 @@ class ChatViewModel @Inject constructor(
         compactionAsyncProvider = {
             _serverCapabilities.value.compactionAsync
         },
+        // #276 后端接口补全：DSH 无 shell 域——runShellCommand 按能力位短路。
+        shellCommandSupportedProvider = {
+            _serverCapabilities.value.shellCommandSupported
+        },
         compactionLocalState = { sid, started ->
             val next = if (started) {
                 dev.leonardo.ocbeacon.domain.model.SessionNextEvent.CompactionStarted(sid, messageId = "", reason = "")

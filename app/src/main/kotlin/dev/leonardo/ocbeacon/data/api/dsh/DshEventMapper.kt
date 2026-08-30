@@ -261,7 +261,14 @@ object DshEventMapper {
             "session/title" -> mapSessionTitle(sessionId, time, data)
 
             // ---- Tier 2：会话元数据（具名忽略，#276/后续承接） ----
-            "compaction/start", "compaction/end", "compaction/summary", "compaction/prune" ->
+            // compaction/end → SessionCompacted（#276 后端接口补全）：压缩完成
+            // 信号——DSH compact 走 /compact 命令通道受理即回，完成只由本事件
+            // 通告；SessionEventHandler.compactedSessions 计数驱动 UI 刷新 +
+            // 完成 snackbar（对位 V2 session.compaction.ended 映射先例，刻意不
+            // 映射 SessionNext(CompactionEnded)——那类是本地幂等结束信号）。
+            "compaction/end" ->
+                listOf(DshMappedEvent.Sse(SseEvent.SessionCompacted(sessionId = sessionId)))
+            "compaction/start", "compaction/summary", "compaction/prune" ->
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
             "goal/change" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.GOAL_CHANGE))
             "subagent/descriptor" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.SUBAGENT_DESCRIPTOR))

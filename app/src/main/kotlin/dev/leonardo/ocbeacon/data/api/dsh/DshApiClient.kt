@@ -49,6 +49,10 @@ import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.logging.AppLogger
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -174,12 +178,23 @@ class DshApiClient @Inject constructor(
     override suspend fun unshareSession(conn: ServerConnection, sessionId: String): Session =
         getSession(conn, sessionId)
 
+    /**
+     * 压缩根治（#276 后端接口补全）：/compact 走斜杠命令通道（§1.6：prompt 单
+     * 文本块以 / 开头 = 服务端命令注册表执行，mode 无关、不进模型）——复用
+     * [promptAsync]（mode=queue）。受理成功即 true；压缩**完成**信号走事件：
+     * compaction/end → SseEvent.SessionCompacted（mapper）→ compactedSessions
+     * 计数 → ChatViewModel 刷新 + 完成 snackbar。[providerId]/[modelId] 对
+     * DSH 无效（命令通道无模型参数，调用方签名兼容保留）。
+     */
     override suspend fun compactSession(
         conn: ServerConnection,
         sessionId: String,
         providerId: String,
         modelId: String,
-    ): Boolean = false
+    ): Boolean {
+        promptAsync(conn, sessionId, listOf(PromptPart(type = "text", text = "/compact")))
+        return true
+    }
 
     override suspend fun revertSession(
         conn: ServerConnection,
@@ -300,12 +315,39 @@ class DshApiClient @Inject constructor(
         return rpc.call(conn, "session.history", payload) { it.toString() }.getOrElse { e -> throw e }
     }
 
+    /**
+     * 导出根治（#276 后端接口补全）：GET {base}/api/session.export?sessionId=
+     * 是 4 个非信封入口之一（§5 P-4）——响应体直接是会话日志 ZIP 流（无 RPC
+     * 信封、无 JSON）。Ktor GET + bodyAsChannel 逐块读出（readAvailable 循环，
+     * UpdateRepository 同款流式模式），copyTo(outputStream) + onProgress(累计
+     * 字节)。conn 无 auth 头（DSH 无鉴权）、Host 由 OkHttp 按 URL 自动生成
+     * （§1.6 P-1 栅栏只看 Host）。非 200 → IOException（导出失败通知依赖）。
+     */
     override suspend fun exportSessionToStream(
         conn: ServerConnection,
         sessionId: String,
         outputStream: java.io.OutputStream,
         onProgress: (Long) -> Unit,
-    ) = unsupported("session.export")
+    ) {
+        val response = rpc.http.get(conn.baseUrl.trimEnd('/') + "/api/session.export") {
+            parameter("sessionId", sessionId)
+        }
+        if (response.status.value != 200) {
+            throw java.io.IOException("session.export HTTP " + response.status.value)
+        }
+        var bytesWritten = 0L
+        val channel = response.bodyAsChannel()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            val read = channel.readAvailable(buffer)
+            if (read < 0) break
+            if (read == 0) continue
+            outputStream.write(buffer, 0, read)
+            bytesWritten += read
+            onProgress(bytesWritten)
+        }
+        outputStream.flush()
+    }
 
     override suspend fun getMessage(conn: ServerConnection, sessionId: String, messageId: String): MessageWithParts =
         listMessages(conn, sessionId).messages.firstOrNull { it.info.id == messageId }

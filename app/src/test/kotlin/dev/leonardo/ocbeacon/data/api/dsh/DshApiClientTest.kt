@@ -13,6 +13,7 @@ import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -101,7 +102,6 @@ class DshApiClientTest {
     @Test
     fun `session degradations follow v1 constant precedent`() = runTest {
         val api = client(MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) })
-        assertFalse(api.compactSession(conn, "s", "p", "m"))
         assertFalse(api.backgroundSession(conn, "s"))
         assertTrue(api.activeSessions(conn).isEmpty())
         assertTrue(api.getSessionTodos(conn, "s").isEmpty())
@@ -150,6 +150,74 @@ class DshApiClientTest {
         assertTrue(content.contains("hello"))
         // E2E 回归（2026-08-31）：mode 必填，缺席被服务端整单拒绝（zod expected queue|steer）
         assertEquals("queue", payload["mode"]!!.jsonPrimitive.content)
+    }
+
+    /**
+     * #276 后端接口补全：compact 根治——/compact 走斜杠命令通道（§1.6：prompt
+     * 单文本块以 / 开头 = 服务端命令注册表执行，不进模型），受理成功即 true
+     * （压缩完成信号走 compaction/end → SessionCompacted 事件）。providerId/
+     * modelId 对 DSH 无效（命令通道无模型参数）。
+     */
+    @Test
+    fun `compactSession sends compact slash command via session prompt`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(client(engine).compactSession(conn, "s-1", "ignored-provider", "ignored-model"))
+        val req = captureRequests(engine).single()
+        assertEquals("/api/session.prompt", req.url.encodedPath)
+        val payload = json.parseToJsonElement(bodyTextOf(req)).jsonObject["payload"]!!.jsonObject
+        assertEquals("s-1", payload["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("queue", payload["mode"]!!.jsonPrimitive.content)
+        val content = payload["content"]!!.jsonArray
+        assertEquals(1, content.size)
+        assertEquals("text", content[0].jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals("/compact", content[0].jsonObject["text"]!!.jsonPrimitive.content)
+    }
+
+    /** 命令被服务端拒绝（如 unknown-command）→ 异常上抛（repository 层收编为失败）。 */
+    @Test
+    fun `compactSession propagates command rejection`() = runTest {
+        val engine = MockEngine {
+            respond(
+                """{"type":"server-response","rpcId":"r","result":{"ok":false,"error":{"code":"unknown-command","message":"no such command"}}}""",
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val outcome = runCatching { client(engine).compactSession(conn, "s-1", "p", "m") }
+        assertTrue(outcome.isFailure)
+        assertEquals("unknown-command", (outcome.exceptionOrNull() as DshApiError).code?.wire)
+    }
+
+    /**
+     * #276 后端接口补全：导出根治——GET /api/session.export?sessionId=（非信封
+     * 入口，直接 zip 流）逐块写出 + onProgress 累计字节；conn 无 auth 头。
+     */
+    @Test
+    fun `exportSessionToStream streams zip bytes with progress`() = runTest {
+        val zipBytes = byteArrayOf(0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4, 5, 0x50, 0x4b, 0x05, 0x06)
+        val engine = MockEngine {
+            respond(zipBytes, HttpStatusCode.OK, headersOf("Content-Type" to listOf("application/zip")))
+        }
+        val output = java.io.ByteArrayOutputStream()
+        val progresses = mutableListOf<Long>()
+        client(engine).exportSessionToStream(conn, "s-1", output) { progresses.add(it) }
+        org.junit.Assert.assertArrayEquals(zipBytes, output.toByteArray())
+        assertEquals(zipBytes.size.toLong(), progresses.last()) // 累计字节终值 = 全量
+        assertTrue(progresses.zipWithNext().all { (a, b) -> b >= a }) // 单调不减
+        val req = captureRequests(engine).single()
+        assertEquals("/api/session.export", req.url.encodedPath)
+        assertEquals("s-1", req.url.parameters["sessionId"])
+        assertNull(req.headers["Authorization"]) // DSH 无鉴权——不带 auth 头
+    }
+
+    /** HTTP 非 200（搬运层错误）→ 抛 IOException（导出失败通知依赖异常路径）。 */
+    @Test
+    fun `exportSessionToStream fails on http error`() = runTest {
+        val engine = MockEngine { respond("no session", HttpStatusCode.NotFound) }
+        val outcome = runCatching {
+            client(engine).exportSessionToStream(conn, "missing", java.io.ByteArrayOutputStream()) {}
+        }
+        assertTrue(outcome.isFailure)
+        assertTrue(outcome.exceptionOrNull() is java.io.IOException)
     }
 
     @Test

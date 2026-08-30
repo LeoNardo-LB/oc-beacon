@@ -88,6 +88,12 @@ internal fun ChatScreenBottomBar(
     // #276 能力位门控：DSH 无 command 执行端点——斜杠命令面板与 /cmd 发送拦截均停用
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
     val slashCommandsSupported = serverCapabilities.commandsSupported
+    // #276 后端接口补全：DSH 无 shell 域——shell 模式入口（！ 前缀自动切换/
+    //   长按切换/面板 shell 项）与 shell 发送全部停用，！ 前缀按普通消息发送。
+    val shellCommandSupported = serverCapabilities.shellCommandSupported
+    // #276 后端接口补全：DSH 无 revert/unrevert——undo/redo 停用（消息长按撤销
+    //   入口在 ChatMessageList 同位门控）。
+    val revertSupported = serverCapabilities.revertSupported
 
     // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist 到
     // 组合层 stringResource（lambda 内不可调用 @Composable）；带参格式串 hoist
@@ -131,7 +137,8 @@ internal fun ChatScreenBottomBar(
                     // 下「!」会偶发落成全角「！」（真机条带 exit 127 实证），检测同时
                     // 接受两种形态（drop(1) 对两者均剥单字符）。
                     val trimmed = newValue.text.trimStart()
-                    val shouldAutoShell = !isShellMode &&
+                    // #276：! 前缀自动切 shell 仅在 shell 域可用时；DSH 下按普通文本
+                    val shouldAutoShell = shellCommandSupported && !isShellMode &&
                         (trimmed.startsWith("!") || trimmed.startsWith("！"))
                     val normalizedValue = if (shouldAutoShell) {
                         val stripped = trimmed.drop(1).trimStart()
@@ -183,9 +190,12 @@ internal fun ChatScreenBottomBar(
                         // #253 后续加固：发送侧兜底同样容许前导空白与全角「！」
                         // （与检测侧同语义）。
                         val trimmedRaw = rawText.trimStart()
+                        // #276：！ 前缀仅在 shell 域可用时视为 shell 命令；DSH 下
+                        // 按普通消息发送（不进 runShellCommand——能力位外再兜底）。
                         val shellCommand = when {
                             isShellMode -> trimmedRaw
-                            trimmedRaw.startsWith("!") || trimmedRaw.startsWith("！") ->
+                            shellCommandSupported &&
+                                (trimmedRaw.startsWith("!") || trimmedRaw.startsWith("！")) ->
                                 trimmedRaw.drop(1).trimStart()
                             else -> null
                         }
@@ -272,6 +282,9 @@ internal fun ChatScreenBottomBar(
                 },
                 inputMode = if (isShellMode) ChatInputMode.SHELL else ChatInputMode.NORMAL,
                 onInputModeChange = {
+                    // #276：SHELL 模式入口能力位门控——发送钮长按切换在 DSH 下
+                    // 无效（shell 域缺失），保持 NORMAL。
+                    if (it == ChatInputMode.SHELL && !shellCommandSupported) return@ChatInputBar
                     onInputModeChange(it.name)
                     if (it == ChatInputMode.SHELL) {
                         viewModel.composer.clearFileSearch()
@@ -382,21 +395,27 @@ internal fun ChatScreenBottomBar(
                                 }
                             }
                         }
+                        // #276：undo/redo 按 revertSupported 门控（DSH 无 revert
+                        // 域；面板本身已按 commandsSupported 隐藏，此为防御性短路）
                         "undo" -> {
-                            viewModel.undoMessage { ok ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        if (ok) messageUndoneMsg else messageUndoFailedMsg
-                                    )
+                            if (revertSupported) {
+                                viewModel.undoMessage { ok ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (ok) messageUndoneMsg else messageUndoFailedMsg
+                                        )
+                                    }
                                 }
                             }
                         }
                         "redo" -> {
-                            viewModel.redoMessage { ok ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        if (ok) messageRedoneMsg else messageRedoFailedMsg
-                                    )
+                            if (revertSupported) {
+                                viewModel.redoMessage { ok ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (ok) messageRedoneMsg else messageRedoFailedMsg
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -404,7 +423,10 @@ internal fun ChatScreenBottomBar(
                             onShowRenameDialog()
                         }
                         "shell" -> {
-                            onInputModeChange(ChatInputMode.SHELL.name)
+                            // #276：shell 模式入口按 shellCommandSupported 门控
+                            if (shellCommandSupported) {
+                                onInputModeChange(ChatInputMode.SHELL.name)
+                            }
                         }
                         "review" -> {
                             onForceScroll()

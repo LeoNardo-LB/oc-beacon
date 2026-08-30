@@ -69,6 +69,9 @@ class DshRpcClient @Inject constructor(
         return exchange(conn, "respond", envelope).map { Unit }
     }
 
+    /** 非信封入口共用传输（#276：session.export zip 流直下）——同一 OkHttp engine 配置。 */
+    internal val http: io.ktor.client.HttpClient get() = apiClient.httpClient
+
     // ---- 内部：传输 + 信封 + 业务错误分支统一收口 ------------------------
 
     private suspend fun exchange(conn: ServerConnection, method: String, envelope: DshEnvelope): Result<DshRpcResult> {

@@ -214,6 +214,10 @@ fun ChatMessageList(
     // 来自 ChatRepository 的实时状态 —— 领域类型。
     // 置于 renderableTurns 之前：其缓存开关（activeTools 是否为空）需要在此计算。
     val currentSessionId = viewModel.sessionId
+    // #276 后端接口补全：DSH 无 revert/unrevert——撤销/重做 UI 入口（消息长按
+    // 撤销、压缩分割线撤销、RevertBanner 重做）按能力位整体隐藏。
+    val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
+    val revertSupported = serverCapabilities.revertSupported
     val toolProgress by viewModel.chatRepositoryExposed.getActiveToolProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val stepProgress by viewModel.chatRepositoryExposed.getStepProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val compactionState by viewModel.chatRepositoryExposed.getCompactionStateForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
@@ -395,7 +399,9 @@ fun ChatMessageList(
     // 键语义（V1 尾部固定键/V2 真实 id 同键交接）见 CompactionDividerPolicy。
     val compactionExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
-    // C4：压缩分割线撤销统一回调（V1 摘要线/触发线共用——撤销到目标 id 并提示）
+    // C4：压缩分割线撤销统一回调（V1 摘要线/触发线共用——撤销到目标 id 并提示）；
+    // #276：revertTargetId 已按 revertSupported 置 null（下方两处调用点），本
+    // 回调仅剩防御性可达。
     val revertCompaction: (String) -> Unit = { target ->
         viewModel.revertMessage(target) { ok ->
             coroutineScope.launch {
@@ -978,8 +984,9 @@ fun ChatMessageList(
                     // 改由消息流按时间线渲染（ChatEntry.Turn 的 role='shell' 特判，
                     // 数据源 Part.Shell 载荷），新消息自动顶上去（主对话流语义）。
 
-                    // Revert 横幅
-                    if (sessionMeta.revert != null) {
+                    // Revert 横幅（#276：DSH 无 revert 域——revert 态永不为真，
+                    // 能力位兜底门控）
+                    if (revertSupported && sessionMeta.revert != null) {
                         item(key = "revert_banner") {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             RevertBanner(onRedo = {
@@ -1198,7 +1205,7 @@ fun ChatMessageList(
                                         currentMessage = chatMessage,
                                         chunk = entry,
                                         isQueued = chatMessage.message.id in messageState.queuedMessageIds,
-                                        onRevert = if (isMainSession) {
+                                        onRevert = if (isMainSession && revertSupported) {
                                             {
                                                 val revertText = chatMessage.parts
                                                     .filterIsInstance<Part.Text>()
@@ -1325,10 +1332,14 @@ fun ChatMessageList(
                                         summary = v1Spec.summary,
                                         failed = v1Spec.failed,
                                         expandedStates = compactionExpandedStates,
-                                        // 撤销边界（V1 语义：撤到压缩点之前）判定在 policy
-                                        revertTargetId = CompactionDividerPolicy.v1RevertBoundary(
-                                            displayItems, displayItemIndex, msg.message.id,
-                                        ),
+                                        // 撤销边界（V1 语义：撤到压缩点之前）判定在 policy；
+                                        // #276：DSH 无 revert 域——按能力位置 null（槽位
+                                        // 撤销手势/无障碍动作整体消失）
+                                        revertTargetId = if (revertSupported) {
+                                            CompactionDividerPolicy.v1RevertBoundary(
+                                                displayItems, displayItemIndex, msg.message.id,
+                                            )
+                                        } else null,
                                         onRevert = revertCompaction,
                                     )
                                     return@Box
@@ -1554,7 +1565,7 @@ fun ChatMessageList(
                                             summary = compactionClaim.summary,
                                             failed = compactionClaim.failed,
                                             expandedStates = compactionExpandedStates,
-                                            revertTargetId = chatMessage.message.id,
+                                            revertTargetId = if (revertSupported) chatMessage.message.id else null,
                                             onRevert = revertCompaction,
                                         )
                                         return@Box
@@ -1615,7 +1626,7 @@ fun ChatMessageList(
                                     currentMessage = chatMessage,
                                     isQueued = chatMessage.message.id in messageState.queuedMessageIds,
                                     onViewSubSession = navigateToChildSession,
-                                    onRevert = if (isMainSession) {
+                                    onRevert = if (isMainSession && revertSupported) {
                                         {
                                             val revertText = chatMessage.parts
                                                 .filterIsInstance<Part.Text>()

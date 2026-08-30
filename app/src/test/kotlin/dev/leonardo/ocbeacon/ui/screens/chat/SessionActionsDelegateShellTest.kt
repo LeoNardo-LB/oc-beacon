@@ -34,6 +34,7 @@ class SessionActionsDelegateShellTest {
         currentSessionId: String,
         ensuredSessionId: String,
         terminal: ManageTerminalUseCase,
+        shellCommandSupported: Boolean = true,
     ): SessionActionsDelegate = SessionActionsDelegate(
         shareExportUseCase = mockk(relaxed = true),
         undoRedoUseCase = mockk(relaxed = true),
@@ -57,6 +58,7 @@ class SessionActionsDelegateShellTest {
         loadPendingPermissions = {},
         restoreRevertedDraft = { },
         compactionAsyncProvider = { false },
+        shellCommandSupportedProvider = { shellCommandSupported },
     )
 
     /** 回归 #250：空 sessionId（新会话未就位）时必须以 ensureSession 的就位 id 发送。 */
@@ -95,6 +97,26 @@ class SessionActionsDelegateShellTest {
         val delegate = buildDelegate(this, currentSessionId = "", ensuredSessionId = "sess-new", terminal = terminal)
         var ok = true
         delegate.runShellCommand("   ") { ok = it }
+        advanceUntilIdle()
+        assertTrue(!ok)
+        coVerify(exactly = 0) { terminal.runShellCommand(any(), any(), any(), any(), any(), any()) }
+    }
+
+    /**
+     * #276 后端接口补全：能力位短路——DSH 无 shell 域（shellCommandSupported=
+     * false）时 runShellCommand 直接 onResult(false)，不 ensureSession、不发
+     * 网络请求（DshApiClient 该方法抛 UnsupportedServerCapability，UI 入口已
+     * 按能力位隐藏，此处为残留路径兜底——如 isShellMode 态残留时的发送）。
+     */
+    @Test
+    fun `runShellCommand short-circuits when capability off`() = runTest {
+        val terminal: ManageTerminalUseCase = mockk(relaxed = true)
+        val delegate = buildDelegate(
+            this, currentSessionId = "sess-cur", ensuredSessionId = "sess-cur",
+            terminal = terminal, shellCommandSupported = false,
+        )
+        var ok = true
+        delegate.runShellCommand("pwd") { ok = it }
         advanceUntilIdle()
         assertTrue(!ok)
         coVerify(exactly = 0) { terminal.runShellCommand(any(), any(), any(), any(), any(), any()) }

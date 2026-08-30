@@ -15,10 +15,14 @@ import org.junit.Test
  * #276 UI 卡（2026-08-31）：六新位（terminal/fileRead/sessionDelete/vcs/
  * fileSearch/commands）——DSH 全 false（§2.6 终局确认），OpenCode V1/V2/UNKNOWN
  * 全 true（两代端点均存在）。
+ *
+ * #276 后端接口补全（2026-08-31 第二批）：三位（revert/messageDelete/shell
+ * Command）——52 方法面终局无 revert/unrevert、无消息删除、无 shell 域 → DSH
+ * 全 false；OpenCode V1/V2 均有对应端点 → 全 true。
  */
 class ServerCapabilitiesDshTest {
 
-    /** #276 UI 卡新增六位（缺口清单补位）。 */
+    /** #276 UI 卡新增六位（缺口清单补位）+ 接口补全批三位（revert/delete/shell）。 */
     private val newBits: List<kotlin.reflect.KProperty1<ServerCapabilities, Boolean>> = listOf(
         ServerCapabilities::terminalSupported,
         ServerCapabilities::fileReadSupported,
@@ -26,6 +30,9 @@ class ServerCapabilitiesDshTest {
         ServerCapabilities::vcsSupported,
         ServerCapabilities::fileSearchSupported,
         ServerCapabilities::commandsSupported,
+        ServerCapabilities::revertSupported,
+        ServerCapabilities::messageDeleteSupported,
+        ServerCapabilities::shellCommandSupported,
     )
 
     @Test
@@ -36,10 +43,24 @@ class ServerCapabilitiesDshTest {
             assertFalse("backgroundSessionsSupported v=$version", caps.backgroundSessionsSupported)
             assertFalse("runningSessionsFilterSupported v=$version", caps.runningSessionsFilterSupported)
             assertFalse("configEditable v=$version", caps.configEditable)
-            assertFalse("compactionAsync v=$version", caps.compactionAsync)
             for (bit in newBits) {
                 assertFalse("${bit.name} v=$version", bit.get(caps))
             }
+        }
+    }
+
+    /**
+     * #276 后端接口补全：DSH compact 走 /compact 命令通道（§1.6）——HTTP 受理
+     * 即回，完成只由 compaction/end → SessionCompacted 事件通告 = V2 式异步
+     * 语义（旧 false 会按 V1 路径本地置态又秒杀——59ms 分割线闪现 bug 复活）。
+     */
+    @Test
+    fun `dsh compaction is async via slash command channel`() {
+        for (version in ApiVersion.entries) {
+            assertTrue(
+                "compactionAsync v=$version",
+                ServerCapabilities.of(ServerType.Dsh, version).compactionAsync,
+            )
         }
     }
 
