@@ -6,12 +6,6 @@
 
 **编号**：全局递增，不回收。下一编号：**#264**。
 
-- [~] **#262 展开面「渲染前计算」架构改造——布局层恒定+绘制层揭示，根除帧间补偿残余跳动** `ui` `perf`
-  - 背景（2026-08-30 用户裁决）：现补偿体系（PreRenderShiftChannel 帧界排空）视窗移动比内容高度变化晚一帧（帧界排空的固有错位），贴底/mid-list 展开仍有可感知跳动；用户要求「渲染前进行计算，计算完毕之后再渲染」
-  - 方向：tap 时一次性测得展开终态高度（finalH）→ 视窗一次预移 Δ → 布局层恒为终态（item 高不随动画变化）→ 视觉揭示改为绘制层 clip 动画（纯 draw 无布局影响）；AnimatedVisibility 的高度动画从布局层退役
-  - 范围：ExpandReveal 全家族（RB/TC/EV/TODO/QPC/QC 槽位）；流式补偿家族（DeferredRevealCompensator）语义独立另行评估
-  - → `docs/specs/2026-08-30-expand-prerender-design.md` · `docs/journal/2026-08-30-expand-prerender.md`
-
 - [~] **#260 /api/form/request 15-20ms 密集轮询——节拍式 location fan-out，已分层降频** `infra` `ui`
   - 根因（2026-08-30 journal 取证）：每 30s 轮全扫「默认 location + 全部项目目录」，项目数无界增长（实证 10 projects → 9 请求/30s，轮内中位 16ms）；非状态驱动、非多协程
   - 修复（02a6ea55）：QuestionPollPlanner 分层——默认 location 每轮必查，目录 fan-out 5min 一次，round0 保持全扫；稳态 9/30s → 约 1.9/30s

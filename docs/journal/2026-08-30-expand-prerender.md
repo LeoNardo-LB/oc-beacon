@@ -1,7 +1,7 @@
 # expand-prerender（2026-08-30）
 
-> 状态：进行中
-> 关联：（spec 路径，若有）·（issue 编号，若有）
+> 状态：已完结（方向放弃——见二轮终局裁决）
+> 关联：`docs/archive/specs/2026-08-30-expand-prerender-design.md` · backlog #262（已迁出）
 > 来源：用户反馈 / grilling / E2E / 顺带发现
 
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->
@@ -22,3 +22,11 @@
 - **验证**：compileDevDebugKotlin 绿 ×3；`components.*` 179 测试 178 绿——唯一红 = ChunkReproTest（#261 环境夹具，与本改动无关，既有登记）；`PreRenderExpandMachineTest` 13/13。
 - **装机**：assembleDevDebug → adb install -r 成功（houji 23127PN0CC）；debug-entry.sh 冷启直达 SessionList，服务器连接 OK，logcat 无 FATAL/错误。
 - **待办**：用户 V6 八项清单（spec §9）；铺开 TODO/QPC/QC → RB/TC；清理 commit（ExpandReveal.kt 全家 + channel 分支①② + 死测试）。
+
+## 二轮（2026-08-30）：终局裁决——撤销一切展开补偿，回归出厂默认
+
+- **裁决链**：用户先撤销 #262 试点（「算了…按原来或默认的展开收起模式」→ 94d345d9 撤销 EV 换道、spec 归档）；随后扩大范围（「之前的卡片展开、收起有关的改造**也**不要了」）并要求 grill 定界。Round 定案：Q1a 只拆展开交互侧（流式 COMP-* 家族与 channel 保留）；Q2 调研（本机 Compose animation 1.11.2 源码实证：M3 无展开卡默认动画，AV 出厂默认 = fadeIn+expandIn / shrinkOut+fadeOut，spring StiffnessMediumLow 无弹跳、BottomEnd/Bottom 揭幕）；Q6 用户选 **(a) 纯出厂默认**（连 2026-08-28 #241「从上到下 Top 锚定」裁决一并让位——理由：改得快，后续调参数即可翻回）；Q3 原生推挤行为（标签行被顶起等）确认为终态；Q4a 死代码全清；Q5 简化验收。
+- **拆除范围**（064c47fc，14 文件 -597 行）：ExpandReveal.kt 整文件（状态机/modifier/4 spec/LocalChatListState）；六槽位（RB/TC/EV/TODO/QPC/QC）+ CompactionCard + SyntheticNotificationCard 全部裸 AV；EventCard.expandRevealListState / MessageCard.eventRevealListState / SyntheticNotificationCard 透传参数删除；CML 的 LocalChatListState provide 与三处调用点删除；PreRenderShiftChannel 瘦身为流式专用（USER_EXPAND 源 + 贴底展开分支①退役，贴底收缩分支与 mid-list dispatchRawDelta 分支保留）；ExpandRevealCompensatorTest 删除、RevealCompensatorsTest 剥离展开侧 5 用例（余流式 6 用例）。
+- **验证**：compileDevDebugKotlin 绿；components 156 测试 155 绿（唯一红 = ChunkReproTest #261 环境夹具，既有登记）；assembleDevDebug + 真机 install -r 成功；debug-entry 冷启 SessionList 干净（无 FATAL、ExpandReveal/EV-REVEAL log 痕迹清零）。
+- **回归接受项（用户终态确认）**：mid-list 展开标签行被顶起、贴底展开上方内容上推、spring 从容时长（~0.5s）+ fade + 默认揭幕方向——均为原生语义。
+- **backlog #262 处置**：方向整体放弃，卡片迁出（本 journal 即归档处）。

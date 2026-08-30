@@ -1,7 +1,7 @@
 # 展开面「渲染前计算」架构设计（布局层恒定 + 绘制层揭示）
 
 > 日期：2026-08-30
-> 状态：设计定案（grill Q1–Q14 全定案）；§5 实现层选型待评审；待实现
+> 状态：**已放弃（终局）**——EV 试点装机后用户裁决撤销渲染前计算改造（94d345d9），随后裁决撤销**全部**卡片展开/收起补偿改造、回归 AnimatedVisibility 出厂默认动画（064c47fc）。本设计连同旧补偿体系一起退役，仅供未来考古；裁决链见 journal 二轮。
 > 位置约定：active spec 置于 docs/specs/；实现并验收后移至 docs/archive/specs/ 并更新本行状态
 > 涉及模块：ui/screens/chat/components（ExpandReveal 家族六槽位 · PreRenderShiftChannel · ChatMessageList）
 > 关联 backlog：#262 · journal：`docs/journal/2026-08-30-expand-prerender.md`
