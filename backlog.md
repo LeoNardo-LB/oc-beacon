@@ -6,9 +6,9 @@
 
 **编号**：全局递增，不回收。下一编号：**#266**。
 
-- [ ] **#265 流式 turn 渲染试点 StreamingMarkdownState——mikepenz 0.42+ 官方增量解析 API** `sse` `ui`
-  - 背景（2026-08-30 调研 §Q2）：官方 API 与自研 MarkdownChunking 同思路（append-only，只重解析不稳定尾部），0.45.0 classpath AAR 类级实证已在；README §Streaming 为官方姿势
-  - 方案（spec 已立·待评审）：docs/specs/2026-08-30-streaming-markdown-state-pilot-design.md——源码四项实证过验（Snapshot 暴露 stableAst/unstableAstTail、m3 有 StreamingMarkdownState 重载、org.jetbrains:markdown 0.7.9、现状=主线程全量重解析）；P0-a~P3 五阶段 dev 先行 A/B，回退=开关一行；背景见 docs/research/2026-08-30-ai-streaming-render-landscape.md
+- [~] **#265 流式 turn 渲染试点 StreamingMarkdownState——P0 已接线，待真机 A/B 验收** `sse` `ui`
+  - 实现（a3ad01c6）：开关（dev 开/beta+stable 关）+ 前缀差分 append 包装（修正 spec 伪代码重建缺陷：非前缀→prev 置空重建）+ MarkdownContent 三分支；P0-b 缓存审计过验零修正（解析器源码实证：尾部节点每 append 新实例=键必然失效，稳定块实例永复用）；装机烟测无 FATAL；2159 单测基线一致
+  - 待验证：V6 A/B 六项（防闪烁/完结跳变/颜色实时/重生成残留/fling 手感/内容一致）→ docs/journal/2026-08-30-streaming-md-pilot.md · spec：docs/specs/2026-08-30-streaming-markdown-state-pilot-design.md
 
 - [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
   - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
