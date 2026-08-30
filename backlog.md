@@ -67,18 +67,10 @@
 ## P2 — 优化与锦上添花
 
 
-- [~] **#269 DSH 接入实现：探针收官（P-1..P-4 全实证），拆卡 #274/#275/#276 开工** `infra`
-  - 探针全部完成（2026-08-31，双源交叉验证）：52 方法四象限信封（非 JSON-RPC 2.0）、业务错恒 200+result.error 闭集 39 值、WS 纯下行（GET→426，OkHttp pingInterval 必配，无服务端心跳）、重连无游标（subscribed lastSeq 基线+history beforeSeq 回填）、特权面只认 Host 头 loopback（adb reverse 按构造全过）、事件 49 型开放联合+存储打包行（seq0）
-  - 设计定稿 → `docs/specs/2026-08-31-dsh-integration-design.md`（信封/传输/帧词汇/普查/七域映射/九组件 TDD 顺序/E2E 计划）；探针详版 /tmp/dsh-probes/（会话期证据）
-  - 实现拆卡：#274 基础层 → #275 事件层 → #276 接入层（顺序执行，TDD 先测后码）
-
-- [~] **#276 DSH 接入层：核心接线完（2a9e76ef，47 测试）——余 UI 表单/能力位门控/E2E** `infra` `ui`
-  - ServerConfig 增 serverType（零迁移）；pick() 三分；DSH 能力位矩阵（PTY/shell/git/mcp/share/todo/文件内容读/删除全 false→UI 自动隐藏）；session.search 部署可关→本地降级；时间戳单位双态防御
-  - 真机 E2E：adb reverse + 添加 DSH 服务器→列表（fold）→发消息→流式→中断→重连对账（设计文档 §6）
-
-- [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）~14% flake** `test`
-  - 现象（2026-08-31 实证）：ChatViewModelQueuedTest.queuedMessageIds_containsUserMessages_afterPendingAssistant 偶发 UncaughtExceptionsBeforeTest，原始异常=「Main was accessed when the platform dispatcher was absent」；7 跑 1 红（顺序/时序依赖），定向复现（DSH 类+sessions+chat 同 JVM）绿；失败 XML 已被 --rerun 覆盖
-  - 方向：失败再现时**保留 XML** 提取完整栈定位泄漏类（疑 ViewModel 协程在 resetMain 后醒）；嫌疑面=近期新增 VM 构造类测试（pagination/search）或宿主类自身 @After(178) 窗口
+- [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）** `test`
+  - 现象（2026-08-31 实证）：ChatViewModelQueuedTest 偶发 UncaughtExceptionsBeforeTest（原始异常=「Main was accessed when the platform dispatcher was absent」）；顺序/时序依赖
+  - 根治尝试（2026-08-31，用户纪律）：12 连跑专用复现循环 + 此前 6 连绿 = **18 连绿未复现**（初估 ~14% 系单红后时序域漂移）；修复条件不满足（无法复现+失败 XML 已被 --rerun 覆盖）→ 按纪律留存
+  - 方向：再现时**保留 XML**（勿 --rerun 覆盖）提取完整栈定位泄漏类后即修（疑 VM 协程在 resetMain 后醒）
 
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
