@@ -72,10 +72,6 @@
   - 设计定稿 → `docs/specs/2026-08-31-dsh-integration-design.md`（信封/传输/帧词汇/普查/七域映射/九组件 TDD 顺序/E2E 计划）；探针详版 /tmp/dsh-probes/（会话期证据）
   - 实现拆卡：#274 基础层 → #275 事件层 → #276 接入层（顺序执行，TDD 先测后码）
 
-- [ ] **#274 DSH 基础层：DshEnvelope 编解码 + DshApiError 映射 + DshRpcClient + DshWsEventClient** `infra` `data`
-  - 信封四象限（client-request/server-response/server-request/client-response）RPC+WS 共用；method=路径=body 三相等；39 错误码闭集→领域错误表驱动；HTTP POST 面 + /api/respond 回程
-  - 双 WS 客户端：events.mux+events.host 并开、只收不发、OkHttp pingInterval 25s、官方退避 500ms×2ⁿ 封顶 10s 带抖动；设计文档 §1.6
-
 - [ ] **#275 DSH 事件层：DshEventMapper（帧→SseEvent）+ DshHistoryFolder（整装族重放）+ 断连对账** `infra` `data`
   - 49 型开放联合容错（未知无 ignorable 拒绝重建）；Tier1 transcript 十型映射 + StreamChunk 五子型；chunk 族不进历史 fold；seq0 打包行二态识别；对账=subscribed lastSeq→seq 缺口→history beforeSeq 翻页回填
   - 黄金样本 fixture：真实信封形态合成（隐私安全），设计文档 §4 TDD 表

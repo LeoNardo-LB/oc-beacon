@@ -1,12 +1,24 @@
 # dsh-integration-and-disconnect-design（2026-08-30）
 
-> 状态：进行中（DSH 接入可行性调研合成步骤完成；「断连设计」部分未开工）
+> 状态：进行中（探针 P-1..P-4 全收官 + 设计定稿 2026-08-31-dsh-integration-design.md + #274 基础层实现完毕；#275/#276 进行中；「断连设计」部分未开工）
 > 关联：docs/research/2026-08-30-dsh-integration-feasibility.md（调研文档）· backlog #268
 > 来源：用户反馈 / grilling（拷问轮 11-15 题裁决）/ 调研子代理产出
 
 <!-- 过程中的取证/验证证据直接写本文件；backlog.md 只留 ≤3 行卡片。 -->
 
 ## 批次执行记录
+
+### 2026-08-31：探针收官 + #274 基础层（commit b73ae5de）
+
+**探针**（P-1..P-4 全实证，双源交叉验证，详见 docs/specs/2026-08-31-dsh-integration-design.md §1.5-§1.7/§5）：52 方法四象限信封（非 JSON-RPC 2.0）、业务错恒 200+39 码闭集、WS 纯下行（GET→426、无服务端心跳、退避 500ms×2ⁿ cap10s）、重连无游标（subscribed lastSeq 基线 + history beforeSeq 回填）、特权面只认 Host 头 loopback（adb reverse 按构造全过）、事件 49 型开放联合 + seq0 打包行、trustedHosts=client-connection 插件 Config。设计文档随探针滚动定稿（帧词汇表/七域映射/九组件 TDD 顺序/E2E 计划），fixture 三件入 app/src/test/resources/dsh/。
+
+**#274 基础层**（实现代理 f09412f1，TDD 先红后绿）：
+- ① DshEnvelope（13 测试）：四象限 sealed 信封 + DshRpcResult + DshRpcErrorCode value class（39 码+未知容错）；ServerRequest 强校验 payload.type==method。
+- ② DshApiError（6 测试）：39 码表驱动 → DshErrorCategory 七类；httpStatus 搬运层映射。
+- ③ DshRpcClient（9 测试 MockEngine）：method 同现 URL+body、无 Origin/auth、200→信封/非200→httpStatus/IO→Network；respond 回程。
+- ④ DshWsEventClient（11 测试虚拟时钟）：双 WS 只收不发、pingInterval 25s、双流独立退避、聚合取最差、start/stop 幂等。
+- 验证：全量 2234 tests / 0 failures（主会话独立复跑 BUILD SUCCESSFUL 1m05s）；零既有文件改动。
+- 坑位记录：无 mockwebserver→注入缝+虚拟时钟（真实 WS 留 E2E）；Ktor3.5 MockEngine Content-Type 在 body content；OkHttp ws:// 规范化存储为 http:// 字符串。
 
 ### 2026-08-30：DSH 接入可行性调研（两个调研子代理 + 合成）
 
