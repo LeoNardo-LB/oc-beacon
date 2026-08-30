@@ -67,7 +67,7 @@
     <string name="pending_empty">Нет сообщений в очереди. Пока агент отвечает, коснитесь значка загрузки, чтобы поставить сообщение в очередь.</string>
     <string name="pending_item_sending">Отправка…</string>
     <string name="todo_empty">Нет элементов TODO</string>
-    <string name="chat_empty">Начать сессию с OpenCode</string>
+    <string name="chat_empty">Начать сессию</string>
     <string name="chat_copy">Копировать</string>
     <string name="terminal_copy">Копировать</string>
     <string name="terminal_paste">Вставить</string>

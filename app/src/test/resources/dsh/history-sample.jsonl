@@ -18,4 +18,4 @@
 {"type":"todo/write","seq":16,"time":1788109000022,"data":{"todos":[{"content":"fixture todo","status":"completed"}]}}
 {"type":"session/title","seq":17,"time":1788109000023,"data":{"title":"fixture session","messageSeqs":[5],"source":{"kind":"fallback"}}}
 {"type":"reasoning-chunks","seq0":18,"time0":1788109000030,"data":{"turn":2,"step":1,"index":0,"dt":[44,46,0],"texts":["packed ","reasoning ","replay"]}}
-{"type":"team/task","seq":19,"time":1788109000040,"data":{"opaque":"unknown-type-tolerance-case"}}
+{"type":"future/plugin-unknown","seq":19,"time":1788109000040,"data":{"opaque":"unknown-type-tolerance-case"}}

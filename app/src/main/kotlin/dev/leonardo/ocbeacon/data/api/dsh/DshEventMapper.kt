@@ -288,10 +288,24 @@ object DshEventMapper {
             "approval/asked", "approval/decided" ->
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.APPROVAL_DURABLE))
 
-            // ---- 未知类型：不可忽略（folder 拒绝重建的判据） ----
+            // ---- 插件域扩展（known-49 收尾；E2E 实证 llm/failover 曾致整会话拒绝重建） ----
+            "llm/failover" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LLM_FAILOVER))
+            "session/title-llm-request" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LOG_ONLY))
+            "hook/invoked", "hook/result",
+            "team/task", "team/member", "team/message/delivered", "team/message/queued",
+            "tool-workflow/run-start", "tool-workflow/agent-start",
+            "tool-workflow/agent-end", "tool-workflow/run-end" ->
+                listOf(DshMappedEvent.Ignored(DshIgnoreReason.PLUGIN_DOMAIN))
+
+            // ---- 未知类型：ignorable 旗标兑现（spec：仅 llm/failover 带，但旗标是权威信号）；
+            //      无旗标才拒绝重建（folder 判据） ----
             else -> {
-                AppLogger.w(TAG, "未知 SessionEvent 类型（潜在转录语义，拒绝重建判据）: " + type)
-                listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_UNIGNORABLE))
+                if (envelope.bool("ignorable") == true) {
+                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.IGNORABLE_FLAG))
+                } else {
+                    AppLogger.w(TAG, "未知 SessionEvent 类型（潜在转录语义，拒绝重建判据）: " + type)
+                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_UNIGNORABLE))
+                }
             }
         }
     }
@@ -399,6 +413,9 @@ object DshEventMapper {
                         )
                     )
                 )
+                // E2E 实证（1192 例）：tool-call/tool-result 块是核心 ContentBlock 的冗余镜像——
+                // 工具卡真源 = tool/call|result 事件对（会话 B 实证渲染正常）。静默确认防重复卡。
+                "tool-call", "tool-result" -> Unit
                 else -> AppLogger.w(TAG, "assistant/message 未支持的内容块: " + block.str("type"))
             }
         }
@@ -550,6 +567,9 @@ object DshEventMapper {
             )
             "block-end" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_BLOCK_END))
             "usage" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_USAGE))
+            // E2E 实况情报（spec 五子型之外）：工具调用流式增量与收尾标记——
+            // 工具卡终态走 tool/call|result 事件，此处静默。
+            "tool-call-delta", "finish" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_LIFECYCLE))
             else -> {
                 AppLogger.w(TAG, "未知 chunk 子类型: " + chunk.str("type"))
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_UNKNOWN))
@@ -687,6 +707,18 @@ object DshIgnoreReason {
 
     /** llm/retry(-started)——Part.Retry 对位留给后续。 */
     const val LLM_RETRY = "llm-retry"
+
+    /** llm/failover 提供商切换（E2E 实证曾致拒绝重建，2026-08-31 收编）。 */
+    const val LLM_FAILOVER = "llm-failover"
+
+    /** 插件域事件（hook/team/tool-workflow——known-49 收尾）。 */
+    const val PLUGIN_DOMAIN = "plugin-domain"
+
+    /** 未知类型但信封带 ignorable:true（旗标权威，E2E 后兑现）。 */
+    const val IGNORABLE_FLAG = "ignorable-flag"
+
+    /** chunk 工具流式增量/收尾标记（tool-call-delta/finish）。 */
+    const val CHUNK_LIFECYCLE = "chunk-lifecycle"
 
     /** command/run|done。 */
     const val COMMAND = "command"

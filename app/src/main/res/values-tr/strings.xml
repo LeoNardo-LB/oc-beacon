@@ -23,7 +23,7 @@
     <string name="session_status_retry">Yeniden deneniyor (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Gönder</string>
-    <string name="chat_empty">OpenCode ile bir oturum başlat</string>
+    <string name="chat_empty">Bir oturum başlat</string>
     <!-- Permissions -->
     <string name="permission_title">İzin Gerekli</string>
     <string name="permission_allow_once">Bir kez</string>

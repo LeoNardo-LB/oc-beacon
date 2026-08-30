@@ -23,7 +23,7 @@
     <string name="session_status_retry">إعادة المحاولة (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">إرسال</string>
-    <string name="chat_empty">ابدأ جلسة مع OpenCode</string>
+    <string name="chat_empty">ابدأ جلسة</string>
     <!-- Permissions -->
     <string name="permission_title">مطلوب إذن</string>
     <string name="permission_allow_once">مرة واحدة</string>

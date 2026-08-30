@@ -23,7 +23,7 @@
     <string name="session_status_retry">Ponawianie próby (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Wyślij</string>
-    <string name="chat_empty">Rozpocznij rozmowę z OpenCode</string>
+    <string name="chat_empty">Rozpocznij rozmowę</string>
     <!-- Permissions -->
     <string name="permission_title">Wymagana zgoda</string>
     <string name="permission_allow_once">Jednorazowo</string>

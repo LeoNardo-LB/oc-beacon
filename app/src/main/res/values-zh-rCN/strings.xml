@@ -23,7 +23,7 @@
     <string name="session_status_retry">重试中（%1$d）</string>
     <!-- Chat Screen -->
     <string name="chat_send">发送</string>
-    <string name="chat_empty">与 OpenCode 开始会话</string>
+    <string name="chat_empty">开始会话</string>
     <!-- Permissions -->
     <string name="permission_title">需要权限</string>
     <string name="permission_allow_once">仅一次</string>

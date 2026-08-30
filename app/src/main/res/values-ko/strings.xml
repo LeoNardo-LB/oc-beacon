@@ -23,7 +23,7 @@
     <string name="session_status_retry">재시도 중 (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">보내기</string>
-    <string name="chat_empty">OpenCode로 세션을 시작하세요</string>
+    <string name="chat_empty">세션을 시작하세요</string>
     <!-- Permissions -->
     <string name="permission_title">권한 필요</string>
     <string name="permission_allow_once">한 번</string>

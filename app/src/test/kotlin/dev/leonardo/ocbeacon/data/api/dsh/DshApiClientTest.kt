@@ -148,6 +148,8 @@ class DshApiClientTest {
         val content = payload["content"].toString()
         assertTrue(content.contains("\"type\":\"text\""))
         assertTrue(content.contains("hello"))
+        // E2E 回归（2026-08-31）：mode 必填，缺席被服务端整单拒绝（zod expected queue|steer）
+        assertEquals("queue", payload["mode"]!!.jsonPrimitive.content)
     }
 
     @Test

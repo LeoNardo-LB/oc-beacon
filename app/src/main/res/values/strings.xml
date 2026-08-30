@@ -133,7 +133,7 @@
     <string name="pending_empty">No queued messages. While the agent is replying, tap the spinner to queue a message.</string>
     <string name="pending_item_sending">Sending…</string>
     <string name="todo_empty">No TODO items</string>
-    <string name="chat_empty">Start a session with OpenCode</string>
+    <string name="chat_empty">Start a session</string>
     <string name="chat_copy">Copy</string>
     <string name="terminal_copy">Copy</string>
     <string name="terminal_paste">Paste</string>

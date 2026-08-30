@@ -89,14 +89,14 @@ class DshHistoryFolderTest {
     @Test
     fun `golden sample collects only team task as unknown unignorable`() {
         val result = DshHistoryFolder.fold(goldenRows())
-        assertEquals(listOf("team/task"), result.unknownUnignorable)
+        assertEquals(listOf("future/plugin-unknown"), result.unknownUnignorable)
         assertTrue(result.refusedRebuild) // §5：未知类型无 ignorable 必须拒绝重建
     }
 
     @Test
     fun `golden sample last seq spans live seq and packed seq0 and header supplies session id`() {
         val result = DshHistoryFolder.fold(goldenRows())
-        assertEquals(19L, result.lastSeq) // seq 19（team/task）> seq0 18（打包行）
+        assertEquals(19L, result.lastSeq) // seq 19（future/plugin-unknown）> seq0 18（打包行）
         assertEquals("fixture-0001", result.sessionId)
     }
 
@@ -168,11 +168,12 @@ class DshHistoryFolderTest {
     fun `unknown unignorable accumulates distinct types in order`() {
         val rows = listOf(
             json.parseToJsonElement("""{"type":"session","version":0,"id":"u-1","createdAt":1,"cwd":"/w"}""").jsonObject,
-            json.parseToJsonElement("""{"type":"team/task","seq":1,"time":2,"data":{}}""").jsonObject,
+            json.parseToJsonElement("""{"type":"future/a","seq":1,"time":2,"data":{}}""").jsonObject,
             json.parseToJsonElement("""{"type":"hook/pre-exec","seq":2,"time":3,"data":{}}""").jsonObject,
             json.parseToJsonElement("""{"type":"team/task","seq":3,"time":4,"data":{}}""").jsonObject,
         )
         val result = DshHistoryFolder.fold(rows)
-        assertEquals(listOf("team/task", "hook/pre-exec", "team/task"), result.unknownUnignorable)
+        // team/task 已收编 PLUGIN_DOMAIN（2026-08-31）——不再进 unknownUnignorable
+        assertEquals(listOf("future/a", "hook/pre-exec"), result.unknownUnignorable)
     }
 }

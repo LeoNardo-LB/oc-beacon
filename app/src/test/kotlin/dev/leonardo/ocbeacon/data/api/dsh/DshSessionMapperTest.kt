@@ -49,6 +49,22 @@ class DshSessionMapperTest {
     }
 
     @Test
+    fun `title projection as bare string maps to title`() {
+        // E2E 实证（2026-08-31）：活体投影值是裸字符串（364/378 str）——曾因 fixture 误设
+        // 对象形态致列表全无标题
+        val item = obj("""{"sessionId":"s-4","updatedAt":7,"running":false,"blank":false,
+            "projections":{"asOfSeq":9,"values":{"title":"真实标题"}}}""")
+        assertEquals("真实标题", DshSessionMapper.toSession(item).title)
+    }
+
+    @Test
+    fun `title projection as object still maps via dual read`() {
+        val item = obj("""{"sessionId":"s-5","updatedAt":7,"running":false,"blank":false,
+            "projections":{"asOfSeq":9,"values":{"title":{"title":"对象形态"}}}}""")
+        assertEquals("对象形态", DshSessionMapper.toSession(item).title)
+    }
+
+    @Test
     fun `title projection absent leaves title null`() {
         val item = obj("""{"sessionId":"s-3","updatedAt":1,"running":false,"blank":false,
             "projections":{"asOfSeq":3,"values":{"sessionStats":{"turns":2}}}}""")

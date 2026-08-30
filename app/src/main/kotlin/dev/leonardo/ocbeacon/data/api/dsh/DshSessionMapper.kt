@@ -21,7 +21,14 @@ import kotlinx.serialization.json.contentOrNull
 object DshSessionMapper {
 
     fun toSession(item: JsonObject): Session {
-        val title = item.dshObj("projections")?.dshObj("values")?.dshObj("title")?.dshStr("title")
+        // E2E 实证（2026-08-31）：活体投影值是**裸字符串**（364/378 为 str）；对象形态
+        // 为 fixture 误设，双读防御兼容。
+        val titleProjection = item.dshObj("projections")?.dshObj("values")?.get("title")
+        val title = when (titleProjection) {
+            null -> null
+            is JsonPrimitive -> titleProjection.contentOrNull
+            else -> (titleProjection as? JsonObject)?.dshStr("title")
+        }
         return Session(
             id = item.dshStr("sessionId") ?: "",
             directory = item.dshStr("cwd") ?: "",

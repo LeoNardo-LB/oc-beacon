@@ -333,6 +333,9 @@ class DshApiClient @Inject constructor(
         val payload = buildJsonObject {
             put("sessionId", sessionId)
             put("content", JsonArray(content))
+            // E2E 实证（2026-08-31）：mode 必填（zod expected queue|steer，缺席整单拒绝）。
+            // queue→send（对齐 oc-beacon 既有排队语义）；steer=注入进行中轮次，留给后续 UX。
+            put("mode", "queue")
         }
         rpc.call(conn, "session.prompt", payload) { Unit }.getOrElse { e -> throw e }
         return null

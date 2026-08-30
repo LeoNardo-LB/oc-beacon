@@ -23,7 +23,7 @@
     <string name="session_status_retry">再試行中（%1$d）</string>
     <!-- Chat Screen -->
     <string name="chat_send">送信</string>
-    <string name="chat_empty">OpenCodeでセッションを開始</string>
+    <string name="chat_empty">セッションを開始</string>
     <!-- Permissions -->
     <string name="permission_title">権限が必要です</string>
     <string name="permission_allow_once">1回のみ</string>

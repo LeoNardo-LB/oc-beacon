@@ -116,6 +116,28 @@ class DshEventMapperTest {
         assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_UNIGNORABLE)), m.mapped)
     }
 
+    @Test
+    fun `unknown type with ignorable flag honors the flag`() {
+        // E2E 后兑现（2026-08-31）：信封 ignorable:true 是权威安全信号
+        val envelope = json.parseToJsonElement(
+            """{"type":"future/plugin-event","seq":99,"time":1,"ignorable":true,"data":{}}"""
+        ).jsonObject
+        val mapped = DshEventMapper.mapSessionEvent("s1", envelope)
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.IGNORABLE_FLAG)), mapped)
+    }
+
+    @Test
+    fun `tool-call-delta and finish chunk subtypes are lifecycle-ignored`() {
+        // E2E 实况情报：spec 五子型之外的两个子型，静默不告警
+        listOf("tool-call-delta", "finish").forEach { sub ->
+            val envelope = json.parseToJsonElement(
+                """{"type":"assistant/chunk","seq":1,"time":1,"data":{"turn":1,"step":1,"chunk":{"type":"$sub","index":0}}}"""
+            ).jsonObject
+            val mapped = DshEventMapper.mapSessionEvent("s1", envelope)
+            assertEquals("sub=$sub", listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_LIFECYCLE)), mapped)
+        }
+    }
+
     // ============ mux 帧面：approval / question ============
 
     @Test
@@ -449,6 +471,12 @@ class DshEventMapperTest {
             "session/end-seed", "tool/code-dispatch", "tool/code-dispatch-start",
             "approval/asked", "approval/decided", "web/deepseek-search-llm-request",
             "schedule/change", "feedback/record",
+            // E2E 回归（2026-08-31）：llm/failover 曾致整会话拒绝重建；known-49 插件域收尾
+            "llm/failover", "session/title-llm-request",
+            "hook/invoked", "hook/result",
+            "team/task", "team/member", "team/message/delivered", "team/message/queued",
+            "tool-workflow/run-start", "tool-workflow/agent-start",
+            "tool-workflow/agent-end", "tool-workflow/run-end",
         )
         noise.forEach { type ->
             val mapped = DshEventMapper.mapSessionEvent("s9", sessionEvent(type))

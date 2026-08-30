@@ -1,6 +1,6 @@
 {
   "sessionListRequest": {"type":"client-request","rpcId":"rpc-list-1","method":"session.list","payload":{}},
-  "sessionListResponse": {"type":"server-response","rpcId":"rpc-list-1","result":{"ok":true,"value":{"items":[{"sessionId":"fixture-0001","updatedAt":1788109000023,"running":false,"blank":false,"cwd":"/home/user/project","agentPreset":"code","projections":{"asOfSeq":17,"values":{"title":{"title":"fixture session"},"sessionListMetadata":{"blank":false,"lastPromptAt":1788109000011}}}}]}}},
+  "sessionListResponse": {"type":"server-response","rpcId":"rpc-list-1","result":{"ok":true,"value":{"items":[{"sessionId":"fixture-0001","updatedAt":1788109000023,"running":false,"blank":false,"cwd":"/home/user/project","agentPreset":"code","projections":{"asOfSeq":17,"values":{"title":"fixture session","sessionListMetadata":{"blank":false,"lastPromptAt":1788109000011}}}}]}}},
   "errorBadRequest": {"type":"server-response","rpcId":"rpc-bad-1","result":{"ok":false,"error":{"code":"bad-request","message":"method mismatch","details":{}}}},
   "errorSessionNotFound": {"type":"server-response","rpcId":"rpc-nf-1","result":{"ok":false,"error":{"code":"session-not-found","message":"(not attached)","details":{}}}},
   "errorInternal": {"type":"server-response","rpcId":"rpc-int-1","result":{"ok":false,"error":{"code":"internal","message":"search index disabled","details":{}}}},
