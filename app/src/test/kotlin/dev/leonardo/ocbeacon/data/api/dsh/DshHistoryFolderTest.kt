@@ -1,0 +1,178 @@
+package dev.leonardo.ocbeacon.data.api.dsh
+
+import dev.leonardo.ocbeacon.domain.model.Message
+import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.SessionStatus
+import dev.leonardo.ocbeacon.domain.model.SseEvent
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * DshHistoryFolder 历史折叠测试（backlog #275 组件 B；设计文档 §1.7 fold 范围决策）。
+ *
+ * 黄金样本 app/src/test/resources/dsh/history-sample.jsonl 全量驱动：
+ * - header 行（type=session）跳过并供 sessionId；
+ * - chunk 族（assistant/chunk 单块 + seq0 打包行）不进历史 fold——整装由
+ *   assistant/message 承载（§1.7：历史以整装事件族为主）；
+ * - 保序；lastSeq 覆盖活事件 seq 与打包行 seq0（服务端视角已应用水位）；
+ * - team/task（未知类型）进 unknownUnignorable → 拒绝重建判据（§5 信封规则）。
+ */
+class DshHistoryFolderTest {
+
+    private val json = Json
+
+    private fun resourceText(path: String): String =
+        javaClass.classLoader!!.getResourceAsStream(path)!!.readBytes().decodeToString()
+
+    private fun goldenRows(): List<JsonObject> =
+        resourceText("dsh/history-sample.jsonl").lineSequence().filter { it.isNotBlank() }
+            .map { json.parseToJsonElement(it).jsonObject }.toList()
+
+    // ============ 黄金样本全量驱动 ============
+
+    @Test
+    fun `golden sample folds to exact ordered sse event sequence`() {
+        val result = DshHistoryFolder.fold(goldenRows())
+        val events = result.sseEvents
+        assertEquals(14, events.size)
+        // 顺序即历史行序（保序）：turn/start → busy；随后 user/message 整装
+        assertEquals(SseEvent.SessionStatus("fixture-0001", SessionStatus.Busy), events[0])
+        val user = events[1] as SseEvent.MessageUpdated
+        assertEquals("seq-5", user.info.id)
+        assertEquals("fixture-0001", user.info.sessionId)
+        assertEquals(1788109000011L, user.info.time.created)
+        assertEquals("fixture user prompt", ((events[2] as SseEvent.MessagePartUpdated).part as Part.Text).text)
+        // step/start → busy（chunk 行 7-10 被跳过后紧邻 tool/call）
+        assertEquals(SseEvent.SessionStatus("fixture-0001", SessionStatus.Busy), events[3])
+        // tool/call → 宿主消息 + Pending 工具卡
+        assertEquals("dsh-call-call_fixture_1", (events[4] as SseEvent.MessageUpdated).info.id)
+        val pending = (events[5] as SseEvent.MessagePartUpdated).part as Part.Tool
+        assertEquals("call_fixture_1", pending.id)
+        assertTrue(pending.state is dev.leonardo.ocbeacon.domain.model.ToolState.Pending)
+        // tool/result → Completed 工具卡（同 callId 汇合）
+        val completed = (events[6] as SseEvent.MessagePartUpdated).part as Part.Tool
+        assertEquals("call_fixture_1", completed.id)
+        assertTrue(completed.state is dev.leonardo.ocbeacon.domain.model.ToolState.Completed)
+        // assistant/message 整装：流式桥拆除 + 消息 + reasoning/text part
+        assertEquals(SseEvent.MessageRemoved("fixture-0001", "dsh-t1s1"), events[7])
+        val assistant = (events[8] as SseEvent.MessageUpdated).info as Message.Assistant
+        assertEquals("seq-13", assistant.id)
+        assertEquals(1788109000019L, assistant.time.completed)
+        assertEquals("thinking...", ((events[9] as SseEvent.MessagePartUpdated).part as Part.Reasoning).text)
+        assertEquals("answer", ((events[10] as SseEvent.MessagePartUpdated).part as Part.Text).text)
+        // turn/end → idle；todo/title
+        assertEquals(SseEvent.SessionIdle("fixture-0001"), events[11])
+        assertTrue(events[12] is SseEvent.TodoUpdated)
+        val updated = events[13] as SseEvent.SessionUpdated
+        assertEquals("fixture session", updated.info.title)
+    }
+
+    @Test
+    fun `golden sample yields session idle exactly once`() {
+        val idles = DshHistoryFolder.fold(goldenRows()).sseEvents.filterIsInstance<SseEvent.SessionIdle>()
+        assertEquals(listOf(SseEvent.SessionIdle("fixture-0001")), idles)
+    }
+
+    @Test
+    fun `golden sample chunk family is skipped entirely`() {
+        val events = DshHistoryFolder.fold(goldenRows()).sseEvents
+        // 4 行 assistant/chunk（block-start/delta/block-end/text-delta）+ 1 行打包
+        // reasoning-chunks 均不产生事件（§1.7：chunk 族不进历史 fold）
+        assertTrue(events.none { it is SseEvent.MessagePartDelta })
+        assertTrue(events.none { it is SseEvent.MessagePartUpdated && it.part.messageId == "dsh-t1s1" })
+    }
+
+    @Test
+    fun `golden sample collects only team task as unknown unignorable`() {
+        val result = DshHistoryFolder.fold(goldenRows())
+        assertEquals(listOf("team/task"), result.unknownUnignorable)
+        assertTrue(result.refusedRebuild) // §5：未知类型无 ignorable 必须拒绝重建
+    }
+
+    @Test
+    fun `golden sample last seq spans live seq and packed seq0 and header supplies session id`() {
+        val result = DshHistoryFolder.fold(goldenRows())
+        assertEquals(19L, result.lastSeq) // seq 19（team/task）> seq0 18（打包行）
+        assertEquals("fixture-0001", result.sessionId)
+    }
+
+    // ============ 行形态边界 ============
+
+    @Test
+    fun `packed rows advance last seq but emit no events`() {
+        val rows = listOf(
+            json.parseToJsonElement(
+                """{"type":"session","version":0,"id":"p-1","createdAt":1,"cwd":"/w"}"""
+            ).jsonObject,
+            json.parseToJsonElement(
+                """{"type":"text-chunks","seq0":99,"time0":2,"data":{"turn":1,"step":1,"index":0,"dt":[5],"texts":["x"]}}"""
+            ).jsonObject,
+        )
+        val result = DshHistoryFolder.fold(rows)
+        assertEquals(0, result.sseEvents.size)
+        assertEquals(0, result.unknownUnignorable.size)
+        assertEquals(99L, result.lastSeq) // 服务端已应用水位含打包行——否则对账误判缺口
+        assertEquals("p-1", result.sessionId)
+    }
+
+    @Test
+    fun `history entry wrapper rows are unwrapped`() {
+        // session.history RPC 返回 HistoryEntry {event, view?}——解包后同路径 fold
+        val rows = listOf(
+            json.parseToJsonElement("""{"type":"session","version":0,"id":"w-1","createdAt":1,"cwd":"/w"}""").jsonObject,
+            json.parseToJsonElement(
+                """{"event":{"type":"turn/end","seq":7,"time":9,"data":{"turn":1,"reason":{"kind":"completed"}}},"view":null}"""
+            ).jsonObject,
+        )
+        val result = DshHistoryFolder.fold(rows)
+        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("w-1")), result.sseEvents)
+        assertEquals(7L, result.lastSeq)
+    }
+
+    @Test
+    fun `explicit session id parameter wins over header`() {
+        val rows = listOf(
+            json.parseToJsonElement("""{"type":"session","version":0,"id":"header-id","createdAt":1,"cwd":"/w"}""").jsonObject,
+            json.parseToJsonElement("""{"type":"turn/end","seq":1,"time":2,"data":{"turn":1}}""").jsonObject,
+        )
+        assertEquals(SseEvent.SessionIdle("param-id"), DshHistoryFolder.fold(rows, sessionId = "param-id").sseEvents.single())
+    }
+
+    @Test
+    fun `empty input folds to empty result with zero last seq`() {
+        val result = DshHistoryFolder.fold(emptyList())
+        assertEquals(0, result.sseEvents.size)
+        assertEquals(0L, result.lastSeq)
+        assertEquals("", result.sessionId)
+        assertEquals(0, result.unknownUnignorable.size)
+    }
+
+    @Test
+    fun `fold lines tolerates blank and malformed lines`() {
+        val text = listOf(
+            """{"type":"session","version":0,"id":"l-1","createdAt":1,"cwd":"/w"}""",
+            "}}garbage{{",
+            "",
+            """{"type":"turn/end","seq":3,"time":4,"data":{"turn":1}}""",
+        ).joinToString("\n")
+        val result = DshHistoryFolder.foldLines(text)
+        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("l-1")), result.sseEvents)
+        assertEquals(3L, result.lastSeq)
+    }
+
+    @Test
+    fun `unknown unignorable accumulates distinct types in order`() {
+        val rows = listOf(
+            json.parseToJsonElement("""{"type":"session","version":0,"id":"u-1","createdAt":1,"cwd":"/w"}""").jsonObject,
+            json.parseToJsonElement("""{"type":"team/task","seq":1,"time":2,"data":{}}""").jsonObject,
+            json.parseToJsonElement("""{"type":"hook/pre-exec","seq":2,"time":3,"data":{}}""").jsonObject,
+            json.parseToJsonElement("""{"type":"team/task","seq":3,"time":4,"data":{}}""").jsonObject,
+        )
+        val result = DshHistoryFolder.fold(rows)
+        assertEquals(listOf("team/task", "hook/pre-exec", "team/task"), result.unknownUnignorable)
+    }
+}
