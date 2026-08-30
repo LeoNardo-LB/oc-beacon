@@ -45,15 +45,24 @@ import java.util.WeakHashMap
  */
 internal object PreRenderShiftChannel {
 
-    /** 每列表累计器（弱键随 LazyListState 生命周期回收；仅主线程 measure/帧回调访问，无锁）。 */
+    /** 增量来源（2026-08-30 贴底分支区分）：USER_EXPAND = 用户 tap 展开面
+     *  （贴底时 pre-shift 预移视窗）；STREAM/OTHER = 流式生长等被动增量
+     *  （贴底时放弃位移 = #sendgap 自然延伸，防两段式跳底回归）。 */
+    internal enum class ShiftSource { USER_EXPAND, OTHER }
+
+    /** 每列表累计器（弱键随 LazyListState 生命周期回收；仅主线程 measure/帧回调访问，无锁）。
+     *  [0]=累计增量 [1]=来源（非 0 = USER_EXPAND）。 */
     private val pending = WeakHashMap<LazyListState, FloatArray>()
 
     /** 注入代计数 [已入队, 已落地]：揭示方据此判断位移是否落地（竞态门）。 */
     private val generations = WeakHashMap<LazyListState, LongArray>()
 
-    /** measure 块内调用：入队本遍补偿增量（正=内容生长视窗下移，负=收缩上移）。 */
-    fun enqueue(state: LazyListState, deltaPx: Float) {
-        pending.getOrPut(state) { floatArrayOf(0f) }[0] += deltaPx
+    /** measure 块内调用：入队本遍补偿增量（正=内容生长视窗下移，负=收缩上移）。
+     *  2026-08-30 增 source：贴底分支按来源分流（用户展开预移 / 被动生长自然延伸）。 */
+    fun enqueue(state: LazyListState, deltaPx: Float, source: ShiftSource = ShiftSource.OTHER) {
+        val acc = pending.getOrPut(state) { floatArrayOf(0f, 0f) }
+        acc[0] += deltaPx
+        if (source == ShiftSource.USER_EXPAND) acc[1] = 1f
         generations.getOrPut(state) { longArrayOf(0L, 0L) }[0]++
     }
 
@@ -77,17 +86,19 @@ internal object PreRenderShiftChannel {
         val total = acc[0]
         if (total == 0f) return
         acc[0] = 0f
+        acc[1] = 0f
         val atBottomZone = state.firstVisibleItemIndex == 0 &&
             state.firstVisibleItemScrollOffset < 120
+        val fromUserExpand = (acc[1] != 0f)
         // ── 分支 1（2026-08-30 用户裁决「贴底展开不要把内容往上顶」）──
-        // 贴底展开：视口底边钉在列表尾，布局 +Δ 被「贴底跟随」吞掉 = 上方
-        // 内容整体上推（原生几何）。改为 request-position 预移视窗 off+Δ
-        // （渲染前）——布局增量被预移吸收 = 上方内容固定、卡片向下生长揭示。
-        // 代价：视口脱离贴底 Δ（跳底按钮出现），收起时视窗自然回归贴底
-        // （对称）。#sendgap「两段式跳底」场景（发送后贴底流式生长）不走
-        // 本通道——发送跟随由 msgCount/force 通道负责，本通道仅由用户 tap
-        // 展开触发。
-        if (atBottomZone && total > 0) {
+        // 贴底 + 用户 tap 展开的增量：视口底边钉在列表尾，布局 +Δ 被「贴底
+        // 跟随」吞掉 = 上方内容整体上推（原生几何）。改为 request-position
+        // 预移视窗 off+Δ（渲染前）——布局增量被预移吸收 = 上方内容固定、
+        // 卡片向下生长揭示。代价：视口脱离贴底 Δ（跳底按钮出现），收起时
+        // 视窗自然回归贴底（对称）。
+        // 流式/被动增量（#sendgap 发送后贴底流式生长）不入此分支：视窗已在
+        // 贴底、位移无处可去，放弃 = 自然延伸（防两段式跳底回归）。
+        if (atBottomZone && total > 0 && fromUserExpand) {
             val baseOffset = state.firstVisibleItemScrollOffset
             val target = baseOffset + total.toInt()
             try {

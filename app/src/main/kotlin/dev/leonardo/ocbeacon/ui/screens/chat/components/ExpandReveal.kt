@@ -228,7 +228,11 @@ internal fun Modifier.expandRevealCompensation(
         }
         // #258 换道：帧界排队（下一帧 measure 遍首经 request-position 通道应用），
         // 不再反射直写 scrollToBeConsumed——drag 竞态崩溃根因拆除。
-        PreRenderShiftChannel.enqueue(listState, injectDelta.toFloat())
+        PreRenderShiftChannel.enqueue(
+            listState,
+            injectDelta.toFloat(),
+            PreRenderShiftChannel.ShiftSource.USER_EXPAND,
+        )
     }
     layout(placeable.width, reportHeight) {
         placeable.placeRelative(0, 0)
