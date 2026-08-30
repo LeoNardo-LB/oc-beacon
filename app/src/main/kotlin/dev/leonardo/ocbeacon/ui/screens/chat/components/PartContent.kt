@@ -49,6 +49,15 @@ import com.mikepenz.markdown.model.State
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
+/**
+ * #263：思考完结时长合成。start=0 哨兵（V2 reasoning.started 无服务器时间戳，
+ * 服务器以 0 占位）时 end - 0 ≈ 当下 Unix 毫秒 → 「29800753m」天文时长症状根因；
+ * start<=0 一律按缺失处理（返回 null），显示侧走 ReasoningBlock 的 startTimeMs
+ * 降级链（流中计时/续计语义，见 PartContent 调用点注释），完结时长留空不显示。
+ */
+internal fun reasoningDurationMs(start: Long, end: Long): Long? =
+    if (start > 0) end - start else null
+
 @Composable
 internal fun PartContent(
     part: Part,
@@ -120,7 +129,7 @@ internal fun PartContent(
                     hasValidAnchor = startTimeMs != null,
                 )
                 val reasoningDuration = part.time?.let { t ->
-                    t.end?.let { end -> end - t.start }
+                    t.end?.let { end -> reasoningDurationMs(t.start, end) }
                 }
                 val toolExpandedStates = LocalToolExpandedStates.current
                 val onToggleToolExpanded = LocalOnToggleToolExpanded.current
