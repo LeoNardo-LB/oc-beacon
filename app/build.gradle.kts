@@ -278,11 +278,10 @@ tasks.withType<Test>().configureEach {
     maxParallelForks = 1
 }
 
-// 强制升级 kotlin-metadata-jvm，使 Hilt 能读取 Kotlin 2.4.0 字节码
-// （Mikepenz 0.43.0 使用 Kotlin 2.4.0 编译）
+// 2026-08-30 撤销 kotlin-metadata-jvm 2.4.0 force：编译器已升 Kotlin 2.4.10，
+// 元数据自然解析到 2.4.10，保留旧 force 反而会把 Hilt 的元数据读取降级回 2.4.0。
 configurations.all {
     resolutionStrategy {
-        force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")
         // 2026-08-26（晚）残余卡顿收口：material3 1.5.0-alpha26 经原子组约束
         // （"ui is in atomic group androidx.compose.ui"）把整个 Compose 家族——
         // runtime/ui/ui-text/animation 等——全部拉到 1.12.0-beta01。
