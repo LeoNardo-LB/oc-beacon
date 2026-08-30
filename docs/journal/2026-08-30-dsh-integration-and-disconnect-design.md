@@ -8,6 +8,14 @@
 
 ## 批次执行记录
 
+### 2026-08-31（四）：#276 UI 面（24692a9c）+ 真机 E2E 首跑（代理 f1d037e3）+ 四缺陷根治
+
+**UI 面**（24692a9c，33 文件）：ServerDialog 类型 SegmentedButton+DSH 凭据隐藏+提示；ServerCard DSH 徽章；能力位新增 6 位（terminal/fileRead/sessionDelete/vcs/fileSearch/commands）全 UI 门控；from(config) 统一（修复漏带 serverType 致能力位错回 OpenCode）；i18n 4 keys×15。
+- 代理漏网双修（主会话交叉验证抓获）：values-uk 撇号转义（mergeResources 失败，i18n 脚本盲区实证）+ WorkspaceViewModelTest 21 构造点补参；PTY 入口留数据层兜底（ChatScreen 禁编辑）。
+
+**E2E 首跑六段**：①添加服务器 PASS ②连接列表 PASS（未读红点工作）③历史 PARTIAL（会话B 全渲染含工具卡+思考时长；会话A 因 llm/failover 拒绝重建空白）④发消息 **FAIL（P0：payload 缺 mode，zod 整单拒绝 2/2）** ⑤中断 BLOCKED（依赖④）⑥断连重连对账 **PASS**（--remove 不杀已建连接，kill-server 才真断；~14s 检测/退避曲线/恢复 ~3s；对账 1 动作=1 真实缺口无 off-by-one）。六待定音：approval 未遇/无 off-by-one/键名兼容/create 回显 OK/content 形态正确/0 FATAL。
+
+**四缺陷根治**（全量 2326/0 复绿）：P0 session.prompt 增 mode:"queue"（源码实证 queue→send/steer→steer）；P1a llm/failover 等 12 型收编+未知型 ignorable:true 旗标权威化（曾致整会话拒绝重建）；P1b assistant/message 内 tool-call/tool-result 块=事件对冗余镜像静默（1192 告警清零）；P2a 活体 title 投影=裸字符串 364/378（fixture 误设对象）→双读；P2b chat_empty 中性化×15 语言。情报收编：chunk tool-call-delta/finish；/ 开头单文本块=斜杠命令通道；反向隧道语义。
 ### 2026-08-31（三）：#276 核心接线（commit 2a9e76ef，39 文件 +2391/-90，新增 47 测试，全量 2326/0 ×2+主会话复验 1m04s 绿）
 
 - **ServerType 零迁移**：@Serializable enum + ServerConfig/ServerConnection 默认 OpenCode + ServerConnection.from(config) data 层单点（四 repo resolveConnection 换用）+ DataStore 透传。
