@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.SseEvent
@@ -38,8 +37,6 @@ internal fun MessageCard(
     /** #234：事件卡统一展开表（屏幕级，#227 模式）——synthetic 卡与 assistant
      *  turn 内防御性 RenderItem.SyntheticNotice 渲染共用同一记忆。 */
     eventExpandedStates: MutableMap<String, Boolean>,
-    /** #241 标签行保护：synthetic 事件卡渲染前补偿透传（LazyListState）。 */
-    eventRevealListState: LazyListState? = null,
     /** #243 连续同内容去重：本卡代表的被抑制重复数（0=无）。 */
     eventDupCount: Int = 0,
 ) {
@@ -56,7 +53,6 @@ internal fun MessageCard(
             onViewSubSession = onViewSubSession,
             onLocateTask = onLocateTask,
             eventExpandedStates = eventExpandedStates,
-            expandRevealListState = eventRevealListState,
             dupCount = eventDupCount,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(

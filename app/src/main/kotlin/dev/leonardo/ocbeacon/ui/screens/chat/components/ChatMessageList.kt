@@ -942,8 +942,6 @@ fun ChatMessageList(
             androidx.compose.runtime.CompositionLocalProvider(
                 LocalRenderReadiness provides renderReadiness,
                 LocalJumpController provides jumpController,
-                // #241 渲染前补偿：列表状态下传（展开型组件就地消费，免层层穿参）
-                LocalChatListState provides listState,
             ) {
                 LazyColumn(
                     state = listState,
@@ -1422,7 +1420,6 @@ fun ChatMessageList(
                                             description = "$ " + shellPart.command,
                                             expandedStates = eventCardExpandedStates,
                                             bodyFontScale = 0.85f,
-                                            expandRevealListState = listState,
                                             // #252 终审：用户发起的 shell 卡默认展开
                                             // （agent bash 走 ToolCallCard 不受影响；
                                             // 本地乐观合成卡同经本分支，一致默认展开）
@@ -1499,10 +1496,6 @@ fun ChatMessageList(
                                         eventKey = chatMessage.message.id,
                                         timeMs = chatMessage.message.time.created,
                                         label = stringResource(R.string.chat_event_tool_catalog_changed),
-                                        // #241 标签行保护（渲染前补偿）：展开遍裁剪增量 + 遍首
-                                        // 注入视窗下移、下一遍对齐揭示——无可见滚动动画（见
-                                        // ExpandReveal.kt；用户硬约束「渲染前移动视窗」）。
-                                        expandRevealListState = listState,
                                         leadingIcon = Icons.Outlined.Info,
                                         expandedStates = eventCardExpandedStates,
                                         bodyContent = {
@@ -1650,8 +1643,6 @@ fun ChatMessageList(
                                     },
                                     isAmoled = isAmoled,
                                     eventExpandedStates = eventCardExpandedStates,
-                                    // #241 标签行保护（shell/subagent/system 合成卡族）：同上渲染前补偿。
-                                    eventRevealListState = listState,
                                     // #243 连续同内容去重：本卡为保留首张时显示 ×N
                                     eventDupCount = syntheticDupCounts[chatMessage.message.id] ?: 0
                                 )

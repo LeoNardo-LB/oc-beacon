@@ -104,10 +104,9 @@ internal fun CompactionCard(
             )
         }
 
+        // 2026-08-30 用户裁决：回归 AV 出厂默认
         AnimatedVisibility(
         visible = expanded && canExpand,
-        enter = ExpandEnterTransition,
-        exit = ExpandExitTransition,
     ) {
             ExpandContent(text = expandableText ?: "", active = activeState != null)
         }

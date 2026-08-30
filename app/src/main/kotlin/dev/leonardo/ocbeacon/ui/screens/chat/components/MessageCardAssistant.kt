@@ -320,8 +320,6 @@ internal fun MessageCardAssistant(
                                 onViewSubSession = onViewSubSession,
                                 onLocateTask = onLocateTask,
                                 eventExpandedStates = eventExpandedStates,
-                                // #241 渲染前补偿：防御路径同样接线（经 LocalChatListState）
-                                expandRevealListState = LocalChatListState.current,
                             )
                         }
                     }
@@ -377,27 +375,10 @@ internal fun MessageCardAssistant(
                                 // 放宽为 Reasoning 或 Tool（question/permission 工具调用）都渲染。
                                 // 2026-08-17（多卡片修复）：锚定 questionAnchorPartId——
                                 // 只在锚 part 后渲染一张（原条件会按 part 数量重复渲染）。
-                                // 2026-08-30 统一收起语义：槽位挂 expandRevealCompensation
-                                // （RB/TC/EV 同款）——mid-list 收起提问卡走 dispatchRawDelta
-                                // 「下方收上来」，与其他展开面一致；贴底走 drop-at-bottom 透传。
-                                val qcListState = LocalChatListState.current
-                                val qcCompensator = remember { ExpandRevealCompensator() }
-                                androidx.compose.foundation.layout.Box(
-                                    modifier = Modifier.then(
-                                        if (qcListState != null) {
-                                            Modifier
-                                                .clipToBounds()
-                                                .expandRevealCompensation(qcListState, qcCompensator, "QC-REVEAL")
-                                        } else {
-                                            Modifier
-                                        }
-                                    )
-                                ) {
+                                // 2026-08-30 用户裁决：撤销展开补偿，回归 AV 出厂默认
                                 androidx.compose.animation.AnimatedVisibility(
                                     visible = qEntered && pendingQuestion != null &&
                                         item.group.part.id == effectiveAnchorId,
-                                    enter = ExpandEnterTransition,
-                                    exit = ExpandExitTransition,
                                 ) {
                                     val avQuestion = pendingQuestion ?: lastQuestion
                                     if (avQuestion != null &&
@@ -414,7 +395,6 @@ internal fun MessageCardAssistant(
                                             answersStore = questionAnswersCache,
                                         )
                                     }
-                                }
                                 }
                             }
                         }
@@ -676,8 +656,6 @@ private fun ChunkAssistantItems(
                     onViewSubSession = onViewSubSession,
                     onLocateTask = onLocateTask,
                     eventExpandedStates = eventExpandedStates,
-                    // #241 渲染前补偿：防御路径同样接线（经 LocalChatListState）
-                    expandRevealListState = LocalChatListState.current,
                 )
             }
             is RenderItem.RepeatingTool -> {

@@ -25,14 +25,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,10 +88,6 @@ internal fun EventCard(
     /** 展开正文字号缩放系数（LocalDensity 密度缩放实现——同缩字号与间距）。
      *  默认 1f 不缩；长 Markdown 报告场景传 ~0.85f 小一档（V6 反馈定档）。 */
     bodyFontScale: Float = 1f,
-    /** #241 标签行保护（渲染前补偿）：传入会话 LazyListState 即启用一次性
-     *  展开揭示（ExpandReveal）——增长遍裁剪 + PreRenderShiftChannel 帧界注入
-     *  视窗下移、下一遍对齐揭示，全程无可见滚动动画；null = 不补偿。 */
-    expandRevealListState: LazyListState? = null,
     /** 无记忆时的初始展开态（#252 终审：用户发起的 shell 卡默认展开，
      *  agent 工具卡等其余事件卡保持收起）。显式 toggle 后以记忆为准。 */
     defaultExpanded: Boolean = false,
@@ -109,9 +103,6 @@ internal fun EventCard(
 ) {
     val expanded = expandedStates[eventKey] ?: defaultExpanded
     val hasBody = bodyContent != null
-
-    // #241 渲染前补偿：展开增量裁剪 + 遍首注入视窗下移、下一遍对齐揭示
-    val expandReveal = remember { ExpandRevealCompensator() }
 
     // Q5 严重度编码：失败破色只作用图标与描边，其余保持中性
     val labelIcon = if (failed) Icons.Outlined.ErrorOutline else leadingIcon
@@ -171,15 +162,7 @@ internal fun EventCard(
                 )
             }
         },
-        modifier = modifier.then(
-            if (expandRevealListState != null && hasBody) {
-                Modifier
-                    .clipToBounds()
-                    .expandRevealCompensation(expandRevealListState, expandReveal, "EV:" + eventKey.takeLast(10))
-            } else {
-                Modifier
-            }
-        ),
+        modifier = modifier,
     ) {
         // 描述行（Q15 可选槽位）：数据在才显示，一行截断；有正文时点它也能 toggle
         if (description != null) {
@@ -194,13 +177,10 @@ internal fun EventCard(
         }
 
         // 展开态两段式（Q11）：分隔线 → 正文(300dp 上限内滚) → 分隔线 → 动作区
-        // 2026-08-28 二次裁决：恢复展开/收起动画（AV 包裹整段）——瞬时收起的
-        // Δ 单帧跳变不可接受；渲染前补偿（EV-REVEAL）在根 modifier 逐帧配对，
-        // 动画逐帧增量同样被配对，收起平滑且零漂移。Q12 无动画裁决被取代。
+        // 2026-08-30 用户裁决：撤销全部展开补偿改造，回归 AnimatedVisibility
+        // 出厂默认动画（spring + fade + 默认揭幕方向）
         AnimatedVisibility(
             visible = hasBody && expanded,
-            enter = ExpandEnterTransition,
-            exit = ExpandExitTransition,
         ) {
             // ★ AnimatedVisibility 内容是 Box 叠放语义（非 Column）——多子级全部
             // 原点重叠：分割线被正文整体盖住（透明 Markdown 时从字底透出、

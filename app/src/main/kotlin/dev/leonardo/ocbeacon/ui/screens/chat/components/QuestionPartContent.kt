@@ -135,25 +135,10 @@ internal fun CollapsibleQuestionPart(question: String) {
                     tint = contentColor.copy(alpha = AlphaTokens.FAINT)
                 )
             }
-            // #241/#243 渲染前补偿（2026-08-28 统一裁决：所有展开收起面一律动画，逐帧渲染前配对）：常驻 Box 链式逐帧配对
-            val revealListState = LocalChatListState.current
-            val expandReveal = remember { ExpandRevealCompensator() }
-            Box(
-                modifier = Modifier.then(
-                    if (revealListState != null) {
-                        Modifier
-                            .clipToBounds()
-                            .expandRevealCompensation(revealListState, expandReveal, "QPC-REVEAL")
-                    } else {
-                        Modifier
-                    }
-                )
+            // 2026-08-30 用户裁决：撤销展开补偿，回归 AV 出厂默认
+            androidx.compose.animation.AnimatedVisibility(
+                visible = expanded,
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = expanded,
-                    enter = ExpandEnterTransition,
-                    exit = ExpandExitTransition,
-                ) {
                 Column(modifier = Modifier.padding(start = 20.dp, top = 4.dp, end = 4.dp, bottom = 4.dp)) {
                     Text(
                         text = parsed.displayText,
@@ -196,7 +181,6 @@ internal fun CollapsibleQuestionPart(question: String) {
                             color = contentColor.copy(alpha = AlphaTokens.MUTED)
                         )
                     }
-                }
                 }
             }
         }

@@ -21,10 +21,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.clipToBounds
-import dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandRevealCompensator
-import dev.leonardo.ocbeacon.ui.screens.chat.components.LocalChatListState
-import dev.leonardo.ocbeacon.ui.screens.chat.components.expandRevealCompensation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -152,26 +148,10 @@ internal fun TodoListCard(
                 }
             }
 
-            // Todo items（#241/#243 渲染前补偿：2026-08-28 统一裁决全表面动画，
-            // 逐帧渲染前配对）
-            val revealListState = LocalChatListState.current
-            val expandReveal = remember { ExpandRevealCompensator() }
-            Box(
-                modifier = Modifier.then(
-                    if (revealListState != null) {
-                        Modifier
-                            .clipToBounds()
-                            .expandRevealCompensation(revealListState, expandReveal, "TODO-REVEAL")
-                    } else {
-                        Modifier
-                    }
-                )
+            // Todo items（2026-08-30 用户裁决：撤销展开补偿，回归 AV 出厂默认）
+            androidx.compose.animation.AnimatedVisibility(
+                visible = expanded,
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = expanded,
-                    enter = dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandEnterTransition,
-                    exit = dev.leonardo.ocbeacon.ui.screens.chat.components.ExpandExitTransition,
-                ) {
                     Column(
                         modifier = Modifier.padding(top = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -180,7 +160,6 @@ internal fun TodoListCard(
                             TodoItemRow(todo = todo)
                         }
                     }
-                }
             }
         }
     }

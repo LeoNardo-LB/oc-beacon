@@ -183,29 +183,11 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
 
-                // 可展开内容（2026-08-27 用户裁决：去掉收起/展开动画——动画是
-                // 补偿边界残留的源头；#241 渲染前补偿挂常驻 Box，内容条件直通，
-                // 两遍精确配对同事件卡。#215「动画默认」旧裁决被本条取代）
-                val revealListState = LocalChatListState.current
-                val expandReveal = remember { ExpandRevealCompensator() }
-                Box(
-                    modifier = Modifier.then(
-                        if (revealListState != null) {
-                            Modifier
-                                .clipToBounds()
-                                .expandRevealCompensation(revealListState, expandReveal, "RB-REVEAL")
-                        } else {
-                            Modifier
-                        }
-                    )
+                // 可展开内容（2026-08-30 用户裁决：撤销全部展开补偿改造，回归
+                // AnimatedVisibility 出厂默认动画——spring + fade + 默认揭幕方向）
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = expanded,
                 ) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = expanded,
-                        // 2026-08-30 文本主导卡去 fade（用户观察「展开没动画」）：
-                        // 纯几何生长，文字清晰逐行揭示。spec 见 ExpandReveal.kt。
-                        enter = ExpandEnterNoFadeTransition,
-                        exit = ExpandExitNoFadeTransition,
-                    ) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))
                         // 2026-08-16（用户反馈调整）：高度上限从半屏收紧为固定值——
@@ -233,7 +215,6 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                                 )
                             }
                         }
-                    }
                     }
                 }
             }

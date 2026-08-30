@@ -4,73 +4,17 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * #258 换道手术配套单测：两族补偿状态机的配对语义与滚动守卫。
+ * #258 换道手术配套单测：流式补偿状态机（DeferredRevealCompensator）的配对
+ * 语义与滚动守卫。
  *
  * 运输层（PreRenderShiftChannel→request-position）只改变注入的**投递方式**，
  * 状态机的「增长遍上报基准 → 遍首应用 → 揭示遍全量配对」契约不变——
  * 这里锁住该契约，防止未来运输层再动时配对语义被无声破坏。
+ *
+ * 2026-08-30：ExpandRevealCompensator（tap 展开家族）随用户裁决「回归原生
+ * 展开/收起」整体退役——本文件只保留流式家族用例。
  */
 class RevealCompensatorsTest {
-
-    // ---- ExpandRevealCompensator（tap 展开家族）----
-
-    @Test
-    fun expand_firstMeasure_reportsFull_neverInjects() {
-        val c = ExpandRevealCompensator()
-        assertEquals(120 to 0, c.onMeasure(120, shiftApplied = true))
-    }
-
-    @Test
-    fun expand_growthPass_reportsBase_enqueuesDelta_revealsNextPass() {
-        val c = ExpandRevealCompensator()
-        c.onMeasure(100, shiftApplied = true)
-
-        // 增长遍：真实 160 → 上报基准 100、注入 +60
-        val v0 = c.version
-        assertEquals(100 to 60, c.onMeasure(160, shiftApplied = true))
-        assertEquals(v0 + 1, c.version)
-
-        // 揭示遍：遍首已应用 +60 → 全量揭示 160、无新注入
-        assertEquals(160 to 0, c.onMeasure(160, shiftApplied = true))
-    }
-
-    @Test
-    fun expand_collapsePass_pairsNegativeDelta() {
-        val c = ExpandRevealCompensator()
-        c.onMeasure(200, shiftApplied = true)
-
-        // 收起遍：真实 120 → 上报 200、注入 -80（视窗上移配对）
-        assertEquals(200 to -80, c.onMeasure(120, shiftApplied = true))
-        // 揭示遍：锚点已上移 → 全量揭示 120
-        assertEquals(120 to 0, c.onMeasure(120, shiftApplied = true))
-    }
-
-    @Test
-    fun expand_raceGate_unappliedShift_holdsClipped_thenReveals() {
-        val c = ExpandRevealCompensator()
-        c.onMeasure(100, shiftApplied = true)
-
-        // 增长：上报基准、入队 80
-        assertEquals(100 to 80, c.onMeasure(180, shiftApplied = true))
-
-        // 同帧重测插队（位移未落地）：保持基准裁剪，绝不提前揭示
-        assertEquals(100 to 0, c.onMeasure(180, shiftApplied = false))
-
-        // 位移落地：全量揭示
-        assertEquals(180 to 0, c.onMeasure(180, shiftApplied = true))
-    }
-
-    @Test
-    fun expand_chainMultiFrame_revealsPreviousEnqueuesCurrent() {
-        val c = ExpandRevealCompensator()
-        c.onMeasure(0, shiftApplied = true)
-
-        // 多帧动画链式：每遍揭示上一遍注入、递延本遍（spring 逐帧小增量）
-        assertEquals(0 to 30, c.onMeasure(30, shiftApplied = true))
-        assertEquals(30 to 20, c.onMeasure(50, shiftApplied = true))
-        assertEquals(50 to 10, c.onMeasure(60, shiftApplied = true))
-        assertEquals(60 to 0, c.onMeasure(60, shiftApplied = true))
-    }
 
     // ---- DeferredRevealCompensator（SSE 流式家族）----
 

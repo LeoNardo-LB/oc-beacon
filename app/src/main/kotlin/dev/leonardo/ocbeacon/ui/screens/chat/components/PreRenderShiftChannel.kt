@@ -5,15 +5,17 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import java.util.WeakHashMap
 
 /**
- * #258 换道手术（2026-08-29 用户裁决「渲染前计算的根因修复模式」）：
- * 统一渲染前视窗位移运输层——全 App 唯一的补偿注入入口。
+ * 统一渲染前视窗位移运输层——全 App 唯一的补偿注入入口（**流式家族专用**）。
+ *
+ * 2026-08-30 用户裁决：撤销全部卡片展开/收起补偿改造，回归 AnimatedVisibility
+ * 出厂默认——expand 家族（ExpandRevealCompensator / USER_EXPAND 源）整体退役，
+ * 本通道仅服务 DeferredRevealCompensator（SSE 流式增长的贴底跟随）。
  *
  * 崩溃根因（真机 FATAL「entered drag with non-zero pending scroll」）：
  * 旧通道 LazyListReflection.requestScrollShift 反射直写
  * LazyListState.scrollToBeConsumed，残量存活约一帧；用户 drag 起手经
  * onScroll（foundation-android 1.11.2 LazyListState.kt:492-501）时
- * checkPrecondition 见非零残量直接抛出。expand 家族（tap 展开动画逐帧
- * 注入、手指常在屏上）把竞态窗口放大到必现。**scrollToBeConsumed 直写
+ * checkPrecondition 见非零残量直接抛出。**scrollToBeConsumed 直写
  * 已随本通道整体删除**——LazyListReflection 只保留 request-position 探测。
  *
  * 新通道（foundation-android 1.11.2 sources 源码级核销）：
@@ -26,43 +28,32 @@ import java.util.WeakHashMap
  * - #222 回写竞争不复发：注入发生在上一遍完全结束之后（帧界），待定位置
  *   下一遍遍首应用，遍末回写写回的即应用后值——无「测量中途注入被覆盖」窗口；
  * - 视觉时序与旧通道逐帧一致：帧 k 入队 → 帧 k+1 遍首生效 + 状态机全量
- *   揭示，未补偿几何永不被放置（渲染前语义保持，#241 硬约束不动）。
+ *   揭示，未补偿几何永不被放置（渲染前语义保持）。
  *
- * 滚动语义（门 A 用户反馈修复）：**滚动中照常排空配对**——通道②对 drag 无
+ * 滚动语义（门 A 用户反馈修复）：**滚动中照常排空配对**——通道对 drag 无
  * 断言，旧通道「滚动中注入=崩溃放大器」的前提已消失；状态机层唯一保留的
  * 裁剪是流式家族 holdReveal（#239 定案：SSE 增量滚动中裁剪、停滚补齐）。
- * expand 家族（默认展开卡的 markdown 迟到解析）滚动中即时配对到位——
- * 否则出现「滑完才展开/FAB 先停在近底再跳」的二次缺陷（V6 实证）。
  *
  * 应用确认门（[shiftSettled]）：入队/排空各推进一代计数；揭示方（补偿状态机）
  * 在未落地时保持裁剪——堵「同帧重测插队导致揭示先于位移」的跳变竞态。
  *
  * 降级阶梯（任何一级都无崩溃）：反射字段消失（Compose 升级）→
  * requestScrollToItemNoCancel 内部走官方 requestScrollToItem（守卫下互斥锁
- * 路径不触发）；目标 offset 为负（列表顶部大收缩）→ 钳 0（等价旧通道
- * 「边界钳制兜底」语义，轻微软化）；排空注入异常 → 日志+放弃本帧增量
- * （代计数照常落地，揭示恢复——宁推挤不卡裁剪）。
+ * 路径不触发）；排空注入异常 → 日志+放弃本帧增量（代计数照常落地，揭示
+ * 恢复——宁推挤不卡裁剪）。
  */
 internal object PreRenderShiftChannel {
 
-    /** 增量来源（2026-08-30 贴底分支区分）：USER_EXPAND = 用户 tap 展开面
-     *  （贴底时 pre-shift 预移视窗）；STREAM/OTHER = 流式生长等被动增量
-     *  （贴底时放弃位移 = #sendgap 自然延伸，防两段式跳底回归）。 */
-    internal enum class ShiftSource { USER_EXPAND, OTHER }
-
-    /** 每列表累计器（弱键随 LazyListState 生命周期回收；仅主线程 measure/帧回调访问，无锁）。
-     *  [0]=累计增量 [1]=来源（非 0 = USER_EXPAND）。 */
+    /** 每列表累计器（弱键随 LazyListState 生命周期回收；仅主线程 measure/帧回调访问，无锁）。 */
     private val pending = WeakHashMap<LazyListState, FloatArray>()
 
     /** 注入代计数 [已入队, 已落地]：揭示方据此判断位移是否落地（竞态门）。 */
     private val generations = WeakHashMap<LazyListState, LongArray>()
 
-    /** measure 块内调用：入队本遍补偿增量（正=内容生长视窗下移，负=收缩上移）。
-     *  2026-08-30 增 source：贴底分支按来源分流（用户展开预移 / 被动生长自然延伸）。 */
-    fun enqueue(state: LazyListState, deltaPx: Float, source: ShiftSource = ShiftSource.OTHER) {
-        val acc = pending.getOrPut(state) { floatArrayOf(0f, 0f) }
+    /** measure 块内调用：入队本遍补偿增量（正=内容生长视窗下移，负=收缩上移）。 */
+    fun enqueue(state: LazyListState, deltaPx: Float) {
+        val acc = pending.getOrPut(state) { floatArrayOf(0f) }
         acc[0] += deltaPx
-        if (source == ShiftSource.USER_EXPAND) acc[1] = 1f
         generations.getOrPut(state) { longArrayOf(0L, 0L) }[0]++
     }
 
@@ -77,7 +68,7 @@ internal object PreRenderShiftChannel {
 
     /**
      * 帧边界调用（LaunchedEffect + withFrameNanos 循环，挂 ChatMessageList）：
-     * 排空累计增量 → 一次 request-position 注入，下一遍 measure 遍首应用。
+     * 排空累计增量 → 一次注入，下一遍 measure 遍首应用。
      * 滚动中照常排空（见类头「滚动语义」）。
      */
     fun drain(state: LazyListState) {
@@ -86,58 +77,21 @@ internal object PreRenderShiftChannel {
         val total = acc[0]
         if (total == 0f) return
         acc[0] = 0f
-        acc[1] = 0f
         val atBottomZone = state.firstVisibleItemIndex == 0 &&
             state.firstVisibleItemScrollOffset < 120
-        val fromUserExpand = (acc[1] != 0f)
-        // ── 分支 1（2026-08-30 用户裁决「贴底展开不要把内容往上顶」）──
-        // 贴底 + 用户 tap 展开的增量：视口底边钉在列表尾，布局 +Δ 被「贴底
-        // 跟随」吞掉 = 上方内容整体上推（原生几何）。改为 request-position
-        // 预移视窗 off+Δ（渲染前）——布局增量被预移吸收 = 上方内容固定、
-        // 卡片向下生长揭示。代价：视口脱离贴底 Δ（跳底按钮出现），收起时
-        // 视窗自然回归贴底（对称）。
-        // 流式/被动增量（#sendgap 发送后贴底流式生长）不入此分支：视窗已在
-        // 贴底、位移无处可去，放弃 = 自然延伸（防两段式跳底回归）。
-        if (atBottomZone && total > 0 && fromUserExpand) {
-            val baseOffset = state.firstVisibleItemScrollOffset
-            val target = baseOffset + total.toInt()
-            try {
-                LazyListReflection.requestScrollToItemNoCancel(
-                    state,
-                    state.firstVisibleItemIndex,
-                    target,
-                )
-                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                    AppLogger.d(
-                        "PreRenderShift",
-                        "pre-shift at-bottom expand total=" + total.toInt() +
-                            " off=" + baseOffset + " -> " + target
-                    )
-                }
-            } catch (t: Throwable) {
-                AppLogger.w("PreRenderShift", "pre-shift failed: " + t.message)
-            } finally {
-                g[1] = g[0]
-            }
-            return
-        }
-        // ── 分支 2（贴底收起：#sendgap 语义保留）──
-        // 视窗已在贴底，收起方向的视窗位移无处可去（dispatchRawDelta 消费 0），
+        // ── 分支 1（贴底收缩：#sendgap 语义）──
+        // 视窗已在贴底，收缩方向的视窗位移无处可去（dispatchRawDelta 消费 0），
         // 放弃 = 位移由上方内容承担（物理守恒；列表尾不露空白）。
         if (atBottomZone && total < 0) {
             g[1] = g[0]
             if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                AppLogger.d("PreRenderShift", "drop-at-bottom collapse total=" + total.toInt())
+                AppLogger.d("PreRenderShift", "drop-at-bottom shrink total=" + total.toInt())
             }
             return
         }
-        // ── 分支 3（mid-list：dispatchRawDelta 跨 item 消费）──
-        // 2026-08-30 根修：原 request-position 通道只能调 firstVisible 的
-        // offset（0..item 高），收起量 > 该范围时「假撞底」（06:40:35 实证：
-        // 下方物理余量 1466px 却在 off=466 撞底，272px 被钳）。改用官方
-        // dispatchRawDelta（ScrollableState 编程滚动入口）：同步消费、天然跨
-        // item 边界、无 scrollToBeConsumed 残量——收起量在物理余量内全部由
-        // 视窗承担 = 下方内容完整收上来（用户裁决「下面的内容收上来」）。
+        // ── 分支 2（mid-list：dispatchRawDelta 跨 item 消费）──
+        // 官方 ScrollableState 编程滚动入口：同步消费、天然跨 item 边界、
+        // 无 scrollToBeConsumed 残量。
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
             AppLogger.d(
                 "PreRenderShift",
