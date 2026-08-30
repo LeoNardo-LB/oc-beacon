@@ -83,7 +83,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         coVerify { listDirectory(serverId, directory, "") }
         coVerify { getVcsStatus(serverId, directory) }
@@ -95,7 +95,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         val state = vm.uiState.value
         assert(!state.rootLoading) { "rootLoading should be false after success" }
@@ -112,7 +112,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         vm.loadDirectory("") // 第二次调用 —— 应命中缓存
 
@@ -127,7 +127,7 @@ class WorkspaceViewModelTest {
         )
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         val state = vm.uiState.value
         assert(!state.rootLoading) { "rootLoading should be false after failure" }
@@ -142,7 +142,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         vm.refreshRoot()
 
@@ -157,7 +157,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(emptyList())
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         // 预取设置 gitChangeCount = 0，但 switchPanel 检查 gitChanges.isEmpty()
         vm.switchPanel(WorkspacePanel.GIT_CHANGES)
@@ -175,7 +175,7 @@ class WorkspaceViewModelTest {
             RuntimeException("fatal: not a git repository (or any parent): .git")
         )
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         // 由于 gitChanges 为空且未在加载，switchPanel 触发 loadGitChanges
         vm.switchPanel(WorkspacePanel.GIT_CHANGES)
@@ -190,7 +190,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         // 切换到 GIT 再切回 FILE_TREE
         vm.switchPanel(WorkspacePanel.GIT_CHANGES)
@@ -206,7 +206,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         assert(!vm.uiState.value.showIgnored) { "showIgnored should default to false" }
 
@@ -225,7 +225,7 @@ class WorkspaceViewModelTest {
             RuntimeException("Timeout after 30s")
         )
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         val state = vm.uiState.value
         assert(state.gitChangeCount == null) {
@@ -250,7 +250,7 @@ class WorkspaceViewModelTest {
             coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
             coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-            val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+            val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
             // "src" 任务启动但在 delay(60s) 处挂起
             vm.loadDirectory("src")
@@ -291,7 +291,7 @@ class WorkspaceViewModelTest {
             coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
             coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-            val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+            val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
             // 第一次调用启动任务，在 delay 处挂起
             vm.loadDirectory("src")
@@ -314,7 +314,7 @@ class WorkspaceViewModelTest {
     // ===== 测试 13：空白 serverId 在未调用 useCase 时设置 rootError =====
     @Test
     fun `blank serverId sets rootError without calling useCase`() = runTest {
-        val vm = WorkspaceViewModel(savedStateHandle(id = ""), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(id = ""), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         val state = vm.uiState.value
         assert(state.rootError == R.string.workspace_error_server_config_missing) {
@@ -333,7 +333,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
 
         vm.enterSearch()
 
@@ -347,7 +347,7 @@ class WorkspaceViewModelTest {
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
         coEvery { findFiles(any(), any(), any(), any()) } returns Result.success(listOf("a.kt"))
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
         vm.enterSearch()
         vm.searchFiles("test")
         advanceTimeBy(400)
@@ -364,7 +364,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
         vm.enterSearch()
         vm.searchFiles("   ")
         advanceTimeBy(400)
@@ -379,7 +379,7 @@ class WorkspaceViewModelTest {
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
         coEvery { findFiles(any(), any(), any(), any()) } returns Result.success(listOf("a.kt"))
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
         vm.enterSearch()
         vm.searchFiles("User")
         advanceTimeBy(200)
@@ -395,7 +395,7 @@ class WorkspaceViewModelTest {
         val paths = listOf("app/User.kt", "docs/user.md")
         coEvery { findFiles(any(), any(), any(), any()) } returns Result.success(paths)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
         vm.enterSearch()
         vm.searchFiles("User")
         advanceTimeBy(400)
@@ -412,7 +412,7 @@ class WorkspaceViewModelTest {
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
         coEvery { findFiles(any(), any(), any(), any()) } returns Result.failure(RuntimeException("503"))
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
         vm.enterSearch()
         vm.searchFiles("User")
         advanceTimeBy(400)
@@ -427,7 +427,7 @@ class WorkspaceViewModelTest {
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
         coEvery { findFiles(any(), any(), any(), any()) } returns Result.success(listOf("b"))
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
         vm.enterSearch()
         vm.searchFiles("Us")
         advanceTimeBy(200)
@@ -443,7 +443,7 @@ class WorkspaceViewModelTest {
         coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
         coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
 
-        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles)
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
         // loadGitChanges 从 getVcsStatus mock 填充 uiState.gitChanges
         vm.loadGitChanges()
 
