@@ -28,4 +28,32 @@ class ReasoningDurationTest {
     fun `start 等于 end 时时长为零`() {
         assertEquals(0L, reasoningDurationMs(start = 1000L, end = 1000L))
     }
+
+    // ===== #263 round2：完结显示时长合成（服务器未知 → 本地冻结实测） =====
+
+    @Test
+    fun `服务器可信时长优先`() {
+        assertEquals(12_000L, resolveReasoningDisplayDuration(durationMs = 12_000L, frozenElapsedMs = 9_500L))
+    }
+
+    @Test
+    fun `服务器未知时退回本地冻结实测值`() {
+        assertEquals(9_500L, resolveReasoningDisplayDuration(durationMs = null, frozenElapsedMs = 9_500L))
+    }
+
+    @Test
+    fun `零时长按未知处理由冻结值兜底`() {
+        assertEquals(8_000L, resolveReasoningDisplayDuration(durationMs = 0L, frozenElapsedMs = 8_000L))
+    }
+
+    @Test
+    fun `负时长按未知处理由冻结值兜底`() {
+        assertEquals(8_000L, resolveReasoningDisplayDuration(durationMs = -5L, frozenElapsedMs = 8_000L))
+    }
+
+    @Test
+    fun `两者皆未知返回 null 不显示伪造时长`() {
+        assertNull(resolveReasoningDisplayDuration(durationMs = null, frozenElapsedMs = 0L))
+        assertNull(resolveReasoningDisplayDuration(durationMs = 0L, frozenElapsedMs = 0L))
+    }
 }

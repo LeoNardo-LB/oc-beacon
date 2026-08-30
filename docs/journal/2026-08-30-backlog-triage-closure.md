@@ -1,6 +1,6 @@
 # backlog-triage-closure（2026-08-30）
 
-> 状态：已完成（#264/#235 过时·误判关闭迁 deps journal；#261/#263 修复完毕待用户一句话验收；#268 调研交付关闭立 #269）
+> 状态：进行中——#261 已关单（用户验收「你验证过的就行」）；#263 round2（完结 0ms）已修复待真机验收
 > 关联：/tmp/handoff-backlog-triage-20260830.md（上一会话对账 handoff，工作区外）· `docs/journal/2026-08-30-deps-upgrade-2026-08.md` §对账关闭（#235/#264 迁入地）· `docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md`（#268 关单轮）
 > 来源：用户指令「看看这个 handoff，能关闭的就先关闭，以免债务越积越多」
 
@@ -34,6 +34,18 @@
 ## 四轮 · #268 关单 + #269 立卡
 
 - #268 调研交付关闭（记录 → dsh journal §调研完结）；新立 #269：探针 P-1..P-4 先行 → 按差距矩阵拆实现需求卡
+
+## 五轮 · #261 关单 + #263 round2（2026-08-30 晚）
+
+**#261 关单**：用户验收原话「顺手修复的你验证过的就行」。全量单测 --rerun 0 红（ChunkReproTest 转绿），卡片迁出，证据见 §二轮。
+
+**#263 round2（用户报：思考结束后变 0ms）**：
+
+- 根因（源码定位）：`MessageEventHandler.markSessionIdle` 回填未完结 Reasoning part 时 `start = part.time?.start ?: partEnd; end = partEnd`——part 无 time 时伪造 start=end → 时长恰 0ms。与 round1 的 start=0→天文 ms 属姊妹症：同根都是「未知被伪造」
+- 修复两层：①数据层 Reasoning 分支未知 start 写 0 哨兵（不再伪造；Text 分支未动——其时长无显示消费方）；②显示层 `ReasoningBlock` 新增流式 tick 冻结样本（frozenElapsedMs），完结时 `resolveReasoningDisplayDuration`（服务器可信值 → 本地冻结值 → null），0/负一律视为未知不显示
+- ReasoningDurationTest 扩至 9 例（round1 4 例 + resolve 5 例：服务器优先/冻结兜底/零时长/负时长/双未知）
+- 证据：全量单测 --rerun BUILD SUCCESSFUL，2182 用例 0 失败（2177+5），1m07s
+- 待验证：真机看思考卡——思考中计时 → 结束显示合理时长（不再 0ms）
 
 ## 遗留（本批次不做）
 

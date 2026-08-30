@@ -868,8 +868,10 @@ class MessageEventHandler @Inject constructor(
                         }
                         part is Part.Reasoning && part.time?.end == null -> {
                             changed = true
+                            // #263 round2：start 未知时不得伪造 start=end=partEnd（恒 0ms 症状）。
+                            // 0 = 未知哨兵，显示层走本地冻结实测时长，不显示伪造值。
                             part.copy(time = Part.Reasoning.Time(
-                                start = part.time?.start ?: partEnd,
+                                start = part.time?.start?.takeIf { it > 0 } ?: 0L,
                                 end = partEnd
                             ))
                         }

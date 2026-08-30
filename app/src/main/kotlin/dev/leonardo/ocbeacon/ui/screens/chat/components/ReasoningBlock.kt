@@ -56,6 +56,14 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import kotlinx.coroutines.delay
 
+/**
+ * #263 round2：完结思考卡的显示时长合成。优先服务器可信时长（>0）；未知
+ * （null/0/负，含 start=0 哨兵守卫后）退回本地冻结实测值；两者皆无 → null
+ * （显示层回落静态文案，绝不显示伪造时长）。
+ */
+internal fun resolveReasoningDisplayDuration(durationMs: Long?, frozenElapsedMs: Long): Long? =
+    durationMs?.takeIf { it > 0 } ?: frozenElapsedMs.takeIf { it > 0 }
+
 @Composable
 internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleExpand: () -> Unit = {}, durationMs: Long? = null, isStreaming: Boolean = false, startTimeMs: Long? = null) {
     val hapticView = LocalView.current
@@ -71,17 +79,22 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     val fallbackStart = rememberSaveable { mutableStateOf(System.currentTimeMillis()) }.value
     val effectiveStart = startTimeMs ?: fallbackStart
     val elapsedMs = remember { mutableLongStateOf(0L) }
+    // #263 round2：本地实测时长的冻结样本——流式 tick 期间持续捕获。服务器未给
+    // 可信 start（0 哨兵/缺失）时，完结卡显示冻结值而非 0ms/伪造值。0 = 从未
+    // tick（历史卡后进入视口，无本地观测）。
+    val frozenElapsedMs = remember { mutableLongStateOf(0L) }
     LaunchedEffect(isStreaming, effectiveStart) {
         if (isStreaming) {
             while (true) {
                 // 下限钳制为 0 —— 服务器时钟偏差可能使其为负
                 elapsedMs.longValue = (System.currentTimeMillis() - effectiveStart).coerceAtLeast(0L)
+                frozenElapsedMs.longValue = elapsedMs.longValue
                 // 2026-08-15 用户要求：0.3s ticker（秒级小数进度感；独立 state，
                 // 重组范围仅限本组件，与 #47/L-10 的重组治理不冲突）
                 delay(100L)
             }
         } else {
-            elapsedMs.longValue = durationMs ?: 0L
+            elapsedMs.longValue = resolveReasoningDisplayDuration(durationMs, frozenElapsedMs.longValue) ?: 0L
         }
     }
 
@@ -94,7 +107,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     // drawBehind 使用，仍持续驱动重组）；isComplete 时用静态 alpha。
     // #207：非流式（含 idle 会话下 time=null 残留卡）同样用静态 alpha——
     // 不再对停表卡片播放"正在思考"脉冲误导。
-    val isComplete = durationMs != null && !isStreaming
+    // #263 round2：完结显示时长 = 服务器可信值 → 本地冻结实测值 → 无。0/负值
+    // 一律视为未知（不得显示 0ms）。
+    val displayDurationMs = resolveReasoningDisplayDuration(durationMs, frozenElapsedMs.longValue)
+    val isComplete = !isStreaming && (displayDurationMs != null || durationMs != null)
     val pulseAlpha: Float = if (isComplete || !isStreaming) {
         0.4f
     } else {
@@ -112,7 +128,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     }
     val headerText = when {
         isStreaming -> stringResource(R.string.chat_thinking_in_progress, formatReasoningDuration(elapsedMs.longValue))
-        isComplete -> stringResource(R.string.chat_thinking_complete, formatReasoningDuration(durationMs))
+        isComplete -> stringResource(R.string.chat_thinking_complete, formatReasoningDuration(displayDurationMs ?: 0L))
         else -> stringResource(R.string.chat_status_thinking)
     }
 

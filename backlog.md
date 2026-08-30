@@ -71,19 +71,13 @@
   - 第一步探针：P-1 adb reverse 下栅栏 2/4 行为（特权面是否天然可用）· P-2 WS 重连/keepalive · P-3 trustedHosts 配置键 · P-4 session.history fold 试样
   - 探针结论出来后按差距矩阵拆实现需求卡；服务器类型抽象（opencodeV1/opencodeV2/dsh）结构级先行
 
-- [~] **#261 ChunkReproTest 环境夹具——已改测试内自造巨文档，待验收** `test` `refactor`
-  - 修复（2026-08-30）：测试内自造 ~90KB 结构化文档（含「索引下推」标记节），移除 /tmp/giant.md 外部依赖，新增「分块计划非空」断言；全量单测 --rerun 0 红
-  - 待验证：用户对「全量单测不再无辜报红」一句话验收
-  - → `docs/journal/2026-08-30-backlog-triage-closure.md`
-
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
   - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
   - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
 
-- [~] **#263 思考卡时长异常「29800753m 45s」——start=0 哨兵已守卫，待验收** `ui` `data`
-  - 真实根因勘误（triage 定位）：守卫点不在 ReasoningBlock.kt（其对 null 回退正确）而在 PartContent.kt L122-124 `end - t.start` 未防 start=0 哨兵 → 差值≈当下 Unix 毫秒
-  - 修复（2026-08-30）：提取纯函数 reasoningDurationMs（start<=0 → null，显示走既有 startTimeMs 降级链）+ ReasoningDurationTest 4 例锁定；全量单测 --rerun 0 红
+- [~] **#263 思考卡时长——天文 ms 与完结 0ms 双症已修，待真机验收** `ui` `data`
+  - round1（天文 ms）：start=0 哨兵守卫（PartContent reasoningDurationMs 纯函数，显示走既有 startTimeMs 降级链）；round2（用户报「结束后变 0ms」）：markSessionIdle 回填伪造 start=end=partEnd 根因消除（未知=0 哨兵不再伪造）+ ReasoningBlock 冻结实测兜底（resolveReasoningDisplayDuration）
   - 待验证：用户真机确认已完成思考卡时长正常 → `docs/journal/2026-08-30-backlog-triage-closure.md`
 
 ## P3 — 观察与低价值改进
@@ -92,15 +86,6 @@
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修
   - → `docs/journal/2026-08-20-queue-todo.md` · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
-
-- [ ] **#252 V2 `!cmd` 对话流内可见反馈——shell 卡内嵌消息流（TUI 语义，已修复，待验收）** `ui` `api`
-  - #250 验收时判定为非缺陷的开放设计点：V2 会话级 shell = 后台 shell 体系（shell.created/exited → ShellJobsStore），**不产聊天消息** → 用户 `!cmd` 后聊天区无任何反馈（V1 渲染轮次卡，两方言 UX 不对称）
-  - 修复（2026-08-28 用户裁决终版「类似通知那种」）：每个 job 渲染一张 **`EventCard` 通知卡本体**（Shell 完成/失败既有形态：label/图标/红描边/i18n 全现成，description=`$ 命令`，body=输出 Markdown 三级 provider），内嵌消息列表贴最新消息下方（bannerCount/reveal 接入 #222 体系 + 内容变化贴底重锚）；迭代史浮层→ShellCard→气泡包卡→EventCard；全量单测 2142/0
-  - 真机 E2E：卡片长在对话流 ✓ + `✗ exit 127` 失败态 ✓ + REST 输出渲染卡内 ✓（成功态同构已演示）
-  - **勘误二（2026-08-28 用户报「间隔仍有大」→ UI dump + Room 实证定音）**：V2 为每次 `!cmd` 创建 role='shell' 零 parts 信封消息，MessageSerializer 按 role 分发时 'shell' 落入 else 回退为 Message.User——原 `(as? Assistant)` 判定永不命中，空气泡（48dp/条）照常渲染，15 条占位累积 = 半屏鸿沟（dump 实证 gap 区 12 个空气泡、8dp 步进）。修复：按 `Message.role` 字符串过滤 `SYNTHETIC_ENVELOPE_ROLES`（shell/agent-switched/model-switched 一并过滤）。真机复测语义树 bounds：气泡容器底 y2081 → 通知卡容器顶 y2105，**gap = 24px = 8dp = messageSpacing 精确达标**（acc_final_8dp.png）；`SyntheticEnvelopeFilterTest` 3 用例锁回退行为 + 过滤零发射
-  - 顺带发现：GET `/api/session/{id}/message` 返回 shell 条目带完整 command/status/exit/output——**V2 存在已结束 shell 的历史 API**（早前「无历史 API」判断有误）；如需跨进程恢复通知卡可评估另立卡
-  - **时间线化（2026-08-28 用户两问「卡片为啥没被顶上去 / opencode 中指令执行是否对话数据的一部分」→ beta-18414 二进制源码证据定音）**：官方语义 = shell 执行 appendMessage 进会话消息历史（type:'shell' 一等公民，TUI 消息流渲染，输出注入 agent 上下文）。客户端对齐：Part.Shell 载荷入库 + 消息时间线渲染 EventCard + 钉底横幅退役 + store 观察去抖刷新。真机全链 E2E：顶上去 ✓ / 实时出现 ✓ / 跨进程持久化 ✓（「进程死卡消失」限制解除）；→ §十九轮
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮/§十七轮/§十八轮——**用户验收后迁 journal**
 
 - [ ] **#254 RenderSupplyCoordinatorTest.T12 负载敏感偶发——skip 早期提交竞态（测试基建）** `refactor`
   - 现象（2026-08-28 两轮全量复现）：T12「前两次 skip 不应提交」满载挂、隔离运行恒绿（12/12）；与本轮改动代码零交集（协调器未 import 被改文件）
