@@ -19,6 +19,19 @@
 3. **工具输出维持 500 字符预览**（用户确认 c）：DB 体积大头；服务器重拉兜底（#79 既有权衡）；未来若要离线全量，冷存桶可加 zstd 全量列，不锁死。
 4. **首开自动 drain 全量历史**：首次打开会话（或同步状态≠synced）时后台分页拉取全部历史（复用 `fetchAllMessages` 分页模式 + `persistOldBeyondWindow=true` 落库），之后靠增量维护；同步状态机：未同步/同步中/已同步（含 lastSyncAt）。
 5. **会话同步状态 UI**：会话列表行内轻量标识（已同步✓/同步中/未同步 + 最后同步时间）；**长按菜单**新增「同步全部历史」触发单会话 drain（不新增会话级设置页）。
+
+5. **会话同步状态 UI**（2026-08-30 二轮细化）：**只在「同步中」占行**——左图标（ChatBubble）环形进度描边动画；已同步/未同步不占行内空间（拥挤规避）。
+   - 冲突注记：左图标角落已被未读红点 BadgedBox 占用（SessionRow L118-124）→ 同步指示采用环绕描边而非角标，二者不冲突。
+   - **长按菜单同步详情区**：状态 / lastSyncAt / 已入库条数与占用字节 / 「同步全部历史」按钮 / 同步中可取消。
+   - 未同步可见性：不挂行内——搜索结果中对未全量同步会话显示覆盖提示（「该会话未同步全部历史」），信息不丢、行内零成本。
+   - 与流式 Busy 同现：环形描边与「工作中」文字芯片分属图标/文字行，可并存；drain 让位规则见 HistorySyncManager。
+7. **HistorySyncManager（专门模块，用户确认需要）**：@Singleton，职责=全量历史 drain 的唯一所有者。
+   - 状态持久化：新 Room 小表 `session_sync_state`（v5 迁移：sessionId PK / state / lastSyncAt / drainCursor）——删会话级联清理；游标持久化→App 被杀可续传。
+   - API：`requestSync(sessionId)`（首开自动：state≠Synced 即入队；长按手动）/ `cancel(sessionId)` / `syncStates: StateFlow<Map<String, SyncInfo>>`（供行内描边、长按详情、搜索覆盖提示）。
+   - 循环：listMessages 50/页（游标=持久化 drainCursor）→ upsertMessages(persistOldBeyondWindow=true，溢出自动 zstd 归档) → 游标耗尽 → Synced。
+   - 并发与让位：单会话单 flight；全局并发 1 顺序队列；页间 ~150ms 限速；drain 中会话变 busy → 暂停让位流式，idle 后续传。
+   - 解耦：SyncManager 只落库；FTS 增量挂在 MessageStore 落库事务（#272 hook），drain 自动入索引——两特性互不感知。
+   - 错误：state=Failed(原因) 可重试；drain 为后台增强，失败不阻塞聊天。
 6. **删会话维持现状**：本地热表+冷存+索引全清。
 
 ## 3. #272 BM25 内容检索
