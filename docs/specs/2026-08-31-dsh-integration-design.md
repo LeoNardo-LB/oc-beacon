@@ -164,6 +164,7 @@
 - [x] P-4：**版本探测**——host.describe.version="0.0.1" 硬编码字面量（不可用于锁定）；无版本协商（"client and host ship together"）→ 客户端做**能力探测**：方法存在性（404）+ describe 字段集 + projections key 集。
 - [x] P-4：**坑位**——skill.list 需 attached 会话（冷会话→session-not-found）；session.models 遇 subagent-origin→agent-busy；session.search 部署索引可关（internal 错误）→ 客户端需本地降级路径；**时间戳单位双态**（workspace ISO 字符串 vs session epoch-ms）。
 - [x] P-4：**会话开头惯例**：subagent/descriptor(seq0)→sandbox/mode→approval/policy→permission/preset→agent/inbox/spliced→turn/start。
+- [x] 主会话补遗（2026-08-31 源码提取）：**39 错误码闭集全清单**（RpcErrorDetailsMap keys，rpc.d.ts:26-175）——bad-request/cancelled/session-not-found/model-unavailable/session-conflict/invalid-time-zone/workspace-attach-failed|not-found|invalid-path|name-conflict|move-invalid/directory-unreadable|exists|create-failed|picker-unavailable/agent-preset-read-only|locked|conflict|not-found|invalid/agent-busy/attachment-error/queue-item-not-found/steer-unavailable/command-error/unknown-command/settings-rejected|conflict/credential-rejected/model-discovery-failed/title-invalid/fork-unavailable/subagent-parent-unavailable|not-found|catalog-diagnostic|not-resumable|unauthorized|delivery-unavailable/internal。
 ## 6. E2E 计划（真机 e69a99d8）
 
 adb reverse tcp:3080 tcp:3080 → 应用内添加 DSH 服务器（127.0.0.1:3080）→ 会话列表加载（fold）→ 发送消息（session.prompt，微小提示词）→ 流式渲染（WS delta）→ 中断（session.cancel）→ 断连重连对账。全程 logcat + UI dump 取证；截图识图委派 subagent（glm-5.3-flash）。
