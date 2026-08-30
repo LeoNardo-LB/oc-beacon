@@ -1,6 +1,6 @@
 # full-retention-bm25（2026-08-30）
 
-> 状态：功能实现完毕，V3 实机走查进行中（交叉验证：全量 2184/0 · i18n-check PASSED · 装机 Success）
+> 状态：**完结**（2026-08-31 Q6c 综合实机 E2E 收官 + 主会话交叉验证通过；验收策略=自动化/实机证据即验收，用户 2026-08-31 授权）
 > 关联：docs/specs/2026-08-30-full-retention-bm25-search-design.md · backlog #271/#272
 > 来源：用户指令「开始吧，看看安卓端主流 BM25 技术栈选一个合适的」+ 拷问轮 12 题裁决
 
@@ -71,3 +71,39 @@
 - 证据：/tmp/v3-retention-search/FINDINGS-FINAL.md + search-bm25-fixed(.dedup).png + fv-search-*.xml
 
 **剩余**：V6 人工验收清单交付用户（卡片保持 [~] 待验收）；#273 loadMore 观察已另立卡
+
+## 九轮 · Q6c 搜索过滤 UI（commit 211f2f0e，22 文件）
+
+- ContentSearchFilterValues 稳定 token（user/assistant/7d/30d）UI↔过滤共享；VM searchRole/searchTimeRange StateFlow + 切换即时重查（复用 contentSearchJob）+ buildContentSearchFilter（timeFrom=now-7d/30d）
+- ContentSearchFilterChips（新组件）：角色三枚+时间三枚 FilterChip 单选两行横向滚；**过滤激活 0 命中保留内容区**（否则切不回「全部」）+ search_content_no_hits 空态
+- i18n 7 keys×15 语言（705 keys 全一致）；顺带修复 3 个 VM 测试缺失构造参（基线编译红）+ 新增过滤单测 6 例
+
+## 十轮 · 综合实机 E2E 十项（代理 0c14b09c，真机 e69a99d8，vc1788109238；证据 /tmp/v3-retention-search/q6c-e2e/，60 截图）
+
+| # | 项 | 判定 | 要点 |
+|---|---|---|---|
+| 1 | drain 自动 | ✅ | DB 无 sync 行→logcat `synced 36 msgs in 2 pages`（与服务器 API 计数一致）→synced+lastSyncAt |
+| 2 | drain 手动 | ✅ | 对话框 未同步→已同步+01:12:08 |
+| 3 | 取消 | ⚠️有限 | 剩余会话 drain 均 <1s 三次竞态未赢；取消语义由单测「取消后状态回未同步」覆盖 |
+| 4 | BM25 搜索 | ✅ | [dsh] snippet + 2 会话分组（50/45 条）+ 点击跳转正文 |
+| 5 | 过滤 | ✅角色/⏸时间 | 用户 13 条 vs AI 83 条（snippet 角色正确）；时间 7d/30d 命中集不变——DB 实证缓存全部 ≤5.4 天旧，非缺陷；timeFrom 计算有单测 |
+| 6 | 双区聚合 | ✅ | 标题区+内容区共存 |
+| 7 | 删会话级联 | ✅ | 新会话发消息→命中→删除→再搜无命中→DB fts/sync/hot/桶全 0 |
+| 8 | 存储统计 | ✅空态 | 「暂无归档」+bucketCount=0；三行统计仅 >0 桶渲染（设计内） |
+| 9 | 清理按钮 | ⛔设计隐藏 | 0 桶入口隐藏（StorageSection.kt:78），零点击零数据损失 |
+| 10 | 0 FATAL | ✅ | ~67k 行 5 段 logcat 全程 0 崩溃 |
+
+**主会话交叉验证（2026-08-31）**：testDevDebugUnitTest --rerun 独立重跑 BUILD SUCCESSFUL（1m13s）；i18n 14 locale key 集与 base 逐一致（701 string keys）；树净（两代理提交 22abc52a/4f8aa53f/211f2f0e 均在）。
+
+## 十一轮 · #273 loadMore 诊断结论（只读，另立修复范围）
+
+- **走查初判颠覆**：「~35 会话不可达」非分页 bug——35 个全为 parentID 非空 V2 子会话，SessionListStateBuilder.kt:41 按设计仅渲染顶级（设备枚举 15/50 与 parentID 统计吻合）。
+- **真实潜伏 bug（>50 顶级会话爆发）**：V2 opaque cursor 被 V2ApiClient.listSessions 丢弃（`val (items, _)`）→VM 伪造 `sessions.last().id` 当 cursor→服务器 400 InvalidCursorError（curl+服务器日志+设备 Ktor 三重实证）→400 体无 data 被 unwrapList 静默解析空→hasMorePages=false 永久静默死亡。
+- 处置：#273 卡片改写为 cursor 修复卡（诊断全文 /tmp/v3-retention-search/q6c-e2e/273-loadmore-diagnosis.md）。
+
+## 结册 · #271/#272 关单（2026-08-31）
+
+- **#271 本地全量保留策略**：✅ 冷存桶无上限+统计/清理 UI、reasoning 全量、工具输出 500 预览、HistorySyncManager（自动/手动/取消/级联）、同步状态唯一展示面=长按菜单。E2E #1/2/3/7/8/9/10 覆盖。
+- **#272 BM25 对话内容检索**：✅ FTS5+bm25 真路径（捆绑 SQLite）+LIKE 降级安全网、snippet/分组/跳转、角色/时间过滤、双区聚合。E2E #4/5/6 覆盖。
+- 验收依据：用户 2026-08-31 授权「能自动化/实机验证的全由 Agent 自动验证并作为验收依据，人工验收压到最低」——上述自动化+实机证据即验收，卡片关单迁册（本节即迁册记录）。
+- 人工残余（不阻塞关单，用户后续随手可验）：时间过滤在 >30 天数据环境下的实际收窄效果；>1s drain 场景的取消按钮肉眼体验。

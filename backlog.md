@@ -48,16 +48,6 @@
 
 ## P1 — 核心功能需求
 
-- [~] **#272 BM25 对话内容检索：FTS5+bm25 已实现（搜索框统一入口分类聚合），待验收** `data` `ui`
-  - 已实现：MessageFtsIndex（FTS5 unicode61 运行时建表，API<30 LIKE 降级）+ MessageStore 三写路径增量索引（prune 不删 FTS 行=冷数据可搜，删会话级联清）+ bm25/snippet + 会话/角色/时间过滤；搜索框统一入口：标题命中+内容命中分类聚合（会话分组+片段），点击跳转会话
-  - 验证：全量 2184 用例 0 红 · i18n-check 绿（698 keys×14）· 装机 Success · V3 实机走查进行中
-  - → `docs/specs/2026-08-30-full-retention-bm25-search-design.md` · `docs/journal/2026-08-30-full-retention-bm25.md`
-
-- [~] **#271 本地全量保留策略：冷存桶无上限/reasoning 全量/首开 drain——待验收** `data`
-  - 已实现：冷存桶 LRU 淘汰移除（设置页 Storage 区：桶数/条数/大小统计+清空全部冷存桶）；reasoning 落库截断取消；工具输出维持 500 预览；HistorySyncManager（首开自动 drain+长按手动+取消+删会话级联，session_sync_state v5）；同步状态唯一展示面=长按菜单
-  - 验证：全量 2184 用例 0 红（HistorySyncManager 4 例）· i18n-check 绿（698 keys×14）· 装机 Success
-  - → `docs/specs/2026-08-30-full-retention-bm25-search-design.md` · `docs/journal/2026-08-30-full-retention-bm25.md`
-
 - [ ] **#267 服务器断连可感知：Chat/会话列表常驻条幅 + 写操作快速失败报错** `sse` `ui`
   - 现状：连接真相源已有（SseConnectionManager.connectedServerIds + 自动重连 + REST 补漏），仅 Home 圆点消费；Chat/会话列表断连零感知，写操作失败悬挂 20s+
   - 方案（2026-08-30 用户裁决：简单做）：零 UI 禁用——两界面常驻细条幅（恢复自动消失）+ REST 失败回灌一期 + mutation 快速失败报「服务器已断开」；per-serverId 键控；草稿保留；workspace 面板二期
@@ -76,10 +66,10 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#273 会话列表滚 ~15 行后 loadMore 不续页（约 35 会话不可达）——V3 走查观察待定性** `ui` `data`
-  - 现象（2026-08-30 V3 走查代理观察）：会话列表滚动约 15 行后不再触发 loadMore，其后约 20 会话滚不出（合计 ~35 不可达）；疑似存量问题（本期改动不触分页），未深查
-  - 方向：复现定性（触发条件/window 判定）→ 根因定位（SessionTreeList derivedStateOf shouldLoadMore 阈值？cursor 链？）→ 修复
-  - → V3 走查证据 /tmp/v3-retention-search/（临目录）· 发现人：V3 走查代理 0aedd62c
+- [ ] **#273 V2 会话列表 cursor 被丢弃伪造游标→400 静默解析空→分页永久关闭（>50 顶级会话爆发）** `ui` `data`
+  - 诊断定论（2026-08-31 只读诊断，curl+服务器日志+设备 Ktor 三重实证）：原「~35 会话不可达」系子会话按设计不渲染（35/35 parentID 非空，非 bug）；真 bug=V2ApiClient.listSessions 丢弃 opaque cursor（`val (items, _)`），VM 伪造 last().id 当游标→InvalidCursorError 400→unwrapList 静默空→hasMorePages=false 永久死
+  - 修复方向：listSessions 返回携带 nextCursor（unwrapListFull 现成）+ VM 持真 cursor + 判停改条数/cursor.next
+  - → 诊断全文 /tmp/v3-retention-search/q6c-e2e/273-loadmore-diagnosis.md · `docs/journal/2026-08-30-full-retention-bm25.md` 十一轮
 
 - [~] **#269 DSH 接入实现：探针收官（P-1..P-4 全实证），拆卡 #274/#275/#276 开工** `infra`
   - 探针全部完成（2026-08-31，双源交叉验证）：52 方法四象限信封（非 JSON-RPC 2.0）、业务错恒 200+result.error 闭集 39 值、WS 纯下行（GET→426，OkHttp pingInterval 必配，无服务端心跳）、重连无游标（subscribed lastSeq 基线+history beforeSeq 回填）、特权面只认 Host 头 loopback（adb reverse 按构造全过）、事件 49 型开放联合+存储打包行（seq0）
