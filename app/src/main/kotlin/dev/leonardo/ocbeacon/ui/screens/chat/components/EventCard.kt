@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -108,13 +110,8 @@ internal fun EventCard(
     val expanded = expandedStates[eventKey] ?: defaultExpanded
     val hasBody = bodyContent != null
 
-    // #262 渲染前计算（EV 试点）：finalH 缓存 + tap 预移 + 布局恒终态 + clip 幕布
-    val preExpand = rememberPreRenderExpandState(
-        listState = expandRevealListState,
-        contentKey = eventKey,
-        logTag = "EV:" + eventKey.takeLast(10),
-        initialExpanded = expanded,
-    )
+    // #241 渲染前补偿：展开增量裁剪 + 遍首注入视窗下移、下一遍对齐揭示
+    val expandReveal = remember { ExpandRevealCompensator() }
 
     // Q5 严重度编码：失败破色只作用图标与描边，其余保持中性
     val labelIcon = if (failed) Icons.Outlined.ErrorOutline else leadingIcon
@@ -151,10 +148,7 @@ internal fun EventCard(
         // （label fill=false 与 Spacer 瓜分弹性，trailing 随标题长度浮动）。
         // labelFillRemaining 让 label 独吃弹性，箭头/chevron 恒贴右缘。
         labelFillRemaining = true,
-        onCardClick = if (hasBody) ({
-            // #262：toggle 经渲染前状态机（缓存命中→tap 预移；未命中→测量配对）
-            expandedStates[eventKey] = preExpand.toggle(expanded)
-        }) else null,
+        onCardClick = if (hasBody) ({ expandedStates[eventKey] = !expanded }) else null,
         labelTrailing = {
             // 跳转箭头（Q4 常驻折叠+展开两态；点击不冒泡到整卡 toggle）
             if (navTargetId != null && onNavClick != null) {
@@ -177,7 +171,15 @@ internal fun EventCard(
                 )
             }
         },
-        modifier = modifier, // #262：补偿 modifier 退役——PreRenderExpand 自带 clip+测量
+        modifier = modifier.then(
+            if (expandRevealListState != null && hasBody) {
+                Modifier
+                    .clipToBounds()
+                    .expandRevealCompensation(expandRevealListState, expandReveal, "EV:" + eventKey.takeLast(10))
+            } else {
+                Modifier
+            }
+        ),
     ) {
         // 描述行（Q15 可选槽位）：数据在才显示，一行截断；有正文时点它也能 toggle
         if (description != null) {
@@ -192,11 +194,14 @@ internal fun EventCard(
         }
 
         // 展开态两段式（Q11）：分隔线 → 正文(300dp 上限内滚) → 分隔线 → 动作区
-        // #262 渲染前计算（EV 试点）：AnimatedVisibility 退役——布局层恒终态 +
-        // 绘制层 clip 幕布（200ms FastOutSlowIn）；折叠态正文不组合（#258 预算），
-        // finalH 缓存使二次展开 tap 预移同帧原子（spec §4.2/§4.4）。
-        if (hasBody) {
-            PreRenderExpand(state = preExpand) {
+        // 2026-08-28 二次裁决：恢复展开/收起动画（AV 包裹整段）——瞬时收起的
+        // Δ 单帧跳变不可接受；渲染前补偿（EV-REVEAL）在根 modifier 逐帧配对，
+        // 动画逐帧增量同样被配对，收起平滑且零漂移。Q12 无动画裁决被取代。
+        AnimatedVisibility(
+            visible = hasBody && expanded,
+            enter = ExpandEnterTransition,
+            exit = ExpandExitTransition,
+        ) {
             // ★ AnimatedVisibility 内容是 Box 叠放语义（非 Column）——多子级全部
             // 原点重叠：分割线被正文整体盖住（透明 Markdown 时从字底透出、
             // ShellOutputBlock 不透明后彻底消失）——这就是分割线「时隐时现/
@@ -256,7 +261,6 @@ internal fun EventCard(
                 }
             }
             } // ★ 显式 Column 收尾（见上「Box 叠放语义」注释）
-            }
         }
     }
 }
