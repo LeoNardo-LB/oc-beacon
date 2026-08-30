@@ -55,6 +55,16 @@ sections=$(grep '^## P[0-3] ' "$BL" | awk '{print substr($2,1,2)}' | tr -d '\n')
 if [ "$sections" = "P0P1P2P3" ]; then echo "✓ P0-P3 节标题有序唯一"
 else echo "✗ P 节标题异常：'$sections'（期望 P0P1P2P3）"; fail=1; fi
 
+# 5b. 卡片放置：卡片（^- [ ] / ^- [~] / ^- [x]）只允许出现在 Pn 节标题之后——
+#     头部编号行与优先级定义表之间不放卡（#266 批次勘误后新增；此前无约束，
+#     历次批次把卡堆在顶部区形成事实惯例但无文字规则）
+misplaced=$(awk '/^## P[0-3] /{inz=1} /^- \[/{if(!inz)print NR": "$0}' "$BL")
+if [ -n "$misplaced" ]; then
+  echo "✗ 发现 Pn 节之外的卡片（卡片必须写在对应 Pn 节内）："
+  echo "$misplaced" | head -5
+  fail=1
+else echo "✓ 卡片全部位于 Pn 节内"; fi
+
 # 6. 行数警告（阈值 250，仅警告）
 lines=$(wc -l < "$BL")
 if [ "$lines" -gt 250 ]; then

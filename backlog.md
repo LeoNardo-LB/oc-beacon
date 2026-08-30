@@ -2,36 +2,9 @@
 
 本文档是唯一的**未决工作项清单**：只保留尚未完结的需求与问题卡片。条目完结（用户验收 `[x]`）后**当场迁出**——记录连同证据移入 `docs/journal/` 对应批次文件，本文件不保留完结记录；历史查询走 journal 与 git。
 
-**卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
+**卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
 **编号**：全局递增，不回收。下一编号：**#267**。
-
-- [~] **#266 part 身份双轨统一——流式派生 id 与完结权威 id 的漂移面收敛** `refactor` `sse`
-  - 实现：mergePart 身份回填派生 id（方向 A；实测当前服务器事件无服务端 id 字段）+ applyDelta 终态守卫（ended 后 delta 一律丢弃，堵注册路径盲拼接）+ contains 守卫收窄到终态包含（消除流式期误伤面）+ reasoning append endsWith 去重 + 骨架消息改 IGNORE（FK 级联删 part 行的落盘脏行根源）
-  - 验证（V1-V3 自验）：全量单测 2173（唯一红 #261 环境项）；真机七轮渲染尾段 ×1；17 条助手消息 text 行与服务器逐字一致；思考块展开 reasoning 行 254 字与服务器一致尾串 ×1；重进会话完整
-  - 待用户确认收卡（V6 无遗留项——内容正确性已实机取证，非时间性/主观现象）→ docs/journal/2026-08-30-part-identity-unification.md
-
-- [~] **#265 流式 turn 渲染试点 StreamingMarkdownState——P0 已接线，待真机 A/B 验收** `sse` `ui`
-  - 实现（a3ad01c6）：开关（dev 开/beta+stable 关）+ 前缀差分 append 包装（修正 spec 伪代码重建缺陷：非前缀→prev 置空重建）+ MarkdownContent 三分支；P0-b 缓存审计过验零修正（解析器源码实证：尾部节点每 append 新实例=键必然失效，稳定块实例永复用）；装机烟测无 FATAL；2159 单测基线一致
-  - 待验证：V6 A/B 六项（防闪烁/完结跳变/颜色实时/重生成残留/fling 手感/内容一致）→ docs/journal/2026-08-30-streaming-md-pilot.md · spec：docs/specs/2026-08-30-streaming-markdown-state-pilot-design.md
-
-- [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
-  - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
-  - 方向：确认无传递测试依赖后移除；见 docs/journal/2026-08-30-deps-upgrade-2026-08.md §顺带发现
-
-- [~] **#260 /api/form/request 15-20ms 密集轮询——节拍式 location fan-out，已分层降频** `infra` `ui`
-  - 根因（2026-08-30 journal 取证）：每 30s 轮全扫「默认 location + 全部项目目录」，项目数无界增长（实证 10 projects → 9 请求/30s，轮内中位 16ms）；非状态驱动、非多协程
-  - 修复（02a6ea55）：QuestionPollPlanner 分层——默认 location 每轮必查，目录 fan-out 5min 一次，round0 保持全扫；稳态 9/30s → 约 1.9/30s
-  - 验证：单测 4 绿 + 全量 2168（唯一失败为 #261 环境性）；实机 logcat 分层断言见 journal
-
-- [ ] **#261 ChunkReproTest 依赖 /tmp/giant.md 环境夹具——缺夹具即红** `test` `refactor`
-  - 现象（2026-08-30 全量单测）：ChunkReproTest.repro FileNotFoundException——/tmp/giant.md 为一次性调试夹具，未入库未生成
-  - 方向：夹具入库（src/test/resources）或测试内自造内容；避免无辜全量单测报红
-
-- [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
-  - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
-  - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
-  - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -73,6 +46,11 @@
 
 ## P0 — 主流程阻塞
 
+- [~] **#266 part 身份双轨统一——流式派生 id 与完结权威 id 的漂移面收敛** `refactor` `sse`
+  - 实现：mergePart 身份回填派生 id（方向 A；实测当前服务器事件无服务端 id 字段）+ applyDelta 终态守卫（ended 后 delta 一律丢弃，堵注册路径盲拼接）+ contains 守卫收窄到终态包含（消除流式期误伤面）+ reasoning append endsWith 去重 + 骨架消息改 IGNORE（FK 级联删 part 行的落盘脏行根源）
+  - 验证（V1-V3 自验）：全量单测 2173（唯一红 #261 环境项）；真机七轮渲染尾段 ×1；17 条助手消息 text 行与服务器逐字一致；思考块展开 reasoning 行 254 字与服务器一致尾串 ×1；重进会话完整
+  - 待用户确认收卡（V6 无遗留项——内容正确性已实机取证，非时间性/主观现象）→ docs/journal/2026-08-30-part-identity-unification.md
+
 ## P1 — 核心功能需求
 
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
@@ -87,6 +65,28 @@
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
+
+- [~] **#265 流式 turn 渲染试点 StreamingMarkdownState——P0 已接线，待真机 A/B 验收** `sse` `ui`
+  - 实现（a3ad01c6）：开关（dev 开/beta+stable 关）+ 前缀差分 append 包装（修正 spec 伪代码重建缺陷：非前缀→prev 置空重建）+ MarkdownContent 三分支；P0-b 缓存审计过验零修正（解析器源码实证：尾部节点每 append 新实例=键必然失效，稳定块实例永复用）；装机烟测无 FATAL；2159 单测基线一致
+  - 待验证：V6 A/B 六项（防闪烁/完结跳变/颜色实时/重生成残留/fling 手感/内容一致）→ docs/journal/2026-08-30-streaming-md-pilot.md · spec：docs/specs/2026-08-30-streaming-markdown-state-pilot-design.md
+
+- [~] **#260 /api/form/request 15-20ms 密集轮询——节拍式 location fan-out，已分层降频** `infra` `ui`
+  - 根因（2026-08-30 journal 取证）：每 30s 轮全扫「默认 location + 全部项目目录」，项目数无界增长（实证 10 projects → 9 请求/30s，轮内中位 16ms）；非状态驱动、非多协程
+  - 修复（02a6ea55）：QuestionPollPlanner 分层——默认 location 每轮必查，目录 fan-out 5min 一次，round0 保持全扫；稳态 9/30s → 约 1.9/30s
+  - 验证：单测 4 绿 + 全量 2168（唯一失败为 #261 环境性）；实机 logcat 分层断言见 journal
+
+- [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
+  - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
+  - 方向：确认无传递测试依赖后移除；见 docs/journal/2026-08-30-deps-upgrade-2026-08.md §顺带发现
+
+- [ ] **#261 ChunkReproTest 依赖 /tmp/giant.md 环境夹具——缺夹具即红** `test` `refactor`
+  - 现象（2026-08-30 全量单测）：ChunkReproTest.repro FileNotFoundException——/tmp/giant.md 为一次性调试夹具，未入库未生成
+  - 方向：夹具入库（src/test/resources）或测试内自造内容；避免无辜全量单测报红
+
+- [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
+  - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
+  - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
+  - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
 
 - [ ] **#263 思考卡时长异常「29800753m 45s」——计时锚点 0 哨兵未防** `ui` `data`
   - 现象（2026-08-30 用户报）：已完成思考卡显示巨长时长；29800753m≈1.788e9s≈当下 Unix 秒 → effectiveStart≈0，`startTimeMs ?: fallbackStart` 对 **0 哨兵**不回退（0 非 null），疑似上游 part time 缺失/解析落 0；次候选 #207 rememberSaveable 锚点跨场景陈旧
