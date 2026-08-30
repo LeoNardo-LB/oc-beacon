@@ -92,10 +92,10 @@ paths:
       operationId: session.list
       summary: List persisted sessions
       description: >-
-        Full session list, updatedAt descending. cursor is a reserved seat (accepted, ignored). Timestamps are
-        epoch ms (contrast workspace domain ISO-8601). Evidence: 01-session.list (382 items, 13 projection
-        keys). Source: sessions.d.ts:231-236. Payload/value schemas: dsh-host-apiproxy/lib/types/api/ (d.ts +
-        .schema.js).
+        Full session list (INCLUDING workspace-archived sessions — live-verified V01), updatedAt descending.
+        cursor is a reserved seat (accepted, ignored). Timestamps are epoch ms (contrast workspace domain
+        ISO-8601). Evidence: 01-session.list (382 items, 13 projection keys) + V01-refresh (386). Source:
+        sessions.d.ts:231-236. Payload/value schemas: dsh-host-apiproxy/lib/types/api/ (d.ts + .schema.js).
       x-dsh-kind: read
       requestBody:
         required: true
@@ -748,8 +748,9 @@ paths:
       description: >-
         Side effect: durable admission then an agent turn. content is browser-narrow (text/image parts);
         exactly-one-text-block starting with "/" dispatches a slash command instead of a model call (command
-        slot, or command-error/unknown-command). Subagents reject agent-busy (use subagent.prompt). Evidence:
-        M05 (accepted:true). Source: sessions.d.ts:362-380. Payload/value schemas:
+        slot, or command-error/unknown-command). Subagents reject agent-busy (use subagent.prompt). mode is
+        REQUIRED — omitting it answers bad-request with a zod union issue at path ["mode"] (evidence V02).
+        Evidence: M05 (accepted:true) + V02. Source: sessions.d.ts:362-380. Payload/value schemas:
         dsh-host-apiproxy/lib/types/api/ (d.ts + .schema.js).
       x-dsh-kind: mutation
       requestBody:
@@ -2301,9 +2302,10 @@ paths:
       operationId: workspace.archiveSession
       summary: Archive a session (registry-global set)
       description: >-
-        Idempotent; hides the session from grouping surfaces while keeping log + workspace slot. Evidence:
-        W5/W6. Source: workspace.d.ts:107-119. Payload/value schemas: dsh-host-apiproxy/lib/types/api/ (d.ts +
-        .schema.js).
+        Idempotent; hides the session from grouping surfaces while keeping log + workspace slot. DISCREPANCY
+        (live-adjudicated): session.list itself still returns archived sessions (386 = 382 + 4 with S2/S3
+        archived — V01). Evidence: W5/W6 + V01. Source: workspace.d.ts:107-119. Payload/value schemas:
+        dsh-host-apiproxy/lib/types/api/ (d.ts + .schema.js).
       x-dsh-kind: mutation
       requestBody:
         required: true
@@ -4391,11 +4393,12 @@ paths:
       operationId: session.export
       summary: Download one session-log ZIP (no envelope)
       description: >-
-        GET download channel: streams the root session artifact verbatim plus each subagent descendant under
-        subagents/<id>/ (includeDescendants, default off; observed: a fork child counts as a descendant).
-        Headers: content-type application/zip, content-disposition attachment;
-        filename="dsh-session-<sessionId>.zip". The /api Host fence still applies. Evidence: X1 (64KB zip, 2
-        entries incl. the fork child) + X2 (HEAD). Source:
+        GET download channel: streams the root session artifact verbatim plus each descendant under
+        subagents/<id>/ (includeDescendants, default off). DISCREPANCY vs downloads.d.ts wording "each
+        subagent descendant": live includes fork children whose origin is NOT subagent (fork child origin:null
+        — V01 — yet present in the X1 zip); the live rule is parentSession lineage. Headers: content-type
+        application/zip, content-disposition attachment; filename="dsh-session-<sessionId>.zip". The /api Host
+        fence still applies. Evidence: X1 (64KB zip, 2 entries incl. the fork child) + X2 (HEAD). Source:
         dsh-host-apiproxy/lib/types/api/downloads.d.ts:9-22; downloads.schema.js:15-23;
         api-proxy.js:3269-3306.
       parameters:
@@ -4474,7 +4477,8 @@ paths:
       operationId: events_mux.get
       summary: All-session mux event stream (WS downlink; GET -> 426)
       description: >-
-        On open: one session/subscribed baseline per attached session (observed 11), then live session/event /
+        On open: one session/subscribed baseline per attached session (same-moment live-verified: 10 baselines
+        = attachedSessions 10; an earlier 11-vs-7 reading was timing skew), then live session/event /
         session/projection / session/queue / session/jobs frames interleaved across sessions, strictly
         seq-ordered per session. Still-pending approval/question frames replay with a stable rpcId. The 426
         response is what a plain HTTP GET receives under the dsh-web composition (client-connection intercepts
