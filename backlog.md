@@ -4,7 +4,11 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#265**。
+**编号**：全局递增，不回收。下一编号：**#266**。
+
+- [ ] **#265 流式 turn 渲染试点 StreamingMarkdownState——mikepenz 0.42+ 官方增量解析 API** `sse` `ui`
+  - 背景（2026-08-30 调研 §Q2）：官方 API 与自研 MarkdownChunking 同思路（append-only，只重解析不稳定尾部），0.45.0 classpath AAR 类级实证已在；README §Streaming 为官方姿势
+  - 方案：流式 turn 切 rememberStreamingMarkdownState()+append()（历史消息不动），A/B 对照防闪烁铁律与高度补偿交互 → docs/research/2026-08-30-ai-streaming-render-landscape.md
 
 - [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
   - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
@@ -22,7 +26,7 @@
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
   - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
-  - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；→ `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
+  - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
