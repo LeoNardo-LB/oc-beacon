@@ -52,3 +52,22 @@
 
 走查项：drain 状态转换（长按详情）/BM25 内容搜索命中与跳转/标题内容聚合/reasoning 全文完整性/存储统计展示/0 FATAL 冒烟。结果回报后补记。
 
+## 七轮 · V3 复验与两轮修复循环
+
+**V3 首验（代理 0aedd62c，构建 54cbc555）**：6 项中 4 过（BM25 搜索限 LIKE 降级/聚合/reasoning 全文/存储统计空态/冒烟），2 失败：①长按菜单同步状态恒「未同步」+手动按钮 no-op——根因=被中断代理只做了 SessionRow/TreeList 侧，SessionListScreen→TreeList 透传与 ViewModel 注入断链；②FTS5 建表静默失败（`no such module: fts5`）——**小米 HyperOS 系统 SQLite 未编译 fts5 模块**（SDK 36 亦然，「API 30+ 即有」预设被推翻），LIKE 降级成为永久路径。
+
+**修复 round-A（同步接线）**：SessionListViewModel 注入 HistorySyncManager 并暴露 syncStates/requestHistorySync/cancelHistorySync；SessionListScreen collect 后透传 SessionTreeList。复验通过：自动 drain→对话框「已同步+上次同步 00:35:06」（秒级吻合）；手动触发五险一金 170 msgs/5 pages→已同步（dialog-sync-fix.png/dialog-sync-manual-fix.png）。
+
+**修复 round-B（FTS5 真路径）**：DatabaseModule openHelperFactory 换捆绑 SQLite（JitPack com.github.requery:sqlite-android:3.45.0，自带 fts5 模块，APK +6.7MB 用户裁决接受）+ 建表后一次性回填（cached_parts text part 全量→FTS 1083 行，从未打开会话亦在索引）+ ensureAvailable 诊断日志。复验：logcat「FTS5 virtual table ready (backfilled)」、0 条 unavailable、DB message_fts+5 影子表存在。
+
+**修复 round-C（BM25 真路径暴露的第三 bug）**：ContentSearch SELECT `bm25(message_fts)` 未起 `AS score` 别名而 ORDER BY score 引用之 → `no such column: score` 被 runCatching 吞 → 内容命中区消失（上构建 LIKE 尚能出 5+4 条）。修复：`AS score` 别名 + 检索失败日志（VM onFailure + 0 命中 debug 日志）。宿主机同库验证：esbuild 命中 5 条、snippet [esbuild] 形态、bm25 -7.70→-2.90 升序。装机终验中。
+
+**附登记**：会话列表滚 ~15 行后 loadMore 不续页（约 35 会话不可达，V3 代理观察，疑似存量问题与本期无关）——待登记卡。
+## 八轮 · 终验通过（构建 vc1788107988）
+
+- **BM25 真路径全通**：esbuild「消息匹配」20 条（snippet [esbuild] FTS 方括号形态，rank 升序 -7.87→-2.99）；dedup 双分组 16+10 条（rank -9.44→-4.30）；「content search failed」0 条
+- 计数较复验轮升高（5→20/16+10）系捆绑 SQLite 首启全量回填更全（message_fts 4468 行 vs 1083），UI 与 DB 逐行一致，非异常
+- 三轮总账：首轮（UI 断线失败 + FTS5 失败走 LIKE + 四项通过）→ 复验（接线修复确认，暴露 ORDER BY score 无别名第三 bug）→ 终验（别名修复，BM25 真路径全面生效）
+- 证据：/tmp/v3-retention-search/FINDINGS-FINAL.md + search-bm25-fixed(.dedup).png + fv-search-*.xml
+
+**剩余**：V6 人工验收清单交付用户（卡片保持 [~] 待验收）；#273 loadMore 观察已另立卡

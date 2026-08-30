@@ -93,6 +93,8 @@ class SessionListViewModel @Inject constructor(
     private val pendingMessageDrainController: dev.leonardo.ocbeacon.domain.usecase.PendingMessageDrainController,
     // #272：BM25 内容检索（FTS5 索引，纯本地）
     private val messageFtsIndex: dev.leonardo.ocbeacon.data.local.MessageFtsIndex,
+    // #271：历史全量同步（drain 状态机 + 长按菜单手动触发/取消）
+    private val historySyncManager: dev.leonardo.ocbeacon.data.repository.HistorySyncManager,
 ) : ViewModel() {
 
     companion object {
@@ -512,6 +514,14 @@ class SessionListViewModel @Inject constructor(
 
     val searchQuery: String? get() = _searchQuery.value
 
+    // #271：drain 同步状态（长按菜单「History Sync」区数据源）
+    val syncStates: StateFlow<Map<String, dev.leonardo.ocbeacon.data.local.SessionSyncEntity>> =
+        historySyncManager.syncStates
+
+    fun requestHistorySync(sessionId: String) = historySyncManager.requestSync(serverId, sessionId)
+
+    fun cancelHistorySync(sessionId: String) = historySyncManager.cancel(sessionId)
+
     // #272：内容命中（FTS5 BM25，纯本地）——与标题命中并行检索，聚合展示
     private val _contentHits = MutableStateFlow<List<dev.leonardo.ocbeacon.data.local.ContentSearchHit>>(emptyList())
     val contentHits: StateFlow<List<dev.leonardo.ocbeacon.data.local.ContentSearchHit>> = _contentHits.asStateFlow()
@@ -528,6 +538,9 @@ class SessionListViewModel @Inject constructor(
             delay(SEARCH_DEBOUNCE_MS)
             _contentHits.value = runCatching {
                 messageFtsIndex.search(query, dev.leonardo.ocbeacon.data.local.ContentSearchFilter(limit = 100))
+            }.onFailure { e ->
+                // #272：检索失败静默会导致「内容命中区消失」难排查——失败必须可见
+                android.util.Log.w("SessionListVM", "content search failed: " + e.message)
             }.getOrDefault(emptyList())
         }
     }

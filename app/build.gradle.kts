@@ -252,6 +252,10 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
+    // #272：捆绑全量 SQLite（含 FTS5 模块）——小米等 ROM 系统 SQLite 无 fts5 模块，
+    // 作为 Room openHelperFactory 使 BM25 全设备可用（APK +数 MB 体积代价，用户裁决接受）。
+    // 坐标在 JitPack（Maven Central 无此 artifact），版本锁定 3.45.0
+    implementation("com.github.requery:sqlite-android:3.45.0")
 
     // zstd 压缩（归档桶）
     implementation("com.github.luben:zstd-jni:1.5.7-16@aar")

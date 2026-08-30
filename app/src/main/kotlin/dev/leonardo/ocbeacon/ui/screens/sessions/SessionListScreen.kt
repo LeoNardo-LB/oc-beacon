@@ -114,6 +114,8 @@ var showMoreMenu by remember { mutableStateOf(false) }
     val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
     // #272：BM25 内容命中（FTS5 本地检索）——搜索词非空时聚合展示
     val contentHits by viewModel.contentHits.collectAsStateWithLifecycle()
+    // #271：drain 同步状态（长按菜单详情区数据源）
+    val syncStates by viewModel.syncStates.collectAsStateWithLifecycle()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
@@ -399,6 +401,10 @@ viewModel.consumePendingReadSessionId()
                                             assignTagIds = currentTagIds
                                             showCategoryPicker = true
                                         },
+                                        // #271：同步状态透传（长按菜单「History Sync」区）
+                                        syncStates = syncStates,
+                                        onRequestSync = { sessionId -> viewModel.requestHistorySync(sessionId) },
+                                        onCancelSync = { sessionId -> viewModel.cancelHistorySync(sessionId) },
                                     )
                                 }
                             }

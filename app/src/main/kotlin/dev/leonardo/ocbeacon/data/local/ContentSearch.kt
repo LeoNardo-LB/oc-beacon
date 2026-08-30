@@ -64,16 +64,33 @@ class MessageFtsIndex @Inject constructor(
     private var ensured = false
     private var unavailable = false
 
-    /** 幂等建表；返回 FTS5 是否可用（不可用 = API<30 无模块，调用方走 LIKE 降级）。 */
+    /**
+     * 幂等建表；返回 FTS5 是否可用（不可用 = 无 fts5 模块，调用方走 LIKE 降级）。
+     * #272 V3 勘误：小米 ROM（SDK 36）也可能无 fts5 模块——失败根因必须留日志。
+     */
     fun ensureAvailable(): Boolean = synchronized(lock) {
         if (ensured) return true
         if (unavailable) return false
         try {
-            database.openHelper.writableDatabase.execSQL(MessageFtsSchema.CREATE)
+            val db = database.openHelper.writableDatabase
+            db.execSQL(MessageFtsSchema.CREATE)
             ensured = true
+            // 一次性回填：建表时把既有 text part 全量灌入索引（后续增量由写路径维护）。
+            // 仅建表当次执行（表已存在时不触发）；role 经消息表回查。
+            db.execSQL(
+                "INSERT INTO ${MessageFtsSchema.TABLE}(sessionId, messageId, partId, role, text) " +
+                    "SELECT p.sessionId, p.messageId, p.id, " +
+                    "COALESCE((SELECT mm.role FROM cached_messages mm WHERE mm.id = p.messageId), ''), " +
+                    "COALESCE(p.text, '') FROM cached_parts p WHERE p.type = 'text'"
+            )
+            android.util.Log.i("MessageFtsIndex", "FTS5 virtual table ready (backfilled)")
             true
         } catch (e: SQLiteException) {
-            // 典型："no such module: fts5"（API<30）——永久标记，不再重试
+            android.util.Log.w(
+                "MessageFtsIndex",
+                "FTS5 unavailable, LIKE fallback engaged: " + e.javaClass.simpleName + ": " + e.message,
+                e,
+            )
             unavailable = true
             false
         }
@@ -129,11 +146,15 @@ class MessageFtsIndex @Inject constructor(
         where.append("ORDER BY score LIMIT ?")
         val sql = (
             "SELECT message_fts.sessionId, message_fts.messageId, message_fts.role, " +
-            "snippet(message_fts, 0, '[', ']', '…', 16), mm.created, bm25(message_fts) " +
+            "snippet(message_fts, 0, '[', ']', '…', 16), mm.created, bm25(message_fts) AS score " +
             "FROM message_fts JOIN cached_messages mm ON mm.id = message_fts.messageId " +
             where
         )
-        return queryHits(sql, args.toTypedArray())
+        val hits = queryHits(sql, args.toTypedArray())
+        if (hits.isEmpty()) {
+            android.util.Log.d("MessageFtsIndex", "FTS search 0 hits: query=$query sessionId=${filter.sessionId} role=${filter.role}")
+        }
+        return hits
     }
 
     /** LIKE 降级（FTS5 不可用）：子串匹配，无相关性排序。 */

@@ -24,7 +24,10 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): OcBeaconDatabase =
         // WAL 模式：Room 对 targetSdk>=16 默认开启（JournalMode.WRITE_AHEAD_LOGGING）
+        // #272：openHelperFactory 换捆绑 SQLite（io.requery，含 FTS5 模块）——
+        // 小米等 ROM 系统 SQLite 无 fts5，BM25 检索需全设备可用的 FTS5。
         Room.databaseBuilder(context, OcBeaconDatabase::class.java, "ocbeacon.db")
+            .openHelperFactory(io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory())
             .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5)
             .build()
 
