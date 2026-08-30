@@ -8,6 +8,15 @@
 
 ## 批次执行记录
 
+### 2026-08-31（五）：定向复测 4/4 全 PASS——DSH 端到端闭环（代理 ca8f118e，证据 /tmp/dsh-e2e-retest/）
+
+- **R1 标题 PASS**：列表全显示真实标题（前五：StreamingMarkdownState优化…/dsh 自定义系统提示词方法/DSH流式空闲超时卡死排查/案卷目录…/梳理backlog可关闭项）——裸字符串双读修复实证。
+- **R2 fold PASS**：上轮空白会话（398 个 llm/failover）与 160-failover 会话均完整渲染；'refused rebuild' 0 条——收编+旗标兑现实证。
+- **R3 发消息+流式 PASS（P0 修复实证）**：prompt 230ms 受理（无 zod 拒绝）→ 服务端 user/message→~150 chunk→run_code 工具块→text 回显→turn/end completed；UI 全链（回显→工具块→文本→4.5s→Idle）。
+- **R4 中断 PASS（上轮 BLOCKED 补测）**：491 chunk 后停止→cancel 68ms 生效→服务端 turn/end aborted(user)→前缀持久化→UI 回 Idle。
+- 全程 0 FATAL；提示词 2/2 上限内；title 投影形态复证（364/378 str）。
+
+**DSH 接入交付定论**：探针（P-1..P-4 双源）→ 设计（双源实证文档）→ TDD 四层（#274 基础 39 测/#275 事件 45 测/#276 核心 47 测+UI）→ 真机 E2E 六段（3P+1P 修复后复测全 P）→ 四缺陷根治复绿。**#269/#276 关单迁册（本节即迁册记录）**。残留（不影响交付）：approval 卡未遇（实例 policy=never，映射已备+单测）；rename 回显未测；steer 模式、SessionUsage、queue/jobs/projection 域、ChatScreen 内 PTY 入口门控为后续增强位。
 ### 2026-08-31（四）：#276 UI 面（24692a9c）+ 真机 E2E 首跑（代理 f1d037e3）+ 四缺陷根治
 
 **UI 面**（24692a9c，33 文件）：ServerDialog 类型 SegmentedButton+DSH 凭据隐藏+提示；ServerCard DSH 徽章；能力位新增 6 位（terminal/fileRead/sessionDelete/vcs/fileSearch/commands）全 UI 门控；from(config) 统一（修复漏带 serverType 致能力位错回 OpenCode）；i18n 4 keys×15。
