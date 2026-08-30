@@ -8,6 +8,15 @@
 
 ## 批次执行记录
 
+### 2026-08-31（二）：#275 事件层（commit c783abfd，7 文件 +1670 行）
+
+- **DshEventMapper**（28 测试）：mapFrame→{Sse/Subscribed/Ignored}；mapSessionEvent 历史与实况同路径；Tier1 全映射 + ~35 高频伴生型具名忽略 + 未知→UNKNOWN_UNIGNORABLE；畸形降级不抛。
+- **DshHistoryFolder**（11 测试）：header/chunk/seq0 打包行三筛保序；lastSeq 含打包行（防对账误判）；HistoryEntry 解包；refusedRebuild 判据。
+- **DshReconciler**（6 测试）：缺口回填/无缺口/会话消失/新会话四类确定性排序，pageSize 参数化。
+- **关键裁决**：工具卡宿主 id=`dsh-call-{callId}`（跨事件唯一连接键）；实况流式宿主 `dsh-t{turn}s{step}` 由整装 MessageRemoved 桥拆除（live→history 收敛）；block-end→Ignored（空载荷终态会经 isTerminal 清空流式文本）；partId 全委托 PartIdContract（#230/#266 承重逻辑零改动复用）。
+- 验证：2279/0（主会话复跑 1 红 flakes→#277 卡登记：UncaughtExceptionsBeforeTest 跨类污染 ~14%，7 跑 1 红，定向复现绿；后续 6 连绿）。
+- **#276 接线注意**（代理flagged）：①DshWsEventClient.onFrame 需透传 rpcId（question 回程路由依赖）；②SessionUpdated 是整对象替换，最小 Session 会抹 directory/time——须 session.list 再基线或合并；③reconciler off-by-one（baseline==local+1）与 beforeSeq 含/排他待 E2E 定音。
+
 ### 2026-08-31：探针收官 + #274 基础层（commit b73ae5de）
 
 **探针**（P-1..P-4 全实证，双源交叉验证，详见 docs/specs/2026-08-31-dsh-integration-design.md §1.5-§1.7/§5）：52 方法四象限信封（非 JSON-RPC 2.0）、业务错恒 200+39 码闭集、WS 纯下行（GET→426、无服务端心跳、退避 500ms×2ⁿ cap10s）、重连无游标（subscribed lastSeq 基线 + history beforeSeq 回填）、特权面只认 Host 头 loopback（adb reverse 按构造全过）、事件 49 型开放联合 + seq0 打包行、trustedHosts=client-connection 插件 Config。设计文档随探针滚动定稿（帧词汇表/七域映射/九组件 TDD 顺序/E2E 计划），fixture 三件入 app/src/test/resources/dsh/。

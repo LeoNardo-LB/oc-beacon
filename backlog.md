@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#277**。
+**编号**：全局递增，不回收。下一编号：**#278**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -72,13 +72,13 @@
   - 设计定稿 → `docs/specs/2026-08-31-dsh-integration-design.md`（信封/传输/帧词汇/普查/七域映射/九组件 TDD 顺序/E2E 计划）；探针详版 /tmp/dsh-probes/（会话期证据）
   - 实现拆卡：#274 基础层 → #275 事件层 → #276 接入层（顺序执行，TDD 先测后码）
 
-- [ ] **#275 DSH 事件层：DshEventMapper（帧→SseEvent）+ DshHistoryFolder（整装族重放）+ 断连对账** `infra` `data`
-  - 49 型开放联合容错（未知无 ignorable 拒绝重建）；Tier1 transcript 十型映射 + StreamChunk 五子型；chunk 族不进历史 fold；seq0 打包行二态识别；对账=subscribed lastSeq→seq 缺口→history beforeSeq 翻页回填
-  - 黄金样本 fixture：真实信封形态合成（隐私安全），设计文档 §4 TDD 表
-
 - [ ] **#276 DSH 接入层：ServerType 三分路由 + ServerCapabilities(DSH) + 各域 *ApiImpl 三分化 + 服务器表单 UI** `infra` `ui`
   - ServerConfig 增 serverType（零迁移）；pick() 三分；DSH 能力位矩阵（PTY/shell/git/mcp/share/todo/文件内容读/删除全 false→UI 自动隐藏）；session.search 部署可关→本地降级；时间戳单位双态防御
   - 真机 E2E：adb reverse + 添加 DSH 服务器→列表（fold）→发消息→流式→中断→重连对账（设计文档 §6）
+
+- [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）~14% flake** `test`
+  - 现象（2026-08-31 实证）：ChatViewModelQueuedTest.queuedMessageIds_containsUserMessages_afterPendingAssistant 偶发 UncaughtExceptionsBeforeTest，原始异常=「Main was accessed when the platform dispatcher was absent」；7 跑 1 红（顺序/时序依赖），定向复现（DSH 类+sessions+chat 同 JVM）绿；失败 XML 已被 --rerun 覆盖
+  - 方向：失败再现时**保留 XML** 提取完整栈定位泄漏类（疑 ViewModel 协程在 resetMain 后醒）；嫌疑面=近期新增 VM 构造类测试（pagination/search）或宿主类自身 @After(178) 窗口
 
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
