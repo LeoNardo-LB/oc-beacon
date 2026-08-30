@@ -1,0 +1,21 @@
+{"type":"session","version":0,"id":"fixture-0001","createdAt":1788109000000,"cwd":"/home/user/project","origin":"user","agentPreset":"code"}
+{"type":"subagent/descriptor","seq":0,"time":1788109000000,"data":{"version":2,"mode":"continuable","provider":"spawn","label":"fixture descriptor","agentProvider":"prov","agentModel":"model-x"}}
+{"type":"sandbox/mode","seq":1,"time":1788109000001,"data":{"mode":"workspace-write","source":"delegation"}}
+{"type":"approval/policy","seq":2,"time":1788109000002,"data":{"policy":"never","source":"delegation"}}
+{"type":"permission/preset","seq":3,"time":1788109000003,"data":{"preset":"workspace-write"}}
+{"type":"turn/start","seq":4,"time":1788109000010,"data":{"turn":1}}
+{"type":"user/message","seq":5,"time":1788109000011,"sourceEventSeqs":[5],"surfaceOp":"append","data":{"content":[{"type":"text","text":"fixture user prompt"}],"source":{"kind":"user","rpcId":"rpc-fixture-1"}}}
+{"type":"step/start","seq":6,"time":1788109000012,"data":{"turn":1,"step":1}}
+{"type":"assistant/chunk","seq":7,"time":1788109000013,"data":{"turn":1,"step":1,"chunk":{"type":"block-start","index":0,"blockType":"reasoning"}}}
+{"type":"assistant/chunk","seq":8,"time":1788109000014,"data":{"turn":1,"step":1,"chunk":{"type":"reasoning-delta","index":0,"text":"thinking..."}}}
+{"type":"assistant/chunk","seq":9,"time":1788109000015,"data":{"turn":1,"step":1,"chunk":{"type":"block-end","index":0}}}
+{"type":"assistant/chunk","seq":10,"time":1788109000016,"data":{"turn":1,"step":1,"chunk":{"type":"text-delta","index":1,"text":"answer"}}}
+{"type":"tool/call","seq":11,"time":1788109000017,"data":{"turn":1,"step":1,"callId":"call_fixture_1","name":"bash","arguments":"{\"command\":\"ls\"}"}}
+{"type":"tool/result","seq":12,"time":1788109000018,"sourceEventSeqs":[12],"surfaceOp":"append","data":{"turn":1,"step":1,"message":{"source":{"kind":"tool","callId":"call_fixture_1"},"content":[{"type":"tool-result","toolCallId":"call_fixture_1","content":[{"type":"text","text":"file-a\nfile-b"}]}]}}}
+{"type":"assistant/message","seq":13,"time":1788109000019,"sourceEventSeqs":[13],"surfaceOp":"append","data":{"turn":1,"step":1,"message":{"role":"assistant","content":[{"type":"reasoning","text":"thinking..."},{"type":"text","text":"answer"}]},"usage":{"inputTokens":10,"outputTokens":5}}}
+{"type":"step/end","seq":14,"time":1788109000020,"data":{"turn":1,"step":1}}
+{"type":"turn/end","seq":15,"time":1788109000021,"data":{"turn":1,"reason":{"kind":"completed"}}}
+{"type":"todo/write","seq":16,"time":1788109000022,"data":{"todos":[{"content":"fixture todo","status":"completed"}]}}
+{"type":"session/title","seq":17,"time":1788109000023,"data":{"title":"fixture session","messageSeqs":[5],"source":{"kind":"fallback"}}}
+{"type":"reasoning-chunks","seq0":18,"time0":1788109000030,"data":{"turn":2,"step":1,"index":0,"dt":[44,46,0],"texts":["packed ","reasoning ","replay"]}}
+{"type":"team/task","seq":19,"time":1788109000040,"data":{"opaque":"unknown-type-tolerance-case"}}

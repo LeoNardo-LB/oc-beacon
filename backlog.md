@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#274**。
+**编号**：全局递增，不回收。下一编号：**#277**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -81,10 +81,22 @@
   - 方向：复现定性（触发条件/window 判定）→ 根因定位（SessionTreeList derivedStateOf shouldLoadMore 阈值？cursor 链？）→ 修复
   - → V3 走查证据 /tmp/v3-retention-search/（临目录）· 发现人：V3 走查代理 0aedd62c
 
-- [ ] **#269 DSH 接入实现：探针测试先行（P-1..P-4）+ 按差距矩阵拆需求** `infra`
-  - 前置调研已完成（#268 关单 → `docs/research/2026-08-30-dsh-integration-feasibility.md`）：接入可行；JSON-RPC 信封+双 WS；历史 fold 48 种 SessionEvent 为最大成本项
-  - 第一步探针：P-1 adb reverse 下栅栏 2/4 行为（特权面是否天然可用）· P-2 WS 重连/keepalive · P-3 trustedHosts 配置键 · P-4 session.history fold 试样
-  - 探针结论出来后按差距矩阵拆实现需求卡；服务器类型抽象（opencodeV1/opencodeV2/dsh）结构级先行
+- [~] **#269 DSH 接入实现：探针收官（P-1..P-4 全实证），拆卡 #274/#275/#276 开工** `infra`
+  - 探针全部完成（2026-08-31，双源交叉验证）：52 方法四象限信封（非 JSON-RPC 2.0）、业务错恒 200+result.error 闭集 39 值、WS 纯下行（GET→426，OkHttp pingInterval 必配，无服务端心跳）、重连无游标（subscribed lastSeq 基线+history beforeSeq 回填）、特权面只认 Host 头 loopback（adb reverse 按构造全过）、事件 49 型开放联合+存储打包行（seq0）
+  - 设计定稿 → `docs/specs/2026-08-31-dsh-integration-design.md`（信封/传输/帧词汇/普查/七域映射/九组件 TDD 顺序/E2E 计划）；探针详版 /tmp/dsh-probes/（会话期证据）
+  - 实现拆卡：#274 基础层 → #275 事件层 → #276 接入层（顺序执行，TDD 先测后码）
+
+- [ ] **#274 DSH 基础层：DshEnvelope 编解码 + DshApiError 映射 + DshRpcClient + DshWsEventClient** `infra` `data`
+  - 信封四象限（client-request/server-response/server-request/client-response）RPC+WS 共用；method=路径=body 三相等；39 错误码闭集→领域错误表驱动；HTTP POST 面 + /api/respond 回程
+  - 双 WS 客户端：events.mux+events.host 并开、只收不发、OkHttp pingInterval 25s、官方退避 500ms×2ⁿ 封顶 10s 带抖动；设计文档 §1.6
+
+- [ ] **#275 DSH 事件层：DshEventMapper（帧→SseEvent）+ DshHistoryFolder（整装族重放）+ 断连对账** `infra` `data`
+  - 49 型开放联合容错（未知无 ignorable 拒绝重建）；Tier1 transcript 十型映射 + StreamChunk 五子型；chunk 族不进历史 fold；seq0 打包行二态识别；对账=subscribed lastSeq→seq 缺口→history beforeSeq 翻页回填
+  - 黄金样本 fixture：真实信封形态合成（隐私安全），设计文档 §4 TDD 表
+
+- [ ] **#276 DSH 接入层：ServerType 三分路由 + ServerCapabilities(DSH) + 各域 *ApiImpl 三分化 + 服务器表单 UI** `infra` `ui`
+  - ServerConfig 增 serverType（零迁移）；pick() 三分；DSH 能力位矩阵（PTY/shell/git/mcp/share/todo/文件内容读/删除全 false→UI 自动隐藏）；session.search 部署可关→本地降级；时间戳单位双态防御
+  - 真机 E2E：adb reverse + 添加 DSH 服务器→列表（fold）→发消息→流式→中断→重连对账（设计文档 §6）
 
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
