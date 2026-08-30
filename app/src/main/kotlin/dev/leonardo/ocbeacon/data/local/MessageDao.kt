@@ -12,6 +12,17 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertMessages(entities: List<CachedMessageEntity>)
 
+    /**
+     * #266：骨架消息**存在即跳过**（IGNORE）——供增量落盘（appendPartTexts）使用。
+     * 此前骨架走 REPLACE：REPLACE = DELETE + INSERT，而 cached_parts 对
+     * cached_messages 是 ON DELETE CASCADE → 每次 48ms flush 都先级联删光该
+     * 消息全部 part 行、再只插回本批 delta → 行停留在最后一批（真机插桩实证：
+     * text 行恒等于最后一个 delta 批，重启/重同步前渲染依赖内存才完整）。
+     * IGNORE 保证 FK 依赖存在且永不触发级联；元数据更新仍由全量快照路径负责。
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertMessagesIfAbsent(entities: List<CachedMessageEntity>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertParts(entities: List<CachedPartEntity>)
 
@@ -23,13 +34,19 @@ interface MessageDao {
      * #134（D2-L62）：追加幂等去重——flush（增量 append）与 persistSseUpdate
      * （全量 REPLACE）并发时，全量快照可能已含 flush 刚写入内存的 delta，
      * 随后 append 同一 delta → 文本重复。CASE 分支：行尾已等于 delta 则跳过。
+     *
+     * #266（2026-08-30 真机插桩定音）：DO UPDATE 内**未限定列名在部分设备
+     * SQLite 上解析到 excluded 新行**（substr(text,…) 与 text 均取 :delta 本身
+     * → CASE 恒真 → 每次追加实际覆盖为本次 delta，行停留在最后一批）。
+     * 旧行引用必须以**表名限定**（cached_parts.text）；同时去掉 OR REPLACE——
+     * upsert 目标已是主键冲突，REPLACE 语义在部分版本会整行短路。
      */
     @Query(
-        "INSERT OR REPLACE INTO cached_parts (id, messageId, sessionId, type, text, payload) " +
+        "INSERT INTO cached_parts (id, messageId, sessionId, type, text, payload) " +
         "VALUES (:partId, :messageId, :sessionId, :type, :delta, NULL) " +
         "ON CONFLICT(id) DO UPDATE SET text = CASE " +
-        "  WHEN substr(text, -length(:delta)) = :delta THEN text " +
-        "  ELSE COALESCE(text, '') || :delta END"
+        "  WHEN substr(cached_parts.text, -length(:delta)) = :delta THEN cached_parts.text " +
+        "  ELSE COALESCE(cached_parts.text, '') || :delta END"
     )
     suspend fun appendPartText(partId: String, messageId: String, sessionId: String, type: String, delta: String)
 

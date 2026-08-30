@@ -58,8 +58,11 @@ class MessageStore @Inject constructor(
         if (realDeltas.isEmpty()) return@withContext
         runCatchingCancellable {
             databaseRecovery.withCorruptionRecovery {
-                // 骨架消息 upsert（幂等 REPLACE；保证 part 的 FK 依赖存在）
-                dao.upsertMessages(messages.map { m ->
+                // 骨架消息存在即跳过（#266：原 REPLACE = DELETE+INSERT，FK
+                // ON DELETE CASCADE 会把该消息全部 part 行级联删光，随后
+                // 只插回本批 delta → part 行永远停留在最后一批）。IGNORE
+                // 只保证 part 的 FK 依赖存在，永不触发级联。
+                dao.insertMessagesIfAbsent(messages.map { m ->
                     CachedMessageEntity(
                         id = m.info.id,
                         sessionId = sessionId,

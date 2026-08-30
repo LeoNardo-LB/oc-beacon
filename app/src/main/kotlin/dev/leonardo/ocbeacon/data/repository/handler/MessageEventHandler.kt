@@ -165,15 +165,21 @@ class MessageEventHandler @Inject constructor(
         // #265 E2E 竞态守卫（源头版）：完结权威替换（text.ended 全量值 +
         // partId 换代）之后才 flush 的滞留 delta，其内容已并入权威文本——
         // 不过滤则 applyDelta 走 idx<0 兜底新建重复 part（真机 E2E 实证：
-        // 结尾句 ×2），appendPartTexts 亦落脏行。判定：partId 未注册且
-        // delta ⊆ 同 message 同 kind 既有全文 → 丢弃（含空 delta）。
-        // applyDelta 内同款守卫保留为纵深防御。
+        // 结尾句 ×2），appendPartTexts 亦落脏行。#266 收窄：包含判定只对
+        // **终态** part 生效——流式期未注册 delta 与既有 part 的内容重叠
+        // 可能是合法新 part 的首段（判丢弃=内容丢失），交 applyDelta 重建
+        // 兜底。partId 已注册的滞留 delta 由 applyDelta 终态守卫拦截。
         fun isStaleDelta(d: PendingDelta): Boolean {
             val messageParts = _parts.value[d.messageId].orEmpty()
             if (messageParts.any { it.id == d.partId }) return false
             if (d.delta.isEmpty()) return true
-            val merged = messageParts.filter {
-                if (d.type == "reasoning") it is Part.Reasoning else it is Part.Text
+            val terminalText = messageParts.filter { p ->
+                val terminal = when (p) {
+                    is Part.Text -> (p.time?.end ?: 0L) != 0L
+                    is Part.Reasoning -> (p.time?.end ?: 0L) != 0L
+                    else -> false
+                }
+                terminal && (if (d.type == "reasoning") p is Part.Reasoning else p is Part.Text)
             }.joinToString("") { p ->
                 when (p) {
                     is Part.Text -> p.text
@@ -181,7 +187,7 @@ class MessageEventHandler @Inject constructor(
                     else -> ""
                 }
             }
-            return merged.contains(d.delta)
+            return terminalText.contains(d.delta)
         }
         val effective = batch.filterNot { isStaleDelta(it) }
         if (effective.isEmpty()) return

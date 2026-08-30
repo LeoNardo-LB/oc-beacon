@@ -57,8 +57,14 @@ internal object MessageMergeEngine {
                 // incoming 带 end 时间戳（ended/REST 语义）→ 覆盖；
                 // 纯 started/delta 路径（无 end）→ 保留更长者（流式保护）。
                 val isTerminal = (incoming.time?.end ?: 0L) != 0L
-                if (isTerminal || incoming.text.length >= existing.text.length) incoming.copy(time = time)
-                else existing.copy(time = time, metadata = incoming.metadata)
+                val merged = if (isTerminal || incoming.text.length >= existing.text.length) incoming else existing
+                // #266 身份回填：合并结果保留 existing 的派生 id（流式身份跨
+                // 完结稳定）——#246 锚点、Room 行键（upsertParts 只 REPLACE 不
+                // 删缺席行，改名即产孤儿行）、未来一切 partId 键控逻辑不再站在
+                // 漂移面上。existing 无 id（legacy 空串）时才采 incoming。
+                val id = existing.id.ifBlank { incoming.id }
+                if (merged.id == id) merged.copy(time = time)
+                else merged.copy(id = id, time = time)
             }
             existing is Part.Reasoning && incoming is Part.Reasoning -> {
                 val time = Part.Reasoning.Time(
@@ -67,8 +73,11 @@ internal object MessageMergeEngine {
                         ?: (incoming.time?.end ?: existing.time?.end) ?: 0L,
                     end = incoming.time?.end ?: existing.time?.end
                 )
-                if (incoming.text.length >= existing.text.length) incoming.copy(time = time)
-                else existing.copy(time = time, metadata = incoming.metadata)
+                val merged = if (incoming.text.length >= existing.text.length) incoming else existing
+                // #266 身份回填（语义同 Text 分支）
+                val id = existing.id.ifBlank { incoming.id }
+                if (merged.id == id) merged.copy(time = time)
+                else merged.copy(id = id, time = time)
             }
             existing is Part.Tool && incoming is Part.Tool -> {
                 var merged = incoming
@@ -536,10 +545,19 @@ internal object MessageMergeEngine {
     /**
      * 将单个 delta 应用到消息的 part 列表（48ms 批处理 flush 的每条目变换）。
      *
-     * - part 已注册：文本追加（Text 有 endsWith 去重——批内重叠 delta 不重复拼接；
-     *   Reasoning 直拼接）
+     * - part 已注册且**终态**（ended 全量值已落位，time.end 非空）：丢弃——
+     *   #266 终态守卫。ended 是官方 replayable full-value boundary，其后到达的
+     *   delta 必为过期重放或服务器截断残留（2026-08-30 真机 E2E 实证：模型
+     *   尾部自重复被服务器截断，滞留 delta 走本分支 endsWith 不命中 → 盲拼接
+     *   → 尾段渲染两遍）。Tool part 无终态语义，不受影响。
+     * - part 已注册且流式中：文本追加（Text/Reasoning 均有 endsWith 去重——
+     *   批内重叠 delta 不重复拼接；#266 起 Reasoning 与 Text 对齐，不再盲拼接）
      * - part 未注册（空 started 被 #230 丢弃 / 事件丢失）：按 [kind] 重建——
-     *   #223 已验证的 idx<0 兜底机制，首个非空 delta 即重建注册。
+     *   #223 已验证的 idx<0 兜底机制，首个非空 delta 即重建注册。重建前的
+     *   过期判定（#265 守卫）**收窄到终态包含**：仅当同 kind 已有终态 part
+     *   全文包含该 delta 时丢弃；流式期未注册 delta 与既有 part 的内容重叠
+     *   可能是合法新 part 的首段（判丢弃=内容丢失，#266 权衡裁决消除此
+     *   误伤面），照常重建。
      */
     fun applyDelta(
         parts: List<Part>,
@@ -553,31 +571,46 @@ internal object MessageMergeEngine {
         val idx = messageParts.indexOfFirst { it.id == partId }
         if (idx >= 0) {
             val part = messageParts[idx]
+            // #266 终态守卫：ended 全量值落位后不再接收任何 delta
+            val isTerminal = when (part) {
+                is Part.Text -> (part.time?.end ?: 0L) != 0L
+                is Part.Reasoning -> (part.time?.end ?: 0L) != 0L
+                else -> false
+            }
+            if (isTerminal) return parts
             val newPart = when (part) {
                 is Part.Text -> {
                     if (part.text.endsWith(delta)) part  // 去重
                     else part.copy(text = part.text + delta)
                 }
-                is Part.Reasoning -> part.copy(text = part.text + delta)
+                is Part.Reasoning -> {
+                    if (part.text.endsWith(delta)) part  // #266：与 Text 对齐去重
+                    else part.copy(text = part.text + delta)
+                }
                 else -> part
             }
             messageParts[idx] = newPart
         } else {
-            // #265 E2E 竞态守卫：完结全量替换（authoritative part 重建，partId
-            // 换代为服务端序）之后，批缓冲中滞留的过期 delta 才 flush——其内容
-            // 已包含在既有同 kind part 的全文里。若仍按 #223 兜底新建 part，
-            // 会被渲染两遍（真机 E2E 实证：尾 delta 116 字在完结替换后 flush
-            // → 结尾句 ×2）。判定：同 kind 既有 part 全文已包含该 delta →
-            // 丢弃（视为已合并）；#223 真重建场景（内容从未到达，delta 不在
-            // 任何既有 part 中）不受影响。
-            val sameKindText = parts.joinToString("") {
+            // #265 E2E 竞态守卫（#266 收窄为终态包含）：完结全量替换之后，
+            // 批缓冲中滞留的过期 delta 才 flush——其内容已包含在同 kind
+            // **终态** part 的全文里。若仍按 #223 兜底新建 part，会被渲染
+            // 两遍（真机 E2E 实证：尾 delta 116 字在完结替换后 flush → 结尾
+            // 句 ×2）。#223 真重建场景（内容从未到达 / 流式期合法新 part
+            // 首段与既有文本重叠）不受影响。
+            val terminalSameKindText = parts.joinToString("") {
+                val terminal = when (it) {
+                    is Part.Text -> (it.time?.end ?: 0L) != 0L
+                    is Part.Reasoning -> (it.time?.end ?: 0L) != 0L
+                    else -> false
+                }
                 when {
+                    !terminal -> ""
                     it is Part.Text && kind != "reasoning" -> it.text
                     it is Part.Reasoning && kind == "reasoning" -> it.text
                     else -> ""
                 }
             }
-            if (delta.isNotEmpty() && sameKindText.contains(delta)) return parts
+            if (delta.isNotEmpty() && terminalSameKindText.contains(delta)) return parts
             if (kind == "reasoning") {
                 messageParts.add(Part.Reasoning(
                     id = partId,

@@ -61,8 +61,13 @@ class MessageMergeEngineTest {
     @Test
     fun `applyDelta drops stale delta already contained in existing text part - #265`() {
         // #265 E2E 竞态：完结全量替换（partId 换代）后，批缓冲滞留的尾 delta
-        // 才 flush——内容已在权威文本里，新建 part 会导致结尾句渲染两遍
-        val existing = text("m1_text_ord_1", text = "# 标题\n\n正文……a reminder that the most powerful forces never stop.")
+        // 才 flush——内容已在权威文本里，新建 part 会导致结尾句渲染两遍。
+        // #266 收窄：包含判定只对终态 part 生效（完结替换后 part 必为终态）。
+        val existing = Part.Text(
+            id = "m1_text_ord_1", sessionId = "s1", messageId = "m1",
+            text = "# 标题\n\n正文……a reminder that the most powerful forces never stop.",
+            time = Part.Text.Time(start = 1, end = 2),
+        )
         val out = MessageMergeEngine.applyDelta(
             listOf(existing), "m1_text_ord_9", "s1", "m1", "text",
             "reminder that the most powerful forces never stop."
@@ -73,7 +78,10 @@ class MessageMergeEngineTest {
 
     @Test
     fun `applyDelta drops stale reasoning delta already contained - #265`() {
-        val existing = reasoning("m1_reasoning_ord_0", text = "思考过程尾部")
+        val existing = Part.Reasoning(
+            id = "m1_reasoning_ord_0", sessionId = "s1", messageId = "m1",
+            text = "思考过程尾部", time = Part.Reasoning.Time(start = 1, end = 2),
+        )
         val out = MessageMergeEngine.applyDelta(
             listOf(existing), "m1_reasoning_ord_9", "s1", "m1", "reasoning", "过程尾部"
         )
@@ -88,6 +96,104 @@ class MessageMergeEngineTest {
         val out = MessageMergeEngine.applyDelta(existing, "m1_text_ord_9", "s1", "m1", "text", "全新的增量内容")
         assertEquals(2, out.size)
         assertEquals("全新的增量内容", (out[1] as Part.Text).text)
+    }
+
+    // ============ 终态守卫 + 身份回填（#266，2026-08-30 真机 E2E 定性）============
+
+    @Test
+    fun `applyDelta drops any delta after part reached terminal full value - #266`() {
+        // text.ended 全量值是 replayable boundary（官方 session-event.ts 语义）：
+        // 其后的 delta 必为过期重放或服务器截断残留（真机 E2E 实证：模型尾部
+        // 自重复被服务器截断，滞留 delta 走 idx>=0 盲拼接 → 尾段渲染两遍）。
+        // 终态 part 一律不再接收 delta——idx>=0 路径的守卫补齐。
+        val terminal = Part.Text(
+            id = "m1_text_ord_0", sessionId = "s1", messageId = "m1",
+            text = "正文。权威结尾。", time = Part.Text.Time(start = 1, end = 2),
+        )
+        val out = MessageMergeEngine.applyDelta(
+            listOf(terminal), "m1_text_ord_0", "s1", "m1", "text", "答案。多余尾段。"
+        )
+        assertEquals("正文。权威结尾。", (out.single() as Part.Text).text)
+    }
+
+    @Test
+    fun `applyDelta drops delta after reasoning reached terminal - #266`() {
+        val terminal = Part.Reasoning(
+            id = "m1_reasoning_ord_0", sessionId = "s1", messageId = "m1",
+            text = "思考完毕", time = Part.Reasoning.Time(start = 1, end = 2),
+        )
+        val out = MessageMergeEngine.applyDelta(
+            listOf(terminal), "m1_reasoning_ord_0", "s1", "m1", "reasoning", "补充思考"
+        )
+        assertEquals("思考完毕", (out.single() as Part.Reasoning).text)
+    }
+
+    @Test
+    fun `applyDelta reasoning endsWith dedup mirrors text branch - #266`() {
+        // 顺带项：reasoning 注册 append 与 text 同款 endsWith 去重（此前盲拼接）
+        val parts = listOf(reasoning("p1", text = "思考过程"))
+        val out = MessageMergeEngine.applyDelta(parts, "p1", "s1", "m1", "reasoning", "过程")
+        assertEquals("思考过程", (out[0] as Part.Reasoning).text)
+    }
+
+    @Test
+    fun `applyDelta contains guard narrowed to terminal parts - midstream repeat rebuilds - #266`() {
+        // 误伤面消除（#266 权衡裁决）：流式中（无终态 part）未注册 delta 内容
+        // 恰与既有 part 重叠 = 合法新 part 的首段重复——不得丢弃（丢弃即内容
+        // 丢失）。包含判过期只对终态（ended 全量值）part 生效。
+        val existing = text("m1_text_ord_0", text = "今天天气很好")
+        val out = MessageMergeEngine.applyDelta(listOf(existing), "m1_text_ord_9", "s1", "m1", "text", "天气很好")
+        assertEquals(2, out.size)
+        assertEquals("天气很好", (out[1] as Part.Text).text)
+    }
+
+    @Test
+    fun `applyDelta still drops stale delta contained in terminal part - #266`() {
+        // 终态包含判定保留：完结替换后的滞留 delta（partId 换代未注册）照旧丢弃
+        val terminal = Part.Text(
+            id = "m1_text_ord_1", sessionId = "s1", messageId = "m1",
+            text = "存量正文包含片段", time = Part.Text.Time(start = 1, end = 2),
+        )
+        val out = MessageMergeEngine.applyDelta(
+            listOf(terminal), "m1_text_ord_9", "s1", "m1", "text", "包含片段"
+        )
+        assertEquals(1, out.size)
+        assertEquals("m1_text_ord_1", out[0].id)
+    }
+
+    @Test
+    fun `mergePart backfills streaming derived id on authoritative replace - #266`() {
+        // 权威替换按内容回填派生 id：part 身份跨完结保持稳定——#246 锚点、
+        // Room 行键（upsertParts 只 REPLACE 不删缺席行，改名即产孤儿行）、
+        // 未来一切 partId 键控逻辑不再站在漂移面上。
+        val existing = text("m1_text_ord_0", text = "部分文本")
+        val incoming = Part.Text(
+            id = "prt_srv_1", sessionId = "s1", messageId = "m1",
+            text = "部分文本。权威全文。", time = Part.Text.Time(start = 1, end = 2),
+        )
+        val merged = MessageMergeEngine.mergePart(existing, incoming)
+        assertEquals("m1_text_ord_0", merged.id)
+        assertEquals("部分文本。权威全文。", (merged as Part.Text).text)
+    }
+
+    @Test
+    fun `mergePart backfills derived id for reasoning too - #266`() {
+        val existing = reasoning("m1_reasoning_ord_0", text = "思考前半")
+        val incoming = Part.Reasoning(
+            id = "prt_rsrv_1", sessionId = "s1", messageId = "m1",
+            text = "思考前半+后半", time = Part.Reasoning.Time(start = 1, end = 2),
+        )
+        val merged = MessageMergeEngine.mergePart(existing, incoming)
+        assertEquals("m1_reasoning_ord_0", merged.id)
+    }
+
+    @Test
+    fun `mergePart adopts incoming id only when existing id blank`() {
+        // legacy 空 id 行（#109 时代 Room 数据 / REST id="" 契约）：existing 无
+        // 身份可回填 → 采 incoming id（原行为保留）
+        val existing = text("", text = "Got it.")
+        val merged = MessageMergeEngine.mergePart(existing, text("prt_srv_1", text = "Got it. 全文"))
+        assertEquals("prt_srv_1", merged.id)
     }
 
     // ============ inferDeltaKind ============

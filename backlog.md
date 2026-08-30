@@ -6,9 +6,10 @@
 
 **编号**：全局递增，不回收。下一编号：**#267**。
 
-- [ ] **#266 part 身份双轨统一——流式派生 id 与完结权威 id 的漂移面收敛** `refactor` `sse`
-  - 背景（2026-08-30 #265 E2E 实证）：完结 text.ended 全量替换用服务端 partId，流式 delta 为本地派生 id——漂移致 applyDelta 走兜底新建（尾句 ×2，已由两层守卫拦截，见 #265）
-  - 方向：权威替换时按内容回填派生 id（或全链路统一服务端 id）；顺带补 reasoning registered append 的 endsWith 去重；评估 contains 守卫的理论误伤面 → docs/journal/2026-08-30-streaming-md-pilot.md §五轮
+- [~] **#266 part 身份双轨统一——流式派生 id 与完结权威 id 的漂移面收敛** `refactor` `sse`
+  - 实现：mergePart 身份回填派生 id（方向 A；实测当前服务器事件无服务端 id 字段）+ applyDelta 终态守卫（ended 后 delta 一律丢弃，堵注册路径盲拼接）+ contains 守卫收窄到终态包含（消除流式期误伤面）+ reasoning append endsWith 去重 + 骨架消息改 IGNORE（FK 级联删 part 行的落盘脏行根源）
+  - 验证：全量单测 2173（唯一红 #261 环境项）；真机六轮渲染尾段 ×1，本会话 17 条助手消息 Room 行与服务器逐字一致
+  - 待验收：长回复尾句 ×1 / 重进会话完整 / 思考块无重复 → docs/journal/2026-08-30-part-identity-unification.md
 
 - [~] **#265 流式 turn 渲染试点 StreamingMarkdownState——P0 已接线，待真机 A/B 验收** `sse` `ui`
   - 实现（a3ad01c6）：开关（dev 开/beta+stable 关）+ 前缀差分 append 包装（修正 spec 伪代码重建缺陷：非前缀→prev 置空重建）+ MarkdownContent 三分支；P0-b 缓存审计过验零修正（解析器源码实证：尾部节点每 append 新实例=键必然失效，稳定块实例永复用）；装机烟测无 FATAL；2159 单测基线一致

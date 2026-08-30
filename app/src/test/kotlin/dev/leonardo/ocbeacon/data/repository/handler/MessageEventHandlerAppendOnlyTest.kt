@@ -57,4 +57,48 @@ class MessageEventHandlerAppendOnlyTest {
         assertEquals(1, t.split("结尾句。").size - 1)
         assertTrue(t.endsWith("结尾句。"))
     }
+
+    @Test
+    fun `stale tail delta onto terminal same-id part is dropped - #266 live repro`() {
+        // 2026-08-30 真机 E2E 定性（诗歌轮）：服务器契约 delta 与 ended 同
+        // ordinal（partId 相同），模型尾部自重复被服务器截断——滞留尾 delta 在
+        // ended 覆盖后 flush，partId 已注册 → 绕过源头守卫 → applyDelta idx>=0
+        // endsWith 不命中（非后缀）→ 盲拼接 → 尾段渲染两遍。终态守卫补齐此洞。
+        val handler = MessageEventHandler()
+        // 1) 流式累积
+        handler.handleMessagePartDelta(SseEvent.MessagePartDelta("s1", "m1", "m1_text_ord_0", "text", "诗歌正文"))
+        handler.forceFlushDeltas()
+        // 2) 尾部自重复 delta 进批缓冲（未 flush）
+        handler.handleMessagePartDelta(SseEvent.MessagePartDelta("s1", "m1", "m1_text_ord_0", "text", "多余尾巴。"))
+        // 3) text.ended 权威全量覆盖（同 id，终态）
+        handler.handleMessagePartUpdated(
+            SseEvent.MessagePartUpdated(
+                Part.Text(
+                    id = "m1_text_ord_0", sessionId = "s1", messageId = "m1",
+                    text = "诗歌正文。权威结尾。", time = Part.Text.Time(start = 1, end = 2),
+                )
+            )
+        )
+        // 4) 滞留 delta flush：终态 part 不得再被拼接
+        handler.forceFlushDeltas()
+        val texts = handler.parts.value["m1"]!!.filterIsInstance<Part.Text>()
+        assertEquals(1, texts.size)
+        assertEquals("诗歌正文。权威结尾。", texts[0].text)
+    }
+
+    @Test
+    fun `midstream unregistered delta overlapping nonterminal part rebuilds - #266 narrowing`() {
+        // 源头守卫收窄：流式中（无终态 part）未注册 delta 与既有 part 内容重叠
+        // 可能是合法新 part 的首段——不得源头丢弃（丢弃即内容丢失），交
+        // applyDelta 重建兜底；终态包含判定保留。
+        val handler = MessageEventHandler()
+        handler.handleMessagePartDelta(SseEvent.MessagePartDelta("s1", "m1", "m1_reasoning_ord_0", "reasoning", "第一段思考"))
+        handler.forceFlushDeltas()
+        handler.handleMessagePartDelta(SseEvent.MessagePartDelta("s1", "m1", "m1_reasoning_ord_1", "reasoning", "段思考"))
+        handler.forceFlushDeltas()
+        val reasonings = handler.parts.value["m1"]!!.filterIsInstance<Part.Reasoning>()
+        assertEquals(2, reasonings.size)
+        assertEquals("第一段思考", reasonings[0].text)
+        assertEquals("段思考", reasonings[1].text)
+    }
 }
