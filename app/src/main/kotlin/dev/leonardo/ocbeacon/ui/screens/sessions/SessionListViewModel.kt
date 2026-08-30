@@ -718,18 +718,21 @@ class SessionListViewModel @Inject constructor(
             _isLoadingMore.value = true
             try {
                 val cursor = _currentCursor.value
-                val sessions = listSessionsUseCase(
+                // #273（2026-08-31）：改用分页形态——持有服务器权威 nextCursor，
+                // 不再伪造 sessions.last().id（V2 opaque cursor 下触发 400 静默空页，
+                // 分页永久关闭）。判停 = nextCursor == null（服务器明示终点）。
+                val page = listSessionsUseCase.invokePage(
                     serverId,
                     directory = _baseDirectory.value,
                     search = _searchQuery.value,
                     cursor = cursor,
                     limit = 50
                 )
-                if (sessions.isNotEmpty()) {
-                    sessionRepository.setSessions(serverId, sessions)
-                    _currentCursor.value = sessions.last().id
+                if (page.items.isNotEmpty()) {
+                    sessionRepository.setSessions(serverId, page.items)
                 }
-                if (sessions.size < 50) {
+                _currentCursor.value = page.nextCursor
+                if (page.nextCursor == null) {
                     _hasMorePages.value = false
                 }
             } catch (e: Exception) {

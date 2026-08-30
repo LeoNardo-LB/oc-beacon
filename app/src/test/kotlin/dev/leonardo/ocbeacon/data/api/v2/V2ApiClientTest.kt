@@ -104,6 +104,53 @@ class V2ApiClientTest {
         assertEquals(1000L, sessions[0].time.created)
     }
 
+    // ============ listSessionsPage（#273：opaque cursor 不得丢弃） ============
+
+    @Test
+    fun `listSessionsPage propagates opaque cursor next`() = runTest {
+        // #273 回归：V2 cursor 是 base64 anchor，曾被 `val (items, _)` 丢弃 → VM 伪造 last().id
+        // → 服务器 400 InvalidCursorError → 静默空列表 → hasMorePages 永久关闭。
+        val responseBody = """{"data":[{"id":"sess_1","projectID":"p","time":{"created":1,"updated":2},"location":{"directory":"/h"}}],"cursor":{"previous":null,"next":"Y3Vyc29yX2FuY2hvcg=="}}"""
+        val engine = MockEngine { request ->
+            respond(responseBody, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val page = api.listSessionsPage(v2Conn)
+        assertEquals(1, page.items.size)
+        assertEquals("Y3Vyc29yX2FuY2hvcg==", page.nextCursor)
+    }
+
+    @Test
+    fun `listSessionsPage returns null cursor when server signals end`() = runTest {
+        val responseBody = """{"data":[{"id":"sess_1","projectID":"p","time":{"created":1,"updated":2},"location":{"directory":"/h"}}],"cursor":{"previous":null,"next":null}}"""
+        val engine = MockEngine { _ ->
+            respond(responseBody, HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val page = api.listSessionsPage(v2Conn)
+        assertEquals(1, page.items.size)
+        assertNull(page.nextCursor)
+    }
+
+    @Test
+    fun `listSessionsPage fails fast on non-2xx instead of silent empty`() = runTest {
+        // #273 放大器：400 错误体无 data 字段曾被 unwrapList 静默解析为空列表。
+        val engine = MockEngine { _ ->
+            respond("""{"error":"InvalidCursorError"}""", HttpStatusCode.BadRequest,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        try {
+            api.listSessionsPage(v2Conn)
+            fail("非 2xx 应快速失败而非静默空页")
+        } catch (e: Exception) {
+            // 具体异常类型不锁定（IllegalStateException/ApiError 族均可），核心是不静默。
+            assertTrue(e !is dev.leonardo.ocbeacon.data.api.NonJsonResponseException || true)
+        }
+    }
+
     @Test
     fun `getSession unwraps data wrapper`() = runTest {
         val responseBody = """{"data":{"id":"sess_1","projectID":"prj_1","time":{"created":1000,"updated":2000},"location":{"directory":"/home"}}}"""

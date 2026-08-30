@@ -145,7 +145,19 @@ class V2ApiClient @Inject constructor(
         search: String?,
         cursor: String?,
         limit: Int
-    ): List<Session> {
+    ): List<Session> = listSessionsPage(conn, directory, search, cursor, limit).items
+
+    /**
+     * #273（2026-08-31）：opaque cursor（base64 anchor）不再丢弃；非 2xx 快速失败
+     * （旧路径 400 错误体无 data 字段被 unwrapList 静默解析为空列表，分页永久关闭）。
+     */
+    override suspend fun listSessionsPage(
+        conn: ServerConnection,
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int
+    ): dev.leonardo.ocbeacon.domain.model.SessionPage {
         val response = httpClient.get("${conn.baseUrl}/api/session") {
             auth(conn)
             directoryHeader(directory)
@@ -153,9 +165,15 @@ class V2ApiClient @Inject constructor(
             cursor?.let { parameter("cursor", it) }
             parameter("limit", limit)
         }
+        if (response.status.value !in 200..299) {
+            throw IllegalStateException("listSessionsPage failed: HTTP ${response.status.value}")
+        }
         val root = parseRoot(response.bodyAsText())
-        val (items, _) = V2ResponseWrapper.unwrapList(root)
-        return items.map { V2SessionMapper.toSession(it) }
+        val (items, nextCursor) = V2ResponseWrapper.unwrapList(root)
+        return dev.leonardo.ocbeacon.domain.model.SessionPage(
+            items = items.map { V2SessionMapper.toSession(it) },
+            nextCursor = nextCursor
+        )
     }
 
     override suspend fun getSession(conn: ServerConnection, sessionId: String): Session {

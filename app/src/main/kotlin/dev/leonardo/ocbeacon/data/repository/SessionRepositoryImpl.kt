@@ -145,6 +145,23 @@ class SessionRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun listSessionsPage(
+        serverId: String,
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int
+    ): dev.leonardo.ocbeacon.domain.model.SessionPage {
+        val conn = resolveConnection(serverId)
+        return sessionApi.listSessionsPage(
+            conn = conn,
+            directory = directory,
+            search = search,
+            cursor = cursor,
+            limit = limit
+        )
+    }
+
     // ============ CRUD ============
 
     override suspend fun createSession(serverId: String, opts: CreateSessionOpts): Result<Session> = runCatchingCancellable {

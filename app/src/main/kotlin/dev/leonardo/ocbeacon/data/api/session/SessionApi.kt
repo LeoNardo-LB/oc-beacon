@@ -24,6 +24,18 @@ interface SessionApi {
         limit: Int = 50
     ): List<Session>
 
+    /**
+     * 分页形态的会话列表（#273）：与 [listSessions] 同参，但携带服务器权威
+     * nextCursor——分页调用方必须使用本方法，避免伪造游标触发服务器 400。
+     */
+    suspend fun listSessionsPage(
+        conn: ServerConnection,
+        directory: String? = null,
+        search: String? = null,
+        cursor: String? = null,
+        limit: Int = 50
+    ): dev.leonardo.ocbeacon.domain.model.SessionPage
+
     suspend fun getSession(conn: ServerConnection, sessionId: String): Session
 
     /** 以原始 JSON 字符串返回会话信息（用于导出而无需重新序列化）。 */
@@ -131,6 +143,15 @@ class SessionApiImpl @Inject constructor(
         cursor: String?,
         limit: Int
     ): List<Session> = pick(conn).listSessions(conn, directory, search, cursor, limit)
+
+    override suspend fun listSessionsPage(
+        conn: ServerConnection,
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int
+    ): dev.leonardo.ocbeacon.domain.model.SessionPage =
+        pick(conn).listSessionsPage(conn, directory, search, cursor, limit)
 
     override suspend fun getSession(conn: ServerConnection, sessionId: String): Session =
         pick(conn).getSession(conn, sessionId)

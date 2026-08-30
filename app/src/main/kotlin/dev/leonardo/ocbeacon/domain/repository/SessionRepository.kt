@@ -60,6 +60,15 @@ interface SessionRepository {
         limit: Int = 50
     ): List<Session>
 
+    /** 分页形态（#273）：携带服务器权威 nextCursor——分页调用方专用。 */
+    suspend fun listSessionsPage(
+        serverId: String,
+        directory: String? = null,
+        search: String? = null,
+        cursor: String? = null,
+        limit: Int = 50
+    ): dev.leonardo.ocbeacon.domain.model.SessionPage
+
     /**
      * 在指定服务器上使用给定选项创建新会话。
      * 成功时返回创建的 [Session]。

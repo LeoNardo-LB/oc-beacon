@@ -107,3 +107,10 @@
 - **#272 BM25 对话内容检索**：✅ FTS5+bm25 真路径（捆绑 SQLite）+LIKE 降级安全网、snippet/分组/跳转、角色/时间过滤、双区聚合。E2E #4/5/6 覆盖。
 - 验收依据：用户 2026-08-31 授权「能自动化/实机验证的全由 Agent 自动验证并作为验收依据，人工验收压到最低」——上述自动化+实机证据即验收，卡片关单迁册（本节即迁册记录）。
 - 人工残余（不阻塞关单，用户后续随手可验）：时间过滤在 >30 天数据环境下的实际收窄效果；>1s drain 场景的取消按钮肉眼体验。
+
+## 十二轮 · #273 cursor 修复（TDD，2026-08-31）
+
+- **测试先行**：V2ApiClientTest 3 例（opaque cursor 传播 / null 终点 / 非 2xx 快速失败不静默空页）+ SessionListViewModelPaginationTest 2 例（loadMore 持服务器游标 / null 判停），先红后绿。
+- **实现**：`SessionPage(items, nextCursor)` 域模型 → `SessionApi.listSessionsPage`（路由 Impl 三分派）→ V2 实现 unwrapList 的 next 直通 + 非 2xx `IllegalStateException`（旧路径 400 错误体无 data 被静默解析空列表=放大器，一并封死）→ V1 实现 last-id 锚 + 满页推导（与历史终止语义一致）→ Repository/UseCase `*Page` 变体 → VM loadMore 改持权威游标，判停 `nextCursor == null`。
+- 验证：compileDevDebugKotlin 16s ✅ · 全量 testDevDebugUnitTest --rerun BUILD SUCCESSFUL（1m07s，含新 5 例）✅。
+- 修复链全貌：伪造游标（触发器）+ 静默空页（放大器）双修；>50 顶级会话场景从此可达。

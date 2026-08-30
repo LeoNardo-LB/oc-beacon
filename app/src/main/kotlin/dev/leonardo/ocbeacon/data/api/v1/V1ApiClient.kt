@@ -119,6 +119,24 @@ class V1ApiClient @Inject constructor(
         return json.decodeFromString(ListSerializer(Session.serializer()), bodyText)
     }
 
+    /**
+     * #273：V1 无游标信封——cursor 即 last-id 锚（历史语义成立），
+     * 仅在满页时推导存在下一页，与旧行为的终止条件一致（空页 → nextCursor=null）。
+     */
+    override suspend fun listSessionsPage(
+        conn: ServerConnection,
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int
+    ): dev.leonardo.ocbeacon.domain.model.SessionPage {
+        val items = listSessions(conn, directory, search, cursor, limit)
+        return dev.leonardo.ocbeacon.domain.model.SessionPage(
+            items = items,
+            nextCursor = items.lastOrNull()?.id?.takeIf { items.size >= limit }
+        )
+    }
+
     override suspend fun getSession(conn: ServerConnection, sessionId: String): Session {
         return httpClient.get("${conn.baseUrl}/session/$sessionId") {
             auth(conn)

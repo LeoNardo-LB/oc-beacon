@@ -21,7 +21,12 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.After
@@ -82,6 +87,45 @@ class SessionListViewModelPaginationTest {
         vm.resetPagination()
         assertTrue(vm.hasMorePages)
         assertEquals(null, vm.currentCursor)
+    }
+
+    @Test
+    fun `loadMore holds server cursor and keeps paging when next present`() = runTest {
+        // #273 回归：旧代码伪造 sessions.last().id 当游标（V2 服务器 400 InvalidCursorError 静默空页）
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val page = dev.leonardo.ocbeacon.domain.model.SessionPage(
+                items = listOf(dev.leonardo.ocbeacon.domain.model.Session(id = "sess_real_1", time = dev.leonardo.ocbeacon.domain.model.Session.Time(created = 1, updated = 2))),
+                nextCursor = "b3BhcXVlX2FuY2hvcg=="
+            )
+            io.mockk.coEvery { listSessionsUseCase.invokePage(any(), any(), any(), any(), any()) } returns page
+            val vm = createViewModel()
+            vm.loadMore()
+            testScheduler.advanceUntilIdle()
+            assertEquals("b3BhcXVlX2FuY2hvcg==", vm.currentCursor)
+            assertTrue(vm.hasMorePages)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `loadMore stops paging when server cursor is null`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val page = dev.leonardo.ocbeacon.domain.model.SessionPage(
+                items = listOf(dev.leonardo.ocbeacon.domain.model.Session(id = "sess_last", time = dev.leonardo.ocbeacon.domain.model.Session.Time(created = 1, updated = 2))),
+                nextCursor = null
+            )
+            io.mockk.coEvery { listSessionsUseCase.invokePage(any(), any(), any(), any(), any()) } returns page
+            val vm = createViewModel()
+            vm.loadMore()
+            testScheduler.advanceUntilIdle()
+            assertEquals(null, vm.currentCursor)
+            assertFalse(vm.hasMorePages)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     private fun createViewModel(): SessionListViewModel {

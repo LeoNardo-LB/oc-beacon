@@ -66,10 +66,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#273 V2 会话列表 cursor 被丢弃伪造游标→400 静默解析空→分页永久关闭（>50 顶级会话爆发）** `ui` `data`
-  - 诊断定论（2026-08-31 只读诊断，curl+服务器日志+设备 Ktor 三重实证）：原「~35 会话不可达」系子会话按设计不渲染（35/35 parentID 非空，非 bug）；真 bug=V2ApiClient.listSessions 丢弃 opaque cursor（`val (items, _)`），VM 伪造 last().id 当游标→InvalidCursorError 400→unwrapList 静默空→hasMorePages=false 永久死
-  - 修复方向：listSessions 返回携带 nextCursor（unwrapListFull 现成）+ VM 持真 cursor + 判停改条数/cursor.next
-  - → 诊断全文 /tmp/v3-retention-search/q6c-e2e/273-loadmore-diagnosis.md · `docs/journal/2026-08-30-full-retention-bm25.md` 十一轮
 
 - [~] **#269 DSH 接入实现：探针收官（P-1..P-4 全实证），拆卡 #274/#275/#276 开工** `infra`
   - 探针全部完成（2026-08-31，双源交叉验证）：52 方法四象限信封（非 JSON-RPC 2.0）、业务错恒 200+result.error 闭集 39 值、WS 纯下行（GET→426，OkHttp pingInterval 必配，无服务端心跳）、重连无游标（subscribed lastSeq 基线+history beforeSeq 回填）、特权面只认 Host 头 loopback（adb reverse 按构造全过）、事件 49 型开放联合+存储打包行（seq0）

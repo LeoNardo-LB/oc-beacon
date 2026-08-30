@@ -18,4 +18,14 @@ class ListSessionsUseCase @Inject constructor(
         cursor: String? = null,
         limit: Int = 50
     ): List<Session> = sessionRepository.listSessions(serverId, directory, search, cursor, limit)
+
+    /** 分页形态（#273）：携带服务器权威 nextCursor——loadMore 专用。 */
+    suspend fun invokePage(
+        serverId: String,
+        directory: String? = null,
+        search: String? = null,
+        cursor: String? = null,
+        limit: Int = 50
+    ): dev.leonardo.ocbeacon.domain.model.SessionPage =
+        sessionRepository.listSessionsPage(serverId, directory, search, cursor, limit)
 }
