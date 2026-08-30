@@ -46,11 +46,6 @@
 
 ## P0 — 主流程阻塞
 
-- [~] **#266 part 身份双轨统一——流式派生 id 与完结权威 id 的漂移面收敛** `refactor` `sse`
-  - 实现：mergePart 身份回填派生 id（方向 A；实测当前服务器事件无服务端 id 字段）+ applyDelta 终态守卫（ended 后 delta 一律丢弃，堵注册路径盲拼接）+ contains 守卫收窄到终态包含（消除流式期误伤面）+ reasoning append endsWith 去重 + 骨架消息改 IGNORE（FK 级联删 part 行的落盘脏行根源）
-  - 验证（V1-V3 自验）：全量单测 2173（唯一红 #261 环境项）；真机七轮渲染尾段 ×1；17 条助手消息 text 行与服务器逐字一致；思考块展开 reasoning 行 254 字与服务器一致尾串 ×1；重进会话完整
-  - 待用户确认收卡（V6 无遗留项——内容正确性已实机取证，非时间性/主观现象）→ docs/journal/2026-08-30-part-identity-unification.md
-
 ## P1 — 核心功能需求
 
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
@@ -69,11 +64,6 @@
 - [~] **#265 流式 turn 渲染试点 StreamingMarkdownState——P0 已接线，待真机 A/B 验收** `sse` `ui`
   - 实现（a3ad01c6）：开关（dev 开/beta+stable 关）+ 前缀差分 append 包装（修正 spec 伪代码重建缺陷：非前缀→prev 置空重建）+ MarkdownContent 三分支；P0-b 缓存审计过验零修正（解析器源码实证：尾部节点每 append 新实例=键必然失效，稳定块实例永复用）；装机烟测无 FATAL；2159 单测基线一致
   - 待验证：V6 A/B 六项（防闪烁/完结跳变/颜色实时/重生成残留/fling 手感/内容一致）→ docs/journal/2026-08-30-streaming-md-pilot.md · spec：docs/specs/2026-08-30-streaming-markdown-state-pilot-design.md
-
-- [~] **#260 /api/form/request 15-20ms 密集轮询——节拍式 location fan-out，已分层降频** `infra` `ui`
-  - 根因（2026-08-30 journal 取证）：每 30s 轮全扫「默认 location + 全部项目目录」，项目数无界增长（实证 10 projects → 9 请求/30s，轮内中位 16ms）；非状态驱动、非多协程
-  - 修复（02a6ea55）：QuestionPollPlanner 分层——默认 location 每轮必查，目录 fan-out 5min 一次，round0 保持全扫；稳态 9/30s → 约 1.9/30s
-  - 验证：单测 4 绿 + 全量 2168（唯一失败为 #261 环境性）；实机 logcat 分层断言见 journal
 
 - [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
   - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
