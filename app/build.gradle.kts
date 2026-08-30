@@ -170,10 +170,10 @@ android {
 
 dependencies {
     // Android 核心
-    implementation("androidx.core:core-ktx:1.18.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
-    implementation("androidx.lifecycle:lifecycle-process:2.10.0")
+    implementation("androidx.core:core-ktx:1.19.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-process:2.11.0")
     implementation("androidx.activity:activity-compose:1.13.0")
 
     // Compose
@@ -200,16 +200,16 @@ dependencies {
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 
     // 导航
-    implementation("androidx.navigation:navigation-compose:2.9.8")
+    implementation("androidx.navigation:navigation-compose:2.10.0")
 
     // Hilt 依赖注入
-    implementation("com.google.dagger:hilt-android:2.59.2")
-    ksp("com.google.dagger:hilt-compiler:2.59.2")
+    implementation("com.google.dagger:hilt-android:2.60.1")
+    ksp("com.google.dagger:hilt-compiler:2.60.1")
     // 提供 androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel（代码已全部迁移，无需 navigation 专用 API）
-    implementation("androidx.hilt:hilt-lifecycle-viewmodel-compose:1.3.0")
+    implementation("androidx.hilt:hilt-lifecycle-viewmodel-compose:1.4.0")
 
     // Ktor 客户端（OkHttp 引擎，确保 SSE 流式传输的正确支持）
-    val ktorVersion = "3.5.0"
+    val ktorVersion = "3.5.2"
     implementation("io.ktor:ktor-client-core:$ktorVersion")
     implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
@@ -249,8 +249,8 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
 
     // zstd 压缩（归档桶）
-    implementation("com.github.luben:zstd-jni:1.5.7-13@aar")
-    testImplementation("com.github.luben:zstd-jni:1.5.7-13")
+    implementation("com.github.luben:zstd-jni:1.5.7-16@aar")
+    testImplementation("com.github.luben:zstd-jni:1.5.7-16")
 
     // 用于图片加载的 Coil
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
@@ -258,18 +258,18 @@ dependencies {
 
     // 测试
     testImplementation("junit:junit:4.13.2")
-    testImplementation("androidx.appcompat:appcompat:1.7.1") // 测试中模拟 Activity 用
+    testImplementation("androidx.appcompat:appcompat:1.8.0") // 测试中模拟 Activity 用
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
-    testImplementation("io.mockk:mockk:1.14.9")
+    testImplementation("io.mockk:mockk:1.14.11")
     testImplementation("app.cash.turbine:turbine:1.2.1")
     testImplementation("io.ktor:ktor-client-mock:$ktorVersion")
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260814")
 
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("com.google.dagger:hilt-android-testing:2.59.2")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.60.1")
 }
 
 tasks.withType<Test>().configureEach {
