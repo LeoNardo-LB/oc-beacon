@@ -329,8 +329,8 @@ internal fun rememberPreRenderExpandState(
 @Composable
 internal fun PreRenderExpand(
     state: PreRenderExpandState,
-    content: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
 ) {
     val machine = state.machine
     val revealAnim = remember { Animatable(1f) }
