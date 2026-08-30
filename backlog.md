@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#270**。
+**编号**：全局递增，不回收。下一编号：**#271**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -66,6 +66,11 @@
 
 ## P2 — 优化与锦上添花
 
+- [~] **#270 返回动画回退：navigation 2.10 + targetSdk36 预测性返回接管转场——已 opt-out 恢复 fade，待验收** `ui`
+  - 用户报：依赖升级后返回 = 整页缩小+生硬消失，替代 NavGraph 自定义 fade（L228-231）。根因：targetSdk 36 默认开启 predictive back + 批次1 navigation 2.9.8→2.10.0 支持其驱动 pop 转场
+  - 修复：manifest 显式 `enableOnBackInvokedCallback="false"` 恢复 fade；后续如要拥抱预测性返回（seekable 自定义转场）另立卡
+  - → `docs/journal/2026-08-30-backlog-triage-closure.md` §八轮
+
 - [ ] **#269 DSH 接入实现：探针测试先行（P-1..P-4）+ 按差距矩阵拆需求** `infra`
   - 前置调研已完成（#268 关单 → `docs/research/2026-08-30-dsh-integration-feasibility.md`）：接入可行；JSON-RPC 信封+双 WS；历史 fold 48 种 SessionEvent 为最大成本项
   - 第一步探针：P-1 adb reverse 下栅栏 2/4 行为（特权面是否天然可用）· P-2 WS 重连/keepalive · P-3 trustedHosts 配置键 · P-4 session.history fold 试样
@@ -76,8 +81,7 @@
   - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
   - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
 
-- [~] **#263 思考卡时长——天文 ms/完结 0ms/权威收敛三症已修，待真机验收** `ui` `data`
-  - round1（天文 ms）：start=0 哨兵守卫（PartContent reasoningDurationMs 纯函数，显示走既有 startTimeMs 降级链）；round2（用户报「结束后变 0ms」）：markSessionIdle 回填伪造 start=end=partEnd 根因消除（未知=0 哨兵不再伪造）+ ReasoningBlock 冻结实测兜底（resolveReasoningDisplayDuration）；round3（用户报 live 1.2s vs 重进 1.5s）：轮次完结后 REST_AUTHORITY 对账，时长收敛服务器权威值（content {created, completed}）
+
   - 待验证：用户真机确认已完成思考卡时长正常 → `docs/journal/2026-08-30-backlog-triage-closure.md`
 
 ## P3 — 观察与低价值改进

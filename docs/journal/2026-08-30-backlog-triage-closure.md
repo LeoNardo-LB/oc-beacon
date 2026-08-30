@@ -1,6 +1,6 @@
 # backlog-triage-closure（2026-08-30）
 
-> 状态：进行中——#261 已关单（用户验收「你验证过的就行」）；#263 round2（完结 0ms）已修复待真机验收
+> 状态：进行中——#261/#263/#252 已关单；#270（返回动画回退）已修待验收
 > 关联：/tmp/handoff-backlog-triage-20260830.md（上一会话对账 handoff，工作区外）· `docs/journal/2026-08-30-deps-upgrade-2026-08.md` §对账关闭（#235/#264 迁入地）· `docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md`（#268 关单轮）
 > 来源：用户指令「看看这个 handoff，能关闭的就先关闭，以免债务越积越多」
 
@@ -56,6 +56,17 @@
 - 修复：MessageDataDelegate 观测 Busy/Retry → Idle 自然轮次结束转换 → 延迟 1.5s 一次性 `reconcileFromRest`（fetchAllMessages + upsertMessages REST_AUTHORITY）——mergePart 优先 incoming 服务器 start>0，思考完结时长（及一切时元数据）live 收敛到服务器值；延迟窗口避开 48ms flush，REST-vs-delta 竞态由 #266 守卫既有覆盖
 - 证据：编译 ✅；全量单测见 §三轮后补记——2182 用例 0 失败
 - 待验证：真机——turn 完结后数秒内思考卡时长从本地值收敛服务器值（1.2s → 1.5s），此后重进一致
+
+## 七轮 · #263 关单（2026-08-30 晚）
+
+用户验收：round1/2/3 全过（「思考计时可以了」+ round3 收敛「可以了」）。三症全修：天文 ms（start=0 哨兵守卫）、完结 0ms（回填不伪造 start）、live/重进不一致（轮次完结 REST_AUTHORITY 对账收敛服务器 {created, completed}）。卡片迁出。
+
+## 八轮 · #270 返回动画回退（新登记，已修待验收）
+
+- 用户报：依赖升级后返回动画 = 整页缩小 + 生硬消失，替代 app 自定义 fade（NavGraph L228-231 popExitTransition）
+- 根因：批次1 把 navigation-compose 2.9.8 → **2.10.0**（支持 predictive back 驱动 pop 转场）+ targetSdk 36 下 predictive back 默认开启（manifest 未显式声明 flag）→ 系统接管返回转场，自定义 fade 被整页缩小动画替换、收尾生硬
+- 修复：AndroidManifest 显式 `android:enableOnBackInvokedCallback="false"`——恢复自定义 fade。后续若要拥抱预测性返回（seekable 自定义转场随手势进度），另立卡
+- 证据：构建+装机（本批次）；待用户验收 fade 恢复
 
 ## 遗留（本批次不做）
 
