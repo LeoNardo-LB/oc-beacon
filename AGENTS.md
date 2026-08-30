@@ -106,7 +106,7 @@ Release keystore 位于 `app/keystore/`（gitignore，仅本地文件与 CI Secr
 
 SSE → UI 管线：**48ms token 批处理 → 高度补偿 → 渲染**。违反任何一条都会重新引入闪烁、卡顿输出或视口跳底：
 
-- **`Markdown()` 必须使用 `rememberMarkdownState(content, retainState=true)`** — 无状态 `Markdown(content=...)` 每次重组重新解析 → 高度振荡 → 闪烁。
+- **`Markdown()` 必须使用 `rememberMarkdownState(content, retainState=true)`；流式 turn 走 `StreamingMarkdownState` 前缀差分 append（#265 试点，`STREAMING_MD_PILOT` 开关）** — 无状态 `Markdown(content=...)` 每次重组重新解析 → 高度振荡 → 闪烁。
 - **`scheduleFlush()` 不得取消进行中的定时器** — 每个 token 都取消会在速率 > 20/s 时饿死 flush → 突发式卡顿输出。
 - **`layout{}` 补偿只应用于流式 turn**（`if (isStreamingMsg)`，沿旧标识符名）— 应用到所有 assistant 消息会让已完结消息暴露在不稳定测量下。
 - **autoScroll/shouldCompensate 的 `LaunchedEffect` 必须以 `isScrollInProgress` 和 `isAtBottom` 两者作为 key** — `isAtBottom` 是自愈机制（fling/SSE 推送回底时重置标志）。**不要把 `isAtBottom` 从 key 中移除。**

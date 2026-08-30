@@ -71,10 +71,6 @@
   - 安全控制：DSH 特权 RPC 钉死 loopback（LAN 403），客户端无解，出路=非特权子集或宿主机 DSH 插件；crypto.randomUUID 系浏览器侧问题，原生接入不涉及
   - → `docs/research/2026-08-30-dsh-integration-feasibility.md`（调研产出，生成中）· 背景：/tmp/dsh-handoff-crypto-polyfill-20260830.md
 
-- [~] **#265 流式 turn 渲染试点 StreamingMarkdownState——P0 已接线，待真机 A/B 验收** `sse` `ui`
-  - 实现（a3ad01c6）：开关（dev 开/beta+stable 关）+ 前缀差分 append 包装（修正 spec 伪代码重建缺陷：非前缀→prev 置空重建）+ MarkdownContent 三分支；P0-b 缓存审计过验零修正（解析器源码实证：尾部节点每 append 新实例=键必然失效，稳定块实例永复用）；装机烟测无 FATAL；2159 单测基线一致
-  - 待验证：V6 A/B 六项（防闪烁/完结跳变/颜色实时/重生成残留/fling 手感/内容一致）→ docs/journal/2026-08-30-streaming-md-pilot.md · spec：docs/specs/2026-08-30-streaming-markdown-state-pilot-design.md
-
 - [ ] **#264 org.json:json 测试依赖疑似僵尸——测试源零 import** `test` `refactor`
   - 现象（2026-08-30 依赖升级批次 grep 实证）：testImplementation(org.json:json) 存在但 app/src/test 无任何 org.json import；推测曾为 Android 单测 stub 替身引入
   - 方向：确认无传递测试依赖后移除；见 docs/journal/2026-08-30-deps-upgrade-2026-08.md §顺带发现
