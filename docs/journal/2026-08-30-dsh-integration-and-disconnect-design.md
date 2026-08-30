@@ -8,6 +8,16 @@
 
 ## 批次执行记录
 
+### 2026-08-31（六）：全量按钮走查（代理 229f6cb8）+ OpenAPI 规范交付（代理 9a788d4e）
+
+**按钮走查矩阵**（A-E 26 项 + F 2 项，证据 /tmp/dsh-e2e-buttons/ 148 文件）：WORKS 17 / HIDDEN 9（全部符合能力位：分享/删除/转后台/slash/模型chip/agent chip/上下文环/git/搜索）/ NO-OP 2 / ERRORS 5 组：
+- B3 终端可见报错——隐藏修复已提交待装机验证；B9 压缩良性拦截——/compact 根治实现进行中（ca59cb42）。
+- **C1 还原假成功（最严重）**：server 拒绝 session.revert 但 UI 显「消息已还原」banner，redo 静默失败——revertSupported 门控 + onResult 假成功根因双修中。
+- **D1 workspace 空路径**：path="" 请求 host.listDirectory，DSH 要求 fully-qualified（curl 复现 directory-unreadable）——根 cwd 解析修复中。
+- E1 断连感知（--remove 后卡片 ≥2min 已连接、REST 失败无反馈）——归类 **#267**（spec 已定稿的断连条幅+快速失败，非 DSH 特有）。
+- 意外：创建时间 1970-01-01（created=0 哨兵直显，显示层修复中）；busy 重排坐标误入他会话（自动化伪影无副作用）。走查同时验证：rename 真机 200、TODO/附件/工具卡/导出入口可用。
+
+**OpenAPI 3.0.3 规范**（docs/api/dsh-openapi.yaml 8207 行 + notes；证据 /tmp/dsh-openapi-cases/ 263 文件）：56 path（52 方法+respond/export/双 WS x-websocket）/215 schema/39 错误码 per-code oneOf；双源交叉验证 37 方法成功实测+3 错误路径+12 特权破坏性仅源码（NOT TESTED 标注）；**新坑位 5 项**：goal CAS 旧 ref 与 exhausted resume 均 internal（无专用码）、session.create 的 cwd 不入 workspace 记账（insertSessionBefore→workspace-move-invalid）、export includeDescendants 含 fork 子、mux subscribed 基线数≠attachedSessions 两口径、坏信封 rpcId 可读时回显原值。
 ### 2026-08-31（五）：定向复测 4/4 全 PASS——DSH 端到端闭环（代理 ca8f118e，证据 /tmp/dsh-e2e-retest/）
 
 - **R1 标题 PASS**：列表全显示真实标题（前五：StreamingMarkdownState优化…/dsh 自定义系统提示词方法/DSH流式空闲超时卡死排查/案卷目录…/梳理backlog可关闭项）——裸字符串双读修复实证。
