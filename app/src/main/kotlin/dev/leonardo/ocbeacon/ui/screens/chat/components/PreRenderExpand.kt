@@ -74,14 +74,20 @@ internal class PreRenderExpandMachine {
         private set
 
     /**
-     * 幕布系数：REVEALING 0→1（纯 draw）、CLOSING 1→0（draw + 布局同步缓动）、
-     * 其余恒 1/0。measure 块（CLOSING 上报）与 draw（clipRect）双相读。
+     * 幕布系数（单一真相源）：REVEALING 0→1（纯 draw）、CLOSING 1→0（draw +
+     * 布局同步缓动）、其余恒 1/0。measure 块（CLOSING 上报）与 draw（clipRect）
+     * 双相读；动画循环写。internal set：同模块组件与测试可写。
      */
     var fraction by mutableFloatStateOf(1f)
-        private set
+        internal set
 
     private var reportedContentH = 0
     private var pendingGrowth = 0
+
+    /** 稳态首测标志：首次测量直接全量上报（缓存预留地板取 max），绝不注入——
+     *  否则新组合的展开卡先隐身一帧再跳入（旧补偿器 everMeasured 同一守恒，
+     *  2026-08-27 思考块 -18px 实证家族）。 */
+    private var everReportedSteady = false
 
     /** [beginExpand] 的启动指令。 */
     internal sealed interface ExpandStart {
@@ -109,11 +115,13 @@ internal class PreRenderExpandMachine {
         fraction = 0f
         reportedContentH = 0
         pendingGrowth = 0
+        everReportedSteady = false
     }
 
     fun enterRevealing() {
         phase = PreRenderPhase.REVEALING
         fraction = 0f
+        everReportedSteady = false
     }
 
     fun enterExpanded() {
@@ -132,6 +140,7 @@ internal class PreRenderExpandMachine {
             phase = PreRenderPhase.IDLE
             pendingGrowth = 0
             reportedContentH = 0
+            everReportedSteady = false
             fraction = 0f
         }
     }
@@ -141,6 +150,7 @@ internal class PreRenderExpandMachine {
             phase = PreRenderPhase.IDLE
             pendingGrowth = 0
             reportedContentH = 0
+            everReportedSteady = false
             fraction = 0f
         }
     }
@@ -176,6 +186,12 @@ internal class PreRenderExpandMachine {
             }
             PreRenderPhase.REVEALING, PreRenderPhase.EXPANDED -> {
                 val floor = if (phase == PreRenderPhase.EXPANDED && reservePx > contentH) reservePx else 0
+                if (!everReportedSteady) {
+                    // 稳态首测：全量上报（缓存预留地板），零注入
+                    everReportedSteady = true
+                    reportedContentH = max(contentH, floor)
+                    return MeasureDecision(reportedContentH, 0, false)
+                }
                 val target = max(reportedContentH + pendingGrowth, floor)
                 val extra = contentH - target
                 return if (extra > 0) {
@@ -213,9 +229,6 @@ internal class PreRenderExpandState(
     private val logTag: String,
     cachedState: androidx.compose.runtime.MutableState<Int>,
 ) {
-    /** 幕布系数的持有点（draw/measure 双相读，动画循环写）。 */
-    internal val clipFraction = mutableFloatStateOf(1f)
-
     /** 最近一次内容实测高度（CLOSING 位移与缓存自愈用；measure 遍写）。 */
     internal var contentHeightPx = 0
 
@@ -238,7 +251,6 @@ internal class PreRenderExpandState(
             when (val start = machine.beginExpand(cachedFinalContentH)) {
                 is PreRenderExpandMachine.ExpandStart.Immediate -> {
                     applyTapShift(start.deltaPx)
-                    clipFraction.floatValue = 0f
                     machine.enterRevealing()
                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                         AppLogger.d(
@@ -329,16 +341,17 @@ internal fun PreRenderExpand(
             PreRenderPhase.REVEALING -> {
                 revealAnim.snapTo(0f)
                 revealAnim.animateTo(1f, animationSpec = tween(200, easing = FastOutSlowInEasing)) {
-                    state.clipFraction.floatValue = value
+                    machine.fraction = value
                 }
                 machine.onRevealAnimationFinished()
             }
             PreRenderPhase.CLOSING -> {
                 val startFraction = machine.collapseStartFraction()
+                revealAnim.snapTo(startFraction)
                 var shifted = 0f
                 revealAnim.animateTo(0f, animationSpec = tween(200, easing = FastOutSlowInEasing)) {
-                    val delta = (state.clipFraction.floatValue - value) * state.contentHeightPx
-                    state.clipFraction.floatValue = value
+                    val delta = (machine.fraction - value) * state.contentHeightPx
+                    machine.fraction = value
                     // 帧回调相（同 drain 时序、measure 块外）：视窗随布局同步收缩
                     // ——方向与 drain 分支③ 收起负增量一致（下方内容收上来）。
                     if (delta > 0f && state.listState != null) {
@@ -399,7 +412,6 @@ internal fun PreRenderExpand(
                 )
             }
             if (decision.revealedNow) {
-                state.clipFraction.floatValue = 0f
                 state.cachedFinalContentH = placeable.height
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                     AppLogger.d("PR-EXPAND", "first-reveal h=" + placeable.height + " (cache stored)")
@@ -420,12 +432,13 @@ private fun ClippedRevealBox(state: PreRenderExpandState, content: @Composable (
     androidx.compose.foundation.layout.Box(
         modifier = Modifier
             .drawWithCache {
-                val fraction = state.clipFraction
+                // 读机器单一真相源（属性委托读 FloatState → draw 相失效，纯重绘）
+                val machine = state.machine
                 onDrawWithContent {
-                    if (fraction.floatValue >= 1f) {
+                    if (machine.fraction >= 1f) {
                         drawContent()
                     } else {
-                        clipRect(right = size.width, bottom = size.height * fraction.floatValue) {
+                        clipRect(right = size.width, bottom = size.height * machine.fraction) {
                             this@onDrawWithContent.drawContent()
                         }
                     }
