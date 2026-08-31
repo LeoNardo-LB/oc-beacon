@@ -334,7 +334,7 @@ class ChatViewModelSendTest {
     }
 
     @Test
-    fun `session error event feeds sendFailure dialog`() = runTest {
+    fun `session error event feeds one-time snackbar toast not dialog`() = runTest {
         clearMocks(eventDispatcher)
         val errorFlow = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 4)
         every { eventDispatcher.sessionErrorEvents } returns errorFlow
@@ -342,6 +342,12 @@ class ChatViewModelSendTest {
         advanceUntilIdle()
         errorFlow.tryEmit("test-session" to "provider rejected request: insufficient balance")
         advanceUntilIdle()
-        assertEquals("provider rejected request: insufficient balance", viewModel.sendFailure.value)
+        // DSH toast 对位（Web 无 dialog）：事件 → 一次性 snackbar 状态
+        assertEquals("provider rejected request: insufficient balance", viewModel.sessionErrorToast.value)
+        // 会话运行错误不得再复用发送失败 AlertDialog（DSH 无此弹窗）
+        assertNull("session errors must not feed the sendFailure dialog", viewModel.sendFailure.value)
+        // 一次性：消费后清空（同 snackbar auto-dismiss 语义）
+        viewModel.consumeSessionErrorToast()
+        assertNull(viewModel.sessionErrorToast.value)
     }
 }

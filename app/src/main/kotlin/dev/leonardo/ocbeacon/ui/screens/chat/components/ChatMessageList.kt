@@ -144,6 +144,14 @@ internal fun isBackgroundMoveSynthetic(text: String): Boolean =
 
 
 /**
+ * 转录内错误行 → LazyColumn item 键映射（D1③ 对齐 DSH turn-error 语义）。
+ * 每条会话运行错误渲染为消息流内的一个列表项（非悬浮/常驻浮层），key 稳定
+ * （LazyColumn 按 key 差分，行增删无漂移）。（走查 #2 契约：渲染位置=转录内。）
+ */
+internal fun sessionErrorRowItems(errors: List<String>): List<Pair<String, String>> =
+    errors.mapIndexed { index, error -> "session_error_$index" to error }
+
+/**
  * 主会话和子智能体会话消息列表共用的 composable。
  *
  * 结构：LazyColumn（待处理问题/权限、revert 横幅、消息项；自动分页加载，
@@ -192,6 +200,11 @@ fun ChatMessageList(
      * 输出源，如实降级）；非 DSH 会话恒空。
      */
     dshJobs: List<dev.leonardo.ocbeacon.domain.model.JobView> = emptyList(),
+    /**
+     * 2026-09-01（走查 #2）：会话运行错误转录内行列表（DSH turn-error 语义——
+     * 消息流内渲染、随历史滚动，非悬浮/常驻浮层）。数据源 viewModel.sessionErrors。
+     */
+    sessionErrorRows: List<String> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     // #137（D2-L50）：工具卡片复制反馈统一 Snackbar 通道（ToolCardScaffold 原用 Toast）
@@ -1065,6 +1078,18 @@ fun ChatMessageList(
                         item(key = "retry_banner") {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             RetryBanner(retryStatus)
+                            }
+                        }
+                    }
+
+                    // D1③：会话运行错误转录内行（走查 #2 对齐 DSH turn-error 语义）——
+                    // 渲染为消息流 LazyColumn item（随历史滚动，非悬浮浮层），
+                    // 无 dismiss（DSH TurnErrorItem 同），sendMessage 成功清卡。
+                    // reverseLayout=true：先声明 = 视觉底部 -> 错误行钉在消息流尾部。
+                    sessionErrorRowItems(sessionErrorRows).forEach { (key, error) ->
+                        item(key = key) {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                SessionErrorCard(error = error)
                             }
                         }
                     }

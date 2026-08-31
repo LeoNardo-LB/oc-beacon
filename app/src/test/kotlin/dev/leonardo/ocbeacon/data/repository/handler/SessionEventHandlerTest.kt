@@ -300,10 +300,11 @@ class SessionEventHandlerTest {
         assertEquals(null, handler.sessions.value[0].revert)
     }
 
-    // ============ D1③：持久错误卡（sessionErrorEvents 广播 + sessionErrors 记录/dismiss/clear） ============
+    // ============ D1③：转录内错误行（sessionErrorEvents 广播 + sessionErrors
+    // 记录/dedup/sendMessage 清卡；DSH turn-error 语义：转录内行无 dismiss） ============
 
     @Test
-    fun `session error records persistent error card and dedupes consecutive same text`() = runTest {
+    fun `session error records transcript rows and dedupes consecutive same text`() = runTest {
         handler.handle(SseEvent.SessionError(sessionId = "s1", error = "provider rejected: balance"), "server1")
         handler.handle(SseEvent.SessionError(sessionId = "s1", error = "provider rejected: balance"), "server1")
         handler.handle(SseEvent.SessionError(sessionId = "s1", error = "provider rejected: quota"), "server1")
@@ -313,11 +314,9 @@ class SessionEventHandlerTest {
     }
 
     @Test
-    fun `session error card dismiss removes one and clear removes all`() = runTest {
+    fun `session error transcript rows clear removes all on send success`() = runTest {
         handler.handle(SseEvent.SessionError(sessionId = "s1", error = "e1"), "server1")
         handler.handle(SseEvent.SessionError(sessionId = "s1", error = "e2"), "server1")
-        handler.dismissSessionError("s1", 0)
-        assertEquals(listOf("e2"), handler.sessionErrors.value["s1"])
         handler.clearSessionErrors("s1")
         assertTrue(handler.sessionErrors.value["s1"].isNullOrEmpty())
         assertTrue("s1" !in handler.sessionErrors.value)

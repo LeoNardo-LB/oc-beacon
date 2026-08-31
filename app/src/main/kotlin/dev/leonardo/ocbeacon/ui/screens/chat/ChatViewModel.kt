@@ -198,21 +198,28 @@ class ChatViewModel @Inject constructor(
         _sendFailure.value = null
     }
 
-    /** 2026-09-01：会话运行错误（当前会话）→ sendFailure 对话框应用内暴露。
-     *  DSH/SSE 会话运行失败此前仅走未读/通知后台通道，会话内静默终止
-     *（用户发送后毫无提示）；与发送失败共用既有 AlertDialog（sendFailure）。 */
+    /** 2026-09-01：会话运行错误（当前会话）→ 一次性 snackbar 应用内暴露。
+     *  对位 DSH：Web 对会话失败无 dialog——发送失败走一次性 toast（transient），
+     *  持久呈现靠转录内 turn-error 行。我们此前的 AlertDialog 弹窗通道移除，
+     *  改为事件 → sessionErrorToast（snackbar）+ sessionErrors（转录内行）。 */
     val sessionErrorEvent: kotlinx.coroutines.flow.Flow<String> =
         eventDispatcher.sessionErrorEvents.mapNotNull { (sid, err) ->
             if (sid == sessionId) err else null
         }
 
-    /** D1③：当前会话持久错误卡列表（SessionErrorCard 数据源）。 */
+    /** 一次性会话错误 snackbar 消息（非空时 ChatScreen 弹 snackbar 后消费清空）。 */
+    private val _sessionErrorToast = MutableStateFlow<String?>(null)
+    val sessionErrorToast: StateFlow<String?> = _sessionErrorToast.asStateFlow()
+
+    /** 消费一次性会话错误 snackbar（对位 DSH toast auto-dismiss）。 */
+    fun consumeSessionErrorToast() {
+        _sessionErrorToast.value = null
+    }
+
+    /** D1③：当前会话转录内错误行列表（聊天消息流渲染，随历史滚动，非悬浮浮层）。 */
     val sessionErrors: StateFlow<List<String>> = eventDispatcher.sessionErrors.map { map ->
         map[sessionId].orEmpty()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** D1③：dismiss 当前会话第 [index] 条错误卡。 */
-    fun dismissSessionError(index: Int) = eventDispatcher.dismissSessionError(sessionId, index)
 
     // ============ 会话生命周期 Delegate ============
     private val sessionLifecycle = SessionLifecycleDelegate(
@@ -574,9 +581,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             compactionFailedEvent.collect { messageData.refreshMessages() }
         }
-        // 2026-09-01：会话运行错误 → 既有发送失败 AlertDialog。
+        // 2026-09-01：会话运行错误 → 一次性 snackbar（DSH toast 对位；Web 无 dialog，
+        // 弹窗通道降级为转录内行 + 一次性 snackbar）。
         viewModelScope.launch {
-            sessionErrorEvent.collect { _sendFailure.value = it }
+            sessionErrorEvent.collect { _sessionErrorToast.value = it }
         }
     }
 

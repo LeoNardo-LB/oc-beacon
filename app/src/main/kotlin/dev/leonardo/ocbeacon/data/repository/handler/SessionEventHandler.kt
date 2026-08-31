@@ -275,12 +275,14 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         // 区分）。挂后台会话失败时用户有感知。sessionId 可空（协议防御）——
         // 空则跳过。
         event.sessionId?.let { sid ->
-            // 2026-09-01：双通道——①应用内广播（ChatViewModel sendFailure 对话框）；
-            // ②持久错误卡 StateFlow（D1③：会话列表/聊天可渲染 + dismiss + sendMessage 清卡）。
+            // 2026-09-01：双通道——①应用内广播（ChatViewModel 一次性 snackbar，
+            // 对位 DSH 发送失败 toast）；②转录内错误行 StateFlow（D1③：聊天消息流
+            // 渲染 + sendMessage 清卡；对齐 DSH turn-error 语义——转录内行随历史
+            // 滚动、无 dismiss，非悬浮/常驻浮层）。
             _sessionErrorEvents.tryEmit(sid to event.error)
             _sessionErrors.update { map ->
                 val list = map[sid].orEmpty()
-                // 末条同文本去重（同一 provider 错误连发不堆卡）
+                // 末条同文本去重（同一 provider 错误连发不堆行，send 失败同语义）
                 if (list.lastOrNull() == event.error) map else map + (sid to (list + event.error))
             }
             onSessionError?.invoke(sid, event.error)
@@ -295,20 +297,11 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     /** 会话运行错误事件流（sessionId → error）——应用内 UI 消费（ChatViewModel sendFailure 对话框）。 */
     val sessionErrorEvents: SharedFlow<Pair<String, String>> = _sessionErrorEvents.asSharedFlow()
 
-    /** 持久错误卡（D1③）：per-session 未消费错误文本列表（末条去重），sendMessage 成功/手动 dismiss 清卡。 */
+    /** 转录内错误行（D1③）：per-session 未消费错误文本列表（末条去重），sendMessage 成功清卡。 */
     private val _sessionErrors = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     val sessionErrors: StateFlow<Map<String, List<String>>> = _sessionErrors.asStateFlow()
 
-    /** 手动 dismiss 该会话第 [index] 条错误卡。 */
-    fun dismissSessionError(sessionId: String, index: Int) {
-        _sessionErrors.update { map ->
-            val list = map[sessionId] ?: return@update map
-            val next = list.filterIndexed { i, _ -> i != index }
-            if (next.isEmpty()) map - sessionId else map + (sessionId to next)
-        }
-    }
-
-    /** sendMessage 成功/会话删除等时机清空该会话全部错误卡。 */
+    /** sendMessage 成功/会话删除等时机清空该会话全部转录内错误行。 */
     fun clearSessionErrors(sessionId: String) {
         _sessionErrors.update { it - sessionId }
     }

@@ -232,7 +232,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
 import dev.leonardo.ocbeacon.ui.screens.chat.components.QueueDock
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
-import dev.leonardo.ocbeacon.ui.screens.chat.components.SessionErrorCard
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.chat.components.RevertBanner
 import dev.leonardo.ocbeacon.ui.screens.chat.terminal.ChatTerminalView
@@ -511,6 +510,17 @@ fun ChatScreen(
                 }
             }
         )
+    }
+
+    // 走查 #2（DSH toast 对位）：会话运行错误 → 一次性 snackbar（Web 无 dialog——
+    // 弹窗通道降级为转录内行 + 一次性 snackbar）；持久呈现由转录内错误行承担
+    // （sessionErrors → ChatMessageList）。
+    val sessionErrorToastMsg by viewModel.sessionErrorToast.collectAsStateWithLifecycle()
+    LaunchedEffect(sessionErrorToastMsg) {
+        sessionErrorToastMsg?.let { message ->
+            viewModel.consumeSessionErrorToast()
+            snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
+        }
     }
 
     // ============ 加载过渡 ============
@@ -939,6 +949,9 @@ fun ChatScreen(
                         shellOutputProvider = shellOutputResolver,
                         // 2026-09-01（Task 3d）：DSH 后台任务降级 Shell 卡（session/jobs 快照）
                         dshJobs = taskUi.dshJobs,
+                        // 2026-09-01（走查 #2）：会话运行错误转录内行（消息流内渲染，
+                        // 随历史滚动，非悬浮浮层；DSH turn-error 对位）
+                        sessionErrorRows = sessionErrors,
                         // 2026-09-01（B1 链）：内容检索跳转目标消息（打开即异步定位）
                         initialJumpTarget = initialJumpToMessageId,
                         modifier = Modifier.fillMaxSize(),
@@ -977,23 +990,8 @@ fun ChatScreen(
                       modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp),
                   )
 
-                  // D1③：会话运行错误持久卡浮层（消息区之上；sendMessage 成功/手动 dismiss 清卡）
-                  if (sessionErrors.isNotEmpty()) {
-                      Column(
-                          modifier = Modifier
-                              .align(Alignment.TopCenter)
-                              .fillMaxWidth()
-                              .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
-                          verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-                      ) {
-                          sessionErrors.forEachIndexed { index, error ->
-                              SessionErrorCard(
-                                  error = error,
-                                  onDismiss = { viewModel.dismissSessionError(index) },
-                              )
-                          }
-                      }
-                  }
+                  // 走查 #2：会话运行错误持久卡浮层已移除——改为转录内错误行
+                  // （ChatMessageList LazyColumn item，随历史滚动；DSH turn-error 对位）。
               }
            }
 
