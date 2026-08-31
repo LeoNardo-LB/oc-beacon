@@ -496,3 +496,10 @@
 3. V1 上下文用量卡的数据源：V2 有 session.usage.updated；V1 呈现口径未逐行核实【推测：消息 tokens 字段推算】。
 4. 架构文档提及的 CrossServerSessionsScreen/CrossServerSessionsAggregator 在源码树无对应文件（glob/grep 0 命中），仅存 Screen.kt:19 死路由——文档滞后于代码。
 5. V1 1.18 端口 4199 为本机部署约定（AGENTS.md），非服务器默认（V1 默认 4096）。
+
+## 8. 模型切换接通（#276-4）——2026-08-31 真机验收
+
+- **根因**：旧 llm.providers 解析找 id/providerId 键而 DSH 返回 provider/displayName → 目录恒空；且 llm.models 从未调用 → chip 数据饥饿隐藏（非能力位误伤）。修复 = 双端点合流映射 + session.selectModel 前置切换（commit e8a90d67，+263/-9，8 新测试，2367/0）。
+- **真机 V1-V5**（WiFi 192.168.110.239:5555，[test-lab] 会话，证据 /tmp/dsh-model-e2e/ 10 截屏 + a11y dump）：①chip 渲染 DeepSeek-V4-Flash（05）②选择器双组合流（06：DeepSeek 3 模型 + opencode-go 9+）③切换后 chip 即时更新（07）④档位 accordion（11：默认/High/Low/Max/Off；#187 ③ 输入行 pill=模型入口、档位在二级面板）⑤发送链（16/17）——服务器侧 session.models.current = deepseek-official/deepseek-v4-pro/reasoningEffort=max，回合即停（running=False）。
+- **坑**：键盘弹出时发送键移位至 (1086,1616)——HANDOFF 坐标；(1086,2538) 会点空（首轮 V5 假发送即此因，服务器 history 证伪后重发）。
+- **遗留**：agent 预设切换登卡 #280（agentPreset 仅 blank 会话可设，语义需重设计）。
