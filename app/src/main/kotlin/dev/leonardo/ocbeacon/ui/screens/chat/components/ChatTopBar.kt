@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
+import dev.leonardo.ocbeacon.ui.screens.chat.util.formatTokenCount
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
@@ -104,34 +105,60 @@ fun ChatTopBar(
             }
         },
         actions = {
-            // 上下文进度指示器 —— 父会话和子智能体会话都显示
-            val showContext = contextWindow > 0 && lastContextTokens > 0
+            // 上下文进度指示器 —— 父会话和子智能体会话都显示。
+            // DSH 根治（2026-08-31）：llm.models 目录无 contextWindow（仅
+            // id/name/reasoning）→ 环入口原先永不显示、token 弹窗（含子代理
+            // 区）不可达。无窗口但有 token 数据时以 token 计数 chip 作入口，
+            // 不伪造窗口百分比。
+            val hasTokenData = lastContextTokens > 0 ||
+                contextDetail.inputTokens > 0 ||
+                contextDetail.subagentTokens != null
+            val showContext = (contextWindow > 0 && lastContextTokens > 0) ||
+                (contextWindow <= 0 && hasTokenData)
             if (showContext) {
-                val percentage = Math.round(lastContextTokens.toDouble() / contextWindow * 100).toInt()
-                    .coerceIn(0, 100)
-                val contextColor = when {
-                    percentage >= 90 -> MaterialTheme.colorScheme.error
-                    percentage >= 70 -> MaterialTheme.colorScheme.tertiary
-                    else -> MaterialTheme.colorScheme.primary
-                }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .padding(end = 4.dp)
-                        .clickable { showContextDialog = true }
-                ) {
-                    CircularProgressIndicator(
-                        progress = { percentage / 100f },
-                        strokeWidth = 3.dp,
-                        color = contextColor,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Text(
-                        text = "$percentage",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = contextColor
-                    )
+                if (contextWindow > 0) {
+                    val percentage = Math.round(lastContextTokens.toDouble() / contextWindow * 100).toInt()
+                        .coerceIn(0, 100)
+                    val contextColor = when {
+                        percentage >= 90 -> MaterialTheme.colorScheme.error
+                        percentage >= 70 -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .clickable { showContextDialog = true }
+                    ) {
+                        CircularProgressIndicator(
+                            progress = { percentage / 100f },
+                            strokeWidth = 3.dp,
+                            color = contextColor,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Text(
+                            text = "$percentage",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = contextColor
+                        )
+                    }
+                } else {
+                    val entryTokens = lastContextTokens.takeIf { it > 0 }
+                        ?: contextDetail.subagentTokens?.total?.toInt()
+                        ?: contextDetail.inputTokens
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .clickable { showContextDialog = true }
+                    ) {
+                        Text(
+                            text = formatTokenCount(entryTokens),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
