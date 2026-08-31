@@ -48,7 +48,7 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#267 服务器断连可感知：Chat/会话列表常驻条幅 + 写操作快速失败报错** `sse` `ui`
+- [x] **#267 服务器断连可感知：Chat/会话列表常驻条幅 + 写操作快速失败报错** `sse` `ui`
   - 现状：连接真相源已有（SseConnectionManager.connectedServerIds + 自动重连 + REST 补漏），仅 Home 圆点消费；Chat/会话列表断连零感知，写操作失败悬挂 20s+
   - 方案（2026-08-30 用户裁决：简单做）：零 UI 禁用——两界面常驻细条幅（恢复自动消失）+ REST 失败回灌一期 + mutation 快速失败报「服务器已断开」；per-serverId 键控；草稿保留；workspace 面板二期
   - → `docs/specs/2026-08-30-server-disconnect-gating-design.md`
