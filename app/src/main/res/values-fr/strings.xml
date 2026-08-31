@@ -23,6 +23,7 @@
     <string name="session_status_retry">Nouvelle tentative (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Envoyer</string>
+    <string name="chat_send_queued">Envoyer (en attente)</string>
     <string name="chat_empty">Démarrer une session</string>
     <!-- Permissions -->
     <string name="permission_title">Autorisation requise</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">Supprimer « %1$s » ? Cette action est irréversible.</string>
     <string name="chat_stop">Arrêter</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Envoyer maintenant</string>
-    <string name="chat_busy_menu_send_now_desc">Mis en file d\'attente sur le serveur, visible immédiatement, action irréversible</string>
-    <string name="chat_busy_menu_stack">Mettre en file d\'attente</string>
-    <string name="chat_busy_menu_stack_desc">Conservé localement, envoyé automatiquement à la fin de ce tour</string>
-    <string name="chat_busy_menu_stack_no_attachments">Les messages avec pièces jointes doivent être envoyés maintenant</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">File d\'attente</string>
     <string name="pending_tab_stacked">En file d\'attente %1$d</string>

@@ -23,6 +23,7 @@
     <string name="session_status_retry">再試行中（%1$d）</string>
     <!-- Chat Screen -->
     <string name="chat_send">送信</string>
+    <string name="chat_send_queued">送信（キュー中）</string>
     <string name="chat_empty">セッションを開始</string>
     <!-- Permissions -->
     <string name="permission_title">権限が必要です</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">「%1$s」を削除しますか？この操作は元に戻せません。</string>
     <string name="chat_stop">停止</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">今すぐ送信</string>
-    <string name="chat_busy_menu_send_now_desc">サーバーのキューに投入され、すぐに表示されます。取り消せません</string>
-    <string name="chat_busy_menu_stack">メッセージをキューに追加</string>
-    <string name="chat_busy_menu_stack_desc">端末に保存され、このターンの終了後に自動で送信されます</string>
-    <string name="chat_busy_menu_stack_no_attachments">添付ファイル付きのメッセージは今すぐ送信する必要があります</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">キュー</string>
     <string name="pending_tab_stacked">キュー %1$d</string>

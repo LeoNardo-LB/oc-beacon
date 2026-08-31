@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#289**。
+**编号**：全局递增，不回收。下一编号：**#290**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -65,6 +65,11 @@
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#289 本地堆积消息链路因忙碌双键裁决失去 UI 入口（enqueuePendingMessage 无人调用）** `refactor` `ui`
+  - 2026-09-01 走查 #8 双键裁决移除 busy 气泡，「堆积」唯一入口（ChatInputBar.onEnqueue → BottomBar lambda）随之删除；PendingMessageRepository/PendingMessagePipeline/PendingSheets/VM enqueue/edit/delete/clear/reorder 保留但从 UI 不可达
+  - 方向：裁决去留——整体拆除（含 SessionListViewModel 角标计数）或另立入口；验证=静态 grep 无孤儿 + 拆除时跑全量回归
+  - → `docs/journal/2026-09-01-busy-dual-key-send.md`
 
 - [ ] **#287 DSH 附件字节拉取（session.attachment → Part.File url/图片缩略图接线）** `dsh` `ui`
   - Task 3c 落地 file/image ContentBlock → Part.File 分支（数据不再丢），但 DSH 图片块仅存 attachment 引用（attachmentId/mediaType/字节数）——既有 ImageThumbnailRow 需 url 才渲染

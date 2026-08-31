@@ -95,8 +95,6 @@ internal fun ChatInputBar(
     showTaskToolbar: Boolean = false,
     taskToolbarText: String = "",
     onBackgroundSession: () -> Unit = {},
-    /** 堆积消息（2026-08-20 设计定稿）：busy+有内容时气泡菜单的「堆积」回调；null=不支持。 */
-    onEnqueue: (() -> Unit)? = null,
     // DSH 权限预设选择器（能力位门控 + 会话权限状态 + 点选/自定义点击回调）
     permissionSwitchSupported: Boolean = false,
     permissions: SessionPermissions? = null,
@@ -263,9 +261,10 @@ internal fun ChatInputBar(
                     onFocusChange = { textFieldFocused = it }
                 )
 
-                // 发送/停止按钮——点击发送或停止，长按切换 shell 模式
-                // 2026-08-17（用户需求）：会话状态表示（busy 转圈）放按钮上——
-                // isBusy 且无文本时显示停止图标；isBusy 且有输入时显示转圈（点击中断）
+                // 发送/停止按钮区——忙碌双键并存（2026-09-01 走查 #8 用户裁决）：
+                // isBusy 且无文本时仅停止键；isBusy 且有输入时停止键+发送键并排
+                //（发送点击=服务端排队，DSH prompt mode=queue → QueueDock）；
+                // 忙碌转圈由停止键承载（2026-08-17 用户需求）
                 val showStop = isBusy && text.isBlank()
                 SendStopButton(
                     showStop = showStop,
@@ -274,11 +273,9 @@ internal fun ChatInputBar(
                     isSending = isSending,
                     isShellMode = isShellMode,
                     isAmoled = isAmoled,
-                    hasAttachments = attachments.isNotEmpty(),
                     onStop = onStop,
                     onSend = onSend,
-                    onInputModeChange = onInputModeChange,
-                    onEnqueue = onEnqueue
+                    onInputModeChange = onInputModeChange
                 )
             }
         }

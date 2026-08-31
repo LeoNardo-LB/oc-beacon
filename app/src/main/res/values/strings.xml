@@ -106,15 +106,11 @@
 
     <!-- Chat Screen -->
     <string name="chat_send">Send</string>
+    <string name="chat_send_queued">Send (queued)</string>
     <string name="chat_send_shell">Send shell command</string>
     <string name="chat_shell_mode_hold_send_hint">Shell mode active. Hold Send to switch back.</string>
     <string name="chat_stop">Stop</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Send now</string>
-    <string name="chat_busy_menu_send_now_desc">Queued on server, visible immediately, cannot be undone</string>
-    <string name="chat_busy_menu_stack">Queue message</string>
-    <string name="chat_busy_menu_stack_desc">Kept locally, sent automatically when this turn ends</string>
-    <string name="chat_busy_menu_stack_no_attachments">Messages with attachments must be sent now</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Queued</string>
     <string name="pending_tab_stacked">Queued %1$d</string>

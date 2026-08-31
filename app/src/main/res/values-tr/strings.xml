@@ -23,6 +23,7 @@
     <string name="session_status_retry">Yeniden deneniyor (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Gönder</string>
+    <string name="chat_send_queued">Gönder (sırada)</string>
     <string name="chat_empty">Bir oturum başlat</string>
     <!-- Permissions -->
     <string name="permission_title">İzin Gerekli</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">"%1$s" silinsin mi? Bu işlem geri alınamaz.</string>
     <string name="chat_stop">Dur</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Şimdi gönder</string>
-    <string name="chat_busy_menu_send_now_desc">Sunucuda kuyruğa alınır, anında görünür, geri alınamaz</string>
-    <string name="chat_busy_menu_stack">Mesajı kuyruğa ekle</string>
-    <string name="chat_busy_menu_stack_desc">Yerel olarak saklanır, bu tur sona erdiğinde otomatik gönderilir</string>
-    <string name="chat_busy_menu_stack_no_attachments">Ek içeren mesajlar şimdi gönderilmelidir</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Kuyruk</string>
     <string name="pending_tab_stacked">Kuyrukta %1$d</string>

@@ -59,13 +59,9 @@
     <string name="session_unknown_error">Kesalahan tidak diketahui</string>
     <!-- Chat Screen -->
     <string name="chat_send">Kirim</string>
+    <string name="chat_send_queued">Kirim (antrian)</string>
     <string name="chat_stop">Stop</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Kirim sekarang</string>
-    <string name="chat_busy_menu_send_now_desc">Masuk antrean di server, langsung terlihat, dan tidak dapat dibatalkan</string>
-    <string name="chat_busy_menu_stack">Antrekan pesan</string>
-    <string name="chat_busy_menu_stack_desc">Disimpan secara lokal, dikirim otomatis saat turn ini berakhir</string>
-    <string name="chat_busy_menu_stack_no_attachments">Pesan dengan lampiran harus dikirim sekarang</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Antrean</string>
     <string name="pending_tab_stacked">Antrean %1$d</string>

@@ -23,6 +23,7 @@
     <string name="session_status_retry">Ponawianie próby (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Wyślij</string>
+    <string name="chat_send_queued">Wyślij (w kolejce)</string>
     <string name="chat_empty">Rozpocznij rozmowę</string>
     <!-- Permissions -->
     <string name="permission_title">Wymagana zgoda</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">Usunąć "%1$s"? Tego nie można cofnąć.</string>
     <string name="chat_stop">Zatrzymaj</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Wyślij teraz</string>
-    <string name="chat_busy_menu_send_now_desc">Kolejkowane na serwerze, widoczne od razu, nie można cofnąć</string>
-    <string name="chat_busy_menu_stack">Dodaj wiadomość do kolejki</string>
-    <string name="chat_busy_menu_stack_desc">Przechowywana lokalnie, wysyłana automatycznie po zakończeniu tej tury</string>
-    <string name="chat_busy_menu_stack_no_attachments">Wiadomości z załącznikami muszą być wysłane teraz</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Kolejka</string>
     <string name="pending_tab_stacked">W kolejce %1$d</string>

@@ -23,6 +23,7 @@
     <string name="session_status_retry">Tentando novamente (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Enviar</string>
+    <string name="chat_send_queued">Enviar (na fila)</string>
     <string name="chat_empty">Inicie uma sessão</string>
     <!-- Permissions -->
     <string name="permission_title">Permissão necessária</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">Excluir "%1$s"? Isso não pode ser desfeito.</string>
     <string name="chat_stop">Parar</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Enviar agora</string>
-    <string name="chat_busy_menu_send_now_desc">Enfileirado no servidor, visível de imediato, não pode ser desfeito</string>
-    <string name="chat_busy_menu_stack">Colocar mensagem na fila</string>
-    <string name="chat_busy_menu_stack_desc">Mantida localmente, enviada automaticamente quando este turno terminar</string>
-    <string name="chat_busy_menu_stack_no_attachments">Mensagens com anexos devem ser enviadas agora</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Fila</string>
     <string name="pending_tab_stacked">Na fila %1$d</string>

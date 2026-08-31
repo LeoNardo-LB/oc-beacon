@@ -23,6 +23,7 @@
     <string name="session_status_retry">重试中（%1$d）</string>
     <!-- Chat Screen -->
     <string name="chat_send">发送</string>
+    <string name="chat_send_queued">发送（排队）</string>
     <string name="chat_empty">开始会话</string>
     <!-- Permissions -->
     <string name="permission_title">需要权限</string>
@@ -123,11 +124,6 @@
     <string name="session_delete_confirm">确定要删除“%1$s”？此操作无法撤销。</string>
     <string name="chat_stop">停止</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">立即发送</string>
-    <string name="chat_busy_menu_send_now_desc">已在服务器排队，立即可见，无法撤销</string>
-    <string name="chat_busy_menu_stack">堆积消息</string>
-    <string name="chat_busy_menu_stack_desc">暂存本地，本轮结束后自动发送</string>
-    <string name="chat_busy_menu_stack_no_attachments">带附件的消息请立即发送</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">堆积消息</string>
     <string name="pending_tab_stacked">堆积 %1$d</string>

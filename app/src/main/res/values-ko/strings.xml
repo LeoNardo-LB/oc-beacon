@@ -23,6 +23,7 @@
     <string name="session_status_retry">재시도 중 (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">보내기</string>
+    <string name="chat_send_queued">보내기(대기중)</string>
     <string name="chat_empty">세션을 시작하세요</string>
     <!-- Permissions -->
     <string name="permission_title">권한 필요</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">"%1$s"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
     <string name="chat_stop">중지</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">지금 보내기</string>
-    <string name="chat_busy_menu_send_now_desc">서버 큐에 등록되어 즉시 표시되며 취소할 수 없습니다</string>
-    <string name="chat_busy_menu_stack">메시지 대기열에 추가</string>
-    <string name="chat_busy_menu_stack_desc">기기에 저장되었다가 이번 턴이 끝나면 자동으로 전송됩니다</string>
-    <string name="chat_busy_menu_stack_no_attachments">첨부파일이 있는 메시지는 지금 보내야 합니다</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">대기열</string>
     <string name="pending_tab_stacked">대기열 %1$d</string>

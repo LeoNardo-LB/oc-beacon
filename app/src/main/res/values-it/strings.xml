@@ -23,6 +23,7 @@
     <string name="session_status_retry">Riprova (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Invia</string>
+    <string name="chat_send_queued">Invia (in coda)</string>
     <string name="chat_empty">Inizia una sessione</string>
     <!-- Permissions -->
     <string name="permission_title">Permesso richiesto</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">Eliminare "%1$s"? Questa operazione non può essere annullata.</string>
     <string name="chat_stop">Ferma</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Invia ora</string>
-    <string name="chat_busy_menu_send_now_desc">Accodato sul server, visibile immediatamente, non annullabile</string>
-    <string name="chat_busy_menu_stack">Metti in coda</string>
-    <string name="chat_busy_menu_stack_desc">Conservato localmente, inviato automaticamente al termine di questo turno</string>
-    <string name="chat_busy_menu_stack_no_attachments">I messaggi con allegati devono essere inviati subito</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">In coda</string>
     <string name="pending_tab_stacked">In coda %1$d</string>

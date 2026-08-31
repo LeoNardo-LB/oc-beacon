@@ -23,6 +23,7 @@
     <string name="session_status_retry">Повтор спроби (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Надіслати</string>
+    <string name="chat_send_queued">Надіслати (у черзі)</string>
     <string name="chat_empty">Почніть сесію</string>
     <!-- Permissions -->
     <string name="permission_title">Потрібен дозвіл</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">Видалити "%1$s"? Це неможливо скасувати.</string>
     <string name="chat_stop">Зупинити</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Надіслати зараз</string>
-    <string name="chat_busy_menu_send_now_desc">Ставиться в чергу на сервері, видно одразу, скасувати не можна</string>
-    <string name="chat_busy_menu_stack">Поставити повідомлення в чергу</string>
-    <string name="chat_busy_menu_stack_desc">Зберігається локально та надсилається автоматично після завершення цього ходу</string>
-    <string name="chat_busy_menu_stack_no_attachments">Повідомлення з вкладеннями потрібно надсилати зараз</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Черга</string>
     <string name="pending_tab_stacked">У черзі %1$d</string>

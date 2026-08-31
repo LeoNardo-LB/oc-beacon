@@ -23,6 +23,7 @@
     <string name="session_status_retry">Wiederholen (%1$d)</string>
     <!-- Chat Screen -->
     <string name="chat_send">Senden</string>
+    <string name="chat_send_queued">Senden (in Warteschlange)</string>
     <string name="chat_empty">Starte eine Sitzung</string>
     <!-- Permissions -->
     <string name="permission_title">Berechtigung erforderlich</string>
@@ -121,11 +122,6 @@
     <string name="session_delete_confirm">„%1$s“ löschen? Dies kann nicht rückgängig gemacht werden.</string>
     <string name="chat_stop">Stoppen</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
-    <string name="chat_busy_menu_send_now">Jetzt senden</string>
-    <string name="chat_busy_menu_send_now_desc">In der Server-Warteschlange, sofort sichtbar, kann nicht rückgängig gemacht werden</string>
-    <string name="chat_busy_menu_stack">Nachricht einreihen</string>
-    <string name="chat_busy_menu_stack_desc">Wird lokal gespeichert und automatisch gesendet, wenn dieser Turn endet</string>
-    <string name="chat_busy_menu_stack_no_attachments">Nachrichten mit Anhängen müssen sofort gesendet werden</string>
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
     <string name="pending_sheet_title">Warteschlange</string>
     <string name="pending_tab_stacked">In Warteschlange %1$d</string>
