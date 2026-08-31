@@ -1,35 +1,40 @@
-# DSH 全按钮系统性走查报告（进行中）
+# DSH 全按钮系统性走查报告（终版）
 
-- 走查窗口：2026-08-31 起（goal-a2953002）；构建基线 master@ba2c664f（2499 测试全绿）
-- 证据根：/tmp/dsh-wt/verify/（截屏+a11y XML+logcat+服务器探针）·方法=四维证据（代码链路/截图/数据库/日志）
-- 基准序：已裁决记录 > DSH Web 行为 > 鲁棒性常识
+- 走查窗口：2026-08-31 ~ 09-01（goal-a2953002，23 轮）；构建基线 master@ba2c664f → 修复链至 459025b3（终态全量测试全绿）
+- 方法：四维证据（代码链路/截图+a11y/带 tag 日志/服务器探针+Room 拉取）；基准序=已裁决记录>DSH Web 行为>鲁棒性常识；修复模式=根因修复（用户令，目标 rev4）
+- 证据根：/tmp/dsh-wt/（verify/01-52 截屏+XML、jump-rerun.log、jump-dual.log、jump-fixed.log、finding1_round21.md）；前批证据 /tmp/dsh-model-e2e|dsh-tree-e2e|dsh-feat2
 
-## 已验通过
+## A. 按钮清单
+→ docs/qa/2026-08-31-dsh-walkthrough-inventory.md（五面全量，81addaa3）
+
+## B. 已验通过（真机实证）
 | 项 | 证据 |
 |---|---|
-| 发送失败弹窗（欠费 live） | 07-dock2「发送失败/Insufficient Balance」+ 会话干净回落 |
-| 设置页两新行（展开/收起/三档/回显） | 14-permrow/15-collapse |
-| goal.create RPC 全链（服务器落地） | 23-created2 + goal_probe（goal/change create） |
-| 快速定位不再卡死（蒙版状态机走完解锁） | 05-after-jump ChatPaging 日志 |
-| 斜杠命令面加载（DSH 6 命令） | logcat 01:14:28 ModelConfigDelegate |
-| 多级树/权限/token 环/预设/详情/设置默认行（前批） | 前批各证据目录 |
-| V2 零外溢复核（agent 循环器原样/无权限 chip/无排队条/环走 contextWindow 路径） | 35-v2chat（ext-4199 会话） |
-| 通用卡渲染（Run code 折叠/任务状态/思考行） | 30-mine（a6c4） |
-| DSH token 环跨会话（另一 DSH 会话 18%） | 32-s 截屏 |
+| 发送失败展示（欠费 live：#2 修复后转录内行） | 07-dock2 + d5bf5898 |
+| 权限切换全链（下拉/切换/服务器三事件/恢复） | 前批 V-perm 1-4 |
+| 设置页两新行（展开/三档/回显/与既有区块同构） | 14-permrow/15-collapse + f9298c89 |
+| goal 全生命周期（create 落地/sheet active 翻转/clear 三维证据） | 41-goal2/45-cleared3 + 25e2a60c |
+| FAB 五入口+树化（根/L2 懒加载/直达裸 UUID） | 前批 + 19-fab2 |
+| token 环（contextPressure 驱动跨会话 5%/18%/28%） | 8b47a40d + 32-s |
+| 快速定位跳转（点最早消息→落点=目标本体 seq-10） | jump-fixed.log + 52-after-fix + 459025b3 |
+| 斜杠命令面（加载 + 建议以服务器面为准） | logcat 01:14:28 + 9a384fda |
+| 多级树/预设卡/详情标签/默认行（前批联验） | 前批证据目录 |
+| V2 零外溢（agent 循环器原样/无权限 chip/无排队条/环走窗口路径） | 35-v2chat |
+| 通用卡渲染（Run code 折叠/任务状态/思考行） | 30-mine |
 
-## 发现清单（D 批待修）
-| # | 现象 | 根因 | 严重度 |
+## C. 发现与修复（全部根因模式闭环）
+| # | 现象 | 根因 | 修复 |
 |---|---|---|---|
-| 1 | 快速定位点最早消息落点在 idx12 近底部（布局稳定超时放弃） | 目标解析/占位链待下钻（ChatPaging null=2→3） | P1 |
-| 2 | 错误信息悬浮不散 | 弹窗+持久卡双通道 vs DSH 转录内行——修复代理 18e5cb55 在途 | P1 |
-| 3 | 斜杠建议显示 OpenCode 命令集（无 /goal /permission） | 命令面 01:14 已加载正确；建议 UI 源/加载空窗待核 | P1 |
-| 5 | goal 创建后 sheet 不翻转 active 视图；FAB 角标不亮（连带） | EventDispatcher 未注册 SessionGoalChanged（日志实证 No handler registered；SessionEventHandler :76 折叠已成孤岛）——补一行 bind | P0（一修双愈） |
-| — | #4 已撤销（测试误触发送键，非 app 缺陷） | — | — |
+| 1 | 快速定位点最早消息落最新区、蒙版后无反应 | 程序化 scrollToItem 不置 isScrollInProgress→下跳守卫误判漂移→GUARD 重锚与跳转互搏永不收敛 | 视口所有权模型：jumpLockActive 期间 GUARD 重锚+MSGEFFECT 锚底让位（459025b3） |
+| 2 | 错误信息悬浮不散 | 弹窗+悬浮卡 vs DSH Web=转录内错误行 | 对齐 Web：转录内渲染、去悬浮/弹窗（d5bf5898） |
+| 3 | 斜杠建议显示 OpenCode 命令集 | 静态 clientCommands 恒并入淹没服务器面 | 服务器面已加载即为准、静态表降兜底（9a384fda） |
+| 5 | goal 创建后 sheet 不翻转、FAB 角标不亮 | EventDispatcher 漏注册 SessionGoalChanged→折叠成孤岛 | 补 bind 一行，一修双愈（25e2a60c） |
+| — | #4 撤销：测试误触发送键（坐标漂移），非缺陷 | — | — |
 
-## 阻塞
-- DSH 账户欠费：一切需 LLM 回合的写 case（QueueDock 实造/goal 轮/预设锁定竞态）挂起待充值；只读 case 全部完成或进行中
+## D. 外部阻塞（欠费，非本目标可解）
+需 LLM 回合的写 case 挂起待充值后补测：QueueDock 实造排队+编辑/删除/steer 交互｜goal 轮注入（round 消息渲染+wrapup）｜workflow/file/Shell→jobs 卡 live 造数｜预设锁定竞态。Room DB 证据采集方法已定型（暂停 app 后 run-as 拉三件套），欠费解除后随补测执行。
 
-## 待走查面
-FAB 四+1 面板细目（堆积/TODO 已开面验）、workflow 降级卡、file 块、Shell→jobs 卡、Room 数据库证据采集、V2 对照零外溢复核、instrumentation tag 批（并入 D 批）
-
-（报告随轮次滚动更新；D 批修复完成后出终版）
+## E. 遗留登记
+- backlog #282-288（重构群/权限动态渲染/小项集/命令列表懒建/附件拉取/workflow 阶段卡）
+- WT-* instrumentation tag 批未全面铺开（#1 诊断走了既有 DEBUG tag 即足够）——按需再铺
+- 卡片联动 bug（run code×tool 同消息展开联动）：fa303349 静态排查无共享键路径，需 RB-EXP 活体打点取证——欠费解除后随写 case 批复验
