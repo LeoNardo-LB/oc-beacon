@@ -31,8 +31,14 @@
 | 5 | goal 创建后 sheet 不翻转、FAB 角标不亮 | EventDispatcher 漏注册 SessionGoalChanged→折叠成孤岛 | 补 bind 一行，一修双愈（25e2a60c） |
 | — | #4 撤销：测试误触发送键（坐标漂移），非缺陷 | — | — |
 
-## D. 外部阻塞（欠费，非本目标可解）
-需 LLM 回合的写 case 挂起待充值后补测：QueueDock 实造排队+编辑/删除/steer 交互｜goal 轮注入（round 消息渲染+wrapup）｜workflow/file/Shell→jobs 卡 live 造数｜预设锁定竞态。Room DB 证据采集方法已定型（暂停 app 后 run-as 拉三件套），欠费解除后随补测执行。
+## D. 外部阻塞（欠费，非本目标可解）→ 2026-09-01 已全部补测闭环
+需 LLM 回合的写 case 挂起待充值后补测：QueueDock 实造排队+编辑/删除/steer 交互｜goal 轮注入（round 消息渲染+wrapup）｜workflow/file/Shell→jobs 卡 live 造数｜预设锁定竞态。Room DB 证据采集方法已定型（暂停 app 后 run-as 拉三件套）。
+
+**补测结果**（glm-5.3-flash 解锁写路径；详见 [2026-09-01-post-walkthrough-fix-batch.md](2026-09-01-post-walkthrough-fix-batch.md)）：
+- goal 轮注入活体验证 ✅；预设锁定竞态抽验 ✅（防御测试 ea24dda0）；卡片联动 RB-EXP ✅（前轮）
+- QueueDock 交互补测**牵出 404 根因**：wire 方法名 updateQueue → session.updateQueue（11bcbc17），edit/remove/steer 此前全部静默失效
+- workflow 卡 live 造数 → **定性为服务器数据面缺口**（tool-workflow 事件在 mux WS/history journal/projection/jobs 四面均不暴露，app 映射链休眠）→ backlog #290；走查期「重开丢卡」= 结构性无数据源，非 app 缺陷
+- 附带捕获并根治 FK 787 落盘竞态（SSE 双写事务化 aa9bae68，真机 logs 表堆栈定音）
 
 ## E. 遗留登记
 - backlog #282-288（重构群/权限动态渲染/小项集/命令列表懒建/附件拉取/workflow 阶段卡）
