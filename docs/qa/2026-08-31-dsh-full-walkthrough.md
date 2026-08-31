@@ -13,6 +13,9 @@
 | 快速定位不再卡死（蒙版状态机走完解锁） | 05-after-jump ChatPaging 日志 |
 | 斜杠命令面加载（DSH 6 命令） | logcat 01:14:28 ModelConfigDelegate |
 | 多级树/权限/token 环/预设/详情/设置默认行（前批） | 前批各证据目录 |
+| V2 零外溢复核（agent 循环器原样/无权限 chip/无排队条/环走 contextWindow 路径） | 35-v2chat（ext-4199 会话） |
+| 通用卡渲染（Run code 折叠/任务状态/思考行） | 30-mine（a6c4） |
+| DSH token 环跨会话（另一 DSH 会话 18%） | 32-s 截屏 |
 
 ## 发现清单（D 批待修）
 | # | 现象 | 根因 | 严重度 |
