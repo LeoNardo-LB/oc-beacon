@@ -154,6 +154,17 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
             chatRepository.selectAgentPreset(serverId, sid, presetId)
+                .onSuccess {
+                    // 乐观回显根治（2026-08-31 真机实证遗留）：懒创建会话的 WS 订阅
+                    // 可能晚于 agent-preset/selected 事件送达 → 卡片高亮丢失。select
+                    // 成功即注入同款合成事件走既有折叠管线（SessionEventHandler →
+                    // Session.agentPreset → 聚合器 → ChatEmptyState 高亮），与真实
+                    // 事件最终一致（重复同值幂等）。
+                    eventDispatcher.processEvent(
+                        dev.leonardo.ocbeacon.domain.model.SseEvent.SessionAgentPresetChanged(sessionId = sid, agentPreset = presetId),
+                        serverId,
+                    )
+                }
                 .onFailure { e ->
                     val locked = (e as? dev.leonardo.ocbeacon.data.api.dsh.DshApiError)
                         ?.code?.wire == "agent-preset-locked"
