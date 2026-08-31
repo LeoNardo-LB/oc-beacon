@@ -133,14 +133,17 @@ internal fun ChatInputBar(
     }
     val canSend = (text.isNotBlank() || attachments.isNotEmpty()) && !isSending && (!isShellMode || !isBusy) && inputEnabled
 
-    // 构建合并的斜杠命令：客户端命令 + 服务器命令 + 技能（去重）
+    // 构建合并的斜杠命令（走查 #3 修复）：客户端静态表是 OpenCode 时代遗产——
+    // 服务器命令面已加载（commands 非空，DSH=commands.list 实测可用）时以服务器
+    // 面为准，静态表仅作未加载前的兜底。此前静态表恒并入导致 DSH 显示
+    // fork/new/redo 等 DSH 不存在的命令、淹没 /goal /permission /plan。
     val clientCmds = SlashCommandRegistry.clientCommands()
     val allCommands = remember(commands, clientCmds) {
-        val clientNames = clientCmds.map { it.name }.toSet()
-        val serverSlash = commands
-            .filter { it.name !in clientNames }
-            .map { SlashCommand(it.name, it.description, it.source ?: "server", requiresInput = it.hints.isNotEmpty()) }
-        clientCmds + serverSlash
+        if (commands.isNotEmpty()) {
+            commands.map { SlashCommand(it.name, it.description, it.source ?: "server", requiresInput = it.hints.isNotEmpty()) }
+        } else {
+            clientCmds
+        }
     }
 
     // 斜杠命令建议（#276：DSH 无 command 域——能力位关停整块面板）
