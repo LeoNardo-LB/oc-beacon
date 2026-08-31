@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#290**。
+**编号**：全局递增，不回收。下一编号：**#291**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -78,6 +78,11 @@
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
   - Task 3b 落地 workflow run-start/run-end 降级单卡（同 runId 原位更新 running→终态）；agent-start/end 维持 Ignored（防逐成员刷卡）
   - 方向：run 级聚合器（成员 label/outcome/phase 折叠进阶段卡，参照官方 tool-workflow 装配）；验证=真机 workflow 运行会话卡片分阶段展示
+  - **2026-09-01 活体四面包夹（走查 #9 定性）**：当前服务器对客户端**不暴露** tool-workflow 进度事件——events.mux 实况帧（两次 WS tap + 现跑 workflow 对照，仅 tool/code-dispatch* 渲染伴生）、session.history journal（39 页全翻 0 行，fresh run 亦不入）、session/projection（仅 permissions）、session/jobs（仅 bash 后台任务）四面皆无 → app 侧映射链（DshEventMapper:469 + DshMessageAssembler）为休眠代码路径，非缺陷；走查期「18 事件在 a6c4」不复现（疑当时另有来源/版本窗口）。重开丢卡=结构性（无服务器数据源），DSH synthetic 消息零持久化同因。**升级前置**：待服务器在任何客户端面暴露 tool-workflow 事件后重验，再启聚合器
+
+- [ ] **#290 会话重开期「 Room 撕裂副本」取证假象——run-as 活库拉取需 WAL 三件套** `qa`
+  - 2026-09-01 #9/#10 取证两次踩坑：adb exec-out run-as 单拉主 db 报 database disk image is malformed（01:21 版）；补 -wal/-shm 三件套后 integrity ok，但活写中拉取仍可能撕裂（多次拉取取首个 integrity ok 副本）
+  - 方向：观测 runbook 补标准拉取脚本（三件套 + integrity 循环校验）；低优先（仅影响取证效率不影响产品）
 
 - [ ] **#285 DSH 斜杠命令补全的会话龄缺口：懒建会话/首连期命令列表空 + commands/change 事件未消费** `dsh` `ui`
   - 2026-08-31 定音：commands/list typert 通道活体可用且已实现（能力位转真 + 选择填入/执行）——残留缺口：新会话懒建（sessionId 空）时 loadCommands 只跑一次 → 建会话后服务端命令不刷新；commands/change 事件（命令注册变化）未订阅；技能在 DSH 无对应域
