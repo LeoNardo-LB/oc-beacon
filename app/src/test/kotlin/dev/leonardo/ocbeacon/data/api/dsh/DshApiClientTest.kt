@@ -60,6 +60,18 @@ class DshApiClientTest {
     // ============ SessionApi ============
 
     @Test
+    fun `createSession echo without blank maps to blank session`() = runTest {
+        // 活体形状（2026-08-31）：session.create 回显 {sessionId, agentPreset}——无 blank 字段。
+        // 刚创建会话按定义 blank（事件流无 turn/start）；否则空白页预设卡在首次
+        // 点卡（ensureSession 落地）后即消失、无法反复换档（真机实证回归）。
+        val engine = MockEngine { respond(ok("""{"sessionId":"session-new-1","agentPreset":"code"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val session = client(engine).createSession(conn, title = null, parentId = null, directory = "/tmp")
+        assertTrue(session.blank)
+        assertEquals("session-new-1", session.id)
+        assertEquals("code", session.agentPreset)
+    }
+
+    @Test
     fun `listSessions calls session list and maps items`() = runTest {
         val engine = MockEngine { respond(ok(sessionListValue), HttpStatusCode.OK, jsonHeaders()) }
         val sessions = client(engine).listSessions(conn)

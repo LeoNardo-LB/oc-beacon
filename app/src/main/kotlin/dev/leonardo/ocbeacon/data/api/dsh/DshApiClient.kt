@@ -146,7 +146,7 @@ class DshApiClient @Inject constructor(
             directory?.let { put("cwd", it) }
         }
         val value = rpc.call(conn, "session.create", payload) { it }.getOrElse { e -> throw e }
-        return mapSessionEcho(value, fallbackTitle = title)
+        return mapSessionEcho(value, fallbackTitle = title, blankByDefault = true)
     }
 
     /** 52 方法无 delete（§2.6 注记）——删除能力位缺口，UI 卡隐藏入口。 */
@@ -349,19 +349,32 @@ class DshApiClient @Inject constructor(
     /**
      * session.create/rename/fork 响应形状待 E2E 回填——按 list 条目形状容忍解析，
      * 解析不出时回退最小 Session（id/title 已知字段保真）。
+     *
+     * blankByDefault：session.create 回显实证为 {sessionId, agentPreset}——不带
+     * blank 字段（2026-08-31 活体探测）。刚创建的会话按定义 blank（事件流无
+     * turn/start），缺失时按此补真，否则空白页预设卡门控（sessionIsBlank）在
+     * 首次点卡（ensureSession 落地）后即翻转、卡片消失、无法反复换档
+     * （真机实证回归）。列表/事件刷新后以服务器显式值为准。
      */
-    private fun mapSessionEcho(value: JsonObject, fallbackId: String = "", fallbackTitle: String? = null): Session {
+    private fun mapSessionEcho(
+        value: JsonObject,
+        fallbackId: String = "",
+        fallbackTitle: String? = null,
+        blankByDefault: Boolean = false,
+    ): Session {
         val direct = value.takeIf { it.dshStr("sessionId") != null } ?: value.dshObj("session")
         if (direct?.dshStr("sessionId") != null) {
             val mapped = DshSessionMapper.toSession(direct)
+            val withBlank = if (blankByDefault && !direct.containsKey("blank")) mapped.copy(blank = true) else mapped
             // 回显形状可能不带 projections.title——请求参数里的 title 是权威回退
-            return if (mapped.title == null && fallbackTitle != null) mapped.copy(title = fallbackTitle) else mapped
+            return if (withBlank.title == null && fallbackTitle != null) withBlank.copy(title = fallbackTitle) else withBlank
         }
         AppLogger.w(TAG, "session echo shape unrecognized, falling back to minimal session: " + value.toString().take(120))
         return Session(
             id = direct?.dshStr("sessionId") ?: fallbackId,
             title = fallbackTitle,
             time = Session.Time(created = 0L, updated = 0L),
+            blank = blankByDefault,
         )
     }
 
