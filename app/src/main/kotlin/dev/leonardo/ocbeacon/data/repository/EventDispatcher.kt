@@ -150,6 +150,10 @@ class EventDispatcher @Inject constructor(
         )
         // DSH 后台任务整快照 → DshJobsHandler
         bind(dshJobsHandler, SseEvent.JobsSnapshot::class)
+        // DSH goal 投影 → SessionEventHandler 折叠（走查 #5：此前缺注册，
+        // goal/change 帧到达即弃「No handler registered」，Session.goal 恒空，
+        // GoalSheet 不翻转/FAB 角标不亮——一修双愈）
+        bind(sessionHandler, SseEvent.SessionGoalChanged::class)
         // DSH 排队收件箱整快照 → DshQueueHandler（2026-09-01 QueueDock）
         bind(dshQueueHandler, SseEvent.QueueSnapshot::class)
         return map
