@@ -73,8 +73,13 @@ internal fun ContextDetailDialog(state: ContextDetailState?, onDismiss: () -> Un
                 }
                 state.timestamps?.let { ts ->
                     val fmt = DateFormatters.monthDayHourMinute()
+                    // DSH created=0（epoch 0 不当真实创建时间展示，V7 dash 先例）
                     Text(
-                        text = stringResource(R.string.chat_context_timestamps, fmt.format(Date(ts.created)), fmt.format(Date(ts.updated))),
+                        text = stringResource(
+                            R.string.chat_context_timestamps,
+                            dev.leonardo.ocbeacon.util.DateFormatters.formatEpochOrDash(fmt, ts.created),
+                            dev.leonardo.ocbeacon.util.DateFormatters.formatEpochOrDash(fmt, ts.updated),
+                        ),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                     )
