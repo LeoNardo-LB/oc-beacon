@@ -13,13 +13,13 @@ package dev.leonardo.ocbeacon.data.api.dsh
  *
  * 纯函数 / 无 IO / 无时钟——不做网络（#276 编排执行）。
  *
- * ## 边界契约（任务定稿，off-by-one 待实况验证）
- * 每会话：baseline > local + 1 → [DshReconcileAction.Backfill]；baseline ==
- * local + 1（恰落后一个 seq）或 baseline <= local → 无需动作。
- * 注意：该边界假定 lastSeq 是「订阅帧发出后新事件才从此流交付」的排他水位——
- * 若 #276 E2E 实测 lastSeq 为含入交付的闭区间水位，边界应收紧为 baseline > local
- * （本纯函数单点可调）。回填翻页方向同理：beforeSeq = baseline（向前翻页游标，
- * 含/排他语义随上同边确认）。
+ * ## 边界契约（#276 终验 E2E 定音，2026-08-31——「处理中」徽章滞留根因修复）
+ * 服务器实测定稿：subscribed 帧 lastSeq = session.seq - 1（**排他水位**——seq ==
+ * lastSeq 的事件已持久化但不会从此流交付），history 分页为 seq < beforeSeq 严格
+ * 排他。因此每会话：baseline > local → [DshReconcileAction.Backfill]（恰落后一条
+ * 也必须回填——那条事件两路都不会到达）；baseline <= local → 无需动作。回放
+ * 游标 beforeSeq = baseline + 1（含入 seq == lastSeq 的最新事件，否则订阅时点的
+ * 最新一条——常为 turn/end——被永久排除在流与回放之外，FSM 停 Busy）。
  */
 object DshReconciler {
 
@@ -45,10 +45,10 @@ object DshReconciler {
             val applied = local[sessionId]
             when {
                 // 新会话（本地无水位）：首拉尾页
-                applied == null -> actions += DshReconcileAction.InitialFetch(sessionId, baseSeq, pageSize)
-                // 缺口（落后超过一个 seq）：向前翻页回填
-                baseSeq > applied + 1 -> actions += DshReconcileAction.Backfill(sessionId, baseSeq, pageSize)
-                // 相等（恰落后一）或更小（持平/超前）：无需——见类注释边界契约
+                applied == null -> actions += DshReconcileAction.InitialFetch(sessionId, baseSeq + 1, pageSize)
+                // 缺口（含恰落后一条：seq == lastSeq 的事件不从流交付，必须回填）——见类注释边界契约
+                baseSeq > applied -> actions += DshReconcileAction.Backfill(sessionId, baseSeq + 1, pageSize)
+                // 持平/超前（重放幂等场景）：无需
             }
         }
         // 本地有、基线无：会话已消失（删除/脱离附流）——上层清理本地状态
@@ -67,6 +67,8 @@ sealed class DshReconcileAction {
     /**
      * 缺口回填：session.history{beforeSeq, maxMessages} 向前翻页，fold 后推进本地
      * 水位；仍有缺口则以上一页最小 seq 继续翻页（编排层循环）。
+     * [beforeSeq] 是**排他**游标（= baseline + 1）：服务器分页为 seq < beforeSeq
+     * 严格排他，含入 seq == lastSeq 的最新事件是本动作存在的原因（类注释）。
      */
     data class Backfill(
         override val sessionId: String,

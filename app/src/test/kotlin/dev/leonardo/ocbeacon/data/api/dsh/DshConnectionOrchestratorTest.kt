@@ -141,8 +141,8 @@ class DshConnectionOrchestratorTest {
         source.onFrame("session/subscribed", obj("""{"type":"session/subscribed","sessionId":"s1","lastSeq":20}"""), "rpc-sub-1")
         advanceTimeBy(500) // 静默窗落定 → 对账
         runCurrent()
-        // InitialFetch：只取尾页（beforeSeq=baseline=20，maxMessages=50）
-        assertEquals(listOf(Triple("s1", 20L, 50)), history.requests)
+        // InitialFetch：只取尾页（beforeSeq=baseline+1=21——排他游标含入 seq==lastSeq 事件，maxMessages=50）
+        assertEquals(listOf(Triple("s1", 21L, 50)), history.requests)
         // 尾页两行重放为 2 条 MessageUpdated（保序）
         val updates = rec.dispatched.filterIsInstance<SseEvent.MessageUpdated>()
         assertEquals(listOf("seq-15", "seq-20"), updates.map { it.info.id })
@@ -177,6 +177,7 @@ class DshConnectionOrchestratorTest {
         advanceTimeBy(500)
         runCurrent()
         // Backfill：缺 6..12 → 尾页覆盖即重叠（minSeq 6 <= local 5+1）→ 单页止
+        //（游标 13 = baseline+1，FakeHistorySource 仅录制不校验游标）
         assertEquals(1, history.requests.size)
         assertEquals(12L, tracker.get("s1"))
         job.cancel()

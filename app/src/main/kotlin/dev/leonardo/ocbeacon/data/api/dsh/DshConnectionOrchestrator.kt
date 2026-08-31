@@ -222,7 +222,8 @@ class DshConnectionOrchestrator @Inject constructor() {
      * - [initialOnly]=true（新会话首拉）：只取尾页——全量历史走会话进入时的
      *   REST prefetch（对齐 V1/V2 行为，避免首连翻完 2M 事件）；
      * - 终止条件：页尽（hasMore=false）或页 minSeq 与**回填前**本地水位重叠
-     *   （minSeq <= localAtStart + 1，off-by-one 边界与 DshReconciler 同契约）；
+     *   （minSeq <= localAtStart + 1：页内最旧事件已是首个未应用 seq 或已应用——
+     *   与 DshReconciler 排他水位契约对齐；回放起点 cursor = baseline + 1 见 plan）；
      * - refusedRebuild（未知事件类型）：放弃该会话后续页，水位仍推进（防重试风暴），
      *   已重放页保留（§5 fold 安全规则）。InitialFetch 全页 refused 时同样推进——
      *   残缺优于死循环。
