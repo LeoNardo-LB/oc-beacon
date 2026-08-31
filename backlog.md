@@ -48,11 +48,6 @@
 
 ## P1 — 核心功能需求
 
-- [x] **#267 服务器断连可感知：Chat/会话列表常驻条幅 + 写操作快速失败报错** `sse` `ui`
-  - 现状：连接真相源已有（SseConnectionManager.connectedServerIds + 自动重连 + REST 补漏），仅 Home 圆点消费；Chat/会话列表断连零感知，写操作失败悬挂 20s+
-  - 方案（2026-08-30 用户裁决：简单做）：零 UI 禁用——两界面常驻细条幅（恢复自动消失）+ REST 失败回灌一期 + mutation 快速失败报「服务器已断开」；per-serverId 键控；草稿保留；workspace 面板二期
-  - → `docs/specs/2026-08-30-server-disconnect-gating-design.md`
-
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
   - 2026-08-23 评估（#151 两轮 E2E 全绿触发）：用户定规**两半均继续缓**——崩溃提示基建已齐（recordCrash→FATAL 持久化）只差启动提示 UI；gist 需 App 加 Gists 权限+重新授权，正文 20+3 上下文实证够分诊
   - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
