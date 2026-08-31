@@ -484,6 +484,66 @@ class MessageStoreTest {
         assertEquals(listOf(100L, 200L), result.map { it.info.time.created })
     }
 
+    /**
+     * #10（2026-09-01 真机取证 FK 787）：appendPartTexts 的骨架插入与 delta 追加
+     * 必须在同一事务内原子提交。根因：两条独立 DAO 调用间可插入并发
+     * replaceSessionMessages（prefetchJumpTargets 服务器权威替换：clear+重写）——
+     * 权威集不含流式中消息时骨架被清 → appendPartText FK 787 → 本批 delta 全丢
+     * （真机 logs 表两次 ERROR + 堆栈定音）。事务化后：要么整体先于替换提交
+     * （一并被权威重写收敛），要么整体后于替换提交（骨架+部件都在）——孤儿不可能。
+     */
+    @Test
+    fun appendPartTexts_skeletonAndDeltasCommitAtomically() = runTest {
+        val events = mutableListOf<String>()
+        coEvery { database.withTransaction(any<suspend () -> Any?>()) } coAnswers {
+            events += "tx-open"
+            @Suppress("UNCHECKED_CAST")
+            val block = invocation.args.first { it is Function1<*, *> } as (suspend () -> Any?)
+            block.invoke().also { events += "tx-close" }
+        }
+        coEvery { dao.insertMessagesIfAbsent(any()) } coAnswers { events += "skeleton"; Unit }
+        coEvery { dao.appendPartText(any(), any(), any(), any(), any()) } coAnswers {
+            events += "part-append"; Unit
+        }
+
+        store.appendPartTexts(
+            "ses_1",
+            listOf(msg("msg_1", 100)),
+            listOf(PartDelta("part_msg_1", "msg_1", "ses_1", "text", "hello")),
+        )
+
+        assertEquals(
+            "骨架插入与 delta 追加必须包在同一 withTransaction 内（#10 FK 787 根因）",
+            listOf("tx-open", "skeleton", "part-append", "tx-close"),
+            events,
+        )
+    }
+
+    /**
+     * #10 同源加固：upsertMessages 的消息行 REPLACE（= DELETE+INSERT，级联删 parts）
+     * 与 parts 重写同样必须原子——并发权威替换插入两者之间时 parts 落库同样 FK 787。
+     */
+    @Test
+    fun upsertMessages_messageAndPartWritesCommitAtomically() = runTest {
+        val events = mutableListOf<String>()
+        coEvery { database.withTransaction(any<suspend () -> Any?>()) } coAnswers {
+            events += "tx-open"
+            @Suppress("UNCHECKED_CAST")
+            val block = invocation.args.first { it is Function1<*, *> } as (suspend () -> Any?)
+            block.invoke().also { events += "tx-close" }
+        }
+        coEvery { dao.upsertMessages(any()) } coAnswers { events += "msgs"; Unit }
+        coEvery { dao.upsertParts(any()) } coAnswers { events += "parts"; Unit }
+
+        store.upsertMessages("ses_1", listOf(msg("msg_1", 100)))
+
+        val open = events.indexOf("tx-open")
+        val msgs = events.indexOf("msgs")
+        val parts = events.indexOf("parts")
+        val close = events.indexOf("tx-close")
+        assertTrue("消息与部件写入必须包在同一事务内（open=$open msgs=$msgs parts=$parts close=$close）", open in 0 until msgs && msgs < parts && parts < close)
+    }
+
     @Test
     fun loadArchivedRange_resumesBucketAfterPartialRead() = runTest {
         // #72 完整场景：首读 takeLast(2) 只取桶尾两条（400/500）→ 游标 400 →

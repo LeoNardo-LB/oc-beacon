@@ -61,27 +61,36 @@ class MessageStore @Inject constructor(
         if (realDeltas.isEmpty()) return@withContext
         runCatchingCancellable {
             databaseRecovery.withCorruptionRecovery {
+                // #10（2026-09-01 FK 787 根治）：骨架插入与 delta 追加**同事务原子提交**。
+                // 原两步独立提交间可插入并发 replaceSessionMessages（prefetchJumpTargets
+                // 服务器权威替换：clear+重写，权威集不含流式中消息）→ 骨架被清 →
+                // appendPartText FK 787 → 本批 delta 全丢（真机 logs 表两次 ERROR 定音）。
+                // 事务化后：整体先于替换提交（一并被权威重写收敛）或整体后于（骨架+
+                // 部件俱在）——FK 孤儿结构性不可能。
+                //
                 // 骨架消息存在即跳过（#266：原 REPLACE = DELETE+INSERT，FK
                 // ON DELETE CASCADE 会把该消息全部 part 行级联删光，随后
                 // 只插回本批 delta → part 行永远停留在最后一批）。IGNORE
                 // 只保证 part 的 FK 依赖存在，永不触发级联。
-                dao.insertMessagesIfAbsent(messages.map { m ->
-                    CachedMessageEntity(
-                        id = m.info.id,
-                        sessionId = sessionId,
-                        created = m.info.time.created,
-                        role = m.info.role,
-                        payload = json.encodeToString(m.info),
-                    )
-                })
-                realDeltas.forEach { d ->
-                    dao.appendPartText(
-                        partId = d.partId,
-                        messageId = d.messageId,
-                        sessionId = d.sessionId,
-                        type = d.type,
-                        delta = d.delta,
-                    )
+                database.withTransaction {
+                    dao.insertMessagesIfAbsent(messages.map { m ->
+                        CachedMessageEntity(
+                            id = m.info.id,
+                            sessionId = sessionId,
+                            created = m.info.time.created,
+                            role = m.info.role,
+                            payload = json.encodeToString(m.info),
+                        )
+                    })
+                    realDeltas.forEach { d ->
+                        dao.appendPartText(
+                            partId = d.partId,
+                            messageId = d.messageId,
+                            sessionId = d.sessionId,
+                            type = d.type,
+                            delta = d.delta,
+                        )
+                    }
                 }
             }
         }.onFailure { e ->
@@ -136,45 +145,52 @@ class MessageStore @Inject constructor(
                     return@withCorruptionRecovery
                 }
 
-                dao.upsertMessages(
-                    toPersist.map { m ->
-                        CachedMessageEntity(
-                            id = m.info.id,
-                            sessionId = sessionId,
-                            created = m.info.time.created,
-                            role = m.info.role,
-                            payload = json.encodeToString(m.info),
-                        )
-                    },
-                )
-                dao.upsertParts(
-                    toPersist.flatMap { m ->
-                        m.parts.mapIndexed { index, p ->
-                            CachedPartEntity(
-                                // 2026-08-12 修复：空 part id（REST 加载历史产生 ""）
-                                // 主键冲突互相覆盖（实测 35 条 user 消息只剩 1 条有 parts）
-                                // ——落库时生成稳定唯一 id（消息 id + 位置索引）
-                                id = p.id.ifEmpty { "${m.info.id}_p$index" },
-                                messageId = m.info.id,
+                // #10（2026-09-01 FK 787 同源加固）：消息行 REPLACE（= DELETE+INSERT，
+                // 对 cached_parts 级联删）与 parts 重写同事务原子——并发权威替换
+                // （replaceSessionMessages 的 clear+重写）插入两步之间时，parts 落库
+                // 同样触发 FK 787。归档/裁剪（archiveOverflow 自持事务）保持事务外，
+                // 不构成嵌套。
+                database.withTransaction {
+                    dao.upsertMessages(
+                        toPersist.map { m ->
+                            CachedMessageEntity(
+                                id = m.info.id,
                                 sessionId = sessionId,
-                                type = p.typeName(),
-                                text = (p as? Part.Text)?.text,
-                                // #79 P0（2026-08-18）：tool part 落库截断——
-                                // 工具返回值占 DB 97%（12.4MB/28MB 实测），本地只存
-                                // 500 字符预览；内存渲染不受影响（消息在内存时完整），
-                                // 服务器保留全量可重拉。非 tool part 原样。
-                                payload = when (p) {
-                                    // #79：tool（output/input/metadata）落库截 500 字符预览
-                                    // ——DB 体积大头（97% 实测），全量服务器可重拉。
-                                    // #271（2026-08-30 用户裁决）：reasoning 截断取消——
-                                    // 全量保留，重进思考卡内容完整；text part 本就不截。
-                                    is Part.Tool -> ToolOutputTruncator.truncateIfNeeded(json.encodeToString(p))
-                                    else -> json.encodeToString(p)
-                                },
+                                created = m.info.time.created,
+                                role = m.info.role,
+                                payload = json.encodeToString(m.info),
                             )
-                        }
-                    },
-                )
+                        },
+                    )
+                    dao.upsertParts(
+                        toPersist.flatMap { m ->
+                            m.parts.mapIndexed { index, p ->
+                                CachedPartEntity(
+                                    // 2026-08-12 修复：空 part id（REST 加载历史产生 ""）
+                                    // 主键冲突互相覆盖（实测 35 条 user 消息只剩 1 条有 parts）
+                                    // ——落库时生成稳定唯一 id（消息 id + 位置索引）
+                                    id = p.id.ifEmpty { "${m.info.id}_p$index" },
+                                    messageId = m.info.id,
+                                    sessionId = sessionId,
+                                    type = p.typeName(),
+                                    text = (p as? Part.Text)?.text,
+                                    // #79 P0（2026-08-18）：tool part 落库截断——
+                                    // 工具返回值占 DB 97%（12.4MB/28MB 实测），本地只存
+                                    // 500 字符预览；内存渲染不受影响（消息在内存时完整），
+                                    // 服务器保留全量可重拉。非 tool part 原样。
+                                    payload = when (p) {
+                                        // #79：tool（output/input/metadata）落库截 500 字符预览
+                                        // ——DB 体积大头（97% 实测），全量服务器可重拉。
+                                        // #271（2026-08-30 用户裁决）：reasoning 截断取消——
+                                        // 全量保留，重进思考卡内容完整；text part 本就不截。
+                                        is Part.Tool -> ToolOutputTruncator.truncateIfNeeded(json.encodeToString(p))
+                                        else -> json.encodeToString(p)
+                                    },
+                                )
+                            }
+                        },
+                    )
+                }
                 // #272：FTS5 增量索引——text part 正文全量可搜（prune 不删 FTS 行，冷数据保持可搜）
                 fts.indexTextParts(
                     sessionId,
