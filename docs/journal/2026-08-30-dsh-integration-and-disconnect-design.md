@@ -503,3 +503,13 @@
 - **真机 V1-V5**（WiFi 192.168.110.239:5555，[test-lab] 会话，证据 /tmp/dsh-model-e2e/ 10 截屏 + a11y dump）：①chip 渲染 DeepSeek-V4-Flash（05）②选择器双组合流（06：DeepSeek 3 模型 + opencode-go 9+）③切换后 chip 即时更新（07）④档位 accordion（11：默认/High/Low/Max/Off；#187 ③ 输入行 pill=模型入口、档位在二级面板）⑤发送链（16/17）——服务器侧 session.models.current = deepseek-official/deepseek-v4-pro/reasoningEffort=max，回合即停（running=False）。
 - **坑**：键盘弹出时发送键移位至 (1086,1616)——HANDOFF 坐标；(1086,2538) 会点空（首轮 V5 假发送即此因，服务器 history 证伪后重发）。
 - **遗留**：agent 预设切换登卡 #280（agentPreset 仅 blank 会话可设，语义需重设计）。
+
+
+## 9. DSH 特性批——2026-08-31 交付收官（树化/权限/预设/jobs/指标）
+
+- **决策链**：用户拷问三轮（树化 7 问 → Round2 权限预设 8 问 → Round3 三问）+ 双调研（权限体系/agentPreset，docs/research/ 两份归档 53988e99）。#280 预设卡被本批覆盖实现。
+- **交付**（commit 链 64079b57→a16ee74b）：P0 守卫放行 DSH 会话 id（NavGraph 纯函数+9 测试）→ AgentSheet 多级树（subagent.list 权威域懒加载+V2 本地递归双轨，57027860）→ 权限切换器（commands/execute 通道+三 knob 事件+设置页默认档 settings.mutate，e6930ed5）→ 预设 4 卡（空白页立即 select+详情标签+默认行，672be9af）→ jobs/projection（Shell 面板 JobView 行+token 弹窗子代理区，fae2d1aa）。
+- **验证期根因修复 4 个**（真机发现即修）：① DSH 无 contextWindow → token 弹窗入口永不可达 → 无窗口时 token 计数 chip（4f0e62ef）② 弹窗时间戳 epoch-0 → 长划（addb5c05）③ 预设选择乐观回显——懒建会话 WS 订阅晚于 selected 事件 → 合成事件走折叠管线（6454cf28）④ session.create 回显实证无 blank 字段 → 按定义补真，否则预设卡首点即消失（a16ee74b，活体探测 {sessionId,agentPreset} 双证）。
+- **真机验证矩阵**（证据 /tmp/dsh-tree-e2e/ 12 项 + /tmp/dsh-feat2/ 60 项，截屏+a11y+服务器侧+像素差分）：树化 3/3（根 label/展开箭头/L2 懒加载缩进/点击直达 d953b6da 裸 UUID——P0 链实证）；权限 4/4（下拉三档/切换/服务器三事件/恢复）；token 弹窗（入口 chip→子代理区累计 2.5M）；jobs（本会话实造 sleep 90 后台任务 → Shell(1)+bash 徽章+mono label+运行中走时——验证用会话 session-a6c42dd8 即本会话自身）；预设 5/5（4 卡渲染/select 服务器落地/卡片保持/像素高亮 [62,66,69]→[51,95,117]/换档 cordis）；详情标签 PTC 模式；设置两行（默认权限+默认预设）。
+- **实现代理故障记录**：jobs/指标首代理与续作代理接连无报文失败（34 文件半成品，编译通过）——委派方接管收尾：17 处 EventDispatcher/ChatViewModel 测试构造点补参（dshJobsHandler/dshJobsStore）+ TaskAggregatorJobsBranchingTest 的 runTest-returns-Unit 语义错误修复。
+- **遗留观察**：① executeCommand 3 参重载致既有降级测试语义轻微漂移（断言仍真，非 bug）② 设置页档位固定 3 档回退（settings schema enum 动态化为增强候选）③ projection 活跃时长依赖帧到达时机（静默会话显示 0ms，事件驱动语义内）④ V2 树本地递归无真机样本（该 V2 服务器 50 会话零 parent 字段，单测覆盖维持）⑤ 测试用 blank 会话残留在服务器（列表天然隐藏，无 delete RPC 可清）。
