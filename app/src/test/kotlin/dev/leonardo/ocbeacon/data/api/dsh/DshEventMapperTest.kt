@@ -10,6 +10,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -459,6 +460,45 @@ class DshEventMapperTest {
         )
     }
 
+    // ============ 三 knob 事件 → SessionPermissionChanged ============
+
+    @Test
+    fun `permission preset event maps to SessionPermissionChanged with preset`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("permission/preset", """{"preset":"danger-full-access"}"""),
+        )
+        val changed = eventsOf(mapped).single() as SseEvent.SessionPermissionChanged
+        assertEquals("s9", changed.sessionId)
+        assertEquals("danger-full-access", changed.preset)
+        assertNull(changed.sandboxMode)
+        assertNull(changed.approvalPolicy)
+    }
+
+    @Test
+    fun `sandbox mode event maps to SessionPermissionChanged with sandbox`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("sandbox/mode", """{"mode":"workspace-write"}"""),
+        )
+        val changed = eventsOf(mapped).single() as SseEvent.SessionPermissionChanged
+        assertEquals("workspace-write", changed.sandboxMode)
+        assertNull(changed.preset)
+        assertNull(changed.approvalPolicy)
+    }
+
+    @Test
+    fun `approval policy event maps to SessionPermissionChanged with policy`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("approval/policy", """{"policy":"never","source":"delegation"}"""),
+        )
+        val changed = eventsOf(mapped).single() as SseEvent.SessionPermissionChanged
+        assertEquals("never", changed.approvalPolicy)
+        assertNull(changed.preset)
+        assertNull(changed.sandboxMode)
+    }
+
     @Test
     fun `session title maps to SessionUpdated with title`() {
         val mapped = DshEventMapper.mapSessionEvent(
@@ -492,7 +532,9 @@ class DshEventMapperTest {
     fun `protocol noise types are ignored without becoming unignorable`() {
         // 高频伴生事件（§1.7 实测分布）：不进目录会让几乎所有真实会话拒绝重建
         val noise = listOf(
-            "sandbox/mode", "approval/policy", "permission/preset", "plan/mode",
+            // 三 knob（sandbox/mode、approval/policy、permission/preset）已映射为
+            // SessionPermissionChanged，不在噪声目录（见下方专门断言）。
+            "plan/mode",
             "agent/inbox/spliced", "step/end", "llm/retry", "llm/retry-started",
             "command/run", "command/done", "request/header", "request/context",
             "session/end-seed", "tool/code-dispatch", "tool/code-dispatch-start",

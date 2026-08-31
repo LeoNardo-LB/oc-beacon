@@ -101,6 +101,12 @@ interface SessionApi {
     suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session>
 
     /**
+     * 权限预设切换（DSH 专属：commands/execute 通道 /permission <preset> 命令）。
+     * OpenCode V1/V2 无对应域 → 默认 false（UI 按能力位 permissionSwitchSupported 隐藏）。
+     */
+    suspend fun setPermissionPreset(conn: ServerConnection, sessionId: String, preset: String): Boolean = false
+
+    /**
      * DSH subagent.list 权威子代理目录（AgentSheet 多级树逐层懒加载）。
      * 非 DSH 服务器（V1/V2 无该域）返回 null——调用方走本地 session 镜像递归；
      * DSH 业务错误（HTTP 200 + result.error）上抛供软降级判定。
@@ -238,6 +244,9 @@ class SessionApiImpl @Inject constructor(
 
     override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> =
         pick(conn).listSessionChildren(conn, sessionId)
+
+    override suspend fun setPermissionPreset(conn: ServerConnection, sessionId: String, preset: String): Boolean =
+        pick(conn).setPermissionPreset(conn, sessionId, preset)
 
     /** #276 三分路由同款：DSH → subagent.list；OpenCode V1/V2 → null（本地镜像递归）。 */
     override suspend fun listSubagentCatalog(

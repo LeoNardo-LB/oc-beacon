@@ -744,4 +744,12 @@
     <string name="search_filter_time_all">全期間</string>
     <string name="search_filter_time_7d">過去7日間</string>
     <string name="search_filter_time_30d">過去30日間</string>
-    <string name="search_content_no_hits">一致するメッセージなし</string></resources>
+    <string name="search_content_no_hits">一致するメッセージなし</string>    <string name="permission_full_access">フルアクセス</string>
+    <string name="permission_workspace_write">ワークスペース書き込み</string>
+    <string name="permission_read_only">読み取り専用</string>
+    <string name="permission_custom">カスタム</string>
+    <string name="permission_custom_hint">カスタム権限プリセット</string>
+    <string name="permission_switch_failed">権限モードの切り替えに失敗しました</string>
+    <string name="a11y_icon_permission_preset">権限プリセット</string>
+    <string name="server_settings_default_permission">新規セッションのデフォルト権限</string>
+</resources>

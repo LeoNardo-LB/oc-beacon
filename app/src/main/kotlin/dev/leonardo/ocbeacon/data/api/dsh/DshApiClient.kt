@@ -58,6 +58,7 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import javax.inject.Inject
@@ -228,6 +229,32 @@ class DshApiClient @Inject constructor(
         variant: String?,
         parts: List<Map<String, String>>?,
     ): Boolean = false
+
+    /**
+     * 通用斜杠命令执行（commands/execute typert 通道，非 52 方法面；
+     * docs/research/2026-08-31-dsh-permission-sandbox-approval.md §2）。
+     *
+     * 传输：POST /api/commands/execute，payload {args:{agentId,line,images:[]}}。
+     * DSH 单 agent 每会话——agentId == sessionId（SessionId 即 agentId，dsh-commands
+     * typert 的 agent 参数 source=lookup 落到 agentId=SessionId）。响应 value =
+     * {commandId,result:{kind,text}}，kind!="success" 视为失败（如未知名 → kind:"error"）。
+     */
+    suspend fun executeCommand(conn: ServerConnection, sessionId: String, line: String): Boolean {
+        val payload = buildJsonObject {
+            put("args", buildJsonObject {
+                put("agentId", sessionId)
+                put("line", line)
+                put("images", JsonArray(emptyList()))
+            })
+        }
+        return rpc.call(conn, "commands/execute", payload) { value ->
+            value.dshObj("result")?.dshStr("kind") == "success"
+        }.getOrDefault(false)
+    }
+
+    /** 权限预设切换（/permission <preset> 命令封装）；成功 = kind:"success"。 */
+    override suspend fun setPermissionPreset(conn: ServerConnection, sessionId: String, preset: String): Boolean =
+        executeCommand(conn, sessionId, "/permission $preset")
 
     /** V2 先例：listSessions 本地过滤 parentSessionId。 */
     override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> =
@@ -847,6 +874,45 @@ class DshApiClient @Inject constructor(
     override suspend fun getConfig(conn: ServerConnection): ServerConfigResponse = ServerConfigResponse()
 
     override suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse = ServerConfigResponse()
+
+    /**
+     * 读新会话默认权限档（settings.describe ns=permission，特权但 loopback 可读）。
+     * value = {writable,hasDocument,namespaces:[{ns,schema,value,revision,...}]}；
+     * 取 ns=permission 的 value.defaultPreset + revision。部署未挂 permission 插件 → null。
+     */
+    suspend fun getPermissionDefault(conn: ServerConnection): dev.leonardo.ocbeacon.domain.model.DshPermissionDefault? {
+        val value = rpc.call(conn, "settings.describe", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "settings.describe failed: " + e.message)
+            return null
+        }
+        val permission = (value.dshArr("namespaces") ?: emptyList())
+            .filterIsInstance<JsonObject>()
+            .firstOrNull { it.dshStr("ns") == "permission" }
+            ?: return null
+        val currentValue = permission.dshObj("value")?.dshStr("defaultPreset") ?: return null
+        return dev.leonardo.ocbeacon.domain.model.DshPermissionDefault(
+            currentValue = currentValue,
+            revision = permission.dshLong("revision") ?: 0L,
+        )
+    }
+
+    /**
+     * 写新会话默认权限档（settings.mutate ns=permission，path=["defaultPreset"]）。
+     * expectedRevision 先经 settings.describe 取当前 revision（乐观并发，陈旧 → settings-conflict）。
+     */
+    suspend fun setPermissionDefault(conn: ServerConnection, preset: String): Boolean {
+        val current = getPermissionDefault(conn) ?: return false
+        val payload = buildJsonObject {
+            put("ns", "permission")
+            put("ops", JsonArray(listOf(buildJsonObject {
+                put("op", "set")
+                put("path", JsonArray(listOf(JsonPrimitive("defaultPreset"))))
+                put("value", JsonPrimitive(preset))
+            })))
+            put("expectedRevision", current.revision)
+        }
+        return rpc.call(conn, "settings.mutate", payload) { Unit }.isSuccess
+    }
 
     override suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse =
         unsupported("settings.write")

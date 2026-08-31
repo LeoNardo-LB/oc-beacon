@@ -100,6 +100,7 @@ class EventDispatcher @Inject constructor(
             SseEvent.ServerConnected::class, SseEvent.ServerHeartbeat::class,
             SseEvent.ServerInstanceDisposed::class,
             SseEvent.SessionCreated::class, SseEvent.SessionUpdated::class,
+            SseEvent.SessionPermissionChanged::class,
             SseEvent.SessionDeleted::class, SseEvent.SessionStatus::class,
             SseEvent.SessionIdle::class, SseEvent.SessionError::class,
             SseEvent.SessionDiff::class, SseEvent.SessionCompacted::class,
@@ -355,6 +356,7 @@ class EventDispatcher @Inject constructor(
             // 会话生命周期（信息）
             is SseEvent.SessionCreated -> event.info.id
             is SseEvent.SessionUpdated -> event.info.id
+            is SseEvent.SessionPermissionChanged -> event.sessionId
             is SseEvent.SessionDeleted -> event.info.id
             is SseEvent.SessionDiff -> event.sessionId
             is SseEvent.SessionCompacted -> event.sessionId

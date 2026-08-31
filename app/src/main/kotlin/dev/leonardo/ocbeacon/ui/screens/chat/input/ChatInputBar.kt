@@ -27,6 +27,7 @@ import androidx.compose.animation.shrinkVertically
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.CommandInfo
+import dev.leonardo.ocbeacon.domain.model.SessionPermissions
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.RevertedDraftPayload
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ImageAttachment
@@ -96,6 +97,11 @@ internal fun ChatInputBar(
     onBackgroundSession: () -> Unit = {},
     /** 堆积消息（2026-08-20 设计定稿）：busy+有内容时气泡菜单的「堆积」回调；null=不支持。 */
     onEnqueue: (() -> Unit)? = null,
+    // DSH 权限预设选择器（能力位门控 + 会话权限状态 + 点选/自定义点击回调）
+    permissionSwitchSupported: Boolean = false,
+    permissions: SessionPermissions? = null,
+    onPermissionSelect: (String) -> Unit = {},
+    onPermissionCustomClick: () -> Unit = {},
 ) {
     // 发送失败时恢复草稿文本
     androidx.compose.runtime.LaunchedEffect(restoredDraft) {
@@ -214,6 +220,10 @@ internal fun ChatInputBar(
                 onAgentSelect = onAgentSelect,
                 onAttach = onAttach,
                 onQuickNavigate = onQuickNavigate,
+                permissionSwitchSupported = permissionSwitchSupported,
+                permissions = permissions,
+                onPermissionSelect = onPermissionSelect,
+                onPermissionCustomClick = onPermissionCustomClick,
             )
 
             // 图片附件缩略图

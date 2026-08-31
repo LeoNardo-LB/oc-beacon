@@ -38,36 +38,49 @@ class DshHistoryFolderTest {
     fun `golden sample folds to exact ordered sse event sequence`() {
         val result = DshHistoryFolder.fold(goldenRows())
         val events = result.sseEvents
-        assertEquals(14, events.size)
-        // 顺序即历史行序（保序）：turn/start → busy；随后 user/message 整装
-        assertEquals(SseEvent.SessionStatus("fixture-0001", SessionStatus.Busy), events[0])
-        val user = events[1] as SseEvent.MessageUpdated
+        assertEquals(17, events.size)
+        // 顺序即历史行序（保序）：三 knob（sandbox/approval/permission）→ SessionPermissionChanged
+        // （权限预设切换器事件回显，不再 Ignored），随后 turn/start → busy；user/message 整装
+        assertEquals(
+            SseEvent.SessionPermissionChanged("fixture-0001", sandboxMode = "workspace-write"),
+            events[0],
+        )
+        assertEquals(
+            SseEvent.SessionPermissionChanged("fixture-0001", approvalPolicy = "never"),
+            events[1],
+        )
+        assertEquals(
+            SseEvent.SessionPermissionChanged("fixture-0001", preset = "workspace-write"),
+            events[2],
+        )
+        assertEquals(SseEvent.SessionStatus("fixture-0001", SessionStatus.Busy), events[3])
+        val user = events[4] as SseEvent.MessageUpdated
         assertEquals("seq-5", user.info.id)
         assertEquals("fixture-0001", user.info.sessionId)
         assertEquals(1788109000011L, user.info.time.created)
-        assertEquals("fixture user prompt", ((events[2] as SseEvent.MessagePartUpdated).part as Part.Text).text)
-        // step/start → busy（chunk 行 7-10 被跳过后紧邻 tool/call）
-        assertEquals(SseEvent.SessionStatus("fixture-0001", SessionStatus.Busy), events[3])
+        assertEquals("fixture user prompt", ((events[5] as SseEvent.MessagePartUpdated).part as Part.Text).text)
+        // step/start → busy（chunk 行 9-12 被跳过后紧邻 tool/call）
+        assertEquals(SseEvent.SessionStatus("fixture-0001", SessionStatus.Busy), events[6])
         // tool/call → 宿主消息 + Pending 工具卡
-        assertEquals("dsh-call-call_fixture_1", (events[4] as SseEvent.MessageUpdated).info.id)
-        val pending = (events[5] as SseEvent.MessagePartUpdated).part as Part.Tool
+        assertEquals("dsh-call-call_fixture_1", (events[7] as SseEvent.MessageUpdated).info.id)
+        val pending = (events[8] as SseEvent.MessagePartUpdated).part as Part.Tool
         assertEquals("call_fixture_1", pending.id)
         assertTrue(pending.state is dev.leonardo.ocbeacon.domain.model.ToolState.Pending)
         // tool/result → Completed 工具卡（同 callId 汇合）
-        val completed = (events[6] as SseEvent.MessagePartUpdated).part as Part.Tool
+        val completed = (events[9] as SseEvent.MessagePartUpdated).part as Part.Tool
         assertEquals("call_fixture_1", completed.id)
         assertTrue(completed.state is dev.leonardo.ocbeacon.domain.model.ToolState.Completed)
         // assistant/message 整装：流式桥拆除 + 消息 + reasoning/text part
-        assertEquals(SseEvent.MessageRemoved("fixture-0001", "dsh-t1s1"), events[7])
-        val assistant = (events[8] as SseEvent.MessageUpdated).info as Message.Assistant
+        assertEquals(SseEvent.MessageRemoved("fixture-0001", "dsh-t1s1"), events[10])
+        val assistant = (events[11] as SseEvent.MessageUpdated).info as Message.Assistant
         assertEquals("seq-13", assistant.id)
         assertEquals(1788109000019L, assistant.time.completed)
-        assertEquals("thinking...", ((events[9] as SseEvent.MessagePartUpdated).part as Part.Reasoning).text)
-        assertEquals("answer", ((events[10] as SseEvent.MessagePartUpdated).part as Part.Text).text)
+        assertEquals("thinking...", ((events[12] as SseEvent.MessagePartUpdated).part as Part.Reasoning).text)
+        assertEquals("answer", ((events[13] as SseEvent.MessagePartUpdated).part as Part.Text).text)
         // turn/end → idle；todo/title
-        assertEquals(SseEvent.SessionIdle("fixture-0001"), events[11])
-        assertTrue(events[12] is SseEvent.TodoUpdated)
-        val updated = events[13] as SseEvent.SessionUpdated
+        assertEquals(SseEvent.SessionIdle("fixture-0001"), events[14])
+        assertTrue(events[15] is SseEvent.TodoUpdated)
+        val updated = events[16] as SseEvent.SessionUpdated
         assertEquals("fixture session", updated.info.title)
     }
 

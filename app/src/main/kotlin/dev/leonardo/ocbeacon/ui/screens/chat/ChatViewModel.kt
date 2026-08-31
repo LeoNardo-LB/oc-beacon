@@ -1033,6 +1033,23 @@ class ChatViewModel @Inject constructor(
     fun executeCommand(command: String, arguments: String = "", onResult: (Boolean) -> Unit) =
         sessionActions.executeCommand(command, arguments, onResult)
 
+    /**
+     * 切换当前会话权限预设（DSH 专属）。点选即发 /permission <preset> 命令，
+     * 不弹二次确认（用户裁决）；UI 回显由事件（permission/preset →
+     * SessionPermissionChanged → Session.permissions）驱动，此处不乐观置态。
+     */
+    fun setPermissionPreset(preset: String, onResult: (Boolean) -> Unit = {}) {
+        val sid = sessionId
+        if (sid.isEmpty()) return
+        viewModelScope.launch {
+            val ok = chatRepository.setPermissionPreset(serverId, sid, preset).getOrDefault(false)
+            if (!ok) {
+                AppLogger.w(TAG, "setPermissionPreset failed: " + preset)
+            }
+            onResult(ok)
+        }
+    }
+
     fun runShellCommand(command: String, onResult: (Boolean) -> Unit) =
         sessionActions.runShellCommand(command) { ok ->
             // #252 时间线化：POST 成功后服务器已创建带完整载荷（command/status/

@@ -752,4 +752,12 @@
     <string name="search_filter_time_all">Весь час</string>
     <string name="search_filter_time_7d">Останні 7 днів</string>
     <string name="search_filter_time_30d">Останні 30 днів</string>
-    <string name="search_content_no_hits">Немає збігів у повідомленнях</string></resources>
+    <string name="search_content_no_hits">Немає збігів у повідомленнях</string>    <string name="permission_full_access">Повний доступ</string>
+    <string name="permission_workspace_write">Запис у робочу область</string>
+    <string name="permission_read_only">Лише читання</string>
+    <string name="permission_custom">Користувацький</string>
+    <string name="permission_custom_hint">Користувацький режим дозволів</string>
+    <string name="permission_switch_failed">Не вдалося перемкнути режим дозволів</string>
+    <string name="a11y_icon_permission_preset">Режим дозволів</string>
+    <string name="server_settings_default_permission">Дозвіл за замовчуванням для нових сесій</string>
+</resources>

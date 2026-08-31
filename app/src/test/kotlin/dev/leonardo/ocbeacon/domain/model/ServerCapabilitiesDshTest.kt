@@ -145,6 +145,25 @@ class ServerCapabilitiesDshTest {
         newBits.forEach { assertTrue(it.name, it.get(caps)) }
     }
 
+    /**
+     * 权限预设切换器门控（DSH 专属）：DSH=true（commands/execute + permissions
+     * 投影），OpenCode V1/V2/UNKNOWN 全 false（无对应域，UI 不渲染）。
+     */
+    @Test
+    fun `permission switch supported only on dsh`() {
+        for (version in ApiVersion.entries) {
+            assertTrue(
+                "dsh v=$version",
+                ServerCapabilities.of(ServerType.Dsh, version).permissionSwitchSupported,
+            )
+            assertFalse(
+                "opencode v=$version",
+                ServerCapabilities.of(ServerType.OpenCode, version).permissionSwitchSupported,
+            )
+        }
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, null).permissionSwitchSupported)
+    }
+
     @Test
     fun `legacy single-arg overload delegates to opencode branch`() {
         // 既有调用方（ChatViewModel 等）继续走 of(apiVersion)：行为不变

@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.dsh
 
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SessionPermissions
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -38,6 +39,28 @@ object DshSessionMapper {
                 created = 0L,
                 updated = item.dshLong("updatedAt") ?: 0L,
             ),
+            permissions = parsePermissions(item),
+        )
+    }
+
+    /**
+     * permissions 投影 → [SessionPermissions]（§permissions 投影 = {options,currentValue}）。
+     * 投影缺席返回 null（OpenCode 会话 / DSH 部署未挂 permission 插件均无此键）。
+     */
+    private fun parsePermissions(item: JsonObject): SessionPermissions? {
+        val value = item.dshObj("projections")?.dshObj("values")?.dshObj("permissions") ?: return null
+        val options = (value.dshArr("options") ?: emptyList()).mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val presetValue = o.dshStr("value") ?: return@mapNotNull null
+            SessionPermissions.PermissionPresetOption(
+                value = presetValue,
+                name = o.dshStr("name") ?: presetValue,
+                description = o.dshStr("description"),
+            )
+        }
+        return SessionPermissions(
+            options = options,
+            currentValue = value.dshStr("currentValue"),
         )
     }
 

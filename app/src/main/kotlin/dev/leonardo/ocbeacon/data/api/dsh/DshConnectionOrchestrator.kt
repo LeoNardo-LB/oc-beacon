@@ -287,6 +287,8 @@ class DshConnectionOrchestrator @Inject constructor() {
             time = incoming.time.copy(
                 created = if (incoming.time.created == 0L) existing.time.created else incoming.time.created,
             ),
+            // 权限预设状态同样防整替换抹除（session/title 等最小 Session 不携带 permissions）
+            permissions = incoming.permissions ?: existing.permissions,
         )
         return when (event) {
             is SseEvent.SessionUpdated -> event.copy(info = merged)

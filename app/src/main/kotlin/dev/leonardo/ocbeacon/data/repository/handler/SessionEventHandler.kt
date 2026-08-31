@@ -66,6 +66,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             }
             is SseEvent.SessionCreated -> { handleSessionCreated(event, serverId); true }
             is SseEvent.SessionUpdated -> { handleSessionUpdated(event, serverId); true }
+            is SseEvent.SessionPermissionChanged -> { handleSessionPermissionChanged(event); true }
             is SseEvent.SessionDeleted -> { handleSessionDeleted(event); true }
             // 状态/idle 事件在此确认，但由 SessionStateService 经由
             // EventDispatcher.forwardToSessionStateService 处理——无本地状态需更新。
@@ -130,6 +131,30 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
                 current.toMutableList().apply { set(idx, merged) }
             } else {
                 (current + event.info).sortedByDescending { s -> s.time.updated }
+            }
+        }
+    }
+
+    /**
+     * 三 knob 事件（permission/preset、sandbox/mode、approval/policy）→ 折叠进对应
+     * Session.permissions（字段级合并，保留投影基线 options）。会话尚未入列表（事件早于
+     * session.list 基线）时 no-op——投影基线随后补齐 options 与 currentValue。
+     */
+    private fun handleSessionPermissionChanged(event: SseEvent.SessionPermissionChanged) {
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id != event.sessionId) {
+                    s
+                } else {
+                    val existing = s.permissions
+                    val next = SessionPermissions(
+                        options = existing?.options ?: emptyList(),
+                        currentValue = event.preset ?: existing?.currentValue,
+                        sandboxMode = event.sandboxMode ?: existing?.sandboxMode,
+                        approvalPolicy = event.approvalPolicy ?: existing?.approvalPolicy,
+                    )
+                    s.copy(permissions = next)
+                }
             }
         }
     }

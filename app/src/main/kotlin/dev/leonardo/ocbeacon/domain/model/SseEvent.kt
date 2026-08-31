@@ -103,6 +103,23 @@ sealed class SseEvent {
         val requestId: String
     ) : SseEvent()
 
+    /**
+     * DSH 会话权限预设状态变更（三 knob 事件之一，部分事实——单帧只带一个旋钮）。
+     *
+     * - permission/preset {preset} → [preset]
+     * - sandbox/mode {mode} → [sandboxMode]
+     * - approval/policy {policy} → [approvalPolicy]
+     *
+     * 由 SessionEventHandler 折叠进对应 [Session] 的 [Session.permissions]，驱动 UI 回显。
+     */
+    @Serializable
+    data class SessionPermissionChanged(
+        val sessionId: String,
+        val preset: String? = null,
+        val sandboxMode: String? = null,
+        val approvalPolicy: String? = null,
+    ) : SseEvent()
+
     // 问题事件
     @Serializable
     data class QuestionAsked(

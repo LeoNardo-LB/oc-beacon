@@ -27,7 +27,9 @@ data class Session(
     val cost: Double? = null,
     val tokens: SessionTokens? = null,
     val agent: String? = null,
-    val model: SessionModel? = null
+    val model: SessionModel? = null,
+    /** DSH 权限预设状态（permissions 投影 / 三 knob 事件折叠）；OpenCode V1/V2 无此域 → null。 */
+    val permissions: SessionPermissions? = null
 ) {
     @Serializable
     data class Time(

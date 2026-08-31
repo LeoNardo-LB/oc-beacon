@@ -24,10 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.domain.model.DshPermissionDefault
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.McpServerRow
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.PermissionDefaultRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsSectionHeader
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.TagManagementSection
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -47,10 +49,29 @@ fun ServerSettingsContent(
     onUpdateTag: (Tag) -> Unit = {},
     onDeleteTag: (String) -> Unit = {},
     onRemoveTagAssignment: (sessionId: String, tagId: String) -> Unit = { _, _ -> },
+    // DSH 新会话默认权限档（能力位门控 + 当前档 + 写回回调）
+    permissionSwitchSupported: Boolean = false,
+    permissionDefault: DshPermissionDefault? = null,
+    onSetPermissionDefault: (String) -> Unit = {},
 ) {
     var mcpExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(modifier = modifier.fillMaxSize()) {
+        // 新会话默认权限（DSH 专属，能力位门控；非 DSH 不渲染）
+        if (permissionSwitchSupported) {
+            item {
+                PermissionDefaultRow(
+                    currentValue = permissionDefault?.currentValue,
+                    onSelect = onSetPermissionDefault,
+                )
+            }
+            item {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                )
+            }
+        }
+
         // 区块标题：MCP 服务器
         item {
             SettingsSectionHeader(

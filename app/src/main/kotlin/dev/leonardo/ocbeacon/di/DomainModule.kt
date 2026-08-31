@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.leonardo.ocbeacon.data.repository.AgentRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.ChatRepositoryImpl
+import dev.leonardo.ocbeacon.data.repository.DshSettingsRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.DraftDataStore
 import dev.leonardo.ocbeacon.data.repository.FileRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.ServerRepositoryImpl
@@ -19,6 +20,7 @@ import dev.leonardo.ocbeacon.data.repository.VcsRepositoryImpl
 import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
+import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
@@ -39,6 +41,9 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindChatRepository(impl: ChatRepositoryImpl): ChatRepository
+
+    @Binds
+    abstract fun bindDshSettingsRepository(impl: DshSettingsRepositoryImpl): DshSettingsRepository
 
     @Binds
     abstract fun bindSessionRepository(impl: SessionRepositoryImpl): SessionRepository

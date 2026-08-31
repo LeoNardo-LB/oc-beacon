@@ -3,6 +3,8 @@ package dev.leonardo.ocbeacon.data.api.dsh
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -69,6 +71,37 @@ class DshSessionMapperTest {
         val item = obj("""{"sessionId":"s-3","updatedAt":1,"running":false,"blank":false,
             "projections":{"asOfSeq":3,"values":{"sessionStats":{"turns":2}}}}""")
         assertNull(DshSessionMapper.toSession(item).title)
+    }
+
+    @Test
+    fun `permissions projection maps options and current value`() {
+        // 活体投影（perm-6c）：permissions = {options:[{value,name,description?}],currentValue}
+        val item = obj("""{"sessionId":"s-6","updatedAt":7,"running":false,"blank":false,
+            "projections":{"asOfSeq":9,"values":{"permissions":{
+                "options":[
+                    {"value":"read-only","name":"Read only","description":"No writes"},
+                    {"value":"workspace-write","name":"Workspace write"},
+                    {"value":"danger-full-access","name":"Full access"}
+                ],
+                "currentValue":"workspace-write"
+            }}}}""".trimIndent())
+        val permissions = DshSessionMapper.toSession(item).permissions
+        assertNotNull(permissions)
+        assertEquals(3, permissions!!.options.size)
+        assertEquals("read-only", permissions.options[0].value)
+        assertEquals("Read only", permissions.options[0].name)
+        assertEquals("No writes", permissions.options[0].description)
+        assertEquals("workspace-write", permissions.options[1].value)
+        assertNull(permissions.options[1].description) // description 可选
+        assertEquals("workspace-write", permissions.currentValue)
+        assertFalse(permissions.isCustom)
+    }
+
+    @Test
+    fun `permissions projection absent leaves permissions null`() {
+        val item = obj("""{"sessionId":"s-7","updatedAt":1,"running":false,"blank":false,
+            "projections":{"asOfSeq":3,"values":{"title":"T"}}}""".trimIndent())
+        assertNull(DshSessionMapper.toSession(item).permissions)
     }
 
     @Test

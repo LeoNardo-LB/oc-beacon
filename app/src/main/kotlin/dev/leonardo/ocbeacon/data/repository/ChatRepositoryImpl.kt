@@ -316,6 +316,15 @@ class ChatRepositoryImpl @Inject constructor(
         sessionApi.executeCommand(conn, sessionId, command, arguments, directory, agent, model, variant, parts)
     }
 
+    override suspend fun setPermissionPreset(
+        serverId: String,
+        sessionId: String,
+        preset: String,
+    ): Result<Boolean> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        sessionApi.setPermissionPreset(conn, sessionId, preset)
+    }
+
     override suspend fun runShellCommand(
         serverId: String,
         sessionId: String,

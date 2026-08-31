@@ -101,6 +101,7 @@ internal class ChatStateAggregator(
             currentAgentName = currentAgentMap[sid],
             currentModelId = currentModelMap[sid]?.second,
             shareUrl = session?.share?.url,
+            sessionPermissions = session?.permissions,
             isStreaming = isStreaming,
         )
     }.stateIn(

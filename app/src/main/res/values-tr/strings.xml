@@ -744,4 +744,12 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="search_filter_time_all">Tüm zamanlar</string>
     <string name="search_filter_time_7d">Son 7 gün</string>
     <string name="search_filter_time_30d">Son 30 gün</string>
-    <string name="search_content_no_hits">Eşleşen mesaj yok</string></resources>
+    <string name="search_content_no_hits">Eşleşen mesaj yok</string>    <string name="permission_full_access">Tam erişim</string>
+    <string name="permission_workspace_write">Çalışma alanına yazma</string>
+    <string name="permission_read_only">Salt okunur</string>
+    <string name="permission_custom">Özel</string>
+    <string name="permission_custom_hint">Özel izin modu</string>
+    <string name="permission_switch_failed">İzin modu değiştirilemedi</string>
+    <string name="a11y_icon_permission_preset">İzin modu</string>
+    <string name="server_settings_default_permission">Yeni oturumlar için varsayılan izin</string>
+</resources>

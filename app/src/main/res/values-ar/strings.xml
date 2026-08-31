@@ -760,4 +760,12 @@
     <string name="search_filter_time_all">كل الفترات</string>
     <string name="search_filter_time_7d">آخر 7 أيام</string>
     <string name="search_filter_time_30d">آخر 30 يومًا</string>
-    <string name="search_content_no_hits">لا توجد رسائل مطابقة</string></resources>
+    <string name="search_content_no_hits">لا توجد رسائل مطابقة</string>    <string name="permission_full_access">الوصول الكامل</string>
+    <string name="permission_workspace_write">الكتابة في مساحة العمل</string>
+    <string name="permission_read_only">للقراءة فقط</string>
+    <string name="permission_custom">مخصص</string>
+    <string name="permission_custom_hint">إعداد إذن مخصص</string>
+    <string name="permission_switch_failed">فشل تبديل إعداد الإذن</string>
+    <string name="a11y_icon_permission_preset">إعداد الإذن</string>
+    <string name="server_settings_default_permission">الصلاحية الافتراضية للجلسات الجديدة</string>
+</resources>

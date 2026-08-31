@@ -33,6 +33,12 @@ data class ServerCapabilities(
     /** 全局配置可写（V2 /api/config 只读，PATCH 404——backlog #85；DSH settings 特权面不开放 UI）。 */
     val configEditable: Boolean,
     /**
+     * 权限预设切换器（DSH 专属）：commands/execute 通道 /permission 命令 + permissions
+     * 投影（sandbox×approval 组合档位，见 docs/research/2026-08-31-dsh-permission-sandbox-approval.md）。
+     * OpenCode V1/V2 无对应域 → false（UI 完全不渲染选择器）。
+     */
+    val permissionSwitchSupported: Boolean,
+    /**
      * 压缩异步化（#217 分割线包揽）：V2 compact HTTP 立即返回（steer 异步），
      * 进行中/终态由 SSE compaction.started/delta/ended 驱动；V1 summarize HTTP
      * 同步挂起至完成、SSE 只有单个 compacted 完成事件——HTTP 返回即终态。
@@ -85,6 +91,7 @@ data class ServerCapabilities(
                     backgroundSessionsSupported = false,
                     runningSessionsFilterSupported = false,
                     configEditable = false,
+                    permissionSwitchSupported = true,
                     compactionAsync = true,
                     compactionModelIndependent = true,
                     terminalSupported = false,
@@ -110,6 +117,7 @@ data class ServerCapabilities(
                 backgroundSessionsSupported = true,
                 runningSessionsFilterSupported = true,
                 configEditable = false,
+                permissionSwitchSupported = false,
                 compactionAsync = true,
                 compactionModelIndependent = false,
                 terminalSupported = true,
@@ -128,6 +136,7 @@ data class ServerCapabilities(
                 backgroundSessionsSupported = apiVersion == null,
                 runningSessionsFilterSupported = apiVersion == null,
                 configEditable = true,
+                permissionSwitchSupported = false,
                 compactionAsync = false,
                 compactionModelIndependent = false,
                 terminalSupported = true,

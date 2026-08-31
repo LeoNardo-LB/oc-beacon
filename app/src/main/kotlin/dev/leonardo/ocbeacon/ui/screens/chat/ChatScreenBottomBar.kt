@@ -94,6 +94,8 @@ internal fun ChatScreenBottomBar(
     // #276 后端接口补全：DSH 无 revert/unrevert——undo/redo 停用（消息长按撤销
     //   入口在 ChatMessageList 同位门控）。
     val revertSupported = serverCapabilities.revertSupported
+    // 权限预设切换器（DSH 专属）：能力位门控 + 会话 permissions 投影驱动回显
+    val permissionSwitchSupported = serverCapabilities.permissionSwitchSupported
 
     // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist 到
     // 组合层 stringResource（lambda 内不可调用 @Composable）；带参格式串 hoist
@@ -113,6 +115,8 @@ internal fun ChatScreenBottomBar(
     val messageUndoFailedMsg = stringResource(R.string.chat_message_undo_failed)
     val messageRedoneMsg = stringResource(R.string.chat_message_redone)
     val messageRedoFailedMsg = stringResource(R.string.chat_message_redo_failed)
+    val permissionCustomMsg = stringResource(R.string.permission_custom_hint)
+    val permissionSwitchFailedMsg = stringResource(R.string.permission_switch_failed)
 
     if (sessionMeta.sessionParentId == null && !isTerminalMode && interaction.error == null) {
         val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
@@ -465,7 +469,23 @@ internal fun ChatScreenBottomBar(
                 onQuickNavigate = onQuickNavigate,
                 showTaskToolbar = taskUi.showTaskToolbar,
                 taskToolbarText = taskToolbarText,
-                onBackgroundSession = { viewModel.backgroundSession() }
+                onBackgroundSession = { viewModel.backgroundSession() },
+                permissionSwitchSupported = permissionSwitchSupported,
+                permissions = sessionMeta.sessionPermissions,
+                onPermissionSelect = { preset ->
+                    viewModel.setPermissionPreset(preset) { ok ->
+                        if (!ok) {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(permissionSwitchFailedMsg)
+                            }
+                        }
+                    }
+                },
+                onPermissionCustomClick = {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(permissionCustomMsg)
+                    }
+                },
             )
         }
     }

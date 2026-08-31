@@ -183,6 +183,12 @@ interface ChatRepository {
     ): Result<Boolean>
 
     /**
+     * 切换当前会话权限预设（DSH 专属：/permission <preset> 命令）。
+     * OpenCode V1/V2 返回成功 false（能力位 permissionSwitchSupported 隐藏入口）。
+     */
+    suspend fun setPermissionPreset(serverId: String, sessionId: String, preset: String): Result<Boolean>
+
+    /**
      * 在会话中运行 shell 命令。
      */
     suspend fun runShellCommand(

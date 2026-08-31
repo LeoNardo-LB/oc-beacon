@@ -275,8 +275,16 @@ object DshEventMapper {
             "agent-preset/selected" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.AGENT_PRESET))
 
             // ---- 已核实无转录语义的协议伴生事件（§1.5 普查 + §1.7 实测分布） ----
-            // 会话开头惯例 preamble（§5 坑位清单）
-            "sandbox/mode", "approval/policy", "permission/preset", "plan/mode" ->
+            // 会话开头惯例 preamble（§5 坑位清单）。三 knob（permission/sandbox/approval）
+            // 不再 Ignored——映射为 SessionPermissionChanged 驱动权限状态 UI 回显
+            // （docs/research/2026-08-31-dsh-permission-sandbox-approval.md §4）。
+            "permission/preset" ->
+                listOf(DshMappedEvent.Sse(SseEvent.SessionPermissionChanged(sessionId = sessionId, preset = data.str("preset"))))
+            "sandbox/mode" ->
+                listOf(DshMappedEvent.Sse(SseEvent.SessionPermissionChanged(sessionId = sessionId, sandboxMode = data.str("mode"))))
+            "approval/policy" ->
+                listOf(DshMappedEvent.Sse(SseEvent.SessionPermissionChanged(sessionId = sessionId, approvalPolicy = data.str("policy"))))
+            "plan/mode" ->
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.POLICY_STATE))
             "agent/inbox/spliced" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.INBOX))
             "step/end" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LIFECYCLE_NOISE))
@@ -703,7 +711,7 @@ object DshIgnoreReason {
     /** agent-preset/selected（Tier2，后续）。 */
     const val AGENT_PRESET = "agent-preset"
 
-    /** 会话 preamble 策略态：sandbox/approval/permission/plan。 */
+    /** 会话 preamble 策略态：plan/mode（permission/sandbox/approval 已映射为权限状态事件）。 */
     const val POLICY_STATE = "policy-state"
 
     /** agent/inbox/spliced 收件箱拼接。 */

@@ -753,4 +753,12 @@
     <string name="search_filter_time_all">Всё время</string>
     <string name="search_filter_time_7d">Последние 7 дней</string>
     <string name="search_filter_time_30d">Последние 30 дней</string>
-    <string name="search_content_no_hits">Нет совпадений в сообщениях</string></resources>
+    <string name="search_content_no_hits">Нет совпадений в сообщениях</string>    <string name="permission_full_access">Полный доступ</string>
+    <string name="permission_workspace_write">Запись в рабочую область</string>
+    <string name="permission_read_only">Только чтение</string>
+    <string name="permission_custom">Пользовательский</string>
+    <string name="permission_custom_hint">Пользовательский режим разрешений</string>
+    <string name="permission_switch_failed">Не удалось переключить режим разрешений</string>
+    <string name="a11y_icon_permission_preset">Режим разрешений</string>
+    <string name="server_settings_default_permission">Разрешение по умолчанию для новых сессий</string>
+</resources>

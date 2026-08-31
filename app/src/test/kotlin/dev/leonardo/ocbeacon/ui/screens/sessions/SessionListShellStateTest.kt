@@ -157,6 +157,7 @@ class SessionListShellStateTest {
             deleteSessionUseCase = deleteSessionUseCase,
             draftRepository = mockk(relaxed = true),
             mcpRepository = mockk(relaxed = true),
+            dshSettingsRepository = mockk(relaxed = true),
             scrollSignal = SessionScrollSignal(),
             getSettingsFlowUseCase = mockk(relaxed = true),
             sessionTagRepository = sessionTagRepository,

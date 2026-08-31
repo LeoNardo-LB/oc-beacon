@@ -744,4 +744,12 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="search_filter_time_all">Todo o período</string>
     <string name="search_filter_time_7d">Últimos 7 dias</string>
     <string name="search_filter_time_30d">Últimos 30 dias</string>
-    <string name="search_content_no_hits">Nenhuma mensagem correspondente</string></resources>
+    <string name="search_content_no_hits">Nenhuma mensagem correspondente</string>    <string name="permission_full_access">Acesso total</string>
+    <string name="permission_workspace_write">Escrita no espaço de trabalho</string>
+    <string name="permission_read_only">Somente leitura</string>
+    <string name="permission_custom">Personalizado</string>
+    <string name="permission_custom_hint">Modo de permissão personalizado</string>
+    <string name="permission_switch_failed">Falha ao alternar o modo de permissão</string>
+    <string name="a11y_icon_permission_preset">Modo de permissão</string>
+    <string name="server_settings_default_permission">Permissão padrão de novas sessões</string>
+</resources>

@@ -38,7 +38,7 @@ class WireCompatMatrixTest {
             listOf(
                 "id", "slug", "projectID", "directory", "parentID", "title", "version",
                 "time", "summary", "share", "permission", "revert", "workspaceID",
-                "path", "cost", "tokens", "agent", "model",
+                "path", "cost", "tokens", "agent", "model", "permissions",
             ),
             names(Session.serializer()),
         )

@@ -744,4 +744,12 @@
     <string name="search_filter_time_all">전체 기간</string>
     <string name="search_filter_time_7d">최근 7일</string>
     <string name="search_filter_time_30d">최근 30일</string>
-    <string name="search_content_no_hits">일치하는 메시지 없음</string></resources>
+    <string name="search_content_no_hits">일치하는 메시지 없음</string>    <string name="permission_full_access">전체 액세스</string>
+    <string name="permission_workspace_write">작업 영역 쓰기</string>
+    <string name="permission_read_only">읽기 전용</string>
+    <string name="permission_custom">사용자 지정</string>
+    <string name="permission_custom_hint">사용자 지정 권한 프리셋</string>
+    <string name="permission_switch_failed">권한 모드를 전환하지 못했습니다</string>
+    <string name="a11y_icon_permission_preset">권한 프리셋</string>
+    <string name="server_settings_default_permission">새 세션 기본 권한</string>
+</resources>

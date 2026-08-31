@@ -21,6 +21,7 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
+import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository
@@ -80,6 +81,7 @@ class SessionListViewModel @Inject constructor(
     private val deleteSessionUseCase: DeleteSessionUseCase,
     private val draftRepository: DraftRepository,
     private val mcpRepository: McpRepository,
+    private val dshSettingsRepository: DshSettingsRepository,
     private val scrollSignal: SessionScrollSignal,
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     // C5 拆分：标签/收藏方法自 SettingsRepository 独立成 SessionTagRepository
@@ -161,6 +163,8 @@ class SessionListViewModel @Inject constructor(
             mcpRepository.setConnection(conn)
             // #276：能力位投影（DSH 删除动作等 UI 门控依据）
             _serverCapabilities.value = conn.capabilities
+            // 权限预设切换器门控：DSH-only 读默认档（能力位内才发 settings.describe）
+            loadPermissionDefault()
         }
     }
 
@@ -263,6 +267,30 @@ class SessionListViewModel @Inject constructor(
 
     private val _mcpError = MutableSharedFlow<String>()
     val mcpError: SharedFlow<String> = _mcpError.asSharedFlow()
+
+    // ============ DSH 新会话默认权限档 ============
+    private val _permissionDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshPermissionDefault?>(null)
+    val permissionDefault: StateFlow<dev.leonardo.ocbeacon.domain.model.DshPermissionDefault?> = _permissionDefault.asStateFlow()
+
+    /** 读 settings.describe ns=permission 默认档（DSH-only；能力位外 no-op）。 */
+    fun loadPermissionDefault() {
+        if (!_serverCapabilities.value.permissionSwitchSupported) return
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+        }
+    }
+
+    /** 写 settings.mutate 默认档；成功后回读刷新（DSH-only）。 */
+    fun setPermissionDefault(preset: String) {
+        if (!_serverCapabilities.value.permissionSwitchSupported) return
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            if (dshSettingsRepository.setPermissionDefault(conn, preset)) {
+                _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+            }
+        }
+    }
 
     // ============ 聚合 UI 状态（#23 状态切片：嵌套分组 combine） ============
     // 分组设计：每组只携带自己拥有的字段（部分数据类），最终 dataFlow 合并 3 组。

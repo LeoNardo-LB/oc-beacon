@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
@@ -32,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
+import dev.leonardo.ocbeacon.domain.model.SessionPermissions
 import dev.leonardo.ocbeacon.ui.components.ProviderIcon
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -56,6 +59,11 @@ internal fun AgentModelVariantSelector(
     onAgentSelect: (String) -> Unit,
     onAttach: () -> Unit,
     onQuickNavigate: () -> Unit = {},
+    // DSH 权限预设选择器（能力位门控；V2/无投影时 null 不渲染）
+    permissionSwitchSupported: Boolean = false,
+    permissions: SessionPermissions? = null,
+    onPermissionSelect: (String) -> Unit = {},
+    onPermissionCustomClick: () -> Unit = {},
 ) {
     // 不提前返回：配置未就绪（agents 空 / modelLabel 空 / variantNames 空）时，
     // 左侧标签区为空但 Row 高度由右侧附件按钮（32.dp）稳定支撑；
@@ -63,6 +71,16 @@ internal fun AgentModelVariantSelector(
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // DSH 权限预设选择器（左对齐第一行首位；DSH-only 渲染 + 无投影隐藏）
+        if (permissionSwitchSupported && permissions != null) {
+            PermissionPresetSelector(
+                permissions = permissions,
+                onSelectPreset = onPermissionSelect,
+                onCustomClick = onPermissionCustomClick,
+            )
+            Spacer(Modifier.width(SpacingTokens.SM.dp))
+        }
+
         // agent/model/variant 的可滚动区域，保证回形针始终可见
         Row(
             modifier = Modifier

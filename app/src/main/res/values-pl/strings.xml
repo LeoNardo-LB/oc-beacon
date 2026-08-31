@@ -752,4 +752,12 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="search_filter_time_all">Cały czas</string>
     <string name="search_filter_time_7d">Ostatnie 7 dni</string>
     <string name="search_filter_time_30d">Ostatnie 30 dni</string>
-    <string name="search_content_no_hits">Brak pasujących wiadomości</string></resources>
+    <string name="search_content_no_hits">Brak pasujących wiadomości</string>    <string name="permission_full_access">Pełny dostęp</string>
+    <string name="permission_workspace_write">Zapis w obszarze roboczym</string>
+    <string name="permission_read_only">Tylko do odczytu</string>
+    <string name="permission_custom">Niestandardowy</string>
+    <string name="permission_custom_hint">Niestandardowy tryb uprawnień</string>
+    <string name="permission_switch_failed">Nie udało się zmienić trybu uprawnień</string>
+    <string name="a11y_icon_permission_preset">Tryb uprawnień</string>
+    <string name="server_settings_default_permission">Domyślne uprawnienia nowych sesji</string>
+</resources>

@@ -249,6 +249,110 @@ class DshApiClientTest {
         assertEquals("allowed-once", body["result"]!!.jsonObject["value"]!!.jsonObject["outcome"]!!.jsonPrimitive.content)
     }
 
+    // ============ commands/execute + setPermissionPreset（权限预设切换） ============
+
+    /**
+     * 活体（perm-10b）：POST /api/commands/execute，payload {args:{agentId,line,images}}；
+     * agentId == sessionId（DSH 单 agent 每会话）；images 恒空数组。响应
+     * {commandId,result:{kind,text}}，kind=success → true。
+     */
+    @Test
+    fun `executeCommand posts commands execute with args envelope`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"commandId":"c-1","result":{"kind":"success","text":"preset danger-full-access"}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        assertTrue(client(engine).executeCommand(conn, "s-1", "/permission danger-full-access"))
+        val req = captureRequests(engine).single()
+        assertEquals("/api/commands/execute", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("commands/execute", body["method"]!!.jsonPrimitive.content)
+        val args = body["payload"]!!.jsonObject["args"]!!.jsonObject
+        assertEquals("s-1", args["agentId"]!!.jsonPrimitive.content)
+        assertEquals("/permission danger-full-access", args["line"]!!.jsonPrimitive.content)
+        assertEquals(0, args["images"]!!.jsonArray.size)
+    }
+
+    /** kind != success（如未知名 → error）→ false。 */
+    @Test
+    fun `executeCommand treats non-success kind as failure`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"commandId":"c-2","result":{"kind":"error","text":"unknown preset"}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        assertFalse(client(engine).executeCommand(conn, "s-1", "/permission nope"))
+    }
+
+    /** setPermissionPreset 封装：line = "/permission <preset>"。 */
+    @Test
+    fun `setPermissionPreset sends permission slash command`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"commandId":"c-3","result":{"kind":"success","text":"preset workspace-write"}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        assertTrue(client(engine).setPermissionPreset(conn, "s-1", "workspace-write"))
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        val args = body["payload"]!!.jsonObject["args"]!!.jsonObject
+        assertEquals("/permission workspace-write", args["line"]!!.jsonPrimitive.content)
+        assertEquals("s-1", args["agentId"]!!.jsonPrimitive.content)
+    }
+
+    // ============ settings.describe / settings.mutate（新会话默认权限档） ============
+
+    private val settingsDescribeValue = """{"writable":true,"hasDocument":true,"namespaces":[
+        {"ns":"llm-deepseek","value":{},"revision":1,"applies":"live","secrets":[]},
+        {"ns":"permission","value":{"defaultPreset":"danger-full-access"},"revision":42,"applies":"live","secrets":[]}
+    ]}""".trimIndent()
+
+    /** 活体（perm-4）：settings.describe 的 ns=permission value.defaultPreset + revision。 */
+    @Test
+    fun `getPermissionDefault parses permission namespace`() = runTest {
+        val engine = MockEngine { respond(ok(settingsDescribeValue), HttpStatusCode.OK, jsonHeaders()) }
+        val def = client(engine).getPermissionDefault(conn)
+        assertNotNull(def)
+        assertEquals("danger-full-access", def!!.currentValue)
+        assertEquals(42L, def.revision)
+        assertEquals("/api/settings.describe", captureRequests(engine).single().url.encodedPath)
+    }
+
+    /** 部署未挂 permission 插件（namespaces 无 permission）→ null。 */
+    @Test
+    fun `getPermissionDefault null when permission namespace absent`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"writable":true,"hasDocument":true,"namespaces":[{"ns":"llm","value":{},"revision":1,"applies":"live","secrets":[]}]}"""), HttpStatusCode.OK, jsonHeaders())
+        }
+        assertNull(client(engine).getPermissionDefault(conn))
+    }
+
+    /** settings.mutate 写 defaultPreset：ops=[{set,path:[defaultPreset],value}] + expectedRevision。 */
+    @Test
+    fun `setPermissionDefault mutates defaultPreset with expectedRevision`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/settings.describe" -> respond(ok(settingsDescribeValue), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("""{"ns":"permission","value":{"defaultPreset":"workspace-write"},"revision":43,"applies":"live","secrets":[]}"""), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        assertTrue(client(engine).setPermissionDefault(conn, "workspace-write"))
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/settings.describe", "/api/settings.mutate"), paths)
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).last())).jsonObject
+        assertEquals("settings.mutate", body["method"]!!.jsonPrimitive.content)
+        val payload = body["payload"]!!.jsonObject
+        assertEquals("permission", payload["ns"]!!.jsonPrimitive.content)
+        assertEquals(42L, payload["expectedRevision"]!!.jsonPrimitive.content.toLong())
+        val op = payload["ops"]!!.jsonArray[0].jsonObject
+        assertEquals("set", op["op"]!!.jsonPrimitive.content)
+        assertEquals("defaultPreset", op["path"]!!.jsonArray[0].jsonPrimitive.content)
+        assertEquals("workspace-write", op["value"]!!.jsonPrimitive.content)
+    }
+
     // ============ subagent.list（AgentSheet 多级树权威域，12 号活体证据） ============
 
     private val subagentCatalogValue = """{"entries":[

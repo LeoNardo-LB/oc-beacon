@@ -747,4 +747,12 @@
     <string name="search_filter_time_all">全部时间</string>
     <string name="search_filter_time_7d">近 7 天</string>
     <string name="search_filter_time_30d">近 30 天</string>
-    <string name="search_content_no_hits">无消息命中</string></resources>
+    <string name="search_content_no_hits">无消息命中</string>    <string name="permission_full_access">完全访问</string>
+    <string name="permission_workspace_write">工作区写入</string>
+    <string name="permission_read_only">只读</string>
+    <string name="permission_custom">自定义</string>
+    <string name="permission_custom_hint">自定义权限预设</string>
+    <string name="permission_switch_failed">切换权限预设失败</string>
+    <string name="a11y_icon_permission_preset">权限预设</string>
+    <string name="server_settings_default_permission">新会话默认权限</string>
+</resources>

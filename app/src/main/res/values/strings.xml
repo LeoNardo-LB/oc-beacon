@@ -825,4 +825,12 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_selected">Selected</string>
     <string name="session_unread_indicator">Unread messages</string>
     <string name="mark_all_read">Mark all as read</string>
+    <string name="permission_full_access">Full access</string>
+    <string name="permission_workspace_write">Workspace write</string>
+    <string name="permission_read_only">Read only</string>
+    <string name="permission_custom">Custom</string>
+    <string name="permission_custom_hint">Custom permission preset</string>
+    <string name="permission_switch_failed">Failed to switch permission preset</string>
+    <string name="a11y_icon_permission_preset">Permission preset</string>
+    <string name="server_settings_default_permission">New session default permission</string>
 </resources>

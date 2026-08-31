@@ -448,6 +448,9 @@ viewModel.consumePendingReadSessionId()
                         onUpdateTag = viewModel::updateSessionTag,
                         onDeleteTag = viewModel::removeSessionTag,
                         onRemoveTagAssignment = viewModel::removeSessionTagAssignment,
+                        permissionSwitchSupported = viewModel.serverCapabilities.collectAsStateWithLifecycle().value.permissionSwitchSupported,
+                        permissionDefault = viewModel.permissionDefault.collectAsStateWithLifecycle().value,
+                        onSetPermissionDefault = viewModel::setPermissionDefault,
                     )
                 }
             }

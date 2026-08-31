@@ -7,6 +7,7 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SessionPermissions
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 
@@ -53,6 +54,8 @@ data class SessionMetaState(
     val currentAgentName: String? = null,
     val currentModelId: String? = null,
     val shareUrl: String? = null,
+    /** DSH 权限预设状态（permissions 投影 + 三 knob 事件折叠）；OpenCode 会话恒 null。 */
+    val sessionPermissions: SessionPermissions? = null,
     /** 当本会话的 FSM activity 为 Streaming 时为 true（控制 reasoning 计时器 + streamingMsgId）。 */
     val isStreaming: Boolean = false,
 )
