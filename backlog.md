@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#280**。
+**编号**：全局递增，不回收。下一编号：**#281**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -65,6 +65,11 @@
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#280 DSH agent 预设切换（#276 遗留尾）：agentPreset 仅 blank 会话可设的语义适配** `dsh` `ui`
+  - 现状（2026-08-31 调研）：`agentPreset.select` 仅对 blank（零轮次）会话生效，首轮后 agent-preset-locked；`agentPreset.list` 是会话构成模式（standard/code/minimal/cordis），非 V2 每-prompt agent 切换语义；`session.prompt` 无 agent 参数
+  - 方向：模型切换链已通（e8a90d67），本卡需 UI 层 blank 门控（有轮次即隐藏/禁用 agent 选择）+ 语义重设计（预设=建会话时选，非发送时切）
+  - → `docs/api/dsh-openapi-notes.md`
 
 - [ ] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——无状态端点下的真相源设计** `infra`
   - 现状：DSH fetchSessionStatus 恒空 map + directory 空时 absent→idle 跳过；对账回放已治主径（015ed7de），本卡为无 turn/end 终态异常会话的兜底
