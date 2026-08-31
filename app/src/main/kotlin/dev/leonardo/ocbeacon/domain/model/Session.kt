@@ -29,7 +29,11 @@ data class Session(
     val agent: String? = null,
     val model: SessionModel? = null,
     /** DSH 权限预设状态（permissions 投影 / 三 knob 事件折叠）；OpenCode V1/V2 无此域 → null。 */
-    val permissions: SessionPermissions? = null
+    val permissions: SessionPermissions? = null,
+    /** DSH 空白会话标记（事件流无 turn/start）；驱动空白页预设卡门控。OpenCode 恒 false。 */
+    val blank: Boolean = false,
+    /** DSH 当前 Agent 预设 id（agentPreset 字段 / agent-preset/selected 事件）；OpenCode 恒 null。 */
+    val agentPreset: String? = null,
 ) {
     @Serializable
     data class Time(

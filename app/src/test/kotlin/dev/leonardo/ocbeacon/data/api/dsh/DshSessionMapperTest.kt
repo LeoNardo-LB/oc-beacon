@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -37,6 +38,22 @@ class DshSessionMapperTest {
         assertEquals("/home/user/project", session.directory)
         assertEquals("sess-0000", session.parentId)
         assertEquals("fixture session", session.title)
+        assertFalse(session.blank)
+        assertEquals("code", session.agentPreset)
+    }
+
+    @Test
+    fun `blank and agentPreset parse from top-level fields`() {
+        // 活体（ap-3/ap-4）：blank/agentPreset 是 session.list 条目顶层字段
+        val blankItem = obj("""{"sessionId":"s-blank","updatedAt":9,"running":false,
+            "blank":true,"agentPreset":"minimal"}""".trimIndent())
+        val session = DshSessionMapper.toSession(blankItem)
+        assertTrue(session.blank)
+        assertEquals("minimal", session.agentPreset)
+
+        val missingItem = obj("""{"sessionId":"s-none","updatedAt":1,"running":false}""")
+        assertFalse(DshSessionMapper.toSession(missingItem).blank)
+        assertNull(DshSessionMapper.toSession(missingItem).agentPreset)
     }
 
     @Test

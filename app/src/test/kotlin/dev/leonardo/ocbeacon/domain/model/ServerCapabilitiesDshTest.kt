@@ -164,6 +164,25 @@ class ServerCapabilitiesDshTest {
         assertFalse(ServerCapabilities.of(ServerType.OpenCode, null).permissionSwitchSupported)
     }
 
+    /**
+     * Agent 预设选择器门控（DSH 专属）：DSH=true（agentPreset.list/select 方法面 +
+     * agentPreset/blank 字段），OpenCode V1/V2/UNKNOWN 全 false（无对应域，UI 不渲染）。
+     */
+    @Test
+    fun `agent preset supported only on dsh`() {
+        for (version in ApiVersion.entries) {
+            assertTrue(
+                "dsh v=$version",
+                ServerCapabilities.of(ServerType.Dsh, version).agentPresetSupported,
+            )
+            assertFalse(
+                "opencode v=$version",
+                ServerCapabilities.of(ServerType.OpenCode, version).agentPresetSupported,
+            )
+        }
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, null).agentPresetSupported)
+    }
+
     @Test
     fun `legacy single-arg overload delegates to opencode branch`() {
         // 既有调用方（ChatViewModel 等）继续走 of(apiVersion)：行为不变

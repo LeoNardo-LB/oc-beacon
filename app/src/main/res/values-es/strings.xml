@@ -752,4 +752,10 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_switch_failed">No se pudo cambiar el modo de permiso</string>
     <string name="a11y_icon_permission_preset">Modo de permiso</string>
     <string name="server_settings_default_permission">Permiso predeterminado de nuevas sesiones</string>
+    <string name="agent_preset_locked">El preset de agente está bloqueado para esta sesión</string>
+    <string name="agent_preset_switch_failed">No se pudo cambiar el preset de agente</string>
+    <string name="agent_preset_cards_title">Elegir preset de agente</string>
+    <string name="server_settings_default_agent_preset">Preset de agente predeterminado para nuevas sesiones</string>
+    <string name="session_details_agent_preset">Preset de agente</string>
+    <string name="a11y_icon_agent_preset">Preset de agente</string>
 </resources>

@@ -760,4 +760,10 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_switch_failed">Nie udało się zmienić trybu uprawnień</string>
     <string name="a11y_icon_permission_preset">Tryb uprawnień</string>
     <string name="server_settings_default_permission">Domyślne uprawnienia nowych sesji</string>
+    <string name="agent_preset_locked">Preset agenta jest zablokowany dla tej sesji</string>
+    <string name="agent_preset_switch_failed">Nie udało się zmienić presetu agenta</string>
+    <string name="agent_preset_cards_title">Wybierz preset agenta</string>
+    <string name="server_settings_default_agent_preset">Domyślny preset agenta nowych sesji</string>
+    <string name="session_details_agent_preset">Preset agenta</string>
+    <string name="a11y_icon_agent_preset">Preset agenta</string>
 </resources>

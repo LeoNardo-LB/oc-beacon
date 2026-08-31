@@ -833,4 +833,10 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_switch_failed">Failed to switch permission preset</string>
     <string name="a11y_icon_permission_preset">Permission preset</string>
     <string name="server_settings_default_permission">New session default permission</string>
+    <string name="agent_preset_locked">Agent preset is locked for this session</string>
+    <string name="agent_preset_switch_failed">Failed to switch Agent preset</string>
+    <string name="agent_preset_cards_title">Choose Agent preset</string>
+    <string name="server_settings_default_agent_preset">New session default Agent preset</string>
+    <string name="session_details_agent_preset">Agent preset</string>
+    <string name="a11y_icon_agent_preset">Agent preset</string>
 </resources>

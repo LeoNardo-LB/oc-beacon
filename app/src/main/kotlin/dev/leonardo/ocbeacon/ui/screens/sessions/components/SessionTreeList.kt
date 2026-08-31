@@ -64,6 +64,8 @@ internal fun SessionTreeList(
     val pendingCounts by viewModel.pendingCounts.collectAsState()
     // #276：能力位（DSH 无 session.delete——详情对话框删除动作隐藏）
     val serverCapabilities by viewModel.serverCapabilities.collectAsState()
+    // UI-B：preset id → name（详情对话框只读标签）
+    val agentPresetNames by viewModel.agentPresetNames.collectAsState()
     val listState = rememberLazyListState()
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -153,6 +155,8 @@ internal fun SessionTreeList(
                             viewModel.toggleFavorite(node.session.session)
                         },
                         deleteSupported = serverCapabilities.sessionDeleteSupported,
+                        agentPresetSupported = serverCapabilities.agentPresetSupported,
+                        agentPresetNames = agentPresetNames,
                         syncState = syncStates[node.id],
                         onRequestSync = { onRequestSync(node.id) },
                         onCancelSync = { onCancelSync(node.id) },

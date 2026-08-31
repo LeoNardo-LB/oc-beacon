@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
 import dev.leonardo.ocbeacon.domain.model.DshPermissionDefault
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
@@ -17,4 +18,10 @@ class DshSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setPermissionDefault(conn: ServerConnection, preset: String): Boolean =
         dshApi.setPermissionDefault(conn, preset)
+
+    override suspend fun getDefaultAgentPreset(conn: ServerConnection): DshAgentPresetDefault? =
+        dshApi.getDefaultAgentPreset(conn)
+
+    override suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean =
+        dshApi.setDefaultAgentPreset(conn, preset)
 }

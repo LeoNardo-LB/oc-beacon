@@ -755,4 +755,10 @@
     <string name="permission_switch_failed">切换权限预设失败</string>
     <string name="a11y_icon_permission_preset">权限预设</string>
     <string name="server_settings_default_permission">新会话默认权限</string>
+    <string name="agent_preset_locked">预设已锁定，无法切换</string>
+    <string name="agent_preset_switch_failed">切换 Agent 预设失败</string>
+    <string name="agent_preset_cards_title">选择 Agent 预设</string>
+    <string name="server_settings_default_agent_preset">新会话默认 Agent 预设</string>
+    <string name="session_details_agent_preset">Agent 预设</string>
+    <string name="a11y_icon_agent_preset">Agent 预设</string>
 </resources>

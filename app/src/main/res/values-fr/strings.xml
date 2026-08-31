@@ -750,4 +750,10 @@
     <string name="permission_switch_failed">Échec du changement de mode d\'autorisation</string>
     <string name="a11y_icon_permission_preset">Mode d\'autorisation</string>
     <string name="server_settings_default_permission">Autorisation par défaut des nouvelles sessions</string>
+    <string name="agent_preset_locked">Le preset agent est verrouillé pour cette session</string>
+    <string name="agent_preset_switch_failed">Échec du changement de preset agent</string>
+    <string name="agent_preset_cards_title">Choisir le preset agent</string>
+    <string name="server_settings_default_agent_preset">Preset agent par défaut des nouvelles sessions</string>
+    <string name="session_details_agent_preset">Preset agent</string>
+    <string name="a11y_icon_agent_preset">Preset agent</string>
 </resources>

@@ -102,6 +102,9 @@ internal class ChatStateAggregator(
             currentModelId = currentModelMap[sid]?.second,
             shareUrl = session?.share?.url,
             sessionPermissions = session?.permissions,
+            sessionAgentPreset = session?.agentPreset,
+            // 空白页预设卡门控：blank 会话 OR 尚未创建（新会话懒创建，session==null）
+            sessionIsBlank = session == null || session.blank,
             isStreaming = isStreaming,
         )
     }.stateIn(

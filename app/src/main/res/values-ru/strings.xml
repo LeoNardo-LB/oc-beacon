@@ -761,4 +761,10 @@
     <string name="permission_switch_failed">Не удалось переключить режим разрешений</string>
     <string name="a11y_icon_permission_preset">Режим разрешений</string>
     <string name="server_settings_default_permission">Разрешение по умолчанию для новых сессий</string>
+    <string name="agent_preset_locked">Пресет агента заблокирован для этой сессии</string>
+    <string name="agent_preset_switch_failed">Не удалось сменить пресет агента</string>
+    <string name="agent_preset_cards_title">Выберите пресет агента</string>
+    <string name="server_settings_default_agent_preset">Пресет агента по умолчанию для новых сессий</string>
+    <string name="session_details_agent_preset">Пресет агента</string>
+    <string name="a11y_icon_agent_preset">Пресет агента</string>
 </resources>

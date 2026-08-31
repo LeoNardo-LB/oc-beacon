@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.domain.repository
 
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
@@ -187,6 +188,17 @@ interface ChatRepository {
      * OpenCode V1/V2 返回成功 false（能力位 permissionSwitchSupported 隐藏入口）。
      */
     suspend fun setPermissionPreset(serverId: String, sessionId: String, preset: String): Result<Boolean>
+
+    /**
+     * DSH Agent 预设 roster（agentPreset.list）；OpenCode V1/V2 空列表。
+     */
+    suspend fun listAgentPresets(serverId: String): Result<List<AgentPreset>>
+
+    /**
+     * DSH 切换当前会话 Agent 预设（agentPreset.select）；非 blank → agent-preset-locked。
+     * 失败经 Result 上抛（调用方按 DshApiError.category 映射锁定提示）。
+     */
+    suspend fun selectAgentPreset(serverId: String, sessionId: String, presetId: String): Result<Boolean>
 
     /**
      * 在会话中运行 shell 命令。

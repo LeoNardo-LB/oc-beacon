@@ -17,7 +17,8 @@ import kotlinx.serialization.json.contentOrNull
  * 已知缺口（记录不掩盖）：
  * - **无 created 时刻**——time.created 置 0（unknown 哨兵；排序用 time.updated 不受影响，
  *   UI 展示 created 的入口待 UI 卡裁决）；
- * - running/blank/origin/agentPreset 无 [Session] 对应槽位（running 走 WS host/session-status）。
+ * - running/origin 无 [Session] 对应槽位（running 走 WS host/session-status）；
+ *   blank/agentPreset 已入槽（#agentPreset：空白页预设卡门控 + 当前值回显）。
  */
 object DshSessionMapper {
 
@@ -40,6 +41,8 @@ object DshSessionMapper {
                 updated = item.dshLong("updatedAt") ?: 0L,
             ),
             permissions = parsePermissions(item),
+            blank = item.dshBool("blank") ?: false,
+            agentPreset = item.dshStr("agentPreset"),
         )
     }
 

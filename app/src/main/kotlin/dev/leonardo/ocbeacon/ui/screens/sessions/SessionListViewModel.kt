@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import dev.leonardo.ocbeacon.ui.WhileSubscribed5s
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.FileNode
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Project
@@ -165,6 +166,8 @@ class SessionListViewModel @Inject constructor(
             _serverCapabilities.value = conn.capabilities
             // 权限预设切换器门控：DSH-only 读默认档（能力位内才发 settings.describe）
             loadPermissionDefault()
+            // UI-B/UI-C：DSH-only 读 Agent 预设 roster + 默认档（能力位内才发请求）
+            loadAgentPresets()
         }
     }
 
@@ -288,6 +291,44 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch {
             if (dshSettingsRepository.setPermissionDefault(conn, preset)) {
                 _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+            }
+        }
+    }
+
+    // ============ DSH Agent 预设（设置页默认档 UI-C + 详情标签 UI-B） ============
+
+    /** Agent 预设 roster（设置页默认档选项 + 详情标签 id→name 解析）。 */
+    private val _agentPresets = MutableStateFlow<List<AgentPreset>>(emptyList())
+    val agentPresetsList: StateFlow<List<AgentPreset>> = _agentPresets.asStateFlow()
+
+    /** preset id → roster name（详情标签 id 解析用）。 */
+    val agentPresetNames: StateFlow<Map<String, String>> = _agentPresets
+        .map { list -> list.associate { it.id to it.name } }
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyMap())
+
+    /** 新会话默认 Agent 预设（settings ns=agent-presets default）。 */
+    private val _agentPresetDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault?>(null)
+    val agentPresetDefault: StateFlow<dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault?> = _agentPresetDefault.asStateFlow()
+
+    /** 读 roster + 默认档（DSH-only；能力位外 no-op；roster 失败软降级空列表）。 */
+    fun loadAgentPresets() {
+        if (!_serverCapabilities.value.agentPresetSupported) return
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            chatRepository.listAgentPresets(serverId)
+                .onSuccess { list -> _agentPresets.value = list }
+                .onFailure { AppLogger.w(TAG_SESSION_LIST_VM, "listAgentPresets failed") }
+            _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
+        }
+    }
+
+    /** 写 settings.mutate 默认 Agent 预设；成功后回读刷新（DSH-only）。 */
+    fun setAgentPresetDefault(preset: String) {
+        if (!_serverCapabilities.value.agentPresetSupported) return
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            if (dshSettingsRepository.setDefaultAgentPreset(conn, preset)) {
+                _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
             }
         }
     }

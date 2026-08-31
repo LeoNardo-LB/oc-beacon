@@ -24,10 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
 import dev.leonardo.ocbeacon.domain.model.DshPermissionDefault
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.Tag
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetDefaultRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.McpServerRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.PermissionDefaultRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsSectionHeader
@@ -53,6 +56,11 @@ fun ServerSettingsContent(
     permissionSwitchSupported: Boolean = false,
     permissionDefault: DshPermissionDefault? = null,
     onSetPermissionDefault: (String) -> Unit = {},
+    // DSH 新会话默认 Agent 预设（能力位门控 + roster + 当前档 + 写回回调）
+    agentPresetSupported: Boolean = false,
+    agentPresets: List<AgentPreset> = emptyList(),
+    agentPresetDefault: DshAgentPresetDefault? = null,
+    onSetAgentPresetDefault: (String) -> Unit = {},
 ) {
     var mcpExpanded by remember { mutableStateOf(false) }
 
@@ -63,6 +71,22 @@ fun ServerSettingsContent(
                 PermissionDefaultRow(
                     currentValue = permissionDefault?.currentValue,
                     onSelect = onSetPermissionDefault,
+                )
+            }
+            item {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                )
+            }
+        }
+
+        // 新会话默认 Agent 预设（DSH 专属，能力位门控；非 DSH 不渲染）
+        if (agentPresetSupported) {
+            item {
+                AgentPresetDefaultRow(
+                    presets = agentPresets,
+                    currentValue = agentPresetDefault?.currentValue,
+                    onSelect = onSetAgentPresetDefault,
                 )
             }
             item {

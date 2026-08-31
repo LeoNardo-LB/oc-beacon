@@ -101,6 +101,7 @@ class EventDispatcher @Inject constructor(
             SseEvent.ServerInstanceDisposed::class,
             SseEvent.SessionCreated::class, SseEvent.SessionUpdated::class,
             SseEvent.SessionPermissionChanged::class,
+            SseEvent.SessionAgentPresetChanged::class,
             SseEvent.SessionDeleted::class, SseEvent.SessionStatus::class,
             SseEvent.SessionIdle::class, SseEvent.SessionError::class,
             SseEvent.SessionDiff::class, SseEvent.SessionCompacted::class,
@@ -357,6 +358,7 @@ class EventDispatcher @Inject constructor(
             is SseEvent.SessionCreated -> event.info.id
             is SseEvent.SessionUpdated -> event.info.id
             is SseEvent.SessionPermissionChanged -> event.sessionId
+            is SseEvent.SessionAgentPresetChanged -> event.sessionId
             is SseEvent.SessionDeleted -> event.info.id
             is SseEvent.SessionDiff -> event.sessionId
             is SseEvent.SessionCompacted -> event.sessionId

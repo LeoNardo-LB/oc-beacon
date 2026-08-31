@@ -353,6 +353,133 @@ class DshApiClientTest {
         assertEquals("workspace-write", op["value"]!!.jsonPrimitive.content)
     }
 
+    // ============ agentPreset.list / agentPreset.select（Agent 预设选择） ============
+
+    private val agentPresetListValue = """{"presets":[
+        {"id":"standard","trust":"system","isDefault":false,"name":"Standard","description":"Full baseline"},
+        {"id":"code","trust":"system","isDefault":true,"name":"Code","description":"Code Mode SDK"},
+        {"id":"minimal","trust":"system","isDefault":false,"name":"Minimal","description":"Dual tools"},
+        {"id":"cordis","trust":"system","isDefault":false,"name":"Cordis","description":"Author presets"}
+    ],"authorable":true,"hasDocument":true}""".trimIndent()
+
+    /** 活体（ap-1）：agentPreset.list 的 value.presets[{id,name,description,isDefault}] roster。 */
+    @Test
+    fun `listAgentPresets parses roster entries`() = runTest {
+        val engine = MockEngine { respond(ok(agentPresetListValue), HttpStatusCode.OK, jsonHeaders()) }
+        val presets = client(engine).listAgentPresets(conn)
+        assertEquals(listOf("standard", "code", "minimal", "cordis"), presets.map { it.id })
+        assertEquals("Code", presets[1].name)
+        assertEquals("Code Mode SDK", presets[1].description)
+        assertTrue(presets[1].isDefault)
+        assertFalse(presets[0].isDefault)
+        assertEquals("/api/agentPreset.list", captureRequests(engine).single().url.encodedPath)
+    }
+
+    /** list 失败（如 HTTP 错误）→ 软降级空列表（UI 隐藏卡区）。 */
+    @Test
+    fun `listAgentPresets degrades to empty on failure`() = runTest {
+        val engine = MockEngine {
+            respond(
+                """{"type":"server-response","rpcId":"r","result":{"ok":false,"error":{"code":"internal","message":"boom"}}}""",
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        assertTrue(client(engine).listAgentPresets(conn).isEmpty())
+    }
+
+    /** 活体（ap-5）：select payload {sessionId, agentPreset}，成功 value={agentPreset}。 */
+    @Test
+    fun `selectAgentPreset posts select envelope with sessionId and agentPreset`() = runTest {
+        val engine = MockEngine { respond(ok("""{"agentPreset":"standard"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(client(engine).selectAgentPreset(conn, "s-1", "standard"))
+        val req = captureRequests(engine).single()
+        assertEquals("/api/agentPreset.select", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("agentPreset.select", body["method"]!!.jsonPrimitive.content)
+        val payload = body["payload"]!!.jsonObject
+        assertEquals("s-1", payload["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("standard", payload["agentPreset"]!!.jsonPrimitive.content)
+    }
+
+    /** 非 blank select → agent-preset-locked（DshApiError.code 分类 Busy）。 */
+    @Test
+    fun `selectAgentPreset maps locked error to busy category`() = runTest {
+        val engine = MockEngine {
+            respond(
+                """{"type":"server-response","rpcId":"r","result":{"ok":false,"error":{"code":"agent-preset-locked","message":"preset is fixed"}}}""",
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val outcome = runCatching { client(engine).selectAgentPreset(conn, "s-1", "code") }
+        assertTrue(outcome.isFailure)
+        val err = outcome.exceptionOrNull() as DshApiError
+        assertEquals("agent-preset-locked", err.code?.wire)
+        assertEquals(DshErrorCategory.Busy, err.category)
+    }
+
+    /** 未知 id → agent-preset-not-found（DshApiError.code 分类 NotFound）。 */
+    @Test
+    fun `selectAgentPreset maps not found error to notfound category`() = runTest {
+        val engine = MockEngine {
+            respond(
+                """{"type":"server-response","rpcId":"r","result":{"ok":false,"error":{"code":"agent-preset-not-found","message":"unknown"}}}""",
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val outcome = runCatching { client(engine).selectAgentPreset(conn, "s-1", "nope") }
+        val err = outcome.exceptionOrNull() as DshApiError
+        assertEquals("agent-preset-not-found", err.code?.wire)
+        assertEquals(DshErrorCategory.NotFound, err.category)
+    }
+
+    // ============ settings.describe / settings.mutate（新会话默认 Agent 预设） ============
+
+    private val agentPresetSettingsDescribe = """{"writable":true,"hasDocument":true,"namespaces":[
+        {"ns":"agent-presets","value":{"default":"code"},"revision":3,"applies":"live","secrets":[]}
+    ]}""".trimIndent()
+
+    /** 活体（ap-2）：settings.describe ns=agent-presets 的 value.default + revision。 */
+    @Test
+    fun `getDefaultAgentPreset parses agent-presets namespace`() = runTest {
+        val engine = MockEngine { respond(ok(agentPresetSettingsDescribe), HttpStatusCode.OK, jsonHeaders()) }
+        val def = client(engine).getDefaultAgentPreset(conn)
+        assertNotNull(def)
+        assertEquals("code", def!!.currentValue)
+        assertEquals(3L, def.revision)
+        assertEquals("/api/settings.describe", captureRequests(engine).single().url.encodedPath)
+    }
+
+    /** 部署未挂 agent-presets 插件（namespaces 无该 ns）→ null。 */
+    @Test
+    fun `getDefaultAgentPreset null when namespace absent`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"writable":true,"hasDocument":true,"namespaces":[{"ns":"llm","value":{},"revision":1,"applies":"live","secrets":[]}]}"""), HttpStatusCode.OK, jsonHeaders())
+        }
+        assertNull(client(engine).getDefaultAgentPreset(conn))
+    }
+
+    /** settings.mutate 写 default：ops=[{set,path:[default],value}] + expectedRevision。 */
+    @Test
+    fun `setDefaultAgentPreset mutates default with expectedRevision`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/settings.describe" -> respond(ok(agentPresetSettingsDescribe), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("""{"ns":"agent-presets","value":{"default":"minimal"},"revision":4,"applies":"live","secrets":[]}"""), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        assertTrue(client(engine).setDefaultAgentPreset(conn, "minimal"))
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/settings.describe", "/api/settings.mutate"), paths)
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).last())).jsonObject
+        val payload = body["payload"]!!.jsonObject
+        assertEquals("agent-presets", payload["ns"]!!.jsonPrimitive.content)
+        assertEquals(3L, payload["expectedRevision"]!!.jsonPrimitive.content.toLong())
+        val op = payload["ops"]!!.jsonArray[0].jsonObject
+        assertEquals("set", op["op"]!!.jsonPrimitive.content)
+        assertEquals("default", op["path"]!!.jsonArray[0].jsonPrimitive.content)
+        assertEquals("minimal", op["value"]!!.jsonPrimitive.content)
+    }
+
     // ============ subagent.list（AgentSheet 多级树权威域，12 号活体证据） ============
 
     private val subagentCatalogValue = """{"entries":[

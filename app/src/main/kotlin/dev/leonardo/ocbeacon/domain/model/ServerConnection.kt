@@ -39,6 +39,12 @@ data class ServerCapabilities(
      */
     val permissionSwitchSupported: Boolean,
     /**
+     * Agent 预设选择器（DSH 专属）：agentPreset.list / agentPreset.select 方法面 +
+     * 会话 agentPreset/blank 字段 + agent-preset/selected 事件回显。
+     * OpenCode V1/V2 无对应域 → false（UI 完全不渲染预设卡/设置行/详情标签）。
+     */
+    val agentPresetSupported: Boolean,
+    /**
      * 压缩异步化（#217 分割线包揽）：V2 compact HTTP 立即返回（steer 异步），
      * 进行中/终态由 SSE compaction.started/delta/ended 驱动；V1 summarize HTTP
      * 同步挂起至完成、SSE 只有单个 compacted 完成事件——HTTP 返回即终态。
@@ -92,6 +98,7 @@ data class ServerCapabilities(
                     runningSessionsFilterSupported = false,
                     configEditable = false,
                     permissionSwitchSupported = true,
+                    agentPresetSupported = true,
                     compactionAsync = true,
                     compactionModelIndependent = true,
                     terminalSupported = false,
@@ -118,6 +125,7 @@ data class ServerCapabilities(
                 runningSessionsFilterSupported = true,
                 configEditable = false,
                 permissionSwitchSupported = false,
+                agentPresetSupported = false,
                 compactionAsync = true,
                 compactionModelIndependent = false,
                 terminalSupported = true,
@@ -137,6 +145,7 @@ data class ServerCapabilities(
                 runningSessionsFilterSupported = apiVersion == null,
                 configEditable = true,
                 permissionSwitchSupported = false,
+                agentPresetSupported = false,
                 compactionAsync = false,
                 compactionModelIndependent = false,
                 terminalSupported = true,

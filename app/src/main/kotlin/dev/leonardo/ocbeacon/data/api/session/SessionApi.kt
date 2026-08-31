@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.data.dto.response.*
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.Session
@@ -105,6 +106,18 @@ interface SessionApi {
      * OpenCode V1/V2 无对应域 → 默认 false（UI 按能力位 permissionSwitchSupported 隐藏）。
      */
     suspend fun setPermissionPreset(conn: ServerConnection, sessionId: String, preset: String): Boolean = false
+
+    /**
+     * DSH agentPreset.list roster（Agent 预设卡 / 设置页默认档选项）。
+     * OpenCode V1/V2 无对应域 → 空列表（UI 按能力位 agentPresetSupported 隐藏）。
+     */
+    suspend fun listAgentPresets(conn: ServerConnection): List<AgentPreset> = emptyList()
+
+    /**
+     * DSH agentPreset.select（切换当前会话预设；非 blank → agent-preset-locked）。
+     * OpenCode V1/V2 无对应域 → false（UI 按能力位隐藏）。错误上抛供锁定提示。
+     */
+    suspend fun selectAgentPreset(conn: ServerConnection, sessionId: String, presetId: String): Boolean = false
 
     /**
      * DSH subagent.list 权威子代理目录（AgentSheet 多级树逐层懒加载）。
@@ -247,6 +260,12 @@ class SessionApiImpl @Inject constructor(
 
     override suspend fun setPermissionPreset(conn: ServerConnection, sessionId: String, preset: String): Boolean =
         pick(conn).setPermissionPreset(conn, sessionId, preset)
+
+    override suspend fun listAgentPresets(conn: ServerConnection): List<AgentPreset> =
+        pick(conn).listAgentPresets(conn)
+
+    override suspend fun selectAgentPreset(conn: ServerConnection, sessionId: String, presetId: String): Boolean =
+        pick(conn).selectAgentPreset(conn, sessionId, presetId)
 
     /** #276 三分路由同款：DSH → subagent.list；OpenCode V1/V2 → null（本地镜像递归）。 */
     override suspend fun listSubagentCatalog(

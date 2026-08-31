@@ -15,6 +15,8 @@ import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
 import dev.leonardo.ocbeacon.domain.model.PromptPart
+import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
@@ -117,6 +119,44 @@ class ChatViewModel @Inject constructor(
     // #172：UI 门控只读能力位（null 版本 = 全开放，与原 permissive 比较语义一致）
     private val _serverCapabilities = MutableStateFlow(dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(null))
     val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> = _serverCapabilities.asStateFlow()
+
+    // ============ DSH Agent 预设（空白页预设卡，UI-A） ============
+    private val _agentPresets = MutableStateFlow<List<AgentPreset>>(emptyList())
+    val agentPresets: StateFlow<List<AgentPreset>> = _agentPresets.asStateFlow()
+
+    /** 预设选择失败提示（Int = strings.xml resId：locked/switch_failed）——ChatEmptyState collect 显示 snackbar。 */
+    private val _agentPresetError = kotlinx.coroutines.flow.MutableSharedFlow<Int>(extraBufferCapacity = 4)
+    val agentPresetError: SharedFlow<Int> = _agentPresetError
+
+    /** 读 roster（DSH-only；能力位外 no-op；失败软降级空列表 → 卡区隐藏）。 */
+    fun loadAgentPresets() {
+        if (!_serverCapabilities.value.agentPresetSupported) return
+        viewModelScope.launch {
+            chatRepository.listAgentPresets(serverId)
+                .onSuccess { _agentPresets.value = it }
+                .onFailure { AppLogger.w(TAG, "listAgentPresets failed: ${it.message}") }
+        }
+    }
+
+    /** 点卡即 select（会话此时必 blank）；成功回显由 agent-preset/selected 事件驱动。 */
+    fun selectAgentPreset(presetId: String) {
+        if (!_serverCapabilities.value.agentPresetSupported) return
+        viewModelScope.launch {
+            // 新会话懒创建：先 ensureSession 落 blank 会话（幂等；已有会话瞬时返回）再 select
+            val sid = runCatching { sessionLifecycle.ensureSession() }.getOrElse { e ->
+                AppLogger.w(TAG, "ensureSession failed before selectAgentPreset: ${e.message}")
+                return@launch
+            }
+            chatRepository.selectAgentPreset(serverId, sid, presetId)
+                .onFailure { e ->
+                    val locked = (e as? dev.leonardo.ocbeacon.data.api.dsh.DshApiError)
+                        ?.code?.wire == "agent-preset-locked"
+                    _agentPresetError.emit(
+                        if (locked) R.string.agent_preset_locked else R.string.agent_preset_switch_failed
+                    )
+                }
+        }
+    }
 
     // ============ 发送成功/失败信号（2026-08-11 用户要求） ============
     // 悲观发送：输入框在发送期间保留内容，成功才清空（sendSuccessTick 驱动）；
@@ -364,6 +404,8 @@ class ChatViewModel @Inject constructor(
             } ?: ServerConnection.from("", "", null)
             _serverCapabilities.value = conn.capabilities
             terminalRegistry.updateConn(serverId, conn)
+            // UI-A：DSH-only 读 Agent 预设 roster（能力位内才发 agentPreset.list）
+            loadAgentPresets()
         }
         // #252 时间线化：shell 任务创建/结束（任意来源——客户端 UI 发送、服务器端
         // 直发、TUI）→ SSE 更新 ShellJobsStore。shell 的消息条目（type='shell'，

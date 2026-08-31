@@ -120,6 +120,16 @@ sealed class SseEvent {
         val approvalPolicy: String? = null,
     ) : SseEvent()
 
+    /**
+     * DSH 会话 Agent 预设变更（agent-preset/selected {agentPreset}）。
+     * 由 SessionEventHandler 折叠进对应 [Session] 的 [Session.agentPreset]，驱动卡片高亮回显。
+     */
+    @Serializable
+    data class SessionAgentPresetChanged(
+        val sessionId: String,
+        val agentPreset: String,
+    ) : SseEvent()
+
     // 问题事件
     @Serializable
     data class QuestionAsked(

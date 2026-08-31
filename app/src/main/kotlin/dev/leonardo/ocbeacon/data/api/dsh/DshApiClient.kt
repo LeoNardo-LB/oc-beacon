@@ -40,6 +40,8 @@ import dev.leonardo.ocbeacon.data.dto.response.TodoItem
 import dev.leonardo.ocbeacon.data.dto.response.VcsBranchDto
 import dev.leonardo.ocbeacon.data.dto.response.VcsChangeDto
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -255,6 +257,42 @@ class DshApiClient @Inject constructor(
     /** 权限预设切换（/permission <preset> 命令封装）；成功 = kind:"success"。 */
     override suspend fun setPermissionPreset(conn: ServerConnection, sessionId: String, preset: String): Boolean =
         executeCommand(conn, sessionId, "/permission $preset")
+
+    /**
+     * agentPreset.list → roster（value.presets[{id,name,description,isDefault}]）。
+     * 失败软降级空列表（调用方隐藏预设卡，AppLogger.w）。
+     */
+    override suspend fun listAgentPresets(conn: ServerConnection): List<AgentPreset> {
+        val value = rpc.call(conn, "agentPreset.list", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "agentPreset.list failed: " + e.message)
+            return emptyList()
+        }
+        val presets = value.dshArr("presets") ?: emptyList()
+        return presets.mapNotNull { el ->
+            val entry = el as? JsonObject ?: return@mapNotNull null
+            val id = entry.dshStr("id") ?: return@mapNotNull null
+            AgentPreset(
+                id = id,
+                name = entry.dshStr("name") ?: id,
+                description = entry.dshStr("description") ?: "",
+                isDefault = entry.dshBool("isDefault") ?: false,
+            )
+        }
+    }
+
+    /**
+     * agentPreset.select {sessionId, agentPreset}（活体 ap-5/ap-6）：成功 value={agentPreset}；
+     * 非 blank 会话 → agent-preset-locked；未知 id → agent-preset-not-found。
+     * 错误分支上抛 [DshApiError]（锁定时 category=Busy）由调用方映射可提示文案。
+     */
+    override suspend fun selectAgentPreset(conn: ServerConnection, sessionId: String, presetId: String): Boolean {
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("agentPreset", presetId)
+        }
+        rpc.call(conn, "agentPreset.select", payload) { Unit }.getOrElse { e -> throw e }
+        return true
+    }
 
     /** V2 先例：listSessions 本地过滤 parentSessionId。 */
     override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> =
@@ -585,7 +623,8 @@ class DshApiClient @Inject constructor(
         )
     }
 
-    /** agentPreset 域映射待 UI 卡（模式选择器不在本期）——空列表降级。 */
+    /** V2 输入行 agent 循环切换器域（SystemApi）——DSH 无 agent loop，空列表降级；
+     *  Agent 预设域另走 [listAgentPresets]/[selectAgentPreset]。 */
     override suspend fun listAgents(conn: ServerConnection): List<AgentInfo> = emptyList()
 
     override suspend fun listCommands(conn: ServerConnection): List<CommandInfo> = emptyList()
@@ -907,6 +946,45 @@ class DshApiClient @Inject constructor(
             put("ops", JsonArray(listOf(buildJsonObject {
                 put("op", "set")
                 put("path", JsonArray(listOf(JsonPrimitive("defaultPreset"))))
+                put("value", JsonPrimitive(preset))
+            })))
+            put("expectedRevision", current.revision)
+        }
+        return rpc.call(conn, "settings.mutate", payload) { Unit }.isSuccess
+    }
+
+    /**
+     * 读新会话默认 Agent 预设（settings.describe ns=agent-presets，§6 官方 Web General 设置行）。
+     * value = {writable,hasDocument,namespaces:[{ns,value,revision,...}]}；取 ns=agent-presets
+     * 的 value.default + revision。部署未挂 agent-presets 插件 → null。
+     */
+    suspend fun getDefaultAgentPreset(conn: ServerConnection): DshAgentPresetDefault? {
+        val value = rpc.call(conn, "settings.describe", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "settings.describe failed: " + e.message)
+            return null
+        }
+        val ns = (value.dshArr("namespaces") ?: emptyList())
+            .filterIsInstance<JsonObject>()
+            .firstOrNull { it.dshStr("ns") == "agent-presets" }
+            ?: return null
+        val currentValue = ns.dshObj("value")?.dshStr("default") ?: return null
+        return DshAgentPresetDefault(
+            currentValue = currentValue,
+            revision = ns.dshLong("revision") ?: 0L,
+        )
+    }
+
+    /**
+     * 写新会话默认 Agent 预设（settings.mutate ns=agent-presets，path=["default"]）。
+     * expectedRevision 先经 settings.describe 取当前 revision（乐观并发，陈旧 → settings-conflict）。
+     */
+    suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean {
+        val current = getDefaultAgentPreset(conn) ?: return false
+        val payload = buildJsonObject {
+            put("ns", "agent-presets")
+            put("ops", JsonArray(listOf(buildJsonObject {
+                put("op", "set")
+                put("path", JsonArray(listOf(JsonPrimitive("default"))))
                 put("value", JsonPrimitive(preset))
             })))
             put("expectedRevision", current.revision)

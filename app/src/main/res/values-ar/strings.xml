@@ -768,4 +768,10 @@
     <string name="permission_switch_failed">فشل تبديل إعداد الإذن</string>
     <string name="a11y_icon_permission_preset">إعداد الإذن</string>
     <string name="server_settings_default_permission">الصلاحية الافتراضية للجلسات الجديدة</string>
+    <string name="agent_preset_locked">تم قفل إعداد الوكيل لهذه الجلسة</string>
+    <string name="agent_preset_switch_failed">فشل تبديل إعداد الوكيل</string>
+    <string name="agent_preset_cards_title">اختر إعداد الوكيل</string>
+    <string name="server_settings_default_agent_preset">إعداد الوكيل الافتراضي للجلسات الجديدة</string>
+    <string name="session_details_agent_preset">إعداد الوكيل</string>
+    <string name="a11y_icon_agent_preset">إعداد الوكيل</string>
 </resources>

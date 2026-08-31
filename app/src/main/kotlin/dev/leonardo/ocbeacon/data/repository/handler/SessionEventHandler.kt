@@ -67,6 +67,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.SessionCreated -> { handleSessionCreated(event, serverId); true }
             is SseEvent.SessionUpdated -> { handleSessionUpdated(event, serverId); true }
             is SseEvent.SessionPermissionChanged -> { handleSessionPermissionChanged(event); true }
+            is SseEvent.SessionAgentPresetChanged -> { handleSessionAgentPresetChanged(event); true }
             is SseEvent.SessionDeleted -> { handleSessionDeleted(event); true }
             // 状态/idle 事件在此确认，但由 SessionStateService 经由
             // EventDispatcher.forwardToSessionStateService 处理——无本地状态需更新。
@@ -155,6 +156,18 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
                     )
                     s.copy(permissions = next)
                 }
+            }
+        }
+    }
+
+    /**
+     * agent-preset/selected → 折叠进 Session.agentPreset（驱动卡片高亮回显）。
+     * 会话尚未入列表（事件早于 session.list 基线）时 no-op——基线随后补齐。
+     */
+    private fun handleSessionAgentPresetChanged(event: SseEvent.SessionAgentPresetChanged) {
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id != event.sessionId) s else s.copy(agentPreset = event.agentPreset)
             }
         }
     }

@@ -272,7 +272,16 @@ object DshEventMapper {
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
             "goal/change" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.GOAL_CHANGE))
             "subagent/descriptor" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.SUBAGENT_DESCRIPTOR))
-            "agent-preset/selected" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.AGENT_PRESET))
+            // agent-preset/selected {agentPreset} → SessionAgentPresetChanged：select 成功
+            // 回显（非 scoped 重发），折叠进 Session.agentPreset 驱动卡片高亮。
+            "agent-preset/selected" -> listOf(
+                DshMappedEvent.Sse(
+                    SseEvent.SessionAgentPresetChanged(
+                        sessionId = sessionId,
+                        agentPreset = data.str("agentPreset") ?: "",
+                    )
+                )
+            )
 
             // ---- 已核实无转录语义的协议伴生事件（§1.5 普查 + §1.7 实测分布） ----
             // 会话开头惯例 preamble（§5 坑位清单）。三 knob（permission/sandbox/approval）
@@ -707,9 +716,6 @@ object DshIgnoreReason {
 
     /** subagent/descriptor 会话子节点（Tier2，后续）。 */
     const val SUBAGENT_DESCRIPTOR = "subagent-descriptor"
-
-    /** agent-preset/selected（Tier2，后续）。 */
-    const val AGENT_PRESET = "agent-preset"
 
     /** 会话 preamble 策略态：plan/mode（permission/sandbox/approval 已映射为权限状态事件）。 */
     const val POLICY_STATE = "policy-state"

@@ -752,4 +752,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_switch_failed">Wechsel des Berechtigungsmodus fehlgeschlagen</string>
     <string name="a11y_icon_permission_preset">Berechtigungsmodus</string>
     <string name="server_settings_default_permission">Standardberechtigung für neue Sitzungen</string>
+    <string name="agent_preset_locked">Agent-Preset ist für diese Sitzung gesperrt</string>
+    <string name="agent_preset_switch_failed">Wechsel des Agent-Presets fehlgeschlagen</string>
+    <string name="agent_preset_cards_title">Agent-Preset wählen</string>
+    <string name="server_settings_default_agent_preset">Standard-Agent-Preset für neue Sitzungen</string>
+    <string name="session_details_agent_preset">Agent-Preset</string>
+    <string name="a11y_icon_agent_preset">Agent-Preset</string>
 </resources>

@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.domain.repository
 
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
 import dev.leonardo.ocbeacon.domain.model.DshPermissionDefault
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 
@@ -14,4 +15,10 @@ interface DshSettingsRepository {
 
     /** 写默认档（内部先 describe 取 revision 再 mutate，乐观并发）。 */
     suspend fun setPermissionDefault(conn: ServerConnection, preset: String): Boolean
+
+    /** 读新会话默认 Agent 预设；部署未挂 agent-presets 插件或读取失败 → null。 */
+    suspend fun getDefaultAgentPreset(conn: ServerConnection): DshAgentPresetDefault?
+
+    /** 写新会话默认 Agent 预设（内部先 describe 取 revision 再 mutate，乐观并发）。 */
+    suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean
 }

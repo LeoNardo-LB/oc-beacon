@@ -752,4 +752,10 @@
     <string name="permission_switch_failed">権限モードの切り替えに失敗しました</string>
     <string name="a11y_icon_permission_preset">権限プリセット</string>
     <string name="server_settings_default_permission">新規セッションのデフォルト権限</string>
+    <string name="agent_preset_locked">このセッションのエージェントプリセットはロックされています</string>
+    <string name="agent_preset_switch_failed">エージェントプリセットの切り替えに失敗しました</string>
+    <string name="agent_preset_cards_title">エージェントプリセットを選択</string>
+    <string name="server_settings_default_agent_preset">新規セッションのデフォルトエージェントプリセット</string>
+    <string name="session_details_agent_preset">エージェントプリセット</string>
+    <string name="a11y_icon_agent_preset">エージェントプリセット</string>
 </resources>

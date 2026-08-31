@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.data.repository.handler.CompactionStateInfo as Data
 import dev.leonardo.ocbeacon.data.repository.handler.StepProgressInfo as DataStepProgressInfo
 import dev.leonardo.ocbeacon.data.repository.handler.ToolProgressInfo as DataToolProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
@@ -323,6 +324,20 @@ class ChatRepositoryImpl @Inject constructor(
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.setPermissionPreset(conn, sessionId, preset)
+    }
+
+    override suspend fun listAgentPresets(serverId: String): Result<List<AgentPreset>> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        sessionApi.listAgentPresets(conn)
+    }
+
+    override suspend fun selectAgentPreset(
+        serverId: String,
+        sessionId: String,
+        presetId: String,
+    ): Result<Boolean> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        sessionApi.selectAgentPreset(conn, sessionId, presetId)
     }
 
     override suspend fun runShellCommand(

@@ -752,4 +752,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_switch_failed">İzin modu değiştirilemedi</string>
     <string name="a11y_icon_permission_preset">İzin modu</string>
     <string name="server_settings_default_permission">Yeni oturumlar için varsayılan izin</string>
+    <string name="agent_preset_locked">Ajan ön ayarı bu oturum için kilitli</string>
+    <string name="agent_preset_switch_failed">Ajan ön ayarı değiştirilemedi</string>
+    <string name="agent_preset_cards_title">Ajan ön ayarı seç</string>
+    <string name="server_settings_default_agent_preset">Yeni oturumlar için varsayılan ajan ön ayarı</string>
+    <string name="session_details_agent_preset">Ajan ön ayarı</string>
+    <string name="a11y_icon_agent_preset">Ajan ön ayarı</string>
 </resources>

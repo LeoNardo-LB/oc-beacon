@@ -500,6 +500,17 @@ class DshEventMapperTest {
     }
 
     @Test
+    fun `agent preset selected event maps to SessionAgentPresetChanged`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("agent-preset/selected", """{"agentPreset":"cordis"}"""),
+        )
+        val changed = eventsOf(mapped).single() as SseEvent.SessionAgentPresetChanged
+        assertEquals("s9", changed.sessionId)
+        assertEquals("cordis", changed.agentPreset)
+    }
+
+    @Test
     fun `session title maps to SessionUpdated with title`() {
         val mapped = DshEventMapper.mapSessionEvent(
             "s9",
@@ -521,7 +532,6 @@ class DshEventMapperTest {
             "compaction/prune" to DshIgnoreReason.COMPACTION,
             "goal/change" to DshIgnoreReason.GOAL_CHANGE,
             "subagent/descriptor" to DshIgnoreReason.SUBAGENT_DESCRIPTOR,
-            "agent-preset/selected" to DshIgnoreReason.AGENT_PRESET,
         )
         cases.forEach { (type, reason) ->
             assertEquals("type=$type", listOf(DshMappedEvent.Ignored(reason)), DshEventMapper.mapSessionEvent("s9", sessionEvent(type)))

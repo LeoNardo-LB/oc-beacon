@@ -88,6 +88,9 @@ internal fun SessionRow(
     onToggleFavorite: () -> Unit = {},
     /** #276 能力位门控：DSH 无 session.delete——详情对话框删除按钮隐藏。 */
     deleteSupported: Boolean = true,
+    // UI-B：Agent 预设只读标签（DSH 专属，能力位门控 + id→name 解析）
+    agentPresetSupported: Boolean = false,
+    agentPresetNames: Map<String, String> = emptyMap(),
     modifier: Modifier = Modifier,
     showDirectory: Boolean = false,
     // #271：同步状态（长按菜单同步详情区——唯一展示面，2026-08-30 四轮定稿）
@@ -305,6 +308,8 @@ internal fun SessionRow(
                 onContinueQueue()
             },
             deleteSupported = deleteSupported,
+            agentPresetSupported = agentPresetSupported,
+            agentPresetNames = agentPresetNames,
             syncState = syncState,
             onRequestSync = onRequestSync,
             onCancelSync = onCancelSync,
@@ -325,6 +330,9 @@ private fun SessionDetailsDialog(
     pendingCount: Int,
     onContinueQueue: () -> Unit,
     deleteSupported: Boolean,
+    // UI-B：Agent 预设只读标签（DSH 专属）
+    agentPresetSupported: Boolean,
+    agentPresetNames: Map<String, String>,
     // #271：同步详情区（唯一展示面）
     syncState: dev.leonardo.ocbeacon.data.local.SessionSyncEntity?,
     onRequestSync: () -> Unit,
@@ -391,6 +399,14 @@ private fun SessionDetailsDialog(
                             stringResource(R.string.session_details_updated),
                             dateFormat.format(Date(item.session.time.updated))
                         )
+                        // UI-B：DSH Agent 预设只读标签（name；unknown/undefined → —）
+                        if (agentPresetSupported) {
+                            val presetId = item.session.agentPreset
+                            DetailRow(
+                                stringResource(R.string.session_details_agent_preset),
+                                presetId?.let { agentPresetNames[it] } ?: "—"
+                            )
+                        }
                         val summary = item.session.summary
                         if (summary != null) {
                             // #120（D2-32）：硬编码英文 → 15 语言资源

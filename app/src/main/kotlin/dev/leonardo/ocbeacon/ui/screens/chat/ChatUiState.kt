@@ -56,6 +56,10 @@ data class SessionMetaState(
     val shareUrl: String? = null,
     /** DSH 权限预设状态（permissions 投影 + 三 knob 事件折叠）；OpenCode 会话恒 null。 */
     val sessionPermissions: SessionPermissions? = null,
+    /** DSH 当前会话 Agent 预设 id（agentPreset 字段 + agent-preset/selected 事件）；驱动预设卡高亮。 */
+    val sessionAgentPreset: String? = null,
+    /** DSH 空白/未创建会话标记（blank 字段 OR 新会话尚未创建）；驱动预设卡门控。 */
+    val sessionIsBlank: Boolean = false,
     /** 当本会话的 FSM activity 为 Streaming 时为 true（控制 reasoning 计时器 + streamingMsgId）。 */
     val isStreaming: Boolean = false,
 )

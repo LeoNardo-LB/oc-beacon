@@ -760,4 +760,10 @@
     <string name="permission_switch_failed">Не вдалося перемкнути режим дозволів</string>
     <string name="a11y_icon_permission_preset">Режим дозволів</string>
     <string name="server_settings_default_permission">Дозвіл за замовчуванням для нових сесій</string>
+    <string name="agent_preset_locked">Пресет агента заблоковано для цієї сесії</string>
+    <string name="agent_preset_switch_failed">Не вдалося змінити пресет агента</string>
+    <string name="agent_preset_cards_title">Виберіть пресет агента</string>
+    <string name="server_settings_default_agent_preset">Пресет агента за замовчуванням для нових сесій</string>
+    <string name="session_details_agent_preset">Пресет агента</string>
+    <string name="a11y_icon_agent_preset">Пресет агента</string>
 </resources>
