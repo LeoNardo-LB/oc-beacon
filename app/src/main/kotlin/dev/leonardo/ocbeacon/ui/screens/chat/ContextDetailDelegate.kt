@@ -88,6 +88,14 @@ class ContextDetailDelegate(
                 //（OpenCode 会话两字段恒 null → ContextDetailDialog 不渲染该区）。
                 subagentTokens = session?.tokenUsage,
                 subagentActiveDurationMs = session?.subagentTiming?.activeDurationMs,
+                // DSH 上下文环投影（Web 语义：分子 projectedTokens ?? pressureTokens，分母投影 window；
+                // 任一缺席 → 整环不渲染）。OpenCode 恒 null → 走既有 llm.models 路径。
+                projectionUsedTokens = session?.contextPressure?.let { p ->
+                    p.projectedTokens ?: p.pressureTokens
+                },
+                projectionContextWindow = session?.contextPressure?.contextWindow,
+                projectionBreakdown = session?.contextBreakdown,
+                projectionSessionStats = session?.sessionStats,
             )
         }
     }

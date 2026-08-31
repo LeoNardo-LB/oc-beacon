@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.util
 
+import dev.leonardo.ocbeacon.domain.model.DshContextBreakdown
+import dev.leonardo.ocbeacon.domain.model.DshSessionStats
 import dev.leonardo.ocbeacon.domain.model.DshTokenUsage
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -41,6 +43,14 @@ data class ContextDetailState(
     val subagentTokens: DshTokenUsage? = null,
     /** DSH subagentTiming 派生活跃时长 ms；OpenCode 恒 null → 区不渲染。 */
     val subagentActiveDurationMs: Long? = null,
+    /** DSH contextPressure 投影分子（projectedTokens ?? pressureTokens）；OpenCode 恒 null。 */
+    val projectionUsedTokens: Long? = null,
+    /** DSH contextPressure 投影窗口；OpenCode 恒 null。 */
+    val projectionContextWindow: Long? = null,
+    /** DSH contextBreakdown 投影（system/tools/message 启发式构成）；OpenCode 恒 null。 */
+    val projectionBreakdown: DshContextBreakdown? = null,
+    /** DSH sessionStats 投影（全日志累计 turns/steps/llmMs/toolMs/…）；OpenCode 恒 null。 */
+    val projectionSessionStats: DshSessionStats? = null,
 )
 
 private fun estimateTokens(chars: Int): Int = if (chars == 0) 0 else ceil(chars / 4.0).toInt()

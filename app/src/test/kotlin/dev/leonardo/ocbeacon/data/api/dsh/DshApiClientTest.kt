@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.api.dsh
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.data.dto.request.ServerConfigPatch
 import dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability
+import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerType
 import io.ktor.client.HttpClient
@@ -833,4 +834,83 @@ class DshApiClientTest {
     }
 
     private fun jsonHeaders() = headersOf("Content-Type" to listOf("application/json"))
+
+    // ============ DSH goal 六 mutation + commands/list（backlog #286） ============
+
+    @Test
+    fun `goalCreate posts goal dot create with objective and optional maxGoalRounds`() = runTest {
+        val engine = MockEngine { respond(ok("""{"ref":{"id":"goal-1","revision":1}}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val ref = client(engine).goalCreate(conn, "s-9", "build the ring", 5)
+        assertEquals("goal-1", ref!!.id)
+        assertEquals(1L, ref.revision)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/goal.create", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        val payload = body["payload"]!!.jsonObject
+        assertEquals("s-9", payload["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("build the ring", payload["objective"]!!.jsonPrimitive.content)
+        assertEquals(5, payload["maxGoalRounds"]!!.jsonPrimitive.content.toInt())
+    }
+
+    @Test
+    fun `goalEdit posts ref CAS and optional fields`() = runTest {
+        val engine = MockEngine { respond(ok("""{"ref":{"id":"goal-1","revision":2}}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val ref = client(engine).goalEdit(conn, "s-9", DshGoalRef("goal-1", 1L), objective = "v2", maxGoalRounds = null)
+        assertEquals(2L, ref!!.revision)
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        val payload = body["payload"]!!.jsonObject
+        assertEquals("goal-1", payload["ref"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals(1, payload["ref"]!!.jsonObject["revision"]!!.jsonPrimitive.content.toInt())
+        assertEquals("v2", payload["objective"]!!.jsonPrimitive.content)
+        assertNull(payload["maxGoalRounds"])
+    }
+
+    @Test
+    fun `goalPause resume complete share ref mutation shape`() = runTest {
+        val ref = DshGoalRef("goal-1", 1L)
+        for (method in listOf("goal.pause", "goal.resume", "goal.complete")) {
+            val engine = MockEngine { respond(ok("""{"ref":{"id":"goal-1","revision":3}}"""), HttpStatusCode.OK, jsonHeaders()) }
+            val out = when (method) {
+                "goal.pause" -> client(engine).goalPause(conn, "s-9", ref)
+                "goal.resume" -> client(engine).goalResume(conn, "s-9", ref)
+                else -> client(engine).goalComplete(conn, "s-9", ref)
+            }
+            assertEquals(3L, out!!.revision)
+            val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+            assertEquals(method, body["method"]!!.jsonPrimitive.content)
+            assertEquals("/api/" + method, captureRequests(engine).single().url.encodedPath)
+        }
+    }
+
+    @Test
+    fun `goalClear returns cleared flag`() = runTest {
+        val engine = MockEngine { respond(ok("""{"cleared":true}"""), HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(client(engine).goalClear(conn, "s-9", DshGoalRef("goal-1", 1L)))
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("goal.clear", body["method"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `listCommands maps descriptor array via commands list typert channel`() = runTest {
+        val value = """[{"name":"compact","description":"Compact older conversation history"},
+{"name":"goal","description":"set or view the goal for a long-running task","input":{"hint":"[<objective>|clear|edit <objective>|pause|resume]","images":true}},
+{"name":"permission","description":"Switch the permission preset","input":{"hint":"<preset>"}}]"""
+        val engine = MockEngine { respond(ok(value), HttpStatusCode.OK, jsonHeaders()) }
+        val commands = client(engine).listCommands(conn, "s-9")
+        assertEquals(3, commands.size)
+        assertEquals("compact", commands[0].name)
+        assertEquals("[<objective>|clear|edit <objective>|pause|resume]", commands[1].hints.single())
+        assertEquals("server", commands[1].source)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/commands/list", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("s-9", body["payload"]!!.jsonObject["args"]!!.jsonObject["agentId"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `listCommands without session returns empty without request`() = runTest {
+        val engine = MockEngine { respond(ok("[]"), HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(client(engine).listCommands(conn, null).isEmpty())
+        assertTrue(engine.requestHistory.isEmpty())
+    }
 }

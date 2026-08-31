@@ -143,3 +143,20 @@ internal fun resolveUserCommandLabel(parts: List<Part>): String? {
         else -> stringResource(R.string.chat_tool_running_command)
     }
 }
+
+/**
+ * Web 对齐 token 格式化（dsh-client-ui-conversation client.js:2879 formatTokens）。
+ *
+ * 规则照抄：<1000 原数；>=1000 按 K/M 缩放，缩放值 >=100 四舍五入成整数、
+ * <100 保留 1 位小数（517 / 12.2K / 517K / 1.2M）。Rounding = Math.round 半点向上。
+ */
+internal fun webFormatTokens(n: Long): String = when {
+    n < 1_000L -> n.toString()
+    n < 1_000_000L -> scaled(n / 1000.0) + "K"
+    else -> scaled(n / 1_000_000.0) + "M"
+}
+
+private fun scaled(v: Double): String {
+    val r = Math.round(v * 10) / 10.0
+    return if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()
+}

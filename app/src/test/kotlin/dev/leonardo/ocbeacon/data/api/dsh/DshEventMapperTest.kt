@@ -311,7 +311,7 @@ class DshEventMapperTest {
         val mapped = DshEventMapper.mapFrame(
             "session/projection",
             json.parseToJsonElement(
-                """{"type":"session/projection","sessionId":"s1","key":"sessionStats","value":{"turns":2},"seq":9}"""
+                """{"type":"session/projection","sessionId":"s1","key":"todos","value":{"items":[]},"seq":9}"""
             ).jsonObject,
         )
         assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION)), mapped)
@@ -623,7 +623,6 @@ class DshEventMapperTest {
             "compaction/start" to DshIgnoreReason.COMPACTION,
             "compaction/summary" to DshIgnoreReason.COMPACTION,
             "compaction/prune" to DshIgnoreReason.COMPACTION,
-            "goal/change" to DshIgnoreReason.GOAL_CHANGE,
             "subagent/descriptor" to DshIgnoreReason.SUBAGENT_DESCRIPTOR,
         )
         cases.forEach { (type, reason) ->
@@ -679,5 +678,103 @@ class DshEventMapperTest {
         assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED)), toolNoCallId)
         val chunkNoBody = DshEventMapper.mapSessionEvent("s1", json.parseToJsonElement("""{"type":"assistant/chunk","seq":1,"time":1,"data":{}}""").jsonObject)
         assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED)), chunkNoBody)
+    }
+
+    // ============ goal/change 与投影键（backlog #286） ============
+
+    @Test
+    fun `goal-change event maps to session goal projection whole-value`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            sessionEvent(
+                "goal/change",
+                """{"kind":"goal/change","version":1,"operation":"create","goal":{"id":"goal-1","revision":2,"objective":"build the ring","phase":"active","maxGoalRounds":5},"roundsStarted":1,"createdAt":1700000000000,"updatedAt":1700000001000}""",
+            ),
+        )
+        val event = eventsOf(mapped).single() as SseEvent.SessionGoalChanged
+        assertEquals("s1", event.sessionId)
+        val p = event.goal!!
+        assertEquals("goal-1", p.goal.id)
+        assertEquals(2L, p.goal.revision)
+        assertEquals("build the ring", p.goal.objective)
+        assertEquals("active", p.goal.phase)
+        assertNull(p.goal.blockedReason)
+        assertEquals(5L, p.goal.maxGoalRounds)
+        assertEquals(1L, p.roundsStarted)
+    }
+
+    @Test
+    fun `goal-change blocked carries inline reason`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            sessionEvent(
+                "goal/change",
+                """{"kind":"goal/change","version":1,"operation":"block","goal":{"id":"goal-1","revision":3,"objective":"x","phase":"blocked","blockedReason":{"code":"goal-blocked-rounds","message":"exhausted goal rounds"},"maxGoalRounds":3},"roundsStarted":3,"createdAt":1,"updatedAt":2}""",
+            ),
+        )
+        val event = eventsOf(mapped).single() as SseEvent.SessionGoalChanged
+        assertEquals("blocked", event.goal!!.goal.phase)
+        assertEquals("exhausted goal rounds", event.goal!!.goal.blockedReason!!.message)
+        assertEquals("goal-blocked-rounds", event.goal!!.goal.blockedReason!!.code)
+    }
+
+    @Test
+    fun `goal-change clear tombstone maps to null projection`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            sessionEvent(
+                "goal/change",
+                """{"kind":"goal/change","version":1,"operation":"clear","cleared":{"id":"goal-1","revision":4},"clearedAt":3}""",
+            ),
+        )
+        val event = eventsOf(mapped).single() as SseEvent.SessionGoalChanged
+        assertNull(event.goal)
+    }
+
+    @Test
+    fun `projection key goal null value is not malformed`() {
+        val payload = json.parseToJsonElement(
+            """{"type":"session/projection","sessionId":"s1","key":"goal","value":null,"seq":7}""",
+        ).jsonObject
+        val event = eventsOf(DshEventMapper.mapFrame("session/projection", payload)).single()
+            as SseEvent.SessionGoalChanged
+        assertNull(event.goal)
+    }
+
+    @Test
+    fun `projection keys contextPressure breakdown and sessionStats map`() {
+        val pressure = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"contextPressure","value":{"pressureTokens":124658,"projectedTokens":125148,"contextWindow":1000000},"seq":8}""",
+            ).jsonObject,
+        )
+        val p = (eventsOf(pressure).single() as SseEvent.SessionContextPressureChanged).pressure
+        assertEquals(124658L, p.pressureTokens)
+        assertEquals(125148L, p.projectedTokens)
+        assertEquals(1000000L, p.contextWindow)
+
+        val bd = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"contextBreakdown","value":{"systemTokens":9408,"toolsTokens":240,"messageTokens":99722},"seq":9}""",
+            ).jsonObject,
+        )
+        val b = (eventsOf(bd).single() as SseEvent.SessionContextBreakdownChanged).breakdown
+        assertEquals(9408L, b.systemTokens)
+        assertEquals(240L, b.toolsTokens)
+        assertEquals(99722L, b.messageTokens)
+
+        val st = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"sessionStats","value":{"turns":1,"steps":60,"llmMs":304019,"toolMs":3514,"ttftMs":194905,"ttftSteps":61,"decodeMs":109114,"decodeTokens":17112},"seq":10}""",
+            ).jsonObject,
+        )
+        val s = (eventsOf(st).single() as SseEvent.SessionStatsChanged).stats
+        assertEquals(1L, s.turns)
+        assertEquals(60L, s.steps)
+        assertEquals(304019L, s.llmMs)
+        assertEquals(17112L, s.decodeTokens)
     }
 }

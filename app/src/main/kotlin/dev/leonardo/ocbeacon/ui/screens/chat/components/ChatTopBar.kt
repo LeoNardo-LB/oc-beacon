@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
-import dev.leonardo.ocbeacon.ui.screens.chat.util.formatTokenCount
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
@@ -70,8 +69,10 @@ fun ChatTopBar(
     /** 服务器支持 PTY 终端时显示 Terminal 菜单项（DSH 无 terminal/pty 域——
      *  2026-08-31 全量按钮走查前置修复：此前 DSH 下入口可见但点击报错，数据层兜底不佳）。 */
     isTerminalSupported: Boolean = true,
-    /** 投影驱动统计（DSH）：无 contextWindow 时的 token 计数 chip 入口（默认 false 保持 V1/V2 零外溢）。 */
-    projectionStatsSupported: Boolean = false,
+    /** DSH contextPressure 投影分子（projectedTokens ?? pressureTokens）；null = 投影缺席 → 环不渲染。 */
+    projectionUsedTokens: Long? = null,
+    /** DSH contextPressure 投影窗口；与分子同时在场才渲染环（Web contextOccupancy 判据）。 */
+    projectionContextWindow: Long? = null,
     onShare: () -> Unit,
     onUnshare: () -> Unit,
     onExport: () -> Unit,
@@ -108,21 +109,22 @@ fun ChatTopBar(
         },
         actions = {
             // 上下文进度指示器 —— 父会话和子智能体会话都显示。
-            // DSH 根治（2026-08-31）：llm.models 目录无 contextWindow（仅
-            // id/name/reasoning）→ 环入口原先永不显示、token 弹窗（含子代理
-            // 区）不可达。无窗口但有 token 数据时以 token 计数 chip 作入口，
-            // 不伪造窗口百分比。
-            val hasTokenData = lastContextTokens > 0 ||
-                contextDetail.inputTokens > 0 ||
-                contextDetail.subagentTokens != null
-            // 双轴审查 (c)2 修复：no-window chip 分支以 projectionStatsSupported
-            // （DSH）门控——OpenCode 目录恒带 contextWindow 走环入口，两代零外溢。
-            val showContext = (contextWindow > 0 && lastContextTokens > 0) ||
-                (projectionStatsSupported && contextWindow <= 0 && hasTokenData)
+            // DSH（2026-08-31 对齐 Web）：环数据源 = contextPressure 投影——
+            // 分子 projectedTokens ?? pressureTokens，分母投影 contextWindow；
+            // 两者任一缺席（投影未挂/未上报）→ 整环不渲染（无裸计数 chip 分支，
+            // Web ContextMeter 的 contextOccupancy 判据）。OpenCode 无投影域 →
+            // 走既有 llm.models 窗口 + 消息级 token 统计路径。
+            val projectionOccupancy = projectionUsedTokens?.let { used ->
+                projectionContextWindow?.takeIf { it > 0 }?.let { window ->
+                    used to window
+                }
+            }
+            val showContext = projectionOccupancy != null ||
+                (contextWindow > 0 && lastContextTokens > 0)
             if (showContext) {
-                if (contextWindow > 0) {
-                    val percentage = Math.round(lastContextTokens.toDouble() / contextWindow * 100).toInt()
-                        .coerceIn(0, 100)
+                val (usedTokens, windowTokens) = projectionOccupancy ?: (lastContextTokens.toLong() to contextWindow.toLong())
+                val percentage = Math.round(usedTokens.toDouble() / windowTokens * 100).toInt()
+                    .coerceIn(0, 100)
                     val contextColor = when {
                         percentage >= 90 -> MaterialTheme.colorScheme.error
                         percentage >= 70 -> MaterialTheme.colorScheme.tertiary
@@ -147,23 +149,6 @@ fun ChatTopBar(
                             color = contextColor
                         )
                     }
-                } else {
-                    val entryTokens = lastContextTokens.takeIf { it > 0 }
-                        ?: contextDetail.subagentTokens?.total?.toInt()
-                        ?: contextDetail.inputTokens
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .clickable { showContextDialog = true }
-                    ) {
-                        Text(
-                            text = formatTokenCount(entryTokens),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
             }
 
             // 上下文详情对话框 —— 父会话和子智能体会话都显示
@@ -293,4 +278,3 @@ fun ChatTopBar(
         }
     )
 }
-
