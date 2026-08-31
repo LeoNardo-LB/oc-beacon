@@ -367,6 +367,35 @@ class DshEventMapperTest {
         assertEquals("fixture-0001", error.sessionId)
         assertEquals("fixture agent crash", error.error)
     }
+    @Test
+    fun `host agent-error wire shape carries message key per dsh schema`() {
+        // DSH v0.1.1-rc.2 真实现（events.schema.js:72 / apiproxy index.js 帧发射）载荷键是
+        // message（字符串），旧 fixture 的 error 对象形态是假设产物。键失配时 errorText
+        // 返回字面量 "error"，真实错误文本（如欠费/provider 拒绝）被吞 → 会话静默终止。
+        val mapped = DshEventMapper.mapFrame(
+            "host/agent-error",
+            json.parseToJsonElement(
+                """{"type":"host/agent-error","sessionId":"fixture-0001","message":"provider rejected request: insufficient balance"}""", 
+            ).jsonObject,
+        )
+        val error = eventsOf(mapped).single() as SseEvent.SessionError
+        assertEquals("fixture-0001", error.sessionId)
+        assertEquals("provider rejected request: insufficient balance", error.error)
+    }
+
+    @Test
+    fun `host agent-error legacy error-object shape still maps for compat`() {
+        // 旧黄金样本（mux-frames-extra.jsonl:6 前态）的 error 对象形态保留兼容（message 优先回退）。
+        val mapped = DshEventMapper.mapFrame(
+            "host/agent-error",
+            json.parseToJsonElement(
+                """{"type":"host/agent-error","sessionId":"s1","error":{"code":"internal","message":"fixture agent crash"}}""", 
+            ).jsonObject,
+        )
+        val error = eventsOf(mapped).single() as SseEvent.SessionError
+        assertEquals("fixture agent crash", error.error)
+    }
+
 
     @Test
     fun `host workspace frames and unknown frame methods are ignored`() {

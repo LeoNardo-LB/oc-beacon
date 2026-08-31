@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -64,6 +65,7 @@ class ChatViewModelSendTest {
     private val appNotificationManager = mockk<AppNotificationManager>(relaxed = true)
     private val toolSnapshotCache = ToolSnapshotCache()
     private val serverRepository = mockk<ServerRepository>(relaxed = true)
+    private val eventDispatcher = mockk<dev.leonardo.ocbeacon.data.repository.EventDispatcher>(relaxed = true)
 
     @After
     fun tearDown() {
@@ -180,7 +182,7 @@ class ChatViewModelSendTest {
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,
             shellJobsStore = ShellJobsStore(),
-            eventDispatcher = mockk(relaxed = true),
+            eventDispatcher = eventDispatcher,
             // 堆积消息（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
             pendingMessageRepository = mockk(relaxed = true),
             pendingMessagePipeline = mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true).also { mk ->
@@ -313,5 +315,31 @@ class ChatViewModelSendTest {
             viewModel.composer.restoredDraftState.value
         )
         collectJob.cancel()
+    }
+
+    // ========== D1③/B1：sendMessage 清卡 + 会话错误弹窗 ==========
+
+    @Test
+    fun `send success clears persistent session errors`() = runTest {
+        clearMocks(eventDispatcher)
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } returns Unit
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.sendMessage("Hello world")
+        advanceUntilIdle()
+        // D1③：sendMessage 成功 → 清空该会话持久错误卡（会话已恢复健康）
+        verify { eventDispatcher.clearSessionErrors("test-session") }
+    }
+
+    @Test
+    fun `session error event feeds sendFailure dialog`() = runTest {
+        clearMocks(eventDispatcher)
+        val errorFlow = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 4)
+        every { eventDispatcher.sessionErrorEvents } returns errorFlow
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        errorFlow.tryEmit("test-session" to "provider rejected request: insufficient balance")
+        advanceUntilIdle()
+        assertEquals("provider rejected request: insufficient balance", viewModel.sendFailure.value)
     }
 }
