@@ -287,12 +287,13 @@ internal class ModelConfigDelegate(
         }
     }
 
-    fun loadCommands() {
+    /** [sessionId] 只对 DSH 有效（commands/list 是 agent-scoped 的；null = 懒建前 → 空列表）。 */
+    fun loadCommands(sessionId: String? = null) {
         scope.launch {
             try {
-                val commands = manageAgentUseCase.loadCommands(serverId)
+                val commands = manageAgentUseCase.loadCommands(serverId, sessionId)
                 _commands.value = commands
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Loaded ${commands.size} commands: ${commands.map { it.name }}")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Loaded " + commands.size + " commands: " + commands.map { it.name })
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to load commands", e)

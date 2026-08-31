@@ -139,7 +139,7 @@ internal fun ChatInputBar(
         val clientNames = clientCmds.map { it.name }.toSet()
         val serverSlash = commands
             .filter { it.name !in clientNames }
-            .map { SlashCommand(it.name, it.description, it.source ?: "server") }
+            .map { SlashCommand(it.name, it.description, it.source ?: "server", requiresInput = it.hints.isNotEmpty()) }
         clientCmds + serverSlash
     }
 
@@ -175,8 +175,14 @@ internal fun ChatInputBar(
                     onTextFieldValueChange(TextFieldValue(skillText, TextRange(skillText.length)))
                 },
                 onCommandClick = { cmd ->
-                    onTextFieldValueChange(TextFieldValue(""))
-                    onSlashCommand(cmd)
+                    if (cmd.requiresInput) {
+                        // DSH commands/list input.hint 非空：填入输入框待用户补参数（对齐 Web 选即填）
+                        val cmdText = "/" + cmd.name + " "
+                        onTextFieldValueChange(TextFieldValue(cmdText, TextRange(cmdText.length)))
+                    } else {
+                        onTextFieldValueChange(TextFieldValue(""))
+                        onSlashCommand(cmd)
+                    }
                 }
             )
         }
