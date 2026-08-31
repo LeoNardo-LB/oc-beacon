@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -776,5 +777,130 @@ class DshEventMapperTest {
         assertEquals(60L, s.steps)
         assertEquals(304019L, s.llmMs)
         assertEquals(17112L, s.decodeTokens)
+    }
+
+    // ============ 2026-09-01（Task 3b）：tool-workflow 降级卡 ============
+
+    @Test
+    fun `workflow run start maps to synthetic running notification`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            json.parseToJsonElement(
+                """{"type":"tool-workflow/run-start","seq":60,"time":1788109999000,"data":{"runId":"wf_audit_1","name":"adversarial-verification"}}"""
+            ).jsonObject,
+        )
+        val events = eventsOf(mapped)
+        // 消息 + part 两事件：同 runId 同宿主 id（start/end 原位更新单卡）
+        val updated = events[0] as SseEvent.MessageUpdated
+        assertEquals("dsh-workflow-wf_audit_1", updated.info.id)
+        assertEquals("synthetic", updated.info.role)
+        val part = events[1] as SseEvent.MessagePartUpdated
+        val textPart = part.part as Part.Text
+        assertEquals("dsh-workflow-wf_audit_1_text_ord_0", textPart.id)
+        // 运行态信封：无 id 属性（runId 非会话 id——不给前向箭头），state=running
+        assertTrue(textPart.text.contains("<task state=\"running\">"))
+        assertTrue(textPart.text.contains("workflow: adversarial-verification"))
+        assertTrue(!textPart.text.contains("id="))
+    }
+
+    @Test
+    fun `workflow run end maps to synthetic completed notification`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            json.parseToJsonElement(
+                """{"type":"tool-workflow/run-end","seq":90,"time":1788110009000,"data":{"runId":"wf_audit_1","stopReason":"completed"}}"""
+            ).jsonObject,
+        )
+        val events = eventsOf(mapped)
+        val updated = events[0] as SseEvent.MessageUpdated
+        assertEquals("dsh-workflow-wf_audit_1", updated.info.id)
+        val part = (events[1] as SseEvent.MessagePartUpdated).part as Part.Text
+        assertTrue(part.text.contains("state=\"completed\""))
+        assertTrue(part.text.contains("<task_result>completed</task_result>"))
+    }
+
+    @Test
+    fun `workflow run end non completed stop reason maps to error state`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            json.parseToJsonElement(
+                """{"type":"tool-workflow/run-end","seq":91,"time":1788110010000,"data":{"runId":"wf_audit_2","stopReason":"error"}}"""
+            ).jsonObject,
+        )
+        val part = (eventsOf(mapped)[1] as SseEvent.MessagePartUpdated).part as Part.Text
+        assertTrue(part.text.contains("state=\"error\""))
+        assertTrue(part.text.contains("<task_result>error</task_result>"))
+    }
+
+    @Test
+    fun `workflow malformed run start without runId is ignored malformed`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            json.parseToJsonElement(
+                """{"type":"tool-workflow/run-start","seq":61,"time":1,"data":{"name":"orphan"}}"""
+            ).jsonObject,
+        )
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED)), mapped)
+    }
+
+    // ============ 2026-09-01（Task 3c）：file/image ContentBlock → Part.File ============
+
+    @Test
+    fun `user message image block maps to Part File`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            json.parseToJsonElement(
+                """{"type":"user/message","seq":12,"time":1788109999000,"data":{"content":[{"type":"image","attachment":{"attachmentId":"att_1","mediaType":"image/png","bytes":1234,"width":800,"height":600,"name":"shot.png"}}]}}"""
+            ).jsonObject,
+        )
+        val file = eventsOf(mapped)[1] as SseEvent.MessagePartUpdated
+        val f = file.part as Part.File
+        assertEquals("seq-12_file_ord_0", f.id)
+        assertEquals("image/png", f.mime)
+        assertEquals("shot.png", f.filename)
+        assertNull(f.url)
+        assertNotNull(f.source) // attachment 保真（后继 session.attachment 接线）
+    }
+
+    @Test
+    fun `assistant message file block maps to Part File with url passthrough`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            json.parseToJsonElement(
+                """{"type":"assistant/message","seq":30,"time":1788109999000,"data":{"turn":1,"step":2,"message":{"content":[{"type":"file","mime":"application/pdf","filename":"spec.pdf","url":"https://x/spec.pdf"}]}}}"""
+            ).jsonObject,
+        )
+        val parts = eventsOf(mapped).filterIsInstance<SseEvent.MessagePartUpdated>()
+        val f = parts.single().part as Part.File
+        assertEquals("seq-30_file_ord_0", f.id)
+        assertEquals("application/pdf", f.mime)
+        assertEquals("spec.pdf", f.filename)
+        assertEquals("https://x/spec.pdf", f.url)
+    }
+
+    @Test
+    fun `file block without mime falls back octet stream`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            json.parseToJsonElement(
+                """{"type":"user/message","seq":13,"time":1788109999000,"data":{"content":[{"type":"file","filename":"blob.bin"}]}}"""
+            ).jsonObject,
+        )
+        val f = (eventsOf(mapped)[1] as SseEvent.MessagePartUpdated).part as Part.File
+        assertEquals("application/octet-stream", f.mime)
+        assertEquals("blob.bin", f.filename)
+    }
+
+    @Test
+    fun `workflow agent start and end stay ignored - phase details deferred`() {
+        listOf("tool-workflow/agent-start", "tool-workflow/agent-end").forEach { type ->
+            val mapped = DshEventMapper.mapSessionEvent(
+                "s1",
+                json.parseToJsonElement(
+                    """{"type":"$type","seq":70,"time":1,"data":{"runId":"wf_audit_1","seq":1,"label":"audit","outcome":"completed"}}"""
+                ).jsonObject,
+            )
+            assertEquals("$type", listOf(DshMappedEvent.Ignored(DshIgnoreReason.WORKFLOW_AGENT)), mapped)
+        }
     }
 }

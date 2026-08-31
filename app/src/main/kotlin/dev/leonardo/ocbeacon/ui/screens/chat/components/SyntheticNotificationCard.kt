@@ -91,12 +91,15 @@ internal fun SyntheticNotificationCard(
     val unknownIcon = Icons.Outlined.Info
 
     // Q7 i18n 标签（chat_event_* 新家族）
+    // 2026-09-01（Task 3b 降级卡）：state="running"（DSH workflow run-start 信封）
+    // 走 generic 标签——不误标"完成"；workflow 阶段卡落地后由专属标签接管。
     val labelBase = when {
         info == null -> stringResource(R.string.chat_event_generic)
         isFailed -> stringResource(
             if (info.source == "shell") R.string.chat_event_shell_failed
             else R.string.chat_event_task_failed
         )
+        info.state == "running" -> stringResource(R.string.chat_event_generic)
         else -> stringResource(
             if (info.source == "shell") R.string.chat_event_shell_completed
             else R.string.chat_event_task_completed

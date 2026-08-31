@@ -905,6 +905,8 @@ fun ChatScreen(
                         // #252：V2 会话级 shell 对话流内嵌卡（TUI 语义）
                         sessionShellJobs = taskUi.shells,
                         shellOutputProvider = shellOutputResolver,
+                        // 2026-09-01（Task 3d）：DSH 后台任务降级 Shell 卡（session/jobs 快照）
+                        dshJobs = taskUi.dshJobs,
                         // 2026-09-01（B1 链）：内容检索跳转目标消息（打开即异步定位）
                         initialJumpTarget = initialJumpToMessageId,
                         modifier = Modifier.fillMaxSize(),

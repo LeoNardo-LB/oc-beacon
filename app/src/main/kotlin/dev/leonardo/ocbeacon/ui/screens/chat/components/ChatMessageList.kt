@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Info
@@ -185,6 +186,12 @@ fun ChatMessageList(
     shellOutputProvider: (dev.leonardo.ocbeacon.domain.model.ShellJob) -> String? = { null },
     /** 2026-09-01（B1 链）：打开即定位目标消息 id（内容检索跳转）——种子 pendingJumpTarget。 */
     initialJumpTarget: String? = null,
+    /**
+     * 2026-09-01（Task 3d）：DSH 后台任务降级 Shell 卡数据源（session/jobs 整快照
+     * JobView）——kind/label/status/detail 先行，command/output 留空（DSH 无命令
+     * 输出源，如实降级）；非 DSH 会话恒空。
+     */
+    dshJobs: List<dev.leonardo.ocbeacon.domain.model.JobView> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     // #137（D2-L50）：工具卡片复制反馈统一 Snackbar 通道（ToolCardScaffold 原用 Toast）
@@ -987,6 +994,20 @@ fun ChatMessageList(
                     // #252 时间线化（2026-08-28）：钉底 shell 横幅退役——shell 通知卡
                     // 改由消息流按时间线渲染（ChatEntry.Turn 的 role='shell' 特判，
                     // 数据源 Part.Shell 载荷），新消息自动顶上去（主对话流语义）。
+
+                    // 2026-09-01（Task 3d）：DSH 后台任务降级 Shell 卡——session/jobs
+                    // 整快照（last-wins）按当前运行状态钉底渲染（kind/label/status/
+                    // detail；DSH 无命令/输出源 → command/output 留空）。先声明 = 视觉
+                    // 底部（reverseLayout）。终态任务随快照自然移除（官方 jobs 语义）。
+                    if (dshJobs.isNotEmpty()) {
+                        dshJobs.forEach { job ->
+                            item(key = "dsh_job_" + job.id) {
+                                Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                    DshJobTimelineCard(job = job, expandedStates = eventCardExpandedStates)
+                                }
+                            }
+                        }
+                    }
 
                     // Revert 横幅（#276：DSH 无 revert 域——revert 态永不为真，
                     // 能力位兜底门控）
@@ -1793,6 +1814,46 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
 // 注入通道设计存档 journal §验收反馈·一 供未来复用。
 
 // 预解析/分片调参常量已随渲染供给协调器外移 RenderSupplyCoordinator.companion（候选 1）。
+
+/** 任务状态 → 既有 dsh_job_status_* 文案（Task 3d 降级 Shell 卡；零新增 i18n）。 */
+@Composable
+private fun dshJobStatusLabel(status: String): String = stringResource(
+    when (status) {
+        dev.leonardo.ocbeacon.domain.model.JobView.STATUS_RUNNING -> R.string.dsh_job_status_running
+        dev.leonardo.ocbeacon.domain.model.JobView.STATUS_STOPPING -> R.string.dsh_job_status_stopping
+        dev.leonardo.ocbeacon.domain.model.JobView.STATUS_KILLED -> R.string.dsh_job_status_killed
+        dev.leonardo.ocbeacon.domain.model.JobView.STATUS_FAILED -> R.string.dsh_job_status_failed
+        else -> R.string.dsh_job_status_completed
+    }
+)
+
+/**
+ * DSH 后台任务降级 Shell 卡（2026-09-01 Task 3d）：session/jobs 整快照 JobView →
+ * 既有统一事件卡（EventCard）视觉。kind/label/status/detail 先行，command/output
+ * 留空（DSH 无命令输出源，如实降级）；失败/被杀破色（failed 语义同既有 shell/task 卡）。
+ */
+@Composable
+private fun DshJobTimelineCard(
+    job: dev.leonardo.ocbeacon.domain.model.JobView,
+    expandedStates: MutableMap<String, Boolean>,
+) {
+    val failed = job.status == dev.leonardo.ocbeacon.domain.model.JobView.STATUS_FAILED ||
+        job.status == dev.leonardo.ocbeacon.domain.model.JobView.STATUS_KILLED
+    EventCard(
+        eventKey = "dsh_job_" + job.id,
+        timeMs = job.startedAt,
+        label = dshJobStatusLabel(job.status),
+        leadingIcon = if (job.kind == "subagent") Icons.Filled.AccountTree else Icons.Filled.Terminal,
+        failed = failed,
+        // 描述行：kind · label · detail（Q15 槽位——数据在才显示；无命令/输出）
+        description = listOfNotNull(
+            job.kind.takeIf { it.isNotBlank() },
+            job.label.takeIf { it.isNotBlank() },
+            job.detail?.takeIf { it.isNotBlank() },
+        ).joinToString(" · ").takeIf { it.isNotBlank() },
+        expandedStates = expandedStates,
+    )
+}
 
 /**
  * 跳转定位 loading 蒙版（2026-08-21 D-11-2 从主体下沉为小组件）：

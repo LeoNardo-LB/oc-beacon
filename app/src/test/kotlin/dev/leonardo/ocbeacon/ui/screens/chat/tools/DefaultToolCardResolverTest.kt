@@ -67,6 +67,24 @@ class DefaultToolCardResolverTest {
     }
 
     @Test
+    fun `resolves subagent_fork tool (Task 3a)`() {
+        val result = resolver.resolve(testTool("subagent_fork"), false, {}, null, null)
+        assertNotNull("subagent_fork should resolve to TaskToolCard", result)
+    }
+
+    @Test
+    fun `resolves camelCase subagentFork tool (Task 3a)`() {
+        val result = resolver.resolve(testTool("subagentFork"), false, {}, null, null)
+        assertNotNull("subagentFork (camelCase) should resolve", result)
+    }
+
+    @Test
+    fun `resolves fork tool (Task 3a)`() {
+        val result = resolver.resolve(testTool("fork"), false, {}, null, null)
+        assertNotNull("fork should resolve", result)
+    }
+
+    @Test
     fun `returns null for unknown tool`() {
         val result = resolver.resolve(testTool("unknown_tool_xyz"), false, {}, null, null)
         assertNull("unknown tool should not resolve", result)

@@ -442,10 +442,16 @@ object DshEventMapper {
             "llm/failover" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LLM_FAILOVER))
             "session/title-llm-request" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LOG_ONLY))
             "hook/invoked", "hook/result",
-            "team/task", "team/member", "team/message/delivered", "team/message/queued",
-            "tool-workflow/run-start", "tool-workflow/agent-start",
-            "tool-workflow/agent-end", "tool-workflow/run-end" ->
+            "team/task", "team/member", "team/message/delivered", "team/message/queued" ->
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.PLUGIN_DOMAIN))
+            // 2026-09-01（Task 3b 卡片缺口）：workflow-run 降级卡——run-start/run-end
+            // 映射为 synthetic 任务信封（同 runId 同宿主消息 id → 原位更新：running →
+            // completed/error 单卡）；agent-start/end 是阶段明细（workflow 阶段卡
+            // 后续增强），维持 Ignored 防逐成员刷卡。
+            "tool-workflow/run-start" -> mapWorkflowRunStart(sessionId, time, data)
+            "tool-workflow/run-end" -> mapWorkflowRunEnd(sessionId, time, data)
+            "tool-workflow/agent-start", "tool-workflow/agent-end" ->
+                listOf(DshMappedEvent.Ignored(DshIgnoreReason.WORKFLOW_AGENT))
 
             // ---- Mux 帧类型混入历史行（B.4 防御）：session/projection|jobs|queue、
             //      stream/error 是 WS 帧面而非 SessionEvent——历史重放/翻页若出现
@@ -500,6 +506,10 @@ object DshEventMapper {
                         )
                     )
                 )
+                // 2026-09-01（Task 3c 卡片缺口）：file/image ContentBlock → Part.File
+                //（实况日志 829 例 user/message image 块此前被整块丢弃；图片渲染走既有
+                // Part.File 链——DSH attachment 字节拉取留待 session.attachment 接线）。
+                "file", "image" -> events += mapFileBlock(sessionId, id, i, block)
                 else -> AppLogger.w(TAG, "user/message 未支持的内容块类型: " + block.str("type"))
             }
         }
@@ -574,6 +584,9 @@ object DshEventMapper {
                 // E2E 实证（1192 例）：tool-call/tool-result 块是核心 ContentBlock 的冗余镜像——
                 // 工具卡真源 = tool/call|result 事件对（会话 B 实证渲染正常）。静默确认防重复卡。
                 "tool-call", "tool-result" -> Unit
+                // 2026-09-01（Task 3c 卡片缺口）：file/image ContentBlock → Part.File
+                //（与 user/message 同款；DSH attachment 字节拉取留待 session.attachment 接线）。
+                "file", "image" -> events += mapFileBlock(sessionId, id, i, block)
                 else -> AppLogger.w(TAG, "assistant/message 未支持的内容块: " + block.str("type"))
             }
         }
@@ -649,6 +662,92 @@ object DshEventMapper {
             )
         )
     }
+
+    /**
+     * ContentBlock file/image → Part.File（2026-09-01 Task 3c）。
+     *
+     * DSH 图片块形态：{type:"image", attachment:{attachmentId, mediaType, bytes,
+     * width, height, name?}}（dsh-llm ImageBlock）；file 块兼容 {type:"file",
+     * mime, filename, url?}。mime 回退链：块 mime → attachment.mediaType →
+     * octet-stream；source 保真 attachment/原文供后续 session.attachment 接线
+     *（url 为 null 时既有图片缩略图链不渲染——字节拉取 = 后续任务，数据不再丢）。
+     */
+    private fun mapFileBlock(sessionId: String, msgId: String, index: Int, block: JsonObject): DshMappedEvent.Sse {
+        val attachment = block.obj("attachment")
+        val mime = block.str("mime") ?: attachment?.str("mediaType") ?: "application/octet-stream"
+        val filename = block.str("filename") ?: attachment?.str("name")
+        val url = block.str("url")
+        return DshMappedEvent.Sse(
+            SseEvent.MessagePartUpdated(
+                Part.File(
+                    id = PartIdContract.derive(msgId, "file", index.toLong()),
+                    sessionId = sessionId,
+                    messageId = msgId,
+                    mime = mime,
+                    filename = filename,
+                    url = url,
+                    source = attachment ?: block["source"],
+                )
+            )
+        )
+    }
+
+    /** workflow 卡宿主消息 id（runId 键控——start/end 原位更新同一卡）。 */
+    private fun workflowMessageId(runId: String): String = "dsh-workflow-" + runId
+
+    /**
+     * tool-workflow/run-start {runId, name} → synthetic 运行中卡（降级）。
+     *
+     * 信封无 id 属性：runId 非会话 id，给箭头会让子会话导航误触（#242 守卫落空
+     * 静默拦）。state=running → SyntheticNotificationCard 走 generic 标签（避免
+     * 误标"完成"）；run-end 同宿主 id 原位替换为终态。
+     */
+    private fun mapWorkflowRunStart(sessionId: String, time: Long, data: JsonObject): List<DshMappedEvent> {
+        val runId = data.str("runId")
+            ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+        val name = data.str("name") ?: ""
+        val summary = if (name.isBlank()) "workflow: " + runId else "workflow: " + name
+        val text = "<task state=\"running\"><summary>" + xmlEscape(summary) + "</summary></task>"
+        return syntheticNotificationEvents(sessionId, workflowMessageId(runId), time, text)
+    }
+
+    /**
+     * tool-workflow/run-end {runId, stopReason: completed|cancelled|error} →
+     * synthetic 终态卡（completed → completed；cancelled/error → error 破色）。
+     */
+    private fun mapWorkflowRunEnd(sessionId: String, time: Long, data: JsonObject): List<DshMappedEvent> {
+        val runId = data.str("runId")
+            ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+        val stopReason = data.str("stopReason") ?: "completed"
+        val state = if (stopReason == "completed") "completed" else "error"
+        val text = "<task state=\"" + state + "\"><summary>workflow: " + xmlEscape(runId) + "</summary>" +
+            "<task_result>" + xmlEscape(stopReason) + "</task_result></task>"
+        return syntheticNotificationEvents(sessionId, workflowMessageId(runId), time, text)
+    }
+
+    /** synthetic 通知消息装配：MessageUpdated 壳 + text part（消息/part id 确定性——原位更新）。 */
+    private fun syntheticNotificationEvents(sessionId: String, id: String, time: Long, text: String): List<DshMappedEvent> = listOf(
+        DshMappedEvent.Sse(
+            SseEvent.MessageUpdated(
+                Message.User(id = id, sessionId = sessionId, role = "synthetic", time = TimeInfo(created = time))
+            )
+        ),
+        DshMappedEvent.Sse(
+            SseEvent.MessagePartUpdated(
+                Part.Text(
+                    id = PartIdContract.derive(id, "text", 0),
+                    sessionId = sessionId,
+                    messageId = id,
+                    text = text,
+                    time = Part.Text.Time(start = time, end = time),
+                )
+            )
+        ),
+    )
+
+    /** synthetic 信封 XML 转义（summary/task_result 内的 & < > " 保真）。 */
+    private fun xmlEscape(s: String): String =
+        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
     /** tool-result 内容块文本展平：content[].content[].text 按换行连接。 */
     private fun flattenToolResultOutput(message: JsonObject?): String {
@@ -935,8 +1034,11 @@ object DshIgnoreReason {
     /** llm/failover 提供商切换（E2E 实证曾致拒绝重建，2026-08-31 收编）。 */
     const val LLM_FAILOVER = "llm-failover"
 
-    /** 插件域事件（hook/team/tool-workflow——known-49 收尾）。 */
+    /** 插件域事件（hook/team——known-49 收尾）。 */
     const val PLUGIN_DOMAIN = "plugin-domain"
+
+    /** tool-workflow agent-start/end 阶段明细（阶段卡后续增强，防逐成员刷卡）。 */
+    const val WORKFLOW_AGENT = "workflow-agent"
 
     /** 未知类型但信封带 ignorable:true（旗标权威，E2E 后兑现）。 */
     const val IGNORABLE_FLAG = "ignorable-flag"

@@ -68,6 +68,17 @@ class DefaultToolCardResolver @Inject constructor() : ToolCardResolver {
         "subagent" to { tool, expanded, toggle, viewSub, agentName, _ ->
             { TaskToolCard(tool = tool, onViewSubSession = viewSub, turnAgentName = agentName, isExpanded = expanded, onToggleExpand = toggle) }
         },
+        // 2026-09-01（Task 3a 卡片缺口）：subagent 续派变体——fork 继承对话（
+        // DSH/subagent_fork、V2 subagentFork）；复用 TaskToolCard（描述/输出/跳转同构）。
+        "subagent_fork" to { tool, expanded, toggle, viewSub, agentName, _ ->
+            { TaskToolCard(tool = tool, onViewSubSession = viewSub, turnAgentName = agentName, isExpanded = expanded, onToggleExpand = toggle) }
+        },
+        "subagentfork" to { tool, expanded, toggle, viewSub, agentName, _ ->
+            { TaskToolCard(tool = tool, onViewSubSession = viewSub, turnAgentName = agentName, isExpanded = expanded, onToggleExpand = toggle) }
+        },
+        "fork" to { tool, expanded, toggle, viewSub, agentName, _ ->
+            { TaskToolCard(tool = tool, onViewSubSession = viewSub, turnAgentName = agentName, isExpanded = expanded, onToggleExpand = toggle) }
+        },
         "webfetch" to { tool, expanded, toggle, _, _, _ ->
             { WebFetchToolCard(tool = tool, isExpanded = expanded, onToggleExpand = toggle) }
         },
