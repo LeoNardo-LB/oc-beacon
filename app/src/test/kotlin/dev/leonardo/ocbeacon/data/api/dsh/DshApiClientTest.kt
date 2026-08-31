@@ -400,6 +400,34 @@ class DshApiClientTest {
         assertTrue(client(engine).listAgentPresets(conn).isEmpty())
     }
 
+    /**
+     * 2026-09-01（走查后修复批·steer 实测发现）：wire 方法名必须是 **session.updateQueue**
+     * （服务器方法面 session.<域>.<动作>）——原 "updateQueue" 直发 /api/updateQueue
+     * HTTP 404，QueueDock edit/remove/steer 全部静默失效（走查期「remove 可用」实为
+     * 步边界消费误判）。本测试钉住方法名与载荷形状防回归。
+     */
+    @Test
+    fun `updateQueue posts session-updateQueue method and action payload`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+
+        client(engine).updateQueue(
+            conn,
+            "session-1",
+            "item-1",
+            dev.leonardo.ocbeacon.domain.model.QueueActionKind.STEER,
+            editText = null,
+        )
+
+        val req = captureRequests(engine).single()
+        assertEquals("/api/session.updateQueue", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("session.updateQueue", body["method"]!!.jsonPrimitive.content)
+        val payload = body["payload"]!!.jsonObject
+        assertEquals("session-1", payload["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("item-1", payload["itemId"]!!.jsonPrimitive.content)
+        assertEquals("steer", payload["action"]!!.jsonObject["kind"]!!.jsonPrimitive.content)
+    }
+
     /** 活体（ap-5）：select payload {sessionId, agentPreset}，成功 value={agentPreset}。 */
     @Test
     fun `selectAgentPreset posts select envelope with sessionId and agentPreset`() = runTest {

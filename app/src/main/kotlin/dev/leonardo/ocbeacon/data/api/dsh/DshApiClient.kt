@@ -678,7 +678,11 @@ class DshApiClient @Inject constructor(
                 },
             )
         }
-        return rpc.call(conn, "updateQueue", payload) { Unit }.fold(
+        // 2026-09-01（steer 实测发现）：服务器方法面是 session.<域>.<动作>——
+        // session.updateQueue。原 "updateQueue" 直发 /api/updateQueue HTTP 404，
+        // QueueDock edit/remove/steer 全部静默失效（走查期「remove 可用」实为
+        // 步边界消费误判，真机 logcat Ktor REQUEST 404 + 服务器方法探测定音）。
+        return rpc.call(conn, "session.updateQueue", payload) { Unit }.fold(
             onSuccess = { dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted },
             onFailure = { e ->
                 val code = (e as? DshApiError)?.code
