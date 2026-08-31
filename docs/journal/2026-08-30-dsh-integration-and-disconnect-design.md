@@ -513,3 +513,10 @@
 - **真机验证矩阵**（证据 /tmp/dsh-tree-e2e/ 12 项 + /tmp/dsh-feat2/ 60 项，截屏+a11y+服务器侧+像素差分）：树化 3/3（根 label/展开箭头/L2 懒加载缩进/点击直达 d953b6da 裸 UUID——P0 链实证）；权限 4/4（下拉三档/切换/服务器三事件/恢复）；token 弹窗（入口 chip→子代理区累计 2.5M）；jobs（本会话实造 sleep 90 后台任务 → Shell(1)+bash 徽章+mono label+运行中走时——验证用会话 session-a6c42dd8 即本会话自身）；预设 5/5（4 卡渲染/select 服务器落地/卡片保持/像素高亮 [62,66,69]→[51,95,117]/换档 cordis）；详情标签 PTC 模式；设置两行（默认权限+默认预设）。
 - **实现代理故障记录**：jobs/指标首代理与续作代理接连无报文失败（34 文件半成品，编译通过）——委派方接管收尾：17 处 EventDispatcher/ChatViewModel 测试构造点补参（dshJobsHandler/dshJobsStore）+ TaskAggregatorJobsBranchingTest 的 runTest-returns-Unit 语义错误修复。
 - **遗留观察**：① executeCommand 3 参重载致既有降级测试语义轻微漂移（断言仍真，非 bug）② 设置页档位固定 3 档回退（settings schema enum 动态化为增强候选）③ projection 活跃时长依赖帧到达时机（静默会话显示 0ms，事件驱动语义内）④ V2 树本地递归无真机样本（该 V2 服务器 50 会话零 parent 字段，单测覆盖维持）⑤ 测试用 blank 会话残留在服务器（列表天然隐藏，无 delete RPC 可清）。
+
+## 10. DSH 全按钮走查收官（2026-09-01，goal-a2953002）
+
+- 终版报告 docs/qa/2026-08-31-dsh-full-walkthrough.md（c03200e0）+ 按钮清单 inventory（81addaa3）；23 轮四维证据走查（/tmp/dsh-wt/ 52 组）。
+- 四根因闭环：#1 跳转互搏=程序化滚动不置 isScrollInProgress 被 GUARD 重锚误判→视口所有权模型（459025b3）；#2 错误悬浮→对齐 Web 转录内行（d5bf5898）；#3 斜杠 OpenCode 幻影命令→服务器面优先（9a384fda）；#5 goal 折叠孤岛=EventDispatcher 漏注册（25e2a60c，一修双愈）。
+- 撤销 #4（测试误触）。外部阻塞：DSH 欠费——写 case 批（QueueDock 实造/goal 轮/workflow·file·jobs 卡 live/预设竞态/卡片联动 RB-EXP 取证）待充值补测，方法已定型（报告 D 节）。
+- 事故与纪律：三代理同树互 wipe（协议 git checkout -- 破坏力+read 46KB 截断+唯一执行者令）；代理深研型停滞 2 例（2h 零写入判据中断接管）。
