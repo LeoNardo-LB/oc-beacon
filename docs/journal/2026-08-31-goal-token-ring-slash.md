@@ -90,3 +90,20 @@
 - assembleDevDebug 门：通过（APK 产出）
 - i18n：`bash scripts/i18n-check.sh`（PASSED）；backlog：`bash scripts/backlog-check.sh`（通过）
 - 真机验证项（归委派方）：GoalSheet 交互、环显示、斜杠补全——见 §1.3/§2.3/§3.3 待验证清单。
+## 7. 全树收尾（2026-09-01 执行权裁决：B1 两组 + D1③ 补齐落盘）
+
+- 主 checkout 勘察定论：B1 两组滞留件（send-error 链 + 内容检索跳转链）此前被并发 reset 抹除后未恢复—
+  content 检索链 jumpToMessageId/ContentHitNavigation 全缺失，send-error 链仅剩旧 onSessionError 回调；
+  按用户裁决由唯一执行者按清单补齐，各自独立 commit：
+- 9f30c4e2 fix: DSH 会话运行失败应用内暴露（host/agent-error 键失配 + 会话错误弹窗）：
+  · DshEventMapper host/agent-error 载荷键 message→error 逐键回退（真实现键为 message，旧 error 对象兼容）；
+  · SessionEventHandler sessionErrorEvents 广播 + D1③ sessionErrors 持久错误卡 StateFlow（末条去重）+ dismiss/clear；
+  · EventDispatcher 转发；ChatViewModel sessionErrorEvent→sendFailure 弹窗 + sendMessage 成功清卡 + sessionErrors 暴露；
+  · ChatScreen SessionErrorCard 浮层（新组件）+ 单测 2（记录/dedup/dismiss/clear）
+- 3662115c fix: 内容检索命中携带 messageId 跳转定位（ChatNav jumpToMessageId 线程）：
+  · ContentHitNavigation（rank 最优命中 → sessionId/messageId + chatRoute 构建）+ ChatNav.jumpToMessageId 参数；
+  · SessionList 命中行携带 messageId；ChatMessageList initialJumpTarget 种子（走既有 loadAround 异步跳转）；
+  · ChatScreen/NavGraph 贯穿；测试 8（ContentHitNavigationTest 5 + ChatNavTest 3）
+- 最终验证（master @ 3662115c）：全量单测 **2467 tests / 0 failures / 0 errors**；assembleDevDebug 成功；
+  i18n 手检 759×14 missing/orphan 全 0（脚本本轮 grep -P UTF 性能超时——内容级完整已独立复核）；backlog-check 通过。
+- master 共 8 commits：e5581a36 后 163b029d/2e4a4d58/8b47a40d/96d2930f（三任务）+ 9f30c4e2/3662115c（B1 两组）+ 86ad9c12。
