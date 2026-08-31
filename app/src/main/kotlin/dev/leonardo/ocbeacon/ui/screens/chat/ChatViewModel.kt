@@ -36,6 +36,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
+import dev.leonardo.ocbeacon.service.ServerLinkState
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -99,6 +100,8 @@ class ChatViewModel @Inject constructor(
     private val pendingMessagePipeline: dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline,
     // #271：首开自动 drain 全量历史（HistorySyncManager 唯一所有者；已 synced / 进行中时 no-op）
     private val historySyncManager: dev.leonardo.ocbeacon.data.repository.HistorySyncManager,
+    // #267：连接三态真源（断连条幅 + 写操作快速失败守卫，spec docs/specs/2026-08-30-server-disconnect-gating-design.md）
+    private val sseConnectionManager: dev.leonardo.ocbeacon.service.SseConnectionManager,
 ) : ViewModel() {
 
     // ============ 工具快照缓存（已提取到 ToolCacheDelegate） ============
@@ -112,6 +115,23 @@ class ChatViewModel @Inject constructor(
     val chatRepositoryExposed: ChatRepository get() = chatRepository
 
     private val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
+
+    // ============ #267 服务器断连可感知（spec §3.2/§3.3） ============
+
+    /** 本会话所属服务器的连接三态（条幅消费；初值取快照避免冷启动闪断感）。 */
+    val serverLinkState: StateFlow<ServerLinkState> =
+        sseConnectionManager.observeLinkState(serverId)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), sseConnectionManager.linkState(serverId))
+
+    /**
+     * #267 写操作快速失败哨兵——[sendFailure] 消费端（ChatScreen AlertDialog）
+     * 据此映射本地化文案（VM 无 stringResource）。检测滞后由 UI 侧映射兜底。
+     */
+    private fun fastFailIfLinkBlocked(): Boolean {
+        if (sseConnectionManager.linkState(serverId) == ServerLinkState.Connected) return false
+        _sendFailure.value = SEND_FAIL_SERVER_DISCONNECTED
+        return true
+    }
 
     // ============ 服务器配置异步加载（backlog #38：消除构造期主线程 runBlocking） ============
     // 构造期不再 runBlocking 等待 Room 读取；改为 init 中 viewModelScope.launch 异步加载，
@@ -1112,11 +1132,17 @@ class ChatViewModel @Inject constructor(
         draftDelegate = draftDelegate,
     )
 
-    fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) =
+    // #267：断连快速失败——不发请求（OkHttp retryOnConnectionFailure 会悬挂
+    // 15s+），草稿自然保留（sendDelegate 未执行，输入框不清空）。
+    fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) {
+        if (fastFailIfLinkBlocked()) return
         sendDelegate.sendMessage(text, attachments)
+    }
 
-    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String) =
+    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String) {
+        if (fastFailIfLinkBlocked()) return
         sendDelegate.sendMessage(promptParts, attachments, rawText)
+    }
 
     // ============ 权限/问题回复（门面 —— SessionActionsDelegate） ============
 
@@ -1170,8 +1196,10 @@ class ChatViewModel @Inject constructor(
     fun unshareSession(onResult: (Boolean) -> Unit) =
         sessionActions.unshareSession(onResult)
 
-    fun compactSession(onResult: (Boolean) -> Unit) =
+    fun compactSession(onResult: (Boolean) -> Unit) {
+        if (fastFailIfLinkBlocked()) return  // #267：断连快速失败
         sessionActions.compactSession(onResult)
+    }
 
     fun exportSession(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean) -> Unit) =
         sessionActions.exportSession(context, uri, onResult)
@@ -1244,8 +1272,10 @@ class ChatViewModel @Inject constructor(
     fun onSessionUpdated(session: Session) =
         sessionActions.onSessionUpdated(session)
 
-    fun forkSession(onResult: (Session?) -> Unit) =
+    fun forkSession(onResult: (Session?) -> Unit) {
+        if (fastFailIfLinkBlocked()) return  // #267：断连快速失败（不回调——对话框已给反馈）
         sessionActions.forkSession(onResult)
+    }
 
     fun renameSession(title: String, onResult: (Boolean) -> Unit) =
         sessionActions.renameSession(title, onResult)
@@ -1295,5 +1325,8 @@ class ChatViewModel @Inject constructor(
         /** #182：Task 卡片全量输出翻页拉取——单页条数与页数上限（老卡片防漏）。 */
         private const val TASK_FETCH_PAGE_LIMIT = 50
         private const val TASK_FETCH_MAX_PAGES = 10
+
+        /** #267：写操作快速失败哨兵（sendFailure 通道复用；UI 映射本地化文案）。 */
+        const val SEND_FAIL_SERVER_DISCONNECTED = "__server_disconnected__"
     }
 }

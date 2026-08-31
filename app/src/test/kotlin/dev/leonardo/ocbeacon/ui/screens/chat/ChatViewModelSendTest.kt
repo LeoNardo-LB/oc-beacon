@@ -138,6 +138,13 @@ class ChatViewModelSendTest {
         time = dev.leonardo.ocbeacon.domain.model.Session.Time(created = 1000L, updated = 2000L)
     )
 
+    // #267：连接三态真源——显式 Connected 桩（relaxed 默认会产出 mock 实例，
+    // != Connected → 既有发送/删除用例会被快速失败守卫误拦）
+    private val sseConnectionManager = io.mockk.mockk<dev.leonardo.ocbeacon.service.SseConnectionManager>(relaxed = true).also {
+        io.mockk.every { it.linkState(any()) } returns dev.leonardo.ocbeacon.service.ServerLinkState.Connected
+        io.mockk.every { it.observeLinkState(any()) } returns kotlinx.coroutines.flow.flowOf(dev.leonardo.ocbeacon.service.ServerLinkState.Connected)
+    }
+
     private fun createViewModel(): ChatViewModel {
         val savedState = SavedStateHandle(mapOf(
             "serverUrl"  to "http://localhost:8080",
@@ -149,6 +156,7 @@ class ChatViewModelSendTest {
         ))
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         return ChatViewModel(
+            sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedState,
             sendMessageUseCase = sendMessageUseCase,
             manageSessionUseCase = manageSessionUseCase,
@@ -216,6 +224,48 @@ class ChatViewModelSendTest {
     }
 
     // ========== 悲观消息语义（Task 7） ==========
+
+    // ========== #267 断连快速失败（spec §3.3） ============
+
+    /**
+     * #267：断连下 sendMessage 快速失败——零网络请求（sendMessageUseCase 不被
+     * 调用）+ 哨兵进 sendFailure 通道 + 草稿天然保留（clearDraft 不被调用）。
+     */
+    @Test
+    fun `sendMessage fast-fails when server disconnected without network request`() = runTest {
+        every { sseConnectionManager.linkState("test-server") } returns
+            dev.leonardo.ocbeacon.service.ServerLinkState.Disconnected
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.sendMessage("Hello while offline")
+        runCurrent()
+
+        io.mockk.coVerify(exactly = 0) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) }
+        org.junit.Assert.assertEquals(
+            ChatViewModel.SEND_FAIL_SERVER_DISCONNECTED,
+            viewModel.sendFailure.value,
+        )
+        io.mockk.coVerify(exactly = 0) { draftRepository.clearDraft(any()) }
+    }
+
+    /** #267：Connecting（重连退避）同样快速失败——用户心智统一「未连接」。 */
+    @Test
+    fun `sendMessage fast-fails when server reconnecting`() = runTest {
+        every { sseConnectionManager.linkState("test-server") } returns
+            dev.leonardo.ocbeacon.service.ServerLinkState.Connecting
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.sendMessage("Hello while reconnecting")
+        runCurrent()
+
+        io.mockk.coVerify(exactly = 0) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) }
+        org.junit.Assert.assertEquals(
+            ChatViewModel.SEND_FAIL_SERVER_DISCONNECTED,
+            viewModel.sendFailure.value,
+        )
+    }
 
     @Test
     fun `isSending flips during send and clears after REST accepted`() = runTest {

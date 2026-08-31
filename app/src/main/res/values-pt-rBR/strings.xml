@@ -771,4 +771,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_edit_hint">Editar mensagem na fila</string>
     <string name="queue_steer_unavailable">Direcionar só está disponível enquanto a sessão está em execução</string>
     <string name="queue_action_failed">A ação da fila falhou</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Servidor desconectado, reconectando…</string>
+    <string name="server_link_disconnected_message">Servidor desconectado, operação não enviada</string>
 </resources>

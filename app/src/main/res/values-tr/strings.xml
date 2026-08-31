@@ -771,4 +771,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_edit_hint">Sıradaki mesajı düzenle</string>
     <string name="queue_steer_unavailable">Yönlendirme yalnızca oturum çalışırken kullanılabilir</string>
     <string name="queue_action_failed">Sıra işlemi başarısız oldu</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Sunucu bağlantısı kesildi, yeniden bağlanıyor…</string>
+    <string name="server_link_disconnected_message">Sunucu bağlı değil, işlem gönderilmedi</string>
 </resources>

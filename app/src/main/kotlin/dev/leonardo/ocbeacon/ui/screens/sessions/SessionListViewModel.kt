@@ -98,6 +98,8 @@ class SessionListViewModel @Inject constructor(
     private val messageFtsIndex: dev.leonardo.ocbeacon.data.local.MessageFtsIndex,
     // #271：历史全量同步（drain 状态机 + 长按菜单手动触发/取消）
     private val historySyncManager: dev.leonardo.ocbeacon.data.repository.HistorySyncManager,
+    // #267：连接三态真源（断连条幅 + 删除/重命名快速失败守卫）
+    private val sseConnectionManager: dev.leonardo.ocbeacon.service.SseConnectionManager,
 ) : ViewModel() {
 
     companion object {
@@ -108,9 +110,26 @@ class SessionListViewModel @Inject constructor(
         /** ChatScreen 在用户发送消息时写入的 SavedStateHandle key；
          * 此 ViewModel 在返回时消费它以将列表滚动回顶部。 */
         const val KEY_SCROLL_TO_TOP = "session_list_scroll_to_top"
+
+        /** #267：写操作快速失败哨兵（error 通道复用；UI 映射本地化文案）。 */
+        const val ERROR_SERVER_DISCONNECTED = "__server_disconnected__"
     }
 
     val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
+
+    // ============ #267 服务器断连可感知 ============
+
+    /** 本列表所属服务器的连接三态（条幅消费）。 */
+    val serverLinkState: kotlinx.coroutines.flow.StateFlow<dev.leonardo.ocbeacon.service.ServerLinkState> =
+        sseConnectionManager.observeLinkState(serverId)
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), sseConnectionManager.linkState(serverId))
+
+    /** #267：写操作（删除/重命名）断连快速失败——不发请求。 */
+    private fun fastFailIfLinkBlocked(): Boolean {
+        if (sseConnectionManager.linkState(serverId) == dev.leonardo.ocbeacon.service.ServerLinkState.Connected) return false
+        _error.value = ERROR_SERVER_DISCONNECTED
+        return true
+    }
 
     /** #177：会话 → 堆积队列计数（详情对话框「继续发送堆积消息」可见性）。 */
     val pendingCounts: StateFlow<Map<String, Int>> =
@@ -826,6 +845,7 @@ class SessionListViewModel @Inject constructor(
     // ============ 会话操作（删除 / 重命名 / 导入） ============
 
     fun deleteSession(sessionId: String) {
+        if (fastFailIfLinkBlocked()) return  // #267
         viewModelScope.launch {
             try {
                 val result = deleteSessionUseCase(serverId, sessionId)
@@ -846,6 +866,7 @@ class SessionListViewModel @Inject constructor(
     }
 
     fun renameSession(sessionId: String, newTitle: String) {
+        if (fastFailIfLinkBlocked()) return  // #267
         viewModelScope.launch {
             try {
                 manageSessionUseCase.renameSession(serverId, sessionId, newTitle)
@@ -906,6 +927,7 @@ class SessionListViewModel @Inject constructor(
     }
 
     fun deleteSelected() {
+        if (fastFailIfLinkBlocked()) return  // #267
         viewModelScope.launch {
             val ids = _selectedIds.value
             if (ids.isEmpty()) return@launch

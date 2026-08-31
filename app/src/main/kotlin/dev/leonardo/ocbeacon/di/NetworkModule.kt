@@ -19,6 +19,7 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.serialization.kotlinx.json.*
+import dev.leonardo.ocbeacon.data.api.installTransportFailureTap
 import kotlinx.serialization.json.Json
 import javax.inject.Singleton
 
@@ -44,7 +45,11 @@ object NetworkModule {
     
     @Provides
     @Singleton
-    fun provideHttpClient(json: Json): HttpClient = HttpClient(OkHttp) {
+    fun provideHttpClient(
+        json: Json,
+        // #267：传输层失败上拍（Send 管线拦截 → SseConnectionManager 接线消费）
+        transportFailureTap: dev.leonardo.ocbeacon.data.api.TransportFailureTap,
+    ): HttpClient = HttpClient(OkHttp) {
         install(ContentNegotiation) {
             json(json)
         }
@@ -76,6 +81,9 @@ object NetworkModule {
         }
         
         // 默认头将在领域 API 实现中按请求设置
+    }.also {
+        // #267：Send 管线 IOException 上拍（构建后安装——扩展函数以便单测复用）
+        it.installTransportFailureTap(transportFailureTap)
     }
     
     @Provides

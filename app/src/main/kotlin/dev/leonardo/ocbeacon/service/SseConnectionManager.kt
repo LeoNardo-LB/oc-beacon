@@ -26,6 +26,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,6 +79,8 @@ class SseConnectionManager @Inject constructor(
     private val dshConnectionOrchestrator: DshConnectionOrchestrator,
     private val dshFrameSourceFactory: DshFrameSourceFactory,
     private val dshRpcClient: DshRpcClient,
+    // #267：REST 传输层失败上拍（origin → serverId → 踢重连）
+    private val transportFailureTap: dev.leonardo.ocbeacon.data.api.TransportFailureTap,
 ) {
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, exception ->
@@ -112,6 +115,38 @@ class SseConnectionManager @Inject constructor(
         sseClientV2.sequenceTracker = { aggregateId, seq ->
             eventDispatcher.trackSequence(aggregateId, seq)
         }
+        // #267（spec §3.3）：REST 传输失败上拍接线——共享 HttpClient 拦截器
+        // 上报 origin，映射回 serverId 后踢重连（自检式恢复，见 reportTransportFailure）。
+        transportFailureTap.reportFailure = ::onTransportFailureByOrigin
+    }
+
+    // ============ #267 连接三态 + 传输失败回灌 ============
+
+    /** 单服务器连接三态快照（[ServerLinkState.derive] 矩阵）。 */
+    fun linkState(serverId: String): ServerLinkState =
+        ServerLinkState.derive(serverId, _connectedServerIds.value, _connectingServerIds.value)
+
+    /** 单服务器连接三态流（UI 条幅消费）。 */
+    fun observeLinkState(serverId: String): Flow<ServerLinkState> =
+        deriveLinkStateFlow(_connectedServerIds, _connectingServerIds, serverId)
+
+    /**
+     * #267（spec §3.3 检测滞后补刀）：REST 传输层失败回灌——不等 SSE 读循环
+     * 超时。**踢一次重连自检**：服务器健康则秒级恢复 Connected（条幅闪现即
+     * 事实：连接确实被扰动过）；真死则进入既有退避重连循环（条幅常驻正确）。
+     * 不做「仅翻状态」——SSE 若实际存活无人翻回，条幅会错误常驻。
+     * RS-017 守卫天然去重并发上报风暴。
+     */
+    fun reportTransportFailure(serverId: String) {
+        if (!connections.containsKey(serverId)) return
+        AppLogger.w(TAG, "Transport failure reported for server $serverId, kicking reconnect")
+        scope.launch { reconnectServer(serverId) }
+    }
+
+    /** origin（scheme://host:port）→ serverId 反查（不匹配则忽略——非受管主机）。 */
+    private fun onTransportFailureByOrigin(origin: String) {
+        val hit = connections.entries.firstOrNull { it.value.conn.baseUrl == origin } ?: return
+        reportTransportFailure(hit.key)
     }
 
     /**

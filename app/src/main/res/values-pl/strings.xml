@@ -779,4 +779,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_edit_hint">Edytuj oczekującą wiadomość</string>
     <string name="queue_steer_unavailable">Sterowanie dostępne tylko podczas działania sesji</string>
     <string name="queue_action_failed">Akcja kolejki nie powiodła się</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Serwer rozłączony, ponowne łączenie…</string>
+    <string name="server_link_disconnected_message">Serwer rozłączony, operacja nie została wysłana</string>
 </resources>

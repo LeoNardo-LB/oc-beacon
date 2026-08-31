@@ -771,4 +771,7 @@
     <string name="queue_edit_hint">대기 메시지 편집</string>
     <string name="queue_steer_unavailable">유도는 세션이 실행 중일 때만 가능합니다</string>
     <string name="queue_action_failed">대기열 작업 실패</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">서버 연결 끊김, 재연결 중…</string>
+    <string name="server_link_disconnected_message">서버가 연결되지 않아 작업이 전송되지 않았습니다</string>
 </resources>

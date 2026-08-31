@@ -777,4 +777,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_edit_hint">Edit pesan dalam antrean</string>
     <string name="queue_steer_unavailable">Mengarahkan hanya tersedia saat sesi berjalan</string>
     <string name="queue_action_failed">Aksi antrean gagal</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Server terputus, menyambung ulang…</string>
+    <string name="server_link_disconnected_message">Server terputus, operasi tidak terkirim</string>
 </resources>

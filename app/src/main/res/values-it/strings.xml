@@ -771,4 +771,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_edit_hint">Modifica messaggio in coda</string>
     <string name="queue_steer_unavailable">Dirigi disponibile solo mentre la sessione è attiva</string>
     <string name="queue_action_failed">Azione in coda non riuscita</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Server disconnesso, riconnessione…</string>
+    <string name="server_link_disconnected_message">Server disconnesso, operazione non inviata</string>
 </resources>

@@ -109,6 +109,7 @@ class SseConnectionManagerTest {
             dshConnectionOrchestrator = mockk(relaxed = true),
             dshFrameSourceFactory = mockk(relaxed = true),
             dshRpcClient = mockk(relaxed = true),
+            transportFailureTap = dev.leonardo.ocbeacon.data.api.TransportFailureTap(),
         )
 
         val onEventCount = AtomicInteger(0)
@@ -197,6 +198,7 @@ class SseConnectionManagerTest {
             dshConnectionOrchestrator = mockk(relaxed = true),
             dshFrameSourceFactory = mockk(relaxed = true),
             dshRpcClient = mockk(relaxed = true),
+            transportFailureTap = dev.leonardo.ocbeacon.data.api.TransportFailureTap(),
         )
 
         manager.startConnection(testServer()) { _, _ -> }

@@ -774,4 +774,7 @@
     <string name="queue_edit_hint">编辑排队消息</string>
     <string name="queue_steer_unavailable">仅当会话运行中才可引导</string>
     <string name="queue_action_failed">队列操作失败</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">服务器已断开，正在重连…</string>
+    <string name="server_link_disconnected_message">服务器已断开，操作未发送</string>
 </resources>

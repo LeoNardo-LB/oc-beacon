@@ -57,6 +57,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.service.ServerLinkState
+import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.ContentSearchFilterChips
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.DeleteSessionDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.NewSessionQuickDialog
@@ -142,7 +144,13 @@ viewModel.consumePendingReadSessionId()
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
+            Column {
+                // #267：断连常驻细条幅（恢复自动消失）
+                val serverLinkState by viewModel.serverLinkState.collectAsStateWithLifecycle()
+                if (serverLinkState != ServerLinkState.Connected) {
+                    ServerLinkBanner()
+                }
+                TopAppBar(
                 title = {
                     Text(
                         text = shell.serverName.ifEmpty { stringResource(R.string.sessions_title) },
@@ -234,7 +242,8 @@ viewModel.consumePendingReadSessionId()
                         }
                     }
                 },
-            )
+                )
+            }
         },
         bottomBar = {
             NavigationBar {
@@ -396,7 +405,12 @@ viewModel.consumePendingReadSessionId()
                                 }
                                 shell.error != null && content.treeNodes.isEmpty() -> {
                                     SessionListErrorState(
-                                        message = shell.error,
+                                        // #267：断连快速失败哨兵 → 本地化文案（其余原样透传）
+                                        message = if (shell.error == SessionListViewModel.ERROR_SERVER_DISCONNECTED) {
+                                            stringResource(R.string.server_link_disconnected_message)
+                                        } else {
+                                            shell.error
+                                        },
                                         onRetry = { viewModel.loadSessions() }
                                     )
                                 }

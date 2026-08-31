@@ -769,4 +769,7 @@
     <string name="queue_edit_hint">Modifier le message en attente</string>
     <string name="queue_steer_unavailable">Diriger est uniquement disponible pendant que la session tourne</string>
     <string name="queue_action_failed">Échec de l action sur la file d attente</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Serveur déconnecté, reconnexion…</string>
+    <string name="server_link_disconnected_message">Serveur déconnecté, opération non envoyée</string>
 </resources>

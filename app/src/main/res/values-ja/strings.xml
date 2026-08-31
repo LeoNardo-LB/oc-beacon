@@ -771,4 +771,7 @@
     <string name="queue_edit_hint">待機メッセージを編集</string>
     <string name="queue_steer_unavailable">誘導はセッション実行中のみ利用できます</string>
     <string name="queue_action_failed">キュー操作に失敗しました</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">サーバーが切断されました。再接続中…</string>
+    <string name="server_link_disconnected_message">サーバーが切断されているため、操作は送信されませんでした</string>
 </resources>

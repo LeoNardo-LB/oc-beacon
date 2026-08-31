@@ -810,4 +810,7 @@
     <string name="queue_edit_hint">تحرير الرسالة في قائمة الانتظار</string>
     <string name="queue_steer_unavailable">التوجيه متاح فقط أثناء تشغيل الجلسة</string>
     <string name="queue_action_failed">فشل إجراء قائمة الانتظار</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">تم قطع اتصال الخادم، جارٍ إعادة الاتصال…</string>
+    <string name="server_link_disconnected_message">الخادم غير متصل، لم يتم إرسال العملية</string>
 </resources>

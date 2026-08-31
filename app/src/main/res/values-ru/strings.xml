@@ -780,4 +780,7 @@
     <string name="queue_edit_hint">Редактировать сообщение в очереди</string>
     <string name="queue_steer_unavailable">Направление доступно только при работающей сессии</string>
     <string name="queue_action_failed">Ошибка операции с очередью</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Сервер отключён, переподключение…</string>
+    <string name="server_link_disconnected_message">Сервер отключён, операция не отправлена</string>
 </resources>

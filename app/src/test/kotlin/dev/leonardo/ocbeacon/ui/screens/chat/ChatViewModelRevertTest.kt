@@ -191,6 +191,13 @@ class ChatViewModelRevertTest {
         verify(exactly = 0) { chatRepository.clearRevert(any()) }
     }
 
+    // #267：连接三态真源——显式 Connected 桩（relaxed 默认会产出 mock 实例，
+    // != Connected → 既有发送/删除用例会被快速失败守卫误拦）
+    private val sseConnectionManager = io.mockk.mockk<dev.leonardo.ocbeacon.service.SseConnectionManager>(relaxed = true).also {
+        io.mockk.every { it.linkState(any()) } returns dev.leonardo.ocbeacon.service.ServerLinkState.Connected
+        io.mockk.every { it.observeLinkState(any()) } returns kotlinx.coroutines.flow.flowOf(dev.leonardo.ocbeacon.service.ServerLinkState.Connected)
+    }
+
     private fun createViewModel(sessionId: String = testSessionId): ChatViewModel {
         val savedState = SavedStateHandle(mapOf(
             "serverUrl"  to "http://localhost:8080",
@@ -201,6 +208,7 @@ class ChatViewModelRevertTest {
             "sessionId"  to sessionId
         ))
         return ChatViewModel(
+            sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedState,
             sendMessageUseCase = sendMessageUseCase,
             manageSessionUseCase = manageSessionUseCase,

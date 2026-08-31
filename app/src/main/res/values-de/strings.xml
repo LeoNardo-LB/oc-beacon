@@ -771,4 +771,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_edit_hint">Wartende Nachricht bearbeiten</string>
     <string name="queue_steer_unavailable">Steuern ist nur bei laufender Sitzung möglich</string>
     <string name="queue_action_failed">Warteschlangenaktion fehlgeschlagen</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Server getrennt, Verbindung wird wiederhergestellt…</string>
+    <string name="server_link_disconnected_message">Server nicht verbunden, Vorgang nicht gesendet</string>
 </resources>

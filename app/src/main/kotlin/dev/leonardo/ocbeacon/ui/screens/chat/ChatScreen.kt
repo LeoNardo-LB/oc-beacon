@@ -230,6 +230,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
 import dev.leonardo.ocbeacon.ui.screens.chat.components.QueueDock
+import dev.leonardo.ocbeacon.service.ServerLinkState
+import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
@@ -509,7 +511,16 @@ fun ChatScreen(
         AlertDialog(
             onDismissRequest = { viewModel.consumeSendFailure() },
             title = { Text(stringResource(R.string.chat_send_failed_title)) },
-            text = { Text(message) },
+            // #267：断连快速失败哨兵 → 本地化文案（其余保持原样透传）
+            text = {
+                Text(
+                    if (message == ChatViewModel.SEND_FAIL_SERVER_DISCONNECTED) {
+                        stringResource(R.string.server_link_disconnected_message)
+                    } else {
+                        message
+                    }
+                )
+            },
             confirmButton = {
                 TextButton(onClick = { viewModel.consumeSendFailure() }) {
                     Text(stringResource(R.string.ok))
@@ -679,6 +690,11 @@ fun ChatScreen(
         topBar = {
             if (!isTerminalMode) {
                 Column {
+                    // #267：断连常驻细条幅（恢复自动消失，不弹恢复提示）
+                    val serverLinkState by viewModel.serverLinkState.collectAsStateWithLifecycle()
+                    if (serverLinkState != ServerLinkState.Connected) {
+                        ServerLinkBanner()
+                    }
                     ChatTopBar(
                         sessionTitle = sessionMeta.sessionTitle,
                         directory = directory,

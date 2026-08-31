@@ -779,4 +779,7 @@
     <string name="queue_edit_hint">Редагувати повідомлення в черзі</string>
     <string name="queue_steer_unavailable">Спрямування доступне лише під час роботи сесії</string>
     <string name="queue_action_failed">Помилка дії з чергою</string>
+    <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
+    <string name="server_link_disconnected_banner">Сервер від\'їднано, повторне підключення…</string>
+    <string name="server_link_disconnected_message">Сервер від\'їднано, операцію не надіслано</string>
 </resources>

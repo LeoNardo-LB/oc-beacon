@@ -43,6 +43,13 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionListShellStateTest {
 
+    // #267：连接三态真源——显式 Connected 桩（relaxed 默认产出 mock 实例 != Connected，
+    // 删除/重命名用例会被守卫误拦）
+    private val sseConnectionManager = io.mockk.mockk<dev.leonardo.ocbeacon.service.SseConnectionManager>(relaxed = true).also {
+        io.mockk.every { it.linkState(any()) } returns dev.leonardo.ocbeacon.service.ServerLinkState.Connected
+        io.mockk.every { it.observeLinkState(any()) } returns kotlinx.coroutines.flow.flowOf(dev.leonardo.ocbeacon.service.ServerLinkState.Connected)
+    }
+
     private val sessionRepository: SessionRepository = mockk(relaxed = true)
     private val sessionStateRepository: SessionStateRepository = mockk(relaxed = true)
     private val listSessionsUseCase: ListSessionsUseCase = mockk()
@@ -143,6 +150,7 @@ class SessionListShellStateTest {
             )
         )
         return SessionListViewModel(
+            sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedStateHandle,
             sessionRepository = sessionRepository,
             sessionStateRepository = sessionStateRepository,
