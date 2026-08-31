@@ -47,6 +47,26 @@ import androidx.compose.material3.windowsizeclass.WindowSizeClass
 private const val TAG = "NavGraph"
 
 /**
+ * #242 导航源头拦截判定：id 是否为可入导航栈的会话 id 形态。
+ * 防的是工具调用 jobID（call_…）等非会话 id 混入导航（→ GET /message 400 →
+ * 空 Chat 页 + 会话列表污染）。原为 onNavigateToChildSession 内联判断，
+ * 提取为纯函数以便单测（2026-09 修复 DSH 形态误拦时提取）。
+ *
+ * 放行两种服务器的合法会话 id 形态：
+ * - OpenCode V1：ses_… 前缀
+ * - DSH：session-<uuid> 前缀形态或裸 <uuid>
+ * 其余（call_/msg_/空白/垃圾值）一律拦截——#242 的拦截本意不变。
+ */
+private val DSH_SESSION_UUID_REGEX = Regex(
+    "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+internal fun isNavigableChildSessionId(childSessionId: String): Boolean =
+    (childSessionId.length > "ses_".length && childSessionId.startsWith("ses_")) ||
+        (childSessionId.length > "session-".length && childSessionId.startsWith("session-")) ||
+        DSH_SESSION_UUID_REGEX.matches(childSessionId)
+
+/**
  * 应用主导航图。
  * 路由模式、参数和参数提取委托给
  * [dev.leonardo.ocbeacon.ui.navigation.routes] 中的 Nav 对象。
@@ -408,9 +428,11 @@ fun NavGraph(
                     // #242 防御（2026-08-27 二轮取证实锤）：shell 卡曾以 jobID
                     // （call_… 工具调用 id）当会话 id 导航 → GET /message 返回 400 →
                     // 渲染消息区全空的 Chat 页 + 会话列表被空 title 会话污染。
-                    // 源头拦截：非 ses_ 形态的 id 不入导航栈；其余失效会话 id 的
-                    // 兜底由 SessionLifecycleDelegate 加载失败路径承接（另行处理）。
-                    if (!childSessionId.startsWith("ses_")) {
+                    // 源头拦截：非会话 id 形态（call_/msg_/垃圾值）不入导航栈——
+                    // 双服务器合法形态（V1 ses_… / DSH session-<uuid>、裸 <uuid>）
+                    // 由 isNavigableChildSessionId 放行；其余失效会话 id 的兜底由
+                    // SessionLifecycleDelegate 加载失败路径承接（另行处理）。
+                    if (!isNavigableChildSessionId(childSessionId)) {
                         AppLogger.w(
                             TAG,
                             "#242 blocked child-session navigation with non-session id: " + childSessionId.take(16)
