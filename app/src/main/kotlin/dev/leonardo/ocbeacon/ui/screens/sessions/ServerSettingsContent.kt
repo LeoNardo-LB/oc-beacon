@@ -65,17 +65,14 @@ fun ServerSettingsContent(
     var mcpExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(modifier = modifier.fillMaxSize()) {
-        // 新会话默认权限（DSH 专属，能力位门控；非 DSH 不渲染）
+        // 新会话默认权限（DSH 专属，能力位门控；非 DSH 不渲染）。
+        // 2026-09-01（Task 2）：行组件自身渲染 标题+分隔线+展开面板（既有区块
+        // 模式，与 MCP/标签管理一致）——此处不再补独立分隔线 item。
         if (permissionSwitchSupported) {
             item {
                 PermissionDefaultRow(
                     currentValue = permissionDefault?.currentValue,
                     onSelect = onSetPermissionDefault,
-                )
-            }
-            item {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
             }
         }
@@ -87,11 +84,6 @@ fun ServerSettingsContent(
                     presets = agentPresets,
                     currentValue = agentPresetDefault?.currentValue,
                     onSelect = onSetAgentPresetDefault,
-                )
-            }
-            item {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
             }
         }
