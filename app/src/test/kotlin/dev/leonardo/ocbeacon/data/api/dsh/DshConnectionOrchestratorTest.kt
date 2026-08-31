@@ -246,6 +246,46 @@ class DshConnectionOrchestratorTest {
         job.cancel()
     }
 
+    /**
+     * ⑥（2026-09-01 预设锁定竞态抽验）：session/title 等最小 SessionUpdated 不携带
+     * agentPreset——防御必须保留缓存值（a16ee74b 同族回归防线：预设卡门控/高亮
+     * 随最小更新帧丢失）。走查后修复批收口项。
+     */
+    @Test
+    fun `minimal SessionUpdated preserves cached agentPreset`() = runTest {
+        val source = FakeFrameSource()
+        val rec = Recording()
+        rec.cache["s1"] = Session(
+            id = "s1",
+            directory = "/home/user/project",
+            title = "Old",
+            time = Session.Time(created = 111L, updated = 999L),
+            agentPreset = "cordis",
+        )
+        val tracker = DshSessionSeqTracker()
+        val job = launch {
+            orchestrator().run(
+                "http://x", source, FakeHistorySource(emptyMap()), tracker,
+                dispatch = { rec.dispatched += it },
+                onEvent = { rec.notified += it },
+                sessionLookup = { rec.cache[it] },
+                onConnected = {},
+            )
+        }
+        runCurrent()
+        // session/title 产物：不携带 agentPreset（最小 Session 形态）
+        source.onFrame(
+            "session/event",
+            obj("""{"type":"session/event","sessionId":"s1","event":{"type":"session/title","seq":31,"time":1788109002000,"data":{"title":"New Title"}}}"""),
+            "r",
+        )
+        runCurrent()
+        val updated = rec.dispatched.filterIsInstance<SseEvent.SessionUpdated>().single()
+        assertEquals("cordis", updated.info.agentPreset) // 防御：预设不随最小帧丢
+        assertEquals("New Title", updated.info.title)
+        job.cancel()
+    }
+
     @Test
     fun `host session-added merges created time from cache when present`() = runTest {
         val source = FakeFrameSource()
