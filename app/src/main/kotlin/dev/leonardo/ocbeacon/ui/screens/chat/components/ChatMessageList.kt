@@ -194,6 +194,9 @@ fun ChatMessageList(
     shellOutputProvider: (dev.leonardo.ocbeacon.domain.model.ShellJob) -> String? = { null },
     /** 2026-09-01（B1 链）：打开即定位目标消息 id（内容检索跳转）——种子 pendingJumpTarget。 */
     initialJumpTarget: String? = null,
+    /** 走查 #1 根因修复：跳转视口锁上提——ChatScrollController 的守卫重锚与
+     *  MSGEFFECT 锚底据此让位（跳转期间视口所有权归跳转状态机）。 */
+    onJumpLockChanged: (Boolean) -> Unit = {},
     /**
      * 2026-09-01（Task 3d）：DSH 后台任务降级 Shell 卡数据源（session/jobs 整快照
      * JobView）——kind/label/status/detail 先行，command/output 留空（DSH 无命令
@@ -668,6 +671,10 @@ fun ChatMessageList(
                     ?.let { bannerCountForJump.value + chatEntriesForJump.value.displayEntryStart[it] }
             },
         )
+    }
+    // 走查 #1：跳转视口锁上提（守卫重锚/锚底让位依据）——只上传变化，不在本组件消费
+    androidx.compose.runtime.LaunchedEffect(jumpController) {
+        jumpController.jumpLockActive.collect { onJumpLockChanged(it) }
     }
     // 2026-08-21 卫生（D-11-2）：jumpPhase 大作用域订阅下沉——原主体直读使
     // 每次跳转 ≥4 次相位变化都重组整个 ~1500 行 ChatMessageList 主体。现在

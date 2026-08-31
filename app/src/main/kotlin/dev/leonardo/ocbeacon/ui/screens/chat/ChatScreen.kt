@@ -314,11 +314,17 @@ fun ChatScreen(
     // listState 提升到 ViewModel —— 在导航切换后依然存活。
     val listState = viewModel.listState
 
+    // 走查 #1 根因修复：跳转视口锁（ChatMessageList 上提）——守卫重锚与
+    // MSGEFFECT 锚底在跳转期间让位（视口所有权归跳转状态机）
+    val jumpLockActiveState = androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
     val scrollController = rememberChatScrollController(
         listState = listState,
         messageCount = messageState.messages.size,
         pendingCount = interaction.pendingQuestions.size + interaction.pendingPermissions.size,
         hasMessages = { messageState.messages.isNotEmpty() },
+        jumpLockActive = jumpLockActiveState,
     )
 
     // FileViewer 浮层状态 —— 取代到 FileViewerNav 路由的导航。
@@ -954,6 +960,8 @@ fun ChatScreen(
                         sessionErrorRows = sessionErrors,
                         // 2026-09-01（B1 链）：内容检索跳转目标消息（打开即异步定位）
                         initialJumpTarget = initialJumpToMessageId,
+                        // 走查 #1：跳转视口锁上提回传（守卫重锚/锚底让位依据）
+                        onJumpLockChanged = { jumpLockActiveState.value = it },
                         modifier = Modifier.fillMaxSize(),
                     )
                   }

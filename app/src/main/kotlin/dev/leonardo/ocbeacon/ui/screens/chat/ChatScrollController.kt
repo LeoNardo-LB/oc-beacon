@@ -90,6 +90,13 @@ internal fun rememberChatScrollController(
     messageCount: Int,
     pendingCount: Int,
     hasMessages: () -> Boolean,
+    /** 跳转状态机视口锁（走查 #1 根因修复）：跳转期间视口所有权归跳转——
+     *  守卫重锚与 MSGEFFECT 锚底一律让位。程序化 scrollToItem 不置
+     *  isScrollInProgress，守卫无法区分「漂移」与「跳转定位」→ 2026-08-30
+     *  下跳守卫与快速定位互搏（GUARD reanchor idx=14→0 循环，重定位永不
+     *  收敛，超时终态=底部——用户点最早消息落点在最新区）。 */
+    jumpLockActive: androidx.compose.runtime.State<Boolean> =
+        androidx.compose.runtime.mutableStateOf(false),
 ): ChatScrollController {
     val autoScrollEnabled = rememberSaveable { mutableStateOf(true) }
     val forceScrollTick = remember { mutableIntStateOf(0) }
@@ -139,7 +146,7 @@ internal fun rememberChatScrollController(
                     " idx=" + listState.firstVisibleItemIndex
             )
         }
-        if (messageCount > 0 && autoScrollEnabled.value) {
+        if (messageCount > 0 && autoScrollEnabled.value && !jumpLockActive.value) {
             // [probe] msgCount effect n=$messageCount autoScroll=${autoScrollEnabled.value} scrollInProgress=${listState.isScrollInProgress}
             // 2026-08-16 根治：死代码根因。原实现 `!listState.isScrollInProgress`
             // 条件失败（新消息恰逢用户 fling 惯性中到达）时静默跳过且不重试。
@@ -183,7 +190,7 @@ internal fun rememberChatScrollController(
                             listState.firstVisibleItemScrollOffset < 100,
                     )
                 }.collect { (scrolling, autoOn, atBottom) ->
-                    if (!scrolling && autoOn && !atBottom) {
+                    if (!scrolling && autoOn && !atBottom && !jumpLockActive.value) {
                         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                             AppLogger.w(
                                 TAG,
