@@ -188,6 +188,16 @@ class EventDispatcher @Inject constructor(
     val compactionState: StateFlow<Map<String, CompactionStateInfo>> get() = sessionNextHandler.compactionState
     /** #219：压缩失败广播——ChatViewModel snackbar 数据源。 */
     val compactionFailures: kotlinx.coroutines.flow.SharedFlow<Pair<String, String>> get() = sessionNextHandler.compactionFailures
+    /** 2026-09-01：会话运行错误广播——ChatViewModel sendFailure 对话框数据源（应用内暴露）。 */
+    val sessionErrorEvents: kotlinx.coroutines.flow.SharedFlow<Pair<String, String>> get() = sessionHandler.sessionErrorEvents
+    /** D1③：持久错误卡状态（sessionId → 未消费错误列表）——Chat 渲染 + dismiss + sendMessage 清卡。 */
+    val sessionErrors: StateFlow<Map<String, List<String>>> get() = sessionHandler.sessionErrors
+
+    /** D1③：dismiss 单条持久错误卡。 */
+    fun dismissSessionError(sessionId: String, index: Int) = sessionHandler.dismissSessionError(sessionId, index)
+
+    /** D1③：清空该会话持久错误卡（sendMessage 成功时调用）。 */
+    fun clearSessionErrors(sessionId: String) = sessionHandler.clearSessionErrors(sessionId)
     /** 2026-08-15：按 sessionId 的实时 token 用量（V2 session.usage.updated）。 */
     val sessionUsage: StateFlow<Map<String, dev.leonardo.ocbeacon.domain.model.SessionNextEvent.UsageUpdated>> get() = sessionNextHandler.sessionUsage
     /** 2026-08-15：已压缩会话集合（SessionCompacted 事件）——UI 监听刷新消息列表。 */

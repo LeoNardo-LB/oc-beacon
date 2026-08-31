@@ -306,7 +306,9 @@ object DshEventMapper {
         "host/agent-error" -> {
             val sid = payload.str("sessionId")
             if (sid == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
-            else listOf(DshMappedEvent.Sse(SseEvent.SessionError(sessionId = sid, error = payload.errorText("error"))))
+            // 2026-08-31：DSH 真实现（events.schema.js:72）载荷键是 message（字符串）；
+            // 旧形态是 error 对象——逐键回退防键失配丢文本（欠费/provider 拒绝等错误被吞）。
+            else listOf(DshMappedEvent.Sse(SseEvent.SessionError(sessionId = sid, error = payload.errorText("message", "error"))))
         }
 
         // host/workspace-* 与 archived-sessions-changed：整快照姿态，oc-beacon 无 Workspace 域对应
@@ -839,9 +841,15 @@ object DshEventMapper {
     private fun JsonObject.arr(key: String): JsonArray? = this[key] as? JsonArray
 
     /** 错误载荷转可读文本：对象优先 message，其次 code，最后整体序列化。 */
-    private fun JsonObject.errorText(key: String): String {
-        val elem = this[key] ?: return key
-        return elem.errorText()
+    /** 错误载荷转可读文本：对象优先 message，其次 code，最后整体序列化。
+     *  [keys] 按序探测——2026-08-31：host/agent-error 真实现载荷键是 message，
+     *  旧形态是 error 对象；逐键回退防键失配丢文本。 */
+    private fun JsonObject.errorText(vararg keys: String): String {
+        for (key in keys) {
+            val elem = this[key] ?: continue
+            return elem.errorText()
+        }
+        return keys.first()
     }
 
     private fun JsonElement.errorText(): String = when (this) {

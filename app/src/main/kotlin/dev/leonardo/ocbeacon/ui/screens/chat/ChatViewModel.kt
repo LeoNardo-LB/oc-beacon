@@ -197,6 +197,22 @@ class ChatViewModel @Inject constructor(
         _sendFailure.value = null
     }
 
+    /** 2026-09-01：会话运行错误（当前会话）→ sendFailure 对话框应用内暴露。
+     *  DSH/SSE 会话运行失败此前仅走未读/通知后台通道，会话内静默终止
+     *（用户发送后毫无提示）；与发送失败共用既有 AlertDialog（sendFailure）。 */
+    val sessionErrorEvent: kotlinx.coroutines.flow.Flow<String> =
+        eventDispatcher.sessionErrorEvents.mapNotNull { (sid, err) ->
+            if (sid == sessionId) err else null
+        }
+
+    /** D1③：当前会话持久错误卡列表（SessionErrorCard 数据源）。 */
+    val sessionErrors: StateFlow<List<String>> = eventDispatcher.sessionErrors.map { map ->
+        map[sessionId].orEmpty()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** D1③：dismiss 当前会话第 [index] 条错误卡。 */
+    fun dismissSessionError(index: Int) = eventDispatcher.dismissSessionError(sessionId, index)
+
     // ============ 会话生命周期 Delegate ============
     private val sessionLifecycle = SessionLifecycleDelegate(
         manageSessionUseCase = manageSessionUseCase,
@@ -556,6 +572,10 @@ class ChatViewModel @Inject constructor(
         // 与成功路径一致（此前失败零刷新，失败记录要重进会话才出现）。
         viewModelScope.launch {
             compactionFailedEvent.collect { messageData.refreshMessages() }
+        }
+        // 2026-09-01：会话运行错误 → 既有发送失败 AlertDialog。
+        viewModelScope.launch {
+            sessionErrorEvent.collect { _sendFailure.value = it }
         }
     }
 
@@ -1036,6 +1056,8 @@ class ChatViewModel @Inject constructor(
             // 输入的新内容（被防重复拦截）不会被误清。
             lastSentTextSnapshot = sentText
             _sendSuccessTick.value++
+            // D1③：sendMessage 成功 → 清空该会话持久错误卡（会话已恢复健康）
+            eventDispatcher.clearSessionErrors(sessionId)
         },
         draftDelegate = draftDelegate,
     )

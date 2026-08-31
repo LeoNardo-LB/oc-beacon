@@ -230,6 +230,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
+import dev.leonardo.ocbeacon.ui.screens.chat.components.SessionErrorCard
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.chat.components.RevertBanner
 import dev.leonardo.ocbeacon.ui.screens.chat.terminal.ChatTerminalView
@@ -593,6 +594,8 @@ fun ChatScreen(
     var showQuickNavigate by remember { mutableStateOf(false) }
     // 贴底工具栏 + 四 sheet（2026-08-22 第十轮：任务面板拆解并入）
     val pendingQueue by viewModel.pendingQueue.collectAsStateWithLifecycle()
+    // D1③：会话运行错误持久卡（sendMessage 成功/手动 dismiss 清卡）
+    val sessionErrors by viewModel.sessionErrors.collectAsStateWithLifecycle()
     val sessionTodos by viewModel.sessionTodos.collectAsStateWithLifecycle()
     val todoCapable by viewModel.todoCapable.collectAsStateWithLifecycle()
     val pendingDrainingSet by viewModel.pendingDraining.collectAsStateWithLifecycle()
@@ -935,10 +938,28 @@ fun ChatScreen(
                       // 实测图标中心差 48px。此处补对称底距恢复「双 FAB 同基线」。
                       modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp),
                   )
+
+                  // D1③：会话运行错误持久卡浮层（消息区之上；sendMessage 成功/手动 dismiss 清卡）
+                  if (sessionErrors.isNotEmpty()) {
+                      Column(
+                          modifier = Modifier
+                              .align(Alignment.TopCenter)
+                              .fillMaxWidth()
+                              .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                          verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+                      ) {
+                          sessionErrors.forEachIndexed { index, error ->
+                              SessionErrorCard(
+                                  error = error,
+                                  onDismiss = { viewModel.dismissSessionError(index) },
+                              )
+                          }
+                      }
+                  }
               }
            }
-        }
 
+        }
 
     // #188：默认模型响应式状态（写入即回显）
     val localDefaultModel by viewModel.modelSelection.localDefaultModelFlow
