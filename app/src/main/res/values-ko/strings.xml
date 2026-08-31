@@ -576,6 +576,9 @@
     <string name="mcp_servers_title">MCP 서버</string>
     <string name="mcp_no_servers">구성된 MCP 서버가 없습니다</string>
     <string name="chat_context_composition">컨텍스트 구성 (추정)</string>
+    <string name="chat_context_subagent_title">서브에이전트</string>
+    <string name="chat_context_subagent_tokens">누적 토큰: %1$s</string>
+    <string name="chat_context_subagent_duration">활성 시간: %1$s</string>
     <string name="chat_context_other_note">나머지 (시스템 등 포함)</string>
     <string name="chat_role_user">사용자</string>
     <string name="chat_role_assistant">어시스턴트</string>
@@ -696,6 +699,12 @@
     <string name="shell_status_running">실행 중</string>
     <string name="shell_status_exit">종료 코드 %1$d</string>
     <string name="shell_status_done">완료</string>
+    <string name="dsh_job_status_running">실행 중</string>
+    <string name="dsh_job_status_stopping">중지 중</string>
+    <string name="dsh_job_status_killed">종료됨</string>
+    <string name="dsh_job_status_completed">완료</string>
+    <string name="dsh_job_status_failed">실패</string>
+    <string name="dsh_jobs_empty">백그라운드 작업 없음</string>
     <string name="shell_status_failed">실패</string>
     <string name="task_toolbar_action">작업을 백그라운드로 이동</string>
     <string name="task_toolbar_subagents">포그라운드에서 실행 중인 서브에이전트 %1$d개</string>

@@ -576,6 +576,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="mcp_servers_title">MCP Sunucuları</string>
     <string name="mcp_no_servers">Yapılandırılmış MCP sunucusu yok</string>
     <string name="chat_context_composition">Bağlam oluşumu (tahmini)</string>
+    <string name="chat_context_subagent_title">Alt ajan</string>
+    <string name="chat_context_subagent_tokens">Toplam token: %1$s</string>
+    <string name="chat_context_subagent_duration">Etkin süre: %1$s</string>
     <string name="chat_context_other_note">Geri kalan (sistem vb. dahil)</string>
     <string name="chat_role_user">Kullanıcı</string>
     <string name="chat_role_assistant">Asistan</string>
@@ -696,6 +699,12 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">Çalışıyor</string>
     <string name="shell_status_exit">Çıkış kodu %1$d</string>
     <string name="shell_status_done">Tamamlandı</string>
+    <string name="dsh_job_status_running">Çalışıyor</string>
+    <string name="dsh_job_status_stopping">Durduruluyor</string>
+    <string name="dsh_job_status_killed">Sonlandırıldı</string>
+    <string name="dsh_job_status_completed">Tamamlandı</string>
+    <string name="dsh_job_status_failed">Başarısız</string>
+    <string name="dsh_jobs_empty">Arka plan görevi yok</string>
     <string name="shell_status_failed">Başarısız</string>
     <string name="task_toolbar_action">Görevi arka plana taşı</string>
     <string name="task_toolbar_subagents">Ön planda %1$d alt ajan çalışıyor</string>

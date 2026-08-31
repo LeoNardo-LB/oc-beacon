@@ -76,6 +76,7 @@ class UnreadClockDomainTest {
             permissionAutoApprover = mockk(relaxed = true),
             pendingMessagePipelineProvider = Provider { mockk<PendingMessagePipeline>(relaxed = true) },
             historySyncManagerProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.HistorySyncManager>(relaxed = true) },
+            dshJobsHandler = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.handler.DshJobsHandler>(relaxed = true),
         )
     }
 

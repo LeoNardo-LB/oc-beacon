@@ -64,6 +64,7 @@ class EventDispatcherTest {
             // 堆积消息管线（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
             pendingMessagePipelineProvider = Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
             historySyncManagerProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.HistorySyncManager>(relaxed = true) },
+            dshJobsHandler = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.handler.DshJobsHandler>(relaxed = true),
         )
     }
 

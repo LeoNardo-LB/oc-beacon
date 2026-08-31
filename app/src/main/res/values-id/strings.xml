@@ -582,6 +582,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="mcp_servers_title">Server MCP</string>
     <string name="mcp_no_servers">Tidak ada server MCP dikonfigurasi</string>
     <string name="chat_context_composition">Komposisi konteks (estimasi)</string>
+    <string name="chat_context_subagent_title">Subagen</string>
+    <string name="chat_context_subagent_tokens">Total token: %1$s</string>
+    <string name="chat_context_subagent_duration">Durasi aktif: %1$s</string>
     <string name="chat_context_other_note">Sisanya (termasuk sistem, dll.)</string>
     <string name="chat_role_user">Pengguna</string>
     <string name="chat_role_assistant">Asisten</string>
@@ -702,6 +705,12 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">Berjalan</string>
     <string name="shell_status_exit">Kode keluar %1$d</string>
     <string name="shell_status_done">Selesai</string>
+    <string name="dsh_job_status_running">Berjalan</string>
+    <string name="dsh_job_status_stopping">Menghentikan</string>
+    <string name="dsh_job_status_killed">Dihentikan</string>
+    <string name="dsh_job_status_completed">Selesai</string>
+    <string name="dsh_job_status_failed">Gagal</string>
+    <string name="dsh_jobs_empty">Tidak ada tugas latar belakang</string>
     <string name="shell_status_failed">Gagal</string>
     <string name="task_toolbar_action">Pindahkan tugas ke latar belakang</string>
     <string name="task_toolbar_subagents">%1$d subagen berjalan di latar depan</string>

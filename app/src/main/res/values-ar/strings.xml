@@ -592,6 +592,9 @@
     <string name="mcp_servers_title">خوادم MCP</string>
     <string name="mcp_no_servers">لم يتم تكوين خوادم MCP</string>
     <string name="chat_context_composition">تركيب السياق (تقديري)</string>
+    <string name="chat_context_subagent_title">وكيل فرعي</string>
+    <string name="chat_context_subagent_tokens">إجمالي الرموز: %1$s</string>
+    <string name="chat_context_subagent_duration">مدة النشاط: %1$s</string>
     <string name="chat_context_other_note">الباقي (بما في ذلك النظام وما إلى ذلك)</string>
     <string name="chat_role_user">المستخدم</string>
     <string name="chat_role_assistant">المساعد</string>
@@ -712,6 +715,12 @@
     <string name="shell_status_running">قيد التشغيل</string>
     <string name="shell_status_exit">رمز الخروج %1$d</string>
     <string name="shell_status_done">تم</string>
+    <string name="dsh_job_status_running">قيد التشغيل</string>
+    <string name="dsh_job_status_stopping">قيد الإيقاف</string>
+    <string name="dsh_job_status_killed">أُنهي</string>
+    <string name="dsh_job_status_completed">مكتمل</string>
+    <string name="dsh_job_status_failed">فشل</string>
+    <string name="dsh_jobs_empty">لا توجد مهام خلفية</string>
     <string name="shell_status_failed">فشل</string>
     <string name="task_toolbar_action">نقل المهمة إلى الخلفية</string>
     <string name="task_toolbar_subagents">%1$d وكيل فرعي نشط في المقدمة</string>

@@ -122,6 +122,43 @@ class DshSessionMapperTest {
     }
 
     @Test
+    fun `tokenUsage projection maps four buckets and total`() {
+        val item = obj("""{"sessionId":"s-8","updatedAt":7,"running":false,"blank":false,
+            "projections":{"asOfSeq":9,"values":{"tokenUsage":{
+                "uncachedInputTokens":100,"outputTokens":50,
+                "cacheReadTokens":20,"cacheWriteTokens":0}}}}""".trimIndent())
+        val usage = DshSessionMapper.toSession(item).tokenUsage
+        assertNotNull(usage)
+        assertEquals(100L, usage!!.uncachedInputTokens)
+        assertEquals(50L, usage.outputTokens)
+        assertEquals(20L, usage.cacheReadTokens)
+        assertEquals(0L, usage.cacheWriteTokens)
+        assertEquals(170L, usage.total)
+    }
+
+    @Test
+    fun `subagentTiming projection maps settled and active bounds`() {
+        val item = obj("""{"sessionId":"s-9","updatedAt":7,"running":false,"blank":false,
+            "projections":{"asOfSeq":9,"values":{"subagentTiming":{
+                "settledMs":1500,"active":{"since":1000,"through":2500}}}}}""".trimIndent())
+        val timing = DshSessionMapper.toSession(item).subagentTiming
+        assertNotNull(timing)
+        assertEquals(1500L, timing!!.settledMs)
+        assertEquals(1000L, timing.activeSince)
+        assertEquals(2500L, timing.activeThrough)
+        assertEquals(3000L, timing.activeDurationMs)
+    }
+
+    @Test
+    fun `tokenUsage and subagentTiming absent leave fields null`() {
+        val item = obj("""{"sessionId":"s-10","updatedAt":1,"running":false,"blank":false,
+            "projections":{"asOfSeq":3,"values":{"title":"T"}}}""".trimIndent())
+        val session = DshSessionMapper.toSession(item)
+        assertNull(session.tokenUsage)
+        assertNull(session.subagentTiming)
+    }
+
+    @Test
     fun `directory filter matches cwd and blank tolerance`() {
         val items = listOf(
             obj("""{"sessionId":"a","updatedAt":2,"running":false,"blank":false,"cwd":"/w/one"}"""),

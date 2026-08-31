@@ -78,11 +78,16 @@ object DshEventMapper {
 
     private fun mapFrameInner(method: String, payload: JsonObject, rpcId: String?): List<DshMappedEvent> = when (method) {
         "session/subscribed" -> {
-            // 连接层信号：开流基线（对账起点，组件 C 输入）——不产生 SseEvent
+            // 连接层信号：开流基线（对账起点，组件 C 输入）+ jobs 清空重推。
+            // 官方 client.js:8314：subscribed 帧对 jobsBySession 删键——重连基线
+            // 先行清空，服务器随后重推 session/jobs 整快照（对齐 A 状态机）。
             val sid = payload.str("sessionId")
             val lastSeq = payload.long("lastSeq")
             if (sid == null || lastSeq == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
-            else listOf(DshMappedEvent.Subscribed(DshSubscribed(sid, lastSeq)))
+            else listOf(
+                DshMappedEvent.Subscribed(DshSubscribed(sid, lastSeq)),
+                DshMappedEvent.Sse(SseEvent.JobsSnapshot(sessionId = sid, jobs = emptyList())),
+            )
         }
 
         "session/event" -> {
@@ -149,10 +154,52 @@ object DshEventMapper {
             }
         }
 
-        // 显式忽略面（#276/后续承接：堆积消息域 / 后台任务 / 投影单元 / 连接层错误）
+        // 后台任务整快照（A：session/jobs → JobsSnapshot，last-wins 整替换）
+        "session/jobs" -> {
+            val sid = payload.str("sessionId")
+            if (sid == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else listOf(
+                DshMappedEvent.Sse(
+                    SseEvent.JobsSnapshot(
+                        sessionId = sid,
+                        jobs = (payload.arr("jobs") ?: emptyList()).mapNotNull { el ->
+                            (el as? JsonObject)?.let { mapJobView(it) }
+                        },
+                    )
+                )
+            )
+        }
+
+        // 投影单元（B：session/projection → tokenUsage / subagentTiming 帧驱动更新）
+        "session/projection" -> {
+            val sid = payload.str("sessionId")
+            val key = payload.str("key")
+            if (sid == null || key == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else when (key) {
+                "tokenUsage" -> {
+                    val value = payload.obj("value")
+                    if (value == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                    else listOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionTokenUsageChanged(sessionId = sid, tokenUsage = mapTokenUsage(value))
+                        )
+                    )
+                }
+                "subagentTiming" -> {
+                    val value = payload.obj("value")
+                    if (value == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                    else listOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionSubagentTimingChanged(sessionId = sid, timing = mapSubagentTiming(value))
+                        )
+                    )
+                }
+                // 其余投影键（title/permissions/sessionStats/contextPressure…）：本任务不消费
+                else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION))
+            }
+        }
+
         "session/queue" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.QUEUE))
-        "session/jobs" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.JOBS))
-        "session/projection" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION))
         "stream/error" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR))
 
         "host/session-added" -> {
@@ -320,6 +367,14 @@ object DshEventMapper {
             "tool-workflow/run-start", "tool-workflow/agent-start",
             "tool-workflow/agent-end", "tool-workflow/run-end" ->
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.PLUGIN_DOMAIN))
+
+            // ---- Mux 帧类型混入历史行（B.4 防御）：session/projection|jobs|queue、
+            //      stream/error 是 WS 帧面而非 SessionEvent——历史重放/翻页若出现
+            //      这些 type 行，按已知可忽略折叠（不落 UNKNOWN_UNIGNORABLE 拒绝重建）。 ----
+            "session/projection" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION))
+            "session/jobs" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.JOBS))
+            "session/queue" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.QUEUE))
+            "stream/error" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR))
 
             // ---- 未知类型：ignorable 旗标兑现（spec：仅 llm/failover 带，但旗标是权威信号）；
             //      无旗标才拒绝重建（folder 判据） ----
@@ -628,6 +683,39 @@ object DshEventMapper {
                 )
             )
         )
+
+    // ============ jobs / projection 帧解析 ============
+
+    /** session/jobs 帧单个 JobView 项 → 域模型（wire taskViewSchema 形状）。 */
+    private fun mapJobView(j: JsonObject): dev.leonardo.ocbeacon.domain.model.JobView =
+        dev.leonardo.ocbeacon.domain.model.JobView(
+            id = j.str("id") ?: "",
+            kind = j.str("kind") ?: "",
+            label = j.str("label") ?: "",
+            status = j.str("status") ?: "",
+            detail = j.str("detail"),
+            startedAt = j.long("startedAt") ?: 0L,
+            finishedAt = j.long("finishedAt"),
+        )
+
+    /** tokenUsage 投影值 → 域模型（四桶互斥累计，缺席桶归零）。 */
+    private fun mapTokenUsage(v: JsonObject): dev.leonardo.ocbeacon.domain.model.DshTokenUsage =
+        dev.leonardo.ocbeacon.domain.model.DshTokenUsage(
+            uncachedInputTokens = v.long("uncachedInputTokens") ?: 0L,
+            outputTokens = v.long("outputTokens") ?: 0L,
+            cacheReadTokens = v.long("cacheReadTokens") ?: 0L,
+            cacheWriteTokens = v.long("cacheWriteTokens") ?: 0L,
+        )
+
+    /** subagentTiming 投影值 → 域模型（active 内层展平；缺席 active = 无开放 turn）。 */
+    private fun mapSubagentTiming(v: JsonObject): dev.leonardo.ocbeacon.domain.model.DshSubagentTiming {
+        val active = v.obj("active")
+        return dev.leonardo.ocbeacon.domain.model.DshSubagentTiming(
+            settledMs = v.long("settledMs") ?: 0L,
+            activeSince = active?.long("since"),
+            activeThrough = active?.long("through"),
+        )
+    }
 
     // ============ JsonObject 安全取值 ============
 

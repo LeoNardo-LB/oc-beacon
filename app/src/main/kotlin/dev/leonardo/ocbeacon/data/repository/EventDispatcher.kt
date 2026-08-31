@@ -44,6 +44,7 @@ class EventDispatcher @Inject constructor(
     private val miscHandler: MiscEventHandler,
     private val sessionNextHandler: SessionNextEventHandler,
     private val shellJobsHandler: ShellJobsHandler,
+    private val dshJobsHandler: DshJobsHandler,
     private val sessionStateRepository: SessionStateService,
     private val unreadBadgeService: UnreadBadgeService,
     private val ownershipRegistry: StreamingOwnershipRegistry,
@@ -105,6 +106,7 @@ class EventDispatcher @Inject constructor(
             SseEvent.SessionDeleted::class, SseEvent.SessionStatus::class,
             SseEvent.SessionIdle::class, SseEvent.SessionError::class,
             SseEvent.SessionDiff::class, SseEvent.SessionCompacted::class,
+            SseEvent.SessionTokenUsageChanged::class, SseEvent.SessionSubagentTimingChanged::class,
             SseEvent.VcsBranchUpdated::class, SseEvent.ProjectUpdated::class
         )
         // 消息（updated/removed/part×3）→ MessageEventHandler 直接实现 SseEventHandler
@@ -145,6 +147,8 @@ class EventDispatcher @Inject constructor(
             shellJobsHandler,
             SseEvent.ShellJobStarted::class, SseEvent.ShellJobEnded::class
         )
+        // DSH 后台任务整快照 → DshJobsHandler
+        bind(dshJobsHandler, SseEvent.JobsSnapshot::class)
         return map
     }
 
@@ -283,6 +287,7 @@ class EventDispatcher @Inject constructor(
             miscHandler.clearForSession(deletedSessionId)
             sessionNextHandler.clearForSession(deletedSessionId)
             shellJobsHandler.clearForSession(deletedSessionId)
+            dshJobsHandler.clearForSession(deletedSessionId)
             sessionStateRepository.clearSession(deletedSessionId)
             // 堆积消息级联删除（2026-08-20）：会话没了，队列无意义。
             // C7（2026-08-26）：原 runBlocking 同步删除改异步——管线自有 appScope
@@ -359,6 +364,9 @@ class EventDispatcher @Inject constructor(
             is SseEvent.SessionUpdated -> event.info.id
             is SseEvent.SessionPermissionChanged -> event.sessionId
             is SseEvent.SessionAgentPresetChanged -> event.sessionId
+            is SseEvent.SessionTokenUsageChanged -> event.sessionId
+            is SseEvent.SessionSubagentTimingChanged -> event.sessionId
+            is SseEvent.JobsSnapshot -> event.sessionId
             is SseEvent.SessionDeleted -> event.info.id
             is SseEvent.SessionDiff -> event.sessionId
             is SseEvent.SessionCompacted -> event.sessionId

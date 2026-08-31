@@ -39,7 +39,7 @@ class WireCompatMatrixTest {
                 "id", "slug", "projectID", "directory", "parentID", "title", "version",
                 "time", "summary", "share", "permission", "revert", "workspaceID",
                 "path", "cost", "tokens", "agent", "model", "permissions",
-                "blank", "agentPreset",
+                "blank", "agentPreset", "tokenUsage", "subagentTiming",
             ),
             names(Session.serializer()),
         )

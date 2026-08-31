@@ -574,6 +574,9 @@
     <string name="mcp_servers_title">Serveurs MCP</string>
     <string name="mcp_no_servers">Aucun serveur MCP configuré</string>
     <string name="chat_context_composition">Composition du contexte (estimation)</string>
+    <string name="chat_context_subagent_title">Sous-agent</string>
+    <string name="chat_context_subagent_tokens">Tokens cumulés : %1$s</string>
+    <string name="chat_context_subagent_duration">Durée active : %1$s</string>
     <string name="chat_context_other_note">Autres (dont système, etc.)</string>
     <string name="chat_role_user">Utilisateur</string>
     <string name="chat_role_assistant">Assistant</string>
@@ -694,6 +697,12 @@
     <string name="shell_status_running">Exécution</string>
     <string name="shell_status_exit">Code de sortie %1$d</string>
     <string name="shell_status_done">Terminé</string>
+    <string name="dsh_job_status_running">Exécution</string>
+    <string name="dsh_job_status_stopping">Arrêt en cours</string>
+    <string name="dsh_job_status_killed">Interrompu</string>
+    <string name="dsh_job_status_completed">Terminé</string>
+    <string name="dsh_job_status_failed">Échec</string>
+    <string name="dsh_jobs_empty">Aucune tâche en arrière-plan</string>
     <string name="shell_status_failed">Échec</string>
     <string name="task_toolbar_action">Déplacer la tâche en arrière-plan</string>
     <string name="task_toolbar_subagents">%1$d subagent(s) en cours au premier plan</string>

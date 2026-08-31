@@ -585,6 +585,9 @@
     <string name="mcp_servers_title">Серверы MCP</string>
     <string name="mcp_no_servers">Серверы MCP не настроены</string>
     <string name="chat_context_composition">Состав контекста (оценка)</string>
+    <string name="chat_context_subagent_title">Субагент</string>
+    <string name="chat_context_subagent_tokens">Накопленные токены: %1$s</string>
+    <string name="chat_context_subagent_duration">Активное время: %1$s</string>
     <string name="chat_context_other_note">Прочие (включая систему и т.д.)</string>
     <string name="chat_role_user">Пользователь</string>
     <string name="chat_role_assistant">Ассистент</string>
@@ -705,6 +708,12 @@
     <string name="shell_status_running">Выполняется</string>
     <string name="shell_status_exit">Код выхода %1$d</string>
     <string name="shell_status_done">Готово</string>
+    <string name="dsh_job_status_running">Выполняется</string>
+    <string name="dsh_job_status_stopping">Остановка</string>
+    <string name="dsh_job_status_killed">Завершено принудительно</string>
+    <string name="dsh_job_status_completed">Завершено</string>
+    <string name="dsh_job_status_failed">Не выполнено</string>
+    <string name="dsh_jobs_empty">Нет фоновых задач</string>
     <string name="shell_status_failed">Не выполнено</string>
     <string name="task_toolbar_action">Переместить задачу в фоновый режим</string>
     <string name="task_toolbar_subagents">%1$d субагент(ов) на переднем плане</string>

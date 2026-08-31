@@ -87,6 +87,7 @@ class ChatViewModel @Inject constructor(
     private val toolSnapshotCache: dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache,
     private val serverRepository: ServerRepository,
     private val shellJobsStore: dev.leonardo.ocbeacon.data.repository.ShellJobsStore,
+    private val dshJobsStore: dev.leonardo.ocbeacon.data.repository.DshJobsStore,
     private val eventDispatcher: dev.leonardo.ocbeacon.data.repository.EventDispatcher,
     // 堆积消息（2026-08-20 设计定稿）：本地暂存队列 + 推进管线
     private val pendingMessageRepository: dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository,
@@ -119,6 +120,11 @@ class ChatViewModel @Inject constructor(
     // #172：UI 门控只读能力位（null 版本 = 全开放，与原 permissive 比较语义一致）
     private val _serverCapabilities = MutableStateFlow(dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(null))
     val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> = _serverCapabilities.asStateFlow()
+
+    // 服务器类型（DSH 数据源门控：Shell 面板 jobs 分流 / token 弹窗子代理区）。
+    // 加载完成前缺省 OpenCode（面板走 V2 shell 行为，弹窗不渲染子代理区）。
+    private val _serverType = MutableStateFlow(dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode)
+    val serverType: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerType> = _serverType.asStateFlow()
 
     // ============ DSH Agent 预设（空白页预设卡，UI-A） ============
     private val _agentPresets = MutableStateFlow<List<AgentPreset>>(emptyList())
@@ -306,6 +312,8 @@ class ChatViewModel @Inject constructor(
         sessionRepository = sessionRepository,
         chatRepository = chatRepository,
         shellJobsStore = shellJobsStore,
+        dshJobsStore = dshJobsStore,
+        serverTypeFlow = serverType,
         serverId = serverId,
         sessionIdFlow = sessionLifecycle.sessionIdFlow,
         scope = viewModelScope,
@@ -403,6 +411,7 @@ class ChatViewModel @Inject constructor(
                 ServerConnection.from(it)
             } ?: ServerConnection.from("", "", null)
             _serverCapabilities.value = conn.capabilities
+            _serverType.value = conn.serverType
             terminalRegistry.updateConn(serverId, conn)
             // UI-A：DSH-only 读 Agent 预设 roster（能力位内才发 agentPreset.list）
             loadAgentPresets()

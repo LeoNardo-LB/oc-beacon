@@ -68,6 +68,8 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.SessionUpdated -> { handleSessionUpdated(event, serverId); true }
             is SseEvent.SessionPermissionChanged -> { handleSessionPermissionChanged(event); true }
             is SseEvent.SessionAgentPresetChanged -> { handleSessionAgentPresetChanged(event); true }
+            is SseEvent.SessionTokenUsageChanged -> { handleSessionTokenUsageChanged(event); true }
+            is SseEvent.SessionSubagentTimingChanged -> { handleSessionSubagentTimingChanged(event); true }
             is SseEvent.SessionDeleted -> { handleSessionDeleted(event); true }
             // 状态/idle 事件在此确认，但由 SessionStateService 经由
             // EventDispatcher.forwardToSessionStateService 处理——无本地状态需更新。
@@ -168,6 +170,27 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         _sessions.update { current ->
             current.map { s ->
                 if (s.id != event.sessionId) s else s.copy(agentPreset = event.agentPreset)
+            }
+        }
+    }
+
+    /**
+     * session/projection tokenUsage 帧 → 折叠进 Session.tokenUsage（last-wins）。
+     * 会话尚未入列表（事件早于 session.list 基线）时 no-op——基线随后补齐（DshSessionMapper）。
+     */
+    private fun handleSessionTokenUsageChanged(event: SseEvent.SessionTokenUsageChanged) {
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id != event.sessionId) s else s.copy(tokenUsage = event.tokenUsage)
+            }
+        }
+    }
+
+    /** session/projection subagentTiming 帧 → 折叠进 Session.subagentTiming（last-wins）。 */
+    private fun handleSessionSubagentTimingChanged(event: SseEvent.SessionSubagentTimingChanged) {
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id != event.sessionId) s else s.copy(subagentTiming = event.timing)
             }
         }
     }

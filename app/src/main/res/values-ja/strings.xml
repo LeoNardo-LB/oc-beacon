@@ -576,6 +576,9 @@
     <string name="mcp_servers_title">MCPサーバー</string>
     <string name="mcp_no_servers">MCPサーバーが設定されていません</string>
     <string name="chat_context_composition">コンテキスト構成（推定）</string>
+    <string name="chat_context_subagent_title">サブエージェント</string>
+    <string name="chat_context_subagent_tokens">累計トークン: %1$s</string>
+    <string name="chat_context_subagent_duration">アクティブ時間: %1$s</string>
     <string name="chat_context_other_note">その他（システム等を含む）</string>
     <string name="chat_role_user">ユーザー</string>
     <string name="chat_role_assistant">アシスタント</string>
@@ -696,6 +699,12 @@
     <string name="shell_status_running">実行中</string>
     <string name="shell_status_exit">終了コード %1$d</string>
     <string name="shell_status_done">完了</string>
+    <string name="dsh_job_status_running">実行中</string>
+    <string name="dsh_job_status_stopping">停止中</string>
+    <string name="dsh_job_status_killed">強制終了</string>
+    <string name="dsh_job_status_completed">完了</string>
+    <string name="dsh_job_status_failed">失敗</string>
+    <string name="dsh_jobs_empty">バックグラウンドタスクはありません</string>
     <string name="shell_status_failed">失敗</string>
     <string name="task_toolbar_action">タスクをバックグラウンドに移動</string>
     <string name="task_toolbar_subagents">フォアグラウンドで実行中のサブエージェント %1$d 件</string>

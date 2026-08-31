@@ -26,7 +26,9 @@ import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.screens.chat.util.BreakdownRole
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
+import dev.leonardo.ocbeacon.ui.screens.chat.util.formatDuration
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatTokenCount
+import dev.leonardo.ocbeacon.ui.screens.chat.util.formatTokenCountLong
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.util.DateFormatters
@@ -175,6 +177,35 @@ internal fun ContextDetailDialog(state: ContextDetailState?, onDismiss: () -> Un
                     cacheWriteTokens = state.cacheWriteTokens,
                     totalCost = state.totalCost,
                 )
+
+                // ⑥ 子代理区（DSH 专属：tokenUsage 累计 + subagentTiming 活跃时长；
+                //    OpenCode 会话两字段恒 null → 整区不渲染，V2 零改动）
+                if (state.subagentTokens != null || state.subagentActiveDurationMs != null) {
+                    Spacer(Modifier.height(SpacingTokens.XS.dp))
+                    Text(
+                        text = stringResource(R.string.chat_context_subagent_title),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    state.subagentTokens?.let { tokens ->
+                        Text(
+                            text = stringResource(
+                                R.string.chat_context_subagent_tokens,
+                                formatTokenCountLong(tokens.total),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    state.subagentActiveDurationMs?.let { ms ->
+                        Text(
+                            text = stringResource(
+                                R.string.chat_context_subagent_duration,
+                                formatDuration(ms),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                        )
+                    }
+                }
 
                 Spacer(Modifier.height(SpacingTokens.SM.dp))
                 DialogButtons(

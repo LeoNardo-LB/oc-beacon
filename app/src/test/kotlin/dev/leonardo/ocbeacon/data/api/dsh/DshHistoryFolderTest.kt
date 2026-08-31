@@ -178,6 +178,25 @@ class DshHistoryFolderTest {
     }
 
     @Test
+    fun `mux frame rows mixed into history fold as known ignorable not refused`() {
+        // B.4：session/projection|jobs|queue、stream/error 是 WS 帧面——历史重放/翻页
+        // 若出现这些 type 行，须折叠进已知可忽略集（不落 UNKNOWN_UNIGNORABLE 拒绝重建）。
+        val rows = listOf(
+            json.parseToJsonElement("""{"type":"session","version":0,"id":"m-1","createdAt":1,"cwd":"/w"}""").jsonObject,
+            json.parseToJsonElement("""{"type":"session/projection","sessionId":"m-1","key":"tokenUsage","value":{"uncachedInputTokens":1},"seq":1}""").jsonObject,
+            json.parseToJsonElement("""{"type":"session/jobs","sessionId":"m-1","jobs":[]}""").jsonObject,
+            json.parseToJsonElement("""{"type":"session/queue","sessionId":"m-1","items":[]}""").jsonObject,
+            json.parseToJsonElement("""{"type":"stream/error","error":{"code":"internal"}}""").jsonObject,
+            json.parseToJsonElement("""{"type":"turn/end","seq":5,"time":6,"data":{"turn":1}}""").jsonObject,
+        )
+        val result = DshHistoryFolder.fold(rows)
+        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("m-1")), result.sseEvents)
+        assertEquals(0, result.unknownUnignorable.size) // 帧型混入不拒绝重建
+        assertEquals(false, result.refusedRebuild)
+        assertEquals(5L, result.lastSeq) // 帧型行无 seq，lastSeq 只由活事件推进
+    }
+
+    @Test
     fun `unknown unignorable accumulates distinct types in order`() {
         val rows = listOf(
             json.parseToJsonElement("""{"type":"session","version":0,"id":"u-1","createdAt":1,"cwd":"/w"}""").jsonObject,

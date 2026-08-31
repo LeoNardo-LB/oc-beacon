@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.api.dsh
 
+import dev.leonardo.ocbeacon.domain.model.JobView
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
@@ -55,10 +56,17 @@ class DshEventMapperTest {
     // ============ mux 帧面：连接信号 ============
 
     @Test
-    fun `session subscribed frame maps to baseline signal`() {
+    fun `session subscribed frame maps to baseline signal and clears jobs`() {
         val m = mappedFrames("dsh/mux-frames.jsonl")[0] // 黄金样本行 1：session/subscribed
         assertEquals("session/subscribed", m.method)
-        assertEquals(listOf(DshMappedEvent.Subscribed(DshSubscribed(sessionId = "fixture-0001", lastSeq = 15L))), m.mapped)
+        // 对齐官方 client.js:8314：subscribed 基线先行清空 jobs，服务器随后重推快照
+        assertEquals(
+            listOf(
+                DshMappedEvent.Subscribed(DshSubscribed(sessionId = "fixture-0001", lastSeq = 15L)),
+                DshMappedEvent.Sse(SseEvent.JobsSnapshot(sessionId = "fixture-0001", jobs = emptyList())),
+            ),
+            m.mapped,
+        )
     }
 
     // ============ mux 帧面：session/event 内层分派（实况流式） ============
@@ -220,14 +228,99 @@ class DshEventMapperTest {
         )
     }
 
-    // ============ mux 帧面：显式忽略（#276/后续承接） ============
+    // ============ mux 帧面：jobs / projection（A/B 接线） ============
 
     @Test
-    fun `queue jobs projection and stream error frames are ignored with named reasons`() {
+    fun `jobs frame maps to JobsSnapshot with JobView fields`() {
+        val m = mappedFrames("dsh/mux-frames.jsonl")[5] // session/jobs 2 条
+        val snapshot = eventsOf(m.mapped).single() as SseEvent.JobsSnapshot
+        assertEquals("fixture-0001", snapshot.sessionId)
+        assertEquals(
+            listOf(
+                JobView(
+                    id = "job-1", kind = "bash", label = "npm test", status = "running",
+                    detail = "run unit tests", startedAt = 1000L, finishedAt = null,
+                ),
+                JobView(
+                    id = "job-2", kind = "subagent", label = "scout", status = "completed",
+                    detail = null, startedAt = 2000L, finishedAt = 3000L,
+                ),
+            ),
+            snapshot.jobs,
+        )
+    }
+
+    @Test
+    fun `empty jobs frame maps to JobsSnapshot empty for last-wins clear`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/jobs",
+            json.parseToJsonElement("""{"type":"session/jobs","sessionId":"s1","jobs":[]}""").jsonObject,
+        )
+        assertEquals(
+            listOf(DshMappedEvent.Sse(SseEvent.JobsSnapshot(sessionId = "s1", jobs = emptyList()))),
+            mapped,
+        )
+    }
+
+    @Test
+    fun `projection tokenUsage frame maps to SessionTokenUsageChanged`() {
+        val m = mappedFrames("dsh/mux-frames.jsonl")[2] // key=tokenUsage
+        val changed = eventsOf(m.mapped).single() as SseEvent.SessionTokenUsageChanged
+        assertEquals("fixture-0001", changed.sessionId)
+        assertEquals(
+            dev.leonardo.ocbeacon.domain.model.DshTokenUsage(
+                uncachedInputTokens = 100L, outputTokens = 50L, cacheReadTokens = 20L, cacheWriteTokens = 0L,
+            ),
+            changed.tokenUsage,
+        )
+        assertEquals(170L, changed.tokenUsage.total)
+    }
+
+    @Test
+    fun `projection subagentTiming frame maps to SessionSubagentTimingChanged`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"subagentTiming","value":{"settledMs":1500,"active":{"since":1000,"through":2500}},"seq":9}"""
+            ).jsonObject,
+        )
+        val changed = eventsOf(mapped).single() as SseEvent.SessionSubagentTimingChanged
+        assertEquals("s1", changed.sessionId)
+        assertEquals(
+            dev.leonardo.ocbeacon.domain.model.DshSubagentTiming(settledMs = 1500L, activeSince = 1000L, activeThrough = 2500L),
+            changed.timing,
+        )
+        assertEquals(3000L, changed.timing.activeDurationMs) // settled 1500 + active(2500-1000)
+    }
+
+    @Test
+    fun `projection subagentTiming without active maps settled only`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"subagentTiming","value":{"settledMs":42},"seq":9}"""
+            ).jsonObject,
+        )
+        val changed = eventsOf(mapped).single() as SseEvent.SessionSubagentTimingChanged
+        assertEquals(42L, changed.timing.activeDurationMs) // 无 active → settled 原值
+        assertEquals(null, changed.timing.activeSince)
+    }
+
+    @Test
+    fun `projection unknown key is ignored with projection reason`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"sessionStats","value":{"turns":2},"seq":9}"""
+            ).jsonObject,
+        )
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION)), mapped)
+    }
+
+    @Test
+    fun `queue and stream error frames are ignored with named reasons`() {
         val golden = mappedFrames("dsh/mux-frames.jsonl")
-        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION)), golden[2].mapped)
         assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.QUEUE)), golden[4].mapped)
-        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.JOBS)), golden[5].mapped)
         assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR)), golden[8].mapped)
     }
 

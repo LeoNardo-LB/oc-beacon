@@ -130,6 +130,37 @@ sealed class SseEvent {
         val agentPreset: String,
     ) : SseEvent()
 
+    /**
+     * DSH 后台任务整快照（session/jobs 帧）。
+     * last-wins 整替换：空 [jobs] = 清空该会话任务（subscribed 重连清空同样发空集）。
+     * 由 DshJobsHandler 写入 DshJobsStore；OpenCode 无此帧。
+     */
+    @Serializable
+    data class JobsSnapshot(
+        val sessionId: String,
+        val jobs: List<JobView>,
+    ) : SseEvent()
+
+    /**
+     * DSH tokenUsage 投影变更（session/projection 帧 key=tokenUsage）。
+     * 由 SessionEventHandler 折叠进 Session.tokenUsage（last-wins）。
+     */
+    @Serializable
+    data class SessionTokenUsageChanged(
+        val sessionId: String,
+        val tokenUsage: DshTokenUsage,
+    ) : SseEvent()
+
+    /**
+     * DSH subagentTiming 投影变更（session/projection 帧 key=subagentTiming）。
+     * 由 SessionEventHandler 折叠进 Session.subagentTiming（last-wins）。
+     */
+    @Serializable
+    data class SessionSubagentTimingChanged(
+        val sessionId: String,
+        val timing: DshSubagentTiming,
+    ) : SseEvent()
+
     // 问题事件
     @Serializable
     data class QuestionAsked(

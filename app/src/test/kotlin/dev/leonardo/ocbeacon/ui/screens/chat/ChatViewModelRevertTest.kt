@@ -99,6 +99,7 @@ class ChatViewModelRevertTest {
             permissionAutoApprover = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover>(relaxed = true),
             pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
             historySyncManagerProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.HistorySyncManager>(relaxed = true) },
+            dshJobsHandler = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.handler.DshJobsHandler>(relaxed = true),
         )
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
 
@@ -245,6 +246,7 @@ class ChatViewModelRevertTest {
                 every { mk.drainingSessions } returns kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>())
             },
             historySyncManager = mockk(relaxed = true),
+            dshJobsStore = dev.leonardo.ocbeacon.data.repository.DshJobsStore(),
         )
     }
 

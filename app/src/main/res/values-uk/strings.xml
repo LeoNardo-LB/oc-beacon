@@ -584,6 +584,9 @@
     <string name="mcp_servers_title">Сервери MCP</string>
     <string name="mcp_no_servers">Сервери MCP не налаштовано</string>
     <string name="chat_context_composition">Склад контексту (приблизно)</string>
+    <string name="chat_context_subagent_title">Субагент</string>
+    <string name="chat_context_subagent_tokens">Накопичені токени: %1$s</string>
+    <string name="chat_context_subagent_duration">Активний час: %1$s</string>
     <string name="chat_context_other_note">Решта (включаючи system тощо)</string>
     <string name="chat_role_user">Користувач</string>
     <string name="chat_role_assistant">Асистент</string>
@@ -704,6 +707,12 @@
     <string name="shell_status_running">Виконується</string>
     <string name="shell_status_exit">Код виходу %1$d</string>
     <string name="shell_status_done">Готово</string>
+    <string name="dsh_job_status_running">Виконується</string>
+    <string name="dsh_job_status_stopping">Зупинення</string>
+    <string name="dsh_job_status_killed">Примусово завершено</string>
+    <string name="dsh_job_status_completed">Завершено</string>
+    <string name="dsh_job_status_failed">Не виконано</string>
+    <string name="dsh_jobs_empty">Немає фонових задач</string>
     <string name="shell_status_failed">Не виконано</string>
     <string name="task_toolbar_action">Перемістити завдання у фон</string>
     <string name="task_toolbar_subagents">%1$d субагент(ів) на передньому плані</string>

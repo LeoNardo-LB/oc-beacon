@@ -576,6 +576,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="mcp_servers_title">Servidores MCP</string>
     <string name="mcp_no_servers">No hay servidores MCP configurados</string>
     <string name="chat_context_composition">Composición del contexto (estimada)</string>
+    <string name="chat_context_subagent_title">Subagente</string>
+    <string name="chat_context_subagent_tokens">Tokens acumulados: %1$s</string>
+    <string name="chat_context_subagent_duration">Duración activa: %1$s</string>
     <string name="chat_context_other_note">Resto (incluye system, etc.)</string>
     <string name="chat_role_user">Usuario</string>
     <string name="chat_role_assistant">Asistente</string>
@@ -696,6 +699,12 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">Ejecutando</string>
     <string name="shell_status_exit">Código de salida %1$d</string>
     <string name="shell_status_done">Hecho</string>
+    <string name="dsh_job_status_running">Ejecutando</string>
+    <string name="dsh_job_status_stopping">Deteniendo</string>
+    <string name="dsh_job_status_killed">Finalizado</string>
+    <string name="dsh_job_status_completed">Completado</string>
+    <string name="dsh_job_status_failed">Fallido</string>
+    <string name="dsh_jobs_empty">Sin tareas en segundo plano</string>
     <string name="shell_status_failed">Fallido</string>
     <string name="task_toolbar_action">Mover tarea a segundo plano</string>
     <string name="task_toolbar_subagents">%1$d subagente(s) ejecutándose en primer plano</string>

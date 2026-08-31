@@ -576,6 +576,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="mcp_servers_title">Server MCP</string>
     <string name="mcp_no_servers">Nessun server MCP configurato</string>
     <string name="chat_context_composition">Composizione contesto (stima)</string>
+    <string name="chat_context_subagent_title">Subagente</string>
+    <string name="chat_context_subagent_tokens">Token cumulativi: %1$s</string>
+    <string name="chat_context_subagent_duration">Durata attiva: %1$s</string>
     <string name="chat_context_other_note">Restante (incluso system, ecc.)</string>
     <string name="chat_role_user">Utente</string>
     <string name="chat_role_assistant">Assistente</string>
@@ -696,6 +699,12 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">In esecuzione</string>
     <string name="shell_status_exit">Codice di uscita %1$d</string>
     <string name="shell_status_done">Completato</string>
+    <string name="dsh_job_status_running">In esecuzione</string>
+    <string name="dsh_job_status_stopping">Arresto</string>
+    <string name="dsh_job_status_killed">Terminato</string>
+    <string name="dsh_job_status_completed">Completato</string>
+    <string name="dsh_job_status_failed">Non riuscito</string>
+    <string name="dsh_jobs_empty">Nessuna attività in background</string>
     <string name="shell_status_failed">Non riuscito</string>
     <string name="task_toolbar_action">Sposta attività in background</string>
     <string name="task_toolbar_subagents">%1$d subagente in esecuzione in primo piano</string>

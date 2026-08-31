@@ -584,6 +584,9 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="mcp_servers_title">Serwery MCP</string>
     <string name="mcp_no_servers">Nie skonfigurowano serwerów MCP</string>
     <string name="chat_context_composition">Skład kontekstu (szacowany)</string>
+    <string name="chat_context_subagent_title">Sub-agenci</string>
+    <string name="chat_context_subagent_tokens">Łączna liczba tokenów: %1$s</string>
+    <string name="chat_context_subagent_duration">Aktywny czas: %1$s</string>
     <string name="chat_context_other_note">Pozostałe (w tym system itp.)</string>
     <string name="chat_role_user">Użytkownik</string>
     <string name="chat_role_assistant">Asystent</string>
@@ -704,6 +707,12 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="shell_status_running">Działa</string>
     <string name="shell_status_exit">Kod wyjścia %1$d</string>
     <string name="shell_status_done">Gotowe</string>
+    <string name="dsh_job_status_running">Działa</string>
+    <string name="dsh_job_status_stopping">Zatrzymywanie</string>
+    <string name="dsh_job_status_killed">Zakończono</string>
+    <string name="dsh_job_status_completed">Ukończono</string>
+    <string name="dsh_job_status_failed">Nieudane</string>
+    <string name="dsh_jobs_empty">Brak zadań w tle</string>
     <string name="shell_status_failed">Nieudane</string>
     <string name="task_toolbar_action">Przenieś zadanie do tła</string>
     <string name="task_toolbar_subagents">%1$d subagent(ów) działa na pierwszym planie</string>

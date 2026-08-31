@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.util
 
+import dev.leonardo.ocbeacon.domain.model.DshTokenUsage
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -35,7 +36,11 @@ data class ContextDetailState(
     val providerModel: ProviderModel? = null,
     val timestamps: SessionTimestamps? = null,
     val cacheHitRate: Float? = null,
-    val breakdown: ContextBreakdown? = null
+    val breakdown: ContextBreakdown? = null,
+    /** DSH tokenUsage 投影（子代理区累计 tokens）；OpenCode 恒 null → 区不渲染。 */
+    val subagentTokens: DshTokenUsage? = null,
+    /** DSH subagentTiming 派生活跃时长 ms；OpenCode 恒 null → 区不渲染。 */
+    val subagentActiveDurationMs: Long? = null,
 )
 
 private fun estimateTokens(chars: Int): Int = if (chars == 0) 0 else ceil(chars / 4.0).toInt()

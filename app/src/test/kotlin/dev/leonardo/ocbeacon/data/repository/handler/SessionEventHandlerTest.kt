@@ -211,6 +211,48 @@ class SessionEventHandlerTest {
     }
 
     @Test
+    fun `SessionTokenUsageChanged folds tokenUsage into session last-wins`() = runTest {
+        handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
+        assertTrue(
+            handler.handle(
+                SseEvent.SessionTokenUsageChanged("s1", DshTokenUsage(100L, 50L, 20L, 0L)),
+                "server1",
+            )
+        )
+        assertEquals(DshTokenUsage(100L, 50L, 20L, 0L), handler.sessions.value[0].tokenUsage)
+        // last-wins：后续帧整替换
+        handler.handle(
+            SseEvent.SessionTokenUsageChanged("s1", DshTokenUsage(200L, 80L, 30L, 5L)),
+            "server1",
+        )
+        assertEquals(DshTokenUsage(200L, 80L, 30L, 5L), handler.sessions.value[0].tokenUsage)
+    }
+
+    @Test
+    fun `SessionSubagentTimingChanged folds timing into session`() = runTest {
+        handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
+        assertTrue(
+            handler.handle(
+                SseEvent.SessionSubagentTimingChanged("s1", DshSubagentTiming(1500L, 1000L, 2500L)),
+                "server1",
+            )
+        )
+        assertEquals(DshSubagentTiming(1500L, 1000L, 2500L), handler.sessions.value[0].subagentTiming)
+    }
+
+    @Test
+    fun `projection event before session baseline is no-op`() = runTest {
+        // 事件早于 session.list 基线（会话未入列表）→ no-op，不崩不残留
+        assertTrue(
+            handler.handle(
+                SseEvent.SessionTokenUsageChanged("ghost", DshTokenUsage(1L)),
+                "server1",
+            )
+        )
+        assertTrue(handler.sessions.value.isEmpty())
+    }
+
+    @Test
     fun `clearForServer with no sessions removes server entry`() = runTest {
         handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
         handler.clearForServer("server1")

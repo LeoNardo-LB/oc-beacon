@@ -588,6 +588,9 @@
     <string name="connection_error_switch_server">切换到其他服务器</string>
     <string name="chat_thinking_in_progress">思考中… %1$s</string>
     <string name="chat_context_composition">上下文构成（估算）</string>
+    <string name="chat_context_subagent_title">子智能体</string>
+    <string name="chat_context_subagent_tokens">累计令牌: %1$s</string>
+    <string name="chat_context_subagent_duration">活跃时长: %1$s</string>
     <string name="chat_context_other_note">其余（含系统等）</string>
     <string name="chat_role_user">用户</string>
     <string name="chat_role_assistant">助手</string>
@@ -699,6 +702,12 @@
     <string name="shell_status_running">运行中</string>
     <string name="shell_status_exit">退出码 %1$d</string>
     <string name="shell_status_done">完成</string>
+    <string name="dsh_job_status_running">运行中</string>
+    <string name="dsh_job_status_stopping">停止中</string>
+    <string name="dsh_job_status_killed">已终止</string>
+    <string name="dsh_job_status_completed">完成</string>
+    <string name="dsh_job_status_failed">失败</string>
+    <string name="dsh_jobs_empty">没有后台任务</string>
     <string name="shell_status_failed">失败</string>
     <string name="task_toolbar_action">任务转后台</string>
     <string name="task_toolbar_subagents">%1$d 个子智能体正在前台运行</string>

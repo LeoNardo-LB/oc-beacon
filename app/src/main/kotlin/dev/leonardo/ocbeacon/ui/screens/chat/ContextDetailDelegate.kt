@@ -84,6 +84,10 @@ class ContextDetailDelegate(
                 timestamps = timestamps,
                 cacheHitRate = cacheHitRateVal,
                 breakdown = breakdown,
+                // DSH 子代理区：tokenUsage 投影累计 tokens + subagentTiming 派生活跃时长
+                //（OpenCode 会话两字段恒 null → ContextDetailDialog 不渲染该区）。
+                subagentTokens = session?.tokenUsage,
+                subagentActiveDurationMs = session?.subagentTiming?.activeDurationMs,
             )
         }
     }

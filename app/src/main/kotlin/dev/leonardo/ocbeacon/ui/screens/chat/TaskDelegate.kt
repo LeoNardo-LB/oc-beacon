@@ -1,8 +1,11 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.data.repository.ShellJobsStore
+import dev.leonardo.ocbeacon.data.repository.DshJobsStore
 import dev.leonardo.ocbeacon.logging.AppLogger
+import dev.leonardo.ocbeacon.domain.model.JobView
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ToolState
@@ -48,6 +51,10 @@ data class SubagentSummary(
  */
 data class TaskUiState(
     val shells: List<ShellJob> = emptyList(),
+    /** DSH 后台任务整快照（session/jobs 帧）；非 DSH 会话恒空。 */
+    val dshJobs: List<JobView> = emptyList(),
+    /** 当前服务器类型——ShellSheet 分流数据源（V2 shell / DSH jobs）。 */
+    val serverType: ServerType = ServerType.OpenCode,
     val subagents: List<SubagentSummary> = emptyList(),
     /** 运行中的 subagent 数（角标计数） */
     val runningSubagentCount: Int = 0,
@@ -79,6 +86,9 @@ class TaskAggregator(
     private val sessionRepository: SessionRepository,
     private val chatRepository: ChatRepository,
     private val shellJobsStore: ShellJobsStore,
+    private val dshJobsStore: DshJobsStore,
+    /** 服务器类型流（DSH 数据源门控——面板两代共用，分流点在仓库层）。 */
+    private val serverTypeFlow: kotlinx.coroutines.flow.Flow<ServerType>,
     private val serverId: String,
     sessionIdFlow: kotlinx.coroutines.flow.Flow<String>,
     scope: CoroutineScope,
@@ -296,27 +306,52 @@ class TaskAggregator(
         foregroundCount(currentSessionId, runningIds, toolParts)
     }.distinctUntilChanged()
 
+    /**
+     * Shell 面板数据源分流（仓库层）：serverType==Dsh 读 [DshJobsStore]，否则读
+     * [ShellJobsStore]——V2 会话行为零改动（shells 恒走原 store）。
+     */
+    private data class JobsPanelData(
+        val serverType: ServerType,
+        val shells: List<ShellJob>,
+        val dshJobs: List<JobView>,
+    )
+
+    private val jobsPanelData = combine(
+        shellJobsStore.jobsBySession,
+        dshJobsStore.jobsBySession,
+        serverTypeFlow,
+        sessionIdFlow,
+    ) { shellsMap, dshJobsMap, serverType, currentSessionId ->
+        val isDsh = serverType == ServerType.Dsh
+        JobsPanelData(
+            serverType = serverType,
+            shells = if (isDsh) emptyList() else shellsMap[currentSessionId].orEmpty(),
+            dshJobs = if (isDsh) dshJobsMap[currentSessionId].orEmpty() else emptyList(),
+        )
+    }.distinctUntilChanged()
+
     /** 聚合状态：角标计数 + 面板数据 + AgentSheet 多级树。 */
     val uiState: StateFlow<TaskUiState> = combine(
         subagents,
-        shellJobsStore.jobsBySession,
+        jobsPanelData,
         foregroundCountFlow,
         sessionIdFlow,
         // 2026-09 树化：树行/懒加载态作为第 5 源（快照变更/展开收起/DSH 层拉取均驱动）
         subagentTreeHolder.state,
-    ) { subagents, jobsBySession, foregroundCount, currentSessionId, tree ->
+    ) { subagents, jobs, foregroundCount, currentSessionId, tree ->
         // 2026-08-12 用户要求：面板支持"进行中/历史"切换——shells 保留全部
         //（含已结束的，ShellJobsStore 注释"便于面板展示历史"），过滤交给
         // UI 层（TaskSheet showHistory 切换）。此前仅保留运行中——
         // 用户反馈"没看到历史记录切换"后扩展。
-        val shells = jobsBySession[currentSessionId].orEmpty()
         val runningSubagents = subagents.filter { it.isRunning }
         TaskUiState(
-            shells = shells,
+            shells = jobs.shells,
+            dshJobs = jobs.dshJobs,
+            serverType = jobs.serverType,
             subagents = subagents,
             runningSubagentCount = runningSubagents.size,
             foregroundSubagentCount = foregroundCount,
-            runningShellCount = shells.count { it.isRunning },
+            runningShellCount = jobs.shells.count { it.isRunning },
             subagentTreeRows = tree.rows,
             subagentTreeLoadingIds = tree.loadingIds,
             subagentTreeController = subagentTreeController,

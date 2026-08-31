@@ -255,6 +255,12 @@
     <string name="shell_status_running">Running</string>
     <string name="shell_status_exit">Exit %1$d</string>
     <string name="shell_status_done">Done</string>
+    <string name="dsh_job_status_running">Running</string>
+    <string name="dsh_job_status_stopping">Stopping</string>
+    <string name="dsh_job_status_killed">Killed</string>
+    <string name="dsh_job_status_completed">Completed</string>
+    <string name="dsh_job_status_failed">Failed</string>
+    <string name="dsh_jobs_empty">No background jobs</string>
     <string name="shell_status_failed">Failed</string>
     <string name="task_toolbar_action">Move task to background</string>
     <string name="task_toolbar_subagents">%1$d subagent(s) running in foreground</string>
@@ -620,6 +626,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
 
     <!-- Context detail dialog -->
     <string name="chat_context_composition">Context breakdown (estimated)</string>
+    <string name="chat_context_subagent_title">Subagent</string>
+    <string name="chat_context_subagent_tokens">Cumulative tokens: %1$s</string>
+    <string name="chat_context_subagent_duration">Active duration: %1$s</string>
     <string name="chat_context_other_note">Other (incl. system etc.)</string>
     <string name="chat_role_user">User</string>
     <string name="chat_role_assistant">Assistant</string>

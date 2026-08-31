@@ -43,6 +43,32 @@ object DshSessionMapper {
             permissions = parsePermissions(item),
             blank = item.dshBool("blank") ?: false,
             agentPreset = item.dshStr("agentPreset"),
+            // B：tokenUsage/subagentTiming 投影基线（帧驱动 last-wins 的前置种子——
+            // 打开已完成子代理会话时弹窗即可展示，无需等 projection 帧）
+            tokenUsage = parseTokenUsage(item),
+            subagentTiming = parseSubagentTiming(item),
+        )
+    }
+
+    /** tokenUsage 投影（projections.values.tokenUsage）→ 域模型；缺席返回 null。 */
+    private fun parseTokenUsage(item: JsonObject): dev.leonardo.ocbeacon.domain.model.DshTokenUsage? {
+        val v = item.dshObj("projections")?.dshObj("values")?.dshObj("tokenUsage") ?: return null
+        return dev.leonardo.ocbeacon.domain.model.DshTokenUsage(
+            uncachedInputTokens = v.dshLong("uncachedInputTokens") ?: 0L,
+            outputTokens = v.dshLong("outputTokens") ?: 0L,
+            cacheReadTokens = v.dshLong("cacheReadTokens") ?: 0L,
+            cacheWriteTokens = v.dshLong("cacheWriteTokens") ?: 0L,
+        )
+    }
+
+    /** subagentTiming 投影（projections.values.subagentTiming）→ 域模型；缺席返回 null。 */
+    private fun parseSubagentTiming(item: JsonObject): dev.leonardo.ocbeacon.domain.model.DshSubagentTiming? {
+        val v = item.dshObj("projections")?.dshObj("values")?.dshObj("subagentTiming") ?: return null
+        val active = v.dshObj("active")
+        return dev.leonardo.ocbeacon.domain.model.DshSubagentTiming(
+            settledMs = v.dshLong("settledMs") ?: 0L,
+            activeSince = active?.dshLong("since"),
+            activeThrough = active?.dshLong("through"),
         )
     }
 

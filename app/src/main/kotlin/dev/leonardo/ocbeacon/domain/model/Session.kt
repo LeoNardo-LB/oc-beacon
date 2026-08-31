@@ -34,6 +34,10 @@ data class Session(
     val blank: Boolean = false,
     /** DSH 当前 Agent 预设 id（agentPreset 字段 / agent-preset/selected 事件）；OpenCode 恒 null。 */
     val agentPreset: String? = null,
+    /** DSH tokenUsage 投影（session/projection 帧驱动 last-wins；OpenCode 恒 null）。 */
+    val tokenUsage: DshTokenUsage? = null,
+    /** DSH subagentTiming 投影（session/projection 帧驱动 last-wins；OpenCode 恒 null）。 */
+    val subagentTiming: DshSubagentTiming? = null,
 ) {
     @Serializable
     data class Time(

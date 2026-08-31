@@ -15,6 +15,15 @@ internal fun formatTokenCount(count: Int): String {
     }
 }
 
+/** Long 版 token 计数（DSH tokenUsage 累计四桶求和——cumulative 计数可能超 Int）。 */
+internal fun formatTokenCountLong(count: Long): String {
+    return when {
+        count >= 1_000_000L -> String.format("%.1fM", count / 1_000_000.0)
+        count >= 1_000L -> String.format("%.1fk", count / 1_000.0)
+        else -> count.toString()
+    }
+}
+
 internal fun formatAssistantErrorMessage(error: dev.leonardo.ocbeacon.domain.model.Message.Assistant.ErrorInfo?): String? {
     if (error == null) return null
     val raw = error.message.ifBlank { error.name }
