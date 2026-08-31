@@ -283,5 +283,73 @@ class DshApiClientTest {
         assertTrue(runCatching { api.updateConfig(conn, ServerConfigPatch()) }.exceptionOrNull() is UnsupportedServerCapability)
     }
 
+    /**
+     * #276 走查 N2（D1 workspace 空路径）：path="" 不得直传（DSH 要求
+     * fully-qualified path，空串 → directory-unreadable）——从 workspace.list
+     * 首个 workspace path 解析根（走查实证 UI 的「workspace /home/…」标签即
+     * 该源），再以根路径请求 host.listDirectory。
+     */
+    @Test
+    fun `listDirectory resolves blank path to workspace root`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/workspace.list" -> respond(ok("""{"items":[{"id":"ws-1","path":"/home/leo-tkp/workspace"}]}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("""{"entries":[{"name":"src","type":"directory"}]}"""), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val nodes = client(engine).listDirectory(conn, path = "")
+        assertEquals(listOf("src"), nodes.map { it.name })
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/workspace.list", "/api/host.listDirectory"), paths)
+        // 根路径解析后作为 host.listDirectory 的 path 参数
+        val listPayload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).last())).jsonObject["payload"]!!.jsonObject
+        assertEquals("/home/leo-tkp/workspace", listPayload["path"]!!.jsonPrimitive.content)
+    }
+
+    /** workspace.list 无条目 → 兜底 host.describe cwd。 */
+    @Test
+    fun `listDirectory falls back to host describe cwd when no workspaces`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/workspace.list" -> respond(ok("""{"items":[]}"""), HttpStatusCode.OK, jsonHeaders())
+                "/api/host.describe" -> respond(ok("""{"version":"0.0.1","cwd":"/srv/home"}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("""{"entries":[]}"""), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        client(engine).listDirectory(conn, path = "")
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/workspace.list", "/api/host.describe", "/api/host.listDirectory"), paths)
+        val listPayload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).last())).jsonObject["payload"]!!.jsonObject
+        assertEquals("/srv/home", listPayload["path"]!!.jsonPrimitive.content)
+    }
+
+    /** 调用方带具体 directory（如会话 cwd）→ 优先于 workspace 注册表（零额外 RPC）。 */
+    @Test
+    fun `listDirectory prefers explicit directory param for blank path`() = runTest {
+        val engine = MockEngine { respond(ok("""{"entries":[]}"""), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine).listDirectory(conn, path = "", directory = "/w/custom")
+        val req = captureRequests(engine).single()
+        assertEquals("/api/host.listDirectory", req.url.encodedPath)
+        val listPayload = json.parseToJsonElement(bodyTextOf(req)).jsonObject["payload"]!!.jsonObject
+        assertEquals("/w/custom", listPayload["path"]!!.jsonPrimitive.content)
+    }
+
+    /** 根路径解析结果缓存：两次空 path 请求只查一次 workspace.list。 */
+    @Test
+    fun `listDirectory caches resolved root per connection`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/workspace.list" -> respond(ok("""{"items":[{"id":"ws-1","path":"/root-ws"}]}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("""{"entries":[]}"""), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val api = client(engine)
+        api.listDirectory(conn, path = "")
+        api.listDirectory(conn, path = "")
+        val workspaceCalls = captureRequests(engine).count { it.url.encodedPath == "/api/workspace.list" }
+        assertEquals(1, workspaceCalls)
+        assertEquals(2, captureRequests(engine).count { it.url.encodedPath == "/api/host.listDirectory" })
+    }
+
     private fun jsonHeaders() = headersOf("Content-Type" to listOf("application/json"))
 }

@@ -49,6 +49,14 @@ object DateFormatters {
     /** "yyyy-MM-dd HH:mm:ss.SSS"（Locale.US）——崩溃详情时间戳。 */
     fun crashDetail(): SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
+    /**
+     * epoch-ms 条件格式化（#276 走查 N3）：<=0 = unknown 哨兵（DSH 会话无
+     * created 时刻，DshSessionMapper 置 0）→ "—" 占位，避免渲染成 1970-01-01；
+     * 不以 updated 冒充 created（误导时刻语义）。
+     */
+    fun formatEpochOrDash(format: SimpleDateFormat, epochMs: Long): String =
+        if (epochMs > 0) format.format(java.util.Date(epochMs)) else "—"
+
     /** "yyyyMMdd_HHmmss"（Locale.US）——崩溃日志文件名解析。 */
     fun crashFileNameParse(): SimpleDateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
 }

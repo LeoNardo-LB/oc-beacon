@@ -381,7 +381,11 @@ private fun SessionDetailsDialog(
                         )
                         DetailRow(
                             stringResource(R.string.session_details_created),
-                            dateFormat.format(Date(item.session.time.created))
+                            // #276 走查 N3：DSH 会话无 created（哨兵 0）→「—」，
+                            // 不渲染 1970-01-01，也不以 updated 冒充
+                            dev.leonardo.ocbeacon.util.DateFormatters.formatEpochOrDash(
+                                dateFormat, item.session.time.created,
+                            )
                         )
                         DetailRow(
                             stringResource(R.string.session_details_updated),

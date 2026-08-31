@@ -952,10 +952,10 @@ class ChatViewModel @Inject constructor(
      */
     fun revertMessage(messageId: String, revertedText: String? = null, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
+            // 提升到 try 外：失败路径（catch）同样需要判断是否恢复 SSE 观察
+            val currentStatus = sessionStateRepository.statusFlow.value[sessionId]
+            val wasBusy = currentStatus is SessionStatus.Busy || currentStatus is SessionStatus.Retry
             try {
-                val currentStatus = sessionStateRepository.statusFlow.value[sessionId]
-                val wasBusy = currentStatus is SessionStatus.Busy || currentStatus is SessionStatus.Retry
-
                 // RS-008 修复：在取消 SSE job 之前设置 revert 过滤器。
                 chatRepository.setRevert(sessionId, messageId)
 
@@ -983,6 +983,16 @@ class ChatViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to revert to message $messageId", e)
+                // #276 走查 N1（C1 假成功）根治：setRevert 在网络调用前已置位——
+                // 服务器拒绝（如 DSH 无 session.revert）时必须回滚，否则 RevertBanner
+                //（标题文案恰为「消息已还原」）常驻 + 列表按 revert 边界截断，用户
+                // 读到「还原成功」而服务器什么都没做；banner redo 再失败即成「静默」。
+                chatRepository.clearRevert(sessionId)
+                // busy 会话的 SSE 观察在调用前被取消——失败路径同样要恢复，否则
+                // 实况更新死亡直到重进会话
+                if (wasBusy) {
+                    runCatching { messageData.startObservingMessages() }
+                }
                 onResult(false)
             }
         }

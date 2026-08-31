@@ -528,12 +528,25 @@ class DshApiClient @Inject constructor(
     override suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean =
         rpc.call(conn, "host.listDirectory", buildJsonObject { put("path", directory) }) { Unit }.isSuccess
 
+    /**
+     * #276 走查 N2（D1 workspace 空路径）：DSH host.listDirectory 要求
+     * fully-qualified path——path=""（OpenCode 语义的工作区根）直传会
+     * directory-unreadable。解析序：①调用方 [directory]（会话 cwd 等
+     * fully-qualified 值）②workspace.list 首个 workspace path（单一真相源——
+     * UI 工作区标签同源；按 baseUrl 缓存，注册表极少变）③host.describe cwd
+     * （服务器启动目录兜底）。
+     */
     override suspend fun listDirectory(
         conn: ServerConnection,
         path: String,
         directory: String?,
     ): List<FileNodeDto> {
-        val value = rpc.call(conn, "host.listDirectory", buildJsonObject { put("path", path) }) { it }.getOrElse { e -> throw e }
+        val effectivePath = if (path.isBlank()) {
+            directory?.takeIf { it.isNotBlank() } ?: resolveRootPath(conn)
+        } else {
+            path
+        }
+        val value = rpc.call(conn, "host.listDirectory", buildJsonObject { put("path", effectivePath) }) { it }.getOrElse { e -> throw e }
         val entries = value.dshArr("entries") ?: value.dshArr("items") ?: emptyList()
         return entries.mapNotNull { el ->
             val entry = el as? JsonObject ?: return@mapNotNull null
@@ -547,6 +560,28 @@ class DshApiClient @Inject constructor(
             val entryPath = entry.dshStr("path") ?: joinPath(path, name)
             FileNodeDto(name = name, path = entryPath, type = type, absolute = entryPath)
         }
+    }
+
+    /** 根路径缓存（baseUrl → 解析结果）——workspace 注册表极少变，树根仅为浏览起点。 */
+    private val rootPathCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** 空 path 的根解析：workspace.list 首个 path → host.describe cwd；都无则显式失败。 */
+    private suspend fun resolveRootPath(conn: ServerConnection): String {
+        val base = conn.baseUrl.trimEnd('/')
+        rootPathCache[base]?.let { return it }
+        val workspaceRoot = runCatching {
+            val value = rpc.call(conn, "workspace.list", buildJsonObject {}) { it }.getOrNull()
+            val items = value?.dshArr("items") ?: value?.dshArr("workspaces") ?: emptyList()
+            items.asSequence()
+                .mapNotNull { it as? JsonObject }
+                .firstNotNullOfOrNull { it.dshStr("path") ?: it.dshStr("cwd") ?: it.dshStr("directory") }
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+        val root = workspaceRoot ?: runCatching {
+            rpc.call(conn, "host.describe", buildJsonObject {}) { it }.getOrNull()?.dshStr("cwd")
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+            ?: throw DshApiError(null, "cannot resolve root path for empty listDirectory request", null, null)
+        rootPathCache[base] = root
+        return root
     }
 
     override suspend fun findSymbols(conn: ServerConnection, query: String, directory: String?): List<SymbolInfo> = emptyList()
