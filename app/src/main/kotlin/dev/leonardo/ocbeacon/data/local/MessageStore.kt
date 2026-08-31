@@ -323,7 +323,15 @@ class MessageStore @Inject constructor(
             databaseRecovery.withCorruptionRecovery {
                 // #51：拆两条查询（无 OR 子句，避免 SQLite 放弃复合索引）
                 val entities = if (beforeId != null) {
-                    dao.messagesBefore(sessionId, beforeId, limit)
+                    // 2026-09-01（定位跳转失效根因）：DAO 谓词改为 created 主游标——
+                    // 先取 beforeId 的 created（DSH seq-N / ULID 通用；缺失回退纯 id 无条件
+                    // 下限 = 空窗口，由调用方按「无更早」处理）。
+                    val created = dao.messageCreatedAt(beforeId)
+                    if (created != null) {
+                        dao.messagesBefore(sessionId, created, beforeId, limit)
+                    } else {
+                        emptyList()
+                    }
                 } else {
                     dao.messagesForSession(sessionId, limit)
                 }
@@ -338,7 +346,9 @@ class MessageStore @Inject constructor(
     override suspend fun loadRangeNewer(sessionId: String, limit: Int, afterId: String): List<MessageWithParts> =
         withContext(Dispatchers.IO) {
             databaseRecovery.withCorruptionRecovery {
-                val entities = dao.messagesAfter(sessionId, afterId, limit)
+                val created = dao.messageCreatedAt(afterId)
+                if (created == null) return@withCorruptionRecovery emptyList()
+                val entities = dao.messagesAfter(sessionId, created, afterId, limit)
                 if (entities.isEmpty()) return@withCorruptionRecovery emptyList()
                 val partsByMsg = partsForMessagesChunked(entities.map { it.id })
                     .groupBy { it.messageId }

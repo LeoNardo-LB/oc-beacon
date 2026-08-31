@@ -82,4 +82,67 @@ class ExtractToolSubagentSessionIdTest {
         val meta = buildJsonObject { put("sessionId", "  ") }
         assertNull(extractToolSubagentSessionId(toolWithMetadata(meta)))
     }
+
+    // ===== 2026-09-01（DSH 定位卡/前向箭头）：DSH 工具卡无 metadata 槽——
+    //     子会话 id 经调用参数（state.input）携带时须可解析 =====
+
+    @Test
+    fun `completed input sessionId fallback (DSH no metadata)`() {
+        // DSH mapToolCall：metadata 缺失，sessionId 在工具参数里（input 键）
+        val tool = Part.Tool(
+            id = "call_10",
+            sessionId = "s",
+            messageId = "m",
+            tool = "subagent",
+            state = ToolState.Completed(
+                input = buildJsonObject { put("sessionId", "session-child-uuid") },
+                output = "",
+            )
+        )
+        assertEquals("session-child-uuid", extractToolSubagentSessionId(tool))
+    }
+
+    @Test
+    fun `pending input sessionID fallback (DSH tool in flight)`() {
+        val tool = Part.Tool(
+            id = "call_11",
+            sessionId = "s",
+            messageId = "m",
+            tool = "task",
+            state = ToolState.Pending(
+                input = buildJsonObject { put("sessionID", "session-abc-123") },
+                raw = "{\"sessionID\":\"session-abc-123\"}",
+            )
+        )
+        assertEquals("session-abc-123", extractToolSubagentSessionId(tool))
+    }
+
+    @Test
+    fun `metadata takes priority over input (V1 V2 behavior unchanged)`() {
+        val tool = Part.Tool(
+            id = "call_12",
+            sessionId = "s",
+            messageId = "m",
+            tool = "subagent",
+            state = ToolState.Completed(
+                input = buildJsonObject { put("sessionId", "input-id") },
+                output = "",
+                metadata = buildJsonObject { put("jobId", "meta-id") },
+            )
+        )
+        // metadata.jobId 命中（元数据优先），不回退 input
+        assertEquals("meta-id", extractToolSubagentSessionId(tool))
+    }
+
+    @Test
+    fun `input without session id keys returns null (DSH)`() {
+        val tool = Part.Tool(
+            id = "call_13",
+            sessionId = "s",
+            messageId = "m",
+            tool = "task",
+            state = ToolState.Pending(input = buildJsonObject { put("description", "no id here") }),
+        )
+        assertNull(extractToolSubagentSessionId(tool))
+    }
 }

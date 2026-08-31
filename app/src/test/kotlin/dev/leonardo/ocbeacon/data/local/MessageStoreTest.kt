@@ -123,9 +123,25 @@ class MessageStoreTest {
 
     @Test
     fun loadRange_passesBeforeCursor() = runTest {
+        // 2026-09-01：DAO 谓词改 created 主游标（DSH seq-N / ULID 通用）——
+        // store 先取 beforeId 的 created 再调用（含 seq-N 数字序窗口修复）。
+        coEvery { dao.messageCreatedAt("msg_5") } returns 100L
+
         store.loadRange("ses_1", limit = 50, beforeId = "msg_5")
 
-        coVerify(exactly = 1) { dao.messagesBefore("ses_1", "msg_5", 50) }
+        coVerify(exactly = 1) { dao.messagesBefore("ses_1", 100L, "msg_5", 50) }
+    }
+
+    @Test
+    fun loadRange_beforeIdAbsentFromCacheReturnsEmptyWindow() = runTest {
+        // beforeId 不在热表（缓存被清/未加载）：created 未知 → 空窗口（调用方
+        // 按「无更早」处理），不向 DAO 传垃圾游标。
+        coEvery { dao.messageCreatedAt("seq-7") } returns null
+
+        val result = store.loadRange("ses_1", limit = 50, beforeId = "seq-7")
+
+        assertEquals(emptyList<MessageWithParts>(), result)
+        coVerify(exactly = 0) { dao.messagesBefore("ses_1", any(), any(), any()) }
     }
 
     @Test
@@ -348,8 +364,8 @@ class MessageStoreTest {
         val chunkSizes = mutableListOf<Int>()
         val realDao = object : MessageDao {
             override suspend fun messagesForSession(sessionId: String, limit: Int) = entities
-            override suspend fun messagesBefore(sessionId: String, beforeId: String, limit: Int) = emptyList<CachedMessageEntity>()
-            override suspend fun messagesAfter(sessionId: String, afterId: String, limit: Int) = emptyList<CachedMessageEntity>()
+            override suspend fun messagesBefore(sessionId: String, created: Long, beforeId: String, limit: Int) = emptyList<CachedMessageEntity>()
+            override suspend fun messagesAfter(sessionId: String, created: Long, afterId: String, limit: Int) = emptyList<CachedMessageEntity>()
             override suspend fun userMessages(sessionId: String, limit: Int) = emptyList<CachedMessageEntity>()
             override suspend fun messageById(sessionId: String, messageId: String): CachedMessageEntity? = null
             override suspend fun partsForMessages(messageIds: List<String>): List<CachedPartEntity> {
@@ -405,16 +421,26 @@ class MessageStoreTest {
 
     @Test
     fun loadRangeNewer_passesAfterCursorToDao() = runTest {
+        coEvery { dao.messageCreatedAt("msg_5") } returns 100L
+
         store.loadRangeNewer("ses_1", limit = 30, afterId = "msg_5")
 
-        coVerify(exactly = 1) { dao.messagesAfter("ses_1", "msg_5", 30) }
+        coVerify(exactly = 1) { dao.messagesAfter("ses_1", 100L, "msg_5", 30) }
     }
 
     @Test
     fun loadRangeNewer_emptyWhenDaoReturnsEmpty() = runTest {
-        coEvery { dao.messagesAfter("ses_1", "msg_5", 30) } returns emptyList()
+        coEvery { dao.messageCreatedAt("msg_5") } returns 100L
+        coEvery { dao.messagesAfter("ses_1", 100L, "msg_5", 30) } returns emptyList()
 
         assertEquals(emptyList<MessageWithParts>(), store.loadRangeNewer("ses_1", 30, "msg_5"))
+    }
+
+    @Test
+    fun loadRangeNewer_afterIdAbsentFromCacheReturnsEmpty() = runTest {
+        coEvery { dao.messageCreatedAt("seq-4096") } returns null
+
+        assertEquals(emptyList<MessageWithParts>(), store.loadRangeNewer("ses_1", 30, "seq-4096"))
     }
 
     @Test

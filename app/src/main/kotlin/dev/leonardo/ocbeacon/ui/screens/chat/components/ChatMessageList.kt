@@ -1763,17 +1763,24 @@ private fun LazyListLayoutInfo.toAutoLoadSnapshot(): AutoLoadLayoutSnapshot =
  * 提取 task/subagent 工具卡片的子智能体会话 ID（metadata.sessionId / sessionID / jobId）。
  * - V1 task 工具：metadata.sessionId
  * - V2 subagent 工具：服务器返回 metadata.jobId（= 子智能体会话 ID，task.ts:
- *   `metadata: {..., jobId: nextSession.id}`）——2026-08-11 实测发现
+ *   metadata: {..., jobId: nextSession.id}）——2026-08-11 实测发现
  *   键不匹配导致子智能体会话跳转/定位失效
  * - 轮次完成合成通知的 <task id> 与之匹配，用于「定位发起卡片」按钮。
+ *
+ * 2026-09-01（DSH 定位卡/前向箭头）：DSH 工具卡（mapToolCall）无 metadata
+ * 槽——子会话 id 若由调用参数携带（sessionId/sessionID/jobId 键），落于
+ * state.input（part 合并沿用 V2 保 input 语义）——此处回退 input 键解析，
+ * 保证 DSH 下定位发起/前向跳转目标可解析。
  */
 internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
-    val metadata = when (val state = tool.state) {
-        is ToolState.Completed -> state.metadata
-        is ToolState.Running -> state.metadata
-        else -> null
-    } ?: return null
-    val raw = metadata["sessionId"] ?: metadata["sessionID"] ?: metadata["jobId"] ?: return null
+    val (metadata, input) = when (val state = tool.state) {
+        is ToolState.Completed -> state.metadata to state.input
+        is ToolState.Running -> state.metadata to state.input
+        is ToolState.Pending -> null to state.input
+        else -> null to emptyMap()
+    }
+    val source = metadata ?: input
+    val raw = source["sessionId"] ?: source["sessionID"] ?: source["jobId"] ?: return null
     return runCatching { raw.jsonPrimitive.contentOrNull }
         .getOrNull()
         ?.takeIf { it.isNotBlank() }

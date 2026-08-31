@@ -531,15 +531,25 @@ internal class MessageDataDelegate(
     /** 会话内标记：服务器全量消息已同步（避免每次打开快速导航重复翻页）。 */
     private var jumpTargetsServerSync = false
 
-    /** 服务器翻页全量消息（cursor.next 直到读尽；防呆 100 页上限——5000 条）。
+    /** 快速定位数据源翻页防呆上限（2 万条——DSH 长会话历史实测万级事件）。 */
+    private companion object {
+        const val MAX_JUMP_TARGET_FETCH = 20_000
+    }
+
+    /** 服务器翻页全量消息（cursor.next 直到读尽；防呆 400 页 / 2 万条上限）。
      *  2026-08-13 修复：20 页（1000 条）对长会话（测试会话实测含大量初始化
      *  + 多轮测试消息）会截断——截断导致部分 assistant 缺失 → mergeUnrepliedUsers
-     *  误判"无回复"合并 → 快速导航漏 Q（用户反馈"漏很多之前的消息"）。 */
+     *  误判"无回复"合并 → 快速导航漏 Q（用户反馈"漏很多之前的消息"）。
+     *  2026-09-01（定位跳转失效根因）：DSH 会话历史动辄上万事件（test-lab
+     *  14546 行），100 页上限截断会把会话开头 user 消息（如 [test-lab] init /
+     *  <system-reminder> 注入）永久挡在 Room 之外 → 快速定位列表缺失 + 跳转
+     *  目标解析失败。上限提到 400 页 / 2 万条（Room 热表 1000 条分页存储安全；
+     *  mergeUnrepliedUsers/跳转数据源覆盖 DSH 长会话实际体量）。 */
     private suspend fun fetchAllMessages(sid: String): List<MessageWithParts> {
         val all = mutableListOf<MessageWithParts>()
         var cursor: String? = null
         var guard = 0
-        while (guard++ < 100) {
+        while (guard++ < 400 && all.size < MAX_JUMP_TARGET_FETCH) {
             val page = sessionRepository.listMessages(serverId, sid, 50, cursor).getOrThrow()
             all += page.messages
             cursor = page.nextCursor ?: break

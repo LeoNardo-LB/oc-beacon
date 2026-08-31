@@ -81,19 +81,32 @@ interface MessageDao {
     )
     suspend fun messagesForSession(sessionId: String, limit: Int): List<CachedMessageEntity>
 
-    /** 分页读：取比 beforeId 更早的 limit 条（游标分页，向旧方向）。 */
+    /**
+     * 分页读：取比 beforeId 更早的 limit 条（游标分页，向旧方向）。
+     *
+     * 2026-09-01（定位跳转失效根因——DSH id 形态 vs V1）：原谓词 id < beforeId
+     * 依赖 ULID 字典序 = 时间序，对 DSH 整装消息 id（seq-N）字符串序 ≠ 数字序
+     *（seq-9 > seq-4096）→ older 窗口漏单/多位 seq 错位 → 快速定位 loadAround
+     * 本地分支窗口错乱。统一改为时间主 + id 次复合游标（对 ULID 与 seq-N 同时
+     * 正确；id 仅在同 created 细粒度内作 tie-break）。
+     */
     @Query(
-        "SELECT * FROM cached_messages WHERE sessionId = :sessionId AND id < :beforeId " +  // ULID 字典序 = 时间序
+        "SELECT * FROM cached_messages WHERE sessionId = :sessionId " +
+            "AND (created < :created OR (created = :created AND id < :beforeId)) " +
             "ORDER BY created DESC, id DESC LIMIT :limit",
     )
-    suspend fun messagesBefore(sessionId: String, beforeId: String, limit: Int): List<CachedMessageEntity>
+    suspend fun messagesBefore(sessionId: String, created: Long, beforeId: String, limit: Int): List<CachedMessageEntity>
 
-    /** 分页读：取比 afterId 更新的 limit 条（游标分页，向新方向，loadAround 本地分支用）。 */
+    /**
+     * 分页读：取比 afterId 更新的 limit 条（游标分页，向新方向，loadAround 本地分支用）。
+     * 与 [messagesBefore] 同款 2026-09-01 修复：id 字典序前提 → created 主游标。
+     */
     @Query(
-        "SELECT * FROM cached_messages WHERE sessionId = :sessionId AND id > :afterId " +  // ULID 字典序 = 时间序
+        "SELECT * FROM cached_messages WHERE sessionId = :sessionId " +
+            "AND (created > :created OR (created = :created AND id > :afterId)) " +
             "ORDER BY created ASC, id ASC LIMIT :limit",
     )
-    suspend fun messagesAfter(sessionId: String, afterId: String, limit: Int): List<CachedMessageEntity>
+    suspend fun messagesAfter(sessionId: String, created: Long, afterId: String, limit: Int): List<CachedMessageEntity>
 
     /** 快速导航全量列表：role='user' 的最近 limit 条（created 降序）。
      *  role 是独立字段值（user/assistant/synthetic/compaction/system），

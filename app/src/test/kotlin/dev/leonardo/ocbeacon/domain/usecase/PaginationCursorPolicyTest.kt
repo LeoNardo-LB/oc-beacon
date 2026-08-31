@@ -56,6 +56,39 @@ class PaginationCursorPolicyTest {
         assertFalse(V1CursorPolicy.supportsNewerDirection)
     }
 
+    // ===== 2026-09-01（定位跳转失效根因——DSH id 形态 vs V1）=====
+
+    @Test
+    fun `Dsh localAnchorCursor is null - latest window semantics`() {
+        // DSH session.history 只有排他 beforeSeq（向后翻页），无增量/after 方向——
+        // 增量 = 拉最新窗口 + id 去重（V2 同款）。V1 base64 游标会被 DshApiClient
+        // 静默丢弃（toLongOrNull 失败），显式 null 使语义不再依赖静默丢弃。
+        assertNull(DshCursorPolicy.localAnchorCursor("seq-4096", 100L))
+        assertNull(DshCursorPolicy.localAnchorCursor(null, 100L))
+    }
+
+    @Test
+    fun `Dsh around older is numeric beforeSeq`() {
+        val c = DshCursorPolicy.aroundCursors("seq-4096", 100L)
+        // 数字 beforeSeq——DshApiClient.listMessages 的排他游标（seq < 4096）
+        assertEquals("4096", c.older)
+        assertNull(c.newer)
+        assertFalse(c.supportsNewer)
+    }
+
+    @Test
+    fun `Dsh around for non seq id falls back null`() {
+        // 流式宿主/工具卡宿主无 seq 分页语义：older 回退 null（不传游标 → 最新窗口）
+        assertNull(DshCursorPolicy.aroundCursors("dsh-t1s10", 100L).older)
+        assertNull(DshCursorPolicy.aroundCursors("dsh-call-call_abc", 100L).older)
+    }
+
+    @Test
+    fun `Dsh newer direction unavailable`() {
+        assertNull(DshCursorPolicy.newerAnchorCursor("seq-1"))
+        assertFalse(DshCursorPolicy.supportsNewerDirection)
+    }
+
     @Test
     fun `capabilities mapping per version`() {
         val v2 = ServerCapabilities.of(ApiVersion.V2)
