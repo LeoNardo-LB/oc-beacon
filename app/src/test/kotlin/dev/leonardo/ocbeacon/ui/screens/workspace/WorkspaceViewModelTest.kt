@@ -2,6 +2,8 @@ package dev.leonardo.ocbeacon.ui.screens.workspace
 
 import androidx.lifecycle.SavedStateHandle
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.data.api.dsh.DshApiError
+import dev.leonardo.ocbeacon.data.api.dsh.DshRpcErrorCode
 import dev.leonardo.ocbeacon.domain.model.FileNode
 import dev.leonardo.ocbeacon.domain.model.FileType
 import dev.leonardo.ocbeacon.domain.model.VcsChange
@@ -436,6 +438,53 @@ class WorkspaceViewModelTest {
 
         coVerify(exactly = 1) { findFiles(any(), any(), any(), any()) }
         assert(vm.uiState.value.fileSearchResults == listOf("b")) { "should have last query results" }
+    }
+
+    // ===== #276 终验 V4：DSH 目录惰性探测——失败转叶 =====
+
+    /**
+     * DSH host.listDirectory 条目无类型判别（仅 {name,path,hidden}），缺省全按
+     * directory 可展开；对非目录路径展开得到闭集错误码 directory-unreadable，
+     * 该节点须转标 file（叶）且随树缓存——转标后不可再展开（不重复探测）。
+     */
+    @Test
+    fun `toggleExpand directory-unreadable failure demotes node to file leaf`() = runTest {
+        coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
+        coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
+        coEvery { listDirectory(serverId, directory, "src") } returns Result.failure(
+            DshApiError(DshRpcErrorCode.DirectoryUnreadable, "not a directory", null, 200)
+        )
+
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
+        vm.toggleExpand("src")
+
+        val srcNode = vm.uiState.value.rootNodes.first { it.node.name == "src" }
+        assert(srcNode.node.type == FileType.FILE) {
+            "node should be demoted to FILE, was ${srcNode.node.type}"
+        }
+        assert(srcNode.children == emptyList<dev.leonardo.ocbeacon.ui.screens.workspace.FileTreeNode>()) {
+            "demoted node must be a leaf (children=emptyList), was ${srcNode.children}"
+        }
+        assert("src" !in vm.uiState.value.expandedDirs) { "failed expand must not mark expanded" }
+    }
+
+    /** 传输层/其他服务端错误不触发转标——真实目录的瞬时失败不得被误降级。 */
+    @Test
+    fun `toggleExpand generic failure keeps node directory`() = runTest {
+        coEvery { listDirectory(serverId, directory, "") } returns Result.success(sampleFileNodes)
+        coEvery { getVcsStatus(serverId, directory) } returns Result.success(sampleGitChanges)
+        coEvery { listDirectory(serverId, directory, "src") } returns Result.failure(
+            RuntimeException("Connection refused")
+        )
+
+        val vm = WorkspaceViewModel(savedStateHandle(), listDirectory, getVcsStatus, findFiles, io.mockk.mockk(relaxed = true))
+        vm.toggleExpand("src")
+
+        val srcNode = vm.uiState.value.rootNodes.first { it.node.name == "src" }
+        assert(srcNode.node.type == FileType.DIRECTORY) {
+            "network failure must not demote node, was ${srcNode.node.type}"
+        }
+        assert(srcNode.children == null) { "children should stay unloaded (null)" }
     }
 
     @Test

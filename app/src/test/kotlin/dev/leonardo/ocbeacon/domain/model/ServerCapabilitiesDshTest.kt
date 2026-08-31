@@ -75,6 +75,43 @@ class ServerCapabilitiesDshTest {
         assertFalse(caps.commandsSupported)
     }
 
+    /**
+     * #276 终验 V5：DSH /compact 走斜杠命令通道（§1.6：prompt 以 / 开头 =
+     * 服务端命令注册表执行，mode 无关、不进模型）——压缩与模型无关。
+     * OpenCode V1/V2 的 summarize/compact 端点仍带 providerID/modelID，
+     * 客户端「no model selected」护栏维持。
+     */
+    @Test
+    fun `dsh compaction is model independent, opencode is not`() {
+        for (version in ApiVersion.entries) {
+            assertTrue(
+                "compactionModelIndependent v=$version",
+                ServerCapabilities.of(ServerType.Dsh, version).compactionModelIndependent,
+            )
+        }
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V1).compactionModelIndependent)
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V2).compactionModelIndependent)
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, null).compactionModelIndependent)
+    }
+
+    /**
+     * #276 终验 V6：DSH session.export 响应体是 ZIP 流（§5 P-4 非信封入口），
+     * SAF 落盘须 .zip 命名；OpenCode 导出是 JSON 文档（{"info","messages"}），
+     * 维持 .json——位区分两族导出格式。
+     */
+    @Test
+    fun `dsh export is archive, opencode is json document`() {
+        for (version in ApiVersion.entries) {
+            assertTrue(
+                "exportIsArchive v=$version",
+                ServerCapabilities.of(ServerType.Dsh, version).exportIsArchive,
+            )
+        }
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V1).exportIsArchive)
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V2).exportIsArchive)
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, null).exportIsArchive)
+    }
+
     @Test
     fun `opencode branch keeps legacy v1 semantics`() {
         val caps = ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V1)

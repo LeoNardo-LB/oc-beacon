@@ -70,12 +70,19 @@ internal class SessionActionsDelegate(
      *  进行中/终态全由 SSE compaction.* 驱动；false(V1/未知)=HTTP 同步挂起至
      *  完成，返回即终态（进行中态需本地置起、返回时终结）。 */
     private val compactionAsyncProvider: () -> Boolean,
+    /** #276 终验 V5：压缩与模型无关能力位（DSH /compact 命令通道）——true 时
+     *  跳过「no model selected」前置检查（OpenCode summarize/compact 带模型参数，
+     *  默认 false 维持原护栏）。 */
+    private val compactionModelIndependentProvider: () -> Boolean = { false },
     /** #217：V1 本地压缩态注入（ChatViewModel 接 EventDispatcher →
      *  SessionNextEventHandler.compactionState 单一数据源）；V2 永不调用。 */
     private val compactionLocalState: (sessionId: String, started: Boolean) -> Unit = { _, _ -> },
     /** #276 后端接口补全：shell 命令域能力位——false（DSH）时 [runShellCommand]
      *  直接短路失败（不发请求——DshApiClient 该域抛 UnsupportedServerCapability）。 */
     private val shellCommandSupportedProvider: () -> Boolean = { true },
+    /** #276 终验 V6：导出载荷是 ZIP 归档（DSH session.export）——true 时写盘前把
+     *  SAF 文档显示名规范成 .zip；OpenCode 导出是 JSON 文档，默认 false 维持 .json。 */
+    private val exportIsArchiveProvider: () -> Boolean = { false },
 
 ) {
     private val sessionId: String get() = sessionIdProvider()
@@ -373,7 +380,9 @@ internal class SessionActionsDelegate(
                 val config = modelConfigProvider()
                 val providerId = config.selectedProviderId
                 val modelId = config.selectedModelId
-                if (providerId == null || modelId == null) {
+                // #276 终验 V5：DSH /compact 与模型无关（命令通道）——护栏按能力位
+                // 旁路；OpenCode V1/V2 端点带 providerID/modelID，维持原拦截。
+                if (!compactionModelIndependentProvider() && (providerId == null || modelId == null)) {
                     AppLogger.e(TAG, "Cannot compact: no model selected")
                     onResult(false)
                     return@launch
@@ -383,7 +392,8 @@ internal class SessionActionsDelegate(
                     compactionLocalState(sessionId, true)
                 }
                 try {
-                    shareExportUseCase.compactSession(serverId, sessionId, providerId, modelId)
+                    // DSH 旁路时无模型选择——空串占位（DshApiClient 对 /compact 忽略两参）。
+                    shareExportUseCase.compactSession(serverId, sessionId, providerId.orEmpty(), modelId.orEmpty())
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "Compacted session $sessionId")
                     onResult(true)
                 } finally {
@@ -432,11 +442,17 @@ internal class SessionActionsDelegate(
                 .setProgress(0, 0, true)
 
             try {
-                AppLogger.d(TAG, "exportSession: streaming to $uri")
+                // #276 终验 V6：DSH session.export 响应体是 ZIP 流，而 SAF CreateDocument
+                // 的 MIME 与建议名由 ChatScreen 固定 application/json + $slug.json（本轮
+                // ChatScreen 冻结）——写盘前把文档显示名规范成 .zip（provider 不支持
+                // renameDocument 或非文档 URI 时静默回退原名）。OpenCode 导出是 JSON
+                // 文档（exportIsArchive=false），维持 .json 命名。
+                val targetUri = if (exportIsArchiveProvider()) renameToZipExtension(context, uri) else uri
+                AppLogger.d(TAG, "exportSession: streaming to $targetUri")
                 notificationManager.notify(notificationId, builder.build())
 
                 var lastNotifyTime = 0L
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                context.contentResolver.openOutputStream(targetUri)?.use { outputStream ->
                     shareExportUseCase.exportSessionToStream(serverId, sessionId, outputStream) { bytesWritten ->
                         val now = System.currentTimeMillis()
                         if (now - lastNotifyTime > 500) {
@@ -470,6 +486,28 @@ internal class SessionActionsDelegate(
             }
         }
     }
+
+    // ============ #276 终验 V6：ZIP 导出显示名规范 ============
+
+    /** 写盘前把 SAF 文档显示名规范成 .zip；provider 不支持/查询失败静默回退原 URI。 */
+    private fun renameToZipExtension(context: android.content.Context, uri: android.net.Uri): android.net.Uri {
+        val displayName = queryDisplayName(context, uri) ?: return uri
+        val newName = zipExportDisplayName(displayName)
+        if (newName == displayName) return uri
+        return runCatching {
+            android.provider.DocumentsContract.renameDocument(context.contentResolver, uri, newName)
+        }.getOrNull() ?: uri
+    }
+
+    /** 查询 SAF 文档显示名（DocumentsContract）；非文档 URI/查询失败 → null。 */
+    private fun queryDisplayName(context: android.content.Context, uri: android.net.Uri): String? =
+        runCatching {
+            context.contentResolver.query(
+                uri,
+                arrayOf(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                null, null, null,
+            )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull()
 
     // ============ 撤销 / 重做 ============
 
@@ -741,5 +779,20 @@ internal class SessionActionsDelegate(
 
     companion object {
         const val REFRESH_COOLDOWN_MS = 5_000L
+    }
+}
+
+/**
+ * #276 终验 V6：ZIP 归档导出（DSH session.export）的显示名规范。
+ * SAF 建议名固定 $slug.json（ChatScreen，本轮冻结）而载荷是 ZIP：
+ * .json 后缀换 .zip；无后缀/他后缀补 .zip（无损）；已是 .zip 不动。
+ */
+internal fun zipExportDisplayName(current: String): String {
+    val name = current.trim()
+    return when {
+        name.isEmpty() -> "session.zip"
+        name.endsWith(".zip", ignoreCase = true) -> name
+        name.endsWith(".json", ignoreCase = true) -> name.dropLast(5) + ".zip"
+        else -> name + ".zip"
     }
 }

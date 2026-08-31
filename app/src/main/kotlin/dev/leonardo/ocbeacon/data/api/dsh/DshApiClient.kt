@@ -555,7 +555,11 @@ class DshApiClient @Inject constructor(
             val type = when (rawType) {
                 "directory", "dir" -> "directory"
                 "file" -> "file"
-                else -> "file"
+                // #276 终验 V4（协议级补偿）：DSH host.listDirectory 条目无 type
+                // 判别（活体样本仅 {name,path,hidden}）——缺省按 directory 映射，
+                // 全部可展开；非目录路径由 UI 层展开失败（directory-unreadable）
+                // 时转标 file 叶（WorkspaceViewModel 失败分支），已解析类型随树缓存。
+                else -> "directory"
             }
             val entryPath = entry.dshStr("path") ?: joinPath(path, name)
             FileNodeDto(name = name, path = entryPath, type = type, absolute = entryPath)

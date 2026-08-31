@@ -520,9 +520,18 @@ class ChatViewModel @Inject constructor(
         compactionAsyncProvider = {
             _serverCapabilities.value.compactionAsync
         },
+        // #276 终验 V5：DSH /compact 命令通道与模型无关——「no model selected」
+        // 护栏按能力位旁路（OpenCode 维持原拦截）。
+        compactionModelIndependentProvider = {
+            _serverCapabilities.value.compactionModelIndependent
+        },
         // #276 后端接口补全：DSH 无 shell 域——runShellCommand 按能力位短路。
         shellCommandSupportedProvider = {
             _serverCapabilities.value.shellCommandSupported
+        },
+        // #276 终验 V6：DSH 导出载荷是 ZIP 归档——写盘前显示名规范 .zip。
+        exportIsArchiveProvider = {
+            _serverCapabilities.value.exportIsArchive
         },
         compactionLocalState = { sid, started ->
             val next = if (started) {

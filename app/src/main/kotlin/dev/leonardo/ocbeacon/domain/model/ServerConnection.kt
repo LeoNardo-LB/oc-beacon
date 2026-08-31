@@ -42,6 +42,12 @@ data class ServerCapabilities(
      *（旧 false 按 V1 路径本地置态又秒杀，59ms 分割线闪现 bug 同款）。
      */
     val compactionAsync: Boolean,
+    /**
+     * #276 终验 V5：压缩与模型无关（DSH /compact 走斜杠命令通道，不进模型——
+     * 无模型选择也须发 RPC）；OpenCode V1/V2 summarize/compact 端点带
+     * providerID/modelID → false（客户端「no model selected」护栏维持）。
+     */
+    val compactionModelIndependent: Boolean,
     /** 终端 PTY 入口（DSH 无 PTY 域，§2.6 终局确认；OpenCode V1/V2 均有 /pty）。 */
     val terminalSupported: Boolean,
     /** 文件内容查看（DSH 无读取方法——host.openPath 是宿主侧特权打开；目录树另算：host.listDirectory 存在）。 */
@@ -60,6 +66,12 @@ data class ServerCapabilities(
     val messageDeleteSupported: Boolean,
     /** shell 命令（session.shell 域；DSH 无对应——shell 命令栏与 ！ 前缀通道按位隐藏）。 */
     val shellCommandSupported: Boolean,
+    /**
+     * #276 终验 V6：会话导出载荷是 ZIP 归档（DSH GET /api/session.export 响应体
+     * 即 ZIP 流，§5 P-4）——落盘显示名须 .zip；OpenCode 导出是 JSON 文档
+     * （{"info","messages"} 流式拼接）→ false（维持 .json）。
+     */
+    val exportIsArchive: Boolean,
 ) {
     companion object {
         /**
@@ -74,6 +86,7 @@ data class ServerCapabilities(
                     runningSessionsFilterSupported = false,
                     configEditable = false,
                     compactionAsync = true,
+                    compactionModelIndependent = true,
                     terminalSupported = false,
                     fileReadSupported = false,
                     sessionDeleteSupported = false,
@@ -83,6 +96,7 @@ data class ServerCapabilities(
                     revertSupported = false,
                     messageDeleteSupported = false,
                     shellCommandSupported = false,
+                    exportIsArchive = true,
                 )
                 ServerType.OpenCode -> ofOpenCode(apiVersion)
             }
@@ -97,6 +111,7 @@ data class ServerCapabilities(
                 runningSessionsFilterSupported = true,
                 configEditable = false,
                 compactionAsync = true,
+                compactionModelIndependent = false,
                 terminalSupported = true,
                 fileReadSupported = true,
                 sessionDeleteSupported = true,
@@ -106,6 +121,7 @@ data class ServerCapabilities(
                 revertSupported = true,
                 messageDeleteSupported = true,
                 shellCommandSupported = true,
+                exportIsArchive = false,
             )
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
@@ -113,6 +129,7 @@ data class ServerCapabilities(
                 runningSessionsFilterSupported = apiVersion == null,
                 configEditable = true,
                 compactionAsync = false,
+                compactionModelIndependent = false,
                 terminalSupported = true,
                 fileReadSupported = true,
                 sessionDeleteSupported = true,
@@ -122,6 +139,7 @@ data class ServerCapabilities(
                 revertSupported = true,
                 messageDeleteSupported = true,
                 shellCommandSupported = true,
+                exportIsArchive = false,
             )
         }
     }

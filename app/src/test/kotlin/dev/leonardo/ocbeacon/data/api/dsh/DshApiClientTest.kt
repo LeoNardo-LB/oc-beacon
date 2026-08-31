@@ -273,6 +273,25 @@ class DshApiClientTest {
         assertEquals("file", nodes[1].type)
     }
 
+    /**
+     * #276 终验 V4（DSH 目录惰性探测）：活体样本（/tmp/dsh-openapi-cases/04）
+     * 证实 host.listDirectory 条目仅 {name,path,hidden}——无 type 判别。
+     * 缺省映射必须是 directory（全部可展开）；真实文件由 UI 层在展开失败
+     * （directory-unreadable）时转叶。显式 type 字段若协议未来补齐仍尊重原值。
+     */
+    @Test
+    fun `listDirectory maps typeless entries to directory for lazy probing`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"entries":[{"name":"src","path":"/w/src","hidden":false},{"name":"a.kt","path":"/w/a.kt","hidden":false}]}"""),
+                HttpStatusCode.OK, jsonHeaders())
+        }
+        val nodes = client(engine).listDirectory(conn, path = "/w")
+        assertEquals(listOf("directory", "directory"), nodes.map { it.type })
+        // 条目 path 透传（活体样本自带 fully-qualified path）
+        assertEquals("/w/src", nodes[0].path)
+        assertEquals("/w/a.kt", nodes[1].path)
+    }
+
     @Test
     fun `unsupported domains throw UnsupportedServerCapability`() = runTest {
         val api = client(MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) })
