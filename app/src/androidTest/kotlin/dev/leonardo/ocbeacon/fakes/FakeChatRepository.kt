@@ -315,4 +315,103 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     fun setSessionsSnapshot(sessions: List<Session>) {
         sessionsSnapshot = sessions
     }
+
+    // ============ #281 基线对齐（接口新增成员补齐） ============
+
+    val permissionPresetCalls = mutableListOf<Triple<String, String, String>>()
+    var permissionPresetResult: Result<Boolean> = Result.success(true)
+
+    override suspend fun setPermissionPreset(
+        serverId: String,
+        sessionId: String,
+        preset: String,
+    ): Result<Boolean> {
+        permissionPresetCalls.add(Triple(serverId, sessionId, preset))
+        return permissionPresetResult
+    }
+
+    var agentPresetsResult: Result<List<dev.leonardo.ocbeacon.domain.model.AgentPreset>> =
+        Result.success(emptyList())
+
+    override suspend fun listAgentPresets(
+        serverId: String,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.AgentPreset>> = agentPresetsResult
+
+    val agentPresetSelectCalls = mutableListOf<Triple<String, String, String>>()
+    var agentPresetSelectResult: Result<Boolean> = Result.success(true)
+
+    override suspend fun selectAgentPreset(
+        serverId: String,
+        sessionId: String,
+        presetId: String,
+    ): Result<Boolean> {
+        agentPresetSelectCalls.add(Triple(serverId, sessionId, presetId))
+        return agentPresetSelectResult
+    }
+
+    val updateQueueItemCalls = mutableListOf<Pair<String, dev.leonardo.ocbeacon.domain.model.QueueActionKind>>()
+    var updateQueueItemResult: dev.leonardo.ocbeacon.domain.model.QueueMutationResult =
+        dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted
+
+    override suspend fun updateQueueItem(
+        serverId: String,
+        sessionId: String,
+        itemId: String,
+        action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
+        editText: String?,
+    ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult {
+        updateQueueItemCalls.add(itemId to action)
+        return updateQueueItemResult
+    }
+
+    var createGoalResult: Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = Result.success(null)
+
+    override suspend fun createGoal(
+        serverId: String,
+        sessionId: String,
+        objective: String,
+        maxGoalRounds: Long?,
+    ): Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = createGoalResult
+
+    var editGoalResult: Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = Result.success(null)
+
+    override suspend fun editGoal(
+        serverId: String,
+        sessionId: String,
+        ref: dev.leonardo.ocbeacon.domain.model.DshGoalRef,
+        objective: String?,
+        maxGoalRounds: Long?,
+    ): Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = editGoalResult
+
+    var pauseGoalResult: Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = Result.success(null)
+
+    override suspend fun pauseGoal(
+        serverId: String,
+        sessionId: String,
+        ref: dev.leonardo.ocbeacon.domain.model.DshGoalRef,
+    ): Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = pauseGoalResult
+
+    var resumeGoalResult: Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = Result.success(null)
+
+    override suspend fun resumeGoal(
+        serverId: String,
+        sessionId: String,
+        ref: dev.leonardo.ocbeacon.domain.model.DshGoalRef,
+    ): Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = resumeGoalResult
+
+    var completeGoalResult: Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = Result.success(null)
+
+    override suspend fun completeGoal(
+        serverId: String,
+        sessionId: String,
+        ref: dev.leonardo.ocbeacon.domain.model.DshGoalRef,
+    ): Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = completeGoalResult
+
+    var clearGoalResult: Result<Boolean> = Result.success(true)
+
+    override suspend fun clearGoal(
+        serverId: String,
+        sessionId: String,
+        ref: dev.leonardo.ocbeacon.domain.model.DshGoalRef,
+    ): Result<Boolean> = clearGoalResult
 }

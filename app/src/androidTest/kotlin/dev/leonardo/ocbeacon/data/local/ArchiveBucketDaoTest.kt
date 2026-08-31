@@ -77,14 +77,14 @@ class ArchiveBucketDaoTest {
     }
 
     @Test
-    fun countAndLeastAccessed() = runBlocking {
+    fun countBucketsPerSession() = runBlocking {
+        // #281 基线对齐：leastAccessed（LRU 淘汰序查询）已随 #271「桶无上限、
+        // 全量保留」裁决删除——本用例改为纯计数断言；lastAccessedAt 的 touch
+        // 语义由 touchUpdatesLastAccessed 覆盖。
         dao.upsert(bucket(bucketEnd = 3000L, id = 1L).copy(lastAccessedAt = 99L))
         dao.upsert(bucket(bucketEnd = 1000L, id = 2L).copy(lastAccessedAt = 1L))
 
         assertEquals(2, dao.count("ses_1"))
-        val least = dao.leastAccessed("ses_1", 10)
-        assertEquals(2, least.size)
-        assertEquals(1L, least[0].lastAccessedAt)
     }
 
     @Test

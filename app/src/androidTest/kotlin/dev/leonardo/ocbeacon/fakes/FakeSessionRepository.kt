@@ -220,4 +220,16 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
         serverId: String,
         sessionId: String
     ): Result<List<dev.leonardo.ocbeacon.domain.model.SseEvent.TodoUpdated.Todo>> = Result.success(emptyList())
+
+    // #281 基线对齐：分页会话列表（接口新增成员）
+    var listSessionsPageResult: dev.leonardo.ocbeacon.domain.model.SessionPage =
+        dev.leonardo.ocbeacon.domain.model.SessionPage(items = emptyList(), nextCursor = null)
+
+    override suspend fun listSessionsPage(
+        serverId: String,
+        directory: String?,
+        search: String?,
+        cursor: String?,
+        limit: Int,
+    ): dev.leonardo.ocbeacon.domain.model.SessionPage = listSessionsPageResult
 }

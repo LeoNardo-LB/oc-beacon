@@ -25,7 +25,8 @@ class FakeAgentRepository @Inject constructor() : AgentRepository {
         return Result.success(Unit)
     }
 
-    override suspend fun loadCommands(serverId: String): Result<List<CommandInfo>> = commandsResult
+    // #285 基线对齐：loadCommands 增 sessionId（懒建会话补全命令列表）
+    override suspend fun loadCommands(serverId: String, sessionId: String?): Result<List<CommandInfo>> = commandsResult
 
     override suspend fun searchFiles(
         serverId: String,

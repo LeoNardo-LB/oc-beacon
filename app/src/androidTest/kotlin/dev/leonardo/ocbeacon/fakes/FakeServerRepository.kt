@@ -121,4 +121,12 @@ class FakeServerRepository @Inject constructor() :
 
     override suspend fun resolveConnection(serverId: String): ServerConnection =
         ServerConnection.from("http://localhost:4096", "opencode", "test", dev.leonardo.ocbeacon.domain.model.ApiVersion.V1)
+
+    // #281 基线对齐：调试后端提升（接口新增成员）
+    val promoteDebugBackendCalls = mutableListOf<String>()
+
+    override suspend fun promoteDebugBackend(targetId: String): Result<List<String>> {
+        promoteDebugBackendCalls.add(targetId)
+        return Result.success(listOf(targetId))
+    }
 }
