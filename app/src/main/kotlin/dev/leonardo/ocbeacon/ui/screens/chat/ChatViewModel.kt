@@ -17,6 +17,8 @@ import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
 import dev.leonardo.ocbeacon.domain.model.PromptPart
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.DshGoalProjection
+import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
@@ -34,6 +36,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +48,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
+import dev.leonardo.ocbeacon.ui.WhileSubscribed5s
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -696,6 +700,87 @@ class ChatViewModel @Inject constructor(
     )
     val contextDetailState: StateFlow<ContextDetailState> get() = contextDetailDelegate.state
 
+    // ============ 目标（Goal）状态与动作（backlog #286；DSH goal 投影 + 六 mutation） ============
+
+    /** 当前会话 goal 投影（Session.goal，事件/投影帧驱动 last-wins；OpenCode 恒 null）。 */
+    val goalState: StateFlow<DshGoalProjection?> = sessionLifecycle.sessionIdFlow.flatMapLatest { sid ->
+        sessionRepository.getSessionsFlow(serverId).map { sessions ->
+            sessions.firstOrNull { it.id == sid }?.goal
+        }
+    }.stateIn(viewModelScope, WhileSubscribed5s, null)
+
+    /** goal mutation 失败提示（resId：goal_failed/goal_busy）——GoalSheet collect 显示 snackbar。 */
+    private val _goalError = MutableSharedFlow<Int>(extraBufferCapacity = 4)
+    val goalError: SharedFlow<Int> = _goalError
+
+    /** 当前会话 CAS ref（goal 投影 goal.id/revision）——无目标/畸形时 null。 */
+    private fun currentGoalRef(): DshGoalRef? {
+        val g = goalState.value?.goal ?: return null
+        if (g.id.isBlank() || g.revision <= 0) return null
+        return DshGoalRef(id = g.id, revision = g.revision)
+    }
+
+    private fun reportGoalFailure(e: Throwable) {
+        val resId = if ((e as? dev.leonardo.ocbeacon.data.api.dsh.DshApiError)
+                ?.category == dev.leonardo.ocbeacon.data.api.dsh.DshErrorCategory.Busy
+        ) R.string.goal_busy else R.string.goal_failed
+        viewModelScope.launch { _goalError.emit(resId) }
+    }
+
+    /** goal.create（新会话懒建：先 ensureSession 落会话——goal 不破坏 blank，空白页卡不受扰）。 */
+    fun createGoal(objective: String, maxGoalRounds: Long?) {
+        if (!_serverCapabilities.value.goalSupported) return
+        viewModelScope.launch {
+            val sid = runCatching { sessionLifecycle.ensureSession() }.getOrElse { e ->
+                AppLogger.w(TAG, "ensureSession failed before createGoal: " + e.message)
+                return@launch
+            }
+            chatRepository.createGoal(serverId, sid, objective, maxGoalRounds)
+                .onSuccess { }
+                .onFailure { reportGoalFailure(it) }
+        }
+    }
+
+    /** goal.edit（CAS ref 取当前投影；陈旧 ref → internal stale ref → goal_failed）。 */
+    fun editGoal(objective: String, maxGoalRounds: Long?) {
+        val ref = currentGoalRef() ?: return
+        viewModelScope.launch {
+            chatRepository.editGoal(serverId, sessionId, ref, objective, maxGoalRounds)
+                .onSuccess { }
+                .onFailure { reportGoalFailure(it) }
+        }
+    }
+
+    /** goal.pause（仅 active 可暂停）。 */
+    fun pauseGoal() {
+        val ref = currentGoalRef() ?: return
+        viewModelScope.launch {
+            chatRepository.pauseGoal(serverId, sessionId, ref)
+                .onSuccess { }
+                .onFailure { reportGoalFailure(it) }
+        }
+    }
+
+    /** goal.resume（仅 paused 可恢复；exhausted → internal → goal_failed）。 */
+    fun resumeGoal() {
+        val ref = currentGoalRef() ?: return
+        viewModelScope.launch {
+            chatRepository.resumeGoal(serverId, sessionId, ref)
+                .onSuccess { }
+                .onFailure { reportGoalFailure(it) }
+        }
+    }
+
+    /** goal.clear（清除当前目标，保留 durable tombstone；投影转 null → 面板回创建表单）。 */
+    fun clearGoal() {
+        val ref = currentGoalRef() ?: return
+        viewModelScope.launch {
+            chatRepository.clearGoal(serverId, sessionId, ref)
+                .onSuccess { }
+                .onFailure { reportGoalFailure(it) }
+        }
+    }
+
     // ============ 状态簇门面（#173 段 1：UI 消费面按簇收缩的中转站） ============
     // 段 2 将把 UI 逐子组件迁移到这些簇成员；段 3 收敛后散成员门面按消费残留逐个退役。
     // 形态：簇 = 职责内聚的 delegate 直引用（内部成型已由既有 delegate 边界保证）。
@@ -883,7 +968,8 @@ class ChatViewModel @Inject constructor(
         }
         modelConfig.loadProviders()
         modelConfig.loadAgents()
-        modelConfig.loadCommands()
+        // DSH：commands/list 是 agent-scoped 的——会话 id 必须在场（懒建前 null → 空列表）
+        modelConfig.loadCommands(sessionLifecycle.sessionId)
     }
 
     // ============ 消息加载/刷新（门面 —— MessageDataDelegate / SessionActionsDelegate） ============

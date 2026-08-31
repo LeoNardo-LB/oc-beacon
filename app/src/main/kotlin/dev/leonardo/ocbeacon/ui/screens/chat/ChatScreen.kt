@@ -598,6 +598,9 @@ fun ChatScreen(
     val pendingDrainingSet by viewModel.pendingDraining.collectAsStateWithLifecycle()
     val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
     var toolbarSheet by remember { mutableStateOf<ChatToolbarEntry?>(null) }
+    // #286：目标状态（GoalSheet 数据源 + FAB/菜单项角标）
+    val goalState by viewModel.goalState.collectAsStateWithLifecycle()
+    val goalError by viewModel.goalError.collectAsStateWithLifecycle(initialValue = null)
     // （第九轮常驻抽屉已于第十轮退役——改为贴底工具栏 + 四个独立 ModalBottomSheet）
     // #252：shell 输出三级 provider（迁自 TaskSheet：事件输出 → 消息流回填 → REST 拉取）——
     // 前移到 Scaffold 之前供输入栏上方 ShellJobsStrip 复用。
@@ -661,6 +664,10 @@ fun ChatScreen(
                         shareUrl = sessionMeta.shareUrl,
                         contextWindow = modelConfig.contextWindow,
                         lastContextTokens = tokenStats.lastContextTokens,
+                        // #286：环数据源切换投影（projectedTokens??pressureTokens / 投影 window）——
+                        // 投影缺席（OpenCode/未上报）走既有 llm.models + token 统计路径
+                        projectionUsedTokens = contextDetail.projectionUsedTokens,
+                        projectionContextWindow = contextDetail.projectionContextWindow,
                         onNavigateBack = onNavigateBack,
                         onTerminalMode = { isTerminalMode = true },
                         onForkSession = {
@@ -691,7 +698,6 @@ fun ChatScreen(
                         isShareSupported = serverCapabilities.shareSupported,
                         isBackgroundSupported = serverCapabilities.backgroundSessionsSupported,
                         isTerminalSupported = serverCapabilities.terminalSupported,
-                        projectionStatsSupported = serverCapabilities.projectionStatsSupported,
                         onShare = {
                             viewModel.shareSession { url ->
                                 coroutineScope.launch {
@@ -922,6 +928,7 @@ fun ChatScreen(
                       todoPendingCount = sessionTodos.count { it.status == "pending" || it.status == "in_progress" },
                       agentRunningCount = taskUi.runningSubagentCount,
                       shellRunningCount = taskUi.runningShellCount,
+                      goalPhase = goalState?.goal?.phase,
                       onOpenEntry = { toolbarSheet = it },
                       // 2026-08-29 基线对齐：菜单 08-27 稳定 API 复刻把按钮钉底（内部
                       // 底距移除）后，与 ⬇ FAB 的 padding(bottom=16dp) 失配 16dp——
@@ -936,6 +943,14 @@ fun ChatScreen(
     // #188：默认模型响应式状态（写入即回显）
     val localDefaultModel by viewModel.modelSelection.localDefaultModelFlow
         .collectAsStateWithLifecycle()
+
+    // #286：goal mutation 失败/忙提示（GoalSheet 动作失败 → snackbar）
+    val goalErrorContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(goalError) {
+        goalError?.let { resId ->
+            snackbarHostState.showSnackbar(goalErrorContext.getString(resId))
+        }
+    }
 
     // 条件对话框 —— 已抽取到 ChatScreenDialogs
     ChatScreenDialogs(
@@ -1002,6 +1017,18 @@ fun ChatScreen(
                 onDismiss = { toolbarSheet = null },
                 onOpenSubSession = { sessionId -> onNavigateToChildSession(sessionId) },
             )
+        // #286：目标面板（GOAL 入口）——GoalSheet（phase 状态机在面板内；goalError → snackbar）
+        ChatToolbarEntry.GOAL -> {
+            GoalSheet(
+                goal = goalState,
+                onDismiss = { toolbarSheet = null },
+                onCreate = { objective, rounds -> viewModel.createGoal(objective, rounds) },
+                onEdit = { objective, rounds -> viewModel.editGoal(objective, rounds) },
+                onPause = { viewModel.pauseGoal() },
+                onResume = { viewModel.resumeGoal() },
+                onClear = { viewModel.clearGoal() },
+            )
+        }
             ChatToolbarEntry.SHELL -> ShellSheet(
                 state = taskUi,
                 onDismiss = { toolbarSheet = null },

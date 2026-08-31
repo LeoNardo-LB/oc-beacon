@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Terminal
@@ -51,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -66,7 +68,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlin.math.roundToInt
 
 /** 工具栏入口 id（沿用第十轮四入口独立 sheet 语义）。 */
-internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL }
+internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL, GOAL }
 
 /** 贴边滑动顶边距（#194 D1：上限 = 容器高 − 按钮高 − 此边距）。 */
 internal val FabSlideTopMargin: Dp = 8.dp
@@ -82,7 +84,7 @@ internal val FabSlideTopMargin: Dp = 8.dp
 private val FabMenuItemHeight: Dp = 44.dp
 private val FabMenuItemSpacingVertical: Dp = 4.dp
 private val FabMenuPaddingBottomToken: Dp = 8.dp
-private const val FabMenuItemCount = 4
+private const val FabMenuItemCount = 5
 
 /**
  * #194 D1 展开溢出量计算（纯函数，单测覆盖）——全稳定量版（无 stagger 竞态）。
@@ -235,6 +237,8 @@ internal fun ChatFabMenu(
     todoPendingCount: Int,
     agentRunningCount: Int,
     shellRunningCount: Int,
+    /** 目标状态（#286）：goal.active/blocked → FAB 运行点 + 菜单项 phase 角标；null/complete 不渲染角标。 */
+    goalPhase: String? = null,
     onOpenEntry: (ChatToolbarEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -297,6 +301,8 @@ internal fun ChatFabMenu(
     }
 
     val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
+    // #286：goal 运行点——active/blocked 态 FAB 角标（运行点）；菜单项角标按 phase 着色（blocked 警示）。
+    val goalActive = goalPhase == "active" || goalPhase == "blocked"
 
     // 2026-08-27 稳定 API 复刻（material3 1.4.0）：官方 FloatingActionButtonMenu/
     // ToggleFloatingActionButton 是 1.5.0-alpha 专属 API（按 ui 1.12-beta 编译，
@@ -355,6 +361,21 @@ internal fun ChatFabMenu(
                     )
                     Spacer(Modifier.height(FabMenuItemSpacingVertical))
                     FabMenuEntry(
+                        icon = Icons.Default.Flag,
+                        label = stringResource(R.string.toolbar_goal),
+                        count = 0,
+                        // #286：目标菜单项角标（phase 色；blocked 警示色 error）——
+                        // complete/无 goal 不渲染角标（Web 语义：完成态不渲染条目）
+                        badgeColor = when (goalPhase) {
+                            "blocked" -> MaterialTheme.colorScheme.error
+                            "active" -> MaterialTheme.colorScheme.primary
+                            "paused" -> MaterialTheme.colorScheme.secondary
+                            else -> null
+                        },
+                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.GOAL) },
+                    )
+                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
+                    FabMenuEntry(
                         icon = Icons.Default.Terminal,
                         label = stringResource(R.string.toolbar_shell),
                         count = shellRunningCount,
@@ -394,7 +415,20 @@ internal fun ChatFabMenu(
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                 }
-                if (!expanded && totalBadge > 0) {
+                if (!expanded && goalActive) {
+                    // #286：goal 运行点角标（blocked 用警示色）——取代数字角标
+                    BadgedBox(
+                        badge = {
+                            Badge(
+                                containerColor = if (goalPhase == "blocked") {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
+                            ) {}
+                        }
+                    ) { fabIcon() }
+                } else if (!expanded && totalBadge > 0) {
                     BadgedBox(
                         badge = { Badge { Text(totalBadge.coerceAtMost(99).toString()) } }
                     ) { fabIcon() }
@@ -416,6 +450,8 @@ private fun FabMenuEntry(
     count: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 非空 → 图标侧相位圆点角标（#286：目标 phase 色 / blocked 警示色）。 */
+    badgeColor: Color? = null,
 ) {
     Surface(
         onClick = onClick,
@@ -436,6 +472,14 @@ private fun FabMenuEntry(
             if (count > 0) {
                 BadgedBox(
                     badge = { Badge { Text(count.coerceAtMost(99).toString()) } }
+                ) {
+                    Icon(icon, contentDescription = null)
+                }
+            } else if (badgeColor != null) {
+                BadgedBox(
+                    badge = {
+                        Badge(containerColor = badgeColor) {}
+                    }
                 ) {
                     Icon(icon, contentDescription = null)
                 }
