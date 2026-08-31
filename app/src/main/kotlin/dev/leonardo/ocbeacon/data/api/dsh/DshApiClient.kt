@@ -42,6 +42,7 @@ import dev.leonardo.ocbeacon.data.dto.response.VcsChangeDto
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
+import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -220,6 +221,11 @@ class DshApiClient @Inject constructor(
     override suspend fun importSession(conn: ServerConnection, shareUrl: String): Session =
         unsupported("session.import")
 
+    /**
+     * 泛型斜杠命令执行（V1/V2 门面对接）：DSH 无 V1 /command 端点——组装
+     * "/{command} {arguments}" 走 commands/execute 既有通道（2026-08-31 斜杠
+     * 命令补全定音：服务端命令选择即执行，参照 /permission 先例）。
+     */
     override suspend fun executeCommand(
         conn: ServerConnection,
         sessionId: String,
@@ -230,7 +236,11 @@ class DshApiClient @Inject constructor(
         model: String?,
         variant: String?,
         parts: List<Map<String, String>>?,
-    ): Boolean = false
+    ): Boolean {
+        val name = command.trim().trimStart('/')
+        val line = if (arguments.isNotBlank()) "/$name $arguments" else "/$name"
+        return executeCommand(conn, sessionId, line)
+    }
 
     /**
      * 通用斜杠命令执行（commands/execute typert 通道，非 52 方法面；
@@ -292,6 +302,85 @@ class DshApiClient @Inject constructor(
         }
         rpc.call(conn, "agentPreset.select", payload) { Unit }.getOrElse { e -> throw e }
         return true
+    }
+
+    // ============ DSH goal 六 mutation（backlog #286；payload 形状照 dsh-goal schema） ============
+    // 读侧面 = 'goal' session 投影（无 goal.get）；回执只带新 CAS ref，状态由
+    // goal/change 事件/投影帧整值驱动（mutations never feed client state）。
+
+    override suspend fun goalCreate(
+        conn: ServerConnection,
+        sessionId: String,
+        objective: String,
+        maxGoalRounds: Long?,
+    ): DshGoalRef? {
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("objective", objective)
+            maxGoalRounds?.let { put("maxGoalRounds", it) }
+        }
+        return rpc.call(conn, "goal.create", payload) { mapGoalRef(it) }.getOrElse { e -> throw e }
+    }
+
+    override suspend fun goalEdit(
+        conn: ServerConnection,
+        sessionId: String,
+        ref: DshGoalRef,
+        objective: String?,
+        maxGoalRounds: Long?,
+    ): DshGoalRef? {
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("ref", goalRefJson(ref))
+            objective?.let { put("objective", it) }
+            maxGoalRounds?.let { put("maxGoalRounds", it) }
+        }
+        return rpc.call(conn, "goal.edit", payload) { mapGoalRef(it) }.getOrElse { e -> throw e }
+    }
+
+    override suspend fun goalPause(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? =
+        refMutation(conn, "goal.pause", sessionId, ref)
+
+    override suspend fun goalResume(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? =
+        refMutation(conn, "goal.resume", sessionId, ref)
+
+    override suspend fun goalComplete(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? =
+        refMutation(conn, "goal.complete", sessionId, ref)
+
+    override suspend fun goalClear(conn: ServerConnection, sessionId: String, ref: DshGoalRef): Boolean {
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("ref", goalRefJson(ref))
+        }
+        return rpc.call(conn, "goal.clear", payload) { value ->
+            value.dshBool("cleared") ?: false
+        }.getOrElse { e -> throw e }
+    }
+
+    /** goal.pause/resume/complete 共享形态：{sessionId, ref} → 回执 {ref}。 */
+    private suspend fun refMutation(
+        conn: ServerConnection,
+        method: String,
+        sessionId: String,
+        ref: DshGoalRef,
+    ): DshGoalRef? {
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("ref", goalRefJson(ref))
+        }
+        return rpc.call(conn, method, payload) { mapGoalRef(it) }.getOrElse { e -> throw e }
+    }
+
+    private fun goalRefJson(ref: DshGoalRef): JsonObject = buildJsonObject {
+        put("id", ref.id)
+        put("revision", ref.revision)
+    }
+
+    /** 回执 value.ref → [DshGoalRef]（畸形/缺席 → null——mutation 回执规模面置信）。 */
+    private fun mapGoalRef(value: JsonObject): DshGoalRef? {
+        val ref = value.dshObj("ref") ?: return null
+        val id = ref.dshStr("id") ?: return null
+        return DshGoalRef(id = id, revision = ref.dshLong("revision") ?: 0L)
     }
 
     /** V2 先例：listSessions 本地过滤 parentSessionId。 */
@@ -640,7 +729,37 @@ class DshApiClient @Inject constructor(
      *  Agent 预设域另走 [listAgentPresets]/[selectAgentPreset]。 */
     override suspend fun listAgents(conn: ServerConnection): List<AgentInfo> = emptyList()
 
-    override suspend fun listCommands(conn: ServerConnection): List<CommandInfo> = emptyList()
+    override suspend fun listCommands(conn: ServerConnection): List<CommandInfo> = listCommands(conn, null)
+
+    /**
+     * commands/list typert 通道（2026-08-31 活体定音：方法存在且可用，早前
+     * “command.list/slashCommand.list/commands.list 404” 证据属陈旧部署）。
+     *
+     * 传输：POST /api/commands/list，payload {args:{agentId}}（agentId == sessionId，
+     * DSH 单 agent 每会话）。value = CommandDescriptor[] [{name, description,
+     * input?:{hint,images?}}]。会话缺席（null，懒建前）→ 空列表——DSH 命令枚举是
+     * agent-scoped 的，无会话无法枚举。
+     */
+    override suspend fun listCommands(conn: ServerConnection, sessionId: String?): List<CommandInfo> {
+        if (sessionId == null) return emptyList()
+        val value = rpc.callJson(conn, "commands/list", buildJsonObject {
+            put("args", buildJsonObject { put("agentId", sessionId) })
+        }) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "commands/list failed: " + e.message)
+            return emptyList()
+        }
+        val list = value as? JsonArray ?: return emptyList()
+        return list.mapNotNull { el ->
+            val entry = el as? JsonObject ?: return@mapNotNull null
+            val name = entry.dshStr("name") ?: return@mapNotNull null
+            CommandInfo(
+                name = name,
+                description = entry.dshStr("description"),
+                source = "server",
+                hints = entry.dshObj("input")?.dshStr("hint")?.let { listOf(it) } ?: emptyList(),
+            )
+        }
+    }
 
     /** skill.list 需 attached 会话（§5 坑位：冷会话→session-not-found）——空列表降级。 */
     override suspend fun listSkills(conn: ServerConnection, directory: String?): List<SkillInfo> = emptyList()

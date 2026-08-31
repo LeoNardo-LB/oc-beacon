@@ -38,6 +38,14 @@ data class Session(
     val tokenUsage: DshTokenUsage? = null,
     /** DSH subagentTiming 投影（session/projection 帧驱动 last-wins；OpenCode 恒 null）。 */
     val subagentTiming: DshSubagentTiming? = null,
+    /** DSH goal 投影（session/projection 帧 key=goal / goal/change 事件全量值，last-wins；OpenCode 恒 null）。 */
+    val goal: DshGoalProjection? = null,
+    /** DSH contextPressure 投影（环分子/分母源；OpenCode 恒 null）。 */
+    val contextPressure: DshContextPressure? = null,
+    /** DSH contextBreakdown 投影（system/tools/message 构成；OpenCode 恒 null）。 */
+    val contextBreakdown: DshContextBreakdown? = null,
+    /** DSH sessionStats 投影（全日志累计；OpenCode 恒 null）。 */
+    val sessionStats: DshSessionStats? = null,
 ) {
     @Serializable
     data class Time(

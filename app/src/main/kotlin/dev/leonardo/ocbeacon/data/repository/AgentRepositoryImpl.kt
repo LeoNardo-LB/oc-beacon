@@ -22,9 +22,9 @@ class AgentRepositoryImpl @Inject constructor(
         systemApi.listAgents(conn).map { it.toDomain() }
     }
 
-    override suspend fun loadCommands(serverId: String): Result<List<CommandInfo>> = runCatchingCancellable {
+    override suspend fun loadCommands(serverId: String, sessionId: String?): Result<List<CommandInfo>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        systemApi.listCommands(conn).map { it.toDomain() }
+        systemApi.listCommands(conn, sessionId).map { it.toDomain() }
     }
 
     override suspend fun searchFiles(

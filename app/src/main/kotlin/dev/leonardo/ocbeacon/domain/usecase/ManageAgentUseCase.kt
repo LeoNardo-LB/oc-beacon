@@ -15,8 +15,9 @@ class ManageAgentUseCase @Inject constructor(
     suspend fun loadAgents(serverId: String): List<AgentInfo> =
         agentRepository.listAgents(serverId).getOrThrow()
 
-    suspend fun loadCommands(serverId: String): List<CommandInfo> =
-        agentRepository.loadCommands(serverId).getOrThrow()
+    /** [sessionId] 只对 DSH 有效（commands/list 是 agent-scoped 的）；OpenCode 忽略。 */
+    suspend fun loadCommands(serverId: String, sessionId: String? = null): List<CommandInfo> =
+        agentRepository.loadCommands(serverId, sessionId).getOrThrow()
 
     suspend fun searchFiles(serverId: String, query: String, dirs: String, directory: String?, limit: Int): List<String> =
         agentRepository.searchFiles(serverId, query, dirs, directory, limit).getOrThrow()

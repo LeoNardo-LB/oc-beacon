@@ -15,6 +15,7 @@ import dev.leonardo.ocbeacon.data.repository.handler.StepProgressInfo as DataSte
 import dev.leonardo.ocbeacon.data.repository.handler.ToolProgressInfo as DataToolProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
@@ -339,6 +340,54 @@ class ChatRepositoryImpl @Inject constructor(
         val conn = resolveConnection(serverId)
         sessionApi.selectAgentPreset(conn, sessionId, presetId)
     }
+
+
+    // ============ DSH goal mutation（backlog #286） ============
+
+    override suspend fun createGoal(
+        serverId: String,
+        sessionId: String,
+        objective: String,
+        maxGoalRounds: Long?,
+    ): Result<DshGoalRef?> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        sessionApi.goalCreate(conn, sessionId, objective, maxGoalRounds)
+    }
+
+    override suspend fun editGoal(
+        serverId: String,
+        sessionId: String,
+        ref: DshGoalRef,
+        objective: String?,
+        maxGoalRounds: Long?,
+    ): Result<DshGoalRef?> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        sessionApi.goalEdit(conn, sessionId, ref, objective, maxGoalRounds)
+    }
+
+    override suspend fun pauseGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?> =
+        runCatchingCancellable {
+            val conn = resolveConnection(serverId)
+            sessionApi.goalPause(conn, sessionId, ref)
+        }
+
+    override suspend fun resumeGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?> =
+        runCatchingCancellable {
+            val conn = resolveConnection(serverId)
+            sessionApi.goalResume(conn, sessionId, ref)
+        }
+
+    override suspend fun completeGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?> =
+        runCatchingCancellable {
+            val conn = resolveConnection(serverId)
+            sessionApi.goalComplete(conn, sessionId, ref)
+        }
+
+    override suspend fun clearGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<Boolean> =
+        runCatchingCancellable {
+            val conn = resolveConnection(serverId)
+            sessionApi.goalClear(conn, sessionId, ref)
+        }
 
     override suspend fun runShellCommand(
         serverId: String,

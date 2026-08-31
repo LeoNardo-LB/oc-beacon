@@ -366,6 +366,10 @@ class EventDispatcher @Inject constructor(
             is SseEvent.SessionAgentPresetChanged -> event.sessionId
             is SseEvent.SessionTokenUsageChanged -> event.sessionId
             is SseEvent.SessionSubagentTimingChanged -> event.sessionId
+            is SseEvent.SessionGoalChanged -> event.sessionId
+            is SseEvent.SessionContextPressureChanged -> event.sessionId
+            is SseEvent.SessionContextBreakdownChanged -> event.sessionId
+            is SseEvent.SessionStatsChanged -> event.sessionId
             is SseEvent.JobsSnapshot -> event.sessionId
             is SseEvent.SessionDeleted -> event.info.id
             is SseEvent.SessionDiff -> event.sessionId
@@ -555,4 +559,3 @@ class EventDispatcher @Inject constructor(
         ownershipRegistry.releaseAllForServer(serverId)
     }
 }
-

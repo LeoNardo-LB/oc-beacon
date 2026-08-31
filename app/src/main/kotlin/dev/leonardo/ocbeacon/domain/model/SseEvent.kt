@@ -161,6 +161,46 @@ sealed class SseEvent {
         val timing: DshSubagentTiming,
     ) : SseEvent()
 
+    /**
+     * DSH goal 投影变更（session/projection 帧 key=goal / goal/change 事件全量值）。
+     * 由 SessionEventHandler 折叠进 Session.goal（last-wins；[goal] null = 首建前/clear tombstone）。
+     */
+    @Serializable
+    data class SessionGoalChanged(
+        val sessionId: String,
+        val goal: DshGoalProjection?,
+    ) : SseEvent()
+
+    /**
+     * DSH contextPressure 投影变更（session/projection 帧 key=contextPressure）。
+     * 由 SessionEventHandler 折叠进 Session.contextPressure（last-wins）。
+     */
+    @Serializable
+    data class SessionContextPressureChanged(
+        val sessionId: String,
+        val pressure: DshContextPressure,
+    ) : SseEvent()
+
+    /**
+     * DSH contextBreakdown 投影变更（session/projection 帧 key=contextBreakdown）。
+     * 由 SessionEventHandler 折叠进 Session.contextBreakdown（last-wins）。
+     */
+    @Serializable
+    data class SessionContextBreakdownChanged(
+        val sessionId: String,
+        val breakdown: DshContextBreakdown,
+    ) : SseEvent()
+
+    /**
+     * DSH sessionStats 投影变更（session/projection 帧 key=sessionStats）。
+     * 由 SessionEventHandler 折叠进 Session.sessionStats（last-wins）。
+     */
+    @Serializable
+    data class SessionStatsChanged(
+        val sessionId: String,
+        val stats: DshSessionStats,
+    ) : SseEvent()
+
     // 问题事件
     @Serializable
     data class QuestionAsked(
@@ -356,5 +396,4 @@ data class Project(
             ?: path.takeIf { it.isNotEmpty() }?.let { dev.leonardo.ocbeacon.util.PathUtils.fileName(it.trimEnd('/', '\\')) }?.takeIf { it.isNotEmpty() }
             ?: id.take(8)
 }
-
 

@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.domain.repository
 
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
@@ -199,6 +200,38 @@ interface ChatRepository {
      * 失败经 Result 上抛（调用方按 DshApiError.category 映射锁定提示）。
      */
     suspend fun selectAgentPreset(serverId: String, sessionId: String, presetId: String): Result<Boolean>
+
+
+    // ============ DSH goal 六 mutation（backlog #286；OpenCode V1/V2 返回 null/false） ============
+
+    /** DSH goal.create（创建并 arm 目标）。回执新 CAS ref；失败经 Result 上抛（DshApiError）。 */
+    suspend fun createGoal(
+        serverId: String,
+        sessionId: String,
+        objective: String,
+        maxGoalRounds: Long?,
+    ): Result<DshGoalRef?>
+
+    /** DSH goal.edit（改 objective/maxGoalRounds；CAS ref 取自当前投影）。 */
+    suspend fun editGoal(
+        serverId: String,
+        sessionId: String,
+        ref: DshGoalRef,
+        objective: String?,
+        maxGoalRounds: Long?,
+    ): Result<DshGoalRef?>
+
+    /** DSH goal.pause。 */
+    suspend fun pauseGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?>
+
+    /** DSH goal.resume。 */
+    suspend fun resumeGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?>
+
+    /** DSH goal.complete。 */
+    suspend fun completeGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?>
+
+    /** DSH goal.clear（回执 {cleared:true}）。 */
+    suspend fun clearGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<Boolean>
 
     /**
      * 在会话中运行 shell 命令。

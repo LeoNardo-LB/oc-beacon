@@ -9,6 +9,7 @@ import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.data.dto.response.*
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.Session
@@ -118,6 +119,36 @@ interface SessionApi {
      * OpenCode V1/V2 无对应域 → false（UI 按能力位隐藏）。错误上抛供锁定提示。
      */
     suspend fun selectAgentPreset(conn: ServerConnection, sessionId: String, presetId: String): Boolean = false
+
+    /** DSH goal.create（创建并 arm 目标；maxGoalRounds 可选）。回执 value.ref = 新 CAS ref。
+     *  OpenCode V1/V2 无 goal 域 → null（UI 按能力位 goalSupported 隐藏）。 */
+    suspend fun goalCreate(
+        conn: ServerConnection,
+        sessionId: String,
+        objective: String,
+        maxGoalRounds: Long? = null,
+    ): DshGoalRef? = null
+
+    /** DSH goal.edit（改 objective/maxGoalRounds 之一或两者；CAS ref 取自当前投影）。 */
+    suspend fun goalEdit(
+        conn: ServerConnection,
+        sessionId: String,
+        ref: DshGoalRef,
+        objective: String? = null,
+        maxGoalRounds: Long? = null,
+    ): DshGoalRef? = null
+
+    /** DSH goal.pause（暂停 active 目标并 disarm 自动延续）。 */
+    suspend fun goalPause(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? = null
+
+    /** DSH goal.resume（恢复 paused 目标并重新 arm）。 */
+    suspend fun goalResume(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? = null
+
+    /** DSH goal.complete（完成当前目标并 disarm）。 */
+    suspend fun goalComplete(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? = null
+
+    /** DSH goal.clear（清除当前目标，保留 durable tombstone；回执 {cleared:true}）。 */
+    suspend fun goalClear(conn: ServerConnection, sessionId: String, ref: DshGoalRef): Boolean = false
 
     /**
      * DSH subagent.list 权威子代理目录（AgentSheet 多级树逐层懒加载）。
@@ -266,6 +297,36 @@ class SessionApiImpl @Inject constructor(
 
     override suspend fun selectAgentPreset(conn: ServerConnection, sessionId: String, presetId: String): Boolean =
         pick(conn).selectAgentPreset(conn, sessionId, presetId)
+
+
+    // ============ DSH goal 六 mutation（#286 用户裁决；OpenCode V1/V2 走接口默认 null/false） ============
+
+    override suspend fun goalCreate(
+        conn: ServerConnection,
+        sessionId: String,
+        objective: String,
+        maxGoalRounds: Long?,
+    ): DshGoalRef? = pick(conn).goalCreate(conn, sessionId, objective, maxGoalRounds)
+
+    override suspend fun goalEdit(
+        conn: ServerConnection,
+        sessionId: String,
+        ref: DshGoalRef,
+        objective: String?,
+        maxGoalRounds: Long?,
+    ): DshGoalRef? = pick(conn).goalEdit(conn, sessionId, ref, objective, maxGoalRounds)
+
+    override suspend fun goalPause(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? =
+        pick(conn).goalPause(conn, sessionId, ref)
+
+    override suspend fun goalResume(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? =
+        pick(conn).goalResume(conn, sessionId, ref)
+
+    override suspend fun goalComplete(conn: ServerConnection, sessionId: String, ref: DshGoalRef): DshGoalRef? =
+        pick(conn).goalComplete(conn, sessionId, ref)
+
+    override suspend fun goalClear(conn: ServerConnection, sessionId: String, ref: DshGoalRef): Boolean =
+        pick(conn).goalClear(conn, sessionId, ref)
 
     /** #276 三分路由同款：DSH → subagent.list；OpenCode V1/V2 → null（本地镜像递归）。 */
     override suspend fun listSubagentCatalog(

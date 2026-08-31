@@ -194,7 +194,74 @@ object DshEventMapper {
                         )
                     )
                 }
-                // 其余投影键（title/permissions/sessionStats/contextPressure…）：本任务不消费
+                "goal" -> {
+                    // 投影值可为 null（首建前/clear tombstone 的 whole value）——非畸形
+                    when (val value = payload["value"]) {
+                        is JsonNull -> listOf(
+                            DshMappedEvent.Sse(SseEvent.SessionGoalChanged(sessionId = sid, goal = null))
+                        )
+                        is JsonObject -> listOf(
+                            DshMappedEvent.Sse(
+                                SseEvent.SessionGoalChanged(sessionId = sid, goal = mapGoalProjection(value))
+                            )
+                        )
+                        else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                    }
+                }
+                "contextPressure" -> {
+                    val value = payload.obj("value")
+                    if (value == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                    else listOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionContextPressureChanged(
+                                sessionId = sid,
+                                pressure = dev.leonardo.ocbeacon.domain.model.DshContextPressure(
+                                    pressureTokens = value.long("pressureTokens"),
+                                    projectedTokens = value.long("projectedTokens"),
+                                    contextWindow = value.long("contextWindow"),
+                                ),
+                            )
+                        )
+                    )
+                }
+                "contextBreakdown" -> {
+                    val value = payload.obj("value")
+                    if (value == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                    else listOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionContextBreakdownChanged(
+                                sessionId = sid,
+                                breakdown = dev.leonardo.ocbeacon.domain.model.DshContextBreakdown(
+                                    systemTokens = value.long("systemTokens") ?: 0L,
+                                    toolsTokens = value.long("toolsTokens") ?: 0L,
+                                    messageTokens = value.long("messageTokens") ?: 0L,
+                                ),
+                            )
+                        )
+                    )
+                }
+                "sessionStats" -> {
+                    val value = payload.obj("value")
+                    if (value == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                    else listOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionStatsChanged(
+                                sessionId = sid,
+                                stats = dev.leonardo.ocbeacon.domain.model.DshSessionStats(
+                                    turns = value.long("turns") ?: 0L,
+                                    steps = value.long("steps") ?: 0L,
+                                    llmMs = value.long("llmMs") ?: 0L,
+                                    toolMs = value.long("toolMs") ?: 0L,
+                                    ttftMs = value.long("ttftMs") ?: 0L,
+                                    ttftSteps = value.long("ttftSteps") ?: 0L,
+                                    decodeMs = value.long("decodeMs") ?: 0L,
+                                    decodeTokens = value.long("decodeTokens") ?: 0L,
+                                ),
+                            )
+                        )
+                    )
+                }
+                // 其余投影键（title/permissions…）：本任务不消费
                 else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION))
             }
         }
@@ -317,7 +384,17 @@ object DshEventMapper {
                 listOf(DshMappedEvent.Sse(SseEvent.SessionCompacted(sessionId = sessionId)))
             "compaction/start", "compaction/summary", "compaction/prune" ->
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
-            "goal/change" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.GOAL_CHANGE))
+            // goal/change → SessionGoalChanged（whole-value last-wins；clear tombstone → null）。
+            // 历史折叠与实况共用本入口（DshHistoryFolder 可折叠）。
+            "goal/change" -> {
+                val operation = data.str("operation")
+                val projection = if (operation == "clear") {
+                    null
+                } else {
+                    mapGoalProjection(data)
+                }
+                listOf(DshMappedEvent.Sse(SseEvent.SessionGoalChanged(sessionId = sessionId, goal = projection)))
+            }
             "subagent/descriptor" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.SUBAGENT_DESCRIPTOR))
             // agent-preset/selected {agentPreset} → SessionAgentPresetChanged：select 成功
             // 回显（非 scoped 重发），折叠进 Session.agentPreset 驱动卡片高亮。
@@ -714,6 +791,36 @@ object DshEventMapper {
             settledMs = v.long("settledMs") ?: 0L,
             activeSince = active?.long("since"),
             activeThrough = active?.long("through"),
+        )
+    }
+
+
+    /**
+     * goal 投影整值 → 域模型（whole-value last-wins；goal/change 事件 data 与
+     * session/projection key=goal 的 value 同构：{goal:{…}, roundsStarted, createdAt,
+     * updatedAt}；clear tombstone 不走本函数——上层直接置 null）。
+     */
+    private fun mapGoalProjection(v: JsonObject): dev.leonardo.ocbeacon.domain.model.DshGoalProjection? {
+        val goal = v.obj("goal") ?: return null
+        val id = goal.str("id") ?: return null
+        val blocked = goal.obj("blockedReason")
+        return dev.leonardo.ocbeacon.domain.model.DshGoalProjection(
+            goal = dev.leonardo.ocbeacon.domain.model.DshGoalSnapshot(
+                id = id,
+                revision = goal.long("revision") ?: 0L,
+                objective = goal.str("objective") ?: "",
+                phase = goal.str("phase") ?: "active",
+                blockedReason = blocked?.let {
+                    dev.leonardo.ocbeacon.domain.model.DshGoalBlockReason(
+                        code = it.str("code") ?: "",
+                        message = it.str("message") ?: "",
+                    )
+                },
+                maxGoalRounds = goal.long("maxGoalRounds") ?: 0L,
+            ),
+            roundsStarted = v.long("roundsStarted") ?: 0L,
+            createdAt = v.long("createdAt") ?: 0L,
+            updatedAt = v.long("updatedAt") ?: 0L,
         )
     }
 

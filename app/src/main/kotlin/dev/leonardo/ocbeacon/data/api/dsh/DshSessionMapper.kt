@@ -47,6 +47,12 @@ object DshSessionMapper {
             // 打开已完成子代理会话时弹窗即可展示，无需等 projection 帧）
             tokenUsage = parseTokenUsage(item),
             subagentTiming = parseSubagentTiming(item),
+            // C（backlog #286）：goal/contextPressure/contextBreakdown/sessionStats 投影基线
+            // （帧驱动 last-wins 的前置种子——进入会话即展示，无需等 projection 帧）
+            goal = parseGoal(item),
+            contextPressure = parseContextPressure(item),
+            contextBreakdown = parseContextBreakdown(item),
+            sessionStats = parseSessionStats(item),
         )
     }
 
@@ -69,6 +75,69 @@ object DshSessionMapper {
             settledMs = v.dshLong("settledMs") ?: 0L,
             activeSince = active?.dshLong("since"),
             activeThrough = active?.dshLong("through"),
+        )
+    }
+
+
+    /** goal 投影（projections.values.goal）→ 域模型；缺席/显式 null（clear/首建前）返回 null。 */
+    private fun parseGoal(item: JsonObject): dev.leonardo.ocbeacon.domain.model.DshGoalProjection? {
+        val values = item.dshObj("projections")?.dshObj("values") ?: return null
+        val v = values["goal"] ?: return null
+        val goalObj = (v as? JsonObject)?.dshObj("goal") ?: return null
+        val id = goalObj.dshStr("id") ?: return null
+        val blocked = goalObj.dshObj("blockedReason")
+        return dev.leonardo.ocbeacon.domain.model.DshGoalProjection(
+            goal = dev.leonardo.ocbeacon.domain.model.DshGoalSnapshot(
+                id = id,
+                revision = goalObj.dshLong("revision") ?: 0L,
+                objective = goalObj.dshStr("objective") ?: "",
+                phase = goalObj.dshStr("phase") ?: "active",
+                blockedReason = blocked?.let {
+                    dev.leonardo.ocbeacon.domain.model.DshGoalBlockReason(
+                        code = it.dshStr("code") ?: "",
+                        message = it.dshStr("message") ?: "",
+                    )
+                },
+                maxGoalRounds = goalObj.dshLong("maxGoalRounds") ?: 0L,
+            ),
+            roundsStarted = v.dshLong("roundsStarted") ?: 0L,
+            createdAt = v.dshLong("createdAt") ?: 0L,
+            updatedAt = v.dshLong("updatedAt") ?: 0L,
+        )
+    }
+
+    /** contextPressure 投影（projections.values.contextPressure）；缺席返回 null。 */
+    private fun parseContextPressure(item: JsonObject): dev.leonardo.ocbeacon.domain.model.DshContextPressure? {
+        val v = item.dshObj("projections")?.dshObj("values")?.dshObj("contextPressure") ?: return null
+        return dev.leonardo.ocbeacon.domain.model.DshContextPressure(
+            pressureTokens = v.dshLong("pressureTokens"),
+            projectedTokens = v.dshLong("projectedTokens"),
+            contextWindow = v.dshLong("contextWindow"),
+        )
+    }
+
+    /** contextBreakdown 投影（projections.values.contextBreakdown）；缺席返回 null。 */
+    private fun parseContextBreakdown(item: JsonObject): dev.leonardo.ocbeacon.domain.model.DshContextBreakdown? {
+        val v = item.dshObj("projections")?.dshObj("values")?.dshObj("contextBreakdown") ?: return null
+        return dev.leonardo.ocbeacon.domain.model.DshContextBreakdown(
+            systemTokens = v.dshLong("systemTokens") ?: 0L,
+            toolsTokens = v.dshLong("toolsTokens") ?: 0L,
+            messageTokens = v.dshLong("messageTokens") ?: 0L,
+        )
+    }
+
+    /** sessionStats 投影（projections.values.sessionStats）；缺席返回 null。 */
+    private fun parseSessionStats(item: JsonObject): dev.leonardo.ocbeacon.domain.model.DshSessionStats? {
+        val v = item.dshObj("projections")?.dshObj("values")?.dshObj("sessionStats") ?: return null
+        return dev.leonardo.ocbeacon.domain.model.DshSessionStats(
+            turns = v.dshLong("turns") ?: 0L,
+            steps = v.dshLong("steps") ?: 0L,
+            llmMs = v.dshLong("llmMs") ?: 0L,
+            toolMs = v.dshLong("toolMs") ?: 0L,
+            ttftMs = v.dshLong("ttftMs") ?: 0L,
+            ttftSteps = v.dshLong("ttftSteps") ?: 0L,
+            decodeMs = v.dshLong("decodeMs") ?: 0L,
+            decodeTokens = v.dshLong("decodeTokens") ?: 0L,
         )
     }
 

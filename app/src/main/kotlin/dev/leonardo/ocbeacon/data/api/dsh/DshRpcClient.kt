@@ -9,6 +9,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -54,6 +55,26 @@ class DshRpcClient @Inject constructor(
             ?: return Result.failure(
                 DshApiError(null, "ok response with non-object value: " + ok.value.toString().take(120), null, HTTP_OK),
             )
+        return runCatching { transform(value) }
+    }
+
+    /**
+     * value 非对象 RPC（commands/list 等数组值方法，2026-08-31 活体定音）——
+     * [call] 的「value 必为对象」前置不适用。transform 语义同 [call]
+     *（ok=true 时执行；异常经 runCatching 语义接管，不冒充传输错误）。
+     */
+    internal suspend fun <T> callJson(
+        conn: ServerConnection,
+        method: String,
+        payload: JsonObject,
+        transform: (JsonElement) -> T,
+    ): Result<T> {
+        val envelope = DshEnvelope.ClientRequest(DshEnvelope.newRpcId(), method, payload)
+        val wire = exchange(conn, method, envelope)
+        val ok = wire.getOrElse { return Result.failure(it) } as? DshRpcResult.Ok
+            ?: return Result.failure(DshApiError(null, "malformed server-response envelope", null, HTTP_OK))
+        val value = ok.value
+            ?: return Result.failure(DshApiError(null, "ok response with null value", null, HTTP_OK))
         return runCatching { transform(value) }
     }
 

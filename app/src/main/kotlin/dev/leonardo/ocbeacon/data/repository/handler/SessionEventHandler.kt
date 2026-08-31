@@ -70,6 +70,10 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.SessionAgentPresetChanged -> { handleSessionAgentPresetChanged(event); true }
             is SseEvent.SessionTokenUsageChanged -> { handleSessionTokenUsageChanged(event); true }
             is SseEvent.SessionSubagentTimingChanged -> { handleSessionSubagentTimingChanged(event); true }
+            is SseEvent.SessionGoalChanged -> { handleSessionGoalChanged(event); true }
+            is SseEvent.SessionContextPressureChanged -> { handleSessionContextPressureChanged(event); true }
+            is SseEvent.SessionContextBreakdownChanged -> { handleSessionContextBreakdownChanged(event); true }
+            is SseEvent.SessionStatsChanged -> { handleSessionStatsChanged(event); true }
             is SseEvent.SessionDeleted -> { handleSessionDeleted(event); true }
             // 状态/idle 事件在此确认，但由 SessionStateService 经由
             // EventDispatcher.forwardToSessionStateService 处理——无本地状态需更新。
@@ -191,6 +195,43 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         _sessions.update { current ->
             current.map { s ->
                 if (s.id != event.sessionId) s else s.copy(subagentTiming = event.timing)
+            }
+        }
+    }
+
+
+    /** goal 投影（goal/change 事件 / session/projection key=goal）→ 折叠进 Session.goal（last-wins 全量快照；null = clear）。 */
+    private fun handleSessionGoalChanged(event: SseEvent.SessionGoalChanged) {
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id != event.sessionId) s else s.copy(goal = event.goal)
+            }
+        }
+    }
+
+    /** contextPressure 投影帧 → 折叠进 Session.contextPressure（环分子/分母源，last-wins）。 */
+    private fun handleSessionContextPressureChanged(event: SseEvent.SessionContextPressureChanged) {
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id != event.sessionId) s else s.copy(contextPressure = event.pressure)
+            }
+        }
+    }
+
+    /** contextBreakdown 投影帧 → 折叠进 Session.contextBreakdown（last-wins）。 */
+    private fun handleSessionContextBreakdownChanged(event: SseEvent.SessionContextBreakdownChanged) {
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id != event.sessionId) s else s.copy(contextBreakdown = event.breakdown)
+            }
+        }
+    }
+
+    /** sessionStats 投影帧 → 折叠进 Session.sessionStats（last-wins）。 */
+    private fun handleSessionStatsChanged(event: SseEvent.SessionStatsChanged) {
+        _sessions.update { current ->
+            current.map { s ->
+                if (s.id != event.sessionId) s else s.copy(sessionStats = event.stats)
             }
         }
     }

@@ -32,6 +32,11 @@ interface SystemApi {
     suspend fun listCommands(conn: ServerConnection): List<CommandInfo>
 
     /**
+     * 列出可用的斜杠命令（DSH 会话级：commands/list typert 通道需要 agentId；V1/V2 忽略）。
+     */
+    suspend fun listCommands(conn: ServerConnection, sessionId: String?): List<CommandInfo> = listCommands(conn)
+
+    /**
      * 列出可用的技能。
      * GET /skill
      */
@@ -73,6 +78,9 @@ class SystemApiImpl @Inject constructor(
 
     override suspend fun listCommands(conn: ServerConnection): List<CommandInfo> =
         pick(conn).listCommands(conn)
+
+    override suspend fun listCommands(conn: ServerConnection, sessionId: String?): List<CommandInfo> =
+        pick(conn).listCommands(conn, sessionId)
 
     override suspend fun listSkills(conn: ServerConnection, directory: String?): List<SkillInfo> =
         pick(conn).listSkills(conn, directory)

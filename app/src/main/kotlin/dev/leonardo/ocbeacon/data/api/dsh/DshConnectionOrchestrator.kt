@@ -295,6 +295,13 @@ class DshConnectionOrchestrator @Inject constructor() {
             agentPreset = incoming.agentPreset ?: existing.agentPreset,
             tokenUsage = incoming.tokenUsage ?: existing.tokenUsage,
             subagentTiming = incoming.subagentTiming ?: existing.subagentTiming,
+            // backlog #286：goal/contextPressure/contextBreakdown/sessionStats 同为
+            // handler 折叠态投影且最小事件不携带——缺席保留缓存值（GoalSheet/环入口
+            // 随 session/title 最小更新帧丢失的同款回归防线）。
+            goal = incoming.goal ?: existing.goal,
+            contextPressure = incoming.contextPressure ?: existing.contextPressure,
+            contextBreakdown = incoming.contextBreakdown ?: existing.contextBreakdown,
+            sessionStats = incoming.sessionStats ?: existing.sessionStats,
             // blank 非空类型无法区分缺席——本函数只处理 session/title 与
             // host/session-added 最小事件（构造走 Session 默认 blank=false，
             // 从不携带真实 blank；全量会话走 list/投影路径不经此处），故此处

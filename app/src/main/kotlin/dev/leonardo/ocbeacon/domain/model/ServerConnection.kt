@@ -76,8 +76,13 @@ data class ServerCapabilities(
     val vcsSupported: Boolean,
     /** 文件搜索（DSH 无 find 对应方法）。 */
     val fileSearchSupported: Boolean,
-    /** 斜杠命令面板（DSH 无 command 执行端点；listCommands 已空列表降级）。 */
+    /** 斜杠命令面板（DSH commands/list + commands/execute typert 通道——2026-08-31 活体定音；OpenCode V1/V2 原 /command 端点）。 */
     val commandsSupported: Boolean,
+    /**
+     * 目标（goal）动作面板（DSH 专属：goal.create/edit/pause/resume/complete/clear
+     * 六 mutation + goal 投影；OpenCode V1/V2 无 goal 域 → false（UI 完全隐藏 GOAL 入口）。
+     */
+    val goalSupported: Boolean,
     /** 撤销/重做（revert/unrevert；DSH 52 方法面无对应——撤回入口按位隐藏）。 */
     val revertSupported: Boolean,
     /** 消息删除（DELETE message 端点；DSH 无对应——当前无 UI 入口，防御位）。 */
@@ -113,7 +118,10 @@ data class ServerCapabilities(
                     sessionDeleteSupported = false,
                     vcsSupported = false,
                     fileSearchSupported = false,
-                    commandsSupported = false,
+                    // 2026-08-31 活体定音：commands/list + commands/execute typert 通道可用
+                    // （早前 “command.list/slashCommand.list 404” 证据属陈旧部署）
+                    commandsSupported = true,
+                    goalSupported = true,
                     revertSupported = false,
                     messageDeleteSupported = false,
                     shellCommandSupported = false,
@@ -142,6 +150,7 @@ data class ServerCapabilities(
                 vcsSupported = true,
                 fileSearchSupported = true,
                 commandsSupported = true,
+                goalSupported = false,
                 revertSupported = true,
                 messageDeleteSupported = true,
                 shellCommandSupported = true,
@@ -163,6 +172,7 @@ data class ServerCapabilities(
                 vcsSupported = true,
                 fileSearchSupported = true,
                 commandsSupported = true,
+                goalSupported = false,
                 revertSupported = true,
                 messageDeleteSupported = true,
                 shellCommandSupported = true,
