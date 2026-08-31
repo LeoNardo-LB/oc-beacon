@@ -40,6 +40,8 @@ class WireCompatMatrixTest {
                 "time", "summary", "share", "permission", "revert", "workspaceID",
                 "path", "cost", "tokens", "agent", "model", "permissions",
                 "blank", "agentPreset", "tokenUsage", "subagentTiming",
+                // backlog #285 批：goal + 环三投影（DSH 专属，OpenCode 恒 null 不落盘——encodeDefaults=false）
+                "goal", "contextPressure", "contextBreakdown", "sessionStats",
             ),
             names(Session.serializer()),
         )

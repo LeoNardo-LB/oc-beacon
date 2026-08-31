@@ -170,4 +170,42 @@ class DshSessionMapperTest {
         // directory=null：不做目录过滤，但 blank 空壳恒滤除（与 V1 headerless 语义对齐）
         assertEquals(2, DshSessionMapper.filterByDirectory(items, null).size)
     }
+
+    // ============ backlog #285：goal/contextPressure/contextBreakdown/sessionStats 投影基线 ============
+
+    @Test
+    fun `session row with goal projection seeds session goal`() {
+        val item = Json.parseToJsonElement(
+            """{"sessionId":"s-1","updatedAt":1,"running":false,"blank":false,"projections":{"asOfSeq":5,"values":{
+                "goal":{"goal":{"id":"goal-1","revision":2,"objective":"build","phase":"blocked","blockedReason":{"code":"goal-blocked-rounds","message":"exhausted"},"maxGoalRounds":3},"roundsStarted":2,"createdAt":1,"updatedAt":2},
+                "contextPressure":{"pressureTokens":124658,"projectedTokens":125148,"contextWindow":1000000},
+                "contextBreakdown":{"systemTokens":9408,"toolsTokens":240,"messageTokens":99722},
+                "sessionStats":{"turns":1,"steps":60,"llmMs":304019,"toolMs":3514,"ttftMs":194905,"ttftSteps":61,"decodeMs":109114,"decodeTokens":17112}
+            }}}"""
+        ).jsonObject
+        val session = DshSessionMapper.toSession(item)
+        assertEquals("goal-1", session.goal!!.goal.id)
+        assertEquals(2L, session.goal!!.goal.revision)
+        assertEquals("blocked", session.goal!!.goal.phase)
+        assertEquals("exhausted", session.goal!!.goal.blockedReason!!.message)
+        assertEquals(3L, session.goal!!.goal.maxGoalRounds)
+        assertEquals(2L, session.goal!!.roundsStarted)
+        assertEquals(125148L, session.contextPressure!!.projectedTokens)
+        assertEquals(1000000L, session.contextPressure!!.contextWindow)
+        assertEquals(99722L, session.contextBreakdown!!.messageTokens)
+        assertEquals(60L, session.sessionStats!!.steps)
+        assertEquals(304019L, session.sessionStats!!.llmMs)
+    }
+
+    @Test
+    fun `session row without projections keeps new DSH fields null`() {
+        val item = Json.parseToJsonElement(
+            """{"sessionId":"s-2","updatedAt":1,"running":true,"blank":false}"""
+        ).jsonObject
+        val session = DshSessionMapper.toSession(item)
+        assertNull(session.goal)
+        assertNull(session.contextPressure)
+        assertNull(session.contextBreakdown)
+        assertNull(session.sessionStats)
+    }
 }

@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#285**。
+**编号**：全局递增，不回收。下一编号：**#286**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -65,6 +65,12 @@
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#285 DSH 斜杠命令补全的会话龄缺口：懒建会话/首连期命令列表空 + commands/change 事件未消费** `dsh` `ui`
+  - 2026-08-31 定音：commands/list typert 通道活体可用且已实现（能力位转真 + 选择填入/执行）——残留缺口：新会话懒建（sessionId 空）时 loadCommands 只跑一次 → 建会话后服务端命令不刷新；commands/change 事件（命令注册变化）未订阅；技能在 DSH 无对应域
+  - 方向：sessionId 就绪后重载 commands + 订阅 commands/change 失效重取（参照官方 CommandDirectory warm/invalidate）；验证=真机输入 / 看服务端命令列表
+  - → docs/journal/2026-08-31-goal-token-ring-slash.md
+
 
 - [ ] **#281 androidTest 编译基线破损：fakes 缺接口成员 + ArchiveBucketDaoTest 字段漂移** `refactor`
   - 2026-09-25 发现（AgentSheet 树化批次顺带）：compileDevDebugAndroidTestKotlin 在基线 64079b57 即失败——FakeServerRepository 缺 promoteDebugBackend、FakeSessionRepository 缺 listSessionsPage、ArchiveBucketDaoTest 引用已不存在的 leastAccessed/lastAccessedAt

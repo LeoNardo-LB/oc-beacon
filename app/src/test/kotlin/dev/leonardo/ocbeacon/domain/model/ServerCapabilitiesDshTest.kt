@@ -29,7 +29,6 @@ class ServerCapabilitiesDshTest {
         ServerCapabilities::sessionDeleteSupported,
         ServerCapabilities::vcsSupported,
         ServerCapabilities::fileSearchSupported,
-        ServerCapabilities::commandsSupported,
         ServerCapabilities::revertSupported,
         ServerCapabilities::messageDeleteSupported,
         ServerCapabilities::shellCommandSupported,
@@ -46,6 +45,9 @@ class ServerCapabilitiesDshTest {
             for (bit in newBits) {
                 assertFalse("${bit.name} v=$version", bit.get(caps))
             }
+            // 2026-08-31 活体定音：commands/list 与 goal.* 均可用 → 两位转真
+            assertTrue("commandsSupported v=$version", caps.commandsSupported)
+            assertTrue("goalSupported v=$version", caps.goalSupported)
         }
     }
 
@@ -72,7 +74,9 @@ class ServerCapabilitiesDshTest {
         assertFalse(caps.sessionDeleteSupported)
         assertFalse(caps.vcsSupported)
         assertFalse(caps.fileSearchSupported)
-        assertFalse(caps.commandsSupported)
+        // 2026-08-31 活体定音：commandsSupported/goalSupported 转真（commands/list + goal.* 可用）
+        assertTrue(caps.commandsSupported)
+        assertTrue(caps.goalSupported)
     }
 
     /**
