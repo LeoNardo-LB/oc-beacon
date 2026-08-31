@@ -289,6 +289,17 @@ class DshConnectionOrchestrator @Inject constructor() {
             ),
             // 权限预设状态同样防整替换抹除（session/title 等最小 Session 不携带 permissions）
             permissions = incoming.permissions ?: existing.permissions,
+            // 双轴审查 (c)1 写漏补防：agentPreset/tokenUsage/subagentTiming 同为
+            // handler 折叠态且最小事件不携带——缺席保留缓存值（a16ee74b 同类
+            // 回归防线：预设卡门控/高亮、token 弹窗子代理区随最小更新帧丢失）。
+            agentPreset = incoming.agentPreset ?: existing.agentPreset,
+            tokenUsage = incoming.tokenUsage ?: existing.tokenUsage,
+            subagentTiming = incoming.subagentTiming ?: existing.subagentTiming,
+            // blank 非空类型无法区分缺席——本函数只处理 session/title 与
+            // host/session-added 最小事件（构造走 Session 默认 blank=false，
+            // 从不携带真实 blank；全量会话走 list/投影路径不经此处），故此处
+            // 无条件保留缓存值。
+            blank = existing.blank,
         )
         return when (event) {
             is SseEvent.SessionUpdated -> event.copy(info = merged)

@@ -45,6 +45,12 @@ data class ServerCapabilities(
      */
     val agentPresetSupported: Boolean,
     /**
+     * 投影驱动统计（DSH）：token 统计弹窗的无窗口入口 chip（tokenUsage/
+     * subagentTiming 投影域，目录无 contextWindow）。OpenCode 目录恒携带
+     * contextWindow → 走既有进度环入口，本位 false（V1/V2 零外溢）。
+     */
+    val projectionStatsSupported: Boolean,
+    /**
      * 压缩异步化（#217 分割线包揽）：V2 compact HTTP 立即返回（steer 异步），
      * 进行中/终态由 SSE compaction.started/delta/ended 驱动；V1 summarize HTTP
      * 同步挂起至完成、SSE 只有单个 compacted 完成事件——HTTP 返回即终态。
@@ -99,6 +105,7 @@ data class ServerCapabilities(
                     configEditable = false,
                     permissionSwitchSupported = true,
                     agentPresetSupported = true,
+                    projectionStatsSupported = true,
                     compactionAsync = true,
                     compactionModelIndependent = true,
                     terminalSupported = false,
@@ -126,6 +133,7 @@ data class ServerCapabilities(
                 configEditable = false,
                 permissionSwitchSupported = false,
                 agentPresetSupported = false,
+                projectionStatsSupported = false,
                 compactionAsync = true,
                 compactionModelIndependent = false,
                 terminalSupported = true,
@@ -146,6 +154,7 @@ data class ServerCapabilities(
                 configEditable = true,
                 permissionSwitchSupported = false,
                 agentPresetSupported = false,
+                projectionStatsSupported = false,
                 compactionAsync = false,
                 compactionModelIndependent = false,
                 terminalSupported = true,

@@ -70,6 +70,8 @@ fun ChatTopBar(
     /** 服务器支持 PTY 终端时显示 Terminal 菜单项（DSH 无 terminal/pty 域——
      *  2026-08-31 全量按钮走查前置修复：此前 DSH 下入口可见但点击报错，数据层兜底不佳）。 */
     isTerminalSupported: Boolean = true,
+    /** 投影驱动统计（DSH）：无 contextWindow 时的 token 计数 chip 入口（默认 false 保持 V1/V2 零外溢）。 */
+    projectionStatsSupported: Boolean = false,
     onShare: () -> Unit,
     onUnshare: () -> Unit,
     onExport: () -> Unit,
@@ -113,8 +115,10 @@ fun ChatTopBar(
             val hasTokenData = lastContextTokens > 0 ||
                 contextDetail.inputTokens > 0 ||
                 contextDetail.subagentTokens != null
+            // 双轴审查 (c)2 修复：no-window chip 分支以 projectionStatsSupported
+            // （DSH）门控——OpenCode 目录恒带 contextWindow 走环入口，两代零外溢。
             val showContext = (contextWindow > 0 && lastContextTokens > 0) ||
-                (contextWindow <= 0 && hasTokenData)
+                (projectionStatsSupported && contextWindow <= 0 && hasTokenData)
             if (showContext) {
                 if (contextWindow > 0) {
                     val percentage = Math.round(lastContextTokens.toDouble() / contextWindow * 100).toInt()

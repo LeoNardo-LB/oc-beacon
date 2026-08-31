@@ -691,6 +691,7 @@ fun ChatScreen(
                         isShareSupported = serverCapabilities.shareSupported,
                         isBackgroundSupported = serverCapabilities.backgroundSessionsSupported,
                         isTerminalSupported = serverCapabilities.terminalSupported,
+                        projectionStatsSupported = serverCapabilities.projectionStatsSupported,
                         onShare = {
                             viewModel.shareSession { url ->
                                 coroutineScope.launch {
