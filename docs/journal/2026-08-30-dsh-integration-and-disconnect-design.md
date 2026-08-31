@@ -8,6 +8,16 @@
 
 ## 批次执行记录
 
+### 2026-08-31（七）：后端接口补全（14fec72a）+ 走查三根因（65c7bb1b）——全量 2348/0
+
+**补全批**：compact=/compact 斜杠命令通道（compactionAsync 翻位防 59ms 分割线闪现同款）；compaction/end→SessionCompacted 完成链（刷新+snackbar）；export=GET session.export zip 流式+onProgress；能力位 14 位矩阵（+revert/messageDelete/shellCommand，shell 四入口/撤销五入口全门控，deleteMessage 证实死路由无需门控）；runShellCommand VM 短路。ChatScreen.kt 零编辑（入口皆已抽取至子组件）。
+
+**走查三根因**：
+- **N1 假成功真相**：「消息已还原」系 RevertBanner 标题（与成功文案同文）——真缺陷=setRevert()（RS-008 前置位）失败路径从不回滚→banner 常驻+列表截断=视觉假成功；修复=catch clearRevert+wasBusy 提升+失败恢复 SSE 观察（busy 会话失败后实况死亡顺带根治）；**服务器类型无关，OpenCode 同病同治**。onResult 语义审计清洁。
+- **N2 空路径**：三级解析（调用方 directory→workspace.list 首路径按 baseUrl 缓存→host.describe cwd 兜底→显式错误），覆盖文件树/@提及树/建目录三根调用。
+- **N3 epoch**：DateFormatters.formatEpochOrDash（<=0→「—」，不以 updated 冒充）。
+
+测试 +17（回滚 2/根解析 4/占位 3/compact 2/export 2/mapper 2/短路 1+矩阵扩展）；装机版本含全部修复。
 ### 2026-08-31（六）：全量按钮走查（代理 229f6cb8）+ OpenAPI 规范交付（代理 9a788d4e）
 
 **按钮走查矩阵**（A-E 26 项 + F 2 项，证据 /tmp/dsh-e2e-buttons/ 148 文件）：WORKS 17 / HIDDEN 9（全部符合能力位：分享/删除/转后台/slash/模型chip/agent chip/上下文环/git/搜索）/ NO-OP 2 / ERRORS 5 组：
