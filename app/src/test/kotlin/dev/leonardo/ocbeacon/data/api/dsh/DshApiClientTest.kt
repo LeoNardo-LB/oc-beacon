@@ -370,5 +370,176 @@ class DshApiClientTest {
         assertEquals(2, captureRequests(engine).count { it.url.encodedPath == "/api/host.listDirectory" })
     }
 
+
+    // ============ ProviderApi：llm 目录 + session.selectModel（#276 模型切换接通） ============
+
+    private val llmProvidersValue = """{"providers":[
+        {"provider":"deepseek-official","displayName":"DeepSeek","settingsNs":"llm-deepseek","settingsPath":[],"active":true},
+        {"provider":"anthropic","displayName":"anthropic","settingsNs":"llm-pi-ai","settingsPath":["providers","anthropic"],"active":false,"declared":false}
+    ]}""".trimIndent()
+
+    private val llmModelsValue = """{"groups":[
+        {"id":"deepseek-official","name":"DeepSeek","models":[
+            {"id":"deepseek-v4-flash","name":"DeepSeek-V4-Flash","reasoning":{"efforts":[{"id":"off","name":"Off"},{"id":"low","name":"Low"},{"id":"high","name":"High"}],"defaultEffort":"high"}},
+            {"id":"deepseek-v4-pro","name":"DeepSeek-V4-Pro"}
+        ]},
+        {"id":"opencode-go","name":"opencode-go","models":[
+            {"id":"glm-5.3","reasoning":{"efforts":[{"id":"high","name":"High"}]}}
+        ]}
+    ],"failures":[]}""".trimIndent()
+
+    private fun llmCatalogEngine(
+        providersValue: String? = llmProvidersValue,
+        modelsValue: String? = llmModelsValue,
+    ) = MockEngine { req ->
+        when (req.url.encodedPath) {
+            "/api/llm.providers" ->
+                if (providersValue != null) respond(ok(providersValue), HttpStatusCode.OK, jsonHeaders())
+                else respond(err("internal", "providers down"), HttpStatusCode.OK, jsonHeaders())
+            "/api/llm.models" ->
+                if (modelsValue != null) respond(ok(modelsValue), HttpStatusCode.OK, jsonHeaders())
+                else respond(err("internal", "models down"), HttpStatusCode.OK, jsonHeaders())
+            else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+        }
+    }
+
+    private fun err(code: String, message: String) =
+        """{"type":"server-response","rpcId":"r","result":{"ok":false,"error":{"code":"@CODE@","message":"@MSG@"}}}""".trimIndent()
+            .replace("@CODE@", code).replace("@MSG@", message)
+
+    /**
+     * 目录映射逐字段（/tmp/dsh-openapi-cases/05、06 活体样本）：
+     * llm.providers 条目 {provider, displayName} → id/name（旧 id/name 键防御兼容）；
+     * llm.models groups[{id,name,models[{id,name,reasoning{efforts,defaultEffort}}]}] →
+     * 组内模型挂到同名 provider；efforts → variants（供 variantNames 思考档位 pill）；
+     * 目录未覆盖的组防御性追加（目录序优先）。
+     */
+    @Test
+    fun `getProviders maps llm directory and model groups field by field`() = runTest {
+        val response = client(llmCatalogEngine()).getProviders(conn)
+        assertEquals(listOf("deepseek-official", "anthropic", "opencode-go"), response.providers.map { it.id })
+        // displayName → name
+        assertEquals("DeepSeek", response.providers[0].name)
+        assertEquals("anthropic", response.providers[1].name)
+        // 无模型的目录条目保留（上层 applyProviderFilter 决定去留）；未知组追加
+        assertTrue(response.providers[1].models.isEmpty())
+        val flash = response.providers[0].models["deepseek-v4-flash"]
+        assertNotNull(flash)
+        assertEquals("DeepSeek-V4-Flash", flash!!.name)
+        assertEquals("deepseek-official", flash.providerId)
+        // reasoning.efforts → variants（key=effort id）+ capabilities.reasoning 槽位
+        assertEquals(setOf("off", "low", "high"), flash.variants?.keys)
+        assertEquals(true, flash.capabilities?.reasoning)
+        // 无 reasoning → variants null + capabilities 不标记
+        val pro = response.providers[0].models["deepseek-v4-pro"]!!
+        assertEquals("DeepSeek-V4-Pro", pro.name)
+        assertNull(pro.variants)
+        val glm = response.providers[2].models["glm-5.3"]!!
+        assertEquals("glm-5.3", glm.name)
+        assertEquals(listOf("high"), glm.variants?.keys?.toList())
+    }
+
+    /** llm.models 失败软降级（V2 先例：模型端点 runCatching 空）——目录仍完整返回。 */
+    @Test
+    fun `getProviders soft degrades when llm models fails`() = runTest {
+        val response = client(llmCatalogEngine(modelsValue = null)).getProviders(conn)
+        assertEquals(listOf("deepseek-official", "anthropic"), response.providers.map { it.id })
+        assertTrue(response.providers.all { it.models.isEmpty() })
+    }
+
+    /** llm.providers 目录失败——组仍可拼目录（目录序不可得时按组序兜底）。 */
+    @Test
+    fun `getProviders builds catalog from groups when directory fails`() = runTest {
+        val response = client(llmCatalogEngine(providersValue = null)).getProviders(conn)
+        assertEquals(listOf("deepseek-official", "opencode-go"), response.providers.map { it.id })
+        assertEquals(2, response.providers[0].models.size)
+    }
+
+    @Test
+    fun `listProviderCatalog returns merged providers`() = runTest {
+        val catalog = client(llmCatalogEngine()).listProviderCatalog(conn)
+        assertEquals(listOf("deepseek-official", "anthropic", "opencode-go"), catalog.all.map { it.id })
+    }
+
+    /**
+     * selectModel payload 形状（M03 实测证据）：{sessionId, provider, model,
+     * reasoningEffort?}——variant 槽位（思考档位 pill）映射 reasoningEffort；
+     * 发送顺序 selectModel → prompt（V2 先例：prompt 前显式切换）。
+     */
+    @Test
+    fun `promptAsync selects model before prompt with reasoning effort`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/session.selectModel" -> respond(ok("""{"selected":{"provider":"zai-coding-cn","model":"glm-5.3"}}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        client(engine).promptAsync(
+            conn, "s-1",
+            listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "hello")),
+            model = dev.leonardo.ocbeacon.data.dto.common.ModelSelection(providerId = "zai-coding-cn", modelId = "glm-5.3"),
+            variant = "high",
+        )
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/session.selectModel", "/api/session.prompt"), paths)
+        val payload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).first())).jsonObject["payload"]!!.jsonObject
+        assertEquals("s-1", payload["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("zai-coding-cn", payload["provider"]!!.jsonPrimitive.content)
+        assertEquals("glm-5.3", payload["model"]!!.jsonPrimitive.content)
+        assertEquals("high", payload["reasoningEffort"]!!.jsonPrimitive.content)
+    }
+
+    /** variant=null（默认档）→ reasoningEffort 键缺席（服务器侧用 defaultEffort）。 */
+    @Test
+    fun `promptAsync omits reasoningEffort when variant null`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/session.selectModel" -> respond(ok("""{"selected":{"provider":"p","model":"m"}}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        client(engine).promptAsync(
+            conn, "s-1",
+            listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "hi")),
+            model = dev.leonardo.ocbeacon.data.dto.common.ModelSelection(providerId = "p", modelId = "m"),
+        )
+        val payload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).first())).jsonObject["payload"]!!.jsonObject
+        assertNull(payload["reasoningEffort"])
+    }
+
+    /** model=null → 不发 selectModel（无选择不强切，零额外往返）。 */
+    @Test
+    fun `promptAsync skips selectModel when model null`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine).promptAsync(
+            conn, "s-1",
+            listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "hi")),
+        )
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/session.prompt"), paths)
+    }
+
+    /**
+     * agent-busy 容错（11 号实测证据：subagent-origin 会话 selectModel 被拒
+     * agent-busy）——拒绝不阻断发送：prompt 照发、不抛异常。
+     */
+    @Test
+    fun `promptAsync continues prompt when selectModel rejected agent-busy`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/session.selectModel" -> respond(err("agent-busy", "session is owned by subagent routing"), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val admission = client(engine).promptAsync(
+            conn, "s-1",
+            listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "hello")),
+            model = dev.leonardo.ocbeacon.data.dto.common.ModelSelection(providerId = "p", modelId = "m"),
+        )
+        assertNull(admission) // 未因 selectModel 拒绝而失败
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/session.selectModel", "/api/session.prompt"), paths)
+    }
+
     private fun jsonHeaders() = headersOf("Content-Type" to listOf("application/json"))
 }

@@ -19,10 +19,12 @@ import dev.leonardo.ocbeacon.data.dto.response.FileDiffDto
 import dev.leonardo.ocbeacon.data.dto.response.FileNodeDto
 import dev.leonardo.ocbeacon.data.dto.response.FileStatusInfo
 import dev.leonardo.ocbeacon.data.dto.response.McpStatusEntry
+import dev.leonardo.ocbeacon.data.dto.response.ModelCapabilities
 import dev.leonardo.ocbeacon.data.dto.response.PermissionRequest
 import dev.leonardo.ocbeacon.data.dto.response.ProviderAuthMethod
 import dev.leonardo.ocbeacon.data.dto.response.ProviderCatalogResponse
 import dev.leonardo.ocbeacon.data.dto.response.ProviderInfo
+import dev.leonardo.ocbeacon.data.dto.response.ProviderModel
 import dev.leonardo.ocbeacon.data.dto.response.ProviderOauthAuthorization
 import dev.leonardo.ocbeacon.data.dto.response.PtyInfo
 import dev.leonardo.ocbeacon.data.dto.response.QuestionRequest
@@ -372,6 +374,16 @@ class DshApiClient @Inject constructor(
             AppLogger.w(TAG, "session.prompt skipped: no mappable content parts")
             return null
         }
+        if (model != null) {
+            // V2 先例（promptAsync → switchModel）：session.prompt 无模型参数——
+            // 发送前显式切换会话模型。业务拒绝（subagent-origin 会话 agent-busy，
+            // 11 号实测证据）不阻断发送，仅告警。
+            val selected = selectModel(conn, sessionId, model.providerId, model.modelId, variant)
+            if (!selected) {
+                AppLogger.w(TAG, "session.selectModel rejected (continuing with prompt): " +
+                    model.providerId + "/" + model.modelId)
+            }
+        }
         val payload = buildJsonObject {
             put("sessionId", sessionId)
             put("content", JsonArray(content))
@@ -382,6 +394,25 @@ class DshApiClient @Inject constructor(
         rpc.call(conn, "session.prompt", payload) { Unit }.getOrElse { e -> throw e }
         return null
     }
+
+    /**
+     * session.selectModel（M03 实测证据）：payload {sessionId, provider, model,
+     * reasoningEffort?}——ModelSelection 切换当前会话模型；variant 槽位（思考
+     * 档位 pill）映射 reasoningEffort，null（默认档）缺席交服务器 defaultEffort。
+     * 失败返回 false（业务拒绝/传输失败均容错，调用方不据此阻断发送）。
+     */
+    private suspend fun selectModel(
+        conn: ServerConnection,
+        sessionId: String,
+        providerId: String,
+        modelId: String,
+        reasoningEffort: String?,
+    ): Boolean = rpc.call(conn, "session.selectModel", buildJsonObject {
+        put("sessionId", sessionId)
+        put("provider", providerId)
+        put("model", modelId)
+        reasoningEffort?.takeIf { it.isNotBlank() }?.let { put("reasoningEffort", it) }
+    }) { Unit }.isSuccess
 
     private fun promptContentPart(part: PromptPart): JsonObject? = when {
         part.type == "text" && !part.text.isNullOrBlank() -> buildJsonObject {
@@ -682,20 +713,72 @@ class DshApiClient @Inject constructor(
     override suspend fun removeShell(conn: ServerConnection, shellId: String, directory: String?): Boolean =
         unsupported("shell.remove")
 
-    // ============ ProviderApi（llm.providers 读；配置写/特权面不开放） ============
+    // ============ ProviderApi（llm 目录读；配置写/特权面不开放） ============
 
-    /** llm.providers → ProvidersResponse（模型目录形状 E2E 回填，最小映射）。 */
+    /**
+     * llm.providers + llm.models → ProvidersResponse（#276 模型切换接通；05/06 号
+     * 活体证据，V2 getProviders 双端点拼目录先例）。
+     *
+     * 目录条目 {provider, displayName} → id/name（id/name 旧键防御兼容）；组
+     * {id, name, models[{id, name, reasoning{efforts[{id,name}], defaultEffort}}]}：
+     * 组内模型挂同名 provider，efforts → variants（variantNames 驱动思考档位
+     * pill）+ capabilities.reasoning 槽位。两端各自软降级——目录失败按组序兜底
+     * 拼目录；组失败目录仍完整返回（模型空，由上层 applyProviderFilter 过滤）。
+     */
     override suspend fun getProviders(conn: ServerConnection): dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse {
-        val value = rpc.call(conn, "llm.providers", buildJsonObject {}) { it }
+        val directory = rpc.call(conn, "llm.providers", buildJsonObject {}) { it }
             .getOrElse { e ->
                 AppLogger.w(TAG, "llm.providers failed: " + e.message)
-                return dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse(providers = emptyList())
+                null
             }
-        val items = value.dshArr("providers") ?: value.dshArr("items") ?: emptyList()
-        val providers = items.mapNotNull { el ->
-            val entry = el as? JsonObject ?: return@mapNotNull null
-            val id = entry.dshStr("id") ?: entry.dshStr("providerId") ?: return@mapNotNull null
-            ProviderInfo(id = id, name = entry.dshStr("name") ?: id)
+        val groups = rpc.call(conn, "llm.models", buildJsonObject {}) { it }
+            .getOrElse { e ->
+                AppLogger.w(TAG, "llm.models failed: " + e.message)
+                null
+            }
+
+        // 目录序（providers 数组即 directory order；undeclared routes appended）
+        val directoryNames = linkedMapOf<String, String>()
+        directory?.dshArr("providers")?.filterIsInstance<JsonObject>()?.forEach { entry ->
+            val id = entry.dshStr("provider") ?: entry.dshStr("id") ?: return@forEach
+            directoryNames[id] = entry.dshStr("displayName") ?: entry.dshStr("name") ?: id
+        }
+
+        val groupsById = linkedMapOf<String, ProviderInfo>()
+        groups?.dshArr("groups")?.filterIsInstance<JsonObject>()?.forEach { group ->
+            val groupId = group.dshStr("id") ?: return@forEach
+            val models = (group.dshArr("models") ?: emptyList()).filterIsInstance<JsonObject>().mapNotNull { m ->
+                val modelId = m.dshStr("id") ?: return@mapNotNull null
+                val efforts = m.dshObj("reasoning")?.dshArr("efforts")
+                    ?.filterIsInstance<JsonObject>().orEmpty()
+                val variants = efforts.mapNotNull { e -> e.dshStr("id")?.let { it to e } }.toMap()
+                    .takeIf { it.isNotEmpty() }
+                ProviderModel(
+                    id = modelId,
+                    providerId = groupId,
+                    name = m.dshStr("name") ?: modelId,
+                    capabilities = variants?.let { ModelCapabilities(reasoning = true) },
+                    variants = variants,
+                )
+            }
+            if (models.isNotEmpty()) {
+                groupsById[groupId] = ProviderInfo(
+                    id = groupId,
+                    name = group.dshStr("name") ?: groupId,
+                    source = "dsh",
+                    models = models.associateBy { it.id },
+                )
+            }
+        }
+
+        // 合流：目录序优先（目录名优先于组名）；目录未覆盖的组防御性追加
+        // （目录整体失败时 groupsById 即全量——组序兜底）。
+        val providers = buildList {
+            directoryNames.forEach { (id, name) ->
+                val fromGroup = groupsById.remove(id)
+                add(fromGroup?.copy(name = name) ?: ProviderInfo(id = id, name = name, source = "dsh"))
+            }
+            addAll(groupsById.values)
         }
         return dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse(providers = providers)
     }
