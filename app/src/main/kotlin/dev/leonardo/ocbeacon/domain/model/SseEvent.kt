@@ -131,6 +131,17 @@ sealed class SseEvent {
     ) : SseEvent()
 
     /**
+     * DSH 命令注册表变更（commands/change 帧；#285）。
+     *
+     * **全局未过滤通知**（cordis 契约："unfiltered registry notification"——非会话
+     * 域，无 sessionId）：任一命令注册/注销即广播。消费端（ChatViewModel 经
+     * EventDispatcher.commandsChanged）重载当前会话命令列表（commands/list
+     * 是 agent-scoped 的，需带 sessionId 重取）。
+     */
+    @Serializable
+    data object CommandsChanged : SseEvent()
+
+    /**
      * DSH 后台任务整快照（session/jobs 帧）。
      * last-wins 整替换：空 [jobs] = 清空该会话任务（subscribed 重连清空同样发空集）。
      * 由 DshJobsHandler 写入 DshJobsStore；OpenCode 无此帧。

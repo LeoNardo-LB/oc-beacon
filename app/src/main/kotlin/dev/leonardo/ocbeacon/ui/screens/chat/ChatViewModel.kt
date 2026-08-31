@@ -1058,8 +1058,22 @@ class ChatViewModel @Inject constructor(
         }
         modelConfig.loadProviders()
         modelConfig.loadAgents()
-        // DSH：commands/list 是 agent-scoped 的——会话 id 必须在场（懒建前 null → 空列表）
-        modelConfig.loadCommands(sessionLifecycle.sessionId)
+        // #285（懒建会话龄缺口根治）：commands/list 是 agent-scoped 的——会话 id
+        // 必须在场。原一次性 loadCommands(sessionId) 在懒建会话（初始 null）下
+        // 永远空表；改为随 sessionIdFlow 变化重载（既有会话立即发射 = 保持首载语义，
+        // 懒建后 id 就绪自动补载）。
+        viewModelScope.launch {
+            sessionLifecycle.sessionIdFlow.collect { sid ->
+                if (sid.isNotBlank()) modelConfig.loadCommands(sid)
+            }
+        }
+        // #285：DSH 命令注册表全局帧（commands/change）——命令注册/注销即重载
+        // 当前会话命令列表（对齐官方 CommandDirectory invalidate+refetch）。
+        viewModelScope.launch {
+            eventDispatcher.commandsChanged.collect {
+                modelConfig.loadCommands(sessionLifecycle.sessionId.ifBlank { null })
+            }
+        }
     }
 
     // ============ 消息加载/刷新（门面 —— MessageDataDelegate / SessionActionsDelegate） ============

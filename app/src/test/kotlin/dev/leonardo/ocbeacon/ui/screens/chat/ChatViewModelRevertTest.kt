@@ -250,7 +250,9 @@ class ChatViewModelRevertTest {
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,
             shellJobsStore = ShellJobsStore(),
-            eventDispatcher = mockk(relaxed = true),
+            eventDispatcher = mockk<EventDispatcher>(relaxed = true).also {
+                io.mockk.every { it.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow<Unit>()
+            },
             pendingMessageRepository = mockk(relaxed = true),
             pendingMessagePipeline = mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true).also { mk ->
                 every { mk.drainingSessions } returns kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>())

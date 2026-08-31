@@ -139,7 +139,9 @@ class EventDispatcher @Inject constructor(
             SseEvent.FileWatcherUpdated::class,
             SseEvent.InstallationUpdated::class, SseEvent.InstallationUpdateAvailable::class,
             SseEvent.WorktreeReady::class, SseEvent.WorktreeFailed::class,
-            SseEvent.LspUpdated::class
+            SseEvent.LspUpdated::class,
+            // #285：DSH 命令注册表全局帧（commands/change → MiscEventHandler 广播）
+            SseEvent.CommandsChanged::class
         )
         // SessionNext → SessionNextEventHandler
         bind(sessionNextHandler, SseEvent.SessionNext::class)
@@ -173,6 +175,9 @@ class EventDispatcher @Inject constructor(
     fun hydrateTodos(sessionId: String, todos: List<SseEvent.TodoUpdated.Todo>) {
         miscHandler.setTodos(sessionId, todos)
     }
+
+    /** #285：DSH 命令注册表变更流（commands/change 全局帧）——ChatViewModel 消费重载命令列表。 */
+    val commandsChanged: kotlinx.coroutines.flow.SharedFlow<Unit> get() = miscHandler.commandsChanged
     val messages: StateFlow<Map<String, List<Message>>> get() = messageHandler.messages
     val parts: StateFlow<Map<String, List<Part>>> get() = messageHandler.parts
     val sessionDiffs: StateFlow<Map<String, List<FileDiff>>> get() = sessionHandler.sessionDiffs
@@ -406,6 +411,7 @@ class EventDispatcher @Inject constructor(
             is SseEvent.TodoUpdated -> event.sessionId
             is SseEvent.CommandExecuted -> event.sessionId
             // 无 sessionId 的事件
+            is SseEvent.CommandsChanged -> null // #285：全局注册表帧（不参与会话所有权判定）
             is SseEvent.ServerConnected -> null
             is SseEvent.ServerHeartbeat -> null
             is SseEvent.ServerInstanceDisposed -> null

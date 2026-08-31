@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.repository.handler
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
+import kotlinx.coroutines.launch
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -38,6 +39,19 @@ class MiscEventHandlerTest {
     @Test
     fun `handles LspUpdated`() {
         assertTrue(handler.handle(SseEvent.LspUpdated, "server1"))
+    }
+
+    /** #285：commands/change 全局帧 → commandsChanged 流广播（消费者重载命令列表）。 */
+    @Test
+    fun `handles CommandsChanged emitting flow`() = kotlinx.coroutines.test.runTest {
+        var fired = 0
+        val job = backgroundScope.launch {
+            handler.commandsChanged.collect { fired++ }
+        }
+        assertTrue(handler.handle(SseEvent.CommandsChanged, "server1"))
+        testScheduler.runCurrent()
+        assertEquals(1, fired)
+        job.cancel()
     }
 
     @Test

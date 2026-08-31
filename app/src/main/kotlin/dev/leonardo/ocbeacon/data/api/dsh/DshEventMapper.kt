@@ -157,6 +157,10 @@ object DshEventMapper {
             }
         }
 
+        // #285：命令注册表变更（全局未过滤通知，cordis 契约 "unfiltered registry
+        // notification"）——非会话域，消费端带各自 sessionId 重取 commands/list。
+        "commands/change" -> listOf(DshMappedEvent.Sse(SseEvent.CommandsChanged))
+
         // 后台任务整快照（A：session/jobs → JobsSnapshot，last-wins 整替换）
         "session/jobs" -> {
             val sid = payload.str("sessionId")

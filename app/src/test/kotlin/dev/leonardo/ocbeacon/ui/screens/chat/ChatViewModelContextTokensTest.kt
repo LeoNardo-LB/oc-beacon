@@ -89,7 +89,9 @@ class ChatViewModelContextTokensTest {
     )
 
     // VM 侧 eventDispatcher mock 的可控 flow（2026-08-17 后 sessionUsage 不再被消费）
-    private val vmEventDispatcher: EventDispatcher = mockk(relaxed = true)
+    private val vmEventDispatcher: EventDispatcher = io.mockk.mockk<EventDispatcher>(relaxed = true).also {
+        io.mockk.every { it.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow<Unit>()
+    }
     private val usageFlow = MutableStateFlow<Map<String, SessionNextEvent.UsageUpdated>>(emptyMap())
     private val compactedFlow = MutableStateFlow<Map<String, Long>>(emptyMap())
 

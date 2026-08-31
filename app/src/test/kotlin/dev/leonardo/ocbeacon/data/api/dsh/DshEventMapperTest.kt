@@ -253,6 +253,16 @@ class DshEventMapperTest {
         )
     }
 
+    /** #285：commands/change 全局注册表帧 → CommandsChanged（无会话域）。 */
+    @Test
+    fun `commands change frame maps to CommandsChanged`() {
+        val mapped = DshEventMapper.mapFrame(
+            "commands/change",
+            json.parseToJsonElement("""{"type":"commands/change"}""").jsonObject,
+        )
+        assertEquals(listOf(DshMappedEvent.Sse(SseEvent.CommandsChanged)), mapped)
+    }
+
     @Test
     fun `empty jobs frame maps to JobsSnapshot empty for last-wins clear`() {
         val mapped = DshEventMapper.mapFrame(

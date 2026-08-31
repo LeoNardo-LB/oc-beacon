@@ -268,7 +268,9 @@ class ChatViewModelPermissionTest {
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,
             shellJobsStore = ShellJobsStore(),
-            eventDispatcher = mockk(relaxed = true),
+            eventDispatcher = mockk<EventDispatcher>(relaxed = true).also {
+                io.mockk.every { it.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow<Unit>()
+            },
             // 堆积消息（2026-08-20 构造新增）：relaxed mock——既有用例不受影响
             pendingMessageRepository = mockk(relaxed = true),
             pendingMessagePipeline = mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true).also { mk ->

@@ -4,8 +4,11 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
@@ -25,6 +28,11 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
     private val _todos = MutableStateFlow<Map<String, List<SseEvent.TodoUpdated.Todo>>>(emptyMap())
     val todos: StateFlow<Map<String, List<SseEvent.TodoUpdated.Todo>>> = _todos.asStateFlow()
 
+    /** #285：DSH 命令注册表变更（commands/change 全局帧）——消费端重载命令列表。
+     *  replay=1：晚订阅的会话（后开的 Chat）也能收到最近一次变更补载。 */
+    private val _commandsChanged = MutableSharedFlow<Unit>(replay = 1)
+    val commandsChanged: SharedFlow<Unit> = _commandsChanged.asSharedFlow()
+
     /** REST hydrate（进会话补首屏 todo，2026-08-20）；与 SSE 路径同型幂等覆盖。 */
     fun setTodos(sessionId: String, todos: List<SseEvent.TodoUpdated.Todo>) {
         _todos.update { it + (sessionId to todos) }
@@ -33,6 +41,7 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
     override fun handle(event: SseEvent, serverId: String): Boolean {
         return when (event) {
             is SseEvent.TodoUpdated -> { _todos.update { it + (event.sessionId to event.todos) }; true }
+            is SseEvent.CommandsChanged -> { _commandsChanged.tryEmit(Unit); true } // #285：全局注册表通知
             is SseEvent.PtyCreated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY created: ${event.id}"); true }
             is SseEvent.PtyUpdated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY updated: ${event.id}"); true }
             is SseEvent.PtyDeleted -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY deleted: ${event.id}"); true }
