@@ -34,6 +34,7 @@ import dev.leonardo.ocbeacon.data.dto.response.ServerPaths
 import dev.leonardo.ocbeacon.data.dto.response.SessionStatusInfo
 import dev.leonardo.ocbeacon.data.dto.response.ShellInfo
 import dev.leonardo.ocbeacon.data.dto.response.SkillInfo
+import dev.leonardo.ocbeacon.data.dto.response.SubagentListEntryDto
 import dev.leonardo.ocbeacon.data.dto.response.SymbolInfo
 import dev.leonardo.ocbeacon.data.dto.response.TodoItem
 import dev.leonardo.ocbeacon.data.dto.response.VcsBranchDto
@@ -231,6 +232,38 @@ class DshApiClient @Inject constructor(
     /** V2 先例：listSessions 本地过滤 parentSessionId。 */
     override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> =
         runCatching { listSessions(conn).filter { it.parentId == sessionId } }.getOrElse { emptyList() }
+
+    /**
+     * subagent.list（AgentSheet 多级树权威域，2026-09-25 活体实录）：payload
+     * {parentSessionId}（也接受裸子会话 id——L2 逐层懒加载）；value =
+     * {entries:[SubagentListEntry], parentAvailable}。错误恒 HTTP 200 +
+     * result.error 上抛（DshApiError），由调用方软降级本地镜像递归。
+     *
+     * 容错映射：非对象条目/缺 id 跳过；缺 kind 按 child、缺 hasChildren 按
+     * false、activity 保留原串（"running"/"inactive" 由上层判定）。
+     */
+    override suspend fun listSubagentCatalog(
+        conn: ServerConnection,
+        parentSessionId: String,
+    ): List<SubagentListEntryDto> {
+        val value = rpc.call(conn, "subagent.list", buildJsonObject {
+            put("parentSessionId", parentSessionId)
+        }) { it }.getOrElse { e -> throw e }
+        val entries = value.dshArr("entries") ?: emptyList()
+        return entries.mapNotNull { el ->
+            val entry = el as? JsonObject ?: return@mapNotNull null
+            val id = entry.dshStr("id") ?: return@mapNotNull null
+            SubagentListEntryDto(
+                kind = entry.dshStr("kind") ?: "child",
+                id = id,
+                mode = entry.dshStr("mode"),
+                activity = entry.dshStr("activity"),
+                hasChildren = entry.dshBool("hasChildren") ?: false,
+                label = entry.dshStr("label"),
+                reason = entry.dshStr("reason"),
+            )
+        }
+    }
 
     override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> = emptyList()
 

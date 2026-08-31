@@ -223,6 +223,9 @@
     <string name="chat_event_generic">حدث</string>
     <string name="chat_event_locate_task">تحديد موقع المهمة</string>
     <string name="task_sheet_subagent_completed">مكتمل</string>
+    <string name="agent_tree_diagnostic_corrupt">إدخال وكيل فرعي تالف</string>
+    <string name="agent_tree_diagnostic_unsupported">إدخال وكيل فرعي غير مدعوم</string>
+    <string name="agent_tree_diagnostic_unavailable">إدخال وكيل فرعي غير متوفر</string>
     <string name="chat_label_user">المستخدم</string>
     <string name="chat_label_agent">الوكيل</string>
     <string name="chat_subagent_completed_notification">اكتمل الوكيل الفرعي</string>

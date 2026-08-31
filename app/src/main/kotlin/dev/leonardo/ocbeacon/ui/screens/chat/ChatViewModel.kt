@@ -271,6 +271,11 @@ class ChatViewModel @Inject constructor(
         scope = viewModelScope,
         // 2026-08-16（R3 僵尸自愈）：active 轮询发现 FSM 与服务器分歧时触发 L3 校验
         sessionStateRepository = sessionStateRepository,
+        // 2026-09 树化：DSH subagent.list 权威子目录（SessionApi 三分路由——
+        // OpenCode 返回成功(null) 即本地镜像递归；DSH 失败由树 Holder 软降级）
+        subagentCatalog = { parentSessionId ->
+            sessionRepository.listSubagentChildren(serverId, parentSessionId)
+        },
     )
 
     /** 启动任务轮询（ChatScreen 组合时调用；幂等）。 */

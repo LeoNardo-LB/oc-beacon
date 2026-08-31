@@ -88,6 +88,30 @@ class SessionRepositoryImpl @Inject constructor(
 
     // ============ 状态观察 ============
 
+    /**
+     * DSH subagent.list 权威子目录（AgentSheet 多级树）：SessionApiImpl 三分路由
+     * （DSH → subagent.list；OpenCode → null）+ DTO→域模型映射。传输/业务错误
+     * 折叠为 Result 失败，由调用方软降级本地镜像递归。
+     */
+    override suspend fun listSubagentChildren(
+        serverId: String,
+        parentSessionId: String,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.SubagentChild>?> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        sessionApi.listSubagentCatalog(conn, parentSessionId)?.map { entry ->
+            val diagnostic = entry.kind == "diagnostic"
+            dev.leonardo.ocbeacon.domain.model.SubagentChild(
+                sessionId = entry.id,
+                label = entry.label,
+                isRunning = entry.activity == "running",
+                hasChildren = entry.hasChildren,
+                isDiagnostic = diagnostic,
+                diagnosticReason = entry.reason,
+                mode = entry.mode,
+            )
+        }
+    }
+
     override fun getSessionsFlow(serverId: String): Flow<List<Session>> {
         // 将 服务器→会话 映射与全局会话列表合并，使任一变更
         // 都触发重新发射。

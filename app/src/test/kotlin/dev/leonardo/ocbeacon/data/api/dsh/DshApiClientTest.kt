@@ -249,6 +249,54 @@ class DshApiClientTest {
         assertEquals("allowed-once", body["result"]!!.jsonObject["value"]!!.jsonObject["outcome"]!!.jsonPrimitive.content)
     }
 
+    // ============ subagent.list（AgentSheet 多级树权威域，12 号活体证据） ============
+
+    private val subagentCatalogValue = """{"entries":[
+        {"kind":"child","id":"c-1","mode":"continuable","label":"调研输入法云组件方案","activity":"running","hasChildren":true},
+        {"kind":"child","id":"c-2","mode":"one-shot","activity":"inactive","hasChildren":false},
+        {"kind":"diagnostic","id":"c-3","reason":"corrupt"}
+    ],"parentAvailable":false}""".trimIndent()
+
+    /**
+     * 活体实录（2026-09-25 探测）：POST /api/subagent.list，payload
+     * {"parentSessionId":...}；value = {entries:[...], parentAvailable}。
+     * 逐字段映射：kind/id/mode/activity/hasChildren/label（one-shot 可选）；
+     * diagnostic 行（corrupt/unsupported/unavailable）只有 kind/id/reason。
+     * parentSessionId 也接受裸子会话 id（L2 懒加载，f1d037e3-… 实证）。
+     */
+    @Test
+    fun `listSubagentCatalog calls subagent list and maps entries`() = runTest {
+        val engine = MockEngine { respond(ok(subagentCatalogValue), HttpStatusCode.OK, jsonHeaders()) }
+        val entries = client(engine).listSubagentCatalog(conn, "session-root-1")
+        assertEquals(3, entries.size)
+        assertEquals("child", entries[0].kind)
+        assertEquals("c-1", entries[0].id)
+        assertEquals("continuable", entries[0].mode)
+        assertEquals("running", entries[0].activity)
+        assertTrue(entries[0].hasChildren)
+        assertEquals("调研输入法云组件方案", entries[0].label)
+        assertNull(entries[0].reason)
+        // one-shot label 可选（spec：one-shot label optional）
+        assertNull(entries[1].label)
+        // diagnostic 行：reason 保留，无 mode/activity/hasChildren
+        assertEquals("diagnostic", entries[2].kind)
+        assertEquals("corrupt", entries[2].reason)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/subagent.list", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("subagent.list", body["method"]!!.jsonPrimitive.content)
+        assertEquals("session-root-1", body["payload"]!!.jsonObject["parentSessionId"]!!.jsonPrimitive.content)
+    }
+
+    /** 业务错误恒 HTTP 200 + result.error（subagent-not-found 实测码）——上抛供软降级判定。 */
+    @Test
+    fun `listSubagentCatalog propagates rpc error`() = runTest {
+        val engine = MockEngine { respond(err("subagent-not-found", "no such child"), HttpStatusCode.OK, jsonHeaders()) }
+        val outcome = runCatching { client(engine).listSubagentCatalog(conn, "no-such") }
+        assertTrue(outcome.isFailure)
+        assertEquals("subagent-not-found", (outcome.exceptionOrNull() as DshApiError).code?.wire)
+    }
+
     // ============ SystemApi / FileApi / TerminalApi / ShellApi / ProviderApi ============
 
     @Test

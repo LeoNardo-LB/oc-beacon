@@ -211,6 +211,9 @@
     <string name="chat_event_generic">이벤트</string>
     <string name="chat_event_locate_task">작업 찾기</string>
     <string name="task_sheet_subagent_completed">완료</string>
+    <string name="agent_tree_diagnostic_corrupt">손상된 서브에이전트 항목</string>
+    <string name="agent_tree_diagnostic_unsupported">지원되지 않는 서브에이전트 항목</string>
+    <string name="agent_tree_diagnostic_unavailable">사용할 수 없는 서브에이전트 항목</string>
     <string name="chat_label_user">사용자</string>
     <string name="chat_label_agent">에이전트</string>
     <string name="chat_subagent_completed_notification">서브에이전트 완료</string>

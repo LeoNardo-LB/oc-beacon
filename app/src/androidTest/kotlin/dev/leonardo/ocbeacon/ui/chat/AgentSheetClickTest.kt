@@ -6,14 +6,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.material3.Surface
 import dev.leonardo.ocbeacon.ui.screens.chat.AgentSheet
-import dev.leonardo.ocbeacon.ui.screens.chat.SubagentSummary
+import dev.leonardo.ocbeacon.ui.screens.chat.SubagentTreeRow
 import dev.leonardo.ocbeacon.ui.screens.chat.TaskUiState
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
 /**
- * 2026-08-16：subagent 列表项点击跳转回归测试（原 TaskSheet，2026-08-21 拆分为 AgentSheet）。
+ * 2026-08-16：subagent 列表项点击跳转回归测试（原 TaskSheet，2026-08-21 拆分为 AgentSheet；
+ * 2026-09 树化后行数据源为 SubagentTreeRow——同一 clickable 语义）。
  *
  * 背景：模拟器 uiautomator 点击 item（坐标正确、clickable 容器在场）
  * 探针 0 触发——用 Compose 测试框架的语义级 performClick（不经坐标系）
@@ -30,12 +31,13 @@ class AgentSheetClickTest {
         var clickedSessionId: String? = null
         val state = TaskUiState(
             shells = emptyList(),
-            subagents = listOf(
-                SubagentSummary(
+            subagentTreeRows = listOf(
+                SubagentTreeRow(
                     sessionId = "ses_test_child_1",
-                    agent = "general-fast",
-                    title = "写 50 字月亮故事",
+                    depth = 0,
+                    label = "写 50 字月亮故事",
                     isRunning = true,
+                    hasChildren = false,
                 )
             ),
         )

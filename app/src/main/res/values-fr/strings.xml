@@ -211,6 +211,9 @@
     <string name="chat_event_generic">Événement</string>
     <string name="chat_event_locate_task">Localiser la tâche</string>
     <string name="task_sheet_subagent_completed">Terminé</string>
+    <string name="agent_tree_diagnostic_corrupt">Entrée de sous-agent corrompue</string>
+    <string name="agent_tree_diagnostic_unsupported">Entrée de sous-agent non prise en charge</string>
+    <string name="agent_tree_diagnostic_unavailable">Entrée de sous-agent indisponible</string>
     <string name="chat_label_user">Utilisateur</string>
     <string name="chat_label_agent">Agent</string>
     <string name="chat_subagent_completed_notification">Subagent terminé</string>

@@ -100,6 +100,16 @@ interface SessionApi {
 
     suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session>
 
+    /**
+     * DSH subagent.list 权威子代理目录（AgentSheet 多级树逐层懒加载）。
+     * 非 DSH 服务器（V1/V2 无该域）返回 null——调用方走本地 session 镜像递归；
+     * DSH 业务错误（HTTP 200 + result.error）上抛供软降级判定。
+     */
+    suspend fun listSubagentCatalog(
+        conn: ServerConnection,
+        parentSessionId: String,
+    ): List<dev.leonardo.ocbeacon.data.dto.response.SubagentListEntryDto>? = null
+
     suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem>
 
     /**
@@ -228,6 +238,13 @@ class SessionApiImpl @Inject constructor(
 
     override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> =
         pick(conn).listSessionChildren(conn, sessionId)
+
+    /** #276 三分路由同款：DSH → subagent.list；OpenCode V1/V2 → null（本地镜像递归）。 */
+    override suspend fun listSubagentCatalog(
+        conn: ServerConnection,
+        parentSessionId: String,
+    ): List<dev.leonardo.ocbeacon.data.dto.response.SubagentListEntryDto>? =
+        pick(conn).listSubagentCatalog(conn, parentSessionId)
 
     override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> =
         pick(conn).getSessionTodos(conn, sessionId)

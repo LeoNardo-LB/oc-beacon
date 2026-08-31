@@ -213,6 +213,9 @@
     <string name="chat_event_generic">事件</string>
     <string name="chat_event_locate_task">定位发起任务</string>
     <string name="task_sheet_subagent_completed">已完成</string>
+    <string name="agent_tree_diagnostic_corrupt">子智能体条目已损坏</string>
+    <string name="agent_tree_diagnostic_unsupported">不支持的子智能体条目</string>
+    <string name="agent_tree_diagnostic_unavailable">子智能体条目不可用</string>
     <string name="chat_label_user">用户</string>
     <string name="chat_label_agent">智能体</string>
     <string name="chat_subagent_completed_notification">子智能体已完成通知</string>

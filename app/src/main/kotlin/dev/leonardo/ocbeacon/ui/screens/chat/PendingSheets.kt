@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -19,12 +21,15 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -38,9 +43,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -60,11 +65,8 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.PendingMessage
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.SseEvent
-import dev.leonardo.ocbeacon.ui.screens.chat.components.AgentTag
-import dev.leonardo.ocbeacon.ui.screens.chat.components.CompactTag
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TaskStatusIcon
-import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SheetTokens
@@ -236,7 +238,16 @@ internal fun TodoSheet(
 
 // ============ agent / shell sheet（内容迁自 TaskSheet，含历史） ============
 
-/** agent sheet：TaskSheet Subagents tab 内容迁移（含历史）。 */
+/** agent sheet：多级缩进树（2026-09 树化，用户裁决双轨数据源）。
+ *
+ * - DSH：subagent.list 权威域——面板打开拉根层、展开未缓存层逐层懒加载，
+ *   失败软降级本地镜像递归；diagnostic 行（corrupt/unsupported/unavailable）
+ *   灰显不可点（官方同款）。
+ * - OpenCode V2：本地 session 镜像按 parentId 递归子树（防环），全本地重算。
+ *
+ * 行内容 MVP（用户裁决）：状态点 + 主标签 + 深度缩进 + 展开箭头；
+ * 不放 token/时长指标（归顶部 token 弹窗特性）。点行本体直达该子会话 Chat
+ *（onOpenSubSession 点击链路沿既有实现）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AgentSheet(
@@ -244,98 +255,116 @@ internal fun AgentSheet(
     onDismiss: () -> Unit,
     onOpenSubSession: (String) -> Unit,
 ) {
+    // 面板打开 → 刷新根层（DSH：subagent.list 权威拉取；OpenCode：无域，本地镜像已就绪）
+    val controller = state.subagentTreeController
+    LaunchedEffect(controller) { controller?.refreshRoot() }
     SheetScaffold(
-        title = stringResource(R.string.toolbar_agent) + " (" + state.subagents.size + ")",
+        title = stringResource(R.string.toolbar_agent) + " (" + state.subagentTreeRows.count { it.depth == 0 } + ")",
         onDismiss = onDismiss,
     ) {
         LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-            if (state.subagents.isEmpty()) {
+            if (state.subagentTreeRows.isEmpty()) {
                 item { EmptyHint(stringResource(R.string.task_sheet_empty_subagents)) }
             } else {
-                itemsIndexed(state.subagents, key = { _, it -> it.sessionId }) { index, sub ->
+                itemsIndexed(state.subagentTreeRows, key = { _, it -> it.sessionId }) { index, row ->
                     if (index > 0) {
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
-                    val running = sub.isRunning
-                    ListItem(
-                        headlineContent = {
-                            Text(text = sub.title ?: sub.sessionId, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        },
-                        supportingContent = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                CompactTag(
-                                    text = stringResource(
-                                        if (sub.isForeground) R.string.task_foreground else R.string.task_background
-                                    ),
-                                    containerColor = if (sub.isForeground) {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.FAINT)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT)
-                                    },
-                                    contentColor = if (sub.isForeground) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
-                                sub.agent?.takeIf { it.isNotBlank() }?.let { agent ->
-                                    AgentTag(agent = agent, tagColor = agentColor(agent, emptyList()))
-                                }
-                                sub.startedAt?.let { ms ->
-                                    Text(
-                                        text = DateFormatters.timeOnly().format(Date(ms)),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                                    )
-                                }
-                                sub.modelId?.takeIf { it.isNotBlank() }?.let { model ->
-                                    CompactTag(
-                                        text = model,
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.FAINT),
-                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        },
-                        trailingContent = {
-                            Column(horizontalAlignment = Alignment.End) {
-                                TaskStatusIcon(
-                                    status = if (running) TaskStatus.RUNNING else TaskStatus.SUCCESS,
-                                    contentDescription = if (running) null else stringResource(R.string.task_sheet_subagent_completed),
-                                )
-                                val elapsed = if (running) {
-                                    val now by produceState(System.currentTimeMillis()) {
-                                        while (true) {
-                                            kotlinx.coroutines.delay(1_000)
-                                            value = System.currentTimeMillis()
-                                        }
-                                    }
-                                    sub.startedAt?.let { now - it }
-                                } else {
-                                    sub.durationMs
-                                }
-                                elapsed?.let { ms ->
-                                    Text(
-                                        text = formatTaskDuration(ms),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                                    )
-                                }
-                            }
-                        },
-                        modifier = Modifier.clickable { onOpenSubSession(sub.sessionId) },
+                    AgentTreeRowItem(
+                        row = row,
+                        loading = row.sessionId in state.subagentTreeLoadingIds,
+                        onToggle = { controller?.toggle(row.sessionId) },
+                        onOpen = { onOpenSubSession(row.sessionId) },
                     )
                 }
             }
         }
     }
 }
+
+/** 树行：缩进（深度×12dp）+ 展开箭头（仅有子代行，懒加载中转 spinner）+ 状态点 + 主标签。 */
+@Composable
+private fun AgentTreeRowItem(
+    row: SubagentTreeRow,
+    loading: Boolean,
+    onToggle: () -> Unit,
+    onOpen: () -> Unit,
+) {
+    ListItem(
+        leadingContent = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                // 深度缩进：整行内容（箭头+状态点+标签）按层级左移距
+                modifier = Modifier.padding(start = (row.depth * AGENT_TREE_INDENT_STEP_DP).dp),
+            ) {
+                if (row.hasChildren) {
+                    if (loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        IconButton(onClick = onToggle, modifier = Modifier.size(28.dp)) {
+                            Icon(
+                                imageVector = if (row.isExpanded) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
+                                contentDescription = stringResource(
+                                    if (row.isExpanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand
+                                ),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.width(28.dp))
+                }
+                if (row.isDiagnostic) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                    )
+                } else {
+                    TaskStatusIcon(
+                        status = if (row.isRunning) TaskStatus.RUNNING else TaskStatus.SUCCESS,
+                        contentDescription = if (row.isRunning) null
+                        else stringResource(R.string.task_sheet_subagent_completed),
+                    )
+                }
+            }
+        },
+        headlineContent = {
+            Text(
+                text = if (row.isDiagnostic) agentTreeDiagnosticLabel(row.reason) else row.label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = if (row.isDiagnostic) {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+        },
+        // diagnostic 行不可点（无有效子会话可直达）；其余点行本体直达子会话 Chat
+        modifier = Modifier.clickable(enabled = !row.isDiagnostic) { onOpen() },
+    )
+}
+
+/** diagnostic 原因本地化（闭集三值 + 未知原串兜底）。 */
+@Composable
+private fun agentTreeDiagnosticLabel(reason: String?): String = when (reason) {
+    "corrupt" -> stringResource(R.string.agent_tree_diagnostic_corrupt)
+    "unsupported" -> stringResource(R.string.agent_tree_diagnostic_unsupported)
+    "unavailable" -> stringResource(R.string.agent_tree_diagnostic_unavailable)
+    else -> reason.orEmpty()
+}
+
+/** 树行缩进步长（dp）。 */
+private const val AGENT_TREE_INDENT_STEP_DP = 12
 
 /** shell sheet：TaskSheet Shells tab 内容迁移（含历史 + 详情视图）。 */
 @OptIn(ExperimentalMaterial3Api::class)

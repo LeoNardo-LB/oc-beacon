@@ -214,6 +214,19 @@ interface SessionRepository {
      */
     suspend fun getSessionTodos(serverId: String, sessionId: String): Result<List<dev.leonardo.ocbeacon.domain.model.SseEvent.TodoUpdated.Todo>>
 
+    // ============ 子代理目录（AgentSheet 多级树） ============
+
+    /**
+     * DSH 权威子代理目录（subagent.list 逐层懒加载；2026-09 树化）。
+     * - 成功(list)：DSH 权威目录行；
+     * - 成功(null)：当前服务器无该域（OpenCode V1/V2）——调用方走本地镜像递归；
+     * - 失败：DSH 域故障——调用方软降级本地递归（AppLogger.w 告警）。
+     */
+    suspend fun listSubagentChildren(
+        serverId: String,
+        parentSessionId: String,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.SubagentChild>?> = Result.success(null)
+
     // ============ 会话状态同步 ============
 
     /**
