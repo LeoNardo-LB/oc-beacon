@@ -197,6 +197,14 @@ class SessionListViewModel @Inject constructor(
 
     private val _isLoading = MutableStateFlow(true)
     private val _error = MutableStateFlow<String?>(null)
+
+    /** #267：错误面暴露（snackbar 消费——非空列表下 _error 原无可视面）。 */
+    val error: kotlinx.coroutines.flow.StateFlow<String?> = _error.asStateFlow()
+
+    /** snackbar 展示后清错（允许同类错误再次触发）。 */
+    fun consumeError() {
+        _error.value = null
+    }
     private val _projects = MutableStateFlow<List<Project>>(emptyList())
     private val _expandedPaths = MutableStateFlow<Set<String>>(emptySet())
     private val _selectedIds = MutableStateFlow<Set<String>>(emptySet())

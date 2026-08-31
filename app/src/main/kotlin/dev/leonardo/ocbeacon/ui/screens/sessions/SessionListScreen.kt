@@ -141,6 +141,22 @@ viewModel.consumePendingReadSessionId()
         }
     }
 
+    // #267：写操作错误 snackbar 面（原非空列表下 _error 无可视面）——哨兵映射本地化
+    val disconnectedMsg = stringResource(R.string.server_link_disconnected_message)
+    LaunchedEffect(Unit) {
+        viewModel.error.collect { msg ->
+            if (!msg.isNullOrBlank()) {
+                val text = if (msg == SessionListViewModel.ERROR_SERVER_DISCONNECTED) {
+                    disconnectedMsg
+                } else {
+                    msg
+                }
+                snackbarHostState.showSnackbar(text)
+                viewModel.consumeError()
+            }
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
