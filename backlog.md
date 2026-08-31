@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#278**。
+**编号**：全局递增，不回收。下一编号：**#280**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -66,6 +66,15 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——无状态端点下的真相源设计** `infra`
+  - 现状：DSH fetchSessionStatus 恒空 map + directory 空时 absent→idle 跳过；对账回放已治主径（015ed7de），本卡为无 turn/end 终态异常会话的兜底
+  - 方向：对账完成后按回放终态强制收敛 FSM，或 session.list running 字段播种状态
+  - → `docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md`
+
+- [ ] **#279 导出 SAF intent MIME 按服务器类型设置（ChatScreen 解冻前置）** `ui`
+  - 现状：DSH 导出 SAF 预填 .json→落盘 .zip，落盘前 renameDocument 兜底可用（终验 V6' PASS）
+  - 解冻后：exportIsArchive 能力位直通 SAF intent mime，预填即正确
+  - → `docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md`
 
 - [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）** `test`
   - 现象（2026-08-31 实证）：ChatViewModelQueuedTest 偶发 UncaughtExceptionsBeforeTest（原始异常=「Main was accessed when the platform dispatcher was absent」）；顺序/时序依赖

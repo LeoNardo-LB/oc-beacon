@@ -8,6 +8,25 @@
 
 ## 批次执行记录
 
+### 2026-08-31（八）：终验收官——五项矩阵 + 徽章根因 + 偏移根治
+
+**终验五项**（批 90a124b4 装机，截图首要证据 /tmp/dsh-e2e-final2/，FINDINGS.md 证据表）：
+- **V4' 文件树 PASS**：惰性探测；活体实证 DSH listDirectory 永不返文件条目——4 组探针+符号链接实验，demote 分支防御性。
+- **V5' 压缩 PARTIAL**：客户端链全通 ×2（护栏旁路→/compact→Busy→Idle）；**服务器把 /compact 当文本——本部署 command 注册表无 compact（command.list 404）；存在 dsh-command-compact 插件的部署即有效，客户端就绪，部署面差异非缺陷**。
+- **V6' 导出 PASS**：SAF 预填 .json→落盘 .zip 108KB，renameDocument 兜底，unzip 单条目 session.jsonl，MIUI 文件管理器用户可见截图。
+- **V7 创建时间 PASS**：占位「—」，dump 0 处 1970。
+- **V8 长历史 PASS**：全渲染零 refused rebuild。
+
+**识图复核**：像素层（自制解码器，无 OCR）+ a11y dump 文字层双闭环；两点像素存疑均澄清（config 空目录展开=正确行为；V5' 列表 27≥25=模型文字回复新增，与服务器侧结论自洽）。
+
+**徽章滞留根因+修复+验证**（015ed7de）：subscribed lastSeq=排他水位 + history 严格 seq<beforeSeq → 旧契约回放窗口止于 lastSeq-1，最新一条事件（turn/end）两路皆失 → FSM 僵尸 Busy；修复=baseline+1 游标+判据收紧；装机验证 PASS（4 处滞留全回落，logcat `--SseIdle--> Idle [force-complete]`，证据 /tmp/dsh-badge-verify/）。
+
+**工作区选择器偏移根治**（f3125d80）：对话框存活期 live 重排+异步加载窗口（人类同病）；修复=打开时快照冻结行序 + directory 次级排序键。
+
+**[test-lab] 会话登记**：session-320c5915-eeef-420f-b6aa-f911f893d775（长期复用；预案见 HANDOFF——提示词后立即停止）。
+
+**环境注记**：WiFi 调试迁移（192.168.110.239:5555）+ 不熄屏设置。
+
 ### 2026-08-31（七）：后端接口补全（14fec72a）+ 走查三根因（65c7bb1b）——全量 2348/0
 
 **补全批**：compact=/compact 斜杠命令通道（compactionAsync 翻位防 59ms 分割线闪现同款）；compaction/end→SessionCompacted 完成链（刷新+snackbar）；export=GET session.export zip 流式+onProgress；能力位 14 位矩阵（+revert/messageDelete/shellCommand，shell 四入口/撤销五入口全门控，deleteMessage 证实死路由无需门控）；runShellCommand VM 短路。ChatScreen.kt 零编辑（入口皆已抽取至子组件）。

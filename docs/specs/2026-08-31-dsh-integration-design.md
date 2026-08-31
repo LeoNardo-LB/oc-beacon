@@ -172,3 +172,10 @@ adb reverse tcp:3080 tcp:3080 → 应用内添加 DSH 服务器（127.0.0.1:3080
 ## 7. 交付定义
 
 对齐目标文本：单测全绿（含 DSH 新组件）+ i18n 检查通过 + 真机 E2E 全项通过 + journal 证据入册 + backlog 关单迁册。
+
+## 8. 交付后记（2026-08-31）
+
+- **六层交付收官**：调研→探针 P-1..P-4→本设计→TDD 四层实现→真机 E2E 六段→终验五项矩阵；终验结论一行：V4'/V6'/V7/V8 PASS，V5' PARTIAL（客户端链就绪，阻塞在部署面）+ 徽章滞留根因修复（015ed7de）+ 工作区选择器偏移根治（f3125d80），详证 journal §（八）。
+- **接口权威文档**：`docs/api/dsh-openapi.yaml`（双源交叉验证，56 path）——后续接口问题以它为准。
+- **两处部署面差异**：①compact 命令按部署注册（本部署 command.list 404 无 compact → /compact 为纯文本；装 dsh-command-compact 插件即有效）；②listDirectory 活体实证永不返文件条目（demote 分支防御性保留）。
+- **遗留增强位**：backlog #278（僵尸 Busy L3 自愈真相源）+ #279（导出 SAF intent MIME）；ChatScreen 内 PTY 入口管线已门控。
