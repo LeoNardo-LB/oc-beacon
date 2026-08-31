@@ -277,6 +277,8 @@ fun ChatScreen(
     initialSharedImages: List<Uri> = emptyList(),
     onSharedImagesConsumed: () -> Unit = {},
     startInTerminalMode: Boolean = false,
+    /** 2026-09-01（B1 链）：内容检索跳转目标消息 id（非空时打开即定位，既有异步跳转机制承接）。 */
+    initialJumpToMessageId: String? = null,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val messageState by viewModel.conversation.messageListState.collectAsStateWithLifecycle()
@@ -903,6 +905,8 @@ fun ChatScreen(
                         // #252：V2 会话级 shell 对话流内嵌卡（TUI 语义）
                         sessionShellJobs = taskUi.shells,
                         shellOutputProvider = shellOutputResolver,
+                        // 2026-09-01（B1 链）：内容检索跳转目标消息（打开即异步定位）
+                        initialJumpTarget = initialJumpToMessageId,
                         modifier = Modifier.fillMaxSize(),
                     )
                   }

@@ -76,7 +76,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SessionListScreen(
     viewModel: SessionListViewModel,
-    onNavigateToChat: (sessionId: String, openTerminal: Boolean) -> Unit,
+    onNavigateToChat: (sessionId: String, openTerminal: Boolean, jumpToMessageId: String?) -> Unit,
     onNavigateToNewChat: (directory: String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
@@ -320,9 +320,14 @@ viewModel.consumePendingReadSessionId()
                             val searchFiltersActive = searchRole != null || searchTimeRange != null
                             if (!content.searchQuery.isNullOrBlank() && (contentHits.isNotEmpty() || searchFiltersActive)) {
                                 val titles = content.sessions.associate { it.id to (it.title ?: it.id) }
-                                val groups = contentHits.groupBy { it.sessionId }
-                                    .map { (sid, hits) -> Triple(sid, hits.size, hits.first().snippet) }
-                                    .sortedByDescending { it.second }
+                                // B1 链：命中组携带跳转目标 messageId（rank 最优）——点击即定位该消息
+                                val groups: List<Triple<String, Int, Pair<String?, String>>> =
+                                    contentHits.groupBy { it.sessionId }
+                                        .map { (sid, hits) ->
+                                            val best = dev.leonardo.ocbeacon.ui.screens.sessions.ContentHitNavigation.jumpTarget(hits)
+                                            Triple(sid, hits.size, (best?.second to hits.first().snippet))
+                                        }
+                                        .sortedByDescending { it.second }
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -351,11 +356,14 @@ viewModel.consumePendingReadSessionId()
                                             modifier = Modifier.padding(vertical = 4.dp),
                                         )
                                     }
-                                    groups.forEach { (sid, count, snippet) ->
+                                    groups.forEach { group ->
+                                        val sid = group.first
+                                        val count = group.second
+                                        val (messageId, snippet) = group.third
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .clickable { onNavigateToChat(sid, false) }
+                                                .clickable { onNavigateToChat(sid, false, messageId) }
                                                 .padding(vertical = 6.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
@@ -403,7 +411,7 @@ viewModel.consumePendingReadSessionId()
                                         favoriteSessionIds = favoriteSessionIds,
                                         snackbarHostState = snackbarHostState,
                                         scope = scope,
-                                        onNavigateToChat = { id -> onNavigateToChat(id, false) },
+                                        onNavigateToChat = { id -> onNavigateToChat(id, false, null) },
                                         onNavigateToNewChat = onNavigateToNewChat,
                                         onRename = { sessionId, currentTitle ->
                                             renameSessionId = sessionId

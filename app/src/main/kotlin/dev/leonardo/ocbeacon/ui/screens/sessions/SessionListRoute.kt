@@ -10,7 +10,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
  */
 @Composable
 fun SessionListRoute(
-    onNavigateToChat: (sessionId: String, openTerminal: Boolean) -> Unit,
+    onNavigateToChat: (sessionId: String, openTerminal: Boolean, jumpToMessageId: String?) -> Unit,
     onNavigateToNewChat: (directory: String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {

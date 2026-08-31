@@ -183,6 +183,8 @@ fun ChatMessageList(
     sessionShellJobs: List<dev.leonardo.ocbeacon.domain.model.ShellJob> = emptyList(),
     /** #252：shell 输出三级 provider（事件输出 → 消息流回填 → REST 拉取）。 */
     shellOutputProvider: (dev.leonardo.ocbeacon.domain.model.ShellJob) -> String? = { null },
+    /** 2026-09-01（B1 链）：打开即定位目标消息 id（内容检索跳转）——种子 pendingJumpTarget。 */
+    initialJumpTarget: String? = null,
     modifier: Modifier = Modifier,
 ) {
     // #137（D2-L50）：工具卡片复制反馈统一 Snackbar 通道（ToolCardScaffold 原用 Toast）
@@ -661,7 +663,9 @@ fun ChatMessageList(
 
     // 快速导航异步跳转：jumpToMessage 目标未加载时设此值，loadAround 完成后
     // 消息进入 displayItems → LaunchedEffect 重启 → 状态机跳转
-    var pendingJumpTarget by remember { mutableStateOf<String?>(null) }
+    // 2026-09-01（B1 链）：内容检索跳转目标消息 id 作初始种子——打开即定位，
+    // 走既有 async 跳转机制（loadAround + LaunchedEffect），与快速定位同路径
+    var pendingJumpTarget by remember { mutableStateOf(initialJumpTarget) }
     // 2026-08-20：loadAround 未命中重试一次（深分页/服务器时序一次加载可能不够，
     // 此前直接 snackbar 误报『此会话中未找到发起任务』——用户快速连跳时必现）
     var pendingJumpRetried by remember { mutableStateOf(false) }

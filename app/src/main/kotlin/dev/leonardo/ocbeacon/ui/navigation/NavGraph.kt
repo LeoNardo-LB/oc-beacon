@@ -361,12 +361,13 @@ fun NavGraph(
             val params = SessionListNav.fromEntry(entry)
 
             SessionListRoute(
-                onNavigateToChat = { sessionId, openTerminal ->
+                onNavigateToChat = { sessionId, openTerminal, jumpToMessageId ->
                     navController.navigate(
                         ChatNav.createRoute(
                             serverId = params.server.serverId,
                             sessionId = sessionId,
-                            openTerminal = openTerminal
+                            openTerminal = openTerminal,
+                            jumpToMessageId = jumpToMessageId
                         )
                     )
                 },
@@ -404,6 +405,7 @@ fun NavGraph(
                 ChatScreen(
                     serverId = params.server.serverId,
                     sessionId = params.sessionId,
+                    initialJumpToMessageId = params.jumpToMessageId,
                     viewModel = chatViewModel,
                     onNavigateBack = {
                     navController.popBackStack()
