@@ -67,4 +67,33 @@ class RecentSessionDirectoriesTest {
         val result = recentSessionDirectories(sessions, limit = 2)
         assertEquals(2, result.size)
     }
+
+    @Test
+    fun `lastUsed ties break deterministically by directory`() {
+        // 回归（DSH E2E 发现，人类同样可命中）：lastUsed 并列时旧实现仅靠 stable sort
+        // 保留输入序 —— live 流以不同顺序重发同一批会话 → 对话框行序漂移 → 点选落位错行。
+        // 要求：lastUsed 并列时按 directory 字典序消解，输入顺序不得影响输出行序。
+        val forward = listOf(
+            session("s1", "/home/leo-tkp/alpha", updated = 5000L),
+            session("s2", "/home/leo-tkp/beta", updated = 5000L),
+            session("s3", "/home/leo-tkp/gamma", updated = 5000L),
+        )
+        val fromForward = recentSessionDirectories(forward, limit = 20).map { it.directory }
+        val fromReversed = recentSessionDirectories(forward.asReversed(), limit = 20).map { it.directory }
+        assertEquals(
+            listOf("/home/leo-tkp/alpha", "/home/leo-tkp/beta", "/home/leo-tkp/gamma"),
+            fromReversed,
+        )
+        assertEquals(fromForward, fromReversed)
+    }
+
+    @Test
+    fun `lastUsed stays primary key before directory tiebreak`() {
+        val sessions = listOf(
+            session("s1", "/home/a/aaa", updated = 100L),
+            session("s2", "/home/z/zzz", updated = 900L),
+        )
+        val result = recentSessionDirectories(sessions, limit = 20).map { it.directory }
+        assertEquals(listOf("/home/z/zzz", "/home/a/aaa"), result)
+    }
 }

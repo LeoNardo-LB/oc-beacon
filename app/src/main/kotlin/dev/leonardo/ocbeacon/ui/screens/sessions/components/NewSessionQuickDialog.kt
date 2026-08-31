@@ -64,7 +64,12 @@ internal fun recentSessionDirectories(
             lastUsed = items.maxOf { it.time.updated },
         )
     }
-    .sortedByDescending(RecentSessionDirectory::lastUsed)
+    // lastUsed 并列时按 directory 字典序消解：live 流以不同顺序重发同一批会话时
+    // 行序保持确定，避免对话框已显示的行发生漂移（点选落位错行的成因之一）。
+    .sortedWith(
+        compareByDescending(RecentSessionDirectory::lastUsed)
+            .thenBy(RecentSessionDirectory::directory),
+    )
     .take(limit)
 
 /**
@@ -83,7 +88,12 @@ internal fun NewSessionQuickDialog(
     onBrowse: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val dirEntries = remember(sessions, limit) { recentSessionDirectories(sessions, limit) }
+    // 行序快照：仅在本对话框进入组合（打开）那一刻计算一次 —— 对话框存活期内
+    // live 流重发（后台刷新 / 异步加载完成的重排窗口）不再改动已显示的行序，
+    // 消除点选时目标行漂移导致的落位错行（DSH E2E 发现，人类用户同样可命中邻行）。
+    // 关闭后重新打开会重新组合，自然取到最新列表。手验：打开对话框 → 后台触发
+    // 列表变化（如另一端新建会话）→ 行序应保持不变。
+    val dirEntries = remember(limit) { recentSessionDirectories(sessions, limit) }
     val params = amoledDialogParams(shape = ShapeTokens.largeMedium)
 
     BasicAlertDialog(
