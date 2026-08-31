@@ -142,6 +142,19 @@ sealed class SseEvent {
     ) : SseEvent()
 
     /**
+     * DSH 会话排队收件箱整快照（session/queue 帧；2026-09-01 QueueDock）。
+     *
+     * 瞬态语义（官方 QueueDock）：不入历史/不重放——仅帧面投递；last-wins 整替换
+     *（空 [items] = 清空该会话队列；subscribed 重连清空同样发空集，服务器随后重推）。
+     * 由 DshQueueHandler 写入 DshQueueStore；OpenCode 无此帧。
+     */
+    @Serializable
+    data class QueueSnapshot(
+        val sessionId: String,
+        val items: List<QueuedInboxItem>,
+    ) : SseEvent()
+
+    /**
      * DSH tokenUsage 投影变更（session/projection 帧 key=tokenUsage）。
      * 由 SessionEventHandler 折叠进 Session.tokenUsage（last-wins）。
      */

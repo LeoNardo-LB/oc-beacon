@@ -769,4 +769,10 @@
     <string name="a11y_icon_agent_preset">에이전트 프리셋</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">목표</string><string name="goal_phase_active">진행 중</string><string name="goal_phase_paused">일시정지됨</string><string name="goal_phase_blocked">차단됨</string><string name="goal_rounds_progress">라운드 %1$d / %2$d</string><string name="goal_rounds_plain">시작된 라운드: %1$d</string><string name="goal_blocked_reason">이유: %1$s</string><string name="goal_action_pause">일시정지</string><string name="goal_action_resume">재개</string><string name="goal_action_edit">편집</string><string name="goal_action_clear">지우기</string><string name="goal_create_heading">목표 만들기</string><string name="goal_objective_label">목표</string><string name="goal_objective_placeholder">이 세션에서 무엇을 달성해야 하나요?</string><string name="goal_max_rounds_label">최대 라운드 (선택)</string><string name="goal_btn_create">만들기</string><string name="goal_btn_save">저장</string><string name="goal_failed">목표 작업 실패</string><string name="goal_busy">세션이 사용 중입니다</string><string name="context_pressure_title">컨텍스트 사용량</string><string name="context_pressure_used">~%1$s / %2$s</string><string name="context_pressure_system">시스템 프롬프트</string><string name="context_pressure_tools">도구</string><string name="context_pressure_messages">메시지</string>
+    <string name="queue_edit">대기 메시지 편집</string>
+    <string name="queue_remove">대기 메시지 제거</string>
+    <string name="queue_steer">다음 턴으로 유도</string>
+    <string name="queue_edit_hint">대기 메시지 편집</string>
+    <string name="queue_steer_unavailable">유도는 세션이 실행 중일 때만 가능합니다</string>
+    <string name="queue_action_failed">대기열 작업 실패</string>
 </resources>

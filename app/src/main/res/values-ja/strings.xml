@@ -769,4 +769,10 @@
     <string name="a11y_icon_agent_preset">エージェントプリセット</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">目標</string><string name="goal_phase_active">進行中</string><string name="goal_phase_paused">一時停止</string><string name="goal_phase_blocked">ブロック中</string><string name="goal_rounds_progress">ラウンド %1$d / %2$d</string><string name="goal_rounds_plain">開始済みラウンド: %1$d</string><string name="goal_blocked_reason">理由: %1$s</string><string name="goal_action_pause">一時停止</string><string name="goal_action_resume">再開</string><string name="goal_action_edit">編集</string><string name="goal_action_clear">クリア</string><string name="goal_create_heading">目標を作成</string><string name="goal_objective_label">目標</string><string name="goal_objective_placeholder">このセッションで何を達成しますか?</string><string name="goal_max_rounds_label">最大ラウンド数（任意）</string><string name="goal_btn_create">作成</string><string name="goal_btn_save">保存</string><string name="goal_failed">目標操作に失敗しました</string><string name="goal_busy">セッションはビジーです</string><string name="context_pressure_title">コンテキスト使用量</string><string name="context_pressure_used">~%1$s / %2$s</string><string name="context_pressure_system">システムプロンプト</string><string name="context_pressure_tools">ツール</string><string name="context_pressure_messages">メッセージ</string>
+    <string name="queue_edit">待機メッセージを編集</string>
+    <string name="queue_remove">待機メッセージを削除</string>
+    <string name="queue_steer">次のターンへ誘導</string>
+    <string name="queue_edit_hint">待機メッセージを編集</string>
+    <string name="queue_steer_unavailable">誘導はセッション実行中のみ利用できます</string>
+    <string name="queue_action_failed">キュー操作に失敗しました</string>
 </resources>

@@ -201,6 +201,19 @@ interface ChatRepository {
      */
     suspend fun selectAgentPreset(serverId: String, sessionId: String, presetId: String): Result<Boolean>
 
+    /**
+     * DSH updateQueue（2026-09-01 QueueDock）：排队项 edit/remove/steer。
+     * 结果经 [dev.leonardo.ocbeacon.domain.model.QueueMutationResult] 区分
+     * steer-unavailable / queue-item-not-found / agent-busy；OpenCode 恒 Failed。
+     */
+    suspend fun updateQueueItem(
+        serverId: String,
+        sessionId: String,
+        itemId: String,
+        action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
+        editText: String? = null,
+    ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult
+
 
     // ============ DSH goal 六 mutation（backlog #286；OpenCode V1/V2 返回 null/false） ============
 

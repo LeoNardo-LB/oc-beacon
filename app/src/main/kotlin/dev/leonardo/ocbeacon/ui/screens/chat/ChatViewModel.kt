@@ -92,6 +92,7 @@ class ChatViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
     private val shellJobsStore: dev.leonardo.ocbeacon.data.repository.ShellJobsStore,
     private val dshJobsStore: dev.leonardo.ocbeacon.data.repository.DshJobsStore,
+    private val dshQueueStore: dev.leonardo.ocbeacon.data.repository.DshQueueStore,
     private val eventDispatcher: dev.leonardo.ocbeacon.data.repository.EventDispatcher,
     // 堆积消息（2026-08-20 设计定稿）：本地暂存队列 + 推进管线
     private val pendingMessageRepository: dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository,
@@ -732,6 +733,47 @@ class ChatViewModel @Inject constructor(
     /** goal mutation 失败提示（resId：goal_failed/goal_busy）——GoalSheet collect 显示 snackbar。 */
     private val _goalError = MutableSharedFlow<Int>(extraBufferCapacity = 4)
     val goalError: SharedFlow<Int> = _goalError
+
+    // ============ 排队收件箱（2026-09-01 QueueDock） ============
+
+    /** 当前会话排队项（session/queue 整快照 last-wins；仅 queued placement 显示）。 */
+    val queueItems: StateFlow<List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>> =
+        sessionLifecycle.sessionIdFlow.flatMapLatest { sid ->
+            dshQueueStore.queueBySession.map { all ->
+                all[sid].orEmpty().filter { it.isQueuedPlacement }
+            }
+        }.stateIn(viewModelScope, WhileSubscribed5s, emptyList())
+
+    /** updateQueue 结果提示（resId）——QueueDock collect 显示 snackbar。 */
+    private val _queueActionResult = MutableSharedFlow<Int>(extraBufferCapacity = 4)
+    val queueActionResult: SharedFlow<Int> = _queueActionResult
+
+    /**
+     * updateQueue（edit/remove/steer）。steer 仅 running + next-turn 有效——
+     * 服务器 steer-unavailable 时弹专属文案；其余失败统一提示。子代理会话只读
+     * 由 UI 层隐藏动作（agent-busy 兜底同 Failed 文案）。
+     */
+    fun updateQueueItem(
+        itemId: String,
+        action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
+        editText: String? = null,
+    ) {
+        viewModelScope.launch {
+            val sid = runCatching { sessionLifecycle.ensureSession() }.getOrElse { e ->
+                AppLogger.w(TAG, "ensureSession failed before updateQueue: " + e.message)
+                return@launch
+            }
+            when (chatRepository.updateQueueItem(serverId, sid, itemId, action, editText)) {
+                dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted -> Unit
+                dev.leonardo.ocbeacon.domain.model.QueueMutationResult.SteerUnavailable ->
+                    _queueActionResult.emit(R.string.queue_steer_unavailable)
+                dev.leonardo.ocbeacon.domain.model.QueueMutationResult.QueueItemNotFound,
+                dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Busy,
+                is dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Failed ->
+                    _queueActionResult.emit(R.string.queue_action_failed)
+            }
+        }
+    }
 
     /** 当前会话 CAS ref（goal 投影 goal.id/revision）——无目标/畸形时 null。 */
     private fun currentGoalRef(): DshGoalRef? {

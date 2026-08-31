@@ -777,4 +777,10 @@
     <string name="a11y_icon_agent_preset">Пресет агента</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">Мета</string><string name="goal_phase_active">Активно</string><string name="goal_phase_paused">Призупинено</string><string name="goal_phase_blocked">Заблоковано</string><string name="goal_rounds_progress">Раунд %1$d / %2$d</string><string name="goal_rounds_plain">Розпочатий раунд: %1$d</string><string name="goal_blocked_reason">Причина: %1$s</string><string name="goal_action_pause">Пауза</string><string name="goal_action_resume">Продовжити</string><string name="goal_action_edit">Змінити</string><string name="goal_action_clear">Очистити</string><string name="goal_create_heading">Створити мету</string><string name="goal_objective_label">Мета</string><string name="goal_objective_placeholder">Чого має досягти ця сесія?</string><string name="goal_max_rounds_label">Макс. раундів (необов’язково)</string><string name="goal_btn_create">Створити</string><string name="goal_btn_save">Зберегти</string><string name="goal_failed">Не вдалося виконати дію з метою</string><string name="goal_busy">Сесія зайнята</string><string name="context_pressure_title">Використання контексту</string><string name="context_pressure_used">~%1$s / %2$s</string><string name="context_pressure_system">Системний промпт</string><string name="context_pressure_tools">Інструменти</string><string name="context_pressure_messages">Повідомлення</string>
+    <string name="queue_edit">Редагувати повідомлення в черзі</string>
+    <string name="queue_remove">Видалити повідомлення з черги</string>
+    <string name="queue_steer">Спрямувати до наступного ходу</string>
+    <string name="queue_edit_hint">Редагувати повідомлення в черзі</string>
+    <string name="queue_steer_unavailable">Спрямування доступне лише під час роботи сесії</string>
+    <string name="queue_action_failed">Помилка дії з чергою</string>
 </resources>

@@ -78,15 +78,18 @@ object DshEventMapper {
 
     private fun mapFrameInner(method: String, payload: JsonObject, rpcId: String?): List<DshMappedEvent> = when (method) {
         "session/subscribed" -> {
-            // 连接层信号：开流基线（对账起点，组件 C 输入）+ jobs 清空重推。
+            // 连接层信号：开流基线（对账起点，组件 C 输入）+ jobs/队列清空重推。
             // 官方 client.js:8314：subscribed 帧对 jobsBySession 删键——重连基线
-            // 先行清空，服务器随后重推 session/jobs 整快照（对齐 A 状态机）。
+            // 先行清空，服务器随后重推 session/jobs 整快照（对齐 A 状态机）；
+            // queueMirror.reset()（官方 client.js:7472）同帧判脏——QueueDock 同理
+            // 清空待服务器重推 session/queue 整快照。
             val sid = payload.str("sessionId")
             val lastSeq = payload.long("lastSeq")
             if (sid == null || lastSeq == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
             else listOf(
                 DshMappedEvent.Subscribed(DshSubscribed(sid, lastSeq)),
                 DshMappedEvent.Sse(SseEvent.JobsSnapshot(sessionId = sid, jobs = emptyList())),
+                DshMappedEvent.Sse(SseEvent.QueueSnapshot(sessionId = sid, items = emptyList())),
             )
         }
 
@@ -266,7 +269,22 @@ object DshEventMapper {
             }
         }
 
-        "session/queue" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.QUEUE))
+        // 排队收件箱整快照（QueueDock）：{sessionId, items:[{id, placement, message:{content}}]}
+        // → QueueSnapshot（last-wins 整替换；mapQueueItem 归一化 preview/text）。
+        "session/queue" -> {
+            val sid = payload.str("sessionId")
+            if (sid == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else listOf(
+                DshMappedEvent.Sse(
+                    SseEvent.QueueSnapshot(
+                        sessionId = sid,
+                        items = (payload.arr("items") ?: emptyList()).mapNotNull { el ->
+                            (el as? JsonObject)?.let { mapQueueItem(it) }
+                        },
+                    )
+                )
+            )
+        }
         "stream/error" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR))
 
         "host/session-added" -> {
@@ -875,6 +893,40 @@ object DshEventMapper {
             startedAt = j.long("startedAt") ?: 0L,
             finishedAt = j.long("finishedAt"),
         )
+
+    /** 排队项预览截断上限（渲染行；官方 previewOf 语义弱化为中长预览）。 */
+    private const val QUEUE_PREVIEW_MAX = 200
+
+    /**
+     * session/queue 帧单 item → 域模型（官方 QueueDock 归一化）。
+     *
+     * wire：{id, placement, message:{content:[{type:text,text},...], role, source}}。
+     * - preview = 首个 text 块截断；
+     * - text = 全 text 拼接（纯文本消息可编辑）；含非文本块 → null（编辑不可用）。
+     * 缺 id/placement → 丢弃（畸形行容错）。
+     */
+    private fun mapQueueItem(item: JsonObject): dev.leonardo.ocbeacon.domain.model.QueuedInboxItem? {
+        val id = item.str("id") ?: return null
+        val placement = item.str("placement") ?: return null
+        val message = item.obj("message")
+        val content = message?.arr("content") ?: emptyList()
+        val textBlocks = content.mapNotNull { el ->
+            (el as? JsonObject)?.takeIf { it.str("type") == "text" }?.str("text")
+        }
+        val allBlocksAreText = content.isNotEmpty() && content.all { el ->
+            (el as? JsonObject)?.str("type") == "text"
+        }
+        val preview = textBlocks.firstOrNull()
+            ?.let { t -> if (t.length > QUEUE_PREVIEW_MAX) t.take(QUEUE_PREVIEW_MAX) + "…" else t }
+            ?: ""
+        val text = if (allBlocksAreText) textBlocks.joinToString("\n") else null
+        return dev.leonardo.ocbeacon.domain.model.QueuedInboxItem(
+            id = id,
+            placement = placement,
+            preview = preview,
+            text = text,
+        )
+    }
 
     /** tokenUsage 投影值 → 域模型（四桶互斥累计，缺席桶归零）。 */
     private fun mapTokenUsage(v: JsonObject): dev.leonardo.ocbeacon.domain.model.DshTokenUsage =

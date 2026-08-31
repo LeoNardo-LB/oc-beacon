@@ -60,11 +60,13 @@ class DshEventMapperTest {
     fun `session subscribed frame maps to baseline signal and clears jobs`() {
         val m = mappedFrames("dsh/mux-frames.jsonl")[0] // 黄金样本行 1：session/subscribed
         assertEquals("session/subscribed", m.method)
-        // 对齐官方 client.js:8314：subscribed 基线先行清空 jobs，服务器随后重推快照
+        // 对齐官方 client.js:8314：subscribed 基线先行清空 jobs，服务器随后重推快照；
+        // 2026-09-01（QueueDock）：同帧清空队列（queueMirror.reset）——服务器随后重推
         assertEquals(
             listOf(
                 DshMappedEvent.Subscribed(DshSubscribed(sessionId = "fixture-0001", lastSeq = 15L)),
                 DshMappedEvent.Sse(SseEvent.JobsSnapshot(sessionId = "fixture-0001", jobs = emptyList())),
+                DshMappedEvent.Sse(SseEvent.QueueSnapshot(sessionId = "fixture-0001", items = emptyList())),
             ),
             m.mapped,
         )
@@ -319,9 +321,11 @@ class DshEventMapperTest {
     }
 
     @Test
-    fun `queue and stream error frames are ignored with named reasons`() {
+    fun `queue and stream error frames map properly`() {
         val golden = mappedFrames("dsh/mux-frames.jsonl")
-        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.QUEUE)), golden[4].mapped)
+        // 2026-09-01（QueueDock）：session/queue 帧 → QueueSnapshot（原 Ignored(QUEUE)），
+        // 行为/断言下沉到 queue frame 专测；stream/error 维持 Ignored。
+        assertTrue(golden[4].mapped[0] is DshMappedEvent.Sse)
         assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR)), golden[8].mapped)
     }
 
@@ -889,6 +893,67 @@ class DshEventMapperTest {
         val f = (eventsOf(mapped)[1] as SseEvent.MessagePartUpdated).part as Part.File
         assertEquals("application/octet-stream", f.mime)
         assertEquals("blob.bin", f.filename)
+    }
+
+    // ============ 2026-09-01（Task 4 QueueDock）：session/queue 帧 ============
+
+    @Test
+    fun `queue frame maps to QueueSnapshot with normalized items`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/queue",
+            json.parseToJsonElement(
+                """{"type":"session/queue","sessionId":"s1","items":[
+                    {"id":"i1","placement":"queued","message":{"content":[{"type":"text","text":"hello queue"}],"role":"user"}},
+                    {"id":"i2","placement":"steering","message":{"content":[{"type":"text","text":"steer me"},{"type":"reasoning","text":"r"}],"role":"user"}}
+                ]}"""
+            ).jsonObject,
+        )
+        val snapshot = eventsOf(mapped).single() as SseEvent.QueueSnapshot
+        assertEquals("s1", snapshot.sessionId)
+        assertEquals(2, snapshot.items.size)
+        // i1：纯文本 → preview + text 可编辑
+        val i1 = snapshot.items[0]
+        assertEquals("queued", i1.placement)
+        assertEquals("hello queue", i1.preview)
+        assertEquals("hello queue", i1.text)
+        // i2：含非文本块 → text null（编辑不可用）
+        val i2 = snapshot.items[1]
+        assertEquals("steering", i2.placement)
+        assertEquals("steer me", i2.preview)
+        assertNull(i2.text)
+    }
+
+    @Test
+    fun `queue frame preview truncates long text`() {
+        val long = "x".repeat(500)
+        val mapped = DshEventMapper.mapFrame(
+            "session/queue",
+            json.parseToJsonElement(
+                """{"type":"session/queue","sessionId":"s1","items":[{"id":"i1","placement":"queued","message":{"content":[{"type":"text","text":"$long"}]}}]}"""
+            ).jsonObject,
+        )
+        val item = (eventsOf(mapped).single() as SseEvent.QueueSnapshot).items.single()
+        assertTrue(item.preview.length <= 201)
+        assertTrue(item.preview.endsWith("…"))
+        // 完整文本不截断（编辑保真）
+        assertEquals(long, item.text)
+    }
+
+    @Test
+    fun `queue frame without sessionId is ignored malformed`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/queue",
+            json.parseToJsonElement("""{"type":"session/queue","items":[]}""").jsonObject,
+        )
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED)), mapped)
+    }
+
+    @Test
+    fun `subscribed frame clears queue alongside jobs`() {
+        val m = mappedFrames("dsh/mux-frames.jsonl")[0]
+        val snapshots = m.mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+        assertTrue(snapshots.any { it is SseEvent.QueueSnapshot && it.items.isEmpty() })
+        assertTrue(snapshots.any { it is SseEvent.JobsSnapshot && it.jobs.isEmpty() })
     }
 
     @Test

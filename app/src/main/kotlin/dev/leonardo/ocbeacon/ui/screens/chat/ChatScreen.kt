@@ -227,7 +227,9 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCardRole
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatEmptyState
 import dev.leonardo.ocbeacon.ui.screens.chat.components.dedupeConsecutiveSynthetics
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
+import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
+import dev.leonardo.ocbeacon.ui.screens.chat.components.QueueDock
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
 import dev.leonardo.ocbeacon.ui.screens.chat.components.SessionErrorCard
@@ -738,7 +740,36 @@ fun ChatScreen(
             }
         },
         bottomBar = {
-            ChatScreenBottomBar(
+            Column {
+                // 2026-09-01（Task 4 QueueDock）：排队收件箱条——ChatScreenBottomBar
+                // 上方；空队列不渲染；子代理会话只读（隐藏动作）；steer 仅运行中启用。
+                val queueItems by viewModel.queueItems.collectAsStateWithLifecycle()
+                val queueRunning = sessionMeta.sessionStatus is SessionStatus.Busy
+                val queueReadOnly = sessionMeta.sessionParentId != null
+                LaunchedEffect(queueRunning) {
+                    viewModel.queueActionResult.collect { resId ->
+                        snackbarHostState.showSnackbar(context.getString(resId))
+                    }
+                }
+                QueueDock(
+                    items = queueItems,
+                    isRunning = queueRunning,
+                    isReadOnly = queueReadOnly,
+                    onSaveEdit = { itemId, text ->
+                        viewModel.updateQueueItem(
+                            itemId,
+                            dev.leonardo.ocbeacon.domain.model.QueueActionKind.EDIT,
+                            text,
+                        )
+                    },
+                    onRemove = { itemId ->
+                        viewModel.updateQueueItem(itemId, dev.leonardo.ocbeacon.domain.model.QueueActionKind.REMOVE, null)
+                    },
+                    onSteer = { itemId ->
+                        viewModel.updateQueueItem(itemId, dev.leonardo.ocbeacon.domain.model.QueueActionKind.STEER, null)
+                    },
+                )
+                ChatScreenBottomBar(
                 viewModel = viewModel,
                 sessionMeta = sessionMeta,
                 isTerminalMode = isTerminalMode,
@@ -765,7 +796,8 @@ fun ChatScreen(
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
                 onQuickNavigate = { showQuickNavigate = true },
-            )
+                )
+            }
         },
     ) { padding ->
         Box(

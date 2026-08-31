@@ -120,6 +120,19 @@ interface SessionApi {
      */
     suspend fun selectAgentPreset(conn: ServerConnection, sessionId: String, presetId: String): Boolean = false
 
+    /**
+     * DSH updateQueue（2026-09-01 QueueDock）：排队项 edit/remove/steer。
+     * OpenCode V1/V2 无队列域 → Failed(unsupported)。错误码映射见 DshApiClient。
+     */
+    suspend fun updateQueue(
+        conn: ServerConnection,
+        sessionId: String,
+        itemId: String,
+        action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
+        editText: String? = null,
+    ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult =
+        dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Failed("updateQueue unsupported")
+
     /** DSH goal.create（创建并 arm 目标；maxGoalRounds 可选）。回执 value.ref = 新 CAS ref。
      *  OpenCode V1/V2 无 goal 域 → null（UI 按能力位 goalSupported 隐藏）。 */
     suspend fun goalCreate(
@@ -297,6 +310,15 @@ class SessionApiImpl @Inject constructor(
 
     override suspend fun selectAgentPreset(conn: ServerConnection, sessionId: String, presetId: String): Boolean =
         pick(conn).selectAgentPreset(conn, sessionId, presetId)
+
+    override suspend fun updateQueue(
+        conn: ServerConnection,
+        sessionId: String,
+        itemId: String,
+        action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
+        editText: String?,
+    ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult =
+        pick(conn).updateQueue(conn, sessionId, itemId, action, editText)
 
 
     // ============ DSH goal 六 mutation（#286 用户裁决；OpenCode V1/V2 走接口默认 null/false） ============

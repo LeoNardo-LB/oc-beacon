@@ -772,4 +772,10 @@
     <string name="a11y_icon_agent_preset">Agent 预设</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">目标</string><string name="goal_phase_active">进行中</string><string name="goal_phase_paused">已暂停</string><string name="goal_phase_blocked">受阻</string><string name="goal_rounds_progress">轮次 %1$d / %2$d</string><string name="goal_rounds_plain">已开始轮次：%1$d</string><string name="goal_blocked_reason">原因：%1$s</string><string name="goal_action_pause">暂停</string><string name="goal_action_resume">恢复</string><string name="goal_action_edit">编辑</string><string name="goal_action_clear">清除</string><string name="goal_create_heading">创建目标</string><string name="goal_objective_label">目标描述</string><string name="goal_objective_placeholder">这个会话要完成什么？</string><string name="goal_max_rounds_label">最大轮次（可选）</string><string name="goal_btn_create">创建</string><string name="goal_btn_save">保存</string><string name="goal_failed">目标操作失败</string><string name="goal_busy">会话正忙</string><string name="context_pressure_title">上下文占用</string><string name="context_pressure_used">~%1$s / %2$s</string><string name="context_pressure_system">系统提示词</string><string name="context_pressure_tools">工具</string><string name="context_pressure_messages">消息</string>
+    <string name="queue_edit">编辑排队消息</string>
+    <string name="queue_remove">移除排队消息</string>
+    <string name="queue_steer">引导至下一轮</string>
+    <string name="queue_edit_hint">编辑排队消息</string>
+    <string name="queue_steer_unavailable">仅当会话运行中才可引导</string>
+    <string name="queue_action_failed">队列操作失败</string>
 </resources>

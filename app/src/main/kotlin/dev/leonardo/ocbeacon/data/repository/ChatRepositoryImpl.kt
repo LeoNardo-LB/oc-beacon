@@ -341,6 +341,17 @@ class ChatRepositoryImpl @Inject constructor(
         sessionApi.selectAgentPreset(conn, sessionId, presetId)
     }
 
+    override suspend fun updateQueueItem(
+        serverId: String,
+        sessionId: String,
+        itemId: String,
+        action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
+        editText: String?,
+    ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult {
+        val conn = resolveConnection(serverId)
+        return sessionApi.updateQueue(conn, sessionId, itemId, action, editText)
+    }
+
 
     // ============ DSH goal mutation（backlog #286） ============
 

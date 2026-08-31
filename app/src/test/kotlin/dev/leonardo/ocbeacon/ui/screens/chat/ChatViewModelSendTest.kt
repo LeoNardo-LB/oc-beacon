@@ -191,6 +191,8 @@ class ChatViewModelSendTest {
             // #271（2026-08-30 构造新增）：relaxed mock——首开自动 drain 触发不破坏既有用例
             historySyncManager = mockk(relaxed = true),
             dshJobsStore = dev.leonardo.ocbeacon.data.repository.DshJobsStore(),
+            dshQueueStore = dev.leonardo.ocbeacon.data.repository.DshQueueStore(),
+
         )
     }
 

@@ -45,6 +45,7 @@ class EventDispatcher @Inject constructor(
     private val sessionNextHandler: SessionNextEventHandler,
     private val shellJobsHandler: ShellJobsHandler,
     private val dshJobsHandler: DshJobsHandler,
+    private val dshQueueHandler: DshQueueHandler,
     private val sessionStateRepository: SessionStateService,
     private val unreadBadgeService: UnreadBadgeService,
     private val ownershipRegistry: StreamingOwnershipRegistry,
@@ -149,6 +150,8 @@ class EventDispatcher @Inject constructor(
         )
         // DSH 后台任务整快照 → DshJobsHandler
         bind(dshJobsHandler, SseEvent.JobsSnapshot::class)
+        // DSH 排队收件箱整快照 → DshQueueHandler（2026-09-01 QueueDock）
+        bind(dshQueueHandler, SseEvent.QueueSnapshot::class)
         return map
     }
 
@@ -298,6 +301,7 @@ class EventDispatcher @Inject constructor(
             sessionNextHandler.clearForSession(deletedSessionId)
             shellJobsHandler.clearForSession(deletedSessionId)
             dshJobsHandler.clearForSession(deletedSessionId)
+            dshQueueHandler.clearForSession(deletedSessionId)
             sessionStateRepository.clearSession(deletedSessionId)
             // 堆积消息级联删除（2026-08-20）：会话没了，队列无意义。
             // C7（2026-08-26）：原 runBlocking 同步删除改异步——管线自有 appScope
@@ -381,6 +385,7 @@ class EventDispatcher @Inject constructor(
             is SseEvent.SessionContextBreakdownChanged -> event.sessionId
             is SseEvent.SessionStatsChanged -> event.sessionId
             is SseEvent.JobsSnapshot -> event.sessionId
+            is SseEvent.QueueSnapshot -> event.sessionId
             is SseEvent.SessionDeleted -> event.info.id
             is SseEvent.SessionDiff -> event.sessionId
             is SseEvent.SessionCompacted -> event.sessionId

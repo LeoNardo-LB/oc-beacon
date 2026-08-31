@@ -769,4 +769,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_agent_preset">Ajan ön ayarı</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">Hedef</string><string name="goal_phase_active">Aktif</string><string name="goal_phase_paused">Duraklatıldı</string><string name="goal_phase_blocked">Engellendi</string><string name="goal_rounds_progress">Tur %1$d / %2$d</string><string name="goal_rounds_plain">Başlatılan tur: %1$d</string><string name="goal_blocked_reason">Neden: %1$s</string><string name="goal_action_pause">Duraklat</string><string name="goal_action_resume">Sürdür</string><string name="goal_action_edit">Düzenle</string><string name="goal_action_clear">Temizle</string><string name="goal_create_heading">Hedef oluştur</string><string name="goal_objective_label">Hedef</string><string name="goal_objective_placeholder">Bu oturum neyi başarmalı?</string><string name="goal_max_rounds_label">Maksimum tur (isteğe bağlı)</string><string name="goal_btn_create">Oluştur</string><string name="goal_btn_save">Kaydet</string><string name="goal_failed">Hedef işlemi başarısız oldu</string><string name="goal_busy">Oturum meşgul</string><string name="context_pressure_title">Bağlam kullanımı</string><string name="context_pressure_used">~%1$s / %2$s</string><string name="context_pressure_system">Sistem istemi</string><string name="context_pressure_tools">Araçlar</string><string name="context_pressure_messages">Mesajlar</string>
+    <string name="queue_edit">Sıradaki mesajı düzenle</string>
+    <string name="queue_remove">Sıradaki mesajı kaldır</string>
+    <string name="queue_steer">Sonraki tura yönlendir</string>
+    <string name="queue_edit_hint">Sıradaki mesajı düzenle</string>
+    <string name="queue_steer_unavailable">Yönlendirme yalnızca oturum çalışırken kullanılabilir</string>
+    <string name="queue_action_failed">Sıra işlemi başarısız oldu</string>
 </resources>

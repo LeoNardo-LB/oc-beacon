@@ -808,4 +808,10 @@
         <string name="context_pressure_system">موجه النظام</string>
         <string name="context_pressure_tools">الأدوات</string>
         <string name="context_pressure_messages">الرسائل</string>
+    <string name="queue_edit">تحرير الرسالة في قائمة الانتظار</string>
+    <string name="queue_remove">إزالة الرسالة من قائمة الانتظار</string>
+    <string name="queue_steer">توجيه إلى الدور التالي</string>
+    <string name="queue_edit_hint">تحرير الرسالة في قائمة الانتظار</string>
+    <string name="queue_steer_unavailable">التوجيه متاح فقط أثناء تشغيل الجلسة</string>
+    <string name="queue_action_failed">فشل إجراء قائمة الانتظار</string>
 </resources>

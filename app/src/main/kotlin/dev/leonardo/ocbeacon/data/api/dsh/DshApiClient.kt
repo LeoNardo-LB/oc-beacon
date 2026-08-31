@@ -638,6 +638,65 @@ class DshApiClient @Inject constructor(
         else -> null
     }
 
+    /**
+     * updateQueue（2026-09-01 QueueDock）：对仍待发的排队项施加 edit/remove/steer。
+     *
+     * payload：{sessionId, itemId, action:{kind: edit|remove|steer}}——edit 带
+     * content=[{type:text,text}]（纯文本改写，官方 QueueAction 契约）；steer 仅
+     * running + next-turn 有效（否则服务器回 steer-unavailable）；子代理会话
+     * 拒绝（agent-busy）。错误码 → [dev.leonardo.ocbeacon.domain.model.QueueMutationResult]。
+     */
+    override suspend fun updateQueue(
+        conn: ServerConnection,
+        sessionId: String,
+        itemId: String,
+        action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
+        editText: String?,
+    ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult {
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("itemId", itemId)
+            put(
+                "action",
+                buildJsonObject {
+                    when (action) {
+                        dev.leonardo.ocbeacon.domain.model.QueueActionKind.EDIT -> {
+                            put("kind", "edit")
+                            put(
+                                "content",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(buildJsonObject {
+                                        put("type", "text")
+                                        put("text", editText ?: "")
+                                    })
+                                ),
+                            )
+                        }
+                        dev.leonardo.ocbeacon.domain.model.QueueActionKind.REMOVE -> put("kind", "remove")
+                        dev.leonardo.ocbeacon.domain.model.QueueActionKind.STEER -> put("kind", "steer")
+                    }
+                },
+            )
+        }
+        return rpc.call(conn, "updateQueue", payload) { Unit }.fold(
+            onSuccess = { dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted },
+            onFailure = { e ->
+                val code = (e as? DshApiError)?.code
+                when {
+                    code == DshRpcErrorCode.SteerUnavailable ->
+                        dev.leonardo.ocbeacon.domain.model.QueueMutationResult.SteerUnavailable
+                    code == DshRpcErrorCode.QueueItemNotFound ->
+                        dev.leonardo.ocbeacon.domain.model.QueueMutationResult.QueueItemNotFound
+                    code == DshRpcErrorCode.AgentBusy ->
+                        dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Busy
+                    else -> dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Failed(
+                        (e as? DshApiError)?.message ?: (e.message ?: "updateQueue failed")
+                    )
+                }
+            },
+        )
+    }
+
     override suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean = false
 
     override suspend fun deleteMessagePart(
