@@ -35,6 +35,16 @@ for trip in $(seq 1 $TRIPS); do
   P95=$(awk '/95th percentile:/ {gsub(/ms/,""); print $3; exit}' /tmp/gfx.txt)
   P99=$(awk '/99th percentile:/ {gsub(/ms/,""); print $3; exit}' /tmp/gfx.txt)
   echo "$trip,${FRAMES:-NA},${JANKY:-NA},${LEGACY:-NA},${P90:-NA},${P95:-NA},${P99:-NA}" | tee -a /tmp/perf-results.csv
+  # 趟间复位（2026-09-02 #258 质量门实证）：连续 12 次同向 fling 会滚到历史上限，
+  # 下一趟无内容可滚 → 0 帧 → gfxinfo 输出垃圾值（4950ms）。除末趟外反向 fling
+  # 回底，保证每趟都有等量内容可滚。
+  if [ "$trip" -lt "$TRIPS" ]; then
+    for r in $(seq 1 12); do
+      adb -s $SERIAL shell input swipe 600 1980 600 850 60
+      sleep 0.4
+    done
+    sleep 1.5
+  fi
 done
 echo "FATAL total: $FATAL_TOTAL"
 python3 scripts/perf-med.py
