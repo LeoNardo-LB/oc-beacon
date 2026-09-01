@@ -414,4 +414,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         sessionId: String,
         ref: dev.leonardo.ocbeacon.domain.model.DshGoalRef,
     ): Result<Boolean> = clearGoalResult
+
+    // #287
+    override suspend fun fetchAttachmentDataUrl(serverId: String, sessionId: String, attachmentId: String): String? = null
 }

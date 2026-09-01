@@ -77,7 +77,7 @@ class ChatRepositoryImplTest {
 
         )
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
-        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore)
+        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore, mockk(relaxed = true))
     }
 
     // ============ getMessagesFlow ============

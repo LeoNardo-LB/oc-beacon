@@ -201,6 +201,9 @@ interface ChatRepository {
      */
     suspend fun selectAgentPreset(serverId: String, sessionId: String, presetId: String): Result<Boolean>
 
+    /** #287：DSH 附件字节拉取（session.attachment）→ data URL；非 DSH/失败 → null。 */
+    suspend fun fetchAttachmentDataUrl(serverId: String, sessionId: String, attachmentId: String): String?
+
     /**
      * DSH updateQueue（2026-09-01 QueueDock）：排队项 edit/remove/steer。
      * 结果经 [dev.leonardo.ocbeacon.domain.model.QueueMutationResult] 区分

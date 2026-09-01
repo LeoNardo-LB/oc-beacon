@@ -251,6 +251,7 @@ class ChatViewModelRevertTest {
             shellJobsStore = ShellJobsStore(),
             eventDispatcher = mockk<EventDispatcher>(relaxed = true).also {
                 io.mockk.every { it.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow<Unit>()
+            io.mockk.every { it.parts } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
             },
             historySyncManager = mockk(relaxed = true),
             dshJobsStore = dev.leonardo.ocbeacon.data.repository.DshJobsStore(),

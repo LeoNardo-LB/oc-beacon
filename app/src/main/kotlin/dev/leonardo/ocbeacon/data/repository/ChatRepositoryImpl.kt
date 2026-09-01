@@ -67,6 +67,9 @@ class ChatRepositoryImpl @Inject constructor(
     private val serverRepo: ServerDataStore,
     private val permissionAutoApprover: PermissionAutoApprover,
     private val messageStore: MessageCacheRepository,
+    // #287：DSH 附件字节拉取（session.attachment → data URL）。
+    // DshApiClient @Singleton 可注入；非 DSH 服务器由 readAttachment 失败自然降级 null。
+    private val dshApiClient: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient,
 ) : ChatRepository {
 
     // ============ 状态观察 ============
@@ -339,6 +342,14 @@ class ChatRepositoryImpl @Inject constructor(
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.selectAgentPreset(conn, sessionId, presetId)
+    }
+
+    /** #287：附件字节 → data URL（仅 DSH 有 session.attachment；其他类型直接 null）。 */
+    override suspend fun fetchAttachmentDataUrl(serverId: String, sessionId: String, attachmentId: String): String? {
+        val conn = runCatching { resolveConnection(serverId) }.getOrNull() ?: return null
+        val dsh = dshApiClient
+        val (mediaType, base64) = dsh.readAttachment(conn, sessionId, attachmentId) ?: return null
+        return "data:$mediaType;base64,$base64"
     }
 
     override suspend fun updateQueueItem(

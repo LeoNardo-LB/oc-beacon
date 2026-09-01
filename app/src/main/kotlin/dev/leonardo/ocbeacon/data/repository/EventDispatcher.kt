@@ -174,6 +174,11 @@ class EventDispatcher @Inject constructor(
 
     /** #285：DSH 命令注册表变更流（commands/change 全局帧）——ChatViewModel 消费重载命令列表。 */
     val commandsChanged: kotlinx.coroutines.flow.SharedFlow<Unit> get() = miscHandler.commandsChanged
+
+    /** #287：附件 data URL 回填（Part.File 原位更新）。 */
+    fun patchFileUrl(sessionId: String, partId: String, url: String) {
+        messageHandler.patchFileUrl(sessionId, partId, url)
+    }
     val messages: StateFlow<Map<String, List<Message>>> get() = messageHandler.messages
     val parts: StateFlow<Map<String, List<Part>>> get() = messageHandler.parts
     val sessionDiffs: StateFlow<Map<String, List<FileDiff>>> get() = sessionHandler.sessionDiffs

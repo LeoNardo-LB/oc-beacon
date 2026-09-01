@@ -1019,6 +1019,37 @@ class ChatViewModel @Inject constructor(
                 modelConfig.loadCommands(sessionLifecycle.sessionId.ifBlank { null })
             }
         }
+        // #287：DSH 附件字节拉取驱动——url 缺席的附件 Part.File 即拉取回填
+        collectPendingAttachmentFetches()
+    }
+
+    /** #287：附件拉取去重表（attachmentId → data URL；null = 拉取中/失败哨兵）。 */
+    private val attachmentUrlCache = java.util.concurrent.ConcurrentHashMap<String, String?>()
+
+    private fun collectPendingAttachmentFetches() {
+        viewModelScope.launch {
+            eventDispatcher.parts.collect { partsByMessage ->
+                val sid = sessionLifecycle.sessionId
+                if (sid.isBlank()) return@collect
+                partsByMessage[sid].orEmpty().forEach { part ->
+                    val file = part as? dev.leonardo.ocbeacon.domain.model.Part.File ?: return@forEach
+                    if (file.url != null) return@forEach
+                    val source = file.source as? kotlinx.serialization.json.JsonObject ?: return@forEach
+                    val attId = (source["attachmentId"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@forEach
+                    if (attachmentUrlCache.containsKey(attId)) return@forEach
+                    attachmentUrlCache[attId] = null
+                    viewModelScope.launch {
+                        val url = runCatching {
+                            chatRepository.fetchAttachmentDataUrl(serverId, sid, attId)
+                        }.getOrNull()
+                        attachmentUrlCache[attId] = url
+                        if (url != null) {
+                            eventDispatcher.patchFileUrl(sid, file.id, url)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ============ 消息加载/刷新（门面 —— MessageDataDelegate / SessionActionsDelegate） ============

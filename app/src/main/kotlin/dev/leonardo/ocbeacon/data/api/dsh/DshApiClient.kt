@@ -1216,6 +1216,29 @@ class DshApiClient @Inject constructor(
     private fun joinPath(base: String, name: String): String =
         if (base.isEmpty()) name else base.trimEnd('/') + "/" + name
 
+    /**
+     * #287：附件字节拉取（session.attachment）。活体形态（2026-09-01 实测）：
+     * value = {attachment:{attachmentId, mediaType, bytes, width, height, name},
+     * data:"<base64>"}（无 data: 前缀）。返回可直接拼 data URL 的对。
+     */
+    suspend fun readAttachment(
+        conn: ServerConnection,
+        sessionId: String,
+        attachmentId: String,
+    ): Pair<String, String>? {
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("attachmentId", attachmentId)
+        }
+        val value = rpc.call(conn, "session.attachment", payload) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "session.attachment failed for $attachmentId: " + e.message)
+            return null
+        }
+        val mediaType = value.dshObj("attachment")?.dshStr("mediaType") ?: "application/octet-stream"
+        val data = value.dshStr("data") ?: return null
+        return mediaType to data
+    }
+
     private fun parseSchemaEnumOptions(schemaEl: kotlinx.serialization.json.JsonElement?): List<String> {
         val schema = schemaEl as? JsonObject ?: return emptyList()
         // refs 是 id→节点 的对象表（活体实测："848":{type:const,...}）

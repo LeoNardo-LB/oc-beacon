@@ -67,6 +67,7 @@ class ChatViewModelSendTest {
     private val serverRepository = mockk<ServerRepository>(relaxed = true)
     private val eventDispatcher = mockk<dev.leonardo.ocbeacon.data.repository.EventDispatcher>(relaxed = true).also {
         io.mockk.every { it.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow<Unit>()
+            io.mockk.every { it.parts } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
     }
 
     @After
@@ -370,6 +371,7 @@ class ChatViewModelSendTest {
     fun `send success clears persistent session errors`() = runTest {
         clearMocks(eventDispatcher)
         io.mockk.every { eventDispatcher.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow()
+        io.mockk.every { eventDispatcher.parts } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
         coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } returns Unit
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -383,6 +385,7 @@ class ChatViewModelSendTest {
     fun `session error event feeds one-time snackbar toast not dialog`() = runTest {
         clearMocks(eventDispatcher)
         io.mockk.every { eventDispatcher.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow()
+        io.mockk.every { eventDispatcher.parts } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
         val errorFlow = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 4)
         every { eventDispatcher.sessionErrorEvents } returns errorFlow
         val viewModel = createViewModel()

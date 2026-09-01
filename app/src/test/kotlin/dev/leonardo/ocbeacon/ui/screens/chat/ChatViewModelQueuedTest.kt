@@ -320,6 +320,7 @@ class ChatViewModelQueuedTest {
             shellJobsStore = ShellJobsStore(),
             eventDispatcher = mockk<EventDispatcher>(relaxed = true).also {
                 io.mockk.every { it.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow<Unit>()
+            io.mockk.every { it.parts } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
             },
             // #271（2026-08-30 构造新增）：relaxed mock——首开自动 drain 触发不破坏既有用例
             historySyncManager = mockk(relaxed = true),

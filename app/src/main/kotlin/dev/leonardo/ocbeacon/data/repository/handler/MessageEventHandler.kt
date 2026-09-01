@@ -506,6 +506,25 @@ class MessageEventHandler @Inject constructor(
      * 终态自带 metadata 不动。Room 双写不在此路径——重进会话时 REST 快照
      * （V2Mappers:487 Running 带全 metadata）自然补齐，冷数据无缺口。
      */
+    /**
+     * #287：附件 data URL 回填（Part.File.url 原位更新，幂等——url 已非空跳过）。
+     * 拉取由 ChatViewModel 驱动（见 collectPendingAttachmentFetches）；此处仅
+     * 热视图补写，Room 落盘随下次全量 upsert 收敛。
+     */
+    fun patchFileUrl(sessionId: String, partId: String, url: String) {
+        _parts.update { current ->
+            val parts = current[sessionId] ?: return@update current
+            var mutated = false
+            val next = parts.map { part ->
+                if (part is Part.File && part.id == partId && part.url == null) {
+                    mutated = true
+                    part.copy(url = url)
+                } else part
+            }
+            if (mutated) current + (sessionId to next) else current
+        }
+    }
+
     internal fun patchToolChildSession(sessionId: String, callId: String, childSessionId: String) {
         if (childSessionId.isBlank()) return
         _parts.update { current ->
