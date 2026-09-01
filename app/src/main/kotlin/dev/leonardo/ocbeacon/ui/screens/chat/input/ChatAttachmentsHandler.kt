@@ -64,6 +64,8 @@ internal fun rememberAttachmentHandler(
     onAddDraftAttachment: (String) -> Unit = {},
     onRemoveDraftAttachment: (Int) -> Unit = {},
     onExportSession: (android.content.Context, Uri, (Boolean) -> Unit) -> Unit = { _, _, _ -> },
+    // #279：导出 MIME 按服务器类型（DSH session.export = ZIP 流；OpenCode = JSON 文档）
+    exportIsArchiveProvider: () -> Boolean = { false },
     onShowSnackbar: suspend (String) -> Unit = {},
 ): ChatAttachmentsHandler {
     val context = LocalContext.current
@@ -179,9 +181,11 @@ internal fun rememberAttachmentHandler(
         }
     }
 
-    // -- SAF 会话导出启动器 -----------------------------------------------
+    // -- SAF 会话导出启动器（#279：MIME 随能力位重组换约）----------------------
     val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
+        contract = ActivityResultContracts.CreateDocument(
+            if (exportIsArchiveProvider()) "application/zip" else "application/json"
+        )
     ) { uri: Uri? ->
         if (uri != null) {
             onExportSession(context, uri) { success ->

@@ -156,3 +156,14 @@ adb -s e69a99d8 logcat -d -v time | grep ScrollDiag
 | 会话消息加载 | logcat `LogSessionLoad` | `加载完成: N 条`，无 JSON 解析错误 |
 | 服务器持久化 | 数据库 servers 表 | `apiVersion=V1, serverVersion=1.18.18` |
 | 用户可见 | 截图 + 智谱 | 会话界面正常无报错 |
+
+## 附：run-as 活库取证拉取（#290，2026-09-01）
+
+直接 `adb exec-out run-as ... cat databases/ocbeacon.db` 有两个坑：
+1. **缺 WAL 假损坏**——必须三件套（主 db + -wal + -shm）一起拉，否则 sqlite3 报
+   `database disk image is malformed`（实测两次踩坑）；
+2. **活写撕裂**——app 正在流式落盘时非原子拷贝可能页撕裂，integrity_check 不过。
+
+标准姿势：`./scripts/pull-app-db.sh <serial> <out-prefix>`——三件套 + integrity
+循环校验（默认 6 次，间隔 2s），输出首个一致快照路径。取证结论必须以 integrity
+ok 的快照为准。

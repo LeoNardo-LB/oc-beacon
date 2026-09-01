@@ -468,6 +468,8 @@ fun ChatScreen(
         onAddDraftAttachment = { viewModel.composer.addDraftAttachment(it) },
         onRemoveDraftAttachment = { viewModel.composer.removeDraftAttachment(it) },
         onExportSession = { ctx, uri, callback -> viewModel.exportSession(ctx, uri, callback) },
+        // #279：DSH 导出是 ZIP 流——SAF 预填 .zip + application/zip
+        exportIsArchiveProvider = { viewModel.serverCapabilities.value.exportIsArchive },
         onShowSnackbar = { msg -> snackbarHostState.showSnackbar(msg) },
     )
     val attachments = attachmentHandler.attachments
@@ -761,7 +763,10 @@ fun ChatScreen(
                                 .take(30)
                                 .replace(EXPORT_SLUG_INVALID_CHARS_REGEX, "_")
                                 .ifBlank { "session" }
-                            attachmentHandler.launchExport("$slug.json")
+                            // #279：扩展名随能力位（DSH=zip，OpenCode=json）——
+                            // SAF 建议名与 MIME 一致，免落盘后 renameDocument 兜底
+                            val ext = if (viewModel.serverCapabilities.value.exportIsArchive) "zip" else "json"
+                            attachmentHandler.launchExport("$slug.$ext")
                         },
                         onBackgroundSession = { viewModel.backgroundSession() },
                         onOpenWorkspace = onOpenWorkspace,
