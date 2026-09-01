@@ -81,25 +81,11 @@
   - 真机验证：冷启 60s 回放窗 38 条陈旧跳过、完成类通知 0 条（修复前同窗 57 条风暴）、劫持源消失；连接/摘要常驻通知不受影响；单测 +3 + golden 6 处；全量 2524/0/0。待用户目验：日常使用中冷启无通知轰炸
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
-- [ ] **#293 DSH 连接期发送通道「挂起」——判决：不成立（E2E 坐标伪影），待用户裁决关闭** `dsh` `infra`
-  - 2026-09-01 二批复现三轮推翻原判：dump 定位发送键后洪泛期三轮发送全部 <100ms 成功（selectModel→prompt→回证链 logcat 实证）；原五轮「时钟态无 RPC」根因=键盘弹起后输入栏随 imePadding 上移，盲点 (1092,2530) 落键盘——发送从未发生；sendStateStore 卡 sending 嫌疑排除（静态+动态双证）
-  - 附带发现已拆卡：#294（回放期通知风暴，真缺陷）；E2E 脚本已修（tap_text dump 定位 + 懒建导航链 + 禁切用户会话权限档）
-  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
-
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
   - Task 3b 落地 workflow run-start/run-end 降级单卡（同 runId 原位更新 running→终态）；agent-start/end 维持 Ignored（防逐成员刷卡）
   - 方向：run 级聚合器（成员 label/outcome/phase 折叠进阶段卡，参照官方 tool-workflow 装配）；验证=真机 workflow 运行会话卡片分阶段展示
   - **2026-09-01 活体四面包夹（走查 #9 定性）**：当前服务器对客户端**不暴露** tool-workflow 进度事件——events.mux 实况帧（两次 WS tap + 现跑 workflow 对照，仅 tool/code-dispatch* 渲染伴生）、session.history journal（39 页全翻 0 行，fresh run 亦不入）、session/projection（仅 permissions）、session/jobs（仅 bash 后台任务）四面皆无 → app 侧映射链（DshEventMapper:469 + DshMessageAssembler）为休眠代码路径，非缺陷；走查期「18 事件在 a6c4」不复现（疑当时另有来源/版本窗口）。重开丢卡=结构性（无服务器数据源），DSH synthetic 消息零持久化同因。**升级前置**：待服务器在任何客户端面暴露 tool-workflow 事件后重验，再启聚合器
-
-- [~] **#278 DSH 僵尸 Busy 的 L3 自愈——防取消+缺失语义护栏+状态先行已修，待用户目验** `infra`
-  - b10513c9 修复三件套：①syncFromRest 包 NonCancellable+30s 上限（启动取消风暴下已开始的播种跑完）且移到会话预载**之前**（状态先行，收敛窗口 ~14s→~4s）；②per-project/外层 catch 放行 CancellationException（TimeoutCancellationException 单列）；③syncFromRest 任一目录拉取失败跳过缺失语义（防把服务器 running 盖成 Idle——真机实证反向误判）
-  - 真机验证（RPC 直驱裁决实验）：活轮次窗口冷启 syncFromRest aggregated=471 **busy=1**（修复前恒 busy=0）；单测 +2（26/26）；全量 2524/0/0。待用户目验：DSH 会话运行中强杀 app 重开应显示进行中态
-  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
-
-- [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）** `test`
-  - 现象（2026-08-31 实证）：ChatViewModelQueuedTest 偶发 UncaughtExceptionsBeforeTest（原始异常=「Main was accessed when the platform dispatcher was absent」）；顺序/时序依赖
-  - 根治尝试（2026-08-31，用户纪律）：12 连跑专用复现循环 + 此前 6 连绿 = **18 连绿未复现**（初估 ~14% 系单红后时序域漂移）；修复条件不满足（无法复现+失败 XML 已被 --rerun 覆盖）→ 按纪律留存
-  - 方向：再现时**保留 XML**（勿 --rerun 覆盖）提取完整栈定位泄漏类后即修（疑 VM 协程在 resetMain 后醒）
+  - **2026-09-02 复验（差距调研独立交叉确认）**：`docs/research/dsh-gap-2026-09-01/` 四路证据（fe 源码/Android 清点/Web 实测/服务端 api-gap）再次确认服务器事件面无 tool-workflow 运行事件（Web 端 workflow 树为 client-ui 本地组件，依赖同一事件源）——门维持关闭；聚合器设计参照 fe-inventory §2.17 client-ui-workflow-run
 
 - [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
@@ -108,24 +94,17 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#292 goal mutations 批 broken WIP 归档分支裁决（archive/goal-mutations-20260901）** `refactor`
-  - 2026-09-01 收尾裁决批 stash 清理：原 stash@{1}（diag agent 标注 broken，基座 e5581a36 落后 54 commits，含 DshProjection/ContextDetailDialog/ChatViewModel 瘦身等未落地工作）转归档分支保留；stash@{0}（堆积链路拆除 WIP）已被 706d1f1e 完整超越故径弃
-  - 方向：需要 goal/上下文详情域重构时先掂量该分支可 salvage 部分否则删
-  - → docs/journal/2026-09-01-291281-stash-v6.md
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修
+  - 2026-09-02 抽屉路径探针（真机 Test Lab）：快速定位抽屉开→点项跳转 ×10，dump 全满（size>5K + 输入栏在场）0 退化——箭头 15/15 + 抽屉 10/10 = **25 连不复现**（两条修正路径均未见）；8% 现象自 2026-08-27 后未再现，不排除期间改动已间接消除；维持观察，下次大规模 E2E 顺带计数即可
   - → `docs/journal/2026-08-20-queue-todo.md` · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
-- [ ] **#254 RenderSupplyCoordinatorTest.T12 负载敏感偶发——skip 早期提交竞态（测试基建）** `refactor`
-  - 现象（2026-08-28 两轮全量复现）：T12「前两次 skip 不应提交」满载挂、隔离运行恒绿（12/12）；与本轮改动代码零交集（协调器未 import 被改文件）
-  - 锐化诊断：Env 假时钟已注入（冻结 now）→ 稳定窗口门控非机制；早提交路径 = skip1 时 `inViewportNow || hotNearBand` 均假——锁定 `everVisiblePartIds` 标记/异步 pending 管线的负载竞态假设，需深挖 pending 入队与视口标记的先后序
-  - 候选：视口标记同步性审计 / pending 入队-消费序单测化；实施前先确认偶发率（连续观察全量轮次）
-  - → `docs/journal/2026-08-27-event-card-unification.md` §十五轮
 
 - [ ] **#245 巨型消息区下滑翻旧偶发「拖不动」——方向不对称滚动死帧** `ui` `sse`
   - 手势阶梯实验（e234g-REPORT）+ 六轮两次现场同帧复现：数屏长单项区域下滑帧字节级静止（方向不对称、moveCount 完整送达）；四轮 T2 一度判全档失效后更正为测量假象嫌疑——维持「嫌疑+未确证」；#246 自愈装机后仍观察一次，疑独立机制
   - 2026-08-27 八轮巨帧取证（PtrDiag 探针链）：冷启动进场窗口拖动全灭；平台把 2.5s 拖动合并成 2-3 巨帧（travel 完整）送达、列表认领却零消耗（consumed=0）；锚点战争/闩锁/输入缺失三族排除；v1 连接器形态机制性空转（勘误入档）、v2 Initial 隧道分块无效——下一步=守卫内打点看 dispatchRawDelta 返回值定界 app/框架
   - 八轮复核（research，6 冷启动全「冻」）：**判词修正**——自动化样本全部是「贴底 + 朝更新方向拖」= 范围尽头语义（本不该滚，无回弹反馈加剧死感），离底同手势即恢复（1399-1421px 全通）——即边缘语义而非 #245 本体；自动化未能复现「历史区中段死帧」；下一步=真人现场复现时记录列表位置（是否贴底）+ 录屏，再决定是否需要守卫内打点
+  - 2026-09-02 复核：无新自动化通道可推进（守卫内打点的前提是先有现场样本）——**唯一激活路径=用户真人复现**（下次遇到「拖不动」时：记录是否贴底/录屏 10s/注明会话与消息位置）；在此之前此卡为等待现场的用户侧观察项
   - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯 · §八轮/#245 · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`

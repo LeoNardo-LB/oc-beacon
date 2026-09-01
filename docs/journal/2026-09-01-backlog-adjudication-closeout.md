@@ -452,3 +452,59 @@ DSH 3080（node，本机即 192.168.110.248）。
   ③ DSH 未 journal 化轮次的 live buffer 重推是复活源——**服务器侧清源优先于
   客户端清库**，顺序反了白干。
 
+
+### 迁卡（2026-09-02 用户指令「着手解决 288、293、278…」——293 判决/278 修复视作验收）
+
+**#293**（原卡，P2 dsh/infra）：
+- 2026-09-01 二批复现三轮推翻原判：dump 定位发送键后洪泛期三轮发送全部
+  <100ms 成功（selectModel→prompt→回证链 logcat 实证）；原五轮「时钟态无
+  RPC」根因=键盘弹起后输入栏随 imePadding 上移，盲点 (1092,2530) 落键盘——
+  发送从未发生；sendStateStore 卡 sending 嫌疑排除（静态+动态双证）
+- 附带发现已拆卡：#294（回放期通知风暴，真缺陷，已修 b9327811）；E2E 脚本
+  已修（tap_text dump 定位 + 懒建导航链 + 禁切用户会话权限档）
+- 完结路径：判决（§七）→ 拆卡 #294/#295 → 均已修复验证（§八）
+
+**#278**（原卡，P1 infra）：
+- 87238a1c API 层播种（session.list running→busy/idle，DshApiClientTest 专测）
+- b10513c9 集成修复三件套：①syncFromRest 包 NonCancellable+30s 上限且移到
+  会话预载之前（状态先行，收敛窗口 ~14s→~4s）；②catch 放行
+  CancellationException（TimeoutCancellationException 单列）；③任一目录拉取
+  失败跳过缺失语义（防把服务器 running 盖成 Idle——真机实证反向误判）
+- 验证：单测 +2（SessionStateServiceTest 26/26）；真机 RPC 直驱裁决实验
+  syncFromRest aggregated=471 **busy=1**（修复前恒 busy=0）；全量 2524/0/0
+
+## 九、八卡批（2026-09-02，用户指令「着手解决 288、293、278、277、292、158、254、245」）
+
+### 迁卡完结（指令视作验收）
+
+- **#293**：判决不成立（§七）——迁出 backlog（卡面原文见 §八末迁卡节）。
+- **#278**：修复+验证（b10513c9，§八）——迁出。
+- **#277**（c27b5a26）：**活体复现 + 完整根因 + 根治**。满载单跑在
+  PermissionTest 复现 2 failures（签名与卡面 2026-08-31 记录一致），保留 XML
+  提取完整栈：Main 侧收集者取消时，Default 线程的 flow 生产者在完成回调里向
+  Main 派发续体——与 resetMain 微秒级竞态（DispatchException）→ 落成下一测试
+  的 UncaughtExceptionsBeforeTest。修复：五个真实 VM 测试类（Queued/Revert/
+  Permission/Delete/ContextTokens）createViewModel 登记簿 + teardown
+  `runBlocking { cancelAndJoin }` 屏障。全量 3 连跑 0 失败。
+- **#254**（5e1a4eb5）：卡面 everVisible 标记竞态假设**排除**（138 行标记与
+  视口扫描同步）；真竞态=RenderReadiness.preParse 的 `Parsed 可见`与`计划入队`
+  非原子（124-125 两语句间可被异线程抢先）——原 delay(100) 保险满载不足。
+  修复：`pendingChunkPlanCount` 探针 + `awaitPendingEnqueued` 确定性等待
+  （T12/T7/T8/seed 四处；T11 二阶段不走 pending 队列保持原样）。类隔离 8 连
+  12/12 + 全量 0 失败。
+- **#292**：归档分支裁决完结——37 文件 +1116/-1046 与后续 54+ commits 重构
+  （#282-284/#283/#294 等）在 SseEvent/DshEventMapper/ChatViewModel 域大面积
+  冲突，标记 broken 且思路已被差距调研超越；**删除分支**（tip=eda213d9，
+  index/untracked 快照=2526e2e0/2199b816——SHA 在 reflog 窗口内可找回；
+  goal/上下文详情域开工时按 fe-inventory §2.17 等新调研重写而非 salvage）。
+
+### 维持卡更新
+
+- **#288**：差距调研（docs/research/dsh-gap-2026-09-01/ 四路证据）独立交叉
+  确认服务器无 tool-workflow 运行事件（Web 端 workflow 树为 client-ui 本地
+  组件）——升级前置维持；聚合器参照 fe-inventory §2.17。
+- **#158**：抽屉路径探针（快速定位开→点项跳转 ×10）0 退化——箭头 15/15 +
+  抽屉 10/10 = 25 连不复现；8% 现象自 2026-08-27 未再现，维持观察 + 大规模
+  E2E 顺带计数。
+- **#245**：无新自动化通道（守卫打点前提=现场样本）——唯一激活路径=用户真人
+  复现（贴底与否/10s 录屏/会话消息位置）；在此之前为用户侧观察项。
