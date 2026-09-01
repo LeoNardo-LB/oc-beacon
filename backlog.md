@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#298**。
+**编号**：全局递增，不回收。下一编号：**#299**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -61,25 +61,11 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#296 host/remote-event 解包缺失——commands/change 消费分支是死代码，五类转发通知全静默** `dsh` `infra`
-  - 2026-09-01 差距调研（④ api-gap）发现：服务端把转发事件（commands/change、agent-preset/selected、credentials/reference-updated、llm/adapters-updated、settings/document-updated 等 11 个，api-remotes index.js:19-31）一律包在 `host/remote-event` 帧里发送；DshEventMapper.kt:162 的裸 `commands/change` 分支永不命中——#285 命令注册表 WS 刷新链路实际不触发
-  - 修复=DshEventMapper 加 `host/remote-event` 解包分支（取 payload.event 分发到既有裸帧逻辑；官方客户端 client-runtime client.js:10518 同构）；验证=改权限档/预设后 commands/change 驱动 roster 重拉（logcat CommandsChanged 行）
-  - → `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §0-0a
-
-- [ ] **#297 /compact 通道存疑——命令文本经 session.prompt 发送，疑似进模型而非执行压缩** `dsh` `data`
-  - 2026-09-01 差距调研发现：compactSession 把 `"/compact"` 文本当 session.prompt 文本块发送（DshApiClient.kt:196-204）；与 2026-08-31 permission 调研活体实证「prompt 不派发斜杠命令（leading-/ 变 user/message 进模型）」直接冲突——若该结论全局成立，压缩实际发出的是普通用户消息
-  - 方向：E2E 复核（观察 compact 后是否出现 user/message 转录 + 模型回应）；若坐实改走 commands/execute（"/compact"）对齐 /permission 先例；验证=压缩触发后 Room 无 "/compact" user 消息 + compaction/end 到达
-  - → `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §0-0b
-
-- [~] **#295 DSH 附件缩略图跨进程丢失——parts 键型勘误 + 三流复扫已修，待用户目验** `dsh` `data`
-  - 4d025786 修复（根因三叠，比卡面原推断更深）：①EventDispatcher.parts 是 **messageId 键**，原 collector 以 sessionId 索引恒 null——#287 扫描从未命中；②patchFileUrl 同样错键，补写从未生效；③ConcurrentHashMap 不接受 null 值，原哨兵写法 NPE（因①从未执行而潜伏）。修复=combine(sid,parts,messages) 按会话消息 id 集复扫 + patchFileUrl 全表按 partId + 空串哨兵 + cache 声明前移（init 顺序 NPE）
-  - 真机验证：进 Test Lab（58 msgs）candidates=1 → enqueue → session.attachment REQUEST+FROM 1.7s → 去重正常 → 零崩溃；全量 2524/0/0。待用户目验：旧附件消息（需滚动到历史区）缩略图显示
-  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
-
-- [~] **#294 DSH 回放期通知风暴 + heads-up 点按劫持——方向②年龄过滤已修，待用户目验** `dsh` `infra` `ui`
-  - b9327811 落地方向②：SseEvent.SessionIdle 增 time（DSH 帧/历史行透传；V1/V2 null 保持原行为）+ coordinator 时龄 >5min 直接跳过（回放历史时龄以小时/天计，实时 <1s，阈值无重叠）
-  - 真机验证：冷启 60s 回放窗 38 条陈旧跳过、完成类通知 0 条（修复前同窗 57 条风暴）、劫持源消失；连接/摘要常驻通知不受影响；单测 +3 + golden 6 处；全量 2524/0/0。待用户目验：日常使用中冷启无通知轰炸
-  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
+- [ ] **#298 LAN 部署下设置面 403——settings.* 属服务端特权名单，权限/预设默认档在真机 WiFi 场景静默降级** `dsh` `infra`
+  - 2026-09-02 深调发现（源码+活体双证）：dsh-client-connection 有 PRIVILEGED_METHODS 15 项硬门禁（settings 全域/credentials 全域/llm.discoverModels/agentPreset.read·copy·openDocument·remove/host.pickDirectory·openPath），恒以空信任表校验——trustedHosts 也不解锁，只有 Host 头为 loopback 才放行；活体：settings.describe@LAN IP → 403，@127.0.0.1 → 200
+  - 波及：#282-a/#283-a1 的 getPermissionDefault/setPermissionDefault/get/setDefaultAgentPreset（DshApiClient.kt:1150-1203）在真机 WiFi/Tailscale 连接下全部 403 → settingsNamespace 返 null → UI 回退已知三档（静默降级，无提示）；adb reverse（Host=127.0.0.1）不受影响——既有 E2E 均走 adb reverse 故未暴露
+  - 方向：403/forbidden 错误形态识别 → 默认档 UI 显式标注「需 loopback 连接（adb reverse）」；不做 Host 头伪造绕栅栏（属安全边界）
+  - → `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.2
 
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
   - Task 3b 落地 workflow run-start/run-end 降级单卡（同 runId 原位更新 running→终态）；agent-start/end 维持 Ignored（防逐成员刷卡）
@@ -91,6 +77,7 @@
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
   - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
   - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
+  - **2026-09-02 质量门复测（journal 2026-09-02 §六/§九）**：修复版 p99 32/40/53ms、janky 0.00%、FATAL 0——无回归且优于基线；脚本趟间回底复位已修（1a03ed7e）；vector-cache flag 需 Compose 1.13.0-alpha02（现 1.12.0 stable）——为 perf flag 全栈升 alpha 与 SSE 滚动稳定铁律冲突，裁决不做、待 stable 跟进；tracing 基建已就位（debug 自动初始化），剩 perfetto 取证→组合瘦身战役
 
 ## P3 — 观察与低价值改进
 
