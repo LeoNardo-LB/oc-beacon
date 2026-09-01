@@ -73,6 +73,7 @@ fun ServerSettingsContent(
                 PermissionDefaultRow(
                     currentValue = permissionDefault?.currentValue,
                     onSelect = onSetPermissionDefault,
+                    options = permissionDefault?.options.orEmpty(),
                 )
             }
         }

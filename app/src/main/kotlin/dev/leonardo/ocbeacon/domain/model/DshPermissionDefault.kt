@@ -10,4 +10,7 @@ package dev.leonardo.ocbeacon.domain.model
 data class DshPermissionDefault(
     val currentValue: String,
     val revision: Long = 0L,
+    /** #283：settings.describe schema enum 的档名集（部署权威）；空 = 描述缺席，
+     *  UI 回退已知三档常量。 */
+    val options: List<String> = emptyList(),
 )

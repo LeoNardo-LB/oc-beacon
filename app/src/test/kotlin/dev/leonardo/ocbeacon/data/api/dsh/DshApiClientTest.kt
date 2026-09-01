@@ -334,6 +334,22 @@ class DshApiClientTest {
         assertEquals("/api/settings.describe", captureRequests(engine).single().url.encodedPath)
     }
 
+    /** #283：ref 解析形态 schema（union→refs→const，活体实测同构）→ 动态档集。 */
+    @Test
+    fun `getPermissionDefault parses schema enum options`() = runTest {
+        val withSchema = settingsDescribeValue.replace(
+            "\"ns\":\"permission\",\"value\":{\"defaultPreset\":\"danger-full-access\"},\"revision\":42",
+            "\"ns\":\"permission\",\"value\":{\"defaultPreset\":\"danger-full-access\"},\"revision\":42,\"schema\":{\"uid\":3,\"refs\":{\"1\":{\"type\":\"const\",\"value\":\"read-only\"},\"2\":{\"type\":\"const\",\"value\":\"danger-full-access\"},\"3\":{\"type\":\"union\",\"list\":[1,2]}}}",
+        )
+        val engine = MockEngine { respond(ok(withSchema), HttpStatusCode.OK, jsonHeaders()) }
+        val def = client(engine).getPermissionDefault(conn)
+        assertNotNull(def)
+        assertEquals(listOf("read-only", "danger-full-access"), def!!.options)
+        // 无 schema（原 fixture）→ 空档集（UI 回退已知三档常量）
+        val engine2 = MockEngine { respond(ok(settingsDescribeValue), HttpStatusCode.OK, jsonHeaders()) }
+        assertEquals(emptyList<String>(), client(engine2).getPermissionDefault(conn)!!.options)
+    }
+
     /** 部署未挂 permission 插件（namespaces 无 permission）→ null。 */
     @Test
     fun `getPermissionDefault null when permission namespace absent`() = runTest {

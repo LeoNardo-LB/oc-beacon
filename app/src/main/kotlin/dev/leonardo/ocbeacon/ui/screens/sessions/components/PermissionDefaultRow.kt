@@ -50,8 +50,11 @@ private fun presetLabel(value: String, fallback: String): String = when (value) 
 fun PermissionDefaultRow(
     currentValue: String? = null,
     onSelect: (String) -> Unit = {},
+    /** #283：settings.describe schema enum 动态档集（空 = 回退已知三档）。 */
+    options: List<String> = emptyList(),
 ) {
     if (currentValue == null) return
+    val presets = options.ifEmpty { PERMISSION_PRESET_VALUES }
     var expanded by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth()) {
         // 区块标题（可点击展开/收起，样式同 MCP/标签区块；trailing 常驻当前档名）
@@ -76,7 +79,7 @@ fun PermissionDefaultRow(
 
         AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                PERMISSION_PRESET_VALUES.forEach { preset ->
+                presets.forEach { preset ->
                     SettingsListRow(
                         leading = {
                             Icon(

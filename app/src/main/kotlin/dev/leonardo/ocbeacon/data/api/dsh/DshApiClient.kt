@@ -1124,9 +1124,17 @@ class DshApiClient @Inject constructor(
             .firstOrNull { it.dshStr("ns") == "permission" }
             ?: return null
         val currentValue = permission.dshObj("value")?.dshStr("defaultPreset") ?: return null
+        // #283：schema enum 动态档集（部署权威）。schema 形态防御：对象直取 /
+        // JSON 字符串解析 / 缺席 → 空（UI 回退已知三档）。
+        // #283：活体 schema 是 ref 解析形态（{uid, refs:{id:{type:const,value}},
+        // {type:union,list:[ids]}}）而非朴素 enum——按 union→refs→const 提取档集；
+        // 退化兼容朴素 {enum:[...]} 与缺席（空）。
+        val options: List<String> = runCatching { parseSchemaEnumOptions(permission["schema"]) }
+            .getOrDefault(emptyList())
         return dev.leonardo.ocbeacon.domain.model.DshPermissionDefault(
             currentValue = currentValue,
             revision = permission.dshLong("revision") ?: 0L,
+            options = options,
         )
     }
 
@@ -1207,4 +1215,36 @@ class DshApiClient @Inject constructor(
 
     private fun joinPath(base: String, name: String): String =
         if (base.isEmpty()) name else base.trimEnd('/') + "/" + name
+
+    private fun parseSchemaEnumOptions(schemaEl: kotlinx.serialization.json.JsonElement?): List<String> {
+        val schema = schemaEl as? JsonObject ?: return emptyList()
+        // refs 是 id→节点 的对象表（活体实测："848":{type:const,...}）
+        val refs = (schema["refs"] as? JsonObject)
+            ?.mapValues { it.value as? JsonObject }
+            ?.filterValues { it != null }
+            ?.mapValues { it.value!! }
+            ?: return emptyList()
+        fun constValue(node: JsonObject): String? =
+            if (node.dshStr("type") == "const") {
+                (node["value"] as? kotlinx.serialization.json.JsonPrimitive)
+                    ?.takeIf { it !is kotlinx.serialization.json.JsonNull }
+                    ?.content
+            } else null
+        for (node in refs.values) {
+            if (node.dshStr("type") == "union") {
+                val ids = (node["list"] as? kotlinx.serialization.json.JsonArray)
+                    ?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+                    .orEmpty()
+                val values = ids.mapNotNull { id -> refs[id]?.let { n -> constValue(n) } }
+                if (values.isNotEmpty()) return values
+            }
+        }
+        return (schema["enum"] as? kotlinx.serialization.json.JsonArray)
+            ?.mapNotNull { el ->
+                (el as? kotlinx.serialization.json.JsonPrimitive)
+                    ?.takeIf { it !is kotlinx.serialization.json.JsonNull }
+                    ?.content
+            }
+            .orEmpty()
+    }
 }
