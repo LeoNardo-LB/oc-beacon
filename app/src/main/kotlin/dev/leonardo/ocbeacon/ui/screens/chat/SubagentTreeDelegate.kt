@@ -178,67 +178,84 @@ internal class SubagentTreeHolder(
 }
 
 /**
- * 本地镜像递归子树展平（OpenCode 权威路径 + DSH 软降级路径）。
- * 防环：DFS visited 集合——镜像出现 parentId 环时截断，不无限递归。
+ * 树展平共用骨架（#282-c：本地镜像/DSH 目录双 DFS 同形提取）。
+ * 防环：visited 集合——查表出现 parentId 环时截断，不无限递归。
+ * 调用方提供三差异点：子代查表 [childrenOf]、行映射 [rowOf]、
+ * 下钻谓词 [shouldDescend]（骨架统一叠加"已展开才深入"条件）。
  */
-internal fun buildLocalTreeRows(
-    snapshot: SubagentLocalSnapshot,
+private fun flattenTreeRows(
+    rootId: String,
     expanded: Set<String>,
+    childrenOf: (String) -> List<SubagentChild>,
+    rowOf: (SubagentChild, Int) -> SubagentTreeRow,
+    shouldDescend: (SubagentTreeRow) -> Boolean,
 ): List<SubagentTreeRow> {
     val rows = mutableListOf<SubagentTreeRow>()
     fun visit(parentId: String, depth: Int, visited: Set<String>) {
-        for (child in snapshot.childrenByParent[parentId].orEmpty()) {
+        for (child in childrenOf(parentId)) {
             if (child.sessionId in visited) continue // 防环
-            val hasChildren = !snapshot.childrenByParent[child.sessionId].isNullOrEmpty()
-            rows += SubagentTreeRow(
-                sessionId = child.sessionId,
-                depth = depth,
-                label = child.label ?: child.sessionId,
-                isRunning = child.isRunning,
-                hasChildren = hasChildren,
-                isExpanded = child.sessionId in expanded,
-            )
-            if (hasChildren && child.sessionId in expanded) {
-                visit(child.sessionId, depth + 1, visited + child.sessionId)
+            val row = rowOf(child, depth)
+            rows += row
+            if (shouldDescend(row) && row.sessionId in expanded) {
+                visit(row.sessionId, depth + 1, visited + row.sessionId)
             }
         }
     }
-    visit(snapshot.rootSessionId, 0, setOf(snapshot.rootSessionId))
+    visit(rootId, 0, setOf(rootId))
     return rows
 }
 
 /**
+ * 本地镜像递归子树展平（OpenCode 权威路径 + DSH 软降级路径）。
+ * hasChildren 由本地子代表推导；label 缺失兜底裸 id。
+ */
+internal fun buildLocalTreeRows(
+    snapshot: SubagentLocalSnapshot,
+    expanded: Set<String>,
+): List<SubagentTreeRow> = flattenTreeRows(
+    rootId = snapshot.rootSessionId,
+    expanded = expanded,
+    childrenOf = { parent -> snapshot.childrenByParent[parent].orEmpty() },
+    rowOf = { child, depth ->
+        SubagentTreeRow(
+            sessionId = child.sessionId,
+            depth = depth,
+            label = child.label ?: child.sessionId,
+            isRunning = child.isRunning,
+            hasChildren = !snapshot.childrenByParent[child.sessionId].isNullOrEmpty(),
+            isExpanded = child.sessionId in expanded,
+        )
+    },
+    shouldDescend = { it.hasChildren },
+)
+
+/**
  * DSH subagent.list 缓存展平：hasChildren 权威来自条目字段；label 缺失
  * （one-shot 可选）回退本地镜像 title 投影，再兜底裸 id。diagnostic 行原样
- * 透传（灰显不可点）。同样 visited 防环（服务器目录若异常成环不致卡死）。
+ * 透传（灰显不可点）且不下钻（无子代语义）。
  */
 internal fun buildCatalogTreeRows(
     rootSessionId: String,
     catalog: Map<String, List<SubagentChild>>,
     expanded: Set<String>,
     titleById: Map<String, String>,
-): List<SubagentTreeRow> {
-    val rows = mutableListOf<SubagentTreeRow>()
-    fun visit(parentId: String, depth: Int, visited: Set<String>) {
-        for (entry in catalog[parentId].orEmpty()) {
-            if (entry.sessionId in visited) continue // 防环
-            rows += SubagentTreeRow(
-                sessionId = entry.sessionId,
-                depth = depth,
-                label = entry.label
-                    ?: titleById[entry.sessionId]
-                    ?: entry.sessionId,
-                isRunning = entry.isRunning,
-                hasChildren = entry.hasChildren,
-                isExpanded = entry.sessionId in expanded,
-                isDiagnostic = entry.isDiagnostic,
-                reason = entry.diagnosticReason,
-            )
-            if (!entry.isDiagnostic && entry.hasChildren && entry.sessionId in expanded) {
-                visit(entry.sessionId, depth + 1, visited + entry.sessionId)
-            }
-        }
-    }
-    visit(rootSessionId, 0, setOf(rootSessionId))
-    return rows
-}
+): List<SubagentTreeRow> = flattenTreeRows(
+    rootId = rootSessionId,
+    expanded = expanded,
+    childrenOf = { parent -> catalog[parent].orEmpty() },
+    rowOf = { entry, depth ->
+        SubagentTreeRow(
+            sessionId = entry.sessionId,
+            depth = depth,
+            label = entry.label
+                ?: titleById[entry.sessionId]
+                ?: entry.sessionId,
+            isRunning = entry.isRunning,
+            hasChildren = entry.hasChildren,
+            isExpanded = entry.sessionId in expanded,
+            isDiagnostic = entry.isDiagnostic,
+            reason = entry.diagnosticReason,
+        )
+    },
+    shouldDescend = { row -> !row.isDiagnostic && row.hasChildren },
+)
